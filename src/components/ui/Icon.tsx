@@ -25,6 +25,7 @@ import {
   Users,
   ShieldCheck,
   Activity,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,6 +61,7 @@ const registry: Record<string, LucideIcon> = {
   users: Users,
   "shield-check": ShieldCheck,
   activity: Activity,
+  network: Network,
 };
 
 export type IconName = keyof typeof registry;

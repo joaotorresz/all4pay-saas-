@@ -50,6 +50,11 @@ export function useQuantitativo() {
   };
 }
 
+/** Input cru para a camada de orquestração (constrói o orquestrador na UI). */
+export function useOrquestracaoInput() {
+  return useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+}
+
 /** IA executiva: centro de inteligência (briefing, insights, forecast…). */
 export function useCentroInteligencia() {
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });

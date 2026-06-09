@@ -266,6 +266,32 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
   `src/components/copiloto/CopilotoView.tsx` (Intelligence Center: copiloto +
   briefing + insights + anomalias + forecast + simulador + memória).
 
+### Financial Orchestration Layer (`/orquestracao`)
+
+`FinancialOrchestrator` (`src/core/orchestration/`) — o "cérebro operacional"
+(GAP 1): deixa de ser "vários módulos" e vira uma **Financial Operating System
+orientada a eventos**. Toda ação vira evento e propaga pela cascata. Puro,
+tipado, demo-safe. Versão `orchestration/1.0.0`.
+
+- **Event Store** (`event-store.ts`): append-only, **hash-chain SHA-256**
+  (event sourcing — `replay()` reconstrói estado; `verificarIntegridade()`
+  denuncia adulteração).
+- **Ledger** (`ledger.ts`): **dupla partida** real-time (cada evento → débito/
+  crédito por conta + hash + status); `saldos()` consolida.
+- **State Engine** (`state-engine.ts`): `aplicarEvento()` muta o `RiskInput` e
+  `calcularEstado()` recalcula caixa/liquidez/risco/projeção via
+  `scoreRiscoCaixa` (1 execução); `calcularDeltas()` mostra a propagação.
+- **Unified Financial Graph** (`graph.ts`): empresa → contas → clientes/
+  fornecedores → fluxos (base de crédito/underwriting/antifraude).
+- **`orquestrar(evento)`** (`index.ts`): roda a cascata Event Store → Ledger →
+  State Engine → Decisão/IA → Auditoria → Antifraude → Webhook, devolvendo
+  passos, deltas, reações e lançamentos. Eventos canônicos: `PIX_RECEBIDO`,
+  `BOLETO_EMITIDO/VENCIDO`, `PAGAMENTO_APROVADO/EXECUTADO`, `SALDO_NEGATIVO`…
+- **Dados:** reutiliza `getRiscoInput()`; hook `useOrquestracaoInput()`. UI em
+  `src/components/orquestracao/OrquestracaoView.tsx` (estado vivo + disparo de
+  eventos + cascata + event store + ledger + grafo). Stateful (orquestrador em
+  `useRef`).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
