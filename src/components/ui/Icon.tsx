@@ -20,6 +20,9 @@ import {
   Check,
   Workflow,
   ListChecks,
+  Gauge,
+  AlertTriangle,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +53,9 @@ const registry: Record<string, LucideIcon> = {
   check: Check,
   workflow: Workflow,
   "list-checks": ListChecks,
+  gauge: Gauge,
+  "triangle-alert": AlertTriangle,
+  users: Users,
 };
 
 export type IconName = keyof typeof registry;

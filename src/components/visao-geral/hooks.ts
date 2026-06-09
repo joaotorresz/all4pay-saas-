@@ -17,6 +17,7 @@ import {
   getRiscoInput,
 } from "@/lib/data";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
+import { analisarInadimplencia } from "@/core/risk";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -25,6 +26,15 @@ export function useRiscoCaixa() {
   return {
     ...q,
     data: q.data ? scoreRiscoCaixa(q.data) : undefined,
+  };
+}
+
+/** Credit/delinquency engine: same input, runs analisarInadimplencia. */
+export function useInadimplencia() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? analisarInadimplencia(q.data) : undefined,
   };
 }
 

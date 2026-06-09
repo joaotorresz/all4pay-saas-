@@ -186,6 +186,32 @@ Cenários → Score → Narrativa → Alertas. Pure, typed, **auditável**
   `movements`/`financial_accounts`/`parties`; hook `useRiscoCaixa()`. Roda
   idêntico sobre demo e live. UI em `src/components/risco/RiscoView.tsx`.
 
+### Motor de Inadimplência / Inteligência de Crédito (`/inadimplencia`)
+
+`analisarInadimplencia()` (`src/core/risk/`) é a **Risk Intelligence Layer**:
+prevê inadimplência **antes** de acontecer a partir do comportamento financeiro
+dinâmico (não de status estático). Pura, tipada, **explicável** (cada fator
+carrega sua contribuição no score). Roda sobre o **mesmo `RiskInput`** do motor
+de caixa — demo e live idênticos.
+
+- **Camadas:** `behavior.ts` (reconstrói eventos de recebível por cliente +
+  features: atraso médio/máx/recente, recorrência, oscilação, tendência, queda
+  de ticket, concentração, sazonalidade, exposição) → `scoring.ts` (normaliza →
+  pondera → score 0-100 + **probabilidade logística** + `classificar` baixo/
+  moderado/alto/crítico + `fatoresRisco` explicados + `recomendar`) →
+  `early-warning.ts` (sinais de stress antes do default) → `recovery.ts` (chance
+  de recuperação) → `credit.ts` (**AI Collections**: ação, limite dinâmico,
+  prazo, entrada, estratégia de cobrança adaptativa) → `index.ts` (segmentação:
+  bom pagador / sazonal / deteriorando / crônico / novo + resumo da carteira:
+  exposição, inadimplência esperada, score ponderado).
+- `normalize.ts`: `normalizar/media/desvioPadrao/logistica/classificar`. Pesos
+  do modelo auditáveis em `scoring.ts` `PESOS` (somam 1.0).
+- **Dados:** reutiliza `getRiscoInput()`; hook `useInadimplencia()`. UI em
+  `src/components/inadimplencia/InadimplenciaView.tsx` (resumo + heatmap de risco
+  + perfil explicável do cliente + segmentação). Versão de modelo
+  `risco-credito/1.0.0`. ML (XGBoost/etc.) é evolução futura — primeiro dados +
+  features boas. **Nunca** retornar só o score: sempre os fatores.
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
