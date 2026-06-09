@@ -220,6 +220,28 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   `CRON_SECRET` quando definido.
 - Demo data + accessors em `src/lib/financial-os.ts`.
 
+### Multi-tenant & seed (`0005`–`0007`, aplicadas ao remoto)
+
+A partir de `0005_multi_tenant.sql` o banco é **isolado por organização**:
+
+- **`organizations`** + **`organization_members`** (papel `owner`/`admin`/`member`).
+- Toda tabela de dados ganhou **`org_id uuid not null default public.auth_org_id()`**
+  — o app **não envia `org_id`** nos inserts; o DEFAULT resolve a organização do
+  usuário logado. As policies abertas `using (true)` viraram
+  `using (org_id = public.auth_org_id())` (leitura **e** escrita).
+- **`auth_org_id()`** (`SECURITY INVOKER`, `0007`) devolve a org do `auth.uid()`
+  via `organization_members`. Sem recursão: a policy de `organization_members`
+  usa só `auth.uid()`.
+- **Provisionamento automático:** trigger `on_auth_user_created` em `auth.users`
+  cria, a cada signup (inclusive convidado/anônimo), uma organização própria +
+  membership `owner` e roda o **seed** (`seed_org`): categorias receita/despesa,
+  centros de custo, unidades e uma conta inicial. `0006` revoga `EXECUTE` das
+  funções internas (`handle_new_user`/`seed_org`).
+- Avisos "Anonymous Access Policies" do linter são **esperados** — login de
+  convidado está habilitado e o convidado opera na própria org, isolado por RLS.
+- Para um novo membro entrar numa org existente (em vez de criar a sua), insira
+  a linha em `organization_members` — fluxo de convite ainda não tem UI.
+
 ## Voice & copy (this is part of the brand)
 
 - Sober, confident, operational — finance operators, not consumers.
