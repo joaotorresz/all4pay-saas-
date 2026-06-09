@@ -1,0 +1,107 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { Card, Money, Badge, Skeleton } from "@/components/ui";
+import { brlParts, formatBRL } from "@/lib/format";
+import { useAccounts } from "./hooks";
+import { WidgetHeader, EmptyState, bankColor, VisuallyHidden } from "./shared";
+
+/** Consolidated balance + per-account list with reconciliation badges. */
+export function AccountsCard() {
+  const { data, isLoading, isError } = useAccounts();
+
+  const total = data && brlParts(data.total);
+
+  return (
+    <Card className="h-full flex flex-col">
+      <WidgetHeader
+        title="Contas Financeiras"
+        subtitle={data ? `${data.accounts.length} contas` : undefined}
+      />
+
+      {isLoading && (
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-9 w-56" rounded="md" />
+          <div className="flex flex-col gap-3 pt-2">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" rounded="md" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isError && (
+        <EmptyState title="Não foi possível carregar" hint="Tente novamente." />
+      )}
+
+      {!isLoading && !isError && data && data.accounts.length === 0 && (
+        <EmptyState
+          title="Nenhuma conta cadastrada"
+          hint="Conecte uma conta bancária para consolidar seus saldos."
+        />
+      )}
+
+      {!isLoading && !isError && data && data.accounts.length > 0 && (
+        <>
+          <div>
+            <div className="text-label font-medium text-muted">
+              Saldo consolidado
+            </div>
+            <div className="mt-[6px]">
+              <Money integer={total!.integer} decimals={total!.decimals} size={30} />
+              <VisuallyHidden>
+                Saldo total consolidado de {formatBRL(data.total)}
+              </VisuallyHidden>
+            </div>
+          </div>
+
+          <ul className="mt-4 pt-1 flex flex-col">
+            {data.accounts.map((acc, i) => {
+              const parts = brlParts(acc.balance);
+              return (
+                <li
+                  key={acc.id}
+                  className={`flex items-center gap-3 py-3 ${i ? "border-t border-border-soft" : ""}`}
+                >
+                  <span
+                    className="w-7 h-7 rounded-pill shrink-0 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+                    style={{ background: bankColor(acc.bank) }}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-medium text-ink truncate">
+                      {acc.name}
+                    </div>
+                    {acc.pendingReconciliations > 0 ? (
+                      <Link
+                        href={`/conciliacao?conta=${acc.id}`}
+                        className="inline-flex items-center mt-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ink/15 rounded-sm"
+                        aria-label={`${acc.pendingReconciliations} conciliações pendentes em ${acc.name}`}
+                      >
+                        <Badge variant="neutral" className="!text-warning !border-warning/40">
+                          {acc.pendingReconciliations} conciliações pendentes
+                        </Badge>
+                      </Link>
+                    ) : (
+                      <div className="text-caption text-faint mt-[2px]">
+                        Conciliado
+                      </div>
+                    )}
+                  </div>
+                  <div className="shrink-0">
+                    <Money
+                      integer={parts.integer}
+                      decimals={parts.decimals}
+                      size="sm"
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Card>
+  );
+}

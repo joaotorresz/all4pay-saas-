@@ -38,6 +38,7 @@
   /* Status */
   --color-warning: #e8821e;
   --color-positive: #3f8f5b;
+  --color-negative: #c2473d;
 
   /* Radii / shadows (for inline + SVG use) */
   --radius-card: 16px;

@@ -12,4 +12,5 @@ export { Input, type InputProps } from "./Input";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Money, type MoneyProps } from "./Money";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
+export { Skeleton, type SkeletonProps } from "./Skeleton";
 export { Icon, type IconProps, type IconName } from "./Icon";

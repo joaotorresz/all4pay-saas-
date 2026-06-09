@@ -55,7 +55,10 @@ the CSS variables (`var(--color-ink)`) only where Tailwind can't go — SVG
   `border` / `border-soft`, text greys `muted` (#797975) · `faint` (#959595) ·
   `placeholder` (#B3B3B2).
 - **Accent:** `lime` (#DCFF00), `lime-tint` (#F8FFCB).
-- **Status:** `warning` (#E8821E), `positive` (#3F8F5B).
+- **Status:** `warning` (#E8821E), `positive` (#3F8F5B), `negative` (#C2473D —
+  overdue / vencido, same desaturated family). Status colors are *small
+  semantic signals* (labels, dots, the negative integer in a value) — never
+  large fills.
 - **Type scale:** `text-display` 52 · `text-h1` 40 · `text-value-lg` 32 ·
   `text-h2` 28 · `text-h3` 20 · `text-body` 15 · `text-label` 13 ·
   `text-caption` 12. **Only two working weights: 400 / 500.** No bold in the app.
@@ -76,7 +79,8 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   (new/count/neutral), `Pill` (yield/surface/muted/ghost), `Avatar`.
 - **Forms:** `Input`, `Checkbox`.
 - **Data:** `Money` ★ (the signature treatment), `StatusBadge` (icon + text,
-  never a filled colored pill).
+  never a filled colored pill), `Skeleton` (quiet per-widget loading
+  placeholder — surface-2 + soft pulse).
 - **`Icon`** — thin linear Lucide icons (~1.75 stroke), monochrome. Substitution
   for the product's real icon set; add new glyphs to the registry in `Icon.tsx`.
 
@@ -85,6 +89,37 @@ dashboard): `Sidebar`, `TopBar`, `BalanceCard`, `AccountsList`, `InvoiceTable`,
 `TreasuryDashboard`. Copy these patterns for new screens.
 
 ---
+
+## Feature modules
+
+### Visão Geral (`/visao-geral`) — financial dashboard
+
+Reference module for data-driven screens. Five isolated widgets, each with its
+own hook and its own loading / empty / error state — the page never blocks as a
+whole.
+
+- **Widgets** (`src/components/visao-geral/`): `ReceivablesCard` & `PayablesCard`
+  (mirrored `OpenAmountWidget`: hero VENCIDO in `negative`, secondary VENCE HOJE
+  in `positive` + restante do mês), `AccountsCard` (saldo consolidado +
+  per-account reconciliation badges), `DailyCashflowChart` (Recharts
+  `ComposedChart`: diverging stacked bars + dashed accumulated-balance line,
+  period selector), `SalesChart` (12-month bars).
+- **Data layer:** `src/lib/data.ts` exposes one accessor per widget; hooks in
+  `hooks.ts` wrap them with **React Query**. Pure aggregations live in
+  `src/lib/aggregations.ts` and run identically over demo and live rows.
+- **`isDemo`** (`src/lib/demo.ts`): true when `NEXT_PUBLIC_ALL4PAY_DEMO=true` or
+  the Supabase env is absent. In demo mode the deterministic seed
+  (`src/lib/demo/seed.ts`) is served and a `DemoBadge` shows. **Never** mock
+  data in a non-demo render.
+- **Schema:** `supabase/migrations/0001_financial_overview.sql`
+  (`financial_accounts`, `movements`). Set `NEXT_PUBLIC_ALL4PAY_DEMO=false` with
+  real Supabase vars to go live.
+- **Money & a11y:** all values go through `<Money>` + `formatBRL`
+  (`src/lib/format.ts`, pt-BR). Charts are wrapped in `role="img"` with an
+  `aria-label` summary; figures also carry an sr-only text summary.
+
+Data libs (React Query, Recharts) are sanctioned for feature logic — they are
+**not** a second UI/token system and must never style outside the DS.
 
 ## Voice & copy (this is part of the brand)
 

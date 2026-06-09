@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Badge, Avatar, Icon } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -9,20 +11,25 @@ import { cn } from "@/lib/utils";
  * all4pay app sidebar — 240px, white. Command bar with a subtle lime
  * tint at top, linear-icon nav with active marker + NEW/count badges,
  * and an account footer.
+ *
+ * Route-aware: items with an `href` render as links and light up from the
+ * current pathname. Items without `href` fall back to the controlled
+ * `active` / `onNavigate` mode (used by the Treasury demo screen).
  */
 type NavItem = {
   id: string;
   label: string;
   icon: string;
+  href?: string;
   badge?: "new";
   count?: string;
 };
 
 const NAV: NavItem[] = [
-  { id: "home", label: "Início", icon: "house" },
+  { id: "home", label: "Início", icon: "house", href: "/" },
+  { id: "overview", label: "Visão Geral", icon: "trending-up", href: "/visao-geral" },
   { id: "payments", label: "Pagamentos", icon: "arrow-left-right", badge: "new" },
   { id: "fx", label: "Câmbio", icon: "repeat", badge: "new" },
-  { id: "investments", label: "Investimentos", icon: "trending-up", count: "0" },
   { id: "invoices", label: "Faturas", icon: "file-text" },
   { id: "cards", label: "Cartões", icon: "credit-card" },
 ];
@@ -37,9 +44,10 @@ export function Sidebar({
   active,
   onNavigate,
 }: {
-  active: string;
+  active?: string;
   onNavigate?: (id: string) => void;
 }) {
+  const pathname = usePathname();
   return (
     <aside className="w-sidebar shrink-0 h-full bg-white border-r border-border flex flex-col px-3 py-4">
       {/* Brand */}
@@ -66,16 +74,13 @@ export function Sidebar({
       {/* Nav */}
       <nav className="flex flex-col gap-[2px]">
         {NAV.map((n) => {
-          const on = active === n.id;
-          return (
-            <button
-              key={n.id}
-              onClick={() => onNavigate?.(n.id)}
-              className={cn(
-                "relative flex items-center gap-[10px] w-full rounded-md px-[10px] py-2 text-left",
-                on ? "bg-surface-2" : "bg-transparent",
-              )}
-            >
+          const on = n.href
+            ? n.href === "/"
+              ? pathname === "/"
+              : pathname.startsWith(n.href)
+            : active === n.id;
+          const inner = (
+            <>
               {on && (
                 <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />
               )}
@@ -102,6 +107,26 @@ export function Sidebar({
                   {n.count}
                 </Badge>
               )}
+            </>
+          );
+          const cls = cn(
+            "relative flex items-center gap-[10px] w-full rounded-md px-[10px] py-2 text-left",
+            on ? "bg-surface-2" : "bg-transparent",
+          );
+          if (n.href) {
+            return (
+              <Link key={n.id} href={n.href} className={cls}>
+                {inner}
+              </Link>
+            );
+          }
+          return (
+            <button
+              key={n.id}
+              onClick={() => onNavigate?.(n.id)}
+              className={cls}
+            >
+              {inner}
             </button>
           );
         })}

@@ -55,7 +55,8 @@ const config: Config = {
 
         // ---- Status / semantic ----
         warning: "#E8821E", // amber alert
-        positive: "#3F8F5B", // muted green (approved / gains)
+        positive: "#3F8F5B", // muted green (approved / gains / vence hoje)
+        negative: "#C2473D", // muted brick red (overdue / vencido) — same desaturated family
       },
       fontFamily: {
         sans: [
