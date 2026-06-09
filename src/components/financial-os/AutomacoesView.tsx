@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Card, Switch, Button, Select, Input, StatusBadge, Icon, type SelectOption } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
-import { getRules, getOsTrace, getRuleSuggestions } from "@/lib/financial-os";
+import { getRules, getOsTrace, getRuleSuggestions, persistRule } from "@/lib/financial-os";
 import { actionLabel, materializarRegra } from "@/core/financial-os";
 import type {
   FinancialRule,
@@ -78,7 +78,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
               <Switch checked={r.ativo} onChange={() => toggle(r.id)} />
             </div>
           ))}
-          <RuleBuilder onAdd={(r) => { setRules((rs) => [...rs, r]); onToast("Regra criada"); }} />
+          <RuleBuilder onAdd={(r) => { setRules((rs) => [...rs, r]); persistRule(r).catch(() => {}); onToast("Regra criada"); }} />
         </Card>
 
         {/* Simulação orientada a eventos */}
@@ -105,6 +105,25 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
 
       {/* IA sugere + eventos */}
       <div className="flex flex-col gap-5">
+        {trace.alertasExecutivos.length > 0 && (
+          <Card className="flex flex-col gap-3" style={{ background: "var(--color-surface-2)" }} elevated={false}>
+            <div className="flex items-center gap-2">
+              <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
+                <Icon name="trending-up" size={14} color="var(--color-ink)" />
+              </span>
+              <span className="text-label font-medium text-muted">Alerta executivo · ponte de risco</span>
+            </div>
+            {trace.alertasExecutivos.map((a, i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <span className="text-[14px] font-medium text-ink">{a.titulo}</span>
+                <span className="text-caption text-muted leading-[1.5]">{a.texto}</span>
+              </div>
+            ))}
+            <span className="text-caption text-faint">
+              custo_variou → motor de risco recalcula → alerta (event-driven, desacoplado)
+            </span>
+          </Card>
+        )}
         <Card className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
@@ -121,7 +140,9 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
                 size="sm"
                 className="self-start"
                 onClick={() => {
-                  setRules((rs) => [...rs, materializarRegra(s, `rule-${Date.now()}`)]);
+                  const nova = materializarRegra(s, `rule-${Date.now()}`);
+                  setRules((rs) => [...rs, nova]);
+                  persistRule(nova).catch(() => {});
                   onToast("Regra automatizada");
                 }}
               >

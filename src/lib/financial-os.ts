@@ -6,6 +6,9 @@
  */
 import { isDemo } from "@/lib/demo";
 import { isoDay } from "@/lib/aggregations";
+import { createClient } from "@/lib/supabase/client";
+import { DEMO_ACCOUNTS, DEMO_MOVEMENTS } from "@/lib/demo/seed";
+import type { RiskInput } from "@/core/risk-engine/types";
 import {
   normalizar,
   reconciliarAutomaticamente,
@@ -16,7 +19,27 @@ import {
   type ReconciliationResult,
   type OperacaoTrace,
   type RuleSuggestion,
+  type ExecucaoAcao,
 } from "@/core/financial-os";
+
+/** RiskInput síncrono a partir do seed (para a ponte event-bus → risco). */
+function demoRiscoInput(): RiskInput {
+  return {
+    hoje: hoje(),
+    saldoAtual: DEMO_ACCOUNTS.reduce((s, a) => s + a.balance, 0),
+    movements: DEMO_MOVEMENTS.map((m) => ({
+      id: m.id,
+      type: m.type,
+      status: m.status,
+      amount: m.amount,
+      due_date: m.due_date,
+      paid_date: m.paid_date,
+      party_id: m.description ?? null,
+      category: m.category,
+    })),
+    horizonDias: 60,
+  };
+}
 
 const hoje = () => isoDay(new Date());
 const maisDias = (d: number) => isoDay(new Date(Date.now() + d * 864e5));
@@ -112,9 +135,42 @@ export function getRules(): FinancialRule[] {
 }
 
 export function getOsTrace(rules: FinancialRule[] = DEMO_RULES): OperacaoTrace {
-  return operarFinanceiroOS(rules, DEMO_EVENTS);
+  return operarFinanceiroOS(rules, DEMO_EVENTS, demoRiscoInput());
 }
 
 export function getRuleSuggestions(): RuleSuggestion[] {
   return isDemo ? sugerirRegras(ledger()) : [];
+}
+
+/** Persiste uma regra (demo: no-op; live: financial_rules — migration 0004). */
+export async function persistRule(rule: FinancialRule): Promise<void> {
+  if (isDemo) return;
+  const s = createClient();
+  const { error } = await s.from("financial_rules").upsert({
+    id: rule.id,
+    nome: rule.nome,
+    trigger: rule.trigger,
+    conditions: rule.conditions,
+    actions: rule.actions,
+    prioridade: rule.prioridade,
+    ativo: rule.ativo,
+  });
+  if (error) throw error;
+}
+
+/** Registra execuções de ações (demo: no-op; live: rule_executions). */
+export async function logExecucoes(execs: ExecucaoAcao[]): Promise<void> {
+  if (isDemo || execs.length === 0) return;
+  const s = createClient();
+  const { error } = await s.from("rule_executions").insert(
+    execs.map((e) => ({
+      rule_id: e.ruleId,
+      rule_nome: e.ruleNome,
+      acao: e.acao,
+      destino: e.destino,
+      status: e.status,
+      detalhe: e.detalhe,
+    })),
+  );
+  if (error) throw error;
 }

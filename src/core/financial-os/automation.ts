@@ -6,6 +6,7 @@
  */
 import type { RuleFire, ExecucaoAcao, ActionType, Prioridade } from "./types";
 import { uid } from "./types";
+import { getNotificationProvider, type NotificationProvider } from "./notifications";
 
 const LABEL: Record<ActionType, string> = {
   enviar_whatsapp: "WhatsApp enviado",
@@ -18,12 +19,20 @@ const LABEL: Record<ActionType, string> = {
   pedir_aprovacao_dupla: "Aprovação dupla solicitada",
 };
 
-export function executarAcoes(fires: RuleFire[]): ExecucaoAcao[] {
+export function executarAcoes(
+  fires: RuleFire[],
+  provider: NotificationProvider = getNotificationProvider(),
+): ExecucaoAcao[] {
   const out: ExecucaoAcao[] = [];
   for (const f of fires) {
     const assincrona: Prioridade[] = ["baixa"];
     const enfileira = assincrona.includes(f.rule.prioridade);
     for (const a of f.actions) {
+      // Dispara pelo provider de notificação (WhatsApp/e-mail); demais
+      // ações são operacionais (cobrança/bloqueio/tarefa) e ficam registradas.
+      if (!enfileira && a.tipo === "enviar_whatsapp") provider.whatsapp(a.destino ?? "", f.rule.nome);
+      if (!enfileira && a.tipo === "enviar_email") provider.email(a.destino ?? "", f.rule.nome, "");
+      const viaProvider = a.tipo === "enviar_whatsapp" || a.tipo === "enviar_email";
       out.push({
         id: uid("exec"),
         ruleId: f.rule.id,
@@ -32,7 +41,10 @@ export function executarAcoes(fires: RuleFire[]): ExecucaoAcao[] {
         destino: a.destino,
         status: enfileira ? "enfileirada" : "executada",
         timestamp: new Date().toISOString(),
-        detalhe: `${LABEL[a.tipo]}${a.destino ? ` → ${a.destino}` : ""}${enfileira ? " (fila assíncrona)" : ""}`,
+        detalhe:
+          `${LABEL[a.tipo]}${a.destino ? ` → ${a.destino}` : ""}` +
+          `${viaProvider ? ` · provider ${provider.nome}` : ""}` +
+          `${enfileira ? " (fila assíncrona)" : ""}`,
       });
     }
   }

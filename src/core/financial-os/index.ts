@@ -14,12 +14,15 @@ import { FinancialEventBus } from "./event-bus";
 import { motorRegrasFinanceiras } from "./rules-engine";
 import { executarAcoes } from "./automation";
 import { AuditTrail } from "./audit";
+import { instalarPonteRisco, type AlertaExecutivo } from "./bridges/risco.bridge";
+import type { RiskInput } from "@/core/risk-engine/types";
 
 export interface OperacaoTrace {
   eventos: FinancialEvent[];
   fires: RuleFire[];
   execucoes: ExecucaoAcao[];
   audit: AuditLog[];
+  alertasExecutivos: AlertaExecutivo[];
 }
 
 /**
@@ -34,11 +37,18 @@ export function operarFinanceiroOS(
     payload: Record<string, unknown>;
     prioridade?: FinancialEvent["prioridade"];
   }[],
+  riscoInput?: RiskInput,
 ): OperacaoTrace {
   const bus = new FinancialEventBus();
   const audit = new AuditTrail();
   const fires: RuleFire[] = [];
   const execucoes: ExecucaoAcao[] = [];
+  const alertasExecutivos: AlertaExecutivo[] = [];
+
+  // Ponte com o motor de risco: custo_variou → recálculo → alerta executivo.
+  if (riscoInput) {
+    instalarPonteRisco(bus, riscoInput, (a) => alertasExecutivos.push(a));
+  }
 
   // Consumidor: o motor de regras reage a TODO evento publicado.
   bus.subscribe("*", (event) => {
@@ -57,7 +67,13 @@ export function operarFinanceiroOS(
     bus.publish(e.tipo, e.entidadeId, e.payload, e.prioridade);
   }
 
-  return { eventos: bus.eventos(), fires, execucoes, audit: audit.todos() };
+  return {
+    eventos: bus.eventos(),
+    fires,
+    execucoes,
+    audit: audit.todos(),
+    alertasExecutivos,
+  };
 }
 
 export * from "./types";
@@ -68,3 +84,5 @@ export { centralEventosFinanceiros, FinancialEventBus } from "./event-bus";
 export { executarAcoes, actionLabel } from "./automation";
 export { sugerirRegras, materializarRegra } from "./ai-interpretation";
 export { AuditTrail } from "./audit";
+export { getNotificationProvider, simulatedProvider, type NotificationProvider } from "./notifications";
+export { recalcularRiscoPorCusto, instalarPonteRisco, type AlertaExecutivo } from "./bridges/risco.bridge";

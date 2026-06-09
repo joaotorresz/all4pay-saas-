@@ -204,9 +204,16 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   `motorRegrasFinanceiras()` (FinancialRule = trigger + conditions + actions, low-code).
   **Automation** (`automation.ts`) executa ações; **AuditTrail** (`audit.ts`) registra
   tudo; **AI Interpretation** (`ai-interpretation.ts`) sugere regras.
-- `operarFinanceiroOS(rules, eventos)` (`index.ts`) roda o fluxo ponta a ponta
-  (evento → regra → ação → auditoria). UI em `AutomacoesView.tsx` (regras, rule
-  builder low-code, simulação via event bus, sugestões de IA).
+- `operarFinanceiroOS(rules, eventos, riscoInput?)` (`index.ts`) roda o fluxo
+  ponta a ponta (evento → regra → ação → auditoria). UI em `AutomacoesView.tsx`.
+- **Ponte de risco** (`bridges/risco.bridge.ts`): `custo_variou` → recalcula
+  `scoreRiscoCaixa` com despesa ajustada → **alerta executivo** + publica
+  `anomalia_detectada` (event-driven). Mostrado no `AutomacoesView`.
+- **Notificações** (`notifications.ts`): provider plugável; default `simulado`
+  (sem credenciais). Real: Twilio (WhatsApp) / Resend (e-mail) server-side.
+- **Persistência** (`src/lib/financial-os.ts` `persistRule`/`logExecucoes`):
+  demo no-op; live grava em `financial_rules` / `rule_executions` /`audit_log`
+  (migration `0004_financial_os.sql`, **arquivo, não aplicado ao remoto**).
 - Demo data + accessors em `src/lib/financial-os.ts`.
 
 ## Voice & copy (this is part of the brand)
