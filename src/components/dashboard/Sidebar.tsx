@@ -27,6 +27,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { id: "home", label: "Início", icon: "house", href: "/" },
+  { id: "risco", label: "Risco de caixa", icon: "trending-up", href: "/risco", badge: "new" },
   { id: "vendas", label: "Vendas", icon: "arrow-left-right", href: "/vendas" },
   { id: "produtos", label: "Produtos", icon: "credit-card", href: "/produtos" },
   { id: "servicos", label: "Serviços", icon: "repeat", href: "/servicos" },

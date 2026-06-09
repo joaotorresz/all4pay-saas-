@@ -38,6 +38,7 @@ import type {
   FinancialAccount,
   LancamentoInput,
 } from "@/lib/types";
+import type { RiskInput } from "@/core/risk-engine/types";
 
 /** Brief delay so per-widget skeletons are perceptible in demo mode. */
 const demoDelay = () => new Promise((r) => setTimeout(r, 550));
@@ -293,6 +294,61 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
     });
     if (re) throw re;
   }
+}
+
+/** Input for the cash-risk engine (scoreRiscoCaixa). */
+export async function getRiscoInput(): Promise<RiskInput> {
+  const hoje = isoDay(new Date());
+  if (isDemo) {
+    const saldoAtual = DEMO_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
+    const movements = DEMO_MOVEMENTS.map((m) => ({
+      id: m.id,
+      type: m.type,
+      status: m.status,
+      amount: m.amount,
+      due_date: m.due_date,
+      paid_date: m.paid_date,
+      // seed movements use the description as the counterparty label
+      party_id: m.description ?? null,
+      category: m.category,
+    }));
+    const partyNames: Record<string, string> = {};
+    movements.forEach((m) => {
+      if (m.party_id) partyNames[m.party_id] = m.party_id;
+    });
+    return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
+  }
+
+  const supabase = createClient();
+  const [accRes, movRes, partyRes] = await Promise.all([
+    supabase.from("financial_accounts").select("balance"),
+    supabase
+      .from("movements")
+      .select("id,type,status,amount,due_date,paid_date,party_id,category"),
+    supabase.from("parties").select("id,name"),
+  ]);
+  if (accRes.error) throw accRes.error;
+  if (movRes.error) throw movRes.error;
+  const saldoAtual = (accRes.data ?? []).reduce(
+    (s, a) => s + Number((a as { balance: number }).balance),
+    0,
+  );
+  const movements = ((movRes.data ?? []) as Movement[]).map((m) => ({
+    id: m.id,
+    type: m.type,
+    status: m.status,
+    amount: m.amount,
+    due_date: m.due_date,
+    paid_date: m.paid_date,
+    party_id: m.party_id ?? null,
+    category: m.category,
+  }));
+  const partyNames: Record<string, string> = {};
+  (partyRes.data ?? []).forEach((p) => {
+    const row = p as { id: string; name: string };
+    partyNames[row.id] = row.name;
+  });
+  return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
 }
 
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {

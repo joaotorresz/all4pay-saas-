@@ -14,8 +14,19 @@ import {
   getSales,
   getOpenMovements,
   getUnreconciledMovements,
+  getRiscoInput,
 } from "@/lib/data";
+import { scoreRiscoCaixa } from "@/core/risk-engine";
 import type { MovementType } from "@/lib/types";
+
+/** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
+export function useRiscoCaixa() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? scoreRiscoCaixa(q.data) : undefined,
+  };
+}
 
 export function useReceivables() {
   return useQuery({ queryKey: ["receivables"], queryFn: getReceivables });

@@ -167,6 +167,25 @@ Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
 opens the matching form, `useToast`). List data via `list*` accessors in
 `src/lib/cadastros.ts` + `use*List` hooks. Sidebar links to all of them.
 
+### Motor de Risco de Caixa (`/risco`)
+
+`scoreRiscoCaixa()` (`src/core/risk-engine/`) is a proprietary operational
+cash-risk engine, layered: Dados → Normalização → Métricas → Probabilística →
+Cenários → Score → Narrativa → Alertas. Pure, typed, **auditável**
+(`ScoreDetalhado` carries per-pillar scores, weights and `explicacoes`).
+
+- **Engines:** `liquidez` (daily projection + runway 3-cenários + ruptura),
+  `burn`, `inadimplencia`, `concentracao` (HHI + top clientes), `sazonalidade`,
+  `stress` (queda de receita, atraso, despesa, combustível), `score` (8 pilares
+  ponderados → 0-100 + nível + probabilidadeRuptura). `normalize.ts` pondera
+  recebíveis por probabilidade.
+- **IA (`src/core/ai/`):** `narrativa-financeira` (interpretação executiva,
+  determinística — plugável a um LLM depois), `insights` (fatores críticos),
+  `alertas`.
+- **Dados:** `getRiscoInput()` (`src/lib/data.ts`) alimenta o motor de
+  `movements`/`financial_accounts`/`parties`; hook `useRiscoCaixa()`. Roda
+  idêntico sobre demo e live. UI em `src/components/risco/RiscoView.tsx`.
+
 ## Voice & copy (this is part of the brand)
 
 - Sober, confident, operational — finance operators, not consumers.

@@ -27,6 +27,8 @@ export interface Movement {
   category: string | null;
   /** Positive magnitude in BRL; direction comes from `type`. */
   amount: number;
+  /** Counterparty (cliente/fornecedor), when known. */
+  party_id?: string | null;
   /** ISO date (YYYY-MM-DD). */
   due_date: string;
   paid_date: string | null;
