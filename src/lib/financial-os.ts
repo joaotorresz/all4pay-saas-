@@ -142,6 +142,49 @@ export function getRuleSuggestions(): RuleSuggestion[] {
   return isDemo ? sugerirRegras(ledger()) : [];
 }
 
+/**
+ * Detecta eventos financeiros a partir do estado atual (para o runner
+ * agendado): saldo crítico por conta e clientes inadimplentes. Em live,
+ * estes viriam de queries; aqui usa o seed (demo-safe).
+ */
+function detectarEventosAgendados(): Parameters<typeof operarFinanceiroOS>[1] {
+  const evs: Parameters<typeof operarFinanceiroOS>[1] = [];
+  const LIMIAR_SALDO = 100000;
+  const hojeISO = hoje();
+
+  for (const a of DEMO_ACCOUNTS) {
+    if (a.balance < LIMIAR_SALDO) {
+      evs.push({
+        tipo: "saldo_critico",
+        entidadeId: a.id,
+        payload: { conta: a.name, saldo: a.balance, limite: LIMIAR_SALDO },
+        prioridade: "critica",
+      });
+    }
+  }
+
+  for (const m of DEMO_MOVEMENTS) {
+    if (m.type === "entrada" && m.status === "pendente" && m.due_date < hojeISO) {
+      const diasAtraso = Math.round((+new Date(hojeISO) - +new Date(m.due_date)) / 864e5);
+      if (m.amount > 20000) {
+        evs.push({
+          tipo: "cliente_inadimplente",
+          entidadeId: m.id,
+          payload: { cliente: m.description, diasAtraso, ticket: m.amount },
+          prioridade: "alta",
+        });
+      }
+    }
+  }
+  return evs;
+}
+
+/** Roda o SO financeiro sobre os eventos detectados agora (usado pelo cron). */
+export function runScheduledOS(): OperacaoTrace {
+  const rules = getRules().length ? getRules() : DEMO_RULES;
+  return operarFinanceiroOS(rules, detectarEventosAgendados(), demoRiscoInput());
+}
+
 /** Persiste uma regra (demo: no-op; live: financial_rules — migration 0004). */
 export async function persistRule(rule: FinancialRule): Promise<void> {
   if (isDemo) return;

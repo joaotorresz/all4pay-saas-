@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/financial-os/run",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}

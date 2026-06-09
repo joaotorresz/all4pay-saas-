@@ -214,6 +214,10 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
 - **Persistência** (`src/lib/financial-os.ts` `persistRule`/`logExecucoes`):
   demo no-op; live grava em `financial_rules` / `rule_executions` /`audit_log`
   (migration `0004_financial_os.sql`, **arquivo, não aplicado ao remoto**).
+- **Runner agendado:** `GET /api/financial-os/run` (`runScheduledOS()`) detecta
+  eventos do estado atual (saldo crítico, inadimplência) → regras → ações →
+  alertas executivos. Vercel Cron em `vercel.json` (diário); protegido por
+  `CRON_SECRET` quando definido.
 - Demo data + accessors em `src/lib/financial-os.ts`.
 
 ## Voice & copy (this is part of the brand)
