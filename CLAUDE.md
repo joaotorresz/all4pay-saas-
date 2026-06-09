@@ -186,6 +186,29 @@ Cenários → Score → Narrativa → Alertas. Pure, typed, **auditável**
   `movements`/`financial_accounts`/`parties`; hook `useRiscoCaixa()`. Roda
   idêntico sobre demo e live. UI em `src/components/risco/RiscoView.tsx`.
 
+### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
+
+`src/core/financial-os/` — camada de SO financeiro orientada a eventos,
+in-memory (arquitetura inicial; em escala troca-se o transporte por
+Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
+
+- **Integration Gateway** (`gateway.ts`): `normalizar(fonte, raw)` traz qualquer
+  fonte (pix/ofx/nf/boleto/comprovante/…) ao `FinancialTransaction`; `fingerprint()`
+  (cyrb53) e `extrairComprovante()` (OCR stub plugável).
+- **Reconciliation Engine** (`reconciliation.engine.ts`): `reconciliarAutomaticamente()`
+  — matching **probabilístico** ponderado (valor 35 / data 25 / documento 20 /
+  contraparte 15 / categoria 5) → confidence → filas auto (≥90) / sugestão (≥70) /
+  exceção. UI em `components/financial-os/ReconciliationView.tsx`.
+- **Event Bus** (`event-bus.ts`): `centralEventosFinanceiros()` / `FinancialEventBus`
+  pub/sub por prioridade. **Rules Engine** (`rules-engine.ts`):
+  `motorRegrasFinanceiras()` (FinancialRule = trigger + conditions + actions, low-code).
+  **Automation** (`automation.ts`) executa ações; **AuditTrail** (`audit.ts`) registra
+  tudo; **AI Interpretation** (`ai-interpretation.ts`) sugere regras.
+- `operarFinanceiroOS(rules, eventos)` (`index.ts`) roda o fluxo ponta a ponta
+  (evento → regra → ação → auditoria). UI em `AutomacoesView.tsx` (regras, rule
+  builder low-code, simulação via event bus, sugestões de IA).
+- Demo data + accessors em `src/lib/financial-os.ts`.
+
 ## Voice & copy (this is part of the brand)
 
 - Sober, confident, operational — finance operators, not consumers.

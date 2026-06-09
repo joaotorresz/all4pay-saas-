@@ -18,6 +18,8 @@ import {
   ArrowDownToLine,
   X,
   Check,
+  Workflow,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,6 +48,8 @@ const registry: Record<string, LucideIcon> = {
   "arrow-down-to-line": ArrowDownToLine,
   x: X,
   check: Check,
+  workflow: Workflow,
+  "list-checks": ListChecks,
 };
 
 export type IconName = keyof typeof registry;

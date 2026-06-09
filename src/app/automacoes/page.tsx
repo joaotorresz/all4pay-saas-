@@ -1,20 +1,20 @@
 "use client";
 
 import { AppShell } from "@/components/app/AppShell";
-import { ReconciliationView } from "@/components/financial-os/ReconciliationView";
+import { AutomacoesView } from "@/components/financial-os/AutomacoesView";
 import { useToast } from "@/components/listas/ListChrome";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { isDemo } from "@/lib/demo";
 
-export default function ConciliacaoPage() {
+export default function AutomacoesPage() {
   const { show, node } = useToast();
   return (
     <AppShell
-      title="Conciliação automática"
+      title="Automações"
       crumb="Sistema operacional financeiro"
       actions={isDemo ? <DemoBadge /> : null}
     >
-      <ReconciliationView onToast={show} />
+      <AutomacoesView onToast={show} />
       {node}
     </AppShell>
   );
