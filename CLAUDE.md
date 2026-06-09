@@ -135,20 +135,29 @@ Data libs (React Query, Recharts) are sanctioned for feature logic — they are
 grouped `DropdownMenu` (Lançamentos · Vendas/Compras · Cadastros) with 16 actions
 and Alt+letter shortcuts fired globally. Each action opens its own modal/form.
 
-- **`ReceitaForm`** (`src/components/lancamentos/ReceitaForm.tsx`) is the **mold**
-  for lançamentos — used for both **Receita** and **Despesa** (mirror via `kind`):
-  sections "Informações do lançamento" + "Condição de pagamento", rateio (splits),
-  repetir lançamento (recurrence), parcelamento, baixa imediata, NSU. Validates
-  required fields, toasts success/error, split-button "Salvar e criar outro".
-- **Data:** `src/lib/data.ts` adds `getCategories/getCostCenters/getParties/
-  getAccountsList` and `createLancamento` (demo-safe; live = insert into
-  `movements` + `movement_splits` + `recurrences`). Hooks per entity in
-  `src/components/lancamentos/hooks.ts` (`useCreateLancamento`, etc.).
-- **Schema:** `supabase/migrations/0002_lancamentos.sql` (`categories`,
-  `cost_centers`, `parties` with a STORED `doc_digits` dedup column,
-  `movement_splits`, `recurrences`, + new `movements` columns). **Not yet applied
-  to remote** — apply, then set `NEXT_PUBLIC_ALL4PAY_DEMO=false` to persist live.
-- The other 14 actions open a placeholder until built, reusing this mold.
+All 16 actions are built (`src/components/lancamentos/`), each an isolated form
++ a submit hook per entity (`hooks.ts`), demo-safe (no write in demo) and
+writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
+
+- **`ReceitaForm`** — the **mold**: Receita + Despesa (mirror via `kind`).
+  Sections "Informações do lançamento" + "Condição de pagamento", rateio
+  (splits), repetir (recurrence), parcelamento, baixa imediata, NSU.
+- **`TransferenciaForm`** — 2 linked movements (saída + entrada).
+- **`VendaCompraForm`** — venda/compra × produto/serviço **and** orçamento
+  (item lines, totais, "Converter em venda"). Writes `sales_docs` + `sale_items`
+  (+ a movement when not orçamento).
+- **`ContratoForm`** — writes a `recurrences` row.
+- **`PartyForm`** — Cliente/Fornecedor/Transportadora (CPF/CNPJ validation in
+  `src/lib/validators.ts`, ViaCEP lookup in `src/lib/viacep.ts`).
+- **`ProdutoServicoForm`** (Produto/Serviço), **`MarcaForm`**, **`UnidadeForm`**.
+- **Data:** `src/lib/data.ts` (lançamentos) + `src/lib/cadastros.ts` (vendas +
+  cadastros) — `getX` selects + `createX` writers, all demo-safe.
+- **Schema:** `supabase/migrations/0002_lancamentos.sql` (categories,
+  cost_centers, parties with a STORED `doc_digits` dedup column, movement_splits,
+  recurrences, + movements columns) and `0003_vendas_cadastros.sql` (brands,
+  units, salespeople, products, services, sales_docs, sale_items). **Generated as
+  files, NOT applied to remote** — apply both, then set
+  `NEXT_PUBLIC_ALL4PAY_DEMO=false` to persist live.
 
 ## Voice & copy (this is part of the brand)
 

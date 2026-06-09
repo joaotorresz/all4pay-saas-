@@ -134,3 +134,125 @@ export interface LancamentoInput {
   settled: boolean; // recebido / pago
   nsu: string | null;
 }
+
+/* ---- Vendas/Compras + cadastros (migration 0003) ---- */
+
+export type SaleDocKind = "venda" | "compra" | "orcamento";
+export type ItemKind = "produto" | "servico";
+
+export interface Brand {
+  id: string;
+  name: string;
+}
+export interface Unit {
+  id: string;
+  name: string;
+  abbrev: string;
+}
+export interface Salesperson {
+  id: string;
+  name: string;
+}
+export interface Product {
+  id: string;
+  name: string;
+}
+export interface Service {
+  id: string;
+  name: string;
+}
+
+export interface TransferenciaInput {
+  from_account_id: string;
+  to_account_id: string;
+  date: string;
+  amount: number;
+  description: string | null;
+}
+
+export interface SaleItemInput {
+  ref_id: string | null; // product_id or service_id
+  description: string;
+  qty: number;
+  unit_price: number;
+  discount: number;
+}
+
+export interface SaleDocInput {
+  kind: SaleDocKind;
+  item_kind: ItemKind;
+  party_id: string | null;
+  salesperson_id: string | null;
+  cost_center_id: string | null;
+  doc_date: string;
+  validity: string | null; // orçamento
+  discount: number; // desconto geral
+  notes: string | null;
+  items: SaleItemInput[];
+  // condição de pagamento (não usada em orçamento)
+  due_date: string | null;
+  payment_method: PaymentMethod | null;
+  account_id: string | null;
+  settled: boolean;
+}
+
+export interface ContratoInput {
+  party_id: string | null;
+  type: MovementType; // receita/despesa => entrada/saida
+  description: string;
+  amount: number;
+  freq: RecurrenceFreq;
+  start_date: string;
+  end_date: string | null;
+  category_id: string | null;
+  cost_center_id: string | null;
+  due_day: number | null;
+}
+
+export interface PartyInput {
+  type: PartyType;
+  name: string;
+  doc: string | null;
+  email: string | null;
+  phone: string | null;
+  zip: string | null;
+  street: string | null;
+  number: string | null;
+  complement: string | null;
+  district: string | null;
+  city: string | null;
+  state: string | null;
+  is_customer: boolean;
+  is_supplier: boolean;
+  is_carrier: boolean;
+  antt: string | null;
+}
+
+export interface ProductInput {
+  name: string;
+  sku: string | null;
+  category_id: string | null;
+  unit_id: string | null;
+  brand_id: string | null;
+  sale_price: number;
+  cost_price: number | null;
+  track_stock: boolean;
+  stock_initial: number | null;
+}
+
+export interface ServiceInput {
+  name: string;
+  code: string | null;
+  category_id: string | null;
+  unit_id: string | null;
+  price: number;
+}
+
+export interface BrandInput {
+  name: string;
+  description: string | null;
+}
+export interface UnitInput {
+  name: string;
+  abbrev: string;
+}

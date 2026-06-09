@@ -8,6 +8,21 @@ import {
   getAccountsList,
   createLancamento,
 } from "@/lib/data";
+import {
+  getBrands,
+  getUnits,
+  getSalespeople,
+  getProducts,
+  getServices,
+  createTransferencia,
+  createSaleDoc,
+  createContrato,
+  createParty,
+  createProduct,
+  createService,
+  createBrand,
+  createUnit,
+} from "@/lib/cadastros";
 import type { CategoryKind } from "@/lib/types";
 
 export function useCategories(kind: CategoryKind) {
@@ -32,18 +47,94 @@ export function useAccountsList() {
   return useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
 }
 
+export function useBrands() {
+  return useQuery({ queryKey: ["brands"], queryFn: getBrands });
+}
+export function useUnits() {
+  return useQuery({ queryKey: ["units"], queryFn: getUnits });
+}
+export function useSalespeople() {
+  return useQuery({ queryKey: ["salespeople"], queryFn: getSalespeople });
+}
+export function useProducts() {
+  return useQuery({ queryKey: ["products"], queryFn: getProducts });
+}
+export function useServices() {
+  return useQuery({ queryKey: ["services"], queryFn: getServices });
+}
+
+/** Invalidate the overview widgets fed by movements. */
+function invalidateOverview(qc: ReturnType<typeof useQueryClient>) {
+  ["receivables", "payables", "accounts", "daily-cashflow", "sales"].forEach(
+    (k) => qc.invalidateQueries({ queryKey: [k] }),
+  );
+}
+
 /** Submit hook for the Receita/Despesa lançamento. */
 export function useCreateLancamento() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createLancamento,
-    onSuccess: () => {
-      // Refresh the overview widgets that depend on movements.
-      qc.invalidateQueries({ queryKey: ["receivables"] });
-      qc.invalidateQueries({ queryKey: ["payables"] });
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      qc.invalidateQueries({ queryKey: ["daily-cashflow"] });
-      qc.invalidateQueries({ queryKey: ["sales"] });
-    },
+    onSuccess: () => invalidateOverview(qc),
+  });
+}
+
+export function useCreateTransferencia() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createTransferencia,
+    onSuccess: () => invalidateOverview(qc),
+  });
+}
+
+export function useCreateSaleDoc() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createSaleDoc,
+    onSuccess: () => invalidateOverview(qc),
+  });
+}
+
+export function useCreateContrato() {
+  return useMutation({ mutationFn: createContrato });
+}
+
+export function useCreateParty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createParty,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["parties"] }),
+  });
+}
+
+export function useCreateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createProduct,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+  });
+}
+
+export function useCreateService() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createService,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["services"] }),
+  });
+}
+
+export function useCreateBrand() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createBrand,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["brands"] }),
+  });
+}
+
+export function useCreateUnit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: createUnit,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["units"] }),
   });
 }

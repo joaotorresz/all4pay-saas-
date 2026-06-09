@@ -10,6 +10,11 @@ import type {
   Category,
   CostCenter,
   Party,
+  Product,
+  Service,
+  Brand,
+  Unit,
+  Salesperson,
 } from "../types";
 import { isoDay } from "../aggregations";
 
@@ -193,4 +198,36 @@ export const DEMO_PARTIES: Party[] = [
   { id: "pty-energia", type: "pj", name: "Energia Sudeste", is_supplier: true },
   { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", is_supplier: true },
   { id: "pty-telecom", type: "pj", name: "Telecom Brasil", is_supplier: true },
+];
+
+export const DEMO_BRANDS: Brand[] = [
+  { id: "brd-acme", name: "Acme" },
+  { id: "brd-lumen", name: "Lumen" },
+  { id: "brd-vertex", name: "Vertex" },
+];
+
+export const DEMO_UNITS: Unit[] = [
+  { id: "un-un", name: "Unidade", abbrev: "un" },
+  { id: "un-kg", name: "Quilograma", abbrev: "kg" },
+  { id: "un-cx", name: "Caixa", abbrev: "cx" },
+  { id: "un-h", name: "Hora", abbrev: "h" },
+];
+
+export const DEMO_SALESPEOPLE: Salesperson[] = [
+  { id: "sp-1", name: "Ana Vendas" },
+  { id: "sp-2", name: "Bruno Comercial" },
+  { id: "sp-3", name: "Carla Contas" },
+];
+
+export const DEMO_PRODUCTS: Product[] = [
+  { id: "prd-1", name: "Notebook Pro 14" },
+  { id: "prd-2", name: "Monitor 27 4K" },
+  { id: "prd-3", name: "Teclado mecânico" },
+  { id: "prd-4", name: "Cadeira ergonômica" },
+];
+
+export const DEMO_SERVICES: Service[] = [
+  { id: "srv-1", name: "Consultoria (hora)" },
+  { id: "srv-2", name: "Implantação" },
+  { id: "srv-3", name: "Suporte mensal" },
 ];
