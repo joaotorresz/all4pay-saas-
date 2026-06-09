@@ -3,9 +3,11 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Badge, Avatar, Icon } from "@/components/ui";
 import { cn } from "@/lib/utils";
+
+const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 /**
  * all4pay app sidebar — 240px, white. Command bar with a subtle lime
@@ -50,6 +52,7 @@ export function Sidebar({
   onNavigate?: (id: string) => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   return (
     <aside className="w-sidebar shrink-0 h-full bg-white border-r border-border flex flex-col px-3 py-4">
       {/* Brand */}
@@ -153,12 +156,28 @@ export function Sidebar({
             </div>
             <div className="text-[11px] text-faint">ops@all4pay.co</div>
           </div>
-          <Icon
-            name="chevrons-up-down"
-            size={15}
-            color="var(--color-text-tertiary)"
-            className="ml-auto"
-          />
+          {SUPA_CONFIGURED ? (
+            <button
+              onClick={async () => {
+                const { createClient } = await import("@/lib/supabase/client");
+                await createClient().auth.signOut();
+                router.push("/login");
+                router.refresh();
+              }}
+              aria-label="Sair"
+              className="ml-auto inline-flex p-1 rounded-md hover:bg-surface-2"
+              title="Sair"
+            >
+              <Icon name="arrow-up-right" size={15} color="var(--color-text-tertiary)" />
+            </button>
+          ) : (
+            <Icon
+              name="chevrons-up-down"
+              size={15}
+              color="var(--color-text-tertiary)"
+              className="ml-auto"
+            />
+          )}
         </div>
       </div>
     </aside>
