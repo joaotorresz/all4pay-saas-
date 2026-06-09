@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { id: "inadimplencia", label: "Inadimplência", icon: "gauge", href: "/inadimplencia", badge: "new" },
   { id: "conciliacao", label: "Conciliação", icon: "list-checks", href: "/conciliacao", badge: "new" },
   { id: "automacoes", label: "Automações", icon: "workflow", href: "/automacoes", badge: "new" },
+  { id: "governanca", label: "Governança", icon: "shield-check", href: "/governanca", badge: "new" },
   { id: "vendas", label: "Vendas", icon: "arrow-left-right", href: "/vendas" },
   { id: "produtos", label: "Produtos", icon: "credit-card", href: "/produtos" },
   { id: "servicos", label: "Serviços", icon: "repeat", href: "/servicos" },

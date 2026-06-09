@@ -16,6 +16,7 @@ import {
   getUnreconciledMovements,
   getRiscoInput,
 } from "@/lib/data";
+import { getAuditTrail } from "@/lib/institutional";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import type { MovementType } from "@/lib/types";
@@ -36,6 +37,11 @@ export function useInadimplencia() {
     ...q,
     data: q.data ? analisarInadimplencia(q.data) : undefined,
   };
+}
+
+/** Trilha de auditoria institucional (hash-chain) — demo ou live. */
+export function useAuditTrail() {
+  return useQuery({ queryKey: ["audit-trail"], queryFn: getAuditTrail });
 }
 
 export function useReceivables() {

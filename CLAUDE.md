@@ -246,6 +246,36 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   `CRON_SECRET` quando definido.
 - Demo data + accessors em `src/lib/financial-os.ts`.
 
+### Camada Institucional / Governança (`/governanca`)
+
+`src/core/institutional/` — governança operacional de nível bancário (o que
+separa "software bonito" de infraestrutura financeira usável por bancos, fundos
+e auditorias). Pura, tipada, **auditável**, demo-safe. Três pilares:
+
+- **Trilha de auditoria imutável** (`audit.ts` `TrilhaAuditoria` +
+  `trilhaAuditoriaCompleta`): cada ação vira evento **encadeado por SHA-256**
+  (`sha256.ts`, implementação pura/síncrona FIPS 180-4 — sem deps).
+  `verificarIntegridade()` recomputa a cadeia e **denuncia adulteração**;
+  `analisarMudanca()` é a **before/after intelligence** (aumento de valor,
+  alteração após aprovação, troca de dado bancário → flags críticas);
+  `reconstruirEstado()` faz **replay temporal / event sourcing** (estado em
+  qualquer instante); `exportar()` (JSON/CSV) para export legal.
+- **RBAC + Policy Engine** (`rbac.ts` `permissoesGranulares`): matriz papel×ação
+  (`Role`/`Permission`), e `avaliarPolitica({usuario, transacao, ambiente,
+  risco})` → `aprovar | exigir_mfa | escalar | rejeitar | bloquear` por valor,
+  método, limite individual, país, horário e IP — explicável (motivos).
+- **Approval Flow** (`approval-flow.ts`): `REGRAS_PADRAO` configuráveis por faixa
+  de valor (auto → financeiro → CFO+tesouraria → CFO+compliance, sequencial/
+  paralelo, biometria), `sugerirIA()` (consistência com histórico do favorecido),
+  `assinar()` (assinatura eletrônica = SHA-256 + timestamp + device),
+  `aprovarPasso()` e `executarEmergencia()` (bypass com justificativa), `slaPorEtapa()`.
+- **Dados:** `getAuditTrail()` (`src/lib/institutional.ts`) — demo: trilha selada
+  (`demo.ts`); live: constrói a cadeia sobre `audit_log` real. RBAC/policy/regras
+  são **configuração** (não dados), expostas direto do core. Hook `useAuditTrail()`.
+  UI em `src/components/institucional/InstitutionalView.tsx` (auditoria + teste de
+  adulteração + matriz RBAC + policy engine interativo + escada de aprovação + SLA).
+  Versão `institucional/1.0.0`.
+
 ### Multi-tenant & seed (`0005`–`0007`, aplicadas ao remoto)
 
 A partir de `0005_multi_tenant.sql` o banco é **isolado por organização**:
