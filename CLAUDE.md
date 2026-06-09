@@ -292,6 +292,32 @@ tipado, demo-safe. Versão `orchestration/1.0.0`.
   eventos + cascata + event store + ledger + grafo). Stateful (orquestrador em
   `useRef`).
 
+### Financial Infrastructure (`/infraestrutura`)
+
+`FinancialPlatform` (`src/core/platform/`) — GAP 3: a evolução de "produto" para
+**financial infrastructure company**. Domain Financial Architecture sobre um
+**Double-Entry Ledger Core** (saldo = estado DERIVADO do ledger, a verdade
+absoluta). Puro, tipado, demo-safe. Versão `platform/1.0.0`.
+
+- **Ledger Core** (`ledger-core.ts`): plano de contas tipado (asset/liability/
+  equity/revenue/expense), `postar()` rejeita transação **desbalanceada**
+  (D≠C), `saldo()` derivado dos lançamentos, `trialBalance()` (invariante
+  global), `reverter()` (estorno espelho). Caixa reconstruído por replay.
+- **Idempotency** (`idempotency.ts`): `idempotency_key` — o mesmo pagamento
+  nunca executa duas vezes.
+- **Financial Queue** (`queue.ts`): fila com retry/backoff, dedup por key e
+  `replay()`. **Payment Orchestrator** (`payment-orchestrator.ts`) coordena
+  PIX/boleto/TED/cartão: idempotência → fila → ledger (dupla partida) →
+  liquidação (`falharVezes` simula falha transitória reprocessada).
+- **Observability** (`observability.ts`): invariantes em tempo real —
+  integridade do ledger, divergência de saldo, jobs em falha, atraso de
+  liquidação. **Domains** (`domains.ts`): mapa dos 10 domínios → módulos.
+- **Facade** `FinancialPlatform` (`index.ts`): `processarPagamento()`, `saude()`,
+  `recuperarCaixa()` (state recovery). UI em
+  `src/components/infraestrutura/InfraestruturaView.tsx` (domínios + ledger +
+  orquestrador interativo + fila + observabilidade). Console de arquitetura
+  (stateful em `useRef`), independente de demo/live.
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
