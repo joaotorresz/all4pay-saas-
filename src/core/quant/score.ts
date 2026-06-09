@@ -49,6 +49,11 @@ function scoreFromHealth(h: Health): number {
   return Math.round(clamp01(raw) * 100);
 }
 
+/** Score de saúde a partir de um conjunto de indicadores (p/ simulações). */
+export function scoreDeIndicadores(i: IndicadoresFinanceiros): number {
+  return scoreFromHealth(saude(i));
+}
+
 export function classificar(score: number): ClassificacaoSaude {
   if (score >= 85) return "excelente";
   if (score >= 70) return "saudavel";

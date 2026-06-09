@@ -239,6 +239,33 @@ interpretação de CFO digital. Pura, tipada, demo-safe, reusa os motores do
   `src/components/quant/QuantView.tsx` (score + radar Recharts + KPIs + evolução
   do score + cenários + benchmark + narrativa).
 
+### IA Executiva + Decision Engine (`/copiloto`)
+
+`centroInteligencia()` (`src/core/executive/`) — a camada que faz o sistema
+operar como analista + FP&A + tesouraria 24h. Não responde "o que aconteceu?",
+e sim "o que vai acontecer, o que está errado, o que priorizar". Orquestra os
+motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Versão
+`executivo/1.0.0`.
+
+- **Context Builder** (`context.ts`): `rodarMotores()` + `construirContexto()` →
+  contexto numérico estruturado (saldo, runway, burn, inadimplência,
+  concentração, score…) — a IA recebe números, não texto solto.
+- **`copilotoFinanceiro(pergunta, ctx)`** (`copilot.ts`): conversa contextual —
+  detecta intenção (contratação, capacidade de investimento, cliente de risco,
+  despesas, expansão) → resposta + números + **fontes** (explainability).
+- **`detectarAnomalias()`** (`anomalies.ts`): despesa anormal por categoria
+  (z-score), duplicidade e pagamento atípico. ML é evolução futura.
+- **`motorPreditivo()`** (`forecast.ts`): média móvel ponderada × sazonalidade →
+  fluxo projetado + janela de pressão de caixa.
+- **`gerarInsights()` + `priorizar()`** (`insights.ts`): `ExecutiveInsight[]`
+  ordenados por impacto × urgência × probabilidade × criticidade.
+- **`executiveBriefing()`** (`briefing.ts`), **`memoryEngine()`** (`memory.ts`:
+  sazonalidade, despesas recorrentes, clientes críticos) e **`simularCenario()`**
+  (`scenario.ts`: recalcula runway/score/burn via `scoreDeIndicadores`).
+- **Dados:** reutiliza `getRiscoInput()`; hook `useCentroInteligencia()`. UI em
+  `src/components/copiloto/CopilotoView.tsx` (Intelligence Center: copiloto +
+  briefing + insights + anomalias + forecast + simulador + memória).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,

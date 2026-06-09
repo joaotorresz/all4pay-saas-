@@ -20,6 +20,7 @@ import { getAuditTrail } from "@/lib/institutional";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
+import { centroInteligencia } from "@/core/executive";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -46,6 +47,15 @@ export function useQuantitativo() {
   return {
     ...q,
     data: q.data ? analisarQuantitativo(q.data) : undefined,
+  };
+}
+
+/** IA executiva: centro de inteligência (briefing, insights, forecast…). */
+export function useCentroInteligencia() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? centroInteligencia(q.data) : undefined,
   };
 }
 
