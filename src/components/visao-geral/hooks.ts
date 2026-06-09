@@ -21,6 +21,7 @@ import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
 import { centroInteligencia } from "@/core/executive";
+import { decidir } from "@/core/decision";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -47,6 +48,15 @@ export function useQuantitativo() {
   return {
     ...q,
     data: q.data ? analisarQuantitativo(q.data) : undefined,
+  };
+}
+
+/** Decision Engine: feature store → risco → previsão → recomendação → plano. */
+export function useDecisao() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? decidir(q.data) : undefined,
   };
 }
 

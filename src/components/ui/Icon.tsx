@@ -27,6 +27,7 @@ import {
   Activity,
   Network,
   Layers,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +65,7 @@ const registry: Record<string, LucideIcon> = {
   activity: Activity,
   network: Network,
   layers: Layers,
+  target: Target,
 };
 
 export type IconName = keyof typeof registry;

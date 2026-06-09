@@ -30,6 +30,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { id: "home", label: "Início", icon: "house", href: "/" },
   { id: "copiloto", label: "Copiloto", icon: "sparkles", href: "/copiloto", badge: "new" },
+  { id: "decisao", label: "Decisão", icon: "target", href: "/decisao", badge: "new" },
   { id: "risco", label: "Risco de caixa", icon: "trending-up", href: "/risco", badge: "new" },
   { id: "inteligencia", label: "Inteligência", icon: "activity", href: "/inteligencia", badge: "new" },
   { id: "inadimplencia", label: "Inadimplência", icon: "gauge", href: "/inadimplencia", badge: "new" },

@@ -318,6 +318,33 @@ absoluta). Puro, tipado, demo-safe. Versão `platform/1.0.0`.
   orquestrador interativo + fila + observabilidade). Console de arquitetura
   (stateful em `useRef`), independente de demo/live.
 
+### Financial Decision Layer (`/decisao`)
+
+`decidir()` (`src/core/decision/`) — GAP 4: industrializa a inteligência. Deixa
+de "mostrar números" e passa a DECIDIR: interpretar, pontuar risco
+probabilístico, prever, recomendar (com impacto quantificado) e agir. Une os
+motores quant/risco/crédito. Puro, explicável, demo-safe. Versão `decision/1.0.0`.
+
+- **Feature Store** (`features.ts`): variáveis estruturadas (atuais + histórico
+  mensal) — runway, burn, liquidez, inadimplência, concentração receita/
+  fornecedor, ticket, margem, sazonalidade — substrato dos modelos.
+- **Risk Matrix** (`risk-matrix.ts`): risco **probabilístico multidimensional**
+  (8 dimensões: caixa, liquidez, inadimplência, concentração, fornecedor,
+  operacional, sazonal, crescimento) → probabilidade + nível + fator, agregadas
+  numa **probabilidade de stress** (logística ponderada).
+- **Prediction Engine** (`prediction.ts`): **Monte Carlo** do caixa (deriva
+  diária + volatilidade, RNG determinístico) → probabilidade de ficar negativo,
+  data/semana provável e bandas p10/p50/p90.
+- **Recommendation Engine** (`recommendations.ts`): cada ação (antecipar
+  recebíveis, postergar/renegociar fornecedor, reduzir despesa) constrói o
+  cenário modificado e **RE-RODA `scoreRiscoCaixa`** medindo o impacto real
+  (Δrunway, Δscore, Δprob. de ruptura) — recomendação quantificada.
+- **Autonomous Actions** (`autonomous.ts`): plano de resposta coordenado com
+  guardrails (`automatico` / `proposto` / `requer_aprovacao`).
+- **Dados:** reutiliza `getRiscoInput()`; hook `useDecisao()`. UI em
+  `src/components/decisao/DecisaoView.tsx` (headline + matriz de risco + Monte
+  Carlo + recomendações com impacto + plano autônomo + feature store).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
