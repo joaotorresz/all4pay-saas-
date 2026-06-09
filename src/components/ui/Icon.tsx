@@ -1,0 +1,76 @@
+import * as React from "react";
+import {
+  House,
+  ArrowLeftRight,
+  Repeat,
+  TrendingUp,
+  FileText,
+  CreditCard,
+  Settings,
+  LifeBuoy,
+  Plus,
+  Search,
+  ChevronsUpDown,
+  Sparkles,
+  ArrowUpRight,
+  ArrowUp,
+  ArrowDownToLine,
+  X,
+  Check,
+  type LucideIcon,
+} from "lucide-react";
+
+/**
+ * all4pay DS — Icon
+ * Thin linear / outline icons (Lucide), monochrome, ~1.75 stroke.
+ * Color inherits via currentColor. Substitution for the product's icon
+ * set — swap the registry when the real set is available.
+ */
+const registry: Record<string, LucideIcon> = {
+  house: House,
+  "arrow-left-right": ArrowLeftRight,
+  repeat: Repeat,
+  "trending-up": TrendingUp,
+  "file-text": FileText,
+  "credit-card": CreditCard,
+  settings: Settings,
+  "life-buoy": LifeBuoy,
+  plus: Plus,
+  search: Search,
+  "chevrons-up-down": ChevronsUpDown,
+  sparkles: Sparkles,
+  "arrow-up-right": ArrowUpRight,
+  "arrow-up": ArrowUp,
+  "arrow-down-to-line": ArrowDownToLine,
+  x: X,
+  check: Check,
+};
+
+export type IconName = keyof typeof registry;
+
+export interface IconProps {
+  name: IconName | string;
+  size?: number;
+  color?: string;
+  strokeWidth?: number;
+  className?: string;
+}
+
+export function Icon({
+  name,
+  size = 18,
+  color = "currentColor",
+  strokeWidth = 1.75,
+  className,
+}: IconProps) {
+  const Glyph = registry[name];
+  if (!Glyph) return null;
+  return (
+    <Glyph
+      size={size}
+      color={color}
+      strokeWidth={strokeWidth}
+      className={className}
+    />
+  );
+}

@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   all4pay Design System — runtime CSS variables
+   ------------------------------------------------------------
+   These MIRROR the canonical tokens defined in tailwind.config.ts.
+   They exist only for the places Tailwind utilities can't reach:
+   SVG fills/strokes, gradients, and a handful of inline styles.
+   Keep them in sync with the config — never add a value here that
+   isn't also a token. See CLAUDE.md.
+   ============================================================ */
+:root {
+  /* Neutrals */
+  --color-black-pure: #000000;
+  --color-ink: #171717;
+  --color-ink-soft: #0c0c0b;
+  --color-white: #ffffff;
+  --color-surface-1: #fdfdfd;
+  --color-surface-2: #f7f7f5;
+  --color-surface-3: #f4f4f3;
+  --color-border: #e9e9e9;
+  --color-border-soft: #efefef;
+  --color-text-secondary: #797975;
+  --color-text-tertiary: #959595;
+  --color-text-quaternary: #b3b3b2;
+
+  /* Accent */
+  --color-lime: #dcff00;
+  --color-lime-alt: #e0f80a;
+  --color-lime-tint: #f8ffcb;
+
+  /* Hero glow (marketing only) */
+  --gradient-hero-from: #000000;
+  --gradient-hero-glow: #4b4d3d;
+
+  /* Status */
+  --color-warning: #e8821e;
+  --color-positive: #3f8f5b;
+
+  /* Radii / shadows (for inline + SVG use) */
+  --radius-card: 16px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-popover: 0 4px 24px rgba(0, 0, 0, 0.1);
+  --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface-1 text-ink font-sans;
+    -webkit-font-smoothing: antialiased;
+    /* tabular-nums always — columns align, updating values don't shiver */
+    font-variant-numeric: tabular-nums;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Quiet, soft scrollbar — matches the restrained product feel. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #e2e2e0;
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+}
