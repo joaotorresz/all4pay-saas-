@@ -19,6 +19,7 @@ import {
 import { getAuditTrail } from "@/lib/institutional";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
+import { analisarQuantitativo } from "@/core/quant";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -36,6 +37,15 @@ export function useInadimplencia() {
   return {
     ...q,
     data: q.data ? analisarInadimplencia(q.data) : undefined,
+  };
+}
+
+/** Camada quantitativa: mesmo input, roda analisarQuantitativo. */
+export function useQuantitativo() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? analisarQuantitativo(q.data) : undefined,
   };
 }
 

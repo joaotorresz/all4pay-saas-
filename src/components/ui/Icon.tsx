@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   Users,
   ShieldCheck,
+  Activity,
   type LucideIcon,
 } from "lucide-react";
 
@@ -58,6 +59,7 @@ const registry: Record<string, LucideIcon> = {
   "triangle-alert": AlertTriangle,
   users: Users,
   "shield-check": ShieldCheck,
+  activity: Activity,
 };
 
 export type IconName = keyof typeof registry;

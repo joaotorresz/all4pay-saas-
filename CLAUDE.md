@@ -212,6 +212,33 @@ de caixa — demo e live idênticos.
   `risco-credito/1.0.0`. ML (XGBoost/etc.) é evolução futura — primeiro dados +
   features boas. **Nunca** retornar só o score: sempre os fatores.
 
+### Camada Quantitativa (`/inteligencia`)
+
+`analisarQuantitativo()` (`src/core/quant/`) — o "Bloomberg para PMEs": transforma
+lançamentos em métricas executivas, score de saúde, radar, projeção e
+interpretação de CFO digital. Pura, tipada, demo-safe, reusa os motores do
+`risk-engine`. Versão `quant/1.0.0`.
+
+- **`indicators.ts` `calcularIndicadores()`** — KPIs institucionais: liquidez
+  corrente, runway, burn rate, **burn multiple**, margem operacional/líquida,
+  receita recorrente, crescimento MoM, **eficiência operacional** (0-10), ROIC
+  (proxy), ticket médio, inadimplência, concentração/dependência, **volatilidade
+  do fluxo** (CV), sazonalidade e **qualidade da receita** (0-100). `series.ts`
+  monta a série mensal realizada + recorrência; `stat.ts` (clamp/normalizar/
+  desvioPadrao/coefVariacao).
+- **`score.ts` `scoreSaudeFinanceira()`** — 0-100 ponderado (`PESOS` somam 1.0:
+  liquidez·runway·inadimplência·margem·volatilidade·concentração·crescimento),
+  classificação excelente→crítico, fatores ±, probabilidade de ruptura e
+  **tendência** (via score temporal). `radarExecutivo()` (7 dimensões) e
+  `cenariosPreditivos()` (choques receita/despesa/inadimplência → score projetado
+  + prazo).
+- **`benchmark.ts` `motorBenchmarking()`** (margem/eficiência/inadimplência/
+  crescimento vs setor) e **`narrative.ts`** (CFO digital determinístico —
+  plugável a um LLM).
+- **Dados:** reutiliza `getRiscoInput()`; hook `useQuantitativo()`. UI em
+  `src/components/quant/QuantView.tsx` (score + radar Recharts + KPIs + evolução
+  do score + cenários + benchmark + narrativa).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
