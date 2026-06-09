@@ -28,6 +28,7 @@ import {
   Network,
   Layers,
   Target,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 
@@ -66,6 +67,7 @@ const registry: Record<string, LucideIcon> = {
   network: Network,
   layers: Layers,
   target: Target,
+  database: Database,
 };
 
 export type IconName = keyof typeof registry;

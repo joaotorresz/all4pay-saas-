@@ -345,6 +345,30 @@ motores quant/risco/crédito. Puro, explicável, demo-safe. Versão `decision/1.
   `src/components/decisao/DecisaoView.tsx` (headline + matriz de risco + Monte
   Carlo + recomendações com impacto + plano autônomo + feature store).
 
+### Financial Data Moat (`/dados`)
+
+`analisarMoat()` (`src/core/datamoat/`) — GAP 5: o moat de dados (cross-tenant
+accumulated intelligence). Transforma cada empresa em sinal de uma rede que
+aprende junto. Puro, tipado, demo-safe. Versão `datamoat/1.0.0`.
+
+- **Data Lake / coorte** (`cohort.ts`): 320 empresas **sintéticas anonimizadas**
+  (RNG semeado) com features estruturadas + desfecho histórico (escalou/
+  saudável/stress/quebrou) — substrato de benchmark e modelos. Em produção vira
+  a base cross-tenant real.
+- **Self-Improving model** (`model.ts`): regressão logística treinada por
+  gradiente na coorte (padroniza → treina → holdout). **Curva de aprendizado**
+  (acurácia cresce com o nº de empresas — o moat). `probabilidadeStress()`.
+- **Company DNA** (`dna.ts`): arquétipo (agressiva/conservadora/sazonal/
+  recorrente…) + traços + assinatura.
+- **Benchmark Engine** (`benchmark.ts`): percentil + mediana vs pares reais da
+  coorte (setor/faixa). **Behavioral models** (`behavior.ts`): KNN aos desfechos
+  da coorte → "% dos pares semelhantes entraram em stress".
+- **Credit Intelligence** (`credit.ts`): PD pelo modelo + limite recomendado +
+  confiabilidade. **Treasury network** (janelas de stress por setor).
+- **Dados:** `mapearFeatures()` usa `analisarQuantitativo`; hook `useMoat()`. UI
+  em `src/components/dados/DadosView.tsx` (DNA radar + modelo/curva de
+  aprendizado + benchmark + comportamental + crédito + treasury).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,

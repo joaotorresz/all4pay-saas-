@@ -22,6 +22,7 @@ import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
 import { centroInteligencia } from "@/core/executive";
 import { decidir } from "@/core/decision";
+import { analisarMoat } from "@/core/datamoat";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -48,6 +49,15 @@ export function useQuantitativo() {
   return {
     ...q,
     data: q.data ? analisarQuantitativo(q.data) : undefined,
+  };
+}
+
+/** Financial Data Moat: DNA, benchmark, comportamento, crédito e modelo. */
+export function useMoat() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? analisarMoat(q.data) : undefined,
   };
 }
 
