@@ -13,4 +13,10 @@ export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Money, type MoneyProps } from "./Money";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
+export {
+  DropdownMenu,
+  type DropdownMenuProps,
+  type DropdownGroup,
+  type DropdownItem,
+} from "./DropdownMenu";
 export { Icon, type IconProps, type IconName } from "./Icon";

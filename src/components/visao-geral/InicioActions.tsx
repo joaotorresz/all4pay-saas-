@@ -1,16 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Button, Pill, Card, Input, Money, Icon } from "@/components/ui";
+import { Button, Pill, Icon } from "@/components/ui";
 import { DemoBadge } from "./DemoBadge";
+import { NovoDeposito } from "./NovoDeposito";
 
 /**
- * Header actions for Início — mirrors the reference TopBar:
- * "Render mais ↗" yield pill · "Sacar" secondary · "Depositar" primary
- * (opens a deposit modal). Plus the Demonstração badge when in demo mode.
+ * Header actions for Início.
+ * "Render mais ↗" yield pill · "Sacar" secondary · "Novo depósito" primary
+ * (opens the grouped action menu). Demonstração badge when in demo mode.
  */
 export function InicioActions({ demo }: { demo: boolean }) {
-  const [deposit, setDeposit] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -36,66 +36,10 @@ export function InicioActions({ demo }: { demo: boolean }) {
       >
         Sacar
       </Button>
-      <Button
-        variant="primary"
-        leftIcon={<Icon name="plus" size={15} />}
-        onClick={() => setDeposit(true)}
-      >
-        Depositar
-      </Button>
+      <NovoDeposito />
 
-      {deposit && (
-        <DepositModal
-          onClose={() => setDeposit(false)}
-          onDone={() => {
-            setDeposit(false);
-            setToast("Depósito iniciado");
-          }}
-        />
-      )}
       {toast && <Toast text={toast} />}
     </>
-  );
-}
-
-function DepositModal({
-  onClose,
-  onDone,
-}: {
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 bg-ink/30 backdrop-blur-[2px] flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <div className="w-[420px]" onClick={(e) => e.stopPropagation()}>
-        <Card padded={false}>
-          <div className="flex items-center justify-between px-5 py-[18px] border-b border-border-soft">
-            <span className="text-[17px] font-medium">Depositar fundos</span>
-            <button
-              className="inline-flex bg-transparent cursor-pointer p-[2px]"
-              onClick={onClose}
-              aria-label="Fechar"
-            >
-              <Icon name="x" size={18} color="var(--color-text-secondary)" />
-            </button>
-          </div>
-          <div className="px-5 py-[18px] flex flex-col gap-4">
-            <Input label="Valor" prefix="R$" placeholder="0,00" defaultValue="50.000,00" />
-            <Input label="De" defaultValue="Itaú · ••4021" />
-            <div className="flex items-center justify-between px-[14px] py-3 bg-surface-2 rounded-md">
-              <span className="text-label text-muted">Novo saldo consolidado</span>
-              <Money integer="2.209.450" decimals="00" size="sm" />
-            </div>
-            <Button variant="primary" fullWidth onClick={onDone}>
-              Confirmar depósito
-            </Button>
-          </div>
-        </Card>
-      </div>
-    </div>
   );
 }
 
