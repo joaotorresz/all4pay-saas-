@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Card, Money, Skeleton, Icon } from "@/components/ui";
 import { brlParts, formatBRL } from "@/lib/format";
 import type { ReceivablesSummary } from "@/lib/types";
-import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
+import { WidgetHeader, EmptyState } from "./shared";
+import { HeroValue } from "./HeroValue";
 
 /**
  * Mirrored "A Receber" / "A Pagar" widget.
@@ -64,19 +65,14 @@ export function OpenAmountWidget({
     }
     return (
       <div className="flex flex-col gap-4">
-        {/* Hero: vencido */}
-        <div>
-          <div className="text-label font-medium text-negative">Vencido</div>
-          <div className="mt-[6px]">
-            <Money
-              integer={overdue!.integer}
-              decimals={overdue!.decimals}
-              size={30}
-              color="var(--color-negative)"
-            />
-            <VisuallyHidden>{formatBRL(summary.overdue)} vencido</VisuallyHidden>
-          </div>
-        </div>
+        {/* Hero: vencido — "Saldo total" treatment */}
+        <HeroValue
+          label="Vencido"
+          integer={overdue!.integer}
+          decimals={overdue!.decimals}
+          color="var(--color-negative)"
+          srValue={`${formatBRL(summary.overdue)} vencido`}
+        />
         {/* Secondary stats */}
         <div className="flex gap-3 pt-1 border-t border-border-soft">
           <div className="flex-1 pt-3">

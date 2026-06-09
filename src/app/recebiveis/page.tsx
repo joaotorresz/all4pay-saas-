@@ -11,7 +11,7 @@ export default function RecebiveisPage() {
   return (
     <AppShell
       title="A Receber"
-      crumb="Visão Geral"
+      crumb="Início"
       actions={isDemo ? <DemoBadge /> : null}
     >
       <MovementsTable

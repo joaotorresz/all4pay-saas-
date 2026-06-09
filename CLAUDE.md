@@ -84,26 +84,28 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
 - **`Icon`** — thin linear Lucide icons (~1.75 stroke), monochrome. Substitution
   for the product's real icon set; add new glyphs to the registry in `Icon.tsx`.
 
-`src/components/dashboard/` shows the reference composition (the Treasury
-dashboard): `Sidebar`, `TopBar`, `BalanceCard`, `AccountsList`, `InvoiceTable`,
-`TreasuryDashboard`. Copy these patterns for new screens.
+App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
+header) wraps every screen. The reference composition is the **Início**
+dashboard (`/`) — see the Feature modules section below.
 
 ---
 
 ## Feature modules
 
-### Visão Geral (`/visao-geral`) — financial dashboard
+### Início (`/`) — financial overview dashboard
 
-Reference module for data-driven screens. Five isolated widgets, each with its
-own hook and its own loading / empty / error state — the page never blocks as a
-whole.
+The home screen and the reference module for data-driven screens. Five isolated
+widgets, each with its own hook and its own loading / empty / error state — the
+page never blocks as a whole. (`/visao-geral` redirects here.)
 
 - **Widgets** (`src/components/visao-geral/`): `ReceivablesCard` & `PayablesCard`
   (mirrored `OpenAmountWidget`: hero VENCIDO in `negative`, secondary VENCE HOJE
   in `positive` + restante do mês), `AccountsCard` (saldo consolidado +
   per-account reconciliation badges), `DailyCashflowChart` (Recharts
   `ComposedChart`: diverging stacked bars + dashed accumulated-balance line,
-  period selector), `SalesChart` (12-month bars).
+  period selector), `SalesChart` (12-month bars). The amount cards use the
+  shared **`HeroValue`** (the "Saldo total" treatment: muted label · big Money
+  500 · faint R$ prefix · optional delta + dashed `Sparkline`).
 - **Data layer:** `src/lib/data.ts` exposes one accessor per widget; hooks in
   `hooks.ts` wrap them with **React Query**. Pure aggregations live in
   `src/lib/aggregations.ts` and run identically over demo and live rows.

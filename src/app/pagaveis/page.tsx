@@ -11,7 +11,7 @@ export default function PagaveisPage() {
   return (
     <AppShell
       title="A Pagar"
-      crumb="Visão Geral"
+      crumb="Início"
       actions={isDemo ? <DemoBadge /> : null}
     >
       <MovementsTable

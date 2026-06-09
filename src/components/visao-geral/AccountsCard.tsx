@@ -4,14 +4,19 @@ import * as React from "react";
 import Link from "next/link";
 import { Card, Money, Badge, Skeleton } from "@/components/ui";
 import { brlParts, formatBRL } from "@/lib/format";
-import { useAccounts } from "./hooks";
-import { WidgetHeader, EmptyState, bankColor, VisuallyHidden } from "./shared";
+import { useAccounts, useDailyCashflow } from "./hooks";
+import { WidgetHeader, EmptyState, bankColor } from "./shared";
+import { HeroValue } from "./HeroValue";
 
 /** Consolidated balance + per-account list with reconciliation badges. */
 export function AccountsCard() {
   const { data, isLoading, isError } = useAccounts();
+  const { data: flow } = useDailyCashflow(14);
 
   const total = data && brlParts(data.total);
+  // Net cash flow over the window — feeds the "Saldo total"-style trend.
+  const net = flow && flow.length ? flow[flow.length - 1].balance : 0;
+  const series = flow?.map((p) => p.balance);
 
   return (
     <Card className="h-full flex flex-col">
@@ -44,17 +49,19 @@ export function AccountsCard() {
 
       {!isLoading && !isError && data && data.accounts.length > 0 && (
         <>
-          <div>
-            <div className="text-label font-medium text-muted">
-              Saldo consolidado
-            </div>
-            <div className="mt-[6px]">
-              <Money integer={total!.integer} decimals={total!.decimals} size={30} />
-              <VisuallyHidden>
-                Saldo total consolidado de {formatBRL(data.total)}
-              </VisuallyHidden>
-            </div>
-          </div>
+          <HeroValue
+            label="Saldo consolidado"
+            integer={total!.integer}
+            decimals={total!.decimals}
+            sparkline={series}
+            delta={{
+              dir: net >= 0 ? "up" : "down",
+              tone: net >= 0 ? "positive" : "negative",
+              value: `${net >= 0 ? "+" : "−"}${formatBRL(Math.abs(net))}`,
+              context: "fluxo · últimos 14 dias",
+            }}
+            srValue={`Saldo total consolidado de ${formatBRL(data.total)}`}
+          />
 
           <ul className="mt-4 pt-1 flex flex-col">
             {data.accounts.map((acc, i) => {
