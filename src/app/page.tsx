@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+import { InicioActions } from "@/components/visao-geral/InicioActions";
 import { OverviewGrid } from "@/components/visao-geral/OverviewGrid";
 
 export const metadata: Metadata = {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <AppShell title="Início" actions={isDemo ? <DemoBadge /> : null}>
+    <AppShell title="Início" actions={<InicioActions demo={isDemo} />}>
       <OverviewGrid />
     </AppShell>
   );

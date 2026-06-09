@@ -108,7 +108,7 @@ export function OpenAmountWidget({
   return (
     <Link
       href={href}
-      className="block rounded-card outline-none focus-visible:ring-2 focus-visible:ring-ink/15 transition-shadow hover:shadow-popover"
+      className="block rounded-card outline-none focus-visible:ring-2 focus-visible:ring-ink/10 transition-shadow hover:shadow-popover"
       aria-label={`${title}: abrir lista detalhada`}
     >
       <Card className="h-full">

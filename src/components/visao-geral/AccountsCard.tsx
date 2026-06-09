@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Card, Money, Badge, Skeleton } from "@/components/ui";
+import { Card, Money, StatusBadge, Skeleton } from "@/components/ui";
 import { brlParts, formatBRL } from "@/lib/format";
 import { useAccounts, useDailyCashflow } from "./hooks";
 import { WidgetHeader, EmptyState, bankColor } from "./shared";
@@ -83,12 +83,12 @@ export function AccountsCard() {
                     {acc.pendingReconciliations > 0 ? (
                       <Link
                         href={`/conciliacao?conta=${acc.id}`}
-                        className="inline-flex items-center mt-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ink/15 rounded-sm"
+                        className="inline-flex items-center mt-[2px] rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ink/10"
                         aria-label={`${acc.pendingReconciliations} conciliações pendentes em ${acc.name}`}
                       >
-                        <Badge variant="neutral" className="!text-warning !border-warning/40">
+                        <StatusBadge tone="warning" className="!text-caption">
                           {acc.pendingReconciliations} conciliações pendentes
-                        </Badge>
+                        </StatusBadge>
                       </Link>
                     ) : (
                       <div className="text-caption text-faint mt-[2px]">
