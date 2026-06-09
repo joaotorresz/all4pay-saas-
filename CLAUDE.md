@@ -79,7 +79,11 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
 
 - **Core:** `Button` (primary/secondary/ghost/accent), `Card`, `Badge`
   (new/count/neutral), `Pill` (yield/surface/muted/ghost), `Avatar`.
-- **Forms:** `Input`, `Checkbox`.
+- **Forms:** `Input`, `Checkbox`, `Select` (styled native), `DateField`
+  (native date, ISO value), `CurrencyInput` (BRL mask → numeric value),
+  `Switch` (toggle), `Textarea`.
+- **Menus/actions:** `DropdownMenu` (grouped anchored menu, shortcut hints),
+  `SplitButton` (primary + secondary actions, e.g. "Salvar e criar outro").
 - **Data:** `Money` ★ (the signature treatment), `StatusBadge` (icon + text,
   never a filled colored pill), `Skeleton` (quiet per-widget loading
   placeholder — surface-2 + soft pulse).
@@ -124,6 +128,27 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
 
 Data libs (React Query, Recharts) are sanctioned for feature logic — they are
 **not** a second UI/token system and must never style outside the DS.
+
+### Lançamentos / "Novo depósito" (Início header)
+
+`NovoDeposito` (`src/components/visao-geral/`) is the primary header action: a
+grouped `DropdownMenu` (Lançamentos · Vendas/Compras · Cadastros) with 16 actions
+and Alt+letter shortcuts fired globally. Each action opens its own modal/form.
+
+- **`ReceitaForm`** (`src/components/lancamentos/ReceitaForm.tsx`) is the **mold**
+  for lançamentos — used for both **Receita** and **Despesa** (mirror via `kind`):
+  sections "Informações do lançamento" + "Condição de pagamento", rateio (splits),
+  repetir lançamento (recurrence), parcelamento, baixa imediata, NSU. Validates
+  required fields, toasts success/error, split-button "Salvar e criar outro".
+- **Data:** `src/lib/data.ts` adds `getCategories/getCostCenters/getParties/
+  getAccountsList` and `createLancamento` (demo-safe; live = insert into
+  `movements` + `movement_splits` + `recurrences`). Hooks per entity in
+  `src/components/lancamentos/hooks.ts` (`useCreateLancamento`, etc.).
+- **Schema:** `supabase/migrations/0002_lancamentos.sql` (`categories`,
+  `cost_centers`, `parties` with a STORED `doc_digits` dedup column,
+  `movement_splits`, `recurrences`, + new `movements` columns). **Not yet applied
+  to remote** — apply, then set `NEXT_PUBLIC_ALL4PAY_DEMO=false` to persist live.
+- The other 14 actions open a placeholder until built, reusing this mold.
 
 ## Voice & copy (this is part of the brand)
 

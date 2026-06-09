@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Button, Card, Icon, DropdownMenu, type DropdownGroup } from "@/components/ui";
+import { ReceitaForm } from "@/components/lancamentos/ReceitaForm";
 
 /**
  * "Novo depósito" — primary button that opens a grouped action menu
@@ -59,6 +60,7 @@ const SHORTCUTS: Record<string, string> = Object.fromEntries(
 
 export function NovoDeposito() {
   const [action, setAction] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<string | null>(null);
 
   // Alt+letter shortcuts — fire the matching action from anywhere.
   React.useEffect(() => {
@@ -73,6 +75,14 @@ export function NovoDeposito() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  React.useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const close = () => setAction(null);
 
   return (
     <>
@@ -95,14 +105,28 @@ export function NovoDeposito() {
         )}
       />
 
-      {action && (
-        <ActionModal
-          id={action}
-          label={LABELS[action] ?? "Ação"}
-          onClose={() => setAction(null)}
-        />
+      {/* Receita is the mold; Despesa is its mirror — both use ReceitaForm. */}
+      {action === "receita" && (
+        <ReceitaForm kind="receita" onClose={close} onToast={setToast} />
       )}
+      {action === "despesa" && (
+        <ReceitaForm kind="despesa" onClose={close} onToast={setToast} />
+      )}
+      {action && action !== "receita" && action !== "despesa" && (
+        <ActionModal id={action} label={LABELS[action] ?? "Ação"} onClose={close} />
+      )}
+
+      {toast && <Toast text={toast} />}
     </>
+  );
+}
+
+function Toast({ text }: { text: string }) {
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[14px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
+      <Icon name="check" size={15} color="var(--color-lime)" />
+      <span>{text}</span>
+    </div>
   );
 }
 

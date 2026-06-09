@@ -4,7 +4,13 @@
  * look current. Same raw shape as the Supabase tables, so the aggregation
  * functions run identically over demo and live data.
  */
-import type { FinancialAccount, Movement } from "../types";
+import type {
+  FinancialAccount,
+  Movement,
+  Category,
+  CostCenter,
+  Party,
+} from "../types";
 import { isoDay } from "../aggregations";
 
 /** Small seeded PRNG (mulberry32) — reproducible "random" amounts. */
@@ -158,3 +164,33 @@ function buildMovements(): Movement[] {
 }
 
 export const DEMO_MOVEMENTS: Movement[] = buildMovements();
+
+export const DEMO_CATEGORIES: Category[] = [
+  { id: "cat-venda", kind: "receita", name: "Venda de produtos" },
+  { id: "cat-servico", kind: "receita", name: "Prestação de serviços" },
+  { id: "cat-juros", kind: "receita", name: "Juros e rendimentos" },
+  { id: "cat-outras-rec", kind: "receita", name: "Outras receitas" },
+  { id: "cat-fornecedor", kind: "despesa", name: "Fornecedores" },
+  { id: "cat-folha", kind: "despesa", name: "Folha de pagamento" },
+  { id: "cat-aluguel", kind: "despesa", name: "Aluguel e ocupação" },
+  { id: "cat-impostos", kind: "despesa", name: "Impostos e taxas" },
+  { id: "cat-marketing", kind: "despesa", name: "Marketing" },
+];
+
+export const DEMO_COST_CENTERS: CostCenter[] = [
+  { id: "cc-comercial", name: "Comercial" },
+  { id: "cc-operacoes", name: "Operações" },
+  { id: "cc-administrativo", name: "Administrativo" },
+  { id: "cc-ti", name: "Tecnologia" },
+];
+
+export const DEMO_PARTIES: Party[] = [
+  { id: "pty-northwind", type: "pj", name: "Northwind Logística", is_customer: true },
+  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", is_customer: true },
+  { id: "pty-meridian", type: "pj", name: "Meridian Design", is_customer: true },
+  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", is_customer: true },
+  { id: "pty-costa", type: "pf", name: "Costa & Filhos", is_customer: true },
+  { id: "pty-energia", type: "pj", name: "Energia Sudeste", is_supplier: true },
+  { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", is_supplier: true },
+  { id: "pty-telecom", type: "pj", name: "Telecom Brasil", is_supplier: true },
+];

@@ -70,3 +70,67 @@ export interface MonthlySalesPoint {
   label: string; // "jul"
   total: number;
 }
+
+/* ---- Lançamentos / cadastros (migration 0002) ---- */
+
+export type CategoryKind = "receita" | "despesa";
+export type PaymentMethod =
+  | "pix"
+  | "boleto"
+  | "cartao"
+  | "dinheiro"
+  | "transferencia";
+export type RecurrenceFreq = "semanal" | "mensal" | "anual";
+export type PartyType = "pf" | "pj";
+
+export interface Category {
+  id: string;
+  kind: CategoryKind;
+  name: string;
+}
+
+export interface CostCenter {
+  id: string;
+  name: string;
+}
+
+export interface Party {
+  id: string;
+  type: PartyType;
+  name: string;
+  doc?: string | null;
+  is_customer?: boolean;
+  is_supplier?: boolean;
+  is_carrier?: boolean;
+}
+
+/** A single rateio line. */
+export interface SplitLine {
+  category_id: string | null;
+  cost_center_id: string | null;
+  percent: number | null;
+}
+
+/** Payload the Receita/Despesa form submits. `kind` flips the mirror. */
+export interface LancamentoInput {
+  kind: CategoryKind;
+  party_id: string | null;
+  competence_date: string; // ISO
+  description: string;
+  amount: number;
+  category_id: string | null;
+  cost_center_id: string | null;
+  reference_code: string | null;
+  splits: SplitLine[] | null;
+  repeat: {
+    freq: RecurrenceFreq;
+    count: number | null;
+    until: string | null;
+  } | null;
+  installments: number; // 1 = à vista
+  due_date: string; // ISO
+  payment_method: PaymentMethod | null;
+  account_id: string | null;
+  settled: boolean; // recebido / pago
+  nsu: string | null;
+}

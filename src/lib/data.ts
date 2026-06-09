@@ -8,7 +8,13 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { DEMO_ACCOUNTS, DEMO_MOVEMENTS } from "@/lib/demo/seed";
+import {
+  DEMO_ACCOUNTS,
+  DEMO_MOVEMENTS,
+  DEMO_CATEGORIES,
+  DEMO_COST_CENTERS,
+  DEMO_PARTIES,
+} from "@/lib/demo/seed";
 import {
   summarizeReceivables,
   summarizePayables,
@@ -25,6 +31,12 @@ import type {
   AccountsSummary,
   DailyCashflowPoint,
   MonthlySalesPoint,
+  Category,
+  CategoryKind,
+  CostCenter,
+  Party,
+  FinancialAccount,
+  LancamentoInput,
 } from "@/lib/types";
 
 /** Brief delay so per-widget skeletons are perceptible in demo mode. */
@@ -142,6 +154,145 @@ export async function getUnreconciledMovements(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as Movement[];
+}
+
+/* ---- Cadastros (selects for the lançamento forms) ---- */
+
+export async function getCategories(kind: CategoryKind): Promise<Category[]> {
+  if (isDemo) return DEMO_CATEGORIES.filter((c) => c.kind === kind);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id,kind,name")
+    .eq("kind", kind)
+    .eq("active", true)
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Category[];
+}
+
+export async function getCostCenters(): Promise<CostCenter[]> {
+  if (isDemo) return DEMO_COST_CENTERS;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("cost_centers")
+    .select("id,name")
+    .eq("active", true)
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as CostCenter[];
+}
+
+type PartyRole = "customer" | "supplier" | "carrier";
+
+export async function getParties(role: PartyRole): Promise<Party[]> {
+  const col = `is_${role}` as const;
+  if (isDemo)
+    return DEMO_PARTIES.filter(
+      (p) => (p as unknown as Record<string, unknown>)[col],
+    );
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("parties")
+    .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
+    .eq(col, true)
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Party[];
+}
+
+/** Lightweight account list for selects (id + name). */
+export async function getAccountsList(): Promise<FinancialAccount[]> {
+  if (isDemo) return DEMO_ACCOUNTS;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("financial_accounts")
+    .select("id,name,bank,balance")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as FinancialAccount[];
+}
+
+/** Build the movement rows for a lançamento (handles parcelamento). */
+function buildMovementRows(input: LancamentoInput, groupId: string) {
+  const type: MovementType = input.kind === "receita" ? "entrada" : "saida";
+  const n = Math.max(1, input.installments);
+  const per = Math.round((input.amount / n) * 100) / 100;
+  const base = new Date(input.due_date);
+  return Array.from({ length: n }, (_, i) => {
+    const due = new Date(base);
+    due.setMonth(base.getMonth() + i);
+    const settledNow = input.settled && i === 0;
+    return {
+      account_id: input.account_id,
+      type,
+      status: settledNow ? "pago" : "pendente",
+      category: null,
+      category_id: input.category_id,
+      cost_center_id: input.cost_center_id,
+      party_id: input.party_id,
+      amount: per,
+      due_date: isoDay(due),
+      paid_date: settledNow ? isoDay(new Date()) : null,
+      reconciled: false,
+      description: input.description,
+      competence_date: input.competence_date,
+      payment_method: input.payment_method,
+      reference_code: input.reference_code,
+      nsu: input.nsu,
+      group_id: groupId,
+      installment_no: n > 1 ? i + 1 : null,
+      installment_total: n > 1 ? n : null,
+    };
+  });
+}
+
+/** Create a lançamento (Receita/Despesa) — movements (+ splits, recurrence). */
+export async function createLancamento(input: LancamentoInput): Promise<void> {
+  const groupId =
+    globalThis.crypto?.randomUUID?.() ?? `grp-${Date.now()}`;
+
+  if (isDemo) {
+    await demoDelay();
+    return; // demo: no write, the form just confirms success
+  }
+
+  const supabase = createClient();
+  const rows = buildMovementRows(input, groupId);
+  const { data: inserted, error } = await supabase
+    .from("movements")
+    .insert(rows)
+    .select("id");
+  if (error) throw error;
+
+  const firstId = inserted?.[0]?.id;
+  if (input.splits?.length && firstId) {
+    const { error: se } = await supabase.from("movement_splits").insert(
+      input.splits.map((s) => ({
+        movement_id: firstId,
+        category_id: s.category_id,
+        cost_center_id: s.cost_center_id,
+        percent: s.percent,
+      })),
+    );
+    if (se) throw se;
+  }
+
+  if (input.repeat) {
+    const { error: re } = await supabase.from("recurrences").insert({
+      party_id: input.party_id,
+      type: input.kind === "receita" ? "entrada" : "saida",
+      description: input.description,
+      amount: input.amount,
+      freq: input.repeat.freq,
+      start_date: input.due_date,
+      end_date: input.repeat.until,
+      category_id: input.category_id,
+      cost_center_id: input.cost_center_id,
+      due_day: new Date(input.due_date).getDate(),
+    });
+    if (re) throw re;
+  }
 }
 
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
