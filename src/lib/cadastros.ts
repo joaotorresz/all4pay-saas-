@@ -12,6 +12,8 @@ import {
   DEMO_SALESPEOPLE,
   DEMO_PRODUCTS,
   DEMO_SERVICES,
+  DEMO_PARTIES,
+  DEMO_SALES,
 } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
 import type {
@@ -20,6 +22,8 @@ import type {
   Salesperson,
   Product,
   Service,
+  Party,
+  SaleDocRow,
   TransferenciaInput,
   SaleDocInput,
   ContratoInput,
@@ -72,6 +76,61 @@ export async function getServices(): Promise<Service[]> {
   const { data, error } = await s.from("services").select("id,name").order("name");
   if (error) throw error;
   return (data ?? []) as Service[];
+}
+
+/* ---- listings ---- */
+export async function listProducts(): Promise<Product[]> {
+  if (isDemo) return DEMO_PRODUCTS;
+  const s = createClient();
+  const { data, error } = await s
+    .from("products")
+    .select("id,name,sku,sale_price")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Product[];
+}
+export async function listServices(): Promise<Service[]> {
+  if (isDemo) return DEMO_SERVICES;
+  const s = createClient();
+  const { data, error } = await s
+    .from("services")
+    .select("id,name,price")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Service[];
+}
+/** All clientes + fornecedores, for the Contatos screen. */
+export async function listParties(): Promise<Party[]> {
+  if (isDemo) return DEMO_PARTIES;
+  const s = createClient();
+  const { data, error } = await s
+    .from("parties")
+    .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Party[];
+}
+export async function listSales(): Promise<SaleDocRow[]> {
+  if (isDemo) return DEMO_SALES;
+  const s = createClient();
+  const { data, error } = await s
+    .from("sales_docs")
+    .select("id,kind,item_kind,doc_date,total,status,parties(name)")
+    .order("doc_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    const party = row.parties as { name?: string } | null;
+    return {
+      id: String(row.id),
+      kind: row.kind as SaleDocRow["kind"],
+      item_kind: row.item_kind as SaleDocRow["item_kind"],
+      party_name: party?.name ?? "—",
+      doc_date: String(row.doc_date),
+      total: Number(row.total ?? 0),
+      status: String(row.status),
+    };
+  });
 }
 
 /* ---- writes ---- */

@@ -156,10 +156,24 @@ export interface Salesperson {
 export interface Product {
   id: string;
   name: string;
+  sku?: string | null;
+  sale_price?: number;
 }
 export interface Service {
   id: string;
   name: string;
+  price?: number;
+}
+
+/** Row shown in the Vendas listing. */
+export interface SaleDocRow {
+  id: string;
+  kind: SaleDocKind;
+  item_kind: ItemKind;
+  party_name: string;
+  doc_date: string;
+  total: number;
+  status: string;
 }
 
 export interface TransferenciaInput {

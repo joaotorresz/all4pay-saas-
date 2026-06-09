@@ -22,6 +22,10 @@ import {
   createService,
   createBrand,
   createUnit,
+  listProducts,
+  listServices,
+  listParties,
+  listSales,
 } from "@/lib/cadastros";
 import type { CategoryKind } from "@/lib/types";
 
@@ -137,4 +141,18 @@ export function useCreateUnit() {
     mutationFn: createUnit,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["units"] }),
   });
+}
+
+/* ---- listing queries ---- */
+export function useProductsList() {
+  return useQuery({ queryKey: ["products-list"], queryFn: listProducts });
+}
+export function useServicesList() {
+  return useQuery({ queryKey: ["services-list"], queryFn: listServices });
+}
+export function usePartiesList() {
+  return useQuery({ queryKey: ["parties-list"], queryFn: listParties });
+}
+export function useSalesList() {
+  return useQuery({ queryKey: ["sales-list"], queryFn: listSales });
 }

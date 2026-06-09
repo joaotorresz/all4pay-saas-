@@ -159,6 +159,14 @@ writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
   files, NOT applied to remote** — apply both, then set
   `NEXT_PUBLIC_ALL4PAY_DEMO=false` to persist live.
 
+### Telas de listagem
+
+Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
+(clientes + fornecedores), `/vendas`. Shared kit in
+`src/components/listas/ListChrome.tsx` (`EntityTable` generic, `NewButton` that
+opens the matching form, `useToast`). List data via `list*` accessors in
+`src/lib/cadastros.ts` + `use*List` hooks. Sidebar links to all of them.
+
 ## Voice & copy (this is part of the brand)
 
 - Sober, confident, operational — finance operators, not consumers.

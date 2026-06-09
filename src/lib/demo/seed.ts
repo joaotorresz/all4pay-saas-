@@ -15,6 +15,7 @@ import type {
   Brand,
   Unit,
   Salesperson,
+  SaleDocRow,
 } from "../types";
 import { isoDay } from "../aggregations";
 
@@ -190,14 +191,14 @@ export const DEMO_COST_CENTERS: CostCenter[] = [
 ];
 
 export const DEMO_PARTIES: Party[] = [
-  { id: "pty-northwind", type: "pj", name: "Northwind Logística", is_customer: true },
-  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", is_customer: true },
-  { id: "pty-meridian", type: "pj", name: "Meridian Design", is_customer: true },
-  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", is_customer: true },
-  { id: "pty-costa", type: "pf", name: "Costa & Filhos", is_customer: true },
-  { id: "pty-energia", type: "pj", name: "Energia Sudeste", is_supplier: true },
-  { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", is_supplier: true },
-  { id: "pty-telecom", type: "pj", name: "Telecom Brasil", is_supplier: true },
+  { id: "pty-northwind", type: "pj", name: "Northwind Logística", doc: "12.345.678/0001-90", is_customer: true },
+  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", doc: "23.456.789/0001-01", is_customer: true },
+  { id: "pty-meridian", type: "pj", name: "Meridian Design", doc: "34.567.890/0001-12", is_customer: true },
+  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", doc: "45.678.901/0001-23", is_customer: true },
+  { id: "pty-costa", type: "pf", name: "Costa & Filhos", doc: "123.456.789-09", is_customer: true },
+  { id: "pty-energia", type: "pj", name: "Energia Sudeste", doc: "56.789.012/0001-34", is_supplier: true },
+  { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", doc: "67.890.123/0001-45", is_supplier: true },
+  { id: "pty-telecom", type: "pj", name: "Telecom Brasil", doc: "78.901.234/0001-56", is_supplier: true },
 ];
 
 export const DEMO_BRANDS: Brand[] = [
@@ -220,14 +221,21 @@ export const DEMO_SALESPEOPLE: Salesperson[] = [
 ];
 
 export const DEMO_PRODUCTS: Product[] = [
-  { id: "prd-1", name: "Notebook Pro 14" },
-  { id: "prd-2", name: "Monitor 27 4K" },
-  { id: "prd-3", name: "Teclado mecânico" },
-  { id: "prd-4", name: "Cadeira ergonômica" },
+  { id: "prd-1", name: "Notebook Pro 14", sku: "NB-14", sale_price: 7499.0 },
+  { id: "prd-2", name: "Monitor 27 4K", sku: "MN-27", sale_price: 2190.0 },
+  { id: "prd-3", name: "Teclado mecânico", sku: "TC-01", sale_price: 459.9 },
+  { id: "prd-4", name: "Cadeira ergonômica", sku: "CAD-ER", sale_price: 1899.0 },
 ];
 
 export const DEMO_SERVICES: Service[] = [
-  { id: "srv-1", name: "Consultoria (hora)" },
-  { id: "srv-2", name: "Implantação" },
-  { id: "srv-3", name: "Suporte mensal" },
+  { id: "srv-1", name: "Consultoria (hora)", price: 320.0 },
+  { id: "srv-2", name: "Implantação", price: 8500.0 },
+  { id: "srv-3", name: "Suporte mensal", price: 1200.0 },
+];
+
+export const DEMO_SALES: SaleDocRow[] = [
+  { id: "vd-1041", kind: "venda", item_kind: "produto", party_name: "Aurora Varejo", doc_date: isoDay(new Date()), total: 18990.0, status: "aberto" },
+  { id: "vd-1040", kind: "venda", item_kind: "servico", party_name: "Atlas Cloud Ltda", doc_date: isoDay(new Date(Date.now() - 2 * 864e5)), total: 8500.0, status: "faturado" },
+  { id: "or-0210", kind: "orcamento", item_kind: "produto", party_name: "Meridian Design", doc_date: isoDay(new Date(Date.now() - 3 * 864e5)), total: 4590.0, status: "orcamento" },
+  { id: "cp-0339", kind: "compra", item_kind: "produto", party_name: "Fornecedor Têxtil SA", doc_date: isoDay(new Date(Date.now() - 5 * 864e5)), total: 12300.5, status: "aberto" },
 ];

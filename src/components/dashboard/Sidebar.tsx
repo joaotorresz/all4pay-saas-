@@ -27,10 +27,10 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { id: "home", label: "Início", icon: "house", href: "/" },
-  { id: "payments", label: "Pagamentos", icon: "arrow-left-right", badge: "new" },
-  { id: "fx", label: "Câmbio", icon: "repeat", badge: "new" },
-  { id: "invoices", label: "Faturas", icon: "file-text" },
-  { id: "cards", label: "Cartões", icon: "credit-card" },
+  { id: "vendas", label: "Vendas", icon: "arrow-left-right", href: "/vendas" },
+  { id: "produtos", label: "Produtos", icon: "credit-card", href: "/produtos" },
+  { id: "servicos", label: "Serviços", icon: "repeat", href: "/servicos" },
+  { id: "contatos", label: "Contatos", icon: "file-text", href: "/contatos" },
 ];
 
 const FOOTER = [
