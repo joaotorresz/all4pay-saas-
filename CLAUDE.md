@@ -61,7 +61,9 @@ the CSS variables (`var(--color-ink)`) only where Tailwind can't go — SVG
   large fills.
 - **Type scale:** `text-display` 52 · `text-h1` 40 · `text-value-lg` 32 ·
   `text-h2` 28 · `text-h3` 20 · `text-body` 15 · `text-label` 13 ·
-  `text-caption` 12. **Only two working weights: 400 / 500.** No bold in the app.
+  `text-caption` 12. **Working weights: 400 / 500.** The single sanctioned
+  exception is the **page title** (`AppShell` h1, 29px) at **600** — matches the
+  reference design's header. No 700 bold anywhere in the app.
 - **Radii:** `rounded-card` 16 · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
 - **Shadows:** `shadow-card`, `shadow-popover`, `shadow-pill`. Whisper-soft —

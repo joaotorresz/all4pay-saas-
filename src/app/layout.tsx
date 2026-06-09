@@ -10,7 +10,9 @@ import "./globals.css";
  */
 const hanken = Hanken_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  // 400/500 are the working weights; 600 is reserved for page titles
+  // (matches the reference design's header). See CLAUDE.md.
+  weight: ["400", "500", "600", "700"],
   variable: "--font-hanken",
   display: "swap",
 });
