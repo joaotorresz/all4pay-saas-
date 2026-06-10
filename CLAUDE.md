@@ -528,6 +528,18 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   `runtime nodejs`). Gated por env (`TWILIO_ACCOUNT_SID/AUTH_TOKEN/WHATSAPP_FROM`
   + `ALERTS_WHATSAPP_TO`; `RESEND_API_KEY` + `ALERTS_EMAIL_FROM/TO`); sem chaves
   → simulado. `statusNotificacoes()` reporta o que está ativo.
+  - **Cobrança por cliente** (`dispararCobrancas` + `POST /api/cobranca/whatsapp`):
+    loop sobre inadimplentes com telefone (cadastro de Contatos). A segmentação é
+    do all4pay; a Twilio só entrega. Disparado de `/autonomo`.
+  - **Teste manual** (`testarWhatsapp` + `GET/POST /api/notificacoes/teste`):
+    valida o Twilio na hora, sem depender de eventos/cron. Sem `CRON_SECRET`,
+    só envia para `ALERTS_WHATSAPP_TO` (anti-relay); com ele, exige Bearer.
+  - **Templates aprovados** (produção, fora da janela de 24h): `TWILIO_TEMPLATE_COBRANCA_SID`
+    (ContentSid HX…, variáveis 1=nome · 2=valor) e `TWILIO_TEMPLATE_ALERTA_SID`
+    (variável 1=texto). Quando definidos, `enviarWhatsapp` usa ContentSid +
+    ContentVariables; senão, free-form (Body). **A transição sandbox→produção é só
+    de ambiente** — o código não muda. `statusNotificacoes()` reporta
+    `templateCobranca`/`templateAlerta`.
 - **Live operacional** (`src/lib/financial-os.ts`): `loadAutomacoes()` carrega
   as regras de `financial_rules` (semeia os defaults se vazio) e roda a
   simulação sobre **eventos derivados do estado real** (`eventosDoInput` sobre

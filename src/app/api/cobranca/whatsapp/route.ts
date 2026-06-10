@@ -14,9 +14,17 @@ export async function POST(req: Request) {
   const lista: unknown[] = Array.isArray(body?.alvos) ? body.alvos : [];
   const alvos: AlvoCobranca[] = lista
     .slice(0, 200)
-    .filter((a): a is { cliente?: string; telefone?: string; mensagem?: string } => !!a && typeof a === "object")
+    .filter((a): a is { cliente?: string; telefone?: string; mensagem?: string; variaveis?: Record<string, string> } => !!a && typeof a === "object")
     .filter((a) => typeof a.telefone === "string" && a.telefone.trim().length > 0 && typeof a.mensagem === "string")
-    .map((a) => ({ cliente: String(a.cliente ?? "Cliente"), telefone: a.telefone!.trim(), mensagem: String(a.mensagem).slice(0, 400) }));
+    .map((a) => ({
+      cliente: String(a.cliente ?? "Cliente"),
+      telefone: a.telefone!.trim(),
+      mensagem: String(a.mensagem).slice(0, 400),
+      variaveis:
+        a.variaveis && typeof a.variaveis === "object"
+          ? Object.fromEntries(Object.entries(a.variaveis).slice(0, 10).map(([k, v]) => [String(k), String(v).slice(0, 200)]))
+          : undefined,
+    }));
 
   const enviados = await dispararCobrancas(alvos);
   return NextResponse.json({

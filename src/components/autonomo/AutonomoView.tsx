@@ -193,7 +193,13 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
   const disparar = async () => {
     setEnviando(true);
     try {
-      const alvos = enviaveis.map(({ c, tel }) => ({ cliente: c.cliente, telefone: tel as string, mensagem: mensagemCobranca(c) }));
+      const alvos = enviaveis.map(({ c, tel }) => ({
+        cliente: c.cliente,
+        telefone: tel as string,
+        mensagem: mensagemCobranca(c),
+        // Variáveis do template aprovado (usadas em produção): {{1}} nome, {{2}} valor.
+        variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
+      }));
       const res = await fetch("/api/cobranca/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alvos }) });
       const j = await res.json();
       const map: Record<string, string> = {};
@@ -234,7 +240,7 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
         </div>
       )}
       <span className="text-caption text-faint">
-        Os alvos com telefone cadastrado recebem a cobrança no WhatsApp (via Twilio, server-side). Sem credenciais, o envio é simulado. Cadastre telefones em Contatos para ativar mais clientes.
+        Os alvos com telefone cadastrado recebem a cobrança no WhatsApp (via Twilio, server-side). Sem credenciais, o envio é simulado. Em produção, com um template aprovado configurado, a mensagem usa o template (variável 1 = nome · 2 = valor). Cadastre telefones em Contatos para ativar mais clientes.
       </span>
       {status._erro && <span className="text-caption text-negative">{status._erro}</span>}
     </Card>
