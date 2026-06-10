@@ -20,6 +20,18 @@ import { uid } from "./types";
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
 
+/** Normaliza o nome da contraparte: remove prefixos de transação, sufixos
+ * societários e conectores — base da resolução de entidades. */
+const PREFIXOS = /\b(pix|ted|doc|boleto|pagamento|pgto|recebido|recebimento|receb|cartao|compra|debito|credito|transferencia|transf|stone|cielo|rede|getnet|deposito|saque|de)\b/gi;
+const SUFIXOS = /\b(ltda|me|epp|s\/?a|eireli|comercio|comercial|industria|incorporadora)\b/gi;
+const CONECTORES = /\b(e|da|do|dos|das)\b/gi;
+function normalizarNome(raw: string): string {
+  let s = raw.toUpperCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
+  s = s.replace(/[^A-Z0-9 ]/g, " ");
+  s = s.replace(PREFIXOS, " ").replace(SUFIXOS, " ").replace(CONECTORES, " ");
+  return s.replace(/\s+/g, " ").trim();
+}
+
 /* ============ Ingestão ============ */
 export interface ParseResult {
   records: FinancialRecord[];
@@ -49,7 +61,7 @@ function parseValor(s: string): { valor: number; sign: number } | null {
 }
 
 function mkRecord(data: string, valorSigned: { valor: number; sign: number }, desc: string, doc?: string): FinancialRecord {
-  const contraparte = limparContraparte(desc) || desc.trim();
+  const contraparte = normalizarNome(desc) || (limparContraparte(desc) || desc.trim());
   return {
     id: uid("rec"),
     data,
@@ -145,17 +157,17 @@ interface Cat {
   assinatura?: boolean;
 }
 const CATS: Cat[] = [
-  { id: "Assinaturas / software", re: /netflix|spotify|amazon web|aws|adobe|openai|chatgpt|google (cloud|workspace|ads)?|microsoft|office ?365|github|figma|slack|notion|dropbox|hubspot|salesforce|vercel|cloudflare|canva|zoom/, assinatura: true },
+  { id: "Marketing", re: /google ads|meta ads|facebook ads|instagram ads|\bads\b|marketing|midia|impulsionamento/ },
+  { id: "Assinaturas / software", re: /netflix|spotify|amazon web|\baws\b|adobe|openai|chatgpt|google (cloud|workspace)|gworkspace|microsoft|office ?365|github|figma|slack|notion|dropbox|hubspot|salesforce|vercel|cloudflare|canva|zoom/, assinatura: true },
   { id: "Combustível", re: /posto|shell|ipiranga|petrobras|br distribu|texaco|ale combust|combustivel/ },
   { id: "Folha de pagamento", re: /folha|salario|pro.?labore|rescis|ferias|decimo terceiro|13.? salario|vale (transporte|refeic|aliment)|pessoal/ },
   { id: "Aluguel", re: /aluguel|locacao|condominio|imobiliaria/ },
   { id: "Utilidades", re: /energia|enel|cemig|copel|light|cpfl|sabesp|comgas|\bagua\b|internet|vivo|claro|\btim\b|telefon|net ?claro/ },
-  { id: "Marketing", re: /google ads|meta ads|facebook ads|instagram ads|\bads\b|marketing|midia/ },
   { id: "Impostos", re: /\bdas\b|\bdarf\b|\bgps\b|\binss\b|\bfgts\b|\biss\b|icms|\bpis\b|cofins|irpj|csll|simples nacional|imposto|tribut/, destino: "Imposto" },
   { id: "Tarifas bancárias", re: /tarifa|\biof\b|juros|cesta de|manutencao de conta|pacote de servic|taxa banc/, destino: "Tarifa bancária" },
   { id: "Fornecedores / insumos", re: /fornecedor|atacad|distribuidora|insumo|materia.?prima|comercio|industria|compra/ },
 ];
-const TRANSFER_RE = /transfer|ted entre|entre contas|resgate|aplicac|movimentacao interna|p2p interno/;
+export const TRANSFER_RE = /transfer|ted entre|entre contas|resgate|aplicac|movimentacao interna|p2p interno/;
 
 export function classificarRecord(r: FinancialRecord): Classificacao {
   const txt = norm(`${r.descricao} ${r.contraparte}`);
@@ -197,6 +209,7 @@ export function resolverEntidades(records: FinancialRecord[]): Entidade[] {
   const map = new Map<string, { aliases: Set<string>; total: number; entradas: number; saidas: number; n: number }>();
   for (const r of records) {
     if (!r.contraparteNorm) continue;
+    if (TRANSFER_RE.test(norm(`${r.descricao} ${r.contraparte}`))) continue; // transferência não é cliente/fornecedor
     const cur = map.get(r.contraparteNorm) ?? { aliases: new Set(), total: 0, entradas: 0, saidas: 0, n: 0 };
     cur.aliases.add(r.contraparte);
     cur.total += r.valor;

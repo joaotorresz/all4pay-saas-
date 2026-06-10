@@ -74,6 +74,13 @@ export function ImportView() {
             Carregar arquivo
             <input type="file" accept=".csv,.ofx,.txt,text/*" onChange={onFile} className="hidden" />
           </label>
+          <a
+            href="/exemplos/extrato-exemplo-all4pay.csv"
+            download
+            className="text-label font-medium text-muted hover:text-ink underline ml-auto"
+          >
+            Baixar CSV de exemplo (12 meses)
+          </a>
         </div>
         <div className="flex flex-wrap gap-1 pt-1">
           {FONTES_ATIVAS.map((f) => (
