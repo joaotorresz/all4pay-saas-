@@ -58,7 +58,7 @@ export function DecisaoView() {
       <Card className="lg:col-span-3 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-ink)" />
+            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Decisão financeira · brief executivo</span>
         </div>
@@ -224,12 +224,12 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
     <div role="img" aria-label="Projeção de caixa por Monte Carlo (bandas p10, p50, p90)">
       <ResponsiveContainer width="100%" height={150}>
         <LineChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: -12 }}>
-          <CartesianGrid stroke="#EFEFEF" vertical={false} />
-          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} />
-          <YAxis tick={{ fontSize: 10, fill: "#959595" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
+          <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+          <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
           <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
           <Tooltip
-            cursor={{ stroke: "#E9E9E9" }}
+            cursor={{ stroke: "var(--color-border)" }}
             content={({ active, payload }: any) =>
               active && payload?.length ? (
                 <div className="bg-white rounded-card border border-border shadow-popover px-3 py-2 text-caption tabular-nums">
@@ -238,9 +238,9 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
               ) : null
             }
           />
-          <Line type="monotone" dataKey="p90" stroke="#C9C9C7" strokeWidth={1} dot={false} />
+          <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
           <Line type="monotone" dataKey="p50" stroke="var(--color-ink)" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="p10" stroke="#C9C9C7" strokeWidth={1} dot={false} />
+          <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

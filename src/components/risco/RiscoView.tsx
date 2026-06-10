@@ -85,7 +85,7 @@ export function RiscoView() {
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-ink)" />
+            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Interpretação executiva</span>
         </div>
@@ -265,13 +265,13 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
               <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0" />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#EFEFEF" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} interval={9} />
-          <YAxis tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatBRLCompact(v)} />
+          <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={9} />
+          <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatBRLCompact(v)} />
           <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
           {rupturaLabel && <ReferenceLine x={rupturaLabel} stroke="var(--color-negative)" strokeWidth={1} />}
           <Tooltip
-            cursor={{ stroke: "#E9E9E9" }}
+            cursor={{ stroke: "var(--color-border)" }}
             content={({ active, payload, label }: any) =>
               active && payload?.length ? (
                 <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">

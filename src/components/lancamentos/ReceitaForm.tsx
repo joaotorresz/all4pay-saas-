@@ -188,7 +188,7 @@ export function ReceitaForm({
 
   return (
     <div
-      className="fixed inset-0 bg-ink/30 backdrop-blur-[2px] flex items-start justify-center z-50 p-6 overflow-y-auto"
+      className="fixed inset-0 bg-black/30 backdrop-blur-[2px] flex items-start justify-center z-50 p-6 overflow-y-auto"
       onClick={onClose}
     >
       <div className="w-[600px] max-w-full my-auto" onClick={(e) => e.stopPropagation()}>

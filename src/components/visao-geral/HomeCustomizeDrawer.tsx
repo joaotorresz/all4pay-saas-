@@ -81,7 +81,7 @@ export function HomeCustomizeDrawer({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-soft">
           <div className="flex items-center gap-2">
             <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-              <Icon name="settings" size={14} color="var(--color-ink)" />
+              <Icon name="settings" size={14} color="var(--color-on-lime)" />
             </span>
             <span className="text-h3 font-medium text-ink">Personalizar Home</span>
           </div>

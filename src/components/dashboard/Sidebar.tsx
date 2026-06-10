@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge, Avatar, Icon } from "@/components/ui";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -227,6 +228,7 @@ export function Sidebar({
             </button>
           );
         })}
+        <ThemeToggle collapsed={collapsed} />
         <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
           <Avatar name="Operador Um" size={30} />
           {!collapsed && (

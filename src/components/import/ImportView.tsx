@@ -167,7 +167,7 @@ function Resultado({
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-ink)" />
+            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Análise concluída · descobrimos</span>
         </div>

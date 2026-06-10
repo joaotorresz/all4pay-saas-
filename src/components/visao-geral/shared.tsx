@@ -12,7 +12,7 @@ const BANK_COLORS: Record<string, string> = {
   inter: "#FF7A00",
   santander: "#EC0000",
 };
-export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "#797975";
+export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
 
 /** Section title for a widget, with an optional right-aligned slot. */
 export function WidgetHeader({

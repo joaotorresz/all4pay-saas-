@@ -73,7 +73,7 @@ function Copilot({ ctx }: { ctx: Parameters<typeof copilotoFinanceiro>[1] }) {
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-          <Icon name="sparkles" size={14} color="var(--color-ink)" />
+          <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
         </span>
         <span className="text-label font-medium text-muted">Copiloto financeiro</span>
       </div>
@@ -238,10 +238,10 @@ function ForecastCard({ forecast }: { forecast: import("@/core/executive/types")
       <div role="img" aria-label={forecast.texto}>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={forecast.serie} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-            <CartesianGrid stroke="#EFEFEF" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} />
-            <YAxis tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => formatBRLCompact(v)} />
-            <ReferenceLine y={0} stroke="#E9E9E9" />
+            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => formatBRLCompact(v)} />
+            <ReferenceLine y={0} stroke="var(--color-border)" />
             <Tooltip
               cursor={{ fill: "rgba(0,0,0,0.03)" }}
               content={({ active, payload, label }: any) =>
@@ -255,7 +255,7 @@ function ForecastCard({ forecast }: { forecast: import("@/core/executive/types")
             />
             <Bar dataKey="valor" radius={[3, 3, 0, 0]}>
               {forecast.serie.map((p, i) => (
-                <Cell key={i} fill={p.tipo === "previsto" ? "#C9C9C7" : "var(--color-ink)"} />
+                <Cell key={i} fill={p.tipo === "previsto" ? "var(--color-border)" : "var(--color-ink)"} />
               ))}
             </Bar>
           </BarChart>

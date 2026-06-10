@@ -166,7 +166,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
             <Card className="flex flex-col gap-3" style={{ background: "var(--color-surface-2)" }} elevated={false}>
               <div className="flex items-center gap-2">
                 <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-                  <Icon name="trending-up" size={14} color="var(--color-ink)" />
+                  <Icon name="trending-up" size={14} color="var(--color-on-lime)" />
                 </span>
                 <span className="text-label font-medium text-muted">Alerta executivo · ponte de risco</span>
               </div>
@@ -182,7 +182,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
             <Card className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-                  <Icon name="sparkles" size={14} color="var(--color-ink)" />
+                  <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
                 </span>
                 <span className="text-label font-medium text-muted">IA sugere regras</span>
               </div>

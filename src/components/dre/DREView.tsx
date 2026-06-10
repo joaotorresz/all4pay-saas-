@@ -97,7 +97,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
       <Card className="lg:col-span-3 flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-ink)" />
+            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Leitura do resultado · copiloto</span>
         </div>

@@ -19,11 +19,11 @@ import { useDailyCashflow } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 
-const POSITIVE = "#3F8F5B";
-const NEGATIVE = "#C2473D";
-const INK = "#171717";
-const GRID = "#EFEFEF";
-const FAINT = "#959595";
+const POSITIVE = "var(--color-positive)";
+const NEGATIVE = "var(--color-negative)";
+const INK = "var(--color-ink)";
+const GRID = "var(--color-border-soft)";
+const FAINT = "var(--color-text-tertiary)";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -125,7 +125,7 @@ export function DailyCashflowChart() {
                 tickFormatter={(v) => formatBRLCompact(v)}
               />
               <YAxis yAxisId="balance" orientation="right" hide />
-              <ReferenceLine yAxisId="flow" y={0} stroke="#E9E9E9" />
+              <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
               <Tooltip
                 content={<CashflowTooltip />}
                 cursor={{ fill: "rgba(23,23,23,0.04)" }}

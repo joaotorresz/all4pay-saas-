@@ -30,6 +30,7 @@
   --color-lime: #dcff00;
   --color-lime-alt: #e0f80a;
   --color-lime-tint: #f8ffcb;
+  --color-on-lime: #171717; /* text/icon ON bright lime — dark in BOTH themes */
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
@@ -50,10 +51,53 @@
   --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* ============================================================
+   Dark mode — mesma linguagem do DS, invertida. Cores extraídas
+   da referência (near-black + lime acento + texto near-white).
+   `html.dark` é aplicado pelo ThemeToggle / script anti-flash.
+   Só as NEUTRAS invertem; lime/on-lime e o número-herói seguem
+   mandando. Status levemente clareados para legibilidade no escuro.
+   ============================================================ */
+html.dark {
+  /* Neutrals (invertidas) */
+  --color-ink: #f4f4f2; /* texto primário, números — near-white (não branco puro) */
+  --color-ink-soft: #fafafa;
+  --color-white: #161616; /* superfície de card/elevada */
+  --color-surface-1: #0e0e0e; /* fundo da página (near-black, nunca #000 no app) */
+  --color-surface-2: #1b1b1b; /* hover de linha / seção */
+  --color-surface-3: #232323;
+  --color-border: #2a2a2a;
+  --color-border-soft: #202020;
+  --color-text-secondary: #9b9b96; /* muted */
+  --color-text-tertiary: #6f6f6c; /* faint */
+  --color-text-quaternary: #565654; /* placeholder */
+
+  /* Accent — lime manda igual; o wash (tint) vira um olival escuro */
+  --color-lime-tint: #23270d;
+  /* on-lime continua #171717 (texto escuro no lime brilhante) */
+
+  /* Status — clareados ~1 passo para contraste no escuro */
+  --color-warning: #f0962e;
+  --color-positive: #57a877;
+  --color-negative: #d8584c;
+
+  /* Sombras mais densas (elevação no escuro) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-popover: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --shadow-pill: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
 @layer base {
   html,
   body {
     height: 100%;
+  }
+  html {
+    background: var(--color-surface-1);
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -77,5 +121,8 @@
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
+  }
+  html.dark ::-webkit-scrollbar-thumb {
+    background: #2e2e2e;
   }
 }

@@ -345,7 +345,7 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="sparkles" size={14} color="var(--color-ink)" /></span>
+        <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="sparkles" size={14} color="var(--color-on-lime)" /></span>
         <span className="text-label font-medium text-muted">Análise da IA · DNA financeiro</span>
       </div>
       {/* DNA */}

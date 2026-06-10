@@ -20,7 +20,7 @@ export function FirstRunCard() {
     <Card className="flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <span className="w-[34px] h-[34px] rounded-md bg-lime inline-flex items-center justify-center shrink-0">
-          <Icon name="sparkles" size={18} color="var(--color-ink)" />
+          <Icon name="sparkles" size={18} color="var(--color-on-lime)" />
         </span>
         <div className="min-w-0">
           <h2 className="m-0 text-h3 font-medium text-ink">Vamos dar vida ao seu painel</h2>

@@ -54,8 +54,8 @@ export function DadosView() {
         <div role="img" aria-label={`DNA: ${dna.tracos.map((t) => `${t.nome} ${t.valor}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={200}>
             <RadarChart data={dna.tracos} outerRadius="72%">
-              <PolarGrid stroke="#EFEFEF" />
-              <PolarAngleAxis dataKey="nome" tick={{ fontSize: 10, fill: "#797975" }} />
+              <PolarGrid stroke="var(--color-border-soft)" />
+              <PolarAngleAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--color-text-secondary)" }} />
               <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={2} />
             </RadarChart>
           </ResponsiveContainer>
@@ -150,7 +150,7 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="database" size={14} color="var(--color-ink)" />
+            <Icon name="database" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Modelo proprietário · auto-aprendiz</span>
         </div>
@@ -164,11 +164,11 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
       <div role="img" aria-label={`Curva de aprendizado: de ${Math.round(pri.acuracia * 100)}% com ${pri.n} empresas a ${Math.round(ult.acuracia * 100)}% com ${ult.n}.`}>
         <ResponsiveContainer width="100%" height={170}>
           <LineChart data={modelo.curvaAprendizado} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
-            <CartesianGrid stroke="#EFEFEF" vertical={false} />
-            <XAxis dataKey="n" tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} label={{ value: "nº de empresas", position: "insideBottom", offset: -2, fontSize: 10, fill: "#959595" }} />
-            <YAxis domain={[0.6, 1]} tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
+            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+            <XAxis dataKey="n" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} label={{ value: "nº de empresas", position: "insideBottom", offset: -2, fontSize: 10, fill: "var(--color-text-tertiary)" }} />
+            <YAxis domain={[0.6, 1]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
             <Tooltip
-              cursor={{ stroke: "#E9E9E9" }}
+              cursor={{ stroke: "var(--color-border)" }}
               content={({ active, payload, label }: any) =>
                 active && payload?.length ? (
                   <div className="bg-white rounded-card border border-border shadow-popover px-3 py-2 text-caption tabular-nums">

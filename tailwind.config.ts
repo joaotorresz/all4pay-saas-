@@ -23,30 +23,33 @@ const config: Config = {
     extend: {
       colors: {
         // ---- Neutrals (the backbone) ----
+        // Var-backed so the whole DS flips in dark mode (html.dark in globals.css).
+        // Inline/SVG uses read the same vars — single source of truth at runtime.
         "black-pure": "#000000", // hero/marketing background ONLY
         ink: {
-          DEFAULT: "#171717", // primary app text, solid buttons, numbers
-          soft: "#0C0C0B", // near-black variant
+          DEFAULT: "var(--color-ink)", // primary app text, solid buttons, numbers
+          soft: "var(--color-ink-soft)", // near-black variant
         },
-        white: "#FFFFFF",
+        white: "var(--color-white)", // card/raised surface (flips to dark)
+        "on-lime": "var(--color-on-lime)", // text/icon ON bright lime — always dark
         surface: {
-          1: "#FDFDFD", // subtly off-white surface
-          2: "#F7F7F5", // row hover / zebra, section background
-          3: "#F4F4F3", // tertiary surface
+          1: "var(--color-surface-1)", // page surface
+          2: "var(--color-surface-2)", // row hover / zebra, section background
+          3: "var(--color-surface-3)", // tertiary surface
         },
         border: {
-          DEFAULT: "#E9E9E9", // card borders, dividers, inputs
-          soft: "#EFEFEF", // lighter dividers
+          DEFAULT: "var(--color-border)", // card borders, dividers, inputs
+          soft: "var(--color-border-soft)", // lighter dividers
         },
-        muted: "#797975", // secondary text / labels
-        faint: "#959595", // currency prefix + decimals, disabled
-        placeholder: "#B3B3B2", // very subtle text, placeholders
+        muted: "var(--color-text-secondary)", // secondary text / labels
+        faint: "var(--color-text-tertiary)", // currency prefix + decimals, disabled
+        placeholder: "var(--color-text-quaternary)", // very subtle text, placeholders
 
         // ---- Accent (lime — the only brand color, a spice) ----
         lime: {
-          DEFAULT: "#DCFF00", // logo, treasury icon, "Render mais"
-          alt: "#E0F80A", // observed render variant
-          tint: "#F8FFCB", // desaturated lime wash (command bar bg)
+          DEFAULT: "var(--color-lime)", // logo, treasury icon, accent
+          alt: "var(--color-lime-alt)", // observed render variant
+          tint: "var(--color-lime-tint)", // desaturated lime wash (command bar bg)
         },
 
         // ---- Hero glow (marketing only) ----
@@ -54,9 +57,9 @@ const config: Config = {
         "hero-glow": "#4B4D3D", // smoky olive at the hero's lower edge
 
         // ---- Status / semantic ----
-        warning: "#E8821E", // amber alert
-        positive: "#3F8F5B", // muted green (approved / gains / vence hoje)
-        negative: "#C2473D", // muted brick red (overdue / vencido) — same desaturated family
+        warning: "var(--color-warning)", // amber alert
+        positive: "var(--color-positive)", // muted green (approved / gains / vence hoje)
+        negative: "var(--color-negative)", // muted brick red (overdue / vencido)
       },
       fontFamily: {
         sans: [

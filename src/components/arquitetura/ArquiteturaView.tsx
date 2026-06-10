@@ -193,10 +193,10 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
         <div role="img" aria-label="Posição de caixa projetada por semana">
           <ResponsiveContainer width="100%" height={150}>
             <ComposedChart data={t.cashPositioning} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
-              <CartesianGrid stroke="#EFEFEF" vertical={false} />
-              <XAxis dataKey="semana" tick={{ fontSize: 10, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} />
-              <YAxis tick={{ fontSize: 10, fill: "#959595" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => formatBRLCompact(v)} />
-              <ReferenceLine y={0} stroke="#E9E9E9" />
+              <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+              <XAxis dataKey="semana" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+              <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => formatBRLCompact(v)} />
+              <ReferenceLine y={0} stroke="var(--color-border)" />
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.03)" }}
                 content={({ active, payload, label }: any) =>
@@ -210,7 +210,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
               />
               <Bar dataKey="liquido" radius={[2, 2, 0, 0]}>
                 {t.cashPositioning.map((p, i) => (
-                  <Cell key={i} fill={p.liquido < 0 ? "var(--color-negative)" : "#C9C9C7"} />
+                  <Cell key={i} fill={p.liquido < 0 ? "var(--color-negative)" : "var(--color-border)"} />
                 ))}
               </Bar>
               <Line type="monotone" dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={2} dot={false} />

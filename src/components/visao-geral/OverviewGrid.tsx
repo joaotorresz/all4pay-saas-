@@ -89,8 +89,8 @@ export function OverviewGrid() {
             <div className="flex items-center gap-2">
               <h2 className="m-0 text-label font-medium text-faint uppercase tracking-wide">{bloco}</h2>
               {prioritario && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink bg-lime rounded-pill px-2 py-[1px]">
-                  <Icon name="trending-up" size={11} color="var(--color-ink)" />
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-on-lime bg-lime rounded-pill px-2 py-[1px]">
+                  <Icon name="trending-up" size={11} color="var(--color-on-lime)" />
                   Prioridade{hc.motivos[bloco] ? ` · ${hc.motivos[bloco]}` : ""}
                 </span>
               )}

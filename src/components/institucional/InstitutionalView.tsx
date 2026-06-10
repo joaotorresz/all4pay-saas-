@@ -363,7 +363,7 @@ function RequestCard({ r }: { r: ReturnType<typeof requestsDemo>[number] }) {
 
       <div className="flex items-start gap-[6px] pt-1 border-t border-border-soft">
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0 mt-[2px]">
-          <Icon name="sparkles" size={13} color="var(--color-ink)" />
+          <Icon name="sparkles" size={13} color="var(--color-on-lime)" />
         </span>
         <span className="text-caption" style={{ color: IA_COR[r.sugestaoIA.risco] }}>{r.sugestaoIA.texto}</span>
       </div>

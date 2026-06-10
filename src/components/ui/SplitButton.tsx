@@ -48,7 +48,7 @@ export function SplitButton({
             aria-haspopup="menu"
             aria-expanded={open}
             aria-label="Mais opções de salvar"
-            className="rounded-l-none border-l border-white/20 px-[10px]"
+            className="rounded-l-none border-l border-border px-[10px]"
           >
             <Icon name="chevron-down" size={15} />
           </Button>

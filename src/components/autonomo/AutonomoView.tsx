@@ -54,7 +54,7 @@ export function AutonomoView() {
       <Card className="lg:col-span-3 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="cpu" size={14} color="var(--color-ink)" />
+            <Icon name="cpu" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">Operação financeira autônoma</span>
         </div>

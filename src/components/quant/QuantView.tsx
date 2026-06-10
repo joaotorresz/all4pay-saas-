@@ -97,8 +97,8 @@ export function QuantView() {
         <div role="img" aria-label={`Radar: ${radar.map((d) => `${d.dimensao} ${d.valor}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={240}>
             <RadarChart data={radar} outerRadius="78%">
-              <PolarGrid stroke="#EFEFEF" />
-              <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 11, fill: "#797975" }} />
+              <PolarGrid stroke="var(--color-border-soft)" />
+              <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
               <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={2} />
             </RadarChart>
           </ResponsiveContainer>
@@ -109,7 +109,7 @@ export function QuantView() {
       <Card className="lg:col-span-3 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-ink)" />
+            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
           </span>
           <span className="text-label font-medium text-muted">CFO digital · interpretação executiva</span>
         </div>
@@ -145,11 +145,11 @@ export function QuantView() {
         <div role="img" aria-label={`Evolução do score: ${scoreTemporal.map((m) => `${m.label} ${m.score}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={scoreTemporal} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-              <CartesianGrid stroke="#EFEFEF" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={{ stroke: "#EFEFEF" }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#959595" }} tickLine={false} axisLine={false} width={32} />
+              <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={32} />
               <Tooltip
-                cursor={{ stroke: "#E9E9E9" }}
+                cursor={{ stroke: "var(--color-border)" }}
                 content={({ active, payload, label }: any) =>
                   active && payload?.length ? (
                     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">

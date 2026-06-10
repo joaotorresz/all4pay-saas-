@@ -67,14 +67,14 @@ export function PageGuide() {
           <button
             aria-label="Fechar guia"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-ink/30"
+            className="absolute inset-0 bg-black/30"
           />
           {/* Painel */}
           <aside className="relative h-full w-[420px] max-w-full bg-white shadow-popover flex flex-col">
             <div className="flex items-start justify-between gap-4 px-6 pt-6 pb-4 border-b border-border-soft">
               <div className="flex items-start gap-3 min-w-0">
                 <span className="w-[28px] h-[28px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0 mt-[2px]">
-                  <Icon name="help-circle" size={15} color="var(--color-ink)" />
+                  <Icon name="help-circle" size={15} color="var(--color-on-lime)" />
                 </span>
                 <div className="min-w-0">
                   <div className="text-caption font-medium text-faint">Guia da página</div>

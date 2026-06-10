@@ -60,7 +60,7 @@ export function PeriodPill() {
           <div className="flex justify-end gap-2 pt-1">
             <button className="text-caption text-muted hover:text-ink px-2 py-1" onClick={() => setOpen(false)}>Cancelar</button>
             <button
-              className="text-caption font-medium text-ink bg-lime rounded-sm px-3 py-1 disabled:opacity-50"
+              className="text-caption font-medium text-on-lime bg-lime rounded-sm px-3 py-1 disabled:opacity-50"
               disabled={!from || !to}
               onClick={() => { p.setCustom(from, to); setOpen(false); }}
             >

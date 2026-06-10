@@ -49,6 +49,25 @@ Prefer Tailwind utility classes backed by these tokens
 the CSS variables (`var(--color-ink)`) only where Tailwind can't go — SVG
 `stroke`/`fill`, gradients, and a few computed inline styles.
 
+### Dark mode (mesma linguagem, invertida)
+
+Os tokens de cor das **neutras + status** no `tailwind.config.ts` apontam para
+**CSS variables** (`var(--color-*)`), e `html.dark` (em `globals.css`) redefine
+essas variables com a paleta escura (near-black `#0e0e0e` + texto near-white
+`#f4f4f2` + lime mandando igual). Assim **toda a UI e os gráficos** (Recharts lê
+`var()` em `stroke`/`fill`) invertem sem `dark:` por componente — a regra é usar
+sempre os tokens, nunca hex literal.
+
+- **`on-lime`** (`--color-on-lime` = `#171717`, fixo nos dois temas): texto/ícone
+  **sobre o lime brilhante** (`text-on-lime`, `color: var(--color-on-lime)`).
+  Nunca use `ink` sobre lime (inverte e some no escuro).
+- **Sem opacidade em token var-backed** (`bg-ink/30` quebra): para overlays use
+  `bg-black/30`; para divisores que invertem, um token que vira (`border-border`).
+- Toggle: `ThemeToggle`/`useTheme` (`src/components/app/`) no rodapé da Sidebar —
+  classe `dark` no `<html>` + `localStorage('a4p_theme')`. Script anti-flash no
+  `layout.tsx` aplica o tema (e respeita `prefers-color-scheme`) antes da pintura.
+- `black-pure` e o hero glow **não** invertem (marketing).
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,

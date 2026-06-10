@@ -13,7 +13,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const variantClasses: Record<BadgeVariant, string> = {
-  new: "bg-lime text-ink rounded-sm px-[6px] py-[2px] tracking-[0.03em] uppercase",
+  new: "bg-lime text-on-lime rounded-sm px-[6px] py-[2px] tracking-[0.03em] uppercase",
   count: "bg-ink text-white rounded-pill px-[7px] py-[1px] min-w-[18px]",
   neutral: "bg-surface-2 text-muted border border-border rounded-sm px-[7px] py-[2px]",
 };

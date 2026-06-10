@@ -18,10 +18,10 @@ import { useSalesChart } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 
-const INK = "#171717";
-const GRID = "#EFEFEF";
-const FAINT = "#959595";
-const QUIET = "#D8D8D6";
+const INK = "var(--color-ink)";
+const GRID = "var(--color-border-soft)";
+const FAINT = "var(--color-text-tertiary)";
+const QUIET = "var(--color-border)";
 
 function SalesTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;

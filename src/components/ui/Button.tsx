@@ -29,7 +29,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-ink text-white border border-ink",
   secondary: "bg-white text-ink border border-border",
   ghost: "bg-transparent text-ink border border-transparent",
-  accent: "bg-lime text-ink border border-lime",
+  accent: "bg-lime text-on-lime border border-lime",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
