@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Card, Switch, Button, Select, Input, StatusBadge, Icon, type SelectOption } from "@/components/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, Switch, Button, Select, Input, StatusBadge, Icon, Skeleton, type SelectOption } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
-import { getRules, getOsTrace, getRuleSuggestions, persistRule } from "@/lib/financial-os";
+import { loadAutomacoes, traceDemo, persistRule } from "@/lib/financial-os";
 import { actionLabel, materializarRegra } from "@/core/financial-os";
 import type {
   FinancialRule,
@@ -34,134 +35,160 @@ const ACTIONS: SelectOption[] = (
 ).map((a) => ({ value: a, label: actionLabel(a) }));
 
 export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
-  const [rules, setRules] = React.useState<FinancialRule[]>(() => getRules());
-  const sugestoes = React.useMemo(() => getRuleSuggestions(), []);
-  const trace = React.useMemo(() => getOsTrace(rules), [rules]);
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["automacoes-os"], queryFn: loadAutomacoes });
+  const [rules, setRules] = React.useState<FinancialRule[]>([]);
+  React.useEffect(() => {
+    if (data) setRules(data.rules);
+  }, [data]);
 
-  const toggle = (id: string) =>
-    setRules((rs) => rs.map((r) => (r.id === id ? { ...r, ativo: !r.ativo } : r)));
+  const refetch = () => {
+    if (!isDemo) qc.invalidateQueries({ queryKey: ["automacoes-os"] });
+  };
+  const onAdd = (r: FinancialRule) => {
+    setRules((rs) => [...rs, r]);
+    persistRule(r).then(refetch).catch(() => {});
+    onToast("Regra criada");
+  };
+  const toggle = (id: string) => {
+    setRules((rs) => {
+      const nr = rs.map((r) => (r.id === id ? { ...r, ativo: !r.ativo } : r));
+      const alvo = nr.find((r) => r.id === id);
+      if (alvo) persistRule(alvo).then(refetch).catch(() => {});
+      return nr;
+    });
+  };
 
-  if (!isDemo) {
+  if (isLoading || !data) {
     return (
-      <Card>
-        <p className="m-0 text-muted text-body">
-          O motor de regras opera sobre os eventos financeiros reais quando o
-          Supabase está conectado. Em modo demonstração as regras abaixo são
-          avaliadas contra eventos de exemplo.
-        </p>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Skeleton className="h-[320px] lg:col-span-2" rounded="card" />
+        <Skeleton className="h-[320px] lg:col-span-1" rounded="card" />
+      </div>
     );
   }
 
+  // Em demo a simulação recalcula localmente; em live vem do estado real.
+  const trace = isDemo ? traceDemo(rules) : data.trace;
+  const sugestoes = data.suggestions;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
-      {/* Regras */}
-      <div className="lg:col-span-2 flex flex-col gap-5">
-        <Card className="flex flex-col gap-3">
-          <span className="text-label font-medium text-muted">Regras</span>
-          {rules.map((r) => (
-            <div key={r.id} className="flex items-start gap-3 py-2 border-t border-border-soft first:border-t-0">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-medium text-ink">{r.nome}</span>
-                  <StatusBadge tone={PRIO_TONE[r.prioridade]}>{r.prioridade}</StatusBadge>
+    <div className="flex flex-col gap-5 pb-4">
+      <Card elevated={false} style={{ background: "var(--color-surface-2)" }} className="flex items-start gap-3">
+        <Icon name="workflow" size={16} color="var(--color-text-secondary)" className="mt-[2px]" />
+        <p className="m-0 text-caption text-muted leading-[1.5]">
+          As regras rodam sobre eventos <b className="text-ink font-medium">derivados do seu estado financeiro atual</b> (saldo crítico,
+          inadimplência, recebimentos). {isDemo
+            ? "Em demonstração os dados vêm do seed (ou do que você importou no Onboarding inteligente)."
+            : "Em produção as regras são persistidas em financial_rules e cada ação executada é auditada em rule_executions."}
+        </p>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+        {/* Regras */}
+        <div className="lg:col-span-2 flex flex-col gap-5">
+          <Card className="flex flex-col gap-3">
+            <span className="text-label font-medium text-muted">Regras</span>
+            {rules.length === 0 && <span className="text-caption text-faint">Nenhuma regra ainda — crie a primeira abaixo.</span>}
+            {rules.map((r) => (
+              <div key={r.id} className="flex items-start gap-3 py-2 border-t border-border-soft first:border-t-0">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px] font-medium text-ink">{r.nome}</span>
+                    <StatusBadge tone={PRIO_TONE[r.prioridade]}>{r.prioridade}</StatusBadge>
+                  </div>
+                  <p className="m-0 text-caption text-muted mt-1">
+                    <b className="font-medium text-ink">SE</b> {TRIGGER_LABEL[r.trigger]}
+                    {r.conditions.map((c, i) => (
+                      <span key={i}> {i === 0 ? "·" : "e"} {c.campo} {c.operador} {String(c.valor)}</span>
+                    ))}{" "}
+                    <b className="font-medium text-ink">ENTÃO</b>{" "}
+                    {r.actions.map((a) => actionLabel(a.tipo) + (a.destino ? ` (${a.destino})` : "")).join(" · ")}
+                  </p>
                 </div>
-                <p className="m-0 text-caption text-muted mt-1">
-                  <b className="font-medium text-ink">SE</b> {TRIGGER_LABEL[r.trigger]}
-                  {r.conditions.map((c, i) => (
-                    <span key={i}> {i === 0 ? "·" : "e"} {c.campo} {c.operador} {String(c.valor)}</span>
-                  ))}{" "}
-                  <b className="font-medium text-ink">ENTÃO</b>{" "}
-                  {r.actions.map((a) => actionLabel(a.tipo) + (a.destino ? ` (${a.destino})` : "")).join(" · ")}
-                </p>
-              </div>
-              <Switch checked={r.ativo} onChange={() => toggle(r.id)} />
-            </div>
-          ))}
-          <RuleBuilder onAdd={(r) => { setRules((rs) => [...rs, r]); persistRule(r).catch(() => {}); onToast("Regra criada"); }} />
-        </Card>
-
-        {/* Simulação orientada a eventos */}
-        <Card padded={false}>
-          <div className="px-5 pt-[18px] pb-2">
-            <span className="text-body font-medium text-ink">Simulação · event bus</span>
-            <span className="text-caption text-faint ml-2">{trace.eventos.length} eventos → {trace.execucoes.length} ações automáticas</span>
-          </div>
-          {trace.execucoes.length === 0 && (
-            <div className="px-5 pb-4 text-caption text-faint">Nenhuma ação disparada pelas regras ativas.</div>
-          )}
-          {trace.execucoes.map((e, i) => (
-            <div key={e.id} className={`flex items-center gap-3 px-5 py-[10px] ${i ? "border-t border-border-soft" : "border-t border-border-soft"}`}>
-              <Icon name={e.status === "executada" ? "check" : "repeat"} size={15} color={e.status === "executada" ? "var(--color-positive)" : "var(--color-text-tertiary)"} />
-              <div className="flex-1 min-w-0">
-                <div className="text-[14px] text-ink">{e.detalhe}</div>
-                <div className="text-caption text-faint truncate">via {e.ruleNome}</div>
-              </div>
-              <span className="text-caption text-faint">{e.status}</span>
-            </div>
-          ))}
-        </Card>
-      </div>
-
-      {/* IA sugere + eventos */}
-      <div className="flex flex-col gap-5">
-        {trace.alertasExecutivos.length > 0 && (
-          <Card className="flex flex-col gap-3" style={{ background: "var(--color-surface-2)" }} elevated={false}>
-            <div className="flex items-center gap-2">
-              <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-                <Icon name="trending-up" size={14} color="var(--color-ink)" />
-              </span>
-              <span className="text-label font-medium text-muted">Alerta executivo · ponte de risco</span>
-            </div>
-            {trace.alertasExecutivos.map((a, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                <span className="text-[14px] font-medium text-ink">{a.titulo}</span>
-                <span className="text-caption text-muted leading-[1.5]">{a.texto}</span>
+                <Switch checked={r.ativo} onChange={() => toggle(r.id)} />
               </div>
             ))}
-            <span className="text-caption text-faint">
-              custo_variou → motor de risco recalcula → alerta (event-driven, desacoplado)
-            </span>
+            <RuleBuilder onAdd={onAdd} />
           </Card>
-        )}
-        <Card className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-              <Icon name="sparkles" size={14} color="var(--color-ink)" />
-            </span>
-            <span className="text-label font-medium text-muted">IA sugere regras</span>
-          </div>
-          {sugestoes.map((s, i) => (
-            <div key={i} className="flex flex-col gap-2 py-2 border-t border-border-soft first:border-t-0">
-              <span className="text-[14px] font-medium text-ink">{s.titulo}</span>
-              <span className="text-caption text-muted">{s.descricao}</span>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="self-start"
-                onClick={() => {
-                  const nova = materializarRegra(s, `rule-${Date.now()}`);
-                  setRules((rs) => [...rs, nova]);
-                  persistRule(nova).catch(() => {});
-                  onToast("Regra automatizada");
-                }}
-              >
-                Automatizar
-              </Button>
-            </div>
-          ))}
-        </Card>
 
-        <Card padded={false}>
-          <div className="px-5 pt-[18px] pb-2 text-label font-medium text-muted">Eventos publicados</div>
-          {trace.eventos.map((ev, i) => (
-            <div key={ev.id} className={`flex items-center gap-2 px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
-              <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: ev.prioridade === "critica" || ev.prioridade === "alta" ? "var(--color-negative)" : "var(--color-text-tertiary)" }} />
-              <span className="text-caption text-ink flex-1 truncate">{TRIGGER_LABEL[ev.tipo] ?? ev.tipo}</span>
-              <span className="text-caption text-faint">{ev.prioridade}</span>
+          {/* Simulação orientada a eventos */}
+          <Card padded={false}>
+            <div className="px-5 pt-[18px] pb-2">
+              <span className="text-body font-medium text-ink">Simulação · event bus</span>
+              <span className="text-caption text-faint ml-2">{trace.eventos.length} eventos → {trace.execucoes.length} ações automáticas</span>
             </div>
-          ))}
-        </Card>
+            {trace.execucoes.length === 0 && (
+              <div className="px-5 pb-4 text-caption text-faint">Nenhuma ação disparada pelas regras ativas sobre os eventos atuais.</div>
+            )}
+            {trace.execucoes.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 px-5 py-[10px] border-t border-border-soft">
+                <Icon name={e.status === "executada" ? "check" : "repeat"} size={15} color={e.status === "executada" ? "var(--color-positive)" : "var(--color-text-tertiary)"} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14px] text-ink">{e.detalhe}</div>
+                  <div className="text-caption text-faint truncate">via {e.ruleNome}</div>
+                </div>
+                <span className="text-caption text-faint">{e.status}</span>
+              </div>
+            ))}
+          </Card>
+        </div>
+
+        {/* IA sugere + eventos */}
+        <div className="flex flex-col gap-5">
+          {trace.alertasExecutivos.length > 0 && (
+            <Card className="flex flex-col gap-3" style={{ background: "var(--color-surface-2)" }} elevated={false}>
+              <div className="flex items-center gap-2">
+                <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
+                  <Icon name="trending-up" size={14} color="var(--color-ink)" />
+                </span>
+                <span className="text-label font-medium text-muted">Alerta executivo · ponte de risco</span>
+              </div>
+              {trace.alertasExecutivos.map((a, i) => (
+                <div key={i} className="flex flex-col gap-1">
+                  <span className="text-[14px] font-medium text-ink">{a.titulo}</span>
+                  <span className="text-caption text-muted leading-[1.5]">{a.texto}</span>
+                </div>
+              ))}
+            </Card>
+          )}
+          {sugestoes.length > 0 && (
+            <Card className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
+                  <Icon name="sparkles" size={14} color="var(--color-ink)" />
+                </span>
+                <span className="text-label font-medium text-muted">IA sugere regras</span>
+              </div>
+              {sugestoes.map((s, i) => (
+                <div key={i} className="flex flex-col gap-2 py-2 border-t border-border-soft first:border-t-0">
+                  <span className="text-[14px] font-medium text-ink">{s.titulo}</span>
+                  <span className="text-caption text-muted">{s.descricao}</span>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="self-start"
+                    onClick={() => { onAdd(materializarRegra(s, `rule-${Date.now()}`)); onToast("Regra automatizada"); }}
+                  >
+                    Automatizar
+                  </Button>
+                </div>
+              ))}
+            </Card>
+          )}
+
+          <Card padded={false}>
+            <div className="px-5 pt-[18px] pb-2 text-label font-medium text-muted">Eventos publicados</div>
+            {trace.eventos.length === 0 && <div className="px-5 pb-4 text-caption text-faint">Sem eventos no estado atual.</div>}
+            {trace.eventos.map((ev, i) => (
+              <div key={ev.id} className={`flex items-center gap-2 px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
+                <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: ev.prioridade === "critica" || ev.prioridade === "alta" ? "var(--color-negative)" : "var(--color-text-tertiary)" }} />
+                <span className="text-caption text-ink flex-1 truncate">{TRIGGER_LABEL[ev.tipo] ?? ev.tipo}</span>
+                <span className="text-caption text-faint">{ev.prioridade}</span>
+              </div>
+            ))}
+          </Card>
+        </div>
       </div>
     </div>
   );

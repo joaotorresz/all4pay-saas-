@@ -524,13 +524,17 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   `anomalia_detectada` (event-driven). Mostrado no `AutomacoesView`.
 - **Notificações** (`notifications.ts`): provider plugável; default `simulado`
   (sem credenciais). Real: Twilio (WhatsApp) / Resend (e-mail) server-side.
-- **Persistência** (`src/lib/financial-os.ts` `persistRule`/`logExecucoes`):
-  demo no-op; live grava em `financial_rules` / `rule_executions` /`audit_log`
-  (migration `0004_financial_os.sql`, **arquivo, não aplicado ao remoto**).
-- **Runner agendado:** `GET /api/financial-os/run` (`runScheduledOS()`) detecta
-  eventos do estado atual (saldo crítico, inadimplência) → regras → ações →
-  alertas executivos. Vercel Cron em `vercel.json` (diário); protegido por
-  `CRON_SECRET` quando definido.
+- **Live operacional** (`src/lib/financial-os.ts`): `loadAutomacoes()` carrega
+  as regras de `financial_rules` (semeia os defaults se vazio) e roda a
+  simulação sobre **eventos derivados do estado real** (`eventosDoInput` sobre
+  `getRiscoInput`: saldo crítico, inadimplência, recebimento). `persistRule`
+  grava regras e `logExecucoes` audita cada ação em `rule_executions`. Em demo
+  usa o seed/o que foi importado. Tabelas `financial_rules`/`rule_executions`/
+  `audit_log` (com `org_id`) **aplicadas ao remoto**; `AutomacoesView` carrega
+  via React Query (demo + live).
+- **Runner agendado:** `GET /api/financial-os/run` (`runScheduledOS()`, async)
+  deriva eventos do estado atual → regras → ações → auditoria → alertas. Vercel
+  Cron em `vercel.json` (diário); protegido por `CRON_SECRET` quando definido.
 - Demo data + accessors em `src/lib/financial-os.ts`.
 
 ### Camada Institucional / Governança (`/governanca`)

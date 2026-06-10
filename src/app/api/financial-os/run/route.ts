@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const trace = runScheduledOS();
+  const trace = await runScheduledOS();
   return NextResponse.json({
     ok: true,
     geradoEm: new Date().toISOString(),

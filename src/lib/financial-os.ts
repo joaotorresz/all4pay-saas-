@@ -7,6 +7,7 @@
 import { isDemo } from "@/lib/demo";
 import { isoDay } from "@/lib/aggregations";
 import { createClient } from "@/lib/supabase/client";
+import { getRiscoInput } from "@/lib/data";
 import { DEMO_ACCOUNTS, DEMO_MOVEMENTS } from "@/lib/demo/seed";
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
@@ -143,46 +144,102 @@ export function getRuleSuggestions(): RuleSuggestion[] {
 }
 
 /**
- * Detecta eventos financeiros a partir do estado atual (para o runner
- * agendado): saldo crítico por conta e clientes inadimplentes. Em live,
- * estes viriam de queries; aqui usa o seed (demo-safe).
+ * Deriva eventos financeiros a partir do ESTADO REAL (RiskInput): saldo
+ * crítico consolidado, clientes inadimplentes (recebíveis vencidos) e um
+ * recebimento recente. Roda igual em demo e live (o input é que muda).
  */
-function detectarEventosAgendados(): Parameters<typeof operarFinanceiroOS>[1] {
+function eventosDoInput(input: RiskInput): Parameters<typeof operarFinanceiroOS>[1] {
   const evs: Parameters<typeof operarFinanceiroOS>[1] = [];
   const LIMIAR_SALDO = 100000;
-  const hojeISO = hoje();
-
-  for (const a of DEMO_ACCOUNTS) {
-    if (a.balance < LIMIAR_SALDO) {
-      evs.push({
-        tipo: "saldo_critico",
-        entidadeId: a.id,
-        payload: { conta: a.name, saldo: a.balance, limite: LIMIAR_SALDO },
-        prioridade: "critica",
-      });
-    }
+  if (input.saldoAtual < LIMIAR_SALDO) {
+    evs.push({ tipo: "saldo_critico", entidadeId: "caixa", payload: { conta: "Caixa consolidado", saldo: Math.round(input.saldoAtual), limite: LIMIAR_SALDO }, prioridade: "critica" });
   }
-
-  for (const m of DEMO_MOVEMENTS) {
-    if (m.type === "entrada" && m.status === "pendente" && m.due_date < hojeISO) {
-      const diasAtraso = Math.round((+new Date(hojeISO) - +new Date(m.due_date)) / 864e5);
-      if (m.amount > 20000) {
-        evs.push({
-          tipo: "cliente_inadimplente",
-          entidadeId: m.id,
-          payload: { cliente: m.description, diasAtraso, ticket: m.amount },
-          prioridade: "alta",
-        });
-      }
-    }
+  const vencidos = input.movements
+    .filter((m) => m.type === "entrada" && m.status === "pendente" && m.due_date < input.hoje && m.amount > 20000)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 8);
+  for (const m of vencidos) {
+    const diasAtraso = Math.round((+new Date(input.hoje) - +new Date(m.due_date)) / 864e5);
+    evs.push({ tipo: "cliente_inadimplente", entidadeId: m.id, payload: { cliente: m.party_id ?? "Cliente", diasAtraso, ticket: m.amount }, prioridade: "alta" });
   }
+  const receb = input.movements.find((m) => m.type === "entrada" && m.status === "pago");
+  if (receb) evs.push({ tipo: "pagamento_recebido", entidadeId: receb.id, payload: { cliente: receb.party_id ?? "Cliente", valor: receb.amount }, prioridade: "baixa" });
   return evs;
 }
 
+interface RuleRow {
+  id: string;
+  nome: string;
+  trigger: FinancialRule["trigger"];
+  conditions: FinancialRule["conditions"];
+  actions: FinancialRule["actions"];
+  prioridade: FinancialRule["prioridade"];
+  ativo: boolean;
+}
+const ruleToRow = (r: FinancialRule) => ({ id: r.id, nome: r.nome, trigger: r.trigger, conditions: r.conditions, actions: r.actions, prioridade: r.prioridade, ativo: r.ativo });
+
+/** Regras: demo → defaults; live → financial_rules (semeia os defaults se vazio). */
+export async function listRules(): Promise<FinancialRule[]> {
+  if (isDemo) return DEMO_RULES;
+  const s = createClient();
+  const { data, error } = await s.from("financial_rules").select("id,nome,trigger,conditions,actions,prioridade,ativo");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    await s.from("financial_rules").upsert(DEMO_RULES.map(ruleToRow));
+    return DEMO_RULES;
+  }
+  return (data as RuleRow[]).map((r) => ({
+    id: r.id,
+    nome: r.nome,
+    trigger: r.trigger,
+    conditions: Array.isArray(r.conditions) ? r.conditions : [],
+    actions: Array.isArray(r.actions) ? r.actions : [],
+    prioridade: r.prioridade,
+    ativo: r.ativo,
+  }));
+}
+
+export interface AutomacoesData {
+  rules: FinancialRule[];
+  trace: OperacaoTrace;
+  reconciliation: ReconciliationResult | null;
+  suggestions: RuleSuggestion[];
+}
+
+/** Carrega o painel de automações: regras + simulação orientada a eventos. */
+export async function loadAutomacoes(): Promise<AutomacoesData> {
+  if (isDemo) {
+    const rules = DEMO_RULES;
+    return {
+      rules,
+      trace: operarFinanceiroOS(rules, DEMO_EVENTS, demoRiscoInput()),
+      reconciliation: reconciliarAutomaticamente(feed(), ledger()),
+      suggestions: sugerirRegras(ledger()),
+    };
+  }
+  const rules = await listRules();
+  const input = await getRiscoInput();
+  const trace = operarFinanceiroOS(rules, eventosDoInput(input), input);
+  logExecucoes(trace.execucoes).catch(() => {}); // auditoria (rule_executions)
+  return { rules, trace, reconciliation: null, suggestions: [] };
+}
+
+/** Recalcula a simulação para um conjunto de regras (síncrono, demo). */
+export function traceDemo(rules: FinancialRule[]): OperacaoTrace {
+  return operarFinanceiroOS(rules, DEMO_EVENTS, demoRiscoInput());
+}
+
 /** Roda o SO financeiro sobre os eventos detectados agora (usado pelo cron). */
-export function runScheduledOS(): OperacaoTrace {
-  const rules = getRules().length ? getRules() : DEMO_RULES;
-  return operarFinanceiroOS(rules, detectarEventosAgendados(), demoRiscoInput());
+export async function runScheduledOS(): Promise<OperacaoTrace> {
+  const rules = await listRules();
+  const input = isDemo ? demoRiscoInput() : await getRiscoInput();
+  const trace = operarFinanceiroOS(rules, eventosDoInput(input), input);
+  try {
+    await logExecucoes(trace.execucoes);
+  } catch {
+    /* auditoria best-effort */
+  }
+  return trace;
 }
 
 /** Persiste uma regra (demo: no-op; live: financial_rules — migration 0004). */
