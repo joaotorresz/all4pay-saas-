@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { PageGuide } from "@/components/app/PageGuide";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -36,6 +37,7 @@ export function AppShell({
         </header>
         <div className="flex-1 overflow-y-auto px-8 pb-10">{children}</div>
       </main>
+      <PageGuide />
     </div>
   );
 }

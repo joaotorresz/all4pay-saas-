@@ -34,6 +34,7 @@ import {
   Building2,
   Cpu,
   Receipt,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,6 +79,7 @@ const registry: Record<string, LucideIcon> = {
   building: Building2,
   cpu: Cpu,
   receipt: Receipt,
+  "help-circle": CircleHelp,
 };
 
 export type IconName = keyof typeof registry;
