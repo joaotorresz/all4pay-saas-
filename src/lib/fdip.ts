@@ -85,13 +85,18 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
   const supabase = createClient();
   const out: ResultadoOnboarding = { clientes: 0, fornecedores: 0, categorias: 0, centrosCusto: 0, movimentos: 0, simulado: false };
 
-  // 1) Clientes/fornecedores
+  // 1) Clientes/fornecedores — captura os IDs gerados para LIGAR aos movimentos.
+  // dataset.parties[].id === contraparteNorm (entidade.id); o movimento traz
+  // party_id = contraparteNorm. Mapeamos contraparteNorm → nome → UUID criado.
+  const normParaNome = new Map<string, string>(dataset.parties.map((p) => [p.id, p.name]));
+  const nomeParaId = new Map<string, string>();
   const parties = dataset.parties.map((p) => ({ type: "pj", name: p.name, is_customer: p.is_customer, is_supplier: p.is_supplier }));
   if (parties.length) {
-    const { error } = await supabase.from("parties").insert(parties);
+    const { data: criadas, error } = await supabase.from("parties").insert(parties).select("id,name");
     if (!error) {
       out.clientes = clientes;
       out.fornecedores = fornecedores;
+      for (const row of (criadas ?? []) as { id: string; name: string }[]) nomeParaId.set(row.name, row.id);
     }
   }
 
@@ -118,17 +123,24 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
     accId = (created as { id: string } | null)?.id;
   }
   if (accId) {
-    const rows = dataset.movements.map((m) => ({
-      account_id: accId,
-      type: m.type,
-      status: m.status,
-      category: m.category,
-      amount: m.amount,
-      due_date: m.due_date,
-      paid_date: m.paid_date,
-      reconciled: false,
-      description: m.description,
-    }));
+    const rows = dataset.movements.map((m) => {
+      // m.party_id é o contraparteNorm; resolve para o UUID do cliente criado,
+      // ligando o movimento ao cadastro (alimenta segmentação/cobrança/DRE).
+      const nome = m.party_id ? normParaNome.get(m.party_id) : undefined;
+      const partyId = nome ? nomeParaId.get(nome) : undefined;
+      return {
+        account_id: accId,
+        type: m.type,
+        status: m.status,
+        category: m.category,
+        amount: m.amount,
+        due_date: m.due_date,
+        paid_date: m.paid_date,
+        reconciled: false,
+        description: m.description,
+        party_id: partyId ?? null,
+      };
+    });
     // insere em lotes para extratos grandes
     for (let i = 0; i < rows.length; i += 500) {
       const { error } = await supabase.from("movements").insert(rows.slice(i, i + 500));

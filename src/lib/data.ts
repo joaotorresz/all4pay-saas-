@@ -23,7 +23,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -320,22 +320,29 @@ export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
     const saldoAtual = seedAccounts().reduce((s, a) => s + a.balance, 0);
-    const movements = seedMovements().map((m) => ({
+    // Dados importados (FDIP) já vêm com party_id = contraparteNorm e um cadastro
+    // de parties; o seed determinístico usa a descrição como rótulo da contraparte.
+    const imp = importedMovements();
+    const usandoImport = !!imp;
+    const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
       id: m.id,
       type: m.type,
       status: m.status,
       amount: m.amount,
       due_date: m.due_date,
       paid_date: m.paid_date,
-      // seed movements use the description as the counterparty label
-      party_id: m.description ?? null,
+      party_id: usandoImport ? (m.party_id ?? null) : (m.description ?? null),
       category: m.category,
       costCenter: demoCostCenter(m.category),
     }));
     const partyNames: Record<string, string> = {};
-    movements.forEach((m) => {
-      if (m.party_id) partyNames[m.party_id] = m.party_id;
-    });
+    if (usandoImport) {
+      for (const p of importedParties() ?? []) partyNames[p.id] = p.name;
+    } else {
+      movements.forEach((m) => {
+        if (m.party_id) partyNames[m.party_id] = m.party_id;
+      });
+    }
     return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
   }
 
