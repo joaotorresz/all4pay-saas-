@@ -28,6 +28,19 @@ const TRIGGER_LABEL: Record<string, string> = {
 const PRIO_TONE: Record<Prioridade, "neutral" | "warning" | "positive"> = {
   critica: "warning", alta: "warning", media: "neutral", baixa: "neutral",
 };
+interface NotifStatus { whatsapp: boolean; email: boolean; templateCobranca: boolean; templateAlerta: boolean }
+async function fetchNotifStatus(): Promise<NotifStatus> {
+  const r = await fetch("/api/notificacoes/status");
+  if (!r.ok) throw new Error("status");
+  return r.json();
+}
+/** Resolve o modo do WhatsApp a partir das credenciais/templates do servidor. */
+function whatsappMode(s: NotifStatus): { label: string; tone: "neutral" | "warning" | "positive" } {
+  if (!s.whatsapp) return { label: "WhatsApp: simulado", tone: "neutral" };
+  if (s.templateCobranca) return { label: "WhatsApp: template aprovado", tone: "positive" };
+  return { label: "WhatsApp: sandbox / janela 24h", tone: "warning" };
+}
+
 const TRIGGERS: SelectOption[] = Object.entries(TRIGGER_LABEL).map(([value, label]) => ({ value, label }));
 const OPS: SelectOption[] = [">", "<", ">=", "<=", "=", "contains"].map((o) => ({ value: o, label: o }));
 const ACTIONS: SelectOption[] = (
@@ -37,6 +50,7 @@ const ACTIONS: SelectOption[] = (
 export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["automacoes-os"], queryFn: loadAutomacoes });
+  const { data: notif } = useQuery({ queryKey: ["notif-status"], queryFn: fetchNotifStatus, staleTime: 60_000 });
   const [rules, setRules] = React.useState<FinancialRule[]>([]);
   React.useEffect(() => {
     if (data) setRules(data.rules);
@@ -74,15 +88,26 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <Card elevated={false} style={{ background: "var(--color-surface-2)" }} className="flex items-start gap-3">
-        <Icon name="workflow" size={16} color="var(--color-text-secondary)" className="mt-[2px]" />
-        <p className="m-0 text-caption text-muted leading-[1.5]">
-          As regras rodam sobre eventos <b className="text-ink font-medium">derivados do seu estado financeiro atual</b> (saldo crítico,
-          inadimplência, recebimentos). {isDemo
-            ? "Em demonstração os dados vêm do seed (ou do que você importou no Onboarding inteligente)."
-            : "Em produção as regras são persistidas em financial_rules e cada ação executada é auditada em rule_executions."}
-          {" "}Os envios reais de <b className="text-ink font-medium">WhatsApp (Twilio)</b> e <b className="text-ink font-medium">e-mail (Resend)</b> ocorrem no runner agendado quando as credenciais estão no servidor — sem elas, ficam em modo simulado.
-        </p>
+      <Card elevated={false} style={{ background: "var(--color-surface-2)" }} className="flex flex-col gap-3">
+        <div className="flex items-start gap-3">
+          <Icon name="workflow" size={16} color="var(--color-text-secondary)" className="mt-[2px]" />
+          <p className="m-0 text-caption text-muted leading-[1.5]">
+            As regras rodam sobre eventos <b className="text-ink font-medium">derivados do seu estado financeiro atual</b> (saldo crítico,
+            inadimplência, recebimentos). {isDemo
+              ? "Em demonstração os dados vêm do seed (ou do que você importou no Onboarding inteligente)."
+              : "Em produção as regras são persistidas em financial_rules e cada ação executada é auditada em rule_executions."}
+            {" "}Os envios reais de <b className="text-ink font-medium">WhatsApp (Twilio)</b> e <b className="text-ink font-medium">e-mail (Resend)</b> ocorrem no runner agendado quando as credenciais estão no servidor — sem elas, ficam em modo simulado.
+          </p>
+        </div>
+        {notif && (
+          <div className="flex items-center gap-2 flex-wrap pl-[28px]">
+            <StatusBadge tone={whatsappMode(notif).tone}>{whatsappMode(notif).label}</StatusBadge>
+            <StatusBadge tone={notif.email ? "positive" : "neutral"}>{notif.email ? "E-mail: Resend ativo" : "E-mail: simulado"}</StatusBadge>
+            {notif.whatsapp && !notif.templateCobranca && (
+              <span className="text-caption text-faint">free-form só entrega a quem deu “join” / dentro da janela de 24h — configure um template para produção.</span>
+            )}
+          </div>
+        )}
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
