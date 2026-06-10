@@ -5,8 +5,9 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
+import { createClient } from "@/lib/supabase/client";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
-import { aplicarOnboarding, type ResultadoOnboarding } from "@/lib/fdip";
+import { aplicarOnboarding } from "@/lib/fdip";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
 
@@ -46,9 +47,12 @@ export function OnboardingWizard() {
   const [maturidade, setMaturidade] = React.useState<Maturidade | null>(null);
   const [dna, setDna] = React.useState<DnaLinha[]>([]);
   const [aplicando, setAplicando] = React.useState(false);
-  const [resultado, setResultado] = React.useState<ResultadoOnboarding | null>(null);
   const [consultando, setConsultando] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [senha, setSenha] = React.useState("");
+  const [erro, setErro] = React.useState<string | null>(null);
 
+  const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
   const progress = Math.round(((step + 1) / PASSOS.length) * 100);
 
   // Estrutura.contas derivada dos tipos selecionados.
@@ -62,6 +66,7 @@ export function OnboardingWizard() {
       setMaturidade(calcularMaturidade(perfil, participantes, estrutura, report));
       setDna(montarDNA(perfil, db, report));
     }
+    if (step === 6 && !email && db.repEmail) setEmail(db.repEmail);
   }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const analisar = (t: string) => setReport(t.trim() ? analisarImportacao(t) : null);
@@ -82,14 +87,33 @@ export function OnboardingWizard() {
     }
   };
 
-  const criarAmbiente = async () => {
+  /** Passo final: garante sessão (live), aplica os dados e entra no sistema. */
+  const finalizar = async () => {
     setAplicando(true);
+    setErro(null);
     try {
-      if (report) setResultado(await aplicarOnboarding(report));
+      // Em live a rota "/" exige login — autentica antes de entrar.
+      if (configured) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (email.trim() && senha.trim()) {
+            const { error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
+            if (error) throw new Error(error.message);
+          } else {
+            const { error } = await supabase.auth.signInAnonymously();
+            if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
+          }
+        }
+      }
       try {
         localStorage.setItem("a4p_company", JSON.stringify({ db, perfil }));
       } catch { /* ignore */ }
-    } finally {
+      if (report) await aplicarOnboarding(report); // cria/correlaciona (agora autenticado em live)
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível concluir.");
       setAplicando(false);
     }
   };
@@ -134,17 +158,17 @@ export function OnboardingWizard() {
           {step === 3 && <PassoEstrutura estrutura={estrutura} setEstrutura={setEstrutura} contaTipos={contaTipos} setContaTipos={setContaTipos} />}
           {step === 4 && <PassoImport texto={texto} setTexto={setTexto} report={report} analisar={analisar} carregarAmostra={() => { const a = amostraExtrato(); setTexto(a); analisar(a); }} />}
           {step === 5 && <PassoAnalise maturidade={maturidade} dna={dna} />}
-          {step === 6 && <PassoAmbiente report={report} resultado={resultado} aplicando={aplicando} criarAmbiente={criarAmbiente} />}
+          {step === 6 && <PassoAmbiente report={report} configured={configured} email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} erro={erro} />}
         </Card>
 
         {/* Navegação */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={back} disabled={step === 0}>Voltar</Button>
+          <Button variant="ghost" onClick={back} disabled={step === 0 || aplicando}>Voltar</Button>
           {step < PASSOS.length - 1 ? (
             <Button variant="primary" onClick={next}>{step === 4 && !report ? "Pular e continuar" : "Próximo"}</Button>
           ) : (
-            <Button variant="primary" onClick={() => { router.push("/"); router.refresh(); }} disabled={!resultado && !!report}>
-              Ir para o dashboard
+            <Button variant="primary" onClick={finalizar} disabled={aplicando}>
+              {aplicando ? "Entrando…" : "Concluir e entrar"}
             </Button>
           )}
         </div>
@@ -352,29 +376,36 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
 }
 
 const CRIADOS = ["Empresa", "Usuários & governança", "Bancos & contas", "Plano de contas", "Centros de custo", "Clientes", "Fornecedores", "Produtos & serviços", "DRE", "Fluxo de caixa", "KPIs & dashboard", "Alertas & políticas", "Motor de risco", "Copiloto financeiro"];
-function PassoAmbiente({ report, resultado, aplicando, criarAmbiente }: any) {
-  const aplicado = !!resultado || !report;
+function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, erro }: any) {
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-body text-ink">Tudo pronto. A IA vai montar seu ambiente financeiro automaticamente.</p>
+      <p className="m-0 text-body text-ink">Tudo pronto. Ao concluir, a IA monta seu ambiente financeiro e você entra direto no sistema.</p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-2">
         {CRIADOS.map((c) => (
           <span key={c} className="inline-flex items-center gap-2 text-caption text-muted">
-            <Icon name="check" size={14} color={aplicado ? "var(--color-positive)" : "var(--color-text-tertiary)"} />{c}
+            <Icon name="check" size={14} color="var(--color-positive)" />{c}
           </span>
         ))}
       </div>
-      {report ? (
-        resultado ? (
-          <div className="rounded-md bg-surface-1 p-3 text-caption text-positive">
-            Ambiente criado: {resultado.clientes} clientes · {resultado.fornecedores} fornecedores · {resultado.categorias} categorias · {resultado.centrosCusto} centros · {resultado.movimentos} lançamentos. Já refletido em todo o sistema.
+
+      {configured && (
+        <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
+          <span className="text-caption font-medium text-faint uppercase tracking-wide">Criar acesso</span>
+          <p className="m-0 text-caption text-muted">Defina e-mail e senha para acessar depois. (No MVP você pode deixar em branco e entrar agora.)</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />
+            <Input label="Senha" type="password" value={senha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSenha(e.target.value)} placeholder="••••••••" />
           </div>
-        ) : (
-          <Button variant="primary" onClick={criarAmbiente} disabled={aplicando}>{aplicando ? "Montando ambiente…" : "Criar ambiente automaticamente"}</Button>
-        )
+        </div>
+      )}
+
+      {report ? (
+        <p className="m-0 text-caption text-faint">Importação pronta — {report.confidence.lidos} lançamentos serão aplicados e refletidos em todo o sistema ao concluir.</p>
       ) : (
         <p className="m-0 text-caption text-faint">Sem importação — o ambiente base será criado e você poderá importar dados depois em Onboarding inteligente.</p>
       )}
+
+      {erro && <p className="m-0 text-caption text-negative">{erro}</p>}
     </div>
   );
 }
