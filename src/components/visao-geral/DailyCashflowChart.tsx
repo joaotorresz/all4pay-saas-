@@ -38,6 +38,15 @@ function CashflowTooltip({ active, payload, label }: any) {
   );
 }
 
+function PeriodTotal({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-caption text-faint">{label}</span>
+      <span className="text-[15px] font-medium tabular-nums" style={{ color }}>{formatBRL(value)}</span>
+    </div>
+  );
+}
+
 function Row({ color, k, v }: { color: string; k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-4 tabular-nums">
@@ -59,12 +68,25 @@ export function DailyCashflowChart() {
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
 
+  // Totais do período (Receitas/Despesas/Resultado) — números, não só o gráfico.
+  const entradas = (data ?? []).reduce((s, d) => s + d.inflow, 0);
+  const saidas = (data ?? []).reduce((s, d) => s + Math.abs(d.outflow), 0);
+  const resultado = entradas - saidas;
+
   return (
     <Card className="h-full flex flex-col">
       <WidgetHeader
         title="Fluxo de caixa"
         subtitle={legenda}
       />
+
+      {!isLoading && !isError && hasFlow && (
+        <div className="flex items-center gap-5 -mt-1 mb-1 flex-wrap">
+          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
+          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
+          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
+        </div>
+      )}
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
       {isError && (

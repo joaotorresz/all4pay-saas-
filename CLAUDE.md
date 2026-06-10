@@ -112,8 +112,11 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
 
 - **Pílula de período global** (`PeriodContext` + `PeriodPill`, no header): um
   período único (Hoje·7D·14D·30D·Mês·Trimestre·Ano·Personalizado — Mês/Tri/Ano =
-  MTD/QTD/YTD) que os widgets consomem via `usePeriod()`. Persistido. Hoje liga o
-  **Fluxo de caixa** (range global); demais widgets/cards entram por fase.
+  MTD/QTD/YTD) que os widgets consomem via `usePeriod()`. Persistido. Liga o
+  **Fluxo de caixa** (range + totais Entradas/Saídas/Resultado do período) e o
+  **Faturamento** (destaca os meses no período + total no período). A receber/A
+  pagar/Saldo são estado atual/futuro (vencido/vence hoje) — não tomam janela
+  retroativa por design. Cards período-scoped novos entram por fase.
 - **Personalizar Home** (`HomeCustomizeDrawer`, botão no header → evento
   `a4p:open-personalizar`): liga/desliga blocos da Home; preferência em
   localStorage (`a4p_home_widgets`), lida pelo `OverviewGrid` (client). Reordenar

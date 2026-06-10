@@ -15,11 +15,13 @@ import { Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import type { MonthlySalesPoint } from "@/lib/types";
 import { useSalesChart } from "./hooks";
+import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 
 const INK = "#171717";
 const GRID = "#EFEFEF";
 const FAINT = "#959595";
+const QUIET = "#D8D8D6";
 
 function SalesTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -33,15 +35,20 @@ function SalesTooltip({ active, payload, label }: any) {
 }
 
 export function SalesChart() {
+  const period = usePeriod();
   const { data, isLoading, isError } = useSalesChart(12);
   const hasSales = !!data && data.some((d) => d.total > 0);
 
-  // Highlight the most recent month in ink; quiet the rest.
-  const lastIdx = data ? data.length - 1 : -1;
+  // Mantém 12 meses de contexto, mas DESTACA os meses dentro do período global.
+  const fromM = period.from.slice(0, 7);
+  const toM = period.to.slice(0, 7);
+  const inPeriod = (month: string) => month >= fromM && month <= toM;
+  const totalPeriodo = (data ?? []).filter((d) => inPeriod(d.month)).reduce((s, d) => s + d.total, 0);
+  const subtitle = `${period.label.toLowerCase()} · ${formatBRL(totalPeriodo)}`;
 
   return (
     <Card className="h-full flex flex-col">
-      <WidgetHeader title="Vendas / Faturamento" subtitle="últimos 12 meses" />
+      <WidgetHeader title="Vendas / Faturamento" subtitle={subtitle} />
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
       {isError && <EmptyState title="Não foi possível carregar as vendas" />}
@@ -54,7 +61,7 @@ export function SalesChart() {
       )}
 
       {!isLoading && !isError && hasSales && data && (
-        <figure className="m-0 flex-1" role="img" aria-label={salesAria(data)}>
+        <figure className="m-0 flex-1" role="img" aria-label={salesAria(data, period.label, totalPeriodo)}>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke={GRID} vertical={false} />
@@ -76,23 +83,20 @@ export function SalesChart() {
                 cursor={{ fill: "rgba(23,23,23,0.04)" }}
               />
               <Bar dataKey="total" radius={[3, 3, 0, 0]} maxBarSize={28} name="Faturamento">
-                {data.map((_, i) => (
-                  <Cell key={i} fill={i === lastIdx ? INK : "#D8D8D6"} />
+                {data.map((d, i) => (
+                  <Cell key={i} fill={inPeriod(d.month) ? INK : QUIET} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <VisuallyHidden>{salesAria(data)}</VisuallyHidden>
+          <VisuallyHidden>{salesAria(data, period.label, totalPeriodo)}</VisuallyHidden>
         </figure>
       )}
     </Card>
   );
 }
 
-function salesAria(data: MonthlySalesPoint[]): string {
-  const total = data.reduce((s, d) => s + d.total, 0);
-  const last = data[data.length - 1];
-  return `Faturamento dos últimos 12 meses, total ${formatBRL(total)}. Mês mais recente (${
-    last?.label
-  }): ${formatBRL(last?.total ?? 0)}.`;
+function salesAria(data: MonthlySalesPoint[], periodoLabel: string, totalPeriodo: number): string {
+  const total12 = data.reduce((s, d) => s + d.total, 0);
+  return `Faturamento dos últimos 12 meses, total ${formatBRL(total12)}. No período ${periodoLabel}: ${formatBRL(totalPeriodo)}.`;
 }
