@@ -6,6 +6,7 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
+import { importedParties } from "@/lib/imported";
 import {
   DEMO_BRANDS,
   DEMO_UNITS,
@@ -101,7 +102,7 @@ export async function listServices(): Promise<Service[]> {
 }
 /** All clientes + fornecedores, for the Contatos screen. */
 export async function listParties(): Promise<Party[]> {
-  if (isDemo) return DEMO_PARTIES;
+  if (isDemo) return importedParties() ?? DEMO_PARTIES;
   const s = createClient();
   const { data, error } = await s
     .from("parties")

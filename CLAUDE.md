@@ -467,9 +467,17 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   de setup** (`montarPlano`): categorias, centros de custo, recorrências e
   **estimativas** (receita/EBITDA/margem/recorrente). **Central de confiança**
   (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
-- **Auto company setup:** `aplicarOnboarding()` (`src/lib/fdip.ts`) — demo
-  simula; live cria clientes/fornecedores (parties), categorias e centros de
-  custo (org_id pelo DEFAULT/RLS). Amostra de 12 meses em `sample.ts`. UI em
+- **Auto company setup / correlação no sistema inteiro:** `aplicarOnboarding(report)`
+  (`src/lib/fdip.ts`) → `montarDataset()` converte os lançamentos lidos em
+  `movements`+contas+parties. **Demo:** grava no store `src/lib/imported.ts`
+  (localStorage) que vira a FONTE dos acessores — `getRiscoInput()`,
+  `getReceivables/Payables/Accounts/DailyCashflow/Sales`, `getOpenMovements`,
+  `listParties` leem `importedMovements()/importedAccounts()/importedParties()
+  ?? seed`. **Live:** cria parties/categorias/centros **e os movimentos** no
+  Supabase. A `ImportView` invalida o React Query → dashboard/DRE/risco/quant/
+  decisão/copiloto/autônomo/dados/contatos passam a refletir o upload. Botão
+  "Limpar dados importados" reverte (demo). Amostra de 12 meses em `sample.ts`
+  (+ `public/exemplos/extrato-exemplo-all4pay.csv`). UI em
   `src/components/import/ImportView.tsx` (ingestão + confidence center +
   descobertas + destino com confirmação + padrões + setup).
 

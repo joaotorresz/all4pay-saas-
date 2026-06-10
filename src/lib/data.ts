@@ -23,6 +23,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
+import { importedMovements, importedAccounts } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -40,6 +41,14 @@ import type {
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
 
+/**
+ * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
+ * existir, senão o seed determinístico. É isto que faz o upload no
+ * onboarding inteligente refletir em todas as páginas.
+ */
+const seedMovements = (): Movement[] => importedMovements() ?? DEMO_MOVEMENTS;
+const seedAccounts = (): FinancialAccount[] => importedAccounts() ?? DEMO_ACCOUNTS;
+
 /** Brief delay so per-widget skeletons are perceptible in demo mode. */
 const demoDelay = () => new Promise((r) => setTimeout(r, 550));
 
@@ -49,7 +58,7 @@ const MOVEMENT_COLS =
 export async function getReceivables(): Promise<ReceivablesSummary> {
   if (isDemo) {
     await demoDelay();
-    return summarizeReceivables(DEMO_MOVEMENTS);
+    return summarizeReceivables(seedMovements());
   }
   const supabase = createClient();
   const { data, error } = await supabase
@@ -64,7 +73,7 @@ export async function getReceivables(): Promise<ReceivablesSummary> {
 export async function getPayables(): Promise<PayablesSummary> {
   if (isDemo) {
     await demoDelay();
-    return summarizePayables(DEMO_MOVEMENTS);
+    return summarizePayables(seedMovements());
   }
   const supabase = createClient();
   const { data, error } = await supabase
@@ -79,7 +88,7 @@ export async function getPayables(): Promise<PayablesSummary> {
 export async function getAccounts(): Promise<AccountsSummary> {
   if (isDemo) {
     await demoDelay();
-    return summarizeAccounts(DEMO_ACCOUNTS, DEMO_MOVEMENTS);
+    return summarizeAccounts(seedAccounts(), seedMovements());
   }
   const supabase = createClient();
   const [accountsRes, unreconciledRes] = await Promise.all([
@@ -100,7 +109,7 @@ export async function getDailyCashflow(
 ): Promise<DailyCashflowPoint[]> {
   if (isDemo) {
     await demoDelay();
-    return dailyCashflow(DEMO_MOVEMENTS, days);
+    return dailyCashflow(seedMovements(), days);
   }
   const supabase = createClient();
   const start = new Date();
@@ -120,7 +129,7 @@ export async function getOpenMovements(
 ): Promise<Movement[]> {
   if (isDemo) {
     await demoDelay();
-    return DEMO_MOVEMENTS.filter(
+    return seedMovements().filter(
       (m) => m.type === type && m.status === "pendente",
     ).sort((a, b) => a.due_date.localeCompare(b.due_date));
   }
@@ -141,7 +150,7 @@ export async function getUnreconciledMovements(
 ): Promise<Movement[]> {
   if (isDemo) {
     await demoDelay();
-    return DEMO_MOVEMENTS.filter(
+    return seedMovements().filter(
       (m) => !m.reconciled && (!accountId || m.account_id === accountId),
     ).sort((a, b) => b.due_date.localeCompare(a.due_date));
   }
@@ -204,7 +213,7 @@ export async function getParties(role: PartyRole): Promise<Party[]> {
 
 /** Lightweight account list for selects (id + name). */
 export async function getAccountsList(): Promise<FinancialAccount[]> {
-  if (isDemo) return DEMO_ACCOUNTS;
+  if (isDemo) return seedAccounts();
   const supabase = createClient();
   const { data, error } = await supabase
     .from("financial_accounts")
@@ -310,8 +319,8 @@ function demoCostCenter(cat: string | null): string {
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
-    const saldoAtual = DEMO_ACCOUNTS.reduce((s, a) => s + a.balance, 0);
-    const movements = DEMO_MOVEMENTS.map((m) => ({
+    const saldoAtual = seedAccounts().reduce((s, a) => s + a.balance, 0);
+    const movements = seedMovements().map((m) => ({
       id: m.id,
       type: m.type,
       status: m.status,
@@ -371,7 +380,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
   if (isDemo) {
     await demoDelay();
-    return monthlySales(DEMO_MOVEMENTS, months);
+    return monthlySales(seedMovements(), months);
   }
   const supabase = createClient();
   const start = new Date();

@@ -3,8 +3,10 @@
 import * as React from "react";
 import { Card, Icon, Button, Select } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
-import { analisarImportacao, amostraExtrato, aprender, planoDeOnboarding } from "@/core/fdip";
-import { aplicarOnboarding, type ResultadoOnboarding } from "@/lib/fdip";
+import { useQueryClient } from "@tanstack/react-query";
+import { analisarImportacao, amostraExtrato, aprender } from "@/core/fdip";
+import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
+import { hasImported } from "@/lib/imported";
 import type { FDIPReport, Classificacao, FinancialRecord } from "@/core/fdip/types";
 
 const CATEGORIAS = [
@@ -22,6 +24,12 @@ export function ImportView() {
   const [report, setReport] = React.useState<FDIPReport | null>(null);
   const [aplicando, setAplicando] = React.useState(false);
   const [resultado, setResultado] = React.useState<ResultadoOnboarding | null>(null);
+  const [importado, setImportado] = React.useState(false);
+  const qc = useQueryClient();
+
+  React.useEffect(() => {
+    setImportado(hasImported());
+  }, []);
 
   const analisar = (t: string) => {
     setResultado(null);
@@ -47,10 +55,19 @@ export function ImportView() {
     if (!report) return;
     setAplicando(true);
     try {
-      setResultado(await aplicarOnboarding(planoDeOnboarding(report)));
+      const res = await aplicarOnboarding(report);
+      setResultado(res);
+      setImportado(true);
+      await qc.invalidateQueries(); // todas as páginas recarregam com os dados importados
     } finally {
       setAplicando(false);
     }
+  };
+  const limpar = async () => {
+    clearImported();
+    setImportado(false);
+    setResultado(null);
+    await qc.invalidateQueries();
   };
 
   return (
@@ -91,6 +108,18 @@ export function ImportView() {
           ))}
         </div>
       </Card>
+
+      {importado && (
+        <Card className="flex items-center gap-3 border-l-4" style={{ borderLeftColor: "var(--color-lime)" }}>
+          <Icon name="check" size={16} color="var(--color-positive)" />
+          <span className="text-caption text-ink flex-1">
+            Dados importados ativos — alimentando dashboard, DRE, risco, inteligência e todo o ERP.
+          </span>
+          <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline">
+            Limpar dados importados
+          </button>
+        </Card>
+      )}
 
       {report && <Resultado report={report} texto={texto} corrigir={corrigir} criarEmpresa={criarEmpresa} aplicando={aplicando} resultado={resultado} />}
     </div>
@@ -247,13 +276,12 @@ function Resultado({
           </Button>
           {resultado && (
             <span className="text-caption text-positive">
-              {resultado.simulado ? "Pré-visualização (demo): " : "Criado: "}
-              {resultado.clientes} clientes · {resultado.fornecedores} fornecedores · {resultado.categorias} categorias · {resultado.centrosCusto} centros.
+              {resultado.clientes} clientes · {resultado.fornecedores} fornecedores · {resultado.categorias} categorias · {resultado.centrosCusto} centros · {resultado.movimentos} lançamentos. Refletido em todo o sistema.
             </span>
           )}
         </div>
         <span className="text-caption text-faint">
-          Em demonstração isto é simulado. Em produção (logado), cria de verdade clientes/fornecedores, categorias e centros de custo na sua organização.
+          Cria clientes/fornecedores, categorias, centros de custo e os lançamentos — passando a alimentar dashboard, DRE, risco e todas as páginas. Em demonstração fica neste navegador; em produção (logado) grava na sua organização (Supabase).
         </span>
       </Card>
     </div>
