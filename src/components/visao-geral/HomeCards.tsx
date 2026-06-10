@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useQuantitativo, useCentroInteligencia, useRiscoInput } from "./hooks";
 import { usePeriod } from "./PeriodContext";
@@ -53,14 +53,14 @@ export function SaudeFinanceiraCard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Kpi label="Score" value={`${sc.score}`} suffix="/100" color={scoreColor(sc.score)} hint={sc.classificacao} />
         <Kpi label="Runway" value={ind.runwayMeses >= 99 ? "99+" : ind.runwayMeses.toFixed(1)} suffix="meses" />
-        <Kpi label="Burn rate" value={ind.burnRate > 0 ? formatBRL(ind.burnRate) : "—"} suffix={ind.burnRate > 0 ? "/mês" : "gera caixa"} />
+        <Kpi label="Burn rate" value={ind.burnRate > 0 ? <BRL value={ind.burnRate} /> : "—"} suffix={ind.burnRate > 0 ? "/mês" : "gera caixa"} />
         <Kpi label="Liquidez" value={ind.liquidezCorrente.toFixed(2)} suffix="corrente" />
       </div>
     </Card>
   );
 }
 
-function Kpi({ label, value, suffix, color, hint }: { label: string; value: string; suffix?: string; color?: string; hint?: string }) {
+function Kpi({ label, value, suffix, color, hint }: { label: string; value: React.ReactNode; suffix?: string; color?: string; hint?: string }) {
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
@@ -116,7 +116,7 @@ export function AnomaliasCard() {
               <div className="text-[14px] text-ink truncate">{a.titulo}</div>
               <div className="text-caption text-faint truncate">{a.descricao}</div>
             </div>
-            <span className="text-caption text-muted tabular-nums">{formatBRL(a.valor)}</span>
+            <span className="text-caption text-muted tabular-nums"><BRL value={a.valor} /></span>
           </div>
         ))
       )}
@@ -155,7 +155,7 @@ export function TopClientesCard() {
             <div key={id} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[13px] text-ink truncate">{nome}</span>
-                <span className="text-caption text-muted tabular-nums shrink-0">{formatBRL(val)} · {Math.round(share * 100)}%</span>
+                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
               </div>
               <BarShare pct={share} color="var(--color-ink)" />
             </div>
@@ -196,7 +196,7 @@ export function MaioresCategoriasCard() {
             <div key={cat} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[13px] text-ink truncate capitalize">{cat}</span>
-                <span className="text-caption text-muted tabular-nums shrink-0">{formatBRL(val)} · {Math.round(share * 100)}%</span>
+                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
               </div>
               <BarShare pct={share} color="var(--color-warning)" />
             </div>
@@ -230,7 +230,7 @@ export function UltimosGastosCard() {
                 <div className="text-[14px] text-ink truncate">{nome}</div>
                 <div className="text-caption text-faint tabular-nums">{fmtDia(realizado(m))}</div>
               </div>
-              <span className="text-[14px] text-ink tabular-nums">{formatBRL(m.amount)}</span>
+              <span className="text-[14px] text-ink tabular-nums"><BRL value={m.amount} /></span>
             </div>
           );
         })

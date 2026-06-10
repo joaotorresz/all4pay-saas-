@@ -110,7 +110,11 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   `Switch` (toggle), `Textarea`.
 - **Menus/actions:** `DropdownMenu` (grouped anchored menu, shortcut hints),
   `SplitButton` (primary + secondary actions, e.g. "Salvar e criar outro").
-- **Data:** `Money` ★ (the signature treatment), `StatusBadge` (icon + text,
+- **Data:** `Money` ★ (the signature treatment, px-sized para os heróis grandes)
+  · **`BRL`** (`<BRL value={n} />`, o MESMO tratamento mas **inline e relativo ao
+  contexto** em `em`: R$ menor+faint · inteiro herói · decimais menores+faint —
+  use no lugar de `{formatBRL(x)}` em qualquer exibição de valor; `formatBRL`
+  cru só em strings de aria/sr/mensagens). `StatusBadge` (icon + text,
   never a filled colored pill), `Skeleton` (quiet per-widget loading
   placeholder — surface-2 + soft pulse).
 - **`Icon`** — thin linear Lucide icons (~1.75 stroke), monochrome. Substitution

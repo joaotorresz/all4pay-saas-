@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton, Icon, Input, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Input, Button } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
 import {
@@ -133,7 +133,7 @@ function BriefingCard({ b }: { b: import("@/core/executive/types").Briefing }) {
       <div className="flex gap-6">
         <div>
           <div className="text-caption text-faint">Saldo</div>
-          <div className="text-h3 font-medium tabular-nums text-ink">{formatBRL(b.saldo)}</div>
+          <div className="text-h3 font-medium tabular-nums text-ink"><BRL value={b.saldo} /></div>
         </div>
         <div>
           <div className="text-caption text-faint">Runway</div>
@@ -183,7 +183,7 @@ function InsightsCard({ insights }: { insights: import("@/core/executive/types")
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[14px] font-medium text-ink">{i.titulo}</span>
                 {i.impactoCentavos > 0 && (
-                  <span className="text-caption text-muted tabular-nums shrink-0">{formatBRL(i.impactoCentavos / 100)}</span>
+                  <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={i.impactoCentavos / 100} /></span>
                 )}
               </div>
               <span className="text-caption text-muted">{i.descricao}</span>
@@ -217,7 +217,7 @@ function AnomaliasCard({ anomalias }: { anomalias: import("@/core/executive/type
               <span className="w-2 h-2 rounded-pill" style={{ background: SEV_COR[a.severidade] }} />{a.titulo}
             </span>
             <span className="text-caption text-muted">{a.descricao}</span>
-            <span className="text-caption text-faint tabular-nums">{formatBRL(a.valor)}</span>
+            <span className="text-caption text-faint tabular-nums"><BRL value={a.valor} /></span>
           </div>
         ))
       )}
@@ -248,7 +248,7 @@ function ForecastCard({ forecast }: { forecast: import("@/core/executive/types")
                 active && payload?.length ? (
                   <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
                     <div className="font-medium text-ink mb-1">{label} {payload[0].payload.tipo === "previsto" && "(previsto)"}</div>
-                    <div className="text-muted tabular-nums">{formatBRL(payload[0].value)}</div>
+                    <div className="text-muted tabular-nums"><BRL value={payload[0].value} /></div>
                   </div>
                 ) : null
               }

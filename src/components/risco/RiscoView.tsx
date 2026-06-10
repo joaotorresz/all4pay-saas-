@@ -11,7 +11,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
@@ -230,7 +230,7 @@ function StressCard({ s }: { s: StressCenario }) {
       <span className="text-caption text-faint">{s.descricao}</span>
       <div className="flex items-center gap-4 pt-1 tabular-nums">
         <span className="text-label" style={{ color: s.impactoSaldo < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
-          {s.impactoSaldo < 0 ? "−" : "+"}{formatBRL(Math.abs(s.impactoSaldo))}
+          {s.impactoSaldo < 0 ? "−" : "+"}<BRL value={Math.abs(s.impactoSaldo)} />
         </span>
         <span className="text-caption text-muted">
           runway {s.runwayDias >= 999 ? "24+ m" : `${(s.runwayDias / 30).toFixed(1)} m`}
@@ -277,7 +277,7 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
               active && payload?.length ? (
                 <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
                   <div className="font-medium text-ink mb-1">Dia {label}</div>
-                  <div className="text-muted tabular-nums">{formatBRL(payload[0].value)}</div>
+                  <div className="text-muted tabular-nums"><BRL value={payload[0].value} /></div>
                 </div>
               ) : null
             }

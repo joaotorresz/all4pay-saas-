@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Icon, Input, Select, Switch, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Input, Select, Switch, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useAuditTrail } from "@/components/visao-geral/hooks";
@@ -341,7 +341,7 @@ function RequestCard({ r }: { r: ReturnType<typeof requestsDemo>[number] }) {
   return (
     <div className="rounded-md border border-border-soft p-3 flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <span className="text-[14px] font-medium text-ink tabular-nums">{formatBRL(r.transacao.valor)}</span>
+        <span className="text-[14px] font-medium text-ink tabular-nums"><BRL value={r.transacao.valor} /></span>
         <span className="text-caption text-muted">{STATUS_LABEL[r.status]}</span>
       </div>
       <span className="text-caption text-faint">{r.transacao.contraparte} · {r.transacao.metodo.toUpperCase()}</span>

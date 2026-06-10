@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Skeleton, Icon, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { listParties } from "@/lib/cadastros";
 import { useUpdateParty } from "@/components/lancamentos/hooks";
@@ -93,7 +93,7 @@ export function AutonomoView() {
           </div>
         </div>
         <span className="text-caption text-faint">
-          Executa sozinho até {formatBRL(hitl.limiteAutomatico)} e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%; acima disso, escala para aprovação. Ações reversíveis (cobrança/monitoramento) são automáticas.
+          Executa sozinho até <BRL value={hitl.limiteAutomatico} /> e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%; acima disso, escala para aprovação. Ações reversíveis (cobrança/monitoramento) são automáticas.
         </span>
         {decisoes.filter((d) => d.modo === "requer_aprovacao").length > 0 && (
           <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
@@ -146,7 +146,7 @@ function DecisaoRow({ d }: { d: FinancialDecision }) {
         </div>
         <span className="text-caption text-muted">{d.recomendacao}</span>
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-caption text-faint">
-          {d.impactoEsperado > 0 && <span>impacto ≈ {formatBRL(d.impactoEsperado)}</span>}
+          {d.impactoEsperado > 0 && <span>impacto ≈ <BRL value={d.impactoEsperado} /></span>}
           <span>confiança {Math.round(d.confianca * 100)}%</span>
           <span>risco exec. {Math.round(d.riscoExecucao * 100)}%</span>
           <span className="text-placeholder">{d.fatores.join(" · ")}</span>
@@ -267,7 +267,7 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
               ) : (
                 <span className="text-caption w-[150px] text-right" style={{ color: "var(--color-text-tertiary)" }}>sem cadastro</span>
               )}
-              <span className="text-caption text-muted tabular-nums w-[90px] text-right">{formatBRL(c.exposicao)}</span>
+              <span className="text-caption text-muted tabular-nums w-[90px] text-right"><BRL value={c.exposicao} /></span>
               <span className="text-caption w-[120px] text-right truncate" style={{ color: status[c.cliente]?.startsWith("falha") ? "var(--color-negative)" : "var(--color-positive)" }}>
                 {status[c.cliente] ?? ""}
               </span>
@@ -287,7 +287,7 @@ function RouteRow({ r }: { r: PaymentRoute }) {
   return (
     <div className="flex flex-col gap-[2px] rounded-md border border-border-soft p-3">
       <div className="flex items-baseline justify-between">
-        <span className="text-[14px] font-medium tabular-nums text-ink">{formatBRL(r.valor)}</span>
+        <span className="text-[14px] font-medium tabular-nums text-ink"><BRL value={r.valor} /></span>
         <span className="text-caption text-ink">{r.banco}</span>
       </div>
       <span className="text-caption text-faint">{r.contaEscolhida} — {r.motivo}</span>

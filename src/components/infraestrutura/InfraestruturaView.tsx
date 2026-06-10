@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
+import { BRL, Card, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { FinancialPlatform, criarPlataformaDemo } from "@/core/platform";
 import type {
@@ -101,13 +101,13 @@ export function InfraestruturaView() {
           {saldos.map((s) => (
             <div key={s.code} className="flex flex-col">
               <span className="text-caption text-faint">{s.code} · {s.name}</span>
-              <span className="text-[15px] font-medium tabular-nums text-ink">{formatBRL(s.saldo)}</span>
+              <span className="text-[15px] font-medium tabular-nums text-ink"><BRL value={s.saldo} /></span>
             </div>
           ))}
         </div>
 
         <div className="text-caption text-faint border-t border-border-soft pt-2">
-          Caixa derivado do ledger (state recovery por replay): <span className="text-ink tabular-nums">{formatBRL(saldoLedger)}</span> · débitos {formatBRL(tb.totalDebito)} = créditos {formatBRL(tb.totalCredito)}
+          Caixa derivado do ledger (state recovery por replay): <span className="text-ink tabular-nums"><BRL value={saldoLedger} /></span> · débitos <BRL value={tb.totalDebito} /> = créditos <BRL value={tb.totalCredito} />
         </div>
 
         <div className="flex flex-col">
@@ -118,7 +118,7 @@ export function InfraestruturaView() {
               <span className="text-caption text-muted">
                 {t.postings.map((p) => `${p.direction === "debit" ? "D" : "C"} ${p.accountCode}`).join(" · ")}
               </span>
-              <span className="text-label tabular-nums text-ink">{formatBRL(t.postings[0].amount)}</span>
+              <span className="text-label tabular-nums text-ink"><BRL value={t.postings[0].amount} /></span>
             </div>
           ))}
         </div>
@@ -196,7 +196,7 @@ function JobRow({ j, onReplay }: { j: QueueJob; onReplay: () => void }) {
     <div className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
       <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: JOB_COR[j.status] }} />
       <span className="text-[13px] text-ink flex-1 truncate">{j.metodo.toUpperCase()} · {j.contraparte ?? "—"}</span>
-      <span className="text-caption text-faint tabular-nums">{formatBRL(j.valor)}</span>
+      <span className="text-caption text-faint tabular-nums"><BRL value={j.valor} /></span>
       <span className="text-caption tabular-nums w-[60px] text-right" style={{ color: JOB_COR[j.status] }}>{j.status}</span>
       <span className="text-caption text-faint tabular-nums w-[40px] text-right">{j.tentativas}/{j.maxTentativas}</span>
       {j.status === "falha" && (

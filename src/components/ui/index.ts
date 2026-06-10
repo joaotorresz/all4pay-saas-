@@ -17,6 +17,7 @@ export { Switch, type SwitchProps } from "./Switch";
 export { Textarea, type TextareaProps } from "./Textarea";
 export { SplitButton, type SplitButtonProps } from "./SplitButton";
 export { Money, type MoneyProps } from "./Money";
+export { BRL } from "./BRL";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { Skeleton, type SkeletonProps } from "./Skeleton";
 export {

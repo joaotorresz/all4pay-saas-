@@ -14,7 +14,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton, Icon, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useArquitetura } from "@/components/visao-geral/hooks";
 import { simularResiliencia, type ResultadoResiliencia, type PassoResiliencia } from "@/core/reliability";
@@ -165,7 +165,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="text-label font-medium text-muted">Treasury Core · posição consolidada</span>
-        <span className="text-h3 font-medium tabular-nums text-ink">{formatBRL(t.posicaoTotal)}</span>
+        <span className="text-h3 font-medium tabular-nums text-ink"><BRL value={t.posicaoTotal} /></span>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
@@ -180,7 +180,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
           <div key={b.banco} className="flex flex-col gap-[3px]">
             <div className="flex justify-between text-caption">
               <span className="text-ink">{b.banco}</span>
-              <span className="text-muted tabular-nums">{Math.round(b.share * 100)}% · {formatBRL(b.saldo)}</span>
+              <span className="text-muted tabular-nums">{Math.round(b.share * 100)}% · <BRL value={b.saldo} /></span>
             </div>
             <div className="h-[6px] rounded-pill bg-surface-2 overflow-hidden">
               <div className="h-full rounded-pill" style={{ width: `${b.share * 100}%`, background: b.share > 0.6 ? "var(--color-warning)" : "var(--color-ink)" }} />
@@ -233,7 +233,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
           <div key={s.id} className="rounded-md border border-border-soft p-2 flex flex-col gap-[2px]">
             <span className="text-caption font-medium text-ink">{s.label}</span>
             <span className="text-caption tabular-nums" style={{ color: s.impacto < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
-              {s.impacto < 0 ? "−" : "+"}{formatBRL(Math.abs(s.impacto))} · runway {s.runwayDias >= 999 ? "24+m" : `${(s.runwayDias / 30).toFixed(1)}m`}
+              {s.impacto < 0 ? "−" : "+"}<BRL value={Math.abs(s.impacto)} /> · runway {s.runwayDias >= 999 ? "24+m" : `${(s.runwayDias / 30).toFixed(1)}m`}
             </span>
           </div>
         ))}

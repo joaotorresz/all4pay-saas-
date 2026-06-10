@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useDRE } from "@/components/visao-geral/hooks";
 import { FirstRunCard } from "@/components/visao-geral/FirstRunCard";
@@ -85,12 +85,12 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
       {/* Executivo */}
       <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-6 gap-5">
-        <Stat label="Receita líquida" value={formatBRL(gerencial.receitaLiquida)} />
-        <Stat label="EBITDA" value={formatBRL(gerencial.ebitda)} tone={gerencial.ebitda < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
+        <Stat label="Receita líquida" value={<BRL value={gerencial.receitaLiquida} />} />
+        <Stat label="EBITDA" value={<BRL value={gerencial.ebitda} />} tone={gerencial.ebitda < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
         <Stat label="Margem EBITDA" value={pct(gerencial.margemEbitda)} />
-        <Stat label="Lucro líquido" value={formatBRL(gerencial.lucroLiquido)} tone={gerencial.lucroLiquido < 0 ? "var(--color-negative)" : "var(--color-positive)"} />
+        <Stat label="Lucro líquido" value={<BRL value={gerencial.lucroLiquido} />} tone={gerencial.lucroLiquido < 0 ? "var(--color-negative)" : "var(--color-positive)"} />
         <Stat label="Runway" value={`${financeiro.runwayMeses}m`} />
-        <Stat label="Caixa" value={formatBRL(executivo.caixa)} />
+        <Stat label="Caixa" value={<BRL value={executivo.caixa} />} />
       </div>
 
       {/* Comentário do copiloto */}
@@ -136,7 +136,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <FinRow label="Fluxo de caixa livre" v={financeiro.fluxoLivre} bold />
         <div className="flex justify-between pt-1 border-t border-border-soft text-caption">
           <span className="text-faint">Burn mensal</span>
-          <span className="tabular-nums text-ink">{financeiro.burnMensal > 0 ? formatBRL(financeiro.burnMensal) : "—"}</span>
+          <span className="tabular-nums text-ink">{financeiro.burnMensal > 0 ? <BRL value={financeiro.burnMensal} /> : "—"}</span>
         </div>
       </Card>
 
@@ -145,7 +145,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <span className="text-label font-medium text-muted">DRE comparativo</span>
         <Tabela
           head={["Período", "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
-          rows={comparativo.periodos.map((p: DREPeriodo) => [p.label, formatBRL(p.receita), formatBRL(p.ebitda), pct(p.margemEbitda), formatBRL(p.lucro)])}
+          rows={comparativo.periodos.map((p: DREPeriodo) => [p.label, <BRL key="r" value={p.receita} />, <BRL key="e" value={p.ebitda} />, pct(p.margemEbitda), <BRL key="l" value={p.lucro} />])}
           alignRight={[1, 2, 3, 4]}
         />
         <span className="text-caption text-faint">
@@ -160,7 +160,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
           <div key={l.linha} className="flex flex-col gap-[3px]">
             <div className="flex justify-between text-caption">
               <span className="text-ink">{l.linha}</span>
-              <span className="text-muted tabular-nums">{formatBRL(l.receita)} · {pct(l.margem)}</span>
+              <span className="text-muted tabular-nums"><BRL value={l.receita} /> · {pct(l.margem)}</span>
             </div>
             <div className="h-[5px] rounded-pill bg-surface-2 overflow-hidden">
               <div className="h-full rounded-pill bg-ink" style={{ width: `${Math.max(0, Math.min(100, l.margem * 100))}%` }} />
@@ -174,7 +174,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <span className="text-label font-medium text-muted">DRE por cliente · top 10</span>
         <Tabela
           head={["Cliente", "Receita", "Share", "Margem", "Risco", "Vencido"]}
-          rows={porCliente.map((c: DREClienteLinha) => [c.cliente, formatBRL(c.receita), pct(c.share), pct(c.margem), `${c.risco}`, c.inadimplencia > 0 ? formatBRL(c.inadimplencia) : "—"])}
+          rows={porCliente.map((c: DREClienteLinha) => [c.cliente, <BRL key="r" value={c.receita} />, pct(c.share), pct(c.margem), `${c.risco}`, c.inadimplencia > 0 ? <BRL key="i" value={c.inadimplencia} /> : "—"])}
           alignRight={[1, 2, 3, 4, 5]}
         />
       </Card>
@@ -184,7 +184,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <span className="text-label font-medium text-muted">DRE por centro de custo</span>
         <Tabela
           head={["Centro de custo", "Receita", "Despesa", "Resultado", "Margem"]}
-          rows={porCentroCusto.map((c: DRECentroCusto) => [c.centro, formatBRL(c.receita), formatBRL(c.despesa), formatBRL(c.resultado), pct(c.margem)])}
+          rows={porCentroCusto.map((c: DRECentroCusto) => [c.centro, <BRL key="r" value={c.receita} />, <BRL key="d" value={c.despesa} />, <BRL key="res" value={c.resultado} />, pct(c.margem)])}
           alignRight={[1, 2, 3, 4]}
         />
         <span className="text-caption text-faint">Reflete o centro de custo escolhido em cada lançamento/venda.</span>
@@ -195,7 +195,7 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <span className="text-label font-medium text-muted">DRE projetado · receita média × margem atual</span>
         <Tabela
           head={["Horizonte", "Receita projetada", "EBITDA projetado", "Lucro projetado"]}
-          rows={projetado.map((p: DREProjecao) => [p.horizonte, formatBRL(p.receita), formatBRL(p.ebitda), formatBRL(p.lucro)])}
+          rows={projetado.map((p: DREProjecao) => [p.horizonte, <BRL key="r" value={p.receita} />, <BRL key="e" value={p.ebitda} />, <BRL key="l" value={p.lucro} />])}
           alignRight={[1, 2, 3]}
         />
       </Card>
@@ -222,7 +222,7 @@ function LinhaRow({ l }: { l: DRELinha }) {
         <span className="flex items-baseline gap-3">
           <span className="text-caption text-faint tabular-nums w-[44px] text-right">{sign(l.pctReceita)}{Math.abs(Math.round(l.pctReceita * 100))}%</span>
           <span className={`text-[14px] tabular-nums font-medium w-[120px] text-right`} style={{ color: cor }}>
-            {sign(l.valor)}{formatBRL(Math.abs(l.valor))}
+            {sign(l.valor)}<BRL value={Math.abs(l.valor)} />
           </span>
         </span>
       </button>
@@ -231,7 +231,7 @@ function LinhaRow({ l }: { l: DRELinha }) {
           {l.componentes!.map((c, i) => (
             <div key={i} className="flex justify-between text-caption py-[2px]">
               <span className="text-faint">{c.label}</span>
-              <span className="text-muted tabular-nums">{formatBRL(c.valor)}</span>
+              <span className="text-muted tabular-nums"><BRL value={c.valor} /></span>
             </div>
           ))}
         </div>
@@ -245,13 +245,13 @@ function FinRow({ label, v, bold }: { label: string; v: number; bold?: boolean }
     <div className={`flex justify-between ${bold ? "border-t border-border-soft pt-1" : ""}`}>
       <span className={`text-caption ${bold ? "font-medium text-ink" : "text-muted"}`}>{label}</span>
       <span className="text-caption tabular-nums font-medium" style={{ color: v < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
-        {sign(v)}{formatBRL(Math.abs(v))}
+        {sign(v)}<BRL value={Math.abs(v)} />
       </span>
     </div>
   );
 }
 
-function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; value: string; tone?: string }) {
+function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
     <Card className="flex flex-col gap-1">
       <span className="text-label font-medium text-muted">{label}</span>
@@ -260,7 +260,7 @@ function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; valu
   );
 }
 
-function Tabela({ head, rows, alignRight = [] }: { head: string[]; rows: string[][]; alignRight?: number[] }) {
+function Tabela({ head, rows, alignRight = [] }: { head: string[]; rows: React.ReactNode[][]; alignRight?: number[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-caption">

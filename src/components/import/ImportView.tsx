@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Icon, Button, Select } from "@/components/ui";
+import { BRL, Card, Icon, Button, Select } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { analisarImportacao, amostraExtrato, aprender } from "@/core/fdip";
@@ -216,7 +216,7 @@ function Resultado({
                   <tr key={r.id} className="border-t border-border-soft">
                     <td className="py-2 px-2"><span className="text-ink truncate block max-w-[220px]">{r.contraparte}</span></td>
                     <td className="py-2 px-2 text-right tabular-nums" style={{ color: r.tipo === "entrada" ? "var(--color-positive)" : "var(--color-ink)" }}>
-                      {r.tipo === "saida" ? "−" : ""}{formatBRL(r.valor)}
+                      {r.tipo === "saida" ? "−" : ""}<BRL value={r.valor} />
                     </td>
                     <td className="py-2 px-2 text-muted">{c.destino}</td>
                     <td className="py-2 px-2">
@@ -251,7 +251,7 @@ function Resultado({
           {padroes.recorrencias.slice(0, 6).map((rc, i) => (
             <div key={i} className="flex justify-between text-caption">
               <span className="text-ink truncate max-w-[150px]">{rc.contraparte}</span>
-              <span className="text-muted tabular-nums">{rc.periodicidade} · {formatBRL(rc.valorMedio)}</span>
+              <span className="text-muted tabular-nums">{rc.periodicidade} · <BRL value={rc.valorMedio} /></span>
             </div>
           ))}
         </div>
@@ -301,7 +301,7 @@ function Barra({ label, v, total, cor }: { label: string; v: number; total: numb
 function Achado({ n, label, money, tone = "var(--color-ink)" }: { n: number; label: string; money?: boolean; tone?: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}>{money ? formatBRL(n) : n}</span>
+      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}>{money ? <BRL value={n} /> : n}</span>
       <span className="text-caption text-faint mt-[2px]">{label}</span>
     </div>
   );

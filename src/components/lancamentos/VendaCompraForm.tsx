@@ -9,6 +9,7 @@ import {
   Textarea,
   Button,
   Icon,
+  BRL,
   type SelectOption,
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
@@ -211,7 +212,7 @@ export function VendaCompraForm({
             <CurrencyInput label={i === 0 ? "Vlr unit." : undefined} value={r.unit_price} onValueChange={(v) => setItem(i, { unit_price: v })} />
             <CurrencyInput label={i === 0 ? "Desconto" : undefined} value={r.discount} onValueChange={(v) => setItem(i, { discount: v })} />
             <div className={i === 0 ? "pb-[10px]" : ""}>
-              <span className="text-label tabular-nums text-ink">{formatBRL(lineTotal(r))}</span>
+              <span className="text-label tabular-nums text-ink"><BRL value={lineTotal(r)} /></span>
             </div>
             <button
               type="button"
@@ -234,14 +235,14 @@ export function VendaCompraForm({
 
       {/* Totais */}
       <div className="flex flex-col gap-2 items-end pt-2 border-t border-border-soft">
-        <Row label="Subtotal" value={formatBRL(subtotal)} />
+        <Row label="Subtotal" value={<BRL value={subtotal} />} />
         <div className="flex items-center gap-3">
           <span className="text-label text-muted">Desconto geral</span>
           <div className="w-[140px]">
             <CurrencyInput value={f.discount} onValueChange={(v) => set({ discount: v })} />
           </div>
         </div>
-        <Row label="Total geral" value={formatBRL(total)} strong />
+        <Row label="Total geral" value={<BRL value={total} />} strong />
       </div>
 
       {!isOrcamento && (
@@ -264,7 +265,7 @@ export function VendaCompraForm({
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Row({ label, value, strong }: { label: string; value: React.ReactNode; strong?: boolean }) {
   return (
     <div className="flex items-center gap-4 tabular-nums">
       <span className="text-label text-muted">{label}</span>

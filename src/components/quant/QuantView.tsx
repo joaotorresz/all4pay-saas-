@@ -15,7 +15,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useQuantitativo } from "@/components/visao-geral/hooks";
@@ -123,7 +123,7 @@ export function QuantView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-4">
           <Kpi label="Liquidez corrente" value={liq(i.liquidezCorrente)} />
           <Kpi label="Runway" value={`${i.runwayMeses}m`} />
-          <Kpi label="Burn / mês" value={i.burnRate > 0 ? formatBRL(i.burnRate) : "—"} />
+          <Kpi label="Burn / mês" value={i.burnRate > 0 ? <BRL value={i.burnRate} /> : "—"} />
           <Kpi label="Burn multiple" value={i.burnRate > 0 ? `${i.burnMultiple}x` : "—"} />
           <Kpi label="Margem operacional" value={pct(i.margemOperacional)} />
           <Kpi label="Margem líquida" value={pct(i.margemLiquida)} />
@@ -134,7 +134,7 @@ export function QuantView() {
           <Kpi label="Inadimplência" value={pct(i.inadimplencia)} tone={i.inadimplencia > 0.15 ? "var(--color-negative)" : undefined} />
           <Kpi label="Concentração" value={pct(i.concentracaoReceita)} tone={i.concentracaoReceita > 0.4 ? "var(--color-warning)" : undefined} />
           <Kpi label="Dependência (top 2)" value={pct(i.dependenciaCliente)} />
-          <Kpi label="Ticket médio" value={formatBRL(i.ticketMedio)} />
+          <Kpi label="Ticket médio" value={<BRL value={i.ticketMedio} />} />
           <Kpi label="Qualidade da receita" value={`${i.qualidadeReceita}/100`} />
           <Kpi label="Volatilidade" value={VOL_LABEL[i.volatilidadeNivel]} />
         </div>
@@ -218,7 +218,7 @@ function liq(v: number) {
   return v >= 10 ? "10+" : v.toFixed(2);
 }
 
-function Kpi({ label, value, tone = "var(--color-ink)" }: { label: string; value: string; tone?: string }) {
+function Kpi({ label, value, tone = "var(--color-ink)" }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
     <div className="flex flex-col gap-[2px]">
       <span className="text-caption text-faint">{label}</span>

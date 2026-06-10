@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useOrquestracaoInput } from "@/components/visao-geral/hooks";
 import { criarOrquestrador, type FinancialOrchestrator } from "@/core/orchestration";
@@ -87,7 +87,7 @@ export function OrquestracaoView() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Estado consolidado (vivo) */}
       <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-5">
-        <Stat label="Caixa consolidado" value={formatBRL(estado.saldoConsolidado)} />
+        <Stat label="Caixa consolidado" value={<BRL value={estado.saldoConsolidado} />} />
         <Stat label="Runway" value={estado.runwayDias >= 999 ? "24+ m" : `${(estado.runwayDias / 30).toFixed(1)} m`} />
         <Stat label="Score de risco" value={`${estado.riscoScore}/100`} tone={estado.riscoScore < 50 ? "var(--color-negative)" : "var(--color-ink)"} />
         <Stat label="Prob. de ruptura" value={`${Math.round(estado.probRuptura * 100)}%`} tone={estado.probRuptura >= 0.5 ? "var(--color-negative)" : "var(--color-ink)"} />
@@ -117,7 +117,7 @@ export function OrquestracaoView() {
               onClick={() => disparar(p)}
               className="text-caption text-muted bg-surface-2 hover:text-ink rounded-pill px-3 py-1"
             >
-              {EVENTO_LABEL[p.tipo]} {formatBRL(p.valor)}
+              {EVENTO_LABEL[p.tipo]} <BRL value={p.valor} />
             </button>
           ))}
         </div>
@@ -158,7 +158,7 @@ export function OrquestracaoView() {
 
             {resultado.lancamentos.map((l) => (
               <div key={l.id} className="text-caption text-muted bg-surface-1 rounded-md px-3 py-2">
-                Ledger: <span className="text-ink">{l.contaDebito}</span> ⇆ <span className="text-ink">{l.contaCredito}</span> · {formatBRL(l.valor)} ({l.status})
+                Ledger: <span className="text-ink">{l.contaDebito}</span> ⇆ <span className="text-ink">{l.contaCredito}</span> · <BRL value={l.valor} /> ({l.status})
               </div>
             ))}
 
@@ -192,7 +192,7 @@ export function OrquestracaoView() {
                 <span className="text-caption text-faint tabular-nums w-[18px]">{e.seq}</span>
                 <span className="text-[14px] text-ink flex-1">{EVENTO_LABEL[e.tipo]}</span>
                 {e.contraparte && <span className="text-caption text-faint">{e.contraparte}</span>}
-                <span className="text-label tabular-nums text-muted">{formatBRL(e.valor)}</span>
+                <span className="text-label tabular-nums text-muted"><BRL value={e.valor} /></span>
                 <span className="text-[11px] text-placeholder tabular-nums">{e.hash.slice(0, 10)}…</span>
               </div>
             ))}
@@ -210,7 +210,7 @@ export function OrquestracaoView() {
             <div key={s.conta} className="flex items-center justify-between">
               <span className="text-[13px] text-ink">{s.conta}</span>
               <span className="text-label font-medium tabular-nums" style={{ color: s.saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
-                {formatBRL(s.saldo)}
+                <BRL value={s.saldo} />
               </span>
             </div>
           ))
@@ -223,7 +223,7 @@ export function OrquestracaoView() {
           <Icon name="network" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Grafo financeiro unificado</span>
           <span className="text-caption text-faint">
-            · {grafo.resumo.clientes} clientes · {grafo.resumo.fornecedores} fornecedores · fluxo {formatBRL(grafo.resumo.fluxoTotal)}
+            · {grafo.resumo.clientes} clientes · {grafo.resumo.fornecedores} fornecedores · fluxo <BRL value={grafo.resumo.fluxoTotal} />
           </span>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
@@ -255,7 +255,7 @@ export function OrquestracaoView() {
   );
 }
 
-function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; value: string; tone?: string }) {
+function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; value: React.ReactNode; tone?: string }) {
   return (
     <Card className="flex flex-col gap-1">
       <span className="text-label font-medium text-muted">{label}</span>
@@ -300,7 +300,7 @@ function FlowColumn({ titulo, nodes, cor, alinharDireita }: { titulo: string; no
         <div key={n.id} className="flex flex-col gap-[3px]">
           <div className={`flex items-baseline justify-between gap-2 ${alinharDireita ? "flex-row-reverse" : ""}`}>
             <span className="text-caption text-ink truncate">{n.label}</span>
-            <span className="text-caption text-faint tabular-nums">{formatBRL(n.valor)}</span>
+            <span className="text-caption text-faint tabular-nums"><BRL value={n.valor} /></span>
           </div>
           <div className={`h-[5px] rounded-pill bg-surface-2 overflow-hidden ${alinharDireita ? "flex justify-end" : ""}`}>
             <div className="h-full rounded-pill" style={{ width: `${(n.valor / max) * 100}%`, background: cor }} />

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { Card, Skeleton } from "@/components/ui";
+import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import type { MonthlySalesPoint } from "@/lib/types";
 import { useSalesChart } from "./hooks";
@@ -29,7 +29,7 @@ function SalesTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
       <div className="font-medium text-ink mb-1">{label}</div>
-      <div className="text-muted tabular-nums">{formatBRL(v)}</div>
+      <div className="text-muted tabular-nums"><BRL value={v} /></div>
     </div>
   );
 }

@@ -15,7 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useMoat } from "@/components/visao-geral/hooks";
@@ -110,7 +110,7 @@ export function DadosView() {
       <Card className="lg:col-span-1 flex flex-col gap-3">
         <span className="text-label font-medium text-muted">Credit intelligence</span>
         <div className="flex items-end gap-2">
-          <span className="text-value-lg leading-none font-medium tabular-nums text-ink">{formatBRL(credito.limiteRecomendado)}</span>
+          <span className="text-value-lg leading-none font-medium tabular-nums text-ink"><BRL value={credito.limiteRecomendado} /></span>
         </div>
         <span className="text-caption text-faint">limite recomendado</span>
         <div className="flex gap-6 pt-1">

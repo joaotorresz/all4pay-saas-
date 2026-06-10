@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Money, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Money, Icon } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useInadimplencia } from "@/components/visao-geral/hooks";
@@ -127,7 +127,7 @@ export function InadimplenciaView() {
             >
               <span className="text-[14px] font-medium text-ink">{s.label}</span>
               <span className="text-caption text-faint">{s.clientes} cliente(s)</span>
-              <span className="text-label text-muted tabular-nums">{formatBRL(s.exposicao)}</span>
+              <span className="text-label text-muted tabular-nums"><BRL value={s.exposicao} /></span>
             </div>
           ))}
         </div>
@@ -224,7 +224,7 @@ function ClienteRow({
         </span>
       </span>
       <span className="w-[110px] text-right text-[14px] text-ink tabular-nums">
-        {formatBRL(c.features.volumeAberto)}
+        <BRL value={c.features.volumeAberto} />
       </span>
       <span className="w-[88px] flex justify-end">
         <span
@@ -307,7 +307,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
         </span>
         <p className="m-0 text-[13px] text-ink leading-snug">{c.credito.resumo}</p>
         <div className="grid grid-cols-3 gap-2 pt-1">
-          <Mini label="Limite" value={formatBRL(c.credito.limiteSugerido)} />
+          <Mini label="Limite" value={<BRL value={c.credito.limiteSugerido} />} />
           <Mini label="Prazo" value={`${c.credito.prazoSugeridoDias}d`} />
           <Mini label="Entrada" value={pct(c.credito.entradaSugeridaPct)} />
         </div>
@@ -327,7 +327,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
   );
 }
 
-function Mini({ label, value }: { label: string; value: string }) {
+function Mini({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>

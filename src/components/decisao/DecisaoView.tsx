@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useDecisao } from "@/components/visao-geral/hooks";
 import {
@@ -132,12 +132,12 @@ export function DecisaoView() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-3">
           <Feat label="Runway" value={`${features.atual.runwayMeses}m`} />
-          <Feat label="Burn / mês" value={features.atual.burnMensal > 0 ? formatBRL(features.atual.burnMensal) : "—"} />
+          <Feat label="Burn / mês" value={features.atual.burnMensal > 0 ? <BRL value={features.atual.burnMensal} /> : "—"} />
           <Feat label="Liquidez" value={features.atual.liquidezCorrente >= 10 ? "10+" : features.atual.liquidezCorrente.toFixed(2)} />
           <Feat label="Inadimplência" value={`${Math.round(features.atual.inadimplencia * 100)}%`} />
           <Feat label="Conc. receita" value={`${Math.round(features.atual.concentracaoReceita * 100)}%`} />
           <Feat label="Conc. fornecedor" value={`${Math.round(features.atual.concentracaoFornecedor * 100)}%`} />
-          <Feat label="Ticket médio" value={formatBRL(features.atual.ticketMedio)} />
+          <Feat label="Ticket médio" value={<BRL value={features.atual.ticketMedio} />} />
           <Feat label="Margem op." value={`${Math.round(features.atual.margemOperacional * 100)}%`} />
           <Feat label="Crescimento" value={`${Math.round(features.atual.crescimentoMensal * 100)}%`} />
           <Feat label="Sazonalidade" value={`${Math.round(features.atual.sazonalidade * 100)}%`} />
@@ -210,7 +210,7 @@ function AcaoRow({ a }: { a: AcaoAutonoma }) {
   );
 }
 
-function Feat({ label, value }: { label: string; value: string }) {
+function Feat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-[2px]">
       <span className="text-caption text-faint">{label}</span>

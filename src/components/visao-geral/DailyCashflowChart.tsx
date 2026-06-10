@@ -13,7 +13,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { Card, Skeleton } from "@/components/ui";
+import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflow } from "./hooks";
@@ -33,9 +33,9 @@ function CashflowTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
       <div className="font-medium text-ink mb-[6px]">{label}</div>
-      <Row color={POSITIVE} k="Entradas" v={formatBRL(p.inflow)} />
-      <Row color={NEGATIVE} k="Saídas" v={formatBRL(Math.abs(p.outflow))} />
-      <Row color={LINE} k="Saldo acum." v={formatBRL(p.balance)} />
+      <Row color={POSITIVE} k="Entradas" v={<BRL value={p.inflow} />} />
+      <Row color={NEGATIVE} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
+      <Row color={LINE} k="Saldo acum." v={<BRL value={p.balance} />} />
     </div>
   );
 }
@@ -44,12 +44,12 @@ function PeriodTotal({ label, value, color }: { label: string; value: number; co
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[15px] font-medium tabular-nums" style={{ color }}>{formatBRL(value)}</span>
+      <span className="text-[15px] font-medium tabular-nums" style={{ color }}><BRL value={value} /></span>
     </div>
   );
 }
 
-function Row({ color, k, v }: { color: string; k: string; v: string }) {
+function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 tabular-nums">
       <span className="inline-flex items-center gap-[6px] text-muted">
