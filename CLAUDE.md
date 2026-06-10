@@ -94,6 +94,12 @@ App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
 header) wraps every screen. The reference composition is the **Início**
 dashboard (`/`) — see the Feature modules section below.
 
+**Busca global / Command palette** (`src/components/app/CommandPalette.tsx`):
+montada no `AppShell`, abre por **⌘K/Ctrl+K** ou pelo botão de busca da Sidebar
+(evento `a4p:open-search`). Busca navegação (rotas) + contatos/produtos/serviços/
+vendas (via os `list*` accessors, só quando aberta) com teclado (setas/Enter/Esc).
+Demo-safe; navega para a página do resultado.
+
 ---
 
 ## Feature modules

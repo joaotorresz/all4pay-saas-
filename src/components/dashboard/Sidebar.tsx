@@ -119,6 +119,7 @@ export function Sidebar({
 
       {/* Command bar (⌘K) — the one sanctioned lime tint here */}
       <button
+        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
         className={cn(
           "flex items-center bg-lime-tint border border-[#ECF6B8] rounded-md mb-[14px] cursor-pointer",
           collapsed ? "justify-center py-[9px]" : "gap-2 px-[11px] py-[9px]",
@@ -128,7 +129,7 @@ export function Sidebar({
         <Icon name="search" size={15} color="var(--color-text-secondary)" />
         {!collapsed && (
           <>
-            <span className="text-label text-muted font-regular">Olá, operador…</span>
+            <span className="text-label text-muted font-regular">Buscar no sistema…</span>
             <span className="ml-auto text-[11px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">
               ⌘K
             </span>
