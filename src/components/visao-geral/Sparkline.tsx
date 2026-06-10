@@ -49,16 +49,16 @@ export function Sparkline({
     >
       <defs>
         <linearGradient id={`spark-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-ink)" stopOpacity="0.10" />
-          <stop offset="100%" stopColor="var(--color-ink)" stopOpacity="0" />
+          <stop offset="0%" stopColor="#dcff00" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#dcff00" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#spark-${gid})`} stroke="none" />
       <path
         d={d}
         fill="none"
-        stroke="var(--color-ink)"
-        strokeWidth="2"
+        stroke="var(--color-chart-line)"
+        strokeWidth="1.4"
         strokeDasharray="5 4"
         strokeLinecap="round"
         vectorEffect="non-scaling-stroke"
@@ -68,7 +68,7 @@ export function Sparkline({
         cy={last[1]}
         r="4"
         fill="var(--color-white)"
-        stroke="var(--color-ink)"
+        stroke="var(--color-chart-line)"
         strokeWidth="1.6"
         vectorEffect="non-scaling-stroke"
       />
