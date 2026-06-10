@@ -111,8 +111,8 @@ widgets, each with its own hook and its own loading / empty / error state — th
 page never blocks as a whole. (`/visao-geral` redirects here.)
 
 - **Pílula de período global** (`PeriodContext` + `PeriodPill`, no header): um
-  período único (Hoje·7D·14D·30D·Mês·Trimestre·Ano·Personalizado — Mês/Tri/Ano =
-  MTD/QTD/YTD) que os widgets consomem via `usePeriod()`. Persistido. Liga o
+  período único (Hoje · 7 dias · 14 dias · 30 dias · Personalizável — tudo em
+  pills) que os widgets consomem via `usePeriod()`. Persistido. Liga o
   **Fluxo de caixa** (range + totais Entradas/Saídas/Resultado do período) e o
   **Faturamento** (destaca os meses no período + total no período). A receber/A
   pagar/Saldo são estado atual/futuro (vencido/vence hoje) — não tomam janela

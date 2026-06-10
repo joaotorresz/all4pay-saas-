@@ -9,7 +9,7 @@ import { isoDay } from "@/lib/aggregations";
  * Personalizado) que todos os widgets/cards da Home consomem, para consistência.
  * Mês/Trimestre/Ano são MTD/QTD/YTD (alinha com o DRE). Persistido no localStorage.
  */
-export type PeriodPreset = "hoje" | "7d" | "14d" | "30d" | "mes" | "trimestre" | "ano" | "custom";
+export type PeriodPreset = "hoje" | "7d" | "14d" | "30d" | "custom";
 
 export interface PeriodValue {
   preset: PeriodPreset;
@@ -37,8 +37,7 @@ const diffDays = (from: string, to: string) =>
   Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1);
 
 const LABELS: Record<PeriodPreset, string> = {
-  hoje: "Hoje", "7d": "7 dias", "14d": "14 dias", "30d": "30 dias",
-  mes: "Mês", trimestre: "Trimestre", ano: "Ano", custom: "Personalizado",
+  hoje: "Hoje", "7d": "7 dias", "14d": "14 dias", "30d": "30 dias", custom: "Personalizado",
 };
 
 /** Deriva from/to/days/months a partir do preset (relativo a hoje). */
@@ -58,9 +57,6 @@ function derive(preset: PeriodPreset, custom?: { from: string; to: string }): Pe
     case "7d": from = isoDay(addDays(today, -6)); break;
     case "14d": from = isoDay(addDays(today, -13)); break;
     case "30d": from = isoDay(addDays(today, -29)); break;
-    case "mes": from = isoDay(new Date(today.getFullYear(), today.getMonth(), 1)); break;
-    case "trimestre": from = isoDay(new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1)); break;
-    case "ano": from = isoDay(new Date(today.getFullYear(), 0, 1)); break;
     default: from = isoDay(addDays(today, -13));
   }
   const days = diffDays(from, to);
@@ -83,7 +79,8 @@ export function PeriodProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const j = JSON.parse(raw) as { preset: PeriodPreset; custom?: { from: string; to: string } };
-        if (j.preset) setPresetState(j.preset);
+        const ok: PeriodPreset[] = ["hoje", "7d", "14d", "30d", "custom"];
+        if (j.preset && ok.includes(j.preset)) setPresetState(j.preset);
         if (j.custom) setCustomState(j.custom);
       }
     } catch { /* ignore */ }
