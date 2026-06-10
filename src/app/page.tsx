@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <AppShell title="Início" actions={<InicioActions demo={isDemo} />}>
+    <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />}>
       <OverviewGrid />
     </AppShell>
   );

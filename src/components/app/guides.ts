@@ -30,7 +30,7 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Novo depósito", desc: "Botão no topo: 16 ações (lançamentos, vendas/compras, cadastros) e atalhos Alt+letra." },
+          { nome: "Novo lançamento", desc: "Botão no topo: 16 ações (lançamentos, vendas/compras, cadastros) e atalhos Alt+letra." },
         ],
       },
       {
@@ -39,7 +39,7 @@ export const GUIDES: Record<string, Guide> = {
           { nome: "A receber", desc: "Hero VENCIDO (vermelho) + VENCE HOJE (verde) e o restante do mês.", match: "A Receber" },
           { nome: "A pagar", desc: "Mesma leitura, para as saídas.", match: "A Pagar" },
           { nome: "Contas financeiras", desc: "Saldo consolidado das contas + selo de conciliação por conta.", match: "Contas Financeiras" },
-          { nome: "Fluxo de caixa diário", desc: "Barras divergentes (entradas/saídas) + linha de saldo acumulado.", match: "Fluxo de Caixa" },
+          { nome: "Fluxo de caixa", desc: "Barras divergentes (entradas/saídas) + linha de saldo acumulado. Períodos: no dia, 7, 14, 30 dias e 3 meses.", match: "Fluxo de caixa" },
           { nome: "Vendas / Faturamento", desc: "Evolução do faturamento mês a mês.", match: "Faturamento" },
         ],
       },

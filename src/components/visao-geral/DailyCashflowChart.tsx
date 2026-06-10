@@ -25,7 +25,13 @@ const INK = "#171717";
 const GRID = "#EFEFEF";
 const FAINT = "#959595";
 
-const PERIODS = [7, 14, 30] as const;
+const PERIODS = [
+  { days: 1, label: "No dia", legenda: "no dia" },
+  { days: 7, label: "7 dias", legenda: "últimos 7 dias" },
+  { days: 14, label: "14 dias", legenda: "últimos 14 dias" },
+  { days: 30, label: "30 dias", legenda: "últimos 30 dias" },
+  { days: 90, label: "3 meses", legenda: "últimos 3 meses" },
+] as const;
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -53,8 +59,9 @@ function Row({ color, k, v }: { color: string; k: string; v: string }) {
 }
 
 export function DailyCashflowChart() {
-  const [days, setDays] = React.useState<(typeof PERIODS)[number]>(14);
+  const [days, setDays] = React.useState<(typeof PERIODS)[number]["days"]>(14);
   const { data, isLoading, isError } = useDailyCashflow(days);
+  const legenda = PERIODS.find((p) => p.days === days)?.legenda ?? `últimos ${days} dias`;
 
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
@@ -62,8 +69,8 @@ export function DailyCashflowChart() {
   return (
     <Card className="h-full flex flex-col">
       <WidgetHeader
-        title="Fluxo de Caixa Diário"
-        subtitle={`últimos ${days} dias`}
+        title="Fluxo de caixa"
+        subtitle={legenda}
         action={
           <div
             className="inline-flex items-center gap-1 bg-surface-2 rounded-md p-[2px]"
@@ -72,17 +79,17 @@ export function DailyCashflowChart() {
           >
             {PERIODS.map((p) => (
               <button
-                key={p}
-                onClick={() => setDays(p)}
-                aria-pressed={days === p}
+                key={p.days}
+                onClick={() => setDays(p.days)}
+                aria-pressed={days === p.days}
                 className={cn(
-                  "text-caption font-medium rounded-sm px-[10px] py-[4px] transition-colors",
-                  days === p
+                  "text-caption font-medium rounded-sm px-[10px] py-[4px] transition-colors whitespace-nowrap",
+                  days === p.days
                     ? "bg-white text-ink shadow-pill"
                     : "text-muted hover:text-ink",
                 )}
               >
-                {p}d
+                {p.label}
               </button>
             ))}
           </div>
@@ -102,7 +109,7 @@ export function DailyCashflowChart() {
       )}
 
       {!isLoading && !isError && hasFlow && data && (
-        <figure className="m-0 flex-1" role="img" aria-label={cashflowAria(data, days)}>
+        <figure className="m-0 flex-1" role="img" aria-label={cashflowAria(data, legenda)}>
           <ResponsiveContainer width="100%" height={260}>
             <ComposedChart
               data={data}
@@ -162,7 +169,7 @@ export function DailyCashflowChart() {
             </ComposedChart>
           </ResponsiveContainer>
           <Legend />
-          <VisuallyHidden>{cashflowAria(data, days)}</VisuallyHidden>
+          <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
       )}
     </Card>
@@ -194,11 +201,11 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-function cashflowAria(data: DailyCashflowPoint[], days: number): string {
+function cashflowAria(data: DailyCashflowPoint[], legenda: string): string {
   const inflow = data.reduce((s, d) => s + d.inflow, 0);
   const outflow = data.reduce((s, d) => s + Math.abs(d.outflow), 0);
   const last = data[data.length - 1]?.balance ?? 0;
-  return `Fluxo de caixa dos últimos ${days} dias. Entradas ${formatBRL(
+  return `Fluxo de caixa (${legenda}). Entradas ${formatBRL(
     inflow,
   )}, saídas ${formatBRL(outflow)}, saldo acumulado ${formatBRL(last)}.`;
 }

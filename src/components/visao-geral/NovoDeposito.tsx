@@ -96,7 +96,7 @@ export function NovoDeposito() {
             rightIcon={<Icon name="chevron-down" size={15} />}
             leftIcon={<Icon name="plus" size={15} />}
           >
-            Novo depósito
+            Novo lançamento
           </Button>
         )}
       />
