@@ -3,7 +3,8 @@
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui";
-import { guideForPath } from "./guides";
+import { guideForPath, tourSteps } from "./guides";
+import { Tour } from "./Tour";
 
 /**
  * Guia embutido por página. Abre automaticamente na primeira visita de cada
@@ -15,6 +16,14 @@ export function PageGuide() {
   const pathname = usePathname();
   const guide = guideForPath(pathname);
   const [open, setOpen] = React.useState(false);
+  const [tour, setTour] = React.useState(false);
+
+  const passos = guide ? tourSteps(guide) : [];
+  const temTour = passos.some((p) => p.match);
+  const iniciarTour = () => {
+    setOpen(false);
+    setTour(true);
+  };
 
   // Auto-abre na primeira visita da rota.
   React.useEffect(() => {
@@ -102,17 +111,28 @@ export function PageGuide() {
               ))}
             </div>
 
-            <div className="px-6 py-4 border-t border-border-soft">
+            <div className="px-6 py-4 border-t border-border-soft flex gap-2">
               <button
                 onClick={() => setOpen(false)}
-                className="w-full rounded-md bg-ink text-white text-label font-medium py-[10px] hover:opacity-90"
+                className="flex-1 rounded-md border border-border text-ink text-label font-medium py-[10px] hover:bg-surface-2"
               >
                 Entendi
               </button>
+              {temTour && (
+                <button
+                  onClick={iniciarTour}
+                  className="flex-1 rounded-md bg-ink text-white text-label font-medium py-[10px] hover:opacity-90 inline-flex items-center justify-center gap-2"
+                >
+                  Tour na tela
+                  <Icon name="arrow-up-right" size={15} color="var(--color-lime)" />
+                </button>
+              )}
             </div>
           </aside>
         </div>
       )}
+
+      {tour && <Tour steps={passos} onClose={() => setTour(false)} />}
     </>
   );
 }

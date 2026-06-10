@@ -20,6 +20,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
   return (
     <div
       ref={ref}
+      data-card="1"
       className={cn(
         "bg-white rounded-card text-ink",
         bordered && "border border-border",

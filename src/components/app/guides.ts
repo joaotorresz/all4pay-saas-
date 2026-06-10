@@ -1,11 +1,15 @@
 /**
  * Conteúdo dos guias por página. Cada rota tem um guia explicando o que dá
  * para fazer, as variáveis/métricas e o que é cada bloco da tela. Consumido
- * por PageGuide (painel de ajuda embutido).
+ * por PageGuide (painel) e Tour (passo a passo com spotlight na tela).
+ *
+ * `match`: substring da legenda visível do card — usado pelo Tour para
+ * localizar e destacar o box correspondente na própria tela.
  */
 export interface GuideItem {
   nome: string;
   desc: string;
+  match?: string;
 }
 export interface GuideSection {
   titulo: string;
@@ -26,17 +30,17 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Novo depósito", desc: "Botão no topo: abre o menu com 16 ações (lançamentos, vendas/compras, cadastros) e atalhos Alt+letra." },
-          { nome: "Trocar período do fluxo", desc: "No gráfico de fluxo de caixa, alterne o intervalo projetado." },
+          { nome: "Novo depósito", desc: "Botão no topo: 16 ações (lançamentos, vendas/compras, cadastros) e atalhos Alt+letra." },
         ],
       },
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "A receber / A pagar", desc: "Hero VENCIDO (em vermelho) + VENCE HOJE (verde) e o restante do mês." },
-          { nome: "Saldo consolidado", desc: "Soma das contas + selo de conciliação por conta." },
-          { nome: "Fluxo de caixa diário", desc: "Barras divergentes (entradas/saídas) + linha de saldo acumulado." },
-          { nome: "Vendas (12 meses)", desc: "Evolução do faturamento mês a mês." },
+          { nome: "A receber", desc: "Hero VENCIDO (vermelho) + VENCE HOJE (verde) e o restante do mês.", match: "A Receber" },
+          { nome: "A pagar", desc: "Mesma leitura, para as saídas.", match: "A Pagar" },
+          { nome: "Contas financeiras", desc: "Saldo consolidado das contas + selo de conciliação por conta.", match: "Contas Financeiras" },
+          { nome: "Fluxo de caixa diário", desc: "Barras divergentes (entradas/saídas) + linha de saldo acumulado.", match: "Fluxo de Caixa" },
+          { nome: "Vendas / Faturamento", desc: "Evolução do faturamento mês a mês.", match: "Faturamento" },
         ],
       },
     ],
@@ -44,24 +48,22 @@ export const GUIDES: Record<string, Guide> = {
 
   "/copiloto": {
     titulo: "Copiloto — IA executiva",
-    intro:
-      "O sistema operando como analista + FP&A + tesouraria: responde o que vai acontecer, o que priorizar e o que está errado.",
+    intro: "O sistema operando como analista + FP&A + tesouraria: o que vai acontecer, o que priorizar, o que está errado.",
     secoes: [
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Perguntar", desc: "Digite ou use as perguntas sugeridas (contratação, investimento, cliente de risco, despesas, expansão). A resposta vem com números + fontes." },
-          { nome: "Simulador", desc: "Mexa nos sliders (receita/despesa/inadimplência) e veja runway e score recalcularem." },
+          { nome: "Perguntar", desc: "Digite ou use as perguntas sugeridas. A resposta vem com números + fontes.", match: "Copiloto financeiro" },
         ],
       },
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Briefing executivo", desc: "Resumo diário: saldo, runway, alertas, oportunidades, risco de ruptura." },
-          { nome: "Insights priorizados", desc: "Ordenados por impacto × urgência × probabilidade × criticidade." },
-          { nome: "Anomalias", desc: "Despesas fora do padrão (z-score), duplicidade, pagamento atípico." },
-          { nome: "Motor preditivo", desc: "Fluxo líquido projetado (barras histórico vs previsto) + janela de pressão." },
-          { nome: "Memória da operação", desc: "Padrões aprendidos: sazonalidade, despesas recorrentes, clientes críticos." },
+          { nome: "Briefing executivo", desc: "Resumo diário: saldo, runway, alertas, oportunidades, risco de ruptura.", match: "Briefing executivo" },
+          { nome: "Insights priorizados", desc: "Ordenados por impacto × urgência × probabilidade × criticidade.", match: "Insights priorizados" },
+          { nome: "Anomalias", desc: "Despesas fora do padrão (z-score), duplicidade, pagamento atípico.", match: "Anomalias" },
+          { nome: "Motor preditivo", desc: "Fluxo líquido projetado (histórico vs previsto) + janela de pressão.", match: "Motor preditivo" },
+          { nome: "Memória da operação", desc: "Padrões aprendidos: sazonalidade, despesas recorrentes, clientes críticos.", match: "Memória da operação" },
         ],
       },
     ],
@@ -69,33 +71,25 @@ export const GUIDES: Record<string, Guide> = {
 
   "/dre": {
     titulo: "DRE Intelligence Center",
-    intro:
-      "Centro de resultado: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção.",
+    intro: "Centro de resultado: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção.",
     secoes: [
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Período", desc: "Mês atual / anterior / YTD / 12 meses — recalcula tudo." },
-          { nome: "Regime", desc: "Competência (por vencimento) ou Caixa (por pagamento realizado)." },
+          { nome: "Período & regime", desc: "Mês/anterior/YTD/12m e Competência (vencimento) ou Caixa (pagamento). Recalcula tudo.", match: "Período" },
           { nome: "Drill-down", desc: "Clique nas linhas com ▸ para abrir a composição por categoria." },
-        ],
-      },
-      {
-        titulo: "Variáveis / métricas",
-        itens: [
-          { nome: "EBITDA", desc: "Lucro operacional antes de juros, impostos, depreciação e amortização." },
-          { nome: "Margem EBITDA / líquida", desc: "EBITDA e lucro líquido como % da receita líquida." },
-          { nome: "Runway", desc: "Meses que o caixa sustenta a operação no ritmo atual." },
         ],
       },
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Waterfall gerencial", desc: "Receita bruta → impostos → líquida → CMV → lucro bruto → opex → EBITDA → financeiro → lucro líquido." },
-          { nome: "DRE financeiro", desc: "Visão caixa: fluxos operacional/financeiro/livre + burn." },
-          { nome: "Comparativo", desc: "Mês atual × anterior × YTD × 12m, com variações." },
-          { nome: "Por linha / por cliente", desc: "Rentabilidade por linha de receita e por cliente (receita, margem, risco, vencido)." },
-          { nome: "Projetado", desc: "Receita média × margem atual para 30/90/180/360 dias." },
+          { nome: "Leitura do resultado (copiloto)", desc: "Comentário automático + top problemas e oportunidades.", match: "Leitura do resultado" },
+          { nome: "Waterfall gerencial", desc: "Receita bruta → impostos → líquida → CMV → lucro bruto → opex → EBITDA → financeiro → lucro líquido.", match: "DRE gerencial" },
+          { nome: "DRE financeiro", desc: "Visão caixa: fluxos operacional/financeiro/livre + burn.", match: "DRE financeiro" },
+          { nome: "Comparativo", desc: "Mês atual × anterior × YTD × 12m, com variações.", match: "DRE comparativo" },
+          { nome: "Por linha de receita", desc: "Rentabilidade por linha (produto/unidade), custo rateado.", match: "Por linha de receita" },
+          { nome: "Por cliente", desc: "Receita, share, margem, risco e vencido por cliente.", match: "DRE por cliente" },
+          { nome: "Projetado", desc: "Receita média × margem atual para 30/90/180/360 dias.", match: "DRE projetado" },
         ],
       },
     ],
@@ -108,21 +102,19 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Variáveis / métricas",
         itens: [
-          { nome: "Liquidez corrente", desc: "Ativo de curto prazo ÷ passivo de curto prazo." },
           { nome: "Burn multiple", desc: "Caixa queimado ÷ nova receita líquida (eficiência de queima)." },
-          { nome: "Eficiência operacional", desc: "Receita ÷ custos, em índice 0–10." },
           { nome: "Qualidade da receita", desc: "0–100: recorrência, previsibilidade, inadimplência e concentração." },
         ],
       },
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Score de saúde", desc: "0–100 ponderado (liquidez, runway, margem, inadimplência…) + tendência." },
-          { nome: "Radar executivo", desc: "7 dimensões (liquidez, eficiência, crescimento, previsibilidade, risco, rentabilidade, governança)." },
-          { nome: "Evolução do score", desc: "Score mês a mês." },
-          { nome: "Cenários preditivos", desc: "Choques (receita/despesa/inadimplência) → score projetado + prazo." },
-          { nome: "Benchmark", desc: "Margem/eficiência/inadimplência/crescimento vs o setor." },
-          { nome: "CFO digital", desc: "Interpretação executiva automática." },
+          { nome: "Score de saúde", desc: "0–100 ponderado + tendência.", match: "Score de saúde" },
+          { nome: "Radar executivo", desc: "7 dimensões (liquidez, eficiência, crescimento, previsibilidade, risco, rentabilidade, governança).", match: "Radar executivo" },
+          { nome: "Indicadores institucionais", desc: "KPIs: liquidez, runway, margem, ROIC, eficiência, ticket…", match: "Indicadores institucionais" },
+          { nome: "Evolução do score", desc: "Score mês a mês.", match: "Evolução do score" },
+          { nome: "Cenários preditivos", desc: "Choques → score projetado + prazo.", match: "Score preditivo" },
+          { nome: "Benchmark", desc: "Margem/eficiência/inadimplência/crescimento vs o setor.", match: "Benchmark setorial" },
         ],
       },
     ],
@@ -135,12 +127,12 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Brief executivo", desc: "Headline: causa + sugestão (ex.: 'antecipar recebíveis → +X no score')." },
-          { nome: "Matriz de risco", desc: "8 dimensões probabilísticas (caixa, liquidez, inadimplência, concentração, fornecedor, operacional, sazonal, crescimento) + stress agregado." },
-          { nome: "Previsão Monte Carlo", desc: "Probabilidade de o caixa ficar negativo em 90 dias + bandas p10/p50/p90." },
-          { nome: "Recomendações", desc: "Cada ação re-roda o motor de risco e mede o impacto real (Δrunway, Δscore, Δrisco)." },
-          { nome: "Plano autônomo", desc: "Resposta coordenada com guardrails (automático / proposto / requer aprovação)." },
-          { nome: "Feature store", desc: "As variáveis estruturadas que alimentam os modelos." },
+          { nome: "Brief executivo", desc: "Headline: causa + sugestão.", match: "Decisão financeira" },
+          { nome: "Matriz de risco", desc: "8 dimensões probabilísticas + stress agregado.", match: "Matriz de risco" },
+          { nome: "Previsão Monte Carlo", desc: "Probabilidade de caixa negativo em 90d + bandas p10/p50/p90.", match: "Previsão de caixa" },
+          { nome: "Recomendações", desc: "Cada ação re-roda o motor de risco e mede o impacto real.", match: "Recomendações" },
+          { nome: "Plano autônomo", desc: "Resposta coordenada com guardrails.", match: "Ações autônomas" },
+          { nome: "Feature store", desc: "As variáveis estruturadas que alimentam os modelos.", match: "Feature Store" },
         ],
       },
     ],
@@ -153,12 +145,12 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Próxima melhor ação", desc: "A decisão de maior prioridade no momento." },
-          { nome: "Decisões financeiras", desc: "Tipadas (cobrança/pagamento/capital/risco) com confiança, fatores e risco de execução." },
-          { nome: "Human-in-the-loop", desc: "Guardrails: ações reversíveis executam sozinhas; mover dinheiro > R$2k vai para aprovação." },
-          { nome: "Políticas SE→ENTÃO", desc: "Regras que a empresa define e a IA executa (mostra quais dispararam)." },
-          { nome: "Cobrança autônoma", desc: "Canal, horário, estratégia e tom por cliente." },
-          { nome: "Roteamento de pagamento", desc: "De qual conta/banco pagar para preservar liquidez." },
+          { nome: "Próxima melhor ação", desc: "A decisão de maior prioridade no momento.", match: "Operação financeira autônoma" },
+          { nome: "Decisões financeiras", desc: "Tipadas (cobrança/pagamento/capital/risco) com confiança e fatores.", match: "Decisões financeiras" },
+          { nome: "Human-in-the-loop", desc: "Ações reversíveis executam sozinhas; mover dinheiro > R$2k vai para aprovação.", match: "Human-in-the-loop" },
+          { nome: "Políticas SE→ENTÃO", desc: "Regras que a empresa define e a IA executa.", match: "Políticas autônomas" },
+          { nome: "Cobrança autônoma", desc: "Canal, horário, estratégia e tom por cliente.", match: "Cobrança autônoma" },
+          { nome: "Roteamento de pagamento", desc: "De qual conta/banco pagar para preservar liquidez.", match: "Roteamento de pagamento" },
         ],
       },
     ],
@@ -169,20 +161,14 @@ export const GUIDES: Record<string, Guide> = {
     intro: "Motor proprietário de risco operacional: score, runway, ruptura, stress — explicável.",
     secoes: [
       {
-        titulo: "Variáveis / métricas",
-        itens: [
-          { nome: "Score de risco", desc: "0–100 (maior = mais saudável), ponderado por 8 pilares." },
-          { nome: "Probabilidade de ruptura", desc: "Chance de o caixa ficar negativo no horizonte." },
-          { nome: "Runway", desc: "Dias/meses de sobrevivência em 3 cenários (otimista/base/pessimista)." },
-        ],
-      },
-      {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Interpretação executiva", desc: "Narrativa + fatores críticos." },
-          { nome: "Liquidez projetada", desc: "Saldo dia a dia (60d), marca a ruptura se houver." },
-          { nome: "Pilares do score", desc: "Composição auditável (peso + nota de cada pilar)." },
-          { nome: "Stress testing", desc: "Impacto de choques (queda de receita, atraso, despesa)." },
+          { nome: "Score de risco", desc: "0–100 (maior = mais saudável) + prob. de ruptura + runway.", match: "Score de risco de caixa" },
+          { nome: "Interpretação executiva", desc: "Narrativa + fatores críticos.", match: "Interpretação executiva" },
+          { nome: "Runway por cenário", desc: "Otimista / base / pessimista.", match: "Runway por cenário" },
+          { nome: "Liquidez projetada", desc: "Saldo dia a dia (60d), marca a ruptura.", match: "Liquidez projetada" },
+          { nome: "Composição do score", desc: "Pilares auditáveis (peso + nota).", match: "Composição do score" },
+          { nome: "Stress testing", desc: "Impacto de choques (queda de receita, atraso, despesa).", match: "Stress testing" },
         ],
       },
     ],
@@ -195,10 +181,10 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Resumo da carteira", desc: "Exposição em aberto, vencido, inadimplência esperada, score da carteira." },
-          { nome: "Heatmap de risco", desc: "Clientes ordenados por score; clique para abrir o perfil." },
-          { nome: "Perfil do cliente", desc: "Por que o risco (fatores explicados), early-warning, recuperação e recomendação de crédito." },
-          { nome: "Segmentação", desc: "Bom pagador / sazonal / deteriorando / crônico." },
+          { nome: "Score da carteira", desc: "Exposição, vencido, inadimplência esperada e score consolidado.", match: "Score da carteira" },
+          { nome: "Heatmap de risco", desc: "Clientes ordenados por score; clique para abrir o perfil.", match: "Heatmap de risco" },
+          { nome: "Perfil do cliente", desc: "Por que o risco (fatores), early-warning, recuperação e recomendação.", match: "Por que esse risco" },
+          { nome: "Segmentação", desc: "Bom pagador / sazonal / deteriorando / crônico.", match: "Segmentação da carteira" },
         ],
       },
     ],
@@ -209,19 +195,13 @@ export const GUIDES: Record<string, Guide> = {
     intro: "Toda ação vira evento e propaga pela cascata. Dispare um evento e veja o sistema reagir.",
     secoes: [
       {
-        titulo: "O que dá para fazer",
-        itens: [
-          { nome: "Disparar evento", desc: "Escolha tipo/valor/contraparte (ou um preset) e clique Orquestrar." },
-        ],
-      },
-      {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Estado consolidado", desc: "Caixa, runway, score e prob. de ruptura — ao vivo." },
-          { nome: "Cascata", desc: "Event Store → Ledger → recálculo → decisão → auditoria → antifraude → webhook, com os deltas." },
-          { nome: "Event Store", desc: "Histórico imutável encadeado por hash (denuncia adulteração)." },
-          { nome: "Ledger", desc: "Lançamentos de dupla partida (débito/crédito) e saldos." },
-          { nome: "Grafo financeiro", desc: "Clientes → empresa → fornecedores e os fluxos." },
+          { nome: "Disparar evento", desc: "Escolha tipo/valor/contraparte (ou um preset) e clique Orquestrar.", match: "Disparar evento" },
+          { nome: "Cascata", desc: "Event Store → Ledger → recálculo → decisão → auditoria → antifraude → webhook.", match: "Cascata de orquestração" },
+          { nome: "Event Store", desc: "Histórico imutável encadeado por hash (denuncia adulteração).", match: "histórico imutável" },
+          { nome: "Ledger", desc: "Lançamentos de dupla partida (débito/crédito) e saldos.", match: "dupla partida" },
+          { nome: "Grafo financeiro", desc: "Clientes → empresa → fornecedores e os fluxos.", match: "Grafo financeiro" },
         ],
       },
     ],
@@ -232,18 +212,13 @@ export const GUIDES: Record<string, Guide> = {
     intro: "A fundação bancária: ledger como verdade absoluta, idempotência, fila e observabilidade.",
     secoes: [
       {
-        titulo: "O que dá para fazer",
-        itens: [
-          { nome: "Processar pagamento", desc: "Dispare um pagamento; repita a mesma chave para testar idempotência; simule falha + retry." },
-        ],
-      },
-      {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Domínios", desc: "Os 10 domínios financeiros e onde vivem no produto." },
-          { nome: "Ledger Core", desc: "Dupla partida; saldo derivado; trial balance fechado (D=C); transação desbalanceada é rejeitada." },
-          { nome: "Fila", desc: "Jobs com status/tentativas e replay; dedup por idempotency key." },
-          { nome: "Observabilidade", desc: "Invariantes em tempo real: integridade do ledger, divergência de saldo, jobs em falha." },
+          { nome: "Domínios", desc: "Os 10 domínios financeiros e onde vivem no produto.", match: "Arquitetura de domínios" },
+          { nome: "Ledger Core", desc: "Dupla partida; saldo derivado; trial balance fechado; rejeita transação desbalanceada.", match: "Ledger Core" },
+          { nome: "Payment Orchestrator", desc: "Processe um pagamento; repita a chave (idempotência); simule falha + retry.", match: "Payment Orchestrator" },
+          { nome: "Fila", desc: "Jobs com status/tentativas e replay; dedup por idempotency key.", match: "Fila financeira" },
+          { nome: "Observabilidade", desc: "Invariantes em tempo real: integridade do ledger, divergência, jobs em falha.", match: "Observabilidade financeira" },
         ],
       },
     ],
@@ -254,18 +229,13 @@ export const GUIDES: Record<string, Guide> = {
     intro: "A visão de financial operating infrastructure: 10 camadas, serviços, tesouraria e resiliência.",
     secoes: [
       {
-        titulo: "O que dá para fazer",
-        itens: [
-          { nome: "Rodar cenário de falha", desc: "No bloco Reliability: vê circuit breaker, retries, dead-letter queue e lock em ação." },
-        ],
-      },
-      {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "10 camadas / serviços", desc: "O mapa institucional e os serviços distribuídos (latência/throughput)." },
-          { nome: "Treasury Core", desc: "Posição consolidada, concentração bancária (HHI), liquidez em buckets, cash positioning, stress." },
-          { nome: "Reliability", desc: "Circuit breaker / DLQ / lock — garante consistência sem duplicar dinheiro." },
-          { nome: "Observabilidade & tenancy", desc: "Métricas da plataforma e isolamento multi-tenant." },
+          { nome: "10 camadas", desc: "O mapa institucional do sistema.", match: "Arquitetura institucional" },
+          { nome: "Serviços distribuídos", desc: "Os serviços financeiros (latência/throughput).", match: "Serviços financeiros distribuídos" },
+          { nome: "Treasury Core", desc: "Posição consolidada, concentração bancária (HHI), liquidez, cash positioning, stress.", match: "Treasury Core" },
+          { nome: "Reliability", desc: "Rode o cenário de falha: circuit breaker / DLQ / lock em ação, sem duplicar dinheiro.", match: "Reliability layer" },
+          { nome: "Observabilidade", desc: "Métricas da plataforma em tempo real.", match: "Observability platform" },
         ],
       },
     ],
@@ -278,11 +248,11 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "DNA financeiro", desc: "Arquétipo (agressiva/conservadora/sazonal…) + traços." },
-          { nome: "Modelo auto-aprendiz", desc: "Acurácia/AUC + curva de aprendizado: fica mais preciso com mais empresas." },
-          { nome: "Benchmark vs setor", desc: "Seu valor vs mediana e percentil dos pares." },
-          { nome: "Modelo comportamental", desc: "Vizinhos semelhantes e % que entraram em stress." },
-          { nome: "Credit intelligence", desc: "Probabilidade de inadimplência + limite recomendado + confiabilidade." },
+          { nome: "DNA financeiro", desc: "Arquétipo (agressiva/conservadora/sazonal…) + traços.", match: "DNA financeiro" },
+          { nome: "Modelo auto-aprendiz", desc: "Acurácia/AUC + curva de aprendizado: fica mais preciso com mais empresas.", match: "Modelo proprietário" },
+          { nome: "Benchmark vs setor", desc: "Seu valor vs mediana e percentil dos pares.", match: "Benchmark vs setor" },
+          { nome: "Modelo comportamental", desc: "Vizinhos semelhantes e % que entraram em stress.", match: "Modelo comportamental" },
+          { nome: "Credit intelligence", desc: "Probabilidade de inadimplência + limite recomendado + confiabilidade.", match: "Credit intelligence" },
         ],
       },
     ],
@@ -293,18 +263,13 @@ export const GUIDES: Record<string, Guide> = {
     intro: "Governança de nível bancário: auditoria imutável, RBAC e fluxo de aprovação.",
     secoes: [
       {
-        titulo: "O que dá para fazer",
-        itens: [
-          { nome: "Testar adulteração", desc: "Na trilha de auditoria, simula a alteração de um evento e mostra a cadeia de hash quebrando." },
-          { nome: "Policy engine", desc: "Mude usuário/valor/método/país/hora/IP e veja a decisão (aprovar/MFA/escalar/bloquear)." },
-        ],
-      },
-      {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Trilha de auditoria", desc: "Eventos encadeados por SHA-256 + flags de before/after (alteração crítica)." },
-          { nome: "Matriz RBAC", desc: "Quem pode fazer o quê (papel × ação)." },
-          { nome: "Escada de aprovação", desc: "Fluxo por faixa de valor + SLA por etapa." },
+          { nome: "Trilha de auditoria", desc: "Eventos encadeados por SHA-256 + flags before/after. Teste a adulteração.", match: "Trilha de auditoria" },
+          { nome: "Policy engine", desc: "Mude usuário/valor/método/país/hora/IP e veja a decisão.", match: "Policy engine" },
+          { nome: "Matriz RBAC", desc: "Quem pode fazer o quê (papel × ação).", match: "Permissões granulares" },
+          { nome: "Escada de aprovação", desc: "Fluxo por faixa de valor + biometria.", match: "Fluxo de aprovação" },
+          { nome: "SLA", desc: "Tempo médio por etapa de aprovação.", match: "SLA de aprovação" },
         ],
       },
     ],
@@ -312,62 +277,43 @@ export const GUIDES: Record<string, Guide> = {
 
   "/conciliacao": {
     titulo: "Conciliação",
-    intro: "Matching probabilístico de transações para conciliar automaticamente o que for seguro.",
-    secoes: [
-      {
-        titulo: "Os blocos da tela",
-        itens: [
-          { nome: "Filas", desc: "Auto (≥90% de confiança), sugestão (≥70%) e exceção (revisão manual)." },
-          { nome: "Confidence", desc: "Score ponderado por valor/data/documento/contraparte/categoria." },
-        ],
-      },
-    ],
+    intro: "Matching probabilístico de transações para conciliar automaticamente o que for seguro (filas auto/sugestão/exceção, por confidence).",
+    secoes: [],
   },
-
   "/automacoes": {
     titulo: "Automações",
-    intro: "Motor de regras low-code: gatilho + condições + ações, com auditoria.",
-    secoes: [
-      {
-        titulo: "Os blocos da tela",
-        itens: [
-          { nome: "Regras", desc: "FinancialRule = trigger + condições + ações (enviar cobrança, bloquear, alertar…)." },
-          { nome: "Execuções & auditoria", desc: "O que cada regra disparou e o registro." },
-          { nome: "Ponte risco", desc: "Quando um custo varia, recalcula o risco e emite alerta executivo." },
-        ],
-      },
-    ],
+    intro: "Motor de regras low-code (gatilho + condições + ações) com auditoria e ponte para o risco.",
+    secoes: [],
   },
-
   "/vendas": {
     titulo: "Vendas",
-    intro: "Documentos de venda/compra/orçamento.",
-    secoes: [{ titulo: "O que dá para fazer", itens: [{ nome: "Novo", desc: "Abre o formulário de venda/compra/orçamento (itens, totais, converter em venda)." }] }],
+    intro: "Documentos de venda/compra/orçamento. Use 'novo' para abrir o formulário (itens, totais, converter em venda).",
+    secoes: [],
   },
   "/produtos": {
     titulo: "Produtos",
-    intro: "Cadastro de produtos.",
-    secoes: [{ titulo: "O que dá para fazer", itens: [{ nome: "Novo produto", desc: "Nome, SKU, unidade, marca, preço de venda/custo, estoque." }] }],
+    intro: "Cadastro de produtos: nome, SKU, unidade, marca, preço de venda/custo e estoque.",
+    secoes: [],
   },
   "/servicos": {
     titulo: "Serviços",
-    intro: "Cadastro de serviços.",
-    secoes: [{ titulo: "O que dá para fazer", itens: [{ nome: "Novo serviço", desc: "Nome, código, unidade e preço." }] }],
+    intro: "Cadastro de serviços: nome, código, unidade e preço.",
+    secoes: [],
   },
   "/contatos": {
     titulo: "Contatos",
-    intro: "Clientes, fornecedores e transportadoras.",
-    secoes: [{ titulo: "O que dá para fazer", itens: [{ nome: "Novo contato", desc: "PF/PJ com validação de CPF/CNPJ e busca de endereço por CEP (ViaCEP)." }] }],
+    intro: "Clientes, fornecedores e transportadoras, com validação de CPF/CNPJ e busca de endereço por CEP (ViaCEP).",
+    secoes: [],
   },
   "/recebiveis": {
     titulo: "A receber",
-    intro: "Movimentos de entrada (recebíveis).",
-    secoes: [{ titulo: "Os blocos da tela", itens: [{ nome: "Lista", desc: "Recebíveis por status e vencimento; vencidos em destaque." }] }],
+    intro: "Lista dos movimentos de entrada (recebíveis) por status e vencimento; vencidos em destaque.",
+    secoes: [],
   },
   "/pagaveis": {
     titulo: "A pagar",
-    intro: "Movimentos de saída (pagáveis).",
-    secoes: [{ titulo: "Os blocos da tela", itens: [{ nome: "Lista", desc: "Pagáveis por status e vencimento." }] }],
+    intro: "Lista dos movimentos de saída (pagáveis) por status e vencimento.",
+    secoes: [],
   },
 };
 
@@ -380,4 +326,9 @@ export function guideForPath(pathname: string): Guide | null {
     if (pathname.startsWith(key) && (!best || key.length > best.length)) best = key;
   }
   return best ? GUIDES[best] : null;
+}
+
+/** Passos do tour (todos os itens, em ordem) — box com `match` ganha spotlight. */
+export function tourSteps(g: Guide): GuideItem[] {
+  return g.secoes.flatMap((s) => s.itens);
 }
