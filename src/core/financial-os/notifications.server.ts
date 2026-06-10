@@ -69,6 +69,32 @@ async function enviarEmail(to: string, subject: string, texto: string): Promise<
   }
 }
 
+export interface AlvoCobranca {
+  cliente: string;
+  telefone: string;
+  mensagem: string;
+}
+/**
+ * Cobrança por cliente — envia uma mensagem de WhatsApp para cada alvo
+ * (cliente + telefone + mensagem). Com credenciais Twilio, envia de verdade;
+ * sem elas, retorna "simulado" (a UI mostra o fluxo). Server-side.
+ */
+export async function dispararCobrancas(alvos: AlvoCobranca[]): Promise<{ cliente: string; resultado: EnvioResultado }[]> {
+  const ativo = statusNotificacoes().whatsapp;
+  const out: { cliente: string; resultado: EnvioResultado }[] = [];
+  for (const a of alvos) {
+    if (!a.telefone) {
+      out.push({ cliente: a.cliente, resultado: { canal: "whatsapp", para: "", ok: false, detalhe: "sem telefone" } });
+      continue;
+    }
+    const resultado = ativo
+      ? await enviarWhatsapp(a.telefone, a.mensagem)
+      : { canal: "whatsapp" as const, para: a.telefone, ok: true, detalhe: "simulado (sem credenciais Twilio)" };
+    out.push({ cliente: a.cliente, resultado });
+  }
+  return out;
+}
+
 /**
  * Dispara os envios reais para as execuções de WhatsApp/e-mail. Usa o
  * destino da regra quando for um telefone/e-mail válido; senão cai no

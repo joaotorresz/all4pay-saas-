@@ -106,7 +106,7 @@ export async function listParties(): Promise<Party[]> {
   const s = createClient();
   const { data, error } = await s
     .from("parties")
-    .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
+    .select("id,type,name,doc,phone,email,is_customer,is_supplier,is_carrier")
     .order("name");
   if (error) throw error;
   return (data ?? []) as Party[];

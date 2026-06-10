@@ -191,10 +191,10 @@ export const DEMO_COST_CENTERS: CostCenter[] = [
 ];
 
 export const DEMO_PARTIES: Party[] = [
-  { id: "pty-northwind", type: "pj", name: "Northwind Logística", doc: "12.345.678/0001-90", is_customer: true },
-  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", doc: "23.456.789/0001-01", is_customer: true },
-  { id: "pty-meridian", type: "pj", name: "Meridian Design", doc: "34.567.890/0001-12", is_customer: true },
-  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", doc: "45.678.901/0001-23", is_customer: true },
+  { id: "pty-northwind", type: "pj", name: "Northwind Logística", doc: "12.345.678/0001-90", phone: "+5511980000001", is_customer: true },
+  { id: "pty-atlas", type: "pj", name: "Atlas Cloud Ltda", doc: "23.456.789/0001-01", phone: "+5511980000002", is_customer: true },
+  { id: "pty-meridian", type: "pj", name: "Meridian Design", doc: "34.567.890/0001-12", phone: "+5511980000003", is_customer: true },
+  { id: "pty-aurora", type: "pj", name: "Aurora Varejo", doc: "45.678.901/0001-23", phone: "+5511980000004", is_customer: true },
   { id: "pty-costa", type: "pf", name: "Costa & Filhos", doc: "123.456.789-09", is_customer: true },
   { id: "pty-energia", type: "pj", name: "Energia Sudeste", doc: "56.789.012/0001-34", is_supplier: true },
   { id: "pty-textil", type: "pj", name: "Fornecedor Têxtil SA", doc: "67.890.123/0001-45", is_supplier: true },

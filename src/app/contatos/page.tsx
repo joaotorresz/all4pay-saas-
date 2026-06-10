@@ -29,6 +29,21 @@ const columns: Column<Party>[] = [
     ),
   },
   {
+    key: "contato",
+    label: "Contato",
+    width: 200,
+    render: (p) => (
+      <div className="min-w-0">
+        {p.phone ? (
+          <div className="text-caption text-muted tabular-nums truncate">{p.phone}</div>
+        ) : (
+          <div className="text-caption text-faint">—</div>
+        )}
+        {p.email && <div className="text-caption text-faint truncate">{p.email}</div>}
+      </div>
+    ),
+  },
+  {
     key: "role",
     label: "Papel",
     width: 220,

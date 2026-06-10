@@ -101,6 +101,8 @@ export interface Party {
   type: PartyType;
   name: string;
   doc?: string | null;
+  phone?: string | null;
+  email?: string | null;
   is_customer?: boolean;
   is_supplier?: boolean;
   is_carrier?: boolean;
