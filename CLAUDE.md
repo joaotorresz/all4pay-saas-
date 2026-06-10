@@ -147,13 +147,20 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   **Faturamento** (destaca os meses no período + total no período). A receber/A
   pagar/Saldo são estado atual/futuro (vencido/vence hoje) — não tomam janela
   retroativa por design. Cards período-scoped novos entram por fase.
-- **Blocos + Personalizar Home**: a Home é renderizada em **5 blocos com cabeçalho**
-  (`BLOCK_ORDER`: Saúde financeira · Operação · Receita · Despesas · Inteligência).
-  O drawer `HomeCustomizeDrawer` (botão no header → evento `a4p:open-personalizar`)
-  liga/desliga cada card (`a4p_home_widgets`) e **reordena por arrastar** (alça
-  `grip-vertical`, DnD nativo dentro de cada bloco) — ordem em `a4p_home_order`.
-  O `OverviewGrid` (client) renderiza cada bloco com seus cards visíveis na ordem
-  salva; cards `full` ocupam a linha inteira.
+- **Blocos + Personalizar Home + Cockpit modular**: a Home é renderizada em
+  **blocos com cabeçalho** (`BLOCK_ORDER`: Operação · Resumo executivo · Saúde
+  financeira · Caixa · Receita · Despesas · Cobrança · Inteligência · Radares).
+  O drawer `HomeCustomizeDrawer` liga/desliga cada widget (`a4p_home_widgets`) e
+  **reordena por arrastar** (alça `grip-vertical`, ordem em `a4p_home_order`).
+  Há **2 camadas de widgets**: os **curados** (`CURADOS`, ligados por padrão —
+  `DEFAULT_WIDGET_IDS`) e o **catálogo modular** (`cockpit.tsx` `COCKPIT_CATALOG`,
+  **desligado por padrão** — o usuário monta o cockpit). Cada widget do catálogo é
+  uma função pura sobre `useCockpitCtx()` (motores quant/risco/inad/exec/decisão/
+  input/contas) e **responde uma pergunta executiva** (não só um número), via o
+  `MetricCard` genérico. O card **`ResumoHoje`** ("Hoje · briefing") é a assinatura:
+  entram/saem/vencem/pendências do dia + prioridades da IA. `OverviewGrid`
+  resolve o nó de cada id via `widgetNode` (curado/Hoje/catálogo); blocos vazios
+  não renderizam. Próximas fases adicionam mais widgets ao catálogo (meta: 80–150).
 - **Home contextual + reordenação por IA** (`useHomeContext`): ordem-base dos
   blocos por **setor** (`a4p_company.perfil.setor` → `SETOR_BASE`) e, com o toggle
   "Reorganizar por urgência (IA)" ligado (`a4p_home_auto`, default on), reordena os

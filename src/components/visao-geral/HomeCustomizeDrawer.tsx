@@ -3,26 +3,42 @@
 import * as React from "react";
 import { Icon, Switch, Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { COCKPIT_CATALOG } from "./cockpit";
 
 /** Blocos da Home (command center). A ordem aqui é a ordem dos blocos na tela. */
-export const BLOCK_ORDER = ["Operação", "Saúde financeira", "Receita", "Despesas", "Inteligência"] as const;
+export const BLOCK_ORDER = [
+  "Operação", "Resumo executivo", "Saúde financeira", "Caixa", "Receita",
+  "Despesas", "Cobrança", "Inteligência", "Radares all4pay",
+] as const;
+type Bloco = (typeof BLOCK_ORDER)[number];
 
-/** Cards disponíveis, com o bloco a que pertencem. */
-export const HOME_WIDGETS: { id: string; label: string; grupo: (typeof BLOCK_ORDER)[number] }[] = [
-  { id: "saude", label: "Saúde financeira (KPIs)", grupo: "Saúde financeira" },
-  { id: "cashflow", label: "Fluxo de caixa", grupo: "Saúde financeira" },
-  { id: "accounts", label: "Saldo · contas", grupo: "Operação" },
-  { id: "receivables", label: "A receber", grupo: "Operação" },
-  { id: "payables", label: "A pagar", grupo: "Operação" },
-  { id: "pendencias", label: "Pendências", grupo: "Operação" },
-  { id: "sales", label: "Faturamento", grupo: "Receita" },
-  { id: "topClientes", label: "Top clientes", grupo: "Receita" },
-  { id: "maioresCategorias", label: "Maiores despesas", grupo: "Despesas" },
-  { id: "ultimosGastos", label: "Últimos gastos", grupo: "Despesas" },
-  { id: "iaInsights", label: "IA · insights", grupo: "Inteligência" },
-  { id: "anomalias", label: "Anomalias", grupo: "Inteligência" },
+interface WidgetDef { id: string; label: string; grupo: Bloco; def?: boolean }
+
+/** Curados (ligados por padrão) + catálogo modular (desligados por padrão). */
+const CURADOS: WidgetDef[] = [
+  { id: "hoje", label: "Hoje · briefing", grupo: "Operação", def: true },
+  { id: "saude", label: "Saúde financeira (KPIs)", grupo: "Saúde financeira", def: true },
+  { id: "cashflow", label: "Fluxo de caixa", grupo: "Saúde financeira", def: true },
+  { id: "accounts", label: "Saldo · contas", grupo: "Operação", def: true },
+  { id: "receivables", label: "A receber", grupo: "Operação", def: true },
+  { id: "payables", label: "A pagar", grupo: "Operação", def: true },
+  { id: "pendencias", label: "Pendências", grupo: "Operação", def: true },
+  { id: "sales", label: "Faturamento", grupo: "Receita", def: true },
+  { id: "topClientes", label: "Top clientes", grupo: "Receita", def: true },
+  { id: "maioresCategorias", label: "Maiores despesas", grupo: "Despesas", def: true },
+  { id: "ultimosGastos", label: "Últimos gastos", grupo: "Despesas", def: true },
+  { id: "iaInsights", label: "IA · insights", grupo: "Inteligência", def: true },
+  { id: "anomalias", label: "Anomalias", grupo: "Inteligência", def: true },
+];
+
+/** Cards disponíveis = curados + catálogo (cockpit modular, default-off). */
+export const HOME_WIDGETS: WidgetDef[] = [
+  ...CURADOS,
+  ...COCKPIT_CATALOG.map((w) => ({ id: w.id, label: w.label, grupo: w.categoria as Bloco, def: false })),
 ];
 export const HOME_WIDGET_IDS = HOME_WIDGETS.map((w) => w.id);
+/** Ids ligados por padrão (os demais entram só quando o usuário liga). */
+export const DEFAULT_WIDGET_IDS = new Set(HOME_WIDGETS.filter((w) => w.def).map((w) => w.id));
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
 const LABEL_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.label]));
 
