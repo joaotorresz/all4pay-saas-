@@ -66,6 +66,13 @@ sempre os tokens, nunca hex literal.
 - Toggle: `ThemeToggle`/`useTheme` (`src/components/app/`) no rodapé da Sidebar —
   classe `dark` no `<html>` + `localStorage('a4p_theme')`. Script anti-flash no
   `layout.tsx` aplica o tema (e respeita `prefers-color-scheme`) antes da pintura.
+  `darkMode: "class"` no Tailwind habilita `dark:` (usado p/ trocar a logo).
+- **Logo por tema:** `all4pay-dark.png` (claro, `dark:hidden`) · `all4pay-lime.png`
+  (escuro, `hidden dark:block`) — Sidebar, login e onboarding.
+- **Linha dos gráficos = verde da marca:** as séries temporais (Line/Area de saldo/
+  score/curva/projeção) usam `var(--color-lime)`, traço **1.4** (−30%) e um **glow
+  em gradiente** lime sob a linha (`<defs><linearGradient>` + `<Area>`; ex.: fluxo
+  de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
 ### Token cheat-sheet

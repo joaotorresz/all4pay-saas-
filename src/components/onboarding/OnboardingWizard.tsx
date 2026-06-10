@@ -135,7 +135,8 @@ export function OnboardingWizard() {
         {/* Cabeçalho + progresso */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto" priority />
+            <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
+            <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
             <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
           </div>
           <div>

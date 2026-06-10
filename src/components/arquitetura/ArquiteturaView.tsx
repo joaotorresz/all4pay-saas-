@@ -213,7 +213,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
                   <Cell key={i} fill={p.liquido < 0 ? "var(--color-negative)" : "var(--color-border)"} />
                 ))}
               </Bar>
-              <Line type="monotone" dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="acumulado" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

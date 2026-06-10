@@ -239,7 +239,7 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
             }
           />
           <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
-          <Line type="monotone" dataKey="p50" stroke="var(--color-ink)" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="p50" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
           <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />
         </LineChart>
       </ResponsiveContainer>

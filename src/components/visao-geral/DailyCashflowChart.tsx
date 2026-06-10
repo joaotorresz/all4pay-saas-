@@ -5,6 +5,7 @@ import {
   ComposedChart,
   Bar,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -22,6 +23,7 @@ import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
+const LINE = "var(--color-lime)"; // linha de saldo acumulado — verde da marca
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 
@@ -33,7 +35,7 @@ function CashflowTooltip({ active, payload, label }: any) {
       <div className="font-medium text-ink mb-[6px]">{label}</div>
       <Row color={POSITIVE} k="Entradas" v={formatBRL(p.inflow)} />
       <Row color={NEGATIVE} k="Saídas" v={formatBRL(Math.abs(p.outflow))} />
-      <Row color={INK} k="Saldo acum." v={formatBRL(p.balance)} />
+      <Row color={LINE} k="Saldo acum." v={formatBRL(p.balance)} />
     </div>
   );
 }
@@ -108,6 +110,14 @@ export function DailyCashflowChart() {
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               stackOffset="sign"
             >
+              <defs>
+                {/* Glow em gradiente sob a linha de saldo — igual à referência */}
+                <linearGradient id="cashGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.32} />
+                  <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis
                 dataKey="label"
@@ -148,13 +158,21 @@ export function DailyCashflowChart() {
                 maxBarSize={22}
                 name="Saídas"
               />
+              <Area
+                yAxisId="balance"
+                type="monotone"
+                dataKey="balance"
+                stroke="none"
+                fill="url(#cashGlow)"
+                isAnimationActive={false}
+                name="Saldo acumulado"
+              />
               <Line
                 yAxisId="balance"
                 type="monotone"
                 dataKey="balance"
-                stroke={INK}
-                strokeWidth={2}
-                strokeDasharray="5 4"
+                stroke={LINE}
+                strokeWidth={1.4}
                 dot={false}
                 name="Saldo acumulado"
               />
@@ -175,8 +193,8 @@ function Legend() {
       <LegendDot color={NEGATIVE} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">
         <span
-          className="inline-block w-4 border-t-2 border-dashed"
-          style={{ borderColor: INK }}
+          className="inline-block w-4 border-t-2"
+          style={{ borderColor: LINE }}
         />
         Saldo acumulado
       </span>

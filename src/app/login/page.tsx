@@ -47,7 +47,8 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-surface-1 px-4">
       <div className="w-[400px] max-w-full">
         <div className="flex justify-center mb-6">
-          <Image src="/all4pay-dark.png" alt="all4pay" width={130} height={26} className="h-[26px] w-auto" priority />
+          <Image src="/all4pay-dark.png" alt="all4pay" width={130} height={26} className="h-[26px] w-auto dark:hidden" priority />
+          <Image src="/all4pay-lime.png" alt="all4pay" width={130} height={26} className="h-[26px] w-auto hidden dark:block" priority />
         </div>
         <Card className="flex flex-col gap-4">
           <div>

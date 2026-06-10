@@ -96,14 +96,25 @@ export function Sidebar({
       {/* Brand + toggle */}
       <div className={cn("flex items-center pb-[14px] pt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
         {!collapsed && (
-          <Image
-            src="/all4pay-dark.png"
-            alt="all4pay"
-            width={110}
-            height={22}
-            className="h-[22px] w-auto"
-            priority
-          />
+          <>
+            {/* Logo escura no tema claro · logo lime no tema escuro */}
+            <Image
+              src="/all4pay-dark.png"
+              alt="all4pay"
+              width={110}
+              height={22}
+              className="h-[22px] w-auto dark:hidden"
+              priority
+            />
+            <Image
+              src="/all4pay-lime.png"
+              alt="all4pay"
+              width={110}
+              height={22}
+              className="h-[22px] w-auto hidden dark:block"
+              priority
+            />
+          </>
         )}
         <button
           onClick={toggle}

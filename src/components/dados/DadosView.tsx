@@ -56,7 +56,7 @@ export function DadosView() {
             <RadarChart data={dna.tracos} outerRadius="72%">
               <PolarGrid stroke="var(--color-border-soft)" />
               <PolarAngleAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--color-text-secondary)" }} />
-              <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={2} />
+              <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={1.4} />
             </RadarChart>
           </ResponsiveContainer>
         </div>
@@ -177,7 +177,7 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
                 ) : null
               }
             />
-            <Line type="monotone" dataKey="acuracia" stroke="var(--color-ink)" strokeWidth={2} dot={{ r: 3, fill: "var(--color-ink)" }} />
+            <Line type="monotone" dataKey="acuracia" stroke="var(--color-lime)" strokeWidth={1.4} dot={{ r: 3, fill: "var(--color-lime)" }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

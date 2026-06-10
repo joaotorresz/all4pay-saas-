@@ -99,7 +99,7 @@ export function QuantView() {
             <RadarChart data={radar} outerRadius="78%">
               <PolarGrid stroke="var(--color-border-soft)" />
               <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
-              <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={2} />
+              <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={1.4} />
             </RadarChart>
           </ResponsiveContainer>
         </div>
@@ -159,7 +159,7 @@ export function QuantView() {
                   ) : null
                 }
               />
-              <Line type="monotone" dataKey="score" stroke="var(--color-ink)" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="score" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
