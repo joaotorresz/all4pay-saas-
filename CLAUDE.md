@@ -117,9 +117,13 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   **Faturamento** (destaca os meses no período + total no período). A receber/A
   pagar/Saldo são estado atual/futuro (vencido/vence hoje) — não tomam janela
   retroativa por design. Cards período-scoped novos entram por fase.
-- **Personalizar Home** (`HomeCustomizeDrawer`, botão no header → evento
-  `a4p:open-personalizar`): liga/desliga blocos da Home; preferência em
-  localStorage (`a4p_home_widgets`), lida pelo `OverviewGrid` (client).
+- **Blocos + Personalizar Home**: a Home é renderizada em **5 blocos com cabeçalho**
+  (`BLOCK_ORDER`: Saúde financeira · Operação · Receita · Despesas · Inteligência).
+  O drawer `HomeCustomizeDrawer` (botão no header → evento `a4p:open-personalizar`)
+  liga/desliga cada card (`a4p_home_widgets`) e **reordena por arrastar** (alça
+  `grip-vertical`, DnD nativo dentro de cada bloco) — ordem em `a4p_home_order`.
+  O `OverviewGrid` (client) renderiza cada bloco com seus cards visíveis na ordem
+  salva; cards `full` ocupam a linha inteira.
 - **Cards do command center** (`HomeCards.tsx`, reusam os motores): `SaudeFinanceira`
   (Score·Runway·Burn·Liquidez via `useQuantitativo`), `IAInsights`/`Anomalias`
   (via `useCentroInteligencia`), `TopClientes`/`MaioresCategorias` (período-scoped

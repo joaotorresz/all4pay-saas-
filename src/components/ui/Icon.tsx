@@ -36,6 +36,7 @@ import {
   Receipt,
   CircleHelp,
   UploadCloud,
+  GripVertical,
   type LucideIcon,
 } from "lucide-react";
 
@@ -82,6 +83,7 @@ const registry: Record<string, LucideIcon> = {
   receipt: Receipt,
   "help-circle": CircleHelp,
   upload: UploadCloud,
+  "grip-vertical": GripVertical,
 };
 
 export type IconName = keyof typeof registry;
