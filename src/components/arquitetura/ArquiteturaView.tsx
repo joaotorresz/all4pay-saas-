@@ -196,9 +196,9 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
             <ComposedChart data={t.cashPositioning} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
               <defs>
                 <linearGradient id="archGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.26} />
-                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
-                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-chart-line)" stopOpacity={0.26} />
+                  <stop offset="70%" stopColor="var(--color-chart-line)" stopOpacity={0.05} />
+                  <stop offset="100%" stopColor="var(--color-chart-line)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
@@ -222,7 +222,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
                 ))}
               </Bar>
               <Area type="monotone" dataKey="acumulado" stroke="none" fill="url(#archGlow)" isAnimationActive={false} />
-              <Line type="monotone" dataKey="acumulado" stroke="#dcff00" strokeWidth={1.4} dot={false} />
+              <Line type="monotone" dataKey="acumulado" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

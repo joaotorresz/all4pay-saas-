@@ -148,9 +148,9 @@ export function QuantView() {
             <LineChart data={scoreTemporal} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
               <defs>
                 <linearGradient id="quantGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.28} />
-                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
-                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-chart-line)" stopOpacity={0.28} />
+                  <stop offset="70%" stopColor="var(--color-chart-line)" stopOpacity={0.05} />
+                  <stop offset="100%" stopColor="var(--color-chart-line)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
@@ -168,7 +168,7 @@ export function QuantView() {
                 }
               />
               <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" isAnimationActive={false} />
-              <Line type="monotone" dataKey="score" stroke="#dcff00" strokeWidth={1.4} dot={false} />
+              <Line type="monotone" dataKey="score" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

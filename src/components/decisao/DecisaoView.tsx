@@ -227,9 +227,9 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
         <LineChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: -12 }}>
           <defs>
             <linearGradient id="decisaoGlow" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#dcff00" stopOpacity={0.26} />
-              <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
-              <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--color-chart-line)" stopOpacity={0.26} />
+              <stop offset="70%" stopColor="var(--color-chart-line)" stopOpacity={0.05} />
+              <stop offset="100%" stopColor="var(--color-chart-line)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
@@ -248,7 +248,7 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
           />
           <Area type="monotone" dataKey="p50" stroke="none" fill="url(#decisaoGlow)" isAnimationActive={false} />
           <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
-          <Line type="monotone" dataKey="p50" stroke="#dcff00" strokeWidth={1.4} dot={false} />
+          <Line type="monotone" dataKey="p50" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
           <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />
         </LineChart>
       </ResponsiveContainer>

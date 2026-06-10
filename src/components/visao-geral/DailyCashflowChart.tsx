@@ -23,7 +23,7 @@ import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
-const LINE = "#dcff00"; // linha de saldo acumulado — verde da marca
+const LINE = "var(--color-chart-line)"; // linha de saldo acumulado — verde da marca
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 
@@ -113,9 +113,9 @@ export function DailyCashflowChart() {
               <defs>
                 {/* Glow em gradiente sob a linha de saldo — igual à referência */}
                 <linearGradient id="cashGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.32} />
-                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.06} />
-                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                  <stop offset="0%" stopColor="var(--color-chart-line)" stopOpacity={0.32} />
+                  <stop offset="70%" stopColor="var(--color-chart-line)" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="var(--color-chart-line)" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={GRID} vertical={false} />
@@ -136,28 +136,7 @@ export function DailyCashflowChart() {
               />
               <YAxis yAxisId="balance" orientation="right" hide />
               <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
-              <Tooltip
-                content={<CashflowTooltip />}
-                cursor={{ fill: "rgba(23,23,23,0.04)" }}
-              />
-              <Bar
-                yAxisId="flow"
-                dataKey="inflow"
-                stackId="cf"
-                fill={POSITIVE}
-                radius={[3, 3, 0, 0]}
-                maxBarSize={22}
-                name="Entradas"
-              />
-              <Bar
-                yAxisId="flow"
-                dataKey="outflow"
-                stackId="cf"
-                fill={NEGATIVE}
-                radius={[0, 0, 3, 3]}
-                maxBarSize={22}
-                name="Saídas"
-              />
+              {/* Glow ao FUNDO (antes das barras) — não tinge os candles */}
               <Area
                 yAxisId="balance"
                 type="monotone"
@@ -166,6 +145,28 @@ export function DailyCashflowChart() {
                 fill="url(#cashGlow)"
                 isAnimationActive={false}
                 name="Saldo acumulado"
+              />
+              <Tooltip
+                content={<CashflowTooltip />}
+                cursor={{ fill: "rgba(127,127,127,0.10)" }}
+              />
+              <Bar
+                yAxisId="flow"
+                dataKey="inflow"
+                stackId="cf"
+                fill={POSITIVE}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={40}
+                name="Entradas"
+              />
+              <Bar
+                yAxisId="flow"
+                dataKey="outflow"
+                stackId="cf"
+                fill={NEGATIVE}
+                radius={[0, 0, 3, 3]}
+                maxBarSize={40}
+                name="Saídas"
               />
               <Line
                 yAxisId="balance"

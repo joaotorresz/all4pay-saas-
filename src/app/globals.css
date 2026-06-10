@@ -31,6 +31,7 @@
   --color-lime-alt: #e0f80a;
   --color-lime-tint: #f8ffcb;
   --color-on-lime: #171717; /* text/icon ON bright lime — dark in BOTH themes */
+  --color-chart-line: #171717; /* linha dos gráficos: PRETA no claro, lime no escuro */
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
@@ -75,6 +76,7 @@ html.dark {
   /* Accent — lime manda igual; o wash (tint) vira um olival escuro */
   --color-lime-tint: #23270d;
   /* on-lime continua #171717 (texto escuro no lime brilhante) */
+  --color-chart-line: #dcff00; /* linha dos gráficos vira o verde da marca no escuro */
 
   /* Status — clareados ~1 passo para contraste no escuro */
   --color-warning: #f0962e;
