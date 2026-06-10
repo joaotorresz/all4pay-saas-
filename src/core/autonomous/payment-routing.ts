@@ -22,6 +22,11 @@ export function rotearPagamentos(contas: ContaSaldo[], pagamentos: number[]): Pa
     // evitando esvaziar uma conta (preserva colchão e dilui concentração).
     const aptas = saldos.filter((s) => s.saldo >= valor);
     const pool = aptas.length ? aptas : saldos;
+    // Sem nenhuma conta cadastrada não há para onde rotear — não quebra a tela.
+    if (!pool.length) {
+      routes.push({ valor, contaEscolhida: "—", banco: "—", motivo: "sem conta cadastrada — cadastre uma conta para rotear o pagamento" });
+      continue;
+    }
     const escolhida = pool
       .map((s) => ({ s, folga: (s.saldo - valor) / Math.max(1, s.saldo) }))
       .sort((a, b) => b.folga - a.folga)[0].s;
