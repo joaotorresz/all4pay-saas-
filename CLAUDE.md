@@ -178,6 +178,17 @@ preenchido, para não apagar o existente). Em demo, `updateParty` reflete no
 dataset importado (`updateImportedParty`). Isso destrava o telefone de clientes
 vindos da importação (que entram sem telefone) — alimentando a cobrança.
 
+### Empresa / Configurações (`/configuracoes`)
+
+`ConfiguracoesView` (`src/components/configuracoes/`) — tela de empresa: nome da
+organização (lido do Supabase via RLS própria, `getOrganizationName`) + o perfil
+salvo no onboarding (`a4p_company` no localStorage via `src/lib/company.ts`):
+identidade jurídica **editável** (`saveCompany`), perfil empresarial, governança
+(participantes) e estrutura financeira — read-only. É a camada de **consumo** do
+que o wizard coletou (governança/perfil ainda não têm tabela). Sem dados salvos,
+mostra CTA para `/comecar`. Link no rodapé da Sidebar ("Configurações"; "Adicionar
+Empresa" → `/comecar`). Não toca em schema/RLS.
+
 ### Motor de Risco de Caixa (`/risco`)
 
 `scoreRiscoCaixa()` (`src/core/risk-engine/`) is a proprietary operational

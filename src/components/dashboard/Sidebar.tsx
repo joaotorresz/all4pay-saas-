@@ -52,10 +52,10 @@ const NAV: NavItem[] = [
   { id: "contatos", label: "Contatos", icon: "file-text", href: "/contatos" },
 ];
 
-const FOOTER = [
-  { label: "Configurações", icon: "settings" },
+const FOOTER: { label: string; icon: string; href?: string }[] = [
+  { label: "Configurações", icon: "settings", href: "/configuracoes" },
   { label: "Central de Ajuda", icon: "life-buoy" },
-  { label: "Adicionar Empresa", icon: "plus" },
+  { label: "Adicionar Empresa", icon: "plus", href: "/comecar" },
 ];
 
 export function Sidebar({
@@ -205,19 +205,27 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
-        {FOOTER.map((f) => (
-          <button
-            key={f.label}
-            title={collapsed ? f.label : undefined}
-            className={cn(
-              "relative flex items-center rounded-md py-2 text-left bg-transparent hover:bg-surface-1",
-              collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
-            )}
-          >
-            <Icon name={f.icon} size={17} color="var(--color-text-secondary)" />
-            {!collapsed && <span className="text-[14px] font-medium text-muted">{f.label}</span>}
-          </button>
-        ))}
+        {FOOTER.map((f) => {
+          const cls = cn(
+            "relative flex items-center rounded-md py-2 text-left bg-transparent hover:bg-surface-1",
+            collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
+          );
+          const inner = (
+            <>
+              <Icon name={f.icon} size={17} color="var(--color-text-secondary)" />
+              {!collapsed && <span className="text-[14px] font-medium text-muted">{f.label}</span>}
+            </>
+          );
+          return f.href ? (
+            <Link key={f.label} href={f.href} title={collapsed ? f.label : undefined} className={cls}>
+              {inner}
+            </Link>
+          ) : (
+            <button key={f.label} title={collapsed ? f.label : undefined} className={cls}>
+              {inner}
+            </button>
+          );
+        })}
         <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
           <Avatar name="Operador Um" size={30} />
           {!collapsed && (

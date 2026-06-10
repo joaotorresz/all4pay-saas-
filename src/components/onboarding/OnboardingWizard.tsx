@@ -108,7 +108,7 @@ export function OnboardingWizard() {
         }
       }
       try {
-        localStorage.setItem("a4p_company", JSON.stringify({ db, perfil }));
+        localStorage.setItem("a4p_company", JSON.stringify({ db, perfil, participantes, estrutura }));
       } catch { /* ignore */ }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
       // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
