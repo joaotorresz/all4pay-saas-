@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { runScheduledOS } from "@/lib/financial-os";
+import { dispararNotificacoes, statusNotificacoes } from "@/core/financial-os/notifications.server";
+
+export const runtime = "nodejs";
 
 /**
  * Runner agendado do Sistema Operacional Financeiro.
@@ -21,6 +24,8 @@ export async function GET(req: Request) {
   }
 
   const trace = await runScheduledOS();
+  // Envio REAL (server-side) das ações de WhatsApp/e-mail, quando configurado.
+  const envios = await dispararNotificacoes(trace.execucoes);
   return NextResponse.json({
     ok: true,
     geradoEm: new Date().toISOString(),
@@ -28,5 +33,6 @@ export async function GET(req: Request) {
     acoesExecutadas: trace.execucoes.length,
     execucoes: trace.execucoes,
     alertasExecutivos: trace.alertasExecutivos,
+    notificacoes: { provedores: statusNotificacoes(), enviados: envios },
   });
 }

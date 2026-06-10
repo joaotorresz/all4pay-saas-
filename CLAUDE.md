@@ -522,8 +522,12 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
 - **Ponte de risco** (`bridges/risco.bridge.ts`): `custo_variou` → recalcula
   `scoreRiscoCaixa` com despesa ajustada → **alerta executivo** + publica
   `anomalia_detectada` (event-driven). Mostrado no `AutomacoesView`.
-- **Notificações** (`notifications.ts`): provider plugável; default `simulado`
-  (sem credenciais). Real: Twilio (WhatsApp) / Resend (e-mail) server-side.
+- **Notificações** (`notifications.ts` simulado no engine + `notifications.server.ts`
+  **server-only**): envio REAL de **WhatsApp via Twilio** e **e-mail via Resend**,
+  disparado pelo runner (`dispararNotificacoes` no `/api/financial-os/run`,
+  `runtime nodejs`). Gated por env (`TWILIO_ACCOUNT_SID/AUTH_TOKEN/WHATSAPP_FROM`
+  + `ALERTS_WHATSAPP_TO`; `RESEND_API_KEY` + `ALERTS_EMAIL_FROM/TO`); sem chaves
+  → simulado. `statusNotificacoes()` reporta o que está ativo.
 - **Live operacional** (`src/lib/financial-os.ts`): `loadAutomacoes()` carrega
   as regras de `financial_rules` (semeia os defaults se vazio) e roda a
   simulação sobre **eventos derivados do estado real** (`eventosDoInput` sobre

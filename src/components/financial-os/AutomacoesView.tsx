@@ -81,6 +81,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
           inadimplência, recebimentos). {isDemo
             ? "Em demonstração os dados vêm do seed (ou do que você importou no Onboarding inteligente)."
             : "Em produção as regras são persistidas em financial_rules e cada ação executada é auditada em rule_executions."}
+          {" "}Os envios reais de <b className="text-ink font-medium">WhatsApp (Twilio)</b> e <b className="text-ink font-medium">e-mail (Resend)</b> ocorrem no runner agendado quando as credenciais estão no servidor — sem elas, ficam em modo simulado.
         </p>
       </Card>
 
