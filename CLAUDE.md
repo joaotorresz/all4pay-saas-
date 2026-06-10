@@ -125,6 +125,12 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
 - **Money & a11y:** all values go through `<Money>` + `formatBRL`
   (`src/lib/format.ts`, pt-BR). Charts are wrapped in `role="img"` with an
   `aria-label` summary; figures also carry an sr-only text summary.
+- **First-run** (`FirstRunCard` + `useFirstRun`): em live, quando a organização
+  ainda não tem nenhum lançamento (`movements.length === 0`), o topo do dashboard
+  e do DRE mostra orientação de onboarding (Importar dados → `/import` · Configurar
+  empresa → `/comecar`) em vez de widgets vazios. Some sozinho quando o primeiro
+  dado entra; nunca aparece em demo. As telas de listagem já têm empty states com
+  o `NewButton` no header.
 
 Data libs (React Query, Recharts) are sanctioned for feature logic — they are
 **not** a second UI/token system and must never style outside the DS.

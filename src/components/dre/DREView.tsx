@@ -4,6 +4,7 @@ import * as React from "react";
 import { Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useDRE } from "@/components/visao-geral/hooks";
+import { FirstRunCard } from "@/components/visao-geral/FirstRunCard";
 import type {
   DRELinha,
   DREClienteLinha,
@@ -31,6 +32,7 @@ export function DREView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
+      <FirstRunCard />
       {/* Barra de filtros (DRE dinâmico) */}
       <Card className="flex flex-wrap items-center gap-3">
         <span className="text-label font-medium text-muted">Período</span>

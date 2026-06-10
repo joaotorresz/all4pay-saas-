@@ -18,6 +18,7 @@ import {
   getAccountsList,
 } from "@/lib/data";
 import { getAuditTrail } from "@/lib/institutional";
+import { isDemo } from "@/lib/demo";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
@@ -29,6 +30,20 @@ import { treasuryCore } from "@/core/treasury";
 import { operacaoAutonoma } from "@/core/autonomous";
 import { financialDRE, periodoPreset, type DREFiltro } from "@/core/dre";
 import type { MovementType } from "@/lib/types";
+
+/**
+ * First-run: organização live ainda sem nenhum lançamento. Sinaliza para as
+ * telas mostrarem orientação de onboarding (importar dados / criar lançamento)
+ * em vez de widgets vazios. Reusa a query ["risco-input"] já cacheada.
+ * Nunca dispara em demo (o seed sempre tem dados).
+ */
+export function useFirstRun() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    isLoading: q.isLoading,
+    vazio: !isDemo && !!q.data && q.data.movements.length === 0,
+  };
+}
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
 export function useRiscoCaixa() {
