@@ -30,6 +30,7 @@ import {
   Target,
   Database,
   Building2,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -70,6 +71,7 @@ const registry: Record<string, LucideIcon> = {
   target: Target,
   database: Database,
   building: Building2,
+  cpu: Cpu,
 };
 
 export type IconName = keyof typeof registry;

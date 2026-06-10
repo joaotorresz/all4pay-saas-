@@ -391,6 +391,30 @@ demo-safe.
   `src/components/arquitetura/ArquiteturaView.tsx` (camadas + serviços + pipeline
   + Treasury Core + Reliability console interativo + observabilidade + tenancy).
 
+### Autonomous Decision Layer (`/autonomo`)
+
+`operacaoAutonoma()` (`src/core/autonomous/`) — GAP 8: o salto de "informar o
+problema" para DECIDIR e executar (supervisionado). Motor central de decisão
+operacional que reúne decisão/crédito/anomalias/tesouraria. Puro, explicável,
+demo-safe. Versão `autonomous/1.0.0`.
+
+- **Policy engine low-code** (`policies.ts`): `POLITICAS` SE→ENTÃO (cliente de
+  alto risco, saldo crítico, inadimplência alta, anomalia de despesa,
+  concentração bancária, otimização de caixa). Cada política avalia o contexto
+  e emite `FinancialDecision[]`.
+- **`FinancialDecision`**: tipo (cobranca/pagamento/capital/risco), prioridade,
+  impactoEsperado, **confiança**, fatores (explicabilidade), riscoExecucao.
+- **Human-in-the-loop** (`index.ts`): guardrails — ações reversíveis (cobrança/
+  monitoramento) são `automatico`; mover dinheiro acima de `LIMITE_AUTOMATICO`
+  (R$2k) ou baixa confiança escala para `requer_aprovacao`.
+- **Autonomous Collections** (`collections.ts`): canal/horário/estratégia/tom
+  por cliente (modelo preditivo). **Smart Payment Routing**
+  (`payment-routing.ts`): escolhe conta/banco que preserva liquidez e dilui
+  concentração. **Next Best Action** (decisão de maior prioridade).
+- **Dados:** hook `useOperacaoAutonoma()` (accounts + risco). UI em
+  `src/components/autonomo/AutonomoView.tsx` (headline + next best action +
+  decisões + HITL + políticas + cobrança + roteamento).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,

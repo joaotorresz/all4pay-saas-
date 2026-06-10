@@ -26,6 +26,7 @@ import { decidir } from "@/core/decision";
 import { analisarMoat } from "@/core/datamoat";
 import { arquiteturaInstitucional } from "@/core/architecture";
 import { treasuryCore } from "@/core/treasury";
+import { operacaoAutonoma } from "@/core/autonomous";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -66,6 +67,17 @@ export function useArquitetura() {
       acc.data && inp.data
         ? { arq: arquiteturaInstitucional(), treasury: treasuryCore(acc.data, inp.data) }
         : undefined,
+  };
+}
+
+/** Autonomous Financial Ops (GAP 8): decisões + cobrança + roteamento. */
+export function useOperacaoAutonoma() {
+  const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    isLoading: acc.isLoading || inp.isLoading,
+    isError: acc.isError || inp.isError,
+    data: acc.data && inp.data ? operacaoAutonoma(inp.data, acc.data) : undefined,
   };
 }
 
