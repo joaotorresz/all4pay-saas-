@@ -8,6 +8,7 @@ import type {
   DRELinha,
   DREClienteLinha,
   DRELinhaReceita,
+  DRECentroCusto,
   DREPeriodo,
   DREProjecao,
 } from "@/core/dre/types";
@@ -77,7 +78,7 @@ export function DREView() {
 }
 
 function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"]> }) {
-  const { gerencial, financeiro, comparativo, porCliente, porLinha, projetado, executivo } = data;
+  const { gerencial, financeiro, comparativo, porCliente, porLinha, porCentroCusto, projetado, executivo } = data;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
       {/* Executivo */}
@@ -174,6 +175,17 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
           rows={porCliente.map((c: DREClienteLinha) => [c.cliente, formatBRL(c.receita), pct(c.share), pct(c.margem), `${c.risco}`, c.inadimplencia > 0 ? formatBRL(c.inadimplencia) : "—"])}
           alignRight={[1, 2, 3, 4, 5]}
         />
+      </Card>
+
+      {/* Por centro de custo */}
+      <Card className="lg:col-span-3 flex flex-col gap-2">
+        <span className="text-label font-medium text-muted">DRE por centro de custo</span>
+        <Tabela
+          head={["Centro de custo", "Receita", "Despesa", "Resultado", "Margem"]}
+          rows={porCentroCusto.map((c: DRECentroCusto) => [c.centro, formatBRL(c.receita), formatBRL(c.despesa), formatBRL(c.resultado), pct(c.margem)])}
+          alignRight={[1, 2, 3, 4]}
+        />
+        <span className="text-caption text-faint">Reflete o centro de custo escolhido em cada lançamento/venda.</span>
       </Card>
 
       {/* Projetado */}

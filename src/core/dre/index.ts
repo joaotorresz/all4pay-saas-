@@ -13,6 +13,7 @@ import {
   dreFinanceiro,
   drePorLinha,
   drePorCliente,
+  drePorCentroCusto,
   dreComparativo,
   dreProjetado,
 } from "./engine";
@@ -99,6 +100,7 @@ export function financialDRE(input: RiskInput, filtro?: DREFiltro): DREReport {
   const comparativo = dreComparativo(input, f.regime);
   const porCliente = drePorCliente(input, movs);
   const porLinha = drePorLinha(movs);
+  const porCentroCusto = drePorCentroCusto(movs);
   const projetado = dreProjetado(input, gerencial.margemEbitda, gerencial.margemLiquida);
   const scoreSaude = analisarQuantitativo(input).score.score;
   const executivo = montarExecutivo(gerencial, financeiro, input.saldoAtual, scoreSaude, comparativo, porCliente);
@@ -110,6 +112,7 @@ export function financialDRE(input: RiskInput, filtro?: DREFiltro): DREReport {
     comparativo,
     porCliente,
     porLinha,
+    porCentroCusto,
     projetado,
     executivo,
     versaoModelo: VERSAO_DRE,

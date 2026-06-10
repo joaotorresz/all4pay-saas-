@@ -65,6 +65,14 @@ export interface DRELinhaReceita {
   margem: number; // 0..1
 }
 
+export interface DRECentroCusto {
+  centro: string;
+  receita: number;
+  despesa: number;
+  resultado: number;
+  margem: number; // 0..1
+}
+
 export interface DREPeriodo {
   label: string;
   receita: number;
@@ -114,6 +122,7 @@ export interface DREReport {
   comparativo: DREComparativo;
   porCliente: DREClienteLinha[];
   porLinha: DRELinhaReceita[];
+  porCentroCusto: DRECentroCusto[];
   projetado: DREProjecao[];
   executivo: DREExecutivo;
   versaoModelo: string;

@@ -20,6 +20,8 @@ export interface RiskMovement {
   paid_date?: string | null;
   party_id?: string | null;
   category?: string | null;
+  /** Nome do centro de custo (resolvido do cadastro), quando houver. */
+  costCenter?: string | null;
 }
 
 export interface RiskInput {

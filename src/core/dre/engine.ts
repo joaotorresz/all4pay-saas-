@@ -16,6 +16,7 @@ import type {
   DREFinanceiro,
   DREClienteLinha,
   DRELinhaReceita,
+  DRECentroCusto,
   DREComparativo,
   DREProjecao,
   DREPeriodo,
@@ -181,6 +182,24 @@ export function drePorLinha(movs: RiskMovement[]): DRELinhaReceita[] {
       return { linha: LABEL_RECEITA[k], receita, custoAlocado, resultado, margem: receita > 0 ? resultado / receita : 0 };
     })
     .sort((x, y) => y.receita - x.receita);
+}
+
+/* ---- DRE por Centro de Custo ---- */
+export function drePorCentroCusto(movs: RiskMovement[]): DRECentroCusto[] {
+  const m = new Map<string, { receita: number; despesa: number }>();
+  for (const mv of movs) {
+    const k = mv.costCenter ?? "Não alocado";
+    const cur = m.get(k) ?? { receita: 0, despesa: 0 };
+    if (mv.type === "entrada") cur.receita += mv.amount;
+    else cur.despesa += mv.amount;
+    m.set(k, cur);
+  }
+  return Array.from(m.entries())
+    .map(([centro, v]) => {
+      const resultado = v.receita - v.despesa;
+      return { centro, receita: v.receita, despesa: v.despesa, resultado, margem: v.receita > 0 ? resultado / v.receita : 0 };
+    })
+    .sort((a, b) => b.despesa + b.receita - (a.despesa + a.receita));
 }
 
 /* ---- DRE por Cliente ---- */

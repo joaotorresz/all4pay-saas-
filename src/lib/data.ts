@@ -297,6 +297,16 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
 }
 
 /** Input for the cash-risk engine (scoreRiscoCaixa). */
+/** Demo: deriva um centro de custo plausível a partir da categoria. */
+function demoCostCenter(cat: string | null): string {
+  const c = (cat ?? "").toLowerCase();
+  if (/venda|outros/.test(c)) return "Comercial";
+  if (/fornecedor/.test(c)) return "Operações";
+  if (/folha/.test(c)) return "Administrativo";
+  if (/imposto|tarifa|financ/.test(c)) return "Financeiro";
+  return "Administrativo";
+}
+
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -311,6 +321,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
       // seed movements use the description as the counterparty label
       party_id: m.description ?? null,
       category: m.category,
+      costCenter: demoCostCenter(m.category),
     }));
     const partyNames: Record<string, string> = {};
     movements.forEach((m) => {
@@ -324,7 +335,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     supabase.from("financial_accounts").select("balance"),
     supabase
       .from("movements")
-      .select("id,type,status,amount,due_date,paid_date,party_id,category"),
+      .select(
+        "id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)",
+      ),
     supabase.from("parties").select("id,name"),
   ]);
   if (accRes.error) throw accRes.error;
@@ -333,7 +346,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     (s, a) => s + Number((a as { balance: number }).balance),
     0,
   );
-  const movements = ((movRes.data ?? []) as Movement[]).map((m) => ({
+  const embedName = (e: unknown): string | null =>
+    Array.isArray(e) ? (e[0]?.name ?? null) : ((e as { name?: string } | null)?.name ?? null);
+  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown })[]).map((m) => ({
     id: m.id,
     type: m.type,
     status: m.status,
@@ -341,7 +356,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     due_date: m.due_date,
     paid_date: m.paid_date,
     party_id: m.party_id ?? null,
-    category: m.category,
+    // categoria real (nome do cadastro) tem prioridade sobre o texto livre
+    category: embedName(m.categoria) ?? m.category,
+    costCenter: embedName(m.centro),
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {
@@ -363,7 +380,6 @@ export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
     .from("movements")
     .select("type,category,amount,due_date")
     .eq("type", "entrada")
-    .eq("category", "venda")
     .gte("due_date", isoDay(start));
   if (error) throw error;
   return monthlySales((data ?? []) as Movement[], months);

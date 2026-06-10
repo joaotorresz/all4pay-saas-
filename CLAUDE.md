@@ -437,6 +437,13 @@ do DRE por palavra-chave na categoria e respeita o **regime** (competência por
   `src/components/dre/DREView.tsx` (filtros dinâmicos período/regime + executivo
   + waterfall com drill-down + financeiro + comparativo + por linha + por
   cliente + projetado).
+- **Fluxo categoria/centro de custo:** `getRiscoInput()` resolve o **nome** da
+  categoria (`category_id→categories.name`) e do **centro de custo**
+  (`cost_center_id→cost_centers.name`) — em live por embed PostgREST, em demo
+  derivado. `RiskMovement.costCenter` alimenta `drePorCentroCusto()`. Assim, a
+  categoria/centro escolhidos no lançamento/venda refletem na linha certa do DRE
+  e no dashboard. O gráfico de **faturamento** conta toda a receita (não depende
+  do texto `"venda"`).
 
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 

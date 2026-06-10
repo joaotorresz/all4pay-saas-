@@ -89,6 +89,7 @@ export const GUIDES: Record<string, Guide> = {
           { nome: "Comparativo", desc: "Mês atual × anterior × YTD × 12m, com variações.", match: "DRE comparativo" },
           { nome: "Por linha de receita", desc: "Rentabilidade por linha (produto/unidade), custo rateado.", match: "Por linha de receita" },
           { nome: "Por cliente", desc: "Receita, share, margem, risco e vencido por cliente.", match: "DRE por cliente" },
+          { nome: "Por centro de custo", desc: "Receita/despesa/resultado por centro de custo — reflete o que você seleciona no lançamento.", match: "DRE por centro de custo" },
           { nome: "Projetado", desc: "Receita média × margem atual para 30/90/180/360 dias.", match: "DRE projetado" },
         ],
       },

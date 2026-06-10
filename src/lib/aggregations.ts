@@ -141,7 +141,11 @@ const MONTH_LABELS = [
   "jul", "ago", "set", "out", "nov", "dez",
 ];
 
-/** Monthly sales (entrada · categoria=venda) over the last `months`. */
+/**
+ * Faturamento mensal (toda a receita realizada/entrada) nos últimos `months`.
+ * Conta qualquer entrada — não depende do texto "venda" — para refletir
+ * corretamente as categorias reais de receita cadastradas.
+ */
 export function monthlySales(
   movements: Movement[],
   months = 12,
@@ -149,7 +153,7 @@ export function monthlySales(
 ): MonthlySalesPoint[] {
   const buckets = new Map<string, number>();
   for (const m of movements) {
-    if (m.type !== "entrada" || m.category !== "venda") continue;
+    if (m.type !== "entrada") continue;
     const key = m.due_date.slice(0, 7); // YYYY-MM
     buckets.set(key, (buckets.get(key) ?? 0) + m.amount);
   }
