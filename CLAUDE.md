@@ -471,8 +471,12 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
   (`src/core/onboarding/`: `montarDNA()` = Financial DNA + `calcularMaturidade()`
   = **Business Maturity Score 0-100** com pilares/fortes/atenção/recomendações) ·
   7) Ambiente criado (`aplicarOnboarding(report)` → cria/correlaciona tudo).
-- Ao finalizar, redireciona para o dashboard; o perfil fica em
-  `localStorage` (`a4p_company`). Login (`/login`) tem CTA "Criar empresa".
+- Ao finalizar (`finalizar`, live): autentica → persiste a estrutura escolhida
+  via `aplicarEstrutura` (`src/lib/onboarding.ts`: contas bancárias →
+  `financial_accounts`, centros → `cost_centers`, unidades → `units`, **dedup por
+  nome** para não duplicar o `seed_org`) → aplica o import (se houve) → entra no
+  sistema. O perfil fica em `localStorage` (`a4p_company`). Governança ainda não
+  tem tabela/consumo (fora do escopo). Login (`/login`) tem CTA "Criar empresa".
 
 ### Onboarding inteligente / FDIP (`/import`)
 
