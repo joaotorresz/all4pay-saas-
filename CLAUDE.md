@@ -369,6 +369,28 @@ aprende junto. Puro, tipado, demo-safe. Versão `datamoat/1.0.0`.
   em `src/components/dados/DadosView.tsx` (DNA radar + modelo/curva de
   aprendizado + benchmark + comportamental + crédito + treasury).
 
+### Arquitetura Institucional (`/arquitetura`)
+
+GAP 6: a visão de **financial operating infrastructure** — unifica as camadas
+já construídas e fecha o que faltava (Treasury Core + Reliability Layer). Puro,
+demo-safe.
+
+- **Treasury Core** (`src/core/treasury/`): posição consolidada por conta/banco,
+  **concentração bancária** (HHI), liquidez em buckets (imediata/30d/90d), cash
+  positioning (8 semanas), exposição e stress testing (reusa `scoreRiscoCaixa`).
+  Consome `getAccountsList()` + `getRiscoInput()`.
+- **Reliability Layer** (`src/core/reliability/`): `CircuitBreaker` (abre após N
+  falhas → curto-circuito → meio-aberto), `DeadLetterQueue`, `LockManager`
+  (distributed lock anti-duplicidade) e `simularResiliencia()` (runner: retries
+  → DLQ → recuperação, sem duplicar dinheiro).
+- **Control plane** (`src/core/architecture/`): `arquiteturaInstitucional()` —
+  as 10 camadas institucionais, os 10 serviços financeiros distribuídos
+  (latência/throughput), o pipeline de tempo real, métricas de observabilidade
+  (liga ao ledger real via `FinancialPlatform`) e o isolamento multi-tenant.
+- **Dados:** hook `useArquitetura()` (accounts + risco). UI em
+  `src/components/arquitetura/ArquiteturaView.tsx` (camadas + serviços + pipeline
+  + Treasury Core + Reliability console interativo + observabilidade + tenancy).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,

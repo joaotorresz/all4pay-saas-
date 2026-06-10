@@ -15,6 +15,7 @@ import {
   getOpenMovements,
   getUnreconciledMovements,
   getRiscoInput,
+  getAccountsList,
 } from "@/lib/data";
 import { getAuditTrail } from "@/lib/institutional";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -23,6 +24,8 @@ import { analisarQuantitativo } from "@/core/quant";
 import { centroInteligencia } from "@/core/executive";
 import { decidir } from "@/core/decision";
 import { analisarMoat } from "@/core/datamoat";
+import { arquiteturaInstitucional } from "@/core/architecture";
+import { treasuryCore } from "@/core/treasury";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -49,6 +52,20 @@ export function useQuantitativo() {
   return {
     ...q,
     data: q.data ? analisarQuantitativo(q.data) : undefined,
+  };
+}
+
+/** Arquitetura institucional + Treasury Core (control plane GAP 6). */
+export function useArquitetura() {
+  const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    isLoading: acc.isLoading || inp.isLoading,
+    isError: acc.isError || inp.isError,
+    data:
+      acc.data && inp.data
+        ? { arq: arquiteturaInstitucional(), treasury: treasuryCore(acc.data, inp.data) }
+        : undefined,
   };
 }
 
