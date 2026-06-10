@@ -13,6 +13,9 @@ export function ReceivablesCard() {
       isLoading={isLoading}
       isError={isError}
       emptyHint="Nenhum recebível em aberto neste mês."
+      heroLabel="Recebido hoje"
+      weekLabel="A receber essa semana"
+      monthLabel="A receber esse mês"
     />
   );
 }

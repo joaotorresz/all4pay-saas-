@@ -10,8 +10,8 @@ import { HeroValue } from "./HeroValue";
 
 /**
  * Mirrored "A Receber" / "A Pagar" widget.
- * Hero = total VENCIDO (red). Secondary = VENCE HOJE (green) + restante
- * do mês (muted). The whole card drills down to the item list.
+ * Hero = realizado HOJE (neutro, sem vermelho). Secundários = essa semana +
+ * esse mês (pendentes). O card inteiro abre a lista detalhada.
  */
 export function OpenAmountWidget({
   title,
@@ -20,6 +20,9 @@ export function OpenAmountWidget({
   isLoading,
   isError,
   emptyHint,
+  heroLabel,
+  weekLabel,
+  monthLabel,
 }: {
   title: string;
   href: string;
@@ -27,16 +30,19 @@ export function OpenAmountWidget({
   isLoading: boolean;
   isError: boolean;
   emptyHint: string;
+  heroLabel: string;
+  weekLabel: string;
+  monthLabel: string;
 }) {
-  const overdue = summary && brlParts(summary.overdue);
-  const dueToday = summary && brlParts(summary.dueToday);
-  const rest = summary && brlParts(summary.restOfMonth);
+  const today = summary && brlParts(summary.today);
+  const week = summary && brlParts(summary.week);
+  const month = summary && brlParts(summary.month);
   const isEmpty =
     !!summary &&
     summary.count === 0 &&
-    summary.overdue === 0 &&
-    summary.dueToday === 0 &&
-    summary.restOfMonth === 0;
+    summary.today === 0 &&
+    summary.week === 0 &&
+    summary.month === 0;
 
   const body = () => {
     if (isLoading) {
@@ -65,37 +71,35 @@ export function OpenAmountWidget({
     }
     return (
       <div className="flex flex-col gap-4">
-        {/* Hero: vencido — "Saldo total" treatment */}
+        {/* Hero: realizado hoje — "Saldo total" treatment, neutro (sem vermelho) */}
         <HeroValue
-          label="Vencido"
-          integer={overdue!.integer}
-          decimals={overdue!.decimals}
-          color="var(--color-negative)"
-          srValue={`${formatBRL(summary.overdue)} vencido`}
+          label={heroLabel}
+          integer={today!.integer}
+          decimals={today!.decimals}
+          srValue={`${formatBRL(summary.today)} · ${heroLabel.toLowerCase()}`}
         />
         {/* Secondary stats */}
         <div className="flex gap-3 pt-1 border-t border-border-soft">
           <div className="flex-1 pt-3">
-            <div className="text-caption font-medium text-positive">
-              Vence hoje
+            <div className="text-caption font-medium text-muted">
+              {weekLabel}
             </div>
             <div className="mt-1">
               <Money
-                integer={dueToday!.integer}
-                decimals={dueToday!.decimals}
+                integer={week!.integer}
+                decimals={week!.decimals}
                 size="sm"
-                color="var(--color-positive)"
               />
             </div>
           </div>
           <div className="flex-1 pt-3">
             <div className="text-caption font-medium text-muted">
-              Restante do mês
+              {monthLabel}
             </div>
             <div className="mt-1">
               <Money
-                integer={rest!.integer}
-                decimals={rest!.decimals}
+                integer={month!.integer}
+                decimals={month!.decimals}
                 size="sm"
               />
             </div>

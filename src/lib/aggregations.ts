@@ -24,26 +24,41 @@ function endOfMonthISO(today: Date): string {
   return isoDay(new Date(today.getFullYear(), today.getMonth() + 1, 0));
 }
 
-/** Vencido / vence hoje / restante do mês, for one movement direction. */
+/** Fim da semana corrente (domingo). */
+function endOfWeekISO(today: Date): string {
+  const d = new Date(today);
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7)); // 0 = domingo
+  return isoDay(d);
+}
+
+/**
+ * Resumo de uma direção (entrada/saída):
+ *  • today  — realizado HOJE (status pago, paid_date = hoje);
+ *  • week   — a receber/pagar ESSA SEMANA (pendente, vence até domingo);
+ *  • month  — a receber/pagar ESSE MÊS (pendente, vence até o fim do mês).
+ * `week` ⊆ `month` (ambos a partir de hoje). Correlaciona com os movimentos
+ * reais do sistema (demo: seed/importado; live: Supabase).
+ */
 function summarizeOpen(
   movements: Movement[],
   today: Date,
 ): ReceivablesSummary {
   const todayISO = isoDay(today);
+  const eow = endOfWeekISO(today);
   const eom = endOfMonthISO(today);
-  let overdue = 0,
-    dueToday = 0,
-    restOfMonth = 0,
+  let realizadoHoje = 0,
+    week = 0,
+    month = 0,
     count = 0;
 
   for (const m of movements) {
+    if (m.status === "pago" && m.paid_date === todayISO) realizadoHoje += m.amount;
     if (m.status !== "pendente") continue;
     count++;
-    if (m.due_date < todayISO) overdue += m.amount;
-    else if (m.due_date === todayISO) dueToday += m.amount;
-    else if (m.due_date <= eom) restOfMonth += m.amount;
+    if (m.due_date >= todayISO && m.due_date <= eow) week += m.amount;
+    if (m.due_date >= todayISO && m.due_date <= eom) month += m.amount;
   }
-  return { overdue, dueToday, restOfMonth, count };
+  return { today: realizadoHoje, week, month, count };
 }
 
 export function summarizeReceivables(

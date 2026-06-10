@@ -5,7 +5,7 @@ import { Icon, Switch, Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 /** Blocos da Home (command center). A ordem aqui é a ordem dos blocos na tela. */
-export const BLOCK_ORDER = ["Saúde financeira", "Operação", "Receita", "Despesas", "Inteligência"] as const;
+export const BLOCK_ORDER = ["Operação", "Saúde financeira", "Receita", "Despesas", "Inteligência"] as const;
 
 /** Cards disponíveis, com o bloco a que pertencem. */
 export const HOME_WIDGETS: { id: string; label: string; grupo: (typeof BLOCK_ORDER)[number] }[] = [

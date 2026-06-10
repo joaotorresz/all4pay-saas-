@@ -48,7 +48,9 @@ export function useHomeContext(auto: boolean): HomeContext {
   }, []);
 
   return React.useMemo<HomeContext>(() => {
-    const base = (setor && SETOR_BASE[setor]) || [...BLOCK_ORDER];
+    // Operação lidera a Home por padrão; o resto segue a ordem-base do setor.
+    const setorBase = (setor && SETOR_BASE[setor]) || [...BLOCK_ORDER];
+    const base = ["Operação", ...setorBase.filter((b) => b !== "Operação")] as Bloco[];
     const urgencia: Record<string, number> = { "Saúde financeira": 0, Operação: 0, Receita: 0, Despesas: 0, Inteligência: 0 };
     const motivos: Record<string, string> = {};
 

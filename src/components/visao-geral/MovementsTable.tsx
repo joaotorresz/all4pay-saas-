@@ -82,6 +82,7 @@ export function MovementsTable({
     <Card padded={false}>
       <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
         <span className="flex-1">Descrição</span>
+        <span className="w-[110px]">Vencimento</span>
         <span className="w-[120px]">Status</span>
         <span className="w-[140px] text-right">Valor</span>
       </div>
@@ -103,9 +104,12 @@ export function MovementsTable({
                 {m.description ?? "Movimentação"}
               </div>
               <div className="text-caption text-faint tabular-nums">
-                {accountName(m.account_id)} · {fmtDate(m.due_date)}
+                {accountName(m.account_id)}
               </div>
             </div>
+            <span className="w-[110px] text-[13px] text-ink tabular-nums">
+              {fmtDate(m.due_date)}
+            </span>
             <span className="w-[120px]">
               <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
             </span>

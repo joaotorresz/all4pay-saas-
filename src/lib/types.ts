@@ -41,10 +41,10 @@ export interface Movement {
 /* ---- Derived shapes returned by the widget hooks ---- */
 
 export interface ReceivablesSummary {
-  overdue: number; // total VENCIDO
-  dueToday: number; // VENCE HOJE
-  restOfMonth: number; // restante do mês
-  count: number; // open items
+  today: number; // realizado hoje (recebido/pago hoje)
+  week: number; // a receber/pagar essa semana (pendente)
+  month: number; // a receber/pagar esse mês (pendente)
+  count: number; // itens pendentes em aberto
 }
 
 export type PayablesSummary = ReceivablesSummary;

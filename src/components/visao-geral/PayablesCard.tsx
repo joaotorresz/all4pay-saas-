@@ -13,6 +13,9 @@ export function PayablesCard() {
       isLoading={isLoading}
       isError={isError}
       emptyHint="Nenhuma conta a pagar em aberto neste mês."
+      heroLabel="Pago hoje"
+      weekLabel="A pagar essa semana"
+      monthLabel="A pagar esse mês"
     />
   );
 }

@@ -157,9 +157,15 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   isolado (loading próprio) e togglável. Reordenar por arrastar (Fase 4) + Home
   contextual por perfil/IA (Fase 5) são as próximas.
 
+- **Ordem dos blocos:** **Operação** lidera a Home (`BLOCK_ORDER` + força em
+  `homeContext`); o resto segue a ordem-base do setor / urgência da IA.
 - **Widgets** (`src/components/visao-geral/`): `ReceivablesCard` & `PayablesCard`
-  (mirrored `OpenAmountWidget`: hero VENCIDO in `negative`, secondary VENCE HOJE
-  in `positive` + restante do mês), `AccountsCard` (saldo consolidado +
+  (mirrored `OpenAmountWidget`, **sem vermelho**): hero = **realizado hoje**
+  (recebido/pago hoje, neutro) · secundários = **essa semana** + **esse mês**
+  (pendentes, a receber/pagar). `summarizeOpen` (`aggregations.ts`): `today`
+  (pago, paid_date=hoje) · `week` (pendente, vence até domingo) · `month`
+  (pendente, vence até fim do mês; `week`⊆`month`). Clicar abre `/recebiveis`
+  `/pagaveis` (`MovementsTable`, com coluna **Vencimento**). `AccountsCard` (saldo consolidado +
   per-account reconciliation badges), `DailyCashflowChart` (Recharts
   `ComposedChart`: diverging stacked bars + dashed accumulated-balance line,
   period selector), `SalesChart` (12-month bars). The amount cards use the
