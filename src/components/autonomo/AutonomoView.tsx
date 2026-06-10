@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, Skeleton, Icon, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { listParties } from "@/lib/cadastros";
+import { useUpdateParty } from "@/components/lancamentos/hooks";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
+import type { Party } from "@/lib/types";
 import {
   TIPO_LABEL,
   type FinancialDecision,
@@ -41,9 +43,9 @@ export function AutonomoView() {
   }
 
   const { decisoes, nextBestAction, politicas, collections, routing, hitl } = data;
-  const telefoneDe = (nome: string) => {
+  const partyDe = (nome: string) => {
     const n = norm(nome);
-    return (parties ?? []).find((p) => norm(p.name) === n)?.phone ?? null;
+    return (parties ?? []).find((p) => norm(p.name) === n) ?? null;
   };
 
   return (
@@ -112,7 +114,7 @@ export function AutonomoView() {
       </Card>
 
       {/* Cobrança autônoma */}
-      <CobrancaCard collections={collections} telefoneDe={telefoneDe} />
+      <CobrancaCard collections={collections} partyDe={partyDe} />
 
       {/* Roteamento de pagamento */}
       <Card className="lg:col-span-1 flex flex-col gap-3">
@@ -183,11 +185,17 @@ function mensagemCobranca(c: CollectionPlan): string {
   return `${base} ${fecho}`;
 }
 
-function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan[]; telefoneDe: (n: string) => string | null }) {
+function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[]; partyDe: (n: string) => Party | null }) {
   const [enviando, setEnviando] = React.useState(false);
   const [status, setStatus] = React.useState<Record<string, string>>({});
+  const [tels, setTels] = React.useState<Record<string, string>>({});
+  const [salvando, setSalvando] = React.useState<string | null>(null);
+  const update = useUpdateParty();
 
-  const linhas = collections.map((c) => ({ c, tel: telefoneDe(c.cliente) }));
+  const linhas = collections.map((c) => {
+    const party = partyDe(c.cliente);
+    return { c, party, tel: party?.phone ?? null };
+  });
   const enviaveis = linhas.filter((l) => l.tel && l.c.canal === "whatsapp");
 
   const disparar = async () => {
@@ -197,7 +205,7 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
         cliente: c.cliente,
         telefone: tel as string,
         mensagem: mensagemCobranca(c),
-        // Variáveis do template aprovado (usadas em produção): {{1}} nome, {{2}} valor.
+        // Variáveis do template aprovado (usadas em produção): 1 = nome, 2 = valor.
         variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
       }));
       const res = await fetch("/api/cobranca/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ alvos }) });
@@ -209,6 +217,20 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
       setStatus({ _erro: "Não foi possível disparar agora." });
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const salvarTelefone = async (cliente: string, partyId: string) => {
+    const fone = (tels[cliente] ?? "").trim();
+    if (!fone) return;
+    setSalvando(cliente);
+    try {
+      await update.mutateAsync({ id: partyId, patch: { phone: fone } });
+      setTels((t) => ({ ...t, [cliente]: "" }));
+    } catch {
+      setStatus((s) => ({ ...s, _erro: "Não foi possível salvar o telefone." }));
+    } finally {
+      setSalvando(null);
     }
   };
 
@@ -224,13 +246,27 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
         <span className="text-caption text-faint">Sem clientes em cobrança no momento.</span>
       ) : (
         <div className="flex flex-col">
-          {linhas.map(({ c, tel }) => (
+          {linhas.map(({ c, party, tel }) => (
             <div key={c.cliente} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
               <span className="text-[13px] text-ink flex-1 truncate">{c.cliente}</span>
               <span className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[2px]">{CANAL_LABEL[c.canal]}</span>
-              <span className="text-caption tabular-nums w-[130px] truncate" style={{ color: tel ? "var(--color-text-secondary)" : "var(--color-text-tertiary)" }}>
-                {tel ?? "sem telefone"}
-              </span>
+              {tel ? (
+                <span className="text-caption tabular-nums w-[150px] truncate text-right" style={{ color: "var(--color-text-secondary)" }}>{tel}</span>
+              ) : party ? (
+                <span className="flex items-center gap-1 w-[230px] justify-end">
+                  <input
+                    value={tels[c.cliente] ?? ""}
+                    onChange={(e) => setTels((t) => ({ ...t, [c.cliente]: e.target.value }))}
+                    placeholder="+55 11 9…"
+                    className="w-[130px] text-caption tabular-nums rounded-sm border border-border-soft bg-surface-1 px-2 py-[3px] outline-none focus:border-ink"
+                  />
+                  <Button variant="secondary" size="sm" disabled={salvando === c.cliente || !(tels[c.cliente] ?? "").trim()} onClick={() => salvarTelefone(c.cliente, party.id)}>
+                    {salvando === c.cliente ? "…" : "Salvar"}
+                  </Button>
+                </span>
+              ) : (
+                <span className="text-caption w-[150px] text-right" style={{ color: "var(--color-text-tertiary)" }}>sem cadastro</span>
+              )}
               <span className="text-caption text-muted tabular-nums w-[90px] text-right">{formatBRL(c.exposicao)}</span>
               <span className="text-caption w-[120px] text-right truncate" style={{ color: status[c.cliente]?.startsWith("falha") ? "var(--color-negative)" : "var(--color-positive)" }}>
                 {status[c.cliente] ?? ""}
@@ -240,7 +276,7 @@ function CobrancaCard({ collections, telefoneDe }: { collections: CollectionPlan
         </div>
       )}
       <span className="text-caption text-faint">
-        Os alvos com telefone cadastrado recebem a cobrança no WhatsApp (via Twilio, server-side). Sem credenciais, o envio é simulado. Em produção, com um template aprovado configurado, a mensagem usa o template (variável 1 = nome · 2 = valor). Cadastre telefones em Contatos para ativar mais clientes.
+        Os alvos com telefone cadastrado recebem a cobrança no WhatsApp (via Twilio, server-side). Adicione o telefone aqui (ou em Contatos) para ativar mais clientes. Sem credenciais, o envio é simulado; em produção, com um template aprovado, a mensagem usa o template (variável 1 = nome · 2 = valor).
       </span>
       {status._erro && <span className="text-caption text-negative">{status._erro}</span>}
     </Card>

@@ -169,9 +169,14 @@ writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
 
 Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
 (clientes + fornecedores), `/vendas`. Shared kit in
-`src/components/listas/ListChrome.tsx` (`EntityTable` generic, `NewButton` that
-opens the matching form, `useToast`). List data via `list*` accessors in
+`src/components/listas/ListChrome.tsx` (`EntityTable` generic com `onRowClick`,
+`NewButton` que abre o form, `useToast`). List data via `list*` accessors in
 `src/lib/cadastros.ts` + `use*List` hooks. Sidebar links to all of them.
+**Editar contato:** clicar numa linha de `/contatos` abre o `PartyForm` em modo
+edição (prefill + `updateParty`/`useUpdateParty`; só grava endereço quando
+preenchido, para não apagar o existente). Em demo, `updateParty` reflete no
+dataset importado (`updateImportedParty`). Isso destrava o telefone de clientes
+vindos da importação (que entram sem telefone) — alimentando a cobrança.
 
 ### Motor de Risco de Caixa (`/risco`)
 

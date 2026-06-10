@@ -6,7 +6,7 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { importedParties } from "@/lib/imported";
+import { importedParties, updateImportedParty } from "@/lib/imported";
 import {
   DEMO_BRANDS,
   DEMO_UNITS,
@@ -247,6 +247,19 @@ export async function createParty(input: PartyInput): Promise<void> {
   if (isDemo) return void (await delay());
   const s = createClient();
   const { error } = await s.from("parties").insert(input);
+  if (error) throw error;
+}
+
+/** Atualiza um contato existente (ex.: adicionar telefone para cobrança). */
+export async function updateParty(id: string, patch: Partial<PartyInput>): Promise<void> {
+  if (isDemo) {
+    await delay();
+    // Em demo, reflete no dataset importado (quando o contato veio do FDIP).
+    updateImportedParty(id, patch as Partial<Party>);
+    return;
+  }
+  const s = createClient();
+  const { error } = await s.from("parties").update(patch).eq("id", id);
   if (error) throw error;
 }
 

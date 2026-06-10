@@ -3,10 +3,10 @@
 import * as React from "react";
 import { Select, Input } from "@/components/ui";
 import { FormModal, SectionTitle } from "./FormModal";
-import { useCreateParty } from "./hooks";
+import { useCreateParty, useUpdateParty } from "./hooks";
 import { validateDoc, maskDoc, maskCep } from "@/lib/validators";
 import { lookupCep } from "@/lib/viacep";
-import type { PartyType } from "@/lib/types";
+import type { PartyType, Party, PartyInput } from "@/lib/types";
 
 type Role = "customer" | "supplier" | "carrier";
 const TITLES: Record<Role, string> = {
@@ -15,24 +15,36 @@ const TITLES: Record<Role, string> = {
   carrier: "Nova transportadora",
 };
 
+/** Deriva o papel a partir das flags da party (para o modo edição). */
+function roleDe(p?: Party): Role {
+  if (p?.is_supplier) return "supplier";
+  if (p?.is_carrier) return "carrier";
+  return "customer";
+}
+
 export function PartyForm({
-  role,
+  role: roleProp,
+  party,
   onClose,
   onToast,
 }: {
-  role: Role;
+  role?: Role;
+  party?: Party;
   onClose: () => void;
   onToast: (msg: string) => void;
 }) {
+  const editing = !!party;
+  const role: Role = roleProp ?? roleDe(party);
   const create = useCreateParty();
+  const update = useUpdateParty();
   const [tried, setTried] = React.useState(false);
   const [cepLoading, setCepLoading] = React.useState(false);
   const [f, setF] = React.useState({
-    type: (role === "carrier" ? "pj" : "pj") as PartyType,
-    doc: "",
-    name: "",
-    email: "",
-    phone: "",
+    type: (party?.type ?? "pj") as PartyType,
+    doc: party?.doc ?? "",
+    name: party?.name ?? "",
+    email: party?.email ?? "",
+    phone: party?.phone ?? "",
     zip: "",
     street: "",
     number: "",
@@ -75,6 +87,26 @@ export function PartyForm({
       return;
     }
     try {
+      if (editing) {
+        // Atualiza só os campos de contato/identificação; campos de endereço só
+        // entram quando preenchidos, para não apagar o que já existe no cadastro.
+        const patch: Partial<PartyInput> = {
+          type: f.type,
+          name: f.name.trim(),
+          doc: f.doc.trim() || null,
+          email: f.email.trim() || null,
+          phone: f.phone.trim() || null,
+        };
+        const addr: Record<string, string> = {
+          zip: f.zip, street: f.street, number: f.number, complement: f.complement,
+          district: f.district, city: f.city, state: f.state, antt: f.antt,
+        };
+        for (const [k, v] of Object.entries(addr)) if (v.trim()) (patch as Record<string, unknown>)[k] = v.trim();
+        await update.mutateAsync({ id: party!.id, patch });
+        onToast("Contato atualizado");
+        onClose();
+        return;
+      }
       await create.mutateAsync({
         type: f.type,
         name: f.name.trim(),
@@ -105,12 +137,12 @@ export function PartyForm({
 
   return (
     <FormModal
-      title={TITLES[role]}
+      title={editing ? "Editar contato" : TITLES[role]}
       size="medium"
       onClose={onClose}
       onSave={() => submit(false)}
-      onSaveAgain={() => submit(true)}
-      saving={create.isPending}
+      onSaveAgain={editing ? undefined : () => submit(true)}
+      saving={create.isPending || update.isPending}
     >
       <div className="grid grid-cols-2 gap-4">
         <Select

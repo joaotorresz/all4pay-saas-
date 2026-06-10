@@ -66,3 +66,14 @@ export function importedAccounts(): FinancialAccount[] | null {
 export function importedParties(): Party[] | null {
   return load()?.parties ?? null;
 }
+
+/** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
+export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
+  const ds = load();
+  if (!ds) return false;
+  const i = ds.parties.findIndex((p) => p.id === id);
+  if (i < 0) return false;
+  ds.parties[i] = { ...ds.parties[i], ...patch };
+  setImported({ ...ds });
+  return true;
+}

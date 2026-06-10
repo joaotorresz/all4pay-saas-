@@ -21,6 +21,7 @@ export function EntityTable<T extends { id: string }>({
   isError,
   emptyTitle,
   emptyHint,
+  onRowClick,
 }: {
   columns: Column<T>[];
   rows?: T[];
@@ -28,6 +29,7 @@ export function EntityTable<T extends { id: string }>({
   isError: boolean;
   emptyTitle: string;
   emptyHint?: string;
+  onRowClick?: (row: T) => void;
 }) {
   if (isLoading) {
     return (
@@ -80,9 +82,11 @@ export function EntityTable<T extends { id: string }>({
       {rows.map((row, i) => (
         <div
           key={row.id}
+          onClick={onRowClick ? () => onRowClick(row) : undefined}
           className={cn(
             "flex items-center gap-3 px-5 py-3",
             i && "border-t border-border-soft",
+            onRowClick && "cursor-pointer hover:bg-surface-2 transition-colors",
           )}
         >
           {columns.map((c) => (

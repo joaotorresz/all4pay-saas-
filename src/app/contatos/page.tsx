@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { EntityTable, NewButton, useToast, type Column } from "@/components/listas/ListChrome";
 import { usePartiesList } from "@/components/lancamentos/hooks";
@@ -60,6 +61,7 @@ const columns: Column<Party>[] = [
 export default function ContatosPage() {
   const { data, isLoading, isError } = usePartiesList();
   const { show, node } = useToast();
+  const [editing, setEditing] = React.useState<Party | null>(null);
   return (
     <AppShell
       title="Contatos"
@@ -88,7 +90,15 @@ export default function ContatosPage() {
         isError={isError}
         emptyTitle="Nenhum contato cadastrado"
         emptyHint="Cadastre clientes e fornecedores pelos botões acima."
+        onRowClick={(p) => setEditing(p)}
       />
+      {editing && (
+        <PartyForm
+          party={editing}
+          onClose={() => setEditing(null)}
+          onToast={show}
+        />
+      )}
       {node}
     </AppShell>
   );
