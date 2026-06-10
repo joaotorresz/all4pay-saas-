@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { InicioActions } from "@/components/visao-geral/InicioActions";
 import { OverviewGrid } from "@/components/visao-geral/OverviewGrid";
+import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
 
 export const metadata: Metadata = {
   title: "all4pay — Início",
@@ -12,8 +13,10 @@ export const metadata: Metadata = {
 
 export default function HomePage() {
   return (
-    <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />}>
-      <OverviewGrid />
-    </AppShell>
+    <PeriodProvider>
+      <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />}>
+        <OverviewGrid />
+      </AppShell>
+    </PeriodProvider>
   );
 }

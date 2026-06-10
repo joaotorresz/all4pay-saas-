@@ -110,6 +110,16 @@ The home screen and the reference module for data-driven screens. Five isolated
 widgets, each with its own hook and its own loading / empty / error state — the
 page never blocks as a whole. (`/visao-geral` redirects here.)
 
+- **Pílula de período global** (`PeriodContext` + `PeriodPill`, no header): um
+  período único (Hoje·7D·14D·30D·Mês·Trimestre·Ano·Personalizado — Mês/Tri/Ano =
+  MTD/QTD/YTD) que os widgets consomem via `usePeriod()`. Persistido. Hoje liga o
+  **Fluxo de caixa** (range global); demais widgets/cards entram por fase.
+- **Personalizar Home** (`HomeCustomizeDrawer`, botão no header → evento
+  `a4p:open-personalizar`): liga/desliga blocos da Home; preferência em
+  localStorage (`a4p_home_widgets`), lida pelo `OverviewGrid` (client). Reordenar
+  por arrastar + cards novos (Runway/Burn/Top clientes/IA…) + Home contextual por
+  perfil são as próximas fases.
+
 - **Widgets** (`src/components/visao-geral/`): `ReceivablesCard` & `PayablesCard`
   (mirrored `OpenAmountWidget`: hero VENCIDO in `negative`, secondary VENCE HOJE
   in `positive` + restante do mês), `AccountsCard` (saldo consolidado +
