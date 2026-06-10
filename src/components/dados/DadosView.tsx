@@ -167,9 +167,9 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
           <LineChart data={modelo.curvaAprendizado} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
             <defs>
               <linearGradient id="dadosGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-chart-line)" stopOpacity={0.28} />
-                <stop offset="70%" stopColor="var(--color-chart-line)" stopOpacity={0.05} />
-                <stop offset="100%" stopColor="var(--color-chart-line)" stopOpacity={0} />
+                <stop offset="0%" stopColor="#dcff00" stopOpacity={0.28} />
+                <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
+                <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />

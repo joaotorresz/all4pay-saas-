@@ -94,15 +94,24 @@ export function useHomeContext(auto: boolean): HomeContext {
       }
     }
 
-    // Ordem final: base do setor; se auto, ordena por urgência (desc) estável.
-    let ordemBlocos = [...base];
+    // Operação fica SEMPRE em 1º; os demais blocos seguem urgência (auto) ou setor.
+    const resto: Bloco[] = base.filter((b) => b !== "Operação");
+    const restoOrdenado: Bloco[] = auto
+      ? [...resto].sort((a, b) => {
+          const d = (urgencia[b] ?? 0) - (urgencia[a] ?? 0);
+          return d !== 0 ? d : resto.indexOf(a) - resto.indexOf(b);
+        })
+      : resto;
+    const ordemBlocos = ["Operação", ...restoOrdenado];
+
+    // Selo de "Prioridade" vai no bloco de MAIOR urgência (onde quer que esteja).
+    let top: string | null = null;
     if (auto) {
-      ordemBlocos = [...base].sort((a, b) => {
-        const d = (urgencia[b] ?? 0) - (urgencia[a] ?? 0);
-        return d !== 0 ? d : base.indexOf(a as Bloco) - base.indexOf(b as Bloco);
-      });
+      let max = 0;
+      for (const b of ordemBlocos) {
+        if ((urgencia[b] ?? 0) > max) { max = urgencia[b]; top = b; }
+      }
     }
-    const top = auto && (urgencia[ordemBlocos[0]] ?? 0) > 0 ? ordemBlocos[0] : null;
 
     return { ordemBlocos, urgencia, motivos, topBloco: top, setor };
   }, [auto, setor, q.data, ri.data, ci.data]);
