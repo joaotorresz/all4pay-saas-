@@ -63,7 +63,7 @@ function MetricCard({ label, value, answer, tone, icon }: {
   icon?: string;
 }) {
   return (
-    <Card className="flex flex-col gap-2 h-full">
+    <Card className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
         {icon && <Icon name={icon} size={14} color="var(--color-text-secondary)" />}
         <span className="text-label font-medium text-muted">{label}</span>

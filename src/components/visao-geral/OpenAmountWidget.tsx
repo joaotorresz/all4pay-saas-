@@ -115,7 +115,7 @@ export function OpenAmountWidget({
       className="block rounded-card outline-none focus-visible:ring-2 focus-visible:ring-ink/10 transition-shadow hover:shadow-popover"
       aria-label={`${title}: abrir lista detalhada`}
     >
-      <Card className="h-full">
+      <Card>
         <WidgetHeader
           title={title}
           action={

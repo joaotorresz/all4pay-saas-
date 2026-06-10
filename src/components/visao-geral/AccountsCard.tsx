@@ -19,7 +19,7 @@ export function AccountsCard() {
   const series = flow?.map((p) => p.balance);
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col">
       <WidgetHeader
         title="Contas Financeiras"
         subtitle={data ? `${data.accounts.length} contas` : undefined}

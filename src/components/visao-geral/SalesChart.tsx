@@ -47,7 +47,7 @@ export function SalesChart() {
   const subtitle = `${period.label.toLowerCase()} · ${formatBRL(totalPeriodo)}`;
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col">
       <WidgetHeader title="Vendas / Faturamento" subtitle={subtitle} />
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
@@ -61,7 +61,7 @@ export function SalesChart() {
       )}
 
       {!isLoading && !isError && hasSales && data && (
-        <figure className="m-0 flex-1" role="img" aria-label={salesAria(data, period.label, totalPeriodo)}>
+        <figure className="m-0" role="img" aria-label={salesAria(data, period.label, totalPeriodo)}>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
               <CartesianGrid stroke={GRID} vertical={false} />
