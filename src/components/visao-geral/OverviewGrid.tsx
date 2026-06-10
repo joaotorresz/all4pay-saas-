@@ -8,6 +8,15 @@ import { DailyCashflowChart } from "./DailyCashflowChart";
 import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
 import { HomeCustomizeDrawer, HOME_WIDGET_IDS } from "./HomeCustomizeDrawer";
+import {
+  SaudeFinanceiraCard,
+  IAInsightsCard,
+  AnomaliasCard,
+  TopClientesCard,
+  MaioresCategoriasCard,
+  UltimosGastosCard,
+  PendenciasCard,
+} from "./HomeCards";
 
 const KEY = "a4p_home_widgets";
 
@@ -40,6 +49,7 @@ export function OverviewGrid() {
     <div className="flex flex-col gap-5">
       <FirstRunCard />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+        {on("saude") && <div className="md:col-span-2"><SaudeFinanceiraCard /></div>}
         {on("receivables") && <ReceivablesCard />}
         {on("payables") && <PayablesCard />}
         {on("accounts") && (
@@ -49,6 +59,12 @@ export function OverviewGrid() {
         )}
         {on("cashflow") && <DailyCashflowChart />}
         {on("sales") && <SalesChart />}
+        {on("iaInsights") && <IAInsightsCard />}
+        {on("anomalias") && <AnomaliasCard />}
+        {on("topClientes") && <TopClientesCard />}
+        {on("maioresCategorias") && <MaioresCategoriasCard />}
+        {on("ultimosGastos") && <UltimosGastosCard />}
+        {on("pendencias") && <PendenciasCard />}
       </div>
 
       {!algumVisivel && (

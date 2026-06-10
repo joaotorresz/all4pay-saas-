@@ -3,13 +3,20 @@
 import * as React from "react";
 import { Icon, Switch, Button } from "@/components/ui";
 
-/** Widgets disponíveis na Home (Fase 1: os 5 blocos atuais). */
+/** Blocos disponíveis na Home, agrupados (command center). */
 export const HOME_WIDGETS: { id: string; label: string; grupo: string }[] = [
-  { id: "receivables", label: "A receber", grupo: "Operação" },
-  { id: "payables", label: "A pagar", grupo: "Operação" },
+  { id: "saude", label: "Saúde financeira (KPIs)", grupo: "Saúde financeira" },
   { id: "accounts", label: "Saldo · contas", grupo: "Favoritos" },
   { id: "cashflow", label: "Fluxo de caixa", grupo: "Favoritos" },
+  { id: "receivables", label: "A receber", grupo: "Operação" },
+  { id: "payables", label: "A pagar", grupo: "Operação" },
+  { id: "pendencias", label: "Pendências", grupo: "Operação" },
   { id: "sales", label: "Faturamento", grupo: "Receita" },
+  { id: "topClientes", label: "Top clientes", grupo: "Receita" },
+  { id: "maioresCategorias", label: "Maiores despesas", grupo: "Despesas" },
+  { id: "ultimosGastos", label: "Últimos gastos", grupo: "Despesas" },
+  { id: "iaInsights", label: "IA · insights", grupo: "Inteligência" },
+  { id: "anomalias", label: "Anomalias", grupo: "Inteligência" },
 ];
 export const HOME_WIDGET_IDS = HOME_WIDGETS.map((w) => w.id);
 

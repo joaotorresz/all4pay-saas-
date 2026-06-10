@@ -119,9 +119,13 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   retroativa por design. Cards período-scoped novos entram por fase.
 - **Personalizar Home** (`HomeCustomizeDrawer`, botão no header → evento
   `a4p:open-personalizar`): liga/desliga blocos da Home; preferência em
-  localStorage (`a4p_home_widgets`), lida pelo `OverviewGrid` (client). Reordenar
-  por arrastar + cards novos (Runway/Burn/Top clientes/IA…) + Home contextual por
-  perfil são as próximas fases.
+  localStorage (`a4p_home_widgets`), lida pelo `OverviewGrid` (client).
+- **Cards do command center** (`HomeCards.tsx`, reusam os motores): `SaudeFinanceira`
+  (Score·Runway·Burn·Liquidez via `useQuantitativo`), `IAInsights`/`Anomalias`
+  (via `useCentroInteligencia`), `TopClientes`/`MaioresCategorias` (período-scoped
+  via `useRiscoInput` + `usePeriod`), `UltimosGastos`, `Pendencias`. Cada um é
+  isolado (loading próprio) e togglável. Reordenar por arrastar (Fase 4) + Home
+  contextual por perfil/IA (Fase 5) são as próximas.
 
 - **Widgets** (`src/components/visao-geral/`): `ReceivablesCard` & `PayablesCard`
   (mirrored `OpenAmountWidget`: hero VENCIDO in `negative`, secondary VENCE HOJE

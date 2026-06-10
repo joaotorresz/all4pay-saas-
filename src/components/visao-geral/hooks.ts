@@ -45,6 +45,11 @@ export function useFirstRun() {
   };
 }
 
+/** RiskInput cru (movements + partyNames) — para cards período-scoped da Home. */
+export function useRiscoInput() {
+  return useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+}
+
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
 export function useRiscoCaixa() {
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
