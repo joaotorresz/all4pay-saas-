@@ -27,6 +27,7 @@ import { analisarMoat } from "@/core/datamoat";
 import { arquiteturaInstitucional } from "@/core/architecture";
 import { treasuryCore } from "@/core/treasury";
 import { operacaoAutonoma } from "@/core/autonomous";
+import { financialDRE, periodoPreset, type DREFiltro } from "@/core/dre";
 import type { MovementType } from "@/lib/types";
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */
@@ -68,6 +69,20 @@ export function useArquitetura() {
         ? { arq: arquiteturaInstitucional(), treasury: treasuryCore(acc.data, inp.data) }
         : undefined,
   };
+}
+
+/** DRE Intelligence Center — recomputa por período (preset) e regime. */
+export function useDRE(
+  preset: "mes" | "mes_anterior" | "ytd" | "12m" = "12m",
+  regime: "competencia" | "caixa" = "competencia",
+) {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  let data: ReturnType<typeof financialDRE> | undefined;
+  if (q.data) {
+    const f: DREFiltro = { ...periodoPreset(q.data.hoje, preset), regime };
+    data = financialDRE(q.data, f);
+  }
+  return { ...q, data };
 }
 
 /** Autonomous Financial Ops (GAP 8): decisões + cobrança + roteamento. */

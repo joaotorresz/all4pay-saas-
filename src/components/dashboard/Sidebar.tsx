@@ -34,6 +34,7 @@ const NAV: NavItem[] = [
   { id: "autonomo", label: "Autônomo", icon: "cpu", href: "/autonomo", badge: "new" },
   { id: "dados", label: "Inteligência de dados", icon: "database", href: "/dados", badge: "new" },
   { id: "risco", label: "Risco de caixa", icon: "trending-up", href: "/risco", badge: "new" },
+  { id: "dre", label: "DRE", icon: "receipt", href: "/dre", badge: "new" },
   { id: "inteligencia", label: "Inteligência", icon: "activity", href: "/inteligencia", badge: "new" },
   { id: "inadimplencia", label: "Inadimplência", icon: "gauge", href: "/inadimplencia", badge: "new" },
   { id: "orquestracao", label: "Orquestração", icon: "network", href: "/orquestracao", badge: "new" },

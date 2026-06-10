@@ -415,6 +415,29 @@ demo-safe. Versão `autonomous/1.0.0`.
   `src/components/autonomo/AutonomoView.tsx` (headline + next best action +
   decisões + HITL + políticas + cobrança + roteamento).
 
+### DRE Intelligence Center (`/dre`)
+
+`financialDRE()` (`src/core/dre/`) — não é "um DRE", é um centro de resultado
+empresarial. Consome o mesmo `RiskInput`, classifica os `movements` em linhas
+do DRE por palavra-chave na categoria e respeita o **regime** (competência por
+`due_date` / caixa por `paid_date`). Puro, tipado, demo-safe. Versão `dre/1.0.0`.
+
+- **`engine.ts`**: `classificarDespesa/Receita` (impostos/CMV/folha/financeiro/
+  opex · vendas/serviços/juros/outras); `dreGerencial()` (waterfall Receita
+  bruta → impostos → líquida → CMV → lucro bruto → opex → EBITDA → financeiro →
+  lucro líquido, com **drill-down** por categoria); `dreFinanceiro()` (caixa:
+  fluxo operacional/financeiro/livre + burn/runway); `drePorCliente()`
+  (receita/share/margem + risco e vencido via motor de crédito); `drePorLinha()`
+  (produto/unidade via linha de receita, custo rateado); `dreComparativo()`
+  (mês atual/anterior/YTD/12m + variações); `dreProjetado()` (receita média ×
+  margem para 30/90/180/360d).
+- **`index.ts`**: `financialDRE(input, filtro)` + `periodoPreset()` + DRE
+  executivo (problemas/oportunidades + comentário do copiloto).
+- **Dados:** hook `useDRE(preset, regime)`. UI em
+  `src/components/dre/DREView.tsx` (filtros dinâmicos período/regime + executivo
+  + waterfall com drill-down + financeiro + comparativo + por linha + por
+  cliente + projetado).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
