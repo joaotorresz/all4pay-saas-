@@ -445,6 +445,24 @@ do DRE por palavra-chave na categoria e respeita o **regime** (competência por
   e no dashboard. O gráfico de **faturamento** conta toda a receita (não depende
   do texto `"venda"`).
 
+### Onboarding guiado / Criar empresa (`/comecar`)
+
+`OnboardingWizard` (`src/components/onboarding/`) — fluxo de 7 passos com barra
+de progresso (MVP-permissivo: campos opcionais, avança em branco). Substitui o
+login de convidado (removido). Rota **pública** (liberada no middleware).
+
+- **Passos:** 1) Dados básicos (jurídico/representante/endereço/fiscal +
+  "Consultar CNPJ" via BrasilAPI best-effort) · 2) Perfil empresarial (setor/
+  modelo/receita/frequência/funcionários/faturamento + bancos/meios/despesas em
+  multi-chip) · 3) Governança (participantes, função, aprovação, limite) ·
+  4) Estrutura financeira (contas, centros, unidades, DRE, fluxo) ·
+  5) Onboarding inteligente (reusa FDIP `analisarImportacao`) · 6) **Análise IA**
+  (`src/core/onboarding/`: `montarDNA()` = Financial DNA + `calcularMaturidade()`
+  = **Business Maturity Score 0-100** com pilares/fortes/atenção/recomendações) ·
+  7) Ambiente criado (`aplicarOnboarding(report)` → cria/correlaciona tudo).
+- Ao finalizar, redireciona para o dashboard; o perfil fica em
+  `localStorage` (`a4p_company`). Login (`/login`) tem CTA "Criar empresa".
+
 ### Onboarding inteligente / FDIP (`/import`)
 
 `analisarImportacao()` (`src/core/fdip/`) — Financial Data Ingestion &

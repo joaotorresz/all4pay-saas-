@@ -43,21 +43,6 @@ export default function LoginPage() {
     }
   }
 
-  async function convidado() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
-      go();
-    } catch {
-      setMsg({ tone: "error", text: "Login de convidado indisponível (habilite Anonymous sign-ins no Supabase)." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-1 px-4">
       <div className="w-[400px] max-w-full">
@@ -117,8 +102,13 @@ export default function LoginPage() {
             <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
           </div>
 
-          <Button variant="secondary" fullWidth disabled={busy} onClick={convidado} leftIcon={<Icon name="arrow-up-right" size={15} />}>
-            Entrar como convidado
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={() => { router.push("/comecar"); }}
+            leftIcon={<Icon name="arrow-up-right" size={15} />}
+          >
+            Criar empresa (onboarding guiado)
           </Button>
         </Card>
       </div>
