@@ -141,8 +141,10 @@ export function DadosView() {
 }
 
 function ModeloCard({ modelo }: { modelo: ModelStats }) {
-  const ult = modelo.curvaAprendizado[modelo.curvaAprendizado.length - 1];
-  const pri = modelo.curvaAprendizado[0];
+  const curva = modelo.curvaAprendizado;
+  if (!curva.length) return null; // defensivo: sem curva, oculta só este cartão
+  const ult = curva[curva.length - 1];
+  const pri = curva[0];
   return (
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
