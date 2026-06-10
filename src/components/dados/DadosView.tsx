@@ -7,6 +7,7 @@ import {
   PolarAngleAxis,
   Radar,
   LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -164,6 +165,13 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
       <div role="img" aria-label={`Curva de aprendizado: de ${Math.round(pri.acuracia * 100)}% com ${pri.n} empresas a ${Math.round(ult.acuracia * 100)}% com ${ult.n}.`}>
         <ResponsiveContainer width="100%" height={170}>
           <LineChart data={modelo.curvaAprendizado} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+            <defs>
+              <linearGradient id="dadosGlow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#dcff00" stopOpacity={0.28} />
+                <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
+                <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+              </linearGradient>
+            </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="n" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} label={{ value: "nº de empresas", position: "insideBottom", offset: -2, fontSize: 10, fill: "var(--color-text-tertiary)" }} />
             <YAxis domain={[0.6, 1]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
@@ -177,7 +185,8 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
                 ) : null
               }
             />
-            <Line type="monotone" dataKey="acuracia" stroke="var(--color-lime)" strokeWidth={1.4} dot={{ r: 3, fill: "var(--color-lime)" }} />
+            <Area type="monotone" dataKey="acuracia" stroke="none" fill="url(#dadosGlow)" isAnimationActive={false} />
+            <Line type="monotone" dataKey="acuracia" stroke="#dcff00" strokeWidth={1.4} dot={{ r: 3, fill: "#dcff00" }} />
           </LineChart>
         </ResponsiveContainer>
       </div>

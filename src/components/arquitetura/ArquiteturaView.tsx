@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   ComposedChart,
+  Area,
   Bar,
   Line,
   Cell,
@@ -193,6 +194,13 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
         <div role="img" aria-label="Posição de caixa projetada por semana">
           <ResponsiveContainer width="100%" height={150}>
             <ComposedChart data={t.cashPositioning} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
+              <defs>
+                <linearGradient id="archGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.26} />
+                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
+                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
               <XAxis dataKey="semana" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
               <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => formatBRLCompact(v)} />
@@ -213,7 +221,8 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
                   <Cell key={i} fill={p.liquido < 0 ? "var(--color-negative)" : "var(--color-border)"} />
                 ))}
               </Bar>
-              <Line type="monotone" dataKey="acumulado" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
+              <Area type="monotone" dataKey="acumulado" stroke="none" fill="url(#archGlow)" isAnimationActive={false} />
+              <Line type="monotone" dataKey="acumulado" stroke="#dcff00" strokeWidth={1.4} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>

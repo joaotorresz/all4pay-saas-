@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -224,6 +225,13 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
     <div role="img" aria-label="Projeção de caixa por Monte Carlo (bandas p10, p50, p90)">
       <ResponsiveContainer width="100%" height={150}>
         <LineChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: -12 }}>
+          <defs>
+            <linearGradient id="decisaoGlow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#dcff00" stopOpacity={0.26} />
+              <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
+              <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
           <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
           <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
@@ -238,8 +246,9 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
               ) : null
             }
           />
+          <Area type="monotone" dataKey="p50" stroke="none" fill="url(#decisaoGlow)" isAnimationActive={false} />
           <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
-          <Line type="monotone" dataKey="p50" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
+          <Line type="monotone" dataKey="p50" stroke="#dcff00" strokeWidth={1.4} dot={false} />
           <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />
         </LineChart>
       </ResponsiveContainer>

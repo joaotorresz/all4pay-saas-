@@ -8,6 +8,7 @@ import {
   Radar,
   ResponsiveContainer,
   LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -145,6 +146,13 @@ export function QuantView() {
         <div role="img" aria-label={`Evolução do score: ${scoreTemporal.map((m) => `${m.label} ${m.score}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={scoreTemporal} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+              <defs>
+                <linearGradient id="quantGlow" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.28} />
+                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
+                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={32} />
@@ -159,7 +167,8 @@ export function QuantView() {
                   ) : null
                 }
               />
-              <Line type="monotone" dataKey="score" stroke="var(--color-lime)" strokeWidth={1.4} dot={false} />
+              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" isAnimationActive={false} />
+              <Line type="monotone" dataKey="score" stroke="#dcff00" strokeWidth={1.4} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>

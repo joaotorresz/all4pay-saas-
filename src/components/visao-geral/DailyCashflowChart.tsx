@@ -23,7 +23,7 @@ import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
-const LINE = "var(--color-lime)"; // linha de saldo acumulado — verde da marca
+const LINE = "#dcff00"; // linha de saldo acumulado — verde da marca
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 
@@ -113,9 +113,9 @@ export function DailyCashflowChart() {
               <defs>
                 {/* Glow em gradiente sob a linha de saldo — igual à referência */}
                 <linearGradient id="cashGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.32} />
-                  <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.06} />
-                  <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.32} />
+                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.06} />
+                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={GRID} vertical={false} />
