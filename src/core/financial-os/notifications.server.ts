@@ -73,7 +73,19 @@ export interface AlvoCobranca {
   cliente: string;
   telefone: string;
   mensagem: string;
+}/**
+ * Teste manual de WhatsApp — valida as credenciais Twilio na hora, sem
+ * depender de eventos/cron. Sem `to`, usa ALERTS_WHATSAPP_TO. Sem credenciais,
+ * retorna "simulado". Server-side.
+ */
+export async function testarWhatsapp(to?: string, mensagem?: string): Promise<EnvioResultado> {
+  const destino = (to && to.trim()) || process.env.ALERTS_WHATSAPP_TO || "";
+  if (!ehTelefone(destino)) return { canal: "whatsapp", para: destino, ok: false, detalhe: "destino ausente (defina ALERTS_WHATSAPP_TO ou envie 'to')" };
+  const msg = (mensagem && mensagem.trim().slice(0, 300)) || "all4pay · teste de notificação. Se você recebeu isto, o WhatsApp está configurado.";
+  if (!statusNotificacoes().whatsapp) return { canal: "whatsapp", para: destino, ok: true, detalhe: "simulado (sem credenciais Twilio)" };
+  return enviarWhatsapp(destino, msg);
 }
+
 /**
  * Cobrança por cliente — envia uma mensagem de WhatsApp para cada alvo
  * (cliente + telefone + mensagem). Com credenciais Twilio, envia de verdade;
