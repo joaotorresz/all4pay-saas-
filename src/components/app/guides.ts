@@ -46,6 +46,31 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  "/import": {
+    titulo: "Onboarding inteligente (FDIP)",
+    intro: "Não é só importar: o sistema lê seus extratos, entende a empresa e monta a estrutura financeira quase sozinho.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Ingestão", desc: "Cole um extrato, carregue um arquivo (CSV/OFX/TXT) ou use a amostra de 12 meses; clique Analisar." },
+          { nome: "Corrigir destino", desc: "Na tabela, ajuste a categoria — o sistema aprende (self-learning) e sobe a confiança na próxima vez." },
+          { nome: "Criar empresa", desc: "Provisiona clientes, fornecedores, categorias e centros de custo a partir da análise." },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Confidence Center", desc: "Total/lidos + distribuição de confiança (alta/média/baixa) + pendências.", match: "Confidence Center" },
+          { nome: "Descobrimos", desc: "Clientes, fornecedores, recorrências, assinaturas, categorias, centros + EBITDA/receita recorrente estimados.", match: "Análise concluída" },
+          { nome: "Destino inteligente", desc: "Cada lançamento → destino + categoria + confiança ML; confirme/corrija.", match: "Destino inteligente" },
+          { nome: "Padrões descobertos", desc: "Recorrências, assinaturas e grafo de clientes/fornecedores.", match: "Padrões descobertos" },
+          { nome: "Auto company setup", desc: "Cria a empresa (entidades, categorias, centros) automaticamente.", match: "Auto company setup" },
+        ],
+      },
+    ],
+  },
+
   "/copiloto": {
     titulo: "Copiloto — IA executiva",
     intro: "O sistema operando como analista + FP&A + tesouraria: o que vai acontecer, o que priorizar, o que está errado.",

@@ -35,6 +35,7 @@ import {
   Cpu,
   Receipt,
   CircleHelp,
+  UploadCloud,
   type LucideIcon,
 } from "lucide-react";
 
@@ -80,6 +81,7 @@ const registry: Record<string, LucideIcon> = {
   cpu: Cpu,
   receipt: Receipt,
   "help-circle": CircleHelp,
+  upload: UploadCloud,
 };
 
 export type IconName = keyof typeof registry;

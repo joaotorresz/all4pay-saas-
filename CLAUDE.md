@@ -445,6 +445,34 @@ do DRE por palavra-chave na categoria e respeita o **regime** (competência por
   e no dashboard. O gráfico de **faturamento** conta toda a receita (não depende
   do texto `"venda"`).
 
+### Onboarding inteligente / FDIP (`/import`)
+
+`analisarImportacao()` (`src/core/fdip/`) — Financial Data Ingestion &
+Intelligence Platform: não é importar, é fazer o **onboarding financeiro
+automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
+
+- **Ingestão** (`engine.ts` `parseTexto`): OFX (`<STMTTRN>`) e CSV/extrato
+  pt-BR (detecta delimitador, header ou posicional; valores `1.234,56`/`-`/`D/C`;
+  datas dd/mm/aaaa, ISO, aaaammdd) → `FinancialRecord` normalizado (reusa
+  `limparContraparte`/`fingerprint`). Conectores (Open Finance, API bancária,
+  ERP, OCR PDF/imagem, e-mail/WhatsApp) entram na mesma normalização.
+- **Classificação** (`classificarRecord`): destino + categoria + **confiança**
+  por keyword (combustível, folha, aluguel, utilidades, impostos, tarifas,
+  assinaturas, marketing, fornecedores) + detecção de transferência; **self-
+  learning** (`learning.ts`) memoriza contraparte→categoria (localStorage) e
+  sobe a confiança a ~99% na próxima vez.
+- **Entidades** (`resolverEntidades`): agrupa por contraparte normalizada
+  (aliases) → cliente/fornecedor. **Padrões** (`descobrirPadroes`):
+  recorrências (mensal/semanal), assinaturas, sazonalidade. **Grafo** + **plano
+  de setup** (`montarPlano`): categorias, centros de custo, recorrências e
+  **estimativas** (receita/EBITDA/margem/recorrente). **Central de confiança**
+  (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
+- **Auto company setup:** `aplicarOnboarding()` (`src/lib/fdip.ts`) — demo
+  simula; live cria clientes/fornecedores (parties), categorias e centros de
+  custo (org_id pelo DEFAULT/RLS). Amostra de 12 meses em `sample.ts`. UI em
+  `src/components/import/ImportView.tsx` (ingestão + confidence center +
+  descobertas + destino com confirmação + padrões + setup).
+
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
 `src/core/financial-os/` — camada de SO financeiro orientada a eventos,
