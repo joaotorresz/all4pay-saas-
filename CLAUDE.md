@@ -124,6 +124,13 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   `grip-vertical`, DnD nativo dentro de cada bloco) — ordem em `a4p_home_order`.
   O `OverviewGrid` (client) renderiza cada bloco com seus cards visíveis na ordem
   salva; cards `full` ocupam a linha inteira.
+- **Home contextual + reordenação por IA** (`useHomeContext`): ordem-base dos
+  blocos por **setor** (`a4p_company.perfil.setor` → `SETOR_BASE`) e, com o toggle
+  "Reorganizar por urgência (IA)" ligado (`a4p_home_auto`, default on), reordena os
+  blocos por **urgência** calculada dos motores (quant: score/runway/ruptura →
+  Saúde; pendências vencidas/a vencer → Operação; insights críticos →
+  Inteligência; anomalias de despesa → Despesas). O bloco no topo ganha o selo
+  **"Prioridade · {motivo}"**. Empate desfeito pela ordem-base do setor.
 - **Cards do command center** (`HomeCards.tsx`, reusam os motores): `SaudeFinanceira`
   (Score·Runway·Burn·Liquidez via `useQuantitativo`), `IAInsights`/`Anomalias`
   (via `useCentroInteligencia`), `TopClientes`/`MaioresCategorias` (período-scoped

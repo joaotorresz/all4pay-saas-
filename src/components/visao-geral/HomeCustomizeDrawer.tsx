@@ -43,16 +43,22 @@ export function HomeCustomizeDrawer({
   open,
   visiveis,
   ordem,
+  auto,
+  setor,
   onToggle,
   onReorder,
+  onAuto,
   onReset,
   onClose,
 }: {
   open: boolean;
   visiveis: Record<string, boolean>;
   ordem: string[];
+  auto: boolean;
+  setor: string | null;
   onToggle: (id: string) => void;
   onReorder: (next: string[]) => void;
+  onAuto: (v: boolean) => void;
   onReset: () => void;
   onClose: () => void;
 }) {
@@ -83,6 +89,21 @@ export function HomeCustomizeDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5">
+          <div className="flex flex-col gap-2 rounded-md border border-border-soft p-3">
+            <label className="flex items-center justify-between gap-3 cursor-pointer">
+              <span className="flex items-center gap-2">
+                <Icon name="sparkles" size={15} color="var(--color-text-secondary)" />
+                <span className="text-[14px] font-medium text-ink">Reorganizar por urgência (IA)</span>
+              </span>
+              <Switch checked={auto} onChange={() => onAuto(!auto)} />
+            </label>
+            <span className="text-caption text-faint leading-[1.45]">
+              {auto
+                ? "O bloco mais crítico (caixa em risco, pendências, anomalias) sobe ao topo automaticamente."
+                : "Ordem dos blocos fixa pelo seu setor / arraste manual."}
+              {setor ? ` Painel base para o setor ${setor}.` : ""}
+            </span>
+          </div>
           <p className="m-0 text-caption text-muted leading-[1.5]">
             Ligue/desligue os blocos e <b className="text-ink font-medium">arraste pela alça</b> para reordenar
             dentro de cada bloco. Suas preferências ficam salvas neste dispositivo.
