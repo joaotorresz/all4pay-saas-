@@ -180,6 +180,6 @@ export const INBOX_CANAIS: { icon: string; titulo: string; desc: string; pronto:
   { icon: "sparkles", titulo: "WhatsApp", desc: "Envie o documento para a IA", pronto: false },
   { icon: "network", titulo: "Open Finance", desc: "Busca automática nas contas conectadas", pronto: false },
   { icon: "layers", titulo: "API / ERP / banco", desc: "Integrações e marketplaces", pronto: false },
-  { icon: "scan-line", titulo: "OCR / scanner", desc: "Foto do documento pelo celular", pronto: false },
+  { icon: "scan-line", titulo: "OCR / scanner", desc: "Foto ou PDF do documento — lê valor, vencimento e dados", pronto: false },
   { icon: "database", titulo: "Monitoramento", desc: "Pasta no Drive, Dropbox, OneDrive", pronto: false },
 ];

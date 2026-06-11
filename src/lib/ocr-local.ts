@@ -171,3 +171,38 @@ export async function ocrLocalImagem(file: File): Promise<DocExtraido> {
   const confOcr = Math.max(0.4, Math.min(1, (data.confidence ?? 60) / 100));
   return extrairCampos(data.text || "", confOcr);
 }
+
+/**
+ * Rasteriza a 1ª página de um PDF num canvas (PNG) via pdf.js — import dinâmico,
+ * worker do CDN na versão exata. Escala mirando ~2000px de largura para o OCR ler.
+ * Retorna o canvas (que o Tesseract aceita direto).
+ */
+async function rasterizarPdf(file: File): Promise<HTMLCanvasElement> {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+  const page = await pdf.getPage(1);
+  const base = page.getViewport({ scale: 1 });
+  const scale = Math.min(3, Math.max(1.5, 2000 / base.width));
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d indisponível");
+  await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+  return canvas;
+}
+
+/**
+ * OCR local de um PDF: rasteriza a 1ª página → Tesseract → campos.
+ * (Multipágina futuramente; a 1ª página cobre boleto/nota/comprovante.)
+ */
+export async function ocrLocalPdf(file: File): Promise<DocExtraido> {
+  const canvas = await rasterizarPdf(file);
+  const Tesseract = (await import("tesseract.js")).default;
+  const { data } = await Tesseract.recognize(canvas, "por");
+  const confOcr = Math.max(0.4, Math.min(1, (data.confidence ?? 60) / 100));
+  return extrairCampos(data.text || "", confOcr);
+}

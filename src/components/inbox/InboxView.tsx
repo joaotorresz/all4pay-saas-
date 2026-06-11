@@ -5,7 +5,7 @@ import { Card, Icon, BRL, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { analisarImportacao } from "@/core/fdip";
-import { ocrLocalImagem } from "@/lib/ocr-local";
+import { ocrLocalImagem, ocrLocalPdf } from "@/lib/ocr-local";
 import {
   DEMO_INBOX, INBOX_CANAIS, STATUS_META,
   type InboxDoc, type DocStatus,
@@ -97,13 +97,13 @@ export function InboxView() {
           } else {
             doc = placeholder(id, f, today, `OCR não concluiu: ${r.reason ?? "erro"}.`);
           }
-        } else if (isImg) {
+        } else if (isImg || isPdf) {
           // Sem chave da Anthropic → OCR LOCAL no navegador (Tesseract.js, grátis).
-          // Precisão menor: entra como revisão para o operador confirmar.
-          show("Lendo o documento no navegador (OCR local)…");
-          const ex = await ocrLocalImagem(f);
+          // PDF é rasterizado (pdf.js) para PNG antes de ler. Entra como revisão.
+          show(isPdf ? "Convertendo o PDF e lendo no navegador (OCR local)…" : "Lendo o documento no navegador (OCR local)…");
+          const ex = isPdf ? await ocrLocalPdf(f) : await ocrLocalImagem(f);
           doc = {
-            id, tipo: ex.tipo, canal: "OCR local · navegador",
+            id, tipo: ex.tipo, canal: isPdf ? "OCR local · PDF" : "OCR local · navegador",
             beneficiario: ex.beneficiario || f.name,
             valor: ex.valor || 0, data: ex.data || today,
             vencimento: ex.vencimento || undefined,
@@ -120,8 +120,8 @@ export function InboxView() {
       } catch { /* cai no placeholder */ }
 
       if (!doc) {
-        const motivo = isPdf && !ocrOn
-          ? "PDF sem OCR automático aqui — defina ANTHROPIC_API_KEY no servidor, ou envie o extrato em OFX/CSV, ou classifique manualmente."
+        const motivo = (isImg || isPdf)
+          ? "Não consegui ler automaticamente — classifique manualmente, ou envie o extrato em OFX/CSV."
           : "Recebido — classifique manualmente.";
         doc = placeholder(id, f, today, motivo);
       }

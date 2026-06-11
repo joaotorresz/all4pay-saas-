@@ -595,10 +595,12 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
   grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
   e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
-  digitável/banco/beneficiário) monta o MESMO `DocExtraido`. Precisão menor →
-  confiança capada em 0.82, entra como "revisão" para o operador confirmar. PDF
-  sem chave continua manual (rasterizar fica p/ o Claude). O canal "OCR" mostra
-  "ativo · IA (Claude)" com a chave ou "ativo · local (sem chave)" sem ela.
+  digitável/banco/beneficiário) monta o MESMO `DocExtraido`. **PDF sem chave**
+  também é lido localmente: `ocrLocalPdf()` **rasteriza a 1ª página via pdf.js**
+  (`pdfjs-dist`, worker do CDN na versão exata) num canvas PNG → Tesseract. Precisão
+  menor → confiança capada em 0.82, entra como "revisão" para o operador confirmar.
+  O canal "OCR" mostra "ativo · IA (Claude)" com a chave ou "ativo · local (sem
+  chave)" sem ela.
   Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
 
 ### Onboarding inteligente / FDIP (`/import`)
