@@ -568,6 +568,36 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
   sistema. O perfil fica em `localStorage` (`a4p_company`). Governança ainda não
   tem tabela/consumo (fora do escopo). Login (`/login`) tem CTA "Criar empresa".
 
+### Fluxo de Caixa (`/fluxo-caixa`) — centro operacional do caixa
+
+`montarFluxoCaixa()` (`src/core/cashflow/`, versão `cashflow/1.0.0`) — assembla
+**14 blocos** a partir do mesmo `RiskInput` + contas, reusando os motores
+(risco/quant/decisão+Monte Carlo/DRE/executivo/tesouraria) em uma execução. Puro,
+demo-safe. **Header** (`FiltrosContext` + `Header.tsx`): período (Hoje·7D·14D·30D·
+3M·6M·1A·Personalizado em pills) + Empresa + Conta + Regime (Competência/Caixa/
+Híbrido) + Visão (Previsto/Realizado/Consolidado) — **toda alteração reprocessa a
+página** (entra na chave do `useFluxoCaixa`, memoizado). Conta escopa saldo/
+tesouraria (movements não têm account_id).
+
+- **Blocos** (`FluxoCaixaView.tsx`): 1) **Executive summary** (caixa, entradas/
+  saídas previstas, geração, burn, runway, chance de ruptura, Financial Score);
+  2) **Fluxo inteligente** (árvore saldo inicial→entradas[PIX/boletos/cartões/…]→
+  saídas[fornecedores/folha/impostos/…]→operacional→investimentos→financiamentos→
+  livre→saldo final, linhas expansíveis); 3) **Previsto×Realizado** (por contraparte
+  + comentário de IA); 4) **Calendário** (recebe/paga/saldo diário); 5) **Cross-check**
+  (cadeias despesa/recebimento com flags vindas dos dados); 6) **Projeção ML**
+  (Monte Carlo `preverCaixa` 7/30/90/180/365 + bandas p10/p50/p90 em Recharts);
+  **Cenários** (`simularCenario`: atraso/queda/combustível/financiamento/equipe/
+  aquisição); 7) **Heat map** (liquidez diária verde/amarelo/vermelho); 8) **Waterfall**
+  (DRE receita→deduções→resultado); 9) **IA Copilot** (insights+sugestões); 10) **What-If**
+  (sliders receita/despesa/inadimplência/folha → `simularCenario` ao vivo);
+  11) **Eventos** (timeline de movements); 12) **Consolidado holding** (AU Pay/
+  UserFly/Hangar/SPE — alocação ilustrativa, intercompany=0); 13) **Confidence layer**
+  (confiança por horizonte, cai com prazo×volatilidade); 14) **Cash Flow Digital
+  Twin** (feeds entradas/saídas/inteligência + explicação da IA do porquê das mudanças).
+- **Dados:** `useFluxoCaixa(filtros)` (`hooks.ts`) sobre `getRiscoInput`+
+  `getAccountsList`. Sidebar/command palette ligam a rota.
+
 ### Upload de dados (`/upload`) — Caixa de Entrada + Onboarding unificados
 
 A página **`/upload` "Upload de dados"** (`src/components/upload/UploadView.tsx`)

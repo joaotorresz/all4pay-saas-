@@ -33,6 +33,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { id: "home", label: "Início", icon: "house", href: "/" },
   { id: "upload", label: "Upload de dados", icon: "upload", href: "/upload", badge: "new" },
+  { id: "fluxo-caixa", label: "Fluxo de Caixa", icon: "trending-up", href: "/fluxo-caixa", badge: "new" },
   { id: "copiloto", label: "Copiloto", icon: "sparkles", href: "/copiloto", badge: "new" },
   { id: "dre", label: "DRE", icon: "receipt", href: "/dre", badge: "new" },
   { id: "inteligencia", label: "Inteligência", icon: "activity", href: "/inteligencia", badge: "new" },
