@@ -33,8 +33,8 @@ export function FirstRunCard() {
       </div>
 
       <div className="flex flex-wrap items-center gap-[10px]">
-        <Button variant="primary" leftIcon={<Icon name="upload" size={15} />} onClick={() => router.push("/import")}>
-          Importar dados
+        <Button variant="primary" leftIcon={<Icon name="upload" size={15} />} onClick={() => router.push("/upload")}>
+          Upload de dados
         </Button>
         <Button variant="secondary" onClick={() => router.push("/comecar")}>
           Configurar empresa
@@ -45,7 +45,7 @@ export function FirstRunCard() {
       </div>
 
       <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
-        <Step n={1} t="Importe (OFX/CSV)" d="Onboarding inteligente lê o extrato, classifica e detecta clientes/fornecedores." />
+        <Step n={1} t="Faça o upload (OFX/CSV ou documento)" d="O Upload de dados lê o extrato ou o boleto/comprovante, classifica e detecta clientes/fornecedores." />
         <Step n={2} t="O sistema se popula" d="Dashboard, DRE, risco, inadimplência e cópiloto passam a refletir seus dados." />
         <Step n={3} t="Opere" d="Cobre inadimplentes, acompanhe o caixa e automatize regras." />
       </div>

@@ -18,7 +18,7 @@ const norm = (s: string) =>
 interface RouteItem { label: string; href: string; icon: string; kw: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
-  { label: "Onboarding inteligente", href: "/import", icon: "upload", kw: "importar extrato ofx csv upload" },
+  { label: "Upload de dados", href: "/upload", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding" },
   { label: "Copiloto", href: "/copiloto", icon: "sparkles", kw: "ia assistente perguntas" },
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "Inteligência", href: "/inteligencia", icon: "activity", kw: "quant kpis score saude" },

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
 import { AccountsCard } from "./AccountsCard";
@@ -21,6 +20,7 @@ import {
   PendenciasCard,
 } from "./HomeCards";
 import { ResumoHojeCard, useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
+import { UploadWizard } from "@/components/upload/UploadWizard";
 
 const KEY_VIS = "a4p_home_widgets";
 const KEY_ORD = "a4p_home_order";
@@ -142,15 +142,17 @@ export function OverviewGrid() {
         onClose={() => setDrawer(false)}
       />
 
-      {/* Botão fixo: Caixa de Entrada Financeira (acima do botão Guia) */}
-      <Link
-        href="/inbox"
-        aria-label="Abrir Caixa de Entrada Financeira"
+      {/* Botão fixo: Upload de dados (abre o wizard aqui, sem navegar) */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
+        aria-label="Enviar documento para upload de dados"
         className="fixed bottom-[84px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-lime text-on-lime shadow-popover px-4 py-3 hover:brightness-95 transition"
       >
-        <Icon name="inbox" size={18} color="var(--color-on-lime)" />
-        <span className="text-[15px] font-medium">Caixa de Entrada</span>
-      </Link>
+        <Icon name="upload" size={18} color="var(--color-on-lime)" />
+        <span className="text-[15px] font-medium">Upload de dados</span>
+      </button>
+
+      <UploadWizard />
     </div>
   );
 }

@@ -568,12 +568,33 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
   sistema. O perfil fica em `localStorage` (`a4p_company`). Governança ainda não
   tem tabela/consumo (fora do escopo). Login (`/login`) tem CTA "Criar empresa".
 
-### Caixa de Entrada Financeira (`/inbox`)
+### Upload de dados (`/upload`) — Caixa de Entrada + Onboarding unificados
+
+A página **`/upload` "Upload de dados"** (`src/components/upload/UploadView.tsx`)
+**junta** a Caixa de Entrada (documentos/OCR) e o Onboarding inteligente (extratos
+OFX/CSV em lote, FDIP) numa central só. `/inbox` e `/import` **redirecionam** para
+`/upload` (Sidebar tem uma entrada única). UploadView só compõe `<InboxView/>` +
+`<ImportView/>` em duas seções.
+
+**Wizard rápido na home** (`src/components/upload/UploadWizard.tsx`): o botão fixo
+da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 etapas**
+(evento `a4p:open-upload`, montado no `OverviewGrid`):
+1. **Enviar** — caixa arrastável (boleto/comprovante/nota PNG·JPG·PDF; OFX/CSV em lote).
+2. **Leitura inteligente** — `lerDocumento()` (`src/lib/ocr-ingest.ts`: OCR por IA/
+   local, ou FDIP p/ extrato) → `analisarDocumento()` (`src/lib/upload-doc.ts`):
+   decide a **ação** (Vou pagar/receber · Paguei/Recebi), faz o **cross-check do
+   beneficiário** contra os Contatos (por CNPJ/CPF ou nome), detecta **baixa** de um
+   agendado (comprovante que casa com pendente ±2% do mesmo tipo), sinaliza
+   beneficiário **novo** (sugerir cadastro) e gera **ideias**.
+3. **Confirmar** — campos editáveis (valor/vencimento/categoria) + toggle de
+   cadastrar o contato novo → `confirmarDocumento()` grava no sistema (demo:
+   `appendImported()` anexa 1 lançamento ao dataset, partindo de um snapshot do seed
+   p/ não escondê-lo; live: cria contato/lançamento no Supabase, ou dá baixa no
+   pendente) → `invalidateQueries()` reflete em dashboard/DRE/risco/Upload.
 
 `InboxView` (`src/components/inbox/`) — a "Inbox financeira" estilo e-mail: tudo
 que entra (PDF/PNG/JPG/OFX/Excel/CSV/XML/DANFE/NFS-e/boleto/comprovante/contrato)
-cai numa central. Botão **fixo na home** (FAB lime, acima do "Guia") + link na
-Sidebar. Materializa o blueprint (Financial Inbox → Document Intelligence →
+cai numa central. Materializa o blueprint (Financial Inbox → Document Intelligence →
 Confirmation Workbench → Confidence Engine → Digital Twin):
 - **Canais** (`INBOX_CANAIS`): Upload/arrastar (funcional), E-mail
   (`financeiro@…all4pay.com`), WhatsApp, Open Finance, API/ERP, OCR/scanner,
@@ -603,7 +624,7 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   chave)" sem ela.
   Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
 
-### Onboarding inteligente / FDIP (`/import`)
+### Onboarding inteligente / FDIP (em `/upload`)
 
 `analisarImportacao()` (`src/core/fdip/`) — Financial Data Ingestion &
 Intelligence Platform: não é importar, é fazer o **onboarding financeiro

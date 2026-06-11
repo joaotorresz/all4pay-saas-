@@ -5,6 +5,7 @@
  * sobreviver a navegação/refresh. Em live, os dados vão para o Supabase.
  */
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
+import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 
 const KEY = "a4p_imported_dataset";
 
@@ -65,6 +66,48 @@ export function importedAccounts(): FinancialAccount[] | null {
 }
 export function importedParties(): Party[] | null {
   return load()?.parties ?? null;
+}
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Anexa UM lançamento (e, opcionalmente, um contato novo) ao dataset ativo —
+ * usado pelo upload de documento (boleto/comprovante) na home. Se ainda não há
+ * dataset importado, parte de um snapshot do seed para NÃO esconder a demo: o
+ * documento entra somando-se ao que já aparece no dashboard. `baixaDe` marca um
+ * lançamento pendente existente como pago (comprovante de algo agendado).
+ * Retorna o id da party (existente ou criada) para ligar ao lançamento.
+ */
+export function appendImported(input: {
+  movement: Movement;
+  party?: Party;
+  baixaDe?: string;
+}): void {
+  const base: ImportedDataset = load() ?? {
+    movements: [...DEMO_MOVEMENTS],
+    accounts: [...DEMO_ACCOUNTS],
+    parties: [...DEMO_PARTIES],
+    criadoEm: new Date().toISOString(),
+  };
+
+  let parties = base.parties;
+  if (input.party) {
+    const existe = parties.find((p) => norm(p.name) === norm(input.party!.name));
+    if (!existe) parties = [...parties, input.party];
+  }
+
+  let movements = base.movements;
+  if (input.baixaDe) {
+    movements = movements.map((m) =>
+      m.id === input.baixaDe
+        ? { ...m, status: "pago", paid_date: input.movement.paid_date ?? input.movement.due_date, reconciled: true }
+        : m,
+    );
+  } else {
+    movements = [input.movement, ...movements];
+  }
+
+  setImported({ ...base, movements, parties });
 }
 
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */

@@ -46,9 +46,9 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  "/import": {
-    titulo: "Onboarding inteligente (FDIP)",
-    intro: "Não é só importar: o sistema lê seus extratos, entende a empresa e monta a estrutura financeira quase sozinho.",
+  "/upload": {
+    titulo: "Upload de dados",
+    intro: "Tudo que entra na empresa cai aqui: documentos (boleto, comprovante, nota — lidos por OCR) e extratos OFX/CSV em lote. O sistema lê, faz o cross-check e correlaciona em todo o ERP.",
     secoes: [
       {
         titulo: "O que dá para fazer",
