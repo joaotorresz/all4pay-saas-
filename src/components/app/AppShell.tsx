@@ -20,7 +20,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-screen w-screen bg-surface-1 overflow-hidden">
+    <div className="fixed inset-0 flex bg-surface-1 overflow-hidden">
       <Sidebar />
       <main className="flex-1 flex flex-col min-w-0 min-h-0">
         <header className="flex items-end justify-between gap-4 px-8 pt-[26px] pb-[18px]">
