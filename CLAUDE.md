@@ -590,8 +590,15 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
   Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
   `claude-sonnet-4-6`); `GET` reporta `configured`. A InboxView reduz a imagem
-  (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno; sem a
-  chave, cai no modo manual e o canal "OCR" mostra "definir ANTHROPIC_API_KEY".
+  (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno.
+  **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
+  `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
+  grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
+  e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
+  digitável/banco/beneficiário) monta o MESMO `DocExtraido`. Precisão menor →
+  confiança capada em 0.82, entra como "revisão" para o operador confirmar. PDF
+  sem chave continua manual (rasterizar fica p/ o Claude). O canal "OCR" mostra
+  "ativo · IA (Claude)" com a chave ou "ativo · local (sem chave)" sem ela.
   Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
 
 ### Onboarding inteligente / FDIP (`/import`)

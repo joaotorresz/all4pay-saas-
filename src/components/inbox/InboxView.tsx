@@ -5,6 +5,7 @@ import { Card, Icon, BRL, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { analisarImportacao } from "@/core/fdip";
+import { ocrLocalImagem } from "@/lib/ocr-local";
 import {
   DEMO_INBOX, INBOX_CANAIS, STATUS_META,
   type InboxDoc, type DocStatus,
@@ -96,12 +97,31 @@ export function InboxView() {
           } else {
             doc = placeholder(id, f, today, `OCR não concluiu: ${r.reason ?? "erro"}.`);
           }
+        } else if (isImg) {
+          // Sem chave da Anthropic → OCR LOCAL no navegador (Tesseract.js, grátis).
+          // Precisão menor: entra como revisão para o operador confirmar.
+          show("Lendo o documento no navegador (OCR local)…");
+          const ex = await ocrLocalImagem(f);
+          doc = {
+            id, tipo: ex.tipo, canal: "OCR local · navegador",
+            beneficiario: ex.beneficiario || f.name,
+            valor: ex.valor || 0, data: ex.data || today,
+            vencimento: ex.vencimento || undefined,
+            status: "revisao", confianca: ex.confianca,
+            acao: ex.acao || "Revisar e classificar",
+            acaoTipo: ex.acaoTipo || "a_pagar",
+            categoria: ex.categoria || undefined,
+            crossCheck: crossLocal(ex),
+            matriz: ex.campos.length
+              ? ex.campos.map((c) => ({ campo: c.campo, confianca: c.confianca }))
+              : [{ campo: "Documento", confianca: ex.confianca }],
+          };
         }
       } catch { /* cai no placeholder */ }
 
       if (!doc) {
-        const motivo = (isImg || isPdf) && !ocrOn
-          ? "Configure ANTHROPIC_API_KEY no servidor para o OCR ler este documento automaticamente."
+        const motivo = isPdf && !ocrOn
+          ? "PDF sem OCR automático aqui — defina ANTHROPIC_API_KEY no servidor, ou envie o extrato em OFX/CSV, ou classifique manualmente."
           : "Recebido — classifique manualmente.";
         doc = placeholder(id, f, today, motivo);
       }
@@ -153,15 +173,17 @@ export function InboxView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {INBOX_CANAIS.map((c) => {
             const isOcr = c.icon === "scan-line";
-            const pronto = isOcr ? ocrOn === true : c.pronto;
+            // OCR está sempre ativo: visão do Claude com a chave, ou local (Tesseract) sem ela.
+            const pronto = isOcr ? true : c.pronto;
+            const rotuloOcr = ocrOn === true ? "ativo · IA (Claude)" : "ativo · local (sem chave)";
             return (
               <div key={c.titulo} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
                 <Icon name={c.icon} size={16} color="var(--color-text-secondary)" />
                 <span className="text-[13px] font-medium text-ink">{c.titulo}</span>
                 <span className="text-caption text-faint leading-[1.35]">{c.desc}</span>
                 {pronto
-                  ? <span className="text-caption text-positive mt-[2px]">ativo</span>
-                  : <span className="text-caption text-faint mt-[2px]">{isOcr ? "definir ANTHROPIC_API_KEY" : "em breve"}</span>}
+                  ? <span className="text-caption text-positive mt-[2px]">{isOcr ? rotuloOcr : "ativo"}</span>
+                  : <span className="text-caption text-faint mt-[2px]">em breve</span>}
               </div>
             );
           })}
@@ -329,6 +351,18 @@ async function lerArquivo(file: File, downscale: boolean): Promise<{ data: strin
     const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file);
   });
   return { data, mediaType: file.type || "application/octet-stream" };
+}
+
+/** Cross-check do OCR local (Tesseract) — sinaliza a menor precisão + o que leu. */
+function crossLocal(ex: import("@/lib/ocr-local").DocExtraido): string {
+  const partes: string[] = [];
+  if (ex.cnpj) partes.push(`CNPJ ${ex.cnpj}`);
+  if (ex.cpf) partes.push(`CPF ${ex.cpf}`);
+  if (ex.chavePix) partes.push(`PIX ${ex.chavePix}`);
+  if (ex.linhaDigitavel) partes.push("linha digitável lida");
+  if (ex.banco) partes.push(ex.banco);
+  const lido = partes.length ? ` Leu: ${partes.join(" · ")}.` : "";
+  return `Lido localmente no navegador (Tesseract, sem chave) — precisão menor, revise os campos antes de confirmar.${lido}`;
 }
 
 /** Monta o cross-check a partir dos campos extraídos pela IA. */
