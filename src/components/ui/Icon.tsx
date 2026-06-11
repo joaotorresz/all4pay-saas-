@@ -39,6 +39,10 @@ import {
   GripVertical,
   Sun,
   Moon,
+  Inbox,
+  Mail,
+  ScanLine,
+  Paperclip,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,6 +92,10 @@ const registry: Record<string, LucideIcon> = {
   "grip-vertical": GripVertical,
   sun: Sun,
   moon: Moon,
+  inbox: Inbox,
+  mail: Mail,
+  "scan-line": ScanLine,
+  paperclip: Paperclip,
 };
 
 export type IconName = keyof typeof registry;

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
 import { AccountsCard } from "./AccountsCard";
@@ -140,6 +141,16 @@ export function OverviewGrid() {
         onReset={reset}
         onClose={() => setDrawer(false)}
       />
+
+      {/* Botão fixo: Caixa de Entrada Financeira (acima do botão Guia) */}
+      <Link
+        href="/inbox"
+        aria-label="Abrir Caixa de Entrada Financeira"
+        className="fixed bottom-[84px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-lime text-on-lime shadow-popover px-4 py-3 hover:brightness-95 transition"
+      >
+        <Icon name="inbox" size={18} color="var(--color-on-lime)" />
+        <span className="text-[15px] font-medium">Caixa de Entrada</span>
+      </Link>
     </div>
   );
 }

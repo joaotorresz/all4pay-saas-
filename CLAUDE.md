@@ -568,6 +568,26 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
   sistema. O perfil fica em `localStorage` (`a4p_company`). Governança ainda não
   tem tabela/consumo (fora do escopo). Login (`/login`) tem CTA "Criar empresa".
 
+### Caixa de Entrada Financeira (`/inbox`)
+
+`InboxView` (`src/components/inbox/`) — a "Inbox financeira" estilo e-mail: tudo
+que entra (PDF/PNG/JPG/OFX/Excel/CSV/XML/DANFE/NFS-e/boleto/comprovante/contrato)
+cai numa central. Botão **fixo na home** (FAB lime, acima do "Guia") + link na
+Sidebar. Materializa o blueprint (Financial Inbox → Document Intelligence →
+Confirmation Workbench → Confidence Engine → Digital Twin):
+- **Canais** (`INBOX_CANAIS`): Upload/arrastar (funcional), E-mail
+  (`financeiro@…all4pay.com`), WhatsApp, Open Finance, API/ERP, OCR/scanner,
+  monitoramento de pasta — os 3 últimos marcados "em breve" (conectores de
+  backend). O **drag-drop** roda OFX/CSV pelo motor FDIP (`analisarImportacao`).
+- **Status** (`STATUS_META`): Novo · Em análise · Pronto · Necessita revisão ·
+  Processado. **Workbench** por documento: campos extraídos + **cross-check**
+  (fornecedor/recorrência/NF batem?) + ação detectada (a pagar/receber/baixa/…)
+  + sugestões (criar fornecedor/categoria/recorrência) + **matriz de confiança**
+  (campo×%, ≥95% auto-aprovável) + "Confirmar" (propaga p/ contas/fluxo/DRE/
+  tesouraria/forecast…). Callout do **Financial Digital Twin**.
+- Dados de demo em `src/lib/inbox.ts`. OCR/e-mail/WhatsApp/Open Finance são
+  conectores que plugam na mesma esteira; só o upload OFX/CSV processa hoje.
+
 ### Onboarding inteligente / FDIP (`/import`)
 
 `analisarImportacao()` (`src/core/fdip/`) — Financial Data Ingestion &
