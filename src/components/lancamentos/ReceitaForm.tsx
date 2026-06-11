@@ -95,7 +95,7 @@ const initialState = (): FormState => ({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-caption font-medium tracking-[0.04em] uppercase text-faint pt-2">
+    <div className="text-caption font-medium tracking-[0.04em] text-faint pt-2">
       {children}
     </div>
   );

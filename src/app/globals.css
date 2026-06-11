@@ -107,6 +107,17 @@ html.dark {
     -webkit-font-smoothing: antialiased;
     /* tabular-nums always — columns align, updating values don't shiver */
     font-variant-numeric: tabular-nums;
+    /* Roc Grotesk Regular: peso 400, espaçamento -0.01em, line-height base 22px */
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 22px;
+  }
+
+  /* Peso único 400 + espaçamento -0.01em em todo o sistema — sem faux-bold. */
+  * {
+    font-weight: 400 !important;
+    font-synthesis-weight: none;
+    letter-spacing: -0.01em !important;
   }
 
   * {

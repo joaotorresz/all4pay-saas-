@@ -87,10 +87,11 @@ sempre os tokens, nunca hex literal.
   large fills.
 - **Type scale (escala +20% aplicada ao sistema):** `text-display` 62 ·
   `text-h1` 48 · `text-value-lg` 38 · `text-h2` 34 · `text-h3` 24 ·
-  `text-body` 18 · `text-label` 16 · `text-caption` 14. **Working weights:
-  400 / 500.** The single sanctioned exception is the **page title**
-  (`AppShell` h1, 35px) at **600** — matches the reference design's header.
-  No 700 bold anywhere in the app.
+  `text-body` 18 · `text-label` 16 · `text-caption` 14. **Peso ÚNICO 400** em
+  todo o sistema (Roc Grotesk Regular; forçado por `*{font-weight:400!important}`
+  no globals — `font-medium`/`font-semibold` renderizam 400). `letter-spacing`
+  −0.01em e line-height 22px (texto-base); heróis grandes usam leading-none.
+  Sem caixa-alta (`uppercase` removido).
 - **Radii:** `rounded-card` 16 · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
 - **Shadows:** `shadow-card`, `shadow-popover`, `shadow-pill`. Whisper-soft —
@@ -740,7 +741,7 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
-- Font: **Hanken Grotesk** via `next/font` (substitute for the commercial Roc
+- Font: **Roc Grotesk Regular** via `next/font/local` (arquivo licenciado em `src/app/fonts/`). Peso ÚNICO 400 em todo o sistema (forçado por `*` no globals), `letter-spacing: -0.01em`, line-height base 22px. Sem caixa-alta (sem `uppercase`).
   Grotesk — swap back when licensed; update `--font-hanken` + the `sans` stack).
 
 ### Commands

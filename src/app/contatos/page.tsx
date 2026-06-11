@@ -26,7 +26,7 @@ const columns: Column<Party>[] = [
     label: "Tipo",
     width: 70,
     render: (p) => (
-      <span className="text-label text-muted uppercase">{p.type}</span>
+      <span className="text-label text-muted">{p.type}</span>
     ),
   },
   {

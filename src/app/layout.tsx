@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
-import { Hanken_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "./providers";
 import "./globals.css";
 
 /**
- * Brand face is Roc Grotesk (Sharp Type, commercial). It is substituted
- * with Hanken Grotesk — the nearest free geometric-humanist grotesque
- * with the right weights and numerals. See CLAUDE.md / DS readme.
+ * Brand face: Roc Grotesk Regular (Sharp Type, commercial) — arquivo licenciado
+ * carregado localmente. Único peso usado em todo o sistema: 400.
  */
-const hanken = Hanken_Grotesk({
-  subsets: ["latin"],
-  // 400/500 are the working weights; 600 is reserved for page titles
-  // (matches the reference design's header). See CLAUDE.md.
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-hanken",
+const roc = localFont({
+  src: "./fonts/RocGrotesk-Regular.otf",
+  weight: "400",
+  style: "normal",
+  variable: "--font-roc",
   display: "swap",
 });
 
@@ -28,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={hanken.variable}>
+    <html lang="pt-BR" className={roc.variable}>
       <head>
         {/* Anti-flash: aplica o tema salvo antes da pintura. */}
         <script

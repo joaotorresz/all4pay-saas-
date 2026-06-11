@@ -95,7 +95,7 @@ export function PageGuide() {
 
               {guide.secoes.map((s, i) => (
                 <div key={i} className="flex flex-col gap-2">
-                  <span className="text-caption font-medium text-faint uppercase tracking-wide">{s.titulo}</span>
+                  <span className="text-caption font-medium text-faint tracking-wide">{s.titulo}</span>
                   <div className="flex flex-col gap-[10px]">
                     {s.itens.map((it, j) => (
                       <div key={j} className="flex gap-3">

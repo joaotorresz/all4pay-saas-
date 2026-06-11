@@ -210,7 +210,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 function Sub({ children }: { children: React.ReactNode }) {
-  return <span className="text-caption font-medium text-faint uppercase tracking-wide">{children}</span>;
+  return <span className="text-caption font-medium text-faint tracking-wide">{children}</span>;
 }
 
 /* ---------- passos ---------- */
@@ -373,7 +373,7 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
         </div>
         {maturidade.recomendacoes.length > 0 && (
           <div>
-            <span className="text-caption font-medium text-faint uppercase tracking-wide">Recomendações</span>
+            <span className="text-caption font-medium text-faint tracking-wide">Recomendações</span>
             <ul className="m-0 pl-4 mt-1">{maturidade.recomendacoes.map((r, i) => <li key={i} className="text-caption text-muted">{r}</li>)}</ul>
           </div>
         )}
@@ -397,7 +397,7 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
 
       {configured && (
         <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
-          <span className="text-caption font-medium text-faint uppercase tracking-wide">Criar acesso</span>
+          <span className="text-caption font-medium text-faint tracking-wide">Criar acesso</span>
           <p className="m-0 text-caption text-muted">Defina e-mail e senha para acessar depois. (No MVP você pode deixar em branco e entrar agora.)</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />

@@ -270,7 +270,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
 
       {/* Fatores explicados */}
       <div className="flex flex-col gap-2">
-        <span className="text-caption font-medium text-faint uppercase tracking-wide">
+        <span className="text-caption font-medium text-faint tracking-wide">
           Por que esse risco
         </span>
         {c.fatoresRisco.length === 0 && (
@@ -302,7 +302,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
 
       {/* Recomendação de crédito */}
       <div className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
-        <span className="text-caption font-medium text-faint uppercase tracking-wide">
+        <span className="text-caption font-medium text-faint tracking-wide">
           Recomendação
         </span>
         <p className="m-0 text-[16px] text-ink leading-snug">{c.credito.resumo}</p>

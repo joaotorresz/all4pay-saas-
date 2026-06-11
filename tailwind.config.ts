@@ -64,8 +64,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          "var(--font-hanken)",
-          "Hanken Grotesk",
+          "var(--font-roc)",
           "Roc Grotesk",
           "-apple-system",
           "BlinkMacSystemFont",
@@ -74,24 +73,26 @@ const config: Config = {
         ],
       },
       fontSize: {
-        // size, { lineHeight }  — escala +20% aplicada a todo o sistema.
-        display: ["62px", { lineHeight: "1.0", letterSpacing: "-0.02em" }], // hero money value (Regular)
-        h1: ["48px", { lineHeight: "1.05", letterSpacing: "-0.02em" }], // marketing hero title (Medium)
-        "value-lg": ["38px", { lineHeight: "1.1", letterSpacing: "-0.01em" }], // dashboard balance (Regular)
-        h2: ["34px", { lineHeight: "1.15" }], // section titles (Medium)
-        h3: ["24px", { lineHeight: "1.2" }], // card subtitles
-        body: ["18px", { lineHeight: "1.5" }], // default body
-        label: ["16px", { lineHeight: "1.4", letterSpacing: "0.01em" }], // labels, nav, table headers
-        caption: ["14px", { lineHeight: "1.4" }], // currency prefix, decimals
+        // Roc Grotesk Regular: peso 400, tracking -0.01em, line-height 22px na
+        // escala de texto; nos tamanhos grandes (heróis de uma linha) o lh 22px
+        // é menor que o glifo, então usamos leading-none (1) para não recortar.
+        display: ["62px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        h1: ["48px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        "value-lg": ["38px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        h2: ["34px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        h3: ["24px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
+        body: ["18px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        label: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        caption: ["14px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
       },
       fontWeight: {
-        // Discipline: only two working weights in the app.
-        regular: "400", // body, descriptions, big values
-        medium: "500", // labels, button text, headers, nav
+        // Roc Grotesk Regular — peso único 400 em todo o sistema.
+        regular: "400",
+        medium: "400",
       },
       letterSpacing: {
-        tight: "-0.02em",
-        label: "0.01em",
+        tight: "-0.01em",
+        label: "-0.01em",
       },
       spacing: {
         // base-4 / 8 scale

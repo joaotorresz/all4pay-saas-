@@ -126,7 +126,7 @@ export function HomeCustomizeDrawer({
           </p>
           {BLOCK_ORDER.map((g) => (
             <div key={g} className="flex flex-col gap-1">
-              <span className="text-[13px] font-medium text-faint uppercase tracking-wide mb-1">{g}</span>
+              <span className="text-[13px] font-medium text-faint tracking-wide mb-1">{g}</span>
               {idsDoGrupo(g).map((id) => (
                 <div
                   key={id}

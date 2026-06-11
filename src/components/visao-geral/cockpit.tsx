@@ -111,7 +111,7 @@ export function ResumoHojeCard({ ctx }: { ctx: CockpitCtx }) {
         <HojeStat label="Pendências" value={`${pendencias}`} sub="em aberto" />
       </div>
       <div className="flex flex-col gap-2 border-t border-border-soft pt-3">
-        <span className="text-caption font-medium text-faint uppercase tracking-wide">Prioridade do dia · IA</span>
+        <span className="text-caption font-medium text-faint tracking-wide">Prioridade do dia · IA</span>
         {prioridades.length === 0 ? (
           <span className="text-caption text-muted">Nada crítico hoje — operação sob controle.</span>
         ) : (

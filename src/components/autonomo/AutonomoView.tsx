@@ -61,7 +61,7 @@ export function AutonomoView() {
         <p className="m-0 text-h3 leading-[1.5] font-regular text-ink">{data.headline}</p>
         {nextBestAction && (
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-surface-1 p-3">
-            <span className="text-caption font-medium text-faint uppercase tracking-wide">Próxima melhor ação</span>
+            <span className="text-caption font-medium text-faint tracking-wide">Próxima melhor ação</span>
             <span className="text-[18px] font-medium text-ink">{nextBestAction.acao}</span>
             <span className="text-caption text-muted">{nextBestAction.impacto}</span>
             <span className="text-caption text-faint ml-auto">confiança {Math.round(nextBestAction.confianca * 100)}%</span>
@@ -97,7 +97,7 @@ export function AutonomoView() {
         </span>
         {decisoes.filter((d) => d.modo === "requer_aprovacao").length > 0 && (
           <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
-            <span className="text-caption font-medium text-faint uppercase tracking-wide">Fila de aprovação</span>
+            <span className="text-caption font-medium text-faint tracking-wide">Fila de aprovação</span>
             {decisoes.filter((d) => d.modo === "requer_aprovacao").map((d) => (
               <span key={d.id} className="text-caption text-muted">· {d.titulo}</span>
             ))}

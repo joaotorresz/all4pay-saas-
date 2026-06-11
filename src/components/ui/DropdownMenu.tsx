@@ -80,7 +80,7 @@ export function DropdownMenu({
             <div key={gi}>
               {gi > 0 && <div className="my-2 border-t border-border-soft" />}
               {g.label && (
-                <div className="px-3 pt-1 pb-[6px] text-caption font-medium tracking-[0.04em] uppercase text-faint">
+                <div className="px-3 pt-1 pb-[6px] text-caption font-medium tracking-[0.04em] text-faint">
                   {g.label}
                 </div>
               )}

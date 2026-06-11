@@ -181,7 +181,7 @@ export function CommandPalette() {
           ) : (
             grupos.map((g) => (
               <div key={g} className="mb-1">
-                <div className="px-4 py-1 text-[13px] font-medium text-faint uppercase tracking-wide">{g}</div>
+                <div className="px-4 py-1 text-[13px] font-medium text-faint tracking-wide">{g}</div>
                 {hits.filter((h) => h.grupo === g).map((h) => {
                   idx += 1;
                   const on = idx === sel;

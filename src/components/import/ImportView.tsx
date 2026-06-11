@@ -152,7 +152,7 @@ function Resultado({
         </div>
         {cc.pendencias.length > 0 && (
           <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
-            <span className="text-caption font-medium text-faint uppercase tracking-wide">Pendências</span>
+            <span className="text-caption font-medium text-faint tracking-wide">Pendências</span>
             {cc.pendencias.map((p) => (
               <div key={p.tipo} className="flex justify-between text-caption">
                 <span className="text-muted">{p.tipo}</span>
@@ -247,7 +247,7 @@ function Resultado({
       <Card className="lg:col-span-1 flex flex-col gap-3">
         <span className="text-label font-medium text-muted">Padrões descobertos</span>
         <div className="flex flex-col gap-1">
-          <span className="text-caption font-medium text-faint uppercase tracking-wide">Recorrências</span>
+          <span className="text-caption font-medium text-faint tracking-wide">Recorrências</span>
           {padroes.recorrencias.slice(0, 6).map((rc, i) => (
             <div key={i} className="flex justify-between text-caption">
               <span className="text-ink truncate max-w-[150px]">{rc.contraparte}</span>

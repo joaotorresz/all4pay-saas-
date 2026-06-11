@@ -142,7 +142,7 @@ function BriefingCard({ b }: { b: import("@/core/executive/types").Briefing }) {
       </div>
       {b.alertas.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-caption font-medium text-faint uppercase tracking-wide">Alertas</span>
+          <span className="text-caption font-medium text-faint tracking-wide">Alertas</span>
           {b.alertas.map((a, i) => (
             <span key={i} className="inline-flex items-start gap-[6px] text-caption text-muted">
               <span className="w-[6px] h-[6px] rounded-pill bg-negative mt-[6px]" />{a}
@@ -152,7 +152,7 @@ function BriefingCard({ b }: { b: import("@/core/executive/types").Briefing }) {
       )}
       {b.oportunidades.length > 0 && (
         <div className="flex flex-col gap-1">
-          <span className="text-caption font-medium text-faint uppercase tracking-wide">Oportunidades</span>
+          <span className="text-caption font-medium text-faint tracking-wide">Oportunidades</span>
           {b.oportunidades.map((o, i) => (
             <span key={i} className="inline-flex items-start gap-[6px] text-caption text-muted">
               <span className="w-[6px] h-[6px] rounded-pill bg-positive mt-[6px]" />{o}
@@ -332,7 +332,7 @@ function MemoriaCard({ memoria }: { memoria: import("@/core/executive/types").Pa
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {memoria.map((m, i) => (
           <div key={i} className="rounded-md border border-border-soft p-3">
-            <span className="text-caption font-medium text-faint uppercase tracking-wide">{m.tipo}</span>
+            <span className="text-caption font-medium text-faint tracking-wide">{m.tipo}</span>
             <p className="m-0 text-caption text-muted mt-1">{m.texto}</p>
           </div>
         ))}
