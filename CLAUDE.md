@@ -585,8 +585,14 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   + sugestões (criar fornecedor/categoria/recorrência) + **matriz de confiança**
   (campo×%, ≥95% auto-aprovável) + "Confirmar" (propaga p/ contas/fluxo/DRE/
   tesouraria/forecast…). Callout do **Financial Digital Twin**.
-- Dados de demo em `src/lib/inbox.ts`. OCR/e-mail/WhatsApp/Open Finance são
-  conectores que plugam na mesma esteira; só o upload OFX/CSV processa hoje.
+- Dados de demo em `src/lib/inbox.ts`. **OCR REAL** (`POST /api/inbox/ocr`,
+  `runtime nodejs`): a visão do **Claude** (Anthropic API, `fetch` cru — sem SDK)
+  lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
+  Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
+  `claude-sonnet-4-6`); `GET` reporta `configured`. A InboxView reduz a imagem
+  (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno; sem a
+  chave, cai no modo manual e o canal "OCR" mostra "definir ANTHROPIC_API_KEY".
+  Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
 
 ### Onboarding inteligente / FDIP (`/import`)
 

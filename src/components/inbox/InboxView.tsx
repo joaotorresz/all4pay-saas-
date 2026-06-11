@@ -39,32 +39,73 @@ export function InboxView() {
   const [drag, setDrag] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  const [ocrOn, setOcrOn] = React.useState<boolean | null>(null);
+
   const sel = docs.find((d) => d.id === selId) ?? docs[0];
+
+  React.useEffect(() => {
+    fetch("/api/inbox/ocr").then((r) => r.json()).then((j) => setOcrOn(!!j.configured)).catch(() => setOcrOn(false));
+  }, []);
 
   const ingerir = async (files: FileList | File[]) => {
     const arr = Array.from(files);
     for (const f of arr) {
       const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      let valor = 0;
-      let cross = "Recebido — IA classificando…";
-      let status: DocStatus = "analise";
+      const today = new Date().toISOString().slice(0, 10);
+      const isText = /\.(ofx|csv|txt)$/i.test(f.name);
+      const isPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+      const isImg = /^image\//.test(f.type) || /\.(png|jpe?g|webp)$/i.test(f.name);
+      let doc: InboxDoc | null = null;
+
       try {
-        if (/\.(ofx|csv|txt)$/i.test(f.name)) {
-          const texto = await f.text();
-          const rep = analisarImportacao(texto);
-          valor = rep.records.reduce((s, r) => s + Math.abs(r.valor), 0);
-          cross = `${rep.records.length} lançamentos lidos · ${rep.entidades.length} contrapartes · ${rep.plano.categorias.length} categorias detectadas.`;
-          status = "pronto";
+        if (isText) {
+          // Extratos OFX/CSV → motor FDIP (já roda hoje).
+          const rep = analisarImportacao(await f.text());
+          const valor = rep.records.reduce((s, r) => s + Math.abs(r.valor), 0);
+          doc = {
+            id, tipo: tipoFromName(f.name), canal: "Upload", beneficiario: f.name,
+            valor, data: today, status: "pronto", confianca: 0.9, acao: "Revisar lançamentos",
+            acaoTipo: "a_pagar",
+            crossCheck: `${rep.records.length} lançamentos lidos · ${rep.entidades.length} contrapartes · ${rep.plano.categorias.length} categorias detectadas.`,
+            matriz: [{ campo: "Documento", confianca: 0.95 }, { campo: "Lançamentos", confianca: 0.9 }],
+          };
+        } else if ((isImg || isPdf) && ocrOn) {
+          // OCR real via visão do Claude (Anthropic).
+          const { data, mediaType } = await lerArquivo(f, isImg && !isPdf);
+          const r = await fetch("/api/inbox/ocr", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileBase64: data, mediaType: isPdf ? "application/pdf" : mediaType }),
+          }).then((x) => x.json());
+          if (r.ok && r.doc) {
+            const ex = r.doc as Record<string, unknown>;
+            const conf = typeof ex.confianca === "number" ? ex.confianca : 0.8;
+            doc = {
+              id, tipo: (ex.tipo as string) || tipoFromName(f.name), canal: "OCR · documento",
+              beneficiario: (ex.beneficiario as string) || (ex.pagador as string) || f.name,
+              valor: Number(ex.valor) || 0, data: (ex.data as string) || today,
+              vencimento: (ex.vencimento as string) || undefined,
+              status: conf >= 0.9 ? "pronto" : "revisao", confianca: conf,
+              acao: (ex.acao as string) || "Revisar e classificar",
+              acaoTipo: (ex.acaoTipo as InboxDoc["acaoTipo"]) || "a_pagar",
+              categoria: (ex.categoria as string) || undefined,
+              crossCheck: crossDe(ex),
+              matriz: Array.isArray(ex.campos) && ex.campos.length
+                ? (ex.campos as { campo: string; confianca: number }[]).map((c) => ({ campo: c.campo, confianca: c.confianca }))
+                : [{ campo: "Documento", confianca: conf }],
+            };
+          } else {
+            doc = placeholder(id, f, today, `OCR não concluiu: ${r.reason ?? "erro"}.`);
+          }
         }
-      } catch { /* mantém em análise */ }
-      const doc: InboxDoc = {
-        id, tipo: tipoFromName(f.name), canal: "Upload", beneficiario: f.name,
-        valor, data: new Date().toISOString().slice(0, 10), status,
-        confianca: status === "pronto" ? 0.9 : 0.5, acao: "Revisar e classificar",
-        acaoTipo: "a_pagar", crossCheck: cross,
-        matriz: [{ campo: "Documento", confianca: 0.95 }, { campo: "Ação financeira", confianca: 0.6 }],
-      };
-      setDocs((d) => [doc, ...d]);
+      } catch { /* cai no placeholder */ }
+
+      if (!doc) {
+        const motivo = (isImg || isPdf) && !ocrOn
+          ? "Configure ANTHROPIC_API_KEY no servidor para o OCR ler este documento automaticamente."
+          : "Recebido — classifique manualmente.";
+        doc = placeholder(id, f, today, motivo);
+      }
+      setDocs((d) => [doc as InboxDoc, ...d]);
       setSelId(id);
     }
     show(`${arr.length} documento(s) na caixa de entrada`);
@@ -110,14 +151,20 @@ export function InboxView() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-          {INBOX_CANAIS.map((c) => (
-            <div key={c.titulo} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
-              <Icon name={c.icon} size={16} color="var(--color-text-secondary)" />
-              <span className="text-[13px] font-medium text-ink">{c.titulo}</span>
-              <span className="text-caption text-faint leading-[1.35]">{c.desc}</span>
-              {!c.pronto && <span className="text-caption text-faint mt-[2px]">em breve</span>}
-            </div>
-          ))}
+          {INBOX_CANAIS.map((c) => {
+            const isOcr = c.icon === "scan-line";
+            const pronto = isOcr ? ocrOn === true : c.pronto;
+            return (
+              <div key={c.titulo} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
+                <Icon name={c.icon} size={16} color="var(--color-text-secondary)" />
+                <span className="text-[13px] font-medium text-ink">{c.titulo}</span>
+                <span className="text-caption text-faint leading-[1.35]">{c.desc}</span>
+                {pronto
+                  ? <span className="text-caption text-positive mt-[2px]">ativo</span>
+                  : <span className="text-caption text-faint mt-[2px]">{isOcr ? "definir ANTHROPIC_API_KEY" : "em breve"}</span>}
+              </div>
+            );
+          })}
         </div>
       </Card>
 
@@ -256,6 +303,51 @@ function Campo({ label, value }: { label: string; value: string }) {
 }
 
 function fmt(iso: string): string {
+  if (!iso || !iso.includes("-")) return iso || "—";
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y.slice(2)}`;
+}
+
+/** Lê o arquivo em base64; reduz imagens (max 1600px, JPEG) p/ caber no POST. */
+async function lerArquivo(file: File, downscale: boolean): Promise<{ data: string; mediaType: string }> {
+  if (downscale) {
+    try {
+      const url = URL.createObjectURL(file);
+      const img = await new Promise<HTMLImageElement>((res, rej) => {
+        const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url;
+      });
+      const max = 1600;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      c.getContext("2d")?.drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      return { data: c.toDataURL("image/jpeg", 0.82), mediaType: "image/jpeg" };
+    } catch { /* cai no FileReader */ }
+  }
+  const data: string = await new Promise((res, rej) => {
+    const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file);
+  });
+  return { data, mediaType: file.type || "application/octet-stream" };
+}
+
+/** Monta o cross-check a partir dos campos extraídos pela IA. */
+function crossDe(ex: Record<string, unknown>): string {
+  const partes: string[] = [];
+  if (ex.cnpj) partes.push(`CNPJ ${ex.cnpj}`);
+  if (ex.cpf) partes.push(`CPF ${ex.cpf}`);
+  if (ex.chavePix) partes.push(`PIX ${ex.chavePix}`);
+  if (ex.linhaDigitavel) partes.push("linha digitável lida");
+  else if (ex.codigoBarras) partes.push("código de barras lido");
+  if (ex.banco) partes.push(String(ex.banco));
+  return partes.length ? `Extraído pela IA · ${partes.join(" · ")}.` : "Documento lido pela IA — revise os campos.";
+}
+
+function placeholder(id: string, f: File, today: string, motivo: string): InboxDoc {
+  return {
+    id, tipo: tipoFromName(f.name), canal: "Upload", beneficiario: f.name,
+    valor: 0, data: today, status: "analise", confianca: 0.5,
+    acao: "Revisar e classificar", acaoTipo: "a_pagar", crossCheck: motivo,
+    matriz: [{ campo: "Documento", confianca: 0.9 }, { campo: "Ação financeira", confianca: 0.5 }],
+  };
 }
