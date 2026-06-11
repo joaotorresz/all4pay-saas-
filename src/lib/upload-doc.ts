@@ -139,12 +139,22 @@ function formatBRLsafe(n: number): string {
   catch { return `R$ ${n.toFixed(2)}`; }
 }
 
+/** Mapa ação → (tipo do movimento, já realizado?). Usado quando o usuário
+ *  corrige manualmente a leitura na confirmação. */
+export const ACAO_MAP: Record<Exclude<AcaoFinal, "Transferência">, { tipoMov: "entrada" | "saida"; pago: boolean }> = {
+  "Vou pagar": { tipoMov: "saida", pago: false },
+  "Vou receber": { tipoMov: "entrada", pago: false },
+  "Paguei": { tipoMov: "saida", pago: true },
+  "Recebi": { tipoMov: "entrada", pago: true },
+};
+
 export interface ConfirmacaoInput {
   analise: AnaliseDocumento;
   criarContato: boolean; // o usuário aceitou cadastrar o beneficiário novo
   categoria?: string;
   valor?: number;
   vencimento?: string;
+  acaoOverride?: AcaoFinal; // correção manual da ação (leitura errada)
 }
 
 export interface ResultadoConfirmacao {
@@ -170,14 +180,21 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   const categoria = input.categoria ?? f.categoria ?? analise.fields.tipo;
   const nome = analise.contraparte ?? f.tipo;
 
+  // Ação efetiva: correção manual do usuário sobrepõe a leitura automática.
+  const override = input.acaoOverride && input.acaoOverride !== "Transferência" ? ACAO_MAP[input.acaoOverride] : null;
+  const tipoMov = override ? override.tipoMov : analise.tipoMov;
+  const pago = override ? override.pago : analise.pago;
+  // A baixa só vale se a ação ainda for "realizada" e do mesmo tipo que a casou.
+  const baixaDe = pago && tipoMov === analise.tipoMov && analise.pago ? analise.baixaDe : null;
+
   if (isDemo) {
     const party: Party | undefined = criarContato && analise.sugerirCadastro
       ? {
           id: `cad-${Date.now()}`,
           type: soDigitos(f.cpf) ? "pf" : "pj",
           name: nome,
-          is_customer: analise.tipoMov === "entrada",
-          is_supplier: analise.tipoMov === "saida",
+          is_customer: tipoMov === "entrada",
+          is_supplier: tipoMov === "saida",
           ...(f.cnpj || f.cpf ? { doc: (f.cnpj || f.cpf) as string } : {}),
         } as Party
       : undefined;
@@ -185,19 +202,19 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
     const movement: Movement = {
       id: `up-doc-${Date.now()}`,
       account_id: ACC_FALLBACK,
-      type: analise.tipoMov,
-      status: analise.pago ? "pago" : "pendente",
+      type: tipoMov,
+      status: pago ? "pago" : "pendente",
       category: categoria,
       amount: valor,
       party_id: partyId,
       due_date: venc,
-      paid_date: analise.pago ? (f.data ?? hoje) : null,
-      reconciled: analise.pago,
+      paid_date: pago ? (f.data ?? hoje) : null,
+      reconciled: pago,
       description: nome,
     } as Movement;
-    appendImported({ movement, party, baixaDe: analise.baixaDe?.id });
+    appendImported({ movement, party, baixaDe: baixaDe?.id });
     await new Promise((r) => setTimeout(r, 350));
-    return { movimento: !analise.baixaDe, contatoCriado: !!party, baixa: !!analise.baixaDe, simulado: true };
+    return { movimento: !baixaDe, contatoCriado: !!party, baixa: !!baixaDe, simulado: true };
   }
 
   // ---- Live (Supabase) ----
@@ -211,8 +228,8 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       .insert({
         type: soDigitos(f.cpf) ? "pf" : "pj",
         name: nome,
-        is_customer: analise.tipoMov === "entrada",
-        is_supplier: analise.tipoMov === "saida",
+        is_customer: tipoMov === "entrada",
+        is_supplier: tipoMov === "saida",
         doc: f.cnpj || f.cpf || null,
       })
       .select("id")
@@ -221,11 +238,11 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   }
 
   // Baixa de agendado: atualiza o pendente em vez de criar outro lançamento.
-  if (analise.baixaDe) {
+  if (baixaDe) {
     const { error } = await supabase
       .from("movements")
       .update({ status: "pago", paid_date: f.data ?? hoje, reconciled: true })
-      .eq("id", analise.baixaDe.id);
+      .eq("id", baixaDe.id);
     if (!error) { out.baixa = true; return out; }
   }
 
@@ -244,13 +261,13 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   if (accId) {
     const { error } = await supabase.from("movements").insert({
       account_id: accId,
-      type: analise.tipoMov,
-      status: analise.pago ? "pago" : "pendente",
+      type: tipoMov,
+      status: pago ? "pago" : "pendente",
       category: categoria,
       amount: valor,
       due_date: venc,
-      paid_date: analise.pago ? (f.data ?? hoje) : null,
-      reconciled: analise.pago,
+      paid_date: pago ? (f.data ?? hoje) : null,
+      reconciled: pago,
       description: nome,
       party_id: partyId,
     });

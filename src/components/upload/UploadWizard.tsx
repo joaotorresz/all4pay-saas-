@@ -7,7 +7,7 @@ import { listParties } from "@/lib/cadastros";
 import { getOpenMovements } from "@/lib/data";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { lerDocumento, ocrConfigurado, type LeituraDocumento } from "@/lib/ocr-ingest";
-import { analisarDocumento, confirmarDocumento, type AnaliseDocumento } from "@/lib/upload-doc";
+import { analisarDocumento, confirmarDocumento, ACAO_MAP, type AnaliseDocumento, type AcaoFinal } from "@/lib/upload-doc";
 import type { Party, Movement } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
 
@@ -44,6 +44,7 @@ export function UploadWizard() {
   const [categoria, setCategoria] = React.useState("");
   const [valor, setValor] = React.useState(0);
   const [venc, setVenc] = React.useState("");
+  const [acao, setAcao] = React.useState<AcaoFinal>("Vou pagar");
   const [gravando, setGravando] = React.useState(false);
   const [resultado, setResultado] = React.useState<string | null>(null);
 
@@ -77,6 +78,7 @@ export function UploadWizard() {
         setValor(an.fields.valor ?? 0);
         setVenc(an.fields.vencimento ?? an.fields.data ?? "");
         setCriarContato(an.sugerirCadastro);
+        setAcao(an.acaoFinal === "Transferência" ? "Vou pagar" : an.acaoFinal);
       }
     } finally {
       setLendo(false);
@@ -93,11 +95,12 @@ export function UploadWizard() {
     if (!analise) return;
     setGravando(true);
     try {
-      const r = await confirmarDocumento({ analise, criarContato, categoria, valor, vencimento: venc });
+      const r = await confirmarDocumento({ analise, criarContato, categoria, valor, vencimento: venc, acaoOverride: acao });
       await qc.invalidateQueries();
+      const tipo = ACAO_MAP[acao as Exclude<AcaoFinal, "Transferência">]?.tipoMov ?? analise.tipoMov;
       const partes: string[] = [];
       if (r.baixa) partes.push("baixa no agendamento");
-      else if (r.movimento) partes.push(analise.tipoMov === "entrada" ? "lançamento a receber" : "lançamento a pagar");
+      else if (r.movimento) partes.push(tipo === "entrada" ? "lançamento a receber" : "lançamento a pagar");
       if (r.contatoCriado) partes.push("contato cadastrado");
       setResultado(partes.length ? `Pronto — ${partes.join(" · ")}. Refletido em todo o sistema.` : "Pronto — refletido em todo o sistema.");
       setEtapa(4);
@@ -194,6 +197,7 @@ export function UploadWizard() {
             {etapa === 3 && analise && (
               <Confirmacao
                 a={analise}
+                acao={acao} setAcao={setAcao}
                 categoria={categoria} setCategoria={setCategoria}
                 valor={valor} setValor={setValor}
                 venc={venc} setVenc={setVenc}
@@ -338,25 +342,49 @@ function LeituraInteligente({ a, modo }: { a: AnaliseDocumento; modo: "ia" | "lo
 }
 
 function Confirmacao({
-  a, categoria, setCategoria, valor, setValor, venc, setVenc, criarContato, setCriarContato,
+  a, acao, setAcao, categoria, setCategoria, valor, setValor, venc, setVenc, criarContato, setCriarContato,
 }: {
   a: AnaliseDocumento;
+  acao: AcaoFinal; setAcao: (v: AcaoFinal) => void;
   categoria: string; setCategoria: (v: string) => void;
   valor: number; setValor: (v: number) => void;
   venc: string; setVenc: (v: string) => void;
   criarContato: boolean; setCriarContato: (v: boolean) => void;
 }) {
+  const sel = ACAO_MAP[acao as Exclude<AcaoFinal, "Transferência">] ?? { tipoMov: "saida", pago: false };
+  const corrigido = acao !== a.acaoFinal;
+  const baixaValida = !!a.baixaDe && sel.pago && sel.tipoMov === a.tipoMov && a.pago;
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <span className="text-label font-medium text-muted">Confirme os dados extraídos</span>
-        <span className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-caption font-medium" style={{ color: "var(--color-on-lime)", background: ACAO_COR[a.acaoFinal] }}>
-          {a.acaoFinal}
+      <span className="text-label font-medium text-muted">Confirme os dados extraídos</span>
+
+      {/* Ação — corrija se a leitura veio errada */}
+      <div className="flex flex-col gap-[6px]">
+        <span className="text-label font-medium text-muted">Ação {corrigido && <span className="text-caption text-warning">· corrigido</span>}</span>
+        <div className="grid grid-cols-2 gap-2">
+          {(["Vou pagar", "Vou receber", "Paguei", "Recebi"] as AcaoFinal[]).map((op) => {
+            const on = acao === op;
+            return (
+              <button
+                key={op}
+                onClick={() => setAcao(op)}
+                className={`rounded-md border px-3 py-2 text-left text-caption transition-colors ${on ? "border-ink bg-surface-2 text-ink font-medium" : "border-border text-muted hover:border-ink/30"}`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-pill" style={{ background: ACAO_COR[op] }} />
+                  {op}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <span className="text-caption text-faint">
+          {sel.pago ? "Já realizado — entra como pago/baixado." : "Ainda vai acontecer — entra como pendente, agendado pelo vencimento."}
         </span>
       </div>
 
       <CurrencyInput label="Valor" value={valor} onValueChange={setValor} />
-      <DateField label={a.pago ? "Data" : "Vencimento"} value={venc} onChange={setVenc} />
+      <DateField label={sel.pago ? "Data" : "Vencimento"} value={venc} onChange={setVenc} />
       <Select
         label="Categoria"
         value={CATEGORIAS.includes(categoria) ? categoria : ""}
@@ -372,12 +400,12 @@ function Confirmacao({
         ) : a.sugerirCadastro ? (
           <label className="inline-flex items-center gap-2 cursor-pointer mt-1">
             <input type="checkbox" checked={criarContato} onChange={(e) => setCriarContato(e.target.checked)} className="accent-lime" />
-            <span className="text-caption text-ink">Cadastrar <b className="font-medium">{a.contraparte}</b> como {a.tipoMov === "entrada" ? "cliente" : "fornecedor"}</span>
+            <span className="text-caption text-ink">Cadastrar <b className="font-medium">{a.contraparte}</b> como {sel.tipoMov === "entrada" ? "cliente" : "fornecedor"}</span>
           </label>
         ) : null}
       </div>
 
-      {a.baixaDe && (
+      {baixaValida && (
         <div className="flex items-start gap-2 rounded-md p-3 border-l-4" style={{ borderLeftColor: "var(--color-positive)", background: "var(--color-surface-2)" }}>
           <Icon name="check" size={15} color="var(--color-positive)" className="mt-[2px]" />
           <span className="text-caption text-muted">Em vez de criar um novo lançamento, vamos <b className="text-ink font-medium">dar baixa</b> no agendamento correspondente (evita duplicar).</span>
