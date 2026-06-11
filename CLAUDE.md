@@ -85,11 +85,12 @@ sempre os tokens, nunca hex literal.
   overdue / vencido, same desaturated family). Status colors are *small
   semantic signals* (labels, dots, the negative integer in a value) — never
   large fills.
-- **Type scale:** `text-display` 52 · `text-h1` 40 · `text-value-lg` 32 ·
-  `text-h2` 28 · `text-h3` 20 · `text-body` 15 · `text-label` 13 ·
-  `text-caption` 12. **Working weights: 400 / 500.** The single sanctioned
-  exception is the **page title** (`AppShell` h1, 29px) at **600** — matches the
-  reference design's header. No 700 bold anywhere in the app.
+- **Type scale (escala +20% aplicada ao sistema):** `text-display` 62 ·
+  `text-h1` 48 · `text-value-lg` 38 · `text-h2` 34 · `text-h3` 24 ·
+  `text-body` 18 · `text-label` 16 · `text-caption` 14. **Working weights:
+  400 / 500.** The single sanctioned exception is the **page title**
+  (`AppShell` h1, 35px) at **600** — matches the reference design's header.
+  No 700 bold anywhere in the app.
 - **Radii:** `rounded-card` 16 · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
 - **Shadows:** `shadow-card`, `shadow-popover`, `shadow-pill`. Whisper-soft —

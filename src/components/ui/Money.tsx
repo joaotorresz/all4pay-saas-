@@ -29,7 +29,7 @@ export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   decimalSep?: string;
 }
 
-const SIZE_PX: Record<MoneySize, number> = { display: 52, lg: 32, md: 24, sm: 18 };
+const SIZE_PX: Record<MoneySize, number> = { display: 62, lg: 38, md: 29, sm: 22 };
 
 export function Money({
   currency = "R$",

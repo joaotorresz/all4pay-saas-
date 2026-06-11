@@ -73,7 +73,7 @@ export function ArquiteturaView() {
           {arq.camadas.map((c) => (
             <div key={c.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <span className="text-[13px] font-medium text-ink">{c.nome}</span>
+                <span className="text-[16px] font-medium text-ink">{c.nome}</span>
                 <span className="w-2 h-2 rounded-pill" style={{ background: "var(--color-positive)" }} />
               </div>
               <span className="text-caption text-faint">{c.descricao}</span>
@@ -90,7 +90,7 @@ export function ArquiteturaView() {
           {arq.servicos.map((s) => (
             <div key={s.nome} className="flex items-center gap-3 rounded-md border border-border-soft px-3 py-2">
               <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: "var(--color-positive)" }} />
-              <span className="text-[13px] text-ink flex-1 truncate">{s.nome}</span>
+              <span className="text-[16px] text-ink flex-1 truncate">{s.nome}</span>
               <span className="text-caption text-faint tabular-nums">{s.latenciaMs}ms</span>
               <span className="text-caption text-muted tabular-nums w-[96px] text-right truncate">{s.throughput}</span>
             </div>
@@ -108,7 +108,7 @@ export function ArquiteturaView() {
           {arq.pipeline.etapas.map((e, i) => (
             <div key={e.etapa} className="flex items-center gap-2">
               <span className="text-caption text-faint w-[14px] tabular-nums">{i + 1}</span>
-              <span className="text-[13px] text-ink flex-1">{e.etapa}</span>
+              <span className="text-[16px] text-ink flex-1">{e.etapa}</span>
               <div className="h-[5px] rounded-pill bg-surface-2 overflow-hidden w-[70px]">
                 <div className="h-full rounded-pill bg-ink" style={{ width: `${(e.latenciaMs / 12) * 100}%` }} />
               </div>
@@ -134,7 +134,7 @@ export function ArquiteturaView() {
           {arq.observabilidade.map((m) => (
             <div key={m.nome} className="flex flex-col gap-[2px]">
               <span className="text-caption text-faint">{m.nome}</span>
-              <span className="inline-flex items-center gap-2 text-[15px] font-medium" style={{ color: OBS_COR[m.status] }}>
+              <span className="inline-flex items-center gap-2 text-[18px] font-medium" style={{ color: OBS_COR[m.status] }}>
                 <span className="w-2 h-2 rounded-pill" style={{ background: OBS_COR[m.status] }} />
                 {m.valor}
               </span>
@@ -202,8 +202,8 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-              <XAxis dataKey="semana" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-              <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => formatBRLCompact(v)} />
+              <XAxis dataKey="semana" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+              <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => formatBRLCompact(v)} />
               <ReferenceLine y={0} stroke="var(--color-border)" />
               <Tooltip
                 cursor={{ fill: "rgba(0,0,0,0.03)" }}
@@ -280,7 +280,7 @@ function Mini({ label, value, tone = "var(--color-ink)" }: { label: string; valu
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[15px] font-medium tabular-nums" style={{ color: tone }}>{value}</span>
+      <span className="text-[18px] font-medium tabular-nums" style={{ color: tone }}>{value}</span>
     </div>
   );
 }

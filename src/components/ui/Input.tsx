@@ -40,7 +40,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         >
           {prefix && (
-            <span className="text-faint text-[14px] inline-flex">{prefix}</span>
+            <span className="text-faint text-[17px] inline-flex">{prefix}</span>
           )}
           <input
             ref={ref}
@@ -53,7 +53,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...rest}
           />
           {suffix && (
-            <span className="text-faint text-[14px] inline-flex">{suffix}</span>
+            <span className="text-faint text-[17px] inline-flex">{suffix}</span>
           )}
         </div>
       </div>

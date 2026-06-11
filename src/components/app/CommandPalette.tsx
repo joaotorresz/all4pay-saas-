@@ -168,9 +168,9 @@ export function CommandPalette() {
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder="Buscar páginas, contatos, produtos, serviços, vendas…"
-            className="flex-1 bg-transparent outline-none text-[15px] text-ink py-[14px] placeholder:text-placeholder"
+            className="flex-1 bg-transparent outline-none text-[18px] text-ink py-[14px] placeholder:text-placeholder"
           />
-          <kbd className="text-[11px] font-medium text-faint bg-surface-2 rounded-[5px] px-[5px] py-[2px]">esc</kbd>
+          <kbd className="text-[13px] font-medium text-faint bg-surface-2 rounded-[5px] px-[5px] py-[2px]">esc</kbd>
         </div>
 
         <div className="max-h-[52vh] overflow-y-auto py-2">
@@ -181,7 +181,7 @@ export function CommandPalette() {
           ) : (
             grupos.map((g) => (
               <div key={g} className="mb-1">
-                <div className="px-4 py-1 text-[11px] font-medium text-faint uppercase tracking-wide">{g}</div>
+                <div className="px-4 py-1 text-[13px] font-medium text-faint uppercase tracking-wide">{g}</div>
                 {hits.filter((h) => h.grupo === g).map((h) => {
                   idx += 1;
                   const on = idx === sel;
@@ -198,10 +198,10 @@ export function CommandPalette() {
                     >
                       <Icon name={h.icon} size={16} color={on ? "var(--color-ink)" : "var(--color-text-secondary)"} />
                       <span className="flex-1 min-w-0">
-                        <span className="block text-[14px] text-ink truncate">{h.titulo}</span>
+                        <span className="block text-[17px] text-ink truncate">{h.titulo}</span>
                         {h.sub && <span className="block text-caption text-faint truncate">{h.sub}</span>}
                       </span>
-                      {on && <span className="text-[13px] text-faint">↵</span>}
+                      {on && <span className="text-[16px] text-faint">↵</span>}
                     </button>
                   );
                 })}

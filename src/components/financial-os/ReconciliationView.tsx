@@ -93,11 +93,11 @@ function MatchRow({ m, done, border }: { m: MatchResult; done?: boolean; border:
   return (
     <div className={`px-5 py-3 ${border ? "border-t border-border-soft" : ""}`}>
       <div className="flex items-center gap-3">
-        <span className="text-[11px] font-medium text-muted bg-surface-2 border border-border rounded-sm px-[6px] py-[2px]">
+        <span className="text-[13px] font-medium text-muted bg-surface-2 border border-border rounded-sm px-[6px] py-[2px]">
           {FONTE_LABEL[m.transacao.origem]}
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-medium text-ink truncate">
+          <div className="text-[17px] font-medium text-ink truncate">
             {m.transacao.contraparte ?? "—"}
           </div>
           <div className="text-caption text-faint tabular-nums">

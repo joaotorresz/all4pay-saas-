@@ -352,7 +352,7 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
       {/* DNA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-3">
         {dna.map((l) => (
-          <div key={l.label} className="flex flex-col"><span className="text-caption text-faint">{l.label}</span><span className="text-[14px] font-medium text-ink">{l.valor}</span></div>
+          <div key={l.label} className="flex flex-col"><span className="text-caption text-faint">{l.label}</span><span className="text-[17px] font-medium text-ink">{l.valor}</span></div>
         ))}
       </div>
       {/* Maturity */}

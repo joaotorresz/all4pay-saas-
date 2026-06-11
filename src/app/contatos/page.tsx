@@ -16,7 +16,7 @@ const columns: Column<Party>[] = [
     label: "Nome / Razão social",
     render: (p) => (
       <div className="min-w-0">
-        <div className="text-[14px] font-medium text-ink truncate">{p.name}</div>
+        <div className="text-[17px] font-medium text-ink truncate">{p.name}</div>
         {p.doc && <div className="text-caption text-faint tabular-nums">{p.doc}</div>}
       </div>
     ),

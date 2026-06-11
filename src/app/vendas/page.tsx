@@ -32,7 +32,7 @@ const columns: Column<SaleDocRow>[] = [
     label: "Documento",
     render: (r) => (
       <div className="min-w-0">
-        <div className="text-[14px] font-medium text-ink truncate">{r.party_name}</div>
+        <div className="text-[17px] font-medium text-ink truncate">{r.party_name}</div>
         <div className="text-caption text-faint tabular-nums">
           {r.id} · {KIND_LABEL[r.kind] ?? r.kind} de {r.item_kind}
         </div>

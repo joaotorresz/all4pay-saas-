@@ -120,7 +120,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
               <div key={r.id} className="flex items-start gap-3 py-2 border-t border-border-soft first:border-t-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-medium text-ink">{r.nome}</span>
+                    <span className="text-[17px] font-medium text-ink">{r.nome}</span>
                     <StatusBadge tone={PRIO_TONE[r.prioridade]}>{r.prioridade}</StatusBadge>
                   </div>
                   <p className="m-0 text-caption text-muted mt-1">
@@ -151,7 +151,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
               <div key={e.id} className="flex items-center gap-3 px-5 py-[10px] border-t border-border-soft">
                 <Icon name={e.status === "executada" ? "check" : "repeat"} size={15} color={e.status === "executada" ? "var(--color-positive)" : "var(--color-text-tertiary)"} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[14px] text-ink">{e.detalhe}</div>
+                  <div className="text-[17px] text-ink">{e.detalhe}</div>
                   <div className="text-caption text-faint truncate">via {e.ruleNome}</div>
                 </div>
                 <span className="text-caption text-faint">{e.status}</span>
@@ -172,7 +172,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
               </div>
               {trace.alertasExecutivos.map((a, i) => (
                 <div key={i} className="flex flex-col gap-1">
-                  <span className="text-[14px] font-medium text-ink">{a.titulo}</span>
+                  <span className="text-[17px] font-medium text-ink">{a.titulo}</span>
                   <span className="text-caption text-muted leading-[1.5]">{a.texto}</span>
                 </div>
               ))}
@@ -188,7 +188,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
               </div>
               {sugestoes.map((s, i) => (
                 <div key={i} className="flex flex-col gap-2 py-2 border-t border-border-soft first:border-t-0">
-                  <span className="text-[14px] font-medium text-ink">{s.titulo}</span>
+                  <span className="text-[17px] font-medium text-ink">{s.titulo}</span>
                   <span className="text-caption text-muted">{s.descricao}</span>
                   <Button
                     variant="secondary"

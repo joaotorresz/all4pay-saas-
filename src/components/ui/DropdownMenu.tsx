@@ -89,11 +89,11 @@ export function DropdownMenu({
                   key={it.id}
                   role="menuitem"
                   onClick={() => choose(it.id)}
-                  className="flex items-center justify-between w-full gap-4 px-3 py-2 text-left text-[14px] text-ink rounded-md hover:bg-surface-2 transition-colors"
+                  className="flex items-center justify-between w-full gap-4 px-3 py-2 text-left text-[17px] text-ink rounded-md hover:bg-surface-2 transition-colors"
                 >
                   <span>{it.label}</span>
                   {it.shortcut && (
-                    <span className="text-[11px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[1px]">
+                    <span className="text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[1px]">
                       Alt+{it.shortcut}
                     </span>
                   )}

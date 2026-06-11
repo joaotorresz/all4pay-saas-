@@ -255,7 +255,7 @@ export function VendaCompraForm({
           <Select label={isCompra ? "Conta de pagamento" : "Conta de recebimento"} placeholder="Selecione a conta" options={opts(accounts)} value={f.account_id} onChange={(v) => set({ account_id: v })} />
           <label className="inline-flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={f.settled} onChange={(e) => set({ settled: e.target.checked })} className="w-[18px] h-[18px] accent-ink" />
-            <span className="text-[14px] text-ink">{isCompra ? "Pago" : "Recebido"} (baixa imediata)</span>
+            <span className="text-[17px] text-ink">{isCompra ? "Pago" : "Recebido"} (baixa imediata)</span>
           </label>
         </>
       )}

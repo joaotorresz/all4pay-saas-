@@ -87,7 +87,7 @@ export function IAInsightsCard() {
           <div key={i.id} className="flex items-start gap-2 py-2 border-t border-border-soft first:border-t-0">
             <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: sevColor(i.severidade) }} />
             <div className="min-w-0">
-              <div className="text-[14px] font-medium text-ink">{i.titulo}</div>
+              <div className="text-[17px] font-medium text-ink">{i.titulo}</div>
               <div className="text-caption text-muted leading-[1.45]">{i.descricao}</div>
             </div>
           </div>
@@ -113,7 +113,7 @@ export function AnomaliasCard() {
           <div key={a.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
             <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: sevColor(a.severidade) }} />
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] text-ink truncate">{a.titulo}</div>
+              <div className="text-[17px] text-ink truncate">{a.titulo}</div>
               <div className="text-caption text-faint truncate">{a.descricao}</div>
             </div>
             <span className="text-caption text-muted tabular-nums"><BRL value={a.valor} /></span>
@@ -154,7 +154,7 @@ export function TopClientesCard() {
           return (
             <div key={id} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-ink truncate">{nome}</span>
+                <span className="text-[16px] text-ink truncate">{nome}</span>
                 <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
               </div>
               <BarShare pct={share} color="var(--color-ink)" />
@@ -195,7 +195,7 @@ export function MaioresCategoriasCard() {
           return (
             <div key={cat} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] text-ink truncate capitalize">{cat}</span>
+                <span className="text-[16px] text-ink truncate capitalize">{cat}</span>
                 <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
               </div>
               <BarShare pct={share} color="var(--color-warning)" />
@@ -227,10 +227,10 @@ export function UltimosGastosCard() {
           return (
             <div key={m.id} className="flex items-center justify-between gap-3 py-2 border-t border-border-soft first:border-t-0">
               <div className="min-w-0">
-                <div className="text-[14px] text-ink truncate">{nome}</div>
+                <div className="text-[17px] text-ink truncate">{nome}</div>
                 <div className="text-caption text-faint tabular-nums">{fmtDia(realizado(m))}</div>
               </div>
-              <span className="text-[14px] text-ink tabular-nums"><BRL value={m.amount} /></span>
+              <span className="text-[17px] text-ink tabular-nums"><BRL value={m.amount} /></span>
             </div>
           );
         })

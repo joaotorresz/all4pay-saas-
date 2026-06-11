@@ -190,10 +190,10 @@ export function OrquestracaoView() {
             {eventos.map((e) => (
               <div key={e.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
                 <span className="text-caption text-faint tabular-nums w-[18px]">{e.seq}</span>
-                <span className="text-[14px] text-ink flex-1">{EVENTO_LABEL[e.tipo]}</span>
+                <span className="text-[17px] text-ink flex-1">{EVENTO_LABEL[e.tipo]}</span>
                 {e.contraparte && <span className="text-caption text-faint">{e.contraparte}</span>}
                 <span className="text-label tabular-nums text-muted"><BRL value={e.valor} /></span>
-                <span className="text-[11px] text-placeholder tabular-nums">{e.hash.slice(0, 10)}…</span>
+                <span className="text-[13px] text-placeholder tabular-nums">{e.hash.slice(0, 10)}…</span>
               </div>
             ))}
           </div>
@@ -208,7 +208,7 @@ export function OrquestracaoView() {
         ) : (
           saldos.map((s) => (
             <div key={s.conta} className="flex items-center justify-between">
-              <span className="text-[13px] text-ink">{s.conta}</span>
+              <span className="text-[16px] text-ink">{s.conta}</span>
               <span className="text-label font-medium tabular-nums" style={{ color: s.saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
                 <BRL value={s.saldo} />
               </span>

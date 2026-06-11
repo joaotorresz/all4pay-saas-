@@ -15,7 +15,7 @@ const columns: Column<Service>[] = [
     key: "name",
     label: "Serviço",
     render: (s) => (
-      <div className="text-[14px] font-medium text-ink truncate">{s.name}</div>
+      <div className="text-[17px] font-medium text-ink truncate">{s.name}</div>
     ),
   },
   {

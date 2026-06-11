@@ -107,7 +107,7 @@ export function InstitutionalView() {
               r.ateValor === Infinity ? `acima de ${formatBRL(de)}` : `${formatBRL(de)} – ${formatBRL(r.ateValor)}`;
             return (
               <div key={i} className="flex items-center gap-3 rounded-md border border-border-soft p-3">
-                <span className="text-[13px] text-ink tabular-nums w-[190px] shrink-0">{faixa}</span>
+                <span className="text-[16px] text-ink tabular-nums w-[190px] shrink-0">{faixa}</span>
                 {r.auto ? (
                   <span className="text-caption text-positive">Aprovação automática</span>
                 ) : (
@@ -135,7 +135,7 @@ export function InstitutionalView() {
         <SectionHead icon="gauge" title="SLA de aprovação" sub="tempo médio por etapa" />
         {SLA_DEMO.map((s) => (
           <div key={s.etapa} className="flex items-center justify-between">
-            <span className="text-[13px] text-ink">{s.etapa}</span>
+            <span className="text-[16px] text-ink">{s.etapa}</span>
             <span className="text-label font-medium tabular-nums text-muted">{tempo(s.tempoMedioMin)}</span>
           </div>
         ))}
@@ -219,7 +219,7 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
             <span className="text-caption text-faint tabular-nums w-[18px] shrink-0 pt-[2px]">{e.seq}</span>
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-[14px] text-ink">
+                <span className="text-[17px] text-ink">
                   {ACAO_LABEL[e.action] ?? e.action} · <span className="text-muted">{e.entityType}/{e.entityId}</span>
                 </span>
                 <span className="text-caption text-faint">{e.ctx.userName} · {e.ctx.ip}</span>
@@ -235,7 +235,7 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
                   ))}
                 </div>
               )}
-              <span className="block text-[11px] text-placeholder tabular-nums mt-1 truncate">hash {e.hash.slice(0, 32)}…</span>
+              <span className="block text-[13px] text-placeholder tabular-nums mt-1 truncate">hash {e.hash.slice(0, 32)}…</span>
             </div>
           </div>
         ))}
@@ -341,7 +341,7 @@ function RequestCard({ r }: { r: ReturnType<typeof requestsDemo>[number] }) {
   return (
     <div className="rounded-md border border-border-soft p-3 flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <span className="text-[14px] font-medium text-ink tabular-nums"><BRL value={r.transacao.valor} /></span>
+        <span className="text-[17px] font-medium text-ink tabular-nums"><BRL value={r.transacao.valor} /></span>
         <span className="text-caption text-muted">{STATUS_LABEL[r.status]}</span>
       </div>
       <span className="text-caption text-faint">{r.transacao.contraparte} · {r.transacao.metodo.toUpperCase()}</span>

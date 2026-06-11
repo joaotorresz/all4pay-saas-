@@ -442,7 +442,7 @@ export function ReceitaForm({
                 onChange={(e) => set({ settled: e.target.checked })}
                 className="w-[18px] h-[18px] accent-ink"
               />
-              <span className="text-[14px] text-ink">
+              <span className="text-[17px] text-ink">
                 {isReceita ? "Recebido" : "Pago"} (baixa imediata)
               </span>
             </label>

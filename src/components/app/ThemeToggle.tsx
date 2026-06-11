@@ -33,7 +33,7 @@ export function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
       )}
     >
       <Icon name={dark ? "sun" : "moon"} size={17} color="var(--color-text-secondary)" />
-      {!collapsed && <span className="text-[14px] font-medium text-muted">{label}</span>}
+      {!collapsed && <span className="text-[17px] font-medium text-muted">{label}</span>}
     </button>
   );
 }

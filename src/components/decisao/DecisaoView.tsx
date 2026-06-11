@@ -153,7 +153,7 @@ function RiscoRow({ d }: { d: RiscoDimensao }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
-        <span className="text-[13px] text-ink">{d.label}</span>
+        <span className="text-[16px] text-ink">{d.label}</span>
         <span className="text-label font-medium tabular-nums" style={{ color: NIVEL_COR[d.nivel] }}>
           {Math.round(d.probabilidade * 100)}%
         </span>
@@ -171,7 +171,7 @@ function RecomendacaoRow({ r }: { r: Recomendacao }) {
     <div className="flex gap-3 py-[10px] border-t border-border-soft first:border-t-0">
       <span className="text-caption font-medium text-faint tabular-nums w-[20px] pt-[2px]">#{r.prioridade}</span>
       <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-medium text-ink">{r.titulo}</div>
+        <div className="text-[17px] font-medium text-ink">{r.titulo}</div>
         <span className="text-caption text-muted">{r.descricao}</span>
         <div className="flex flex-wrap gap-2 mt-1">
           {r.deltaRunwayDias > 0 && <Impacto label={`+${Math.round(r.deltaRunwayDias)}d runway`} bom />}
@@ -201,7 +201,7 @@ function AcaoRow({ a }: { a: AcaoAutonoma }) {
       <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: m.cor }} />
       <div className="min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] text-ink">{a.acao}</span>
+          <span className="text-[16px] text-ink">{a.acao}</span>
           <span className="text-caption font-medium" style={{ color: m.cor }}>· {m.label}</span>
         </div>
         <span className="text-caption text-faint">{a.gatilho} — {a.impacto}</span>
@@ -214,7 +214,7 @@ function Feat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-[2px]">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[15px] font-medium tabular-nums text-ink">{value}</span>
+      <span className="text-[18px] font-medium tabular-nums text-ink">{value}</span>
     </div>
   );
 }
@@ -233,8 +233,8 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-          <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-          <YAxis tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
+          <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+          <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={42} tickFormatter={(v) => formatBRLCompact(v)} />
           <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
           <Tooltip
             cursor={{ stroke: "var(--color-border)" }}

@@ -109,7 +109,7 @@ export function HomeCustomizeDrawer({
             <label className="flex items-center justify-between gap-3 cursor-pointer">
               <span className="flex items-center gap-2">
                 <Icon name="sparkles" size={15} color="var(--color-text-secondary)" />
-                <span className="text-[14px] font-medium text-ink">Reorganizar por urgência (IA)</span>
+                <span className="text-[17px] font-medium text-ink">Reorganizar por urgência (IA)</span>
               </span>
               <Switch checked={auto} onChange={() => onAuto(!auto)} />
             </label>
@@ -126,7 +126,7 @@ export function HomeCustomizeDrawer({
           </p>
           {BLOCK_ORDER.map((g) => (
             <div key={g} className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium text-faint uppercase tracking-wide mb-1">{g}</span>
+              <span className="text-[13px] font-medium text-faint uppercase tracking-wide mb-1">{g}</span>
               {idsDoGrupo(g).map((id) => (
                 <div
                   key={id}
@@ -144,7 +144,7 @@ export function HomeCustomizeDrawer({
                   <span className="cursor-grab active:cursor-grabbing text-faint" aria-hidden>
                     <Icon name="grip-vertical" size={15} color="var(--color-text-tertiary)" />
                   </span>
-                  <span className="text-[14px] text-ink flex-1">{LABEL_DE.get(id)}</span>
+                  <span className="text-[17px] text-ink flex-1">{LABEL_DE.get(id)}</span>
                   <Switch checked={visiveis[id] !== false} onChange={() => onToggle(id)} />
                 </div>
               ))}

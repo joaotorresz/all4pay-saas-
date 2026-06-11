@@ -77,7 +77,7 @@ export function AccountsCard() {
                     aria-hidden="true"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[14px] font-medium text-ink truncate">
+                    <div className="text-[17px] font-medium text-ink truncate">
                       {acc.name}
                     </div>
                     {acc.pendingReconciliations > 0 ? (

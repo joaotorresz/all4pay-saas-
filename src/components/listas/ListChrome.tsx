@@ -157,7 +157,7 @@ export function useToast() {
     return () => clearTimeout(t);
   }, [toast]);
   const node = toast ? (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[14px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[70]">
       <Icon name="check" size={15} color="var(--color-lime)" />
       <span>{toast}</span>
     </div>

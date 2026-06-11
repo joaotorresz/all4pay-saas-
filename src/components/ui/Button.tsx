@@ -21,7 +21,7 @@ export interface ButtonProps
 
 const sizeClasses: Record<ButtonSize, string> = {
   sm: "text-label gap-2 px-[14px] h-8",
-  md: "text-[14px] gap-2 px-[18px] h-10",
+  md: "text-[17px] gap-2 px-[18px] h-10",
   lg: "text-body gap-2 px-[22px] h-12",
 };
 

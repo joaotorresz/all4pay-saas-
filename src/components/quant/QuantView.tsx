@@ -65,7 +65,7 @@ export function QuantView() {
       <Card className="lg:col-span-1 flex flex-col gap-4">
         <span className="text-label font-medium text-muted">Score de saúde financeira</span>
         <div className="flex items-end gap-3">
-          <span className="text-[52px] leading-none font-medium tabular-nums" style={{ color: COR[score.classificacao] }}>
+          <span className="text-[62px] leading-none font-medium tabular-nums" style={{ color: COR[score.classificacao] }}>
             {score.score}
           </span>
           <span className="text-h3 text-faint mb-1">/100</span>
@@ -99,7 +99,7 @@ export function QuantView() {
           <ResponsiveContainer width="100%" height={240}>
             <RadarChart data={radar} outerRadius="78%">
               <PolarGrid stroke="var(--color-border-soft)" />
-              <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 11, fill: "var(--color-text-secondary)" }} />
+              <PolarAngleAxis dataKey="dimensao" tick={{ fontSize: 13, fill: "var(--color-text-secondary)" }} />
               <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={1.4} />
             </RadarChart>
           </ResponsiveContainer>
@@ -154,8 +154,8 @@ export function QuantView() {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={32} />
+              <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={32} />
               <Tooltip
                 cursor={{ stroke: "var(--color-border)" }}
                 content={({ active, payload, label }: any) =>
@@ -180,7 +180,7 @@ export function QuantView() {
         {cenarios.map((c) => (
           <div key={c.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-medium text-ink">{c.label}</span>
+              <span className="text-[17px] font-medium text-ink">{c.label}</span>
               <span className="text-label tabular-nums" style={{ color: c.delta < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
                 {c.scoreProjetado} {c.delta !== 0 && `(${c.delta > 0 ? "+" : ""}${c.delta})`}
               </span>

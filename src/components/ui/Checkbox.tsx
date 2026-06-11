@@ -31,7 +31,7 @@ export function Checkbox({
     <label
       htmlFor={boxId}
       className={cn(
-        "inline-flex items-center gap-2 text-[14px] text-ink",
+        "inline-flex items-center gap-2 text-[17px] text-ink",
         disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
         className,
       )}

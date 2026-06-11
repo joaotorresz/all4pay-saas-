@@ -125,7 +125,7 @@ export function InadimplenciaView() {
               key={s.segmento}
               className="rounded-md border border-border-soft p-3 flex flex-col gap-1"
             >
-              <span className="text-[14px] font-medium text-ink">{s.label}</span>
+              <span className="text-[17px] font-medium text-ink">{s.label}</span>
               <span className="text-caption text-faint">{s.clientes} cliente(s)</span>
               <span className="text-label text-muted tabular-nums"><BRL value={s.exposicao} /></span>
             </div>
@@ -204,7 +204,7 @@ function ClienteRow({
         {c.earlyWarning.ativo && (
           <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
         )}
-        <span className="text-[14px] text-ink truncate">{c.nome}</span>
+        <span className="text-[17px] text-ink truncate">{c.nome}</span>
       </span>
       <span className="w-[120px] flex items-center gap-2 justify-end">
         <span className="h-[6px] w-[52px] rounded-pill bg-surface-2 overflow-hidden">
@@ -223,7 +223,7 @@ function ClienteRow({
           {pct(c.probabilidadeInadimplencia)}
         </span>
       </span>
-      <span className="w-[110px] text-right text-[14px] text-ink tabular-nums">
+      <span className="w-[110px] text-right text-[17px] text-ink tabular-nums">
         <BRL value={c.features.volumeAberto} />
       </span>
       <span className="w-[88px] flex justify-end">
@@ -249,7 +249,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
   return (
     <Card className="lg:col-span-1 flex flex-col gap-4">
       <div>
-        <div className="text-[14px] font-medium text-ink truncate">{c.nome}</div>
+        <div className="text-[17px] font-medium text-ink truncate">{c.nome}</div>
         <div className="flex items-end gap-2 mt-1">
           <span
             className="text-value-lg leading-none font-medium tabular-nums"
@@ -279,7 +279,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
         {c.fatoresRisco.map((f) => (
           <div key={f.fator} className="flex flex-col gap-1">
             <div className="flex justify-between items-baseline">
-              <span className="text-[13px] text-ink">{f.fator}</span>
+              <span className="text-[16px] text-ink">{f.fator}</span>
               <span className="text-caption text-muted tabular-nums">+{f.contribuicao}</span>
             </div>
             <span className="text-caption text-faint">{f.detalhe}</span>
@@ -305,7 +305,7 @@ function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
         <span className="text-caption font-medium text-faint uppercase tracking-wide">
           Recomendação
         </span>
-        <p className="m-0 text-[13px] text-ink leading-snug">{c.credito.resumo}</p>
+        <p className="m-0 text-[16px] text-ink leading-snug">{c.credito.resumo}</p>
         <div className="grid grid-cols-3 gap-2 pt-1">
           <Mini label="Limite" value={<BRL value={c.credito.limiteSugerido} />} />
           <Mini label="Prazo" value={`${c.credito.prazoSugeridoDias}d`} />
@@ -331,7 +331,7 @@ function Mini({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[13px] font-medium text-ink tabular-nums">{value}</span>
+      <span className="text-[16px] font-medium text-ink tabular-nums">{value}</span>
     </div>
   );
 }

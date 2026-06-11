@@ -100,14 +100,14 @@ export function MovementsTable({
           >
             <Avatar name={m.description ?? "—"} size={32} />
             <div className="flex-1 min-w-0">
-              <div className="text-[14px] font-medium text-ink truncate">
+              <div className="text-[17px] font-medium text-ink truncate">
                 {m.description ?? "Movimentação"}
               </div>
               <div className="text-caption text-faint tabular-nums">
                 {accountName(m.account_id)}
               </div>
             </div>
-            <span className="w-[110px] text-[13px] text-ink tabular-nums">
+            <span className="w-[110px] text-[16px] text-ink tabular-nums">
               {fmtDate(m.due_date)}
             </span>
             <span className="w-[120px]">

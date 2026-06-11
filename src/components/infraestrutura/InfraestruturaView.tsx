@@ -74,7 +74,7 @@ export function InfraestruturaView() {
           {plat.dominios().map((d) => (
             <div key={d.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-ink">{d.nome}</span>
+                <span className="text-[17px] font-medium text-ink">{d.nome}</span>
                 <span className="w-2 h-2 rounded-pill" style={{ background: DOM_COR[d.status] }} />
               </div>
               <span className="text-caption text-faint">{d.descricao}</span>
@@ -101,7 +101,7 @@ export function InfraestruturaView() {
           {saldos.map((s) => (
             <div key={s.code} className="flex flex-col">
               <span className="text-caption text-faint">{s.code} · {s.name}</span>
-              <span className="text-[15px] font-medium tabular-nums text-ink"><BRL value={s.saldo} /></span>
+              <span className="text-[18px] font-medium tabular-nums text-ink"><BRL value={s.saldo} /></span>
             </div>
           ))}
         </div>
@@ -114,7 +114,7 @@ export function InfraestruturaView() {
           {txs.map((t) => (
             <div key={t.id} className="flex items-center gap-3 py-2 border-t border-border-soft">
               <span className="text-caption text-faint tabular-nums w-[18px]">{t.seq}</span>
-              <span className="text-[13px] text-ink flex-1 truncate">{t.descricao}</span>
+              <span className="text-[16px] text-ink flex-1 truncate">{t.descricao}</span>
               <span className="text-caption text-muted">
                 {t.postings.map((p) => `${p.direction === "debit" ? "D" : "C"} ${p.accountCode}`).join(" · ")}
               </span>
@@ -181,7 +181,7 @@ export function InfraestruturaView() {
           <div key={s.id} className="flex items-start gap-2">
             <span className="w-2 h-2 rounded-pill mt-[5px] shrink-0" style={{ background: SAUDE_COR[s.status] }} />
             <div>
-              <div className="text-[13px] font-medium text-ink">{s.nome}</div>
+              <div className="text-[16px] font-medium text-ink">{s.nome}</div>
               <div className="text-caption text-muted">{s.detalhe}</div>
             </div>
           </div>
@@ -195,7 +195,7 @@ function JobRow({ j, onReplay }: { j: QueueJob; onReplay: () => void }) {
   return (
     <div className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
       <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: JOB_COR[j.status] }} />
-      <span className="text-[13px] text-ink flex-1 truncate">{j.metodo.toUpperCase()} · {j.contraparte ?? "—"}</span>
+      <span className="text-[16px] text-ink flex-1 truncate">{j.metodo.toUpperCase()} · {j.contraparte ?? "—"}</span>
       <span className="text-caption text-faint tabular-nums"><BRL value={j.valor} /></span>
       <span className="text-caption tabular-nums w-[60px] text-right" style={{ color: JOB_COR[j.status] }}>{j.status}</span>
       <span className="text-caption text-faint tabular-nums w-[40px] text-right">{j.tentativas}/{j.maxTentativas}</span>

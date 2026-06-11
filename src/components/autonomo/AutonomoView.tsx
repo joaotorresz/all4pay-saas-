@@ -62,7 +62,7 @@ export function AutonomoView() {
         {nextBestAction && (
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-surface-1 p-3">
             <span className="text-caption font-medium text-faint uppercase tracking-wide">Próxima melhor ação</span>
-            <span className="text-[15px] font-medium text-ink">{nextBestAction.acao}</span>
+            <span className="text-[18px] font-medium text-ink">{nextBestAction.acao}</span>
             <span className="text-caption text-muted">{nextBestAction.impacto}</span>
             <span className="text-caption text-faint ml-auto">confiança {Math.round(nextBestAction.confianca * 100)}%</span>
           </div>
@@ -139,7 +139,7 @@ function DecisaoRow({ d }: { d: FinancialDecision }) {
           <span className="text-caption font-medium rounded-pill px-2 py-[2px]" style={{ background: "var(--color-surface-2)", color: TIPO_COR[d.tipo] }}>
             {TIPO_LABEL[d.tipo]}
           </span>
-          <span className="text-[14px] font-medium text-ink">{d.titulo}</span>
+          <span className="text-[17px] font-medium text-ink">{d.titulo}</span>
           <span className="text-caption font-medium ml-auto" style={{ color: auto ? "var(--color-positive)" : "var(--color-warning)" }}>
             {auto ? "automático" : "requer aprovação"}
           </span>
@@ -161,7 +161,7 @@ function PoliticaRow({ p }: { p: PoliticaAutonoma }) {
     <div className="flex items-start gap-2 rounded-md border border-border-soft p-3">
       <span className="w-2 h-2 rounded-pill mt-[5px] shrink-0" style={{ background: p.disparou ? "var(--color-positive)" : "var(--color-text-tertiary)" }} />
       <div className="min-w-0">
-        <div className="text-[13px] text-ink">
+        <div className="text-[16px] text-ink">
           <span className="text-faint">SE</span> {p.se} <span className="text-faint">ENTÃO</span> {p.entao}
         </div>
         <span className="text-caption text-faint">
@@ -248,7 +248,7 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
         <div className="flex flex-col">
           {linhas.map(({ c, party, tel }) => (
             <div key={c.cliente} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
-              <span className="text-[13px] text-ink flex-1 truncate">{c.cliente}</span>
+              <span className="text-[16px] text-ink flex-1 truncate">{c.cliente}</span>
               <span className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[2px]">{CANAL_LABEL[c.canal]}</span>
               {tel ? (
                 <span className="text-caption tabular-nums w-[150px] truncate text-right" style={{ color: "var(--color-text-secondary)" }}>{tel}</span>
@@ -287,7 +287,7 @@ function RouteRow({ r }: { r: PaymentRoute }) {
   return (
     <div className="flex flex-col gap-[2px] rounded-md border border-border-soft p-3">
       <div className="flex items-baseline justify-between">
-        <span className="text-[14px] font-medium tabular-nums text-ink"><BRL value={r.valor} /></span>
+        <span className="text-[17px] font-medium tabular-nums text-ink"><BRL value={r.valor} /></span>
         <span className="text-caption text-ink">{r.banco}</span>
       </div>
       <span className="text-caption text-faint">{r.contaEscolhida} — {r.motivo}</span>

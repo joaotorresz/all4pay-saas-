@@ -44,7 +44,7 @@ function PeriodTotal({ label, value, color }: { label: string; value: number; co
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[15px] font-medium tabular-nums" style={{ color }}><BRL value={value} /></span>
+      <span className="text-[18px] font-medium tabular-nums" style={{ color }}><BRL value={value} /></span>
     </div>
   );
 }
@@ -121,14 +121,14 @@ export function DailyCashflowChart() {
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: FAINT }}
+                tick={{ fontSize: 13, fill: FAINT }}
                 tickLine={false}
                 axisLine={{ stroke: GRID }}
                 interval="preserveStartEnd"
               />
               <YAxis
                 yAxisId="flow"
-                tick={{ fontSize: 11, fill: FAINT }}
+                tick={{ fontSize: 13, fill: FAINT }}
                 tickLine={false}
                 axisLine={false}
                 width={56}

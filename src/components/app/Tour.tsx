@@ -141,7 +141,7 @@ export function Tour({ steps, onClose }: { steps: GuideItem[]; onClose: () => vo
             <Icon name="x" size={16} color="var(--color-text-secondary)" />
           </button>
         </div>
-        <div className="text-[15px] font-medium text-ink">{step.nome}</div>
+        <div className="text-[18px] font-medium text-ink">{step.nome}</div>
         <p className="m-0 text-caption text-muted leading-snug">{step.desc}</p>
         <div className="flex items-center gap-2 pt-1">
           <button

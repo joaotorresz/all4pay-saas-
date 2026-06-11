@@ -32,7 +32,7 @@ export function Switch({
     <label
       htmlFor={switchId}
       className={cn(
-        "inline-flex items-center gap-[10px] text-[14px] text-ink select-none",
+        "inline-flex items-center gap-[10px] text-[17px] text-ink select-none",
         disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer",
         className,
       )}

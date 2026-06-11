@@ -142,7 +142,7 @@ export function Sidebar({
         {!collapsed && (
           <>
             <span className="text-label text-muted font-regular">Buscar no sistema…</span>
-            <span className="ml-auto text-[11px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">
+            <span className="ml-auto text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">
               ⌘K
             </span>
           </>
@@ -171,7 +171,7 @@ export function Sidebar({
                 <>
                   <span
                     className={cn(
-                      "text-[14px] font-medium truncate",
+                      "text-[17px] font-medium truncate",
                       on ? "text-ink" : "text-muted",
                     )}
                   >
@@ -226,7 +226,7 @@ export function Sidebar({
           const inner = (
             <>
               <Icon name={f.icon} size={17} color="var(--color-text-secondary)" />
-              {!collapsed && <span className="text-[14px] font-medium text-muted">{f.label}</span>}
+              {!collapsed && <span className="text-[17px] font-medium text-muted">{f.label}</span>}
             </>
           );
           return f.href ? (
@@ -248,7 +248,7 @@ export function Sidebar({
                 <div className="text-label font-medium text-ink truncate">
                   Operador Um
                 </div>
-                <div className="text-[11px] text-faint">ops@all4pay.co</div>
+                <div className="text-[13px] text-faint">ops@all4pay.co</div>
               </div>
               {SUPA_CONFIGURED ? (
                 <button

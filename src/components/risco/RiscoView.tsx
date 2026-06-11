@@ -60,7 +60,7 @@ export function RiscoView() {
       <Card className="lg:col-span-1 flex flex-col gap-4">
         <div className="text-label font-medium text-muted">Score de risco de caixa</div>
         <div className="flex items-end gap-3">
-          <span className="text-[52px] leading-none font-medium tabular-nums" style={{ color: NIVEL_COLOR[data.nivel] }}>
+          <span className="text-[62px] leading-none font-medium tabular-nums" style={{ color: NIVEL_COLOR[data.nivel] }}>
             {data.score}
           </span>
           <span className="text-h3 text-faint mb-1">/100</span>
@@ -197,11 +197,11 @@ function Metric({ label, value }: { label: string; value: string }) {
 function Cenario({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="inline-flex items-center gap-2 text-[14px] text-ink">
+      <span className="inline-flex items-center gap-2 text-[17px] text-ink">
         <span className="w-2 h-2 rounded-pill" style={{ background: tone }} />
         {label}
       </span>
-      <span className="text-[14px] font-medium tabular-nums" style={{ color: tone }}>{value}</span>
+      <span className="text-[17px] font-medium tabular-nums" style={{ color: tone }}>{value}</span>
     </div>
   );
 }
@@ -210,7 +210,7 @@ function PilarRow({ c }: { c: PilarResult }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between items-baseline">
-        <span className="text-[14px] text-ink">
+        <span className="text-[17px] text-ink">
           {c.label} <span className="text-caption text-faint">· {Math.round(c.peso * 100)}%</span>
         </span>
         <span className="text-label font-medium tabular-nums" style={{ color: barColor(c.score) }}>{c.score}</span>
@@ -226,7 +226,7 @@ function PilarRow({ c }: { c: PilarResult }) {
 function StressCard({ s }: { s: StressCenario }) {
   return (
     <div className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
-      <span className="text-[14px] font-medium text-ink">{s.label}</span>
+      <span className="text-[17px] font-medium text-ink">{s.label}</span>
       <span className="text-caption text-faint">{s.descricao}</span>
       <div className="flex items-center gap-4 pt-1 tabular-nums">
         <span className="text-label" style={{ color: s.impactoSaldo < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
@@ -246,7 +246,7 @@ function AlertaRow({ a }: { a: Alerta }) {
     <div className="flex gap-[10px]">
       <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: color }} />
       <div>
-        <div className="text-[14px] font-medium text-ink">{a.titulo}</div>
+        <div className="text-[17px] font-medium text-ink">{a.titulo}</div>
         <div className="text-caption text-muted">{a.detalhe}</div>
       </div>
     </div>
@@ -267,8 +267,8 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={9} />
-          <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatBRLCompact(v)} />
+          <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={9} />
+          <YAxis tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => formatBRLCompact(v)} />
           <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="4 3" />
           {rupturaLabel && <ReferenceLine x={rupturaLabel} stroke="var(--color-negative)" strokeWidth={1} />}
           <Tooltip

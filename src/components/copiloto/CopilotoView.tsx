@@ -181,7 +181,7 @@ function InsightsCard({ insights }: { insights: import("@/core/executive/types")
             <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: SEV_COR[i.severidade] }} />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[14px] font-medium text-ink">{i.titulo}</span>
+                <span className="text-[17px] font-medium text-ink">{i.titulo}</span>
                 {i.impactoCentavos > 0 && (
                   <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={i.impactoCentavos / 100} /></span>
                 )}
@@ -239,8 +239,8 @@ function ForecastCard({ forecast }: { forecast: import("@/core/executive/types")
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={forecast.serie} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-            <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => formatBRLCompact(v)} />
+            <XAxis dataKey="label" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+            <YAxis tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => formatBRLCompact(v)} />
             <ReferenceLine y={0} stroke="var(--color-border)" />
             <Tooltip
               cursor={{ fill: "rgba(0,0,0,0.03)" }}

@@ -28,7 +28,7 @@ export function AppShell({
             <div className="text-caption font-medium text-faint mb-1">
               {crumb}
             </div>
-            <h1 className="m-0 text-[29px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink">
+            <h1 className="m-0 text-[35px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink">
               {title}
             </h1>
           </div>

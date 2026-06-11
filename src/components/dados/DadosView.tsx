@@ -56,7 +56,7 @@ export function DadosView() {
           <ResponsiveContainer width="100%" height={200}>
             <RadarChart data={dna.tracos} outerRadius="72%">
               <PolarGrid stroke="var(--color-border-soft)" />
-              <PolarAngleAxis dataKey="nome" tick={{ fontSize: 10, fill: "var(--color-text-secondary)" }} />
+              <PolarAngleAxis dataKey="nome" tick={{ fontSize: 12, fill: "var(--color-text-secondary)" }} />
               <Radar dataKey="valor" stroke="var(--color-ink)" fill="var(--color-ink)" fillOpacity={0.08} strokeWidth={1.4} />
             </RadarChart>
           </ResponsiveContainer>
@@ -87,15 +87,15 @@ export function DadosView() {
       {/* Behavioral + Credit + Treasury */}
       <Card className="lg:col-span-1 flex flex-col gap-3">
         <span className="text-label font-medium text-muted">Modelo comportamental</span>
-        <p className="m-0 text-[13px] text-ink leading-snug">{behavioral.padrao}</p>
+        <p className="m-0 text-[16px] text-ink leading-snug">{behavioral.padrao}</p>
         <div className="flex gap-6">
           <div>
             <div className="text-caption text-faint">Desfecho provável</div>
-            <div className="text-[15px] font-medium text-ink">{behavioral.desfechoProvavel}</div>
+            <div className="text-[18px] font-medium text-ink">{behavioral.desfechoProvavel}</div>
           </div>
           <div>
             <div className="text-caption text-faint">Stress nos pares</div>
-            <div className="text-[15px] font-medium tabular-nums" style={{ color: behavioral.shareStress >= 0.4 ? "var(--color-negative)" : "var(--color-positive)" }}>
+            <div className="text-[18px] font-medium tabular-nums" style={{ color: behavioral.shareStress >= 0.4 ? "var(--color-negative)" : "var(--color-positive)" }}>
               {Math.round(behavioral.shareStress * 100)}%
             </div>
           </div>
@@ -116,11 +116,11 @@ export function DadosView() {
         <div className="flex gap-6 pt-1">
           <div>
             <div className="text-caption text-faint">Prob. inadimplência</div>
-            <div className="text-[15px] font-medium tabular-nums text-ink">{(credito.probabilidadeInadimplencia * 100).toFixed(1)}%</div>
+            <div className="text-[18px] font-medium tabular-nums text-ink">{(credito.probabilidadeInadimplencia * 100).toFixed(1)}%</div>
           </div>
           <div>
             <div className="text-caption text-faint">Confiabilidade</div>
-            <div className="text-[15px] font-medium text-ink">{credito.confiabilidade}</div>
+            <div className="text-[18px] font-medium text-ink">{credito.confiabilidade}</div>
           </div>
         </div>
       </Card>
@@ -173,8 +173,8 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
-            <XAxis dataKey="n" tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} label={{ value: "nº de empresas", position: "insideBottom", offset: -2, fontSize: 10, fill: "var(--color-text-tertiary)" }} />
-            <YAxis domain={[0.6, 1]} tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
+            <XAxis dataKey="n" tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} label={{ value: "nº de empresas", position: "insideBottom", offset: -2, fontSize: 12, fill: "var(--color-text-tertiary)" }} />
+            <YAxis domain={[0.6, 1]} tick={{ fontSize: 13, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={38} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
             <Tooltip
               cursor={{ stroke: "var(--color-border)" }}
               content={({ active, payload, label }: any) =>
@@ -201,7 +201,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-right">
       <div className="text-caption text-faint">{label}</div>
-      <div className="text-[15px] font-medium tabular-nums text-ink">{value}</div>
+      <div className="text-[18px] font-medium tabular-nums text-ink">{value}</div>
     </div>
   );
 }
@@ -211,7 +211,7 @@ function BenchRow({ l }: { l: BenchmarkLinha }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between">
-        <span className="text-[13px] text-ink">{l.metrica}</span>
+        <span className="text-[16px] text-ink">{l.metrica}</span>
         <span className="text-caption text-muted tabular-nums">
           <span className="font-medium" style={{ color: cor }}>{fmtMetric(l.empresa, l.formato)}</span> vs {fmtMetric(l.medianaSetor, l.formato)}
         </span>

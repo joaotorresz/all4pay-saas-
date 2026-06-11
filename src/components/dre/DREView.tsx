@@ -215,13 +215,13 @@ function LinhaRow({ l }: { l: DRELinha }) {
         className={`flex items-center justify-between py-[7px] border-b border-border-soft text-left ${sub ? "bg-surface-1" : ""}`}
         style={{ cursor: hasDrill ? "pointer" : "default" }}
       >
-        <span className={`text-[14px] ${sub ? "font-medium text-ink" : "text-muted"}`}>
+        <span className={`text-[17px] ${sub ? "font-medium text-ink" : "text-muted"}`}>
           {hasDrill && <span className="text-faint mr-1">{open ? "▾" : "▸"}</span>}
           {l.label}
         </span>
         <span className="flex items-baseline gap-3">
           <span className="text-caption text-faint tabular-nums w-[44px] text-right">{sign(l.pctReceita)}{Math.abs(Math.round(l.pctReceita * 100))}%</span>
-          <span className={`text-[14px] tabular-nums font-medium w-[120px] text-right`} style={{ color: cor }}>
+          <span className={`text-[17px] tabular-nums font-medium w-[120px] text-right`} style={{ color: cor }}>
             {sign(l.valor)}<BRL value={Math.abs(l.valor)} />
           </span>
         </span>

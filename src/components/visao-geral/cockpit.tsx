@@ -118,7 +118,7 @@ export function ResumoHojeCard({ ctx }: { ctx: CockpitCtx }) {
           prioridades.map((p) => (
             <div key={p.id} className="flex items-start gap-2">
               <span className="w-[6px] h-[6px] rounded-pill mt-[6px] shrink-0" style={{ background: /crit|alta/i.test(p.severidade) ? NEG : WARN }} />
-              <span className="text-[13px] text-ink">{p.titulo}<span className="text-muted"> — {p.recomendacoes?.[0] ?? p.descricao}</span></span>
+              <span className="text-[16px] text-ink">{p.titulo}<span className="text-muted"> — {p.recomendacoes?.[0] ?? p.descricao}</span></span>
             </div>
           ))
         )}

@@ -67,12 +67,12 @@ export function SalesChart() {
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fontSize: 11, fill: FAINT }}
+                tick={{ fontSize: 13, fill: FAINT }}
                 tickLine={false}
                 axisLine={{ stroke: GRID }}
               />
               <YAxis
-                tick={{ fontSize: 11, fill: FAINT }}
+                tick={{ fontSize: 13, fill: FAINT }}
                 tickLine={false}
                 axisLine={false}
                 width={56}

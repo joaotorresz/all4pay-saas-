@@ -74,15 +74,15 @@ const config: Config = {
         ],
       },
       fontSize: {
-        // size, { lineHeight }  — weights applied per usage (400 / 500)
-        display: ["52px", { lineHeight: "1.0", letterSpacing: "-0.02em" }], // hero money value (Regular)
-        h1: ["40px", { lineHeight: "1.05", letterSpacing: "-0.02em" }], // marketing hero title (Medium)
-        "value-lg": ["32px", { lineHeight: "1.1", letterSpacing: "-0.01em" }], // dashboard balance (Regular)
-        h2: ["28px", { lineHeight: "1.15" }], // section titles (Medium)
-        h3: ["20px", { lineHeight: "1.2" }], // card subtitles
-        body: ["15px", { lineHeight: "1.5" }], // default body
-        label: ["13px", { lineHeight: "1.4", letterSpacing: "0.01em" }], // labels, nav, table headers
-        caption: ["12px", { lineHeight: "1.4" }], // currency prefix, decimals
+        // size, { lineHeight }  — escala +20% aplicada a todo o sistema.
+        display: ["62px", { lineHeight: "1.0", letterSpacing: "-0.02em" }], // hero money value (Regular)
+        h1: ["48px", { lineHeight: "1.05", letterSpacing: "-0.02em" }], // marketing hero title (Medium)
+        "value-lg": ["38px", { lineHeight: "1.1", letterSpacing: "-0.01em" }], // dashboard balance (Regular)
+        h2: ["34px", { lineHeight: "1.15" }], // section titles (Medium)
+        h3: ["24px", { lineHeight: "1.2" }], // card subtitles
+        body: ["18px", { lineHeight: "1.5" }], // default body
+        label: ["16px", { lineHeight: "1.4", letterSpacing: "0.01em" }], // labels, nav, table headers
+        caption: ["14px", { lineHeight: "1.4" }], // currency prefix, decimals
       },
       fontWeight: {
         // Discipline: only two working weights in the app.

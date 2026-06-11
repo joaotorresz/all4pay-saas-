@@ -59,7 +59,7 @@ export function CurrencyInput({
           invalid ? "border-negative" : "border-border",
         )}
       >
-        <span className="text-faint text-[14px]">R$</span>
+        <span className="text-faint text-[17px]">R$</span>
         <input
           id={inputId}
           inputMode="numeric"

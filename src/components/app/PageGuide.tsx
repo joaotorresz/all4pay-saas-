@@ -101,7 +101,7 @@ export function PageGuide() {
                       <div key={j} className="flex gap-3">
                         <span className="w-[6px] h-[6px] rounded-pill bg-lime mt-[7px] shrink-0" />
                         <div>
-                          <div className="text-[14px] font-medium text-ink">{it.nome}</div>
+                          <div className="text-[17px] font-medium text-ink">{it.nome}</div>
                           <div className="text-caption text-muted leading-snug">{it.desc}</div>
                         </div>
                       </div>

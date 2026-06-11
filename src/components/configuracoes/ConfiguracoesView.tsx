@@ -136,7 +136,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
               {participantes.map((p, i) => (
                 <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
                   <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-medium text-ink truncate">{p.nome || "—"}</div>
+                    <div className="text-[17px] font-medium text-ink truncate">{p.nome || "—"}</div>
                     {p.email && <div className="text-caption text-faint truncate">{p.email}</div>}
                   </div>
                   <Badge variant="neutral">{p.funcao}</Badge>
@@ -177,7 +177,7 @@ function Linha({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[14px] text-ink">{value}</span>
+      <span className="text-[17px] text-ink">{value}</span>
     </div>
   );
 }
