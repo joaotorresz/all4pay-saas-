@@ -13,7 +13,6 @@ export type Visao = "previsto" | "realizado" | "consolidado";
 export interface FluxoFiltros {
   periodo: PeriodoId;
   diasCustom: number; // usado quando periodo === "custom"
-  empresa: string; // "todas" ou id
   conta: string; // "todas" ou account id
   regime: Regime;
   visao: Visao;
@@ -36,7 +35,7 @@ export function diasDe(f: FluxoFiltros): number {
 }
 
 const PADRAO: FluxoFiltros = {
-  periodo: "30d", diasCustom: 60, empresa: "todas", conta: "todas",
+  periodo: "30d", diasCustom: 60, conta: "todas",
   regime: "hibrido", visao: "consolidado",
 };
 const KEY = "a4p_fluxo_filtros";

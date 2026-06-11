@@ -13,7 +13,7 @@ import { Header } from "./Header";
 import { useFluxoCaixa, useContas } from "./hooks";
 import type {
   FluxoModelo, FluxoInteligente, PrevRealLinha, DiaCalendario, CrossCheck,
-  ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin, EmpresaConsolidada,
+  ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
 } from "@/core/cashflow";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 
@@ -61,7 +61,6 @@ function Inner() {
           </div>
 
           <Bloco titulo="Eventos Financeiros" icon="network"><EventosView eventos={data.eventos} /></Bloco>
-          <Bloco titulo="Fluxo Consolidado · Holding" icon="layers"><ConsolidadoView empresas={data.consolidado.empresas} intercompany={data.consolidado.intercompany} /></Bloco>
           <Bloco titulo="Confidence Layer" icon="gauge"><ConfidenceView projecoes={data.projecoes} /></Bloco>
           <DigitalTwinView twin={data.twin} />
         </>
@@ -493,34 +492,7 @@ function EventosView({ eventos }: { eventos: EventoFin[] }) {
   );
 }
 
-/* ---------- 12. Consolidado Holding ---------- */
-function ConsolidadoView({ empresas, intercompany }: { empresas: EmpresaConsolidada[]; intercompany: number }) {
-  const total = empresas.reduce((s, e) => s + e.saldo, 0);
-  return (
-    <Card className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {empresas.map((e) => (
-          <div key={e.nome} className="flex flex-col gap-[2px]">
-            <span className="text-caption text-faint">{e.nome}</span>
-            <span className="text-body tabular-nums text-ink"><BRL value={e.saldo} /></span>
-            <span className="text-caption text-faint">{pct(e.share)} do grupo</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-between border-t border-border-soft pt-2">
-        <span className="text-caption text-muted">Intercompany eliminado</span>
-        <span className="text-caption tabular-nums text-muted"><BRL value={intercompany} /></span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-body text-ink font-medium">Fluxo consolidado</span>
-        <span className="text-body tabular-nums text-ink"><BRL value={total} /></span>
-      </div>
-      <span className="text-caption text-faint">Visão de holding (AU Pay · UserFly · Hangar · SPE) — alocação ilustrativa sobre a posição consolidada; a multi-empresa real entra quando cada org for ligada.</span>
-    </Card>
-  );
-}
-
-/* ---------- 13. Confidence Layer ---------- */
+/* ---------- 12. Confidence Layer ---------- */
 function ConfidenceView({ projecoes }: { projecoes: ProjecaoHorizonte[] }) {
   return (
     <Card className="flex flex-col gap-3">
@@ -538,7 +510,7 @@ function ConfidenceView({ projecoes }: { projecoes: ProjecaoHorizonte[] }) {
   );
 }
 
-/* ---------- 14. Digital Twin ---------- */
+/* ---------- 13. Digital Twin ---------- */
 function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas: string[]; inteligencia: string[] }; explicacao: string } }) {
   return (
     <section className="flex flex-col gap-3">

@@ -49,21 +49,8 @@ export function Header({ contas }: { contas: FinancialAccount[] }) {
         )}
       </div>
 
-      {/* Empresa · Conta · Regime · Visão */}
+      {/* Conta · Regime · Visão */}
       <div className="flex flex-wrap items-end gap-3">
-        <Select
-          label="Empresa"
-          value={filtros.empresa}
-          onChange={(v) => set({ empresa: v })}
-          options={[
-            { value: "todas", label: "Todas" },
-            { value: "au-pay", label: "AU Pay" },
-            { value: "userfly", label: "UserFly" },
-            { value: "hangar", label: "Hangar" },
-            { value: "spe", label: "SPE" },
-          ]}
-          containerClassName="min-w-[150px]"
-        />
         <Select
           label="Conta"
           value={filtros.conta}

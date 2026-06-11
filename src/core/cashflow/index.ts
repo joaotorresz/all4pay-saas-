@@ -11,7 +11,6 @@ import { decidir } from "@/core/decision";
 import { preverCaixa } from "@/core/decision/prediction";
 import { centroInteligencia } from "@/core/executive";
 import { financialDRE, periodoPreset } from "@/core/dre";
-import { treasuryCore } from "@/core/treasury";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import type { FinancialAccount } from "@/lib/types";
@@ -75,8 +74,6 @@ export interface Copilot { achados: CopilotAchado[]; sugestoes: string[] }
 
 export interface EventoFin { quando: string; tipo: string; texto: string; valor?: number; tom: "entrada" | "saida" | "neutro" }
 
-export interface EmpresaConsolidada { nome: string; saldo: number; share: number }
-
 export interface TwinFeeds { entradas: string[]; saidas: string[]; inteligencia: string[] }
 
 export interface FluxoModelo {
@@ -93,7 +90,6 @@ export interface FluxoModelo {
   waterfall: WaterfallPasso[];
   copilot: Copilot;
   eventos: EventoFin[];
-  consolidado: { empresas: EmpresaConsolidada[]; intercompany: number };
   twin: { feeds: TwinFeeds; explicacao: string };
   // expostos para blocos interativos (cenários / what-if)
   indicadores: IndicadoresFinanceiros;
@@ -160,7 +156,6 @@ export function montarFluxoCaixa(
   const decisao = decidir(input);
   const centro = centroInteligencia(input);
   const dre = financialDRE(input, periodoPreset(input.hoje, "mes"));
-  const treasury = treasuryCore(contasEscopo.length ? contasEscopo : accounts, input);
 
   const hoje = input.hoje;
   const fim = addDias(hoje, dias);
@@ -331,16 +326,7 @@ export function montarFluxoCaixa(
   }));
   const eventos = [...hojePend, ...recentes].slice(0, 8);
 
-  // ----- Bloco 12: Consolidado holding (ilustrativo) -----
-  const SHARES: { nome: string; w: number }[] = [
-    { nome: "AU Pay", w: 0.46 }, { nome: "UserFly", w: 0.27 }, { nome: "Hangar", w: 0.18 }, { nome: "SPE", w: 0.09 },
-  ];
-  const consolidado = {
-    empresas: SHARES.map((s) => ({ nome: s.nome, saldo: treasury.posicaoTotal * s.w, share: s.w })),
-    intercompany: 0,
-  };
-
-  // ----- Bloco 14: Digital twin -----
+  // ----- Digital twin -----
   const feeds: TwinFeeds = {
     entradas: ["PIX", "Boletos", "Contratos", "Vendas", "Recebíveis", "Assinaturas", "Open Finance"],
     saidas: ["Folha", "Impostos", "Fornecedores", "Financiamentos", "Recorrências", "Cartões", "Despesas operacionais"],
@@ -350,7 +336,7 @@ export function montarFluxoCaixa(
 
   return {
     hoje, diasJanela: dias, resumo, fluxo, prevReal, calendario, crossChecks,
-    projecoes, bandas, heatmap, waterfall, copilot, eventos, consolidado, twin,
+    projecoes, bandas, heatmap, waterfall, copilot, eventos, twin,
     indicadores: quant.indicadores, saldoAtual,
   };
 }
