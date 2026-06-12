@@ -252,3 +252,28 @@ saldo) e D.
 - `invalidateQueries()` após escrita propagando para todas as páginas.
 - Período global da Home dirigindo Fluxo + Faturamento.
 - Live: `party_id` ligando importados ao cadastro (segmentação/cobrança/DRE).
+
+---
+
+## 6. Correções aplicadas (re-investigação)
+
+Status após a sessão de correção. Evidência nos arquivos citados.
+
+| # | Achado | Status | O que mudou |
+|---|---|---|---|
+| A | Seed perde contrapartes após 1 upload | ✅ corrigido | `getRiscoInput` demo resolve `party_id ?? description` e popula `partyNames` com ambos (`src/lib/data.ts`). Seed mantém nomes mesmo com dataset importado. |
+| B | "Confirmar" da Inbox era no-op | ✅ corrigido | `InboxView.confirmar` agora grava: extrato→`aplicarOnboarding`; documento→`analisarDocumento`+`confirmarDocumento`; `qc.invalidateQueries()`. Payload por doc em `payloadRef`. |
+| C | Regime/Visão do Fluxo não faziam nada | ✅ corrigido | `montarFluxoCaixa` recebe `regime`/`visao`; `dataRef` (competência=vencimento/caixa=pagamento/híbrido) + `passaVisao` (previsto/realizado/consolidado) na árvore e no calendário; entram na chave do `useMemo`. |
+| D | OFX na Inbox não importava | ✅ corrigido | doc de extrato guarda o `FDIPReport`; "Confirmar" chama `aplicarOnboarding`. |
+| E | Caixa atual estático em demo | ✅ corrigido | `appendImported` ajusta `account.balance` quando o lançamento é pago (sem dobrar: `summarizeAccounts` usa `account.balance`). Reflete em Saldo total e no Executive Summary. |
+| F | Conta não escopava lançamentos | ✅ corrigido | `RiskMovement.accountId` propagado em `getRiscoInput` (demo+live); `montarFluxoCaixa` filtra `movements` por conta → risco/quant/projeção também escopam. |
+| G | `acc-import` órfão | ✅ corrigido | `appendImported` reatribui o lançamento à 1ª conta real. |
+| H | Waterfall ignorava o período | ✅ corrigido | `financialDRE` recebe `DREFiltro` montado do período (janela retroativa) + regime. |
+| K | Heatmap fixo ~60d | ✅ corrigido | `risco.liquidez.slice(0, min(60, max(7, dias)))`. |
+| I | Contato novo sem telefone | 🟡 por design | segue editável em Contatos; fora do escopo desta correção. |
+| J | Cross-check com flags ilustrativas | 🟡 parcial | depende de tabelas de NF/contratos/recorrências (roadmap). |
+
+**Resultado:** as 3 🔴 e as 🟠 de integridade de dados foram fechadas. O hub
+único `getRiscoInput` agora propaga conta/contraparte/saldo de forma consistente,
+e a Caixa de Entrada deixou de prometer sem gravar — dashboard, fluxo, DRE,
+heatmap, projeção e cenários reagem ao mesmo dado.

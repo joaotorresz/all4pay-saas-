@@ -22,8 +22,10 @@ export function useFluxoCaixa(filtros: FluxoFiltros): {
   const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const dias = diasDe(filtros);
   const data = useMemo(
-    () => (inp.data && acc.data ? montarFluxoCaixa(inp.data, acc.data, { dias, conta: filtros.conta }) : undefined),
-    [inp.data, acc.data, dias, filtros.conta],
+    () => (inp.data && acc.data
+      ? montarFluxoCaixa(inp.data, acc.data, { dias, conta: filtros.conta, regime: filtros.regime, visao: filtros.visao })
+      : undefined),
+    [inp.data, acc.data, dias, filtros.conta, filtros.regime, filtros.visao],
   );
   return { isLoading: inp.isLoading || acc.isLoading, isError: inp.isError || acc.isError, data };
 }

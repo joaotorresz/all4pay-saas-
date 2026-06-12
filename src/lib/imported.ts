@@ -96,18 +96,29 @@ export function appendImported(input: {
     if (!existe) parties = [...parties, input.party];
   }
 
+  // Conta-alvo REAL (evita account_id órfão) e ajuste de saldo quando realizado,
+  // para "Caixa atual"/Saldo total reagirem ao lançamento confirmado.
+  const accounts = base.accounts.map((a) => ({ ...a }));
+  const contaAlvo =
+    accounts.find((a) => a.id === input.movement.account_id) ?? accounts[0];
+  const ajustarSaldo = (type: Movement["type"], amount: number) => {
+    if (contaAlvo) contaAlvo.balance = Math.round((contaAlvo.balance + (type === "entrada" ? amount : -amount)) * 100) / 100;
+  };
+
   let movements = base.movements;
   if (input.baixaDe) {
-    movements = movements.map((m) =>
-      m.id === input.baixaDe
-        ? { ...m, status: "pago", paid_date: input.movement.paid_date ?? input.movement.due_date, reconciled: true }
-        : m,
-    );
+    movements = movements.map((m) => {
+      if (m.id !== input.baixaDe) return m;
+      ajustarSaldo(m.type, m.amount); // dar baixa realiza o pendente → mexe no saldo
+      return { ...m, status: "pago", paid_date: input.movement.paid_date ?? input.movement.due_date, reconciled: true };
+    });
   } else {
-    movements = [input.movement, ...movements];
+    const mov: Movement = { ...input.movement, account_id: contaAlvo?.id ?? input.movement.account_id };
+    if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
+    movements = [mov, ...movements];
   }
 
-  setImported({ ...base, movements, parties });
+  setImported({ ...base, movements, accounts, parties });
 }
 
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */

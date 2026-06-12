@@ -10,7 +10,7 @@ import { analisarQuantitativo } from "@/core/quant";
 import { decidir } from "@/core/decision";
 import { preverCaixa } from "@/core/decision/prediction";
 import { centroInteligencia } from "@/core/executive";
-import { financialDRE, periodoPreset } from "@/core/dre";
+import { financialDRE } from "@/core/dre";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import type { FinancialAccount } from "@/lib/types";
@@ -135,37 +135,63 @@ const ehInvestimento = (m: RiskMovement) => /investimento|aplica[cç]|cdb|aquisi
 const ehFinanciamento = (m: RiskMovement) => /financiamento|empr[eé]stimo|parcela banc/.test(`${m.category ?? ""}`.toLowerCase());
 
 // ---------- Assembler ----------
+export type RegimeFluxo = "competencia" | "caixa" | "hibrido";
+export type VisaoFluxo = "previsto" | "realizado" | "consolidado";
+
 export function montarFluxoCaixa(
   inputRaw: RiskInput,
   accounts: FinancialAccount[],
-  opts: { dias: number; conta?: string },
+  opts: { dias: number; conta?: string; regime?: RegimeFluxo; visao?: VisaoFluxo },
 ): FluxoModelo {
   const dias = Math.max(1, opts.dias);
-  // Escopo por conta: ajusta saldo/tesouraria (movements não trazem account_id).
-  const contasEscopo = opts.conta && opts.conta !== "todas"
-    ? accounts.filter((a) => a.id === opts.conta)
-    : accounts;
-  const saldoAtual = opts.conta && opts.conta !== "todas"
-    ? (contasEscopo[0]?.balance ?? inputRaw.saldoAtual)
-    : inputRaw.saldoAtual;
-  const input: RiskInput = { ...inputRaw, saldoAtual, horizonDias: Math.min(365, Math.max(60, dias)) };
+  const regime: RegimeFluxo = opts.regime ?? "hibrido";
+  const visao: VisaoFluxo = opts.visao ?? "consolidado";
+  const escopoConta = !!opts.conta && opts.conta !== "todas";
+
+  // Escopo por conta: ajusta saldo E filtra os lançamentos da conta (accountId).
+  const contasEscopo = escopoConta ? accounts.filter((a) => a.id === opts.conta) : accounts;
+  const saldoAtual = escopoConta ? (contasEscopo[0]?.balance ?? inputRaw.saldoAtual) : inputRaw.saldoAtual;
+  const movsConta = escopoConta ? inputRaw.movements.filter((m) => m.accountId === opts.conta) : inputRaw.movements;
+  const input: RiskInput = { ...inputRaw, movements: movsConta, saldoAtual, horizonDias: Math.min(365, Math.max(60, dias)) };
 
   // Motores (1 execução cada).
   const risco = scoreRiscoCaixa(input);
   const quant = analisarQuantitativo(input);
   const decisao = decidir(input);
   const centro = centroInteligencia(input);
-  const dre = financialDRE(input, periodoPreset(input.hoje, "mes"));
-
   const hoje = input.hoje;
   const fim = addDias(hoje, dias);
   const movs = input.movements;
-  const naJanela = (m: RiskMovement) => m.due_date >= hoje && m.due_date <= fim && m.status !== "cancelado";
+
+  // Waterfall (DRE) reflete o período selecionado (janela retroativa) + regime.
+  const dre = financialDRE(input, {
+    regime: regime === "caixa" ? "caixa" : "competencia",
+    de: addDias(hoje, -dias),
+    ate: hoje,
+    periodoLabel: `Últimos ${dias} dias`,
+  });
+
+  // Data de referência por regime: competência=vencimento, caixa=pagamento,
+  // híbrido=pago pela data de pagamento e pendente pelo vencimento.
+  const dataRef = (m: RiskMovement) =>
+    regime === "caixa" ? (m.paid_date ?? m.due_date)
+      : regime === "competencia" ? m.due_date
+        : (m.status === "pago" ? (m.paid_date ?? m.due_date) : m.due_date);
+  // Visão: previsto=pendente, realizado=pago, consolidado=ambos.
+  const passaVisao = (m: RiskMovement) =>
+    visao === "previsto" ? m.status === "pendente"
+      : visao === "realizado" ? m.status === "pago"
+        : m.status !== "cancelado";
+  const noPeriodo = (m: RiskMovement) => { const d = dataRef(m); return d >= hoje && d <= fim && m.status !== "cancelado"; };
+  const naJanela = (m: RiskMovement) => noPeriodo(m) && passaVisao(m);
 
   // ----- Bloco 1: Resumo executivo -----
+  // "Previstas" são sempre o que está PENDENTE com vencimento na janela
+  // (independente da visão; a visão muda a árvore/calendário, não os KPIs forward).
   const pend = movs.filter((m) => m.status === "pendente");
-  const entradasPrevistas = pend.filter((m) => m.type === "entrada" && naJanela(m)).reduce((s, m) => s + m.amount, 0);
-  const saidasPrevistas = pend.filter((m) => m.type === "saida" && naJanela(m)).reduce((s, m) => s + m.amount, 0);
+  const venceNaJanela = (m: RiskMovement) => m.due_date >= hoje && m.due_date <= fim;
+  const entradasPrevistas = pend.filter((m) => m.type === "entrada" && venceNaJanela(m)).reduce((s, m) => s + m.amount, 0);
+  const saidasPrevistas = pend.filter((m) => m.type === "saida" && venceNaJanela(m)).reduce((s, m) => s + m.amount, 0);
   const resumo: ResumoExecutivo = {
     caixaAtual: saldoAtual,
     entradasPrevistas,
@@ -234,8 +260,9 @@ export function montarFluxoCaixa(
   const calendario: DiaCalendario[] = [];
   for (let i = 0; i < diasCal; i++) {
     const d = addDias(hoje, i);
-    const recebe = movs.filter((m) => m.type === "entrada" && m.due_date === d && m.status !== "cancelado").reduce((s, m) => s + m.amount, 0);
-    const paga = movs.filter((m) => m.type === "saida" && m.due_date === d && m.status !== "cancelado").reduce((s, m) => s + m.amount, 0);
+    const noDia = (m: RiskMovement) => dataRef(m) === d && passaVisao(m) && m.status !== "cancelado";
+    const recebe = movs.filter((m) => m.type === "entrada" && noDia(m)).reduce((s, m) => s + m.amount, 0);
+    const paga = movs.filter((m) => m.type === "saida" && noDia(m)).reduce((s, m) => s + m.amount, 0);
     calendario.push({ date: d, label: rotuloDia(d), recebe, paga, saldo: recebe - paga });
   }
 
@@ -283,7 +310,8 @@ export function montarFluxoCaixa(
   const bandas: BandaProj[] = preverCaixa(features, hoje, Hgraf, 300).bandas.map((b) => ({ dia: b.dia, data: b.data, p10: b.p10, p50: b.p50, p90: b.p90 }));
 
   // ----- Bloco 7: Heatmap financeiro -----
-  const heatmap: DiaHeat[] = risco.liquidez.slice(0, 60).map((p) => {
+  const nHeat = Math.min(60, Math.max(7, dias));
+  const heatmap: DiaHeat[] = risco.liquidez.slice(0, nHeat).map((p) => {
     const buffer = risco.burn.burnMensal || Math.abs(saidasPrevistas) || 1;
     const nivel: DiaHeat["nivel"] = p.ruptura || p.saldo < 0 ? "vermelho" : p.saldo < buffer ? "amarelo" : "verde";
     return { date: p.date, label: p.label, saldo: p.saldo, nivel };

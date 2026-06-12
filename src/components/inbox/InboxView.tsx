@@ -1,11 +1,18 @@
 "use client";
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Button } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { analisarImportacao } from "@/core/fdip";
 import { ocrLocalImagem, ocrLocalPdf } from "@/lib/ocr-local";
+import { aplicarOnboarding } from "@/lib/fdip";
+import { listParties } from "@/lib/cadastros";
+import { getOpenMovements } from "@/lib/data";
+import { analisarDocumento, confirmarDocumento, type DocFields } from "@/lib/upload-doc";
+import type { FDIPReport } from "@/core/fdip/types";
+import type { Party, Movement } from "@/lib/types";
 import {
   DEMO_INBOX, INBOX_CANAIS, STATUS_META,
   type InboxDoc, type DocStatus,
@@ -35,10 +42,15 @@ const confColor = (c: number) => (c >= 0.95 ? "var(--color-positive)" : c >= 0.8
 
 export function InboxView() {
   const { show, node } = useToast();
+  const qc = useQueryClient();
   const [docs, setDocs] = React.useState<InboxDoc[]>(DEMO_INBOX);
   const [selId, setSelId] = React.useState<string>(DEMO_INBOX[0]?.id ?? "");
   const [drag, setDrag] = React.useState(false);
+  const [gravando, setGravando] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  // Payload por documento p/ a confirmação gravar de verdade: extrato (FDIP) ou
+  // campos extraídos (OCR). Demo seed cai no fieldsFromDoc.
+  const payloadRef = React.useRef(new Map<string, { report?: FDIPReport; fields?: DocFields }>());
 
   const [ocrOn, setOcrOn] = React.useState<boolean | null>(null);
 
@@ -70,6 +82,7 @@ export function InboxView() {
             crossCheck: `${rep.records.length} lançamentos lidos · ${rep.entidades.length} contrapartes · ${rep.plano.categorias.length} categorias detectadas.`,
             matriz: [{ campo: "Documento", confianca: 0.95 }, { campo: "Lançamentos", confianca: 0.9 }],
           };
+          payloadRef.current.set(id, { report: rep }); // confirmar → aplicarOnboarding
         } else if ((isImg || isPdf) && ocrOn) {
           // OCR real via visão do Claude (Anthropic).
           const { data, mediaType } = await lerArquivo(f, isImg && !isPdf);
@@ -94,6 +107,7 @@ export function InboxView() {
                 ? (ex.campos as { campo: string; confianca: number }[]).map((c) => ({ campo: c.campo, confianca: c.confianca }))
                 : [{ campo: "Documento", confianca: conf }],
             };
+            payloadRef.current.set(id, { fields: fieldsFromEx(ex, conf) });
           } else {
             doc = placeholder(id, f, today, `OCR não concluiu: ${r.reason ?? "erro"}.`);
           }
@@ -116,6 +130,7 @@ export function InboxView() {
               ? ex.campos.map((c) => ({ campo: c.campo, confianca: c.confianca }))
               : [{ campo: "Documento", confianca: ex.confianca }],
           };
+          payloadRef.current.set(id, { fields: ex as unknown as DocFields });
         }
       } catch { /* cai no placeholder */ }
 
@@ -136,9 +151,33 @@ export function InboxView() {
     if (e.dataTransfer.files?.length) ingerir(e.dataTransfer.files);
   };
 
-  const confirmar = (d: InboxDoc) => {
-    setDocs((ds) => ds.map((x) => (x.id === d.id ? { ...x, status: "processado" } : x)));
-    show("Confirmado — atualizou contas, fluxo, DRE, tesouraria e o resto do ecossistema");
+  const confirmar = async (d: InboxDoc) => {
+    setGravando(true);
+    try {
+      const p = payloadRef.current.get(d.id);
+      if (p?.report) {
+        // Extrato OFX/CSV → onboarding (cria entidades/categorias/lançamentos).
+        await aplicarOnboarding(p.report);
+      } else {
+        // Documento (boleto/comprovante/nota) → análise + gravação do lançamento,
+        // com cross-check do beneficiário e baixa de agendado.
+        const fields = p?.fields ?? fieldsFromDoc(d);
+        const [parties, aPagar, aReceber] = await Promise.all([
+          listParties().catch(() => [] as Party[]),
+          getOpenMovements("saida").catch(() => [] as Movement[]),
+          getOpenMovements("entrada").catch(() => [] as Movement[]),
+        ]);
+        const analise = analisarDocumento(fields, parties, [...aPagar, ...aReceber]);
+        await confirmarDocumento({ analise, criarContato: !!d.novoBeneficiario });
+      }
+      await qc.invalidateQueries();
+      setDocs((ds) => ds.map((x) => (x.id === d.id ? { ...x, status: "processado" } : x)));
+      show("Confirmado e lançado — reflete em contas, fluxo, DRE, tesouraria e dashboard");
+    } catch {
+      show("Não consegui processar este documento — revise os campos e tente de novo");
+    } finally {
+      setGravando(false);
+    }
   };
 
   return (
@@ -284,7 +323,7 @@ export function InboxView() {
             {sel.status === "processado" ? (
               <span className="inline-flex items-center gap-1 text-caption font-medium text-positive"><Icon name="check" size={14} color="var(--color-positive)" /> Processado</span>
             ) : (
-              <Button variant="primary" size="sm" onClick={() => confirmar(sel)}>Confirmar e processar</Button>
+              <Button variant="primary" size="sm" disabled={gravando} onClick={() => confirmar(sel)}>{gravando ? "Processando…" : "Confirmar e processar"}</Button>
             )}
           </div>
         </Card>
@@ -351,6 +390,34 @@ async function lerArquivo(file: File, downscale: boolean): Promise<{ data: strin
     const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file);
   });
   return { data, mediaType: file.type || "application/octet-stream" };
+}
+
+/** DocFields a partir do retorno do OCR por IA (Claude). */
+function fieldsFromEx(ex: Record<string, unknown>, conf: number): DocFields {
+  return {
+    tipo: (ex.tipo as string) || "Documento",
+    beneficiario: (ex.beneficiario as string) ?? null,
+    pagador: (ex.pagador as string) ?? null,
+    valor: ex.valor != null ? Number(ex.valor) : null,
+    data: (ex.data as string) ?? null,
+    vencimento: (ex.vencimento as string) ?? null,
+    cnpj: (ex.cnpj as string) ?? null,
+    cpf: (ex.cpf as string) ?? null,
+    acaoTipo: (ex.acaoTipo as DocFields["acaoTipo"]) ?? null,
+    acao: (ex.acao as string) ?? null,
+    categoria: (ex.categoria as string) ?? null,
+    confianca: conf,
+  };
+}
+
+/** DocFields a partir de um InboxDoc (demo seed / sem payload). */
+function fieldsFromDoc(d: InboxDoc): DocFields {
+  return {
+    tipo: d.tipo, beneficiario: d.beneficiario, pagador: null,
+    valor: d.valor, data: d.data, vencimento: d.vencimento ?? null,
+    cnpj: null, cpf: null, acaoTipo: d.acaoTipo, acao: d.acao,
+    categoria: d.categoria ?? null, confianca: d.confianca,
+  };
 }
 
 /** Cross-check do OCR local (Tesseract) — sinaliza a menor precisão + o que leu. */

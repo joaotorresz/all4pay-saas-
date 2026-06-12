@@ -323,7 +323,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Dados importados (FDIP) já vêm com party_id = contraparteNorm e um cadastro
     // de parties; o seed determinístico usa a descrição como rótulo da contraparte.
     const imp = importedMovements();
-    const usandoImport = !!imp;
+    // Resolve a contraparte por party_id (cadastro) OU pela descrição (seed).
+    // Assim o seed NÃO perde os nomes quando um upload cria o dataset importado.
     const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
       id: m.id,
       type: m.type,
@@ -331,18 +332,18 @@ export async function getRiscoInput(): Promise<RiskInput> {
       amount: m.amount,
       due_date: m.due_date,
       paid_date: m.paid_date,
-      party_id: usandoImport ? (m.party_id ?? null) : (m.description ?? null),
+      party_id: m.party_id ?? m.description ?? null,
+      accountId: m.account_id ?? null,
       category: m.category,
       costCenter: demoCostCenter(m.category),
     }));
     const partyNames: Record<string, string> = {};
-    if (usandoImport) {
-      for (const p of importedParties() ?? []) partyNames[p.id] = p.name;
-    } else {
-      movements.forEach((m) => {
-        if (m.party_id) partyNames[m.party_id] = m.party_id;
-      });
-    }
+    // Parties cadastradas (import) ganham o nome real…
+    for (const p of importedParties() ?? []) partyNames[p.id] = p.name;
+    // …e qualquer contraparte vinda da descrição (seed) mapeia para si mesma.
+    movements.forEach((m) => {
+      if (m.party_id && !partyNames[m.party_id]) partyNames[m.party_id] = m.party_id;
+    });
     return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
   }
 
@@ -352,7 +353,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     supabase
       .from("movements")
       .select(
-        "id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)",
+        "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)",
       ),
     supabase.from("parties").select("id,name"),
   ]);
@@ -372,6 +373,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     due_date: m.due_date,
     paid_date: m.paid_date,
     party_id: m.party_id ?? null,
+    accountId: m.account_id ?? null,
     // categoria real (nome do cadastro) tem prioridade sobre o texto livre
     category: embedName(m.categoria) ?? m.category,
     costCenter: embedName(m.centro),

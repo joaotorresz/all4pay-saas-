@@ -20,6 +20,8 @@ export interface RiskMovement {
   paid_date?: string | null;
   party_id?: string | null;
   category?: string | null;
+  /** Conta financeira de origem (quando houver) — escopa filtros por conta. */
+  accountId?: string | null;
   /** Nome do centro de custo (resolvido do cadastro), quando houver. */
   costCenter?: string | null;
 }
