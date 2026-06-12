@@ -147,6 +147,15 @@ export function liquidarImported(ids: string[], accountId: string, paidISO: stri
   return { liquidados, total };
 }
 
+/** Remove movimentos do dataset importado (ex.: faturas projetadas de uma
+ *  recorrência cancelada/pausada saem do fluxo previsto). */
+export function removerImported(ids: string[]): void {
+  const ds = load();
+  if (!ds || !ids.length) return;
+  const alvo = new Set(ids);
+  setImported({ ...ds, movements: ds.movements.filter((m) => !alvo.has(m.id)) });
+}
+
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
 export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
   const ds = load();
