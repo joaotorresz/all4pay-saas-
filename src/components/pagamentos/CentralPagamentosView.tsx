@@ -5,7 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Button, Select, Input } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
+import Link from "next/link";
 import { pagarLote, itemDe, type MetodoPagamento, type ItemPagamento } from "@/lib/pagamentos";
+import { requerAlcada, estaAutorizado } from "@/lib/aprovacoes";
 import { usePagaveis, useContasPag, usePartiesPag } from "./hooks";
 import type { Movement, Party, FinancialAccount } from "@/lib/types";
 
@@ -74,6 +76,8 @@ export function CentralPagamentosView() {
     return Array.from(map.values()).sort((a, b) => a.itens[0].due_date.localeCompare(b.itens[0].due_date));
   }, [itens, agrupar]);
 
+  // Gate de alçada: títulos acima do limite só executam com aprovação liberada.
+  const bloqueado = (it: ItemPagamento) => requerAlcada(it.amount) && !estaAutorizado(it.id, it.amount);
   const selItens = itens.filter((it) => sel.has(it.id));
   const selTotal = selItens.reduce((s, it) => s + it.amount, 0);
 
@@ -153,20 +157,34 @@ export function CentralPagamentosView() {
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-body tabular-nums text-ink"><BRL value={total} /></span>
-                <Button variant="primary" size="sm" onClick={() => setConfirmar(g.itens)}>Pagar lote via Pix</Button>
+                {(() => {
+                  const pagaveis = g.itens.filter((it) => !bloqueado(it));
+                  const travados = g.itens.length - pagaveis.length;
+                  return (
+                    <div className="flex items-center gap-2">
+                      {travados > 0 && <span className="text-caption text-warning">{travados} aguardando aprovação</span>}
+                      <Button variant="primary" size="sm" disabled={!pagaveis.length} onClick={() => setConfirmar(pagaveis)}>Pagar lote via Pix</Button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
             <div className="flex flex-col">
               {g.itens.map((it) => {
                 const on = sel.has(it.id);
+                const trava = bloqueado(it);
                 return (
-                  <div key={it.id} className="grid grid-cols-[24px_1.6fr_0.9fr_1.1fr_0.9fr] gap-3 items-center px-5 py-[10px] border-t border-border-soft first:border-t-0">
-                    <button onClick={() => toggle(it.id)} className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-sm border" style={{ borderColor: on ? "var(--color-ink)" : "var(--color-border)", background: on ? "var(--color-ink)" : "transparent" }} aria-label="Selecionar">
-                      {on && <Icon name="check" size={12} color="#ffffff" />}
-                    </button>
+                  <div key={it.id} className={`grid grid-cols-[24px_1.6fr_0.9fr_1.1fr_0.9fr] gap-3 items-center px-5 py-[10px] border-t border-border-soft first:border-t-0 ${trava ? "opacity-70" : ""}`}>
+                    {trava ? (
+                      <Link href="/aprovacoes" title="Acima da alçada — requer aprovação" className="inline-flex items-center justify-center w-[18px] h-[18px]"><Icon name="shield-check" size={14} color="var(--color-warning)" /></Link>
+                    ) : (
+                      <button onClick={() => toggle(it.id)} className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-sm border" style={{ borderColor: on ? "var(--color-ink)" : "var(--color-border)", background: on ? "var(--color-ink)" : "transparent" }} aria-label="Selecionar">
+                        {on && <Icon name="check" size={12} color="#ffffff" />}
+                      </button>
+                    )}
                     <span className="text-[14px] text-ink truncate">{it.beneficiario}</span>
                     <span className="text-caption text-muted tabular-nums">{fmtDia(it.due_date)}</span>
-                    <span className="text-caption text-faint truncate">{it.category ?? "—"}</span>
+                    <span className="text-caption text-faint truncate">{trava ? <Link href="/aprovacoes" className="text-warning underline">requer aprovação</Link> : (it.category ?? "—")}</span>
                     <span className="text-caption text-ink tabular-nums text-right"><BRL value={it.amount} /></span>
                   </div>
                 );

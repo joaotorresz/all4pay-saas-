@@ -33,9 +33,8 @@ const GROUPS: Group[] = [
     id: "pagar", label: "Pagar", icon: "arrow-up-right", children: [
       { label: "A pagar", href: "/pagaveis" },
       { label: "Central de pagamentos", href: "/pagamentos" }, // execução em lote
-
-      { label: "Reembolsos", soon: true },
-      { label: "Solicitações & aprovações", soon: true },
+      { label: "Solicitações & aprovações", href: "/aprovacoes" }, // gate de alçada
+      { label: "Reembolsos", href: "/reembolsos" }, // caso especializado
     ],
   },
   {
