@@ -121,6 +121,32 @@ export function appendImported(input: {
   setImported({ ...base, movements, accounts, parties });
 }
 
+/**
+ * Liquida (paga) N movimentos de saída pendentes — usado pela Central de
+ * Pagamentos. Marca pago + paid_date e DEBITA o saldo da conta de saída.
+ * Parte do snapshot do seed se ainda não há dataset importado.
+ */
+export function liquidarImported(ids: string[], accountId: string, paidISO: string): { liquidados: number; total: number } {
+  const base: ImportedDataset = load() ?? {
+    movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+    criadoEm: new Date().toISOString(),
+  };
+  const alvo = new Set(ids);
+  const accounts = base.accounts.map((a) => ({ ...a }));
+  const conta = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  let total = 0, liquidados = 0;
+  const movements = base.movements.map((m) => {
+    if (alvo.has(m.id) && m.type === "saida" && m.status === "pendente") {
+      total += m.amount; liquidados++;
+      return { ...m, status: "pago", paid_date: paidISO, reconciled: true } as Movement;
+    }
+    return m;
+  });
+  if (conta && total > 0) conta.balance = Math.round((conta.balance - total) * 100) / 100;
+  setImported({ ...base, movements, accounts });
+  return { liquidados, total };
+}
+
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
 export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
   const ds = load();

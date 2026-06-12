@@ -33,7 +33,8 @@ const GROUPS: Group[] = [
     id: "pagar", label: "Pagar", icon: "arrow-up-right", children: [
       { label: "Caixa de entrada", href: "/upload" }, // funil de contas a pagar (Inbox)
       { label: "A pagar", href: "/pagaveis" },
-      { label: "Central de pagamentos", soon: true },
+      { label: "Central de pagamentos", href: "/pagamentos" }, // execução em lote
+
       { label: "Reembolsos", soon: true },
       { label: "Solicitações & aprovações", soon: true },
     ],
