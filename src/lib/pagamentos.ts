@@ -97,3 +97,18 @@ export async function pagarLote(
 export function itemDe(m: Movement, nome: string): ItemPagamento {
   return { id: m.id, amount: m.amount, beneficiario: nome, due_date: m.due_date, category: m.category };
 }
+
+// ---- Comprovantes anexados na liquidação (demo: localStorage por movement) ----
+const KEY_COMP = "a4p_comprovantes";
+function loadComp(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try { return JSON.parse(localStorage.getItem(KEY_COMP) || "{}"); } catch { return {}; }
+}
+export function anexarComprovante(movId: string, nome: string): void {
+  if (typeof window === "undefined") return;
+  const m = loadComp(); m[movId] = nome;
+  try { localStorage.setItem(KEY_COMP, JSON.stringify(m)); } catch { /* ignore */ }
+}
+export function comprovanteDe(movId: string): string | null {
+  return loadComp()[movId] ?? null;
+}
