@@ -14,8 +14,8 @@ import { analisarDocumento, confirmarDocumento, type DocFields } from "@/lib/upl
 import type { FDIPReport } from "@/core/fdip/types";
 import type { Party, Movement } from "@/lib/types";
 import {
-  DEMO_INBOX, INBOX_CANAIS, STATUS_META,
-  type InboxDoc, type DocStatus,
+  DEMO_INBOX, INBOX_CANAIS, STATUS_META, ABAS, abaDe,
+  type InboxDoc, type DocStatus, type AbaId,
 } from "@/lib/inbox";
 
 const EMAIL = "financeiro@suaempresa.all4pay.com";
@@ -47,6 +47,7 @@ export function InboxView() {
   const [selId, setSelId] = React.useState<string>(DEMO_INBOX[0]?.id ?? "");
   const [drag, setDrag] = React.useState(false);
   const [gravando, setGravando] = React.useState(false);
+  const [aba, setAba] = React.useState<AbaId>("pendentes");
   const inputRef = React.useRef<HTMLInputElement>(null);
   // Payload por documento p/ a confirmação gravar de verdade: extrato (FDIP) ou
   // campos extraídos (OCR). Demo seed cai no fieldsFromDoc.
@@ -55,6 +56,7 @@ export function InboxView() {
   const [ocrOn, setOcrOn] = React.useState<boolean | null>(null);
 
   const sel = docs.find((d) => d.id === selId) ?? docs[0];
+  const abaDocs = docs.filter((d) => abaDe(d.status) === aba);
 
   React.useEffect(() => {
     fetch("/api/inbox/ocr").then((r) => r.json()).then((j) => setOcrOn(!!j.configured)).catch(() => setOcrOn(false));
@@ -142,6 +144,7 @@ export function InboxView() {
       }
       setDocs((d) => [doc as InboxDoc, ...d]);
       setSelId(id);
+      setAba(abaDe((doc as InboxDoc).status));
     }
     show(`${arr.length} documento(s) na caixa de entrada`);
   };
@@ -171,13 +174,19 @@ export function InboxView() {
         await confirmarDocumento({ analise, criarContato: !!d.novoBeneficiario });
       }
       await qc.invalidateQueries();
-      setDocs((ds) => ds.map((x) => (x.id === d.id ? { ...x, status: "processado" } : x)));
-      show("Confirmado e lançado — reflete em contas, fluxo, DRE, tesouraria e dashboard");
+      setDocs((ds) => ds.map((x) => (x.id === d.id ? { ...x, status: "lancado" } : x)));
+      setAba("lancados");
+      show("Lançado — virou movimento de saída e reflete em /pagaveis, fluxo, DRE, risco e dashboard");
     } catch {
-      show("Não consegui processar este documento — revise os campos e tente de novo");
+      show("Não consegui lançar este documento — revise os campos e tente de novo");
     } finally {
       setGravando(false);
     }
+  };
+
+  const arquivar = (d: InboxDoc) => {
+    setDocs((ds) => ds.map((x) => (x.id === d.id ? { ...x, status: "arquivado" } : x)));
+    show("Documento arquivado");
   };
 
   return (
@@ -229,28 +238,54 @@ export function InboxView() {
         </div>
       </Card>
 
-      {/* Inbox list */}
-      <Card padded={false} className="lg:col-span-1">
-        <div className="px-5 pt-[18px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Caixa de entrada</span>
-          <span className="text-caption text-faint">{docs.length}</span>
+      {/* Fila — abas + colunas */}
+      <Card padded={false} className="lg:col-span-3">
+        {/* Abas */}
+        <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
+          {ABAS.map((a) => {
+            const n = docs.filter((d) => abaDe(d.status) === a.id).length;
+            const on = aba === a.id;
+            return (
+              <button
+                key={a.id}
+                onClick={() => setAba(a.id)}
+                className={`relative inline-flex items-center gap-2 px-3 py-2 text-caption transition-colors ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}
+              >
+                {a.label}
+                <span className="text-[12px] tabular-nums text-faint bg-surface-2 rounded-pill px-[6px]">{n}</span>
+                {on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex flex-col max-h-[560px] overflow-y-auto">
-          {docs.map((d) => {
+        {/* Cabeçalho de colunas */}
+        <div className="hidden md:grid grid-cols-[1.6fr_0.9fr_0.9fr_1.1fr_0.9fr_1fr_60px] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
+          <span>Beneficiário</span><span>Vencimento</span><span className="text-right">Valor a pagar</span>
+          <span>Classificação</span><span>Origem</span><span>Situação</span><span className="text-right">Anexos</span>
+        </div>
+        {/* Linhas */}
+        <div className="flex flex-col max-h-[460px] overflow-y-auto">
+          {abaDocs.length === 0 ? (
+            <p className="text-caption text-faint text-center py-8">Nenhum documento nesta aba.</p>
+          ) : abaDocs.map((d) => {
             const st = STATUS_META[d.status];
             const on = d.id === sel?.id;
             return (
               <button
                 key={d.id}
                 onClick={() => setSelId(d.id)}
-                className={`flex items-start gap-3 px-5 py-3 text-left border-t border-border-soft first:border-t-0 ${on ? "bg-surface-2" : "hover:bg-surface-1"}`}
+                className={`grid grid-cols-[1.6fr_0.9fr_0.9fr_1.1fr_0.9fr_1fr_60px] gap-3 items-center px-5 py-3 text-left border-t border-border-soft first:border-t-0 ${on ? "bg-surface-2" : "hover:bg-surface-1"}`}
               >
-                <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: st.dot }} title={st.label} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14px] text-ink truncate">{d.beneficiario}</div>
-                  <div className="text-caption text-faint truncate">{d.tipo} · {d.canal} · {st.label}</div>
-                </div>
-                {d.valor > 0 && <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={d.valor} /></span>}
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: st.dot }} />
+                  <span className="text-[14px] text-ink truncate">{d.beneficiario}</span>
+                </span>
+                <span className="text-caption text-muted tabular-nums">{d.vencimento ? fmt(d.vencimento) : "—"}</span>
+                <span className="text-caption text-ink tabular-nums text-right">{d.valor > 0 ? <BRL value={d.valor} /> : "—"}</span>
+                <span className="text-caption text-muted truncate">{d.categoria ?? d.tipo}</span>
+                <span className="text-caption text-faint truncate">{d.canal}</span>
+                <span className="text-caption text-muted truncate">{st.label}</span>
+                <span className="text-caption text-faint tabular-nums text-right inline-flex items-center justify-end gap-1"><Icon name="paperclip" size={12} color="var(--color-text-tertiary)" />1</span>
               </button>
             );
           })}
@@ -259,7 +294,7 @@ export function InboxView() {
 
       {/* Workbench do documento selecionado */}
       {sel && (
-        <Card className="lg:col-span-2 flex flex-col gap-4">
+        <Card className="lg:col-span-3 flex flex-col gap-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Icon name="paperclip" size={15} color="var(--color-text-secondary)" />
@@ -319,12 +354,23 @@ export function InboxView() {
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-border-soft pt-3 flex-wrap">
-            <span className="text-caption text-faint">Ao confirmar, o documento alimenta todo o ecossistema (contas, fluxo, DRE, tesouraria, forecast…).</span>
-            {sel.status === "processado" ? (
-              <span className="inline-flex items-center gap-1 text-caption font-medium text-positive"><Icon name="check" size={14} color="var(--color-positive)" /> Processado</span>
-            ) : (
-              <Button variant="primary" size="sm" disabled={gravando} onClick={() => confirmar(sel)}>{gravando ? "Processando…" : "Confirmar e processar"}</Button>
-            )}
+            <span className="text-caption text-faint">Ao lançar, vira <b className="text-muted font-medium">movimento de saída</b> no hub e reflete em /pagaveis, fluxo, DRE, risco e dashboard.</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {abaDe(sel.status) === "lancados" ? (
+                <>
+                  <span className="inline-flex items-center gap-1 text-caption font-medium text-positive"><Icon name="check" size={14} color="var(--color-positive)" /> Lançado</span>
+                  <span className="text-caption text-faint bg-surface-2 rounded-pill px-3 py-1 cursor-not-allowed opacity-60" title="Em breve">Pagar via Pix</span>
+                  <span className="text-caption text-faint bg-surface-2 rounded-pill px-3 py-1 cursor-not-allowed opacity-60" title="Em breve">Agendar</span>
+                </>
+              ) : sel.status === "arquivado" ? (
+                <span className="inline-flex items-center gap-1 text-caption text-faint"><Icon name="check" size={14} color="var(--color-text-tertiary)" /> Arquivado</span>
+              ) : (
+                <>
+                  <button onClick={() => arquivar(sel)} className="text-caption font-medium text-muted hover:text-ink bg-surface-2 rounded-pill px-3 py-[7px]">Arquivar</button>
+                  <Button variant="primary" size="sm" disabled={gravando} onClick={() => confirmar(sel)}>{gravando ? "Lançando…" : "Lançar"}</Button>
+                </>
+              )}
+            </div>
           </div>
         </Card>
       )}

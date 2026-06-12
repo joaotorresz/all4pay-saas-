@@ -4,15 +4,32 @@
  * extrai/cruza. Demo-safe; em produção os documentos chegam por upload, e-mail,
  * WhatsApp, Open Finance, OCR, etc. e são processados pela IA.
  */
-export type DocStatus = "novo" | "analise" | "pronto" | "revisao" | "processado";
+export type DocStatus = "novo" | "analise" | "pronto" | "revisao" | "lancado" | "processado" | "arquivado";
 
 export const STATUS_META: Record<DocStatus, { label: string; dot: string }> = {
   novo: { label: "Novo", dot: "#E8821E" },
   analise: { label: "Em análise", dot: "#4F86C6" },
-  pronto: { label: "Pronto", dot: "#3F8F5B" },
-  revisao: { label: "Necessita revisão", dot: "#C2473D" },
-  processado: { label: "Processado", dot: "#797975" },
+  pronto: { label: "Pronto para lançar", dot: "#3F8F5B" },
+  revisao: { label: "Não identificado", dot: "#C2473D" },
+  lancado: { label: "Lançado", dot: "#DCFF00" },
+  processado: { label: "Lançado", dot: "#DCFF00" },
+  arquivado: { label: "Arquivado", dot: "#959595" },
 };
+
+/** Abas da fila (estados macro). Cada aba agrupa um conjunto de status. */
+export type AbaId = "pendentes" | "nao_identificados" | "lancados" | "arquivo";
+export const ABAS: { id: AbaId; label: string }[] = [
+  { id: "pendentes", label: "Pendentes" },
+  { id: "nao_identificados", label: "Não identificados" },
+  { id: "lancados", label: "Lançados" },
+  { id: "arquivo", label: "Arquivo" },
+];
+export function abaDe(status: DocStatus): AbaId {
+  if (status === "arquivado") return "arquivo";
+  if (status === "lancado" || status === "processado") return "lancados";
+  if (status === "revisao") return "nao_identificados";
+  return "pendentes"; // novo · analise · pronto
+}
 
 export interface ConfRow { campo: string; confianca: number }
 
