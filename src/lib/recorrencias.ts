@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
+import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
 import type { Movement } from "@/lib/types";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
@@ -124,17 +125,28 @@ export async function ativarRecorrencia(id: string, horizonte = 6): Promise<void
     });
   } else {
     const supabase = createClient();
+    // Persiste a recorrência (alimenta o Cron /api/recorrencias/run — N6 real).
+    const { data: rec } = await supabase.from("recurrences").insert({
+      party_id: r.clienteId, type: "entrada", description: r.titulo,
+      amount: totalFatura(r), freq: cicloParaFreq(r.ciclo),
+      start_date: isoDay(new Date()), due_day: r.diaFaturamento, active: true,
+    }).select("id").single();
+    const recId = (rec as { id: string } | null)?.id;
     const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
     const accId = (accs as { id: string }[] | null)?.[0]?.id;
-    if (accId) {
-      const rows = faturas.map((f) => ({
+    if (accId && recId) {
+      // Materializa as faturas iniciais nas MESMAS datas do Cron (dedup por reference_code).
+      const datas = datasFaturaCron(isoDay(new Date()), cicloParaFreq(r.ciclo), r.diaFaturamento, isoDay(new Date()), 90);
+      const rows = datas.map((d) => ({
         account_id: accId, type: "entrada", status: "pendente",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
-        amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
-        reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+        amount: totalFatura(r), party_id: r.clienteId, due_date: d, paid_date: null,
+        reconciled: false, description: r.titulo, reference_code: refFatura(recId, d),
       }));
-      const { data } = await supabase.from("movements").insert(rows).select("id");
-      for (const row of (data ?? []) as { id: string }[]) ids.push(row.id);
+      if (rows.length) {
+        const { data } = await supabase.from("movements").insert(rows).select("id");
+        for (const row of (data ?? []) as { id: string }[]) ids.push(row.id);
+      }
     }
   }
   r.movimentos = ids; r.projetadas = ids.length; r.status = "ativa";

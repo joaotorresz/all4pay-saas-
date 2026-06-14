@@ -3,6 +3,10 @@
     {
       "path": "/api/financial-os/run",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/recorrencias/run",
+      "schedule": "0 6 * * *"
     }
   ]
 }
