@@ -185,10 +185,10 @@ function ArtPanel() {
       <div className="absolute rounded-pill" style={{ width: 520, height: 520, top: "-10%", right: "-12%", background: "rgba(220,255,0,0.16)", filter: "blur(2px)" }} />
       <div className="absolute inset-0 flex items-end p-12">
         <div className="max-w-[420px]">
-          <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "var(--color-on-lime)" }}>
+          <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "#ffffff" }}>
             O sistema operacional financeiro que também guarda e move o seu dinheiro.
           </p>
-          <p className="m-0 mt-3 text-label" style={{ color: "var(--color-on-lime)", opacity: 0.7 }}>
+          <p className="m-0 mt-3 text-label" style={{ color: "#ffffff", opacity: 0.75 }}>
             Caixa, risco, cobrança e pagamento — em camadas, num lugar só.
           </p>
         </div>
