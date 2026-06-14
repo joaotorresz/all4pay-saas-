@@ -48,7 +48,7 @@ const GROUPS: Group[] = [
   },
   {
     id: "contas", label: "Contas", icon: "layers", children: [
-      { label: "Contas financeiras", href: "/" }, // gap: sem rota /contas; aponta à home por ora
+      { label: "Contas financeiras", href: "/contas" },
       { label: "Conciliação", href: "/conciliacao" },
       { label: "Importar dados", href: "/upload" },
     ],
