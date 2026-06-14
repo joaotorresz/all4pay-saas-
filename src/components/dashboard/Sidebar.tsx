@@ -42,7 +42,7 @@ const GROUPS: Group[] = [
       { label: "A receber", href: "/recebiveis" },
       { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Recorrências / Contratos", href: "/recorrencias" },
-      { label: "Boleto", soon: true },
+      { label: "Boleto", href: "/boletos" },
       { label: "Notas fiscais (NFS-e)", href: "/notas-fiscais" },
     ],
   },

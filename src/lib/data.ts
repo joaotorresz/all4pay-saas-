@@ -144,6 +144,26 @@ export async function getOpenMovements(
   return (data ?? []) as Movement[];
 }
 
+/** Recebíveis para a tela de Boleto: entrada em aberto OU com boleto (inclui o
+ *  campo `boleto`). Demo lê o imported store; live o Supabase. */
+export async function getRecebiveisBoleto(): Promise<Movement[]> {
+  if (isDemo) {
+    await demoDelay();
+    return seedMovements()
+      .filter((m) => m.type === "entrada" && (m.status === "pendente" || m.boleto))
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("movements")
+    .select(`${MOVEMENT_COLS},boleto`)
+    .eq("type", "entrada")
+    .or("status.eq.pendente,boleto.not.is.null")
+    .order("due_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Movement[];
+}
+
 /** Unreconciled movements, optionally scoped to one account. */
 export async function getUnreconciledMovements(
   accountId?: string,

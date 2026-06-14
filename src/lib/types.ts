@@ -36,6 +36,25 @@ export interface Movement {
   reconciled: boolean;
   description: string | null;
   created_at?: string;
+  /** Boleto colado ao recebível (movements.boleto jsonb). */
+  boleto?: BoletoData | null;
+}
+
+export type BoletoStatus =
+  | "gerado" | "registrado" | "emitido" | "pago" | "vencido" | "cancelado" | "conciliado";
+
+export interface BoletoData {
+  status: BoletoStatus;
+  nosso_numero: string;
+  linha_digitavel: string;
+  codigo_barras: string;
+  conta_recebimento?: string | null;
+  multa?: number;
+  juros?: number;
+  desconto?: number;
+  instrucoes?: string;
+  emitido_em: string;
+  paid_date?: string | null;
 }
 
 /* ---- Derived shapes returned by the widget hooks ---- */

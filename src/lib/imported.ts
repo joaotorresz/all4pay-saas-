@@ -6,6 +6,7 @@
  */
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
+import { isoDay } from "@/lib/aggregations";
 
 const KEY = "a4p_imported_dataset";
 
@@ -154,6 +155,34 @@ export function removerImported(ids: string[]): void {
   if (!ds || !ids.length) return;
   const alvo = new Set(ids);
   setImported({ ...ds, movements: ds.movements.filter((m) => !alvo.has(m.id)) });
+}
+
+/**
+ * Aplica um patch a UM movimento do dataset (ex.: anexar `boleto`). Com
+ * `liquidar`, marca pago + paid_date + reconciled e ajusta o saldo da conta
+ * (entrada credita, saída debita). Parte do snapshot do seed se necessário.
+ */
+export function updateImportedMovement(
+  id: string,
+  patch: Partial<Movement>,
+  opts: { liquidar?: boolean; paidISO?: string } = {},
+): void {
+  const base: ImportedDataset = load() ?? {
+    movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+    criadoEm: new Date().toISOString(),
+  };
+  const accounts = base.accounts.map((a) => ({ ...a }));
+  const movements = base.movements.map((m) => {
+    if (m.id !== id) return m;
+    let next = { ...m, ...patch };
+    if (opts.liquidar && m.status !== "pago") {
+      const conta = accounts.find((a) => a.id === m.account_id) ?? accounts[0];
+      if (conta) conta.balance = Math.round((conta.balance + (m.type === "entrada" ? m.amount : -m.amount)) * 100) / 100;
+      next = { ...next, status: "pago", paid_date: opts.paidISO ?? isoDay(new Date()), reconciled: true };
+    }
+    return next;
+  });
+  setImported({ ...base, movements, accounts });
 }
 
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
