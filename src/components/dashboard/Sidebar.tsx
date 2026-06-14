@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
+import { useModo } from "@/components/app/useModo";
 import { cn } from "@/lib/utils";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -139,6 +140,12 @@ export function Sidebar() {
 
   const inicioOn = pathname === "/";
 
+  // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
+  const { pro, set: setPro } = useModo();
+  const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia");
+  const configVis: Group = pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
+  const topoVis: Group[] = [...gruposVis, configVis];
+
   return (
     <aside
       className={cn(
@@ -192,7 +199,7 @@ export function Sidebar() {
               {inicioOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
               <Icon name="house" size={17} color={inicioOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
             </Link>
-            {TOPO.map((g) => {
+            {topoVis.map((g) => {
               const on = contemAtivo(g, pathname);
               return (
                 <button key={g.id} onClick={() => abrirDoIcone(g.id)} title={g.label}
@@ -213,13 +220,13 @@ export function Sidebar() {
               <span className={cn("text-[17px] font-medium truncate", inicioOn ? "text-ink" : "text-muted")}>{INICIO.label}</span>
             </Link>
 
-            {GROUPS.map((g) => (
+            {gruposVis.map((g) => (
               <GrupoNode key={g.id} grupo={g} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
             ))}
 
             {/* Configurações (rodapé navegável, ainda na área de rolagem) */}
             <div className="mt-2 pt-2 border-t border-border-soft">
-              <GrupoNode grupo={CONFIG} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
+              <GrupoNode grupo={configVis} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
             </div>
           </>
         )}
@@ -227,6 +234,22 @@ export function Sidebar() {
 
       {/* Rodapé fixo: tema + usuário */}
       <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
+        {/* Modo Simples × Pro */}
+        <button
+          onClick={() => setPro(pro ? "simples" : "pro")}
+          title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
+          className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]")}
+        >
+          <Icon name="sparkles" size={17} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+          {!collapsed && (
+            <>
+              <span className={cn("text-[17px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
+              <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
+                <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
+              </span>
+            </>
+          )}
+        </button>
         <ThemeToggle collapsed={collapsed} />
         <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
           <Avatar name="Operador Um" size={30} />

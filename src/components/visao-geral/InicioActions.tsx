@@ -5,6 +5,7 @@ import { Button, Icon } from "@/components/ui";
 import { DemoBadge } from "./DemoBadge";
 import { NovoDeposito } from "./NovoDeposito";
 import { PeriodPill } from "./PeriodPill";
+import { useModo } from "@/components/app/useModo";
 
 /**
  * Header actions for Início.
@@ -12,17 +13,20 @@ import { PeriodPill } from "./PeriodPill";
  * (menu de ações). Demonstração badge em modo demo.
  */
 export function InicioActions({ demo }: { demo: boolean }) {
+  const { pro } = useModo();
   return (
     <>
       {demo && <DemoBadge />}
       <PeriodPill />
-      <Button
-        variant="secondary"
-        leftIcon={<Icon name="settings" size={15} />}
-        onClick={() => window.dispatchEvent(new Event("a4p:open-personalizar"))}
-      >
-        Personalizar Home
-      </Button>
+      {pro && (
+        <Button
+          variant="secondary"
+          leftIcon={<Icon name="settings" size={15} />}
+          onClick={() => window.dispatchEvent(new Event("a4p:open-personalizar"))}
+        >
+          Personalizar Home
+        </Button>
+      )}
       <NovoDeposito />
     </>
   );

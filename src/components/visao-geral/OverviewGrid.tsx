@@ -21,6 +21,7 @@ import {
 } from "./HomeCards";
 import { ResumoHojeCard, useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
+import { useModo } from "@/components/app/useModo";
 
 const KEY_VIS = "a4p_home_widgets";
 const KEY_ORD = "a4p_home_order";
@@ -60,6 +61,7 @@ export function OverviewGrid() {
   const [drawer, setDrawer] = React.useState(false);
   const hc = useHomeContext(auto);
   const ctx = useCockpitCtx();
+  const { pro } = useModo();
 
   React.useEffect(() => {
     try {
@@ -84,7 +86,8 @@ export function OverviewGrid() {
   const persistOrd = (o: string[]) => { setOrdem(o); try { localStorage.setItem(KEY_ORD, JSON.stringify(o)); } catch { /* ignore */ } };
   const persistAuto = (a: boolean) => { setAuto(a); try { localStorage.setItem(KEY_AUTO, a ? "1" : "0"); } catch { /* ignore */ } };
   // Default por widget: curados ligados, catálogo (cockpit) desligado.
-  const on = (id: string) => visiveis[id] ?? DEFAULT_WIDGET_IDS.has(id);
+  // Em Modo Simples, mostra SÓ os curados (ignora o catálogo modular).
+  const on = (id: string) => (pro ? (visiveis[id] ?? DEFAULT_WIDGET_IDS.has(id)) : DEFAULT_WIDGET_IDS.has(id));
   const toggle = (id: string) => persistVis({ ...visiveis, [id]: !on(id) });
   const reset = () => { persistVis({}); persistOrd(HOME_WIDGET_IDS); persistAuto(true); };
 

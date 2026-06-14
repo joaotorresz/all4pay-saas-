@@ -25,19 +25,9 @@ export function PageGuide() {
     setTour(true);
   };
 
-  // Auto-abre na primeira visita da rota.
-  React.useEffect(() => {
-    if (!guide) return;
-    const key = `a4p_guide_seen:${pathname}`;
-    try {
-      if (!localStorage.getItem(key)) {
-        setOpen(true);
-        localStorage.setItem(key, "1");
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [pathname, guide]);
+  // Opt-in: o guia NÃO abre sozinho (evita interceptar cliques na 1ª visita).
+  // Fica disponível no botão flutuante "Guia". Fecha-se ao trocar de rota.
+  React.useEffect(() => { setOpen(false); }, [pathname]);
 
   // ESC fecha.
   React.useEffect(() => {

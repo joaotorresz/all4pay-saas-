@@ -9,6 +9,7 @@ import { Card, Icon, BRL, Button, Skeleton } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
+import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
 import { useFluxoCaixa, useContas } from "./hooks";
 import type {
@@ -32,6 +33,7 @@ function Inner() {
   const { filtros } = useFluxoFiltros();
   const contas = useContas();
   const { data, isLoading } = useFluxoCaixa(filtros);
+  const { pro } = useModo();
 
   return (
     <div className="flex flex-col gap-7 pb-6">
@@ -43,26 +45,33 @@ function Inner() {
         <Skeleton className="h-[240px]" />
       ) : (
         <>
+          {/* Modo Simples: 3 blocos essenciais. */}
           <ExecutiveSummary m={data} />
-          <Bloco titulo="Fluxo de Caixa Inteligente" icon="trending-up"><FluxoInteligenteView f={data.fluxo} /></Bloco>
           <Bloco titulo="Previsto × Realizado" icon="list-checks"><PrevRealView linhas={data.prevReal} /></Bloco>
           <Bloco titulo="Calendário Financeiro" icon="receipt"><CalendarioView dias={data.calendario} /></Bloco>
-          <Bloco titulo="Cross-check Inteligente" icon="sparkles"><CrossCheckView checks={data.crossChecks} /></Bloco>
-          <Bloco titulo="Projeção com Machine Learning" icon="activity">
-            <ProjecaoView bandas={data.bandas} projecoes={data.projecoes} />
-          </Bloco>
-          <Bloco titulo="Cenários" icon="cpu"><CenariosView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
-          <Bloco titulo="Heat Map Financeiro" icon="gauge"><HeatmapView dias={data.heatmap} /></Bloco>
-          <Bloco titulo="Waterfall — da receita ao fluxo livre" icon="building"><WaterfallView passos={data.waterfall} /></Bloco>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-            <Bloco titulo="IA Copilot do Caixa" icon="sparkles"><CopilotView c={data.copilot} /></Bloco>
-            <Bloco titulo="What-If Engine" icon="cpu"><WhatIfView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
-          </div>
+          {/* Modo Pro: profundidade completa. */}
+          {pro && <>
+            <Bloco titulo="Fluxo de Caixa Inteligente" icon="trending-up"><FluxoInteligenteView f={data.fluxo} /></Bloco>
+            <Bloco titulo="Cross-check Inteligente" icon="sparkles"><CrossCheckView checks={data.crossChecks} /></Bloco>
+            <Bloco titulo="Projeção com Machine Learning" icon="activity">
+              <ProjecaoView bandas={data.bandas} projecoes={data.projecoes} />
+            </Bloco>
+            <Bloco titulo="Cenários" icon="cpu"><CenariosView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
+            <Bloco titulo="Heat Map Financeiro" icon="gauge"><HeatmapView dias={data.heatmap} /></Bloco>
+            <Bloco titulo="Waterfall — da receita ao fluxo livre" icon="building"><WaterfallView passos={data.waterfall} /></Bloco>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+              <Bloco titulo="IA Copilot do Caixa" icon="sparkles"><CopilotView c={data.copilot} /></Bloco>
+              <Bloco titulo="What-If Engine" icon="cpu"><WhatIfView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
+            </div>
+            <Bloco titulo="Eventos Financeiros" icon="network"><EventosView eventos={data.eventos} /></Bloco>
+            <Bloco titulo="Confidence Layer" icon="gauge"><ConfidenceView projecoes={data.projecoes} /></Bloco>
+            <DigitalTwinView twin={data.twin} />
+          </>}
 
-          <Bloco titulo="Eventos Financeiros" icon="network"><EventosView eventos={data.eventos} /></Bloco>
-          <Bloco titulo="Confidence Layer" icon="gauge"><ConfidenceView projecoes={data.projecoes} /></Bloco>
-          <DigitalTwinView twin={data.twin} />
+          {!pro && (
+            <p className="text-caption text-faint text-center">Projeção ML, cenários, heat map, waterfall e digital twin no <b className="text-muted font-medium">Modo Pro</b> (alterna na barra lateral).</p>
+          )}
         </>
       )}
     </div>
