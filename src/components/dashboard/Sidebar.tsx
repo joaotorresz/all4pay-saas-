@@ -70,12 +70,9 @@ const GROUPS: Group[] = [
   },
   {
     id: "inteligencia", label: "Inteligência", icon: "sparkles", children: [
+      // 3.2: um cérebro, não cinco — Quant/Decisão/Risco/Autônomo/Dados viram
+      // abas dentro do Copiloto (deep-link ?aba=). Rotas standalone seguem vivas.
       { label: "Copiloto", href: "/copiloto" },
-      { label: "Quant", href: "/inteligencia" },   // rótulo era "Inteligência"
-      { label: "Decisão", href: "/decisao" },
-      { label: "Risco", href: "/risco" },
-      { label: "Autônomo", href: "/autonomo" },
-      { label: "Dados", href: "/dados" },           // rótulo era "Inteligência de dados"
     ],
   },
 ];

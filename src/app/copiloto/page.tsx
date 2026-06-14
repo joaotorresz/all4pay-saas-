@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { CopilotoView } from "@/components/copiloto/CopilotoView";
+import { InteligenciaShell } from "@/components/copiloto/InteligenciaShell";
 
 export const metadata: Metadata = {
-  title: "all4pay — Copiloto",
+  title: "all4pay — Inteligência",
   description:
-    "IA executiva: copiloto financeiro, briefing diário, insights priorizados, detecção de anomalias, motor preditivo e simulador de cenários.",
+    "Centro de Inteligência: Copiloto + Quant, Decisão, Risco, Autônomo e Dados em abas — um cérebro, não cinco.",
 };
 
 export default function CopilotoPage() {
   return (
     <AppShell
-      title="Copiloto"
-      crumb="IA executiva"
+      title="Inteligência"
+      crumb="Copiloto · um cérebro"
       actions={isDemo ? <DemoBadge /> : null}
     >
-      <CopilotoView />
+      <InteligenciaShell />
     </AppShell>
   );
 }
