@@ -114,6 +114,29 @@ export function estaAutorizado(objetoRef: string, valor: number): boolean {
   return !!s && s.statusFinal === "aprovada";
 }
 
+/**
+ * N7 — pré-autoriza um `movement` que JÁ passou pela alçada noutro fluxo (ex.:
+ * reembolso aprovado). Evita que a Central exija aprovação de novo. Idempotente.
+ */
+export async function autorizarMovimento(movementId: string, valor: number, beneficiario: string): Promise<void> {
+  await hydrateAprovacoes();
+  if ((cache ?? []).some((x) => x.objetoRef === movementId && x.statusFinal === "aprovada")) return;
+  const req = iniciarAprovacao(movementId, { valor, metodo: "pix", contraparte: beneficiario }, { risco: "baixo", texto: "" });
+  req.passos.forEach((p) => (p.status = "aprovado")); req.status = "aprovado";
+  const s: Solicitacao = {
+    id: `sol-auto-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, objetoRef: movementId,
+    tipo: "pagamento", solicitante: "Sistema", beneficiario, valor, regra: rotuloRegra(valor), req,
+    historico: [{ quando: new Date().toISOString(), quem: "Sistema", acao: "Pré-autorizada (já aprovada no reembolso)" }],
+    statusFinal: "aprovada", criadoEm: new Date().toISOString(),
+  };
+  if (isDemo) saveLocal([s, ...loadLocal()]);
+  else await createClient().from("approvals").insert({
+    movement_id: /^[0-9a-f-]{36}$/i.test(movementId) ? movementId : null, amount: valor, reason: beneficiario,
+    status: "approved", level: 1, levels_required: 1, decided_at: new Date().toISOString(),
+  });
+  cache = [s, ...(cache ?? [])];
+}
+
 export interface NovaSolicitacao {
   objetoRef: string; tipo: TipoSolic; beneficiario: string; valor: number;
   categoria?: string; centroCusto?: string; justificativa?: string; solicitante?: string;

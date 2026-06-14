@@ -146,43 +146,31 @@ export async function transmitirNfse(id: string): Promise<Nfse | null> {
   return nf;
 }
 
-/** Liga a NFS-e ao hub. N2: se já há receita (recorrência), reaproveita e só
- *  cria o ISS; senão cria receita + ISS. */
+/** Liga a NFS-e ao hub: cria o `movement` de RECEITA do serviço (DRE receita
+ *  bruta + /recebiveis). N2: se já há receita (fatura de recorrência), reaproveita
+ *  e NÃO cria 2ª. N4: o ISS NÃO vira título "a pagar" avulso — fica computado na
+ *  nota; a DRE-dedução do ISS lendo a nota é evolução do core/dre. */
 async function refletirNaDRE(nf: Nfse): Promise<string[]> {
   const hoje = isoDay(new Date());
-  const iss = issDe(nf);
   const ids: string[] = [];
-  const temReceita = !!nf.movimentoReceita; // veio de fatura de recorrência (N2)
-  if (temReceita) ids.push(nf.movimentoReceita as string);
+  if (nf.movimentoReceita) return [nf.movimentoReceita]; // N2: reaproveita a fatura
 
   const receita: Movement = {
     id: `${nf.id}-rec`, account_id: "", type: "entrada", status: "pendente", category: "Serviços",
     amount: nf.valorServico, party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false,
     description: `NFS-e ${nf.numero} · ${nf.tomadorNome}`,
   } as Movement;
-  const issMov: Movement = {
-    id: `${nf.id}-iss`, account_id: "", type: "saida", status: "pendente", category: "Impostos · ISS",
-    amount: iss, party_id: null, due_date: hoje, paid_date: null, reconciled: false,
-    description: `ISS NFS-e ${nf.numero}`,
-  } as Movement;
 
-  if (isDemo) {
-    if (!temReceita) { appendImported({ movement: receita }); ids.push(receita.id); }
-    if (iss > 0) { appendImported({ movement: issMov }); ids.push(issMov.id); }
-    return ids;
-  }
+  if (isDemo) { appendImported({ movement: receita }); ids.push(receita.id); return ids; }
   const supabase = createClient();
   const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
   const accId = (accs as { id: string }[] | null)?.[0]?.id;
   if (!accId) return ids;
-  const rows = [...(temReceita ? [] : [receita]), ...(iss > 0 ? [issMov] : [])].map((m) => ({
-    account_id: accId, type: m.type, status: m.status, category: m.category, amount: m.amount,
-    party_id: m.party_id, due_date: m.due_date, paid_date: null, reconciled: false, description: m.description,
-  }));
-  if (rows.length) {
-    const { data } = await supabase.from("movements").insert(rows).select("id");
-    for (const row of (data ?? []) as { id: string }[]) ids.push(row.id);
-  }
+  const { data } = await supabase.from("movements").insert({
+    account_id: accId, type: "entrada", status: "pendente", category: "Serviços", amount: nf.valorServico,
+    party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false, description: receita.description,
+  }).select("id").single();
+  if (data) ids.push((data as { id: string }).id);
   return ids;
 }
 

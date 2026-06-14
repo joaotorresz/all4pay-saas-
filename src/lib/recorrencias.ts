@@ -8,7 +8,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
-import { appendImported, removerImported } from "@/lib/imported";
+import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
@@ -38,6 +38,7 @@ export interface Recorrencia {
   centro?: string;
   status: StatusRec;
   movimentos: string[]; // ids das faturas projetadas no hub
+  projetadas?: number;  // total de faturas já projetadas (índice p/ roll-forward)
   criadoEm: string;
 }
 
@@ -136,8 +137,42 @@ export async function ativarRecorrencia(id: string, horizonte = 6): Promise<void
       for (const row of (data ?? []) as { id: string }[]) ids.push(row.id);
     }
   }
-  r.movimentos = ids; r.status = "ativa";
+  r.movimentos = ids; r.projetadas = ids.length; r.status = "ativa";
   save([...list]);
+}
+
+/**
+ * N6 — roll-forward: mantém faturas futuras projetadas conforme o tempo passa
+ * ("a recorrência recorre"). Demo: roda no mount da tela. Live: // TODO Cron
+ * server-side (ex.: /api/recorrencias/run) sobre as recorrências persistidas —
+ * localStorage não é acessível ao servidor.
+ */
+export async function rolarRecorrencias(): Promise<number> {
+  if (!isDemo) return 0; // TODO INTEGRAÇÃO: Vercel Cron sobre recurrences (Supabase)
+  const list = load();
+  const movs = importedMovements() ?? [];
+  const hoje = isoDay(new Date());
+  let novas = 0;
+  for (const r of list) {
+    if (r.status !== "ativa") continue;
+    const futuras = movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente" && m.due_date >= hoje).length;
+    if (futuras >= 3) continue; // ainda há cobertura
+    const projetadas = r.projetadas ?? r.movimentos.length;
+    const faturas = projetarProximasFaturas(r, 6);
+    faturas.forEach((f, k) => {
+      const mid = `${r.id}-fat${projetadas + k}`;
+      appendImported({ movement: {
+        id: mid, account_id: "", type: "entrada", status: "pendente",
+        category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
+        amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
+        reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+      } as Movement });
+      r.movimentos.push(mid); novas++;
+    });
+    r.projetadas = projetadas + faturas.length;
+  }
+  if (novas) save([...list]);
+  return novas;
 }
 
 /** Pausa ou cancela (churn) → remove as faturas previstas do fluxo. */

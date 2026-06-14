@@ -8,7 +8,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
-import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes } from "@/lib/aprovacoes";
+import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes, autorizarMovimento } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
 
 export interface ItemReembolso { descricao: string; valor: number; data: string; categoria: string }
@@ -134,6 +134,8 @@ export async function sincronizarReembolsos(): Promise<number> {
       r.movimentos = await gerarPagamento(r);
       r.status = "a_pagar";
       gerados++;
+      // N7: o reembolso já passou pela alçada — pré-autoriza os movimentos p/ a Central não reabrir.
+      for (let k = 0; k < r.movimentos.length; k++) await autorizarMovimento(r.movimentos[k], r.itens[k]?.valor ?? 0, r.colaborador);
       if (!isDemo) await createClient().from("reembolsos").update({ status: "aprovado", movement_id: r.movimentos[0] ?? null }).eq("id", r.id);
     } else if (st === "aprovada" && r.status === "em_aprovacao") { r.status = "aprovado"; }
   }

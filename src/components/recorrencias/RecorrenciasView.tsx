@@ -8,9 +8,10 @@ import { useToast } from "@/components/listas/ListChrome";
 import { listParties, listProducts, listServices } from "@/lib/cadastros";
 import {
   listRecorrencias, criarRecorrencia, ativarRecorrencia, encerrarRecorrencia,
-  kpisRecorrencia, projetarProximasFaturas, totalFatura, CICLOS,
+  kpisRecorrencia, projetarProximasFaturas, totalFatura, rolarRecorrencias, CICLOS,
   type Recorrencia, type ItemRec, type Ciclo, type StatusRec,
 } from "@/lib/recorrencias";
+import { criarNfse, transmitirNfse } from "@/lib/nfse";
 import type { Party } from "@/lib/types";
 
 const STATUS: Record<StatusRec, { label: string; cor: string }> = {
@@ -31,7 +32,10 @@ export function RecorrenciasView() {
 
   const [lista, setLista] = React.useState<Recorrencia[]>([]);
   const [aberto, setAberto] = React.useState<string | null>(null);
-  React.useEffect(() => { setLista(listRecorrencias()); }, []);
+  React.useEffect(() => {
+    // N6 — roll-forward: materializa novas faturas conforme o tempo passa.
+    rolarRecorrencias().then(async (n) => { setLista(listRecorrencias()); if (n) await qc.invalidateQueries(); });
+  }, [qc]);
   const refresh = async () => { setLista(listRecorrencias()); await qc.invalidateQueries(); };
   const kpis = kpisRecorrencia();
 
@@ -65,6 +69,20 @@ export function RecorrenciasView() {
 
   const ativar = async (r: Recorrencia) => { await ativarRecorrencia(r.id); await refresh(); show("Ativada — próximas faturas entram no previsto (/recebiveis, fluxo, DRE)"); };
   const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => { await encerrarRecorrencia(r.id, st); await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas previstas saem do fluxo" : "Pausada — faturas previstas removidas"); };
+
+  // N2: emite a NFS-e da próxima fatura reusando o MESMO movement (não duplica receita).
+  const emitirNfse = async (r: Recorrencia) => {
+    if (!r.movimentos.length) return;
+    const nf = await criarNfse({
+      tomadorId: r.clienteId, tomadorNome: r.clienteNome, discriminacao: r.titulo,
+      codigoServico: "1.05 — Licenciamento de software", valorServico: totalFatura(r),
+      municipio: "São Paulo", issAliquota: 5, aguardarPagamento: false,
+      recorrenciaId: r.id, movimentoReceita: r.movimentos[0],
+    });
+    await transmitirNfse(nf.id);
+    await refresh();
+    show("NFS-e emitida da fatura — receita reaproveitada (não duplica)");
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -133,6 +151,7 @@ export function RecorrenciasView() {
                     <span className="text-caption text-ink tabular-nums shrink-0"><BRL value={totalFatura(r)} /></span>
                     <div className="flex items-center gap-1 shrink-0">
                       {r.status !== "ativa" && r.status !== "cancelada" && <button onClick={() => ativar(r)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px]">Ativar</button>}
+                      {r.status === "ativa" && <button onClick={() => emitirNfse(r)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">NFS-e</button>}
                       {r.status === "ativa" && <button onClick={() => encerrar(r, "pausada")} className="text-caption font-medium text-muted bg-surface-2 rounded-pill px-2 py-[4px]">Pausar</button>}
                       {r.status !== "cancelada" && <button onClick={() => encerrar(r, "cancelada")} title="Cancelar (churn)" className="inline-flex p-[5px] rounded-md hover:bg-surface-2"><Icon name="x" size={13} color="var(--color-text-tertiary)" /></button>}
                     </div>
