@@ -36,6 +36,7 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
 
   let geradas = 0;
+  let falhas = 0;
   const contaPorOrg = new Map<string, string | null>();
   for (const r of (recs ?? []) as Record<string, string | number | null>[]) {
     const orgId = r.org_id as string;
@@ -52,18 +53,19 @@ export async function GET(req: Request) {
 
     const datas = datasFaturaCron(r.start_date as string, r.freq as string, (r.due_day as number) ?? null, iso(hoje), HORIZONTE_DIAS);
     for (const d of datas) {
-      const ref = refFatura(r.id as string, d);
-      const { data: ex } = await admin.from("movements").select("id").eq("org_id", orgId).eq("reference_code", ref).limit(1);
-      if (ex && ex.length) continue; // já materializada
+      // Idempotência GARANTIDA pelo banco: índice único parcial
+      // movements_rec_ref_uniq (org_id, reference_code) WHERE reference_code LIKE 'rec:%'.
+      // Inserimos direto; a corrida é resolvida pela constraint (23505 = já existe).
       const { error: insErr } = await admin.from("movements").insert({
         org_id: orgId, account_id: accId, type: "entrada", status: "pendente",
         amount: r.amount, due_date: d, party_id: r.party_id, category_id: r.category_id,
         cost_center_id: r.cost_center_id, reconciled: false,
-        description: r.description ?? "Fatura recorrente", reference_code: ref,
+        description: r.description ?? "Fatura recorrente", reference_code: refFatura(r.id as string, d),
       });
       if (!insErr) geradas++;
+      else if (insErr.code !== "23505") falhas++;
     }
   }
 
-  return NextResponse.json({ ok: true, geradoEm: new Date().toISOString(), recorrencias: recs?.length ?? 0, faturasGeradas: geradas });
+  return NextResponse.json({ ok: true, geradoEm: new Date().toISOString(), recorrencias: recs?.length ?? 0, faturasGeradas: geradas, falhas });
 }

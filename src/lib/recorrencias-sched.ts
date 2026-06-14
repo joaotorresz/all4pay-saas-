@@ -5,18 +5,24 @@
  */
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-export type FreqDB = "semanal" | "mensal" | "anual";
+export type FreqDB = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
 
-/** Datas de faturamento no intervalo [hoje, hoje+dias], a partir de start_date. */
-export function datasFaturaCron(startISO: string, freq: FreqDB | string, dueDay: number | null, hojeISO: string, dias = 90): string[] {
+/** Meses por ciclo (semanal=0 → passo especial de +7 dias). */
+const MESES: Record<FreqDB, number> = {
+  semanal: 0, mensal: 1, bimestral: 2, trimestral: 3, quadrimestral: 4, semestral: 6, anual: 12,
+};
+
+/** Datas de faturamento no intervalo [hoje, hoje+dias], a partir de start_date.
+ *  Entende TODOS os ciclos (uma fonte de verdade p/ o Cron e o ativar). */
+export function datasFaturaCron(startISO: string, freq: FreqDB | string, dueDay: number | null, hojeISO: string, dias = 180): string[] {
+  const meses = MESES[freq as FreqDB] ?? 1;
   const hoje = new Date(hojeISO + "T00:00:00");
   const fim = new Date(hoje); fim.setDate(fim.getDate() + dias);
   const cur = new Date(startISO + "T00:00:00");
-  if (freq !== "semanal" && dueDay) cur.setDate(Math.min(dueDay, 28));
+  if (meses > 0 && dueDay) cur.setDate(Math.min(dueDay, 28));
   const step = () => {
-    if (freq === "semanal") cur.setDate(cur.getDate() + 7);
-    else if (freq === "anual") cur.setFullYear(cur.getFullYear() + 1);
-    else { cur.setMonth(cur.getMonth() + 1); if (dueDay) cur.setDate(Math.min(dueDay, 28)); }
+    if (meses === 0) cur.setDate(cur.getDate() + 7);
+    else { cur.setMonth(cur.getMonth() + meses); if (dueDay) cur.setDate(Math.min(dueDay, 28)); }
   };
   const out: string[] = [];
   let guard = 0;
@@ -27,9 +33,9 @@ export function datasFaturaCron(startISO: string, freq: FreqDB | string, dueDay:
   return out;
 }
 
-/** Mapeia o ciclo (7 valores da UI) para o enum freq do banco (3 valores). */
+/** O ciclo da UI JÁ É o enum freq do banco (7 valores). Identidade + saneamento. */
 export function cicloParaFreq(ciclo: string): FreqDB {
-  return ciclo === "semanal" ? "semanal" : ciclo === "anual" ? "anual" : "mensal";
+  return (Object.keys(MESES) as FreqDB[]).includes(ciclo as FreqDB) ? (ciclo as FreqDB) : "mensal";
 }
 
 /** `reference_code` idempotente de uma fatura de recorrência. */

@@ -61,7 +61,7 @@ export function RecorrenciasView() {
     const cli = clientes.find((c: Party) => c.id === clienteId);
     const validos = itens.filter((it) => it.nome.trim() && it.valor > 0);
     if (!titulo.trim() || !cli || !validos.length) { show("Informe título, cliente e ao menos um item"); return; }
-    criarRecorrencia({ titulo: titulo.trim(), clienteId, clienteNome: cli.name, itens: validos, ciclo, diaFaturamento: dia, classificacao });
+    await criarRecorrencia({ titulo: titulo.trim(), clienteId, clienteNome: cli.name, itens: validos, ciclo, diaFaturamento: dia, classificacao });
     setTitulo(""); setClienteId(""); setItens([{ nome: "", valor: 0, qtd: 1 }]);
     await refresh();
     show("Recorrência criada como rascunho — ative para projetar as faturas");
