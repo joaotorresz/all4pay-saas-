@@ -1,10 +1,14 @@
 /**
  * Solicitações & aprovações — gate de alçada do funil PAGAR.
- * UI de operador sobre o motor `core/institutional` (approval/rbac/audit): NÃO
- * reimplementa a alçada, só orquestra. A fila vive em localStorage (demo-safe;
- * persistência em audit_log/tabela é roadmap). Expõe `requerAlcada`/`estaAutorizado`
- * que a Central de Pagamentos consulta antes de executar.
+ * UI de operador sobre o motor `core/institutional` (approval/rbac): NÃO
+ * reimplementa a alçada, só orquestra. Demo-safe:
+ *  • demo  → fila em localStorage (idêntico ao original);
+ *  • live  → tabela `public.approvals` (RLS org_id), hidratada em cache p/ leitura
+ *    síncrona (a Central consulta `estaAutorizado` no render).
+ * Expõe `requerAlcada`/`estaAutorizado` para a Central.
  */
+import { isDemo } from "@/lib/demo";
+import { createClient } from "@/lib/supabase/client";
 import {
   iniciarAprovacao, aprovarPasso, regraParaValor, sugerirIA,
 } from "@/core/institutional/approval-flow";
@@ -25,7 +29,7 @@ export interface Solicitacao {
   categoria?: string;
   centroCusto?: string;
   justificativa?: string;
-  regra: string; // rótulo da faixa de alçada acionada
+  regra: string;
   req: ApprovalRequest;
   historico: PassoHist[];
   statusFinal: StatusSolic;
@@ -34,40 +38,80 @@ export interface Solicitacao {
 
 const KEY = "a4p_aprovacoes";
 let cache: Solicitacao[] | undefined;
+let hydrated = false;
 
-function load(): Solicitacao[] {
+function loadLocal(): Solicitacao[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
   try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
   return cache!;
 }
-function save(list: Solicitacao[]) {
+function saveLocal(list: Solicitacao[]) {
   cache = list;
   if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
 }
 
-/** Solicitante demo (quem pede) — distinto do aprovador (segregação de funções). */
 export const SOLICITANTE_DEMO = "Operador (Financeiro)";
 
-/** A alçada exige aprovação? (auto só até a 1ª faixa.) */
-export function requerAlcada(valor: number): boolean {
-  return !regraParaValor(valor).auto;
-}
+export function requerAlcada(valor: number): boolean { return !regraParaValor(valor).auto; }
 export function rotuloRegra(valor: number): string {
   const r = regraParaValor(valor);
-  if (r.auto) return "Automática (dentro da alçada)";
-  return r.passos.map((p) => p.rotulo).join(" → ");
+  return r.auto ? "Automática (dentro da alçada)" : r.passos.map((p) => p.rotulo).join(" → ");
 }
 
-/** Existe autorização para executar este objeto? (auto-aprovado ou aprovada.) */
-export function estaAutorizado(objetoRef: string, valor: number): boolean {
-  if (!requerAlcada(valor)) return true; // dentro da alçada automática
-  const s = load().find((x) => x.objetoRef === objetoRef);
-  return !!s && s.statusFinal === "aprovada";
+// ---- mapeamento status local ↔ enum approval_status do banco ----
+type ApprovalStatusDB = "pending" | "approved" | "rejected" | "returned";
+const toDB: Record<StatusSolic, ApprovalStatusDB> = { em_analise: "pending", aprovada: "approved", rejeitada: "rejected", devolvida: "returned" };
+const fromDB: Record<ApprovalStatusDB, StatusSolic> = { pending: "em_analise", approved: "aprovada", rejected: "rejected" as never, returned: "devolvida" } as Record<ApprovalStatusDB, StatusSolic>;
+fromDB.rejected = "rejeitada";
+
+/** Reconstrói um ApprovalRequest a partir de (valor, nível, status) — live não
+ *  guarda os passos, então derivamos da regra de valor. */
+function reconstruirReq(valor: number, level: number, status: StatusSolic): ApprovalRequest {
+  const req = iniciarAprovacao("db", { valor, metodo: "pix", contraparte: "" }, { risco: "baixo", texto: "" });
+  req.passos.forEach((p, i) => {
+    if (status === "aprovada") p.status = "aprovado";
+    else if (i < level - 1) p.status = "aprovado";
+  });
+  req.status = status === "aprovada" ? "aprovado" : status === "rejeitada" ? "rejeitado" : "em_aprovacao";
+  return req;
+}
+
+interface ApprovalRow {
+  id: string; movement_id: string | null; amount: number; reason: string | null;
+  justification: string | null; status: ApprovalStatusDB; level: number; levels_required: number; created_at: string;
+}
+function fromRow(r: ApprovalRow): Solicitacao {
+  const statusFinal = fromDB[r.status];
+  return {
+    id: r.id, objetoRef: r.movement_id ?? r.id, tipo: "pagamento",
+    solicitante: SOLICITANTE_DEMO, beneficiario: r.reason ?? "—", valor: Number(r.amount),
+    justificativa: r.justification ?? undefined, regra: rotuloRegra(Number(r.amount)),
+    req: reconstruirReq(Number(r.amount), r.level, statusFinal),
+    historico: [], statusFinal, criadoEm: r.created_at,
+  };
+}
+
+/** Carrega a fila (demo: localStorage; live: Supabase) para o cache síncrono. */
+export async function hydrateAprovacoes(force = false): Promise<void> {
+  if (hydrated && !force) return;
+  if (isDemo) { cache = loadLocal(); hydrated = true; return; }
+  try {
+    const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false });
+    cache = ((data ?? []) as ApprovalRow[]).map(fromRow);
+    hydrated = true;
+  } catch { cache = cache ?? []; }
 }
 
 export function listSolicitacoes(): Solicitacao[] {
-  return [...load()].sort((a, b) => (b.criadoEm < a.criadoEm ? -1 : 1));
+  return [...(cache ?? [])].sort((a, b) => (b.criadoEm < a.criadoEm ? -1 : 1));
+}
+
+/** Existe autorização para executar este objeto? (sync — lê o cache hidratado.) */
+export function estaAutorizado(objetoRef: string, valor: number): boolean {
+  if (!requerAlcada(valor)) return true;
+  const s = (cache ?? []).find((x) => x.objetoRef === objetoRef);
+  return !!s && s.statusFinal === "aprovada";
 }
 
 export interface NovaSolicitacao {
@@ -75,62 +119,71 @@ export interface NovaSolicitacao {
   categoria?: string; centroCusto?: string; justificativa?: string; solicitante?: string;
 }
 
-/** Cria a solicitação (roteia pela regra de valor). Idempotente por objetoRef. */
-export function criarSolicitacao(n: NovaSolicitacao): Solicitacao {
-  const list = load();
-  const existe = list.find((x) => x.objetoRef === n.objetoRef);
+/** Cria a solicitação (idempotente por objetoRef). */
+export async function criarSolicitacao(n: NovaSolicitacao): Promise<Solicitacao> {
+  await hydrateAprovacoes();
+  const existe = (cache ?? []).find((x) => x.objetoRef === n.objetoRef);
   if (existe) return existe;
+
   const transacao: TransacaoContexto = { valor: n.valor, metodo: "pix", contraparte: n.beneficiario };
-  const sugestao = sugerirIA(transacao, { contraparte: n.beneficiario, maxRecebido: n.valor, aprovacoes: 0 });
-  const req = iniciarAprovacao(n.objetoRef, transacao, sugestao);
+  const req = iniciarAprovacao(n.objetoRef, transacao, sugerirIA(transacao, { contraparte: n.beneficiario, maxRecebido: n.valor, aprovacoes: 0 }));
+  const statusFinal: StatusSolic = req.status === "auto_aprovado" ? "aprovada" : "em_analise";
   const s: Solicitacao = {
     id: `sol-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
     objetoRef: n.objetoRef, tipo: n.tipo, solicitante: n.solicitante ?? SOLICITANTE_DEMO,
     beneficiario: n.beneficiario, valor: n.valor, categoria: n.categoria, centroCusto: n.centroCusto,
     justificativa: n.justificativa, regra: rotuloRegra(n.valor), req,
-    historico: [{ quando: new Date().toISOString(), quem: n.solicitante ?? SOLICITANTE_DEMO, acao: req.status === "auto_aprovado" ? "Auto-aprovada (dentro da alçada)" : "Solicitação criada" }],
-    statusFinal: req.status === "auto_aprovado" ? "aprovada" : "em_analise",
-    criadoEm: new Date().toISOString(),
+    historico: [{ quando: new Date().toISOString(), quem: n.solicitante ?? SOLICITANTE_DEMO, acao: statusFinal === "aprovada" ? "Auto-aprovada (dentro da alçada)" : "Solicitação criada" }],
+    statusFinal, criadoEm: new Date().toISOString(),
   };
-  save([s, ...list]);
-  return s;
+
+  if (isDemo) { saveLocal([s, ...loadLocal()]); return s; }
+  // live: grava em approvals; o id real vem do banco.
+  const isUuid = /^[0-9a-f-]{36}$/i.test(n.objetoRef);
+  const { data } = await createClient().from("approvals").insert({
+    movement_id: isUuid ? n.objetoRef : null, amount: n.valor, reason: n.beneficiario,
+    justification: n.justificativa ?? null, status: toDB[statusFinal],
+    level: 1, levels_required: req.passos.length || 1,
+  }).select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").single();
+  const saved = data ? fromRow(data as ApprovalRow) : s;
+  saved.objetoRef = n.objetoRef; // preserva a ref local mesmo se movement_id veio null
+  cache = [saved, ...(cache ?? [])];
+  return saved;
 }
 
-/** Papel exigido pelo passo pendente atual (para montar o aprovador da vez). */
 export function papelDoPassoAtual(s: Solicitacao): { rotulo: string; role: Role } | null {
   const passo = s.req.passos.find((p) => p.status === "pendente");
-  if (!passo) return null;
-  return { rotulo: passo.def.rotulo, role: passo.def.aprovadores[0] };
+  return passo ? { rotulo: passo.def.rotulo, role: passo.def.aprovadores[0] } : null;
 }
 
 export type AcaoDecisao = "aprovar" | "rejeitar" | "devolver";
 
-/** Decide o passo atual. `aprovar` reusa `aprovarPasso` do core. */
-export function decidir(id: string, acao: AcaoDecisao, comentario?: string): Solicitacao | null {
-  const list = load();
+export async function decidir(id: string, acao: AcaoDecisao, comentario?: string): Promise<Solicitacao | null> {
+  const list = cache ?? [];
   const i = list.findIndex((x) => x.id === id);
   if (i < 0) return null;
   const s = { ...list[i] };
   const passo = papelDoPassoAtual(s);
   const aprovador: Usuario = passo
-    ? { id: `u-${passo.role}`, nome: `${passo.rotulo}`, role: passo.role, companyIds: ["demo"] }
+    ? { id: `u-${passo.role}`, nome: passo.rotulo, role: passo.role, companyIds: ["demo"] }
     : { id: "u-cfo", nome: "CFO", role: "cfo", companyIds: ["demo"] };
+  if (acao === "aprovar" && aprovador.nome === s.solicitante) return s; // segregação
 
-  // Segregação de funções: quem solicita não aprova a própria.
-  if (acao === "aprovar" && aprovador.nome === s.solicitante) return s;
-
-  const hist: PassoHist = { quando: new Date().toISOString(), quem: aprovador.nome, acao: rotuloAcao(acao), comentario };
+  s.historico = [...s.historico, { quando: new Date().toISOString(), quem: aprovador.nome, acao: rotuloAcao(acao), comentario }];
   if (acao === "aprovar") {
     s.req = aprovarPasso(s.req, aprovador);
     s.statusFinal = s.req.status === "aprovado" ? "aprovada" : "em_analise";
-  } else if (acao === "rejeitar") {
-    s.req = { ...s.req, status: "rejeitado" };
-    s.statusFinal = "rejeitada";
-  } else {
-    s.statusFinal = "devolvida";
-  }
-  s.historico = [...s.historico, hist];
-  const next = [...list]; next[i] = s; save(next);
+  } else if (acao === "rejeitar") { s.req = { ...s.req, status: "rejeitado" }; s.statusFinal = "rejeitada"; }
+  else { s.statusFinal = "devolvida"; }
+
+  const next = [...list]; next[i] = s;
+  if (isDemo) { saveLocal(next); return s; }
+  cache = next;
+  const nivelAprovados = s.req.passos.filter((p) => p.status === "aprovado").length;
+  await createClient().from("approvals").update({
+    status: toDB[s.statusFinal], level: Math.max(1, nivelAprovados + (s.statusFinal === "aprovada" ? 0 : 1)),
+    decided_at: new Date().toISOString(),
+  }).eq("id", id);
   return s;
 }
 
@@ -138,4 +191,4 @@ function rotuloAcao(a: AcaoDecisao): string {
   return a === "aprovar" ? "Aprovou" : a === "rejeitar" ? "Rejeitou" : "Devolveu para ajuste";
 }
 
-export function clearAprovacoes(): void { save([]); }
+export function clearAprovacoes(): void { saveLocal([]); }

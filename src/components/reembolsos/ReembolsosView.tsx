@@ -66,7 +66,7 @@ export function ReembolsosView() {
   const solicitar = async () => {
     const validos = itens.filter((it) => it.valor > 0 && it.descricao.trim());
     if (!colaborador.trim() || !validos.length) { show("Informe colaborador e ao menos um item com valor"); return; }
-    solicitarReembolso({ colaborador: colaborador.trim(), chavePix: chavePix.trim(), itens: validos, justificativa: justificativa.trim() || undefined });
+    await solicitarReembolso({ colaborador: colaborador.trim(), chavePix: chavePix.trim(), itens: validos, justificativa: justificativa.trim() || undefined });
     setColaborador(""); setChavePix(""); setJustificativa(""); setItens([novoItem()]);
     await refresh();
     show("Reembolso solicitado — roteado para aprovação conforme a alçada");

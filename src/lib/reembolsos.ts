@@ -1,16 +1,15 @@
 /**
- * Reembolsos — caso especializado do funil PAGAR. NÃO reinventa: reusa o motor
- * de alçada (`aprovacoes.ts`), a execução (Central, via `movement` de saída) e o
- * OCR (`lerDocumento`). Específico: beneficiário é colaborador + comprovante por
- * item. Cada item vira uma linha de despesa (categoria própria) na DRE.
- * Store local (demo-safe); persistência completa é roadmap.
+ * Reembolsos — caso especializado do funil PAGAR. Reusa alçada (`aprovacoes.ts`),
+ * execução (Central, via `movement` de saída) e OCR (`lerDocumento`). Demo-safe:
+ *  • demo → localStorage; colaborador entra como `party` no imported store (N3);
+ *  • live → tabela `public.reembolsos` (RLS) + colaborador resolvido em `parties`.
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
-import { criarSolicitacao, listSolicitacoes } from "@/lib/aprovacoes";
-import type { Movement } from "@/lib/types";
+import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes } from "@/lib/aprovacoes";
+import type { Movement, Party } from "@/lib/types";
 
 export interface ItemReembolso { descricao: string; valor: number; data: string; categoria: string }
 export type StatusReembolso = "em_aprovacao" | "aprovado" | "rejeitado" | "a_pagar";
@@ -18,106 +17,155 @@ export type StatusReembolso = "em_aprovacao" | "aprovado" | "rejeitado" | "a_pag
 export interface Reembolso {
   id: string;
   colaborador: string;
+  colaboradorId: string; // party real (N3)
   chavePix: string;
   itens: ItemReembolso[];
   total: number;
   justificativa?: string;
   status: StatusReembolso;
   solicitacaoId: string;
-  movimentos: string[]; // ids dos movements gerados ao aprovar
+  movimentos: string[];
   criadoEm: string;
 }
 
 const KEY = "a4p_reembolsos";
 let cache: Reembolso[] | undefined;
-function load(): Reembolso[] {
+let hydrated = false;
+function loadLocal(): Reembolso[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
   try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
   return cache!;
 }
-function save(list: Reembolso[]) {
+function saveLocal(list: Reembolso[]) {
   cache = list;
   if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
 }
 
+const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+type Embed = { name: string } | { name: string }[] | null | undefined;
+const nomeEmbed = (p: Embed) => (Array.isArray(p) ? (p[0]?.name ?? "Colaborador") : (p?.name ?? "Colaborador"));
+interface ReembolsoRow {
+  id: string; colaborador_id: string | null; approval_id: string | null; movement_id: string | null;
+  itens: ItemReembolso[]; amount: number; pix_key: string | null;
+  status: "rascunho" | "solicitado" | "em_aprovacao" | "aprovado" | "rejeitado" | "pago"; created_at: string;
+  parties?: Embed;
+}
+function fromRow(r: ReembolsoRow): Reembolso {
+  const status: StatusReembolso = r.status === "rejeitado" ? "rejeitado"
+    : r.status === "pago" || (r.status === "aprovado" && r.movement_id) ? "a_pagar"
+      : r.status === "aprovado" ? "aprovado" : "em_aprovacao";
+  return {
+    id: r.id, colaborador: nomeEmbed(r.parties), colaboradorId: r.colaborador_id ?? "",
+    chavePix: r.pix_key ?? "", itens: r.itens ?? [], total: Number(r.amount), status,
+    solicitacaoId: r.approval_id ?? "", movimentos: r.movement_id ? [r.movement_id] : [],
+    criadoEm: r.created_at,
+  };
+}
+
+export async function hydrateReembolsos(force = false): Promise<void> {
+  if (hydrated && !force) return;
+  if (isDemo) { cache = loadLocal(); hydrated = true; return; }
+  try {
+    const { data } = await createClient().from("reembolsos")
+      .select("id,colaborador_id,approval_id,movement_id,itens,amount,pix_key,status,created_at,parties(name)")
+      .order("created_at", { ascending: false });
+    cache = ((data ?? []) as unknown as ReembolsoRow[]).map(fromRow);
+    hydrated = true;
+  } catch { cache = cache ?? []; }
+}
+
 export function listReembolsos(): Reembolso[] {
-  return [...load()].sort((a, b) => (b.criadoEm < a.criadoEm ? -1 : 1));
+  return [...(cache ?? [])].sort((a, b) => (b.criadoEm < a.criadoEm ? -1 : 1));
 }
 
-export interface NovoReembolso {
-  colaborador: string; chavePix: string; itens: ItemReembolso[]; justificativa?: string;
+/** N3 — resolve o colaborador como `party` real. */
+async function resolverColaborador(nome: string): Promise<{ id: string; party?: Party }> {
+  if (isDemo) {
+    const id = `colab-${slug(nome)}`;
+    return { id, party: { id, type: "pf", name: nome, is_supplier: true } as Party };
+  }
+  const s = createClient();
+  const { data: achado } = await s.from("parties").select("id").ilike("name", nome).limit(1).maybeSingle();
+  if (achado?.id) return { id: (achado as { id: string }).id };
+  const { data: criado } = await s.from("parties").insert({ type: "pf", name: nome, is_supplier: true }).select("id").single();
+  return { id: (criado as { id: string } | null)?.id ?? "" };
 }
 
-/** Passo 1+2: cria o reembolso e o roteia pelo motor de alçada. */
-export function solicitarReembolso(n: NovoReembolso): Reembolso {
+export interface NovoReembolso { colaborador: string; chavePix: string; itens: ItemReembolso[]; justificativa?: string }
+
+export async function solicitarReembolso(n: NovoReembolso): Promise<Reembolso> {
+  await hydrateReembolsos();
   const total = n.itens.reduce((s, it) => s + it.valor, 0);
-  const id = `reemb-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
-  const sol = criarSolicitacao({
-    objetoRef: id, tipo: "reembolso", beneficiario: n.colaborador, valor: total,
+  const localId = `reemb-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+  const { id: colaboradorId } = await resolverColaborador(n.colaborador);
+  const sol = await criarSolicitacao({
+    objetoRef: localId, tipo: "reembolso", beneficiario: n.colaborador, valor: total,
     categoria: n.itens[0]?.categoria, justificativa: n.justificativa, solicitante: n.colaborador,
   });
-  const r: Reembolso = {
-    id, colaborador: n.colaborador, chavePix: n.chavePix, itens: n.itens, total,
-    justificativa: n.justificativa,
-    status: sol.statusFinal === "aprovada" ? "aprovado" : "em_aprovacao",
-    solicitacaoId: sol.id, movimentos: [], criadoEm: new Date().toISOString(),
+  const status: StatusReembolso = sol.statusFinal === "aprovada" ? "aprovado" : "em_aprovacao";
+  const base: Reembolso = {
+    id: localId, colaborador: n.colaborador, colaboradorId, chavePix: n.chavePix, itens: n.itens, total,
+    justificativa: n.justificativa, status, solicitacaoId: sol.id, movimentos: [], criadoEm: new Date().toISOString(),
   };
-  save([r, ...load()]);
-  return r;
+  if (isDemo) { saveLocal([base, ...loadLocal()]); return base; }
+  const { data } = await createClient().from("reembolsos").insert({
+    colaborador_id: colaboradorId || null, approval_id: /^[0-9a-f-]{36}$/i.test(sol.id) ? sol.id : null,
+    itens: n.itens, amount: total, pix_key: n.chavePix || null,
+    status: status === "aprovado" ? "aprovado" : "em_aprovacao",
+  }).select("id,colaborador_id,approval_id,movement_id,itens,amount,pix_key,status,created_at").single();
+  const saved = data ? fromRow({ ...(data as ReembolsoRow), parties: { name: n.colaborador } }) : base;
+  cache = [saved, ...(cache ?? [])];
+  return saved;
 }
 
-/**
- * Sincroniza com o motor de alçada: quando a solicitação fica aprovada, gera os
- * `movements` de saída (1 por item → categoria certa na DRE) e marca `a_pagar`.
- * Chamado pela tela após decisões de aprovação.
- */
+/** Quando a alçada aprova, gera os movements de saída (1 por item) e marca a_pagar. */
 export async function sincronizarReembolsos(): Promise<number> {
-  const sols = listSolicitacoes();
-  const statusDe = new Map(sols.map((s) => [s.id, s.statusFinal]));
+  await hydrateAprovacoes();
+  await hydrateReembolsos();
+  const statusDe = new Map(listSolicitacoes().map((s) => [s.id, s.statusFinal]));
   let gerados = 0;
-  const list = load();
+  const list = cache ?? [];
   for (const r of list) {
     const st = statusDe.get(r.solicitacaoId);
-    if (st === "rejeitada" && r.status !== "rejeitado") { r.status = "rejeitado"; continue; }
-    if ((st === "aprovada") && r.status !== "a_pagar" && !r.movimentos.length) {
+    if (st === "rejeitada" && r.status !== "rejeitado") { r.status = "rejeitado"; }
+    else if (st === "aprovada" && r.status !== "a_pagar" && !r.movimentos.length) {
       r.movimentos = await gerarPagamento(r);
       r.status = "a_pagar";
       gerados++;
-    } else if (st === "aprovada" && r.status === "em_aprovacao") {
-      r.status = "aprovado";
-    }
+      if (!isDemo) await createClient().from("reembolsos").update({ status: "aprovado", movement_id: r.movimentos[0] ?? null }).eq("id", r.id);
+    } else if (st === "aprovada" && r.status === "em_aprovacao") { r.status = "aprovado"; }
   }
-  save([...list]);
+  if (isDemo) saveLocal([...list]); else cache = [...list];
   return gerados;
 }
 
-/** Passo 3: cada item vira um movement de saída (party = colaborador). */
+/** Cada item vira um movement de saída (party = colaborador real — N3). */
 async function gerarPagamento(r: Reembolso): Promise<string[]> {
   const hoje = isoDay(new Date());
   const ids: string[] = [];
   if (isDemo) {
+    const party: Party = { id: r.colaboradorId, type: "pf", name: r.colaborador, is_supplier: true } as Party;
     r.itens.forEach((it, i) => {
       const id = `${r.id}-mv${i}`;
       const movement: Movement = {
-        id, account_id: "", type: "saida", status: "pendente",
-        category: it.categoria, amount: it.valor, party_id: `colab:${r.colaborador}`,
-        due_date: hoje, paid_date: null, reconciled: false,
+        id, account_id: "", type: "saida", status: "pendente", category: it.categoria,
+        amount: it.valor, party_id: r.colaboradorId, due_date: hoje, paid_date: null, reconciled: false,
         description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
       } as Movement;
-      appendImported({ movement });
+      appendImported({ movement, party });
       ids.push(id);
     });
     return ids;
   }
-  // Live: cria os movements no Supabase (best-effort, sem criar party aqui).
   const supabase = createClient();
   const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
   const accId = (accs as { id: string }[] | null)?.[0]?.id;
   if (!accId) return ids;
   const rows = r.itens.map((it) => ({
-    account_id: accId, type: "saida", status: "pendente", category: it.categoria,
-    amount: it.valor, due_date: hoje, paid_date: null, reconciled: false,
+    account_id: accId, type: "saida", status: "pendente", category: it.categoria, amount: it.valor,
+    party_id: r.colaboradorId || null, due_date: hoje, paid_date: null, reconciled: false,
     description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
   }));
   const { data } = await supabase.from("movements").insert(rows).select("id");
@@ -125,4 +173,4 @@ async function gerarPagamento(r: Reembolso): Promise<string[]> {
   return ids;
 }
 
-export function clearReembolsos(): void { save([]); }
+export function clearReembolsos(): void { saveLocal([]); }

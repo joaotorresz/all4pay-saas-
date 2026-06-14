@@ -5,7 +5,7 @@ import { Card, Icon, BRL, Button, Textarea } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePagaveis, usePartiesPag } from "@/components/pagamentos/hooks";
 import {
-  listSolicitacoes, criarSolicitacao, decidir, papelDoPassoAtual, requerAlcada,
+  listSolicitacoes, criarSolicitacao, decidir, papelDoPassoAtual, requerAlcada, hydrateAprovacoes,
   type Solicitacao, type StatusSolic, type AcaoDecisao,
 } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
@@ -37,15 +37,20 @@ export function AprovacoesView() {
     return p?.name || m.description || m.category || "Sem contraparte";
   }, [parties.data]);
 
-  // Semeia solicitações a partir dos títulos a pagar acima da alçada automática.
+  // Hidrata a fila (demo: localStorage; live: Supabase) e semeia solicitações
+  // dos títulos a pagar acima da alçada automática.
   React.useEffect(() => {
-    if (!movs.data) return;
-    for (const m of movs.data) {
-      if (requerAlcada(m.amount)) {
-        criarSolicitacao({ objetoRef: m.id, tipo: "pagamento", beneficiario: nomeDe(m), valor: m.amount, categoria: m.category ?? undefined });
+    let cancel = false;
+    (async () => {
+      await hydrateAprovacoes();
+      if (movs.data) {
+        for (const m of movs.data) {
+          if (requerAlcada(m.amount)) await criarSolicitacao({ objetoRef: m.id, tipo: "pagamento", beneficiario: nomeDe(m), valor: m.amount, categoria: m.category ?? undefined });
+        }
       }
-    }
-    setLista(listSolicitacoes());
+      if (!cancel) setLista(listSolicitacoes());
+    })();
+    return () => { cancel = true; };
   }, [movs.data, nomeDe]);
 
   const refresh = () => setLista(listSolicitacoes());
@@ -56,9 +61,9 @@ export function AprovacoesView() {
       : aba === "minhas" ? true // demo: 1 solicitante
         : true);
 
-  const agir = (acao: AcaoDecisao) => {
+  const agir = async (acao: AcaoDecisao) => {
     if (!sel) return;
-    const r = decidir(sel.id, acao, coment.trim() || undefined);
+    const r = await decidir(sel.id, acao, coment.trim() || undefined);
     setComent("");
     refresh();
     if (r) show(acao === "aprovar"

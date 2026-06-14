@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import Link from "next/link";
 import { pagarLote, itemDe, anexarComprovante, comprovanteDe, type MetodoPagamento, type ItemPagamento } from "@/lib/pagamentos";
-import { requerAlcada, estaAutorizado } from "@/lib/aprovacoes";
+import { requerAlcada, estaAutorizado, hydrateAprovacoes } from "@/lib/aprovacoes";
 import { usePagaveis, useContasPag, usePartiesPag, useRiscoInputPag } from "./hooks";
 import type { Movement, Party, FinancialAccount } from "@/lib/types";
 
@@ -66,6 +66,10 @@ export function CentralPagamentosView() {
   React.useEffect(() => {
     if (!conta && contas.data?.length) setConta(contas.data[0].id);
   }, [contas.data, conta]);
+
+  // hidrata o gate de alçada (demo: localStorage; live: Supabase) p/ estaAutorizado.
+  const [, forcar] = React.useState(0);
+  React.useEffect(() => { hydrateAprovacoes().then(() => forcar((x) => x + 1)); }, []);
 
   const itens: ItemPagamento[] = React.useMemo(() => {
     const termo = busca.trim().toLowerCase();

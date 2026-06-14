@@ -7,8 +7,8 @@ import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties } from "@/lib/cadastros";
 import {
-  listNfse, criarNfse, transmitirNfse, enviarAoTomador, cancelarNfse,
-  issDe, liquidoDe, type Nfse, type StatusNfse,
+  listNfse, criarNfse, transmitirNfse, enviarAoTomador, cancelarNfse, hydrateNfse,
+  issDe, type Nfse, type StatusNfse,
 } from "@/lib/nfse";
 import type { Party } from "@/lib/types";
 
@@ -33,7 +33,7 @@ export function NfseView() {
   const parties = useQuery({ queryKey: ["parties-list"], queryFn: listParties });
   const [lista, setLista] = React.useState<Nfse[]>([]);
   const [busy, setBusy] = React.useState<string | null>(null);
-  React.useEffect(() => { setLista(listNfse()); }, []);
+  React.useEffect(() => { hydrateNfse().then(() => setLista(listNfse())); }, []);
   const refresh = async () => { setLista(listNfse()); await qc.invalidateQueries(); };
 
   const clientes = (parties.data ?? []).filter((p: Party) => p.is_customer !== false);
@@ -50,7 +50,7 @@ export function NfseView() {
   const emitir = async () => {
     const t = clientes.find((c: Party) => c.id === tomadorId);
     if (!t || valor <= 0 || !discriminacao.trim()) { show("Informe tomador, discriminação e valor"); return; }
-    const nf = criarNfse({ tomadorId, tomadorNome: t.name, discriminacao: discriminacao.trim(), codigoServico: codigo, valorServico: valor, municipio, issAliquota: iss, aguardarPagamento: aguardar });
+    const nf = await criarNfse({ tomadorId, tomadorNome: t.name, discriminacao: discriminacao.trim(), codigoServico: codigo, valorServico: valor, municipio, issAliquota: iss, aguardarPagamento: aguardar });
     setTomadorId(""); setDiscriminacao(""); setValor(0);
     setLista(listNfse());
     if (aguardar) { show("NFS-e em rascunho — emitirá ao receber o pagamento"); return; }
@@ -68,7 +68,7 @@ export function NfseView() {
     } finally { setBusy(null); }
   };
 
-  const enviar = (id: string) => { enviarAoTomador(id); setLista(listNfse()); show("Nota enviada ao tomador (reusa a Cobrança WhatsApp/e-mail)"); };
+  const enviar = async (id: string) => { await enviarAoTomador(id); setLista(listNfse()); show("Nota enviada ao tomador (reusa a Cobrança WhatsApp/e-mail)"); };
   const cancelar = async (id: string) => { await cancelarNfse(id); await refresh(); show("NFS-e cancelada — lançamentos vinculados removidos do hub"); };
 
   return (
