@@ -43,6 +43,8 @@ import {
   Mail,
   ScanLine,
   Paperclip,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
 
@@ -96,6 +98,8 @@ const registry: Record<string, LucideIcon> = {
   mail: Mail,
   "scan-line": ScanLine,
   paperclip: Paperclip,
+  eye: Eye,
+  "eye-off": EyeOff,
 };
 
 export type IconName = keyof typeof registry;

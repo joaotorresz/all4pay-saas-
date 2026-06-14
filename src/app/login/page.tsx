@@ -3,115 +3,195 @@
 import * as React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input, Icon } from "@/components/ui";
+import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
+
+type View = "signin" | "reset";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = React.useState<"signin" | "signup">("signin");
+  const [view, setView] = React.useState<View>("signin");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [showPw, setShowPw] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const [touched, setTouched] = React.useState(false);
   const [msg, setMsg] = React.useState<{ tone: "error" | "ok"; text: string } | null>(null);
 
-  const go = () => {
-    router.push("/");
-    router.refresh();
-  };
+  const go = () => { router.push("/"); router.refresh(); };
 
-  async function submit() {
-    setBusy(true);
-    setMsg(null);
+  async function entrar() {
+    setTouched(true);
+    if (!emailOk(email) || !password) return;
+    setBusy(true); setMsg(null);
     try {
-      const supabase = createClient();
-      if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (data.session) go();
-        else setMsg({ tone: "ok", text: "Conta criada. Verifique seu e-mail para confirmar o acesso." });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        go();
-      }
-    } catch (e) {
-      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Falha na autenticação." });
-    } finally {
+      const { error } = await createClient().auth.signInWithPassword({ email: email.trim(), password });
+      // Anti-enumeração: mensagem genérica, nunca revela se o e-mail existe.
+      if (error) { setMsg({ tone: "error", text: "E-mail ou senha inválidos." }); return; }
+      go();
+    } catch {
+      setMsg({ tone: "error", text: "Não foi possível entrar agora. Tente novamente." });
+    } finally { setBusy(false); }
+  }
+
+  async function resetar() {
+    setTouched(true);
+    if (!emailOk(email)) return;
+    setBusy(true); setMsg(null);
+    try {
+      await createClient().auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: typeof window !== "undefined" ? `${window.location.origin}/login` : undefined,
+      });
+    } catch { /* silencioso de propósito */ }
+    finally {
       setBusy(false);
+      // Mensagem neutra SEMPRE (exista ou não o e-mail) — anti-enumeração.
+      setMsg({ tone: "ok", text: "Se houver uma conta com esse e-mail, enviamos um link de redefinição." });
     }
   }
 
+  // TODO pré-BACEN: rate-limit / lockout de tentativas de login (anti brute-force).
+
+  const erroEmail = touched && !emailOk(email);
+  const erroSenha = touched && view === "signin" && !password;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface-1 px-4">
-      <div className="w-[400px] max-w-full">
-        <div className="flex justify-center mb-6">
-          <Image src="/all4pay-dark.png" alt="all4pay" width={130} height={26} className="h-[26px] w-auto dark:hidden" priority />
-          <Image src="/all4pay-lime.png" alt="all4pay" width={130} height={26} className="h-[26px] w-auto hidden dark:block" priority />
-        </div>
-        <Card className="flex flex-col gap-4">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-surface-1">
+      {/* Coluna esquerda — formulário */}
+      <div className="flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-[380px] max-w-full flex flex-col gap-6">
           <div>
-            <h1 className="m-0 text-h3 font-medium text-ink">
-              {mode === "signin" ? "Entrar" : "Criar conta"}
+            <Image src="/all4pay-dark.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto dark:hidden" priority />
+            <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto hidden dark:block" priority />
+          </div>
+
+          <div>
+            <h1 className="m-0 text-h2 font-medium text-ink leading-none">
+              {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
-            <p className="m-0 text-label text-muted mt-1">
-              Acesse o painel financeiro all4pay.
+            <p className="m-0 text-label text-muted mt-2">
+              {view === "signin"
+                ? "Acesse o painel financeiro all4pay."
+                : "Informe seu e-mail e enviaremos um link de redefinição."}
             </p>
           </div>
 
           {!configured && (
             <p className="m-0 text-caption text-warning">
-              Supabase não configurado neste ambiente — o app está em modo demonstração e não exige login.
+              Supabase não configurado neste ambiente — modo demonstração, sem exigir login.
             </p>
           )}
 
-          <Input
-            label="E-mail"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="voce@empresa.com"
-          />
-          <Input
-            label="Senha"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-          />
+          <div className="flex flex-col gap-4">
+            <Input
+              label="E-mail"
+              type="email"
+              autoComplete="email"
+              value={email}
+              invalid={erroEmail}
+              aria-invalid={erroEmail}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="voce@empresa.com"
+              onKeyDown={(e) => e.key === "Enter" && (view === "signin" ? entrar() : resetar())}
+            />
 
-          {msg && (
-            <p className={`m-0 text-caption ${msg.tone === "error" ? "text-negative" : "text-positive"}`}>
-              {msg.text}
-            </p>
-          )}
+            {view === "signin" && (
+              <Input
+                label="Senha"
+                type={showPw ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                invalid={erroSenha}
+                aria-invalid={erroSenha}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={(e) => e.key === "Enter" && entrar()}
+                suffix={
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((s) => !s)}
+                    aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                    className="inline-flex p-1 -mr-1 rounded hover:bg-surface-2"
+                  >
+                    <Icon name={showPw ? "eye-off" : "eye"} size={16} color="var(--color-text-tertiary)" />
+                  </button>
+                }
+              />
+            )}
 
-          <Button variant="primary" fullWidth disabled={busy || !email || !password} onClick={submit}>
-            {busy ? "Aguarde…" : mode === "signin" ? "Entrar" : "Criar conta"}
-          </Button>
+            {msg && (
+              <p role={msg.tone === "error" ? "alert" : "status"} className={`m-0 text-caption ${msg.tone === "error" ? "text-negative" : "text-positive"}`}>
+                {msg.text}
+              </p>
+            )}
 
-          <button
-            className="text-label text-muted hover:text-ink text-center"
-            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMsg(null); }}
-          >
-            {mode === "signin" ? "Não tem conta? Criar agora" : "Já tem conta? Entrar"}
-          </button>
-
-          <div className="flex items-center gap-2 text-caption text-faint">
-            <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
+            {view === "signin" ? (
+              <Button variant="primary" fullWidth disabled={busy} aria-busy={busy} onClick={entrar}>
+                {busy ? <Spinner /> : "Entrar"}
+              </Button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Button variant="primary" fullWidth disabled={busy} aria-busy={busy} onClick={resetar}>
+                  {busy ? <Spinner /> : "Enviar link de redefinição"}
+                </Button>
+                <button className="text-label text-muted hover:text-ink text-center" onClick={() => { setView("signin"); setMsg(null); }}>
+                  Voltar ao login
+                </button>
+              </div>
+            )}
           </div>
 
-          <Button
-            variant="secondary"
-            fullWidth
-            onClick={() => { router.push("/comecar"); }}
-            leftIcon={<Icon name="arrow-up-right" size={15} />}
-          >
-            Criar empresa (onboarding guiado)
-          </Button>
-        </Card>
+          {view === "signin" && (
+            <div className="flex flex-col gap-3">
+              <button className="text-label text-muted hover:text-ink text-left" onClick={() => { setView("reset"); setMsg(null); setTouched(false); }}>
+                Esqueci minha senha
+              </button>
+              <div className="flex items-center gap-2 text-caption text-faint">
+                <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
+              </div>
+              <Button variant="secondary" fullWidth onClick={() => router.push("/comecar")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
+                Ainda não tem conta? Criar conta
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Coluna direita — arte (camadas de fluxo financeiro), some no mobile */}
+      <ArtPanel />
+    </div>
+  );
+}
+
+function Spinner() {
+  return <span className="inline-block w-4 h-4 rounded-full border-2 border-on-lime/30 border-t-on-lime animate-spin" aria-hidden />;
+}
+
+/** Composição geométrica lime → dark (tokens), inspirada na Payfy. */
+function ArtPanel() {
+  return (
+    <div
+      className="hidden lg:block relative overflow-hidden"
+      style={{ background: "linear-gradient(135deg, var(--color-lime) 0%, var(--color-ink) 78%)" }}
+      aria-hidden
+    >
+      {/* camadas/quadrados arredondados sobrepostos */}
+      <div className="absolute rounded-card" style={{ width: 360, height: 360, top: "12%", left: "18%", background: "rgba(255,255,255,0.10)", transform: "rotate(14deg)" }} />
+      <div className="absolute rounded-card" style={{ width: 280, height: 280, top: "34%", left: "40%", background: "var(--color-lime-tint)", opacity: 0.18, transform: "rotate(-10deg)" }} />
+      <div className="absolute rounded-card" style={{ width: 220, height: 220, top: "52%", left: "20%", background: "rgba(0,0,0,0.18)", transform: "rotate(8deg)" }} />
+      <div className="absolute rounded-pill" style={{ width: 520, height: 520, top: "-10%", right: "-12%", background: "rgba(220,255,0,0.16)", filter: "blur(2px)" }} />
+      <div className="absolute inset-0 flex items-end p-12">
+        <div className="max-w-[420px]">
+          <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "var(--color-on-lime)" }}>
+            O sistema operacional financeiro que também guarda e move o seu dinheiro.
+          </p>
+          <p className="m-0 mt-3 text-label" style={{ color: "var(--color-on-lime)", opacity: 0.7 }}>
+            Caixa, risco, cobrança e pagamento — em camadas, num lugar só.
+          </p>
+        </div>
       </div>
     </div>
   );
