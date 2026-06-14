@@ -597,6 +597,56 @@ têm account_id).
 - **Dados:** `useFluxoCaixa(filtros)` (`hooks.ts`) sobre `getRiscoInput`+
   `getAccountsList`. Sidebar/command palette ligam a rota.
 
+### Funil PAGAR (Central de Pagamentos · Solicitações & aprovações · Reembolsos)
+
+Submenu **PAGAR** da Sidebar = funil de contas a pagar, sobre o mesmo hub
+(`getOpenMovements("saida")` / `getRiscoInput`). Três telas reusam motores
+existentes; nada de captura duplicada (a Caixa de Entrada vive em `/upload`).
+
+- **Central de Pagamentos** (`/pagamentos`, `components/pagamentos/`): executa os
+  títulos de saída lançados. Cards agrupados por dia/semana/mês/ano + busca +
+  conta de saída + método; **seleção múltipla** e **pagar por linha** (botão
+  "Pagar" aparece na linha selecionada → modal **Confirmar pagamento** +
+  **anexar comprovante**). `lib/pagamentos.ts` `pagarLote()`: **idempotente**
+  (reusa `FinancialPlatform.processarPagamento` do `core/platform` — reenviar o
+  mesmo título não paga 2x) → **liquidar** (`liquidarImported`: marca pago +
+  paid_date + **debita o saldo** da conta; live: Supabase). Card **"Contas pagas"**
+  scoped por um **box de período** (7D/14D/30D/3M/Tudo, por `paid_date`, via
+  `getRiscoInput`); comprovante por movement em `localStorage`
+  (`anexarComprovante`). "Enviado" ≠ "pago": saldo só cai na liquidação.
+  **Gate de alçada:** títulos acima do limite sem aprovação ficam **bloqueados**
+  (selo + link p/ `/aprovacoes`), fora do lote.
+- **Solicitações & aprovações** (`/aprovacoes`, `components/aprovacoes/`): gate de
+  alçada reusando `core/institutional` (`REGRAS_PADRAO`/`iniciarAprovacao`/
+  `aprovarPasso`/`regraParaValor`/`sugerirIA`). `lib/aprovacoes.ts` (store local)
+  expõe `requerAlcada`/`estaAutorizado` (consumidos pela Central). Abas (fila/
+  minhas/todas), painel Aprovar/Rejeitar/Devolver com sugestão de IA e trilha,
+  segregação de funções. Semeia solicitações dos títulos acima da alçada (R$5k).
+- **Reembolsos** (`/reembolsos`, `components/reembolsos/`): caso especializado —
+  form do colaborador + itens (OCR do comprovante via `lerDocumento`) + chave Pix.
+  Roteia pelo MESMO motor de alçada; ao aprovar (`sincronizarReembolsos`) gera
+  **1 movement de saída por item** (categoria certa → DRE por item) que entra na
+  Central/`/pagaveis`. `lib/reembolsos.ts` (store local).
+
+### Recorrências (`/recorrencias`) — motor de MRR (funil RECEBER)
+
+`lib/recorrencias.ts` (store local, demo-safe) — contrato (cliente + itens do
+**catálogo** Produtos/Serviços + ciclo) que **projeta as próximas faturas como
+`movements` de entrada PREVISTOS no hub** (receita contratada → `/recebiveis`,
+fluxo previsto, DRE, risco). **Ativar** injeta as faturas via `appendImported`
+(demo) / Supabase (live); **Pausar/Cancelar** (churn) remove do fluxo
+(`removerImported`). Dashboard de assinatura (**MRR**/ativas/ticket/churn),
+Nova recorrência, lista com próximas faturas. `party_id` do cliente resolvido
+(DRE-por-cliente/cobrança). UI em `components/recorrencias/RecorrenciasView.tsx`.
+Boleto/NFS-e por ciclo e scheduler de faturamento são roadmap.
+
+> **Nota de validação (ambiente):** o funil PAGAR/RECEBER passa em
+> typecheck/lint/build, mas o drive ao vivo via browser ficou **bloqueado** numa
+> regressão do ambiente — `next start` não inicializa em background aqui (um
+> servidor node puro inicializa; o Next, não). O mecanismo de liquidação/saldo
+> (`liquidarImported`/`appendImported` → `getRiscoInput` → `summarizeAccounts`) é
+> o MESMO caminho validado no browser antes (saldo reagiu pelo valor exato).
+
 ### Upload de dados (`/upload`) — Caixa de Entrada + Onboarding unificados
 
 A página **`/upload` "Upload de dados"** (`src/components/upload/UploadView.tsx`)
