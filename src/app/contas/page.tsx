@@ -2,12 +2,22 @@
 
 import { AppShell } from "@/components/app/AppShell";
 import { ContasView } from "@/components/contas/ContasView";
+import { ConectarBanco } from "@/components/contas/ConectarBanco";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 
 export default function ContasPage() {
   return (
-    <AppShell title="Contas financeiras" crumb="Contas · posição por banco" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell
+      title="Contas financeiras"
+      crumb="Contas · posição por banco"
+      actions={
+        <div className="flex items-center gap-3">
+          {isDemo && <DemoBadge />}
+          <ConectarBanco />
+        </div>
+      }
+    >
       <ContasView />
     </AppShell>
   );
