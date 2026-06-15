@@ -1,0 +1,14 @@
+# Configuração das Edge Functions do all4pay.
+# project_id é só um rótulo local; o deploy usa --project-ref.
+project_id = "all4pay-saas"
+
+# Open Finance (Pluggy).
+# pluggy-connect-token: verify_jwt=false no gateway para o preflight OPTIONS
+# (sem header Authorization) NÃO ser barrado e o CORS completar. A auth NÃO
+# regride — o JWT é validado dentro do handler (getUser → 401 sem usuário).
+[functions.pluggy-connect-token]
+verify_jwt = false
+
+# pluggy-webhook: o Pluggy não manda JWT Supabase — auth por segredo na query.
+[functions.pluggy-webhook]
+verify_jwt = false
