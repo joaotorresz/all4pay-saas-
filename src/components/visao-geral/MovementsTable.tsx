@@ -6,6 +6,9 @@ import { brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { Movement } from "@/lib/types";
 import { DEMO_ACCOUNTS } from "@/lib/demo/seed";
+import { cancelMovement } from "@/lib/data";
+import { useToast } from "@/components/listas/ListChrome";
+import { EditMovementModal } from "./EditMovementModal";
 import { EmptyState } from "./shared";
 
 const accountName = (id: string) =>
@@ -30,6 +33,8 @@ export function MovementsTable({
   emptyTitle,
   emptyHint,
   variant = "open",
+  editable = false,
+  onChanged,
 }: {
   movements?: Movement[];
   isLoading: boolean;
@@ -37,7 +42,29 @@ export function MovementsTable({
   emptyTitle: string;
   emptyHint?: string;
   variant?: "open" | "reconcile";
+  /** Mostra ações Editar/Cancelar em cada linha (lançamento ainda em aberto). */
+  editable?: boolean;
+  /** Chamado após editar/cancelar — o chamador invalida a lista. */
+  onChanged?: () => void;
 }) {
+  const { show, node } = useToast();
+  const [editing, setEditing] = React.useState<Movement | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const cancelar = async (m: Movement) => {
+    if (!window.confirm(`Cancelar "${m.description ?? "lançamento"}"? Ele sai da lista de aberto (não vira pago).`)) return;
+    setBusy(m.id);
+    try {
+      await cancelMovement(m.id);
+      show("Lançamento cancelado");
+      onChanged?.();
+    } catch {
+      show("Não foi possível cancelar");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card padded={false}>
@@ -85,6 +112,7 @@ export function MovementsTable({
         <span className="w-[110px]">Vencimento</span>
         <span className="w-[120px]">Status</span>
         <span className="w-[140px] text-right">Valor</span>
+        {editable && <span className="w-[150px]" />}
       </div>
       {movements.map((m, i) => {
         const parts = brlParts(m.amount);
@@ -121,9 +149,34 @@ export function MovementsTable({
                 color={isOut ? "var(--color-negative)" : "var(--color-ink)"}
               />
             </span>
+            {editable && (
+              <span className="w-[150px] flex justify-end gap-1">
+                <button
+                  onClick={() => setEditing(m)}
+                  className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2"
+                >
+                  Editar
+                </button>
+                <button
+                  onClick={() => cancelar(m)}
+                  disabled={busy === m.id}
+                  className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2 disabled:opacity-45"
+                >
+                  {busy === m.id ? "…" : "Cancelar"}
+                </button>
+              </span>
+            )}
           </div>
         );
       })}
+      {editing && (
+        <EditMovementModal
+          movement={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(msg) => { show(msg); onChanged?.(); }}
+        />
+      )}
+      {node}
     </Card>
   );
 }

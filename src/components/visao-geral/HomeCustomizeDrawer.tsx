@@ -19,6 +19,8 @@ const CURADOS: WidgetDef[] = [
   { id: "hoje", label: "Hoje · briefing", grupo: "Operação", def: true },
   { id: "saude", label: "Saúde financeira (KPIs)", grupo: "Saúde financeira", def: true },
   { id: "cashflow", label: "Fluxo de caixa", grupo: "Saúde financeira", def: true },
+  { id: "calendar", label: "Calendário de transações", grupo: "Caixa", def: true },
+  { id: "cashCandle", label: "Velas do caixa", grupo: "Caixa", def: true },
   { id: "accounts", label: "Saldo · contas", grupo: "Operação", def: true },
   { id: "receivables", label: "A receber", grupo: "Operação", def: true },
   { id: "payables", label: "A pagar", grupo: "Operação", def: true },

@@ -23,7 +23,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, updateImportedMovement } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -142,6 +142,27 @@ export async function getOpenMovements(
     .order("due_date", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Movement[];
+}
+
+/** Edita um lançamento ainda EM ABERTO (pendente) — valor, vencimento, descrição.
+ *  Demo: patcha o imported store; live: Supabase. Não mexe em saldo (só liquidação move). */
+export async function updateMovement(
+  id: string,
+  patch: { amount?: number; due_date?: string; description?: string | null },
+): Promise<void> {
+  if (isDemo) { updateImportedMovement(id, patch); return; }
+  const supabase = createClient();
+  const { error } = await supabase.from("movements").update(patch).eq("id", id);
+  if (error) throw error;
+}
+
+/** Cancela um lançamento ainda EM ABERTO (status → cancelado). Sai das listas de
+ *  aberto/previsto sem virar pago (não afeta saldo). Demo: imported; live: Supabase. */
+export async function cancelMovement(id: string): Promise<void> {
+  if (isDemo) { updateImportedMovement(id, { status: "cancelado" }); return; }
+  const supabase = createClient();
+  const { error } = await supabase.from("movements").update({ status: "cancelado" }).eq("id", id);
+  if (error) throw error;
 }
 
 /** Recebíveis para a tela de Boleto: entrada em aberto OU com boleto (inclui o

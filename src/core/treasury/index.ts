@@ -25,6 +25,7 @@ export interface BancoPosicao {
 }
 export interface CashWeek {
   semana: string;
+  periodo: string; // faixa de datas da semana, ex.: "16/06–22/06"
   entradas: number;
   saidas: number;
   liquido: number;
@@ -66,6 +67,8 @@ function diasFuturo(hoje: string, dias: number) {
   d.setDate(d.getDate() + dias);
   return d.toISOString().slice(0, 10);
 }
+/** ISO yyyy-mm-dd → "dd/mm". */
+const fmtDM = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 export function treasuryCore(accounts: FinancialAccount[], input: RiskInput): TreasuryCoreResult {
   const posicaoTotal = accounts.reduce((s, a) => s + a.balance, 0);
@@ -113,7 +116,8 @@ export function treasuryCore(accounts: FinancialAccount[], input: RiskInput): Tr
     const saidas = pend.filter((m) => m.type === "saida" && m.due_date >= ini && m.due_date < fim).reduce((s, m) => s + m.amount, 0);
     const liquido = entradas - saidas;
     acumulado += liquido;
-    cashPositioning.push({ semana: `S${w + 1}`, entradas, saidas, liquido, acumulado });
+    const fimInc = diasFuturo(input.hoje, (w + 1) * 7 - 1);
+    cashPositioning.push({ semana: `S${w + 1}`, periodo: `${fmtDM(ini)}–${fmtDM(fimInc)}`, entradas, saidas, liquido, acumulado });
   }
 
   // Stress testing (reusa o motor de risco de caixa).

@@ -98,7 +98,7 @@ export function ContasView() {
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {t.cashPositioning.map((w) => (
               <div key={w.semana} className="flex flex-col gap-[2px] rounded-md border border-border-soft p-2">
-                <span className="text-caption text-faint">{w.semana}</span>
+                <span className="text-caption text-faint">{w.semana} · {w.periodo}</span>
                 <span className="text-caption text-positive tabular-nums">+<BRL value={w.entradas} /></span>
                 <span className="text-caption text-muted tabular-nums">−<BRL value={w.saidas} /></span>
                 <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: w.acumulado < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>

@@ -5,6 +5,8 @@ import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
 import { AccountsCard } from "./AccountsCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
+import { CashflowCandlestick } from "./CashflowCandlestick";
+import { TransactionsCalendar } from "./TransactionsCalendar";
 import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
@@ -31,6 +33,8 @@ const KEY_AUTO = "a4p_home_auto";
 const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   saude: { node: <SaudeFinanceiraCard />, full: true },
   cashflow: { node: <DailyCashflowChart />, full: true },
+  cashCandle: { node: <CashflowCandlestick />, full: true },
+  calendar: { node: <TransactionsCalendar />, full: true },
   accounts: { node: <AccountsCard />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },
