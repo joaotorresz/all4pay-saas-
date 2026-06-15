@@ -67,8 +67,12 @@ Deno.serve(async (req: Request) => {
     const r = await fetchTimeout(`${PLUGGY_API}/connect_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
-      // clientUserId = org_id → casa a conexão com a RLS no webhook depois. Crítico.
-      body: JSON.stringify({ clientUserId: orgId, webhookUrl, avoidDuplicates: true }),
+      // Os parâmetros precisam ir DENTRO de `options` (docs.pluggy.ai) — no nível
+      // raiz o Pluggy os ignora e o item nasce SEM clientUserId (posse não valida).
+      // clientUserId = org_id → casa a conexão com a RLS no webhook/sync. Crítico.
+      body: JSON.stringify({
+        options: { clientUserId: orgId, webhookUrl, avoidDuplicates: true },
+      }),
     });
     if (!r.ok) return json(502, { error: `pluggy connect_token ${r.status}` });
     return json(200, { connectToken: (await r.json()).accessToken });
