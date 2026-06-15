@@ -49,22 +49,30 @@ async function etlMovements(db: SupabaseClient, orgId: string, txs: PluggyTx[], 
   const finAcc = (accs as { id: string }[] | null)?.[0]?.id;
   if (!finAcc) return;
   for (const t of txs) {
-    const ref = `pluggy:${t.id}`;
-    const entrada = (t.amount ?? 0) >= 0;
-    const dia = (t.date || "").slice(0, 10);
-    const ins = await db.from("movements").insert({
-      org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida", status: "pago",
-      category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia,
-      reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
-    }).select("id").single();
-    let movId = ins.data?.id as string | undefined;
-    if (ins.error) {
-      if (ins.error.code !== "23505") continue;
-      const { data: ex } = await db.from("movements").select("id").eq("org_id", orgId).eq("reference_code", ref).maybeSingle();
-      movId = ex?.id as string | undefined;
+    try {
+      const ref = `pluggy:${t.id}`;
+      const entrada = (t.amount ?? 0) >= 0;
+      const dia = (t.date || "").slice(0, 10);
+      // movements NÃO tem unique TOTAL em (org_id, reference_code) — só índice
+      // PARCIAL (pluggy:%). Por isso .insert() + trata 23505 (NUNCA .upsert com
+      // onConflict aqui → 42P10). A idempotência vem do índice parcial.
+      const ins = await db.from("movements").insert({
+        org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida", status: "pago",
+        category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia,
+        reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
+      }).select("id").single();
+      let movId = ins.data?.id as string | undefined;
+      if (ins.error) {
+        if (ins.error.code !== "23505") { console.error("movements insert", ins.error.message); continue; }
+        const { data: ex } = await db.from("movements").select("id").eq("org_id", orgId).eq("reference_code", ref).maybeSingle();
+        movId = ex?.id as string | undefined;
+      }
+      const btId = bankRowByTx.get(t.id);
+      if (movId && btId) await db.from("bank_transactions").update({ movement_id: movId }).eq("id", btId);
+    } catch (e) {
+      console.error("etl tx", t.id, String((e as Error)?.message ?? e));
+      continue;
     }
-    const btId = bankRowByTx.get(t.id);
-    if (movId && btId) await db.from("bank_transactions").update({ movement_id: movId }).eq("id", btId);
   }
 }
 
