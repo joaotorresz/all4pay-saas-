@@ -12,3 +12,8 @@ verify_jwt = false
 # pluggy-webhook: o Pluggy não manda JWT Supabase — auth por segredo na query.
 [functions.pluggy-webhook]
 verify_jwt = false
+
+# pluggy-sync-item: caminho ATIVO (onSuccess do widget). verify_jwt=false p/ o
+# OPTIONS passar; auth validada no handler (getUser → 401) + posse do item.
+[functions.pluggy-sync-item]
+verify_jwt = false

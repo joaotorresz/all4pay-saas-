@@ -14,3 +14,16 @@ export async function getPluggyConnectToken(): Promise<string> {
   if (!token) throw new Error("connect token vazio");
   return token;
 }
+
+export interface SyncResumo { items: number; accounts: number; transactions: number }
+
+/** Sync ATIVO: busca item/contas/transações na hora (o webhook não dispara em
+ *  sandbox). Idempotente no servidor — não duplica com o caminho passivo. */
+export async function syncPluggyItem(itemId: string): Promise<SyncResumo> {
+  if (isDemo) throw new Error("Open Finance indisponível em modo demonstração");
+  const { data, error } = await createClient().functions.invoke("pluggy-sync-item", { body: { itemId } });
+  if (error) throw new Error(error.message);
+  const r = data as (SyncResumo & { ok?: boolean }) | null;
+  if (!r?.ok) throw new Error("sync falhou");
+  return { items: r.items, accounts: r.accounts, transactions: r.transactions };
+}

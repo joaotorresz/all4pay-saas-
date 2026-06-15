@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button, Icon } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
-import { getPluggyConnectToken } from "@/lib/openfinance";
+import { getPluggyConnectToken, syncPluggyItem } from "@/lib/openfinance";
 
 // Widget só no cliente (acessa window) — import dinâmico, sem SSR.
 const PluggyConnect = dynamic(
@@ -15,18 +15,22 @@ const PluggyConnect = dynamic(
 
 /**
  * Botão "Conectar banco" (Open Finance via Pluggy) na tela /contas.
- * Pede o connect token à Edge Function e abre o widget em sandbox. As contas/
- * transações são populadas pelo webhook; o onSuccess dá o feedback rápido +
- * invalida o React Query para a UI refletir.
+ * Pede o connect token à Edge Function e abre o widget em sandbox. No onSuccess,
+ * dispara o sync ATIVO ({ itemId }) — o webhook não dispara em sandbox — que
+ * popula contas/transações + movements e invalida o React Query.
  */
+type ItemData = { item?: { id?: string } } | undefined;
+
 export function ConectarBanco() {
   const qc = useQueryClient();
   const [token, setToken] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [sincronizando, setSincronizando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  const [ok, setOk] = React.useState<string | null>(null);
 
   const abrir = async () => {
-    setErro(null);
+    setErro(null); setOk(null);
     setLoading(true);
     try {
       setToken(await getPluggyConnectToken());
@@ -38,10 +42,21 @@ export function ConectarBanco() {
   };
 
   const fechar = () => setToken(null);
-  const concluir = async () => {
+
+  const concluir = async (itemData: ItemData) => {
     setToken(null);
-    // o webhook popula as tabelas; recarrega contas para feedback imediato
-    await qc.invalidateQueries();
+    const itemId = itemData?.item?.id;
+    if (!itemId) { await qc.invalidateQueries(); return; }
+    setSincronizando(true); setErro(null);
+    try {
+      const r = await syncPluggyItem(itemId);
+      setOk(`Sincronizado: ${r.accounts} conta(s), ${r.transactions} transação(ões).`);
+      await qc.invalidateQueries();
+    } catch (e) {
+      setErro(`Falha ao sincronizar: ${(e as Error).message}`);
+    } finally {
+      setSincronizando(false);
+    }
   };
 
   if (isDemo) {
@@ -55,10 +70,11 @@ export function ConectarBanco() {
   return (
     <>
       <div className="flex flex-col items-end gap-1">
-        <Button variant="secondary" onClick={abrir} disabled={loading} leftIcon={<Icon name="building" size={15} />}>
-          {loading ? "Conectando…" : "Conectar banco"}
+        <Button variant="secondary" onClick={abrir} disabled={loading || sincronizando} leftIcon={<Icon name="building" size={15} />}>
+          {sincronizando ? "Sincronizando…" : loading ? "Conectando…" : "Conectar banco"}
         </Button>
         {erro && <span className="text-caption text-negative">{erro}</span>}
+        {ok && <span className="text-caption text-positive">{ok}</span>}
       </div>
       {token && (
         <PluggyConnect
