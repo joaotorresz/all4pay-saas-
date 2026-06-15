@@ -99,27 +99,37 @@ async function processarItem(db: SupabaseClient, apiKey: string, itemId: string)
     const accId = ba?.id as string | undefined;
     if (!accId) continue;
 
-    const allTx: PluggyTx[] = [];
-    let page = 1, totalPages = 1;
-    do {
-      const tp = await pluggyGet<Paged<PluggyTx>>(apiKey, `/transactions?accountId=${a.id}&page=${page}&pageSize=500`);
-      allTx.push(...(tp.results ?? []));
-      totalPages = tp.totalPages ?? 1;
-      page++;
-    } while (page <= totalPages && page < 50);
+    try {
+      // /v2/transactions — paginação por CURSOR (o legado page-based dá 410 Gone).
+      // O cursor vai na query `after`; a resposta traz `next` (token da próxima).
+      const allTx: PluggyTx[] = [];
+      let after: string | undefined;
+      let guard = 0;
+      do {
+        const qs = new URLSearchParams({ accountId: a.id });
+        if (after) qs.set("after", after);
+        const tp = await pluggyGet<{ results: PluggyTx[]; next?: string | null }>(apiKey, `/v2/transactions?${qs}`);
+        allTx.push(...(tp.results ?? []));
+        after = tp.next ?? undefined;
+        guard++;
+      } while (after && guard < 200);
 
-    const bankRowByTx = new Map<string, string>();
-    for (const t of allTx) {
-      const { data: bt } = await db.from("bank_transactions").upsert({
-        org_id: orgId, account_id: accId, pluggy_transaction_id: t.id, amount: t.amount,
-        currency: t.currencyCode ?? "BRL", date: t.date, description: t.description ?? null,
-        category: t.category ?? null, type: t.type ?? null, raw: t as unknown,
-      }, { onConflict: "org_id,pluggy_transaction_id" }).select("id").single();
-      if (bt?.id) bankRowByTx.set(t.id, bt.id as string);
+      const bankRowByTx = new Map<string, string>();
+      for (const t of allTx) {
+        const { data: bt } = await db.from("bank_transactions").upsert({
+          org_id: orgId, account_id: accId, pluggy_transaction_id: t.id, amount: t.amount,
+          currency: t.currencyCode ?? "BRL", date: t.date, description: t.description ?? null,
+          category: t.category ?? null, type: t.type ?? null, raw: t as unknown,
+        }, { onConflict: "org_id,pluggy_transaction_id" }).select("id").single();
+        if (bt?.id) bankRowByTx.set(t.id, bt.id as string);
+      }
+      // TODO(produto): hoje TODA transação OF vira movement. Confirmar com o usuário
+      // se deve ser só de contas marcadas (a origem já fica em reference_code='pluggy:').
+      await etlMovements(db, orgId, allTx, bankRowByTx);
+    } catch (e) {
+      console.error("tx conta", a.id, String((e as Error)?.message ?? e));
+      continue;
     }
-    // TODO(produto): hoje TODA transação OF vira movement. Confirmar com o usuário
-    // se deve ser só de contas marcadas (a origem já fica em reference_code='pluggy:').
-    await etlMovements(db, orgId, allTx, bankRowByTx);
   }
 }
 
