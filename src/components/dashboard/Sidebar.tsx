@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
+import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -118,9 +119,25 @@ export function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
   const [open, setOpen] = React.useState<Record<string, boolean>>({});
+  // Identidade REAL do usuário logado (sem fallback fake). Demo mostra rótulo de demo.
+  const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
 
   React.useEffect(() => {
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+  }, []);
+
+  React.useEffect(() => {
+    if (isDemo || !SUPA_CONFIGURED) return;
+    let ativo = true;
+    import("@/lib/supabase/client").then(async ({ createClient }) => {
+      const { data } = await createClient().auth.getUser();
+      if (!ativo || !data.user) return;
+      const email = data.user.email ?? "";
+      const meta = data.user.user_metadata as { name?: string; full_name?: string } | undefined;
+      const nome = meta?.name || meta?.full_name || (email ? email.split("@")[0] : "Usuário");
+      setUsuario({ nome, email });
+    });
+    return () => { ativo = false; };
   }, []);
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -249,12 +266,12 @@ export function Sidebar() {
         </button>
         <ThemeToggle collapsed={collapsed} />
         <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
-          <Avatar name="Operador Um" size={30} />
+          <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
           {!collapsed && (
             <>
               <div className="min-w-0">
-                <div className="text-label font-medium text-ink truncate">Operador Um</div>
-                <div className="text-[13px] text-faint">ops@all4pay.co</div>
+                <div className="text-label font-medium text-ink truncate">{isDemo ? "Demonstração" : (usuario?.nome ?? "Conta")}</div>
+                <div className="text-[13px] text-faint truncate">{isDemo ? "modo demonstração" : (usuario?.email ?? "")}</div>
               </div>
               {SUPA_CONFIGURED ? (
                 <button
