@@ -86,18 +86,28 @@ async function processarItem(db: SupabaseClient, apiKey: string, itemId: string,
   if (orgId !== expectedOrgId) return null; // posse não confere → 403
 
   let nAccounts = 0, nTx = 0;
-  await db.from("pluggy_items").upsert({
-    org_id: orgId, pluggy_item_id: item.id, connector_id: item.connector?.id ?? null,
+
+  // Estratégia 2A "última conexão vence": remove conexões antigas do MESMO banco
+  // (connector) nesta org, exceto o item atual. Cascata limpa contas/transações;
+  // os movements ficam (FK movement_id ON DELETE SET NULL) e são re-vinculados.
+  const connId = item.connector?.id ?? null;
+  if (connId != null) {
+    await db.from("pluggy_items").delete().eq("org_id", orgId).eq("connector_id", connId).neq("pluggy_item_id", item.id);
+  }
+
+  const { data: itemRow } = await db.from("pluggy_items").upsert({
+    org_id: orgId, pluggy_item_id: item.id, connector_id: connId,
     connector_name: item.connector?.name ?? null, client_user_id: orgId,
     status: item.status ?? null, status_detail: item.statusDetail ?? null,
     last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  }, { onConflict: "org_id,pluggy_item_id" });
+  }, { onConflict: "org_id,pluggy_item_id" }).select("id").single();
+  const itemUuid = itemRow?.id as string | undefined;
 
   const accounts = await pluggyGet<Paged<PluggyAccount>>(apiKey, `/accounts?itemId=${itemId}`);
   for (const a of accounts.results ?? []) {
     nAccounts++;
     await db.from("bank_accounts").upsert({
-      org_id: orgId, pluggy_account_id: a.id, type: a.type ?? null, subtype: a.subtype ?? null,
+      org_id: orgId, item_id: itemUuid, pluggy_account_id: a.id, type: a.type ?? null, subtype: a.subtype ?? null,
       name: a.name ?? null, number: a.number ?? null, balance: a.balance ?? null,
       currency: a.currencyCode ?? "BRL", raw: a as unknown, updated_at: new Date().toISOString(),
     }, { onConflict: "org_id,pluggy_account_id" });
