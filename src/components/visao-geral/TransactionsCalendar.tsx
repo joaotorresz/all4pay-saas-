@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { Card, BRL, Skeleton } from "@/components/ui";
-import { formatBRLCompact } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState } from "./shared";
@@ -63,7 +62,7 @@ export function TransactionsCalendar() {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <WidgetHeader title="Calendário de transações" subtitle="entradas e saídas por dia · use o seletor de mês no topo" />
+        <WidgetHeader title="Calendário de transações" />
       </div>
 
       {isLoading && <Skeleton className="h-[280px] w-full" rounded="md" />}
@@ -98,17 +97,12 @@ export function TransactionsCalendar() {
                   ].join(" ")}
                 >
                   <span className="flex items-center justify-between">
-                    <span className={["text-[12px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[19px] h-[19px] rounded-pill bg-lime text-on-lime" : "text-muted"].join(" ")}>{dia}</span>
+                    <span className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
                     <span className="flex items-center gap-[3px]">
                       {info?.entrada ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} /> : null}
                       {info?.saida ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} /> : null}
                     </span>
                   </span>
-                  {proj ? (
-                    <span className="mt-auto text-[10px] tabular-nums leading-none" style={{ color: proj.ruptura ? NEGATIVE : "var(--color-text-tertiary)" }}>
-                      {proj.saldo < 0 ? "−" : ""}{formatBRLCompact(Math.abs(proj.saldo))}
-                    </span>
-                  ) : null}
                 </button>
               );
             })}
@@ -118,7 +112,6 @@ export function TransactionsCalendar() {
           <div className="flex items-center gap-4 text-[12px] text-faint flex-wrap">
             <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} />entradas</span>
             <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} />saídas</span>
-            <span>nº = saldo esperado</span>
             {temRuptura && (
               <span className="inline-flex items-center gap-[5px]"><span className="inline-block w-3 h-3 rounded-[3px] border border-negative" />risco de ruptura</span>
             )}
