@@ -66,6 +66,11 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    id: "pos", label: "Central POS", icon: "credit-card", children: [
+      { label: "Configuração de taxas all4pay", href: "/pos/taxas" },
+    ],
+  },
+  {
     id: "relatorios", label: "Relatórios", icon: "receipt", children: [
       { label: "DRE", href: "/dre" },
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
