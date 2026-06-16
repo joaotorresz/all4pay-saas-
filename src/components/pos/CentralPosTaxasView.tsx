@@ -20,11 +20,13 @@ import {
   custoTable,
   taxaFinalParcela,
   custoAntecipParceiroMensal,
+  antecipEC,
+  diasParcela,
 } from "@/lib/pos-taxas";
 
-/** % a partir de decimal, pt-BR com sinal (ex.: 2,25% · −0,05%). */
-function pct(v: number, max = 4): string {
-  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: max }) + "%";
+/** % a partir de decimal, pt-BR com sinal — 2 casas (ex.: 2,25% · −0,05%). */
+function pct(v: number): string {
+  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
 }
 function parsePct(s: string): number {
   const n = Number(s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".").replace("−", "-"));
@@ -55,6 +57,8 @@ export function CentralPosTaxasView() {
   const [cfg, setCfg] = React.useState<PosConfig>(POS_DEFAULT);
   const [draft, setDraft] = React.useState<PosConfig | null>(null);
   const [salvo, setSalvo] = React.useState(false);
+  const [abertos, setAbertos] = React.useState<Record<string, boolean>>({});
+  const toggleParcela = (id: string) => setAbertos((o) => ({ ...o, [id]: !o[id] }));
 
   React.useEffect(() => { setCfg(loadPosConfig()); }, []);
 
@@ -174,8 +178,8 @@ export function CentralPosTaxasView() {
           </div>
           <p className="text-caption text-faint mt-3">
             Custo de antecipação do parceiro (SELIC + CDI {RANGES.indexOf(ativo.range) >= 0 ? ativo.range : ""}):{" "}
-            <span className="text-ink tabular-nums">{pct(custoParceiroAM, 3)} a.m.</span> · spread de antecipação:{" "}
-            <span className={spreadAntecipAM < 0 ? "text-negative tabular-nums" : "text-ink tabular-nums"}>{pct(spreadAntecipAM, 3)} a.m.</span>
+            <span className="text-ink tabular-nums">{pct(custoParceiroAM)} a.m.</span> · spread de antecipação:{" "}
+            <span className={spreadAntecipAM < 0 ? "text-negative tabular-nums" : "text-ink tabular-nums"}>{pct(spreadAntecipAM)} a.m.</span>
             {ativo.antecipacao && ativo.online && <> · antecipação + online juntos não combinam → “Não antecipa”.</>}
           </p>
         </Card>
@@ -218,6 +222,7 @@ export function CentralPosTaxasView() {
           <p className="text-caption text-faint mb-4">
             Taxa efetiva ao EC por parcela.{" "}
             {ativo.antecipacao ? "Com antecipação" : "Sem antecipação"} · {ativo.online ? "online" : "presencial"}.
+            {ativo.antecipacao && !ativo.online && " Clique no número da parcela para ver o valor por mês."}
           </p>
           <table className="w-full text-[15px] border-collapse">
             <thead>
@@ -229,28 +234,87 @@ export function CentralPosTaxasView() {
               </tr>
             </thead>
             <tbody>
-              {PARCELAS.map((row) => (
-                <tr key={row.id} className="border-b border-border-soft hover:bg-surface-1">
-                  <td className="py-[7px] pr-4 text-ink">{row.label}</td>
-                  {BANDEIRAS.map((b, i) => {
-                    if (row.pixUnico && i > 0) {
-                      return <td key={b.id} className="py-[7px] px-3 text-right text-faint">—</td>;
-                    }
-                    const t = taxaFinalParcela(ativo, custo, row, b.id);
-                    return (
-                      <td key={b.id} className="py-[7px] px-3 text-right tabular-nums text-ink">
-                        {t === undefined ? (
-                          <span className="text-faint">—</span>
-                        ) : t === "NAO_ANTECIPA" ? (
-                          <span className="text-faint text-caption">Não antecipa</span>
+              {PARCELAS.map((row) => {
+                const expansivel = ativo.antecipacao && !ativo.online && !row.semAntecip;
+                const aberto = expansivel && !!abertos[row.id];
+                const meses = diasParcela(row.parcela) / 30;
+                const antecip = antecipEC(row.parcela, ativo.taxaAntecipMensal);
+                return (
+                  <React.Fragment key={row.id}>
+                    <tr className={aberto ? "hover:bg-surface-1" : "border-b border-border-soft hover:bg-surface-1"}>
+                      <td className="py-[7px] pr-4 text-ink">
+                        {expansivel ? (
+                          <button
+                            onClick={() => toggleParcela(row.id)}
+                            className="inline-flex items-center gap-1 hover:text-ink"
+                            title="Ver valor por mês"
+                          >
+                            <Icon name={aberto ? "chevron-down" : "chevron-right"} size={14} color="var(--color-text-tertiary)" />
+                            {row.label}
+                          </button>
                         ) : (
-                          pct(t)
+                          row.label
                         )}
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                      {BANDEIRAS.map((b, i) => {
+                        if (row.pixUnico && i > 0) {
+                          return <td key={b.id} className="py-[7px] px-3 text-right text-faint">—</td>;
+                        }
+                        const t = taxaFinalParcela(ativo, custo, row, b.id);
+                        return (
+                          <td key={b.id} className="py-[7px] px-3 text-right tabular-nums text-ink">
+                            {t === undefined ? (
+                              <span className="text-faint">—</span>
+                            ) : t === "NAO_ANTECIPA" ? (
+                              <span className="text-faint text-caption">Não antecipa</span>
+                            ) : (
+                              pct(t)
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {aberto && (
+                      <tr className="bg-surface-1 border-b border-border-soft">
+                        <td colSpan={BANDEIRAS.length + 1} className="px-4 py-3">
+                          <div className="text-caption text-muted mb-2">
+                            Antecipação aplicada: <span className="text-ink tabular-nums">+{pct(antecip)}</span> ·
+                            taxa de antecipação <span className="text-ink tabular-nums">{pct(ativo.taxaAntecipMensal)} a.m.</span> ·
+                            prazo médio <span className="text-ink tabular-nums">{diasParcela(row.parcela)} dias</span>
+                            {" "}(~{meses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} {meses === 1 ? "mês" : "meses"})
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {BANDEIRAS.map((b) => {
+                              const t = taxaFinalParcela(ativo, custo, row, b.id);
+                              if (typeof t !== "number") {
+                                return (
+                                  <div key={b.id} className="rounded-md border border-border-soft bg-white px-3 py-2">
+                                    <div className="text-caption text-faint">{b.label}</div>
+                                    <div className="text-faint">—</div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={b.id} className="rounded-md border border-border-soft bg-white px-3 py-2">
+                                  <div className="text-caption text-faint">{b.label}</div>
+                                  <div className="flex items-baseline justify-between gap-3 mt-1">
+                                    <span className="text-caption text-muted">taxa</span>
+                                    <span className="text-ink tabular-nums">{pct(t)}</span>
+                                  </div>
+                                  <div className="flex items-baseline justify-between gap-3">
+                                    <span className="text-caption text-muted">por mês</span>
+                                    <span className="text-ink tabular-nums">{pct(t / meses)} a.m.</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </Card>
