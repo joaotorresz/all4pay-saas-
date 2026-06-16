@@ -9,8 +9,8 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 export default function ContasPage() {
   return (
     <AppShell
-      title="Contas financeiras"
-      crumb="Contas · posição por banco"
+      title="Open Finance"
+      crumb="Upload de dados · posição por banco"
       actions={
         <div className="flex items-center gap-3">
           {isDemo && <DemoBadge />}

@@ -52,10 +52,10 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    id: "contas", label: "Contas", icon: "layers", children: [
-      { label: "Contas financeiras", href: "/contas" },
-      { label: "Conciliação", href: "/conciliacao" },
+    id: "contas", label: "Upload de dados", icon: "upload", children: [
+      { label: "Open finance", href: "/contas" },
       { label: "Importar dados", href: "/upload" },
+      { label: "Conciliação", href: "/conciliacao" },
     ],
   },
   {
