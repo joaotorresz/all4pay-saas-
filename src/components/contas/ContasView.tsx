@@ -1,9 +1,13 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import * as React from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Skeleton } from "@/components/ui";
 import { getAccountsList, getRiscoInput } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
+import { useToast } from "@/components/listas/ListChrome";
+import { EditAccountModal } from "./EditAccountModal";
+import type { FinancialAccount } from "@/lib/types";
 
 const BANCO: Record<string, string> = {
   itau: "Itaú", bradesco: "Bradesco", nubank: "Nubank", inter: "Inter",
@@ -15,8 +19,11 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 /** Contas financeiras — posição consolidada por conta/banco (Treasury Core).
  *  É o "ver o saldo de manhã" que faltava (esqueleto do RECEBER/CONTAS). */
 export function ContasView() {
+  const qc = useQueryClient();
+  const { show, node } = useToast();
   const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  const [editing, setEditing] = React.useState<FinancialAccount | null>(null);
 
   if (acc.isLoading || inp.isLoading) return <Skeleton className="h-[280px]" />;
   if (!acc.data || !inp.data) return <Card><span className="text-caption text-faint">Sem contas cadastradas.</span></Card>;
@@ -80,14 +87,25 @@ export function ContasView() {
           <span>Conta</span><span>Banco</span><span className="text-right">% do caixa</span><span className="text-right">Saldo</span>
         </div>
         <div className="flex flex-col">
-          {t.contas.map((c) => (
-            <div key={c.id} className="grid grid-cols-[1.6fr_1fr_0.8fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
-              <span className="text-[14px] text-ink truncate">{c.nome}</span>
-              <span className="text-caption text-muted">{labelBanco(c.banco)}</span>
-              <span className="text-caption text-muted tabular-nums text-right">{pct(c.share)}</span>
-              <span className="text-caption text-ink tabular-nums text-right"><BRL value={c.saldo} /></span>
-            </div>
-          ))}
+          {t.contas.map((c) => {
+            const conta = (acc.data ?? []).find((a) => a.id === c.id);
+            return (
+              <button
+                key={c.id}
+                onClick={() => conta && setEditing(conta)}
+                title="Editar conta"
+                className="grid grid-cols-[1.6fr_1fr_0.8fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0 text-left w-full hover:bg-surface-1 transition-colors"
+              >
+                <span className="text-[14px] text-ink truncate inline-flex items-center gap-2">
+                  {c.nome}
+                  <Icon name="settings" size={13} color="var(--color-text-tertiary)" />
+                </span>
+                <span className="text-caption text-muted">{labelBanco(c.banco)}</span>
+                <span className="text-caption text-muted tabular-nums text-right">{pct(c.share)}</span>
+                <span className="text-caption text-ink tabular-nums text-right"><BRL value={c.saldo} /></span>
+              </button>
+            );
+          })}
         </div>
       </Card>
 
@@ -109,6 +127,15 @@ export function ContasView() {
           </div>
         </Card>
       )}
+
+      {editing && (
+        <EditAccountModal
+          conta={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async (msg) => { show(msg); await qc.invalidateQueries(); }}
+        />
+      )}
+      {node}
     </div>
   );
 }

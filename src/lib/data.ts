@@ -23,7 +23,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties, updateImportedMovement } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -262,6 +262,18 @@ export async function getAccountsList(): Promise<FinancialAccount[]> {
     .order("name");
   if (error) throw error;
   return (data ?? []) as FinancialAccount[];
+}
+
+/** Edita uma conta financeira — nome, banco e/ou saldo. Demo: imported store;
+ *  live: Supabase. (Saldo aqui é ajuste manual da conta, não liquidação.) */
+export async function updateAccount(
+  id: string,
+  patch: { name?: string; bank?: string; balance?: number },
+): Promise<void> {
+  if (isDemo) { updateImportedAccount(id, patch); return; }
+  const supabase = createClient();
+  const { error } = await supabase.from("financial_accounts").update(patch).eq("id", id);
+  if (error) throw error;
 }
 
 /** Build the movement rows for a lançamento (handles parcelamento). */

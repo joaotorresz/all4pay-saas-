@@ -209,6 +209,17 @@ export function updateImportedMovement(
   setImported({ ...base, movements, accounts });
 }
 
+/** Atualiza uma conta financeira no dataset importado (demo) — nome/banco/saldo.
+ *  Parte de um snapshot do seed se ainda não houver store (edição funciona já). */
+export function updateImportedAccount(id: string, patch: Partial<FinancialAccount>): void {
+  const base: ImportedDataset = load() ?? {
+    movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+    criadoEm: new Date().toISOString(),
+  };
+  const accounts = base.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a));
+  setImported({ ...base, accounts });
+}
+
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
 export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
   const ds = load();
