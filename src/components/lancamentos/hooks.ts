@@ -70,11 +70,14 @@ export function useServices() {
   return useQuery({ queryKey: ["services"], queryFn: getServices });
 }
 
-/** Invalidate the overview widgets fed by movements. */
+/** Invalida tudo que é alimentado por movements/vendas — para a UI refletir
+ *  na hora (sem precisar atualizar a página). `risco-input` é o hub (DRE,
+ *  calendário, fluxo, cards da home, risco/quant/decisão). */
 function invalidateOverview(qc: ReturnType<typeof useQueryClient>) {
-  ["receivables", "payables", "accounts", "daily-cashflow", "sales"].forEach(
-    (k) => qc.invalidateQueries({ queryKey: [k] }),
-  );
+  [
+    "receivables", "payables", "accounts", "daily-cashflow", "daily-cashflow-range",
+    "sales", "sales-list", "open-movements", "risco-input",
+  ].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
 }
 
 /** Submit hook for the Receita/Despesa lançamento. */
