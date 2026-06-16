@@ -48,6 +48,7 @@ export function CentralRecebimentosView() {
 
   const [agrupar, setAgrupar] = React.useState<Agrupar>("dia");
   const [busca, setBusca] = React.useState("");
+  const [categoria, setCategoria] = React.useState("");
   const [conta, setConta] = React.useState("");
   const [metodo, setMetodo] = React.useState<MetodoRecebimento>("pix");
   const [range, setRange] = React.useState<RangeId>("30d");
@@ -70,8 +71,13 @@ export function CentralRecebimentosView() {
     const termo = busca.trim().toLowerCase();
     return (movs.data ?? [])
       .map((m) => itemReceb(m, nomeDe(m)))
-      .filter((it) => !termo || it.pagador.toLowerCase().includes(termo) || (it.category ?? "").toLowerCase().includes(termo) || String(it.amount).includes(termo));
-  }, [movs.data, nomeDe, busca]);
+      .filter((it) => (!categoria || (it.category ?? "") === categoria) && (!termo || it.pagador.toLowerCase().includes(termo) || (it.category ?? "").toLowerCase().includes(termo) || String(it.amount).includes(termo)));
+  }, [movs.data, nomeDe, busca, categoria]);
+
+  const categorias = React.useMemo(
+    () => Array.from(new Set((movs.data ?? []).map((m) => m.category).filter(Boolean))).sort() as string[],
+    [movs.data],
+  );
 
   const grupos = React.useMemo(() => {
     const map = new Map<string, { label: string; itens: ItemRecebimento[] }>();
@@ -151,6 +157,8 @@ export function CentralRecebimentosView() {
             options={(contas.data ?? []).map((c: FinancialAccount) => ({ value: c.id, label: c.name }))} containerClassName="min-w-[180px]" />
           <Select label="Método" value={metodo} onChange={(v) => setMetodo(v as MetodoRecebimento)}
             options={METODOS.map((m) => ({ value: m.id, label: m.label }))} containerClassName="min-w-[150px]" />
+          <Select label="Categoria" value={categoria} onChange={setCategoria}
+            options={[{ value: "", label: "Todas" }, ...categorias.map((c) => ({ value: c, label: c }))]} containerClassName="min-w-[170px]" />
           <div className="flex flex-col gap-[6px] flex-1 min-w-[200px]">
             <span className="text-label font-medium text-muted">Buscar</span>
             <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="pagador, classificação ou valor" />
