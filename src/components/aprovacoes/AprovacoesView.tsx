@@ -10,12 +10,15 @@ import {
 } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
 
-type Aba = "fila" | "minhas" | "todas";
+type Aba = "fila" | "minhas" | "rejeitadas" | "todas";
 const ABAS: { id: Aba; label: string }[] = [
   { id: "fila", label: "Aguardando minha aprovação" },
   { id: "minhas", label: "Minhas solicitações" },
+  { id: "rejeitadas", label: "Rejeitadas" },
   { id: "todas", label: "Todas" },
 ];
+const contaAba = (lista: Solicitacao[], id: Aba) =>
+  lista.filter((s) => id === "fila" ? s.statusFinal === "em_analise" : id === "rejeitadas" ? s.statusFinal === "rejeitada" : true).length;
 const STATUS: Record<StatusSolic, { label: string; cor: string }> = {
   em_analise: { label: "Em análise", cor: "var(--color-warning)" },
   aprovada: { label: "Aprovada", cor: "var(--color-positive)" },
@@ -58,8 +61,9 @@ export function AprovacoesView() {
 
   const filtradas = lista.filter((s) =>
     aba === "fila" ? s.statusFinal === "em_analise"
-      : aba === "minhas" ? true // demo: 1 solicitante
-        : true);
+      : aba === "rejeitadas" ? s.statusFinal === "rejeitada"
+        : aba === "minhas" ? true // demo: 1 solicitante
+          : true);
 
   const agir = async (acao: AcaoDecisao) => {
     if (!sel) return;
@@ -77,7 +81,7 @@ export function AprovacoesView() {
       <Card padded={false} className="lg:col-span-2">
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
           {ABAS.map((a) => {
-            const n = lista.filter((s) => a.id === "fila" ? s.statusFinal === "em_analise" : true).length;
+            const n = contaAba(lista, a.id);
             const on = aba === a.id;
             return (
               <button key={a.id} onClick={() => setAba(a.id)} className={`relative inline-flex items-center gap-2 px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>

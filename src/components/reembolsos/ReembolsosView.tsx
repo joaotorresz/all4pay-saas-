@@ -17,7 +17,7 @@ const STATUS: Record<StatusReembolso, { label: string; cor: string }> = {
   rejeitado: { label: "Rejeitado", cor: "var(--color-negative)" },
   a_pagar: { label: "A pagar (na Central)", cor: "var(--color-positive)" },
 };
-type Aba = "meus" | "aprovacao" | "pagar";
+type Aba = "meus" | "aprovacao" | "rejeitados" | "pagar";
 const hoje = () => new Date().toISOString().slice(0, 10);
 const novoItem = (): ItemReembolso => ({ descricao: "", valor: 0, data: hoje(), categoria: "Alimentação" });
 
@@ -75,7 +75,8 @@ export function ReembolsosView() {
   const filtradas = lista.filter((r) =>
     aba === "meus" ? true
       : aba === "aprovacao" ? (r.status === "em_aprovacao" || r.status === "aprovado")
-        : r.status === "a_pagar");
+        : aba === "rejeitados" ? r.status === "rejeitado"
+          : r.status === "a_pagar");
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
@@ -116,7 +117,7 @@ export function ReembolsosView() {
       {/* Lista */}
       <Card padded={false} className="lg:col-span-2">
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
-          {([["meus", "Meus reembolsos"], ["aprovacao", "Aguardando aprovação"], ["pagar", "A pagar"]] as [Aba, string][]).map(([id, label]) => {
+          {([["meus", "Meus reembolsos"], ["aprovacao", "Aguardando aprovação"], ["rejeitados", "Rejeitados"], ["pagar", "A pagar"]] as [Aba, string][]).map(([id, label]) => {
             const on = aba === id;
             return <button key={id} onClick={() => setAba(id)} className={`relative px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>{label}{on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}</button>;
           })}
