@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   Input,
   DateField,
   CurrencyInput,
   Textarea,
+  Switch,
   Button,
   Icon,
   BRL,
@@ -14,6 +16,7 @@ import {
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
 import { formatBRL } from "@/lib/format";
+import { findOrCreateParty } from "@/lib/confirmacao";
 import { FormModal, SectionTitle } from "./FormModal";
 import {
   usePartiesByRole,
@@ -59,6 +62,13 @@ export function VendaCompraForm({
   const { data: services } = useServices();
   const { data: accounts } = useAccountsList();
   const create = useCreateSaleDoc();
+  const qc = useQueryClient();
+  const rotuloParte = isCompra ? "fornecedor" : "cliente";
+
+  // "Novo cliente/fornecedor" inline
+  const [novoNome, setNovoNome] = React.useState("");
+  const [novoTipo, setNovoTipo] = React.useState<"pf" | "pj">("pj");
+  const [salvarContato, setSalvarContato] = React.useState(true);
 
   const refSource = itemKind === "produto" ? products : services;
   const refOpts: SelectOption[] = (refSource ?? []).map((x) => ({ value: x.id, label: x.name }));
@@ -90,9 +100,10 @@ export function VendaCompraForm({
   const subtotal = items.reduce((s, r) => s + lineTotal(r), 0);
   const total = Math.max(0, subtotal - f.discount);
 
+  const novoContato = f.party_id === "__novo__";
   const validItems = items.filter((r) => r.ref_id && r.qty > 0 && r.unit_price > 0);
   const errors = {
-    party: !f.party_id,
+    party: !f.party_id || (novoContato && !novoNome.trim()),
     items: validItems.length === 0,
     validity: isOrcamento && !f.validity,
   };
@@ -115,16 +126,30 @@ export function VendaCompraForm({
     }
     const kind: SaleDocKind = opts?.asVenda ? "venda" : docKind;
     try {
+      // Novo cliente/fornecedor inline: salva no cadastro (se marcado) ou fica avulso.
+      let partyId: string | null = f.party_id || null;
+      let notas = f.notes.trim();
+      if (novoContato) {
+        if (salvarContato) {
+          const r = await findOrCreateParty({ name: novoNome.trim(), type: novoTipo, isCustomer: !isCompra, isSupplier: isCompra });
+          partyId = r.id;
+          qc.invalidateQueries({ queryKey: ["parties"] });
+          qc.invalidateQueries({ queryKey: ["parties-list"] });
+        } else {
+          partyId = null;
+          notas = [`${isCompra ? "Fornecedor" : "Cliente"}: ${novoNome.trim()}`, notas].filter(Boolean).join(" · ");
+        }
+      }
       await create.mutateAsync({
         kind,
         item_kind: itemKind,
-        party_id: f.party_id || null,
+        party_id: partyId,
         salesperson_id: f.salesperson_id || null,
         cost_center_id: f.cost_center_id || null,
         doc_date: f.doc_date,
         validity: isOrcamento && !opts?.asVenda ? f.validity || null : null,
         discount: f.discount,
-        notes: f.notes.trim() || null,
+        notes: notas || null,
         items: validItems.map((r) => ({
           ref_id: r.ref_id,
           description: refLabel(r.ref_id),
@@ -169,7 +194,7 @@ export function VendaCompraForm({
           label={isCompra ? "Fornecedor" : "Cliente"}
           required
           placeholder="Selecione"
-          options={opts(parties)}
+          options={[{ value: "__novo__", label: isCompra ? "+ Novo fornecedor" : "+ Novo cliente" }, ...opts(parties)]}
           value={f.party_id}
           onChange={(v) => set({ party_id: v })}
           invalid={bad("party")}
@@ -181,6 +206,20 @@ export function VendaCompraForm({
           onChange={(v) => set({ doc_date: v })}
         />
       </div>
+
+      {novoContato && (
+        <div className="flex flex-col gap-3 rounded-md border border-border-soft p-3">
+          <Input label={`Nome do ${rotuloParte}`} value={novoNome} onChange={(e) => setNovoNome(e.target.value)} invalid={bad("party")} />
+          <div className="flex flex-wrap items-center gap-4">
+            <Select label="Tipo" options={[{ value: "pj", label: "Pessoa jurídica" }, { value: "pf", label: "Pessoa física" }]} value={novoTipo} onChange={(v) => setNovoTipo(v as "pf" | "pj")} containerClassName="min-w-[170px]" />
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Switch checked={salvarContato} onChange={() => setSalvarContato((v) => !v)} />
+              <span className="text-label text-ink">Salvar este {rotuloParte} no cadastro de contatos?</span>
+            </label>
+          </div>
+          {!salvarContato && <span className="text-caption text-faint">Sem salvar: a {isCompra ? "compra" : "venda"} fica registrada e o nome vai nas observações, mas o contato não entra em Contatos.</span>}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-4">
         {!isCompra && (
           <Select label="Vendedor" placeholder="Selecione (opcional)" options={opts(salespeople)} value={f.salesperson_id} onChange={(v) => set({ salesperson_id: v })} />
