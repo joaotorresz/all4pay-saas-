@@ -147,7 +147,23 @@ async function processarItem(db: SupabaseClient, apiKey: string, itemId: string,
       continue;
     }
   }
+
+  await limparOrfaosPluggy(db, orgId);
   return { items: 1, accounts: nAccounts, transactions: nTx };
+}
+
+/** Opção 1: apaga movements de Open Finance (reference_code 'pluggy:%') que
+ *  ficaram ÓRFÃOS — sem nenhuma bank_transaction viva apontando (a 2A troca os
+ *  transaction_id no sandbox e o movement antigo perde o vínculo, inflando saldo/
+ *  DRE). Escopo estrito: só 'pluggy:%' da org — nunca lançamentos manuais. */
+async function limparOrfaosPluggy(db: SupabaseClient, orgId: string) {
+  const { data: cand } = await db.from("movements").select("id").eq("org_id", orgId).like("reference_code", "pluggy:%");
+  const ids = ((cand ?? []) as { id: string }[]).map((m) => m.id);
+  if (!ids.length) return;
+  const { data: vivos } = await db.from("bank_transactions").select("movement_id").eq("org_id", orgId).in("movement_id", ids);
+  const vivoSet = new Set(((vivos ?? []) as { movement_id: string | null }[]).map((v) => v.movement_id).filter(Boolean));
+  const orfaos = ids.filter((id) => !vivoSet.has(id));
+  if (orfaos.length) await db.from("movements").delete().in("id", orfaos);
 }
 
 Deno.serve(async (req: Request) => {
