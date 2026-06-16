@@ -30,8 +30,9 @@ const KEY_AUTO = "a4p_home_auto";
 /** Cards "bespoke" (curados) — id → componente + se ocupa a linha inteira. */
 const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   saude: { node: <SaudeFinanceiraCard />, full: true },
-  cashflow: { node: <DailyCashflowChart />, full: true },
-  calendar: { node: <TransactionsCalendar />, full: true },
+  // Caixa: fluxo de caixa e calendário lado a lado (metade/metade).
+  cashflow: { node: <DailyCashflowChart />, full: false },
+  calendar: { node: <TransactionsCalendar />, full: false },
   accounts: { node: <AccountsCard />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },

@@ -71,9 +71,9 @@ export function TransactionsCalendar() {
 
       {!isLoading && !isError && (
         <>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-[5px]">
             {WEEKDAYS.map((w) => (
-              <span key={w} className="text-[12px] text-faint text-center py-1">{w}</span>
+              <span key={w} className="text-[11px] text-faint text-center pb-1">{w}</span>
             ))}
             {Array.from({ length: primeiroDiaSemana }).map((_, i) => <span key={`b${i}`} />)}
             {Array.from({ length: diasNoMes }).map((_, i) => {
@@ -83,23 +83,30 @@ export function TransactionsCalendar() {
               const proj = projecao.get(key);
               const isHoje = key === hoje;
               const sel = key === diaSel;
-              // Borda vermelha quando há risco de ruptura (saldo projetado negativo).
-              const borda = proj?.ruptura ? "border-negative" : sel ? "border-ink" : "border-border-soft";
+              const temMov = !!(info?.entrada || info?.saida);
+              const borda = proj?.ruptura
+                ? "border-negative"
+                : sel ? "border-ink ring-1 ring-ink" : "border-border-soft hover:border-border";
               return (
                 <button
                   key={key}
                   onClick={() => setDiaSel(sel ? null : key)}
+                  aria-label={`Dia ${dia}`}
                   className={[
-                    "flex flex-col items-stretch gap-[2px] rounded-sm border p-1 min-h-[64px] text-left transition-colors",
-                    borda, sel ? "bg-surface-2" : "hover:bg-surface-1",
+                    "flex flex-col items-stretch gap-[3px] rounded-md border p-[5px] min-h-[58px] text-left transition-colors",
+                    borda, sel ? "bg-surface-2" : temMov ? "bg-white hover:bg-surface-1" : "hover:bg-surface-1",
                   ].join(" ")}
                 >
-                  <span className={["text-[12px] tabular-nums", isHoje ? "text-on-lime bg-lime rounded-pill px-[5px] self-start" : "text-muted"].join(" ")}>{dia}</span>
-                  {info?.entrada ? <span className="text-[11px] tabular-nums leading-tight" style={{ color: POSITIVE }}>+{formatBRLCompact(info.entrada)}</span> : null}
-                  {info?.saida ? <span className="text-[11px] tabular-nums leading-tight" style={{ color: NEGATIVE }}>−{formatBRLCompact(info.saida)}</span> : null}
+                  <span className="flex items-center justify-between">
+                    <span className={["text-[12px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[19px] h-[19px] rounded-pill bg-lime text-on-lime" : "text-muted"].join(" ")}>{dia}</span>
+                    <span className="flex items-center gap-[3px]">
+                      {info?.entrada ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} /> : null}
+                      {info?.saida ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} /> : null}
+                    </span>
+                  </span>
                   {proj ? (
-                    <span className="text-[10px] tabular-nums leading-tight mt-auto" style={{ color: proj.ruptura ? NEGATIVE : "var(--color-text-tertiary)" }}>
-                      ≈{formatBRLCompact(proj.saldo)}
+                    <span className="mt-auto text-[10px] tabular-nums leading-none" style={{ color: proj.ruptura ? NEGATIVE : "var(--color-text-tertiary)" }}>
+                      {proj.saldo < 0 ? "−" : ""}{formatBRLCompact(Math.abs(proj.saldo))}
                     </span>
                   ) : null}
                 </button>
@@ -107,12 +114,15 @@ export function TransactionsCalendar() {
             })}
           </div>
 
-          {temRuptura && (
-            <span className="text-[12px] text-faint leading-snug">
-              <span className="inline-block w-3 h-3 align-[-2px] mr-1 rounded-[3px] border border-negative" />
-              Borda vermelha = risco de ruptura (saldo esperado negativo no dia).
-            </span>
-          )}
+          {/* Legenda */}
+          <div className="flex items-center gap-4 text-[12px] text-faint flex-wrap">
+            <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} />entradas</span>
+            <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} />saídas</span>
+            <span>nº = saldo esperado</span>
+            {temRuptura && (
+              <span className="inline-flex items-center gap-[5px]"><span className="inline-block w-3 h-3 rounded-[3px] border border-negative" />risco de ruptura</span>
+            )}
+          </div>
 
           {diaSel && (() => {
             const proj = projecao.get(diaSel);

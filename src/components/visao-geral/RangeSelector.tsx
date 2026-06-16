@@ -67,7 +67,16 @@ export function RangeSelector() {
 
       {aberto && (
         <div className="absolute z-[70] mt-1 left-0 w-[260px] rounded-md border border-border bg-white shadow-popover p-3 flex flex-col gap-3">
-          <span className="text-caption font-medium text-muted">Janela</span>
+          {/* Volta rápida para o mês corrente (sai de qualquer range). */}
+          <button
+            onClick={() => { const n = new Date(); p.setMonth(n.getFullYear(), n.getMonth()); setSpan(null); setAberto(false); }}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border px-3 h-9 text-label text-ink hover:bg-surface-2"
+          >
+            <Icon name="house" size={14} color="var(--color-text-secondary)" />
+            Mês atual
+          </button>
+          <div className="h-px bg-border-soft" />
+          <span className="text-caption font-medium text-muted">Janela personalizada</span>
           <div className="inline-flex rounded-md bg-surface-2 p-[3px]">
             {SPANS.map((s) => (
               <button key={s} onClick={() => escolherSpan(s)} className={`flex-1 rounded-[7px] px-2 py-[6px] text-caption ${span === s ? "bg-white text-ink font-medium shadow-pill" : "text-muted hover:text-ink"}`}>{s} dias</button>
