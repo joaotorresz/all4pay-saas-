@@ -18,12 +18,18 @@ export interface PerfilEmpresa {
   meiosRecebimento: string[];
   despesas: string[];
 }
+export type PapelUsuario = "administrador" | "gestor" | "operador" | "visualizador";
+export interface PermissoesUsuario { visualizar: boolean; editar: boolean; autonomia: boolean }
 export interface Participante {
   nome: string;
   funcao: string;
   email: string;
   aprovaPagamentos: boolean;
   limite: string;
+  /** Hierarquia + o que o usuário pode fazer (governança). Opcionais p/ não
+   *  quebrar o onboarding antigo — default tratado na UI de Configurações. */
+  papel?: PapelUsuario;
+  permissoes?: PermissoesUsuario;
 }
 export interface Estrutura {
   contas: { banco: string; tipo: string }[];

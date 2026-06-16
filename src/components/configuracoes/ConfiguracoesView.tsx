@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Input, Button, Icon, Badge } from "@/components/ui";
 import { loadCompany, saveCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
+import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
+import type { Participante } from "@/core/onboarding";
 
 /** Campos de identidade editáveis (rótulo + chave em db). */
 const IDENTIDADE: { key: string; label: string }[] = [
@@ -25,6 +27,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   const [company, setCompany] = React.useState<StoredCompany | null>(null);
   const [editando, setEditando] = React.useState(false);
   const [form, setForm] = React.useState<Record<string, string>>({});
+  const [userModal, setUserModal] = React.useState<{ idx: number | null } | null>(null);
 
   React.useEffect(() => {
     const c = loadCompany();
@@ -48,6 +51,30 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
     setCompany(novo);
     setEditando(false);
     onToast("Dados da empresa atualizados");
+  };
+
+  // ---- Governança: gestão de usuários (papel + permissões), demo-safe (a4p_company) ----
+  const persistParticipantes = (next: Participante[]) => {
+    const novo: StoredCompany = { ...company, participantes: next };
+    saveCompany(novo);
+    setCompany(novo);
+  };
+  const onSaveUser = (p: Participante) => {
+    const idx = userModal?.idx ?? null;
+    const next = idx == null ? [...participantes, p] : participantes.map((x, i) => (i === idx ? p : x));
+    persistParticipantes(next);
+    onToast(idx == null ? "Usuário adicionado" : "Usuário atualizado");
+  };
+  const excluirUser = (i: number) => {
+    const p = participantes[i];
+    if (!window.confirm(`Excluir o usuário "${p.nome || p.email || "—"}"? Esta ação remove o acesso dele.`)) return;
+    persistParticipantes(participantes.filter((_, k) => k !== i));
+    onToast("Usuário excluído");
+  };
+  const papelLabel = (p: Participante) => PAPEIS.find((x) => x.id === (p.papel ?? "operador"))?.label ?? "Operador";
+  const resumoPerm = (p: Participante) => {
+    const perm = p.permissoes ?? { visualizar: true, editar: false, autonomia: false };
+    return [perm.visualizar && "ver", perm.editar && "editar", perm.autonomia && "autonomia"].filter(Boolean).join(" · ") || "sem acesso";
   };
 
   const semDados = !company || (!company.db && !company.perfil);
@@ -129,27 +156,39 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
             </Card>
           )}
 
-          {/* Governança */}
-          {participantes.length > 0 && (
-            <Card className="flex flex-col gap-3">
+          {/* Governança · usuários (papel + permissões) */}
+          <Card className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-label font-medium text-muted">Governança · participantes</span>
-              {participantes.map((p, i) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[17px] font-medium text-ink truncate">{p.nome || "—"}</div>
-                    {p.email && <div className="text-caption text-faint truncate">{p.email}</div>}
-                  </div>
-                  <Badge variant="neutral">{p.funcao}</Badge>
-                  <span className="text-caption text-muted w-[110px] text-right truncate">
-                    {p.aprovaPagamentos ? `aprova até ${p.limite}` : "não aprova"}
-                  </span>
+              <Button size="sm" variant="secondary" leftIcon={<Icon name="plus" size={14} />} onClick={() => setUserModal({ idx: null })}>
+                Adicionar usuário
+              </Button>
+            </div>
+            {participantes.length === 0 ? (
+              <span className="text-caption text-faint py-2">Nenhum usuário ainda. Adicione participantes e defina o que cada um pode visualizar, editar e aprovar.</span>
+            ) : participantes.map((p, i) => (
+              <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[17px] font-medium text-ink truncate">{p.nome || "—"}</div>
+                  {p.email && <div className="text-caption text-faint truncate">{p.email}</div>}
                 </div>
-              ))}
-              <span className="text-caption text-faint">
-                Aprovação e limites são informativos por ora — o controle por papel vive em /governanca.
-              </span>
-            </Card>
-          )}
+                <div className="hidden sm:flex flex-col items-end">
+                  <Badge variant={(p.papel ?? "operador") === "administrador" ? "new" : "neutral"}>{papelLabel(p)}</Badge>
+                  <span className="text-[12px] text-faint mt-[2px]">{resumoPerm(p)}</span>
+                </div>
+                <span className="text-caption text-muted w-[100px] text-right truncate hidden md:block">
+                  {p.aprovaPagamentos ? `aprova até ${p.limite}` : "não aprova"}
+                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => setUserModal({ idx: i })} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>
+                  <button onClick={() => excluirUser(i)} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2">Excluir</button>
+                </div>
+              </div>
+            ))}
+            <span className="text-caption text-faint">
+              O administrador tem controle total (pode cancelar/excluir usuários). Em demo, papéis e permissões ficam salvos neste navegador; a aplicação por RLS/política vem com o backend de membros.
+            </span>
+          </Card>
 
           {/* Estrutura financeira */}
           {estrutura && (
@@ -168,6 +207,14 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
             </Card>
           )}
         </>
+      )}
+
+      {userModal && (
+        <ParticipanteModal
+          inicial={userModal.idx != null ? participantes[userModal.idx] : undefined}
+          onClose={() => setUserModal(null)}
+          onSave={onSaveUser}
+        />
       )}
     </div>
   );
