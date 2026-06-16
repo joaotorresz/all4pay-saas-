@@ -1,21 +1,18 @@
 "use client";
 
 import { AppShell } from "@/components/app/AppShell";
-import { ReconciliationView } from "@/components/financial-os/ReconciliationView";
-import { useToast } from "@/components/listas/ListChrome";
+import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { isDemo } from "@/lib/demo";
 
 export default function ConciliacaoPage() {
-  const { show, node } = useToast();
   return (
     <AppShell
-      title="Conciliação automática"
-      crumb="Sistema operacional financeiro"
+      title="Conciliação"
+      crumb="Upload de dados · Open Finance × títulos"
       actions={isDemo ? <DemoBadge /> : null}
     >
-      <ReconciliationView onToast={show} />
-      {node}
+      <ConciliacaoView />
     </AppShell>
   );
 }
