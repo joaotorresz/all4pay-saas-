@@ -67,14 +67,14 @@ export async function getSalespeople(): Promise<Salesperson[]> {
 export async function getProducts(): Promise<Product[]> {
   if (isDemo) return DEMO_PRODUCTS;
   const s = createClient();
-  const { data, error } = await s.from("products").select("id,name").order("name");
+  const { data, error } = await s.from("products").select("id,name,sale_price").order("name");
   if (error) throw error;
   return (data ?? []) as Product[];
 }
 export async function getServices(): Promise<Service[]> {
   if (isDemo) return DEMO_SERVICES;
   const s = createClient();
-  const { data, error } = await s.from("services").select("id,name").order("name");
+  const { data, error } = await s.from("services").select("id,name,price").order("name");
   if (error) throw error;
   return (data ?? []) as Service[];
 }
