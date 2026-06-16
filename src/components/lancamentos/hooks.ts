@@ -20,6 +20,7 @@ import {
   createParty,
   updateParty,
   createProduct,
+  updateProduct,
   createService,
   createBrand,
   createUnit,
@@ -28,7 +29,7 @@ import {
   listParties,
   listSales,
 } from "@/lib/cadastros";
-import type { CategoryKind, PartyInput } from "@/lib/types";
+import type { CategoryKind, PartyInput, ProductInput } from "@/lib/types";
 
 export function useCategories(kind: CategoryKind) {
   return useQuery({
@@ -119,6 +120,17 @@ export function useUpdateParty() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["parties"] });
       qc.invalidateQueries({ queryKey: ["parties-list"] });
+    },
+  });
+}
+
+export function useUpdateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ProductInput }) => updateProduct(id, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["products-list"] });
     },
   });
 }

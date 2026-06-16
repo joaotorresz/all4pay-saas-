@@ -10,12 +10,14 @@ import { EmptyState } from "@/components/visao-geral/shared";
 import { Icon, BRL, Skeleton, Card } from "@/components/ui";
 import { getProdutoImagem } from "@/lib/produto-imagem";
 import { isDemo } from "@/lib/demo";
+import type { Product } from "@/lib/types";
 
 export default function ProdutosPage() {
   const { data, isLoading, isError } = useProductsList();
   const { show, node } = useToast();
   // imagens vêm do localStorage → só após montar (evita mismatch de hidratação)
   const [montado, setMontado] = React.useState(false);
+  const [editando, setEditando] = React.useState<Product | null>(null);
   React.useEffect(() => { setMontado(true); }, []);
 
   return (
@@ -42,7 +44,12 @@ export default function ProdutosPage() {
           {data.map((p) => {
             const img = montado ? getProdutoImagem(p.name) : null;
             return (
-              <div key={p.id} className="rounded-card border border-border-soft bg-white overflow-hidden flex flex-col shadow-card">
+              <button
+                key={p.id}
+                onClick={() => setEditando(p)}
+                title="Editar produto"
+                className="rounded-card border border-border-soft bg-white overflow-hidden flex flex-col shadow-card text-left hover:border-ink/30 transition-colors"
+              >
                 <div className="aspect-[4/3] bg-surface-1 flex items-center justify-center overflow-hidden">
                   {img
                     // eslint-disable-next-line @next/next/no-img-element -- dataURL local (cardápio), next/image não cabe
@@ -50,14 +57,20 @@ export default function ProdutosPage() {
                     : <Icon name="scan-line" size={26} color="var(--color-text-tertiary)" />}
                 </div>
                 <div className="p-3 flex flex-col gap-[2px]">
-                  <span className="text-[15px] font-medium text-ink truncate">{p.name}</span>
+                  <span className="text-[15px] font-medium text-ink truncate inline-flex items-center gap-2">
+                    {p.name}
+                    <Icon name="settings" size={12} color="var(--color-text-tertiary)" />
+                  </span>
                   {p.sku && <span className="text-caption text-faint truncate">{p.sku}</span>}
                   <span className="text-ink tabular-nums mt-1"><BRL value={p.sale_price ?? 0} /></span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
+      )}
+      {editando && (
+        <ProdutoServicoForm kind="produto" produto={editando} onClose={() => setEditando(null)} onToast={show} />
       )}
       {node}
     </AppShell>

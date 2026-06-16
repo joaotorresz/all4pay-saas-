@@ -270,6 +270,29 @@ export async function createProduct(input: ProductInput): Promise<void> {
   if (error) throw error;
 }
 
+export interface ProductFull extends ProductInput { id: string }
+
+/** Produto completo para edição (todos os campos). Demo: do seed (campos limitados). */
+export async function getProduct(id: string): Promise<ProductFull | null> {
+  if (isDemo) {
+    const p = DEMO_PRODUCTS.find((x) => x.id === id);
+    return p ? { id: p.id, name: p.name, sku: p.sku ?? null, category_id: null, unit_id: null, brand_id: null, sale_price: p.sale_price ?? 0, cost_price: null, track_stock: false, stock_initial: null } : null;
+  }
+  const s = createClient();
+  const { data, error } = await s.from("products")
+    .select("id,name,sku,category_id,unit_id,brand_id,sale_price,cost_price,track_stock,stock_initial")
+    .eq("id", id).maybeSingle();
+  if (error) throw error;
+  return (data as ProductFull) ?? null;
+}
+
+export async function updateProduct(id: string, input: ProductInput): Promise<void> {
+  if (isDemo) return void (await delay());
+  const s = createClient();
+  const { error } = await s.from("products").update(input).eq("id", id);
+  if (error) throw error;
+}
+
 export async function createService(input: ServiceInput): Promise<void> {
   if (isDemo) return void (await delay());
   const s = createClient();

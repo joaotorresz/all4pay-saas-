@@ -3,32 +3,39 @@
 import * as React from "react";
 import { Input, Select, CurrencyInput, Switch, Icon, type SelectOption } from "@/components/ui";
 import { FormModal } from "./FormModal";
-import { setProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
+import { setProdutoImagem, getProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
+import { getProduct } from "@/lib/cadastros";
+import type { Product } from "@/lib/types";
 import {
   useCategories,
   useUnits,
   useBrands,
   useCreateProduct,
+  useUpdateProduct,
   useCreateService,
 } from "./hooks";
 
-/** Cadastro compacto de Produto ou Serviço (mesma base). */
+/** Cadastro/edição compacto de Produto ou Serviço (mesma base). */
 export function ProdutoServicoForm({
   kind,
+  produto,
   onClose,
   onToast,
 }: {
   kind: "produto" | "servico";
+  produto?: Product; // presente = edição (só produto)
   onClose: () => void;
   onToast: (msg: string) => void;
 }) {
   const isProduct = kind === "produto";
+  const editando = isProduct && !!produto;
   const { data: categories } = useCategories("receita");
   const { data: units } = useUnits();
   const { data: brands } = useBrands();
   const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
   const createService = useCreateService();
-  const saving = createProduct.isPending || createService.isPending;
+  const saving = createProduct.isPending || updateProduct.isPending || createService.isPending;
 
   const [tried, setTried] = React.useState(false);
   const [imagem, setImagem] = React.useState<string | null>(null);
@@ -38,17 +45,35 @@ export function ProdutoServicoForm({
     try { setImagem(await fileParaDataUrl(file)); } catch { onToast("Não foi possível ler a imagem"); }
   };
   const [f, setF] = React.useState({
-    name: "",
-    code: "",
+    name: produto?.name ?? "",
+    code: produto?.sku ?? "",
     category_id: "",
     unit_id: "",
     brand_id: "",
-    sale_price: 0,
+    sale_price: produto?.sale_price ?? 0,
     cost_price: 0,
     track_stock: false,
     stock_initial: 0,
   });
   const set = (p: Partial<typeof f>) => setF((s) => ({ ...s, ...p }));
+
+  // Edição: prefill da imagem + busca os campos completos (categoria/unidade/marca/custo/estoque).
+  React.useEffect(() => {
+    if (!editando || !produto) return;
+    setImagem(getProdutoImagem(produto.name));
+    getProduct(produto.id).then((full) => {
+      if (!full) return;
+      setF((s) => ({
+        ...s,
+        category_id: full.category_id ?? "",
+        unit_id: full.unit_id ?? "",
+        brand_id: full.brand_id ?? "",
+        cost_price: full.cost_price ?? 0,
+        track_stock: !!full.track_stock,
+        stock_initial: full.stock_initial ?? 0,
+      }));
+    }).catch(() => {});
+  }, [editando, produto]);
 
   const catOpts: SelectOption[] = (categories ?? []).map((c) => ({ value: c.id, label: c.name }));
   const unitOpts: SelectOption[] = (units ?? []).map((u) => ({ value: u.id, label: `${u.name} (${u.abbrev})` }));
@@ -65,7 +90,7 @@ export function ProdutoServicoForm({
     }
     try {
       if (isProduct) {
-        await createProduct.mutateAsync({
+        const input = {
           name: f.name.trim(),
           sku: f.code.trim() || null,
           category_id: f.category_id || null,
@@ -75,7 +100,9 @@ export function ProdutoServicoForm({
           cost_price: f.cost_price || null,
           track_stock: f.track_stock,
           stock_initial: f.track_stock ? f.stock_initial : null,
-        });
+        };
+        if (editando && produto) await updateProduct.mutateAsync({ id: produto.id, input });
+        else await createProduct.mutateAsync(input);
         if (imagem) setProdutoImagem(f.name.trim(), imagem); // foto do "cardápio"
       } else {
         await createService.mutateAsync({
@@ -86,7 +113,7 @@ export function ProdutoServicoForm({
           price: f.sale_price,
         });
       }
-      onToast(`${isProduct ? "Produto" : "Serviço"} salvo`);
+      onToast(editando ? "Produto atualizado" : `${isProduct ? "Produto" : "Serviço"} salvo`);
       if (again) {
         setF((s) => ({ ...s, name: "", code: "", sale_price: 0, cost_price: 0 }));
         setImagem(null);
@@ -99,11 +126,11 @@ export function ProdutoServicoForm({
 
   return (
     <FormModal
-      title={isProduct ? "Novo produto" : "Novo serviço"}
+      title={editando ? "Editar produto" : isProduct ? "Novo produto" : "Novo serviço"}
       size="compact"
       onClose={onClose}
       onSave={() => submit(false)}
-      onSaveAgain={() => submit(true)}
+      onSaveAgain={editando ? undefined : () => submit(true)}
       saving={saving}
     >
       <Input label="Nome *" value={f.name} onChange={(e) => set({ name: e.target.value })} invalid={bad("name")} />
