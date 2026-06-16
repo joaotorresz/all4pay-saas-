@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Input, Select, CurrencyInput, Switch, type SelectOption } from "@/components/ui";
+import { Input, Select, CurrencyInput, Switch, Icon, type SelectOption } from "@/components/ui";
 import { FormModal } from "./FormModal";
+import { setProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
 import {
   useCategories,
   useUnits,
@@ -30,6 +31,12 @@ export function ProdutoServicoForm({
   const saving = createProduct.isPending || createService.isPending;
 
   const [tried, setTried] = React.useState(false);
+  const [imagem, setImagem] = React.useState<string | null>(null);
+  const imgRef = React.useRef<HTMLInputElement>(null);
+  const escolherImagem = async (file?: File) => {
+    if (!file) return;
+    try { setImagem(await fileParaDataUrl(file)); } catch { onToast("Não foi possível ler a imagem"); }
+  };
   const [f, setF] = React.useState({
     name: "",
     code: "",
@@ -69,6 +76,7 @@ export function ProdutoServicoForm({
           track_stock: f.track_stock,
           stock_initial: f.track_stock ? f.stock_initial : null,
         });
+        if (imagem) setProdutoImagem(f.name.trim(), imagem); // foto do "cardápio"
       } else {
         await createService.mutateAsync({
           name: f.name.trim(),
@@ -81,6 +89,7 @@ export function ProdutoServicoForm({
       onToast(`${isProduct ? "Produto" : "Serviço"} salvo`);
       if (again) {
         setF((s) => ({ ...s, name: "", code: "", sale_price: 0, cost_price: 0 }));
+        setImagem(null);
         setTried(false);
       } else onClose();
     } catch {
@@ -121,6 +130,26 @@ export function ProdutoServicoForm({
       </div>
       {isProduct && (
         <>
+          {/* Imagem do produto (visual de cardápio) */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => imgRef.current?.click()}
+              className="w-[64px] h-[64px] rounded-md border border-dashed border-border bg-surface-1 overflow-hidden inline-flex items-center justify-center shrink-0 hover:border-ink/30"
+              aria-label="Adicionar imagem do produto"
+            >
+              {imagem
+                // eslint-disable-next-line @next/next/no-img-element -- preview de dataURL local
+                ? <img src={imagem} alt="" className="w-full h-full object-cover" />
+                : <Icon name="scan-line" size={20} color="var(--color-text-tertiary)" />}
+            </button>
+            <div className="flex flex-col gap-1">
+              <span className="text-label text-ink">Imagem do produto</span>
+              <span className="text-caption text-faint">Aparece no cardápio em Produtos.</span>
+              {imagem && <button type="button" onClick={() => setImagem(null)} className="text-caption text-negative text-left">Remover imagem</button>}
+            </div>
+            <input ref={imgRef} type="file" hidden accept="image/png,image/jpeg,image/webp,image/*" onChange={(e) => escolherImagem(e.target.files?.[0])} />
+          </div>
           <Select label="Marca" placeholder="Selecione (opcional)" options={brandOpts} value={f.brand_id} onChange={(v) => set({ brand_id: v })} />
           <Switch label="Controla estoque?" checked={f.track_stock} onChange={(v) => set({ track_stock: v })} />
           {f.track_stock && (
