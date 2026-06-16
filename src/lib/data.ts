@@ -343,6 +343,57 @@ export async function getAccountsList(): Promise<FinancialAccount[]> {
   return (data ?? []) as FinancialAccount[];
 }
 
+/* ---- Open Finance: contas bancárias (bank_accounts) ---- */
+export interface BankAccount {
+  id: string;
+  name: string | null;
+  balance: number;
+  currency: string | null;
+  connectorName: string | null; // nome do banco (pluggy_items.connector_name)
+  linkedFinancialAccountId: string | null; // vínculo 2A com a conta manual
+  balanceSource: "open_finance" | "manual" | "both_visible";
+}
+
+/** Contas do Open Finance (bank_accounts) da org. Open Finance é live-only → []
+ *  em demo. Traz o nome do banco via embed do pluggy_items (connector). */
+export async function getBankAccounts(): Promise<BankAccount[]> {
+  if (isDemo) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("bank_accounts")
+    .select("id,name,balance,currency,linked_financial_account_id,balance_source,pluggy_items(connector_name)")
+    .order("name");
+  if (error) throw error;
+  type Row = {
+    id: string; name: string | null; balance: number | null; currency: string | null;
+    linked_financial_account_id: string | null; balance_source: string | null;
+    pluggy_items?: { connector_name: string | null } | { connector_name: string | null }[] | null;
+  };
+  return ((data ?? []) as Row[]).map((r) => {
+    const emb = r.pluggy_items;
+    const connectorName = Array.isArray(emb) ? (emb[0]?.connector_name ?? null) : (emb?.connector_name ?? null);
+    return {
+      id: r.id, name: r.name, balance: Number(r.balance ?? 0), currency: r.currency,
+      connectorName, linkedFinancialAccountId: r.linked_financial_account_id,
+      balanceSource: (r.balance_source as BankAccount["balanceSource"]) ?? "open_finance",
+    };
+  });
+}
+
+/** Define qual saldo é o oficial numa conta OF vinculada (1C). */
+export async function setBankAccountSource(id: string, source: BankAccount["balanceSource"]): Promise<void> {
+  if (isDemo) return;
+  const { error } = await createClient().from("bank_accounts").update({ balance_source: source }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Vincula (ou desvincula) uma conta OF a uma conta manual (2A). */
+export async function linkBankAccount(bankAccountId: string, financialAccountId: string | null): Promise<void> {
+  if (isDemo) return;
+  const { error } = await createClient().from("bank_accounts").update({ linked_financial_account_id: financialAccountId }).eq("id", bankAccountId);
+  if (error) throw error;
+}
+
 /** Edita uma conta financeira — nome, banco e/ou saldo. Demo: imported store;
  *  live: Supabase. (Saldo aqui é ajuste manual da conta, não liquidação.) */
 export async function updateAccount(

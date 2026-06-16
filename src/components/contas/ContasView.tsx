@@ -3,10 +3,11 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Skeleton } from "@/components/ui";
-import { getAccountsList, getRiscoInput } from "@/lib/data";
+import { getAccountsList, getRiscoInput, getBankAccounts, setBankAccountSource, linkBankAccount } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
 import { useToast } from "@/components/listas/ListChrome";
 import { EditAccountModal } from "./EditAccountModal";
+import { unificarContas, contasEfetivas, type ContaUnificada } from "@/lib/contas-unificadas";
 import type { FinancialAccount } from "@/lib/types";
 
 const BANCO: Record<string, string> = {
@@ -16,23 +17,48 @@ const BANCO: Record<string, string> = {
 const labelBanco = (b: string) => BANCO[b] ?? (b ? b[0].toUpperCase() + b.slice(1) : "—");
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
-/** Contas financeiras — posição consolidada por conta/banco (Treasury Core).
- *  É o "ver o saldo de manhã" que faltava (esqueleto do RECEBER/CONTAS). */
+/** Open Finance — posição consolidada unificando contas manuais + bancárias
+ *  (bank_accounts), sem duplicar (vínculo 2A) e com escolha do saldo oficial (1C). */
 export function ContasView() {
   const qc = useQueryClient();
   const { show, node } = useToast();
   const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  const bank = useQuery({ queryKey: ["bank-accounts"], queryFn: getBankAccounts });
   const [editing, setEditing] = React.useState<FinancialAccount | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const reload = async () => { await qc.invalidateQueries(); };
 
   if (acc.isLoading || inp.isLoading) return <Skeleton className="h-[280px]" />;
   if (!acc.data || !inp.data) return <Card><span className="text-caption text-faint">Sem contas cadastradas.</span></Card>;
 
-  const t = treasuryCore(acc.data, inp.data);
+  const unificadas = unificarContas(acc.data, bank.data ?? []);
+  const t = treasuryCore(contasEfetivas(unificadas), inp.data);
+
+  const escolherOficial = async (c: ContaUnificada, source: "open_finance" | "manual") => {
+    if (!c.bankAccountId) return;
+    setBusy(c.key);
+    try { await setBankAccountSource(c.bankAccountId, source); show("Saldo oficial atualizado"); await reload(); }
+    catch { show("Não foi possível atualizar"); }
+    finally { setBusy(null); }
+  };
+  const vincular = async (c: ContaUnificada) => {
+    if (!c.bankAccountId || !c.duplicataCom) return;
+    if (!window.confirm("Vincular esta conta do Open Finance à conta manual de mesmo banco? Os saldos passam a contar como uma só conta.")) return;
+    setBusy(c.key);
+    try { await linkBankAccount(c.bankAccountId, c.duplicataCom); show("Contas vinculadas"); await reload(); }
+    catch { show("Não foi possível vincular"); }
+    finally { setBusy(null); }
+  };
+  const editar = (c: ContaUnificada) => {
+    const conta = (acc.data ?? []).find((a) => a.id === c.financialAccountId);
+    if (conta) setEditing(conta);
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      {/* Posição consolidada + liquidez */}
+      {/* Posição consolidada + liquidez (inclui Open Finance) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="flex flex-col gap-1 md:col-span-1">
           <span className="text-caption text-faint">Posição consolidada</span>
@@ -77,35 +103,44 @@ export function ContasView() {
         </Card>
       </div>
 
-      {/* Contas */}
+      {/* Contas (manuais + Open Finance, unificadas) */}
       <Card padded={false}>
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Contas financeiras</span>
-          <span className="text-caption text-faint">{t.contas.length}</span>
-        </div>
-        <div className="hidden md:grid grid-cols-[1.6fr_1fr_0.8fr_1fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
-          <span>Conta</span><span>Banco</span><span className="text-right">% do caixa</span><span className="text-right">Saldo</span>
+          <span className="text-body font-medium text-ink">Contas</span>
+          <span className="text-caption text-faint">{unificadas.length}</span>
         </div>
         <div className="flex flex-col">
-          {t.contas.map((c) => {
-            const conta = (acc.data ?? []).find((a) => a.id === c.id);
-            return (
-              <button
-                key={c.id}
-                onClick={() => conta && setEditing(conta)}
-                title="Editar conta"
-                className="grid grid-cols-[1.6fr_1fr_0.8fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0 text-left w-full hover:bg-surface-1 transition-colors"
-              >
-                <span className="text-[14px] text-ink truncate inline-flex items-center gap-2">
+          {unificadas.length === 0 ? (
+            <span className="text-caption text-faint px-5 py-4">Nenhuma conta. Cadastre uma conta ou conecte um banco (Open Finance).</span>
+          ) : unificadas.map((c) => (
+            <div key={c.key} className="flex items-center gap-3 px-5 py-3 border-t border-border-soft first:border-t-0">
+              <div className="flex-1 min-w-0">
+                <span className="text-[15px] text-ink truncate inline-flex items-center gap-2">
                   {c.nome}
-                  <Icon name="settings" size={13} color="var(--color-text-tertiary)" />
+                  <OrigemBadge origem={c.origem} />
                 </span>
-                <span className="text-caption text-muted">{labelBanco(c.banco)}</span>
-                <span className="text-caption text-muted tabular-nums text-right">{pct(c.share)}</span>
-                <span className="text-caption text-ink tabular-nums text-right"><BRL value={c.saldo} /></span>
-              </button>
-            );
-          })}
+                <div className="text-caption text-faint truncate">{labelBanco(c.banco)}</div>
+                {c.duplicataCom && (
+                  <button onClick={() => vincular(c)} disabled={busy === c.key} className="text-caption text-warning underline mt-[2px] disabled:opacity-45">
+                    Possível conta duplicada — vincular?
+                  </button>
+                )}
+              </div>
+
+              {c.origem === "vinculada" ? (
+                <div className="flex flex-col items-end gap-[3px]">
+                  <SaldoEscolha label="Open Finance" v={c.saldoOF ?? 0} oficial={c.balanceSource !== "manual"} onClick={() => escolherOficial(c, "open_finance")} />
+                  <SaldoEscolha label="Manual" v={c.saldoManual ?? 0} oficial={c.balanceSource === "manual"} onClick={() => escolherOficial(c, "manual")} />
+                </div>
+              ) : (
+                <span className="text-caption text-ink tabular-nums w-[120px] text-right"><BRL value={c.saldoEfetivo} /></span>
+              )}
+
+              {c.financialAccountId && (
+                <button onClick={() => editar(c)} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2 shrink-0">Editar</button>
+              )}
+            </div>
+          ))}
         </div>
       </Card>
 
@@ -132,11 +167,31 @@ export function ContasView() {
         <EditAccountModal
           conta={editing}
           onClose={() => setEditing(null)}
-          onSaved={async (msg) => { show(msg); await qc.invalidateQueries(); }}
+          onSaved={async (msg) => { show(msg); await reload(); }}
         />
       )}
       {node}
     </div>
+  );
+}
+
+function OrigemBadge({ origem }: { origem: ContaUnificada["origem"] }) {
+  const map = {
+    manual: { label: "Manual", cls: "bg-surface-2 text-muted" },
+    open_finance: { label: "Open Finance", cls: "bg-lime-tint text-ink" },
+    vinculada: { label: "Vinculada", cls: "bg-lime-tint text-ink" },
+  } as const;
+  const m = map[origem];
+  return <span className={`text-[11px] rounded-pill px-2 py-[1px] ${m.cls}`}>{m.label}</span>;
+}
+
+function SaldoEscolha({ label, v, oficial, onClick }: { label: string; v: number; oficial: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} title={oficial ? "Saldo oficial" : "Definir como oficial"} className="inline-flex items-center gap-2">
+      {oficial ? <Icon name="check" size={12} color="var(--color-positive)" /> : <span className="inline-block w-3 h-3 rounded-pill border border-border" />}
+      <span className="text-[12px] text-faint">{label}</span>
+      <span className={`text-caption tabular-nums ${oficial ? "text-ink font-medium" : "text-muted"}`}><BRL value={v} /></span>
+    </button>
   );
 }
 
