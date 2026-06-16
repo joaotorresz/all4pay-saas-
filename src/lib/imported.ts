@@ -148,6 +148,30 @@ export function liquidarImported(ids: string[], accountId: string, paidISO: stri
   return { liquidados, total };
 }
 
+/** Baixa de RECEBIMENTOS: marca entradas pendentes como pagas (recebidas) +
+ *  CREDITA o saldo da conta escolhida. Espelho de `liquidarImported` (que debita
+ *  saídas). Idempotente: só age sobre pendentes. */
+export function receberImported(ids: string[], accountId: string, paidISO: string): { recebidos: number; total: number } {
+  const base: ImportedDataset = load() ?? {
+    movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+    criadoEm: new Date().toISOString(),
+  };
+  const alvo = new Set(ids);
+  const accounts = base.accounts.map((a) => ({ ...a }));
+  const conta = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  let total = 0, recebidos = 0;
+  const movements = base.movements.map((m) => {
+    if (alvo.has(m.id) && m.type === "entrada" && m.status === "pendente") {
+      total += m.amount; recebidos++;
+      return { ...m, status: "pago", paid_date: paidISO, reconciled: true } as Movement;
+    }
+    return m;
+  });
+  if (conta && total > 0) conta.balance = Math.round((conta.balance + total) * 100) / 100;
+  setImported({ ...base, movements, accounts });
+  return { recebidos, total };
+}
+
 /** Remove movimentos do dataset importado (ex.: faturas projetadas de uma
  *  recorrência cancelada/pausada saem do fluxo previsto). */
 export function removerImported(ids: string[]): void {

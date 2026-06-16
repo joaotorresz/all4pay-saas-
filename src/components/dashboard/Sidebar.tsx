@@ -33,14 +33,15 @@ const INICIO = { label: "Início", icon: "house", href: "/" };
 const GROUPS: Group[] = [
   {
     id: "pagar", label: "Pagar", icon: "arrow-up-right", children: [
+      { label: "Central de pagamentos", href: "/pagamentos" }, // execução em lote (primeiro)
       { label: "A pagar", href: "/pagaveis" },
-      { label: "Central de pagamentos", href: "/pagamentos" }, // execução em lote
       { label: "Solicitações & aprovações", href: "/aprovacoes" }, // gate de alçada
       { label: "Reembolsos", href: "/reembolsos" }, // caso especializado
     ],
   },
   {
     id: "receber", label: "Receber", icon: "arrow-left-right", children: [
+      { label: "Central de recebimentos", href: "/recebimentos" }, // execução em lote (primeiro)
       { label: "A receber", href: "/recebiveis" },
       { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Recorrências / Contratos", href: "/recorrencias" },
