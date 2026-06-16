@@ -69,6 +69,13 @@ const GROUPS: Group[] = [
     id: "relatorios", label: "Relatórios", icon: "receipt", children: [
       { label: "DRE", href: "/dre" },
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
+    ],
+  },
+  {
+    id: "cadastros", label: "Cadastros", icon: "users", children: [
+      { label: "Contatos", href: "/contatos" },
+      { label: "Produtos", href: "/produtos" },
+      { label: "Serviços", href: "/servicos" },
       { label: "Vendas", href: "/vendas" },
     ],
   },
@@ -86,13 +93,6 @@ const CONFIG: Group = {
   id: "config", label: "Configurações", icon: "settings", children: [
     { label: "Empresa", href: "/configuracoes" },
     { label: "Governança & Auditoria", href: "/governanca" },
-    {
-      id: "cadastros", label: "Cadastros", icon: "users", children: [
-        { label: "Contatos", href: "/contatos" },
-        { label: "Produtos", href: "/produtos" },
-        { label: "Serviços", href: "/servicos" },
-      ],
-    },
     {
       id: "plataforma", label: "Plataforma (avançado)", icon: "cpu", children: [
         { label: "Orquestração", href: "/orquestracao" },
