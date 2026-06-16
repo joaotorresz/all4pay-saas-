@@ -61,11 +61,13 @@ export async function getReceivables(): Promise<ReceivablesSummary> {
     return summarizeReceivables(seedMovements());
   }
   const supabase = createClient();
+  // pendentes (a receber) + recebidos HOJE (hero "realizado hoje") — exclui cancelado/pago antigo.
+  const hoje = isoDay(new Date());
   const { data, error } = await supabase
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "entrada")
-    .eq("status", "pendente");
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
   if (error) throw error;
   return summarizeReceivables((data ?? []) as Movement[]);
 }
@@ -76,11 +78,13 @@ export async function getPayables(): Promise<PayablesSummary> {
     return summarizePayables(seedMovements());
   }
   const supabase = createClient();
+  // pendentes (a pagar) + pagos HOJE (hero "realizado hoje") — exclui cancelado/pago antigo.
+  const hoje = isoDay(new Date());
   const { data, error } = await supabase
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "saida")
-    .eq("status", "pendente");
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
   if (error) throw error;
   return summarizePayables((data ?? []) as Movement[]);
 }
@@ -93,7 +97,7 @@ export async function getAccounts(): Promise<AccountsSummary> {
   const supabase = createClient();
   const [accountsRes, unreconciledRes] = await Promise.all([
     supabase.from("financial_accounts").select("*").order("balance", { ascending: false }),
-    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false),
+    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false).neq("status", "cancelado"),
   ]);
   if (accountsRes.error) throw accountsRes.error;
   if (unreconciledRes.error) throw unreconciledRes.error;
@@ -449,8 +453,9 @@ export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
   start.setMonth(start.getMonth() - (months - 1), 1);
   const { data, error } = await supabase
     .from("movements")
-    .select("type,category,amount,due_date")
+    .select("type,status,category,amount,due_date")
     .eq("type", "entrada")
+    .neq("status", "cancelado")
     .gte("due_date", isoDay(start));
   if (error) throw error;
   return monthlySales((data ?? []) as Movement[], months);

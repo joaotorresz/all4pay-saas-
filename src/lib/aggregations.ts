@@ -87,7 +87,7 @@ export function summarizeAccounts(
 ): AccountsSummary {
   const pendingByAccount = new Map<string, number>();
   for (const m of movements) {
-    if (!m.reconciled) {
+    if (!m.reconciled && m.status !== "cancelado") {
       pendingByAccount.set(
         m.account_id,
         (pendingByAccount.get(m.account_id) ?? 0) + 1,
@@ -168,7 +168,7 @@ export function monthlySales(
 ): MonthlySalesPoint[] {
   const buckets = new Map<string, number>();
   for (const m of movements) {
-    if (m.type !== "entrada") continue;
+    if (m.type !== "entrada" || m.status === "cancelado") continue;
     const key = m.due_date.slice(0, 7); // YYYY-MM
     buckets.set(key, (buckets.get(key) ?? 0) + m.amount);
   }
