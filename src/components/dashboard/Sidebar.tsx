@@ -68,6 +68,7 @@ const GROUPS: Group[] = [
   {
     id: "pos", label: "Central POS", icon: "credit-card", children: [
       { label: "Configuração de taxas all4pay", href: "/pos/taxas" },
+      { label: "Simulador de venda", href: "/pos/venda" },
     ],
   },
   {

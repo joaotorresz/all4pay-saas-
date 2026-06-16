@@ -45,6 +45,10 @@ import {
   Paperclip,
   Eye,
   EyeOff,
+  Minus,
+  ShoppingCart,
+  Trash2,
+  Smartphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -100,6 +104,10 @@ const registry: Record<string, LucideIcon> = {
   paperclip: Paperclip,
   eye: Eye,
   "eye-off": EyeOff,
+  minus: Minus,
+  "shopping-cart": ShoppingCart,
+  "trash-2": Trash2,
+  smartphone: Smartphone,
 };
 
 export type IconName = keyof typeof registry;
