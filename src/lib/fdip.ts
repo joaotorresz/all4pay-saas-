@@ -139,6 +139,7 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         reconciled: false,
         description: m.description,
         party_id: partyId ?? null,
+        review_status: "pendente", // import: novo lançamento entra na fila de confirmação
       };
     });
     // insere em lotes para extratos grandes

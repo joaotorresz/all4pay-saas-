@@ -62,6 +62,7 @@ async function etlMovements(db: SupabaseClient, orgId: string, txs: PluggyTx[], 
         org_id: orgId, account_id: finAcc, type: entrada ? "entrada" : "saida", status: "pago",
         category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia,
         reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
+        review_status: "pendente", // novo de origem OF → entra na fila de confirmação
       }).select("id").single();
       let movId = ins.data?.id as string | undefined;
       if (ins.error) {
