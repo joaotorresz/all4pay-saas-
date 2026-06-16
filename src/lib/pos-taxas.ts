@@ -1,13 +1,13 @@
 /**
  * Simulador POS all4pay — espelho fiel da aba "TAXA PADRÃO" da planilha
  * SIMULADOR (visão parceiro · MDR + Antecipação). As demais abas (LISTA,
- * LISTA MCCs, ONLINE) são apenas os dados de lógica/lookup e NÃO entram no
+ * LISTA MCCs, ONLINE) são apenas dados de lógica/lookup e NÃO entram no
  * sistema — aqui ficam só as seções visíveis da aba TAXA PADRÃO:
- *   1) Dados cadastrais / Informações de precificação (inputs)
+ *   1) Informações de precificação (inputs)
  *   2) Taxa de custo MDR (modalidade × bandeira)
- *   3) Taxa final para o estabelecimento (Taxa MDR)
- *   4) Spread em bips (= Taxa MDR − Custo MDR)
- * Tudo configurável e salvo localmente (a4p_pos_taxas).
+ *   3) Spread (% editável) — o que aumenta/diminui reflete na taxa final
+ *   4) Taxa final para o estabelecimento = Custo MDR + Spread
+ * Tudo configurável e salvo globalmente (a4p_pos_taxas).
  */
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
@@ -42,31 +42,33 @@ export const CUSTO_MDR_SEED: RateTable = {
   parc_19_24: { master: 0.0508, visa: 0.0508, elo: 0.0528 },
 };
 
-/** Taxa MDR final ao estabelecimento (J19:M25). */
-export const TAXA_MDR_SEED: RateTable = {
-  pix: { master: 0.0115 },
-  debito: { master: 0.0145, visa: 0.0145, elo: 0.019 },
-  credito_vista: { master: 0.02, visa: 0.02, elo: 0.024 },
-  parc_2_6: { master: 0.036, visa: 0.036, elo: 0.037 },
-  parc_7_12: { master: 0.036, visa: 0.036, elo: 0.042 },
-  parc_13_18: { master: 0.039, visa: 0.039, elo: 0.047 },
-  parc_19_24: { master: 0.043, visa: 0.043, elo: 0.052 },
+/** Spread (Taxa MDR − Custo MDR) decimal — J30:M36 da aba. */
+export const SPREAD_SEED: RateTable = {
+  pix: { master: -0.0005 },
+  debito: { master: 0.0025, visa: 0.0025, elo: -0.0007 },
+  credito_vista: { master: -0.0025, visa: -0.0024, elo: -0.0007 },
+  parc_2_6: { master: 0.0045, visa: 0.0045, elo: 0.0051 },
+  parc_7_12: { master: -0.0039, visa: -0.0039, elo: -0.0009 },
+  parc_13_18: { master: -0.0056, visa: -0.0056, elo: 0.0011 },
+  parc_19_24: { master: -0.0078, visa: -0.0078, elo: -0.0008 },
 };
 
 /** MCCs conhecidos (descrição ↔ código), só para o select do cadastro. */
 export const MCCS = [
   { mcc: "5812", descricao: "RESTAURANTE" },
+  { mcc: "5813", descricao: "BARES" },
   { mcc: "5411", descricao: "SUPERMERCADOS" },
+  { mcc: "5912", descricao: "DROGARIAS E FARMÁCIAS" },
+  { mcc: "5399", descricao: "COMÉRCIO GERAL / VARIEDADES" },
   { mcc: "5200", descricao: "LOJAS DE MATERIAL DE CONSTRUÇÃO E FERRAGENS" },
 ];
 export const RANGES = ["RANGE 1", "RANGE 2", "RANGE 3", "RANGE 4", "RANGE 5"];
 
 export interface PosConfig {
   custo: RateTable;
-  taxa: RateTable;
-  // Dados cadastrais / informações de precificação
+  spread: RateTable;
+  // Informações de precificação
   mccDesc: string; // E10 "RESTAURANTE" (define o código pelo MCCS)
-  tpv: number; // E11 valor transação
   range: string; // E12 "RANGE 1"
   selic: number; // E13 0.145
   antecipacao: boolean; // E14 TERÁ ANTECIPAÇÃO?
@@ -75,9 +77,8 @@ export interface PosConfig {
 
 export const POS_DEFAULT: PosConfig = {
   custo: CUSTO_MDR_SEED,
-  taxa: TAXA_MDR_SEED,
+  spread: SPREAD_SEED,
   mccDesc: "RESTAURANTE",
-  tpv: 80000,
   range: "RANGE 1",
   selic: 0.145,
   antecipacao: false,
@@ -89,6 +90,13 @@ export function mccCodigo(desc: string): string {
   return MCCS.find((m) => m.descricao === desc)?.mcc ?? "—";
 }
 
+/** Taxa final ao estabelecimento = Custo MDR + Spread (decimal). */
+export function taxaFinal(custo: RateTable, spread: RateTable, mod: string, b: Bandeira): number | undefined {
+  const c = custo[mod]?.[b];
+  if (c == null) return undefined;
+  return c + (spread[mod]?.[b] ?? 0);
+}
+
 const KEY = "a4p_pos_taxas";
 export function loadPosConfig(): PosConfig {
   if (typeof window === "undefined") return POS_DEFAULT;
@@ -96,13 +104,12 @@ export function loadPosConfig(): PosConfig {
     const raw = localStorage.getItem(KEY);
     if (!raw) return POS_DEFAULT;
     const j = JSON.parse(raw) as Partial<PosConfig>;
-    // Sem custo/taxa (formato antigo) → reseta para o seed da aba TAXA PADRÃO.
-    if (!j.custo || !j.taxa) return POS_DEFAULT;
+    // Sem custo/spread (formato antigo) → reseta para o seed da aba.
+    if (!j.custo || !j.spread) return POS_DEFAULT;
     return {
       custo: j.custo,
-      taxa: j.taxa,
+      spread: j.spread,
       mccDesc: j.mccDesc ?? POS_DEFAULT.mccDesc,
-      tpv: j.tpv ?? POS_DEFAULT.tpv,
       range: j.range ?? POS_DEFAULT.range,
       selic: j.selic ?? POS_DEFAULT.selic,
       antecipacao: j.antecipacao ?? POS_DEFAULT.antecipacao,
@@ -113,10 +120,4 @@ export function loadPosConfig(): PosConfig {
 export function savePosConfig(c: PosConfig): void {
   if (typeof window === "undefined") return;
   try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* ignore */ }
-}
-
-/** Spread em bips (Taxa MDR − Custo MDR) × 10000; null quando falta valor. */
-export function spreadBips(taxa: number | undefined, custo: number | undefined): number | null {
-  if (taxa == null || custo == null) return null;
-  return Math.round((taxa - custo) * 10000);
 }
