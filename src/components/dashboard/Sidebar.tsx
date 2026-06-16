@@ -55,6 +55,7 @@ const GROUPS: Group[] = [
     id: "contas", label: "Upload de dados", icon: "upload", children: [
       { label: "Open finance", href: "/contas" },
       { label: "Importar dados", href: "/upload" },
+      { label: "Confirmação", href: "/confirmacao" },
       { label: "Conciliação", href: "/conciliacao" },
     ],
   },
