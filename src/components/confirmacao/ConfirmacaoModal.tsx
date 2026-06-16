@@ -2,17 +2,21 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Input, Select, Switch } from "@/components/ui";
+import { Card, Icon, BRL, Button, Input, Select, Switch, DateField } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties } from "@/lib/cadastros";
 import { getCategories, getCostCenters } from "@/lib/data";
 import {
-  confirmMovement, ignoreMovement, findOrCreateParty, normalizarNome,
+  confirmMovement, ignoreMovement, findOrCreateParty, criarRecorrenciaSaida, normalizarNome,
   type PendingMovement,
 } from "@/lib/confirmacao";
 import type { Party } from "@/lib/types";
 
 const fmtDia = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
+const FREQS = [
+  { v: "mensal", l: "Mensal" }, { v: "bimestral", l: "Bimestral" }, { v: "trimestral", l: "Trimestral" },
+  { v: "semestral", l: "Semestral" }, { v: "anual", l: "Anual" }, { v: "semanal", l: "Semanal" },
+];
 
 /**
  * Box de confirmação que aparece APÓS conectar o banco e conciliar: revisa as
@@ -82,30 +86,28 @@ function StepCard({
     () => (m.description ? parties.find((p) => normalizarNome(p.name) === normalizarNome(m.description!)) : undefined),
     [m.description, parties],
   );
-  const [editar, setEditar] = React.useState(false);
-  const [nome, setNome] = React.useState((m.description || "").trim());
+  const despesa = m.type === "saida";
+  const [nome, setNome] = React.useState((sugestao?.name || m.description || "").trim());
   const [tipo, setTipo] = React.useState<"pf" | "pj">("pj");
   const [isCustomer, setIsCustomer] = React.useState(m.type === "entrada");
   const [isSupplier, setIsSupplier] = React.useState(m.type === "saida");
   const [categoryId, setCategoryId] = React.useState("");
   const [centroId, setCentroId] = React.useState("");
+  const [referencia, setReferencia] = React.useState("");
+  const [repete, setRepete] = React.useState(false);
+  const [freq, setFreq] = React.useState("mensal");
+  const [vencimento, setVencimento] = React.useState(m.due_date);
   const [busy, setBusy] = React.useState(false);
 
   const confirmar = async () => {
     setBusy(true);
     try {
-      let partyId: string;
-      if (editar) {
-        const r = await findOrCreateParty({ name: nome.trim() || "Sem descrição", type: tipo, isCustomer, isSupplier });
-        partyId = r.id;
-      } else if (sugestao) {
-        partyId = sugestao.id;
-      } else {
-        const r = await findOrCreateParty({ name: (m.description || "Sem descrição").trim(), type: "pj", isCustomer: m.type === "entrada", isSupplier: m.type === "saida" });
-        partyId = r.id;
+      const r = await findOrCreateParty({ name: nome.trim() || "Sem descrição", type: tipo, isCustomer, isSupplier });
+      await confirmMovement(m.id, { party_id: r.id, category_id: categoryId || undefined, cost_center_id: centroId || undefined, nsu: referencia.trim() || undefined });
+      if (despesa && repete) {
+        await criarRecorrenciaSaida({ partyId: r.id, amount: m.amount, description: nome.trim() || (m.description || "Despesa"), freq, vencimentoISO: vencimento });
       }
-      await confirmMovement(m.id, { party_id: partyId, category_id: categoryId || undefined, cost_center_id: centroId || undefined });
-      onDone("Contato confirmado e cadastrado");
+      onDone(repete && despesa ? "Confirmado + despesa recorrente criada" : (r.reused ? "Confirmado — vinculado a contato existente" : "Confirmado — contato cadastrado"));
     } catch {
       onDone("Não foi possível confirmar");
     } finally { setBusy(false); }
@@ -130,27 +132,35 @@ function StepCard({
         <span className="text-caption text-faint">{fmtDia(m.paid_date ?? m.due_date)} · {m.category || "sem categoria"}</span>
       </div>
 
-      {/* Contato */}
-      {!editar ? (
-        <div className="flex items-center justify-between gap-3 rounded-md bg-surface-1 px-3 py-2">
-          <span className="text-caption text-muted">
-            {sugestao ? <>Vincular a <b className="text-ink font-medium">{sugestao.name}</b></> : <>Cadastrar contato <b className="text-ink font-medium">{(m.description || "—").trim()}</b></>}
-          </span>
-          <button onClick={() => setEditar(true)} className="text-caption font-medium text-muted hover:text-ink shrink-0">Editar</button>
-        </div>
-      ) : (
+      {/* Contato + classificação (já aberto) */}
+      <Input label="Nome do remetente / contato" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do contato" />
+      {sugestao && normalizarNome(sugestao.name) === normalizarNome(nome) && (
+        <span className="text-caption text-faint -mt-1">Vincula ao contato existente <b className="text-ink font-medium">{sugestao.name}</b>.</span>
+      )}
+      <div className="flex flex-wrap items-center gap-4">
+        <Select label="Tipo" value={tipo} onChange={(v) => setTipo(v as "pf" | "pj")} options={[{ value: "pj", label: "Pessoa jurídica" }, { value: "pf", label: "Pessoa física" }]} containerClassName="min-w-[160px]" />
+        <label className="flex items-center gap-2 cursor-pointer"><Switch checked={isCustomer} onChange={() => setIsCustomer((v) => !v)} /><span className="text-label text-ink">Cliente</span></label>
+        <label className="flex items-center gap-2 cursor-pointer"><Switch checked={isSupplier} onChange={() => setIsSupplier((v) => !v)} /><span className="text-label text-ink">Fornecedor</span></label>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Select label="Categoria" value={categoryId} onChange={setCategoryId} options={[{ value: "", label: "— manter —" }, ...categorias.map((c) => ({ value: c.id, label: c.name }))]} containerClassName="min-w-[170px]" />
+        <Select label="Centro de custo" value={centroId} onChange={setCentroId} options={[{ value: "", label: "— nenhum —" }, ...centros.map((c) => ({ value: c.id, label: c.name }))]} containerClassName="min-w-[170px]" />
+      </div>
+      <Input label="Código de referência" value={referencia} onChange={(e) => setReferencia(e.target.value)} placeholder="Opcional — NSU, nº do documento…" />
+
+      {/* Repetição (só para despesa) */}
+      {despesa && (
         <div className="flex flex-col gap-3 rounded-md border border-border-soft p-3">
-          <Input label="Nome do remetente / contato" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do contato" />
-          <div className="flex flex-wrap items-center gap-4">
-            <Select label="Tipo" value={tipo} onChange={(v) => setTipo(v as "pf" | "pj")} options={[{ value: "pj", label: "Pessoa jurídica" }, { value: "pf", label: "Pessoa física" }]} containerClassName="min-w-[160px]" />
-            <label className="flex items-center gap-2 cursor-pointer"><Switch checked={isCustomer} onChange={() => setIsCustomer((v) => !v)} /><span className="text-label text-ink">Cliente</span></label>
-            <label className="flex items-center gap-2 cursor-pointer"><Switch checked={isSupplier} onChange={() => setIsSupplier((v) => !v)} /><span className="text-label text-ink">Fornecedor</span></label>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Select label="Categoria" value={categoryId} onChange={setCategoryId} options={[{ value: "", label: "— manter —" }, ...categorias.map((c) => ({ value: c.id, label: c.name }))]} containerClassName="min-w-[170px]" />
-            <Select label="Centro de custo" value={centroId} onChange={setCentroId} options={[{ value: "", label: "— nenhum —" }, ...centros.map((c) => ({ value: c.id, label: c.name }))]} containerClassName="min-w-[170px]" />
-          </div>
-          <span className="text-caption text-faint">No sandbox o contato nasce sem CPF/CNPJ (o banco só envia o texto); em produção, o documento vem do Pix.</span>
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-label text-ink">Repete o pagamento?</span>
+            <Switch checked={repete} onChange={() => setRepete((v) => !v)} />
+          </label>
+          {repete && (
+            <div className="flex flex-wrap gap-3">
+              <Select label="Frequência" value={freq} onChange={setFreq} options={FREQS.map((f) => ({ value: f.v, label: f.l }))} containerClassName="min-w-[150px]" />
+              <DateField label="Data de vencimento" value={vencimento} onChange={setVencimento} />
+            </div>
+          )}
         </div>
       )}
 

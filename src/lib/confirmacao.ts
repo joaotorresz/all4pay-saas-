@@ -30,14 +30,30 @@ export async function getPendingMovements(): Promise<PendingMovement[]> {
 
 export async function confirmMovement(
   id: string,
-  patch: { party_id?: string | null; category_id?: string | null; cost_center_id?: string | null },
+  patch: { party_id?: string | null; category_id?: string | null; cost_center_id?: string | null; nsu?: string | null },
 ): Promise<void> {
   if (isDemo) return;
   const upd: Record<string, unknown> = { review_status: "confirmado" };
   if (patch.party_id !== undefined) upd.party_id = patch.party_id;
   if (patch.category_id) upd.category_id = patch.category_id;
   if (patch.cost_center_id) upd.cost_center_id = patch.cost_center_id;
+  if (patch.nsu) upd.nsu = patch.nsu; // código de referência (não toca o reference_code do OF)
   const { error } = await createClient().from("movements").update(upd).eq("id", id);
+  if (error) throw error;
+}
+
+/** Cria uma recorrência de DESPESA (saída) a partir da revisão — quando o usuário
+ *  marca "repete o pagamento". Live-only. */
+export async function criarRecorrenciaSaida(input: {
+  partyId: string | null; amount: number; description: string; freq: string; vencimentoISO: string;
+}): Promise<void> {
+  if (isDemo) return;
+  const dueDay = Number(input.vencimentoISO.slice(8, 10)) || 1;
+  const { error } = await createClient().from("recurrences").insert({
+    party_id: input.partyId, type: "saida", description: input.description,
+    amount: input.amount, freq: input.freq, start_date: input.vencimentoISO,
+    due_day: dueDay, active: true,
+  });
   if (error) throw error;
 }
 
