@@ -89,6 +89,7 @@ export interface ResolveContato { id: string; name: string; reused: boolean }
 export async function findOrCreateParty(input: {
   name: string; type: "pf" | "pj"; docDigits?: string; isCustomer: boolean; isSupplier: boolean;
 }): Promise<ResolveContato> {
+  if (isDemo) return { id: `demo-${Date.now()}`, name: input.name, reused: false };
   const supabase = createClient();
   const docDigits = (input.docDigits ?? "").replace(/\D/g, "");
 
@@ -101,8 +102,9 @@ export async function findOrCreateParty(input: {
     if (hit) return { id: hit.id, name: hit.name, reused: true };
   }
 
+  // doc_digits é coluna GERADA (de `doc`) — NÃO inserir nela; só `doc`.
   const { data: created, error } = await supabase.from("parties").insert({
-    type: input.type, name: input.name, doc_digits: docDigits, doc: docDigits || null,
+    type: input.type, name: input.name, doc: docDigits || null,
     is_customer: input.isCustomer, is_supplier: input.isSupplier, is_carrier: false,
   }).select("id,name").single();
   if (!error && created) return { id: created.id, name: created.name, reused: false };
