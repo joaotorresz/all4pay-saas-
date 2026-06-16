@@ -20,7 +20,7 @@ import {
   summarizePayables,
   summarizeAccounts,
   dailyCashflow,
-  dailyCashflowRange,
+  dailyCashflowProjetado,
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
@@ -129,35 +129,47 @@ export async function getDailyCashflow(
 }
 
 /** Fluxo de caixa diário num intervalo [from, to] (Home navegável por mês).
- *  O saldo da linha é ABSOLUTO: começa no saldo real de abertura do período
- *  (saldo atual − líquido realizado de `from` até hoje), batendo com o calendário. */
+ *  Saldo ABSOLUTO e com PROJEÇÃO: dias <= hoje = realizado (pagos); dias > hoje =
+ *  previsto (pendentes por vencimento) — por isso o gráfico aparece em meses
+ *  futuros. A abertura ancora no saldo real: saldo atual − realizado de [from,hoje]
+ *  + previsto de (hoje, from) quando o período começa no futuro. */
 export async function getDailyCashflowRange(
   from: string,
   to: string,
 ): Promise<DailyCashflowPoint[]> {
   const hoje = isoDay(new Date());
-  const netInicio = (movs: Movement[]) => movs.reduce((s, m) => {
-    if (m.status !== "pago") return s;
-    const pd = m.paid_date ?? m.due_date;
-    return pd >= from && pd <= hoje ? s + (m.type === "entrada" ? m.amount : -m.amount) : s;
-  }, 0);
+  const sig = (m: Movement) => (m.type === "entrada" ? m.amount : -m.amount);
+  // abertura = saldo atual − realizado já contado em [from,hoje] + previsto entre hoje e um from futuro
+  const abertura = (movs: Movement[], saldoAtual: number) => {
+    let realizadoNoPeriodo = 0, previstoAteFrom = 0;
+    for (const m of movs) {
+      if (m.status === "pago") {
+        const pd = m.paid_date ?? m.due_date;
+        if (pd >= from && pd <= hoje) realizadoNoPeriodo += sig(m);
+      } else if (m.status === "pendente" && m.due_date > hoje && m.due_date < from) {
+        previstoAteFrom += sig(m);
+      }
+    }
+    return saldoAtual - realizadoNoPeriodo + previstoAteFrom;
+  };
 
   if (isDemo) {
     await demoDelay();
     const movs = seedMovements();
     const saldoAtual = seedAccounts().reduce((s, a) => s + a.balance, 0);
-    return dailyCashflowRange(movs, from, to, saldoAtual - netInicio(movs));
+    return dailyCashflowProjetado(movs, from, to, abertura(movs, saldoAtual), hoje);
   }
   const supabase = createClient();
-  const upper = to > hoje ? to : hoje; // cobre [from, max(to, hoje)] p/ o saldo de abertura
-  const [accRes, movRes] = await Promise.all([
+  const [accRes, paidRes, pendRes] = await Promise.all([
     supabase.from("financial_accounts").select("balance"),
-    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", upper),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", hoje),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pendente").gt("due_date", hoje).lte("due_date", to),
   ]);
-  if (movRes.error) throw movRes.error;
-  const movs = (movRes.data ?? []) as Movement[];
+  if (paidRes.error) throw paidRes.error;
+  if (pendRes.error) throw pendRes.error;
+  const movs = [...((paidRes.data ?? []) as Movement[]), ...((pendRes.data ?? []) as Movement[])];
   const saldoAtual = (accRes.data ?? []).reduce((s, a) => s + Number((a as { balance: number }).balance), 0);
-  return dailyCashflowRange(movs, from, to, saldoAtual - netInicio(movs));
+  return dailyCashflowProjetado(movs, from, to, abertura(movs, saldoAtual), hoje);
 }
 
 /** Open items of a direction, ordered by due date — for the drill-down list. */

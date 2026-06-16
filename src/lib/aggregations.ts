@@ -190,6 +190,43 @@ export function dailyCashflowRange(
 }
 
 /**
+ * Fluxo de caixa diário [from, to] com PROJEÇÃO: dias <= hoje usam o realizado
+ * (pagos por paid_date); dias > hoje usam o PREVISTO (pendentes por due_date).
+ * `balance` é absoluto (parte de `saldoInicial`). Cada ponto marca `projetado`.
+ */
+export function dailyCashflowProjetado(
+  movements: Movement[],
+  fromISO: string,
+  toISO: string,
+  saldoInicial: number,
+  hojeISO: string,
+): DailyCashflowPoint[] {
+  const buckets = new Map<string, { inflow: number; outflow: number }>();
+  for (const m of movements) {
+    if (m.status === "cancelado") continue;
+    let day: string | null = null;
+    if (m.status === "pago") day = m.paid_date ?? m.due_date; // realizado
+    else if (m.due_date > hojeISO) day = m.due_date; // pendente FUTURO = previsto
+    else continue; // pendente vencido/hoje não conta na linha de caixa
+    if (!day || day < fromISO || day > toISO) continue;
+    const b = buckets.get(day) ?? { inflow: 0, outflow: 0 };
+    if (m.type === "entrada") b.inflow += m.amount;
+    else b.outflow += m.amount;
+    buckets.set(day, b);
+  }
+  const points: DailyCashflowPoint[] = [];
+  let running = saldoInicial;
+  const end = new Date(toISO + "T00:00:00");
+  for (const d = new Date(fromISO + "T00:00:00"); d <= end; d.setDate(d.getDate() + 1)) {
+    const key = isoDay(d);
+    const b = buckets.get(key) ?? { inflow: 0, outflow: 0 };
+    running += b.inflow - b.outflow;
+    points.push({ date: key, label: DAY_LABEL(d), inflow: b.inflow, outflow: -b.outflow, balance: running, projetado: key > hojeISO });
+  }
+  return points;
+}
+
+/**
  * Faturamento mensal (toda a receita realizada/entrada) nos últimos `months`.
  * Conta qualquer entrada — não depende do texto "venda" — para refletir
  * corretamente as categorias reais de receita cadastradas.

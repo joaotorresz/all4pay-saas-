@@ -4,6 +4,7 @@ import * as React from "react";
 import {
   ComposedChart,
   Bar,
+  Cell,
   Line,
   Area,
   XAxis,
@@ -65,7 +66,8 @@ function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) 
 export function DailyCashflowChart() {
   const period = usePeriod();
   const { data, isLoading, isError } = useDailyCashflowRange(period.from, period.to);
-  const legenda = period.label;
+  const temProjecao = (data ?? []).some((d) => d.projetado && (d.inflow !== 0 || d.outflow !== 0));
+  const legenda = period.label + (temProjecao ? " · projetado" : "");
 
   // "Essa semana": domingo → sábado da semana do dia atual.
   const essaSemana = () => {
@@ -178,33 +180,15 @@ export function DailyCashflowChart() {
                 content={<CashflowTooltip />}
                 cursor={{ fill: "rgba(127,127,127,0.10)" }}
               />
-              <Bar
-                yAxisId="flow"
-                dataKey="inflow"
-                stackId="cf"
-                fill={POSITIVE}
-                radius={[3, 3, 0, 0]}
-                maxBarSize={56}
-                name="Entradas"
-              />
-              <Bar
-                yAxisId="flow"
-                dataKey="outflow"
-                stackId="cf"
-                fill={NEGATIVE}
-                radius={[0, 0, 3, 3]}
-                maxBarSize={56}
-                name="Saídas"
-              />
-              <Line
-                yAxisId="balance"
-                type="monotone"
-                dataKey="balance"
-                stroke={LINE}
-                strokeWidth={1.4}
-                dot={false}
-                name="Saldo em caixa"
-              />
+              <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[3, 3, 0, 0]} maxBarSize={56} name="Entradas" isAnimationActive={false}>
+                {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+              </Bar>
+              <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[0, 0, 3, 3]} maxBarSize={56} name="Saídas" isAnimationActive={false}>
+                {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+              </Bar>
+              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). */}
+              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.4} dot={false} connectNulls name="Saldo em caixa" />
+              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.4} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />
               {/* Linhas verticais: início de mês (faint tracejado) e dia atual (ink). */}
               {mesInicios.map((d) => (
                 <ReferenceLine
@@ -227,7 +211,7 @@ export function DailyCashflowChart() {
               )}
             </ComposedChart>
           </ResponsiveContainer>
-          <Legend />
+          <Legend projetado={temProjecao} />
           <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
       )}
@@ -235,18 +219,21 @@ export function DailyCashflowChart() {
   );
 }
 
-function Legend() {
+function Legend({ projetado }: { projetado?: boolean }) {
   return (
-    <div className="flex items-center gap-4 mt-2 text-caption text-muted">
+    <div className="flex items-center gap-4 mt-2 text-caption text-muted flex-wrap">
       <LegendDot color={POSITIVE} label="Entradas" />
       <LegendDot color={NEGATIVE} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">
-        <span
-          className="inline-block w-4 border-t-2"
-          style={{ borderColor: LINE }}
-        />
+        <span className="inline-block w-4 border-t-2" style={{ borderColor: LINE }} />
         Saldo em caixa
       </span>
+      {projetado && (
+        <span className="inline-flex items-center gap-[6px]">
+          <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LINE }} />
+          Projetado (a partir de hoje)
+        </span>
+      )}
     </div>
   );
 }

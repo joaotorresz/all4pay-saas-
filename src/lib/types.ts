@@ -84,6 +84,7 @@ export interface DailyCashflowPoint {
   inflow: number; // entradas (>= 0)
   outflow: number; // saídas (<= 0, stored negative for the stacked bar)
   balance: number; // saldo acumulado até o dia
+  projetado?: boolean; // dia futuro: fluxo PREVISTO (pendentes por vencimento)
 }
 
 export interface MonthlySalesPoint {
