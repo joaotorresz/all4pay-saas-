@@ -220,6 +220,8 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
       party_id: input.party_id,
       cost_center_id: input.cost_center_id,
       payment_method: input.payment_method,
+      installment_total: input.installments && input.installments > 1 ? input.installments : null,
+      installment_no: input.installments && input.installments > 1 ? 1 : null,
     });
     if (me) throw me;
   }

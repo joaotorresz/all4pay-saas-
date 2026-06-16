@@ -230,6 +230,7 @@ export interface SaleDocInput {
   // condição de pagamento (não usada em orçamento)
   due_date: string | null;
   payment_method: PaymentMethod | null;
+  installments?: number | null; // parcelas (crédito parcelado)
   account_id: string | null;
   settled: boolean;
 }

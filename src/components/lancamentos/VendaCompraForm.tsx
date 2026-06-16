@@ -20,7 +20,6 @@ import { findOrCreateParty } from "@/lib/confirmacao";
 import { FormModal, SectionTitle } from "./FormModal";
 import {
   usePartiesByRole,
-  useCostCenters,
   useSalespeople,
   useProducts,
   useServices,
@@ -31,11 +30,30 @@ import type { SaleDocKind, ItemKind, PaymentMethod } from "@/lib/types";
 
 const PAYMENT_METHODS: SelectOption[] = [
   { value: "pix", label: "Pix" },
+  { value: "debito_vista", label: "Débito à vista" },
+  { value: "credito_vista", label: "Crédito à vista" },
+  { value: "credito_parcelado", label: "Crédito parcelado" },
   { value: "boleto", label: "Boleto" },
-  { value: "cartao", label: "Cartão" },
   { value: "dinheiro", label: "Dinheiro" },
-  { value: "transferencia", label: "Transferência" },
 ];
+const PARCELAS: SelectOption[] = Array.from({ length: 20 }, (_, i) => ({ value: String(i + 2), label: `${i + 2}x` }));
+/** Mapeia a condição da UI para o enum do banco (cartão cobre débito/crédito). */
+function condToMethod(c: string): PaymentMethod | null {
+  if (c === "pix" || c === "boleto" || c === "dinheiro") return c;
+  if (c === "debito_vista" || c === "credito_vista" || c === "credito_parcelado") return "cartao";
+  return null;
+}
+function condLabel(c: string, parcelas: number): string {
+  switch (c) {
+    case "debito_vista": return "Débito à vista";
+    case "credito_vista": return "Crédito à vista";
+    case "credito_parcelado": return `Crédito parcelado ${parcelas}x`;
+    case "pix": return "Pix";
+    case "boleto": return "Boleto";
+    case "dinheiro": return "Dinheiro";
+    default: return "";
+  }
+}
 
 type ItemRow = { ref_id: string; qty: number; unit_price: number; discount: number };
 const emptyRow = (): ItemRow => ({ ref_id: "", qty: 1, unit_price: 0, discount: 0 });
@@ -57,7 +75,6 @@ export function VendaCompraForm({
 
   const { data: parties } = usePartiesByRole(partyRole);
   const { data: salespeople } = useSalespeople();
-  const { data: costCenters } = useCostCenters();
   const { data: products } = useProducts();
   const { data: services } = useServices();
   const { data: accounts } = useAccountsList();
@@ -85,6 +102,7 @@ export function VendaCompraForm({
     notes: "",
     due_date: isoDay(new Date()),
     payment_method: "",
+    parcelas: 2,
     account_id: "",
     settled: false,
   });
@@ -140,6 +158,10 @@ export function VendaCompraForm({
           notas = [`${isCompra ? "Fornecedor" : "Cliente"}: ${novoNome.trim()}`, notas].filter(Boolean).join(" · ");
         }
       }
+      // Condição de pagamento (débito/crédito/parcelado → enum cartão + rótulo nas obs).
+      const parcelado = f.payment_method === "credito_parcelado";
+      const lbl = kind === "orcamento" ? "" : condLabel(f.payment_method, f.parcelas);
+      if (lbl) notas = [notas, `Pagamento: ${lbl}`].filter(Boolean).join(" · ");
       await create.mutateAsync({
         kind,
         item_kind: itemKind,
@@ -158,7 +180,8 @@ export function VendaCompraForm({
           discount: r.discount,
         })),
         due_date: kind === "orcamento" ? null : f.due_date,
-        payment_method: kind === "orcamento" ? null : (f.payment_method as PaymentMethod) || null,
+        payment_method: kind === "orcamento" ? null : condToMethod(f.payment_method),
+        installments: kind === "orcamento" ? null : (parcelado ? f.parcelas : null),
         account_id: kind === "orcamento" ? null : f.account_id || null,
         settled: kind === "orcamento" ? false : f.settled,
       });
@@ -224,7 +247,6 @@ export function VendaCompraForm({
         {!isCompra && (
           <Select label="Vendedor" placeholder="Selecione (opcional)" options={opts(salespeople)} value={f.salesperson_id} onChange={(v) => set({ salesperson_id: v })} />
         )}
-        <Select label="Centro de custo" placeholder="Selecione (opcional)" options={opts(costCenters)} value={f.cost_center_id} onChange={(v) => set({ cost_center_id: v })} />
         {isOrcamento && (
           <DateField label="Validade" required value={f.validity} onChange={(v) => set({ validity: v })} invalid={bad("validity")} />
         )}
@@ -295,6 +317,12 @@ export function VendaCompraForm({
             <DateField label="Vencimento" value={f.due_date} onChange={(v) => set({ due_date: v })} />
             <Select label="Forma de pagamento" placeholder="Selecione" options={PAYMENT_METHODS} value={f.payment_method} onChange={(v) => set({ payment_method: v })} />
           </div>
+          {f.payment_method === "credito_parcelado" && (
+            <div className="rounded-md border border-border-soft p-3 flex flex-wrap items-end gap-3">
+              <Select label="Parcelas" options={PARCELAS} value={String(f.parcelas)} onChange={(v) => set({ parcelas: Number(v) })} containerClassName="min-w-[120px]" />
+              <span className="text-caption text-faint pb-[10px]">{f.parcelas}x de <b className="text-ink font-medium">{formatBRL(total / Math.max(1, f.parcelas))}</b> · total {formatBRL(total)}</span>
+            </div>
+          )}
           <Select label={isCompra ? "Conta de pagamento" : "Conta de recebimento"} placeholder="Selecione a conta" options={opts(accounts)} value={f.account_id} onChange={(v) => set({ account_id: v })} />
           <label className="inline-flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={f.settled} onChange={(e) => set({ settled: e.target.checked })} className="w-[18px] h-[18px] accent-ink" />
