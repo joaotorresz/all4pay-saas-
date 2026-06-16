@@ -200,7 +200,7 @@ export function Sidebar() {
         <Icon name="search" size={15} color="var(--color-text-secondary)" />
         {!collapsed && (
           <>
-            <span className="text-label text-muted font-regular">Buscar no sistema…</span>
+            <span className="text-label text-muted font-regular">Buscar</span>
             <span className="ml-auto text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">⌘K</span>
           </>
         )}
