@@ -119,16 +119,27 @@ export function OverviewGrid() {
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-              {ids.map((id) => {
-                const w = widgetNode(id, ctx);
-                return (
-                  <div key={id} className={w.full ? "md:col-span-2" : undefined}>
-                    {w.node}
-                  </div>
-                );
-              })}
-            </div>
+            {bloco === "Caixa" ? (
+              // Teste: Fluxo de caixa 70% · Calendário 30% (lado a lado no desktop).
+              <div className="grid grid-cols-1 md:grid-cols-10 gap-5 items-start">
+                {ids.map((id) => {
+                  const w = widgetNode(id, ctx);
+                  const span = id === "cashflow" ? "md:col-span-7" : id === "calendar" ? "md:col-span-3" : "md:col-span-10";
+                  return <div key={id} className={span}>{w.node}</div>;
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+                {ids.map((id) => {
+                  const w = widgetNode(id, ctx);
+                  return (
+                    <div key={id} className={w.full ? "md:col-span-2" : undefined}>
+                      {w.node}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         );
       })}
