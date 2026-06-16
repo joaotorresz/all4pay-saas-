@@ -6,6 +6,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button, Icon } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { getPluggyConnectToken, syncPluggyItem } from "@/lib/openfinance";
+import { getPendingMovements, type PendingMovement } from "@/lib/confirmacao";
+import { ConfirmacaoModal } from "@/components/confirmacao/ConfirmacaoModal";
 
 // Widget só no cliente (acessa window) — import dinâmico, sem SSR.
 const PluggyConnect = dynamic(
@@ -28,6 +30,7 @@ export function ConectarBanco() {
   const [sincronizando, setSincronizando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   const [ok, setOk] = React.useState<string | null>(null);
+  const [revisao, setRevisao] = React.useState<PendingMovement[] | null>(null);
 
   const abrir = async () => {
     setErro(null); setOk(null);
@@ -52,6 +55,9 @@ export function ConectarBanco() {
       const r = await syncPluggyItem(itemId);
       setOk(`Sincronizado: ${r.accounts} conta(s), ${r.transactions} transação(ões).`);
       await qc.invalidateQueries();
+      // Abre o box de confirmação (uma a uma) se houver transações a revisar.
+      const pend = await getPendingMovements();
+      if (pend.length) setRevisao(pend);
     } catch (e) {
       setErro(`Falha ao sincronizar: ${(e as Error).message}`);
     } finally {
@@ -85,6 +91,7 @@ export function ConectarBanco() {
           onError={() => setErro("Falha ao conectar")}
         />
       )}
+      {revisao && <ConfirmacaoModal itens={revisao} onClose={() => setRevisao(null)} />}
     </>
   );
 }
