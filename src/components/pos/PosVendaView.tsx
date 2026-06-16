@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/app/AppShell";
 import { Icon, BRL, Skeleton } from "@/components/ui";
 import { useProductsList } from "@/components/lancamentos/hooks";
 import { getProdutoImagem } from "@/lib/produto-imagem";
 import { formatBRL } from "@/lib/format";
+import { concluirVendaPos } from "@/lib/pos-venda";
 import { cn } from "@/lib/utils";
 import {
   loadPosConfig,
@@ -42,6 +44,7 @@ const cod = (n: number) => Array.from({ length: n }, () => Math.floor(Math.rando
 
 export function PosVendaView() {
   const { data: produtos, isLoading } = useProductsList();
+  const qc = useQueryClient();
   const [montado, setMontado] = React.useState(false);
   const [cfg, setCfg] = React.useState<PosConfig>(POS_DEFAULT);
   React.useEffect(() => { setMontado(true); setCfg(loadPosConfig()); }, []);
@@ -74,14 +77,29 @@ export function PosVendaView() {
     setCart({}); setMetodo(null); setParcelas(2); setRecibo(null); setTela("catalogo");
   }
 
-  // Processando → aprovado (simulação de leitura do cartão/QR).
+  // Processando → registra a venda (recebível pendente) → aprovado.
   React.useEffect(() => {
     if (tela !== "processando") return;
-    const t = window.setTimeout(() => {
+    let cancelado = false;
+    (async () => {
+      const descricao = `Venda POS · ${qtdTotal} ${qtdTotal === 1 ? "item" : "itens"}`;
+      try {
+        await concluirVendaPos({ total, descricao, parcelas: nParc });
+      } catch {
+        /* simulador segue mesmo se o registro falhar */
+      }
+      await new Promise((r) => setTimeout(r, 1400));
+      if (cancelado) return;
+      // Reflete na Central de Recebimentos / dashboard / DRE.
+      [
+        "open-movements", "receivables", "accounts", "daily-cashflow",
+        "daily-cashflow-range", "sales", "sales-list", "risco-input",
+      ].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       setRecibo({ nsu: cod(6), auth: cod(6), quando: new Date().toLocaleString("pt-BR") });
       setTela("aprovado");
-    }, 2200);
-    return () => window.clearTimeout(t);
+    })();
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tela]);
 
   const metodoLabel = METODOS.find((m) => m.id === metodo)?.label ?? "";
@@ -275,8 +293,15 @@ export function PosVendaView() {
                   <Linha k="Valor líquido" v={formatBRL(liquido)} />
                   <Linha k="Data/hora" v={recibo.quando} />
                 </div>
+                <div className="w-full mt-3 inline-flex items-center gap-2 text-caption text-muted">
+                  <Icon name="check" size={14} color="var(--color-positive)" />
+                  Recebível {nParc > 1 ? `(${nParc} parcelas) ` : ""}lançado na Central de Recebimentos
+                </div>
               </div>
-              <div className="border-t border-border-soft p-3 shrink-0">
+              <div className="border-t border-border-soft p-3 shrink-0 flex flex-col gap-2">
+                <a href="/recebimentos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
+                  Ver na Central de Recebimentos
+                </a>
                 <button onClick={reset} className="w-full h-11 rounded-md bg-ink text-white text-[17px] font-medium active:scale-[0.99]">
                   Nova venda
                 </button>
