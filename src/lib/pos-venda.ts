@@ -12,7 +12,8 @@ import { isoDay } from "@/lib/aggregations";
 import type { Movement } from "@/lib/types";
 
 export interface VendaPosInput {
-  total: number;
+  /** Valor líquido a receber = total da venda − taxa MDR. */
+  valorReceber: number;
   descricao: string;
   parcelas: number; // 1 = à vista
 }
@@ -27,9 +28,9 @@ function addMonthsISO(iso: string, m: number): string {
 export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
   const hoje = isoDay(new Date());
   const n = Math.max(1, input.parcelas);
-  const parcela = Math.round((input.total / n) * 100) / 100;
+  const parcela = Math.round((input.valorReceber / n) * 100) / 100;
   const valorDe = (i: number) =>
-    i === n - 1 ? Math.round((input.total - parcela * (n - 1)) * 100) / 100 : parcela;
+    i === n - 1 ? Math.round((input.valorReceber - parcela * (n - 1)) * 100) / 100 : parcela;
   const descDe = (i: number) => (n > 1 ? `${input.descricao} · ${i + 1}/${n}` : input.descricao);
   const groupId = globalThis.crypto?.randomUUID?.() ?? `pos-${Date.now()}`;
 

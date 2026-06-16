@@ -84,7 +84,8 @@ export function PosVendaView() {
     (async () => {
       const descricao = `Venda POS · ${qtdTotal} ${qtdTotal === 1 ? "item" : "itens"}`;
       try {
-        await concluirVendaPos({ total, descricao, parcelas: nParc });
+        // Entra em "a receber" o líquido (total − taxa MDR).
+        await concluirVendaPos({ valorReceber: liquido, descricao, parcelas: nParc });
       } catch {
         /* simulador segue mesmo se o registro falhar */
       }
