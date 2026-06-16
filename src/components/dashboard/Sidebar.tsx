@@ -37,6 +37,7 @@ const GROUPS: Group[] = [
       { label: "A pagar", href: "/pagaveis" },
       { label: "Solicitações & aprovações", href: "/aprovacoes" }, // gate de alçada
       { label: "Reembolsos", href: "/reembolsos" }, // caso especializado
+      { label: "Lixeira", href: "/lixeira" }, // cancelados recuperáveis
     ],
   },
   {
@@ -47,6 +48,7 @@ const GROUPS: Group[] = [
       { label: "Recorrências / Contratos", href: "/recorrencias" },
       { label: "Boleto", href: "/boletos" },
       { label: "Notas fiscais (NFS-e)", href: "/notas-fiscais" },
+      { label: "Lixeira", href: "/lixeira" }, // cancelados recuperáveis
     ],
   },
   {

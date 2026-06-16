@@ -23,7 +23,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount, removerImported } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -166,6 +166,36 @@ export async function cancelMovement(id: string): Promise<void> {
   if (isDemo) { updateImportedMovement(id, { status: "cancelado" }); return; }
   const supabase = createClient();
   const { error } = await supabase.from("movements").update({ status: "cancelado" }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Lixeira — lançamentos cancelados (pagamentos e recebimentos), recuperáveis.
+ *  Demo: imported store; live: Supabase. */
+export async function getTrashedMovements(): Promise<Movement[]> {
+  if (isDemo) {
+    await demoDelay();
+    return seedMovements().filter((m) => m.status === "cancelado").sort((a, b) => b.due_date.localeCompare(a.due_date));
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("movements").select(MOVEMENT_COLS).eq("status", "cancelado").order("due_date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Movement[];
+}
+
+/** Restaura um cancelado de volta para EM ABERTO (status → pendente). */
+export async function restoreMovement(id: string): Promise<void> {
+  if (isDemo) { updateImportedMovement(id, { status: "pendente" }); return; }
+  const supabase = createClient();
+  const { error } = await supabase.from("movements").update({ status: "pendente" }).eq("id", id);
+  if (error) throw error;
+}
+
+/** Exclui DEFINITIVAMENTE um lançamento da lixeira (sem volta). */
+export async function purgeMovement(id: string): Promise<void> {
+  if (isDemo) { removerImported([id]); return; }
+  const supabase = createClient();
+  const { error } = await supabase.from("movements").delete().eq("id", id);
   if (error) throw error;
 }
 
