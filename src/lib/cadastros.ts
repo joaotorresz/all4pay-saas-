@@ -205,26 +205,58 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
 
   // Orçamento não gera lançamento financeiro.
   if (input.kind !== "orcamento" && input.account_id) {
-    const settled = input.settled;
-    const { error: me } = await s.from("movements").insert({
-      account_id: input.account_id,
-      type: input.kind === "venda" ? "entrada" : "saida",
-      status: settled ? "pago" : "pendente",
-      amount: total,
-      due_date: input.due_date ?? input.doc_date,
-      paid_date: settled ? isoDay(new Date()) : null,
-      reconciled: false,
-      description:
-        (input.kind === "venda" ? "Venda" : "Compra") +
-        ` · ${input.item_kind}`,
-      party_id: input.party_id,
-      cost_center_id: input.cost_center_id,
-      payment_method: input.payment_method,
-      installment_total: input.installments && input.installments > 1 ? input.installments : null,
-      installment_no: input.installments && input.installments > 1 ? 1 : null,
-    });
-    if (me) throw me;
+    const tipo = input.kind === "venda" ? "entrada" : "saida";
+    const baseDue = input.due_date ?? input.doc_date;
+    const rotulo = input.kind === "venda" ? "Venda" : "Compra";
+    const n = input.installments && input.installments > 1 ? input.installments : 1;
+
+    if (n > 1) {
+      // Parcelado: N lançamentos A RECEBER, um por mês, ligados pelo group_id (doc).
+      const parcela = Math.round((total / n) * 100) / 100;
+      const rows = Array.from({ length: n }, (_, i) => ({
+        account_id: input.account_id,
+        type: tipo,
+        status: "pendente",
+        amount: i === n - 1 ? Math.round((total - parcela * (n - 1)) * 100) / 100 : parcela,
+        due_date: addMonthsISO(baseDue, i),
+        paid_date: null,
+        reconciled: false,
+        description: `${rotulo} · ${input.item_kind} · ${i + 1}/${n}`,
+        party_id: input.party_id,
+        cost_center_id: input.cost_center_id,
+        payment_method: input.payment_method,
+        installment_no: i + 1,
+        installment_total: n,
+        group_id: doc!.id,
+      }));
+      const { error: me } = await s.from("movements").insert(rows);
+      if (me) throw me;
+    } else {
+      const settled = input.settled;
+      const { error: me } = await s.from("movements").insert({
+        account_id: input.account_id,
+        type: tipo,
+        status: settled ? "pago" : "pendente",
+        amount: total,
+        due_date: baseDue,
+        paid_date: settled ? isoDay(new Date()) : null,
+        reconciled: false,
+        description: `${rotulo} · ${input.item_kind}`,
+        party_id: input.party_id,
+        cost_center_id: input.cost_center_id,
+        payment_method: input.payment_method,
+        group_id: doc!.id,
+      });
+      if (me) throw me;
+    }
   }
+}
+
+/** Soma `m` meses a uma data ISO (yyyy-mm-dd), preservando o dia quando possível. */
+function addMonthsISO(iso: string, m: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setMonth(d.getMonth() + m);
+  return d.toISOString().slice(0, 10);
 }
 
 export async function createContrato(input: ContratoInput): Promise<void> {
