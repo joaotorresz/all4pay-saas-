@@ -118,14 +118,33 @@ export function TransactionsCalendar() {
           </div>
 
           {diaSel && (() => {
+            const futuro = diaSel > hoje;
+            // Futuro → saldo ESPERADO (projeção). Hoje/passado → saldo TOTAL
+            // realizado: saldo atual menos o net liquidado APÓS o dia (até hoje).
             const proj = projecao.get(diaSel);
+            let valor: number | undefined;
+            let ruptura = false;
+            if (futuro) {
+              valor = proj?.saldo;
+              ruptura = !!proj?.ruptura;
+            } else {
+              let netDepois = 0;
+              for (const m of data?.movements ?? []) {
+                if (m.status !== "pago") continue;
+                const pd = m.paid_date ?? m.due_date;
+                if (pd > diaSel && pd <= hoje) netDepois += m.type === "entrada" ? m.amount : -m.amount;
+              }
+              valor = (data?.saldoAtual ?? 0) - netDepois;
+              ruptura = valor < 0;
+            }
+            const rotulo = futuro ? "Saldo esperado" : "Saldo total";
             return (
-              <div className={["flex flex-col gap-2 rounded-md border p-3", proj?.ruptura ? "border-negative" : "border-border-soft"].join(" ")}>
+              <div className={["flex flex-col gap-2 rounded-md border p-3", ruptura ? "border-negative" : "border-border-soft"].join(" ")}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-caption font-medium text-muted">{diaSel.split("-").reverse().join("/")}</span>
-                  {proj && (
-                    <span className="text-caption tabular-nums" style={{ color: proj.ruptura ? NEGATIVE : "var(--color-text-secondary)" }}>
-                      Saldo esperado: {proj.saldo < 0 ? "−" : ""}<BRL value={Math.abs(proj.saldo)} />
+                  {valor != null && (
+                    <span className="text-caption tabular-nums" style={{ color: ruptura ? NEGATIVE : "var(--color-text-secondary)" }}>
+                      {rotulo}: {valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} />
                     </span>
                   )}
                 </div>
