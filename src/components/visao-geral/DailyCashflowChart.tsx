@@ -35,7 +35,7 @@ function CashflowTooltip({ active, payload, label }: any) {
       <div className="font-medium text-ink mb-[6px]">{label}</div>
       <Row color={POSITIVE} k="Entradas" v={<BRL value={p.inflow} />} />
       <Row color={NEGATIVE} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
-      <Row color={LINE} k="Saldo acum." v={<BRL value={p.balance} />} />
+      <Row color={LINE} k="Saldo" v={<BRL value={p.balance} />} />
     </div>
   );
 }
@@ -143,7 +143,7 @@ export function DailyCashflowChart() {
                 stroke="none"
                 fill="url(#cashGlow)"
                 isAnimationActive={false}
-                name="Saldo acumulado"
+                name="Saldo em caixa"
               />
               <Tooltip
                 content={<CashflowTooltip />}
@@ -174,7 +174,7 @@ export function DailyCashflowChart() {
                 stroke={LINE}
                 strokeWidth={1.4}
                 dot={false}
-                name="Saldo acumulado"
+                name="Saldo em caixa"
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -196,7 +196,7 @@ function Legend() {
           className="inline-block w-4 border-t-2"
           style={{ borderColor: LINE }}
         />
-        Saldo acumulado
+        Saldo em caixa
       </span>
     </div>
   );
@@ -217,5 +217,5 @@ function cashflowAria(data: DailyCashflowPoint[], legenda: string): string {
   const last = data[data.length - 1]?.balance ?? 0;
   return `Fluxo de caixa (${legenda}). Entradas ${formatBRL(
     inflow,
-  )}, saídas ${formatBRL(outflow)}, saldo acumulado ${formatBRL(last)}.`;
+  )}, saídas ${formatBRL(outflow)}, saldo em caixa ${formatBRL(last)}.`;
 }

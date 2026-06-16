@@ -128,24 +128,36 @@ export async function getDailyCashflow(
   return dailyCashflow((data ?? []) as Movement[], days);
 }
 
-/** Fluxo de caixa diário num intervalo [from, to] (Home navegável por mês). */
+/** Fluxo de caixa diário num intervalo [from, to] (Home navegável por mês).
+ *  O saldo da linha é ABSOLUTO: começa no saldo real de abertura do período
+ *  (saldo atual − líquido realizado de `from` até hoje), batendo com o calendário. */
 export async function getDailyCashflowRange(
   from: string,
   to: string,
 ): Promise<DailyCashflowPoint[]> {
+  const hoje = isoDay(new Date());
+  const netInicio = (movs: Movement[]) => movs.reduce((s, m) => {
+    if (m.status !== "pago") return s;
+    const pd = m.paid_date ?? m.due_date;
+    return pd >= from && pd <= hoje ? s + (m.type === "entrada" ? m.amount : -m.amount) : s;
+  }, 0);
+
   if (isDemo) {
     await demoDelay();
-    return dailyCashflowRange(seedMovements(), from, to);
+    const movs = seedMovements();
+    const saldoAtual = seedAccounts().reduce((s, a) => s + a.balance, 0);
+    return dailyCashflowRange(movs, from, to, saldoAtual - netInicio(movs));
   }
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("movements")
-    .select("type,amount,due_date,paid_date,status")
-    .eq("status", "pago")
-    .gte("paid_date", from)
-    .lte("paid_date", to);
-  if (error) throw error;
-  return dailyCashflowRange((data ?? []) as Movement[], from, to);
+  const upper = to > hoje ? to : hoje; // cobre [from, max(to, hoje)] p/ o saldo de abertura
+  const [accRes, movRes] = await Promise.all([
+    supabase.from("financial_accounts").select("balance"),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", upper),
+  ]);
+  if (movRes.error) throw movRes.error;
+  const movs = (movRes.data ?? []) as Movement[];
+  const saldoAtual = (accRes.data ?? []).reduce((s, a) => s + Number((a as { balance: number }).balance), 0);
+  return dailyCashflowRange(movs, from, to, saldoAtual - netInicio(movs));
 }
 
 /** Open items of a direction, ordered by due date — for the drill-down list. */

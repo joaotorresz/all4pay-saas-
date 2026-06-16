@@ -165,6 +165,7 @@ export function dailyCashflowRange(
   movements: Movement[],
   fromISO: string,
   toISO: string,
+  saldoInicial = 0,
 ): DailyCashflowPoint[] {
   const buckets = new Map<string, { inflow: number; outflow: number }>();
   for (const m of movements) {
@@ -177,7 +178,7 @@ export function dailyCashflowRange(
     buckets.set(day, b);
   }
   const points: DailyCashflowPoint[] = [];
-  let running = 0;
+  let running = saldoInicial; // saldo ABSOLUTO de abertura do período
   const end = new Date(toISO + "T00:00:00");
   for (const d = new Date(fromISO + "T00:00:00"); d <= end; d.setDate(d.getDate() + 1)) {
     const key = isoDay(d);
