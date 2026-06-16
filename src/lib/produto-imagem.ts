@@ -18,6 +18,11 @@ export function setProdutoImagem(nome: string, dataUrl: string): void {
 export function getProdutoImagem(nome: string): string | null {
   return nome ? (load()[norm(nome)] ?? null) : null;
 }
+export function removeProdutoImagem(nome: string): void {
+  if (typeof window === "undefined" || !nome) return;
+  const m = load(); delete m[norm(nome)];
+  try { localStorage.setItem(KEY, JSON.stringify(m)); } catch { /* ignore */ }
+}
 
 /** Lê um File de imagem e devolve um dataURL JPEG reduzido (máx ~480px). */
 export function fileParaDataUrl(file: File, max = 480): Promise<string> {

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Input, Select, CurrencyInput, Switch, Icon, type SelectOption } from "@/components/ui";
 import { FormModal } from "./FormModal";
-import { setProdutoImagem, getProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
+import { setProdutoImagem, getProdutoImagem, removeProdutoImagem, fileParaDataUrl } from "@/lib/produto-imagem";
 import { getProduct } from "@/lib/cadastros";
 import type { Product } from "@/lib/types";
 import {
@@ -12,6 +12,7 @@ import {
   useBrands,
   useCreateProduct,
   useUpdateProduct,
+  useDeleteProduct,
   useCreateService,
 } from "./hooks";
 
@@ -34,8 +35,22 @@ export function ProdutoServicoForm({
   const { data: brands } = useBrands();
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const deleteProduct = useDeleteProduct();
   const createService = useCreateService();
-  const saving = createProduct.isPending || updateProduct.isPending || createService.isPending;
+  const saving = createProduct.isPending || updateProduct.isPending || deleteProduct.isPending || createService.isPending;
+
+  const remover = async () => {
+    if (!editando || !produto) return;
+    if (!window.confirm(`Remover o produto "${produto.name}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await deleteProduct.mutateAsync(produto.id);
+      removeProdutoImagem(produto.name);
+      onToast("Produto removido");
+      onClose();
+    } catch {
+      onToast("Não foi possível remover (pode estar em uso em vendas)");
+    }
+  };
 
   const [tried, setTried] = React.useState(false);
   const [imagem, setImagem] = React.useState<string | null>(null);
@@ -132,6 +147,11 @@ export function ProdutoServicoForm({
       onSave={() => submit(false)}
       onSaveAgain={editando ? undefined : () => submit(true)}
       saving={saving}
+      extraAction={editando ? (
+        <button type="button" onClick={remover} disabled={saving} className="text-caption font-medium text-negative hover:opacity-80 px-3 py-[7px] disabled:opacity-45">
+          Remover
+        </button>
+      ) : undefined}
     >
       <Input label="Nome *" value={f.name} onChange={(e) => set({ name: e.target.value })} invalid={bad("name")} />
       <div className="grid grid-cols-2 gap-4">
