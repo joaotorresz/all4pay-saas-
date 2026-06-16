@@ -11,6 +11,7 @@ import {
   getPayables,
   getAccounts,
   getDailyCashflow,
+  getDailyCashflowRange,
   getSales,
   getOpenMovements,
   getUnreconciledMovements,
@@ -169,6 +170,13 @@ export function useDailyCashflow(days = 14) {
   return useQuery({
     queryKey: ["daily-cashflow", days],
     queryFn: () => getDailyCashflow(days),
+  });
+}
+
+export function useDailyCashflowRange(from: string, to: string) {
+  return useQuery({
+    queryKey: ["daily-cashflow-range", from, to],
+    queryFn: () => getDailyCashflowRange(from, to),
   });
 }
 

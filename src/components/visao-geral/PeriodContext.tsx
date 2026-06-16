@@ -4,102 +4,80 @@ import * as React from "react";
 import { isoDay } from "@/lib/aggregations";
 
 /**
- * Contexto temporal GLOBAL da Home — a "pílula de período".
- * Um único período selecionado (Hoje · 7D · 14D · 30D · Mês · Trimestre · Ano ·
- * Personalizado) que todos os widgets/cards da Home consomem, para consistência.
- * Mês/Trimestre/Ano são MTD/QTD/YTD (alinha com o DRE). Persistido no localStorage.
+ * Contexto temporal GLOBAL da Home — agora navegável por MÊS (mesma lógica do
+ * calendário de transações, estendida para toda a Home). Um único mês
+ * selecionado que todos os widgets/cards consomem (from = 1º dia, to = último
+ * dia). Persistido no localStorage. O seletor de mês fica no header.
  */
-export type PeriodPreset = "hoje" | "7d" | "14d" | "30d" | "custom";
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 export interface PeriodValue {
-  preset: PeriodPreset;
-  from: string; // ISO (início, inclusive)
-  to: string; // ISO (hoje, inclusive)
-  days: number; // span em dias — para os gráficos diários
-  months: number; // span aproximado em meses — para os gráficos mensais
-  label: string;
+  ano: number;
+  mes: number; // 0-based
+  from: string; // ISO — primeiro dia do mês
+  to: string; // ISO — último dia do mês
+  days: number; // dias no mês
+  label: string; // "Junho 2026"
 }
 
 interface PeriodCtx extends PeriodValue {
-  setPreset: (p: Exclude<PeriodPreset, "custom">) => void;
-  setCustom: (from: string, to: string) => void;
+  setMonth: (ano: number, mes: number) => void;
+  shift: (delta: number) => void;
 }
 
-const KEY = "a4p_home_period";
+const KEY = "a4p_home_month";
 const Ctx = React.createContext<PeriodCtx | null>(null);
+const pad = (n: number) => String(n).padStart(2, "0");
 
-const addDays = (d: Date, n: number) => {
-  const x = new Date(d);
-  x.setDate(x.getDate() + n);
-  return x;
-};
-const diffDays = (from: string, to: string) =>
-  Math.max(1, Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1);
-
-const LABELS: Record<PeriodPreset, string> = {
-  hoje: "Hoje", "7d": "7 dias", "14d": "14 dias", "30d": "30 dias", custom: "Personalizado",
-};
-
-/** Deriva from/to/days/months a partir do preset (relativo a hoje). */
-function derive(preset: PeriodPreset, custom?: { from: string; to: string }): PeriodValue {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const to = isoDay(today);
-  let from = to;
-  if (preset === "custom" && custom) {
-    from = custom.from <= custom.to ? custom.from : custom.to;
-    const t = custom.to >= custom.from ? custom.to : custom.from;
-    const days = diffDays(from, t);
-    return { preset, from, to: t, days, months: Math.max(1, Math.round(days / 30)), label: rangeLabel(from, t) };
-  }
-  switch (preset) {
-    case "hoje": from = to; break;
-    case "7d": from = isoDay(addDays(today, -6)); break;
-    case "14d": from = isoDay(addDays(today, -13)); break;
-    case "30d": from = isoDay(addDays(today, -29)); break;
-    default: from = isoDay(addDays(today, -13));
-  }
-  const days = diffDays(from, to);
-  return { preset, from, to, days, months: Math.max(1, Math.ceil(days / 30)), label: LABELS[preset] };
-}
-
-function rangeLabel(from: string, to: string) {
-  const f = from.slice(8, 10) + "/" + from.slice(5, 7);
-  const t = to.slice(8, 10) + "/" + to.slice(5, 7);
-  return `${f}–${t}`;
+function derive(ano: number, mes: number): PeriodValue {
+  const last = new Date(ano, mes + 1, 0);
+  return {
+    ano, mes,
+    from: `${ano}-${pad(mes + 1)}-01`,
+    to: isoDay(last),
+    days: last.getDate(),
+    label: `${MESES[mes]} ${ano}`,
+  };
 }
 
 export function PeriodProvider({ children }: { children: React.ReactNode }) {
-  const [preset, setPresetState] = React.useState<PeriodPreset>("14d");
-  const [custom, setCustomState] = React.useState<{ from: string; to: string } | undefined>();
+  const now = new Date();
+  const [ym, setYm] = React.useState<{ ano: number; mes: number }>({ ano: now.getFullYear(), mes: now.getMonth() });
 
-  // Restaura preferência (uma vez, no cliente).
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const j = JSON.parse(raw) as { preset: PeriodPreset; custom?: { from: string; to: string } };
-        const ok: PeriodPreset[] = ["hoje", "7d", "14d", "30d", "custom"];
-        if (j.preset && ok.includes(j.preset)) setPresetState(j.preset);
-        if (j.custom) setCustomState(j.custom);
+        const [a, m] = raw.split("-").map(Number);
+        if (!Number.isNaN(a) && !Number.isNaN(m)) setYm({ ano: a, mes: m });
       }
     } catch { /* ignore */ }
   }, []);
 
-  const persist = (p: PeriodPreset, c?: { from: string; to: string }) => {
-    try { localStorage.setItem(KEY, JSON.stringify({ preset: p, custom: c })); } catch { /* ignore */ }
-  };
-  const setPreset = (p: Exclude<PeriodPreset, "custom">) => { setPresetState(p); persist(p); };
-  const setCustom = (from: string, to: string) => { setPresetState("custom"); setCustomState({ from, to }); persist("custom", { from, to }); };
+  const setMonth = React.useCallback((ano: number, mes: number) => {
+    setYm({ ano, mes });
+    try { localStorage.setItem(KEY, `${ano}-${mes}`); } catch { /* ignore */ }
+  }, []);
+  const shift = React.useCallback((delta: number) => {
+    setYm((cur) => {
+      const d = new Date(cur.ano, cur.mes + delta, 1);
+      const next = { ano: d.getFullYear(), mes: d.getMonth() };
+      try { localStorage.setItem(KEY, `${next.ano}-${next.mes}`); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const value = React.useMemo<PeriodCtx>(() => ({ ...derive(preset, custom), setPreset, setCustom }), [preset, custom]);
+  const value = React.useMemo<PeriodCtx>(() => ({ ...derive(ym.ano, ym.mes), setMonth, shift }), [ym, setMonth, shift]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** Consome o período global. Fora do provider, devolve um default (14 dias). */
+/** Consome o mês global. Fora do provider, devolve o mês atual (no-op nav). */
 export function usePeriod(): PeriodCtx {
   const c = React.useContext(Ctx);
   if (c) return c;
-  return { ...derive("14d"), setPreset: () => {}, setCustom: () => {} };
+  const now = new Date();
+  return { ...derive(now.getFullYear(), now.getMonth()), setMonth: () => {}, shift: () => {} };
 }

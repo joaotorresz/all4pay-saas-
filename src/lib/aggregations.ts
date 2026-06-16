@@ -157,6 +157,38 @@ const MONTH_LABELS = [
 ];
 
 /**
+ * Fluxo de caixa diário num intervalo [from, to] arbitrário (ex.: um mês).
+ * Mesma regra de `dailyCashflow` (só liquidados, por paid_date), mas sem
+ * "rolling window ending today" — usado pela Home navegável por mês.
+ */
+export function dailyCashflowRange(
+  movements: Movement[],
+  fromISO: string,
+  toISO: string,
+): DailyCashflowPoint[] {
+  const buckets = new Map<string, { inflow: number; outflow: number }>();
+  for (const m of movements) {
+    if (m.status === "cancelado") continue;
+    const day = m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+    if (!day || day < fromISO || day > toISO) continue;
+    const b = buckets.get(day) ?? { inflow: 0, outflow: 0 };
+    if (m.type === "entrada") b.inflow += m.amount;
+    else b.outflow += m.amount;
+    buckets.set(day, b);
+  }
+  const points: DailyCashflowPoint[] = [];
+  let running = 0;
+  const end = new Date(toISO + "T00:00:00");
+  for (const d = new Date(fromISO + "T00:00:00"); d <= end; d.setDate(d.getDate() + 1)) {
+    const key = isoDay(d);
+    const b = buckets.get(key) ?? { inflow: 0, outflow: 0 };
+    running += b.inflow - b.outflow;
+    points.push({ date: key, label: DAY_LABEL(d), inflow: b.inflow, outflow: -b.outflow, balance: running });
+  }
+  return points;
+}
+
+/**
  * Faturamento mensal (toda a receita realizada/entrada) nos últimos `months`.
  * Conta qualquer entrada — não depende do texto "venda" — para refletir
  * corretamente as categorias reais de receita cadastradas.

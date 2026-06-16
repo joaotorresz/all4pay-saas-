@@ -1,15 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Card, Icon, BRL, Skeleton } from "@/components/ui";
+import { Card, BRL, Skeleton } from "@/components/ui";
 import { formatBRLCompact } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
+import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState } from "./shared";
 import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
-const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 
@@ -23,10 +23,10 @@ interface DiaInfo { entrada: number; saida: number; itens: RiskMovement[] }
  *  Clicar num dia abre a lista daquele dia. Mês navegável. Demo-safe. */
 export function TransactionsCalendar() {
   const { data, isLoading, isError } = useRiscoInput();
+  const { ano, mes } = usePeriod(); // mês global do header
   const hoje = data?.hoje ?? new Date().toISOString().slice(0, 10);
-  const [ano, setAno] = React.useState(() => Number(hoje.slice(0, 4)));
-  const [mes, setMes] = React.useState(() => Number(hoje.slice(5, 7)) - 1); // 0-based
   const [diaSel, setDiaSel] = React.useState<string | null>(null);
+  React.useEffect(() => { setDiaSel(null); }, [ano, mes]); // troca de mês limpa o dia
 
   const porDia = React.useMemo(() => {
     const map = new Map<string, DiaInfo>();
@@ -56,10 +56,6 @@ export function TransactionsCalendar() {
 
   const primeiroDiaSemana = new Date(ano, mes, 1).getDay();
   const diasNoMes = new Date(ano, mes + 1, 0).getDate();
-  const navega = (delta: number) => {
-    const d = new Date(ano, mes + delta, 1);
-    setAno(d.getFullYear()); setMes(d.getMonth()); setDiaSel(null);
-  };
 
   const iso = (dia: number) => `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
   const selInfo = diaSel ? porDia.get(diaSel) : null;
@@ -67,16 +63,7 @@ export function TransactionsCalendar() {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <WidgetHeader title="Calendário de transações" subtitle="entradas e saídas por dia" />
-        <div className="flex items-center gap-1">
-          <button onClick={() => navega(-1)} aria-label="Mês anterior" className="p-1 rounded-sm hover:bg-surface-2">
-            <Icon name="chevron-left" size={16} color="var(--color-text-secondary)" />
-          </button>
-          <span className="text-label font-medium text-ink w-[96px] text-center tabular-nums">{MES[mes]} {ano}</span>
-          <button onClick={() => navega(1)} aria-label="Próximo mês" className="p-1 rounded-sm hover:bg-surface-2">
-            <Icon name="chevron-right" size={16} color="var(--color-text-secondary)" />
-          </button>
-        </div>
+        <WidgetHeader title="Calendário de transações" subtitle="entradas e saídas por dia · use o seletor de mês no topo" />
       </div>
 
       {isLoading && <Skeleton className="h-[280px] w-full" rounded="md" />}

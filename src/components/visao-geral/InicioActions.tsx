@@ -1,32 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { Button, Icon } from "@/components/ui";
 import { DemoBadge } from "./DemoBadge";
 import { NovoDeposito } from "./NovoDeposito";
-import { PeriodPill } from "./PeriodPill";
-import { useModo } from "@/components/app/useModo";
+import { MonthSelector } from "./MonthSelector";
 
 /**
  * Header actions for Início.
- * Pílula de período global · "Personalizar Home" (drawer) · "Novo lançamento"
- * (menu de ações). Demonstração badge em modo demo.
+ * Seletor de mês global (navega toda a Home por mês) · "Novo lançamento".
+ * Demonstração badge em modo demo.
  */
 export function InicioActions({ demo }: { demo: boolean }) {
-  const { pro } = useModo();
   return (
     <>
       {demo && <DemoBadge />}
-      <PeriodPill />
-      {pro && (
-        <Button
-          variant="secondary"
-          leftIcon={<Icon name="settings" size={15} />}
-          onClick={() => window.dispatchEvent(new Event("a4p:open-personalizar"))}
-        >
-          Personalizar Home
-        </Button>
-      )}
+      <MonthSelector />
       <NovoDeposito />
     </>
   );

@@ -16,7 +16,7 @@ import {
 import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import type { DailyCashflowPoint } from "@/lib/types";
-import { useDailyCashflow } from "./hooks";
+import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 
@@ -63,9 +63,8 @@ function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) 
 
 export function DailyCashflowChart() {
   const period = usePeriod();
-  const days = period.days;
-  const { data, isLoading, isError } = useDailyCashflow(days);
-  const legenda = period.preset === "hoje" ? "hoje" : `${period.label.toLowerCase()} · ${days} dias`;
+  const { data, isLoading, isError } = useDailyCashflowRange(period.from, period.to);
+  const legenda = period.label;
 
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);

@@ -20,6 +20,7 @@ import {
   summarizePayables,
   summarizeAccounts,
   dailyCashflow,
+  dailyCashflowRange,
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
@@ -125,6 +126,26 @@ export async function getDailyCashflow(
     .gte("paid_date", isoDay(start));
   if (error) throw error;
   return dailyCashflow((data ?? []) as Movement[], days);
+}
+
+/** Fluxo de caixa diário num intervalo [from, to] (Home navegável por mês). */
+export async function getDailyCashflowRange(
+  from: string,
+  to: string,
+): Promise<DailyCashflowPoint[]> {
+  if (isDemo) {
+    await demoDelay();
+    return dailyCashflowRange(seedMovements(), from, to);
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("movements")
+    .select("type,amount,due_date,paid_date,status")
+    .eq("status", "pago")
+    .gte("paid_date", from)
+    .lte("paid_date", to);
+  if (error) throw error;
+  return dailyCashflowRange((data ?? []) as Movement[], from, to);
 }
 
 /** Open items of a direction, ordered by due date — for the drill-down list. */

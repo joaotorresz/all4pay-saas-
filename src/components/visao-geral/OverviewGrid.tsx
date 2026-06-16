@@ -5,7 +5,6 @@ import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
 import { AccountsCard } from "./AccountsCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
-import { CashflowCandlestick } from "./CashflowCandlestick";
 import { TransactionsCalendar } from "./TransactionsCalendar";
 import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
@@ -33,7 +32,6 @@ const KEY_AUTO = "a4p_home_auto";
 const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   saude: { node: <SaudeFinanceiraCard />, full: true },
   cashflow: { node: <DailyCashflowChart />, full: true },
-  cashCandle: { node: <CashflowCandlestick />, full: true },
   calendar: { node: <TransactionsCalendar />, full: true },
   accounts: { node: <AccountsCard />, full: true },
   receivables: { node: <ReceivablesCard /> },
@@ -47,8 +45,8 @@ const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   anomalias: { node: <AnomaliasCard /> },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
-/** Ordem fixa dentro do bloco Caixa: Fluxo de caixa · Velas · Calendário · resto. */
-const CAIXA_PRIO = ["cashflow", "cashCandle", "calendar"];
+/** Ordem fixa dentro do bloco Caixa: Fluxo de caixa · Calendário · resto. */
+const CAIXA_PRIO = ["cashflow", "calendar"];
 const caixaRank = (id: string) => { const i = CAIXA_PRIO.indexOf(id); return i < 0 ? 99 : i; };
 
 /** Resolve o nó e a largura de qualquer widget (curado, "Hoje" ou catálogo). */
