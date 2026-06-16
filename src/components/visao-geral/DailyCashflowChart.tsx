@@ -15,9 +15,10 @@ import {
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
-import { usePeriod } from "./PeriodContext";
+import { usePeriod, MES_ABBR } from "./PeriodContext";
 import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
 
 const POSITIVE = "var(--color-positive)";
@@ -66,6 +67,19 @@ export function DailyCashflowChart() {
   const { data, isLoading, isError } = useDailyCashflowRange(period.from, period.to);
   const legenda = period.label;
 
+  // "Essa semana": domingo → sábado da semana do dia atual.
+  const essaSemana = () => {
+    const h = new Date(); h.setHours(0, 0, 0, 0);
+    const dom = new Date(h); dom.setDate(h.getDate() - h.getDay()); // 0 = domingo
+    const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
+    period.setRange(isoDay(dom), isoDay(sab));
+  };
+
+  const hojeISO = isoDay(new Date());
+  const hojeLabel = (data ?? []).find((d) => d.date === hojeISO)?.label;
+  // Início de mês DENTRO do intervalo (exceto o 1º ponto) → linha vertical.
+  const mesInicios = (data ?? []).filter((d, i) => i > 0 && d.date.slice(8, 10) === "01");
+
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
 
@@ -76,10 +90,15 @@ export function DailyCashflowChart() {
 
   return (
     <Card className="flex flex-col">
-      <WidgetHeader
-        title="Fluxo de caixa"
-        subtitle={legenda}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <WidgetHeader title="Fluxo de caixa" subtitle={legenda} />
+        <button
+          onClick={essaSemana}
+          className="shrink-0 inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
+        >
+          Essa semana
+        </button>
+      </div>
 
       {!isLoading && !isError && hasFlow && (
         <div className="flex items-center gap-5 -mt-1 mb-1 flex-wrap">
@@ -176,6 +195,26 @@ export function DailyCashflowChart() {
                 dot={false}
                 name="Saldo em caixa"
               />
+              {/* Linhas verticais: início de mês (faint tracejado) e dia atual (ink). */}
+              {mesInicios.map((d) => (
+                <ReferenceLine
+                  key={`m-${d.date}`}
+                  yAxisId="flow"
+                  x={d.label}
+                  stroke="var(--color-border)"
+                  strokeDasharray="3 3"
+                  label={{ value: MES_ABBR[Number(d.date.slice(5, 7)) - 1], position: "insideTopLeft", fontSize: 11, fill: FAINT }}
+                />
+              ))}
+              {hojeLabel && (
+                <ReferenceLine
+                  yAxisId="flow"
+                  x={hojeLabel}
+                  stroke="var(--color-ink)"
+                  strokeWidth={1.2}
+                  label={{ value: "hoje", position: "insideTopRight", fontSize: 11, fill: "var(--color-ink)" }}
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
           <Legend />
