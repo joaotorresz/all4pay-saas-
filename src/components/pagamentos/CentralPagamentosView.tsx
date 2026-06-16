@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import Link from "next/link";
 import { pagarLote, itemDe, anexarComprovante, comprovanteDe, type MetodoPagamento, type ItemPagamento } from "@/lib/pagamentos";
-import { requerAlcada, estaAutorizado, hydrateAprovacoes } from "@/lib/aprovacoes";
+import { requerAlcada, estaAutorizado, hydrateAprovacoes, LIMITE_ALCADA } from "@/lib/aprovacoes";
 import { usePagaveis, useContasPag, usePartiesPag, useRiscoInputPag } from "./hooks";
 import type { Movement, Party, FinancialAccount } from "@/lib/types";
 
@@ -214,7 +214,18 @@ export function CentralPagamentosView() {
                     )}
                     <span className="text-[14px] text-ink truncate">{it.beneficiario}</span>
                     <span className="text-caption text-muted tabular-nums">{fmtDia(it.due_date)}</span>
-                    <span className="text-caption text-faint truncate">{trava ? <Link href="/aprovacoes" className="text-warning underline">requer aprovação</Link> : (it.category ?? "—")}</span>
+                    <span className="text-caption text-faint truncate flex flex-col leading-tight">
+                      <span className="truncate">{it.category ?? "—"}</span>
+                      {trava ? (
+                        <Link href="/aprovacoes" className="text-warning underline">requer aprovação</Link>
+                      ) : requerAlcada(it.amount) ? (
+                        <span className="inline-flex items-center gap-1 text-positive"><Icon name="shield-check" size={11} color="var(--color-positive)" />aprovado</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-positive" title={`Auto-aprovado: até ${formatBRL(LIMITE_ALCADA)} (dentro da alçada)`}>
+                          <Icon name="check" size={11} color="var(--color-positive)" />auto · dentro da alçada
+                        </span>
+                      )}
+                    </span>
                     <span className="text-caption text-ink tabular-nums text-right inline-flex items-center justify-end gap-2">
                       {on && !trava && (
                         <button onClick={() => { setComprovante(null); setConfirmar([it]); }} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[3px]">Pagar</button>
@@ -283,6 +294,17 @@ export function CentralPagamentosView() {
                 <Linha label="Conta de saída" value={contaNome} />
                 <Linha label="Método" value={METODOS.find((m) => m.id === metodo)?.label ?? metodo} />
               </div>
+
+              {(() => {
+                const auto = confirmar.filter((it) => !requerAlcada(it.amount)).length;
+                if (!auto) return null;
+                return (
+                  <span className="text-caption text-positive inline-flex items-start gap-1 leading-snug">
+                    <Icon name="check" size={13} color="var(--color-positive)" className="mt-[1px]" />
+                    {auto === confirmar.length ? "Todos abaixo" : `${auto} abaixo`} da alçada de {formatBRL(LIMITE_ALCADA)} — auto-aprovado(s), sem necessidade de aprovação.
+                  </span>
+                );
+              })()}
 
               {/* Anexar comprovante */}
               <button onClick={() => compRef.current?.click()} className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-caption text-muted hover:border-ink/30">

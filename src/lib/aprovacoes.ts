@@ -10,11 +10,15 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import {
-  iniciarAprovacao, aprovarPasso, regraParaValor, sugerirIA,
+  iniciarAprovacao, aprovarPasso, regraParaValor, sugerirIA, REGRAS_PADRAO,
 } from "@/core/institutional/approval-flow";
 import type { ApprovalRequest, Usuario, Role, TransacaoContexto } from "@/core/institutional/types";
 
 export type StatusSolic = "em_analise" | "aprovada" | "rejeitada" | "devolvida";
+
+/** Teto de auto-aprovação: títulos até este valor passam direto (dentro da
+ *  alçada), sem exigir aprovação. Derivado das REGRAS_PADRAO (faixa auto). */
+export const LIMITE_ALCADA = Math.max(0, ...REGRAS_PADRAO.filter((r) => r.auto).map((r) => r.ateValor));
 export type TipoSolic = "pagamento" | "reembolso";
 
 export interface PassoHist { quando: string; quem: string; acao: string; comentario?: string }
