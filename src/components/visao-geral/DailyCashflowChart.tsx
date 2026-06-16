@@ -74,6 +74,8 @@ export function DailyCashflowChart() {
     const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
     period.setRange(isoDay(dom), isoDay(sab));
   };
+  // "Esse mês": volta ao mês atual e vigente (sai de qualquer range).
+  const esseMes = () => { const n = new Date(); period.setMonth(n.getFullYear(), n.getMonth()); };
 
   const hojeISO = isoDay(new Date());
   const hojeLabel = (data ?? []).find((d) => d.date === hojeISO)?.label;
@@ -92,12 +94,20 @@ export function DailyCashflowChart() {
     <Card className="flex flex-col">
       <div className="flex items-start justify-between gap-3">
         <WidgetHeader title="Fluxo de caixa" subtitle={legenda} />
-        <button
-          onClick={essaSemana}
-          className="shrink-0 inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
-        >
-          Essa semana
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          <button
+            onClick={essaSemana}
+            className="inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
+          >
+            Essa semana
+          </button>
+          <button
+            onClick={esseMes}
+            className="inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
+          >
+            Esse mês
+          </button>
+        </div>
       </div>
 
       {!isLoading && !isError && hasFlow && (
