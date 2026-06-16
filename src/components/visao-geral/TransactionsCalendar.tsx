@@ -92,16 +92,15 @@ export function TransactionsCalendar() {
                   onClick={() => setDiaSel(sel ? null : key)}
                   aria-label={`Dia ${dia}`}
                   className={[
-                    "flex flex-col items-stretch gap-[3px] rounded-md border p-[5px] min-h-[58px] text-left transition-colors",
+                    "flex flex-col items-center justify-center gap-[5px] rounded-md border p-[5px] min-h-[58px] transition-colors",
                     borda, sel ? "bg-surface-2" : temMov ? "bg-white hover:bg-surface-1" : "hover:bg-surface-1",
                   ].join(" ")}
                 >
-                  <span className="flex items-center justify-between">
-                    <span className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
-                    <span className="flex items-center gap-[3px]">
-                      {info?.entrada ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} /> : null}
-                      {info?.saida ? <span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} /> : null}
-                    </span>
+                  <span className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
+                  {/* Pin verde/vermelho abaixo do número — altura fixa p/ alinhar os dias */}
+                  <span className="flex items-center justify-center gap-[4px] h-[7px]">
+                    {info?.entrada ? <span className="w-[7px] h-[7px] rounded-pill" style={{ background: POSITIVE }} /> : null}
+                    {info?.saida ? <span className="w-[7px] h-[7px] rounded-pill" style={{ background: NEGATIVE }} /> : null}
                   </span>
                 </button>
               );
