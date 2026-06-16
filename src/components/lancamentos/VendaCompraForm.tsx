@@ -201,7 +201,11 @@ export function VendaCompraForm({
               placeholder="Selecione"
               options={refOpts}
               value={r.ref_id}
-              onChange={(v) => setItem(i, { ref_id: v })}
+              onChange={(v) => {
+                // ao escolher o produto/serviço, já preenche o valor unitário (preço de venda)
+                const sel = ((refSource ?? []) as { id: string; sale_price?: number; price?: number }[]).find((x) => x.id === v);
+                setItem(i, { ref_id: v, unit_price: sel?.sale_price ?? sel?.price ?? r.unit_price });
+              }}
             />
             <Input
               label={i === 0 ? "Qtd" : undefined}
