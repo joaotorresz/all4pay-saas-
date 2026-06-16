@@ -5,23 +5,26 @@ import { AppShell } from "@/components/app/AppShell";
 import { Card, Select, Switch, Icon, Button } from "@/components/ui";
 import {
   BANDEIRAS,
-  MODALIDADES,
+  GRUPOS,
+  PARCELAS,
   MCCS,
   RANGES,
   type Bandeira,
+  type Grupo,
   type RateTable,
-  type ModalidadeRow,
   type PosConfig,
   loadPosConfig,
   savePosConfig,
   POS_DEFAULT,
   mccCodigo,
-  taxaFinal,
+  custoTable,
+  taxaFinalParcela,
+  custoAntecipParceiroMensal,
 } from "@/lib/pos-taxas";
 
 /** % a partir de decimal, pt-BR com sinal (ex.: 2,25% · −0,05%). */
-function pct(v: number): string {
-  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + "%";
+function pct(v: number, max = 4): string {
+  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: max }) + "%";
 }
 function parsePct(s: string): number {
   const n = Number(s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".").replace("−", "-"));
@@ -56,7 +59,8 @@ export function CentralPosTaxasView() {
   React.useEffect(() => { setCfg(loadPosConfig()); }, []);
 
   const editando = draft !== null;
-  const ativo = draft ?? cfg; // o que está sendo exibido/calculado
+  const ativo = draft ?? cfg;
+  const custo = React.useMemo(() => custoTable(ativo.mccDesc, ativo.range), [ativo.mccDesc, ativo.range]);
 
   function persistir(next: PosConfig) {
     setCfg(next);
@@ -64,17 +68,15 @@ export function CentralPosTaxasView() {
     setSalvo(true);
     window.setTimeout(() => setSalvo(false), 2000);
   }
-  /** Muta o config: em edição vai p/ o rascunho; fora, persiste na hora. */
   function mutate(next: PosConfig) {
-    if (editando) setDraft(next);
-    else persistir(next);
+    if (editando) setDraft(next); else persistir(next);
   }
   const set = <K extends keyof PosConfig>(k: K, v: PosConfig[K]) => mutate({ ...ativo, [k]: v });
 
-  function editTabela(qual: "custo" | "spread", mod: string, b: Bandeira, v: number) {
-    const table = { ...ativo[qual] };
-    table[mod] = { ...table[mod], [b]: v };
-    mutate({ ...ativo, [qual]: table });
+  function editSpread(g: Grupo, b: Bandeira, v: number) {
+    const spread: RateTable = { ...ativo.spread };
+    spread[g] = { ...spread[g], [b]: v };
+    mutate({ ...ativo, spread });
   }
 
   function iniciarEdicao() { setDraft(JSON.parse(JSON.stringify(cfg)) as PosConfig); }
@@ -83,6 +85,9 @@ export function CentralPosTaxasView() {
   function restaurarPadrao() { setDraft(null); persistir(POS_DEFAULT); }
 
   const selicTxt = (ativo.selic * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const antecipTxt = (ativo.taxaAntecipMensal * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  const custoParceiroAM = custoAntecipParceiroMensal(ativo.selic, ativo.range);
+  const spreadAntecipAM = ativo.taxaAntecipMensal - custoParceiroAM;
 
   return (
     <AppShell
@@ -102,7 +107,7 @@ export function CentralPosTaxasView() {
             <>
               <Button variant="ghost" onClick={restaurarPadrao}>Restaurar padrão</Button>
               <Button variant="secondary" leftIcon={<Icon name="settings" size={15} />} onClick={iniciarEdicao}>
-                Editar taxas
+                Editar spread
               </Button>
             </>
           )}
@@ -110,9 +115,7 @@ export function CentralPosTaxasView() {
       }
     >
       <div className="flex flex-col gap-4 pb-6">
-        <div className="text-caption text-faint -mb-1">
-          Simulador visão parceiro · MDR + Antecipação
-        </div>
+        <div className="text-caption text-faint -mb-1">Simulador visão parceiro · MDR + Antecipação</div>
 
         {/* Informações de precificação */}
         <Card>
@@ -150,6 +153,18 @@ export function CentralPosTaxasView() {
                 <span className="text-faint text-label">%</span>
               </div>
             </div>
+            <div className="flex flex-col gap-[6px]">
+              <span className="text-label font-medium text-muted">Taxa de antecipação a.m.</span>
+              <div className="inline-flex items-center gap-2 h-10">
+                <input
+                  value={antecipTxt}
+                  onChange={(e) => set("taxaAntecipMensal", parsePct(e.target.value))}
+                  inputMode="decimal"
+                  className="w-[96px] h-10 px-3 text-right rounded-md bg-white border border-border text-body text-ink tabular-nums outline-none focus:border-faint"
+                />
+                <span className="text-faint text-label">%</span>
+              </div>
+            </div>
             <div className="flex items-center h-10 sm:mt-5">
               <Switch checked={ativo.antecipacao} onChange={(v) => set("antecipacao", v)} label="Terá antecipação?" />
             </div>
@@ -157,93 +172,116 @@ export function CentralPosTaxasView() {
               <Switch checked={ativo.online} onChange={(v) => set("online", v)} label="Online" />
             </div>
           </div>
+          <p className="text-caption text-faint mt-3">
+            Custo de antecipação do parceiro (SELIC + CDI {RANGES.indexOf(ativo.range) >= 0 ? ativo.range : ""}):{" "}
+            <span className="text-ink tabular-nums">{pct(custoParceiroAM, 3)} a.m.</span> · spread de antecipação:{" "}
+            <span className={spreadAntecipAM < 0 ? "text-negative tabular-nums" : "text-ink tabular-nums"}>{pct(spreadAntecipAM, 3)} a.m.</span>
+            {ativo.antecipacao && ativo.online && <> · antecipação + online juntos não combinam → “Não antecipa”.</>}
+          </p>
         </Card>
 
-        {/* Taxa de custo MDR */}
+        {/* Taxa de custo MDR — reage a MCC × Range */}
         <Card className="overflow-x-auto">
           <div className="text-h3 text-ink mb-1">Taxa de custo MDR</div>
-          <p className="text-caption text-faint mb-4">Custo MDR por modalidade × bandeira (o que a all4pay paga).</p>
-          <RateTableBody
-            table={ativo.custo}
-            editavel={editando}
-            render={(v) => (v == null ? "—" : pct(v))}
-            onEdit={(mod, b, v) => editTabela("custo", mod, b, v)}
+          <p className="text-caption text-faint mb-4">
+            Custo por grupo × bandeira para {mccCodigo(ativo.mccDesc)} · {ativo.range} (o que a all4pay paga).
+          </p>
+          <GrupoTable
+            cell={(g, b) => {
+              const v = custo[g]?.[b];
+              return v == null ? <span className="text-faint">—</span> : pct(v);
+            }}
           />
         </Card>
 
-        {/* Spread (% editável) — em cima da taxa final */}
+        {/* Spread — editável em % */}
         <Card className="overflow-x-auto">
           <div className="text-h3 text-ink mb-1">Spread</div>
           <p className="text-caption text-faint mb-4">
-            Margem do parceiro em %. Editar aqui aumenta ou diminui diretamente a taxa final do estabelecimento (Taxa final = Custo MDR + Spread).
+            Margem do parceiro em %. Aumentar/diminuir aqui reflete diretamente na taxa final ao EC (Taxa MDR = Custo + Spread).
           </p>
-          <RateTableBody
-            table={ativo.spread}
-            editavel={editando}
-            render={(v) =>
-              v == null ? "—" : <span className={v < 0 ? "text-negative" : "text-ink"}>{v > 0 ? "+" : ""}{pct(v)}</span>
-            }
-            onEdit={(mod, b, v) => editTabela("spread", mod, b, v)}
+          <GrupoTable
+            cell={(g, b) => {
+              const v = ativo.spread[g]?.[b];
+              if (editando && !(g === "pix" && b !== "master")) {
+                return <TaxaInput value={v ?? 0} onCommit={(nv) => editSpread(g, b, nv)} />;
+              }
+              if (v == null) return <span className="text-faint">—</span>;
+              return <span className={v < 0 ? "text-negative" : "text-ink"}>{v > 0 ? "+" : ""}{pct(v)}</span>;
+            }}
           />
         </Card>
 
-        {/* Taxa final para o estabelecimento = custo + spread (derivada) */}
+        {/* Taxa final ao estabelecimento — por parcela, reage aos toggles */}
         <Card className="overflow-x-auto">
-          <div className="text-h3 text-ink mb-1">Taxa final para o estabelecimento</div>
-          <p className="text-caption text-faint mb-4">Taxa MDR aplicada ao estabelecimento — calculada a partir do custo + spread.</p>
-          <RateTableBody
-            table={ativo.custo}
-            editavel={false}
-            render={(_v, mod, b) => {
-              const f = taxaFinal(ativo.custo, ativo.spread, mod, b);
-              return f == null ? "—" : <span className="text-ink">{pct(f)}</span>;
-            }}
-            onEdit={() => {}}
-          />
+          <div className="text-h3 text-ink mb-1">Taxa final para o estabelecimento (MDR + antecipação)</div>
+          <p className="text-caption text-faint mb-4">
+            Taxa efetiva ao EC por parcela.{" "}
+            {ativo.antecipacao ? "Com antecipação" : "Sem antecipação"} · {ativo.online ? "online" : "presencial"}.
+          </p>
+          <table className="w-full text-[15px] border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left font-medium text-muted py-2 pr-4">Parcela</th>
+                {BANDEIRAS.map((b) => (
+                  <th key={b.id} className="text-right font-medium text-muted py-2 px-3">{b.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {PARCELAS.map((row) => (
+                <tr key={row.id} className="border-b border-border-soft hover:bg-surface-1">
+                  <td className="py-[7px] pr-4 text-ink">{row.label}</td>
+                  {BANDEIRAS.map((b, i) => {
+                    if (row.pixUnico && i > 0) {
+                      return <td key={b.id} className="py-[7px] px-3 text-right text-faint">—</td>;
+                    }
+                    const t = taxaFinalParcela(ativo, custo, row, b.id);
+                    return (
+                      <td key={b.id} className="py-[7px] px-3 text-right tabular-nums text-ink">
+                        {t === undefined ? (
+                          <span className="text-faint">—</span>
+                        ) : t === "NAO_ANTECIPA" ? (
+                          <span className="text-faint text-caption">Não antecipa</span>
+                        ) : (
+                          pct(t)
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
       </div>
     </AppShell>
   );
 }
 
-/** Corpo de tabela modalidade × bandeira. Pix mostra valor único (col. 1). */
-function RateTableBody({
-  table, editavel, render, onEdit,
-}: {
-  table: RateTable;
-  editavel: boolean;
-  render: (v: number | undefined, mod: string, b: Bandeira) => React.ReactNode;
-  onEdit: (mod: string, b: Bandeira, v: number) => void;
-}) {
+/** Tabela genérica grupo × bandeira (custo / spread). Pix = valor único. */
+function GrupoTable({ cell }: { cell: (g: Grupo, b: Bandeira) => React.ReactNode }) {
   return (
     <table className="w-full text-[15px] border-collapse">
       <thead>
         <tr className="border-b border-border">
-          <th className="text-left font-medium text-muted py-2 pr-4">Modalidade</th>
+          <th className="text-left font-medium text-muted py-2 pr-4">Grupo</th>
           {BANDEIRAS.map((b) => (
             <th key={b.id} className="text-right font-medium text-muted py-2 px-3">{b.label}</th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {MODALIDADES.map((m: ModalidadeRow) => (
-          <tr key={m.id} className="border-b border-border-soft hover:bg-surface-1">
-            <td className="py-[7px] pr-4 text-ink">{m.label}</td>
-            {BANDEIRAS.map((b, i) => {
-              if (m.pixUnico && i > 0) {
-                return <td key={b.id} className="py-[7px] px-3 text-right text-faint">—</td>;
-              }
-              const v = table[m.id]?.[b.id];
-              return (
-                <td key={b.id} className="py-[7px] px-3 text-right tabular-nums text-ink">
-                  {editavel ? (
-                    <TaxaInput value={v ?? 0} onCommit={(nv) => onEdit(m.id, b.id, nv)} />
-                  ) : (
-                    render(v, m.id, b.id)
-                  )}
-                </td>
-              );
-            })}
+        {GRUPOS.map((g) => (
+          <tr key={g.id} className="border-b border-border-soft hover:bg-surface-1">
+            <td className="py-[7px] pr-4 text-ink">{g.label}</td>
+            {BANDEIRAS.map((b, i) =>
+              g.pixUnico && i > 0 ? (
+                <td key={b.id} className="py-[7px] px-3 text-right text-faint">—</td>
+              ) : (
+                <td key={b.id} className="py-[7px] px-3 text-right tabular-nums text-ink">{cell(g.id, b.id)}</td>
+              ),
+            )}
           </tr>
         ))}
       </tbody>
