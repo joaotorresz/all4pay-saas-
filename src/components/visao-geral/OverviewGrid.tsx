@@ -47,6 +47,9 @@ const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   anomalias: { node: <AnomaliasCard /> },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
+/** Ordem fixa dentro do bloco Caixa: Fluxo de caixa · Velas · Calendário · resto. */
+const CAIXA_PRIO = ["cashflow", "cashCandle", "calendar"];
+const caixaRank = (id: string) => { const i = CAIXA_PRIO.indexOf(id); return i < 0 ? 99 : i; };
 
 /** Resolve o nó e a largura de qualquer widget (curado, "Hoje" ou catálogo). */
 function widgetNode(id: string, ctx: CockpitCtx): { node: React.ReactNode; full: boolean } {
@@ -102,7 +105,11 @@ export function OverviewGrid() {
       <FirstRunCard />
 
       {hc.ordemBlocos.map((bloco) => {
-        const ids = ordem.filter((id) => GRUPO_DE.get(id) === bloco && on(id));
+        const idsRaw = ordem.filter((id) => GRUPO_DE.get(id) === bloco && on(id));
+        // Caixa é fixo no topo com Fluxo de caixa + Velas primeiro (pedido do usuário).
+        const ids = bloco === "Caixa"
+          ? [...idsRaw].sort((a, b) => caixaRank(a) - caixaRank(b))
+          : idsRaw;
         if (ids.length === 0) return null;
         const prioritario = auto && hc.topBloco === bloco;
         return (

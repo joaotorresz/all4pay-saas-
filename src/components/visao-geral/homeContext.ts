@@ -94,15 +94,17 @@ export function useHomeContext(auto: boolean): HomeContext {
       }
     }
 
-    // Operação fica SEMPRE em 1º; os demais blocos seguem urgência (auto) ou setor.
-    const resto: Bloco[] = base.filter((b) => b !== "Operação");
+    // Caixa lidera a Home (fixo, pedido do usuário); Operação vem logo após;
+    // o restante segue urgência (auto) ou a ordem-base do setor.
+    const FIXOS: Bloco[] = ["Caixa", "Operação"];
+    const resto: Bloco[] = base.filter((b) => !FIXOS.includes(b));
     const restoOrdenado: Bloco[] = auto
       ? [...resto].sort((a, b) => {
           const d = (urgencia[b] ?? 0) - (urgencia[a] ?? 0);
           return d !== 0 ? d : resto.indexOf(a) - resto.indexOf(b);
         })
       : resto;
-    const ordemBlocos = ["Operação", ...restoOrdenado];
+    const ordemBlocos = ["Caixa", "Operação", ...restoOrdenado];
 
     // Selo de "Prioridade" vai no bloco de MAIOR urgência (onde quer que esteja).
     let top: string | null = null;
