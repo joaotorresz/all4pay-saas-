@@ -2,6 +2,7 @@ import * as React from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
+import { VisualEditor } from "@/components/app/VisualEditor";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -43,6 +44,7 @@ export function AppShell({
       </main>
       <PageGuide />
       <CommandPalette />
+      <VisualEditor />
     </div>
   );
 }

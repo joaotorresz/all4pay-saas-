@@ -8,7 +8,6 @@ import { DailyCashflowChart } from "./DailyCashflowChart";
 import { TransactionsCalendar } from "./TransactionsCalendar";
 import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
-import { HomeDesignEditor } from "./HomeDesignEditor";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
 import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
@@ -99,7 +98,6 @@ export function OverviewGrid() {
 
   return (
     <div className="flex flex-col gap-6">
-      <HomeDesignEditor />
       <FirstRunCard />
 
       {hc.ordemBlocos.map((bloco) => {
