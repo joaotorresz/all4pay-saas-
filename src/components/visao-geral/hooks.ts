@@ -14,6 +14,8 @@ import {
   getDailyCashflowRange,
   getSales,
   getOpenMovements,
+  getMovementsByFilter,
+  type MovementFilter,
   getUnreconciledMovements,
   getRiscoInput,
   getAccountsList,
@@ -191,6 +193,13 @@ export function useOpenMovements(type: MovementType) {
   return useQuery({
     queryKey: ["open-movements", type],
     queryFn: () => getOpenMovements(type),
+  });
+}
+
+export function useMovementsByFilter(type: MovementType, filtro: MovementFilter) {
+  return useQuery({
+    queryKey: ["movements-filter", type, filtro],
+    queryFn: () => getMovementsByFilter(type, filtro),
   });
 }
 

@@ -49,7 +49,7 @@ export function MovementsTable({
   isError: boolean;
   emptyTitle: string;
   emptyHint?: string;
-  variant?: "open" | "reconcile";
+  variant?: "open" | "reconcile" | "paid";
   /** Mostra o "Editar" no topo (modo seleção em lote) + Editar por linha. */
   editable?: boolean;
   /** Chamado após editar/cancelar/excluir em lote — o chamador invalida a lista. */
@@ -141,17 +141,20 @@ export function MovementsTable({
         <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
           {selMode && <span className="w-[18px]" />}
           <span className="flex-1">Descrição</span>
-          <span className="w-[110px]">Vencimento</span>
+          <span className="w-[110px]">{variant === "paid" ? "Liquidação" : "Vencimento"}</span>
           <span className="w-[120px]">Status</span>
           <span className="w-[140px] text-right">Valor</span>
           {editable && <span className="w-[150px]" />}
         </div>
         {lista.map((m, i) => {
           const parts = brlParts(m.amount);
+          const isOut = m.type === "saida";
           const status = variant === "reconcile"
             ? { tone: "warning" as const, label: "Não conciliado" }
+            : variant === "paid"
+            ? { tone: "positive" as const, label: isOut ? "Pago" : "Recebido" }
             : dueStatus(m.due_date);
-          const isOut = m.type === "saida";
+          const dateShown = variant === "paid" ? (m.paid_date ?? m.due_date) : m.due_date;
           const on = sel.has(m.id);
           return (
             <div
@@ -165,7 +168,7 @@ export function MovementsTable({
                 <div className="text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
                 <div className="text-caption text-faint tabular-nums">{accountName(m.account_id)}</div>
               </div>
-              <span className="w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(m.due_date)}</span>
+              <span className="w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(dateShown)}</span>
               <span className="w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
               <span className="w-[140px] flex justify-end">
                 <Money integer={parts.integer} decimals={parts.decimals} size="sm" color={isOut ? "var(--color-negative)" : "var(--color-ink)"} />

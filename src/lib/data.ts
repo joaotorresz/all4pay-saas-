@@ -54,7 +54,7 @@ const seedAccounts = (): FinancialAccount[] => importedAccounts() ?? DEMO_ACCOUN
 const demoDelay = () => new Promise((r) => setTimeout(r, 550));
 
 const MOVEMENT_COLS =
-  "id,account_id,type,status,category,amount,due_date,paid_date,reconciled,description";
+  "id,account_id,type,status,category,amount,due_date,paid_date,reconciled,description,reference_code";
 
 export async function getReceivables(): Promise<ReceivablesSummary> {
   if (isDemo) {
@@ -189,6 +189,46 @@ export async function getOpenMovements(
     .eq("type", type)
     .eq("status", "pendente")
     .order("due_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Movement[];
+}
+
+/** Filtro da tela unificada de Entradas/Saídas. */
+export type MovementFilter = "aberto" | "realizado" | "recorrente";
+
+/** Lista de movimentos de uma direção por filtro (em aberto / realizado /
+ *  recorrente) — base da tela unificada. Demo e live idênticos. */
+export async function getMovementsByFilter(
+  type: MovementType,
+  filtro: MovementFilter,
+): Promise<Movement[]> {
+  if (isDemo) {
+    await demoDelay();
+    const todos = seedMovements().filter((m) => m.type === type);
+    if (filtro === "realizado") {
+      return todos
+        .filter((m) => m.status === "pago")
+        .sort((a, b) => (b.paid_date ?? b.due_date).localeCompare(a.paid_date ?? a.due_date));
+    }
+    if (filtro === "recorrente") {
+      return todos
+        .filter((m) => (m.reference_code ?? "").startsWith("rec:") && m.status !== "cancelado")
+        .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    }
+    return todos
+      .filter((m) => m.status === "pendente")
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+  }
+  const supabase = createClient();
+  let q = supabase.from("movements").select(MOVEMENT_COLS).eq("type", type);
+  if (filtro === "realizado") {
+    q = q.eq("status", "pago").order("paid_date", { ascending: false });
+  } else if (filtro === "recorrente") {
+    q = q.like("reference_code", "rec:%").neq("status", "cancelado").order("due_date", { ascending: true });
+  } else {
+    q = q.eq("status", "pendente").order("due_date", { ascending: true });
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Movement[];
 }

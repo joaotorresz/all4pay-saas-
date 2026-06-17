@@ -36,6 +36,8 @@ export interface Movement {
   reconciled: boolean;
   description: string | null;
   created_at?: string;
+  /** Marcador de origem (ex.: `rec:<id>:<data>` p/ faturas de recorrência). */
+  reference_code?: string | null;
   /** Boleto colado ao recebível (movements.boleto jsonb). */
   boleto?: BoletoData | null;
 }

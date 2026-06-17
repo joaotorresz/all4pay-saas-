@@ -171,6 +171,7 @@ export async function ativarRecorrencia(id: string): Promise<void> {
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
         reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+        reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       ids.push(mid);
     });
@@ -220,6 +221,7 @@ export async function rolarRecorrencias(): Promise<number> {
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
         reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+        reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       r.movimentos.push(mid); novas++;
     });
