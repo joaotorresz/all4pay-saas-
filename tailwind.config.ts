@@ -64,8 +64,8 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          "var(--font-roc)",
-          "Roc Grotesk",
+          "var(--font-onest)",
+          "Onest",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",

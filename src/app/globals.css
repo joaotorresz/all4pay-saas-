@@ -124,6 +124,12 @@ html.dark {
     box-sizing: border-box;
   }
 
+  /* Gráficos (Recharts/SVG) herdam a fonte do sistema (Onest). */
+  svg text,
+  svg tspan {
+    font-family: inherit;
+  }
+
   /* DS "Onest" (teste · Home): títulos em SemiBold 600. Precisa estar nesta
      layer p/ vencer o `*{font-weight:400!important}` acima (mesma layer +
      seletor mais específico). Subtítulos/corpo seguem 400 (Regular). */
