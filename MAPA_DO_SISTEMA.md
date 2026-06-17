@@ -259,10 +259,13 @@ fechadas.*
 **Próximas juntas (precisam de banco ao vivo para validar):**
 - **#5 restante**: `pos-taxas`/`company` ainda só locais (síncronos no client —
   o wiring vira refactor async; tabelas já versionadas em `0009`).
-- **#1 governança real**: colunas em `organization_members` prontas (`0009`).
-  Persistir permissões/limite de membros **existentes** é direto; **adicionar
-  usuário** depende de um **fluxo de convite** (criar conta no `auth` via
-  service-role + e-mail) — tarefa de backend, não dá pra testar nesta sessão.
+- **#1 governança real**: ✅ **ligada** — a tela de Governança (Configurações)
+  agora lê/grava em `organization_members` via `src/lib/governance.ts`
+  (display_name/email/permissions/approval_limit/can_cancel; demo segue no
+  perfil local). Editar papel/permissões/limite de membros **existentes**
+  persiste de verdade; o proprietário é protegido (não some/exclui).
+  ⏳ **Adicionar usuário** ainda depende de **fluxo de convite** (criar conta no
+  `auth` via service-role + e-mail) — botão desabilitado em live até lá.
 - **#3 unificação**: telas únicas "Entradas"/"Saídas" com filtros (em aberto/
   realizado/recorrente), substituindo a navegação por sub-telas.
 - **Aplicar `0008`/`0009`** no Supabase remoto (e gerar o ambiente de produção

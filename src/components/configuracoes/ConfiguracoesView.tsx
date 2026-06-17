@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Input, Button, Icon, Badge } from "@/components/ui";
 import { loadCompany, saveCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
+import { listMembers, saveMember, removeMember, conviteDisponivel, type GovMember } from "@/lib/governance";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import type { Participante } from "@/core/onboarding";
 
@@ -27,16 +28,22 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   const [company, setCompany] = React.useState<StoredCompany | null>(null);
   const [editando, setEditando] = React.useState(false);
   const [form, setForm] = React.useState<Record<string, string>>({});
-  const [userModal, setUserModal] = React.useState<{ idx: number | null } | null>(null);
+  const [userModal, setUserModal] = React.useState<{ member: GovMember | null } | null>(null);
+  const [membros, setMembros] = React.useState<GovMember[]>([]);
 
   React.useEffect(() => {
     const c = loadCompany();
     setCompany(c);
   }, []);
 
+  // Governança: membros reais (demo: perfil local; live: organization_members).
+  const recarregarMembros = React.useCallback(async () => {
+    try { setMembros(await listMembers()); } catch { setMembros([]); }
+  }, []);
+  React.useEffect(() => { recarregarMembros(); }, [recarregarMembros]);
+
   const db = (company?.db ?? {}) as Record<string, string | boolean>;
   const perfil = company?.perfil;
-  const participantes = company?.participantes ?? [];
   const estrutura = company?.estrutura;
 
   const abrirEdicao = () => {
@@ -53,23 +60,27 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
     onToast("Dados da empresa atualizados");
   };
 
-  // ---- Governança: gestão de usuários (papel + permissões), demo-safe (a4p_company) ----
-  const persistParticipantes = (next: Participante[]) => {
-    const novo: StoredCompany = { ...company, participantes: next };
-    saveCompany(novo);
-    setCompany(novo);
+  // ---- Governança: membros reais (demo: a4p_company; live: organization_members) ----
+  const onSaveUser = async (p: Participante) => {
+    const editando = userModal?.member ?? null;
+    try {
+      await saveMember({ ...p, id: editando?.id ?? "" } as GovMember);
+      await recarregarMembros();
+      onToast(editando ? "Usuário atualizado" : "Usuário adicionado");
+    } catch (e) {
+      onToast((e as Error)?.message ?? "Não foi possível salvar o usuário");
+    }
   };
-  const onSaveUser = (p: Participante) => {
-    const idx = userModal?.idx ?? null;
-    const next = idx == null ? [...participantes, p] : participantes.map((x, i) => (i === idx ? p : x));
-    persistParticipantes(next);
-    onToast(idx == null ? "Usuário adicionado" : "Usuário atualizado");
-  };
-  const excluirUser = (i: number) => {
-    const p = participantes[i];
-    if (!window.confirm(`Excluir o usuário "${p.nome || p.email || "—"}"? Esta ação remove o acesso dele.`)) return;
-    persistParticipantes(participantes.filter((_, k) => k !== i));
-    onToast("Usuário excluído");
+  const excluirUser = async (m: GovMember) => {
+    if (m.isOwner) { onToast("Não é possível remover o proprietário da organização."); return; }
+    if (!window.confirm(`Excluir o usuário "${m.nome || m.email || "—"}"? Esta ação remove o acesso dele.`)) return;
+    try {
+      await removeMember(m.id);
+      await recarregarMembros();
+      onToast("Usuário excluído");
+    } catch (e) {
+      onToast((e as Error)?.message ?? "Não foi possível excluir");
+    }
   };
   const papelLabel = (p: Participante) => PAPEIS.find((x) => x.id === (p.papel ?? "operador"))?.label ?? "Operador";
   const resumoPerm = (p: Participante) => {
@@ -160,16 +171,26 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-label font-medium text-muted">Governança · participantes</span>
-              <Button size="sm" variant="secondary" leftIcon={<Icon name="plus" size={14} />} onClick={() => setUserModal({ idx: null })}>
+              <Button
+                size="sm"
+                variant="secondary"
+                leftIcon={<Icon name="plus" size={14} />}
+                disabled={!conviteDisponivel}
+                title={conviteDisponivel ? undefined : "Convite de novos usuários em breve"}
+                onClick={() => setUserModal({ member: null })}
+              >
                 Adicionar usuário
               </Button>
             </div>
-            {participantes.length === 0 ? (
+            {membros.length === 0 ? (
               <span className="text-caption text-faint py-2">Nenhum usuário ainda. Adicione participantes e defina o que cada um pode visualizar, editar e aprovar.</span>
-            ) : participantes.map((p, i) => (
-              <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
+            ) : membros.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
                 <div className="flex-1 min-w-0">
-                  <div className="text-[17px] font-medium text-ink truncate">{p.nome || "—"}</div>
+                  <div className="text-[17px] font-medium text-ink truncate inline-flex items-center gap-2">
+                    {p.nome || "—"}
+                    {p.isOwner && <Badge variant="neutral">Proprietário</Badge>}
+                  </div>
                   {p.email && <div className="text-caption text-faint truncate">{p.email}</div>}
                 </div>
                 <div className="hidden sm:flex flex-col items-end">
@@ -180,13 +201,17 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
                   {p.aprovaPagamentos ? `aprova até ${p.limite}` : "não aprova"}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => setUserModal({ idx: i })} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>
-                  <button onClick={() => excluirUser(i)} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2">Excluir</button>
+                  <button onClick={() => setUserModal({ member: p })} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>
+                  {!p.isOwner && (
+                    <button onClick={() => excluirUser(p)} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2">Excluir</button>
+                  )}
                 </div>
               </div>
             ))}
             <span className="text-caption text-faint">
-              O administrador tem controle total (pode cancelar/excluir usuários). Em demo, papéis e permissões ficam salvos neste navegador; a aplicação por RLS/política vem com o backend de membros.
+              {conviteDisponivel
+                ? "O administrador tem controle total. Em demo, papéis e permissões ficam salvos neste navegador."
+                : "Papéis, permissões e limite de aprovação são salvos nos membros da organização (organization_members). Convite de novos usuários em breve."}
             </span>
           </Card>
 
@@ -211,9 +236,9 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
 
       {userModal && (
         <ParticipanteModal
-          inicial={userModal.idx != null ? participantes[userModal.idx] : undefined}
+          inicial={userModal.member ?? undefined}
           onClose={() => setUserModal(null)}
-          onSave={onSaveUser}
+          onSave={(p) => { onSaveUser(p); setUserModal(null); }}
         />
       )}
     </div>
