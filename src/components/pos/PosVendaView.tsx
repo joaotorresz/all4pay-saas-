@@ -84,8 +84,9 @@ export function PosVendaView() {
     (async () => {
       const descricao = `Venda POS · ${qtdTotal} ${qtdTotal === 1 ? "item" : "itens"}`;
       try {
-        // Entra em "a receber" o líquido (total − taxa MDR).
-        await concluirVendaPos({ valorReceber: liquido, descricao, parcelas: nParc });
+        // Entra em "a receber" o líquido (total − taxa MDR); a taxa vira custo
+        // de adquirência no DRE (margem visível — relatório, item 6).
+        await concluirVendaPos({ valorReceber: liquido, descricao, parcelas: nParc, taxaValor: total - liquido });
       } catch {
         /* simulador segue mesmo se o registro falhar */
       }

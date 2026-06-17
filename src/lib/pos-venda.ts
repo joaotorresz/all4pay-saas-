@@ -16,6 +16,8 @@ export interface VendaPosInput {
   valorReceber: number;
   descricao: string;
   parcelas: number; // 1 = à vista
+  /** Taxa MDR em R$ (total − líquido). Vira um custo de adquirência no DRE. */
+  taxaValor?: number;
 }
 
 /** Soma `m` meses a uma data ISO (yyyy-mm-dd). */
@@ -33,6 +35,9 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
     i === n - 1 ? Math.round((input.valorReceber - parcela * (n - 1)) * 100) / 100 : parcela;
   const descDe = (i: number) => (n > 1 ? `${input.descricao} · ${i + 1}/${n}` : input.descricao);
   const groupId = globalThis.crypto?.randomUUID?.() ?? `pos-${Date.now()}`;
+  // Custo de adquirência (taxa MDR) → vira despesa "Tarifas de adquirência" para
+  // o DRE mostrar a margem (relatório de melhorias, item 6).
+  const taxa = Math.round((input.taxaValor ?? 0) * 100) / 100;
 
   if (isDemo) {
     for (let i = 0; i < n; i++) {
@@ -49,6 +54,22 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
         description: descDe(i),
       } as Movement;
       appendImported({ movement });
+    }
+    if (taxa > 0) {
+      appendImported({
+        movement: {
+          id: `pos-taxa-${Date.now()}`,
+          account_id: "",
+          type: "saida",
+          status: "pago",
+          category: "Tarifas de adquirência",
+          amount: taxa,
+          due_date: hoje,
+          paid_date: hoje,
+          reconciled: true,
+          description: `${input.descricao} · taxa MDR`,
+        } as Movement,
+      });
     }
     return;
   }
@@ -68,7 +89,7 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
   }
   if (!accId) throw new Error("Sem conta para registrar a venda");
 
-  const rows = Array.from({ length: n }, (_, i) => ({
+  const rows: Record<string, unknown>[] = Array.from({ length: n }, (_, i) => ({
     account_id: accId,
     type: "entrada",
     status: "pendente",
@@ -80,6 +101,20 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
     description: descDe(i),
     group_id: groupId,
   }));
+  if (taxa > 0) {
+    rows.push({
+      account_id: accId,
+      type: "saida",
+      status: "pago",
+      category: "Tarifas de adquirência",
+      amount: taxa,
+      due_date: hoje,
+      paid_date: hoje,
+      reconciled: true,
+      description: `${input.descricao} · taxa MDR`,
+      group_id: groupId,
+    });
+  }
   const { error } = await supabase.from("movements").insert(rows);
   if (error) throw error;
 }
