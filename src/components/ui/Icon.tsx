@@ -49,6 +49,8 @@ import {
   ShoppingCart,
   Trash2,
   Smartphone,
+  Palette,
+  RotateCcw,
   type LucideIcon,
 } from "lucide-react";
 
@@ -108,6 +110,8 @@ const registry: Record<string, LucideIcon> = {
   "shopping-cart": ShoppingCart,
   "trash-2": Trash2,
   smartphone: Smartphone,
+  palette: Palette,
+  "rotate-ccw": RotateCcw,
 };
 
 export type IconName = keyof typeof registry;
