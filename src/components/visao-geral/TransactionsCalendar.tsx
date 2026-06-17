@@ -91,12 +91,12 @@ export function TransactionsCalendar() {
                   onClick={() => setDiaSel(sel ? null : key)}
                   aria-label={`Dia ${dia}`}
                   className={[
-                    "flex flex-col items-center justify-center gap-[5px] rounded-md border p-[5px] min-h-[58px] transition-colors",
+                    "flex flex-col items-center justify-center gap-[6px] rounded-md border p-[6px] min-h-[70px] transition-colors",
                     // fundo dos dias = surface-1 (no tema Onest da Home = #eceef2)
                     borda, sel ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2",
                   ].join(" ")}
                 >
-                  <span className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
+                  <span data-day-num className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
                   {/* Pin verde/vermelho abaixo do número — altura fixa p/ alinhar os dias */}
                   <span className="flex items-center justify-center gap-[4px] h-[7px]">
                     {info?.entrada ? <span className="w-[7px] h-[7px] rounded-pill" style={{ background: POSITIVE }} /> : null}

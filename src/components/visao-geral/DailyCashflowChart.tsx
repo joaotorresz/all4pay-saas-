@@ -15,7 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRL, formatBRLCompact, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
@@ -43,11 +43,16 @@ function CashflowTooltip({ active, payload, label }: any) {
 }
 
 function PeriodTotal({ label, value, color }: { label: string; value: number; color: string }) {
+  const neg = value < 0;
+  const { integer, decimals } = brlParts(value);
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      {/* R$ no MESMO tamanho dos números (texto plano), fonte herdada (Onest) */}
-      <span className="text-[18px] font-medium tabular-nums" style={{ color }}>{formatBRL(value)}</span>
+      {/* R$ no MESMO tamanho dos números · decimais ~30% menores · Onest herdada */}
+      <span className="text-[18px] font-medium tabular-nums" style={{ color }}>
+        <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
+        <span style={{ fontSize: "0.7em" }}>,{decimals}</span>
+      </span>
     </div>
   );
 }

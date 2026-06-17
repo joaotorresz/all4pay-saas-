@@ -130,6 +130,14 @@ html.dark {
   .ds-onest :is(h1, h2, h3, .text-display, .text-h1, .text-h2, .text-h3) {
     font-weight: var(--a4p-title-weight, 600) !important;
   }
+  /* número do dia do calendário em SemiBold */
+  .ds-onest [data-day-num] {
+    font-weight: 600 !important;
+  }
+  /* tracking dos números (tabular-nums) */
+  .ds-onest .tabular-nums {
+    letter-spacing: var(--a4p-num-tracking, -0.03px) !important;
+  }
 
   /* Quiet, soft scrollbar — matches the restrained product feel. */
   ::-webkit-scrollbar {
@@ -163,6 +171,7 @@ html.dark {
   --a4p-box-radius: 24px;     /* arredondamento das bordas do box */
   --a4p-box-padding: 31.2px;  /* espaçamento interno (conteúdo ↔ borda) */
   --a4p-title-weight: 600;    /* peso do título (400=Regular · 500=Medium · 600=SemiBold) */
+  --a4p-num-tracking: -0.03px;/* espaçamento (letter-spacing) dos números */
   --a4p-borders: transparent; /* cor das bordas (transparent = sem borda) */
   /* ======================================================================== */
 
