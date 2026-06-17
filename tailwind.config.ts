@@ -116,9 +116,10 @@ const config: Config = {
         pill: "999px", // action pills, avatars
       },
       boxShadow: {
-        card: "0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06)",
-        popover: "0 4px 24px rgba(0,0,0,0.10)", // tooltips, dropdowns, modals
-        pill: "0 1px 3px rgba(0,0,0,0.08)", // floating action pills
+        // Sombras removidas dos boxes do sistema (flat). hero-glow é marketing.
+        card: "none",
+        popover: "none",
+        pill: "none",
         "hero-glow": "0 -40px 120px -20px rgba(220,255,0,0.18)", // marketing only
       },
       transitionDuration: {
