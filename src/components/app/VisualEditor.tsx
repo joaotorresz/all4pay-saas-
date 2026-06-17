@@ -161,6 +161,9 @@ export function VisualEditor() {
     void tick;
     const cs = getComputedStyle(sel);
     const soTexto = sel.children.length === 0;
+    const g = parseFloat(cs.gap);
+    const lh = parseFloat(cs.lineHeight);
+    const mg = parseFloat(cs.marginTop);
     return {
       soTexto,
       texto: soTexto ? (sel.textContent ?? "") : "",
@@ -170,6 +173,9 @@ export function VisualEditor() {
       fontWeight: String(parseInt(cs.fontWeight, 10) || 400),
       radius: Math.round(parseFloat(cs.borderTopLeftRadius)) || 0,
       padding: Math.round(parseFloat(cs.paddingTop)) || 0,
+      gap: Number.isFinite(g) ? Math.round(g) : 0,
+      lineHeight: Number.isFinite(lh) ? Math.round(lh) : 0,
+      margin: Number.isFinite(mg) ? Math.round(mg) : 0,
     };
   }, [sel, tick]);
 
@@ -325,6 +331,15 @@ export function VisualEditor() {
                     </Campo>
                     <Campo label={`Espaçamento interno · ${cur.padding}px`}>
                       <input type="range" min={0} max={64} value={cur.padding} onChange={(e) => setStyle("padding", `${e.target.value}px`)} className="w-full accent-ink" />
+                    </Campo>
+                    <Campo label={`Espaço entre itens (gap) · ${cur.gap}px`}>
+                      <input type="range" min={0} max={64} value={cur.gap} onChange={(e) => setStyle("gap", `${e.target.value}px`)} className="w-full accent-ink" />
+                    </Campo>
+                    <Campo label={`Margem externa · ${cur.margin}px`}>
+                      <input type="range" min={0} max={64} value={cur.margin} onChange={(e) => setStyle("margin", `${e.target.value}px`)} className="w-full accent-ink" />
+                    </Campo>
+                    <Campo label={`Altura da linha · ${cur.lineHeight || 22}px`}>
+                      <input type="range" min={12} max={56} value={cur.lineHeight || 22} onChange={(e) => setStyle("line-height", `${e.target.value}px`)} className="w-full accent-ink" />
                     </Campo>
                     <Campo label="Borda">
                       <div className="flex items-center gap-2">
