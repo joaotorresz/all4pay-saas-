@@ -14,7 +14,8 @@ import {
   type RateTable,
   type PosConfig,
   loadPosConfig,
-  savePosConfig,
+  fetchPosConfig,
+  persistPosConfig,
   POS_DEFAULT,
   mccCodigo,
   custoTable,
@@ -60,7 +61,10 @@ export function CentralPosTaxasView() {
   const [abertos, setAbertos] = React.useState<Record<string, boolean>>({});
   const toggleParcela = (id: string) => setAbertos((o) => ({ ...o, [id]: !o[id] }));
 
-  React.useEffect(() => { setCfg(loadPosConfig()); }, []);
+  React.useEffect(() => {
+    setCfg(loadPosConfig());           // pintura instantânea (cache)
+    fetchPosConfig().then(setCfg);     // hidrata do pos_rates (live)
+  }, []);
 
   const editando = draft !== null;
   const ativo = draft ?? cfg;
@@ -68,7 +72,7 @@ export function CentralPosTaxasView() {
 
   function persistir(next: PosConfig) {
     setCfg(next);
-    savePosConfig(next);
+    persistPosConfig(next).catch(() => { /* cache local já gravou */ });
     setSalvo(true);
     window.setTimeout(() => setSalvo(false), 2000);
   }

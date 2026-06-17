@@ -8,8 +8,11 @@
  *   - Online → soma o acréscimo online; antecipação + online juntos ⇒ "Não antecipa".
  *   - SELIC → muda o custo de antecipação do parceiro (CDI+ por range).
  * Cálculo: base = Custo MDR + Spread; final ao EC = base + antecipação OU + online.
- * Tudo salvo globalmente (a4p_pos_taxas).
+ * Cache local (a4p_pos_taxas) para a pintura; em live persiste em `pos_rates`.
  */
+import { createClient } from "@/lib/supabase/client";
+import { isDemo } from "@/lib/demo";
+
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
   { id: "master", label: "01 - Mastercard" },
@@ -207,25 +210,63 @@ export function taxaFinalParcela(cfg: PosConfig, custo: RateTable, row: ParcelaR
 }
 
 const KEY = "a4p_pos_taxas";
+
+/** Normaliza um config parcial (de localStorage/DB) sobre os defaults. */
+function coerce(j: Partial<PosConfig> | null | undefined): PosConfig {
+  if (!j || !j.spread) return POS_DEFAULT;
+  return {
+    spread: j.spread,
+    mccDesc: j.mccDesc ?? POS_DEFAULT.mccDesc,
+    range: j.range ?? POS_DEFAULT.range,
+    selic: j.selic ?? POS_DEFAULT.selic,
+    antecipacao: j.antecipacao ?? POS_DEFAULT.antecipacao,
+    online: j.online ?? POS_DEFAULT.online,
+    taxaAntecipMensal: j.taxaAntecipMensal ?? POS_DEFAULT.taxaAntecipMensal,
+  };
+}
+
+/** Leitura SÍNCRONA do cache local — para a pintura inicial. */
 export function loadPosConfig(): PosConfig {
   if (typeof window === "undefined") return POS_DEFAULT;
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return POS_DEFAULT;
-    const j = JSON.parse(raw) as Partial<PosConfig>;
-    if (!j.spread) return POS_DEFAULT;
-    return {
-      spread: j.spread,
-      mccDesc: j.mccDesc ?? POS_DEFAULT.mccDesc,
-      range: j.range ?? POS_DEFAULT.range,
-      selic: j.selic ?? POS_DEFAULT.selic,
-      antecipacao: j.antecipacao ?? POS_DEFAULT.antecipacao,
-      online: j.online ?? POS_DEFAULT.online,
-      taxaAntecipMensal: j.taxaAntecipMensal ?? POS_DEFAULT.taxaAntecipMensal,
-    };
+    return coerce(raw ? (JSON.parse(raw) as Partial<PosConfig>) : null);
   } catch { return POS_DEFAULT; }
 }
+
+/** Grava o cache local (síncrono). Em live, prefira `persistPosConfig`. */
 export function savePosConfig(c: PosConfig): void {
   if (typeof window === "undefined") return;
   try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* ignore */ }
+}
+
+/** Config efetiva: demo → cache local; live → `pos_rates` da org (RLS), com
+ *  fallback no cache/default. Hidrata o cache local para a próxima pintura. */
+export async function fetchPosConfig(): Promise<PosConfig> {
+  if (isDemo) return loadPosConfig();
+  try {
+    const { data, error } = await createClient().from("pos_rates").select("config").maybeSingle();
+    if (error || !data?.config) return loadPosConfig();
+    const cfg = coerce(data.config as Partial<PosConfig>);
+    savePosConfig(cfg);
+    return cfg;
+  } catch { return loadPosConfig(); }
+}
+
+/** Persiste o config: cache local + (live) upsert na linha única da org em
+ *  `pos_rates`. Update-then-insert casa a linha (org_id default = auth_org_id())
+ *  sem precisar enviar o org_id. */
+export async function persistPosConfig(c: PosConfig): Promise<void> {
+  savePosConfig(c);
+  if (isDemo) return;
+  const s = createClient();
+  const { data, error } = await s
+    .from("pos_rates")
+    .update({ config: c, updated_at: new Date().toISOString() })
+    .select("org_id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    const { error: insErr } = await s.from("pos_rates").insert({ config: c });
+    if (insErr) throw insErr;
+  }
 }

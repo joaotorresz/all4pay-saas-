@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Input, Button, Icon, Badge } from "@/components/ui";
-import { loadCompany, saveCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
+import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
 import { listMembers, saveMember, removeMember, conviteDisponivel, type GovMember } from "@/lib/governance";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import type { Participante } from "@/core/onboarding";
@@ -32,8 +32,8 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   const [membros, setMembros] = React.useState<GovMember[]>([]);
 
   React.useEffect(() => {
-    const c = loadCompany();
-    setCompany(c);
+    setCompany(loadCompany());        // pintura instantânea (cache)
+    fetchCompany().then(setCompany);  // hidrata do company_profiles (live)
   }, []);
 
   // Governança: membros reais (demo: perfil local; live: organization_members).
@@ -54,10 +54,11 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   };
   const salvar = () => {
     const novo: StoredCompany = { ...company, db: { ...db, ...form } };
-    saveCompany(novo);
     setCompany(novo);
     setEditando(false);
-    onToast("Dados da empresa atualizados");
+    persistCompany(novo)
+      .then(() => onToast("Dados da empresa atualizados"))
+      .catch(() => onToast("Salvo localmente; falha ao sincronizar"));
   };
 
   // ---- Governança: membros reais (demo: a4p_company; live: organization_members) ----

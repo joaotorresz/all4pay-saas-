@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
+import { persistCompany } from "@/lib/company";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
 
@@ -107,9 +108,8 @@ export function OnboardingWizard() {
           }
         }
       }
-      try {
-        localStorage.setItem("a4p_company", JSON.stringify({ db, perfil, participantes, estrutura }));
-      } catch { /* ignore */ }
+      // Perfil: cache local + (live) company_profiles. Best-effort.
+      try { await persistCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
       // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
       if (configured) {

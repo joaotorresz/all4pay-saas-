@@ -251,7 +251,7 @@ fechadas.*
 | 2 | Enxugar o menu (3 verbos; avançado atrás de Pro) | ✅ Sidebar: Entradas/Saídas/Contas & Banco · Cadastrar · Relatórios · Central POS; Equipe + Inteligência só no Modo Pro; Cartões "em breve" removido |
 | 3 | Unificar Entradas/Saídas/Contas | ✅ `MovementsScreen` — `/recebiveis`="Entradas" e `/pagaveis`="Saídas" com filtro segmentado **Em aberto · Realizado · Recorrente** (contagens por aba) sobre o mesmo hub de movements |
 | 4 | "Nova transação" como porta única | ✅ `NovaTransacao` (AppShell) — Recebi/Paguei/Vou receber/Vou pagar → form progressivo → `useCreateLancamento` |
-| 5 | Migrar localStorage→Postgres | ✅ **approvals/reembolsos/nfse**: as libs JÁ tinham caminho live; `0009` agora cria as tabelas **com as colunas exatas** do código → wiring completo (falta só aplicar no remoto). 🟡 **pos_rates/company_profiles**: tabelas criadas, wiring das libs pendente |
+| 5 | Migrar localStorage→Postgres | ✅ **approvals/reembolsos/nfse**: libs já tinham caminho live; `0009` aplicada no remoto. ✅ **pos_rates/company_profiles**: `pos-taxas.ts` e `company.ts` ganharam `fetch*`/`persist*` (cache local p/ pintura + upsert update-then-insert na linha única da org); Central POS, Simulador, Configurações e Onboarding já gravam/hidratam do DB em live |
 | 6 | Fechar ciclo POS→DRE com taxa MDR | ✅ `concluirVendaPos` grava "Tarifas de adquirência" (custo) além do recebível líquido |
 | 7 | Completar OU acessorizar cadastros pela metade | ✅ vendedores/marcas/unidades **fora do menu** (não expõem incompleto); completar quando entrarem no fluxo |
 | 8 | Reintroduzir inteligência/governança como Pro | ✅ grupos **Equipe** e **Inteligência** atrás do Modo Pro |

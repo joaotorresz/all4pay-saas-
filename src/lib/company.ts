@@ -39,6 +39,36 @@ export function saveCompany(c: StoredCompany): void {
   }
 }
 
+/** Perfil efetivo: demo → cache local; live → `company_profiles` da org (RLS),
+ *  com fallback no cache. Hidrata o cache local para a próxima pintura. */
+export async function fetchCompany(): Promise<StoredCompany | null> {
+  if (isDemo) return loadCompany();
+  try {
+    const { data, error } = await createClient().from("company_profiles").select("profile").maybeSingle();
+    if (error || !data?.profile) return loadCompany();
+    const c = data.profile as StoredCompany;
+    saveCompany(c); // cache local
+    return c;
+  } catch { return loadCompany(); }
+}
+
+/** Persiste o perfil: cache local + (live) upsert na linha única da org em
+ *  `company_profiles` (update-then-insert; org_id default = auth_org_id()). */
+export async function persistCompany(c: StoredCompany): Promise<void> {
+  saveCompany(c);
+  if (isDemo) return;
+  const s = createClient();
+  const { data, error } = await s
+    .from("company_profiles")
+    .update({ profile: c, updated_at: new Date().toISOString() })
+    .select("org_id");
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    const { error: insErr } = await s.from("company_profiles").insert({ profile: c });
+    if (insErr) throw insErr;
+  }
+}
+
 /** Nome da organização atual (live). Demo/sem login → null. */
 export async function getOrganizationName(): Promise<string | null> {
   if (isDemo) return null;

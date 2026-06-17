@@ -11,6 +11,7 @@ import { concluirVendaPos } from "@/lib/pos-venda";
 import { cn } from "@/lib/utils";
 import {
   loadPosConfig,
+  fetchPosConfig,
   custoTable,
   baseMDR,
   POS_DEFAULT,
@@ -47,7 +48,7 @@ export function PosVendaView() {
   const qc = useQueryClient();
   const [montado, setMontado] = React.useState(false);
   const [cfg, setCfg] = React.useState<PosConfig>(POS_DEFAULT);
-  React.useEffect(() => { setMontado(true); setCfg(loadPosConfig()); }, []);
+  React.useEffect(() => { setMontado(true); setCfg(loadPosConfig()); fetchPosConfig().then(setCfg); }, []);
 
   const [tela, setTela] = React.useState<Tela>("catalogo");
   const [cart, setCart] = React.useState<Record<string, number>>({});
