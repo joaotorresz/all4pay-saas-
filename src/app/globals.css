@@ -182,3 +182,7 @@ html.dark {
 .ds-onest .p-6 {
   padding: var(--a4p-box-padding);
 }
+/* esconde os títulos de bloco (Caixa, Operação, Resumo executivo, …) na Home */
+.ds-onest [data-block-header] {
+  display: none;
+}

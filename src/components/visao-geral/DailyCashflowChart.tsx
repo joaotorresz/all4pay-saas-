@@ -20,7 +20,7 @@ import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
 import { usePeriod, MES_ABBR } from "./PeriodContext";
-import { WidgetHeader, EmptyState, VisuallyHidden } from "./shared";
+import { EmptyState, VisuallyHidden } from "./shared";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -46,7 +46,8 @@ function PeriodTotal({ label, value, color }: { label: string; value: number; co
   return (
     <div className="flex flex-col">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[18px] font-medium tabular-nums" style={{ color }}><BRL value={value} /></span>
+      {/* R$ no MESMO tamanho dos números (texto plano), fonte herdada (Onest) */}
+      <span className="text-[18px] font-medium tabular-nums" style={{ color }}>{formatBRL(value)}</span>
     </div>
   );
 }
@@ -94,8 +95,12 @@ export function DailyCashflowChart() {
 
   return (
     <Card className="flex flex-col">
-      <div className="flex items-start justify-between gap-3">
-        <WidgetHeader title="Fluxo de caixa" subtitle={legenda} />
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0">
+          {/* subtítulo (período · projetado) ABAIXO do título */}
+          <h2 className="m-0 text-h3 font-medium text-ink truncate">Fluxo de caixa</h2>
+          <span className="text-caption text-faint">{legenda}</span>
+        </div>
         <div className="shrink-0 flex items-center gap-2">
           <button
             onClick={essaSemana}

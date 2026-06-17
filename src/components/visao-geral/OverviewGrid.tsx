@@ -110,7 +110,7 @@ export function OverviewGrid() {
         const prioritario = auto && hc.topBloco === bloco;
         return (
           <section key={bloco} className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" data-block-header>
               <h2 className="m-0 text-label font-medium text-faint tracking-wide">{bloco}</h2>
               {prioritario && (
                 <span className="inline-flex items-center gap-1 text-[13px] font-medium text-on-lime bg-lime rounded-pill px-2 py-[1px]">

@@ -82,7 +82,6 @@ export function TransactionsCalendar() {
               const proj = projecao.get(key);
               const isHoje = key === hoje;
               const sel = key === diaSel;
-              const temMov = !!(info?.entrada || info?.saida);
               const borda = proj?.ruptura
                 ? "border-negative"
                 : sel ? "border-ink ring-1 ring-ink" : "border-border-soft hover:border-border";
@@ -93,7 +92,8 @@ export function TransactionsCalendar() {
                   aria-label={`Dia ${dia}`}
                   className={[
                     "flex flex-col items-center justify-center gap-[5px] rounded-md border p-[5px] min-h-[58px] transition-colors",
-                    borda, sel ? "bg-surface-2" : temMov ? "bg-white hover:bg-surface-1" : "hover:bg-surface-1",
+                    // fundo dos dias = surface-1 (no tema Onest da Home = #eceef2)
+                    borda, sel ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2",
                   ].join(" ")}
                 >
                   <span className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
