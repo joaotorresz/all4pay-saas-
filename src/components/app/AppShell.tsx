@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
 import { VisualEditor } from "@/components/app/VisualEditor";
+import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -45,6 +46,7 @@ export function AppShell({
       <PageGuide />
       <CommandPalette />
       <VisualEditor />
+      <NovaTransacao />
     </div>
   );
 }

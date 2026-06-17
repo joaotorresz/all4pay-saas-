@@ -21,7 +21,7 @@ const STORAGE_KEY = "a4p_sidebar_collapsed";
  *
  * Mantém: marca, busca ⌘K, toggle de tema, bloco do usuário, recolher (ícones).
  */
-type Leaf = { label: string; href?: string; soon?: boolean };
+type Leaf = { label: string; href?: string; soon?: boolean; event?: string };
 type Group = { id: string; label: string; icon: string; children: Node[] };
 type Node = Leaf | Group;
 const isGroup = (n: Node): n is Group => "children" in n;
@@ -29,40 +29,43 @@ const isGroup = (n: Node): n is Group => "children" in n;
 // Link de topo, fora de grupo.
 const INICIO = { label: "Início", icon: "house", href: "/" };
 
-// 7 grupos de corpo (INÍCIO é link solto acima).
+// Menu enxuto (3 verbos) — relatório de melhorias. Avançado fica atrás do Pro.
+// INÍCIO é link solto acima. Entradas/Saídas/Contas = "Dinheiro" (quanto
+// entra/sai/tenho). Equipe e Inteligência só no Modo Pro.
 const GROUPS: Group[] = [
   {
-    id: "pagar", label: "Pagar", icon: "arrow-up-right", children: [
-      { label: "Central de pagamentos", href: "/pagamentos" }, // execução em lote (primeiro)
-      { label: "A pagar", href: "/pagaveis" },
-      { label: "Solicitações & aprovações", href: "/aprovacoes" }, // gate de alçada
-      { label: "Reembolsos", href: "/reembolsos" }, // caso especializado
-      { label: "Lixeira", href: "/lixeira" }, // cancelados recuperáveis
-    ],
-  },
-  {
-    id: "receber", label: "Receber", icon: "arrow-left-right", children: [
-      { label: "Central de recebimentos", href: "/recebimentos" }, // execução em lote (primeiro)
+    id: "entradas", label: "Entradas", icon: "arrow-left-right", children: [
+      { label: "Central de recebimentos", href: "/recebimentos" },
       { label: "A receber", href: "/recebiveis" },
-      { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Recorrências / Contratos", href: "/recorrencias" },
+      { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Boleto", href: "/boletos" },
       { label: "Notas fiscais (NFS-e)", href: "/notas-fiscais" },
-      { label: "Lixeira", href: "/lixeira" }, // cancelados recuperáveis
+      { label: "Lixeira", href: "/lixeira" },
     ],
   },
   {
-    id: "contas", label: "Upload de dados", icon: "upload", children: [
+    id: "saidas", label: "Saídas", icon: "arrow-up-right", children: [
+      { label: "Central de pagamentos", href: "/pagamentos" },
+      { label: "A pagar", href: "/pagaveis" },
+      { label: "Reembolsos", href: "/reembolsos" },
+      { label: "Lixeira", href: "/lixeira" },
+    ],
+  },
+  {
+    id: "contas", label: "Contas & Banco", icon: "upload", children: [
       { label: "Open finance", href: "/contas" },
       { label: "Importar dados", href: "/upload" },
       { label: "Conciliação", href: "/conciliacao" },
     ],
   },
   {
-    id: "cartoes", label: "Cartões", icon: "credit-card", children: [
-      { label: "Cartões all4pay", soon: true },
-      { label: "Outros cartões", soon: true },
-      { label: "Conciliação por IA", soon: true },
+    id: "cadastros", label: "Cadastrar", icon: "users", children: [
+      { label: "Nova transação", event: "a4p:open-nova-transacao" }, // porta única
+      { label: "Contatos", href: "/contatos" },
+      { label: "Produtos", href: "/produtos" },
+      { label: "Serviços", href: "/servicos" },
+      { label: "Vendas", href: "/vendas" },
     ],
   },
   {
@@ -77,42 +80,38 @@ const GROUPS: Group[] = [
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
     ],
   },
+  // ----- Pro (escondidos no Modo Simples) -----
   {
-    id: "cadastros", label: "Cadastros", icon: "users", children: [
-      { label: "Contatos", href: "/contatos" },
-      { label: "Produtos", href: "/produtos" },
-      { label: "Serviços", href: "/servicos" },
-      { label: "Vendas", href: "/vendas" },
+    id: "equipe", label: "Equipe", icon: "shield-check", children: [
+      { label: "Solicitações & aprovações", href: "/aprovacoes" },
+      { label: "Governança & Auditoria", href: "/governanca" },
     ],
   },
   {
     id: "inteligencia", label: "Inteligência", icon: "sparkles", children: [
-      // 3.2: um cérebro, não cinco — Quant/Decisão/Risco/Autônomo/Dados viram
-      // abas dentro do Copiloto (deep-link ?aba=). Rotas standalone seguem vivas.
+      // um cérebro, não cinco — Quant/Decisão/Risco/Autônomo/Dados viram abas
+      // dentro do Copiloto (deep-link ?aba=). Rotas standalone seguem vivas.
       { label: "Copiloto", href: "/copiloto" },
     ],
   },
 ];
 
-// Configurações (rodapé navegável) — inclui Cadastros e Plataforma aninhados.
+// Configurações (rodapé navegável) — Plataforma aninhada (Pro).
 const CONFIG: Group = {
   id: "config", label: "Configurações", icon: "settings", children: [
     { label: "Empresa", href: "/configuracoes" },
-    { label: "Governança & Auditoria", href: "/governanca" },
     {
       id: "plataforma", label: "Plataforma (avançado)", icon: "cpu", children: [
         { label: "Orquestração", href: "/orquestracao" },
         { label: "Infraestrutura", href: "/infraestrutura" },
         { label: "Arquitetura", href: "/arquitetura" },
-        { label: "Automações", href: "/automacoes" }, // não estava na árvore-alvo; encaixado aqui
+        { label: "Automações", href: "/automacoes" },
       ],
     },
     { label: "Adicionar Empresa", href: "/comecar" },
-    { label: "Central de Ajuda", soon: true }, // órfã corrigida: sem rota → "Em breve", não <a> morto
+    { label: "Central de Ajuda", soon: true },
   ],
 };
-
-const TOPO: Group[] = [...GROUPS, CONFIG];
 
 function leafAtivo(href: string | undefined, pathname: string): boolean {
   // "/" não marca (Início cuida disso; "Contas financeiras → /" é só atalho).
@@ -165,7 +164,8 @@ export function Sidebar() {
 
   // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
   const { pro, set: setPro } = useModo();
-  const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia");
+  // Modo Simples (padrão) esconde Equipe e Inteligência (Pro). Plataforma idem.
+  const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia" && g.id !== "equipe");
   const configVis: Group = pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
   const topoVis: Group[] = [...gruposVis, configVis];
 
@@ -339,6 +339,21 @@ function GrupoNode({
 /** Item-folha: link real, ou "Em breve" desabilitado (nunca <a> morto). */
 function FolhaNode({ folha, depth, pathname }: { folha: Leaf; depth: number; pathname: string }) {
   const pad = 10 + depth * 14;
+  // Ação (abre um modal via evento) — ex.: "Nova transação" (porta única).
+  if (folha.event) {
+    return (
+      <button
+        onClick={() => window.dispatchEvent(new Event(folha.event!))}
+        className="relative flex items-center rounded-md py-[7px] text-left hover:bg-surface-1 w-full"
+        style={{ paddingLeft: pad, paddingRight: 8 }}
+      >
+        <span className="text-[15px] truncate text-ink font-medium inline-flex items-center gap-2">
+          <Icon name="plus" size={14} color="var(--color-lime)" />
+          {folha.label}
+        </span>
+      </button>
+    );
+  }
   if (folha.soon || !folha.href) {
     return (
       <span
