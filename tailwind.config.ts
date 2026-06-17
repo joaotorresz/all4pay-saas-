@@ -86,9 +86,10 @@ const config: Config = {
         caption: ["14px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
       },
       fontWeight: {
-        // Roc Grotesk Regular — peso único 400 em todo o sistema.
+        // Onest — múltiplos pesos (Regular · Medium · SemiBold).
         regular: "400",
-        medium: "400",
+        medium: "500",
+        semibold: "600",
       },
       letterSpacing: {
         tight: "-0.01em",
@@ -110,7 +111,7 @@ const config: Config = {
       },
       borderRadius: {
         // 3 levels + pill. Bigger container => bigger radius.
-        card: "16px", // large cards, panels, tooltip
+        card: "36px", // large cards, panels, tooltip (DS v2 / Onest)
         md: "10px", // buttons, inputs, command bar
         sm: "8px", // smaller buttons, rectangular badges
         pill: "999px", // action pills, avatars

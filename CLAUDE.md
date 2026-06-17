@@ -87,16 +87,18 @@ sempre os tokens, nunca hex literal.
   large fills.
 - **Type scale (escala +20% aplicada ao sistema):** `text-display` 62 ·
   `text-h1` 48 · `text-value-lg` 38 · `text-h2` 34 · `text-h3` 24 ·
-  `text-body` 18 · `text-label` 16 · `text-caption` 14. **Peso ÚNICO 400** em
-  todo o sistema (Roc Grotesk Regular; forçado por `*{font-weight:400!important}`
-  no globals — `font-medium`/`font-semibold` renderizam 400). `letter-spacing`
-  −0.01em e line-height 22px (texto-base); heróis grandes usam leading-none.
-  Sem caixa-alta (`uppercase` removido).
-- **Radii:** `rounded-card` 16 · `rounded-md` 10 · `rounded-sm` 8 ·
+  `text-body` 18 · `text-label` 16 · `text-caption` 14. **DS v2 (Onest):**
+  **três pesos** — Regular 400 · Medium 500 (`font-medium`) · SemiBold 600
+  (`font-semibold`); **títulos `h1/h2/h3` + `text-h*` em 600** (regra global no
+  globals). `letter-spacing` base −0.01em (no body); **números (`tabular-nums`)
+  com tracking −1.04px** (regra global). line-height 22px (texto-base); heróis
+  grandes usam leading-none. Sem caixa-alta.
+- **Radii:** `rounded-card` **36** · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
-- **Shadows:** `shadow-card`, `shadow-popover`, `shadow-pill`. Whisper-soft —
-  no hard or colored shadows.
-- **Spacing:** base-4 (`1`=4 … `16`=64). Card padding 24–32, list rows 12–16,
+- **Shadows:** removidas de todo o sistema (tokens `none`). DS v2 é **flat**.
+- **Background/box:** fundo da página **`surface-1` = #eceef2**; **boxes brancos**
+  (`Card` = branco · 36px · **sem borda** por padrão · padding **45px**).
+- **Spacing:** base-4 (`1`=4 … `16`=64). Card padding 45 (DS v2), list rows 12–16,
   page sections 48–64.
 
 ---
@@ -876,8 +878,10 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
-- Font: **Roc Grotesk Regular** via `next/font/local` (arquivo licenciado em `src/app/fonts/`). Peso ÚNICO 400 em todo o sistema (forçado por `*` no globals), `letter-spacing: -0.01em`, line-height base 22px. Sem caixa-alta (sem `uppercase`).
-  Grotesk — swap back when licensed; update `--font-hanken` + the `sans` stack).
+- Font: **Onest** via `next/font/local` (`src/app/fonts/Onest-{Regular,Medium,SemiBold}.ttf`,
+  variável `--font-onest`, é a `sans` no Tailwind). **Três pesos** (400/500/600);
+  títulos em 600. `letter-spacing` base −0.01em, line-height base 22px. Sem
+  caixa-alta. (Roc Grotesk foi aposentado, arquivo mantido em `fonts/`.)
 
 ### Commands
 

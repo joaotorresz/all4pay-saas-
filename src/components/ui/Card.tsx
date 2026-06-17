@@ -14,7 +14,7 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
-  { children, bordered = true, elevated = true, padded = true, className, ...rest },
+  { children, bordered = false, elevated = true, padded = true, className, ...rest },
   ref,
 ) {
   return (
@@ -22,10 +22,11 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
       ref={ref}
       data-card="1"
       className={cn(
+        // DS v2 (Onest): box branco, 36px, sem borda nem sombra, padding 45px.
         "bg-white rounded-card text-ink",
         bordered && "border border-border",
         elevated && "shadow-card",
-        padded && "p-6",
+        padded && "p-[45px]",
         className,
       )}
       {...rest}

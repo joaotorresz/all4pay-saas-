@@ -17,7 +17,7 @@
   --color-ink: #171717;
   --color-ink-soft: #0c0c0b;
   --color-white: #ffffff;
-  --color-surface-1: #fdfdfd;
+  --color-surface-1: #eceef2; /* fundo da página (DS v2 / Onest) */
   --color-surface-2: #f7f7f5;
   --color-surface-3: #f4f4f3;
   --color-border: #e9e9e9;
@@ -43,7 +43,7 @@
   --color-negative: #c2473d;
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 16px;
+  --radius-card: 36px;
   --radius-md: 10px;
   --radius-sm: 8px;
   --radius-pill: 999px;
@@ -113,11 +113,9 @@ html.dark {
     line-height: 22px;
   }
 
-  /* Peso único 400 + espaçamento -0.01em em todo o sistema — sem faux-bold. */
+  /* Onest com múltiplos pesos; sem faux-bold. Tracking base -0.01em vem do body. */
   * {
-    font-weight: 400 !important;
     font-synthesis-weight: none;
-    letter-spacing: -0.01em !important;
   }
 
   * {
@@ -170,6 +168,24 @@ html.dark {
   html.dark ::-webkit-scrollbar-thumb {
     background: #2e2e2e;
   }
+}
+
+/* ============================================================
+   DS v2 (Onest) — padrões promovidos do teste da Home para TODO o sistema.
+   Unlayered de propósito: vencem as utilities do Tailwind.
+   ============================================================ */
+/* títulos em SemiBold (h1/h2/h3 + escala text-h*) */
+h1, h2, h3,
+.text-display, .text-h1, .text-h2, .text-h3 {
+  font-weight: 600;
+}
+/* números com tracking apertado (vence o inline do <Money>) */
+.tabular-nums {
+  letter-spacing: -1.04px !important;
+}
+/* rótulos dos eixos dos gráficos (Recharts) em Medium */
+.recharts-cartesian-axis-tick-value {
+  font-weight: 500;
 }
 
 /* ============================================================
