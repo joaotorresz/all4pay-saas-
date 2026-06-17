@@ -163,7 +163,8 @@ export function VisualEditor() {
     const soTexto = sel.children.length === 0;
     const g = parseFloat(cs.gap);
     const lh = parseFloat(cs.lineHeight);
-    const mg = parseFloat(cs.marginTop);
+    const mv = parseFloat(cs.marginTop);
+    const mh = parseFloat(cs.marginLeft);
     return {
       soTexto,
       texto: soTexto ? (sel.textContent ?? "") : "",
@@ -175,7 +176,8 @@ export function VisualEditor() {
       padding: Math.round(parseFloat(cs.paddingTop)) || 0,
       gap: Number.isFinite(g) ? Math.round(g) : 0,
       lineHeight: Number.isFinite(lh) ? Math.round(lh) : 0,
-      margin: Number.isFinite(mg) ? Math.round(mg) : 0,
+      marginV: Number.isFinite(mv) ? Math.round(mv) : 0,
+      marginH: Number.isFinite(mh) ? Math.round(mh) : 0,
     };
   }, [sel, tick]);
 
@@ -335,8 +337,11 @@ export function VisualEditor() {
                     <Campo label={`Espaço entre itens (gap) · ${cur.gap}px`}>
                       <input type="range" min={0} max={64} value={cur.gap} onChange={(e) => setStyle("gap", `${e.target.value}px`)} className="w-full accent-ink" />
                     </Campo>
-                    <Campo label={`Margem externa · ${cur.margin}px`}>
-                      <input type="range" min={0} max={64} value={cur.margin} onChange={(e) => setStyle("margin", `${e.target.value}px`)} className="w-full accent-ink" />
+                    <Campo label={`Margem vertical (cima / baixo) · ${cur.marginV}px`}>
+                      <input type="range" min={0} max={64} value={cur.marginV} onChange={(e) => { const px = `${e.target.value}px`; setStyle("margin-top", px); setStyle("margin-bottom", px); }} className="w-full accent-ink" />
+                    </Campo>
+                    <Campo label={`Margem horizontal (esquerda / direita) · ${cur.marginH}px`}>
+                      <input type="range" min={0} max={64} value={cur.marginH} onChange={(e) => { const px = `${e.target.value}px`; setStyle("margin-left", px); setStyle("margin-right", px); }} className="w-full accent-ink" />
                     </Campo>
                     <Campo label={`Altura da linha · ${cur.lineHeight || 22}px`}>
                       <input type="range" min={12} max={56} value={cur.lineHeight || 22} onChange={(e) => setStyle("line-height", `${e.target.value}px`)} className="w-full accent-ink" />
