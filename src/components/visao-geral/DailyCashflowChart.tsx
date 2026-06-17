@@ -47,9 +47,9 @@ function PeriodTotal({ label, value, color }: { label: string; value: number; co
   const { integer, decimals } = brlParts(value);
   return (
     <div className="flex flex-col">
-      <span className="text-caption text-faint">{label}</span>
+      <span className="text-[12px] text-faint">{label}</span>
       {/* R$ no MESMO tamanho dos números · decimais ~30% menores · Onest herdada */}
-      <span className="text-[18px] font-medium tabular-nums" style={{ color }}>
+      <span className="text-[20px] font-medium tabular-nums" style={{ color }}>
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span style={{ fontSize: "0.7em" }}>,{decimals}</span>
       </span>
@@ -109,13 +109,13 @@ export function DailyCashflowChart() {
         <div className="shrink-0 flex items-center gap-2">
           <button
             onClick={essaSemana}
-            className="inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
+            className="inline-flex items-center rounded-[18px] bg-ink text-lime px-4 h-9 text-[16px] font-semibold"
           >
             Essa semana
           </button>
           <button
             onClick={esseMes}
-            className="inline-flex items-center rounded-pill border border-border bg-white px-3 h-[30px] text-caption text-muted hover:text-ink"
+            className="inline-flex items-center rounded-[18px] bg-lime text-on-lime px-4 h-9 text-[16px] font-semibold"
           >
             Esse mês
           </button>

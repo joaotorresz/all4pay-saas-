@@ -138,6 +138,13 @@ html.dark {
   .ds-onest .tabular-nums {
     letter-spacing: var(--a4p-num-tracking, -0.03px) !important;
   }
+  /* tema Onest usa múltiplos pesos: reabilita medium/semibold (vence o reset 400) */
+  .ds-onest .font-medium {
+    font-weight: 500 !important;
+  }
+  .ds-onest .font-semibold {
+    font-weight: 600 !important;
+  }
 
   /* Quiet, soft scrollbar — matches the restrained product feel. */
   ::-webkit-scrollbar {
@@ -168,10 +175,10 @@ html.dark {
      ------------------------------------------------------------------------ */
   --a4p-bg: #eceef2;          /* fundo principal da página */
   --a4p-box-bg: #ffffff;      /* cor de fundo dos boxes */
-  --a4p-box-radius: 24px;     /* arredondamento das bordas do box */
-  --a4p-box-padding: 31.2px;  /* espaçamento interno (conteúdo ↔ borda) */
+  --a4p-box-radius: 36px;     /* arredondamento das bordas do box */
+  --a4p-box-padding: 45px;    /* espaçamento interno (conteúdo ↔ borda) */
   --a4p-title-weight: 600;    /* peso do título (400=Regular · 500=Medium · 600=SemiBold) */
-  --a4p-num-tracking: -0.03px;/* espaçamento (letter-spacing) dos números */
+  --a4p-num-tracking: -1.04px;/* espaçamento (letter-spacing) dos números */
   --a4p-borders: transparent; /* cor das bordas (transparent = sem borda) */
   /* ======================================================================== */
 
@@ -190,6 +197,10 @@ html.dark {
 /* p-6 (24px padrão) → valor do painel */
 .ds-onest .p-6 {
   padding: var(--a4p-box-padding);
+}
+/* títulos de widget (text-h3) maiores na Home */
+.ds-onest .text-h3 {
+  font-size: 31px;
 }
 /* esconde os títulos de bloco (Caixa, Operação, Resumo executivo, …) na Home */
 .ds-onest [data-block-header] {
