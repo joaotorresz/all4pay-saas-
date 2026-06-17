@@ -15,6 +15,20 @@ const roc = localFont({
   display: "swap",
 });
 
+/**
+ * Onest (test DS) — carregada para o teste do novo design system na Home.
+ * Título: SemiBold (600) · subtítulos/corpo: Regular (400).
+ */
+const onest = localFont({
+  src: [
+    { path: "./fonts/Onest-Regular.ttf", weight: "400", style: "normal" },
+    { path: "./fonts/Onest-Medium.ttf", weight: "500", style: "normal" },
+    { path: "./fonts/Onest-SemiBold.ttf", weight: "600", style: "normal" },
+  ],
+  variable: "--font-onest",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "all4pay — Tesouraria",
   description: "ERP + gestão financeira. Construído sobre o Design System all4pay.",
@@ -26,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={roc.variable}>
+    <html lang="pt-BR" className={`${roc.variable} ${onest.variable}`}>
       <head>
         {/* Anti-flash: aplica o tema salvo antes da pintura. */}
         <script

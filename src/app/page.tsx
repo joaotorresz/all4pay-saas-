@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <PeriodProvider>
-      <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />}>
+      <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-onest">
         <OverviewGrid />
       </AppShell>
     </PeriodProvider>

@@ -13,16 +13,19 @@ export function AppShell({
   crumb = "all4pay financeiro",
   actions,
   children,
+  scopeClassName,
 }: {
   title: string;
   crumb?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
+  /** Classe de escopo aplicada SÓ ao <main> (ex.: teste de DS na Home). */
+  scopeClassName?: string;
 }) {
   return (
     <div className="fixed inset-0 flex bg-surface-1 overflow-hidden">
       <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 min-h-0">
+      <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         <header className="flex items-end justify-between gap-4 px-8 pt-[26px] pb-[18px]">
           <div>
             <div className="text-caption font-medium text-faint mb-1">
