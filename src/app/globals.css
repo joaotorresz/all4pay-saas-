@@ -163,12 +163,12 @@ html.dark {
   /* sem bordas em tudo (os tokens de borda viram transparentes) */
   --color-border: transparent;
   --color-border-soft: transparent;
-  /* arredondamento dos boxes: 13px + 30% = 16,9px */
-  --radius-card: 16.9px;
+  /* arredondamento dos boxes (mais acentuado) */
+  --radius-card: 24px;
 }
-/* boxes com 16,9px (a utility rounded-card é 16px fixa → sobrescreve) */
+/* boxes mais arredondados (a utility rounded-card é 16px fixa → sobrescreve) */
 .ds-onest .rounded-card {
-  border-radius: 16.9px;
+  border-radius: 24px;
 }
 /* espaçamento interno do box: p-6 (24px) + 30% = 31,2px */
 .ds-onest .p-6 {
