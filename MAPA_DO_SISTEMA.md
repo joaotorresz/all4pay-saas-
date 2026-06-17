@@ -240,3 +240,29 @@ a fechar a junta.
 
 *Mapa gerado para o "ponto" de status. Atualizar conforme as juntas forem
 fechadas.*
+
+---
+
+## 9. Status — execução do Relatório de Melhorias
+
+| # do relatório | Ação | Status |
+| --- | --- | --- |
+| 1 | Versionar TODO o schema (Open Finance + locais) | ✅ `0008_open_finance.sql` + `0009_persist_local_stores.sql` (idempotentes) |
+| 2 | Enxugar o menu (3 verbos; avançado atrás de Pro) | ✅ Sidebar: Entradas/Saídas/Contas & Banco · Cadastrar · Relatórios · Central POS; Equipe + Inteligência só no Modo Pro; Cartões "em breve" removido |
+| 3 | Unificar Entradas/Saídas/Contas | 🟡 **Parcial** — agrupado no menu; **tela unificada com filtros ainda a construir** |
+| 4 | "Nova transação" como porta única | ✅ `NovaTransacao` (AppShell) — Recebi/Paguei/Vou receber/Vou pagar → form progressivo → `useCreateLancamento` |
+| 5 | Migrar localStorage→Postgres | 🟡 **Schema pronto** (`0009`); **wiring das libs (leitura/escrita live) pendente** (precisa de teste em banco) |
+| 6 | Fechar ciclo POS→DRE com taxa MDR | ✅ `concluirVendaPos` grava "Tarifas de adquirência" (custo) além do recebível líquido |
+| 7 | Completar OU acessorizar cadastros pela metade | ✅ vendedores/marcas/unidades **fora do menu** (não expõem incompleto); completar quando entrarem no fluxo |
+| 8 | Reintroduzir inteligência/governança como Pro | ✅ grupos **Equipe** e **Inteligência** atrás do Modo Pro |
+
+**Próximas juntas (precisam de banco ao vivo para validar):**
+- **#5 wiring**: converter `aprovacoes/reembolsos/nfse/pos-taxas/company` de
+  localStorage para as tabelas de `0009` (com hooks async + RLS), em ordem de
+  risco regulatório.
+- **#1 governança real**: ligar a tela de Governança aos `organization_members`
+  (colunas `permissions/approval_limit/can_cancel` já criadas em `0009`).
+- **#3 unificação**: telas únicas "Entradas"/"Saídas" com filtros (em aberto/
+  realizado/recorrente), substituindo a navegação por sub-telas.
+- **Aplicar `0008`/`0009`** no Supabase remoto (e gerar o ambiente de produção
+  a partir das migrations versionadas).
