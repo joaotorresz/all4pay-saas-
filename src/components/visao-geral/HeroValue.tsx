@@ -18,7 +18,7 @@ export function HeroValue({
   integer,
   decimals,
   color = "var(--color-ink)",
-  size = 44,
+  size = 26,
   delta,
   sparkline,
   rightSlot,
@@ -54,8 +54,8 @@ export function HeroValue({
           decimals={decimals}
           size={size}
           integerWeight={500}
-          prefixSize={18}
-          prefixWeight={400}
+          prefixSize={size}
+          prefixWeight={500}
           color={color}
         />
         {srValue && <VisuallyHidden>{srValue}</VisuallyHidden>}

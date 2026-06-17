@@ -151,6 +151,10 @@ html.dark {
   .ds-onest .font-semibold {
     font-weight: 600 !important;
   }
+  /* rótulos dos eixos do gráfico (Recharts) em peso 500 */
+  .ds-onest .recharts-cartesian-axis-tick-value {
+    font-weight: 500 !important;
+  }
 
   /* Quiet, soft scrollbar — matches the restrained product feel. */
   ::-webkit-scrollbar {
