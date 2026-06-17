@@ -115,7 +115,7 @@ export function DailyCashflowChart() {
           </button>
           <button
             onClick={esseMes}
-            className="inline-flex items-center rounded-[18px] bg-lime text-on-lime px-4 h-9 text-[16px] font-semibold"
+            className="inline-flex items-center rounded-[18px] bg-surface-1 text-ink px-4 h-9 text-[16px] font-semibold"
           >
             Esse mês
           </button>
@@ -123,7 +123,7 @@ export function DailyCashflowChart() {
       </div>
 
       {!isLoading && !isError && hasFlow && (
-        <div className="flex items-center gap-5 -mt-1 mb-1 flex-wrap">
+        <div className="flex items-center gap-12 -mt-1 mb-1 flex-wrap">
           <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
           <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
           <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
@@ -231,7 +231,7 @@ export function DailyCashflowChart() {
 
 function Legend({ projetado }: { projetado?: boolean }) {
   return (
-    <div className="flex items-center gap-4 mt-2 text-caption text-muted flex-wrap">
+    <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
       <LegendDot color={POSITIVE} label="Entradas" />
       <LegendDot color={NEGATIVE} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">

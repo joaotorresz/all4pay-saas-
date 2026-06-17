@@ -119,7 +119,7 @@ export function OpenAmountWidget({
         <WidgetHeader
           title={title}
           action={
-            <span className="inline-flex items-center gap-1 text-caption font-medium text-faint">
+            <span className="inline-flex items-center gap-2 text-caption font-medium text-ink bg-surface-1 rounded-[12px] px-3 py-2">
               Ver tudo
               <Icon name="arrow-up-right" size={13} />
             </span>
