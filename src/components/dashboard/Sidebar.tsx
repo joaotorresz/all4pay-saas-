@@ -172,17 +172,15 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "shrink-0 h-full bg-white border-r border-border flex flex-col py-4 transition-[width] duration-200 ease-out",
+        "a4p-sidebar shrink-0 h-full bg-white border-r border-border flex flex-col py-4 transition-[width] duration-200 ease-out",
         collapsed ? "w-[68px] px-2" : "w-sidebar px-3",
       )}
     >
       {/* Brand + toggle */}
       <div className={cn("flex items-center pb-[14px] pt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
         {!collapsed && (
-          <>
-            <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-            <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
-          </>
+          // Sidebar sempre escura → logo lime nos dois temas.
+          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto" priority />
         )}
         <button
           onClick={toggleCollapsed}

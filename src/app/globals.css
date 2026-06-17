@@ -195,3 +195,29 @@ html.dark {
 .ds-onest [data-block-header] {
   display: none;
 }
+
+/* ============================================================
+   Sidebar lateral SEMPRE no visual escuro (igual ao dark mode),
+   também no tema claro. Ícones na variante verde (lime) e bold.
+   Reaproveita a paleta escura redefinindo as variáveis no escopo
+   do <aside> — todo o conteúdo (bg-white, text-ink, bordas) inverte.
+   ============================================================ */
+.a4p-sidebar {
+  --color-white: #161616;        /* fundo da sidebar */
+  --color-ink: #f4f4f2;          /* texto/itens ativos */
+  --color-ink-soft: #fafafa;
+  --color-surface-1: #0e0e0e;
+  --color-surface-2: #1b1b1b;    /* hover/ativo */
+  --color-surface-3: #232323;
+  --color-border: #2a2a2a;
+  --color-border-soft: #202020;
+  --color-text-secondary: #9b9b96;
+  --color-text-tertiary: #6f6f6c;
+  --color-text-quaternary: #565654;
+  --color-lime-tint: #23270d;    /* wash do command bar no escuro */
+}
+/* ícones lime + bold (CSS vence os atributos stroke/stroke-width do SVG) */
+.a4p-sidebar svg {
+  stroke: var(--color-lime);
+  stroke-width: 2.5px;
+}
