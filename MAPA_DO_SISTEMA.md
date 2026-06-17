@@ -266,4 +266,6 @@ fechadas.*
 - **#3 unificação**: telas únicas "Entradas"/"Saídas" com filtros (em aberto/
   realizado/recorrente), substituindo a navegação por sub-telas.
 - **Aplicar `0008`/`0009`** no Supabase remoto (e gerar o ambiente de produção
-  a partir das migrations versionadas).
+  a partir das migrations versionadas). ✅ **Aplicadas** no projeto `all4pay-saas`
+  (`dzszmbowhzopocqydnxu`) via MCP — idempotentes; advisor de segurança sem
+  novos alertas de RLS. Continuam no repo para provisionar um ambiente limpo.
