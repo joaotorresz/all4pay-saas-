@@ -128,7 +128,7 @@ html.dark {
      layer p/ vencer o `*{font-weight:400!important}` acima (mesma layer +
      seletor mais específico). Subtítulos/corpo seguem 400 (Regular). */
   .ds-onest :is(h1, h2, h3, .text-display, .text-h1, .text-h2, .text-h3) {
-    font-weight: 600 !important;
+    font-weight: var(--a4p-title-weight, 600) !important;
   }
 
   /* Quiet, soft scrollbar — matches the restrained product feel. */
@@ -154,23 +154,31 @@ html.dark {
    Unlayered de propósito: vence as utilities do Tailwind (bg/radius/font).
    ============================================================ */
 .ds-onest {
-  /* fundo principal da área de conteúdo */
-  background-color: #eceef2;
-  /* tipografia Onest (título SemiBold via regra na @layer base; resto Regular) */
+  /* ================= PAINEL EDITÁVEL (mexa só nos valores) =================
+     Edite os números/cores abaixo e me mande este bloco de volta — ou edite
+     direto no GitHub (branch claude/epic-fermi-i423xk → src/app/globals.css).
+     ------------------------------------------------------------------------ */
+  --a4p-bg: #eceef2;          /* fundo principal da página */
+  --a4p-box-bg: #ffffff;      /* cor de fundo dos boxes */
+  --a4p-box-radius: 24px;     /* arredondamento das bordas do box */
+  --a4p-box-padding: 31.2px;  /* espaçamento interno (conteúdo ↔ borda) */
+  --a4p-title-weight: 600;    /* peso do título (400=Regular · 500=Medium · 600=SemiBold) */
+  --a4p-borders: transparent; /* cor das bordas (transparent = sem borda) */
+  /* ======================================================================== */
+
+  background-color: var(--a4p-bg);
   font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  /* surfaces/box: page = fundo claro; box continua branco (--color-white) */
-  --color-surface-1: #eceef2;
-  /* sem bordas em tudo (os tokens de borda viram transparentes) */
-  --color-border: transparent;
-  --color-border-soft: transparent;
-  /* arredondamento dos boxes (mais acentuado) */
-  --radius-card: 24px;
+  --color-surface-1: var(--a4p-bg);
+  --color-white: var(--a4p-box-bg);
+  --color-border: var(--a4p-borders);
+  --color-border-soft: var(--a4p-borders);
+  --radius-card: var(--a4p-box-radius);
 }
-/* boxes mais arredondados (a utility rounded-card é 16px fixa → sobrescreve) */
+/* a utility rounded-card é 16px fixa → sobrescreve com o valor do painel */
 .ds-onest .rounded-card {
-  border-radius: 24px;
+  border-radius: var(--a4p-box-radius);
 }
-/* espaçamento interno do box: p-6 (24px) + 30% = 31,2px */
+/* p-6 (24px padrão) → valor do painel */
 .ds-onest .p-6 {
-  padding: 31.2px;
+  padding: var(--a4p-box-padding);
 }
