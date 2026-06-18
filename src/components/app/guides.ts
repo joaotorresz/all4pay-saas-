@@ -48,24 +48,23 @@ export const GUIDES: Record<string, Guide> = {
 
   "/upload": {
     titulo: "Upload de dados",
-    intro: "Tudo que entra na empresa cai aqui: documentos (boleto, comprovante, nota — lidos por OCR) e extratos OFX/CSV em lote. O sistema lê, faz o cross-check e correlaciona em todo o ERP.",
+    intro: "Importe em lote (extrato CSV/OFX) ou um documento individual (boleto/comprovante/nota por OCR). A leitura inteligente classifica, resolve fornecedores/clientes e detecta pagamentos recorrentes/mensais — depois é só revisar e confirmar, como na conexão do Open Finance.",
     secoes: [
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Ingestão", desc: "Cole um extrato, carregue um arquivo (CSV/OFX/TXT) ou use a amostra de 12 meses; clique Analisar." },
-          { nome: "Corrigir destino", desc: "Na tabela, ajuste a categoria — o sistema aprende (self-learning) e sobe a confiança na próxima vez." },
-          { nome: "Criar empresa", desc: "Provisiona clientes, fornecedores, categorias e centros de custo a partir da análise." },
+          { nome: "Importar", desc: "Arraste arquivos (CSV/OFX/TXT em lote, ou PNG/JPG/PDF lidos por OCR), cole um extrato ou use a amostra de 12 meses." },
+          { nome: "Revisar", desc: "Confira a categoria onde a confiança for baixa — o sistema aprende a correção para a próxima vez." },
+          { nome: "Confirmar", desc: "Cadastra contatos + categorias e cria os lançamentos. Em live, cada movimento entra na fila de confirmação." },
         ],
       },
       {
-        titulo: "Os blocos da tela",
+        titulo: "Os blocos da confirmação",
         itens: [
-          { nome: "Confidence Center", desc: "Total/lidos + distribuição de confiança (alta/média/baixa) + pendências.", match: "Confidence Center" },
-          { nome: "Descobrimos", desc: "Clientes, fornecedores, recorrências, assinaturas, categorias, centros + EBITDA/receita recorrente estimados.", match: "Análise concluída" },
-          { nome: "Destino inteligente", desc: "Cada lançamento → destino + categoria + confiança ML; confirme/corrija.", match: "Destino inteligente" },
-          { nome: "Padrões descobertos", desc: "Recorrências, assinaturas e grafo de clientes/fornecedores.", match: "Padrões descobertos" },
-          { nome: "Auto company setup", desc: "Cria a empresa (entidades, categorias, centros) automaticamente.", match: "Auto company setup" },
+          { nome: "Resumo", desc: "Lançamentos, entradas/saídas, fornecedores novos e recorrentes detectados.", match: "Lançamentos" },
+          { nome: "Pagamentos recorrentes detectados", desc: "Correlações da leitura: cobranças que se repetem (mensais/assinaturas).", match: "Pagamentos recorrentes detectados" },
+          { nome: "Contatos detectados", desc: "Fornecedores/clientes que serão cadastrados automaticamente.", match: "Contatos detectados" },
+          { nome: "Lançamentos lidos", desc: "Revisão por transação: data, destino, categoria editável e confiança.", match: "Lançamentos lidos" },
         ],
       },
     ],
