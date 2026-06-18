@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BRL, Card, Skeleton, Select, DateField } from "@/components/ui";
+import { BRL, Card, Skeleton, Select, DatePicker } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { financialDRE } from "@/core/dre";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
@@ -16,7 +16,11 @@ import type {
 } from "@/core/dre/types";
 
 type Regime = "competencia" | "caixa";
-type Cadencia = "mensal" | "trimestral";
+type Cadencia = "mensal" | "trimestral" | "semestral" | "anual";
+/** Tamanho do bucket (meses) e janela default do range, por cadência. */
+const SPAN_MESES: Record<Cadencia, number> = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
+const RANGE_MESES: Record<Cadencia, number> = { mensal: 12, trimestral: 24, semestral: 36, anual: 60 };
+const CAD_COL: Record<Cadencia, string> = { mensal: "Mês", trimestral: "Trimestre", semestral: "Semestre", anual: "Ano" };
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sign = (v: number) => (v < 0 ? "−" : "");
 
@@ -27,7 +31,7 @@ const fmtDia = (iso: string) => { const [y, m, d] = (iso || "").split("-"); retu
 /** Buckets da evolução DENTRO do intervalo observado, agrupados pela cadência. */
 function bucketsRange(deISO: string, ateISO: string, cad: Cadencia): { de: string; ate: string; label: string }[] {
   if (!deISO || !ateISO || deISO > ateISO) return [];
-  const span = cad === "trimestral" ? 3 : 1;
+  const span = SPAN_MESES[cad];
   const [y0, m0] = deISO.split("-").map(Number);
   const [y1, m1] = ateISO.split("-").map(Number);
   const endIdx = (y1 - y0) * 12 + (m1 - m0);
@@ -55,6 +59,15 @@ export function DREView() {
 
   const { data: input, isLoading, isError } = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
 
+  // Trocar a cadência ajusta o intervalo De/Até para a janela natural dela.
+  const mudarCadencia = (c: Cadencia) => {
+    setCadencia(c);
+    const a = new Date();
+    const ini = new Date(a.getFullYear(), a.getMonth() - (RANGE_MESES[c] - 1), 1);
+    setDe(isoDia(ini));
+    setAte(isoDia(a));
+  };
+
   const periodoLabel = `${fmtDia(de)} – ${fmtDia(ate)}`;
   const data: DREData | undefined = React.useMemo(
     () => (input && de && ate && de <= ate ? financialDRE(input, { regime, de, ate, periodoLabel }) : undefined),
@@ -74,13 +87,18 @@ export function DREView() {
       <FirstRunCard />
       {/* Barra de filtros (DRE dinâmico) */}
       <Card className="flex flex-wrap items-end gap-x-3 gap-y-2">
-        <DateField label="De" value={de} onChange={setDe} containerClassName="min-w-[150px]" />
-        <DateField label="Até" value={ate} onChange={setAte} containerClassName="min-w-[150px]" />
+        <DatePicker label="De" value={de} onChange={setDe} max={ate} containerClassName="min-w-[150px]" />
+        <DatePicker label="Até" value={ate} onChange={setAte} min={de} containerClassName="min-w-[150px]" />
         <Select
           label="Cadência"
           value={cadencia}
-          onChange={(v) => setCadencia(v as Cadencia)}
-          options={[{ value: "mensal", label: "Mensal" }, { value: "trimestral", label: "Trimestral" }]}
+          onChange={(v) => mudarCadencia(v as Cadencia)}
+          options={[
+            { value: "mensal", label: "Mensal" },
+            { value: "trimestral", label: "Trimestral" },
+            { value: "semestral", label: "Semestral" },
+            { value: "anual", label: "Anual" },
+          ]}
           containerClassName="min-w-[150px]"
         />
         <div className="flex flex-col gap-[6px]">
@@ -166,9 +184,9 @@ function Conteudo({
 
       {/* Evolução por cadência (dentro do intervalo observado) */}
       <Card className="lg:col-span-3 flex flex-col gap-2">
-        <span className="text-label font-medium text-muted">Evolução · {cadencia === "trimestral" ? "trimestral" : "mensal"} · {data.filtro.periodoLabel}</span>
+        <span className="text-label font-medium text-muted">Evolução · {cadencia} · {data.filtro.periodoLabel}</span>
         <Tabela
-          head={[cadencia === "trimestral" ? "Trimestre" : "Mês", "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
+          head={[CAD_COL[cadencia], "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
           rows={serie.map((p) => [p.label, <BRL key="r" value={p.receita} />, <BRL key="e" value={p.ebitda} />, pct(p.margem), <BRL key="l" value={p.lucro} />])}
           alignRight={[1, 2, 3, 4]}
         />

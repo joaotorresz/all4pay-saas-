@@ -52,6 +52,7 @@ import {
   Palette,
   RotateCcw,
   Menu,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -77,6 +78,7 @@ const registry: Record<string, LucideIcon> = {
   "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
   menu: Menu,
+  calendar: CalendarDays,
   sparkles: Sparkles,
   "arrow-up-right": ArrowUpRight,
   "arrow-up": ArrowUp,

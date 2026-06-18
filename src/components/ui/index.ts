@@ -12,6 +12,7 @@ export { Input, type InputProps } from "./Input";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export { DateField, type DateFieldProps } from "./DateField";
+export { DatePicker, type DatePickerProps } from "./DatePicker";
 export { CurrencyInput, type CurrencyInputProps } from "./CurrencyInput";
 export { Switch, type SwitchProps } from "./Switch";
 export { Textarea, type TextareaProps } from "./Textarea";
