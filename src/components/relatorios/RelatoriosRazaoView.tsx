@@ -7,8 +7,9 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, BRL, StatusBadge, Select, DatePicker, Skeleton, Icon } from "@/components/ui";
+import { Card, BRL, StatusBadge, Select, DatePicker, Skeleton, Icon, Button, CurrencyInput } from "@/components/ui";
 import { getLedgerEntries, dreDoRazao, balancoDoRazao, pivotDoRazao, type RazaoLancamento } from "@/lib/ledger";
+import { loadOrcGL, saveOrcGL, varianciaGL, CONTAS_RESULTADO, type OrcamentoGL } from "@/lib/budget-gl";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
@@ -20,12 +21,17 @@ export function RelatoriosRazaoView() {
   const [ate, setAte] = React.useState(isoDia(new Date()));
   const [de, setDe] = React.useState(() => { const d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return isoDia(d); });
   const [dim, setDim] = React.useState("contraparte");
+  const [orc, setOrc] = React.useState<OrcamentoGL>({});
+  const [editOrc, setEditOrc] = React.useState(false);
 
-  React.useEffect(() => { getLedgerEntries().then(setEntries).catch(() => setEntries([])); }, []);
+  React.useEffect(() => { getLedgerEntries().then(setEntries).catch(() => setEntries([])); setOrc(loadOrcGL()); }, []);
 
   const dre = React.useMemo(() => (entries ? dreDoRazao(entries, de, ate) : null), [entries, de, ate]);
   const balanco = React.useMemo(() => (entries ? balancoDoRazao(entries, ate) : null), [entries, ate]);
   const pivot = React.useMemo(() => (entries ? pivotDoRazao(entries, dim, de, ate) : []), [entries, dim, de, ate]);
+  const variancia = React.useMemo(() => (entries ? varianciaGL(entries, de, ate, orc) : null), [entries, de, ate, orc]);
+  const setOrcConta = (code: string, v: number) => { const next = { ...orc, [code]: v }; setOrc(next); saveOrcGL(next); };
+  const sinalTone = (s: "favoravel" | "desfavoravel" | "neutro") => (s === "favoravel" ? "positive" : s === "desfavoravel" ? "warning" : "neutral");
 
   return (
     <AppShell title="Relatórios (Razão)" crumb="Contabilidade" actions={isDemo ? <DemoBadge /> : null}>
@@ -58,6 +64,52 @@ export function RelatoriosRazaoView() {
                 {dre!.receitas.map((c) => <LinhaConta key={c.conta} c={c} />)}
                 {dre!.despesas.map((c) => <LinhaConta key={c.conta} c={c} negativo />)}
               </div>
+            </Card>
+
+            {/* Orçado × Realizado (do razão) + flux */}
+            <Card className="flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-label font-medium text-muted">Orçado × Realizado · do razão</span>
+                <Button size="sm" variant="secondary" leftIcon={<Icon name="receipt" size={14} />} onClick={() => setEditOrc((e) => !e)}>
+                  {editOrc ? "Fechar orçamento" : "Editar orçamento"}
+                </Button>
+              </div>
+              {editOrc && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 border-b border-border-soft pb-3">
+                  {CONTAS_RESULTADO.map((c) => (
+                    <CurrencyInput key={c.code} label={`${c.name} (mês)`} value={orc[c.code] ?? 0} onValueChange={(v) => setOrcConta(c.code, v)} />
+                  ))}
+                  <span className="text-caption text-faint sm:col-span-2 lg:col-span-3">Orçamento mensal por conta; multiplicado pelos {variancia!.meses} mês(es) do período.</span>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                <Resumo label="Receita (orç→real)" valor={variancia!.receitaReal} />
+                <Resumo label="Despesa (orç→real)" valor={variancia!.despesaReal} />
+                <Resumo label="Resultado" valor={variancia!.resultadoReal} tone={variancia!.resultadoReal >= 0 ? "var(--color-positive)" : "var(--color-negative)"} />
+              </div>
+              <div className="flex flex-col gap-1">
+                {variancia!.narrativa.map((n, i) => (
+                  <span key={i} className="flex items-start gap-[6px] text-caption text-muted"><span className="w-[6px] h-[6px] rounded-pill bg-ink mt-[7px] shrink-0" />{n}</span>
+                ))}
+              </div>
+              <div className="hidden sm:flex items-center gap-3 py-2 text-caption font-medium text-muted border-b border-border-soft">
+                <span className="flex-1">Conta</span>
+                <span className="w-[110px] text-right">Orçado</span>
+                <span className="w-[110px] text-right">Realizado</span>
+                <span className="w-[100px] text-right">Desvio</span>
+                <span className="w-[70px] text-right">%</span>
+              </div>
+              {variancia!.linhas.map((l) => (
+                <div key={l.conta} className="flex items-center gap-3 py-2 border-t border-border-soft text-caption first:border-t-0">
+                  <span className="flex-1 truncate text-ink">{l.nome}
+                    <span className="sm:hidden tabular-nums text-faint"> · orç {Math.round(l.orcado).toLocaleString("pt-BR")} · real {Math.round(l.realizado).toLocaleString("pt-BR")}</span>
+                  </span>
+                  <span className="hidden sm:block w-[110px] text-right tabular-nums text-faint"><BRL value={l.orcado} /></span>
+                  <span className="hidden sm:block w-[110px] text-right tabular-nums text-ink"><BRL value={l.realizado} /></span>
+                  <span className="w-[100px] text-right shrink-0"><StatusBadge tone={sinalTone(l.sinal)}>{l.varValor >= 0 ? "+" : "−"}{Math.abs(Math.round(l.varValor)).toLocaleString("pt-BR")}</StatusBadge></span>
+                  <span className={`hidden sm:block w-[70px] text-right tabular-nums font-medium ${l.sinal === "favoravel" ? "text-positive" : l.sinal === "desfavoravel" ? "text-negative" : "text-muted"}`}>{l.varValor >= 0 ? "+" : "−"}{Math.abs(l.varPct * 100).toFixed(0)}%</span>
+                </div>
+              ))}
             </Card>
 
             {/* Balanço patrimonial */}
