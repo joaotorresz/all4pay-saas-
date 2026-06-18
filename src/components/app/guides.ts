@@ -129,6 +129,20 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  "/assistente": {
+    titulo: "Assistente (Razão)",
+    intro: "Converse com o razão: o assistente recebe um contexto numérico do GL (não o banco cru), responde citando os números e pode rascunhar um lançamento balanceado — que só vai pro razão com a sua aprovação. Tudo logado (ai_actions). Com ANTHROPIC_API_KEY usa o Claude; sem chave, modo básico.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Perguntar", desc: "Resultado, saldo de conta, maior despesa, se o razão fecha… com fontes (os números usados).", match: "Pergunte sobre o razão" },
+          { nome: "Rascunhar lançamento", desc: "Peça um lançamento; o assistente propõe um rascunho balanceado para você aprovar e postar.", match: "Pergunte sobre o razão" },
+        ],
+      },
+    ],
+  },
+
   "/dre": {
     titulo: "DRE Intelligence Center",
     intro: "Centro de resultado: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção.",

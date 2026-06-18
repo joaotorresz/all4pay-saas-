@@ -23,6 +23,7 @@ const ROUTES: RouteItem[] = [
   { label: "Copiloto", href: "/copiloto", icon: "sparkles", kw: "ia assistente perguntas" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
+  { label: "Assistente (Razão)", href: "/assistente", icon: "sparkles", kw: "assistente copiloto ia claude razao gl pergunta rascunho lancamento ember conversacional" },
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "Orçamento vs Realizado", href: "/orcamento", icon: "receipt", kw: "orcamento budget variancia flux analysis orcado realizado desvio analise variacao planejado" },
   { label: "Fechamento contábil", href: "/fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },

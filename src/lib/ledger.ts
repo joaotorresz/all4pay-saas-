@@ -94,6 +94,65 @@ export function balancete(entries: RazaoLancamento[]): ContaBalancete[] {
     .sort((a, b) => a.conta.localeCompare(b.conta));
 }
 
+/* ----------------------------- assistente sobre o razão (Fase 6) ----------------------------- */
+
+export interface ContextoRazao {
+  de: string; ate: string;
+  balanceado: boolean; totalDebito: number; totalCredito: number;
+  receita: number; despesa: number; resultado: number;
+  lancamentos: number;
+  contas: { code: string; nome: string; tipo: AccountType; saldo: number }[];
+  plano: { code: string; name: string; type: AccountType }[];
+}
+
+/** Contexto numérico do razão (últimos 12 meses) — o que o assistente recebe (não o banco cru). */
+export async function contextoRazao(): Promise<ContextoRazao> {
+  const entries = await getLedgerEntries();
+  const ate = new Date().toISOString().slice(0, 10);
+  const d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1);
+  const de = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  const bal = balancete(entries);
+  const dre = dreDoRazao(entries, de, ate);
+  const totalDebito = bal.reduce((s, c) => s + c.debito, 0);
+  const totalCredito = bal.reduce((s, c) => s + c.credito, 0);
+  return {
+    de, ate,
+    balanceado: Math.round((totalDebito - totalCredito) * 100) === 0,
+    totalDebito, totalCredito,
+    receita: dre.receita, despesa: dre.despesa, resultado: dre.resultado,
+    lancamentos: entries.length,
+    contas: bal.map((c) => ({ code: c.conta, nome: c.nome, tipo: c.tipo, saldo: c.saldo })),
+    plano: PLANO_PADRAO.map((c) => ({ code: c.code, name: c.name, type: c.type })),
+  };
+}
+
+/** Trilha de auditoria do assistente (live: ai_actions; demo: no-op). */
+export async function registrarAcaoIA(kind: string, prompt: string, result: unknown): Promise<void> {
+  if (isDemo) return;
+  try { await createClient().from("ai_actions").insert({ kind, prompt, result: result as object }); } catch { /* best-effort */ }
+}
+
+const fmtBRL = (v: number) => "R$ " + Math.round(v).toLocaleString("pt-BR");
+
+/** Resposta determinística (sem ANTHROPIC_API_KEY) — leitura básica do razão. */
+export function responderBasico(pergunta: string, ctx: ContextoRazao): string {
+  const p = pergunta.toLowerCase();
+  if (/balanc|fecha|d[eé]bito|cr[eé]dito/.test(p))
+    return ctx.balanceado ? "O razão está balanceado (débitos = créditos)." : "Atenção: o razão NÃO está balanceado.";
+  if (/resultado|lucro|preju[ií]z/.test(p))
+    return `Resultado do período: ${fmtBRL(ctx.resultado)} (receita ${fmtBRL(ctx.receita)} − despesa ${fmtBRL(ctx.despesa)}).`;
+  if (/receita|faturamento|vend/.test(p)) return `Receita do período: ${fmtBRL(ctx.receita)}.`;
+  if (/despesa|gasto|custo/.test(p)) {
+    const maior = ctx.contas.filter((c) => c.tipo === "expense").sort((a, b) => b.saldo - a.saldo)[0];
+    return `Despesa do período: ${fmtBRL(ctx.despesa)}.${maior ? ` Maior conta: ${maior.nome} (${fmtBRL(maior.saldo)}).` : ""}`;
+  }
+  if (/saldo|caixa|banco/.test(p)) {
+    const caixa = ctx.contas.find((c) => c.code === "1.1.01");
+    return caixa ? `Saldo de ${caixa.nome}: ${fmtBRL(caixa.saldo)}.` : "Ainda não há saldo de caixa no razão (faça o backfill).";
+  }
+  return "Modo básico: posso responder sobre resultado, receita, despesa, saldo de contas e se o razão está balanceado. Para conversa livre e rascunho de lançamentos, configure ANTHROPIC_API_KEY.";
+}
+
 /* ----------------------------- relatórios sobre o razão (Fase 2) ----------------------------- */
 
 export interface ContaValor { conta: string; nome: string; valor: number }
