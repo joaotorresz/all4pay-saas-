@@ -257,6 +257,43 @@ Do doc "Campfire — Anatomia do Sistema". O que o Campfire tem e a all4pay
 | **Dimensões/tags customizadas** + drill-down até a transação de qualquer relatório | ✅ **feito** — `src/core/dimensions` + `/dimensoes`. Pivota por categoria/centro/contraparte/**tag customizada** com drill-down até a transação; marca/desmarca tags por transação (`lib/tags.ts`), criando dimensões ilimitadas. |
 | Razão dupla-partida · IA no núcleo (categoriza/concilia) · trilha de auditoria · aprovação por alçada · cobrança/dunning | ✅ já existem (`core/platform`, FDIP, `institutional`, `/aprovacoes`, cobrança WhatsApp) |
 
+## 8.7. Blueprint Campfire — ERP nativo de IA (`docs/SISTEMA_all4pay_financeiro.md`)
+
+Especificação-mãe (vive em `docs/`). Regra de ouro: **comece pelo razão**. As
+fases entram **na ordem do .md** (o .md prevalece).
+
+| Fase | Entrega | Status |
+| --- | --- | --- |
+| **0** | **Razão de dupla entrada** (fonte única): `entities`, `ledger_accounts`, `accounting_periods`, `journal_entries`, `journal_lines`, `dimensions`, `budgets`, `schedules`, `revenue_contracts/_schedule`, `close_tasks`, `raw_events`, `ai_actions` + **triggers no banco** (D=C; período travado rejeita postagem) + RLS por org. | ✅ **migration `0010` aplicada no remoto** (13 tabelas, 2 triggers, RLS); domínio TS em `src/core/ledger` (invariante, saldo por natureza, ponte movimento→lançamento, estorno). `search_path` das funções fixado. |
+| **1** | Ingestão→razão: mapear transações Pluggy/upload em lançamentos; categorização por IA; conciliação contínua. | ⏳ próxima (Pluggy pronto; falta a ponte lib `postarLancamento` + categorização) |
+| **2** | Relatórios + drill-down + dimensões sobre `journal_lines` (DRE/Balanço/pivot). | ⏳ (hoje os relatórios rodam sobre `movements`; migrar para o GL) |
+| **3** | Orçado vs realizado + flux com IA sobre `budgets`. | 🟡 já existe `/orcamento` (sobre movements); religar ao GL |
+| **4** | Fechamento (checklist+IA) + cronogramas. | 🟡 já existe `/fechamento` e `/cronogramas` (locais); religar a `close_tasks`/`schedules` |
+| **5** | Receita CPC 47 + faturamento + NFS-e + PIX/boleto. | 🟡 `/receita` (local) + NFS-e/boletos existem; religar a `revenue_contracts` |
+| **6** | Assistente conversacional sobre o razão (Claude + MCP). | ⏳ por último (depende de 0–4) |
+
+> As Fases 3–5 já têm UI construída sobre `movements` (engines demo-safe). O
+> trabalho é **religar ao GL real** (dupla entrada) conforme o .md, para virar
+> auditável. Fase 0 é a fundação que destrava isso.
+
+### Temos e o Campfire **não** tem — **analisar** (manter/integrar ao GL)
+
+Diferenciais proprietários do all4pay ausentes no Campfire. **Ponto: analisar**
+como cada um se integra à arquitetura do razão (consome o GL em vez de `movements`):
+
+- **analisar** — Motor de Risco de Caixa (`/risco`): score, runway, ruptura, stress.
+- **analisar** — Inteligência de Crédito / Inadimplência (`/inadimplencia`): previsão de default + AI Collections.
+- **analisar** — Camada Quantitativa (`/inteligencia`): KPIs institucionais + score de saúde ("Bloomberg PME").
+- **analisar** — Decision Engine + Monte Carlo (`/decisao`) e Autonomous Ops (`/autonomo`: cobrança/roteamento autônomos).
+- **analisar** — Financial Data Moat (`/dados`): inteligência cross-tenant + curva de aprendizado.
+- **analisar** — Orquestração/Infra/Arquitetura (`/orquestracao` `/infraestrutura` `/arquitetura`): event sourcing, ledger-core, treasury, reliability.
+- **analisar** — Cobrança real via WhatsApp (Twilio) e alertas (Resend) disparados por evento.
+- **analisar** — Onboarding inteligente + Business Maturity Score + Financial DNA.
+
+> Decisão pendente: estes engines hoje leem `RiskInput`/`movements`. Com o GL,
+> a fonte vira `journal_lines` (mais rica: dimensões, dupla entrada). Avaliar
+> custo/benefício de portar cada um por fase, sem perder os diferenciais.
+
 ## 9. Status — execução do Relatório de Melhorias
 
 | # do relatório | Ação | Status |
