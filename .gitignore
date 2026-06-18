@@ -32,3 +32,6 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# Editor de design (auto-save local; hand-off via Exportar)
+design-edits.json

@@ -94,6 +94,8 @@ export function VisualEditor() {
   const [edits, setEdits] = React.useState<Record<string, ElementOverride>>({});
   const [theme, setTheme] = React.useState<ThemeVals>(THEME_DEFAULTS);
   const [tick, setTick] = React.useState(0); // força re-leitura dos controles
+  const [salvando, setSalvando] = React.useState<"idle" | "saving" | "saved" | "local">("idle");
+  const saveTimer = React.useRef<number | null>(null);
 
   React.useEffect(() => { setMontado(true); setEdits(loadEdits()); setTheme(loadTheme()); }, []);
 
@@ -209,14 +211,55 @@ export function VisualEditor() {
     registrar((ov) => { ov.texto = value; });
   }
 
+  const buildPayload = React.useCallback(() => ({
+    app: "all4pay",
+    geradoEm: new Date().toISOString(),
+    tema: themeToCssVars(theme),
+    elementos: Object.values(loadEdits()),
+  }), [theme]);
+
+  /* AUTO-SAVE no arquivo design-edits.json (via API). Em FS somente-leitura
+   *  (serverless) cai para "local" — segue valendo o navegador + Exportar. */
+  const salvarArquivo = React.useCallback(() => {
+    setSalvando("saving");
+    fetch("/api/design", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    })
+      .then((r) => r.json())
+      .then((j) => setSalvando(j?.ok ? "saved" : "local"))
+      .catch(() => setSalvando("local"));
+  }, [buildPayload]);
+
+  /* dispara o auto-save (debounce) a cada mudança de elemento ou tema */
+  React.useEffect(() => {
+    if (!montado) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(salvarArquivo, 600);
+    return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); };
+  }, [edits, theme, montado, salvarArquivo]);
+
+  /* hidrata do arquivo na carga, se o navegador ainda não tem edições */
+  React.useEffect(() => {
+    if (!montado) return;
+    if (Object.keys(loadEdits()).length > 0) return;
+    fetch("/api/design")
+      .then((r) => r.json())
+      .then((j) => {
+        const elementos: ElementOverride[] = j?.ok && Array.isArray(j.data?.elementos) ? j.data.elementos : [];
+        if (!elementos.length) return;
+        const map: Record<string, ElementOverride> = {};
+        for (const ov of elementos) map[ov.selector] = ov;
+        try { localStorage.setItem(EDITS_KEY, JSON.stringify(map)); } catch { /* ignore */ }
+        setEdits(map);
+        window.setTimeout(reaplicar, 100);
+      })
+      .catch(() => { /* arquivo indisponível — segue no navegador */ });
+  }, [montado, reaplicar]);
+
   function exportar() {
-    const payload = {
-      app: "all4pay",
-      geradoEm: new Date().toISOString(),
-      tema: themeToCssVars(theme),
-      elementos: Object.values(loadEdits()),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(buildPayload(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "all4pay-edicoes.json"; a.click();
@@ -387,8 +430,18 @@ export function VisualEditor() {
             )}
           </div>
 
-          {/* rodapé: export / limpar */}
+          {/* rodapé: status do auto-save + export / limpar */}
           <div className="border-t border-border-soft p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-caption">
+              <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: salvando === "saved" ? "var(--color-positive)" : salvando === "saving" ? "var(--color-warning)" : salvando === "local" ? "var(--color-faint)" : "var(--color-border)" }} />
+              <span className="text-muted">
+                {salvando === "saving" ? "Salvando no arquivo…"
+                  : salvando === "saved" ? "Salvo em design-edits.json"
+                  : salvando === "local" ? "Salvo no navegador (arquivo indisponível neste ambiente)"
+                  : "Pronto para editar"}
+              </span>
+              <button onClick={salvarArquivo} className="ml-auto text-muted hover:text-ink underline">Salvar agora</button>
+            </div>
             <Button variant="primary" fullWidth leftIcon={<Icon name="arrow-down-to-line" size={15} />} onClick={exportar}>
               Exportar tudo (.json)
             </Button>
@@ -396,7 +449,7 @@ export function VisualEditor() {
               <Button variant="secondary" onClick={reaplicar}>Reaplicar</Button>
               <Button variant="ghost" leftIcon={<Icon name="rotate-ccw" size={15} />} onClick={limparTudo}>Limpar edições</Button>
             </div>
-            <p className="text-caption text-faint">Tudo fica só no seu navegador. Exporte e me mande o <code>all4pay-edicoes.json</code> no Claude Code — eu aplico no código.</p>
+            <p className="text-caption text-faint">As alterações salvam sozinhas em <code>design-edits.json</code> (quando o ambiente permite gravar) e no navegador. O botão Exportar baixa o mesmo JSON para me mandar no Claude Code.</p>
           </div>
         </div>
       )}
