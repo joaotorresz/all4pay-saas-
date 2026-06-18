@@ -52,18 +52,14 @@ export function RelatoriosRazaoView() {
           </Card>
         ) : (
           <>
-            {/* DRE do razão */}
-            <Card className="flex flex-col gap-2">
-              <span className="text-label font-medium text-muted">DRE gerencial · do razão</span>
-              <div className="grid grid-cols-3 gap-4 py-1">
-                <Resumo label="Receita" valor={dre!.receita} />
-                <Resumo label="Despesa" valor={dre!.despesa} />
-                <Resumo label="Resultado" valor={dre!.resultado} tone={dre!.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)"} />
-              </div>
+            {/* DRE unificado: vive em /dre (razão = projeção dos movimentos, números reconciliam) */}
+            <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
-                {dre!.receitas.map((c) => <LinhaConta key={c.conta} c={c} />)}
-                {dre!.despesas.map((c) => <LinhaConta key={c.conta} c={c} negativo />)}
+                <span className="text-label font-medium text-muted">Resultado do período</span>
+                <span className="text-[24px] leading-none font-semibold tabular-nums" style={{ color: dre!.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={dre!.resultado} /></span>
+                <span className="text-caption text-faint tabular-nums">receita <BRL value={dre!.receita} /> · despesa <BRL value={dre!.despesa} /></span>
               </div>
+              <Link href="/dre" className="text-label font-medium text-ink underline">Ver DRE completo →</Link>
             </Card>
 
             {/* Orçado × Realizado (do razão) + flux */}
@@ -174,14 +170,6 @@ function Resumo({ label, valor, tone = "var(--color-ink)" }: { label: string; va
     <div className="flex flex-col gap-1">
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[20px] font-semibold tabular-nums" style={{ color: tone }}><BRL value={valor} /></span>
-    </div>
-  );
-}
-function LinhaConta({ c, negativo }: { c: { conta: string; nome: string; valor: number }; negativo?: boolean }) {
-  return (
-    <div className="flex justify-between py-[6px] border-b border-border-soft text-caption">
-      <span className="text-muted truncate">{c.conta} · {c.nome}</span>
-      <span className="tabular-nums shrink-0" style={{ color: negativo ? "var(--color-negative)" : "var(--color-ink)" }}>{negativo ? "−" : ""}<BRL value={c.valor} /></span>
     </div>
   );
 }

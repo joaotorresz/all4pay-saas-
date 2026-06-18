@@ -126,7 +126,15 @@
 
 ## 4. ⚠️ Correlações que NÃO estão fechando (auditoria)
 
-### 4.1. Duas fontes de verdade: `movements` × razão (GL) — **a maior**
+### 4.1. Duas fontes de verdade: `movements` × razão (GL) — **a maior** · ✅ RESOLVIDO
+> **Atualização (18/06):** o razão passou a ser uma **projeção determinística dos
+> `movements`** (recalculada em `getLedgerEntries`) + os lançamentos nativos do GL
+> (manual/cronograma/provisão/receita, `external_key` sem `mov:`). Não há mais
+> divergência por construção — `movements` e razão sempre batem; os 702 `mov:`
+> antigos no banco são ignorados (não duplicam). **Os dois DREs foram fundidos:**
+> `/relatorios` aponta para o `/dre` único (números reconciliam). Texto original
+> abaixo mantido como histórico.
+
 - O razão (Fase 0–6) é a fonte contábil nova, mas **só é populado por ação explícita**: `Backfill` (/razao), lançamento manual, Pluggy (live), e os "Lançar no razão" de cronogramas/provisões/receita.
 - **Lançamentos novos em `movements`** (Nova transação, vendas, recorrências, upload, baixas) **NÃO postam automaticamente no GL**. → o razão **diverge** de `movements` com o tempo (precisa re-backfill, que é idempotente mas manual).
 - **DRE gerencial (`/dre`), dashboard, risco, quant, inadimplência, decisão, fluxo de caixa** continuam lendo `movements` — **não o GL**. Há, portanto, **dois DREs** (`/dre` sobre movements × `/relatorios` sobre o razão) e **dois orçamentos** (`/orcamento` × `/relatorios`), com fontes diferentes que podem não bater.

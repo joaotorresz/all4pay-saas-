@@ -58,14 +58,13 @@ async function lancamentosDosMovimentos(): Promise<LedgerEntryInput[]> {
 
 export const PLANO = PLANO_PADRAO;
 
-export async function getLedgerEntries(): Promise<RazaoLancamento[]> {
-  if (isDemo) return load().sort((a, b) => b.data.localeCompare(a.data));
+async function lerJournalLive(): Promise<RazaoLancamento[]> {
   const { data, error } = await createClient()
     .from("journal_entries")
     .select("id,entry_date,description,source,external_key,journal_lines(debit,credit,dimensions,ledger_accounts(code,name,type))")
     .eq("status", "posted")
     .order("entry_date", { ascending: false })
-    .limit(500);
+    .limit(1000);
   if (error) throw error;
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
     id: String(r.id),
@@ -78,6 +77,18 @@ export async function getLedgerEntries(): Promise<RazaoLancamento[]> {
       return { conta: acc.code ?? "—", nome: acc.name ?? "—", tipo: (acc.type ?? "asset") as AccountType, debito: Number(l.debit ?? 0), credito: Number(l.credit ?? 0), dimensions: (l.dimensions ?? {}) as Record<string, string | number> };
     }),
   }));
+}
+
+/**
+ * Razão = PROJEÇÃO determinística dos movimentos (sempre em sincronia, sem
+ * divergência) + lançamentos NATIVOS do GL (manual/cronograma/provisão/receita,
+ * external_key sem prefixo `mov:`). Fonte de verdade única.
+ */
+export async function getLedgerEntries(): Promise<RazaoLancamento[]> {
+  const derivados = (await lancamentosDosMovimentos()).map((e) => entryToLanc(e, e.externalKey!));
+  const todosNativos = isDemo ? load() : await lerJournalLive();
+  const nativos = todosNativos.filter((x) => !(x.externalKey ?? "").startsWith("mov:"));
+  return [...derivados, ...nativos].sort((a, b) => b.data.localeCompare(a.data));
 }
 
 export function balancete(entries: RazaoLancamento[]): ContaBalancete[] {

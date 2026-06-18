@@ -8,7 +8,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge } from "@/components/ui";
-import { getLedgerEntries, balancete, backfillRazao, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
+import { getLedgerEntries, balancete, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
 import { isDemo } from "@/lib/demo";
@@ -42,13 +42,7 @@ export function RazaoView() {
   const totCred = bal.reduce((s, c) => s + c.credito, 0);
   const balanceado = Math.round((totDeb - totCred) * 100) === 0;
 
-  const fazerBackfill = async () => {
-    setBusy("backfill"); setMsg(null);
-    try { const n = await backfillRazao(); await recarregar(); setMsg(`${n} lançamento(s) derivado(s) do histórico.`); }
-    catch (e) { setMsg(`Falha no backfill: ${(e as Error).message}`); }
-    finally { setBusy(null); }
-  };
-  const limpar = async () => { clearRazao(); await recarregar(); setMsg("Razão (demo) limpo."); };
+  const limpar = async () => { clearRazao(); await recarregar(); setMsg("Lançamentos próprios (demo) limpos."); };
 
   const importarOF = async () => {
     setBusy("of"); setMsg(null);
@@ -82,17 +76,15 @@ export function RazaoView() {
     <AppShell title="Razão" crumb="Contabilidade" actions={isDemo ? <DemoBadge /> : null}>
       <div className="flex flex-col gap-5 pb-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="primary" onClick={fazerBackfill} disabled={busy !== null} leftIcon={<Icon name="repeat" size={15} />}>
-            {busy === "backfill" ? "Derivando…" : "Backfill do histórico"}
-          </Button>
           <Button variant="secondary" onClick={() => setForm((f) => !f)} leftIcon={<Icon name="plus" size={15} />}>Novo lançamento</Button>
           <Button variant="secondary" onClick={importarOF} disabled={busy !== null || isDemo} title={isDemo ? "Disponível em live (Open Finance)" : "Importar transações do Open Finance para o razão"} leftIcon={<Icon name="building" size={15} />}>
             {busy === "of" ? "Importando…" : "Importar Open Finance"}
           </Button>
-          {isDemo && entries && entries.length > 0 && (
-            <button onClick={limpar} className="text-caption text-muted hover:text-ink underline ml-auto">Limpar razão (demo)</button>
+          {isDemo && (
+            <button onClick={limpar} className="text-caption text-muted hover:text-ink underline ml-auto">Limpar lançamentos próprios (demo)</button>
           )}
         </div>
+        <span className="text-caption text-faint">O razão é uma <b className="text-muted font-medium">projeção dos movimentos</b> (sempre em sincronia) + os lançamentos próprios do GL (manual, cronogramas, provisões, receita).</span>
         {msg && <span className="text-caption text-muted">{msg}</span>}
 
         {form && (
@@ -117,7 +109,7 @@ export function RazaoView() {
         ) : entries.length === 0 ? (
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Razão vazio</span>
-            <span className="text-caption text-muted">Use <b className="text-ink font-medium">Backfill do histórico</b> para derivar os lançamentos de dupla entrada dos seus movimentos, ou poste um lançamento manual.</span>
+            <span className="text-caption text-muted">Lance um movimento (Nova transação) ou importe dados — o razão projeta tudo automaticamente. Você também pode postar um lançamento manual aqui.</span>
           </Card>
         ) : (
           <>
