@@ -93,6 +93,27 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  "/razao": {
+    titulo: "Razão (General Ledger)",
+    intro: "A fonte única da verdade: razão de dupla entrada. Todo lançamento tem débito = crédito (validado no banco). O balancete prova o equilíbrio; cada lançamento abre as linhas por conta.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Backfill do histórico", desc: "Deriva lançamentos de dupla entrada dos seus movimentos (idempotente).", match: "Backfill" },
+          { nome: "Novo lançamento", desc: "Posta um lançamento manual balanceado (débito × crédito).", match: "Novo lançamento" },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Balancete", desc: "Saldo por conta (natureza) + selo 'Razão balanceado' (∑D = ∑C).", match: "Balancete" },
+          { nome: "Lançamentos", desc: "Cada lançamento abre as linhas: conta · débito · crédito.", match: "Lançamentos" },
+        ],
+      },
+    ],
+  },
+
   "/dre": {
     titulo: "DRE Intelligence Center",
     intro: "Centro de resultado: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção.",
