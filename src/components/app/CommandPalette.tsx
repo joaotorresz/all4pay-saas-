@@ -24,6 +24,7 @@ const ROUTES: RouteItem[] = [
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "Orçamento vs Realizado", href: "/orcamento", icon: "receipt", kw: "orcamento budget variancia flux analysis orcado realizado desvio analise variacao planejado" },
   { label: "Fechamento contábil", href: "/fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
+  { label: "Cronogramas (amort./deprec.)", href: "/cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
   { label: "Inteligência", href: "/inteligencia", icon: "activity", kw: "quant kpis score saude" },
   { label: "Decisão", href: "/decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Autônomo", href: "/autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },

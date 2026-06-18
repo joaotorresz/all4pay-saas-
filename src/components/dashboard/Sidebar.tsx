@@ -79,6 +79,7 @@ const GROUPS: Group[] = [
       { label: "DRE", href: "/dre" },
       { label: "Orçamento vs Realizado", href: "/orcamento" },
       { label: "Fechamento contábil", href: "/fechamento" },
+      { label: "Cronogramas (amort./deprec.)", href: "/cronogramas" },
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
     ],
   },
