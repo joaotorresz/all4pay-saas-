@@ -195,9 +195,25 @@ export function clearRazao(): void { if (typeof window !== "undefined") { try { 
 
 /** Postagem manual de um lançamento já balanceado (demo: store; live: GL). */
 export async function postarLancamento(e: LedgerEntryInput): Promise<void> {
-  if (isDemo) { save([entryToLanc(e, e.externalKey ?? `man:${Date.now()}`), ...load()]); return; }
+  if (isDemo) {
+    const atual = load();
+    if (e.externalKey && atual.some((x) => x.externalKey === e.externalKey)) return; // idempotente
+    save([entryToLanc(e, e.externalKey ?? `man:${Date.now()}`), ...atual]);
+    return;
+  }
   await seedPlanoLive();
   await postarLiveLote([e]);
+}
+
+/** Trava/destrava o período no banco (live) — o trigger passa a rejeitar postagens. */
+export async function travarPeriodoLive(mesISO: string, locked: boolean): Promise<void> {
+  if (isDemo) return;
+  const s = createClient();
+  const period = `${mesISO.slice(0, 7)}-01`;
+  const { entityId } = await seedPlanoLive();
+  const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
+  if (ja) await s.from("accounting_periods").update({ status: locked ? "locked" : "open" }).eq("id", (ja as { id: string }).id);
+  else await s.from("accounting_periods").insert({ entity_id: entityId, period, status: locked ? "locked" : "open" });
 }
 
 /* ----------------------------- categorização (regras + IA) ----------------------------- */

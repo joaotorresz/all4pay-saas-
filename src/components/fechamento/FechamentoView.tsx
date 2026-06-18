@@ -13,6 +13,7 @@ import { Card, BRL, StatusBadge, Button, Icon, Skeleton } from "@/components/ui"
 import { getRiscoInput } from "@/lib/data";
 import { montarFechamento, mesLabel } from "@/core/close";
 import { isPeriodLocked, lockPeriod, unlockPeriod, loadCloseTasks, saveCloseTask } from "@/lib/close";
+import { postarLancamento, travarPeriodoLive } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
@@ -35,6 +36,7 @@ export function FechamentoView() {
   const [tarefasManuais, setTarefasManuais] = React.useState<Record<string, boolean>>({});
   const [travado, setTravado] = React.useState(false);
   const [tick, setTick] = React.useState(0); // força recomputo ao mudar estado local
+  const [provMsg, setProvMsg] = React.useState<string | null>(null);
 
   const meses = q.data ? mesesDisponiveis(q.data.hoje) : [];
   const mesAtivo = mes ?? meses[0] ?? null;
@@ -59,12 +61,23 @@ export function FechamentoView() {
   };
   const travar = () => {
     if (!mesAtivo) return;
-    if (travado) { unlockPeriod(mesAtivo); setTravado(false); }
+    if (travado) { unlockPeriod(mesAtivo); setTravado(false); travarPeriodoLive(mesAtivo, false).catch(() => {}); }
     else {
-      if (!window.confirm(`Travar ${mesLabel(mesAtivo)}? Lançamentos desse mês ficam protegidos contra edição/exclusão.`)) return;
-      lockPeriod(mesAtivo); setTravado(true);
+      if (!window.confirm(`Travar ${mesLabel(mesAtivo)}? Lançamentos desse mês ficam protegidos contra edição/exclusão (e o razão rejeita postagens no banco).`)) return;
+      lockPeriod(mesAtivo); setTravado(true); travarPeriodoLive(mesAtivo, true).catch(() => {});
     }
     setTick((x) => x + 1);
+  };
+  const lancarProvisao = async (categoria: string, valor: number) => {
+    if (!mesAtivo || valor <= 0) return;
+    try {
+      await postarLancamento({
+        entryDate: `${mesAtivo}-01`, description: `Provisão: ${categoria}`, source: "system",
+        externalKey: `prov:${mesAtivo}:${categoria}`,
+        lines: [{ accountId: "4.1.09", debit: valor }, { accountId: "2.1.99", credit: valor }],
+      });
+      setProvMsg(`Provisão de "${categoria}" lançada no razão.`);
+    } catch (e) { setProvMsg(`Falha: ${(e as Error).message}`); }
   };
 
   return (
@@ -149,14 +162,16 @@ export function FechamentoView() {
               </span>
               {report.sugestoes.map((s, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 py-2 border-t border-border-soft first:border-t-0">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="text-[15px] font-medium text-ink truncate">{s.categoria}</div>
                     <div className="text-caption text-faint truncate">{s.motivo}</div>
                   </div>
                   <span className="tabular-nums text-ink shrink-0"><BRL value={s.valorSugerido} /></span>
+                  <button onClick={() => lancarProvisao(s.categoria, s.valorSugerido)} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2 shrink-0">Lançar</button>
                 </div>
               ))}
-              <span className="text-caption text-faint">Provisões são sugestões da IA pela média histórica — revise antes de lançar.</span>
+              {provMsg && <span className="text-caption text-positive">{provMsg}</span>}
+              <span className="text-caption text-faint">Provisões são sugestões da IA pela média histórica — “Lançar” cria o lançamento no razão (despesa × provisões a pagar).</span>
             </Card>
           )}
         </div>

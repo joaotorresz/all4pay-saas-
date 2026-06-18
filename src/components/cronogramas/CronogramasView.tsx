@@ -12,6 +12,7 @@ import {
   type Cronograma, type TipoCronograma,
 } from "@/core/schedules";
 import { loadCronogramas, salvarCronograma, removerCronograma } from "@/lib/schedules";
+import { postarLancamento } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
@@ -36,9 +37,26 @@ export function CronogramasView() {
 
   React.useEffect(() => { setLista(loadCronogramas()); }, []);
 
+  const [postando, setPostando] = React.useState(false);
+  const [msgRazao, setMsgRazao] = React.useState<string | null>(null);
+
   const lancamento = React.useMemo(() => lancamentoDoMes(lista, mes), [lista, mes]);
   const resumo = React.useMemo(() => resumoCronogramas(lista, mes), [lista, mes]);
   const meses = ultimosMeses(8);
+
+  const lancarNoRazao = async () => {
+    if (lancamento.total <= 0) return;
+    setPostando(true); setMsgRazao(null);
+    try {
+      const lines = [] as { accountId: string; debit?: number; credit?: number }[];
+      if (lancamento.porTipo.depreciacao > 0) lines.push({ accountId: "4.3.01", debit: lancamento.porTipo.depreciacao });
+      if (lancamento.porTipo.amortizacao > 0) lines.push({ accountId: "4.3.02", debit: lancamento.porTipo.amortizacao });
+      lines.push({ accountId: "1.2.99", credit: lancamento.total });
+      await postarLancamento({ entryDate: `${mes}-01`, description: `Depreciação/amortização ${mes}`, source: "depreciation", externalKey: `cron:${mes}`, lines });
+      setMsgRazao("Lançado no razão (consulte /razao e /relatorios).");
+    } catch (e) { setMsgRazao(`Falha: ${(e as Error).message}`); }
+    finally { setPostando(false); }
+  };
 
   const salvar = () => {
     if (!draft || !draft.descricao.trim() || draft.meses <= 0 || draft.valorTotal <= 0) return;
@@ -94,7 +112,13 @@ export function CronogramasView() {
                   </div>
                 ))}
               </div>
-              <span className="text-caption text-faint">Entrada contábil sugerida para revisão e aprovação — um lançamento de despesa por mês.</span>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <span className="text-caption text-faint">Entrada contábil para revisão — um lançamento de despesa por mês.</span>
+                <Button size="sm" onClick={lancarNoRazao} disabled={postando} leftIcon={<Icon name="check" size={14} />}>
+                  {postando ? "Lançando…" : "Lançar no razão"}
+                </Button>
+              </div>
+              {msgRazao && <span className="text-caption text-positive">{msgRazao}</span>}
             </>
           )}
         </Card>
