@@ -26,6 +26,7 @@ export const PLANO_PADRAO: ContaPlano[] = [
   { code: "4.3.02", name: "Amortização", type: "expense" },
   { code: "1.2.99", name: "(-) Depreciação/amortização acumulada", type: "asset" },
   { code: "2.1.99", name: "Provisões a pagar", type: "liability" },
+  { code: "2.2.01", name: "Receita diferida", type: "liability" },
 ];
 
 const REC: Record<string, string> = { vendas: "3.1.01", servicos: "3.1.02", juros: "3.1.03", outras: "3.1.09" };

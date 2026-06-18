@@ -6,8 +6,9 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, BRL, StatusBadge, Icon, Skeleton } from "@/components/ui";
+import { Card, BRL, StatusBadge, Icon, Skeleton, Button } from "@/components/ui";
 import { listRecorrencias, rolarRecorrencias, totalFatura, CICLOS } from "@/lib/recorrencias";
+import { postarLancamento } from "@/lib/ledger";
 import { analisarReceita, type ContratoReceita, type ReceitaReport } from "@/core/revenue";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -18,6 +19,29 @@ const cicloMesesDe = (ciclo: string) => CICLOS.find((c) => c.id === ciclo)?.mese
 export function ReceitaReconhecimentoView() {
   const [report, setReport] = React.useState<ReceitaReport | null>(null);
   const [carregando, setCarregando] = React.useState(true);
+  const [reconhecendo, setReconhecendo] = React.useState(false);
+  const [msgRec, setMsgRec] = React.useState<string | null>(null);
+
+  const reconhecerNoRazao = async () => {
+    if (!report) return;
+    setReconhecendo(true); setMsgRec(null);
+    const mes = new Date().toISOString().slice(0, 7);
+    try {
+      let n = 0;
+      for (const c of report.contratos.filter((x) => x.ativo && x.mrr > 0)) {
+        await postarLancamento({
+          entryDate: `${mes}-01`,
+          description: `Reconhecimento de receita: ${c.titulo}`,
+          source: "revrec",
+          externalKey: `revrec:${c.id}:${mes}`,
+          lines: [{ accountId: "2.2.01", debit: c.mrr }, { accountId: "3.1.02", credit: c.mrr }],
+        });
+        n++;
+      }
+      setMsgRec(`Competência de ${mes} reconhecida: ${n} contrato(s) lançado(s) no razão.`);
+    } catch (e) { setMsgRec(`Falha: ${(e as Error).message}`); }
+    finally { setReconhecendo(false); }
+  };
 
   React.useEffect(() => {
     let ativo = true;
@@ -55,6 +79,12 @@ export function ReceitaReconhecimentoView() {
         </Card>
       ) : (
         <div className="flex flex-col gap-5">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button variant="primary" onClick={reconhecerNoRazao} disabled={reconhecendo} leftIcon={<Icon name="check" size={15} />}>
+              {reconhecendo ? "Reconhecendo…" : "Reconhecer competência no razão"}
+            </Button>
+            {msgRec && <span className="text-caption text-positive">{msgRec}</span>}
+          </div>
           {/* Resumo */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             <Resumo label="MRR" valor={report.resumo.mrr} />
