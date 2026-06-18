@@ -81,6 +81,7 @@ const GROUPS: Group[] = [
       { label: "Fechamento contábil", href: "/fechamento" },
       { label: "Cronogramas (amort./deprec.)", href: "/cronogramas" },
       { label: "Reconhecimento de receita", href: "/receita" },
+      { label: "Dimensões & Tags", href: "/dimensoes" },
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
     ],
   },

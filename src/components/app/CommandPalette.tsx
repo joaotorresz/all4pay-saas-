@@ -26,6 +26,7 @@ const ROUTES: RouteItem[] = [
   { label: "Fechamento contábil", href: "/fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
   { label: "Cronogramas (amort./deprec.)", href: "/cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
   { label: "Reconhecimento de receita", href: "/receita", icon: "trending-up", kw: "reconhecimento receita diferida deferred revenue mrr arr waterfall ifrs 15 cpc 47 asc 606 recorrencia assinatura" },
+  { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers", kw: "dimensoes tags pivot drill-down categoria centro custo contraparte relatorio dinamico" },
   { label: "Inteligência", href: "/inteligencia", icon: "activity", kw: "quant kpis score saude" },
   { label: "Decisão", href: "/decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Autônomo", href: "/autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },
