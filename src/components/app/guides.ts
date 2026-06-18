@@ -101,19 +101,20 @@ export const GUIDES: Record<string, Guide> = {
         titulo: "O que dá para fazer",
         itens: [
           { nome: "Período & regime", desc: "Mês/anterior/YTD/12m e Competência (vencimento) ou Caixa (pagamento). Recalcula tudo.", match: "Período" },
+          { nome: "Cadência", desc: "Mensal ou Trimestral — define os períodos da tabela de evolução.", match: "Cadência" },
+          { nome: "Filtro", desc: "Escopa TODO o DRE: tudo, só receitas, só despesas, por centro de custo ou por cliente.", match: "Filtro" },
           { nome: "Drill-down", desc: "Clique nas linhas com ▸ para abrir a composição por categoria." },
         ],
       },
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "Leitura do resultado (copiloto)", desc: "Comentário automático + top problemas e oportunidades.", match: "Leitura do resultado" },
           { nome: "Waterfall gerencial", desc: "Receita bruta → impostos → líquida → CMV → lucro bruto → opex → EBITDA → financeiro → lucro líquido.", match: "DRE gerencial" },
           { nome: "DRE financeiro", desc: "Visão caixa: fluxos operacional/financeiro/livre + burn.", match: "DRE financeiro" },
-          { nome: "Comparativo", desc: "Mês atual × anterior × YTD × 12m, com variações.", match: "DRE comparativo" },
+          { nome: "Evolução por cadência", desc: "Receita, EBITDA, margem e lucro por mês ou por trimestre.", match: "Evolução" },
           { nome: "Por linha de receita", desc: "Rentabilidade por linha (produto/unidade), custo rateado.", match: "Por linha de receita" },
           { nome: "Por cliente", desc: "Receita, share, margem, risco e vencido por cliente.", match: "DRE por cliente" },
-          { nome: "Por centro de custo", desc: "Receita/despesa/resultado por centro de custo — reflete o que você seleciona no lançamento.", match: "DRE por centro de custo" },
+          { nome: "Por centro de custo", desc: "Receita/despesa/resultado por centro de custo.", match: "DRE por centro de custo" },
           { nome: "Projetado", desc: "Receita média × margem atual para 30/90/180/360 dias.", match: "DRE projetado" },
         ],
       },

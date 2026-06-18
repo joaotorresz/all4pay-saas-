@@ -1,21 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
-import { useDRE } from "@/components/visao-geral/hooks";
+import { useQuery } from "@tanstack/react-query";
+import { BRL, Card, Skeleton, Select } from "@/components/ui";
+import { getRiscoInput } from "@/lib/data";
+import { financialDRE, periodoPreset } from "@/core/dre";
+import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { FirstRunCard } from "@/components/visao-geral/FirstRunCard";
 import type {
   DRELinha,
   DREClienteLinha,
   DRELinhaReceita,
   DRECentroCusto,
-  DREPeriodo,
   DREProjecao,
 } from "@/core/dre/types";
 
 type Preset = "mes" | "mes_anterior" | "ytd" | "12m";
 type Regime = "competencia" | "caixa";
+type Cadencia = "mensal" | "trimestral";
 const PRESETS: { id: Preset; label: string }[] = [
   { id: "mes", label: "Mês atual" },
   { id: "mes_anterior", label: "Mês anterior" },
@@ -25,18 +27,85 @@ const PRESETS: { id: Preset; label: string }[] = [
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sign = (v: number) => (v < 0 ? "−" : "");
 
+const isoDia = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const mesCurto = (d: Date) => d.toLocaleString("pt-BR", { month: "short" }).replace(".", "") + "/" + String(d.getFullYear()).slice(2);
+
+/** Buckets da série por cadência (mensal = 6 meses; trimestral = 4 janelas de 3 meses). */
+function bucketsCadencia(hojeISO: string, cad: Cadencia): { de: string; ate: string; label: string }[] {
+  const [y, m] = hojeISO.slice(0, 7).split("-").map(Number);
+  const span = cad === "trimestral" ? 3 : 1;
+  const n = cad === "trimestral" ? 4 : 6;
+  const out: { de: string; ate: string; label: string }[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const endIdx = (m - 1) - i * span;
+    const start = new Date(y, endIdx - (span - 1), 1);
+    const endFirst = new Date(y, endIdx, 1);
+    const end = new Date(endFirst.getFullYear(), endFirst.getMonth() + 1, 0);
+    out.push({ de: isoDia(start), ate: isoDia(end), label: span === 1 ? mesCurto(end) : `${mesCurto(start)}–${mesCurto(end)}` });
+  }
+  return out;
+}
+
+type DREData = ReturnType<typeof financialDRE>;
+
 export function DREView() {
   const [preset, setPreset] = React.useState<Preset>("12m");
   const [regime, setRegime] = React.useState<Regime>("competencia");
-  const { data, isLoading, isError } = useDRE(preset, regime);
+  const [cadencia, setCadencia] = React.useState<Cadencia>("mensal");
+  const [filtro, setFiltro] = React.useState<string>("tudo");
+
+  const { data: input, isLoading, isError } = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+
+  // Dimensões disponíveis para o filtro (centros e clientes presentes nos dados).
+  const centros = React.useMemo(
+    () => (input ? (Array.from(new Set(input.movements.map((m) => m.costCenter).filter(Boolean))) as string[]).sort() : []),
+    [input],
+  );
+  const clientes = React.useMemo(() => {
+    if (!input) return [] as { id: string; nome: string }[];
+    const ids = Array.from(new Set(input.movements.map((m) => m.party_id).filter(Boolean))) as string[];
+    return ids.map((id) => ({ id, nome: input.partyNames?.[id] ?? id })).sort((a, b) => a.nome.localeCompare(b.nome)).slice(0, 40);
+  }, [input]);
+
+  // Aplica o filtro escopando os movimentos antes de montar o DRE.
+  const filtrado = React.useMemo(() => {
+    if (!input) return undefined;
+    let movs = input.movements;
+    if (filtro === "receitas") movs = movs.filter((m) => m.type === "entrada");
+    else if (filtro === "despesas") movs = movs.filter((m) => m.type === "saida");
+    else if (filtro.startsWith("centro:")) { const c = filtro.slice(7); movs = movs.filter((m) => (m.costCenter || "") === c); }
+    else if (filtro.startsWith("cliente:")) { const id = filtro.slice(8); movs = movs.filter((m) => m.party_id === id); }
+    return { ...input, movements: movs };
+  }, [input, filtro]);
+
+  const data: DREData | undefined = React.useMemo(
+    () => (filtrado ? financialDRE(filtrado, { ...periodoPreset(filtrado.hoje, preset), regime }) : undefined),
+    [filtrado, preset, regime],
+  );
+
+  const serie = React.useMemo(() => {
+    if (!filtrado) return [] as { label: string; receita: number; ebitda: number; lucro: number; margem: number }[];
+    return bucketsCadencia(filtrado.hoje, cadencia).map((b) => {
+      const g = dreGerencial(movimentosNoPeriodo(filtrado, regime, b.de, b.ate));
+      return { label: b.label, receita: g.receitaLiquida, ebitda: g.ebitda, lucro: g.lucroLiquido, margem: g.margemEbitda };
+    });
+  }, [filtrado, regime, cadencia]);
+
+  const filtroOptions = React.useMemo(() => [
+    { value: "tudo", label: "Tudo" },
+    { value: "receitas", label: "Somente receitas" },
+    { value: "despesas", label: "Somente despesas" },
+    ...centros.map((c) => ({ value: `centro:${c}`, label: `Centro: ${c}` })),
+    ...clientes.map((c) => ({ value: `cliente:${c.id}`, label: `Cliente: ${c.nome}` })),
+  ], [centros, clientes]);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
       <FirstRunCard />
       {/* Barra de filtros (DRE dinâmico) */}
-      <Card className="flex flex-wrap items-center gap-3">
+      <Card className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-label font-medium text-muted">Período</span>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {PRESETS.map((p) => (
             <button
               key={p.id}
@@ -60,6 +129,21 @@ export function DREView() {
             </button>
           ))}
         </div>
+        <span className="w-px h-5 bg-border-soft mx-1" />
+        <Select
+          label="Cadência"
+          value={cadencia}
+          onChange={(v) => setCadencia(v as Cadencia)}
+          options={[{ value: "mensal", label: "Mensal" }, { value: "trimestral", label: "Trimestral" }]}
+          containerClassName="min-w-[150px]"
+        />
+        <Select
+          label="Filtro"
+          value={filtro}
+          onChange={setFiltro}
+          options={filtroOptions}
+          containerClassName="min-w-[190px]"
+        />
       </Card>
 
       {isLoading || !data ? (
@@ -73,14 +157,23 @@ export function DREView() {
           </div>
         )
       ) : (
-        <Conteudo data={data} />
+        <Conteudo data={data} serie={serie} cadencia={cadencia} />
       )}
     </div>
   );
 }
 
-function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"]> }) {
-  const { gerencial, financeiro, comparativo, porCliente, porLinha, porCentroCusto, projetado, executivo } = data;
+function Conteudo({
+  data, serie, cadencia,
+}: {
+  data: DREData;
+  serie: { label: string; receita: number; ebitda: number; lucro: number; margem: number }[];
+  cadencia: Cadencia;
+}) {
+  const { gerencial, financeiro, porCliente, porLinha, porCentroCusto, projetado, executivo } = data;
+  const varReceita = serie.length >= 2 && serie[serie.length - 2].receita
+    ? (serie[serie.length - 1].receita - serie[serie.length - 2].receita) / Math.abs(serie[serie.length - 2].receita)
+    : 0;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
       {/* Executivo */}
@@ -92,29 +185,6 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         <Stat label="Runway" value={`${financeiro.runwayMeses}m`} />
         <Stat label="Caixa" value={<BRL value={executivo.caixa} />} />
       </div>
-
-      {/* Comentário do copiloto */}
-      <Card className="lg:col-span-3 flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-            <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
-          </span>
-          <span className="text-label font-medium text-muted">Leitura do resultado · copiloto</span>
-        </div>
-        <p className="m-0 text-body leading-[1.5] text-ink">{executivo.comentario}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 pt-1">
-          <div>
-            {executivo.problemas.map((p, i) => (
-              <span key={i} className="flex items-start gap-[6px] text-caption text-muted"><span className="w-[6px] h-[6px] rounded-pill bg-negative mt-[6px]" />{p}</span>
-            ))}
-          </div>
-          <div>
-            {executivo.oportunidades.map((o, i) => (
-              <span key={i} className="flex items-start gap-[6px] text-caption text-muted"><span className="w-[6px] h-[6px] rounded-pill bg-positive mt-[6px]" />{o}</span>
-            ))}
-          </div>
-        </div>
-      </Card>
 
       {/* DRE Gerencial (waterfall + drill-down) */}
       <Card className="lg:col-span-2 flex flex-col gap-2">
@@ -140,16 +210,16 @@ function Conteudo({ data }: { data: NonNullable<ReturnType<typeof useDRE>["data"
         </div>
       </Card>
 
-      {/* Comparativo */}
+      {/* Evolução por cadência (Mensal / Trimestral) */}
       <Card className="lg:col-span-3 flex flex-col gap-2">
-        <span className="text-label font-medium text-muted">DRE comparativo</span>
+        <span className="text-label font-medium text-muted">Evolução · {cadencia === "trimestral" ? "trimestral" : "mensal"}</span>
         <Tabela
-          head={["Período", "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
-          rows={comparativo.periodos.map((p: DREPeriodo) => [p.label, <BRL key="r" value={p.receita} />, <BRL key="e" value={p.ebitda} />, pct(p.margemEbitda), <BRL key="l" value={p.lucro} />])}
+          head={[cadencia === "trimestral" ? "Trimestre" : "Mês", "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
+          rows={serie.map((p) => [p.label, <BRL key="r" value={p.receita} />, <BRL key="e" value={p.ebitda} />, pct(p.margem), <BRL key="l" value={p.lucro} />])}
           alignRight={[1, 2, 3, 4]}
         />
         <span className="text-caption text-faint">
-          Variação mês a mês — receita {comparativo.variacaoReceita >= 0 ? "+" : ""}{pct(comparativo.variacaoReceita)} · EBITDA {comparativo.variacaoEbitda >= 0 ? "+" : ""}{pct(comparativo.variacaoEbitda)}
+          Variação do último período — receita {varReceita >= 0 ? "+" : ""}{pct(varReceita)}.
         </span>
       </Card>
 
