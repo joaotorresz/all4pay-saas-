@@ -8,7 +8,7 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge } from "@/components/ui";
-import { getLedgerEntries, balancete, backfillRazao, postarLancamento, clearRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
+import { getLedgerEntries, balancete, backfillRazao, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
 import { isDemo } from "@/lib/demo";
@@ -50,6 +50,16 @@ export function RazaoView() {
   };
   const limpar = async () => { clearRazao(); await recarregar(); setMsg("Razão (demo) limpo."); };
 
+  const importarOF = async () => {
+    setBusy("of"); setMsg(null);
+    try {
+      const r = await ingerirOpenFinanceRazao();
+      await recarregar();
+      setMsg(r.lidas === 0 && isDemo ? "Open Finance disponível só em live (conecte um banco em Contas)." : `Open Finance: ${r.lidas} lida(s), ${r.postadas} postada(s) no razão.`);
+    } catch (e) { setMsg(`Falha na importação Open Finance: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+
   const postar = async () => {
     if (valor <= 0 || dDeb === dCred) { setMsg("Informe um valor e contas diferentes."); return; }
     setBusy("post"); setMsg(null);
@@ -76,6 +86,9 @@ export function RazaoView() {
             {busy === "backfill" ? "Derivando…" : "Backfill do histórico"}
           </Button>
           <Button variant="secondary" onClick={() => setForm((f) => !f)} leftIcon={<Icon name="plus" size={15} />}>Novo lançamento</Button>
+          <Button variant="secondary" onClick={importarOF} disabled={busy !== null || isDemo} title={isDemo ? "Disponível em live (Open Finance)" : "Importar transações do Open Finance para o razão"} leftIcon={<Icon name="building" size={15} />}>
+            {busy === "of" ? "Importando…" : "Importar Open Finance"}
+          </Button>
           {isDemo && entries && entries.length > 0 && (
             <button onClick={limpar} className="text-caption text-muted hover:text-ink underline ml-auto">Limpar razão (demo)</button>
           )}

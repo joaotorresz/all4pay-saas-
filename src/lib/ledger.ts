@@ -12,6 +12,7 @@ import {
   lancamentoDeMovimento, saldoPorNatureza, type LedgerEntryInput, type AccountType,
 } from "@/core/ledger";
 import { PLANO_PADRAO, CAIXA, contaDeMovimento, nomeConta, tipoConta } from "@/core/ledger/chart";
+import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number }
 export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
@@ -114,6 +115,85 @@ export async function postarLancamento(e: LedgerEntryInput): Promise<void> {
   if (isDemo) { save([entryToLanc(e, e.externalKey ?? `man:${Date.now()}`), ...load()]); return; }
   await seedPlanoLive();
   await postarLiveLote([e]);
+}
+
+/* ----------------------------- categorização (regras + IA) ----------------------------- */
+
+async function iaConfigurada(): Promise<boolean> {
+  try { const r = await fetch("/api/ledger/categorize"); return !!(await r.json())?.configured; } catch { return false; }
+}
+
+/** Categoriza um lote: regras para todos; Claude reforça as de baixa confiança (se houver chave). */
+export async function categorizarLote(txs: TxParaCategorizar[]): Promise<Record<string, Categorizacao>> {
+  const out: Record<string, Categorizacao> = {};
+  for (const t of txs) out[t.id] = categorizarPorRegras(t);
+  const baixa = txs.filter((t) => out[t.id].confianca < 0.7);
+  if (baixa.length && (await iaConfigurada())) {
+    try {
+      const r = await fetch("/api/ledger/categorize", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ transactions: baixa, accounts: PLANO_PADRAO }),
+      });
+      const j = await r.json();
+      if (j?.ok && Array.isArray(j.categorias)) {
+        const valid = new Set(PLANO_PADRAO.map((c) => c.code));
+        for (const c of j.categorias as Array<{ id?: string; code?: string; confianca?: number }>) {
+          if (c?.id && c.code && valid.has(c.code)) out[c.id] = { id: c.id, code: c.code, confianca: Math.max(0.7, Number(c.confianca) || 0.8), motivo: "IA (Claude)" };
+        }
+      }
+    } catch { /* mantém as regras */ }
+  }
+  return out;
+}
+
+/**
+ * Ponte Open Finance → razão (live): transações do Pluggy (bank_transactions)
+ * ainda não processadas → categorização (regras+IA) → lançamento de dupla
+ * entrada postado (idempotente por external_key `pluggy:<txid>`) + raw_events.
+ */
+export async function ingerirOpenFinanceRazao(): Promise<{ lidas: number; postadas: number }> {
+  if (isDemo) return { lidas: 0, postadas: 0 }; // Open Finance não existe em demo
+  const s = createClient();
+  const { data: txs, error } = await s
+    .from("bank_transactions")
+    .select("id,pluggy_transaction_id,amount,date,description")
+    .order("date", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  const linhas = (txs ?? []) as Array<{ id: string; pluggy_transaction_id: string; amount: number; date: string; description: string | null }>;
+  if (!linhas.length) return { lidas: 0, postadas: 0 };
+
+  // pula as já ingeridas (raw_events)
+  const { data: jaProc } = await s.from("raw_events").select("external_id").eq("provider", "pluggy");
+  const feitas = new Set(((jaProc ?? []) as Array<{ external_id: string }>).map((r) => r.external_id));
+  const novas = linhas.filter((t) => !feitas.has(t.pluggy_transaction_id));
+  if (!novas.length) return { lidas: linhas.length, postadas: 0 };
+
+  const paraCat: TxParaCategorizar[] = novas.map((t) => ({
+    id: t.pluggy_transaction_id,
+    descricao: t.description ?? "",
+    valor: Math.abs(Number(t.amount) || 0),
+    tipo: Number(t.amount) >= 0 ? "entrada" : "saida",
+  }));
+  const cats = await categorizarLote(paraCat);
+
+  const entries: LedgerEntryInput[] = novas.map((t) => {
+    const tipo: "entrada" | "saida" = Number(t.amount) >= 0 ? "entrada" : "saida";
+    const cat = cats[t.pluggy_transaction_id];
+    return lancamentoDeMovimento({
+      tipo, valor: Math.abs(Number(t.amount) || 0), data: t.date,
+      contaCaixaId: CAIXA, contaResultadoId: cat.code,
+      descricao: t.description ?? "Open Finance", externalKey: `pluggy:${t.pluggy_transaction_id}`,
+    });
+  });
+
+  await seedPlanoLive();
+  const postadas = await postarLiveLote(entries);
+  // registra os eventos brutos (idempotente por unique org,provider,external_id)
+  await s.from("raw_events").insert(
+    novas.map((t) => ({ provider: "pluggy", external_id: t.pluggy_transaction_id, payload: { amount: t.amount, date: t.date, description: t.description } })),
+  );
+  return { lidas: linhas.length, postadas };
 }
 
 /* ----------------------------- live helpers ----------------------------- */
