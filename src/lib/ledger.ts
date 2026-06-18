@@ -14,7 +14,7 @@ import {
 import { PLANO_PADRAO, CAIXA, contaDeMovimento, nomeConta, tipoConta } from "@/core/ledger/chart";
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
 
-export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number }
+export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
 export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
 export interface ContaBalancete { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; saldo: number }
 
@@ -32,7 +32,7 @@ function entryToLanc(e: LedgerEntryInput, id: string): RazaoLancamento {
     descricao: e.description ?? "Lançamento",
     origem: e.source ?? "manual",
     externalKey: e.externalKey,
-    linhas: e.lines.map((l) => ({ conta: l.accountId, nome: nomeConta(l.accountId), tipo: tipoConta(l.accountId), debito: l.debit ?? 0, credito: l.credit ?? 0 })),
+    linhas: e.lines.map((l) => ({ conta: l.accountId, nome: nomeConta(l.accountId), tipo: tipoConta(l.accountId), debito: l.debit ?? 0, credito: l.credit ?? 0, dimensions: l.dimensions })),
   };
 }
 
@@ -75,7 +75,7 @@ export async function getLedgerEntries(): Promise<RazaoLancamento[]> {
     externalKey: (r.external_key as string) ?? undefined,
     linhas: ((r.journal_lines ?? []) as Array<Record<string, unknown>>).map((l) => {
       const acc = (l.ledger_accounts ?? {}) as { code?: string; name?: string; type?: AccountType };
-      return { conta: acc.code ?? "—", nome: acc.name ?? "—", tipo: (acc.type ?? "asset") as AccountType, debito: Number(l.debit ?? 0), credito: Number(l.credit ?? 0) };
+      return { conta: acc.code ?? "—", nome: acc.name ?? "—", tipo: (acc.type ?? "asset") as AccountType, debito: Number(l.debit ?? 0), credito: Number(l.credit ?? 0), dimensions: (l.dimensions ?? {}) as Record<string, string | number> };
     }),
   }));
 }
@@ -92,6 +92,89 @@ export function balancete(entries: RazaoLancamento[]): ContaBalancete[] {
   return Array.from(map.values())
     .map((c) => ({ ...c, saldo: saldoPorNatureza(c.tipo, c.debito, c.credito) }))
     .sort((a, b) => a.conta.localeCompare(b.conta));
+}
+
+/* ----------------------------- relatórios sobre o razão (Fase 2) ----------------------------- */
+
+export interface ContaValor { conta: string; nome: string; valor: number }
+export interface DRERazao { de: string; ate: string; receita: number; despesa: number; resultado: number; receitas: ContaValor[]; despesas: ContaValor[] }
+export interface BalancoGrupo { titulo: string; total: number; contas: ContaValor[] }
+export interface BalancoRazao { ate: string; ativo: number; passivoPL: number; fecha: boolean; grupos: BalancoGrupo[] }
+export interface PivotRazaoLinha { chave: string; receita: number; despesa: number; resultado: number }
+
+const noPeriodo = (e: RazaoLancamento, de: string, ate: string) => e.data >= de && e.data <= ate;
+
+/** DRE gerencial direto do razão (contas de receita − despesa) no período. */
+export function dreDoRazao(entries: RazaoLancamento[], de: string, ate: string): DRERazao {
+  const acc = new Map<string, { nome: string; tipo: AccountType; deb: number; cred: number }>();
+  for (const e of entries) {
+    if (!noPeriodo(e, de, ate)) continue;
+    for (const l of e.linhas) {
+      if (l.tipo !== "revenue" && l.tipo !== "expense") continue;
+      const a = acc.get(l.conta) ?? { nome: l.nome, tipo: l.tipo, deb: 0, cred: 0 };
+      a.deb += l.debito; a.cred += l.credito; acc.set(l.conta, a);
+    }
+  }
+  const receitas: ContaValor[] = [], despesas: ContaValor[] = [];
+  for (const [conta, a] of Array.from(acc.entries())) {
+    const valor = saldoPorNatureza(a.tipo, a.deb, a.cred);
+    (a.tipo === "revenue" ? receitas : despesas).push({ conta, nome: a.nome, valor });
+  }
+  receitas.sort((x, y) => x.conta.localeCompare(y.conta));
+  despesas.sort((x, y) => x.conta.localeCompare(y.conta));
+  const receita = receitas.reduce((s, c) => s + c.valor, 0);
+  const despesa = despesas.reduce((s, c) => s + c.valor, 0);
+  return { de, ate, receita, despesa, resultado: receita - despesa, receitas, despesas };
+}
+
+/** Balanço patrimonial (saldos acumulados até `ate`): Ativo = Passivo + PL + Resultado. */
+export function balancoDoRazao(entries: RazaoLancamento[], ate: string): BalancoRazao {
+  const porTipo: Record<AccountType, Map<string, { nome: string; deb: number; cred: number }>> = {
+    asset: new Map(), liability: new Map(), equity: new Map(), revenue: new Map(), expense: new Map(),
+  };
+  for (const e of entries) {
+    if (e.data > ate) continue;
+    for (const l of e.linhas) {
+      const m = porTipo[l.tipo];
+      const a = m.get(l.conta) ?? { nome: l.nome, deb: 0, cred: 0 };
+      a.deb += l.debito; a.cred += l.credito; m.set(l.conta, a);
+    }
+  }
+  const contasDe = (t: AccountType): ContaValor[] =>
+    Array.from(porTipo[t].entries()).map(([conta, a]) => ({ conta, nome: a.nome, valor: saldoPorNatureza(t, a.deb, a.cred) })).sort((x, y) => x.conta.localeCompare(y.conta));
+  const soma = (cv: ContaValor[]) => cv.reduce((s, c) => s + c.valor, 0);
+  const ativos = contasDe("asset"), passivos = contasDe("liability"), pl = contasDe("equity");
+  const receita = soma(contasDe("revenue")), despesa = soma(contasDe("expense"));
+  const resultado = receita - despesa;
+  const ativo = soma(ativos);
+  const passivoPL = soma(passivos) + soma(pl) + resultado;
+  return {
+    ate, ativo, passivoPL, fecha: Math.round((ativo - passivoPL) * 100) === 0,
+    grupos: [
+      { titulo: "Ativo", total: ativo, contas: ativos },
+      { titulo: "Passivo", total: soma(passivos), contas: passivos },
+      { titulo: "Patrimônio líquido", total: soma(pl) + resultado, contas: [...pl, { conta: "—", nome: "Resultado acumulado", valor: resultado }] },
+    ],
+  };
+}
+
+/** Pivot do resultado por dimensão (ex.: contraparte, centro) no período. */
+export function pivotDoRazao(entries: RazaoLancamento[], key: string, de: string, ate: string): PivotRazaoLinha[] {
+  const map = new Map<string, { receita: number; despesa: number }>();
+  for (const e of entries) {
+    if (!noPeriodo(e, de, ate)) continue;
+    for (const l of e.linhas) {
+      if (l.tipo !== "revenue" && l.tipo !== "expense") continue;
+      const chave = String(l.dimensions?.[key] ?? "—");
+      const v = map.get(chave) ?? { receita: 0, despesa: 0 };
+      if (l.tipo === "revenue") v.receita += saldoPorNatureza("revenue", l.debito, l.credito);
+      else v.despesa += saldoPorNatureza("expense", l.debito, l.credito);
+      map.set(chave, v);
+    }
+  }
+  return Array.from(map.entries())
+    .map(([chave, v]) => ({ chave, receita: v.receita, despesa: v.despesa, resultado: v.receita - v.despesa }))
+    .sort((a, b) => Math.abs(b.resultado) - Math.abs(a.resultado));
 }
 
 /** Backfill: deriva o razão dos movimentos (idempotente por external_key). */

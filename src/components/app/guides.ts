@@ -114,6 +114,21 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  "/relatorios": {
+    titulo: "Relatórios (Razão)",
+    intro: "Relatórios calculados direto do razão de dupla entrada (a fonte da verdade): DRE gerencial, Balanço patrimonial e pivot por dimensão. Escolha o intervalo.",
+    secoes: [
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "DRE do razão", desc: "Receita − despesa por conta no período (contas de resultado).", match: "DRE gerencial · do razão" },
+          { nome: "Balanço patrimonial", desc: "Ativo = Passivo + PL + resultado (com selo de fechamento).", match: "Balanço patrimonial" },
+          { nome: "Pivot por dimensão", desc: "Resultado por contraparte ou centro de custo (das dimensões dos lançamentos).", match: "Pivot por dimensão" },
+        ],
+      },
+    ],
+  },
+
   "/dre": {
     titulo: "DRE Intelligence Center",
     intro: "Centro de resultado: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção.",
