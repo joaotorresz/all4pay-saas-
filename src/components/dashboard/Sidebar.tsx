@@ -77,6 +77,7 @@ const GROUPS: Group[] = [
   {
     id: "relatorios", label: "Relatórios", icon: "receipt", children: [
       { label: "DRE", href: "/dre" },
+      { label: "Orçamento vs Realizado", href: "/orcamento" },
       { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
     ],
   },

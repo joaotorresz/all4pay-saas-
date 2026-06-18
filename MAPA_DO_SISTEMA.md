@@ -243,6 +243,20 @@ fechadas.*
 
 ---
 
+## 8.6. Campfire (ERP nativo de IA) — gaps e execução
+
+Do doc "Campfire — Anatomia do Sistema". O que o Campfire tem e a all4pay
+**ainda não** (priorizado por valor × esforço; lógica pura, demo-safe):
+
+| Gap (Campfire) | Status na all4pay |
+| --- | --- |
+| **Orçado vs Realizado + Análise de variação (flux analysis)** com explicação no nível da transação | ✅ **feito** — `src/core/budget` (`analisarVariancia`) + `/orcamento` ("Orçamento vs Realizado"). Por linha do resultado: orçado · realizado · desvio (R$/%) + drill-down de categorias e transações + narrativa. Orçamento mensal editável (`lib/budget.ts`); sem ele, baseline automático (run-rate). Reusa a classificação do DRE. |
+| **Fechamento contábil contínuo**: checklist de close + **períodos travados** + tarefas de IA (provisões/accruals, lançamentos faltantes) | ⏳ a fazer |
+| **Cronogramas**: despesa antecipada (amortização) + ativo imobilizado (depreciação) → lançamento mensal automático | ⏳ a fazer |
+| **Reconhecimento de receita (IFRS 15/CPC 47)** + receita diferida + **waterfall de receita/ARR** | ⏳ a fazer (recorrências já dão MRR) |
+| **Dimensões/tags customizadas** + drill-down até a transação de qualquer relatório | ⏳ parcial (DRE tem drill por categoria) |
+| Razão dupla-partida · IA no núcleo (categoriza/concilia) · trilha de auditoria · aprovação por alçada · cobrança/dunning | ✅ já existem (`core/platform`, FDIP, `institutional`, `/aprovacoes`, cobrança WhatsApp) |
+
 ## 9. Status — execução do Relatório de Melhorias
 
 | # do relatório | Ação | Status |
