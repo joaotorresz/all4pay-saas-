@@ -81,7 +81,24 @@ export function PageGuide() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-5">
-              <p className="m-0 text-body leading-[1.5] text-muted">{guide.intro}</p>
+              <div className="flex flex-col gap-1">
+                <span className="text-caption font-medium text-faint tracking-wide">O que é</span>
+                <p className="m-0 text-body leading-[1.5] text-muted">{guide.intro}</p>
+              </div>
+
+              {guide.comoUsar && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-caption font-medium text-faint tracking-wide">Como usar</span>
+                  <p className="m-0 text-caption leading-[1.5] text-muted">{guide.comoUsar}</p>
+                </div>
+              )}
+
+              {guide.exemplo && (
+                <div className="rounded-md bg-lime-tint border border-[#ECF6B8] px-4 py-3">
+                  <span className="text-caption font-medium text-faint tracking-wide">Exemplo</span>
+                  <p className="m-0 text-caption leading-[1.5] text-ink mt-1">{guide.exemplo}</p>
+                </div>
+              )}
 
               {guide.secoes.map((s, i) => (
                 <div key={i} className="flex flex-col gap-2">
@@ -93,6 +110,7 @@ export function PageGuide() {
                         <div>
                           <div className="text-[17px] font-medium text-ink">{it.nome}</div>
                           <div className="text-caption text-muted leading-snug">{it.desc}</div>
+                          {it.exemplo && <div className="text-caption text-faint leading-snug mt-[2px]">Ex.: {it.exemplo}</div>}
                         </div>
                       </div>
                     ))}
