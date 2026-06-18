@@ -100,9 +100,9 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "O que dá para fazer",
         itens: [
-          { nome: "Período & regime", desc: "Mês/anterior/YTD/12m e Competência (vencimento) ou Caixa (pagamento). Recalcula tudo.", match: "Período" },
-          { nome: "Cadência", desc: "Mensal ou Trimestral — define os períodos da tabela de evolução.", match: "Cadência" },
-          { nome: "Filtro", desc: "Escopa TODO o DRE: tudo, só receitas, só despesas, por centro de custo ou por cliente.", match: "Filtro" },
+          { nome: "Período (intervalo)", desc: "Escolha De / Até — o intervalo observado define o DRE e os buckets da evolução.", match: "De" },
+          { nome: "Cadência", desc: "Mensal ou Trimestral — agrupa a evolução dentro do intervalo.", match: "Cadência" },
+          { nome: "Regime", desc: "Competência (vencimento) ou Caixa (pagamento).", match: "Regime" },
           { nome: "Drill-down", desc: "Clique nas linhas com ▸ para abrir a composição por categoria." },
         ],
       },
