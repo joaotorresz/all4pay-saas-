@@ -36,8 +36,8 @@ export const GUIDES: Record<string, Guide> = {
       {
         titulo: "Os blocos da tela",
         itens: [
-          { nome: "A receber", desc: "Hero VENCIDO (vermelho) + VENCE HOJE (verde) e o restante do mês.", match: "A Receber" },
-          { nome: "A pagar", desc: "Mesma leitura, para as saídas.", match: "A Pagar" },
+          { nome: "A receber", desc: "Hero = recebido hoje (neutro) + a receber essa semana e esse mês. Clique para abrir Entradas.", match: "A Receber" },
+          { nome: "A pagar", desc: "Mesma leitura para as saídas: pago hoje + a pagar na semana/mês. Clique para abrir Saídas.", match: "A Pagar" },
           { nome: "Contas financeiras", desc: "Saldo consolidado das contas + selo de conciliação por conta.", match: "Contas Financeiras" },
           { nome: "Fluxo de caixa", desc: "Barras divergentes (entradas/saídas) + linha de saldo acumulado. Períodos: no dia, 7, 14, 30 dias e 3 meses.", match: "Fluxo de caixa" },
           { nome: "Vendas / Faturamento", desc: "Evolução do faturamento mês a mês.", match: "Faturamento" },
@@ -332,14 +332,150 @@ export const GUIDES: Record<string, Guide> = {
     secoes: [],
   },
   "/recebiveis": {
-    titulo: "A receber",
-    intro: "Lista dos movimentos de entrada (recebíveis) por status e vencimento; vencidos em destaque.",
-    secoes: [],
+    titulo: "Entradas",
+    intro: "Tela unificada das entradas (recebíveis): um filtro segmentado reúne tudo num lugar só — em aberto, já realizado e recorrente.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Filtrar", desc: "Em aberto (a receber) · Realizado (recebido) · Recorrente (faturas de contratos). Cada aba mostra a contagem." },
+          { nome: "Editar / excluir", desc: "Só no 'Em aberto': editar valor/vencimento/descrição ou enviar para a Lixeira (em lote também). Lançamentos de um mês travado no Fechamento ficam bloqueados." },
+        ],
+      },
+      {
+        titulo: "As colunas",
+        itens: [
+          { nome: "Vencimento / Liquidação", desc: "Em aberto mostra o vencimento; Realizado mostra a data de liquidação.", match: "Descrição" },
+          { nome: "Status", desc: "A vencer / Vence hoje / Vencido (em aberto) ou Recebido (realizado).", match: "Status" },
+        ],
+      },
+    ],
   },
   "/pagaveis": {
-    titulo: "A pagar",
-    intro: "Lista dos movimentos de saída (pagáveis) por status e vencimento.",
-    secoes: [],
+    titulo: "Saídas",
+    intro: "Tela unificada das saídas (pagáveis), espelhando Entradas: filtro Em aberto · Realizado · Recorrente sobre o mesmo hub.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Filtrar", desc: "Em aberto (a pagar) · Realizado (pago) · Recorrente. Contagem por aba." },
+          { nome: "Editar / excluir", desc: "Só no 'Em aberto'; respeita período travado no Fechamento." },
+        ],
+      },
+    ],
+  },
+
+  "/orcamento": {
+    titulo: "Orçamento vs Realizado",
+    intro: "Compara cada linha do resultado contra o orçamento e EXPLICA o desvio até a categoria e a transação (flux analysis). Sem orçamento manual, usa um baseline automático (run-rate da janela anterior).",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Período & regime", desc: "Mês/anterior/YTD/12m e Competência/Caixa — recalcula tudo." },
+          { nome: "Editar orçamento", desc: "Defina o orçamento MENSAL por linha; em branco usa o baseline automático.", match: "Orçamento mensal por linha" },
+          { nome: "Drill-down", desc: "Abra cada linha para ver as categorias e as maiores transações que explicam o desvio." },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Resumo", desc: "Receita, EBITDA e Lucro: realizado vs orçado + desvio.", match: "EBITDA" },
+          { nome: "Análise de variação", desc: "Narrativa automática: maior desvio desfavorável e destaque favorável.", match: "Análise de variação" },
+          { nome: "Tabela por linha", desc: "Orçado · realizado · desvio R$ · % · favorável/desfavorável, com drill-down.", match: "Linha" },
+        ],
+      },
+    ],
+  },
+
+  "/fechamento": {
+    titulo: "Fechamento contábil",
+    intro: "Fechamento contínuo: o mês vira revisão e aprovação, não construção do zero. Tarefas de IA já vêm resolvidas e você trava o período quando fecha.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Escolher o mês", desc: "Últimos 6 meses; meses travados aparecem com o cadeado." },
+          { nome: "Marcar tarefas manuais", desc: "Conciliar, revisar variância, aprovar — marque cada uma." },
+          { nome: "Travar período", desc: "Protege os lançamentos do mês contra edição/exclusão (locked period).", match: "Travar período" },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Prontidão", desc: "% das tarefas concluídas + métricas do mês (receita/despesa/resultado).", match: "pronto" },
+          { nome: "Checklist", desc: "Tarefas de IA (lançamentos faltantes, pendências, provisões) + manuais.", match: "Checklist de fechamento" },
+          { nome: "Provisões sugeridas", desc: "Accruals pela média histórica das recorrentes ausentes no mês.", match: "Provisões sugeridas" },
+        ],
+      },
+    ],
+  },
+
+  "/cronogramas": {
+    titulo: "Cronogramas (amortização/depreciação)",
+    intro: "Despesas antecipadas (amortização) e ativos imobilizados (depreciação) vivem aqui — os cronogramas consolidam num único lançamento mensal por tipo, para revisão.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Novo cronograma", desc: "Tipo, valor total, vida útil (meses), início e (na depreciação) valor residual.", match: "Cronogramas" },
+          { nome: "Mudar o mês", desc: "O lançamento mensal consolidado recalcula para o mês escolhido." },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Resumo da carteira", desc: "Ativos no mês, lançamento do mês, saldo a amortizar/depreciar e base total.", match: "Saldo a amortizar" },
+          { nome: "Lançamento mensal consolidado", desc: "Amortização + depreciação do mês = um lançamento de despesa para aprovar.", match: "Lançamento mensal consolidado" },
+          { nome: "Lista", desc: "Cada cronograma com parcela/mês e progresso (X/N meses).", match: "Cronogramas" },
+        ],
+      },
+    ],
+  },
+
+  "/receita": {
+    titulo: "Reconhecimento de receita",
+    intro: "Reconhece a receita ao longo da obrigação (IFRS 15/CPC 47), a partir dos contratos de recorrência: MRR/ARR, receita diferida e waterfall de MRR.",
+    secoes: [
+      {
+        titulo: "Variáveis / métricas",
+        itens: [
+          { nome: "Receita diferida", desc: "Faturado no ciclo menos o já reconhecido — passivo (ex.: anual cobrado à vista)." },
+          { nome: "MRR/ARR", desc: "Receita recorrente mensal/anual dos contratos ativos." },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Resumo", desc: "MRR, ARR, receita diferida e reconhecida no mês.", match: "Receita diferida" },
+          { nome: "Waterfall de MRR", desc: "Trajetória do MRR mês a mês; novos contratos elevam a barra; churn à parte.", match: "Waterfall de receita recorrente" },
+          { nome: "Por contrato", desc: "MRR, diferida e progresso do ciclo atual de cada contrato.", match: "Contrato" },
+        ],
+      },
+    ],
+  },
+
+  "/dimensoes": {
+    titulo: "Dimensões & Tags",
+    intro: "Pivota os movimentos por qualquer dimensão e desce da agregação até a transação. Marque tags por transação para criar dimensões ilimitadas.",
+    secoes: [
+      {
+        titulo: "O que dá para fazer",
+        itens: [
+          { nome: "Escolher a dimensão", desc: "Categoria · Centro de custo · Cliente/Fornecedor · Tag customizada." },
+          { nome: "Período & regime", desc: "Mês/anterior/YTD/12m e Competência/Caixa." },
+          { nome: "Marcar tags", desc: "No drill-down, '+ tag' adiciona uma tag à transação — ela vira valor da dimensão Tag." },
+        ],
+      },
+      {
+        titulo: "Os blocos da tela",
+        itens: [
+          { nome: "Pivot", desc: "Receita/despesa/resultado por valor da dimensão, ordenado por relevância.", match: "Categoria" },
+          { nome: "Drill-down", desc: "Abra a linha para ver cada transação (data, contraparte, valor) e suas tags.", match: "lançamento" },
+          { nome: "Total", desc: "Soma de receita/despesa/resultado do período.", match: "Total" },
+        ],
+      },
+    ],
   },
 };
 
