@@ -19,7 +19,6 @@ type Regime = "competencia" | "caixa";
 type Cadencia = "mensal" | "trimestral" | "semestral" | "anual";
 /** Tamanho do bucket (meses) e janela default do range, por cadência. */
 const SPAN_MESES: Record<Cadencia, number> = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
-const RANGE_MESES: Record<Cadencia, number> = { mensal: 12, trimestral: 24, semestral: 36, anual: 60 };
 const CAD_COL: Record<Cadencia, string> = { mensal: "Mês", trimestral: "Trimestre", semestral: "Semestre", anual: "Ano" };
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const sign = (v: number) => (v < 0 ? "−" : "");
@@ -43,7 +42,8 @@ function bucketsRange(deISO: string, ateISO: string, cad: Cadencia): { de: strin
     const bDe = i === 0 ? deISO : isoDia(bs);
     const beIso = isoDia(be);
     const bAte = beIso > ateISO ? ateISO : beIso;
-    out.push({ de: bDe, ate: bAte, label: span === 1 ? mesCurto(bs) : `${mesCurto(bs)}–${mesCurto(be)}` });
+    const label = span >= 12 ? String(bs.getFullYear()) : span === 1 ? mesCurto(bs) : `${mesCurto(bs)}–${mesCurto(be)}`;
+    out.push({ de: bDe, ate: bAte, label });
   }
   return out;
 }
@@ -59,11 +59,17 @@ export function DREView() {
 
   const { data: input, isLoading, isError } = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
 
-  // Trocar a cadência ajusta o intervalo De/Até para a janela natural dela.
+  // Trocar a cadência ajusta os MESES do intervalo (De/Até) — sem mexer no ano:
+  // o início recua o tamanho do período, mas nunca antes de 1º de janeiro do
+  // ano corrente; o fim é hoje. Ex. (junho): mensal=jun · trimestral=abr ·
+  // semestral=jan · anual=jan.
   const mudarCadencia = (c: Cadencia) => {
     setCadencia(c);
     const a = new Date();
-    const ini = new Date(a.getFullYear(), a.getMonth() - (RANGE_MESES[c] - 1), 1);
+    const recuo = SPAN_MESES[c] - 1;
+    let ini = new Date(a.getFullYear(), a.getMonth() - recuo, 1);
+    const janAtual = new Date(a.getFullYear(), 0, 1);
+    if (ini < janAtual) ini = janAtual; // mantém o ano corrente
     setDe(isoDia(ini));
     setAte(isoDia(a));
   };
