@@ -117,8 +117,8 @@
 - `0001` financial_accounts, movements · `0002` categories/cost_centers/parties/splits/recurrences · `0003` brands/units/salespeople/products/services/sales_docs/sale_items · `0004` financial_rules/rule_executions/audit_log · `0005–0007` multi-tenant + RLS + `auth_org_id()` · `0008` pluggy_items/bank_accounts/bank_transactions · `0009` approvals/reembolsos/nfse/pos_rates/company_profiles + colunas de governança · **`0010` razão**: entities, ledger_accounts, accounting_periods, journal_entries, journal_lines, dimensions, budgets, schedules, revenue_contracts/_schedule, close_tasks, raw_events, ai_actions (+ triggers D=C e período travado).
 
 ### Stores locais (localStorage — **não vão ao Postgres**)
-`a4p_company` (parcial), `a4p_pos_taxas`, `a4p_orcamento` (orçamento /orcamento),
-`a4p_budget_gl` (orçamento /relatorios), `a4p_cronogramas`, `a4p_tags`,
+`a4p_company` (parcial), `a4p_pos_taxas`, `a4p_orcamento` (orçamento /orcamento,
+**só demo** — live em `budgets`), `a4p_cronogramas`, `a4p_tags`,
 `a4p_locked_periods` + `a4p_close_tasks`, `a4p_ledger` (razão demo),
 `a4p_recorrencias`, `a4p_home_*`, `a4p_visual_edits` + `a4p_theme_draft`.
 
@@ -135,14 +135,15 @@
 > `/relatorios` aponta para o `/dre` único (números reconciliam). Texto original
 > abaixo mantido como histórico.
 
-- O razão (Fase 0–6) é a fonte contábil nova, mas **só é populado por ação explícita**: `Backfill` (/razao), lançamento manual, Pluggy (live), e os "Lançar no razão" de cronogramas/provisões/receita.
-- **Lançamentos novos em `movements`** (Nova transação, vendas, recorrências, upload, baixas) **NÃO postam automaticamente no GL**. → o razão **diverge** de `movements` com o tempo (precisa re-backfill, que é idempotente mas manual).
-- **DRE gerencial (`/dre`), dashboard, risco, quant, inadimplência, decisão, fluxo de caixa** continuam lendo `movements` — **não o GL**. Há, portanto, **dois DREs** (`/dre` sobre movements × `/relatorios` sobre o razão) e **dois orçamentos** (`/orcamento` × `/relatorios`), com fontes diferentes que podem não bater.
+- ✅ **RESOLVIDO (18/06):** o razão agora é uma **projeção determinística** de `movements` (em `getLedgerEntries`) + lançamentos nativos do GL — sem re-backfill manual, sem divergência. Texto histórico abaixo.
+- ~~O razão só é populado por ação explícita (Backfill, manual, Pluggy, "Lançar no razão" de cronogramas/provisões/receita).~~
+- ~~Lançamentos novos em `movements` não postam no GL → razão diverge.~~
+- ✅ **Os dois DREs e os dois orçamentos foram fundidos:** `/relatorios` aponta para o `/dre` único e para o `/orcamento` único (números reconciliam pela projeção). `/relatorios` mantém só o que é exclusivo do GL (Balanço, pivot).
 - **Correção sugerida:** ou (a) postar todo novo `movement` no GL em tempo real (dual-write/derivação automática), ou (b) migrar os relatórios/motores para lerem `journal_lines`. O blueprint pede o GL como verdade única.
 
 ### 4.2. Tabelas do `0010` existem mas as UIs usam stores locais
 - `budgets`, `schedules`, `revenue_contracts/_schedule`, `close_tasks`, `dimensions` foram criadas, mas:
-  - **Orçamento** (`/orcamento` e `/relatorios`) grava em `localStorage`, **não** em `budgets`.
+  - ✅ **Orçamento** (`/orcamento`, único): **live grava em `budgets`** (período sentinela + `dimensions.linha`); demo em `localStorage`. `a4p_budget_gl` e o orçamento duplicado de `/relatorios` foram removidos.
   - **Cronogramas** (`/cronogramas`) em `a4p_cronogramas`, **não** em `schedules`.
   - **Fechamento** (`/fechamento`) trava/tarefas em `localStorage`; só o **lock do período** vai a `accounting_periods` (live).
   - **Tags** (`/dimensoes`) em `a4p_tags`, **não** em `dimensions`/`journal_lines.dimensions`.

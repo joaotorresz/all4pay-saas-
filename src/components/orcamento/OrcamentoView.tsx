@@ -46,7 +46,7 @@ export function OrcamentoVarianciaView() {
   const [editando, setEditando] = React.useState(false);
   const [aberta, setAberta] = React.useState<Record<string, boolean>>({});
 
-  React.useEffect(() => { setOverride(loadOrcamento()); }, []);
+  React.useEffect(() => { loadOrcamento().then(setOverride).catch(() => setOverride({})); }, []);
 
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
   const report = React.useMemo(() => {
@@ -56,8 +56,8 @@ export function OrcamentoVarianciaView() {
   }, [q.data, preset, regime, override]);
 
   const setLinha = (id: LinhaOrcId, v: number) => setOverride((o) => ({ ...o, [id]: v }));
-  const salvar = () => { saveOrcamento(override); setEditando(false); };
-  const limpar = () => { setOverride({}); saveOrcamento({}); };
+  const salvar = () => { void saveOrcamento(override); setEditando(false); };
+  const limpar = () => { setOverride({}); void saveOrcamento({}); };
 
   return (
     <AppShell title="Orçamento vs Realizado" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
