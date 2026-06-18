@@ -96,7 +96,7 @@ function FormModalShell({ tipo, onPickTipo, onClose }: { tipo: Tipo | null; onPi
     return (
       <FormModal title="Nova transação" size="medium" onClose={onClose} onSave={() => { /* sem passo */ }} saving={false}>
         <SectionTitle>O que aconteceu?</SectionTitle>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {TIPOS.map((t) => (
             <button
               key={t.id}

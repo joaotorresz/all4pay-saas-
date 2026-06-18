@@ -361,7 +361,7 @@ function Confirmacao({
       {/* Ação — corrija se a leitura veio errada */}
       <div className="flex flex-col gap-[6px]">
         <span className="text-label font-medium text-muted">Ação {corrigido && <span className="text-caption text-warning">· corrigido</span>}</span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {(["Vou pagar", "Vou receber", "Paguei", "Recebi"] as AcaoFinal[]).map((op) => {
             const on = acao === op;
             return (

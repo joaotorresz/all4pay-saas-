@@ -219,7 +219,7 @@ export function ReceitaForm({
               onChange={(v) => set({ party_id: v })}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <DateField
                 label="Data de competência"
                 required
@@ -311,7 +311,7 @@ export function ReceitaForm({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 label="Categoria"
                 required
@@ -342,7 +342,7 @@ export function ReceitaForm({
               onChange={(v) => set({ repeatOn: v })}
             />
             {f.repeatOn && (
-              <div className="grid grid-cols-3 gap-4 rounded-md border border-border-soft p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-md border border-border-soft p-3">
                 <Select
                   label="Frequência"
                   options={FREQ_OPTIONS}
@@ -377,7 +377,7 @@ export function ReceitaForm({
 
             <SectionTitle>Condição de pagamento</SectionTitle>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 label="Parcelamento"
                 required
@@ -418,7 +418,7 @@ export function ReceitaForm({
               />
             )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 label="Forma de pagamento"
                 placeholder="Selecione"

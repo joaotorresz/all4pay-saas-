@@ -144,7 +144,7 @@ export function PartyForm({
       onSaveAgain={editing ? undefined : () => submit(true)}
       saving={create.isPending || update.isPending}
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Tipo"
           required
@@ -176,7 +176,7 @@ export function PartyForm({
         invalid={bad("name")}
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="E-mail" type="email" value={f.email} onChange={(e) => set({ email: e.target.value })} />
         <Input label="Telefone" value={f.phone} onChange={(e) => set({ phone: e.target.value })} />
       </div>

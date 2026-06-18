@@ -79,7 +79,7 @@ export function ReembolsosView() {
           : r.status === "a_pagar");
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
+    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-3 gap-5 items-start pb-4">
       {/* Solicitar reembolso */}
       <Card className="lg:col-span-1 flex flex-col gap-3">
         <span className="text-label font-medium text-muted">Solicitar reembolso</span>
@@ -97,7 +97,7 @@ export function ReembolsosView() {
         {itens.map((it, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-md border border-border-soft p-2">
             <Input value={it.descricao} onChange={(e) => setItem(i, { descricao: e.target.value })} placeholder="Descrição (ex.: almoço cliente)" />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <CurrencyInput value={it.valor} onValueChange={(v) => setItem(i, { valor: v })} />
               <DateField value={it.data} onChange={(v) => setItem(i, { data: v })} />
             </div>

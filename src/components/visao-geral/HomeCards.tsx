@@ -256,7 +256,7 @@ export function PendenciasCard() {
   return (
     <Card className="flex flex-col gap-3">
       <Header icon="list-checks">Pendências</Header>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Conta n={aReceber} label="A receber" />
         <Conta n={aPagar} label="A pagar" />
         <Conta n={vencendo} label="Vencem em 7d" tone="var(--color-warning)" />

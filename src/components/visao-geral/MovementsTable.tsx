@@ -138,7 +138,7 @@ export function MovementsTable({
       )}
 
       <Card padded={false}>
-        <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
+        <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
           {selMode && <span className="w-[18px]" />}
           <span className="flex-1">Descrição</span>
           <span className="w-[110px]">{variant === "paid" ? "Liquidação" : "Vencimento"}</span>
@@ -160,21 +160,25 @@ export function MovementsTable({
             <div
               key={m.id}
               onClick={selMode ? () => toggleRow(m.id) : undefined}
-              className={`flex items-center gap-3 px-5 py-3 ${i ? "border-t border-border-soft" : ""} ${selMode ? "cursor-pointer hover:bg-surface-1" : ""} ${on ? "bg-surface-1" : ""}`}
+              className={`flex items-center gap-3 px-3 sm:px-5 py-3 ${i ? "border-t border-border-soft" : ""} ${selMode ? "cursor-pointer hover:bg-surface-1" : ""} ${on ? "bg-surface-1" : ""}`}
             >
               {selMode && <Checkbox on={on} />}
               <Avatar name={m.description ?? "—"} size={32} />
               <div className="flex-1 min-w-0">
-                <div className="text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
-                <div className="text-caption text-faint tabular-nums">{accountName(m.account_id)}</div>
+                <div className="text-[16px] sm:text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
+                <div className="text-caption text-faint tabular-nums truncate">{accountName(m.account_id)}</div>
+                {/* Telas pequenas: data + status sob a descrição (colunas escondidas) */}
+                <div className="sm:hidden text-caption text-faint tabular-nums mt-[2px]">
+                  {fmtDate(dateShown)} · {status.label}
+                </div>
               </div>
-              <span className="w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(dateShown)}</span>
-              <span className="w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
-              <span className="w-[140px] flex justify-end">
+              <span className="hidden sm:block w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(dateShown)}</span>
+              <span className="hidden sm:block w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
+              <span className="w-[100px] sm:w-[140px] flex justify-end shrink-0">
                 <Money integer={parts.integer} decimals={parts.decimals} size="sm" color={isOut ? "var(--color-negative)" : "var(--color-ink)"} />
               </span>
               {editable && (
-                <span className="w-[150px] flex justify-end gap-1">
+                <span className="w-auto sm:w-[150px] flex justify-end gap-1 shrink-0">
                   {!selMode && (
                     <>
                       <button onClick={() => setEditing(m)} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>

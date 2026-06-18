@@ -266,6 +266,11 @@ fechadas.*
   persiste de verdade; o proprietário é protegido (não some/exclui).
   ⏳ **Adicionar usuário** ainda depende de **fluxo de convite** (criar conta no
   `auth` via service-role + e-mail) — botão desabilitado em live até lá.
+- **Responsivo (mobile/tablet)**: ✅ shell adaptável — a `Sidebar` vira **drawer
+  off-canvas** em `< lg` (hambúrguer no header `MobileNavButton` → evento
+  `a4p:toggle-nav`, backdrop, fecha ao navegar); header/título/padding encolhem;
+  `MovementsTable` dobra data+status sob a descrição no mobile; grids 2/3-col dos
+  formulários/cards empilham (`grid-cols-1 sm:grid-cols-N`). Desktop intacto (`lg+`).
 - **#3 unificação**: ✅ **feito** — `MovementsScreen` (`src/components/visao-geral/`)
   liga `/recebiveis` ("Entradas") e `/pagaveis` ("Saídas") com filtro segmentado
   Em aberto · Realizado · Recorrente (cada aba com contagem). Reusa `MovementsTable`

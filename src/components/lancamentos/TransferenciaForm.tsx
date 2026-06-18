@@ -75,7 +75,7 @@ export function TransferenciaForm({
         onChange={(v) => set({ to: v })}
         invalid={bad("to")}
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DateField label="Data" required value={f.date} onChange={(v) => set({ date: v })} />
         <CurrencyInput label="Valor" required value={f.amount} onValueChange={(v) => set({ amount: v })} invalid={bad("amount")} />
       </div>

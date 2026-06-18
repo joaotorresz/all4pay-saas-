@@ -212,7 +212,7 @@ export function VendaCompraForm({
         ) : undefined
       }
     >
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label={isCompra ? "Fornecedor" : "Cliente"}
           required
@@ -243,7 +243,7 @@ export function VendaCompraForm({
           {!salvarContato && <span className="text-caption text-faint">Sem salvar: a {isCompra ? "compra" : "venda"} fica registrada e o nome vai nas observações, mas o contato não entra em Contatos.</span>}
         </div>
       )}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {!isCompra && (
           <Select label="Vendedor" placeholder="Selecione (opcional)" options={opts(salespeople)} value={f.salesperson_id} onChange={(v) => set({ salesperson_id: v })} />
         )}
@@ -313,7 +313,7 @@ export function VendaCompraForm({
       {!isOrcamento && (
         <>
           <SectionTitle>Condição de pagamento</SectionTitle>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DateField label="Vencimento" value={f.due_date} onChange={(v) => set({ due_date: v })} />
             <Select label="Forma de pagamento" placeholder="Selecione" options={PAYMENT_METHODS} value={f.payment_method} onChange={(v) => set({ payment_method: v })} />
           </div>

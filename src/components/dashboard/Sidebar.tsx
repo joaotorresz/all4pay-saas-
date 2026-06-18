@@ -127,12 +127,34 @@ export function Sidebar() {
   const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
   const [open, setOpen] = React.useState<Record<string, boolean>>({});
+  // Drawer mobile (< lg) + se estamos em viewport desktop (lg+).
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [isDesktop, setIsDesktop] = React.useState(true);
   // Identidade REAL do usuário logado (sem fallback fake). Demo mostra rótulo de demo.
   const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
 
   React.useEffect(() => {
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
   }, []);
+
+  // Viewport: lg = 1024px. Em mobile o rail recolhido não se aplica (drawer cheio).
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  // Hambúrguer do header abre/fecha o drawer (evento global).
+  React.useEffect(() => {
+    const toggle = () => setMobileOpen((o) => !o);
+    window.addEventListener("a4p:toggle-nav", toggle);
+    return () => window.removeEventListener("a4p:toggle-nav", toggle);
+  }, []);
+
+  // Fecha o drawer ao navegar.
+  React.useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   React.useEffect(() => {
     if (isDemo || !SUPA_CONFIGURED) return;
@@ -161,6 +183,8 @@ export function Sidebar() {
   const abrirDoIcone = (id: string) => { setCollapsed(false); setOpen((o) => ({ ...o, [id]: true })); };
 
   const inicioOn = pathname === "/";
+  // Recolhido só vale no desktop; no drawer mobile mostramos sempre o menu cheio.
+  const col = collapsed && isDesktop;
 
   // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
   const { pro, set: setPro } = useModo();
@@ -170,25 +194,48 @@ export function Sidebar() {
   const topoVis: Group[] = [...gruposVis, configVis];
 
   return (
-    <aside
-      className={cn(
-        "a4p-sidebar shrink-0 h-full bg-white border-r border-border flex flex-col py-4 transition-[width] duration-200 ease-out",
-        collapsed ? "w-[68px] px-2" : "w-sidebar px-3",
+    <>
+      {/* Backdrop do drawer (só < lg) */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
       )}
-    >
+      <aside
+        className={cn(
+          "a4p-sidebar h-full bg-white border-r border-border flex flex-col py-4 z-50",
+          // mobile: drawer fixo que desliza
+          "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          // desktop (lg+): em fluxo, persistente, com recolher por largura
+          "lg:static lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
+          col ? "lg:w-[68px] lg:px-2" : "lg:w-sidebar lg:px-3",
+        )}
+      >
       {/* Brand + toggle */}
-      <div className={cn("flex items-center pb-[14px] pt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
-        {!collapsed && (
+      <div className={cn("flex items-center pb-[14px] pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
+        {!col && (
           // Sidebar sempre escura → logo lime nos dois temas.
           <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto" priority />
         )}
+        {/* Recolher (só desktop) */}
         <button
           onClick={toggleCollapsed}
-          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
-          className={cn("inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px]", collapsed ? "" : "ml-auto")}
+          aria-label={col ? "Expandir menu" : "Recolher menu"}
+          title={col ? "Expandir menu" : "Recolher menu"}
+          className={cn("hidden lg:inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px]", col ? "" : "ml-auto")}
         >
-          <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={17} color="var(--color-text-secondary)" />
+          <Icon name={col ? "chevron-right" : "chevron-left"} size={17} color="var(--color-text-secondary)" />
+        </button>
+        {/* Fechar drawer (só mobile) */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          aria-label="Fechar menu"
+          className="lg:hidden inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px] ml-auto"
+        >
+          <Icon name="x" size={18} color="var(--color-text-secondary)" />
         </button>
       </div>
 
@@ -197,12 +244,12 @@ export function Sidebar() {
         onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
         className={cn(
           "flex items-center bg-lime-tint border border-[#ECF6B8] rounded-md mb-[14px] cursor-pointer",
-          collapsed ? "justify-center py-[9px]" : "gap-2 px-[11px] py-[9px]",
+          col ? "justify-center py-[9px]" : "gap-2 px-[11px] py-[9px]",
         )}
         title="Buscar (⌘K)"
       >
         <Icon name="search" size={15} color="var(--color-text-secondary)" />
-        {!collapsed && (
+        {!col && (
           <>
             <span className="text-label text-muted font-regular">Buscar</span>
             <span className="ml-auto text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">⌘K</span>
@@ -212,7 +259,7 @@ export function Sidebar() {
 
       {/* Nav — rola sozinha quando transborda */}
       <nav className="flex flex-col gap-[2px] flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
-        {collapsed ? (
+        {col ? (
           <>
             {/* Modo ícones: Início + ícone de cada grupo (abre o rail e o grupo) */}
             <Link href="/" title="Início" aria-current={inicioOn ? "page" : undefined}
@@ -259,10 +306,10 @@ export function Sidebar() {
         <button
           onClick={() => setPro(pro ? "simples" : "pro")}
           title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
-          className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]")}
+          className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
         >
           <Icon name="sparkles" size={17} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-          {!collapsed && (
+          {!col && (
             <>
               <span className={cn("text-[17px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
               <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
@@ -271,10 +318,10 @@ export function Sidebar() {
             </>
           )}
         </button>
-        <ThemeToggle collapsed={collapsed} />
-        <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
+        <ThemeToggle collapsed={col} />
+        <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
           <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
-          {!collapsed && (
+          {!col && (
             <>
               <div className="min-w-0">
                 <div className="text-label font-medium text-ink truncate">{isDemo ? "Demonstração" : (usuario?.nome ?? "Conta")}</div>
@@ -301,7 +348,8 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 

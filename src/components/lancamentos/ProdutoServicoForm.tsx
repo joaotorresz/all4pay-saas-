@@ -154,7 +154,7 @@ export function ProdutoServicoForm({
       ) : undefined}
     >
       <Input label="Nome *" value={f.name} onChange={(e) => set({ name: e.target.value })} invalid={bad("name")} />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input
           label={isProduct ? "Código / SKU" : "Código"}
           value={f.code}
@@ -163,7 +163,7 @@ export function ProdutoServicoForm({
         <Select label="Unidade" placeholder="Selecione" options={unitOpts} value={f.unit_id} onChange={(v) => set({ unit_id: v })} />
       </div>
       <Select label="Categoria" placeholder="Selecione" options={catOpts} value={f.category_id} onChange={(v) => set({ category_id: v })} />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CurrencyInput
           label={isProduct ? "Preço de venda" : "Preço"}
           required

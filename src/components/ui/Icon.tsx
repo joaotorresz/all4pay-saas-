@@ -51,6 +51,7 @@ import {
   Smartphone,
   Palette,
   RotateCcw,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -75,6 +76,7 @@ const registry: Record<string, LucideIcon> = {
   "chevron-down": ChevronDown,
   "chevron-left": ChevronLeft,
   "chevron-right": ChevronRight,
+  menu: Menu,
   sparkles: Sparkles,
   "arrow-up-right": ArrowUpRight,
   "arrow-up": ArrowUp,
