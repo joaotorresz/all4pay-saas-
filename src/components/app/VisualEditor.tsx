@@ -170,6 +170,7 @@ export function VisualEditor() {
     return {
       soTexto,
       texto: soTexto ? (sel.textContent ?? "") : "",
+      oculto: cs.display === "none",
       color: rgbToHex(cs.color),
       bg: rgbToHex(cs.backgroundColor),
       fontSize: Math.round(parseFloat(cs.fontSize)) || 16,
@@ -209,6 +210,21 @@ export function VisualEditor() {
     if (!sel) return;
     sel.textContent = value;
     registrar((ov) => { ov.texto = value; });
+  }
+  function removeStyle(cssProp: string) {
+    if (!sel) return;
+    sel.style.removeProperty(cssProp);
+    registrar((ov) => { delete ov.estilos[cssProp]; });
+    setTick((n) => n + 1);
+  }
+  /** Apaga (oculta) o elemento — reversível. Persistido como display:none. */
+  function apagarEl() {
+    if (!sel) return;
+    setStyle("display", "none");
+  }
+  function restaurarEl() {
+    if (!sel) return;
+    removeStyle("display");
   }
 
   const buildPayload = React.useCallback(() => ({
@@ -344,6 +360,22 @@ export function VisualEditor() {
                       {cur.soTexto && cur.texto ? ` · “${cur.texto.slice(0, 32)}”` : ""}
                     </div>
 
+                    <div className="flex items-center gap-2">
+                      {cur.oculto ? (
+                        <>
+                          <span className="text-caption text-warning flex-1">Elemento apagado (oculto).</span>
+                          <button onClick={restaurarEl} className="px-3 h-9 rounded-sm border border-border text-caption text-ink hover:bg-surface-1 inline-flex items-center gap-1">
+                            <Icon name="rotate-ccw" size={13} color="var(--color-text-secondary)" /> Restaurar
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={apagarEl} className="w-full px-3 h-9 rounded-sm border border-border text-caption text-negative hover:bg-surface-2 inline-flex items-center justify-center gap-1">
+                          <Icon name="trash-2" size={13} color="var(--color-negative)" /> Apagar elemento
+                        </button>
+                      )}
+                    </div>
+
+                    {!cur.oculto && (<>
                     {cur.soTexto && (
                       <Campo label="Texto">
                         <textarea
@@ -396,6 +428,7 @@ export function VisualEditor() {
                       </div>
                     </Campo>
                     <p className="text-caption text-faint">Dica: gráficos são desenhos (SVG). Dá pra editar o card/texto ao redor; cores de série eu ajusto pelo código a partir do export.</p>
+                    </>)}
                   </>
                 )}
               </>
