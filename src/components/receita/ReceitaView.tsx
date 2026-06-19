@@ -13,6 +13,7 @@ import { analisarReceita, type ContratoReceita, type ReceitaReport } from "@/cor
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
+import { RevRecSection } from "./RevRecSection";
 
 const cicloMesesDe = (ciclo: string) => CICLOS.find((c) => c.id === ciclo)?.meses ?? 1;
 
@@ -66,6 +67,7 @@ export function ReceitaReconhecimentoView() {
 
   return (
     <AppShell title="Reconhecimento de receita" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
+      <div className="flex flex-col gap-8">
       {carregando || !report ? (
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">{[0, 1, 2, 3].map((i) => <Card key={i}><Skeleton className="h-16 w-full" /></Card>)}</div>
@@ -149,6 +151,8 @@ export function ReceitaReconhecimentoView() {
           </Card>
         </div>
       )}
+      <RevRecSection />
+      </div>
     </AppShell>
   );
 }
