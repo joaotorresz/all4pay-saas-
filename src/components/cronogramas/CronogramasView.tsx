@@ -12,6 +12,7 @@ import {
   type Cronograma, type TipoCronograma,
 } from "@/core/schedules";
 import { loadCronogramas, salvarCronograma, removerCronograma } from "@/lib/schedules";
+import { AccrualsSection } from "./AccrualsSection";
 import { postarLancamento } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -185,6 +186,8 @@ export function CronogramasView() {
             </div>
           </Card>
         )}
+
+        <AccrualsSection />
       </div>
     </AppShell>
   );
