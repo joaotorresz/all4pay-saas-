@@ -144,11 +144,11 @@
 ### 4.2. Tabelas do `0010` existem mas as UIs usam stores locais
 - `budgets`, `schedules`, `revenue_contracts/_schedule`, `close_tasks`, `dimensions` foram criadas, mas:
   - ✅ **Orçamento** (`/orcamento`, único): **live grava em `budgets`** (período sentinela + `dimensions.linha`); demo em `localStorage`. `a4p_budget_gl` e o orçamento duplicado de `/relatorios` foram removidos.
-  - **Cronogramas** (`/cronogramas`) em `a4p_cronogramas`, **não** em `schedules`.
-  - **Fechamento** (`/fechamento`) trava/tarefas em `localStorage`; só o **lock do período** vai a `accounting_periods` (live).
-  - **Tags** (`/dimensoes`) em `a4p_tags`, **não** em `dimensions`/`journal_lines.dimensions`.
-  - **Receita** (`/receita`) usa recorrências; **não** popula `revenue_contracts`/`revenue_schedule`.
-- **Efeito:** sem multi-device em live e sem usar as tabelas versionadas. **Correção:** wiring `fetch*/persist*` (padrão já usado em `pos_rates`/`company_profiles`).
+  - ✅ **Cronogramas** (`/cronogramas`): **live grava em `schedules`** (tipo→kind, categoria packed em `description`); demo em `localStorage`.
+  - ✅ **Fechamento** (`/fechamento`): lock vai a `accounting_periods` e as **tarefas do checklist a `close_tasks`** (live), com **cache hidratado cross-device** (`hydrateClose`); `localStorage` segue como camada síncrona (lida no render do `MovementsTable`). Leituras unem as duas camadas.
+  - ⏳ **Tags** (`/dimensoes`) seguem em `a4p_tags`: a `dimensions` guarda **definições** (key/label), não a **atribuição por movimento** — falta uma tabela (ex.: `movement_tags`) num `0011`. Documentado, fora do mapeamento limpo do `0010`.
+  - ⏳ **Receita** (`/receita`) é **derivada das recorrências** (não tem store próprio); o reconhecimento já **posta no ledger** (persistido). Popular `revenue_contracts/_schedule` exige persistir as recorrências primeiro (store `a4p_recorrencias`, fora do escopo desta fase).
+- **Efeito:** orçamento, cronogramas e fechamento agora multi-device em live, usando as tabelas versionadas. Restam tags (precisa de `0011`) e recorrências/receita.
 
 ### 4.3. Caminhos LIVE não exercitados nesta sessão
 - **Razão live** (insert em `journal_entries/_lines` + `posted`), **Pluggy→razão**, **categorização Claude** e **assistente Claude** rodam pelo padrão do projeto, mas **só foram validados em demo + build** — não com usuário autenticado/credenciais reais.

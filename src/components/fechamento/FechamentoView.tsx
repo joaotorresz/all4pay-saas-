@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, BRL, StatusBadge, Button, Icon, Skeleton } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { montarFechamento, mesLabel } from "@/core/close";
-import { isPeriodLocked, lockPeriod, unlockPeriod, loadCloseTasks, saveCloseTask } from "@/lib/close";
+import { isPeriodLocked, lockPeriod, unlockPeriod, loadCloseTasks, saveCloseTask, hydrateClose } from "@/lib/close";
 import { postarLancamento, travarPeriodoLive } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -36,7 +36,11 @@ export function FechamentoView() {
   const [tarefasManuais, setTarefasManuais] = React.useState<Record<string, boolean>>({});
   const [travado, setTravado] = React.useState(false);
   const [tick, setTick] = React.useState(0); // força recomputo ao mudar estado local
+  const [hydrated, setHydrated] = React.useState(false);
   const [provMsg, setProvMsg] = React.useState<string | null>(null);
+
+  // Hidrata locks/tarefas do banco (live) → cross-device; demo é no-op.
+  React.useEffect(() => { hydrateClose().finally(() => setHydrated(true)); }, []);
 
   const meses = q.data ? mesesDisponiveis(q.data.hoje) : [];
   const mesAtivo = mes ?? meses[0] ?? null;
@@ -45,7 +49,7 @@ export function FechamentoView() {
     if (!mesAtivo) return;
     setTarefasManuais(loadCloseTasks(mesAtivo));
     setTravado(isPeriodLocked(mesAtivo));
-  }, [mesAtivo]);
+  }, [mesAtivo, hydrated]);
 
   const report = React.useMemo(() => {
     if (!q.data || !mesAtivo) return undefined;

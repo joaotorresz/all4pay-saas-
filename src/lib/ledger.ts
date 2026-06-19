@@ -288,6 +288,55 @@ export async function travarPeriodoLive(mesISO: string, locked: boolean): Promis
   else await s.from("accounting_periods").insert({ entity_id: entityId, period, status: locked ? "locked" : "open" });
 }
 
+/** Meses (YYYY-MM) travados no banco (live) — fonte para hidratar o cache de fechamento. */
+export async function lockedPeriodsLive(): Promise<string[]> {
+  if (isDemo) return [];
+  try {
+    const s = createClient();
+    const { entityId } = await seedPlanoLive();
+    const { data } = await s.from("accounting_periods").select("period,status").eq("entity_id", entityId).eq("status", "locked");
+    return ((data ?? []) as Array<{ period: string }>).map((r) => String(r.period).slice(0, 7));
+  } catch { return []; }
+}
+
+/** Get-or-create do período (accounting_periods) → id. */
+async function periodoIdLive(s: ReturnType<typeof createClient>, entityId: string, period: string): Promise<string> {
+  const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
+  if (ja) return (ja as { id: string }).id;
+  const { data } = await s.from("accounting_periods").insert({ entity_id: entityId, period, status: "open" }).select("id").single();
+  return (data as { id: string }).id;
+}
+
+/** Tarefas do checklist (live) por mês: { "2026-05": { conciliacao: true, … } }. */
+export async function closeTasksLive(): Promise<Record<string, Record<string, boolean>>> {
+  if (isDemo) return {};
+  try {
+    const s = createClient();
+    const { data } = await s.from("close_tasks").select("title,status,accounting_periods(period)");
+    const out: Record<string, Record<string, boolean>> = {};
+    for (const r of (data ?? []) as Array<{ title: string; status: string; accounting_periods?: { period?: string } }>) {
+      const mes = String(r.accounting_periods?.period ?? "").slice(0, 7);
+      if (!mes) continue;
+      (out[mes] ??= {})[r.title] = r.status === "done";
+    }
+    return out;
+  } catch { return {}; }
+}
+
+/** Persiste uma tarefa do checklist (live) — upsert por (período, título). */
+export async function saveCloseTaskLive(mesISO: string, taskId: string, done: boolean): Promise<void> {
+  if (isDemo) return;
+  try {
+    const s = createClient();
+    const { entityId } = await seedPlanoLive();
+    const periodId = await periodoIdLive(s, entityId, `${mesISO.slice(0, 7)}-01`);
+    const status = done ? "done" : "pending";
+    const { data: ja } = await s.from("close_tasks").select("id").eq("period_id", periodId).eq("title", taskId).maybeSingle();
+    if (ja) await s.from("close_tasks").update({ status }).eq("id", (ja as { id: string }).id);
+    else await s.from("close_tasks").insert({ period_id: periodId, title: taskId, kind: "standard", status });
+  } catch { /* best-effort */ }
+}
+
 /* ----------------------------- categorização (regras + IA) ----------------------------- */
 
 async function iaConfigurada(): Promise<boolean> {

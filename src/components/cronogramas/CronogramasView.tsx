@@ -35,7 +35,7 @@ export function CronogramasView() {
   const [mes, setMes] = React.useState<string>(() => new Date().toISOString().slice(0, 7));
   const [draft, setDraft] = React.useState<Draft | null>(null);
 
-  React.useEffect(() => { setLista(loadCronogramas()); }, []);
+  React.useEffect(() => { loadCronogramas().then(setLista).catch(() => setLista([])); }, []);
 
   const [postando, setPostando] = React.useState(false);
   const [msgRazao, setMsgRazao] = React.useState<string | null>(null);
@@ -58,14 +58,14 @@ export function CronogramasView() {
     finally { setPostando(false); }
   };
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!draft || !draft.descricao.trim() || draft.meses <= 0 || draft.valorTotal <= 0) return;
-    setLista(salvarCronograma(draft));
+    setLista(await salvarCronograma(draft));
     setDraft(null);
   };
-  const remover = (id: string) => {
+  const remover = async (id: string) => {
     if (!window.confirm("Remover este cronograma?")) return;
-    setLista(removerCronograma(id));
+    setLista(await removerCronograma(id));
   };
 
   return (
