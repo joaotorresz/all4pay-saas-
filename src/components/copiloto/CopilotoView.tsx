@@ -12,11 +12,12 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button, StatusBadge } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
 import { simularCenario } from "@/core/executive";
 import type { ScenarioInput, Severidade } from "@/core/executive/types";
+import { logAcaoIA } from "@/lib/ai-copilot";
 import { AcoesCopiloto } from "./AcoesCopiloto";
 import { CopilotoChat } from "./CopilotoChat";
 import Link from "next/link";
@@ -91,6 +92,7 @@ export function CopilotoView() {
       <AnomaliasCard anomalias={data.anomalias} narr={narr.itens} />
       <ForecastCard forecast={data.forecast} />
       <SimuladorCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
+      <PlannerCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
       <MemoriaCard memoria={data.memoria} />
     </div>
   );
@@ -174,7 +176,19 @@ function InsightsCard({ insights, narr = {} }: { insights: import("@/core/execut
 }
 
 /* ---------- Anomalias ---------- */
+type ClasseAnom = import("@/core/executive/types").Anomalia["classe"];
+const ACAO_ANOM: Record<ClasseAnom, { label: string; href: string }> = {
+  despesa: { label: "Revisar despesa", href: "/dre" },
+  duplicidade: { label: "Verificar duplicidade", href: "/pagaveis" },
+  fraude: { label: "Investigar pagamento", href: "/pagaveis" },
+};
+
 function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/executive/types").Anomalia[]; narr?: Record<string, string> }) {
+  const [revisadas, setRevisadas] = React.useState<Record<string, boolean>>({});
+  const marcar = (a: import("@/core/executive/types").Anomalia) => {
+    setRevisadas((r) => ({ ...r, [a.id]: true }));
+    void logAcaoIA({ kind: "anomalia", titulo: `Revisada: ${a.titulo}`, detalhe: narr[a.id] ?? a.descricao, status: "executada" });
+  };
   return (
     <Card className="lg:col-span-1 flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -184,15 +198,28 @@ function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/exe
       {anomalias.length === 0 ? (
         <span className="text-caption text-faint">Nenhuma anomalia detectada — despesas e pagamentos dentro do padrão histórico.</span>
       ) : (
-        anomalias.map((a) => (
-          <div key={a.id} className="flex flex-col gap-1 rounded-md border border-border-soft p-3">
-            <span className="inline-flex items-center gap-[6px] text-label font-medium" style={{ color: SEV_COR[a.severidade] }}>
-              <span className="w-2 h-2 rounded-pill" style={{ background: SEV_COR[a.severidade] }} />{a.titulo}
-            </span>
-            <span className="text-caption text-muted">{narr[a.id] ?? a.descricao}</span>
-            <span className="text-caption text-faint tabular-nums"><BRL value={a.valor} /></span>
-          </div>
-        ))
+        anomalias.map((a) => {
+          const acao = ACAO_ANOM[a.classe] ?? ACAO_ANOM.despesa;
+          return (
+            <div key={a.id} className="flex flex-col gap-1 rounded-md border border-border-soft p-3">
+              <span className="inline-flex items-center gap-[6px] text-label font-medium" style={{ color: SEV_COR[a.severidade] }}>
+                <span className="w-2 h-2 rounded-pill" style={{ background: SEV_COR[a.severidade] }} />{a.titulo}
+              </span>
+              <span className="text-caption text-muted">{narr[a.id] ?? a.descricao}</span>
+              <span className="text-caption text-faint tabular-nums"><BRL value={a.valor} /></span>
+              <div className="flex items-center gap-3 mt-1">
+                {revisadas[a.id] ? (
+                  <StatusBadge tone="positive">revisada</StatusBadge>
+                ) : (
+                  <>
+                    <Link href={acao.href} className="text-caption font-medium text-ink underline">{acao.label} →</Link>
+                    <button onClick={() => marcar(a)} className="text-caption text-muted hover:text-ink ml-auto">Marcar revisada</button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })
       )}
     </Card>
   );
@@ -290,6 +317,58 @@ function Slider({ label, value, min, max, step = 0.01, suffix = "%", onChange }:
         style={{ accentColor: "var(--color-ink)" }}
       />
     </div>
+  );
+}
+
+/* ---------- Planner Agent ---------- */
+const CENARIOS_PLANNER: { id: string; label: string; sc: ScenarioInput; nota: string }[] = [
+  { id: "inad", label: "Inadimplência +10pp", sc: { inadimplenciaDelta: 0.1 }, nota: "clientes atrasam mais" },
+  { id: "queda", label: "Queda de receita 20%", sc: { receitaDelta: -0.2 }, nota: "retração de vendas" },
+  { id: "corte", label: "Corte de despesa 10%", sc: { despesaDelta: -0.1 }, nota: "enxugar custos" },
+  { id: "expansao", label: "Expansão (+15% rec · +10% desp)", sc: { receitaDelta: 0.15, despesaDelta: 0.1 }, nota: "crescer com investimento" },
+];
+
+function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/types").IndicadoresFinanceiros; saldo: number; score: number }) {
+  const cenarios = React.useMemo(
+    () => CENARIOS_PLANNER.map((c) => {
+      const r = simularCenario(indic, saldo, c.sc);
+      return { ...c, r, delta: r.scoreProjetado - score };
+    }).sort((a, b) => a.delta - b.delta), // pior impacto primeiro
+    [indic, saldo, score],
+  );
+  return (
+    <Card className="lg:col-span-3 flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-label font-medium text-muted inline-flex items-center gap-2">
+          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Planner — cenários sugeridos e impacto
+        </span>
+        <Link href="/decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {cenarios.map((c, i) => (
+          <div key={c.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[15px] font-medium text-ink">{c.label}</span>
+              {i === 0 && c.delta < 0 && <StatusBadge tone="warning">maior risco</StatusBadge>}
+            </div>
+            <span className="text-caption text-faint">{c.nota}</span>
+            <div className="flex items-center gap-5 mt-1">
+              <div>
+                <div className="text-caption text-faint">Score</div>
+                <div className="text-h3 font-medium tabular-nums" style={{ color: c.delta < 0 ? "var(--color-negative)" : c.delta > 0 ? "var(--color-positive)" : "var(--color-ink)" }}>
+                  {c.r.scoreProjetado}{c.delta !== 0 && <span className="text-label"> ({c.delta > 0 ? "+" : ""}{c.delta})</span>}
+                </div>
+              </div>
+              <div>
+                <div className="text-caption text-faint">Runway</div>
+                <div className="text-h3 font-medium tabular-nums text-ink">{c.r.runwayMeses}m</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <span className="text-caption text-faint">Cenários propostos pelo Planner, recalculados sobre os seus indicadores (impacto no score e no runway). Ajuste fino no Simulador; probabilidade de ruptura via Monte Carlo em Decisão.</span>
+    </Card>
   );
 }
 
