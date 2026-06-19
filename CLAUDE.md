@@ -844,8 +844,12 @@ A partir de `0005_multi_tenant.sql` o banco é **isolado por organização**:
   funções internas (`handle_new_user`/`seed_org`).
 - Avisos "Anonymous Access Policies" do linter são **esperados** — login de
   convidado está habilitado e o convidado opera na própria org, isolado por RLS.
-- Para um novo membro entrar numa org existente (em vez de criar a sua), insira
-  a linha em `organization_members` — fluxo de convite ainda não tem UI.
+- Para um novo membro entrar numa org existente (em vez de criar a sua), use
+  **Configurações → Governança → Adicionar usuário** (por e-mail). Em live isso
+  roda pelas funções `SECURITY DEFINER` do `0012` (`org_members` / `org_invite_by_email`
+  / `org_member_update` / `org_member_remove`): o convidado precisa **já ter conta**
+  (o convite o vincula à org; não cria conta nem envia e-mail). `governance.ts`
+  consome essas RPCs; demo persiste no perfil local (`a4p_company`).
 
 ## Voice & copy (this is part of the brand)
 

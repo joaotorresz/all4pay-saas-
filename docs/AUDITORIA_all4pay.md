@@ -202,7 +202,8 @@
 | Prioridade | Item | Por quê |
 | --- | --- | --- |
 | 🔴 Alta | §4.1 GL como fonte única (dual-write `movements`→razão ou migrar relatórios) | Elimina as duas verdades; é o coração do blueprint |
-| 🔴 Alta | §4.3/§4.4 Pluggy 100% + convite de membros | Destrava live real (ingestão + acesso) |
+| 🔴 Alta | §4.3 Pluggy 100% | Destrava live real (ingestão) |
+| ✅ Feito | §4.4 Convite de membros | UI em Configurações → Governança; RPCs `SECURITY DEFINER` no `0012` (`org_invite_by_email`…), convidado precisa ter conta. Aplicado ao remoto. |
 | 🟠 Média | §4.2 Persistir budgets/schedules/tags/close/revenue nas tabelas `0010` | Multi-device + usar o schema versionado |
 | 🟠 Média | §4.8 "Criar recorrência" a partir do upload | Fecha o ciclo de cadastro automático |
 | 🟠 Média | §4.5/§4.6 Ligar `ANTHROPIC_API_KEY` + Twilio/Resend no Vercel | Liga IA/cobrança de verdade |

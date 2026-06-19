@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Input, Button, Icon, Badge } from "@/components/ui";
 import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
-import { listMembers, saveMember, removeMember, conviteDisponivel, type GovMember } from "@/lib/governance";
+import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
+import { isDemo } from "@/lib/demo";
 import type { Participante } from "@/core/onboarding";
 
 /** Campos de identidade editáveis (rótulo + chave em db). */
@@ -176,8 +177,6 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
                 size="sm"
                 variant="secondary"
                 leftIcon={<Icon name="plus" size={14} />}
-                disabled={!conviteDisponivel}
-                title={conviteDisponivel ? undefined : "Convite de novos usuários em breve"}
                 onClick={() => setUserModal({ member: null })}
               >
                 Adicionar usuário
@@ -210,9 +209,9 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
               </div>
             ))}
             <span className="text-caption text-faint">
-              {conviteDisponivel
+              {isDemo
                 ? "O administrador tem controle total. Em demo, papéis e permissões ficam salvos neste navegador."
-                : "Papéis, permissões e limite de aprovação são salvos nos membros da organização (organization_members). Convite de novos usuários em breve."}
+                : "Para adicionar alguém, informe o e-mail da conta dele (a pessoa precisa ter criado a conta antes); papéis, permissões e limite de aprovação são salvos na organização (organization_members)."}
             </span>
           </Card>
 
