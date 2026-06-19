@@ -82,7 +82,7 @@ export function AccountsCard() {
                     </div>
                     {acc.pendingReconciliations > 0 ? (
                       <Link
-                        href={`/conciliacao?conta=${acc.id}`}
+                        href="/upload?aba=conciliar"
                         className="inline-flex items-center mt-[2px] rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ink/10"
                         aria-label={`${acc.pendingReconciliations} conciliações pendentes em ${acc.name}`}
                       >

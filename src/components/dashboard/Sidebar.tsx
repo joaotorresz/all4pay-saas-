@@ -54,9 +54,9 @@ const GROUPS: Group[] = [
   },
   {
     id: "contas", label: "Contas & Banco", icon: "upload", children: [
-      { label: "Open finance", href: "/contas" },
-      { label: "Importar dados", href: "/upload" },
-      { label: "Conciliação", href: "/conciliacao" },
+      { label: "Open finance", href: "/upload?aba=conectar" },
+      { label: "Importar dados", href: "/upload?aba=enviar" },
+      { label: "Conciliação", href: "/upload?aba=conciliar" },
     ],
   },
   {

@@ -1,0 +1,69 @@
+"use client";
+
+/**
+ * Entrada de dados — a esteira ÚNICA de ingestão (GAP #5). Unifica as três
+ * formas de trazer dinheiro-dado para o sistema em abas de um só fluxo:
+ *   1. Conectar  → Open Finance (bancos) + posição consolidada por conta;
+ *   2. Enviar    → upload de extratos (CSV/OFX) e documentos (OCR) via FDIP;
+ *   3. Conciliar → casa o que entrou com os títulos previstos (baixa única).
+ * Deep-link por `?aba=`; `/contas` e `/conciliacao` redirecionam para as abas.
+ */
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { Icon } from "@/components/ui";
+import { ContasView } from "@/components/contas/ContasView";
+import { ConectarBanco } from "@/components/contas/ConectarBanco";
+import { UploadView } from "@/components/upload/UploadView";
+import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
+
+type Aba = "conectar" | "enviar" | "conciliar";
+const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
+  { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
+  { id: "enviar", label: "Enviar", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
+  { id: "conciliar", label: "Conciliar", icon: "list-checks", desc: "Casar o que entrou com os títulos previstos" },
+];
+const isAba = (s: string | null): s is Aba => s === "conectar" || s === "enviar" || s === "conciliar";
+
+export function IngestaoView() {
+  const router = useRouter();
+  const [aba, setAba] = React.useState<Aba>("enviar");
+
+  React.useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("aba");
+    if (isAba(a)) setAba(a);
+  }, []);
+
+  const trocar = (id: Aba) => {
+    setAba(id);
+    router.replace(`/upload?aba=${id}`, { scroll: false });
+  };
+
+  return (
+    <div className="flex flex-col gap-5 pb-4">
+      {/* Abas da esteira */}
+      <div className="flex items-center gap-1 flex-wrap">
+        {ABAS.map((a) => (
+          <button
+            key={a.id}
+            onClick={() => trocar(a.id)}
+            className={`inline-flex items-center gap-2 text-label font-medium rounded-pill px-4 py-2 ${aba === a.id ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
+            title={a.desc}
+          >
+            <Icon name={a.icon} size={15} color={aba === a.id ? "var(--color-white)" : "var(--color-text-secondary)"} />
+            {a.label}
+          </button>
+        ))}
+        <span className="text-caption text-faint ml-auto hidden sm:block">{ABAS.find((a) => a.id === aba)?.desc}</span>
+      </div>
+
+      {aba === "conectar" && (
+        <>
+          <div className="flex justify-end"><ConectarBanco /></div>
+          <ContasView />
+        </>
+      )}
+      {aba === "enviar" && <UploadView />}
+      {aba === "conciliar" && <ConciliacaoView />}
+    </div>
+  );
+}

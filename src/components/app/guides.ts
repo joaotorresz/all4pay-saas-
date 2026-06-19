@@ -197,37 +197,17 @@ export const GUIDES: Record<string, Guide> = {
 
   /* ----------------------------- Upload / ingestão ----------------------------- */
   "/upload": {
-    titulo: "Upload de dados",
-    intro: "Importe em lote (extrato CSV/OFX) ou um documento individual (boleto/comprovante/nota por OCR). A leitura inteligente classifica, resolve fornecedores/clientes e detecta pagamentos recorrentes/mensais — depois é só revisar e confirmar.",
-    comoUsar: "Arraste arquivos (ou cole um extrato / use a amostra). Revise a categoria onde a confiança for baixa (o sistema aprende) e clique 'Confirmar importação'.",
-    exemplo: "Arraste um CSV do banco → veja os 'Pagamentos recorrentes detectados' e os fornecedores que serão cadastrados → Confirmar.",
+    titulo: "Entrada de dados",
+    intro: "A esteira única de ingestão, em três abas: Conectar (Open Finance/bancos + posição por conta), Enviar (extratos CSV/OFX e documentos por OCR via FDIP) e Conciliar (casa o que entrou com os títulos previstos, baixa única). Tudo o que entra no sistema passa por aqui.",
+    comoUsar: "Escolha a aba: em Conectar, autorize o banco; em Enviar, arraste arquivos (ou cole/use a amostra) e confirme; em Conciliar, revise as filas (auto/sugestão/exceção) e dê baixa.",
+    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$ 1.200 casa com a fatura de R$ 1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
     secoes: [
       acoes([
-        { nome: "Importar", desc: "CSV/OFX/TXT em lote ou PNG/JPG/PDF por OCR; ou amostra de 12 meses." },
-        { nome: "Confirmar", desc: "Cadastra contatos + categorias e cria os lançamentos." },
-      ]),
-      blocos([
-        { nome: "Pagamentos recorrentes detectados", desc: "Cobranças que se repetem (mensais/assinaturas).", match: "Pagamentos recorrentes detectados" },
-        { nome: "Contatos detectados", desc: "Fornecedores/clientes que serão cadastrados.", match: "Contatos detectados" },
-        { nome: "Lançamentos lidos", desc: "Revisão por transação: data, destino, categoria editável, confiança.", match: "Lançamentos lidos" },
+        { nome: "Conectar", desc: "Open Finance (Pluggy): bancos, extrato e posição consolidada por conta." },
+        { nome: "Enviar", desc: "CSV/OFX/TXT em lote ou PNG/JPG/PDF por OCR; cadastra contatos/categorias e cria os lançamentos." },
+        { nome: "Conciliar", desc: "Matching probabilístico (auto/sugestão/exceção) → baixa do título previsto, sem contar o dinheiro 2x." },
       ]),
     ],
-  },
-  "/contas": {
-    titulo: "Open Finance (contas & banco)",
-    intro: "Conecta suas contas bancárias via Open Finance (Pluggy): traz contas e extrato em tempo real e correlaciona no sistema. Em demonstração a conexão fica desabilitada.",
-    comoUsar: "Clique 'Conectar banco', escolha a instituição no widget e autorize. As transações entram e podem virar lançamentos (veja o Razão → 'Importar Open Finance').",
-    exemplo: "Conecte o banco da empresa → o saldo e o extrato aparecem e alimentam dashboard, conciliação e razão.",
-    secoes: [
-      acoes([{ nome: "Conectar banco", desc: "Abre o widget do Open Finance para autorizar a conexão.", match: "Conectar banco" }]),
-    ],
-  },
-  "/conciliacao": {
-    titulo: "Conciliação",
-    intro: "Matching probabilístico de transações: concilia automaticamente o que é seguro e separa o que precisa de atenção (filas auto/sugestão/exceção, por confiança).",
-    comoUsar: "Revise as filas: 'auto' já casou; em 'sugestão' confirme/ajuste o par sugerido; em 'exceção' trate manualmente.",
-    exemplo: "Um PIX recebido de R$ 1.200 casa com a fatura de R$ 1.200 do mesmo cliente → entra na fila auto.",
-    secoes: [],
   },
   "/automacoes": {
     titulo: "Automações",

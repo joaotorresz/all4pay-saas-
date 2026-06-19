@@ -18,7 +18,8 @@ const norm = (s: string) =>
 interface RouteItem { label: string; href: string; icon: string; kw: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
-  { label: "Upload de dados", href: "/upload", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding" },
+  { label: "Entrada de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding ingestao enviar" },
+  { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
   { label: "Copiloto", href: "/copiloto", icon: "sparkles", kw: "ia assistente perguntas claude razao gl rascunho lancamento conversacional decisoes acoes agir chat" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
@@ -39,7 +40,7 @@ const ROUTES: RouteItem[] = [
   { label: "Arquitetura", href: "/arquitetura", icon: "building", kw: "tesouraria treasury" },
   { label: "Inteligência de dados", href: "/dados", icon: "database", kw: "moat benchmark dna" },
   { label: "Governança", href: "/governanca", icon: "shield-check", kw: "auditoria rbac aprovacao" },
-  { label: "Conciliação", href: "/conciliacao", icon: "list-checks", kw: "reconciliacao matching" },
+  { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks", kw: "reconciliacao matching conciliar ingestao" },
   { label: "Automações", href: "/automacoes", icon: "workflow", kw: "regras alertas notificacoes" },
   { label: "Vendas", href: "/vendas", icon: "arrow-left-right", kw: "pedidos orcamentos compras" },
   { label: "Produtos", href: "/produtos", icon: "credit-card", kw: "estoque sku" },

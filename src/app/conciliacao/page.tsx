@@ -1,18 +1,11 @@
 "use client";
 
-import { AppShell } from "@/components/app/AppShell";
-import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { isDemo } from "@/lib/demo";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
+// A conciliação foi unificada na esteira "Entrada de dados" (aba Conciliar).
 export default function ConciliacaoPage() {
-  return (
-    <AppShell
-      title="Conciliação"
-      crumb="Upload de dados · Open Finance × títulos"
-      actions={isDemo ? <DemoBadge /> : null}
-    >
-      <ConciliacaoView />
-    </AppShell>
-  );
+  const router = useRouter();
+  useEffect(() => { router.replace("/upload?aba=conciliar"); }, [router]);
+  return null;
 }

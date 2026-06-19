@@ -146,7 +146,7 @@ export function montarFechamento(
       status: sugestoes.length === 0 ? "ok" : "pendente",
       detalhe: sugestoes.length === 0 ? "Sem provisões sugeridas." : `${sugestoes.length} provisão(ões) sugerida(s).`,
     },
-    manual("conciliacao", "Conciliação bancária", "Confira o extrato e concilie os movimentos do mês.", "/conciliacao"),
+    manual("conciliacao", "Conciliação bancária", "Confira o extrato e concilie os movimentos do mês.", "/upload?aba=conciliar"),
     manual("variancia", "Revisar orçado × realizado", "Analise os desvios do mês na análise de variação.", "/orcamento"),
     manual("aprovacao", "Revisar e aprovar lançamentos", "Revise os lançamentos do mês e aprove o resultado.", "/dre"),
   ];
