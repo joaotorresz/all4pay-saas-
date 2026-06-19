@@ -10,6 +10,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { updateImportedMovement } from "@/lib/imported";
+import { gerarPixCopiaECola, dadosPixEmpresa } from "@/lib/pix";
 import type { Movement, BoletoData } from "@/lib/types";
 
 const digitos = (n: number) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
@@ -25,6 +26,8 @@ export interface OpcoesBoleto {
 
 /** Emite o boleto de um recebível. (// TODO INTEGRAÇÃO PSP/BANCO EMISSOR — mock por ora.) */
 export async function emitirBoleto(mov: Movement, opts: OpcoesBoleto = {}): Promise<BoletoData> {
+  // PIX é emissão REAL (BR Code/EMV, sem PSP) quando a empresa tem chave (CNPJ).
+  const pix = dadosPixEmpresa();
   const boleto: BoletoData = {
     status: "emitido", // TODO: gerado → registrado → emitido via PSP; mock vai direto a emitido
     nosso_numero: mockNossoNumero(),
@@ -34,6 +37,7 @@ export async function emitirBoleto(mov: Movement, opts: OpcoesBoleto = {}): Prom
     multa: opts.multa ?? 0, juros: opts.juros ?? 0, desconto: opts.desconto ?? 0,
     instrucoes: opts.instrucoes,
     emitido_em: isoDay(new Date()), paid_date: null,
+    pix_copia_cola: pix ? gerarPixCopiaECola({ chave: pix.chave, valor: mov.amount, nome: pix.nome, cidade: pix.cidade, txid: mov.id.replace(/[^A-Za-z0-9]/g, "").slice(0, 25) }) : null,
   };
   if (isDemo) updateImportedMovement(mov.id, { boleto });
   else await createClient().from("movements").update({ boleto }).eq("id", mov.id);

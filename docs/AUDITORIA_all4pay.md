@@ -209,7 +209,7 @@
 | 🟠 Média | §4.5/§4.6 Ligar `ANTHROPIC_API_KEY` + Twilio/Resend no Vercel | Liga IA/cobrança de verdade |
 | 🟡 Baixa | §4.7 Conectores de inbox (e-mail/WhatsApp/API) | Roadmap de ingestão |
 | ✅ Feito | §4.9 `account_id` em `movements` | Coluna + fluxo ponta a ponta (lançamento→writer→leitura→listas→filtro fluxo de caixa). Listas mostram o nome da conta (lista real) e filtram por conta. |
-| 🟡 Baixa | §4.10 Emissão real NFS-e/boleto/PIX | Depende de provedores |
+| 🟢 Parcial | §4.10 Emissão real | **PIX real** (BR Code/EMV + CRC16, `src/lib/pix.ts`, chave = CNPJ da empresa) gerado no boleto e copiável na tela. Boleto bancário (linha digitável registrada) e NFS-e seguem simulados — dependem de PSP/banco emissor e provedor de prefeitura (config futura, padrão env). |
 
 ---
 

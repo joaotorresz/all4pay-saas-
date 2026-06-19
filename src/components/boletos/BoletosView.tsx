@@ -62,6 +62,12 @@ export function BoletosView() {
   };
   const cancelar = async (m: Movement) => { setBusy(m.id); try { await cancelarBoleto(m); await refresh(); show("Boleto cancelado"); } finally { setBusy(null); } };
   const enviar = (m: Movement) => show(`Enviado ao pagador via Cobrança (WhatsApp/e-mail) — ${nomeDe(m)}`); // reusa Cobrança existente
+  const copiarPix = async (m: Movement) => {
+    const code = m.boleto?.pix_copia_cola;
+    if (!code) { show("PIX indisponível — cadastre o CNPJ da empresa em Configurações."); return; }
+    try { await navigator.clipboard.writeText(code); show("PIX copia e cola copiado — pagamento instantâneo"); }
+    catch { show("Não foi possível copiar o PIX automaticamente"); }
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -119,6 +125,7 @@ export function BoletosView() {
                   {!st && <button disabled={busy === m.id} onClick={() => setEmitindo(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px]">Emitir boleto</button>}
                   {(st === "emitido" || st === "vencido") && <>
                     <button disabled={busy === m.id} onClick={() => pagar(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-2 py-[4px]">Marcar pago</button>
+                    {m.boleto?.pix_copia_cola && <button onClick={() => copiarPix(m)} title="Copiar PIX copia e cola (BR Code)" className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">PIX</button>}
                     <button onClick={() => enviar(m)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">Enviar</button>
                     <button onClick={() => cancelar(m)} title="Cancelar" className="inline-flex p-[4px] rounded-md hover:bg-surface-2"><Icon name="x" size={12} color="var(--color-text-tertiary)" /></button>
                   </>}
@@ -129,7 +136,7 @@ export function BoletosView() {
           })}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Boleto próprio: ao marcar pago, concilia automático (não passa pelo /conciliacao) e o saldo sobe. Emissão real do trilho fica como integração PSP (mockada).</span>
+          <span className="text-caption text-faint">O <b className="text-muted font-medium">PIX</b> (copia e cola) é gerado de verdade — BR Code/EMV com a chave da empresa (CNPJ), sem PSP. O trilho do <b className="text-muted font-medium">boleto bancário</b> (linha digitável registrada) depende de integração com o banco emissor/PSP — por ora simulado. Ao marcar pago, concilia automático e o saldo sobe.</span>
         </div>
       </Card>
 

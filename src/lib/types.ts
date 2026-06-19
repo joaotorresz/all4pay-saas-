@@ -57,6 +57,8 @@ export interface BoletoData {
   instrucoes?: string;
   emitido_em: string;
   paid_date?: string | null;
+  /** PIX "copia e cola" (BR Code/EMV) do mesmo título — pagamento instantâneo. */
+  pix_copia_cola?: string | null;
 }
 
 /* ---- Derived shapes returned by the widget hooks ---- */
