@@ -117,6 +117,24 @@ function mensagemCobranca(c: CollectionPlan): string {
   return `${base} ${fecho}`;
 }
 
+/** Mensagens de cobrança adaptativas (por perfil) via IA; vazio = usa template. */
+async function mensagensAdaptativas(collections: CollectionPlan[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (collections.length === 0) return out;
+  try {
+    const j = await fetch("/api/ai/cobranca", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ alvos: collections.map((c) => ({ cliente: c.cliente, exposicao: c.exposicao, estrategia: c.estrategia, tom: c.tom })) }),
+    }).then((r) => r.json());
+    if (j?.ok && Array.isArray(j.mensagens)) {
+      for (const m of j.mensagens as Array<{ cliente: string; mensagem: string }>) {
+        if (m?.cliente && m?.mensagem) out.set(m.cliente, m.mensagem);
+      }
+    }
+  } catch { /* fallback: template */ }
+  return out;
+}
+
 /**
  * Dispara a cobrança de verdade pelo MESMO caminho do /autonomo
  * (`/api/cobranca/whatsapp`): monta os alvos com telefone (dos Contatos) e
@@ -125,16 +143,18 @@ function mensagemCobranca(c: CollectionPlan): string {
  */
 export async function dispararCobranca(collections: CollectionPlan[], parties: Party[]): Promise<ResultadoExecucao> {
   const foneDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome))?.phone ?? null;
-  const alvos = collections
-    .filter((c) => c.canal === "whatsapp")
-    .map((c) => ({ c, tel: foneDe(c.cliente) }))
-    .filter((x): x is { c: CollectionPlan; tel: string } => !!x.tel)
-    .map(({ c, tel }) => ({
-      cliente: c.cliente,
-      telefone: tel,
-      mensagem: mensagemCobranca(c),
-      variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
-    }));
+  const enviaveis = collections.filter((c) => c.canal === "whatsapp" && foneDe(c.cliente));
+
+  // Cobrança adaptativa: mensagem por perfil do cliente via IA (1 chamada);
+  // fallback determinístico (template) por cliente quando não há chave/erro.
+  const adaptadas = await mensagensAdaptativas(enviaveis);
+
+  const alvos = enviaveis.map((c) => ({
+    cliente: c.cliente,
+    telefone: foneDe(c.cliente) as string,
+    mensagem: adaptadas.get(c.cliente) ?? mensagemCobranca(c),
+    variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
+  }));
 
   if (alvos.length === 0) {
     const msg = "Nenhum inadimplente com WhatsApp cadastrado — cadastre o telefone em Contatos.";
