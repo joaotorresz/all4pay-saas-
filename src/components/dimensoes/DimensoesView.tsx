@@ -13,7 +13,7 @@ import { getRiscoInput } from "@/lib/data";
 import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
 import { analisarDimensao, DIMENSOES, type Dimensao } from "@/core/dimensions";
-import { loadTags, addTag, removeTag } from "@/lib/tags";
+import { loadTags, hydrateTags, addTag, removeTag } from "@/lib/tags";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
@@ -34,7 +34,7 @@ export function DimensoesView() {
   const [tags, setTags] = React.useState(() => ({} as ReturnType<typeof loadTags>));
   const [aberta, setAberta] = React.useState<Record<string, boolean>>({});
 
-  React.useEffect(() => { setTags(loadTags()); }, []);
+  React.useEffect(() => { hydrateTags().then(setTags).catch(() => setTags({})); }, []);
 
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
   const report = React.useMemo(() => {
@@ -43,11 +43,11 @@ export function DimensoesView() {
     return analisarDimensao(q.data, { dim, regime, de: f.de, ate: f.ate, periodoLabel: f.periodoLabel }, tags);
   }, [q.data, dim, preset, regime, tags]);
 
-  const marcar = (id: string) => {
+  const marcar = async (id: string) => {
     const t = window.prompt("Nova tag para esta transação:");
-    if (t && t.trim()) setTags({ ...addTag(id, t.trim()) });
+    if (t && t.trim()) setTags({ ...(await addTag(id, t.trim())) });
   };
-  const desmarcar = (id: string, t: string) => setTags({ ...removeTag(id, t) });
+  const desmarcar = async (id: string, t: string) => setTags({ ...(await removeTag(id, t)) });
 
   return (
     <AppShell title="Dimensões & Tags" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
