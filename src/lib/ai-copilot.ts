@@ -9,7 +9,9 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { criarSolicitacao } from "@/lib/aprovacoes";
-import type { FinancialDecision } from "@/core/autonomous/types";
+import { formatBRL } from "@/lib/format";
+import type { FinancialDecision, CollectionPlan } from "@/core/autonomous/types";
+import type { Party } from "@/lib/types";
 
 const KEY = "a4p_ai_actions";
 
@@ -100,4 +102,60 @@ export async function executarDecisao(d: FinancialDecision): Promise<ResultadoEx
     : d.recomendacao;
   await logAcaoIA({ kind: "decision", titulo: d.titulo, detalhe, status: "executada" });
   return { ok: true, status: "executada", mensagem: detalhe };
+}
+
+const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+function mensagemCobranca(c: CollectionPlan): string {
+  const base = `all4pay · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
+  const fecho =
+    c.estrategia === "agressiva_precoce"
+      ? "Regularize o quanto antes para evitar restrições. Qualquer dúvida, estamos à disposição."
+      : c.estrategia === "proativa"
+        ? "Para evitar encargos, podemos regularizar? Estamos à disposição."
+        : "Podemos ajudar a regularizar quando for melhor para você. Conte conosco.";
+  return `${base} ${fecho}`;
+}
+
+/**
+ * Dispara a cobrança de verdade pelo MESMO caminho do /autonomo
+ * (`/api/cobranca/whatsapp`): monta os alvos com telefone (dos Contatos) e
+ * canal WhatsApp, envia (Twilio em live; simulado sem chave) e registra na
+ * trilha. A segmentação é do all4pay; a Twilio só entrega.
+ */
+export async function dispararCobranca(collections: CollectionPlan[], parties: Party[]): Promise<ResultadoExecucao> {
+  const foneDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome))?.phone ?? null;
+  const alvos = collections
+    .filter((c) => c.canal === "whatsapp")
+    .map((c) => ({ c, tel: foneDe(c.cliente) }))
+    .filter((x): x is { c: CollectionPlan; tel: string } => !!x.tel)
+    .map(({ c, tel }) => ({
+      cliente: c.cliente,
+      telefone: tel,
+      mensagem: mensagemCobranca(c),
+      variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
+    }));
+
+  if (alvos.length === 0) {
+    const msg = "Nenhum inadimplente com WhatsApp cadastrado — cadastre o telefone em Contatos.";
+    await logAcaoIA({ kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg, status: "proposta" });
+    return { ok: false, status: "proposta", mensagem: msg };
+  }
+
+  try {
+    const res = await fetch("/api/cobranca/whatsapp", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alvos }),
+    });
+    const j = await res.json().catch(() => ({}));
+    const enviados = (j.enviados ?? []) as Array<{ resultado?: { ok?: boolean } }>;
+    const ok = enviados.filter((e) => e.resultado?.ok).length || alvos.length;
+    const msg = `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.`;
+    await logAcaoIA({ kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg, status: "executada" });
+    return { ok: true, status: "executada", mensagem: msg };
+  } catch {
+    const msg = "Não foi possível disparar a cobrança agora.";
+    await logAcaoIA({ kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg, status: "proposta" });
+    return { ok: false, status: "proposta", mensagem: msg };
+  }
 }

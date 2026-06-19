@@ -7,15 +7,17 @@
  * alçada — tudo registrado na trilha `ai_actions` (demo + live).
  */
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Button, Icon, StatusBadge, Skeleton } from "@/components/ui";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
+import { listParties } from "@/lib/cadastros";
 import { TIPO_LABEL, type FinancialDecision } from "@/core/autonomous/types";
-import { executarDecisao, listAcoesIA, type AcaoIA } from "@/lib/ai-copilot";
+import { executarDecisao, dispararCobranca, listAcoesIA, type AcaoIA } from "@/lib/ai-copilot";
 
 export function AcoesCopiloto() {
   const qc = useQueryClient();
   const { data, isLoading } = useOperacaoAutonoma();
+  const { data: parties } = useQuery({ queryKey: ["parties"], queryFn: listParties });
   const [trail, setTrail] = React.useState<AcaoIA[]>([]);
   const [feito, setFeito] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -25,7 +27,10 @@ export function AcoesCopiloto() {
   const agir = async (d: FinancialDecision) => {
     setBusy(d.id);
     try {
-      const r = await executarDecisao(d);
+      // Cobrança reversível dentro da alçada → dispara de verdade (WhatsApp).
+      const r = d.tipo === "cobranca" && d.modo === "automatico"
+        ? await dispararCobranca(data?.collections ?? [], parties ?? [])
+        : await executarDecisao(d);
       setFeito((f) => ({ ...f, [d.id]: r.mensagem }));
       setTrail(await listAcoesIA());
       await qc.invalidateQueries({ queryKey: ["aprovacoes"] }).catch(() => {});

@@ -95,10 +95,16 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    id: "inteligencia", label: "Inteligência", icon: "sparkles", children: [
-      // um cérebro, não cinco — Quant/Decisão/Risco/Autônomo/Dados viram abas
-      // dentro do Copiloto (deep-link ?aba=). Rotas standalone seguem vivas.
+    id: "inteligencia", label: "Copiloto", icon: "sparkles", children: [
+      // O Copiloto é o comando central (responde + age); os demais são
+      // detalhamentos agrupados aqui (drill-down dos mesmos motores).
       { label: "Copiloto", href: "/copiloto" },
+      { label: "Decisão", href: "/decisao" },
+      { label: "Operação autônoma", href: "/autonomo" },
+      { label: "Risco de caixa", href: "/risco" },
+      { label: "Inadimplência", href: "/inadimplencia" },
+      { label: "Inteligência (quant)", href: "/inteligencia" },
+      { label: "Dados (moat)", href: "/dados" },
     ],
   },
 ];
