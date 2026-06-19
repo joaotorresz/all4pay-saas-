@@ -85,6 +85,16 @@ export function DailyCashflowChart() {
   // "Esse mês": volta ao mês atual e vigente (sai de qualquer range).
   const esseMes = () => { const n = new Date(); period.setMonth(n.getFullYear(), n.getMonth()); };
 
+  // Estado de seleção dos toggles (semana × mês) → dirige o design dos botões.
+  const _h = new Date(); _h.setHours(0, 0, 0, 0);
+  const _dom = new Date(_h); _dom.setDate(_h.getDate() - _h.getDay());
+  const _sab = new Date(_dom); _sab.setDate(_dom.getDate() + 6);
+  const selSemana = period.modo === "range" && period.from === isoDay(_dom) && period.to === isoDay(_sab);
+  const selMes = period.modo === "mes";
+  // Selecionado: fundo escuro + texto verde. Não selecionado: cinza + preto.
+  const btnCls = (ativo: boolean) =>
+    `inline-flex items-center rounded-[18px] px-4 h-9 text-[16px] font-semibold ${ativo ? "bg-ink text-lime" : "bg-surface-1 text-ink"}`;
+
   const hojeISO = isoDay(new Date());
   const hojeLabel = (data ?? []).find((d) => d.date === hojeISO)?.label;
   // Início de mês DENTRO do intervalo (exceto o 1º ponto) → linha vertical.
@@ -107,16 +117,10 @@ export function DailyCashflowChart() {
           <span className="text-caption text-faint">{legenda}</span>
         </div>
         <div className="shrink-0 flex items-center gap-2">
-          <button
-            onClick={essaSemana}
-            className="inline-flex items-center rounded-[18px] bg-ink text-lime px-4 h-9 text-[16px] font-semibold"
-          >
+          <button onClick={essaSemana} aria-pressed={selSemana} className={btnCls(selSemana)}>
             Essa semana
           </button>
-          <button
-            onClick={esseMes}
-            className="inline-flex items-center rounded-[18px] bg-surface-1 text-ink px-4 h-9 text-[16px] font-semibold"
-          >
+          <button onClick={esseMes} aria-pressed={selMes} className={btnCls(selMes)}>
             Esse mês
           </button>
         </div>
