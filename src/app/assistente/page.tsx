@@ -1,7 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { AssistenteView } from "@/components/assistente/AssistenteView";
-
+// O assistente do razão foi fundido no Copiloto (um chat que responde e age).
 export default function AssistentePage() {
-  return <AssistenteView />;
+  redirect("/copiloto");
 }

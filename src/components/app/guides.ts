@@ -79,18 +79,6 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/assistente": {
-    titulo: "Assistente (Razão)",
-    intro: "Converse com o razão: o assistente recebe um contexto numérico do GL (não o banco cru), responde citando os números e pode rascunhar um lançamento balanceado — que só vai pro razão com a sua aprovação. Tudo logado (ai_actions).",
-    comoUsar: "Digite a pergunta ou use uma sugestão. Para criar um lançamento, peça em linguagem natural; revise o rascunho e clique 'Aprovar e postar'. Com ANTHROPIC_API_KEY usa o Claude; sem chave, modo básico.",
-    exemplo: "Pergunte 'qual a maior conta de despesa?' ou 'rascunhe um lançamento de R$ 1.000 de despesa operacional paga em caixa' → aprove o rascunho.",
-    secoes: [
-      acoes([
-        { nome: "Perguntar", desc: "Resultado, saldo de conta, maior despesa, se o razão fecha… com fontes (números usados).", match: "Pergunte sobre o razão" },
-        { nome: "Rascunhar lançamento", desc: "O assistente propõe um lançamento balanceado para você aprovar e postar." },
-      ]),
-    ],
-  },
 
   /* ----------------------------- Relatórios gerenciais ----------------------------- */
   "/dre": {
@@ -398,11 +386,15 @@ export const GUIDES: Record<string, Guide> = {
 
   /* ----------------------------- Inteligência (Pro) ----------------------------- */
   "/copiloto": {
-    titulo: "Copiloto — IA executiva",
-    intro: "O sistema operando como analista + FP&A + tesouraria: o que vai acontecer, o que priorizar, o que está errado. Orquestra os motores quant/risco/crédito.",
-    comoUsar: "Digite uma pergunta ou use as sugeridas; a resposta vem com números e fontes. Leia o briefing e os insights priorizados.",
-    exemplo: "Pergunte 'posso contratar mais um vendedor?' → resposta com impacto no runway e fontes.",
+    titulo: "Copiloto — IA executiva que age",
+    intro: "A superfície única de IA: responde, prioriza E age. Orquestra os motores quant/risco/crédito/decisão; executa a ação reversível ou a envia para aprovação (alçada), tudo registrado na trilha ai_actions. Os consoles Decisão/Autônomo/Risco/Inadimplência/Inteligência/Dados são detalhamentos linkados.",
+    comoUsar: "Em 'Ações recomendadas', clique Executar (ação reversível) ou Enviar p/ aprovação (move dinheiro). No chat, pergunte sobre o negócio (resposta com números e fontes) ou peça um lançamento ('rascunhe…') para aprovar e postar no razão.",
+    exemplo: "Pergunte 'posso contratar mais um vendedor?' (impacto no runway + fontes) ou 'rascunhe um lançamento de R$ 1.000 de despesa operacional paga em caixa' → aprove o rascunho.",
     secoes: [
+      acoes([
+        { nome: "Ações recomendadas", desc: "Decisões priorizadas: Executar (reversível) ou Enviar p/ aprovação (HITL), com histórico na trilha.", match: "Ações recomendadas" },
+        { nome: "Chat que age", desc: "Pergunta de negócio com números/fontes; ou rascunho de lançamento balanceado p/ aprovar e postar.", match: "Copiloto financeiro" },
+      ]),
       blocos([
         { nome: "Briefing executivo", desc: "Resumo diário: saldo, runway, alertas, oportunidades, ruptura.", match: "Briefing executivo" },
         { nome: "Insights priorizados", desc: "Ordenados por impacto × urgência × probabilidade × criticidade.", match: "Insights priorizados" },

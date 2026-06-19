@@ -191,6 +191,7 @@
 - **Cronogramas/Provisões/Receita** → "Lançar no razão" → aparecem em `/razao` e `/relatorios`.
 - **Período travado** → trigger do banco rejeita postagem (live) + bloqueio na `MovementsTable`.
 - ✅ **Copiloto que AGE (18/06):** `/copiloto` deixou de só informar — lê as decisões priorizadas do motor autônomo e EXECUTA a ação reversível (registra na trilha `ai_actions`, demo + live) ou ENVIA para a alçada (`/aprovacoes`), com human-in-the-loop. Os consoles read-only (`/decisao`, `/autonomo`, `/risco`, `/inadimplencia`, `/inteligencia`, `/dados`) viram **detalhamentos** linkados a partir dele. `ai_actions` agora também grava em demo (`a4p_ai_actions`), unificando a trilha do assistente do razão e do copiloto.
+- ✅ **Chat unificado (19/06):** os dois chats viraram **um** (`CopilotoChat`): perguntas de negócio → motor executivo (números + fontes, sem chave); pedidos de lançamento → LLM rascunha o lançamento balanceado → aprovar e postar no razão. `/assistente` agora **redireciona** para `/copiloto` (view antiga removida; Sidebar/command palette/guia atualizados).
 
 ---
 

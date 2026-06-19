@@ -78,7 +78,6 @@ const GROUPS: Group[] = [
     id: "relatorios", label: "Relatórios", icon: "receipt", children: [
       { label: "Razão (GL)", href: "/razao" },
       { label: "Relatórios (Razão)", href: "/relatorios" },
-      { label: "Assistente (Razão)", href: "/assistente" },
       { label: "DRE", href: "/dre" },
       { label: "Orçamento vs Realizado", href: "/orcamento" },
       { label: "Fechamento contábil", href: "/fechamento" },

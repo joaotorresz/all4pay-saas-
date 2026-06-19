@@ -12,16 +12,13 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, Input, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
-import {
-  copilotoFinanceiro,
-  simularCenario,
-  PERGUNTAS_SUGERIDAS,
-} from "@/core/executive";
-import type { RespostaCopiloto, ScenarioInput, Severidade } from "@/core/executive/types";
+import { simularCenario } from "@/core/executive";
+import type { ScenarioInput, Severidade } from "@/core/executive/types";
 import { AcoesCopiloto } from "./AcoesCopiloto";
+import { CopilotoChat } from "./CopilotoChat";
 import Link from "next/link";
 
 const DRILLDOWNS: { href: string; label: string }[] = [
@@ -65,7 +62,7 @@ export function CopilotoView() {
         ))}
       </div>
       <AcoesCopiloto />
-      <Copilot ctx={data.context} />
+      <CopilotoChat ctx={data.context} />
       <BriefingCard b={data.briefing} />
       <InsightsCard insights={data.insights} />
       <AnomaliasCard anomalias={data.anomalias} />
@@ -73,72 +70,6 @@ export function CopilotoView() {
       <SimuladorCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
       <MemoriaCard memoria={data.memoria} />
     </div>
-  );
-}
-
-/* ---------- Copiloto ---------- */
-function Copilot({ ctx }: { ctx: Parameters<typeof copilotoFinanceiro>[1] }) {
-  const [pergunta, setPergunta] = React.useState("");
-  const [resp, setResp] = React.useState<RespostaCopiloto | null>(null);
-
-  const perguntar = (q: string) => {
-    if (!q.trim()) return;
-    setPergunta(q);
-    setResp(copilotoFinanceiro(q, ctx));
-  };
-
-  return (
-    <Card className="lg:col-span-2 flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
-          <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
-        </span>
-        <span className="text-label font-medium text-muted">Copiloto financeiro</span>
-      </div>
-
-      <div className="flex gap-2">
-        <Input
-          value={pergunta}
-          onChange={(e) => setPergunta(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && perguntar(pergunta)}
-          placeholder="Pergunte sobre caixa, contratação, clientes, despesas…"
-          containerClassName="flex-1"
-        />
-        <Button variant="primary" onClick={() => perguntar(pergunta)}>Perguntar</Button>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {PERGUNTAS_SUGERIDAS.map((q) => (
-          <button
-            key={q}
-            onClick={() => perguntar(q)}
-            className="text-caption text-muted bg-surface-2 hover:text-ink rounded-pill px-3 py-1"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      {resp && (
-        <div className="rounded-md bg-surface-1 p-4 flex flex-col gap-3">
-          <p className="m-0 text-body leading-[1.55] text-ink">{resp.resposta}</p>
-          {resp.numeros.length > 0 && (
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              {resp.numeros.map((n, i) => (
-                <div key={i}>
-                  <div className="text-caption text-faint">{n.label}</div>
-                  <div className="text-h3 font-medium tabular-nums text-ink">{n.valor}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center gap-2 text-caption text-faint">
-            <span>Fontes: {resp.fontes.join(" · ")}</span>
-            <span className="ml-auto">confiança {Math.round(resp.confianca * 100)}%</span>
-          </div>
-        </div>
-      )}
-    </Card>
   );
 }
 
