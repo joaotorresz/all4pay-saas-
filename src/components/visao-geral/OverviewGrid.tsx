@@ -120,12 +120,12 @@ export function OverviewGrid() {
               )}
             </div>
             {bloco === "Caixa" ? (
-              // Teste: Fluxo de caixa 70% · Calendário 30% (lado a lado no desktop).
-              <div className="grid grid-cols-1 md:grid-cols-10 gap-5 items-start">
+              // Fluxo de caixa e Calendário lado a lado, mesma largura (simétrico).
+              <div className="grid grid-cols-1 md:grid-cols-10 gap-5 items-stretch">
                 {ids.map((id) => {
                   const w = widgetNode(id, ctx);
-                  const span = id === "cashflow" ? "md:col-span-7" : id === "calendar" ? "md:col-span-3" : "md:col-span-10";
-                  return <div key={id} className={span}>{w.node}</div>;
+                  const span = id === "cashflow" || id === "calendar" ? "md:col-span-5" : "md:col-span-10";
+                  return <div key={id} className={`${span} flex [&>*]:w-full`}>{w.node}</div>;
                 })}
               </div>
             ) : (
