@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Button, StatusBadge, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { isDemo } from "@/lib/demo";
-import { getConciliacaoOF, conciliar, type MatchConc } from "@/lib/conciliacao-of";
+import { getConciliacaoOF, conciliar, avaliarComIA, iaConciliacaoAtiva, type MatchConc, type AvaliacaoIA } from "@/lib/conciliacao-of";
 import { EmptyState } from "@/components/visao-geral/shared";
 
 const fmtDia = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
@@ -26,8 +26,25 @@ export function ConciliacaoView() {
   const conc = useQuery({ queryKey: ["conciliacao-of"], queryFn: getConciliacaoOF });
   const [busy, setBusy] = React.useState<string | null>(null);
   const [feitos, setFeitos] = React.useState<Set<string>>(new Set()); // baixa imediata (otimista)
+  const [iaConc, setIaConc] = React.useState(false);
+  const [iaBusy, setIaBusy] = React.useState(false);
+  const [aval, setAval] = React.useState<Map<string, AvaliacaoIA>>(new Map());
+
+  React.useEffect(() => { iaConciliacaoAtiva().then(setIaConc).catch(() => setIaConc(false)); }, []);
 
   const marcarFeito = (ids: string[]) => setFeitos((s) => { const n = new Set(s); ids.forEach((id) => n.add(id)); return n; });
+
+  const analisarIA = async (matches: MatchConc[]) => {
+    const ambiguos = matches.filter((m) => m.confianca < AUTO);
+    if (!ambiguos.length) { show("Nenhum par ambíguo — os pares de confiança alta já conciliam direto."); return; }
+    setIaBusy(true);
+    try {
+      const r = await avaliarComIA(ambiguos);
+      setAval(r);
+      show(r.size > 0 ? `IA avaliou ${r.size} par(es) ambíguo(s).` : "Não foi possível avaliar com IA agora.");
+    } finally { setIaBusy(false); }
+  };
+  const RECO_TONE: Record<AvaliacaoIA["recomendacao"], "positive" | "warning" | "neutral"> = { conciliar: "positive", revisar: "warning", rejeitar: "neutral" };
 
   const aplicar = async (m: MatchConc) => {
     setBusy(m.ofId);
@@ -82,16 +99,26 @@ export function ConciliacaoView() {
         <Card><EmptyState icon="check" title="Nada a conciliar" hint="Sem transações do Open Finance casando com títulos pendentes no momento." /></Card>
       ) : (
         <Card padded={false}>
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
+          <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft flex-wrap">
             <span className="text-label font-medium text-muted">Pares para conciliar — revise a confiança e confirme</span>
-            {autos > 0 && (
-              <Button size="sm" variant="primary" disabled={busy === "auto"} onClick={() => aplicarAuto(conc.data!.matches)} leftIcon={<Icon name="check" size={14} />}>
-                {busy === "auto" ? "Conciliando…" : `Conciliar ${autos} de confiança alta`}
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {iaConc && matches.some((m) => m.confianca < AUTO) && (
+                <Button size="sm" variant="secondary" disabled={iaBusy} onClick={() => analisarIA(matches)} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
+                  {iaBusy ? "Analisando…" : "Analisar ambíguos (IA)"}
+                </Button>
+              )}
+              {autos > 0 && (
+                <Button size="sm" variant="primary" disabled={busy === "auto"} onClick={() => aplicarAuto(conc.data!.matches)} leftIcon={<Icon name="check" size={14} />}>
+                  {busy === "auto" ? "Conciliando…" : `Conciliar ${autos} de confiança alta`}
+                </Button>
+              )}
+            </div>
           </div>
-          {matches.map((m, i) => (
-            <div key={m.ofId} className={`grid grid-cols-1 md:grid-cols-[1.4fr_1.4fr_auto_auto_auto] gap-3 md:items-center px-3 sm:px-5 py-3 ${i ? "border-t border-border-soft" : ""}`}>
+          {matches.map((m, i) => {
+            const a = aval.get(m.ofId);
+            return (
+            <div key={m.ofId} className={i ? "border-t border-border-soft" : ""}>
+            <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1.4fr_auto_auto_auto] gap-3 md:items-center px-3 sm:px-5 py-3">
               {/* Título previsto */}
               <div className="flex items-center gap-3 min-w-0">
                 <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-surface-2 shrink-0">
@@ -122,7 +149,16 @@ export function ConciliacaoView() {
                 </Button>
               </span>
             </div>
-          ))}
+            {a && (
+              <div className="px-3 sm:px-5 pb-3 -mt-1 flex items-start gap-2">
+                <Icon name="sparkles" size={13} color="var(--color-lime)" />
+                <StatusBadge tone={RECO_TONE[a.recomendacao]}>IA: {a.recomendacao}{a.confiancaIA ? ` · ${Math.round(a.confiancaIA * 100)}%` : ""}</StatusBadge>
+                <span className="text-caption text-muted">{a.motivo}</span>
+              </div>
+            )}
+            </div>
+            );
+          })}
         </Card>
       )}
 

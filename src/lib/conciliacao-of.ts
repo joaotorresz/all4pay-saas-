@@ -16,6 +16,37 @@ export interface MatchConc {
 }
 export interface ConciliacaoOF { matches: MatchConc[]; pendentesSemMatch: number; ofSemMatch: number }
 
+export type RecomendacaoIA = "conciliar" | "revisar" | "rejeitar";
+export interface AvaliacaoIA { recomendacao: RecomendacaoIA; confiancaIA: number; motivo: string }
+
+/** IA disponível para desempatar pares ambíguos? */
+export async function iaConciliacaoAtiva(): Promise<boolean> {
+  try { return !!(await fetch("/api/ai/conciliar").then((r) => r.json()))?.configured; } catch { return false; }
+}
+
+/** Avalia com IA os pares ambíguos (confiança média) → mapa ofId→avaliação. */
+export async function avaliarComIA(matches: MatchConc[]): Promise<Map<string, AvaliacaoIA>> {
+  const out = new Map<string, AvaliacaoIA>();
+  if (matches.length === 0) return out;
+  const pares = matches.map((m) => ({
+    ofId: m.ofId, ofDesc: m.ofDesc, ofData: m.ofData,
+    pendDesc: m.pendDesc, dueDate: m.dueDate, valor: m.amount, tipo: m.tipo, confianca: m.confianca,
+  }));
+  try {
+    const j = await fetch("/api/ai/conciliar", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pares }),
+    }).then((r) => r.json());
+    if (j?.ok && Array.isArray(j.avaliacoes)) {
+      for (const a of j.avaliacoes as Array<AvaliacaoIA & { ofId: string }>) {
+        if (a?.ofId && a.recomendacao) out.set(a.ofId, { recomendacao: a.recomendacao, confiancaIA: Number(a.confiancaIA ?? 0), motivo: String(a.motivo ?? "") });
+      }
+    }
+  } catch { /* sem IA: segue só o determinístico */ }
+  return out;
+}
+
+
 /** Amostra determinística (demo) — mostra a confirmação profissional mesmo sem
  *  banco conectado. Em live os pares vêm do matching real abaixo. */
 const DEMO_CONC: ConciliacaoOF = {
