@@ -25,6 +25,7 @@ interface Turno {
   exec?: RespostaCopiloto;
   texto?: string;
   fontes?: string[];
+  acao?: string | null;
   rascunho?: LedgerEntryInput | null;
   modo: "executivo" | "ia" | "basico";
 }
@@ -32,7 +33,7 @@ interface Turno {
 const QUER_LANCAMENTO = /lan[çc]ament|rascunh|d[eé]bit|cr[eé]dit|\bposte\b|registr(e|ar)|estorn|provis|partida/i;
 const SUGESTOES_ACAO = ["Rascunhe um lançamento de R$ 1.000 de despesa operacional paga em caixa."];
 
-export function CopilotoChat({ ctx }: { ctx: Ctx }) {
+export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias?: unknown[]; insights?: unknown[] }) {
   const qc = useQueryClient();
   const [pergunta, setPergunta] = React.useState("");
   const [turnos, setTurnos] = React.useState<Turno[]>([]);
@@ -76,7 +77,34 @@ export function CopilotoChat({ ctx }: { ctx: Ctx }) {
       return;
     }
 
-    // Caminho de RESPOSTA: Q&A executivo determinístico (números + fontes).
+    // Caminho de RESPOSTA. Com chave: copiloto Claude ANCORADO no contexto
+    // numérico (Ember-style). Sem chave: motor executivo determinístico.
+    if (iaConfig) {
+      setPensando(true);
+      try {
+        const j = await fetch("/api/ai/copiloto", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pergunta: pq, contexto: ctx, anomalias, insights }),
+        }).then((r) => r.json());
+        if (j?.ok) {
+          const exec: RespostaCopiloto = {
+            resposta: j.resposta ?? "(sem resposta)",
+            numeros: Array.isArray(j.numeros) ? j.numeros : [],
+            fontes: Array.isArray(j.fontes) ? j.fontes : [],
+            confianca: 0.92,
+          };
+          setTurnos((t) => [{ pergunta: pq, exec, acao: j.acao ?? null, modo: "ia" }, ...t]);
+          void logAcaoIA({ kind: "chat", titulo: pq, detalhe: exec.resposta, status: "lida" });
+        } else {
+          const exec = copilotoFinanceiro(pq, ctx);
+          setTurnos((t) => [{ pergunta: pq, exec, modo: "executivo" }, ...t]);
+        }
+      } catch {
+        const exec = copilotoFinanceiro(pq, ctx);
+        setTurnos((t) => [{ pergunta: pq, exec, modo: "executivo" }, ...t]);
+      } finally { setPensando(false); }
+      return;
+    }
     const exec = copilotoFinanceiro(pq, ctx);
     setTurnos((t) => [{ pergunta: pq, exec, modo: "executivo" }, ...t]);
     void logAcaoIA({ kind: "chat", titulo: pq, detalhe: exec.resposta, status: "lida" });
@@ -143,8 +171,14 @@ export function CopilotoChat({ ctx }: { ctx: Ctx }) {
                   ))}
                 </div>
               )}
+              {t.acao && (
+                <div className="flex items-start gap-2 rounded-md bg-white border border-border-soft p-2">
+                  <Icon name="sparkles" size={14} color="var(--color-lime)" />
+                  <span className="text-caption text-ink"><b className="font-medium">Ação sugerida:</b> {t.acao}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-caption text-faint">
-                <span>Fontes: {t.exec.fontes.join(" · ")}</span>
+                <span>Fontes: {t.exec.fontes.join(" · ")}{t.modo === "ia" ? " · Claude" : ""}</span>
                 <span className="ml-auto">confiança {Math.round(t.exec.confianca * 100)}%</span>
               </div>
             </>

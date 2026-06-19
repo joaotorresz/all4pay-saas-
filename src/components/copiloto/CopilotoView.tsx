@@ -62,7 +62,7 @@ export function CopilotoView() {
         ))}
       </div>
       <AcoesCopiloto />
-      <CopilotoChat ctx={data.context} />
+      <CopilotoChat ctx={data.context} anomalias={data.anomalias} insights={data.insights} />
       <BriefingCard b={data.briefing} />
       <InsightsCard insights={data.insights} />
       <AnomaliasCard anomalias={data.anomalias} />
