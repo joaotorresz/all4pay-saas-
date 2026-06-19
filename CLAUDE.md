@@ -867,6 +867,12 @@ A partir de `0005_multi_tenant.sql` o banco é **isolado por organização**:
   / `org_member_update` / `org_member_remove`): o convidado precisa **já ter conta**
   (o convite o vincula à org; não cria conta nem envia e-mail). `governance.ts`
   consome essas RPCs; demo persiste no perfil local (`a4p_company`).
+- **Consolidado multi-empresa** (`/consolidado`): agrega a posição (saldo/receita/
+  despesa/resultado) das orgs em que o usuário é membro. Live: RPC
+  `org_consolidado(de, ate)` (`0013`, `SECURITY DEFINER` escopado a
+  `organization_members` do `auth.uid()`, anon revogado); demo: entidades
+  sintéticas. Sem eliminações intercompany (v1). `lib/consolidado.ts` +
+  `components/consolidado/ConsolidadoView.tsx`.
 
 ## Voice & copy (this is part of the brand)
 

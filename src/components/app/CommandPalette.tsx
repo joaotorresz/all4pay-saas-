@@ -24,6 +24,7 @@ const ROUTES: RouteItem[] = [
   { label: "Copiloto", href: "/copiloto", icon: "sparkles", kw: "ia assistente perguntas claude razao gl rascunho lancamento conversacional decisoes acoes agir chat" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
+  { label: "Consolidado (multi-empresa)", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "Orçamento vs Realizado", href: "/orcamento", icon: "receipt", kw: "orcamento budget variancia flux analysis orcado realizado desvio analise variacao planejado" },
   { label: "Fechamento contábil", href: "/fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
