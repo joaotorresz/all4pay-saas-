@@ -137,10 +137,12 @@ export async function contextoRazao(): Promise<ContextoRazao> {
   };
 }
 
-/** Trilha de auditoria do assistente (live: ai_actions; demo: no-op). */
+/** Trilha de auditoria do assistente (demo + live) — delega ao logger do copiloto. */
 export async function registrarAcaoIA(kind: string, prompt: string, result: unknown): Promise<void> {
-  if (isDemo) return;
-  try { await createClient().from("ai_actions").insert({ kind, prompt, result: result as object }); } catch { /* best-effort */ }
+  const r = (result ?? {}) as Record<string, unknown>;
+  const detalhe = typeof r.resposta === "string" ? r.resposta : typeof r.description === "string" ? r.description : undefined;
+  const { logAcaoIA } = await import("@/lib/ai-copilot");
+  await logAcaoIA({ kind, titulo: prompt, detalhe, status: kind === "draft_entry" ? "executada" : "lida" });
 }
 
 const fmtBRL = (v: number) => "R$ " + Math.round(v).toLocaleString("pt-BR");

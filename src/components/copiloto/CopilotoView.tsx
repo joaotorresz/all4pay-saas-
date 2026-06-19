@@ -21,6 +21,17 @@ import {
   PERGUNTAS_SUGERIDAS,
 } from "@/core/executive";
 import type { RespostaCopiloto, ScenarioInput, Severidade } from "@/core/executive/types";
+import { AcoesCopiloto } from "./AcoesCopiloto";
+import Link from "next/link";
+
+const DRILLDOWNS: { href: string; label: string }[] = [
+  { href: "/decisao", label: "Decisão" },
+  { href: "/autonomo", label: "Autônomo" },
+  { href: "/risco", label: "Risco" },
+  { href: "/inadimplencia", label: "Inadimplência" },
+  { href: "/inteligencia", label: "Inteligência" },
+  { href: "/dados", label: "Dados" },
+];
 
 const SEV_COR: Record<Severidade, string> = {
   baixa: "var(--color-text-secondary)",
@@ -47,6 +58,13 @@ export function CopilotoView() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
+      <div className="lg:col-span-3 flex items-center gap-x-3 gap-y-1 flex-wrap text-caption text-faint">
+        <span className="text-muted">O Copiloto centraliza a inteligência e <b className="font-medium text-ink">age</b>. Detalhamentos:</span>
+        {DRILLDOWNS.map((d) => (
+          <Link key={d.href} href={d.href} className="text-muted hover:text-ink underline">{d.label}</Link>
+        ))}
+      </div>
+      <AcoesCopiloto />
       <Copilot ctx={data.context} />
       <BriefingCard b={data.briefing} />
       <InsightsCard insights={data.insights} />
