@@ -42,28 +42,44 @@ export function UploadView() {
   const [iaCat, setIaCat] = React.useState(false);
   const [catBusy, setCatBusy] = React.useState(false);
   const [catMsg, setCatMsg] = React.useState<string | null>(null);
+  const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
   React.useEffect(() => { iaCategorizadorAtivo().then(setIaCat).catch(() => setIaCat(false)); }, []);
 
+  const analisar = (t: string): FDIPReport | null => {
+    setResultado(null);
+    const rep = t.trim() ? analisarImportacao(t) : null;
+    setReport(rep);
+    return rep;
+  };
+
   // Puzzlebot: a IA recategoriza os lançamentos de baixa confiança e MEMORIZA;
   // re-analisar reflete o aprendizado (a confiança sobe).
-  const autoCat = async () => {
-    if (!report || catBusy) return;
+  const rodarAuto = async (rep: FDIPReport, t: string) => {
     setCatBusy(true); setCatMsg(null);
     try {
-      const r = await autoCategorizar(report);
-      analisar(texto);
-      setCatMsg(r.aplicados > 0 ? `IA recategorizou ${r.aplicados} de ${r.revisados} lançamento(s) de baixa confiança.` : "Nada a melhorar — a leitura já estava com confiança alta.");
+      const r = await autoCategorizar(rep);
+      if (r.aplicados > 0) setReport(analisarImportacao(t)); // reflete o aprendizado
+      setCatMsg(r.aplicados > 0 ? `IA recategorizou ${r.aplicados} de ${r.revisados} lançamento(s) de baixa confiança.` : null);
     } catch (e) { setCatMsg(`Falha na categorização por IA: ${(e as Error).message}`); }
     finally { setCatBusy(false); }
   };
+  const autoCat = () => { if (report) void rodarAuto(report, texto); }; // re-disparo manual
 
-  const analisar = (t: string) => {
-    setResultado(null);
-    setReport(t.trim() ? analisarImportacao(t) : null);
+  const temBaixaConfianca = (rep: FDIPReport) =>
+    rep.classificacoes.some((c) => c.categoria !== "Transferência" && c.confianca < 0.9);
+
+  // Analisa e, com chave, dispara o Puzzlebot UMA vez por texto (automático).
+  const analisarEAuto = (t: string) => {
+    const rep = analisar(t);
+    if (rep && iaCat && autoRef.current !== t && temBaixaConfianca(rep)) {
+      autoRef.current = t;
+      void rodarAuto(rep, t);
+    }
   };
-  const carregarAmostra = () => { const a = amostraExtrato(); setTexto(a); analisar(a); };
+
+  const carregarAmostra = () => { const a = amostraExtrato(); setTexto(a); analisarEAuto(a); };
 
   /** Lê N arquivos (lote ou individual): texto vai direto; documento passa por OCR. */
   const lerArquivos = async (files: FileList | File[]) => {
@@ -85,7 +101,7 @@ export function UploadView() {
       }
       const combinado = linhas.filter(Boolean).join("\n");
       setTexto(combinado);
-      analisar(combinado);
+      analisarEAuto(combinado);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao ler o arquivo.");
     } finally {
@@ -145,7 +161,7 @@ export function UploadView() {
             className="w-full h-24 mt-2 rounded-md border border-border bg-white p-3 text-caption text-ink font-mono outline-none focus:border-faint resize-y"
           />
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
+            <Button variant="primary" onClick={() => analisarEAuto(texto)} disabled={!texto.trim()}>Analisar</Button>
             <Button variant="secondary" onClick={carregarAmostra}>Carregar amostra (12 meses)</Button>
             <a href="/exemplos/extrato-exemplo-all4pay.csv" download className="text-label font-medium text-muted hover:text-ink underline ml-auto">Baixar CSV de exemplo</a>
           </div>

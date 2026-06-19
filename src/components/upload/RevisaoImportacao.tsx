@@ -121,7 +121,7 @@ export function RevisaoImportacao({
           <span className="text-label font-medium text-muted">Lançamentos lidos — revise a categoria onde a confiança for baixa</span>
           {onAuto && (
             <Button size="sm" variant="secondary" onClick={onAuto} disabled={autoBusy} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
-              {autoBusy ? "Categorizando…" : "Auto-categorizar (IA)"}
+              {autoBusy ? "Categorizando…" : "Recategorizar (IA)"}
             </Button>
           )}
         </div>
