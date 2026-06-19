@@ -39,6 +39,29 @@ const SEV_COR: Record<Severidade, string> = {
 
 export function CopilotoView() {
   const { data, isLoading, isError } = useCentroInteligencia();
+  // Narrativa por LLM (grounded) do briefing/insights/anomalias — opcional.
+  const [narr, setNarr] = React.useState<{ resumo?: string; itens: Record<string, string> }>({ itens: {} });
+  React.useEffect(() => {
+    if (!data) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const cfg = await fetch("/api/ai/narrar").then((r) => r.json()).catch(() => ({ configured: false }));
+        if (!cfg?.configured) return;
+        const j = await fetch("/api/ai/narrar", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ contexto: data.context, briefing: data.briefing, insights: data.insights, anomalias: data.anomalias }),
+        }).then((r) => r.json());
+        if (!vivo || !j?.ok) return;
+        const itens: Record<string, string> = {};
+        for (const x of [...(j.insights ?? []), ...(j.anomalias ?? [])] as Array<{ id: string; texto: string }>) {
+          if (x?.id && x?.texto) itens[x.id] = x.texto;
+        }
+        setNarr({ resumo: typeof j.resumo === "string" ? j.resumo : undefined, itens });
+      } catch { /* fallback: textos do motor */ }
+    })();
+    return () => { vivo = false; };
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -63,9 +86,9 @@ export function CopilotoView() {
       </div>
       <AcoesCopiloto />
       <CopilotoChat ctx={data.context} anomalias={data.anomalias} insights={data.insights} />
-      <BriefingCard b={data.briefing} />
-      <InsightsCard insights={data.insights} />
-      <AnomaliasCard anomalias={data.anomalias} />
+      <BriefingCard b={data.briefing} resumo={narr.resumo} />
+      <InsightsCard insights={data.insights} narr={narr.itens} />
+      <AnomaliasCard anomalias={data.anomalias} narr={narr.itens} />
       <ForecastCard forecast={data.forecast} />
       <SimuladorCard indic={data.indicadores} saldo={data.context.saldoAtual} score={data.context.scoreFinanceiro} />
       <MemoriaCard memoria={data.memoria} />
@@ -74,11 +97,12 @@ export function CopilotoView() {
 }
 
 /* ---------- Briefing ---------- */
-function BriefingCard({ b }: { b: import("@/core/executive/types").Briefing }) {
+function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Briefing; resumo?: string }) {
   const cor = b.riscoRuptura === "elevado" ? "var(--color-negative)" : b.riscoRuptura === "moderado" ? "var(--color-warning)" : "var(--color-positive)";
   return (
     <Card className="lg:col-span-1 flex flex-col gap-3">
       <span className="text-label font-medium text-muted">Briefing executivo · {b.data}</span>
+      {resumo && <p className="m-0 text-body leading-[1.5] text-ink">{resumo}</p>}
       <div className="flex gap-6">
         <div>
           <div className="text-caption text-faint">Saldo</div>
@@ -118,7 +142,7 @@ function BriefingCard({ b }: { b: import("@/core/executive/types").Briefing }) {
 }
 
 /* ---------- Insights ---------- */
-function InsightsCard({ insights }: { insights: import("@/core/executive/types").ExecutiveInsight[] }) {
+function InsightsCard({ insights, narr = {} }: { insights: import("@/core/executive/types").ExecutiveInsight[]; narr?: Record<string, string> }) {
   return (
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <span className="text-label font-medium text-muted">Insights priorizados · impacto × urgência</span>
@@ -135,7 +159,7 @@ function InsightsCard({ insights }: { insights: import("@/core/executive/types")
                   <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={i.impactoCentavos / 100} /></span>
                 )}
               </div>
-              <span className="text-caption text-muted">{i.descricao}</span>
+              <span className="text-caption text-muted">{narr[i.id] ?? i.descricao}</span>
               <div className="flex flex-wrap gap-2 mt-1">
                 {i.recomendacoes.map((r, j) => (
                   <span key={j} className="text-caption text-faint bg-surface-2 rounded-pill px-2 py-[2px]">{r}</span>
@@ -150,7 +174,7 @@ function InsightsCard({ insights }: { insights: import("@/core/executive/types")
 }
 
 /* ---------- Anomalias ---------- */
-function AnomaliasCard({ anomalias }: { anomalias: import("@/core/executive/types").Anomalia[] }) {
+function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/executive/types").Anomalia[]; narr?: Record<string, string> }) {
   return (
     <Card className="lg:col-span-1 flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -165,7 +189,7 @@ function AnomaliasCard({ anomalias }: { anomalias: import("@/core/executive/type
             <span className="inline-flex items-center gap-[6px] text-label font-medium" style={{ color: SEV_COR[a.severidade] }}>
               <span className="w-2 h-2 rounded-pill" style={{ background: SEV_COR[a.severidade] }} />{a.titulo}
             </span>
-            <span className="text-caption text-muted">{a.descricao}</span>
+            <span className="text-caption text-muted">{narr[a.id] ?? a.descricao}</span>
             <span className="text-caption text-faint tabular-nums"><BRL value={a.valor} /></span>
           </div>
         ))
