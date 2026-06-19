@@ -7,13 +7,13 @@ import { isoDay } from "@/lib/aggregations";
 import type { Movement } from "@/lib/types";
 import { DEMO_ACCOUNTS } from "@/lib/demo/seed";
 import { cancelMovement } from "@/lib/data";
+import { useAccountsList } from "@/components/lancamentos/hooks";
 import { isPeriodLocked } from "@/lib/close";
 import { useToast } from "@/components/listas/ListChrome";
 import { EditMovementModal } from "./EditMovementModal";
 import { EmptyState } from "./shared";
 
-const accountName = (id: string) =>
-  DEMO_ACCOUNTS.find((a) => a.id === id)?.name ?? id;
+const encurtaId = (id: string) => (id?.length > 10 ? `Conta ${id.slice(0, 4)}` : id);
 
 function dueStatus(due: string): { tone: "warning" | "neutral" | "positive"; label: string } {
   const today = isoDay(new Date());
@@ -57,6 +57,12 @@ export function MovementsTable({
   onChanged?: () => void;
 }) {
   const { show, node } = useToast();
+  const { data: accounts } = useAccountsList();
+  const nomeConta = React.useCallback(
+    (id: string) =>
+      accounts?.find((a) => a.id === id)?.name ?? DEMO_ACCOUNTS.find((a) => a.id === id)?.name ?? encurtaId(id),
+    [accounts],
+  );
   const [editing, setEditing] = React.useState<Movement | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [selMode, setSelMode] = React.useState(false);
@@ -171,7 +177,7 @@ export function MovementsTable({
               <Avatar name={m.description ?? "—"} size={32} />
               <div className="flex-1 min-w-0">
                 <div className="text-[16px] sm:text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
-                <div className="text-caption text-faint tabular-nums truncate">{accountName(m.account_id)}</div>
+                <div className="text-caption text-faint tabular-nums truncate">{nomeConta(m.account_id)}</div>
                 {/* Telas pequenas: data + status sob a descrição (colunas escondidas) */}
                 <div className="sm:hidden text-caption text-faint tabular-nums mt-[2px]">
                   {fmtDate(dateShown)} · {status.label}

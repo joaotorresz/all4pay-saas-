@@ -208,7 +208,7 @@
 | 🟠 Média | §4.8 "Criar recorrência" a partir do upload | Fecha o ciclo de cadastro automático |
 | 🟠 Média | §4.5/§4.6 Ligar `ANTHROPIC_API_KEY` + Twilio/Resend no Vercel | Liga IA/cobrança de verdade |
 | 🟡 Baixa | §4.7 Conectores de inbox (e-mail/WhatsApp/API) | Roadmap de ingestão |
-| 🟡 Baixa | §4.9 `account_id` em `movements` | Saldo/conciliação por conta |
+| ✅ Feito | §4.9 `account_id` em `movements` | Coluna + fluxo ponta a ponta (lançamento→writer→leitura→listas→filtro fluxo de caixa). Listas mostram o nome da conta (lista real) e filtram por conta. |
 | 🟡 Baixa | §4.10 Emissão real NFS-e/boleto/PIX | Depende de provedores |
 
 ---

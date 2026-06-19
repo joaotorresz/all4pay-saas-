@@ -578,8 +578,11 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
 demo-safe. **Header** (`FiltrosContext` + `Header.tsx`): período (Hoje·7D·14D·30D·
 3M·6M·1A·Personalizado em pills) + Conta + Regime (Competência/Caixa/Híbrido) +
 Visão (Previsto/Realizado/Consolidado) — **toda alteração reprocessa a página**
-(entra na chave do `useFluxoCaixa`, memoizado). Conta escopa saldo (movements não
-têm account_id).
+(entra na chave do `useFluxoCaixa`, memoizado). **Conta** escopa saldo **e filtra
+os movimentos** por `account_id` (`montarFluxoCaixa`). `movements.account_id` flui
+ponta a ponta: escolhido no lançamento (`ReceitaForm`), gravado pelo writer, lido
+no `getRiscoInput`/`Movement`, exibido nas listas (`MovementsTable` resolve o nome
+da conta da lista real) e filtrável por conta na tela de Entradas/Saídas.
 
 - **Blocos** (`FluxoCaixaView.tsx`): 1) **Executive summary** (caixa, entradas/
   saídas previstas, geração, burn, runway, chance de ruptura, Financial Score);
