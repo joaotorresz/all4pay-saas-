@@ -18,13 +18,17 @@ const confTone = (c: number) => (c >= 0.9 ? "positive" : c >= 0.7 ? "warning" : 
 const confLabel = (c: number) => (c >= 0.9 ? "alta" : c >= 0.7 ? "média" : "baixa");
 
 export function RevisaoImportacao({
-  report, onCorrigir, onConfirmar, aplicando, resultado,
+  report, onCorrigir, onConfirmar, aplicando, resultado, onAuto, autoBusy, catMsg,
 }: {
   report: FDIPReport;
   onCorrigir: (r: FinancialRecord, categoria: string) => void;
   onConfirmar: () => void;
   aplicando: boolean;
   resultado: ResultadoOnboarding | null;
+  /** Puzzlebot: recategoriza os de baixa confiança com IA (quando há chave). */
+  onAuto?: () => void;
+  autoBusy?: boolean;
+  catMsg?: string | null;
 }) {
   const [verTodas, setVerTodas] = React.useState(false);
   const clsPorRec = React.useMemo(() => {
@@ -113,9 +117,15 @@ export function RevisaoImportacao({
 
       {/* Lançamentos (revisão por transação, estilo OF) */}
       <Card padded={false}>
-        <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">
-          Lançamentos lidos — revise a categoria onde a confiança for baixa
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
+          <span className="text-label font-medium text-muted">Lançamentos lidos — revise a categoria onde a confiança for baixa</span>
+          {onAuto && (
+            <Button size="sm" variant="secondary" onClick={onAuto} disabled={autoBusy} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
+              {autoBusy ? "Categorizando…" : "Auto-categorizar (IA)"}
+            </Button>
+          )}
         </div>
+        {catMsg && <div className="px-5 py-2 text-caption text-muted border-b border-border-soft">{catMsg}</div>}
         {registros.map((r, i) => {
           const c = clsPorRec.get(r.id);
           const conf = c?.confianca ?? 0.7;

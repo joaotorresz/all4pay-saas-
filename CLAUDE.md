@@ -368,6 +368,13 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 - **Dados:** reutiliza `getRiscoInput()`; hook `useCentroInteligencia()`. UI em
   `src/components/copiloto/CopilotoView.tsx` (Intelligence Center: copiloto +
   briefing + insights + anomalias + forecast + simulador + memória).
+- **Copiloto Ember (Claude grounded)** (`POST /api/ai/copiloto`, `runtime nodejs`,
+  gated por `ANTHROPIC_API_KEY`): o chat do `/copiloto` (`CopilotoChat`) manda o
+  **contexto numérico** (`ExecutiveContext` + anomalias + insights) e o Claude
+  responde **ancorado nos números**, citando fontes e sugerindo **1 ação**.
+  Determinístico (`copilotoFinanceiro`) é o **fallback** (sem chave/erro). Some
+  o ar "artificial" sem perder explicabilidade (os números seguem do motor).
+  Logado em `ai_actions`.
 
 ### Financial Orchestration Layer (`/orquestracao`)
 
@@ -724,6 +731,13 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   assinaturas, marketing, fornecedores) + detecção de transferência; **self-
   learning** (`learning.ts`) memoriza contraparte→categoria (localStorage) e
   sobe a confiança a ~99% na próxima vez.
+- **Puzzlebot — auto-categorização por IA** (`src/lib/puzzlebot.ts` +
+  `POST /api/ai/categorizar`, gated por `ANTHROPIC_API_KEY`): botão
+  **"Auto-categorizar (IA)"** na revisão do upload pega os lançamentos de
+  **baixa confiança** (<0.9), o Claude escolhe a categoria do vocabulário FDIP e
+  o resultado é **memorizado** (`aprender`); re-analisar reflete o aprendizado
+  (confiança sobe) — é como a acurácia chega a ~90%+ a cada upload. Fallback:
+  fica nas regras (sem chave).
 - **Entidades** (`resolverEntidades`): agrupa por contraparte normalizada
   (aliases) → cliente/fornecedor. **Padrões** (`descobrirPadroes`):
   recorrências (mensal/semanal), assinaturas, sazonalidade. **Grafo** + **plano

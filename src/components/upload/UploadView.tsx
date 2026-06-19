@@ -15,6 +15,7 @@ import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
 import { hasImported } from "@/lib/imported";
 import { lerDocumento } from "@/lib/ocr-ingest";
+import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
 import { RevisaoImportacao } from "./RevisaoImportacao";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
@@ -38,8 +39,25 @@ export function UploadView() {
   const [lendo, setLendo] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   const [drag, setDrag] = React.useState(false);
+  const [iaCat, setIaCat] = React.useState(false);
+  const [catBusy, setCatBusy] = React.useState(false);
+  const [catMsg, setCatMsg] = React.useState<string | null>(null);
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
+  React.useEffect(() => { iaCategorizadorAtivo().then(setIaCat).catch(() => setIaCat(false)); }, []);
+
+  // Puzzlebot: a IA recategoriza os lançamentos de baixa confiança e MEMORIZA;
+  // re-analisar reflete o aprendizado (a confiança sobe).
+  const autoCat = async () => {
+    if (!report || catBusy) return;
+    setCatBusy(true); setCatMsg(null);
+    try {
+      const r = await autoCategorizar(report);
+      analisar(texto);
+      setCatMsg(r.aplicados > 0 ? `IA recategorizou ${r.aplicados} de ${r.revisados} lançamento(s) de baixa confiança.` : "Nada a melhorar — a leitura já estava com confiança alta.");
+    } catch (e) { setCatMsg(`Falha na categorização por IA: ${(e as Error).message}`); }
+    finally { setCatBusy(false); }
+  };
 
   const analisar = (t: string) => {
     setResultado(null);
@@ -145,7 +163,10 @@ export function UploadView() {
 
       {/* Confirmação (estilo Open Finance) */}
       {report && (
-        <RevisaoImportacao report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado} />
+        <RevisaoImportacao
+          report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
+          onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy} catMsg={catMsg}
+        />
       )}
       {report && (resultado || importado) && (
         <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline self-start">Limpar e recomeçar</button>
