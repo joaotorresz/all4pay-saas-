@@ -17,7 +17,7 @@
   --color-ink: #171717;
   --color-ink-soft: #0c0c0b;
   --color-white: #ffffff;
-  --color-surface-1: #eceef2; /* fundo da página (DS v2 / Onest) */
+  --color-surface-1: #f4f4f5; /* fundo da página (near-white, ref. Itaú) */
   --color-surface-2: #f7f7f5;
   --color-surface-3: #f4f4f3;
   --color-border: #e9e9e9;
@@ -199,7 +199,7 @@ h1, h2, h3,
      Edite os números/cores abaixo e me mande este bloco de volta — ou edite
      direto no GitHub (branch claude/epic-fermi-i423xk → src/app/globals.css).
      ------------------------------------------------------------------------ */
-  --a4p-bg: #eceef2;          /* fundo principal da página */
+  --a4p-bg: #f4f4f5;          /* fundo principal da página (near-white, ref. Itaú) */
   --a4p-box-bg: #ffffff;      /* cor de fundo dos boxes */
   --a4p-box-radius: 36px;     /* arredondamento das bordas do box */
   --a4p-box-padding: 45px;    /* espaçamento interno (conteúdo ↔ borda) */
@@ -224,9 +224,9 @@ h1, h2, h3,
 .ds-onest .p-6 {
   padding: var(--a4p-box-padding);
 }
-/* títulos de widget (text-h3) maiores na Home */
+/* títulos de widget (text-h3) na Home — calmos, ref. Itaú (menos poluído) */
 .ds-onest .text-h3 {
-  font-size: 31px;
+  font-size: 24px;
 }
 /* esconde os títulos de bloco (Caixa, Operação, Resumo executivo, …) na Home */
 .ds-onest [data-block-header] {

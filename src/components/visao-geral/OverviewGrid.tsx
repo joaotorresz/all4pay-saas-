@@ -97,7 +97,7 @@ export function OverviewGrid() {
   const algumVisivel = HOME_WIDGET_IDS.some(on);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-9">
       <FirstRunCard />
 
       {hc.ordemBlocos.map((bloco) => {
