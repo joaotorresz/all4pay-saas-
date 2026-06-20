@@ -72,16 +72,24 @@ const GROUPS: Group[] = [
   },
   {
     id: "relatorios", label: "Relatórios", icon: "receipt", children: [
-      { label: "Razão (GL)", href: "/razao" },
-      { label: "Relatórios (Razão)", href: "/relatorios" },
-      { label: "Consolidado (multi-empresa)", href: "/consolidado" },
-      { label: "DRE", href: "/dre" },
-      { label: "Orçamento vs Realizado", href: "/orcamento" },
-      { label: "Fechamento contábil", href: "/fechamento" },
-      { label: "Cronogramas (amort./deprec.)", href: "/cronogramas" },
-      { label: "Reconhecimento de receita", href: "/receita" },
-      { label: "Dimensões & Tags", href: "/dimensoes" },
-      { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
+      {
+        id: "rel-contabil", label: "Contábil", icon: "receipt", children: [
+          { label: "Razão (GL)", href: "/razao" },
+          { label: "Relatórios (Razão)", href: "/relatorios" },
+          { label: "Fechamento contábil", href: "/fechamento" },
+          { label: "Cronogramas (amort./deprec.)", href: "/cronogramas" },
+          { label: "Dimensões & Tags", href: "/dimensoes" },
+        ],
+      },
+      {
+        id: "rel-gerencial", label: "Gerencial", icon: "trending-up", children: [
+          { label: "DRE", href: "/dre" },
+          { label: "Orçamento vs Realizado", href: "/orcamento" },
+          { label: "Reconhecimento de receita", href: "/receita" },
+          { label: "Consolidado (multi-empresa)", href: "/consolidado" },
+          { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
+        ],
+      },
     ],
   },
   // ----- Pro (escondidos no Modo Simples) -----
