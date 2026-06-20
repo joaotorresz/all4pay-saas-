@@ -22,15 +22,6 @@ import { AcoesCopiloto } from "./AcoesCopiloto";
 import { CopilotoChat } from "./CopilotoChat";
 import Link from "next/link";
 
-const DRILLDOWNS: { href: string; label: string }[] = [
-  { href: "/decisao", label: "Decisão" },
-  { href: "/autonomo", label: "Autônomo" },
-  { href: "/risco", label: "Risco" },
-  { href: "/inadimplencia", label: "Inadimplência" },
-  { href: "/inteligencia", label: "Inteligência" },
-  { href: "/dados", label: "Dados" },
-];
-
 const SEV_COR: Record<Severidade, string> = {
   baixa: "var(--color-text-secondary)",
   media: "var(--color-warning)",
@@ -79,12 +70,6 @@ export function CopilotoView() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
-      <div className="lg:col-span-3 flex items-center gap-x-3 gap-y-1 flex-wrap text-caption text-faint">
-        <span className="text-muted">O Copiloto centraliza a inteligência e <b className="font-medium text-ink">age</b>. Detalhamentos:</span>
-        {DRILLDOWNS.map((d) => (
-          <Link key={d.href} href={d.href} className="text-muted hover:text-ink underline">{d.label}</Link>
-        ))}
-      </div>
       <AcoesCopiloto />
       <CopilotoChat ctx={data.context} anomalias={data.anomalias} insights={data.insights} />
       <BriefingCard b={data.briefing} resumo={narr.resumo} />
@@ -342,7 +327,7 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
           <Icon name="sparkles" size={15} color="var(--color-lime)" /> Planner — cenários sugeridos e impacto
         </span>
-        <Link href="/decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
+        <Link href="/copiloto?aba=decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {cenarios.map((c, i) => (

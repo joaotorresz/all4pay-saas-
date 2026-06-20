@@ -1,22 +1,11 @@
-import type { Metadata } from "next";
-import { AppShell } from "@/components/app/AppShell";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { RiscoView } from "@/components/risco/RiscoView";
+"use client";
 
-export const metadata: Metadata = {
-  title: "all4pay — Risco de caixa",
-  description: "Motor de risco operacional financeiro: score, runway, stress e interpretação executiva.",
-};
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function RiscoPage() {
-  return (
-    <AppShell
-      title="Risco de caixa"
-      crumb="Inteligência financeira"
-      actions={isDemo ? <DemoBadge /> : null}
-    >
-      <RiscoView />
-    </AppShell>
-  );
+// Console unificado em abas no Copiloto (/copiloto?aba=risco).
+export default function RedirectPage() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/copiloto?aba=risco"); }, [router]);
+  return null;
 }

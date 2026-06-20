@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -17,7 +18,9 @@ export default function CopilotoPage() {
       crumb="Copiloto · um cérebro"
       actions={isDemo ? <DemoBadge /> : null}
     >
-      <InteligenciaShell />
+      <Suspense fallback={null}>
+        <InteligenciaShell />
+      </Suspense>
     </AppShell>
   );
 }

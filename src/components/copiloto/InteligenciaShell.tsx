@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { CopilotoView } from "@/components/copiloto/CopilotoView";
 import { QuantView } from "@/components/quant/QuantView";
 import { DecisaoView } from "@/components/decisao/DecisaoView";
@@ -24,13 +25,15 @@ const ABAS: { id: Aba; label: string }[] = [
 ];
 
 export function InteligenciaShell() {
+  const sp = useSearchParams();
   const [aba, setAba] = React.useState<Aba>("copiloto");
 
-  // Deep-link opcional: /copiloto?aba=quant
+  // Deep-link reativo (/copiloto?aba=…) — troca a aba também quando se navega
+  // pela Sidebar/command palette estando já no Copiloto.
   React.useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get("aba") as Aba | null;
+    const p = sp.get("aba") as Aba | null;
     if (p && ABAS.some((a) => a.id === p)) setAba(p);
-  }, []);
+  }, [sp]);
 
   return (
     <div className="flex flex-col gap-5">
