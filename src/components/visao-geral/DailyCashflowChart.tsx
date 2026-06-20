@@ -110,10 +110,10 @@ export function DailyCashflowChart() {
 
   return (
     <Card className="flex flex-col">
-      <div className="flex items-start justify-between gap-3 mb-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
         <div className="min-w-0">
           {/* subtítulo (período · projetado) ABAIXO do título */}
-          <h2 className="m-0 text-h3 font-medium text-ink truncate">Fluxo de caixa</h2>
+          <h2 className="m-0 text-h3 font-medium text-ink">Fluxo de caixa</h2>
           <span className="text-caption text-faint">{legenda}</span>
         </div>
         <div className="shrink-0 flex items-center gap-2">
@@ -127,7 +127,7 @@ export function DailyCashflowChart() {
       </div>
 
       {!isLoading && !isError && hasFlow && (
-        <div className="flex items-center gap-12 -mt-1 mb-1 flex-wrap">
+        <div className="flex items-center gap-x-8 gap-y-2 -mt-1 mb-1 flex-wrap">
           <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
           <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
           <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
