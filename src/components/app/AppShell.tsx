@@ -14,12 +14,12 @@ import { MobileNavButton } from "@/components/app/MobileNavButton";
  */
 export function AppShell({
   title,
-  crumb = "all4pay financeiro",
   actions,
   children,
   scopeClassName,
 }: {
   title: string;
+  /** Aceito por compatibilidade, mas não exibido (breadcrumb removido do header). */
   crumb?: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
@@ -34,9 +34,6 @@ export function AppShell({
           <div className="flex items-center gap-2 min-w-0">
             <MobileNavButton />
             <div className="min-w-0">
-              <div className="text-caption font-medium text-faint mb-1">
-                {crumb}
-              </div>
               <h1 className="m-0 text-[26px] sm:text-[30px] lg:text-[35px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink truncate">
                 {title}
               </h1>
