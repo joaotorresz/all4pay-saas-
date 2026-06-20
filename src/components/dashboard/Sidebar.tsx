@@ -35,21 +35,17 @@ const INICIO = { label: "Início", icon: "house", href: "/" };
 const GROUPS: Group[] = [
   {
     id: "entradas", label: "Entradas", icon: "arrow-left-right", children: [
-      { label: "Central de recebimentos", href: "/recebimentos" },
-      { label: "A receber", href: "/recebiveis" },
+      { label: "Receber", href: "/recebimentos" },
       { label: "Recorrências / Contratos", href: "/recorrencias" },
       { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Boleto", href: "/boletos" },
       { label: "Notas fiscais (NFS-e)", href: "/notas-fiscais" },
-      { label: "Lixeira", href: "/lixeira" },
     ],
   },
   {
     id: "saidas", label: "Saídas", icon: "arrow-up-right", children: [
-      { label: "Central de pagamentos", href: "/pagamentos" },
-      { label: "A pagar", href: "/pagaveis" },
+      { label: "Pagar", href: "/pagamentos" },
       { label: "Reembolsos", href: "/reembolsos" },
-      { label: "Lixeira", href: "/lixeira" },
     ],
   },
   {
@@ -103,7 +99,6 @@ const GROUPS: Group[] = [
       { label: "Decisão", href: "/decisao" },
       { label: "Operação autônoma", href: "/autonomo" },
       { label: "Risco de caixa", href: "/risco" },
-      { label: "Inadimplência", href: "/inadimplencia" },
       { label: "Inteligência (quant)", href: "/inteligencia" },
       { label: "Dados (moat)", href: "/dados" },
     ],
@@ -122,6 +117,7 @@ const CONFIG: Group = {
         { label: "Automações", href: "/automacoes" },
       ],
     },
+    { label: "Lixeira", href: "/lixeira" },
     { label: "Adicionar Empresa", href: "/comecar" },
     { label: "Central de Ajuda", soon: true },
   ],

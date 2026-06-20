@@ -136,7 +136,7 @@ export function montarFechamento(
       tipo: "auto",
       status: metricas.pendentes === 0 ? "ok" : "atencao",
       detalhe: metricas.pendentes === 0 ? "Tudo baixado." : `${metricas.pendentes} lançamento(s) pendente(s).`,
-      href: "/recebiveis",
+      href: "/recebimentos?aba=titulos",
     },
     {
       id: "provisoes",

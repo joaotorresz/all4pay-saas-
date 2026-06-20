@@ -1,14 +1,11 @@
 "use client";
 
-import { AppShell } from "@/components/app/AppShell";
-import { MovementsScreen } from "@/components/visao-geral/MovementsScreen";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
+// "A receber" foi unificado em Receber (aba Títulos).
 export default function RecebiveisPage() {
-  return (
-    <AppShell title="Entradas" crumb="Início" actions={isDemo ? <DemoBadge /> : null}>
-      <MovementsScreen direction="entrada" />
-    </AppShell>
-  );
+  const router = useRouter();
+  useEffect(() => { router.replace("/recebimentos?aba=titulos"); }, [router]);
+  return null;
 }

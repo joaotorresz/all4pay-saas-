@@ -179,8 +179,8 @@ function InsightsCard({ insights, narr = {} }: { insights: import("@/core/execut
 type ClasseAnom = import("@/core/executive/types").Anomalia["classe"];
 const ACAO_ANOM: Record<ClasseAnom, { label: string; href: string }> = {
   despesa: { label: "Revisar despesa", href: "/dre" },
-  duplicidade: { label: "Verificar duplicidade", href: "/pagaveis" },
-  fraude: { label: "Investigar pagamento", href: "/pagaveis" },
+  duplicidade: { label: "Verificar duplicidade", href: "/pagamentos?aba=titulos" },
+  fraude: { label: "Investigar pagamento", href: "/pagamentos?aba=titulos" },
 };
 
 function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/executive/types").Anomalia[]; narr?: Record<string, string> }) {
