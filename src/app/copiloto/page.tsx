@@ -6,16 +6,16 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { InteligenciaShell } from "@/components/copiloto/InteligenciaShell";
 
 export const metadata: Metadata = {
-  title: "all4pay.IA",
+  title: "All4Pay IA",
   description:
-    "all4pay.IA: copiloto + Quant, Decisão, Risco, Autônomo e Dados em abas — um cérebro, não cinco.",
+    "All4Pay IA: copiloto + Quant, Decisão, Risco, Autônomo e Dados em abas — um cérebro, não cinco.",
 };
 
 export default function CopilotoPage() {
   return (
     <AppShell
-      title="all4pay.IA"
-      crumb="all4pay.IA"
+      title="All4Pay IA"
+      crumb="All4Pay IA"
       actions={isDemo ? <DemoBadge /> : null}
     >
       <Suspense fallback={null}>

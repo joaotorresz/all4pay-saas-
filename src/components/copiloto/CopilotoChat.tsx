@@ -132,7 +132,7 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
           <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
         </span>
-        <span className="text-label font-medium text-muted">all4pay.IA</span>
+        <span className="text-label font-medium text-muted">All4Pay IA</span>
         <span className="text-caption text-faint ml-auto">{iaConfig ? "responde e age" : "responde · ações com ANTHROPIC_API_KEY"}</span>
       </div>
 

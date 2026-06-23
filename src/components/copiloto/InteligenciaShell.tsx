@@ -16,7 +16,7 @@ import { DadosView } from "@/components/dados/DadosView";
  */
 type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo" | "dados";
 const ABAS: { id: Aba; label: string }[] = [
-  { id: "copiloto", label: "all4pay.IA" },
+  { id: "copiloto", label: "All4Pay IA" },
   { id: "quant", label: "Quant" },
   { id: "decisao", label: "Decisão" },
   { id: "risco", label: "Risco" },

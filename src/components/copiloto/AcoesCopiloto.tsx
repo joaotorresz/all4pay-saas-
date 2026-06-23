@@ -43,7 +43,7 @@ export function AcoesCopiloto() {
     <Card className="lg:col-span-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
-          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a all4pay.IA pode agir
+          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a All4Pay IA pode agir
         </span>
         {data?.hitl && (
           <span className="text-caption text-faint">
