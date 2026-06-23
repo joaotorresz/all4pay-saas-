@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { InicioActions } from "@/components/visao-geral/InicioActions";
+import { InicioTitle } from "@/components/visao-geral/InicioTitle";
 import { OverviewGrid } from "@/components/visao-geral/OverviewGrid";
 import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <PeriodProvider>
-      <AppShell title="Início" crumb="Página inicial" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-onest">
+      <AppShell title={<InicioTitle />} actions={<InicioActions demo={isDemo} />} scopeClassName="ds-onest">
         <OverviewGrid />
       </AppShell>
     </PeriodProvider>

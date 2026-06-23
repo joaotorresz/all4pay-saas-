@@ -18,7 +18,7 @@ export function AppShell({
   children,
   scopeClassName,
 }: {
-  title: string;
+  title: React.ReactNode;
   /** Aceito por compatibilidade, mas não exibido (breadcrumb removido do header). */
   crumb?: string;
   actions?: React.ReactNode;
