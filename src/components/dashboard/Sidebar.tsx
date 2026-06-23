@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
+import { SaldoTotalSidebar } from "@/components/app/SaldoTotalSidebar";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -257,23 +258,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Command bar (⌘K) */}
-      <button
-        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
-        className={cn(
-          "flex items-center bg-lime-tint border border-[#ECF6B8] rounded-md mb-[14px] cursor-pointer",
-          col ? "justify-center py-[9px]" : "gap-2 px-[11px] py-[9px]",
-        )}
-        title="Buscar (⌘K)"
-      >
-        <Icon name="search" size={15} color="var(--color-text-secondary)" />
-        {!col && (
-          <>
-            <span className="text-label text-muted font-regular">Buscar</span>
-            <span className="ml-auto text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">⌘K</span>
-          </>
-        )}
-      </button>
+      {/* Saldo total (com olho ocultar/mostrar) — busca segue no ⌘K */}
+      <SaldoTotalSidebar collapsed={col} />
 
       {/* Nav — rola sozinha quando transborda */}
       <nav className="flex flex-col gap-[2px] flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
