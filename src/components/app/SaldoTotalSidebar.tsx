@@ -39,11 +39,11 @@ export function SaldoTotalSidebar({ collapsed }: { collapsed: boolean }) {
       <div className="min-w-0 flex-1">
         <div className="text-[12px] text-faint leading-none mb-[5px]">Saldo total</div>
         {isLoading ? (
-          <div className="h-[18px] w-20 rounded bg-surface-2 animate-pulse" />
+          <div className="h-[23px] w-24 rounded bg-surface-2 animate-pulse" />
         ) : oculto ? (
-          <div className="text-[18px] font-semibold text-ink leading-none tabular-nums tracking-widest">••••••</div>
+          <div className="text-[23px] font-semibold text-ink leading-none tabular-nums tracking-widest">••••••</div>
         ) : (
-          <div className="text-[18px] font-semibold text-ink leading-none tabular-nums"><BRL value={total} /></div>
+          <div className="text-[23px] font-semibold text-ink leading-none tabular-nums"><BRL value={total} /></div>
         )}
       </div>
       <button
