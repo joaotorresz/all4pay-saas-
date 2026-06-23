@@ -101,10 +101,10 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    id: "inteligencia", label: "Copiloto", icon: "sparkles", children: [
-      // O Copiloto é o comando central (responde + age); os demais são
+    id: "inteligencia", label: "all4pay.IA", icon: "sparkles", children: [
+      // A all4pay.IA é o comando central (responde + age); os demais são
       // detalhamentos agrupados aqui (drill-down dos mesmos motores).
-      { label: "Copiloto", href: "/copiloto?aba=copiloto" },
+      { label: "all4pay.IA", href: "/copiloto?aba=copiloto" },
       { label: "Decisão", href: "/copiloto?aba=decisao" },
       { label: "Operação autônoma", href: "/copiloto?aba=autonomo" },
       { label: "Risco de caixa", href: "/copiloto?aba=risco" },

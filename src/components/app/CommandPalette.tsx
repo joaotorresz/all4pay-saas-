@@ -21,7 +21,7 @@ const ROUTES: RouteItem[] = [
   { label: "Entrada de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
-  { label: "Copiloto", href: "/copiloto", icon: "sparkles", kw: "ia assistente perguntas claude razao gl rascunho lancamento conversacional decisoes acoes agir chat" },
+  { label: "all4pay.IA", href: "/copiloto", icon: "sparkles", kw: "ia copiloto assistente perguntas claude razao gl rascunho lancamento conversacional decisoes acoes agir chat all4pay" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
   { label: "Consolidado (multi-empresa)", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
