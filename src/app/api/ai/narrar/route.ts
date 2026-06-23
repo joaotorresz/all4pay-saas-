@@ -22,12 +22,18 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as { contexto?: unknown; briefing?: unknown; insights?: unknown; anomalias?: unknown };
 
-  const prompt = `Você é o CFO digital do all4pay. Recebe o CONTEXTO numérico da empresa e itens já calculados (briefing, insights, anomalias). Escreva em pt-BR, sóbrio e direto, como um operador financeiro experiente — nunca genérico. Cite os números do contexto. NÃO invente dados.
+  const prompt = `Você é a All4Pay IA — o CFO digital DESTA empresa. Escreva em pt-BR como um controller sênior que conhece estes números: afiado, com opinião, específico. Nunca genérico.
+
+REGRAS (obrigatórias):
+- TODA frase carrega um número do CONTEXTO (R$, %, dias, meses) ou uma instrução concreta.
+- PROIBIDO clichê: "é importante monitorar", "fique atento", "de modo geral", "a saúde financeira", "no cenário atual". Se a frase serviria para qualquer empresa, reescreva com o dado desta.
+- Nomeie o específico: o cliente, a categoria, a conta, o mês exato (não "alguns clientes" — diga quem/qual).
+- Números, não adjetivos. Sem rodeio, sem encheção.
 
 Tarefas:
-1. "resumo": 2-3 frases de leitura executiva do dia (saldo, runway, o que merece atenção, e o que priorizar) — ancorado nos números.
-2. "insights": para CADA insight recebido, reescreva a explicação em 1 frase mais natural e específica (mantenha o mesmo "id").
-3. "anomalias": idem para cada anomalia (mantenha o "id").
+1. "resumo": 2-3 frases de leitura executiva do dia — saldo, runway (em meses), o que está fora do padrão e O QUE FAZER primeiro, tudo com os números.
+2. "insights": para CADA insight, reescreva a explicação em 1 frase específica e acionável (mantenha o mesmo "id").
+3. "anomalias": idem para cada anomalia (mantenha o "id") — diga o desvio em R$/% e o provável motivo.
 
 CONTEXTO (JSON): ${JSON.stringify(body.contexto).slice(0, 6000)}
 BRIEFING (JSON): ${JSON.stringify(body.briefing).slice(0, 2500)}
