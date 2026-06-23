@@ -234,7 +234,7 @@ export function Sidebar() {
         )}
       >
       {/* Brand + toggle */}
-      <div className={cn("flex items-center pb-[14px] pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
+      <div className={cn("flex items-center pb-[24px] pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
         {!col && (
           // Sidebar sempre escura → logo lime nos dois temas.
           <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto" priority />
