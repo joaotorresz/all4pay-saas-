@@ -34,8 +34,18 @@ export function SaldoTotalSidebar({ collapsed }: { collapsed: boolean }) {
     );
   }
 
+  // Restaura a paleta CLARA do DS só neste box (a Sidebar inverte os tokens):
+  // card branco + texto ink, como no resto do sistema.
+  const luz = {
+    "--color-white": "#ffffff",
+    "--color-ink": "#171717",
+    "--color-surface-2": "#f7f7f5",
+    "--color-faint": "#959595",
+    "--color-text-secondary": "#797975",
+  } as React.CSSProperties;
+
   return (
-    <div className="flex items-center gap-2 rounded-md bg-surface-1 px-[11px] py-[9px] mb-[14px]">
+    <div style={luz} className="flex items-center gap-2 rounded-md bg-white px-[11px] py-[9px] mb-[14px]">
       <div className="min-w-0 flex-1">
         <div className="text-[12px] text-faint leading-none mb-[5px]">Saldo total</div>
         {isLoading ? (
