@@ -7,6 +7,7 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
@@ -14,7 +15,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
-  type SubStatus, type AdminPlan,
+  getAdminGrowth, getAdminOrgDetail, type SubStatus, type AdminPlan, type OrgDetalhe,
 } from "@/lib/admin";
 
 const STATUS: { value: SubStatus; label: string; tone: "positive" | "warning" | "neutral" }[] = [
@@ -56,6 +57,7 @@ function AdminBody() {
   const users = useQuery({ queryKey: ["admin-users"], queryFn: getAdminUsers });
   const plans = useQuery({ queryKey: ["admin-plans"], queryFn: getAdminPlans });
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
 
   const planById = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.id, p])), [plans.data]);
   const planByName = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.name, p])), [plans.data]);
@@ -86,6 +88,9 @@ function AdminBody() {
         <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" />
       </div>
 
+      {/* Crescimento */}
+      <GrowthCard />
+
       {/* Organizações (clientes) + cobrança */}
       <Card padded={false}>
         <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Organizações · cobrança de mensalidade</div>
@@ -101,7 +106,9 @@ function AdminBody() {
               return (
                 <div key={org.orgId} className={`grid grid-cols-1 lg:grid-cols-[1.6fr_0.7fr_1fr_1.1fr_0.8fr_0.9fr] gap-3 lg:items-center px-5 py-3 ${i ? "border-t border-border-soft" : ""}`}>
                   <div className="min-w-0">
-                    <div className="text-[15px] font-medium text-ink truncate">{org.nome}</div>
+                    <button onClick={() => setVerOrg({ id: org.orgId, nome: org.nome })} className="text-[15px] font-medium text-ink truncate hover:underline inline-flex items-center gap-1 max-w-full">
+                      <span className="truncate">{org.nome}</span><Icon name="chevron-right" size={13} color="var(--color-text-tertiary)" />
+                    </button>
                     <div className="text-caption text-faint">desde {fmtDia(org.criado)} · {org.movimentos} lançamentos</div>
                   </div>
                   <span className="text-caption text-muted tabular-nums">{org.membros}</span>
@@ -158,7 +165,94 @@ function AdminBody() {
         <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
         Visão cross-tenant exclusiva do administrador da plataforma (RPCs SECURITY DEFINER gateadas). {isDemo ? "Dados de demonstração." : ""}
       </span>
+      {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
       {node}
+    </div>
+  );
+}
+
+/* ---------- Crescimento ---------- */
+function GrowthCard() {
+  const g = useQuery({ queryKey: ["admin-growth"], queryFn: getAdminGrowth });
+  const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
+  const data = (g.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
+  return (
+    <Card className="flex flex-col gap-3">
+      <span className="text-label font-medium text-muted">Crescimento · novos clientes e base acumulada</span>
+      {g.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -10 }}>
+            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={36} allowDecimals={false} />
+            <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
+              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
+                <div className="font-medium text-ink mb-1">{label}</div>
+                <div className="text-muted tabular-nums">novos: {payload.find((x: any) => x.dataKey === "novas")?.value ?? 0}</div>
+                <div className="text-muted tabular-nums">base: {payload.find((x: any) => x.dataKey === "acumulado")?.value ?? 0}</div>
+              </div>
+            ) : null} />
+            <Bar dataKey="novas" radius={[3, 3, 0, 0]} fill="var(--color-lime)" />
+            <Line dataKey="acumulado" stroke="var(--color-ink)" strokeWidth={1.6} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
+      <span className="text-caption text-faint">Barras = novos clientes no mês · linha = base acumulada de organizações.</span>
+    </Card>
+  );
+}
+
+/* ---------- Impersonação: ver como cliente (read-only) ---------- */
+function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string; onClose: () => void }) {
+  const q = useQuery({ queryKey: ["admin-org-detail", orgId], queryFn: () => getAdminOrgDetail(orgId) });
+  const d = q.data;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-6" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-2xl sm:rounded-card rounded-t-card max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-caption text-faint">Ver como cliente · read-only</div>
+            <h3 className="m-0 text-h3 font-medium text-ink">{nome}</h3>
+          </div>
+          <button onClick={onClose} className="inline-flex p-1 rounded-md hover:bg-surface-2"><Icon name="x" size={18} color="var(--color-text-secondary)" /></button>
+        </div>
+        {q.isLoading || !d ? <Skeleton className="h-40 w-full" /> : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <Mini2 label="Saldo" v={d.saldo} money />
+              <Mini2 label="Receita 12m" v={d.receita12m} money />
+              <Mini2 label="Despesa 12m" v={d.despesa12m} money />
+              <Mini2 label="Resultado 12m" v={d.receita12m - d.despesa12m} money tone={d.receita12m - d.despesa12m >= 0 ? "var(--color-positive)" : "var(--color-negative)"} />
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-1 text-caption text-muted">
+              <span>Plano: <b className="text-ink font-medium">{d.plano}</b></span>
+              <span>Status: <b className="text-ink font-medium">{statusMeta(d.status).label}</b></span>
+              <span>MRR: <b className="text-ink font-medium"><BRL value={d.mrr} /></b></span>
+              <span>Contas: <b className="text-ink font-medium">{d.contas}</b></span>
+              <span>Lançamentos: <b className="text-ink font-medium">{d.movimentos}</b></span>
+              <span>Último: <b className="text-ink font-medium">{fmtDia(d.ultimoMov)}</b></span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-muted">Equipe ({d.membros})</span>
+              {d.membrosLista.length === 0 ? <span className="text-caption text-faint">Sem membros listados.</span> :
+                d.membrosLista.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 py-1 text-caption border-t border-border-soft first:border-t-0">
+                    <span className="text-ink truncate">{m.nome || m.email || "—"}</span>
+                    <StatusBadge tone={m.role === "owner" ? "positive" : "neutral"}>{m.role ?? "member"}</StatusBadge>
+                  </div>
+                ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+function Mini2({ label, v, money, tone = "var(--color-ink)" }: { label: string; v: number; money?: boolean; tone?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-caption text-faint">{label}</span>
+      <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}>{money ? <BRL value={v} /> : v.toLocaleString("pt-BR")}</span>
     </div>
   );
 }

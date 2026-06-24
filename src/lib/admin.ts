@@ -99,3 +99,59 @@ export async function setSubscription(orgId: string, planId: string | null, stat
   const { error } = await createClient().rpc("admin_set_subscription", { p_org: orgId, p_plan: planId, p_status: status, p_mrr: mrr, p_period_end: null });
   if (error) throw new Error(error.message);
 }
+
+/* ----------------------------- crescimento + impersonação ----------------------------- */
+export interface GrowthPonto { mes: string; novas: number; acumulado: number }
+export interface OrgDetalhe {
+  orgId: string; nome: string; criado: string; membros: number; contas: number;
+  saldo: number; movimentos: number; ultimoMov: string | null;
+  receita12m: number; despesa12m: number; plano: string; status: SubStatus; mrr: number;
+  membrosLista: { email: string | null; role: string | null; nome: string | null }[];
+}
+
+const DEMO_GROWTH_NOVAS = [2, 1, 3, 2, 4, 3, 5, 4, 6, 5, 7, 4, 6]; // 13 meses sintéticos
+
+function comAcumulado(novasPorMes: { mes: string; novas: number }[], base = 0): GrowthPonto[] {
+  let acc = base;
+  return novasPorMes.map((p) => { acc += p.novas; return { ...p, acumulado: acc }; });
+}
+
+export async function getAdminGrowth(): Promise<GrowthPonto[]> {
+  if (isDemo) {
+    const hoje = new Date();
+    const pts = DEMO_GROWTH_NOVAS.map((novas, i) => {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - (12 - i), 1);
+      return { mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, novas };
+    });
+    return comAcumulado(pts, 9); // base sintética anterior à janela
+  }
+  const { data, error } = await createClient().rpc("admin_growth");
+  if (error) throw error;
+  const pts = ((data ?? []) as Array<{ mes: string; novas: number }>).map((r) => ({ mes: String(r.mes), novas: Number(r.novas ?? 0) }));
+  return comAcumulado(pts);
+}
+
+export async function getAdminOrgDetail(orgId: string): Promise<OrgDetalhe> {
+  if (isDemo) {
+    const org = DEMO_ORGS.find((o) => o.orgId === orgId) ?? DEMO_ORGS[0];
+    const receita = Math.round(org.movimentos * 95);
+    return {
+      orgId: org.orgId, nome: org.nome, criado: org.criado, membros: org.membros, contas: 2 + (org.membros % 3),
+      saldo: Math.round(receita * 0.22), movimentos: org.movimentos, ultimoMov: org.ultimoMov,
+      receita12m: receita, despesa12m: Math.round(receita * 0.78), plano: org.plano, status: org.status, mrr: org.mrr,
+      membrosLista: Array.from({ length: org.membros }, (_, i) => ({ email: `membro${i + 1}@${org.nome.toLowerCase().replace(/[^a-z]/g, "").slice(0, 8)}.com`, role: i === 0 ? "owner" : "member", nome: null })),
+    };
+  }
+  const { data, error } = await createClient().rpc("admin_org_detail", { p_org: orgId });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  const membros = (r.membros_lista ?? []) as Array<{ email?: string; role?: string; nome?: string }>;
+  return {
+    orgId: String(r.org_id ?? orgId), nome: String(r.nome ?? "—"), criado: String(r.criado ?? ""),
+    membros: Number(r.membros ?? 0), contas: Number(r.contas ?? 0), saldo: Number(r.saldo ?? 0),
+    movimentos: Number(r.movimentos ?? 0), ultimoMov: r.ultimo_mov ? String(r.ultimo_mov) : null,
+    receita12m: Number(r.receita_12m ?? 0), despesa12m: Number(r.despesa_12m ?? 0),
+    plano: String(r.plano ?? "—"), status: (r.status as SubStatus) ?? "trial", mrr: Number(r.mrr ?? 0),
+    membrosLista: membros.map((m) => ({ email: m.email ?? null, role: m.role ?? null, nome: m.nome ?? null })),
+  };
+}
