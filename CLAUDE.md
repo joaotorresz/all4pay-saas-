@@ -899,6 +899,13 @@ com dados sintéticos. Aplicado ao remoto.
   `platform_admins` + auditado) gera um magic link que loga como o **owner** da org
   (RLS resolve pra org dela); para voltar, logout. Gráfico de MRR + log de
   auditoria + botão "Logar como" no AdminView.
+- **`0017`**: `admin_user_detail(p_user)` (gateado) — **drill-in cadastral do
+  usuário**: clicar numa linha da tabela de usuários no `/admin` abre um modal com
+  contato (e-mail/telefone do `auth`, nome/provedor dos metadados, confirmação,
+  convidado, último acesso) e, por organização vinculada, o papel + o perfil da
+  empresa (`company_profiles.profile->db`: razão social, CNPJ, cidade/UF,
+  representante nome/CPF/e-mail/telefone, alçada). `getAdminUserDetail` em
+  `lib/admin.ts` (demo sintético + live RPC); `UserDetailModal` no `AdminView`.
 
 ## Voice & copy (this is part of the brand)
 

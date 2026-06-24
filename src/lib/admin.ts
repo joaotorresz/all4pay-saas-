@@ -206,3 +206,46 @@ export async function impersonar(orgId: string): Promise<ImpersonateResult> {
     return r as ImpersonateResult;
   } catch (e) { return { ok: false, reason: (e as Error).message }; }
 }
+
+/* ----------------------------- detalhe cadastral do usuário ----------------------------- */
+export interface UserOrgVinculo {
+  orgId: string; nome: string; role: string; displayName: string | null; emailMembro: string | null; aprovaAte: number | null;
+  perfil: Record<string, unknown> | null; // company_profiles.profile.db (representante, CNPJ, endereço…)
+}
+export interface UserDetalhe {
+  userId: string; email: string | null; telefone: string | null; criado: string; ultimoAcesso: string | null;
+  confirmado: boolean; anonimo: boolean; provedor: string; nomeMeta: string | null; telefoneMeta: string | null;
+  orgs: UserOrgVinculo[];
+}
+
+export async function getAdminUserDetail(userId: string): Promise<UserDetalhe> {
+  if (isDemo) {
+    const u = DEMO_USERS.find((x) => x.userId === userId) ?? DEMO_USERS[0];
+    const org = DEMO_ORGS[0];
+    return {
+      userId: u.userId, email: u.email, telefone: "+55 11 9" + String(80000000 + (u.userId.charCodeAt(0) * 7919) % 19999999),
+      criado: u.criado, ultimoAcesso: u.ultimoAcesso, confirmado: true, anonimo: false, provedor: "email",
+      nomeMeta: u.email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      telefoneMeta: null,
+      orgs: [{
+        orgId: org.orgId, nome: org.nome, role: "owner", displayName: u.email.split("@")[0], emailMembro: u.email, aprovaAte: 5000,
+        perfil: { razaoSocial: org.nome + " Ltda", fantasia: org.nome, cnpj: "12.345.678/0001-90", repNome: "João da Silva", repEmail: u.email, repTelefone: "+55 11 98888-7777", repCpf: "123.456.789-00", cidade: "São Paulo", estado: "SP" },
+      }],
+    };
+  }
+  const { data, error } = await createClient().rpc("admin_user_detail", { p_user: userId });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  const orgs = (r.orgs ?? []) as Array<Record<string, unknown>>;
+  return {
+    userId: String(r.user_id ?? userId), email: r.email ? String(r.email) : null, telefone: r.telefone ? String(r.telefone) : null,
+    criado: String(r.criado ?? ""), ultimoAcesso: r.ultimo_acesso ? String(r.ultimo_acesso) : null,
+    confirmado: !!r.confirmado, anonimo: !!r.anonimo, provedor: String(r.provedor ?? "email"),
+    nomeMeta: r.nome_meta ? String(r.nome_meta) : null, telefoneMeta: r.telefone_meta ? String(r.telefone_meta) : null,
+    orgs: orgs.map((o) => ({
+      orgId: String(o.org_id), nome: String(o.nome ?? "—"), role: String(o.role ?? "member"),
+      displayName: o.display_name ? String(o.display_name) : null, emailMembro: o.email_membro ? String(o.email_membro) : null,
+      aprovaAte: o.aprova_ate != null ? Number(o.aprova_ate) : null, perfil: (o.perfil ?? null) as Record<string, unknown> | null,
+    })),
+  };
+}

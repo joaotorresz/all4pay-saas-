@@ -15,8 +15,8 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
-  getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar,
-  type SubStatus, type AdminPlan,
+  getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar, getAdminUserDetail,
+  type SubStatus, type AdminPlan, type UserDetalhe,
 } from "@/lib/admin";
 
 const STATUS: { value: SubStatus; label: string; tone: "positive" | "warning" | "neutral" }[] = [
@@ -59,6 +59,7 @@ function AdminBody() {
   const plans = useQuery({ queryKey: ["admin-plans"], queryFn: getAdminPlans });
   const [busy, setBusy] = React.useState<string | null>(null);
   const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
+  const [verUser, setVerUser] = React.useState<{ id: string; email: string } | null>(null);
 
   const planById = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.id, p])), [plans.data]);
   const planByName = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.name, p])), [plans.data]);
@@ -152,14 +153,16 @@ function AdminBody() {
               <span>E-mail</span><span>Cadastro</span><span>Último acesso</span><span className="text-right">Orgs</span>
             </div>
             {(users.data ?? []).map((u, i) => (
-              <div key={u.userId} className={`grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_0.7fr] gap-3 sm:items-center px-5 py-3 ${i ? "border-t border-border-soft" : ""}`}>
+              <button key={u.userId} type="button" onClick={() => setVerUser({ id: u.userId, email: u.email })} className={`w-full text-left grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_0.7fr] gap-3 sm:items-center px-5 py-3 hover:bg-surface-2 ${i ? "border-t border-border-soft" : ""}`}>
                 <span className="text-[14px] text-ink truncate inline-flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-pill ${ativoUsuario(u.ultimoAcesso) ? "bg-positive" : "bg-border"}`} />{u.email}
+                  <span className={`w-2 h-2 rounded-pill ${ativoUsuario(u.ultimoAcesso) ? "bg-positive" : "bg-border"}`} />
+                  <span className="truncate">{u.email}</span>
+                  <Icon name="chevron-right" size={13} color="var(--color-text-tertiary)" />
                 </span>
                 <span className="text-caption text-muted">{fmtDia(u.criado)}</span>
                 <span className="text-caption text-faint">{fmtDia(u.ultimoAcesso)}{ativoUsuario(u.ultimoAcesso) ? " · ativo" : ""}</span>
                 <span className="text-caption tabular-nums sm:text-right text-muted">{u.orgs}</span>
-              </div>
+              </button>
             ))}
           </>
         )}
@@ -173,6 +176,7 @@ function AdminBody() {
         Visão cross-tenant exclusiva do administrador da plataforma (RPCs SECURITY DEFINER gateadas). {isDemo ? "Dados de demonstração." : ""}
       </span>
       {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
+      {verUser && <UserDetailModal userId={verUser.id} email={verUser.email} onClose={() => setVerUser(null)} />}
       {node}
     </div>
   );
@@ -334,6 +338,93 @@ function Mini2({ label, v, money, tone = "var(--color-ink)" }: { label: string; 
     <div className="flex flex-col gap-1">
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}>{money ? <BRL value={v} /> : v.toLocaleString("pt-BR")}</span>
+    </div>
+  );
+}
+
+/* ---------- Detalhe cadastral do usuário (drill-in) ---------- */
+const roleLabel: Record<string, string> = { owner: "Proprietário", admin: "Administrador", member: "Membro" };
+function pf(perfil: Record<string, unknown> | null, ...keys: string[]): string | null {
+  if (!perfil) return null;
+  for (const k of keys) { const v = perfil[k]; if (v != null && String(v).trim() !== "") return String(v); }
+  return null;
+}
+function UserDetailModal({ userId, email, onClose }: { userId: string; email: string; onClose: () => void }) {
+  const q = useQuery({ queryKey: ["admin-user-detail", userId], queryFn: () => getAdminUserDetail(userId) });
+  const d: UserDetalhe | undefined = q.data;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-6" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-2xl sm:rounded-card rounded-t-card max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-caption text-faint">Usuário · dados cadastrais</div>
+            <h3 className="m-0 text-h3 font-medium text-ink truncate">{d?.nomeMeta || email}</h3>
+          </div>
+          <button onClick={onClose} className="inline-flex p-1 rounded-md hover:bg-surface-2 shrink-0"><Icon name="x" size={18} color="var(--color-text-secondary)" /></button>
+        </div>
+        {q.isLoading || !d ? <Skeleton className="h-40 w-full" /> : (
+          <>
+            {/* Contato */}
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-muted">Contato</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-1">
+                <Campo label="E-mail" v={d.email} />
+                <Campo label="Telefone" v={d.telefone || d.telefoneMeta} />
+                <Campo label="Nome" v={d.nomeMeta} />
+                <Campo label="Provedor de acesso" v={d.provedor} />
+              </div>
+            </div>
+            {/* Conta */}
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-muted">Conta</span>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <StatusBadge tone={d.confirmado ? "positive" : "warning"}>{d.confirmado ? "E-mail confirmado" : "E-mail não confirmado"}</StatusBadge>
+                {d.anonimo && <StatusBadge tone="neutral">Convidado (anônimo)</StatusBadge>}
+                {ativoUsuario(d.ultimoAcesso) && <StatusBadge tone="positive">Ativo (30d)</StatusBadge>}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-2">
+                <Campo label="Cadastrado em" v={fmtDia(d.criado)} />
+                <Campo label="Último acesso" v={fmtDia(d.ultimoAcesso)} />
+              </div>
+            </div>
+            {/* Organizações + perfil da empresa */}
+            <div className="flex flex-col gap-2">
+              <span className="text-label font-medium text-muted">Organizações ({d.orgs.length})</span>
+              {d.orgs.length === 0 ? <span className="text-caption text-faint">Sem vínculo com organizações.</span> :
+                d.orgs.map((o) => {
+                  const p = o.perfil;
+                  return (
+                    <div key={o.orgId} className="rounded-md border border-border-soft p-4 flex flex-col gap-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[15px] font-medium text-ink truncate">{o.nome}</span>
+                        <StatusBadge tone={o.role === "owner" ? "positive" : "neutral"}>{roleLabel[o.role] ?? o.role}</StatusBadge>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                        <Campo label="Razão social" v={pf(p, "razaoSocial", "razao_social")} />
+                        <Campo label="Nome fantasia" v={pf(p, "fantasia", "nomeFantasia")} />
+                        <Campo label="CNPJ" v={pf(p, "cnpj")} />
+                        <Campo label="Cidade / UF" v={[pf(p, "cidade"), pf(p, "estado", "uf")].filter(Boolean).join(" / ") || null} />
+                        <Campo label="Representante" v={pf(p, "repNome", "representante")} />
+                        <Campo label="CPF do representante" v={pf(p, "repCpf", "cpf")} />
+                        <Campo label="E-mail do representante" v={pf(p, "repEmail") || o.emailMembro} />
+                        <Campo label="Telefone do representante" v={pf(p, "repTelefone")} />
+                        {o.aprovaAte != null && <Campo label="Alçada de aprovação" v={`R$ ${o.aprovaAte.toLocaleString("pt-BR")}`} />}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+function Campo({ label, v }: { label: string; v: string | null | undefined }) {
+  return (
+    <div className="flex flex-col gap-[2px] min-w-0">
+      <span className="text-caption text-faint">{label}</span>
+      <span className="text-[14px] text-ink truncate">{v && String(v).trim() !== "" ? v : "—"}</span>
     </div>
   );
 }
