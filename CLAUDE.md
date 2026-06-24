@@ -889,6 +889,16 @@ usuários, ativos 30d, MRR/ARR), `admin_orgs` (clientes + assinatura + atividade
 plano/status editáveis (define o MRR), planos e usuários. Link "Administração" na
 Sidebar **só aparece** para super-admin (`isPlatformAdmin`); em demo é liberado
 com dados sintéticos. Aplicado ao remoto.
+- **`0015`**: `admin_growth` (novos clientes/mês) e `admin_org_detail` (snapshot da
+  org p/ "ver como cliente" read-only) — gráfico de crescimento + modal no AdminView.
+- **`0016`**: `mrr_snapshots` + `admin_capture_mrr`/`admin_mrr_history` (MRR mês a
+  mês — snapshot real quando há, senão derivado das assinaturas); `admin_audit` +
+  `admin_audit_log` (trilha das ações do admin; `admin_set_subscription`/
+  `admin_upsert_plan` auditam). **Impersonação "logar como"** real:
+  `POST /api/admin/impersonate` (`runtime nodejs`, **service role**, gateado por
+  `platform_admins` + auditado) gera um magic link que loga como o **owner** da org
+  (RLS resolve pra org dela); para voltar, logout. Gráfico de MRR + log de
+  auditoria + botão "Logar como" no AdminView.
 
 ## Voice & copy (this is part of the brand)
 

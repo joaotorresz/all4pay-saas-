@@ -155,3 +155,54 @@ export async function getAdminOrgDetail(orgId: string): Promise<OrgDetalhe> {
     membrosLista: membros.map((m) => ({ email: m.email ?? null, role: m.role ?? null, nome: m.nome ?? null })),
   };
 }
+
+/* ----------------------------- MRR histórico + auditoria + impersonação ----------------------------- */
+export interface MrrPonto { mes: string; mrr: number; fonte: "snapshot" | "derivado" }
+export interface AuditEvent { id: string; acao: string; alvo: string | null; detalhe: Record<string, unknown>; quando: string; adminEmail: string | null }
+
+export async function getMrrHistory(): Promise<MrrPonto[]> {
+  if (isDemo) {
+    const hoje = new Date();
+    let mrr = 980; // base sintética
+    return Array.from({ length: 13 }, (_, i) => {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - (12 - i), 1);
+      mrr = Math.round(mrr * (1 + (0.06 + (i % 3) * 0.015))); // crescimento ~6-9%/mês
+      return { mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, mrr, fonte: "derivado" as const };
+    });
+  }
+  const { data, error } = await createClient().rpc("admin_mrr_history");
+  if (error) throw error;
+  return ((data ?? []) as Array<{ mes: string; mrr: number; fonte: string }>).map((r) => ({ mes: String(r.mes), mrr: Number(r.mrr ?? 0), fonte: (r.fonte as "snapshot" | "derivado") ?? "derivado" }));
+}
+
+export async function captureMrr(): Promise<void> {
+  if (isDemo) return;
+  const { error } = await createClient().rpc("admin_capture_mrr");
+  if (error) throw new Error(error.message);
+}
+
+export async function getAuditLog(): Promise<AuditEvent[]> {
+  if (isDemo) {
+    const now = Date.now();
+    return [
+      { id: "a1", acao: "subscription.set", alvo: "Bistrô da Praça", detalhe: { status: "past_due", mrr: 349 }, quando: new Date(now - 36e5).toISOString(), adminEmail: "voce@all4pay.com" },
+      { id: "a2", acao: "impersonate", alvo: "Clínica Vida", detalhe: { email: "dr.alves@clinicavida.com" }, quando: new Date(now - 9e6).toISOString(), adminEmail: "voce@all4pay.com" },
+      { id: "a3", acao: "plan.upsert", alvo: "Pro", detalhe: { price: 349 }, quando: new Date(now - 864e5).toISOString(), adminEmail: "voce@all4pay.com" },
+    ];
+  }
+  const { data, error } = await createClient().rpc("admin_audit_log");
+  if (error) throw error;
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+    id: String(r.id), acao: String(r.acao ?? ""), alvo: r.alvo ? String(r.alvo) : null,
+    detalhe: (r.detalhe ?? {}) as Record<string, unknown>, quando: String(r.quando ?? ""), adminEmail: r.admin_email ? String(r.admin_email) : null,
+  }));
+}
+
+export interface ImpersonateResult { ok: boolean; link?: string; email?: string; reason?: string }
+export async function impersonar(orgId: string): Promise<ImpersonateResult> {
+  if (isDemo) return { ok: false, reason: "Disponível em live (assume a sessão do owner via service role)." };
+  try {
+    const r = await fetch("/api/admin/impersonate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ orgId }) }).then((x) => x.json());
+    return r as ImpersonateResult;
+  } catch (e) { return { ok: false, reason: (e as Error).message }; }
+}

@@ -15,7 +15,8 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
-  getAdminGrowth, getAdminOrgDetail, type SubStatus, type AdminPlan, type OrgDetalhe,
+  getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar,
+  type SubStatus, type AdminPlan,
 } from "@/lib/admin";
 
 const STATUS: { value: SubStatus; label: string; tone: "positive" | "warning" | "neutral" }[] = [
@@ -88,8 +89,11 @@ function AdminBody() {
         <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" />
       </div>
 
-      {/* Crescimento */}
-      <GrowthCard />
+      {/* Crescimento + MRR mês a mês */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GrowthCard />
+        <MrrCard />
+      </div>
 
       {/* Organizações (clientes) + cobrança */}
       <Card padded={false}>
@@ -161,6 +165,9 @@ function AdminBody() {
         )}
       </Card>
 
+      {/* Auditoria das ações do admin */}
+      <AuditCard />
+
       <span className="text-caption text-faint inline-flex items-center gap-2">
         <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
         Visão cross-tenant exclusiva do administrador da plataforma (RPCs SECURITY DEFINER gateadas). {isDemo ? "Dados de demonstração." : ""}
@@ -202,10 +209,78 @@ function GrowthCard() {
   );
 }
 
+/* ---------- MRR mês a mês ---------- */
+function MrrCard() {
+  const h = useQuery({ queryKey: ["admin-mrr"], queryFn: getMrrHistory });
+  const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
+  const data = (h.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
+  const atual = data.length ? data[data.length - 1].mrr : 0;
+  const ant = data.length > 1 ? data[data.length - 2].mrr : 0;
+  const delta = ant > 0 ? Math.round(((atual - ant) / ant) * 100) : 0;
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-label font-medium text-muted">MRR mês a mês</span>
+        {data.length > 1 && <span className={`text-caption font-medium tabular-nums ${delta >= 0 ? "text-positive" : "text-negative"}`}>{delta >= 0 ? "+" : ""}{delta}% vs mês anterior</span>}
+      </div>
+      {h.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
+        <ResponsiveContainer width="100%" height={220}>
+          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -2 }}>
+            <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
+            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => "R$ " + (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
+              <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
+                <div className="font-medium text-ink mb-1">{label}</div>
+                <div className="text-muted tabular-nums">MRR R$ {Number(payload[0].value).toLocaleString("pt-BR")}</div>
+              </div>
+            ) : null} />
+            <Line dataKey="mrr" stroke="var(--color-lime)" strokeWidth={1.8} dot={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      )}
+      <span className="text-caption text-faint">Receita recorrente mensal. Meses sem snapshot são derivados das assinaturas ativas (o histórico real acumula a cada captura).</span>
+    </Card>
+  );
+}
+
+/* ---------- Auditoria das ações do admin ---------- */
+function AuditCard() {
+  const a = useQuery({ queryKey: ["admin-audit"], queryFn: getAuditLog });
+  const quando = (iso: string) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+  const ACAO: Record<string, string> = { "subscription.set": "Cobrança alterada", "plan.upsert": "Plano alterado", impersonate: "Logou como cliente" };
+  return (
+    <Card padded={false}>
+      <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Auditoria · ações do administrador</div>
+      {a.isLoading ? <div className="p-5"><Skeleton className="h-20 w-full" /></div> : (a.data ?? []).length === 0 ? (
+        <div className="px-5 py-4 text-caption text-faint">Nenhuma ação registrada ainda.</div>
+      ) : (
+        (a.data ?? []).map((e, i) => (
+          <div key={e.id} className={`flex items-center gap-3 px-5 py-3 text-caption ${i ? "border-t border-border-soft" : ""}`}>
+            <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
+            <span className="text-ink font-medium w-[160px] shrink-0">{ACAO[e.acao] ?? e.acao}</span>
+            <span className="text-muted flex-1 truncate">{e.alvo ?? "—"} {e.detalhe && Object.keys(e.detalhe).length > 0 ? `· ${Object.entries(e.detalhe).map(([k, v]) => `${k}: ${v}`).join(" · ")}` : ""}</span>
+            <span className="text-faint shrink-0">{e.adminEmail ?? "—"} · {quando(e.quando)}</span>
+          </div>
+        ))
+      )}
+    </Card>
+  );
+}
+
 /* ---------- Impersonação: ver como cliente (read-only) ---------- */
 function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string; onClose: () => void }) {
   const q = useQuery({ queryKey: ["admin-org-detail", orgId], queryFn: () => getAdminOrgDetail(orgId) });
   const d = q.data;
+  const [impBusy, setImpBusy] = React.useState(false);
+  const [impMsg, setImpMsg] = React.useState<string | null>(null);
+  const logarComo = async () => {
+    if (!window.confirm(`Logar como o owner de "${nome}"? Você assumirá a sessão dele e sairá da sua conta de admin (para voltar, faça logout e entre de novo). A ação é registrada na auditoria.`)) return;
+    setImpBusy(true); setImpMsg(null);
+    const r = await impersonar(orgId);
+    if (r.ok && r.link) { window.location.href = r.link; return; }
+    setImpMsg(r.reason ?? "Não foi possível impersonar."); setImpBusy(false);
+  };
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 p-0 sm:p-6" onClick={onClose}>
       <div className="bg-white w-full sm:max-w-2xl sm:rounded-card rounded-t-card max-h-[90vh] overflow-y-auto p-6 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
@@ -214,8 +289,14 @@ function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string;
             <div className="text-caption text-faint">Ver como cliente · read-only</div>
             <h3 className="m-0 text-h3 font-medium text-ink">{nome}</h3>
           </div>
-          <button onClick={onClose} className="inline-flex p-1 rounded-md hover:bg-surface-2"><Icon name="x" size={18} color="var(--color-text-secondary)" /></button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={logarComo} disabled={impBusy} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[6px] disabled:opacity-60">
+              {impBusy ? "Abrindo…" : "Logar como"}
+            </button>
+            <button onClick={onClose} className="inline-flex p-1 rounded-md hover:bg-surface-2"><Icon name="x" size={18} color="var(--color-text-secondary)" /></button>
+          </div>
         </div>
+        {impMsg && <span className="text-caption text-warning">{impMsg}</span>}
         {q.isLoading || !d ? <Skeleton className="h-40 w-full" /> : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
