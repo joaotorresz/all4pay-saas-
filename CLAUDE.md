@@ -874,6 +874,22 @@ A partir de `0005_multi_tenant.sql` o banco é **isolado por organização**:
   sintéticas. Sem eliminações intercompany (v1). `lib/consolidado.ts` +
   `components/consolidado/ConsolidadoView.tsx`.
 
+### Modo Administrador da plataforma (`/admin`)
+
+Visão **cross-tenant** exclusiva do dono do SaaS (super-admin), separada do
+owner-de-org. Migration **`0014`**: `platform_admins` (quem é super-admin; bootstrap
+por e-mail), `plans` (mensalidades) e `subscriptions` (1 por org: plan/status/mrr).
+Tudo acessível **só** pelas RPCs `SECURITY DEFINER` **gateadas por
+`is_platform_admin()`** (as 3 tabelas têm RLS sem policy = nega acesso direto;
+anon revogado): `admin_overview` (KPIs: orgs, ativas, trials, inadimplentes,
+usuários, ativos 30d, MRR/ARR), `admin_orgs` (clientes + assinatura + atividade),
+`admin_users` (contas + último acesso), `admin_plans`, `admin_set_subscription`
+(configura a cobrança da org), `admin_upsert_plan`. UI em
+`components/admin/AdminView.tsx` (`lib/admin.ts`): KPIs + tabela de orgs com
+plano/status editáveis (define o MRR), planos e usuários. Link "Administração" na
+Sidebar **só aparece** para super-admin (`isPlatformAdmin`); em demo é liberado
+com dados sintéticos. Aplicado ao remoto.
+
 ## Voice & copy (this is part of the brand)
 
 - Sober, confident, operational — finance operators, not consumers.

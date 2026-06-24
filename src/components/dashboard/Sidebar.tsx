@@ -8,6 +8,7 @@ import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
 import { SaldoTotalSidebar } from "@/components/app/SaldoTotalSidebar";
+import { isPlatformAdmin } from "@/lib/admin";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -207,10 +208,14 @@ export function Sidebar() {
 
   // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
   const { pro, set: setPro } = useModo();
+  // Modo Administrador da plataforma (super-admin) — só aparece para o dono.
+  const [admin, setAdmin] = React.useState(false);
+  React.useEffect(() => { isPlatformAdmin().then(setAdmin).catch(() => setAdmin(false)); }, []);
   // Modo Simples (padrão) esconde Equipe e Inteligência (Pro). Plataforma idem.
   const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia" && g.id !== "equipe");
   const configVis: Group = pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
   const topoVis: Group[] = [...gruposVis, configVis];
+  const adminOn = pathname === "/admin" || pathname.startsWith("/admin");
 
   return (
     <>
@@ -281,6 +286,13 @@ export function Sidebar() {
                 </button>
               );
             })}
+            {admin && (
+              <Link href="/admin" title="Administração"
+                className={cn("relative flex items-center justify-center rounded-md py-2", adminOn ? "bg-surface-2" : "hover:bg-surface-1")}>
+                {adminOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
+                <Icon name="shield-check" size={17} color={adminOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+              </Link>
+            )}
           </>
         ) : (
           <>
@@ -299,6 +311,14 @@ export function Sidebar() {
             {/* Configurações (rodapé navegável, ainda na área de rolagem) */}
             <div className="mt-2 pt-2 border-t border-border-soft">
               <GrupoNode grupo={configVis} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
+              {admin && (
+                <Link href="/admin" aria-current={adminOn ? "page" : undefined}
+                  className={cn("relative flex items-center gap-[10px] px-[10px] rounded-md py-2", adminOn ? "bg-surface-2" : "hover:bg-surface-1")}>
+                  {adminOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
+                  <Icon name="shield-check" size={17} color={adminOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+                  <span className={cn("text-[17px] font-medium truncate", adminOn ? "text-ink" : "text-muted")}>Administração</span>
+                </Link>
+              )}
             </div>
           </>
         )}
