@@ -12,6 +12,8 @@ import { aplicarEstrutura } from "@/lib/onboarding";
 import { persistCompany } from "@/lib/company";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
+import { useTipoConta } from "@/components/app/useTipoConta";
+import { OnboardingPessoal } from "./OnboardingPessoal";
 
 const PASSOS = ["Dados básicos", "Perfil empresarial", "Governança", "Estrutura financeira", "Onboarding inteligente", "Análise IA", "Ambiente criado"];
 
@@ -34,7 +36,14 @@ const UNIDADES = ["Matriz", "Filial", "Projeto", "Online", "Operação"];
 const DRE_OPTS = ["Gerencial", "Financeiro", "Por centro de custo", "Por produto", "Por cliente", "Consolidado (holding)"];
 const FLUXO_OPTS = ["Operacional", "Projetado", "Competência", "Híbrido"];
 
+/** Cadastro — escolhe a roupa pelo tipo de conta (PF enxuta × PJ completa). */
 export function OnboardingWizard() {
+  const { pessoal, set: setTipo } = useTipoConta();
+  if (pessoal) return <OnboardingPessoal onTrocarTipo={() => setTipo("empresa")} />;
+  return <OnboardingEmpresa onTrocarTipo={() => setTipo("pessoal")} />;
+}
+
+function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
   const router = useRouter();
   const [step, setStep] = React.useState(0);
 
@@ -137,7 +146,10 @@ export function OnboardingWizard() {
           <div className="flex items-center justify-between">
             <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
             <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
-            <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
+            <div className="flex items-center gap-3">
+              <button onClick={onTrocarTipo} className="text-caption text-muted hover:text-ink underline">Sou pessoa física</button>
+              <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
+            </div>
           </div>
           <div>
             <div className="flex items-baseline justify-between">

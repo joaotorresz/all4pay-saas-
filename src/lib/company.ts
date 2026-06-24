@@ -11,13 +11,28 @@ import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
 const KEY = "a4p_company";
 
 /** Identidade jurídica (campos do passo 1 do wizard; tudo opcional). */
-export type CompanyIdentity = Partial<Record<string, string | boolean>>;
+export type CompanyIdentity = Partial<Record<string, string | boolean>> & {
+  /** Empresa (PJ) × Pessoa Física (PF) — escolhido no login/cadastro. */
+  tipoConta?: "empresa" | "pessoal";
+};
+
+/** Dados específicos do modo Pessoa Física (controle de gastos do dia a dia). */
+export interface PerfilPessoal {
+  nome?: string;
+  rendaMensal?: number;
+  saldoInicial?: number;
+  orcamentoMensal?: number;
+  carteiras?: string[];
+  categoriasGasto?: string[];
+}
 
 export interface StoredCompany {
   db?: CompanyIdentity;
   perfil?: PerfilEmpresa;
   participantes?: Participante[];
   estrutura?: Estrutura;
+  /** Preenchido só no modo Pessoa Física. */
+  pessoal?: PerfilPessoal;
 }
 
 export function loadCompany(): StoredCompany | null {

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { useTipoConta } from "@/components/app/useTipoConta";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -13,6 +14,7 @@ type View = "signin" | "reset";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { pessoal, set: setTipo } = useTipoConta();
   const [view, setView] = React.useState<View>("signin");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -73,11 +75,32 @@ export default function LoginPage() {
               {view === "signin" ? "Entrar" : "Redefinir senha"}
             </h1>
             <p className="m-0 text-label text-muted mt-2">
-              {view === "signin"
-                ? "Acesse o painel financeiro all4pay."
-                : "Informe seu e-mail e enviaremos um link de redefinição."}
+              {view === "reset"
+                ? "Informe seu e-mail e enviaremos um link de redefinição."
+                : pessoal
+                  ? "Controle seus gastos do dia a dia com a all4pay."
+                  : "Acesse o painel financeiro all4pay."}
             </p>
           </div>
+
+          {view === "signin" && (
+            <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de conta">
+              {([["empresa", "Empresa"], ["pessoal", "Pessoal"]] as const).map(([val, label]) => {
+                const on = (val === "pessoal") === pessoal;
+                return (
+                  <button
+                    key={val}
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => setTipo(val)}
+                    className={`flex-1 text-label font-medium rounded-pill py-[7px] transition-colors ${on ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {!configured && (
             <p className="m-0 text-caption text-warning">
@@ -153,7 +176,7 @@ export default function LoginPage() {
                 <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
               </div>
               <Button variant="secondary" fullWidth onClick={() => router.push("/comecar")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
-                Ainda não tem conta? Criar conta
+                {pessoal ? "Criar conta pessoal" : "Criar conta empresarial"}
               </Button>
             </div>
           )}
@@ -161,7 +184,7 @@ export default function LoginPage() {
       </div>
 
       {/* Coluna direita — arte (camadas de fluxo financeiro), some no mobile */}
-      <ArtPanel />
+      <ArtPanel pessoal={pessoal} />
     </div>
   );
 }
@@ -171,7 +194,7 @@ function Spinner() {
 }
 
 /** Composição geométrica lime → dark (tokens), inspirada na Payfy. */
-function ArtPanel() {
+function ArtPanel({ pessoal }: { pessoal: boolean }) {
   return (
     <div
       className="hidden lg:block relative overflow-hidden"
@@ -186,10 +209,14 @@ function ArtPanel() {
       <div className="absolute inset-0 flex items-end p-12">
         <div className="max-w-[420px]">
           <p className="m-0 text-h3 font-medium leading-tight" style={{ color: "#ffffff" }}>
-            O sistema operacional financeiro que também guarda e move o seu dinheiro.
+            {pessoal
+              ? "Seu dinheiro do dia a dia, organizado e sob controle."
+              : "O sistema operacional financeiro que também guarda e move o seu dinheiro."}
           </p>
           <p className="m-0 mt-3 text-label" style={{ color: "#ffffff", opacity: 0.75 }}>
-            Caixa, risco, cobrança e pagamento — em camadas, num lugar só.
+            {pessoal
+              ? "Gastos, contas e orçamento — tudo num lugar só, sem planilha."
+              : "Caixa, risco, cobrança e pagamento — em camadas, num lugar só."}
           </p>
         </div>
       </div>

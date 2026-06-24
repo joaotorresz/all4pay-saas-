@@ -577,6 +577,29 @@ login de convidado (removido). Rota **pública** (liberada no middleware).
   sistema. O perfil fica em `localStorage` (`a4p_company`). Governança ainda não
   tem tabela/consumo (fora do escopo). Login (`/login`) tem CTA "Criar empresa".
 
+### Tipo de conta: Empresa (PJ) × Pessoa Física (PF)
+
+A MESMA infraestrutura financeira servida em duas roupas. **Variável escolhida no
+login e no cadastro** (`useTipoConta`, `src/components/app/useTipoConta.ts` —
+espelha `useModo`: store reativo em `localStorage` `a4p_tipo_conta` + listeners;
+default `empresa`; fallback no que o onboarding gravou em `a4p_company.db.tipoConta`).
+
+- **Login** (`/login`): toggle segmentado **Empresa | Pessoal** (`setTipoConta`)
+  que adapta o subtítulo, a arte e o CTA ("Criar conta pessoal/empresarial").
+- **Cadastro** (`/comecar`): `OnboardingWizard` é um chooser fino — `pessoal` →
+  **`OnboardingPessoal`** (3 passos enxutos: Você · Contas & renda · Gastos do dia
+  a dia), senão `OnboardingEmpresa` (o wizard de 7 passos). Cada um tem um link
+  "Sou empresa / Sou pessoa física" para trocar. O PF monta o MESMO `StoredCompany`
+  (perfil `setor:"Pessoal"`, `estrutura.contas` = carteiras; campos próprios em
+  `StoredCompany.pessoal`: renda/saldo/orçamento/carteiras/categorias) e persiste
+  por `persistCompany` + `aplicarEstrutura` — reusa toda a camada de dados/motores.
+- **Sidebar** (`useTipoConta`): no PF troca os grupos por `GROUPS_PESSOAL`/
+  `CONFIG_PESSOAL` (Gastos · Renda & receitas · Contas & carteiras · Orçamento &
+  metas · Meu perfil), Início vira "Resumo" e o toggle Modo Pro some. Esconde os
+  módulos de empresa (POS, cadastros, governança, plataforma, motores).
+- **Home** (`homeContext`): `SETOR_BASE.Pessoal` prioriza Despesas/Receita. O
+  `NovoDeposito` no PF mostra só Despesa/Receita/Transferência ("Adicionar").
+
 ### Fluxo de Caixa (`/fluxo-caixa`) — centro operacional do caixa
 
 `montarFluxoCaixa()` (`src/core/cashflow/`, versão `cashflow/1.0.0`) — assembla

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
+import { useTipoConta } from "@/components/app/useTipoConta";
 import { SaldoTotalSidebar } from "@/components/app/SaldoTotalSidebar";
 import { isPlatformAdmin } from "@/lib/admin";
 import { isDemo } from "@/lib/demo";
@@ -133,6 +134,45 @@ const CONFIG: Group = {
   ],
 };
 
+// ----- Navegação PESSOA FÍSICA (controle de gastos do dia a dia) -----
+// Mesmas rotas, roupa simples: vocabulário pessoal e só o essencial. Esconde os
+// módulos de empresa (POS, cadastros, governança, plataforma, motores).
+const GROUPS_PESSOAL: Group[] = [
+  {
+    id: "gastos", label: "Gastos", icon: "arrow-up-right", children: [
+      { label: "Nova despesa", event: "a4p:open-nova-transacao" },
+      { label: "Meus gastos", href: "/pagamentos" },
+    ],
+  },
+  {
+    id: "renda", label: "Renda & receitas", icon: "arrow-left-right", children: [
+      { label: "Minhas receitas", href: "/recebimentos" },
+      { label: "Assinaturas / recorrentes", href: "/recorrencias" },
+    ],
+  },
+  {
+    id: "contas", label: "Contas & carteiras", icon: "upload", children: [
+      { label: "Conectar banco (Open finance)", href: "/upload?aba=conectar" },
+      { label: "Importar extrato", href: "/upload?aba=enviar" },
+      { label: "Conciliar", href: "/upload?aba=conciliar" },
+    ],
+  },
+  {
+    id: "orcamento", label: "Orçamento & metas", icon: "trending-up", children: [
+      { label: "Orçamento mensal", href: "/orcamento" },
+      { label: "Para onde foi meu dinheiro", href: "/dre" },
+      { label: "Fluxo de caixa", href: "/fluxo-caixa" },
+    ],
+  },
+];
+const CONFIG_PESSOAL: Group = {
+  id: "config", label: "Configurações", icon: "settings", children: [
+    { label: "Meu perfil", href: "/configuracoes" },
+    { label: "Lixeira", href: "/lixeira" },
+    { label: "Central de Ajuda", soon: true },
+  ],
+};
+
 function leafAtivo(href: string | undefined, pathname: string): boolean {
   // "/" não marca (Início cuida disso; "Contas financeiras → /" é só atalho).
   if (!href || href === "/") return false;
@@ -208,13 +248,20 @@ export function Sidebar() {
 
   // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
   const { pro, set: setPro } = useModo();
+  // Empresa (PJ) × Pessoa Física (PF) — a PF vê uma navegação enxuta.
+  const { pessoal } = useTipoConta();
   // Modo Administrador da plataforma (super-admin) — só aparece para o dono.
   const [admin, setAdmin] = React.useState(false);
   React.useEffect(() => { isPlatformAdmin().then(setAdmin).catch(() => setAdmin(false)); }, []);
-  // Modo Simples (padrão) esconde Equipe e Inteligência (Pro). Plataforma idem.
-  const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia" && g.id !== "equipe");
-  const configVis: Group = pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
+  // PF: nav própria, enxuta. PJ: Modo Simples (padrão) esconde Equipe/Inteligência (Pro) e Plataforma.
+  const gruposVis = pessoal
+    ? GROUPS_PESSOAL
+    : pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia" && g.id !== "equipe");
+  const configVis: Group = pessoal
+    ? CONFIG_PESSOAL
+    : pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
   const topoVis: Group[] = [...gruposVis, configVis];
+  const inicioLabel = pessoal ? "Resumo" : INICIO.label;
   const adminOn = pathname === "/admin" || pathname.startsWith("/admin");
 
   return (
@@ -301,7 +348,7 @@ export function Sidebar() {
               className={cn("relative flex items-center gap-[10px] px-[10px] rounded-md py-2", inicioOn ? "bg-surface-2" : "hover:bg-surface-1")}>
               {inicioOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
               <Icon name="house" size={17} color={inicioOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-              <span className={cn("text-[17px] font-medium truncate", inicioOn ? "text-ink" : "text-muted")}>{INICIO.label}</span>
+              <span className={cn("text-[17px] font-medium truncate", inicioOn ? "text-ink" : "text-muted")}>{inicioLabel}</span>
             </Link>
 
             {gruposVis.map((g) => (
@@ -326,22 +373,24 @@ export function Sidebar() {
 
       {/* Rodapé fixo: tema + usuário */}
       <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
-        {/* Modo Simples × Pro */}
-        <button
-          onClick={() => setPro(pro ? "simples" : "pro")}
-          title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
-          className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
-        >
-          <Icon name="sparkles" size={17} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-          {!col && (
-            <>
-              <span className={cn("text-[17px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
-              <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
-                <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
-              </span>
-            </>
-          )}
-        </button>
+        {/* Modo Simples × Pro — só faz sentido na conta empresarial. */}
+        {!pessoal && (
+          <button
+            onClick={() => setPro(pro ? "simples" : "pro")}
+            title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
+            className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
+          >
+            <Icon name="sparkles" size={17} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+            {!col && (
+              <>
+                <span className={cn("text-[17px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
+                <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
+                  <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
+                </span>
+              </>
+            )}
+          </button>
+        )}
         <ThemeToggle collapsed={col} />
         <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
           <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
