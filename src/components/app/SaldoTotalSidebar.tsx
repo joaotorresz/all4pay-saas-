@@ -34,22 +34,13 @@ export function SaldoTotalSidebar({ collapsed }: { collapsed: boolean }) {
     );
   }
 
-  // Restaura a paleta CLARA do DS só neste box (a Sidebar inverte os tokens):
-  // card branco + texto ink, como no resto do sistema.
-  const luz = {
-    "--color-white": "#ffffff",
-    "--color-ink": "#171717",
-    "--color-surface-2": "#f7f7f5",
-    "--color-faint": "#959595",
-    "--color-text-secondary": "#797975",
-  } as React.CSSProperties;
-
+  // Box sutil que segue o tema da sidebar (clara/escura) — sem inversão.
   return (
-    <div style={luz} className="flex items-center gap-2 rounded-md bg-white px-[11px] py-[9px] mb-[14px]">
+    <div className="flex items-center gap-2 rounded-md bg-surface-2 px-[11px] py-[9px] mb-[14px]">
       <div className="min-w-0 flex-1">
         <div className="text-[12px] text-faint leading-none mb-[5px]">Saldo total</div>
         {isLoading ? (
-          <div className="h-[23px] w-24 rounded bg-surface-2 animate-pulse" />
+          <div className="h-[23px] w-24 rounded bg-surface-3 animate-pulse" />
         ) : oculto ? (
           <div className="text-[23px] font-semibold text-ink leading-none tabular-nums tracking-widest">••••••</div>
         ) : (
@@ -61,7 +52,7 @@ export function SaldoTotalSidebar({ collapsed }: { collapsed: boolean }) {
         title={oculto ? "Mostrar saldo" : "Ocultar saldo"}
         aria-label={oculto ? "Mostrar saldo" : "Ocultar saldo"}
         aria-pressed={oculto}
-        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-surface-2"
+        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md hover:bg-surface-3"
       >
         <Icon name={oculto ? "eye-off" : "eye"} size={16} color="var(--color-text-secondary)" />
       </button>
