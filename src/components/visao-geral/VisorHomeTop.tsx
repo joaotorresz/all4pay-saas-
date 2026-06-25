@@ -102,15 +102,8 @@ export function VisorHomeTop() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-5 mb-5">
-      {/* ESQUERDA — Saldo atual + ritmo de gasto (borda em gradiente preto all4pay) */}
-      <Card
-        className="flex flex-col"
-        style={{
-          border: "2px solid transparent",
-          background:
-            "linear-gradient(#fff, #fff) padding-box, linear-gradient(135deg, #171717 0%, #2b2b28 55%, #4b4d3d 100%) border-box",
-        }}
-      >
+      {/* ESQUERDA — Saldo atual + ritmo de gasto */}
+      <Card className="flex flex-col">
         <span className="text-[16px] font-semibold text-ink">Saldo atual</span>
         <span className="text-[34px] font-semibold tabular-nums text-ink leading-none mt-2">
           <BRL value={inp.saldoAtual} />
