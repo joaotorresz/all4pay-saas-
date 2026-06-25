@@ -4,20 +4,18 @@ import * as React from "react";
 import { Icon } from "@/components/ui";
 import { DemoBadge } from "./DemoBadge";
 import { NovoDeposito } from "./NovoDeposito";
-import { MonthSelector } from "./MonthSelector";
-import { RangeSelector } from "./RangeSelector";
+import { PeriodFilter } from "./PeriodFilter";
 
 /**
  * Header actions for Início.
- * Período (range 45/60/90 dias) · seletor de mês global · Personalizar Home
- * (liga/desliga e reordena os blocos) · "Novo lançamento". Badge em demo.
+ * Filtro de período (Essa semana · Mês atual · Personalizado) · Personalizar
+ * Home (liga/desliga e reordena os blocos) · "Novo lançamento". Badge em demo.
  */
 export function InicioActions({ demo }: { demo: boolean }) {
   return (
     <>
       {demo && <DemoBadge />}
-      <RangeSelector />
-      <MonthSelector />
+      <PeriodFilter />
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:open-personalizar"))}
         title="Personalizar Home — ligar/desligar e reordenar blocos"

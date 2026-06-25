@@ -177,16 +177,14 @@ export function VisorHomeTop() {
           const ent = tipoDist === "entrada";
           return (
             <div className="flex flex-col sm:flex-row items-center gap-5 mt-4">
-              {/* donut */}
+              {/* donut (tamanho fixo — evita distorção do ResponsiveContainer no flex) */}
               <div className="relative shrink-0" style={{ width: 188, height: 188 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Tooltip content={<DonutTooltip />} />
-                    <Pie data={segs} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
-                      {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+                <PieChart width={188} height={188}>
+                  <Tooltip content={<DonutTooltip />} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: true, y: true }} />
+                  <Pie data={segs} dataKey="value" nameKey="name" cx={94} cy={94} innerRadius={60} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
+                    {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
+                  </Pie>
+                </PieChart>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
                   <span className="text-caption text-muted">{ent ? "Entradas" : "Saídas"} · {mesNome}</span>
                   <span className="text-[20px] font-semibold tabular-nums leading-none mt-1" style={{ color: ent ? "var(--color-positive)" : "var(--color-ink)" }}>
