@@ -119,15 +119,9 @@ export function VisorHomeTop() {
         <span className="text-caption text-muted mt-1">saldo efetivo consolidado das contas</span>
 
         <div className="relative mt-4">
-          {/* balão verde (estilo Visor) */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-1 z-10">
-            <span className="inline-flex items-center rounded-pill bg-positive text-white text-caption font-medium px-3 py-[5px] whitespace-nowrap shadow-sm">
-              {formatBRL(Math.abs(calc.delta))} a {gastouMenos ? "menos" : "mais"} este mês
-            </span>
-          </div>
           <figure className="m-0" role="img" aria-label={`Ritmo de gasto: ${formatBRL(calc.gastoAteHoje)} no mês até hoje, ${formatBRL(Math.abs(calc.delta))} a ${gastouMenos ? "menos" : "mais"} que o mesmo período do mês anterior.`}>
             <ResponsiveContainer width="100%" height={170}>
-              <LineChart data={calc.serie} margin={{ top: 28, right: 6, bottom: 0, left: 6 }}>
+              <LineChart data={calc.serie} margin={{ top: 10, right: 6, bottom: 0, left: 6 }}>
                 <defs>
                   <linearGradient id="visorGlow" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#28AA00" stopOpacity={0.18} />
@@ -187,6 +181,7 @@ export function VisorHomeTop() {
               <div className="relative shrink-0" style={{ width: 188, height: 188 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
+                    <Tooltip content={<DonutTooltip />} />
                     <Pie data={segs} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
                       {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
                     </Pie>
@@ -208,8 +203,8 @@ export function VisorHomeTop() {
                     <div key={i} className={`flex items-center gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
                       <span className="w-[10px] h-[10px] rounded-sm shrink-0" style={{ background: s.color }} />
                       <span className="text-[15px] text-ink truncate flex-1">{s.name}</span>
-                      <span className="text-[12px] text-muted tabular-nums bg-surface-2 rounded-pill px-2 py-[1px] shrink-0">{pct}%</span>
-                      <span className="text-[15px] tabular-nums text-ink shrink-0 w-[96px] text-right">{formatBRL(s.value)}</span>
+                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.4px", fontWeight: 500 }}>{pct}%</span>
+                      <span className="text-[15px] text-ink shrink-0 w-[104px] text-right" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.6px", fontWeight: 500 }}>{formatBRL(s.value)}</span>
                       <Icon name={ent ? "trending-up" : "trending-down"} size={15} color={ent ? "var(--color-positive)" : "var(--color-negative)"} />
                     </div>
                   );
@@ -220,6 +215,22 @@ export function VisorHomeTop() {
           );
         })()}
       </Card>
+    </div>
+  );
+}
+
+function DonutTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  const color = p?.payload?.color as string;
+  return (
+    <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
+      <div className="text-[15px] font-semibold text-ink mb-2">{p?.name}</div>
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
+        <span className="text-muted">Valor</span>
+        <span className="text-ink ml-4" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.6px", fontWeight: 500 }}>{formatBRL(Number(p?.value) || 0)}</span>
+      </div>
     </div>
   );
 }
