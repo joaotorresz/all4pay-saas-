@@ -234,6 +234,86 @@ h1, h2, h3,
 }
 
 /* ============================================================
+   DS "Visor" — escopo de TESTE aplicado só ao <main> da Home
+   (scopeClassName="ds-visor"). Estrutura Visor Finance + marca lime.
+   Fundo #F6F7F9 · cards brancos 14px com hairline + sombra fraca ·
+   DM Sans · números-herói 700 · acento lime #DFFF00 (texto escuro
+   por cima, NUNCA branco). Unlayered de propósito (vence o Tailwind).
+   ============================================================ */
+.ds-visor {
+  /* ============ PAINEL EDITÁVEL (mexa só nos valores) ============
+     Edite os números/cores abaixo e me mande este bloco de volta — ou
+     edite direto no GitHub (branch claude/epic-fermi-i423xk).
+     --------------------------------------------------------------- */
+  --a4p-bg: #f6f7f9;          /* fundo da página (canvas) */
+  --a4p-box-bg: #ffffff;      /* fundo dos cards */
+  --a4p-box-radius: 14px;     /* arredondamento dos cards */
+  --a4p-box-padding: 24px;    /* padding interno dos cards */
+  --a4p-box-border: #edeff2;  /* hairline dos cards */
+  --a4p-box-shadow: 0 1px 2px rgba(14, 19, 30, 0.04), 0 4px 16px rgba(14, 19, 30, 0.05);
+  /* =============================================================== */
+
+  background-color: var(--a4p-bg);
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* neutros / superfícies (medidos do Visor) */
+  --color-surface-1: var(--a4p-bg);
+  --color-surface-2: #eef0f3;
+  --color-surface-3: #eef0f3;
+  --color-white: var(--a4p-box-bg);
+  --color-ink: #0e131e;
+  --color-ink-soft: #0e131e;
+  --color-text-secondary: #5b5b5b; /* muted → corpo/labels */
+  --color-text-tertiary: #8a8a8a;  /* faint → legendas */
+  --color-text-quaternary: #bbbcbd;/* placeholder / vazio */
+  --color-border: var(--a4p-box-border);
+  --color-border-soft: #eef0f3;
+
+  /* acento lime #DFFF00 — texto/ícone SEMPRE escuro por cima */
+  --color-lime: #dfff00;
+  --color-lime-tint: #f8fcd9;
+  --color-on-lime: #0e131e;
+  --color-chart-line: #0e131e;
+
+  /* semânticas (medidas do Visor) */
+  --color-positive: #28aa00;
+  --color-warning: #f45900;
+  --color-negative: #d9000a;
+
+  --radius-card: var(--a4p-box-radius);
+}
+/* rounded-card (36px fixo) → raio do painel */
+.ds-visor .rounded-card {
+  border-radius: var(--a4p-box-radius);
+}
+/* cards: hairline + sombra fraca (separação por contraste, estilo Visor) */
+.ds-visor [data-card="1"] {
+  box-shadow: var(--a4p-box-shadow);
+  border: 1px solid var(--a4p-box-border);
+}
+/* padding 45px (default do Card) → 24px do painel */
+.ds-visor [data-card="1"].p-\[45px\] {
+  padding: var(--a4p-box-padding);
+}
+.ds-visor .p-6 {
+  padding: var(--a4p-box-padding);
+}
+/* títulos de card calmos (~18px) */
+.ds-visor .text-h3 {
+  font-size: 18px;
+}
+/* números-herói em DM Sans 700 */
+.ds-visor .text-display,
+.ds-visor .text-h1,
+.ds-visor .text-value-lg {
+  font-weight: 700 !important;
+}
+/* esconde os títulos de bloco na Home (mantém o layout calmo) */
+.ds-visor [data-block-header] {
+  display: none;
+}
+
+/* ============================================================
    Sidebar lateral — segue o tema (branca no claro, escura no dark).
    Não inverte os tokens: usa a paleta normal do DS (fundo branco,
    texto/itens ink, ícones monocromáticos). O lime fica só nos
