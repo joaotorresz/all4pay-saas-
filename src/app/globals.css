@@ -282,6 +282,13 @@ h1, h2, h3,
 
   --radius-card: var(--a4p-box-radius);
 }
+/* DM Sans em TODO o conteúdo da Home — vence o `.font-sans` (Onest) que alguns
+   componentes (ex.: <Money>, o número-herói) aplicam explícito e quebrariam a
+   herança. Unlayered → ganha das utilities do Tailwind. */
+.ds-visor,
+.ds-visor * {
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 /* rounded-card (36px fixo) → raio do painel */
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
