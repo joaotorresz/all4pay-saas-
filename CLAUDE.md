@@ -121,8 +121,12 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   cru só em strings de aria/sr/mensagens). `StatusBadge` (icon + text,
   never a filled colored pill), `Skeleton` (quiet per-widget loading
   placeholder — surface-2 + soft pulse).
-- **`Icon`** — thin linear Lucide icons (~1.75 stroke), monochrome. Substitution
-  for the product's real icon set; add new glyphs to the registry in `Icon.tsx`.
+- **`Icon`** — conjunto **Solar Bold Duotone** (svgrepo / Iconify): glifos cheios
+  em duotone (camada secundária em `opacity .5`), monocromáticos via
+  `currentColor` → a prop `color` carrega a identidade all4pay (ink · muted ·
+  faint · lime · on-lime). SVG inline (sem fetch em runtime); dados em
+  `src/components/ui/solar-icons.ts` (gerados do Iconify — vide `scratchpad/gen.mjs`).
+  `strokeWidth` é aceito por compat, mas ignorado (preenchido, não traçado).
 
 App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
 header) wraps every screen. The reference composition is the **Início**
