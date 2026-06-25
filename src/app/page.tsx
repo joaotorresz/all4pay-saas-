@@ -4,6 +4,7 @@ import { isDemo } from "@/lib/demo";
 import { InicioActions } from "@/components/visao-geral/InicioActions";
 import { InicioTitle } from "@/components/visao-geral/InicioTitle";
 import { OverviewGrid } from "@/components/visao-geral/OverviewGrid";
+import { VisorHomeTop } from "@/components/visao-geral/VisorHomeTop";
 import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
 
 export const metadata: Metadata = {
@@ -15,7 +16,8 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <PeriodProvider>
-      <AppShell title={<InicioTitle />} actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor">
+      <AppShell title={<InicioTitle />} actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor" stickyHeader={false}>
+        <VisorHomeTop />
         <OverviewGrid />
       </AppShell>
     </PeriodProvider>

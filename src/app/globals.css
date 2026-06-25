@@ -293,10 +293,10 @@ h1, h2, h3,
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* cards: hairline + sombra fraca (separação por contraste, estilo Visor) */
+/* cards: SEM sombra e SEM contorno (flat, separação só por contraste) */
 .ds-visor [data-card="1"] {
-  box-shadow: var(--a4p-box-shadow);
-  border: 1px solid var(--a4p-box-border);
+  box-shadow: none;
+  border: 0;
 }
 /* padding 45px (default do Card) → 24px do painel */
 .ds-visor [data-card="1"].p-\[45px\] {
