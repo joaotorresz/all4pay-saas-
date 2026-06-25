@@ -56,6 +56,12 @@ function loadEdits(): Record<string, ElementOverride> {
   try { return JSON.parse(localStorage.getItem(EDITS_KEY) || "{}"); } catch { return {}; }
 }
 
+/** Lê o translate(x,y) atual do inline-style (default 0,0). */
+function parseTranslate(el: HTMLElement): { x: number; y: number } {
+  const m = /translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px/.exec(el.style.transform || "");
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+}
+
 /* ----------------------------- tema ----------------------------- */
 
 interface ThemeVals {
@@ -130,6 +136,8 @@ export function VisualEditor() {
       if (t.closest("[data-a4p-editor]")) return;
       e.preventDefault(); e.stopPropagation();
       setSel(t); setTick((n) => n + 1);
+      // Sai do modo seleção ao escolher → libera as alças de mover/redimensionar.
+      setSelecionando(false);
     };
     const onOver = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
@@ -156,6 +164,52 @@ export function VisualEditor() {
     sel.dataset.a4pSel = "1";
     return () => { delete sel.dataset.a4pSel; };
   }, [sel]);
+
+  /* retângulo do selecionado (para desenhar as alças de mover/redimensionar) */
+  const [rect, setRect] = React.useState<DOMRect | null>(null);
+  const medirRect = React.useCallback(() => { setRect(sel ? sel.getBoundingClientRect() : null); }, [sel]);
+  React.useEffect(() => {
+    if (!sel) { setRect(null); return; }
+    medirRect();
+    const on = () => medirRect();
+    window.addEventListener("scroll", on, true);
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on, true); window.removeEventListener("resize", on); };
+  }, [sel, medirRect, tick]);
+
+  /* arrastar: mover (transform translate) ou redimensionar (width/height).
+     Live no DOM; ao soltar, grava no mesmo formato (estilos) p/ exportar. */
+  const iniciarDrag = (modo: "move" | "e" | "s" | "se") => (e: React.PointerEvent) => {
+    if (!sel) return;
+    e.preventDefault(); e.stopPropagation();
+    const r = sel.getBoundingClientRect();
+    const tr = parseTranslate(sel);
+    const ini = { x: e.clientX, y: e.clientY, w: r.width, h: r.height, tx: tr.x, ty: tr.y };
+    const move = (ev: PointerEvent) => {
+      if (!sel) return;
+      const dx = ev.clientX - ini.x, dy = ev.clientY - ini.y;
+      if (modo === "move") {
+        sel.style.setProperty("transform", `translate(${Math.round(ini.tx + dx)}px, ${Math.round(ini.ty + dy)}px)`, "important");
+      } else {
+        if (modo !== "s") sel.style.setProperty("width", `${Math.max(40, Math.round(ini.w + dx))}px`, "important");
+        if (modo !== "e") sel.style.setProperty("height", `${Math.max(24, Math.round(ini.h + dy))}px`, "important");
+      }
+      setRect(sel.getBoundingClientRect());
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      if (!sel) return;
+      if (modo === "move") {
+        const v = sel.style.transform; registrar((ov) => { ov.estilos["transform"] = v; });
+      } else {
+        if (sel.style.width) { const w = sel.style.width; registrar((ov) => { ov.estilos["width"] = w; }); }
+        if (sel.style.height) { const h = sel.style.height; registrar((ov) => { ov.estilos["height"] = h; }); }
+      }
+      setTick((n) => n + 1);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+  };
 
   /* valores atuais do elemento selecionado (para os controles) */
   const cur = React.useMemo(() => {
@@ -225,6 +279,11 @@ export function VisualEditor() {
   function restaurarEl() {
     if (!sel) return;
     removeStyle("display");
+  }
+  /** Reseta tamanho (width/height) e posição (transform) do elemento. */
+  function resetGeo() {
+    if (!sel) return;
+    ["width", "height", "transform"].forEach((p) => removeStyle(p));
   }
 
   const buildPayload = React.useCallback(() => ({
@@ -307,6 +366,45 @@ export function VisualEditor() {
         [data-a4p-hover] { outline: 2px dashed rgba(220,255,0,.7) !important; outline-offset: 1px !important; }
         [data-a4p-sel] { outline: 2px solid #dcff00 !important; outline-offset: 1px !important; }
       `}</style>
+
+      {/* alças de mover / redimensionar sobre o elemento selecionado */}
+      {sel && rect && !selecionando && !cur?.oculto && (
+        <div
+          className="fixed z-[59] pointer-events-none"
+          style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
+        >
+          {/* mover (grip no canto superior esquerdo) */}
+          <button
+            onPointerDown={iniciarDrag("move")}
+            title="Mover (arraste)"
+            className="pointer-events-auto absolute -top-3 -left-3 w-6 h-6 rounded-pill bg-ink inline-flex items-center justify-center"
+            style={{ cursor: "move" }}
+          >
+            <Icon name="grip-vertical" size={13} color="var(--color-lime)" />
+          </button>
+          {/* largura (lateral direita) */}
+          <span
+            onPointerDown={iniciarDrag("e")}
+            title="Arraste para a largura"
+            className="pointer-events-auto absolute top-1/2 -right-[6px] -translate-y-1/2 w-[12px] h-[12px] rounded-sm bg-white border-2 border-ink"
+            style={{ cursor: "ew-resize" }}
+          />
+          {/* altura (base) */}
+          <span
+            onPointerDown={iniciarDrag("s")}
+            title="Arraste para a altura"
+            className="pointer-events-auto absolute left-1/2 -bottom-[6px] -translate-x-1/2 w-[12px] h-[12px] rounded-sm bg-white border-2 border-ink"
+            style={{ cursor: "ns-resize" }}
+          />
+          {/* largura + altura (canto inferior direito) */}
+          <span
+            onPointerDown={iniciarDrag("se")}
+            title="Arraste para largura + altura"
+            className="pointer-events-auto absolute -right-[7px] -bottom-[7px] w-[14px] h-[14px] rounded-sm bg-lime border-2 border-ink"
+            style={{ cursor: "nwse-resize" }}
+          />
+        </div>
+      )}
 
       {/* botão flutuante */}
       <button
@@ -425,6 +523,14 @@ export function VisualEditor() {
                       <div className="flex items-center gap-2">
                         <button onClick={() => setStyle("border", "none")} className="px-3 h-9 rounded-sm border border-border text-caption text-muted hover:bg-surface-1">Sem borda</button>
                         <button onClick={() => setStyle("border", "1px solid var(--color-border)")} className="px-3 h-9 rounded-sm border border-border text-caption text-muted hover:bg-surface-1">1px</button>
+                      </div>
+                    </Campo>
+                    <Campo label="Tamanho e posição">
+                      <div className="flex items-center gap-2">
+                        <span className="text-caption text-faint flex-1">Arraste as alças sobre o elemento: laterais = largura/altura · grip ↖ = mover.</span>
+                        <button onClick={resetGeo} className="px-3 h-9 rounded-sm border border-border text-caption text-muted hover:bg-surface-1 inline-flex items-center gap-1 shrink-0">
+                          <Icon name="rotate-ccw" size={13} color="var(--color-text-secondary)" /> Resetar
+                        </button>
                       </div>
                     </Campo>
                     <p className="text-caption text-faint">Dica: gráficos são desenhos (SVG). Dá pra editar o card/texto ao redor; cores de série eu ajusto pelo código a partir do export.</p>
