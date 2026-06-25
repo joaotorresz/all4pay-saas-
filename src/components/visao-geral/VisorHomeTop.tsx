@@ -3,16 +3,16 @@
 /**
  * Topo da Home (DS Visor) — dois boxes na primeira linha, espelhando a
  * referência Visor Finance:
- *  • Esquerda "Saldo atual": saldo efetivo (hero) + gráfico de ritmo de gasto
- *    do mês (linha verde = mês atual · laranja = mês anterior · tracejado =
- *    projeção) com o balão "R$ x a menos este mês".
- *  • Direita "Entradas e saídas": donut da distribuição (entradas + categorias
- *    de saída) + legenda com %, valor e tendência.
+ *  • Esquerda "Saldo atual": saldo efetivo (hero) + EVOLUÇÃO do saldo no período
+ *    selecionado — linha verde = realizado (até hoje), tracejada = projeção (de
+ *    hoje em diante, pelo fluxo agendado). Ancorada no saldo atual.
+ *  • Direita "Distribuição": donut por tipo (toggle Entradas/Saídas) + legenda
+ *    com %, valor e tendência. Ambos seguem o período (usePeriod).
  * Tudo derivado do mesmo RiskInput (demo/live idêntico). Flat (sem sombra/borda).
  */
 import * as React from "react";
 import {
-  ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceLine,
   PieChart, Pie, Cell,
 } from "recharts";
 import { Card, BRL, Icon, Skeleton } from "@/components/ui";
@@ -21,7 +21,6 @@ import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR } from "./PeriodContext";
 
 const POSITIVE = "var(--color-positive)";
-const COMPARE = "var(--color-warning)"; // laranja (#F45900 no Visor)
 const PROJ = "#c9cdd4";
 /* paleta categórica do data-viz Visor */
 const DV = ["#D9000A", "#4E649A", "#D70064", "#1A80AB", "#E9A100", "#8A8A8A"];
@@ -36,46 +35,49 @@ export function VisorHomeTop() {
   const calc = React.useMemo(() => {
     if (!inp) return null;
     const DAY = 86400000;
+    const pad = (n: number) => String(n).padStart(2, "0");
     const parse = (s: string) => new Date(s + "T00:00:00");
+    const isoAt = (base: Date, i: number) => { const d = new Date(base.getTime() + i * DAY); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
     const fromD = parse(period.from);
     const toD = parse(period.to);
-    const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
-    // período anterior, de mesmo tamanho, imediatamente antes
-    const prevFromD = new Date(fromD.getTime() - nDays * DAY);
     const hojeD = parse(inp.hoje);
-    const Didx = Math.round((hojeD.getTime() - fromD.getTime()) / DAY);
-    const dentroHoje = Didx >= 0 && Didx < nDays;
-    const cutoff = dentroHoje ? Didx : nDays - 1;
+    const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
 
-    // gasto (saídas) acumulado por dia, a partir de `start`, ao longo de nDays
-    const cumul = (start: Date) => {
-      const perDay = new Array(nDays).fill(0);
-      for (const mv of inp.movements) {
-        if (mv.type !== "saida") continue;
-        const ds = effDate(mv); if (!ds) continue;
-        const idx = Math.round((parse(ds).getTime() - start.getTime()) / DAY);
-        if (idx >= 0 && idx < nDays) perDay[idx] += Math.abs(mv.amount);
-      }
-      const out: number[] = []; let acc = 0;
-      for (let i = 0; i < nDays; i++) { acc += perDay[i]; out[i] = acc; }
-      return out;
-    };
-    const curC = cumul(fromD), prevC = cumul(prevFromD);
-    const ritmo = curC[cutoff] / Math.max(1, cutoff + 1);
-    const fmtDia = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${MES_ABBR[d.getMonth()]}`;
-    const serie: { idx: number; label: string; anterior: number; atual: number | null; proj: number | null }[] = [];
+    // === EVOLUÇÃO DO SALDO ===
+    // Fluxo líquido por dia (entrada +, saída −) de TODOS os movimentos.
+    const netByDay = new Map<string, number>();
+    for (const mv of inp.movements) {
+      const ds = effDate(mv); if (!ds) continue;
+      const net = mv.type === "entrada" ? Math.abs(mv.amount) : -Math.abs(mv.amount);
+      netByDay.set(ds, (netByDay.get(ds) || 0) + net);
+    }
+    // Prefix-sum do fluxo na janela união [min(from,hoje) .. max(to,hoje)].
+    const minD = new Date(Math.min(fromD.getTime(), hojeD.getTime()));
+    const maxD = new Date(Math.max(toD.getTime(), hojeD.getTime()));
+    const totalDays = Math.round((maxD.getTime() - minD.getTime()) / DAY) + 1;
+    const pref: number[] = new Array(totalDays);
+    for (let i = 0; i < totalDays; i++) pref[i] = (i ? pref[i - 1] : 0) + (netByDay.get(isoAt(minD, i)) || 0);
+    const idxOf = (d: Date) => Math.round((d.getTime() - minD.getTime()) / DAY);
+    const Ptoday = pref[idxOf(hojeD)] ?? 0;
+    // saldo(d) ancorado: saldo(hoje) = saldoAtual; deriva pelo fluxo acumulado.
+    const saldoEm = (d: Date) => inp.saldoAtual + ((pref[idxOf(d)] ?? Ptoday) - Ptoday);
+
+    const Didx = Math.round((hojeD.getTime() - fromD.getTime()) / DAY); // índice de "hoje" no período
+    const fmtDia = (d: Date) => `${pad(d.getDate())}/${MES_ABBR[d.getMonth()]}`;
+    const serie: { idx: number; label: string; saldo: number | null; proj: number | null }[] = [];
+    let temNeg = false;
     for (let i = 0; i < nDays; i++) {
       const d = new Date(fromD.getTime() + i * DAY);
-      serie.push({
-        idx: i,
-        label: fmtDia(d),
-        anterior: prevC[i],
-        atual: i <= cutoff ? curC[i] : null,
-        proj: dentroHoje && i >= cutoff ? Math.round(ritmo * (i + 1)) : null,
-      });
+      const bal = Math.round(saldoEm(d) * 100) / 100;
+      if (bal < 0) temNeg = true;
+      const realizado = i <= Didx; // até hoje (inclusive)
+      const projetado = i >= Didx; // de hoje em diante
+      serie.push({ idx: i, label: fmtDia(d), saldo: realizado ? bal : null, proj: projetado ? bal : null });
     }
-    const gastoAteHoje = curC[cutoff];
-    const delta = prevC[cutoff] - gastoAteHoje; // >0 → gastou menos
+    const saldoInicial = saldoEm(fromD);
+    const saldoFinal = saldoEm(toD);
+    const variacao = saldoFinal - saldoInicial;
+    const temProj = Didx < nDays - 1; // há trecho futuro dentro do período
 
     // distribuição por TIPO (entradas × saídas) DENTRO do período selecionado
     let entradas = 0, saidas = 0;
@@ -100,7 +102,7 @@ export function VisorHomeTop() {
     };
 
     return {
-      serie, delta, gastoAteHoje,
+      serie, saldoInicial, saldoFinal, variacao, temNeg, temProj,
       entradas, saidas, resultado: entradas - saidas,
       segsEntrada: buildSegs(catE), segsSaida: buildSegs(catS),
     };
@@ -115,23 +117,25 @@ export function VisorHomeTop() {
     );
   }
 
-  const ehMes = period.modo === "mes";
-  const labelEste = ehMes ? "Este mês" : "Este período";
-  const labelAnt = ehMes ? "Mês anterior" : "Período anterior";
-  const gastouMenos = calc.delta >= 0;
+  const subiu = calc.variacao >= 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-5 mb-5">
-      {/* ESQUERDA — Saldo atual + ritmo de gasto */}
+      {/* ESQUERDA — Saldo atual + evolução do saldo no período */}
       <Card className="flex flex-col">
-        <span className="text-[16px] font-semibold text-ink">Saldo atual</span>
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[16px] font-semibold text-ink">Saldo atual</span>
+          <span className={`text-caption font-medium tabular-nums ${subiu ? "text-positive" : "text-negative"}`}>
+            {subiu ? "▲" : "▼"} {formatBRL(Math.abs(calc.variacao))} no período
+          </span>
+        </div>
         <span className="text-[34px] font-semibold tabular-nums text-ink leading-none mt-2">
           <BRL value={inp.saldoAtual} />
         </span>
         <span className="text-caption text-muted mt-1">saldo efetivo consolidado das contas</span>
 
         <div className="relative mt-4">
-          <figure className="m-0" role="img" aria-label={`Ritmo de gasto no período (${period.label}): ${formatBRL(calc.gastoAteHoje)}, ${formatBRL(Math.abs(calc.delta))} a ${gastouMenos ? "menos" : "mais"} que o período anterior.`}>
+          <figure className="m-0" role="img" aria-label={`Evolução do saldo no período (${period.label}): de ${formatBRL(calc.saldoInicial)} a ${formatBRL(calc.saldoFinal)}.`}>
             <ResponsiveContainer width="100%" height={170}>
               <LineChart data={calc.serie} margin={{ top: 10, right: 6, bottom: 0, left: 6 }}>
                 <defs>
@@ -141,21 +145,24 @@ export function VisorHomeTop() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="label" hide />
-                <YAxis hide domain={[0, "dataMax"]} />
-                <Tooltip content={<RitmoTooltip esteLabel={labelEste} antLabel={labelAnt} />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                <Area type="monotone" dataKey="atual" stroke="none" fill="url(#visorGlow)" isAnimationActive={false} connectNulls />
-                <Line type="monotone" dataKey="anterior" stroke={COMPARE} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#bbbcbd", stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} />
+                <YAxis hide domain={["auto", "auto"]} />
+                {calc.temNeg && <ReferenceLine y={0} stroke="var(--color-border)" />}
+                <Tooltip content={<SaldoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
+                <Area type="monotone" dataKey="saldo" stroke="none" fill="url(#visorGlow)" isAnimationActive={false} connectNulls />
+                {/* projeção (de hoje em diante) — tracejada cinza */}
                 <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} connectNulls />
-                <Line type="monotone" dataKey="atual" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 4, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} connectNulls />
+                {/* saldo realizado (até hoje) — verde */}
+                <Line type="monotone" dataKey="saldo" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 4, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </figure>
           <div className="flex items-center gap-4 text-caption text-muted flex-wrap mt-1">
-            <Leg color={POSITIVE} label={labelEste} />
-            <Leg color={COMPARE} label={labelAnt} />
-            <span className="inline-flex items-center gap-[6px]">
-              <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Projeção
-            </span>
+            <Leg color={POSITIVE} label="Saldo realizado" />
+            {calc.temProj && (
+              <span className="inline-flex items-center gap-[6px]">
+                <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Projeção
+              </span>
+            )}
           </div>
         </div>
       </Card>
@@ -245,16 +252,15 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-function RitmoTooltip({ active, payload, esteLabel = "Este período", antLabel = "Período anterior" }: any) {
+function SaldoTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as { label: string; anterior: number; atual: number | null; proj: number | null };
-  const este = p.atual ?? p.proj ?? 0;
-  const projetado = p.atual == null;
+  const p = payload[0]?.payload as { label: string; saldo: number | null; proj: number | null };
+  const projetado = p.saldo == null;
+  const valor = p.saldo ?? p.proj ?? 0;
   return (
     <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
       <div className="text-[15px] font-semibold text-ink mb-2">{p.label}</div>
-      <TipRow color={POSITIVE} k={projetado ? `${esteLabel} (proj.)` : esteLabel} v={formatBRL(este)} />
-      <TipRow color="#bbbcbd" k={antLabel} v={formatBRL(p.anterior ?? 0)} />
+      <TipRow color={projetado ? PROJ : POSITIVE} k={projetado ? "Saldo (proj.)" : "Saldo"} v={formatBRL(valor)} />
     </div>
   );
 }
