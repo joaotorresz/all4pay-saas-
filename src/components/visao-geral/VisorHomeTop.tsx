@@ -16,9 +16,9 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import { Card, BRL, Icon, Skeleton } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
-import { MES_ABBR } from "./PeriodContext";
+import { usePeriod, MES_ABBR } from "./PeriodContext";
 
 const POSITIVE = "var(--color-positive)";
 const COMPARE = "var(--color-warning)"; // laranja (#F45900 no Visor)
@@ -30,51 +30,61 @@ const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid
 
 export function VisorHomeTop() {
   const { data: inp, isLoading } = useRiscoInput();
+  const period = usePeriod();
   const [tipoDist, setTipoDist] = React.useState<"entrada" | "saida">("saida");
 
   const calc = React.useMemo(() => {
     if (!inp) return null;
-    const hoje = new Date(inp.hoje + "T00:00:00");
-    const y = hoje.getFullYear(), m = hoje.getMonth(), D = hoje.getDate();
-    const daysInMonth = new Date(y, m + 1, 0).getDate();
-    const prevY = m === 0 ? y - 1 : y, prevM = m === 0 ? 11 : m - 1;
-    const daysPrev = new Date(prevY, prevM + 1, 0).getDate();
+    const DAY = 86400000;
+    const parse = (s: string) => new Date(s + "T00:00:00");
+    const fromD = parse(period.from);
+    const toD = parse(period.to);
+    const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
+    // período anterior, de mesmo tamanho, imediatamente antes
+    const prevFromD = new Date(fromD.getTime() - nDays * DAY);
+    const hojeD = parse(inp.hoje);
+    const Didx = Math.round((hojeD.getTime() - fromD.getTime()) / DAY);
+    const dentroHoje = Didx >= 0 && Didx < nDays;
+    const cutoff = dentroHoje ? Didx : nDays - 1;
 
-    const cumul = (year: number, month: number) => {
-      const perDay = new Array(32).fill(0);
+    // gasto (saídas) acumulado por dia, a partir de `start`, ao longo de nDays
+    const cumul = (start: Date) => {
+      const perDay = new Array(nDays).fill(0);
       for (const mv of inp.movements) {
         if (mv.type !== "saida") continue;
         const ds = effDate(mv); if (!ds) continue;
-        const d = new Date(ds + "T00:00:00");
-        if (d.getFullYear() === year && d.getMonth() === month) perDay[d.getDate()] += Math.abs(mv.amount);
+        const idx = Math.round((parse(ds).getTime() - start.getTime()) / DAY);
+        if (idx >= 0 && idx < nDays) perDay[idx] += Math.abs(mv.amount);
       }
       const out: number[] = []; let acc = 0;
-      for (let i = 1; i <= 31; i++) { acc += perDay[i]; out[i] = acc; }
+      for (let i = 0; i < nDays; i++) { acc += perDay[i]; out[i] = acc; }
       return out;
     };
-    const curC = cumul(y, m), prevC = cumul(prevY, prevM);
-    const ritmoDia = curC[D] / Math.max(1, D);
-    const serie: { dia: number; anterior: number; atual: number | null; proj: number | null }[] = [];
-    for (let i = 1; i <= daysInMonth; i++) {
+    const curC = cumul(fromD), prevC = cumul(prevFromD);
+    const ritmo = curC[cutoff] / Math.max(1, cutoff + 1);
+    const fmtDia = (d: Date) => `${String(d.getDate()).padStart(2, "0")}/${MES_ABBR[d.getMonth()]}`;
+    const serie: { idx: number; label: string; anterior: number; atual: number | null; proj: number | null }[] = [];
+    for (let i = 0; i < nDays; i++) {
+      const d = new Date(fromD.getTime() + i * DAY);
       serie.push({
-        dia: i,
-        anterior: i <= daysPrev ? prevC[i] : prevC[daysPrev],
-        atual: i <= D ? curC[i] : null,
-        proj: i >= D ? Math.round(ritmoDia * i) : null,
+        idx: i,
+        label: fmtDia(d),
+        anterior: prevC[i],
+        atual: i <= cutoff ? curC[i] : null,
+        proj: dentroHoje && i >= cutoff ? Math.round(ritmo * (i + 1)) : null,
       });
     }
-    const gastoAteHoje = curC[D];
-    const anteriorAteHoje = prevC[Math.min(D, daysPrev)];
-    const delta = anteriorAteHoje - gastoAteHoje; // >0 → gastou menos
+    const gastoAteHoje = curC[cutoff];
+    const delta = prevC[cutoff] - gastoAteHoje; // >0 → gastou menos
 
-    // distribuição por TIPO (entradas × saídas) do mês — categorias
+    // distribuição por TIPO (entradas × saídas) DENTRO do período selecionado
     let entradas = 0, saidas = 0;
     const catE = new Map<string, number>();
     const catS = new Map<string, number>();
     for (const mv of inp.movements) {
       const ds = effDate(mv); if (!ds) continue;
-      const d = new Date(ds + "T00:00:00");
-      if (d.getFullYear() !== y || d.getMonth() !== m) continue;
+      const t = parse(ds).getTime();
+      if (t < fromD.getTime() || t > toD.getTime()) continue;
       const v = Math.abs(mv.amount);
       const c = (mv.category || "Outros").trim() || "Outros";
       if (mv.type === "entrada") { entradas += v; catE.set(c, (catE.get(c) || 0) + v); }
@@ -90,11 +100,11 @@ export function VisorHomeTop() {
     };
 
     return {
-      serie, delta, gastoAteHoje, mes: m,
+      serie, delta, gastoAteHoje,
       entradas, saidas, resultado: entradas - saidas,
       segsEntrada: buildSegs(catE), segsSaida: buildSegs(catS),
     };
-  }, [inp]);
+  }, [inp, period.from, period.to]);
 
   if (isLoading || !inp || !calc) {
     return (
@@ -105,7 +115,9 @@ export function VisorHomeTop() {
     );
   }
 
-  const mesNome = MES_ABBR[calc.mes];
+  const ehMes = period.modo === "mes";
+  const labelEste = ehMes ? "Este mês" : "Este período";
+  const labelAnt = ehMes ? "Mês anterior" : "Período anterior";
   const gastouMenos = calc.delta >= 0;
 
   return (
@@ -119,7 +131,7 @@ export function VisorHomeTop() {
         <span className="text-caption text-muted mt-1">saldo efetivo consolidado das contas</span>
 
         <div className="relative mt-4">
-          <figure className="m-0" role="img" aria-label={`Ritmo de gasto: ${formatBRL(calc.gastoAteHoje)} no mês até hoje, ${formatBRL(Math.abs(calc.delta))} a ${gastouMenos ? "menos" : "mais"} que o mesmo período do mês anterior.`}>
+          <figure className="m-0" role="img" aria-label={`Ritmo de gasto no período (${period.label}): ${formatBRL(calc.gastoAteHoje)}, ${formatBRL(Math.abs(calc.delta))} a ${gastouMenos ? "menos" : "mais"} que o período anterior.`}>
             <ResponsiveContainer width="100%" height={170}>
               <LineChart data={calc.serie} margin={{ top: 10, right: 6, bottom: 0, left: 6 }}>
                 <defs>
@@ -128,9 +140,9 @@ export function VisorHomeTop() {
                     <stop offset="100%" stopColor="#28AA00" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="dia" hide />
+                <XAxis dataKey="label" hide />
                 <YAxis hide domain={[0, "dataMax"]} />
-                <Tooltip content={<RitmoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
+                <Tooltip content={<RitmoTooltip esteLabel={labelEste} antLabel={labelAnt} />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
                 <Area type="monotone" dataKey="atual" stroke="none" fill="url(#visorGlow)" isAnimationActive={false} connectNulls />
                 <Line type="monotone" dataKey="anterior" stroke={COMPARE} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#bbbcbd", stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} />
                 <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} connectNulls />
@@ -139,8 +151,8 @@ export function VisorHomeTop() {
             </ResponsiveContainer>
           </figure>
           <div className="flex items-center gap-4 text-caption text-muted flex-wrap mt-1">
-            <Leg color={POSITIVE} label="Este mês" />
-            <Leg color={COMPARE} label="Mês anterior" />
+            <Leg color={POSITIVE} label={labelEste} />
+            <Leg color={COMPARE} label={labelAnt} />
             <span className="inline-flex items-center gap-[6px]">
               <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Projeção
             </span>
@@ -185,10 +197,10 @@ export function VisorHomeTop() {
                     {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
                 </PieChart>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
-                  <span className="text-caption text-muted">{ent ? "Entradas" : "Saídas"} · {mesNome}</span>
-                  <span className="text-[20px] font-semibold tabular-nums leading-none mt-1" style={{ color: ent ? "var(--color-positive)" : "var(--color-ink)" }}>
-                    <BRL value={total} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center" style={{ paddingLeft: 44, paddingRight: 44 }}>
+                  <span className="text-[12px] text-muted leading-none">{ent ? "Entradas" : "Saídas"}</span>
+                  <span className="text-[17px] font-semibold leading-none mt-[6px] whitespace-nowrap" style={{ color: ent ? "var(--color-positive)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
+                    {formatBRLCompact(total)}
                   </span>
                 </div>
               </div>
@@ -207,7 +219,7 @@ export function VisorHomeTop() {
                     </div>
                   );
                 })}
-                {segs.length === 0 && <span className="text-caption text-faint">Sem {ent ? "entradas" : "saídas"} neste mês.</span>}
+                {segs.length === 0 && <span className="text-caption text-faint">Sem {ent ? "entradas" : "saídas"} no período.</span>}
               </div>
             </div>
           );
@@ -233,16 +245,16 @@ function DonutTooltip({ active, payload }: any) {
   );
 }
 
-function RitmoTooltip({ active, payload }: any) {
+function RitmoTooltip({ active, payload, esteLabel = "Este período", antLabel = "Período anterior" }: any) {
   if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as { dia: number; anterior: number; atual: number | null; proj: number | null };
-  const esteMes = p.atual ?? p.proj ?? 0;
+  const p = payload[0]?.payload as { label: string; anterior: number; atual: number | null; proj: number | null };
+  const este = p.atual ?? p.proj ?? 0;
   const projetado = p.atual == null;
   return (
     <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
-      <div className="text-[15px] font-semibold text-ink mb-2">Dia {p.dia}</div>
-      <TipRow color={POSITIVE} k={projetado ? "Este mês (proj.)" : "Este mês"} v={formatBRL(esteMes)} />
-      <TipRow color="#bbbcbd" k="Mês passado" v={formatBRL(p.anterior ?? 0)} />
+      <div className="text-[15px] font-semibold text-ink mb-2">{p.label}</div>
+      <TipRow color={POSITIVE} k={projetado ? `${esteLabel} (proj.)` : esteLabel} v={formatBRL(este)} />
+      <TipRow color="#bbbcbd" k={antLabel} v={formatBRL(p.anterior ?? 0)} />
     </div>
   );
 }
