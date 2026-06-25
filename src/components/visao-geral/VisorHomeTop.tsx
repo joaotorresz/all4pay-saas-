@@ -30,6 +30,7 @@ const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid
 
 export function VisorHomeTop() {
   const { data: inp, isLoading } = useRiscoInput();
+  const [tipoDist, setTipoDist] = React.useState<"entrada" | "saida">("saida");
 
   const calc = React.useMemo(() => {
     if (!inp) return null;
@@ -66,26 +67,33 @@ export function VisorHomeTop() {
     const anteriorAteHoje = prevC[Math.min(D, daysPrev)];
     const delta = anteriorAteHoje - gastoAteHoje; // >0 → gastou menos
 
-    // distribuição entradas/saídas do mês
+    // distribuição por TIPO (entradas × saídas) do mês — categorias
     let entradas = 0, saidas = 0;
-    const catSaida = new Map<string, number>();
+    const catE = new Map<string, number>();
+    const catS = new Map<string, number>();
     for (const mv of inp.movements) {
       const ds = effDate(mv); if (!ds) continue;
       const d = new Date(ds + "T00:00:00");
       if (d.getFullYear() !== y || d.getMonth() !== m) continue;
-      if (mv.type === "entrada") entradas += Math.abs(mv.amount);
-      else { saidas += Math.abs(mv.amount); const c = (mv.category || "Outros").trim() || "Outros"; catSaida.set(c, (catSaida.get(c) || 0) + Math.abs(mv.amount)); }
+      const v = Math.abs(mv.amount);
+      const c = (mv.category || "Outros").trim() || "Outros";
+      if (mv.type === "entrada") { entradas += v; catE.set(c, (catE.get(c) || 0) + v); }
+      else { saidas += v; catS.set(c, (catS.get(c) || 0) + v); }
     }
-    const cats = Array.from(catSaida.entries()).sort((a, b) => b[1] - a[1]);
-    const top = cats.slice(0, 5);
-    const restoVal = cats.slice(5).reduce((s, [, v]) => s + v, 0);
-    const segs: { name: string; value: number; color: string; tipo: "entrada" | "saida" }[] = [];
-    if (entradas > 0) segs.push({ name: "Entradas", value: entradas, color: POSITIVE, tipo: "entrada" });
-    top.forEach(([n, v], i) => segs.push({ name: n, value: v, color: DV[i % DV.length], tipo: "saida" }));
-    if (restoVal > 0) segs.push({ name: "Outros", value: restoVal, color: PROJ, tipo: "saida" });
-    const totalMov = entradas + saidas;
+    const buildSegs = (map: Map<string, number>) => {
+      const arr = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+      const top = arr.slice(0, 6);
+      const resto = arr.slice(6).reduce((s, [, v]) => s + v, 0);
+      const segs = top.map(([n, v], i) => ({ name: n, value: v, color: DV[i % DV.length] }));
+      if (resto > 0) segs.push({ name: "Outros", value: resto, color: PROJ });
+      return segs;
+    };
 
-    return { serie, delta, gastoAteHoje, mes: m, entradas, saidas, resultado: entradas - saidas, segs, totalMov };
+    return {
+      serie, delta, gastoAteHoje, mes: m,
+      entradas, saidas, resultado: entradas - saidas,
+      segsEntrada: buildSegs(catE), segsSaida: buildSegs(catS),
+    };
   }, [inp]);
 
   if (isLoading || !inp || !calc) {
@@ -146,48 +154,71 @@ export function VisorHomeTop() {
         </div>
       </Card>
 
-      {/* DIREITA — distribuição de entradas e saídas */}
+      {/* DIREITA — Distribuição (toggle Entradas × Saídas) */}
       <Card className="flex flex-col">
-        <div className="flex items-start justify-between gap-3">
-          <span className="text-[16px] font-semibold text-ink">Entradas e saídas · {mesNome}</span>
-          <Icon name="arrow-up-right" size={16} color="var(--color-text-tertiary)" />
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-5 mt-3">
-          {/* donut */}
-          <div className="relative shrink-0" style={{ width: 188, height: 188 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={calc.segs} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
-                  {calc.segs.map((s, i) => <Cell key={i} fill={s.color} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-caption text-muted">Resultado</span>
-              <span className="text-[20px] font-semibold tabular-nums text-ink leading-none mt-1">
-                <BRL value={calc.resultado} />
-              </span>
-            </div>
-          </div>
-
-          {/* legenda */}
-          <div className="flex-1 min-w-0 w-full flex flex-col">
-            {calc.segs.map((s, i) => {
-              const pct = calc.totalMov > 0 ? Math.round((s.value / calc.totalMov) * 1000) / 10 : 0;
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[16px] font-semibold text-ink">Distribuição</span>
+          {/* toggle: dois "box" dividindo entrada / saída */}
+          <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de distribuição">
+            {([["entrada", "Entradas"], ["saida", "Saídas"]] as const).map(([val, label]) => {
+              const on = tipoDist === val;
               return (
-                <div key={i} className={`flex items-center gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
-                  <span className="w-[10px] h-[10px] rounded-sm shrink-0" style={{ background: s.color }} />
-                  <span className="text-[15px] text-ink truncate flex-1">{s.name}</span>
-                  <span className="text-[12px] text-muted tabular-nums bg-surface-2 rounded-pill px-2 py-[1px] shrink-0">{pct}%</span>
-                  <span className="text-[15px] tabular-nums text-ink shrink-0 w-[96px] text-right">{formatBRL(s.value)}</span>
-                  <Icon name={s.tipo === "entrada" ? "trending-up" : "trending-down"} size={15} color={s.tipo === "entrada" ? "var(--color-positive)" : "var(--color-negative)"} />
-                </div>
+                <button
+                  key={val}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setTipoDist(val)}
+                  className={`text-caption font-medium rounded-pill px-4 py-[6px] transition-colors ${on ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}
+                >
+                  {label}
+                </button>
               );
             })}
-            {calc.segs.length === 0 && <span className="text-caption text-faint">Sem movimentações neste mês.</span>}
           </div>
         </div>
+
+        {(() => {
+          const segs = tipoDist === "entrada" ? calc.segsEntrada : calc.segsSaida;
+          const total = tipoDist === "entrada" ? calc.entradas : calc.saidas;
+          const ent = tipoDist === "entrada";
+          return (
+            <div className="flex flex-col sm:flex-row items-center gap-5 mt-4">
+              {/* donut */}
+              <div className="relative shrink-0" style={{ width: 188, height: 188 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={segs} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={62} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
+                      {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-4">
+                  <span className="text-caption text-muted">{ent ? "Entradas" : "Saídas"} · {mesNome}</span>
+                  <span className="text-[20px] font-semibold tabular-nums leading-none mt-1" style={{ color: ent ? "var(--color-positive)" : "var(--color-ink)" }}>
+                    <BRL value={total} />
+                  </span>
+                </div>
+              </div>
+
+              {/* legenda */}
+              <div className="flex-1 min-w-0 w-full flex flex-col">
+                {segs.map((s, i) => {
+                  const pct = total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0;
+                  return (
+                    <div key={i} className={`flex items-center gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
+                      <span className="w-[10px] h-[10px] rounded-sm shrink-0" style={{ background: s.color }} />
+                      <span className="text-[15px] text-ink truncate flex-1">{s.name}</span>
+                      <span className="text-[12px] text-muted tabular-nums bg-surface-2 rounded-pill px-2 py-[1px] shrink-0">{pct}%</span>
+                      <span className="text-[15px] tabular-nums text-ink shrink-0 w-[96px] text-right">{formatBRL(s.value)}</span>
+                      <Icon name={ent ? "trending-up" : "trending-down"} size={15} color={ent ? "var(--color-positive)" : "var(--color-negative)"} />
+                    </div>
+                  );
+                })}
+                {segs.length === 0 && <span className="text-caption text-faint">Sem {ent ? "entradas" : "saídas"} neste mês.</span>}
+              </div>
+            </div>
+          );
+        })()}
       </Card>
     </div>
   );
