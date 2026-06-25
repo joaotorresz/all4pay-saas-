@@ -12,7 +12,7 @@
  */
 import * as React from "react";
 import {
-  ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis,
+  ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip,
   PieChart, Pie, Cell,
 } from "recharts";
 import { Card, BRL, Icon, Skeleton } from "@/components/ui";
@@ -128,10 +128,11 @@ export function VisorHomeTop() {
                 </defs>
                 <XAxis dataKey="dia" hide />
                 <YAxis hide domain={[0, "dataMax"]} />
+                <Tooltip content={<RitmoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
                 <Area type="monotone" dataKey="atual" stroke="none" fill="url(#visorGlow)" isAnimationActive={false} connectNulls />
-                <Line type="monotone" dataKey="anterior" stroke={COMPARE} strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="anterior" stroke={COMPARE} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#bbbcbd", stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} />
                 <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} connectNulls />
-                <Line type="monotone" dataKey="atual" stroke={POSITIVE} strokeWidth={2.4} dot={false} isAnimationActive={false} connectNulls />
+                <Line type="monotone" dataKey="atual" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 4, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           </figure>
@@ -188,6 +189,31 @@ export function VisorHomeTop() {
           </div>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function RitmoTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload as { dia: number; anterior: number; atual: number | null; proj: number | null };
+  const esteMes = p.atual ?? p.proj ?? 0;
+  const projetado = p.atual == null;
+  return (
+    <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
+      <div className="text-[15px] font-semibold text-ink mb-2">Dia {p.dia}</div>
+      <TipRow color={POSITIVE} k={projetado ? "Este mês (proj.)" : "Este mês"} v={formatBRL(esteMes)} />
+      <TipRow color="#bbbcbd" k="Mês passado" v={formatBRL(p.anterior ?? 0)} />
+    </div>
+  );
+}
+function TipRow({ color, k, v }: { color: string; k: string; v: string }) {
+  return (
+    <div className="flex items-center justify-between gap-6 tabular-nums py-[2px]">
+      <span className="inline-flex items-center gap-[6px] text-muted">
+        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
+        {k}
+      </span>
+      <span className="text-ink font-medium">{v}</span>
     </div>
   );
 }
