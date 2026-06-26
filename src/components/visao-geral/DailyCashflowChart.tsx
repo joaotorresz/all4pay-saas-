@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
-import { formatBRL, formatBRLCompact, brlParts } from "@/lib/format";
+import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
@@ -76,26 +76,6 @@ export function DailyCashflowChart() {
   const temProjecao = (data ?? []).some((d) => d.projetado && (d.inflow !== 0 || d.outflow !== 0));
   const legenda = period.label + (temProjecao ? " · projetado" : "");
 
-  // "Essa semana": domingo → sábado da semana do dia atual.
-  const essaSemana = () => {
-    const h = new Date(); h.setHours(0, 0, 0, 0);
-    const dom = new Date(h); dom.setDate(h.getDate() - h.getDay()); // 0 = domingo
-    const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-    period.setRange(isoDay(dom), isoDay(sab));
-  };
-  // "Esse mês": volta ao mês atual e vigente (sai de qualquer range).
-  const esseMes = () => { const n = new Date(); period.setMonth(n.getFullYear(), n.getMonth()); };
-
-  // Estado de seleção dos toggles (semana × mês) → dirige o design dos botões.
-  const _h = new Date(); _h.setHours(0, 0, 0, 0);
-  const _dom = new Date(_h); _dom.setDate(_h.getDate() - _h.getDay());
-  const _sab = new Date(_dom); _sab.setDate(_dom.getDate() + 6);
-  const selSemana = period.modo === "range" && period.from === isoDay(_dom) && period.to === isoDay(_sab);
-  const selMes = period.modo === "mes";
-  // Selecionado: fundo escuro + texto verde. Não selecionado: cinza + preto.
-  const btnCls = (ativo: boolean) =>
-    `inline-flex items-center rounded-[18px] px-4 h-9 text-[16px] font-semibold ${ativo ? "bg-ink text-lime" : "bg-surface-1 text-ink"}`;
-
   const hojeISO = isoDay(new Date());
   const hojeLabel = (data ?? []).find((d) => d.date === hojeISO)?.label;
   // Início de mês DENTRO do intervalo (exceto o 1º ponto) → linha vertical.
@@ -111,29 +91,12 @@ export function DailyCashflowChart() {
 
   return (
     <Card className="flex flex-col">
-      <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
-        <div className="min-w-0">
-          {/* subtítulo (período · projetado) ABAIXO do título */}
-          <h2 className="m-0 text-h3 font-medium text-ink">Fluxo de caixa</h2>
-          <span className="text-caption text-faint">{legenda}</span>
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <button onClick={essaSemana} aria-pressed={selSemana} className={btnCls(selSemana)}>
-            Essa semana
-          </button>
-          <button onClick={esseMes} aria-pressed={selMes} className={btnCls(selMes)}>
-            Esse mês
-          </button>
-        </div>
+      <div className="mb-3">
+        {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
+            vivem no topo da página (não duplicar aqui). */}
+        <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
+        <span className="text-caption text-faint">{legenda}</span>
       </div>
-
-      {!isLoading && !isError && hasFlow && (
-        <div className="flex items-center gap-x-8 gap-y-2 -mt-1 mb-1 flex-wrap">
-          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
-          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
-          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
-        </div>
-      )}
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
       {isError && (
@@ -163,14 +126,8 @@ export function DailyCashflowChart() {
                 axisLine={{ stroke: GRID }}
                 interval="preserveStartEnd"
               />
-              <YAxis
-                yAxisId="flow"
-                tick={{ fontSize: 13, fill: FAINT }}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                tickFormatter={(v) => formatBRLCompact(v)}
-              />
+              {/* eixo lateral OCULTO (mantém a escala) — pedido do usuário */}
+              <YAxis yAxisId="flow" hide />
               <YAxis yAxisId="balance" orientation="right" hide />
               <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
               <Tooltip
@@ -211,6 +168,15 @@ export function DailyCashflowChart() {
           <Legend projetado={temProjecao} />
           <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
+      )}
+
+      {/* Totais do período — ABAIXO do gráfico (Entradas · Saídas · Resultado) */}
+      {!isLoading && !isError && hasFlow && (
+        <div className="flex items-center gap-x-8 gap-y-2 mt-4 pt-4 border-t border-border-soft flex-wrap">
+          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
+          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
+          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
+        </div>
       )}
     </Card>
   );

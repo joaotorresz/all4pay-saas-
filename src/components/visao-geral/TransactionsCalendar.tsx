@@ -22,7 +22,7 @@ interface DiaInfo { entrada: number; saida: number; itens: RiskMovement[] }
  *  Clicar num dia abre a lista daquele dia. Mês navegável. Demo-safe. */
 export function TransactionsCalendar() {
   const { data, isLoading, isError } = useRiscoInput();
-  const { ano, mes } = usePeriod(); // mês global do header
+  const { ano, mes, futuro } = usePeriod(); // mês global do header
   const hoje = data?.hoje ?? new Date().toISOString().slice(0, 10);
   const [diaSel, setDiaSel] = React.useState<string | null>(null);
   React.useEffect(() => { setDiaSel(null); }, [ano, mes]); // troca de mês limpa o dia
@@ -62,7 +62,7 @@ export function TransactionsCalendar() {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <WidgetHeader title="Calendário de transações" />
+        <WidgetHeader title={futuro ? "Calendário · projeção" : "Calendário de transações"} />
       </div>
 
       {isLoading && <Skeleton className="h-[280px] w-full" rounded="md" />}
@@ -82,19 +82,17 @@ export function TransactionsCalendar() {
               const proj = projecao.get(key);
               const isHoje = key === hoje;
               const sel = key === diaSel;
-              const borda = proj?.ruptura
-                ? "border-negative"
-                : sel ? "border-ink ring-1 ring-ink" : "border-border-soft hover:border-border";
+              // DS limpo: células planas em surface-2, sem grade de bordas; ring
+              // só no selecionado / risco de ruptura.
+              const estado = proj?.ruptura
+                ? "ring-1 ring-negative bg-surface-2"
+                : sel ? "ring-1 ring-ink bg-surface-2" : "bg-surface-2 hover:bg-surface-3";
               return (
                 <button
                   key={key}
                   onClick={() => setDiaSel(sel ? null : key)}
                   aria-label={`Dia ${dia}`}
-                  className={[
-                    "flex flex-col items-center justify-center gap-[6px] rounded-md border p-[6px] min-h-[70px] transition-colors",
-                    // fundo dos dias = surface-1 (no tema Onest da Home = #eceef2)
-                    borda, sel ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2",
-                  ].join(" ")}
+                  className={["flex flex-col items-center justify-center gap-[6px] rounded-md p-[6px] min-h-[62px] transition-colors", estado].join(" ")}
                 >
                   <span data-day-num className={["text-[15px] tabular-nums leading-none font-medium", isHoje ? "inline-flex items-center justify-center w-[24px] h-[24px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
                   {/* Gráfico circular proporcional entrada (verde) × saída (vermelho) do dia. */}

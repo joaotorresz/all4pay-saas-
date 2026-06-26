@@ -125,16 +125,16 @@ export function VisorHomeTop() {
       {/* ESQUERDA — Saldo atual + evolução do saldo no período */}
       <Card className="flex flex-col">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-[16px] font-semibold text-ink">Saldo atual</span>
+          <span className="text-[16px] font-semibold text-ink">{period.futuro ? "Saldo projetado" : "Saldo atual"}</span>
           <span className="text-caption font-medium tabular-nums text-ink inline-flex items-center gap-1">
             <span style={{ color: subiu ? "var(--color-positive)" : "var(--color-negative)" }}>{subiu ? "▲" : "▼"}</span>
             {formatBRL(Math.abs(calc.variacao))}<span className="text-faint font-normal ml-1">no período</span>
           </span>
         </div>
         <span className="text-[34px] font-semibold tabular-nums text-ink leading-none mt-2">
-          <AnimatedBRL value={inp.saldoAtual} />
+          <AnimatedBRL value={period.futuro ? calc.saldoFinal : inp.saldoAtual} />
         </span>
-        <span className="text-caption text-muted mt-1">saldo efetivo consolidado das contas</span>
+        <span className="text-caption text-muted mt-1">{period.futuro ? "saldo projetado ao fim do período" : "saldo efetivo consolidado das contas"}</span>
 
         <div className="relative mt-4">
           <figure className="m-0" role="img" aria-label={`Evolução do saldo no período (${period.label}): de ${formatBRL(calc.saldoInicial)} a ${formatBRL(calc.saldoFinal)}.`}>
@@ -172,7 +172,7 @@ export function VisorHomeTop() {
       {/* DIREITA — Distribuição (toggle Entradas × Saídas) */}
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[16px] font-semibold text-ink">Distribuição</span>
+          <span className="text-[16px] font-semibold text-ink">{period.futuro ? "Distribuição projetada" : "Distribuição"}</span>
           {/* toggle: dois "box" dividindo entrada / saída */}
           <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de distribuição">
             {([["entrada", "Entradas"], ["saida", "Saídas"]] as const).map(([val, label]) => {
@@ -202,16 +202,15 @@ export function VisorHomeTop() {
               <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: 200, height: 200 }}>
                 <PieChart width={200} height={200}>
                   <Tooltip content={<DonutTooltip />} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: true, y: true }} />
-                  <Pie data={segs} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={64} outerRadius={94} paddingAngle={2} stroke="none" isAnimationActive={false}>
+                  {/* cornerRadius → pontas dos anéis arredondadas */}
+                  <Pie data={segs} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={64} outerRadius={94} paddingAngle={2} cornerRadius={7} stroke="none" isAnimationActive={false}>
                     {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
                 </PieChart>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center" style={{ paddingLeft: 48, paddingRight: 48 }}>
-                  <span className="text-[12px] text-muted leading-none inline-flex items-center gap-[5px]">
-                    <span className="w-[7px] h-[7px] rounded-pill" style={{ background: ent ? "var(--color-positive)" : "var(--color-negative)" }} />{ent ? "Entradas" : "Saídas"}
-                  </span>
-                  {/* número SEMPRE preto (ink); a cor/proporção vive no donut e no dot */}
-                  <span className="text-[17px] font-semibold leading-none mt-[6px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-6">
+                  <span className="text-[11px] text-muted leading-none">{ent ? "Entradas" : "Saídas"}</span>
+                  {/* número SEMPRE preto (ink); a cor/proporção vive no donut */}
+                  <span className="text-[16px] font-semibold leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
                     {formatBRLCompact(total)}
                   </span>
                 </div>

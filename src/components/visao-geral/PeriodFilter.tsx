@@ -51,10 +51,10 @@ export function PeriodFilter() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  // opções de mês (24 meses para trás) — barato, sem memo
+  // opções de mês: 12 à FRENTE (projeção) + atual + 24 para trás. Futuro→passado.
   const opts: { value: string; label: string }[] = [];
-  for (let i = 0; i < 24; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  for (let i = 12; i >= -23; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     opts.push({ value: encode({ y: d.getFullYear(), m: d.getMonth() }), label: `${MES_ABBR[d.getMonth()]}/${String(d.getFullYear()).slice(2)}` });
   }
 
