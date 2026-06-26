@@ -248,7 +248,7 @@ export function Sidebar() {
           {allSections.map((s, si) => (
             <div key={s.id} className={cn("flex flex-col gap-[2px]", col ? "mt-2 first:mt-0" : "mt-3 first:mt-0", si === allSections.length - 1 && !col ? "pt-2 mt-3 border-t border-border-soft" : "")}>
               {!col && (
-                <span className="px-[10px] pt-[2px] pb-[3px] text-[11px] font-semibold uppercase tracking-[0.06em] text-faint truncate">{s.label}</span>
+                <span className="px-[10px] pt-[2px] pb-[3px] text-[12px] font-semibold text-faint truncate">{s.label}</span>
               )}
               {s.items.map((it, i) => (
                 <NavItem key={it.href ?? it.label + i} item={it} pathname={pathname} collapsed={col} />

@@ -22,8 +22,8 @@ import { AnimatedBRL } from "./useCountUp";
 
 const POSITIVE = "var(--color-positive)";
 const PROJ = "#c9cdd4";
-/* paleta categórica do data-viz Visor */
-const DV = ["#D9000A", "#4E649A", "#D70064", "#1A80AB", "#E9A100", "#8A8A8A"];
+/* paleta categórica do data-viz — cores vibrantes e distintas */
+const DV = ["#FF3B30", "#2F6BFF", "#FF2D8E", "#00B8D4", "#FFB300", "#8B5CF6", "#10B981", "#F97316"];
 
 const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid_date || mv.due_date;
 
