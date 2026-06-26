@@ -30,7 +30,7 @@ export function Icon({ name, size = 18, color = "currentColor", className }: Ico
       width={size}
       height={size}
       viewBox={`0 0 ${ic.w} ${ic.h}`}
-      className={className}
+      className={["a4p-icon", className].filter(Boolean).join(" ")}
       style={{ color, display: "inline-block", flexShrink: 0, verticalAlign: "middle" }}
       aria-hidden="true"
       focusable="false"

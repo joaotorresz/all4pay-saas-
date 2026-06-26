@@ -179,7 +179,9 @@ html.dark {
   to { opacity: 1; transform: none; }
 }
 .ds-visor [data-card="1"] {
-  animation: a4pRise 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) both;
+  /* `backwards` (não `both`): mantém o estado inicial durante o delay, mas NÃO
+     fixa o transform no fim — assim o hover-lift abaixo volta a funcionar. */
+  animation: a4pRise 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) backwards;
 }
 /* stagger leve nos primeiros cards de cada grade */
 .ds-visor [data-card="1"]:nth-child(1) { animation-delay: 0.02s; }
@@ -188,6 +190,44 @@ html.dark {
 .ds-visor [data-card="1"]:nth-child(4) { animation-delay: 0.17s; }
 @media (prefers-reduced-motion: reduce) {
   .ds-visor [data-card="1"] { animation: none; }
+}
+
+/* ============================================================
+   Micro-interações de HOVER (clean) — transições suaves nos
+   interativos, leve elevação dos cards, e animação dos ícones
+   (Solar) ao passar o mouse no elemento clicável.
+   ============================================================ */
+button, a, [role="button"], summary, label[for], .a4p-hoverable {
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease,
+    box-shadow 0.2s ease, transform 0.16s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.16s ease;
+}
+/* clique → leve "press" */
+button:active, a:active, [role="button"]:active { transform: scale(0.97); }
+
+/* Ícones Solar — escala/realce sutil quando o pai clicável é hoverado */
+.a4p-icon { transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1); transform-origin: center; will-change: transform; }
+button:hover .a4p-icon,
+a:hover .a4p-icon,
+[role="button"]:hover .a4p-icon,
+.group:hover .a4p-icon,
+.a4p-hoverable:hover .a4p-icon { transform: scale(1.16); }
+button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.92); }
+
+/* Cards (DS Visor) — leve elevação ao passar o mouse */
+.ds-visor [data-card="1"] {
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s ease;
+}
+.ds-visor [data-card="1"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(14, 19, 30, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button, a, [role="button"], .a4p-icon, .ds-visor [data-card="1"] {
+    transition: none !important;
+  }
+  button:active, a:active, [role="button"]:active,
+  .ds-visor [data-card="1"]:hover, button:hover .a4p-icon, a:hover .a4p-icon { transform: none !important; }
 }
 
 /* ============================================================
