@@ -8,7 +8,7 @@ import { WidgetHeader, EmptyState } from "./shared";
 import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
-const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 
