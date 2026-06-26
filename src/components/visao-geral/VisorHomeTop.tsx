@@ -235,15 +235,16 @@ export function VisorHomeTop() {
 function DonutChart({ segs, total, label, size = 200 }: { segs: { name: string; value: number; color: string }[]; total: number; label: string; size?: number }) {
   const [hover, setHover] = React.useState<number | null>(null);
   const cx = size / 2;
-  const outerR = 92, innerR = 68;
-  const sw = outerR - innerR; // 24
-  const R = (outerR + innerR) / 2; // 80
+  const outerR = 92, innerR = 72;
+  const sw = outerR - innerR; // 20 (mais fino → arredondamento menos exagerado)
+  const R = (outerR + innerR) / 2; // 82
   const C = 2 * Math.PI * R;
-  const gap = sw; // anéis se tocam com pontas arredondadas (sem buraco grande)
+  // Sem buraco entre as porções (drawn = fatia cheia): os anéis ficam
+  // CONECTADOS (não "desvinculam"); as pontas arredondadas sobrepõem de leve.
   let acc = 0;
   const arcs = segs.map((s, i) => {
     const frac = total > 0 ? s.value / total : 0;
-    const drawn = Math.max(0.5, frac * C - gap);
+    const drawn = Math.max(0.5, frac * C);
     const off = -acc * C; // posiciona o início do anel
     acc += frac;
     return { ...s, i, drawn, off };

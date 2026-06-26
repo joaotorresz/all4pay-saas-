@@ -82,21 +82,30 @@ export function TransactionsCalendar() {
               const proj = projecao.get(key);
               const isHoje = key === hoje;
               const sel = key === diaSel;
+              const risco = !!proj?.ruptura; // possível saldo negativo
               // DS limpo: células planas em surface-2, sem grade de bordas; ring
-              // só no selecionado / risco de ruptura.
-              const estado = proj?.ruptura
-                ? "ring-1 ring-negative bg-surface-2"
-                : sel ? "ring-1 ring-ink bg-surface-2" : "bg-surface-2 hover:bg-surface-3";
+              // só no dia selecionado (sem mais borda vermelha p/ risco).
+              const estado = sel ? "ring-1 ring-ink bg-surface-2" : "bg-surface-2 hover:bg-surface-3";
+              // número: risco → vermelho; senão ink. Hoje → negrito + maior.
+              const numCor = risco ? "var(--color-negative)" : "var(--color-ink)";
               return (
                 <button
                   key={key}
                   onClick={() => setDiaSel(sel ? null : key)}
-                  aria-label={`Dia ${dia}`}
-                  className={["flex flex-col items-center justify-center gap-[6px] rounded-md p-[6px] min-h-[62px] transition-colors", estado].join(" ")}
+                  aria-label={`Dia ${dia}${risco ? " · possível saldo negativo" : ""}`}
+                  className={["flex items-center justify-center rounded-md p-[6px] min-h-[62px] transition-colors", estado].join(" ")}
                 >
-                  <span data-day-num className={["text-[15px] tabular-nums leading-none font-medium", isHoje ? "inline-flex items-center justify-center w-[24px] h-[24px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
-                  {/* Gráfico circular proporcional entrada (verde) × saída (vermelho) do dia. */}
-                  <DayRing entrada={info?.entrada ?? 0} saida={info?.saida ?? 0} />
+                  {/* Gráfico circular proporcional entrada×saída EM VOLTA do número do dia. */}
+                  <div className="relative flex items-center justify-center" style={{ width: 38, height: 38 }}>
+                    <DayRing entrada={info?.entrada ?? 0} saida={info?.saida ?? 0} size={38} />
+                    <span
+                      data-day-num
+                      className={["absolute tabular-nums leading-none", isHoje ? "text-[19px] font-bold" : "text-[15px] font-medium"].join(" ")}
+                      style={{ color: numCor }}
+                    >
+                      {dia}
+                    </span>
+                  </div>
                 </button>
               );
             })}
@@ -107,7 +116,7 @@ export function TransactionsCalendar() {
             <span className="inline-flex items-center gap-[5px]"><span className="w-[8px] h-[8px] rounded-pill" style={{ background: POSITIVE }} />entradas</span>
             <span className="inline-flex items-center gap-[5px]"><span className="w-[8px] h-[8px] rounded-pill" style={{ background: NEGATIVE }} />saídas</span>
             {temRuptura && (
-              <span className="inline-flex items-center gap-[5px]"><span className="inline-block w-3 h-3 rounded-[3px] border border-negative" />risco de ruptura</span>
+              <span className="inline-flex items-center gap-[5px]"><span className="font-bold tabular-nums text-negative">00</span>possível saldo negativo</span>
             )}
           </div>
 
@@ -163,18 +172,18 @@ export function TransactionsCalendar() {
   );
 }
 
-/** Anel proporcional entrada (verde) × saída (vermelho) do dia. Vazio → reserva
- *  a altura para manter os dias alinhados. Pontas arredondadas, traço fino. */
-function DayRing({ entrada, saida, size = 22 }: { entrada: number; saida: number; size?: number }) {
+/** Anel proporcional entrada (verde) × saída (vermelho) EM VOLTA do número do
+ *  dia (posicionado absoluto atrás do número). Sem movimento → não renderiza. */
+function DayRing({ entrada, saida, size = 38 }: { entrada: number; saida: number; size?: number }) {
   const total = entrada + saida;
-  if (total <= 0) return <span className="block" style={{ height: size }} aria-hidden />;
-  const sw = 3;
+  if (total <= 0) return null;
+  const sw = 3.5;
   const r = (size - sw) / 2;
   const cx = size / 2;
   const C = 2 * Math.PI * r;
   const entLen = (entrada / total) * C;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden className="absolute inset-0">
       <g transform={`rotate(-90 ${cx} ${cx})`} fill="none" strokeWidth={sw} strokeLinecap="round">
         {saida > 0 && <circle cx={cx} cy={cx} r={r} stroke="var(--color-negative)" strokeDasharray={`${C} ${C}`} />}
         {entrada > 0 && <circle cx={cx} cy={cx} r={r} stroke="var(--color-positive)" strokeDasharray={`${entLen} ${C}`} />}
