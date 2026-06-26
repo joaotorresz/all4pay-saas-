@@ -256,21 +256,25 @@ export function PendenciasCard() {
   return (
     <Card className="flex flex-col gap-3">
       <Header icon="list-checks">Pendências</Header>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
         <Conta n={aReceber} label="A receber" />
         <Conta n={aPagar} label="A pagar" />
-        <Conta n={vencendo} label="Vencem em 7d" tone="var(--color-warning)" />
-        <Conta n={vencidos} label="Vencidos" tone="var(--color-negative)" />
+        <Conta n={vencendo} label="Vencem em 7d" dot="var(--color-warning)" />
+        <Conta n={vencidos} label="Vencidos" dot="var(--color-negative)" />
       </div>
     </Card>
   );
 }
 
-function Conta({ n, label, tone }: { n: number; label: string; tone?: string }) {
+function Conta({ n, label, dot }: { n: number; label: string; dot?: string }) {
+  // DS padrão: número SEMPRE ink; o tipo (atenção/vencido) vai num dot no rótulo.
   return (
     <div className="flex flex-col">
-      <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: tone ?? "var(--color-ink)" }}>{n}</span>
-      <span className="text-caption text-faint mt-[2px]">{label}</span>
+      <span className="text-[28px] leading-none font-semibold tabular-nums text-ink">{n}</span>
+      <span className="text-caption text-faint mt-[3px] inline-flex items-center gap-[5px]">
+        {dot && <span className="w-[6px] h-[6px] rounded-pill shrink-0" style={{ background: dot }} />}
+        {label}
+      </span>
     </div>
   );
 }

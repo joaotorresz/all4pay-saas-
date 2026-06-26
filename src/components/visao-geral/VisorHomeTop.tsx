@@ -241,10 +241,11 @@ function DonutChart({ segs, total, label, size = 200 }: { segs: { name: string; 
   const C = 2 * Math.PI * R;
   // Sem buraco entre as porções (drawn = fatia cheia): os anéis ficam
   // CONECTADOS (não "desvinculam"); as pontas arredondadas sobrepõem de leve.
+  const GAP = 2; // folga pequena entre as porções (pontas RETAS → sem encaixe)
   let acc = 0;
   const arcs = segs.map((s, i) => {
     const frac = total > 0 ? s.value / total : 0;
-    const drawn = Math.max(0.5, frac * C);
+    const drawn = Math.max(0.5, frac * C - GAP);
     const off = -acc * C; // posiciona o início do anel
     acc += frac;
     return { ...s, i, drawn, off };
@@ -252,17 +253,19 @@ function DonutChart({ segs, total, label, size = 200 }: { segs: { name: string; 
   const sel = hover != null ? segs[hover] : null;
   return (
     <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: size, height: size }}>
+      {/* Geometria do anel é FIXA: o hover NÃO mexe na espessura/posição (só
+          escurece as outras porções por opacidade) — assim nada "desvincula". */}
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${formatBRL(total)}`}>
-        <g transform={`rotate(-90 ${cx} ${cx})`} fill="none" strokeLinecap="round">
+        <g transform={`rotate(-90 ${cx} ${cx})`} fill="none" strokeLinecap="butt" strokeWidth={sw}>
           {arcs.map((a) => (
             <circle
               key={a.i}
               cx={cx} cy={cx} r={R}
               stroke={a.color}
-              strokeWidth={hover === a.i ? sw + 5 : sw}
               strokeDasharray={`${a.drawn} ${C - a.drawn}`}
               strokeDashoffset={a.off}
-              style={{ transition: "stroke-width 0.15s ease", cursor: "pointer" }}
+              strokeOpacity={hover == null || hover === a.i ? 1 : 0.38}
+              style={{ transition: "stroke-opacity 0.15s ease", cursor: "pointer" }}
               onMouseEnter={() => setHover(a.i)}
               onMouseLeave={() => setHover(null)}
             />

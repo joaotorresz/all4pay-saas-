@@ -128,6 +128,20 @@ export function OverviewGrid() {
                   return <div key={id} className={`${span} flex [&>*]:w-full`}>{w.node}</div>;
                 })}
               </div>
+            ) : bloco === "Operação" ? (
+              // A receber · A pagar · Pendências dividem a MESMA linha em 3 (1/3
+              // cada); Hoje/Saldo·contas ocupam a largura toda.
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+                {ids.map((id) => {
+                  const w = widgetNode(id, ctx);
+                  const trio = id === "receivables" || id === "payables" || id === "pendencias";
+                  return (
+                    <div key={id} className={trio ? "flex [&>*]:w-full" : "md:col-span-3"}>
+                      {w.node}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                 {ids.map((id) => {
