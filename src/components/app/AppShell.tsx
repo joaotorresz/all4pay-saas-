@@ -16,7 +16,7 @@ export function AppShell({
   title,
   actions,
   children,
-  scopeClassName,
+  scopeClassName = "ds-visor",
   stickyHeader = true,
 }: {
   title: React.ReactNode;

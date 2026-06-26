@@ -85,20 +85,21 @@ sempre os tokens, nunca hex literal.
   overdue / vencido, same desaturated family). Status colors are *small
   semantic signals* (labels, dots, the negative integer in a value) — never
   large fills.
-- **Type scale (escala +20% aplicada ao sistema):** `text-display` 62 ·
-  `text-h1` 48 · `text-value-lg` 38 · `text-h2` 34 · `text-h3` 24 ·
-  `text-body` 18 · `text-label` 16 · `text-caption` 14. **DS v2 (Onest):**
-  **três pesos** — Regular 400 · Medium 500 (`font-medium`) · SemiBold 600
-  (`font-semibold`); **títulos `h1/h2/h3` + `text-h*` em 600** (regra global no
-  globals). `letter-spacing` base −0.01em (no body); **números (`tabular-nums`)
-  com tracking −1.04px** (regra global). line-height 22px (texto-base); heróis
-  grandes usam leading-none. Sem caixa-alta.
-- **Radii:** `rounded-card` **36** · `rounded-md` 10 · `rounded-sm` 8 ·
+- **Type scale (DS Visor · DM Sans):** `text-display` 62 · `text-h1` 44 ·
+  `text-value-lg` **36** (número-herói) · `text-h2` 30 · `text-h3` **18**
+  (título de card) · `text-body` 16 · `text-label` 15 · `text-caption` 13.
+  **Pesos:** Regular 400 · Medium 500 (`font-medium`) · SemiBold 600
+  (`font-semibold`) · Bold 700 (heróis no escopo `ds-visor`); **títulos
+  `h1/h2/h3` + `text-h*` em 600** (regra global). `letter-spacing` base −0.01em;
+  **números (`tabular-nums`) com espaçamento NORMAL** (`0`, regra global — Visor).
+  line-height base 22px; heróis grandes usam leading-none. Sem caixa-alta.
+- **Radii:** `rounded-card` **14** · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
-- **Shadows:** removidas de todo o sistema (tokens `none`). DS v2 é **flat**.
-- **Background/box:** fundo da página **`surface-1` = #eceef2**; **boxes brancos**
-  (`Card` = branco · 36px · **sem borda** por padrão · padding **45px**).
-- **Spacing:** base-4 (`1`=4 … `16`=64). Card padding 45 (DS v2), list rows 12–16,
+- **Shadows:** removidas de todo o sistema (tokens `none`). DS Visor é **flat**.
+- **Background/box:** fundo da página **`surface-1` = #f6f7f9** (canvas Visor);
+  **boxes brancos** (`Card` = branco · 14px · **sem borda/sombra** por padrão ·
+  padding **24px**).
+- **Spacing:** base-4 (`1`=4 … `16`=64). Card padding 24, list rows 12–16,
   page sections 48–64.
 
 ---
@@ -965,10 +966,17 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
-- Font: **Onest** via `next/font/local` (`src/app/fonts/Onest-{Regular,Medium,SemiBold}.ttf`,
-  variável `--font-onest`, é a `sans` no Tailwind). **Três pesos** (400/500/600);
-  títulos em 600. `letter-spacing` base −0.01em, line-height base 22px. Sem
-  caixa-alta. (Roc Grotesk foi aposentado, arquivo mantido em `fonts/`.)
+- Font: **DM Sans** (DS Visor) — carregada no `layout.tsx` via `<link>` do Google
+  Fonts (eixos `opsz,wght@9..40,400..700`) e definida como `sans` no Tailwind
+  (fallback `var(--font-onest)`/Onest). Pesos 400/500/600/700; títulos em 600,
+  números-herói 700. `letter-spacing` base −0.01em, números (`tabular-nums`) com
+  espaçamento **normal**. Onest/Roc Grotesk aposentadas (arquivos mantidos em
+  `fonts/` como fallback). **Migração para o DS Visor** (estrutura Visor Finance +
+  marca lime): tokens neutros/semânticos no `:root` (light) = paleta Visor
+  (`surface-1` #f6f7f9 · `ink` #0e131e · `positive` #28aa00 · `negative` #d9000a),
+  cards 14px flat (24px padding); o `AppShell` aplica `scopeClassName="ds-visor"`
+  por padrão (cores Visor só no tema claro via `html:not(.dark) .ds-visor` — o
+  **dark mode é preservado**).
 
 ### Commands
 

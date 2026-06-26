@@ -22,11 +22,11 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
       ref={ref}
       data-card="1"
       className={cn(
-        // DS v2 (Onest): box branco, 36px, sem borda nem sombra, padding 45px.
+        // DS Visor: box branco, 14px, flat (sem borda/sombra), padding 24px.
         "bg-white rounded-card text-ink",
         bordered && "border border-border",
         elevated && "shadow-card",
-        padded && "p-[45px]",
+        padded && "p-6",
         className,
       )}
       {...rest}

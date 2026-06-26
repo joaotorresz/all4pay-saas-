@@ -12,35 +12,35 @@
    isn't also a token. See CLAUDE.md.
    ============================================================ */
 :root {
-  /* Neutrals */
+  /* Neutrals — paleta Visor Finance (light); o dark continua em html.dark */
   --color-black-pure: #000000;
-  --color-ink: #171717;
-  --color-ink-soft: #0c0c0b;
+  --color-ink: #0e131e; /* text-strong do Visor */
+  --color-ink-soft: #0e131e;
   --color-white: #ffffff;
-  --color-surface-1: #f4f4f5; /* fundo da página (near-white, ref. Itaú) */
-  --color-surface-2: #f7f7f5;
-  --color-surface-3: #f4f4f3;
-  --color-border: #e9e9e9;
-  --color-border-soft: #efefef;
-  --color-text-secondary: #797975;
-  --color-text-tertiary: #959595;
-  --color-text-quaternary: #b3b3b2;
+  --color-surface-1: #f6f7f9; /* canvas do Visor */
+  --color-surface-2: #eef0f3; /* inset / row */
+  --color-surface-3: #eef0f3;
+  --color-border: #edeff2;
+  --color-border-soft: #eef0f3;
+  --color-text-secondary: #5b5b5b; /* muted / corpo */
+  --color-text-tertiary: #8a8a8a; /* faint / legendas */
+  --color-text-quaternary: #bbbcbd; /* placeholder */
 
   /* Accent */
-  --color-lime: #dcff00;
+  --color-lime: #dfff00;
   --color-lime-alt: #e0f80a;
-  --color-lime-tint: #f8ffcb;
-  --color-on-lime: #171717; /* text/icon ON bright lime — dark in BOTH themes */
-  --color-chart-line: #171717; /* linha dos gráficos: PRETA no claro, lime no escuro */
+  --color-lime-tint: #f8fcd9;
+  --color-on-lime: #0e131e; /* text/icon ON bright lime — dark in BOTH themes */
+  --color-chart-line: #0e131e; /* linha dos gráficos: escura no claro, lime no escuro */
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
   --gradient-hero-glow: #4b4d3d;
 
-  /* Status */
-  --color-warning: #e8821e;
-  --color-positive: #3f8f5b;
-  --color-negative: #c2473d;
+  /* Status — semânticas do Visor (verde/vermelho vivos) */
+  --color-warning: #f45900;
+  --color-positive: #28aa00;
+  --color-negative: #d9000a;
 
   /* Radii / shadows (for inline + SVG use) */
   --radius-card: 36px;
@@ -179,9 +179,9 @@ h1, h2, h3,
 .text-display, .text-h1, .text-h2, .text-h3 {
   font-weight: 600;
 }
-/* números com tracking apertado (vence o inline do <Money>) */
+/* números (tabular) com espaçamento normal — paridade com o Visor (DM Sans) */
 .tabular-nums {
-  letter-spacing: -1.04px !important;
+  letter-spacing: 0 !important;
 }
 /* rótulos dos eixos dos gráficos (Recharts) em Medium */
 .recharts-cartesian-axis-tick-value {
@@ -253,9 +253,12 @@ h1, h2, h3,
   --a4p-box-shadow: 0 1px 2px rgba(14, 19, 30, 0.04), 0 4px 16px rgba(14, 19, 30, 0.05);
   /* =============================================================== */
 
-  background-color: var(--a4p-bg);
   font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-
+  --radius-card: var(--a4p-box-radius);
+}
+/* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
+html:not(.dark) .ds-visor {
+  background-color: var(--a4p-bg);
   /* neutros / superfícies (medidos do Visor) */
   --color-surface-1: var(--a4p-bg);
   --color-surface-2: #eef0f3;
@@ -268,19 +271,15 @@ h1, h2, h3,
   --color-text-quaternary: #bbbcbd;/* placeholder / vazio */
   --color-border: var(--a4p-box-border);
   --color-border-soft: #eef0f3;
-
   /* acento lime #DFFF00 — texto/ícone SEMPRE escuro por cima */
   --color-lime: #dfff00;
   --color-lime-tint: #f8fcd9;
   --color-on-lime: #0e131e;
   --color-chart-line: #0e131e;
-
   /* semânticas (medidas do Visor) */
   --color-positive: #28aa00;
   --color-warning: #f45900;
   --color-negative: #d9000a;
-
-  --radius-card: var(--a4p-box-radius);
 }
 /* DM Sans em TODO o conteúdo da Home — vence o `.font-sans` (Onest) que alguns
    componentes (ex.: <Money>, o número-herói) aplicam explícito e quebrariam a

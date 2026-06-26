@@ -63,7 +63,9 @@ const config: Config = {
         negative: "var(--color-negative)", // muted brick red (overdue / vencido)
       },
       fontFamily: {
+        // DS Visor — DM Sans é a face do sistema (carregada no layout via <link>).
         sans: [
+          '"DM Sans"',
           "var(--font-onest)",
           "Onest",
           "-apple-system",
@@ -76,14 +78,15 @@ const config: Config = {
         // Roc Grotesk Regular: peso 400, tracking -0.01em, line-height 22px na
         // escala de texto; nos tamanhos grandes (heróis de uma linha) o lh 22px
         // é menor que o glifo, então usamos leading-none (1) para não recortar.
+        // Escala de tipos Visor (DM Sans): número-herói ~36 · título de card ~18.
         display: ["62px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h1: ["48px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        "value-lg": ["38px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h2: ["34px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h3: ["24px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
-        body: ["18px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
-        label: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
-        caption: ["14px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        h1: ["44px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        "value-lg": ["36px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        h2: ["30px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
+        h3: ["18px", { lineHeight: "1.1", letterSpacing: "-0.01em" }],
+        body: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        label: ["15px", { lineHeight: "21px", letterSpacing: "-0.01em" }],
+        caption: ["13px", { lineHeight: "19px", letterSpacing: "-0.01em" }],
       },
       fontWeight: {
         // Onest — múltiplos pesos (Regular · Medium · SemiBold).
@@ -110,8 +113,8 @@ const config: Config = {
         sidebar: "240px",
       },
       borderRadius: {
-        // 3 levels + pill. Bigger container => bigger radius.
-        card: "36px", // large cards, panels, tooltip (DS v2 / Onest)
+        // Visor: cards 14px · botões/inputs 10px · badges 8px · pills.
+        card: "14px", // cards, panels, tooltip
         md: "10px", // buttons, inputs, command bar
         sm: "8px", // smaller buttons, rectangular badges
         pill: "999px", // action pills, avatars
