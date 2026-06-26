@@ -15,7 +15,7 @@ import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceLine,
   PieChart, Pie, Cell,
 } from "recharts";
-import { Card, Icon, Skeleton } from "@/components/ui";
+import { Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR } from "./PeriodContext";
@@ -197,16 +197,16 @@ export function VisorHomeTop() {
           const total = tipoDist === "entrada" ? calc.entradas : calc.saidas;
           const ent = tipoDist === "entrada";
           return (
-            <div className="flex flex-col sm:flex-row items-center gap-5 mt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6 mt-4">
               {/* donut (tamanho fixo — evita distorção do ResponsiveContainer no flex) */}
-              <div className="relative shrink-0" style={{ width: 188, height: 188 }}>
-                <PieChart width={188} height={188}>
+              <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: 200, height: 200 }}>
+                <PieChart width={200} height={200}>
                   <Tooltip content={<DonutTooltip />} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: true, y: true }} />
-                  <Pie data={segs} dataKey="value" nameKey="name" cx={94} cy={94} innerRadius={60} outerRadius={88} paddingAngle={2} stroke="none" isAnimationActive={false}>
+                  <Pie data={segs} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={64} outerRadius={94} paddingAngle={2} stroke="none" isAnimationActive={false}>
                     {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
                   </Pie>
                 </PieChart>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center" style={{ paddingLeft: 44, paddingRight: 44 }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center" style={{ paddingLeft: 48, paddingRight: 48 }}>
                   <span className="text-[12px] text-muted leading-none inline-flex items-center gap-[5px]">
                     <span className="w-[7px] h-[7px] rounded-pill" style={{ background: ent ? "var(--color-positive)" : "var(--color-negative)" }} />{ent ? "Entradas" : "Saídas"}
                   </span>
@@ -217,17 +217,18 @@ export function VisorHomeTop() {
                 </div>
               </div>
 
-              {/* legenda */}
+              {/* legenda — nome à esquerda · % e valor alinhados à direita */}
               <div className="flex-1 min-w-0 w-full flex flex-col">
                 {segs.map((s, i) => {
                   const pct = total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0;
                   return (
-                    <div key={i} className={`flex items-center gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
+                    <div key={i} className={`flex items-center gap-3 py-2 ${i ? "border-t border-border-soft" : ""}`}>
                       <span className="w-[10px] h-[10px] rounded-sm shrink-0" style={{ background: s.color }} />
                       <span className="text-[15px] text-ink truncate flex-1">{s.name}</span>
-                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.4px", fontWeight: 500 }}>{pct}%</span>
-                      <span className="text-[15px] text-ink shrink-0 w-[104px] text-right" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.6px", fontWeight: 500 }}>{formatBRL(s.value)}</span>
-                      <Icon name={ent ? "trending-up" : "trending-down"} size={15} color={ent ? "var(--color-positive)" : "var(--color-negative)"} />
+                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0 text-right" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.3px", fontWeight: 500, minWidth: 46 }}>
+                        {pct.toLocaleString("pt-BR")}%
+                      </span>
+                      <span className="text-[15px] text-ink shrink-0 text-right whitespace-nowrap" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.4px", fontWeight: 500, minWidth: 100 }}>{formatBRL(s.value)}</span>
                     </div>
                   );
                 })}
