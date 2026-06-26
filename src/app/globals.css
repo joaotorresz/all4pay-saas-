@@ -171,6 +171,26 @@ html.dark {
 }
 
 /* ============================================================
+   Animação de entrada (clean) — os cards "sobem" suavemente ao carregar
+   a página. Respeita prefers-reduced-motion. Stagger leve por posição.
+   ============================================================ */
+@keyframes a4pRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.ds-visor [data-card="1"] {
+  animation: a4pRise 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) both;
+}
+/* stagger leve nos primeiros cards de cada grade */
+.ds-visor [data-card="1"]:nth-child(1) { animation-delay: 0.02s; }
+.ds-visor [data-card="1"]:nth-child(2) { animation-delay: 0.07s; }
+.ds-visor [data-card="1"]:nth-child(3) { animation-delay: 0.12s; }
+.ds-visor [data-card="1"]:nth-child(4) { animation-delay: 0.17s; }
+@media (prefers-reduced-motion: reduce) {
+  .ds-visor [data-card="1"] { animation: none; }
+}
+
+/* ============================================================
    DS v2 (Onest) — padrões promovidos do teste da Home para TODO o sistema.
    Unlayered de propósito: vencem as utilities do Tailwind.
    ============================================================ */

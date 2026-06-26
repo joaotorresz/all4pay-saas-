@@ -15,10 +15,11 @@ import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceLine,
   PieChart, Pie, Cell,
 } from "recharts";
-import { Card, BRL, Icon, Skeleton } from "@/components/ui";
+import { Card, Icon, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR } from "./PeriodContext";
+import { AnimatedBRL } from "./useCountUp";
 
 const POSITIVE = "var(--color-positive)";
 const PROJ = "#c9cdd4";
@@ -125,12 +126,13 @@ export function VisorHomeTop() {
       <Card className="flex flex-col">
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-[16px] font-semibold text-ink">Saldo atual</span>
-          <span className={`text-caption font-medium tabular-nums ${subiu ? "text-positive" : "text-negative"}`}>
-            {subiu ? "▲" : "▼"} {formatBRL(Math.abs(calc.variacao))} no período
+          <span className="text-caption font-medium tabular-nums text-ink inline-flex items-center gap-1">
+            <span style={{ color: subiu ? "var(--color-positive)" : "var(--color-negative)" }}>{subiu ? "▲" : "▼"}</span>
+            {formatBRL(Math.abs(calc.variacao))}<span className="text-faint font-normal ml-1">no período</span>
           </span>
         </div>
         <span className="text-[34px] font-semibold tabular-nums text-ink leading-none mt-2">
-          <BRL value={inp.saldoAtual} />
+          <AnimatedBRL value={inp.saldoAtual} />
         </span>
         <span className="text-caption text-muted mt-1">saldo efetivo consolidado das contas</span>
 
@@ -205,8 +207,11 @@ export function VisorHomeTop() {
                   </Pie>
                 </PieChart>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center" style={{ paddingLeft: 44, paddingRight: 44 }}>
-                  <span className="text-[12px] text-muted leading-none">{ent ? "Entradas" : "Saídas"}</span>
-                  <span className="text-[17px] font-semibold leading-none mt-[6px] whitespace-nowrap" style={{ color: ent ? "var(--color-positive)" : "var(--color-ink)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
+                  <span className="text-[12px] text-muted leading-none inline-flex items-center gap-[5px]">
+                    <span className="w-[7px] h-[7px] rounded-pill" style={{ background: ent ? "var(--color-positive)" : "var(--color-negative)" }} />{ent ? "Entradas" : "Saídas"}
+                  </span>
+                  {/* número SEMPRE preto (ink); a cor/proporção vive no donut e no dot */}
+                  <span className="text-[17px] font-semibold leading-none mt-[6px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
                     {formatBRLCompact(total)}
                   </span>
                 </div>

@@ -6,7 +6,6 @@ import {
   Bar,
   Cell,
   Line,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -47,9 +46,11 @@ function PeriodTotal({ label, value, color }: { label: string; value: number; co
   const { integer, decimals } = brlParts(value);
   return (
     <div className="flex flex-col">
-      <span className="text-[12px] text-faint">{label}</span>
-      {/* R$ no MESMO tamanho dos números · decimais ~30% menores · Onest herdada */}
-      <span className="text-[20px] font-medium tabular-nums" style={{ color }}>
+      <span className="text-[12px] text-faint inline-flex items-center gap-[5px]">
+        <span className="w-[7px] h-[7px] rounded-pill" style={{ background: color }} />{label}
+      </span>
+      {/* Número SEMPRE preto (ink); o tipo é dado pelo dot do rótulo. */}
+      <span className="text-[20px] font-medium tabular-nums text-ink">
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span style={{ fontSize: "0.7em" }}>,{decimals}</span>
       </span>
@@ -154,14 +155,6 @@ export function DailyCashflowChart() {
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               stackOffset="sign"
             >
-              <defs>
-                {/* Glow em gradiente sob a linha de saldo — igual à referência */}
-                <linearGradient id="cashGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.22} />
-                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.06} />
-                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis
                 dataKey="label"
@@ -180,29 +173,19 @@ export function DailyCashflowChart() {
               />
               <YAxis yAxisId="balance" orientation="right" hide />
               <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
-              {/* Glow ao FUNDO (antes das barras) — não tinge os candles */}
-              <Area
-                yAxisId="balance"
-                type="monotone"
-                dataKey="balance"
-                stroke="none"
-                fill="url(#cashGlow)"
-                isAnimationActive={false}
-                name="Saldo em caixa"
-              />
               <Tooltip
                 content={<CashflowTooltip />}
                 cursor={{ fill: "rgba(127,127,127,0.10)" }}
               />
-              <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[3, 3, 0, 0]} maxBarSize={56} name="Entradas" isAnimationActive={false}>
+              <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" isAnimationActive={false}>
                 {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
               </Bar>
-              <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[0, 0, 3, 3]} maxBarSize={56} name="Saídas" isAnimationActive={false}>
+              <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" isAnimationActive={false}>
                 {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
               </Bar>
-              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). */}
-              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.4} dot={false} connectNulls name="Saldo em caixa" />
-              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.4} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />
+              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). Traço fino. */}
+              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.2} dot={false} connectNulls name="Saldo em caixa" />
+              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.2} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />
               {/* Linhas verticais: início de mês (faint tracejado) e dia atual (ink). */}
               {mesInicios.map((d) => (
                 <ReferenceLine

@@ -82,7 +82,7 @@ export function SalesChart() {
                 content={<SalesTooltip />}
                 cursor={{ fill: "rgba(23,23,23,0.04)" }}
               />
-              <Bar dataKey="total" radius={[3, 3, 0, 0]} maxBarSize={28} name="Faturamento">
+              <Bar dataKey="total" radius={[6, 6, 6, 6]} maxBarSize={24} name="Faturamento">
                 {data.map((d, i) => (
                   <Cell key={i} fill={inPeriod(d.month) ? INK : QUIET} />
                 ))}

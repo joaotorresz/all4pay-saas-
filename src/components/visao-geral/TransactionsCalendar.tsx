@@ -96,12 +96,9 @@ export function TransactionsCalendar() {
                     borda, sel ? "bg-surface-2" : "bg-surface-1 hover:bg-surface-2",
                   ].join(" ")}
                 >
-                  <span data-day-num className={["text-[16px] tabular-nums leading-none", isHoje ? "inline-flex items-center justify-center w-[26px] h-[26px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
-                  {/* Pin verde/vermelho abaixo do número — altura fixa p/ alinhar os dias */}
-                  <span className="flex items-center justify-center gap-[4px] h-[7px]">
-                    {info?.entrada ? <span className="w-[7px] h-[7px] rounded-pill" style={{ background: POSITIVE }} /> : null}
-                    {info?.saida ? <span className="w-[7px] h-[7px] rounded-pill" style={{ background: NEGATIVE }} /> : null}
-                  </span>
+                  <span data-day-num className={["text-[15px] tabular-nums leading-none font-medium", isHoje ? "inline-flex items-center justify-center w-[24px] h-[24px] rounded-pill bg-lime text-on-lime" : "text-ink"].join(" ")}>{dia}</span>
+                  {/* Gráfico circular proporcional entrada (verde) × saída (vermelho) do dia. */}
+                  <DayRing entrada={info?.entrada ?? 0} saida={info?.saida ?? 0} />
                 </button>
               );
             })}
@@ -109,8 +106,8 @@ export function TransactionsCalendar() {
 
           {/* Legenda */}
           <div className="flex items-center gap-4 text-[12px] text-faint flex-wrap">
-            <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: POSITIVE }} />entradas</span>
-            <span className="inline-flex items-center gap-[5px]"><span className="w-[6px] h-[6px] rounded-pill" style={{ background: NEGATIVE }} />saídas</span>
+            <span className="inline-flex items-center gap-[5px]"><span className="w-[8px] h-[8px] rounded-pill" style={{ background: POSITIVE }} />entradas</span>
+            <span className="inline-flex items-center gap-[5px]"><span className="w-[8px] h-[8px] rounded-pill" style={{ background: NEGATIVE }} />saídas</span>
             {temRuptura && (
               <span className="inline-flex items-center gap-[5px]"><span className="inline-block w-3 h-3 rounded-[3px] border border-negative" />risco de ruptura</span>
             )}
@@ -142,15 +139,19 @@ export function TransactionsCalendar() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-caption font-medium text-muted">{diaSel.split("-").reverse().join("/")}</span>
                   {valor != null && (
-                    <span className="text-caption tabular-nums" style={{ color: ruptura ? NEGATIVE : "var(--color-text-secondary)" }}>
-                      {rotulo}: {valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} />
+                    <span className="text-caption tabular-nums text-muted">
+                      {rotulo}: <span className="text-ink font-medium">{valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} /></span>
                     </span>
                   )}
                 </div>
                 {selInfo?.itens.length ? selInfo.itens.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-3 text-caption">
-                    <span className="text-ink truncate flex-1">{m.category || (m.type === "entrada" ? "Entrada" : "Saída")}</span>
-                    <span className="tabular-nums" style={{ color: m.type === "entrada" ? POSITIVE : NEGATIVE }}>
+                    <span className="text-ink truncate flex-1 inline-flex items-center gap-2">
+                      <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: m.type === "entrada" ? POSITIVE : NEGATIVE }} />
+                      {m.category || (m.type === "entrada" ? "Entrada" : "Saída")}
+                    </span>
+                    {/* número sempre preto (ink); o sinal +/− e o dot indicam o tipo */}
+                    <span className="tabular-nums text-ink font-medium">
                       {m.type === "entrada" ? "+" : "−"}<BRL value={m.amount} />
                     </span>
                   </div>
@@ -161,5 +162,25 @@ export function TransactionsCalendar() {
         </>
       )}
     </Card>
+  );
+}
+
+/** Anel proporcional entrada (verde) × saída (vermelho) do dia. Vazio → reserva
+ *  a altura para manter os dias alinhados. Pontas arredondadas, traço fino. */
+function DayRing({ entrada, saida, size = 22 }: { entrada: number; saida: number; size?: number }) {
+  const total = entrada + saida;
+  if (total <= 0) return <span className="block" style={{ height: size }} aria-hidden />;
+  const sw = 3;
+  const r = (size - sw) / 2;
+  const cx = size / 2;
+  const C = 2 * Math.PI * r;
+  const entLen = (entrada / total) * C;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <g transform={`rotate(-90 ${cx} ${cx})`} fill="none" strokeWidth={sw} strokeLinecap="round">
+        {saida > 0 && <circle cx={cx} cy={cx} r={r} stroke="var(--color-negative)" strokeDasharray={`${C} ${C}`} />}
+        {entrada > 0 && <circle cx={cx} cy={cx} r={r} stroke="var(--color-positive)" strokeDasharray={`${entLen} ${C}`} />}
+      </g>
+    </svg>
   );
 }
