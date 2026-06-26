@@ -13,7 +13,6 @@
 import * as React from "react";
 import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceLine,
-  PieChart, Pie, Cell,
 } from "recharts";
 import { Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
@@ -198,23 +197,8 @@ export function VisorHomeTop() {
           const ent = tipoDist === "entrada";
           return (
             <div className="flex flex-col sm:flex-row sm:items-center gap-6 mt-4">
-              {/* donut (tamanho fixo — evita distorção do ResponsiveContainer no flex) */}
-              <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: 200, height: 200 }}>
-                <PieChart width={200} height={200}>
-                  <Tooltip content={<DonutTooltip />} wrapperStyle={{ zIndex: 50, outline: "none" }} allowEscapeViewBox={{ x: true, y: true }} />
-                  {/* cornerRadius → pontas dos anéis arredondadas */}
-                  <Pie data={segs} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={64} outerRadius={94} paddingAngle={2} cornerRadius={7} stroke="none" isAnimationActive={false}>
-                    {segs.map((s, i) => <Cell key={i} fill={s.color} />)}
-                  </Pie>
-                </PieChart>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-6">
-                  <span className="text-[11px] text-muted leading-none">{ent ? "Entradas" : "Saídas"}</span>
-                  {/* número SEMPRE preto (ink); a cor/proporção vive no donut */}
-                  <span className="text-[16px] font-semibold leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(total)}>
-                    {formatBRLCompact(total)}
-                  </span>
-                </div>
-              </div>
+              {/* donut SVG próprio (determinístico) — nunca distorce/desvincula */}
+              <DonutChart segs={segs} total={total} label={ent ? "Entradas" : "Saídas"} />
 
               {/* legenda — nome à esquerda · % e valor alinhados à direita */}
               <div className="flex-1 min-w-0 w-full flex flex-col">
@@ -241,17 +225,54 @@ export function VisorHomeTop() {
   );
 }
 
-function DonutTooltip({ active, payload }: any) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0];
-  const color = p?.payload?.color as string;
+/**
+ * Donut SVG próprio (sem Recharts) — determinístico: viewBox fixo, anéis via
+ * stroke-dasharray com pontas arredondadas. Não depende de medição de layout,
+ * então NUNCA distorce/“desvincula” (causa raiz: Recharts cornerRadius +
+ * paddingAngle quebrava os setores). Hover destaca o anel e mostra a categoria
+ * no centro; sem hover, mostra o total.
+ */
+function DonutChart({ segs, total, label, size = 200 }: { segs: { name: string; value: number; color: string }[]; total: number; label: string; size?: number }) {
+  const [hover, setHover] = React.useState<number | null>(null);
+  const cx = size / 2;
+  const outerR = 92, innerR = 68;
+  const sw = outerR - innerR; // 24
+  const R = (outerR + innerR) / 2; // 80
+  const C = 2 * Math.PI * R;
+  const gap = sw; // anéis se tocam com pontas arredondadas (sem buraco grande)
+  let acc = 0;
+  const arcs = segs.map((s, i) => {
+    const frac = total > 0 ? s.value / total : 0;
+    const drawn = Math.max(0.5, frac * C - gap);
+    const off = -acc * C; // posiciona o início do anel
+    acc += frac;
+    return { ...s, i, drawn, off };
+  });
+  const sel = hover != null ? segs[hover] : null;
   return (
-    <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
-      <div className="text-[15px] font-semibold text-ink mb-2">{p?.name}</div>
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
-        <span className="text-muted">Valor</span>
-        <span className="text-ink ml-4" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.6px", fontWeight: 500 }}>{formatBRL(Number(p?.value) || 0)}</span>
+    <div className="relative shrink-0 mx-auto sm:mx-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${formatBRL(total)}`}>
+        <g transform={`rotate(-90 ${cx} ${cx})`} fill="none" strokeLinecap="round">
+          {arcs.map((a) => (
+            <circle
+              key={a.i}
+              cx={cx} cy={cx} r={R}
+              stroke={a.color}
+              strokeWidth={hover === a.i ? sw + 5 : sw}
+              strokeDasharray={`${a.drawn} ${C - a.drawn}`}
+              strokeDashoffset={a.off}
+              style={{ transition: "stroke-width 0.15s ease", cursor: "pointer" }}
+              onMouseEnter={() => setHover(a.i)}
+              onMouseLeave={() => setHover(null)}
+            />
+          ))}
+        </g>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-7">
+        <span className="text-[11px] text-muted leading-tight truncate max-w-full">{sel ? sel.name : label}</span>
+        <span className="text-[16px] font-semibold leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.2px" }} title={formatBRL(sel ? sel.value : total)}>
+          {formatBRLCompact(sel ? sel.value : total)}
+        </span>
       </div>
     </div>
   );
