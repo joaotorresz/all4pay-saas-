@@ -24,52 +24,78 @@ const STORAGE_KEY = "a4p_sidebar_collapsed";
 type Item = { label: string; href?: string; icon: string; event?: string; soon?: boolean };
 type Section = { id: string; label: string; pro?: boolean; items: Item[] };
 
-/* ----------------------------- EMPRESA (PJ) ----------------------------- */
+/* ----------------------------- EMPRESA (PJ) -----------------------------
+ * Estrutura nos 9 módulos do IULI (benchmark): Dashboards · Cadastros · DRE & DFC
+ * · Orçamento · Movimentações · Vendas e NFs · Compras · Contabilidade · (extras
+ * all4pay em Pro). Rotas mapeadas no app existente. */
 const SECTIONS: Section[] = [
   {
-    id: "organizacao", label: "Organização", items: [
+    id: "dashboards", label: "Dashboards", items: [
       { label: "Início", href: "/", icon: "house" },
-      { label: "Receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Recorrências", href: "/recorrencias", icon: "repeat" },
-      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "Vendas", href: "/vendas", icon: "credit-card" },
+      { label: "Financeiro", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
+      { label: "Contas a pagar", href: "/pagaveis", icon: "arrow-up-right" },
+      { label: "Contas a receber", href: "/recebiveis", icon: "arrow-left-right" },
     ],
   },
   {
-    id: "controle", label: "Controle financeiro", items: [
-      { label: "Contas & Banco", href: "/upload?aba=conectar", icon: "upload" },
-      { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks" },
-      { label: "Contatos", href: "/contatos", icon: "users" },
+    id: "cadastros", label: "Cadastros", items: [
+      { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
       { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
       { label: "Serviços", href: "/servicos", icon: "receipt" },
-      { label: "Vendas", href: "/vendas", icon: "credit-card" },
-      { label: "Central POS", href: "/pos/taxas", icon: "scan-line" },
+      { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
+      { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
+      { label: "Contratos", href: "/recorrencias", icon: "file-text" },
     ],
   },
   {
-    id: "cobranca", label: "Cobrança & fiscal", items: [
+    id: "dre-dfc", label: "DRE & DFC", items: [
+      { label: "DRE", href: "/dre", icon: "trending-up" },
+      { label: "DFC · Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
+    ],
+  },
+  {
+    id: "orcamento", label: "Orçamento", items: [
+      { label: "Orçamento", href: "/orcamento", icon: "target" },
+    ],
+  },
+  {
+    id: "movimentacoes", label: "Movimentações", items: [
+      { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
+      { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks" },
+      { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
+    ],
+  },
+  {
+    id: "vendas-nfs", label: "Vendas e NFs", items: [
+      { label: "Vendas", href: "/vendas", icon: "credit-card" },
+      { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
+      { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
       { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Boletos", href: "/boletos", icon: "file-text" },
-      { label: "Notas fiscais", href: "/notas-fiscais", icon: "receipt" },
+    ],
+  },
+  {
+    id: "compras", label: "Compras", items: [
       { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
+      { label: "Boletos recebidos", soon: true, icon: "file-text" },
+      { label: "NFs recebidas", soon: true, icon: "receipt" },
     ],
   },
   {
-    id: "relatorios", label: "Relatórios", items: [
-      { label: "DRE", href: "/dre", icon: "trending-up" },
-      { label: "Razão (GL)", href: "/razao", icon: "receipt" },
+    id: "contabilidade", label: "Contabilidade", items: [
       { label: "Relatórios", href: "/relatorios", icon: "receipt" },
-      { label: "Orçamento", href: "/orcamento", icon: "target" },
-      { label: "Reconhecimento de receita", href: "/receita", icon: "file-text" },
-      { label: "Fechamento", href: "/fechamento", icon: "check" },
-      { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
       { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers" },
-      { label: "Consolidado", href: "/consolidado", icon: "building" },
+      { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
+      { label: "Consolidado (multiempresa)", href: "/consolidado", icon: "building" },
     ],
   },
-  // ----- Pro (escondidos no Modo Simples) -----
+  // ----- Extras all4pay (escondidos no Modo Simples) -----
   {
-    id: "estrategia", label: "Visão estratégica", pro: true, items: [
+    id: "estrategia", label: "Inteligência", pro: true, items: [
       { label: "All4Pay IA", href: "/copiloto?aba=copiloto", icon: "sparkles" },
       { label: "Decisão", href: "/copiloto?aba=decisao", icon: "gauge" },
       { label: "Operação autônoma", href: "/copiloto?aba=autonomo", icon: "workflow" },

@@ -251,6 +251,25 @@ writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
   files, NOT applied to remote** — apply both, then set
   `NEXT_PUBLIC_ALL4PAY_DEMO=false` to persist live.
 
+### Benchmark IULI — navegação em 9 módulos + Plano de Contas
+
+A partir do relatório de engenharia reversa do **IULI** (ERP financeiro para
+negócios digitais), a navegação (`Sidebar`) foi reorganizada nos **9 módulos do
+IULI**: Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações · Vendas e
+NFs · Compras · Contabilidade (+ extras all4pay em Pro: Inteligência · Equipe ·
+Plataforma). Nenhuma rota mudou — só o agrupamento. Pilares conceituais do IULI a
+replicar: Plano de Contas com "Uso Padrão" (auto-classificação), **3 datas**
+(competência→DRE · vencimento→aging · caixa→DFC), venda como documento-mãe que
+propaga para recebível/NF/imposto, rateio por projeto/centro de custo, DRE/DFC em
+cascata com drill-down, conciliação IULI×OFX.
+
+- **Plano de Contas** (`/plano-de-contas`, `components/cadastros/PlanoDeContasView.tsx`):
+  a espinha dorsal — hierarquia Grupo → Categoria codificada por cor (verde =
+  Receita · vermelho = Despesa · cinza = resultado/não operacional), no plano
+  padrão opinativo do IULI (negócios digitais). Aba **"Uso padrão"**: o dicionário
+  de auto-classificação (função do motor → categoria padrão → quando é usada).
+  Demo-safe, estático (reconstrução fiel do relatório).
+
 ### Telas de listagem
 
 Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
