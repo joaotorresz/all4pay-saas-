@@ -41,6 +41,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: "cadastros", label: "Cadastros", items: [
+      { label: "Criar novo (hub)", href: "/criar", icon: "plus" },
       { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
       { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
       { label: "Serviços", href: "/servicos", icon: "receipt" },
