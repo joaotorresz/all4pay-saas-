@@ -68,7 +68,8 @@ const SECTIONS: Section[] = [
     id: "movimentacoes", label: "Movimentações", items: [
       { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks" },
+      { label: "Conciliação (IULI × OFX)", href: "/conciliacao-bancaria", icon: "list-checks" },
+      { label: "Importar extrato", href: "/upload?aba=conciliar", icon: "upload" },
       { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
     ],
   },
