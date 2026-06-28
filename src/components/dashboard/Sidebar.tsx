@@ -76,6 +76,7 @@ const SECTIONS: Section[] = [
       { label: "Vendas", href: "/vendas", icon: "credit-card" },
       { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
       { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
+      { label: "Impostos", href: "/impostos", icon: "receipt" },
       { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Boletos", href: "/boletos", icon: "file-text" },
     ],
