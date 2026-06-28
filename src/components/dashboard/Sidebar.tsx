@@ -44,6 +44,8 @@ const SECTIONS: Section[] = [
       { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
       { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
       { label: "Serviços", href: "/servicos", icon: "receipt" },
+      { label: "Projetos", href: "/projetos", icon: "target" },
+      { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
       { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
       { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
       { label: "Contratos", href: "/recorrencias", icon: "file-text" },
