@@ -73,6 +73,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: "vendas-nfs", label: "Vendas e NFs", items: [
+      { label: "Nova venda", href: "/nova-venda", icon: "plus" },
       { label: "Vendas", href: "/vendas", icon: "credit-card" },
       { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
       { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
