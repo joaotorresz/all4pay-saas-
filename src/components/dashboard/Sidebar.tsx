@@ -32,7 +32,7 @@ const SECTIONS: Section[] = [
   {
     id: "dashboards", label: "Dashboards", items: [
       { label: "Início", href: "/", icon: "house" },
-      { label: "Vendas", href: "/vendas", icon: "credit-card" },
+      { label: "Vendas", href: "/painel-vendas", icon: "credit-card" },
       { label: "Financeiro", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
       { label: "Contas a pagar", href: "/pagaveis", icon: "arrow-up-right" },
