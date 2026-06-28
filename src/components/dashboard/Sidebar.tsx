@@ -91,6 +91,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: "contabilidade", label: "Contabilidade", items: [
+      { label: "TXT Domínio · Envio NFs", href: "/contabilidade", icon: "file-text" },
       { label: "Relatórios", href: "/relatorios", icon: "receipt" },
       { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers" },
       { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
