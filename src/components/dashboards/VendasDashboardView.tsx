@@ -22,10 +22,14 @@
 import * as React from "react";
 import { ResponsiveContainer, ComposedChart, LineChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { AppShell } from "@/components/app/AppShell";
-import { Card, Skeleton, Select, Icon } from "@/components/ui";
+import { Card, Skeleton, Icon } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
-import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
+import { usePeriod, MES_ABBR } from "@/components/visao-geral/PeriodContext";
+import { PeriodFilter } from "@/components/visao-geral/PeriodFilter";
+import { NovoDeposito } from "@/components/visao-geral/NovoDeposito";
+import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+import { isDemo } from "@/lib/demo";
 
 const POSITIVE = "var(--color-positive)";
 const ORANGE = "var(--color-warning)";
@@ -46,31 +50,14 @@ const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.due_
 export function VendasDashboardView() {
   const { data, isLoading } = useRiscoInput();
 
-  // seletor Mês/Ano — default no mês de "hoje"
-  const hojeStr = data?.hoje ?? "2026-01-01";
-  const [sel, setSel] = React.useState<string>(() => hojeStr.slice(0, 7)); // "YYYY-MM"
-  React.useEffect(() => { setSel(hojeStr.slice(0, 7)); }, [hojeStr]);
-  const [Y, M] = React.useMemo(() => { const [y, m] = sel.split("-").map(Number); return [y, m - 1]; }, [sel]); // M 0-based
+  // mês de referência vem do FILTRO de período da Home (usePeriod) — os KPIs
+  // (Mês/Trimestre/Ano) e os gráficos se adaptam à seleção.
+  const period = usePeriod();
+  const Y = period.ano, M = period.mes;
 
   // [oculto] widgets removíveis (× no card), como no IULI
   const [hidSemana, setHidSemana] = React.useState(false);
   const [hidAno, setHidAno] = React.useState(false);
-
-  // opções do seletor: de 18 meses atrás a 6 à frente
-  const opcoes = React.useMemo(() => {
-    const base = new Date(hojeStr + "T00:00:00");
-    const out: { value: string; label: string }[] = [];
-    // cronológico (mais antigo → mais recente): 18 meses atrás a 6 à frente
-    for (let i = 18; i >= -6; i--) {
-      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
-      out.push({ value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${MES_ABBR[d.getMonth()]} ${d.getFullYear()}` });
-    }
-    return out;
-  }, [hojeStr]);
-  const passo = (delta: number) => {
-    const d = new Date(Y, M + delta, 1);
-    setSel(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  };
 
   const calc = React.useMemo(() => {
     if (!data) return null;
@@ -155,21 +142,18 @@ export function VendasDashboardView() {
     };
   }, [data, Y, M]);
 
-  const seletor = (
-    <div className="flex flex-col items-end gap-1">
-      <span className="text-caption text-faint">Mês / Ano</span>
-      <div className="flex items-center gap-2">
-        <button onClick={() => passo(-1)} aria-label="Mês anterior" className="w-8 h-8 rounded-md inline-flex items-center justify-center bg-surface-2 hover:bg-surface-3 transition-colors"><Icon name="chevron-left" size={16} color="var(--color-muted)" /></button>
-        <div className="min-w-[150px]"><Select value={sel} onChange={setSel} options={opcoes} /></div>
-        <button onClick={() => passo(1)} aria-label="Próximo mês" className="w-8 h-8 rounded-md inline-flex items-center justify-center bg-surface-2 hover:bg-surface-3 transition-colors"><Icon name="chevron-right" size={16} color="var(--color-muted)" /></button>
-      </div>
-    </div>
+  const acoes = (
+    <>
+      {isDemo && <DemoBadge />}
+      <PeriodFilter />
+      <NovoDeposito />
+    </>
   );
 
   return (
-    <AppShell title="Dashboard de Vendas" actions={seletor}>
+    <AppShell title="Dashboard de Vendas" actions={acoes}>
       <div className="flex flex-col gap-5 pb-6">
-        <p className="m-0 -mt-1 text-caption text-muted">CAC · LTV · LTV/CAC · EBITDA · Receita · Reembolsos · Chargebacks.</p>
+        <p className="m-0 -mt-1 text-caption text-muted">CAC · LTV · LTV/CAC · EBITDA · Receita · Reembolsos · Chargebacks · período: <span className="text-ink font-medium">{period.label}</span>.</p>
 
         {isLoading || !calc ? (
           <Card><Skeleton className="h-64 w-full" /></Card>
