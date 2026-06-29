@@ -2,7 +2,6 @@ import * as React from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
-import { VisualEditor } from "@/components/app/VisualEditor";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
 
@@ -57,7 +56,6 @@ export function AppShell({
       </main>
       <PageGuide />
       <CommandPalette />
-      <VisualEditor />
       <NovaTransacao />
     </div>
   );
