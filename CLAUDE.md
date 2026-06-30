@@ -122,15 +122,16 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   cru só em strings de aria/sr/mensagens). `StatusBadge` (icon + text,
   never a filled colored pill), `Skeleton` (quiet per-widget loading
   placeholder — surface-2 + soft pulse).
-- **`Icon`** — conjunto **Solar Bold** (svgrepo / Iconify): glifos cheios,
-  arredondados e clean, **casando com a coleção do Visor** (norte do design
-  system). Monocromáticos via `currentColor` → a prop `color` carrega a
+- **`Icon`** — conjunto **Phosphor (Fill)** (Iconify): glifos cheios,
+  geométricos, modernos e com cantos bem arredondados (refresh do DS — menos
+  genérico). Monocromáticos via `currentColor` → a prop `color` carrega a
   identidade all4pay (ink · muted · faint · lime · on-lime). SVG inline (sem
-  fetch em runtime); dados em `src/components/ui/solar-icons.ts` (gerados do
-  Iconify — vide `scratchpad/gen-bold.mjs`). `strokeWidth` é aceito por compat,
-  mas ignorado (preenchido, não traçado). Glifos com `<defs>/<mask>/<use>`
-  (ex.: `house`, `credit-card`) têm os ids internos renomeados por instância
-  (`useId` no `Icon`) para nunca colidirem com múltiplas renderizações.
+  fetch em runtime, viewBox 256); dados em `src/components/ui/solar-icons.ts`
+  (gerados do Iconify — vide `scratchpad/gen-phosphor.mjs`). `strokeWidth` é
+  aceito por compat, mas ignorado (preenchido, não traçado). Ids internos de
+  glifos (se houver `<defs>/<mask>/<use>`) são renomeados por instância (`useId`
+  no `Icon`). Ícones custom (ex.: `inicio`, pentágono à la Visor) em
+  `CUSTOM_ICONS` no `Icon`, sobrepondo o set gerado.
 
 App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
 header) wraps every screen. The reference composition is the **Início**

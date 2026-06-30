@@ -12,12 +12,12 @@ const CUSTOM_ICONS: Record<string, SolarIcon> = {
 
 /**
  * all4pay DS — Icon
- * Conjunto **Solar Bold** (svgrepo / Iconify) — ícones cheios, arredondados e
- * clean, casando com a coleção do Visor (norte do design system). Monocromáticos
- * via `currentColor`: a prop `color` carrega a identidade visual da all4pay
- * (ink · muted · faint · lime · on-lime). Renderiza o SVG inline (sem fetch em
- * runtime). `strokeWidth` é mantido por compatibilidade da API, mas ignorado
- * (os glifos são preenchidos).
+ * Conjunto **Phosphor (Fill)** (Iconify) — ícones cheios, geométricos, modernos
+ * e com cantos bem arredondados (refresh do design system; menos genérico).
+ * Monocromáticos via `currentColor`: a prop `color` carrega a identidade visual
+ * da all4pay (ink · muted · faint · lime · on-lime). Renderiza o SVG inline (sem
+ * fetch em runtime; viewBox 256). `strokeWidth` é mantido por compat, mas
+ * ignorado (os glifos são preenchidos).
  *
  * Ids internos (alguns glifos usam <defs>/<mask>/<use>) são renomeados por
  * instância (useId) para nunca colidirem quando o mesmo ícone aparece N vezes.

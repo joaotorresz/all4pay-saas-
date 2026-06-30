@@ -193,37 +193,49 @@ html.dark {
 }
 
 /* ============================================================
-   Micro-interações de HOVER (clean) — transições suaves nos
-   interativos, leve elevação dos cards, e animação dos ícones
-   (Solar) ao passar o mouse no elemento clicável.
+   Micro-interações (clean & suave) — easing consistente, press
+   com retorno macio no clique, realce sutil dos ícones, elevação
+   dos cards e foco visível discreto. O clique é o herói.
    ============================================================ */
-button, a, [role="button"], summary, label[for], .a4p-hoverable {
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease,
-    box-shadow 0.2s ease, transform 0.16s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.16s ease;
+:root {
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); /* easeOutQuint — limpo, sem overshoot */
+  --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1); /* leve "pop" no retorno do clique */
 }
-/* clique → leve "press" */
-button:active, a:active, [role="button"]:active { transform: scale(0.97); }
+button, a, [role="button"], summary, label[for], .a4p-hoverable {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.24s var(--ease-smooth), transform 0.26s var(--ease-press), opacity 0.18s ease;
+}
+/* clique → press macio (escala) com retorno levemente elástico */
+button:active, a:active, [role="button"]:active, summary:active { transform: scale(0.955); }
 
-/* Ícones Solar — escala/realce sutil quando o pai clicável é hoverado */
-.a4p-icon { transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1); transform-origin: center; will-change: transform; }
+/* Ícones (Phosphor) — realce sutil no hover do clicável; encolhe no clique */
+.a4p-icon { transition: transform 0.26s var(--ease-press); transform-origin: center; will-change: transform; }
 button:hover .a4p-icon,
 a:hover .a4p-icon,
 [role="button"]:hover .a4p-icon,
 .group:hover .a4p-icon,
-.a4p-hoverable:hover .a4p-icon { transform: scale(1.16); }
-button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.92); }
+.a4p-hoverable:hover .a4p-icon { transform: scale(1.12); }
+button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
 
-/* Cards (DS Visor) — leve elevação ao passar o mouse */
+/* Cards (DS Visor) — elevação suave ao passar o mouse */
 .ds-visor [data-card="1"] {
-  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s ease;
+  transition: transform 0.28s var(--ease-smooth), box-shadow 0.28s var(--ease-smooth);
 }
 .ds-visor [data-card="1"]:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(14, 19, 30, 0.07);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(14, 19, 30, 0.08);
 }
 
+/* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+/* Campos — transição suave no foco */
+input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s var(--ease-smooth), background-color 0.18s ease; }
+
 @media (prefers-reduced-motion: reduce) {
-  button, a, [role="button"], .a4p-icon, .ds-visor [data-card="1"] {
+  button, a, [role="button"], .a4p-icon, .ds-visor [data-card="1"], input, select, textarea {
     transition: none !important;
   }
   button:active, a:active, [role="button"]:active,
