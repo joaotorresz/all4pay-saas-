@@ -18,6 +18,7 @@ import { Icon } from "@/components/ui";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
@@ -110,11 +111,21 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       return;
     }
 
-    // 2) Sobre os números → IA ancorada (Claude) com fallback determinístico
-    if (!ctx) {
+    if (!input) {
       setTurnos((t) => [...t, { id, q, resposta: "Estou carregando seus dados financeiros — tente de novo em 1 segundo.", fonte: "carregando" }]);
       return;
     }
+
+    // 2) Sobre os NÚMEROS → motor NATIVO (resposta factual, instantânea, offline)
+    const local = responderLocal(q, input, ctx);
+    if (local) {
+      setTurnos((t) => [...t, { id, q, resposta: local.resposta, numeros: local.numeros, fontes: local.fontes, fonte: "motor" }]);
+      void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
+      force();
+      return;
+    }
+
+    // 3) Consultivo/aberto → Claude ancorado (com chave) e fallback determinístico
     setPensando(true);
     try {
       const j = await fetch("/api/ai/copiloto", {
@@ -125,16 +136,18 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       let turno: Turno;
       if (j?.ok) {
         turno = { id, q, resposta: j.resposta ?? "(sem resposta)", numeros: Array.isArray(j.numeros) ? j.numeros : [], fontes: Array.isArray(j.fontes) ? j.fontes : [], acao: j.acao ?? null, fonte: "ia" };
-      } else {
+      } else if (ctx) {
         const exec: RespostaCopiloto = copilotoFinanceiro(q, ctx);
         turno = { id, q, resposta: exec.resposta, numeros: exec.numeros, fontes: exec.fontes, fonte: "motor" };
+      } else {
+        turno = { id, q, resposta: "Posso responder sobre saldo, gastos, receita, a receber/pagar, vencimentos, inadimplência, clientes, runway e saúde financeira. Reformule a pergunta nesses termos.", fonte: "motor" };
       }
       setTurnos((t) => [...t, turno]);
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: turno.resposta ?? "", status: "lida" });
       force();
     } catch {
-      const exec = copilotoFinanceiro(q, ctx);
-      setTurnos((t) => [...t, { id, q, resposta: exec.resposta, numeros: exec.numeros, fontes: exec.fontes, fonte: "motor" }]);
+      if (ctx) { const exec = copilotoFinanceiro(q, ctx); setTurnos((t) => [...t, { id, q, resposta: exec.resposta, numeros: exec.numeros, fontes: exec.fontes, fonte: "motor" }]); }
+      else { setTurnos((t) => [...t, { id, q, resposta: "Falha ao processar. Tente novamente.", fonte: "motor" }]); }
     } finally { setPensando(false); }
   };
 

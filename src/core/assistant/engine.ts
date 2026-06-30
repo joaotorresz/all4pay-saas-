@@ -1,0 +1,260 @@
+/**
+ * Motor de resposta NATIVO do assistente (all4pay IA) — responde perguntas em
+ * linguagem natural calculando os números REAIS dos dados do cliente
+ * (movements, contas, clientes) na hora, sem depender de chave de LLM. É o que
+ * faz a IA "funcionar de verdade" mesmo offline: entende intenção (quanto/quem/
+ * quando/quais) e devolve resposta + números + fontes (explainability).
+ *
+ * Cobre: saldo, gastos/receita/resultado do período, maiores gastos por
+ * categoria, a receber/a pagar, vencimentos, inadimplência, maior cliente,
+ * comparação mês a mês, ticket médio, contagem de vendas, runway/burn/score.
+ * Perguntas consultivas/abertas (contratação, investir, expansão) NÃO casam
+ * aqui (retorna null) e sobem para o Claude / motor consultivo.
+ *
+ * Determinístico, puro, demo/live idêntico (roda sobre o RiskInput).
+ */
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
+
+const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+const pad = (n: number) => String(n).padStart(2, "0");
+const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const dia = (ds: string) => ds.slice(0, 10).split("-").reverse().join("/");
+
+interface Janela { label: string; from: string; to: string }
+
+function janela(p: string, hojeISO: string): Janela {
+  const hoje = new Date(hojeISO + "T00:00:00");
+  const y = hoje.getFullYear(), m = hoje.getMonth(), d = hoje.getDate();
+  const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  if (/\bhoje\b/.test(p)) return { label: "hoje", from: hojeISO, to: hojeISO };
+  if (/ontem/.test(p)) { const o = new Date(y, m, d - 1); return { label: "ontem", from: iso(o), to: iso(o) }; }
+  const ult = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+dias/);
+  if (ult) { const n = +ult[1]; const a = new Date(y, m, d - n + 1); return { label: `nos últimos ${n} dias`, from: iso(a), to: hojeISO }; }
+  if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
+  if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
+  if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
+  const f = new Date(y, m, 1); const t = new Date(y, m + 1, 0); return { label: `em ${MES[m]}`, from: iso(f), to: iso(t) };
+}
+
+const within = (ds: string | null | undefined, w: Janela) => !!ds && ds.slice(0, 10) >= w.from && ds.slice(0, 10) <= w.to;
+const cashDate = (m: RiskMovement) => (m.paid_date || m.due_date || "").slice(0, 10);
+const ativos = (ms: RiskMovement[]) => ms.filter((m) => m.status !== "cancelado");
+
+function topCategorias(ms: RiskMovement[], n = 5) {
+  const map = new Map<string, number>();
+  for (const m of ms) { const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); }
+  return Array.from(map.entries()).map(([nome, valor]) => ({ nome: cap(nome), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
+}
+function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefined, n = 5) {
+  const map = new Map<string, number>();
+  for (const m of ms) { const k = m.party_id || "—"; map.set(k, (map.get(k) || 0) + Math.abs(m.amount)); }
+  return Array.from(map.entries()).map(([id, valor]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
+}
+const R = (resposta: string, numeros: { label: string; valor: string }[], fontes: string[], confianca = 0.9): RespostaCopiloto => ({ resposta, numeros, fontes, confianca });
+
+export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaCopiloto | null {
+  const p = pergunta.toLowerCase();
+  const hoje = input.hoje;
+  const movs = ativos(input.movements);
+  const nomes = input.partyNames;
+
+  // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
+  if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem|v[ãa]o me pagar/.test(p)) {
+    const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
+    const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
+    const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+    return R(
+      `Você tem ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
+      [{ label: "Total a receber", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
+      ["recebíveis em aberto"]);
+  }
+
+  // ——— A PAGAR ———
+  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?/.test(p)) {
+    const ab = movs.filter((m) => m.type === "saida" && m.status === "pendente");
+    const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
+    const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+    return R(
+      `Você tem ${fmt(total)} a pagar em ${ab.length} título(s)${totVenc > 0 ? `, sendo ${fmt(totVenc)} já vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
+      [{ label: "Total a pagar", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
+      ["contas a pagar em aberto"]);
+  }
+
+  // ——— VENCIMENTOS no período ———
+  if (/(o que|quais|quanto|tem algo).*(vence|vencer|vencimento)|vence (hoje|amanh[ãa]|essa semana|esse m[êe]s)|a vencer|vencimentos?/.test(p)) {
+    const w = /semana|m[êe]s|hoje|amanh|dias/.test(p) ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
+    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w)).sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const receb = venc.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const pagar = venc.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (venc.length === 0) return R(`Nada vence ${w.label}. Sem títulos pendentes nesse intervalo.`, [], ["agenda de vencimentos"]);
+    return R(
+      `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} vencem ${venc.length} título(s): ${fmt(receb)} a receber e ${fmt(pagar)} a pagar — resultado de ${fmt(receb - pagar)} no caixa.`,
+      [{ label: "A receber", valor: fmt(receb) }, { label: "A pagar", valor: fmt(pagar) }, { label: "Líquido", valor: fmt(receb - pagar) }],
+      ["agenda de vencimentos"]);
+  }
+
+  // ——— INADIMPLÊNCIA / quem está atrasado ———
+  if (/inadimpl|em atraso|atrasad|quem.*dev|devendo|devedor|clientes? devendo|vencid|caloteir/.test(p)) {
+    const venc = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
+    const total = venc.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [{ label: "Em atraso", valor: fmt(0) }], ["recebíveis vencidos"]);
+    const porCliente = topClientes(venc, nomes, 3);
+    const lista = porCliente.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ");
+    return R(
+      `Há ${fmt(total)} vencidos e não pagos em ${venc.length} título(s). Os maiores devedores: ${lista}. Vale priorizar a cobrança desses clientes.`,
+      porCliente.slice(0, 3).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      ["recebíveis vencidos", "motor de inadimplência"]);
+  }
+
+  // ——— MAIOR / MELHOR CLIENTE ———
+  if (/(maior|melhor|principa(l|is)) cliente|quem mais (paga|compra|fatura|me paga)|top clientes?/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && within(cashDate(m), w));
+    const top = topClientes(ent, nomes, 3).filter((c) => c.valor > 0);
+    if (top.length === 0) return R(`Não há receita por cliente registrada ${w.label}.`, [], ["receita por cliente"]);
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const share = tot > 0 ? Math.round((top[0].valor / tot) * 100) : 0;
+    return R(
+      `Seu maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} (${share}% da receita do período). Em seguida: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
+      top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      ["receita por cliente"]);
+  }
+
+  // ——— MAIORES GASTOS / por categoria ———
+  if (/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) {
+    const w = janela(p, hoje);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const top = topCategorias(sai, 5);
+    const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (top.length === 0) return R(`Não encontrei gastos pagos ${w.label}.`, [], ["despesas por categoria"]);
+    const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${Math.round((c.valor / tot) * 100)}%)`).join(", ");
+    return R(
+      `Seus maiores gastos ${w.label} (${fmt(tot)} no total): ${lista}.`,
+      top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      ["despesas por categoria"]);
+  }
+
+  // ——— GASTO total no período ———
+  if (/(quanto).*(gast|gastei|sa[íi]|paguei|despes)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) {
+    const w = janela(p, hoje);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const top = topCategorias(sai, 3);
+    return R(
+      `Você gastou ${fmt(tot)} ${w.label}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}`,
+      [{ label: `Gasto ${w.label}`, valor: fmt(tot) }, ...top.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
+      ["despesas realizadas"]);
+  }
+
+  // ——— RECEITA / RECEBI no período ———
+  if (/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const topC = topCategorias(ent, 3);
+    return R(
+      `Você recebeu ${fmt(tot)} ${w.label}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+      [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
+      ["receita realizada"]);
+  }
+
+  // ——— RESULTADO / sobrou / lucro ———
+  if (/(sobrou|sobra|resultado|lucro|preju[íi]zo|fechei o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const res = ent - sai;
+    return R(
+      `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} entraram ${fmt(ent)} e saíram ${fmt(sai)} — ${res >= 0 ? `sobrou ${fmt(res)} (no azul)` : `faltou ${fmt(-res)} (no vermelho)`}.`,
+      [{ label: "Recebido", valor: fmt(ent) }, { label: "Gasto", valor: fmt(sai) }, { label: "Resultado", valor: fmt(res) }],
+      ["fluxo de caixa realizado"]);
+  }
+
+  // ——— COMPARAÇÃO mês a mês ———
+  if (/(gast|receb|fatur).*(mais|menos|comparad|que.*(m[êe]s passad|anterior))|comparad|vs\.?\s*m[êe]s/.test(p)) {
+    const tipo = /receb|fatur|vend|receita/.test(p) ? "entrada" : "saida";
+    const atual = janela("mês", hoje);
+    const ant = janela("mês passado", hoje);
+    const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const a = soma(atual), b = soma(ant);
+    const dlt = a - b; const pct = b > 0 ? Math.round((dlt / b) * 100) : 0;
+    const verbo = tipo === "entrada" ? "recebeu" : "gastou";
+    return R(
+      `Você ${verbo} ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${dlt >= 0 ? "alta" : "queda"} de ${fmt(Math.abs(dlt))}${b > 0 ? ` (${Math.abs(pct)}%)` : ""}.`,
+      [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Variação", valor: `${dlt >= 0 ? "+" : "−"}${fmt(Math.abs(dlt))}` }],
+      ["fluxo de caixa realizado"]);
+  }
+
+  // ——— TICKET MÉDIO ———
+  if (/ticket m[ée]dio|valor m[ée]dio.*(venda|compra|recebiment)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const tm = ent.length ? tot / ent.length : 0;
+    return R(`Seu ticket médio ${w.label} é ${fmt(tm)} (${fmt(tot)} em ${ent.length} venda(s)).`, [{ label: "Ticket médio", valor: fmt(tm) }, { label: "Vendas", valor: String(ent.length) }], ["receita realizada"]);
+  }
+
+  // ——— CONTAGEM de vendas/transações ———
+  if (/quant(as|os).*(venda|transa[çc]|lan[çc]ament|movimenta|entrada|recebiment)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && within(cashDate(m), w));
+    return R(`Foram ${ent.length} entrada(s)/venda(s) ${w.label}, somando ${fmt(ent.reduce((s, m) => s + Math.abs(m.amount), 0))}.`, [{ label: "Vendas", valor: String(ent.length) }], ["lançamentos"]);
+  }
+
+  // ——— SALDO / quanto tenho ———
+  if (/\bsaldo\b|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
+    const runway = ctx?.runwayMeses;
+    return R(
+      `Seu saldo consolidado é ${fmt(input.saldoAtual)}.${runway != null ? ` No ritmo atual de caixa, ele cobre cerca de ${runway} ${runway === 1 ? "mês" : "meses"} de operação.` : ""}`,
+      [{ label: "Saldo atual", valor: fmt(input.saldoAtual) }, ...(runway != null ? [{ label: "Runway", valor: `${runway} m` }] : [])],
+      ["saldo consolidado"]);
+  }
+
+  // ——— RUNWAY ———
+  if (ctx && /runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa/.test(p)) {
+    return R(
+      `Seu runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
+      [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
+      ["motor quantitativo"]);
+  }
+
+  // ——— BURN ———
+  if (ctx && /burn|queima de caixa|consumo de caixa|quanto.*queim/.test(p)) {
+    return R(`Seu burn é de ${fmt(ctx.burnRate)}/mês (saídas líquidas). Com o saldo de ${fmt(ctx.saldoAtual)}, isso equivale a ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"} de runway.`,
+      [{ label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }], ["motor quantitativo"]);
+  }
+
+  // ——— SCORE / saúde ———
+  if (ctx && /score|sa[úu]de financeira|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa/.test(p)) {
+    const nivel = ctx.scoreFinanceiro >= 80 ? "excelente" : ctx.scoreFinanceiro >= 60 ? "boa" : ctx.scoreFinanceiro >= 40 ? "de atenção" : "crítica";
+    return R(
+      `Sua saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
+      [{ label: "Score", valor: `${ctx.scoreFinanceiro}/100` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }],
+      ["motor quantitativo", "motor de risco"]);
+  }
+
+  // ——— PROJEÇÃO / vou ficar negativo ———
+  if (ctx && /vou ficar (no )?negativo|caixa.*negativo|ruptura|quando.*(acaba|falta).*(dinheiro|caixa)|risco de caixa/.test(p)) {
+    const risco = ctx.probRuptura >= 0.5 ? "alta" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa";
+    return R(
+      `A probabilidade de o caixa ficar negativo em 90 dias é ${risco} (${Math.round(ctx.probRuptura * 100)}%), com runway de ${ctx.runwayMeses} meses sobre ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}`,
+      [{ label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }],
+      ["motor de risco de caixa"]);
+  }
+
+  return null; // sem intenção concreta → sobe para Claude / motor consultivo
+}
+
+function semanaDe(hojeISO: string): { from: string; to: string } {
+  const hoje = new Date(hojeISO + "T00:00:00");
+  const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const dom = new Date(hoje); dom.setDate(hoje.getDate() - hoje.getDay());
+  const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
+  return { from: iso(dom), to: iso(sab) };
+}
