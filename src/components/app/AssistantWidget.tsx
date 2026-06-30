@@ -25,6 +25,21 @@ import { logAcaoIA } from "@/lib/ai-copilot";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
 
+/* Identidade do botão de IA (exceção deliberada ao DS mono+lime, por ser o
+   elemento de IA): gradiente azul→roxo→magenta + glow colorido, como a ref. */
+const GRAD = "linear-gradient(95deg, #1F8BFF 0%, #6E2BF2 50%, #E0319C 100%)";
+const GLOW = "0 6px 22px rgba(110,43,242,0.42), 0 10px 30px rgba(224,49,156,0.28), 0 2px 10px rgba(31,139,255,0.34)";
+
+/** Sparkle 4-pontas (AI) — SVG inline branco, casando com a referência. */
+function SparkleMark({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden className="shrink-0">
+      <path d="M13 2c.36 4.7 4.5 8.84 9.2 9.2-4.7.36-8.84 4.5-9.2 9.2-.36-4.7-4.5-8.84-9.2-9.2 4.7-.36 8.84-4.5 9.2-9.2Z" />
+      <path d="M4.4 14c.1 1.6 1.3 2.8 2.9 2.9-1.6.1-2.8 1.3-2.9 2.9-.1-1.6-1.3-2.8-2.9-2.9 1.6-.1 2.8-1.3 2.9-2.9Z" opacity=".92" />
+    </svg>
+  );
+}
+
 const CURADAS = [
   "Quanto gastei esse mês?",
   "Qual meu saldo disponível?",
@@ -61,13 +76,12 @@ export function AssistantWidget() {
       {/* FAB — canto inferior direito (sai do menu, vira flutuante) */}
       <button
         onClick={abrir}
-        aria-label="Abrir a all4pay IA"
-        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-2 rounded-pill bg-ink text-white shadow-popover pl-[14px] pr-[18px] py-[11px] hover:opacity-90 transition-all ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
+        aria-label="Abrir o All 4 Pay AI"
+        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill text-white pl-[16px] pr-[20px] py-[12px] transition-all duration-200 hover:brightness-105 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
+        style={{ backgroundImage: GRAD, boxShadow: GLOW }}
       >
-        <span className="w-6 h-6 rounded-pill inline-flex items-center justify-center" style={{ background: "var(--color-lime)" }}>
-          <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
-        </span>
-        <span className="text-label font-medium">Pergunte à IA</span>
+        <SparkleMark size={20} />
+        <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
       </button>
 
       {everOpen && <AssistantPanel open={open} onClose={() => setOpen(false)} />}
@@ -169,10 +183,10 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       >
         {/* header */}
         <header className="flex items-center gap-2 px-4 h-[60px] border-b border-border-soft shrink-0">
-          <span className="w-7 h-7 rounded-md inline-flex items-center justify-center" style={{ background: "var(--color-lime)" }}>
-            <Icon name="sparkles" size={15} color="var(--color-on-lime)" />
+          <span className="w-7 h-7 rounded-md inline-flex items-center justify-center text-white" style={{ backgroundImage: GRAD }}>
+            <SparkleMark size={15} />
           </span>
-          <span className="text-[16px] font-semibold text-ink">all4pay IA</span>
+          <span className="text-[16px] font-semibold text-ink">All 4 Pay AI</span>
           <span className="text-[10px] font-semibold tracking-wide uppercase text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
           <button onClick={onClose} aria-label="Fechar" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
             <Icon name="x" size={18} color="currentColor" />
@@ -183,8 +197,8 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
           {turnos.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-6">
-              <span className="w-14 h-14 rounded-card inline-flex items-center justify-center" style={{ background: "var(--color-lime-tint)" }}>
-                <Icon name="sparkles" size={26} color="var(--color-positive)" />
+              <span className="w-14 h-14 rounded-card inline-flex items-center justify-center text-white" style={{ backgroundImage: GRAD, boxShadow: GLOW }}>
+                <SparkleMark size={28} />
               </span>
               <div>
                 <div className="text-[18px] font-semibold text-ink">Pergunte sobre suas finanças</div>
