@@ -32,11 +32,7 @@ const SECTIONS: Section[] = [
   {
     id: "dashboards", label: "Dashboards", items: [
       { label: "Início", href: "/", icon: "inicio" },
-      { label: "Vendas", href: "/painel-vendas", icon: "credit-card" },
-      { label: "Financeiro", href: "/fluxo-caixa", icon: "trending-up" },
-      { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
-      { label: "Contas a pagar", href: "/pagaveis", icon: "arrow-up-right" },
-      { label: "Contas a receber", href: "/recebiveis", icon: "arrow-left-right" },
+      { label: "Painel de vendas", href: "/painel-vendas", icon: "credit-card" },
     ],
   },
   {
@@ -49,7 +45,6 @@ const SECTIONS: Section[] = [
       { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
       { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
       { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
-      { label: "Contratos", href: "/recorrencias", icon: "file-text" },
     ],
   },
   {
@@ -76,8 +71,8 @@ const SECTIONS: Section[] = [
   {
     id: "vendas-nfs", label: "Vendas e NFs", items: [
       { label: "Nova venda", href: "/nova-venda", icon: "plus" },
-      { label: "Vendas", href: "/vendas", icon: "credit-card" },
-      { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
+      { label: "Vendas (documentos)", href: "/vendas", icon: "credit-card" },
+      { label: "Assinaturas / Recorrências", href: "/recorrencias", icon: "repeat" },
       { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
       { label: "Impostos", href: "/impostos", icon: "receipt" },
       { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },

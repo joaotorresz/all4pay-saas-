@@ -19,7 +19,11 @@ export function AccountsCard() {
   const series = flow?.map((p) => p.balance);
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col" info={{
+      titulo: "Contas Financeiras",
+      oQue: "O saldo consolidado das suas contas e a conciliação de cada uma.",
+      comoCalcula: "Soma o saldo de todas as contas financeiras cadastradas; o selo de conciliação compara o saldo do sistema com o último extrato importado.",
+    }}>
       <WidgetHeader
         title="Contas Financeiras"
         subtitle={data ? `${data.accounts.length} contas` : undefined}

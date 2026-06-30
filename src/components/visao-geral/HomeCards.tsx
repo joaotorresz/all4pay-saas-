@@ -48,7 +48,11 @@ export function SaudeFinanceiraCard() {
   const ind = data.indicadores;
   const sc = data.score;
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Saúde financeira",
+      oQue: "Um raio-x do seu caixa: nota geral, por quanto tempo o dinheiro dura e o ritmo de queima.",
+      comoCalcula: "Score 0–100 pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento. Runway = saldo ÷ burn mensal; burn = saídas líquidas médias; liquidez = ativo ÷ passivo de curto prazo.",
+    }}>
       <Header icon="activity">Saúde financeira</Header>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Kpi label="Score" value={`${sc.score}`} suffix="/100" color={scoreColor(sc.score)} hint={sc.classificacao} />
@@ -78,7 +82,11 @@ export function IAInsightsCard() {
   if (isLoading || !data) return <CardSkeleton tall />;
   const insights = (data.insights ?? []).slice(0, 4);
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "IA · insights do dia",
+      oQue: "Os pontos que mais merecem sua atenção hoje, priorizados pela IA.",
+      comoCalcula: "Os motores de risco, quant e crédito geram sinais ordenados por impacto × urgência × probabilidade × criticidade.",
+    }}>
       <Header icon="sparkles">IA · insights do dia</Header>
       {insights.length === 0 ? (
         <span className="text-caption text-faint">Sem insights relevantes agora.</span>
@@ -104,7 +112,11 @@ export function AnomaliasCard() {
   if (isLoading || !data) return <CardSkeleton tall />;
   const anomalias = (data.anomalias ?? []).slice(0, 4);
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Anomalias",
+      oQue: "Gastos fora do padrão, duplicidades e pagamentos atípicos detectados automaticamente.",
+      comoCalcula: "Cada categoria é comparada ao seu histórico; o que foge demais (z-score alto) ou se repete é sinalizado.",
+    }}>
       <Header icon="triangle-alert">Anomalias</Header>
       {anomalias.length === 0 ? (
         <span className="text-caption text-faint">Nenhuma anomalia detectada.</span>
@@ -143,7 +155,11 @@ export function TopClientesCard() {
   const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Top clientes",
+      oQue: "Quem mais gerou receita realizada no período selecionado.",
+      comoCalcula: "Soma das entradas pagas por cliente no período; a barra e o % são a fatia de cada um sobre o total recebido.",
+    }}>
       <Header icon="trending-up">Top clientes · {period.label.toLowerCase()}</Header>
       {top.length === 0 || total === 0 ? (
         <span className="text-caption text-faint">Sem receita realizada no período.</span>
@@ -185,7 +201,11 @@ export function MaioresCategoriasCard() {
   const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Maiores despesas",
+      oQue: "Para onde foi a maior parte do seu dinheiro no período.",
+      comoCalcula: "Soma das saídas pagas por categoria no período; o % é a fatia de cada uma sobre o total gasto.",
+    }}>
       <Header icon="receipt">Maiores despesas · {period.label.toLowerCase()}</Header>
       {top.length === 0 || total === 0 ? (
         <span className="text-caption text-faint">Sem despesas no período.</span>
@@ -217,7 +237,11 @@ export function UltimosGastosCard() {
     .sort((a, b) => (realizado(b) ?? "").localeCompare(realizado(a) ?? ""))
     .slice(0, 5);
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Últimos gastos",
+      oQue: "Os pagamentos mais recentes que saíram do seu caixa.",
+      comoCalcula: "Saídas já liquidadas (pagas), ordenadas da mais recente para a mais antiga.",
+    }}>
       <Header icon="arrow-down-to-line">Últimos gastos</Header>
       {gastos.length === 0 ? (
         <span className="text-caption text-faint">Nenhum gasto liquidado ainda.</span>
@@ -254,7 +278,11 @@ export function PendenciasCard() {
     else if (m.due_date <= em7) vencendo++;
   }
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Pendências",
+      oQue: "Quantos títulos estão em aberto e o que está vencendo.",
+      comoCalcula: "Conta os lançamentos pendentes (a receber / a pagar) e, pela data de vencimento vs. hoje, os que vencem em 7 dias e os já vencidos.",
+    }}>
       <Header icon="list-checks">Pendências</Header>
       <div className="grid grid-cols-2 gap-x-4 gap-y-4">
         <Conta n={aReceber} label="A receber" />

@@ -47,7 +47,11 @@ export function SalesChart() {
   const subtitle = `${period.label.toLowerCase()} · ${formatBRL(totalPeriodo)}`;
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col" info={{
+      titulo: "Vendas / Faturamento",
+      oQue: "Sua receita mês a mês nos últimos 12 meses.",
+      comoCalcula: "Soma das entradas reconhecidas por mês (regime de competência). Os meses dentro do período selecionado ficam destacados.",
+    }}>
       <WidgetHeader title="Vendas / Faturamento" subtitle={subtitle} />
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}

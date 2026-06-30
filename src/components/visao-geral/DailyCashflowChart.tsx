@@ -94,7 +94,11 @@ export function DailyCashflowChart() {
   const resultado = entradas - saidas;
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex flex-col" info={{
+      titulo: "Fluxo de caixa",
+      oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
+      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
+    }}>
       <div className="mb-3">
         {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
             vivem no topo da página (não duplicar aqui). */}

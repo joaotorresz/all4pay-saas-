@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
 } from "recharts";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
@@ -146,7 +146,11 @@ export function VisorHomeTop() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-start">
       {/* ESQUERDA — herói (gasto comparado) + Dica */}
       <div className="flex flex-col gap-5">
-        <Card className="flex flex-col">
+        <Card className="flex flex-col" info={{
+          titulo: "Você gastou",
+          oQue: "Quanto você gastou no período vs. o mês anterior. Verde = gasto realizado até hoje · laranja = mesmo intervalo do mês passado · tracejada = projeção até o fim do período.",
+          comoCalcula: "Soma das saídas pagas, acumuladas dia a dia. A diferença em destaque é o total deste período menos o do anterior no mesmo ponto do mês.",
+        }}>
           <span className="text-[16px] font-semibold text-ink">Você gastou</span>
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             <span className="text-[34px] font-semibold tabular-nums text-ink leading-none"><AnimatedBRL value={Math.abs(calc.delta)} /></span>
@@ -198,7 +202,12 @@ export function VisorHomeTop() {
       {/* DIREITA — Distribuição (donut + legenda rica) */}
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[16px] font-semibold text-ink">{tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}</span>
+          <span className="inline-flex items-center gap-1.5 text-[16px] font-semibold text-ink">
+            {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
+            <InfoHint align="left"
+              oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."
+              comoCalcula="Soma dos lançamentos do período por categoria; o % é a fatia de cada uma no total. A tendência ▲/▼ compara com o mês anterior." />
+          </span>
           <div className="flex items-center gap-2">
             <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de distribuição">
               {([["entrada", "Entradas"], ["saida", "Saídas"]] as const).map(([val, label]) => {
