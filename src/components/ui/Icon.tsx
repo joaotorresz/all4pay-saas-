@@ -1,5 +1,14 @@
 import * as React from "react";
-import { SOLAR_ICONS } from "./solar-icons";
+import { SOLAR_ICONS, type SolarIcon } from "./solar-icons";
+
+/**
+ * Ícones custom (fora do set Solar gerado) — sobrepõem o SOLAR_ICONS por nome.
+ * `inicio`: pentágono sólido e arredondado, igual ao "Visão Geral" do Visor
+ * (silhueta limpa, sem porta/janela). Usado no item Início/Resumo da Sidebar.
+ */
+const CUSTOM_ICONS: Record<string, SolarIcon> = {
+  inicio: { b: '<path fill="currentColor" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round" d="M12 3.5 20.6 9.7 17.3 19.8 6.7 19.8 3.4 9.7Z"/>', w: 24, h: 24 },
+};
 
 /**
  * all4pay DS — Icon
@@ -27,7 +36,7 @@ export interface IconProps {
 }
 
 export function Icon({ name, size = 18, color = "currentColor", className }: IconProps) {
-  const ic = SOLAR_ICONS[name as string];
+  const ic = CUSTOM_ICONS[name as string] ?? SOLAR_ICONS[name as string];
   const rawId = React.useId();
   const html = React.useMemo(() => {
     const b = ic?.b ?? "";

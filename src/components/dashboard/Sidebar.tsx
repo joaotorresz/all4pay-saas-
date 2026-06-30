@@ -31,7 +31,7 @@ type Section = { id: string; label: string; pro?: boolean; items: Item[] };
 const SECTIONS: Section[] = [
   {
     id: "dashboards", label: "Dashboards", items: [
-      { label: "Início", href: "/", icon: "house" },
+      { label: "Início", href: "/", icon: "inicio" },
       { label: "Vendas", href: "/painel-vendas", icon: "credit-card" },
       { label: "Financeiro", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "Assinaturas", href: "/recorrencias", icon: "repeat" },
@@ -138,7 +138,7 @@ const CONFIG: Section = {
 const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", items: [
-      { label: "Resumo", href: "/", icon: "house" },
+      { label: "Resumo", href: "/", icon: "inicio" },
       { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Assinaturas / recorrentes", href: "/recorrencias", icon: "repeat" },
