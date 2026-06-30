@@ -17,6 +17,7 @@ const BASE = {
   mail: "envelope-simple", "scan-line": "scan", paperclip: "paperclip", eye: "eye", "eye-off": "eye-slash",
   minus: "minus", "shopping-cart": "shopping-cart-simple", "trash-2": "trash",
   smartphone: "device-mobile", palette: "palette", "rotate-ccw": "arrow-counter-clockwise",
+  edit: "pencil-simple",
 };
 const MAP = Object.fromEntries(Object.entries(BASE).map(([k, b]) => [k, `${b}-fill`]));
 const names = [...new Set(Object.values(MAP))].join(",");
