@@ -6,7 +6,7 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, BRL, StatusBadge, Icon, Skeleton, Button } from "@/components/ui";
+import { Card, BRL, StatusBadge, Icon, Skeleton, Button, InfoHint, type InfoConteudo } from "@/components/ui";
 import { listRecorrencias, rolarRecorrencias, totalFatura, CICLOS } from "@/lib/recorrencias";
 import { postarLancamento } from "@/lib/ledger";
 import { analisarReceita, type ContratoReceita, type ReceitaReport } from "@/core/revenue";
@@ -89,16 +89,16 @@ export function ReceitaReconhecimentoView() {
           </div>
           {/* Resumo */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-            <Resumo label="MRR" valor={report.resumo.mrr} />
-            <Resumo label="ARR" valor={report.resumo.arr} />
-            <Resumo label="Receita diferida" valor={report.resumo.diferidaTotal} />
-            <Resumo label="Reconhecida no mês" valor={report.resumo.reconhecidaMes} />
+            <Resumo label="MRR" valor={report.resumo.mrr} info={{ titulo: "MRR", oQue: "A receita recorrente mensal dos contratos ativos.", comoCalcula: "Soma do valor de cada contrato ativo convertido para a base mensal (valor do ciclo dividido pelos meses do ciclo)." }} />
+            <Resumo label="ARR" valor={report.resumo.arr} info={{ titulo: "ARR", oQue: "A projeção anual da receita recorrente.", comoCalcula: "MRR multiplicado por 12." }} />
+            <Resumo label="Receita diferida" valor={report.resumo.diferidaTotal} info={{ titulo: "Receita diferida", oQue: "O que já foi faturado mas ainda não pode ser reconhecido como receita (passivo).", comoCalcula: "Parte de cada ciclo faturado que ainda não decorreu, somada entre os contratos." }} />
+            <Resumo label="Reconhecida no mês" valor={report.resumo.reconhecidaMes} info={{ titulo: "Reconhecida no mês", oQue: "Quanto de receita pode ser apropriado neste mês pela regra de competência.", comoCalcula: "Soma da parcela mensal (1 sobre ciclo) de cada contrato ativo no mês corrente." }} />
           </div>
 
           {/* Waterfall de receita recorrente */}
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-label font-medium text-muted">Waterfall de receita recorrente (MRR)</span>
+              <span className="text-label font-medium text-muted inline-flex items-center gap-1">Waterfall de receita recorrente (MRR)<InfoHint align="left" titulo="Waterfall de MRR" oQue="Mostra como o MRR evoluiu mês a mês conforme novos contratos entram." comoCalcula="Cada barra é o MRR ao fim do mês, somando os contratos ativos iniciados até aquele mês." /></span>
               {report.resumo.churnMrr > 0 && (
                 <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-negative"><BRL value={report.resumo.churnMrr} /></span></span>
               )}
@@ -116,7 +116,7 @@ export function ReceitaReconhecimentoView() {
           </Card>
 
           {/* Reconhecimento por contrato + diferida */}
-          <Card padded={false}>
+          <Card padded={false} info={{ titulo: "Reconhecimento por contrato", oQue: "Detalha por contrato o MRR, a receita diferida e quanto do ciclo atual já decorreu.", comoCalcula: "A receita é apropriada ao longo da obrigação (1 sobre ciclo por mês); a parte faturada e não reconhecida é a receita diferida." }}>
             <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
               <span className="flex-1">Contrato</span>
               <span className="w-[110px] text-right">MRR</span>
@@ -157,9 +157,9 @@ export function ReceitaReconhecimentoView() {
   );
 }
 
-function Resumo({ label, valor }: { label: string; valor: number }) {
+function Resumo({ label, valor, info }: { label: string; valor: number; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[22px] font-semibold text-ink tabular-nums"><BRL value={valor} /></span>
     </Card>

@@ -8,7 +8,7 @@
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Card, BRL, Icon, Select, StatusBadge, Skeleton } from "@/components/ui";
+import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -80,14 +80,14 @@ function AdminBody() {
     <div className="flex flex-col gap-6 pb-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque />
-        <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} />
-        <Kpi label="Organizações" v={o?.orgs} loading={overview.isLoading} />
-        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} tone="var(--color-positive)" />
-        <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} />
-        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} tone="var(--color-positive)" />
-        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} />
-        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" />
+        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das organizações." }} />
+        <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} info={{ titulo: "ARR", oQue: "Receita recorrente anual projetada.", comoCalcula: "MRR multiplicado por 12." }} />
+        <Kpi label="Organizações" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Organizações", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as organizações cadastradas." }} />
+        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Assinaturas ativas", oQue: "Quantas organizações estão com a cobrança em dia.", comoCalcula: "Organizações cujo status de assinatura é ativo." }} />
+        <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} info={{ titulo: "Usuários", oQue: "Total de contas criadas na plataforma.", comoCalcula: "Contagem de todos os usuários do Auth." }} />
+        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
+        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Organizações em período de avaliação.", comoCalcula: "Organizações cujo status de assinatura é trial." }} />
+        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Organizações com a mensalidade em atraso.", comoCalcula: "Organizações cujo status de assinatura é inadimplente." }} />
       </div>
 
       {/* Crescimento + MRR mês a mês */}
@@ -97,7 +97,7 @@ function AdminBody() {
       </div>
 
       {/* Organizações (clientes) + cobrança */}
-      <Card padded={false}>
+      <Card padded={false} info={{ titulo: "Organizações · cobrança", oQue: "Lista os clientes do SaaS e deixa ajustar o plano e o status de cobrança de cada um.", comoCalcula: "Vem das organizações com sua assinatura; o MRR é o preço do plano quando a assinatura está ativa." }}>
         <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Organizações · cobrança de mensalidade</div>
         {orgs.isLoading ? (
           <div className="p-5"><Skeleton className="h-32 w-full" /></div>
@@ -129,7 +129,7 @@ function AdminBody() {
       </Card>
 
       {/* Planos */}
-      <Card className="flex flex-col gap-3">
+      <Card className="flex flex-col gap-3" info={{ titulo: "Planos", oQue: "Os planos de mensalidade oferecidos e quantos assinantes cada um tem.", comoCalcula: "Cada plano mostra o preço mensal e a contagem de assinaturas ativas vinculadas a ele." }}>
         <span className="text-label font-medium text-muted">Planos</span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {(plans.data ?? []).map((p: AdminPlan) => (
@@ -143,7 +143,7 @@ function AdminBody() {
       </Card>
 
       {/* Usuários */}
-      <Card padded={false}>
+      <Card padded={false} info={{ titulo: "Usuários com conta", oQue: "Todas as contas criadas na plataforma, com cadastro e último acesso.", comoCalcula: "Vem dos usuários do Auth; o ponto verde indica acesso nos últimos 30 dias." }}>
         <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Usuários com conta</div>
         {users.isLoading ? (
           <div className="p-5"><Skeleton className="h-24 w-full" /></div>
@@ -188,7 +188,7 @@ function GrowthCard() {
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
   const data = (g.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3" info={{ titulo: "Crescimento", oQue: "Mostra o ritmo de aquisição de novos clientes e o tamanho da base ao longo do tempo.", comoCalcula: "As barras contam os clientes que entraram em cada mês; a linha acumula a base total de organizações." }}>
       <span className="text-label font-medium text-muted">Crescimento · novos clientes e base acumulada</span>
       {g.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
         <ResponsiveContainer width="100%" height={220}>
@@ -224,7 +224,7 @@ function MrrCard() {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-label font-medium text-muted">MRR mês a mês</span>
+        <span className="inline-flex items-center gap-1 text-label font-medium text-muted">MRR mês a mês<InfoHint align="left" titulo="MRR mês a mês" oQue="Acompanha a receita recorrente mensal da plataforma e sua variação." comoCalcula="Usa o snapshot real do mês quando existe; senão deriva da soma das assinaturas ativas." /></span>
         {data.length > 1 && <span className={`text-caption font-medium tabular-nums ${delta >= 0 ? "text-positive" : "text-negative"}`}>{delta >= 0 ? "+" : ""}{delta}% vs mês anterior</span>}
       </div>
       {h.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
@@ -254,7 +254,7 @@ function AuditCard() {
   const quando = (iso: string) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
   const ACAO: Record<string, string> = { "subscription.set": "Cobrança alterada", "plan.upsert": "Plano alterado", impersonate: "Logou como cliente" };
   return (
-    <Card padded={false}>
+    <Card padded={false} info={{ titulo: "Auditoria do admin", oQue: "Registra cada ação sensível do administrador da plataforma, para rastreabilidade.", comoCalcula: "Toda alteração de cobrança, de plano ou impersonação grava uma linha com quem fez, o alvo e quando." }}>
       <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Auditoria · ações do administrador</div>
       {a.isLoading ? <div className="p-5"><Skeleton className="h-20 w-full" /></div> : (a.data ?? []).length === 0 ? (
         <div className="px-5 py-4 text-caption text-faint">Nenhuma ação registrada ainda.</div>
@@ -429,9 +429,9 @@ function Campo({ label, v }: { label: string; v: string | null | undefined }) {
   );
 }
 
-function Kpi({ label, v, money, loading, tone = "var(--color-ink)", destaque }: { label: string; v?: number; money?: boolean; loading?: boolean; tone?: string; destaque?: boolean }) {
+function Kpi({ label, v, money, loading, tone = "var(--color-ink)", destaque, info }: { label: string; v?: number; money?: boolean; loading?: boolean; tone?: string; destaque?: boolean; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       {loading ? <Skeleton className="h-6 w-16" /> : (
         <span className={`${destaque ? "text-[24px]" : "text-[20px]"} font-semibold tabular-nums`} style={{ color: tone }}>

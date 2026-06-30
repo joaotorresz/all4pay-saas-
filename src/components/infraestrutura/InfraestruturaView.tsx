@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
+import { BRL, Card, Icon, Select, CurrencyInput, Input, Button, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { FinancialPlatform, criarPlataformaDemo } from "@/core/platform";
 import type {
@@ -87,7 +87,10 @@ export function InfraestruturaView() {
       {/* Ledger Core */}
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-label font-medium text-muted">Ledger Core · dupla partida</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Ledger Core · dupla partida
+            <InfoHint align="left" oQue="O livro-razão que é a verdade absoluta: o saldo é derivado dele, não digitado." comoCalcula="Toda transação precisa ter débito igual ao crédito; o caixa é reconstruído pelo replay dos lançamentos e o trial balance confere o total." />
+          </span>
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-caption font-medium"
             style={{ background: "var(--color-surface-2)", color: tb.balanceado ? "var(--color-positive)" : "var(--color-negative)" }}
@@ -125,7 +128,7 @@ export function InfraestruturaView() {
       </Card>
 
       {/* Payment Orchestrator */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Payment Orchestrator", oQue: "Coordena pagamentos (PIX, boleto, TED, cartão) com segurança contra cobrança em duplicidade.", comoCalcula: "Cada pagamento passa por idempotência (a mesma chave nunca executa duas vezes), fila com retry e o ledger em dupla partida." }}>
         <span className="text-label font-medium text-muted">Payment Orchestrator</span>
         <Select label="Método" value={metodo} onChange={(v) => setMetodo(v as MetodoPagamento)} options={METODOS.map((m) => ({ value: m, label: m.toUpperCase() }))} />
         <CurrencyInput label="Valor" value={valor} onValueChange={setValor} />
@@ -158,7 +161,7 @@ export function InfraestruturaView() {
       </Card>
 
       {/* Fila */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Fila financeira", oQue: "Processa os pagamentos em fila, reprocessando falhas transitórias sem duplicar dinheiro.", comoCalcula: "Cada job tem retry com backoff e deduplicação por chave; jobs em falha podem ser reenviados por replay." }}>
         <span className="text-label font-medium text-muted">Fila financeira · retry · idempotência</span>
         {jobs.length === 0 ? (
           <span className="text-caption text-faint">Nenhum job ainda.</span>
@@ -172,7 +175,7 @@ export function InfraestruturaView() {
       </Card>
 
       {/* Observabilidade */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Observabilidade financeira", oQue: "Vigia a saúde da plataforma em tempo real para pegar problema antes que afete o dinheiro.", comoCalcula: "Verifica invariantes como integridade do ledger, divergência de saldo, jobs em falha e atraso de liquidação." }}>
         <div className="flex items-center gap-2">
           <Icon name="activity" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Observabilidade financeira</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Icon, BRL, Button, Textarea } from "@/components/ui";
+import { Card, Icon, BRL, Button, Textarea, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePagaveis, usePartiesPag } from "@/components/pagamentos/hooks";
 import {
@@ -78,7 +78,7 @@ export function AprovacoesView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Fila */}
-      <Card padded={false} className="lg:col-span-2">
+      <Card padded={false} className="lg:col-span-2" info={{ titulo: "Fila de aprovações", oQue: "Reúne as solicitações de pagamento e reembolso que precisam passar pela alçada antes de executar.", comoCalcula: "Títulos a pagar acima do limite da alçada viram solicitações automáticas; as abas filtram por status." }}>
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
           {ABAS.map((a) => {
             const n = contaAba(lista, a.id);
@@ -118,7 +118,7 @@ export function AprovacoesView() {
         ) : (
           <>
             <div className="flex items-center justify-between">
-              <span className="text-h3 font-medium text-ink"><BRL value={sel.valor} /></span>
+              <span className="inline-flex items-center text-h3 font-medium text-ink"><BRL value={sel.valor} /><InfoHint align="left" titulo="Painel de decisão" oQue="Onde você aprova, rejeita ou devolve a solicitação selecionada, com a sugestão de risco da IA e a trilha." comoCalcula="O nível de alçada vem do valor; aprovar no último nível libera a execução na Central de Pagamentos." /></span>
               <span className="text-caption font-medium" style={{ color: STATUS[sel.statusFinal].cor }}>{STATUS[sel.statusFinal].label}</span>
             </div>
             <div className="flex flex-col gap-[6px] text-caption">

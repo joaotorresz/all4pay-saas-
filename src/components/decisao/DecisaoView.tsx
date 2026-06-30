@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useDecisao } from "@/components/visao-geral/hooks";
 import {
@@ -56,7 +56,7 @@ export function DecisaoView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Headline (decision brief) */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Decisão financeira", oQue: "Resume em uma frase o que a inteligência recomenda fazer agora com base no estado da operação." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
@@ -69,7 +69,10 @@ export function DecisaoView() {
       {/* Risk matrix */}
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted">Matriz de risco probabilística</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Matriz de risco probabilística
+            <InfoHint align="left" oQue="Mostra a chance de stress em cada frente do negócio (caixa, liquidez, inadimplência, concentração e mais)." comoCalcula="Cada dimensão vira uma probabilidade a partir dos seus dados; juntas formam uma probabilidade de stress por média ponderada." />
+          </span>
           <span className="inline-flex items-center gap-2 text-label font-medium" style={{ color: NIVEL_COR[risco.nivelGeral] }}>
             stress {Math.round(risco.probabilidadeStress * 100)}%
             <span className="w-2 h-2 rounded-pill" style={{ background: NIVEL_COR[risco.nivelGeral] }} />
@@ -83,7 +86,7 @@ export function DecisaoView() {
       </Card>
 
       {/* Previsão Monte Carlo */}
-      <Card className="lg:col-span-1 flex flex-col gap-2">
+      <Card className="lg:col-span-1 flex flex-col gap-2" info={{ titulo: "Previsão de caixa", oQue: "Estima a chance de o caixa ficar negativo nos próximos 90 dias e a faixa provável do saldo final.", comoCalcula: "Simulação de Monte Carlo: milhares de trajetórias com a tendência e a volatilidade do seu caixa, resumidas em bandas p10, p50 e p90." }}>
         <span className="text-label font-medium text-muted">Previsão de caixa · Monte Carlo</span>
         <div className="flex items-end gap-2">
           <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: previsao.probabilidadeNegativo >= 0.2 ? "var(--color-negative)" : "var(--color-positive)" }}>
@@ -101,7 +104,7 @@ export function DecisaoView() {
       </Card>
 
       {/* Recomendações com impacto */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Recomendações", oQue: "Sugere ações concretas para melhorar o caixa e mostra o ganho esperado de cada uma.", comoCalcula: "Para cada ação o motor monta o cenário modificado e roda o score de risco de novo, medindo o impacto real em runway, score e risco de ruptura." }}>
         <span className="text-label font-medium text-muted">Recomendações · impacto simulado</span>
         {recomendacoes.length === 0 ? (
           <span className="text-caption text-faint">Sem ações de melhoria relevantes no momento.</span>
@@ -111,7 +114,7 @@ export function DecisaoView() {
       </Card>
 
       {/* Plano autônomo */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Ações autônomas", oQue: "Mostra o plano coordenado de resposta e o que pode rodar sozinho ou precisa da sua aprovação.", comoCalcula: "As ações vêm das recomendações com guardrails: reversíveis são automáticas; mover dinheiro acima do limite exige aprovação." }}>
         <div className="flex items-center gap-2">
           <Icon name="network" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Ações autônomas</span>
@@ -125,7 +128,7 @@ export function DecisaoView() {
       </Card>
 
       {/* Feature store */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Feature Store", oQue: "Reúne as variáveis que alimentam os modelos de risco e decisão, para você ver de onde vêm as conclusões.", comoCalcula: "Cada variável (runway, burn, liquidez, inadimplência, concentração e mais) é derivada dos seus lançamentos e contas." }}>
         <div className="flex items-center gap-2">
           <Icon name="layers" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Feature Store · variáveis do modelo</span>

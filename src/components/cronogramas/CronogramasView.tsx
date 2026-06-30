@@ -6,7 +6,7 @@
  * para revisão (inspirado no Campfire). CRUD local, demo-safe.
  */
 import * as React from "react";
-import { Card, BRL, StatusBadge, Button, Icon, Input, Select, CurrencyInput, DateField } from "@/components/ui";
+import { Card, BRL, StatusBadge, Button, Icon, Input, Select, CurrencyInput, DateField, InfoHint, type InfoConteudo } from "@/components/ui";
 import {
   gerarCronograma, lancamentoDoMes, resumoCronogramas, parcelaMensal, tipoLabel,
   type Cronograma, type TipoCronograma,
@@ -74,16 +74,16 @@ export function CronogramasView() {
       <div className="flex flex-col gap-5">
         {/* Resumo */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-          <Resumo label="Ativos no mês" valor={resumo.ativos} contagem />
-          <Resumo label="Lançamento do mês" valor={resumo.valorMensalTotal} />
-          <Resumo label="Saldo a amortizar/depreciar" valor={resumo.saldoAmortizar} />
-          <Resumo label="Base total" valor={resumo.baseTotal} />
+          <Resumo label="Ativos no mês" valor={resumo.ativos} contagem info={{ titulo: "Cronogramas ativos", oQue: "Quantos cronogramas estão lançando parcela no mês selecionado.", comoCalcula: "Conta os cronogramas cujo período (início mais vida útil) cobre o mês escolhido." }} />
+          <Resumo label="Lançamento do mês" valor={resumo.valorMensalTotal} info={{ titulo: "Lançamento do mês", oQue: "A despesa total de amortização e depreciação a reconhecer no mês.", comoCalcula: "Soma das parcelas mensais de todos os cronogramas ativos no mês." }} />
+          <Resumo label="Saldo a amortizar/depreciar" valor={resumo.saldoAmortizar} info={{ titulo: "Saldo a reconhecer", oQue: "Quanto ainda falta amortizar ou depreciar dos ativos cadastrados.", comoCalcula: "Base total menos as parcelas já reconhecidas até o mês atual." }} />
+          <Resumo label="Base total" valor={resumo.baseTotal} info={{ titulo: "Base total", oQue: "O valor original somado de todos os ativos e despesas antecipadas em cronograma.", comoCalcula: "Soma do valor total de cada cronograma, menos o valor residual na depreciação." }} />
         </div>
 
         {/* Lançamento contábil consolidado do mês */}
         <Card className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-label font-medium text-muted">Lançamento mensal consolidado</span>
+            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Lançamento mensal consolidado<InfoHint align="left" titulo="Lançamento mensal consolidado" oQue="Reúne todos os cronogramas do mês em um único lançamento de despesa para revisar e postar no razão." comoCalcula="Soma as parcelas de amortização e depreciação do mês; Lançar no razão posta a despesa contra o ativo." /></span>
             <div className="flex items-center gap-1 flex-wrap">
               {meses.map((m) => (
                 <button key={m} onClick={() => setMes(m)}
@@ -127,7 +127,7 @@ export function CronogramasView() {
         {/* Lista + novo */}
         <Card padded={false}>
           <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
-            <span className="text-label font-medium text-muted">Cronogramas</span>
+            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Cronogramas<InfoHint align="left" titulo="Cronogramas cadastrados" oQue="A lista de despesas antecipadas (amortização) e ativos (depreciação) e quanto de cada já foi reconhecido." comoCalcula="Cada item divide o valor pela vida útil em meses; a barra mostra os meses decorridos sobre o total." /></span>
             <Button size="sm" variant="secondary" leftIcon={<Icon name="plus" size={14} />} onClick={() => setDraft(novoDraft())}>Novo cronograma</Button>
           </div>
           {lista.length === 0 ? (
@@ -166,7 +166,7 @@ export function CronogramasView() {
 
         {/* Form (inline) */}
         {draft && (
-          <Card className="flex flex-col gap-4">
+          <Card className="flex flex-col gap-4" info={{ titulo: "Cadastro de cronograma", oQue: "Onde você registra uma despesa antecipada ou um ativo e por quantos meses ele será reconhecido.", comoCalcula: "A parcela mensal é o valor (menos o residual, na depreciação) dividido pela vida útil em meses." }}>
             <span className="text-label font-medium text-muted">{draft.id ? "Editar cronograma" : "Novo cronograma"}</span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select label="Tipo" value={draft.tipo} onChange={(v) => setDraft({ ...draft, tipo: v as TipoCronograma })}
@@ -193,9 +193,9 @@ export function CronogramasView() {
   );
 }
 
-function Resumo({ label, valor, contagem }: { label: string; valor: number; contagem?: boolean }) {
+function Resumo({ label, valor, contagem, info }: { label: string; valor: number; contagem?: boolean; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[20px] font-semibold text-ink tabular-nums">{contagem ? valor.toLocaleString("pt-BR") : <BRL value={valor} />}</span>
     </Card>

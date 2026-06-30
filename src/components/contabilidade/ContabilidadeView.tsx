@@ -54,14 +54,16 @@ export function ContabilidadeView() {
       <div className="flex flex-col gap-5 pb-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           {/* Envio das NFs */}
-          <Card className="flex flex-col gap-2">
+          <Card className="flex flex-col gap-2"
+            info={{ titulo: "Envio das NFs ao contador", oQue: "Manda os XMLs das notas fiscais para o escritório contábil todo mês, sem você precisar lembrar.", comoCalcula: "Empacota os XMLs de NF de entrada e de saída por competência e envia no dia configurado." }}>
             <div className="flex items-center gap-2"><Icon name="mail" size={18} color="var(--color-text-secondary)" /><span className="text-[16px] font-semibold text-ink">Envio das NFs ao contador</span></div>
             <p className="m-0 text-caption text-muted">Envio mensal automático dos XMLs (entrada + saída) ao escritório contábil. Configure o e-mail do contador e o dia do envio nas configurações da empresa.</p>
             <div className="mt-1"><span className="text-caption text-faint inline-flex items-center gap-2"><Icon name="check" size={14} color="var(--color-positive)" />XMLs de NF de saída e entrada são empacotados por competência.</span></div>
           </Card>
 
           {/* Gerar TXT */}
-          <Card className="flex flex-col gap-3">
+          <Card className="flex flex-col gap-3"
+            info={{ titulo: "TXT Contábil (Domínio)", oQue: "Gera o arquivo do extrato pronto para importar no sistema do contador (Domínio).", comoCalcula: "Vira cada movimento numa linha de partidas simples (data, débito, crédito, valor, histórico): entrada debita Caixa e credita Receita; saída faz o inverso." }}>
             <div className="flex items-center gap-2"><Icon name="file-text" size={18} color="var(--color-text-secondary)" /><span className="text-[16px] font-semibold text-ink">Gerar TXT Contábil (Domínio)</span></div>
             <p className="m-0 text-caption text-muted">Exporta o extrato no formato <b className="text-ink font-medium">Domínio · Partidas Simples</b> para importação no sistema do contador.</p>
             {isLoading ? <Skeleton className="h-9 w-40" /> : (
@@ -77,7 +79,8 @@ export function ContabilidadeView() {
         </div>
 
         {/* Preview */}
-        <Card padded={false}>
+        <Card padded={false}
+          info={{ titulo: "Prévia", oQue: "Mostra como ficam os lançamentos no arquivo antes de baixar, em partidas simples.", comoCalcula: "Lista os movimentos ordenados por data com débito, crédito, valor e histórico." }}>
           <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Prévia · partidas simples (DATA · Débito · Crédito · Valor · Histórico)</div>
           {isLoading ? <div className="p-5"><Skeleton className="h-24 w-full" /></div> : (
             <div className="overflow-x-auto">

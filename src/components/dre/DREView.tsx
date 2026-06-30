@@ -165,7 +165,14 @@ function Conteudo({
       </div>
 
       {/* DRE Gerencial (waterfall + drill-down) */}
-      <Card className="lg:col-span-2 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-2"
+        info={{
+          titulo: "DRE gerencial",
+          oQue: "Mostra o resultado do negócio em cascata, da receita bruta ao lucro líquido, com drill-down por categoria.",
+          comoCalcula: "Os lançamentos do período são classificados em linhas (impostos, CMV, folha, opex, financeiro) por palavra-chave na categoria, no regime escolhido.",
+        }}
+      >
         <span className="text-label font-medium text-muted">DRE gerencial · {data.filtro.periodoLabel} · {data.filtro.regime === "caixa" ? "caixa" : "competência"}</span>
         <div className="flex flex-col">
           {gerencial.linhas.map((l) => <LinhaRow key={l.id} l={l} />)}
@@ -174,7 +181,14 @@ function Conteudo({
       </Card>
 
       {/* Financeiro (caixa) */}
-      <Card className="lg:col-span-1 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-2"
+        info={{
+          titulo: "DRE financeiro",
+          oQue: "A visão de caixa de fato: o que entrou e saiu, o fluxo operacional, livre e o burn mensal.",
+          comoCalcula: "Soma recebimentos e pagamentos efetivados (regime de caixa, pela data de pagamento) e separa operacional, financeiro e investimento.",
+        }}
+      >
         <span className="text-label font-medium text-muted">DRE financeiro · caixa</span>
         <FinRow label="Recebimentos" v={financeiro.recebimentos} />
         <FinRow label="Pagamentos" v={-financeiro.pagamentos} />
@@ -189,7 +203,14 @@ function Conteudo({
       </Card>
 
       {/* Evolução por cadência (dentro do intervalo observado) */}
-      <Card className="lg:col-span-3 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-2"
+        info={{
+          titulo: "Evolução do resultado",
+          oQue: "Acompanha receita, EBITDA, margem e lucro ao longo do tempo, no ritmo (cadência) escolhido.",
+          comoCalcula: "O intervalo observado é fatiado em períodos (mês, trimestre, semestre ou ano) e o DRE gerencial é recalculado para cada fatia.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Evolução · {cadencia} · {data.filtro.periodoLabel}</span>
         <Tabela
           head={[CAD_COL[cadencia], "Receita", "EBITDA", "Margem EBITDA", "Lucro"]}
@@ -202,7 +223,14 @@ function Conteudo({
       </Card>
 
       {/* Por linha (produto/unidade) */}
-      <Card className="lg:col-span-1 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-2"
+        info={{
+          titulo: "Por linha de receita",
+          oQue: "Quanto cada produto ou serviço fatura e com que margem, para ver onde está o resultado.",
+          comoCalcula: "A receita é agrupada pela linha (produto/unidade) e o custo é rateado para chegar na margem de cada uma.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Por linha de receita</span>
         {porLinha.map((l: DRELinhaReceita) => (
           <div key={l.linha} className="flex flex-col gap-[3px]">
@@ -218,7 +246,14 @@ function Conteudo({
       </Card>
 
       {/* Por cliente */}
-      <Card className="lg:col-span-2 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-2"
+        info={{
+          titulo: "DRE por cliente",
+          oQue: "Os 10 maiores clientes por receita, com participação, margem, risco e valor vencido de cada um.",
+          comoCalcula: "A receita é somada por cliente; o risco e o vencido vêm do motor de crédito sobre os recebíveis daquele cliente.",
+        }}
+      >
         <span className="text-label font-medium text-muted">DRE por cliente · top 10</span>
         <Tabela
           head={["Cliente", "Receita", "Share", "Margem", "Risco", "Vencido"]}
@@ -228,7 +263,14 @@ function Conteudo({
       </Card>
 
       {/* Por centro de custo */}
-      <Card className="lg:col-span-3 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-2"
+        info={{
+          titulo: "DRE por centro de custo",
+          oQue: "Receita, despesa e resultado de cada centro de custo, para ver qual área dá ou consome dinheiro.",
+          comoCalcula: "Os lançamentos são agrupados pelo centro de custo escolhido em cada lançamento ou venda.",
+        }}
+      >
         <span className="text-label font-medium text-muted">DRE por centro de custo</span>
         <Tabela
           head={["Centro de custo", "Receita", "Despesa", "Resultado", "Margem"]}
@@ -239,7 +281,14 @@ function Conteudo({
       </Card>
 
       {/* Projetado */}
-      <Card className="lg:col-span-3 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-2"
+        info={{
+          titulo: "DRE projetado",
+          oQue: "Uma estimativa de receita, EBITDA e lucro para os próximos horizontes (30, 90, 180 e 360 dias).",
+          comoCalcula: "Projeta a receita média do período para frente e aplica a margem atual para estimar EBITDA e lucro.",
+        }}
+      >
         <span className="text-label font-medium text-muted">DRE projetado · receita média × margem atual</span>
         <Tabela
           head={["Horizonte", "Receita projetada", "EBITDA projetado", "Lucro projetado"]}

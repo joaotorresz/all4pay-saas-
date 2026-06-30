@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, StatusBadge, Skeleton } from "@/components/ui";
+import { Card, Icon, BRL, Button, StatusBadge, Skeleton, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { isDemo } from "@/lib/demo";
 import { getConciliacaoOF, conciliar, avaliarComIA, iaConciliacaoAtiva, type MatchConc, type AvaliacaoIA } from "@/lib/conciliacao-of";
@@ -82,11 +82,11 @@ export function ConciliacaoView() {
     <div className="flex flex-col gap-5 pb-4">
       {/* Resumo (mesmo padrão da revisão do upload / Open Finance) */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <Resumo label="Pares encontrados" valor={matches.length} contagem />
-        <Resumo label="Conciliável agora" valor={autos} contagem tone="var(--color-positive)" />
-        <Resumo label="A receber" valor={totalEntrada} />
-        <Resumo label="A pagar" valor={totalSaida} />
-        <Resumo label="Sem par" valor={pendentesSemMatch + ofSemMatch} contagem />
+        <Resumo label="Pares encontrados" valor={matches.length} contagem info={{ titulo: "Pares encontrados", oQue: "Transações do banco que casaram com algum título previsto e podem receber baixa.", comoCalcula: "Cruza as transações do Open Finance com os títulos pendentes por valor, data e descrição." }} />
+        <Resumo label="Conciliável agora" valor={autos} contagem tone="var(--color-positive)" info={{ titulo: "Conciliável agora", oQue: "Pares com confiança alta que podem ser conciliados direto, sem revisar.", comoCalcula: "Conta os pares com confiança de 85 por cento ou mais." }} />
+        <Resumo label="A receber" valor={totalEntrada} info={{ titulo: "A receber", oQue: "Total das entradas entre os pares prontos para conciliar.", comoCalcula: "Soma o valor dos pares do tipo entrada." }} />
+        <Resumo label="A pagar" valor={totalSaida} info={{ titulo: "A pagar", oQue: "Total das saídas entre os pares prontos para conciliar.", comoCalcula: "Soma o valor dos pares do tipo saída." }} />
+        <Resumo label="Sem par" valor={pendentesSemMatch + ofSemMatch} contagem info={{ titulo: "Sem par", oQue: "Itens que ainda não casaram, de um lado ou do outro, e precisam de atenção.", comoCalcula: "Soma os títulos pendentes sem par com as transações do banco sem par." }} />
       </div>
 
       {isDemo && (
@@ -100,7 +100,7 @@ export function ConciliacaoView() {
       ) : (
         <Card padded={false}>
           <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft flex-wrap">
-            <span className="text-label font-medium text-muted">Pares para conciliar — revise a confiança e confirme</span>
+            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Pares para conciliar — revise a confiança e confirme<InfoHint align="left" titulo="Pares para conciliar" oQue="Cada par mostra um título previsto e a transação do banco que casou, com o nível de confiança para você confirmar a baixa." comoCalcula="A confiança vem do quanto valor, data e descrição batem; alta concilia direto, média ou baixa pede revisão." /></span>
             <div className="flex items-center gap-2">
               {iaConc && matches.some((m) => m.confianca < AUTO) && (
                 <Button size="sm" variant="secondary" disabled={iaBusy} onClick={() => analisarIA(matches)} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>
@@ -170,9 +170,9 @@ export function ConciliacaoView() {
   );
 }
 
-function Resumo({ label, valor, contagem, tone = "var(--color-ink)" }: { label: string; valor: number; contagem?: boolean; tone?: string }) {
+function Resumo({ label, valor, contagem, tone = "var(--color-ink)", info }: { label: string; valor: number; contagem?: boolean; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}>
         {contagem ? valor.toLocaleString("pt-BR") : <BRL value={valor} />}

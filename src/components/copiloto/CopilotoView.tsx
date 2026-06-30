@@ -12,7 +12,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, Button, StatusBadge } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button, StatusBadge, InfoHint } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
 import { simularCenario } from "@/core/executive";
@@ -87,7 +87,7 @@ export function CopilotoView() {
 function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Briefing; resumo?: string }) {
   const cor = b.riscoRuptura === "elevado" ? "var(--color-negative)" : b.riscoRuptura === "moderado" ? "var(--color-warning)" : "var(--color-positive)";
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3">
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Briefing executivo", oQue: "Resumo do dia para abrir a operação: saldo, runway, alertas e oportunidades em uma olhada.", comoCalcula: "Gerado pelo motor executivo a partir do saldo atual, do runway e dos sinais de risco e oportunidade dos seus lançamentos." }}>
       <span className="text-label font-medium text-muted">Briefing executivo · {b.data}</span>
       {resumo && <p className="m-0 text-body leading-[1.5] text-ink">{resumo}</p>}
       <div className="flex gap-6">
@@ -131,7 +131,7 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
 /* ---------- Insights ---------- */
 function InsightsCard({ insights, narr = {} }: { insights: import("@/core/executive/types").ExecutiveInsight[]; narr?: Record<string, string> }) {
   return (
-    <Card className="lg:col-span-2 flex flex-col gap-3">
+    <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Insights priorizados", oQue: "Lista o que merece sua atenção agora, do mais relevante para o menos, com a ação sugerida.", comoCalcula: "Cada insight é ordenado por impacto em reais, urgência, probabilidade e criticidade calculados sobre os seus dados." }}>
       <span className="text-label font-medium text-muted">Insights priorizados · impacto × urgência</span>
       {insights.length === 0 && <span className="text-caption text-faint">Nenhum insight relevante no momento.</span>}
       <div className="flex flex-col">
@@ -175,7 +175,7 @@ function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/exe
     void logAcaoIA({ kind: "anomalia", titulo: `Revisada: ${a.titulo}`, detalhe: narr[a.id] ?? a.descricao, status: "executada" });
   };
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3">
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Anomalias", oQue: "Aponta despesas, duplicidades e pagamentos fora do padrão para você revisar antes que virem problema.", comoCalcula: "Compara cada gasto com o histórico da categoria (z-score) e cruza valores para achar duplicidade e pagamento atípico." }}>
       <div className="flex items-center gap-2">
         <Icon name="triangle-alert" size={16} color="var(--color-text-secondary)" />
         <span className="text-label font-medium text-muted">Anomalias</span>
@@ -215,7 +215,10 @@ function ForecastCard({ forecast }: { forecast: import("@/core/executive/types")
   return (
     <Card className="lg:col-span-2 flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <span className="text-label font-medium text-muted">Motor preditivo · fluxo líquido</span>
+        <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+          Motor preditivo · fluxo líquido
+          <InfoHint align="left" oQue="Projeta o caixa que entra menos o que sai nos próximos meses e avisa onde há pressão." comoCalcula="Média móvel ponderada dos lançamentos ajustada por sazonalidade, indicando o mês de maior aperto." />
+        </span>
         {forecast.janelaPressao && (
           <span className="text-caption font-medium text-warning">Pressão em {forecast.janelaPressao.mes}</span>
         )}
@@ -258,7 +261,7 @@ function SimuladorCard({ indic, saldo, score }: { indic: import("@/core/quant/ty
   const deltaScore = r.scoreProjetado - score;
 
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3">
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Simulador de cenários", oQue: "Permite testar e se a receita cair, a despesa subir ou a inadimplência aumentar, vendo o efeito na hora.", comoCalcula: "Aplica os deltas que você escolhe nos indicadores e recalcula o score de saúde e o runway projetados." }}>
       <span className="text-label font-medium text-muted">Simulador de cenários</span>
       <Slider label="Receita" value={sc.receitaDelta ?? 0} min={-0.5} max={0.5} onChange={(v) => setSc((s) => ({ ...s, receitaDelta: v }))} />
       <Slider label="Despesa" value={sc.despesaDelta ?? 0} min={-0.3} max={0.5} onChange={(v) => setSc((s) => ({ ...s, despesaDelta: v }))} />
@@ -326,6 +329,7 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
           <Icon name="sparkles" size={15} color="var(--color-lime)" /> Planner — cenários sugeridos e impacto
+          <InfoHint align="left" oQue="Mostra cenários prontos (queda de receita, corte de custo, expansão) e o impacto de cada um, do pior para o melhor." comoCalcula="Recalcula o score de saúde e o runway sobre os seus indicadores para cada cenário sugerido." />
         </span>
         <Link href="/copiloto?aba=decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
       </div>
@@ -361,7 +365,7 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
 function MemoriaCard({ memoria }: { memoria: import("@/core/executive/types").PadraoMemoria[] }) {
   if (memoria.length === 0) return null;
   return (
-    <Card className="lg:col-span-3 flex flex-col gap-3">
+    <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Memória da operação", oQue: "Guarda os padrões que o sistema aprendeu sobre a sua empresa, como sazonalidade e clientes críticos.", comoCalcula: "O motor de memória observa os lançamentos ao longo do tempo e registra despesas recorrentes, sazonalidade e clientes de atenção." }}>
       <div className="flex items-center gap-2">
         <Icon name="activity" size={16} color="var(--color-text-secondary)" />
         <span className="text-label font-medium text-muted">Memória da operação · padrões aprendidos</span>

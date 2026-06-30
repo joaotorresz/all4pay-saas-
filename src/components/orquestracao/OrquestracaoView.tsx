@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Icon, Select, CurrencyInput, Input, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Select, CurrencyInput, Input, Button, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useOrquestracaoInput } from "@/components/visao-geral/hooks";
 import { criarOrquestrador, type FinancialOrchestrator } from "@/core/orchestration";
@@ -94,7 +94,7 @@ export function OrquestracaoView() {
       </div>
 
       {/* Disparar evento */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Disparar evento financeiro", oQue: "Permite simular um evento (PIX recebido, boleto vencido, pagamento) e ver como ele propaga pelo sistema.", comoCalcula: "O evento entra no orquestrador e percorre a cascata Event Store, Ledger, estado, decisão e auditoria em uma execução." }}>
         <div className="flex items-center gap-2">
           <Icon name="network" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Disparar evento financeiro</span>
@@ -127,7 +127,7 @@ export function OrquestracaoView() {
       </Card>
 
       {/* Cascata do último evento */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Cascata de orquestração", oQue: "Mostra, passo a passo, como o último evento se propagou e o que ele mudou na operação.", comoCalcula: "Exibe os passos da cascata, os deltas no estado (caixa, risco, runway) e os lançamentos e reações gerados pelo evento." }}>
         <span className="text-label font-medium text-muted">Cascata de orquestração</span>
         {!resultado ? (
           <span className="text-caption text-faint">Dispare um evento para ver a propagação pelo sistema.</span>
@@ -174,7 +174,10 @@ export function OrquestracaoView() {
       {/* Event store */}
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted">Event Store · histórico imutável</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Event Store · histórico imutável
+            <InfoHint align="left" oQue="Guarda todos os eventos financeiros em ordem, sem poder apagar nem alterar o passado." comoCalcula="Cada evento é encadeado por hash SHA-256; recomputar a cadeia denuncia qualquer adulteração." />
+          </span>
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-caption font-medium"
             style={{ background: "var(--color-surface-2)", color: integridade.intacta ? "var(--color-positive)" : "var(--color-negative)" }}
@@ -201,7 +204,7 @@ export function OrquestracaoView() {
       </Card>
 
       {/* Ledger */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Ledger", oQue: "Mostra o saldo por conta no livro-razão, a verdade contábil por trás do caixa.", comoCalcula: "Cada evento vira um par débito e crédito; o saldo de cada conta é a soma dos seus lançamentos." }}>
         <span className="text-label font-medium text-muted">Ledger · dupla partida</span>
         {saldos.length === 0 ? (
           <span className="text-caption text-faint">Sem lançamentos ainda.</span>
@@ -221,7 +224,10 @@ export function OrquestracaoView() {
       <Card className="lg:col-span-3 flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Icon name="network" size={16} color="var(--color-text-secondary)" />
-          <span className="text-label font-medium text-muted">Grafo financeiro unificado</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Grafo financeiro unificado
+            <InfoHint align="left" oQue="Desenha a empresa, suas contas, clientes e fornecedores e os fluxos entre eles, base de crédito e antifraude." comoCalcula="Monta o grafo a partir das contas, parties e movimentos, somando o fluxo por contraparte e destacando a concentração no topo." />
+          </span>
           <span className="text-caption text-faint">
             · {grafo.resumo.clientes} clientes · {grafo.resumo.fornecedores} fornecedores · fluxo <BRL value={grafo.resumo.fluxoTotal} />
           </span>

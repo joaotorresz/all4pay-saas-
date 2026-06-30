@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Switch, Button, Select, Input, StatusBadge, Icon, Skeleton, type SelectOption } from "@/components/ui";
+import { Card, Switch, Button, Select, Input, StatusBadge, Icon, Skeleton, InfoHint, type SelectOption } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import { loadAutomacoes, traceDemo, persistRule } from "@/lib/financial-os";
 import { actionLabel, materializarRegra } from "@/core/financial-os";
@@ -114,7 +114,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
         {/* Regras */}
         <div className="lg:col-span-2 flex flex-col gap-5">
           <Card className="flex flex-col gap-3">
-            <span className="text-label font-medium text-muted">Regras</span>
+            <span className="text-label font-medium text-muted inline-flex items-center gap-1">Regras<InfoHint align="left" titulo="Regras" oQue="Automações no formato SE acontecer tal evento ENTÃO faça tal ação, que você liga e desliga." comoCalcula="Cada regra tem um gatilho, condições sobre um campo e ações como enviar WhatsApp, cobrar ou bloquear pagamento." /></span>
             {rules.length === 0 && <span className="text-caption text-faint">Nenhuma regra ainda — crie a primeira abaixo.</span>}
             {rules.map((r) => (
               <div key={r.id} className="flex items-start gap-3 py-2 border-t border-border-soft first:border-t-0">
@@ -141,7 +141,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
           {/* Simulação orientada a eventos */}
           <Card padded={false}>
             <div className="px-5 pt-[18px] pb-2">
-              <span className="text-body font-medium text-ink">Simulação · event bus</span>
+              <span className="text-body font-medium text-ink inline-flex items-center gap-1">Simulação · event bus<InfoHint align="left" titulo="Simulação" oQue="Mostra o que as regras ativas fariam sobre os eventos do seu estado financeiro atual." comoCalcula="Deriva eventos do estado atual (saldo, inadimplência, recebimentos), passa pelas regras e lista as ações disparadas." /></span>
               <span className="text-caption text-faint ml-2">{trace.eventos.length} eventos → {trace.execucoes.length} ações automáticas</span>
             </div>
             {trace.execucoes.length === 0 && (
@@ -168,7 +168,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
                 <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
                   <Icon name="trending-up" size={14} color="var(--color-on-lime)" />
                 </span>
-                <span className="text-label font-medium text-muted">Alerta executivo · ponte de risco</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Alerta executivo · ponte de risco<InfoHint align="right" titulo="Alerta executivo" oQue="Aviso de impacto quando uma automação detecta algo que mexe no risco de caixa." comoCalcula="Quando um custo varia, recalcula o score de risco com a despesa ajustada e gera o alerta." /></span>
               </div>
               {trace.alertasExecutivos.map((a, i) => (
                 <div key={i} className="flex flex-col gap-1">
@@ -184,7 +184,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
                 <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
                   <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
                 </span>
-                <span className="text-label font-medium text-muted">IA sugere regras</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">IA sugere regras<InfoHint align="right" titulo="IA sugere regras" oQue="Recomendações de automações úteis que você pode ativar com um clique." comoCalcula="A IA analisa seus padrões financeiros e propõe regras prontas para automatizar." /></span>
               </div>
               {sugestoes.map((s, i) => (
                 <div key={i} className="flex flex-col gap-2 py-2 border-t border-border-soft first:border-t-0">
@@ -203,7 +203,7 @@ export function AutomacoesView({ onToast }: { onToast: (m: string) => void }) {
             </Card>
           )}
 
-          <Card padded={false}>
+          <Card padded={false} info={{ titulo: "Eventos publicados", oQue: "Lista os eventos financeiros que o sistema detectou e que disparam as regras.", comoCalcula: "Deriva os eventos do estado atual (saldo crítico, inadimplência, recebimento) e marca a prioridade de cada um." }}>
             <div className="px-5 pt-[18px] pb-2 text-label font-medium text-muted">Eventos publicados</div>
             {trace.eventos.length === 0 && <div className="px-5 pb-4 text-caption text-faint">Sem eventos no estado atual.</div>}
             {trace.eventos.map((ev, i) => (

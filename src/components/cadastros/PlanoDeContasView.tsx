@@ -76,7 +76,7 @@ export function PlanoDeContasView() {
 
         {aba === "plano" ? (
           <>
-            <Card className="flex items-center gap-5 flex-wrap">
+            <Card className="flex items-center gap-5 flex-wrap" info={{ titulo: "Plano de contas", oQue: "A espinha dorsal contábil: organiza receitas e despesas em grupos e categorias para lançar, relatar e montar o DRE.", comoCalcula: "Hierarquia fixa Grupo então Categoria, codificada por cor (verde receita, vermelho despesa), que define a ordem e os totalizadores do DRE." }}>
               <Legenda cor="var(--color-positive)" label="Receita (Contas a Receber)" />
               <Legenda cor="var(--color-negative)" label="Despesa (Contas a Pagar)" />
               <Legenda cor="var(--color-text-secondary)" label="Resultado / não operacional" />
@@ -104,7 +104,7 @@ export function PlanoDeContasView() {
           </>
         ) : (
           <>
-            <Card className="flex items-start gap-3">
+            <Card className="flex items-start gap-3" info={{ titulo: "Uso padrão", oQue: "O dicionário que ensina o motor a classificar cada lançamento sozinho, sem categorização manual a cada importação." }}>
               <Icon name="sparkles" size={18} color="var(--color-lime)" />
               <p className="m-0 text-caption text-muted">
                 O <b className="text-ink font-medium">Uso padrão</b> é o dicionário que permite ao motor classificar
@@ -113,7 +113,7 @@ export function PlanoDeContasView() {
                 categorização manual.
               </p>
             </Card>
-            <Card padded={false}>
+            <Card padded={false} info={{ titulo: "Mapa de auto-classificação", oQue: "Mostra para onde cada função do motor (taxas, comissões, estornos, chargeback) é lançada por padrão.", comoCalcula: "Tabela fixa que liga função do motor então categoria do plano então situação em que a regra é aplicada." }}>
               <div className="hidden sm:grid grid-cols-[1.2fr_1.2fr_1.6fr] gap-3 px-5 py-3 border-b border-border-soft text-caption font-medium text-muted">
                 <span>Função do motor</span><span>Categoria padrão</span><span>Quando é usada</span>
               </div>

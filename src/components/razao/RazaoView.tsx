@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge } from "@/components/ui";
+import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge, InfoHint } from "@/components/ui";
 import { getLedgerEntries, balancete, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
@@ -116,7 +116,7 @@ export function RazaoView() {
             {/* Balancete (trial balance) */}
             <Card padded={false}>
               <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
-                <span className="text-label font-medium text-muted">Balancete</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Balancete<InfoHint align="left" titulo="Balancete" oQue="Resumo por conta de quanto entrou no débito e no crédito, com o saldo de cada uma." comoCalcula="Soma os débitos e créditos de cada conta nos lançamentos; o razão fecha quando o total de débito é igual ao de crédito." /></span>
                 <StatusBadge tone={balanceado ? "positive" : "warning"}>{balanceado ? "Razão balanceado ✓" : "Desbalanceado"}</StatusBadge>
               </div>
               <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
@@ -142,7 +142,8 @@ export function RazaoView() {
             </Card>
 
             {/* Lançamentos */}
-            <Card padded={false}>
+            <Card padded={false}
+              info={{ titulo: "Lançamentos", oQue: "Cada registro de dupla entrada do razão, com suas linhas de débito e crédito ao abrir.", comoCalcula: "Reúne os lançamentos projetados dos movimentos mais os manuais, cronogramas e provisões." }}>
               <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Lançamentos · {entries.length}</div>
               {entries.slice(0, 200).map((e, i) => {
                 const on = aberto[e.id];

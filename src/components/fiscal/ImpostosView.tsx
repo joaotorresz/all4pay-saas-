@@ -53,7 +53,7 @@ export function ImpostosView() {
   return (
     <AppShell title="Impostos · Provisionamento">
       <div className="flex flex-col gap-5 pb-6">
-        <Card className="flex items-start gap-3">
+        <Card className="flex items-start gap-3" info={{ titulo: "Provisionamento de impostos", oQue: "Estima quanto sua empresa deve recolher de impostos sobre o faturamento e transforma isso em contas a pagar.", comoCalcula: "Aplica as alíquotas efetivas do Lucro Presumido (serviços, base presumida 32%) sobre a receita por mês de competência." }}>
           <Icon name="receipt" size={18} color="var(--color-lime)" />
           <p className="m-0 text-caption text-muted">
             Provisionamento por <b className="text-ink font-medium">mês de competência</b> no regime
@@ -74,14 +74,14 @@ export function ImpostosView() {
                   <span className="text-[20px] font-semibold tabular-nums text-ink">{formatBRL(imp.total)}</span>
                 </Card>
               ))}
-              <Card className="flex flex-col gap-1" elevated style={{ background: "var(--color-lime-tint)" }}>
+              <Card className="flex flex-col gap-1" elevated style={{ background: "var(--color-lime-tint)" }} info={{ titulo: "Carga tributária total", oQue: "O total estimado de impostos sobre o faturamento dos últimos 12 meses.", comoCalcula: "Receita total por competência multiplicada pela soma de todas as alíquotas efetivas." }}>
                 <span className="text-caption text-muted">Carga total ({(ALIQUOTA_TOTAL * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)</span>
                 <span className="text-[20px] font-semibold tabular-nums text-ink">{formatBRL(calc.cargaTotal)}</span>
               </Card>
             </div>
 
             {/* Matriz mês × imposto */}
-            <Card padded={false}>
+            <Card padded={false} info={{ titulo: "Provisionamento mês a mês", oQue: "Detalha, por mês de competência, a receita e o imposto provisionado de cada tributo.", comoCalcula: "Para cada mês, multiplica a receita por competência pela alíquota de cada imposto; somar a coluna gera uma conta a pagar por tributo." }}>
               <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Provisionamento por mês de competência</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-[14px]">

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Skeleton } from "@/components/ui";
+import { Card, Icon, BRL, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { getAccountsList, getRiscoInput, getBankAccounts, setBankAccountSource, linkBankAccount } from "@/lib/data";
 import { treasuryCore } from "@/core/treasury";
 import { useToast } from "@/components/listas/ListChrome";
@@ -60,18 +60,18 @@ export function ContasView() {
     <div className="flex flex-col gap-5 pb-4">
       {/* Posição consolidada + liquidez (inclui Open Finance) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="flex flex-col gap-1 md:col-span-1">
+        <Card className="flex flex-col gap-1 md:col-span-1" info={{ titulo: "Posição consolidada", oQue: "O saldo total disponível somando todas as contas, manuais e do Open Finance.", comoCalcula: "Soma dos saldos efetivos das contas, sem duplicar contas vinculadas." }}>
           <span className="text-caption text-faint">Posição consolidada</span>
           <span className="text-value-lg font-medium tabular-nums text-ink leading-none"><BRL value={t.posicaoTotal} /></span>
         </Card>
-        <Kpi label="Liquidez imediata" v={t.liquidez.imediata} />
-        <Kpi label="Curto prazo (30d)" v={t.liquidez.curto30} />
-        <Kpi label="Projetada (90d)" v={t.liquidez.projetada90} tone={t.liquidez.projetada90 < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
+        <Kpi label="Liquidez imediata" v={t.liquidez.imediata} info={{ titulo: "Liquidez imediata", oQue: "Quanto você tem disponível agora, sem depender de recebimentos futuros.", comoCalcula: "Saldo das contas no momento, dentro do horizonte imediato." }} />
+        <Kpi label="Curto prazo (30d)" v={t.liquidez.curto30} info={{ titulo: "Curto prazo (30d)", oQue: "Caixa esperado considerando o que entra e sai nos próximos 30 dias.", comoCalcula: "Saldo atual mais recebimentos menos pagamentos previstos até 30 dias." }} />
+        <Kpi label="Projetada (90d)" v={t.liquidez.projetada90} tone={t.liquidez.projetada90 < 0 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Projetada (90d)", oQue: "A folga de caixa projetada para os próximos 90 dias.", comoCalcula: "Saldo atual mais recebimentos menos pagamentos previstos até 90 dias." }} />
       </div>
 
       {/* Exposição + concentração */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-        <Card className="flex flex-col gap-3 lg:col-span-1">
+        <Card className="flex flex-col gap-3 lg:col-span-1" info={{ titulo: "Exposição", oQue: "Compara o que a empresa tem a receber com o que tem a pagar.", comoCalcula: "A receber menos a pagar resulta na exposição líquida (positiva ou negativa)." }}>
           <span className="text-label font-medium text-muted">Exposição</span>
           <Linha k="A receber" v={<BRL value={t.exposicao.aReceber} />} cor="var(--color-positive)" />
           <Linha k="A pagar" v={<BRL value={t.exposicao.aPagar} />} cor="var(--color-ink)" />
@@ -82,7 +82,7 @@ export function ContasView() {
 
         <Card className="flex flex-col gap-3 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <span className="text-label font-medium text-muted">Concentração bancária</span>
+            <span className="inline-flex items-center gap-1 text-label font-medium text-muted">Concentração bancária<InfoHint align="left" titulo="Concentração bancária" oQue="Mostra se o caixa está muito dependente de um único banco." comoCalcula="O HHI mede a concentração; ao lado, a fatia do saldo no maior banco. Acima de 60% vira alerta." /></span>
             <span className="text-caption text-faint">HHI {Math.round(t.concentracaoBancariaHHI)} · maior banco {pct(t.topBancoShare)}</span>
           </div>
           <div className="flex flex-col gap-2">
@@ -106,7 +106,7 @@ export function ContasView() {
       {/* Contas (manuais + Open Finance, unificadas) */}
       <Card padded={false}>
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Contas</span>
+          <span className="inline-flex items-center gap-1 text-body font-medium text-ink">Contas<InfoHint align="left" titulo="Contas" oQue="Lista as contas manuais e as conectadas por Open Finance, unificadas." comoCalcula="Contas de mesmo banco podem ser vinculadas para não duplicar; você escolhe qual saldo é o oficial." /></span>
           <span className="text-caption text-faint">{unificadas.length}</span>
         </div>
         <div className="flex flex-col">
@@ -146,7 +146,7 @@ export function ContasView() {
 
       {/* Cash positioning — próximas semanas */}
       {t.cashPositioning.length > 0 && (
-        <Card className="flex flex-col gap-3">
+        <Card className="flex flex-col gap-3" info={{ titulo: "Posicionamento de caixa", oQue: "Projeta o caixa semana a semana para as próximas oito semanas.", comoCalcula: "Para cada semana, soma entradas e subtrai saídas previstas, acumulando o saldo." }}>
           <span className="text-label font-medium text-muted">Posicionamento de caixa — próximas semanas</span>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
             {t.cashPositioning.map((w) => (
@@ -195,9 +195,9 @@ function SaldoEscolha({ label, v, oficial, onClick }: { label: string; v: number
   );
 }
 
-function Kpi({ label, v, tone = "var(--color-ink)" }: { label: string; v: number; tone?: string }) {
+function Kpi({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}><BRL value={v} /></span>
     </Card>

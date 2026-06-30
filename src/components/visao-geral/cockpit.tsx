@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Skeleton, Icon, BRL } from "@/components/ui";
+import { Card, Skeleton, Icon, BRL, type InfoConteudo } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import {
   useQuantitativo,
@@ -55,15 +55,16 @@ const realizado = (m: RiskMovement): string | null => m.paid_date ?? (m.status =
 
 /* ----------------------------- MetricCard ----------------------------- */
 
-function MetricCard({ label, value, answer, tone, icon }: {
+function MetricCard({ label, value, answer, tone, icon, info }: {
   label: string;
   value: React.ReactNode;
   answer?: string;
   tone?: string;
   icon?: string;
+  info?: InfoConteudo;
 }) {
   return (
-    <Card className="flex flex-col gap-2">
+    <Card className="flex flex-col gap-2" info={info}>
       <div className="flex items-center gap-2">
         {icon && <Icon name={icon} size={14} color="var(--color-text-secondary)" />}
         <span className="text-label font-medium text-muted">{label}</span>
@@ -166,7 +167,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
         value={`${c.quant.score.score}/100`}
-        answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`} />
+        answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`}
+        info={{ titulo: "Financial Health Score", oQue: "Resume a saúde financeira da empresa num único número de 0 a 100.", comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento." }} />
     ),
   },
   {
@@ -174,7 +176,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.risco ? <Loading /> : (
       <MetricCard icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
         value={c.risco.nivel === "baixo" ? "🟢 Saudável" : c.risco.nivel === "medio" ? "🟡 Atenção" : "🔴 Risco"}
-        answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`} />
+        answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
+        info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: "Deriva do score de risco de caixa e da probabilidade de ruptura projetada em 60 dias." }} />
     ),
   },
   /* ---- Caixa ---- */
@@ -185,7 +188,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         value={`${meses(c.quant.indicadores.runwayMeses)} meses`}
         answer={c.quant.indicadores.burnRate > 0
           ? `Seu caixa cobre ${meses(c.quant.indicadores.runwayMeses)} meses no burn atual de ${formatBRL(c.quant.indicadores.burnRate)}/mês.`
-          : "A operação gera caixa — runway saudável."} />
+          : "A operação gera caixa — runway saudável."}
+        info={{ titulo: "Fôlego de caixa", oQue: "Por quantos meses o caixa atual aguenta no ritmo de gasto de hoje.", comoCalcula: "Saldo de caixa dividido pelo burn rate (consumo líquido mensal)." }} />
     ),
   },
   {
@@ -193,7 +197,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="trending-up" label="Burn rate"
         value={c.quant.indicadores.burnRate > 0 ? <BRL value={c.quant.indicadores.burnRate} /> : "—"}
-        answer={c.quant.indicadores.burnRate > 0 ? "Consumo líquido de caixa por mês." : "A operação está gerando caixa."} />
+        answer={c.quant.indicadores.burnRate > 0 ? "Consumo líquido de caixa por mês." : "A operação está gerando caixa."}
+        info={{ titulo: "Burn rate", oQue: "Quanto de caixa a empresa queima, em média, por mês.", comoCalcula: "Saídas menos entradas operacionais médias no período. Zero quando a operação gera caixa." }} />
     ),
   },
   {
@@ -201,7 +206,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="activity" label="Liquidez corrente" tone={c.quant.indicadores.liquidezCorrente < 1 ? NEG : c.quant.indicadores.liquidezCorrente < 1.5 ? WARN : POS}
         value={c.quant.indicadores.liquidezCorrente.toFixed(2)}
-        answer={c.quant.indicadores.liquidezCorrente >= 1 ? "Você consegue cobrir as obrigações de curto prazo." : "Obrigações de curto prazo acima dos ativos líquidos."} />
+        answer={c.quant.indicadores.liquidezCorrente >= 1 ? "Você consegue cobrir as obrigações de curto prazo." : "Obrigações de curto prazo acima dos ativos líquidos."}
+        info={{ titulo: "Liquidez corrente", oQue: "Mostra se os ativos de curto prazo cobrem as obrigações de curto prazo.", comoCalcula: "Ativos líquidos divididos pelas obrigações de curto prazo. Acima de 1 é confortável." }} />
     ),
   },
   /* ---- Receita ---- */
@@ -210,7 +216,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="repeat" label="Receita recorrente"
         value={pctTxt(c.quant.indicadores.receitaRecorrente)}
-        answer={`${pctTxt(c.quant.indicadores.receitaRecorrente)} da sua receita é previsível/recorrente.`} />
+        answer={`${pctTxt(c.quant.indicadores.receitaRecorrente)} da sua receita é previsível/recorrente.`}
+        info={{ titulo: "Receita recorrente", oQue: "Quanto da receita é previsível, vindo de contratos e cobranças recorrentes.", comoCalcula: "Parcela da receita identificada como recorrente sobre a receita total do período." }} />
     ),
   },
   {
@@ -218,14 +225,16 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="trending-up" label="Crescimento (MoM)" tone={c.quant.indicadores.crescimentoMensal < 0 ? NEG : POS}
         value={`${c.quant.indicadores.crescimentoMensal >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.crescimentoMensal)}`}
-        answer="Variação da receita vs o mês anterior." />
+        answer="Variação da receita vs o mês anterior."
+        info={{ titulo: "Crescimento (MoM)", oQue: "O ritmo de crescimento da receita de um mês para o outro.", comoCalcula: "Variação percentual da receita do mês atual contra o mês anterior." }} />
     ),
   },
   {
     id: "ticket_medio", label: "Ticket médio", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="credit-card" label="Ticket médio" value={<BRL value={c.quant.indicadores.ticketMedio} />}
-        answer="Valor médio por venda no período analisado." />
+        answer="Valor médio por venda no período analisado."
+        info={{ titulo: "Ticket médio", oQue: "Quanto vale, em média, cada venda.", comoCalcula: "Receita total dividida pelo número de vendas no período." }} />
     ),
   },
   /* ---- Despesas ---- */
@@ -234,7 +243,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="gauge" label="Inadimplência" tone={c.quant.indicadores.inadimplencia > 0.15 ? NEG : c.quant.indicadores.inadimplencia > 0.05 ? WARN : POS}
         value={pctTxt(c.quant.indicadores.inadimplencia)}
-        answer={`${pctTxt(c.quant.indicadores.inadimplencia)} dos recebíveis estão vencidos.`} />
+        answer={`${pctTxt(c.quant.indicadores.inadimplencia)} dos recebíveis estão vencidos.`}
+        info={{ titulo: "Inadimplência", oQue: "A fatia dos recebíveis que já passou do vencimento sem pagamento.", comoCalcula: "Total a receber vencido dividido pelo total a receber." }} />
     ),
   },
   /* ---- Cobrança ---- */
@@ -243,7 +253,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.inad ? <Loading /> : (
       <MetricCard icon="gauge" label="Saúde da carteira" tone={scoreTone(c.inad.resumo.scoreCarteira)}
         value={`${c.inad.resumo.scoreCarteira}/100`}
-        answer={`${c.inad.resumo.clientesCriticos} cliente(s) crítico(s); inadimplência esperada de ${formatBRL(c.inad.resumo.inadimplenciaEsperada)}.`} />
+        answer={`${c.inad.resumo.clientesCriticos} cliente(s) crítico(s); inadimplência esperada de ${formatBRL(c.inad.resumo.inadimplenciaEsperada)}.`}
+        info={{ titulo: "Saúde da carteira", oQue: "Avalia o risco de crédito do conjunto de clientes que devem à empresa.", comoCalcula: "Score ponderado pelo comportamento de pagamento de cada cliente da carteira." }} />
     ),
   },
   {
@@ -251,7 +262,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.inad ? <Loading /> : (
       <MetricCard icon="triangle-alert" label="Exposição vencida" tone={c.inad.resumo.exposicaoVencida > 0 ? NEG : POS}
         value={<BRL value={c.inad.resumo.exposicaoVencida} />}
-        answer="Total a receber já vencido — priorize a cobrança." />
+        answer="Total a receber já vencido — priorize a cobrança."
+        info={{ titulo: "Exposição vencida", oQue: "Quanto dinheiro a receber já está vencido e aguardando cobrança.", comoCalcula: "Soma dos recebíveis com vencimento no passado ainda não pagos." }} />
     ),
   },
   /* ---- Risco / Radares ---- */
@@ -260,7 +272,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="target" label="Radar de concentração" tone={c.quant.indicadores.concentracaoReceita > 0.4 ? WARN : POS}
         value={pctTxt(c.quant.indicadores.concentracaoReceita)}
-        answer={`Seu maior cliente representa ${pctTxt(c.quant.indicadores.concentracaoReceita)} da receita${c.quant.indicadores.concentracaoReceita > 0.4 ? " — dependência alta." : "."}`} />
+        answer={`Seu maior cliente representa ${pctTxt(c.quant.indicadores.concentracaoReceita)} da receita${c.quant.indicadores.concentracaoReceita > 0.4 ? " — dependência alta." : "."}`}
+        info={{ titulo: "Radar de concentração", oQue: "Mostra se a receita depende demais de um único cliente.", comoCalcula: "Fatia da receita total que vem do maior cliente. Acima de 40% vira alerta." }} />
     ),
   },
   {
@@ -271,7 +284,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       return (
         <MetricCard icon="building" label="Radar bancário" tone={e.share > 0.7 ? WARN : POS}
           value={pctTxt(e.share)}
-          answer={`${pctTxt(e.share)} do seu caixa está em um único banco${e.share > 0.7 ? " — considere diluir." : "."}`} />
+          answer={`${pctTxt(e.share)} do seu caixa está em um único banco${e.share > 0.7 ? " — considere diluir." : "."}`}
+          info={{ titulo: "Radar bancário", oQue: "Mostra se o caixa está concentrado demais em um único banco.", comoCalcula: "Fatia do saldo total que está no banco com maior posição. Acima de 70% sugere diluir." }} />
       );
     },
   },
@@ -280,7 +294,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     render: (c) => !c.exec ? <Loading /> : (
       <MetricCard icon="triangle-alert" label="Radar de anomalias" tone={c.exec.anomalias.length ? WARN : POS}
         value={`${c.exec.anomalias.length}`}
-        answer={c.exec.anomalias.length ? `Detectamos ${c.exec.anomalias.length} pagamento(s)/lançamento(s) fora do padrão.` : "Nenhuma anomalia detectada."} />
+        answer={c.exec.anomalias.length ? `Detectamos ${c.exec.anomalias.length} pagamento(s)/lançamento(s) fora do padrão.` : "Nenhuma anomalia detectada."}
+        info={{ titulo: "Radar de anomalias", oQue: "Aponta lançamentos fora do padrão, como gasto anormal ou duplicidade.", comoCalcula: "Compara cada despesa com o histórico da categoria e sinaliza desvios e pagamentos atípicos." }} />
     ),
   },
   {
@@ -292,7 +307,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       return (
         <MetricCard icon="sparkles" label="Radar de oportunidades" tone={POS}
           value={top ? `${rec.length} ação(ões)` : "—"}
-          answer={top ? `${top.titulo} — ${top.descricao}` : "Sem oportunidades de melhoria relevantes agora."} />
+          answer={top ? `${top.titulo} — ${top.descricao}` : "Sem oportunidades de melhoria relevantes agora."}
+          info={{ titulo: "Radar de oportunidades", oQue: "Sugere ações que melhoram o caixa, como antecipar recebíveis ou renegociar.", comoCalcula: "O motor de decisão simula cada ação e mede o impacto real no runway e no score." }} />
       );
     },
   },

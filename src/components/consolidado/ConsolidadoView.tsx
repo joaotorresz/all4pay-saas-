@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, DatePicker, Skeleton, Icon } from "@/components/ui";
+import { Card, BRL, DatePicker, Skeleton, Icon, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -24,7 +24,7 @@ export function ConsolidadoView() {
   return (
     <AppShell title="Consolidado · multi-empresa" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
       <div className="flex flex-col gap-5 pb-4">
-        <Card className="flex flex-wrap items-end gap-x-3 gap-y-2">
+        <Card className="flex flex-wrap items-end gap-x-3 gap-y-2" info={{ titulo: "Período do consolidado", oQue: "Define a janela de datas usada para somar receita, despesa e resultado de todas as suas empresas.", comoCalcula: "Filtra os movimentos de cada organização entre as datas De e Até; o saldo é a posição atual, independente do período." }}>
           <DatePicker label="De" value={de} onChange={setDe} max={ate} containerClassName="min-w-[150px]" />
           <DatePicker label="Até" value={ate} onChange={setAte} min={de} containerClassName="min-w-[150px]" />
           <span className="text-caption text-faint self-center ml-auto">Agrega as organizações em que você é membro · sem eliminações intercompany</span>
@@ -40,13 +40,13 @@ export function ConsolidadoView() {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <Mini label="Saldo consolidado" v={c.saldo} />
-              <Mini label="Receita (período)" v={c.receita} />
-              <Mini label="Despesa (período)" v={c.despesa} />
-              <Mini label="Resultado" v={c.resultado} tone={c.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)"} />
+              <Mini label="Saldo consolidado" v={c.saldo} info={{ titulo: "Saldo consolidado", oQue: "O caixa disponível somado de todas as suas empresas.", comoCalcula: "Soma do saldo atual das contas de cada organização; não depende do período." }} />
+              <Mini label="Receita (período)" v={c.receita} info={{ titulo: "Receita do período", oQue: "Tudo que as empresas receberam na janela escolhida.", comoCalcula: "Soma das entradas de todas as organizações entre De e Até." }} />
+              <Mini label="Despesa (período)" v={c.despesa} info={{ titulo: "Despesa do período", oQue: "Tudo que as empresas gastaram na janela escolhida.", comoCalcula: "Soma das saídas de todas as organizações entre De e Até." }} />
+              <Mini label="Resultado" v={c.resultado} tone={c.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)"} info={{ titulo: "Resultado do período", oQue: "Quanto sobrou ou faltou no conjunto das empresas no período.", comoCalcula: "Receita do período menos despesa do período, somando todas as organizações." }} />
             </div>
 
-            <Card padded={false}>
+            <Card padded={false} info={{ titulo: "Posição por empresa", oQue: "Mostra saldo, receita, despesa e resultado de cada organização e a soma consolidada.", comoCalcula: "Uma linha por empresa em que você é membro; a última linha soma as colunas, sem eliminações intercompany." }}>
               <div className="hidden sm:grid grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
                 <span>Empresa</span><span className="text-right">Saldo</span><span className="text-right">Receita</span><span className="text-right">Despesa</span><span className="text-right">Resultado</span>
               </div>
@@ -74,9 +74,9 @@ export function ConsolidadoView() {
   );
 }
 
-function Mini({ label, v, tone = "var(--color-ink)" }: { label: string; v: number; tone?: string }) {
+function Mini({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}><BRL value={v} /></span>
     </Card>

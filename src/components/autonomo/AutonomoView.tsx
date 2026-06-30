@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BRL, Card, Skeleton, Icon, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { listParties } from "@/lib/cadastros";
 import { useUpdateParty } from "@/components/lancamentos/hooks";
@@ -51,7 +51,7 @@ export function AutonomoView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Headline + next best action */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Operação autônoma", oQue: "Mostra o diagnóstico geral e a próxima melhor ação que o sistema recomenda executar agora." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="cpu" size={14} color="var(--color-on-lime)" />
@@ -70,7 +70,7 @@ export function AutonomoView() {
       </Card>
 
       {/* Decisões */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Decisões financeiras", oQue: "Lista as decisões que o sistema propõe (cobrar, pagar, mover capital, reduzir risco) por prioridade.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada decisão com impacto esperado, confiança e os fatores que a explicam." }}>
         <span className="text-label font-medium text-muted">Decisões financeiras</span>
         {decisoes.length === 0 ? (
           <span className="text-caption text-faint">Operação estável — nenhuma decisão acionável.</span>
@@ -80,7 +80,7 @@ export function AutonomoView() {
       </Card>
 
       {/* Human-in-the-loop */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Human-in-the-loop", oQue: "Mostra o que roda sozinho e o que fica na sua mão, mantendo o controle sobre o dinheiro.", comoCalcula: "Ações reversíveis e abaixo do limite automático com confiança suficiente executam sozinhas; o resto escala para aprovação." }}>
         <span className="text-label font-medium text-muted">Human-in-the-loop</span>
         <div className="flex gap-6">
           <div>
@@ -106,7 +106,7 @@ export function AutonomoView() {
       </Card>
 
       {/* Políticas */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Políticas autônomas", oQue: "Mostra as regras SE então que guiam a operação e quais foram acionadas agora.", comoCalcula: "Cada política avalia o contexto (risco, saldo, inadimplência, concentração) e dispara quando a condição é atendida." }}>
         <span className="text-label font-medium text-muted">Políticas autônomas · SE → ENTÃO</span>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           {politicas.map((p) => <PoliticaRow key={p.id} p={p} />)}
@@ -117,7 +117,7 @@ export function AutonomoView() {
       <CobrancaCard collections={collections} partyDe={partyDe} />
 
       {/* Roteamento de pagamento */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Roteamento de pagamento", oQue: "Sugere de qual conta ou banco pagar cada título para preservar liquidez e diluir concentração.", comoCalcula: "O motor escolhe a conta que melhor mantém o caixa e reduz a dependência de um único banco." }}>
         <span className="text-label font-medium text-muted">Roteamento de pagamento</span>
         {routing.length === 0 ? (
           <span className="text-caption text-faint">Sem pagamentos pendentes para rotear.</span>
@@ -237,7 +237,10 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
   return (
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-label font-medium text-muted">Cobrança autônoma · canal · horário · estratégia</span>
+        <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+          Cobrança autônoma · canal · horário · estratégia
+          <InfoHint align="left" oQue="Organiza a cobrança dos clientes em aberto, definindo canal, horário e tom para cada um." comoCalcula="Um modelo preditivo escolhe canal, horário e estratégia por cliente a partir do comportamento de pagamento dele." />
+        </span>
         <Button variant="primary" size="sm" disabled={enviando || enviaveis.length === 0} onClick={disparar}>
           {enviando ? "Disparando…" : `Disparar no WhatsApp (${enviaveis.length})`}
         </Button>

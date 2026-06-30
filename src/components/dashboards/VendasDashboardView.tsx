@@ -22,7 +22,7 @@
 import * as React from "react";
 import { ResponsiveContainer, ComposedChart, LineChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { AppShell } from "@/components/app/AppShell";
-import { Card, Skeleton, Icon } from "@/components/ui";
+import { Card, Skeleton, Icon, InfoHint, type InfoConteudo } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { usePeriod, MES_ABBR } from "@/components/visao-geral/PeriodContext";
@@ -161,23 +161,23 @@ export function VendasDashboardView() {
           <>
             {/* Linha 1 — KPIs CAC · LTV · LTV/CAC · EBITDA */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <KpiCard titulo="CAC" rows={[["Mês", formatBRL(calc.cacMes)], ["Trimestre", formatBRL(calc.cacTri)], ["Ano", formatBRL(calc.cacAno)]]} />
-              <KpiCard titulo="LTV" rows={[["Mês", formatBRL(calc.ltvMes)], ["Trimestre", formatBRL(calc.ltvTri)], ["Ano", formatBRL(calc.ltvAno)]]} />
-              <KpiCard titulo="LTV / CAC" rows={[["Mês", fmtRatio(calc.lcMes)], ["Trimestre", fmtRatio(calc.lcTri)], ["Ano", fmtRatio(calc.lcAno)]]} />
-              <KpiCard titulo="EBITDA" rows={[["Mês", formatBRL(calc.ebitdaMes)], ["Acumulado", formatBRL(calc.ebitdaAcum)], ["% Receita", fmtPct(calc.pctReceita)]]} />
+              <KpiCard titulo="CAC" rows={[["Mês", formatBRL(calc.cacMes)], ["Trimestre", formatBRL(calc.cacTri)], ["Ano", formatBRL(calc.cacAno)]]} info={{ titulo: "CAC", oQue: "Quanto custa, em média, conquistar cada cliente novo.", comoCalcula: "Gasto de marketing da janela dividido pelo nº de clientes distintos da janela." }} />
+              <KpiCard titulo="LTV" rows={[["Mês", formatBRL(calc.ltvMes)], ["Trimestre", formatBRL(calc.ltvTri)], ["Ano", formatBRL(calc.ltvAno)]]} info={{ titulo: "LTV", oQue: "Quanto cada cliente gera de receita, em média.", comoCalcula: "Receita da janela dividida pelo nº de clientes distintos da janela." }} />
+              <KpiCard titulo="LTV / CAC" rows={[["Mês", fmtRatio(calc.lcMes)], ["Trimestre", fmtRatio(calc.lcTri)], ["Ano", fmtRatio(calc.lcAno)]]} info={{ titulo: "LTV / CAC", oQue: "Mostra se cada real gasto para conquistar clientes volta em receita.", comoCalcula: "LTV dividido pelo CAC (0 quando o CAC é zero). Acima de 3 é saudável." }} />
+              <KpiCard titulo="EBITDA" rows={[["Mês", formatBRL(calc.ebitdaMes)], ["Acumulado", formatBRL(calc.ebitdaAcum)], ["% Receita", fmtPct(calc.pctReceita)]]} info={{ titulo: "EBITDA", oQue: "Resultado operacional antes de juros, impostos e depreciação.", comoCalcula: "Receita menos despesas operacionais (exclui financeiro, D&A e IRPJ/CSLL). % Receita é o EBITDA acumulado sobre a receita acumulada no ano." }} />
             </div>
 
             {/* Linha 2 — Faturamento · Reembolsos · Chargebacks */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <DestaqueCard titulo="Faturamento bruto" tint="lime" rows={[["Mês", formatBRL(calc.faturamentoMes)]]} />
-              <DestaqueCard titulo="Reembolsos" tint="lime" rows={[["Mês", formatBRL(calc.reembMes)], ["Ano", formatBRL(calc.reembAno)]]} />
-              <DestaqueCard titulo="Chargebacks" tint="negativo" rows={[["Mês", formatBRL(calc.chargeMes)], ["Ano", formatBRL(calc.chargeAno)]]} />
+              <DestaqueCard titulo="Faturamento bruto" tint="lime" rows={[["Mês", formatBRL(calc.faturamentoMes)]]} info={{ titulo: "Faturamento bruto", oQue: "Tudo o que a empresa vendeu no período, antes de deduções.", comoCalcula: "Soma das entradas por competência (data de vencimento) na janela selecionada." }} />
+              <DestaqueCard titulo="Reembolsos" tint="lime" rows={[["Mês", formatBRL(calc.reembMes)], ["Ano", formatBRL(calc.reembAno)]]} info={{ titulo: "Reembolsos", oQue: "Valores devolvidos a clientes no período.", comoCalcula: "Soma das saídas cuja categoria indica reembolso, no mês e no ano." }} />
+              <DestaqueCard titulo="Chargebacks" tint="negativo" rows={[["Mês", formatBRL(calc.chargeMes)], ["Ano", formatBRL(calc.chargeAno)]]} info={{ titulo: "Chargebacks", oQue: "Estornos contestados na operadora de cartão.", comoCalcula: "Soma das saídas cuja categoria indica chargeback ou estorno, no mês e no ano." }} />
             </div>
 
             {/* Gráficos de linha — Vendas da semana · Vendas do ano */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {!hidSemana && (
-                <ChartCard titulo="Vendas da semana" onClose={() => setHidSemana(true)}>
+                <ChartCard titulo="Vendas da semana" onClose={() => setHidSemana(true)} info={{ titulo: "Vendas da semana", oQue: "Distribui a receita pelos dias da semana-âncora.", comoCalcula: "Soma das entradas por dia, na semana do dia atual (ou do último dia do mês selecionado)." }}>
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.semana} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
@@ -190,7 +190,7 @@ export function VendasDashboardView() {
                 </ChartCard>
               )}
               {!hidAno && (
-                <ChartCard titulo="Vendas do ano" onClose={() => setHidAno(true)}>
+                <ChartCard titulo="Vendas do ano" onClose={() => setHidAno(true)} info={{ titulo: "Vendas do ano", oQue: "Evolução mês a mês da receita no ano selecionado.", comoCalcula: "Soma das entradas por mês (competência) ao longo dos 12 meses do ano." }}>
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.serieAno} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
@@ -209,7 +209,7 @@ export function VendasDashboardView() {
 
             {/* Área — Receita Bruta, Margem de Contribuição e EBITDA */}
             <Card className="flex flex-col gap-3">
-              <span className="text-[16px] font-semibold text-ink">Receita Bruta, Margem de Contribuição e EBITDA</span>
+              <span className="inline-flex items-center gap-1 text-[16px] font-semibold text-ink">Receita Bruta, Margem de Contribuição e EBITDA<InfoHint align="left" titulo="Receita, MC e EBITDA" oQue="Compara, mês a mês, a receita bruta, a margem de contribuição e o EBITDA." comoCalcula="Receita bruta = soma das entradas. Margem de contribuição = receita menos custos variáveis. EBITDA = receita menos despesas operacionais." /></span>
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={calc.serieRME} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                   <defs>
@@ -241,9 +241,9 @@ export function VendasDashboardView() {
 const fmtRatio = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n: number) => `${(n * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 
-function KpiCard({ titulo, rows }: { titulo: string; rows: [string, string][] }) {
+function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, string][]; info?: InfoConteudo }) {
   return (
-    <Card className="flex flex-col gap-2">
+    <Card className="flex flex-col gap-2" info={info}>
       <span className="text-caption font-semibold tracking-wide uppercase" style={{ color: POSITIVE }}>{titulo}</span>
       <div className="flex flex-col">
         {rows.map(([k, v], i) => (
@@ -257,12 +257,12 @@ function KpiCard({ titulo, rows }: { titulo: string; rows: [string, string][] })
   );
 }
 
-function DestaqueCard({ titulo, rows, tint }: { titulo: string; rows: [string, string][]; tint: "lime" | "negativo" }) {
+function DestaqueCard({ titulo, rows, tint, info }: { titulo: string; rows: [string, string][]; tint: "lime" | "negativo"; info?: InfoConteudo }) {
   const isNeg = tint === "negativo";
   const bg = isNeg ? "rgba(194,71,61,0.08)" : "var(--color-lime-tint)";
   const cor = isNeg ? "var(--color-negative)" : POSITIVE;
   return (
-    <Card className="flex flex-col gap-2" style={{ background: bg }}>
+    <Card className="flex flex-col gap-2" style={{ background: bg }} info={info}>
       <span className="text-caption font-semibold tracking-wide uppercase" style={{ color: cor }}>{titulo}</span>
       <div className="flex flex-col">
         {rows.map(([k, v], i) => (
@@ -276,11 +276,11 @@ function DestaqueCard({ titulo, rows, tint }: { titulo: string; rows: [string, s
   );
 }
 
-function ChartCard({ titulo, onClose, children }: { titulo: string; onClose: () => void; children: React.ReactNode }) {
+function ChartCard({ titulo, onClose, children, info }: { titulo: string; onClose: () => void; children: React.ReactNode; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[16px] font-semibold text-ink">{titulo}</span>
+        <span className="inline-flex items-center gap-1 text-[16px] font-semibold text-ink">{titulo}{info && <InfoHint align="left" {...info} />}</span>
         <button onClick={onClose} aria-label={`Ocultar ${titulo}`} className="w-7 h-7 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors"><Icon name="x" size={16} color="currentColor" /></button>
       </div>
       {children}

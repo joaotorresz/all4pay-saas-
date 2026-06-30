@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import Link from "next/link";
-import { Card, BRL, StatusBadge, Select, DatePicker, Skeleton } from "@/components/ui";
+import { Card, BRL, StatusBadge, Select, DatePicker, Skeleton, InfoHint } from "@/components/ui";
 import { getLedgerEntries, dreDoRazao, balancoDoRazao, pivotDoRazao, type RazaoLancamento } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -49,7 +49,7 @@ export function RelatoriosRazaoView() {
             {/* DRE unificado: vive em /dre (razão = projeção dos movimentos, números reconciliam) */}
             <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
-                <span className="text-label font-medium text-muted">Resultado do período</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Resultado do período<InfoHint align="left" titulo="Resultado do período" oQue="Lucro ou prejuízo no intervalo escolhido, conforme o razão." comoCalcula="Receita menos despesa do período, lendo as contas de resultado dos lançamentos." /></span>
                 <span className="text-[24px] leading-none font-semibold tabular-nums" style={{ color: dre!.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={dre!.resultado} /></span>
                 <span className="text-caption text-faint tabular-nums">receita <BRL value={dre!.receita} /> · despesa <BRL value={dre!.despesa} /></span>
               </div>
@@ -59,7 +59,7 @@ export function RelatoriosRazaoView() {
             {/* Orçado × Realizado vive em /orcamento (flux analysis único) */}
             <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
-                <span className="text-label font-medium text-muted">Orçado × Realizado</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Orçado × Realizado<InfoHint align="left" titulo="Orçado × Realizado" oQue="Compara o que foi planejado no orçamento com o que de fato aconteceu." comoCalcula="A análise de variação por linha vive na tela de orçamento; aqui é o atalho para abri-la." /></span>
                 <span className="text-caption text-faint">Análise de variação com flux (orçamento mensal por linha + drill-down).</span>
               </div>
               <Link href="/orcamento" className="text-label font-medium text-ink underline">Abrir orçamento →</Link>
@@ -68,7 +68,7 @@ export function RelatoriosRazaoView() {
             {/* Balanço patrimonial */}
             <Card className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-label font-medium text-muted">Balanço patrimonial · até {ate.split("-").reverse().join("/")}</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Balanço patrimonial · até {ate.split("-").reverse().join("/")}<InfoHint align="left" titulo="Balanço patrimonial" oQue="Foto do que a empresa tem e deve numa data: ativos, passivos e patrimônio líquido." comoCalcula="Acumula os saldos das contas patrimoniais do razão até a data; fecha quando ativo é igual a passivo mais patrimônio líquido." /></span>
                 <StatusBadge tone={balanco!.fecha ? "positive" : "warning"}>{balanco!.fecha ? "Ativo = Passivo + PL ✓" : "Não fecha"}</StatusBadge>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -91,7 +91,7 @@ export function RelatoriosRazaoView() {
             {/* Pivot por dimensão */}
             <Card className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <span className="text-label font-medium text-muted">Pivot por dimensão</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Pivot por dimensão<InfoHint align="left" titulo="Pivot por dimensão" oQue="Quebra receita, despesa e resultado por contraparte ou centro de custo." comoCalcula="Agrupa os lançamentos do período pela dimensão escolhida e soma receita e despesa de cada grupo." /></span>
                 <Select value={dim} onChange={setDim} options={[{ value: "contraparte", label: "Contraparte" }, { value: "centro", label: "Centro de custo" }]} containerClassName="min-w-[170px]" />
               </div>
               {pivot.length === 0 ? (

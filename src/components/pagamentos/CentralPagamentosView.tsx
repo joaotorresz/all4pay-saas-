@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Select, Input } from "@/components/ui";
+import { Card, Icon, BRL, Button, Select, Input, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import Link from "next/link";
@@ -147,7 +147,7 @@ export function CentralPagamentosView() {
   return (
     <div className="flex flex-col gap-5 pb-24">
       {/* Controles */}
-      <Card className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-4" info={{ titulo: "Execução de pagamentos", oQue: "Paga em lote os títulos a pagar já lançados, via Pix ou Open Finance.", comoCalcula: "Filtra os títulos em aberto por conta, método, categoria e busca; agrupar por dia, semana, mês ou ano." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="arrow-up-right" size={14} color="var(--color-on-lime)" /></span>
           <span className="text-label font-medium text-muted">Execução de pagamentos — paga os títulos lançados, em lote, via Pix / Open Finance</span>
@@ -253,7 +253,7 @@ export function CentralPagamentosView() {
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft flex-wrap">
           <div className="flex items-center gap-2">
             <Icon name="check" size={15} color="var(--color-positive)" />
-            <span className="text-body font-medium text-ink">Contas pagas</span>
+            <span className="inline-flex items-center text-body font-medium text-ink">Contas pagas<InfoHint align="left" titulo="Contas pagas" oQue="Os títulos que já foram liquidados no período — onde o saldo realmente saiu da conta." comoCalcula="Saídas com status pago e data de pagamento dentro da janela escolhida (7D, 14D, 30D, 3M ou Tudo)." /></span>
             <span className="text-caption text-faint">{pagos.length} no período · <span className="tabular-nums">{formatBRL(totalPago)}</span></span>
           </div>
           <div className="inline-flex rounded-md bg-surface-2 p-[3px]">

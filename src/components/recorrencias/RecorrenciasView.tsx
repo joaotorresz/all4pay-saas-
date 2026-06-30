@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Input, Select, CurrencyInput } from "@/components/ui";
+import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties, listProducts, listServices } from "@/lib/cadastros";
@@ -88,15 +88,15 @@ export function RecorrenciasView() {
     <div className="flex flex-col gap-5 pb-4">
       {/* Dashboard de assinatura */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="MRR" node={<BRL value={kpis.mrr} />} />
-        <Kpi label="Recorrências ativas" node={<span>{kpis.ativas}</span>} />
-        <Kpi label="Ticket médio" node={<BRL value={kpis.ticketMedio} />} />
-        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} tone={kpis.churn > 0.2 ? "var(--color-negative)" : "var(--color-ink)"} />
+        <Kpi label="MRR" node={<BRL value={kpis.mrr} />} info={{ titulo: "MRR", oQue: "Receita recorrente mensal contratada — quanto entra de assinatura todo mês.", comoCalcula: "Soma do valor por ciclo de todas as recorrências ativas, normalizado para o mês." }} />
+        <Kpi label="Recorrências ativas" node={<span>{kpis.ativas}</span>} info={{ titulo: "Recorrências ativas", oQue: "Quantos contratos estão gerando faturas no momento.", comoCalcula: "Contagem das recorrências com status ativa." }} />
+        <Kpi label="Ticket médio" node={<BRL value={kpis.ticketMedio} />} info={{ titulo: "Ticket médio", oQue: "Valor médio de cada contrato de assinatura.", comoCalcula: "MRR dividido pelo número de recorrências ativas." }} />
+        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} tone={kpis.churn > 0.2 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Churn", oQue: "Percentual de contratos que foram pausados ou cancelados — o quanto você perde de base.", comoCalcula: "Recorrências canceladas ou pausadas sobre o total de contratos." }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
         {/* Nova recorrência */}
-        <Card className="lg:col-span-1 flex flex-col gap-3">
+        <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Nova recorrência", oQue: "Cria um contrato de assinatura que projeta as próximas faturas como receita prevista no hub.", comoCalcula: "Os itens vêm do catálogo de Produtos/Serviços; o ciclo e o dia definem o vencimento de cada fatura." }}>
           <span className="text-label font-medium text-muted">Nova recorrência</span>
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ex.: Assinatura mensal)" />
           <Select label="Cliente" value={clienteId} onChange={setClienteId} options={[{ value: "", label: "Selecione…" }, ...clientes.map((c: Party) => ({ value: c.id, label: c.name }))]} />
@@ -132,7 +132,7 @@ export function RecorrenciasView() {
         {/* Lista de contratos */}
         <Card padded={false} className="lg:col-span-2">
           <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-            <span className="text-body font-medium text-ink">Contratos de recorrência</span>
+            <span className="inline-flex items-center text-body font-medium text-ink">Contratos de recorrência<InfoHint align="left" titulo="Contratos de recorrência" oQue="Lista as assinaturas e suas próximas faturas; aqui você ativa, pausa, cancela e emite NFS-e." comoCalcula="Ativar projeta as faturas no previsto (recebíveis, fluxo, DRE); pausar ou cancelar as remove." /></span>
             <span className="text-caption text-faint">{lista.length}</span>
           </div>
           <div className="flex flex-col max-h-[560px] overflow-y-auto">
@@ -181,9 +181,9 @@ export function RecorrenciasView() {
   );
 }
 
-function Kpi({ label, node, tone = "var(--color-ink)" }: { label: string; node: React.ReactNode; tone?: string }) {
+function Kpi({ label, node, tone = "var(--color-ink)", info }: { label: string; node: React.ReactNode; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}>{node}</span>
     </Card>

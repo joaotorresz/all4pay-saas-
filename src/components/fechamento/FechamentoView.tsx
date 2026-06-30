@@ -9,7 +9,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, StatusBadge, Button, Icon, Skeleton } from "@/components/ui";
+import { Card, BRL, StatusBadge, Button, Icon, Skeleton, InfoHint } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { montarFechamento, mesLabel } from "@/core/close";
 import { isPeriodLocked, lockPeriod, unlockPeriod, loadCloseTasks, saveCloseTask, hydrateClose } from "@/lib/close";
@@ -108,7 +108,7 @@ export function FechamentoView() {
           <Card className="flex flex-col gap-4">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
-                <div className="text-label font-medium text-muted">{report.mesLabel}</div>
+                <div className="text-label font-medium text-muted inline-flex items-center gap-1">{report.mesLabel}<InfoHint align="left" titulo="Prontidão do fechamento" oQue="Quanto do fechamento contábil do mês já está concluído e se o período pode ser travado." comoCalcula="Percentual de tarefas do checklist concluídas (de IA mais manuais) sobre o total do mês." /></div>
                 <div className="text-[28px] leading-none font-semibold text-ink mt-1">{Math.round(report.prontidao * 100)}% pronto</div>
               </div>
               <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export function FechamentoView() {
           </Card>
 
           {/* Checklist */}
-          <Card padded={false}>
+          <Card padded={false} info={{ titulo: "Checklist de fechamento", oQue: "A lista de tarefas para fechar o mês, com as automáticas (IA) já resolvidas e as manuais para você marcar.", comoCalcula: "Tarefas de IA derivadas do estado do mês (lançamentos faltantes, pendências) mais tarefas manuais fixas; cada uma marca OK, Atenção ou Pendente." }}>
             <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Checklist de fechamento</div>
             {report.tarefas.map((t, i) => (
               <div key={t.id} className={`flex items-center gap-3 px-3 sm:px-5 py-3 ${i ? "border-t border-border-soft" : ""}`}>
@@ -160,7 +160,7 @@ export function FechamentoView() {
 
           {/* Provisões sugeridas (accruals) */}
           {report.sugestoes.length > 0 && (
-            <Card className="flex flex-col gap-3">
+            <Card className="flex flex-col gap-3" info={{ titulo: "Provisões sugeridas", oQue: "Despesas que provavelmente ocorreram no mês mas ainda não foram lançadas, sugeridas para você provisionar (accrual).", comoCalcula: "A IA estima pela média histórica de cada categoria recorrente; Lançar cria a entrada no razão (despesa contra provisões a pagar)." }}>
               <span className="text-label font-medium text-muted inline-flex items-center gap-2">
                 <Icon name="sparkles" size={15} color="var(--color-lime)" /> Provisões sugeridas (accruals)
               </span>

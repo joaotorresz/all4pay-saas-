@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button } from "@/components/ui";
+import { Card, Icon, BRL, Button, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { analisarImportacao } from "@/core/fdip";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Money, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Money, Icon, InfoHint } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useInadimplencia } from "@/components/visao-geral/hooks";
@@ -87,8 +87,15 @@ export function InadimplenciaView() {
       {/* Heatmap de risco */}
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted">
-            Heatmap de risco · {r.totalClientes} clientes
+          <span className="inline-flex items-center gap-1">
+            <span className="text-label font-medium text-muted">
+              Heatmap de risco · {r.totalClientes} clientes
+            </span>
+            <InfoHint
+              align="left"
+              oQue="Ranqueia os clientes por risco de não pagar, com score, probabilidade, valor em aberto e classe de cada um."
+              comoCalcula="O comportamento de pagamento de cada cliente (atraso, oscilação, tendência, ticket) vira features que o modelo pondera em um score e uma probabilidade."
+            />
           </span>
           <span className="text-caption text-faint">ordenado por score</span>
         </div>
@@ -114,7 +121,14 @@ export function InadimplenciaView() {
       <ProfilePanel c={selected} />
 
       {/* Segmentação */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-3"
+        info={{
+          titulo: "Segmentação da carteira",
+          oQue: "Agrupa os clientes em perfis (bom pagador, sazonal, deteriorando, crônico, novo) com quantos e quanto cada grupo representa.",
+          comoCalcula: "Cada cliente é classificado em um segmento pelo seu comportamento de pagamento; o box soma clientes e exposição por grupo.",
+        }}
+      >
         <div className="flex items-center gap-2">
           <Icon name="users" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Segmentação da carteira</span>
@@ -247,7 +261,14 @@ const ESTRATEGIA_LABEL: Record<string, string> = {
 
 function ProfilePanel({ c }: { c: CustomerRiskProfile }) {
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-4">
+    <Card
+      className="lg:col-span-1 flex flex-col gap-4"
+      info={{
+        titulo: "Perfil do cliente",
+        oQue: "Detalha o cliente selecionado: por que ele tem esse risco, alertas, recomendação de crédito e estratégia de cobrança.",
+        comoCalcula: "Abre os fatores que somam no score do cliente e deriva o limite, prazo e entrada sugeridos a partir do comportamento dele.",
+      }}
+    >
       <div>
         <div className="text-[17px] font-medium text-ink truncate">{c.nome}</div>
         <div className="flex items-end gap-2 mt-1">

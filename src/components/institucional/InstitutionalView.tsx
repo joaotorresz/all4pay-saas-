@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Skeleton, Icon, Input, Select, Switch, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Input, Select, Switch, Button, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useAuditTrail } from "@/components/visao-geral/hooks";
@@ -62,7 +62,7 @@ export function InstitutionalView() {
       <PolicyEngineCard />
 
       {/* RBAC matrix */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Permissões granulares", oQue: "Mostra quem pode fazer o quê: a matriz de papéis contra ações no sistema.", comoCalcula: "Cada papel tem um conjunto fixo de permissões; a tabela marca onde o papel tem a ação liberada." }}>
         <SectionHead icon="users" title="Permissões granulares (RBAC)" sub="papel × ação" />
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-caption">
@@ -98,7 +98,7 @@ export function InstitutionalView() {
       </Card>
 
       {/* Escada de aprovação */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Fluxo de aprovação", oQue: "Define quem precisa aprovar um pagamento conforme o valor, da liberação automática à dupla alçada.", comoCalcula: "As faixas de valor são configuráveis; cada uma define os passos de aprovação (sequenciais ou paralelos) e se exige biometria." }}>
         <SectionHead icon="list-checks" title="Fluxo de aprovação por faixa" sub="configurável por empresa" />
         <div className="flex flex-col gap-2">
           {REGRAS_PADRAO.map((r, i) => {
@@ -131,7 +131,7 @@ export function InstitutionalView() {
       </Card>
 
       {/* SLA por etapa */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "SLA de aprovação", oQue: "Mostra o tempo médio que cada etapa de aprovação costuma levar.", comoCalcula: "Calculado a partir do histórico de aprovações; sem histórico, é ilustrativo." }}>
         <SectionHead icon="gauge" title="SLA de aprovação" sub="tempo médio por etapa" />
         {SLA_DEMO.map((s) => (
           <div key={s.etapa} className="flex items-center justify-between">
@@ -144,7 +144,7 @@ export function InstitutionalView() {
 
       {/* Solicitações em aprovação (demo) */}
       {isDemo && (
-        <Card className="lg:col-span-3 flex flex-col gap-3">
+        <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Solicitações de aprovação", oQue: "Acompanha os pagamentos que aguardam aprovação, com a sugestão da IA e a assinatura de cada passo.", comoCalcula: "Cada solicitação segue a faixa de valor; a IA avalia a consistência com o histórico do favorecido e cada aprovador assina eletronicamente." }}>
           <SectionHead icon="list-checks" title="Solicitações de aprovação" sub="com sugestão de IA e assinatura eletrônica" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {requestsDemo().map((r) => (
@@ -187,7 +187,10 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <SectionHead icon="file-text" title="Trilha de auditoria imutável" sub={`${total} eventos · cadeia SHA-256`} />
+        <span className="inline-flex items-center gap-1">
+          <SectionHead icon="file-text" title="Trilha de auditoria imutável" sub={`${total} eventos · cadeia SHA-256`} />
+          <InfoHint align="left" oQue="Registra cada ação relevante de forma que não dá para apagar nem alterar o passado sem ser notado." comoCalcula="Os eventos são encadeados por hash SHA-256; recomputar a cadeia detecta qualquer adulteração (teste no botão ao lado)." />
+        </span>
         <div className="flex items-center gap-3">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-label font-medium"
@@ -275,7 +278,7 @@ function PolicyEngineCard() {
   const d = DECISAO[resultado.decisao];
 
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3">
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Policy engine", oQue: "Permite testar como a política reage a uma transação: aprovar, exigir MFA, escalar, rejeitar ou bloquear.", comoCalcula: "Avalia usuário, valor, método, limite, país, horário e IP em tempo real e devolve a decisão com os motivos." }}>
       <SectionHead icon="gauge" title="Policy engine" sub="avaliação em tempo real" />
       <Select
         label="Usuário"

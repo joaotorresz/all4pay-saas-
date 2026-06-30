@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Select, CurrencyInput, Input } from "@/components/ui";
+import { Card, Icon, BRL, Button, Select, CurrencyInput, Input, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { getRecebiveisBoleto, getAccountsList } from "@/lib/data";
@@ -73,14 +73,14 @@ export function BoletosView() {
     <div className="flex flex-col gap-5 pb-4">
       {/* Dashboard de cobranças — reusa analisarInadimplencia (aging) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Vence neste mês" v={venceMes} />
-        <Kpi label="Próximos 30 dias" v={prox30} />
-        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" />
-        <Kpi label="Perda esperada" v={inad.data?.resumo.inadimplenciaEsperada ?? 0} tone="var(--color-warning)" />
+        <Kpi label="Vence neste mês" v={venceMes} info={{ titulo: "Vence neste mês", oQue: "Quanto há de boleto a receber com vencimento dentro do mês corrente.", comoCalcula: "Soma dos recebíveis pendentes cujo vencimento cai no mês de hoje." }} />
+        <Kpi label="Próximos 30 dias" v={prox30} info={{ titulo: "Próximos 30 dias", oQue: "Quanto vai vencer no próximo mês — o que está por entrar.", comoCalcula: "Soma dos recebíveis pendentes com vencimento entre hoje e 30 dias à frente." }} />
+        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" info={{ titulo: "Inadimplência (vencido)", oQue: "Quanto já passou do vencimento e ainda não foi pago.", comoCalcula: "Exposição vencida calculada pelo motor de inadimplência sobre os recebíveis em atraso." }} />
+        <Kpi label="Perda esperada" v={inad.data?.resumo.inadimplenciaEsperada ?? 0} tone="var(--color-warning)" info={{ titulo: "Perda esperada", oQue: "Estimativa do quanto da carteira tende a não ser pago.", comoCalcula: "Inadimplência esperada do motor: valor em aberto ponderado pela probabilidade de calote por cliente." }} />
       </div>
 
       {inad.data && inad.data.clientes.length > 0 && (
-        <Card className="flex flex-col gap-2">
+        <Card className="flex flex-col gap-2" info={{ titulo: "Aging — clientes em risco", oQue: "Mostra os clientes com maior risco de atraso e o valor em aberto de cada um.", comoCalcula: "Score e segmento vêm do motor de inadimplência; o valor é o volume em aberto do cliente." }}>
           <span className="text-label font-medium text-muted">Aging — clientes em risco (do motor de inadimplência)</span>
           <div className="flex flex-col gap-1">
             {inad.data.clientes.slice(0, 6).map((c) => (
@@ -97,7 +97,7 @@ export function BoletosView() {
       {/* Recebíveis → boleto */}
       <Card padded={false}>
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Recebíveis · boletos</span>
+          <span className="inline-flex items-center text-body font-medium text-ink">Recebíveis · boletos<InfoHint align="left" titulo="Recebíveis · boletos" oQue="Os recebíveis em aberto onde você emite o boleto, copia o PIX, marca pago ou cancela." comoCalcula="Lista os recebíveis pendentes; emitir gera nosso número e linha digitável, e marcar pago concilia e credita o saldo." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.8fr_0.9fr_1.2fr_1.4fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
@@ -180,9 +180,9 @@ function EmitirModal({ mov, contas, busy, onClose, onConfirm, nome }: {
   );
 }
 
-function Kpi({ label, v, tone = "var(--color-ink)" }: { label: string; v: number; tone?: string }) {
+function Kpi({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}><BRL value={v} /></span>
     </Card>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea } from "@/components/ui";
+import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { lerDocumento } from "@/lib/ocr-ingest";
 import {
@@ -81,7 +81,7 @@ export function ReembolsosView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-3 gap-5 items-start pb-4">
       {/* Solicitar reembolso */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
         <span className="text-label font-medium text-muted">Solicitar reembolso</span>
         <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Colaborador" />
         <Input value={chavePix} onChange={(e) => setChavePix(e.target.value)} placeholder="Chave Pix do colaborador" />
@@ -115,7 +115,7 @@ export function ReembolsosView() {
       </Card>
 
       {/* Lista */}
-      <Card padded={false} className="lg:col-span-2">
+      <Card padded={false} className="lg:col-span-2" info={{ titulo: "Reembolsos", oQue: "Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar.", comoCalcula: "Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." }}>
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
           {([["meus", "Meus reembolsos"], ["aprovacao", "Aguardando aprovação"], ["rejeitados", "Rejeitados"], ["pagar", "A pagar"]] as [Aba, string][]).map(([id, label]) => {
             const on = aba === id;

@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton } from "@/components/ui";
+import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton, type InfoConteudo } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
@@ -93,7 +93,7 @@ export function OrcamentoVarianciaView() {
         <div className="flex flex-col gap-5">
           {/* Editor de orçamento mensal */}
           {editando && (
-            <Card className="flex flex-col gap-4">
+            <Card className="flex flex-col gap-4" info={{ titulo: "Orçamento mensal", oQue: "Onde você define a meta mensal de cada linha do resultado, base da comparação contra o realizado.", comoCalcula: "Valor que você digita por linha; em branco usa o baseline automático (média da janela anterior)." }}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <span className="text-label font-medium text-muted">Orçamento mensal por linha</span>
                 <span className="text-caption text-faint">Em branco = baseline automático (média da janela anterior).</span>
@@ -112,13 +112,13 @@ export function OrcamentoVarianciaView() {
 
           {/* Resumo: Receita · EBITDA · Lucro (orçado vs realizado) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ResumoCard titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom />
-            <ResumoCard titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom />
-            <ResumoCard titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom />
+            <ResumoCard titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada vs orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
+            <ResumoCard titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado vs orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
+            <ResumoCard titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido vs orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
           </div>
 
           {/* Narrativa (flux analysis) */}
-          <Card className="flex flex-col gap-2">
+          <Card className="flex flex-col gap-2" info={{ titulo: "Análise de variação", oQue: "Resume em texto o que mais explicou o desvio entre orçado e realizado no período.", comoCalcula: "Gerada das linhas com maior variação em reais e percentual, destacando o que pesou para cima ou para baixo." }}>
             <span className="text-label font-medium text-muted inline-flex items-center gap-2">
               <Icon name="sparkles" size={15} color="var(--color-lime)" /> Análise de variação
             </span>
@@ -130,7 +130,7 @@ export function OrcamentoVarianciaView() {
           </Card>
 
           {/* Tabela orçado × realizado por linha + drill-down */}
-          <Card padded={false}>
+          <Card padded={false} info={{ titulo: "Orçado vs realizado por linha", oQue: "Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam.", comoCalcula: "Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." }}>
             <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
               <span className="flex-1">Linha · {report.periodoLabel}</span>
               <span className="w-[120px] text-right">Orçado</span>
@@ -205,12 +205,12 @@ export function OrcamentoVarianciaView() {
   );
 }
 
-function ResumoCard({ titulo, orcado, realizado, maiorEhBom }: { titulo: string; orcado: number; realizado: number; maiorEhBom: boolean }) {
+function ResumoCard({ titulo, orcado, realizado, maiorEhBom, info }: { titulo: string; orcado: number; realizado: number; maiorEhBom: boolean; info?: InfoConteudo }) {
   const delta = realizado - orcado;
   const bom = maiorEhBom ? delta >= 0 : delta <= 0;
   const tone = Math.abs(delta) < 1 ? "text-muted" : bom ? "text-positive" : "text-negative";
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-label font-medium text-muted">{titulo}</span>
       <span className="text-[28px] leading-none font-semibold text-ink tabular-nums"><BRL value={realizado} /></span>
       <span className="text-caption text-faint tabular-nums">orçado <BRL value={orcado} /></span>

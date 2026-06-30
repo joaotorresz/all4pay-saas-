@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Card, Money, Button, StatusBadge, Icon } from "@/components/ui";
+import { Card, Money, Button, StatusBadge, Icon, InfoHint } from "@/components/ui";
 import { brlParts, formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { getReconciliation } from "@/lib/financial-os";
@@ -40,6 +40,7 @@ export function ReconciliationView({ onToast }: { onToast: (m: string) => void }
         <Stat label="Conciliação automática" value={`${Math.round(result.taxaAuto * 100)}%`} tone="var(--color-positive)" />
         <Stat label="Sugestões" value={String(result.sugestoes.length)} tone="var(--color-warning)" />
         <Stat label="Exceções (manual)" value={String(result.excecoes.length)} tone="var(--color-negative)" />
+        <InfoHint align="left" titulo="Conciliação automática" oQue="Resumo de quantas transações o motor conseguiu casar sozinho e quantas precisam de revisão." comoCalcula="O motor pontua cada par por valor, data, documento e contraparte; alta confiança concilia automático, média vira sugestão e baixa vira exceção." />
         <div className="ml-auto">
           <Button
             variant="primary"
@@ -57,9 +58,12 @@ export function ReconciliationView({ onToast }: { onToast: (m: string) => void }
         </div>
       </Card>
 
-      <Fila titulo="Conciliadas automaticamente" hint="confiança ≥ 90%" itens={result.auto} done={reconciliadas} />
-      <Fila titulo="Sugestões de conciliação" hint="confiança 70–90% · requer 1 clique" itens={result.sugestoes} />
-      <Fila titulo="Exceções" hint="confiança < 70% · tratamento manual" itens={result.excecoes} />
+      <Fila titulo="Conciliadas automaticamente" hint="confiança ≥ 90%" itens={result.auto} done={reconciliadas}
+        info={{ titulo: "Conciliadas automaticamente", oQue: "Pares que o motor casou sozinho, por terem alta semelhança com um lançamento.", comoCalcula: "Entram os pares com confiança de 90 por cento ou mais." }} />
+      <Fila titulo="Sugestões de conciliação" hint="confiança 70–90% · requer 1 clique" itens={result.sugestoes}
+        info={{ titulo: "Sugestões de conciliação", oQue: "Pares prováveis que você confirma com um clique antes de dar a baixa.", comoCalcula: "Entram os pares com confiança entre 70 e 90 por cento." }} />
+      <Fila titulo="Exceções" hint="confiança < 70% · tratamento manual" itens={result.excecoes}
+        info={{ titulo: "Exceções", oQue: "Transações que não casaram bem e precisam de tratamento manual.", comoCalcula: "Entram os pares com confiança abaixo de 70 por cento." }} />
     </div>
   );
 }
@@ -73,10 +77,10 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
-function Fila({ titulo, hint, itens, done }: { titulo: string; hint: string; itens: MatchResult[]; done?: boolean }) {
+function Fila({ titulo, hint, itens, done, info }: { titulo: string; hint: string; itens: MatchResult[]; done?: boolean; info?: React.ComponentProps<typeof Card>["info"] }) {
   if (itens.length === 0) return null;
   return (
-    <Card padded={false}>
+    <Card padded={false} info={info}>
       <div className="flex items-baseline gap-[10px] px-5 pt-[18px] pb-2">
         <span className="text-body font-medium text-ink">{titulo}</span>
         <span className="text-caption text-faint">{hint}</span>

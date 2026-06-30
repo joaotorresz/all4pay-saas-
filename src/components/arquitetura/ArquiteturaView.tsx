@@ -14,7 +14,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon, Button } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, Button, InfoHint } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useArquitetura } from "@/components/visao-geral/hooks";
 import { simularResiliencia, type ResultadoResiliencia, type PassoResiliencia } from "@/core/reliability";
@@ -64,7 +64,7 @@ export function ArquiteturaView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* 10 camadas institucionais */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Arquitetura institucional", oQue: "Mostra as 10 camadas que compõem a infraestrutura financeira e onde cada uma vive no sistema." }}>
         <div className="flex items-center gap-2">
           <Icon name="building" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Arquitetura institucional · 10 camadas</span>
@@ -84,7 +84,7 @@ export function ArquiteturaView() {
       </Card>
 
       {/* Serviços distribuídos */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Serviços distribuídos", oQue: "Lista os serviços financeiros da plataforma com a latência e o throughput de cada um." }}>
         <span className="text-label font-medium text-muted">Serviços financeiros distribuídos</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {arq.servicos.map((s) => (
@@ -101,7 +101,10 @@ export function ArquiteturaView() {
       {/* Pipeline realtime */}
       <Card className="lg:col-span-1 flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-label font-medium text-muted">Pipeline tempo real</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Pipeline tempo real
+            <InfoHint align="left" oQue="Mostra as etapas que um evento financeiro percorre e quanto tempo leva ponta a ponta." comoCalcula="Soma a latência de cada etapa do pipeline para chegar ao tempo total de processamento." />
+          </span>
           <span className="text-caption text-faint tabular-nums">{arq.pipeline.latenciaTotalMs}ms ponta a ponta</span>
         </div>
         <div className="flex flex-col gap-1">
@@ -125,7 +128,7 @@ export function ArquiteturaView() {
       <ReliabilityCard />
 
       {/* Observabilidade */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Observability platform", oQue: "Reúne as métricas de saúde da plataforma para acompanhar a operação em tempo real.", comoCalcula: "As métricas vêm do estado do sistema, inclusive do ledger real, sinalizando cada uma como ok, degradado ou crítico." }}>
         <div className="flex items-center gap-2">
           <Icon name="activity" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Observability platform</span>
@@ -144,7 +147,7 @@ export function ArquiteturaView() {
       </Card>
 
       {/* Tenant isolation */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Multi-tenant institucional", oQue: "Explica como os dados de cada empresa ficam isolados dos demais clientes da plataforma." }}>
         <div className="flex items-center gap-2">
           <Icon name="shield-check" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Multi-tenant institucional</span>
@@ -164,7 +167,10 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
   return (
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-label font-medium text-muted">Treasury Core · posição consolidada</span>
+        <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+          Treasury Core · posição consolidada
+          <InfoHint align="left" oQue="Mostra a posição de caixa consolidada por banco, a liquidez por prazo e os cenários de stress da tesouraria." comoCalcula="Soma os saldos das contas, mede a concentração bancária (HHI), projeta a liquidez em janelas e reusa o motor de risco para o stress." />
+        </span>
         <span className="text-h3 font-medium tabular-nums text-ink"><BRL value={t.posicaoTotal} /></span>
       </div>
 
@@ -245,7 +251,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
 function ReliabilityCard() {
   const [res, setRes] = React.useState<ResultadoResiliencia | null>(null);
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3">
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Reliability layer", oQue: "Demonstra como o sistema resiste a um provedor de pagamento instável sem perder nem duplicar dinheiro.", comoCalcula: "Simula um cenário de falhas e mostra o circuit breaker, os retries, a fila de mensagens mortas e a recuperação em ação." }}>
       <span className="text-label font-medium text-muted">Reliability layer</span>
       <span className="text-caption text-faint">
         Circuit breaker, retries, dead-letter queue e locks protegem contra PSP instável — sem duplicar dinheiro.

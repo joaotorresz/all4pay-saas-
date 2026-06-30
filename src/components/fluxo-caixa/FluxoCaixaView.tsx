@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
 } from "recharts";
-import { Card, Icon, BRL, Button, Skeleton } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
@@ -47,25 +47,109 @@ function Inner() {
         <>
           {/* Modo Simples: 3 blocos essenciais. */}
           <ExecutiveSummary m={data} />
-          <Bloco titulo="Previsto × Realizado" icon="list-checks"><PrevRealView linhas={data.prevReal} /></Bloco>
-          <Bloco titulo="Calendário Financeiro" icon="receipt"><CalendarioView dias={data.calendario} /></Bloco>
+          <Bloco
+            titulo="Previsto × Realizado"
+            icon="list-checks"
+            info={{
+              oQue: "Compara, linha a linha, o que estava planejado com o que de fato aconteceu no período, com um comentário da IA.",
+              comoCalcula: "Agrupa os lançamentos por contraparte e confronta o valor planejado com o realizado, mostrando a diferença e o percentual.",
+            }}
+          ><PrevRealView linhas={data.prevReal} /></Bloco>
+          <Bloco
+            titulo="Calendário Financeiro"
+            icon="receipt"
+            info={{
+              oQue: "Mostra dia a dia o que entra, o que sai e o saldo resultante, para enxergar os dias apertados.",
+              comoCalcula: "Soma recebimentos e pagamentos previstos de cada dia e acumula o saldo ao longo do período.",
+            }}
+          ><CalendarioView dias={data.calendario} /></Bloco>
 
           {/* Modo Pro: profundidade completa. */}
           {pro && <>
-            <Bloco titulo="Fluxo de Caixa Inteligente" icon="trending-up"><FluxoInteligenteView f={data.fluxo} /></Bloco>
-            <Bloco titulo="Cross-check Inteligente" icon="sparkles"><CrossCheckView checks={data.crossChecks} /></Bloco>
-            <Bloco titulo="Projeção com Machine Learning" icon="activity">
+            <Bloco
+              titulo="Fluxo de Caixa Inteligente"
+              icon="trending-up"
+              info={{
+                oQue: "A árvore do caixa: do saldo inicial às entradas e saídas, até o fluxo operacional, livre e o saldo final.",
+                comoCalcula: "Parte do saldo inicial e agrupa entradas e saídas por origem (PIX, boletos, fornecedores, folha, impostos), expansíveis por linha.",
+              }}
+            ><FluxoInteligenteView f={data.fluxo} /></Bloco>
+            <Bloco
+              titulo="Cross-check Inteligente"
+              icon="sparkles"
+              info={{
+                oQue: "Confere se as cadeias de despesa e recebimento estão consistentes, sinalizando o que bate e o que não bate.",
+                comoCalcula: "A IA verifica cada cadeia (fornecedor, recorrência, nota) contra os dados e marca cada passo como ok ou pendente.",
+              }}
+            ><CrossCheckView checks={data.crossChecks} /></Bloco>
+            <Bloco
+              titulo="Projeção com Machine Learning"
+              icon="activity"
+              info={{
+                oQue: "Projeta o caixa futuro em vários horizontes, com bandas de cenário e a chance de ficar negativo.",
+                comoCalcula: "Simulação Monte Carlo que aprende deriva e volatilidade do histórico e gera bandas p10/p50/p90 do saldo.",
+              }}
+            >
               <ProjecaoView bandas={data.bandas} projecoes={data.projecoes} />
             </Bloco>
-            <Bloco titulo="Cenários" icon="cpu"><CenariosView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
-            <Bloco titulo="Heat Map Financeiro" icon="gauge"><HeatmapView dias={data.heatmap} /></Bloco>
-            <Bloco titulo="Waterfall — da receita ao fluxo livre" icon="building"><WaterfallView passos={data.waterfall} /></Bloco>
+            <Bloco
+              titulo="Cenários"
+              icon="cpu"
+              info={{
+                oQue: "Testa situações como atraso de cliente, queda de receita ou contratação e mostra o efeito em runway, score, burn e resultado.",
+                comoCalcula: "Cada cenário aplica seus choques sobre os indicadores atuais e re-simula runway, score e burn comparados à base.",
+              }}
+            ><CenariosView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
+            <Bloco
+              titulo="Heat Map Financeiro"
+              icon="gauge"
+              info={{
+                oQue: "Pinta cada dia de verde, amarelo ou vermelho conforme o conforto do caixa, para achar os períodos de aperto.",
+                comoCalcula: "Classifica o saldo projetado de cada dia em faixas: confortável, atenção ou risco.",
+              }}
+            ><HeatmapView dias={data.heatmap} /></Bloco>
+            <Bloco
+              titulo="Waterfall — da receita ao fluxo livre"
+              icon="building"
+              info={{
+                oQue: "Mostra em cascata como a receita vira fluxo livre, passando pelas deduções pelo caminho.",
+                comoCalcula: "Parte da receita e empilha as deduções uma a uma (estilo waterfall do DRE) até chegar ao resultado.",
+              }}
+            ><WaterfallView passos={data.waterfall} /></Bloco>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-              <Bloco titulo="IA Copilot do Caixa" icon="sparkles"><CopilotView c={data.copilot} /></Bloco>
-              <Bloco titulo="What-If Engine" icon="cpu"><WhatIfView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
+              <Bloco
+                titulo="IA Copilot do Caixa"
+                icon="sparkles"
+                info={{
+                  oQue: "Resume o que a IA encontrou no caixa e sugere ações práticas para o período.",
+                  comoCalcula: "A IA lê os blocos do fluxo e destaca achados e sugestões priorizados por impacto.",
+                }}
+              ><CopilotView c={data.copilot} /></Bloco>
+              <Bloco
+                titulo="What-If Engine"
+                icon="cpu"
+                info={{
+                  oQue: "Sliders para você simular ao vivo mudanças de receita, despesa, inadimplência e folha e ver o efeito no caixa.",
+                  comoCalcula: "Cada movimento do slider re-simula o cenário e atualiza runway, score e resultado mensal na hora.",
+                }}
+              ><WhatIfView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
             </div>
-            <Bloco titulo="Eventos Financeiros" icon="network"><EventosView eventos={data.eventos} /></Bloco>
-            <Bloco titulo="Confidence Layer" icon="gauge"><ConfidenceView projecoes={data.projecoes} /></Bloco>
+            <Bloco
+              titulo="Eventos Financeiros"
+              icon="network"
+              info={{
+                oQue: "Uma linha do tempo dos movimentos recentes do caixa (entradas, saídas e eventos neutros).",
+                comoCalcula: "Lista os lançamentos do período em ordem, com tipo, valor e quando aconteceram.",
+              }}
+            ><EventosView eventos={data.eventos} /></Bloco>
+            <Bloco
+              titulo="Confidence Layer"
+              icon="gauge"
+              info={{
+                oQue: "Mostra o quão confiável é cada projeção de caixa por horizonte.",
+                comoCalcula: "A confiança cai conforme o horizonte aumenta e conforme o fluxo é mais volátil.",
+              }}
+            ><ConfidenceView projecoes={data.projecoes} /></Bloco>
             <DigitalTwinView twin={data.twin} />
           </>}
 
@@ -79,12 +163,13 @@ function Inner() {
 }
 
 /* ---------- Shell de bloco ---------- */
-function Bloco({ titulo, icon, children }: { titulo: string; icon: string; children: React.ReactNode }) {
+function Bloco({ titulo, icon, info, children }: { titulo: string; icon: string; info?: InfoConteudo; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <Icon name={icon} size={16} color="var(--color-text-secondary)" />
         <h2 className="m-0 text-label font-medium text-muted">{titulo}</h2>
+        {info && <InfoHint align="left" {...info} />}
       </div>
       {children}
     </section>
@@ -526,6 +611,12 @@ function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas
       <div className="flex items-center gap-2">
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="cpu" size={14} color="var(--color-on-lime)" /></span>
         <h2 className="m-0 text-label font-medium text-muted">Cash Flow Digital Twin — o gêmeo digital do caixa</h2>
+        <InfoHint
+          align="left"
+          titulo="Cash Flow Digital Twin"
+          oQue="O gêmeo digital do caixa: reúne as fontes de entradas, saídas e inteligência e explica por que o caixa muda."
+          comoCalcula="Quando um documento chega na Caixa de Entrada, ele atualiza automaticamente fluxo previsto/realizado, saldo, DRE, burn, runway e projeções."
+        />
       </div>
       <Card className="flex flex-col gap-4" elevated={false} style={{ background: "var(--color-surface-2)" }}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

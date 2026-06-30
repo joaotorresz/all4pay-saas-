@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Select, Input } from "@/components/ui";
+import { Card, Icon, BRL, Button, Select, Input, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import {
@@ -139,7 +139,7 @@ export function CentralRecebimentosView() {
   return (
     <div className="flex flex-col gap-5 pb-24">
       {/* Controles */}
-      <Card className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-4" info={{ titulo: "Execução de recebimentos", oQue: "Dá baixa em lote nos títulos a receber e credita o saldo da conta de destino.", comoCalcula: "Filtra os recebíveis em aberto por conta, método, categoria e busca; agrupar por dia, semana, mês ou ano." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="arrow-left-right" size={14} color="var(--color-on-lime)" /></span>
           <span className="text-label font-medium text-muted">Execução de recebimentos — dá baixa nos títulos a receber, em lote, e credita a conta</span>
@@ -220,7 +220,7 @@ export function CentralRecebimentosView() {
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft flex-wrap">
           <div className="flex items-center gap-2">
             <Icon name="check" size={15} color="var(--color-positive)" />
-            <span className="text-body font-medium text-ink">Contas recebidas</span>
+            <span className="inline-flex items-center text-body font-medium text-ink">Contas recebidas<InfoHint align="left" titulo="Contas recebidas" oQue="Os títulos que já caíram na conta no período — onde o dinheiro de fato entrou." comoCalcula="Entradas com status pago e data de recebimento dentro da janela escolhida (7D, 14D, 30D, 3M ou Tudo)." /></span>
             <span className="text-caption text-faint">{recebidos.length} no período · <span className="tabular-nums">{formatBRL(totalRecebido)}</span></span>
           </div>
           <div className="inline-flex rounded-md bg-surface-2 p-[3px]">

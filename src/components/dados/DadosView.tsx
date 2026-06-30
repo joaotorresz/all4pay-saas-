@@ -15,7 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useMoat } from "@/components/visao-geral/hooks";
@@ -45,7 +45,7 @@ export function DadosView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Company DNA */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "DNA financeiro", oQue: "Resume o perfil da sua empresa em um arquétipo e nos traços que mais a caracterizam.", comoCalcula: "Derivado dos seus indicadores quantitativos, que definem o arquétipo (agressiva, conservadora, sazonal, recorrente) e a assinatura." }}>
         <span className="text-label font-medium text-muted">DNA financeiro</span>
         <div className="flex items-baseline gap-2">
           <span className="text-h3 font-medium text-ink">{dna.arquetipo}</span>
@@ -69,7 +69,10 @@ export function DadosView() {
       {/* Benchmark */}
       <Card className="lg:col-span-2 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted">Benchmark vs setor</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Benchmark vs setor
+            <InfoHint align="left" oQue="Compara os seus números com os das empresas parecidas do mesmo setor." comoCalcula="Calcula o seu percentil e a mediana de cada métrica contra a coorte de pares do seu setor e faixa." />
+          </span>
           <span className="text-caption text-faint">{benchmark.setor} · {benchmark.pares} pares</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3">
@@ -85,7 +88,7 @@ export function DadosView() {
       </Card>
 
       {/* Behavioral + Credit + Treasury */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Modelo comportamental", oQue: "Estima o desfecho provável da sua empresa com base em quem se parece com você na rede.", comoCalcula: "Usa vizinhança (KNN) aos desfechos históricos da coorte para indicar o padrão e o percentual de pares semelhantes que entraram em stress." }}>
         <span className="text-label font-medium text-muted">Modelo comportamental</span>
         <p className="m-0 text-[16px] text-ink leading-snug">{behavioral.padrao}</p>
         <div className="flex gap-6">
@@ -107,7 +110,7 @@ export function DadosView() {
         )}
       </Card>
 
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Credit intelligence", oQue: "Indica um limite de crédito recomendado e a chance de inadimplência para a sua empresa.", comoCalcula: "O modelo da rede estima a probabilidade de inadimplência e deriva o limite recomendado e a confiabilidade da estimativa." }}>
         <span className="text-label font-medium text-muted">Credit intelligence</span>
         <div className="flex items-end gap-2">
           <span className="text-value-lg leading-none font-medium tabular-nums text-ink"><BRL value={credito.limiteRecomendado} /></span>
@@ -125,7 +128,7 @@ export function DadosView() {
         </div>
       </Card>
 
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Treasury network", oQue: "Antecipa as janelas do ano em que o seu setor costuma sofrer mais pressão de caixa.", comoCalcula: "Cruza a sazonalidade dos pares do setor na rede para apontar os meses de maior stress." }}>
         <div className="flex items-center gap-2">
           <Icon name="network" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Treasury network</span>
@@ -153,7 +156,10 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="database" size={14} color="var(--color-on-lime)" />
           </span>
-          <span className="text-label font-medium text-muted">Modelo proprietário · auto-aprendiz</span>
+          <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+            Modelo proprietário · auto-aprendiz
+            <InfoHint align="left" oQue="Mostra a precisão do modelo de risco e como ela melhora à medida que mais empresas entram na rede." comoCalcula="Regressão logística treinada na coorte; a curva de aprendizado mostra a acurácia crescendo com o número de empresas." />
+          </span>
         </div>
         <div className="flex gap-5">
           <Metric label="Acurácia" value={`${Math.round(modelo.acuracia * 100)}%`} />

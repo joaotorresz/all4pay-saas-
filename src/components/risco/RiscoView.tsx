@@ -11,7 +11,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
@@ -57,7 +57,14 @@ export function RiscoView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Score */}
-      <Card className="lg:col-span-1 flex flex-col gap-4">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-4"
+        info={{
+          titulo: "Score de risco de caixa",
+          oQue: "Uma nota de 0 a 100 que resume o risco do seu caixa, com a probabilidade de ficar sem dinheiro e o runway.",
+          comoCalcula: "8 pilares (liquidez, burn, inadimplência, concentração, sazonalidade, stress, entre outros) são ponderados em um score único.",
+        }}
+      >
         <div className="text-label font-medium text-muted">Score de risco de caixa</div>
         <div className="flex items-end gap-3">
           <span className="text-[62px] leading-none font-medium tabular-nums" style={{ color: NIVEL_COLOR[data.nivel] }}>
@@ -82,7 +89,14 @@ export function RiscoView() {
       </Card>
 
       {/* Narrativa executiva */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-3"
+        info={{
+          titulo: "Interpretação executiva",
+          oQue: "Explica em texto simples o que o score significa e quais são os fatores críticos do momento.",
+          comoCalcula: "A IA financeira lê os números do motor de risco e gera uma leitura determinística, destacando os pontos de maior peso.",
+        }}
+      >
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
@@ -103,7 +117,14 @@ export function RiscoView() {
       </Card>
 
       {/* Runway cenários */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-3"
+        info={{
+          titulo: "Runway por cenário",
+          oQue: "Por quantos meses o caixa aguenta em três cenários: otimista, base e pessimista.",
+          comoCalcula: "Projeta o caixa diário dividindo o saldo pelo burn esperado em cada cenário, ponderando os recebíveis pela chance de receber.",
+        }}
+      >
         <div className="text-label font-medium text-muted">Runway por cenário</div>
         <Cenario label="Otimista" value={meses(data.runway.otimista)} tone="var(--color-positive)" />
         <Cenario label="Base" value={meses(data.runway.base)} tone="var(--color-ink)" />
@@ -113,7 +134,14 @@ export function RiscoView() {
       {/* Liquidez projetada */}
       <Card className="lg:col-span-2 flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-label font-medium text-muted">Liquidez projetada (60 dias)</span>
+          <span className="inline-flex items-center gap-1">
+            <span className="text-label font-medium text-muted">Liquidez projetada (60 dias)</span>
+            <InfoHint
+              align="left"
+              oQue="Mostra a curva do saldo projetado para os próximos 60 dias e em que dia o caixa pode ficar negativo."
+              comoCalcula="Parte do saldo atual e soma dia a dia as entradas previstas (ponderadas pela chance de receber) menos as saídas previstas."
+            />
+          </span>
           {data.rupturaDia !== null && (
             <span className="text-caption font-medium text-negative">Ruptura em {data.rupturaDia} dias</span>
           )}
@@ -122,7 +150,14 @@ export function RiscoView() {
       </Card>
 
       {/* Pilares (explicável/auditável) */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-3"
+        info={{
+          titulo: "Composição do score",
+          oQue: "Abre o score nos pilares que o formam, com a nota e o peso de cada um, para mostrar de onde vem o risco.",
+          comoCalcula: "Cada pilar recebe uma nota de 0 a 100 e um peso; o score final é a média ponderada de todos eles.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Composição do score (pilares)</span>
         <div className="flex flex-col gap-[10px]">
           {data.componentes.map((c) => (
@@ -132,7 +167,14 @@ export function RiscoView() {
       </Card>
 
       {/* Concentração */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-3"
+        info={{
+          titulo: "Concentração de receita",
+          oQue: "Mostra o quanto a receita depende de poucos clientes — quanto mais concentrada, maior o risco se um sair.",
+          comoCalcula: "Calcula a participação de cada cliente na receita total e lista os maiores, em ordem de peso.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Concentração de receita</span>
         {data.concentracao.top.length === 0 && <span className="text-caption text-faint">Sem dados.</span>}
         {data.concentracao.top.map((c) => (
@@ -149,7 +191,14 @@ export function RiscoView() {
       </Card>
 
       {/* Stress testing */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-3"
+        info={{
+          titulo: "Stress testing",
+          oQue: "Simula choques (queda de receita, atraso de pagamento, despesa ou combustível em alta) e mostra o impacto no caixa e no runway.",
+          comoCalcula: "Cada cenário aplica o choque sobre os números atuais e recalcula o saldo e o runway resultantes.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Stress testing</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {data.stress.map((s) => (
@@ -159,7 +208,14 @@ export function RiscoView() {
       </Card>
 
       {/* Alertas */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-3"
+        info={{
+          titulo: "Alertas",
+          oQue: "Lista os avisos que merecem atenção agora, do mais crítico ao informativo.",
+          comoCalcula: "São gerados pelo motor de risco a partir dos pilares e cenários que ultrapassam os limites de atenção.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Alertas</span>
         {data.alertas.map((a, i) => (
           <AlertaRow key={i} a={a} />
