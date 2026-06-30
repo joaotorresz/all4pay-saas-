@@ -103,7 +103,7 @@ const SECTIONS: Section[] = [
   // ----- Extras all4pay (escondidos no Modo Simples) -----
   {
     id: "estrategia", label: "Inteligência", pro: true, items: [
-      { label: "All4Pay IA", href: "/copiloto?aba=copiloto", icon: "sparkles" },
+      // A IA conversacional saiu do menu — agora é o widget flutuante (AssistantWidget).
       { label: "Decisão", href: "/copiloto?aba=decisao", icon: "gauge" },
       { label: "Operação autônoma", href: "/copiloto?aba=autonomo", icon: "workflow" },
       { label: "Risco de caixa", href: "/copiloto?aba=risco", icon: "activity" },

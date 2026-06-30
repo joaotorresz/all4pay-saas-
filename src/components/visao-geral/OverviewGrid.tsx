@@ -181,7 +181,7 @@ export function OverviewGrid() {
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
         aria-label="Enviar documento para upload de dados"
-        className="fixed bottom-[84px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-lime text-on-lime shadow-popover px-4 py-3 hover:brightness-95 transition"
+        className="fixed bottom-[148px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-lime text-on-lime shadow-popover px-4 py-3 hover:brightness-95 transition"
       >
         <Icon name="upload" size={18} color="var(--color-on-lime)" />
         <span className="text-[15px] font-medium">Upload de dados</span>

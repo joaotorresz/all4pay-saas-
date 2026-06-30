@@ -1,0 +1,50 @@
+/**
+ * Base de conhecimento do sistema (all4pay IA) — o que o assistente "entende"
+ * sobre as FUNCIONALIDADES e os CÁLCULOS do all4pay. Responde a perguntas
+ * conceituais ("o que é runway?", "como calcula o EBITDA?", "para que serve a
+ * conciliação?") na hora, sem depender de chave de IA, e aponta a tela onde o
+ * tema vive. Combina com a memória adaptativa (assistant-memory) para aprender
+ * quais temas o cliente mais pergunta. Determinístico, demo-safe.
+ */
+export interface KBEntry {
+  id: string;
+  termos: RegExp; // gatilhos (sinônimos pt-BR)
+  titulo: string;
+  texto: string; // explicação + fórmula quando há
+  rota?: string; // onde abrir
+}
+
+export const KB: KBEntry[] = [
+  { id: "runway", termos: /runway|f[oô]lego|quantos meses.*caixa|dura(r)? o caixa/, titulo: "Runway de caixa", texto: "Por quantos meses o caixa atual cobre o ritmo de queima. Fórmula: saldo disponível ÷ burn mensal. Cai quando o burn sobe ou o saldo encolhe.", rota: "/fluxo-caixa" },
+  { id: "burn", termos: /burn|queima de caixa|consumo de caixa/, titulo: "Burn rate", texto: "Quanto de caixa a operação consome por mês, em média (saídas − entradas recorrentes). É o denominador do runway.", rota: "/inteligencia" },
+  { id: "ltv", termos: /\bltv\b|lifetime value|valor do cliente/, titulo: "LTV", texto: "Receita média gerada por cliente no período. Aproximação: receita ÷ clientes distintos. Quanto maior, mais valioso é cada cliente adquirido.", rota: "/painel-vendas" },
+  { id: "cac", termos: /\bcac\b|custo de aquisi|custo por cliente/, titulo: "CAC", texto: "Custo de Aquisição de Cliente: gasto de marketing ÷ clientes adquiridos no período. Mede quanto custa trazer um novo cliente.", rota: "/painel-vendas" },
+  { id: "ltvcac", termos: /ltv\s*\/?\s*cac|rela[çc][ãa]o ltv/, titulo: "LTV / CAC", texto: "Razão LTV ÷ CAC. Acima de 3× costuma indicar aquisição saudável; abaixo de 1× você gasta mais para adquirir do que o cliente retorna.", rota: "/painel-vendas" },
+  { id: "ebitda", termos: /ebitda/, titulo: "EBITDA", texto: "Resultado operacional antes de juros, impostos sobre o lucro, depreciação e amortização. Aqui: receita − despesas operacionais (exclui financeiro, D&A e IRPJ/CSLL). % Receita = EBITDA ÷ receita.", rota: "/painel-vendas" },
+  { id: "mc", termos: /margem de contribui|margem contribui/, titulo: "Margem de contribuição", texto: "Receita − custos variáveis (CMV, comissões, taxas de gateway, frete). É o que sobra de cada venda para cobrir os custos fixos e gerar lucro.", rota: "/dre" },
+  { id: "faturamento", termos: /faturamento|receita bruta/, titulo: "Faturamento bruto", texto: "Soma de todas as entradas (vendas/serviços) reconhecidas no período pela competência (data de vencimento/emissão).", rota: "/painel-vendas" },
+  { id: "dre", termos: /\bdre\b|demonstra[çc][ãa]o de resultado|resultado do exerc/, titulo: "DRE", texto: "Demonstração do Resultado: cascata de Receita → impostos → líquida → CMV → lucro bruto → despesas → EBITDA → financeiro → lucro líquido, com drill-down por categoria.", rota: "/dre" },
+  { id: "fluxo", termos: /fluxo de caixa|dfc|entradas e sa[íi]das/, titulo: "Fluxo de caixa", texto: "Entradas − saídas ao longo do tempo (regime de caixa), com saldo acumulado, projeção e cenários. Diferente do DRE (competência).", rota: "/fluxo-caixa" },
+  { id: "inadimplencia", termos: /inadimpl[êe]ncia|atraso|cliente de risco|vai pagar/, titulo: "Inadimplência (risco de crédito)", texto: "Prevê o risco de calote ANTES de acontecer, pelo comportamento de pagamento de cada cliente (atraso médio, tendência, oscilação). Devolve score + fatores explicáveis + ação de cobrança.", rota: "/inadimplencia" },
+  { id: "conciliacao", termos: /concilia[çc][ãa]o|ofx|bater extrato|extrato banc/, titulo: "Conciliação bancária", texto: "Compara o que está lançado no all4pay com o extrato do banco (OFX) e sinaliza o que bate/não bate. Garante que o saldo do sistema = saldo real.", rota: "/conciliacao-bancaria" },
+  { id: "mrr", termos: /\bmrr\b|recorr[êe]ncia|assinatura|receita recorrente/, titulo: "Recorrências / MRR", texto: "Receita recorrente mensal de contratos/assinaturas. Cada recorrência projeta as próximas faturas como entradas previstas no fluxo.", rota: "/recorrencias" },
+  { id: "score", termos: /score|sa[úu]de financeira|nota da empresa/, titulo: "Score de saúde financeira", texto: "Nota 0–100 ponderando liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento. Acompanha a tendência e a probabilidade de ruptura de caixa.", rota: "/inteligencia" },
+  { id: "chargeback", termos: /chargeback|contesta[çc][ãa]o/, titulo: "Chargeback", texto: "Estorno forçado de uma cobrança no cartão, contestada pelo portador. Reduz o faturamento líquido e é monitorado no painel de Vendas.", rota: "/painel-vendas" },
+  { id: "reembolso", termos: /reembolso|devolu[çc][ãa]o de venda/, titulo: "Reembolso", texto: "Devolução de um valor ao cliente (estorno voluntário). Abate da receita no período em que ocorre.", rota: "/painel-vendas" },
+];
+
+/** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
+const CONCEITUAL = /\b(o que|oque|que [ée]|qual [ée]|como (calcul|funciona|fazer)|para que serve|explic|defin|signific|entender)\b/i;
+
+/** Tenta responder pela base de conhecimento. Retorna a entrada ou null. */
+export function buscarKB(q: string): KBEntry | null {
+  const s = q.toLowerCase();
+  const conceitual = CONCEITUAL.test(s);
+  for (const e of KB) {
+    if (e.termos.test(s)) {
+      // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score/i.test(s)) return e;
+    }
+  }
+  return null;
+}
