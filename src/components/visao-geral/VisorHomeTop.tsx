@@ -17,7 +17,7 @@ import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, ReferenceLine, LabelList,
 } from "recharts";
 import { Card, Skeleton, Icon } from "@/components/ui";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRL } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR } from "./PeriodContext";
 import { AnimatedBRL } from "./useCountUp";
@@ -131,7 +131,7 @@ export function VisorHomeTop() {
   }
 
   const bom = calc.deltaVsPrev >= 0; // mais saldo que o período anterior = bom
-  const bubbleText = `${bom ? "▲" : "▼"} ${formatBRLCompact(Math.abs(calc.deltaVsPrev))} vs. anterior`;
+  const bubbleText = `${formatBRL(Math.abs(calc.deltaVsPrev))} a ${bom ? "mais" : "menos"} ${period.modo === "mes" ? "este mês" : "no período"}`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5 mb-5 items-start">
@@ -245,30 +245,31 @@ export function VisorHomeTop() {
 }
 
 /**
- * Balão de callout no fim da linha (estilo Visor). Renderizado dentro do SVG do
- * Recharts via <LabelList content>. Fica à ESQUERDA do ponto final, com um rabo
- * triangular apontando para o ponto. Verde (bom) ou vermelho (ruim) — pequeno
- * sinal semântico, fill mínimo (dentro do DS). `x/y/value` vêm do Recharts.
+ * Balão de callout no fim da linha — IGUAL ao Visor: retângulo verde sólido,
+ * texto branco e um rabo triangular apontando para BAIXO, até o ponto final.
+ * Limpo (sem seta/sufixo). Verde (bom) / vermelho (ruim). `x/y/value` vêm do
+ * Recharts via <LabelList content>.
  */
 function Callout(props: any) {
   const { x, y, value, text, good } = props;
   if (value == null || typeof x !== "number" || typeof y !== "number") return null;
   const bg = good ? POSITIVE : NEGATIVE;
-  const bh = 26;
-  const bw = Math.max(120, text.length * 6.6 + 22);
-  const bx = Math.max(2, x - bw - 8); // à esquerda do ponto
-  const by = Math.min(Math.max(2, y - bh / 2), 188 - bh - 2);
-  const midY = by + bh / 2;
+  const H = 188, bh = 30, tail = 9;
+  const bw = Math.max(150, text.length * 7.2 + 26);
+  const bx = Math.max(4, x - bw);                 // balão à esquerda do ponto
+  const tx = Math.min(bx + bw - 16, x);           // base do rabo perto da borda direita
+  const above = y - tail - bh >= 4;               // acima, salvo se não couber
+  const by = above ? y - tail - bh : Math.min(y + tail, H - bh - 2);
+  const baseY = above ? by + bh : by;             // borda do balão de onde sai o rabo
   return (
     <g style={{ pointerEvents: "none" }}>
-      <rect x={bx} y={by} width={bw} height={bh} rx={8} fill={bg} />
-      {/* rabo: aponta da borda direita do balão para o ponto (x,y) */}
-      <polygon points={`${bx + bw},${midY - 5} ${bx + bw},${midY + 5} ${x},${y}`} fill={bg} />
-      <text x={bx + bw / 2} y={midY} fill="#fff" fontSize={12} fontWeight={600} textAnchor="middle" dominantBaseline="central" style={{ fontVariantNumeric: "tabular-nums" }}>
+      <rect x={bx} y={by} width={bw} height={bh} rx={12} fill={bg} />
+      {/* rabo apontando para o ponto final (x,y) */}
+      <polygon points={`${tx - 8},${baseY} ${tx + 8},${baseY} ${x},${y}`} fill={bg} />
+      <circle cx={x} cy={y} r={4} fill={bg} stroke="#fff" strokeWidth={2} />
+      <text x={bx + bw / 2} y={by + bh / 2} fill="#fff" fontSize={13} fontWeight={600} textAnchor="middle" dominantBaseline="central" style={{ fontVariantNumeric: "tabular-nums" }}>
         {text}
       </text>
-      {/* ponto final */}
-      <circle cx={x} cy={y} r={4} fill={good ? POSITIVE : NEGATIVE} stroke="#fff" strokeWidth={2} />
     </g>
   );
 }
