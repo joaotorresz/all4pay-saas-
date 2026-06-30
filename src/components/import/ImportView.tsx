@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { BRL, Card, Icon, Button, Select } from "@/components/ui";
+import { BRL, Card, Icon, Button, Select, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useQueryClient } from "@tanstack/react-query";
 import { analisarImportacao, amostraExtrato, aprender } from "@/core/fdip";
@@ -73,7 +73,7 @@ export function ImportView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       {/* Ingestão */}
-      <Card className="flex flex-col gap-3">
+      <Card className="flex flex-col gap-3" info={{ titulo: "Ingestão de dados", oQue: "O ponto de entrada para subir extratos e fazer o onboarding financeiro automático.", comoCalcula: "Você cola ou envia um extrato CSV ou OFX e o motor lê, normaliza e classifica os lançamentos." }}>
         <div className="flex items-center gap-2">
           <Icon name="upload" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Ingestão de dados financeiros</span>
@@ -139,7 +139,7 @@ function Resultado({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
       {/* Central de confiança */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Central de confiança", oQue: "Mostra quanto dos lançamentos a IA conseguiu classificar com segurança.", comoCalcula: "Separa os registros lidos em confiança alta, média e baixa, e lista as pendências a revisar." }}>
         <span className="text-label font-medium text-muted">AI Data Confidence Center</span>
         <div className="flex gap-6">
           <div><div className="text-caption text-faint">Registros</div><div className="text-h2 font-medium tabular-nums text-ink leading-none">{cc.total}</div></div>
@@ -164,7 +164,7 @@ function Resultado({
       </Card>
 
       {/* Descobrimos */}
-      <Card className="lg:col-span-2 flex flex-col gap-3">
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Análise · descobrimos", oQue: "Resume o que a IA identificou no extrato: entidades, padrões e estimativas do negócio.", comoCalcula: "Agrupa contrapartes em clientes e fornecedores, detecta recorrências e estima receita, EBITDA e margem." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
@@ -196,7 +196,7 @@ function Resultado({
       </Card>
 
       {/* Smart destination engine */}
-      <Card className="lg:col-span-2 flex flex-col gap-2">
+      <Card className="lg:col-span-2 flex flex-col gap-2" info={{ titulo: "Destino inteligente", oQue: "Mostra para onde cada lançamento vai e a categoria sugerida, para você confirmar ou corrigir.", comoCalcula: "Classifica por palavra-chave e confiança; ao corrigir, o sistema aprende e melhora na próxima importação." }}>
         <span className="text-label font-medium text-muted">Destino inteligente · confirme ou corrija</span>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-caption">
@@ -244,7 +244,7 @@ function Resultado({
       </Card>
 
       {/* Padrões + grafo */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Padrões descobertos", oQue: "Lista as recorrências e o grafo de relações entre clientes e fornecedores.", comoCalcula: "Identifica lançamentos repetidos por contraparte e periodicidade, e monta o grafo a partir das contrapartes." }}>
         <span className="text-label font-medium text-muted">Padrões descobertos</span>
         <div className="flex flex-col gap-1">
           <span className="text-caption font-medium text-faint tracking-wide">Recorrências</span>
@@ -263,7 +263,7 @@ function Resultado({
       </Card>
 
       {/* Auto company setup */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Auto company setup", oQue: "Cria a empresa automaticamente a partir da análise, em um clique.", comoCalcula: "Provisiona clientes, fornecedores, categorias, centros de custo, recorrências e os lançamentos, alimentando todo o sistema." }}>
         <span className="text-label font-medium text-muted">Auto company setup · montar a empresa</span>
         <p className="m-0 text-caption text-muted">
           A partir da análise, o sistema provisiona: {plano.clientes} clientes, {plano.fornecedores} fornecedores,

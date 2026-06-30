@@ -197,7 +197,7 @@ export function InboxView() {
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="inbox" size={14} color="var(--color-on-lime)" />
           </span>
-          <span className="text-label font-medium text-muted">Canais de entrada — tudo cai aqui, como um e-mail</span>
+          <span className="inline-flex items-center gap-1 text-label font-medium text-muted">Canais de entrada — tudo cai aqui, como um e-mail<InfoHint align="left" titulo="Canais de entrada" oQue="Reúne num só lugar tudo que chega: documentos, extratos, notas, boletos e comprovantes." comoCalcula="Você arrasta arquivos ou usa os conectores (e-mail, WhatsApp, Open Finance, OCR); extratos OFX e CSV já entram pelo onboarding inteligente." /></span>
           <span className="ml-auto inline-flex items-center gap-2 text-caption text-muted bg-surface-2 rounded-pill px-3 py-1">
             <Icon name="mail" size={13} color="var(--color-text-secondary)" />
             {EMAIL}
@@ -300,6 +300,7 @@ export function InboxView() {
               <Icon name="paperclip" size={15} color="var(--color-text-secondary)" />
               <span className="text-h3 font-medium text-ink">{sel.beneficiario}</span>
               <span className="text-caption text-muted bg-surface-2 rounded-pill px-2 py-[1px]">{sel.tipo}</span>
+              <InfoHint align="left" titulo="Documento" oQue="Mostra os campos que a IA extraiu do documento e deixa revisar antes de lançar." comoCalcula="O OCR lê valor, vencimento e beneficiário, faz o cross-check com os contatos e mede a confiança de cada campo." />
             </div>
             <span className="inline-flex items-center gap-1 text-caption font-medium" style={{ color: confColor(sel.confianca) }}>
               confiança {Math.round(sel.confianca * 100)}%
@@ -376,7 +377,7 @@ export function InboxView() {
       )}
 
       {/* Digital Twin */}
-      <Card className="lg:col-span-3 flex flex-col gap-2" elevated={false} style={{ background: "var(--color-surface-2)" }}>
+      <Card className="lg:col-span-3 flex flex-col gap-2" elevated={false} style={{ background: "var(--color-surface-2)" }} info={{ titulo: "Financial Digital Twin", oQue: "Mantém um modelo vivo das obrigações da empresa para interpretar cada documento novo.", comoCalcula: "Aprende os compromissos recorrentes e compara cada documento com esse padrão, sugerindo a ação certa." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="cpu" size={14} color="var(--color-on-lime)" />
