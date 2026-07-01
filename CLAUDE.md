@@ -115,6 +115,15 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   `Switch` (toggle), `Textarea`.
 - **Menus/actions:** `DropdownMenu` (grouped anchored menu, shortcut hints),
   `SplitButton` (primary + secondary actions, e.g. "Salvar e criar outro").
+- **`InfoHint`** ★ — o botão **"i" universal** dos boxes (anti-burocracia):
+  popover com **"Para que serve"** (`oQue`) + **"Como é calculado"**
+  (`comoCalcula`), em linguagem simples. Todo box com número deve tê-lo. Duas
+  formas: a prop `info={{ titulo?, oQue, comoCalcula? }}` do **`Card`** (renderiza
+  o "i" no canto superior direito) — use quando o topo do card está livre; ou
+  `<InfoHint align="left" oQue comoCalcula />` **inline** ao lado do título quando
+  o card já tem controles no topo-direito (toggle/seta/badge). Wrappers de card
+  locais recebem um prop `info` que repassa ao `Card`. `comoCalcula` deve ser
+  ancorado no motor real do box (não genérico).
 - **Data:** `Money` ★ (the signature treatment, px-sized para os heróis grandes)
   · **`BRL`** (`<BRL value={n} />`, o MESMO tratamento mas **inline e relativo ao
   contexto** em `em`: R$ menor+faint · inteiro herói · decimais menores+faint —
