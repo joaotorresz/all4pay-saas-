@@ -20,6 +20,7 @@ import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { appendImported, setImported, clearImported, importedMovements, importedAccounts } from "@/lib/imported";
 import { responderLocal } from "@/core/assistant/engine";
+import { buscarKB } from "@/lib/assistant-kb";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -329,6 +330,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const cg = responderLocal("qual minha carga tributária?", inpS);
   ok("EBITDA conta só pago (6000, ignora pendente/cancelado)", !!eb && /EBITDA.*R\$.?6\.000/.test(eb.resposta), eb?.resposta?.slice(0, 50));
   ok("carga tributária conta só pago (10%)", !!cg && /\b10%/.test(cg.resposta), cg?.resposta?.slice(0, 50));
+}
+
+// ── chain: possessiva de métrica NÃO pode ser sombreada pela KB (vai ao motor) ──
+// A KB roda ANTES do motor no AssistantWidget; se buscarKB responder uma
+// possessiva ("qual meu EBITDA"), o usuário recebe o CONCEITO em vez do NÚMERO.
+{
+  const possessivas = ["qual meu EBITDA?", "qual meu runway?", "quanto é meu burn?", "qual meu score?", "qual minha receita líquida?", "qual meu fluxo de caixa livre?"];
+  const conceituais = ["o que é EBITDA?", "o que é runway?", "o que é score?"];
+  const semKB = possessivas.every((q) => buscarKB(q) === null);
+  const comKB = conceituais.every((q) => buscarKB(q) !== null);
+  ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
+  ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
