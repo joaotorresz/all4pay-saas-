@@ -9,7 +9,7 @@
  * últimos lançamentos. Montado uma vez no AppShell. Demo/live idêntico.
  */
 import * as React from "react";
-import { Icon } from "@/components/ui";
+import { Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 
@@ -93,7 +93,10 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
               {/* Risco de crédito */}
               {resumo.perfil && (
                 <section className="flex flex-col gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-faint">Risco de crédito</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-faint inline-flex items-center gap-1">
+                    Risco de crédito
+                    <InfoHint align="left" oQue="O risco de o cliente atrasar/não pagar, previsto pelo comportamento de pagamento dele." comoCalcula="Score 0–100 do motor de inadimplência (atraso médio, tendência, oscilação, recorrência); quanto maior, pior. Os fatores abaixo explicam a nota." />
+                  </div>
                   <div className="rounded-card bg-surface-1 p-4 flex flex-col gap-3">
                     <div className="flex items-center gap-3">
                       <span className="text-[28px] font-semibold tabular-nums leading-none" style={{ color: CLASS_COR[resumo.perfil.classificacao] }}>{resumo.perfil.score}</span>
