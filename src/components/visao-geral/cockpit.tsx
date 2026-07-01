@@ -1342,6 +1342,22 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Inteligência (memória de padrões da IA) ============ */
+  {
+    id: "padroes-ia", label: "Padrões que a IA aprendeu", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const mem = c.exec.memoria;
+      const top = mem[0];
+      return (
+        <MetricCard icon="sparkles" label="Padrões que a IA aprendeu"
+          tone={POS}
+          value={`${mem.length}`}
+          answer={top ? top.texto : "A IA ainda está aprendendo os padrões do seu negócio."}
+          info={{ titulo: "Padrões que a IA aprendeu", oQue: "O que o motor de inteligência já detectou de recorrente no seu negócio (sazonalidade, despesas fixas, clientes críticos, ciclos).", comoCalcula: "O memory engine varre o histórico e memoriza padrões estáveis; aqui mostramos quantos e o mais relevante." }} />
+      );
+    },
+  },
   /* ============ Tesouraria (posição consolidada · concentração bancária · liquidez) ============ */
   {
     id: "concentracao-bancaria", label: "Concentração bancária (HHI)", categoria: "Caixa",
