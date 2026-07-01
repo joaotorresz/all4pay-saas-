@@ -339,6 +339,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("carga tributária conta só pago (10%)", !!cg && /\b10%/.test(cg.resposta), cg?.resposta?.slice(0, 50));
 }
 
+// ── PF (pessoa física): categorias pessoais roteiam igual (Mercado/Aluguel/Salário) ──
+{
+  let s = 0;
+  const pm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `pf${s++}`, type: "entrada", amount: 1000, due_date: "2026-07-15", paid_date: "2026-07-15", status: "pago", category: "Salário", party_id: null, ...o }) as RiskMovement;
+  const inpPF: RiskInput = { hoje: "2026-07-15", saldoAtual: 8000, partyNames: {}, movements: [
+    pm({ amount: 6000, paid_date: "2026-07-05", category: "Salário" }),
+    pm({ type: "saida", amount: 1500, paid_date: "2026-07-08", category: "Mercado" }),
+    pm({ type: "saida", amount: 1200, paid_date: "2026-07-08", category: "Aluguel" }),
+  ] } as RiskInput;
+  const gm = responderLocal("quanto gastei com mercado?", inpPF);
+  const so = responderLocal("quanto sobrou esse mês?", inpPF);
+  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /Mercado.*R\$.?1\.500/.test(gm.resposta), gm?.resposta?.slice(0, 50));
+  ok("PF: resultado do mês (6000 − 2700 = 3300 sobrou)", !!so && /sobrou R\$.?3\.300/.test(so.resposta), so?.resposta?.slice(0, 50));
+}
+
 // ── chain: possessiva de métrica NÃO pode ser sombreada pela KB (vai ao motor) ──
 // A KB roda ANTES do motor no AssistantWidget; se buscarKB responder uma
 // possessiva ("qual meu EBITDA"), o usuário recebe o CONCEITO em vez do NÚMERO.
