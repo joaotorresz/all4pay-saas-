@@ -817,8 +817,15 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RUNWAY ———
-  if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa/.test(p)) {
+  if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa|quantos? dias (de |o )?(caixa|opera|f[ôo]lego)|dias de (caixa|opera|f[ôo]lego)/.test(p)) {
     if (ctx) {
+      if (/\bdias?\b/.test(p)) {
+        const dias = Math.round(ctx.runwayMeses * 30);
+        return R(
+          `Seu caixa cobre cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`,
+          [{ label: "Dias de caixa", valor: `${dias} d` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }],
+          ["motor quantitativo"]);
+      }
       return R(
         `Seu runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
         [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],

@@ -211,6 +211,8 @@ const CORPUS: [string, RegExp][] = [
   // fluxo de caixa livre como NÚMERO (motor)
   ["qual meu fluxo de caixa livre?", /fluxo de caixa livre/i],
   ["qual meu FCF?", /fluxo de caixa livre/i],
+  // runway em DIAS
+  ["quantos dias de caixa eu tenho?", /dias de operação|runway/i],
 ];
 
 let pass = 0;
