@@ -434,7 +434,13 @@ camadas encadeadas no `responder`:
 3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
    `copilotoFinanceiro` determinístico como fallback final.
 Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +
-👍/👎 reordenam as sugestões (localStorage; evolui p/ tabela por org).
+👍/👎 reordenam as sugestões. O localStorage é a fonte **síncrona** (rápida,
+demo-safe); em **live** sincroniza **best-effort** com a tabela por org
+`ai_learning` (`0018`, RLS + RPCs `ai_learning_bump`/`ai_learning_feedback`):
+cada pergunta/feedback dá um bump remoto e `hidratarAprendizado()` (ao abrir o
+painel) mescla o aprendizado da organização de volta no local. Tolerante a
+falha/ausência da tabela — nunca quebra o assistente. **Migration gerada como
+arquivo** (aplicar ao remoto; a sincronização liga sozinha).
 
 **Ficha de contato 360º** (`src/components/app/ContatoDrawer.tsx`, global, abre
 por evento `a4p:open-contato { detail: { id } }`): recebido/pago, a receber/

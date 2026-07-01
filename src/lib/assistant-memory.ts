@@ -3,9 +3,14 @@
  * Não é um LLM: é o "machine learning leve" que faz o assistente APRENDER com o
  * uso do cliente. Registra cada pergunta (frequência + recência), o feedback
  * (👍/👎) e usa isso para reordenar as sugestões — quanto mais o usuário
- * pergunta sobre um tema, mais alto ele sobe. Persistido em localStorage
- * (demo-safe, por navegador). Em live evolui para uma tabela por org.
+ * pergunta sobre um tema, mais alto ele sobe. O localStorage é a fonte SÍNCRONA
+ * (rápida, demo-safe, por navegador). Em live (não-demo, Supabase configurado)
+ * sincroniza **best-effort** com a tabela `ai_learning` por ORG (0018): cada
+ * pergunta/feedback dá um bump remoto (fire-and-forget) e `hidratarAprendizado()`
+ * (chamado ao abrir o painel) mescla o aprendizado da org de volta no local.
+ * Tudo tolerante a falha/ausência da tabela — nunca quebra o assistente.
  */
+import { isDemo } from "@/lib/demo";
 export interface QStat {
   q: string; // pergunta (casing original da 1ª vez)
   n: number; // quantas vezes foi perguntada
@@ -26,6 +31,44 @@ function load(): Mem {
 }
 function save(m: Mem) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch { /* ignore */ } }
 
+// ——— Sincronização best-effort com o Supabase (só live; nunca lança) ———
+async function supa() {
+  if (isDemo || typeof window === "undefined") return null;
+  try { const { createClient } = await import("@/lib/supabase/client"); return createClient(); } catch { return null; }
+}
+async function remoteBump(k: string, q: string) {
+  try { const c = await supa(); if (c) await c.rpc("ai_learning_bump", { p_norm: k, p_q: q }); } catch { /* ignore */ }
+}
+async function remoteFeedback(k: string, dir: "up" | "down") {
+  try { const c = await supa(); if (c) await c.rpc("ai_learning_feedback", { p_norm: k, p_dir: dir }); } catch { /* ignore */ }
+}
+
+/** Mescla o aprendizado da ORG (Supabase) no local — chamar 1x ao abrir. */
+let hidratado = false;
+export async function hidratarAprendizado() {
+  if (hidratado || isDemo || typeof window === "undefined") return;
+  hidratado = true;
+  try {
+    const c = await supa(); if (!c) return;
+    const { data } = await c.from("ai_learning").select("q_norm,q,n,up,down,last").order("n", { ascending: false }).limit(40);
+    if (!Array.isArray(data) || !data.length) return;
+    const m = load();
+    for (const r of data as { q_norm: string; q: string; n: number; up: number; down: number; last: string }[]) {
+      const cur = m.stats[r.q_norm];
+      const remoteLast = Date.parse(r.last) || 0;
+      // funde pegando o MAIOR de cada contador (org agrega vários navegadores)
+      m.stats[r.q_norm] = {
+        q: cur?.q || r.q,
+        n: Math.max(cur?.n ?? 0, r.n ?? 0),
+        up: Math.max(cur?.up ?? 0, r.up ?? 0),
+        down: Math.max(cur?.down ?? 0, r.down ?? 0),
+        last: Math.max(cur?.last ?? 0, remoteLast),
+      };
+    }
+    save(m);
+  } catch { /* ignore */ }
+}
+
 /** Registra que o usuário fez esta pergunta (sobe a frequência + recência). */
 export function registrarPergunta(q: string) {
   if (typeof window === "undefined" || !q.trim()) return;
@@ -33,14 +76,16 @@ export function registrarPergunta(q: string) {
   const s = m.stats[k] ?? { q: q.trim(), n: 0, last: 0, up: 0, down: 0 };
   s.n += 1; s.last = Date.now(); s.q = q.trim();
   m.stats[k] = s; save(m);
+  void remoteBump(k, q.trim());
 }
 
 /** Feedback do usuário sobre a resposta — alimenta o ranking de sugestões. */
 export function registrarFeedback(q: string, dir: "up" | "down") {
   if (typeof window === "undefined") return;
-  const m = load(); const s = m.stats[norm(q)]; if (!s) return;
+  const m = load(); const k = norm(q); const s = m.stats[k]; if (!s) return;
   if (dir === "up") s.up += 1; else s.down += 1;
   save(m);
+  void remoteFeedback(k, dir);
 }
 
 /** Score adaptativo: frequência + recência + saldo de feedback. */

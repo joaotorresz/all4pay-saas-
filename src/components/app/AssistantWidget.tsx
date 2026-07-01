@@ -21,7 +21,7 @@ import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
-import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes } from "@/lib/assistant-memory";
+import { registrarPergunta, registrarFeedback, sugestoes as mesclarSugestoes, hidratarAprendizado } from "@/lib/assistant-memory";
 import { logAcaoIA } from "@/lib/ai-copilot";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
@@ -109,6 +109,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const fimRef = React.useRef<HTMLDivElement>(null);
   const idRef = React.useRef(0);
   const [, force] = React.useReducer((x) => x + 1, 0); // re-render p/ sugestões aprendidas
+  React.useEffect(() => { void hidratarAprendizado().then(() => force()); }, []); // mescla aprendizado da org (best-effort)
 
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turnos, pensando]);
 
