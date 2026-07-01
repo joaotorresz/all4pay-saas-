@@ -12,9 +12,12 @@
 import { serieMensal, receitaRecorrente } from "@/core/quant/series";
 import { periodoPreset } from "@/core/dre/index";
 import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
+import { calcularSazonalidade } from "@/core/risk-engine/sazonalidade.engine";
+import { motorPreditivo } from "@/core/executive/forecast";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 const HOJE = "2026-07-01"; // 1º dia do mês — o gatilho do bug
+const MES_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const mk = (o: Partial<RiskMovement>): RiskMovement =>
   ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000, due_date: HOJE, paid_date: HOJE, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
 
@@ -50,6 +53,15 @@ ok("DRE mês atual começa em julho (2026-07)", pm.de === "2026-07-01", `veio ${
 // 4. liquidez: rótulo DD/MM bate com a chave (não um dia atrás)
 const { pontos } = calcularLiquidezProjetada({ ...input, horizonDias: 2 } as RiskInput);
 ok("liquidez: rótulo[0] = 01/07 e chave = 2026-07-01", pontos[0].label === "01/07" && pontos[0].date === "2026-07-01", `veio ${pontos[0].label}/${pontos[0].date}`);
+
+// 5. sazonalidade: mês atual = JULHO (índice 6), não junho
+const saz = calcularSazonalidade(input);
+ok("sazonalidade: mês atual é julho (índice 6)", saz.indiceMesAtual === (saz.indicePorMes[6]?.indice || 1), `indiceMesAtual=${saz.indiceMesAtual}`);
+
+// 6. forecast: 1º mês projetado é o mês SEGUINTE (agosto = MES[7]), não julho
+const fc = motorPreditivo(input, 3);
+const prev1 = fc.serie.find((p) => p.tipo === "previsto");
+ok("forecast: 1º previsto é agosto (mês seguinte)", prev1?.label === MES_ABBR[7], `veio ${prev1?.label}`);
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — fronteira de mês em fuso UTC-3`);
 if (fails > 0) process.exit(1);

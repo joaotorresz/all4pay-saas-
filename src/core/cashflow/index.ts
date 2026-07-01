@@ -276,7 +276,7 @@ export function montarFluxoCaixa(
       passos: [
         { label: "Boleto / título", ok: temPendSaida, detalhe: temPendSaida ? "há contas a pagar em aberto" : "nenhuma conta a pagar pendente" },
         { label: "Nota fiscal", ok: false, detalhe: "vincule a NF na Caixa de Entrada" },
-        { label: "Contrato / recorrência", ok: risco.sazonalidade.indiceMesAtual !== undefined, detalhe: "recorrências detectadas alimentam o previsto" },
+        { label: "Contrato / recorrência", ok: quant.indicadores.receitaRecorrente > 0, detalhe: quant.indicadores.receitaRecorrente > 0 ? `${Math.round(quant.indicadores.receitaRecorrente * 100)}% de receita recorrente` : "sem recorrência detectada" },
         { label: "Fornecedor cadastrado", ok: fornecedores > 0, detalhe: `${fornecedores} fornecedores no cadastro` },
         { label: "Orçamento disponível", ok: saldoAtual > saidasPrevistas, detalhe: saldoAtual > saidasPrevistas ? "saldo cobre as saídas do período" : "saídas acima do saldo — atenção" },
         { label: "Saldo em conta", ok: saldoAtual > 0, detalhe: fmtBRL(saldoAtual) },

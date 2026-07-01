@@ -20,7 +20,7 @@ export function calcularSazonalidade(input: RiskInput): SazonalidadeResult {
     label: MES[i],
     indice: media ? v / media : 0,
   }));
-  const mesAtual = new Date(input.hoje).getMonth();
+  const mesAtual = Number(input.hoje.slice(5, 7)) - 1; // mês LOCAL da string (0-11); new Date(UTC).getMonth() erra no dia 1 em UTC-3
   return {
     indiceMesAtual: indicePorMes[mesAtual]?.indice || 1,
     mesesBaixos: indicePorMes.filter((m) => m.indice > 0 && m.indice < 0.85).map((m) => m.label),

@@ -54,8 +54,10 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
     }
   }
 
-  // 2) Duplicidade: mesma contraparte + mesmo valor em até 3 dias (saída).
-  const saidas = input.movements.filter((m) => m.type === "saida");
+  // 2) Duplicidade: mesma contraparte + mesmo valor em até 3 dias (saída PAGA).
+  // Exige status "pago": parcelas agendadas (pendente) ou canceladas de igual
+  // valor não são pagamento duplicado — a cópia "Dois pagamentos..." seria falsa.
+  const saidas = input.movements.filter((m) => m.type === "saida" && m.status === "pago");
   for (let a = 0; a < saidas.length; a++) {
     for (let b = a + 1; b < saidas.length; b++) {
       const x = saidas[a];
@@ -82,7 +84,7 @@ export function detectarAnomalias(input: RiskInput): Anomalia[] {
   // 3) Pagamento atípico: saída muito acima do padrão da contraparte.
   const porParte = new Map<string, number[]>();
   for (const m of input.movements) {
-    if (m.type !== "saida") continue;
+    if (m.type !== "saida" || m.status !== "pago") continue;
     const id = m.party_id ?? "—";
     (porParte.get(id) ?? porParte.set(id, []).get(id)!).push(m.amount);
   }
