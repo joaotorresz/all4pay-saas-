@@ -49,6 +49,9 @@ const CURADAS = [
   "Quem está me devendo?",
   "Posso gastar R$ 5.000?",
   "Quais meus maiores fornecedores?",
+  "Qual minha margem esse mês?",
+  "Estou crescendo?",
+  "Qual meu ponto de equilíbrio?",
   "O que é margem de contribuição?",
 ];
 

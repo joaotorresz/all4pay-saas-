@@ -433,7 +433,9 @@ camadas encadeadas no `responder`:
    **previsão do mês**, próximo receb./pagto, média mensal, **afordabilidade**
    ("posso gastar X?"), **onde economizar** (categoria que mais cresceu MoM),
    **comparação entre dois meses** ("gastei mais em maio ou junho?"), top
-   fornecedores, contagem de contrapartes, **resumo do dia** e **resumo do
+   fornecedores, contagem de contrapartes, **margem/lucratividade** (resultado ÷
+   receita), **crescimento** (receita MoM), **ponto de equilíbrio** (break-even =
+   despesa média mensal), **resumo do dia** e **resumo do
    período** (mês/trimestre/semestre/ano). A janela é detectada da própria
    pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das
    intenções importa (as de cima vencem; as consultivas/pago-vs-pendente foram
