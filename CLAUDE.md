@@ -413,6 +413,36 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
   o ar "artificial" sem perder explicabilidade (os números seguem do motor).
   Logado em `ai_actions`.
 
+### All 4 Pay AI — assistente flutuante (global) + ficha de contato
+
+A IA conversacional **saiu do menu** e virou um **FAB gradiente "All 4 Pay AI"**
+(`src/components/app/AssistantWidget.tsx`, montado no `AppShell`) que abre um
+painel de chat à direita, em toda tela. **Funciona sem chave** graças a três
+camadas encadeadas no `responder`:
+1. **Base de conhecimento** (`src/lib/assistant-kb.ts`): perguntas conceituais
+   ("o que é runway?", "como calcula o EBITDA?") respondidas na hora + link
+   **"Abrir {tela} ↗"** (a `rota` do conceito).
+2. **Motor de resposta NATIVO** (`src/core/assistant/engine.ts` `responderLocal`):
+   calcula a resposta real sobre `getRiscoInput` (movements/contas/clientes) —
+   saldo, gasto/receita/resultado por janela (hoje/semana/mês/mês passado/ano/
+   últimos N dias), maiores gastos por categoria, a receber/pagar, vencimentos,
+   inadimplência, maior cliente, **por contraparte** (devolve `contatoId` → botão
+   "Abrir ficha"), maior gasto individual, por centro de custo, **previsão do
+   mês**, próximo receb./pagto, média mensal, **afordabilidade** ("posso gastar
+   X?"), top fornecedores, contagem de contrapartes. A janela é detectada da
+   própria pergunta; a ordem das intenções importa (as de cima vencem).
+3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
+   `copilotoFinanceiro` determinístico como fallback final.
+Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +
+👍/👎 reordenam as sugestões (localStorage; evolui p/ tabela por org).
+
+**Ficha de contato 360º** (`src/components/app/ContatoDrawer.tsx`, global, abre
+por evento `a4p:open-contato { detail: { id } }`): recebido/pago, a receber/
+pagar, vencido, **score de crédito** (motor de inadimplência) + fatores +
+recomendação, e últimos lançamentos. Ligada a **5 caminhos**: Home "Top
+clientes", a IA (pergunta por contraparte ou "mostre a ficha de X"), DRE por
+cliente (nome clicável, reverse-map nome→id), e a coluna "ficha" em Contatos.
+
 ### Financial Orchestration Layer (`/orquestracao`)
 
 `FinancialOrchestrator` (`src/core/orchestration/`) — o "cérebro operacional"
