@@ -442,7 +442,8 @@ camadas encadeadas no `responder`:
    março"), maiores gastos por categoria, **de onde vem a receita**, a receber/
    pagar, vencimentos, inadimplência, **total em atraso** (ambos os lados),
    maior/melhor cliente, **por contraparte** (devolve `contatoId` → botão "Abrir
-   ficha"), maior gasto/**recebimento** individual, por centro de custo,
+   ficha"; **escopa por período** quando citado — "recebi da Alpha em maio"),
+   maior gasto/**recebimento** individual, por centro de custo,
    **previsão do mês**, próximo receb./pagto, média mensal, **afordabilidade**
    ("posso gastar X?"), **onde economizar** (categoria que mais cresceu MoM),
    **comparação entre dois meses** ("gastei mais em maio ou junho?"), top
@@ -451,12 +452,21 @@ camadas encadeadas no `responder`:
    despesa média mensal), **pontualidade de recebimento/pagamento** (atraso
    médio dos clientes / com que eu pago — DSO/DPO, % no prazo), **receita média
    por cliente** (proxy de LTV), **gasto médio por dia** (burn diário, 30d),
-   **melhor/pior mês** (por resultado ou receita),
+   **melhor/pior mês** (por resultado ou receita; "mais prejuízo" = pior),
+   **EBITDA** (receita − saídas operacionais, exclui financeiro), **receita
+   líquida** (bruta − impostos), **carga tributária** (impostos ÷ receita %),
+   **fluxo de caixa livre** (exclui financiamento), **peso de uma categoria na
+   receita** ("quanto a folha pesa"), **mix produto × serviço**, **total
+   acumulado** (histórico), **previsto do mês seguinte** ("vou receber/pagar mês
+   que vem"), **runway em dias**, **entradas × saídas** e **sinônimos de
+   categoria** (pessoal→Folha, luz→Utilidades),
    **resumo do dia** e **resumo do
-   período** (mês/trimestre/semestre/ano). A janela é detectada da própria
-   pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das
-   intenções importa (as de cima vencem; as consultivas/pago-vs-pendente foram
-   auditadas adversarialmente).
+   período** (mês/trimestre/semestre/ano — janela *trailing*). A janela é
+   detectada da própria pergunta (nomes de mês com limite de palavra: maio ≠
+   maior); a ordem das intenções importa (as de cima vencem; as consultivas/
+   pago-vs-pendente foram auditadas adversarialmente). Perguntas **possessivas**
+   de métricas fortes ("qual meu EBITDA/runway/burn/score") caem no motor
+   (número real); só "o que é X" vai à KB (conceito).
 3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
    `copilotoFinanceiro` determinístico como fallback final.
 Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +
@@ -1085,7 +1095,7 @@ npm run smoke      # roda os motores puros (src/core/*) sobre entradas normais +
                    # 11 motores (risco/quant/inad/decisão/executivo/fluxo/DRE/
                    # datamoat/autônomo/tesouraria). Usa scripts/ts-alias-loader.mjs
                    # (resolve @/ → src/) + --experimental-strip-types.
-npm run corpus     # dispara ~62 frases pt-BR (formais + coloquiais) em
+npm run corpus     # dispara ~180 frases pt-BR (formais + coloquiais) em
                    # responderLocal e falha (exit 1) se alguma cair no intent
                    # errado. Guarda de roteamento da IA nativa (assistant/engine):
                    # protege contra colisões de regex ao mexer nos intents.
@@ -1097,9 +1107,17 @@ npm run values     # complementa o corpus: sobre um dataset determinístico com
 npm run edge       # crash-safety: dispara ~30 perguntas sobre 7 datasets
                    # DEGENERADOS (vazio/cancelado/pendente/futuro/negativo) e
                    # falha se responderLocal lançar exceção ou devolver vazio.
-npm run kb         # cobertura da base de conhecimento: ~49 conceitos "o que é X?"
-                   # devem resolver via buscarKB. Falha se algum sumir/for
+npm run kb         # cobertura da base de conhecimento: ~100 conceitos "o que é X?"
+                   # devem resolver via buscarKB (~97 verbetes: métricas, fiscal,
+                   # bancário, recebíveis, societário). Falha se algum sumir/for
                    # sombreado (protege a camada educativa).
+npm run audit      # guarda de regressão dos bugs de auditoria (scripts/engine-
+                   # audit.mts): valores fechados (cascata DRE, EBITDA, FCF, carga,
+                   # receita líquida, peso na receita, contraparte por período) +
+                   # invariantes direcionais dos motores proprietários (score de
+                   # saúde, crédito, ruptura: saudável > crítica) + idempotência
+                   # (ledger, fila, appendImported) + tamper-evidence + robustez a
+                   # dados vazios. TZ=America/Sao_Paulo.
 npm run tz         # fronteira de mês em fuso UTC-3 (força TZ=America/Sao_Paulo):
                    # `new Date("YYYY-MM-DD")` é meia-noite UTC → no dia 1, em
                    # UTC-3, getMonth() local cai no mês anterior. Exige que
@@ -1107,6 +1125,7 @@ npm run tz         # fronteira de mês em fuso UTC-3 (força TZ=America/Sao_Paul
                    # data-só como `new Date(s + "T00:00:00")` (local) ou fatie a
                    # string; NUNCA getDate/getMonth de um Date UTC para exibir.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
-                   # + kb + tz. Rode antes de commitar mudanças no motor da IA/
-                   # core/*. Também roda no CI (.github/workflows/ci.yml) em push/PR.
+                   # + kb + tz + audit (8 guardas). Rode antes de commitar mudanças
+                   # no motor da IA / core/* / lib de dados. Também roda no CI
+                   # (.github/workflows/ci.yml) em push/PR.
 ```
