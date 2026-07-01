@@ -227,7 +227,7 @@ export function VisorHomeTop() {
                 const on = tipoDist === val;
                 return (
                   <button key={val} role="tab" aria-selected={on} onClick={() => setTipoDist(val)}
-                    className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${on ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{label}</button>
+                    className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${on ? "bg-white text-ink" : "text-muted hover:text-ink"}`}>{label}</button>
                 );
               })}
             </div>
@@ -397,7 +397,7 @@ function GastoTooltip({ active, payload }: any) {
   const projetado = p.gasto == null;
   const valor = p.gasto ?? p.proj ?? 0;
   return (
-    <div className="bg-white rounded-card border border-border px-4 py-3 text-caption" style={{ boxShadow: "0 6px 20px rgba(14,19,30,0.14)" }}>
+    <div className="bg-white rounded-card px-4 py-3 text-caption">
       <div className="text-[15px] font-semibold text-ink mb-2">{p.label}</div>
       <TipRow color={projetado ? PROJ : POSITIVE} k={projetado ? "Gasto (proj.)" : "Gasto acum."} v={formatBRL(valor)} />
       {p.prev != null && <TipRow color={ORANGE} k="Mês anterior" v={formatBRL(p.prev)} />}

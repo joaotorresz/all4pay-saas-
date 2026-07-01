@@ -388,6 +388,14 @@ html:not(.dark) .ds-visor {
   box-shadow: none;
   border: 0;
 }
+/* REGRA DA MARCA: NENHUMA sombra em lugar nenhum (flat total). O !important
+   vence até os box-shadow inline (que não têm !important) — mata elevações de
+   popovers/dropdowns/FABs/toggles de uma vez, sem caçar arquivo por arquivo. */
+.ds-visor *,
+.ds-visor *::before,
+.ds-visor *::after {
+  box-shadow: none !important;
+}
 /* padding 45px (default do Card) → 24px do painel */
 .ds-visor [data-card="1"].p-\[45px\] {
   padding: var(--a4p-box-padding);

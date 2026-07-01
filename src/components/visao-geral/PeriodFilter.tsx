@@ -64,8 +64,9 @@ export function PeriodFilter() {
     period.setRange(firstDay(sd.getFullYear(), sd.getMonth()), lastDay(end.y, end.m));
   };
 
+  // FLAT: ativo = pill ink discreto · inativo = só texto (sem borda/bg/sombra)
   const btn = (ativo: boolean) =>
-    `inline-flex items-center h-9 px-4 rounded-pill text-[15px] font-medium transition-colors ${ativo ? "bg-ink text-white" : "bg-white border border-border text-muted hover:text-ink"}`;
+    `inline-flex items-center h-9 px-4 rounded-pill text-[15px] font-medium transition-colors ${ativo ? "bg-ink text-white" : "bg-transparent text-muted hover:text-ink"}`;
 
   return (
     <div ref={ref} className="relative">
@@ -79,14 +80,14 @@ export function PeriodFilter() {
       </div>
 
       {open && (
-        <div className="absolute right-0 mt-2 z-50 w-[300px] bg-white rounded-card border border-border p-4 flex flex-col gap-3" style={{ boxShadow: "0 12px 32px rgba(14,19,30,0.16)" }}>
+        <div className="absolute right-0 mt-2 z-50 w-[300px] bg-white rounded-card p-4 flex flex-col gap-3">
           <span className="text-caption font-medium text-muted">Duração</span>
           <div className="flex flex-wrap gap-2">
             {DURACOES.map((n) => (
               <button
                 key={n}
                 onClick={() => { setDur(n); aplicar(n, mesRef); }}
-                className={`text-caption font-medium rounded-pill px-3 py-[6px] border transition-colors ${dur === n ? "bg-ink text-white border-ink" : "bg-white text-muted border-border hover:text-ink"}`}
+                className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
               >
                 {n} {n === 1 ? "mês" : "meses"}
               </button>
@@ -124,13 +125,13 @@ function MonthDropdown({ value, options, onChange }: { value: YM; options: YM[];
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 h-10 px-3 rounded-md border border-border bg-white text-[15px] text-ink hover:border-faint transition-colors"
+        className="flex w-full items-center justify-between gap-2 h-10 px-3 rounded-pill bg-surface-2 text-[15px] text-ink hover:bg-surface-3 transition-colors"
       >
         <span className="capitalize">{mesLabel(value)}</span>
         <Icon name="chevron-down" size={15} color="var(--color-text-secondary)" />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-md border border-border py-1" style={{ boxShadow: "0 12px 32px rgba(14,19,30,0.16)" }}>
+        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-card py-1">
           {options.map((o) => {
             const on = encode(o) === encode(value);
             return (
