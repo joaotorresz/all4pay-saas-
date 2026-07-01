@@ -106,6 +106,11 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const [texto, setTexto] = React.useState("");
   const [turnos, setTurnos] = React.useState<Turno[]>([]);
   const [pensando, setPensando] = React.useState(false);
+  const [copiedId, setCopiedId] = React.useState<number | null>(null);
+  const copiar = (t: Turno) => {
+    const txt = [t.resposta, ...(t.numeros?.map((n) => `${n.label}: ${n.valor}`) ?? [])].filter(Boolean).join("\n");
+    try { navigator.clipboard?.writeText(txt); setCopiedId(t.id); setTimeout(() => setCopiedId((c) => (c === t.id ? null : c)), 1500); } catch { /* ignore */ }
+  };
   const fimRef = React.useRef<HTMLDivElement>(null);
   const idRef = React.useRef(0);
   const [, force] = React.useReducer((x) => x + 1, 0); // re-render p/ sugestões aprendidas
@@ -257,10 +262,13 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
                   {(t.fontes?.length || t.fonte !== "carregando") && (
                     <div className="flex items-center gap-2 text-[11px] text-faint">
                       {t.fontes && t.fontes.length > 0 && <span className="truncate">Fontes: {t.fontes.join(" · ")}{t.fonte === "ia" ? " · Claude" : ""}</span>}
-                      {t.fonte !== "carregando" && t.fonte !== "kb" && (
+                      {t.fonte !== "carregando" && (
                         <span className="ml-auto inline-flex items-center gap-1 shrink-0">
-                          <button onClick={() => darFeedback(t, "up")} aria-label="Resposta útil" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "up" ? "text-positive" : "text-faint"}`}><Icon name="check" size={13} color="currentColor" /></button>
-                          <button onClick={() => darFeedback(t, "down")} aria-label="Resposta ruim" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "down" ? "text-negative" : "text-faint"}`}><Icon name="minus" size={13} color="currentColor" /></button>
+                          <button onClick={() => copiar(t)} aria-label="Copiar resposta" className="h-6 px-2 rounded-sm inline-flex items-center hover:bg-surface-2 text-faint hover:text-ink transition-colors">{copiedId === t.id ? "Copiado" : "Copiar"}</button>
+                          {t.fonte !== "kb" && <>
+                            <button onClick={() => darFeedback(t, "up")} aria-label="Resposta útil" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "up" ? "text-positive" : "text-faint"}`}><Icon name="check" size={13} color="currentColor" /></button>
+                            <button onClick={() => darFeedback(t, "down")} aria-label="Resposta ruim" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "down" ? "text-negative" : "text-faint"}`}><Icon name="minus" size={13} color="currentColor" /></button>
+                          </>}
                         </span>
                       )}
                     </div>
