@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-smoke.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

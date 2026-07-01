@@ -1075,4 +1075,10 @@ npm run dev        # local dev server
 npm run build      # production build
 npm run typecheck  # tsc --noEmit
 npm run lint       # next lint
+npm run smoke      # roda os motores puros (src/core/*) sobre entradas normais +
+                   # de borda e falha (exit 1) se algum número virar NaN/Infinity
+                   # ou um score sair de [0,100]. Rede de segurança numérica dos
+                   # 11 motores (risco/quant/inad/decisão/executivo/fluxo/DRE/
+                   # datamoat/autônomo/tesouraria). Usa scripts/ts-alias-loader.mjs
+                   # (resolve @/ → src/) + --experimental-strip-types.
 ```
