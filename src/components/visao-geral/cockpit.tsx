@@ -312,6 +312,187 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Novos widgets executivos ============ */
+  /* ---- Resumo executivo ---- */
+  {
+    id: "prob-ruptura-90d", label: "Prob. de ruptura (90d)", categoria: "Resumo executivo",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="triangle-alert" label="Prob. de ruptura (90d)"
+        tone={c.quant.score.probabilidadeRuptura > 0.3 ? NEG : c.quant.score.probabilidadeRuptura > 0.1 ? WARN : POS}
+        value={pctTxt(c.quant.score.probabilidadeRuptura)}
+        answer={`Chance de o caixa ficar negativo nos próximos 90 dias: ${pctTxt(c.quant.score.probabilidadeRuptura)}.`}
+        info={{ titulo: "Prob. de ruptura (90d)", oQue: "A probabilidade de o caixa faltar dentro de 90 dias.", comoCalcula: "Sai do score de saúde financeira, que projeta o caixa e mede o risco de ruptura em 90 dias." }} />
+    ),
+  },
+  {
+    id: "eficiencia-operacional", label: "Eficiência operacional", categoria: "Resumo executivo",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="activity" label="Eficiência operacional"
+        tone={c.quant.indicadores.eficienciaOperacional >= 6 ? POS : c.quant.indicadores.eficienciaOperacional >= 3 ? WARN : NEG}
+        value={`${c.quant.indicadores.eficienciaOperacional.toFixed(1)}/10`}
+        answer="Quanto de receita a operação gera para cada real de custo."
+        info={{ titulo: "Eficiência operacional", oQue: "Mede o quão bem a empresa converte custos em receita, de 0 a 10.", comoCalcula: "Receita média sobre os custos operacionais do período, reescalada para uma nota de 0 a 10." }} />
+    ),
+  },
+  {
+    id: "roic-proxy", label: "ROIC (proxy)", categoria: "Resumo executivo",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="trending-up" label="ROIC (proxy)"
+        tone={c.quant.indicadores.roic > 0 ? POS : NEG}
+        value={`${c.quant.indicadores.roic >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.roic)}`}
+        answer="Retorno aproximado sobre o capital empregado na operação."
+        info={{ titulo: "ROIC (proxy)", oQue: "Estima o retorno gerado sobre o capital investido na operação.", comoCalcula: "Lucro operacional anualizado dividido pelo capital empregado. É uma aproximação a partir dos lançamentos." }} />
+    ),
+  },
+  /* ---- Caixa ---- */
+  {
+    id: "volatilidade-fluxo", label: "Volatilidade do fluxo", categoria: "Caixa",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="activity" label="Volatilidade do fluxo"
+        tone={c.quant.indicadores.volatilidadeFluxo > 0.5 ? NEG : c.quant.indicadores.volatilidadeFluxo > 0.25 ? WARN : POS}
+        value={pctTxt(c.quant.indicadores.volatilidadeFluxo)}
+        answer={c.quant.indicadores.volatilidadeFluxo > 0.5 ? "Seu fluxo de caixa oscila muito — mais difícil de prever." : "Fluxo de caixa estável e previsível."}
+        info={{ titulo: "Volatilidade do fluxo", oQue: "O quanto o fluxo de caixa varia de um período para o outro.", comoCalcula: "Coeficiente de variação do fluxo mensal (desvio padrão sobre a média). Quanto maior, mais instável." }} />
+    ),
+  },
+  {
+    id: "burn-multiple", label: "Burn multiple", categoria: "Caixa",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="trending-up" label="Burn multiple"
+        tone={c.quant.indicadores.burnMultiple <= 0 ? POS : c.quant.indicadores.burnMultiple > 3 ? NEG : WARN}
+        value={c.quant.indicadores.burnMultiple <= 0 ? "—" : `${meses(c.quant.indicadores.burnMultiple)}x`}
+        answer={c.quant.indicadores.burnMultiple <= 0 ? "A operação gera caixa — sem queima." : "Quanto de caixa você queima para cada real de nova receita."}
+        info={{ titulo: "Burn multiple", oQue: "Quanto de caixa a empresa queima para gerar cada real de receita nova.", comoCalcula: "Queima líquida de caixa dividida pela nova receita do período. Abaixo de 1x é eficiente." }} />
+    ),
+  },
+  /* ---- Receita ---- */
+  {
+    id: "margem-liquida", label: "Margem líquida", categoria: "Receita",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="gauge" label="Margem líquida"
+        tone={c.quant.indicadores.margemLiquida > 0.1 ? POS : c.quant.indicadores.margemLiquida > 0 ? WARN : NEG}
+        value={`${c.quant.indicadores.margemLiquida >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemLiquida)}`}
+        answer="Quanto sobra de cada real de receita depois de todos os custos e perdas."
+        info={{ titulo: "Margem líquida", oQue: "A fatia da receita que vira lucro depois de custos, despesas e inadimplência.", comoCalcula: "Resultado líquido mensal, já descontada a perda por inadimplência, sobre a receita mensal." }} />
+    ),
+  },
+  {
+    id: "margem-operacional", label: "Margem operacional", categoria: "Receita",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="gauge" label="Margem operacional"
+        tone={c.quant.indicadores.margemOperacional > 0.15 ? POS : c.quant.indicadores.margemOperacional > 0 ? WARN : NEG}
+        value={`${c.quant.indicadores.margemOperacional >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemOperacional)}`}
+        answer="Quanto a operação gera de resultado antes de perdas por inadimplência."
+        info={{ titulo: "Margem operacional", oQue: "O resultado da operação como fatia da receita, antes de perdas de crédito.", comoCalcula: "Resultado operacional mensal (entradas menos saídas operacionais) sobre a receita mensal." }} />
+    ),
+  },
+  {
+    id: "qualidade-receita", label: "Qualidade da receita", categoria: "Receita",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="activity" label="Qualidade da receita"
+        tone={scoreTone(c.quant.indicadores.qualidadeReceita)}
+        value={`${Math.round(c.quant.indicadores.qualidadeReceita)}/100`}
+        answer="O quão previsível, recorrente e diversificada é a sua receita."
+        info={{ titulo: "Qualidade da receita", oQue: "Avalia se a receita é confiável: recorrente, estável e sem depender de poucos clientes.", comoCalcula: "Combina recorrência, baixa volatilidade e baixa concentração de clientes numa nota de 0 a 100." }} />
+    ),
+  },
+  {
+    id: "sazonalidade", label: "Sazonalidade", categoria: "Receita",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="repeat" label="Sazonalidade"
+        tone={c.quant.indicadores.sazonalidade > 0.4 ? WARN : POS}
+        value={pctTxt(c.quant.indicadores.sazonalidade)}
+        answer={c.quant.indicadores.sazonalidade > 0.4 ? "Sua receita tem picos e vales fortes ao longo do ano." : "Receita distribuída de forma estável ao longo do ano."}
+        info={{ titulo: "Sazonalidade", oQue: "O quanto a receita concentra picos e quedas em certos períodos do ano.", comoCalcula: "Amplitude do índice sazonal da receita mensal. Quanto maior, mais a receita depende da época." }} />
+    ),
+  },
+  /* ---- Cobrança ---- */
+  {
+    id: "exposicao-total", label: "Exposição total em aberto", categoria: "Cobrança",
+    render: (c) => !c.inad ? <Loading /> : (
+      <MetricCard icon="credit-card" label="Exposição total em aberto"
+        value={<BRL value={c.inad.resumo.exposicaoTotal} />}
+        answer={`Total a receber de clientes; ${formatBRL(c.inad.resumo.exposicaoVencida)} já vencido.`}
+        info={{ titulo: "Exposição total em aberto", oQue: "Quanto a empresa tem a receber de clientes, vencido ou a vencer.", comoCalcula: "Soma de todos os recebíveis em aberto na carteira de clientes." }} />
+    ),
+  },
+  {
+    id: "clientes-ativos", label: "Clientes na carteira", categoria: "Cobrança",
+    render: (c) => !c.inad ? <Loading /> : (
+      <MetricCard icon="target" label="Clientes na carteira"
+        tone={c.inad.resumo.clientesCriticos > 0 ? WARN : POS}
+        value={`${c.inad.resumo.totalClientes}`}
+        answer={c.inad.resumo.clientesCriticos > 0 ? `${c.inad.resumo.clientesCriticos} em situação crítica de crédito.` : "Nenhum cliente em situação crítica de crédito."}
+        info={{ titulo: "Clientes na carteira", oQue: "Quantos clientes têm recebíveis em aberto e como está o risco deles.", comoCalcula: "Número de clientes com saldo a receber; destaca quantos estão classificados como crítico." }} />
+    ),
+  },
+  {
+    id: "receita-media-cliente", label: "Receita média por cliente", categoria: "Cobrança",
+    render: (c) => !c.inad ? <Loading /> : (
+      <MetricCard icon="credit-card" label="Receita média por cliente"
+        value={<BRL value={c.inad.resumo.totalClientes > 0 ? c.inad.resumo.exposicaoTotal / c.inad.resumo.totalClientes : 0} />}
+        answer="Valor médio em aberto por cliente da carteira."
+        info={{ titulo: "Receita média por cliente", oQue: "Quanto, em média, cada cliente tem em aberto com a empresa.", comoCalcula: "Exposição total em aberto dividida pelo número de clientes na carteira." }} />
+    ),
+  },
+  /* ---- Radares ---- */
+  {
+    id: "radar-dependencia-cliente", label: "Dependência de clientes", categoria: "Radares all4pay",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="target" label="Dependência de clientes"
+        tone={c.quant.indicadores.dependenciaCliente > 0.6 ? WARN : POS}
+        value={pctTxt(c.quant.indicadores.dependenciaCliente)}
+        answer={`Seus 2 maiores clientes somam ${pctTxt(c.quant.indicadores.dependenciaCliente)} da receita${c.quant.indicadores.dependenciaCliente > 0.6 ? " — dependência alta." : "."}`}
+        info={{ titulo: "Dependência de clientes", oQue: "Mostra o quanto a receita depende dos dois maiores clientes juntos.", comoCalcula: "Fatia da receita total que vem dos dois maiores clientes. Acima de 60% acende alerta." }} />
+    ),
+  },
+  {
+    id: "radar-projecao-score", label: "Projeção de score (cenário)", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const cen = c.quant.cenarios[0];
+      if (!cen) return (
+        <MetricCard icon="gauge" label="Projeção de score (cenário)" value="—"
+          answer="Sem cenário preditivo relevante no momento."
+          info={{ titulo: "Projeção de score (cenário)", oQue: "Como a saúde financeira reagiria a um choque simulado.", comoCalcula: "O motor projeta o score sob cenários de choque de receita, despesa e inadimplência." }} />
+      );
+      return (
+        <MetricCard icon="gauge" label="Projeção de score (cenário)"
+          tone={cen.delta < 0 ? NEG : POS}
+          value={`${cen.scoreProjetado}/100`}
+          answer={`${cen.label}: score iria para ${cen.scoreProjetado} (${cen.delta >= 0 ? "+" : ""}${cen.delta}) em ${cen.emDias}d.`}
+          info={{ titulo: "Projeção de score (cenário)", oQue: "Como a saúde financeira reagiria ao cenário de choque mais relevante.", comoCalcula: "O motor recalcula o score aplicando o choque simulado e mostra a variação e o prazo." }} />
+      );
+    },
+  },
+  {
+    id: "radar-insight-critico", label: "Insight crítico do dia", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const top = c.exec.insights[0];
+      return (
+        <MetricCard icon="sparkles" label="Insight crítico do dia"
+          tone={top ? (/crit|alta/i.test(top.severidade) ? NEG : WARN) : POS}
+          value={top ? top.titulo : "Tudo sob controle"}
+          answer={top ? (top.recomendacoes?.[0] ?? top.descricao) : "Nenhum ponto crítico priorizado pela IA hoje."}
+          info={{ titulo: "Insight crítico do dia", oQue: "O ponto mais importante que a IA priorizou para você agir hoje.", comoCalcula: "A IA ordena os insights por impacto, urgência e probabilidade e destaca o de maior prioridade." }} />
+      );
+    },
+  },
+  {
+    id: "radar-forecast-30d", label: "Forecast de caixa", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const pressao = c.exec.forecast.janelaPressao;
+      return (
+        <MetricCard icon="trending-up" label="Forecast de caixa"
+          tone={pressao ? WARN : POS}
+          value={pressao ? "Pressão à vista" : "Sem pressão"}
+          answer={pressao ? pressao.texto : c.exec.forecast.texto}
+          info={{ titulo: "Forecast de caixa", oQue: "A projeção de caixa e se há uma janela de aperto pela frente.", comoCalcula: "Média móvel ponderada ajustada por sazonalidade projeta o fluxo e sinaliza janelas de pressão de caixa." }} />
+      );
+    },
+  },
 ];
 
 export const CATALOG_BY_ID = new Map(COCKPIT_CATALOG.map((w) => [w.id, w]));
