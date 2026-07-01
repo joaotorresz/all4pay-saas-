@@ -462,6 +462,13 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
+  "/plataforma": {
+    titulo: "Plataforma financeira",
+    intro: "A camada de infraestrutura em um hub: Arquitetura institucional (10 camadas, Treasury Core, reliability), Infraestrutura (Double-Entry Ledger Core, idempotência, fila) e Orquestração event-driven — em abas.",
+    comoUsar: "Troque entre as abas Arquitetura, Infraestrutura e Orquestração; cada uma tem um console interativo (dispare eventos, processe pagamentos, teste resiliência).",
+    exemplo: "Na aba Orquestração, dispare 'PIX_RECEBIDO R$ 2.000' → veja a cascata (ledger, recálculo de risco, webhook).",
+    secoes: [],
+  },
   "/orquestracao": {
     titulo: "Orquestração — Financial Operating System",
     intro: "Toda ação vira evento e propaga pela cascata (event sourcing). Dispare um evento e veja o sistema reagir, com ledger e grafo.",
