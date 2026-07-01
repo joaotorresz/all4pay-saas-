@@ -14,6 +14,7 @@
  * Montado uma vez no AppShell → presente em todas as telas.
  */
 import * as React from "react";
+import Link from "next/link";
 import { Icon } from "@/components/ui";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
@@ -60,6 +61,8 @@ interface Turno {
   acao?: string | null;
   fonte: "kb" | "ia" | "motor" | "carregando";
   feedback?: "up" | "down";
+  rota?: string;
+  rotaLabel?: string;
 }
 
 export function AssistantWidget() {
@@ -120,7 +123,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
     // 1) Conceitual → base de conhecimento (instantâneo, sem chave)
     const kb = buscarKB(q);
     if (kb) {
-      const turno: Turno = { id, q, resposta: kb.texto, fontes: [`Base: ${kb.titulo}`], fonte: "kb" };
+      const turno: Turno = { id, q, resposta: kb.texto, fontes: [`Base: ${kb.titulo}`], fonte: "kb", rota: kb.rota, rotaLabel: kb.titulo };
       setTurnos((t) => [...t, turno]);
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: kb.texto, status: "lida" });
       force();
@@ -230,6 +233,12 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
                       <Icon name="sparkles" size={13} color="var(--color-lime)" />
                       <span className="text-caption text-ink"><b className="font-medium">Ação:</b> {t.acao}</span>
                     </div>
+                  )}
+                  {t.rota && (
+                    <Link href={t.rota} onClick={onClose} className="inline-flex items-center gap-1 self-start text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 rounded-pill px-3 py-[6px] transition-colors">
+                      Abrir {t.rotaLabel || "no sistema"}
+                      <Icon name="arrow-up-right" size={13} color="currentColor" />
+                    </Link>
                   )}
                   {(t.fontes?.length || t.fonte !== "carregando") && (
                     <div className="flex items-center gap-2 text-[11px] text-faint">
