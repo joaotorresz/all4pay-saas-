@@ -131,11 +131,13 @@ export async function sincronizarReembolsos(): Promise<number> {
     const st = statusDe.get(r.solicitacaoId);
     if (st === "rejeitada" && r.status !== "rejeitado") { r.status = "rejeitado"; }
     else if (st === "aprovada" && r.status !== "a_pagar" && !r.movimentos.length) {
-      r.movimentos = await gerarPagamento(r);
+      const gerados_ = await gerarPagamento(r);
+      r.movimentos = gerados_.map((g) => g.id);
       r.status = "a_pagar";
       gerados++;
-      // N7: o reembolso já passou pela alçada — pré-autoriza os movimentos p/ a Central não reabrir.
-      for (let k = 0; k < r.movimentos.length; k++) await autorizarMovimento(r.movimentos[k], r.itens[k]?.valor ?? 0, r.colaborador);
+      // N7: o reembolso já passou pela alçada — pré-autoriza cada movimento pelo
+      // SEU próprio valor (não por posição, que no live pode desalinhar do item).
+      for (const g of gerados_) await autorizarMovimento(g.id, g.valor, r.colaborador);
       if (!isDemo) await createClient().from("reembolsos").update({ status: "aprovado", movement_id: r.movimentos[0] ?? null }).eq("id", r.id);
     } else if (st === "aprovada" && r.status === "em_aprovacao") { r.status = "aprovado"; }
   }
@@ -143,10 +145,13 @@ export async function sincronizarReembolsos(): Promise<number> {
   return gerados;
 }
 
-/** Cada item vira um movement de saída (party = colaborador real — N3). */
-async function gerarPagamento(r: Reembolso): Promise<string[]> {
+/** Cada item vira um movement de saída (party = colaborador real — N3).
+ *  Devolve {id, valor} pareado: no live o insert().select() NÃO garante a ordem
+ *  das linhas retornadas, então a pré-autorização precisa do valor do PRÓPRIO
+ *  movimento — não pode assumir movimentos[k] ↔ itens[k]. */
+async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number }[]> {
   const hoje = isoDay(new Date());
-  const ids: string[] = [];
+  const out: { id: string; valor: number }[] = [];
   if (isDemo) {
     const party: Party = { id: r.colaboradorId, type: "pf", name: r.colaborador, is_supplier: true } as Party;
     r.itens.forEach((it, i) => {
@@ -157,22 +162,22 @@ async function gerarPagamento(r: Reembolso): Promise<string[]> {
         description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
       } as Movement;
       appendImported({ movement, party });
-      ids.push(id);
+      out.push({ id, valor: it.valor });
     });
-    return ids;
+    return out;
   }
   const supabase = createClient();
   const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
   const accId = (accs as { id: string }[] | null)?.[0]?.id;
-  if (!accId) return ids;
+  if (!accId) return out;
   const rows = r.itens.map((it) => ({
     account_id: accId, type: "saida", status: "pendente", category: it.categoria, amount: it.valor,
     party_id: r.colaboradorId || null, due_date: hoje, paid_date: null, reconciled: false,
     description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
   }));
-  const { data } = await supabase.from("movements").insert(rows).select("id");
-  for (const row of (data ?? []) as { id: string }[]) ids.push(row.id);
-  return ids;
+  const { data } = await supabase.from("movements").insert(rows).select("id,amount");
+  for (const row of (data ?? []) as { id: string; amount: number }[]) out.push({ id: row.id, valor: Number(row.amount) });
+  return out;
 }
 
 export function clearReembolsos(): void { saveLocal([]); }

@@ -214,7 +214,14 @@ export async function rolarRecorrencias(): Promise<number> {
     const futuras = movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente" && m.due_date >= hoje).length;
     if (futuras >= 3) continue;
     const projetadas = r.projetadas ?? r.movimentos.length;
+    // Dedup por vencimento: projetarProximasFaturas parte SEMPRE de hoje e cobre
+    // 6 meses, sobrepondo as faturas pendentes que ainda restam. Sem isto, o
+    // top-up cria uma 2ª fatura (id novo) p/ o mesmo mês → MRR/recebíveis em dobro.
+    const jaTem = new Set(
+      movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente").map((m) => m.due_date),
+    );
     projetarProximasFaturas(r, 6).forEach((f, k) => {
+      if (jaTem.has(f.vencimento)) return; // já há fatura pendente p/ esse vencimento
       const mid = `${r.id}-fat${projetadas + k}`;
       appendImported({ movement: {
         id: mid, account_id: "", type: "entrada", status: "pendente",
@@ -224,6 +231,7 @@ export async function rolarRecorrencias(): Promise<number> {
         reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       r.movimentos.push(mid); novas++;
+      jaTem.add(f.vencimento);
     });
     r.projetadas = projetadas + 6;
   }

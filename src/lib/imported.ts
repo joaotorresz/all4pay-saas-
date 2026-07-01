@@ -113,7 +113,9 @@ export function appendImported(input: {
       ajustarSaldo(m.type, m.amount); // dar baixa realiza o pendente → mexe no saldo
       return { ...m, status: "pago", paid_date: input.movement.paid_date ?? input.movement.due_date, reconciled: true };
     });
-  } else {
+  } else if (!movements.some((m) => m.id === input.movement.id)) {
+    // Dedup por id: reenviar o MESMO lançamento (confirmar 2x, roll-forward que
+    // recomputa o mesmo id) não pode duplicar o movimento nem ajustar o saldo 2x.
     const mov: Movement = { ...input.movement, account_id: contaAlvo?.id ?? input.movement.account_id };
     if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
     movements = [mov, ...movements];
@@ -226,7 +228,8 @@ export function updateImportedParty(id: string, patch: Partial<Party>): boolean 
   if (!ds) return false;
   const i = ds.parties.findIndex((p) => p.id === id);
   if (i < 0) return false;
-  ds.parties[i] = { ...ds.parties[i], ...patch };
-  setImported({ ...ds });
+  // Copy-on-write (como os outros writers): não mutar o array do cache in place.
+  const parties = ds.parties.map((p, j) => (j === i ? { ...p, ...patch } : p));
+  setImported({ ...ds, parties });
   return true;
 }

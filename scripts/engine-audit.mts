@@ -15,6 +15,7 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado } from "@/core/dre/engine";
+import { appendImported, setImported, clearImported, importedMovements, importedAccounts } from "@/lib/imported";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -135,6 +136,20 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const inpDre: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: {}, movements: movsDre } as RiskInput;
   const base30 = dreProjetado(inpDre, 1, 1)[0].receita; // margem=1 → receita = base mensal
   ok("dre: base projeção = 6 meses mais recentes (550), não ordem de inserção", Math.abs(base30 - 550) < 1e-6, `base=${base30}`);
+}
+
+// ── lib/imported: appendImported dedup por id (não duplica movimento nem saldo) ──
+{
+  clearImported();
+  setImported({ movements: [], accounts: [{ id: "acc", name: "C", type: "corrente", balance: 1000 }], parties: [], criadoEm: "2026-07-01T00:00:00Z" } as never);
+  const mv = { id: "dup1", account_id: "acc", type: "entrada", status: "pago", amount: 500, category: "Vendas", party_id: null, due_date: "2026-07-01", paid_date: "2026-07-01", reconciled: true } as never;
+  appendImported({ movement: mv });
+  appendImported({ movement: mv }); // reenvio do MESMO id
+  const n = importedMovements()!.length;
+  const bal = importedAccounts()!.find((a) => a.id === "acc")!.balance;
+  ok("imported: reenvio do mesmo id não duplica movimento", n === 1, `n=${n}`);
+  ok("imported: reenvio não ajusta saldo 2x", bal === 1500, `bal=${bal}`);
+  clearImported();
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
