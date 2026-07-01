@@ -1083,4 +1083,8 @@ npm run smoke      # roda os motores puros (src/core/*) sobre entradas normais +
                    # 11 motores (risco/quant/inad/decisão/executivo/fluxo/DRE/
                    # datamoat/autônomo/tesouraria). Usa scripts/ts-alias-loader.mjs
                    # (resolve @/ → src/) + --experimental-strip-types.
+npm run corpus     # dispara ~62 frases pt-BR (formais + coloquiais) em
+                   # responderLocal e falha (exit 1) se alguma cair no intent
+                   # errado. Guarda de roteamento da IA nativa (assistant/engine):
+                   # protege contra colisões de regex ao mexer nos intents.
 ```

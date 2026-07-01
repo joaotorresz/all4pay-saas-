@@ -132,7 +132,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
-  if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem?|v[ãa]o me pagar|me deve[m]?\b/.test(p)) {
+  if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem\b|me deve\b|v[ãa]o me pagar/.test(p)) {
     const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);

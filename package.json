@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "smoke": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-smoke.mts"
+    "smoke": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-smoke.mts",
+    "corpus": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-corpus.mts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
