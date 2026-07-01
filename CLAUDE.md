@@ -75,6 +75,35 @@ sempre os tokens, nunca hex literal.
   de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
+### ⚡ Identidade corporativa all4pay (ATIVA — escopo `.ds-visor`)
+
+O app roda no escopo **`.ds-visor`** (aplicado pelo `AppShell` a todo o app),
+que **sobrescreve** os tokens-base abaixo com a identidade do **site institucional
+all4pay**. Estas são as regras VIGENTES (editar em `globals.css` `.ds-visor` +
+`layout.tsx`):
+
+- **Fonte: Roobert TRIAL** (`--font-roobert`, localFont) — **SemiBold** (600–700)
+  em títulos · **Medium** (400–500) em subtítulos/corpo. Mapeada por faixa p/ nunca
+  faux-bold. **`letter-spacing` base −0.02em** (números `tabular-nums` seguem em `0`).
+- **Cores:** fundo da página **#F3F1EE** · boxes **#FFFFFF** · títulos/ink
+  **#11190C** (verde-quase-preto) · subtítulos/corpo/labels **#787664** (taupe) ·
+  acento **lime #DFFF00** + **amarelo #FFE500** (só acentos). `border`/`border-soft`
+  = **transparent**.
+- **Formas:** **bordas bem arredondadas** (`--a4p-box-radius` **24px**) · padding
+  28px · **FLAT TOTAL: sem borda e sem sombra de nenhuma maneira** — regra global
+  `.ds-visor * { box-shadow: none !important }` mata até shadow inline.
+- **Botões: "nada parece botão"** — `Button` sem chrome (pill, sem borda/sombra;
+  primary=ink flat · secondary=surface-2 · ghost=só texto · accent=lime). Pills de
+  período/segmented = texto (ativo = pill ink discreto). O FAB de IA é preto
+  #11190C + sparkle lime (sem gradiente colorido).
+- **Ícones 3D da marca** (`Icon3D`, `src/components/ui/Icon3D.tsx`): estilo **Duo**
+  (tile lime + glifo preto + acento amarelo) com **extrusão** (volume por
+  preenchimento, nunca sombra). 8 glifos; `WidgetHeader` aceita `icon3d`. Showcase
+  em `/icones-3d`. Preferir aos ícones flat Phosphor nos cabeçalhos de card.
+
+Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
+identidade viva é a de cima.
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,
