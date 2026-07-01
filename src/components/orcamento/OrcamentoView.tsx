@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, StatusBadge, Button, Icon, CurrencyInput, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
@@ -93,9 +93,9 @@ export function OrcamentoVarianciaView() {
         <div className="flex flex-col gap-5">
           {/* Editor de orçamento mensal */}
           {editando && (
-            <Card className="flex flex-col gap-4" info={{ titulo: "Orçamento mensal", oQue: "Onde você define a meta mensal de cada linha do resultado, base da comparação contra o realizado.", comoCalcula: "Valor que você digita por linha; em branco usa o baseline automático (média da janela anterior)." }}>
+            <Card className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <span className="text-label font-medium text-muted">Orçamento mensal por linha</span>
+                <span className="text-label font-medium text-muted inline-flex items-center gap-1">Orçamento mensal por linha<InfoHint align="left" titulo="Orçamento mensal" oQue="Onde você define a meta mensal de cada linha do resultado, base da comparação contra o realizado." comoCalcula="Valor que você digita por linha; em branco usa o baseline automático (média da janela anterior)." /></span>
                 <span className="text-caption text-faint">Em branco = baseline automático (média da janela anterior).</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -130,9 +130,9 @@ export function OrcamentoVarianciaView() {
           </Card>
 
           {/* Tabela orçado × realizado por linha + drill-down */}
-          <Card padded={false} info={{ titulo: "Orçado vs realizado por linha", oQue: "Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam.", comoCalcula: "Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." }}>
+          <Card padded={false}>
             <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
-              <span className="flex-1">Linha · {report.periodoLabel}</span>
+              <span className="flex-1 inline-flex items-center gap-1">Linha · {report.periodoLabel}<InfoHint align="left" titulo="Orçado vs realizado por linha" oQue="Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam." comoCalcula="Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." /></span>
               <span className="w-[120px] text-right">Orçado</span>
               <span className="w-[120px] text-right">Realizado</span>
               <span className="w-[110px] text-right">Desvio</span>

@@ -183,6 +183,34 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["despesas por categoria"]);
   }
 
+  // ——— MÉDIA mensal (gasto/receita) ———
+  if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
+    const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";
+    const byMonth = new Map<string, number>();
+    for (const m of movs) { if (m.type !== tipo || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }
+    const meses = Array.from(byMonth.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+    if (!meses.length) return R("Ainda não há histórico suficiente para calcular a média mensal.", [], ["histórico mensal"]);
+    const media = meses.reduce((s, [, v]) => s + v, 0) / meses.length;
+    return R(
+      `Sua média ${tipo === "entrada" ? "de receita" : "de gasto"} é ${fmt(media)} por mês, considerando os últimos ${meses.length} ${meses.length === 1 ? "mês" : "meses"}.`,
+      [{ label: "Média mensal", valor: fmt(media) }], ["histórico mensal"]);
+  }
+
+  // ——— AFORDABILIDADE: posso gastar X? ———
+  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)/.test(p)) {
+    const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)/);
+    const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) : 0;
+    const burn = ctx?.burnRate && ctx.burnRate > 0 ? ctx.burnRate : input.saldoAtual * 0.15;
+    const reserva = burn * 3; // reserva de ~3 meses de operação
+    const folga = Math.max(0, input.saldoAtual - reserva);
+    if (valor <= 0) return R(`Preservando ~3 meses de operação (${fmt(reserva)}), seu caixa comporta cerca de ${fmt(folga)} sem apertar. Diga um valor que eu digo se cabe.`, [{ label: "Folga segura", valor: fmt(folga) }], ["saldo", "reserva de segurança"]);
+    const cabe = valor <= folga;
+    return R(
+      `${cabe ? "Sim, cabe" : "Cuidado"}: gastar ${fmt(valor)} ${cabe ? `deixa ${fmt(folga - valor)} de folga` : `comeria sua reserva — a folga segura é ${fmt(folga)}`}. Reserva preservada: ~3 meses (${fmt(reserva)}).`,
+      [{ label: "Valor", valor: fmt(valor) }, { label: "Folga segura", valor: fmt(folga) }],
+      ["saldo", "reserva de segurança"]);
+  }
+
   // ——— GASTO total no período ———
   if (/(quanto).*(gast|gastei|sa[íi]|paguei|despes)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) {
     const w = janela(p, hoje);

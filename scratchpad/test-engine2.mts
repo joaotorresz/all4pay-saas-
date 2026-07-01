@@ -23,3 +23,5 @@ const perguntas = [
   "maiores gastos",  // deve continuar caindo em categorias
 ];
 for (const q of perguntas) { const r = responderLocal(q, input, ctx); console.log("Q:", q, "\n   ->", r ? r.resposta : "[null]"); }
+console.log("\n=== novas ===");
+for (const q of ["quanto gasto por mês em média?","qual minha média de receita?","posso gastar 5000?","consigo investir R$ 30.000?"]) { const r = responderLocal(q, input, ctx); console.log("Q:", q, "\n   ->", r ? r.resposta : "[null]"); }

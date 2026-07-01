@@ -115,12 +115,13 @@ export function ReembolsosView() {
       </Card>
 
       {/* Lista */}
-      <Card padded={false} className="lg:col-span-2" info={{ titulo: "Reembolsos", oQue: "Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar.", comoCalcula: "Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." }}>
+      <Card padded={false} className="lg:col-span-2">
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
           {([["meus", "Meus reembolsos"], ["aprovacao", "Aguardando aprovação"], ["rejeitados", "Rejeitados"], ["pagar", "A pagar"]] as [Aba, string][]).map(([id, label]) => {
             const on = aba === id;
             return <button key={id} onClick={() => setAba(id)} className={`relative px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>{label}{on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}</button>;
           })}
+          <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." /></span>
         </div>
         <div className="flex flex-col max-h-[560px] overflow-y-auto">
           {filtradas.length === 0 ? (

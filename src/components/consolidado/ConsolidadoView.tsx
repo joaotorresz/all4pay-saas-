@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, DatePicker, Skeleton, Icon, type InfoConteudo } from "@/components/ui";
+import { Card, BRL, DatePicker, Skeleton, Icon, InfoHint, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -24,7 +24,8 @@ export function ConsolidadoView() {
   return (
     <AppShell title="Consolidado · multi-empresa" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
       <div className="flex flex-col gap-5 pb-4">
-        <Card className="flex flex-wrap items-end gap-x-3 gap-y-2" info={{ titulo: "Período do consolidado", oQue: "Define a janela de datas usada para somar receita, despesa e resultado de todas as suas empresas.", comoCalcula: "Filtra os movimentos de cada organização entre as datas De e Até; o saldo é a posição atual, independente do período." }}>
+        <Card className="flex flex-wrap items-end gap-x-3 gap-y-2">
+          <InfoHint align="left" titulo="Período do consolidado" oQue="Define a janela de datas usada para somar receita, despesa e resultado de todas as suas empresas." comoCalcula="Filtra os movimentos de cada organização entre as datas De e Até; o saldo é a posição atual, independente do período." />
           <DatePicker label="De" value={de} onChange={setDe} max={ate} containerClassName="min-w-[150px]" />
           <DatePicker label="Até" value={ate} onChange={setAte} min={de} containerClassName="min-w-[150px]" />
           <span className="text-caption text-faint self-center ml-auto">Agrega as organizações em que você é membro · sem eliminações intercompany</span>
