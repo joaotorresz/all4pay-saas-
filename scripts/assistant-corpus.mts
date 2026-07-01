@@ -288,6 +288,10 @@ const CORPUS: [string, RegExp][] = [
   ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", /multa|juros de mora|corrigid/i],
   ["juros de mora de 5000 atrasado 2 meses", /multa|mora|corrigid/i],
   ["corrigir uma dívida de 1000 vencida há 60 dias", /multa|mora|corrigid/i],
+  ["corrigir uma dívida de 2 mil vencida há 3 meses com juros de 3% ao mês", /multa|mora|fica em/i],
+  // conversão de taxa colateral ("pra") e financiamento sem verbo ("parcela de Xk em Nx")
+  ["converte 30% ao ano pra mensal", /ao mês|mensal|equivale/i],
+  ["parcela de 50k em 10x a 1,99%?", /parcela fixa de|Price|Empréstimo/i],
 ];
 
 let pass = 0;

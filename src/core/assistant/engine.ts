@@ -151,7 +151,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— SIMULAR EMPRÉSTIMO / FINANCIAMENTO / PARCELAMENTO ———
   // Antes de afordabilidade/gasto: "empréstimo de X em Nx a T%" é uma simulação.
-  if (/empr[ée]stimo|financiament|financiar|parcel(ar|amento)|simul\w*.*(empr|financ|parcel)|quanto (fica|fica a|[ée] a|seria a|vai a) parcela/.test(p)) {
+  if (/empr[ée]stimo|financiament|financiar|parcel(ar|amento)|simul\w*.*(empr|financ|parcel)|quanto (fica|fica a|[ée] a|seria a|vai a) parcela|parcela de .{0,30}\d+\s*(x\b|vezes|parcelas)/.test(p)) {
     const pmMil = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)/i);
     const pmRaw = p.match(/r\$\s*(\d[\d.]*(?:,\d+)?)/i);
     let principal = 0;
@@ -198,7 +198,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CONVERSÃO DE TAXA (mensal ↔ anual, juros compostos) ———
-  if (/(\d[\d.,]*\s*%).*(ao (m[êe]s|ano)|a\.?\s*[ma]\.?|mensal|anual).*(em|por|equivale|d[áa]|vira|para|convert).*(ao (ano|m[êe]s)|anual|mensal|juros ao (ano|m[êe]s))|convert\w* .*taxa|quanto (é|da|fica) \d[\d.,]*\s*% ao (m[êe]s|ano)/.test(p)) {
+  if (/(\d[\d.,]*\s*%).*(ao (m[êe]s|ano)|a\.?\s*[ma]\.?|mensal|anual).*(em|por|equivale|d[áa]|vira|para|pra\b|convert).*(ao (ano|m[êe]s)|anual|mensal|juros ao (ano|m[êe]s))|convert\w* .*taxa|quanto (é|da|fica) \d[\d.,]*\s*% ao (m[êe]s|ano)/.test(p)) {
     const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
     if (pt) {
       const taxa = parseFloat(pt[1].replace(",", ".")) / 100;
@@ -294,7 +294,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— JUROS DE MORA + MULTA sobre título vencido (calculadora) ———
   // Só entra com fraseado inequívoco de encargo (não rouba "quanto tenho vencido").
-  if (/juros de mora|multa (de|por) (mora|atraso)|encargos? (de|por) (mora|atraso|atrasad)|corrigir (um |o )?(t[íi]tulo|boleto|valor|d[íi]vida) vencid|atualizar (um |o )?(valor|t[íi]tulo|boleto|d[íi]vida) vencid|quanto (cobrar|fica|atualiz\w*|corrig\w*) (de |o |um )?(boleto|t[íi]tulo|valor|d[íi]vida)? ?(que )?(est[áa] )?(vencid|atrasad|em atraso)|(boleto|t[íi]tulo|conta|d[íi]vida) (de r?\$?\s*[\d.,]+ )?(vencid\w*|atrasad\w*) h[áa] \d/.test(p)) {
+  if (/juros de mora|multa (de|por) (mora|atraso)|encargos? (de|por) (mora|atraso|atrasad)|(corrigir|atualizar|cobrar) (de |a |o |um |uma )*(t[íi]tulo|boleto|valor|d[íi]vida|conta)\b.{0,25}(vencid|atrasad)|(boleto|t[íi]tulo|conta|d[íi]vida) de (r?\$ ?)?[\d.,]+ ?(mil|k|milh\w*)?\s*(vencid\w*|atrasad\w*) h[áa] \d/.test(p)) {
       const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
       // Principal: "boleto/título/valor/dívida de R$ X" ou o 1º valor monetário.
       const principal = val(/(?:boleto|t[íi]tulo|valor|d[íi]vida|conta|principal|cobran[çc]a)\s*(?:de |é |: |no valor de )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
