@@ -173,10 +173,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (venc.length === 0) return R("Nenhum recebível está vencido no momento — sua carteira está em dia.", [{ label: "Em atraso", valor: fmt(0) }], ["recebíveis vencidos"]);
     const porCliente = topClientes(venc, nomes, 3);
     const lista = porCliente.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ");
-    return R(
-      `Há ${fmt(total)} vencidos e não pagos em ${venc.length} título(s). Os maiores devedores: ${lista}. Vale priorizar a cobrança desses clientes.`,
-      porCliente.slice(0, 3).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
-      ["recebíveis vencidos", "motor de inadimplência"]);
+    return {
+      ...R(
+        `Há ${fmt(total)} vencidos e não pagos em ${venc.length} título(s). Os maiores devedores: ${lista}. Vale priorizar a cobrança desses clientes.`,
+        porCliente.slice(0, 3).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+        ["recebíveis vencidos", "motor de inadimplência"]),
+      ...(topId(venc) ? { contatoId: topId(venc) } : {}),
+    };
   }
 
   // ——— MAIOR / MELHOR CLIENTE ———
