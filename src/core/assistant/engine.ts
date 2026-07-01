@@ -387,6 +387,23 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(`Gastos por centro de custo ${w.label}: ${top.map(([n, v]) => `${cap(n)} (${fmt(v)})`).join(", ")}.`, top.map(([n, v]) => ({ label: cap(n), valor: fmt(v) })), ["despesas por centro de custo"]);
   }
 
+  // ——— PESO DE UMA CATEGORIA NA RECEITA ("quanto a folha pesa na receita?") ———
+  // Antes do gasto-por-categoria: precisa de sinal de PROPORÇÃO + "receita".
+  if (/(propor[çc][ãa]o|percentual|\bpes[ao]\b|quanto (%|por cento)|% (da |na )receita|representa .* (da |na )receita|quanto .* representa da receita)/.test(p) && /receita|faturament/.test(p) && /folha|pessoal|funcion|marketing|fornecedor|aluguel|imposto|luz|energia/.test(p)) {
+    const w = janela(p, hoje);
+    const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
+    const receita = jm.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const cats = Array.from(new Set(jm.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim())));
+    let alvo = cats.find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}`, "i").test(p); });
+    if (!alvo) { const SIN2: [RegExp, RegExp][] = [[/pessoal|funcion|colaborador|folha/, /folha|pessoal|sal[áa]r/], [/\bluz\b|energia|\b[áa]gua\b|internet/, /utilidad|energia|\bluz\b/]]; for (const [wq, cq] of SIN2) { if (wq.test(p)) { const c = cats.find((x) => cq.test(x)); if (c) { alvo = c; break; } } } }
+    if (receita > 0 && alvo) {
+      const gasto = jm.filter((m) => m.type === "saida" && (m.category || "").toLowerCase().trim() === alvo).reduce((s, m) => s + Math.abs(m.amount), 0);
+      const pct = Math.round((gasto / receita) * 1000) / 10;
+      return R(`${cap(alvo)} representa ${pct}% da sua receita ${w.label}: ${fmt(gasto)} de ${fmt(receita)} recebidos.`,
+        [{ label: `${cap(alvo)} / receita`, valor: `${pct}%` }, { label: cap(alvo), valor: fmt(gasto) }, { label: "Receita", valor: fmt(receita) }], ["custo sobre receita"]);
+    }
+  }
+
   // ——— GASTO COM UMA CATEGORIA ESPECÍFICA ("quanto gastei com marketing?") ———
   // Casa dinamicamente com QUALQUER categoria de despesa que o cliente tenha.
   {

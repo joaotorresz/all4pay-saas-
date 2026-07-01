@@ -213,6 +213,9 @@ const CORPUS: [string, RegExp][] = [
   ["qual meu FCF?", /fluxo de caixa livre/i],
   // runway em DIAS
   ["quantos dias de caixa eu tenho?", /dias de operação|runway/i],
+  // peso de uma categoria na receita (estrutura de custo)
+  ["quanto a folha pesa na receita?", /representa .* da sua receita/i],
+  ["qual a proporção de marketing na receita?", /representa .* da sua receita/i],
 ];
 
 let pass = 0;

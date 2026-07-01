@@ -188,6 +188,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const rf = responderLocal("qual meu fluxo de caixa livre?", inpF);
   ok("FCF exclui financiamento/empréstimo (4000)", !!rf && /fluxo de caixa livre.*R\$.?4\.000/.test(rf.resposta), rf?.resposta?.slice(0, 60));
+  // peso da folha na receita: 5000 / 20000 = 25%
+  const inpP: RiskInput = { hoje: HOJE, saldoAtual: 0, partyNames: {}, movements: [
+    rm({ amount: 20000, paid_date: "2026-07-05" }),
+    rm({ type: "saida", amount: 5000, paid_date: "2026-07-08", category: "Folha" }),
+  ] } as RiskInput;
+  const rp = responderLocal("quanto a folha pesa na receita?", inpP);
+  ok("peso categoria na receita: Folha = 25%", !!rp && /Folha representa 25% da sua receita/.test(rp.resposta), rp?.resposta?.slice(0, 50));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────
