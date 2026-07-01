@@ -97,13 +97,10 @@ const SECTIONS: Section[] = [
   },
   // ----- Extras all4pay (escondidos no Modo Simples) -----
   {
+    // Um cérebro, não cinco: Copiloto + Quant/Decisão/Risco/Autônomo/Dados são
+    // ABAS internas de /copiloto — o menu tem uma única entrada.
     id: "estrategia", label: "Inteligência", pro: true, items: [
-      // A IA conversacional saiu do menu — agora é o widget flutuante (AssistantWidget).
-      { label: "Decisão", href: "/copiloto?aba=decisao", icon: "gauge" },
-      { label: "Operação autônoma", href: "/copiloto?aba=autonomo", icon: "workflow" },
-      { label: "Risco de caixa", href: "/copiloto?aba=risco", icon: "activity" },
-      { label: "Inteligência (quant)", href: "/copiloto?aba=quant", icon: "trending-up" },
-      { label: "Dados (moat)", href: "/copiloto?aba=dados", icon: "database" },
+      { label: "All4Pay IA", href: "/copiloto", icon: "gauge" },
     ],
   },
   {
@@ -113,11 +110,10 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    // Arquitetura/Infra/Orquestração viraram abas de /plataforma (um hub só).
     id: "plataforma", label: "Plataforma", pro: true, items: [
-      { label: "Orquestração", href: "/orquestracao", icon: "network" },
-      { label: "Infraestrutura", href: "/infraestrutura", icon: "cpu" },
-      { label: "Arquitetura", href: "/arquitetura", icon: "layers" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
+      { label: "Arquitetura & infraestrutura", href: "/plataforma", icon: "cpu" },
     ],
   },
 ];

@@ -1,23 +1,11 @@
-import type { Metadata } from "next";
-import { AppShell } from "@/components/app/AppShell";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { InfraestruturaView } from "@/components/infraestrutura/InfraestruturaView";
+"use client";
 
-export const metadata: Metadata = {
-  title: "all4pay — Infraestrutura",
-  description:
-    "Financial infrastructure: Domain Architecture, Double-Entry Ledger Core (saldo derivado), Payment Orchestrator, fila com retry, idempotência e observabilidade financeira.",
-};
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function InfraestruturaPage() {
-  return (
-    <AppShell
-      title="Infraestrutura"
-      crumb="Financial infrastructure"
-      actions={isDemo ? <DemoBadge /> : null}
-    >
-      <InfraestruturaView />
-    </AppShell>
-  );
+// infraestrutura virou uma aba de /plataforma (hub único de arquitetura/infra/orquestração).
+export default function InfraestruturaRedirectPage() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/plataforma?aba=infraestrutura"); }, [router]);
+  return null;
 }
