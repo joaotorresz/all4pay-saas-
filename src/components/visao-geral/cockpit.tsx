@@ -11,6 +11,7 @@ import {
   useRiscoInput,
   useDecisao,
   useDRE,
+  useTreasuryCore,
 } from "./hooks";
 import { useAccountsList } from "@/components/lancamentos/hooks";
 import type { RiskMovement } from "@/core/risk-engine/types";
@@ -31,6 +32,7 @@ export interface CockpitCtx {
   input?: ReturnType<typeof useRiscoInput>["data"];
   accounts?: ReturnType<typeof useAccountsList>["data"];
   dre?: ReturnType<typeof useDRE>["data"];
+  treasury?: ReturnType<typeof useTreasuryCore>["data"];
   loading: boolean;
 }
 
@@ -44,9 +46,11 @@ export function useCockpitCtx(): CockpitCtx {
   const input = useRiscoInput();
   const accounts = useAccountsList();
   const dre = useDRE("mes", "competencia");
+  const treasury = useTreasuryCore();
   return {
     quant: quant.data, risco: risco.data, inad: inad.data, exec: exec.data,
     decisao: decisao.data, input: input.data, accounts: accounts.data, dre: dre.data,
+    treasury: treasury.data,
     loading: quant.isLoading || input.isLoading,
   };
 }
@@ -1335,6 +1339,99 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
           value={pctTxt(linha.empresa)}
           answer={`Sua inadimplência (${pctTxt(linha.empresa)}) está ${linha.acima ? "abaixo" : "acima"} da mediana do setor (${pctTxt(linha.setor)}) — ${linha.acima ? "carteira mais saudável" : "atenção à cobrança"}.`}
           info={{ titulo: "Inadimplência vs setor", oQue: "Como sua taxa de inadimplência se compara à mediana do setor.", comoCalcula: "Compara a inadimplência da empresa com a mediana de referência do setor; ficar ABAIXO da mediana é o bom resultado." }} />
+      );
+    },
+  },
+  /* ============ Tesouraria (posição consolidada · concentração bancária · liquidez) ============ */
+  {
+    id: "concentracao-bancaria", label: "Concentração bancária (HHI)", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const t = c.treasury;
+      const top = t.bancos[0];
+      return (
+        <MetricCard icon="building" label="Concentração bancária (HHI)"
+          tone={t.concentracaoBancariaHHI > 5000 ? NEG : t.concentracaoBancariaHHI > 3000 ? WARN : POS}
+          value={`${Math.round(t.concentracaoBancariaHHI)}`}
+          answer={top
+            ? `${pctTxt(t.topBancoShare)} do caixa está no ${top.banco}. ${t.concentracaoBancariaHHI > 5000 ? "Diversificar reduz risco operacional." : "Distribuição saudável entre bancos."}`
+            : "Sem contas bancárias para medir concentração."}
+          info={{ titulo: "Concentração bancária (HHI)", oQue: "O quanto o seu caixa depende de um único banco.", comoCalcula: "Índice de Herfindahl-Hirschman das fatias de saldo por banco (0–10000). Acima de 5000 indica dependência alta de um banco." }} />
+      );
+    },
+  },
+  {
+    id: "liquidez-imediata", label: "Liquidez imediata", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      return (
+        <MetricCard icon="database" label="Liquidez imediata"
+          tone={c.treasury.liquidez.imediata > 0 ? POS : NEG}
+          value={<BRL value={c.treasury.liquidez.imediata} />}
+          answer="O caixa disponível agora, somando todas as contas — o que você pode movimentar hoje."
+          info={{ titulo: "Liquidez imediata", oQue: "Quanto de caixa está disponível para uso imediato.", comoCalcula: "Soma do saldo de todas as contas bancárias na data de hoje." }} />
+      );
+    },
+  },
+  {
+    id: "liquidez-30d", label: "Liquidez em 30 dias", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const l = c.treasury.liquidez;
+      const delta = l.curto30 - l.imediata;
+      return (
+        <MetricCard icon="calendar" label="Liquidez em 30 dias"
+          tone={l.curto30 >= 0 ? POS : NEG}
+          value={<BRL value={l.curto30} />}
+          answer={`Caixa projetado em 30 dias (${delta >= 0 ? "+" : ""}${formatBRL(delta)} vs. hoje), somando recebimentos e pagamentos do período.`}
+          info={{ titulo: "Liquidez em 30 dias", oQue: "Quanto de caixa você terá daqui a 30 dias, no ritmo atual.", comoCalcula: "Saldo atual + recebíveis a vencer em 30d − contas a pagar em 30d." }} />
+      );
+    },
+  },
+  {
+    id: "liquidez-90d", label: "Liquidez em 90 dias", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      return (
+        <MetricCard icon="trending-up" label="Liquidez em 90 dias"
+          tone={c.treasury.liquidez.projetada90 >= 0 ? POS : NEG}
+          value={<BRL value={c.treasury.liquidez.projetada90} />}
+          answer="Caixa projetado em 90 dias, com os recebíveis ponderados por probabilidade de pagamento."
+          info={{ titulo: "Liquidez em 90 dias", oQue: "A projeção de caixa para o trimestre à frente.", comoCalcula: "Saldo atual + 90% dos recebíveis a vencer em 90d − contas a pagar em 90d." }} />
+      );
+    },
+  },
+  {
+    id: "exposicao-liquida", label: "Exposição líquida", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const e = c.treasury.exposicao;
+      return (
+        <MetricCard icon="arrow-left-right" label="Exposição líquida"
+          tone={e.liquida >= 0 ? POS : NEG}
+          value={<BRL value={e.liquida} />}
+          answer={`${formatBRL(e.aReceber)} a receber − ${formatBRL(e.aPagar)} a pagar = posição ${e.liquida >= 0 ? "credora" : "devedora"}.`}
+          info={{ titulo: "Exposição líquida", oQue: "Se, no total em aberto, você tem mais a receber ou mais a pagar.", comoCalcula: "Recebíveis em aberto − contas a pagar em aberto." }} />
+      );
+    },
+  },
+  {
+    id: "caixa-4-semanas", label: "Caixa em 4 semanas", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const cp = c.treasury.cashPositioning;
+      const s4 = cp[3] ?? cp[cp.length - 1];
+      if (!s4) return (
+        <MetricCard icon="calendar" label="Caixa em 4 semanas" value="—"
+          answer="Sem projeção semanal de caixa disponível."
+          info={{ titulo: "Caixa em 4 semanas", oQue: "O saldo projetado ao fim de 4 semanas.", comoCalcula: "Posicionamento de caixa semana a semana (entradas − saídas acumuladas)." }} />
+      );
+      return (
+        <MetricCard icon="calendar" label="Caixa em 4 semanas"
+          tone={s4.acumulado >= 0 ? POS : NEG}
+          value={<BRL value={s4.acumulado} />}
+          answer={`Saldo projetado ao fim de 4 semanas (${s4.periodo}), acompanhando entradas e saídas previstas.`}
+          info={{ titulo: "Caixa em 4 semanas", oQue: "Para onde o seu caixa caminha nas próximas 4 semanas.", comoCalcula: "Cash positioning semanal: saldo inicial + entradas − saídas acumuladas até a 4ª semana." }} />
       );
     },
   },

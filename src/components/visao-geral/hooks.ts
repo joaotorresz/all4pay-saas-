@@ -119,6 +119,17 @@ export function useOperacaoAutonoma() {
   };
 }
 
+/** Treasury Core: posição consolidada, concentração bancária, liquidez em buckets. */
+export function useTreasuryCore() {
+  const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    isLoading: acc.isLoading || inp.isLoading,
+    isError: acc.isError || inp.isError,
+    data: acc.data && inp.data ? treasuryCore(acc.data, inp.data) : undefined,
+  };
+}
+
 /** Financial Data Moat: DNA, benchmark, comportamento, crédito e modelo. */
 export function useMoat() {
   const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
