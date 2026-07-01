@@ -1087,4 +1087,9 @@ npm run corpus     # dispara ~62 frases pt-BR (formais + coloquiais) em
                    # responderLocal e falha (exit 1) se alguma cair no intent
                    # errado. Guarda de roteamento da IA nativa (assistant/engine):
                    # protege contra colisões de regex ao mexer nos intents.
+npm run values     # complementa o corpus: sobre um dataset determinístico com
+                   # respostas fechadas, exige que os NÚMEROS de cada intent
+                   # (margem %, ponto de equilíbrio, LTV, concentração, DSO,
+                   # gasto/receita/resultado/saldo…) batam exatamente. Guarda de
+                   # corretude das FÓRMULAS (o corpus guarda o roteamento).
 ```
