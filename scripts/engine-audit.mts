@@ -12,6 +12,7 @@ import type { FinancialTransaction } from "@/core/financial-os/types";
 import { EventStore } from "@/core/orchestration/event-store";
 import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
+// (parseTexto reusado abaixo para os guards de parsing pt-BR/OFX)
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
@@ -378,6 +379,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("CNPJ válido (11.222.333/0001-81)", validateCNPJ("11222333000181") === true);
   ok("CNPJ dígito errado rejeitado", validateCNPJ("11222333000180") === false);
   ok("máscara CPF/CNPJ", maskDoc("pf", "11144477735") === "111.444.777-35" && maskDoc("pj", "11222333000181") === "11.222.333/0001-81");
+}
+
+// ── fdip: datas de 1 dígito não descartam a linha; ponto = milhar (não decimal) ──
+{
+  const csv = ["data;valor;historico", "1/3/2024;2.500;PIX", "15/03/2024;1.234,56;VENDA", "5/12/2024;-500,00;FORN"].join("\n");
+  const r = parseTexto(csv);
+  ok("fdip: nenhuma linha descartada por data de 1 dígito", r.records.length === 3 && r.ignoradas === 0, `regs=${r.records.length} ign=${r.ignoradas}`);
+  const porData = Object.fromEntries(r.records.map((m) => [m.data, m.valor]));
+  ok("fdip: '2.500' (ponto milhar) = 2500, não 2.5", porData["2024-03-01"] === 2500, `${porData["2024-03-01"]}`);
+  ok("fdip: '1.234,56' = 1234.56", porData["2024-03-15"] === 1234.56, `${porData["2024-03-15"]}`);
+  // OFX (ponto DECIMAL) segue correto
+  const ofx = parseTexto("<STMTTRN><TRNAMT>2500.00<DTPOSTED>20240315<MEMO>X</STMTTRN>");
+  ok("fdip: OFX '2500.00' (ponto decimal) = 2500", ofx.records[0]?.valor === 2500, `${ofx.records[0]?.valor}`);
 }
 
 // ── lib/format: brlParts (Money) bate com formatBRL, inclusive no carry ─────

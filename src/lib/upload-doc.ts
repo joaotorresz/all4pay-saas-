@@ -89,8 +89,12 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
   if (docDigits) contato = parties.find((p) => soDigitos((p as Party & { doc?: string }).doc) === docDigits) ?? null;
   if (!contato && contraparte) {
     const alvo = norm(contraparte);
+    // Exato primeiro; substring só com nome ≥4 chars (senão "Ana"/"Sá" casam
+    // "Banana"/qualquer coisa e ligam o contato/party_id errado).
     contato = parties.find((p) => norm(p.name) === alvo)
-      ?? parties.find((p) => norm(p.name).includes(alvo) || alvo.includes(norm(p.name)))
+      ?? (alvo.length >= 4
+        ? parties.find((p) => { const n = norm(p.name); return n.length >= 4 && (n.includes(alvo) || alvo.includes(n)); })
+        : undefined)
       ?? null;
   }
   const sugerirCadastro = !contato && !!contraparte;
@@ -105,7 +109,10 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
       if (!perto) return false;
       if (!alvoNome) return true;
       const rot = norm(`${m.description ?? ""} ${m.category ?? ""}`);
-      return rot.includes(alvoNome) || alvoNome.includes(rot) || (contato ? m.party_id === contato.id : false);
+      // party_id (exato) é o sinal forte; substring do nome só com ≥4 chars,
+      // senão um nome curto/truncado marca baixa num título não relacionado.
+      return (contato ? m.party_id === contato.id : false)
+        || (alvoNome.length >= 4 && (rot.includes(alvoNome) || alvoNome.includes(rot)));
     }) ?? null;
   }
 
