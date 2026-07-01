@@ -10,6 +10,7 @@ import {
   useCentroInteligencia,
   useRiscoInput,
   useDecisao,
+  useDRE,
 } from "./hooks";
 import { useAccountsList } from "@/components/lancamentos/hooks";
 import type { RiskMovement } from "@/core/risk-engine/types";
@@ -29,6 +30,7 @@ export interface CockpitCtx {
   decisao?: ReturnType<typeof useDecisao>["data"];
   input?: ReturnType<typeof useRiscoInput>["data"];
   accounts?: ReturnType<typeof useAccountsList>["data"];
+  dre?: ReturnType<typeof useDRE>["data"];
   loading: boolean;
 }
 
@@ -41,9 +43,10 @@ export function useCockpitCtx(): CockpitCtx {
   const decisao = useDecisao();
   const input = useRiscoInput();
   const accounts = useAccountsList();
+  const dre = useDRE("mes", "competencia");
   return {
     quant: quant.data, risco: risco.data, inad: inad.data, exec: exec.data,
-    decisao: decisao.data, input: input.data, accounts: accounts.data,
+    decisao: decisao.data, input: input.data, accounts: accounts.data, dre: dre.data,
     loading: quant.isLoading || input.isLoading,
   };
 }
@@ -1141,6 +1144,158 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
             ? `${formatBRL(exposicao)} em exposição${top ? ` — ${top.nome} lidera o risco (score ${top.score}).` : "."}`
             : "Nenhum cliente de risco no contexto executivo."}
           info={{ titulo: "Clientes de risco (contexto)", oQue: "Os clientes de maior risco que a IA carrega no contexto de decisão.", comoCalcula: "Lista os clientes marcados como de risco pelo context builder da IA e soma a exposição em aberto deles." }} />
+      );
+    },
+  },
+  /* ============ DRE (demonstração de resultado do mês, competência) ============ */
+  {
+    id: "ebitda-mes", label: "EBITDA do mês", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="activity" label="EBITDA do mês"
+          tone={g.ebitda >= 0 ? POS : NEG}
+          value={<BRL value={g.ebitda} />}
+          answer={`Resultado operacional do mês (antes de juros/impostos): ${pctTxt(g.margemEbitda)} da receita bruta.`}
+          info={{ titulo: "EBITDA do mês", oQue: "O quanto a operação gera de resultado no mês, antes de juros, impostos e depreciação.", comoCalcula: "Receita líquida − CMV − despesas operacionais, pela competência (vencimento) do mês corrente. Margem = EBITDA ÷ receita bruta." }} />
+      );
+    },
+  },
+  {
+    id: "lucro-liquido-mes", label: "Lucro líquido do mês", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="credit-card" label="Lucro líquido do mês"
+          tone={g.lucroLiquido >= 0 ? POS : NEG}
+          value={<BRL value={g.lucroLiquido} />}
+          answer={g.lucroLiquido >= 0
+            ? `No azul: sobrou ${formatBRL(g.lucroLiquido)} depois de tudo (${pctTxt(g.margemLiquida)} de margem).`
+            : `No vermelho: faltou ${formatBRL(-g.lucroLiquido)} no resultado do mês.`}
+          info={{ titulo: "Lucro líquido do mês", oQue: "O que de fato sobra no mês depois de todos os custos, despesas e financeiro.", comoCalcula: "Cascata do DRE gerencial (competência): receita bruta → impostos → CMV → despesas → financeiro → lucro líquido. Margem = lucro ÷ receita bruta." }} />
+      );
+    },
+  },
+  {
+    id: "margem-bruta-mes", label: "Margem bruta", categoria: "Receita",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="trending-up" label="Margem bruta"
+          tone={g.margemBruta >= 0.4 ? POS : g.margemBruta >= 0.2 ? WARN : NEG}
+          value={pctTxt(g.margemBruta)}
+          answer={`Depois do custo direto (CMV), sobra ${pctTxt(g.margemBruta)} da receita — teto da sua lucratividade.`}
+          info={{ titulo: "Margem bruta", oQue: "Quanto sobra de cada venda depois do custo direto do que foi vendido.", comoCalcula: "(Receita líquida − CMV) ÷ receita líquida, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "margem-liquida-mes", label: "Margem líquida", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="gauge" label="Margem líquida"
+          tone={g.margemLiquida >= 0.15 ? POS : g.margemLiquida >= 0 ? WARN : NEG}
+          value={pctTxt(g.margemLiquida)}
+          answer={`De cada R$ 100 faturados, ${g.margemLiquida >= 0 ? `sobram R$ ${Math.round(g.margemLiquida * 100)}` : `faltam R$ ${Math.round(-g.margemLiquida * 100)}`} no fim.`}
+          info={{ titulo: "Margem líquida", oQue: "A rentabilidade final do mês, depois de absolutamente tudo.", comoCalcula: "Lucro líquido ÷ receita bruta, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "receita-liquida-mes", label: "Receita líquida do mês", categoria: "Receita",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="database" label="Receita líquida do mês"
+          tone={POS}
+          value={<BRL value={g.receitaLiquida} />}
+          answer={`Receita bruta ${formatBRL(g.receitaBruta)} menos os impostos sobre venda.`}
+          info={{ titulo: "Receita líquida do mês", oQue: "A receita que de fato fica depois dos impostos sobre a venda.", comoCalcula: "Receita bruta − impostos sobre receita, no mês pela competência (vencimento)." }} />
+      );
+    },
+  },
+  {
+    id: "lucro-bruto-mes", label: "Lucro bruto do mês", categoria: "Receita",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      return (
+        <MetricCard icon="trending-up" label="Lucro bruto do mês"
+          tone={g.lucroBruto >= 0 ? POS : NEG}
+          value={<BRL value={g.lucroBruto} />}
+          answer={`Sobra depois do custo direto (CMV) — ${pctTxt(g.margemBruta)} da receita líquida.`}
+          info={{ titulo: "Lucro bruto do mês", oQue: "O que sobra da receita líquida depois do custo direto do que foi vendido.", comoCalcula: "Receita líquida − CMV, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "carga-tributaria-mes", label: "Carga tributária", categoria: "Despesas",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      const impostos = Math.max(0, g.receitaBruta - g.receitaLiquida);
+      const carga = g.receitaBruta > 0 ? impostos / g.receitaBruta : 0;
+      return (
+        <MetricCard icon="receipt" label="Carga tributária"
+          tone={carga > 0.2 ? NEG : carga > 0.1 ? WARN : POS}
+          value={pctTxt(carga)}
+          answer={`${formatBRL(impostos)} em impostos sobre a receita neste mês (${pctTxt(carga)} do faturamento).`}
+          info={{ titulo: "Carga tributária", oQue: "Quanto da sua receita vai embora em impostos sobre a venda.", comoCalcula: "(Receita bruta − receita líquida) ÷ receita bruta, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "cmv-mes", label: "CMV do mês", categoria: "Despesas",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      const cmv = Math.max(0, g.receitaLiquida - g.lucroBruto);
+      const share = g.receitaLiquida > 0 ? cmv / g.receitaLiquida : 0;
+      return (
+        <MetricCard icon="shopping-cart" label="CMV do mês"
+          tone={share > 0.6 ? NEG : share > 0.4 ? WARN : POS}
+          value={<BRL value={cmv} />}
+          answer={`Custo direto do que foi vendido: ${pctTxt(share)} da receita líquida.`}
+          info={{ titulo: "CMV do mês", oQue: "O custo direto (mercadoria, insumo, fornecedor) do que foi vendido no mês.", comoCalcula: "Receita líquida − lucro bruto, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "opex-mes", label: "Despesas operacionais", categoria: "Despesas",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      const opex = Math.max(0, g.lucroBruto - g.ebitda);
+      const share = g.receitaBruta > 0 ? opex / g.receitaBruta : 0;
+      return (
+        <MetricCard icon="building" label="Despesas operacionais"
+          tone={share > 0.4 ? NEG : share > 0.25 ? WARN : POS}
+          value={<BRL value={opex} />}
+          answer={`Folha, aluguel, marketing e afins: ${pctTxt(share)} da receita bruta.`}
+          info={{ titulo: "Despesas operacionais (OPEX)", oQue: "As despesas de manter a operação de pé — não variam com cada venda.", comoCalcula: "Lucro bruto − EBITDA, no mês pela competência." }} />
+      );
+    },
+  },
+  {
+    id: "resultado-financeiro-mes", label: "Resultado financeiro", categoria: "Despesas",
+    render: (c) => {
+      if (!c.dre) return <Loading />;
+      const g = c.dre.gerencial;
+      const fin = g.ebit - g.lair; // despesa financeira do período
+      return (
+        <MetricCard icon="credit-card" label="Resultado financeiro"
+          tone={fin > 0 ? NEG : POS}
+          value={<BRL value={-fin} />}
+          answer={fin > 0
+            ? `Juros/tarifas consumiram ${formatBRL(fin)} do resultado neste mês.`
+            : "Sem peso financeiro relevante (juros/tarifas) neste mês."}
+          info={{ titulo: "Resultado financeiro", oQue: "O peso de juros, tarifas e encargos financeiros no resultado do mês.", comoCalcula: "EBIT − LAIR (lucro antes do IR) do DRE gerencial, no mês pela competência." }} />
       );
     },
   },
