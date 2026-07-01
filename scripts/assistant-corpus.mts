@@ -265,6 +265,9 @@ const CORPUS: [string, RegExp][] = [
   // conversão de taxa mensal↔anual
   ["quanto é 2% ao mês em juros ao ano?", /ao ANO|equivale/i],
   ["converter 30% ao ano para mensal", /ao MÊS|equivale/i],
+  // desconto / acréscimo sobre um valor
+  ["quanto fica 200 com 15% de desconto?", /desconto fica R\$ 170|170/i],
+  ["quanto é 200 mais 10%?", /acréscimo fica R\$ 220|220/i],
 ];
 
 let pass = 0;

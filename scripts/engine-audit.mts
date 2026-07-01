@@ -419,6 +419,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // conversão de taxa: 2%/mês = 26.82%/ano (composto, não 24%); ida e volta bate
   ok("taxa: 2%/mês → 26.82%/ano (composto, ≠ 24%)", Math.abs(equivalenteAnual(0.02) - 0.2682) < 0.0001, `${equivalenteAnual(0.02)}`);
   ok("taxa: 26.82%/ano → ~2%/mês (inversa)", Math.abs(equivalenteMensal(0.2682) - 0.02) < 0.0001, `${equivalenteMensal(0.2682)}`);
+  // desconto/acréscimo (via IA, inline): 200−15%=170, 200+10%=220
+  const inp0: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: {}, movements: [] } as RiskInput;
+  const dd = responderLocal("quanto fica 200 com 15% de desconto?", inp0);
+  const da = responderLocal("quanto é 200 mais 10%?", inp0);
+  ok("desconto: 200 − 15% = 170", !!dd && /desconto fica R\$.?170\b/.test(dd.resposta), dd?.resposta?.slice(0, 50));
+  ok("acréscimo: 200 + 10% = 220", !!da && /acréscimo fica R\$.?220\b/.test(da.resposta), da?.resposta?.slice(0, 50));
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

@@ -171,6 +171,27 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     }
   }
 
+  // ——— DESCONTO / ACRÉSCIMO sobre um valor ———
+  // Específico (exige "desconto"/"acréscimo"/"a mais/menos") p/ não colidir.
+  if (/\d\s*%\s*(de\s*)?(desconto|off|acr[ée]scim|a mais|a menos)|(desconto|acr[ée]scim) de \d|com \d+\s*%\s*(de\s*)?(desconto|off)|(\d[\d.,]* )?(mais|menos)\s+\d+\s*%|\d+\s*%\s+(a\s+)?(mais|menos)/.test(p) && !/imposto|margem|markup|custo|receita|carga/.test(p)) {
+    const pctM = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+    const pct = pctM ? parseFloat(pctM[1].replace(",", ".")) : 0;
+    const nums = Array.from(p.matchAll(/r?\$?\s*(\d[\d.]*(?:,\d+)?)/g))
+      .map((m) => parseFloat(m[1].replace(/\./g, "").replace(",", ".")))
+      .filter((n) => Number.isFinite(n));
+    const base = nums.find((n) => n !== pct) ?? 0;
+    if (base > 0 && pct > 0) {
+      const acrescimo = /acr[ée]scim|\bmais\b|\ba mais\b|\+|juros|aument/.test(p) && !/desconto|menos|off|a menos/.test(p);
+      const resultado = acrescimo ? base * (1 + pct / 100) : base * (1 - pct / 100);
+      const delta = Math.abs(resultado - base);
+      return R(
+        acrescimo
+          ? `${fmt(base)} com ${pct % 1 === 0 ? pct : pct}% de acréscimo fica ${fmt(resultado)} (+${fmt(delta)}).`
+          : `${fmt(base)} com ${pct % 1 === 0 ? pct : pct}% de desconto fica ${fmt(resultado)} (−${fmt(delta)}).`,
+        [{ label: acrescimo ? "Com acréscimo" : "Com desconto", valor: fmt(resultado) }, { label: acrescimo ? "Acréscimo" : "Desconto", valor: fmt(delta) }], ["desconto/acréscimo"]);
+    }
+  }
+
   // ——— CONVERSÃO DE TAXA (mensal ↔ anual, juros compostos) ———
   if (/(\d[\d.,]*\s*%).*(ao (m[êe]s|ano)|a\.?\s*[ma]\.?|mensal|anual).*(em|por|equivale|d[áa]|vira|para|convert).*(ao (ano|m[êe]s)|anual|mensal|juros ao (ano|m[êe]s))|convert\w* .*taxa|quanto (é|da|fica) \d[\d.,]*\s*% ao (m[êe]s|ano)/.test(p)) {
     const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
