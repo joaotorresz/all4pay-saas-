@@ -105,7 +105,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— TOTAL ACUMULADO (todo o histórico realizado) ———
-  if (/total (que )?(j[áa] )?(entrou|saiu|recebi|paguei|movimentei|movimentou|entrei)|(movimentei|movimentou) (no total|ao todo|na vida|at[ée] agora)|total geral (de )?(entrada|sa[íi]da|movim)|total (de )?(entrada|sa[íi]da) (acumulad|no total|de tudo)/.test(p)) {
+  if (/total (geral )?(que )?(j[áa] )?(entrou|saiu|recebi|paguei|movimentei|movimentou|entrei)|(movimentei|movimentou) (no total|ao todo|na vida|at[ée] agora)|total geral (de )?(entrada|sa[íi]da|movim)|total (de )?(entrada|sa[íi]da) (acumulad|no total|de tudo)/.test(p)) {
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
     const soEnt = /entrou|recebi|entrada|entrei/.test(p) && !/saiu|paguei|sa[íi]da|movim/.test(p);
@@ -407,7 +407,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— PESO DE UMA CATEGORIA NA RECEITA ("quanto a folha pesa na receita?") ———
   // Antes do gasto-por-categoria: precisa de sinal de PROPORÇÃO + "receita".
-  if (/(propor[çc][ãa]o|percentual|\bpes[ao]\b|quanto (%|por cento)|% (da |na )receita|representa .* (da |na )receita|quanto .* representa da receita)/.test(p) && /receita|faturament/.test(p) && /folha|pessoal|funcion|marketing|fornecedor|aluguel|imposto|luz|energia/.test(p)) {
+  if (/(propor[çc][ãa]o|percentual|\bpes(a|o|am|ou)\b|quanto (%|por cento)|% (da |na )receita|representa .* (da |na )receita|quanto .* representa da receita)/.test(p) && /receita|faturament/.test(p) && /folha|pessoal|funcion|marketing|fornecedor|aluguel|imposto|luz|energia/.test(p)) {
     const w = janela(p, hoje);
     const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
     const receita = jm.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -677,7 +677,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CARGA TRIBUTÁRIA (% da receita que vai em impostos) ———
-  if (/carga tribut[áa]ria|(%|percentual|quanto por cento|quantos? por cento) (de |em |dos? )?imposto|peso dos impostos|imposto.*(sobre|em rela[çc]).*(a )?receita|quanto (de |em )?imposto.*sobre (a |o )?(receita|faturament)/.test(p)) {
+  if (/carga tribut[áa]ria|(%|percentual|quanto por cento|quantos? por cento) (de |em |dos? )?imposto|peso dos impostos|imposto.*(sobre|em rela[çc]|na |da ).*(a )?(receita|faturament)|quanto (de |em |vai de )?imposto.*(sobre|na|da) (a |o )?(receita|faturament)/.test(p)) {
     const w = janela(p, hoje);
     const bruta = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const impostos = movs

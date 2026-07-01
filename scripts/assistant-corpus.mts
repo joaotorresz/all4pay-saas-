@@ -229,6 +229,12 @@ const CORPUS: [string, RegExp][] = [
   // janela futura de SEMANA (além do mês que vem)
   ["quanto vou receber semana que vem?", /na semana que vem|previsto/i],
   ["quanto vou pagar próxima semana?", /na semana que vem.* a pagar|previsto/i],
+  // fraseados extras dos intents novos (robustez de roteamento)
+  ["me mostra o ebitda", /EBITDA/i],
+  ["quanto vai de imposto na receita", /carga tributária/i],
+  ["quanto os impostos pesam na receita", /representa .* da sua receita|carga/i],
+  ["total geral que entrou", /já recebeu/i],
+  ["meu fluxo livre", /fluxo de caixa livre/i],
 ];
 
 let pass = 0;
