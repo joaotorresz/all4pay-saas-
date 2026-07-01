@@ -15,7 +15,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
-import { simularFinanciamento } from "@/core/financing";
+import { simularFinanciamento, antecipar } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 
@@ -168,6 +168,24 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return R(
         `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
         [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
+    }
+  }
+
+  // ——— ANTECIPAÇÃO DE RECEBÍVEIS / DESCONTO DE DUPLICATA ———
+  if (/antecipar|antecipa[çc][ãa]o de receb|desconto de (duplicata|receb|t[íi]tulo)|receber (hoje|adiantad|antes).* (que vence|a prazo)|adiantar (o )?receb|vale a pena antecipar/.test(p)) {
+    const valn = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?/i);
+    let valor = 0;
+    if (valn) { const base = parseFloat(valn[1].replace(/\./g, "").replace(",", ".")); valor = valn[2] ? base * (/milh|^mi$/i.test(valn[2]) ? 1e6 : 1e3) : base; }
+    if (valor > 0) {
+      const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+      const taxa = pt ? parseFloat(pt[1].replace(",", ".")) / 100 : 0.03; // desconto típico ~3% a.m. se não informado
+      const pm = p.match(/(?:vence|em|daqui|para|prazo de|faltam?)\s+(\d{1,3})\s*(meses|m[êe]s|dias?)/);
+      const meses = pm ? (/dia/.test(pm[2]) ? parseInt(pm[1], 10) / 30 : parseInt(pm[1], 10)) : 1;
+      const r = antecipar(valor, taxa, meses);
+      const taxaInfo = pt ? "" : " (assumi ~3%/mês; me diga a taxa real pra precisar)";
+      return R(
+        `Antecipando ${fmt(valor)} que vence em ${meses % 1 === 0 ? meses : meses.toFixed(1)} ${meses === 1 ? "mês" : "meses"} a ${Math.round(taxa * 10000) / 100}% ao mês${taxaInfo}: cai ${fmt(r.liquido)} hoje — custo de ${fmt(r.custo)} (${r.custoPct}%). Vale se essa liquidez evita um crédito mais caro ou uma perda maior.`,
+        [{ label: "Recebe hoje", valor: fmt(r.liquido) }, { label: "Custo (deságio)", valor: fmt(r.custo) }, { label: "Custo %", valor: `${r.custoPct}%` }], ["antecipação de recebíveis"]);
     }
   }
 

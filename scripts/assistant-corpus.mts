@@ -260,6 +260,8 @@ const CORPUS: [string, RegExp][] = [
   // investimento: valor futuro + payback
   ["quanto rende guardar 1000 por mês a 1% ao mês em 12 meses?", /vira R\$|montante|juros/i],
   ["em quanto tempo recupero um investimento de 20 mil que rende 2 mil por mês?", /se paga|payback|meses/i],
+  // antecipação de recebíveis
+  ["vale a pena antecipar 10 mil que vence em 2 meses a 3% ao mês?", /cai R\$|antecipando|custo/i],
 ];
 
 let pass = 0;

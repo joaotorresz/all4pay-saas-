@@ -25,7 +25,7 @@ import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
-import { simularFinanciamento } from "@/core/financing";
+import { simularFinanciamento, antecipar } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 import type { Movement } from "@/lib/types";
@@ -412,6 +412,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // edge: 0 principal não gera NaN
   const e = simularFinanciamento(0, 0.02, 12, "price");
   ok("financing 0 principal → sem NaN", Number.isFinite(e.parcela) && Number.isFinite(e.jurosTotal));
+  // antecipação: 10000 vence 2m @3% → líquido 9425.96, custo 574.04 (5.74%)
+  const ant = antecipar(10000, 0.03, 2);
+  ok("antecipação 10000/2m@3% → líquido 9425.96, custo 574.04", ant.liquido === 9425.96 && ant.custo === 574.04 && ant.custoPct === 5.74, `${ant.liquido}/${ant.custo}`);
+  ok("antecipação: líquido + custo = valor futuro", Math.abs(ant.liquido + ant.custo - 10000) < 0.01);
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

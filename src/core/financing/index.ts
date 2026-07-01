@@ -35,6 +35,29 @@ export interface ResultadoFinanciamento {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+export interface Antecipacao {
+  valorFuturo: number;   // o que você receberia no vencimento
+  taxaMensal: number;    // taxa de desconto (fração)
+  meses: number;         // até o vencimento
+  liquido: number;       // o que cai HOJE se antecipar
+  custo: number;         // valorFuturo − liquido (o deságio)
+  custoPct: number;      // custo ÷ valorFuturo (× 100 no display)
+}
+
+/**
+ * Antecipação de recebíveis / desconto de duplicata: receber HOJE um valor que
+ * só cairia em `meses`, pagando um deságio à taxa de desconto composta.
+ * Líquido = VF ÷ (1 + i)^n. Troca prazo por liquidez ao custo do deságio.
+ */
+export function antecipar(valorFuturo: number, taxaMensal: number, meses: number): Antecipacao {
+  const VF = Math.max(0, valorFuturo);
+  const i = Math.max(0, taxaMensal);
+  const n = Math.max(0, meses);
+  const liquido = round2(VF / Math.pow(1 + i, n));
+  const custo = round2(VF - liquido);
+  return { valorFuturo: round2(VF), taxaMensal: i, meses: n, liquido, custo, custoPct: VF > 0 ? round2((custo / VF) * 100) : 0 };
+}
+
 /**
  * Simula um financiamento. `taxaMensal` em fração (0.02 = 2% a.m.).
  * Retorna a tabela de amortização e os totais. `taxaMensal = 0` → sem juros.
