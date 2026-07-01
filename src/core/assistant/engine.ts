@@ -16,7 +16,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
-import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
+import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
@@ -266,6 +266,25 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
           ? `${comoStr[0].toUpperCase() + comoStr.slice(1)} por ${meses} meses junta ${fmt(r.montante)} (sem rendimento). Me diga a taxa mensal (ex.: "a 1% ao mês") para ver com juros.`
           : `${comoStr[0].toUpperCase() + comoStr.slice(1)} a ${Math.round(taxa * 10000) / 100}% ao mês por ${meses} meses vira ${fmt(r.montante)}: ${fmt(r.totalAportado)} aportados + ${fmt(r.jurosGanhos)} de juros.`,
         [{ label: "Montante", valor: fmt(r.montante) }, { label: "Aportado", valor: fmt(r.totalAportado) }, { label: "Juros", valor: fmt(r.jurosGanhos) }], ["valor futuro"]);
+    }
+  }
+
+  // ——— PONTO DE EQUILÍBRIO EM UNIDADES ———
+  if (/quant[ao]s? (unidades?|pe[çc]as?|produtos?|itens|vendas?) .*(empatar|equil[íi]brio|cobrir|pagar (o|os) (custo|fixo)|preciso vender)|ponto de equil[íi]brio em unidade|quant[ao]s? .* pra (empatar|não ter preju)/.test(p)) {
+    const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
+    const custoFixo = val(/(?:custo fixo|custos fixos|despesa fixa|\bfixo\b)\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?/)
+      ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?\s*(?:de |em |em de )?(?:custos? fix|despesa fix)/);
+    const margemUnit = val(/margem\s*(?:de |por unidade |unit[áa]ria )?(?:de |é )?r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
+    const preco = val(/(?:vend\w* (?:a|por)|pre[çc]o (?:de )?)\s*r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/);
+    const custoVar = val(/cust[ao] (?:vari[áa]vel |unit[áa]ri[ao] |por unidade )(?:de |é )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/);
+    const mc = margemUnit != null ? margemUnit : (preco != null && custoVar != null ? preco - custoVar : null);
+    if (custoFixo != null && mc != null) {
+      const r = pontoEquilibrioUnidades(custoFixo, mc, preco ?? 0);
+      return R(
+        Number.isFinite(r.unidades)
+          ? `Com ${fmt(custoFixo)} de custo fixo e ${fmt(mc)} de margem por unidade, você empata vendendo ${r.unidades} unidade(s)${r.faturamentoEquilibrio > 0 ? ` (${fmt(r.faturamentoEquilibrio)} de faturamento)` : ""}. A partir daí, é lucro.`
+          : `Com margem por unidade ${mc <= 0 ? "zero ou negativa" : "indefinida"}, não há ponto de equilíbrio — cada venda não cobre o custo. Reveja preço/custo.`,
+        [{ label: "Unidades p/ empatar", valor: Number.isFinite(r.unidades) ? String(r.unidades) : "—" }, { label: "Custo fixo", valor: fmt(custoFixo) }, { label: "Margem/unid.", valor: fmt(mc) }], ["ponto de equilíbrio (unidades)"]);
     }
   }
 

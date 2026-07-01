@@ -35,6 +35,29 @@ export function precoPorMarkup(custo: number, markupDesejado: number): Precifica
   return { custo: round2(c), preco, margem: round2(margem * 100) / 100, markup: round2(mk * 100) / 100, lucroUnitario: round2(preco - c) };
 }
 
+export interface PontoEquilibrioUnidades {
+  custoFixo: number;
+  margemUnitaria: number; // margem de contribuição por unidade (preço − custo variável)
+  unidades: number;       // quantas vender p/ empatar (Infinity se margem ≤ 0)
+  faturamentoEquilibrio: number; // unidades × preço (se preço informado)
+}
+
+/**
+ * Ponto de equilíbrio em UNIDADES: custo fixo ÷ margem de contribuição unitária.
+ * `precoUnitario` opcional só para calcular o faturamento no equilíbrio.
+ */
+export function pontoEquilibrioUnidades(custoFixo: number, margemUnitaria: number, precoUnitario = 0): PontoEquilibrioUnidades {
+  const cf = Math.max(0, custoFixo);
+  const mc = margemUnitaria;
+  const unidades = mc > 0 ? Math.ceil(cf / mc) : Infinity;
+  return {
+    custoFixo: round2(cf),
+    margemUnitaria: round2(mc),
+    unidades,
+    faturamentoEquilibrio: Number.isFinite(unidades) && precoUnitario > 0 ? round2(unidades * precoUnitario) : 0,
+  };
+}
+
 /** Margem e markup REALIZADOS a partir do custo e do preço praticado. */
 export function analisarPreco(custo: number, preco: number): Precificacao {
   const c = Math.max(0, custo);

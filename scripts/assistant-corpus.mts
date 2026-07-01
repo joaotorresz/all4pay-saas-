@@ -268,6 +268,8 @@ const CORPUS: [string, RegExp][] = [
   // desconto / acréscimo sobre um valor
   ["quanto fica 200 com 15% de desconto?", /desconto fica R\$ 170|170/i],
   ["quanto é 200 mais 10%?", /acréscimo fica R\$ 220|220/i],
+  // ponto de equilíbrio em unidades
+  ["quantas unidades preciso vender pra empatar com custo fixo de 10 mil e margem de 50 por unidade?", /empata vendendo|unidade/i],
 ];
 
 let pass = 0;
