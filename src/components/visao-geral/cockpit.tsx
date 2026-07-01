@@ -1358,6 +1358,39 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Radar executivo (dimensões forte/fraca) ============ */
+  {
+    id: "dimensao-mais-forte", label: "Onde você é mais forte", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const r = c.quant.radar;
+      if (!r.length) return <Loading />;
+      const top = r.slice().sort((a, b) => b.valor - a.valor)[0];
+      return (
+        <MetricCard icon="trending-up" label="Onde você é mais forte"
+          tone={scoreTone(top.valor)}
+          value={top.dimensao}
+          answer={`${top.dimensao} é seu ponto mais forte (${Math.round(top.valor)}/100 no radar executivo).`}
+          info={{ titulo: "Onde você é mais forte", oQue: "A dimensão em que o seu negócio pontua melhor no radar executivo.", comoCalcula: "O radar avalia 7 dimensões (0–100); esta é a de maior nota." }} />
+      );
+    },
+  },
+  {
+    id: "dimensao-a-melhorar", label: "O que priorizar", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const r = c.quant.radar;
+      if (!r.length) return <Loading />;
+      const low = r.slice().sort((a, b) => a.valor - b.valor)[0];
+      return (
+        <MetricCard icon="target" label="O que priorizar"
+          tone={low.valor < 50 ? NEG : low.valor < 75 ? WARN : POS}
+          value={low.dimensao}
+          answer={`${low.dimensao} é onde há mais espaço para melhorar (${Math.round(low.valor)}/100) — foque aqui para subir o score.`}
+          info={{ titulo: "O que priorizar", oQue: "A dimensão mais fraca do radar — onde melhorar tem o maior retorno.", comoCalcula: "O radar avalia 7 dimensões (0–100); esta é a de menor nota." }} />
+      );
+    },
+  },
   /* ============ Tesouraria (posição consolidada · concentração bancária · liquidez) ============ */
   {
     id: "concentracao-bancaria", label: "Concentração bancária (HHI)", categoria: "Caixa",
