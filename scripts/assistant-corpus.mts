@@ -199,6 +199,9 @@ const CORPUS: [string, RegExp][] = [
   // 18ª rodada (cont.): receita líquida nativa (bruta − impostos), antes da receita genérica
   ["qual minha receita líquida?", /receita líquida/i],
   ["quanto é minha receita após os impostos?", /receita líquida/i],
+  // carga tributária (% da receita em impostos)
+  ["qual minha carga tributária?", /carga tributária/i],
+  ["quanto de imposto pago sobre a receita?", /carga tributária/i],
 ];
 
 let pass = 0;

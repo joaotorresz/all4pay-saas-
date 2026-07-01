@@ -168,6 +168,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const r = responderLocal("qual minha receita líquida?", inp);
   ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
+  const rc = responderLocal("qual minha carga tributária?", inp);
+  ok("carga tributária = impostos ÷ receita (30%), sem comissão", !!rc && /\b30%/.test(rc.resposta), rc?.resposta?.slice(0, 60));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────

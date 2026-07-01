@@ -632,6 +632,21 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["receita líquida", "impostos sobre venda"]);
   }
 
+  // ——— CARGA TRIBUTÁRIA (% da receita que vai em impostos) ———
+  if (/carga tribut[áa]ria|(%|percentual|quanto por cento|quantos? por cento) (de |em |dos? )?imposto|peso dos impostos|imposto.*(sobre|em rela[çc]).*(a )?receita|quanto (de |em )?imposto.*sobre (a |o )?(receita|faturament)/.test(p)) {
+    const w = janela(p, hoje);
+    const bruta = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const impostos = movs
+      .filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w) && /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test((m.category || "").toLowerCase()))
+      .reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (bruta <= 0) return R(`Não houve receita paga ${w.label} para medir a carga tributária.`, [], ["carga tributária"]);
+    const pct = Math.round((impostos / bruta) * 1000) / 10;
+    return R(
+      `Sua carga tributária ${w.label} é ${pct}%: ${fmt(impostos)} de impostos sobre ${fmt(bruta)} de receita.`,
+      [{ label: "Carga tributária", valor: `${pct}%` }, { label: "Impostos", valor: fmt(impostos) }, { label: "Receita", valor: fmt(bruta) }],
+      ["carga tributária"]);
+  }
+
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
     const w = janela(p, hoje);
