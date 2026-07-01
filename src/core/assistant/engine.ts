@@ -348,7 +348,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     // o "quanto" genérico puxar p/ gasto quando há uma saída com o mesmo nome de
     // categoria (ex.: uma despesa cadastrada como "Vendas"). Sinais de entrada
     // devolvem o controle ao bloco de RECEITA por categoria (logo abaixo).
-    if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p) && !/(entr|receb|receita|fatur|ganh|origem|vem de)/.test(p)) {
+    if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p) && !/(entr|receb|receita|fatur|ganh|origem|vem de)/.test(p) && !/quant(os|as)\b/.test(p)) {
       const w = janela(p, hoje);
       const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);

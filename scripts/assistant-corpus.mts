@@ -156,6 +156,10 @@ const CORPUS: [string, RegExp][] = [
   ["qual cliente comprou mais?", /maior cliente|cliente/i],
   ["o que eu mais pago?", /maiores gastos|gast/i],
   ["qual categoria mais pesa no bolso?", /maiores gastos|gast/i],
+  // 15ª rodada (cont.): "quantos FORNECEDORES" é CONTAGEM, não gasto com a
+  // categoria homônima "Fornecedores" ("quanto" ⊂ "quantos").
+  ["quantos fornecedores eu tenho?", /fornecedor\(es\) com movimento|contrapart/i],
+  ["quanto gastei com fornecedores?", /gastou .*Fornecedores/i],
 ];
 
 let pass = 0;
