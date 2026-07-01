@@ -145,7 +145,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A PAGAR ———
-  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b/.test(p)) {
+  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b|contas? (t[ãa]o|est[ãa]o) (em dia|pagas)|(minhas )?contas em dia/.test(p)) {
     const ab = movs.filter((m) => m.type === "saida" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
@@ -562,7 +562,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RECEITA / RECEBI no período ———
-  if (/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)/.test(p)) {
+  if (/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -711,7 +711,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— SCORE / saúde ———
-  if (ctx && /score|sa[úu]de financeira|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa|empresa (t[áa]|est[áa]|anda) saud|saud[áa]vel|empresa vai bem|minha empresa (t[áa]|est[áa]|vai) bem|como (t[ãa]o|est[ãa]o|v[ãa]o) as finan[çc]|como (t[áa]|est[áa]|v[ãa]o) (as )?finan|finan[çc]as (t[ãa]o|est[ãa]o|v[ãa]o)/.test(p)) {
+  if (ctx && /score|sa[úu]de financeira|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa|empresa (t[áa]|est[áa]|anda) saud|saud[áa]vel|empresa vai bem|minha empresa (t[áa]|est[áa]|vai) bem|como (t[ãa]o|est[ãa]o|v[ãa]o) as finan[çc]|como (t[áa]|est[áa]|v[ãa]o) (as )?finan|finan[çc]as (t[ãa]o|est[ãa]o|v[ãa]o)|(t[ôo]|to|estou) indo bem|as coisas (v[ãa]o|est[ãa]o) bem|meu neg[óo]cio (vai|est[áa]) bem/.test(p)) {
     const nivel = ctx.scoreFinanceiro >= 80 ? "excelente" : ctx.scoreFinanceiro >= 60 ? "boa" : ctx.scoreFinanceiro >= 40 ? "de atenção" : "crítica";
     return R(
       `Sua saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
