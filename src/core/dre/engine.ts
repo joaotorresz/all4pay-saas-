@@ -44,8 +44,10 @@ const LABEL_RECEITA: Record<LinhaReceita, string> = {
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
   const c = (cat ?? "").toLowerCase();
   if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
-  if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
+  // folha ANTES de cmv: "Custo de pessoal" casa "custo" (cmv) mas é folha; as
+  // palavras de cmv (mercadoria/fornecedor/insumo/combust) não casam folha.
   if (/folha|sal[aá]r|pessoal|encargo|pró-labore|pro-labore/.test(c)) return "folha";
+  if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
   if (/tarifa|juros|banc|financ|iof/.test(c)) return "financeiro";
   return "opex";
 }
@@ -107,7 +109,7 @@ export function dreGerencial(movs: RiskMovement[]): DREGerencial {
   const lair = ebit - financeiro;
   const ir = 0; // sem linha de IR dedicada nos dados
   const lucroLiquido = lair - ir;
-  const base = receitaLiquida || 1;
+  const base = receitaLiquida > 0 ? receitaLiquida : 1; // evita margens de sinal invertido quando líquida < 0
   const pct = (v: number) => v / base;
 
   const compReceita = (Object.keys(a.receitaPorLinha) as LinhaReceita[])
