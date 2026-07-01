@@ -43,6 +43,10 @@ const PERGUNTAS = [
   "qual minha carga tributária?", "quanto a folha pesa na receita?", "recebo mais de produto ou serviço?",
   "qual o total que já entrou?", "quanto vou receber mês que vem?", "quanto vou receber semana que vem?",
   "como foi meu semestre?", "quantos dias de caixa?", "quanto entra vs sai?", "quanto recebi da A em maio?",
+  // calculadoras (sem/ com números degenerados) — não podem quebrar nem dar NaN
+  "quanto fica a parcela de um empréstimo", "que preço vender com margem de 30%", "quantas unidades pra empatar",
+  "quanto provisionar de 13º", "quanto rende guardar por mês", "em quanto tempo recupero", "vale a pena antecipar",
+  "quanto é 2% ao mês ao ano", "0 com 50% de desconto", "empréstimo de 0 em 0x a 0%",
 ];
 
 let problemas = 0;
