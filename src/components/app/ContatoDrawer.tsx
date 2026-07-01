@@ -59,7 +59,9 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     const hojeD = new Date(inp.hoje + "T00:00:00");
     const historico: { mes: string; valor: number }[] = [];
     for (let i = 5; i >= 0; i--) { const d = new Date(hojeD.getFullYear(), hojeD.getMonth() - i, 1); historico.push({ mes: MES_ABBR[d.getMonth()], valor: byMonth.get(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`) || 0 }); }
-    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil, historico, share };
+    const ehCliente = recebido > 0 || aReceber > 0;
+    const ehFornecedor = pago > 0 || aPagar > 0;
+    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil, historico, share, ehCliente, ehFornecedor };
   }, [inp, inad, id]);
 
 
@@ -74,7 +76,11 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
             <Icon name="users" size={18} color="var(--color-muted)" />
           </span>
           <div className="min-w-0">
-            <div className="text-[16px] font-semibold text-ink truncate">{resumo?.nome ?? "Contato"}</div>
+            <div className="text-[16px] font-semibold text-ink truncate inline-flex items-center gap-2">
+              {resumo?.nome ?? "Contato"}
+              {resumo?.ehCliente && <span className="text-[10px] font-medium uppercase tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Cliente</span>}
+              {resumo?.ehFornecedor && <span className="text-[10px] font-medium uppercase tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Fornecedor</span>}
+            </div>
             {resumo?.perfil && (
               <div className="text-caption capitalize" style={{ color: CLASS_COR[resumo.perfil.classificacao] }}>
                 Risco {resumo.perfil.classificacao} · score {resumo.perfil.score}/100
