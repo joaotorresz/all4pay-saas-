@@ -343,7 +343,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // Casa dinamicamente com QUALQUER categoria de despesa que o cliente tenha.
   {
     const cats = Array.from(new Set(movs.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
-    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => new RegExp(`(^|[^a-zà-ú])${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-zà-ú]|$)`, "i").test(p));
+    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}(e?s)?([^a-zà-ú]|$)`, "i").test(p); });
     if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p)) {
       const w = janela(p, hoje);
       const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
@@ -355,7 +355,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— RECEITA DE UMA FONTE ESPECÍFICA ("quanto recebi de venda/serviço?") ———
   {
     const cats = Array.from(new Set(movs.filter((m) => m.type === "entrada" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
-    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => new RegExp(`(^|[^a-zà-ú])${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-zà-ú]|$)`, "i").test(p));
+    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}(e?s)?([^a-zà-ú]|$)`, "i").test(p); });
     // guarda: perguntas de crescimento/tendência ("minhas vendas tão crescendo?")
     // vão para o intent de CRESCIMENTO abaixo, não para a soma da categoria.
     if (alvo && /(receb|recebi|receita|fatur|entr|vend)/.test(p) && !/cresc|subind|caind|aument|tend[êe]nci|desacelerand|melhorand/.test(p)) {
@@ -367,7 +367,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIORES GASTOS / por categoria ———
-  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
+  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(sai, 5);
@@ -402,7 +402,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— ONDE ECONOMIZAR / CORTAR (categoria que mais cresceu MoM) ———
-  if (/onde (posso |d[áa] (pra|para) )?(economiz|cortar|reduzir|cortar gasto)|como economizar|gastar menos|reduzir (custo|despesa|gasto)|onde estou gastando (mais|demais)/.test(p)) {
+  if (/onde (posso |d[áa] (pra|para) )?(economiz|cortar|reduzir|cortar gasto)|como economizar|gastar menos|reduzir (custo|despesa|gasto)|onde estou gastando (mais|demais)|preciso (cortar|reduzir|economiz)|(devo|posso) cortar|cortar (os )?(gasto|custo|despesa)/.test(p)) {
     const wA = janela("mês", hoje), wB = janela("mês passado", hoje);
     const catW = (w: Janela) => { const map = new Map<string, number>(); for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); } return map; };
     const atual = catW(wA), ant = catW(wB);
@@ -493,7 +493,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— AFORDABILIDADE: posso gastar X? ———
-  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)/.test(p)) {
+  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)/.test(p)) {
     const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(mil|k|milh[õo]es?|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;

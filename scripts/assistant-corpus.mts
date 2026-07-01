@@ -94,6 +94,10 @@ const CORPUS: [string, RegExp][] = [
   // status pago / plural / lucrei / previsão coloquial
   ["tá tudo pago?", /a pagar|em dia|nada/i], ["quem são meus melhores clientes?", /maior cliente|clientes/i],
   ["quanto lucrei esse mês?", /sobrou|lucro|resultado|margem/i], ["vou fechar o mês no positivo?", /previs|sobrar|proje|fim do m[êe]s/i],
+  // "onde vai o dinheiro" / categoria plural-tolerante / cortar / investir
+  ["onde vai meu dinheiro?", /gast|despes|categoria|Fornecedor|Impostos/i], ["quais categorias eu mais gasto?", /gast|categoria|Fornecedor|Impostos/i],
+  ["preciso cortar gastos?", /economiz|cortar|controlados/i], ["quanto tenho pra investir?", /folga|cabe|gastar/i],
+  ["quanto de imposto eu pago?", /Impostos/i],
 ];
 
 let pass = 0;
