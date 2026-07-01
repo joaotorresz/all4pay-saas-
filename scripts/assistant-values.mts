@@ -109,6 +109,10 @@ const CASES: [string, RegExp, string][] = [
   ["qual meu DAS no anexo I com faturamento de 100 mil anual e 15 mil no mês?", /EFETIVA é 4%/, "faixa 1 → nominal = efetiva 4%"],
   // teto: 5 milhões estoura 4,8M
   ["quanto de imposto no simples com receita de 5 milhões por ano?", /ESTOURA o teto/, "RBT12 5M > 4,8M"],
+  // mora: 1000 vencido 30d → multa 20 (2%) + juros 10 (1%×30/30) = corrigido 1030
+  ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", /fica em R\$.?1\.030/, "1000 + 2% + 1%·30/30 = 1030"],
+  // mora: 5000 atrasado 2 meses (60d) → multa 100 + juros 100 = 5200
+  ["juros de mora de 5000 atrasado 2 meses", /fica em R\$.?5\.200/, "5000 + 100 + 100 = 5200"],
 ];
 
 let pass = 0;

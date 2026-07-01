@@ -20,6 +20,7 @@ import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades 
 import { valorFuturo, payback } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
+import { calcularMora } from "@/core/late-fee";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -287,6 +288,36 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return R(`Uma folha de ${fmt(folha)}/mês pede ${fmt(r.provisaoTotalMes)}/mês de provisão (${fmt(r.decimoTerceiroMes)} de 13º + ${fmt(r.feriasMes)} de férias+1/3 + ${fmt(r.fgtsMes)} de FGTS). O custo real anual da folha é ${fmt(r.custoAnualFolha)} — bem mais que 12×${fmt(folha)}.`,
         [{ label: "Provisão/mês", valor: fmt(r.provisaoTotalMes) }, { label: "Custo anual real", valor: fmt(r.custoAnualFolha) }, { label: "13º/mês", valor: fmt(r.decimoTerceiroMes) }], ["provisão trabalhista"]);
     }
+  }
+
+  // ——— JUROS DE MORA + MULTA sobre título vencido (calculadora) ———
+  // Só entra com fraseado inequívoco de encargo (não rouba "quanto tenho vencido").
+  if (/juros de mora|multa (de|por) (mora|atraso)|encargos? (de|por) (mora|atraso|atrasad)|corrigir (um |o )?(t[íi]tulo|boleto|valor|d[íi]vida) vencid|atualizar (um |o )?(valor|t[íi]tulo|boleto|d[íi]vida) vencid|quanto (cobrar|fica|atualiz\w*|corrig\w*) (de |o |um )?(boleto|t[íi]tulo|valor|d[íi]vida)? ?(que )?(est[áa] )?(vencid|atrasad|em atraso)|(boleto|t[íi]tulo|conta|d[íi]vida) (de r?\$?\s*[\d.]+ )?(vencid\w*|atrasad\w*) h[áa] \d/.test(p)) {
+      const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
+      // Principal: "boleto/título/valor/dívida de R$ X" ou o 1º valor monetário.
+      const principal = val(/(?:boleto|t[íi]tulo|valor|d[íi]vida|conta|principal|cobran[çc]a)\s*(?:de |é |: |no valor de )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/)
+        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/);
+      // Dias de atraso: "há 30 dias", "atrasado 30 dias", "2 meses", "1 mês".
+      let dias: number | null = null;
+      const dm = p.match(/(\d+)\s*(dias?|meses|m[êe]s|semanas?|anos?)/);
+      if (dm) {
+        const n = parseInt(dm[1], 10);
+        dias = /m[êe]s|mes/.test(dm[2]) ? n * 30 : /semana/.test(dm[2]) ? n * 7 : /ano/.test(dm[2]) ? n * 365 : n;
+      }
+      // Percentuais opcionais (senão a praxe: 2% multa + 1% a.m. juros).
+      const multaM = p.match(/multa\s*(?:de )?(\d+(?:[.,]\d+)?)\s*%/);
+      const jurosM = p.match(/juros\s*(?:de |a )?(\d+(?:[.,]\d+)?)\s*%/);
+      const multaPct = multaM ? parseFloat(multaM[1].replace(",", ".")) / 100 : 0.02;
+      const jurosPct = jurosM ? parseFloat(jurosM[1].replace(",", ".")) / 100 : 0.01;
+      if (principal != null && principal > 0 && dias != null && dias > 0) {
+        const r = calcularMora(principal, dias, multaPct, jurosPct);
+        return R(`Um título de ${fmt(principal)} vencido há ${dias} dia${dias > 1 ? "s" : ""} fica em ${fmt(r.totalCorrigido)}: ${fmt(principal)} + ${fmt(r.multa)} de multa (${Math.round(multaPct * 1000) / 10}%) + ${fmt(r.juros)} de juros de mora (${Math.round(jurosPct * 1000) / 10}% ao mês pro rata). São ${fmt(r.totalEncargos)} de encargos (${r.encargoPct}% sobre o valor).`,
+          [{ label: "Total corrigido", valor: fmt(r.totalCorrigido) }, { label: "Multa", valor: fmt(r.multa) }, { label: "Juros de mora", valor: fmt(r.juros) }], ["juros de mora", "multa de mora"]);
+      }
+      if (principal != null && principal > 0) {
+        return R(`Para calcular os encargos de ${fmt(principal)} eu preciso saber há quantos dias venceu. Ex.: "quanto cobrar de um boleto de ${fmt(principal)} vencido há 30 dias?". A praxe é multa de 2% + juros de mora de 1% ao mês (pro rata die).`,
+          [], ["juros de mora"]);
+      }
   }
 
   // ——— SIMPLES NACIONAL: alíquota efetiva + DAS ———

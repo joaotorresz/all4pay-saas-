@@ -30,6 +30,7 @@ import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades 
 import { valorFuturo, payback } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
+import { calcularMora } from "@/core/late-fee";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -457,6 +458,26 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // efetiva sempre < nominal fora da faixa 1 (a parcela a deduzir alivia)
   const b = calcularSimplesNacional(1000000, 50000, "III");
   ok("tax: efetiva < nominal na faixa 4 (parcela a deduzir alivia)", b.aliquotaEfetiva < b.aliquotaNominal);
+}
+
+// ── core/late-fee: juros de mora + multa (título vencido) ───────────────────
+{
+  // 1000 vencido 30d, praxe 2% + 1% a.m.: multa 20, juros 10 (1%×30/30), corrigido 1030
+  const m = calcularMora(1000, 30);
+  ok("late-fee: 1000/30d → multa 20, juros 10, corrigido 1030", m.multa === 20 && m.juros === 10 && m.totalCorrigido === 1030, `${m.multa}/${m.juros}/${m.totalCorrigido}`);
+  // pro rata die: 45 dias → juros 1%×45/30 = 1.5% → 15
+  const q = calcularMora(1000, 45);
+  ok("late-fee: pro rata die 45d → juros 15 (1%×45/30)", q.juros === 15, `${q.juros}`);
+  // 0 dias (não venceu) → sem encargos
+  const z = calcularMora(1000, 0);
+  ok("late-fee: 0 dias → sem multa nem juros (não venceu)", z.multa === 0 && z.juros === 0 && z.totalCorrigido === 1000);
+  // percentuais custom: multa 5% + juros 2% a.m. em 5000/60d → multa 250, juros 200
+  const c = calcularMora(5000, 60, 0.05, 0.02);
+  ok("late-fee: custom 5%+2% em 5000/60d → multa 250, juros 200", c.multa === 250 && c.juros === 200, `${c.multa}/${c.juros}`);
+  // invariante: corrigido = principal + encargos
+  ok("late-fee: corrigido = principal + multa + juros", Math.abs(m.totalCorrigido - (m.principal + m.multa + m.juros)) < 0.01);
+  // robustez: principal 0 não gera NaN
+  ok("late-fee: principal 0 → sem NaN", Number.isFinite(calcularMora(0, 30).totalCorrigido) && calcularMora(0, 30).encargoPct === 0);
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

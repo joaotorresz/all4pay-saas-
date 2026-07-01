@@ -49,6 +49,8 @@ const PERGUNTAS = [
   "quanto é 2% ao mês ao ano", "0 com 50% de desconto", "empréstimo de 0 em 0x a 0%",
   "quanto pago de simples nacional com faturamento de 0 por ano", "qual meu DAS no anexo III",
   "quanto pago de simples nacional?",
+  "quanto cobrar de um boleto de 0 vencido há 0 dias", "juros de mora de 1000 atrasado 30 dias",
+  "multa por atraso de um título vencido",
 ];
 
 let problemas = 0;
