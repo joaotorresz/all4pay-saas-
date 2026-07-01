@@ -14,7 +14,7 @@ import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
-import { dreProjetado } from "@/core/dre/engine";
+import { dreProjetado, dreGerencial } from "@/core/dre/engine";
 import { appendImported, setImported, clearImported, importedMovements, importedAccounts } from "@/lib/imported";
 import { responderLocal } from "@/core/assistant/engine";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
@@ -165,6 +165,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const r = responderLocal("qual minha receita líquida?", inp);
   ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
+}
+
+// ── dre/dreGerencial: waterfall com números fechados ────────────────────────
+{
+  let s = 0;
+  const dm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `dg${s++}`, type: "entrada", amount: 1000, due_date: "2026-07-01", paid_date: "2026-07-01", status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const g = dreGerencial([
+    dm({ type: "entrada", amount: 10000, category: "Vendas" }),
+    dm({ type: "saida", amount: 1000, category: "Impostos" }),
+    dm({ type: "saida", amount: 2000, category: "Fornecedores" }), // CMV
+    dm({ type: "saida", amount: 1500, category: "Folha" }),
+    dm({ type: "saida", amount: 500, category: "Marketing" }), // OPEX
+    dm({ type: "saida", amount: 300, category: "Tarifa bancária" }), // financeiro
+  ]);
+  ok("DRE: receita líquida = bruta − impostos (9000)", g.receitaLiquida === 9000, `${g.receitaLiquida}`);
+  ok("DRE: lucro bruto = líquida − CMV (7000)", g.lucroBruto === 7000, `${g.lucroBruto}`);
+  ok("DRE: EBITDA = bruto − (folha+opex) (5000)", g.ebitda === 5000, `${g.ebitda}`);
+  ok("DRE: lucro líquido = EBITDA − financeiro (4700)", g.lucroLiquido === 4700, `${g.lucroLiquido}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
