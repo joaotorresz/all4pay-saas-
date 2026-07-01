@@ -438,6 +438,7 @@ camadas encadeadas no `responder`:
    despesa média mensal), **pontualidade de recebimento/pagamento** (atraso
    médio dos clientes / com que eu pago — DSO/DPO, % no prazo), **receita média
    por cliente** (proxy de LTV), **gasto médio por dia** (burn diário, 30d),
+   **melhor/pior mês** (por resultado ou receita),
    **resumo do dia** e **resumo do
    período** (mês/trimestre/semestre/ano). A janela é detectada da própria
    pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das

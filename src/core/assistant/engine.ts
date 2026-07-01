@@ -496,6 +496,31 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["saldo", "reserva de segurança"]);
   }
 
+  // ——— MELHOR / PIOR MÊS (por resultado ou por receita) ———
+  if (/(melhor|pior) m[êe]s|m[êe]s (que )?(mais|menos) (vend|fatur|receb|gast|lucr)|meu (melhor|pior) m[êe]s/.test(p)) {
+    const pior = /pior|menos|pi[oó]r/.test(p) && !/melhor/.test(p);
+    const porReceita = /(vend|fatur|receb|receita)/.test(p);
+    const meses = new Map<string, { rec: number; desp: number }>();
+    for (const m of movs) {
+      if (m.status !== "pago") continue;
+      const k = cashDate(m).slice(0, 7); if (!k) continue;
+      const cur = meses.get(k) || { rec: 0, desp: 0 };
+      if (m.type === "entrada") cur.rec += Math.abs(m.amount); else cur.desp += Math.abs(m.amount);
+      meses.set(k, cur);
+    }
+    const arr = Array.from(meses.entries()).map(([k, v]) => ({ k, valor: porReceita ? v.rec : v.rec - v.desp, rec: v.rec, desp: v.desp }));
+    if (!arr.length) return R("Ainda não há histórico mensal suficiente para apontar o melhor ou o pior mês.", [], ["histórico mensal"]);
+    arr.sort((a, b) => pior ? a.valor - b.valor : b.valor - a.valor);
+    const alvo = arr[0];
+    const [yy, mm] = alvo.k.split("-");
+    const rotulo = `${MES[Number(mm) - 1]}/${yy}`;
+    const metrica = porReceita ? "receita" : "resultado";
+    return R(
+      `Seu ${pior ? "pior" : "melhor"} mês por ${metrica} foi ${cap(rotulo)}: ${fmt(alvo.valor)}${porReceita ? "" : ` (${fmt(alvo.rec)} de receita − ${fmt(alvo.desp)} de despesa)`}.`,
+      [{ label: cap(rotulo), valor: fmt(alvo.valor) }, { label: "Receita", valor: fmt(alvo.rec) }, { label: "Despesa", valor: fmt(alvo.desp) }],
+      ["histórico mensal realizado"], 0.88);
+  }
+
   // ——— GASTO MÉDIO POR DIA (burn diário) — antes do GASTO total ———
   // "quanto gasto por dia" casaria em "quanto.*gast" do GASTO total.
   if (/gasto (m[ée]dio )?(por|ao|no) dia|gasto di[áa]rio|quanto (gasto|gasta|sai|saem|torro) (por|ao|no) dia|burn di[áa]rio|quanto queimo por dia/.test(p)) {
