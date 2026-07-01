@@ -825,7 +825,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
-  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|(receita|faturament\w*|vendas?) (subiu|caiu|cresceu|aument\w*|diminuiu|melhorou|piorou|subindo|caindo)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)/.test(p)) {
+  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|(receita|faturament\w*|vendas?) (subiu|caiu|cresceu|aument\w*|diminuiu|melhorou|piorou|subindo|caindo)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)|\b(piorei|melhorei)\b|(resultado|neg[óo]cio|situa[çc][ãa]o) (melhorou|piorou)|(melhorou|piorou) (esse|este|no) m[êe]s/.test(p)) {
     const atual = janela("mês", hoje), ant = janela("mês passado", hoje);
     const soma = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const a = soma(atual), b = soma(ant);
@@ -1149,7 +1149,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RUNWAY ———
-  if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa|quantos? dias (de |o )?(caixa|opera|f[ôo]lego)|dias de (caixa|opera|f[ôo]lego)/.test(p)) {
+  if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa|quantos? dias (de |o )?(caixa|opera|f[ôo]lego)|dias de (caixa|opera|f[ôo]lego)|quantos? meses de (reserva|caixa|f[ôo]lego|opera)|meses de reserva|reserva (pra|para) quantos meses|(caixa|reserva) (aguenta|dura|cobre) quantos/.test(p)) {
     if (ctx) {
       if (/\bdias?\b/.test(p)) {
         const dias = Math.round(ctx.runwayMeses * 30);

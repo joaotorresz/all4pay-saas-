@@ -302,6 +302,9 @@ const CORPUS: [string, RegExp][] = [
   ["qual meu cliente mais rentável?", /maior cliente|cliente/i],
   ["qual meu endividamento?", /a pagar|dívida|devendo/i],
   ["qual meu nível de endividamento?", /a pagar|dívida|devendo/i],
+  // runway coloquial ("meses de reserva") e tendência ("piorei")
+  ["quantos meses de reserva eu tenho?", /runway|meses|caixa/i],
+  ["piorei esse mês?", /caindo|crescendo|subiu|caiu|receita|alta|queda/i],
 ];
 
 let pass = 0;
