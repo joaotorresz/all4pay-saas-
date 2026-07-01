@@ -194,7 +194,12 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
           </span>
           <span className="text-[16px] font-semibold text-ink">All 4 Pay AI</span>
           <span className="text-[10px] font-semibold tracking-wide uppercase text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
-          <button onClick={onClose} aria-label="Fechar" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
+          {turnos.length > 0 && (
+            <button onClick={() => setTurnos([])} aria-label="Nova conversa" title="Nova conversa" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
+              <Icon name="edit" size={16} color="currentColor" />
+            </button>
+          )}
+          <button onClick={onClose} aria-label="Fechar" className={`${turnos.length > 0 ? "" : "ml-auto"} w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors`}>
             <Icon name="x" size={18} color="currentColor" />
           </button>
         </header>

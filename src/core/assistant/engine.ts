@@ -321,6 +321,19 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(`Foram ${ent.length} entrada(s)/venda(s) ${w.label}, somando ${fmt(ent.reduce((s, m) => s + Math.abs(m.amount), 0))}.`, [{ label: "Vendas", valor: String(ent.length) }], ["lançamentos"]);
   }
 
+  // ——— RESUMO DO DIA / briefing ———
+  if (/resumo (do|de) (dia|hoje)|como (est[áa]|vai) (o )?(dia|hoje)|briefing|o que (tem|rolou|entrou) hoje|meu dia/.test(p)) {
+    const w: Janela = { label: "hoje", from: hoje, to: hoje };
+    const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w));
+    const vencVal = venc.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
+    return R(
+      `Hoje entraram ${fmt(entrou)} e saíram ${fmt(saiu)}${venc.length ? `; vencem ${venc.length} título(s) (líquido ${fmt(vencVal)})` : "; nada vence hoje"}. Saldo atual: ${fmt(input.saldoAtual)}.`,
+      [{ label: "Entrou hoje", valor: fmt(entrou) }, { label: "Saiu hoje", valor: fmt(saiu) }, { label: "Saldo", valor: fmt(input.saldoAtual) }],
+      ["resumo do dia"]);
+  }
+
   // ——— SALDO / quanto tenho ———
   if (/\bsaldo\b|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
     const runway = ctx?.runwayMeses;
