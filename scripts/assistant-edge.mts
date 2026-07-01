@@ -38,6 +38,11 @@ const PERGUNTAS = [
   "quais meus maiores fornecedores?", "onde economizar?", "qual meu maior gasto?", "qual meu runway?",
   "meu score?", "resumo do dia", "resumo do mês", "qual meu ticket médio?", "quantos clientes tenho?",
   "posso gastar 5 mil?", "previsão do mês", "quanto vence essa semana?", "qual foi meu pior mês?",
+  // intents novos (métricas) — também precisam ser crash-safe nos degenerados
+  "qual meu EBITDA?", "qual minha receita líquida?", "qual meu fluxo de caixa livre?",
+  "qual minha carga tributária?", "quanto a folha pesa na receita?", "recebo mais de produto ou serviço?",
+  "qual o total que já entrou?", "quanto vou receber mês que vem?", "quanto vou receber semana que vem?",
+  "como foi meu semestre?", "quantos dias de caixa?", "quanto entra vs sai?", "quanto recebi da A em maio?",
 ];
 
 let problemas = 0;
