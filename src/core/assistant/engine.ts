@@ -142,8 +142,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/(maior|melhor|principa(l|is)) cliente|quem mais (paga|compra|fatura|me paga)|top clientes?/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
-    const top = topClientes(ent, nomes, 3).filter((c) => c.valor > 0);
-    if (top.length === 0) return R(`Não há receita paga por cliente registrada ${w.label}.`, [], ["receita por cliente"]);
+    const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
+    if (top.length === 0) return R(`Não há receita paga por cliente identificado ${w.label}.`, [], ["receita por cliente"]);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const share = tot > 0 ? Math.round((top[0].valor / tot) * 100) : 0;
     return R(
@@ -249,8 +249,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/(maior(es)?|principa|top|para quem).*(fornecedor|fornec)|quem mais (recebo de mim|me cobra|eu pago)|para quem (mais )?pago/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
-    const top = topClientes(sai, nomes, 3).filter((c) => c.valor > 0);
-    if (!top.length) return R(`Não há pagamentos a fornecedor ${w.label}.`, [], ["pagamentos por fornecedor"]);
+    const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
+    if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]);
   }
 
