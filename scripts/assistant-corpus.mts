@@ -246,6 +246,9 @@ const CORPUS: [string, RegExp][] = [
   ["cabe um investimento de 20 mil?", /cabe|Cuidado|folga/i],
   ["aguento uma despesa de 3 mil?", /cabe|Cuidado|folga/i],
   ["posso tirar 5 mil de pró-labore?", /cabe|Cuidado|folga/i],
+  // comandos/requisições
+  ["quero ver meus clientes", /maior cliente|cliente/i],
+  ["abre meus pagamentos", /a pagar/i],
 ];
 
 let pass = 0;
