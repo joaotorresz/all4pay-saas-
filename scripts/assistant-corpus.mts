@@ -165,6 +165,11 @@ const CORPUS: [string, RegExp][] = [
   ["recebo mais de produto ou serviço?", /de produtos e .* de serviços/i],
   ["vendo mais produto ou serviço?", /de produtos e .* de serviços/i],
   ["vendi mais em maio ou junho?", /em maio e .* em junho|comparação/i],
+  // 16ª rodada: risco de insolvência → ruptura; "resumo geral/finanças no geral" → saúde
+  ["tem risco de eu quebrar?", /ruptura|caixa cresceu|queima|acabar/i],
+  ["tô perto de ficar sem dinheiro?", /ruptura|caixa cresceu|queima|acabar/i],
+  ["me dá um resumo geral", /sa[úu]de financeira|score/i],
+  ["como estão minhas finanças no geral?", /sa[úu]de financeira|score/i],
 ];
 
 let pass = 0;
