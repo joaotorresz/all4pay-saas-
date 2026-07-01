@@ -424,13 +424,20 @@ camadas encadeadas no `responder`:
    **"Abrir {tela} ↗"** (a `rota` do conceito).
 2. **Motor de resposta NATIVO** (`src/core/assistant/engine.ts` `responderLocal`):
    calcula a resposta real sobre `getRiscoInput` (movements/contas/clientes) —
-   saldo, gasto/receita/resultado por janela (hoje/semana/mês/mês passado/ano/
-   últimos N dias), maiores gastos por categoria, a receber/pagar, vencimentos,
-   inadimplência, maior cliente, **por contraparte** (devolve `contatoId` → botão
-   "Abrir ficha"), maior gasto individual, por centro de custo, **previsão do
-   mês**, próximo receb./pagto, média mensal, **afordabilidade** ("posso gastar
-   X?"), top fornecedores, contagem de contrapartes. A janela é detectada da
-   própria pergunta; a ordem das intenções importa (as de cima vencem).
+   saldo, gasto/receita/resultado por janela (hoje/ontem/amanhã/semana/mês/mês
+   passado/**trimestre**/**semestre**/ano/últimos N dias/**mês nomeado** "em
+   março"), maiores gastos por categoria, **de onde vem a receita**, a receber/
+   pagar, vencimentos, inadimplência, **total em atraso** (ambos os lados),
+   maior/melhor cliente, **por contraparte** (devolve `contatoId` → botão "Abrir
+   ficha"), maior gasto/**recebimento** individual, por centro de custo,
+   **previsão do mês**, próximo receb./pagto, média mensal, **afordabilidade**
+   ("posso gastar X?"), **onde economizar** (categoria que mais cresceu MoM),
+   **comparação entre dois meses** ("gastei mais em maio ou junho?"), top
+   fornecedores, contagem de contrapartes, **resumo do dia** e **resumo do
+   período** (mês/trimestre/semestre/ano). A janela é detectada da própria
+   pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das
+   intenções importa (as de cima vencem; as consultivas/pago-vs-pendente foram
+   auditadas adversarialmente).
 3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
    `copilotoFinanceiro` determinístico como fallback final.
 Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +
