@@ -285,6 +285,22 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(`Você tem ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [{ label: forn ? "Fornecedores" : "Clientes", valor: String(set.size) }], ["contrapartes"]);
   }
 
+  // ——— ONDE ECONOMIZAR / CORTAR (categoria que mais cresceu MoM) ———
+  if (/onde (posso |d[áa] (pra|para) )?(economiz|cortar|reduzir|cortar gasto)|como economizar|gastar menos|reduzir (custo|despesa|gasto)|onde estou gastando (mais|demais)/.test(p)) {
+    const wA = janela("mês", hoje), wB = janela("mês passado", hoje);
+    const catW = (w: Janela) => { const map = new Map<string, number>(); for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.category || "Outros").trim() || "Outros"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); } return map; };
+    const atual = catW(wA), ant = catW(wB);
+    let melhor: { c: string; v: number; d: number } | null = null;
+    for (const [c, v] of Array.from(atual)) { const d = v - (ant.get(c) || 0); if (d > (melhor?.d ?? 0)) melhor = { c: cap(c), v, d }; }
+    if (melhor && melhor.d > 0) {
+      return R(
+        `Melhor lugar para cortar: ${melhor.c} subiu ${fmt(melhor.d)} vs. o mês passado (${fmt(melhor.v)} este mês). Reduzir aí tem o maior impacto imediato.`,
+        [{ label: melhor.c, valor: fmt(melhor.v) }, { label: "Alta vs. mês ant.", valor: `+${fmt(melhor.d)}` }],
+        ["despesas por categoria (mês vs. mês)"]);
+    }
+    return R("Nenhuma categoria de despesa cresceu vs. o mês passado — seus gastos estão controlados. Veja as maiores despesas para priorizar cortes.", [], ["despesas por categoria (mês vs. mês)"]);
+  }
+
   // ——— MÉDIA mensal (gasto/receita) ———
   if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
     const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";
