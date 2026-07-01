@@ -182,7 +182,16 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   `MetricCard` genérico. O card **`ResumoHoje`** ("Hoje · briefing") é a assinatura:
   entram/saem/vencem/pendências do dia + prioridades da IA. `OverviewGrid`
   resolve o nó de cada id via `widgetNode` (curado/Hoje/catálogo); blocos vazios
-  não renderizam. Próximas fases adicionam mais widgets ao catálogo (meta: 80–150).
+  não renderizam. O catálogo já traz **~55 widgets** cobrindo os motores:
+  **quant** (KPIs, benchmark, tendência, previsibilidade), **inadimplência**
+  (perda esperada, segmentos, alto risco, recuperação), **decisão** (Monte Carlo:
+  prob. de caixa negativo, p50/p10, data de aperto; matriz de risco; impacto da
+  melhor ação; plano autônomo), **contas** (caixa consolidado, maior conta, HHI),
+  **risco de caixa** (runway pessimista, ruptura, stress, alertas, pilar frágil) e
+  **centro de inteligência** (insights, oportunidades/ações do briefing, anomalias,
+  clientes de risco), além de **lançamentos** (movimentos/contrapartes/ticket).
+  Cada categoria mapeia num bloco de `BLOCK_ORDER`; próximas fases seguem para a
+  meta de 80–150.
 - **Home contextual + reordenação por IA** (`useHomeContext`): ordem-base dos
   blocos por **setor** (`a4p_company.perfil.setor` → `SETOR_BASE`) e, com o toggle
   "Reorganizar por urgência (IA)" ligado (`a4p_home_auto`, default on), reordena os
