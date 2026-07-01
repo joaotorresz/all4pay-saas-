@@ -26,6 +26,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento } from "@/core/financing";
+import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -371,6 +372,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+}
+
+// ── core/pricing: margem ≠ markup (a confusão clássica) ─────────────────────
+{
+  const a = precoPorMargem(100, 0.30);
+  ok("pricing: 30% de margem s/ custo 100 → preço 142.86 (markup 42.86%)", a.preco === 142.86 && Math.abs(a.markup - 0.4286) < 0.001, `${a.preco}/${a.markup}`);
+  const b = precoPorMarkup(100, 0.30);
+  ok("pricing: markup 30% s/ custo 100 → preço 130, margem 23.08% (≠30%)", b.preco === 130 && Math.abs(b.margem - 0.2308) < 0.001, `${b.preco}/${b.margem}`);
+  const c = analisarPreco(100, 150);
+  ok("pricing: custo 100 preço 150 → margem 33.33%, markup 50%", Math.abs(c.margem - 0.3333) < 0.001 && c.markup === 0.5 && c.lucroUnitario === 50);
+  ok("pricing: 0 custo não gera NaN", Number.isFinite(precoPorMargem(0, 0.3).preco));
 }
 
 // ── core/financing: tabela Price/SAC com números fechados ───────────────────

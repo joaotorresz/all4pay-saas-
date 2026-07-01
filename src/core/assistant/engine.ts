@@ -16,6 +16,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento } from "@/core/financing";
+import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -166,6 +167,31 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return R(
         `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
         [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
+    }
+  }
+
+  // ——— PRECIFICAÇÃO: preço / margem / markup ———
+  // "que preço vender custo X com margem Y%" — resolve margem × markup.
+  if (/(que |qual )?pre[çc]o (de venda|pra vender|para vender|vender|cobrar|colocar|botar)|precific|por quanto (vender|devo vender)|margem (se|com|de um|quando)|markup (pra|para|de|com)|(qual (a|minha) )?margem (real )?(se|com|vendendo)/.test(p)) {
+    const numA = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; return parseFloat(m[m.length - 1].replace(/\./g, "").replace(",", ".")); };
+    const custo = numA(/cust[oa]\w*\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
+    const margemPct = numA(/margem\s*(?:de |: )?(\d[\d.]*(?:,\d+)?)\s*%/);
+    const markupPct = numA(/markup\s*(?:de |: )?(\d[\d.]*(?:,\d+)?)\s*%/);
+    const precoPrat = numA(/(?:vendo por|vender por|pre[çc]o de|por)\s*r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
+    if (custo != null && margemPct != null) {
+      const r = precoPorMargem(custo, margemPct / 100);
+      return R(`Para ${Math.round(margemPct)}% de margem sobre um custo de ${fmt(custo)}, venda por ${fmt(r.preco)} — isso é um markup de ${Math.round(r.markup * 100)}% e ${fmt(r.lucroUnitario)} de lucro por unidade. (Cuidado: margem ≠ markup — pôr "${Math.round(margemPct)}% em cima do custo" daria menos margem.)`,
+        [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Markup", valor: `${Math.round(r.markup * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
+    }
+    if (custo != null && markupPct != null) {
+      const r = precoPorMarkup(custo, markupPct / 100);
+      return R(`Custo ${fmt(custo)} com markup de ${Math.round(markupPct)}% dá preço ${fmt(r.preco)} — mas isso é só ${Math.round(r.margem * 100)}% de MARGEM (sobre o preço), não ${Math.round(markupPct)}%. Lucro de ${fmt(r.lucroUnitario)}/unidade.`,
+        [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Margem real", valor: `${Math.round(r.margem * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
+    }
+    if (custo != null && precoPrat != null) {
+      const r = analisarPreco(custo, precoPrat);
+      return R(`Vendendo por ${fmt(precoPrat)} um item de custo ${fmt(custo)}: margem de ${Math.round(r.margem * 100)}% (markup de ${Math.round(r.markup * 100)}%), lucro de ${fmt(r.lucroUnitario)} por unidade.`,
+        [{ label: "Margem", valor: `${Math.round(r.margem * 100)}%` }, { label: "Markup", valor: `${Math.round(r.markup * 100)}%` }, { label: "Lucro/unid.", valor: fmt(r.lucroUnitario) }], ["precificação"]);
     }
   }
 

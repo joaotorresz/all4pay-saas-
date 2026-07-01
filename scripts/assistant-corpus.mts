@@ -253,6 +253,10 @@ const CORPUS: [string, RegExp][] = [
   ["quanto fica a parcela de um empréstimo de 50 mil em 12x a 2% ao mês?", /parcela fixa de|Price/i],
   ["simular financiamento de 100 mil em 24x a 1,5% ao mês", /parcela fixa de|Price/i],
   ["parcelar 3 mil em 10 vezes", /parcelamento .* SEM juros|parcela/i],
+  // precificação (margem × markup)
+  ["que preço vender um produto de custo 100 com margem de 30%?", /venda por|markup/i],
+  ["custo 100 com markup de 30%, qual o preço?", /preço|MARGEM/i],
+  ["qual a margem se custo 100 e vendo por 150?", /margem de|markup/i],
 ];
 
 let pass = 0;
