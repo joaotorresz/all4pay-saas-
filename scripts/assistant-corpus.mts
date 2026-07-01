@@ -298,6 +298,10 @@ const CORPUS: [string, RegExp][] = [
   // meta de poupança (tempo até um alvo) — distinta de valor futuro e payback
   ["quanto tempo pra juntar 50 mil guardando 2 mil por mês a 1%?", /junta R\$|meses/i],
   ["quando vou ter 100 mil guardando 5 mil por mês?", /junta R\$|meses/i],
+  // sinônimos que preenchem lacunas: cliente "mais rentável" e "endividamento"
+  ["qual meu cliente mais rentável?", /maior cliente|cliente/i],
+  ["qual meu endividamento?", /a pagar|dívida|devendo/i],
+  ["qual meu nível de endividamento?", /a pagar|dívida|devendo/i],
 ];
 
 let pass = 0;
