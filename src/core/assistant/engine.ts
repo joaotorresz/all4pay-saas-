@@ -385,6 +385,20 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["resumo do dia"]);
   }
 
+  // ——— RESUMO DO MÊS ———
+  if (/resumo (do|de|deste|desse) m[êe]s|como (foi|est[áa]|vai) (o|meu|este|esse) m[êe]s|fechamento do m[êe]s|panorama do m[êe]s/.test(p)) {
+    const w = janela("mês", hoje);
+    const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const res = entrou - saiu;
+    const aVencer = movs.filter((m) => m.status === "pendente" && within(m.due_date, w) && m.due_date.slice(0, 10) >= hoje);
+    const aVencerVal = aVencer.reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
+    return R(
+      `${cap(w.label)}: entraram ${fmt(entrou)} e saíram ${fmt(saiu)} — ${res >= 0 ? `sobrou ${fmt(res)}` : `faltou ${fmt(-res)}`}.${aVencer.length ? ` Ainda vencem ${aVencer.length} título(s) (líquido ${fmt(aVencerVal)}).` : ""}`,
+      [{ label: "Recebido", valor: fmt(entrou) }, { label: "Gasto", valor: fmt(saiu) }, { label: "Resultado", valor: fmt(res) }],
+      ["resumo do mês"]);
+  }
+
   // ——— SALDO / quanto tenho ———
   if (/\bsaldo\b|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
     const runway = ctx?.runwayMeses;
