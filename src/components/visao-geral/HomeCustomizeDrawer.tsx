@@ -28,6 +28,7 @@ const CURADOS: WidgetDef[] = [
   { id: "sales", label: "Faturamento", grupo: "Receita", def: true },
   { id: "topClientes", label: "Top clientes", grupo: "Receita", def: true },
   { id: "maioresCategorias", label: "Maiores despesas", grupo: "Despesas", def: true },
+  { id: "topFornecedores", label: "Top fornecedores", grupo: "Despesas", def: true },
   { id: "ultimosGastos", label: "Últimos gastos", grupo: "Despesas", def: true },
   { id: "iaInsights", label: "IA · insights", grupo: "Inteligência", def: true },
   { id: "anomalias", label: "Anomalias", grupo: "Inteligência", def: true },

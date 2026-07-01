@@ -193,6 +193,53 @@ export function TopClientesCard() {
   );
 }
 
+/* ----------------------- Top fornecedores (período) ----------------------- */
+
+export function TopFornecedoresCard() {
+  const { data, isLoading } = useRiscoInput();
+  const period = usePeriod();
+  if (isLoading || !data) return <CardSkeleton tall />;
+
+  const acc = new Map<string, number>();
+  for (const m of data.movements) {
+    if (m.type !== "saida" || m.status !== "pago") continue;
+    const d = realizado(m);
+    if (!d || d < period.from || d > period.to) continue;
+    if (!m.party_id) continue; // só fornecedores identificados
+    acc.set(m.party_id, (acc.get(m.party_id) ?? 0) + m.amount);
+  }
+  const total = Array.from(acc.values()).reduce((s, v) => s + v, 0);
+  const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  return (
+    <Card className="flex flex-col gap-3" info={{
+      titulo: "Top fornecedores",
+      oQue: "Para quem você mais pagou no período.",
+      comoCalcula: "Soma das saídas pagas por fornecedor identificado no período; a barra e o % são a fatia de cada um sobre o total pago a fornecedores.",
+    }}>
+      <Header icon="receipt" href="/pagamentos">Top fornecedores · {period.label.toLowerCase()}</Header>
+      {top.length === 0 || total === 0 ? (
+        <span className="text-caption text-faint">Sem pagamentos a fornecedor no período.</span>
+      ) : (
+        top.map(([id, val]) => {
+          const nome = data.partyNames?.[id] ?? id;
+          const share = total > 0 ? val / total : 0;
+          const abrir = () => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id } }));
+          return (
+            <button key={id} type="button" onClick={abrir} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0 text-left w-full hover:opacity-80 transition-opacity">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[16px] text-ink truncate inline-flex items-center gap-1">{nome}<Icon name="arrow-up-right" size={12} color="var(--color-faint)" /></span>
+                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
+              </div>
+              <BarShare pct={share} color="var(--color-warning)" />
+            </button>
+          );
+        })
+      )}
+    </Card>
+  );
+}
+
 /* ------------------- Maiores categorias de despesa ------------------- */
 
 export function MaioresCategoriasCard() {
