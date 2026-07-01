@@ -133,6 +133,8 @@ const ESPERADOS: [string, string][] = [
   ["o que é aporte?", "aporte-valuation"],
   ["o que é valuation?", "aporte-valuation"],
   ["o que é break even point?", "breakeven"],
+  ["o que é tabela Price?", "amortizacao-sistema"],
+  ["o que é SAC?", "amortizacao-sistema"],
 ];
 
 let ok = 0;

@@ -249,6 +249,10 @@ const CORPUS: [string, RegExp][] = [
   // comandos/requisições
   ["quero ver meus clientes", /maior cliente|cliente/i],
   ["abre meus pagamentos", /a pagar/i],
+  // simulador de empréstimo/financiamento (capacidade nova)
+  ["quanto fica a parcela de um empréstimo de 50 mil em 12x a 2% ao mês?", /parcela fixa de|Price/i],
+  ["simular financiamento de 100 mil em 24x a 1,5% ao mês", /parcela fixa de|Price/i],
+  ["parcelar 3 mil em 10 vezes", /parcelamento .* SEM juros|parcela/i],
 ];
 
 let pass = 0;

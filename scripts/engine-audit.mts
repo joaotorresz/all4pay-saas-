@@ -25,6 +25,7 @@ import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
+import { simularFinanciamento } from "@/core/financing";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -370,6 +371,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+}
+
+// ── core/financing: tabela Price/SAC com números fechados ───────────────────
+{
+  const p = simularFinanciamento(1000, 0.02, 12, "price");
+  ok("financing PRICE 1000@2%×12: parcela ≈ 94.56", p.parcela === 94.56, `${p.parcela}`);
+  ok("financing PRICE: total ≈ 1134.72, juros ≈ 134.72", Math.abs(p.totalPago - 1134.72) < 0.05 && Math.abs(p.jurosTotal - 134.72) < 0.05, `${p.totalPago}/${p.jurosTotal}`);
+  ok("financing PRICE: saldo final = 0 (quita)", p.plano[11].saldo === 0, `${p.plano[11].saldo}`);
+  const z = simularFinanciamento(1200, 0, 12, "price");
+  ok("financing sem juros: parcela = principal/n (100), juros 0", z.parcela === 100 && z.jurosTotal === 0);
+  const s = simularFinanciamento(1200, 0.02, 12, "sac");
+  ok("financing SAC 1200@2%×12: p1=124, p12=102, juros=156", s.parcela === 124 && s.parcelaFinal === 102 && s.jurosTotal === 156, `${s.parcela}/${s.parcelaFinal}/${s.jurosTotal}`);
+  ok("financing SAC < PRICE em juros (amortização constante paga menos)", s.jurosTotal < p.jurosTotal * (1200 / 1000) + 1);
+  // edge: 0 principal não gera NaN
+  const e = simularFinanciamento(0, 0.02, 12, "price");
+  ok("financing 0 principal → sem NaN", Number.isFinite(e.parcela) && Number.isFinite(e.jurosTotal));
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

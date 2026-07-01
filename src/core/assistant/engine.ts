@@ -15,6 +15,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
+import { simularFinanciamento } from "@/core/financing";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -141,6 +142,31 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const verbo = tipo === "entrada" ? "receber" : "pagar";
     if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto futuro"]);
     return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [{ label: `A ${verbo}`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto futuro"]);
+  }
+
+  // ——— SIMULAR EMPRÉSTIMO / FINANCIAMENTO / PARCELAMENTO ———
+  // Antes de afordabilidade/gasto: "empréstimo de X em Nx a T%" é uma simulação.
+  if (/empr[ée]stimo|financiament|financiar|parcel(ar|amento)|simul\w*.*(empr|financ|parcel)|quanto (fica|fica a|[ée] a|seria a|vai a) parcela/.test(p)) {
+    const pmMil = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)/i);
+    const pmRaw = p.match(/r\$\s*(\d[\d.]*(?:,\d+)?)/i);
+    let principal = 0;
+    if (pmMil) { const base = parseFloat(pmMil[1].replace(/\./g, "").replace(",", ".")); principal = base * (/milh|^mi$/i.test(pmMil[2]) ? 1e6 : 1e3); }
+    else if (pmRaw) principal = parseFloat(pmRaw[1].replace(/\./g, "").replace(",", "."));
+    if (principal > 0) {
+      const pn = p.match(/(\d{1,3})\s*(x|vezes|parcelas|meses|vés)\b/i);
+      const parcelas = pn ? Math.max(1, parseInt(pn[1], 10)) : 12;
+      const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+      const taxa = pt ? parseFloat(pt[1].replace(",", ".")) / 100 : 0;
+      const r = simularFinanciamento(principal, taxa, parcelas, "price");
+      if (taxa === 0) {
+        return R(
+          `Um parcelamento de ${fmt(principal)} em ${parcelas}x SEM juros fica em ${fmt(r.parcela)}/mês. Me diga a taxa mensal (ex.: "a 2% ao mês") para eu calcular o custo real com juros.`,
+          [{ label: "Parcela (sem juros)", valor: `${fmt(r.parcela)}/mês` }, { label: "Parcelas", valor: `${parcelas}x` }], ["simulador de financiamento"]);
+      }
+      return R(
+        `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
+        [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
+    }
   }
 
   // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———
