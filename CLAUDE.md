@@ -1094,6 +1094,9 @@ npm run values     # complementa o corpus: sobre um dataset determinístico com
                    # (margem %, ponto de equilíbrio, LTV, concentração, DSO,
                    # gasto/receita/resultado/saldo…) batam exatamente. Guarda de
                    # corretude das FÓRMULAS (o corpus guarda o roteamento).
-npm test           # suíte completa: typecheck + smoke + corpus + values. Rode
-                   # antes de commitar mudanças no motor da IA ou nos core/*.
+npm run edge       # crash-safety: dispara ~30 perguntas sobre 7 datasets
+                   # DEGENERADOS (vazio/cancelado/pendente/futuro/negativo) e
+                   # falha se responderLocal lançar exceção ou devolver vazio.
+npm test           # suíte completa: typecheck + smoke + corpus + values + edge.
+                   # Rode antes de commitar mudanças no motor da IA ou nos core/*.
 ```
