@@ -145,6 +145,13 @@ const CORPUS: [string, RegExp][] = [
   // 14ª rodada (cont.): "saúde da empresa" caía no fallback (exigia "saúde financeira")
   ["qual a saúde da empresa?", /sa[úu]de financeira|score/i],
   ["como está a saúde do meu negócio?", /sa[úu]de financeira|score/i],
+  // 15ª rodada: "pagamento/boleto vencido" = A PAGAR (não inadimplência de recebível);
+  // "mais prejuízo" = PIOR mês (não o resultado do mês corrente).
+  ["tenho pagamento vencido?", /a pagar/i],
+  ["tenho boleto vencido?", /a pagar/i],
+  ["tenho conta atrasada pra pagar?", /a pagar/i],
+  ["qual mês tive mais prejuízo?", /pior m[êe]s/i],
+  ["em que mês lucrei menos?", /pior m[êe]s/i],
 ];
 
 let pass = 0;

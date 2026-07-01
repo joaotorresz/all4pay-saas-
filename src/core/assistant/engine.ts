@@ -145,7 +145,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A PAGAR ———
-  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|vou pagar (de )?conta|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b|contas? (t[ãa]o|est[ãa]o) (em dia|pagas)|(minhas )?contas em dia/.test(p)) {
+  if (/a pagar|contas? a pagar|pag[áa]veis|pagamento[s]? (j[áa] )?(vencid|em atraso|atrasad)|(vencid|atrasad)\w* (a|pra|para) pagar|(boleto|fornecedor|conta)\w* (a pagar )?(j[áa] )?(vencid|atrasad|em atraso)|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|vou pagar (de )?conta|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b|contas? (t[ãa]o|est[ãa]o) (em dia|pagas)|(minhas )?contas em dia/.test(p)) {
     const ab = movs.filter((m) => m.type === "saida" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
@@ -514,8 +514,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MELHOR / PIOR MÊS (por resultado ou por receita) ———
-  if (/(melhor|pior) m[êe]s|m[êe]s (que )?(mais|menos) (vend|fatur|receb|gast|lucr)|meu (melhor|pior) m[êe]s|m[êe]s mais (forte|fraco|bom|ruim)|em que m[êe]s.*(mais|menos)|m[êe]s.*(vend|fatur|receb|gast|lucr).*(mais|menos)/.test(p)) {
-    const pior = /pior|menos|pi[oó]r/.test(p) && !/melhor/.test(p);
+  if (/(melhor|pior) m[êe]s|m[êe]s (que )?(mais|menos) (vend|fatur|receb|gast|lucr|preju)|meu (melhor|pior) m[êe]s|m[êe]s mais (forte|fraco|bom|ruim)|em que m[êe]s.*(mais|menos)|m[êe]s.*(vend|fatur|receb|gast|lucr|preju).*(mais|menos)|qual m[êe]s (eu )?(tive|teve|fiz|deu|foi|ganhei|lucrei|gastei|vendi|recebi).*(mais|menos)|m[êe]s.*(mais|menos).*(preju|lucr|result|sobr)/.test(p)) {
+    // "mais prejuízo/perda" = PIOR mês (mesmo com "mais", não "menos").
+    const pior = (/pior|menos|pi[oó]r/.test(p) || /(mais|maior|muito).{0,12}(preju|perda)/.test(p)) && !/melhor/.test(p);
     const porReceita = /(vend|fatur|receb|receita)/.test(p);
     const meses = new Map<string, { rec: number; desp: number }>();
     for (const m of movs) {
