@@ -887,7 +887,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— AFORDABILIDADE: posso gastar X? ———
-  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo|aguento|suporto).*(gastar|comprar|investir|investiment|pagar|gasto|contratar|tirar|retirar|sacar|distribuir|despesa)|(posso|consigo|d[áa] (pra|para)) contratar|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
+  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo|aguento|suporto).*(gastar|comprar|investir|investiment|pagar|gasto|contratar|tirar|retirar|sacar|distribuir|despesa|aumento|reajuste|sal[áa]rio|nova? (contrata|despesa|conta))|(posso|consigo|d[áa] (pra|para)) contratar|cabe (um|uma|no) (aumento|reajuste|sal[áa]rio|contrata|caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
     const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(milh\w*|mil|k|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;

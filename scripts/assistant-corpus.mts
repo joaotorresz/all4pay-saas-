@@ -305,6 +305,9 @@ const CORPUS: [string, RegExp][] = [
   // runway coloquial ("meses de reserva") e tendência ("piorei")
   ["quantos meses de reserva eu tenho?", /runway|meses|caixa/i],
   ["piorei esse mês?", /caindo|crescendo|subiu|caiu|receita|alta|queda/i],
+  // afordabilidade de custo recorrente (aumento/reajuste/contratação)
+  ["cabe um aumento?", /reserva|folga|caixa|cabe/i],
+  ["dá pra dar um reajuste?", /reserva|folga|caixa/i],
 ];
 
 let pass = 0;
