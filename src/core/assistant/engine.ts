@@ -38,7 +38,11 @@ function janela(p: string, hojeISO: string): Janela {
   if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
   if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
   if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
-  if (/trimestre|[úu]ltimos?\s+3\s+meses|\b3 meses\b/.test(p)) { const q0 = Math.floor(m / 3) * 3; return { label: "no trimestre", from: iso(new Date(y, q0, 1)), to: iso(new Date(y, q0 + 3, 0)) }; }
+  // "últimos N meses" = janela ROLANTE (N meses até hoje), não trimestre/semestre
+  // calendário (que seria quase todo futuro no começo do trimestre).
+  const ultMes = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+m(?:es|eses)\b/);
+  if (ultMes) { const n = +ultMes[1]; const a = new Date(y, m - n + 1, 1); return { label: `nos últimos ${n} meses`, from: iso(a), to: hojeISO }; }
+  if (/trimestre|\b3 meses\b/.test(p)) { const q0 = Math.floor(m / 3) * 3; return { label: "no trimestre", from: iso(new Date(y, q0, 1)), to: iso(new Date(y, q0 + 3, 0)) }; }
   if (/semestre|[úu]ltimos?\s+6\s+meses|\b6 meses\b/.test(p)) { const s0 = m < 6 ? 0 : 6; return { label: "no semestre", from: iso(new Date(y, s0, 1)), to: iso(new Date(y, s0 + 6, 0)) }; }
   // mês NOMEADO ("em março", "de janeiro") — limite de palavra p/ maio≠maior.
   if (!/m[êe]s passad|m[êe]s anterior/.test(p)) {
@@ -155,7 +159,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— VENCIMENTOS no período ———
   if (/(o que|quais|quanto|tem algo).*(vence|vencer|vencimento)|vence (hoje|amanh[ãa]|essa semana|esse m[êe]s)|a vencer|vencimentos?/.test(p)) {
-    const w = /semana|m[êe]s|hoje|amanh|dias/.test(p) ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
+    // Detecta período explícito (inclui mês NOMEADO, trimestre/semestre/ano) —
+    // senão o default é "nesta semana". Antes, "o que vence em março?" caía no
+    // default de semana por não ter token semana/mês/dia.
+    const temPeriodo = /semana|m[êe]s|hoje|ontem|amanh|dias|trimestre|semestre|\bano\b|passad|anterior/.test(p)
+      || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
+    const w = temPeriodo ? janela(p, hoje) : { label: "nesta semana", ...semanaDe(hoje) };
     const venc = movs.filter((m) => m.status === "pendente" && within(m.due_date, w)).sort((a, b) => a.due_date.localeCompare(b.due_date));
     const receb = venc.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
     const pagar = venc.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -483,8 +492,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— AFORDABILIDADE: posso gastar X? ———
   if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)/.test(p)) {
-    const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)/);
-    const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) : 0;
+    const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(mil|k|milh[õo]es?|mi)?/);
+    const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
+    const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;
     const burn = ctx?.burnRate && ctx.burnRate > 0 ? ctx.burnRate : input.saldoAtual * 0.15;
     const reserva = burn * 3; // reserva de ~3 meses de operação
     const folga = Math.max(0, input.saldoAtual - reserva);
