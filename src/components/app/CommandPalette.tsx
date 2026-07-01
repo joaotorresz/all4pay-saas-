@@ -15,13 +15,13 @@ import { listParties, listProducts, listServices, listSales } from "@/lib/cadast
 const norm = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
 
-interface RouteItem { label: string; href: string; icon: string; kw: string }
+interface RouteItem { label: string; href: string; icon: string; kw: string; event?: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
   { label: "Entrada de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
-  { label: "All4Pay IA", href: "/copiloto", icon: "sparkles", kw: "ia copiloto assistente perguntas claude razao gl rascunho lancamento conversacional decisoes acoes agir chat all4pay" },
+  { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
   { label: "Consolidado (multi-empresa)", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
@@ -50,7 +50,7 @@ const ROUTES: RouteItem[] = [
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
 ];
 
-interface Hit { key: string; grupo: string; titulo: string; sub?: string; href: string; icon: string }
+interface Hit { key: string; grupo: string; titulo: string; sub?: string; href: string; icon: string; event?: string; contatoId?: string }
 
 export function CommandPalette() {
   const router = useRouter();
@@ -100,7 +100,7 @@ export function CommandPalette() {
     out.push(
       ...cap(
         ROUTES.filter((r) => match(`${r.label} ${r.kw}`)).map((r) => ({
-          key: `nav:${r.href}`, grupo: "Navegação", titulo: r.label, href: r.href, icon: r.icon,
+          key: `nav:${r.href}:${r.label}`, grupo: "Navegação", titulo: r.label, href: r.href, icon: r.icon, event: r.event,
         })),
       ),
     );
@@ -112,7 +112,7 @@ export function CommandPalette() {
           (parties.data ?? []).filter((p) => match(`${p.name} ${p.doc ?? ""} ${p.phone ?? ""}`)).map((p) => ({
             key: `pty:${p.id}`, grupo: "Contatos", titulo: p.name,
             sub: [p.is_customer && "Cliente", p.is_supplier && "Fornecedor", p.phone].filter(Boolean).join(" · ") || undefined,
-            href: "/contatos", icon: "file-text",
+            href: "/contatos", icon: "users", contatoId: p.id,
           })),
         ),
       );
@@ -145,6 +145,8 @@ export function CommandPalette() {
 
   const ir = (h: Hit) => {
     setOpen(false);
+    if (h.contatoId) { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: h.contatoId } })); return; }
+    if (h.event) { window.dispatchEvent(new Event(h.event)); return; }
     router.push(h.href);
   };
 
