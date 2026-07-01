@@ -242,6 +242,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("DRE: lucro bruto = líquida − CMV (7000)", g.lucroBruto === 7000, `${g.lucroBruto}`);
   ok("DRE: EBITDA = bruto − (folha+opex) (5000)", g.ebitda === 5000, `${g.ebitda}`);
   ok("DRE: lucro líquido = EBITDA − financeiro (4700)", g.lucroLiquido === 4700, `${g.lucroLiquido}`);
+  // convenção das margens: base é a RECEITA LÍQUIDA (padrão DRE br), não a bruta.
+  // margem bruta = 7000/9000 = 77.8% (não 70%); margem líquida = 4700/9000 = 52.2% (não 47%).
+  ok("DRE: margem bruta sobre receita LÍQUIDA (7000/9000 = 77.8%, não /bruta)", Math.abs(g.margemBruta - 7000 / 9000) < 1e-6, `${g.margemBruta}`);
+  ok("DRE: margem líquida sobre receita LÍQUIDA (4700/9000 = 52.2%)", Math.abs(g.margemLiquida - 4700 / 9000) < 1e-6, `${g.margemLiquida}`);
 }
 
 // ── quant/score: invariante direcional (empresa saudável > empresa crítica) ──
