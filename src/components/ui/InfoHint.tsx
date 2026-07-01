@@ -36,7 +36,7 @@ export function InfoHint({ titulo, oQue, comoCalcula, className, align = "right"
     <div ref={ref} className={`relative inline-flex ${className || ""}`}>
       <button
         type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((o) => !o); }}
         aria-label="Como funciona este box"
         aria-expanded={open}
         className={`w-[22px] h-[22px] rounded-pill inline-flex items-center justify-center transition-colors ${open ? "text-ink bg-surface-2" : "text-faint hover:text-ink hover:bg-surface-2"}`}

@@ -16,6 +16,11 @@ export function ReceivablesCard() {
       heroLabel="Recebido hoje"
       weekLabel="A receber essa semana"
       monthLabel="A receber esse mês"
+      info={{
+        titulo: "A Receber",
+        oQue: "O que já entrou hoje e o que ainda está previsto entrar (essa semana e esse mês).",
+        comoCalcula: "Destaque = entradas pagas hoje. Secundários = entradas pendentes que vencem até domingo (semana) e até o fim do mês, pela data de vencimento.",
+      }}
     />
   );
 }

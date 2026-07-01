@@ -126,6 +126,49 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["receita por cliente"]);
   }
 
+  // ——— POR CONTRAPARTE (cliente/fornecedor citado na pergunta) ———
+  if (nomes && /(quanto|gast|paguei|recebi|receb|devo|deve|com|para|pro|pra|hist[óo]rico)/.test(p)) {
+    const alvo = Object.entries(nomes).find(([, n]) => n && n.length >= 3 && p.includes(n.toLowerCase()));
+    if (alvo) {
+      const [id, nome] = alvo;
+      const doParty = movs.filter((m) => m.party_id === id);
+      const recebido = doParty.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+      const pago = doParty.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+      const aberto = doParty.filter((m) => m.status === "pendente").reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
+      const partes: string[] = [];
+      if (recebido > 0) partes.push(`recebeu ${fmt(recebido)}`);
+      if (pago > 0) partes.push(`pagou ${fmt(pago)}`);
+      const abertoTxt = Math.abs(aberto) > 0.5 ? ` Em aberto: ${fmt(Math.abs(aberto))} ${aberto > 0 ? "a receber" : "a pagar"}.` : "";
+      return R(
+        `Com ${nome} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
+        [...(recebido > 0 ? [{ label: "Recebido", valor: fmt(recebido) }] : []), ...(pago > 0 ? [{ label: "Pago", valor: fmt(pago) }] : [])],
+        ["histórico por contraparte"]);
+    }
+  }
+
+  // ——— MAIOR GASTO INDIVIDUAL (singular) ———
+  if (/maior (gasto|despesa|conta|pagamento|sa[íi]da)\b|gasto mais (alto|caro)|meu maior gasto/.test(p)) {
+    const w = janela(p, hoje);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    if (!sai.length) return R(`Nenhum gasto pago ${w.label}.`, [], ["despesas realizadas"]);
+    const maior = sai.reduce((a, b) => (Math.abs(b.amount) > Math.abs(a.amount) ? b : a));
+    const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Despesa";
+    return R(
+      `Seu maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+      [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]);
+  }
+
+  // ——— POR CENTRO DE CUSTO / PROJETO ———
+  if (/centro de custo|por projeto|no projeto|custo por/.test(p)) {
+    const w = janela(p, hoje);
+    const map = new Map<string, number>();
+    for (const m of movs) { if (m.type !== "saida" || m.status !== "pago" || !within(cashDate(m), w)) continue; const c = (m.costCenter || "Sem centro").trim() || "Sem centro"; map.set(c, (map.get(c) || 0) + Math.abs(m.amount)); }
+    const arr = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+    if (!arr.length) return R(`Não há gastos com centro de custo definido ${w.label}.`, [], ["despesas por centro de custo"]);
+    const top = arr.slice(0, 3);
+    return R(`Gastos por centro de custo ${w.label}: ${top.map(([n, v]) => `${cap(n)} (${fmt(v)})`).join(", ")}.`, top.map(([n, v]) => ({ label: cap(n), valor: fmt(v) })), ["despesas por centro de custo"]);
+  }
+
   // ——— MAIORES GASTOS / por categoria ———
   if (/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) {
     const w = janela(p, hoje);
@@ -162,6 +205,20 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       `Você recebeu ${fmt(tot)} ${w.label}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
       [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["receita realizada"]);
+  }
+
+  // ——— PREVISÃO: quanto vai sobrar no mês (antes do RESULTADO realizado) ———
+  if (/(vai sobrar|vou sobrar|sobra prevista|previs[ãa]o|proje[çc][ãa]o|fecha o m[êe]s|fim do m[êe]s|vou conseguir pagar|fecho o m[êe]s)/.test(p)) {
+    const w = janela("mês", hoje);
+    const realRec = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const realPag = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const prevRec = movs.filter((m) => m.type === "entrada" && m.status === "pendente" && within(m.due_date, w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const prevPag = movs.filter((m) => m.type === "saida" && m.status === "pendente" && within(m.due_date, w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const ent = realRec + prevRec, sai = realPag + prevPag, proj = ent - sai;
+    return R(
+      `Projeção do mês: entradas ${fmt(ent)} (${fmt(realRec)} já entraram + ${fmt(prevRec)} previstas) e saídas ${fmt(sai)} — deve ${proj >= 0 ? `sobrar ${fmt(proj)}` : `faltar ${fmt(-proj)}`} no fim do mês.`,
+      [{ label: "Entradas (mês)", valor: fmt(ent) }, { label: "Saídas (mês)", valor: fmt(sai) }, { label: "Projeção", valor: fmt(proj) }],
+      ["realizado + previsto do mês"]);
   }
 
   // ——— RESULTADO / sobrou / lucro ———
@@ -246,6 +303,17 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       `A probabilidade de o caixa ficar negativo em 90 dias é ${risco} (${Math.round(ctx.probRuptura * 100)}%), com runway de ${ctx.runwayMeses} meses sobre ${fmt(ctx.saldoAtual)}. ${ctx.probRuptura >= 0.25 ? "Antecipar recebíveis e segurar despesas não essenciais reduz o risco." : "O caixa está sob controle no horizonte atual."}`,
       [{ label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }],
       ["motor de risco de caixa"]);
+  }
+
+  // ——— PRÓXIMO recebimento / pagamento ———
+  if (/pr[óo]xim[oa].*(receb|entrada|pagament|sa[íi]da|conta|t[íi]tulo)|quando (recebo|vou receber|pago|vou pagar|cai)/.test(p)) {
+    const tipo: "entrada" | "saida" = /pag|sa[íi]da|dev[oa]|contas? a pagar/.test(p) ? "saida" : "entrada";
+    const prox = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+    if (!prox) return R(`Não há ${tipo === "entrada" ? "recebimentos" : "pagamentos"} futuros agendados.`, [], ["agenda de vencimentos"]);
+    const nome = (prox.party_id && nomes?.[prox.party_id]) || prox.category || (tipo === "entrada" ? "Recebimento" : "Pagamento");
+    return R(
+      `Seu próximo ${tipo === "entrada" ? "recebimento" : "pagamento"} é ${fmt(Math.abs(prox.amount))} em ${dia(prox.due_date)} — ${cap(String(nome))}.`,
+      [{ label: "Valor", valor: fmt(Math.abs(prox.amount)) }, { label: "Vence", valor: dia(prox.due_date) }], ["agenda de vencimentos"]);
   }
 
   return null; // sem intenção concreta → sobe para Claude / motor consultivo

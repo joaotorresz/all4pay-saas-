@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Icon } from "@/components/ui";
-import type { IconName } from "@/components/ui";
+import { Icon, InfoHint } from "@/components/ui";
+import type { IconName, InfoConteudo } from "@/components/ui";
 
 /** Bank brand dot colors (stand-ins for real logos). */
 const BANK_COLORS: Record<string, string> = {
@@ -19,15 +19,18 @@ export function WidgetHeader({
   title,
   subtitle,
   action,
+  info,
 }: {
   title: string;
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
+  info?: InfoConteudo;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 mb-4">
       <div className="flex items-baseline gap-[10px] min-w-0">
         <h2 className="text-h3 font-medium text-ink truncate">{title}</h2>
+        {info && <span className="self-center"><InfoHint align="left" {...info} /></span>}
         {subtitle && <span className="text-caption text-faint">{subtitle}</span>}
       </div>
       {action}

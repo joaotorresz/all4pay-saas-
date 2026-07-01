@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Card, Money, Skeleton, Icon } from "@/components/ui";
+import type { InfoConteudo } from "@/components/ui";
 import { brlParts, formatBRL } from "@/lib/format";
 import type { ReceivablesSummary } from "@/lib/types";
 import { WidgetHeader, EmptyState } from "./shared";
@@ -23,6 +24,7 @@ export function OpenAmountWidget({
   heroLabel,
   weekLabel,
   monthLabel,
+  info,
 }: {
   title: string;
   href: string;
@@ -33,6 +35,7 @@ export function OpenAmountWidget({
   heroLabel: string;
   weekLabel: string;
   monthLabel: string;
+  info?: InfoConteudo;
 }) {
   const today = summary && brlParts(summary.today);
   const week = summary && brlParts(summary.week);
@@ -118,6 +121,7 @@ export function OpenAmountWidget({
       <Card>
         <WidgetHeader
           title={title}
+          info={info}
           action={
             <span className="inline-flex items-center gap-2 text-caption font-medium text-ink bg-surface-1 rounded-[12px] px-3 py-2">
               Ver tudo
