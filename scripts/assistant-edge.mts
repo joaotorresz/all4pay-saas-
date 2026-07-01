@@ -51,6 +51,7 @@ const PERGUNTAS = [
   "quanto pago de simples nacional?",
   "quanto cobrar de um boleto de 0 vencido há 0 dias", "juros de mora de 1000 atrasado 30 dias",
   "multa por atraso de um título vencido",
+  "por quanto vendo custo 0 com 0% de margem e 0% de imposto", "que preço com margem de 100% e imposto de 50%",
 ];
 
 let problemas = 0;

@@ -292,6 +292,9 @@ const CORPUS: [string, RegExp][] = [
   // conversão de taxa colateral ("pra") e financiamento sem verbo ("parcela de Xk em Nx")
   ["converte 30% ao ano pra mensal", /ao mês|mensal|equivale/i],
   ["parcela de 50k em 10x a 1,99%?", /parcela fixa de|Price|Empréstimo/i],
+  // gross-up de preço (margem líquida + imposto)
+  ["por quanto vendo um custo de 100 pra ter 20% de margem líquida com 6% de imposto?", /margem LÍQUIDA|imposto|venda/i],
+  ["que preço vender custo 100 com margem de 30% e imposto de 10%?", /margem LÍQUIDA|imposto|venda/i],
 ];
 
 let pass = 0;

@@ -117,6 +117,8 @@ const CASES: [string, RegExp, string][] = [
   ["quanto pago de Simples no Anexo III faturando 1,2 milhão por ano?", /R\$.?1\.200\.000/, "1,2 milhão = 1.200.000"],
   // valor com centavos "R$ 3.200,00" no título vencido é lido (não quebra o gatilho da mora)
   ["quanto cobrar de um título de R$ 3.200,00 vencido há 15 dias?", /fica em R\$.?3\.280/, "3200 + 64 multa + 16 juros(1%×15/30) = 3280"],
+  // gross-up: custo 100, 20% margem líquida, 6% imposto → 100/0.74 = 135,14
+  ["por quanto vendo um custo de 100 pra ter 20% de margem líquida com 6% de imposto?", /R\$.?135/, "100/(1−0,20−0,06) = 135,14"],
 ];
 
 let pass = 0;

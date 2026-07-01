@@ -16,7 +16,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
-import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
+import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
@@ -375,12 +375,31 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— PRECIFICAÇÃO: preço / margem / markup ———
   // "que preço vender custo X com margem Y%" — resolve margem × markup.
-  if (/(que |qual )?pre[çc]o (de venda|pra vender|para vender|vender|cobrar|colocar|botar)|precific|por quanto (vender|devo vender)|margem (se|com|de um|quando)|markup (pra|para|de|com)|(qual (a|minha) )?margem (real )?(se|com|vendendo)/.test(p)) {
-    const numA = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; return parseFloat(m[m.length - 1].replace(/\./g, "").replace(",", ".")); };
+  if (/(que |qual )?pre[çc]o (de venda|pra vender|para vender|vender|cobrar|colocar|botar)|precific|por quanto (vend\w*|devo vender)|margem (se|com|de um|quando|l[íi]quida)|markup (pra|para|de|com)|(qual (a|minha) )?margem (real )?(se|com|vendendo)/.test(p)) {
+    const numA = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const v = m.slice(1).find((g) => g != null); return v == null ? null : parseFloat(v.replace(/\./g, "").replace(",", ".")); };
+    // % de um conceito nas DUAS ordens: "margem de 20%" e "20% de margem".
+    const pct = (kwSrc: string): number | null => {
+      const a = p.match(new RegExp(kwSrc + "\\s*(?:l[íi]quida\\s*)?(?:de |: )?(\\d[\\d.]*(?:,\\d+)?)\\s*%"));
+      if (a) return parseFloat(a[1].replace(/\./g, "").replace(",", "."));
+      const b = p.match(new RegExp("(\\d[\\d.]*(?:,\\d+)?)\\s*%\\s*(?:de |em )?(?:l[íi]quida )?" + kwSrc));
+      if (b) return parseFloat(b[1].replace(/\./g, "").replace(",", "."));
+      return null;
+    };
     const custo = numA(/cust[oa]\w*\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
-    const margemPct = numA(/margem\s*(?:de |: )?(\d[\d.]*(?:,\d+)?)\s*%/);
-    const markupPct = numA(/markup\s*(?:de |: )?(\d[\d.]*(?:,\d+)?)\s*%/);
+    const margemPct = pct("margem");
+    const markupPct = pct("markup");
     const precoPrat = numA(/(?:vendo por|vender por|pre[çc]o de|por)\s*r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
+    const impostoPct = pct("(?:imposto|tribut\\w*|simples)");
+    // Gross-up: margem LÍQUIDA alvo DEPOIS do imposto (embute o imposto no preço).
+    if (custo != null && margemPct != null && impostoPct != null) {
+      const r = precoComImpostos(custo, impostoPct / 100, margemPct / 100);
+      if (!r.viavel) {
+        return R(`Não dá: margem de ${Math.round(margemPct)}% + imposto de ${Math.round(impostoPct)}% já passa de 100% do preço — não existe preço que feche essa conta. Reduza a margem alvo ou o imposto.`,
+          [{ label: "Margem alvo", valor: `${Math.round(margemPct)}%` }, { label: "Imposto", valor: `${Math.round(impostoPct)}%` }], ["precificação com impostos"]);
+      }
+      return R(`Para sobrar ${Math.round(margemPct)}% de margem LÍQUIDA depois de ${Math.round(impostoPct)}% de imposto, venda um custo de ${fmt(custo)} por ${fmt(r.preco)}: dá ${fmt(r.imposto)} de imposto e ${fmt(r.lucroLiquido)} de lucro líquido. (Não basta somar — o imposto incide sobre o preço, então tem que embutir.)`,
+        [{ label: "Preço de venda", valor: fmt(r.preco) }, { label: "Imposto", valor: fmt(r.imposto) }, { label: "Lucro líquido", valor: fmt(r.lucroLiquido) }], ["precificação com impostos"]);
+    }
     if (custo != null && margemPct != null) {
       const r = precoPorMargem(custo, margemPct / 100);
       return R(`Para ${Math.round(margemPct)}% de margem sobre um custo de ${fmt(custo)}, venda por ${fmt(r.preco)} — isso é um markup de ${Math.round(r.markup * 100)}% e ${fmt(r.lucroUnitario)} de lucro por unidade. (Cuidado: margem ≠ markup — pôr "${Math.round(margemPct)}% em cima do custo" daria menos margem.)`,

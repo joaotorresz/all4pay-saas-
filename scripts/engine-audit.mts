@@ -26,7 +26,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
-import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
+import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
@@ -413,6 +413,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("pricing: PE unidades 10000 ÷ 50 = 200", pontoEquilibrioUnidades(10000, 50).unidades === 200);
   ok("pricing: PE unidades arredonda p/ cima (10000 ÷ 30 = 334)", pontoEquilibrioUnidades(10000, 30).unidades === 334);
   ok("pricing: margem ≤ 0 → sem equilíbrio (Infinity)", pontoEquilibrioUnidades(10000, 0).unidades === Infinity);
+  // gross-up: custo 100, imposto 6%, margem líquida 20% → preço 100/(1−0.20−0.06)=135.14
+  const gu = precoComImpostos(100, 0.06, 0.20);
+  ok("pricing gross-up: 100 c/ 6% imposto + 20% margem líq → preço 135.14", gu.preco === 135.14 && gu.viavel, `${gu.preco}`);
+  // a margem líquida REALIZADA volta a bater os 20% (lucroLiquido/preço)
+  ok("pricing gross-up: margem líquida realizada = 20%", Math.abs(gu.lucroLiquido / gu.preco - 0.20) < 0.001, `${gu.lucroLiquido / gu.preco}`);
+  ok("pricing gross-up: imposto = 6% do preço", Math.abs(gu.imposto - gu.preco * 0.06) < 0.01);
+  // inviável: margem + imposto ≥ 100%
+  ok("pricing gross-up: margem 60% + imposto 50% → inviável (preço 0)", precoComImpostos(100, 0.50, 0.60).viavel === false);
 }
 
 // ── core/financing: tabela Price/SAC com números fechados ───────────────────

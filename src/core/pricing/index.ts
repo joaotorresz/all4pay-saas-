@@ -58,6 +58,41 @@ export function pontoEquilibrioUnidades(custoFixo: number, margemUnitaria: numbe
   };
 }
 
+export interface PrecoComImpostos {
+  custo: number;
+  aliquotaImposto: number; // fração sobre o PREÇO (0.06 = 6%)
+  margemLiquida: number;   // fração LÍQUIDA desejada sobre o PREÇO
+  preco: number;           // preço de venda que embute imposto + margem
+  imposto: number;         // R$ de imposto no preço
+  lucroLiquido: number;    // R$ que sobra depois de custo e imposto
+  viavel: boolean;         // false se margem + imposto ≥ 100% (impossível)
+}
+
+/**
+ * Gross-up: por quanto vender um custo para ficar com uma MARGEM LÍQUIDA alvo
+ * DEPOIS do imposto sobre a venda. O imposto (Simples/ISS/ICMS…) incide sobre o
+ * PREÇO, então não basta somar — tem que embutir. Preço = custo ÷ (1 − margem −
+ * alíquota). Se margem + alíquota ≥ 100%, é matematicamente impossível.
+ */
+export function precoComImpostos(custo: number, aliquotaImposto: number, margemLiquida: number): PrecoComImpostos {
+  const c = Math.max(0, custo);
+  const t = Math.min(0.999, Math.max(0, aliquotaImposto));
+  const m = Math.max(0, margemLiquida);
+  const denom = 1 - m - t;
+  const viavel = denom > 0;
+  const preco = viavel ? round2(c / denom) : 0;
+  const imposto = round2(preco * t);
+  return {
+    custo: round2(c),
+    aliquotaImposto: Math.round(t * 1e4) / 1e4,
+    margemLiquida: Math.round(m * 1e4) / 1e4,
+    preco,
+    imposto,
+    lucroLiquido: round2(preco - c - imposto),
+    viavel,
+  };
+}
+
 /** Margem e markup REALIZADOS a partir do custo e do preço praticado. */
 export function analisarPreco(custo: number, preco: number): Precificacao {
   const c = Math.max(0, custo);

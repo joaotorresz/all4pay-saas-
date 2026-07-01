@@ -473,7 +473,8 @@ camadas encadeadas no `responder`:
    (`financing` `antecipar`), **conversão de taxa** mensal↔anual (`financing`
    `equivalenteAnual/Mensal` — 2%/mês = 26,82%/ano composto, não 24%),
    **precificação** (`src/core/pricing` — preço/margem/**markup**, resolve
-   margem≠markup) e **ponto de equilíbrio em unidades** (`pricing`
+   margem≠markup; **gross-up com impostos** `precoComImpostos` — preço que embute
+   imposto p/ margem LÍQUIDA alvo) e **ponto de equilíbrio em unidades** (`pricing`
    `pontoEquilibrioUnidades` — custo fixo ÷ margem de contribuição),
    **investimento** (`src/core/investment` — valor futuro de aportes + **payback**),
    **provisão trabalhista** (`src/core/payroll` — 13º/férias/FGTS e o custo ANUAL
