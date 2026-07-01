@@ -113,6 +113,10 @@ const CORPUS: [string, RegExp][] = [
   // 9ª rodada: contas em dia / total que entrou / to indo bem
   ["minhas contas tão em dia?", /a pagar|vencid|em dia|nada/i], ["me diz o total que entrou", /receb|entr/i],
   ["to indo bem?", /score|sa[úu]de|saldo|resultado/i],
+  // 10ª rodada: situação do caixa / vou quebrar / resumo financeiro / reserva / fluxo positivo
+  ["qual a situação do caixa?", /saldo|caixa/i], ["vou quebrar?", /ruptura|dura|não se esgota|limite|acabar/i],
+  ["me dá o resumo financeiro", /entr|sa[íi]|sobrou|resultado|receb|gast/i], ["tenho reserva suficiente?", /folga|reserva|cabe|saldo/i],
+  ["meu fluxo tá positivo?", /entr|sa[íi]|sobrou|resultado|azul|vermelho/i],
 ];
 
 let pass = 0;
