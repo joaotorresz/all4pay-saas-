@@ -13,7 +13,8 @@
     "corpus": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-corpus.mts",
     "values": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-values.mts",
     "edge": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-edge.mts",
-    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge"
+    "kb": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-kb-coverage.mts",
+    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
