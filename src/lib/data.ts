@@ -522,7 +522,7 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
       end_date: input.repeat.until,
       category_id: input.category_id,
       cost_center_id: input.cost_center_id,
-      due_day: new Date(input.due_date).getDate(),
+      due_day: Number(input.due_date.slice(8, 10)), // dia do mês da string ISO (TZ-independente; new Date(UTC).getDate() erraria em UTC-3)
     });
     if (re) throw re;
   }

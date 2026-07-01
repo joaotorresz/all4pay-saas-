@@ -121,7 +121,9 @@ function parseCSV(text: string): ParseResult {
     // posicional: descobre a coluna de data e a de valor
     const cols = split(lines[0]);
     di = cols.findIndex((c) => parseData(c));
-    vi = cols.findIndex((c, i) => i !== di && parseValor(c));
+    // exclui colunas com cara de data: parseValor("16/01/2024") = 16 (parseFloat
+    // para no "/"), então sem isto a coluna de valor casaria numa 2ª data.
+    vi = cols.findIndex((c, i) => i !== di && !parseData(c) && parseValor(c));
     if (di < 0) di = 0;
     if (vi < 0) vi = cols.length - 1;
     si = cols.findIndex((_, i) => i !== di && i !== vi);

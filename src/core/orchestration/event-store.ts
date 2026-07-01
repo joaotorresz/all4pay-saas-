@@ -20,8 +20,16 @@ function hashEvento(
   timestamp: string,
   valor: number,
   payload: unknown,
+  entidadeId: string | undefined,
+  contraparte: string | undefined,
+  prioridade: string,
 ): string {
-  return sha256(`${previousHash}|${tipo}|${timestamp}|${valor}|${JSON.stringify(payload ?? null)}`);
+  // Sela TAMBÉM os campos de identidade (entidadeId/contraparte/prioridade):
+  // eles dirigem atribuição no ledger/grafo — se ficassem fora do preimage,
+  // adulterar a contraparte de um PIX selado passaria em verificarIntegridade.
+  return sha256(
+    `${previousHash}|${tipo}|${timestamp}|${valor}|${entidadeId ?? ""}|${contraparte ?? ""}|${prioridade}|${JSON.stringify(payload ?? null)}`,
+  );
 }
 
 export class EventStore {
@@ -32,6 +40,7 @@ export class EventStore {
     const timestamp = e.timestamp ?? new Date().toISOString();
     const valor = e.valor ?? 0;
     const payload = e.payload ?? {};
+    const prioridade = e.prioridade ?? "media";
     const armazenado: EventoArmazenado = {
       id: uid("evt"),
       seq: this.eventos.length,
@@ -39,11 +48,11 @@ export class EventStore {
       entidadeId: e.entidadeId,
       valor,
       contraparte: e.contraparte,
-      prioridade: e.prioridade ?? "media",
+      prioridade,
       payload,
       timestamp,
       previousHash,
-      hash: hashEvento(previousHash, e.tipo, timestamp, valor, payload),
+      hash: hashEvento(previousHash, e.tipo, timestamp, valor, payload, e.entidadeId, e.contraparte, prioridade),
     };
     this.eventos.push(armazenado);
     return armazenado;
@@ -58,7 +67,7 @@ export class EventStore {
     for (const e of this.eventos) {
       if (e.previousHash !== prev)
         return { intacta: false, total: this.eventos.length, problema: { seq: e.seq, motivo: "Elo quebrado" } };
-      const rec = hashEvento(e.previousHash, e.tipo, e.timestamp, e.valor, e.payload);
+      const rec = hashEvento(e.previousHash, e.tipo, e.timestamp, e.valor, e.payload, e.entidadeId, e.contraparte, e.prioridade);
       if (rec !== e.hash)
         return { intacta: false, total: this.eventos.length, problema: { seq: e.seq, motivo: "Evento adulterado" } };
       prev = e.hash;

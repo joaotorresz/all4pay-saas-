@@ -12,7 +12,7 @@ export function calcularConcentracao(
   const porCliente = new Map<string, number>();
   let total = 0;
   for (const m of input.movements) {
-    if (m.type !== "entrada") continue;
+    if (m.type !== "entrada" || m.status === "cancelado") continue; // receita cancelada não é dependência de cliente
     const d = m.paid_date ?? m.due_date;
     if (d < iniISO) continue;
     const id = m.party_id ?? "—";
