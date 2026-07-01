@@ -26,10 +26,10 @@ import { logAcaoIA } from "@/lib/ai-copilot";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
 
-/* Identidade do botão de IA (exceção deliberada ao DS mono+lime, por ser o
-   elemento de IA): gradiente azul→roxo→magenta + glow colorido, como a ref. */
-const GRAD = "linear-gradient(95deg, #1F8BFF 0%, #6E2BF2 50%, #E0319C 100%)";
-const GLOW = "0 6px 22px rgba(110,43,242,0.42), 0 10px 30px rgba(224,49,156,0.28), 0 2px 10px rgba(31,139,255,0.34)";
+/* Identidade do botão de IA — na paleta da marca (preto #11190C + lime), flat.
+   O acento lime fica no sparkle/detalhe; nada de gradiente colorido nem glow. */
+const GRAD = "linear-gradient(95deg, #11190C 0%, #1c2714 100%)";
+const GLOW = "none";
 
 /** Sparkle 4-pontas (AI) — SVG inline branco, casando com a referência. */
 function SparkleMark({ size = 20 }: { size?: number }) {
@@ -94,7 +94,7 @@ export function AssistantWidget() {
         className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill text-white pl-[16px] pr-[20px] py-[12px] transition-all duration-200 hover:brightness-105 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
         style={{ backgroundImage: GRAD, boxShadow: GLOW }}
       >
-        <SparkleMark size={20} />
+        <span className="text-lime inline-flex"><SparkleMark size={20} /></span>
         <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
       </button>
 
