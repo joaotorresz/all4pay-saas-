@@ -42,8 +42,12 @@ function janela(p: string, hojeISO: string): Janela {
   // calendário (que seria quase todo futuro no começo do trimestre).
   const ultMes = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+m(?:es|eses)\b/);
   if (ultMes) { const n = +ultMes[1]; const a = new Date(y, m - n + 1, 1); return { label: `nos últimos ${n} meses`, from: iso(a), to: hojeISO }; }
-  if (/trimestre|\b3 meses\b/.test(p)) { const q0 = Math.floor(m / 3) * 3; return { label: "no trimestre", from: iso(new Date(y, q0, 1)), to: iso(new Date(y, q0 + 3, 0)) }; }
-  if (/semestre|[úu]ltimos?\s+6\s+meses|\b6 meses\b/.test(p)) { const s0 = m < 6 ? 0 : 6; return { label: "no semestre", from: iso(new Date(y, s0, 1)), to: iso(new Date(y, s0 + 6, 0)) }; }
+  // trimestre/semestre = janela TRAILING (últimos 3/6 meses até hoje). O trimestre
+  // CALENDÁRIO seria quase todo futuro no começo do período (ex.: em julho, Q3 =
+  // jul–set → só julho tem dado), devolvendo um número enganosamente pequeno para
+  // "como foi meu trimestre/semestre" (pergunta retrospectiva).
+  if (/trimestre|\b3 meses\b/.test(p)) { return { label: "no trimestre", from: iso(new Date(y, m - 2, 1)), to: hojeISO }; }
+  if (/semestre|[úu]ltimos?\s+6\s+meses|\b6 meses\b/.test(p)) { return { label: "no semestre", from: iso(new Date(y, m - 5, 1)), to: hojeISO }; }
   // mês NOMEADO ("em março", "de janeiro") — limite de palavra p/ maio≠maior.
   if (!/m[êe]s passad|m[êe]s anterior/.test(p)) {
     const mi = MES.findIndex((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
@@ -114,12 +118,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— VOU RECEBER / PAGAR no MÊS QUE VEM (janela FUTURA, pendentes) ———
   // Antes da receita-realizada: "vou receber mês que vem" é PREVISTO (pendente
   // com vencimento no mês seguinte), não o realizado do mês corrente.
-  if (/(vou|irei|tenho (a|pra|para)|quanto (vou|tenho a)).*(receber|pagar).*(m[êe]s que vem|pr[óo]ximo m[êe]s)|(m[êe]s que vem|pr[óo]ximo m[êe]s).*(vou |irei )?(receber|pagar|receb\b|pag\b)/.test(p)) {
+  if (/(vou|irei|tenho (a|pra|para)|quanto (vou|tenho a)).*(receber|pagar|gastar).*(m[êe]s que vem|pr[óo]ximo m[êe]s)|(m[êe]s que vem|pr[óo]ximo m[êe]s).*(vou |irei )?(receber|pagar|gastar|receb\b|pag\b|gast\b)/.test(p)) {
     const base = new Date(hoje + "T00:00:00");
     const nmEnd = new Date(base.getFullYear(), base.getMonth() + 2, 0); // último dia do mês seguinte
     const from = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-01`;
     const to = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-${pad(nmEnd.getDate())}`;
-    const tipo: "entrada" | "saida" = /pagar|\bpag\b|pagament/.test(p) ? "saida" : "entrada";
+    const tipo: "entrada" | "saida" = /pagar|\bpag\b|pagament|gast/.test(p) ? "saida" : "entrada";
     const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to);
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const verbo = tipo === "entrada" ? "receber" : "pagar";

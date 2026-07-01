@@ -183,6 +183,12 @@ const CORPUS: [string, RegExp][] = [
   ["quanto vou receber mês que vem?", /mês que vem você tem .* a receber|previsto/i],
   ["quanto vou pagar mês que vem?", /mês que vem você tem .* a pagar|previsto/i],
   ["quanto vou receber próximo mês?", /mês que vem você tem .* a receber|previsto/i],
+  // 17ª rodada (cont.): trimestre/semestre = janela TRAILING (últimos 3/6 meses),
+  // não o trimestre calendário (que no começo do período fica quase todo futuro);
+  // "vou gastar mês que vem" = pagáveis do mês seguinte.
+  ["como foi meu semestre?", /no semestre entraram/i],
+  ["quanto entrou no trimestre?", /no trimestre/i],
+  ["quanto vou gastar mês que vem?", /mês que vem você tem .* a pagar|previsto|Nada previsto/i],
 ];
 
 let pass = 0;
