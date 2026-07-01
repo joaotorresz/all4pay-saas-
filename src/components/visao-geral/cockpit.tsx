@@ -920,6 +920,230 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Novos widgets executivos: risco (scoreRiscoCaixa) + exec (centroInteligencia) ============ */
+  /* ---- Caixa (runway 3 cenários · risco) ---- */
+  {
+    id: "runway-pessimista", label: "Fôlego no pior cenário", categoria: "Caixa",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const r = c.risco.runway;
+      const pess = Math.max(0, r.pessimista);
+      return (
+        <MetricCard icon="trending-up" label="Fôlego no pior cenário"
+          tone={pess < 30 ? NEG : pess < 90 ? WARN : POS}
+          value={`${pess} dias`}
+          answer={`No cenário pessimista o caixa dura ${pess} dias (base ${Math.max(0, r.base)} · otimista ${Math.max(0, r.otimista)}).`}
+          info={{ titulo: "Fôlego no pior cenário", oQue: "Por quantos dias o caixa aguenta no cenário mais adverso.", comoCalcula: "O motor de risco projeta o caixa diário em 3 cenários (otimista, base, pessimista) e conta os dias até faltar no pessimista." }} />
+      );
+    },
+  },
+  /* ---- Caixa (dia da ruptura no cenário base · risco) ---- */
+  {
+    id: "ruptura-dia-risco", label: "Dias até a ruptura (risco)", categoria: "Caixa",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const dia = c.risco.rupturaDia;
+      return (
+        <MetricCard icon="calendar" label="Dias até a ruptura (risco)"
+          tone={dia == null ? POS : dia < 30 ? NEG : WARN}
+          value={dia == null ? "Sem ruptura" : `${dia} dias`}
+          answer={dia == null
+            ? "O caixa não fica negativo no horizonte projetado pelo motor de risco."
+            : `No cenário base, o caixa fica negativo em cerca de ${dia} dias.`}
+          info={{ titulo: "Dias até a ruptura (risco)", oQue: "Em quantos dias o caixa deve cruzar o zero no cenário base do motor de risco.", comoCalcula: "Primeiro dia em que a projeção de liquidez diária do motor de risco de caixa fica negativa no cenário base." }} />
+      );
+    },
+  },
+  /* ---- Radares (pior teste de stress · risco) ---- */
+  {
+    id: "pior-stress-test", label: "Pior teste de stress", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const st = c.risco.stress;
+      if (!st.length) return (
+        <MetricCard icon="triangle-alert" label="Pior teste de stress" value="—"
+          answer="Sem cenários de stress relevantes no momento."
+          info={{ titulo: "Pior teste de stress", oQue: "O choque que mais derruba o caixa entre os testes simulados.", comoCalcula: "Simula choques (queda de receita, atraso, alta de despesa) e mede o impacto no saldo ao fim do horizonte." }} />
+      );
+      const pior = st.slice().sort((a, b) => a.impactoSaldo - b.impactoSaldo)[0];
+      return (
+        <MetricCard icon="triangle-alert" label="Pior teste de stress"
+          tone={pior.impactoSaldo < 0 ? NEG : WARN}
+          value={<BRL value={pior.impactoSaldo} />}
+          answer={`${pior.label}: impacto de ${formatBRL(pior.impactoSaldo)} no saldo, runway cairia para ${pior.runwayDias} dias.`}
+          info={{ titulo: "Pior teste de stress", oQue: "O choque que mais derruba o caixa entre os testes simulados.", comoCalcula: "Simula choques (queda de receita, atraso de recebimento, alta de despesa) e destaca o de maior impacto negativo no saldo." }} />
+      );
+    },
+  },
+  /* ---- Radares (concentração HHI de clientes · risco) ---- */
+  {
+    id: "hhi-clientes-risco", label: "Concentração de clientes (HHI)", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const conc = c.risco.concentracao;
+      const top = conc.top[0];
+      return (
+        <MetricCard icon="target" label="Concentração de clientes (HHI)"
+          tone={conc.hhi > 2500 ? NEG : conc.hhi > 1500 ? WARN : POS}
+          value={`${Math.round(conc.hhi)}`}
+          answer={conc.hhi > 2500
+            ? `Carteira muito concentrada${top ? ` — ${top.name} responde por ${pctTxt(top.share)} da receita.` : "."}`
+            : `Concentração ${conc.hhi > 1500 ? "moderada" : "saudável"}${top ? ` — maior cliente com ${pctTxt(top.share)}.` : "."}`}
+          info={{ titulo: "Concentração de clientes (HHI)", oQue: "Mede o quanto a receita está concentrada em poucos clientes.", comoCalcula: "Índice de Herfindahl-Hirschman das fatias de receita por cliente (0 a 10000). Acima de 2500 indica concentração alta." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (clientes em atraso · risco) ---- */
+  {
+    id: "clientes-em-atraso-risco", label: "Clientes em atraso", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const inad = c.risco.inadimplencia;
+      return (
+        <MetricCard icon="users" label="Clientes em atraso"
+          tone={inad.clientesEmAtraso > 0 ? WARN : POS}
+          value={`${inad.clientesEmAtraso}`}
+          answer={inad.clientesEmAtraso > 0
+            ? `${inad.clientesEmAtraso} cliente(s) com pagamento vencido — ${formatBRL(inad.overdueAmount)} em atraso.`
+            : "Nenhum cliente com pagamento em atraso agora."}
+          info={{ titulo: "Clientes em atraso", oQue: "Quantos clientes têm recebíveis vencidos e não pagos.", comoCalcula: "Conta as contrapartes com pelo menos um recebível vencido em aberto no motor de risco de caixa." }} />
+      );
+    },
+  },
+  /* ---- Inteligência (alertas críticos do motor de risco) ---- */
+  {
+    id: "alertas-criticos-risco", label: "Alertas do motor de risco", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const alertas = c.risco.alertas;
+      const criticos = alertas.filter((a) => a.nivel === "critico").length;
+      const atencao = alertas.filter((a) => a.nivel === "atencao").length;
+      const top = alertas.slice().sort((a, b) =>
+        (a.nivel === "critico" ? 0 : a.nivel === "atencao" ? 1 : 2) -
+        (b.nivel === "critico" ? 0 : b.nivel === "atencao" ? 1 : 2))[0];
+      return (
+        <MetricCard icon="triangle-alert" label="Alertas do motor de risco"
+          tone={criticos > 0 ? NEG : atencao > 0 ? WARN : POS}
+          value={`${alertas.length}`}
+          answer={alertas.length
+            ? `${criticos} crítico(s) · ${atencao} de atenção. ${top ? top.titulo : ""}`
+            : "Nenhum alerta de risco de caixa no momento."}
+          info={{ titulo: "Alertas do motor de risco", oQue: "Quantos alertas de risco de caixa estão ativos e o mais grave deles.", comoCalcula: "Conta os alertas gerados pelo motor de risco (crítico, atenção, informativo) e destaca o de maior severidade." }} />
+      );
+    },
+  },
+  /* ---- Resumo executivo (pilar mais fraco do score de risco) ---- */
+  {
+    id: "pilar-mais-fraco", label: "Pilar mais frágil", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.risco) return <Loading />;
+      const comp = c.risco.componentes;
+      if (!comp.length) return (
+        <MetricCard icon="gauge" label="Pilar mais frágil" value="—"
+          answer="Sem pilares de risco avaliados no momento."
+          info={{ titulo: "Pilar mais frágil", oQue: "Qual dimensão do score de risco de caixa está pior avaliada.", comoCalcula: "Ordena os pilares do score de risco pela nota e destaca o de menor pontuação." }} />
+      );
+      const pior = comp.slice().sort((a, b) => a.score - b.score)[0];
+      return (
+        <MetricCard icon="gauge" label="Pilar mais frágil"
+          tone={scoreTone(pior.score)}
+          value={pior.label}
+          answer={`${pior.score}/100 · ${pior.detalhe}`}
+          info={{ titulo: "Pilar mais frágil", oQue: "Qual dimensão do score de risco de caixa está pior avaliada.", comoCalcula: "O score de risco combina 8 pilares (liquidez, previsibilidade, concentração, burn...); este destaca o de menor nota." }} />
+      );
+    },
+  },
+  /* ---- Inteligência (impacto financeiro dos insights · exec) ---- */
+  {
+    id: "impacto-insights-exec", label: "Impacto dos insights", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const insights = c.exec.insights;
+      const totalReais = insights.reduce((s, i) => s + Math.abs(i.impactoCentavos), 0) / 100;
+      return (
+        <MetricCard icon="sparkles" label="Impacto dos insights"
+          tone={insights.length ? WARN : POS}
+          value={<BRL value={totalReais} />}
+          answer={insights.length
+            ? `${insights.length} insight(s) da IA somam ${formatBRL(totalReais)} em impacto financeiro estimado.`
+            : "Nenhum insight com impacto financeiro relevante agora."}
+          info={{ titulo: "Impacto dos insights", oQue: "O tamanho financeiro somado dos pontos que a IA levantou.", comoCalcula: "Soma o impacto estimado (em reais) de todos os insights priorizados pela IA executiva." }} />
+      );
+    },
+  },
+  /* ---- Inteligência (oportunidades do briefing · exec) ---- */
+  {
+    id: "oportunidades-briefing", label: "Oportunidades do dia", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const ops = c.exec.briefing.oportunidades;
+      return (
+        <MetricCard icon="sparkles" label="Oportunidades do dia"
+          tone={POS}
+          value={`${ops.length}`}
+          answer={ops.length ? ops[0] : "Nenhuma oportunidade destacada no briefing de hoje."}
+          info={{ titulo: "Oportunidades do dia", oQue: "As oportunidades que a IA destacou no briefing executivo de hoje.", comoCalcula: "Conta e mostra as oportunidades identificadas pelo briefing executivo a partir dos motores financeiros." }} />
+      );
+    },
+  },
+  /* ---- Inteligência (próximas ações do briefing · exec) ---- */
+  {
+    id: "acoes-briefing", label: "Ações recomendadas", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const acoes = c.exec.briefing.acoes;
+      const risco = c.exec.briefing.riscoRuptura;
+      return (
+        <MetricCard icon="activity" label="Ações recomendadas"
+          tone={risco === "elevado" ? NEG : risco === "moderado" ? WARN : POS}
+          value={`${acoes.length}`}
+          answer={acoes.length
+            ? `${acoes[0]} (risco de ruptura ${risco}).`
+            : `Nenhuma ação pendente hoje (risco de ruptura ${risco}).`}
+          info={{ titulo: "Ações recomendadas", oQue: "O que a IA sugere fazer hoje, no briefing executivo.", comoCalcula: "Lista as ações que o briefing executivo recomenda com base no risco de ruptura e nos alertas do dia." }} />
+      );
+    },
+  },
+  /* ---- Despesas (maior anomalia detectada · exec) ---- */
+  {
+    id: "maior-anomalia-exec", label: "Maior anomalia detectada", categoria: "Despesas",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const anomalias = c.exec.anomalias;
+      if (!anomalias.length) return (
+        <MetricCard icon="triangle-alert" label="Maior anomalia detectada" tone={POS} value="—"
+          answer="Nenhuma anomalia de despesa detectada."
+          info={{ titulo: "Maior anomalia detectada", oQue: "O lançamento mais fora do padrão identificado pela IA.", comoCalcula: "Compara cada despesa com o histórico da categoria e destaca o desvio de maior valor." }} />
+      );
+      const maior = anomalias.slice().sort((a, b) => b.valor - a.valor)[0];
+      return (
+        <MetricCard icon="triangle-alert" label="Maior anomalia detectada"
+          tone={/crit|alta/i.test(maior.severidade) ? NEG : WARN}
+          value={<BRL value={maior.valor} />}
+          answer={`${maior.titulo} — ${maior.descricao}`}
+          info={{ titulo: "Maior anomalia detectada", oQue: "O lançamento mais fora do padrão identificado pela IA.", comoCalcula: "Compara cada despesa com o histórico da categoria (z-score) e destaca a anomalia de maior valor." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (clientes de risco no contexto executivo · exec) ---- */
+  {
+    id: "clientes-risco-exec", label: "Clientes de risco (contexto)", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.exec) return <Loading />;
+      const cli = c.exec.context.clientesRisco;
+      const exposicao = cli.reduce((s, x) => s + x.exposicao, 0);
+      const top = cli.slice().sort((a, b) => b.score - a.score)[0];
+      return (
+        <MetricCard icon="target" label="Clientes de risco (contexto)"
+          tone={cli.length ? NEG : POS}
+          value={`${cli.length}`}
+          answer={cli.length
+            ? `${formatBRL(exposicao)} em exposição${top ? ` — ${top.nome} lidera o risco (score ${top.score}).` : "."}`
+            : "Nenhum cliente de risco no contexto executivo."}
+          info={{ titulo: "Clientes de risco (contexto)", oQue: "Os clientes de maior risco que a IA carrega no contexto de decisão.", comoCalcula: "Lista os clientes marcados como de risco pelo context builder da IA e soma a exposição em aberto deles." }} />
+      );
+    },
+  },
 ];
 
 export const CATALOG_BY_ID = new Map(COCKPIT_CATALOG.map((w) => [w.id, w]));
