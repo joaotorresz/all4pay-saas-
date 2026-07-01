@@ -326,6 +326,50 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R("Nenhuma categoria de despesa cresceu vs. o mês passado — seus gastos estão controlados. Veja as maiores despesas para priorizar cortes.", [], ["despesas por categoria (mês vs. mês)"]);
   }
 
+  // ——— MARGEM / lucratividade (resultado ÷ receita no período) ———
+  if (/margem|lucratividade|% de lucro|percentual de lucro|quanto sobra de cada|quanto (me )?sobra (de|por) (real|venda)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const res = ent - sai;
+    if (ent <= 0) return R(`Não houve receita paga ${w.label}, então não dá para calcular a margem do período.`, [], ["receita realizada"]);
+    const margem = Math.round((res / ent) * 100);
+    return R(
+      `Sua margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${res >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
+      [{ label: "Margem", valor: `${margem}%` }, { label: "Receita", valor: fmt(ent) }, { label: "Resultado", valor: fmt(res) }],
+      ["fluxo de caixa realizado"]);
+  }
+
+  // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
+  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|minha receita (t[áa]|est[áa]|vem) (subindo|crescendo|caindo|melhorando)|receita (subiu|caiu|cresceu)|estou (vendendo|faturando) (mais|menos)/.test(p)) {
+    const atual = janela("mês", hoje), ant = janela("mês passado", hoje);
+    const soma = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const a = soma(atual), b = soma(ant);
+    if (b <= 0) return R(`Ainda não há receita no mês anterior para comparar o crescimento. Este mês você recebeu ${fmt(a)}.`, [{ label: cap(atual.label), valor: fmt(a) }], ["receita realizada"]);
+    const pct = Math.round(((a - b) / b) * 100);
+    const dir = a > b ? "crescendo" : a < b ? "caindo" : "estável";
+    return R(
+      `Sua receita está ${dir}: ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Mantenha o ritmo de vendas." : "Vale investigar o que caiu."}`,
+      [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Crescimento", valor: `${pct >= 0 ? "+" : ""}${pct}%` }],
+      ["receita realizada (mês vs. mês)"]);
+  }
+
+  // ——— PONTO DE EQUILÍBRIO / break-even (quanto faturar para empatar) ———
+  if (/ponto de equil[íi]brio|break.?even|equil[íi]brio|quanto preciso (faturar|vender|receber) (para|pra) (empatar|pagar (as )?contas|n[ãa]o ter preju[íi]zo|me pagar|fechar no zero)|quanto (tenho|preciso) (que )?(faturar|vender) (para|pra)/.test(p)) {
+    const meses = new Map<string, number>();
+    for (const m of movs) { if (m.type !== "saida" || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + Math.abs(m.amount)); }
+    const ult = Array.from(meses.entries()).sort((x, y) => x[0].localeCompare(y[0])).slice(-6);
+    if (!ult.length) return R("Ainda não há despesas pagas suficientes para calcular seu ponto de equilíbrio.", [], ["despesas realizadas"]);
+    const breakeven = ult.reduce((s, [, v]) => s + v, 0) / ult.length;
+    const wMes = janela("mês", hoje);
+    const recMes = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), wMes)).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const falta = breakeven - recMes;
+    return R(
+      `Seu ponto de equilíbrio é ${fmt(breakeven)}/mês — é o quanto você precisa faturar para cobrir as despesas. Este mês já recebeu ${fmt(recMes)}, ${falta > 0 ? `faltam ${fmt(falta)} para empatar` : `${fmt(-falta)} acima do equilíbrio (no lucro)`}.`,
+      [{ label: "Ponto de equilíbrio", valor: fmt(breakeven) }, { label: "Recebido no mês", valor: fmt(recMes) }, { label: falta > 0 ? "Falta" : "Acima", valor: fmt(Math.abs(falta)) }],
+      ["despesa média mensal", "receita do mês"]);
+  }
+
   // ——— MÉDIA mensal (gasto/receita) ———
   if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
     const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";
