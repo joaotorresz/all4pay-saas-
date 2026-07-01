@@ -718,6 +718,208 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Novos widgets: quant (score/receita/benchmark) + inad (carteira) ============ */
+  /* ---- Resumo executivo (tendência do score · quant) ---- */
+  {
+    id: "tendencia-score", label: "Tendência da saúde", categoria: "Resumo executivo",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="trending-up" label="Tendência da saúde"
+        tone={c.quant.score.tendencia === "melhorando" ? POS : c.quant.score.tendencia === "piorando" ? NEG : WARN}
+        value={c.quant.score.tendencia === "melhorando" ? "Melhorando" : c.quant.score.tendencia === "piorando" ? "Piorando" : "Estável"}
+        answer={c.quant.score.tendencia === "melhorando"
+          ? "O score de saúde financeira vem subindo nos últimos meses."
+          : c.quant.score.tendencia === "piorando"
+            ? "O score de saúde financeira vem caindo — atenção."
+            : "O score de saúde financeira se mantém estável."}
+        info={{ titulo: "Tendência da saúde", oQue: "Para onde a saúde financeira está caminhando: melhorando, estável ou piorando.", comoCalcula: "Compara o score de saúde mês a mês e classifica a direção da evolução recente." }} />
+    ),
+  },
+  /* ---- Receita (receita mensal média · quant) ---- */
+  {
+    id: "receita-mensal-media", label: "Receita mensal média", categoria: "Receita",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="trending-up" label="Receita mensal média"
+        tone={c.quant.indicadores.receitaMensal > 0 ? POS : WARN}
+        value={<BRL value={c.quant.indicadores.receitaMensal} />}
+        answer="Receita média que a operação gera por mês no período analisado."
+        info={{ titulo: "Receita mensal média", oQue: "Quanto a empresa fatura, em média, a cada mês.", comoCalcula: "Média mensal das entradas de receita ao longo do período analisado." }} />
+    ),
+  },
+  /* ---- Despesas (despesa mensal média · quant) ---- */
+  {
+    id: "despesa-mensal-media", label: "Despesa mensal média", categoria: "Despesas",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="credit-card" label="Despesa mensal média"
+        tone={c.quant.indicadores.despesaMensal > c.quant.indicadores.receitaMensal ? NEG : POS}
+        value={<BRL value={c.quant.indicadores.despesaMensal} />}
+        answer={c.quant.indicadores.despesaMensal > c.quant.indicadores.receitaMensal
+          ? "As despesas médias superam a receita média — operação no vermelho."
+          : "Despesa média mensal dentro da receita gerada."}
+        info={{ titulo: "Despesa mensal média", oQue: "Quanto a empresa gasta, em média, a cada mês.", comoCalcula: "Média mensal das saídas ao longo do período analisado." }} />
+    ),
+  },
+  /* ---- Caixa (previsibilidade do fluxo · quant) ---- */
+  {
+    id: "previsibilidade-fluxo", label: "Previsibilidade do fluxo", categoria: "Caixa",
+    render: (c) => !c.quant ? <Loading /> : (
+      <MetricCard icon="activity" label="Previsibilidade do fluxo"
+        tone={c.quant.indicadores.volatilidadeNivel === "alta_previsibilidade" ? POS : c.quant.indicadores.volatilidadeNivel === "moderada" ? WARN : NEG}
+        value={c.quant.indicadores.volatilidadeNivel === "alta_previsibilidade" ? "Alta" : c.quant.indicadores.volatilidadeNivel === "moderada" ? "Moderada" : "Baixa"}
+        answer={c.quant.indicadores.volatilidadeNivel === "alta_previsibilidade"
+          ? "Fluxo de caixa estável — fácil de planejar."
+          : c.quant.indicadores.volatilidadeNivel === "moderada"
+            ? "Fluxo de caixa com oscilação moderada."
+            : "Fluxo de caixa muito volátil — difícil de prever."}
+        info={{ titulo: "Previsibilidade do fluxo", oQue: "O quanto o fluxo de caixa é previsível para planejar o mês.", comoCalcula: "Classifica a volatilidade do fluxo mensal (coeficiente de variação) em alta, moderada ou baixa previsibilidade." }} />
+    ),
+  },
+  /* ---- Radares (benchmark de margem vs setor · quant) ---- */
+  {
+    id: "benchmark-margem", label: "Margem vs setor", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const linha = c.quant.benchmark.find((b) => b.metrica === "Margem operacional");
+      if (!linha) return (
+        <MetricCard icon="gauge" label="Margem vs setor" value="—"
+          answer="Sem referência setorial de margem no momento."
+          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem operacional se compara à mediana do setor.", comoCalcula: "Compara a margem operacional da empresa com a mediana de referência do setor." }} />
+      );
+      return (
+        <MetricCard icon="gauge" label="Margem vs setor"
+          tone={linha.acima ? POS : NEG}
+          value={`${linha.empresa >= 0 ? "+" : ""}${pctTxt(linha.empresa)}`}
+          answer={`Sua margem ${linha.acima ? "supera" : "está abaixo"} da mediana do setor (${pctTxt(linha.setor)}).`}
+          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem operacional se compara à mediana do setor.", comoCalcula: "Compara a margem operacional da empresa com a mediana de referência do setor e indica se está acima." }} />
+      );
+    },
+  },
+  /* ---- Radares (benchmark de crescimento vs setor · quant) ---- */
+  {
+    id: "benchmark-crescimento", label: "Crescimento vs setor", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const linha = c.quant.benchmark.find((b) => b.metrica === "Crescimento mensal");
+      if (!linha) return (
+        <MetricCard icon="trending-up" label="Crescimento vs setor" value="—"
+          answer="Sem referência setorial de crescimento no momento."
+          info={{ titulo: "Crescimento vs setor", oQue: "Como o seu crescimento mensal se compara à mediana do setor.", comoCalcula: "Compara o crescimento mensal da receita com a mediana de referência do setor." }} />
+      );
+      return (
+        <MetricCard icon="trending-up" label="Crescimento vs setor"
+          tone={linha.acima ? POS : NEG}
+          value={`${linha.empresa >= 0 ? "+" : ""}${pctTxt(linha.empresa)}`}
+          answer={`Seu crescimento ${linha.acima ? "supera" : "está abaixo"} da mediana do setor (${pctTxt(linha.setor)}).`}
+          info={{ titulo: "Crescimento vs setor", oQue: "Como o seu crescimento mensal se compara à mediana do setor.", comoCalcula: "Compara o crescimento mensal da receita com a mediana de referência do setor e indica se está acima." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (perda esperada · inad) ---- */
+  {
+    id: "perda-esperada-inad", label: "Perda esperada por inadimplência", categoria: "Cobrança",
+    render: (c) => !c.inad ? <Loading /> : (
+      <MetricCard icon="triangle-alert" label="Perda esperada por inadimplência"
+        tone={c.inad.resumo.inadimplenciaEsperada > 0 ? WARN : POS}
+        value={<BRL value={c.inad.resumo.inadimplenciaEsperada} />}
+        answer={c.inad.resumo.exposicaoTotal > 0
+          ? `Perda projetada da carteira — ${pctTxt(c.inad.resumo.inadimplenciaEsperada / c.inad.resumo.exposicaoTotal)} do total em aberto.`
+          : "Sem exposição em aberto para projetar perda."}
+        info={{ titulo: "Perda esperada por inadimplência", oQue: "Quanto da carteira deve virar perda por inadimplência.", comoCalcula: "Soma, para cada cliente, o valor em aberto multiplicado pela sua probabilidade de inadimplência." }} />
+    ),
+  },
+  /* ---- Cobrança (clientes de alto risco · inad) ---- */
+  {
+    id: "clientes-alto-risco", label: "Clientes de alto risco", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.inad) return <Loading />;
+      const n = c.inad.resumo.clientesCriticos + c.inad.resumo.clientesAlto;
+      return (
+        <MetricCard icon="target" label="Clientes de alto risco"
+          tone={n > 0 ? NEG : POS}
+          value={`${n}`}
+          answer={n > 0
+            ? `${c.inad.resumo.clientesCriticos} crítico(s) e ${c.inad.resumo.clientesAlto} de risco alto na carteira.`
+            : "Nenhum cliente classificado como risco alto ou crítico."}
+          info={{ titulo: "Clientes de alto risco", oQue: "Quantos clientes estão classificados como risco alto ou crítico de crédito.", comoCalcula: "Soma os clientes das classificações alto e crítico do motor de inadimplência." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (bons pagadores · inad segmentos) ---- */
+  {
+    id: "bons-pagadores", label: "Bons pagadores", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.inad) return <Loading />;
+      const seg = c.inad.segmentos.find((s) => s.segmento === "bom_pagador");
+      const n = seg?.clientes ?? 0;
+      const total = c.inad.resumo.totalClientes;
+      return (
+        <MetricCard icon="users" label="Bons pagadores"
+          tone={POS}
+          value={`${n}`}
+          answer={total > 0
+            ? `${pctTxt(total ? n / total : 0)} da carteira são bons pagadores${seg ? ` (${formatBRL(seg.exposicao)} em aberto)` : ""}.`
+            : "Nenhum cliente na carteira ainda."}
+          info={{ titulo: "Bons pagadores", oQue: "Quantos clientes têm bom histórico de pagamento.", comoCalcula: "Segmenta a carteira pelo comportamento e conta os clientes classificados como bons pagadores." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (cliente de maior risco · inad clientes) ---- */
+  {
+    id: "cliente-maior-risco", label: "Cliente de maior risco", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.inad) return <Loading />;
+      const top = c.inad.clientes[0];
+      if (!top) return (
+        <MetricCard icon="triangle-alert" label="Cliente de maior risco" value="—"
+          answer="Nenhum cliente com recebível em aberto na carteira."
+          info={{ titulo: "Cliente de maior risco", oQue: "O cliente com o maior score de risco de crédito na carteira.", comoCalcula: "Ordena os clientes pelo score de risco e destaca o de maior risco." }} />
+      );
+      return (
+        <MetricCard icon="triangle-alert" label="Cliente de maior risco"
+          tone={top.score >= 70 ? NEG : top.score >= 45 ? WARN : POS}
+          value={top.nome}
+          answer={`Score de risco ${top.score}/100 · ${pctTxt(top.probabilidadeInadimplencia)} de prob. de inadimplência · ${formatBRL(top.features.volumeAberto)} em aberto.`}
+          info={{ titulo: "Cliente de maior risco", oQue: "O cliente com o maior score de risco de crédito na carteira.", comoCalcula: "Ordena os clientes pelo score de risco (comportamento de pagamento) e destaca o de maior risco." }} />
+      );
+    },
+  },
+  /* ---- Radares (early warnings da carteira · inad clientes) ---- */
+  {
+    id: "early-warnings-carteira", label: "Alertas antecipados", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.inad) return <Loading />;
+      const n = c.inad.clientes.filter((cl) => cl.earlyWarning.ativo).length;
+      return (
+        <MetricCard icon="triangle-alert" label="Alertas antecipados"
+          tone={n > 0 ? WARN : POS}
+          value={`${n}`}
+          answer={n > 0
+            ? `${n} cliente(s) mostram sinais de stress antes do vencimento — aja cedo.`
+            : "Nenhum cliente com sinal de deterioração antecipada."}
+          info={{ titulo: "Alertas antecipados", oQue: "Quantos clientes mostram sinais de stress antes de deixar de pagar.", comoCalcula: "Conta os clientes cujo motor de early-warning detectou deterioração de comportamento (atraso subindo, queda de ticket)." }} />
+      );
+    },
+  },
+  /* ---- Cobrança (chance de recuperação dos vencidos · inad clientes) ---- */
+  {
+    id: "recuperacao-vencidos", label: "Chance de recuperação", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.inad) return <Loading />;
+      const vencidos = c.inad.clientes.filter((cl) => cl.features.volumeVencido > 0);
+      if (!vencidos.length) return (
+        <MetricCard icon="repeat" label="Chance de recuperação" tone={POS} value="—"
+          answer="Sem valores vencidos para recuperar."
+          info={{ titulo: "Chance de recuperação", oQue: "A probabilidade média de recuperar os valores já vencidos.", comoCalcula: "Média da chance de recuperação estimada para os clientes com valores vencidos, ponderada pelo motor de recovery." }} />
+      );
+      const media = vencidos.reduce((s, cl) => s + cl.recovery.chanceRecuperacao, 0) / vencidos.length;
+      return (
+        <MetricCard icon="repeat" label="Chance de recuperação"
+          tone={media >= 0.6 ? POS : media >= 0.3 ? WARN : NEG}
+          value={pctTxt(media)}
+          answer={`Probabilidade média de recuperar o vencido em ${vencidos.length} cliente(s).`}
+          info={{ titulo: "Chance de recuperação", oQue: "A probabilidade média de recuperar os valores já vencidos.", comoCalcula: "Média da chance de recuperação estimada pelo motor de recovery para os clientes com valores vencidos." }} />
+      );
+    },
+  },
 ];
 
 export const CATALOG_BY_ID = new Map(COCKPIT_CATALOG.map((w) => [w.id, w]));
