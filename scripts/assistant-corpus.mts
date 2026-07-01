@@ -189,6 +189,10 @@ const CORPUS: [string, RegExp][] = [
   ["como foi meu semestre?", /no semestre entraram/i],
   ["quanto entrou no trimestre?", /no trimestre/i],
   ["quanto vou gastar mês que vem?", /mês que vem você tem .* a pagar|previsto|Nada previsto/i],
+  // 17ª rodada (cont.): comparação de CUSTOS (não só gasto/receita); "quem compra
+  // mais comigo" (ordem do verbo) → maior cliente.
+  ["meus custos subiram?", /vs\.|queda|aument|gastou/i],
+  ["quem compra mais comigo?", /maior cliente|cliente/i],
 ];
 
 let pass = 0;
