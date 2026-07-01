@@ -1299,6 +1299,45 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Benchmark setorial (linhas restantes) ============ */
+  {
+    id: "benchmark-eficiencia", label: "Eficiência vs setor", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const linha = c.quant.benchmark.find((b) => b.metrica === "Eficiência operacional");
+      if (!linha) return (
+        <MetricCard icon="activity" label="Eficiência vs setor" value="—"
+          answer="Sem referência setorial de eficiência no momento."
+          info={{ titulo: "Eficiência vs setor", oQue: "Como sua eficiência operacional se compara à mediana do setor.", comoCalcula: "Compara o índice de eficiência operacional (0–10) da empresa com a mediana do setor." }} />
+      );
+      return (
+        <MetricCard icon="activity" label="Eficiência vs setor"
+          tone={linha.acima ? POS : WARN}
+          value={linha.empresa.toFixed(1)}
+          answer={`Sua eficiência (${linha.empresa.toFixed(1)}/10) ${linha.acima ? "supera" : "está abaixo d"}a mediana do setor (${linha.setor.toFixed(1)}).`}
+          info={{ titulo: "Eficiência vs setor", oQue: "Como sua eficiência operacional se compara à mediana do setor.", comoCalcula: "Compara o índice de eficiência operacional (0–10, resultado por real gasto) com a mediana de referência do setor." }} />
+      );
+    },
+  },
+  {
+    id: "benchmark-inadimplencia", label: "Inadimplência vs setor", categoria: "Cobrança",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const linha = c.quant.benchmark.find((b) => b.metrica === "Inadimplência");
+      if (!linha) return (
+        <MetricCard icon="triangle-alert" label="Inadimplência vs setor" value="—"
+          answer="Sem referência setorial de inadimplência no momento."
+          info={{ titulo: "Inadimplência vs setor", oQue: "Como sua inadimplência se compara à mediana do setor.", comoCalcula: "Compara a taxa de inadimplência da empresa com a mediana do setor (aqui, menor é melhor)." }} />
+      );
+      return (
+        <MetricCard icon="triangle-alert" label="Inadimplência vs setor"
+          tone={linha.acima ? POS : NEG}
+          value={pctTxt(linha.empresa)}
+          answer={`Sua inadimplência (${pctTxt(linha.empresa)}) está ${linha.acima ? "abaixo" : "acima"} da mediana do setor (${pctTxt(linha.setor)}) — ${linha.acima ? "carteira mais saudável" : "atenção à cobrança"}.`}
+          info={{ titulo: "Inadimplência vs setor", oQue: "Como sua taxa de inadimplência se compara à mediana do setor.", comoCalcula: "Compara a inadimplência da empresa com a mediana de referência do setor; ficar ABAIXO da mediana é o bom resultado." }} />
+      );
+    },
+  },
 ];
 
 export const CATALOG_BY_ID = new Map(COCKPIT_CATALOG.map((w) => [w.id, w]));
