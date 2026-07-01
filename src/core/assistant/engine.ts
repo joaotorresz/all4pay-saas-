@@ -145,7 +145,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A PAGAR ———
-  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida/.test(p)) {
+  if (/a pagar|contas? a pagar|pag[áa]veis|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b/.test(p)) {
     const ab = movs.filter((m) => m.type === "saida" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
@@ -367,7 +367,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIORES GASTOS / por categoria ———
-  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|despesa (que )?(mais )?(pesa|pega|custa)|custos? fix|qual (o )?(meu )?(maior )?custo/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
+  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|despesa (que )?(mais )?(pesa|pega|custa)|(custos?|gastos?) fix|qual (o )?(meu )?(maior )?custo/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(sai, 5);
@@ -644,7 +644,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
-  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do/.test(p)) {
+  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
     const w = janela(p, hoje);
     const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);

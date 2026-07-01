@@ -107,6 +107,9 @@ const CORPUS: [string, RegExp][] = [
   ["e aí, como tão as finanças?", /saldo|sa[úu]de|score|resultado/i], ["quanto ainda vou receber?", /a receber/i],
   ["qual cliente compra mais?", /maior cliente|quem mais/i], ["to perdendo dinheiro?", /sobrou|resultado|vermelho|preju|margem|perdendo/i],
   ["to conseguindo pagar as contas?", /previs|proje|conseguir|sobrar|a pagar/i],
+  // 8ª rodada: imperativos / gastos fixos / vou ter que pagar / fluxo / to devendo
+  ["quais meus gastos fixos?", /gast|despes|Folha|Fornecedor/i], ["quanto vou ter que pagar?", /a pagar/i],
+  ["mostra o fluxo de caixa", /entr|sa[íi]|resultado|m[êe]s/i], ["quanto to devendo?", /a pagar|d[íi]vida/i],
 ];
 
 let pass = 0;
