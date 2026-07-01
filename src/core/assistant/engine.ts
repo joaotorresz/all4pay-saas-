@@ -321,7 +321,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— SIMPLES NACIONAL: alíquota efetiva + DAS ———
-  if (/simples nacional|(guia|valor|pag\w*|calcul\w*|meu|o|do)\s+(do |de )?das\b|\bdas\s+(do simples|nacional|mensal|do m[êe]s)|al[íi]quota efetiv|quanto (pago|pagaria|paga|é|fica|de imposto) (no|do|pelo|de) simples|imposto (no|do|pelo) simples|anexo (i{1,3}\b|v\b|um\b|dois\b|tr[êe]s\b|cinco\b)/.test(p)) {
+  // "das" é a contração de+as (das contas, das minhas…) — NÃO o imposto. Só trata
+  // como DAS-tributo quando seguido de qualificador fiscal ou fim de frase.
+  if (/simples nacional|al[íi]quota efetiv|\bdas\b(?=\s*(?:do simples|nacional|mensal|do m[êe]s|deste m[êe]s|[?.!,]|$))|quanto (pago|pagaria|paga|é|fica|de imposto) (no|do|pelo|de) simples|imposto (no|do|pelo) simples|anexo (i{1,3}\b|v\b|um\b|dois\b|tr[êe]s\b|cinco\b)/.test(p)) {
       const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
       // Anexo: número romano/por extenso, ou pela atividade.
       let anexo: AnexoSimples = "III";

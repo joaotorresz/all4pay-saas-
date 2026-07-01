@@ -56,6 +56,8 @@ const CURADAS = [
   "Quando vou ficar sem dinheiro?",
   "Qual foi meu melhor mês?",
   "O que é margem de contribuição?",
+  "Quanto pago de Simples faturando 500 mil por ano?",
+  "Quanto cobrar de um boleto de 1.000 vencido há 30 dias?",
 ];
 
 interface Turno {

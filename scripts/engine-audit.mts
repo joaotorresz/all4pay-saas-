@@ -376,6 +376,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+  // Calculadora com número + termo forte (boleto/provisão): a KB NÃO pode
+  // sombrear o cálculo do motor. "quanto cobrar de um boleto de 1000 vencido..."
+  // tem "boleto" (termo forte) mas é MORA — só "o que é boleto?" vira conceito.
+  const calcQ = ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", "quanto provisionar de 13º de uma folha de 12 mil?"];
+  ok("chain: calculadora com número + termo forte não é sombreada pela KB", calcQ.every((q) => buscarKB(q) === null), calcQ.map((q) => buscarKB(q)?.id).join(","));
+  ok("chain: 'o que é boleto?' (conceitual) segue na KB", buscarKB("o que é boleto?") !== null);
 }
 
 // ── core/investment: valor futuro (juros compostos) + payback ───────────────

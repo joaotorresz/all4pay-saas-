@@ -133,6 +133,11 @@ const CONCEITUAL = /\b(o que|oque|que [ée]|qual [ée]|como (calcul\w*|funciona|
 export function buscarKB(q: string): KBEntry | null {
   const s = q.toLowerCase();
   const conceitual = CONCEITUAL.test(s);
+  // Query com número (e não-conceitual) é CÁLCULO, não conceito — não deixa o
+  // atalho de termo forte sombrear a calculadora do motor. Ex.: "quanto cobrar de
+  // um boleto de 1000 vencido há 30 dias?" tem "boleto" (termo forte) mas é mora,
+  // não o verbete "boleto"; "o que é boleto?" (conceitual) segue vindo à KB.
+  const temNumero = /\d/.test(s);
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual.
@@ -140,7 +145,7 @@ export function buscarKB(q: string): KBEntry | null {
       // concentração, ponto de equilíbrio, EBITDA, runway, burn, score, receita
       // líquida, carga tributária. Para esses, "qual meu X?" cai no motor (número);
       // só respondem como CONCEITO quando a pergunta é explicitamente conceitual.
-      if (conceitual || /ltv|cac|mrr|dre|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
+      if (conceitual || (!temNumero && /ltv|cac|mrr|dre|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s))) return e;
     }
   }
   return null;

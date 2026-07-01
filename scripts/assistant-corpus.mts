@@ -278,6 +278,9 @@ const CORPUS: [string, RegExp][] = [
   ["qual minha alíquota efetiva do simples faturando 600 mil por ano no comércio?", /EFETIVA|Anexo I|Simples/i],
   ["quanto de imposto no simples nacional com receita de 5 milhões por ano?", /ESTOURA o teto|Simples|efetiva/i],
   ["quanto pago de simples nacional?", /faturamento dos últimos 12 meses|RBT12|anexo/i],
+  // regressão: a contração "das" (de+as) NÃO pode cair no cálculo do DAS/Simples
+  ["qual o valor das minhas contas a pagar?", /a pagar/i],
+  ["qual o vencimento das minhas contas?", /vence|vencimento|nada vence/i],
   // juros de mora + multa (título vencido)
   ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", /multa|juros de mora|corrigid/i],
   ["juros de mora de 5000 atrasado 2 meses", /multa|mora|corrigid/i],
