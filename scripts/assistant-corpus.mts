@@ -137,6 +137,11 @@ const CORPUS: [string, RegExp][] = [
   ["quanto entra de Vendas?", /receb\w* .*de Vendas|receita/i],
   ["quanto recebo de vendas?", /receb\w* .*de Vendas|receita/i],
   ["quanto gastei com marketing?", /gastou .*Marketing/i],
+  // 14ª rodada (cont.): "maiores FORNECEDORES" não pode virar "maior cliente";
+  // "qual fornecedor custa mais" tinha caído no fallback.
+  ["quem são meus maiores fornecedores?", /fornecedor/i],
+  ["qual fornecedor custa mais?", /fornecedor/i],
+  ["quem me paga mais?", /maior cliente|cliente/i],
 ];
 
 let pass = 0;

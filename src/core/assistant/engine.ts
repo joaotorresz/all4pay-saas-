@@ -195,7 +195,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // Defere frases de concentração/dependência ("quanto representa meu maior
   // cliente") para o intent de CONCENTRAÇÃO abaixo — senão "maior cliente" as
   // rouba por substring.
-  if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compra|paga|fatura)|cliente que (mais )?(compra|paga)|top clientes?|melhores clientes/.test(p) && !/representa|depend|concentra/.test(p)) {
+  if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compra|paga|fatura)|cliente que (mais )?(compra|paga)|top clientes?|melhores clientes/.test(p) && !/representa|depend|concentra|forneced/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
@@ -385,7 +385,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— TOP FORNECEDORES ———
-  if (/(maior(es)?|principa|top|para quem|pra quem).*(fornecedor|fornec)|quem mais (recebo de mim|me cobra|eu pago)|p(a|ra) quem (eu )?(mais )?pago|quem eu mais pago/.test(p)) {
+  if (/(maior(es)?|principa|top|para quem|pra quem).*(fornecedor|fornec)|(fornecedor|fornec)\w*.*(cust|cobra|mais car|sai\w* mais|mais caro|gasto)|quem mais (recebo de mim|me cobra|eu pago)|p(a|ra) quem (eu )?(mais )?pago|quem eu mais pago/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
