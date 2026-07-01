@@ -44,6 +44,8 @@ const ROUTES: RouteItem[] = [
   { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks", kw: "reconciliacao matching conciliar ingestao" },
   { label: "Automações", href: "/automacoes", icon: "workflow", kw: "regras alertas notificacoes" },
   { label: "Vendas", href: "/vendas", icon: "arrow-left-right", kw: "pedidos orcamentos compras" },
+  { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
+  { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
   { label: "Produtos", href: "/produtos", icon: "credit-card", kw: "estoque sku" },
   { label: "Serviços", href: "/servicos", icon: "repeat", kw: "servico" },
   { label: "Contatos", href: "/contatos", icon: "file-text", kw: "clientes fornecedores telefone" },

@@ -45,6 +45,7 @@ const SECTIONS: Section[] = [
       { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
       { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
       { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
+      { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
     ],
   },
   {
@@ -77,6 +78,7 @@ const SECTIONS: Section[] = [
       { label: "Impostos", href: "/impostos", icon: "receipt" },
       { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Boletos", href: "/boletos", icon: "file-text" },
+      { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
     ],
   },
   {
