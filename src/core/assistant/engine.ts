@@ -102,7 +102,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———
   // ANTES de A RECEBER: "para receber" contém a substring "a receber".
-  if (/quanto tempo (demoro|levo|leva|demora)( para| pra)? receber|prazo m[ée]dio de recebiment|atraso m[ée]dio (dos |de )?clientes?|(meus )?clientes? (pagam?|est[ãa]o pagando|andam pagando)( em dia| no prazo| atrasad| com atraso| adiantad)|clientes? pagam em dia|recebo (em dia|no prazo|com atraso)/.test(p)) {
+  if (/quanto tempo (demoro|levo|leva|demora)( para| pra)? receber|prazo m[ée]dio de recebiment|atraso m[ée]dio (dos |de )?clientes?|(meus )?clientes? (pagam?|est[ãa]o pagando|andam pagando)( em dia| no prazo| atrasad| com atraso| adiantad)|clientes? pagam em dia|recebo (em dia|no prazo|com atraso)|clientes? (atrasam|est[ãa]o atrasad|demoram)|(meus )?clientes? (s[ãa]o|est[ãa]o) pontuai?s|pontualidade (dos |de )?(clientes|recebiment)/.test(p)) {
     const pagos = movs.filter((m) => m.type === "entrada" && m.status === "pago" && m.paid_date && m.due_date);
     if (!pagos.length) return R("Ainda não há recebimentos liquidados para medir a pontualidade dos clientes.", [], ["recebimentos liquidados"]);
     const atrasos = pagos.map((m) => diasEntre(m.due_date, m.paid_date as string));
@@ -367,7 +367,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIORES GASTOS / por categoria ———
-  if (/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) {
+  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(sai, 5);
@@ -466,7 +466,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— RECEITA MÉDIA POR CLIENTE (LTV proxy) — antes de MÉDIA mensal ———
   // "receita média por cliente" tem "média"+"receita" e cairia na média mensal.
-  if (/quanto cada cliente (me )?(rende|vale|gera|paga em m[ée]dia)|receita m[ée]dia por cliente|valor m[ée]dio por cliente|quanto (vale|rende) (cada|um) cliente|receita por cliente m[ée]dia/.test(p)) {
+  if (/quanto cada cliente (me )?(rende|vale|gera|paga em m[ée]dia)|receita m[ée]dia por cliente|valor m[ée]dio por cliente|quanto (vale|rende) (cada|um) cliente|receita por cliente m[ée]dia|m[ée]dia por cliente|(recebo|ganho) (em m[ée]dia )?por cliente|por cliente em m[ée]dia/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w) && m.party_id);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -686,11 +686,22 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RUNWAY ———
-  if (ctx && /runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa/.test(p)) {
-    return R(
-      `Seu runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
-      [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
-      ["motor quantitativo"]);
+  if (/runway|f[oô]lego|quanto.*(dura|aguenta).*caixa|at[ée] quando.*caixa/.test(p)) {
+    if (ctx) {
+      return R(
+        `Seu runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
+        [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
+        ["motor quantitativo"]);
+    }
+    // fallback sem ctx: queima líquida média dos últimos 3 meses
+    const mm = new Map<string, number>();
+    for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; mm.set(k, (mm.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
+    const nets = Array.from(mm.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
+    const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
+    if (netMedio >= 0) return R(`Seu caixa não está sendo consumido — nos últimos meses ele cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o runway é praticamente ilimitado.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.82);
+    const burn = -netMedio;
+    const mesesR = input.saldoAtual / burn;
+    return R(`Seu runway é de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`, [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
   }
 
   // ——— BURN ———
