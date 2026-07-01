@@ -54,7 +54,7 @@ function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefin
 }
 const R = (resposta: string, numeros: { label: string; valor: string }[], fontes: string[], confianca = 0.9): RespostaCopiloto => ({ resposta, numeros, fontes, confianca });
 
-export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaCopiloto | null {
+export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): (RespostaCopiloto & { contatoId?: string }) | null {
   const p = pergunta.toLowerCase();
   const hoje = input.hoje;
   const movs = ativos(input.movements);
@@ -139,10 +139,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       if (recebido > 0) partes.push(`recebeu ${fmt(recebido)}`);
       if (pago > 0) partes.push(`pagou ${fmt(pago)}`);
       const abertoTxt = Math.abs(aberto) > 0.5 ? ` Em aberto: ${fmt(Math.abs(aberto))} ${aberto > 0 ? "a receber" : "a pagar"}.` : "";
-      return R(
-        `Com ${nome} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
-        [...(recebido > 0 ? [{ label: "Recebido", valor: fmt(recebido) }] : []), ...(pago > 0 ? [{ label: "Pago", valor: fmt(pago) }] : [])],
-        ["histórico por contraparte"]);
+      return {
+        ...R(
+          `Com ${nome} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
+          [...(recebido > 0 ? [{ label: "Recebido", valor: fmt(recebido) }] : []), ...(pago > 0 ? [{ label: "Pago", valor: fmt(pago) }] : [])],
+          ["histórico por contraparte"]),
+        contatoId: id,
+      };
     }
   }
 

@@ -63,6 +63,7 @@ interface Turno {
   feedback?: "up" | "down";
   rota?: string;
   rotaLabel?: string;
+  contatoId?: string;
 }
 
 export function AssistantWidget() {
@@ -138,7 +139,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
     // 2) Sobre os NÚMEROS → motor NATIVO (resposta factual, instantânea, offline)
     const local = responderLocal(q, input, ctx);
     if (local) {
-      setTurnos((t) => [...t, { id, q, resposta: local.resposta, numeros: local.numeros, fontes: local.fontes, fonte: "motor" }]);
+      setTurnos((t) => [...t, { id, q, resposta: local.resposta, numeros: local.numeros, fontes: local.fontes, fonte: "motor", contatoId: local.contatoId }]);
       void logAcaoIA({ kind: "chat", titulo: q, detalhe: local.resposta, status: "lida" });
       force();
       return;
@@ -239,6 +240,13 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
                       Abrir {t.rotaLabel || "no sistema"}
                       <Icon name="arrow-up-right" size={13} color="currentColor" />
                     </Link>
+                  )}
+                  {t.contatoId && (
+                    <button onClick={() => { window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: t.contatoId } })); onClose(); }}
+                      className="inline-flex items-center gap-1 self-start text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 rounded-pill px-3 py-[6px] transition-colors">
+                      Abrir ficha do contato
+                      <Icon name="arrow-up-right" size={13} color="currentColor" />
+                    </button>
                   )}
                   {(t.fontes?.length || t.fonte !== "carregando") && (
                     <div className="flex items-center gap-2 text-[11px] text-faint">
