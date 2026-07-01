@@ -36,6 +36,8 @@ function janela(p: string, hojeISO: string): Janela {
   if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
   if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
   if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
+  if (/trimestre|[úu]ltimos?\s+3\s+meses|\b3 meses\b/.test(p)) { const q0 = Math.floor(m / 3) * 3; return { label: "no trimestre", from: iso(new Date(y, q0, 1)), to: iso(new Date(y, q0 + 3, 0)) }; }
+  if (/semestre|[úu]ltimos?\s+6\s+meses|\b6 meses\b/.test(p)) { const s0 = m < 6 ? 0 : 6; return { label: "no semestre", from: iso(new Date(y, s0, 1)), to: iso(new Date(y, s0 + 6, 0)) }; }
   // mês NOMEADO ("em março", "de janeiro") — limite de palavra p/ maio≠maior.
   if (!/m[êe]s passad|m[êe]s anterior/.test(p)) {
     const mi = MES.findIndex((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
