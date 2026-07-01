@@ -91,6 +91,9 @@ const CORPUS: [string, RegExp][] = [
   ["o que preciso pagar essa semana?", /vencem|pagar|vence|nada/i], ["qual conta vence primeiro?", /pr[óo]xim|vence|vencem/i],
   // como foi mês nomeado
   ["como foi junho?", /junho/i], ["como foi o dia?", /Hoje|resumo/i],
+  // status pago / plural / lucrei / previsão coloquial
+  ["tá tudo pago?", /a pagar|em dia|nada/i], ["quem são meus melhores clientes?", /maior cliente|clientes/i],
+  ["quanto lucrei esse mês?", /sobrou|lucro|resultado|margem/i], ["vou fechar o mês no positivo?", /previs|sobrar|proje|fim do m[êe]s/i],
 ];
 
 let pass = 0;
