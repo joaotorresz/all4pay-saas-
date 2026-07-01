@@ -24,6 +24,8 @@ import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
+import { dailyCashflow } from "@/lib/aggregations";
+import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -368,6 +370,21 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+}
+
+// ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────
+{
+  let s = 0;
+  const dm = (o: Partial<Movement>): Movement =>
+    ({ id: `dc${s++}`, account_id: "a", type: "entrada", status: "pago", amount: 1000, due_date: "2026-07-15", paid_date: "2026-07-15", reconciled: false, category: "Vendas", ...o }) as Movement;
+  const pts = dailyCashflow([
+    dm({ type: "entrada", amount: 500, paid_date: "2026-07-13" }),
+    dm({ type: "saida", amount: 200, paid_date: "2026-07-14" }),
+    dm({ type: "entrada", amount: 300, paid_date: "2026-07-15" }),
+    dm({ type: "saida", amount: 100, paid_date: "2026-07-15" }),
+    dm({ type: "entrada", amount: 9999, status: "pendente", paid_date: null, due_date: "2026-07-14" }), // não conta
+  ], 3, new Date("2026-07-15T12:00:00"));
+  ok("dailyCashflow: saldo acumula 500 → 300 → 500 (pendente fora)", pts.length === 3 && pts[0].balance === 500 && pts[1].balance === 300 && pts[2].balance === 500, pts.map((p) => p.balance).join(","));
 }
 
 // ── lib/validators: CPF/CNPJ (mod-11) contra vetores conhecidos ─────────────
