@@ -47,10 +47,13 @@ export const KB: KBEntry[] = [
   { id: "partidas", termos: /partidas? (dobrada|dupla)|dupla partida|d[ée]bito e cr[ée]dito|raz[ãa]o|ledger/, titulo: "Partidas dobradas (razão)", texto: "Todo lançamento afeta duas contas: um débito e um crédito de igual valor. Garante que o balanço sempre fecha (débitos = créditos).", rota: "/razao" },
   { id: "provisao", termos: /provis[ãa]o|accrual|compet[êe]ncia futura|despesa (a )?apropriar/, titulo: "Provisão / Accrual", texto: "Reconhece uma despesa/receita no período em que ela ocorre (competência), mesmo antes de o dinheiro entrar/sair. Ex.: 13º provisionado mês a mês.", rota: "/fechamento" },
   { id: "concil-auto", termos: /concilia[çc][ãa]o autom[áa]tica|matching autom|bate autom/, titulo: "Conciliação automática", texto: "O sistema casa cada linha do extrato com o título correspondente por valor+data+documento (matching probabilístico); só o que fica em dúvida vai para revisão manual.", rota: "/conciliacao-bancaria" },
+  { id: "dso", termos: /\bdso\b|prazo m[ée]dio de recebiment|days sales outstanding|dias (para|pra) receber/, titulo: "Prazo médio de recebimento (DSO)", texto: "Quantos dias, em média, seus clientes levam para pagar em relação ao vencimento. Quanto menor, mais rápido o dinheiro entra no caixa. O all4pay mede pelo atraso médio dos títulos já liquidados e pelo % pago no prazo.", rota: "/inadimplencia" },
+  { id: "dpo", termos: /\bdpo\b|prazo m[ée]dio de pagament|days payable outstanding/, titulo: "Prazo médio de pagamento (DPO)", texto: "Quantos dias, em média, você leva para pagar seus fornecedores em relação ao vencimento. Alongar sem gerar multa/juros preserva capital de giro; atrasar demais arranha o relacionamento.", rota: "/pagamentos" },
+  { id: "ciclo-caixa", termos: /ciclo (de caixa|financeiro|operacional)|cash conversion|convers[ãa]o de caixa/, titulo: "Ciclo de caixa", texto: "O tempo entre pagar fornecedores e receber dos clientes (aprox. DSO + prazo de estoque − DPO). Quanto maior o ciclo, mais capital de giro a operação exige para não faltar caixa no meio do caminho.", rota: "/fluxo-caixa" },
 ];
 
 /** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
-const CONCEITUAL = /\b(o que|oque|que [ée]|qual [ée]|como (calcul|funciona|fazer)|para que serve|explic|defin|signific|entender)\b/i;
+const CONCEITUAL = /\b(o que|oque|que [ée]|qual [ée]|como (calcul\w*|funciona|fazer)|para que serve|explic\w*|defin\w*|signific\w*|entender)\b/i;
 
 /** Tenta responder pela base de conhecimento. Retorna a entrada ou null. */
 export function buscarKB(q: string): KBEntry | null {
@@ -63,7 +66,7 @@ export function buscarKB(q: string): KBEntry | null {
       // intent COMPUTADO no motor (número real). Só respondem como CONCEITO
       // quando a pergunta é explicitamente conceitual ("o que é…"); "qual meu
       // ponto de equilíbrio?" / "risco de concentração?" caem no motor.
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
     }
   }
   return null;
