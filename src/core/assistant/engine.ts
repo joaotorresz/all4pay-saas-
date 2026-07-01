@@ -630,7 +630,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— GASTO total no período ———
-  if ((/(quanto).*(gast|gastei|sa[íi]|paguei|despes|torr|queim)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
+  if ((/(quanto).*(gast|gastei|sa[íi]|paguei|despes|torr|queim)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) && !/entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -710,7 +710,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RECEITA / RECEBI no período ———
-  if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
+  if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|esse|no)\s*m[êe]s|qual (a |o )?(minha |meu )?(receita|faturament)\b|\bminha receita\b|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/l[íi]quida|entra e sai|entradas? e sa|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -792,7 +792,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
-  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
+  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)|n[úu]meros (do|de|deste|desse) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|me d[áa] os n[úu]meros|os n[úu]meros do|resumo (financeiro|das? finan[çc])|entra e sai|entradas? e sa[íi]das?|(entra\w*|entrada)\s*(vs|versus|\bx\b|ou|contra)\s*(quanto\s*)?(sai|sa[íi]da)|(me )?explica (os )?(meus )?n[úu]meros|(meus )?n[úu]meros do neg|(qual (meu|o meu) )?desempenho|como (foi|fui) (meu|no) (m[êe]s|desempenho)|(mostra|ver|me mostra) (o )?fluxo de caixa|meu fluxo de caixa/.test(p)) {
     const w = janela(p, hoje);
     const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);

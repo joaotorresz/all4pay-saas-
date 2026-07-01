@@ -216,6 +216,11 @@ const CORPUS: [string, RegExp][] = [
   // peso de uma categoria na receita (estrutura de custo)
   ["quanto a folha pesa na receita?", /representa .* da sua receita/i],
   ["qual a proporção de marketing na receita?", /representa .* da sua receita/i],
+  // entra vs sai → resumo; receita/faturamento "pelados"
+  ["quanto entra vs quanto sai?", /entraram .* e saíram/i],
+  ["entrada vs saída?", /entraram .* e saíram/i],
+  ["qual minha receita?", /recebeu|receita/i],
+  ["qual meu faturamento?", /recebeu|receita/i],
 ];
 
 let pass = 0;
