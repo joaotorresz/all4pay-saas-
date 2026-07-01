@@ -57,6 +57,20 @@ const CASES: [string, RegExp, string][] = [
   // pontualidade recebimento: atrasos A(+2 mai,+2 jun,0 jul? due 07-02 paid 07-05=+3) B(0 mai, 0 jul due 07-02 paid 07-05=+3)
   //   A: mai +2, jun +2, jul +3 ; B: mai 0, jul +3 → média (2+2+3+0+3)/5 = 2
   ["quanto tempo demoro para receber?", /2 dia\(s\) de atraso/, "média (2+2+3+0+3)/5"],
+  // crescimento: jul rec 10000 vs jun rec 20000 → -50%
+  ["estou crescendo?", /-50%/, "(10000-20000)/20000"],
+  // burn diário: últimos 30 dias (16/06–15/07) só 07-08 Marketing 6000 → 6000/30 = 200/dia
+  ["quanto gasto por dia?", /R\$.?200 por dia/, "6000 / 30"],
+  // gasto categoria: Marketing jul = 6000
+  ["quanto gastei com marketing?", /6\.000/, "Marketing julho"],
+  // receita por fonte: Servicos jul = 4000
+  ["quanto recebi de servicos?", /4\.000/, "Servicos julho (B)"],
+  // pagamento em dia: F/G pagos na data de vencimento → em dia, 100% no prazo
+  ["pago minhas contas em dia?", /em dia/, "todos paid_date = due_date"],
+  // média mensal de gasto: (10000+20000+6000)/3 = 12000
+  ["qual meu gasto médio mensal?", /12\.000/, "média (10000+20000+6000)/3"],
+  // maior gasto individual jul = 6000 (Marketing)
+  ["qual foi meu maior gasto?", /6\.000/, "Marketing 6000"],
 ];
 
 let pass = 0;
