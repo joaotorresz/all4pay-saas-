@@ -647,6 +647,27 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["carga tributária"]);
   }
 
+  // ——— EBITDA (geração operacional, exclui financeiro/D&A/imposto s/ lucro) ———
+  // EBITDA = receita − todas as saídas operacionais (tudo menos o resultado
+  // financeiro) — casa a cascata do DRE gerencial, calculado inline.
+  if (/\bebitda\b|\blajida\b|gera[çc][ãa]o operacional de caixa/.test(p)) {
+    const w = janela(p, hoje);
+    const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
+    const receita = jm.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const ehFinanceiro = (c: string) => /tarifa|juros|banc|financ|\biof\b/.test(c);
+    const ehImposto = (c: string) => /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test(c);
+    const opex = jm.filter((m) => m.type === "saida" && !ehFinanceiro((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const impostos = jm.filter((m) => m.type === "saida" && ehImposto((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const ebitda = receita - opex;
+    const recLiq = receita - impostos;
+    if (receita <= 0) return R(`Não houve receita paga ${w.label} para calcular o EBITDA.`, [], ["DRE gerencial"]);
+    const margem = recLiq > 0 ? Math.round((ebitda / recLiq) * 100) : 0;
+    return R(
+      `Seu EBITDA ${w.label} é ${fmt(ebitda)} (${margem}% da receita líquida): a geração operacional antes de juros, impostos sobre o lucro e depreciação.`,
+      [{ label: "EBITDA", valor: fmt(ebitda) }, { label: "Margem EBITDA", valor: `${margem}%` }, { label: "Receita", valor: fmt(receita) }],
+      ["EBITDA", "DRE gerencial"]);
+  }
+
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
     const w = janela(p, hoje);

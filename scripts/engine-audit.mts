@@ -170,6 +170,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
   const rc = responderLocal("qual minha carga tributária?", inp);
   ok("carga tributária = impostos ÷ receita (30%), sem comissão", !!rc && /\b30%/.test(rc.resposta), rc?.resposta?.slice(0, 60));
+  // EBITDA exclui o resultado financeiro: receita 10000 − Fornecedores 3000 − Comissão 2000 = 5000; Impostos 3000 é despesa operacional → entra
+  const inpE: RiskInput = { hoje: HOJE, saldoAtual: 0, partyNames: {}, movements: [
+    rm({ amount: 10000, paid_date: "2026-07-05" }),
+    rm({ type: "saida", amount: 3000, paid_date: "2026-07-08", category: "Impostos" }),
+    rm({ type: "saida", amount: 2000, paid_date: "2026-07-08", category: "Comissão" }),
+    rm({ type: "saida", amount: 500, paid_date: "2026-07-08", category: "Tarifa bancária" }), // financeiro → EXCLUÍDO
+  ] } as RiskInput;
+  const re = responderLocal("qual meu EBITDA?", inpE);
+  // EBITDA = 10000 − (3000 impostos + 2000 comissão) = 5000; Tarifa (financeiro) fora
+  ok("EBITDA exclui o resultado financeiro (5000)", !!re && /EBITDA.*R\$.?5\.000/.test(re.resposta), re?.resposta?.slice(0, 60));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────

@@ -202,6 +202,9 @@ const CORPUS: [string, RegExp][] = [
   // carga tributária (% da receita em impostos)
   ["qual minha carga tributária?", /carga tributária/i],
   ["quanto de imposto pago sobre a receita?", /carga tributária/i],
+  // EBITDA como NÚMERO (motor), não conceito — a KB só explica "o que é EBITDA"
+  ["qual meu EBITDA?", /Seu EBITDA/i],
+  ["quanto é meu EBITDA esse mês?", /Seu EBITDA/i],
 ];
 
 let pass = 0;

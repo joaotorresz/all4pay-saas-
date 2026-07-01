@@ -102,12 +102,12 @@ export function buscarKB(q: string): KBEntry | null {
   const conceitual = CONCEITUAL.test(s);
   for (const e of KB) {
     if (e.termos.test(s)) {
-      // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
-      // "concentra"/"ponto de equil"/"break-even" saem do fallback forte: têm
-      // intent COMPUTADO no motor (número real). Só respondem como CONCEITO
-      // quando a pergunta é explicitamente conceitual ("o que é…"); "qual meu
-      // ponto de equilíbrio?" / "risco de concentração?" caem no motor.
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
+      // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual.
+      // Saem do fallback forte os que têm intent COMPUTADO no motor (número real):
+      // concentração, ponto de equilíbrio, EBITDA, runway, burn, score, receita
+      // líquida, carga tributária. Para esses, "qual meu X?" cai no motor (número);
+      // só respondem como CONCEITO quando a pergunta é explicitamente conceitual.
+      if (conceitual || /ltv|cac|mrr|dre|aging|churn|\bnsu\b|\bdso\b|\bdpo\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
     }
   }
   return null;
