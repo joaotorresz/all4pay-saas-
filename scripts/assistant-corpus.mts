@@ -235,6 +235,13 @@ const CORPUS: [string, RegExp][] = [
   ["quanto os impostos pesam na receita", /representa .* da sua receita|carga/i],
   ["total geral que entrou", /já recebeu/i],
   ["meu fluxo livre", /fluxo de caixa livre/i],
+  // 19ª rodada: gírias/coloquial de saldo, a pagar, gastos e resultado
+  ["cadê minha grana", /saldo consolidado/i],
+  ["quanto de dindin eu tenho", /saldo consolidado/i],
+  ["quem eu preciso pagar", /a pagar/i],
+  ["quais boletos tenho", /a pagar/i],
+  ["com o que eu mais torro dinheiro", /maiores gastos/i],
+  ["fechei no positivo", /sobrou|azul|entraram/i],
 ];
 
 let pass = 0;

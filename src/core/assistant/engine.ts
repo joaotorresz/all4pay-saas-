@@ -188,7 +188,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A PAGAR ———
-  if (/a pagar|contas? a pagar|pag[áa]veis|pagamento[s]? (j[áa] )?(vencid|em atraso|atrasad)|(vencid|atrasad)\w* (a|pra|para) pagar|(boleto|fornecedor|conta)\w* (a pagar )?(j[áa] )?(vencid|atrasad|em atraso)|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|vou pagar (de )?conta|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b|contas? (t[ãa]o|est[ãa]o) (em dia|pagas)|(minhas )?contas em dia/.test(p)) {
+  if (/a pagar|contas? a pagar|pag[áa]veis|pagamento[s]? (j[áa] )?(vencid|em atraso|atrasad)|(vencid|atrasad)\w* (a|pra|para) pagar|(boleto|fornecedor|conta)\w* (a pagar )?(j[áa] )?(vencid|atrasad|em atraso)|quanto.*(devo|tenho (que|a) pagar|preciso pagar)|quem (eu )?(preciso|tenho que|devo) pagar|quais? (boletos?|contas? (a pagar|em aberto|pra pagar))|(meus |os )?boletos?\b|tenho boletos?|minhas? d[íi]vidas?|t[áa] tudo pago|tudo (est[áa] )?pago|paguei tudo|falta (algo|alguma conta) (pra|para) pagar|tem conta em aberto|(muita|muito|quanta) d[íi]vida|tenho d[íi]vida|vou ter que pagar|vou pagar (de )?conta|(t[ôo]|to|estou|ando) devendo|quanto (eu )?devo\b|contas? (t[ãa]o|est[ãa]o) (em dia|pagas)|(minhas )?contas em dia/.test(p)) {
     const ab = movs.filter((m) => m.type === "saida" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
@@ -463,7 +463,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIORES GASTOS / por categoria ———
-  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|(despesa|categoria) (que )?(mais )?(pesa|pega|custa|consome|sai)|categoria que mais (pesa|custa|gasta|consome|sai)|o que (eu )?mais (pago|gasto)|no que (eu )?mais (gasto|pago)|(custos?|gastos?) fix|qual (o )?(meu )?(maior )?custo|(me )?(diz|mostra|lista) (os )?(meus )?gastos|(meus|os meus) gastos\b|custa (pra |para )?manter|custo (de |pra |para )?manter/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
+  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|(com o que|no que|onde|em que) (eu )?mais torr|torro (dinheiro|grana|meu dinheiro)|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|(despesa|categoria) (que )?(mais )?(pesa|pega|custa|consome|sai)|categoria que mais (pesa|custa|gasta|consome|sai)|o que (eu )?mais (pago|gasto)|no que (eu )?mais (gasto|pago)|(custos?|gastos?) fix|qual (o )?(meu )?(maior )?custo|(me )?(diz|mostra|lista) (os )?(meus )?gastos|(meus|os meus) gastos\b|custa (pra |para )?manter|custo (de |pra |para )?manter/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(sai, 5);
@@ -754,7 +754,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESULTADO / sobrou / lucro ———
-  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|conseguindo poupar|consigo poupar|(t[ôo]|to|estou) poupando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
+  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|conseguindo poupar|consigo poupar|(t[ôo]|to|estou) poupando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|fechei no (positiv|azul|verde|negativ|vermelh|preju)|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -843,7 +843,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— SALDO / quanto tenho ———
-  if (/\bsaldo\b|meu caixa|qual (o )?meu caixa|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|quanto de (dinheiro|grana)|(dinheiro|grana) eu tenho|quanta grana|\ba grana\b|como (t[áa]|est[áa]) (a |o )?(grana|caixa|dinheiro|saldo)|(o |meu )?caixa,? como (t[áa]|est[áa]|anda|vai)|folga (n?o|de|em|d[oa]) (caixa|saldo)|tenho folga|situa[çc][ãa]o (do|de) (caixa|financeira|do dinheiro)|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
+  if (/\bsaldo\b|meu caixa|qual (o )?meu caixa|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|quanto de (dinheiro|grana)|(dinheiro|grana) eu tenho|quanta grana|\ba grana\b|cad[êe] (minha |a |o )?(grana|dinheiro|saldo|caixa)|\bna conta\b|dindin|como (t[áa]|est[áa]) (a |o )?(grana|caixa|dinheiro|saldo)|(o |meu )?caixa,? como (t[áa]|est[áa]|anda|vai)|folga (n?o|de|em|d[oa]) (caixa|saldo)|tenho folga|situa[çc][ãa]o (do|de) (caixa|financeira|do dinheiro)|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
     const runway = ctx?.runwayMeses;
     return R(
       `Seu saldo consolidado é ${fmt(input.saldoAtual)}.${runway != null ? ` No ritmo atual de caixa, ele cobre cerca de ${runway} ${runway === 1 ? "mês" : "meses"} de operação.` : ""}`,
