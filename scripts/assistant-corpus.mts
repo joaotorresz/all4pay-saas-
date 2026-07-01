@@ -221,6 +221,8 @@ const CORPUS: [string, RegExp][] = [
   ["entrada vs saída?", /entraram .* e saíram/i],
   ["qual minha receita?", /recebeu|receita/i],
   ["qual meu faturamento?", /recebeu|receita/i],
+  // por contraparte com período (escopa a janela)
+  ["quanto recebi da Beta em maio?", /Com Beta em maio/i],
 ];
 
 let pass = 0;

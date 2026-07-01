@@ -314,7 +314,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     });
     if (alvo) {
       const [id, nome] = alvo;
-      const doParty = movs.filter((m) => m.party_id === id);
+      // Escopo por período SÓ quando a pergunta cita um ("recebi da Alpha em maio");
+      // sem período, mostra o histórico completo da contraparte.
+      const temPeriodo = /hoje|ontem|amanh|semana|m[êe]s|\bano\b|trimestre|semestre|\bdias\b|passad|anterior|[úu]ltim/.test(p)
+        || MES.some((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
+      const jw = temPeriodo ? janela(p, hoje) : null;
+      const doParty = movs.filter((m) => m.party_id === id && (!jw || within(cashDate(m), jw)));
+      const janelaTxt = jw ? ` ${jw.label}` : "";
       const recebido = doParty.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
       const pago = doParty.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
       const aberto = doParty.filter((m) => m.status === "pendente").reduce((s, m) => s + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)), 0);
@@ -324,7 +330,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const abertoTxt = Math.abs(aberto) > 0.5 ? ` Em aberto: ${fmt(Math.abs(aberto))} ${aberto > 0 ? "a receber" : "a pagar"}.` : "";
       return {
         ...R(
-          `Com ${nome} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
+          `Com ${nome}${janelaTxt} você ${partes.join(" e ") || "não teve movimento realizado"} em ${doParty.length} lançamento(s).${abertoTxt}`,
           [...(recebido > 0 ? [{ label: "Recebido", valor: fmt(recebido) }] : []), ...(pago > 0 ? [{ label: "Pago", valor: fmt(pago) }] : [])],
           ["histórico por contraparte"]),
         contatoId: id,

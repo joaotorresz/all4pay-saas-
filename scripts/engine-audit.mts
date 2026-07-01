@@ -195,6 +195,15 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const rp = responderLocal("quanto a folha pesa na receita?", inpP);
   ok("peso categoria na receita: Folha = 25%", !!rp && /Folha representa 25% da sua receita/.test(rp.resposta), rp?.resposta?.slice(0, 50));
+  // por contraparte: com período escopa a janela; sem período é tudo
+  const inpC: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: { A: "Alpha" }, movements: [
+    rm({ amount: 22000, paid_date: "2026-05-05", party_id: "A" }),
+    rm({ amount: 12000, paid_date: "2026-07-05", party_id: "A" }),
+  ] } as RiskInput;
+  const rcMaio = responderLocal("quanto recebi da Alpha em maio?", inpC);
+  const rcTudo = responderLocal("quanto recebi da Alpha?", inpC);
+  ok("contraparte c/ período: Alpha em maio = 22000", !!rcMaio && /em maio.*R\$.?22\.000/.test(rcMaio.resposta), rcMaio?.resposta?.slice(0, 50));
+  ok("contraparte s/ período: Alpha total = 34000", !!rcTudo && /R\$.?34\.000/.test(rcTudo.resposta), rcTudo?.resposta?.slice(0, 50));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────
