@@ -391,7 +391,16 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // Casa dinamicamente com QUALQUER categoria de despesa que o cliente tenha.
   {
     const cats = Array.from(new Set(movs.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
-    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}(e?s)?([^a-zà-ú]|$)`, "i").test(p); });
+    let alvo = cats.sort((a, b) => b.length - a.length).find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}(e?s)?([^a-zà-ú]|$)`, "i").test(p); });
+    // Sinônimos → categoria: "gasto com pessoal" = Folha; "conta de luz" = utilidades.
+    if (!alvo) {
+      const SIN: { when: RegExp; cat: RegExp }[] = [
+        { when: /pessoal|funcion[áa]ri|colaborador|\bequipe\b|sal[áa]ri|folha de pagament|m[ãa]o de obra/, cat: /folha|pessoal|sal[áa]r/ },
+        { when: /\bluz\b|energia|\b[áa]gua\b|internet|telefone|conta de consumo|utilidade/, cat: /utilidad|energia|\bluz\b|[áa]gua|consumo/ },
+        { when: /aluguel|loca[çc][ãa]o do (im[óo]vel|ponto)/, cat: /aluguel|loca[çc]/ },
+      ];
+      for (const sy of SIN) { if (sy.when.test(p)) { const c = cats.find((x) => sy.cat.test(x)); if (c) { alvo = c; break; } } }
+    }
     // Guarda de direção: "quanto ENTRA/recebo de Vendas" é receita — não deixar
     // o "quanto" genérico puxar p/ gasto quando há uma saída com o mesmo nome de
     // categoria (ex.: uma despesa cadastrada como "Vendas"). Sinais de entrada

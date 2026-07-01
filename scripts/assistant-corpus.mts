@@ -205,6 +205,9 @@ const CORPUS: [string, RegExp][] = [
   // EBITDA como NÚMERO (motor), não conceito — a KB só explica "o que é EBITDA"
   ["qual meu EBITDA?", /Seu EBITDA/i],
   ["quanto é meu EBITDA esse mês?", /Seu EBITDA/i],
+  // sinônimos → categoria: pessoal→Folha, luz→Utilidades
+  ["qual meu gasto com pessoal?", /Folha|gastou/i],
+  ["quanto gasto com funcionários?", /Folha|gastou/i],
 ];
 
 let pass = 0;
