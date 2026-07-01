@@ -436,7 +436,8 @@ camadas encadeadas no `responder`:
    fornecedores, contagem de contrapartes, **margem/lucratividade** (resultado ÷
    receita), **crescimento** (receita MoM), **ponto de equilíbrio** (break-even =
    despesa média mensal), **pontualidade de recebimento/pagamento** (atraso
-   médio dos clientes / com que eu pago — DSO/DPO, % no prazo), **resumo do dia**
+   médio dos clientes / com que eu pago — DSO/DPO, % no prazo), **receita média
+   por cliente** (proxy de LTV), **resumo do dia**
    e **resumo do
    período** (mês/trimestre/semestre/ano). A janela é detectada da própria
    pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das

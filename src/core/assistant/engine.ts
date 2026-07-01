@@ -438,6 +438,21 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["despesa média mensal", "receita do mês"]);
   }
 
+  // ——— RECEITA MÉDIA POR CLIENTE (LTV proxy) — antes de MÉDIA mensal ———
+  // "receita média por cliente" tem "média"+"receita" e cairia na média mensal.
+  if (/quanto cada cliente (me )?(rende|vale|gera|paga em m[ée]dia)|receita m[ée]dia por cliente|valor m[ée]dio por cliente|quanto (vale|rende) (cada|um) cliente|receita por cliente m[ée]dia/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w) && m.party_id);
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const clientes = new Set(ent.map((m) => m.party_id as string)).size;
+    if (!clientes) return R(`Não há receita paga por cliente identificado ${w.label} para calcular a média por cliente.`, [], ["receita por cliente"]);
+    const porCliente = tot / clientes;
+    return R(
+      `Cada cliente rende em média ${fmt(porCliente)} ${w.label} — ${fmt(tot)} de ${clientes} cliente(s) que pagaram. É uma proxy do LTV no período.`,
+      [{ label: "Receita/cliente", valor: fmt(porCliente) }, { label: "Clientes", valor: String(clientes) }, { label: "Receita", valor: fmt(tot) }],
+      ["receita por cliente"], 0.88);
+  }
+
   // ——— MÉDIA mensal (gasto/receita) ———
   if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
     const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";
