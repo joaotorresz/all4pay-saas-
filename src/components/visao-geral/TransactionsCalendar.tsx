@@ -60,7 +60,14 @@ export function TransactionsCalendar() {
   const selInfo = diaSel ? porDia.get(diaSel) : null;
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card
+      className="flex flex-col gap-3"
+      info={{
+        titulo: "Calendário de transações",
+        oQue: "Mostra entradas e saídas de cada dia do mês e o saldo esperado — para enxergar de relance onde o caixa aperta.",
+        comoCalcula: "Cada movimento cai no dia do pagamento (ou do vencimento, se pendente); o saldo por dia vem da projeção de liquidez, que marca em vermelho os dias com risco de saldo negativo.",
+      }}
+    >
       <div className="flex items-center justify-between">
         <WidgetHeader title={futuro ? "Calendário · projeção" : "Calendário de transações"} />
       </div>

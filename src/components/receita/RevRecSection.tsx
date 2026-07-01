@@ -7,7 +7,7 @@
  * revenue_contracts/_schedule (live) / localStorage (demo).
  */
 import * as React from "react";
-import { Card, BRL, Button, Icon, Input, Select, CurrencyInput, DatePicker, StatusBadge } from "@/components/ui";
+import { Card, BRL, Button, Icon, Input, Select, CurrencyInput, DatePicker, StatusBadge, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   listRevRec, criarRevRec, reconhecerParcela, cronogramaLinear, mesesEntre, resumoRevRec,
@@ -100,7 +100,15 @@ export function RevRecSection() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="m-0 text-h3 font-medium text-ink">Contratos de receita · CPC 47</h2>
+        <h2 className="m-0 text-h3 font-medium text-ink inline-flex items-center gap-2">
+          Contratos de receita · CPC 47
+          <InfoHint
+            titulo="Contratos de receita"
+            oQue="Contratos de receita diferida — reconhece a receita ao longo da vigência conforme o serviço é entregue, e não toda de uma vez."
+            comoCalcula="O valor total é distribuído por mês (linear por padrão, ou perfil sugerido pela IA); cada parcela vira receita ao ser reconhecida."
+            align="left"
+          />
+        </h2>
         <Button size="sm" variant="secondary" leftIcon={<Icon name="plus" size={14} />} onClick={() => setForm((f) => !f)}>
           {form ? "Fechar" : "Novo contrato"}
         </Button>

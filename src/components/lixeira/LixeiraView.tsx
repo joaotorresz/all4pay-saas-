@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, Money, Avatar, Skeleton } from "@/components/ui";
+import { Card, Icon, Money, Avatar, Skeleton, InfoHint } from "@/components/ui";
 import { brlParts } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { getTrashedMovements, restoreMovement, purgeMovement } from "@/lib/data";
@@ -49,6 +49,12 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
         <div className="flex items-center gap-2">
           <Icon name="inbox" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Lançamentos cancelados — restaure para “A receber/A pagar” ou exclua de vez</span>
+          <InfoHint
+            align="left"
+            titulo="Lixeira"
+            oQue="Guarda os lançamentos que você cancelou; dá para restaurá-los ou apagá-los de vez."
+            comoCalcula="Reúne os pagamentos e recebimentos marcados como cancelados; restaurar volta o lançamento para A receber ou A pagar."
+          />
         </div>
         <div className="inline-flex rounded-md bg-surface-2 p-[3px]">
           {FILTROS.map((f) => (

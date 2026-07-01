@@ -8,7 +8,7 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, BRL, Button, Icon, StatusBadge, Skeleton } from "@/components/ui";
+import { Card, BRL, Button, Icon, StatusBadge, Skeleton, InfoHint } from "@/components/ui";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import { listParties } from "@/lib/cadastros";
 import { TIPO_LABEL, type FinancialDecision } from "@/core/autonomous/types";
@@ -44,6 +44,11 @@ export function AcoesCopiloto() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
           <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a All4Pay IA pode agir
+          <InfoHint
+            titulo="Ações recomendadas"
+            oQue="As decisões que a IA pode executar por você (como cobrar um cliente) ou enviar para aprovação, em vez de só apontar o problema."
+            comoCalcula="O motor autônomo prioriza cada decisão por impacto e confiança; ações reversíveis dentro da alçada rodam na hora, acima disso vão para aprovação."
+          />
         </span>
         {data?.hitl && (
           <span className="text-caption text-faint">

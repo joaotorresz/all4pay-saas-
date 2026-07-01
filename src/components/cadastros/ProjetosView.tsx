@@ -33,7 +33,15 @@ export function ProjetosView() {
             {itens.map((p) => {
               const resultado = p.previsaoReceita - p.previsaoDespesa;
               return (
-                <Card key={p.id} className="flex flex-col gap-2">
+                <Card
+                  key={p.id}
+                  className="flex flex-col gap-2"
+                  info={{
+                    titulo: "Projeto",
+                    oQue: "Um centro de resultado temporal (um lançamento, uma campanha) para medir o realizado contra o previsto.",
+                    comoCalcula: "Resultado previsto = previsão de receita − previsão de despesa informadas no cadastro do projeto.",
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <span className="text-[16px] font-semibold text-ink flex-1">{p.nome}</span>
                     {p.codigo && <span className="text-caption text-faint">{p.codigo}</span>}

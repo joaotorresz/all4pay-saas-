@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Input, Button, Icon, Badge } from "@/components/ui";
+import { Card, Input, Button, Icon, Badge, InfoHint } from "@/components/ui";
 import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
@@ -101,7 +101,15 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
             <Icon name="building" size={18} color="white" />
           </span>
           <div>
-            <div className="text-label font-medium text-muted">Organização</div>
+            <div className="text-label font-medium text-muted inline-flex items-center gap-1">
+              Organização
+              <InfoHint
+                align="left"
+                titulo="Organização"
+                oQue="A empresa em que você está operando agora; todos os dados ficam isolados nela."
+                comoCalcula="Nome lido da sua organização no banco, com fallback para o nome fantasia ou razão social do cadastro."
+              />
+            </div>
             <div className="text-h3 font-medium text-ink">
               {orgName ?? (db.fantasia as string) ?? (db.razaoSocial as string) ?? "Minha empresa"}
             </div>
@@ -126,7 +134,15 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
           {/* Identidade (editável) */}
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <span className="text-label font-medium text-muted">Dados da empresa</span>
+              <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+                Dados da empresa
+                <InfoHint
+                  align="left"
+                  titulo="Dados da empresa"
+                  oQue="A identidade jurídica e fiscal da empresa, usada em documentos, notas e cobranças."
+                  comoCalcula="Campos editáveis salvos no perfil da empresa; o que você edita aqui sincroniza para o cadastro."
+                />
+              </span>
               {!editando ? (
                 <Button variant="ghost" size="sm" leftIcon={<Icon name="edit" size={14} />} onClick={abrirEdicao}>Editar</Button>
               ) : (
@@ -153,7 +169,13 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
 
           {/* Perfil empresarial */}
           {perfil && (
-            <Card className="flex flex-col gap-4">
+            <Card
+              className="flex flex-col gap-4"
+              info={{
+                titulo: "Perfil empresarial",
+                oQue: "O retrato do seu negócio (setor, modelo, receita, bancos) que orienta a IA e a Home por urgência.",
+              }}
+            >
               <span className="text-label font-medium text-muted">Perfil empresarial</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                 <Linha label="Setor" value={perfil.setor || "—"} />
@@ -172,7 +194,15 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
           {/* Governança · usuários (papel + permissões) */}
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-label font-medium text-muted">Governança · participantes</span>
+              <span className="text-label font-medium text-muted inline-flex items-center gap-1">
+                Governança · participantes
+                <InfoHint
+                  align="left"
+                  titulo="Governança · participantes"
+                  oQue="Quem acessa a empresa e o que cada um pode visualizar, editar e aprovar."
+                  comoCalcula="Lista os membros da organização com papel, permissões e limite de aprovação definidos para cada um."
+                />
+              </span>
               <Button
                 size="sm"
                 variant="secondary"
@@ -217,7 +247,14 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
 
           {/* Estrutura financeira */}
           {estrutura && (
-            <Card className="flex flex-col gap-4">
+            <Card
+              className="flex flex-col gap-4"
+              info={{
+                titulo: "Estrutura financeira",
+                oQue: "As contas, centros de custo, unidades e visões de DRE que organizam seus lançamentos.",
+                comoCalcula: "Reflete o que você escolheu no onboarding; contas, centros e unidades foram criados no seu cadastro ao concluir.",
+              }}
+            >
               <span className="text-label font-medium text-muted">Estrutura financeira</span>
               <Chips label="Contas" items={estrutura.contas.map((c) => `${c.banco} · ${c.tipo}`)} />
               <Chips label="Centros de custo" items={estrutura.centrosCusto} />

@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon } from "@/components/ui";
+import { Card, Button, Icon, InfoHint } from "@/components/ui";
 import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@/core/fdip";
 import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
@@ -135,6 +135,12 @@ export function UploadView() {
         <div className="flex items-center gap-2">
           <Icon name="upload" size={16} color="var(--color-text-secondary)" />
           <span className="text-label font-medium text-muted">Importar — extrato em lote (CSV/OFX) ou documento individual</span>
+          <InfoHint
+            align="left"
+            titulo="Importar dados"
+            oQue="Traz seus lançamentos para o sistema a partir de um extrato ou de um documento, sem digitar tudo à mão."
+            comoCalcula="Extratos CSV/OFX e documentos (via OCR) passam pelo FDIP, que classifica cada linha, resolve clientes/fornecedores e detecta recorrências para você revisar."
+          />
         </div>
 
         <div

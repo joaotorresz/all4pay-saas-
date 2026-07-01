@@ -10,9 +10,9 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
-import { Card, Icon } from "@/components/ui";
+import { Card, Icon, InfoHint } from "@/components/ui";
 
-type Acao = { label: string; icon: string; href?: string; event?: string };
+type Acao = { label: string; icon: string; href?: string; event?: string; info?: { titulo?: string; oQue: string; comoCalcula?: string } };
 
 const CADASTROS: Acao[] = [
   { label: "Empresa", icon: "building", href: "/comecar" },
@@ -42,18 +42,33 @@ export function CriarHubView() {
   return (
     <AppShell title="Criar Novo">
       <div className="flex flex-col gap-8 pb-8">
-        <Grupo titulo="Cadastros" hint="Entidades-base que alimentam todas as transações" itens={CADASTROS} onGo={go} />
-        <Grupo titulo="Movimentações" hint="Documentos que movimentam resultado e caixa" itens={MOVIMENTACOES} onGo={go} />
+        <Grupo
+          titulo="Cadastros"
+          hint="Entidades-base que alimentam todas as transações"
+          info={{ oQue: "Atalhos para criar as entidades-base (empresa, conta, cliente, produto) que todo lançamento usa depois." }}
+          itens={CADASTROS}
+          onGo={go}
+        />
+        <Grupo
+          titulo="Movimentações"
+          hint="Documentos que movimentam resultado e caixa"
+          info={{ oQue: "Atalhos para criar os documentos que movem dinheiro (receber, pagar, venda, compra, transferência)." }}
+          itens={MOVIMENTACOES}
+          onGo={go}
+        />
       </div>
     </AppShell>
   );
 }
 
-function Grupo({ titulo, hint, itens, onGo }: { titulo: string; hint: string; itens: Acao[]; onGo: (a: Acao) => void }) {
+function Grupo({ titulo, hint, info, itens, onGo }: { titulo: string; hint: string; info?: { titulo?: string; oQue: string; comoCalcula?: string }; itens: Acao[]; onGo: (a: Acao) => void }) {
   return (
     <section className="flex flex-col gap-3">
       <div>
-        <h2 className="m-0 text-label font-medium text-faint tracking-wide">{titulo}</h2>
+        <h2 className="m-0 text-label font-medium text-faint tracking-wide inline-flex items-center gap-1">
+          {titulo}
+          {info && <InfoHint align="left" titulo={info.titulo ?? titulo} oQue={info.oQue} comoCalcula={info.comoCalcula} />}
+        </h2>
         <span className="text-caption text-faint">{hint}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

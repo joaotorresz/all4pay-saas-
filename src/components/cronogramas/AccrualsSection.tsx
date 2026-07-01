@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, BRL, Button, Icon, StatusBadge, Skeleton } from "@/components/ui";
+import { Card, BRL, Button, Icon, StatusBadge, Skeleton, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { getRiscoInput } from "@/lib/data";
 import { sugerirAccruals, type AccrualSugerido } from "@/lib/accruals";
@@ -75,6 +75,11 @@ export function AccrualsSection() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
           <Icon name="repeat" size={15} color="var(--color-text-secondary)" /> Provisões sugeridas · competência ({mes})
+          <InfoHint
+            titulo="Provisões sugeridas"
+            oQue="Despesas recorrentes que costumam cair todo mês mas ainda não foram lançadas neste mês — para reconhecer o custo por competência."
+            comoCalcula="Detecta categorias recorrentes presentes em meses anteriores e ausentes no mês atual; lançar gera débito da despesa e crédito em Provisões a pagar."
+          />
         </span>
         {iaOn && base.length > 0 && (
           <Button size="sm" variant="ghost" disabled={busy === "ia"} onClick={refinar} leftIcon={<Icon name="sparkles" size={14} color="var(--color-lime)" />}>

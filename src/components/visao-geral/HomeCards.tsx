@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useQuantitativo, useCentroInteligencia, useRiscoInput } from "./hooks";
@@ -23,12 +24,19 @@ function CardSkeleton({ tall }: { tall?: boolean }) {
   return <Skeleton className={tall ? "h-[200px] w-full" : "h-[120px] w-full"} rounded="card" />;
 }
 
-function Header({ icon, children }: { icon: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-2">
+function Header({ icon, href, children }: { icon: string; href?: string; children: React.ReactNode }) {
+  const inner = (
+    <>
       <Icon name={icon} size={15} color="var(--color-text-secondary)" />
       <span className="text-label font-medium text-muted">{children}</span>
-    </div>
+      {href && <Icon name="arrow-up-right" size={13} color="var(--color-faint)" className="ml-[2px] opacity-0 group-hover:opacity-100 transition-opacity" />}
+    </>
+  );
+  // Cabeçalho-link → correlação: leva à tela de detalhe relacionada.
+  return href ? (
+    <Link href={href} className="group inline-flex items-center gap-2 w-fit">{inner}</Link>
+  ) : (
+    <div className="flex items-center gap-2">{inner}</div>
   );
 }
 
@@ -53,7 +61,7 @@ export function SaudeFinanceiraCard() {
       oQue: "Um raio-x do seu caixa: nota geral, por quanto tempo o dinheiro dura e o ritmo de queima.",
       comoCalcula: "Score 0–100 pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento. Runway = saldo ÷ burn mensal; burn = saídas líquidas médias; liquidez = ativo ÷ passivo de curto prazo.",
     }}>
-      <Header icon="activity">Saúde financeira</Header>
+      <Header icon="activity" href="/copiloto?aba=quant">Saúde financeira</Header>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Kpi label="Score" value={`${sc.score}`} suffix="/100" color={scoreColor(sc.score)} hint={sc.classificacao} />
         <Kpi label="Runway" value={ind.runwayMeses >= 99 ? "99+" : ind.runwayMeses.toFixed(1)} suffix="meses" />
@@ -87,7 +95,7 @@ export function IAInsightsCard() {
       oQue: "Os pontos que mais merecem sua atenção hoje, priorizados pela IA.",
       comoCalcula: "Os motores de risco, quant e crédito geram sinais ordenados por impacto × urgência × probabilidade × criticidade.",
     }}>
-      <Header icon="sparkles">IA · insights do dia</Header>
+      <Header icon="sparkles" href="/copiloto?aba=copiloto">IA · insights do dia</Header>
       {insights.length === 0 ? (
         <span className="text-caption text-faint">Sem insights relevantes agora.</span>
       ) : (
@@ -117,7 +125,7 @@ export function AnomaliasCard() {
       oQue: "Gastos fora do padrão, duplicidades e pagamentos atípicos detectados automaticamente.",
       comoCalcula: "Cada categoria é comparada ao seu histórico; o que foge demais (z-score alto) ou se repete é sinalizado.",
     }}>
-      <Header icon="triangle-alert">Anomalias</Header>
+      <Header icon="triangle-alert" href="/copiloto?aba=copiloto">Anomalias</Header>
       {anomalias.length === 0 ? (
         <span className="text-caption text-faint">Nenhuma anomalia detectada.</span>
       ) : (
@@ -160,7 +168,7 @@ export function TopClientesCard() {
       oQue: "Quem mais gerou receita realizada no período selecionado.",
       comoCalcula: "Soma das entradas pagas por cliente no período; a barra e o % são a fatia de cada um sobre o total recebido.",
     }}>
-      <Header icon="trending-up">Top clientes · {period.label.toLowerCase()}</Header>
+      <Header icon="trending-up" href="/painel-vendas">Top clientes · {period.label.toLowerCase()}</Header>
       {top.length === 0 || total === 0 ? (
         <span className="text-caption text-faint">Sem receita realizada no período.</span>
       ) : (
@@ -206,7 +214,7 @@ export function MaioresCategoriasCard() {
       oQue: "Para onde foi a maior parte do seu dinheiro no período.",
       comoCalcula: "Soma das saídas pagas por categoria no período; o % é a fatia de cada uma sobre o total gasto.",
     }}>
-      <Header icon="receipt">Maiores despesas · {period.label.toLowerCase()}</Header>
+      <Header icon="receipt" href="/dre">Maiores despesas · {period.label.toLowerCase()}</Header>
       {top.length === 0 || total === 0 ? (
         <span className="text-caption text-faint">Sem despesas no período.</span>
       ) : (
@@ -242,7 +250,7 @@ export function UltimosGastosCard() {
       oQue: "Os pagamentos mais recentes que saíram do seu caixa.",
       comoCalcula: "Saídas já liquidadas (pagas), ordenadas da mais recente para a mais antiga.",
     }}>
-      <Header icon="arrow-down-to-line">Últimos gastos</Header>
+      <Header icon="arrow-down-to-line" href="/pagamentos">Últimos gastos</Header>
       {gastos.length === 0 ? (
         <span className="text-caption text-faint">Nenhum gasto liquidado ainda.</span>
       ) : (
@@ -283,7 +291,7 @@ export function PendenciasCard() {
       oQue: "Quantos títulos estão em aberto e o que está vencendo.",
       comoCalcula: "Conta os lançamentos pendentes (a receber / a pagar) e, pela data de vencimento vs. hoje, os que vencem em 7 dias e os já vencidos.",
     }}>
-      <Header icon="list-checks">Pendências</Header>
+      <Header icon="list-checks" href="/recebimentos">Pendências</Header>
       <div className="grid grid-cols-2 gap-x-4 gap-y-4">
         <Conta n={aReceber} label="A receber" />
         <Conta n={aPagar} label="A pagar" />

@@ -26,7 +26,14 @@ export function CentrosCustoView() {
             <Button variant="secondary" className="mt-1" onClick={() => setOpen(true)}>Criar primeiro centro de custo</Button>
           </Card>
         ) : (
-          <Card padded={false}>
+          <Card
+            padded={false}
+            info={{
+              titulo: "Centros de Custo",
+              oQue: "Áreas ou departamentos usados para ratear o resultado e organizar despesas por setor.",
+              comoCalcula: "Cadastro manual; cada centro tem código próprio e um código contábil (Domínio) que integra a exportação contábil.",
+            }}
+          >
             <div className="hidden sm:grid grid-cols-[1.6fr_0.8fr_1fr_0.8fr] gap-3 px-5 py-3 border-b border-border-soft text-caption font-medium text-muted">
               <span>Nome</span><span>Código</span><span>Cód. contábil (Domínio)</span><span className="text-right">Status</span>
             </div>
