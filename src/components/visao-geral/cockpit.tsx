@@ -1358,6 +1358,73 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Extras: banco/tesouraria/decisão ============ */
+  {
+    id: "maior-banco", label: "Maior banco", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const b = c.treasury.bancos[0];
+      if (!b) return (
+        <MetricCard icon="building" label="Maior banco" value="—"
+          answer="Sem contas bancárias cadastradas."
+          info={{ titulo: "Maior banco", oQue: "O banco onde está a maior parte do seu caixa.", comoCalcula: "Agrupa o saldo por banco e destaca o de maior participação." }} />
+      );
+      return (
+        <MetricCard icon="building" label="Maior banco"
+          tone={b.share > 0.6 ? WARN : POS}
+          value={<BRL value={b.saldo} />}
+          answer={`${b.banco} concentra ${pctTxt(b.share)} do seu caixa (${b.contas} conta(s)).`}
+          info={{ titulo: "Maior banco", oQue: "O banco onde está a maior parte do seu caixa e o quanto ele concentra.", comoCalcula: "Soma o saldo das contas por banco; mostra o de maior participação no total." }} />
+      );
+    },
+  },
+  {
+    id: "semana-aperto", label: "Próxima semana de aperto", categoria: "Caixa",
+    render: (c) => {
+      if (!c.treasury) return <Loading />;
+      const neg = c.treasury.cashPositioning.find((w) => w.acumulado < 0);
+      return (
+        <MetricCard icon="triangle-alert" label="Próxima semana de aperto"
+          tone={neg ? NEG : POS}
+          value={neg ? neg.semana : "Nenhuma"}
+          answer={neg
+            ? `Na ${neg.semana} (${neg.periodo}) o caixa projetado fica negativo (${formatBRL(neg.acumulado)}). Antecipe recebíveis ou segure saídas.`
+            : "Nenhuma das próximas 8 semanas fica com caixa negativo no ritmo atual."}
+          info={{ titulo: "Próxima semana de aperto", oQue: "A primeira semana em que o caixa projetado cruza o zero.", comoCalcula: "Percorre o cash positioning de 8 semanas e aponta a primeira com saldo acumulado negativo." }} />
+      );
+    },
+  },
+  {
+    id: "total-recomendacoes", label: "Ações recomendadas", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const recs = c.decisao.recomendacoes;
+      const ganho = recs.reduce((s, r) => s + Math.max(0, r.deltaRunwayDias), 0);
+      return (
+        <MetricCard icon="sparkles" label="Ações recomendadas"
+          tone={recs.length ? WARN : POS}
+          value={`${recs.length}`}
+          answer={recs.length
+            ? `${recs.length} ação(ões) que o motor de decisão recomenda — juntas somam +${Math.round(ganho)} dias de fôlego.`
+            : "Nenhuma ação corretiva necessária agora — o caixa está confortável."}
+          info={{ titulo: "Ações recomendadas", oQue: "Quantas ações a IA sugere para melhorar o caixa e o ganho total delas.", comoCalcula: "O motor de decisão simula cada ação (antecipar/postergar/reduzir) e soma o ganho de runway das que têm impacto positivo." }} />
+      );
+    },
+  },
+  {
+    id: "caixa-otimista-p90", label: "Caixa no melhor cenário", categoria: "Caixa",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const p90 = c.decisao.previsao.caixaFinalP90;
+      return (
+        <MetricCard icon="trending-up" label="Caixa no melhor cenário"
+          tone={p90 >= 0 ? POS : NEG}
+          value={<BRL value={p90} />}
+          answer={`Saldo em ${c.decisao.previsao.horizonteDias} dias no cenário otimista (p90) — só 10% dos cenários terminam acima dele.`}
+          info={{ titulo: "Caixa no melhor cenário", oQue: "O saldo de caixa no cenário favorável ao fim do horizonte.", comoCalcula: "Cenário otimista (p90) da simulação de Monte Carlo do caixa diário." }} />
+      );
+    },
+  },
   /* ============ Radar executivo (dimensões forte/fraca) ============ */
   {
     id: "dimensao-mais-forte", label: "Onde você é mais forte", categoria: "Resumo executivo",

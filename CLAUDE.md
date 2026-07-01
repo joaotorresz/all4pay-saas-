@@ -194,7 +194,7 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   bruta/líquida, receita líquida, carga tributária, CMV, OPEX, resultado
   financeiro) e **tesouraria** (`useTreasuryCore`: concentração bancária HHI,
   liquidez imediata/30d/90d, exposição líquida, caixa em 4 semanas). São
-  **~73 widgets**; cada categoria mapeia num bloco de `BLOCK_ORDER`; próximas
+  **~94 widgets**; cada categoria mapeia num bloco de `BLOCK_ORDER`; próximas
   fases seguem para a meta de 80–150.
 - **Home contextual + reordenação por IA** (`useHomeContext`): ordem-base dos
   blocos por **setor** (`a4p_company.perfil.setor` → `SETOR_BASE`) e, com o toggle
