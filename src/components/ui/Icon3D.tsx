@@ -15,7 +15,9 @@ import { useId } from "react";
  *  - "lime" : topo lime · glifo preto
  *  - "ink"  : topo preto · glifo lime
  */
-export type Icon3DName = "money" | "chart" | "card" | "calendar" | "wallet" | "bank" | "spark" | "doc";
+export type Icon3DName =
+  | "money" | "chart" | "card" | "calendar" | "wallet" | "bank" | "spark" | "doc"
+  | "users" | "box" | "tag" | "cart" | "layers" | "repeat" | "shield" | "gauge" | "gear" | "target";
 export type Icon3DStyle = "duo" | "lime" | "ink";
 
 const GLYPHS: Record<Icon3DName, React.ReactNode> = {
@@ -27,6 +29,16 @@ const GLYPHS: Record<Icon3DName, React.ReactNode> = {
   bank: <g><path d="M16 25l16-9 16 9" fill="none" strokeWidth="4" strokeLinejoin="round" /><path d="M20 27v13M28 27v13M36 27v13M44 27v13M15 44h34" strokeWidth="4" strokeLinecap="round" /></g>,
   spark: <path d="M32 14c1.5 8 3 9.5 11 11-8 1.5-9.5 3-11 11-1.5-8-3-9.5-11-11 8-1.5 9.5-3 11-11z" strokeLinejoin="round" />,
   doc: <g><path d="M20 14h16l10 10v22H20z" fill="none" strokeWidth="4" strokeLinejoin="round" /><path d="M36 14v10h10M26 32h12M26 39h12" strokeWidth="4" strokeLinecap="round" /></g>,
+  users: <g><circle cx="25" cy="24" r="6" fill="none" strokeWidth="4" /><path d="M15 44c0-6 4.5-10 10-10s10 4 10 10" fill="none" strokeWidth="4" strokeLinecap="round" /><path d="M39 20a5.5 5.5 0 010 11M43 44c0-5-2.5-8.5-6-10" fill="none" strokeWidth="4" strokeLinecap="round" /></g>,
+  box: <g><path d="M32 15l14 8v14l-14 8-14-8V23z" fill="none" strokeWidth="4" strokeLinejoin="round" /><path d="M18 23l14 8 14-8M32 31v16" strokeWidth="4" strokeLinejoin="round" /></g>,
+  tag: <g><path d="M17 17h13l17 17-13 13-17-17z" fill="none" strokeWidth="4" strokeLinejoin="round" /><circle cx="26" cy="26" r="3" /></g>,
+  cart: <g><path d="M15 17h5l4 20h18l4-14H22" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><circle cx="26" cy="45" r="2.5" /><circle cx="42" cy="45" r="2.5" /></g>,
+  layers: <g><path d="M32 14l18 9-18 9-18-9z" fill="none" strokeWidth="4" strokeLinejoin="round" /><path d="M14 32l18 9 18-9" strokeWidth="4" strokeLinejoin="round" /></g>,
+  repeat: <g><path d="M18 26a14 14 0 0124-8m2-6v10H34" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /><path d="M46 38a14 14 0 01-24 8m-2 6V42h10" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></g>,
+  shield: <g><path d="M32 14l16 6v11c0 10-7 16-16 19-9-3-16-9-16-19V20z" fill="none" strokeWidth="4" strokeLinejoin="round" /><path d="M25 31l5 5 9-10" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" /></g>,
+  gauge: <g><path d="M15 40a17 17 0 0134 0" fill="none" strokeWidth="4" strokeLinecap="round" /><path d="M32 40l9-9" strokeWidth="4" strokeLinecap="round" /><circle cx="32" cy="40" r="3" /></g>,
+  gear: <g><circle cx="32" cy="32" r="6" fill="none" strokeWidth="4" /><path d="M32 14v6M32 44v6M14 32h6M44 32h6M19 19l4 4M41 41l4 4M45 19l-4 4M23 41l-4 4" strokeWidth="4" strokeLinecap="round" /></g>,
+  target: <g><circle cx="32" cy="32" r="15" fill="none" strokeWidth="4" /><circle cx="32" cy="32" r="7" fill="none" strokeWidth="4" /><circle cx="32" cy="32" r="1.5" /></g>,
 };
 
 export interface Icon3DProps {

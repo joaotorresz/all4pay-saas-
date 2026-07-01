@@ -6,6 +6,7 @@ import { AssistantWidget } from "@/components/app/AssistantWidget";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
+import { TitleIcon3D } from "@/components/app/TitleIcon3D";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -32,8 +33,9 @@ export function AppShell({
 }) {
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <MobileNavButton />
+        <TitleIcon3D />
         <div className="min-w-0">
           <h1 className="m-0 text-[26px] sm:text-[30px] lg:text-[35px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink truncate">
             {title}
