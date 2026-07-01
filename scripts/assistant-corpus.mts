@@ -98,6 +98,11 @@ const CORPUS: [string, RegExp][] = [
   ["onde vai meu dinheiro?", /gast|despes|categoria|Fornecedor|Impostos/i], ["quais categorias eu mais gasto?", /gast|categoria|Fornecedor|Impostos/i],
   ["preciso cortar gastos?", /economiz|cortar|controlados/i], ["quanto tenho pra investir?", /folga|cabe|gastar/i],
   ["quanto de imposto eu pago?", /Impostos/i],
+  // 6ª rodada: números do mês / grana / onde gasto / lucrativo / paga mais / dívida
+  ["me dá os números do mês", /m[êe]s|resultado|entr|receb/i], ["como tá a grana?", /saldo/i],
+  ["to gastando muito com o quê?", /gast|Fornecedor|Impostos|Folha/i], ["qual despesa mais pesa?", /gast|maior|Fornecedor|Impostos|Folha/i],
+  ["meu negócio é lucrativo?", /sobrou|resultado|azul|vermelho|lucro|margem/i], ["quem me paga mais?", /maior cliente|quem mais/i],
+  ["tenho muita dívida?", /a pagar|d[íi]vida/i], ["qual meu custo fixo?", /gast|maior|Fornecedor|Folha|Impostos/i],
 ];
 
 let pass = 0;
