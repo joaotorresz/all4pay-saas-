@@ -52,6 +52,7 @@ const CURADAS = [
   "Qual minha margem esse mês?",
   "Estou crescendo?",
   "Qual meu ponto de equilíbrio?",
+  "Meus clientes pagam em dia?",
   "O que é margem de contribuição?",
 ];
 

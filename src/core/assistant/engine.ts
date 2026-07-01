@@ -21,6 +21,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const dia = (ds: string) => ds.slice(0, 10).split("-").reverse().join("/");
+/** Dias corridos de a → b (positivo = b depois de a). */
+const diasEntre = (a: string, b: string) => Math.round((new Date(b.slice(0, 10) + "T00:00:00").getTime() - new Date(a.slice(0, 10) + "T00:00:00").getTime()) / 86400000);
 
 interface Janela { label: string; from: string; to: string }
 
@@ -92,6 +94,37 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       `Você tem ${fmt(geral)} vencidos em ${vencidos.length} título(s): ${fmt(totRec)} a receber (${rec.length}) e ${fmt(totPag)} a pagar (${pag.length}).`,
       [{ label: "A receber vencido", valor: fmt(totRec) }, { label: "A pagar vencido", valor: fmt(totPag) }, { label: "Total em atraso", valor: fmt(geral) }],
       ["recebíveis vencidos", "contas a pagar vencidas"]);
+  }
+
+  // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———
+  // ANTES de A RECEBER: "para receber" contém a substring "a receber".
+  if (/quanto tempo (demoro|levo|leva|demora)( para| pra)? receber|prazo m[ée]dio de recebiment|atraso m[ée]dio (dos |de )?clientes?|(meus )?clientes? (pagam?|est[ãa]o pagando|andam pagando)( em dia| no prazo| atrasad| com atraso| adiantad)|clientes? pagam em dia|recebo (em dia|no prazo|com atraso)/.test(p)) {
+    const pagos = movs.filter((m) => m.type === "entrada" && m.status === "pago" && m.paid_date && m.due_date);
+    if (!pagos.length) return R("Ainda não há recebimentos liquidados para medir a pontualidade dos clientes.", [], ["recebimentos liquidados"]);
+    const atrasos = pagos.map((m) => diasEntre(m.due_date, m.paid_date as string));
+    const media = atrasos.reduce((s, d) => s + d, 0) / atrasos.length;
+    const noPrazo = atrasos.filter((d) => d <= 0).length;
+    const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
+    const arred = Math.round(media);
+    const frase = arred <= 0
+      ? `Seus clientes pagam em dia — em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento. ${pctPrazo}% dos títulos foram pagos no prazo.`
+      : `Seus clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — vale apertar a cobrança.`;
+    return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento dos clientes"], 0.88);
+  }
+
+  // ——— PONTUALIDADE DE PAGAMENTO (atraso médio com que EU pago / DPO) ———
+  if (/pago (minhas |as )?(contas?|fornecedores?|boletos?)( em dia| no prazo| atrasad| com atraso| adiantad)|(estou |ando )?pagando (em dia|no prazo|atrasad|com atraso)|prazo m[ée]dio de pagament|atraso m[ée]dio (que eu pago|de pagament|dos meus pagament)|pago (tudo )?em dia|estou pagando em dia/.test(p)) {
+    const pagos = movs.filter((m) => m.type === "saida" && m.status === "pago" && m.paid_date && m.due_date);
+    if (!pagos.length) return R("Ainda não há pagamentos liquidados para medir sua pontualidade.", [], ["pagamentos liquidados"]);
+    const atrasos = pagos.map((m) => diasEntre(m.due_date, m.paid_date as string));
+    const media = atrasos.reduce((s, d) => s + d, 0) / atrasos.length;
+    const noPrazo = atrasos.filter((d) => d <= 0).length;
+    const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
+    const arred = Math.round(media);
+    const frase = arred <= 0
+      ? `Você paga em dia — em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento (${pctPrazo}% no prazo). Boa disciplina, mas pagar exatamente no vencimento preserva mais caixa.`
+      : `Você paga com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasar demais gera multa/juros e arranha o relacionamento com fornecedores.`;
+    return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento a fornecedores"], 0.88);
   }
 
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
