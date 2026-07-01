@@ -259,14 +259,17 @@ export function UltimosGastosCard() {
       ) : (
         gastos.map((m) => {
           const nome = (m.party_id && data.partyNames?.[m.party_id]) || String(m.category ?? "Despesa");
+          const pid = m.party_id;
+          const abrir = () => pid && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: pid } }));
           return (
-            <div key={m.id} className="flex items-center justify-between gap-3 py-2 border-t border-border-soft first:border-t-0">
+            <button key={m.id} type="button" onClick={abrir} disabled={!pid}
+              className={`flex items-center justify-between gap-3 py-2 border-t border-border-soft first:border-t-0 text-left w-full ${pid ? "hover:opacity-80 transition-opacity cursor-pointer" : "cursor-default"}`}>
               <div className="min-w-0">
-                <div className="text-[17px] text-ink truncate">{nome}</div>
+                <div className="text-[17px] text-ink truncate inline-flex items-center gap-1">{nome}{pid && <Icon name="arrow-up-right" size={11} color="var(--color-faint)" />}</div>
                 <div className="text-caption text-faint tabular-nums">{fmtDia(realizado(m))}</div>
               </div>
               <span className="text-[17px] text-ink tabular-nums"><BRL value={m.amount} /></span>
-            </div>
+            </button>
           );
         })
       )}
