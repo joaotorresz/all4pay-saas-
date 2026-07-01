@@ -142,6 +142,9 @@ const CORPUS: [string, RegExp][] = [
   ["quem são meus maiores fornecedores?", /fornecedor/i],
   ["qual fornecedor custa mais?", /fornecedor/i],
   ["quem me paga mais?", /maior cliente|cliente/i],
+  // 14ª rodada (cont.): "saúde da empresa" caía no fallback (exigia "saúde financeira")
+  ["qual a saúde da empresa?", /sa[úu]de financeira|score/i],
+  ["como está a saúde do meu negócio?", /sa[úu]de financeira|score/i],
 ];
 
 let pass = 0;
