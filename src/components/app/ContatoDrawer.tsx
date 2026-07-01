@@ -50,13 +50,16 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     const vencido = movs.filter((m) => m.status === "pendente" && m.due_date.slice(0, 10) < inp.hoje).reduce((s, m) => s + Math.abs(m.amount), 0);
     const ultimos = [...movs].sort((a, b) => (b.paid_date || b.due_date).localeCompare(a.paid_date || a.due_date)).slice(0, 8);
     const perfil = inad?.clientes?.find((c) => c.clienteId === id) ?? null;
+    // participação na receita total (concentração)
+    const totalGeral = inp.movements.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const share = totalGeral > 0 ? recebido / totalGeral : 0;
     // histórico dos últimos 6 meses (recebido pago, por mês de caixa)
     const byMonth = new Map<string, number>();
     for (const m of movs) { if (m.type !== "entrada" || m.status !== "pago") continue; const k = (m.paid_date || m.due_date || "").slice(0, 7); if (k) byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }
     const hojeD = new Date(inp.hoje + "T00:00:00");
     const historico: { mes: string; valor: number }[] = [];
     for (let i = 5; i >= 0; i--) { const d = new Date(hojeD.getFullYear(), hojeD.getMonth() - i, 1); historico.push({ mes: MES_ABBR[d.getMonth()], valor: byMonth.get(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`) || 0 }); }
-    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil, historico };
+    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil, historico, share };
   }, [inp, inad, id]);
 
 
@@ -95,6 +98,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                 {resumo.pago > 0 && <Kpi label="Pago a ele" v={formatBRL(resumo.pago)} />}
                 {resumo.aPagar > 0 && <Kpi label="A pagar" v={formatBRL(resumo.aPagar)} />}
                 {resumo.vencido > 0 && <Kpi label="Vencido" v={formatBRL(resumo.vencido)} tone="var(--color-negative)" />}
+                {resumo.share > 0.001 && <Kpi label="Participação na receita" v={`${(resumo.share * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`} tone={resumo.share >= 0.3 ? "var(--color-warning)" : undefined} />}
               </div>
 
               {/* Histórico de recebimento (6 meses) */}
