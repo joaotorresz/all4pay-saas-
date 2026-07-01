@@ -152,7 +152,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— SIMULAR EMPRÉSTIMO / FINANCIAMENTO / PARCELAMENTO ———
   // Antes de afordabilidade/gasto: "empréstimo de X em Nx a T%" é uma simulação.
   if (/empr[ée]stimo|financiament|financiar|parcel(ar|amento)|simul\w*.*(empr|financ|parcel)|quanto (fica|fica a|[ée] a|seria a|vai a) parcela/.test(p)) {
-    const pmMil = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)/i);
+    const pmMil = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)/i);
     const pmRaw = p.match(/r\$\s*(\d[\d.]*(?:,\d+)?)/i);
     let principal = 0;
     if (pmMil) { const base = parseFloat(pmMil[1].replace(/\./g, "").replace(",", ".")); principal = base * (/milh|^mi$/i.test(pmMil[2]) ? 1e6 : 1e3); }
@@ -219,7 +219,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— ANTECIPAÇÃO DE RECEBÍVEIS / DESCONTO DE DUPLICATA ———
   if (/antecipar|antecipa[çc][ãa]o de receb|desconto de (duplicata|receb|t[íi]tulo)|receber (hoje|adiantad|antes).* (que vence|a prazo)|adiantar (o )?receb|vale a pena antecipar/.test(p)) {
-    const valn = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/i);
+    const valn = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/i);
     let valor = 0;
     if (valn) { const base = parseFloat(valn[1].replace(/\./g, "").replace(",", ".")); valor = valn[2] ? base * (/milh|^mi$/i.test(valn[2]) ? 1e6 : 1e3) : base; }
     if (valor > 0) {
@@ -237,7 +237,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— PAYBACK: em quanto tempo um investimento se paga ———
   if (/(em quanto tempo|quando|quanto tempo (pra|para)).*(recuper|se paga|pago o investiment|retorna o investiment)|\bpayback\b|tempo de retorno (do|de um)? ?investiment|em quantos meses (recupero|se paga)/.test(p)) {
-    const nums = Array.from(p.matchAll(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/gi)).map((m) => {
+    const nums = Array.from(p.matchAll(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/gi)).map((m) => {
       const base = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
       return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base;
     }).filter((n) => n > 0);
@@ -255,8 +255,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— POUPANÇA / APLICAÇÃO: valor futuro (guardar X por mês) ———
   if (/(quanto (rende|rendo|vou ter|acumul|fica|teria|junto)|se eu (guardar|poupar|aplicar|investir|juntar)|(guardar|poupar|aplicar|investir|juntar)\s+r?\$?\s*\d.*(por|todo|a cada|no) m[êe]s|rende (guardar|aplicar|poupar)|render.* aplicar)/.test(p) && /\d/.test(p)) {
     const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
-    const valorMes = val(/(?:guardar|poupar|aplicar|investir|juntar|de)\s+r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?\s*(?:por|todo|a cada|no|\/)\s*m[êe]s/);
-    const soValor = val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/);
+    const valorMes = val(/(?:guardar|poupar|aplicar|investir|juntar|de)\s+r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:por|todo|a cada|no|\/)\s*m[êe]s/);
+    const soValor = val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/);
     const aporte = valorMes ?? 0;
     const principal = valorMes == null ? (soValor ?? 0) : 0; // "por mês" = aporte; senão lump-sum
     const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
@@ -276,7 +276,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— PROVISÃO DE 13º / FÉRIAS / ENCARGOS ———
   if (/provision\w*|13[ºo]|d[ée]cimo terceiro|provis[ãa]o (de|do|pra|para) (13|f[ée]rias|folha)|quanto (guardar|separar|provisionar) (pro|para o|de) (13|f[ée]rias)|custo (real|total) da folha|quanto custa (a |minha )?folha (por ano|de verdade)/.test(p)) {
-    const fm = p.match(/(?:folha|sal[áa]rio|folha de pagament)\s*(?:mensal |de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/);
+    const fm = p.match(/(?:folha|sal[áa]rio|folha de pagament)\s*(?:mensal |de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/);
     let folha = 0;
     if (fm) { const base = parseFloat(fm[1].replace(/\./g, "").replace(",", ".")); folha = fm[2] ? base * (/milh|^mi$/i.test(fm[2]) ? 1e6 : 1e3) : base; }
     else { const any = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/); if (any) { const base = parseFloat(any[1].replace(/\./g, "").replace(",", ".")); folha = any[2] ? base * 1e3 : base; } }
@@ -294,11 +294,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— JUROS DE MORA + MULTA sobre título vencido (calculadora) ———
   // Só entra com fraseado inequívoco de encargo (não rouba "quanto tenho vencido").
-  if (/juros de mora|multa (de|por) (mora|atraso)|encargos? (de|por) (mora|atraso|atrasad)|corrigir (um |o )?(t[íi]tulo|boleto|valor|d[íi]vida) vencid|atualizar (um |o )?(valor|t[íi]tulo|boleto|d[íi]vida) vencid|quanto (cobrar|fica|atualiz\w*|corrig\w*) (de |o |um )?(boleto|t[íi]tulo|valor|d[íi]vida)? ?(que )?(est[áa] )?(vencid|atrasad|em atraso)|(boleto|t[íi]tulo|conta|d[íi]vida) (de r?\$?\s*[\d.]+ )?(vencid\w*|atrasad\w*) h[áa] \d/.test(p)) {
+  if (/juros de mora|multa (de|por) (mora|atraso)|encargos? (de|por) (mora|atraso|atrasad)|corrigir (um |o )?(t[íi]tulo|boleto|valor|d[íi]vida) vencid|atualizar (um |o )?(valor|t[íi]tulo|boleto|d[íi]vida) vencid|quanto (cobrar|fica|atualiz\w*|corrig\w*) (de |o |um )?(boleto|t[íi]tulo|valor|d[íi]vida)? ?(que )?(est[áa] )?(vencid|atrasad|em atraso)|(boleto|t[íi]tulo|conta|d[íi]vida) (de r?\$?\s*[\d.,]+ )?(vencid\w*|atrasad\w*) h[áa] \d/.test(p)) {
       const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
       // Principal: "boleto/título/valor/dívida de R$ X" ou o 1º valor monetário.
-      const principal = val(/(?:boleto|t[íi]tulo|valor|d[íi]vida|conta|principal|cobran[çc]a)\s*(?:de |é |: |no valor de )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/)
-        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/);
+      const principal = val(/(?:boleto|t[íi]tulo|valor|d[íi]vida|conta|principal|cobran[çc]a)\s*(?:de |é |: |no valor de )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
+        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/);
       // Dias de atraso: "há 30 dias", "atrasado 30 dias", "2 meses", "1 mês".
       let dias: number | null = null;
       const dm = p.match(/(\d+)\s*(dias?|meses|m[êe]s|semanas?|anos?)/);
@@ -334,10 +334,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       else if (/anexo (v\b|cinco\b|5\b)|intelectu|t[ée]cnic|advocaci|engenhari|consultori/.test(p)) anexo = "V";
       else if (/anexo (iii\b|tr[êe]s\b|3\b)|servi[çc]/.test(p)) anexo = "III";
       // RBT12 = faturamento anual / dos últimos 12 meses.
-      const rbt12 = val(/(?:rbt12|rbt 12|faturament\w*|receita|fatur\w*)\s*(?:bruta )?(?:anual|dos? (?:[úu]ltimos )?12 meses|do ano|por ano|em 12 meses)?\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/)
-        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?\s*(?:por ano|anual|ao ano|\/ano|no ano|em 12 meses)/);
-      const receitaMes = val(/(?:receita|fatur\w*|vend\w*)\s*(?:d[eo] )?m[êe]s\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/)
-        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?\s*(?:por m[êe]s|no m[êe]s|\/m[êe]s|mensa\w*)/);
+      const rbt12 = val(/(?:rbt12|rbt 12|faturament\w*|receita|fatur\w*)\s*(?:bruta )?(?:anual|dos? (?:[úu]ltimos )?12 meses|do ano|por ano|em 12 meses)?\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
+        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:por ano|anual|ao ano|\/ano|no ano|em 12 meses)/);
+      const receitaMes = val(/(?:receita|fatur\w*|vend\w*)\s*(?:d[eo] )?m[êe]s\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
+        ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:por m[êe]s|no m[êe]s|\/m[êe]s|mensa\w*)/);
       if (rbt12 != null && rbt12 > 0) {
         const mes = receitaMes != null && receitaMes > 0 ? receitaMes : rbt12 / 12;
         const r = calcularSimplesNacional(rbt12, mes, anexo);
@@ -357,8 +357,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— PONTO DE EQUILÍBRIO EM UNIDADES ———
   if (/quant[ao]s? (unidades?|pe[çc]as?|produtos?|itens|vendas?) .*(empatar|equil[íi]brio|cobrir|pagar (o|os) (custo|fixo)|preciso vender)|ponto de equil[íi]brio em unidade|quant[ao]s? .* pra (empatar|não ter preju)/.test(p)) {
     const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
-    const custoFixo = val(/(?:custo fixo|custos fixos|despesa fixa|\bfixo\b)\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?/)
-      ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh[õo]es?|mil|k|\bmi\b)?\s*(?:de |em |em de )?(?:custos? fix|despesa fix)/);
+    const custoFixo = val(/(?:custo fixo|custos fixos|despesa fixa|\bfixo\b)\s*(?:de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
+      ?? val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:de |em |em de )?(?:custos? fix|despesa fix)/);
     const margemUnit = val(/margem\s*(?:de |por unidade |unit[áa]ria )?(?:de |é )?r?\$?\s*(\d[\d.]*(?:,\d+)?)/);
     const preco = val(/(?:vend\w* (?:a|por)|pre[çc]o (?:de )?)\s*r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/);
     const custoVar = val(/cust[ao] (?:vari[áa]vel |unit[áa]ri[ao] |por unidade )(?:de |é )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/);
@@ -847,7 +847,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— AFORDABILIDADE: posso gastar X? ———
   if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo|aguento|suporto).*(gastar|comprar|investir|investiment|pagar|gasto|contratar|tirar|retirar|sacar|distribuir|despesa)|(posso|consigo|d[áa] (pra|para)) contratar|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
-    const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(milh[õo]es?|mil|k|mi)?/);
+    const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(milh\w*|mil|k|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;
     const burn = ctx?.burnRate && ctx.burnRate > 0 ? ctx.burnRate : input.saldoAtual * 0.15;

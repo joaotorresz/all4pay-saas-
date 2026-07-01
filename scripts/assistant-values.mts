@@ -113,6 +113,10 @@ const CASES: [string, RegExp, string][] = [
   ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", /fica em R\$.?1\.030/, "1000 + 2% + 1%·30/30 = 1030"],
   // mora: 5000 atrasado 2 meses (60d) → multa 100 + juros 100 = 5200
   ["juros de mora de 5000 atrasado 2 meses", /fica em R\$.?5\.200/, "5000 + 100 + 100 = 5200"],
+  // multiplicador "milhão" (singular, com ã) = 1e6 → 1,2 milhão = 1.200.000 (não 1.200)
+  ["quanto pago de Simples no Anexo III faturando 1,2 milhão por ano?", /R\$.?1\.200\.000/, "1,2 milhão = 1.200.000"],
+  // valor com centavos "R$ 3.200,00" no título vencido é lido (não quebra o gatilho da mora)
+  ["quanto cobrar de um título de R$ 3.200,00 vencido há 15 dias?", /fica em R\$.?3\.280/, "3200 + 64 multa + 16 juros(1%×15/30) = 3280"],
 ];
 
 let pass = 0;
