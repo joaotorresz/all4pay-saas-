@@ -270,6 +270,9 @@ const CORPUS: [string, RegExp][] = [
   ["quanto é 200 mais 10%?", /acréscimo fica R\$ 220|220/i],
   // ponto de equilíbrio em unidades
   ["quantas unidades preciso vender pra empatar com custo fixo de 10 mil e margem de 50 por unidade?", /empata vendendo|unidade/i],
+  // provisão trabalhista (13º / férias)
+  ["quanto provisionar de 13º de uma folha de 12 mil?", /provisione|13º|FGTS/i],
+  ["qual o custo real da folha de 12 mil por ano?", /provisão|custo real anual|13º/i],
 ];
 
 let pass = 0;

@@ -18,6 +18,7 @@ import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types"
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
+import { provisaoTrabalhista } from "@/core/payroll";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -266,6 +267,24 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
           ? `${comoStr[0].toUpperCase() + comoStr.slice(1)} por ${meses} meses junta ${fmt(r.montante)} (sem rendimento). Me diga a taxa mensal (ex.: "a 1% ao mês") para ver com juros.`
           : `${comoStr[0].toUpperCase() + comoStr.slice(1)} a ${Math.round(taxa * 10000) / 100}% ao mês por ${meses} meses vira ${fmt(r.montante)}: ${fmt(r.totalAportado)} aportados + ${fmt(r.jurosGanhos)} de juros.`,
         [{ label: "Montante", valor: fmt(r.montante) }, { label: "Aportado", valor: fmt(r.totalAportado) }, { label: "Juros", valor: fmt(r.jurosGanhos) }], ["valor futuro"]);
+    }
+  }
+
+  // ——— PROVISÃO DE 13º / FÉRIAS / ENCARGOS ———
+  if (/provision\w*|13[ºo]|d[ée]cimo terceiro|provis[ãa]o (de|do|pra|para) (13|f[ée]rias|folha)|quanto (guardar|separar|provisionar) (pro|para o|de) (13|f[ée]rias)|custo (real|total) da folha|quanto custa (a |minha )?folha (por ano|de verdade)/.test(p)) {
+    const fm = p.match(/(?:folha|sal[áa]rio|folha de pagament)\s*(?:mensal |de |é |: )?r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?/);
+    let folha = 0;
+    if (fm) { const base = parseFloat(fm[1].replace(/\./g, "").replace(",", ".")); folha = fm[2] ? base * (/milh|^mi$/i.test(fm[2]) ? 1e6 : 1e3) : base; }
+    else { const any = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k)?/); if (any) { const base = parseFloat(any[1].replace(/\./g, "").replace(",", ".")); folha = any[2] ? base * 1e3 : base; } }
+    if (folha > 0) {
+      const r = provisaoTrabalhista(folha);
+      const so13 = /13|d[ée]cimo/.test(p) && !/f[ée]rias|custo (real|total)|folha (por ano|de verdade)/.test(p);
+      if (so13) {
+        return R(`Para o 13º de uma folha de ${fmt(folha)}, provisione ${fmt(r.decimoTerceiroMes)} por mês (+ ${fmt(r.decimoTerceiroMes * 0.08)} de FGTS) — assim dezembro não vira aperto.`,
+          [{ label: "Provisão 13º/mês", valor: fmt(r.decimoTerceiroMes) }, { label: "FGTS s/ 13º", valor: fmt(r.decimoTerceiroMes * 0.08) }], ["provisão trabalhista"]);
+      }
+      return R(`Uma folha de ${fmt(folha)}/mês pede ${fmt(r.provisaoTotalMes)}/mês de provisão (${fmt(r.decimoTerceiroMes)} de 13º + ${fmt(r.feriasMes)} de férias+1/3 + ${fmt(r.fgtsMes)} de FGTS). O custo real anual da folha é ${fmt(r.custoAnualFolha)} — bem mais que 12×${fmt(folha)}.`,
+        [{ label: "Provisão/mês", valor: fmt(r.provisaoTotalMes) }, { label: "Custo anual real", valor: fmt(r.custoAnualFolha) }, { label: "13º/mês", valor: fmt(r.decimoTerceiroMes) }], ["provisão trabalhista"]);
     }
   }
 

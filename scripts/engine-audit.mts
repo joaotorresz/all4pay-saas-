@@ -28,6 +28,7 @@ import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
+import { provisaoTrabalhista } from "@/core/payroll";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -385,6 +386,10 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("investment: payback 20000 / 2000 = 10 meses", p.meses === 10 && p.paga === true);
   const q = payback(20000, 0);
   ok("investment: payback sem retorno → Infinity, não paga", q.meses === Infinity && q.paga === false);
+  // provisão trabalhista: folha 12000 → 13º 1000, férias 1333.33, FGTS 186.67, total 2520
+  const pr = provisaoTrabalhista(12000);
+  ok("payroll: folha 12000 → 13º 1000, férias 1333.33, total 2520", pr.decimoTerceiroMes === 1000 && pr.feriasMes === 1333.33 && pr.provisaoTotalMes === 2520, `${pr.decimoTerceiroMes}/${pr.feriasMes}/${pr.provisaoTotalMes}`);
+  ok("payroll: custo anual real = 185760 (> 12×folha)", pr.custoAnualFolha === 185760 && pr.custoAnualFolha > 12 * 12000);
 }
 
 // ── core/pricing: margem ≠ markup (a confusão clássica) ─────────────────────
