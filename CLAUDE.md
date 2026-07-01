@@ -283,11 +283,26 @@ A partir do relatório de engenharia reversa do **IULI** (ERP financeiro para
 negócios digitais), a navegação (`Sidebar`) foi reorganizada nos **9 módulos do
 IULI**: Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações · Vendas e
 NFs · Compras · Contabilidade (+ extras all4pay em Pro: Inteligência · Equipe ·
-Plataforma). Nenhuma rota mudou — só o agrupamento. Pilares conceituais do IULI a
+Plataforma). Pilares conceituais do IULI a
 replicar: Plano de Contas com "Uso Padrão" (auto-classificação), **3 datas**
 (competência→DRE · vencimento→aging · caixa→DFC), venda como documento-mãe que
 propaga para recebível/NF/imposto, rateio por projeto/centro de custo, DRE/DFC em
 cascata com drill-down, conciliação IULI×OFX.
+
+- **Menu sem duplicação (um destino por página):** para eliminar "aba no menu +
+  aba interna", os motores viraram **abas de um hub** em vez de N entradas de
+  menu: **Inteligência** = uma entrada **All4Pay IA** → `/copiloto`
+  (`InteligenciaShell`: Copiloto/Quant/Decisão/Risco/Autônomo/Dados em abas);
+  **Plataforma** = **Automações** + **Arquitetura & infraestrutura** → `/plataforma`
+  (`PlataformaShell`: Arquitetura/Infraestrutura/Orquestração em abas). As rotas
+  antigas (`/decisao`, `/risco`, `/autonomo`, `/inteligencia`, `/dados`,
+  `/orquestracao`, `/infraestrutura`, `/arquitetura`) **redirecionam** para o hub
+  com `?aba=…` (deep-links preservados); `/recebiveis`→`/recebimentos?aba=titulos`,
+  `/pagaveis`→`/pagamentos?aba=titulos`, `/conciliacao`/`/contas`→`/upload?aba=…`.
+  O **módulo POS/maquininha** (`/pos/venda` simulador de venda na adquirência →
+  recebível líquido + tarifa como custo no DRE; `/pos/taxas` config de MDR/
+  antecipação por MCC×bandeira) estava órfão do menu e foi exposto em Vendas e NFs
+  / Cadastros. Command palette e `guides.ts` acompanham os destinos consolidados.
 
 - **Plano de Contas** (`/plano-de-contas`, `components/cadastros/PlanoDeContasView.tsx`):
   a espinha dorsal — hierarquia Grupo → Categoria codificada por cor (verde =
