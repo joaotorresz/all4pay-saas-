@@ -645,6 +645,25 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["resumo do mês"]);
   }
 
+  // ——— DATA PROVÁVEL DE RUPTURA (quando fico sem dinheiro) ———
+  if (/quando (vou |eu )?(fico|ficar[ei]?|vou ficar|fica) (sem (dinheiro|caixa|grana|saldo)|no vermelho|negativ)|quando (acaba|zera|termina|some) (o |meu )?(caixa|dinheiro|saldo)|data (de|da) ruptura|quando (quebro|vou quebrar|estouro)|at[ée] quando (o |meu )?(dinheiro|saldo) (dura|aguenta)/.test(p)) {
+    const meses = new Map<string, number>();
+    for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
+    const nets = Array.from(meses.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
+    const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
+    if (input.saldoAtual <= 0) return R(`Seu saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora. Priorize entradas e segure saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }], ["saldo", "fluxo mensal"]);
+    if (netMedio >= 0) return R(`Sem previsão de ruptura: nos últimos meses seu caixa cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o saldo de ${fmt(input.saldoAtual)} não se esgota.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.85);
+    const burn = -netMedio;
+    const mesesRest = input.saldoAtual / burn;
+    if (mesesRest > 36) return R(`Sem aperto à vista: no ritmo atual (queima de ${fmt(burn)}/mês), seu saldo de ${fmt(input.saldoAtual)} dura mais de 3 anos.`, [{ label: "Queima/mês", valor: fmt(burn) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.85);
+    const futuro = new Date(hoje + "T00:00:00"); futuro.setDate(futuro.getDate() + Math.round(mesesRest * 30));
+    const dataStr = dia(`${futuro.getFullYear()}-${pad(futuro.getMonth() + 1)}-${pad(futuro.getDate())}`);
+    return R(
+      `No ritmo atual você queima ${fmt(burn)}/mês. Seu saldo de ${fmt(input.saldoAtual)} deve acabar por volta de ${dataStr} (~${mesesRest < 1 ? "menos de 1 mês" : `${Math.round(mesesRest)} ${Math.round(mesesRest) === 1 ? "mês" : "meses"}`}), se nada mudar. Vale agir na cobrança e nas despesas.`,
+      [{ label: "Queima/mês", valor: fmt(burn) }, { label: "Ruptura", valor: dataStr }, { label: "Saldo", valor: fmt(input.saldoAtual) }],
+      ["fluxo mensal", "saldo", "projeção de caixa"], 0.85);
+  }
+
   // ——— SALDO / quanto tenho ———
   if (/\bsaldo\b|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
     const runway = ctx?.runwayMeses;
