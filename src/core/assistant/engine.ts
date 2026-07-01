@@ -36,6 +36,15 @@ function janela(p: string, hojeISO: string): Janela {
   if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
   if (/m[êe]s passad|m[êe]s anterior|[úu]ltimo m[êe]s/.test(p)) { const f = new Date(y, m - 1, 1); const t = new Date(y, m, 0); return { label: `em ${MES[f.getMonth()]}`, from: iso(f), to: iso(t) }; }
   if (/\bano\b|anual|no ano|do ano|12 meses/.test(p)) return { label: `em ${y}`, from: `${y}-01-01`, to: `${y}-12-31` };
+  // mês NOMEADO ("em março", "de janeiro") — limite de palavra p/ maio≠maior.
+  if (!/m[êe]s passad|m[êe]s anterior/.test(p)) {
+    const mi = MES.findIndex((nm) => new RegExp(`(^|[^a-zà-ú])${nm}([^a-zà-ú]|$)`, "i").test(p));
+    if (mi >= 0) {
+      const yy = mi > m ? y - 1 : y; // mês no futuro → ano passado
+      const f = new Date(yy, mi, 1), t = new Date(yy, mi + 1, 0);
+      return { label: `em ${MES[mi]}${yy !== y ? `/${yy}` : ""}`, from: iso(f), to: iso(t) };
+    }
+  }
   const f = new Date(y, m, 1); const t = new Date(y, m + 1, 0); return { label: `em ${MES[m]}`, from: iso(f), to: iso(t) };
 }
 
