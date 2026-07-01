@@ -90,8 +90,17 @@ check("treasury/0contas", treasuryCore([], inVazio));
 // fluxo de caixa (30/90/365d + vazio)
 for (const dias of [30, 90, 365]) check(`fluxo/${dias}d`, montarFluxoCaixa(inNormal, ACCOUNTS, { dias }));
 check("fluxo/vazio", montarFluxoCaixa(inVazio, [], { dias: 30 }));
-// DRE (4 presets + vazio)
-for (const preset of ["mes", "mes_anterior", "ytd", "12m"] as const) check(`dre/${preset}`, financialDRE(inNormal, periodoPreset(HOJE, preset)));
+// DRE (4 presets + vazio) — + invariante do waterfall: cada dedução ≥ 0, então
+// receitaBruta ≥ receitaLiquida ≥ lucroBruto ≥ EBITDA (guarda contra erro de
+// sinal/classificação que jogue uma despesa negativa numa linha).
+for (const preset of ["mes", "mes_anterior", "ytd", "12m"] as const) {
+  const dre = financialDRE(inNormal, periodoPreset(HOJE, preset));
+  const g = dre.gerencial;
+  check(`dre/${preset}`, dre, () =>
+    g.receitaBruta >= g.receitaLiquida - 0.01 && g.receitaLiquida >= g.lucroBruto - 0.01 && g.lucroBruto >= g.ebitda - 0.01
+      ? null
+      : `waterfall não-monotônico: bruta=${g.receitaBruta} liq=${g.receitaLiquida} lucroBruto=${g.lucroBruto} ebitda=${g.ebitda}`);
+}
 check("dre/vazio", financialDRE(inVazio, periodoPreset(HOJE, "mes")));
 
 console.log(`\n${falhas === 0 ? "✓ TODOS os motores OK (sem NaN/Infinity)" : `✗ ${falhas} FALHA(S)`}`);
