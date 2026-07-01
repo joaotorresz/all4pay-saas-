@@ -315,7 +315,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— DE ONDE VEM A RECEITA (top categorias de entradas pagas) ———
-  if (/(de onde|da onde).*(vem|v[êe]m|veio|vier).*(receita|dinheiro|faturamento|grana|entra)|origem (da|das) receita|receita por categoria|categorias? de (receita|entrada|faturamento)|de onde (vem|veio) (o|a) (dinheiro|receita)/.test(p)) {
+  if (/(de onde|da onde).*(vem|v[êe]m|veio|vier).*(receita|dinheiro|faturamento|grana|entra)|origem (da|das) receita|receita por categoria|categorias? de (receita|entrada|faturamento)|de onde (vem|veio) (o|a) (dinheiro|receita)|(maior|principal) fonte de (receita|renda|faturamento)|fonte de (receita|renda)/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(ent, 5);
@@ -493,7 +493,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— AFORDABILIDADE: posso gastar X? ———
-  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
+  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo).*(gastar|comprar|investir|pagar|gasto|contratar)|(posso|consigo|d[áa] (pra|para)) contratar|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)|(quanto )?tenho (pra|para) (investir|gastar|comprar)|reserva suficiente|tenho reserva|minha reserva (t[áa]|est[áa]|d[áa])|(t[áa]|est[áa]) reservad|quanto (t[áa]|est[áa]) reservad|quanto (guardei|reservei)/.test(p)) {
     const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(mil|k|milh[õo]es?|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;
@@ -588,7 +588,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESULTADO / sobrou / lucro ———
-  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
+  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|lucrei|lucrou|lucrativ|t[ôo] no (azul|vermelho)|no lucro ou no preju|perdendo dinheiro|t[ôo] perdendo|ganhando (dinheiro|grana)|(t[ôo]|to|estou) ganhando|conseguindo poupar|consigo poupar|(t[ôo]|to|estou) poupando|(meu )?fluxo (t[áa]|est[áa]) (positiv|negativ)|(t[ôo]|to|estou) no positivo|no positivo esse m[êe]s|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);

@@ -125,6 +125,9 @@ const CORPUS: [string, RegExp][] = [
   ["tô ganhando dinheiro?", /sobrou|resultado|lucro|margem|azul/i], ["me diz meus gastos", /gast|despes/i],
   ["quanto custa manter a empresa?", /gast|despes|custo/i], ["qual meu pior cliente?", /vencid|devedor|em dia|risco/i],
   ["quanto tá reservado?", /saldo|reserva|folga/i],
+  // 13ª rodada: maior fonte de receita / poupar / contratar
+  ["qual minha maior fonte de receita?", /receita|Vendas|Servicos|origem|vem/i], ["to conseguindo poupar?", /sobrou|resultado|folga|saldo/i],
+  ["me diz se posso contratar alguém", /cabe|folga|gastar|saldo|runway/i],
 ];
 
 let pass = 0;
