@@ -423,9 +423,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["resumo do dia"]);
   }
 
-  // ——— RESUMO DO MÊS ———
-  if (/resumo (do|de|deste|desse) m[êe]s|como (foi|est[áa]|vai) (o|meu|este|esse) m[êe]s|fechamento do m[êe]s|panorama do m[êe]s/.test(p)) {
-    const w = janela("mês", hoje);
+  // ——— RESUMO DO PERÍODO (mês/trimestre/semestre/ano) ———
+  if (/resumo (do|de|deste|desse|do) (m[êe]s|per[íi]odo|ano|trimestre|semestre)|como (foi|est[áa]|vai) (o|meu|este|esse) (m[êe]s|ano|trimestre|semestre)|fechamento do (m[êe]s|ano|trimestre)|panorama (do|de) (m[êe]s|ano|per[íi]odo|trimestre|semestre)/.test(p)) {
+    const w = janela(p, hoje);
     const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const res = entrou - saiu;
