@@ -516,7 +516,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
-  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|receita (subiu|caiu|cresceu)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)/.test(p)) {
+  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|(receita|faturament\w*|vendas?) (subiu|caiu|cresceu|aument\w*|diminuiu|melhorou|piorou|subindo|caindo)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)/.test(p)) {
     const atual = janela("mês", hoje), ant = janela("mês passado", hoje);
     const soma = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const a = soma(atual), b = soma(ant);

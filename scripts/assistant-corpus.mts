@@ -223,6 +223,9 @@ const CORPUS: [string, RegExp][] = [
   ["qual meu faturamento?", /recebeu|receita/i],
   // por contraparte com período (escopa a janela)
   ["quanto recebi da Beta em maio?", /Com Beta em maio/i],
+  // faturamento com moldura de TENDÊNCIA → crescimento (não o valor pelado)
+  ["meu faturamento subiu ou caiu?", /crescendo|caindo|est[áa]vel|receita est/i],
+  ["meu faturamento aumentou?", /crescendo|caindo|est[áa]vel|receita est/i],
 ];
 
 let pass = 0;
