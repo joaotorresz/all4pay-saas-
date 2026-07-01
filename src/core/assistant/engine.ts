@@ -61,6 +61,22 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   const movs = ativos(input.movements);
   const nomes = input.partyNames;
 
+  // ——— TOTAL EM ATRASO (ambos os lados) — só em frasear "total vencido/atraso" ———
+  // Fica ANTES de a-receber/a-pagar/inadimplência para não roubar "quem deve".
+  if (/total\s+(vencid|em atraso|atrasad|de vencid)|em atraso no total|atrasad[oa]s? no total|quanto (est[áa]|t[êe]m|tem).*atrasad.*total|total.*(vencid|em atraso)/.test(p)) {
+    const vencidos = movs.filter((m) => m.status === "pendente" && m.due_date.slice(0, 10) < hoje);
+    const rec = vencidos.filter((m) => m.type === "entrada");
+    const pag = vencidos.filter((m) => m.type === "saida");
+    const totRec = rec.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const totPag = pag.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const geral = totRec + totPag;
+    if (vencidos.length === 0) return R("Nada está vencido no momento — não há títulos em atraso a receber nem a pagar.", [{ label: "Total em atraso", valor: fmt(0) }], ["títulos vencidos"]);
+    return R(
+      `Você tem ${fmt(geral)} vencidos em ${vencidos.length} título(s): ${fmt(totRec)} a receber (${rec.length}) e ${fmt(totPag)} a pagar (${pag.length}).`,
+      [{ label: "A receber vencido", valor: fmt(totRec) }, { label: "A pagar vencido", valor: fmt(totPag) }, { label: "Total em atraso", valor: fmt(geral) }],
+      ["recebíveis vencidos", "contas a pagar vencidas"]);
+  }
+
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
   if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem|v[ãa]o me pagar/.test(p)) {
     const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
@@ -167,6 +183,32 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(
       `Seu maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
       [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]);
+  }
+
+  // ——— MAIOR RECEBIMENTO INDIVIDUAL (singular) ———
+  if (/maior (recebimento|entrada|venda|receita|dep[óo]sito)\b|recebimento mais (alto|caro)|maior (valor )?recebido|minha maior (venda|entrada)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    if (!ent.length) return R(`Nenhum recebimento pago ${w.label}.`, [], ["receita realizada"]);
+    const maior = ent.reduce((a, b) => (Math.abs(b.amount) > Math.abs(a.amount) ? b : a));
+    const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Recebimento";
+    return R(
+      `Seu maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+      [{ label: "Maior recebimento", valor: fmt(Math.abs(maior.amount)) }], ["receita realizada"]);
+  }
+
+  // ——— DE ONDE VEM A RECEITA (top categorias de entradas pagas) ———
+  if (/(de onde|da onde).*(vem|v[êe]m|veio|vier).*(receita|dinheiro|faturamento|grana|entra)|origem (da|das) receita|receita por categoria|categorias? de (receita|entrada|faturamento)|de onde (vem|veio) (o|a) (dinheiro|receita)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const top = topCategorias(ent, 5);
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.`, [], ["receita por categoria"]);
+    const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${tot > 0 ? Math.round((c.valor / tot) * 100) : 0}%)`).join(", ");
+    return R(
+      `Sua receita ${w.label} (${fmt(tot)} no total) vem principalmente de: ${lista}.`,
+      top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+      ["receita por categoria"]);
   }
 
   // ——— POR CENTRO DE CUSTO / PROJETO ———
