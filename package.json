@@ -15,7 +15,8 @@
     "edge": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-edge.mts",
     "kb": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-kb-coverage.mts",
     "tz": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tz-boundary.mts",
-    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb && npm run tz"
+    "audit": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-audit.mts",
+    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb && npm run tz && npm run audit"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

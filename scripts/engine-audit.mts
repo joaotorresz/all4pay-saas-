@@ -1,0 +1,92 @@
+/**
+ * engine-audit — guarda de regressão dos bugs de correção achados na auditoria
+ * multi-motor (plataforma, reconciliação, event-store, fdip, risco/decisão).
+ * Cada asserção ancora um bug real já corrigido; se algum voltar, isto falha.
+ *
+ *   npm run audit   (também roda dentro de npm test)
+ */
+import { LedgerCore } from "@/core/platform/ledger-core";
+import { FinancialQueue } from "@/core/platform/queue";
+import { reconciliarAutomaticamente } from "@/core/financial-os/reconciliation.engine";
+import type { FinancialTransaction } from "@/core/financial-os/types";
+import { EventStore } from "@/core/orchestration/event-store";
+import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
+import { parseTexto } from "@/core/fdip/engine";
+
+let fails = 0;
+const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`✗ FAIL ${n} ${x}`); } };
+
+// ── platform/ledger-core: guarda de duplo estorno ──────────────────────────
+{
+  const lc = new LedgerCore();
+  const tx = lc.postar("r1", "venda", [
+    { accountCode: "1.1", direction: "debit", amount: 1000 },
+    { accountCode: "3.1", direction: "credit", amount: 1000 },
+  ]);
+  const est = lc.reverter(tx.id);
+  let t1 = false; try { lc.reverter(tx.id); } catch { t1 = true; }
+  ok("ledger: reverter 2x a mesma tx lança", t1);
+  let t2 = false; try { lc.reverter(est.id); } catch { t2 = true; }
+  ok("ledger: estornar um estorno lança", t2);
+  ok("ledger: saldo derivado zera após 1 estorno", Math.abs(lc.saldo("1.1")) < 1e-6);
+}
+
+// ── platform/queue: self-heal (esgota → replay zera tentativas → conclui) ───
+{
+  const q = new FinancialQueue();
+  const job = q.enfileirar("k1", "pix", 500, undefined, 4);
+  let last = job;
+  while (last.status !== "concluido" && last.status !== "falha") last = q.processar(job.id, () => { throw new Error("PSP down"); });
+  ok("queue: esgota tentativas → falha", last.status === "falha" && last.tentativas === 4);
+  q.replay(job.id);
+  const re = q.jobs().find((j) => j.id === job.id)!;
+  ok("queue: replay zera tentativas e reabre", re.status === "pendente" && re.tentativas === 0);
+  let last2 = re;
+  while (last2.status !== "concluido" && last2.status !== "falha") last2 = q.processar(job.id, () => {});
+  ok("queue: após replay, handler OK → concluido", last2.status === "concluido");
+}
+
+// ── reconciliation: simData NaN + greedy runner-up ─────────────────────────
+{
+  const tx = (o: Partial<FinancialTransaction>): FinancialTransaction =>
+    ({ id: Math.random().toString(36).slice(2), tipo: "entrada", valor: 1000, data: "2026-06-15", descricao: "x", contraparte: "ACME LTDA", documento: "NF123", categoria: "vendas", ...o }) as FinancialTransaction;
+  const r1 = reconciliarAutomaticamente([tx({ data: "" })], [tx({ id: "L1" })]);
+  const only1 = [...r1.auto, ...r1.sugestoes, ...r1.excecoes][0];
+  ok("recon: data vazia não vira NaN no confidence", Number.isFinite(only1.confidence));
+  const txA = tx({ id: "A", documento: "D1", contraparte: "ALFA", data: "2026-06-10" });
+  const txB = tx({ id: "B", documento: "D1", contraparte: "ALFA", data: "2026-06-10" });
+  const L1 = tx({ id: "L1", documento: "D1", contraparte: "ALFA", data: "2026-06-10" });
+  const L2 = tx({ id: "L2", documento: "D1", contraparte: "ALFA", data: "2026-06-11" });
+  const r2 = reconciliarAutomaticamente([txA, txB], [L1, L2]);
+  const usados = [...r2.auto, ...r2.sugestoes].map((m) => m.ledger?.id).filter(Boolean).sort();
+  ok("recon: colisão não estranha match único (L1+L2 usados)", usados.join(",") === "L1,L2" && r2.excecoes.length === 0);
+}
+
+// ── event-store: adulteração de campo de identidade quebra a integridade ────
+{
+  const es = new EventStore();
+  es.append({ tipo: "PIX_RECEBIDO", entidadeId: "org1", valor: 500, contraparte: "Cliente A", prioridade: "media", payload: {} });
+  ok("event-store: íntegro antes de adulterar", es.verificarIntegridade().intacta === true);
+  es.todos()[0].contraparte = "Cliente B";
+  ok("event-store: adulterar contraparte quebra integridade", es.verificarIntegridade().intacta === false);
+}
+
+// ── decision/risk-matrix: burn>0 + saldo≤0 satura o risco operacional ───────
+{
+  const feat = (saldo: number, burn: number) =>
+    ({ saldo, burnMensal: burn, probRuptura: 0, runwayMeses: 6, inadimplencia: 0, concentracaoReceita: 0, concentracaoFornecedor: 0, sazonalidade: 0, crescimentoMensal: 0 }) as never;
+  const op = (f: never) => calcularRiskMatrix(f).dimensoes.find((d) => d.id === "operacional")!;
+  ok("risk-matrix: saldo≤0 + burn>0 → operacional alto", op(feat(-1000, 50000)).probabilidade > 0.9);
+  ok("risk-matrix: saldo positivo mantém proporção (~0.5)", Math.abs(op(feat(600000, 50000)).probabilidade - 0.5) < 0.01);
+  ok("risk-matrix: sem burn → operacional 0", op(feat(-1000, 0)).probabilidade === 0);
+}
+
+// ── fdip: CSV posicional não escolhe uma 2ª coluna de DATA como valor ───────
+{
+  const csv = ["10/06/2026;16/06/2026;1.234,56;PIX ACME", "11/06/2026;20/06/2026;-500,00;FORN XPTO"].join("\n");
+  const vals = parseTexto(csv).records.map((r) => r.valor).sort((a, b) => a - b);
+  ok("fdip: valor lido é 1234.56/500, não a 2ª data", vals.includes(1234.56) && vals.includes(500) && vals.every((v) => v < 1e6), JSON.stringify(vals));
+}
+
+console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
+if (fails > 0) process.exit(1);
