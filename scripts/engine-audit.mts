@@ -312,5 +312,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("assistant: intents novos são robustos a dados vazios (sem crash/NaN)", limpo);
 }
 
+// ── assistant: métricas contam SÓ o pago (excluem pendente/cancelado) ───────
+{
+  let s = 0;
+  const sm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `s${s++}`, type: "entrada", amount: 1000, due_date: "2026-07-15", paid_date: "2026-07-15", status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const inpS: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: {}, movements: [
+    sm({ amount: 10000, paid_date: "2026-07-05" }),
+    sm({ type: "saida", amount: 3000, paid_date: "2026-07-08", category: "Fornecedores" }),
+    sm({ type: "saida", amount: 1000, paid_date: "2026-07-08", category: "Impostos" }),
+    sm({ amount: 5000, status: "pendente", paid_date: null, due_date: "2026-07-25" }), // NÃO conta
+    sm({ type: "saida", amount: 2000, status: "pendente", paid_date: null, due_date: "2026-07-28", category: "Folha" }), // NÃO
+    sm({ amount: 9999, status: "cancelado", paid_date: "2026-07-06" }), // NÃO
+  ] } as RiskInput;
+  const eb = responderLocal("qual meu EBITDA?", inpS);
+  const cg = responderLocal("qual minha carga tributária?", inpS);
+  ok("EBITDA conta só pago (6000, ignora pendente/cancelado)", !!eb && /EBITDA.*R\$.?6\.000/.test(eb.resposta), eb?.resposta?.slice(0, 50));
+  ok("carga tributária conta só pago (10%)", !!cg && /\b10%/.test(cg.resposta), cg?.resposta?.slice(0, 50));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
