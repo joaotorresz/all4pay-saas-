@@ -101,6 +101,14 @@ const CASES: [string, RegExp, string][] = [
   ["como foi meu semestre?", /No semestre entraram R\$.?60\.000/, "trailing 6m entradas = 60000"],
   // produto vs serviço no mês (jul): produtos (Vendas A) 6000 vs serviços (B) 4000
   ["recebo mais de produto ou serviço?", /R\$.?6\.000 de produtos e R\$.?4\.000 de serviços/, "jul: Vendas 6000 x Servicos 4000"],
+  // Simples Nacional Anexo III 500k RBT12 (faixa 3): efetiva (500000·0.135−17640)/500000 = 9.972% ≈ 10%
+  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /EFETIVA é 10%/, "(500000·0.135−17640)/500000 = 9.972%"],
+  // DAS = 40000 · 0.09972 = 3988.80 ≈ R$ 3.989
+  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /DAS fica em R\$.?3\.989/, "40000 · 9.972% = 3988.80"],
+  // Anexo I faixa 1 (≤180k): efetiva = nominal 4%
+  ["qual meu DAS no anexo I com faturamento de 100 mil anual e 15 mil no mês?", /EFETIVA é 4%/, "faixa 1 → nominal = efetiva 4%"],
+  // teto: 5 milhões estoura 4,8M
+  ["quanto de imposto no simples com receita de 5 milhões por ano?", /ESTOURA o teto/, "RBT12 5M > 4,8M"],
 ];
 
 let pass = 0;

@@ -273,6 +273,11 @@ const CORPUS: [string, RegExp][] = [
   // provisão trabalhista (13º / férias)
   ["quanto provisionar de 13º de uma folha de 12 mil?", /provisione|13º|FGTS/i],
   ["qual o custo real da folha de 12 mil por ano?", /provisão|custo real anual|13º/i],
+  // Simples Nacional / DAS / alíquota efetiva
+  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano?", /EFETIVA|DAS|Simples|Anexo/i],
+  ["qual minha alíquota efetiva do simples faturando 600 mil por ano no comércio?", /EFETIVA|Anexo I|Simples/i],
+  ["quanto de imposto no simples nacional com receita de 5 milhões por ano?", /ESTOURA o teto|Simples|efetiva/i],
+  ["quanto pago de simples nacional?", /faturamento dos últimos 12 meses|RBT12|anexo/i],
 ];
 
 let pass = 0;

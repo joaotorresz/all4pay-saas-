@@ -29,6 +29,7 @@ import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } 
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
+import { calcularSimplesNacional } from "@/core/tax";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -434,6 +435,28 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const da = responderLocal("quanto é 200 mais 10%?", inp0);
   ok("desconto: 200 − 15% = 170", !!dd && /desconto fica R\$.?170\b/.test(dd.resposta), dd?.resposta?.slice(0, 50));
   ok("acréscimo: 200 + 10% = 220", !!da && /acréscimo fica R\$.?220\b/.test(da.resposta), da?.resposta?.slice(0, 50));
+}
+
+// ── core/tax: Simples Nacional (alíquota efetiva ≠ nominal, DAS, teto) ───────
+{
+  // Anexo III, RBT12 500k (faixa 3): efetiva = (500000·0.135 − 17640)/500000 = 9.972%
+  const s = calcularSimplesNacional(500000, 40000, "III");
+  ok("tax: Simples III 500k → faixa 3, efetiva 9.972% (≠ 13.5% nominal)", s.faixa === 3 && Math.abs(s.aliquotaEfetiva - 0.09972) < 1e-6 && s.aliquotaNominal === 0.135, `${s.faixa}/${s.aliquotaEfetiva}`);
+  // DAS = 40000 · 0.09972 = 3988.80
+  ok("tax: DAS = receita mês × efetiva (40000 × 9.972% = 3988.80)", s.das === 3988.8, `${s.das}`);
+  // Anexo I faixa 1 (≤180k): efetiva = nominal 4%, sem parcela a deduzir
+  const c = calcularSimplesNacional(100000, 15000, "I");
+  ok("tax: Simples I 100k → faixa 1, efetiva = nominal 4%, DAS 600", c.faixa === 1 && c.aliquotaEfetiva === 0.04 && c.das === 600, `${c.aliquotaEfetiva}/${c.das}`);
+  // teto: RBT12 > 4,8M desenquadra
+  const t = calcularSimplesNacional(5000000, 400000, "I");
+  ok("tax: RBT12 5M > 4,8M → acimaDoTeto", t.acimaDoTeto === true);
+  ok("tax: RBT12 4,8M exatos → ainda dentro do teto", calcularSimplesNacional(4800000, 100000, "I").acimaDoTeto === false);
+  // RBT12 = 0 (empresa nova) → alíquota de entrada da 1ª faixa, sem NaN
+  const zero = calcularSimplesNacional(0, 10000, "III");
+  ok("tax: RBT12 0 → efetiva = 1ª faixa (6% Anexo III), sem NaN", zero.aliquotaEfetiva === 0.06 && Number.isFinite(zero.das), `${zero.aliquotaEfetiva}`);
+  // efetiva sempre < nominal fora da faixa 1 (a parcela a deduzir alivia)
+  const b = calcularSimplesNacional(1000000, 50000, "III");
+  ok("tax: efetiva < nominal na faixa 4 (parcela a deduzir alivia)", b.aliquotaEfetiva < b.aliquotaNominal);
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

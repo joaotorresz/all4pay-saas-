@@ -467,7 +467,7 @@ camadas encadeadas no `responder`:
    pago-vs-pendente foram auditadas adversarialmente). Perguntas **possessivas**
    de métricas fortes ("qual meu EBITDA/runway/burn/score") caem no motor
    (número real); só "o que é X" vai à KB (conceito).
-2b. **Calculadoras financeiras** (8 motores puros, respondidos na hora pelo motor
+2b. **Calculadoras financeiras** (9 motores puros, respondidos na hora pelo motor
    nativo — a decisão que a PME precisa simular): **financiamento/empréstimo**
    (`src/core/financing` — tabela Price/SAC), **antecipação de recebíveis**
    (`financing` `antecipar`), **conversão de taxa** mensal↔anual (`financing`
@@ -477,12 +477,15 @@ camadas encadeadas no `responder`:
    `pontoEquilibrioUnidades` — custo fixo ÷ margem de contribuição),
    **investimento** (`src/core/investment` — valor futuro de aportes + **payback**),
    **provisão trabalhista** (`src/core/payroll` — 13º/férias/FGTS e o custo ANUAL
-   real da folha) e **desconto/acréscimo** sobre um valor (inline). Ex.: "quanto
-   fica a parcela de 50 mil em 12x a 2%?", "vale a pena antecipar 10 mil?", "que
-   preço vender custo 100 com margem 30%?", "quantas unidades pra empatar?",
-   "quanto rende guardar 1000/mês a 1%?", "quanto provisionar de 13º de uma folha
-   de 12 mil?", "200 com 15% de desconto?". Puros/tipados/demo-safe, cada um com
-   guarda de valor no `engine-audit`.
+   real da folha), **Simples Nacional** (`src/core/tax` `calcularSimplesNacional`
+   — alíquota EFETIVA por faixa `(RBT12·nominal − dedução)/RBT12` ≠ a da tabela,
+   DAS do mês, teto de 4,8M/ano; Anexos I/II/III/V) e **desconto/acréscimo** sobre
+   um valor (inline). Ex.: "quanto fica a parcela de 50 mil em 12x a 2%?", "vale a
+   pena antecipar 10 mil?", "que preço vender custo 100 com margem 30%?", "quantas
+   unidades pra empatar?", "quanto rende guardar 1000/mês a 1%?", "quanto
+   provisionar de 13º de uma folha de 12 mil?", "quanto pago de Simples no Anexo
+   III faturando 500 mil por ano?", "200 com 15% de desconto?".
+   Puros/tipados/demo-safe, cada um com guarda de valor no `engine-audit`.
 3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
    `copilotoFinanceiro` determinístico como fallback final.
 Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +

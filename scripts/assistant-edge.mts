@@ -47,6 +47,8 @@ const PERGUNTAS = [
   "quanto fica a parcela de um empréstimo", "que preço vender com margem de 30%", "quantas unidades pra empatar",
   "quanto provisionar de 13º", "quanto rende guardar por mês", "em quanto tempo recupero", "vale a pena antecipar",
   "quanto é 2% ao mês ao ano", "0 com 50% de desconto", "empréstimo de 0 em 0x a 0%",
+  "quanto pago de simples nacional com faturamento de 0 por ano", "qual meu DAS no anexo III",
+  "quanto pago de simples nacional?",
 ];
 
 let problemas = 0;
