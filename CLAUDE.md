@@ -1100,7 +1100,13 @@ npm run edge       # crash-safety: dispara ~30 perguntas sobre 7 datasets
 npm run kb         # cobertura da base de conhecimento: ~49 conceitos "o que é X?"
                    # devem resolver via buscarKB. Falha se algum sumir/for
                    # sombreado (protege a camada educativa).
+npm run tz         # fronteira de mês em fuso UTC-3 (força TZ=America/Sao_Paulo):
+                   # `new Date("YYYY-MM-DD")` é meia-noite UTC → no dia 1, em
+                   # UTC-3, getMonth() local cai no mês anterior. Exige que
+                   # série/DRE/liquidez enxerguem o mês corrente. SEMPRE parseie
+                   # data-só como `new Date(s + "T00:00:00")` (local) ou fatie a
+                   # string; NUNCA getDate/getMonth de um Date UTC para exibir.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
-                   # + kb. Rode antes de commitar mudanças no motor da IA/core/*.
-                   # Também roda no CI (.github/workflows/ci.yml) em cada push/PR.
+                   # + kb + tz. Rode antes de commitar mudanças no motor da IA/
+                   # core/*. Também roda no CI (.github/workflows/ci.yml) em push/PR.
 ```
