@@ -295,5 +295,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("risco-caixa: empresa crítica tem prob. de ruptura MAIOR", crit.probabilidadeRuptura > saud.probabilidadeRuptura, `saud=${saud.probabilidadeRuptura} crit=${crit.probabilidadeRuptura}`);
 }
 
+// ── assistant: intents novos não quebram nem emitem NaN com dados VAZIOS ─────
+{
+  const vazio: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: {}, movements: [] } as RiskInput;
+  const perguntas = [
+    "qual meu EBITDA?", "qual minha receita líquida?", "qual meu fluxo de caixa livre?",
+    "qual minha carga tributária?", "quanto a folha pesa na receita?", "recebo mais de produto ou serviço?",
+    "qual o total que já entrou?", "quanto vou receber mês que vem?", "como foi meu semestre?",
+    "quanto entra vs sai?", "qual minha receita?", "quanto recebi da Alpha em maio?",
+  ];
+  let limpo = true;
+  for (const q of perguntas) {
+    try { const r = responderLocal(q, vazio); if (r && /NaN|undefined|Infinity/.test(r.resposta)) { limpo = false; break; } }
+    catch { limpo = false; break; }
+  }
+  ok("assistant: intents novos são robustos a dados vazios (sem crash/NaN)", limpo);
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
