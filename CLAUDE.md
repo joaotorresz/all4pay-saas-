@@ -189,9 +189,11 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   melhor ação; plano autônomo), **contas** (caixa consolidado, maior conta, HHI),
   **risco de caixa** (runway pessimista, ruptura, stress, alertas, pilar frágil) e
   **centro de inteligência** (insights, oportunidades/ações do briefing, anomalias,
-  clientes de risco), além de **lançamentos** (movimentos/contrapartes/ticket).
-  Cada categoria mapeia num bloco de `BLOCK_ORDER`; próximas fases seguem para a
-  meta de 80–150.
+  clientes de risco), **lançamentos** (movimentos/contrapartes/ticket) e o
+  **DRE do mês** (competência via `useDRE`: EBITDA, lucro líquido/bruto, margem
+  bruta/líquida, receita líquida, carga tributária, CMV, OPEX, resultado
+  financeiro). São **~65 widgets**; cada categoria mapeia num bloco de
+  `BLOCK_ORDER`; próximas fases seguem para a meta de 80–150.
 - **Home contextual + reordenação por IA** (`useHomeContext`): ordem-base dos
   blocos por **setor** (`a4p_company.perfil.setor` → `SETOR_BASE`) e, com o toggle
   "Reorganizar por urgência (IA)" ligado (`a4p_home_auto`, default on), reordena os
