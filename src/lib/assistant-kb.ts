@@ -59,7 +59,11 @@ export function buscarKB(q: string): KBEntry | null {
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|break-?even|ponto de equil|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
+      // "concentra"/"ponto de equil"/"break-even" saem do fallback forte: têm
+      // intent COMPUTADO no motor (número real). Só respondem como CONCEITO
+      // quando a pergunta é explicitamente conceitual ("o que é…"); "qual meu
+      // ponto de equilíbrio?" / "risco de concentração?" caem no motor.
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
     }
   }
   return null;

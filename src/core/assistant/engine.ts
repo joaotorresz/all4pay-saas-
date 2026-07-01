@@ -367,7 +367,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (ent <= 0) return R(`Não houve receita paga ${w.label}, então não dá para calcular a margem do período.`, [], ["receita realizada"]);
     const margem = Math.round((res / ent) * 100);
     return R(
-      `Sua margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${res >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
+      `Sua margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${margem >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
       [{ label: "Margem", valor: `${margem}%` }, { label: "Receita", valor: fmt(ent) }, { label: "Resultado", valor: fmt(res) }],
       ["fluxo de caixa realizado"]);
   }
@@ -387,7 +387,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— PONTO DE EQUILÍBRIO / break-even (quanto faturar para empatar) ———
-  if (/ponto de equil[íi]brio|break.?even|equil[íi]brio|quanto preciso (faturar|vender|receber) (para|pra) (empatar|pagar (as )?contas|n[ãa]o ter preju[íi]zo|me pagar|fechar no zero)|quanto (tenho|preciso) (que )?(faturar|vender) (para|pra)/.test(p)) {
+  // Nota: "pagar as contas" fica FORA do gatilho — "para pagar" contém a
+  // substring "a pagar" e o intent A PAGAR (acima) o captura primeiro. Servimos
+  // as frases limpas (empatar / fechar no zero / me pagar / não ter prejuízo).
+  if (/ponto de equil[íi]brio|break.?even|equil[íi]brio|quanto preciso (faturar|vender|receber) (para|pra) (empatar|n[ãa]o ter preju[íi]zo|me pagar|fechar no zero)|quanto (tenho|preciso) (que )?(faturar|vender) (para|pra) (empatar|fechar|cobrir|n[ãa]o ter preju)/.test(p)) {
     const meses = new Map<string, number>();
     for (const m of movs) { if (m.type !== "saida" || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + Math.abs(m.amount)); }
     const ult = Array.from(meses.entries()).sort((x, y) => x[0].localeCompare(y[0])).slice(-6);
