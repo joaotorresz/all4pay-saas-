@@ -12,6 +12,7 @@ import * as React from "react";
 import { Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
+import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
 
 const dia = (ds?: string | null) => (ds ? ds.slice(0, 10).split("-").reverse().join("/") : "—");
 const CLASS_COR: Record<string, string> = {
@@ -49,7 +50,13 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     const vencido = movs.filter((m) => m.status === "pendente" && m.due_date.slice(0, 10) < inp.hoje).reduce((s, m) => s + Math.abs(m.amount), 0);
     const ultimos = [...movs].sort((a, b) => (b.paid_date || b.due_date).localeCompare(a.paid_date || a.due_date)).slice(0, 8);
     const perfil = inad?.clientes?.find((c) => c.clienteId === id) ?? null;
-    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil };
+    // histórico dos últimos 6 meses (recebido pago, por mês de caixa)
+    const byMonth = new Map<string, number>();
+    for (const m of movs) { if (m.type !== "entrada" || m.status !== "pago") continue; const k = (m.paid_date || m.due_date || "").slice(0, 7); if (k) byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }
+    const hojeD = new Date(inp.hoje + "T00:00:00");
+    const historico: { mes: string; valor: number }[] = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(hojeD.getFullYear(), hojeD.getMonth() - i, 1); historico.push({ mes: MES_ABBR[d.getMonth()], valor: byMonth.get(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`) || 0 }); }
+    return { nome, recebido, pago, aReceber, aPagar, vencido, ultimos, perfil, historico };
   }, [inp, inad, id]);
 
 
@@ -89,6 +96,17 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                 {resumo.aPagar > 0 && <Kpi label="A pagar" v={formatBRL(resumo.aPagar)} />}
                 {resumo.vencido > 0 && <Kpi label="Vencido" v={formatBRL(resumo.vencido)} tone="var(--color-negative)" />}
               </div>
+
+              {/* Histórico de recebimento (6 meses) */}
+              {resumo.historico.some((h) => h.valor > 0) && (
+                <section className="flex flex-col gap-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-faint inline-flex items-center gap-1">
+                    Recebido por mês
+                    <InfoHint align="left" oQue="Quanto este contato pagou a você mês a mês, nos últimos 6 meses." comoCalcula="Soma das entradas pagas do contato, agrupadas pelo mês de caixa (paid_date)." />
+                  </div>
+                  <Sparkline data={resumo.historico} />
+                </section>
+              )}
 
               {/* Risco de crédito */}
               {resumo.perfil && (
@@ -138,6 +156,24 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
         </div>
       </aside>
     </>
+  );
+}
+
+/** Mini-histórico em barras (CSS, responsivo) — recebido por mês. */
+function Sparkline({ data }: { data: { mes: string; valor: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.valor));
+  return (
+    <div>
+      <div className="flex items-end gap-1.5 h-12">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 rounded-sm transition-all" title={`${d.mes}: ${formatBRL(d.valor)}`}
+            style={{ height: `${Math.max(3, (d.valor / max) * 100)}%`, background: d.valor > 0 ? "var(--color-positive)" : "var(--color-surface-2)" }} />
+        ))}
+      </div>
+      <div className="flex gap-1.5 mt-1">
+        {data.map((d, i) => <span key={i} className="flex-1 text-center text-[10px] text-faint capitalize">{d.mes}</span>)}
+      </div>
+    </div>
   );
 }
 
