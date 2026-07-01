@@ -64,9 +64,10 @@ export function PeriodFilter() {
     period.setRange(firstDay(sd.getFullYear(), sd.getMonth()), lastDay(end.y, end.m));
   };
 
-  // FLAT: ativo = pill ink discreto · inativo = só texto (sem borda/bg/sombra)
+  // FLAT: ativo = chip neutro sutil (surface-2, texto ink) · inativo = só texto.
+  // Nada de pill preto sólido — "nada parece botão".
   const btn = (ativo: boolean) =>
-    `inline-flex items-center h-9 px-4 rounded-pill text-[15px] font-medium transition-colors ${ativo ? "bg-ink text-white" : "bg-transparent text-muted hover:text-ink"}`;
+    `inline-flex items-center h-9 px-4 rounded-pill text-[15px] font-medium transition-colors ${ativo ? "bg-surface-2 text-ink" : "bg-transparent text-muted hover:text-ink"}`;
 
   return (
     <div ref={ref} className="relative">

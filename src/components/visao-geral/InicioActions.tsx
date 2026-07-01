@@ -20,7 +20,7 @@ export function InicioActions({ demo }: { demo: boolean }) {
         onClick={() => window.dispatchEvent(new Event("a4p:open-personalizar"))}
         title="Personalizar Home — ligar/desligar e reordenar blocos"
         aria-label="Personalizar Home"
-        className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md border border-border bg-white text-muted hover:text-ink"
+        className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-pill bg-surface-2 text-muted hover:text-ink hover:bg-surface-3"
       >
         <Icon name="settings" size={16} color="var(--color-text-secondary)" />
       </button>

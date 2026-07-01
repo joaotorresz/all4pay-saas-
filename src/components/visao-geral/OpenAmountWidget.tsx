@@ -120,6 +120,7 @@ export function OpenAmountWidget({
     >
       <Card>
         <WidgetHeader
+          icon3d={/pag/i.test(href) ? "card" : "money"}
           title={title}
           info={info}
           action={

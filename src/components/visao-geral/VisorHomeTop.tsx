@@ -327,28 +327,26 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
   React.useEffect(() => { setI(0); }, [dicas.length]);
   const go = (d: number) => setI((p) => (p + d + dicas.length) % dicas.length);
   return (
-    <Card className="bg-ink text-white flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-md inline-flex items-center justify-center" style={{ background: "var(--color-lime)" }}>
-          <Icon name="sparkles" size={16} color="var(--color-on-lime)" />
-        </span>
-        <span className="text-[15px] font-semibold">Dica all4pay</span>
-        <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-md inline-flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <Icon3D name="spark" size={38} />
+        <span className="text-[15px] font-semibold text-ink">Dica all4pay</span>
+        <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />
         </button>
       </div>
-      <p className="m-0 text-[15px] leading-snug text-white/85 min-h-[44px]">{dicas[i]}</p>
+      <p className="m-0 text-[15px] leading-snug text-muted min-h-[44px]">{dicas[i]}</p>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-[6px] flex-1">
           {dicas.map((_, k) => (
-            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-lime)" : "rgba(255,255,255,0.3)" }} />
+            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-lime)" : "var(--color-surface-3)" }} />
           ))}
         </div>
-        <button onClick={() => go(-1)} aria-label="Dica anterior" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors">
-          <Icon name="chevron-left" size={16} color="#fff" />
+        <button onClick={() => go(-1)} aria-label="Dica anterior" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-surface-2 text-muted hover:text-ink hover:bg-surface-3 transition-colors">
+          <Icon name="chevron-left" size={16} color="currentColor" />
         </button>
-        <button onClick={() => go(1)} aria-label="Próxima dica" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors">
-          <Icon name="chevron-right" size={16} color="#fff" />
+        <button onClick={() => go(1)} aria-label="Próxima dica" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-surface-2 text-muted hover:text-ink hover:bg-surface-3 transition-colors">
+          <Icon name="chevron-right" size={16} color="currentColor" />
         </button>
       </div>
     </Card>
