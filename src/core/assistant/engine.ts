@@ -282,9 +282,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (!sai.length) return R(`Nenhum gasto pago ${w.label}.`, [], ["despesas realizadas"]);
     const maior = sai.reduce((a, b) => (Math.abs(b.amount) > Math.abs(a.amount) ? b : a));
     const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Despesa";
-    return R(
-      `Seu maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
-      [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]);
+    return {
+      ...R(
+        `Seu maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+        [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]),
+      ...(maior.party_id ? { contatoId: maior.party_id } : {}),
+    };
   }
 
   // ——— MAIOR RECEBIMENTO INDIVIDUAL (singular) ———
@@ -294,9 +297,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (!ent.length) return R(`Nenhum recebimento pago ${w.label}.`, [], ["receita realizada"]);
     const maior = ent.reduce((a, b) => (Math.abs(b.amount) > Math.abs(a.amount) ? b : a));
     const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Recebimento";
-    return R(
-      `Seu maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
-      [{ label: "Maior recebimento", valor: fmt(Math.abs(maior.amount)) }], ["receita realizada"]);
+    return {
+      ...R(
+        `Seu maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+        [{ label: "Maior recebimento", valor: fmt(Math.abs(maior.amount)) }], ["receita realizada"]),
+      ...(maior.party_id ? { contatoId: maior.party_id } : {}),
+    };
   }
 
   // ——— DE ONDE VEM A RECEITA (top categorias de entradas pagas) ———
@@ -369,7 +375,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
-    return R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]);
+    return {
+      ...R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]),
+      ...(topId(sai) ? { contatoId: topId(sai) } : {}),
+    };
   }
 
   // ——— QUANTOS clientes/fornecedores ———
