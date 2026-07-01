@@ -493,6 +493,231 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ============ Novos widgets: decisão · contas · lançamentos ============ */
+  /* ---- Caixa (contas bancárias) ---- */
+  {
+    id: "caixa-consolidado", label: "Caixa consolidado", categoria: "Caixa",
+    render: (c) => {
+      const contas = c.accounts;
+      if (!contas) return <Loading />;
+      const total = contas.reduce((s, a) => s + a.balance, 0);
+      return (
+        <MetricCard icon="building" label="Caixa consolidado"
+          tone={total < 0 ? NEG : POS}
+          value={<BRL value={total} />}
+          answer={`Saldo somado das ${contas.length} conta(s) bancária(s) da empresa.`}
+          info={{ titulo: "Caixa consolidado", oQue: "O saldo total disponível somando todas as contas bancárias.", comoCalcula: "Soma o saldo atual de cada conta financeira cadastrada." }} />
+      );
+    },
+  },
+  {
+    id: "contas-bancarias", label: "Contas bancárias", categoria: "Caixa",
+    render: (c) => {
+      const contas = c.accounts;
+      if (!contas) return <Loading />;
+      const positivas = contas.filter((a) => a.balance > 0).length;
+      return (
+        <MetricCard icon="layers" label="Contas bancárias"
+          value={`${contas.length}`}
+          answer={contas.length ? `${positivas} conta(s) com saldo positivo hoje.` : "Nenhuma conta bancária cadastrada ainda."}
+          info={{ titulo: "Contas bancárias", oQue: "Quantas contas bancárias a empresa mantém.", comoCalcula: "Conta o número de contas financeiras cadastradas e quantas têm saldo positivo." }} />
+      );
+    },
+  },
+  {
+    id: "maior-conta", label: "Maior conta", categoria: "Caixa",
+    render: (c) => {
+      const contas = c.accounts;
+      if (!contas) return <Loading />;
+      if (!contas.length) return (
+        <MetricCard icon="building" label="Maior conta" value="—"
+          answer="Nenhuma conta bancária cadastrada ainda."
+          info={{ titulo: "Maior conta", oQue: "A conta bancária que concentra o maior saldo.", comoCalcula: "Ordena as contas pelo saldo e destaca a de maior valor." }} />
+      );
+      const top = contas.slice().sort((a, b) => b.balance - a.balance)[0];
+      return (
+        <MetricCard icon="building" label="Maior conta"
+          value={<BRL value={top.balance} />}
+          answer={`${top.name} concentra o maior saldo entre as suas contas.`}
+          info={{ titulo: "Maior conta", oQue: "A conta bancária que concentra o maior saldo.", comoCalcula: "Ordena as contas pelo saldo e destaca a de maior valor." }} />
+      );
+    },
+  },
+  /* ---- Caixa (Monte Carlo · decisão) ---- */
+  {
+    id: "prob-caixa-negativo", label: "Risco de caixa negativo", categoria: "Caixa",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const p = c.decisao.previsao.probabilidadeNegativo;
+      return (
+        <MetricCard icon="triangle-alert" label="Risco de caixa negativo"
+          tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
+          value={pctTxt(p)}
+          answer={c.decisao.previsao.semanaProvavel
+            ? `${pctTxt(p)} de chance de o caixa ficar negativo — provável na ${c.decisao.previsao.semanaProvavel}.`
+            : `${pctTxt(p)} de chance de o caixa ficar negativo no horizonte projetado.`}
+          info={{ titulo: "Risco de caixa negativo", oQue: "A chance de o caixa cruzar o zero dentro do horizonte projetado.", comoCalcula: "Simulação de Monte Carlo do caixa diário (deriva e volatilidade) conta em quantos cenários o saldo fica negativo." }} />
+      );
+    },
+  },
+  {
+    id: "caixa-projetado-p50", label: "Caixa projetado (mediana)", categoria: "Caixa",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const p50 = c.decisao.previsao.caixaFinalP50;
+      return (
+        <MetricCard icon="trending-up" label="Caixa projetado (mediana)"
+          tone={p50 < 0 ? NEG : POS}
+          value={<BRL value={p50} />}
+          answer={`Saldo mais provável ao fim de ${c.decisao.previsao.horizonteDias} dias (cenário mediano).`}
+          info={{ titulo: "Caixa projetado (mediana)", oQue: "O saldo de caixa mais provável ao fim do horizonte de projeção.", comoCalcula: "Cenário mediano (p50) da simulação de Monte Carlo do caixa diário." }} />
+      );
+    },
+  },
+  {
+    id: "caixa-pessimista-p10", label: "Caixa no pior cenário", categoria: "Caixa",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const p10 = c.decisao.previsao.caixaFinalP10;
+      return (
+        <MetricCard icon="triangle-alert" label="Caixa no pior cenário"
+          tone={p10 < 0 ? NEG : WARN}
+          value={<BRL value={p10} />}
+          answer={`Saldo em ${c.decisao.previsao.horizonteDias} dias no cenário pessimista (p10).`}
+          info={{ titulo: "Caixa no pior cenário", oQue: "O saldo de caixa no cenário ruim ao fim do horizonte.", comoCalcula: "Cenário pessimista (p10) da simulação de Monte Carlo: só 10% dos casos terminam abaixo dele." }} />
+      );
+    },
+  },
+  {
+    id: "data-provavel-ruptura", label: "Data provável de aperto", categoria: "Caixa",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const dia = c.decisao.previsao.diaProvavelNegativo;
+      return (
+        <MetricCard icon="calendar" label="Data provável de aperto"
+          tone={dia != null ? NEG : POS}
+          value={dia != null ? `${dia} dias` : "Sem aperto"}
+          answer={dia != null
+            ? `O caixa deve ficar negativo em cerca de ${dia} dias, se nada mudar.`
+            : "Nenhuma data de caixa negativo prevista no horizonte."}
+          info={{ titulo: "Data provável de aperto", oQue: "Em quantos dias o caixa deve ficar negativo, se nada mudar.", comoCalcula: "Primeiro dia em que a simulação de Monte Carlo cruza o zero no cenário mais provável." }} />
+      );
+    },
+  },
+  /* ---- Resumo executivo (matriz de risco · decisão) ---- */
+  {
+    id: "prob-stress-90d", label: "Prob. de stress (90d)", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const p = c.decisao.risco.probabilidadeStress;
+      return (
+        <MetricCard icon="gauge" label="Prob. de stress (90d)"
+          tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
+          value={pctTxt(p)}
+          answer={`Risco geral (${c.decisao.risco.nivelGeral}): ${pctTxt(p)} de chance de stress financeiro em 90 dias.`}
+          info={{ titulo: "Prob. de stress (90d)", oQue: "A probabilidade agregada de a empresa entrar em stress financeiro em 90 dias.", comoCalcula: "Combina 8 dimensões de risco (caixa, liquidez, inadimplência, concentração, fornecedor, operacional, sazonal, crescimento) numa probabilidade ponderada." }} />
+      );
+    },
+  },
+  {
+    id: "dimensao-risco-critica", label: "Maior risco agora", categoria: "Resumo executivo",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const dims = c.decisao.risco.dimensoes;
+      if (!dims.length) return (
+        <MetricCard icon="target" label="Maior risco agora" value="—"
+          answer="Sem dimensões de risco relevantes no momento."
+          info={{ titulo: "Maior risco agora", oQue: "Qual das dimensões de risco está mais crítica hoje.", comoCalcula: "Ordena as 8 dimensões da matriz de risco pela probabilidade e destaca a maior." }} />
+      );
+      const top = dims.slice().sort((a, b) => b.probabilidade - a.probabilidade)[0];
+      return (
+        <MetricCard icon="target" label="Maior risco agora"
+          tone={top.probabilidade > 0.3 ? NEG : top.probabilidade > 0.1 ? WARN : POS}
+          value={top.label}
+          answer={`${top.fator} (${pctTxt(top.probabilidade)} de probabilidade).`}
+          info={{ titulo: "Maior risco agora", oQue: "Qual das dimensões de risco está mais crítica hoje.", comoCalcula: "Ordena as 8 dimensões da matriz de risco pela probabilidade e destaca a de maior peso." }} />
+      );
+    },
+  },
+  /* ---- Radares (recomendações e plano autônomo · decisão) ---- */
+  {
+    id: "impacto-melhor-acao", label: "Impacto da melhor ação", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const rec = c.decisao.recomendacoes[0];
+      if (!rec) return (
+        <MetricCard icon="sparkles" label="Impacto da melhor ação" value="—"
+          answer="Nenhuma ação com impacto relevante no caixa agora."
+          info={{ titulo: "Impacto da melhor ação", oQue: "Quanto de fôlego de caixa a ação mais recomendada geraria.", comoCalcula: "O motor de decisão simula cada ação e mede o ganho de runway em dias." }} />
+      );
+      const dias = Math.round(rec.deltaRunwayDias);
+      return (
+        <MetricCard icon="sparkles" label="Impacto da melhor ação"
+          tone={dias > 0 ? POS : WARN}
+          value={dias > 0 ? `+${dias} dias` : `${rec.deltaScore >= 0 ? "+" : ""}${rec.deltaScore} pts`}
+          answer={`${rec.titulo}: ${dias > 0 ? `+${dias} dias de fôlego` : `${rec.deltaScore >= 0 ? "+" : ""}${rec.deltaScore} no score`} (${formatBRL(rec.valorEnvolvido)} envolvidos).`}
+          info={{ titulo: "Impacto da melhor ação", oQue: "Quanto de fôlego de caixa a ação mais recomendada geraria.", comoCalcula: "O motor de decisão constrói o cenário com a ação aplicada e re-roda o score, medindo o ganho de runway em dias." }} />
+      );
+    },
+  },
+  {
+    id: "plano-autonomo-status", label: "Plano autônomo", categoria: "Radares all4pay",
+    render: (c) => {
+      if (!c.decisao) return <Loading />;
+      const plano = c.decisao.plano;
+      const n = plano.acoes.length;
+      return (
+        <MetricCard icon="activity" label="Plano autônomo"
+          tone={plano.ativo ? (plano.severidade === "critico" || plano.severidade === "alto" ? NEG : WARN) : POS}
+          value={plano.ativo ? `${n} ação(ões)` : "Em espera"}
+          answer={plano.ativo ? plano.resumo : "Nenhuma resposta coordenada necessária no momento."}
+          info={{ titulo: "Plano autônomo", oQue: "O plano de resposta coordenado que a IA prepara quando o risco sobe.", comoCalcula: "A partir da matriz de risco, o motor monta ações com guardrails (automático, proposto ou requer aprovação)." }} />
+      );
+    },
+  },
+  /* ---- Receita / Operação (lançamentos · input) ---- */
+  {
+    id: "movimentos-mes", label: "Movimentos no mês", categoria: "Operação",
+    render: (c) => {
+      if (!c.input) return <Loading />;
+      const prefixo = c.input.hoje.slice(0, 7);
+      const n = c.input.movements.filter((m) => (m.paid_date ?? m.due_date).slice(0, 7) === prefixo).length;
+      return (
+        <MetricCard icon="repeat" label="Movimentos no mês"
+          value={`${n}`}
+          answer="Lançamentos de entrada e saída registrados no mês atual."
+          info={{ titulo: "Movimentos no mês", oQue: "Quantos lançamentos financeiros aconteceram no mês corrente.", comoCalcula: "Conta os movimentos cuja data (pagamento, ou vencimento se em aberto) cai no mês atual." }} />
+      );
+    },
+  },
+  {
+    id: "contrapartes-distintas", label: "Contrapartes ativas", categoria: "Operação",
+    render: (c) => {
+      if (!c.input) return <Loading />;
+      const ids = new Set<string>();
+      for (const m of c.input.movements) { if (m.party_id) ids.add(m.party_id); }
+      return (
+        <MetricCard icon="users" label="Contrapartes ativas"
+          value={`${ids.size}`}
+          answer="Clientes e fornecedores distintos com movimentação registrada."
+          info={{ titulo: "Contrapartes ativas", oQue: "Quantos clientes e fornecedores diferentes têm lançamentos no sistema.", comoCalcula: "Conta os identificadores de contraparte distintos entre todos os movimentos." }} />
+      );
+    },
+  },
+  {
+    id: "ticket-medio-movimento", label: "Valor médio por lançamento", categoria: "Operação",
+    render: (c) => {
+      if (!c.input) return <Loading />;
+      const movs = c.input.movements;
+      const media = movs.length ? movs.reduce((s, m) => s + m.amount, 0) / movs.length : 0;
+      return (
+        <MetricCard icon="credit-card" label="Valor médio por lançamento"
+          value={<BRL value={media} />}
+          answer="Valor médio de cada movimento financeiro registrado."
+          info={{ titulo: "Valor médio por lançamento", oQue: "Quanto vale, em média, cada lançamento de entrada ou saída.", comoCalcula: "Soma o valor de todos os movimentos e divide pela quantidade de lançamentos." }} />
+      );
+    },
+  },
 ];
 
 export const CATALOG_BY_ID = new Map(COCKPIT_CATALOG.map((w) => [w.id, w]));
