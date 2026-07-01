@@ -58,6 +58,12 @@ export function DREView() {
   const [cadencia, setCadencia] = React.useState<Cadencia>("mensal");
 
   const { data: input, isLoading, isError } = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  // nome→id (para abrir a ficha do contato ao clicar no cliente do DRE)
+  const nomeToId = React.useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const [pid, n] of Object.entries(input?.partyNames ?? {})) if (n) m[n] = pid;
+    return m;
+  }, [input]);
 
   // Trocar a cadência ajusta os MESES do intervalo (De/Até) — sem mexer no ano:
   // o início recua o tamanho do período, mas nunca antes de 1º de janeiro do
@@ -135,18 +141,19 @@ export function DREView() {
           </div>
         )
       ) : (
-        <Conteudo data={data} serie={serie} cadencia={cadencia} />
+        <Conteudo data={data} serie={serie} cadencia={cadencia} nomeToId={nomeToId} />
       )}
     </div>
   );
 }
 
 function Conteudo({
-  data, serie, cadencia,
+  data, serie, cadencia, nomeToId,
 }: {
   data: DREData;
   serie: { label: string; receita: number; ebitda: number; lucro: number; margem: number }[];
   cadencia: Cadencia;
+  nomeToId: Record<string, string>;
 }) {
   const { gerencial, financeiro, porCliente, porLinha, porCentroCusto, projetado, executivo } = data;
   const varReceita = serie.length >= 2 && serie[serie.length - 2].receita
@@ -257,7 +264,11 @@ function Conteudo({
         <span className="text-label font-medium text-muted">DRE por cliente · top 10</span>
         <Tabela
           head={["Cliente", "Receita", "Share", "Margem", "Risco", "Vencido"]}
-          rows={porCliente.map((c: DREClienteLinha) => [c.cliente, <BRL key="r" value={c.receita} />, pct(c.share), pct(c.margem), `${c.risco}`, c.inadimplencia > 0 ? <BRL key="i" value={c.inadimplencia} /> : "—"])}
+          rows={porCliente.map((c: DREClienteLinha) => [
+            nomeToId[c.cliente]
+              ? <button key="c" type="button" onClick={() => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: nomeToId[c.cliente] } }))} className="text-ink hover:underline text-left">{c.cliente}</button>
+              : c.cliente,
+            <BRL key="r" value={c.receita} />, pct(c.share), pct(c.margem), `${c.risco}`, c.inadimplencia > 0 ? <BRL key="i" value={c.inadimplencia} /> : "—"])}
           alignRight={[1, 2, 3, 4, 5]}
         />
       </Card>
