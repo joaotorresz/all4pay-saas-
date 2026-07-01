@@ -27,6 +27,7 @@ import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
+import { valorFuturo, payback } from "@/core/investment";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -372,6 +373,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+}
+
+// ── core/investment: valor futuro (juros compostos) + payback ───────────────
+{
+  const a = valorFuturo(0, 1000, 0.01, 12);
+  ok("investment: 1000/mês @1%×12 → montante 12682.5, juros 682.5", a.montante === 12682.5 && a.jurosGanhos === 682.5, `${a.montante}/${a.jurosGanhos}`);
+  const z = valorFuturo(5000, 0, 0, 10);
+  ok("investment: só principal @0% → montante = principal, juros 0", z.montante === 5000 && z.jurosGanhos === 0);
+  const p = payback(20000, 2000);
+  ok("investment: payback 20000 / 2000 = 10 meses", p.meses === 10 && p.paga === true);
+  const q = payback(20000, 0);
+  ok("investment: payback sem retorno → Infinity, não paga", q.meses === Infinity && q.paga === false);
 }
 
 // ── core/pricing: margem ≠ markup (a confusão clássica) ─────────────────────

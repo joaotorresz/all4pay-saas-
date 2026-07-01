@@ -257,6 +257,9 @@ const CORPUS: [string, RegExp][] = [
   ["que preço vender um produto de custo 100 com margem de 30%?", /venda por|markup/i],
   ["custo 100 com markup de 30%, qual o preço?", /preço|MARGEM/i],
   ["qual a margem se custo 100 e vendo por 150?", /margem de|markup/i],
+  // investimento: valor futuro + payback
+  ["quanto rende guardar 1000 por mês a 1% ao mês em 12 meses?", /vira R\$|montante|juros/i],
+  ["em quanto tempo recupero um investimento de 20 mil que rende 2 mil por mês?", /se paga|payback|meses/i],
 ];
 
 let pass = 0;

@@ -17,6 +17,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
+import { valorFuturo, payback } from "@/core/investment";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -167,6 +168,45 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return R(
         `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
         [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
+    }
+  }
+
+  // ——— PAYBACK: em quanto tempo um investimento se paga ———
+  if (/(em quanto tempo|quando|quanto tempo (pra|para)).*(recuper|se paga|pago o investiment|retorna o investiment)|\bpayback\b|tempo de retorno (do|de um)? ?investiment|em quantos meses (recupero|se paga)/.test(p)) {
+    const nums = Array.from(p.matchAll(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?/gi)).map((m) => {
+      const base = parseFloat(m[1].replace(/\./g, "").replace(",", "."));
+      return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base;
+    }).filter((n) => n > 0);
+    // 1º número = investimento; 2º = retorno mensal (heurística "invisto X e ganho Y/mês")
+    if (nums.length >= 2) {
+      const r = payback(nums[0], nums[1]);
+      return R(
+        r.paga
+          ? `Um investimento de ${fmt(nums[0])} que gera ${fmt(nums[1])} por mês se paga em ~${r.meses % 1 === 0 ? r.meses : r.meses.toFixed(1)} meses (${r.anos.toFixed(1)} anos). Depois disso, é lucro.`
+          : `Sem retorno mensal positivo, o investimento de ${fmt(nums[0])} não se paga.`,
+        [{ label: "Payback", valor: `${r.paga ? r.meses.toFixed(1) : "—"} meses` }, { label: "Investimento", valor: fmt(nums[0]) }, { label: "Retorno/mês", valor: fmt(nums[1]) }], ["payback de investimento"]);
+    }
+  }
+
+  // ——— POUPANÇA / APLICAÇÃO: valor futuro (guardar X por mês) ———
+  if (/(quanto (rende|rendo|vou ter|acumul|fica|teria|junto)|se eu (guardar|poupar|aplicar|investir|juntar)|(guardar|poupar|aplicar|investir|juntar)\s+r?\$?\s*\d.*(por|todo|a cada|no) m[êe]s|rende (guardar|aplicar|poupar)|render.* aplicar)/.test(p) && /\d/.test(p)) {
+    const val = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
+    const valorMes = val(/(?:guardar|poupar|aplicar|investir|juntar|de)\s+r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?\s*(?:por|todo|a cada|no|\/)\s*m[êe]s/);
+    const soValor = val(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(mil|k|milh[õo]es?|\bmi\b)?/);
+    const aporte = valorMes ?? 0;
+    const principal = valorMes == null ? (soValor ?? 0) : 0; // "por mês" = aporte; senão lump-sum
+    const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+    const taxa = pt ? parseFloat(pt[1].replace(",", ".")) / 100 : 0;
+    const pm = p.match(/(?:em|por|durante)\s+(\d{1,3})\s*(meses|m[êe]s|anos?|ano)/);
+    const meses = pm ? (/ano/.test(pm[2]) ? parseInt(pm[1], 10) * 12 : parseInt(pm[1], 10)) : 12;
+    if ((aporte > 0 || principal > 0)) {
+      const r = valorFuturo(principal, aporte, taxa, meses);
+      const comoStr = aporte > 0 ? `guardar ${fmt(aporte)}/mês` : `aplicar ${fmt(principal)}`;
+      return R(
+        taxa === 0
+          ? `${comoStr[0].toUpperCase() + comoStr.slice(1)} por ${meses} meses junta ${fmt(r.montante)} (sem rendimento). Me diga a taxa mensal (ex.: "a 1% ao mês") para ver com juros.`
+          : `${comoStr[0].toUpperCase() + comoStr.slice(1)} a ${Math.round(taxa * 10000) / 100}% ao mês por ${meses} meses vira ${fmt(r.montante)}: ${fmt(r.totalAportado)} aportados + ${fmt(r.jurosGanhos)} de juros.`,
+        [{ label: "Montante", valor: fmt(r.montante) }, { label: "Aportado", valor: fmt(r.totalAportado) }, { label: "Juros", valor: fmt(r.jurosGanhos) }], ["valor futuro"]);
     }
   }
 
