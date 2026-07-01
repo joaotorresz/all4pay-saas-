@@ -24,7 +24,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** Presets de período a partir de "hoje". */
 export function periodoPreset(hoje: string, preset: "mes" | "mes_anterior" | "ytd" | "12m"): DREFiltro {
-  const d = new Date(hoje);
+  const d = new Date(hoje + "T00:00:00"); // local: evita mês anterior em UTC-3 no 1º dia
   const ate = hoje;
   if (preset === "mes") {
     const de = `${hoje.slice(0, 7)}-01`;

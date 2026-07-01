@@ -13,7 +13,7 @@ export interface MesPonto {
 }
 
 export function serieMensal(input: RiskInput, meses = 12): MesPonto[] {
-  const base = new Date(input.hoje);
+  const base = new Date(input.hoje + "T00:00:00"); // meia-noite LOCAL: em UTC-3, new Date("YYYY-MM-DD") cai no mês anterior no 1º dia
   const pts: MesPonto[] = [];
   for (let i = meses - 1; i >= 0; i--) {
     const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
@@ -35,7 +35,7 @@ export function serieMensal(input: RiskInput, meses = 12): MesPonto[] {
 
 /** Share de receita recorrente: clientes presentes em ≥3 meses distintos. */
 export function receitaRecorrente(input: RiskInput, meses = 12): number {
-  const base = new Date(input.hoje);
+  const base = new Date(input.hoje + "T00:00:00"); // meia-noite LOCAL: em UTC-3, new Date("YYYY-MM-DD") cai no mês anterior no 1º dia
   // corte local (não UTC) p/ não deslocar o mês em fuso negativo no início do mês
   const c = new Date(base.getFullYear(), base.getMonth() - (meses - 1), 1);
   const corte = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}`;

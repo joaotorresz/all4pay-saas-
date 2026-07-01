@@ -281,7 +281,7 @@ function somarAggs(aggs: Agg[]): Agg {
 
 export function dreComparativo(input: RiskInput, regime: Regime): DREComparativo {
   const meses = porMes(input, regime);
-  const hoje = new Date(input.hoje);
+  const hoje = new Date(input.hoje + "T00:00:00"); // local: evita mês anterior em UTC-3 no 1º dia
   const ymAtual = input.hoje.slice(0, 7);
   const prev = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const ymPrev = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
