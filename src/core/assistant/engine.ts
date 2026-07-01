@@ -344,7 +344,11 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   {
     const cats = Array.from(new Set(movs.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
     const alvo = cats.sort((a, b) => b.length - a.length).find((c) => { const stem = c.replace(/e?s$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); return new RegExp(`(^|[^a-zà-ú])${stem}(e?s)?([^a-zà-ú]|$)`, "i").test(p); });
-    if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p)) {
+    // Guarda de direção: "quanto ENTRA/recebo de Vendas" é receita — não deixar
+    // o "quanto" genérico puxar p/ gasto quando há uma saída com o mesmo nome de
+    // categoria (ex.: uma despesa cadastrada como "Vendas"). Sinais de entrada
+    // devolvem o controle ao bloco de RECEITA por categoria (logo abaixo).
+    if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p) && !/(entr|receb|receita|fatur|ganh|origem|vem de)/.test(p)) {
       const w = janela(p, hoje);
       const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);

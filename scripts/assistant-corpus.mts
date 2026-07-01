@@ -132,6 +132,11 @@ const CORPUS: [string, RegExp][] = [
   ["quanto eu faturo por mês na média?", /m[ée]dia de receita/i],
   ["qual meu faturamento médio mensal?", /m[ée]dia de receita/i],
   ["em média quanto faturo?", /m[ée]dia de receita/i],
+  // 14ª rodada (cont.): "quanto ENTRA de {cat}" = receita da categoria, mesmo
+  // quando existe uma despesa com o mesmo nome (guarda de direção no gasto-cat).
+  ["quanto entra de Vendas?", /receb\w* .*de Vendas|receita/i],
+  ["quanto recebo de vendas?", /receb\w* .*de Vendas|receita/i],
+  ["quanto gastei com marketing?", /gastou .*Marketing/i],
 ];
 
 let pass = 0;
