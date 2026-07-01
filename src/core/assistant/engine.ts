@@ -154,6 +154,26 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["receita por cliente"]);
   }
 
+  // ——— CONCENTRAÇÃO / DEPENDÊNCIA de cliente (risco) — últimos 6 meses ———
+  if (/concentra[çc][ãa]o|dependo (muito|demais)|depend[êe]ncia (de|dos|do)|risco de concentra|quanto (representa|vale) (o )?meu maior cliente|(muito )?dependente de (algum |um )?cliente|um cliente s[óo]/.test(p)) {
+    const base = new Date(hoje + "T00:00:00"); base.setMonth(base.getMonth() - 5);
+    const from = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-01`;
+    const w: Janela = { label: "nos últimos 6 meses", from, to: hoje };
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const top = topClientes(ent, nomes, 5).filter((c) => c.valor > 0 && c.nome !== "Sem cliente");
+    const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (!top.length || tot <= 0) return R("Ainda não há receita por cliente identificado suficiente para medir concentração.", [], ["receita por cliente"]);
+    const share = Math.round((top[0].valor / tot) * 100);
+    const top3 = Math.round((top.slice(0, 3).reduce((s, c) => s + c.valor, 0) / tot) * 100);
+    const alerta = share >= 30
+      ? `Atenção: ${share}% da sua receita depende de ${top[0].nome} — concentração alta, um risco se esse cliente sair.`
+      : `Saudável: seu maior cliente (${top[0].nome}) é ${share}% da receita, sem dependência crítica.`;
+    return R(
+      `${alerta} Os 3 maiores somam ${top3}% do que você recebe (últimos 6 meses).`,
+      [{ label: `Maior (${top[0].nome})`, valor: `${share}%` }, { label: "Top 3", valor: `${top3}%` }, { label: "Receita 6m", valor: fmt(tot) }],
+      ["receita por cliente", "índice de concentração"], 0.88);
+  }
+
   // ——— COMPARAÇÃO ENTRE DOIS MESES NOMEADOS ("gastei mais em maio ou junho?") ———
   {
     const achados = MES.map((_, i) => i).filter((i) => new RegExp(`(^|[^a-zà-ú])${MES[i]}([^a-zà-ú]|$)`, "i").test(p));
