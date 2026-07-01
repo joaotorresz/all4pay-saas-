@@ -68,6 +68,8 @@ const ESPERADOS: [string, string][] = [
   ["o que é regime tributário?", "regime-trib"],
   ["o que é Simples Nacional?", "regime-trib"],
   ["o que é juros de mora?", "juros-mora"],
+  ["o que é alíquota efetiva?", "aliquota-efetiva"],
+  ["o que é RBT12?", "rbt12"],
   ["o que é taxa de gateway?", "taxa-gateway"],
   ["o que é balanço patrimonial?", "balanco"],
   ["o que é ativo circulante?", "ativo-passivo"],
