@@ -44,10 +44,10 @@ function SparkleMark({ size = 20 }: { size?: number }) {
 const CURADAS = [
   "Quanto gastei esse mês?",
   "Quanto vai sobrar esse mês?",
-  "Qual meu saldo disponível?",
+  "Quais meus maiores fornecedores?",
   "Quem está me devendo?",
+  "Posso gastar R$ 5.000?",
   "Qual meu próximo pagamento?",
-  "Quais são meus maiores gastos?",
   "Tenho clientes em risco de inadimplência?",
   "O que é margem de contribuição?",
 ];
