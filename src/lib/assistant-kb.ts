@@ -44,6 +44,9 @@ export const KB: KBEntry[] = [
   { id: "nfse", termos: /nfs-?e|nota fiscal|nota de servi[çc]|emitir nota/, titulo: "Nota fiscal / NFS-e", texto: "Documento fiscal da venda ou serviço. A venda é o documento-mãe que propaga para recebível, imposto e nota.", rota: "/notas-fiscais" },
   { id: "breakeven", termos: /ponto de equil[íi]brio|break-?even|equil[íi]brio/, titulo: "Ponto de equilíbrio", texto: "O faturamento mínimo para as receitas cobrirem todos os custos (resultado zero). Abaixo dele, a operação fica no vermelho.", rota: "/dre" },
   { id: "prev-real", termos: /previsto (vs|x|e|contra) realizado|realizado (vs|x) previsto|acur[áa]cia/, titulo: "Previsto × Realizado", texto: "Compara o que estava planejado (previsto/agendado) com o que de fato aconteceu (realizado), medindo a acurácia do seu planejamento.", rota: "/fluxo-caixa" },
+  { id: "partidas", termos: /partidas? (dobrada|dupla)|dupla partida|d[ée]bito e cr[ée]dito|raz[ãa]o|ledger/, titulo: "Partidas dobradas (razão)", texto: "Todo lançamento afeta duas contas: um débito e um crédito de igual valor. Garante que o balanço sempre fecha (débitos = créditos).", rota: "/razao" },
+  { id: "provisao", termos: /provis[ãa]o|accrual|compet[êe]ncia futura|despesa (a )?apropriar/, titulo: "Provisão / Accrual", texto: "Reconhece uma despesa/receita no período em que ela ocorre (competência), mesmo antes de o dinheiro entrar/sair. Ex.: 13º provisionado mês a mês.", rota: "/fechamento" },
+  { id: "concil-auto", termos: /concilia[çc][ãa]o autom[áa]tica|matching autom|bate autom/, titulo: "Conciliação automática", texto: "O sistema casa cada linha do extrato com o título correspondente por valor+data+documento (matching probabilístico); só o que fica em dúvida vai para revisão manual.", rota: "/conciliacao-bancaria" },
 ];
 
 /** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
@@ -56,7 +59,7 @@ export function buscarKB(q: string): KBEntry | null {
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|break-?even|ponto de equil/i.test(s)) return e;
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|break-?even|ponto de equil|partidas? (dobrada|dupla)|provis[ãa]o|accrual/i.test(s)) return e;
     }
   }
   return null;
