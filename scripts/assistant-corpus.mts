@@ -193,6 +193,9 @@ const CORPUS: [string, RegExp][] = [
   // mais comigo" (ordem do verbo) → maior cliente.
   ["meus custos subiram?", /vs\.|queda|aument|gastou/i],
   ["quem compra mais comigo?", /maior cliente|cliente/i],
+  // 18ª rodada: fraseados de saldo/caixa que caíam no fallback
+  ["e o caixa, como tá?", /saldo consolidado/i],
+  ["tenho folga no caixa?", /saldo consolidado/i],
 ];
 
 let pass = 0;
