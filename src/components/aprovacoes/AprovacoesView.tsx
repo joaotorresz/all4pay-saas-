@@ -78,7 +78,7 @@ export function AprovacoesView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Fila */}
-      <Card padded={false} className="lg:col-span-2" info={{ titulo: "Fila de aprovações", oQue: "Reúne as solicitações de pagamento e reembolso que precisam passar pela alçada antes de executar.", comoCalcula: "Títulos a pagar acima do limite da alçada viram solicitações automáticas; as abas filtram por status." }}>
+      <Card padded={false} className="lg:col-span-2">
         <div className="flex items-center gap-1 px-5 pt-[14px] border-b border-border-soft">
           {ABAS.map((a) => {
             const n = contaAba(lista, a.id);
@@ -90,6 +90,7 @@ export function AprovacoesView() {
               </button>
             );
           })}
+          <span className="ml-auto"><InfoHint align="left" titulo="Fila de aprovações" oQue="Reúne as solicitações de pagamento e reembolso que precisam passar pela alçada antes de executar." comoCalcula="Títulos a pagar acima do limite da alçada viram solicitações automáticas; as abas filtram por status." /></span>
         </div>
         <div className="flex flex-col max-h-[560px] overflow-y-auto">
           {filtradas.length === 0 ? (

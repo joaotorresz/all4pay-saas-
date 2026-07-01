@@ -31,6 +31,14 @@ export const KB: KBEntry[] = [
   { id: "score", termos: /score|sa[úu]de financeira|nota da empresa/, titulo: "Score de saúde financeira", texto: "Nota 0–100 ponderando liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento. Acompanha a tendência e a probabilidade de ruptura de caixa.", rota: "/inteligencia" },
   { id: "chargeback", termos: /chargeback|contesta[çc][ãa]o/, titulo: "Chargeback", texto: "Estorno forçado de uma cobrança no cartão, contestada pelo portador. Reduz o faturamento líquido e é monitorado no painel de Vendas.", rota: "/painel-vendas" },
   { id: "reembolso", termos: /reembolso|devolu[çc][ãa]o de venda/, titulo: "Reembolso", texto: "Devolução de um valor ao cliente (estorno voluntário). Abate da receita no período em que ocorre.", rota: "/painel-vendas" },
+  { id: "regime", termos: /compet[êe]ncia|regime de caixa|regime|caixa vs compet/, titulo: "Competência × Caixa", texto: "São duas datas do mesmo lançamento: competência (quando o fato aconteceu → vai pro DRE) e caixa (quando o dinheiro entra/sai → vai pro fluxo). O DRE usa competência; o fluxo de caixa usa caixa.", rota: "/dre" },
+  { id: "aging", termos: /aging|envelhecimento|faixa de atraso|dias de atraso/, titulo: "Aging (envelhecimento)", texto: "Agrupa os títulos em aberto por faixa de atraso (a vencer, 1–30, 31–60, 60+ dias). Mostra o quão velha é a dívida de cada cliente — quanto mais velho, mais difícil receber.", rota: "/inadimplencia" },
+  { id: "rateio", termos: /rateio|centro de custo|ratear|por projeto/, titulo: "Rateio / Centro de custo", texto: "Distribui um lançamento entre projetos ou centros de custo, para saber quanto cada área gastou/gerou. Alimenta o DRE por centro de custo.", rota: "/centros-custo" },
+  { id: "liquidez", termos: /liquidez corrente|[íi]ndice de liquidez/, titulo: "Liquidez corrente", texto: "Mede se os recursos de curto prazo cobrem as obrigações de curto prazo. Fórmula: ativo circulante ÷ passivo circulante. Acima de 1 indica folga para honrar as contas.", rota: "/inteligencia" },
+  { id: "concentracao", termos: /concentra[çc][ãa]o|depend[êe]ncia de cliente|hhi/, titulo: "Concentração de receita", texto: "O quanto sua receita depende de poucos clientes. Medida pelo índice HHI e pelo peso do maior cliente — concentração alta é risco se um deles sair.", rota: "/risco" },
+  { id: "capital-giro", termos: /capital de giro|giro|necessidade de capital/, titulo: "Capital de giro", texto: "O dinheiro que a operação precisa para girar entre pagar fornecedores e receber dos clientes. Quanto maior o descasamento de prazos, mais capital de giro é exigido.", rota: "/fluxo-caixa" },
+  { id: "churn", termos: /churn|cancelamento|perda de clientes/, titulo: "Churn", texto: "A taxa de cancelamento de assinaturas/recorrências no período. Churn alto derruba o MRR — receita recorrente que você deixa de ter nos próximos meses.", rota: "/recorrencias" },
+  { id: "nsu", termos: /\bnsu\b|autoriza[çc][ãa]o|c[óo]digo da transa/, titulo: "NSU", texto: "Número que identifica uma transação de cartão junto à adquirente. Serve para conciliar cada venda com o repasse que cai na conta.", rota: "/conciliacao-bancaria" },
 ];
 
 /** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
@@ -43,7 +51,7 @@ export function buscarKB(q: string): KBEntry | null {
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score/i.test(s)) return e;
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia/i.test(s)) return e;
     }
   }
   return null;
