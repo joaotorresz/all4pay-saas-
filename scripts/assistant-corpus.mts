@@ -120,6 +120,11 @@ const CORPUS: [string, RegExp][] = [
   // 11ª rodada: maior problema / gastos aumentaram / vou pagar de conta / entra e sai
   ["qual meu maior problema financeiro?", /score|sa[úu]de|risco|vencid|inadimpl/i], ["meus gastos aumentaram?", /gast|aument|comparad|vs|receb|alta|queda/i],
   ["quanto vou pagar de conta?", /a pagar/i], ["quanto entra e sai por mês?", /entr|sa[íi]|resultado|m[êe]s/i],
+  // 12ª rodada: explicar números / desempenho / ganhando / meus gastos / pior cliente / reservado
+  ["me explica meus números", /entr|sa[íi]|resultado|saldo|receb|gast/i], ["qual meu desempenho esse mês?", /sobrou|resultado|receb|m[êe]s|margem/i],
+  ["tô ganhando dinheiro?", /sobrou|resultado|lucro|margem|azul/i], ["me diz meus gastos", /gast|despes/i],
+  ["quanto custa manter a empresa?", /gast|despes|custo/i], ["qual meu pior cliente?", /vencid|devedor|em dia|risco/i],
+  ["quanto tá reservado?", /saldo|reserva|folga/i],
 ];
 
 let pass = 0;
