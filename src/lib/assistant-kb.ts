@@ -39,6 +39,11 @@ export const KB: KBEntry[] = [
   { id: "capital-giro", termos: /capital de giro|giro|necessidade de capital/, titulo: "Capital de giro", texto: "O dinheiro que a operação precisa para girar entre pagar fornecedores e receber dos clientes. Quanto maior o descasamento de prazos, mais capital de giro é exigido.", rota: "/fluxo-caixa" },
   { id: "churn", termos: /churn|cancelamento|perda de clientes/, titulo: "Churn", texto: "A taxa de cancelamento de assinaturas/recorrências no período. Churn alto derruba o MRR — receita recorrente que você deixa de ter nos próximos meses.", rota: "/recorrencias" },
   { id: "nsu", termos: /\bnsu\b|autoriza[çc][ãa]o|c[óo]digo da transa/, titulo: "NSU", texto: "Número que identifica uma transação de cartão junto à adquirente. Serve para conciliar cada venda com o repasse que cai na conta.", rota: "/conciliacao-bancaria" },
+  { id: "boleto", termos: /boleto|linha digit|c[óo]digo de barras/, titulo: "Boleto", texto: "Título de cobrança bancária com vencimento e linha digitável. Vira um recebível previsto no fluxo até ser pago/baixado.", rota: "/boletos" },
+  { id: "pix", termos: /\bpix\b|chave pix/, titulo: "Pix", texto: "Pagamento/recebimento instantâneo. Entra como lançamento imediato (data de caixa = data de vencimento), sem prazo de compensação.", rota: "/recebimentos" },
+  { id: "nfse", termos: /nfs-?e|nota fiscal|nota de servi[çc]|emitir nota/, titulo: "Nota fiscal / NFS-e", texto: "Documento fiscal da venda ou serviço. A venda é o documento-mãe que propaga para recebível, imposto e nota.", rota: "/notas-fiscais" },
+  { id: "breakeven", termos: /ponto de equil[íi]brio|break-?even|equil[íi]brio/, titulo: "Ponto de equilíbrio", texto: "O faturamento mínimo para as receitas cobrirem todos os custos (resultado zero). Abaixo dele, a operação fica no vermelho.", rota: "/dre" },
+  { id: "prev-real", termos: /previsto (vs|x|e|contra) realizado|realizado (vs|x) previsto|acur[áa]cia/, titulo: "Previsto × Realizado", texto: "Compara o que estava planejado (previsto/agendado) com o que de fato aconteceu (realizado), medindo a acurácia do seu planejamento.", rota: "/fluxo-caixa" },
 ];
 
 /** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
@@ -51,7 +56,7 @@ export function buscarKB(q: string): KBEntry | null {
   for (const e of KB) {
     if (e.termos.test(s)) {
       // termos fortes (sigla/numérico) respondem mesmo sem o gatilho conceitual
-      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia/i.test(s)) return e;
+      if (conceitual || /ltv|cac|ebitda|mrr|dre|runway|burn|score|aging|churn|\bnsu\b|liquidez|concentra|capital de giro|compet[êe]ncia|boleto|\bpix\b|nfs-?e|break-?even|ponto de equil/i.test(s)) return e;
     }
   }
   return null;
