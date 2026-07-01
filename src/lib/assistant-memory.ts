@@ -47,26 +47,27 @@ async function remoteFeedback(k: string, dir: "up" | "down") {
 let hidratado = false;
 export async function hidratarAprendizado() {
   if (hidratado || isDemo || typeof window === "undefined") return;
-  hidratado = true;
   try {
-    const c = await supa(); if (!c) return;
+    const c = await supa(); if (!c) return; // sem cliente → tenta de novo numa próxima abertura
     const { data } = await c.from("ai_learning").select("q_norm,q,n,up,down,last").order("n", { ascending: false }).limit(40);
-    if (!Array.isArray(data) || !data.length) return;
-    const m = load();
-    for (const r of data as { q_norm: string; q: string; n: number; up: number; down: number; last: string }[]) {
-      const cur = m.stats[r.q_norm];
-      const remoteLast = Date.parse(r.last) || 0;
-      // funde pegando o MAIOR de cada contador (org agrega vários navegadores)
-      m.stats[r.q_norm] = {
-        q: cur?.q || r.q,
-        n: Math.max(cur?.n ?? 0, r.n ?? 0),
-        up: Math.max(cur?.up ?? 0, r.up ?? 0),
-        down: Math.max(cur?.down ?? 0, r.down ?? 0),
-        last: Math.max(cur?.last ?? 0, remoteLast),
-      };
+    if (Array.isArray(data) && data.length) {
+      const m = load();
+      for (const r of data as { q_norm: string; q: string; n: number; up: number; down: number; last: string }[]) {
+        const cur = m.stats[r.q_norm];
+        const remoteLast = Date.parse(r.last) || 0;
+        // funde pegando o MAIOR de cada contador (org agrega vários navegadores)
+        m.stats[r.q_norm] = {
+          q: cur?.q || r.q,
+          n: Math.max(cur?.n ?? 0, r.n ?? 0),
+          up: Math.max(cur?.up ?? 0, r.up ?? 0),
+          down: Math.max(cur?.down ?? 0, r.down ?? 0),
+          last: Math.max(cur?.last ?? 0, remoteLast),
+        };
+      }
+      save(m);
     }
-    save(m);
-  } catch { /* ignore */ }
+    hidratado = true; // conectou (com ou sem dados) → não repete; falha deixa retry
+  } catch { /* ignore — permite nova tentativa ao reabrir */ }
 }
 
 /** Registra que o usuário fez esta pergunta (sobe a frequência + recência). */

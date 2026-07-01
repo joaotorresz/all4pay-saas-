@@ -33,7 +33,7 @@ create index if not exists ai_learning_org_idx on public.ai_learning (org_id);
 -- Incremento atômico da frequência (upsert). SECURITY INVOKER: respeita a RLS
 -- (o DEFAULT de org_id resolve a org do usuário logado).
 create or replace function public.ai_learning_bump(p_norm text, p_q text)
-returns void language plpgsql security invoker as $$
+returns void language plpgsql security invoker set search_path = public as $$
 begin
   insert into public.ai_learning (q_norm, q, n, last)
   values (p_norm, p_q, 1, now())
@@ -44,7 +44,7 @@ $$;
 
 -- Feedback 👍/👎 do usuário sobre a resposta.
 create or replace function public.ai_learning_feedback(p_norm text, p_dir text)
-returns void language plpgsql security invoker as $$
+returns void language plpgsql security invoker set search_path = public as $$
 begin
   update public.ai_learning
     set up   = up   + (case when p_dir = 'up'   then 1 else 0 end),
