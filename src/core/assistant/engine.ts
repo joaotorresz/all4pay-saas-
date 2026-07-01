@@ -186,6 +186,24 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["despesas por categoria"]);
   }
 
+  // ——— TOP FORNECEDORES ———
+  if (/(maior(es)?|principa|top|para quem).*(fornecedor|fornec)|quem mais (recebo de mim|me cobra|eu pago)|para quem (mais )?pago/.test(p)) {
+    const w = janela(p, hoje);
+    const sai = movs.filter((m) => m.type === "saida" && within(cashDate(m), w));
+    const top = topClientes(sai, nomes, 3).filter((c) => c.valor > 0);
+    if (!top.length) return R(`Não há pagamentos por fornecedor ${w.label}.`, [], ["pagamentos por fornecedor"]);
+    return R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]);
+  }
+
+  // ——— QUANTOS clientes/fornecedores ———
+  if (/quant(os|as) (clientes|fornecedores|contatos|parceiros|contrapartes)/.test(p)) {
+    const forn = /fornecedor/.test(p);
+    const tipo: "entrada" | "saida" = forn ? "saida" : "entrada";
+    const set = new Set<string>();
+    for (const m of movs) if (m.type === tipo && m.party_id) set.add(m.party_id);
+    return R(`Você tem ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [{ label: forn ? "Fornecedores" : "Clientes", valor: String(set.size) }], ["contrapartes"]);
+  }
+
   // ——— MÉDIA mensal (gasto/receita) ———
   if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
     const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";

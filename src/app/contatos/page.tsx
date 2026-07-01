@@ -6,7 +6,7 @@ import { EntityTable, NewButton, useToast, type Column } from "@/components/list
 import { usePartiesList } from "@/components/lancamentos/hooks";
 import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { Badge } from "@/components/ui";
+import { Badge, Icon } from "@/components/ui";
 import { isDemo } from "@/lib/demo";
 import type { Party } from "@/lib/types";
 
@@ -54,6 +54,22 @@ const columns: Column<Party>[] = [
         {p.is_supplier && <Badge variant="neutral">Fornecedor</Badge>}
         {p.is_carrier && <Badge variant="neutral">Transportadora</Badge>}
       </span>
+    ),
+  },
+  {
+    key: "ficha",
+    label: "",
+    width: 48,
+    render: (p) => (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: p.id } })); }}
+        title="Ver ficha 360º (recebido, em aberto, risco de crédito)"
+        aria-label="Ver ficha do contato"
+        className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors"
+      >
+        <Icon name="arrow-up-right" size={15} color="currentColor" />
+      </button>
     ),
   },
 ];
