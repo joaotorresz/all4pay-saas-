@@ -29,6 +29,21 @@ const onest = localFont({
   display: "swap",
 });
 
+/**
+ * Roobert TRIAL — a face da identidade corporativa all4pay (site institucional).
+ * Só dois pesos: Medium (subtítulos/corpo) e SemiBold (títulos). Mapeados por
+ * faixa (400–500 → Medium · 600–700 → SemiBold) para nunca cair em faux-bold/
+ * thin. Tracking base −0.02em. Aplicada no escopo `.ds-visor` (todo o app).
+ */
+const roobert = localFont({
+  src: [
+    { path: "./fonts/Roobert-Medium.otf", weight: "400 500", style: "normal" },
+    { path: "./fonts/Roobert-SemiBold.otf", weight: "600 700", style: "normal" },
+  ],
+  variable: "--font-roobert",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "all4pay — Tesouraria",
   description: "ERP + gestão financeira. Construído sobre o Design System all4pay.",
@@ -40,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`${roc.variable} ${onest.variable}`}>
+    <html lang="pt-BR" className={`${roc.variable} ${onest.variable} ${roobert.variable}`}>
       <head>
         {/* Anti-flash: aplica o tema salvo antes da pintura. */}
         <script

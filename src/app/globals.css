@@ -330,19 +330,20 @@ h1, h2, h3,
    por cima, NUNCA branco). Unlayered de propósito (vence o Tailwind).
    ============================================================ */
 .ds-visor {
-  /* ============ PAINEL EDITÁVEL (mexa só nos valores) ============
-     Edite os números/cores abaixo e me mande este bloco de volta — ou
-     edite direto no GitHub (branch claude/epic-fermi-i423xk).
-     --------------------------------------------------------------- */
-  --a4p-bg: #f6f7f9;          /* fundo da página (canvas) */
-  --a4p-box-bg: #ffffff;      /* fundo dos cards */
-  --a4p-box-radius: 14px;     /* arredondamento dos cards */
-  --a4p-box-padding: 24px;    /* padding interno dos cards */
-  --a4p-box-border: #edeff2;  /* hairline dos cards */
-  --a4p-box-shadow: 0 1px 2px rgba(14, 19, 30, 0.04), 0 4px 16px rgba(14, 19, 30, 0.05);
-  /* =============================================================== */
+  /* ====== PAINEL — IDENTIDADE CORPORATIVA all4pay (site institucional) ======
+     Regras: fundo bege claro · boxes brancos · Roobert TRIAL · bordas bem
+     arredondadas · design flat (SEM borda e SEM sombra, de nenhuma maneira).
+     Edite só os valores abaixo. --------------------------------------------- */
+  --a4p-bg: #f3f1ee;          /* fundo da página */
+  --a4p-box-bg: #ffffff;      /* fundo dos boxes */
+  --a4p-box-radius: 24px;     /* bordas bem arredondadas (como os prints) */
+  --a4p-box-padding: 28px;    /* respiro interno */
+  --a4p-box-border: transparent; /* SEM borda */
+  --a4p-box-shadow: none;     /* SEM sombra */
+  /* ========================================================================= */
 
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-roobert), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;    /* tracking da marca */
   --radius-card: var(--a4p-box-radius);
 }
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
@@ -353,13 +354,13 @@ html:not(.dark) .ds-visor {
   --color-surface-2: #eef0f3;
   --color-surface-3: #eef0f3;
   --color-white: var(--a4p-box-bg);
-  --color-ink: #0e131e;
-  --color-ink-soft: #0e131e;
-  --color-text-secondary: #5b5b5b; /* muted → corpo/labels */
-  --color-text-tertiary: #8a8a8a;  /* faint → legendas */
-  --color-text-quaternary: #bbbcbd;/* placeholder / vazio */
+  --color-ink: #11190c;            /* títulos — verde-quase-preto da marca */
+  --color-ink-soft: #11190c;
+  --color-text-secondary: #787664; /* subtítulos/corpo/labels — taupe da marca */
+  --color-text-tertiary: #9c9a88;  /* faint → legendas */
+  --color-text-quaternary: #bdbbac;/* placeholder / vazio */
   --color-border: var(--a4p-box-border);
-  --color-border-soft: #eef0f3;
+  --color-border-soft: transparent;
   /* acento lime #DFFF00 — texto/ícone SEMPRE escuro por cima */
   --color-lime: #dfff00;
   --color-lime-tint: #f8fcd9;
@@ -375,7 +376,8 @@ html:not(.dark) .ds-visor {
    herança. Unlayered → ganha das utilities do Tailwind. */
 .ds-visor,
 .ds-visor * {
-  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-roobert), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
 }
 /* rounded-card (36px fixo) → raio do painel */
 .ds-visor .rounded-card {
