@@ -16,6 +16,7 @@ export interface KBEntry {
 
 export const KB: KBEntry[] = [
   { id: "runway", termos: /runway|f[oô]lego|quantos meses.*caixa|dura(r)? o caixa/, titulo: "Runway de caixa", texto: "Por quantos meses o caixa atual cobre o ritmo de queima. Fórmula: saldo disponível ÷ burn mensal. Cai quando o burn sobe ou o saldo encolhe.", rota: "/fluxo-caixa" },
+  { id: "burn-multiple", termos: /burn multiple|múltiplo de queima|efici[êe]ncia de queima|quanto queimo (para|pra) crescer/, titulo: "Burn multiple", texto: "Quanto de caixa você queima para cada R$ 1 de nova receita (queima líquida ÷ crescimento de receita). Abaixo de 1 é eficiente; muito acima indica crescimento caro.", rota: "/inteligencia" },
   { id: "burn", termos: /burn|queima de caixa|consumo de caixa/, titulo: "Burn rate", texto: "Quanto de caixa a operação consome por mês, em média (saídas − entradas recorrentes). É o denominador do runway.", rota: "/inteligencia" },
   { id: "ltv", termos: /\bltv\b|lifetime value|valor do cliente/, titulo: "LTV", texto: "Receita média gerada por cliente no período. Aproximação: receita ÷ clientes distintos. Quanto maior, mais valioso é cada cliente adquirido.", rota: "/painel-vendas" },
   { id: "cac", termos: /\bcac\b|custo de aquisi|custo por cliente/, titulo: "CAC", texto: "Custo de Aquisição de Cliente: gasto de marketing ÷ clientes adquiridos no período. Mede quanto custa trazer um novo cliente.", rota: "/painel-vendas" },
@@ -58,6 +59,8 @@ export const KB: KBEntry[] = [
   { id: "reserva", termos: /reserva (de caixa|de emerg[êe]ncia|financeira)|caixa m[íi]nimo|colch[ãa]o (de caixa|financeiro)/, titulo: "Reserva de caixa", texto: "Um caixa mínimo guardado para meses ruins — em geral 3 a 6 meses de custos fixos. O all4pay usa ~3 meses de operação ao avaliar se você pode gastar um valor.", rota: "/fluxo-caixa" },
   { id: "roi", termos: /\broi\b|retorno sobre (o )?investiment|retorno do investiment/, titulo: "ROI (retorno sobre investimento)", texto: "Ganho gerado ÷ valor investido. Mede se um investimento (marketing, equipamento, contratação) se paga e em quanto. ROI positivo = retornou mais do que custou.", rota: "/inteligencia" },
   { id: "sazonalidade", termos: /sazonalidade|sazonal|[ée]poca do ano|meses (fortes|fracos)|pico de venda/, titulo: "Sazonalidade", texto: "A variação previsível da receita ao longo do ano (datas fortes, meses fracos). O all4pay detecta seus padrões sazonais para projetar caixa e antecipar apertos.", rota: "/inteligencia" },
+  { id: "ticket-medio", termos: /ticket m[ée]dio|valor m[ée]dio (por|da) (venda|pedido|compra)|ticket/, titulo: "Ticket médio", texto: "O valor médio de cada venda: receita ÷ número de vendas no período. Subir o ticket (upsell, combos) cresce a receita sem precisar de mais clientes.", rota: "/painel-vendas" },
+  { id: "payback", termos: /payback|tempo de retorno|em quanto tempo (se paga|recupero)|prazo de retorno/, titulo: "Payback", texto: "O tempo até um investimento se pagar com o retorno que gera (valor investido ÷ ganho mensal). Payback curto = capital de volta rápido para reinvestir.", rota: "/inteligencia" },
 ];
 
 /** Detecta intenção CONCEITUAL ("o que é/como calcula/para que serve"). */
