@@ -14,6 +14,7 @@
  */
 import { responderLocal } from "@/core/assistant/engine";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import type { ExecutiveContext } from "@/core/executive/types";
 
 const HOJE = "2026-07-15";
 let seq = 0;
@@ -35,6 +36,10 @@ const input: RiskInput = {
   partyNames: { A: "Loja Alpha", B: "Beta", C: "Gama", F0: "Uno", F1: "Dois", F2: "Tres", F3: "Quatro" },
   movements: movs,
 } as RiskInput;
+
+// ctx como em produção (AssistantWidget passa intel.context) — cobre os intents
+// gateados por ctx (score/saúde, burn).
+const ctx = { saldoAtual: 45000, runwayMeses: 8, burnRate: 6000, inadimplencia: 0.08, scoreFinanceiro: 72, probRuptura: 0.12, receitaMensal: 18000, despesaMensal: 12000 } as unknown as ExecutiveContext;
 
 // [pergunta, regex que a resposta CERTA deve casar]
 const CORPUS: [string, RegExp][] = [
@@ -78,12 +83,20 @@ const CORPUS: [string, RegExp][] = [
   ["quanto gastei nos últimos 3 meses?", /últimos 3 meses|gastou/i], ["o que vence em julho?", /julho|vencem|nada vence/i],
   // resumo
   ["me dá um resumo do dia", /Hoje|resumo/i], ["me faz um resumo do mês", /m[êe]s|resultado|entr/i],
+  // score / saúde (gateados por ctx)
+  ["qual a saúde financeira?", /sa[úu]de|score/i], ["minha empresa tá saudável?", /sa[úu]de|score/i],
+  // afordabilidade coloquial
+  ["compensa gastar 3 mil?", /cabe|folga|3\.000/i], ["tenho dinheiro pra 15 mil?", /cabe|folga|15\.000/i],
+  // vencimentos/pagar timeframe
+  ["o que preciso pagar essa semana?", /vencem|pagar|vence|nada/i], ["qual conta vence primeiro?", /pr[óo]xim|vence|vencem/i],
+  // como foi mês nomeado
+  ["como foi junho?", /junho/i], ["como foi o dia?", /Hoje|resumo/i],
 ];
 
 let pass = 0;
 const fails: string[] = [];
 for (const [q, re] of CORPUS) {
-  const r = responderLocal(q, input);
+  const r = responderLocal(q, input, ctx);
   if (r && re.test(r.resposta)) pass++;
   else { fails.push(`✗ "${q}"  → ${r ? r.resposta.slice(0, 90) : "NULL (sem intent → Claude)"}`); }
 }

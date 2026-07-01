@@ -158,7 +158,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— VENCIMENTOS no período ———
-  if (/(o que|quais|quanto|tem algo).*(vence|vencer|vencimento)|vence (hoje|amanh[ãa]|essa semana|esse m[êe]s)|a vencer|vencimentos?/.test(p)) {
+  if (/(o que|quais|qual|quanto|tem algo).*(vence|vencer|vencimento)|vence (hoje|amanh[ãa]|essa semana|esse m[êe]s)|a vencer|vencimentos?|(o que|quais).*(preciso|tenho que|vou|devo) (pagar|receber)|(pagar|receber) (essa semana|amanh[ãa]|hoje|esse m[êe]s)/.test(p)) {
     // Detecta período explícito (inclui mês NOMEADO, trimestre/semestre/ano) —
     // senão o default é "nesta semana". Antes, "o que vence em março?" caía no
     // default de semana por não ter token semana/mês/dia.
@@ -493,7 +493,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— AFORDABILIDADE: posso gastar X? ———
-  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)/.test(p)) {
+  if (/(posso|consigo|d[áa] (pra|para)|tenho como|cabe|compensa|vale a pena|devo).*(gastar|comprar|investir|pagar|gasto)|cabe no (caixa|or[çc]amento)|tenho (dinheiro|grana|caixa) (pra|para)/.test(p)) {
     const nm = p.replace(/r\$\s*/g, "").match(/(\d[\d.]*(,\d+)?)\s*(mil|k|milh[õo]es?|mi)?/);
     const mult = nm && nm[3] ? (/milh|^mi$/.test(nm[3]) ? 1_000_000 : 1_000) : 1;
     const valor = nm ? parseFloat(nm[1].replace(/\./g, "").replace(",", ".")) * mult : 0;
@@ -588,7 +588,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESULTADO / sobrou / lucro ———
-  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|t[ôo] no (azul|vermelho))/.test(p)) {
+  if (/(sobrou|sobra|resultado|lucro|lucrando|dando lucro|preju[íi]zo|fechei o m[êe]s|fech(ou|a) o m[êe]s|no azul|no vermelho|saldo do m[êe]s|ganhei mais do que gastei|t[ôo] no (azul|vermelho)|como (foi|fechou)(?!.*(dia|hoje)))/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -631,7 +631,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— RESUMO DO DIA / briefing ———
-  if (/resumo (do|de) (dia|hoje)|como (est[áa]|vai) (o )?(dia|hoje)|briefing|o que (tem|rolou|entrou) hoje|meu dia/.test(p)) {
+  if (/resumo (do|de) (dia|hoje)|como (foi|est[áa]|vai) (o |meu )?(dia|hoje)|briefing|o que (tem|rolou|entrou) hoje|meu dia/.test(p)) {
     const w: Janela = { label: "hoje", from: hoje, to: hoje };
     const entrou = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const saiu = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -711,7 +711,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— SCORE / saúde ———
-  if (ctx && /score|sa[úu]de financeira|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa/.test(p)) {
+  if (ctx && /score|sa[úu]de financeira|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa|empresa (t[áa]|est[áa]|anda) saud|saud[áa]vel|empresa vai bem|minha empresa (t[áa]|est[áa]|vai) bem/.test(p)) {
     const nivel = ctx.scoreFinanceiro >= 80 ? "excelente" : ctx.scoreFinanceiro >= 60 ? "boa" : ctx.scoreFinanceiro >= 40 ? "de atenção" : "crítica";
     return R(
       `Sua saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
