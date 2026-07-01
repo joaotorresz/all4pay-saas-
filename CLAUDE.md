@@ -467,6 +467,18 @@ camadas encadeadas no `responder`:
    pago-vs-pendente foram auditadas adversarialmente). Perguntas **possessivas**
    de métricas fortes ("qual meu EBITDA/runway/burn/score") caem no motor
    (número real); só "o que é X" vai à KB (conceito).
+2b. **Calculadoras financeiras** (motores puros, respondidas na hora pelo motor
+   nativo — a decisão que a PME precisa simular): **financiamento/empréstimo**
+   (`src/core/financing` — tabela Price/SAC, parcela, juros, custo efetivo),
+   **antecipação de recebíveis** (`financing` `antecipar` — desconto de
+   duplicata, líquido hoje × deságio), **precificação** (`src/core/pricing` —
+   preço/margem/**markup**, resolve a confusão margem≠markup), **investimento**
+   (`src/core/investment` — valor futuro de aportes + **payback**) e **conversão
+   de taxa** mensal↔anual (`financing` `equivalenteAnual/Mensal` — 2%/mês =
+   26,82%/ano composto, não 24%). Ex.: "quanto fica a parcela de 50 mil em 12x a
+   2%?", "vale a pena antecipar 10 mil que vence em 2 meses?", "que preço vender
+   custo 100 com margem 30%?", "quanto rende guardar 1000/mês a 1% em 12 meses?".
+   Puros/tipados/demo-safe, cada um com guarda de valor no `engine-audit`.
 3. **Claude** (`/api/ai/copiloto`) para perguntas abertas/consultivas, com o
    `copilotoFinanceiro` determinístico como fallback final.
 Aprende com o uso (`src/lib/assistant-memory.ts`): frequência + recência +
