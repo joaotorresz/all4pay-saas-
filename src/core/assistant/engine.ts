@@ -253,6 +253,19 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(`Gastos por centro de custo ${w.label}: ${top.map(([n, v]) => `${cap(n)} (${fmt(v)})`).join(", ")}.`, top.map(([n, v]) => ({ label: cap(n), valor: fmt(v) })), ["despesas por centro de custo"]);
   }
 
+  // ——— GASTO COM UMA CATEGORIA ESPECÍFICA ("quanto gastei com marketing?") ———
+  // Casa dinamicamente com QUALQUER categoria de despesa que o cliente tenha.
+  {
+    const cats = Array.from(new Set(movs.filter((m) => m.type === "saida" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
+    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => new RegExp(`(^|[^a-zà-ú])${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-zà-ú]|$)`, "i").test(p));
+    if (alvo && /(gast|paguei|despes|quanto|custo)/.test(p)) {
+      const w = janela(p, hoje);
+      const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
+      const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
+      return R(`Você gastou ${fmt(tot)} com ${cap(alvo)} ${w.label}, em ${sai.length} pagamento(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["despesas da categoria"]);
+    }
+  }
+
   // ——— MAIORES GASTOS / por categoria ———
   if (/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) {
     const w = janela(p, hoje);
