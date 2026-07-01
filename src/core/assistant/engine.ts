@@ -64,6 +64,12 @@ function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefin
   for (const m of ms) { const k = m.party_id || "—"; map.set(k, (map.get(k) || 0) + Math.abs(m.amount)); }
   return Array.from(map.entries()).map(([id, valor]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
 }
+/** party_id da contraparte de maior volume (|valor|) numa lista — ignora nulos. */
+function topId(ms: RiskMovement[]): string | undefined {
+  const map = new Map<string, number>();
+  for (const m of ms) { if (!m.party_id) continue; map.set(m.party_id, (map.get(m.party_id) || 0) + Math.abs(m.amount)); }
+  return Array.from(map.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+}
 const R = (resposta: string, numeros: { label: string; valor: string }[], fontes: string[], confianca = 0.9): RespostaCopiloto => ({ resposta, numeros, fontes, confianca });
 
 export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): (RespostaCopiloto & { contatoId?: string }) | null {
@@ -148,14 +154,17 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (top.length === 0) return R(`Não há receita paga por cliente identificado ${w.label}.`, [], ["receita por cliente"]);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const share = tot > 0 ? Math.round((top[0].valor / tot) * 100) : 0;
-    return R(
-      `Seu maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} (${share}% da receita do período). Em seguida: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
-      top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
-      ["receita por cliente"]);
+    return {
+      ...R(
+        `Seu maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} (${share}% da receita do período). Em seguida: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
+        top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
+        ["receita por cliente"]),
+      ...(topId(ent) ? { contatoId: topId(ent) } : {}),
+    };
   }
 
   // ——— CONCENTRAÇÃO / DEPENDÊNCIA de cliente (risco) — últimos 6 meses ———
-  if (/concentra[çc][ãa]o|dependo (muito|demais)|depend[êe]ncia (de|dos|do)|risco de concentra|quanto (representa|vale) (o )?meu maior cliente|(muito )?dependente de (algum |um )?cliente|um cliente s[óo]/.test(p)) {
+  if (/concentra[çc][ãa]o|\bdependo\b|depend[êe]ncia (de|dos|do)|risco de concentra|quanto (representa|vale) (o )?meu maior cliente|(muito )?dependente de (algum |um )?cliente|um cliente s[óo]/.test(p)) {
     const base = new Date(hoje + "T00:00:00"); base.setMonth(base.getMonth() - 5);
     const from = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-01`;
     const w: Janela = { label: "nos últimos 6 meses", from, to: hoje };
@@ -168,10 +177,13 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const alerta = share >= 30
       ? `Atenção: ${share}% da sua receita depende de ${top[0].nome} — concentração alta, um risco se esse cliente sair.`
       : `Saudável: seu maior cliente (${top[0].nome}) é ${share}% da receita, sem dependência crítica.`;
-    return R(
-      `${alerta} Os 3 maiores somam ${top3}% do que você recebe (últimos 6 meses).`,
-      [{ label: `Maior (${top[0].nome})`, valor: `${share}%` }, { label: "Top 3", valor: `${top3}%` }, { label: "Receita 6m", valor: fmt(tot) }],
-      ["receita por cliente", "índice de concentração"], 0.88);
+    return {
+      ...R(
+        `${alerta} Os 3 maiores somam ${top3}% do que você recebe (últimos 6 meses).`,
+        [{ label: `Maior (${top[0].nome})`, valor: `${share}%` }, { label: "Top 3", valor: `${top3}%` }, { label: "Receita 6m", valor: fmt(tot) }],
+        ["receita por cliente", "índice de concentração"], 0.88),
+      ...(topId(ent) ? { contatoId: topId(ent) } : {}),
+    };
   }
 
   // ——— COMPARAÇÃO ENTRE DOIS MESES NOMEADOS ("gastei mais em maio ou junho?") ———
