@@ -242,6 +242,10 @@ const CORPUS: [string, RegExp][] = [
   ["quais boletos tenho", /a pagar/i],
   ["com o que eu mais torro dinheiro", /maiores gastos/i],
   ["fechei no positivo", /sobrou|azul|entraram/i],
+  // afordabilidade com valor — investimento (substantivo), aguento, tirar pró-labore
+  ["cabe um investimento de 20 mil?", /cabe|Cuidado|folga/i],
+  ["aguento uma despesa de 3 mil?", /cabe|Cuidado|folga/i],
+  ["posso tirar 5 mil de pró-labore?", /cabe|Cuidado|folga/i],
 ];
 
 let pass = 0;
