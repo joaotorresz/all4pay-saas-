@@ -175,14 +175,17 @@ export function TopClientesCard() {
         top.map(([id, val]) => {
           const nome = data.partyNames?.[id] ?? (id === "—" ? "Sem contraparte" : id);
           const share = total > 0 ? val / total : 0;
+          const clicavel = id !== "—";
+          const abrir = () => clicavel && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id } }));
           return (
-            <div key={id} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
+            <button key={id} type="button" onClick={abrir} disabled={!clicavel}
+              className={`flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0 text-left w-full ${clicavel ? "hover:opacity-80 transition-opacity cursor-pointer" : "cursor-default"}`}>
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[16px] text-ink truncate">{nome}</span>
+                <span className="text-[16px] text-ink truncate inline-flex items-center gap-1">{nome}{clicavel && <Icon name="arrow-up-right" size={12} color="var(--color-faint)" />}</span>
                 <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
               </div>
               <BarShare pct={share} color="var(--color-ink)" />
-            </div>
+            </button>
           );
         })
       )}

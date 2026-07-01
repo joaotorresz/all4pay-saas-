@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
 import { AssistantWidget } from "@/components/app/AssistantWidget";
+import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
 
@@ -58,6 +59,7 @@ export function AppShell({
       <PageGuide />
       <CommandPalette />
       <AssistantWidget />
+      <ContatoDrawer />
       <NovaTransacao />
     </div>
   );
