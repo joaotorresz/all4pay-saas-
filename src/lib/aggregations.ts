@@ -124,7 +124,9 @@ export function dailyCashflow(
   const todayISO = isoDay(today);
 
   for (const m of movements) {
-    const day = m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+    // realizado = só PAGO (exclui pendente/cancelado com paid_date solto),
+    // igual a dailyCashflowRange/Projetado.
+    const day = m.status === "pago" ? (m.paid_date ?? m.due_date) : null;
     if (!day || day < startISO || day > todayISO) continue;
     const b = buckets.get(day) ?? { inflow: 0, outflow: 0 };
     if (m.type === "entrada") b.inflow += m.amount;

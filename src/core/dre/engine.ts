@@ -290,7 +290,9 @@ export function dreComparativo(input: RiskInput, regime: Regime): DREComparativo
   const anterior = meses.get(ymPrev) ?? empty;
 
   const ytdAggs = Array.from(meses.entries()).filter(([ym]) => ym >= `${ano}-01` && ym <= ymAtual).map(([, a]) => a);
-  const corte12 = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1).toISOString().slice(0, 7);
+  // corte local (não UTC) p/ não errar o mês no início do mês em fuso negativo
+  const c12 = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+  const corte12 = `${c12.getFullYear()}-${String(c12.getMonth() + 1).padStart(2, "0")}`;
   const m12Aggs = Array.from(meses.entries()).filter(([ym]) => ym >= corte12 && ym <= ymAtual).map(([, a]) => a);
 
   const periodos: DREPeriodo[] = [
