@@ -27,7 +27,7 @@ import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
-import { valorFuturo, payback } from "@/core/investment";
+import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
@@ -394,6 +394,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("investment: payback 20000 / 2000 = 10 meses", p.meses === 10 && p.paga === true);
   const q = payback(20000, 0);
   ok("investment: payback sem retorno → Infinity, não paga", q.meses === Infinity && q.paga === false);
+  // meta de poupança: 24k a 0% guardando 2k/mês = 12 meses exatos
+  ok("investment: meta 24k @0% guardando 2k/mês = 12 meses", tempoParaMeta(24000, 2000, 0).meses === 12);
+  // com juros 1% a meta de 50k guardando 2k/mês vem ANTES (23 < 25 meses do 0%)
+  const meta = tempoParaMeta(50000, 2000, 0.01);
+  ok("investment: meta 50k @1% guardando 2k = 23 meses (juros aceleram)", meta.meses === 23, `${meta.meses}`);
+  // cross-check: valorFuturo no mês da meta ≥ alvo, no mês anterior < alvo
+  ok("investment: meta cross-check — FV(23)≥50k e FV(22)<50k", valorFuturo(0, 2000, 0.01, meta.meses).montante >= 50000 && valorFuturo(0, 2000, 0.01, meta.meses - 1).montante < 50000);
+  // já tem a meta → 0 meses; sem aporte nem juros → inatingível
+  ok("investment: já tem a meta → 0 meses", tempoParaMeta(10000, 500, 0.01, 10000).meses === 0);
+  ok("investment: sem aporte nem juros → inatingível (Infinity)", tempoParaMeta(10000, 0, 0).meses === Infinity && tempoParaMeta(10000, 0, 0).atingivel === false);
   // provisão trabalhista: folha 12000 → 13º 1000, férias 1333.33, FGTS 186.67, total 2520
   const pr = provisaoTrabalhista(12000);
   ok("payroll: folha 12000 → 13º 1000, férias 1333.33, total 2520", pr.decimoTerceiroMes === 1000 && pr.feriasMes === 1333.33 && pr.provisaoTotalMes === 2520, `${pr.decimoTerceiroMes}/${pr.feriasMes}/${pr.provisaoTotalMes}`);

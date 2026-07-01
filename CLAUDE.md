@@ -476,7 +476,9 @@ camadas encadeadas no `responder`:
    margem≠markup; **gross-up com impostos** `precoComImpostos` — preço que embute
    imposto p/ margem LÍQUIDA alvo) e **ponto de equilíbrio em unidades** (`pricing`
    `pontoEquilibrioUnidades` — custo fixo ÷ margem de contribuição),
-   **investimento** (`src/core/investment` — valor futuro de aportes + **payback**),
+   **investimento** (`src/core/investment` — valor futuro de aportes + **payback**
+   + **meta de poupança** `tempoParaMeta`: em quanto tempo se junta um alvo
+   guardando Y/mês a juros compostos),
    **provisão trabalhista** (`src/core/payroll` — 13º/férias/FGTS e o custo ANUAL
    real da folha), **Simples Nacional** (`src/core/tax` `calcularSimplesNacional`
    — alíquota EFETIVA por faixa `(RBT12·nominal − dedução)/RBT12` ≠ a da tabela,

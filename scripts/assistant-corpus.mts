@@ -295,6 +295,9 @@ const CORPUS: [string, RegExp][] = [
   // gross-up de preço (margem líquida + imposto)
   ["por quanto vendo um custo de 100 pra ter 20% de margem líquida com 6% de imposto?", /margem LÍQUIDA|imposto|venda/i],
   ["que preço vender custo 100 com margem de 30% e imposto de 10%?", /margem LÍQUIDA|imposto|venda/i],
+  // meta de poupança (tempo até um alvo) — distinta de valor futuro e payback
+  ["quanto tempo pra juntar 50 mil guardando 2 mil por mês a 1%?", /junta R\$|meses/i],
+  ["quando vou ter 100 mil guardando 5 mil por mês?", /junta R\$|meses/i],
 ];
 
 let pass = 0;

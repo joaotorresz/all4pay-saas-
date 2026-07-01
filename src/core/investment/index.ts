@@ -42,6 +42,56 @@ export function valorFuturo(principal: number, aporteMensal: number, taxaMensal:
   };
 }
 
+export interface TempoParaMeta {
+  meta: number;           // alvo a juntar
+  aporteMensal: number;   // depósito por mês
+  taxaMensal: number;     // fração
+  principal: number;      // quanto já tem hoje
+  meses: number;          // meses até atingir (Infinity se nunca)
+  anos: number;
+  totalAportado: number;  // principal + aporteMensal·meses
+  jurosGanhos: number;    // meta − totalAportado (o que os juros pouparam)
+  atingivel: boolean;
+}
+
+/**
+ * Em quanto tempo se junta uma META guardando um aporte mensal a juros
+ * compostos, partindo de `principal` (default 0). Resolve o n de
+ * FV = P·(1+i)^n + PMT·((1+i)^n−1)/i = meta:
+ *   (1+i)^n = (meta + PMT/i) ÷ (P + PMT/i)  → n = ln(·)/ln(1+i);  i=0 → (meta−P)/PMT.
+ * Arredonda o mês para cima (só se atinge a meta no mês cheio).
+ */
+export function tempoParaMeta(meta: number, aporteMensal: number, taxaMensal = 0, principal = 0): TempoParaMeta {
+  const alvo = Math.max(0, meta);
+  const PMT = Math.max(0, aporteMensal);
+  const i = Math.max(0, taxaMensal);
+  const P = Math.max(0, principal);
+  const base = { meta: round2(alvo), aporteMensal: round2(PMT), taxaMensal: i, principal: round2(P) };
+
+  if (P >= alvo) return { ...base, meses: 0, anos: 0, totalAportado: round2(P), jurosGanhos: 0, atingivel: true };
+  // Sem aporte e sem rendimento que cubra a diferença → nunca chega.
+  if (PMT === 0 && i === 0) return { ...base, meses: Infinity, anos: Infinity, totalAportado: round2(P), jurosGanhos: 0, atingivel: false };
+
+  let n: number;
+  if (i === 0) {
+    n = (alvo - P) / PMT;
+  } else {
+    const num = alvo + PMT / i;
+    const den = P + PMT / i;
+    n = Math.log(num / den) / Math.log(1 + i);
+  }
+  const meses = Math.max(0, Math.ceil(n));
+  const totalAportado = P + PMT * meses;
+  return {
+    ...base,
+    meses,
+    anos: round2(meses / 12),
+    totalAportado: round2(totalAportado),
+    jurosGanhos: round2(Math.max(0, alvo - totalAportado)), // o que os juros pouparam: meta − o que você depositou
+    atingivel: Number.isFinite(meses),
+  };
+}
+
 export interface Payback {
   investimento: number;
   retornoMensal: number;

@@ -17,7 +17,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
-import { valorFuturo, payback } from "@/core/investment";
+import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
@@ -249,6 +249,28 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
           ? `Um investimento de ${fmt(nums[0])} que gera ${fmt(nums[1])} por mês se paga em ~${r.meses % 1 === 0 ? r.meses : r.meses.toFixed(1)} meses (${r.anos.toFixed(1)} anos). Depois disso, é lucro.`
           : `Sem retorno mensal positivo, o investimento de ${fmt(nums[0])} não se paga.`,
         [{ label: "Payback", valor: `${r.paga ? r.meses.toFixed(1) : "—"} meses` }, { label: "Investimento", valor: fmt(nums[0]) }, { label: "Retorno/mês", valor: fmt(nums[1]) }], ["payback de investimento"]);
+    }
+  }
+
+  // ——— META DE POUPANÇA: em quanto tempo junto X guardando Y/mês ———
+  // Antes do valor futuro: a pergunta é o TEMPO até uma meta, não o montante.
+  if (/(quanto tempo|em quanto tempo|quantos? m[êe]s(es)?|em quantos meses|quando (eu )?(vou|consigo))\b.{0,45}(junt\w*|poupar|poupando|guardar|guardando|acumul\w*|chegar|alcan[çc]ar|ter|comprar)\b.{0,40}\d/.test(p) && !/recuper|se paga|investiment/.test(p)) {
+    const vm = (re: RegExp): number | null => { const m = p.match(re); if (!m) return null; const base = parseFloat(m[1].replace(/\./g, "").replace(",", ".")); return m[2] ? base * (/milh|^mi$/i.test(m[2]) ? 1e6 : 1e3) : base; };
+    // meta (alvo) e aporte mensal — âncoras distintas p/ não trocar os números.
+    const meta = vm(/(?:juntar|acumular|ter|chegar a|meta de|comprar|poupar at[ée]|guardar at[ée]|alcan[çc]ar|juntar uns?)\s+r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/)
+      ?? vm(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?/);
+    const aporte = vm(/(?:guardando|poupando|aplicando|investindo|guardar|poupar|separando|de)\s+r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:por|todo|a cada|no|\/)\s*m[êe]s/)
+      ?? vm(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)?\s*(?:por|\/)\s*m[êe]s/);
+    const jm = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+    const taxa = jm ? parseFloat(jm[1].replace(",", ".")) / 100 : 0;
+    if (meta != null && meta > 0 && aporte != null && aporte > 0) {
+      const r = tempoParaMeta(meta, aporte, taxa);
+      if (!r.atingivel) {
+        return R(`Sem aporte mensal nem rendimento, não dá para chegar a ${fmt(meta)}. Me diga quanto consegue guardar por mês.`, [], ["meta de poupança"]);
+      }
+      const anosTxt = r.meses >= 12 ? ` (${r.anos.toFixed(r.anos % 1 === 0 ? 0 : 1)} ${r.anos === 1 ? "ano" : "anos"})` : "";
+      return R(`Guardando ${fmt(aporte)} por mês${taxa > 0 ? ` a ${Math.round(taxa * 1000) / 10}% ao mês` : ""}, você junta ${fmt(meta)} em ${r.meses} mes${r.meses === 1 ? "" : "es"}${anosTxt}. Você deposita ${fmt(r.totalAportado)}${r.jurosGanhos > 0 ? ` — os juros abatem ${fmt(r.jurosGanhos)}` : ""}.`,
+        [{ label: "Tempo", valor: `${r.meses} meses` }, { label: "Você deposita", valor: fmt(r.totalAportado) }, ...(r.jurosGanhos > 0 ? [{ label: "Juros", valor: fmt(r.jurosGanhos) }] : [])], ["meta de poupança"]);
     }
   }
 
