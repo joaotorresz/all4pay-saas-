@@ -127,7 +127,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— POR CONTRAPARTE (cliente/fornecedor citado na pergunta) ———
-  if (nomes && /(quanto|gast|paguei|recebi|receb|devo|deve|com|para|pro|pra|hist[óo]rico)/.test(p)) {
+  if (nomes && /(quanto|gast|paguei|recebi|receb|devo|deve|com|para|pro|pra|hist[óo]rico|mostr|abr[ai]|ficha|ver o|dados d|perfil d)/.test(p)) {
     const alvo = Object.entries(nomes).find(([, n]) => n && n.length >= 3 && p.includes(n.toLowerCase()));
     if (alvo) {
       const [id, nome] = alvo;
