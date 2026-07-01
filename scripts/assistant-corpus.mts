@@ -170,6 +170,14 @@ const CORPUS: [string, RegExp][] = [
   ["tô perto de ficar sem dinheiro?", /ruptura|caixa cresceu|queima|acabar/i],
   ["me dá um resumo geral", /sa[úu]de financeira|score/i],
   ["como estão minhas finanças no geral?", /sa[úu]de financeira|score/i],
+  // 16ª rodada (cont.): tendência/melhorando → crescimento; representatividade →
+  // concentração; total acumulado (histórico) → novo intent.
+  ["qual a tendência da minha receita?", /crescendo|caindo|est[áa]vel|receita est/i],
+  ["estou melhorando ou piorando?", /crescendo|caindo|est[áa]vel|receita est/i],
+  ["quanto cada cliente representa?", /concentra|depende|maior cliente/i],
+  ["qual o total que já entrou?", /No total você já recebeu/i],
+  ["qual o total que já saiu?", /No total você já pagou/i],
+  ["quanto movimentei no total?", /No total você movimentou/i],
 ];
 
 let pass = 0;

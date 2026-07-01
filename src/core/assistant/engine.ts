@@ -100,6 +100,17 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["recebíveis vencidos", "contas a pagar vencidas"]);
   }
 
+  // ——— TOTAL ACUMULADO (todo o histórico realizado) ———
+  if (/total (que )?(j[áa] )?(entrou|saiu|recebi|paguei|movimentei|movimentou|entrei)|(movimentei|movimentou) (no total|ao todo|na vida|at[ée] agora)|total geral (de )?(entrada|sa[íi]da|movim)|total (de )?(entrada|sa[íi]da) (acumulad|no total|de tudo)/.test(p)) {
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
+    const soEnt = /entrou|recebi|entrada|entrei/.test(p) && !/saiu|paguei|sa[íi]da|movim/.test(p);
+    const soSai = /saiu|paguei|sa[íi]da/.test(p) && !/entrou|recebi|movim/.test(p);
+    if (soEnt) return R(`No total você já recebeu ${fmt(ent)} (todo o histórico realizado).`, [{ label: "Total recebido", valor: fmt(ent) }], ["histórico realizado"]);
+    if (soSai) return R(`No total você já pagou ${fmt(sai)} (todo o histórico realizado).`, [{ label: "Total pago", valor: fmt(sai) }], ["histórico realizado"]);
+    return R(`No total você movimentou ${fmt(ent + sai)}: ${fmt(ent)} de entradas e ${fmt(sai)} de saídas (histórico realizado).`, [{ label: "Entradas", valor: fmt(ent) }, { label: "Saídas", valor: fmt(sai) }, { label: "Total", valor: fmt(ent + sai) }], ["histórico realizado"]);
+  }
+
   // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———
   // ANTES de A RECEBER: "para receber" contém a substring "a receber".
   if (/quanto tempo (demoro|levo|leva|demora)( para| pra)? receber|prazo m[ée]dio de recebiment|atraso m[ée]dio (dos |de )?clientes?|(meus )?clientes? (pagam?|est[ãa]o pagando|andam pagando)( em dia| no prazo| atrasad| com atraso| adiantad)|clientes? pagam em dia|recebo (em dia|no prazo|com atraso)|clientes? (atrasam|est[ãa]o atrasad|demoram)|(meus )?clientes? (s[ãa]o|est[ãa]o) pontuai?s|pontualidade (dos |de )?(clientes|recebiment)/.test(p)) {
@@ -212,7 +223,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CONCENTRAÇÃO / DEPENDÊNCIA de cliente (risco) — últimos 6 meses ———
-  if (/concentra[çc][ãa]o|\bdependo\b|depend[êe]ncia (de|dos|do)|risco de concentra|quanto (representa|vale) (o )?meu maior cliente|(muito )?dependente de (algum |um )?cliente|um cliente s[óo]/.test(p)) {
+  if (/concentra[çc][ãa]o|\bdependo\b|depend[êe]ncia (de|dos|do)|risco de concentra|quanto (representa|vale) (o )?meu maior cliente|quanto (cada cliente|meus clientes) (representa|vale)|representatividade (dos?|de) client|participa[çc][ãa]o (dos?|de) client|(muito )?dependente de (algum |um )?cliente|um cliente s[óo]/.test(p)) {
     const base = new Date(hoje + "T00:00:00"); base.setMonth(base.getMonth() - 5);
     const from = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}-01`;
     const w: Janela = { label: "nos últimos 6 meses", from, to: hoje };
@@ -453,7 +464,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— CRESCIMENTO da receita (mês atual vs. mês anterior) ———
-  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|receita (subiu|caiu|cresceu)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que/.test(p)) {
+  if (/(estou |est[áa] |venho |vem )?cresc|crescimento|cresci|em alta|em queda|desacelerand|(minhas? )?(receita|vendas?) (t[ãáa]o?|est[áa]|est[ãa]o|vem|v[ãa]o) (subindo|crescendo|caindo|melhorando)|receita (subiu|caiu|cresceu)|(estou|t[ôo]|to) (vendendo|faturando) (mais|menos)|vendendo (mais|menos) que|tend[êe]ncia|(estou|t[ôo]|to) (melhorando|piorando)|melhorando ou piorando|indo (melhor|pior)/.test(p)) {
     const atual = janela("mês", hoje), ant = janela("mês passado", hoje);
     const soma = (w: Janela) => movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const a = soma(atual), b = soma(ant);
