@@ -180,7 +180,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIOR / MELHOR CLIENTE ———
-  if (/(maior|melhor|principa(l|is)) cliente|quem mais (paga|compra|fatura|me paga)|top clientes?/.test(p)) {
+  // Defere frases de concentração/dependência ("quanto representa meu maior
+  // cliente") para o intent de CONCENTRAÇÃO abaixo — senão "maior cliente" as
+  // rouba por substring.
+  if (/(maior|melhor|principa(l|is)) cliente|quem mais (paga|compra|fatura|me paga)|top clientes?/.test(p) && !/representa|depend|concentra/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
