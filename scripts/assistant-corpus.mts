@@ -281,6 +281,9 @@ const CORPUS: [string, RegExp][] = [
   // regressão: a contração "das" (de+as) NÃO pode cair no cálculo do DAS/Simples
   ["qual o valor das minhas contas a pagar?", /a pagar/i],
   ["qual o vencimento das minhas contas?", /vence|vencimento|nada vence/i],
+  // "quem" (quem me deve) pede a LISTA de devedores, não o total a receber
+  ["quem me deve?", /devedor|em dia|vencid/i],
+  ["quem me deve", /devedor|em dia|vencid/i],
   // juros de mora + multa (título vencido)
   ["quanto cobrar de um boleto de 1000 vencido há 30 dias?", /multa|juros de mora|corrigid/i],
   ["juros de mora de 5000 atrasado 2 meses", /multa|mora|corrigid/i],

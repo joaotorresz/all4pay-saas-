@@ -176,7 +176,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— DESCONTO / ACRÉSCIMO sobre um valor ———
   // Específico (exige "desconto"/"acréscimo"/"a mais/menos") p/ não colidir.
-  if (/\d\s*%\s*(de\s*)?(desconto|off|acr[ée]scim|a mais|a menos)|(desconto|acr[ée]scim) de \d|com \d+\s*%\s*(de\s*)?(desconto|off)|(\d[\d.,]* )?(mais|menos)\s+\d+\s*%|\d+\s*%\s+(a\s+)?(mais|menos)/.test(p) && !/imposto|margem|markup|custo|receita|carga/.test(p)) {
+  // Exclui frases de CRESCIMENTO/comparação ("faturei X, 20% a mais que junho") —
+  // essas vão ao motor de crescimento, não à calculadora de desconto.
+  if (/\d\s*%\s*(de\s*)?(desconto|off|acr[ée]scim|a mais|a menos)|(desconto|acr[ée]scim) de \d|com \d+\s*%\s*(de\s*)?(desconto|off)|(\d[\d.,]* )?(mais|menos)\s+\d+\s*%|\d+\s*%\s+(a\s+)?(mais|menos)/.test(p) && !/imposto|margem|markup|custo|receita|carga|faturei|fatur\w*|recebi|vendi|vend[aei]\w*|cresc\w*|a (mais|menos) que|do que|que (o )?m[êe]s|m[êe]s passado|ano passado/.test(p)) {
     const pctM = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
     const pct = pctM ? parseFloat(pctM[1].replace(",", ".")) : 0;
     const nums = Array.from(p.matchAll(/r?\$?\s*(\d[\d.]*(?:,\d+)?)/g))
@@ -428,7 +430,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— A RECEBER (total) — "quem deve/devendo" cai na inadimplência abaixo ———
-  if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem\b|me deve\b|v[ãa]o me pagar|ainda (vou|tenho a|falta) receber|falta (eu )?receber|quanto falta (eu )?receber/.test(p)) {
+  // "quem ... dev" é pergunta de QUEM (lista de devedores) → cai na inadimplência.
+  if (/a receber|contas? a receber|receb[íi]veis|tenho a receber|me devem\b|me deve\b|v[ãa]o me pagar|ainda (vou|tenho a|falta) receber|falta (eu )?receber|quanto falta (eu )?receber/.test(p) && !/quem.*\bdev/.test(p)) {
     const ab = movs.filter((m) => m.type === "entrada" && m.status === "pendente");
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);

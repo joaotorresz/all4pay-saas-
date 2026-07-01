@@ -442,6 +442,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const da = responderLocal("quanto é 200 mais 10%?", inp0);
   ok("desconto: 200 − 15% = 170", !!dd && /desconto fica R\$.?170\b/.test(dd.resposta), dd?.resposta?.slice(0, 50));
   ok("acréscimo: 200 + 10% = 220", !!da && /acréscimo fica R\$.?220\b/.test(da.resposta), da?.resposta?.slice(0, 50));
+  // regressão: frase de CRESCIMENTO ("faturei X, 20% a mais") NÃO vira desconto
+  const cresc = responderLocal("esse mês faturei 10 mil, 20% a mais", inp0);
+  ok("desconto: 'faturei X, 20% a mais' não é hijackado pela calculadora", !cresc || !/(desconto|acréscimo) fica/.test(cresc.resposta), cresc?.resposta?.slice(0, 50));
 }
 
 // ── core/tax: Simples Nacional (alíquota efetiva ≠ nominal, DAS, teto) ───────
