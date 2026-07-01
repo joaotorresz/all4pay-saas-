@@ -195,7 +195,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // Defere frases de concentração/dependência ("quanto representa meu maior
   // cliente") para o intent de CONCENTRAÇÃO abaixo — senão "maior cliente" as
   // rouba por substring.
-  if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compra|paga|fatura)|cliente que (mais )?(compra|paga)|top clientes?|melhores clientes/.test(p) && !/representa|depend|concentra|forneced/.test(p)) {
+  if (/(maior(es)?|melhor(es)?|principa(l|is)) clientes?|quem (mais|s[ãa]o) (paga|compra|fatura|me paga|meus? (melhor|maior))|quem (me )?paga mais|qual cliente (mais )?(compr\w*|pag\w*|fatur\w*|vend\w*|gast\w*)|cliente que (mais )?(compr\w*|pag\w*)|top clientes?|melhores clientes/.test(p) && !/representa|depend|concentra|forneced/.test(p)) {
     const w = janela(p, hoje);
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
@@ -371,7 +371,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MAIORES GASTOS / por categoria ———
-  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|despesa (que )?(mais )?(pesa|pega|custa)|(custos?|gastos?) fix|qual (o )?(meu )?(maior )?custo|(me )?(diz|mostra|lista) (os )?(meus )?gastos|(meus|os meus) gastos\b|custa (pra |para )?manter|custo (de |pra |para )?manter/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
+  if ((/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|gastando (muito )?com|com (o )?qu[êe].*(gast|despes)|gast.*com (o )?qu[êe]|por categoria|categorias? de (gasto|despesa)|no que.*gast|onde (vai|est[áa] indo) (o |meu )?dinheiro|pra onde (vai|foi)|quais? categorias?|categorias?.*(gast|despes)|(despesa|categoria) (que )?(mais )?(pesa|pega|custa|consome|sai)|categoria que mais (pesa|custa|gasta|consome|sai)|o que (eu )?mais (pago|gasto)|no que (eu )?mais (gasto|pago)|(custos?|gastos?) fix|qual (o )?(meu )?(maior )?custo|(me )?(diz|mostra|lista) (os )?(meus )?gastos|(meus|os meus) gastos\b|custa (pra |para )?manter|custo (de |pra |para )?manter/.test(p)) && !/economiz|cortar|reduzir/.test(p)) {
     const w = janela(p, hoje);
     const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topCategorias(sai, 5);

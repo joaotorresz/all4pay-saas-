@@ -152,6 +152,10 @@ const CORPUS: [string, RegExp][] = [
   ["tenho conta atrasada pra pagar?", /a pagar/i],
   ["qual mês tive mais prejuízo?", /pior m[êe]s/i],
   ["em que mês lucrei menos?", /pior m[êe]s/i],
+  // 15ª rodada (cont.): cobertura de verbo/frase que caía no fallback
+  ["qual cliente comprou mais?", /maior cliente|cliente/i],
+  ["o que eu mais pago?", /maiores gastos|gast/i],
+  ["qual categoria mais pesa no bolso?", /maiores gastos|gast/i],
 ];
 
 let pass = 0;
