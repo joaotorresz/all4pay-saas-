@@ -481,6 +481,22 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["saldo", "reserva de segurança"]);
   }
 
+  // ——— GASTO MÉDIO POR DIA (burn diário) — antes do GASTO total ———
+  // "quanto gasto por dia" casaria em "quanto.*gast" do GASTO total.
+  if (/gasto (m[ée]dio )?(por|ao|no) dia|gasto di[áa]rio|quanto (gasto|gasta|sai|saem|torro) (por|ao|no) dia|burn di[áa]rio|quanto queimo por dia/.test(p)) {
+    const fim = new Date(hoje + "T00:00:00");
+    const ini = new Date(fim); ini.setDate(fim.getDate() - 29);
+    const from = `${ini.getFullYear()}-${pad(ini.getMonth() + 1)}-${pad(ini.getDate())}`;
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && cashDate(m) >= from && cashDate(m) <= hoje);
+    const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const porDia = tot / 30;
+    if (tot <= 0) return R("Não houve gastos pagos nos últimos 30 dias para calcular o gasto diário.", [], ["despesas dos últimos 30 dias"]);
+    return R(
+      `Você gasta em média ${fmt(porDia)} por dia — ${fmt(tot)} em despesas pagas nos últimos 30 dias. No mês, isso projeta ~${fmt(porDia * 30)}.`,
+      [{ label: "Gasto/dia", valor: fmt(porDia) }, { label: "30 dias", valor: fmt(tot) }],
+      ["despesas dos últimos 30 dias"], 0.88);
+  }
+
   // ——— GASTO total no período ———
   if (/(quanto).*(gast|gastei|sa[íi]|paguei|despes)|gast(ei|os)? (esse|este|do|neste|no)\s*m[êe]s|gasto total|total de (gasto|despesa)|minhas? despesas?/.test(p)) {
     const w = janela(p, hoje);

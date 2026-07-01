@@ -437,8 +437,8 @@ camadas encadeadas no `responder`:
    receita), **crescimento** (receita MoM), **ponto de equilíbrio** (break-even =
    despesa média mensal), **pontualidade de recebimento/pagamento** (atraso
    médio dos clientes / com que eu pago — DSO/DPO, % no prazo), **receita média
-   por cliente** (proxy de LTV), **resumo do dia**
-   e **resumo do
+   por cliente** (proxy de LTV), **gasto médio por dia** (burn diário, 30d),
+   **resumo do dia** e **resumo do
    período** (mês/trimestre/semestre/ano). A janela é detectada da própria
    pergunta (nomes de mês com limite de palavra: maio ≠ maior); a ordem das
    intenções importa (as de cima vencem; as consultivas/pago-vs-pendente foram
