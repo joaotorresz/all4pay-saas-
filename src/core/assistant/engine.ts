@@ -154,6 +154,26 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["receita por cliente"]);
   }
 
+  // ——— COMPARAÇÃO ENTRE DOIS MESES NOMEADOS ("gastei mais em maio ou junho?") ———
+  {
+    const achados = MES.map((_, i) => i).filter((i) => new RegExp(`(^|[^a-zà-ú])${MES[i]}([^a-zà-ú]|$)`, "i").test(p));
+    if (achados.length === 2 && /(mais|menos|compar|\bou\b|vs|versus|diferen)/.test(p)) {
+      const hojeD = new Date(hoje + "T00:00:00"); const cm = hojeD.getMonth(), cy = hojeD.getFullYear();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const winOf = (mi: number): Janela => { const yy = mi > cm ? cy - 1 : cy; return { label: `${MES[mi]}${yy !== cy ? `/${yy}` : ""}`, from: `${yy}-${pad(mi + 1)}-01`, to: `${yy}-${pad(mi + 1)}-${new Date(yy, mi + 1, 0).getDate()}` }; };
+      const tipo: "entrada" | "saida" = /receb|receita|fatur|entr|vend/.test(p) ? "entrada" : "saida";
+      const [wa, wb] = [winOf(achados[0]), winOf(achados[1])];
+      const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
+      const va = soma(wa), vb = soma(wb);
+      const verbo = tipo === "entrada" ? "recebeu" : "gastou";
+      const maior = va >= vb ? wa : wb;
+      return R(
+        `Você ${verbo} ${fmt(va)} em ${wa.label} e ${fmt(vb)} em ${wb.label} — ${va === vb ? "empate" : `mais em ${maior.label} (${fmt(Math.abs(va - vb))} de diferença)`}.`,
+        [{ label: cap(wa.label), valor: fmt(va) }, { label: cap(wb.label), valor: fmt(vb) }],
+        ["comparação por mês"]);
+    }
+  }
+
   // ——— POR CONTRAPARTE (cliente/fornecedor citado na pergunta) ———
   if (nomes && /(quanto|gast|paguei|recebi|receb|devo|deve|com|para|pro|pra|hist[óo]rico|mostr|abr[ai]|ficha|ver o|dados d|perfil d)/.test(p)) {
     // casa o nome como PALAVRA (limites), não substring solto — evita
