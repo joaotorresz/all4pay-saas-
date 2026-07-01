@@ -12,6 +12,9 @@ import type { FinancialTransaction } from "@/core/financial-os/types";
 import { EventStore } from "@/core/orchestration/event-store";
 import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
+import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
+import { montarFluxoCaixa } from "@/core/cashflow";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
 const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`✗ FAIL ${n} ${x}`); } };
@@ -86,6 +89,36 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const csv = ["10/06/2026;16/06/2026;1.234,56;PIX ACME", "11/06/2026;20/06/2026;-500,00;FORN XPTO"].join("\n");
   const vals = parseTexto(csv).records.map((r) => r.valor).sort((a, b) => a - b);
   ok("fdip: valor lido é 1234.56/500, não a 2ª data", vals.includes(1234.56) && vals.includes(500) && vals.every((v) => v < 1e6), JSON.stringify(vals));
+}
+
+// ── institutional/audit: hash-chain sela identidade+ctx; analisarMudanca pega injeção ──
+{
+  const t = new TrilhaAuditoria();
+  const ctx = { userId: "u1", userName: "Ana", ip: "1.2.3.4", device: "web" } as never;
+  t.registrar({ entityType: "payment" as never, entityId: "p1", action: "created" as never, after: { valor: 100 }, ctx });
+  ok("audit: íntegro antes de adulterar", t.verificarIntegridade().intacta === true);
+  (t.todos()[0].ctx as { userId: string }).userId = "hacker"; // reescreve o autor
+  ok("audit: adulterar ctx.userId quebra a integridade", t.verificarIntegridade().intacta === false);
+  const t2 = new TrilhaAuditoria();
+  t2.registrar({ entityType: "payment" as never, entityId: "p2", action: "created" as never, after: { valor: 100 }, ctx });
+  (t2.todos()[0].entityId as unknown) = "p999"; // repontar p/ outra entidade
+  ok("audit: repontar entityId quebra a integridade", t2.verificarIntegridade().intacta === false);
+  // INJEÇÃO de chave Pix num registro que não tinha → flag crítico
+  const flags = analisarMudanca("updated" as never, { valor: 100 }, { valor: 100, chavePix: "hacker@pix" });
+  ok("audit: injeção de chavePix (só no after) vira flag crítico", flags.some((f) => f.campo === "chavePix" && f.nivel === "critico"));
+}
+
+// ── cashflow: financiamento ENTRADA não pode dobrar no fluxo livre ──────────
+{
+  const HOJE = "2026-07-01";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000, due_date: HOJE, paid_date: HOJE, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const inp = (movements: RiskMovement[]): RiskInput => ({ hoje: HOJE, saldoAtual: 0, partyNames: {}, movements } as RiskInput);
+  const emprestimo = montarFluxoCaixa(inp([mv({ amount: 50000, category: "Empréstimo bancário" })]), [], { dias: 30, visao: "consolidado" });
+  ok("cashflow: empréstimo recebido conta 1x no fluxo livre (50k, não 100k)", Math.abs(emprestimo.fluxo.livre - 50000) < 1e-6, `livre=${emprestimo.fluxo.livre}`);
+  ok("cashflow: saldo final = saldo inicial + livre (sem dobra)", Math.abs(emprestimo.fluxo.saldoFinal - 50000) < 1e-6, `saldoFinal=${emprestimo.fluxo.saldoFinal}`);
+  const oper = montarFluxoCaixa(inp([mv({ amount: 1000 }), mv({ type: "saida", amount: 400, category: "Fornecedores" })]), [], { dias: 30, visao: "consolidado" });
+  ok("cashflow: operacional puro = entradas - saídas (600)", Math.abs(oper.fluxo.operacional - 600) < 1e-6, `operacional=${oper.fluxo.operacional}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

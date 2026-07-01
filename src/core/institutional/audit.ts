@@ -30,16 +30,24 @@ function canonical(obj: unknown): string {
     .join(",")}}`;
 }
 
-/** Hash do evento: SHA256(previousHash + action + timestamp + payload). */
+/**
+ * Hash do evento: SHA256 encadeando previousHash + TODOS os campos materiais.
+ * Sela também entityType/entityId e o ctx forense (quem/ip/device): sem eles
+ * no preimage, reescrever o autor (ctx.userId) ou repontar o evento p/ outra
+ * entidade (entityId) passaria em verificarIntegridade — furando a atribuição.
+ */
 export function hashEvento(
   previousHash: string,
   action: AuditAction,
   timestamp: string,
   before: unknown,
   after: unknown,
+  entityType?: EntityType,
+  entityId?: string,
+  ctx?: AuditContext,
 ): string {
   return sha256(
-    `${previousHash}|${action}|${timestamp}|${canonical(before)}|${canonical(after)}`,
+    `${previousHash}|${action}|${timestamp}|${entityType ?? ""}|${entityId ?? ""}|${canonical(ctx ?? null)}|${canonical(before)}|${canonical(after)}`,
   );
 }
 
@@ -76,7 +84,10 @@ export function analisarMudanca(
 
   // Mudança de dados bancários / favorecido
   for (const campo of ["favorecido", "contraparte", "chavePix", "conta", "agencia"]) {
-    if (campo in before && campo in after && before[campo] !== after[campo]) {
+    // presença em UM dos lados basta: INJETAR uma chave Pix num registro que não
+    // tinha (before sem o campo) é a fraude que este alarme existe p/ pegar —
+    // exigir `in before && in after` deixava passar exatamente esse caso.
+    if ((campo in before || campo in after) && before[campo] !== after[campo]) {
       flags.push({
         nivel: "critico",
         campo,
@@ -135,7 +146,7 @@ export class TrilhaAuditoria {
       ctx: args.ctx,
       timestamp,
       previousHash,
-      hash: hashEvento(previousHash, args.action, timestamp, before, after),
+      hash: hashEvento(previousHash, args.action, timestamp, before, after, args.entityType, args.entityId, args.ctx),
       flags: analisarMudanca(args.action, before, after),
     };
     this.eventos.push(ev);
@@ -158,7 +169,7 @@ export class TrilhaAuditoria {
           verificados: i,
           problema: { seq: e.seq, id: e.id, motivo: "Elo anterior não confere" },
         };
-      const recomputado = hashEvento(e.previousHash, e.action, e.timestamp, e.before, e.after);
+      const recomputado = hashEvento(e.previousHash, e.action, e.timestamp, e.before, e.after, e.entityType, e.entityId, e.ctx);
       if (recomputado !== e.hash)
         return {
           intacta: false,

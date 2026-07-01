@@ -210,7 +210,11 @@ export function montarFluxoCaixa(
     let total = 0;
     for (const m of janela) {
       if (m.type !== tipo) continue;
-      if (tipo === "saida" && (ehInvestimento(m) || ehFinanciamento(m))) continue;
+      // Fora do operacional nos DOIS sentidos: uma ENTRADA de financiamento/
+      // investimento é contada à parte (financiamentos/investimentos). Sem isto,
+      // um empréstimo recebido entrava em entradas.total E em financiamentos —
+      // dobrando no fluxo livre / saldo final.
+      if (ehInvestimento(m) || ehFinanciamento(m)) continue;
       const g = tipo === "entrada" ? grupoEntrada(m) : grupoSaida(m);
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push({ label: nome(input, m), valor: m.amount });
@@ -223,7 +227,7 @@ export function montarFluxoCaixa(
   };
   const entradas = buildGrupos("entrada");
   const saidas = buildGrupos("saida");
-  const investimentos = -janela.filter((m) => m.type === "saida" && ehInvestimento(m)).reduce((s, m) => s + m.amount, 0);
+  const investimentos = janela.filter((m) => ehInvestimento(m)).reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
   const financiamentos = janela.filter((m) => ehFinanciamento(m)).reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
   const operacional = entradas.total - saidas.total;
   const livre = operacional + investimentos + financiamentos;
