@@ -36,10 +36,11 @@ export function formatBRLCompact(value: number): string {
  * Always works on the absolute value — sign is conveyed by color/label.
  */
 export function brlParts(value: number): { integer: string; decimals: string } {
-  const abs = Math.abs(value);
-  const integer = groupedInt.format(Math.trunc(abs));
-  const decimals = Math.round((abs - Math.trunc(abs)) * 100)
-    .toString()
-    .padStart(2, "0");
+  // Arredonda para CENTAVOS primeiro e só então separa: senão a fração que
+  // arredonda p/ 100 (ex.: 1,999) vira decimals "100" sem carregar o inteiro
+  // ("1,100" em vez de "2,00"). Assim `Money` bate sempre com formatBRL.
+  const cents = Math.round(Math.abs(value) * 100);
+  const integer = groupedInt.format(Math.trunc(cents / 100));
+  const decimals = (cents % 100).toString().padStart(2, "0");
   return { integer, decimals };
 }

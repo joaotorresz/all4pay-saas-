@@ -21,6 +21,8 @@ import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { appendImported, setImported, clearImported, importedMovements, importedAccounts } from "@/lib/imported";
 import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
+import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
+import { brlParts, formatBRL } from "@/lib/format";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -365,6 +367,24 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const comKB = conceituais.every((q) => buscarKB(q) !== null);
   ok("chain: possessivas de métrica não são sombreadas pela KB", semKB);
   ok("chain: 'o que é X' segue resolvendo pela KB", comKB);
+}
+
+// ── lib/validators: CPF/CNPJ (mod-11) contra vetores conhecidos ─────────────
+{
+  ok("CPF válido (111.444.777-35)", validateCPF("111.444.777-35") === true);
+  ok("CPF válido (529.982.247-25)", validateCPF("52998224725") === true);
+  ok("CPF dígito errado rejeitado", validateCPF("11144477734") === false);
+  ok("CPF repetido rejeitado", validateCPF("00000000000") === false);
+  ok("CNPJ válido (11.222.333/0001-81)", validateCNPJ("11222333000181") === true);
+  ok("CNPJ dígito errado rejeitado", validateCNPJ("11222333000180") === false);
+  ok("máscara CPF/CNPJ", maskDoc("pf", "11144477735") === "111.444.777-35" && maskDoc("pj", "11222333000181") === "11.222.333/0001-81");
+}
+
+// ── lib/format: brlParts (Money) bate com formatBRL, inclusive no carry ─────
+{
+  const bate = (v: number) => { const p = brlParts(v); return `R$${p.integer},${p.decimals}` === formatBRL(v).replace(/\s/g, ""); };
+  ok("brlParts carrega o inteiro em 1,999 → 2,00 (não 1,100)", brlParts(1.999).integer === "2" && brlParts(1.999).decimals === "00");
+  ok("brlParts bate com formatBRL (1.999/9.996/99.995/1234.5/33.333)", [1.999, 9.996, 99.995, 1234.5, 33.333, 100, 0.5].every(bate));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
