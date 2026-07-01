@@ -480,8 +480,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— MÉDIA mensal (gasto/receita) ———
-  if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|m[êe]s|mensal)/.test(p)) {
-    const tipo: "entrada" | "saida" = /receb|receita|entr/.test(p) ? "entrada" : "saida";
+  if (/m[ée]di[ao]/.test(p) && !/ticket/.test(p) && /(gast|despesa|receb|receita|entr|fatur|m[êe]s|mensal)/.test(p)) {
+    // "faturo/faturamento/faturar" = receita → senão a média cai em "saida" (gasto).
+    const tipo: "entrada" | "saida" = /receb|receita|entr|fatur/.test(p) ? "entrada" : "saida";
     const byMonth = new Map<string, number>();
     for (const m of movs) { if (m.type !== tipo || m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }
     const meses = Array.from(byMonth.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);

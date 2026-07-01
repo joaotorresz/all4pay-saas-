@@ -128,6 +128,10 @@ const CORPUS: [string, RegExp][] = [
   // 13ª rodada: maior fonte de receita / poupar / contratar
   ["qual minha maior fonte de receita?", /receita|Vendas|Servicos|origem|vem/i], ["to conseguindo poupar?", /sobrou|resultado|folga|saldo/i],
   ["me diz se posso contratar alguém", /cabe|folga|gastar|saldo|runway/i],
+  // 14ª rodada: "faturo médio" = receita (não gasto) — misroute pego no probe
+  ["quanto eu faturo por mês na média?", /m[ée]dia de receita/i],
+  ["qual meu faturamento médio mensal?", /m[ée]dia de receita/i],
+  ["em média quanto faturo?", /m[ée]dia de receita/i],
 ];
 
 let pass = 0;
