@@ -116,6 +116,23 @@ const ESPERADOS: [string, string][] = [
   ["o que é solvência?", "solvencia"],
   ["o que é DFC?", "dfc-indireto"],
   ["o que é cash flow?", "fluxo"],
+  // 4ª leva: estoque / bancário / macro / investimento
+  ["o que é ponto de reposição?", "estoque"],
+  ["o que é curva ABC?", "estoque"],
+  ["o que é nota promissória?", "promissoria"],
+  ["o que é cheque especial?", "cheque-especial"],
+  ["o que é capital de terceiros?", "capital-terceiros"],
+  ["o que é ativo imobilizado?", "imobilizado"],
+  ["o que é carência?", "carencia-parcelamento"],
+  ["o que é juros compostos?", "juros-compostos"],
+  ["o que é taxa selic?", "selic-indexador"],
+  ["o que é correção monetária?", "selic-indexador"],
+  ["o que é inflação?", "inflacao"],
+  ["o que é margem de segurança?", "margem-seguranca"],
+  ["o que é geração de caixa?", "geracao-caixa"],
+  ["o que é aporte?", "aporte-valuation"],
+  ["o que é valuation?", "aporte-valuation"],
+  ["o que é break even point?", "breakeven"],
 ];
 
 let ok = 0;
