@@ -234,6 +234,23 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     };
   }
 
+  // ——— MIX DE RECEITA: PRODUTO vs SERVIÇO ("recebo mais de produto ou serviço?") ———
+  // Antes da comparação mês a mês (senão "mais" a puxa p/ comparação de meses).
+  if (/(produto|vend\w*|mercadoria)\w*\s*(ou|vs|versus|contra|x|ou de)\s*servi|servi\w*\s*(ou|vs|versus|contra|x)\s*(produto|vend|mercadoria)|(produto|vend|servi)\w*.{0,18}(ou|vs).{0,18}(produto|vend|servi)/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const cat = (m: RiskMovement) => (m.category || "").toLowerCase();
+    const prod = ent.filter((m) => /venda|produto|mercadoria/.test(cat(m))).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const serv = ent.filter((m) => /servi/.test(cat(m))).reduce((s, m) => s + Math.abs(m.amount), 0);
+    if (prod > 0 || serv > 0) {
+      const maior = prod === serv ? "empate" : prod > serv ? "mais de produtos" : "mais de serviços";
+      return R(
+        `${w.label.charAt(0).toUpperCase() + w.label.slice(1)} você recebeu ${fmt(prod)} de produtos e ${fmt(serv)} de serviços — ${maior}.`,
+        [{ label: "Produtos", valor: fmt(prod) }, { label: "Serviços", valor: fmt(serv) }],
+        ["receita por tipo (produto/serviço)"]);
+    }
+  }
+
   // ——— COMPARAÇÃO ENTRE DOIS MESES NOMEADOS ("gastei mais em maio ou junho?") ———
   {
     const achados = MES.map((_, i) => i).filter((i) => new RegExp(`(^|[^a-zà-ú])${MES[i]}([^a-zà-ú]|$)`, "i").test(p));

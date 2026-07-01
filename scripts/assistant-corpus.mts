@@ -160,6 +160,11 @@ const CORPUS: [string, RegExp][] = [
   // categoria homônima "Fornecedores" ("quanto" ⊂ "quantos").
   ["quantos fornecedores eu tenho?", /fornecedor\(es\) com movimento|contrapart/i],
   ["quanto gastei com fornecedores?", /gastou .*Fornecedores/i],
+  // 15ª rodada (cont.): mix de receita produto×serviço (não comparação de meses);
+  // "vendi mais em maio ou junho" segue como comparação MENSAL.
+  ["recebo mais de produto ou serviço?", /de produtos e .* de serviços/i],
+  ["vendo mais produto ou serviço?", /de produtos e .* de serviços/i],
+  ["vendi mais em maio ou junho?", /em maio e .* em junho|comparação/i],
 ];
 
 let pass = 0;
