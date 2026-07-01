@@ -677,6 +677,21 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["EBITDA", "DRE gerencial"]);
   }
 
+  // ——— FLUXO DE CAIXA LIVRE (caixa operacional gerado no período) ———
+  if (/fluxo (de caixa )?livre|caixa livre|free cash flow|\bfcf\b|gera[çc][ãa]o de caixa (livre)?/.test(p)) {
+    const w = janela(p, hoje);
+    const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
+    const ehFin = (c: string) => /empr[ée]stimo|financiamento|aporte|capital social|s[óo]cio|investiment/.test(c);
+    const entradas = jm.filter((m) => m.type === "entrada" && !ehFin((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const saidas = jm.filter((m) => m.type === "saida" && !ehFin((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
+    const fcf = entradas - saidas;
+    if (entradas <= 0 && saidas <= 0) return R(`Não houve movimento realizado ${w.label} para calcular o fluxo de caixa livre.`, [], ["fluxo de caixa livre"]);
+    return R(
+      `Seu fluxo de caixa livre ${w.label} é ${fmt(fcf)}: ${fmt(entradas)} de entradas operacionais menos ${fmt(saidas)} de saídas — o caixa que ${fcf >= 0 ? "sobrou para reservar ou reinvestir" : "faltou e precisou vir do saldo/de fora"}.`,
+      [{ label: "Fluxo livre", valor: fmt(fcf) }, { label: "Entradas", valor: fmt(entradas) }, { label: "Saídas", valor: fmt(saidas) }],
+      ["fluxo de caixa livre"]);
+  }
+
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
     const w = janela(p, hoje);

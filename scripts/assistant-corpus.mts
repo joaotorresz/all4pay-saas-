@@ -208,6 +208,9 @@ const CORPUS: [string, RegExp][] = [
   // sinônimos → categoria: pessoal→Folha, luz→Utilidades
   ["qual meu gasto com pessoal?", /Folha|gastou/i],
   ["quanto gasto com funcionários?", /Folha|gastou/i],
+  // fluxo de caixa livre como NÚMERO (motor)
+  ["qual meu fluxo de caixa livre?", /fluxo de caixa livre/i],
+  ["qual meu FCF?", /fluxo de caixa livre/i],
 ];
 
 let pass = 0;

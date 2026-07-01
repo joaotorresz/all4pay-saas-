@@ -180,6 +180,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const re = responderLocal("qual meu EBITDA?", inpE);
   // EBITDA = 10000 − (3000 impostos + 2000 comissão) = 5000; Tarifa (financeiro) fora
   ok("EBITDA exclui o resultado financeiro (5000)", !!re && /EBITDA.*R\$.?5\.000/.test(re.resposta), re?.resposta?.slice(0, 60));
+  // FCF exclui financiamento: 10000 receita − 6000 fornecedor = 4000; empréstimo 50k fora
+  const inpF: RiskInput = { hoje: HOJE, saldoAtual: 0, partyNames: {}, movements: [
+    rm({ amount: 10000, paid_date: "2026-07-05" }),
+    rm({ type: "saida", amount: 6000, paid_date: "2026-07-08", category: "Fornecedores" }),
+    rm({ amount: 50000, paid_date: "2026-07-06", category: "Empréstimo" }),
+  ] } as RiskInput;
+  const rf = responderLocal("qual meu fluxo de caixa livre?", inpF);
+  ok("FCF exclui financiamento/empréstimo (4000)", !!rf && /fluxo de caixa livre.*R\$.?4\.000/.test(rf.resposta), rf?.resposta?.slice(0, 60));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────
