@@ -196,6 +196,9 @@ const CORPUS: [string, RegExp][] = [
   // 18ª rodada: fraseados de saldo/caixa que caíam no fallback
   ["e o caixa, como tá?", /saldo consolidado/i],
   ["tenho folga no caixa?", /saldo consolidado/i],
+  // 18ª rodada (cont.): receita líquida nativa (bruta − impostos), antes da receita genérica
+  ["qual minha receita líquida?", /receita líquida/i],
+  ["quanto é minha receita após os impostos?", /receita líquida/i],
 ];
 
 let pass = 0;

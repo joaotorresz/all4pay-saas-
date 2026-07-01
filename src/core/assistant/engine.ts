@@ -615,6 +615,23 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["despesas realizadas"]);
   }
 
+  // ——— RECEITA LÍQUIDA (receita bruta − impostos sobre a venda) ———
+  // Antes da receita genérica: "receita líquida" contém "receita".
+  if (/receita l[íi]quida|faturamento l[íi]quido|receita ap[óo]s (os )?impostos|receita menos (os )?impostos|l[íi]quido de impostos/.test(p)) {
+    const w = janela(p, hoje);
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
+    const bruta = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const impostos = movs
+      .filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w) && /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test((m.category || "").toLowerCase()))
+      .reduce((s, m) => s + Math.abs(m.amount), 0);
+    const liquida = bruta - impostos;
+    if (bruta <= 0) return R(`Não houve receita paga ${w.label}, então não há receita líquida a calcular.`, [], ["receita líquida"]);
+    return R(
+      `Sua receita líquida ${w.label} é ${fmt(liquida)}: ${fmt(bruta)} de receita bruta menos ${fmt(impostos)} de impostos sobre a venda.`,
+      [{ label: "Receita líquida", valor: fmt(liquida) }, { label: "Receita bruta", valor: fmt(bruta) }, { label: "Impostos", valor: fmt(impostos) }],
+      ["receita líquida", "impostos sobre venda"]);
+  }
+
   // ——— RECEITA / RECEBI no período ———
   if ((/(quanto).*(receb|recebi|entr|faturei|fatur|vend)|receita (do|desse|deste|este|no)\s*m[êe]s|faturamento|quanto (vendi|entrou)|(o )?total que entrou|total de entradas?|total que (recebi|faturei)/.test(p)) && !/entra e sai|entradas? e sa/.test(p)) {
     const w = janela(p, hoje);

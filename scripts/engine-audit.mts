@@ -16,6 +16,7 @@ import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado } from "@/core/dre/engine";
 import { appendImported, setImported, clearImported, importedMovements, importedAccounts } from "@/lib/imported";
+import { responderLocal } from "@/core/assistant/engine";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
@@ -150,6 +151,20 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("imported: reenvio do mesmo id não duplica movimento", n === 1, `n=${n}`);
   ok("imported: reenvio não ajusta saldo 2x", bal === 1500, `bal=${bal}`);
   clearImported();
+}
+
+// ── assistant/receita líquida: bruta − impostos; "comissão" NÃO é ISS ──────
+{
+  const HOJE = "2026-07-15"; let s = 0;
+  const rm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `rl${s++}`, type: "entrada", amount: 1000, due_date: HOJE, paid_date: HOJE, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const inp: RiskInput = { hoje: HOJE, saldoAtual: 0, partyNames: {}, movements: [
+    rm({ amount: 10000, paid_date: "2026-07-05" }),
+    rm({ type: "saida", amount: 3000, paid_date: "2026-07-08", category: "Impostos" }),
+    rm({ type: "saida", amount: 2000, paid_date: "2026-07-08", category: "Comissão" }), // NÃO é imposto (iss ⊂ comissão)
+  ] } as RiskInput;
+  const r = responderLocal("qual minha receita líquida?", inp);
+  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
