@@ -59,10 +59,17 @@ export class FinancialQueue {
     return job;
   }
 
-  /** Replay: reabilita um job (falho/retentando) para novo processamento. */
+  /** Replay: reabilita um job (falho/retentando) para novo processamento, com
+   *  orçamento de tentativas ZERADO (reprocesso do zero — senão um job que já
+   *  esgotou as tentativas falharia de novo na 1ª chamada). */
   replay(jobId: string): void {
     const job = this.fila.find((j) => j.id === jobId);
-    if (job && job.status !== "concluido") job.status = "pendente";
+    if (job && job.status !== "concluido") {
+      job.status = "pendente";
+      job.tentativas = 0;
+      job.proximoRetryMs = undefined;
+      job.ultimoErro = undefined;
+    }
   }
 
   jobs(): QueueJob[] {

@@ -82,6 +82,10 @@ export class LedgerCore {
   reverter(txId: string, motivo = "estorno"): LedgerTransaction {
     const orig = this.transacoes.find((t) => t.id === txId);
     if (!orig) throw new Error("Transação não encontrada");
+    // Idempotência do estorno: não reverter a mesma transação duas vezes (senão
+    // o saldo DERIVADO fica errado — dois espelhos anulam o original 2x).
+    if (this.transacoes.some((t) => t.revertidaDe === txId)) throw new Error("Transação já estornada");
+    if (orig.revertidaDe) throw new Error("Não é possível estornar um estorno");
     const espelho = orig.postings.map((p) => ({
       accountCode: p.accountCode,
       direction: p.direction === "debit" ? ("credit" as const) : ("debit" as const),
