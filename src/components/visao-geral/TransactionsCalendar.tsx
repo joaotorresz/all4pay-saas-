@@ -69,7 +69,7 @@ export function TransactionsCalendar() {
       }}
     >
       <div className="flex items-center justify-between">
-        <WidgetHeader title={futuro ? "Calendário · projeção" : "Calendário de transações"} />
+        <WidgetHeader icon3d="calendar" title={futuro ? "Calendário · projeção" : "Calendário de transações"} />
       </div>
 
       {isLoading && <Skeleton className="h-[280px] w-full" rounded="md" />}

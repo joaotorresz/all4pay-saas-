@@ -17,6 +17,7 @@ import {
   ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
 } from "recharts";
 import { Card, Skeleton, Icon, InfoHint } from "@/components/ui";
+import { Icon3D } from "@/components/ui/Icon3D";
 import { formatBRL } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
@@ -164,7 +165,10 @@ export function VisorHomeTop() {
           oQue: "Quanto você gastou no período vs. o mês anterior. Verde = gasto realizado até hoje · laranja = mesmo intervalo do mês passado · tracejada = projeção até o fim do período.",
           comoCalcula: "Soma das saídas pagas, acumuladas dia a dia. A diferença em destaque é o total deste período menos o do anterior no mesmo ponto do mês.",
         }}>
-          <span className="text-[16px] font-semibold text-ink">Você gastou</span>
+          <div className="flex items-center gap-3">
+            <Icon3D name="money" size={40} />
+            <span className="text-[16px] font-semibold text-ink">Você gastou</span>
+          </div>
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             <span className="text-[34px] font-semibold tabular-nums text-ink leading-none"><AnimatedBRL value={Math.abs(calc.delta)} /></span>
             <span className="text-[18px] text-muted">a {bom ? "menos" : "mais"} {sufixo}</span>
@@ -215,7 +219,8 @@ export function VisorHomeTop() {
       {/* DIREITA — Distribuição (donut + legenda rica) */}
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-1.5 text-[16px] font-semibold text-ink">
+          <span className="inline-flex items-center gap-3 text-[16px] font-semibold text-ink">
+            <Icon3D name="chart" size={40} />
             {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
             <InfoHint align="left"
               oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."

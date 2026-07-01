@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
+import { Icon3D } from "@/components/ui/Icon3D";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
@@ -99,11 +100,14 @@ export function DailyCashflowChart() {
       oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
       comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
     }}>
-      <div className="mb-3">
-        {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
-            vivem no topo da página (não duplicar aqui). */}
-        <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
-        <span className="text-caption text-faint">{legenda}</span>
+      <div className="mb-3 flex items-center gap-3">
+        <Icon3D name="bank" size={40} />
+        <div>
+          {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
+              vivem no topo da página (não duplicar aqui). */}
+          <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
+          <span className="text-caption text-faint">{legenda}</span>
+        </div>
       </div>
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}

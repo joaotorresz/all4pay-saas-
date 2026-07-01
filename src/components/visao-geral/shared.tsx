@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Icon, InfoHint } from "@/components/ui";
 import type { IconName, InfoConteudo } from "@/components/ui";
+import { Icon3D, type Icon3DName } from "@/components/ui/Icon3D";
 
 /** Bank brand dot colors (stand-ins for real logos). */
 const BANK_COLORS: Record<string, string> = {
@@ -20,18 +21,23 @@ export function WidgetHeader({
   subtitle,
   action,
   info,
+  icon3d,
 }: {
   title: string;
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
   info?: InfoConteudo;
+  icon3d?: Icon3DName;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 mb-4">
-      <div className="flex items-baseline gap-[10px] min-w-0">
-        <h2 className="text-h3 font-medium text-ink truncate">{title}</h2>
-        {info && <span className="self-center"><InfoHint align="left" {...info} /></span>}
-        {subtitle && <span className="text-caption text-faint">{subtitle}</span>}
+    <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center gap-3 min-w-0">
+        {icon3d && <Icon3D name={icon3d} size={38} className="shrink-0" />}
+        <div className="flex items-baseline gap-[10px] min-w-0">
+          <h2 className="text-h3 font-medium text-ink truncate">{title}</h2>
+          {info && <span className="self-center"><InfoHint align="left" {...info} /></span>}
+          {subtitle && <span className="text-caption text-faint">{subtitle}</span>}
+        </div>
       </div>
       {action}
     </div>
