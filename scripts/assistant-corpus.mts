@@ -178,6 +178,11 @@ const CORPUS: [string, RegExp][] = [
   ["qual o total que já entrou?", /No total você já recebeu/i],
   ["qual o total que já saiu?", /No total você já pagou/i],
   ["quanto movimentei no total?", /No total você movimentou/i],
+  // 17ª rodada: janela FUTURA — "vou receber/pagar mês que vem" = pendentes do
+  // mês seguinte (não o realizado do mês corrente).
+  ["quanto vou receber mês que vem?", /mês que vem você tem .* a receber|previsto/i],
+  ["quanto vou pagar mês que vem?", /mês que vem você tem .* a pagar|previsto/i],
+  ["quanto vou receber próximo mês?", /mês que vem você tem .* a receber|previsto/i],
 ];
 
 let pass = 0;

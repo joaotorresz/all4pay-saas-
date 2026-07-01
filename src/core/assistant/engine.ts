@@ -111,6 +111,22 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     return R(`No total você movimentou ${fmt(ent + sai)}: ${fmt(ent)} de entradas e ${fmt(sai)} de saídas (histórico realizado).`, [{ label: "Entradas", valor: fmt(ent) }, { label: "Saídas", valor: fmt(sai) }, { label: "Total", valor: fmt(ent + sai) }], ["histórico realizado"]);
   }
 
+  // ——— VOU RECEBER / PAGAR no MÊS QUE VEM (janela FUTURA, pendentes) ———
+  // Antes da receita-realizada: "vou receber mês que vem" é PREVISTO (pendente
+  // com vencimento no mês seguinte), não o realizado do mês corrente.
+  if (/(vou|irei|tenho (a|pra|para)|quanto (vou|tenho a)).*(receber|pagar).*(m[êe]s que vem|pr[óo]ximo m[êe]s)|(m[êe]s que vem|pr[óo]ximo m[êe]s).*(vou |irei )?(receber|pagar|receb\b|pag\b)/.test(p)) {
+    const base = new Date(hoje + "T00:00:00");
+    const nmEnd = new Date(base.getFullYear(), base.getMonth() + 2, 0); // último dia do mês seguinte
+    const from = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-01`;
+    const to = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-${pad(nmEnd.getDate())}`;
+    const tipo: "entrada" | "saida" = /pagar|\bpag\b|pagament/.test(p) ? "saida" : "entrada";
+    const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to);
+    const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
+    const verbo = tipo === "entrada" ? "receber" : "pagar";
+    if (!ab.length) return R(`Nada previsto para ${verbo} no mês que vem (sem títulos pendentes vencendo em ${from.slice(0, 7)}).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto mês seguinte"]);
+    return R(`No mês que vem você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s) (vencimentos de ${from.slice(0, 7)}).`, [{ label: `A ${verbo} (mês seguinte)`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto mês seguinte"]);
+  }
+
   // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———
   // ANTES de A RECEBER: "para receber" contém a substring "a receber".
   if (/quanto tempo (demoro|levo|leva|demora)( para| pra)? receber|prazo m[ée]dio de recebiment|atraso m[ée]dio (dos |de )?clientes?|(meus )?clientes? (pagam?|est[ãa]o pagando|andam pagando)( em dia| no prazo| atrasad| com atraso| adiantad)|clientes? pagam em dia|recebo (em dia|no prazo|com atraso)|clientes? (atrasam|est[ãa]o atrasad|demoram)|(meus )?clientes? (s[ãa]o|est[ãa]o) pontuai?s|pontualidade (dos |de )?(clientes|recebiment)/.test(p)) {
