@@ -71,6 +71,18 @@ const CASES: [string, RegExp, string][] = [
   ["qual meu gasto médio mensal?", /12\.000/, "média (10000+20000+6000)/3"],
   // maior gasto individual jul = 6000 (Marketing)
   ["qual foi meu maior gasto?", /6\.000/, "Marketing 6000"],
+  // concentração 6m: só 2 clientes (A,B) → top 3 = 100%
+  ["dependo de algum cliente?", /100%/, "top3 = A+B = 100% (2 clientes)"],
+  // pontualidade recebimento: 5 títulos, só 1 no prazo (B mai) → 20%
+  ["quanto tempo demoro para receber?", /20% (foram|dos)/, "1 de 5 no prazo"],
+  // pagamento em dia: F/G pagos na data → 100% no prazo
+  ["pago minhas contas em dia?", /100% no prazo/, "todos paid = due"],
+  // maior recebimento individual jul = 6000 (A)
+  ["qual meu maior recebimento?", /6\.000/, "A 6000 em julho"],
+  // quantos clientes: A e B têm entrada → 2
+  ["quantos clientes eu tenho?", /\b2\b/, "A, B distintos"],
+  // receita por fonte Vendas jul = 6000 (A)
+  ["quanto recebi de vendas?", /6\.000/, "Vendas julho (A)"],
 ];
 
 let pass = 0;
