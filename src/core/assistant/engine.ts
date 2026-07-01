@@ -266,6 +266,18 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     }
   }
 
+  // ——— RECEITA DE UMA FONTE ESPECÍFICA ("quanto recebi de venda/serviço?") ———
+  {
+    const cats = Array.from(new Set(movs.filter((m) => m.type === "entrada" && m.category).map((m) => (m.category as string).toLowerCase().trim()))).filter((c) => c.length >= 3);
+    const alvo = cats.sort((a, b) => b.length - a.length).find((c) => new RegExp(`(^|[^a-zà-ú])${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-zà-ú]|$)`, "i").test(p));
+    if (alvo && /(receb|recebi|receita|fatur|entr|vend)/.test(p)) {
+      const w = janela(p, hoje);
+      const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
+      const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
+      return R(`Você recebeu ${fmt(tot)} de ${cap(alvo)} ${w.label}, em ${ent.length} entrada(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["receita da categoria"]);
+    }
+  }
+
   // ——— MAIORES GASTOS / por categoria ———
   if (/(maior(es)?|principa|onde|com o que|em que).*(gast|despes|custo)|gast(ei|os)? com|por categoria|categorias? de (gasto|despesa)|no que.*gast/.test(p)) {
     const w = janela(p, hoje);
