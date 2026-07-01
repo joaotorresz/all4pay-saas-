@@ -316,7 +316,14 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
   const fc = motorPreditivo(input, 12);
   // Receita projetada média mensal a partir do histórico de receita realizada.
   const meses = porMes(input, "competencia");
-  const receitasMes = Array.from(meses.values()).map((a) => a.receita).filter((v) => v > 0);
+  // Ordena por mês (YYYY-MM) ANTES do slice: porMes preserva ordem de inserção
+  // (1ª aparição no array de movements), não cronológica. Sem o sort, "últimos
+  // 6 meses" pegava 6 meses arbitrários (o live não tem ORDER BY due_date),
+  // enviesando a receita-base da projeção.
+  const receitasMes = Array.from(meses.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, agg]) => agg.receita)
+    .filter((v) => v > 0);
   const ult6 = receitasMes.slice(-6);
   const receitaMensalBase = ult6.length ? ult6.reduce((s, v) => s + v, 0) / ult6.length : 0;
   void fc;
