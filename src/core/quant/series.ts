@@ -39,13 +39,16 @@ export function receitaRecorrente(input: RiskInput, meses = 12): number {
   // corte local (não UTC) p/ não deslocar o mês em fuso negativo no início do mês
   const c = new Date(base.getFullYear(), base.getMonth() - (meses - 1), 1);
   const corte = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}`;
+  // teto = mês atual: exclui lançamentos "pago" com data FUTURA (ex.: recorrências
+  // projetadas marcadas pagas à frente) para a janela bater com a série mensal.
+  const atual = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}`;
   const mesesPorCliente = new Map<string, Set<string>>();
   const receitaPorCliente = new Map<string, number>();
   let total = 0;
   for (const m of input.movements) {
     if (m.type !== "entrada" || m.status !== "pago") continue;
     const ym = (m.paid_date ?? m.due_date).slice(0, 7);
-    if (ym < corte) continue;
+    if (ym < corte || ym > atual) continue;
     const id = m.party_id ?? "—";
     (mesesPorCliente.get(id) ?? mesesPorCliente.set(id, new Set()).get(id)!).add(ym);
     receitaPorCliente.set(id, (receitaPorCliente.get(id) ?? 0) + m.amount);
