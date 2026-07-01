@@ -262,6 +262,9 @@ const CORPUS: [string, RegExp][] = [
   ["em quanto tempo recupero um investimento de 20 mil que rende 2 mil por mês?", /se paga|payback|meses/i],
   // antecipação de recebíveis
   ["vale a pena antecipar 10 mil que vence em 2 meses a 3% ao mês?", /cai R\$|antecipando|custo/i],
+  // conversão de taxa mensal↔anual
+  ["quanto é 2% ao mês em juros ao ano?", /ao ANO|equivale/i],
+  ["converter 30% ao ano para mensal", /ao MÊS|equivale/i],
 ];
 
 let pass = 0;

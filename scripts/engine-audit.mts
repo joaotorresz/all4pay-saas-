@@ -25,7 +25,7 @@ import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
-import { simularFinanciamento, antecipar } from "@/core/financing";
+import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 import type { Movement } from "@/lib/types";
@@ -416,6 +416,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const ant = antecipar(10000, 0.03, 2);
   ok("antecipação 10000/2m@3% → líquido 9425.96, custo 574.04", ant.liquido === 9425.96 && ant.custo === 574.04 && ant.custoPct === 5.74, `${ant.liquido}/${ant.custo}`);
   ok("antecipação: líquido + custo = valor futuro", Math.abs(ant.liquido + ant.custo - 10000) < 0.01);
+  // conversão de taxa: 2%/mês = 26.82%/ano (composto, não 24%); ida e volta bate
+  ok("taxa: 2%/mês → 26.82%/ano (composto, ≠ 24%)", Math.abs(equivalenteAnual(0.02) - 0.2682) < 0.0001, `${equivalenteAnual(0.02)}`);
+  ok("taxa: 26.82%/ano → ~2%/mês (inversa)", Math.abs(equivalenteMensal(0.2682) - 0.02) < 0.0001, `${equivalenteMensal(0.2682)}`);
 }
 
 // ── lib/aggregations: dailyCashflow acumula o saldo e ignora pendente ───────

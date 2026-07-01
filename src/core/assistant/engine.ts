@@ -15,7 +15,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
-import { simularFinanciamento, antecipar } from "@/core/financing";
+import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco } from "@/core/pricing";
 import { valorFuturo, payback } from "@/core/investment";
 
@@ -168,6 +168,26 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       return R(
         `Empréstimo de ${fmt(principal)} em ${parcelas}x a ${Math.round(taxa * 10000) / 100}% ao mês (tabela Price): parcela fixa de ${fmt(r.parcela)}, total pago ${fmt(r.totalPago)} — ${fmt(r.jurosTotal)} de juros (${r.custoEfetivoPct}% sobre o valor emprestado).`,
         [{ label: "Parcela", valor: `${fmt(r.parcela)}/mês` }, { label: "Total pago", valor: fmt(r.totalPago) }, { label: "Juros total", valor: fmt(r.jurosTotal) }], ["simulador de financiamento"]);
+    }
+  }
+
+  // ——— CONVERSÃO DE TAXA (mensal ↔ anual, juros compostos) ———
+  if (/(\d[\d.,]*\s*%).*(ao (m[êe]s|ano)|a\.?\s*[ma]\.?|mensal|anual).*(em|por|equivale|d[áa]|vira|para|convert).*(ao (ano|m[êe]s)|anual|mensal|juros ao (ano|m[êe]s))|convert\w* .*taxa|quanto (é|da|fica) \d[\d.,]*\s*% ao (m[êe]s|ano)/.test(p)) {
+    const pt = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+    if (pt) {
+      const taxa = parseFloat(pt[1].replace(",", ".")) / 100;
+      // A ORIGEM é a unidade logo após o % ("2% ao mês…" → mensal). Robusto
+      // independente da ordem do resto da frase.
+      const orig = p.match(/%\s*(?:ao\s*|\/\s*|a\.?\s*)?(m[êe]s|mensa\w*|ano|anua\w*)/);
+      const origemMensal = orig ? /m[êe]s|mensa/.test(orig[1]) : true;
+      if (origemMensal) {
+        const anual = equivalenteAnual(taxa);
+        return R(`${pt[1]}% ao mês equivale a ${Math.round(anual * 10000) / 100}% ao ANO (juros compostos: (1+${pt[1].replace(".", ",")}%)¹² − 1). Muita gente multiplica por 12 (daria ${Math.round(taxa * 12 * 10000) / 100}%), mas com juros sobre juros é mais.`,
+          [{ label: "Ao mês", valor: `${pt[1]}%` }, { label: "Ao ano (efetiva)", valor: `${Math.round(anual * 10000) / 100}%` }], ["conversão de taxa"]);
+      }
+      const mensal = equivalenteMensal(taxa);
+      return R(`${pt[1]}% ao ano equivale a ${Math.round(mensal * 10000) / 100}% ao MÊS (juros compostos: (1+${pt[1].replace(".", ",")}%)^(1/12) − 1).`,
+        [{ label: "Ao ano", valor: `${pt[1]}%` }, { label: "Ao mês (efetiva)", valor: `${Math.round(mensal * 10000) / 100}%` }], ["conversão de taxa"]);
     }
   }
 

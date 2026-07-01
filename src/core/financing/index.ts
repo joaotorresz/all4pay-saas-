@@ -35,6 +35,16 @@ export interface ResultadoFinanciamento {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Taxa mensal → equivalente anual composta: (1+i)^12 − 1. Fração → fração. */
+export function equivalenteAnual(taxaMensal: number): number {
+  return Math.round((Math.pow(1 + Math.max(0, taxaMensal), 12) - 1) * 1e6) / 1e6;
+}
+
+/** Taxa anual → equivalente mensal composta: (1+a)^(1/12) − 1. Fração → fração. */
+export function equivalenteMensal(taxaAnual: number): number {
+  return Math.round((Math.pow(1 + Math.max(0, taxaAnual), 1 / 12) - 1) * 1e6) / 1e6;
+}
+
 export interface Antecipacao {
   valorFuturo: number;   // o que você receberia no vencimento
   taxaMensal: number;    // taxa de desconto (fração)
