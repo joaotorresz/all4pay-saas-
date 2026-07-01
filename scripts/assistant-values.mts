@@ -89,6 +89,18 @@ const CASES: [string, RegExp, string][] = [
   ["quais meus maiores fornecedores?", /6\.000/, "Mkt (G) 6000 em julho"],
   // comparação de gasto mai(10000) vs jun(20000) → mais em junho
   ["gastei mais em maio ou junho?", /junho/, "mai 10000 < jun 20000"],
+  // total acumulado (histórico): entradas 20000+10000+20000+6000+4000 = 60000
+  ["qual o total que já entrou?", /já recebeu R\$.?60\.000/, "Σ entradas pagas = 60000"],
+  // saídas 10000+20000+6000 = 36000
+  ["qual o total que já saiu?", /já pagou R\$.?36\.000/, "Σ saídas pagas = 36000"],
+  // movimentado = 60000 + 36000 = 96000
+  ["quanto movimentei no total?", /movimentou R\$.?96\.000/, "60000 + 36000"],
+  // trimestre TRAILING (mai–jul): entradas 30000+20000+10000 = 60000
+  ["quanto entrou no trimestre?", /R\$.?60\.000 no trimestre/, "trailing mai+jun+jul entradas"],
+  // semestre TRAILING (fev–jul = todo o dataset): entraram 60000
+  ["como foi meu semestre?", /No semestre entraram R\$.?60\.000/, "trailing 6m entradas = 60000"],
+  // produto vs serviço no mês (jul): produtos (Vendas A) 6000 vs serviços (B) 4000
+  ["recebo mais de produto ou serviço?", /R\$.?6\.000 de produtos e R\$.?4\.000 de serviços/, "jul: Vendas 6000 x Servicos 4000"],
 ];
 
 let pass = 0;
