@@ -150,6 +150,7 @@ export function RecorrenciasView() {
                     </button>
                     <span className="text-caption text-ink tabular-nums shrink-0"><BRL value={totalFatura(r)} /></span>
                     <div className="flex items-center gap-1 shrink-0">
+                      {r.clienteId && <button onClick={() => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: r.clienteId } }))} title="Ficha do cliente" className="inline-flex p-[5px] rounded-md hover:bg-surface-2"><Icon name="users" size={13} color="var(--color-text-tertiary)" /></button>}
                       {r.status !== "ativa" && r.status !== "cancelada" && <button onClick={() => ativar(r)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px]">Ativar</button>}
                       {r.status === "ativa" && <button onClick={() => emitirNfse(r)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">NFS-e</button>}
                       {r.status === "ativa" && <button onClick={() => encerrar(r, "pausada")} className="text-caption font-medium text-muted bg-surface-2 rounded-pill px-2 py-[4px]">Pausar</button>}
