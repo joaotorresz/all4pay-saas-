@@ -212,7 +212,14 @@ export function NovaVendaIuli() {
         </div>
 
         {/* Resumo + propagação */}
-        <Card className="flex flex-col gap-3 lg:sticky lg:top-4">
+        <Card
+          className="flex flex-col gap-3 lg:sticky lg:top-4"
+          info={{
+            titulo: "Resumo da venda",
+            oQue: "Mostra o valor da venda e tudo que ela vai disparar no sistema antes de você salvar.",
+            comoCalcula: "Valor total = soma de quantidade × preço dos produtos; Valor líquido = total − taxas; o imposto é estimado em ~15,38% (Lucro Presumido serviço).",
+          }}
+        >
           <span className="text-[16px] font-semibold text-ink">Resumo</span>
           <Linha k="Valor total" v={formatBRL(valorTotal)} forte />
           <Linha k="Taxas" v={`− ${formatBRL(totalTaxas)}`} />
