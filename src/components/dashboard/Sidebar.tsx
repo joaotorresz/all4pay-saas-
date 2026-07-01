@@ -84,8 +84,7 @@ const SECTIONS: Section[] = [
   {
     id: "compras", label: "Compras", items: [
       { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
-      { label: "Boletos recebidos", soon: true, icon: "file-text" },
-      { label: "NFs recebidas", soon: true, icon: "receipt" },
+      { label: "Documentos recebidos (NF/boleto)", href: "/upload?aba=enviar", icon: "receipt" },
     ],
   },
   {
