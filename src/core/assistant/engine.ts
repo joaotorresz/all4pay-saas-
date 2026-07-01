@@ -118,17 +118,29 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— VOU RECEBER / PAGAR no MÊS QUE VEM (janela FUTURA, pendentes) ———
   // Antes da receita-realizada: "vou receber mês que vem" é PREVISTO (pendente
   // com vencimento no mês seguinte), não o realizado do mês corrente.
-  if (/(vou|irei|tenho (a|pra|para)|quanto (vou|tenho a)).*(receber|pagar|gastar).*(m[êe]s que vem|pr[óo]ximo m[êe]s)|(m[êe]s que vem|pr[óo]ximo m[êe]s).*(vou |irei )?(receber|pagar|gastar|receb\b|pag\b|gast\b)/.test(p)) {
+  if (/(vou|irei|tenho (a|pra|para)|quanto (vou|tenho a)).*(receber|pagar|gastar).*(m[êe]s que vem|pr[óo]ximo m[êe]s|semana que vem|pr[óo]xima semana)|(m[êe]s que vem|pr[óo]ximo m[êe]s|semana que vem|pr[óo]xima semana).*(vou |irei )?(receber|pagar|gastar|receb\b|pag\b|gast\b)/.test(p)) {
     const base = new Date(hoje + "T00:00:00");
-    const nmEnd = new Date(base.getFullYear(), base.getMonth() + 2, 0); // último dia do mês seguinte
-    const from = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-01`;
-    const to = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-${pad(nmEnd.getDate())}`;
+    const ehSemana = /semana que vem|pr[óo]xima semana/.test(p);
+    let from: string, to: string, rotulo: string;
+    if (ehSemana) {
+      const diasAteSeg = ((8 - base.getDay()) % 7) || 7; // próxima segunda-feira
+      const seg = new Date(base); seg.setDate(base.getDate() + diasAteSeg);
+      const dom = new Date(seg); dom.setDate(seg.getDate() + 6);
+      from = `${seg.getFullYear()}-${pad(seg.getMonth() + 1)}-${pad(seg.getDate())}`;
+      to = `${dom.getFullYear()}-${pad(dom.getMonth() + 1)}-${pad(dom.getDate())}`;
+      rotulo = "na semana que vem";
+    } else {
+      const nmEnd = new Date(base.getFullYear(), base.getMonth() + 2, 0); // último dia do mês seguinte
+      from = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-01`;
+      to = `${nmEnd.getFullYear()}-${pad(nmEnd.getMonth() + 1)}-${pad(nmEnd.getDate())}`;
+      rotulo = "no mês que vem";
+    }
     const tipo: "entrada" | "saida" = /pagar|\bpag\b|pagament|gast/.test(p) ? "saida" : "entrada";
     const ab = movs.filter((m) => m.type === tipo && m.status === "pendente" && m.due_date >= from && m.due_date <= to);
     const total = ab.reduce((s, m) => s + Math.abs(m.amount), 0);
     const verbo = tipo === "entrada" ? "receber" : "pagar";
-    if (!ab.length) return R(`Nada previsto para ${verbo} no mês que vem (sem títulos pendentes vencendo em ${from.slice(0, 7)}).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto mês seguinte"]);
-    return R(`No mês que vem você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s) (vencimentos de ${from.slice(0, 7)}).`, [{ label: `A ${verbo} (mês seguinte)`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto mês seguinte"]);
+    if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto futuro"]);
+    return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [{ label: `A ${verbo}`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto futuro"]);
   }
 
   // ——— PONTUALIDADE DE RECEBIMENTO (atraso médio dos clientes / DSO) ———

@@ -226,6 +226,9 @@ const CORPUS: [string, RegExp][] = [
   // faturamento com moldura de TENDÊNCIA → crescimento (não o valor pelado)
   ["meu faturamento subiu ou caiu?", /crescendo|caindo|est[áa]vel|receita est/i],
   ["meu faturamento aumentou?", /crescendo|caindo|est[áa]vel|receita est/i],
+  // janela futura de SEMANA (além do mês que vem)
+  ["quanto vou receber semana que vem?", /na semana que vem|previsto/i],
+  ["quanto vou pagar próxima semana?", /na semana que vem.* a pagar|previsto/i],
 ];
 
 let pass = 0;

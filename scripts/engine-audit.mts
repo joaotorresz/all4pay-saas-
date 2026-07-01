@@ -205,6 +205,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const rcTudo = responderLocal("quanto recebi da Alpha?", inpC);
   ok("contraparte c/ período: Alpha em maio = 22000", !!rcMaio && /em maio.*R\$.?22\.000/.test(rcMaio.resposta), rcMaio?.resposta?.slice(0, 50));
   ok("contraparte s/ período: Alpha total = 34000", !!rcTudo && /R\$.?34\.000/.test(rcTudo.resposta), rcTudo?.resposta?.slice(0, 50));
+  // janela futura de semana (07-15 qua → próx. semana 20-26/07): só o pendente 07-22 conta
+  const inpW: RiskInput = { hoje: "2026-07-15", saldoAtual: 0, partyNames: {}, movements: [
+    rm({ amount: 3000, status: "pendente", paid_date: null, due_date: "2026-07-22" }),
+    rm({ amount: 1000, status: "pendente", paid_date: null, due_date: "2026-07-16" }), // esta semana, fora
+  ] } as RiskInput;
+  const rw = responderLocal("quanto vou receber semana que vem?", inpW);
+  ok("janela semana que vem: só o pendente da próxima semana (3000)", !!rw && /semana que vem.*R\$.?3\.000/.test(rw.resposta), rw?.resposta?.slice(0, 50));
 }
 
 // ── dre/dreGerencial: waterfall com números fechados ────────────────────────
