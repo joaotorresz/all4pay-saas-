@@ -83,6 +83,12 @@ const CASES: [string, RegExp, string][] = [
   ["quantos clientes eu tenho?", /\b2\b/, "A, B distintos"],
   // receita por fonte Vendas jul = 6000 (A)
   ["quanto recebi de vendas?", /6\.000/, "Vendas julho (A)"],
+  // previsão do mês (jul): realizado rec 10000 - desp 6000, sem pendentes → sobra 4000
+  ["qual a previsão do mês?", /4\.000/, "10000 - 6000, sem pendentes"],
+  // maior fornecedor jul = G (Mkt) 6000
+  ["quais meus maiores fornecedores?", /6\.000/, "Mkt (G) 6000 em julho"],
+  // comparação de gasto mai(10000) vs jun(20000) → mais em junho
+  ["gastei mais em maio ou junho?", /junho/, "mai 10000 < jun 20000"],
 ];
 
 let pass = 0;
