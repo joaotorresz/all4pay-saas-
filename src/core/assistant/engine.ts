@@ -30,6 +30,7 @@ function janela(p: string, hojeISO: string): Janela {
   const iso = (dt: Date) => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
   if (/\bhoje\b/.test(p)) return { label: "hoje", from: hojeISO, to: hojeISO };
   if (/ontem/.test(p)) { const o = new Date(y, m, d - 1); return { label: "ontem", from: iso(o), to: iso(o) }; }
+  if (/amanh[ãa]/.test(p)) { const o = new Date(y, m, d + 1); return { label: "amanhã", from: iso(o), to: iso(o) }; }
   const ult = p.match(/[úu]ltim[oa]s?\s+(\d+)\s+dias/);
   if (ult) { const n = +ult[1]; const a = new Date(y, m, d - n + 1); return { label: `nos últimos ${n} dias`, from: iso(a), to: hojeISO }; }
   if (/semana/.test(p)) { const dom = new Date(y, m, d - hoje.getDay()); const sab = new Date(dom); sab.setDate(dom.getDate() + 6); return { label: "nesta semana", from: iso(dom), to: iso(sab) }; }
@@ -115,9 +116,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— MAIOR / MELHOR CLIENTE ———
   if (/(maior|melhor|principa(l|is)) cliente|quem mais (paga|compra|fatura|me paga)|top clientes?/.test(p)) {
     const w = janela(p, hoje);
-    const ent = movs.filter((m) => m.type === "entrada" && within(cashDate(m), w));
+    const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(ent, nomes, 3).filter((c) => c.valor > 0);
-    if (top.length === 0) return R(`Não há receita por cliente registrada ${w.label}.`, [], ["receita por cliente"]);
+    if (top.length === 0) return R(`Não há receita paga por cliente registrada ${w.label}.`, [], ["receita por cliente"]);
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const share = tot > 0 ? Math.round((top[0].valor / tot) * 100) : 0;
     return R(
@@ -128,7 +129,14 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
 
   // ——— POR CONTRAPARTE (cliente/fornecedor citado na pergunta) ———
   if (nomes && /(quanto|gast|paguei|recebi|receb|devo|deve|com|para|pro|pra|hist[óo]rico|mostr|abr[ai]|ficha|ver o|dados d|perfil d)/.test(p)) {
-    const alvo = Object.entries(nomes).find(([, n]) => n && n.length >= 3 && p.includes(n.toLowerCase()));
+    // casa o nome como PALAVRA (limites), não substring solto — evita
+    // "Sol"⊂"saldo"/"Casa"⊂"na casa" sequestrarem perguntas genéricas.
+    const alvo = Object.entries(nomes).find(([, n]) => {
+      const t = (n || "").toLowerCase().trim();
+      if (t.length < 4) return false;
+      const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`(^|[^a-zà-ú0-9])${esc}([^a-zà-ú0-9]|$)`, "i").test(p);
+    });
     if (alvo) {
       const [id, nome] = alvo;
       const doParty = movs.filter((m) => m.party_id === id);
@@ -189,9 +197,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   // ——— TOP FORNECEDORES ———
   if (/(maior(es)?|principa|top|para quem).*(fornecedor|fornec)|quem mais (recebo de mim|me cobra|eu pago)|para quem (mais )?pago/.test(p)) {
     const w = janela(p, hoje);
-    const sai = movs.filter((m) => m.type === "saida" && within(cashDate(m), w));
+    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
     const top = topClientes(sai, nomes, 3).filter((c) => c.valor > 0);
-    if (!top.length) return R(`Não há pagamentos por fornecedor ${w.label}.`, [], ["pagamentos por fornecedor"]);
+    if (!top.length) return R(`Não há pagamentos a fornecedor ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]);
   }
 

@@ -54,30 +54,43 @@ export function VisorHomeTop() {
     const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
     const prevFromD = new Date(fromD.getTime() - nDays * DAY);
 
-    // gasto (saídas) por dia
-    const spendByDay = new Map<string, number>();
+    // gasto por dia: PAGO (realizado, verde) vs AGENDADO (projeção, tracejada).
+    // Realizado usa a data de caixa (paid_date); agendado usa o vencimento.
+    const paidByDay = new Map<string, number>();
+    const schedByDay = new Map<string, number>();
     for (const mv of inp.movements) {
       if (mv.type !== "saida" || mv.status === "cancelado") continue;
-      const ds = effDate(mv); if (!ds) continue;
-      spendByDay.set(ds.slice(0, 10), (spendByDay.get(ds.slice(0, 10)) || 0) + Math.abs(mv.amount));
+      const v = Math.abs(mv.amount);
+      if (mv.status === "pago") {
+        const ds = (mv.paid_date || mv.due_date || "").slice(0, 10); if (!ds) continue;
+        paidByDay.set(ds, (paidByDay.get(ds) || 0) + v);
+      } else {
+        const ds = (mv.due_date || "").slice(0, 10); if (!ds) continue;
+        schedByDay.set(ds, (schedByDay.get(ds) || 0) + v);
+      }
     }
-    const spendOn = (iso: string) => spendByDay.get(iso) || 0;
+    const paidOn = (iso: string) => paidByDay.get(iso) || 0;
+    const schedOn = (iso: string) => schedByDay.get(iso) || 0;
 
-    // acumulado de gasto — período atual e anterior (mesmo intervalo)
+    // acumulado de gasto PAGO — período atual (cumA) e anterior (cumP)
     const cumA: number[] = []; let cA = 0;
     const cumP: number[] = []; let cP = 0;
     for (let i = 0; i < nDays; i++) {
-      cA += spendOn(isoAt(fromD, i)); cumA.push(Math.round(cA * 100) / 100);
-      cP += spendOn(isoAt(prevFromD, i)); cumP.push(Math.round(cP * 100) / 100);
+      cA += paidOn(isoAt(fromD, i)); cumA.push(Math.round(cA * 100) / 100);
+      cP += paidOn(isoAt(prevFromD, i)); cumP.push(Math.round(cP * 100) / 100);
     }
     const rawDidx = Math.round((hojeD.getTime() - fromD.getTime()) / DAY);
     const Didx = Math.max(0, Math.min(nDays - 1, rawDidx));
+    // projeção: do hoje em diante = pago acumulado + agendado a vencer
+    const projCum: number[] = new Array(nDays).fill(0);
+    let base = cumA[Didx], sc = 0;
+    for (let i = Didx; i < nDays; i++) { if (i > Didx) sc += schedOn(isoAt(fromD, i)); projCum[i] = Math.round((base + sc) * 100) / 100; }
     const fmtDia = (d: Date) => `${pad(d.getDate())}/${MES_ABBR[d.getMonth()]}`;
     const temProj = rawDidx < nDays - 1 && rawDidx >= -1;
     const serie: Ponto[] = [];
     for (let i = 0; i < nDays; i++) {
       const d = new Date(fromD.getTime() + i * DAY);
-      serie.push({ idx: i, label: fmtDia(d), gasto: i <= Didx ? cumA[i] : null, proj: i >= Didx ? cumA[i] : null, prev: cumP[i], tip: i === Didx ? cumA[Didx] : null });
+      serie.push({ idx: i, label: fmtDia(d), gasto: i <= Didx ? cumA[i] : null, proj: i >= Didx ? projCum[i] : null, prev: cumP[i], tip: i === Didx ? cumA[Didx] : null });
     }
     const gastoAtual = cumA[Didx];
     const gastoAnterior = cumP[Didx];
