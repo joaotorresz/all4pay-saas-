@@ -520,6 +520,135 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
+
+  /* ----------------------------- Painel de vendas ----------------------------- */
+  "/painel-vendas": {
+    titulo: "Painel de vendas",
+    intro: "O dashboard comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
+    comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",
+    exemplo: "Caiu o faturamento do mês? Compare o mix produto × serviço e veja qual linha recuou.",
+    secoes: [
+      blocos([
+        { nome: "KPIs de venda", desc: "Faturamento, ticket médio e volume do período." },
+        { nome: "Evolução", desc: "Vendas mês a mês — tendência e sazonalidade." },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Plano de Contas ----------------------------- */
+  "/plano-de-contas": {
+    titulo: "Plano de Contas",
+    intro: "A espinha dorsal da classificação: hierarquia Grupo → Categoria (verde = receita · vermelho = despesa · cinza = resultado), no plano padrão para negócios digitais.",
+    comoUsar: "Navegue pela hierarquia para entender onde cada lançamento cai. A aba 'Uso padrão' mostra o dicionário de auto-classificação (função do motor → categoria).",
+    exemplo: "Quer saber por que 'combustível' caiu em Logística? Veja a categoria correspondente na aba Uso padrão.",
+    secoes: [
+      blocos([
+        { nome: "Hierarquia", desc: "Grupos e categorias codificados por cor, com o código contábil." },
+        { nome: "Uso padrão", desc: "Qual categoria o sistema usa automaticamente em cada fluxo (venda, tarifa, imposto…).", match: "Uso padrão" },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Nova venda ----------------------------- */
+  "/nova-venda": {
+    titulo: "Nova venda",
+    intro: "A venda como documento-mãe: itens do catálogo, condição de pagamento e os efeitos em cascata (recebível, NF, imposto, DRE).",
+    comoUsar: "Escolha cliente e itens (produtos/serviços), defina a condição (à vista/parcelado) e salve — o recebível e o resultado saem daqui.",
+    exemplo: "Venda de R$ 3.000 em 3x → 3 recebíveis de R$ 1.000 aparecem em Contas a receber e a receita no DRE.",
+    secoes: [
+      blocos([
+        { nome: "Itens", desc: "Linhas de produto/serviço com quantidade, preço e desconto." },
+        { nome: "Condição de pagamento", desc: "À vista, parcelado ou orçamento (sem efeito financeiro até converter)." },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Projetos ----------------------------- */
+  "/projetos": {
+    titulo: "Projetos",
+    intro: "Dimensão de rateio: associe receitas e despesas a projetos para enxergar margem por projeto no DRE.",
+    comoUsar: "Cadastre o projeto e use-o no rateio dos lançamentos (splits). O resultado por projeto sai no DRE por dimensão.",
+    secoes: [
+      blocos([{ nome: "Lista de projetos", desc: "Projetos ativos com os lançamentos vinculados." }]),
+    ],
+  },
+
+  /* ----------------------------- Centros de Custo ----------------------------- */
+  "/centros-custo": {
+    titulo: "Centros de Custo",
+    intro: "A segunda dimensão de rateio: cada lançamento pode apontar um centro (Comercial, Operação, ADM…) e o DRE abre por centro de custo.",
+    comoUsar: "Cadastre os centros e selecione-os nos lançamentos/vendas; o DRE por centro mostra onde o dinheiro é consumido.",
+    exemplo: "Folha rateada 60% Operação / 40% ADM → o DRE por centro reflete o peso real de cada área.",
+    secoes: [
+      blocos([{ nome: "Lista de centros", desc: "Centros cadastrados e uso nos lançamentos." }]),
+    ],
+  },
+
+  /* ----------------------------- Impostos ----------------------------- */
+  "/impostos": {
+    titulo: "Impostos",
+    intro: "A visão fiscal: guias e tributos do período (DAS/Simples, retenções), com o peso da carga tributária sobre a receita.",
+    comoUsar: "Acompanhe as guias do mês e os vencimentos; a carga tributária (% da receita) sai do motor de DRE.",
+    exemplo: "Pergunte à IA 'quanto pago de Simples faturando 500 mil por ano?' para simular por anexo.",
+    secoes: [
+      blocos([
+        { nome: "Guias do período", desc: "Tributos lançados com vencimento e status." },
+        { nome: "Carga tributária", desc: "Impostos ÷ receita bruta do período." },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Contabilidade (integração) ----------------------------- */
+  "/contabilidade": {
+    titulo: "Contabilidade — envio ao contador",
+    intro: "A ponte com o escritório contábil: exporta o movimento (TXT Domínio) e as NFs do período para importação direta no sistema do contador.",
+    comoUsar: "Escolha o período, gere o arquivo TXT e envie ao contador; as NFs seguem no mesmo pacote.",
+    secoes: [
+      blocos([
+        { nome: "Exportação TXT", desc: "Arquivo no layout Domínio com o movimento do período." },
+        { nome: "Notas fiscais", desc: "NFs do período incluídas no envio." },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Consolidado multiempresa ----------------------------- */
+  "/consolidado": {
+    titulo: "Consolidado (multiempresa)",
+    intro: "A posição agregada das organizações em que você é membro: saldo, receita, despesa e resultado lado a lado (sem eliminações intercompany na v1).",
+    comoUsar: "Compare as empresas e clique numa linha para entrar no contexto dela.",
+    secoes: [
+      blocos([{ nome: "Tabela consolidada", desc: "Uma linha por organização com os KPIs do período." }]),
+    ],
+  },
+
+  /* ----------------------------- Conciliação IULI × OFX ----------------------------- */
+  "/conciliacao-bancaria": {
+    titulo: "Conciliação bancária (sistema × extrato)",
+    intro: "O confronto entre o que o sistema registrou e o que o banco liquidou: matching probabilístico (valor, data, documento, contraparte) com filas de auto-conciliação, sugestão e exceção.",
+    comoUsar: "Importe o extrato (OFX/CSV) em Upload de dados; aqui, confirme as sugestões e resolva as exceções — cada match dá baixa no título.",
+    exemplo: "PIX de R$ 1.250 no extrato bate com o recebível da ACME (confiança 94%) → confirmar concilia e baixa o título.",
+    secoes: [
+      blocos([
+        { nome: "Auto-conciliadas", desc: "Matches com confiança ≥90% — só auditar." },
+        { nome: "Sugestões", desc: "Prováveis (70–90%) — confirme ou rejeite." },
+        { nome: "Exceções", desc: "Sem par — lance ou ignore." },
+      ]),
+    ],
+  },
+
+  /* ----------------------------- Administração (super-admin) ----------------------------- */
+  "/admin": {
+    titulo: "Administração da plataforma",
+    intro: "Visão cross-tenant do dono do SaaS: clientes (orgs), assinaturas/MRR, usuários, crescimento e trilha de auditoria das ações administrativas.",
+    comoUsar: "Edite plano/status de uma org para definir o MRR; use 'Logar como' para ver o ambiente do cliente (auditado); acompanhe o gráfico de MRR mês a mês.",
+    secoes: [
+      blocos([
+        { nome: "KPIs", desc: "Orgs, ativas, trials, inadimplentes, usuários, MRR/ARR." },
+        { nome: "Clientes", desc: "Uma linha por organização com plano/status editáveis." },
+        { nome: "Usuários", desc: "Contas com último acesso; clique abre o drill-in cadastral." },
+      ]),
+    ],
+  },
 };
 
 /** Resolve o guia da rota (match exato ou prefixo mais longo). */
