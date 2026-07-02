@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 export function GET() {
   return NextResponse.json({ configured: !!process.env.ANTHROPIC_API_KEY, model: MODEL });

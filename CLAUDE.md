@@ -915,7 +915,7 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   `runtime nodejs`): a visão do **Claude** (Anthropic API, `fetch` cru — sem SDK)
   lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
   Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
-  `claude-sonnet-4-6`); `GET` reporta `configured`. A InboxView reduz a imagem
+  `claude-sonnet-5`); `GET` reporta `configured`. A InboxView reduz a imagem
   (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno.
   **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
   `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,

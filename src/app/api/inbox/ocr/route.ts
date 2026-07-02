@@ -8,12 +8,12 @@ import { NextResponse } from "next/server";
  *
  * Variáveis (Vercel, server-side):
  *   ANTHROPIC_API_KEY   — chave da Anthropic
- *   ANTHROPIC_MODEL     — opcional (default claude-sonnet-4-6)
+ *   ANTHROPIC_MODEL     — opcional (default claude-sonnet-5)
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 const PROMPT = `Você é um extrator de documentos financeiros brasileiros (boleto, comprovante PIX/TED, nota fiscal, DARF/GPS/GNRE, fatura, extrato, recibo, contrato, folha).
 Extraia os campos e responda APENAS com JSON válido, sem markdown, no formato exato:

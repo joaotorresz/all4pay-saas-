@@ -81,10 +81,14 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
     // numérico (Ember-style). Sem chave: motor executivo determinístico.
     if (iaConfig) {
       setPensando(true);
+      // memória de conversa: turnos mais recentes primeiro no estado → reverte
+      const historico = turnos.slice(0, 4).reverse()
+        .map((t) => ({ q: t.pergunta, a: t.exec?.resposta ?? t.texto ?? "" }))
+        .filter((h) => h.a);
       try {
         const j = await fetch("/api/ai/copiloto", {
           method: "POST", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ pergunta: pq, contexto: ctx, anomalias, insights }),
+          body: JSON.stringify({ pergunta: pq, contexto: ctx, anomalias, insights, historico }),
         }).then((r) => r.json());
         if (j?.ok) {
           const exec: RespostaCopiloto = {

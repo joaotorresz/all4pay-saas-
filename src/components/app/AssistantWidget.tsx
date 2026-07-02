@@ -159,12 +159,17 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       return;
     }
 
-    // 3) Consultivo/aberto → Claude ancorado (com chave) e fallback determinístico
+    // 3) Consultivo/aberto → Claude ancorado (com chave) e fallback determinístico.
+    // Os últimos turnos vão junto (memória de conversa → follow-ups funcionam).
+    const historico = turnos
+      .filter((t) => t.resposta && t.fonte !== "carregando")
+      .slice(-4)
+      .map((t) => ({ q: t.q, a: t.resposta as string }));
     setPensando(true);
     try {
       const j = await fetch("/api/ai/copiloto", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta: q, contexto: ctx, anomalias, insights }),
+        body: JSON.stringify({ pergunta: q, contexto: ctx, anomalias, insights, historico }),
       }).then((r) => r.json()).catch(() => null);
 
       let turno: Turno;
