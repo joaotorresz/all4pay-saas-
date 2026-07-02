@@ -45,9 +45,9 @@ export function PageGuide() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Abrir guia da página"
-        className="fixed bottom-[84px] right-5 z-40 inline-flex items-center gap-2 rounded-pill bg-ink text-white shadow-popover px-4 py-[10px] hover:opacity-90"
+        className="fixed bottom-[84px] right-5 z-40 inline-flex items-center gap-2 rounded-pill bg-white text-ink px-4 py-[10px] hover:bg-surface-2 transition"
       >
-        <Icon name="help-circle" size={16} color="var(--color-lime)" />
+        <Icon name="help-circle" size={16} color="var(--color-ink)" />
         <span className="text-label font-medium">Guia</span>
       </button>
 

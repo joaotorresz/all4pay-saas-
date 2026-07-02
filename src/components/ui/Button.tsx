@@ -27,12 +27,13 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: "text-body gap-2 px-[22px] h-12",
 };
 
-// FLAT: sem borda, sem sombra. Fills sutis; ghost/secondary quase texto.
+// "NADA PARECE BOTÃO": sem borda, sem sombra, sem fill sólido/escuro. Primary e
+// accent = chip neutro sutil (surface-2); secondary/ghost = só texto muted→ink.
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-white hover:opacity-90",
-  secondary: "bg-surface-2 text-ink hover:bg-surface-3",
+  primary: "bg-surface-2 text-ink hover:bg-surface-3",
+  secondary: "bg-transparent text-muted hover:text-ink",
   ghost: "bg-transparent text-muted hover:text-ink",
-  accent: "bg-lime text-on-lime hover:opacity-90",
+  accent: "bg-surface-2 text-ink hover:bg-surface-3",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

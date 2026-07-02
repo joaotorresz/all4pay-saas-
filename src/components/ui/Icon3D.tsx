@@ -52,38 +52,48 @@ export interface Icon3DProps {
 export function Icon3D({ name, size = 44, variant = "duo", className, title }: Icon3DProps) {
   const id = useId().replace(/:/g, "");
   const isInk = variant === "ink";
-  const face = isInk ? `url(#f-${id})` : `url(#f-${id})`;
   const glyph = isInk ? "var(--color-lime)" : "#11190C";
-  const sheen = isInk ? "rgba(220,255,0,0.12)" : "rgba(255,255,255,0.55)";
-  // faces do gradiente (topo → base) e a lateral (extrusão) mais escura
-  const faceTop = isInk ? "#20301a" : "#EAFF7A";
-  const faceBot = isInk ? "#0c1207" : "#CBEE00";
-  const side = isInk ? "#05080a" : "#A6C400";
+  // Paleta 3D (domo com gloss): claro no topo-esq → profundo no fundo-dir, +
+  // face lateral (extrusão) para espessura real. Cores exatas da marca.
+  const hi = isInk ? "#33421f" : "#F6FFC0";   // realce claro (topo-esq)
+  const mid = isInk ? "#1a2512" : "#DCFF00";  // lime da marca (meio)
+  const lo = isInk ? "#0c1207" : "#A9CC00";   // profundo (fundo-dir)
+  const side = isInk ? "#04060a" : "#8FAD00"; // extrusão (mais escura)
 
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={title ?? name} className={className}>
       <defs>
-        <linearGradient id={`f-${id}`} x1="0" y1="0" x2="0.15" y2="1">
-          <stop offset="0" stopColor={faceTop} />
-          <stop offset="1" stopColor={faceBot} />
-        </linearGradient>
-        <linearGradient id={`s-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={sheen} />
-          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        {/* domo: radial deslocado p/ topo-esq → sensação de volume esférico */}
+        <radialGradient id={`f-${id}`} cx="0.32" cy="0.26" r="0.9">
+          <stop offset="0" stopColor={hi} />
+          <stop offset="0.55" stopColor={mid} />
+          <stop offset="1" stopColor={lo} />
+        </radialGradient>
+        {/* rim de luz no topo (bevel) */}
+        <linearGradient id={`r-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity={isInk ? 0.14 : 0.6} />
+          <stop offset="0.28" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {/* extrusão (face lateral, atrás e deslocada p/ baixo → dá espessura 3D) */}
-      <rect x="4" y="10" width="56" height="52" rx="18" fill={side} />
-      {/* topo */}
-      <rect x="4" y="3" width="56" height="52" rx="18" fill={face} />
-      {/* sheen (brilho no topo, não sombra) */}
-      <rect x="4" y="3" width="56" height="26" rx="18" fill={`url(#s-${id})`} />
+      {/* extrusão (espessura): squircle atrás, deslocado p/ baixo */}
+      <rect x="5" y="12" width="54" height="49" rx="17" fill={side} />
+      {/* face de topo com gradiente-domo */}
+      <rect x="5" y="4" width="54" height="49" rx="17" fill={`url(#f-${id})`} />
+      {/* bevel/rim de luz no topo */}
+      <rect x="5" y="4" width="54" height="22" rx="17" fill={`url(#r-${id})`} />
+      {/* specular highlight (gloss) — pequeno brilho no topo-esq */}
+      <ellipse cx="20" cy="16" rx="12" ry="6.5" fill="#ffffff" opacity={isInk ? 0.12 : 0.4} />
       {/* glifo (no plano do topo) */}
-      <g fill={glyph} stroke={glyph} strokeWidth="0" transform="translate(0,-3)">
+      <g fill={glyph} stroke={glyph} strokeWidth="0" transform="translate(0,-2.5)">
         {GLYPHS[name]}
       </g>
-      {/* acento amarelo (só no duo) */}
-      {variant === "duo" && <circle cx="50" cy="12" r="6" fill="#FFE500" />}
+      {/* acento amarelo (só no duo) — pastilha com brilho */}
+      {variant === "duo" && (
+        <g>
+          <circle cx="50" cy="13" r="6.5" fill="#FFE500" />
+          <ellipse cx="48" cy="11" rx="2.6" ry="1.6" fill="#ffffff" opacity="0.5" />
+        </g>
+      )}
     </svg>
   );
 }

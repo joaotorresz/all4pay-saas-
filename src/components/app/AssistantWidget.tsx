@@ -16,6 +16,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
+import { Icon3D } from "@/components/ui/Icon3D";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
@@ -91,10 +92,9 @@ export function AssistantWidget() {
       <button
         onClick={abrir}
         aria-label="Abrir o All 4 Pay AI"
-        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill text-white pl-[16px] pr-[20px] py-[12px] transition-all duration-200 hover:brightness-105 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
-        style={{ backgroundImage: GRAD, boxShadow: GLOW }}
+        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill bg-white text-ink pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:bg-surface-2 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
-        <span className="text-lime inline-flex"><SparkleMark size={20} /></span>
+        <Icon3D name="spark" size={30} />
         <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
       </button>
 
