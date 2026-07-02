@@ -20,11 +20,12 @@ export function InvestorUpdateView() {
   const [empresa, setEmpresa] = React.useState("");
   const [destaques, setDestaques] = React.useState("");
   const [pedidos, setPedidos] = React.useState("");
+  const [idioma, setIdioma] = React.useState<"pt" | "en">("pt");
   const [copiado, setCopiado] = React.useState(false);
 
   const texto = React.useMemo(
-    () => (u ? gerarTextoInvestorUpdate(u, { empresa, destaques, pedidos }) : ""),
-    [u, empresa, destaques, pedidos],
+    () => (u ? gerarTextoInvestorUpdate(u, { empresa, destaques, pedidos, idioma }) : ""),
+    [u, empresa, destaques, pedidos, idioma],
   );
 
   const copiar = () => {
@@ -33,6 +34,11 @@ export function InvestorUpdateView() {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 1800);
     } catch { /* ignore */ }
+  };
+
+  const enviarEmail = () => {
+    const assunto = texto.split("\n")[0] ?? "Investor update";
+    window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
   };
 
   return (
@@ -121,10 +127,23 @@ export function InvestorUpdateView() {
                     <h2 className="m-0 text-h3 font-medium text-ink">Texto pronto para enviar</h2>
                     <span className="text-caption text-faint">atualiza ao vivo com os campos ao lado</span>
                   </div>
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
+                    <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Idioma do texto">
+                      {([["pt", "PT"], ["en", "EN"]] as const).map(([val, label]) => {
+                        const on = idioma === val;
+                        return (
+                          <button key={val} role="tab" aria-selected={on} onClick={() => setIdioma(val)}
+                            className={`text-caption font-medium rounded-pill px-3 py-[5px] transition-colors ${on ? "bg-white text-ink" : "text-muted hover:text-ink"}`}>{label}</button>
+                        );
+                      })}
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={enviarEmail}>
+                      <Icon name="mail" size={14} color="currentColor" />
+                      E-mail
+                    </Button>
                     <Button variant="secondary" size="sm" onClick={copiar}>
                       <Icon name={copiado ? "check" : "file-text"} size={14} color="currentColor" />
-                      {copiado ? "Copiado" : "Copiar texto"}
+                      {copiado ? "Copiado" : "Copiar"}
                     </Button>
                   </div>
                 </div>
