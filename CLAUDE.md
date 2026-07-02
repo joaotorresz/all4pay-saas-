@@ -101,10 +101,11 @@ que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
   existir como **divisor discreto** (`rgba(17,25,12,0.07)`).
 - **Formas:** **bordas bem arredondadas** (`--a4p-box-radius` **24px**) · padding
   28px.
-- **Botões: "nada parece botão"** — `Button` sem chrome (pill, sem borda;
-  primary=ink · secondary=surface-2 · ghost=só texto · accent=lime). Pills de
-  período/segmented = texto (ativo = pill ink discreto). O FAB de IA é preto
-  #11190C + sparkle lime (sem gradiente colorido).
+- **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
+  (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
+  texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
+  FABs (Upload · Guia · All 4 Pay AI) são pills BRANCOS flat; o glifo de IA é um
+  tile ink com sparkle lime (sem gradiente colorido).
 - **Ícones: flat Phosphor (Fill) SEMPRE** (`Icon`). Nos cabeçalhos de card, o
   glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
   `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
