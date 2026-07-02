@@ -105,6 +105,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: "equipe", label: "Equipe", pro: true, items: [
+      { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
       { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
     ],

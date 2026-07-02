@@ -651,6 +651,20 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  /* ----------------------------- Plano de contratações ----------------------------- */
+  "/contratacoes": {
+    titulo: "Plano de contratações",
+    intro: "Headcount planning × runway: monte o plano de vagas e veja o impacto REAL no caixa antes de contratar — cada vaga entra com salário + 13º + férias com 1/3 + FGTS (~1,3× o salário).",
+    comoUsar: "Adicione as vagas (cargo, salário, quantidade, mês de início). O painel ao lado recalcula custo do plano, runway e score antes/depois, e projeta o caixa mês a mês por 12 meses.",
+    exemplo: "2 engenheiros de R$ 12 mil a partir do mês 3 → custo real ~R$ 31 mil/mês; se o caixa projetado ficar negativo em algum mês, o plano avisa.",
+    secoes: [
+      blocos([
+        { nome: "Vagas do plano", desc: "As contratações simuladas, com custo real por vaga.", match: "Vagas do plano" },
+        { nome: "Impacto no caixa", desc: "Custo do plano, runway/score antes → depois e o caixa projetado M1–M12.", match: "Impacto no caixa" },
+      ]),
+    ],
+  },
+
   /* ----------------------------- Administração (super-admin) ----------------------------- */
   "/admin": {
     titulo: "Administração da plataforma",

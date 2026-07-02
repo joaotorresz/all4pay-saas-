@@ -23,6 +23,7 @@ const ROUTES: RouteItem[] = [
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
   { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir" },
   { label: "Investor update", href: "/investidores", icon: "mail", kw: "investor update investidor relatorio mensal mrr arr burn runway captacao board email" },
+  { label: "Plano de contratações", href: "/contratacoes", icon: "users", kw: "headcount contratacao contratar vaga equipe folha salario encargos runway plano time hiring" },
   { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
   { label: "Consolidado (multi-empresa)", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
