@@ -3,7 +3,6 @@
 import * as React from "react";
 import { Icon, InfoHint } from "@/components/ui";
 import type { IconName, InfoConteudo } from "@/components/ui";
-import { Icon3D, type Icon3DName } from "@/components/ui/Icon3D";
 
 /** Bank brand dot colors (stand-ins for real logos). */
 const BANK_COLORS: Record<string, string> = {
@@ -15,24 +14,37 @@ const BANK_COLORS: Record<string, string> = {
 };
 export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
 
+/** Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de card. */
+export function IconTile({ name, size = 38 }: { name: IconName | string; size?: number }) {
+  return (
+    <span
+      className="inline-flex items-center justify-center shrink-0 rounded-md bg-surface-2 text-ink"
+      style={{ width: size, height: size }}
+      aria-hidden
+    >
+      <Icon name={name} size={Math.round(size * 0.5)} color="currentColor" />
+    </span>
+  );
+}
+
 /** Section title for a widget, with an optional right-aligned slot. */
 export function WidgetHeader({
   title,
   subtitle,
   action,
   info,
-  icon3d,
+  icon,
 }: {
   title: string;
   subtitle?: React.ReactNode;
   action?: React.ReactNode;
   info?: InfoConteudo;
-  icon3d?: Icon3DName;
+  icon?: IconName | string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 mb-4">
       <div className="flex items-center gap-3 min-w-0">
-        {icon3d && <Icon3D name={icon3d} size={38} className="shrink-0" />}
+        {icon && <IconTile name={icon} />}
         <div className="flex items-baseline gap-[10px] min-w-0">
           <h2 className="text-h3 font-medium text-ink truncate">{title}</h2>
           {info && <span className="self-center"><InfoHint align="left" {...info} /></span>}

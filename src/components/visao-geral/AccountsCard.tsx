@@ -25,7 +25,7 @@ export function AccountsCard() {
       comoCalcula: "Soma o saldo de todas as contas financeiras cadastradas; o selo de conciliação compara o saldo do sistema com o último extrato importado.",
     }}>
       <WidgetHeader
-        icon3d="wallet"
+        icon="credit-card"
         title="Contas Financeiras"
         subtitle={data ? `${data.accounts.length} contas` : undefined}
       />
