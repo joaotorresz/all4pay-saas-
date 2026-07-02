@@ -29,6 +29,19 @@ export function PageGuide() {
   // Fica disponível no botão flutuante "Guia". Fecha-se ao trocar de rota.
   React.useEffect(() => { setOpen(false); }, [pathname]);
 
+  // Boas-vindas de primeira visita (só na Home): um convite discreto, não
+  // bloqueante, apontando o tour — some para sempre ao dispensar ou aceitar.
+  const [convite, setConvite] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      setConvite(pathname === "/" && !localStorage.getItem("a4p_guide_welcome"));
+    } catch { setConvite(false); }
+  }, [pathname]);
+  const fecharConvite = React.useCallback(() => {
+    try { localStorage.setItem("a4p_guide_welcome", "1"); } catch { /* ignore */ }
+    setConvite(false);
+  }, []);
+
   // ESC fecha.
   React.useEffect(() => {
     if (!open) return;
@@ -50,6 +63,34 @@ export function PageGuide() {
         <Icon name="help-circle" size={16} color="var(--color-ink)" />
         <span className="text-label font-medium">Guia</span>
       </button>
+
+      {convite && (
+        <div className="a4p-glass fixed bottom-[136px] right-5 z-40 w-[300px] rounded-card bg-white shadow-popover border border-border p-4 flex flex-col gap-3">
+          <div className="flex items-start gap-2">
+            <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center shrink-0">
+              <Icon name="help-circle" size={14} color="var(--color-on-lime)" />
+            </span>
+            <p className="m-0 text-caption leading-snug text-ink">
+              <b className="font-semibold">Primeira vez aqui?</b> Cada tela tem um guia:
+              o que é, como usar e um tour apontando os blocos na própria tela.
+            </p>
+            <button onClick={fecharConvite} aria-label="Dispensar" className="ml-auto inline-flex p-[2px] rounded-md hover:bg-surface-2 shrink-0">
+              <Icon name="x" size={14} color="var(--color-text-tertiary)" />
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { fecharConvite(); setOpen(true); }}
+              className="flex-1 rounded-md bg-ink text-white text-caption font-medium py-2 hover:opacity-90"
+            >
+              Conhecer a Home
+            </button>
+            <button onClick={fecharConvite} className="rounded-md text-caption text-muted px-3 py-2 hover:text-ink hover:bg-surface-2">
+              Agora não
+            </button>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50 flex justify-end">

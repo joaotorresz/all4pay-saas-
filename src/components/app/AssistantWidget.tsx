@@ -16,7 +16,6 @@
 import * as React from "react";
 import Link from "next/link";
 import { Icon } from "@/components/ui";
-import { Icon3D } from "@/components/ui/Icon3D";
 import { copilotoFinanceiro, centroInteligencia } from "@/core/executive";
 import type { RespostaCopiloto } from "@/core/executive/types";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
@@ -94,7 +93,9 @@ export function AssistantWidget() {
         aria-label="Abrir o All 4 Pay AI"
         className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill bg-white text-ink pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:bg-surface-2 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
-        <Icon3D name="spark" size={30} />
+        <span className="w-[30px] h-[30px] rounded-md bg-ink text-lime inline-flex items-center justify-center">
+          <SparkleMark size={16} />
+        </span>
         <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
       </button>
 
@@ -159,12 +160,17 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       return;
     }
 
-    // 3) Consultivo/aberto → Claude ancorado (com chave) e fallback determinístico
+    // 3) Consultivo/aberto → Claude ancorado (com chave) e fallback determinístico.
+    // Os últimos turnos vão junto (memória de conversa → follow-ups funcionam).
+    const historico = turnos
+      .filter((t) => t.resposta && t.fonte !== "carregando")
+      .slice(-4)
+      .map((t) => ({ q: t.q, a: t.resposta as string }));
     setPensando(true);
     try {
       const j = await fetch("/api/ai/copiloto", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pergunta: q, contexto: ctx, anomalias, insights }),
+        body: JSON.stringify({ pergunta: q, contexto: ctx, anomalias, insights, historico }),
       }).then((r) => r.json()).catch(() => null);
 
       let turno: Turno;
@@ -198,7 +204,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
 
       <aside
         role="dialog" aria-label="all4pay IA"
-        className={`fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}
       >
         {/* header */}

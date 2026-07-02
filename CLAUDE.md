@@ -75,31 +75,41 @@ sempre os tokens, nunca hex literal.
   de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
-### ⚡ Identidade corporativa all4pay (ATIVA — escopo `.ds-visor`)
+### ⚡ Identidade corporativa all4pay — **AURORA GLASS** (ATIVA — escopo `.ds-visor`)
 
 O app roda no escopo **`.ds-visor`** (aplicado pelo `AppShell` a todo o app),
-que **sobrescreve** os tokens-base abaixo com a identidade do **site institucional
-all4pay**. Estas são as regras VIGENTES (editar em `globals.css` `.ds-visor` +
-`layout.tsx`):
+que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
+(futurista & clean). Estas são as regras VIGENTES (editar em `globals.css`
+`.ds-visor` / `.a4p-canvas` + `layout.tsx`):
 
 - **Fonte: Roobert TRIAL** (`--font-roobert`, localFont) — **SemiBold** (600–700)
   em títulos · **Medium** (400–500) em subtítulos/corpo. Mapeada por faixa p/ nunca
   faux-bold. **`letter-spacing` base −0.02em** (números `tabular-nums` seguem em `0`).
-- **Cores:** fundo da página **#F3F1EE** · boxes **#FFFFFF** · títulos/ink
-  **#11190C** (verde-quase-preto) · subtítulos/corpo/labels **#787664** (taupe) ·
-  acento **lime #DFFF00** + **amarelo #FFE500** (só acentos). `border`/`border-soft`
-  = **transparent**.
+- **Canvas aurora** (`.a4p-canvas`, raiz do AppShell): base **#F3F1EE** com
+  **washes radiais de lime a baixíssima opacidade** (≤14% — o lime segue sendo
+  tempero: são véus, nunca preenchimentos). No dark, near-black + véus ainda mais
+  sutis. O `<main>` `.ds-visor` é **transparente** (o canvas aparece por trás).
+- **Boxes de VIDRO** (`[data-card="1"]`): `var(--glass-bg)` translúcido
+  (branco 62% no claro · fumê 58% no escuro) + **`backdrop-filter: blur(22px)
+  saturate(150%)`** + **fio luminoso 1px** (`--glass-edge`) + **sombra ambiente
+  suave** (`--shadow-card`, var-backed — flip claro/escuro). Overlays
+  (popover/menu/palette via `.shadow-popover`, Sidebar `.a4p-sidebar`, drawers
+  `.a4p-glass`) usam o **vidro forte** `--glass-bg-strong` (~82%).
+  `prefers-reduced-transparency` → superfícies voltam a sólido.
+- **Cores:** títulos/ink **#11190C** (verde-quase-preto) · subtítulos/corpo/labels
+  **#787664** (taupe) · acento **lime #DFFF00** (só acentos). `border` volta a
+  existir como **divisor discreto** (`rgba(17,25,12,0.07)`).
 - **Formas:** **bordas bem arredondadas** (`--a4p-box-radius` **24px**) · padding
-  28px · **FLAT TOTAL: sem borda e sem sombra de nenhuma maneira** — regra global
-  `.ds-visor * { box-shadow: none !important }` mata até shadow inline.
-- **Botões: "nada parece botão"** — `Button` sem chrome (pill, sem borda/sombra;
-  primary=ink flat · secondary=surface-2 · ghost=só texto · accent=lime). Pills de
-  período/segmented = texto (ativo = pill ink discreto). O FAB de IA é preto
-  #11190C + sparkle lime (sem gradiente colorido).
-- **Ícones 3D da marca** (`Icon3D`, `src/components/ui/Icon3D.tsx`): estilo **Duo**
-  (tile lime + glifo preto + acento amarelo) com **extrusão** (volume por
-  preenchimento, nunca sombra). 8 glifos; `WidgetHeader` aceita `icon3d`. Showcase
-  em `/icones-3d`. Preferir aos ícones flat Phosphor nos cabeçalhos de card.
+  28px.
+- **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
+  (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
+  texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
+  FABs (Upload · Guia · All 4 Pay AI) são pills BRANCOS flat; o glifo de IA é um
+  tile ink com sparkle lime (sem gradiente colorido).
+- **Ícones: flat Phosphor (Fill) SEMPRE** (`Icon`). Nos cabeçalhos de card, o
+  glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
+  `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
+  3D (`Icon3D`) foram **removidos** do sistema — não reintroduzir.
 
 Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
 identidade viva é a de cima.
@@ -124,7 +134,11 @@ identidade viva é a de cima.
   line-height base 22px; heróis grandes usam leading-none. Sem caixa-alta.
 - **Radii:** `rounded-card` **14** · `rounded-md` 10 · `rounded-sm` 8 ·
   `rounded-pill` 999.
-- **Shadows:** removidas de todo o sistema (tokens `none`). DS Visor é **flat**.
+- **Shadows (aurora glass):** var-backed — `shadow-card` (fio luminoso inset +
+  ambiente suave) · `shadow-popover` (overlay) · `shadow-pill`; claro/escuro em
+  `globals.css` (`:root` + `html.dark`). Nunca um `box-shadow` literal novo.
+- **Glass:** `bg-glass` / `bg-glass-strong` (`--glass-bg`/`--glass-bg-strong`) +
+  `--glass-edge`/`--glass-blur` — as únicas superfícies translúcidas sancionadas.
 - **Background/box:** fundo da página **`surface-1` = #f6f7f9** (canvas Visor);
   **boxes brancos** (`Card` = branco · 14px · **sem borda/sombra** por padrão ·
   padding **24px**).
@@ -408,6 +422,20 @@ de caixa — demo e live idênticos.
   + perfil explicável do cliente + segmentação). Versão de modelo
   `risco-credito/1.0.0`. ML (XGBoost/etc.) é evolução futura — primeiro dados +
   features boas. **Nunca** retornar só o score: sempre os fatores.
+
+### Investor Update (`/investidores`)
+
+`montarInvestorUpdate()` + `gerarTextoInvestorUpdate()` (`src/core/investor/`,
+versão `investor/1.0.0`) — o relatório mensal para investidores (benchmark
+Mercury/Runway): KPIs do mês (caixa, burn, runway, receita, MoM, **MRR
+estimado** = share recorrente × receita mensal, margem, score) derivados da
+camada quantitativa sobre o MESMO `RiskInput` — nada digitado à mão — +
+destaques/atenção automáticos (fatores do score) + o **texto pronto para o
+e-mail** (TL;DR / Métricas / Destaques / Pontos de atenção / asks). Campos do
+fundador (empresa, destaques, pedidos) entram nas seções. Hook
+`useInvestorUpdate()`; UI em `components/investidores/InvestorUpdateView.tsx`
+(KPIs + "Sua parte" + preview ao vivo com Copiar). Menu no grupo Inteligência;
+palette + guia cobertos. Puro, demo-safe. Datas fatiadas da string (regra tz).
 
 ### Camada Quantitativa (`/inteligencia`)
 
@@ -902,7 +930,7 @@ Confirmation Workbench → Confidence Engine → Digital Twin):
   `runtime nodejs`): a visão do **Claude** (Anthropic API, `fetch` cru — sem SDK)
   lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
   Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
-  `claude-sonnet-4-6`); `GET` reporta `configured`. A InboxView reduz a imagem
+  `claude-sonnet-5`); `GET` reporta `configured`. A InboxView reduz a imagem
   (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno.
   **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
   `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,

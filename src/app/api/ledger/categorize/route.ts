@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 interface Conta { code: string; name: string; type: string }
 interface Tx { id: string; descricao: string; valor: number; tipo: "entrada" | "saida" }

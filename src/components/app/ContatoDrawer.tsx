@@ -69,7 +69,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     <>
       <div onClick={onClose} className={`fixed inset-0 z-[78] bg-black/30 transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} aria-hidden />
       <aside role="dialog" aria-label="Ficha do contato"
-        className={`fixed top-0 right-0 z-[80] h-full w-full sm:w-[440px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[440px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}>
         <header className="flex items-center gap-3 px-5 h-[64px] border-b border-border-soft shrink-0">
           <span className="w-9 h-9 rounded-pill bg-surface-2 inline-flex items-center justify-center shrink-0">

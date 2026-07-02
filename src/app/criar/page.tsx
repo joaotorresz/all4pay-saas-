@@ -1,3 +1,7 @@
-"use client";
-import { CriarHubView } from "@/components/cadastros/CriarHubView";
-export default function CriarPage() { return <CriarHubView />; }
+import { redirect } from "next/navigation";
+
+// O hub "Criar Novo" duplicava a navegação (Sidebar + dropdown "Novo
+// lançamento" já cobrem todos os fluxos de criação) — aposentado.
+export default function CriarPage() {
+  redirect("/");
+}

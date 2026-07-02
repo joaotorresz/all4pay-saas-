@@ -47,9 +47,22 @@
   --radius-md: 10px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-  --shadow-card: none;
-  --shadow-popover: none;
-  --shadow-pill: none;
+
+  /* Glass (identidade "aurora glass") — superfícies translúcidas + blur.
+     bg = vidro dos cards · strong = vidro dos overlays (popover/sidebar/modal)
+     edge = fio luminoso de 1px na borda superior do vidro. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-edge: rgba(255, 255, 255, 0.65);
+  --glass-blur: 22px;
+  --shadow-card:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 1px 2px rgba(14, 19, 30, 0.04),
+    0 16px 40px -18px rgba(14, 19, 30, 0.12);
+  --shadow-popover:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 24px 64px -16px rgba(14, 19, 30, 0.22);
+  --shadow-pill: 0 8px 24px -10px rgba(14, 19, 30, 0.2);
 }
 
 /* ============================================================
@@ -83,10 +96,17 @@ html.dark {
   --color-positive: #57a877;
   --color-negative: #d8584c;
 
-  /* Sombras mais densas (elevação no escuro) */
-  --shadow-card: none;
-  --shadow-popover: none;
-  --shadow-pill: none;
+  /* Glass no escuro — vidro fumê + fio sutil; sombras mais densas */
+  --glass-bg: rgba(24, 24, 26, 0.58);
+  --glass-bg-strong: rgba(20, 20, 22, 0.82);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --shadow-card:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 16px 40px -18px rgba(0, 0, 0, 0.55);
+  --shadow-popover:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 24px 64px -16px rgba(0, 0, 0, 0.65);
+  --shadow-pill: 0 8px 24px -10px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -240,7 +260,9 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
 }
 .ds-visor [data-card="1"]:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(14, 19, 30, 0.08);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 24px 56px -20px rgba(14, 19, 30, 0.18);
 }
 
 /* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
@@ -330,37 +352,38 @@ h1, h2, h3,
    por cima, NUNCA branco). Unlayered de propósito (vence o Tailwind).
    ============================================================ */
 .ds-visor {
-  /* ====== PAINEL — IDENTIDADE CORPORATIVA all4pay (site institucional) ======
-     Regras: fundo bege claro · boxes brancos · Roobert TRIAL · bordas bem
-     arredondadas · design flat (SEM borda e SEM sombra, de nenhuma maneira).
+  /* ====== PAINEL — IDENTIDADE "AURORA GLASS" all4pay =========================
+     Futurista & clean: canvas com washes de aurora (lime a baixíssima opacidade)
+     e boxes de VIDRO (translúcidos + backdrop-blur + fio luminoso 1px + sombra
+     ambiente suave). Roobert TRIAL · bordas bem arredondadas.
      Edite só os valores abaixo. --------------------------------------------- */
-  --a4p-bg: #f3f1ee;          /* fundo da página */
-  --a4p-box-bg: #ffffff;      /* fundo dos boxes */
-  --a4p-box-radius: 24px;     /* bordas bem arredondadas (como os prints) */
+  --a4p-bg: #f3f1ee;          /* base do canvas (sob a aurora) */
+  --a4p-box-bg: var(--glass-bg); /* vidro dos boxes */
+  --a4p-box-radius: 24px;     /* bordas bem arredondadas */
   --a4p-box-padding: 28px;    /* respiro interno */
-  --a4p-box-border: transparent; /* SEM borda */
-  --a4p-box-shadow: none;     /* SEM sombra */
+  --a4p-box-border: rgba(17, 25, 12, 0.07); /* divisores discretos */
   /* ========================================================================= */
 
   font-family: var(--font-roobert), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   letter-spacing: -0.02em;    /* tracking da marca */
   --radius-card: var(--a4p-box-radius);
+  /* o canvas aurora vive no .a4p-canvas (AppShell) — o main é transparente */
+  background: transparent;
 }
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
 html:not(.dark) .ds-visor {
-  background-color: var(--a4p-bg);
   /* neutros / superfícies (medidos do Visor) */
   --color-surface-1: var(--a4p-bg);
   --color-surface-2: #eef0f3;
-  --color-surface-3: #eef0f3;
-  --color-white: var(--a4p-box-bg);
+  --color-surface-3: #e7e9ec;
+  --color-white: #ffffff;
   --color-ink: #11190c;            /* títulos — verde-quase-preto da marca */
   --color-ink-soft: #11190c;
   --color-text-secondary: #787664; /* subtítulos/corpo/labels — taupe da marca */
   --color-text-tertiary: #9c9a88;  /* faint → legendas */
   --color-text-quaternary: #bdbbac;/* placeholder / vazio */
   --color-border: var(--a4p-box-border);
-  --color-border-soft: transparent;
+  --color-border-soft: rgba(17, 25, 12, 0.05);
   /* acento lime #DFFF00 — texto/ícone SEMPRE escuro por cima */
   --color-lime: #dfff00;
   --color-lime-tint: #f8fcd9;
@@ -383,18 +406,13 @@ html:not(.dark) .ds-visor {
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* cards: SEM sombra e SEM contorno (flat, separação só por contraste) */
+/* cards de VIDRO: translúcidos, blur, fio luminoso e sombra ambiente suave */
 .ds-visor [data-card="1"] {
-  box-shadow: none;
-  border: 0;
-}
-/* REGRA DA MARCA: NENHUMA sombra em lugar nenhum (flat total). O !important
-   vence até os box-shadow inline (que não têm !important) — mata elevações de
-   popovers/dropdowns/FABs/toggles de uma vez, sem caçar arquivo por arquivo. */
-.ds-visor *,
-.ds-visor *::before,
-.ds-visor *::after {
-  box-shadow: none !important;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--shadow-card);
 }
 /* padding 45px (default do Card) → 24px do painel */
 .ds-visor [data-card="1"].p-\[45px\] {
@@ -419,8 +437,53 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
-   Sidebar lateral — segue o tema (branca no claro, escura no dark).
-   Não inverte os tokens: usa a paleta normal do DS (fundo branco,
-   texto/itens ink, ícones monocromáticos). O lime fica só nos
-   acentos pontuais (marca, "Nova transação", etc.).
+   AURORA GLASS — o canvas do app e as superfícies de vidro.
+   .a4p-canvas (raiz do AppShell): washes de aurora em lime a
+   baixíssima opacidade sobre o fundo do tema (o lime segue sendo
+   tempero — são véus, nunca preenchimentos). As superfícies
+   flutuantes (popovers/menus/palette via .shadow-popover, a
+   Sidebar via .a4p-sidebar e qualquer painel com .a4p-glass)
+   viram vidro forte: translúcidas + blur + fio luminoso.
+   Unlayered de propósito (vence as utilities bg-white).
+   ============================================================ */
+.a4p-canvas {
+  background:
+    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.14), transparent 62%),
+    radial-gradient(900px 560px at -8% 28%, rgba(40, 170, 0, 0.05), transparent 58%),
+    radial-gradient(760px 480px at 72% 110%, rgba(223, 255, 0, 0.08), transparent 60%),
+    var(--color-surface-1);
+}
+html.dark .a4p-canvas {
+  background:
+    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.07), transparent 62%),
+    radial-gradient(900px 560px at -8% 28%, rgba(223, 255, 0, 0.03), transparent 58%),
+    var(--color-surface-1);
+}
+.a4p-glass,
+.shadow-popover {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+.a4p-sidebar {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border-right-color: var(--glass-edge);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ds-visor [data-card="1"],
+  .a4p-glass,
+  .shadow-popover,
+  .a4p-sidebar {
+    background: var(--color-white);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ============================================================
+   Sidebar lateral — segue o tema (vidro claro no claro, fumê no
+   escuro). Texto/itens ink, ícones monocromáticos. O lime fica só
+   nos acentos pontuais (marca, "Nova transação", etc.).
    ============================================================ */

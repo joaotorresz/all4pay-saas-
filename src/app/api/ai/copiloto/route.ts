@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 
 export function GET() {
   return NextResponse.json({ configured: !!process.env.ANTHROPIC_API_KEY, model: MODEL });
@@ -21,11 +21,20 @@ export async function POST(req: Request) {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return NextResponse.json({ ok: false, reason: "sem ANTHROPIC_API_KEY" });
 
-  const body = (await req.json().catch(() => ({}))) as { pergunta?: string; contexto?: unknown; anomalias?: unknown; insights?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    pergunta?: string; contexto?: unknown; anomalias?: unknown; insights?: unknown;
+    historico?: { q?: string; a?: string }[];
+  };
   const pergunta = (body.pergunta || "").slice(0, 2000);
   if (!pergunta) return NextResponse.json({ ok: false, reason: "pergunta vazia" });
+  // Memória de conversa: os últimos turnos entram como mensagens reais — assim
+  // follow-ups ("e no mês passado?", "detalha esse cliente") mantêm o fio.
+  const historico = (Array.isArray(body.historico) ? body.historico : [])
+    .filter((h) => h && typeof h.q === "string" && typeof h.a === "string")
+    .slice(-6)
+    .map((h) => ({ q: String(h.q).slice(0, 1000), a: String(h.a).slice(0, 2000) }));
 
-  const prompt = `Você é a All4Pay IA — o controller/CFO digital desta empresa específica. Fale como um analista sênior que conhece ESTES números de cor: direto, afiado, com opinião. Nada de consultor genérico.
+  const system = `Você é a All4Pay IA — o controller/CFO digital desta empresa específica. Fale como um analista sênior que conhece ESTES números de cor: direto, afiado, com opinião. Nada de consultor genérico.
 
 REGRAS (obrigatórias):
 - TODA frase precisa carregar um número do CONTEXTO (R$, %, dias, meses) OU uma instrução concreta. Sem isso, corte a frase.
@@ -45,9 +54,7 @@ ${JSON.stringify(body.anomalias ?? []).slice(0, 2500)}
 INSIGHTS (JSON, pode estar vazio):
 ${JSON.stringify(body.insights ?? []).slice(0, 2500)}
 
-PERGUNTA: ${pergunta}
-
-Responda APENAS JSON, sem markdown:
+As mensagens anteriores da conversa (se houver) aparecem como texto simples; use-as para resolver referências ("esse cliente", "e no mês passado?"). A SUA resposta final deve ser SEMPRE apenas JSON, sem markdown:
 {
   "resposta": string,                       // 2-5 frases densas, cada uma com número ou instrução
   "fontes": string[],                       // motores/números do contexto usados
@@ -55,11 +62,19 @@ Responda APENAS JSON, sem markdown:
   "acao": string | null                     // 1 ação concreta sugerida, ou null
 }`;
 
+  const messages = [
+    ...historico.flatMap((h) => [
+      { role: "user" as const, content: h.q },
+      { role: "assistant" as const, content: h.a },
+    ]),
+    { role: "user" as const, content: pergunta },
+  ];
+
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: MODEL, max_tokens: 1000, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 1000, system, messages }),
     });
     if (!res.ok) {
       const t = await res.text().catch(() => "");

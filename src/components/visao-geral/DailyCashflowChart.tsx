@@ -14,13 +14,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
-import { Icon3D } from "@/components/ui/Icon3D";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
-import { EmptyState, VisuallyHidden } from "./shared";
+import { EmptyState, VisuallyHidden, IconTile } from "./shared";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -101,7 +100,7 @@ export function DailyCashflowChart() {
       comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
     }}>
       <div className="mb-3 flex items-center gap-3">
-        <Icon3D name="bank" size={40} />
+        <IconTile name="building" size={40} />
         <div>
           {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
               vivem no topo da página (não duplicar aqui). */}

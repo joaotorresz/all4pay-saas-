@@ -52,7 +52,7 @@ export function SalesChart() {
       oQue: "Sua receita mês a mês nos últimos 12 meses.",
       comoCalcula: "Soma das entradas reconhecidas por mês (regime de competência). Os meses dentro do período selecionado ficam destacados.",
     }}>
-      <WidgetHeader icon3d="chart" title="Vendas / Faturamento" subtitle={subtitle} />
+      <WidgetHeader icon="trending-up" title="Vendas / Faturamento" subtitle={subtitle} />
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
       {isError && <EmptyState title="Não foi possível carregar as vendas" />}
