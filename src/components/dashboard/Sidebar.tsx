@@ -37,7 +37,6 @@ const SECTIONS: Section[] = [
   },
   {
     id: "cadastros", label: "Cadastros", items: [
-      { label: "Criar novo (hub)", href: "/criar", icon: "plus" },
       { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
       { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
       { label: "Serviços", href: "/servicos", icon: "receipt" },
@@ -65,7 +64,7 @@ const SECTIONS: Section[] = [
       { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Conciliação (IULI × OFX)", href: "/conciliacao-bancaria", icon: "list-checks" },
-      { label: "Importar extrato", href: "/upload?aba=conciliar", icon: "upload" },
+      { label: "Upload de dados", href: "/upload", icon: "upload" },
       { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
     ],
   },
@@ -84,7 +83,6 @@ const SECTIONS: Section[] = [
   {
     id: "compras", label: "Compras", items: [
       { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
-      { label: "Documentos recebidos (NF/boleto)", href: "/upload?aba=enviar", icon: "receipt" },
     ],
   },
   {
@@ -138,9 +136,7 @@ const SECTIONS_PESSOAL: Section[] = [
   },
   {
     id: "contas", label: "Contas & carteiras", items: [
-      { label: "Conectar banco (Open finance)", href: "/upload?aba=conectar", icon: "upload" },
-      { label: "Importar extrato", href: "/upload?aba=enviar", icon: "upload" },
-      { label: "Conciliar", href: "/upload?aba=conciliar", icon: "list-checks" },
+      { label: "Conectar & importar (Open finance)", href: "/upload", icon: "upload" },
     ],
   },
   {
