@@ -100,6 +100,7 @@ const SECTIONS: Section[] = [
     // ABAS internas de /copiloto — o menu tem uma única entrada.
     id: "estrategia", label: "Inteligência", pro: true, items: [
       { label: "All4Pay IA", href: "/copiloto", icon: "gauge" },
+      { label: "Investor update", href: "/investidores", icon: "mail" },
     ],
   },
   {

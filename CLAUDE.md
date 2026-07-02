@@ -422,6 +422,20 @@ de caixa — demo e live idênticos.
   `risco-credito/1.0.0`. ML (XGBoost/etc.) é evolução futura — primeiro dados +
   features boas. **Nunca** retornar só o score: sempre os fatores.
 
+### Investor Update (`/investidores`)
+
+`montarInvestorUpdate()` + `gerarTextoInvestorUpdate()` (`src/core/investor/`,
+versão `investor/1.0.0`) — o relatório mensal para investidores (benchmark
+Mercury/Runway): KPIs do mês (caixa, burn, runway, receita, MoM, **MRR
+estimado** = share recorrente × receita mensal, margem, score) derivados da
+camada quantitativa sobre o MESMO `RiskInput` — nada digitado à mão — +
+destaques/atenção automáticos (fatores do score) + o **texto pronto para o
+e-mail** (TL;DR / Métricas / Destaques / Pontos de atenção / asks). Campos do
+fundador (empresa, destaques, pedidos) entram nas seções. Hook
+`useInvestorUpdate()`; UI em `components/investidores/InvestorUpdateView.tsx`
+(KPIs + "Sua parte" + preview ao vivo com Copiar). Menu no grupo Inteligência;
+palette + guia cobertos. Puro, demo-safe. Datas fatiadas da string (regra tz).
+
 ### Camada Quantitativa (`/inteligencia`)
 
 `analisarQuantitativo()` (`src/core/quant/`) — o "Bloomberg para PMEs": transforma

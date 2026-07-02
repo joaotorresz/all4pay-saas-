@@ -636,6 +636,21 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  /* ----------------------------- Investor update ----------------------------- */
+  "/investidores": {
+    titulo: "Investor update",
+    intro: "O relatório mensal para investidores, gerado dos seus números reais: caixa, burn, runway, receita, crescimento, MRR, margem e score — mais destaques e riscos automáticos, num texto pronto para colar no e-mail.",
+    comoUsar: "Confira as métricas do mês (saem dos motores, nada digitado à mão), escreva os destaques do fundador e os pedidos aos investidores, e clique em 'Copiar texto'.",
+    exemplo: "Todo dia 1º: abra a página, escreva 2 linhas de destaques, copie o texto e envie ao seu grupo de investidores — 5 minutos, números consistentes.",
+    secoes: [
+      blocos([
+        { nome: "Métricas do update", desc: "Os KPIs que investidor espera, derivados dos lançamentos.", match: "Métricas" },
+        { nome: "Sua parte", desc: "Destaques do mês e asks — o que só o fundador sabe.", match: "Sua parte" },
+        { nome: "Texto pronto", desc: "O e-mail montado ao vivo; 'Copiar texto' leva tudo.", match: "Texto pronto" },
+      ]),
+    ],
+  },
+
   /* ----------------------------- Administração (super-admin) ----------------------------- */
   "/admin": {
     titulo: "Administração da plataforma",

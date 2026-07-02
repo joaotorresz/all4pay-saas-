@@ -25,6 +25,7 @@ import { isDemo } from "@/lib/demo";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
+import { montarInvestorUpdate } from "@/core/investor";
 import { centroInteligencia } from "@/core/executive";
 import { decidir } from "@/core/decision";
 import { analisarMoat } from "@/core/datamoat";
@@ -77,6 +78,15 @@ export function useQuantitativo() {
   return {
     ...q,
     data: q.data ? analisarQuantitativo(q.data) : undefined,
+  };
+}
+
+/** Investor update: mesmo input, roda montarInvestorUpdate. */
+export function useInvestorUpdate() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+  return {
+    ...q,
+    data: q.data ? montarInvestorUpdate(q.data) : undefined,
   };
 }
 
