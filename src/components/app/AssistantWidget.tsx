@@ -198,7 +198,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
 
       <aside
         role="dialog" aria-label="all4pay IA"
-        className={`fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
+        className={`a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}
       >
         {/* header */}

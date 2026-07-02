@@ -46,7 +46,7 @@ export function AppShell({
     </header>
   );
   return (
-    <div className="fixed inset-0 flex bg-surface-1 overflow-hidden">
+    <div className="a4p-canvas fixed inset-0 flex bg-surface-1 overflow-hidden">
       <Sidebar />
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         {stickyHeader && header}

@@ -61,6 +61,12 @@ const config: Config = {
         warning: "var(--color-warning)", // amber alert
         positive: "var(--color-positive)", // muted green (approved / gains / vence hoje)
         negative: "var(--color-negative)", // muted brick red (overdue / vencido)
+
+        // ---- Aurora glass (superfícies translúcidas; blur via CSS) ----
+        glass: {
+          DEFAULT: "var(--glass-bg)", // vidro dos cards
+          strong: "var(--glass-bg-strong)", // vidro dos overlays (popover/sidebar)
+        },
       },
       fontFamily: {
         // DS Visor — DM Sans é a face do sistema (carregada no layout via <link>).
@@ -120,10 +126,11 @@ const config: Config = {
         pill: "999px", // action pills, avatars
       },
       boxShadow: {
-        // Sombras removidas dos boxes do sistema (flat). hero-glow é marketing.
-        card: "none",
-        popover: "none",
-        pill: "none",
+        // Aurora glass — sombras var-backed (globals.css define claro/escuro):
+        // fio luminoso 1px (inset) + ambiente suave. hero-glow é marketing.
+        card: "var(--shadow-card)",
+        popover: "var(--shadow-popover)",
+        pill: "var(--shadow-pill)",
         "hero-glow": "0 -40px 120px -20px rgba(220,255,0,0.18)", // marketing only
       },
       transitionDuration: {
