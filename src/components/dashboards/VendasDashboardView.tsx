@@ -46,6 +46,7 @@ const RE = {
 };
 
 const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.due_date || mv.paid_date || "";
+import { chartAnim } from "@/lib/chart-anim";
 
 export function VendasDashboardView() {
   const { data, isLoading } = useRiscoInput();
@@ -184,7 +185,7 @@ export function VendasDashboardView() {
                       <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -197,7 +198,7 @@ export function VendasDashboardView() {
                       <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 5 }} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -223,9 +224,9 @@ export function VendasDashboardView() {
                   <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                   <Tooltip content={<RmeTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" />
-                  <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={POSITIVE} strokeWidth={2.2} fill="url(#recGlow)" isAnimationActive={false} />
-                  <Line type="monotone" dataKey="mc" name="Margem de contribuição" stroke={ORANGE} strokeWidth={2} dot={false} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={INK} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={POSITIVE} strokeWidth={2.2} fill="url(#recGlow)" activeDot={{ r: 5 }} {...chartAnim()} />
+                  <Line type="monotone" dataKey="mc" name="Margem de contribuição" stroke={ORANGE} strokeWidth={2} dot={false} activeDot={{ r: 5 }} {...chartAnim(120)} />
+                  <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={INK} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{ r: 5 }} {...chartAnim(240)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </Card>

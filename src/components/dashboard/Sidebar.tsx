@@ -51,6 +51,7 @@ const SECTIONS: Section[] = [
     id: "dre-dfc", label: "DRE & DFC", items: [
       { label: "DRE", href: "/dre", icon: "trending-up" },
       { label: "DFC · Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "Reconhecimento de receita", href: "/receita", icon: "repeat" },
       { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
     ],
   },
@@ -63,7 +64,7 @@ const SECTIONS: Section[] = [
     id: "movimentacoes", label: "Movimentações", items: [
       { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Conciliação (IULI × OFX)", href: "/conciliacao-bancaria", icon: "list-checks" },
+      { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks" },
       { label: "Upload de dados", href: "/upload", icon: "upload" },
       { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
     ],

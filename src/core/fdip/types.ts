@@ -60,11 +60,19 @@ export interface Recorrencia {
   valorMedio: number;
   ocorrencias: number;
   assinatura: boolean;
+  /** entrada (receita recorrente) ou saída (custo recorrente) */
+  tipo: "entrada" | "saida";
+  /** quanto isso representa POR MÊS (total ÷ meses observados) */
+  mediaMensal: number;
 }
 
 export interface Padroes {
   recorrencias: Recorrencia[];
   assinaturas: Recorrencia[];
+  /** os CUSTOS recorrentes (saídas mensais/semanais), maiores primeiro */
+  custosMensais: Recorrencia[];
+  /** soma da média mensal dos custos recorrentes — o "boleto fixo" do mês */
+  custoRecorrenteMensal: number;
   clientesRecorrentes: number;
   fornecedoresRecorrentes: number;
   sazonalidade: { label: string; indice: number }[];

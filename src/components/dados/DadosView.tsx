@@ -20,6 +20,7 @@ import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useMoat } from "@/components/visao-geral/hooks";
 import type { BenchmarkLinha, ModelStats } from "@/core/datamoat/types";
+import { chartAnim } from "@/lib/chart-anim";
 
 const fmtMetric = (v: number, f: BenchmarkLinha["formato"]) =>
   f === "pct" ? `${Math.round(v * 100)}%` : f === "meses" ? `${v.toFixed(1)}m` : f === "moeda" ? formatBRL(v) : v.toFixed(2);
@@ -191,7 +192,7 @@ function ModeloCard({ modelo }: { modelo: ModelStats }) {
                 ) : null
               }
             />
-            <Area type="monotone" dataKey="acuracia" stroke="none" fill="url(#dadosGlow)" isAnimationActive={false} />
+            <Area type="monotone" dataKey="acuracia" stroke="none" fill="url(#dadosGlow)" {...chartAnim()} />
             <Line type="monotone" dataKey="acuracia" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={{ r: 3, fill: "var(--color-chart-line)" }} />
           </LineChart>
         </ResponsiveContainer>

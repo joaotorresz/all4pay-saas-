@@ -4,7 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, BRL, Select, CurrencyInput, DateField } from "@/components/ui";
 import { listParties } from "@/lib/cadastros";
-import { getOpenMovements } from "@/lib/data";
+import { getOpenMovements, getRiscoInput } from "@/lib/data";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { lerDocumento, ocrConfigurado, type LeituraDocumento } from "@/lib/ocr-ingest";
 import { analisarDocumento, confirmarDocumento, ACAO_MAP, type AnaliseDocumento, type AcaoFinal } from "@/lib/upload-doc";
@@ -67,12 +67,13 @@ export function UploadWizard() {
       const res = await lerDocumento(file, ocrOn);
       setLeitura(res);
       if (res.kind === "doc") {
-        const [parties, aPagar, aReceber] = await Promise.all([
+        const [parties, aPagar, aReceber, risco] = await Promise.all([
           listParties().catch(() => [] as Party[]),
           getOpenMovements("saida").catch(() => [] as Movement[]),
           getOpenMovements("entrada").catch(() => [] as Movement[]),
+          getRiscoInput().catch(() => null),
         ]);
-        const an = analisarDocumento(res.fields, parties, [...aPagar, ...aReceber]);
+        const an = analisarDocumento(res.fields, parties, [...aPagar, ...aReceber], risco?.movements ?? []);
         setAnalise(an);
         setCategoria(an.fields.categoria ?? "");
         setValor(an.fields.valor ?? 0);

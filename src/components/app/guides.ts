@@ -621,21 +621,6 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- Conciliação IULI × OFX ----------------------------- */
-  "/conciliacao-bancaria": {
-    titulo: "Conciliação bancária (sistema × extrato)",
-    intro: "O confronto entre o que o sistema registrou e o que o banco liquidou: matching probabilístico (valor, data, documento, contraparte) com filas de auto-conciliação, sugestão e exceção.",
-    comoUsar: "Importe o extrato (OFX/CSV) em Upload de dados; aqui, confirme as sugestões e resolva as exceções — cada match dá baixa no título.",
-    exemplo: "PIX de R$ 1.250 no extrato bate com o recebível da ACME (confiança 94%) → confirmar concilia e baixa o título.",
-    secoes: [
-      blocos([
-        { nome: "Auto-conciliadas", desc: "Matches com confiança ≥90% — só auditar." },
-        { nome: "Sugestões", desc: "Prováveis (70–90%) — confirme ou rejeite." },
-        { nome: "Exceções", desc: "Sem par — lance ou ignore." },
-      ]),
-    ],
-  },
-
   /* ----------------------------- Investor update ----------------------------- */
   "/investidores": {
     titulo: "Investor update",

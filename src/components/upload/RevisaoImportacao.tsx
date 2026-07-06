@@ -39,7 +39,11 @@ export function RevisaoImportacao({
 
   const entradas = report.records.filter((r) => r.tipo === "entrada").reduce((s, r) => s + r.valor, 0);
   const saidas = report.records.filter((r) => r.tipo === "saida").reduce((s, r) => s + r.valor, 0);
-  const recorrentes = [...report.padroes.recorrencias, ...report.padroes.assinaturas];
+  // custosMensais = saídas com cadência (mensal/semanal), maiores primeiro; as
+  // assinaturas já estão dentro de recorrencias (não somar 2x).
+  const custos = report.padroes.custosMensais;
+  const receitasRec = report.padroes.recorrencias.filter((r) => r.tipo === "entrada" && r.periodicidade !== "irregular");
+  const recorrentes = report.padroes.recorrencias;
   const novosForn = report.entidades.filter((e) => e.tipo === "fornecedor").length;
   const novosCli = report.entidades.filter((e) => e.tipo === "cliente").length;
 
@@ -73,14 +77,21 @@ export function RevisaoImportacao({
         <Resumo label="Recorrentes" valor={recorrentes.length} contagem />
       </div>
 
-      {/* INTELIGÊNCIA: pagamentos recorrentes / mensais detectados */}
-      {recorrentes.length > 0 && (
-        <Card className="flex flex-col gap-2">
+      {/* INTELIGÊNCIA: custos recorrentes / mensais detectados */}
+      {custos.length > 0 && (
+        <Card className="flex flex-col gap-2" info={{
+          titulo: "Custos recorrentes",
+          oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com fornecedores, folha e assinaturas que se repetem — identificado automaticamente da leitura.",
+          comoCalcula: "Agrupa as saídas por contraparte, detecta a cadência (mensal/semanal) e divide o total pelo número de meses observados; a soma é o custo recorrente mensal.",
+        }}>
           <span className="text-label font-medium text-muted inline-flex items-center gap-2">
-            <Icon name="sparkles" size={15} color="var(--color-lime)" /> Pagamentos recorrentes detectados
+            <Icon name="sparkles" size={15} color="var(--color-lime)" /> Custos recorrentes detectados
           </span>
-          <span className="text-caption text-faint">Correlações encontradas na leitura — cobranças que se repetem (mensais/assinaturas).</span>
-          {recorrentes.map((r, i) => (
+          <div className="flex items-baseline gap-2">
+            <span className="text-[26px] leading-none font-semibold text-ink tabular-nums"><BRL value={report.padroes.custoRecorrenteMensal} /></span>
+            <span className="text-caption text-faint">/mês em custos fixos — o compromisso mensal da empresa</span>
+          </div>
+          {custos.map((r, i) => (
             <div key={i} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
               <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-surface-2 shrink-0">
                 <Icon name="repeat" size={16} color="var(--color-text-secondary)" />
@@ -90,9 +101,20 @@ export function RevisaoImportacao({
                 <div className="text-caption text-faint truncate">{r.categoria} · {r.ocorrencias}× no período</div>
               </div>
               <StatusBadge tone="neutral">{r.assinatura ? "assinatura" : r.periodicidade}</StatusBadge>
-              <span className="tabular-nums text-ink shrink-0 w-[110px] text-right"><BRL value={r.valorMedio} />/mês</span>
+              <span className="tabular-nums text-ink shrink-0 w-[110px] text-right"><BRL value={r.mediaMensal} />/mês</span>
             </div>
           ))}
+          {receitasRec.length > 0 && (
+            <div className="pt-2 border-t border-border-soft flex flex-col gap-1">
+              <span className="text-caption font-medium text-faint tracking-wide">Receitas recorrentes</span>
+              {receitasRec.slice(0, 4).map((r, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 text-caption">
+                  <span className="text-ink truncate">{r.contraparte}</span>
+                  <span className="text-muted tabular-nums shrink-0">{r.periodicidade} · <BRL value={r.mediaMensal} />/mês</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 

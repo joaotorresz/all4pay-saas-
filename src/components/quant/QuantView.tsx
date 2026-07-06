@@ -25,6 +25,7 @@ import {
   type IndicadoresFinanceiros,
   type BenchmarkLinha,
 } from "@/core/quant/types";
+import { chartAnim } from "@/lib/chart-anim";
 
 const COR: Record<ClassificacaoSaude, string> = {
   excelente: "var(--color-positive)",
@@ -202,7 +203,7 @@ export function QuantView() {
                   ) : null
                 }
               />
-              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" isAnimationActive={false} />
+              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" {...chartAnim()} />
               <Line type="monotone" dataKey="score" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
             </LineChart>
           </ResponsiveContainer>
