@@ -1078,6 +1078,22 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
     },
   },
+  /* ---- Inteligência (investor snapshot · quant) ---- */
+  {
+    id: "investor-snapshot", label: "Investor snapshot (MRR·runway)", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const ind = c.quant.indicadores;
+      const mrr = ind.receitaRecorrente * ind.receitaMensal;
+      const mom = ind.crescimentoMensal;
+      return (
+        <MetricCard icon="mail" label="Investor snapshot"
+          value={<BRL value={mrr} />}
+          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O update mensal pronto está em Inteligência → Investor update.`}
+          info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Investor update." }} />
+      );
+    },
+  },
   /* ---- Inteligência (oportunidades do briefing · exec) ---- */
   {
     id: "oportunidades-briefing", label: "Oportunidades do dia", categoria: "Inteligência",
