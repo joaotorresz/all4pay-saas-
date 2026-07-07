@@ -110,6 +110,12 @@ que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
   glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
   `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
   3D (`Icon3D`) foram **removidos** do sistema — não reintroduzir.
+- **Gráficos vivos:** toda série Recharts anima na ENTRADA da página via
+  **`chartAnim(begin?)`** (`src/lib/chart-anim.ts`: 700ms ease-out, escalona
+  séries do mesmo gráfico com `begin` 0/120/240, respeita
+  `prefers-reduced-motion`) e responde ao hover (`activeDot` em linhas/áreas,
+  `activeBar` em barras). Nunca `isAnimationActive={false}` (exceto âncoras
+  invisíveis de label).
 
 Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
 identidade viva é a de cima.
@@ -888,13 +894,24 @@ Boleto/NFS-e por ciclo e scheduler de faturamento são roadmap.
 > (`liquidarImported`/`appendImported` → `getRiscoInput` → `summarizeAccounts`) é
 > o MESMO caminho validado no browser antes (saldo reagiu pelo valor exato).
 
-### Upload de dados (`/upload`) — Caixa de Entrada + Onboarding unificados
+### Upload de dados (`/upload`) — Entrada de dados unificada
 
-A página **`/upload` "Upload de dados"** (`src/components/upload/UploadView.tsx`)
-**junta** a Caixa de Entrada (documentos/OCR) e o Onboarding inteligente (extratos
-OFX/CSV em lote, FDIP) numa central só. `/inbox` e `/import` **redirecionam** para
-`/upload` (Sidebar tem uma entrada única). UploadView só compõe `<InboxView/>` +
-`<ImportView/>` em duas seções.
+A página **`/upload` "Entrada de dados"** (`src/components/ingestao/IngestaoView.tsx`)
+é a central única de ingestão, em **3 abas**: **Conectar** (Open Finance) ·
+**Enviar** (`src/components/upload/UploadView.tsx`: extrato em lote CSV/OFX/TXT
+pelo FDIP **ou** documento individual PNG/JPG/PDF por OCR; a revisão é a
+`RevisaoImportacao`) · **Conciliar** (`components/conciliacao/ConciliacaoView.tsx`:
+Open Finance × títulos previstos, baixa por match + avaliação por IA).
+`/inbox`, `/import`, `/conciliacao`, `/contas` e `/conciliacao-bancaria`
+**redirecionam** para cá (a visão IULI×OFX paralela foi aposentada — uma única
+conciliação). Os antigos `InboxView`/`ImportView`/`lib/inbox` foram removidos.
+
+**Revisão da importação** (`src/components/upload/RevisaoImportacao.tsx`): resumo
+(lançamentos/entradas/saídas/fornecedores/recorrentes) + painel **"Custos
+recorrentes detectados"** — o "boleto fixo" da empresa: total `custoRecorrenteMensal`
+por mês + lista `custosMensais` (contraparte · categoria · cadência ·
+`mediaMensal`), com as receitas recorrentes separadas — + contatos a cadastrar +
+amostra classificada + confirmação (`aplicarOnboarding`).
 
 **Wizard rápido na home** (`src/components/upload/UploadWizard.tsx`): o botão fixo
 da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 etapas**
@@ -905,44 +922,28 @@ da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 et
    decide a **ação** (Vou pagar/receber · Paguei/Recebi), faz o **cross-check do
    beneficiário** contra os Contatos (por CNPJ/CPF ou nome), detecta **baixa** de um
    agendado (comprovante que casa com pendente ±2% do mesmo tipo), sinaliza
-   beneficiário **novo** (sugerir cadastro) e gera **ideias**.
+   beneficiário **novo** (sugerir cadastro), detecta **custo recorrente** (o
+   beneficiário aparece em 3+ meses do histórico → "~R$X/mês" + sugestão de criar
+   recorrência; o histórico vem de `getRiscoInput().movements` via o parâmetro
+   `historico` — forma mínima `MovimentoHistorico`) e gera **ideias**.
 3. **Confirmar** — campos editáveis (valor/vencimento/categoria) + toggle de
    cadastrar o contato novo → `confirmarDocumento()` grava no sistema (demo:
    `appendImported()` anexa 1 lançamento ao dataset, partindo de um snapshot do seed
    p/ não escondê-lo; live: cria contato/lançamento no Supabase, ou dá baixa no
    pendente) → `invalidateQueries()` reflete em dashboard/DRE/risco/Upload.
 
-`InboxView` (`src/components/inbox/`) — a "Inbox financeira" estilo e-mail: tudo
-que entra (PDF/PNG/JPG/OFX/Excel/CSV/XML/DANFE/NFS-e/boleto/comprovante/contrato)
-cai numa central. Materializa o blueprint (Financial Inbox → Document Intelligence →
-Confirmation Workbench → Confidence Engine → Digital Twin):
-- **Canais** (`INBOX_CANAIS`): Upload/arrastar (funcional), E-mail
-  (`financeiro@…all4pay.com`), WhatsApp, Open Finance, API/ERP, OCR/scanner,
-  monitoramento de pasta — os 3 últimos marcados "em breve" (conectores de
-  backend). O **drag-drop** roda OFX/CSV pelo motor FDIP (`analisarImportacao`).
-- **Status** (`STATUS_META`): Novo · Em análise · Pronto · Necessita revisão ·
-  Processado. **Workbench** por documento: campos extraídos + **cross-check**
-  (fornecedor/recorrência/NF batem?) + ação detectada (a pagar/receber/baixa/…)
-  + sugestões (criar fornecedor/categoria/recorrência) + **matriz de confiança**
-  (campo×%, ≥95% auto-aprovável) + "Confirmar" (propaga p/ contas/fluxo/DRE/
-  tesouraria/forecast…). Callout do **Financial Digital Twin**.
-- Dados de demo em `src/lib/inbox.ts`. **OCR REAL** (`POST /api/inbox/ocr`,
-  `runtime nodejs`): a visão do **Claude** (Anthropic API, `fetch` cru — sem SDK)
-  lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
-  Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
-  `claude-sonnet-5`); `GET` reporta `configured`. A InboxView reduz a imagem
-  (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno.
-  **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
-  `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
-  grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
-  e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
-  digitável/banco/beneficiário) monta o MESMO `DocExtraido`. **PDF sem chave**
-  também é lido localmente: `ocrLocalPdf()` **rasteriza a 1ª página via pdf.js**
-  (`pdfjs-dist`, worker do CDN na versão exata) num canvas PNG → Tesseract. Precisão
-  menor → confiança capada em 0.82, entra como "revisão" para o operador confirmar.
-  O canal "OCR" mostra "ativo · IA (Claude)" com a chave ou "ativo · local (sem
-  chave)" sem ela.
-  Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
+**OCR REAL** (`POST /api/inbox/ocr`, `runtime nodejs`): a visão do **Claude**
+(Anthropic API, `fetch` cru — sem SDK) lê imagem/PDF e devolve os campos
+estruturados + confiança por campo (JSON). Gated por `ANTHROPIC_API_KEY`
+(`ANTHROPIC_MODEL` opcional, default `claude-sonnet-5`); `GET` reporta
+`configured`. **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
+`ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
+grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
+e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
+digitável/banco/beneficiário) monta o MESMO `DocExtraido`. **PDF sem chave**
+também é lido localmente: `ocrLocalPdf()` **rasteriza a 1ª página via pdf.js**
+(`pdfjs-dist`, worker do CDN na versão exata) num canvas PNG → Tesseract. Precisão
+menor → confiança capada em 0.82, entra como "revisão" para o operador confirmar.
 
 ### Onboarding inteligente / FDIP (em `/upload`)
 
@@ -969,10 +970,13 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   fica nas regras (sem chave).
 - **Entidades** (`resolverEntidades`): agrupa por contraparte normalizada
   (aliases) → cliente/fornecedor. **Padrões** (`descobrirPadroes`):
-  recorrências (mensal/semanal), assinaturas, sazonalidade. **Grafo** + **plano
-  de setup** (`montarPlano`): categorias, centros de custo, recorrências e
-  **estimativas** (receita/EBITDA/margem/recorrente). **Central de confiança**
-  (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
+  recorrências (mensal/semanal) com `tipo` (custo × receita recorrente) e
+  `mediaMensal` (total ÷ meses observados), assinaturas, sazonalidade, e os
+  **custos recorrentes/mensais**: `custosMensais` (saídas com cadência, maiores
+  primeiro) + `custoRecorrenteMensal` (o "boleto fixo" do mês — soma das médias).
+  **Grafo** + **plano de setup** (`montarPlano`): categorias, centros de custo,
+  recorrências e **estimativas** (receita/EBITDA/margem/recorrente). **Central
+  de confiança** (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
 - **Auto company setup / correlação no sistema inteiro:** `aplicarOnboarding(report)`
   (`src/lib/fdip.ts`) → `montarDataset()` converte os lançamentos lidos em
   `movements`+contas+parties. **Demo:** grava no store `src/lib/imported.ts`
@@ -980,12 +984,11 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   `getReceivables/Payables/Accounts/DailyCashflow/Sales`, `getOpenMovements`,
   `listParties` leem `importedMovements()/importedAccounts()/importedParties()
   ?? seed`. **Live:** cria parties/categorias/centros **e os movimentos** no
-  Supabase. A `ImportView` invalida o React Query → dashboard/DRE/risco/quant/
+  Supabase. A confirmação invalida o React Query → dashboard/DRE/risco/quant/
   decisão/copiloto/autônomo/dados/contatos passam a refletir o upload. Botão
   "Limpar dados importados" reverte (demo). Amostra de 12 meses em `sample.ts`
-  (+ `public/exemplos/extrato-exemplo-all4pay.csv`). UI em
-  `src/components/import/ImportView.tsx` (ingestão + confidence center +
-  descobertas + destino com confirmação + padrões + setup).
+  (+ `public/exemplos/extrato-exemplo-all4pay.csv`). UI: aba **Enviar** de
+  `/upload` (`UploadView` + `RevisaoImportacao`).
 
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 

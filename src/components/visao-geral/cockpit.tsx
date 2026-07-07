@@ -158,6 +158,31 @@ const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1));
 const pctTxt = (n: number) => `${Math.round(n * 100)}%`;
 const scoreTone = (s: number) => (s >= 75 ? POS : s >= 50 ? WARN : NEG);
 
+/** Custos FIXOS mensais: saídas que se repetem mês após mês (≥3 meses da mesma
+    contraparte/categoria) — total/mês + maior item. Mesma leitura do upload. */
+function custosFixosMensais(input?: { movements: RiskMovement[]; partyNames?: Record<string, string> }) {
+  if (!input) return null;
+  const grupos = new Map<string, { nome: string; total: number; meses: Set<string> }>();
+  for (const m of input.movements) {
+    if (m.type !== "saida" || m.status === "cancelado") continue;
+    const chave = m.party_id ?? (m.category ? `cat:${m.category}` : null);
+    if (!chave) continue;
+    const mes = (m.paid_date || m.due_date || "").slice(0, 7);
+    if (!mes) continue;
+    const nome = m.party_id ? input.partyNames?.[m.party_id] ?? "Contraparte" : m.category!;
+    const g = grupos.get(chave) ?? { nome, total: 0, meses: new Set<string>() };
+    g.total += Math.abs(m.amount);
+    g.meses.add(mes);
+    grupos.set(chave, g);
+  }
+  const fixos = Array.from(grupos.values())
+    .filter((g) => g.meses.size >= 3)
+    .map((g) => ({ nome: g.nome, mediaMensal: g.total / g.meses.size }))
+    .sort((a, b) => b.mediaMensal - a.mediaMensal);
+  if (!fixos.length) return null;
+  return { totalMes: fixos.reduce((s, f) => s + f.mediaMensal, 0), top: fixos[0], itens: fixos.length };
+}
+
 /** HHI/maior fatia bancária a partir das contas. */
 function exposicaoBancaria(accounts?: { balance: number; bank: string }[]) {
   if (!accounts || !accounts.length) return null;
@@ -764,6 +789,27 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
           : "Despesa média mensal dentro da receita gerada."}
         info={{ titulo: "Despesa mensal média", oQue: "Quanto a empresa gasta, em média, a cada mês.", comoCalcula: "Média mensal das saídas ao longo do período analisado." }} />
     ),
+  },
+  /* ---- Despesas (custos fixos mensais · input) ---- */
+  {
+    id: "custos-fixos-mensais", label: "Custos fixos mensais", categoria: "Despesas",
+    render: (c) => {
+      if (!c.input) return <Loading />;
+      const fx = custosFixosMensais(c.input);
+      if (!fx) {
+        return (
+          <MetricCard icon="repeat" label="Custos fixos mensais" value="—"
+            answer="Ainda não há custos recorrentes detectados — precisa de 3+ meses da mesma contraparte."
+            info={{ titulo: "Custos fixos mensais", oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com compromissos que se repetem.", comoCalcula: "Agrupa as saídas por contraparte/categoria, considera fixas as com 3+ meses de ocorrência e divide o total pelos meses observados." }} />
+        );
+      }
+      return (
+        <MetricCard icon="repeat" label="Custos fixos mensais"
+          value={<BRL value={fx.totalMes} />}
+          answer={`${fx.itens} compromissos recorrentes por mês; o maior é ${fx.top.nome} (${formatBRL(fx.top.mediaMensal)}/mês).`}
+          info={{ titulo: "Custos fixos mensais", oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com compromissos que se repetem (folha, aluguel, assinaturas…).", comoCalcula: "Agrupa as saídas por contraparte/categoria, considera fixas as com 3+ meses de ocorrência e divide o total de cada uma pelos meses observados; o valor é a soma dessas médias." }} />
+      );
+    },
   },
   /* ---- Caixa (previsibilidade do fluxo · quant) ---- */
   {
