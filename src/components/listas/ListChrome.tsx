@@ -68,7 +68,8 @@ export function EntityTable<T extends { id: string }>({
 
   return (
     <Card padded={false}>
-      <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
+      {/* Cabeçalho Ledger: micro-label caixa-alta com tracking largo */}
+      <div className="flex items-center gap-3 px-5 py-[10px] text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
         {columns.map((c) => (
           <span
             key={c.key}

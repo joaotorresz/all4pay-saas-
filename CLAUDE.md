@@ -75,32 +75,37 @@ sempre os tokens, nunca hex literal.
   de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
-### ⚡ Identidade corporativa all4pay — **AURORA GLASS** (ATIVA — escopo `.ds-visor`)
+### ⚡ Identidade corporativa all4pay — **DS LEDGER** (ATIVA — escopo `.ds-visor`)
 
 O app roda no escopo **`.ds-visor`** (aplicado pelo `AppShell` a todo o app),
-que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
-(futurista & clean). Estas são as regras VIGENTES (editar em `globals.css`
-`.ds-visor` / `.a4p-canvas` + `layout.tsx`):
+que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
+(editorial-terminal; refs: Vaulto/Awwwards, Mercury/Ramp). Regras VIGENTES
+(editar em `globals.css` `.ds-visor` / `.a4p-canvas` + `layout.tsx`):
 
-- **Fonte: Roobert TRIAL** (`--font-roobert`, localFont) — **SemiBold** (600–700)
-  em títulos · **Medium** (400–500) em subtítulos/corpo. Mapeada por faixa p/ nunca
-  faux-bold. **`letter-spacing` base −0.02em** (números `tabular-nums` seguem em `0`).
-- **Canvas aurora** (`.a4p-canvas`, raiz do AppShell): base **#F3F1EE** com
-  **washes radiais de lime a baixíssima opacidade** (≤14% — o lime segue sendo
-  tempero: são véus, nunca preenchimentos). No dark, near-black + véus ainda mais
-  sutis. O `<main>` `.ds-visor` é **transparente** (o canvas aparece por trás).
-- **Boxes de VIDRO** (`[data-card="1"]`): `var(--glass-bg)` translúcido
-  (branco 62% no claro · fumê 58% no escuro) + **`backdrop-filter: blur(22px)
-  saturate(150%)`** + **fio luminoso 1px** (`--glass-edge`) + **sombra ambiente
-  suave** (`--shadow-card`, var-backed — flip claro/escuro). Overlays
-  (popover/menu/palette via `.shadow-popover`, Sidebar `.a4p-sidebar`, drawers
-  `.a4p-glass`) usam o **vidro forte** `--glass-bg-strong` (~82%).
-  `prefers-reduced-transparency` → superfícies voltam a sólido.
-- **Cores:** títulos/ink **#11190C** (verde-quase-preto) · subtítulos/corpo/labels
-  **#787664** (taupe) · acento **lime #DFFF00** (só acentos). `border` volta a
-  existir como **divisor discreto** (`rgba(17,25,12,0.07)`).
-- **Formas:** **bordas bem arredondadas** (`--a4p-box-radius` **24px**) · padding
-  28px.
+- **Tipografia (Fontsource, self-hosted — sem fetch externo):**
+  **Schibsted Grotesk** (neo-grotesca) em TODA a UI — títulos 600, corpo 400/500,
+  tracking −0.01em, **prosa em numerais proporcionais** (sem `tnum` no body: o
+  tnum da Schibsted alarga ponto/vírgula). **Geist Mono em TODOS os VALORES**:
+  `Money`/`BRL` carregam a classe **`.a4p-num`** e `globals.css` põe mono nela,
+  em `.tabular-nums` (contextos tabulares) e nos eixos de gráfico
+  (`.recharts-cartesian-axis-tick-value`, 11px). É a assinatura do sistema —
+  colunas alinham como um ledger.
+- **Canvas** (`.a4p-canvas`): base **#F4F3F0** (paper) com véu de lime a ≤8%
+  (whisper — nunca preenchimento). Dark: near-black + véu ≤5%. O `<main>`
+  `.ds-visor` é transparente.
+- **Cards SÓLIDOS** (`[data-card="1"]`): `--color-white` + **hairline 1px**
+  (`--color-border` = rgba(17,25,12,0.08)) + **micro-sombra** (`--shadow-card`).
+  **O vidro fica SÓ nos overlays**: popover/menu/palette (`.shadow-popover`),
+  Sidebar (`.a4p-sidebar`), drawers (`.a4p-glass`) — `--glass-bg-strong` + blur.
+  `prefers-reduced-transparency` → sólido.
+- **Cores:** títulos/ink **#11190C** · corpo/labels **#787664** (taupe) · acento
+  **lime #DFFF00** (só acentos).
+- **Formas:** raio dos cards **16px** (`--a4p-box-radius`) · padding 24px ·
+  controles 10px · pills 999.
+- **Tabelas (padrão Ledger):** cabeçalho em **micro-label** — `text-[11px]
+  font-medium uppercase tracking-[0.08em] text-faint` (única exceção sancionada
+  ao "sem caixa-alta") · linhas hairline (`border-border-soft`) · valores à
+  direita em mono (via `BRL`).
 - **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
@@ -110,12 +115,12 @@ que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
   glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
   `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
   3D (`Icon3D`) foram **removidos** do sistema — não reintroduzir.
-- **Gráficos vivos:** toda série Recharts anima na ENTRADA da página via
-  **`chartAnim(begin?)`** (`src/lib/chart-anim.ts`: 700ms ease-out, escalona
-  séries do mesmo gráfico com `begin` 0/120/240, respeita
-  `prefers-reduced-motion`) e responde ao hover (`activeDot` em linhas/áreas,
-  `activeBar` em barras). Nunca `isAnimationActive={false}` (exceto âncoras
-  invisíveis de label).
+- **Gráficos vivos, no MESMO padrão:** eixos em mono 11px faint; toda série
+  Recharts anima na ENTRADA da página via **`chartAnim(begin?)`**
+  (`src/lib/chart-anim.ts`: 700ms ease-out, escalona séries do mesmo gráfico com
+  `begin` 0/120/240, respeita `prefers-reduced-motion`) e responde ao hover
+  (`activeDot` em linhas/áreas, `activeBar` em barras). Nunca
+  `isAnimationActive={false}` (exceto âncoras invisíveis de label).
 
 Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
 identidade viva é a de cima.
@@ -1170,17 +1175,13 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
-- Font: **DM Sans** (DS Visor) — carregada no `layout.tsx` via `<link>` do Google
-  Fonts (eixos `opsz,wght@9..40,400..700`) e definida como `sans` no Tailwind
-  (fallback `var(--font-onest)`/Onest). Pesos 400/500/600/700; títulos em 600,
-  números-herói 700. `letter-spacing` base −0.01em, números (`tabular-nums`) com
-  espaçamento **normal**. Onest/Roc Grotesk aposentadas (arquivos mantidos em
-  `fonts/` como fallback). **Migração para o DS Visor** (estrutura Visor Finance +
-  marca lime): tokens neutros/semânticos no `:root` (light) = paleta Visor
-  (`surface-1` #f6f7f9 · `ink` #0e131e · `positive` #28aa00 · `negative` #d9000a),
-  cards 14px flat (24px padding); o `AppShell` aplica `scopeClassName="ds-visor"`
-  por padrão (cores Visor só no tema claro via `html:not(.dark) .ds-visor` — o
-  **dark mode é preservado**).
+- Fontes (DS Ledger): **Schibsted Grotesk Variable** (UI) + **Geist Mono
+  Variable** (valores) — importadas no `layout.tsx` via **Fontsource** (npm,
+  self-hosted, sem fetch externo) e definidas como `sans`/`mono` no Tailwind.
+  Títulos 600 · corpo 400/500 · heróis mono 600. DM Sans/Roobert/Onest/Roc
+  aposentadas (arquivos antigos seguem em `src/app/fonts/` sem uso). O `AppShell`
+  aplica `scopeClassName="ds-visor"` por padrão (paleta clara via
+  `html:not(.dark) .ds-visor` — o **dark mode é preservado**).
 
 ### Commands
 

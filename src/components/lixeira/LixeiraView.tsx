@@ -71,7 +71,7 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
         <Card><EmptyState icon="inbox" title="Lixeira vazia" hint="Lançamentos que você cancelar em “A receber/A pagar” aparecem aqui e podem ser restaurados." /></Card>
       ) : (
         <Card padded={false}>
-          <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
+          <div className="flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
             <span className="flex-1">Descrição</span>
             <span className="w-[110px]">Tipo</span>
             <span className="w-[100px]">Vencimento</span>

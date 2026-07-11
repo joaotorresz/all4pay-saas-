@@ -29,7 +29,7 @@ export function BRL({
   const neg = value < 0;
   const { integer, decimals } = brlParts(value);
   return (
-    <span className={cn("inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
+    <span className={cn("a4p-num inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
       <span className="text-placeholder font-medium" style={{ fontSize: "0.72em", marginRight: "0.16em" }}>
         {prefix}
       </span>
