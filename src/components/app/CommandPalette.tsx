@@ -18,7 +18,7 @@ const norm = (s: string) =>
 interface RouteItem { label: string; href: string; icon: string; kw: string; event?: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
-  { label: "Entrada de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada onboarding ingestao enviar" },
+  { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
   { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir" },

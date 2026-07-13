@@ -43,7 +43,6 @@ const SECTIONS: Section[] = [
       { label: "Projetos", href: "/projetos", icon: "target" },
       { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
       { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
-      { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
       { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
     ],
   },
@@ -64,9 +63,8 @@ const SECTIONS: Section[] = [
     id: "movimentacoes", label: "Movimentações", items: [
       { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks" },
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
+      { label: "Razão contábil (GL)", href: "/razao", icon: "receipt" },
     ],
   },
   {
