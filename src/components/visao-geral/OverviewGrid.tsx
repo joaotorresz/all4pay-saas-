@@ -23,6 +23,7 @@ import {
 } from "./HomeCards";
 import { ResumoHojeCard, useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
+import { JornadaCard } from "@/components/comece/Jornada";
 
 const KEY_VIS = "a4p_home_widgets";
 const KEY_ORD = "a4p_home_order";
@@ -101,6 +102,7 @@ export function OverviewGrid() {
   return (
     <div className="flex flex-col gap-9">
       <FirstRunCard />
+      <JornadaCard />
 
       {hc.ordemBlocos.map((bloco) => {
         const idsRaw = ordem.filter((id) => GRUPO_DE.get(id) === bloco && on(id));

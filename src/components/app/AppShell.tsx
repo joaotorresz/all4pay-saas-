@@ -6,6 +6,7 @@ import { AssistantWidget } from "@/components/app/AssistantWidget";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
+import { RouteTracker } from "@/components/app/RouteTracker";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -56,6 +57,7 @@ export function AppShell({
           {children}
         </div>
       </main>
+      <RouteTracker />
       <PageGuide />
       <CommandPalette />
       <AssistantWidget />
