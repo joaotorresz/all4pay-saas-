@@ -56,15 +56,19 @@ export function WidgetHeader({
   );
 }
 
-/** Quiet empty state — icon, line, optional hint. Never alarming. */
+/** Quiet empty state — icon, line, optional hint, optional CTA. Never alarming.
+ *  O `action` fecha a correlação: um vazio nunca é um beco — sempre oferece o
+ *  botão que o preenche (ex.: "Conectar banco", "Nova venda"). */
 export function EmptyState({
   icon = "file-text",
   title,
   hint,
+  action,
 }: {
   icon?: IconName;
   title: string;
   hint?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 px-4 gap-2">
@@ -73,6 +77,7 @@ export function EmptyState({
       </span>
       <p className="m-0 text-label font-medium text-muted">{title}</p>
       {hint && <p className="m-0 text-caption text-faint max-w-[28ch]">{hint}</p>}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

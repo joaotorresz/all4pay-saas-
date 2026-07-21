@@ -21,6 +21,7 @@ export function EntityTable<T extends { id: string }>({
   isError,
   emptyTitle,
   emptyHint,
+  emptyAction,
   onRowClick,
 }: {
   columns: Column<T>[];
@@ -29,6 +30,8 @@ export function EntityTable<T extends { id: string }>({
   isError: boolean;
   emptyTitle: string;
   emptyHint?: string;
+  /** CTA no estado vazio (ex.: o mesmo "Novo X" do header) — fecha a correlação. */
+  emptyAction?: React.ReactNode;
   onRowClick?: (row: T) => void;
 }) {
   if (isLoading) {
@@ -61,7 +64,7 @@ export function EntityTable<T extends { id: string }>({
   if (!rows || rows.length === 0) {
     return (
       <Card>
-        <Empty title={emptyTitle} hint={emptyHint} />
+        <Empty title={emptyTitle} hint={emptyHint} action={emptyAction} />
       </Card>
     );
   }
@@ -108,7 +111,7 @@ export function EntityTable<T extends { id: string }>({
   );
 }
 
-function Empty({ title, hint }: { title: string; hint?: string }) {
+function Empty({ title, hint, action }: { title: string; hint?: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 px-4 gap-2">
       <span className="w-9 h-9 rounded-pill bg-surface-2 inline-flex items-center justify-center">
@@ -116,6 +119,7 @@ function Empty({ title, hint }: { title: string; hint?: string }) {
       </span>
       <p className="m-0 text-label font-medium text-muted">{title}</p>
       {hint && <p className="m-0 text-caption text-faint max-w-[34ch]">{hint}</p>}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

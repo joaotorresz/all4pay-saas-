@@ -82,7 +82,8 @@ export default function VendasPage() {
         isLoading={isLoading}
         isError={isError}
         emptyTitle="Nenhuma venda registrada"
-        emptyHint="Registre uma venda no botão Nova venda."
+        emptyHint="Cada venda gera o recebível, a NF e alimenta o DRE automaticamente."
+        emptyAction={<NewButton label="Nova venda" onToast={show} form={(p) => <VendaCompraForm docKind="venda" itemKind="produto" {...p} />} />}
       />
       {node}
     </AppShell>
