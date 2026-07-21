@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { BRL, Card, Skeleton, Select, DatePicker } from "@/components/ui";
+import { BRL, Card, Skeleton, Select, DatePicker, Icon } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
 import { financialDRE } from "@/core/dre";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
@@ -163,12 +164,12 @@ function Conteudo({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
       {/* Executivo */}
       <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-6 gap-5">
-        <Stat label="Receita líquida" value={<BRL value={gerencial.receitaLiquida} />} />
+        <Stat label="Receita líquida" value={<BRL value={gerencial.receitaLiquida} />} href="/recebimentos" hrefLabel="Ver a receber" />
         <Stat label="EBITDA" value={<BRL value={gerencial.ebitda} />} tone={gerencial.ebitda < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
         <Stat label="Margem EBITDA" value={pct(gerencial.margemEbitda)} />
         <Stat label="Lucro líquido" value={<BRL value={gerencial.lucroLiquido} />} tone={gerencial.lucroLiquido < 0 ? "var(--color-negative)" : "var(--color-positive)"} />
-        <Stat label="Runway" value={`${financeiro.runwayMeses}m`} />
-        <Stat label="Caixa" value={<BRL value={executivo.caixa} />} />
+        <Stat label="Runway" value={`${financeiro.runwayMeses}m`} href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" />
+        <Stat label="Caixa" value={<BRL value={executivo.caixa} />} href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" />
       </div>
 
       {/* DRE Gerencial (waterfall + drill-down) */}
@@ -359,11 +360,16 @@ function FinRow({ label, v, bold }: { label: string; v: number; bold?: boolean }
   );
 }
 
-function Stat({ label, value, tone = "var(--color-ink)" }: { label: string; value: React.ReactNode; tone?: string }) {
+function Stat({ label, value, tone = "var(--color-ink)", href, hrefLabel }: { label: string; value: React.ReactNode; tone?: string; href?: string; hrefLabel?: string }) {
   return (
     <Card className="flex flex-col gap-1">
       <span className="text-label font-medium text-muted">{label}</span>
       <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}>{value}</span>
+      {href && (
+        <Link href={href} className="mt-auto pt-1 self-start inline-flex items-center gap-1 text-caption font-medium text-muted hover:text-ink transition-colors">
+          {hrefLabel ?? "Ver detalhe"} <Icon name="arrow-up-right" size={12} color="currentColor" />
+        </Link>
+      )}
     </Card>
   );
 }

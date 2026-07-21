@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
@@ -125,7 +126,7 @@ export function ReembolsosView() {
         </div>
         <div className="flex flex-col max-h-[560px] overflow-y-auto">
           {filtradas.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhum reembolso aqui. Aprovações ficam em <b className="text-muted font-medium">Solicitações &amp; aprovações</b>.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhum reembolso aqui. Aprovações ficam em <Link href="/aprovacoes" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Solicitações &amp; aprovações</Link>.</p>
           ) : filtradas.map((r) => (
             <div key={r.id} className="flex items-start gap-3 px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: STATUS[r.status].cor }} />
@@ -138,7 +139,7 @@ export function ReembolsosView() {
           ))}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <b className="text-muted font-medium">Central de Pagamentos</b> para o Pix ao colaborador.</span>
+          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <Link href="/pagamentos" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Central de Pagamentos</Link> para o Pix ao colaborador.</span>
         </div>
       </Card>
       {node}
