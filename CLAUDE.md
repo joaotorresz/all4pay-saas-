@@ -210,6 +210,41 @@ Demo-safe; navega para a página do resultado.
 
 ## Feature modules
 
+### Adesão progressiva — menu Simples×Pro + Jornada (`/comece`)
+
+O sistema tem MUITA função; a tese de adesão é **revelar aos poucos até 100%**.
+
+- **Menu por JOB, não por taxonomia** (`Sidebar.tsx`): o **Modo Simples** (padrão,
+  `useModo`) mostra 5 grupos do dia a dia — **Início · Receber · Pagar · Caixa &
+  Resultado · Dados & Cadastros** (~15 itens). O **Modo Pro** REVELA a
+  profundidade — **Fiscal & vendas · Contabilidade · Estrutura · Inteligência ·
+  Governança & Plataforma** (`pro: true`). Toda rota continua acessível; nada
+  removido, só reagrupado/priorizado. O toggle comunica o que o Pro desbloqueia.
+- **Jornada de Adesão** (`src/lib/adoption.ts`, `adoption/1.0.0`): motor puro,
+  demo-safe. 4 estágios progressivos — **Conectar → Organizar → Analisar →
+  Operar** — cada passo com `feito` derivado do **estado real** (`getRiscoInput`:
+  dados importados, contatos, categorias, recebíveis) + as **rotas já vistas**
+  (`RouteTracker` no AppShell grava em `localStorage` `a4p_seen_routes`).
+  `montarJornada(input, vistas)` → estágios, `%`, `proximo` passo, `nivel`.
+- **UI** (`src/components/comece/Jornada.tsx`): `JornadaCard` na Home (progresso +
+  próximo passo; some em 100%; **handoff limpo com o `FirstRunCard`** — só aparece
+  quando o primeiro dado já entrou) + `JornadaView` na página **`/comece`** (os 4
+  estágios inteiros, passos riscados ao concluir, botão "Abrir/Ver X" por passo).
+  Entrada "Comece por aqui" no topo do menu + na command palette.
+
+### Correlações (drill-down & CTAs) — o número/vazio nunca é terminal
+
+Para descobrir as funções, cada superfície **leva à próxima**:
+- **`MetricCard`** (cockpit) e **`Stat`** (DRE) aceitam `href`/`hrefLabel` →
+  link "ver detalhe ↗" no rodapé (sem colidir com o botão "i"). ~25 widgets do
+  cockpit + os KPIs do DRE levam ao **motor de origem** (risco→`/copiloto?aba=risco`,
+  inadimplência→`/inadimplencia`, decisão/autônomo, contas→conectar, DRE, etc.).
+- **`EmptyState`** (`visao-geral/shared.tsx`) e **`Empty`/`EntityTable`**
+  (`listas/ListChrome.tsx`) têm slot `action`/`emptyAction`: um vazio sempre
+  oferece o botão que o preenche (Conectar banco, Nova venda, Novo X).
+- Ações que criam algo **linkam para onde foi** (Reembolsos→aprovações/pagamentos;
+  Recorrências→a receber/fluxo).
+
 ### Início (`/`) — financial overview dashboard
 
 The home screen and the reference module for data-driven screens. Five isolated
