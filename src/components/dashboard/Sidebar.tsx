@@ -366,14 +366,15 @@ function NavItem({ item, pathname, collapsed }: { item: Item; pathname: string; 
       title={item.label}
       aria-current={on ? "page" : undefined}
       className={cn(
-        "relative flex items-center rounded-md py-2",
+        // Assinatura All4Pay: pill de nav ativo em LIMA sólida + texto/ícone ink
+        // (nunca texto claro sobre lima). Raio 12px (rounded-[12px]).
+        "relative flex items-center rounded-[12px] py-2 transition-colors",
         collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
-        on ? "bg-lime-tint" : "hover:bg-surface-1",
+        on ? "bg-lime" : "hover:bg-surface-2",
       )}
     >
-      {on && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-lime" />}
-      <Icon name={item.icon} size={18} color={on ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-      {!collapsed && <span className={cn("text-[15px] truncate", on ? "text-ink font-semibold" : "text-muted font-medium")}>{item.label}</span>}
+      <Icon name={item.icon} size={18} color={on ? "var(--color-on-lime)" : "var(--color-text-secondary)"} />
+      {!collapsed && <span className={cn("text-[15px] truncate", on ? "text-on-lime font-semibold" : "text-muted font-medium")}>{item.label}</span>}
     </Link>
   );
 }

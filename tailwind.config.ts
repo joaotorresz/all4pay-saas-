@@ -69,11 +69,12 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // DS Ledger — Schibsted Grotesk (neo-grotesca) é a face do sistema;
-        // Geist Mono carrega TODOS os números (self-hosted via Fontsource).
+        // DS All4Pay — Hanken Grotesk (fonte de marca) é a face do sistema;
+        // Geist Mono carrega os números tabulares (self-hosted via Fontsource).
         sans: [
+          '"Hanken Grotesk Variable"',
+          '"Hanken Grotesk"',
           '"Schibsted Grotesk Variable"',
-          '"Schibsted Grotesk"',
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",

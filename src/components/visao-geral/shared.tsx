@@ -15,14 +15,16 @@ const BANK_COLORS: Record<string, string> = {
 export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
 
 /** Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de card. */
-export function IconTile({ name, size = 38 }: { name: IconName | string; size?: number }) {
+export function IconTile({ name, size = 40 }: { name: IconName | string; size?: number }) {
+  // DS All4Pay: chip escuro (#11190C = ink) + glifo LIMA — o "chip de ícone"
+  // da referência (nunca ícone claro sobre lima; aqui é lima sobre ink).
   return (
     <span
-      className="inline-flex items-center justify-center shrink-0 rounded-md bg-surface-2 text-ink"
+      className="inline-flex items-center justify-center shrink-0 rounded-[12px] bg-ink"
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <Icon name={name} size={Math.round(size * 0.5)} color="currentColor" />
+      <Icon name={name} size={Math.round(size * 0.5)} color="var(--color-lime)" />
     </span>
   );
 }

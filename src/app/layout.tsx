@@ -3,6 +3,7 @@ import { Providers } from "./providers";
 // DS "Ledger" — tipografia self-hosted (Fontsource, sem fetch externo):
 // Schibsted Grotesk (neo-grotesca; UI/títulos/corpo) + Geist Mono (TODOS os
 // números: dinheiro, tabelas, eixos de gráfico — precisão de terminal).
+import "@fontsource-variable/hanken-grotesk";
 import "@fontsource-variable/schibsted-grotesk";
 import "@fontsource-variable/geist-mono";
 import "./globals.css";
