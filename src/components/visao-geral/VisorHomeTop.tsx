@@ -286,9 +286,11 @@ export function VisorHomeTop() {
 
 /** Balão de callout no fim da linha — igual ao Visor (verde sólido, rabo p/ baixo). */
 function Callout(props: any) {
-  const { x, y, value, text, good } = props;
+  const { x, y, value, text } = props;
   if (value == null || typeof x !== "number" || typeof y !== "number") return null;
-  const bg = good ? POSITIVE : NEGATIVE;
+  // Chip NEUTRO ink (clean/brand) — a direção fica no texto ("a mais/a menos"),
+  // sem preenchimento vermelho/verde forte.
+  const bg = "#11190C";
   const H = 188, bh = 30, tail = 9;
   const bw = Math.max(150, text.length * 7.2 + 26);
   const bx = Math.max(4, x - bw);
