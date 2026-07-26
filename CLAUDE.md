@@ -111,10 +111,12 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
   FABs (Upload · Guia · All 4 Pay AI) são pills BRANCOS flat; o glifo de IA é um
   tile ink com sparkle lime (sem gradiente colorido).
-- **Ícones: flat Phosphor (Fill) SEMPRE** (`Icon`). Nos cabeçalhos de card, o
-  glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
-  `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
-  3D (`Icon3D`) foram **removidos** do sistema — não reintroduzir.
+- **Ícones: Hugeicons (Stroke Rounded) SEMPRE** (`Icon`) — traçados, leves,
+  cantos arredondados; espessura padrão 1.5 (ajustável por `strokeWidth`). Nos
+  cabeçalhos de card, o glifo entra num **tile discreto** (`IconTile`,
+  `src/components/visao-geral/shared.tsx`: `rounded-[12px] bg-ink` + glifo lima;
+  `WidgetHeader` aceita `icon`). Os ícones 3D (`Icon3D`) foram **removidos** do
+  sistema — não reintroduzir (`Icon3D` segue só como alias do `IconTile`).
 - **Gráficos vivos, no MESMO padrão:** eixos em mono 11px faint; toda série
   Recharts anima na ENTRADA da página via **`chartAnim(begin?)`**
   (`src/lib/chart-anim.ts`: 700ms ease-out, escalona séries do mesmo gráfico com
@@ -185,16 +187,19 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   cru só em strings de aria/sr/mensagens). `StatusBadge` (icon + text,
   never a filled colored pill), `Skeleton` (quiet per-widget loading
   placeholder — surface-2 + soft pulse).
-- **`Icon`** — conjunto **Phosphor (Fill)** (Iconify): glifos cheios,
-  geométricos, modernos e com cantos bem arredondados (refresh do DS — menos
-  genérico). Monocromáticos via `currentColor` → a prop `color` carrega a
-  identidade all4pay (ink · muted · faint · lime · on-lime). SVG inline (sem
-  fetch em runtime, viewBox 256); dados em `src/components/ui/solar-icons.ts`
-  (gerados do Iconify — vide `scratchpad/gen-phosphor.mjs`). `strokeWidth` é
-  aceito por compat, mas ignorado (preenchido, não traçado). Ids internos de
-  glifos (se houver `<defs>/<mask>/<use>`) são renomeados por instância (`useId`
-  no `Icon`). Ícones custom (ex.: `inicio`, pentágono à la Visor) em
-  `CUSTOM_ICONS` no `Icon`, sobrepondo o set gerado.
+- **`Icon`** — conjunto **Hugeicons (Stroke Rounded)** (Iconify, prefixo
+  `hugeicons`): glifos **traçados**, leves, geométricos e de cantos
+  arredondados. Monocromáticos via `currentColor` → a prop `color` carrega a
+  identidade all4pay (ink · muted · faint · lime · on-lime) e `strokeWidth`
+  ajusta a espessura (**padrão 1.5**, do próprio set; o `Icon` reescreve o
+  `stroke-width` do glifo quando você passa outro valor). SVG inline (sem fetch
+  em runtime, **viewBox 24**); dados em `src/components/ui/solar-icons.ts`
+  (gerados do Iconify — vide `scratchpad/gen-hugeicons.mjs`, que valida os 56
+  nomes e falha se algum sumir do set). Ids internos de glifos (se houver
+  `<defs>/<mask>/<use>`) são renomeados por instância (`useId` no `Icon`).
+  Ícones custom (ex.: `inicio`, pentágono à la Visor) em `CUSTOM_ICONS` no
+  `Icon`, sobrepondo o set gerado. As **chaves** (`house`, `trending-up`, …)
+  são estáveis: trocar de set é reescrever o mapa no gerador, não o app.
 
 App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
 header) wraps every screen. The reference composition is the **Início**
