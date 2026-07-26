@@ -27,6 +27,7 @@ export function Icon3D({ name, size = 40 }: { name: IconName | string; size?: nu
   const glyph = Math.round(size * 0.46);
   return (
     <span
+      data-icontile=""
       className="relative inline-flex items-center justify-center shrink-0"
       style={{ width: size, height: size }}
       aria-hidden
