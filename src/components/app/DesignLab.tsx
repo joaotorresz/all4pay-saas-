@@ -73,6 +73,25 @@ const PADROES: Padrao[] = [
   { id: "label", label: "Rótulo", grupo: "Textos", teste: ".ds-visor .text-label", seletorTipo: ".ds-visor .text-label" },
   { id: "caption", label: "Legenda", grupo: "Textos", teste: ".ds-visor .text-caption", seletorTipo: ".ds-visor .text-caption" },
   { id: "body", label: "Corpo", grupo: "Textos", teste: ".ds-visor .text-body", seletorTipo: ".ds-visor .text-body" },
+  // Papéis amplos usados pela aba "Fontes". `teste` nunca casa: não entram no
+  // picker (seriam genéricos demais), só na atribuição por papel.
+  { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
+  { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
+  { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
+];
+
+/** Papéis tipográficos da aba "Fontes" — uma fonte (e tamanho) por papel. */
+const PAPEIS: { id: string; label: string; dica: string }[] = [
+  { id: "h1", label: "Título da página", dica: "“Bem-vindo, João!”" },
+  { id: "h2", label: "Subtítulo / seção", dica: "títulos de bloco" },
+  { id: "h3", label: "Título de card", dica: "“Você gastou”" },
+  { id: "numeros", label: "Números / dinheiro", dica: "R$ 243.586,52" },
+  { id: "body", label: "Corpo", dica: "parágrafos" },
+  { id: "label", label: "Rótulos", dica: "labels de campo" },
+  { id: "caption", label: "Legendas", dica: "textos pequenos" },
+  { id: "button", label: "Botões", dica: "ações" },
+  { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
+  { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
 function padraoDe(el: Element): Padrao | null {
@@ -311,7 +330,7 @@ export function DesignLab() {
   const [picking, setPicking] = React.useState(false);
   const [hover, setHover] = React.useState<{ rect: DOMRect; label: string } | null>(null);
   const [expandido, setExpandido] = React.useState<string | null>(null);
-  const [aba, setAba] = React.useState<"itens" | "padroes" | "global">("itens");
+  const [aba, setAba] = React.useState<"itens" | "fontes" | "padroes" | "global">("itens");
   const [foco, setFoco] = React.useState<DOMRect | null>(null);
   const refs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -415,6 +434,7 @@ export function DesignLab() {
 
   const nSel = s.selecoes.filter((x) => Object.keys(x.ov).length).length;
   const nPad = Object.keys(s.padroes).length;
+  const nFontes = PAPEIS.filter((p) => s.padroes[p.id]?.fonte).length;
 
   return (
     <>
@@ -460,9 +480,9 @@ export function DesignLab() {
                 Selecionar item na tela
               </button>
               <div className="flex gap-1 mt-3 bg-surface-2 rounded-md p-1">
-                {([["itens", `Selecionados${nSel ? ` (${nSel})` : ""}`], ["padroes", `Por tipo${nPad ? ` (${nPad})` : ""}`], ["global", "Global"]] as const).map(([k, lb]) => (
+                {([["itens", `Itens${nSel ? ` (${nSel})` : ""}`], ["fontes", `Fontes${nFontes ? ` (${nFontes})` : ""}`], ["padroes", `Por tipo${nPad ? ` (${nPad})` : ""}`], ["global", "Global"]] as const).map(([k, lb]) => (
                   <button key={k} onClick={() => setAba(k)}
-                    className={`flex-1 text-[12px] py-[6px] rounded-sm font-medium ${aba === k ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{lb}</button>
+                    className={`flex-1 text-[11px] py-[6px] rounded-sm font-medium ${aba === k ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{lb}</button>
                 ))}
               </div>
             </div>
@@ -534,6 +554,48 @@ export function DesignLab() {
               )}
 
               {/* ---------- ABA: POR TIPO ---------- */}
+              {/* ---------- ABA: FONTES (uma fonte por papel) ---------- */}
+              {aba === "fontes" && (
+                <>
+                  <p className="m-0 text-[11px] text-faint leading-snug -mb-1">
+                    Cada papel pode ter a SUA fonte. Deixe em “— herdar —” para seguir a fonte global.
+                    Estes ajustes valem em todo o app (a Home é a página de teste).
+                  </p>
+                  {PAPEIS.map((papel) => {
+                    const ov = s.padroes[papel.id] ?? {};
+                    const fonteId = (ov.fonte as string) ?? "";
+                    const stack = stackDe(fonteId);
+                    return (
+                      <div key={papel.id}
+                        onMouseEnter={() => realcar(PADROES.find((p) => p.id === papel.id)?.seletorTipo ?? null)}
+                        onMouseLeave={() => realcar(null)}
+                        className={`rounded-md border p-3 flex flex-col gap-2 ${fonteId ? "border-ink/30" : "border-border"}`}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[13px] text-ink font-medium">{papel.label}</span>
+                          <span className="text-[11px] text-faint truncate">· {papel.dica}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select value={fonteId}
+                            onChange={(e) => (e.target.value ? setPadProp(papel.id, "fonte", e.target.value) : clearPadProp(papel.id, "fonte"))}
+                            className="flex-1 text-caption text-ink bg-white rounded-sm px-2 py-[6px] border border-border">
+                            {FONTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                          </select>
+                          <input type="number" min={8} max={96}
+                            value={(ov.size as number) ?? ""} placeholder="px"
+                            onChange={(e) => (e.target.value ? setPadProp(papel.id, "size", Number(e.target.value)) : clearPadProp(papel.id, "size"))}
+                            className="w-[62px] text-caption tabular-nums text-ink bg-white rounded-sm px-2 py-[6px] border border-border" />
+                        </div>
+                        {/* amostra na fonte escolhida */}
+                        <div className="rounded-sm bg-surface-2 px-2 py-[6px] text-ink truncate"
+                          style={{ fontFamily: stack || undefined, fontSize: (ov.size as number) ?? 16 }}>
+                          {papel.id === "numeros" ? "R$ 243.586,52" : "Bem-vindo, João!"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
               {aba === "padroes" && (["Menu", "Textos", "Componentes"] as const).map((g) => (
                 <Secao key={g} titulo={g} hint="muda TODOS deste tipo">
                   <div className="flex flex-col gap-[6px]">
@@ -729,6 +791,13 @@ function RangeSimples({ label, v, min, max, step = 1, onChange, un }: { label: s
 }
 
 /* ====================== EXPORT p/ o Claude Code ====================== */
+/** Fonte sai com nome + stack (o id sozinho não diz nada no código). */
+function valorLegivel(p: Prop, v: number | string): string {
+  if (p !== "fonte") return String(v);
+  const f = FONTS.find((x) => x.id === v);
+  return f ? `${f.label}  →  font-family: ${f.stack}` : String(v);
+}
+
 function gerarInstrucao(s: DesignState): string {
   const f = FONTS.find((x) => x.id === s.font);
   const L: string[] = [];
@@ -748,7 +817,7 @@ function gerarInstrucao(s: DesignState): string {
       const ov = s.padroes[p.id];
       if (!ov || !Object.keys(ov).length) continue;
       L.push(`  • ${p.label}   [${p.seletorTipo}]`);
-      for (const k of ORDEM_PROPS) if (k in ov) L.push(`      ${k}: ${ov[k]}`);
+      for (const k of ORDEM_PROPS) if (k in ov) L.push(`      ${k}: ${valorLegivel(k, ov[k]!)}`);
     }
   }
   const sels = s.selecoes.filter((x) => Object.keys(x.ov).length);
@@ -759,7 +828,7 @@ function gerarInstrucao(s: DesignState): string {
       L.push(`  • ${sel.rotulo}${sel.amostra ? ` — “${sel.amostra}”` : ""}`);
       L.push(`      escopo: ${sel.escopo === "este" ? "só este elemento" : "todos do tipo"}`);
       L.push(`      seletor: ${sel.escopo === "tipo" ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor}`);
-      for (const k of ORDEM_PROPS) if (k in sel.ov) L.push(`      ${k}: ${sel.ov[k]}`);
+      for (const k of ORDEM_PROPS) if (k in sel.ov) L.push(`      ${k}: ${valorLegivel(k, sel.ov[k]!)}`);
     }
   }
   L.push("");
