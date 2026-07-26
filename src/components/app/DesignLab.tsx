@@ -149,11 +149,15 @@ const contaAlvos = (sel: string): number => {
 
 /* ============================ PROPRIEDADES ============================ */
 type Prop =
+  | "oculto" | "semIcone" | "semTexto"
   | "fonte" | "size" | "weight" | "tracking" | "lineHeight" | "transform" | "align"
   | "color" | "bg" | "radius" | "padding" | "margin" | "borderW" | "borderColor"
   | "opacity" | "texto";
 
-const PROPS_META: Record<Prop, { label: string; kind: "range" | "color" | "seg" | "font" | "text"; min?: number; max?: number; step?: number; un?: string; opcoes?: { v: string; label: string }[] }> = {
+const PROPS_META: Record<Prop, { label: string; kind: "range" | "color" | "seg" | "font" | "text" | "toggle"; min?: number; max?: number; step?: number; un?: string; opcoes?: { v: string; label: string }[]; dica?: string }> = {
+  oculto: { label: "Ocultar o elemento", kind: "toggle", dica: "some da tela por completo" },
+  semIcone: { label: "Ocultar os ícones", kind: "toggle", dica: "só os glifos/chips dentro" },
+  semTexto: { label: "Ocultar o texto", kind: "toggle", dica: "mantém ícone e caixa" },
   fonte: { label: "Fonte", kind: "font" },
   size: { label: "Tamanho", kind: "range", min: 8, max: 96, un: "px" },
   weight: { label: "Peso", kind: "range", min: 100, max: 900, step: 100 },
@@ -173,6 +177,7 @@ const PROPS_META: Record<Prop, { label: string; kind: "range" | "color" | "seg" 
 };
 
 const ORDEM_PROPS: Prop[] = [
+  "oculto", "semIcone", "semTexto",
   "texto", "fonte", "size", "weight", "tracking", "lineHeight", "transform", "align",
   "color", "bg", "radius", "padding", "margin", "borderW", "borderColor", "opacity",
 ];
@@ -242,7 +247,10 @@ function decl(p: Prop, v: number | string): string | null {
     case "borderW": return `border-width:${v}px !important;border-style:solid !important`;
     case "borderColor": return `border-color:${v} !important`;
     case "opacity": return `opacity:${Number(v) / 100} !important`;
-    case "texto": return null; // aplicado via DOM
+    case "oculto": return v === "sim" ? `display:none !important` : null;
+    case "texto": return null;    // aplicado via DOM
+    case "semIcone": return null; // regra própria (filhos) — vide `regra()`
+    case "semTexto": return null; // idem
   }
 }
 
@@ -265,6 +273,21 @@ function regra(seletor: string, ov: Overrides): string {
     // desce p/ os filhos (inclui svg do ícone, que usa currentColor)
     const filhos = seletor.split(",").map((s) => `${s.trim()} *`).join(",");
     out.push(`${filhos}{${herdado.join(";")}}`);
+  }
+  // Ocultar SÓ os ícones de dentro (svg + chips), preservando o resto.
+  if (ov.semIcone === "sim") {
+    const alvos = seletor.split(",").flatMap((s) => {
+      const t = s.trim();
+      return [`${t} svg`, `${t} [data-icontile]`, `${t}[data-icontile]`];
+    }).join(",");
+    out.push(`${alvos}{display:none !important}`);
+  }
+  // Ocultar SÓ o texto: font-size 0 colapsa os nós de texto do elemento, mas
+  // SVGs (dimensionados por width/height) e filhos com tamanho próprio via
+  // classe seguem visíveis. Não forçamos tamanho nos filhos de propósito —
+  // `initial` os jogaria todos para 16px e quebraria a escala.
+  if (ov.semTexto === "sim") {
+    out.push(`${seletor.split(",").map((s) => s.trim()).join(",")}{font-size:0 !important}`);
   }
   return out.join("\n");
 }
@@ -528,7 +551,14 @@ export function DesignLab() {
                               </span>
                             </button>
                             {n > 0 && <span className="text-[10px] font-semibold text-on-lime bg-lime rounded-pill px-[7px] py-[1px] shrink-0">{n}</span>}
-                            <button onClick={() => removerSel(sel.key)} title="Remover seleção" className="text-faint hover:text-negative shrink-0">
+                            {/* atalho: ocultar/mostrar sem abrir o cartão */}
+                            <button
+                              onClick={() => (sel.ov.oculto === "sim" ? clearSelProp(sel.key, "oculto") : setSelProp(sel.key, "oculto", "sim"))}
+                              title={sel.ov.oculto === "sim" ? "Mostrar de novo" : "Ocultar este elemento"}
+                              className={`shrink-0 ${sel.ov.oculto === "sim" ? "text-negative" : "text-faint hover:text-ink"}`}>
+                              <Icon name="eye" size={14} color="currentColor" />
+                            </button>
+                            <button onClick={() => removerSel(sel.key)} title="Tirar da lista (não altera a tela)" className="text-faint hover:text-negative shrink-0">
                               <Icon name="x" size={13} color="currentColor" />
                             </button>
                           </div>
@@ -708,6 +738,21 @@ function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: numbe
   const m = PROPS_META[prop];
   const ativo = valor !== undefined;
 
+  if (m.kind === "toggle") {
+    const on = valor === "sim";
+    return (
+      <button onClick={() => (on ? onClear() : onChange("sim"))}
+        className={`flex items-center gap-2 w-full text-left rounded-sm px-2 py-[7px] border ${on ? "border-negative/40 bg-negative/5" : "border-border hover:bg-surface-2"}`}>
+        <span className={`w-[30px] h-[18px] rounded-pill p-[2px] shrink-0 transition-colors ${on ? "bg-negative" : "bg-surface-3"}`}>
+          <span className={`block w-[14px] h-[14px] rounded-pill bg-white transition-transform ${on ? "translate-x-[12px]" : ""}`} />
+        </span>
+        <span className="min-w-0">
+          <span className={`block text-caption ${on ? "text-negative font-medium" : "text-ink"}`}>{m.label}</span>
+          {m.dica && <span className="block text-[11px] text-faint truncate">{m.dica}</span>}
+        </span>
+      </button>
+    );
+  }
   if (m.kind === "text") {
     return (
       <div className="flex flex-col gap-1">
@@ -715,7 +760,7 @@ function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: numbe
           <span className="text-muted">{m.label}</span>
           {ativo && <Limpar onClick={onClear} />}
         </div>
-        <input value={(valor as string) ?? ""} placeholder="(deixe vazio p/ manter)" onChange={(e) => onChange(e.target.value)}
+        <input value={(valor as string) ?? ""} placeholder="escreva p/ trocar · vazio apaga · × restaura" onChange={(e) => onChange(e.target.value)}
           className="w-full text-caption text-ink bg-white rounded-sm px-2 py-[6px] border border-border" />
       </div>
     );
@@ -805,11 +850,17 @@ function RangeSimples({ label, v, min, max, step = 1, onChange, un }: { label: s
 }
 
 /* ====================== EXPORT p/ o Claude Code ====================== */
-/** Fonte sai com nome + stack (o id sozinho não diz nada no código). */
+/** Traduz o valor cru para algo acionável no código. */
 function valorLegivel(p: Prop, v: number | string): string {
-  if (p !== "fonte") return String(v);
-  const f = FONTS.find((x) => x.id === v);
-  return f ? `${f.label}  →  font-family: ${f.stack}` : String(v);
+  if (p === "fonte") {
+    const f = FONTS.find((x) => x.id === v);
+    return f ? `${f.label}  →  font-family: ${f.stack}` : String(v);
+  }
+  if (p === "oculto") return "REMOVER este elemento da interface";
+  if (p === "semIcone") return "REMOVER o(s) ícone(s) de dentro deste elemento";
+  if (p === "semTexto") return "REMOVER o texto (manter ícone/caixa)";
+  if (p === "texto") return v === "" ? "(apagar o texto)" : `trocar para “${v}”`;
+  return String(v);
 }
 
 function gerarInstrucao(s: DesignState): string {
