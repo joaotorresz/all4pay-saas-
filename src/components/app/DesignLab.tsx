@@ -41,19 +41,26 @@ const FONTS_GLOBAL = FONTS.filter((f) => f.id);
 const stackDe = (id: string) => FONTS.find((f) => f.id === id)?.stack ?? "";
 
 /* ========================= TOKENS DE COR (global) ========================= */
-const COR_CAMPOS: { key: string; label: string; varName: string }[] = [
-  { key: "ink", label: "Ink (títulos/valores)", varName: "--color-ink" },
-  { key: "lime", label: "Lima (acento)", varName: "--color-lime" },
-  { key: "onLime", label: "Texto sobre lima", varName: "--color-on-lime" },
-  { key: "bg", label: "Fundo da página", varName: "--color-surface-1" },
-  { key: "surface2", label: "Superfície 2 (chips/seções)", varName: "--color-surface-2" },
-  { key: "border", label: "Borda / divisor", varName: "--color-border" },
-  { key: "body", label: "Texto corpo", varName: "--color-text-secondary" },
-  { key: "muted", label: "Texto muted", varName: "--color-text-tertiary" },
-  { key: "positive", label: "Positivo (Pago)", varName: "--color-positive" },
-  { key: "negative", label: "Negativo (Falha)", varName: "--color-negative" },
-  { key: "warning", label: "Alerta", varName: "--color-warning" },
+type CorCampo = { key: string; label: string; varName: string; dica?: string; secao: "Fundos" | "Texto" | "Marca" | "Status" };
+const COR_CAMPOS: CorCampo[] = [
+  // FUNDOS — os mais procurados, então vêm primeiro e com nome explícito.
+  { key: "bg", label: "Fundo da PÁGINA", varName: "--color-surface-1", dica: "o canvas atrás de tudo", secao: "Fundos" },
+  { key: "cardBg", label: "Fundo dos CARDS", varName: "--color-white", dica: "as caixas brancas", secao: "Fundos" },
+  { key: "surface2", label: "Fundo de chips / seções", varName: "--color-surface-2", dica: "blocos internos", secao: "Fundos" },
+  { key: "border", label: "Borda / divisor", varName: "--color-border", secao: "Fundos" },
+  // TEXTO
+  { key: "ink", label: "Títulos e valores", varName: "--color-ink", secao: "Texto" },
+  { key: "body", label: "Texto corpo", varName: "--color-text-secondary", secao: "Texto" },
+  { key: "muted", label: "Texto secundário", varName: "--color-text-tertiary", secao: "Texto" },
+  // MARCA
+  { key: "lime", label: "Lima (acento)", varName: "--color-lime", secao: "Marca" },
+  { key: "onLime", label: "Texto sobre lima", varName: "--color-on-lime", secao: "Marca" },
+  // STATUS
+  { key: "positive", label: "Positivo (Pago)", varName: "--color-positive", secao: "Status" },
+  { key: "negative", label: "Negativo (Falha)", varName: "--color-negative", secao: "Status" },
+  { key: "warning", label: "Alerta", varName: "--color-warning", secao: "Status" },
 ];
+const SECOES_COR = ["Fundos", "Texto", "Marca", "Status"] as const;
 
 /* ===================== PADRÕES RECONHECIDOS ===================== */
 interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Textos" | "Componentes" }
@@ -193,7 +200,8 @@ interface DesignState {
 
 const DEFAULT_CORES: Record<string, string> = {
   ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f3f1ee",
-  surface2: "#f0eee9", border: "#eceae4", body: "#3f4a38", muted: "#6b7280",
+  cardBg: "#ffffff", surface2: "#f0eee9", border: "#eceae4",
+  body: "#3f4a38", muted: "#6b7280",
   positive: "#3f6212", negative: "#b42318", warning: "#92400e",
 };
 const DEFAULTS: DesignState = {
@@ -642,19 +650,25 @@ export function DesignLab() {
                     </label>
                     <RangeSimples label="Espaçamento global" v={s.tracking} min={-8} max={6} step={0.5} onChange={(v) => set({ tracking: v })} un="/100 em" />
                   </Secao>
-                  <Secao titulo="Cores (tokens)" hint="afeta app e gráficos">
-                    <div className="flex flex-col gap-[6px]">
-                      {COR_CAMPOS.map((c) => (
-                        <div key={c.key} className="flex items-center gap-2">
-                          <input type="color" value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
-                            className="w-8 h-8 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
-                          <span className="text-caption text-muted flex-1 truncate">{c.label}</span>
-                          <input value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
-                            className="w-[86px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
-                        </div>
-                      ))}
-                    </div>
-                  </Secao>
+                  {SECOES_COR.map((sec) => (
+                    <Secao key={sec} titulo={sec === "Fundos" ? "Fundos (página, cards…)" : `Cores · ${sec}`}
+                      hint={sec === "Fundos" ? "é aqui que se muda o fundo" : undefined}>
+                      <div className="flex flex-col gap-[6px]">
+                        {COR_CAMPOS.filter((c) => c.secao === sec).map((c) => (
+                          <div key={c.key} className={`flex items-center gap-2 ${sec === "Fundos" ? "bg-surface-1/60 rounded-sm px-2 py-[5px]" : ""}`}>
+                            <input type="color" value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
+                              className="w-8 h-8 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-caption text-ink truncate">{c.label}</span>
+                              {c.dica && <span className="block text-[11px] text-faint truncate">{c.dica}</span>}
+                            </span>
+                            <input value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
+                              className="w-[86px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    </Secao>
+                  ))}
                 </>
               )}
             </div>
