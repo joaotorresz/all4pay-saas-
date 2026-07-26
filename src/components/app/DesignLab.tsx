@@ -1,23 +1,25 @@
 "use client";
 
 /**
- * Laboratório de Design — editor VIVO do design system, item a item.
+ * Laboratório de Design — editor VIVO, com SELEÇÃO INDIVIDUAL de elementos.
  *
- * Três modos de trabalho, todos aplicando na hora (injeta um <style> e salva no
- * navegador; nada é escrito no código a partir daqui — é um sandbox):
+ * A diferença central: ao clicar num elemento, o Lab calcula um SELETOR ÚNICO
+ * daquele nó no DOM (caminho estrutural ancorado na sidebar ou no main) e aplica
+ * os ajustes SÓ NELE. Cada seleção vira um cartão próprio no painel, com escopo
+ * alternável:
+ *   · "Só este"        → o elemento exato que você clicou (padrão)
+ *   · "Todos do tipo"  → todos que seguem o mesmo padrão reconhecido
  *
- *  1. GLOBAL — troca a FONTE do sistema (inclui o menu) e os TOKENS de cor
- *     (afetam app + gráficos, escopo .ds-visor).
- *  2. ITEM A ITEM — cada PADRÃO da interface é um alvo editável com seus próprios
- *     controles (tamanho, peso, cor, fundo, espaçamento, caixa-alta, raio,
- *     padding): título de página, subtítulo, título de card, KPI, corpo, rótulo,
- *     legenda, card, chip de ícone, botão — e o MENU (fundo, item, pílula ativa,
- *     rótulo de seção).
- *  3. SELECIONAR NA TELA — liga o "modo alvo": passe o mouse (destaca) e clique
- *     em qualquer elemento; o Lab RECONHECE o padrão e abre os controles dele.
+ * Reconhecimento de padrão: título de página, subtítulo, título de card, KPI,
+ * corpo, rótulo, legenda, item de menu, pílula ativa, card, chip, botão…
  *
- * "Copiar para o Claude Code" gera um bloco (global + overrides por alvo, com os
- * seletores) que você cola no chat — e eu promovo ao código (globals.css/tailwind).
+ * Camadas do painel:
+ *   1. Selecionados  — item a item, individual (o que você pediu)
+ *   2. Por padrão    — mexe em todos de um tipo de uma vez (atalho)
+ *   3. Global        — fonte/cores/tracking do sistema inteiro
+ *
+ * Tudo é sandbox: injeta um <style> e salva no navegador; nada vai pro código
+ * sozinho. "Copiar para o Claude Code" exporta para eu promover ao design system.
  */
 import * as React from "react";
 import { Icon } from "@/components/ui";
@@ -25,8 +27,9 @@ import { Icon } from "@/components/ui";
 const KEY = "a4p_designlab";
 const STYLE_ID = "a4p-designlab-style";
 
-/* ============================ FONTES (global) ============================ */
+/* ============================== FONTES ============================== */
 const FONTS: { id: string; label: string; stack: string }[] = [
+  { id: "", label: "— herdar —", stack: "" },
   { id: "hanken", label: "Hanken Grotesk", stack: '"Hanken Grotesk Variable","Hanken Grotesk",sans-serif' },
   { id: "roobert", label: "Roobert", stack: '"Roobert",sans-serif' },
   { id: "boldonse", label: "Boldonse", stack: '"Boldonse",sans-serif' },
@@ -34,9 +37,10 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   { id: "geist", label: "Geist Mono", stack: '"Geist Mono Variable",ui-monospace,monospace' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
-const stackDe = (id: string) => FONTS.find((f) => f.id === id)?.stack ?? FONTS[0].stack;
+const FONTS_GLOBAL = FONTS.filter((f) => f.id);
+const stackDe = (id: string) => FONTS.find((f) => f.id === id)?.stack ?? "";
 
-/* ======================== TOKENS DE COR (global) ======================== */
+/* ========================= TOKENS DE COR (global) ========================= */
 const COR_CAMPOS: { key: string; label: string; varName: string }[] = [
   { key: "ink", label: "Ink (títulos/valores)", varName: "--color-ink" },
   { key: "lime", label: "Lima (acento)", varName: "--color-lime" },
@@ -51,137 +55,140 @@ const COR_CAMPOS: { key: string; label: string; varName: string }[] = [
   { key: "warning", label: "Alerta", varName: "--color-warning" },
 ];
 
-/* ===================== ALVOS (edição item a item) ===================== */
-type Prop = "size" | "weight" | "tracking" | "transform" | "color" | "bg" | "radius" | "padding";
-
-interface TargetDef {
-  id: string;
-  label: string;
-  group: "Menu" | "Textos" | "Componentes";
-  /** Seletor CSS onde as regras são aplicadas (aceita lista separada por vírgula). */
-  selector: string;
-  /** Onde a COR é aplicada, se diferente do selector (ex.: glifo do chip, texto do item ativo). */
-  colorSelector?: string;
-  /** Seletor usado no "selecionar na tela" (closest); default = selector. */
-  pick?: string;
-  props: Prop[];
-  /** Valores-base p/ posicionar os controles (não são emitidos até você mexer). */
-  base?: Partial<Record<Prop, number | string>>;
-}
-
-// Ordem = prioridade no "selecionar na tela" (específico → genérico).
-const TARGETS: TargetDef[] = [
-  // ---- MENU (lateral, fora do escopo .ds-visor) ----
-  {
-    id: "menuActive", label: "Menu · item ativo (pílula)", group: "Menu",
-    selector: '.a4p-sidebar nav a[aria-current="page"]',
-    colorSelector: '.a4p-sidebar nav a[aria-current="page"] span,.a4p-sidebar nav a[aria-current="page"] svg',
-    props: ["bg", "color", "radius", "size", "weight"],
-    base: { bg: "#e1ff00", color: "#11190c", radius: 12, size: 15, weight: 600 },
-  },
-  {
-    id: "menuItem", label: "Menu · item (inativo)", group: "Menu",
-    selector: '.a4p-sidebar nav a span',
-    pick: '.a4p-sidebar nav a',
-    props: ["size", "weight", "color", "tracking"],
-    base: { size: 15, weight: 500, color: "#6b7280" },
-  },
-  {
-    id: "menuLabel", label: "Menu · rótulo de seção", group: "Menu",
-    selector: '.a4p-sidebar nav > div > span',
-    props: ["size", "weight", "color", "tracking", "transform"],
-    base: { size: 12, weight: 600, color: "#959595" },
-  },
-  {
-    id: "menuBg", label: "Menu · fundo", group: "Menu",
-    selector: '.a4p-sidebar',
-    props: ["bg"],
-    base: { bg: "#ffffff" },
-  },
-  // ---- TEXTOS (escopo .ds-visor) ----
-  {
-    id: "kpi", label: "Valor / número-herói (KPI)", group: "Textos",
-    selector: '.ds-visor .text-value-lg,.ds-visor .a4p-num',
-    props: ["size", "weight", "color", "tracking"],
-    base: { size: 36, weight: 600, color: "#11190c" },
-  },
-  {
-    id: "h1", label: "Título da página (H1)", group: "Textos",
-    selector: '.ds-visor h1,.ds-visor .text-h1',
-    props: ["size", "weight", "color", "tracking", "transform"],
-    base: { size: 35, weight: 600, color: "#11190c" },
-  },
-  {
-    id: "h2", label: "Subtítulo / seção (H2)", group: "Textos",
-    selector: '.ds-visor h2,.ds-visor .text-h2',
-    props: ["size", "weight", "color", "tracking", "transform"],
-    base: { size: 30, weight: 600, color: "#11190c" },
-  },
-  {
-    id: "h3", label: "Título de card (H3)", group: "Textos",
-    selector: '.ds-visor h3,.ds-visor .text-h3',
-    props: ["size", "weight", "color", "tracking", "transform"],
-    base: { size: 18, weight: 600, color: "#11190c" },
-  },
-  {
-    id: "label", label: "Rótulo (label)", group: "Textos",
-    selector: '.ds-visor .text-label',
-    props: ["size", "weight", "color", "tracking"],
-    base: { size: 15, weight: 500, color: "#3f4a38" },
-  },
-  {
-    id: "body", label: "Corpo (texto)", group: "Textos",
-    selector: '.ds-visor .text-body',
-    props: ["size", "weight", "color", "tracking"],
-    base: { size: 16, weight: 400, color: "#3f4a38" },
-  },
-  {
-    id: "caption", label: "Legenda (caption)", group: "Textos",
-    selector: '.ds-visor .text-caption',
-    props: ["size", "weight", "color", "tracking", "transform"],
-    base: { size: 13, weight: 400, color: "#6b7280" },
-  },
-  // ---- COMPONENTES (escopo .ds-visor) ----
-  {
-    id: "iconTile", label: "Chip de ícone (IconTile)", group: "Componentes",
-    selector: '.ds-visor [data-icontile]',
-    colorSelector: '.ds-visor [data-icontile] svg',
-    props: ["bg", "color", "radius"],
-    base: { bg: "#11190c", color: "#e1ff00", radius: 12 },
-  },
-  {
-    id: "card", label: "Card (caixa branca)", group: "Componentes",
-    selector: '.ds-visor [data-card="1"]',
-    props: ["bg", "radius", "padding"],
-    base: { bg: "#ffffff", radius: 16, padding: 24 },
-  },
-  {
-    id: "button", label: "Botão", group: "Componentes",
-    selector: '.ds-visor button',
-    props: ["size", "weight", "radius"],
-    base: { size: 15, weight: 500, radius: 999 },
-  },
+/* ===================== PADRÕES RECONHECIDOS ===================== */
+interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Textos" | "Componentes" }
+// Ordem = prioridade (específico → genérico).
+const PADROES: Padrao[] = [
+  { id: "menuActive", label: "Menu · item ativo", grupo: "Menu", teste: '.a4p-sidebar nav a[aria-current="page"]', seletorTipo: '.a4p-sidebar nav a[aria-current="page"]' },
+  { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
+  { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
+  { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
+  { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
+  { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
+  { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
+  { id: "h3", label: "Título de card (H3)", grupo: "Textos", teste: ".ds-visor h3,.ds-visor .text-h3", seletorTipo: ".ds-visor h3,.ds-visor .text-h3" },
+  { id: "iconTile", label: "Chip de ícone", grupo: "Componentes", teste: ".ds-visor [data-icontile]", seletorTipo: ".ds-visor [data-icontile]" },
+  { id: "card", label: "Card", grupo: "Componentes", teste: '.ds-visor [data-card="1"]', seletorTipo: '.ds-visor [data-card="1"]' },
+  { id: "button", label: "Botão", grupo: "Componentes", teste: ".ds-visor button", seletorTipo: ".ds-visor button" },
+  { id: "label", label: "Rótulo", grupo: "Textos", teste: ".ds-visor .text-label", seletorTipo: ".ds-visor .text-label" },
+  { id: "caption", label: "Legenda", grupo: "Textos", teste: ".ds-visor .text-caption", seletorTipo: ".ds-visor .text-caption" },
+  { id: "body", label: "Corpo", grupo: "Textos", teste: ".ds-visor .text-body", seletorTipo: ".ds-visor .text-body" },
+  // Papéis amplos usados pela aba "Fontes". `teste` nunca casa: não entram no
+  // picker (seriam genéricos demais), só na atribuição por papel.
+  { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
+  { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
+  { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
 ];
 
-const PROP_META: Record<Prop, { label: string; kind: "range" | "color" | "seg"; min?: number; max?: number; step?: number; unidade?: string }> = {
-  size: { label: "Tamanho", kind: "range", min: 8, max: 72, unidade: "px" },
-  weight: { label: "Peso", kind: "range", min: 300, max: 800, step: 100 },
-  tracking: { label: "Espaçamento", kind: "range", min: -6, max: 4, step: 0.5, unidade: "/100 em" },
-  transform: { label: "Caixa", kind: "seg" },
-  color: { label: "Cor", kind: "color" },
-  bg: { label: "Fundo", kind: "color" },
-  radius: { label: "Raio", kind: "range", min: 0, max: 999, unidade: "px" },
-  padding: { label: "Padding", kind: "range", min: 0, max: 48, unidade: "px" },
+/** Papéis tipográficos da aba "Fontes" — uma fonte (e tamanho) por papel. */
+const PAPEIS: { id: string; label: string; dica: string }[] = [
+  { id: "h1", label: "Título da página", dica: "“Bem-vindo, João!”" },
+  { id: "h2", label: "Subtítulo / seção", dica: "títulos de bloco" },
+  { id: "h3", label: "Título de card", dica: "“Você gastou”" },
+  { id: "numeros", label: "Números / dinheiro", dica: "R$ 243.586,52" },
+  { id: "body", label: "Corpo", dica: "parágrafos" },
+  { id: "label", label: "Rótulos", dica: "labels de campo" },
+  { id: "caption", label: "Legendas", dica: "textos pequenos" },
+  { id: "button", label: "Botões", dica: "ações" },
+  { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
+  { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
+];
+
+function padraoDe(el: Element): Padrao | null {
+  for (const p of PADROES) { try { if (el.closest(p.teste)) return p; } catch { /* ignore */ } }
+  return null;
+}
+
+/* ============ SELETOR ÚNICO (caminho estrutural do elemento) ============ */
+/** Âncoras estáveis: a sidebar e o main do app. */
+function raizDe(el: Element): { no: Element; prefixo: string } | null {
+  const side = el.closest(".a4p-sidebar");
+  if (side) return { no: side, prefixo: ".a4p-sidebar" };
+  const main = el.closest("main.ds-visor") ?? el.closest(".ds-visor");
+  if (main) return { no: main, prefixo: ".ds-visor" };
+  return null;
+}
+
+/** Caminho `.raiz > tag:nth-of-type(n) > …` que identifica UM elemento. */
+function caminhoUnico(el: Element): string | null {
+  const raiz = raizDe(el);
+  if (!raiz) return null;
+  if (el === raiz.no) return raiz.prefixo;
+  const partes: string[] = [];
+  let cur: Element | null = el;
+  while (cur && cur !== raiz.no && partes.length < 20) {
+    const pai: Element | null = cur.parentElement;
+    if (!pai) return null;
+    const tag = cur.tagName.toLowerCase();
+    const irmaos = Array.from(pai.children).filter((c) => c.tagName === cur!.tagName);
+    partes.unshift(irmaos.length > 1 ? `${tag}:nth-of-type(${irmaos.indexOf(cur) + 1})` : tag);
+    cur = pai;
+  }
+  if (cur !== raiz.no) return null;
+  return `${raiz.prefixo} > ${partes.join(" > ")}`;
+}
+
+/** Sobe um nível no caminho (para pegar o container). */
+function caminhoPai(sel: string): string | null {
+  const i = sel.lastIndexOf(" > ");
+  if (i < 0) return null;
+  const p = sel.slice(0, i);
+  return p.includes(">") || p === ".a4p-sidebar" || p === ".ds-visor" ? p : null;
+}
+
+const contaAlvos = (sel: string): number => {
+  try { return document.querySelectorAll(sel).length; } catch { return 0; }
 };
 
-/* =============================== ESTADO =============================== */
-type TargetOverrides = Partial<Record<Prop, number | string>>;
+/* ============================ PROPRIEDADES ============================ */
+type Prop =
+  | "fonte" | "size" | "weight" | "tracking" | "lineHeight" | "transform" | "align"
+  | "color" | "bg" | "radius" | "padding" | "margin" | "borderW" | "borderColor"
+  | "opacity" | "texto";
+
+const PROPS_META: Record<Prop, { label: string; kind: "range" | "color" | "seg" | "font" | "text"; min?: number; max?: number; step?: number; un?: string; opcoes?: { v: string; label: string }[] }> = {
+  fonte: { label: "Fonte", kind: "font" },
+  size: { label: "Tamanho", kind: "range", min: 8, max: 96, un: "px" },
+  weight: { label: "Peso", kind: "range", min: 100, max: 900, step: 100 },
+  tracking: { label: "Espaçamento", kind: "range", min: -8, max: 10, step: 0.5, un: "/100 em" },
+  lineHeight: { label: "Entrelinha", kind: "range", min: 80, max: 220, step: 5, un: "%" },
+  transform: { label: "Caixa", kind: "seg", opcoes: [{ v: "none", label: "Aa" }, { v: "uppercase", label: "AA" }, { v: "lowercase", label: "aa" }, { v: "capitalize", label: "Ab" }] },
+  align: { label: "Alinhar", kind: "seg", opcoes: [{ v: "left", label: "⌐" }, { v: "center", label: "≡" }, { v: "right", label: "¬" }] },
+  color: { label: "Cor do texto", kind: "color" },
+  bg: { label: "Fundo", kind: "color" },
+  radius: { label: "Raio", kind: "range", min: 0, max: 999, un: "px" },
+  padding: { label: "Padding", kind: "range", min: 0, max: 64, un: "px" },
+  margin: { label: "Margem", kind: "range", min: 0, max: 64, un: "px" },
+  borderW: { label: "Borda (espessura)", kind: "range", min: 0, max: 8, un: "px" },
+  borderColor: { label: "Borda (cor)", kind: "color" },
+  opacity: { label: "Opacidade", kind: "range", min: 0, max: 100, un: "%" },
+  texto: { label: "Texto", kind: "text" },
+};
+
+const ORDEM_PROPS: Prop[] = [
+  "texto", "fonte", "size", "weight", "tracking", "lineHeight", "transform", "align",
+  "color", "bg", "radius", "padding", "margin", "borderW", "borderColor", "opacity",
+];
+
+type Overrides = Partial<Record<Prop, number | string>>;
+
+/* ============================== ESTADO ============================== */
+interface Selecao {
+  key: string;
+  seletor: string;      // caminho único do elemento
+  padraoId: string;     // padrão reconhecido (para o escopo "todos do tipo")
+  rotulo: string;
+  amostra: string;      // trecho do texto, p/ você reconhecer no painel
+  escopo: "este" | "tipo";
+  ov: Overrides;
+}
 interface DesignState {
   font: string;
   numMesmaFonte: boolean;
-  tracking: number; // ×100 (−2 = −0.02em) — tracking global do app
+  tracking: number;
   cores: Record<string, string>;
-  targets: Record<string, TargetOverrides>;
+  selecoes: Selecao[];
+  padroes: Record<string, Overrides>; // edição por padrão (todos do tipo)
 }
 
 const DEFAULT_CORES: Record<string, string> = {
@@ -191,7 +198,7 @@ const DEFAULT_CORES: Record<string, string> = {
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,
-  cores: { ...DEFAULT_CORES }, targets: {},
+  cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {},
 };
 
 function carregar(): DesignState {
@@ -203,38 +210,55 @@ function carregar(): DesignState {
     return {
       ...DEFAULTS, ...p,
       cores: { ...DEFAULTS.cores, ...(p.cores ?? {}) },
-      targets: { ...(p.targets ?? {}) },
+      selecoes: Array.isArray(p.selecoes) ? p.selecoes : [],
+      padroes: p.padroes && typeof p.padroes === "object" ? p.padroes : {},
     };
   } catch { return DEFAULTS; }
 }
 
-/* ============================ GERAÇÃO DE CSS ============================ */
-function declFor(p: Prop, v: number | string): string {
+/* =========================== GERAÇÃO DE CSS =========================== */
+function decl(p: Prop, v: number | string): string | null {
   switch (p) {
+    case "fonte": { const s = stackDe(String(v)); return s ? `font-family:${s} !important` : null; }
     case "size": return `font-size:${v}px !important`;
     case "weight": return `font-weight:${v} !important`;
     case "tracking": return `letter-spacing:${(Number(v) / 100).toFixed(3)}em !important`;
+    case "lineHeight": return `line-height:${Number(v) / 100} !important`;
     case "transform": return `text-transform:${v} !important`;
+    case "align": return `text-align:${v} !important`;
     case "color": return `color:${v} !important`;
     case "bg": return `background-color:${v} !important`;
     case "radius": return `border-radius:${v}px !important`;
     case "padding": return `padding:${v}px !important`;
+    case "margin": return `margin:${v}px !important`;
+    case "borderW": return `border-width:${v}px !important;border-style:solid !important`;
+    case "borderColor": return `border-color:${v} !important`;
+    case "opacity": return `opacity:${Number(v) / 100} !important`;
+    case "texto": return null; // aplicado via DOM
   }
 }
 
-function ruleForTarget(t: TargetDef, ov: TargetOverrides): string {
-  const main: string[] = [];
-  let corExtra = "";
-  for (const p of t.props) {
+/** Props que devem descer para os filhos (senão a classe do filho vence). */
+const HERDA: Prop[] = ["fonte", "size", "weight", "tracking", "lineHeight", "transform", "color"];
+
+function regra(seletor: string, ov: Overrides): string {
+  const proprio: string[] = [];
+  const herdado: string[] = [];
+  for (const p of ORDEM_PROPS) {
     if (!(p in ov)) continue;
-    const v = ov[p]!;
-    if (p === "color" && t.colorSelector) { corExtra = `${t.colorSelector}{${declFor("color", v)};}`; continue; }
-    main.push(declFor(p, v));
+    const d = decl(p, ov[p]!);
+    if (!d) continue;
+    proprio.push(d);
+    if (HERDA.includes(p)) herdado.push(d);
   }
-  const parts: string[] = [];
-  if (main.length) parts.push(`${t.selector}{${main.join(";")}}`);
-  if (corExtra) parts.push(corExtra);
-  return parts.join("\n");
+  const out: string[] = [];
+  if (proprio.length) out.push(`${seletor}{${proprio.join(";")}}`);
+  if (herdado.length) {
+    // desce p/ os filhos (inclui svg do ícone, que usa currentColor)
+    const filhos = seletor.split(",").map((s) => `${s.trim()} *`).join(",");
+    out.push(`${filhos}{${herdado.join(";")}}`);
+  }
+  return out.join("\n");
 }
 
 function montarCSS(s: DesignState): string {
@@ -242,102 +266,157 @@ function montarCSS(s: DesignState): string {
   const tr = (s.tracking / 100).toFixed(3);
   const vars = COR_CAMPOS.map((c) => `${c.varName}:${s.cores[c.key]};`).join("");
   const out: string[] = [
-    // Global: tokens de cor (app + gráficos)
     `html:not(.dark) .ds-visor{${vars}}`,
-    // Global: fonte (inclui o MENU) + tracking base do app
     `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *{font-family:${stack};}`,
     `.ds-visor,.ds-visor *{letter-spacing:${tr}em;}`,
   ];
-  if (s.numMesmaFonte) {
-    out.push(`.ds-visor .tabular-nums,.ds-visor .a4p-num,.ds-visor .a4p-num *{font-family:${stack} !important;}`);
+  if (s.numMesmaFonte) out.push(`.ds-visor .tabular-nums,.ds-visor .a4p-num,.ds-visor .a4p-num *{font-family:${stack} !important;}`);
+
+  // 2) por padrão (todos do tipo)
+  for (const p of PADROES) {
+    const ov = s.padroes[p.id];
+    if (ov && Object.keys(ov).length) { const r = regra(p.seletorTipo, ov); if (r) out.push(r); }
   }
-  // Item a item
-  for (const t of TARGETS) {
-    const ov = s.targets[t.id];
-    if (ov && Object.keys(ov).length) { const r = ruleForTarget(t, ov); if (r) out.push(r); }
+  // 3) individuais — por último, para vencerem o padrão
+  for (const sel of s.selecoes) {
+    if (!Object.keys(sel.ov).length) continue;
+    const alvo = sel.escopo === "tipo"
+      ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor)
+      : sel.seletor;
+    const r = regra(alvo, sel.ov);
+    if (r) out.push(r);
   }
   return out.join("\n");
 }
 
-function aplicar(s: DesignState) {
+function aplicarCSS(s: DesignState) {
   if (typeof document === "undefined") return;
   let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
   if (!el) { el = document.createElement("style"); el.id = STYLE_ID; document.head.appendChild(el); }
   el.textContent = montarCSS(s);
 }
 
-/** Injeta o estilo salvo assim que a página monta (antes de abrir o painel). */
-export function DesignLabStyle() {
-  React.useEffect(() => { aplicar(carregar()); }, []);
-  return null;
-}
-
-/* ====================== SELECIONAR NA TELA (pick) ====================== */
-function acharAlvo(el: Element | null): TargetDef | null {
-  if (!el) return null;
-  for (const t of TARGETS) {
-    try { if (el.closest(t.pick || t.selector)) return t; } catch { /* seletor inválido */ }
+/** Textos editados: aplicados no DOM (CSS não troca conteúdo). */
+function aplicarTextos(s: DesignState) {
+  if (typeof document === "undefined") return;
+  for (const sel of s.selecoes) {
+    const t = sel.ov.texto;
+    if (typeof t !== "string") continue;
+    const alvo = sel.escopo === "tipo"
+      ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor)
+      : sel.seletor;
+    try {
+      document.querySelectorAll(alvo).forEach((el) => {
+        if (el.childElementCount === 0 && el.textContent !== t) el.textContent = t;
+      });
+    } catch { /* ignore */ }
   }
+}
+
+export function DesignLabStyle() {
+  React.useEffect(() => {
+    const s = carregar();
+    aplicarCSS(s);
+    aplicarTextos(s);
+  }, []);
   return null;
 }
 
-/* ============================== COMPONENTE ============================== */
+/* ============================= COMPONENTE ============================= */
 export function DesignLab() {
   const [open, setOpen] = React.useState(false);
   const [s, setS] = React.useState<DesignState>(DEFAULTS);
   const [copiado, setCopiado] = React.useState(false);
   const [picking, setPicking] = React.useState(false);
-  const [aberto, setAberto] = React.useState<Set<string>>(new Set());
   const [hover, setHover] = React.useState<{ rect: DOMRect; label: string } | null>(null);
-  const selRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const [expandido, setExpandido] = React.useState<string | null>(null);
+  const [aba, setAba] = React.useState<"itens" | "fontes" | "padroes" | "global">("itens");
+  const [foco, setFoco] = React.useState<DOMRect | null>(null);
+  const refs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
   React.useEffect(() => { setS(carregar()); }, []);
   React.useEffect(() => {
-    aplicar(s);
+    aplicarCSS(s);
+    aplicarTextos(s);
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }
+  }, [s]);
+  // textos precisam ser reaplicados quando o React re-renderiza
+  React.useEffect(() => {
+    if (!s.selecoes.some((x) => typeof x.ov.texto === "string")) return;
+    const t = setInterval(() => aplicarTextos(s), 900);
+    return () => clearInterval(t);
   }, [s]);
 
   const set = (patch: Partial<DesignState>) => setS((p) => ({ ...p, ...patch }));
   const setCor = (k: string, v: string) => setS((p) => ({ ...p, cores: { ...p.cores, [k]: v } }));
-  const setProp = (tid: string, p: Prop, v: number | string) =>
-    setS((prev) => ({ ...prev, targets: { ...prev.targets, [tid]: { ...prev.targets[tid], [p]: v } } }));
-  const clearProp = (tid: string, p: Prop) =>
-    setS((prev) => {
-      const nt = { ...prev.targets[tid] }; delete nt[p];
-      const targets = { ...prev.targets };
-      if (Object.keys(nt).length) targets[tid] = nt; else delete targets[tid];
-      return { ...prev, targets };
-    });
-  const clearTarget = (tid: string) =>
-    setS((prev) => { const targets = { ...prev.targets }; delete targets[tid]; return { ...prev, targets }; });
-  const resetTudo = () => setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, targets: {} });
 
-  const toggleAberto = (id: string) =>
-    setAberto((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const setSelProp = (key: string, p: Prop, v: number | string) =>
+    setS((prev) => ({ ...prev, selecoes: prev.selecoes.map((x) => x.key === key ? { ...x, ov: { ...x.ov, [p]: v } } : x) }));
+  const clearSelProp = (key: string, p: Prop) =>
+    setS((prev) => ({ ...prev, selecoes: prev.selecoes.map((x) => { if (x.key !== key) return x; const ov = { ...x.ov }; delete ov[p]; return { ...x, ov }; }) }));
+  const removerSel = (key: string) => setS((prev) => ({ ...prev, selecoes: prev.selecoes.filter((x) => x.key !== key) }));
+  const setEscopo = (key: string, escopo: "este" | "tipo") =>
+    setS((prev) => ({ ...prev, selecoes: prev.selecoes.map((x) => x.key === key ? { ...x, escopo } : x) }));
+  const subirNivel = (key: string) =>
+    setS((prev) => ({
+      ...prev,
+      selecoes: prev.selecoes.map((x) => {
+        if (x.key !== key) return x;
+        const pai = caminhoPai(x.seletor);
+        if (!pai) return x;
+        let rot = x.rotulo, am = x.amostra;
+        try { const el = document.querySelector(pai); if (el) { rot = (padraoDe(el)?.label ?? el.tagName.toLowerCase()) + " (container)"; am = (el.textContent ?? "").trim().slice(0, 42); } } catch { /* ignore */ }
+        return { ...x, seletor: pai, rotulo: rot, amostra: am };
+      }),
+    }));
 
-  const selecionar = React.useCallback((id: string) => {
-    setAberto((prev) => new Set(prev).add(id));
-    setOpen(true);
-    setTimeout(() => selRefs.current[id]?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
-  }, []);
+  const setPadProp = (id: string, p: Prop, v: number | string) =>
+    setS((prev) => ({ ...prev, padroes: { ...prev.padroes, [id]: { ...prev.padroes[id], [p]: v } } }));
+  const clearPadProp = (id: string, p: Prop) =>
+    setS((prev) => { const ov = { ...prev.padroes[id] }; delete ov[p]; const padroes = { ...prev.padroes }; if (Object.keys(ov).length) padroes[id] = ov; else delete padroes[id]; return { ...prev, padroes }; });
 
-  // Modo "selecionar na tela"
+  const resetTudo = () => setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {} });
+
+  /* ---- realce de um seletor (hover no painel) ---- */
+  const realcar = (seletor: string | null) => {
+    if (!seletor) { setFoco(null); return; }
+    try { const el = document.querySelector(seletor); setFoco(el ? el.getBoundingClientRect() : null); } catch { setFoco(null); }
+  };
+
+  /* ---- modo selecionar na tela ---- */
   React.useEffect(() => {
     if (!picking) { setHover(null); return; }
-    const dentroDoLab = (el: EventTarget | null) => el instanceof Element && !!el.closest("[data-designlab]");
+    const noLab = (t: EventTarget | null) => t instanceof Element && !!t.closest("[data-designlab]");
     const onMove = (e: MouseEvent) => {
-      if (dentroDoLab(e.target)) { setHover(null); return; }
-      const t = acharAlvo(e.target as Element);
-      if (!t) { setHover(null); return; }
-      const node = (e.target as Element).closest(t.pick || t.selector);
-      if (node) setHover({ rect: node.getBoundingClientRect(), label: t.label });
+      if (noLab(e.target)) { setHover(null); return; }
+      const el = e.target as Element;
+      if (!(el instanceof Element)) return;
+      const p = padraoDe(el);
+      setHover({ rect: el.getBoundingClientRect(), label: p?.label ?? el.tagName.toLowerCase() });
     };
     const onClick = (e: MouseEvent) => {
-      if (dentroDoLab(e.target)) return;
-      const t = acharAlvo(e.target as Element);
-      if (!t) return;
+      if (noLab(e.target)) return;
+      const el = e.target as Element;
+      if (!(el instanceof Element)) return;
+      const seletor = caminhoUnico(el);
+      if (!seletor) return;
       e.preventDefault(); e.stopPropagation();
-      setPicking(false); selecionar(t.id);
+      const p = padraoDe(el);
+      const key = `s${Date.now().toString(36)}`;
+      const nova: Selecao = {
+        key, seletor, padraoId: p?.id ?? "", rotulo: p?.label ?? el.tagName.toLowerCase(),
+        amostra: (el.textContent ?? "").trim().slice(0, 42), escopo: "este", ov: {},
+      };
+      // Se este elemento já foi selecionado antes, reabre o cartão existente.
+      let alvoKey = key;
+      setS((prev) => {
+        const existe = prev.selecoes.find((x) => x.seletor === seletor);
+        if (existe) { alvoKey = existe.key; return prev; }
+        return { ...prev, selecoes: [nova, ...prev.selecoes] };
+      });
+      setExpandido(alvoKey);
+      setPicking(false); setOpen(true); setAba("itens");
+      setTimeout(() => refs.current[alvoKey]?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPicking(false); };
     document.addEventListener("mousemove", onMove, true);
@@ -348,143 +427,195 @@ export function DesignLab() {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKey, true);
     };
-  }, [picking, selecionar]);
+  }, [picking]);
 
   const instrucao = React.useMemo(() => gerarInstrucao(s), [s]);
-  const copiar = () => {
-    try { void navigator.clipboard?.writeText(instrucao); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* ignore */ }
-  };
+  const copiar = () => { try { void navigator.clipboard?.writeText(instrucao); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* ignore */ } };
 
-  const nOverrides = Object.keys(s.targets).length;
-  const grupos: TargetDef["group"][] = ["Menu", "Textos", "Componentes"];
+  const nSel = s.selecoes.filter((x) => Object.keys(x.ov).length).length;
+  const nPad = Object.keys(s.padroes).length;
+  const nFontes = PAPEIS.filter((p) => s.padroes[p.id]?.fonte).length;
 
   return (
     <>
-      {/* Botão flutuante */}
-      <button
-        data-designlab
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Laboratório de Design"
-        title="Laboratório de Design (editar o DS na unha)"
-        className="fixed bottom-5 left-5 z-[85] inline-flex items-center gap-2 rounded-pill bg-ink text-white pl-3 pr-4 py-[9px] shadow-popover hover:opacity-90"
-      >
+      <button data-designlab onClick={() => setOpen((o) => !o)} aria-label="Laboratório de Design"
+        title="Laboratório de Design" className="fixed bottom-5 left-5 z-[85] inline-flex items-center gap-2 rounded-pill bg-ink text-white pl-3 pr-4 py-[9px] shadow-popover hover:opacity-90">
         <span className="w-[26px] h-[26px] rounded-md bg-lime inline-flex items-center justify-center">
           <Icon name="palette" size={15} color="var(--color-on-lime)" />
         </span>
         <span className="text-[14px] font-semibold">Design</span>
       </button>
 
-      {/* Realce do "selecionar na tela" */}
-      {picking && hover && (
-        <div data-designlab className="fixed z-[95] pointer-events-none rounded-[6px]"
-          style={{
-            left: hover.rect.left - 2, top: hover.rect.top - 2,
-            width: hover.rect.width + 4, height: hover.rect.height + 4,
-            outline: "2px solid var(--color-lime)", background: "rgba(225,255,0,0.12)",
-            boxShadow: "0 0 0 1px rgba(17,25,12,0.6)",
-          }}>
-          <span className="absolute -top-6 left-0 text-[11px] font-semibold px-2 py-[2px] rounded-md whitespace-nowrap"
-            style={{ background: "var(--color-ink,#11190c)", color: "var(--color-lime,#e1ff00)" }}>
-            {hover.label}
-          </span>
-        </div>
-      )}
+      {/* realce (picker) */}
+      {picking && hover && <Realce rect={hover.rect} label={hover.label} />}
+      {/* realce (hover no painel) */}
+      {!picking && foco && <Realce rect={foco} label="" sutil />}
+
       {picking && (
         <div data-designlab className="fixed top-3 left-1/2 -translate-x-1/2 z-[96] bg-ink text-white text-[13px] font-medium px-4 py-2 rounded-pill shadow-popover flex items-center gap-2">
           <span className="w-2 h-2 rounded-pill bg-lime animate-pulse" />
-          Clique num elemento para editá-lo · Esc para sair
+          Clique no elemento que quer editar · Esc para sair
         </div>
       )}
 
       {open && (
         <>
           <div data-designlab className="fixed inset-0 z-[89] bg-black/20" onClick={() => setOpen(false)} aria-hidden />
-          <aside data-designlab className="fixed top-0 right-0 z-[90] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col shadow-popover" role="dialog" aria-label="Laboratório de Design">
-            {/* header */}
-            <header className="flex items-center gap-2 px-4 h-[56px] border-b border-border-soft shrink-0">
+          <aside data-designlab className="fixed top-0 right-0 z-[90] h-full w-full sm:w-[430px] bg-white border-l border-border flex flex-col shadow-popover" role="dialog" aria-label="Laboratório de Design">
+            <header className="flex items-center gap-2 px-4 h-[54px] border-b border-border-soft shrink-0">
               <span className="w-7 h-7 rounded-md bg-ink inline-flex items-center justify-center">
                 <Icon name="palette" size={15} color="var(--color-lime)" />
               </span>
-              <span className="text-[16px] font-semibold text-ink">Laboratório de Design</span>
-              <button onClick={resetTudo} title="Restaurar tudo ao padrão" className="ml-auto text-caption text-muted hover:text-ink px-2 py-1 rounded-md hover:bg-surface-2">Reset</button>
+              <span className="text-[15px] font-semibold text-ink">Laboratório de Design</span>
+              <button onClick={resetTudo} title="Restaurar tudo" className="ml-auto text-caption text-muted hover:text-ink px-2 py-1 rounded-md hover:bg-surface-2">Reset</button>
               <button onClick={() => setOpen(false)} aria-label="Fechar" className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2">
                 <Icon name="x" size={18} color="currentColor" />
               </button>
             </header>
 
-            {/* selecionar na tela */}
             <div className="px-4 pt-3 shrink-0">
-              <button
-                onClick={() => { setPicking((p) => !p); if (!picking) setOpen(false); }}
-                className={`w-full rounded-md py-[10px] text-label font-medium inline-flex items-center justify-center gap-2 border transition-colors ${picking ? "bg-lime text-on-lime border-lime" : "bg-surface-2 text-ink border-border hover:bg-surface-3"}`}
-              >
+              <button onClick={() => { setPicking(true); setOpen(false); }}
+                className="w-full rounded-md py-[10px] text-label font-medium inline-flex items-center justify-center gap-2 border bg-lime text-on-lime border-lime hover:opacity-90">
                 <Icon name="target" size={16} color="currentColor" />
-                {picking ? "Selecionando… (clique num elemento)" : "Selecionar item na tela"}
+                Selecionar item na tela
               </button>
+              <div className="flex gap-1 mt-3 bg-surface-2 rounded-md p-1">
+                {([["itens", `Itens${nSel ? ` (${nSel})` : ""}`], ["fontes", `Fontes${nFontes ? ` (${nFontes})` : ""}`], ["padroes", `Por tipo${nPad ? ` (${nPad})` : ""}`], ["global", "Global"]] as const).map(([k, lb]) => (
+                  <button key={k} onClick={() => setAba(k)}
+                    className={`flex-1 text-[11px] py-[6px] rounded-sm font-medium ${aba === k ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"}`}>{lb}</button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-6">
-              {/* GLOBAL — fonte */}
-              <Secao titulo="Global · Fonte" hint="troca a face de todo o sistema (inclui o menu)">
-                <div className="grid grid-cols-2 gap-2">
-                  {FONTS.map((f) => (
-                    <button key={f.id} onClick={() => set({ font: f.id })}
-                      className={`text-left px-3 py-2 rounded-md border text-[14px] ${s.font === f.id ? "border-ink bg-surface-2 text-ink font-semibold" : "border-border text-muted hover:text-ink"}`}
-                      style={{ fontFamily: f.stack }}>
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-                <label className="flex items-center gap-2 mt-2 text-caption text-muted cursor-pointer">
-                  <input type="checkbox" checked={s.numMesmaFonte} onChange={(e) => set({ numMesmaFonte: e.target.checked })} />
-                  Aplicar a fonte também nos números
-                </label>
-                <Range label="Espaçamento global (tracking)" v={s.tracking} min={-6} max={4} step={0.5} onChange={(v) => set({ tracking: v })} unidade="/100 em" />
-              </Secao>
-
-              {/* GLOBAL — cores */}
-              <Secao titulo="Global · Cores (tokens)" hint="afeta app e gráficos">
-                <div className="flex flex-col gap-[6px]">
-                  {COR_CAMPOS.map((c) => (
-                    <div key={c.key} className="flex items-center gap-2">
-                      <input type="color" value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
-                        className="w-8 h-8 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
-                      <span className="text-caption text-muted flex-1 truncate">{c.label}</span>
-                      <input value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
-                        className="w-[86px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
+            <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-5">
+              {/* ---------- ABA: SELECIONADOS (individual) ---------- */}
+              {aba === "itens" && (
+                s.selecoes.length === 0 ? (
+                  <div className="text-center py-10 px-4">
+                    <div className="w-12 h-12 rounded-md bg-surface-2 inline-flex items-center justify-center mb-3">
+                      <Icon name="target" size={22} color="var(--color-text-tertiary)" />
                     </div>
-                  ))}
-                </div>
-              </Secao>
-
-              {/* ITEM A ITEM — por grupo */}
-              {grupos.map((g) => (
-                <Secao key={g} titulo={`Item a item · ${g}`} hint={g === "Menu" ? "estilos do menu lateral" : "clique num alvo para editar"}>
-                  <div className="flex flex-col gap-[6px]">
-                    {TARGETS.filter((t) => t.group === g).map((t) => {
-                      const ov = s.targets[t.id] ?? {};
-                      const n = Object.keys(ov).length;
-                      const isOpen = aberto.has(t.id);
+                    <p className="m-0 text-label text-ink font-medium">Nenhum item selecionado</p>
+                    <p className="m-0 mt-1 text-caption text-muted leading-snug">
+                      Clique em <strong>Selecionar item na tela</strong> e escolha o elemento exato que você quer mudar. Só ele será alterado.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {s.selecoes.map((sel) => {
+                      const n = Object.keys(sel.ov).length;
+                      const aberto = expandido === sel.key;
+                      const alvos = typeof document !== "undefined"
+                        ? contaAlvos(sel.escopo === "tipo" ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor) : 0;
                       return (
-                        <div key={t.id} ref={(el) => { selRefs.current[t.id] = el; }}
-                          className={`rounded-md border ${n ? "border-ink/30" : "border-border"} overflow-hidden`}>
-                          <button onClick={() => toggleAberto(t.id)}
-                            className="w-full flex items-center gap-2 px-3 py-[9px] text-left hover:bg-surface-2">
-                            <Icon name={isOpen ? "chevron-down" : "chevron-right"} size={14} color="var(--color-text-tertiary)" />
-                            <span className="text-[13px] text-ink flex-1 truncate">{t.label}</span>
+                        <div key={sel.key} ref={(el) => { refs.current[sel.key] = el; }}
+                          onMouseEnter={() => realcar(sel.seletor)} onMouseLeave={() => realcar(null)}
+                          className={`rounded-md border overflow-hidden ${n ? "border-ink/30" : "border-border"}`}>
+                          <div className="flex items-center gap-2 px-3 py-[9px] hover:bg-surface-2">
+                            <button onClick={() => setExpandido(aberto ? null : sel.key)} className="flex items-center gap-2 flex-1 min-w-0 text-left">
+                              <Icon name={aberto ? "chevron-down" : "chevron-right"} size={14} color="var(--color-text-tertiary)" />
+                              <span className="min-w-0">
+                                <span className="block text-[13px] text-ink truncate">{sel.rotulo}</span>
+                                {sel.amostra && <span className="block text-[11px] text-faint truncate">“{sel.amostra}”</span>}
+                              </span>
+                            </button>
+                            {n > 0 && <span className="text-[10px] font-semibold text-on-lime bg-lime rounded-pill px-[7px] py-[1px] shrink-0">{n}</span>}
+                            <button onClick={() => removerSel(sel.key)} title="Remover seleção" className="text-faint hover:text-negative shrink-0">
+                              <Icon name="x" size={13} color="currentColor" />
+                            </button>
+                          </div>
+                          {aberto && (
+                            <div className="px-3 pb-3 pt-2 flex flex-col gap-3 border-t border-border-soft bg-surface-1/40">
+                              {/* escopo */}
+                              <div className="flex items-center gap-2">
+                                <span className="text-caption text-muted">Aplicar em</span>
+                                <div className="inline-flex rounded-md border border-border overflow-hidden ml-auto">
+                                  <button onClick={() => setEscopo(sel.key, "este")}
+                                    className={`px-2 py-1 text-[11px] ${sel.escopo === "este" ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>Só este</button>
+                                  <button onClick={() => setEscopo(sel.key, "tipo")} disabled={!sel.padraoId}
+                                    className={`px-2 py-1 text-[11px] disabled:opacity-40 ${sel.escopo === "tipo" ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>Todos do tipo</button>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-faint">{alvos} elemento{alvos === 1 ? "" : "s"} afetado{alvos === 1 ? "" : "s"}</span>
+                                <button onClick={() => subirNivel(sel.key)} className="text-[11px] text-muted hover:text-ink underline">selecionar o container ↑</button>
+                              </div>
+                              {ORDEM_PROPS.map((p) => (
+                                <Controle key={p} prop={p} valor={sel.ov[p]}
+                                  onChange={(v) => setSelProp(sel.key, p, v)} onClear={() => clearSelProp(sel.key, p)} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
+              {/* ---------- ABA: POR TIPO ---------- */}
+              {/* ---------- ABA: FONTES (uma fonte por papel) ---------- */}
+              {aba === "fontes" && (
+                <>
+                  <p className="m-0 text-[11px] text-faint leading-snug -mb-1">
+                    Cada papel pode ter a SUA fonte. Deixe em “— herdar —” para seguir a fonte global.
+                    Estes ajustes valem em todo o app (a Home é a página de teste).
+                  </p>
+                  {PAPEIS.map((papel) => {
+                    const ov = s.padroes[papel.id] ?? {};
+                    const fonteId = (ov.fonte as string) ?? "";
+                    const stack = stackDe(fonteId);
+                    return (
+                      <div key={papel.id}
+                        onMouseEnter={() => realcar(PADROES.find((p) => p.id === papel.id)?.seletorTipo ?? null)}
+                        onMouseLeave={() => realcar(null)}
+                        className={`rounded-md border p-3 flex flex-col gap-2 ${fonteId ? "border-ink/30" : "border-border"}`}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[13px] text-ink font-medium">{papel.label}</span>
+                          <span className="text-[11px] text-faint truncate">· {papel.dica}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select value={fonteId}
+                            onChange={(e) => (e.target.value ? setPadProp(papel.id, "fonte", e.target.value) : clearPadProp(papel.id, "fonte"))}
+                            className="flex-1 text-caption text-ink bg-white rounded-sm px-2 py-[6px] border border-border">
+                            {FONTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+                          </select>
+                          <input type="number" min={8} max={96}
+                            value={(ov.size as number) ?? ""} placeholder="px"
+                            onChange={(e) => (e.target.value ? setPadProp(papel.id, "size", Number(e.target.value)) : clearPadProp(papel.id, "size"))}
+                            className="w-[62px] text-caption tabular-nums text-ink bg-white rounded-sm px-2 py-[6px] border border-border" />
+                        </div>
+                        {/* amostra na fonte escolhida */}
+                        <div className="rounded-sm bg-surface-2 px-2 py-[6px] text-ink truncate"
+                          style={{ fontFamily: stack || undefined, fontSize: (ov.size as number) ?? 16 }}>
+                          {papel.id === "numeros" ? "R$ 243.586,52" : "Bem-vindo, João!"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {aba === "padroes" && (["Menu", "Textos", "Componentes"] as const).map((g) => (
+                <Secao key={g} titulo={g} hint="muda TODOS deste tipo">
+                  <div className="flex flex-col gap-[6px]">
+                    {PADROES.filter((p) => p.grupo === g).map((p) => {
+                      const ov = s.padroes[p.id] ?? {};
+                      const n = Object.keys(ov).length;
+                      const aberto = expandido === `p:${p.id}`;
+                      return (
+                        <div key={p.id} onMouseEnter={() => realcar(p.seletorTipo)} onMouseLeave={() => realcar(null)}
+                          className={`rounded-md border overflow-hidden ${n ? "border-ink/30" : "border-border"}`}>
+                          <button onClick={() => setExpandido(aberto ? null : `p:${p.id}`)} className="w-full flex items-center gap-2 px-3 py-[9px] text-left hover:bg-surface-2">
+                            <Icon name={aberto ? "chevron-down" : "chevron-right"} size={14} color="var(--color-text-tertiary)" />
+                            <span className="text-[13px] text-ink flex-1 truncate">{p.label}</span>
                             {n > 0 && <span className="text-[10px] font-semibold text-on-lime bg-lime rounded-pill px-[7px] py-[1px]">{n}</span>}
                           </button>
-                          {isOpen && (
-                            <div className="px-3 pb-3 pt-1 flex flex-col gap-3 border-t border-border-soft bg-surface-1/40">
-                              {t.props.map((p) => (
-                                <PropControl key={p} prop={p} target={t}
-                                  value={ov[p]} onChange={(v) => setProp(t.id, p, v)} onClear={() => clearProp(t.id, p)} />
+                          {aberto && (
+                            <div className="px-3 pb-3 pt-2 flex flex-col gap-3 border-t border-border-soft bg-surface-1/40">
+                              {ORDEM_PROPS.filter((x) => x !== "texto").map((x) => (
+                                <Controle key={x} prop={x} valor={ov[x]} onChange={(v) => setPadProp(p.id, x, v)} onClear={() => clearPadProp(p.id, x)} />
                               ))}
-                              {n > 0 && (
-                                <button onClick={() => clearTarget(t.id)} className="self-start text-[11px] text-muted hover:text-negative underline">
-                                  limpar este alvo
-                                </button>
-                              )}
                             </div>
                           )}
                         </div>
@@ -493,15 +624,47 @@ export function DesignLab() {
                   </div>
                 </Secao>
               ))}
+
+              {/* ---------- ABA: GLOBAL ---------- */}
+              {aba === "global" && (
+                <>
+                  <Secao titulo="Fonte do sistema" hint="muda tudo (inclui o menu)">
+                    <div className="grid grid-cols-2 gap-2">
+                      {FONTS_GLOBAL.map((f) => (
+                        <button key={f.id} onClick={() => set({ font: f.id })}
+                          className={`text-left px-3 py-2 rounded-md border text-[14px] ${s.font === f.id ? "border-ink bg-surface-2 text-ink font-semibold" : "border-border text-muted hover:text-ink"}`}
+                          style={{ fontFamily: f.stack }}>{f.label}</button>
+                      ))}
+                    </div>
+                    <label className="flex items-center gap-2 mt-2 text-caption text-muted cursor-pointer">
+                      <input type="checkbox" checked={s.numMesmaFonte} onChange={(e) => set({ numMesmaFonte: e.target.checked })} />
+                      Aplicar a fonte também nos números
+                    </label>
+                    <RangeSimples label="Espaçamento global" v={s.tracking} min={-8} max={6} step={0.5} onChange={(v) => set({ tracking: v })} un="/100 em" />
+                  </Secao>
+                  <Secao titulo="Cores (tokens)" hint="afeta app e gráficos">
+                    <div className="flex flex-col gap-[6px]">
+                      {COR_CAMPOS.map((c) => (
+                        <div key={c.key} className="flex items-center gap-2">
+                          <input type="color" value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
+                            className="w-8 h-8 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
+                          <span className="text-caption text-muted flex-1 truncate">{c.label}</span>
+                          <input value={s.cores[c.key]} onChange={(e) => setCor(c.key, e.target.value)}
+                            className="w-[86px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
+                        </div>
+                      ))}
+                    </div>
+                  </Secao>
+                </>
+              )}
             </div>
 
-            {/* rodapé: exportar */}
             <footer className="shrink-0 border-t border-border-soft p-4 flex flex-col gap-2">
               <button onClick={copiar} className="w-full rounded-md bg-ink text-white text-label font-medium py-[10px] hover:opacity-90 inline-flex items-center justify-center gap-2">
                 <Icon name={copiado ? "check" : "file-text"} size={15} color="var(--color-lime)" />
-                {copiado ? "Copiado! Cole no Claude Code" : `Copiar para o Claude Code${nOverrides ? ` (${nOverrides} alvo${nOverrides > 1 ? "s" : ""})` : ""}`}
+                {copiado ? "Copiado! Cole no Claude Code" : "Copiar para o Claude Code"}
               </button>
-              <p className="m-0 text-[11px] text-faint leading-snug">Cole o texto no chat e peça “aplique estes tokens ao design system”. As mudanças aqui são só de teste (não vão pro código sozinhas).</p>
+              <p className="m-0 text-[11px] text-faint leading-snug">Mudanças aqui são de teste (salvas só no seu navegador). Cole o texto no chat p/ eu levar ao código.</p>
             </footer>
           </aside>
         </>
@@ -510,78 +673,104 @@ export function DesignLab() {
   );
 }
 
-/* ============================ CONTROLES ============================ */
-const CAIXAS: { v: string; label: string }[] = [
-  { v: "none", label: "Aa" }, { v: "uppercase", label: "AA" },
-  { v: "lowercase", label: "aa" }, { v: "capitalize", label: "Ab" },
-];
+/* ============================== AUXILIARES ============================== */
+function Realce({ rect, label, sutil }: { rect: DOMRect; label: string; sutil?: boolean }) {
+  return (
+    <div data-designlab className="fixed z-[95] pointer-events-none rounded-[6px]"
+      style={{
+        left: rect.left - 2, top: rect.top - 2, width: rect.width + 4, height: rect.height + 4,
+        outline: `2px solid var(--color-lime)`, background: sutil ? "rgba(225,255,0,0.10)" : "rgba(225,255,0,0.16)",
+        boxShadow: "0 0 0 1px rgba(17,25,12,0.55)",
+      }}>
+      {label && (
+        <span className="absolute -top-6 left-0 text-[11px] font-semibold px-2 py-[2px] rounded-md whitespace-nowrap"
+          style={{ background: "var(--color-ink,#11190c)", color: "var(--color-lime,#e1ff00)" }}>{label}</span>
+      )}
+    </div>
+  );
+}
 
-function PropControl({ prop, target, value, onChange, onClear }: {
-  prop: Prop; target: TargetDef; value: number | string | undefined;
-  onChange: (v: number | string) => void; onClear: () => void;
-}) {
-  const meta = PROP_META[prop];
-  const base = target.base?.[prop];
-  const ativo = value !== undefined;
+function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: number | string | undefined; onChange: (v: number | string) => void; onClear: () => void }) {
+  const m = PROPS_META[prop];
+  const ativo = valor !== undefined;
 
-  if (meta.kind === "color") {
-    const v = (value as string) ?? (base as string) ?? "#000000";
+  if (m.kind === "text") {
+    return (
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-caption">
+          <span className="text-muted">{m.label}</span>
+          {ativo && <Limpar onClick={onClear} />}
+        </div>
+        <input value={(valor as string) ?? ""} placeholder="(deixe vazio p/ manter)" onChange={(e) => onChange(e.target.value)}
+          className="w-full text-caption text-ink bg-white rounded-sm px-2 py-[6px] border border-border" />
+      </div>
+    );
+  }
+  if (m.kind === "font") {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-caption text-muted flex-1">{m.label}</span>
+        <select value={(valor as string) ?? ""} onChange={(e) => (e.target.value ? onChange(e.target.value) : onClear())}
+          className="text-caption text-ink bg-white rounded-sm px-2 py-1 border border-border max-w-[170px]">
+          {FONTS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+        </select>
+        {ativo && <Limpar onClick={onClear} />}
+      </div>
+    );
+  }
+  if (m.kind === "color") {
+    const v = (valor as string) ?? "#000000";
     return (
       <div className="flex items-center gap-2">
         <input type="color" value={v} onChange={(e) => onChange(e.target.value)}
           className="w-7 h-7 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
-        <span className="text-caption text-muted flex-1">{meta.label}</span>
-        <input value={v} onChange={(e) => onChange(e.target.value)}
-          className="w-[82px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
-        {ativo && <ClearBtn onClick={onClear} />}
+        <span className="text-caption text-muted flex-1">{m.label}</span>
+        <input value={ativo ? v : ""} placeholder="—" onChange={(e) => onChange(e.target.value)}
+          className="w-[80px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
+        {ativo && <Limpar onClick={onClear} />}
       </div>
     );
   }
-  if (meta.kind === "seg") {
-    const v = (value as string) ?? (base as string) ?? "none";
+  if (m.kind === "seg") {
+    const v = (valor as string) ?? "";
     return (
       <div className="flex items-center gap-2">
-        <span className="text-caption text-muted flex-1">{meta.label}</span>
+        <span className="text-caption text-muted flex-1">{m.label}</span>
         <div className="inline-flex rounded-md border border-border overflow-hidden">
-          {CAIXAS.map((c) => (
+          {(m.opcoes ?? []).map((c) => (
             <button key={c.v} onClick={() => onChange(c.v)}
               className={`px-2 py-1 text-[12px] ${v === c.v ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>{c.label}</button>
           ))}
         </div>
-        {ativo && <ClearBtn onClick={onClear} />}
+        {ativo && <Limpar onClick={onClear} />}
       </div>
     );
   }
-  // range
-  const v = (value as number) ?? (base as number) ?? meta.min ?? 0;
+  const v = (valor as number) ?? m.min ?? 0;
   return (
     <label className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-caption">
-        <span className="text-muted">{meta.label}</span>
+        <span className="text-muted">{m.label}</span>
         <span className="flex items-center gap-2">
-          <span className={`tabular-nums font-medium ${ativo ? "text-ink" : "text-faint"}`}>{v}{meta.unidade ? ` ${meta.unidade}` : ""}</span>
-          {ativo && <ClearBtn onClick={onClear} />}
+          <span className={`tabular-nums font-medium ${ativo ? "text-ink" : "text-faint"}`}>{ativo ? `${v}${m.un ? ` ${m.un}` : ""}` : "—"}</span>
+          {ativo && <Limpar onClick={onClear} />}
         </span>
       </div>
-      <input type="range" min={meta.min} max={meta.max} step={meta.step ?? 1} value={v}
+      <input type="range" min={m.min} max={m.max} step={m.step ?? 1} value={v}
         onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-ink" />
     </label>
   );
 }
 
-function ClearBtn({ onClick }: { onClick: () => void }) {
-  return (
-    <button onClick={onClick} title="Limpar (voltar ao padrão)" className="text-faint hover:text-negative shrink-0">
-      <Icon name="x" size={12} color="currentColor" />
-    </button>
-  );
+function Limpar({ onClick }: { onClick: () => void }) {
+  return <button onClick={onClick} title="Limpar" className="text-faint hover:text-negative shrink-0"><Icon name="x" size={12} color="currentColor" /></button>;
 }
 
 function Secao({ titulo, hint, children }: { titulo: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline gap-2">
-        <h3 className="m-0 text-[13px] font-semibold uppercase tracking-wide text-faint">{titulo}</h3>
+        <h3 className="m-0 text-[12px] font-semibold uppercase tracking-wide text-faint">{titulo}</h3>
         {hint && <span className="text-[11px] text-faint">· {hint}</span>}
       </div>
       {children}
@@ -589,47 +778,60 @@ function Secao({ titulo, hint, children }: { titulo: string; hint?: string; chil
   );
 }
 
-function Range({ label, v, min, max, step = 1, onChange, unidade }: { label: string; v: number; min: number; max: number; step?: number; onChange: (v: number) => void; unidade?: string }) {
+function RangeSimples({ label, v, min, max, step = 1, onChange, un }: { label: string; v: number; min: number; max: number; step?: number; onChange: (v: number) => void; un?: string }) {
   return (
     <label className="flex flex-col gap-1 mt-1">
       <div className="flex items-center justify-between text-caption">
         <span className="text-muted">{label}</span>
-        <span className="text-ink tabular-nums font-medium">{v}{unidade ? ` ${unidade}` : ""}</span>
+        <span className="text-ink tabular-nums font-medium">{v}{un ? ` ${un}` : ""}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={v} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-ink" />
     </label>
   );
 }
 
-/* ===================== EXPORT p/ o Claude Code ===================== */
+/* ====================== EXPORT p/ o Claude Code ====================== */
+/** Fonte sai com nome + stack (o id sozinho não diz nada no código). */
+function valorLegivel(p: Prop, v: number | string): string {
+  if (p !== "fonte") return String(v);
+  const f = FONTS.find((x) => x.id === v);
+  return f ? `${f.label}  →  font-family: ${f.stack}` : String(v);
+}
+
 function gerarInstrucao(s: DesignState): string {
   const f = FONTS.find((x) => x.id === s.font);
-  const tr = (s.tracking / 100).toFixed(3);
   const L: string[] = [];
-  L.push("Aplique estes ajustes do Laboratório de Design ao design system all4pay");
-  L.push("(globals.css escopo .ds-visor tema claro + .a4p-sidebar p/ o menu + tailwind.config),");
-  L.push("promovendo-os ao código:");
+  L.push("Aplique estes ajustes do Laboratório de Design ao design system all4pay,");
+  L.push("promovendo-os ao código (globals.css .ds-visor / .a4p-sidebar / componentes):");
   L.push("");
   L.push("GLOBAL");
-  L.push(`  Fonte: ${f?.label} — stack ${f?.stack}${s.numMesmaFonte ? " (também nos números)" : " (números seguem em Geist Mono)"}`);
-  L.push(`  Tracking base: ${tr}em`);
-  L.push("  Cores (tokens):");
-  for (const c of COR_CAMPOS) L.push(`    ${c.varName}: ${s.cores[c.key]};   /* ${c.label} */`);
-  L.push("");
-  const ids = Object.keys(s.targets);
-  if (ids.length) {
-    L.push("ITEM A ITEM (overrides por padrão):");
-    for (const t of TARGETS) {
-      const ov = s.targets[t.id];
-      if (!ov || !Object.keys(ov).length) continue;
-      L.push(`  • ${t.label}  [${t.selector}]`);
-      for (const p of t.props) {
-        if (!(p in ov)) continue;
-        L.push(`      ${p}: ${ov[p]}`);
-      }
-    }
+  L.push(`  Fonte: ${f?.label} — ${f?.stack}${s.numMesmaFonte ? " (também nos números)" : ""}`);
+  L.push(`  Tracking base: ${(s.tracking / 100).toFixed(3)}em`);
+  L.push("  Cores:");
+  for (const c of COR_CAMPOS) L.push(`    ${c.varName}: ${s.cores[c.key]};`);
+  const pads = Object.keys(s.padroes);
+  if (pads.length) {
     L.push("");
+    L.push("POR TIPO (todos os elementos do padrão):");
+    for (const p of PADROES) {
+      const ov = s.padroes[p.id];
+      if (!ov || !Object.keys(ov).length) continue;
+      L.push(`  • ${p.label}   [${p.seletorTipo}]`);
+      for (const k of ORDEM_PROPS) if (k in ov) L.push(`      ${k}: ${valorLegivel(k, ov[k]!)}`);
+    }
   }
+  const sels = s.selecoes.filter((x) => Object.keys(x.ov).length);
+  if (sels.length) {
+    L.push("");
+    L.push("ITENS INDIVIDUAIS (elemento específico — veja o seletor):");
+    for (const sel of sels) {
+      L.push(`  • ${sel.rotulo}${sel.amostra ? ` — “${sel.amostra}”` : ""}`);
+      L.push(`      escopo: ${sel.escopo === "este" ? "só este elemento" : "todos do tipo"}`);
+      L.push(`      seletor: ${sel.escopo === "tipo" ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor}`);
+      for (const k of ORDEM_PROPS) if (k in sel.ov) L.push(`      ${k}: ${valorLegivel(k, sel.ov[k]!)}`);
+    }
+  }
+  L.push("");
   L.push("JSON:");
   L.push(JSON.stringify(s));
   return L.join("\n");
