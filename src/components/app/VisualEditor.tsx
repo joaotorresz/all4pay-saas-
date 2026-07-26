@@ -431,7 +431,7 @@ export function VisualEditor() {
               <button
                 key={t}
                 onClick={() => setAba(t)}
-                className={["px-3 h-8 rounded-pill text-caption", aba === t ? "bg-ink text-white" : "text-muted hover:bg-surface-1"].join(" ")}
+                className={["px-3 h-8 rounded-pill text-caption", aba === t ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:bg-surface-1"].join(" ")}
               >
                 {t === "elemento" ? "Elemento" : "Tema"}
               </button>

@@ -56,7 +56,7 @@ export function DimensoesView() {
         <div className="flex items-center gap-1 flex-wrap">
           {DIMENSOES.map((d) => (
             <button key={d.id} onClick={() => setDim(d.id)}
-              className={`text-caption font-medium rounded-pill px-3 py-1 ${dim === d.id ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}>
+              className={`text-caption font-medium rounded-pill px-3 py-1 ${dim === d.id ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}>
               {d.label}
             </button>
           ))}
@@ -64,13 +64,13 @@ export function DimensoesView() {
         <div className="flex items-center gap-1 flex-wrap ml-auto">
           {PRESETS.map((p) => (
             <button key={p.id} onClick={() => setPreset(p.id)}
-              className={`text-caption font-medium rounded-pill px-3 py-1 ${preset === p.id ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}>
+              className={`text-caption font-medium rounded-pill px-3 py-1 ${preset === p.id ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}>
               {p.label}
             </button>
           ))}
           {(["competencia", "caixa"] as Regime[]).map((r) => (
             <button key={r} onClick={() => setRegime(r)}
-              className={`text-caption font-medium rounded-pill px-3 py-1 ${regime === r ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}>
+              className={`text-caption font-medium rounded-pill px-3 py-1 ${regime === r ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}>
               {r === "caixa" ? "Caixa" : "Competência"}
             </button>
           ))}

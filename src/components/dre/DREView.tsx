@@ -121,7 +121,7 @@ export function DREView() {
               <button
                 key={r}
                 onClick={() => setRegime(r)}
-                className={`text-caption font-medium rounded-pill px-3 py-[7px] ${regime === r ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
+                className={`text-caption font-medium rounded-pill px-3 py-[7px] ${regime === r ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
               >
                 {r === "competencia" ? "Competência" : "Caixa"}
               </button>

@@ -40,7 +40,7 @@ export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
           <button
             key={a.id}
             onClick={() => trocar(a.id)}
-            className={`px-4 py-[7px] rounded-pill text-label font-medium transition-colors ${aba === a.id ? "bg-ink text-white" : "text-muted hover:text-ink"}`}
+            className={`px-4 py-[7px] rounded-pill text-label font-medium transition-colors ${aba === a.id ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:text-ink"}`}
             aria-pressed={aba === a.id}
           >
             {a.label}

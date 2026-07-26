@@ -46,7 +46,7 @@ export function IngestaoView() {
           <button
             key={a.id}
             onClick={() => trocar(a.id)}
-            className={`inline-flex items-center gap-2 text-label font-medium rounded-pill px-4 py-2 ${aba === a.id ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
+            className={`inline-flex items-center gap-2 text-label font-medium rounded-pill px-4 py-2 ${aba === a.id ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
             title={a.desc}
           >
             <Icon name={a.icon} size={15} color={aba === a.id ? "var(--color-white)" : "var(--color-text-secondary)"} />

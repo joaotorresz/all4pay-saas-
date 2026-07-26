@@ -266,7 +266,7 @@ function Passos({ etapa }: { etapa: Etapa }) {
         return (
           <React.Fragment key={l}>
             <div className="flex items-center gap-2">
-              <span className={`w-5 h-5 rounded-pill inline-flex items-center justify-center text-[12px] tabular-nums ${ativo ? "bg-lime text-on-lime" : feito ? "bg-ink text-white" : "bg-surface-2 text-faint"}`}>
+              <span className={`w-5 h-5 rounded-pill inline-flex items-center justify-center text-[12px] tabular-nums ${ativo ? "bg-lime text-on-lime" : feito ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-faint"}`}>
                 {feito ? "✓" : n}
               </span>
               <span className={`text-caption ${ativo ? "text-ink font-medium" : "text-faint"}`}>{l}</span>

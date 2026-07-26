@@ -59,7 +59,7 @@ export function MovementsScreen({ direction }: { direction: MovementType }) {
                 onClick={() => setFiltro(f.id)}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-[7px] rounded-pill text-label font-medium transition-colors",
-                  on ? "bg-ink text-white" : "text-muted hover:text-ink",
+                  on ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:text-ink",
                 )}
                 aria-pressed={on}
               >

@@ -88,7 +88,7 @@ export function PeriodFilter() {
               <button
                 key={n}
                 onClick={() => { setDur(n); aplicar(n, mesRef); }}
-                className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-ink text-white" : "bg-surface-2 text-muted hover:text-ink"}`}
+                className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
               >
                 {n} {n === 1 ? "mês" : "meses"}
               </button>
