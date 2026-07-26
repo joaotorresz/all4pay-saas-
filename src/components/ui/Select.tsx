@@ -48,10 +48,10 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className={cn(
-              "w-full appearance-none h-10 pl-3 pr-9 rounded-md bg-white border text-body text-ink",
+              "w-full appearance-none h-10 pl-3 pr-9 rounded-md bg-surface-2 border text-body text-ink",
               "outline-none focus:border-faint",
               value === "" ? "text-placeholder" : "text-ink",
-              invalid ? "border-negative" : "border-border",
+              invalid ? "border-negative" : "border-transparent",
               className,
             )}
             {...rest}

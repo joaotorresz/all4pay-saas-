@@ -33,9 +33,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={taId}
           rows={rows}
           className={cn(
-            "rounded-md bg-white border px-3 py-2 text-body text-ink outline-none focus:border-faint resize-y",
+            "rounded-md bg-surface-2 border px-3 py-2 text-body text-ink outline-none focus:border-faint resize-y",
             "placeholder:text-placeholder",
-            invalid ? "border-negative" : "border-border",
+            invalid ? "border-negative" : "border-transparent",
             className,
           )}
           {...rest}
