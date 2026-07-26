@@ -149,7 +149,7 @@ export function PosVendaView() {
                 <button
                   disabled={qtdTotal === 0}
                   onClick={() => setTela("pagamento")}
-                  className="w-full h-11 rounded-md bg-ink text-white text-[17px] font-medium disabled:opacity-40 active:scale-[0.99]"
+                  className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold disabled:opacity-40 active:scale-[0.99]"
                 >
                   Avançar para o pagamento
                 </button>
@@ -217,7 +217,7 @@ export function PosVendaView() {
                             onClick={() => setParcelas(n)}
                             className={cn(
                               "min-w-[42px] h-9 px-2 rounded-pill border text-caption tabular-nums",
-                              parcelas === n ? "border-ink bg-ink text-white" : "border-border text-muted hover:bg-surface-1",
+                              parcelas === n ? "bg-surface-3 text-ink border-transparent font-semibold" : "border-border text-muted hover:bg-surface-1",
                             )}
                           >
                             {n}x
@@ -305,7 +305,7 @@ export function PosVendaView() {
                 <a href="/recebimentos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
                   Ver na Central de Recebimentos
                 </a>
-                <button onClick={reset} className="w-full h-11 rounded-md bg-ink text-white text-[17px] font-medium active:scale-[0.99]">
+                <button onClick={reset} className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold active:scale-[0.99]">
                   Nova venda
                 </button>
               </div>

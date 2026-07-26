@@ -51,7 +51,7 @@ export function AccountsCard() {
           title="Nenhuma conta cadastrada"
           hint="Conecte uma conta bancária para consolidar seus saldos."
           action={
-            <Link href="/upload?aba=conectar" className="inline-flex items-center gap-1 rounded-pill bg-ink text-white text-caption font-medium px-4 py-2 hover:opacity-90">
+            <Link href="/upload?aba=conectar" className="inline-flex items-center gap-1 rounded-pill bg-surface-2 text-ink text-caption font-semibold px-4 py-2 hover:bg-surface-3">
               Conectar banco
             </Link>
           }

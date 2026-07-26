@@ -205,7 +205,7 @@ function ChipMulti({ options, value, onChange }: { options: string[]; value: str
       {options.map((o) => {
         const on = value.includes(o);
         return (
-          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-ink text-white border-ink" : "bg-white text-muted border-border hover:text-ink"}`}>
+          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
             {o}
           </button>
         );

@@ -63,7 +63,7 @@ export function SalesChart() {
           title="Sem vendas registradas"
           hint="Faturamento por mês aparece aqui conforme as vendas entram."
           action={
-            <Link href="/nova-venda" className="inline-flex items-center gap-1 rounded-pill bg-ink text-white text-caption font-medium px-4 py-2 hover:opacity-90">
+            <Link href="/nova-venda" className="inline-flex items-center gap-1 rounded-pill bg-surface-2 text-ink text-caption font-semibold px-4 py-2 hover:bg-surface-3">
               Registrar uma venda
             </Link>
           }
