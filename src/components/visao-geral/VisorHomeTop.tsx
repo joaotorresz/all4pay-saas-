@@ -29,7 +29,9 @@ const ORANGE = "var(--color-warning)";
 const PROJ = "#c9cdd4";
 import { chartAnim } from "@/lib/chart-anim";
 /* paleta categórica do data-viz — cores vibrantes e distintas */
-const DV = ["#FF3B30", "#2F6BFF", "#FF2D8E", "#00B8D4", "#FFB300", "#8B5CF6", "#10B981", "#F97316"];
+// Paleta da MARCA (lima → verde → oliva → taupe → ink): a maior fatia herda o
+// lima (herói) e as menores desbotam pros neutros — distinção sem sair da marca.
+const DV = ["#C8E600", "#93B300", "#5F7D1F", "#3F5A22", "#8A876F", "#B4B0A0", "#6B6A5A", "#11190C"];
 const brlNoCents = (n: number) => "R$ " + Math.round(n).toLocaleString("pt-BR");
 const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 

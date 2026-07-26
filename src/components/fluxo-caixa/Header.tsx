@@ -31,7 +31,7 @@ export function Header({ contas }: { contas: FinancialAccount[] }) {
             <button
               key={p.id}
               onClick={() => set({ periodo: p.id })}
-              className={`rounded-pill px-3 py-[6px] text-caption transition-colors ${on ? "bg-ink text-white font-medium" : "bg-surface-2 text-muted hover:text-ink"}`}
+              className={`rounded-pill px-3 py-[6px] text-caption transition-colors ${on ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:text-ink"}`}
             >
               {p.label}
             </button>

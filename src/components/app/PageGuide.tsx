@@ -81,7 +81,7 @@ export function PageGuide() {
           <div className="flex gap-2">
             <button
               onClick={() => { fecharConvite(); setOpen(true); }}
-              className="flex-1 rounded-md bg-ink text-white text-caption font-medium py-2 hover:opacity-90"
+              className="flex-1 rounded-md bg-surface-3 text-ink text-caption font-semibold py-2 hover:bg-surface-2"
             >
               Conhecer a Home
             </button>
@@ -170,7 +170,7 @@ export function PageGuide() {
               {temTour && (
                 <button
                   onClick={iniciarTour}
-                  className="flex-1 rounded-md bg-ink text-white text-label font-medium py-[10px] hover:opacity-90 inline-flex items-center justify-center gap-2"
+                  className="flex-1 rounded-md bg-surface-3 text-ink text-label font-semibold py-[10px] hover:bg-surface-2 inline-flex items-center justify-center gap-2"
                 >
                   Tour na tela
                   <Icon name="arrow-up-right" size={15} color="var(--color-lime)" />
