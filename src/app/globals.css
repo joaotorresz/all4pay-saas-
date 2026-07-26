@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Roobert TRIAL (Medium) — enviada pelo usuário, self-hosted p/ testes de fonte
+   no Laboratório de Design. Só o peso Medium (o arquivo enviado). */
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-medium.otf") format("opentype");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------

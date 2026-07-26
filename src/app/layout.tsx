@@ -6,6 +6,7 @@ import { Providers } from "./providers";
 import "@fontsource-variable/hanken-grotesk";
 import "@fontsource-variable/schibsted-grotesk";
 import "@fontsource-variable/geist-mono";
+import "@fontsource/boldonse"; // fonte de display p/ testes no Laboratório de Design
 import "./globals.css";
 
 export const metadata: Metadata = {
