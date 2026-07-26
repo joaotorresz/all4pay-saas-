@@ -98,7 +98,7 @@ export function RelatoriosRazaoView() {
                 <span className="text-caption text-faint">Sem dados de dimensão no período.</span>
               ) : (
                 <div className="flex flex-col">
-                  <div className="hidden sm:flex items-center gap-3 py-2 text-caption font-medium text-muted border-b border-border-soft">
+                  <div className="hidden sm:flex items-center gap-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
                     <span className="flex-1">{dim === "centro" ? "Centro de custo" : "Contraparte"}</span>
                     <span className="w-[120px] text-right">Receita</span>
                     <span className="w-[120px] text-right">Despesa</span>

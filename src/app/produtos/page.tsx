@@ -38,7 +38,7 @@ export default function ProdutosPage() {
       ) : isError ? (
         <Card><EmptyState title="Não foi possível carregar os produtos" /></Card>
       ) : !data || data.length === 0 ? (
-        <Card><EmptyState icon="scan-line" title="Nenhum produto cadastrado" hint="Cadastre seu primeiro produto (com imagem) no botão Novo produto — ele aparece aqui como um cardápio." /></Card>
+        <Card><EmptyState icon="scan-line" title="Nenhum produto cadastrado" hint="Cadastre seu primeiro produto (com imagem) — ele aparece aqui como um cardápio e fica pronto para vender." action={<NewButton label="Novo produto" onToast={show} form={(p) => <ProdutoServicoForm kind="produto" {...p} />} />} /></Card>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pb-4">
           {data.map((p) => {

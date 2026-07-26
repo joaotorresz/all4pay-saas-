@@ -25,93 +25,94 @@ type Item = { label: string; href?: string; icon: string; event?: string; soon?:
 type Section = { id: string; label: string; pro?: boolean; items: Item[] };
 
 /* ----------------------------- EMPRESA (PJ) -----------------------------
- * Estrutura nos 9 módulos do IULI (benchmark): Dashboards · Cadastros · DRE & DFC
- * · Orçamento · Movimentações · Vendas e NFs · Compras · Contabilidade · (extras
- * all4pay em Pro). Rotas mapeadas no app existente. */
+ * Reorganizado por JOB do usuário (não pela taxonomia contábil), para
+ * ADESÃO PROGRESSIVA: o Modo Simples (padrão) mostra só o dia a dia —
+ * Início · Receber · Pagar · Caixa & Resultado · Dados & Cadastros
+ * (5 grupos, ~15 itens). O Modo Pro REVELA a profundidade — Fiscal &
+ * vendas · Contabilidade · Estrutura · Inteligência · Governança &
+ * Plataforma. Toda rota do sistema continua acessível (nada removido,
+ * só reagrupado/priorizado). O usuário cresce do essencial ao 100%. */
 const SECTIONS: Section[] = [
   {
-    id: "dashboards", label: "Dashboards", items: [
+    id: "inicio", label: "Início", items: [
       { label: "Início", href: "/", icon: "inicio" },
-      { label: "Painel de vendas", href: "/painel-vendas", icon: "credit-card" },
+      { label: "Comece por aqui", href: "/comece", icon: "target" },
     ],
   },
   {
-    id: "cadastros", label: "Cadastros", items: [
-      { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
-      { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
-      { label: "Serviços", href: "/servicos", icon: "receipt" },
-      { label: "Projetos", href: "/projetos", icon: "target" },
-      { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
-      { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
-      { label: "Contas bancárias", href: "/upload?aba=conectar", icon: "upload" },
-      { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
-    ],
-  },
-  {
-    id: "dre-dfc", label: "DRE & DFC", items: [
-      { label: "DRE", href: "/dre", icon: "trending-up" },
-      { label: "DFC · Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
-      { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
-    ],
-  },
-  {
-    id: "orcamento", label: "Orçamento", items: [
-      { label: "Orçamento", href: "/orcamento", icon: "target" },
-    ],
-  },
-  {
-    id: "movimentacoes", label: "Movimentações", items: [
+    id: "receber", label: "Receber", items: [
       { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Conciliação (IULI × OFX)", href: "/conciliacao-bancaria", icon: "list-checks" },
-      { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Extrato · Razão", href: "/razao", icon: "receipt" },
-    ],
-  },
-  {
-    id: "vendas-nfs", label: "Vendas e NFs", items: [
-      { label: "Nova venda", href: "/nova-venda", icon: "plus" },
-      { label: "Vendas (documentos)", href: "/vendas", icon: "credit-card" },
+      { label: "Vendas", href: "/vendas", icon: "credit-card" },
       { label: "Assinaturas / Recorrências", href: "/recorrencias", icon: "repeat" },
-      { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
-      { label: "Impostos", href: "/impostos", icon: "receipt" },
       { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Boletos", href: "/boletos", icon: "file-text" },
-      { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
     ],
   },
   {
-    id: "compras", label: "Compras", items: [
+    id: "pagar", label: "Pagar", items: [
+      { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
     ],
   },
   {
-    id: "contabilidade", label: "Contabilidade", items: [
-      { label: "TXT Domínio · Envio NFs", href: "/contabilidade", icon: "file-text" },
+    id: "caixa", label: "Caixa & Resultado", items: [
+      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "DRE (resultado)", href: "/dre", icon: "trending-up" },
+      { label: "Orçamento", href: "/orcamento", icon: "target" },
+    ],
+  },
+  {
+    id: "dados", label: "Dados & Cadastros", items: [
+      { label: "Upload de dados", href: "/upload", icon: "upload" },
+      { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
+      { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
+      { label: "Serviços", href: "/servicos", icon: "receipt" },
+    ],
+  },
+  // ----- Profundidade — revelada no Modo Pro -----
+  {
+    id: "fiscal", label: "Fiscal & vendas", pro: true, items: [
+      { label: "Nova venda", href: "/nova-venda", icon: "plus" },
+      { label: "Painel de vendas", href: "/painel-vendas", icon: "credit-card" },
+      { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
+      { label: "Impostos", href: "/impostos", icon: "receipt" },
+      { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
+      { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
+    ],
+  },
+  {
+    id: "contabilidade", label: "Contabilidade", pro: true, items: [
+      { label: "Razão contábil (GL)", href: "/razao", icon: "receipt" },
+      { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
+      { label: "Reconhecimento de receita", href: "/receita", icon: "repeat" },
       { label: "Relatórios", href: "/relatorios", icon: "receipt" },
+      { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
       { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers" },
       { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
+      { label: "TXT Domínio · Envio NFs", href: "/contabilidade", icon: "file-text" },
       { label: "Consolidado (multiempresa)", href: "/consolidado", icon: "building" },
     ],
   },
-  // ----- Extras all4pay (escondidos no Modo Simples) -----
+  {
+    id: "estrutura", label: "Estrutura", pro: true, items: [
+      { label: "Projetos", href: "/projetos", icon: "target" },
+      { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
+    ],
+  },
   {
     // Um cérebro, não cinco: Copiloto + Quant/Decisão/Risco/Autônomo/Dados são
     // ABAS internas de /copiloto — o menu tem uma única entrada.
     id: "estrategia", label: "Inteligência", pro: true, items: [
       { label: "All4Pay IA", href: "/copiloto", icon: "gauge" },
       { label: "Investor update", href: "/investidores", icon: "mail" },
-    ],
-  },
-  {
-    id: "equipe", label: "Equipe", pro: true, items: [
-      { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
-      { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
+      { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
     ],
   },
   {
     // Arquitetura/Infra/Orquestração viraram abas de /plataforma (um hub só).
-    id: "plataforma", label: "Plataforma", pro: true, items: [
+    id: "plataforma", label: "Governança & Plataforma", pro: true, items: [
+      { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
+      { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
       { label: "Arquitetura & infraestrutura", href: "/plataforma", icon: "cpu" },
     ],
@@ -284,7 +285,7 @@ export function Sidebar() {
           {!pessoal && (
             <button
               onClick={() => setPro(pro ? "simples" : "pro")}
-              title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
+              title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Fiscal, Contabilidade, Inteligência e Plataforma"}
               className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
             >
               <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
@@ -365,14 +366,15 @@ function NavItem({ item, pathname, collapsed }: { item: Item; pathname: string; 
       title={item.label}
       aria-current={on ? "page" : undefined}
       className={cn(
-        "relative flex items-center rounded-md py-2",
+        // Assinatura All4Pay: pill de nav ativo em LIMA sólida + texto/ícone ink
+        // (nunca texto claro sobre lima). Raio 12px (rounded-[12px]).
+        "relative flex items-center rounded-[12px] py-2 transition-colors",
         collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
-        on ? "bg-lime-tint" : "hover:bg-surface-1",
+        on ? "bg-lime" : "hover:bg-surface-2",
       )}
     >
-      {on && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-lime" />}
-      <Icon name={item.icon} size={18} color={on ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-      {!collapsed && <span className={cn("text-[15px] truncate", on ? "text-ink font-semibold" : "text-muted font-medium")}>{item.label}</span>}
+      <Icon name={item.icon} size={18} color={on ? "var(--color-on-lime)" : "var(--color-text-secondary)"} />
+      {!collapsed && <span className={cn("text-[15px] truncate", on ? "text-on-lime font-semibold" : "text-muted font-medium")}>{item.label}</span>}
     </Link>
   );
 }

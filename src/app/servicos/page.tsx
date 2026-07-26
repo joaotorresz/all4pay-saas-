@@ -54,7 +54,8 @@ export default function ServicosPage() {
         isLoading={isLoading}
         isError={isError}
         emptyTitle="Nenhum serviço cadastrado"
-        emptyHint="Cadastre seu primeiro serviço no botão Novo serviço."
+        emptyHint="Cadastre seu primeiro serviço para vendê-lo e faturá-lo."
+        emptyAction={<NewButton label="Novo serviço" onToast={show} form={(p) => <ProdutoServicoForm kind="servico" {...p} />} />}
       />
       {node}
     </AppShell>

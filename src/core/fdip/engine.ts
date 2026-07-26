@@ -253,9 +253,19 @@ export function descobrirPadroes(records: FinancialRecord[], cls: Map<string, Cl
     const periodicidade: Recorrencia["periodicidade"] = meses.size >= 3 && Math.abs(meses.size - e.transacoes) <= 2 ? "mensal" : e.transacoes > meses.size * 3 ? "semanal" : "irregular";
     const categoria = cls.get(recs[0].id)?.categoria ?? "—";
     const assinatura = recs.some((r) => cls.get(r.id)?.categoria === "Assinaturas / software");
-    recorrencias.push({ contraparte: e.nome, categoria, periodicidade, valorMedio: e.total / e.transacoes, ocorrencias: e.transacoes, assinatura });
+    // a maioria dos lançamentos define o lado (custo × receita recorrente)
+    const saidas = recs.filter((r) => r.tipo === "saida").length;
+    const tipo: Recorrencia["tipo"] = saidas * 2 >= recs.length ? "saida" : "entrada";
+    const mediaMensal = meses.size > 0 ? e.total / meses.size : 0;
+    recorrencias.push({ contraparte: e.nome, categoria, periodicidade, valorMedio: e.total / e.transacoes, ocorrencias: e.transacoes, assinatura, tipo, mediaMensal });
   }
   recorrencias.sort((a, b) => b.ocorrencias - a.ocorrencias);
+
+  // Custos recorrentes/mensais — o "boleto fixo" que a empresa paga todo mês
+  const custosMensais = recorrencias
+    .filter((r) => r.tipo === "saida" && r.periodicidade !== "irregular")
+    .sort((a, b) => b.mediaMensal - a.mediaMensal);
+  const custoRecorrenteMensal = custosMensais.reduce((s, r) => s + r.mediaMensal, 0);
 
   // Sazonalidade da receita
   const porMes = new Map<string, number>();
@@ -269,6 +279,8 @@ export function descobrirPadroes(records: FinancialRecord[], cls: Map<string, Cl
   return {
     recorrencias,
     assinaturas: recorrencias.filter((r) => r.assinatura),
+    custosMensais,
+    custoRecorrenteMensal,
     clientesRecorrentes: entidades.filter((e) => e.recorrente && e.tipo === "cliente").length,
     fornecedoresRecorrentes: entidades.filter((e) => e.recorrente && e.tipo === "fornecedor").length,
     sazonalidade,

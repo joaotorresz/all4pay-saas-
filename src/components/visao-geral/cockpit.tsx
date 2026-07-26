@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Card, Skeleton, Icon, BRL, type InfoConteudo } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import {
@@ -62,24 +63,37 @@ const realizado = (m: RiskMovement): string | null => m.paid_date ?? (m.status =
 
 /* ----------------------------- MetricCard ----------------------------- */
 
-function MetricCard({ label, value, answer, tone, icon, info }: {
+function MetricCard({ label, value, answer, tone, icon, info, href, hrefLabel }: {
   label: string;
   value: React.ReactNode;
   answer?: string;
   tone?: string;
   icon?: string;
   info?: InfoConteudo;
+  /** drill-down: leva ao motor de origem do número (fecha o beco sem saída) */
+  href?: string;
+  hrefLabel?: string;
 }) {
   return (
     <Card className="flex flex-col gap-2" info={info}>
-      <div className="flex items-center gap-2">
-        {icon && <Icon name={icon} size={14} color="var(--color-text-secondary)" />}
+      {/* DS All4Pay: rótulo à esquerda + chip de ícone (ink + glifo lima) à direita */}
+      <div className="flex items-start justify-between gap-2">
         <span className="text-label font-medium text-muted">{label}</span>
+        {icon && (
+          <span className="w-9 h-9 rounded-[10px] bg-ink inline-flex items-center justify-center shrink-0 -mt-[2px]">
+            <Icon name={icon} size={16} color="var(--color-lime)" />
+          </span>
+        )}
       </div>
-      <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: tone ?? "var(--color-ink)" }}>
+      <span className="text-value-lg leading-none font-semibold tabular-nums" style={{ color: tone ?? "var(--color-ink)" }}>
         {value}
       </span>
       {answer && <p className="m-0 text-caption text-muted leading-[1.45]">{answer}</p>}
+      {href && (
+        <Link href={href} className="mt-auto pt-1 self-start inline-flex items-center gap-1 text-caption font-medium text-muted hover:text-ink transition-colors">
+          {hrefLabel ?? "Ver detalhe"} <Icon name="arrow-up-right" size={13} color="currentColor" />
+        </Link>
+      )}
     </Card>
   );
 }
@@ -158,6 +172,31 @@ const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1));
 const pctTxt = (n: number) => `${Math.round(n * 100)}%`;
 const scoreTone = (s: number) => (s >= 75 ? POS : s >= 50 ? WARN : NEG);
 
+/** Custos FIXOS mensais: saídas que se repetem mês após mês (≥3 meses da mesma
+    contraparte/categoria) — total/mês + maior item. Mesma leitura do upload. */
+function custosFixosMensais(input?: { movements: RiskMovement[]; partyNames?: Record<string, string> }) {
+  if (!input) return null;
+  const grupos = new Map<string, { nome: string; total: number; meses: Set<string> }>();
+  for (const m of input.movements) {
+    if (m.type !== "saida" || m.status === "cancelado") continue;
+    const chave = m.party_id ?? (m.category ? `cat:${m.category}` : null);
+    if (!chave) continue;
+    const mes = (m.paid_date || m.due_date || "").slice(0, 7);
+    if (!mes) continue;
+    const nome = m.party_id ? input.partyNames?.[m.party_id] ?? "Contraparte" : m.category!;
+    const g = grupos.get(chave) ?? { nome, total: 0, meses: new Set<string>() };
+    g.total += Math.abs(m.amount);
+    g.meses.add(mes);
+    grupos.set(chave, g);
+  }
+  const fixos = Array.from(grupos.values())
+    .filter((g) => g.meses.size >= 3)
+    .map((g) => ({ nome: g.nome, mediaMensal: g.total / g.meses.size }))
+    .sort((a, b) => b.mediaMensal - a.mediaMensal);
+  if (!fixos.length) return null;
+  return { totalMes: fixos.reduce((s, f) => s + f.mediaMensal, 0), top: fixos[0], itens: fixos.length };
+}
+
 /** HHI/maior fatia bancária a partir das contas. */
 function exposicaoBancaria(accounts?: { balance: number; bank: string }[]) {
   if (!accounts || !accounts.length) return null;
@@ -172,7 +211,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "health_score", label: "Financial Health Score", categoria: "Resumo executivo",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
+      <MetricCard href="/copiloto?aba=quant" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
         value={`${c.quant.score.score}/100`}
         answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`}
         info={{ titulo: "Financial Health Score", oQue: "Resume a saúde financeira da empresa num único número de 0 a 100.", comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento." }} />
@@ -181,7 +220,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "empresa_risco", label: "Empresa em risco?", categoria: "Resumo executivo",
     render: (c) => !c.risco ? <Loading /> : (
-      <MetricCard icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
+      <MetricCard href="/copiloto?aba=risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
         value={c.risco.nivel === "baixo" ? "🟢 Saudável" : c.risco.nivel === "medio" ? "🟡 Atenção" : "🔴 Risco"}
         answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
         info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: "Deriva do score de risco de caixa e da probabilidade de ruptura projetada em 60 dias." }} />
@@ -191,7 +230,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "runway_meses", label: "Fôlego de caixa (runway)", categoria: "Caixa",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="trending-up" label="Fôlego de caixa"
+      <MetricCard href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" icon="trending-up" label="Fôlego de caixa"
         value={`${meses(c.quant.indicadores.runwayMeses)} meses`}
         answer={c.quant.indicadores.burnRate > 0
           ? `Seu caixa cobre ${meses(c.quant.indicadores.runwayMeses)} meses no burn atual de ${formatBRL(c.quant.indicadores.burnRate)}/mês.`
@@ -258,7 +297,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "carteira_score", label: "Saúde da carteira", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard icon="gauge" label="Saúde da carteira" tone={scoreTone(c.inad.resumo.scoreCarteira)}
+      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="gauge" label="Saúde da carteira" tone={scoreTone(c.inad.resumo.scoreCarteira)}
         value={`${c.inad.resumo.scoreCarteira}/100`}
         answer={`${c.inad.resumo.clientesCriticos} cliente(s) crítico(s); inadimplência esperada de ${formatBRL(c.inad.resumo.inadimplenciaEsperada)}.`}
         info={{ titulo: "Saúde da carteira", oQue: "Avalia o risco de crédito do conjunto de clientes que devem à empresa.", comoCalcula: "Score ponderado pelo comportamento de pagamento de cada cliente da carteira." }} />
@@ -267,7 +306,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "exposicao_vencida", label: "Exposição vencida", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard icon="triangle-alert" label="Exposição vencida" tone={c.inad.resumo.exposicaoVencida > 0 ? NEG : POS}
+      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Exposição vencida" tone={c.inad.resumo.exposicaoVencida > 0 ? NEG : POS}
         value={<BRL value={c.inad.resumo.exposicaoVencida} />}
         answer="Total a receber já vencido — priorize a cobrança."
         info={{ titulo: "Exposição vencida", oQue: "Quanto dinheiro a receber já está vencido e aguardando cobrança.", comoCalcula: "Soma dos recebíveis com vencimento no passado ainda não pagos." }} />
@@ -417,7 +456,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "exposicao-total", label: "Exposição total em aberto", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard icon="credit-card" label="Exposição total em aberto"
+      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="credit-card" label="Exposição total em aberto"
         value={<BRL value={c.inad.resumo.exposicaoTotal} />}
         answer={`Total a receber de clientes; ${formatBRL(c.inad.resumo.exposicaoVencida)} já vencido.`}
         info={{ titulo: "Exposição total em aberto", oQue: "Quanto a empresa tem a receber de clientes, vencido ou a vencer.", comoCalcula: "Soma de todos os recebíveis em aberto na carteira de clientes." }} />
@@ -509,7 +548,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!contas) return <Loading />;
       const total = contas.reduce((s, a) => s + a.balance, 0);
       return (
-        <MetricCard icon="building" label="Caixa consolidado"
+        <MetricCard href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" icon="building" label="Caixa consolidado"
           tone={total < 0 ? NEG : POS}
           value={<BRL value={total} />}
           answer={`Saldo somado das ${contas.length} conta(s) bancária(s) da empresa.`}
@@ -524,7 +563,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!contas) return <Loading />;
       const positivas = contas.filter((a) => a.balance > 0).length;
       return (
-        <MetricCard icon="layers" label="Contas bancárias"
+        <MetricCard href="/upload?aba=conectar" hrefLabel="Ver contas" icon="layers" label="Contas bancárias"
           value={`${contas.length}`}
           answer={contas.length ? `${positivas} conta(s) com saldo positivo hoje.` : "Nenhuma conta bancária cadastrada ainda."}
           info={{ titulo: "Contas bancárias", oQue: "Quantas contas bancárias a empresa mantém.", comoCalcula: "Conta o número de contas financeiras cadastradas e quantas têm saldo positivo." }} />
@@ -537,7 +576,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const contas = c.accounts;
       if (!contas) return <Loading />;
       if (!contas.length) return (
-        <MetricCard icon="building" label="Maior conta" value="—"
+        <MetricCard href="/upload?aba=conectar" hrefLabel="Ver contas" icon="building" label="Maior conta" value="—"
           answer="Nenhuma conta bancária cadastrada ainda."
           info={{ titulo: "Maior conta", oQue: "A conta bancária que concentra o maior saldo.", comoCalcula: "Ordena as contas pelo saldo e destaca a de maior valor." }} />
       );
@@ -557,7 +596,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const p = c.decisao.previsao.probabilidadeNegativo;
       return (
-        <MetricCard icon="triangle-alert" label="Risco de caixa negativo"
+        <MetricCard href="/copiloto?aba=decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
           tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
           value={pctTxt(p)}
           answer={c.decisao.previsao.semanaProvavel
@@ -601,7 +640,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const dia = c.decisao.previsao.diaProvavelNegativo;
       return (
-        <MetricCard icon="calendar" label="Data provável de aperto"
+        <MetricCard href="/copiloto?aba=decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
           tone={dia != null ? NEG : POS}
           value={dia != null ? `${dia} dias` : "Sem aperto"}
           answer={dia != null
@@ -653,7 +692,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const rec = c.decisao.recomendacoes[0];
       if (!rec) return (
-        <MetricCard icon="sparkles" label="Impacto da melhor ação" value="—"
+        <MetricCard href="/copiloto?aba=decisao" hrefLabel="Ver decisão" icon="sparkles" label="Impacto da melhor ação" value="—"
           answer="Nenhuma ação com impacto relevante no caixa agora."
           info={{ titulo: "Impacto da melhor ação", oQue: "Quanto de fôlego de caixa a ação mais recomendada geraria.", comoCalcula: "O motor de decisão simula cada ação e mede o ganho de runway em dias." }} />
       );
@@ -674,7 +713,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const plano = c.decisao.plano;
       const n = plano.acoes.length;
       return (
-        <MetricCard icon="activity" label="Plano autônomo"
+        <MetricCard href="/copiloto?aba=autonomo" hrefLabel="Ver autônomo" icon="activity" label="Plano autônomo"
           tone={plano.ativo ? (plano.severidade === "critico" || plano.severidade === "alto" ? NEG : WARN) : POS}
           value={plano.ativo ? `${n} ação(ões)` : "Em espera"}
           answer={plano.ativo ? plano.resumo : "Nenhuma resposta coordenada necessária no momento."}
@@ -765,6 +804,27 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         info={{ titulo: "Despesa mensal média", oQue: "Quanto a empresa gasta, em média, a cada mês.", comoCalcula: "Média mensal das saídas ao longo do período analisado." }} />
     ),
   },
+  /* ---- Despesas (custos fixos mensais · input) ---- */
+  {
+    id: "custos-fixos-mensais", label: "Custos fixos mensais", categoria: "Despesas",
+    render: (c) => {
+      if (!c.input) return <Loading />;
+      const fx = custosFixosMensais(c.input);
+      if (!fx) {
+        return (
+          <MetricCard href="/dre" hrefLabel="Ver DRE" icon="repeat" label="Custos fixos mensais" value="—"
+            answer="Ainda não há custos recorrentes detectados — precisa de 3+ meses da mesma contraparte."
+            info={{ titulo: "Custos fixos mensais", oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com compromissos que se repetem.", comoCalcula: "Agrupa as saídas por contraparte/categoria, considera fixas as com 3+ meses de ocorrência e divide o total pelos meses observados." }} />
+        );
+      }
+      return (
+        <MetricCard icon="repeat" label="Custos fixos mensais"
+          value={<BRL value={fx.totalMes} />}
+          answer={`${fx.itens} compromissos recorrentes por mês; o maior é ${fx.top.nome} (${formatBRL(fx.top.mediaMensal)}/mês).`}
+          info={{ titulo: "Custos fixos mensais", oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com compromissos que se repetem (folha, aluguel, assinaturas…).", comoCalcula: "Agrupa as saídas por contraparte/categoria, considera fixas as com 3+ meses de ocorrência e divide o total de cada uma pelos meses observados; o valor é a soma dessas médias." }} />
+      );
+    },
+  },
   /* ---- Caixa (previsibilidade do fluxo · quant) ---- */
   {
     id: "previsibilidade-fluxo", label: "Previsibilidade do fluxo", categoria: "Caixa",
@@ -824,7 +884,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "perda-esperada-inad", label: "Perda esperada por inadimplência", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard icon="triangle-alert" label="Perda esperada por inadimplência"
+      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Perda esperada por inadimplência"
         tone={c.inad.resumo.inadimplenciaEsperada > 0 ? WARN : POS}
         value={<BRL value={c.inad.resumo.inadimplenciaEsperada} />}
         answer={c.inad.resumo.exposicaoTotal > 0
@@ -840,7 +900,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const n = c.inad.resumo.clientesCriticos + c.inad.resumo.clientesAlto;
       return (
-        <MetricCard icon="target" label="Clientes de alto risco"
+        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="target" label="Clientes de alto risco"
           tone={n > 0 ? NEG : POS}
           value={`${n}`}
           answer={n > 0
@@ -876,7 +936,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const top = c.inad.clientes[0];
       if (!top) return (
-        <MetricCard icon="triangle-alert" label="Cliente de maior risco" value="—"
+        <MetricCard href="/inadimplencia" hrefLabel="Ver ficha e risco" icon="triangle-alert" label="Cliente de maior risco" value="—"
           answer="Nenhum cliente com recebível em aberto na carteira."
           info={{ titulo: "Cliente de maior risco", oQue: "O cliente com o maior score de risco de crédito na carteira.", comoCalcula: "Ordena os clientes pelo score de risco e destaca o de maior risco." }} />
       );
@@ -913,7 +973,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const vencidos = c.inad.clientes.filter((cl) => cl.features.volumeVencido > 0);
       if (!vencidos.length) return (
-        <MetricCard icon="repeat" label="Chance de recuperação" tone={POS} value="—"
+        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="repeat" label="Chance de recuperação" tone={POS} value="—"
           answer="Sem valores vencidos para recuperar."
           info={{ titulo: "Chance de recuperação", oQue: "A probabilidade média de recuperar os valores já vencidos.", comoCalcula: "Média da chance de recuperação estimada para os clientes com valores vencidos, ponderada pelo motor de recovery." }} />
       );
@@ -936,7 +996,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const r = c.risco.runway;
       const pess = Math.max(0, r.pessimista);
       return (
-        <MetricCard icon="trending-up" label="Fôlego no pior cenário"
+        <MetricCard href="/copiloto?aba=risco" hrefLabel="Ver risco de caixa" icon="trending-up" label="Fôlego no pior cenário"
           tone={pess < 30 ? NEG : pess < 90 ? WARN : POS}
           value={`${pess} dias`}
           answer={`No cenário pessimista o caixa dura ${pess} dias (base ${Math.max(0, r.base)} · otimista ${Math.max(0, r.otimista)}).`}
@@ -1007,7 +1067,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.risco) return <Loading />;
       const inad = c.risco.inadimplencia;
       return (
-        <MetricCard icon="users" label="Clientes em atraso"
+        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="users" label="Clientes em atraso"
           tone={inad.clientesEmAtraso > 0 ? WARN : POS}
           value={`${inad.clientesEmAtraso}`}
           answer={inad.clientesEmAtraso > 0
@@ -1029,7 +1089,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         (a.nivel === "critico" ? 0 : a.nivel === "atencao" ? 1 : 2) -
         (b.nivel === "critico" ? 0 : b.nivel === "atencao" ? 1 : 2))[0];
       return (
-        <MetricCard icon="triangle-alert" label="Alertas do motor de risco"
+        <MetricCard href="/copiloto?aba=risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label="Alertas do motor de risco"
           tone={criticos > 0 ? NEG : atencao > 0 ? WARN : POS}
           value={`${alertas.length}`}
           answer={alertas.length
@@ -1075,6 +1135,22 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
             ? `${insights.length} insight(s) da IA somam ${formatBRL(totalReais)} em impacto financeiro estimado.`
             : "Nenhum insight com impacto financeiro relevante agora."}
           info={{ titulo: "Impacto dos insights", oQue: "O tamanho financeiro somado dos pontos que a IA levantou.", comoCalcula: "Soma o impacto estimado (em reais) de todos os insights priorizados pela IA executiva." }} />
+      );
+    },
+  },
+  /* ---- Inteligência (investor snapshot · quant) ---- */
+  {
+    id: "investor-snapshot", label: "Investor snapshot (MRR·runway)", categoria: "Inteligência",
+    render: (c) => {
+      if (!c.quant) return <Loading />;
+      const ind = c.quant.indicadores;
+      const mrr = ind.receitaRecorrente * ind.receitaMensal;
+      const mom = ind.crescimentoMensal;
+      return (
+        <MetricCard href="/investidores" hrefLabel="Abrir Investor update" icon="mail" label="Investor snapshot"
+          value={<BRL value={mrr} />}
+          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O update mensal pronto está em Inteligência → Investor update.`}
+          info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Investor update." }} />
       );
     },
   },
@@ -1158,7 +1234,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.dre) return <Loading />;
       const g = c.dre.gerencial;
       return (
-        <MetricCard icon="activity" label="EBITDA do mês"
+        <MetricCard href="/dre" hrefLabel="Ver DRE" icon="activity" label="EBITDA do mês"
           tone={g.ebitda >= 0 ? POS : NEG}
           value={<BRL value={g.ebitda} />}
           answer={`Resultado operacional do mês (antes de juros/impostos): ${pctTxt(g.margemEbitda)} da receita bruta.`}
@@ -1172,7 +1248,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.dre) return <Loading />;
       const g = c.dre.gerencial;
       return (
-        <MetricCard icon="credit-card" label="Lucro líquido do mês"
+        <MetricCard href="/dre" hrefLabel="Ver DRE" icon="credit-card" label="Lucro líquido do mês"
           tone={g.lucroLiquido >= 0 ? POS : NEG}
           value={<BRL value={g.lucroLiquido} />}
           answer={g.lucroLiquido >= 0
@@ -1246,7 +1322,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const impostos = Math.max(0, g.receitaBruta - g.receitaLiquida);
       const carga = g.receitaBruta > 0 ? impostos / g.receitaBruta : 0;
       return (
-        <MetricCard icon="receipt" label="Carga tributária"
+        <MetricCard href="/impostos" hrefLabel="Ver impostos" icon="receipt" label="Carga tributária"
           tone={carga > 0.2 ? NEG : carga > 0.1 ? WARN : POS}
           value={pctTxt(carga)}
           answer={`${formatBRL(impostos)} em impostos sobre a receita neste mês (${pctTxt(carga)} do faturamento).`}

@@ -20,6 +20,7 @@ import { useArquitetura } from "@/components/visao-geral/hooks";
 import { simularResiliencia, type ResultadoResiliencia, type PassoResiliencia } from "@/core/reliability";
 import type { TreasuryCoreResult } from "@/core/treasury";
 import type { ArquiteturaReport } from "@/core/architecture";
+import { chartAnim } from "@/lib/chart-anim";
 
 const STATUS_PASSO: Record<PassoResiliencia["status"], string> = {
   ok: "var(--color-positive)",
@@ -227,7 +228,7 @@ function TreasuryCard({ t }: { t: TreasuryCoreResult }) {
                   <Cell key={i} fill={p.liquido < 0 ? "var(--color-negative)" : "var(--color-border)"} />
                 ))}
               </Bar>
-              <Area type="monotone" dataKey="acumulado" stroke="none" fill="url(#archGlow)" isAnimationActive={false} />
+              <Area type="monotone" dataKey="acumulado" stroke="none" fill="url(#archGlow)" {...chartAnim()} />
               <Line type="monotone" dataKey="acumulado" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>

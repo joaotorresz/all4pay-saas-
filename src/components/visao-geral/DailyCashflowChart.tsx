@@ -27,6 +27,7 @@ const INK = "var(--color-ink)";
 const LINE = "var(--color-chart-line)"; // linha de saldo acumulado — verde da marca
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
+import { chartAnim } from "@/lib/chart-anim";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -146,12 +147,12 @@ export function DailyCashflowChart() {
                 cursor={{ fill: "rgba(127,127,127,0.10)" }}
               />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" isAnimationActive={false}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" isAnimationActive={false}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}

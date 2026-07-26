@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
+import Link from "next/link";
 import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import type { MonthlySalesPoint } from "@/lib/types";
@@ -61,6 +62,11 @@ export function SalesChart() {
           icon="trending-up"
           title="Sem vendas registradas"
           hint="Faturamento por mês aparece aqui conforme as vendas entram."
+          action={
+            <Link href="/nova-venda" className="inline-flex items-center gap-1 rounded-pill bg-ink text-white text-caption font-medium px-4 py-2 hover:opacity-90">
+              Registrar uma venda
+            </Link>
+          }
         />
       )}
 

@@ -20,7 +20,7 @@ Legenda: ✅ coberto (módulo citado) · 🟡 parcial · 🔜 roadmap · — for
 | **Investor update mensal gerado dos números** | Mercury | ✅ | `/investidores` (`core/investor`, PT/EN, e-mail) |
 | Benchmark vs pares (coorte) | — (diferencial) | ✅ | `core/datamoat` (percentil vs 320 empresas sintéticas; produção = cross-tenant real) |
 | Consolidado multiempresa | — | ✅ | `/consolidado` (RPC `org_consolidado`) |
-| Headcount planning dedicado | Runway.com | 🟡 | cenário "equipe" no simulador; página dedicada é roadmap |
+| Headcount planning dedicado | Runway.com | ✅ | `/contratacoes` (`core/headcount`: custo real c/ encargos, caixa M1–M12, runway/score antes→depois) |
 
 ## Pagamentos & spend management (Brex · Ramp)
 
@@ -73,13 +73,26 @@ Legenda: ✅ coberto (módulo citado) · 🟡 parcial · 🔜 roadmap · — for
 | Idempotência de pagamento + fila com retry | ✅ | `core/platform` (queue, circuit breaker, DLQ em `core/reliability`) |
 | Admin cross-tenant (MRR, assinaturas, impersonação auditada) | ✅ | `/admin` (`0014–0017`) |
 
-## Gaps priorizados (roadmap honesto)
+## Billing por ciclo (recorrências → cobrança)
+
+Coberto no que código alcança: o **scheduler de faturamento** roda em Vercel
+Cron (`/api/recorrencias/run`, diário, idempotente por `reference_code`) e
+materializa as faturas de cada contrato como recebíveis; `/boletos` emite por
+fatura o **PIX copia-e-cola real** (BR Code/EMV, sem PSP) e o trilho do boleto
+(nosso número + linha digitável — registro no banco emissor é o passo externo);
+marcar pago concilia e credita o saldo. A cobrança por WhatsApp/e-mail usa a
+mesma esteira de notificações.
+
+## Gaps que exigem parceiro externo (roadmap honesto)
 
 1. **Open Finance real** (Pluggy/Belvo) — conciliação e saldo ao vivo sem upload.
-2. **Billing por ciclo** — boleto/NFS-e automáticos por recorrência (scheduler).
-3. **Headcount planning** — página dedicada de plano de contratação × runway.
-4. **Filing fiscal automático** — parceiro para emissão/pagamento de guias.
-5. **Cartões corporativos** — fora de tese enquanto não houver emissor parceiro.
+2. **Registro de boleto no banco emissor + NFS-e municipal** — PSP/prefeituras.
+3. **Filing fiscal automático** — parceiro para emissão/pagamento de guias.
+4. **Cartões corporativos** — fora de tese enquanto não houver emissor parceiro.
+
+Com `/contratacoes` entregue, **todas as capacidades alcançáveis por software
+próprio estão cobertas** — os itens acima dependem de integrações de terceiros
+(agregador bancário, PSP, prefeituras, emissor de cartão), não de código.
 
 > Atualize esta matriz a cada feature de benchmark entregue — ela é a
 > evidência viva de onde o all4pay está vs o stack YC.

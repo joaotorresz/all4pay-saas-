@@ -88,6 +88,7 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
     { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true },
     { id: "mom", label: "Crescimento MoM", valor: `${raw.crescimentoMoM >= 0 ? "+" : ""}${pct(raw.crescimentoMoM, 1)}`, hint: "receita vs. mês anterior" },
     { id: "mrr", label: "MRR estimado", valor: mrrEstimado, moeda: true, hint: "share recorrente × receita mensal" },
+    { id: "arr", label: "ARR estimado", valor: mrrEstimado * 12, moeda: true, hint: "MRR × 12" },
     { id: "margem", label: "Margem líquida", valor: pct(raw.margemLiquida, 1) },
     { id: "score", label: "Score de saúde", valor: `${raw.score}/100 · ${raw.classificacao}`, hint: "motor quantitativo (8 pilares)" },
   ];
@@ -118,6 +119,7 @@ const KPI_EN: Record<string, string> = {
   receita: "Revenue (month)",
   mom: "MoM growth",
   mrr: "Estimated MRR",
+  arr: "Estimated ARR",
   margem: "Net margin",
   score: "Health score",
 };

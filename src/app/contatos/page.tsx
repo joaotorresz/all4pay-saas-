@@ -105,7 +105,8 @@ export default function ContatosPage() {
         isLoading={isLoading}
         isError={isError}
         emptyTitle="Nenhum contato cadastrado"
-        emptyHint="Cadastre clientes e fornecedores pelos botões acima."
+        emptyHint="Clientes e fornecedores alimentam cobrança, DRE por cliente e score de crédito."
+        emptyAction={<NewButton label="Novo cliente" onToast={show} form={(p) => <PartyForm role="customer" {...p} />} />}
         onRowClick={(p) => setEditing(p)}
       />
       {editing && (

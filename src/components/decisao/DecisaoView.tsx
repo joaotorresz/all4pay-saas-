@@ -22,6 +22,7 @@ import {
   type ModoExecucao,
   type AcaoAutonoma,
 } from "@/core/decision/types";
+import { chartAnim } from "@/lib/chart-anim";
 
 const NIVEL_COR: Record<RiscoNivel, string> = {
   baixo: "var(--color-positive)",
@@ -249,7 +250,7 @@ function PrevisaoChart({ bandas }: { bandas: { dia: number; p10: number; p50: nu
               ) : null
             }
           />
-          <Area type="monotone" dataKey="p50" stroke="none" fill="url(#decisaoGlow)" isAnimationActive={false} />
+          <Area type="monotone" dataKey="p50" stroke="none" fill="url(#decisaoGlow)" {...chartAnim()} />
           <Line type="monotone" dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} />
           <Line type="monotone" dataKey="p50" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
           <Line type="monotone" dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} />

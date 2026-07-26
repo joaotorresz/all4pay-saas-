@@ -27,6 +27,7 @@ const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const ORANGE = "var(--color-warning)";
 const PROJ = "#c9cdd4";
+import { chartAnim } from "@/lib/chart-anim";
 /* paleta categórica do data-viz — cores vibrantes e distintas */
 const DV = ["#FF3B30", "#2F6BFF", "#FF2D8E", "#00B8D4", "#FFB300", "#8B5CF6", "#10B981", "#F97316"];
 const brlNoCents = (n: number) => "R$ " + Math.round(n).toLocaleString("pt-BR");
@@ -187,13 +188,13 @@ export function VisorHomeTop() {
                   <XAxis dataKey="label" hide />
                   <YAxis hide domain={[0, "auto"]} />
                   <Tooltip content={<GastoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                  <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorGlow)" isAnimationActive={false} connectNulls />
+                  <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorGlow)" {...chartAnim()} connectNulls />
                   {/* mês anterior — laranja */}
-                  <Line type="monotone" dataKey="prev" stroke={ORANGE} strokeWidth={1.8} dot={false} isAnimationActive={false} connectNulls />
+                  <Line type="monotone" dataKey="prev" stroke={ORANGE} strokeWidth={1.8} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
                   {/* projeção — tracejada cinza */}
-                  <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} isAnimationActive={false} connectNulls />
+                  <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} {...chartAnim(240)} connectNulls />
                   {/* gasto realizado — verde */}
-                  <Line type="monotone" dataKey="gasto" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 4, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} isAnimationActive={false} connectNulls />
+                  <Line type="monotone" dataKey="gasto" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
                   {/* âncora invisível do balão */}
                   <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
                     <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />

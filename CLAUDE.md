@@ -75,32 +75,37 @@ sempre os tokens, nunca hex literal.
   de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
-### ⚡ Identidade corporativa all4pay — **AURORA GLASS** (ATIVA — escopo `.ds-visor`)
+### ⚡ Identidade corporativa all4pay — **DS LEDGER** (ATIVA — escopo `.ds-visor`)
 
 O app roda no escopo **`.ds-visor`** (aplicado pelo `AppShell` a todo o app),
-que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
-(futurista & clean). Estas são as regras VIGENTES (editar em `globals.css`
-`.ds-visor` / `.a4p-canvas` + `layout.tsx`):
+que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
+(editorial-terminal; refs: Vaulto/Awwwards, Mercury/Ramp). Regras VIGENTES
+(editar em `globals.css` `.ds-visor` / `.a4p-canvas` + `layout.tsx`):
 
-- **Fonte: Roobert TRIAL** (`--font-roobert`, localFont) — **SemiBold** (600–700)
-  em títulos · **Medium** (400–500) em subtítulos/corpo. Mapeada por faixa p/ nunca
-  faux-bold. **`letter-spacing` base −0.02em** (números `tabular-nums` seguem em `0`).
-- **Canvas aurora** (`.a4p-canvas`, raiz do AppShell): base **#F3F1EE** com
-  **washes radiais de lime a baixíssima opacidade** (≤14% — o lime segue sendo
-  tempero: são véus, nunca preenchimentos). No dark, near-black + véus ainda mais
-  sutis. O `<main>` `.ds-visor` é **transparente** (o canvas aparece por trás).
-- **Boxes de VIDRO** (`[data-card="1"]`): `var(--glass-bg)` translúcido
-  (branco 62% no claro · fumê 58% no escuro) + **`backdrop-filter: blur(22px)
-  saturate(150%)`** + **fio luminoso 1px** (`--glass-edge`) + **sombra ambiente
-  suave** (`--shadow-card`, var-backed — flip claro/escuro). Overlays
-  (popover/menu/palette via `.shadow-popover`, Sidebar `.a4p-sidebar`, drawers
-  `.a4p-glass`) usam o **vidro forte** `--glass-bg-strong` (~82%).
-  `prefers-reduced-transparency` → superfícies voltam a sólido.
-- **Cores:** títulos/ink **#11190C** (verde-quase-preto) · subtítulos/corpo/labels
-  **#787664** (taupe) · acento **lime #DFFF00** (só acentos). `border` volta a
-  existir como **divisor discreto** (`rgba(17,25,12,0.07)`).
-- **Formas:** **bordas bem arredondadas** (`--a4p-box-radius` **24px**) · padding
-  28px.
+- **Tipografia (Fontsource, self-hosted — sem fetch externo):**
+  **Schibsted Grotesk** (neo-grotesca) em TODA a UI — títulos 600, corpo 400/500,
+  tracking −0.01em, **prosa em numerais proporcionais** (sem `tnum` no body: o
+  tnum da Schibsted alarga ponto/vírgula). **Geist Mono em TODOS os VALORES**:
+  `Money`/`BRL` carregam a classe **`.a4p-num`** e `globals.css` põe mono nela,
+  em `.tabular-nums` (contextos tabulares) e nos eixos de gráfico
+  (`.recharts-cartesian-axis-tick-value`, 11px). É a assinatura do sistema —
+  colunas alinham como um ledger.
+- **Canvas** (`.a4p-canvas`): base **#F4F3F0** (paper) com véu de lime a ≤8%
+  (whisper — nunca preenchimento). Dark: near-black + véu ≤5%. O `<main>`
+  `.ds-visor` é transparente.
+- **Cards SÓLIDOS** (`[data-card="1"]`): `--color-white` + **hairline 1px**
+  (`--color-border` = rgba(17,25,12,0.08)) + **micro-sombra** (`--shadow-card`).
+  **O vidro fica SÓ nos overlays**: popover/menu/palette (`.shadow-popover`),
+  Sidebar (`.a4p-sidebar`), drawers (`.a4p-glass`) — `--glass-bg-strong` + blur.
+  `prefers-reduced-transparency` → sólido.
+- **Cores:** títulos/ink **#11190C** · corpo/labels **#787664** (taupe) · acento
+  **lime #DFFF00** (só acentos).
+- **Formas:** raio dos cards **16px** (`--a4p-box-radius`) · padding 24px ·
+  controles 10px · pills 999.
+- **Tabelas (padrão Ledger):** cabeçalho em **micro-label** — `text-[11px]
+  font-medium uppercase tracking-[0.08em] text-faint` (única exceção sancionada
+  ao "sem caixa-alta") · linhas hairline (`border-border-soft`) · valores à
+  direita em mono (via `BRL`).
 - **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
@@ -110,6 +115,12 @@ que **sobrescreve** os tokens-base abaixo com a identidade **aurora glass**
   glifo entra num **tile discreto** (`IconTile`, `src/components/visao-geral/shared.tsx`:
   `rounded-md bg-surface-2` + glifo ink; `WidgetHeader` aceita `icon`). Os ícones
   3D (`Icon3D`) foram **removidos** do sistema — não reintroduzir.
+- **Gráficos vivos, no MESMO padrão:** eixos em mono 11px faint; toda série
+  Recharts anima na ENTRADA da página via **`chartAnim(begin?)`**
+  (`src/lib/chart-anim.ts`: 700ms ease-out, escalona séries do mesmo gráfico com
+  `begin` 0/120/240, respeita `prefers-reduced-motion`) e responde ao hover
+  (`activeDot` em linhas/áreas, `activeBar` em barras). Nunca
+  `isAnimationActive={false}` (exceto âncoras invisíveis de label).
 
 Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
 identidade viva é a de cima.
@@ -198,6 +209,41 @@ Demo-safe; navega para a página do resultado.
 ---
 
 ## Feature modules
+
+### Adesão progressiva — menu Simples×Pro + Jornada (`/comece`)
+
+O sistema tem MUITA função; a tese de adesão é **revelar aos poucos até 100%**.
+
+- **Menu por JOB, não por taxonomia** (`Sidebar.tsx`): o **Modo Simples** (padrão,
+  `useModo`) mostra 5 grupos do dia a dia — **Início · Receber · Pagar · Caixa &
+  Resultado · Dados & Cadastros** (~15 itens). O **Modo Pro** REVELA a
+  profundidade — **Fiscal & vendas · Contabilidade · Estrutura · Inteligência ·
+  Governança & Plataforma** (`pro: true`). Toda rota continua acessível; nada
+  removido, só reagrupado/priorizado. O toggle comunica o que o Pro desbloqueia.
+- **Jornada de Adesão** (`src/lib/adoption.ts`, `adoption/1.0.0`): motor puro,
+  demo-safe. 4 estágios progressivos — **Conectar → Organizar → Analisar →
+  Operar** — cada passo com `feito` derivado do **estado real** (`getRiscoInput`:
+  dados importados, contatos, categorias, recebíveis) + as **rotas já vistas**
+  (`RouteTracker` no AppShell grava em `localStorage` `a4p_seen_routes`).
+  `montarJornada(input, vistas)` → estágios, `%`, `proximo` passo, `nivel`.
+- **UI** (`src/components/comece/Jornada.tsx`): `JornadaCard` na Home (progresso +
+  próximo passo; some em 100%; **handoff limpo com o `FirstRunCard`** — só aparece
+  quando o primeiro dado já entrou) + `JornadaView` na página **`/comece`** (os 4
+  estágios inteiros, passos riscados ao concluir, botão "Abrir/Ver X" por passo).
+  Entrada "Comece por aqui" no topo do menu + na command palette.
+
+### Correlações (drill-down & CTAs) — o número/vazio nunca é terminal
+
+Para descobrir as funções, cada superfície **leva à próxima**:
+- **`MetricCard`** (cockpit) e **`Stat`** (DRE) aceitam `href`/`hrefLabel` →
+  link "ver detalhe ↗" no rodapé (sem colidir com o botão "i"). ~25 widgets do
+  cockpit + os KPIs do DRE levam ao **motor de origem** (risco→`/copiloto?aba=risco`,
+  inadimplência→`/inadimplencia`, decisão/autônomo, contas→conectar, DRE, etc.).
+- **`EmptyState`** (`visao-geral/shared.tsx`) e **`Empty`/`EntityTable`**
+  (`listas/ListChrome.tsx`) têm slot `action`/`emptyAction`: um vazio sempre
+  oferece o botão que o preenche (Conectar banco, Nova venda, Novo X).
+- Ações que criam algo **linkam para onde foi** (Reembolsos→aprovações/pagamentos;
+  Recorrências→a receber/fluxo).
 
 ### Início (`/`) — financial overview dashboard
 
@@ -888,13 +934,24 @@ Boleto/NFS-e por ciclo e scheduler de faturamento são roadmap.
 > (`liquidarImported`/`appendImported` → `getRiscoInput` → `summarizeAccounts`) é
 > o MESMO caminho validado no browser antes (saldo reagiu pelo valor exato).
 
-### Upload de dados (`/upload`) — Caixa de Entrada + Onboarding unificados
+### Upload de dados (`/upload`) — Entrada de dados unificada
 
-A página **`/upload` "Upload de dados"** (`src/components/upload/UploadView.tsx`)
-**junta** a Caixa de Entrada (documentos/OCR) e o Onboarding inteligente (extratos
-OFX/CSV em lote, FDIP) numa central só. `/inbox` e `/import` **redirecionam** para
-`/upload` (Sidebar tem uma entrada única). UploadView só compõe `<InboxView/>` +
-`<ImportView/>` em duas seções.
+A página **`/upload` "Entrada de dados"** (`src/components/ingestao/IngestaoView.tsx`)
+é a central única de ingestão, em **3 abas**: **Conectar** (Open Finance) ·
+**Enviar** (`src/components/upload/UploadView.tsx`: extrato em lote CSV/OFX/TXT
+pelo FDIP **ou** documento individual PNG/JPG/PDF por OCR; a revisão é a
+`RevisaoImportacao`) · **Conciliar** (`components/conciliacao/ConciliacaoView.tsx`:
+Open Finance × títulos previstos, baixa por match + avaliação por IA).
+`/inbox`, `/import`, `/conciliacao`, `/contas` e `/conciliacao-bancaria`
+**redirecionam** para cá (a visão IULI×OFX paralela foi aposentada — uma única
+conciliação). Os antigos `InboxView`/`ImportView`/`lib/inbox` foram removidos.
+
+**Revisão da importação** (`src/components/upload/RevisaoImportacao.tsx`): resumo
+(lançamentos/entradas/saídas/fornecedores/recorrentes) + painel **"Custos
+recorrentes detectados"** — o "boleto fixo" da empresa: total `custoRecorrenteMensal`
+por mês + lista `custosMensais` (contraparte · categoria · cadência ·
+`mediaMensal`), com as receitas recorrentes separadas — + contatos a cadastrar +
+amostra classificada + confirmação (`aplicarOnboarding`).
 
 **Wizard rápido na home** (`src/components/upload/UploadWizard.tsx`): o botão fixo
 da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 etapas**
@@ -905,44 +962,28 @@ da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 et
    decide a **ação** (Vou pagar/receber · Paguei/Recebi), faz o **cross-check do
    beneficiário** contra os Contatos (por CNPJ/CPF ou nome), detecta **baixa** de um
    agendado (comprovante que casa com pendente ±2% do mesmo tipo), sinaliza
-   beneficiário **novo** (sugerir cadastro) e gera **ideias**.
+   beneficiário **novo** (sugerir cadastro), detecta **custo recorrente** (o
+   beneficiário aparece em 3+ meses do histórico → "~R$X/mês" + sugestão de criar
+   recorrência; o histórico vem de `getRiscoInput().movements` via o parâmetro
+   `historico` — forma mínima `MovimentoHistorico`) e gera **ideias**.
 3. **Confirmar** — campos editáveis (valor/vencimento/categoria) + toggle de
    cadastrar o contato novo → `confirmarDocumento()` grava no sistema (demo:
    `appendImported()` anexa 1 lançamento ao dataset, partindo de um snapshot do seed
    p/ não escondê-lo; live: cria contato/lançamento no Supabase, ou dá baixa no
    pendente) → `invalidateQueries()` reflete em dashboard/DRE/risco/Upload.
 
-`InboxView` (`src/components/inbox/`) — a "Inbox financeira" estilo e-mail: tudo
-que entra (PDF/PNG/JPG/OFX/Excel/CSV/XML/DANFE/NFS-e/boleto/comprovante/contrato)
-cai numa central. Materializa o blueprint (Financial Inbox → Document Intelligence →
-Confirmation Workbench → Confidence Engine → Digital Twin):
-- **Canais** (`INBOX_CANAIS`): Upload/arrastar (funcional), E-mail
-  (`financeiro@…all4pay.com`), WhatsApp, Open Finance, API/ERP, OCR/scanner,
-  monitoramento de pasta — os 3 últimos marcados "em breve" (conectores de
-  backend). O **drag-drop** roda OFX/CSV pelo motor FDIP (`analisarImportacao`).
-- **Status** (`STATUS_META`): Novo · Em análise · Pronto · Necessita revisão ·
-  Processado. **Workbench** por documento: campos extraídos + **cross-check**
-  (fornecedor/recorrência/NF batem?) + ação detectada (a pagar/receber/baixa/…)
-  + sugestões (criar fornecedor/categoria/recorrência) + **matriz de confiança**
-  (campo×%, ≥95% auto-aprovável) + "Confirmar" (propaga p/ contas/fluxo/DRE/
-  tesouraria/forecast…). Callout do **Financial Digital Twin**.
-- Dados de demo em `src/lib/inbox.ts`. **OCR REAL** (`POST /api/inbox/ocr`,
-  `runtime nodejs`): a visão do **Claude** (Anthropic API, `fetch` cru — sem SDK)
-  lê imagem/PDF e devolve os campos estruturados + confiança por campo (JSON).
-  Gated por `ANTHROPIC_API_KEY` (`ANTHROPIC_MODEL` opcional, default
-  `claude-sonnet-5`); `GET` reporta `configured`. A InboxView reduz a imagem
-  (canvas, 1600px/JPEG) antes do POST e monta o `InboxDoc` real do retorno.
-  **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
-  `ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
-  grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
-  e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
-  digitável/banco/beneficiário) monta o MESMO `DocExtraido`. **PDF sem chave**
-  também é lido localmente: `ocrLocalPdf()` **rasteriza a 1ª página via pdf.js**
-  (`pdfjs-dist`, worker do CDN na versão exata) num canvas PNG → Tesseract. Precisão
-  menor → confiança capada em 0.82, entra como "revisão" para o operador confirmar.
-  O canal "OCR" mostra "ativo · IA (Claude)" com a chave ou "ativo · local (sem
-  chave)" sem ela.
-  Upload OFX/CSV roda pelo FDIP. E-mail/WhatsApp/Open Finance plugam na mesma esteira.
+**OCR REAL** (`POST /api/inbox/ocr`, `runtime nodejs`): a visão do **Claude**
+(Anthropic API, `fetch` cru — sem SDK) lê imagem/PDF e devolve os campos
+estruturados + confiança por campo (JSON). Gated por `ANTHROPIC_API_KEY`
+(`ANTHROPIC_MODEL` opcional, default `claude-sonnet-5`); `GET` reporta
+`configured`. **OCR LOCAL (fallback sem chave)** (`src/lib/ocr-local.ts`): sem
+`ANTHROPIC_API_KEY`, imagens caem no **Tesseract.js** (WASM, roda no navegador,
+grátis, import dinâmico — não pesa o bundle) → `ocrLocalImagem(file)` transcreve
+e `extrairCampos()` (heurísticas regex pt-BR: valor/vencimento/CNPJ/CPF/linha
+digitável/banco/beneficiário) monta o MESMO `DocExtraido`. **PDF sem chave**
+também é lido localmente: `ocrLocalPdf()` **rasteriza a 1ª página via pdf.js**
+(`pdfjs-dist`, worker do CDN na versão exata) num canvas PNG → Tesseract. Precisão
+menor → confiança capada em 0.82, entra como "revisão" para o operador confirmar.
 
 ### Onboarding inteligente / FDIP (em `/upload`)
 
@@ -969,10 +1010,13 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   fica nas regras (sem chave).
 - **Entidades** (`resolverEntidades`): agrupa por contraparte normalizada
   (aliases) → cliente/fornecedor. **Padrões** (`descobrirPadroes`):
-  recorrências (mensal/semanal), assinaturas, sazonalidade. **Grafo** + **plano
-  de setup** (`montarPlano`): categorias, centros de custo, recorrências e
-  **estimativas** (receita/EBITDA/margem/recorrente). **Central de confiança**
-  (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
+  recorrências (mensal/semanal) com `tipo` (custo × receita recorrente) e
+  `mediaMensal` (total ÷ meses observados), assinaturas, sazonalidade, e os
+  **custos recorrentes/mensais**: `custosMensais` (saídas com cadência, maiores
+  primeiro) + `custoRecorrenteMensal` (o "boleto fixo" do mês — soma das médias).
+  **Grafo** + **plano de setup** (`montarPlano`): categorias, centros de custo,
+  recorrências e **estimativas** (receita/EBITDA/margem/recorrente). **Central
+  de confiança** (`centralConfianca`): total/lidos/alta/média/baixa + pendências.
 - **Auto company setup / correlação no sistema inteiro:** `aplicarOnboarding(report)`
   (`src/lib/fdip.ts`) → `montarDataset()` converte os lançamentos lidos em
   `movements`+contas+parties. **Demo:** grava no store `src/lib/imported.ts`
@@ -980,12 +1024,11 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   `getReceivables/Payables/Accounts/DailyCashflow/Sales`, `getOpenMovements`,
   `listParties` leem `importedMovements()/importedAccounts()/importedParties()
   ?? seed`. **Live:** cria parties/categorias/centros **e os movimentos** no
-  Supabase. A `ImportView` invalida o React Query → dashboard/DRE/risco/quant/
+  Supabase. A confirmação invalida o React Query → dashboard/DRE/risco/quant/
   decisão/copiloto/autônomo/dados/contatos passam a refletir o upload. Botão
   "Limpar dados importados" reverte (demo). Amostra de 12 meses em `sample.ts`
-  (+ `public/exemplos/extrato-exemplo-all4pay.csv`). UI em
-  `src/components/import/ImportView.tsx` (ingestão + confidence center +
-  descobertas + destino com confirmação + padrões + setup).
+  (+ `public/exemplos/extrato-exemplo-all4pay.csv`). UI: aba **Enviar** de
+  `/upload` (`UploadView` + `RevisaoImportacao`).
 
 ### Sistema Operacional Financeiro (`/conciliacao`, `/automacoes`)
 
@@ -1167,17 +1210,13 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
-- Font: **DM Sans** (DS Visor) — carregada no `layout.tsx` via `<link>` do Google
-  Fonts (eixos `opsz,wght@9..40,400..700`) e definida como `sans` no Tailwind
-  (fallback `var(--font-onest)`/Onest). Pesos 400/500/600/700; títulos em 600,
-  números-herói 700. `letter-spacing` base −0.01em, números (`tabular-nums`) com
-  espaçamento **normal**. Onest/Roc Grotesk aposentadas (arquivos mantidos em
-  `fonts/` como fallback). **Migração para o DS Visor** (estrutura Visor Finance +
-  marca lime): tokens neutros/semânticos no `:root` (light) = paleta Visor
-  (`surface-1` #f6f7f9 · `ink` #0e131e · `positive` #28aa00 · `negative` #d9000a),
-  cards 14px flat (24px padding); o `AppShell` aplica `scopeClassName="ds-visor"`
-  por padrão (cores Visor só no tema claro via `html:not(.dark) .ds-visor` — o
-  **dark mode é preservado**).
+- Fontes (DS Ledger): **Schibsted Grotesk Variable** (UI) + **Geist Mono
+  Variable** (valores) — importadas no `layout.tsx` via **Fontsource** (npm,
+  self-hosted, sem fetch externo) e definidas como `sans`/`mono` no Tailwind.
+  Títulos 600 · corpo 400/500 · heróis mono 600. DM Sans/Roobert/Onest/Roc
+  aposentadas (arquivos antigos seguem em `src/app/fonts/` sem uso). O `AppShell`
+  aplica `scopeClassName="ds-visor"` por padrão (paleta clara via
+  `html:not(.dark) .ds-visor` — o **dark mode é preservado**).
 
 ### Commands
 

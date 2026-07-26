@@ -69,15 +69,24 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // DS Visor — DM Sans é a face do sistema (carregada no layout via <link>).
+        // DS All4Pay — Hanken Grotesk (fonte de marca) é a face do sistema;
+        // Geist Mono carrega os números tabulares (self-hosted via Fontsource).
         sans: [
-          '"DM Sans"',
-          "var(--font-onest)",
-          "Onest",
+          '"Hanken Grotesk Variable"',
+          '"Hanken Grotesk"',
+          '"Schibsted Grotesk Variable"',
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "sans-serif",
+        ],
+        mono: [
+          '"Geist Mono Variable"',
+          '"Geist Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace",
         ],
       },
       fontSize: {
@@ -119,8 +128,8 @@ const config: Config = {
         sidebar: "240px",
       },
       borderRadius: {
-        // Visor: cards 14px · botões/inputs 10px · badges 8px · pills.
-        card: "14px", // cards, panels, tooltip
+        // Ledger: cards 16px · botões/inputs 10px · badges 8px · pills.
+        card: "16px", // cards, panels, tooltip
         md: "10px", // buttons, inputs, command bar
         sm: "8px", // smaller buttons, rectangular badges
         pill: "999px", // action pills, avatars

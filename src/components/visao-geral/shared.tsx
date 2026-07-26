@@ -15,14 +15,16 @@ const BANK_COLORS: Record<string, string> = {
 export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
 
 /** Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de card. */
-export function IconTile({ name, size = 38 }: { name: IconName | string; size?: number }) {
+export function IconTile({ name, size = 40 }: { name: IconName | string; size?: number }) {
+  // DS All4Pay: chip escuro (#11190C = ink) + glifo LIMA — o "chip de ícone"
+  // da referência (nunca ícone claro sobre lima; aqui é lima sobre ink).
   return (
     <span
-      className="inline-flex items-center justify-center shrink-0 rounded-md bg-surface-2 text-ink"
+      className="inline-flex items-center justify-center shrink-0 rounded-[12px] bg-ink"
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <Icon name={name} size={Math.round(size * 0.5)} color="currentColor" />
+      <Icon name={name} size={Math.round(size * 0.5)} color="var(--color-lime)" />
     </span>
   );
 }
@@ -56,15 +58,19 @@ export function WidgetHeader({
   );
 }
 
-/** Quiet empty state — icon, line, optional hint. Never alarming. */
+/** Quiet empty state — icon, line, optional hint, optional CTA. Never alarming.
+ *  O `action` fecha a correlação: um vazio nunca é um beco — sempre oferece o
+ *  botão que o preenche (ex.: "Conectar banco", "Nova venda"). */
 export function EmptyState({
   icon = "file-text",
   title,
   hint,
+  action,
 }: {
   icon?: IconName;
   title: string;
   hint?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 px-4 gap-2">
@@ -73,6 +79,7 @@ export function EmptyState({
       </span>
       <p className="m-0 text-label font-medium text-muted">{title}</p>
       {hint && <p className="m-0 text-caption text-faint max-w-[28ch]">{hint}</p>}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }

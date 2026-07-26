@@ -52,7 +52,8 @@ export function Money({
   return (
     <span
       className={cn(
-        "inline-flex items-baseline whitespace-nowrap font-sans leading-none tabular-nums",
+        // a4p-num: valores monetários entram em MONO (DS Ledger, globals.css)
+        "a4p-num inline-flex items-baseline whitespace-nowrap leading-none tabular-nums",
         className,
       )}
       style={{ letterSpacing: "-0.01em", ...style }}

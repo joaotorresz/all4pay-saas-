@@ -39,6 +39,8 @@ export interface AnaliseDocumento {
   contato: Party | null; // cross-check encontrou o cadastro
   sugerirCadastro: boolean; // beneficiário ainda não cadastrado
   baixaDe: Movement | null; // comprovante casa com um pendente (dar baixa)
+  /** o beneficiário é um CUSTO RECORRENTE (aparece mês após mês no histórico) */
+  custoRecorrente: { meses: number; mediaMensal: number } | null;
   crossCheck: string[];
   ideias: string[];
   confianca: number;
@@ -64,7 +66,19 @@ function parseISO(s: string | null): string | null {
  * pendentes) — é o que permite o cross-check ("a conta cadastrada do CNPJ é a
  * Padaria 123 e o boleto é para ela").
  */
-export function analisarDocumento(fields: DocFields, parties: Party[], pendentes: Movement[]): AnaliseDocumento {
+/** Forma mínima do histórico p/ detectar recorrência (Movement e RiskMovement servem). */
+export interface MovimentoHistorico {
+  type: "entrada" | "saida";
+  status: string;
+  amount: number;
+  due_date: string;
+  paid_date?: string | null;
+  party_id?: string | null;
+  category?: string | null;
+  description?: string | null;
+}
+
+export function analisarDocumento(fields: DocFields, parties: Party[], pendentes: Movement[], historico: MovimentoHistorico[] = []): AnaliseDocumento {
   const hoje = isoDay(new Date());
   const venc = parseISO(fields.vencimento);
   const data = parseISO(fields.data);
@@ -118,11 +132,31 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
 
   const jaVencido = !pago && !!venc && venc < hoje;
 
+  // --- Custo recorrente: o beneficiário aparece mês após mês no histórico? ---
+  // (só para saídas; ≥3 meses distintos do mesmo party/nome → é o "boleto fixo")
+  let custoRecorrente: AnaliseDocumento["custoRecorrente"] = null;
+  if (tipoMov === "saida" && historico.length) {
+    const alvoNome = contraparte ? norm(contraparte) : null;
+    const doMesmo = historico.filter((m) => {
+      if (m.type !== "saida" || m.status === "cancelado") return false;
+      if (contato && m.party_id) return m.party_id === contato.id;
+      if (!alvoNome || alvoNome.length < 4) return false;
+      const rot = norm(`${m.description ?? ""} ${m.category ?? ""}`);
+      return rot.includes(alvoNome) || (rot.length >= 4 && alvoNome.includes(rot));
+    });
+    const meses = new Set(doMesmo.map((m) => (m.paid_date || m.due_date || "").slice(0, 7)).filter(Boolean));
+    if (meses.size >= 3) {
+      const total = doMesmo.reduce((s, m) => s + Math.abs(m.amount), 0);
+      custoRecorrente = { meses: meses.size, mediaMensal: total / meses.size };
+    }
+  }
+
   // --- Cross-check legível ---
   const crossCheck: string[] = [];
   if (contato) crossCheck.push(`Beneficiário confere com o cadastro: ${contato.name}${docDigits ? ` (${fields.cnpj || fields.cpf})` : ""}.`);
   else if (sugerirCadastro) crossCheck.push(`${contraparte} ainda não está em Contatos — sugerimos cadastrar.`);
   if (baixaDe) crossCheck.push(`Casa com um lançamento agendado de ${formatBRLsafe(baixaDe.amount)} — dá para baixar.`);
+  if (custoRecorrente) crossCheck.push(`Custo recorrente: aparece em ${custoRecorrente.meses} meses do histórico (~${formatBRLsafe(custoRecorrente.mediaMensal)}/mês).`);
   if (venc) crossCheck.push(`Vencimento ${venc}${jaVencido ? " (vencido)" : ""}.`);
 
   // --- Ideias ---
@@ -131,12 +165,13 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
   if (jaVencido) ideias.push("Está vencido — priorize a regularização.");
   if (baixaDe) ideias.push("Dar baixa no agendamento correspondente (evita duplicar).");
   if (sugerirCadastro) ideias.push(`Cadastrar ${contraparte} em Contatos para cobrança/relatórios.`);
+  if (custoRecorrente && !pago) ideias.push("É um custo mensal — considere criar uma recorrência para lançar sozinho.");
   if (!fields.categoria) ideias.push("Definir a categoria melhora DRE e benchmark.");
 
   return {
     fields: { ...fields, vencimento: venc, data },
     contraparte, acaoFinal, tipoMov, pago, jaVencido,
-    contato, sugerirCadastro, baixaDe, crossCheck, ideias,
+    contato, sugerirCadastro, baixaDe, custoRecorrente, crossCheck, ideias,
     confianca: fields.confianca,
   };
 }

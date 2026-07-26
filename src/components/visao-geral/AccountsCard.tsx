@@ -47,8 +47,14 @@ export function AccountsCard() {
 
       {!isLoading && !isError && data && data.accounts.length === 0 && (
         <EmptyState
+          icon="credit-card"
           title="Nenhuma conta cadastrada"
           hint="Conecte uma conta bancária para consolidar seus saldos."
+          action={
+            <Link href="/upload?aba=conectar" className="inline-flex items-center gap-1 rounded-pill bg-ink text-white text-caption font-medium px-4 py-2 hover:opacity-90">
+              Conectar banco
+            </Link>
+          }
         />
       )}
 

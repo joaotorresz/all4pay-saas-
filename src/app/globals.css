@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Roobert TRIAL (Medium) — enviada pelo usuário, self-hosted p/ testes de fonte
+   no Laboratório de Design. Só o peso Medium (o arquivo enviado). */
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-medium.otf") format("opentype");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------
@@ -26,11 +36,11 @@
   --color-text-tertiary: #8a8a8a; /* faint / legendas */
   --color-text-quaternary: #bbbcbd; /* placeholder */
 
-  /* Accent */
-  --color-lime: #dfff00;
-  --color-lime-alt: #e0f80a;
-  --color-lime-tint: #f8fcd9;
-  --color-on-lime: #0e131e; /* text/icon ON bright lime — dark in BOTH themes */
+  /* Accent — lima assinatura All4Pay */
+  --color-lime: #e1ff00;
+  --color-lime-alt: #cfea00;
+  --color-lime-tint: #f4ffb0;
+  --color-on-lime: #11190c; /* text/icon ON bright lime — dark in BOTH themes */
   --color-chart-line: #0e131e; /* linha dos gráficos: escura no claro, lime no escuro */
 
   /* Hero glow (marketing only) */
@@ -43,22 +53,21 @@
   --color-negative: #d9000a;
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 36px;
+  --radius-card: 16px;
   --radius-md: 10px;
   --radius-sm: 8px;
   --radius-pill: 999px;
 
-  /* Glass (identidade "aurora glass") — superfícies translúcidas + blur.
-     bg = vidro dos cards · strong = vidro dos overlays (popover/sidebar/modal)
-     edge = fio luminoso de 1px na borda superior do vidro. */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  /* Glass — SÓ overlays (popover/sidebar/drawers); cards são sólidos (Ledger).
+     strong = vidro dos overlays · edge = fio de 1px do vidro. */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.84);
   --glass-edge: rgba(255, 255, 255, 0.65);
-  --glass-blur: 22px;
+  --glass-blur: 20px;
+  /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
   --shadow-card:
-    inset 0 1px 0 0 var(--glass-edge),
     0 1px 2px rgba(14, 19, 30, 0.04),
-    0 16px 40px -18px rgba(14, 19, 30, 0.12);
+    0 8px 24px -18px rgba(14, 19, 30, 0.1);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
     0 24px 64px -16px rgba(14, 19, 30, 0.22);
@@ -96,13 +105,13 @@ html.dark {
   --color-positive: #57a877;
   --color-negative: #d8584c;
 
-  /* Glass no escuro — vidro fumê + fio sutil; sombras mais densas */
-  --glass-bg: rgba(24, 24, 26, 0.58);
-  --glass-bg-strong: rgba(20, 20, 22, 0.82);
+  /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline */
+  --glass-bg: rgba(24, 24, 26, 0.66);
+  --glass-bg-strong: rgba(20, 20, 22, 0.84);
   --glass-edge: rgba(255, 255, 255, 0.08);
   --shadow-card:
-    inset 0 1px 0 0 var(--glass-edge),
-    0 16px 40px -18px rgba(0, 0, 0, 0.55);
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 24px -18px rgba(0, 0, 0, 0.5);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
     0 24px 64px -16px rgba(0, 0, 0, 0.65);
@@ -125,8 +134,9 @@ html.dark {
   body {
     @apply bg-surface-1 text-ink font-sans;
     -webkit-font-smoothing: antialiased;
-    /* tabular-nums always — columns align, updating values don't shiver */
-    font-variant-numeric: tabular-nums;
+    /* Prosa em numerais PROPORCIONAIS (o tnum da Schibsted alarga ponto/vírgula).
+       Alinhamento tabular é responsabilidade dos contextos .tabular-nums/.a4p-num,
+       que entram em Geist Mono (DS Ledger). */
     /* Roc Grotesk Regular: peso 400, espaçamento -0.01em, line-height base 22px */
     font-weight: 400;
     letter-spacing: -0.01em;
@@ -146,32 +156,6 @@ html.dark {
   svg text,
   svg tspan {
     font-family: inherit;
-  }
-
-  /* DS "Onest" (teste · Home): títulos em SemiBold 600. Precisa estar nesta
-     layer p/ vencer o `*{font-weight:400!important}` acima (mesma layer +
-     seletor mais específico). Subtítulos/corpo seguem 400 (Regular). */
-  .ds-onest :is(h1, h2, h3, .text-display, .text-h1, .text-h2, .text-h3) {
-    font-weight: var(--a4p-title-weight, 600) !important;
-  }
-  /* número do dia do calendário em SemiBold */
-  .ds-onest [data-day-num] {
-    font-weight: 600 !important;
-  }
-  /* tracking dos números (tabular-nums) */
-  .ds-onest .tabular-nums {
-    letter-spacing: var(--a4p-num-tracking, -0.03px) !important;
-  }
-  /* tema Onest usa múltiplos pesos: reabilita medium/semibold (vence o reset 400) */
-  .ds-onest .font-medium {
-    font-weight: 500 !important;
-  }
-  .ds-onest .font-semibold {
-    font-weight: 600 !important;
-  }
-  /* rótulos dos eixos do gráfico (Recharts) em peso 500 */
-  .ds-onest .recharts-cartesian-axis-tick-value {
-    font-weight: 500 !important;
   }
 
   /* Quiet, soft scrollbar — matches the restrained product feel. */
@@ -259,10 +243,10 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
   transition: transform 0.28s var(--ease-smooth), box-shadow 0.28s var(--ease-smooth);
 }
 .ds-visor [data-card="1"]:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   box-shadow:
-    inset 0 1px 0 0 var(--glass-edge),
-    0 24px 56px -20px rgba(14, 19, 30, 0.18);
+    0 1px 2px rgba(14, 19, 30, 0.04),
+    0 16px 40px -20px rgba(14, 19, 30, 0.16);
 }
 
 /* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
@@ -290,128 +274,92 @@ h1, h2, h3,
 .text-display, .text-h1, .text-h2, .text-h3 {
   font-weight: 600;
 }
-/* números (tabular) com espaçamento normal — paridade com o Visor (DM Sans) */
+/* Números tabulares (sans): alinhados, espaçamento normal. Os VALORES
+   monetários (Money/BRL) e os eixos de gráfico é que entram em mono —
+   frases com número no meio continuam na grotesca. */
 .tabular-nums {
   letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums;
 }
-/* rótulos dos eixos dos gráficos (Recharts) em Medium */
+/* Gráficos no MESMO padrão: rótulos de eixo em mono 11px, discretos. */
 .recharts-cartesian-axis-tick-value {
-  font-weight: 500;
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 11px;
+  fill: var(--color-text-tertiary);
 }
 
 /* ============================================================
-   DS "Onest" — escopo de TESTE aplicado só ao <main> da Home
-   (scopeClassName="ds-onest"). Validar antes de levar ao sistema.
-   Fundo #eceef2 · boxes #fff · 13px · sem bordas/sombras · Onest.
-   Unlayered de propósito: vence as utilities do Tailwind (bg/radius/font).
-   ============================================================ */
-.ds-onest {
-  /* ================= PAINEL EDITÁVEL (mexa só nos valores) =================
-     Edite os números/cores abaixo e me mande este bloco de volta — ou edite
-     direto no GitHub (branch claude/epic-fermi-i423xk → src/app/globals.css).
-     ------------------------------------------------------------------------ */
-  --a4p-bg: #f4f4f5;          /* fundo principal da página (near-white, ref. Itaú) */
-  --a4p-box-bg: #ffffff;      /* cor de fundo dos boxes */
-  --a4p-box-radius: 36px;     /* arredondamento das bordas do box */
-  --a4p-box-padding: 45px;    /* espaçamento interno (conteúdo ↔ borda) */
-  --a4p-title-weight: 600;    /* peso do título (400=Regular · 500=Medium · 600=SemiBold) */
-  --a4p-num-tracking: -1.04px;/* espaçamento (letter-spacing) dos números */
-  --a4p-borders: transparent; /* cor das bordas (transparent = sem borda) */
-  /* ======================================================================== */
-
-  background-color: var(--a4p-bg);
-  font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --color-surface-1: var(--a4p-bg);
-  --color-white: var(--a4p-box-bg);
-  --color-border: var(--a4p-borders);
-  --color-border-soft: var(--a4p-borders);
-  --radius-card: var(--a4p-box-radius);
-}
-/* a utility rounded-card é 16px fixa → sobrescreve com o valor do painel */
-.ds-onest .rounded-card {
-  border-radius: var(--a4p-box-radius);
-}
-/* p-6 (24px padrão) → valor do painel */
-.ds-onest .p-6 {
-  padding: var(--a4p-box-padding);
-}
-/* títulos de widget (text-h3) na Home — calmos, ref. Itaú (menos poluído) */
-.ds-onest .text-h3 {
-  font-size: 24px;
-}
-/* esconde os títulos de bloco (Caixa, Operação, Resumo executivo, …) na Home */
-.ds-onest [data-block-header] {
-  display: none;
-}
-
-/* ============================================================
-   DS "Visor" — escopo de TESTE aplicado só ao <main> da Home
-   (scopeClassName="ds-visor"). Estrutura Visor Finance + marca lime.
-   Fundo #F6F7F9 · cards brancos 14px com hairline + sombra fraca ·
-   DM Sans · números-herói 700 · acento lime #DFFF00 (texto escuro
-   por cima, NUNCA branco). Unlayered de propósito (vence o Tailwind).
+   DS "LEDGER" — a identidade vigente (escopo .ds-visor, todo o app).
+   Editorial-terminal: Schibsted Grotesk (neo-grotesca) na UI, Geist
+   Mono em TODOS os números, cards sólidos com hairline 1px + micro
+   sombra (o vidro fica só nos overlays/sidebar), raio 16px, lime como
+   único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
    ============================================================ */
 .ds-visor {
-  /* ====== PAINEL — IDENTIDADE "AURORA GLASS" all4pay =========================
-     Futurista & clean: canvas com washes de aurora (lime a baixíssima opacidade)
-     e boxes de VIDRO (translúcidos + backdrop-blur + fio luminoso 1px + sombra
-     ambiente suave). Roobert TRIAL · bordas bem arredondadas.
-     Edite só os valores abaixo. --------------------------------------------- */
-  --a4p-bg: #f3f1ee;          /* base do canvas (sob a aurora) */
-  --a4p-box-bg: var(--glass-bg); /* vidro dos boxes */
-  --a4p-box-radius: 24px;     /* bordas bem arredondadas */
-  --a4p-box-padding: 28px;    /* respiro interno */
-  --a4p-box-border: rgba(17, 25, 12, 0.07); /* divisores discretos */
+  /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
+  --a4p-bg: #f3f1ee;          /* bg/base — canvas geral do app */
+  --a4p-box-bg: var(--color-white); /* cards sólidos brancos */
+  --a4p-box-radius: 16px;     /* raio dos cards */
+  --a4p-box-padding: 24px;    /* respiro interno */
+  --a4p-box-border: #eceae4;  /* border/subtle — hairline dos cards/divisores */
   /* ========================================================================= */
 
-  font-family: var(--font-roobert), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.02em;    /* tracking da marca */
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
   --radius-card: var(--a4p-box-radius);
-  /* o canvas aurora vive no .a4p-canvas (AppShell) — o main é transparente */
+  /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
 }
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
 html:not(.dark) .ds-visor {
-  /* neutros / superfícies (medidos do Visor) */
+  /* neutros / superfícies — paleta All4Pay (spec Vendria→lima) */
   --color-surface-1: var(--a4p-bg);
-  --color-surface-2: #eef0f3;
-  --color-surface-3: #e7e9ec;
+  --color-surface-2: #f0eee9;      /* seção / hover suave (warm) */
+  --color-surface-3: #e9e6df;
   --color-white: #ffffff;
-  --color-ink: #11190c;            /* títulos — verde-quase-preto da marca */
-  --color-ink-soft: #11190c;
-  --color-text-secondary: #787664; /* subtítulos/corpo/labels — taupe da marca */
-  --color-text-tertiary: #9c9a88;  /* faint → legendas */
-  --color-text-quaternary: #bdbbac;/* placeholder / vazio */
-  --color-border: var(--a4p-box-border);
-  --color-border-soft: rgba(17, 25, 12, 0.05);
-  /* acento lime #DFFF00 — texto/ícone SEMPRE escuro por cima */
-  --color-lime: #dfff00;
-  --color-lime-tint: #f8fcd9;
-  --color-on-lime: #0e131e;
-  --color-chart-line: #0e131e;
-  /* semânticas (medidas do Visor) */
-  --color-positive: #28aa00;
-  --color-warning: #f45900;
-  --color-negative: #d9000a;
+  --color-ink: #11190c;            /* ink/900 — títulos, valores, superfícies fortes */
+  --color-ink-soft: #2a3320;       /* ink/700 — hover de ink */
+  --color-text-secondary: #3f4a38; /* text/body — corpo/labels/tabela */
+  --color-text-tertiary: #6b7280;  /* text/muted — subtítulos, "vs período" */
+  --color-text-quaternary: #9aa192;/* placeholder / labels de seção */
+  --color-border: var(--a4p-box-border);      /* #ECEAE4 */
+  --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
+  /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
+  --color-lime: #e1ff00;
+  --color-lime-tint: #f4ffb0;
+  --color-on-lime: #11190c;
+  --color-chart-line: #11190c;
+  /* semânticas (status independentes da marca — verde "Pago" ≠ lima) */
+  --color-positive: #3f6212;
+  --color-warning: #92400e;
+  --color-negative: #b42318;
 }
-/* DM Sans em TODO o conteúdo da Home — vence o `.font-sans` (Onest) que alguns
-   componentes (ex.: <Money>, o número-herói) aplicam explícito e quebrariam a
-   herança. Unlayered → ganha das utilities do Tailwind. */
+/* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
+   `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
 .ds-visor,
 .ds-visor * {
-  font-family: var(--font-roobert), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
+}
+/* …exceto os NÚMEROS: valores (Money/BRL via .a4p-num), contextos tabulares
+   (.tabular-nums) e eixos de gráfico entram em Geist Mono. */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .recharts-cartesian-axis-tick-value {
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: -0.02em;
 }
 /* rounded-card (36px fixo) → raio do painel */
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* cards de VIDRO: translúcidos, blur, fio luminoso e sombra ambiente suave */
+/* cards SÓLIDOS (Ledger): branco/charcoal + hairline 1px + micro-sombra —
+   o vidro fica só nos overlays (menos "template", mais produto). */
 .ds-visor [data-card="1"] {
-  background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border: 1px solid var(--glass-edge);
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
   box-shadow: var(--shadow-card);
 }
 /* padding 45px (default do Card) → 24px do painel */
@@ -425,11 +373,11 @@ html:not(.dark) .ds-visor {
 .ds-visor .text-h3 {
   font-size: 18px;
 }
-/* números-herói em DM Sans 700 */
+/* números-herói: mono em peso 600 (700 no mono fica pesado demais) */
 .ds-visor .text-display,
 .ds-visor .text-h1,
 .ds-visor .text-value-lg {
-  font-weight: 700 !important;
+  font-weight: 600 !important;
 }
 /* esconde os títulos de bloco na Home (mantém o layout calmo) */
 .ds-visor [data-block-header] {
@@ -448,15 +396,13 @@ html:not(.dark) .ds-visor {
    ============================================================ */
 .a4p-canvas {
   background:
-    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.14), transparent 62%),
-    radial-gradient(900px 560px at -8% 28%, rgba(40, 170, 0, 0.05), transparent 58%),
-    radial-gradient(760px 480px at 72% 110%, rgba(223, 255, 0, 0.08), transparent 60%),
+    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.08), transparent 62%),
+    radial-gradient(900px 560px at -8% 28%, rgba(40, 170, 0, 0.03), transparent 58%),
     var(--color-surface-1);
 }
 html.dark .a4p-canvas {
   background:
-    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.07), transparent 62%),
-    radial-gradient(900px 560px at -8% 28%, rgba(223, 255, 0, 0.03), transparent 58%),
+    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.05), transparent 62%),
     var(--color-surface-1);
 }
 .a4p-glass,

@@ -119,7 +119,7 @@ export function RazaoView() {
                 <span className="text-label font-medium text-muted inline-flex items-center gap-1">Balancete<InfoHint align="left" titulo="Balancete" oQue="Resumo por conta de quanto entrou no débito e no crédito, com o saldo de cada uma." comoCalcula="Soma os débitos e créditos de cada conta nos lançamentos; o razão fecha quando o total de débito é igual ao de crédito." /></span>
                 <StatusBadge tone={balanceado ? "positive" : "warning"}>{balanceado ? "Razão balanceado ✓" : "Desbalanceado"}</StatusBadge>
               </div>
-              <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
+              <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
                 <span className="flex-1">Conta</span>
                 <span className="w-[120px] text-right">Débito</span>
                 <span className="w-[120px] text-right">Crédito</span>
