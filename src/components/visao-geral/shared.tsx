@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useId } from "react";
 import { Icon, InfoHint } from "@/components/ui";
 import type { IconName, InfoConteudo } from "@/components/ui";
 
@@ -16,60 +15,25 @@ const BANK_COLORS: Record<string, string> = {
 export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-text-secondary)";
 
 /**
- * Ícone 3D da marca All4Pay — squircle com VOLUME: domo em lima (verde),
- * extrusão lateral (espessura), gloss especular e uma pastilha de acento
- * AMARELO. O glifo entra em PRETO (#11190C) sobre a lima. Verde + amarelo +
- * preto = a caracterização da marca. Profundidade 100% por gradiente/fill
- * (o sistema é "sem sombras"). Reutiliza os glifos flat existentes.
+ * Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de
+ * card. DS All4Pay: chip escuro (ink) + glifo LIMA. Nada de volume/gradiente:
+ * o sistema é flat ("sem sombras"), e o 3D destoava.
  */
-export function Icon3D({ name, size = 40 }: { name: IconName | string; size?: number }) {
-  const id = useId().replace(/:/g, "");
-  const glyph = Math.round(size * 0.46);
+export function IconTile({ name, size = 40 }: { name: IconName | string; size?: number }) {
   return (
     <span
       data-icontile=""
-      className="relative inline-flex items-center justify-center shrink-0"
+      className="inline-flex items-center justify-center shrink-0 rounded-[12px] bg-ink"
       style={{ width: size, height: size }}
       aria-hidden
     >
-      <svg viewBox="0 0 64 64" width={size} height={size} className="absolute inset-0">
-        <defs>
-          {/* domo: highlight no topo-esq → lima → profundo (volume esférico) */}
-          <radialGradient id={`d-${id}`} cx="0.32" cy="0.24" r="0.95">
-            <stop offset="0" stopColor="#F7FFC2" />
-            <stop offset="0.5" stopColor="#E1FF00" />
-            <stop offset="1" stopColor="#B4D200" />
-          </radialGradient>
-          {/* rim de luz no topo (bevel) */}
-          <linearGradient id={`r-${id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#ffffff" stopOpacity="0.7" />
-            <stop offset="0.3" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {/* extrusão (espessura): squircle atrás, deslocado p/ baixo */}
-        <rect x="6" y="12" width="52" height="49" rx="16" fill="#93A800" />
-        {/* face de topo com domo */}
-        <rect x="6" y="4" width="52" height="49" rx="16" fill={`url(#d-${id})`} />
-        {/* rim de luz no topo */}
-        <rect x="6" y="4" width="52" height="22" rx="16" fill={`url(#r-${id})`} />
-        {/* gloss especular (brilho topo-esq) */}
-        <ellipse cx="22" cy="16" rx="12" ry="6" fill="#ffffff" opacity="0.42" />
-        {/* pastilha de acento AMARELO (canto sup-dir) com glint */}
-        <circle cx="50" cy="13" r="6.5" fill="#FFE500" />
-        <ellipse cx="48" cy="11" rx="2.4" ry="1.5" fill="#ffffff" opacity="0.55" />
-      </svg>
-      {/* glifo PRETO sobre a lima */}
-      <span className="relative flex items-center justify-center" style={{ marginTop: -1 }}>
-        <Icon name={name} size={glyph} color="#11190C" />
-      </span>
+      <Icon name={name} size={Math.round(size * 0.5)} color="var(--color-lime)" />
     </span>
   );
 }
 
-/** Alias de compat: o cabeçalho de card usa o ícone 3D da marca. */
-export function IconTile({ name, size = 40 }: { name: IconName | string; size?: number }) {
-  return <Icon3D name={name} size={size} />;
-}
+/** Alias de compat p/ chamadas antigas — hoje é o mesmo tile flat. */
+export const Icon3D = IconTile;
 
 /** Section title for a widget, with an optional right-aligned slot. */
 export function WidgetHeader({
