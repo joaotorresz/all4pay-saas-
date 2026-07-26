@@ -2,12 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Roobert TRIAL (Medium) — enviada pelo usuário, self-hosted p/ testes de fonte
-   no Laboratório de Design. Só o peso Medium (o arquivo enviado). */
+/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Medium (corpo/textos)
+   + SemiBold (títulos). Mapeados nos pesos usados pela UI. */
 @font-face {
   font-family: "Roobert";
   src: url("/fonts/roobert-medium.otf") format("opentype");
-  font-weight: 400 600;
+  font-weight: 400 550;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-semibold.otf") format("opentype");
+  font-weight: 560 800;
   font-style: normal;
   font-display: swap;
 }
@@ -298,15 +305,15 @@ h1, h2, h3,
    ============================================================ */
 .ds-visor {
   /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #f3f1ee;          /* bg/base — canvas geral do app */
-  --a4p-box-bg: var(--color-white); /* cards sólidos brancos */
-  --a4p-box-radius: 16px;     /* raio dos cards */
+  --a4p-bg: #f3f1ee;          /* bg/base — canvas geral do app (site corporativo) */
+  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS brancos */
+  --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
   --a4p-box-padding: 24px;    /* respiro interno */
-  --a4p-box-border: #eceae4;  /* border/subtle — hairline dos cards/divisores */
+  --a4p-box-border: transparent; /* SEM borda (design clean) */
   /* ========================================================================= */
 
-  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.01em;
+  font-family: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
   --radius-card: var(--a4p-box-radius);
   /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
@@ -318,11 +325,11 @@ html:not(.dark) .ds-visor {
   --color-surface-2: #f0eee9;      /* seção / hover suave (warm) */
   --color-surface-3: #e9e6df;
   --color-white: #ffffff;
-  --color-ink: #11190c;            /* ink/900 — títulos, valores, superfícies fortes */
-  --color-ink-soft: #2a3320;       /* ink/700 — hover de ink */
-  --color-text-secondary: #3f4a38; /* text/body — corpo/labels/tabela */
-  --color-text-tertiary: #6b7280;  /* text/muted — subtítulos, "vs período" */
-  --color-text-quaternary: #9aa192;/* placeholder / labels de seção */
+  --color-ink: #11190c;            /* títulos/valores — Roobert SemiBold */
+  --color-ink-soft: #2a3320;       /* hover de ink */
+  --color-text-secondary: #787664; /* subtítulos + textos (spec do site) */
+  --color-text-tertiary: #787664;  /* subtítulos + textos (spec do site) */
+  --color-text-quaternary: #a8a595;/* placeholder / labels de seção */
   --color-border: var(--a4p-box-border);      /* #ECEAE4 */
   --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
   /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
@@ -339,8 +346,17 @@ html:not(.dark) .ds-visor {
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
 .ds-visor,
 .ds-visor * {
-  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.01em;
+  font-family: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.02em;
+}
+/* Títulos: Roobert SemiBold (600) na cor ink #11190C. Textos/subtítulos herdam
+   Medium #787664 (via --color-text-secondary). */
+.ds-visor h1, .ds-visor h2, .ds-visor h3,
+.ds-visor .text-display, .ds-visor .text-h1, .ds-visor .text-h2, .ds-visor .text-h3,
+.ds-visor .text-value-lg {
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
 }
 /* …exceto os NÚMEROS: valores (Money/BRL via .a4p-num), contextos tabulares
    (.tabular-nums) e eixos de gráfico entram em Geist Mono. */
@@ -355,12 +371,11 @@ html:not(.dark) .ds-visor {
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* cards SÓLIDOS (Ledger): branco/charcoal + hairline 1px + micro-sombra —
-   o vidro fica só nos overlays (menos "template", mais produto). */
+/* cards SÓLIDOS brancos, CLEAN: sem borda e sem sombra (spec do site). */
 .ds-visor [data-card="1"] {
-  background: var(--color-white);
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-card);
+  background: #ffffff;
+  border: 0;
+  box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
 .ds-visor [data-card="1"].p-\[45px\] {
@@ -395,10 +410,15 @@ html:not(.dark) .ds-visor {
    Unlayered de propósito (vence as utilities bg-white).
    ============================================================ */
 .a4p-canvas {
-  background:
-    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.08), transparent 62%),
-    radial-gradient(900px 560px at -8% 28%, rgba(40, 170, 0, 0.03), transparent 58%),
-    var(--color-surface-1);
+  /* fundo CLEAN, chapado #F3F1EE (spec do site) — sem véus/aurora. */
+  background: var(--color-surface-1);
+}
+/* REGRA DO SITE: NENHUMA sombra, de nenhuma maneira (design clean). O
+   !important vence box-shadows inline (cards, popovers, FABs, toggles). */
+.ds-visor *,
+.ds-visor *::before,
+.ds-visor *::after {
+  box-shadow: none !important;
 }
 html.dark .a4p-canvas {
   background:
