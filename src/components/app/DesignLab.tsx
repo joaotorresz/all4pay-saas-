@@ -297,7 +297,16 @@ function montarCSS(s: DesignState): string {
   const tr = (s.tracking / 100).toFixed(3);
   const vars = COR_CAMPOS.map((c) => `${c.varName}:${s.cores[c.key]};`).join("");
   const out: string[] = [
-    `html:not(.dark) .ds-visor{${vars}}`,
+    // Os tokens precisam existir no CANVAS (que pinta o fundo da página) e na
+    // SIDEBAR, não só no <main>.ds-visor: variável CSS desce, não sobe — e o
+    // .a4p-canvas é o PAI do main, então só ele enxergaria o valor antigo.
+    `html:not(.dark) .a4p-canvas,html:not(.dark) .a4p-sidebar,html:not(.dark) .ds-visor{${vars}}`,
+    // Reforço: o canvas pinta o fundo da página por uma regra unlayered em
+    // globals.css. Repintamos direto para a mudança valer sempre.
+    `html:not(.dark) .a4p-canvas{background-color:${s.cores.bg} !important}`,
+    // Idem p/ os cards: a folha declara-se "unlayered de propósito (vence as
+    // utilities bg-white)", então não confiamos só no token.
+    `html:not(.dark) .ds-visor [data-card="1"]{background-color:${s.cores.cardBg} !important}`,
     `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *{font-family:${stack};}`,
     `.ds-visor,.ds-visor *{letter-spacing:${tr}em;}`,
   ];
