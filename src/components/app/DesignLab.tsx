@@ -87,6 +87,15 @@ const PADROES: Padrao[] = [
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
 ];
 
+/** Alvos de borda oferecidos direto no Global (os mais pedidos). */
+const BORDAS: { id: string; label: string }[] = [
+  { id: "card", label: "Borda dos cards" },
+  { id: "button", label: "Borda dos botões" },
+  { id: "iconTile", label: "Borda do chip de ícone" },
+  { id: "menuActive", label: "Borda do item ativo do menu" },
+  { id: "menuBg", label: "Borda do menu (lateral)" },
+];
+
 /** Papéis tipográficos da aba "Fontes" — uma fonte (e tamanho) por papel. */
 const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "h1", label: "Título da página", dica: "“Bem-vindo, João!”" },
@@ -266,6 +275,11 @@ function regra(seletor: string, ov: Overrides): string {
     if (!d) continue;
     proprio.push(d);
     if (HERDA.includes(p)) herdado.push(d);
+  }
+  // Só a COR da borda não desenha nada: o Tailwind zera border-width em tudo.
+  // Assumimos 1px sólido para a escolha de cor valer por si.
+  if (ov.borderColor !== undefined && ov.borderW === undefined) {
+    proprio.push("border-width:1px !important", "border-style:solid !important");
   }
   const out: string[] = [];
   if (proprio.length) out.push(`${seletor}{${proprio.join(";")}}`);
@@ -689,6 +703,51 @@ export function DesignLab() {
                     </label>
                     <RangeSimples label="Espaçamento global" v={s.tracking} min={-8} max={6} step={0.5} onChange={(v) => set({ tracking: v })} un="/100 em" />
                   </Secao>
+                  {/* BORDAS — espessura + cor nos alvos mais pedidos */}
+                  <Secao titulo="Bordas" hint="espessura e cor">
+                    <div className="flex flex-col gap-2">
+                      {BORDAS.map((b) => {
+                        const ov = s.padroes[b.id] ?? {};
+                        const w = ov.borderW as number | undefined;
+                        const cor = (ov.borderColor as string) ?? "#eceae4";
+                        return (
+                          <div key={b.id}
+                            onMouseEnter={() => realcar(PADROES.find((p) => p.id === b.id)?.seletorTipo ?? null)}
+                            onMouseLeave={() => realcar(null)}
+                            className={`rounded-md border p-3 flex flex-col gap-2 ${w || ov.borderColor !== undefined ? "border-ink/30" : "border-border"}`}>
+                            <span className="text-[13px] text-ink font-medium">{b.label}</span>
+                            <div className="flex items-center gap-2">
+                              <input type="color" value={cor}
+                                onChange={(e) => setPadProp(b.id, "borderColor", e.target.value)}
+                                className="w-8 h-8 rounded-md border border-border shrink-0 cursor-pointer bg-transparent p-0" />
+                              <input value={ov.borderColor !== undefined ? cor : ""} placeholder="cor"
+                                onChange={(e) => setPadProp(b.id, "borderColor", e.target.value)}
+                                className="w-[84px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
+                              <input type="number" min={0} max={8} step={1} placeholder="px"
+                                value={w ?? ""}
+                                onChange={(e) => (e.target.value === "" ? clearPadProp(b.id, "borderW") : setPadProp(b.id, "borderW", Number(e.target.value)))}
+                                className="w-[62px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border" />
+                              {(w !== undefined || ov.borderColor !== undefined) && (
+                                <button onClick={() => { clearPadProp(b.id, "borderW"); clearPadProp(b.id, "borderColor"); }}
+                                  title="Sem borda" className="text-faint hover:text-negative shrink-0">
+                                  <Icon name="x" size={13} color="currentColor" />
+                                </button>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-faint">
+                              {w === undefined && ov.borderColor !== undefined
+                                ? "espessura vazia → assume 1px"
+                                : "deixe a espessura vazia para 1px · × remove"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="m-0 text-[11px] text-faint leading-snug">
+                      Para a borda de UM elemento específico, use a aba <strong>Itens</strong>.
+                    </p>
+                  </Secao>
+
                   {SECOES_COR.map((sec) => (
                     <Secao key={sec} titulo={sec === "Fundos" ? "Fundos (página, cards…)" : `Cores · ${sec}`}
                       hint={sec === "Fundos" ? "é aqui que se muda o fundo" : undefined}>
