@@ -3,23 +3,26 @@
 /**
  * TopBar — faixa horizontal no topo do ERP (referência: barra da Betano).
  *
- * Composição: marca all4pay · busca global · conta. O slot do meio fica
- * propositalmente livre para as entradas de navegação que ainda vamos decidir
- * (`children` renderiza entre a marca e a busca).
+ * Com a saída do MENU VERTICAL, esta barra passou a carregar a navegação
+ * inteira: marca (canto superior esquerdo, o lugar de sempre) · grupos do menu
+ * (`TopNav`, com painel por grupo e um "Mais" para a profundidade do Modo Pro)
+ * · busca global · conta (`AccountMenu`, com Modo Pro, tema e sair). No mobile o
+ * hambúrguer abre o `NavDrawer` — o mesmo evento `a4p:toggle-nav` de antes.
  *
  * Contraste: o fundo é LIMA, então texto/ícone entram em `on-lime` (#11190C).
- * Nunca texto claro sobre lima — é a regra de ouro do DS. Pelo mesmo motivo a
- * logo usada é a ESCURA (`all4pay-dark.png`) nos dois temas: a lima não inverte.
+ * Nunca texto claro sobre lima — é a regra de ouro do DS. A logo é a arte
+ * escura invertida por filtro (não existe PNG branco).
  */
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Avatar, Icon } from "@/components/ui";
+import { Icon } from "@/components/ui";
+import { AccountMenu, NavDrawer, TopNav } from "@/components/app/TopNav";
 import { isDemo } from "@/lib/demo";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-export function TopBar({ children }: { children?: React.ReactNode }) {
+export function TopBar() {
   const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
 
   React.useEffect(() => {
@@ -45,24 +48,15 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
 
   return (
     <header
-      className="a4p-topbar shrink-0 h-[56px] flex items-center gap-3 px-3 sm:px-4"
+      className="a4p-topbar shrink-0 h-[56px] flex items-center gap-2 sm:gap-3 px-3 sm:px-4"
       style={{
         // Gradiente horizontal da marca (claro → saturado, esq → dir).
         background: "linear-gradient(90deg,#c7f400 0%,#d8ff00 25%,#e1ff00 50%,#e8ff00 75%,#f5ff00 100%)",
         color: "var(--color-on-lime)",
       }}
     >
-      {/* hambúrguer (mobile) — abre a Sidebar */}
-      <button
-        type="button"
-        onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
-        aria-label="Abrir menu"
-        className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-black/10 shrink-0"
-      >
-        <Icon name="menu" size={20} color="var(--color-on-lime)" />
-      </button>
-
-      {/* marca — logo BRANCA (filtro sobre a arte escura; não há PNG branco) */}
+      {/* marca — canto superior esquerdo, onde ela sempre esteve (antes no topo
+          do menu lateral). Logo BRANCA por filtro sobre a arte escura. */}
       <Link href="/" className="flex items-center shrink-0 rounded-md px-1 py-1 hover:bg-black/5" aria-label="all4pay — Início">
         <Image
           src="/all4pay-dark.png"
@@ -75,14 +69,24 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
         />
       </Link>
 
-      {/* slot de navegação — a definir */}
-      {children && <nav className="hidden lg:flex items-center gap-1 min-w-0">{children}</nav>}
+      {/* hambúrguer (mobile) — abre o drawer de navegação */}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
+        aria-label="Abrir menu"
+        className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-black/10 shrink-0"
+      >
+        <Icon name="menu" size={20} color="var(--color-on-lime)" />
+      </button>
 
-      {/* busca — abre a command palette (⌘K), o mesmo motor da Sidebar */}
+      {/* navegação (desktop) */}
+      <TopNav />
+
+      {/* busca — abre a command palette (⌘K), o mesmo motor de sempre */}
       <button
         type="button"
         onClick={abrirBusca}
-        className="ml-auto flex items-center gap-2 h-9 min-w-0 flex-1 max-w-[380px] rounded-pill bg-white hover:bg-white px-3 text-left transition-colors"
+        className="ml-auto flex items-center gap-2 h-9 min-w-0 flex-1 max-w-[280px] rounded-pill bg-white hover:bg-white px-3 text-left transition-colors"
         aria-label="Buscar no sistema"
       >
         <Icon name="search" size={16} color="var(--color-on-lime)" />
@@ -91,14 +95,10 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       </button>
 
       {/* conta */}
-      <Link
-        href="/configuracoes"
-        className="shrink-0 flex items-center gap-2 rounded-pill hover:bg-black/5 pl-1 pr-2 py-1"
-        title={isDemo ? "Modo demonstração" : (usuario?.email ?? "Minha conta")}
-      >
-        <Avatar name={nome} size={30} />
-        <span className="hidden md:inline text-[14px] font-medium text-on-lime truncate max-w-[140px]">{nome}</span>
-      </Link>
+      <AccountMenu nome={nome} email={usuario?.email ?? ""} />
+
+      {/* drawer de navegação do mobile (fica aqui para viver acima do conteúdo) */}
+      <NavDrawer />
     </header>
   );
 }

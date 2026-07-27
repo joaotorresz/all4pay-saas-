@@ -63,12 +63,14 @@ sempre os tokens, nunca hex literal.
   Nunca use `ink` sobre lime (inverte e some no escuro).
 - **Sem opacidade em token var-backed** (`bg-ink/30` quebra): para overlays use
   `bg-black/30`; para divisores que invertem, um token que vira (`border-border`).
-- Toggle: `ThemeToggle`/`useTheme` (`src/components/app/`) no rodapé da Sidebar —
+- Toggle: `ThemeToggle`/`useTheme` (`src/components/app/`) no menu da conta da
+  TopBar —
   classe `dark` no `<html>` + `localStorage('a4p_theme')`. Script anti-flash no
   `layout.tsx` aplica o tema (e respeita `prefers-color-scheme`) antes da pintura.
   `darkMode: "class"` no Tailwind habilita `dark:` (usado p/ trocar a logo).
 - **Logo por tema:** `all4pay-dark.png` (claro, `dark:hidden`) · `all4pay-lime.png`
-  (escuro, `hidden dark:block`) — Sidebar, login e onboarding.
+  (escuro, `hidden dark:block`) — login e onboarding. Na **TopBar** (fundo lima)
+  a arte escura entra invertida por filtro (logo branca), nos dois temas.
 - **Linha dos gráficos = verde da marca:** as séries temporais (Line/Area de saldo/
   score/curva/projeção) usam `var(--color-lime)`, traço **1.4** (−30%) e um **glow
   em gradiente** lime sob a linha (`<defs><linearGradient>` + `<Area>`; ex.: fluxo
@@ -96,7 +98,7 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
 - **Cards SÓLIDOS** (`[data-card="1"]`): `--color-white` + **hairline 1px**
   (`--color-border` = rgba(17,25,12,0.08)) + **micro-sombra** (`--shadow-card`).
   **O vidro fica SÓ nos overlays**: popover/menu/palette (`.shadow-popover`),
-  Sidebar (`.a4p-sidebar`), drawers (`.a4p-glass`) — `--glass-bg-strong` + blur.
+  drawer de nav (`.a4p-navdrawer`), drawers (`.a4p-glass`) — `--glass-bg-strong` + blur.
   `prefers-reduced-transparency` → sólido.
 - **Cores:** títulos/ink **#11190C** · corpo/labels **#787664** (taupe) · acento
   **lime #DFFF00** (só acentos).
@@ -201,12 +203,34 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   `Icon`, sobrepondo o set gerado. As **chaves** (`house`, `trending-up`, …)
   são estáveis: trocar de set é reescrever o mapa no gerador, não o app.
 
-App shell: `src/components/app/AppShell.tsx` (route-aware `Sidebar` +
-header) wraps every screen. The reference composition is the **Início**
-dashboard (`/`) — see the Feature modules section below.
+App shell: `src/components/app/AppShell.tsx` — **barra horizontal no topo**
+(`TopBar`) + coluna de conteúdo com o header da página. **Não há mais menu
+vertical**: a navegação inteira vive na TopBar (ver "Navegação horizontal"
+abaixo). The reference composition is the **Início** dashboard (`/`) — see the
+Feature modules section below.
+
+### Navegação horizontal (TopBar · sem menu lateral)
+
+- **`TopBar`** (`src/components/app/TopBar.tsx`): faixa lima de 56px que
+  atravessa a largura toda — **marca no canto superior esquerdo** (o lugar de
+  sempre) · `TopNav` · busca global · `AccountMenu`. Fundo em gradiente
+  horizontal da marca; texto/ícone em **`on-lime`** (nunca claro sobre lima).
+- **`TopNav`** (`src/components/app/TopNav.tsx`): um **gatilho por grupo do dia
+  a dia** direto na barra (painel ancorado com os itens) + um **"Mais"** que
+  abre um painel em COLUNAS com a profundidade do Modo Pro e as Configurações.
+  Ativo = pill branco. `AccountMenu` guarda **Modo Pro · tema · sair**.
+  No mobile o hambúrguer abre o **`NavDrawer`** (`.a4p-navdrawer`), mesmo evento
+  `a4p:toggle-nav` de antes.
+- **`src/components/dashboard/nav-data.ts`** é a **fonte única** dos grupos/itens
+  (`SECTIONS`/`CONFIG`/`SECTIONS_PESSOAL`/`CONFIG_PESSOAL`/`leafAtivo` +
+  `useNavSections()`, que resolve PF/PJ · Simples/Pro · admin). Saiu do antigo
+  `Sidebar.tsx` (removido) sem nenhuma rota alterada.
+- **Laboratório de Design:** os padrões do grupo "Menu" agora ancoram em
+  `.a4p-topbar` (`[data-navtrigger]` = grupo · `[data-navlabel]` = rótulo de
+  seção); `.a4p-sidebar` não existe mais.
 
 **Busca global / Command palette** (`src/components/app/CommandPalette.tsx`):
-montada no `AppShell`, abre por **⌘K/Ctrl+K** ou pelo botão de busca da Sidebar
+montada no `AppShell`, abre por **⌘K/Ctrl+K** ou pelo botão de busca da TopBar
 (evento `a4p:open-search`). Busca navegação (rotas) + contatos/produtos/serviços/
 vendas (via os `list*` accessors, só quando aberta) com teclado (setas/Enter/Esc).
 Demo-safe; navega para a página do resultado.
@@ -219,12 +243,13 @@ Demo-safe; navega para a página do resultado.
 
 O sistema tem MUITA função; a tese de adesão é **revelar aos poucos até 100%**.
 
-- **Menu por JOB, não por taxonomia** (`Sidebar.tsx`): o **Modo Simples** (padrão,
+- **Menu por JOB, não por taxonomia** (`nav-data.ts`): o **Modo Simples** (padrão,
   `useModo`) mostra 5 grupos do dia a dia — **Início · Receber · Pagar · Caixa &
   Resultado · Dados & Cadastros** (~15 itens). O **Modo Pro** REVELA a
   profundidade — **Fiscal & vendas · Contabilidade · Estrutura · Inteligência ·
-  Governança & Plataforma** (`pro: true`). Toda rota continua acessível; nada
-  removido, só reagrupado/priorizado. O toggle comunica o que o Pro desbloqueia.
+  Governança & Plataforma** (`pro: true`) — na barra horizontal esses grupos
+  entram no painel **"Mais"**. Toda rota continua acessível; nada removido, só
+  reagrupado/priorizado. O toggle comunica o que o Pro desbloqueia.
 - **Jornada de Adesão** (`src/lib/adoption.ts`, `adoption/1.0.0`): motor puro,
   demo-safe. 4 estágios progressivos — **Conectar → Organizar → Analisar →
   Operar** — cada passo com `feito` derivado do **estado real** (`getRiscoInput`:
@@ -374,7 +399,7 @@ writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
 ### Benchmark IULI — navegação em 9 módulos + Plano de Contas
 
 A partir do relatório de engenharia reversa do **IULI** (ERP financeiro para
-negócios digitais), a navegação (`Sidebar`) foi reorganizada nos **9 módulos do
+negócios digitais), a navegação foi reorganizada nos **9 módulos do
 IULI**: Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações · Vendas e
 NFs · Compras · Contabilidade (+ extras all4pay em Pro: Inteligência · Equipe ·
 Plataforma). Pilares conceituais do IULI a
@@ -411,7 +436,7 @@ Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
 (clientes + fornecedores), `/vendas`. Shared kit in
 `src/components/listas/ListChrome.tsx` (`EntityTable` generic com `onRowClick`,
 `NewButton` que abre o form, `useToast`). List data via `list*` accessors in
-`src/lib/cadastros.ts` + `use*List` hooks. Sidebar links to all of them.
+`src/lib/cadastros.ts` + `use*List` hooks. A TopBar links to all of them.
 **Editar contato:** clicar numa linha de `/contatos` abre o `PartyForm` em modo
 edição (prefill + `updateParty`/`useUpdateParty`; só grava endereço quando
 preenchido, para não apagar o existente). Em demo, `updateParty` reflete no
@@ -426,8 +451,8 @@ salvo no onboarding (`a4p_company` no localStorage via `src/lib/company.ts`):
 identidade jurídica **editável** (`saveCompany`), perfil empresarial, governança
 (participantes) e estrutura financeira — read-only. É a camada de **consumo** do
 que o wizard coletou (governança/perfil ainda não têm tabela). Sem dados salvos,
-mostra CTA para `/comecar`. Link no rodapé da Sidebar ("Configurações"; "Adicionar
-Empresa" → `/comecar`). Não toca em schema/RLS.
+mostra CTA para `/comecar`. Link no painel "Mais" da TopBar ("Configurações";
+"Adicionar Empresa" → `/comecar`). Não toca em schema/RLS.
 
 ### Motor de Risco de Caixa (`/risco`)
 
@@ -850,7 +875,7 @@ default `empresa`; fallback no que o onboarding gravou em `a4p_company.db.tipoCo
   (perfil `setor:"Pessoal"`, `estrutura.contas` = carteiras; campos próprios em
   `StoredCompany.pessoal`: renda/saldo/orçamento/carteiras/categorias) e persiste
   por `persistCompany` + `aplicarEstrutura` — reusa toda a camada de dados/motores.
-- **Sidebar** (`useTipoConta`): no PF troca os grupos por `GROUPS_PESSOAL`/
+- **Navegação** (`useTipoConta`): no PF troca os grupos por `SECTIONS_PESSOAL`/
   `CONFIG_PESSOAL` (Gastos · Renda & receitas · Contas & carteiras · Orçamento &
   metas · Meu perfil), Início vira "Resumo" e o toggle Modo Pro some. Esconde os
   módulos de empresa (POS, cadastros, governança, plataforma, motores).
@@ -887,11 +912,11 @@ da conta da lista real) e filtrável por conta na tela de Entradas/Saídas.
   horizonte, cai com prazo×volatilidade); 13) **Cash Flow Digital Twin** (feeds
   entradas/saídas/inteligência + explicação da IA do porquê das mudanças).
 - **Dados:** `useFluxoCaixa(filtros)` (`hooks.ts`) sobre `getRiscoInput`+
-  `getAccountsList`. Sidebar/command palette ligam a rota.
+  `getAccountsList`. TopBar/command palette ligam a rota.
 
 ### Funil PAGAR (Central de Pagamentos · Solicitações & aprovações · Reembolsos)
 
-Submenu **PAGAR** da Sidebar = funil de contas a pagar, sobre o mesmo hub
+Grupo **PAGAR** do menu = funil de contas a pagar, sobre o mesmo hub
 (`getOpenMovements("saida")` / `getRiscoInput`). Três telas reusam motores
 existentes; nada de captura duplicada (a Caixa de Entrada vive em `/upload`).
 
@@ -1164,7 +1189,7 @@ usuários, ativos 30d, MRR/ARR), `admin_orgs` (clientes + assinatura + atividade
 (configura a cobrança da org), `admin_upsert_plan`. UI em
 `components/admin/AdminView.tsx` (`lib/admin.ts`): KPIs + tabela de orgs com
 plano/status editáveis (define o MRR), planos e usuários. Link "Administração" na
-Sidebar **só aparece** para super-admin (`isPlatformAdmin`); em demo é liberado
+TopBar **só aparece** para super-admin (`isPlatformAdmin`); em demo é liberado
 com dados sintéticos. Aplicado ao remoto.
 - **`0015`**: `admin_growth` (novos clientes/mês) e `admin_org_detail` (snapshot da
   org p/ "ver como cliente" read-only) — gráfico de crescimento + modal no AdminView.
