@@ -42,6 +42,8 @@ type Seg = { name: string; value: number; color: string; trend: number };
 
 /** Altura do gráfico do herói (também ancora o gradiente vertical). */
 const ALTURA = 210;
+/** Roobert Semi Mono — escolha do Laboratório p/ o herói, o título e a legenda. */
+const SEMI_MONO = '"Roobert Semi Mono", ui-monospace, monospace';
 
 export function VisorHomeTop() {
   const { data: inp, isLoading } = useRiscoInput();
@@ -197,7 +199,8 @@ export function VisorHomeTop() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-start">
       {/* ESQUERDA — herói (gasto comparado) + Dica */}
       <div className="flex flex-col gap-5">
-        <Card className="flex flex-col" info={{
+        {/* Forma do card do herói (Laboratório): raio 32, padding 20, hairline. */}
+        <Card className="flex flex-col rounded-[32px] p-5 border border-[#f1f3f5]" padded={false} info={{
           titulo: "Você gastou",
           oQue: "Quanto você gastou no período vs. o mês anterior. Verde = gasto realizado até hoje · laranja = mesmo intervalo do mês passado · tracejada = projeção até o fim do período.",
           comoCalcula: "Soma das saídas pagas, acumuladas dia a dia. A diferença em destaque é o total deste período menos o do anterior no mesmo ponto do mês.",
@@ -205,9 +208,16 @@ export function VisorHomeTop() {
           <div className="flex items-center gap-3">
             <span className="text-[16px] font-semibold text-ink">Você gastou</span>
           </div>
+          {/* Herói (Laboratório): Roobert Semi Mono 30/500 no R$ e no inteiro,
+              22 nos centavos (o `a4p-cents-sm` cuida disso), e o sufixo em 15/400
+              num cinza mais claro. */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <span className="text-[34px] font-semibold tabular-nums text-ink leading-none"><AnimatedBRL value={Math.abs(calc.delta)} /></span>
-            <span className="text-[18px] text-muted">a {bom ? "menos" : "mais"} {sufixo}</span>
+            <span className="a4p-heroi text-[30px] tabular-nums text-ink leading-none" style={{ fontFamily: SEMI_MONO, fontWeight: 500 }}>
+              <AnimatedBRL value={Math.abs(calc.delta)} />
+            </span>
+            <span className="text-[15px]" style={{ fontFamily: SEMI_MONO, fontWeight: 400, letterSpacing: "-0.06em", color: "#CAC4B7" }}>
+              a {bom ? "menos" : "mais"} {sufixo}
+            </span>
           </div>
 
           <div className="relative mt-4" ref={boxRef}>
@@ -262,7 +272,7 @@ export function VisorHomeTop() {
       {/* DIREITA — Distribuição (donut + legenda rica) */}
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-3 text-[16px] font-semibold text-ink">
+          <span className="inline-flex items-center gap-3 text-[17px] text-ink" style={{ fontFamily: SEMI_MONO, fontWeight: 900, letterSpacing: "-0.04em" }}>
             {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
             <InfoHint align="left"
               oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."
@@ -302,10 +312,12 @@ export function VisorHomeTop() {
                       <span className="w-8 h-8 rounded-md inline-flex items-center justify-center shrink-0" style={{ background: tint(s.color, 0.15) }}>
                         <span className="w-3 h-3 rounded-sm" style={{ background: s.color }} />
                       </span>
-                      <span className="text-[15px] text-ink truncate">{s.name}</span>
-                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>{pct.toLocaleString("pt-BR")}%</span>
+                      {/* Tipografia da legenda (Laboratório): Roobert Semi Mono
+                          nas TRÊS colunas — nome 13/800, % 12/900, valor 600. */}
+                      <span className="text-[13px] text-ink truncate" style={{ fontFamily: SEMI_MONO, fontWeight: 800 }}>{s.name}</span>
+                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{pct.toLocaleString("pt-BR")}%</span>
                       <span className="flex-1" />
-                      <span className="text-[15px] font-semibold tabular-nums text-ink shrink-0 whitespace-nowrap">{brlNoCents(s.value)}</span>
+                      <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
                       {s.trend !== 0 && (
                         <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
                           style={{ background: subiu ? tint("#C2473D", 0.10) : "rgba(63,143,91,0.12)" }}>
