@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <PeriodProvider>
-      <AppShell title={<InicioTitle />} actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor" stickyHeader={false}>
+      {/* `a4p-sem-centavos`: na Home os valores aparecem arredondados (sem vírgula). */}
+      <AppShell title={<InicioTitle />} actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor a4p-sem-centavos" stickyHeader={false}>
         <VisorHomeTop />
         <OverviewGrid />
       </AppShell>

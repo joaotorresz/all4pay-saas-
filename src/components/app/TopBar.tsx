@@ -45,8 +45,12 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
 
   return (
     <header
-      className="a4p-topbar shrink-0 h-[56px] bg-lime text-on-lime flex items-center gap-3 px-3 sm:px-4"
-      style={{ color: "var(--color-on-lime)" }}
+      className="a4p-topbar shrink-0 h-[56px] flex items-center gap-3 px-3 sm:px-4"
+      style={{
+        // Gradiente horizontal da marca (claro → saturado, esq → dir).
+        background: "linear-gradient(90deg,#c7f400 0%,#d8ff00 25%,#e1ff00 50%,#e8ff00 75%,#f5ff00 100%)",
+        color: "var(--color-on-lime)",
+      }}
     >
       {/* hambúrguer (mobile) — abre a Sidebar */}
       <button
@@ -58,9 +62,17 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
         <Icon name="menu" size={20} color="var(--color-on-lime)" />
       </button>
 
-      {/* marca */}
+      {/* marca — logo BRANCA (filtro sobre a arte escura; não há PNG branco) */}
       <Link href="/" className="flex items-center shrink-0 rounded-md px-1 py-1 hover:bg-black/5" aria-label="all4pay — Início">
-        <Image src="/all4pay-dark.png" alt="all4pay" width={104} height={24} priority className="h-[22px] w-auto" />
+        <Image
+          src="/all4pay-dark.png"
+          alt="all4pay"
+          width={104}
+          height={24}
+          priority
+          className="h-[22px] w-auto"
+          style={{ filter: "brightness(0) invert(1)" }}
+        />
       </Link>
 
       {/* slot de navegação — a definir */}
@@ -70,7 +82,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
       <button
         type="button"
         onClick={abrirBusca}
-        className="ml-auto flex items-center gap-2 h-9 min-w-0 flex-1 max-w-[380px] rounded-pill bg-white/70 hover:bg-white px-3 text-left transition-colors"
+        className="ml-auto flex items-center gap-2 h-9 min-w-0 flex-1 max-w-[380px] rounded-pill bg-white hover:bg-white px-3 text-left transition-colors"
         aria-label="Buscar no sistema"
       >
         <Icon name="search" size={16} color="var(--color-on-lime)" />
