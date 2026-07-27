@@ -181,8 +181,10 @@ export function VisorHomeTop() {
 
           <div className="relative mt-4">
             <figure className="m-0" role="img" aria-label={`Gasto acumulado ${mesNome ? "em " + mesNome : "no período"}: ${formatBRL(calc.gastoAtual)}; ${bom ? "abaixo" : "acima"} do mês anterior em ${formatBRL(Math.abs(calc.delta))}.`}>
-              <ResponsiveContainer width="100%" height={188}>
-                <LineChart data={calc.serie} margin={{ top: 28, right: 8, bottom: 0, left: 8 }}>
+              {/* altura maior + folga no topo: o balão da referência é alto e
+                  precisa de espaço sem encostar na linha. */}
+              <ResponsiveContainer width="100%" height={210}>
+                <LineChart data={calc.serie} margin={{ top: 34, right: 10, bottom: 4, left: 8 }}>
                   <defs>
                     {/* A linha ESQUENTA da esquerda para a direita conforme o gasto
                         acumula (verde → âmbar → laranja → cor do resultado). */}
@@ -195,8 +197,8 @@ export function VisorHomeTop() {
                     </linearGradient>
                     {/* Preenchimento suave sob a linha, na cor do desfecho. */}
                     <linearGradient id="visorFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={fim} stopOpacity={0.16} />
-                      <stop offset="100%" stopColor={fim} stopOpacity={0.01} />
+                      <stop offset="0%" stopColor={fim} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={fim} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" hide />
@@ -204,12 +206,12 @@ export function VisorHomeTop() {
                   <Tooltip content={<GastoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
                   {/* área sob o realizado */}
                   <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorFill)" {...chartAnim()} connectNulls />
-                  {/* mês anterior — tracejada cinza (a régua de comparação) */}
-                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={2} strokeDasharray="6 5" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
+                  {/* mês anterior — tracejada cinza fina (régua de comparação) */}
+                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={1.8} strokeDasharray="7 6" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
                   {/* projeção — segue a cor do desfecho, esmaecida */}
-                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.35} strokeWidth={2.5} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
-                  {/* gasto realizado — traço grosso com o gradiente térmico */}
-                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
+                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.3} strokeWidth={2.5} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
+                  {/* gasto realizado — traço GROSSO com o gradiente térmico */}
+                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={4.2} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
                   {/* âncora invisível do balão */}
                   <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
                     <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />
@@ -217,17 +219,8 @@ export function VisorHomeTop() {
                 </LineChart>
               </ResponsiveContainer>
             </figure>
-            <div className="flex items-center gap-4 text-caption text-muted flex-wrap mt-1">
-              <Leg color={fim} label="Gasto realizado" />
-              <span className="inline-flex items-center gap-[6px]">
-                <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Mês anterior
-              </span>
-              {calc.temProj && (
-                <span className="inline-flex items-center gap-[6px]">
-                  <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: fim, opacity: 0.5 }} /> Projeção
-                </span>
-              )}
-            </div>
+            {/* Sem legenda: a referência não tem. O significado das linhas vive
+                no tooltip (hover) e no botão "i" do card. */}
           </div>
         </Card>
 
@@ -301,27 +294,59 @@ export function VisorHomeTop() {
 }
 
 /** Balão de callout no fim da linha — igual ao Visor (verde sólido, rabo p/ baixo). */
+/** Quebra o texto do balão em linhas curtas (o balão da referência é ALTO e
+ *  estreito, não uma pílula larga). */
+function quebrar(texto: string, max = 10): string[] {
+  const linhas: string[] = [];
+  let atual = "";
+  for (const w of String(texto).split(" ")) {
+    const tent = atual ? `${atual} ${w}` : w;
+    if (tent.length > max && atual) { linhas.push(atual); atual = w; }
+    else atual = tent;
+  }
+  if (atual) linhas.push(atual);
+  return linhas;
+}
+
 function Callout(props: any) {
-  const { x, y, value, text, good } = props;
+  const { x, y, value, text, good, viewBox } = props;
   if (value == null || typeof x !== "number" || typeof y !== "number") return null;
-  // Balão na cor do DESFECHO (verde gastou menos · vermelho gastou mais), como
-  // na referência — a leitura fica imediata, sem depender de ler o texto.
+  // Balão na cor do DESFECHO (verde gastou menos · vermelho gastou mais).
+  // Formato da referência: retângulo ALTO no topo-direita, texto quebrado em
+  // várias linhas e um bico curto apontando para baixo. O ponto final é um
+  // círculo sólido na mesma cor.
   const bg = good ? "var(--color-positive)" : "var(--color-negative)";
-  const H = 188, bh = 30, tail = 9;
-  const bw = Math.max(150, text.length * 7.2 + 26);
-  const bx = Math.max(4, x - bw);
-  const tx = Math.min(bx + bw - 16, x);
-  const above = y - tail - bh >= 4;
-  const by = above ? y - tail - bh : Math.min(y + tail, H - bh - 2);
-  const baseY = above ? by + bh : by;
+  const larguraArea = typeof viewBox?.width === "number" ? viewBox.width : 340;
+  const linhas = quebrar(text);
+  const lh = 16, padY = 9, padX = 11, tail = 7;
+  const bw = Math.max(74, ...linhas.map((l) => l.length * 7.1 + padX * 2));
+  const bh = linhas.length * lh + padY * 2;
+  // encostado no topo e alinhado com o ponto, sem sair da área do gráfico
+  const bx = Math.max(2, Math.min(x - bw / 2, larguraArea - bw - 2));
+  const by = 0;
+  const tx = Math.max(bx + 12, Math.min(x, bx + bw - 12));
   return (
     <g style={{ pointerEvents: "none" }}>
-      <rect x={bx} y={by} width={bw} height={bh} rx={12} fill={bg} />
-      <polygon points={`${tx - 8},${baseY} ${tx + 8},${baseY} ${x},${y}`} fill={bg} />
-      <circle cx={x} cy={y} r={4} fill={bg} stroke="#fff" strokeWidth={2} />
-      <text x={bx + bw / 2} y={by + bh / 2} fill="#fff" fontSize={13} fontWeight={600} textAnchor="middle" dominantBaseline="central" style={{ fontVariantNumeric: "tabular-nums" }}>
-        {text}
-      </text>
+      <rect x={bx} y={by} width={bw} height={bh} rx={10} fill={bg} />
+      {/* bico curto, apontando para baixo */}
+      <polygon points={`${tx - 6},${by + bh} ${tx + 6},${by + bh} ${tx},${by + bh + tail}`} fill={bg} />
+      {/* ponto final — sólido, como na referência */}
+      <circle cx={x} cy={y} r={5.5} fill={bg} />
+      {linhas.map((l, i) => (
+        <text
+          key={i}
+          x={bx + bw / 2}
+          y={by + padY + i * lh + lh / 2}
+          fill="#fff"
+          fontSize={13}
+          fontWeight={700}
+          textAnchor="middle"
+          dominantBaseline="central"
+          style={{ fontVariantNumeric: "tabular-nums" }}
+        >
+          {l}
+        </text>
+      ))}
     </g>
   );
 }
@@ -438,10 +463,3 @@ function TipRow({ color, k, v }: { color: string; k: string; v: string }) {
   );
 }
 
-function Leg({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-[6px]">
-      <span className="inline-block w-4 border-t-2" style={{ borderColor: color }} /> {label}
-    </span>
-  );
-}
