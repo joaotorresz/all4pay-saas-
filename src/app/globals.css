@@ -458,3 +458,12 @@ html.dark .a4p-canvas {
    escuro). Texto/itens ink, ícones monocromáticos. O lime fica só
    nos acentos pontuais (marca, "Nova transação", etc.).
    ============================================================ */
+
+/* ============================================================
+   Sem centavos — telas que exibem valores arredondados (a Home).
+   O `<BRL>` marca os decimais com `data-cents`; a tela decide se
+   mostra, aplicando `a4p-sem-centavos` no seu escopo.
+   ============================================================ */
+.a4p-sem-centavos [data-cents] {
+  display: none;
+}

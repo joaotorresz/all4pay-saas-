@@ -4,9 +4,11 @@
  * Topo da Home — réplica fiel do Visor Finance, na identidade all4pay
  * (monocromático + lime; o azul do Visor vira ink/lime):
  *  • ESQUERDA: herói "Você gastou R$ X a menos este mês" + gráfico de GASTO
- *    ACUMULADO (verde = realizado até hoje · tracejada = projeção · laranja =
- *    mesmo intervalo do mês ANTERIOR) com balão no fim da linha. Abaixo, o card
- *    "Dica" (ink + lime) com insight dinâmico + carrossel.
+ *    ACUMULADO. A linha do realizado usa um gradiente TÉRMICO (verde → âmbar →
+ *    laranja → cor do desfecho), com área suave por baixo; o mês ANTERIOR é a
+ *    tracejada cinza (régua de comparação) e a projeção segue a cor do desfecho,
+ *    esmaecida. Balão no fim da linha, verde se gastou menos e vermelho se
+ *    gastou mais. Abaixo, o card "Dica" (ink + lime) com insight + carrossel.
  *  • DIREITA: "Distribuição dos gastos" — donut + centro "Gasto total em {mês}"
  *    e legenda rica (tile colorido · nome · % · valor · tendência vs. mês ant.).
  * Tudo derivado do mesmo RiskInput (demo/live idêntico). Flat (sem sombra/borda).
@@ -24,7 +26,6 @@ import { AnimatedBRL } from "./useCountUp";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
-const ORANGE = "var(--color-warning)";
 const PROJ = "#c9cdd4";
 import { chartAnim } from "@/lib/chart-anim";
 /* paleta categórica do data-viz — cores vibrantes e distintas */
@@ -154,6 +155,9 @@ export function VisorHomeTop() {
   }
 
   const bom = calc.bom; // gastou menos = bom (verde)
+  // Cor do DESFECHO: fecha vermelho se gastou mais, verde se gastou menos.
+  // Ela tinge o fim do gradiente, a área, a projeção, o ponto e o balão.
+  const fim = bom ? POSITIVE : NEGATIVE;
   const sufixo = period.modo === "mes" ? "este mês" : "no período";
   const bubbleText = `${formatBRL(Math.abs(calc.delta))} a ${bom ? "menos" : "mais"} ${sufixo}`;
   const mesNome = period.modo === "mes" ? MESES[period.mes] : null;
@@ -180,21 +184,32 @@ export function VisorHomeTop() {
               <ResponsiveContainer width="100%" height={188}>
                 <LineChart data={calc.serie} margin={{ top: 28, right: 8, bottom: 0, left: 8 }}>
                   <defs>
-                    <linearGradient id="visorGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#28AA00" stopOpacity={0.18} />
-                      <stop offset="100%" stopColor="#28AA00" stopOpacity={0} />
+                    {/* A linha ESQUENTA da esquerda para a direita conforme o gasto
+                        acumula (verde → âmbar → laranja → cor do resultado). */}
+                    <linearGradient id="visorTermica" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#28AA00" />
+                      <stop offset="28%" stopColor="#8FBF00" />
+                      <stop offset="55%" stopColor="#F0A500" />
+                      <stop offset="80%" stopColor="#F45900" />
+                      <stop offset="100%" stopColor={fim} />
+                    </linearGradient>
+                    {/* Preenchimento suave sob a linha, na cor do desfecho. */}
+                    <linearGradient id="visorFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={fim} stopOpacity={0.16} />
+                      <stop offset="100%" stopColor={fim} stopOpacity={0.01} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" hide />
                   <YAxis hide domain={[0, "auto"]} />
                   <Tooltip content={<GastoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                  <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorGlow)" {...chartAnim()} connectNulls />
-                  {/* mês anterior — laranja */}
-                  <Line type="monotone" dataKey="prev" stroke={ORANGE} strokeWidth={1.8} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
-                  {/* projeção — tracejada cinza */}
-                  <Line type="monotone" dataKey="proj" stroke={PROJ} strokeWidth={2} strokeDasharray="5 4" dot={false} {...chartAnim(240)} connectNulls />
-                  {/* gasto realizado — verde */}
-                  <Line type="monotone" dataKey="gasto" stroke={POSITIVE} strokeWidth={2.4} dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
+                  {/* área sob o realizado */}
+                  <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorFill)" {...chartAnim()} connectNulls />
+                  {/* mês anterior — tracejada cinza (a régua de comparação) */}
+                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={2} strokeDasharray="6 5" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
+                  {/* projeção — segue a cor do desfecho, esmaecida */}
+                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.35} strokeWidth={2.5} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
+                  {/* gasto realizado — traço grosso com o gradiente térmico */}
+                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={3.4} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
                   {/* âncora invisível do balão */}
                   <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
                     <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />
@@ -203,11 +218,13 @@ export function VisorHomeTop() {
               </ResponsiveContainer>
             </figure>
             <div className="flex items-center gap-4 text-caption text-muted flex-wrap mt-1">
-              <Leg color={POSITIVE} label="Gasto realizado" />
-              <Leg color={ORANGE} label="Mês anterior" />
+              <Leg color={fim} label="Gasto realizado" />
+              <span className="inline-flex items-center gap-[6px]">
+                <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Mês anterior
+              </span>
               {calc.temProj && (
                 <span className="inline-flex items-center gap-[6px]">
-                  <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: PROJ }} /> Projeção
+                  <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: fim, opacity: 0.5 }} /> Projeção
                 </span>
               )}
             </div>
@@ -285,11 +302,11 @@ export function VisorHomeTop() {
 
 /** Balão de callout no fim da linha — igual ao Visor (verde sólido, rabo p/ baixo). */
 function Callout(props: any) {
-  const { x, y, value, text } = props;
+  const { x, y, value, text, good } = props;
   if (value == null || typeof x !== "number" || typeof y !== "number") return null;
-  // Chip NEUTRO ink (clean/brand) — a direção fica no texto ("a mais/a menos"),
-  // sem preenchimento vermelho/verde forte.
-  const bg = "#11190C";
+  // Balão na cor do DESFECHO (verde gastou menos · vermelho gastou mais), como
+  // na referência — a leitura fica imediata, sem depender de ler o texto.
+  const bg = good ? "var(--color-positive)" : "var(--color-negative)";
   const H = 188, bh = 30, tail = 9;
   const bw = Math.max(150, text.length * 7.2 + 26);
   const bx = Math.max(4, x - bw);
@@ -404,7 +421,8 @@ function GastoTooltip({ active, payload }: any) {
     <div className="bg-white rounded-card px-4 py-3 text-caption">
       <div className="text-[15px] font-semibold text-ink mb-2">{p.label}</div>
       <TipRow color={projetado ? PROJ : POSITIVE} k={projetado ? "Gasto (proj.)" : "Gasto acum."} v={formatBRL(valor)} />
-      {p.prev != null && <TipRow color={ORANGE} k="Mês anterior" v={formatBRL(p.prev)} />}
+      {/* cinza: casa com a tracejada do mês anterior no gráfico */}
+      {p.prev != null && <TipRow color={PROJ} k="Mês anterior" v={formatBRL(p.prev)} />}
     </div>
   );
 }

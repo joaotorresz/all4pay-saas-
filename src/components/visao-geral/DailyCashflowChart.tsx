@@ -33,7 +33,7 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
       {/* Número em NEGRITO, sempre preto (ink); o tipo é dado pelo dot do rótulo. */}
       <span className="text-[20px] font-bold tabular-nums text-ink">
         <span className="text-faint font-medium">R$ </span>{neg ? "−" : ""}{integer}
-        <span style={{ fontSize: "0.7em" }}>,{decimals}</span>
+        <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
       </span>
     </button>
   );

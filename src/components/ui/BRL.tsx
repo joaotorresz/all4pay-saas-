@@ -35,7 +35,9 @@ export function BRL({
       </span>
       <span>{neg ? "−" : ""}{integer}</span>
       {showDecimals && (
-        <span className="text-placeholder" style={{ fontSize: "0.72em", marginLeft: "0.04em" }}>
+        // `data-cents` permite a uma tela inteira esconder os centavos por CSS
+        // (`.a4p-sem-centavos`), sem ter de passar showDecimals em cada uso.
+        <span data-cents="" className="text-placeholder" style={{ fontSize: "0.72em", marginLeft: "0.04em" }}>
           ,{decimals}
         </span>
       )}
