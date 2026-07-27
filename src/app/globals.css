@@ -371,10 +371,15 @@ html:not(.dark) .ds-visor {
 .ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* cards SÓLIDOS brancos, CLEAN: sem borda e sem sombra (spec do site). */
+/* Cards SÓLIDOS, CLEAN: sem borda e sem sombra (spec do site).
+   A superfície vem do TOKEN (`--color-white`), nunca de hex literal — era
+   `#ffffff` cravado, o que deixava o card branco também no tema escuro e
+   ignorava qualquer troca de superfície. `border-width: 0` (em vez do
+   shorthand `border: 0`) preserva a cor de borda do tema para quem quiser
+   ligar uma borda depois. */
 .ds-visor [data-card="1"] {
-  background: #ffffff;
-  border: 0;
+  background: var(--color-white);
+  border-width: 0;
   box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
