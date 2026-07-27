@@ -37,7 +37,13 @@ export function AppShell({
       <div className="flex items-center gap-3 min-w-0">
         {/* O hambúrguer mobile vive na TopBar; aqui seria um segundo botão igual. */}
         <div className="min-w-0">
-          <h1 className="m-0 text-[26px] sm:text-[30px] lg:text-[35px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink truncate">
+          {/* Título da página (Laboratório): Roobert Semi Mono 23/900, tracking
+              −0.04em, sem caixa-alta. Vale para TODAS as telas — é o mesmo
+              componente; o Lab só conseguia selecionar o da Home. */}
+          <h1
+            className="m-0 text-[23px] leading-[1.15] text-ink truncate"
+            style={{ fontFamily: '"Roobert Semi Mono", ui-monospace, monospace', fontWeight: 900, letterSpacing: "-0.04em", textTransform: "none" }}
+          >
             {title}
           </h1>
         </div>

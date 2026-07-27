@@ -354,33 +354,33 @@ h1, h2, h3,
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
 html:not(.dark) .ds-visor {
   /* neutros / superfícies — paleta All4Pay (spec Vendria→lima) */
-  --color-surface-1: var(--a4p-bg);
-  --color-surface-2: #f0eee9;      /* seção / hover suave (warm) */
+  --color-surface-1: #f8f9fa;      /* canvas frio (Laboratório) */
+  --color-surface-2: #f3f1ee;      /* seção / hover suave (warm) */
   --color-surface-3: #e9e6df;
   --color-white: #ffffff;
-  --color-ink: #11190c;            /* títulos/valores — Roobert SemiBold */
+  --color-ink: #11190c;            /* títulos/valores */
   --color-ink-soft: #2a3320;       /* hover de ink */
-  --color-text-secondary: #787664; /* subtítulos + textos (spec do site) */
-  --color-text-tertiary: #787664;  /* subtítulos + textos (spec do site) */
+  --color-text-secondary: #3f4a38; /* corpo */
+  --color-text-tertiary: #6b7280;  /* legendas / secundário */
   --color-text-quaternary: #a8a595;/* placeholder / labels de seção */
-  --color-border: var(--a4p-box-border);      /* #ECEAE4 */
+  --color-border: #eceae4;
   --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
   /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
   --color-lime: #e1ff00;
   --color-lime-tint: #f4ffb0;
   --color-on-lime: #11190c;
   --color-chart-line: #11190c;
-  /* semânticas (status independentes da marca — verde "Pago" ≠ lima) */
-  --color-positive: #3f6212;
-  --color-warning: #92400e;
-  --color-negative: #b42318;
+  /* semânticas — saturadas (escolha do Laboratório) */
+  --color-positive: #00ff62;
+  --color-warning: #ff6200;
+  --color-negative: #ff1100;
 }
 /* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
 .ds-visor,
 .ds-visor * {
   font-family: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 /* Títulos: Roobert SemiBold (600) na cor ink #11190C. Textos/subtítulos herdam
    Medium #787664 (via --color-text-secondary). */
@@ -389,16 +389,17 @@ html:not(.dark) .ds-visor {
 .ds-visor .text-value-lg {
   font-weight: 600;
   color: var(--color-ink);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
-/* …exceto os NÚMEROS: valores (Money/BRL via .a4p-num), contextos tabulares
-   (.tabular-nums) e eixos de gráfico entram em Geist Mono. */
+/* Os NÚMEROS agora também são Roobert (escolha do Laboratório: "aplicar a fonte
+   também nos números"). O alinhamento tabular continua vindo de `tabular-nums`
+   / `font-variant-numeric`, não da família — então colunas seguem alinhadas. */
 .ds-visor .a4p-num,
 .ds-visor .a4p-num *,
 .ds-visor .tabular-nums,
 .ds-visor .recharts-cartesian-axis-tick-value {
-  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: -0.02em;
+  font-family: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
 }
 /* rounded-card (36px fixo) → raio do painel */
 .ds-visor .rounded-card {
@@ -412,7 +413,9 @@ html:not(.dark) .ds-visor {
    ligar uma borda depois. */
 .ds-visor [data-card="1"] {
   background: var(--color-white);
-  border-width: 0;
+  /* Hairline do Laboratório (#F1F3F5 — o export trazia "##F1F3F5", com dois
+     `#`, que o CSS descarta em silêncio). */
+  border: 1px solid #f1f3f5;
   box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
@@ -473,7 +476,7 @@ html.dark .a4p-canvas {
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border-right-color: var(--glass-edge);
+  border-right-color: #dcdcda; /* hairline do menu (Laboratório) */
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
@@ -511,4 +514,16 @@ html.dark .a4p-canvas {
 .a4p-picking .a4p-sidebar *,
 .a4p-picking .a4p-topbar * {
   pointer-events: auto !important;
+}
+
+/* ============================================================
+   Herói "Você gastou" — o Laboratório pediu o prefixo R$ do MESMO
+   tamanho/cor do inteiro (o padrão do <BRL> é menor e faint). Fica
+   escopado ao herói: o tratamento assinatura segue no resto do app.
+   ============================================================ */
+.ds-visor .a4p-heroi .a4p-num > span:first-child {
+  font-size: 1em;
+  font-weight: 500;
+  color: var(--color-ink);
+  margin-right: 0.1em;
 }

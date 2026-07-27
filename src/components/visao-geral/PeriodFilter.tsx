@@ -66,15 +66,22 @@ export function PeriodFilter() {
 
   // FLAT: ativo = chip neutro sutil (surface-2, texto ink) · inativo = só texto.
   // Nada de pill preto sólido — "nada parece botão".
+  // Pílulas de período (Laboratório): Roobert Semi Mono 16/400, tracking
+  // −0.045em, sem raio, padding 18 e o ATIVO em branco sólido.
+  const btnStyle: React.CSSProperties = {
+    fontFamily: '"Roobert Semi Mono", ui-monospace, monospace',
+    fontWeight: 400,
+    letterSpacing: "-0.045em",
+  };
   const btn = (ativo: boolean) =>
-    `inline-flex items-center h-9 px-4 rounded-pill text-[15px] font-medium transition-colors ${ativo ? "bg-surface-2 text-ink" : "bg-transparent text-muted hover:text-ink"}`;
+    `inline-flex items-center h-9 px-[18px] rounded-none text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
 
   return (
     <div ref={ref} className="relative">
       <div className="flex items-center gap-2">
-        <button className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
-        <button className={btn(isMonth)} onClick={() => { period.setMonth(now.getFullYear(), now.getMonth()); setOpen(false); }}>Mês atual</button>
-        <button className={btn(isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <button style={btnStyle} className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
+        <button style={btnStyle} className={btn(isMonth)} onClick={() => { period.setMonth(now.getFullYear(), now.getMonth()); setOpen(false); }}>Mês atual</button>
+        <button style={btnStyle} className={btn(isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           <Icon name="chevron-down" size={15} color={isCustom || open ? "#fff" : "var(--color-text-secondary)"} className="-ml-1 mr-1" />
           {isCustom ? period.label : "Personalizado"}
         </button>
