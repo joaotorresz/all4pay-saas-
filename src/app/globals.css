@@ -500,3 +500,15 @@ html.dark .a4p-canvas {
 .a4p-sem-centavos [data-cents] {
   display: none;
 }
+
+/* ============================================================
+   Modo "selecionar item na tela" (Laboratório de Design).
+   Muitos enfeites são `pointer-events:none` (o centro do donut,
+   overlays de gráfico) — sem isto o clique os atravessa e eles
+   nunca poderiam ser editados. Vale só enquanto se seleciona.
+   ============================================================ */
+.a4p-picking .ds-visor *,
+.a4p-picking .a4p-sidebar *,
+.a4p-picking .a4p-topbar * {
+  pointer-events: auto !important;
+}

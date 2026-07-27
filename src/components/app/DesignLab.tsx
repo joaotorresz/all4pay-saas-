@@ -442,6 +442,10 @@ export function DesignLab() {
   /* ---- modo selecionar na tela ---- */
   React.useEffect(() => {
     if (!picking) { setHover(null); return; }
+    // Enquanto se seleciona, TODO elemento vira clicável: vários enfeites (o
+    // centro do donut, overlays de gráfico) são `pointer-events:none`, e sem
+    // isto o clique os atravessa e eles nunca podem ser editados.
+    document.documentElement.classList.add("a4p-picking");
     const noLab = (t: EventTarget | null) => t instanceof Element && !!t.closest("[data-designlab]");
     const onMove = (e: MouseEvent) => {
       if (noLab(e.target)) { setHover(null); return; }
@@ -482,6 +486,7 @@ export function DesignLab() {
       document.removeEventListener("mousemove", onMove, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKey, true);
+      document.documentElement.classList.remove("a4p-picking");
     };
   }, [picking]);
 
