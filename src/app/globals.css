@@ -2,12 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Medium (corpo/textos)
-   + SemiBold (títulos). Mapeados nos pesos usados pela UI. */
+/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Quatro cortes
+   estáticos cobrindo a escala de peso da UI: Light · Regular · Medium ·
+   SemiBold. As faixas de `font-weight` não podem se sobrepor — o browser
+   escolhe o arquivo pela faixa em que o peso pedido cai. */
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-light.otf") format("opentype");
+  font-weight: 100 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-regular.otf") format("opentype");
+  font-weight: 360 440;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: "Roobert";
   src: url("/fonts/roobert-medium.otf") format("opentype");
-  font-weight: 400 550;
+  font-weight: 450 550;
   font-style: normal;
   font-display: swap;
 }
@@ -15,6 +31,17 @@
   font-family: "Roobert";
   src: url("/fonts/roobert-semibold.otf") format("opentype");
   font-weight: 560 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Roobert VF — a variável (um arquivo, 100–900 contínuo). Fica numa família
+   PRÓPRIA para não competir com os cortes estáticos acima; útil para testar
+   pesos intermediários no Laboratório de Design. */
+@font-face {
+  font-family: "Roobert Variable";
+  src: url("/fonts/roobert-variable.ttf") format("truetype-variations");
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }

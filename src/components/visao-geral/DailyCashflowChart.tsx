@@ -1,8 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { DailyCashflowLW, type ModoGrafico } from "./DailyCashflowLW";
-import { Card, Skeleton } from "@/components/ui";
+import {
+  ComposedChart,
+  Bar,
+  Cell,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+} from "recharts";
+import { BRL, Card, Skeleton } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
@@ -10,12 +21,26 @@ import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { EmptyState, VisuallyHidden } from "./shared";
 
-// Cores usadas pela legenda e pelos totais do rodapé (o gráfico em si lê os
-// tokens direto, em `DailyCashflowLW`).
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
 const LINE = "var(--color-chart-line)"; // linha de saldo acumulado — verde da marca
+const GRID = "var(--color-border-soft)";
+const FAINT = "var(--color-text-tertiary)";
+import { chartAnim } from "@/lib/chart-anim";
+
+function CashflowTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0]?.payload as DailyCashflowPoint;
+  return (
+    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
+      <div className="font-medium text-ink mb-[6px]">{label}</div>
+      <Row color={POSITIVE} k="Entradas" v={<BRL value={p.inflow} />} />
+      <Row color={NEGATIVE} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
+      <Row color={LINE} k="Saldo" v={<BRL value={p.balance} />} />
+    </div>
+  );
+}
 
 function PeriodTotal({ label, value, color, active, onClick }: { label: string; value: number; color: string; active?: boolean; onClick?: () => void }) {
   const neg = value < 0;
@@ -39,6 +64,18 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
   );
 }
 
+function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 tabular-nums">
+      <span className="inline-flex items-center gap-[6px] text-muted">
+        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
+        {k}
+      </span>
+      <span className="text-ink">{v}</span>
+    </div>
+  );
+}
+
 export function DailyCashflowChart() {
   const period = usePeriod();
   const { data, isLoading, isError } = useDailyCashflowRange(period.from, period.to);
@@ -48,8 +85,6 @@ export function DailyCashflowChart() {
   const hojeISO = isoDay(new Date());
   // Filtro por tipo (botões Entradas/Saídas abaixo do gráfico).
   const [filtro, setFiltro] = React.useState<"todos" | "entrada" | "saida">("todos");
-  // Barras (entradas/saídas + saldo) × Velas (candlestick do saldo).
-  const [modo, setModo] = React.useState<ModoGrafico>("barras");
 
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
@@ -63,7 +98,7 @@ export function DailyCashflowChart() {
     <Card className="flex flex-col" info={{
       titulo: "Fluxo de caixa",
       oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
-      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual. Em Velas, cada candle é o SALDO do dia: abre no saldo de ontem e fecha no de hoje (corpo verde se subiu, vermelho se caiu); os pavios marcam a máxima e a mínima que o caixa alcançaria conforme a ordem dos lançamentos — máxima = abertura + entradas, mínima = abertura + saídas.",
+      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
     }}>
       <div className="mb-3 flex items-center gap-3">
         <div className="min-w-0">
@@ -71,23 +106,6 @@ export function DailyCashflowChart() {
               vivem no topo da página (não duplicar aqui). */}
           <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
           <span className="text-caption text-faint">{legenda}</span>
-        </div>
-        {/* Barras × Velas (candlestick do saldo) */}
-        <div className="ml-auto inline-flex rounded-md bg-surface-2 p-[3px] shrink-0">
-          {(["barras", "velas"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setModo(m)}
-              aria-pressed={modo === m}
-              title={m === "velas" ? "Candlestick do saldo em caixa" : "Entradas, saídas e saldo"}
-              className={`px-[10px] py-[5px] text-[12px] font-medium rounded-sm transition-colors ${
-                modo === m ? "bg-white text-ink" : "text-muted hover:text-ink"
-              }`}
-            >
-              {m === "barras" ? "Barras" : "Velas"}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -105,11 +123,44 @@ export function DailyCashflowChart() {
 
       {!isLoading && !isError && hasFlow && data && (
         <figure className="m-0" role="img" aria-label={cashflowAria(data, legenda)}>
-          {/* PILOTO: este gráfico roda em TradingView Lightweight Charts (canvas,
-              crosshair, zoom/pan). Os demais seguem em Recharts — a lib não faz
-              radar nem eixo categórico. Reverter = voltar o <ComposedChart>. */}
-          <DailyCashflowLW data={data} filtro={filtro} hojeISO={hojeISO} altura={260} modo={modo} />
-          <Legend projetado={temProjecao} modo={modo} />
+          <ResponsiveContainer width="100%" height={260}>
+            <ComposedChart
+              data={data}
+              margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+              stackOffset="sign"
+            >
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 13, fill: FAINT }}
+                tickLine={false}
+                axisLine={{ stroke: GRID }}
+                interval="preserveStartEnd"
+              />
+              {/* eixo lateral OCULTO (mantém a escala) — pedido do usuário */}
+              <YAxis yAxisId="flow" hide />
+              <YAxis yAxisId="balance" orientation="right" hide />
+              <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
+              <Tooltip
+                content={<CashflowTooltip />}
+                cursor={{ fill: "rgba(127,127,127,0.10)" }}
+              />
+              {filtro !== "saida" && (
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                  {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+                </Bar>
+              )}
+              {filtro !== "entrada" && (
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                  {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+                </Bar>
+              )}
+              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). Traço fino. */}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={0.85} dot={false} connectNulls name="Saldo em caixa" />}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={0.85} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />}
+            </ComposedChart>
+          </ResponsiveContainer>
+          <Legend projetado={temProjecao} />
           <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
       )}
@@ -127,20 +178,7 @@ export function DailyCashflowChart() {
   );
 }
 
-function Legend({ projetado, modo }: { projetado?: boolean; modo: ModoGrafico }) {
-  if (modo === "velas") {
-    // A vela do caixa não é óbvia: dizemos o que corpo e pavio significam.
-    return (
-      <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
-        <LegendDot color={POSITIVE} label="Fechou acima" />
-        <LegendDot color={NEGATIVE} label="Fechou abaixo" />
-        <span className="text-[13px] text-faint">
-          Corpo = saldo da abertura ao fechamento · pavio = faixa que o caixa percorreu no dia
-          {projetado ? " · velas claras são previstas" : ""}
-        </span>
-      </div>
-    );
-  }
+function Legend({ projetado }: { projetado?: boolean }) {
   return (
     <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
       <LegendDot color={POSITIVE} label="Entradas" />

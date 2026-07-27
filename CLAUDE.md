@@ -109,8 +109,11 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
 - **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
-  FABs (Upload · Guia · All 4 Pay AI) são pills BRANCOS flat; o glifo de IA é um
-  tile ink com sparkle lime (sem gradiente colorido).
+  FABs (Upload · Guia) são pills BRANCOS flat. O FAB **All 4 Pay AI** é a
+  exceção sancionada: carrega o **degradê oficial da marca** (`GRAD_MARCA` em
+  `AssistantWidget.tsx` — `#D0FF00 → #D8FF00 → #E1FF00 → #E8FF00 → #F5FF00`, de
+  cima para baixo, os 5 stops do guia), com texto em **`on-lime`** e o sparkle
+  num tile ink.
 - **Ícones: Hugeicons (Stroke Rounded) SEMPRE** (`Icon`) — traçados, leves,
   cantos arredondados; espessura padrão 1.5 (ajustável por `strokeWidth`). Nos
   cabeçalhos de card, o glifo entra num **tile discreto** (`IconTile`,
@@ -1221,6 +1224,12 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
 - **Tailwind CSS** (token-driven, see above)
 - **Supabase** — clients in `src/lib/supabase/` (`client.ts` for the browser,
   `server.ts` for Server Components / actions). Env vars in `.env.example`.
+- **Roobert (self-hosted, `public/fonts/`):** quatro cortes estáticos —
+  **Light** (100–350) · **Regular** (360–440) · **Medium** (450–550) ·
+  **SemiBold** (560–800) — em faixas de `font-weight` que NÃO se sobrepõem (o
+  browser escolhe o arquivo pela faixa). A **variável** (`roobert-variable.ttf`)
+  entra numa família própria, **`Roobert Variable`**, para não competir com os
+  estáticos; serve para testar pesos intermediários no Laboratório.
 - Fontes (DS Ledger): **Schibsted Grotesk Variable** (UI) + **Geist Mono
   Variable** (valores) — importadas no `layout.tsx` via **Fontsource** (npm,
   self-hosted, sem fetch externo) e definidas como `sans`/`mono` no Tailwind.

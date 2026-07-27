@@ -26,8 +26,12 @@ import { logAcaoIA } from "@/lib/ai-copilot";
 
 type Ctx = Parameters<typeof copilotoFinanceiro>[1];
 
-/* Identidade do botão de IA — na paleta da marca (preto #11190C + lime), flat.
-   O acento lime fica no sparkle/detalhe; nada de gradiente colorido nem glow. */
+/* Identidade do botão de IA. O FAB usa o DEGRADÊ OFICIAL da marca — os cinco
+   stops do guia (#D0FF00 topo → #F5FF00 base, de cima para baixo). Sobre lima,
+   texto e glifo entram em `on-lime` (#11190C): claro sobre lima é ilegível.
+   O tile do sparkle segue escuro (contraste dentro do botão) e o restante da
+   UI do painel continua na versão flat/escura. */
+const GRAD_MARCA = "linear-gradient(180deg,#D0FF00 0%,#D8FF00 25%,#E1FF00 50%,#E8FF00 75%,#F5FF00 100%)";
 const GRAD = "linear-gradient(95deg, #11190C 0%, #1c2714 100%)";
 const GLOW = "none";
 
@@ -91,9 +95,10 @@ export function AssistantWidget() {
       <button
         onClick={abrir}
         aria-label="Abrir o All 4 Pay AI"
-        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill bg-white text-ink pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:bg-surface-2 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
+        style={{ backgroundImage: GRAD_MARCA, color: "var(--color-on-lime)" }}
+        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
-        <span className="w-[30px] h-[30px] rounded-md bg-ink text-lime inline-flex items-center justify-center">
+        <span className="w-[30px] h-[30px] rounded-md inline-flex items-center justify-center" style={{ background: "#11190C", color: "#E1FF00" }}>
           <SparkleMark size={16} />
         </span>
         <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
