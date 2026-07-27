@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
@@ -241,14 +240,8 @@ export function Sidebar() {
           col ? "lg:w-[68px] lg:px-2" : "lg:w-sidebar lg:px-3",
         )}
       >
-        {/* Marca + recolher */}
+        {/* Recolher — a MARCA agora vive na TopBar (não repetir a logo aqui). */}
         <div className={cn("flex items-center pb-[18px] pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
-          {!col && (
-            <>
-              <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-              <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
-            </>
-          )}
           <button
             onClick={toggleCollapsed}
             aria-label={col ? "Expandir menu" : "Recolher menu"}
