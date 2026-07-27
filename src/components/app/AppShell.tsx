@@ -5,9 +5,9 @@ import { CommandPalette } from "@/components/app/CommandPalette";
 import { AssistantWidget } from "@/components/app/AssistantWidget";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
-import { MobileNavButton } from "@/components/app/MobileNavButton";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
+import { TopBar } from "@/components/app/TopBar";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -35,7 +35,7 @@ export function AppShell({
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
       <div className="flex items-center gap-3 min-w-0">
-        <MobileNavButton />
+        {/* O hambúrguer mobile vive na TopBar; aqui seria um segundo botão igual. */}
         <div className="min-w-0">
           <h1 className="m-0 text-[26px] sm:text-[30px] lg:text-[35px] leading-[1.15] font-semibold tracking-[-0.01em] text-ink truncate">
             {title}
@@ -48,16 +48,20 @@ export function AppShell({
     </header>
   );
   return (
-    <div className="a4p-canvas fixed inset-0 flex bg-surface-1 overflow-hidden">
-      <Sidebar />
-      <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
-        {stickyHeader && header}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
-          {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
-          {!stickyHeader && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
-          {children}
-        </div>
-      </main>
+    // Coluna: a TopBar atravessa a largura toda e a Sidebar começa ABAIXO dela.
+    <div className="a4p-canvas fixed inset-0 flex flex-col bg-surface-1 overflow-hidden">
+      <TopBar />
+      <div className="flex-1 flex min-h-0">
+        <Sidebar />
+        <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
+          {stickyHeader && header}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
+            {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
+            {!stickyHeader && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
+            {children}
+          </div>
+        </main>
+      </div>
       <RouteTracker />
       <DesignLabStyle />
       <DesignLab />
