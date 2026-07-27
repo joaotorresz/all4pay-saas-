@@ -12,7 +12,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { Card, BRL, Button, Icon, Input, CurrencyInput, Select, Skeleton } from "@/components/ui";
 import { useQuantitativo, useRiscoInput } from "@/components/visao-geral/hooks";
 import { planejarContratacoes, custoMensalContratacao, type Contratacao } from "@/core/headcount";
-import { EmptyState, IconTile } from "@/components/visao-geral/shared";
+import { EmptyState } from "@/components/visao-geral/shared";
 
 const MESES_OPT = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `Mês ${i + 1}` }));
 
@@ -48,7 +48,6 @@ export function HeadcountView() {
               comoCalcula: "Cada vaga entra com o custo REAL de folha (salário + 13º + férias com 1/3 + FGTS, ~1,36× o salário) a partir do mês de início. O motor projeta o caixa mês a mês e recalcula runway e score.",
             }}>
               <div className="flex items-center gap-3">
-                <IconTile name="users" />
                 <div>
                   <h2 className="m-0 text-h3 font-medium text-ink">Vagas do plano</h2>
                   <span className="text-caption text-faint">salário + encargos reais (13º · férias+1/3 · FGTS)</span>
@@ -83,7 +82,6 @@ export function HeadcountView() {
             {/* Impacto */}
             <Card className="flex flex-col gap-4">
               <div className="flex items-center gap-3">
-                <IconTile name="gauge" />
                 <div>
                   <h2 className="m-0 text-h3 font-medium text-ink">Impacto no caixa</h2>
                   <span className="text-caption text-faint">{resultado.pessoas} contratação(ões) · {resultado.versaoModelo}</span>

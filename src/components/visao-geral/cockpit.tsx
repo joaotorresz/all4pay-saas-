@@ -76,14 +76,10 @@ function MetricCard({ label, value, answer, tone, icon, info, href, hrefLabel }:
 }) {
   return (
     <Card className="flex flex-col gap-2" info={info}>
-      {/* DS All4Pay: rótulo à esquerda + chip de ícone (ink + glifo lima) à direita */}
+      {/* Sem chip de ícone: o rótulo carrega o card sozinho. `icon` segue no
+          contrato dos widgets do catálogo, mas não é renderizado. */}
       <div className="flex items-start justify-between gap-2">
         <span className="text-label font-medium text-muted">{label}</span>
-        {icon && (
-          <span className="w-9 h-9 rounded-[10px] bg-ink inline-flex items-center justify-center shrink-0 -mt-[2px]">
-            <Icon name={icon} size={16} color="var(--color-lime)" />
-          </span>
-        )}
       </div>
       <span className="text-value-lg leading-none font-semibold tabular-nums" style={{ color: tone ?? "var(--color-ink)" }}>
         {value}

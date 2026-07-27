@@ -8,7 +8,7 @@ import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
-import { EmptyState, VisuallyHidden, IconTile } from "./shared";
+import { EmptyState, VisuallyHidden } from "./shared";
 
 // Cores usadas pela legenda e pelos totais do rodapé (o gráfico em si lê os
 // tokens direto, em `DailyCashflowLW`).
@@ -66,7 +66,6 @@ export function DailyCashflowChart() {
       comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual. Em Velas, cada candle é o SALDO do dia: abre no saldo de ontem e fecha no de hoje (corpo verde se subiu, vermelho se caiu); os pavios marcam a máxima e a mínima que o caixa alcançaria conforme a ordem dos lançamentos — máxima = abertura + entradas, mínima = abertura + saídas.",
     }}>
       <div className="mb-3 flex items-center gap-3">
-        <IconTile name="building" size={40} />
         <div className="min-w-0">
           {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
               vivem no topo da página (não duplicar aqui). */}

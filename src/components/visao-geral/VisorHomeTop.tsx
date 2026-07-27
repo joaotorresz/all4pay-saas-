@@ -21,7 +21,6 @@ import { formatBRL } from "@/lib/format";
 import { useRiscoInput } from "./hooks";
 import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
 import { AnimatedBRL } from "./useCountUp";
-import { IconTile } from "./shared";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -169,7 +168,6 @@ export function VisorHomeTop() {
           comoCalcula: "Soma das saídas pagas, acumuladas dia a dia. A diferença em destaque é o total deste período menos o do anterior no mesmo ponto do mês.",
         }}>
           <div className="flex items-center gap-3">
-            <IconTile name="receipt" size={40} />
             <span className="text-[16px] font-semibold text-ink">Você gastou</span>
           </div>
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
@@ -223,7 +221,6 @@ export function VisorHomeTop() {
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
           <span className="inline-flex items-center gap-3 text-[16px] font-semibold text-ink">
-            <IconTile name="activity" size={40} />
             {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
             <InfoHint align="left"
               oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."
@@ -334,7 +331,6 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <IconTile name="sparkles" size={38} />
         <span className="text-[15px] font-semibold text-ink">Dica all4pay</span>
         <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />

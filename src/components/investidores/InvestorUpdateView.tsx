@@ -13,7 +13,7 @@ import { Card, BRL, Button, Icon, Textarea, Input } from "@/components/ui";
 import { Skeleton } from "@/components/ui";
 import { useInvestorUpdate } from "@/components/visao-geral/hooks";
 import { gerarTextoInvestorUpdate } from "@/core/investor";
-import { EmptyState, IconTile } from "@/components/visao-geral/shared";
+import { EmptyState } from "@/components/visao-geral/shared";
 
 export function InvestorUpdateView() {
   const { data: u, isLoading, isError } = useInvestorUpdate();
@@ -57,7 +57,6 @@ export function InvestorUpdateView() {
               comoCalcula: "Tudo sai dos motores (quantitativo sobre os seus lançamentos) — nada digitado à mão. MRR = share recorrente × receita mensal.",
             }}>
               <div className="flex items-center gap-3 mb-4">
-                <IconTile name="mail" />
                 <div>
                   <h2 className="m-0 text-h3 font-medium text-ink">Métricas · {u.mesReferencia}</h2>
                   <span className="text-caption text-faint">derivadas dos lançamentos reais · {u.versaoModelo}</span>
@@ -80,7 +79,6 @@ export function InvestorUpdateView() {
               {/* Campos do fundador */}
               <Card className="flex flex-col gap-4">
                 <div className="flex items-center gap-3">
-                  <IconTile name="edit" />
                   <div>
                     <h2 className="m-0 text-h3 font-medium text-ink">Sua parte</h2>
                     <span className="text-caption text-faint">o que só o fundador sabe — entra nas seções do texto</span>
@@ -122,7 +120,6 @@ export function InvestorUpdateView() {
               {/* Texto pronto */}
               <Card className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
-                  <IconTile name="file-text" />
                   <div className="min-w-0">
                     <h2 className="m-0 text-h3 font-medium text-ink">Texto pronto para enviar</h2>
                     <span className="text-caption text-faint">atualiza ao vivo com os campos ao lado</span>
