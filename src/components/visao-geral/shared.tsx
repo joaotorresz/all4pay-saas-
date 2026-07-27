@@ -35,13 +35,16 @@ export function IconTile({ name, size = 40 }: { name: IconName | string; size?: 
 /** Alias de compat p/ chamadas antigas — hoje é o mesmo tile flat. */
 export const Icon3D = IconTile;
 
-/** Section title for a widget, with an optional right-aligned slot. */
+/**
+ * Section title for a widget, with an optional right-aligned slot.
+ * `icon` é aceito por compat mas NÃO é renderizado — os cabeçalhos de card não
+ * levam mais chip de ícone (o título carrega sozinho).
+ */
 export function WidgetHeader({
   title,
   subtitle,
   action,
   info,
-  icon,
 }: {
   title: string;
   subtitle?: React.ReactNode;
@@ -52,7 +55,6 @@ export function WidgetHeader({
   return (
     <div className="flex items-center justify-between gap-3 mb-4">
       <div className="flex items-center gap-3 min-w-0">
-        {icon && <IconTile name={icon} />}
         <div className="flex items-baseline gap-[10px] min-w-0">
           <h2 className="text-h3 font-medium text-ink truncate">{title}</h2>
           {info && <span className="self-center"><InfoHint align="left" {...info} /></span>}
