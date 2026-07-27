@@ -6,13 +6,14 @@ import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
-import { TopBar } from "@/components/app/TopBar";
+import { MobileNavButton } from "@/components/app/MobileNavButton";
+import { Sidebar } from "@/components/dashboard/Sidebar";
 
 /**
- * Standard app frame: barra horizontal no topo (marca + navegação + busca +
- * conta) e coluna de conteúdo rolável com o header da página (título e ações).
- * O menu VERTICAL foi retirado — a navegação inteira vive na `TopBar`; no
- * mobile ela vira um drawer (hambúrguer). Padding/título encolhem no mobile.
+ * Standard app frame: route-aware sidebar + scrollable main column with a
+ * page header (breadcrumb, title, optional actions). Reused by the
+ * financial screens. Responsivo: a Sidebar vira drawer em < lg (hambúrguer no
+ * header), e padding/título encolhem no mobile.
  */
 export function AppShell({
   title,
@@ -34,7 +35,7 @@ export function AppShell({
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
       <div className="flex items-center gap-3 min-w-0">
-        {/* O hambúrguer mobile vive na TopBar; aqui seria um segundo botão igual. */}
+        <MobileNavButton />
         <div className="min-w-0">
           {/* Título da página (Laboratório): Roobert Semi Mono 23/900, tracking
               −0.04em, sem caixa-alta. Vale para TODAS as telas — é o mesmo
@@ -53,9 +54,8 @@ export function AppShell({
     </header>
   );
   return (
-    // Coluna: a TopBar atravessa a largura toda; o conteúdo ocupa o resto.
-    <div className="a4p-canvas fixed inset-0 flex flex-col bg-surface-1 overflow-hidden">
-      <TopBar />
+    <div className="a4p-canvas fixed inset-0 flex bg-surface-1 overflow-hidden">
+      <Sidebar />
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         {stickyHeader && header}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
