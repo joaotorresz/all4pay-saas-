@@ -19,6 +19,32 @@
   font-display: swap;
 }
 
+/* Roobert Semi Mono TRIAL — largura semi-tabular (meio-termo entre a
+   proporcional e a monoespaçada). Light + Regular. */
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-light.otf") format("opentype");
+  font-weight: 200 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-regular.otf") format("opentype");
+  font-weight: 360 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Roobert Mono TRIAL — monoespaçada de verdade (candidata a números). */
+@font-face {
+  font-family: "Roobert Mono";
+  src: url("/fonts/roobert-mono-semibold.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------

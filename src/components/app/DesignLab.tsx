@@ -32,6 +32,8 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   { id: "", label: "— herdar —", stack: "" },
   { id: "hanken", label: "Hanken Grotesk", stack: '"Hanken Grotesk Variable","Hanken Grotesk",sans-serif' },
   { id: "roobert", label: "Roobert", stack: '"Roobert",sans-serif' },
+  { id: "roobert-semimono", label: "Roobert Semi Mono", stack: '"Roobert Semi Mono",ui-monospace,monospace' },
+  { id: "roobert-mono", label: "Roobert Mono", stack: '"Roobert Mono",ui-monospace,monospace' },
   { id: "boldonse", label: "Boldonse", stack: '"Boldonse",sans-serif' },
   { id: "schibsted", label: "Schibsted Grotesk", stack: '"Schibsted Grotesk Variable",sans-serif' },
   { id: "geist", label: "Geist Mono", stack: '"Geist Mono Variable",ui-monospace,monospace' },
