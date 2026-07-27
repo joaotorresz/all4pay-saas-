@@ -160,6 +160,22 @@ export function VisorHomeTop() {
     };
   }, [inp, period.from, period.to]);
 
+  // Gradiente CONDICIONAL da linha: ponto a ponto, VERDE onde o acumulado está
+  // abaixo do mês anterior (economia) e VERMELHO onde passou dele. Os stops
+  // ficam lado a lado, então o SVG interpola e a virada de cor cai exatamente
+  // onde o gasto cruza a régua do mês passado.
+  // Hook INCONDICIONAL (antes de qualquer early return): tolera `calc` nulo.
+  const stops = React.useMemo(() => {
+    const pts = calc?.serie ?? [];
+    const n = pts.length;
+    if (!n) return [{ off: 0, cor: POSITIVE }];
+    return pts.map((p, i) => {
+      const atual = p.gasto ?? p.proj ?? 0;
+      const anterior = p.prev ?? 0;
+      return { off: n > 1 ? (i / (n - 1)) * 100 : 0, cor: anterior >= atual ? POSITIVE : NEGATIVE };
+    });
+  }, [calc]);
+
   if (isLoading || !inp || !calc) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
@@ -207,11 +223,9 @@ export function VisorHomeTop() {
                         sempre que o mês corrente é bem menor que o anterior.
                         Por isso ancoramos nas dimensões reais do gráfico. */}
                     <linearGradient id="visorTermica" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
-                      <stop offset="0%" stopColor="#28AA00" />
-                      <stop offset="28%" stopColor="#8FBF00" />
-                      <stop offset="55%" stopColor="#F0A500" />
-                      <stop offset="80%" stopColor="#F45900" />
-                      <stop offset="100%" stopColor={fim} />
+                      {stops.map((s, i) => (
+                        <stop key={i} offset={`${s.off}%`} stopColor={s.cor} />
+                      ))}
                     </linearGradient>
                     {/* Preenchimento suave sob a linha, na cor do desfecho. */}
                     <linearGradient id="visorFill" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
