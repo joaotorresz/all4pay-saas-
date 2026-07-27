@@ -32,6 +32,7 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   { id: "", label: "— herdar —", stack: "" },
   { id: "hanken", label: "Hanken Grotesk", stack: '"Hanken Grotesk Variable","Hanken Grotesk",sans-serif' },
   { id: "roobert", label: "Roobert", stack: '"Roobert",sans-serif' },
+  { id: "roobert-vf", label: "Roobert Variable", stack: '"Roobert Variable","Roobert",sans-serif' },
   { id: "roobert-semimono", label: "Roobert Semi Mono", stack: '"Roobert Semi Mono",ui-monospace,monospace' },
   { id: "roobert-mono", label: "Roobert Mono", stack: '"Roobert Mono",ui-monospace,monospace' },
   { id: "boldonse", label: "Boldonse", stack: '"Boldonse",sans-serif' },
@@ -96,6 +97,14 @@ const BORDAS: { id: string; label: string }[] = [
   { id: "iconTile", label: "Borda do chip de ícone" },
   { id: "menuActive", label: "Borda do item ativo do menu" },
   { id: "menuBg", label: "Borda do menu (lateral)" },
+];
+
+/** Alvos de ARREDONDAMENTO oferecidos direto no Global (raio em px). */
+const RAIOS: { id: string; label: string; dica: string }[] = [
+  { id: "button", label: "Botões", dica: "0 = quadrado · 999 = pílula" },
+  { id: "card", label: "Cards", dica: "as caixas brancas" },
+  { id: "iconTile", label: "Chip de ícone", dica: "o tile do glifo" },
+  { id: "menuActive", label: "Item ativo do menu", dica: "o pill do menu" },
 ];
 
 /** Papéis tipográficos da aba "Fontes" — uma fonte (e tamanho) por papel. */
@@ -710,6 +719,47 @@ export function DesignLab() {
                     </label>
                     <RangeSimples label="Espaçamento global" v={s.tracking} min={-8} max={6} step={0.5} onChange={(v) => set({ tracking: v })} un="/100 em" />
                   </Secao>
+                  {/* ARREDONDAMENTO — raio dos botões (e companhia) */}
+                  <Secao titulo="Arredondamento" hint="raio dos botões, cards…">
+                    <div className="flex flex-col gap-2">
+                      {RAIOS.map((r) => {
+                        const ov = s.padroes[r.id] ?? {};
+                        const raio = ov.radius as number | undefined;
+                        return (
+                          <div key={r.id}
+                            onMouseEnter={() => realcar(PADROES.find((p) => p.id === r.id)?.seletorTipo ?? null)}
+                            onMouseLeave={() => realcar(null)}
+                            className={`rounded-md border p-3 flex flex-col gap-2 ${raio !== undefined ? "border-ink/30" : "border-border"}`}>
+                            <div className="flex items-center gap-2">
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-[13px] text-ink font-medium truncate">{r.label}</span>
+                                <span className="block text-[11px] text-faint truncate">{r.dica}</span>
+                              </span>
+                              <input type="number" min={0} max={999} step={1} placeholder="px"
+                                value={raio ?? ""}
+                                onChange={(e) => (e.target.value === "" ? clearPadProp(r.id, "radius") : setPadProp(r.id, "radius", Number(e.target.value)))}
+                                className="w-[62px] text-caption tabular-nums text-ink bg-surface-2 rounded-sm px-2 py-1 border border-border shrink-0" />
+                              {raio !== undefined && (
+                                <button onClick={() => clearPadProp(r.id, "radius")}
+                                  title="Voltar ao padrão" className="text-faint hover:text-negative shrink-0">
+                                  <Icon name="x" size={13} color="currentColor" />
+                                </button>
+                              )}
+                            </div>
+                            <input type="range" min={0} max={40} step={1}
+                              value={Math.min(raio ?? 0, 40)}
+                              onChange={(e) => setPadProp(r.id, "radius", Number(e.target.value))}
+                              className="w-full accent-ink" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="m-0 text-[11px] text-faint leading-snug">
+                      A régua vai até 40px; para a <strong>pílula</strong>, digite 999 no campo.
+                      Para UM elemento específico, use a aba <strong>Itens</strong>.
+                    </p>
+                  </Secao>
+
                   {/* BORDAS — espessura + cor nos alvos mais pedidos */}
                   <Secao titulo="Bordas" hint="espessura e cor">
                     <div className="flex flex-col gap-2">

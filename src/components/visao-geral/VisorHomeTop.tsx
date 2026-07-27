@@ -249,11 +249,13 @@ export function VisorHomeTop() {
                   {/* área sob o realizado */}
                   <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorFill)" {...chartAnim()} connectNulls />
                   {/* mês anterior — tracejada cinza fina (régua de comparação) */}
-                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={1.8} strokeDasharray="7 6" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
+                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={1.3} strokeDasharray="7 6" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
                   {/* projeção — segue a cor do desfecho, esmaecida */}
-                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.3} strokeWidth={2.5} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
-                  {/* gasto realizado — traço GROSSO com o gradiente térmico */}
-                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={4.2} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
+                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.3} strokeWidth={1.8} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
+                  {/* gasto realizado — gradiente térmico. Traço AFINADO em 30%
+                      (4.2 → 2.9): a linha continua sendo a heroína, mas para de
+                      engolir a curva nos períodos curtos. */}
+                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
                   {/* âncora invisível do balão */}
                   <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
                     <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />
