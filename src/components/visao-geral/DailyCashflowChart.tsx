@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { DailyCashflowLW } from "./DailyCashflowLW";
+import { DailyCashflowLW, type ModoGrafico } from "./DailyCashflowLW";
 import { Card, Skeleton } from "@/components/ui";
 import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
@@ -48,6 +48,8 @@ export function DailyCashflowChart() {
   const hojeISO = isoDay(new Date());
   // Filtro por tipo (botões Entradas/Saídas abaixo do gráfico).
   const [filtro, setFiltro] = React.useState<"todos" | "entrada" | "saida">("todos");
+  // Barras (entradas/saídas + saldo) × Velas (candlestick do saldo).
+  const [modo, setModo] = React.useState<ModoGrafico>("barras");
 
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
@@ -61,15 +63,32 @@ export function DailyCashflowChart() {
     <Card className="flex flex-col" info={{
       titulo: "Fluxo de caixa",
       oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
-      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
+      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual. Em Velas, cada candle é o SALDO do dia: abre no saldo de ontem e fecha no de hoje (corpo verde se subiu, vermelho se caiu); os pavios marcam a máxima e a mínima que o caixa alcançaria conforme a ordem dos lançamentos — máxima = abertura + entradas, mínima = abertura + saídas.",
     }}>
       <div className="mb-3 flex items-center gap-3">
         <IconTile name="building" size={40} />
-        <div>
+        <div className="min-w-0">
           {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
               vivem no topo da página (não duplicar aqui). */}
           <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
           <span className="text-caption text-faint">{legenda}</span>
+        </div>
+        {/* Barras × Velas (candlestick do saldo) */}
+        <div className="ml-auto inline-flex rounded-md bg-surface-2 p-[3px] shrink-0">
+          {(["barras", "velas"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setModo(m)}
+              aria-pressed={modo === m}
+              title={m === "velas" ? "Candlestick do saldo em caixa" : "Entradas, saídas e saldo"}
+              className={`px-[10px] py-[5px] text-[12px] font-medium rounded-sm transition-colors ${
+                modo === m ? "bg-white text-ink" : "text-muted hover:text-ink"
+              }`}
+            >
+              {m === "barras" ? "Barras" : "Velas"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -90,8 +109,8 @@ export function DailyCashflowChart() {
           {/* PILOTO: este gráfico roda em TradingView Lightweight Charts (canvas,
               crosshair, zoom/pan). Os demais seguem em Recharts — a lib não faz
               radar nem eixo categórico. Reverter = voltar o <ComposedChart>. */}
-          <DailyCashflowLW data={data} filtro={filtro} hojeISO={hojeISO} altura={260} />
-          <Legend projetado={temProjecao} />
+          <DailyCashflowLW data={data} filtro={filtro} hojeISO={hojeISO} altura={260} modo={modo} />
+          <Legend projetado={temProjecao} modo={modo} />
           <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
       )}
@@ -109,7 +128,20 @@ export function DailyCashflowChart() {
   );
 }
 
-function Legend({ projetado }: { projetado?: boolean }) {
+function Legend({ projetado, modo }: { projetado?: boolean; modo: ModoGrafico }) {
+  if (modo === "velas") {
+    // A vela do caixa não é óbvia: dizemos o que corpo e pavio significam.
+    return (
+      <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
+        <LegendDot color={POSITIVE} label="Fechou acima" />
+        <LegendDot color={NEGATIVE} label="Fechou abaixo" />
+        <span className="text-[13px] text-faint">
+          Corpo = saldo da abertura ao fechamento · pavio = faixa que o caixa percorreu no dia
+          {projetado ? " · velas claras são previstas" : ""}
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
       <LegendDot color={POSITIVE} label="Entradas" />
