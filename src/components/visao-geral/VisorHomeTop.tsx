@@ -16,7 +16,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
-  ResponsiveContainer, LineChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
+  ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
 } from "recharts";
 import { Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
@@ -40,11 +40,26 @@ const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid
 type Ponto = { idx: number; label: string; gasto: number | null; proj: number | null; prev: number | null; tip: number | null };
 type Seg = { name: string; value: number; color: string; trend: number };
 
+/** Altura do gráfico do herói (também ancora o gradiente vertical). */
+const ALTURA = 210;
+
 export function VisorHomeTop() {
   const { data: inp, isLoading } = useRiscoInput();
   const period = usePeriod();
   const router = useRouter();
   const [tipoDist, setTipoDist] = React.useState<"entrada" | "saida">("saida");
+  // Largura real do gráfico — os gradientes usam `userSpaceOnUse` e precisam
+  // de coordenadas em pixels (vide o comentário no <defs>).
+  const boxRef = React.useRef<HTMLDivElement | null>(null);
+  const [largura, setLargura] = React.useState(520);
+  React.useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setLargura(el.clientWidth || 520));
+    ro.observe(el);
+    setLargura(el.clientWidth || 520);
+    return () => ro.disconnect();
+  }, []);
 
   const calc = React.useMemo(() => {
     if (!inp) return null;
@@ -179,16 +194,19 @@ export function VisorHomeTop() {
             <span className="text-[18px] text-muted">a {bom ? "menos" : "mais"} {sufixo}</span>
           </div>
 
-          <div className="relative mt-4">
+          <div className="relative mt-4" ref={boxRef}>
             <figure className="m-0" role="img" aria-label={`Gasto acumulado ${mesNome ? "em " + mesNome : "no período"}: ${formatBRL(calc.gastoAtual)}; ${bom ? "abaixo" : "acima"} do mês anterior em ${formatBRL(Math.abs(calc.delta))}.`}>
               {/* altura maior + folga no topo: o balão da referência é alto e
                   precisa de espaço sem encostar na linha. */}
-              <ResponsiveContainer width="100%" height={210}>
-                <LineChart data={calc.serie} margin={{ top: 34, right: 10, bottom: 4, left: 8 }}>
+              <ResponsiveContainer width="100%" height={ALTURA}>
+                <ComposedChart data={calc.serie} margin={{ top: 34, right: 10, bottom: 4, left: 8 }}>
                   <defs>
-                    {/* A linha ESQUENTA da esquerda para a direita conforme o gasto
-                        acumula (verde → âmbar → laranja → cor do resultado). */}
-                    <linearGradient id="visorTermica" x1="0" y1="0" x2="1" y2="0">
+                    {/* `userSpaceOnUse` de propósito: em `objectBoundingBox` (o
+                        padrão) o SVG NÃO desenha o gradiente quando a bbox tem
+                        largura ou altura zero — e a linha do gasto fica achatada
+                        sempre que o mês corrente é bem menor que o anterior.
+                        Por isso ancoramos nas dimensões reais do gráfico. */}
+                    <linearGradient id="visorTermica" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
                       <stop offset="0%" stopColor="#28AA00" />
                       <stop offset="28%" stopColor="#8FBF00" />
                       <stop offset="55%" stopColor="#F0A500" />
@@ -196,8 +214,8 @@ export function VisorHomeTop() {
                       <stop offset="100%" stopColor={fim} />
                     </linearGradient>
                     {/* Preenchimento suave sob a linha, na cor do desfecho. */}
-                    <linearGradient id="visorFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={fim} stopOpacity={0.22} />
+                    <linearGradient id="visorFill" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
+                      <stop offset="0%" stopColor={fim} stopOpacity={0.28} />
                       <stop offset="100%" stopColor={fim} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
@@ -216,7 +234,7 @@ export function VisorHomeTop() {
                   <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
                     <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />
                   </Line>
-                </LineChart>
+                </ComposedChart>
               </ResponsiveContainer>
             </figure>
             {/* Sem legenda: a referência não tem. O significado das linhas vive

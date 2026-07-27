@@ -31,7 +31,14 @@
 @font-face {
   font-family: "Roobert Semi Mono";
   src: url("/fonts/roobert-semimono-regular.otf") format("opentype");
-  font-weight: 360 800;
+  font-weight: 360 480;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-medium.otf") format("opentype");
+  font-weight: 490 800;
   font-style: normal;
   font-display: swap;
 }
