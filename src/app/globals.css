@@ -445,8 +445,8 @@ html:not(.dark) .ds-visor {
    .a4p-canvas (raiz do AppShell): washes de aurora em lime a
    baixíssima opacidade sobre o fundo do tema (o lime segue sendo
    tempero — são véus, nunca preenchimentos). As superfícies
-   flutuantes (popovers/menus/palette via .shadow-popover, a
-   Sidebar via .a4p-sidebar e qualquer painel com .a4p-glass)
+   flutuantes (popovers/menus/palette via .shadow-popover, o
+   drawer de nav via .a4p-navdrawer e qualquer painel com .a4p-glass)
    viram vidro forte: translúcidas + blur + fio luminoso.
    Unlayered de propósito (vence as utilities bg-white).
    ============================================================ */
@@ -472,7 +472,8 @@ html.dark .a4p-canvas {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
-.a4p-sidebar {
+/* Drawer de navegação do mobile (o menu vertical saiu do desktop). */
+.a4p-navdrawer {
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
@@ -482,7 +483,7 @@ html.dark .a4p-canvas {
   .ds-visor [data-card="1"],
   .a4p-glass,
   .shadow-popover,
-  .a4p-sidebar {
+  .a4p-navdrawer {
     background: var(--color-white);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -511,7 +512,7 @@ html.dark .a4p-canvas {
    nunca poderiam ser editados. Vale só enquanto se seleciona.
    ============================================================ */
 .a4p-picking .ds-visor *,
-.a4p-picking .a4p-sidebar *,
+.a4p-picking .a4p-navdrawer *,
 .a4p-picking .a4p-topbar * {
   pointer-events: auto !important;
 }

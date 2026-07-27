@@ -68,10 +68,11 @@ const SECOES_COR = ["Fundos", "Texto", "Marca", "Status"] as const;
 interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Textos" | "Componentes" }
 // Ordem = prioridade (específico → genérico).
 const PADROES: Padrao[] = [
-  { id: "menuActive", label: "Menu · item ativo", grupo: "Menu", teste: '.a4p-sidebar nav a[aria-current="page"]', seletorTipo: '.a4p-sidebar nav a[aria-current="page"]' },
-  { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
-  { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
-  { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
+  { id: "menuActive", label: "Menu · item ativo", grupo: "Menu", teste: '.a4p-topbar a[aria-current="page"]', seletorTipo: '.a4p-topbar a[aria-current="page"]' },
+  { id: "menuGrupo", label: "Menu · grupo (barra)", grupo: "Menu", teste: ".a4p-topbar [data-navtrigger]", seletorTipo: ".a4p-topbar [data-navtrigger]" },
+  { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-topbar a", seletorTipo: ".a4p-topbar a" },
+  { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-topbar [data-navlabel]", seletorTipo: ".a4p-topbar [data-navlabel]" },
+  { id: "menuBg", label: "Menu · fundo (barra do topo)", grupo: "Menu", teste: ".a4p-topbar", seletorTipo: ".a4p-topbar" },
   { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
   { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
   { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
@@ -85,7 +86,7 @@ const PADROES: Padrao[] = [
   // Papéis amplos usados pela aba "Fontes". `teste` nunca casa: não entram no
   // picker (seriam genéricos demais), só na atribuição por papel.
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
-  { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
+  { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
 ];
 
@@ -95,7 +96,7 @@ const BORDAS: { id: string; label: string }[] = [
   { id: "button", label: "Borda dos botões" },
   { id: "iconTile", label: "Borda do chip de ícone" },
   { id: "menuActive", label: "Borda do item ativo do menu" },
-  { id: "menuBg", label: "Borda do menu (lateral)" },
+  { id: "menuBg", label: "Borda do menu (barra do topo)" },
 ];
 
 /** Papéis tipográficos da aba "Fontes" — uma fonte (e tamanho) por papel. */
@@ -108,7 +109,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "label", label: "Rótulos", dica: "labels de campo" },
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
   { id: "button", label: "Botões", dica: "ações" },
-  { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
+  { id: "menuTudo", label: "Menu (todo)", dica: "barra do topo" },
   { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
@@ -118,10 +119,10 @@ function padraoDe(el: Element): Padrao | null {
 }
 
 /* ============ SELETOR ÚNICO (caminho estrutural do elemento) ============ */
-/** Âncoras estáveis: a sidebar e o main do app. */
+/** Âncoras estáveis: a barra do topo (navegação) e o main do app. */
 function raizDe(el: Element): { no: Element; prefixo: string } | null {
-  const side = el.closest(".a4p-sidebar");
-  if (side) return { no: side, prefixo: ".a4p-sidebar" };
+  const topo = el.closest(".a4p-topbar") ?? el.closest(".a4p-navdrawer");
+  if (topo) return { no: topo, prefixo: topo.classList.contains("a4p-topbar") ? ".a4p-topbar" : ".a4p-navdrawer" };
   const main = el.closest("main.ds-visor") ?? el.closest(".ds-visor");
   if (main) return { no: main, prefixo: ".ds-visor" };
   return null;
@@ -151,7 +152,7 @@ function caminhoPai(sel: string): string | null {
   const i = sel.lastIndexOf(" > ");
   if (i < 0) return null;
   const p = sel.slice(0, i);
-  return p.includes(">") || p === ".a4p-sidebar" || p === ".ds-visor" ? p : null;
+  return p.includes(">") || p === ".a4p-topbar" || p === ".a4p-navdrawer" || p === ".ds-visor" ? p : null;
 }
 
 const contaAlvos = (sel: string): number => {
@@ -316,14 +317,14 @@ function montarCSS(s: DesignState): string {
     // Os tokens precisam existir no CANVAS (que pinta o fundo da página) e na
     // SIDEBAR, não só no <main>.ds-visor: variável CSS desce, não sobe — e o
     // .a4p-canvas é o PAI do main, então só ele enxergaria o valor antigo.
-    `html:not(.dark) .a4p-canvas,html:not(.dark) .a4p-sidebar,html:not(.dark) .ds-visor{${vars}}`,
+    `html:not(.dark) .a4p-canvas,html:not(.dark) .a4p-topbar,html:not(.dark) .a4p-navdrawer,html:not(.dark) .ds-visor{${vars}}`,
     // Reforço: o canvas pinta o fundo da página por uma regra unlayered em
     // globals.css. Repintamos direto para a mudança valer sempre.
     `html:not(.dark) .a4p-canvas{background-color:${s.cores.bg} !important}`,
     // Idem p/ os cards: a folha declara-se "unlayered de propósito (vence as
     // utilities bg-white)", então não confiamos só no token.
     `html:not(.dark) .ds-visor [data-card="1"]{background-color:${s.cores.cardBg} !important}`,
-    `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *{font-family:${stack};}`,
+    `.ds-visor,.ds-visor *,.a4p-topbar,.a4p-topbar *,.a4p-navdrawer,.a4p-navdrawer *{font-family:${stack};}`,
     `.ds-visor,.ds-visor *{letter-spacing:${tr}em;}`,
   ];
   if (s.numMesmaFonte) out.push(`.ds-visor .tabular-nums,.ds-visor .a4p-num,.ds-visor .a4p-num *{font-family:${stack} !important;}`);
@@ -942,7 +943,7 @@ function gerarInstrucao(s: DesignState): string {
   const f = FONTS.find((x) => x.id === s.font);
   const L: string[] = [];
   L.push("Aplique estes ajustes do Laboratório de Design ao design system all4pay,");
-  L.push("promovendo-os ao código (globals.css .ds-visor / .a4p-sidebar / componentes):");
+  L.push("promovendo-os ao código (globals.css .ds-visor / .a4p-topbar / componentes):");
   L.push("");
   L.push("GLOBAL");
   L.push(`  Fonte: ${f?.label} — ${f?.stack}${s.numMesmaFonte ? " (também nos números)" : ""}`);
