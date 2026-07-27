@@ -160,23 +160,20 @@ export function leafAtivo(href: string | undefined, pathname: string): boolean {
 
 /**
  * Resolve as seções visíveis para o usuário atual (PF/PJ · Simples/Pro · admin).
- * `principais` são as que ficam INLINE na barra; `extras` caem no "Mais".
+ * `sections` já vem na ordem de exibição, com Configurações por último.
  */
-export function useNavSections(): { principais: Section[]; extras: Section[]; config: Section; pessoal: boolean } {
+export function useNavSections(): { sections: Section[]; pessoal: boolean } {
   const { pro } = useModo();
   const { pessoal } = useTipoConta();
   const [admin, setAdmin] = React.useState(false);
   React.useEffect(() => { isPlatformAdmin().then(setAdmin).catch(() => setAdmin(false)); }, []);
 
-  const base = pessoal ? SECTIONS_PESSOAL : SECTIONS;
+  // PF tem a sua árvore; PJ esconde os grupos `pro` no Modo Simples.
+  const base = pessoal ? SECTIONS_PESSOAL : SECTIONS.filter((s) => pro || !s.pro);
   const configBase = pessoal ? CONFIG_PESSOAL : CONFIG;
   const config: Section = {
     ...configBase,
     items: [...configBase.items, ...(admin ? [{ label: "Administração", href: "/admin", icon: "shield-check" } as Item] : [])],
   };
-  // Inline = os grupos do dia a dia. A profundidade do Modo Pro entra no "Mais"
-  // (mantém a barra respirável mesmo com os 10 grupos ligados).
-  const principais = base.filter((s) => !s.pro);
-  const extras = pro ? base.filter((s) => s.pro) : [];
-  return { principais, extras, config, pessoal };
+  return { sections: [...base, config], pessoal };
 }
