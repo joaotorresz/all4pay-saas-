@@ -61,7 +61,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "transition-[background-color,border-color,transform,opacity] duration-120 ease-out",
           "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45",
           // marca é bem arredondada: pill por padrão (o prop `pill` fica p/ compat)
-          pill ? "rounded-pill" : "rounded-pill",
+          // Raio 10px — regra POR TIPO do Laboratório ("Botão: radius 10").
+          // Aplicada ao PRIMITIVO, não a todo `<button>` da tela: um seletor
+          // `.ds-visor button` também quadraria toggles, FABs e segmentados.
+          pill ? "rounded-pill" : "rounded-[10px]",
           fullWidth && "w-full",
           sizeClasses[size],
           variantClasses[variant],

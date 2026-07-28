@@ -42,8 +42,10 @@ type Seg = { name: string; value: number; color: string; trend: number };
 
 /** Altura do gráfico do herói (também ancora o gradiente vertical). */
 const ALTURA = 210;
-/** Roobert Semi Mono — escolha do Laboratório p/ o herói, o título e a legenda. */
+/** Roobert Semi Mono — escolha do Laboratório p/ o prefixo R$ e a legenda. */
 const SEMI_MONO = '"Roobert Semi Mono", ui-monospace, monospace';
+/** Roobert Variable — a fonte dos títulos e do inteiro do herói. */
+const VARIAVEL = '"Roobert Variable", "Roobert", sans-serif';
 
 export function VisorHomeTop() {
   const { data: inp, isLoading } = useRiscoInput();
@@ -208,14 +210,15 @@ export function VisorHomeTop() {
           <div className="flex items-center gap-3">
             <span className="text-[16px] font-semibold text-ink">Você gastou</span>
           </div>
-          {/* Herói (Laboratório): Roobert Semi Mono 30/500 no R$ e no inteiro,
-              22 nos centavos (o `a4p-cents-sm` cuida disso), e o sufixo em 15/400
-              num cinza mais claro. */}
+          {/* Herói (Laboratório): o INTEIRO em Roobert Variable 35/500 com
+              tracking −0.055em; o prefixo R$ segue em Semi Mono 30/500 e os
+              centavos em 22 (regras em `globals.css`, escopadas por `a4p-heroi`).
+              O sufixo é 14/200 num cinza mais claro. */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <span className="a4p-heroi text-[30px] tabular-nums text-ink leading-none" style={{ fontFamily: SEMI_MONO, fontWeight: 500 }}>
+            <span className="a4p-heroi text-[35px] tabular-nums text-ink leading-none" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.055em" }}>
               <AnimatedBRL value={Math.abs(calc.delta)} />
             </span>
-            <span className="text-[15px]" style={{ fontFamily: SEMI_MONO, fontWeight: 400, letterSpacing: "-0.06em", color: "#CAC4B7" }}>
+            <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>
               a {bom ? "menos" : "mais"} {sufixo}
             </span>
           </div>
@@ -274,7 +277,7 @@ export function VisorHomeTop() {
       {/* DIREITA — Distribuição (donut + legenda rica) */}
       <Card className="flex flex-col">
         <div className="flex items-center justify-between gap-3">
-          <span className="inline-flex items-center gap-3 text-[17px] text-ink" style={{ fontFamily: SEMI_MONO, fontWeight: 900, letterSpacing: "-0.04em" }}>
+          <span className="inline-flex items-center gap-3 text-[17px] text-ink" style={{ fontFamily: VARIAVEL, fontWeight: 400, letterSpacing: "-0.02em" }}>
             {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
             <InfoHint align="left"
               oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."
@@ -316,7 +319,7 @@ export function VisorHomeTop() {
                       </span>
                       {/* Tipografia da legenda (Laboratório): Roobert Semi Mono
                           nas TRÊS colunas — nome 13/800, % 12/900, valor 600. */}
-                      <span className="text-[13px] text-ink truncate" style={{ fontFamily: SEMI_MONO, fontWeight: 800 }}>{s.name}</span>
+                      <span className="text-[13px] text-ink truncate" style={{ fontFamily: '"Roobert", sans-serif', fontWeight: 100 }}>{s.name}</span>
                       <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{pct.toLocaleString("pt-BR")}%</span>
                       <span className="flex-1" />
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
@@ -474,8 +477,10 @@ function DonutChart({ segs, total, centerLabel, size = 208 }: { segs: { name: st
         </g>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-6">
-        <span className="text-[11px] text-muted leading-tight truncate max-w-full">{sel ? sel.name : centerLabel}</span>
-        <span className="text-[20px] font-semibold leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontVariantNumeric: "tabular-nums" }} title={formatBRL(sel ? sel.value : total)}>
+        {/* Centro do donut (Laboratório): rótulo e valor em Roobert Semi Mono —
+            o valor em 18/400 com tracking −0.045em. */}
+        <span className="text-[11px] text-muted leading-tight truncate max-w-full" style={{ fontFamily: SEMI_MONO, letterSpacing: "-0.065em" }}>{sel ? sel.name : centerLabel}</span>
+        <span className="text-[18px] leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontFamily: SEMI_MONO, fontWeight: 400, letterSpacing: "-0.045em", fontVariantNumeric: "tabular-nums" }} title={formatBRL(sel ? sel.value : total)}>
           {brlNoCents(sel ? sel.value : total)}
         </span>
       </div>
