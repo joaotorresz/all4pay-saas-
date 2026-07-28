@@ -14,6 +14,7 @@ import { Icon } from "@/components/ui";
 import { ContasView } from "@/components/contas/ContasView";
 import { ConectarBanco } from "@/components/contas/ConectarBanco";
 import { UploadView } from "@/components/upload/UploadView";
+import { UploadWizard } from "@/components/upload/UploadWizard";
 import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
 import { RegrasView } from "./RegrasView";
 
@@ -67,6 +68,23 @@ export function IngestaoView() {
       {aba === "enviar" && <UploadView />}
       {aba === "conciliar" && <ConciliacaoView />}
       {aba === "regras" && <RegrasView />}
+
+      {/* Botão fixo "Upload de dados" — o mesmo que existia na Home, agora na
+          casa dele. Não navega: dispara `a4p:open-upload` e o wizard de 3
+          etapas (documento avulso → leitura por OCR → confirmação) abre por
+          cima da esteira, valendo para qualquer aba. */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
+        aria-label="Enviar documento para upload de dados"
+        className="fixed bottom-[148px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-white text-ink px-4 py-3 hover:bg-surface-2 transition"
+      >
+        <Icon name="upload" size={18} color="var(--color-ink)" />
+        <span className="text-[15px] font-medium">Upload de dados</span>
+      </button>
+
+      {/* O wizard vivia montado só na Home (OverviewGrid); sem isto o evento
+          disparado aqui não teria ouvinte. */}
+      <UploadWizard />
     </div>
   );
 }
