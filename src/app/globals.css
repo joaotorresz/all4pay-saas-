@@ -115,6 +115,10 @@
   --gradient-marca: linear-gradient(180deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
   /* O mesmo degradê de baixo para cima — usado no card de dicas. */
   --gradient-marca-inv: linear-gradient(0deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
+  /* Versão em ONDA: os mesmos stops repetidos numa faixa LARGA e na diagonal —
+     deslizar essa faixa (classe `.a4p-onda`) faz a cor ondular entre os tons
+     sem nunca sair da paleta. */
+  --gradient-marca-onda: linear-gradient(100deg, #d0ff00 0%, #e8ff00 15%, #d8ff00 30%, #f5ff00 45%, #e1ff00 60%, #f5ff00 75%, #d8ff00 90%, #d0ff00 100%);
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
@@ -492,6 +496,25 @@ html:not(.dark) .ds-visor {
 /* esconde os títulos de bloco na Home (mantém o layout calmo) */
 .ds-visor [data-block-header] {
   display: none;
+}
+
+/* ============================================================
+   Onda do degradê da marca — a faixa larga desliza da esquerda
+   para a direita e volta, então as cores ondulam entre si. Só o
+   `background-position` anima (composited, sem repintar layout).
+   Respeita `prefers-reduced-motion`.
+   ============================================================ */
+.a4p-onda {
+  background-size: 320% 100%;
+  background-position: 0% 50%;
+  animation: a4p-onda 7s ease-in-out infinite;
+}
+@keyframes a4p-onda {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-onda { animation: none; }
 }
 
 /* ============================================================
