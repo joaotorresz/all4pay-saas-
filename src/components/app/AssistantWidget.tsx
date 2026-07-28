@@ -37,6 +37,31 @@ const GRAD_ONDA = "var(--gradient-marca-onda)";
 const GRAD = "linear-gradient(95deg, #11190C 0%, #1c2714 100%)";
 const GLOW = "none";
 
+/**
+ * O "4" da marca — o raio do wordmark all4pay, vetorizado do próprio
+ * `public/all4pay-dark.png` (flood fill do glifo + contorno simplificado);
+ * o mesmo path vive em `public/all4pay-4.svg`. SVG inline, sem fetch.
+ * O degradê é lime→verde, e o id é único por instância (`useId`) para não
+ * colidir com outro `<defs>` na página.
+ */
+function Marca4({ size = 18 }: { size?: number }) {
+  const id = React.useId();
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden className="shrink-0">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#CFEA00" />
+          <stop offset="1" stopColor="#8CC000" />
+        </linearGradient>
+      </defs>
+      <path
+        fill={`url(#${id})`}
+        d="M39.3 0L64.32 0.29L34.06 53.95L61.56 54.61L74.5 31.49L98.95 31.97L60.99 99.81L36.06 100L53.38 68.98L1.05 68.6Z"
+      />
+    </svg>
+  );
+}
+
 /** Sparkle 4-pontas (AI) — SVG inline branco, casando com a referência. */
 function SparkleMark({ size = 20 }: { size?: number }) {
   return (
@@ -100,8 +125,10 @@ export function AssistantWidget() {
         style={{ backgroundImage: GRAD_ONDA, color: "var(--color-on-lime)" }}
         className={`a4p-onda fixed bottom-5 left-1/2 -translate-x-1/2 z-[75] inline-flex items-center gap-[10px] rounded-pill pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
-        <span className="w-[30px] h-[30px] rounded-md inline-flex items-center justify-center" style={{ background: "#11190C", color: "#E1FF00" }}>
-          <SparkleMark size={16} />
+        {/* Tile BRANCO com o "4" da marca — o glifo é a assinatura; o branco
+            recorta o botão lima e devolve contraste ao logo. */}
+        <span className="w-[30px] h-[30px] rounded-md inline-flex items-center justify-center bg-white">
+          <Marca4 size={17} />
         </span>
         <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
       </button>

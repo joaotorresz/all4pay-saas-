@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="all4pay">
+  <defs>
+    <linearGradient id="a4p4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#CFEA00"/>
+      <stop offset="1" stop-color="#8CC000"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#a4p4)" d="M39.3 0L64.32 0.29L34.06 53.95L61.56 54.61L74.5 31.49L98.95 31.97L60.99 99.81L36.06 100L53.38 68.98L1.05 68.6Z"/>
+</svg>

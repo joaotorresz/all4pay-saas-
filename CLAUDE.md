@@ -112,7 +112,11 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
   O FAB **Guia** é um pill BRANCO flat (o de **Upload** saiu da Home — a entrada
   de dados vive em `/upload`). O FAB **All 4 Pay AI** é a exceção sancionada:
   **centralizado** no rodapé (`left-1/2 -translate-x-1/2`), carrega o **degradê
-  oficial da marca** com texto em **`on-lime`** e o sparkle num tile ink. Ele usa
+  oficial da marca** com texto em **`on-lime`** e, num **tile BRANCO**, o **"4" da
+  marca** (`Marca4` em `AssistantWidget.tsx` — o raio do wordmark, vetorizado do
+  próprio `public/all4pay-dark.png` por flood fill do glifo + contorno
+  simplificado; o mesmo path vive em `public/all4pay-4.svg`). SVG inline, sem
+  fetch, degradê lime→verde com id único por `useId`. Ele usa
   a variante **onda** (`--gradient-marca-onda`, os mesmos 5 stops do guia
   — `#D0FF00 → #D8FF00 → #E1FF00 → #E8FF00 → #F5FF00` — reordenados num eixo de
   100°) animada pela classe **`.a4p-onda`**: `background-size: 320%` + keyframes
