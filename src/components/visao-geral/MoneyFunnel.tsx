@@ -1,59 +1,17 @@
 "use client";
 
 /**
- * Funil de dinheiro unificado (Receber / Pagar) — junta num só lugar, em abas,
- * a EXECUÇÃO (Central de recebimentos/pagamentos) e a LISTA de TÍTULOS
- * (MovementsScreen: aberto/realizado/recorrente + filtro por conta), com o
- * EXTRATO (`ExtratoTransacoes`) na frente. Acaba com os dois menus que levavam
- * ao mesmo ponto. Deep-link por `?aba=`; as rotas antigas (`/recebiveis`,
- * `/pagaveis`) redirecionam para a aba Títulos.
+ * Funil de dinheiro (Receber / Pagar) — hoje é UMA tela só: o **extrato de
+ * transações** (`ExtratoTransacoes`), onde a baixa acontece na própria linha
+ * (clicar → confirmar pagamento/recebimento → anexar comprovante).
+ *
+ * As abas "Pagar"/"Receber" (execução em lote) e "Títulos" saíram: eram três
+ * lugares para a MESMA operação, e a baixa na linha cobre o caso. As rotas
+ * antigas (`/recebiveis`, `/pagaveis`) e os deep-links `?aba=` caem nesta tela
+ * — o parâmetro é simplesmente ignorado.
  */
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { MovementsScreen } from "./MovementsScreen";
 import { ExtratoTransacoes } from "./ExtratoTransacoes";
-import { CentralRecebimentosView } from "@/components/recebimentos/CentralRecebimentosView";
-import { CentralPagamentosView } from "@/components/pagamentos/CentralPagamentosView";
-
-type Aba = "transacoes" | "executar" | "titulos";
-const isAba = (s: string | null): s is Aba => s === "transacoes" || s === "executar" || s === "titulos";
 
 export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
-  const router = useRouter();
-  const base = direction === "saida" ? "/pagamentos" : "/recebimentos";
-  const [aba, setAba] = React.useState<Aba>("transacoes");
-
-  React.useEffect(() => {
-    const a = new URLSearchParams(window.location.search).get("aba");
-    if (isAba(a)) setAba(a);
-  }, []);
-
-  const trocar = (id: Aba) => { setAba(id); router.replace(`${base}?aba=${id}`, { scroll: false }); };
-
-  const ABAS: { id: Aba; label: string }[] = [
-    { id: "transacoes", label: "Transações" },
-    { id: "executar", label: direction === "saida" ? "Pagar" : "Receber" },
-    { id: "titulos", label: direction === "saida" ? "Títulos a pagar" : "Títulos a receber" },
-  ];
-
-  return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center gap-1 p-1 rounded-pill bg-surface-2 w-max">
-        {ABAS.map((a) => (
-          <button
-            key={a.id}
-            onClick={() => trocar(a.id)}
-            className={`px-4 py-[7px] rounded-pill text-label font-medium transition-colors ${aba === a.id ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:text-ink"}`}
-            aria-pressed={aba === a.id}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-
-      {aba === "transacoes" && <ExtratoTransacoes direction={direction} />}
-      {aba === "executar" && (direction === "saida" ? <CentralPagamentosView /> : <CentralRecebimentosView />)}
-      {aba === "titulos" && <MovementsScreen direction={direction} />}
-    </div>
-  );
+  return <ExtratoTransacoes direction={direction} />;
 }

@@ -32,6 +32,8 @@ type Ctx = Parameters<typeof copilotoFinanceiro>[1];
    O tile do sparkle segue escuro (contraste dentro do botão) e o restante da
    UI do painel continua na versão flat/escura. */
 const GRAD_MARCA = "var(--gradient-marca)";
+/** Faixa larga do mesmo degradê + `a4p-onda` = a onda entre as cores. */
+const GRAD_ONDA = "var(--gradient-marca-onda)";
 const GRAD = "linear-gradient(95deg, #11190C 0%, #1c2714 100%)";
 const GLOW = "none";
 
@@ -95,8 +97,8 @@ export function AssistantWidget() {
       <button
         onClick={abrir}
         aria-label="Abrir o All 4 Pay AI"
-        style={{ backgroundImage: GRAD_MARCA, color: "var(--color-on-lime)" }}
-        className={`fixed bottom-5 right-5 z-[75] inline-flex items-center gap-[10px] rounded-pill pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
+        style={{ backgroundImage: GRAD_ONDA, color: "var(--color-on-lime)" }}
+        className={`a4p-onda fixed bottom-5 left-1/2 -translate-x-1/2 z-[75] inline-flex items-center gap-[10px] rounded-pill pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
         <span className="w-[30px] h-[30px] rounded-md inline-flex items-center justify-center" style={{ background: "#11190C", color: "#E1FF00" }}>
           <SparkleMark size={16} />

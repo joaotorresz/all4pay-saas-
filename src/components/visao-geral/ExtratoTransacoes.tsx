@@ -20,9 +20,14 @@
  * Puro sobre o `RiskInput` — roda igual em demo e em live.
  */
 import * as React from "react";
-import { Card, Icon, Input, InfoHint } from "@/components/ui";
+import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { Card, Icon, Input, InfoHint, Button, Select } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
+import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
+import { pagarLote, anexarComprovante, comprovanteDe, type MetodoPagamento } from "@/lib/pagamentos";
+import { receberLote } from "@/lib/recebimentos";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 const POSITIVE = "var(--color-positive)";
@@ -93,6 +98,15 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
   const [selKey, setSelKey] = React.useState<string | null>(null);
   const [busca, setBusca] = React.useState("");
   const faixaRef = React.useRef<HTMLDivElement>(null);
+  // Baixa direto na linha: o movimento clicado abre o modal de confirmação.
+  const qc = useQueryClient();
+  const { show, node: toast } = useToast();
+  const [baixa, setBaixa] = React.useState<RiskMovement | null>(null);
+  const [conta, setConta] = React.useState("");
+  const [metodo, setMetodo] = React.useState<MetodoPagamento>("pix");
+  const [comprovante, setComprovante] = React.useState<string | null>(null);
+  const [enviando, setEnviando] = React.useState(false);
+  const fileRef = React.useRef<HTMLInputElement>(null);
 
   const hoje = inp?.hoje?.slice(0, 10) ?? iso(new Date());
 
@@ -154,6 +168,32 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
     const c = contas.data?.accounts.find((x) => x.id === id);
     return c?.name ?? "—";
   }, [contas.data]);
+
+  // Conta padrão do modal: a primeira da lista (o usuário troca se quiser).
+  React.useEffect(() => {
+    if (!conta && contas.data?.accounts.length) setConta(contas.data.accounts[0].id);
+  }, [contas.data, conta]);
+
+  const executarBaixa = async () => {
+    if (!baixa || !conta) return;
+    setEnviando(true);
+    try {
+      const nome = (baixa.party_id && inp?.partyNames?.[baixa.party_id]) || baixa.category || "Lançamento";
+      const item = { id: baixa.id, amount: baixa.amount, due_date: baixa.due_date, category: baixa.category };
+      const r = direction === "saida"
+        ? await pagarLote([{ ...item, beneficiario: nome }], conta, metodo)
+        : await receberLote([{ ...item, pagador: nome }], conta);
+      if (comprovante) anexarComprovante(baixa.id, comprovante);
+      await qc.invalidateQueries();
+      const ok = direction === "saida" ? (r as { liquidados: number }).liquidados : (r as { recebidos: number }).recebidos;
+      show(ok
+        ? `${direction === "saida" ? "Pago" : "Recebido"}: ${formatBRL(baixa.amount)} — saldo da conta atualizado.`
+        : `Este título já estava ${direction === "saida" ? "pago" : "recebido"}.`);
+      setBaixa(null); setComprovante(null);
+    } finally {
+      setEnviando(false);
+    }
+  };
 
   if (isLoading || !inp) {
     return <Card><span className="text-caption text-faint">Carregando transações…</span></Card>;
@@ -242,12 +282,12 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
               {g.itens.map((m) => {
                 const nome = (m.party_id && inp.partyNames?.[m.party_id]) || m.category || (m.type === "entrada" ? "Recebimento" : "Pagamento");
                 const cat = m.category || "Outros";
-                const pid = m.party_id;
-                const abrir = () => pid && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: pid } }));
+                const pago = m.status === "pago";
                 return (
                   <button
-                    key={m.id} type="button" onClick={abrir} disabled={!pid}
-                    className={`grid grid-cols-[auto_1fr_auto_auto] gap-3 items-center px-5 py-[10px] border-t border-border-soft text-left ${pid ? "hover:bg-surface-1 transition-colors cursor-pointer" : "cursor-default"}`}
+                    key={m.id} type="button"
+                    onClick={() => { setComprovante(comprovanteDe(m.id)); setBaixa(m); }}
+                    className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-3 items-center px-5 py-[10px] border-t border-border-soft text-left hover:bg-surface-1 transition-colors cursor-pointer"
                   >
                     <span className="text-[12px] font-semibold text-muted bg-surface-2 rounded-sm px-[6px] py-[2px] shrink-0">
                       {nomeConta(m.accountId).slice(0, 6)}
@@ -256,6 +296,10 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
                     <span className="inline-flex items-center gap-[6px] text-[13px] text-muted bg-surface-2 rounded-pill px-[10px] py-[3px] shrink-0">
                       <span className="w-2 h-2 rounded-pill" style={{ background: corDaCategoria(cat) }} />
                       {cat}
+                    </span>
+                    {/* Estado da baixa: quem já foi liquidado mostra o selo. */}
+                    <span className="text-[12px] shrink-0 w-[74px] text-right" style={{ color: pago ? POSITIVE : "var(--color-text-tertiary)" }}>
+                      {pago ? (direction === "saida" ? "pago" : "recebido") : "pendente"}
                     </span>
                     <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap w-[120px] text-right">
                       {formatBRL(m.amount)}
@@ -267,7 +311,97 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
           ))}
         </div>
       )}
+      {/* Modal de baixa — a mesma lógica que existia na Central de Pagamentos,
+          agora na própria linha e valendo para os dois lados.
+          Vai por PORTAL no <body>: o Card do DS tem `transform` (a micro-
+          elevação), e um ancestral transformado vira o bloco de contenção do
+          `position: fixed` — dentro do Card o overlay nascia do tamanho do card
+          e o modal caía centrado ~1000px abaixo da dobra. */}
+      {baixa && createPortal(
+        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4" onClick={() => setBaixa(null)}>
+          <div className="w-full max-w-[440px] bg-white rounded-card p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-h3 font-medium text-ink">
+                {baixa.status === "pago"
+                  ? (direction === "saida" ? "Pagamento realizado" : "Recebimento realizado")
+                  : (direction === "saida" ? "Confirmar pagamento" : "Confirmar recebimento")}
+              </span>
+              <button onClick={() => setBaixa(null)} aria-label="Fechar" className="w-8 h-8 rounded-pill inline-flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2">
+                <Icon name="x" size={16} color="currentColor" />
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1 rounded-md bg-surface-1 p-3">
+              <Linha label={direction === "saida" ? "Beneficiário" : "Pagador"} value={(baixa.party_id && inp.partyNames?.[baixa.party_id]) || baixa.category || "—"} />
+              <Linha label="Vencimento" value={baixa.due_date.slice(0, 10).split("-").reverse().join("/")} />
+              {baixa.category && <Linha label="Categoria" value={baixa.category} />}
+              <Linha label="Valor" value={formatBRL(baixa.amount)} forte />
+            </div>
+
+            {baixa.status === "pago" ? (
+              <>
+                <span className="text-caption text-muted leading-[1.5]">
+                  Este título já foi liquidado{baixa.paid_date ? ` em ${baixa.paid_date.slice(0, 10).split("-").reverse().join("/")}` : ""}.
+                  {comprovante ? ` Comprovante anexado: ${comprovante}.` : " Nenhum comprovante anexado."}
+                </span>
+                <div className="flex items-center justify-end gap-2">
+                  <label className="inline-flex items-center gap-2 text-caption text-muted cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-surface-1">
+                    <Icon name="upload" size={14} color="currentColor" />
+                    {comprovante ? "Trocar comprovante" : "Anexar comprovante"}
+                    <input ref={fileRef} type="file" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) { anexarComprovante(baixa.id, f.name); setComprovante(f.name); show("Comprovante anexado."); } }} />
+                  </label>
+                  <Button variant="primary" onClick={() => setBaixa(null)}>Fechar</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-3">
+                  <Select label={direction === "saida" ? "Conta de saída" : "Conta de destino"} value={conta} onChange={setConta}
+                    options={(contas.data?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))} containerClassName="flex-1 min-w-[170px]" />
+                  {direction === "saida" && (
+                    <Select label="Método" value={metodo} onChange={(v) => setMetodo(v as MetodoPagamento)}
+                      options={[{ value: "pix", label: "Pix" }, { value: "ted", label: "TED" }, { value: "boleto", label: "Boleto" }, { value: "of", label: "Open Finance" }]}
+                      containerClassName="min-w-[150px]" />
+                  )}
+                </div>
+
+                <label className="inline-flex items-center gap-2 text-caption text-muted cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-surface-1">
+                  <Icon name="upload" size={14} color="currentColor" />
+                  {comprovante ? <span className="text-ink">{comprovante}</span> : "Anexar comprovante (opcional)"}
+                  <input ref={fileRef} type="file" className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setComprovante(f.name); }} />
+                </label>
+
+                <span className="text-caption text-muted leading-[1.5]">
+                  Ao confirmar, o saldo da conta {direction === "saida" ? "cai" : "sobe"} e o título passa a
+                  {direction === "saida" ? " “pago”" : " “recebido”"}. A operação é idempotente: confirmar de novo não
+                  {direction === "saida" ? " paga" : " credita"} duas vezes.
+                </span>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="secondary" onClick={() => setBaixa(null)}>Cancelar</Button>
+                  <Button variant="primary" onClick={executarBaixa} disabled={enviando || !conta}>
+                    {enviando ? "Confirmando…" : (direction === "saida" ? "Confirmar pagamento" : "Confirmar recebimento")}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>,
+        document.body,
+      )}
+      {toast}
     </Card>
+  );
+}
+
+function Linha({ label, value, forte }: { label: string; value: string; forte?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-caption">
+      <span className="text-muted">{label}</span>
+      <span className={forte ? "text-ink font-medium tabular-nums" : "text-ink tabular-nums"}>{value}</span>
+    </div>
   );
 }
 

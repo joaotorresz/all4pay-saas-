@@ -109,11 +109,16 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
 - **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
-  FABs (Upload · Guia) são pills BRANCOS flat. O FAB **All 4 Pay AI** é a
-  exceção sancionada: carrega o **degradê oficial da marca** (`GRAD_MARCA` em
-  `AssistantWidget.tsx` — `#D0FF00 → #D8FF00 → #E1FF00 → #E8FF00 → #F5FF00`, de
-  cima para baixo, os 5 stops do guia), com texto em **`on-lime`** e o sparkle
-  num tile ink.
+  O FAB **Guia** é um pill BRANCO flat (o de **Upload** saiu da Home — a entrada
+  de dados vive em `/upload`). O FAB **All 4 Pay AI** é a exceção sancionada:
+  **centralizado** no rodapé (`left-1/2 -translate-x-1/2`), carrega o **degradê
+  oficial da marca** com texto em **`on-lime`** e o sparkle num tile ink. Ele usa
+  a variante **onda** (`--gradient-marca-onda`, os mesmos 5 stops do guia
+  — `#D0FF00 → #D8FF00 → #E1FF00 → #E8FF00 → #F5FF00` — reordenados num eixo de
+  100°) animada pela classe **`.a4p-onda`**: `background-size: 320%` + keyframes
+  de `background-position` (7s, ease-in-out, propriedade composta — não repinta),
+  desligada em `prefers-reduced-motion`. Os stops verticais originais seguem em
+  `--gradient-marca` / `--gradient-marca-inv` (box de dicas).
 - **Ícones: Hugeicons (Stroke Rounded) SEMPRE** (`Icon`) — traçados, leves,
   cantos arredondados; espessura padrão 1.5 (ajustável por `strokeWidth`). Nos
   cabeçalhos de card, o glifo entra num **tile discreto** (`IconTile`,
@@ -993,25 +998,34 @@ carrossel e resumo mostram os dois lados, porque o resultado do período só faz
 sentido com entradas e saídas juntas. Datas pela **data de caixa** (pagamento
 quando liquidado, vencimento quando pendente). Puro sobre o `RiskInput`.
 
-### Funil PAGAR (Central de Pagamentos · Solicitações & aprovações · Reembolsos)
+### Funil PAGAR / RECEBER (Contas a pagar/receber · Aprovações · Reembolsos)
 
-Submenu **PAGAR** da Sidebar = funil de contas a pagar, sobre o mesmo hub
-(`getOpenMovements("saida")` / `getRiscoInput`). Três telas reusam motores
-existentes; nada de captura duplicada (a Caixa de Entrada vive em `/upload`).
+Submenu **PAGAR**/**RECEBER** da Sidebar = funil de contas, sobre o mesmo hub
+(`getRiscoInput`). Reusam motores existentes; nada de captura duplicada (a
+Caixa de Entrada vive em `/upload`).
 
-- **Central de Pagamentos** (`/pagamentos`, `components/pagamentos/`): executa os
-  títulos de saída lançados. Cards agrupados por dia/semana/mês/ano + busca +
-  conta de saída + método; **seleção múltipla** e **pagar por linha** (botão
-  "Pagar" aparece na linha selecionada → modal **Confirmar pagamento** +
-  **anexar comprovante**). `lib/pagamentos.ts` `pagarLote()`: **idempotente**
-  (reusa `FinancialPlatform.processarPagamento` do `core/platform` — reenviar o
-  mesmo título não paga 2x) → **liquidar** (`liquidarImported`: marca pago +
-  paid_date + **debita o saldo** da conta; live: Supabase). Card **"Contas pagas"**
-  scoped por um **box de período** (7D/14D/30D/3M/Tudo, por `paid_date`, via
-  `getRiscoInput`); comprovante por movement em `localStorage`
-  (`anexarComprovante`). "Enviado" ≠ "pago": saldo só cai na liquidação.
-  **Gate de alçada:** títulos acima do limite sem aprovação ficam **bloqueados**
-  (selo + link p/ `/aprovacoes`), fora do lote.
+- **Contas a pagar / a receber** (`/pagamentos`, `/recebimentos`) são **uma tela
+  só**: o `MoneyFunnel` renderiza apenas o **`ExtratoTransacoes`** — carrossel de
+  períodos + resumo + lista por dia — e a **baixa acontece na própria linha**.
+  As abas "Pagar"/"Receber" (execução em lote) e "Títulos" saíram: eram três
+  lugares para a MESMA operação. `CentralPagamentosView`/`CentralRecebimentosView`/
+  `MovementsScreen` foram removidos; `/pagaveis` e `/recebiveis` (e os deep-links
+  `?aba=…`) caem nesta tela — o parâmetro é ignorado.
+- **Baixa na linha** (`ExtratoTransacoes`): clicar numa transação abre
+  **Confirmar pagamento / Confirmar recebimento** (conta + método + **anexar
+  comprovante**); já liquidada, o modal vira o comprovante do que aconteceu.
+  Confirmar chama `pagarLote()` (`lib/pagamentos.ts`) ou `receberLote()`
+  (`lib/recebimentos.ts`): **idempotente** (reusa
+  `FinancialPlatform.processarPagamento` do `core/platform` — reenviar o mesmo
+  título não move dinheiro 2x) → **liquidar** (`liquidarImported`: marca pago +
+  paid_date + **move o saldo** da conta; live: Supabase). Comprovante por
+  movement em `localStorage` (`anexarComprovante`/`comprovanteDe`); a coluna de
+  status mostra pago/recebido/pendente.
+  - ⚠️ **Overlays dentro de `Card` vão por `createPortal` no `<body>`.** O `Card`
+    do DS tem `transform` (a micro-elevação) e um ancestral transformado vira o
+    **bloco de contenção** de qualquer `position: fixed` — sem o portal o modal
+    nasce do tamanho do card e cai centrado fora da dobra. Vale para o modal de
+    baixa e para o `useToast` (`listas/ListChrome.tsx`).
 - **Solicitações & aprovações** (`/aprovacoes`, `components/aprovacoes/`): gate de
   alçada reusando `core/institutional` (`REGRAS_PADRAO`/`iniciarAprovacao`/
   `aprovarPasso`/`regraParaValor`/`sugerirIA`). `lib/aprovacoes.ts` (store local)
@@ -1062,9 +1076,11 @@ por mês + lista `custosMensais` (contraparte · categoria · cadência ·
 `mediaMensal`), com as receitas recorrentes separadas — + contatos a cadastrar +
 amostra classificada + confirmação (`aplicarOnboarding`).
 
-**Wizard rápido na home** (`src/components/upload/UploadWizard.tsx`): o botão fixo
-da home (FAB lime "Upload de dados") **não navega** — abre um modal de **3 etapas**
-(evento `a4p:open-upload`, montado no `OverviewGrid`):
+**Wizard rápido** (`src/components/upload/UploadWizard.tsx`): modal de **3 etapas**
+que **não navega**, aberto pelo evento `a4p:open-upload` (montado no
+`OverviewGrid`). O FAB "Upload de dados" que o disparava **saiu da Home** — o
+rodapé ficou com um único FAB, o da IA; o wizard segue montado e disponível pelo
+evento:
 1. **Enviar** — caixa arrastável (boleto/comprovante/nota PNG·JPG·PDF; OFX/CSV em lote).
 2. **Leitura inteligente** — `lerDocumento()` (`src/lib/ocr-ingest.ts`: OCR por IA/
    local, ou FDIP p/ extrato) → `analisarDocumento()` (`src/lib/upload-doc.ts`):
