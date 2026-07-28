@@ -906,6 +906,21 @@ da conta da lista real) e filtrável por conta na tela de Entradas/Saídas.
   11) **Eventos** (timeline de movements); 12) **Confidence layer** (confiança por
   horizonte, cai com prazo×volatilidade); 13) **Cash Flow Digital Twin** (feeds
   entradas/saídas/inteligência + explicação da IA do porquê das mudanças).
+- **Comparativos período × período anterior** (`src/core/cashflow/comparativo.ts`,
+  `cashflow-comparativo/1.0.0` + `components/fluxo-caixa/Comparativos.tsx`): o
+  topo da página. `compararFluxo(input, {dias, conta, regime, visao})` confronta
+  a janela retroativa com a **imediatamente anterior de mesmo tamanho** e devolve
+  `resultado`/`gastos`/`receitas` (total, totalAnterior, variação e os pontos com
+  o valor do balde equivalente anterior) + `categorias` + `sankey`. Granularidade
+  automática: ≤14d dia · ≤45d semana · senão mês. Quatro cards, todos com a MESMA
+  anatomia — micro-label + "Ver mais ↗" · janela em datas · valor-herói · pílula
+  de variação (cor pelo SINAL) · gráfico com a **linha tracejada do período
+  anterior**: **Resultado líquido** (barras divergentes verde/vermelho),
+  **Gastos** (barras empilhadas pelas 5 maiores categorias + legenda),
+  **Receitas** e **Para onde foi** (Sankey Receita → Despesas → categoria →
+  contraparte, folhas deduplicadas por nome). Categorias se distinguem por
+  INTENSIDADE do mesmo matiz (o DS não tem paleta categórica), nunca por matizes
+  avulsos. Hook `useComparativo(filtros)`.
 - **Dados:** `useFluxoCaixa(filtros)` (`hooks.ts`) sobre `getRiscoInput`+
   `getAccountsList`. Sidebar/command palette ligam a rota.
 
