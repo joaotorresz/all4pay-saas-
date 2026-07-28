@@ -14,7 +14,7 @@
  *  • Também melhora o NOME da contraparte (razão social no lugar do número).
  */
 import type { Classificacao, FinancialRecord } from "@/core/fdip/types";
-import { extrairCNPJ } from "@/core/cnae";
+import { extrairCNPJ, normalizarCNAE } from "@/core/cnae";
 import { consultarCNPJs, type DadosCNPJ } from "@/lib/cnpj";
 
 /** Acima disso a classificação já é boa — não vale gastar consulta. */
@@ -96,7 +96,8 @@ export async function enriquecerPorCNPJ(
 
 /** 4731800 → "4731-8/00" (formato oficial). */
 export function formatarCNAE(cnae: string): string {
-  const c = (cnae || "").replace(/\D/g, "");
+  // normaliza antes: a API devolve número e come o zero à esquerda.
+  const c = normalizarCNAE(cnae || "");
   if (c.length < 7) return c;
   return `${c.slice(0, 4)}-${c.slice(4, 5)}/${c.slice(5, 7)}`;
 }

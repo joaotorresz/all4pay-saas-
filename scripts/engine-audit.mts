@@ -24,7 +24,7 @@ import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
-import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido } from "@/core/cnae";
+import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
@@ -644,6 +644,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cnae: específico vence a divisão (4731 ≠ 47 genérico)", cat("4731-8/00") !== cat("4781-4/00"));
   ok("cnae: subclasse é mais confiante que divisão", (categoriaPorCNAE("4731-8/00")?.confianca ?? 0) > (categoriaPorCNAE("6201-5/01")?.confianca ?? 0));
   ok("cnae: CNAE vazio/curto → null", categoriaPorCNAE("") === null && categoriaPorCNAE("4") === null);
+
+  // ZERO À ESQUERDA: a BrasilAPI devolve `cnae_fiscal` como NÚMERO, então todo
+  // CNAE das divisões 01–09 chega com 6 dígitos (0600001 → 600001). Lido cru,
+  // viraria divisão 60 (rádio/TV) em vez de 06 (extração) — todo o agronegócio
+  // e o extrativismo seriam categorizados errado, em silêncio.
+  ok("cnae: 6 dígitos ganham o zero à esquerda (600001 → 0600001)", normalizarCNAE("600001") === "0600001");
+  ok("cnae: 7 dígitos ficam intactos", normalizarCNAE("4731800") === "4731800");
+  ok("cnae: prefixo curto digitado não é preenchido", normalizarCNAE("62") === "62" && normalizarCNAE("4731") === "4731");
+  ok("cnae: 600001 (Petrobras) lê divisão 06, não 60", categoriaPorCNAE("600001")?.atividade === "Extração de petróleo e gás", `${categoriaPorCNAE("600001")?.atividade}`);
+  ok("cnae: 111301 (arroz) lê divisão 01, não 11", categoriaPorCNAE("111301")?.atividade === "Agricultura e pecuária", `${categoriaPorCNAE("111301")?.atividade}`);
+  ok("cnae: 910600 lê divisão 09, não 91", categoriaPorCNAE("910600")?.atividade === "Serviços de apoio à extração", `${categoriaPorCNAE("910600")?.atividade}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

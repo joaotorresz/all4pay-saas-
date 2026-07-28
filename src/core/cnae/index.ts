@@ -77,6 +77,23 @@ export function extrairCPF(texto: string): string | null {
 }
 
 /**
+ * Normaliza um CNAE para os 7 dígitos oficiais (DD.DD-D/DD).
+ *
+ * ARMADILHA REAL: a BrasilAPI devolve `cnae_fiscal` como NÚMERO. Todo CNAE das
+ * divisões 01–09 (agricultura, pecuária, extração) começa com zero — e esse
+ * zero se perde: `0600-0/01` (extração de petróleo) chega como `600001`, que
+ * lido cru vira divisão 60 (rádio e TV). Como só a PRIMEIRA casa pode ser zero
+ * (a segunda é 1–9 nessas divisões), um código completo chega com 6 ou 7
+ * dígitos — 6 significa "faltou o zero da frente".
+ *
+ * Prefixos curtos digitados de propósito ("62", "4731") passam intactos.
+ */
+export function normalizarCNAE(cnae: string): string {
+  const c = digits(cnae);
+  return c.length === 6 ? "0" + c : c;
+}
+
+/**
  * Regra de mapeamento. `prefixo` casa contra o CNAE só-dígitos, do início:
  * "4731" pega toda a subclasse de combustível; "62" pega a divisão de TI.
  * Regras mais longas ganham (specificidade).
@@ -227,7 +244,7 @@ export interface ResultadoCNAE {
  * com a especificidade (subclasse > grupo > divisão).
  */
 export function categoriaPorCNAE(cnae: string): ResultadoCNAE | null {
-  const c = digits(cnae);
+  const c = normalizarCNAE(cnae);
   if (c.length < 2) return null;
   for (const r of REGRAS_ORD) {
     if (c.startsWith(r.prefixo)) {
