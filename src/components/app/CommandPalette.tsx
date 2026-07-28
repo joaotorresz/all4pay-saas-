@@ -53,6 +53,8 @@ const ROUTES: RouteItem[] = [
   { label: "Serviços", href: "/cadastros?aba=servicos", icon: "repeat", kw: "servico" },
   { label: "Contatos", href: "/cadastros?aba=contatos", icon: "file-text", kw: "clientes fornecedores telefone" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
+  // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
+  { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
 ];
 
 interface Hit { key: string; grupo: string; titulo: string; sub?: string; href: string; icon: string; event?: string; contatoId?: string }

@@ -38,6 +38,8 @@ export function PeriodFilter() {
   const wk = weekRange();
   const isWeek = period.modo === "range" && period.from === wk.from && period.to === wk.to;
   const isMonth = period.modo === "mes" && period.ano === now.getFullYear() && period.mes === now.getMonth();
+  // Janela de N meses (não é a semana nem um mês cheio) — o botão do mês
+  // segue marcado, já que é o único controle que resta além de "Essa semana".
   const isCustom = !isWeek && !isMonth;
 
   // Personalizado: duração + mês de referência (único).
@@ -85,12 +87,8 @@ export function PeriodFilter() {
         <button style={btnStyle} className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
         {/* Mostra o MÊS SELECIONADO (não o rótulo fixo "Mês atual") e abre o
             MESMO painel do Personalizado — é por ele que se troca de mês. */}
-        <button style={btnStyle} className={btn(isMonth || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <button style={btnStyle} className={btn(isMonth || isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           {MESES[period.mes]} {period.ano}
-        </button>
-        <button style={btnStyle} className={btn(isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          <Icon name="chevron-down" size={15} color={isCustom || open ? "#fff" : "var(--color-text-secondary)"} className="-ml-1 mr-1" />
-          {isCustom ? period.label : "Personalizado"}
         </button>
       </div>
 

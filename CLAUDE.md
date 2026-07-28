@@ -329,11 +329,13 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   Saúde; pendências vencidas/a vencer → Operação; insights críticos →
   Inteligência; anomalias de despesa → Despesas). O bloco no topo ganha o selo
   **"Prioridade · {motivo}"**. Empate desfeito pela ordem-base do setor.
-- **Pílula de período** (`PeriodFilter`): três pills — **Essa semana** · **o MÊS
-  selecionado** (rótulo dinâmico "Julho 2026", não "Mês atual") · **Personalizado**.
-  O botão do mês e o Personalizado abrem o MESMO painel, com o **mês de
-  referência primeiro** e a duração depois; escolher 1 mês entra como
-  `setMonth` (modo "mes"), não como range.
+- **Pílula de período** (`PeriodFilter`): DUAS pills — **Essa semana** e **o MÊS
+  selecionado** (rótulo dinâmico "Julho 2026", não "Mês atual"). O botão do mês
+  abre o painel, com o **mês de referência primeiro** e a duração depois;
+  escolher 1 mês entra como `setMonth` (modo "mes"), não como range, e uma
+  janela de N meses mantém o botão do mês marcado. A pílula "Personalizado" e a
+  **engrenagem** saíram do header; **Personalizar Home** agora se abre pela
+  command palette (⌘K → "Personalizar Home"), que é o único acesso ao drawer.
 - **Card de dicas** (`VisorHomeTop`): fundo no **degradê da marca**
   (`--gradient-marca`, o mesmo do FAB "All 4 Pay AI"), com texto e controles em
   `on-lime`.
