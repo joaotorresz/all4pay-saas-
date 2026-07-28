@@ -249,6 +249,14 @@ const CORPUS: [string, RegExp][] = [
   // comandos/requisições
   ["quero ver meus clientes", /maior cliente|cliente/i],
   ["abre meus pagamentos", /a pagar/i],
+  // decisão de aquisição ("posso comprar?") — usa o caixa real, não é conta pura
+  ["posso comprar um carro de 150 mil em 48x?", /simulador de decis|caixa|cabe|n[ãa]o fecha|entrada/i],
+  ["consigo comprar um carro de 60 mil?", /simulador de decis|caixa|cabe|n[ãa]o fecha|entrada/i],
+  ["vale a pena comprar uma máquina de 30 mil em 24x a 1,5%?", /simulador de decis|caixa|cabe|n[ãa]o fecha|entrada/i],
+  ["dá pra comprar um imóvel de 400 mil?", /simulador de decis|caixa|cabe|n[ãa]o fecha|entrada/i],
+  ["posso comprar um equipamento de 80 mil em 36x?", /simulador de decis|caixa|cabe|n[ãa]o fecha|entrada/i],
+  // controle: conta PURA de financiamento continua no simulador de financiamento
+  ["simular financiamento de 100 mil em 24x a 1,5% ao mês", /parcela fixa de|Price/i],
   // simulador de empréstimo/financiamento (capacidade nova)
   ["quanto fica a parcela de um empréstimo de 50 mil em 12x a 2% ao mês?", /parcela fixa de|Price/i],
   ["simular financiamento de 100 mil em 24x a 1,5% ao mês", /parcela fixa de|Price/i],

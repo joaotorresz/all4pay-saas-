@@ -319,7 +319,7 @@ export function simularAquisicao(sit: SituacaoAtual, e: EntradaSimulacao): Resul
     });
   }
 
-  const resumo = montarResumo(veredito, { parcela, pesoMensal, sobraDepois, mesAperto, mesesDeReserva, paybackMeses });
+  const resumo = montarResumo(veredito, { parcela, pesoMensal, sobraDepois, mesAperto, mesesDeReserva, paybackMeses, entradaCabe: entrada <= caixa, faltaEntrada: round2(Math.max(0, entrada - caixa)) });
   const alternativas = montarAlternativas(sit, { ...e, entrada }, veredito);
 
   return {
@@ -417,7 +417,7 @@ function vereditoRapido(sit: SituacaoAtual, e: EntradaSimulacao): Veredito {
 
 function montarResumo(
   v: Veredito,
-  d: { parcela: number; pesoMensal: number; sobraDepois: number; mesAperto: number | null; mesesDeReserva: number; paybackMeses: number | null },
+  d: { parcela: number; pesoMensal: number; sobraDepois: number; mesAperto: number | null; mesesDeReserva: number; paybackMeses: number | null; entradaCabe: boolean; faltaEntrada: number },
 ): string {
   // "pesa …" em minúscula no meio da frase — sem tocar no "R$" do valor.
   const pesaFrase = d.pesoMensal > 0 ? `pesa ${brl(d.pesoMensal)} por mês no seu caixa` : "não pesa no seu caixa mensal";
@@ -432,9 +432,11 @@ function montarResumo(
         ? `Arriscado: o caixa fica negativo no mês ${d.mesAperto}. ${Peso}.`
         : `Arriscado: ${pesaFrase} e a reserva cai para ${d.mesesDeReserva.toFixed(1)} meses de despesa.`;
     default:
-      return d.sobraDepois < 0
-        ? `Não fecha: ${pesaFrase} e o mês passa a fechar em ${fmtSinal(d.sobraDepois)}.`
-        : `Não é viável com o caixa de hoje.`;
+      if (d.sobraDepois < 0) return `Não fecha: ${pesaFrase} e o mês passa a fechar em ${fmtSinal(d.sobraDepois)}.`;
+      // A parcela até caberia — o que não cabe é a ENTRADA. Dizer isso importa:
+      // muda a ação (juntar mais caixa) em vez de desistir da compra.
+      if (!d.entradaCabe) return `A entrada não cabe no seu caixa — faltam ${brl(d.faltaEntrada)}. O restante caberia: ${pesaFrase}.`;
+      return `Não é viável com o caixa de hoje: ${pesaFrase}.`;
   }
 }
 
