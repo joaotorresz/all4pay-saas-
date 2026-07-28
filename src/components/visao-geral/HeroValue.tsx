@@ -44,7 +44,8 @@ export function HeroValue({
   return (
     <div>
       <div className="flex items-start justify-between gap-3">
-        <div className="text-label font-medium text-muted">{label}</div>
+        {/* Rótulo do herói (Laboratório): Roobert Variable 12, peso 200. */}
+        <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12, fontWeight: 200 }}>{label}</div>
         {rightSlot}
       </div>
 
@@ -56,6 +57,7 @@ export function HeroValue({
           integerWeight={500}
           prefixSize={size}
           prefixWeight={500}
+          prefixColor="#000000"
           color={color}
         />
         {srValue && <VisuallyHidden>{srValue}</VisuallyHidden>}

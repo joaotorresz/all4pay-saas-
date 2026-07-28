@@ -132,6 +132,13 @@ identidade viva é a de cima.
 
 ### Tipografia vigente (promovida do Laboratório)
 
+> **Pareamento atual:** a UI é **Hanken Grotesk** (tracking base −0.01em) e os
+> **valores** ficam em **Roobert Variable** — o Lab veio com "aplicar a fonte
+> também nos números" DESLIGADO. O conteúdo dos **cards** também fala Roobert
+> Variable, peso 400, por uma regra POR TIPO em `.ds-visor [data-card="1"]`
+> (aplicada ao card, não a `*`, para que pesos explícitos dentro continuem
+> vencendo).
+
 - **Fonte do app: `Roobert Variable`** (com fallback `Roobert`), inclusive nos
   NÚMEROS — `.ds-visor`, `.ds-visor *`, `.a4p-num`, `.tabular-nums` e os eixos
   de gráfico. O alinhamento tabular continua vindo de `tabular-nums`, não da

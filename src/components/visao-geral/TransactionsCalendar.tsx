@@ -135,13 +135,6 @@ export function TransactionsCalendar() {
         >
           {futuro ? "Calendário · projeção" : "Calendário de transações"}
         </span>
-        <Link
-          href="/fluxo-caixa"
-          className="inline-flex items-center gap-1 text-[13px] font-medium shrink-0 hover:underline"
-          style={{ color: POSITIVE }}
-        >
-          ver mais ↗
-        </Link>
       </div>
 
       {isLoading && <Skeleton className="h-[300px] w-full" rounded="md" />}
@@ -149,16 +142,8 @@ export function TransactionsCalendar() {
 
       {!isLoading && !isError && (
         <>
-          {/* Herói — resultado do mês + média diária */}
-          <div className="flex flex-col gap-[6px]">
-            <span className="a4p-heroi text-[34px] font-bold leading-none text-ink tabular-nums">
-              {resumo.resultado < 0 ? "−" : ""}<BRL value={Math.abs(resumo.resultado)} />
-            </span>
-            <span className="text-[15px] text-muted">
-              Média diária: <span className="text-ink font-medium">{resumo.media < 0 ? "−" : ""}<BRL value={Math.abs(resumo.media)} /></span>
-            </span>
-          </div>
-
+          {/* Sem herói e sem média diária (Laboratório): o card fica só com o
+              mapa de calor, a legenda e o maior gasto. */}
           {/* Grade TRANSPOSTA: linha = dia da semana · coluna = semana do mês */}
           <div
             className="grid gap-[6px]"

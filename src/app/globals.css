@@ -378,8 +378,8 @@ h1, h2, h3,
   --a4p-box-border: transparent; /* SEM borda (design clean) */
   /* ========================================================================= */
 
-  font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: -0.02em;
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
   --radius-card: var(--a4p-box-radius);
   /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
   background: transparent;
@@ -412,8 +412,8 @@ html:not(.dark) .ds-visor {
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
 .ds-visor,
 .ds-visor * {
-  font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: 0;
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
 }
 /* Títulos: Roobert SemiBold (600) na cor ink #11190C. Textos/subtítulos herdam
    Medium #787664 (via --color-text-secondary). */
@@ -424,14 +424,15 @@ html:not(.dark) .ds-visor {
   color: var(--color-ink);
   letter-spacing: 0;
 }
-/* Os NÚMEROS agora também são Roobert (escolha do Laboratório: "aplicar a fonte
-   também nos números"). O alinhamento tabular continua vindo de `tabular-nums`
-   / `font-variant-numeric`, não da família — então colunas seguem alinhadas. */
+/* Os NÚMEROS NÃO seguem a fonte da UI (o Laboratório veio com "aplicar também
+   nos números" desligado): a UI é Hanken Grotesk e os valores ficam em Roobert
+   Variable, que é a face dos números do sistema. O alinhamento tabular vem de
+   `tabular-nums` / `font-variant-numeric`, não da família. */
 .ds-visor .a4p-num,
 .ds-visor .a4p-num *,
 .ds-visor .tabular-nums,
 .ds-visor .recharts-cartesian-axis-tick-value {
-  font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Roobert Variable", "Roobert", sans-serif;
   letter-spacing: 0;
 }
 /* rounded-card (36px fixo) → raio do painel */
@@ -458,6 +459,14 @@ html:not(.dark) .ds-visor {
 .ds-visor .p-6 {
   padding: var(--a4p-box-padding);
 }
+/* Cards — regra POR TIPO do Laboratório: o conteúdo dos boxes fala em Roobert
+   Variable, peso 400. Aplicada ao CARD (não a `*`), então é só o padrão: quem
+   tem peso explícito dentro (títulos, heróis) continua vencendo por herança. */
+.ds-visor [data-card="1"] {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-weight: 400;
+}
+
 /* Subtítulos (H2) — regra POR TIPO do Laboratório: Roobert Variable 17/400,
    tracking −0.02em, na cor ink. Precisa vir DEPOIS do bloco que põe 600 nos
    títulos, senão o peso 600 vence pela ordem. */
@@ -569,9 +578,9 @@ html.dark .a4p-canvas {
    menor e faint). O inteiro fica em Roobert Variable 35, definido no
    componente — por isso o prefixo carrega tamanho PRÓPRIO em px, não 1em. */
 .ds-visor .a4p-heroi .a4p-num > span:first-child {
-  font-family: "Roobert Semi Mono", ui-monospace, monospace;
+  font-family: "Roobert Variable", "Roobert", sans-serif;
   font-size: 30px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--color-ink);
   margin-right: 0.1em;
 }

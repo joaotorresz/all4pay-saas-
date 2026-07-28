@@ -84,7 +84,7 @@ export function OpenAmountWidget({
         {/* Secondary stats */}
         <div className="flex gap-3 pt-1 border-t border-border-soft">
           <div className="flex-1 pt-3">
-            <div className="text-caption font-medium text-muted">
+            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12 }}>
               {weekLabel}
             </div>
             <div className="mt-1">
@@ -96,7 +96,7 @@ export function OpenAmountWidget({
             </div>
           </div>
           <div className="flex-1 pt-3">
-            <div className="text-caption font-medium text-muted">
+            <div className="text-muted" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontSize: 12 }}>
               {monthLabel}
             </div>
             <div className="mt-1">

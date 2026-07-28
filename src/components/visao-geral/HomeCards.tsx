@@ -129,48 +129,6 @@ export function TransacoesRecentesCard() {
 
 /* ---------------------------- Pendências ---------------------------- */
 
-export function PendenciasCard() {
-  const { data, isLoading } = useRiscoInput();
-  if (isLoading || !data) return <CardSkeleton />;
-  const hoje = data.hoje;
-  const em7 = addDaysISO(hoje, 7);
-  let aReceber = 0, aPagar = 0, vencendo = 0, vencidos = 0;
-  for (const m of data.movements) {
-    if (m.status !== "pendente") continue;
-    if (m.type === "entrada") aReceber++; else aPagar++;
-    if (m.due_date < hoje) vencidos++;
-    else if (m.due_date <= em7) vencendo++;
-  }
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Pendências",
-      oQue: "Quantos títulos estão em aberto e o que está vencendo.",
-      comoCalcula: "Conta os lançamentos pendentes (a receber / a pagar) e, pela data de vencimento vs. hoje, os que vencem em 7 dias e os já vencidos.",
-    }}>
-      <Header icon="list-checks" href="/recebimentos">Pendências</Header>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-        <Conta n={aReceber} label="A receber" />
-        <Conta n={aPagar} label="A pagar" />
-        <Conta n={vencendo} label="Vencem em 7d" dot="var(--color-warning)" />
-        <Conta n={vencidos} label="Vencidos" dot="var(--color-negative)" />
-      </div>
-    </Card>
-  );
-}
-
-function Conta({ n, label, dot }: { n: number; label: string; dot?: string }) {
-  // DS padrão: número SEMPRE ink; o tipo (atenção/vencido) vai num dot no rótulo.
-  return (
-    <div className="flex flex-col">
-      <span className="text-[28px] leading-none font-semibold tabular-nums text-ink">{n}</span>
-      <span className="text-caption text-faint mt-[3px] inline-flex items-center gap-[5px]">
-        {dot && <span className="w-[6px] h-[6px] rounded-pill shrink-0" style={{ background: dot }} />}
-        {label}
-      </span>
-    </div>
-  );
-}
-
 /* ------------------------------ utils ------------------------------ */
 
 function addDaysISO(iso: string, n: number): string {

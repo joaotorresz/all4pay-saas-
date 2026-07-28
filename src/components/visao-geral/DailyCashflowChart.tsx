@@ -60,8 +60,8 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
       {/* Valor do período (Laboratório): Roobert Variable 21/400, tracking
           −0.075em, entrelinha 115% — sempre em ink; o tipo é dado pelo dot. */}
       <span
-        className="text-[21px] tabular-nums text-ink"
-        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.075em", lineHeight: 1.15 }}
+        className="text-[21px] tabular-nums"
+        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "#000000" }}
       >
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
@@ -111,8 +111,8 @@ export function DailyCashflowChart() {
           {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
               vivem no topo da página (não duplicar aqui). */}
           <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
-          {/* Subtítulo do período (Laboratório): 14/200 num cinza mais claro. */}
-          <span className="text-[14px]" style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>{legenda}</span>
+          {/* O subtítulo do período saiu (Laboratório): o período já está no
+              header da página, então repeti-lo aqui era ruído. */}
         </div>
       </div>
 

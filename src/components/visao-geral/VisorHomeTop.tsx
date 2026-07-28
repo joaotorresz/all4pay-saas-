@@ -177,13 +177,14 @@ export function VisorHomeTop() {
           comoCalcula: "O valor é o saldo consolidado das contas. As duas linhas acumulam, dia a dia, as entradas e as saídas já liquidadas no período; o resultado abaixo é entradas − saídas.",
         }}>
           <div className="flex items-center gap-3">
-            <span className="text-[16px] font-semibold text-ink">Saldo em conta</span>
+            {/* Título do card (Laboratório): Roobert Variable 15/400, −0.02em. */}
+            <span className="text-[15px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, letterSpacing: "-0.02em", color: "#11190c" }}>Saldo em conta</span>
           </div>
           {/* Herói: o SALDO consolidado. Roobert Variable 35/500 tracking
               −0.055em; o prefixo R$ e os centavos vêm de `a4p-heroi`. O sufixo
               traz o resultado do período (entradas − saídas). */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <span className="a4p-heroi text-[35px] tabular-nums text-ink leading-none" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.055em" }}>
+            <span className="a4p-heroi text-[30px] tabular-nums text-ink leading-none" style={{ fontFamily: VARIAVEL, fontWeight: 400 }}>
               <AnimatedBRL value={Math.abs(saldo)} />
             </span>
             <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>
@@ -289,7 +290,7 @@ export function VisorHomeTop() {
                       </span>
                       {/* Tipografia da legenda (Laboratório): Roobert Semi Mono
                           nas TRÊS colunas — nome 13/800, % 12/900, valor 600. */}
-                      <span className="text-[13px] text-ink truncate" style={{ fontFamily: '"Roobert", sans-serif', fontWeight: 100 }}>{s.name}</span>
+                      <span className="text-[14px] text-ink truncate" style={{ fontFamily: VARIAVEL }}>{s.name}</span>
                       <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{pct.toLocaleString("pt-BR")}%</span>
                       <span className="flex-1" />
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
@@ -341,15 +342,14 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
     // controles viram vidro escuro para não sumirem no fundo.
     <Card className="flex flex-col gap-3" style={{ background: "var(--gradient-marca-inv)" }}>
       <div className="flex items-center gap-3">
-        <span className="w-[34px] h-[34px] rounded-md inline-flex items-center justify-center shrink-0" style={{ background: "#11190C", color: "#E1FF00" }}>
-          <Icon name="sparkles" size={18} color="currentColor" />
-        </span>
-        <span className="text-[15px] font-semibold text-on-lime">Dica all4pay</span>
+        {/* O tile do sparkle saiu (Laboratório). Título e texto em Roobert
+            Variable nos cinzas escolhidos — vide a ressalva de contraste no PR. */}
+        <span className="text-[17px]" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.02em", color: "#5c5c5c" }}>Dica all4pay</span>
         <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-on-lime hover:bg-black/10 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />
         </button>
       </div>
-      <p className="m-0 text-[15px] leading-snug text-on-lime min-h-[44px]">{dicas[i]}</p>
+      <p className="m-0 text-[14px] leading-snug min-h-[44px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, color: "#a3a3a3" }}>{dicas[i]}</p>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-[6px] flex-1">
           {dicas.map((_, k) => (
@@ -401,8 +401,8 @@ function DonutChart({ segs, total, centerLabel, size = 208 }: { segs: { name: st
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center px-6">
         {/* Centro do donut (Laboratório): rótulo e valor em Roobert Semi Mono —
             o valor em 18/400 com tracking −0.045em. */}
-        <span className="text-[11px] text-muted leading-tight truncate max-w-full" style={{ fontFamily: SEMI_MONO, letterSpacing: "-0.065em" }}>{sel ? sel.name : centerLabel}</span>
-        <span className="text-[18px] leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontFamily: SEMI_MONO, fontWeight: 400, letterSpacing: "-0.045em", fontVariantNumeric: "tabular-nums" }} title={formatBRL(sel ? sel.value : total)}>
+        <span className="text-[14px] text-muted leading-tight truncate max-w-full" style={{ fontFamily: VARIAVEL, fontWeight: 300, letterSpacing: "-0.02em" }}>{sel ? sel.name : centerLabel}</span>
+        <span className="text-[18px] leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontFamily: VARIAVEL, fontWeight: 400, fontVariantNumeric: "tabular-nums" }} title={formatBRL(sel ? sel.value : total)}>
           {brlNoCents(sel ? sel.value : total)}
         </span>
       </div>

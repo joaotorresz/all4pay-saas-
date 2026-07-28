@@ -9,7 +9,7 @@ import { FirstRunCard } from "./FirstRunCard";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
 import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
-import { TransacoesRecentesCard, PendenciasCard } from "./HomeCards";
+import { TransacoesRecentesCard } from "./HomeCards";
 import { useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
 import { JornadaCard } from "@/components/comece/Jornada";
@@ -24,7 +24,6 @@ const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   calendar: { node: <TransactionsCalendar />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },
-  pendencias: { node: <PendenciasCard /> },
   ultimosGastos: { node: <TransacoesRecentesCard />, full: true },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
