@@ -61,8 +61,7 @@ export const SECTIONS: Section[] = [
   },
   // ----- Profundidade — revelada no Modo Pro -----
   {
-    id: "fiscal", label: "Fiscal & vendas", pro: true, items: [
-      { label: "Vendas e NFs", href: "/vendas", icon: "credit-card" },
+    id: "fiscal", label: "Fiscal", pro: true, items: [
       { label: "Impostos", href: "/impostos", icon: "receipt" },
     ],
   },
