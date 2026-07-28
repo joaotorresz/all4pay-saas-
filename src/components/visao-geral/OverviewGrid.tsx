@@ -3,7 +3,6 @@
 import * as React from "react";
 import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
-import { AccountsCard } from "./AccountsCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
 import { TransactionsCalendar } from "./TransactionsCalendar";
 import { SalesChart } from "./SalesChart";
@@ -13,15 +12,10 @@ import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
 import {
   SaudeFinanceiraCard,
-  IAInsightsCard,
-  AnomaliasCard,
-  TopClientesCard,
-  TopFornecedoresCard,
-  MaioresCategoriasCard,
-  UltimosGastosCard,
+  TransacoesRecentesCard,
   PendenciasCard,
 } from "./HomeCards";
-import { ResumoHojeCard, useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
+import { useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
 import { JornadaCard } from "@/components/comece/Jornada";
 
@@ -34,17 +28,11 @@ const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
   saude: { node: <SaudeFinanceiraCard />, full: true },
   cashflow: { node: <DailyCashflowChart />, full: true },
   calendar: { node: <TransactionsCalendar />, full: true },
-  accounts: { node: <AccountsCard />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },
   pendencias: { node: <PendenciasCard /> },
   sales: { node: <SalesChart />, full: true },
-  topClientes: { node: <TopClientesCard /> },
-  topFornecedores: { node: <TopFornecedoresCard /> },
-  maioresCategorias: { node: <MaioresCategoriasCard /> },
-  ultimosGastos: { node: <UltimosGastosCard /> },
-  iaInsights: { node: <IAInsightsCard /> },
-  anomalias: { node: <AnomaliasCard /> },
+  ultimosGastos: { node: <TransacoesRecentesCard />, full: true },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
 /** Ordem fixa dentro do bloco Caixa: Fluxo de caixa · Calendário · resto. */
@@ -53,7 +41,6 @@ const caixaRank = (id: string) => { const i = CAIXA_PRIO.indexOf(id); return i <
 
 /** Resolve o nó e a largura de qualquer widget (curado, "Hoje" ou catálogo). */
 function widgetNode(id: string, ctx: CockpitCtx): { node: React.ReactNode; full: boolean } {
-  if (id === "hoje") return { node: <ResumoHojeCard ctx={ctx} />, full: true };
   const b = BESPOKE[id];
   if (b) return { node: b.node, full: !!b.full };
   const cat = CATALOG_BY_ID.get(id);

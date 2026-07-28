@@ -10,7 +10,7 @@
 import * as React from "react";
 import { Icon } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
-import { usePeriod, MES_ABBR } from "./PeriodContext";
+import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const firstDay = (y: number, m: number) => `${y}-${pad(m + 1)}-01`;
@@ -60,6 +60,9 @@ export function PeriodFilter() {
 
   // Aplica a janela: N meses TERMINANDO no mês de referência.
   const aplicar = (n: number, end: YM) => {
+    // 1 mês entra como MÊS (modo "mes"), não como range: assim o rótulo vira
+    // "Julho 2026" e o botão do mês aparece selecionado.
+    if (n === 1) { period.setMonth(end.y, end.m); return; }
     const sd = new Date(end.y, end.m - (n - 1), 1);
     period.setRange(firstDay(sd.getFullYear(), sd.getMonth()), lastDay(end.y, end.m));
   };
@@ -74,13 +77,17 @@ export function PeriodFilter() {
     letterSpacing: "-0.045em",
   };
   const btn = (ativo: boolean) =>
-    `inline-flex items-center h-9 px-[18px] rounded-none text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
+    `inline-flex items-center h-9 px-[18px] rounded-[10px] text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
 
   return (
     <div ref={ref} className="relative">
       <div className="flex items-center gap-2">
         <button style={btnStyle} className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
-        <button style={btnStyle} className={btn(isMonth)} onClick={() => { period.setMonth(now.getFullYear(), now.getMonth()); setOpen(false); }}>Mês atual</button>
+        {/* Mostra o MÊS SELECIONADO (não o rótulo fixo "Mês atual") e abre o
+            MESMO painel do Personalizado — é por ele que se troca de mês. */}
+        <button style={btnStyle} className={btn(isMonth || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          {MESES[period.mes]} {period.ano}
+        </button>
         <button style={btnStyle} className={btn(isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
           <Icon name="chevron-down" size={15} color={isCustom || open ? "#fff" : "var(--color-text-secondary)"} className="-ml-1 mr-1" />
           {isCustom ? period.label : "Personalizado"}
@@ -89,22 +96,26 @@ export function PeriodFilter() {
 
       {open && (
         <div className="absolute right-0 mt-2 z-50 w-[300px] bg-white rounded-card p-4 flex flex-col gap-3">
-          <span className="text-caption font-medium text-muted">Duração</span>
-          <div className="flex flex-wrap gap-2">
-            {DURACOES.map((n) => (
-              <button
-                key={n}
-                onClick={() => { setDur(n); aplicar(n, mesRef); }}
-                className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
-              >
-                {n} {n === 1 ? "mês" : "meses"}
-              </button>
-            ))}
+          {/* Ordem invertida (pedido): escolhe-se o MÊS primeiro; a duração é o
+              refinamento de quantos meses terminam nele. */}
+          <div className="flex flex-col gap-1">
+            <span className="text-caption font-medium text-muted">{dur === 1 ? "Mês de consulta" : "Mês de referência (fim)"}</span>
+            <MonthDropdown value={mesRef} options={opts} onChange={(ym) => { setMesRef(ym); aplicar(dur, ym); }} />
           </div>
 
-          <div className="flex flex-col gap-1 pt-1">
-            <span className="text-caption text-faint">{dur === 1 ? "Mês de consulta" : "Mês de referência (fim)"}</span>
-            <MonthDropdown value={mesRef} options={opts} onChange={(ym) => { setMesRef(ym); aplicar(dur, ym); }} />
+          <div className="flex flex-col gap-2 pt-1">
+            <span className="text-caption text-faint">Duração</span>
+            <div className="flex flex-wrap gap-2">
+              {DURACOES.map((n) => (
+                <button
+                  key={n}
+                  onClick={() => { setDur(n); aplicar(n, mesRef); }}
+                  className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
+                >
+                  {n} {n === 1 ? "mês" : "meses"}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center justify-between pt-1">

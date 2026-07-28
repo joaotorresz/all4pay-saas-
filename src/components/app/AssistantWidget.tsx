@@ -31,7 +31,7 @@ type Ctx = Parameters<typeof copilotoFinanceiro>[1];
    texto e glifo entram em `on-lime` (#11190C): claro sobre lima é ilegível.
    O tile do sparkle segue escuro (contraste dentro do botão) e o restante da
    UI do painel continua na versão flat/escura. */
-const GRAD_MARCA = "linear-gradient(180deg,#D0FF00 0%,#D8FF00 25%,#E1FF00 50%,#E8FF00 75%,#F5FF00 100%)";
+const GRAD_MARCA = "var(--gradient-marca)";
 const GRAD = "linear-gradient(95deg, #11190C 0%, #1c2714 100%)";
 const GLOW = "none";
 
