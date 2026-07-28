@@ -71,12 +71,12 @@ export function PeriodFilter() {
 
   // FLAT: ativo = chip neutro sutil (surface-2, texto ink) · inativo = só texto.
   // Nada de pill preto sólido — "nada parece botão".
-  // Pílulas de período (Laboratório): Roobert Semi Mono 16/400, tracking
-  // −0.045em, sem raio, padding 18 e o ATIVO em branco sólido.
+  // Pílulas de período (Laboratório): Roobert Variable 16/400, tracking
+  // −0.02em, raio pill, padding 18 e o ATIVO em branco sólido.
   const btnStyle: React.CSSProperties = {
-    fontFamily: '"Roobert Semi Mono", ui-monospace, monospace',
+    fontFamily: '"Roobert Variable", "Roobert", sans-serif',
     fontWeight: 400,
-    letterSpacing: "-0.045em",
+    letterSpacing: "-0.02em",
   };
   const btn = (ativo: boolean) =>
     `inline-flex items-center h-9 px-[18px] rounded-pill text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;

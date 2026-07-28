@@ -21,7 +21,6 @@ const CURADOS: WidgetDef[] = [
   { id: "calendar", label: "Calendário de transações", grupo: "Caixa", def: true },
   { id: "receivables", label: "A receber", grupo: "Operação", def: true },
   { id: "payables", label: "A pagar", grupo: "Operação", def: true },
-  { id: "pendencias", label: "Pendências", grupo: "Operação", def: true },
   { id: "ultimosGastos", label: "Transações recentes", grupo: "Operação", def: true },
 ];
 
