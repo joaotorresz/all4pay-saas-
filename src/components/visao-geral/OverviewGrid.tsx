@@ -5,16 +5,11 @@ import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
 import { TransactionsCalendar } from "./TransactionsCalendar";
-import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
 import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
-import {
-  SaudeFinanceiraCard,
-  TransacoesRecentesCard,
-  PendenciasCard,
-} from "./HomeCards";
+import { TransacoesRecentesCard, PendenciasCard } from "./HomeCards";
 import { useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
 import { JornadaCard } from "@/components/comece/Jornada";
@@ -25,13 +20,11 @@ const KEY_AUTO = "a4p_home_auto";
 
 /** Cards "bespoke" (curados) — id → componente + se ocupa a linha inteira. */
 const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
-  saude: { node: <SaudeFinanceiraCard />, full: true },
   cashflow: { node: <DailyCashflowChart />, full: true },
   calendar: { node: <TransactionsCalendar />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },
   pendencias: { node: <PendenciasCard /> },
-  sales: { node: <SalesChart />, full: true },
   ultimosGastos: { node: <TransacoesRecentesCard />, full: true },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));

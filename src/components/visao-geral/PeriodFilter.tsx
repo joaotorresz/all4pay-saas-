@@ -79,7 +79,7 @@ export function PeriodFilter() {
     letterSpacing: "-0.045em",
   };
   const btn = (ativo: boolean) =>
-    `inline-flex items-center h-9 px-[18px] rounded-[10px] text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
+    `inline-flex items-center h-9 px-[18px] rounded-pill text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
 
   return (
     <div ref={ref} className="relative">

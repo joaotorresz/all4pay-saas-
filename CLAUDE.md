@@ -336,9 +336,15 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   janela de N meses mantém o botão do mês marcado. A pílula "Personalizado" e a
   **engrenagem** saíram do header; **Personalizar Home** agora se abre pela
   command palette (⌘K → "Personalizar Home"), que é o único acesso ao drawer.
-- **Card de dicas** (`VisorHomeTop`): fundo no **degradê da marca**
-  (`--gradient-marca`, o mesmo do FAB "All 4 Pay AI"), com texto e controles em
-  `on-lime`.
+- **Gráfico herói** (`VisorHomeTop`): o valor é o **saldo em conta**
+  (`saldoAtual`) e o gráfico traz **duas linhas em gradiente** — entradas em
+  verde e saídas em vermelho, acumuladas dia a dia no período (só liquidados,
+  pela data de pagamento) — com área suave sob cada uma e legenda. O sufixo do
+  herói mostra o **resultado do período** (entradas − saídas). O box ao lado
+  ("Distribuição") segue a MESMA janela e exibe o `period.label` sob o título.
+- **Card de dicas** (`VisorHomeTop`): fundo no **degradê da marca invertido**
+  (`--gradient-marca-inv`, os mesmos stops do FAB "All 4 Pay AI" de baixo para
+  cima), com texto e controles em `on-lime`.
 - **Transações recentes** (`TransacoesRecentesCard`): o **extrato** da Home —
   últimas 12 movimentações liquidadas, entradas E saídas juntas na ordem em que
   caíram no caixa, com dia · contraparte · categoria · valor com sinal. Clicar

@@ -50,39 +50,6 @@ function BarShare({ pct, color }: { pct: number; color: string }) {
 
 /* ----------------------- Saúde financeira (KPIs) ----------------------- */
 
-export function SaudeFinanceiraCard() {
-  const { data, isLoading } = useQuantitativo();
-  if (isLoading || !data) return <CardSkeleton />;
-  const ind = data.indicadores;
-  const sc = data.score;
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Saúde financeira",
-      oQue: "Um raio-x do seu caixa: nota geral, por quanto tempo o dinheiro dura e o ritmo de queima.",
-      comoCalcula: "Score 0–100 pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento. Runway = saldo ÷ burn mensal; burn = saídas líquidas médias; liquidez = ativo ÷ passivo de curto prazo.",
-    }}>
-      <Header icon="activity" href="/copiloto?aba=quant">Saúde financeira</Header>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Kpi label="Score" value={`${sc.score}`} suffix="/100" color={scoreColor(sc.score)} hint={sc.classificacao} />
-        <Kpi label="Runway" value={ind.runwayMeses >= 99 ? "99+" : ind.runwayMeses.toFixed(1)} suffix="meses" />
-        <Kpi label="Burn rate" value={ind.burnRate > 0 ? <BRL value={ind.burnRate} /> : "—"} suffix={ind.burnRate > 0 ? "/mês" : "gera caixa"} />
-        <Kpi label="Liquidez" value={ind.liquidezCorrente.toFixed(2)} suffix="corrente" />
-      </div>
-    </Card>
-  );
-}
-
-function Kpi({ label, value, suffix, color, hint }: { label: string; value: React.ReactNode; suffix?: string; color?: string; hint?: string }) {
-  return (
-    <div className="flex flex-col">
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: color ?? "var(--color-ink)" }}>{value}</span>
-      {suffix && <span className="text-caption text-faint mt-[2px]">{suffix}</span>}
-      {hint && <span className="text-caption text-muted capitalize">{hint}</span>}
-    </div>
-  );
-}
-
 /* --------------------------- IA Insights --------------------------- */
 
 /* ---------------------------- Anomalias ---------------------------- */

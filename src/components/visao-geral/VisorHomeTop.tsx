@@ -37,7 +37,7 @@ const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex;
 
 const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid_date || mv.due_date;
 
-type Ponto = { idx: number; label: string; gasto: number | null; proj: number | null; prev: number | null; tip: number | null };
+type Ponto = { idx: number; label: string; ent: number; sai: number };
 type Seg = { name: string; value: number; color: string; trend: number };
 
 /** Altura do gráfico do herói (também ancora o gradiente vertical). */
@@ -77,47 +77,32 @@ export function VisorHomeTop() {
     const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
     const prevFromD = new Date(fromD.getTime() - nDays * DAY);
 
-    // gasto por dia: PAGO (realizado, verde) vs AGENDADO (projeção, tracejada).
-    // Realizado usa a data de caixa (paid_date); agendado usa o vencimento.
-    const paidByDay = new Map<string, number>();
-    const schedByDay = new Map<string, number>();
+    // Duas séries acumuladas no período: ENTRADAS e SAÍDAS liquidadas.
+    // Só o que teve baixa entra (é a leitura do que de fato passou no caixa);
+    // a data que conta é a do pagamento.
+    const entByDay = new Map<string, number>();
+    const saiByDay = new Map<string, number>();
     for (const mv of inp.movements) {
-      if (mv.type !== "saida" || mv.status === "cancelado") continue;
-      const v = Math.abs(mv.amount);
-      if (mv.status === "pago") {
-        const ds = (mv.paid_date || mv.due_date || "").slice(0, 10); if (!ds) continue;
-        paidByDay.set(ds, (paidByDay.get(ds) || 0) + v);
-      } else {
-        const ds = (mv.due_date || "").slice(0, 10); if (!ds) continue;
-        schedByDay.set(ds, (schedByDay.get(ds) || 0) + v);
-      }
+      if (mv.status !== "pago") continue;
+      const ds = (mv.paid_date || mv.due_date || "").slice(0, 10);
+      if (!ds) continue;
+      const alvo = mv.type === "entrada" ? entByDay : saiByDay;
+      alvo.set(ds, (alvo.get(ds) || 0) + Math.abs(mv.amount));
     }
-    const paidOn = (iso: string) => paidByDay.get(iso) || 0;
-    const schedOn = (iso: string) => schedByDay.get(iso) || 0;
-
-    // acumulado de gasto PAGO — período atual (cumA) e anterior (cumP)
-    const cumA: number[] = []; let cA = 0;
-    const cumP: number[] = []; let cP = 0;
-    for (let i = 0; i < nDays; i++) {
-      cA += paidOn(isoAt(fromD, i)); cumA.push(Math.round(cA * 100) / 100);
-      cP += paidOn(isoAt(prevFromD, i)); cumP.push(Math.round(cP * 100) / 100);
-    }
-    const rawDidx = Math.round((hojeD.getTime() - fromD.getTime()) / DAY);
-    const Didx = Math.max(0, Math.min(nDays - 1, rawDidx));
-    // projeção: do hoje em diante = pago acumulado + agendado a vencer
-    const projCum: number[] = new Array(nDays).fill(0);
-    let base = cumA[Didx], sc = 0;
-    for (let i = Didx; i < nDays; i++) { if (i > Didx) sc += schedOn(isoAt(fromD, i)); projCum[i] = Math.round((base + sc) * 100) / 100; }
     const fmtDia = (d: Date) => `${pad(d.getDate())}/${MES_ABBR[d.getMonth()]}`;
-    const temProj = rawDidx < nDays - 1 && rawDidx >= -1;
     const serie: Ponto[] = [];
+    let accE = 0, accS = 0;
     for (let i = 0; i < nDays; i++) {
-      const d = new Date(fromD.getTime() + i * DAY);
-      serie.push({ idx: i, label: fmtDia(d), gasto: i <= Didx ? cumA[i] : null, proj: i >= Didx ? projCum[i] : null, prev: cumP[i], tip: i === Didx ? cumA[Didx] : null });
+      const iso = isoAt(fromD, i);
+      accE += entByDay.get(iso) || 0;
+      accS += saiByDay.get(iso) || 0;
+      serie.push({
+        idx: i,
+        label: fmtDia(new Date(fromD.getTime() + i * DAY)),
+        ent: Math.round(accE * 100) / 100,
+        sai: Math.round(accS * 100) / 100,
+      });
     }
-    const gastoAtual = cumA[Didx];
-    const gastoAnterior = cumP[Didx];
-    const delta = gastoAnterior - gastoAtual; // > 0 → gastou MENOS este mês (bom)
 
     // distribuição por categoria — atual + anterior (p/ tendência)
     const inWin = (t: number, a: Date, b: Date) => t >= a.getTime() && t <= b.getTime();
@@ -157,28 +142,13 @@ export function VisorHomeTop() {
     }
 
     return {
-      serie, Didx, temProj, delta, bom: delta >= 0, gastoAtual,
+      serie,
       entradas, saidas,
+      resultado: entradas - saidas,
       segsEntrada: buildSegs(catE, catEPrev), segsSaida: buildSegs(catS, catSPrev),
       insight,
     };
   }, [inp, period.from, period.to]);
-
-  // Gradiente CONDICIONAL da linha: ponto a ponto, VERDE onde o acumulado está
-  // abaixo do mês anterior (economia) e VERMELHO onde passou dele. Os stops
-  // ficam lado a lado, então o SVG interpola e a virada de cor cai exatamente
-  // onde o gasto cruza a régua do mês passado.
-  // Hook INCONDICIONAL (antes de qualquer early return): tolera `calc` nulo.
-  const stops = React.useMemo(() => {
-    const pts = calc?.serie ?? [];
-    const n = pts.length;
-    if (!n) return [{ off: 0, cor: POSITIVE }];
-    return pts.map((p, i) => {
-      const atual = p.gasto ?? p.proj ?? 0;
-      const anterior = p.prev ?? 0;
-      return { off: n > 1 ? (i / (n - 1)) * 100 : 0, cor: anterior >= atual ? POSITIVE : NEGATIVE };
-    });
-  }, [calc]);
 
   if (isLoading || !inp || !calc) {
     return (
@@ -189,13 +159,12 @@ export function VisorHomeTop() {
     );
   }
 
-  const bom = calc.bom; // gastou menos = bom (verde)
-  // Cor do DESFECHO: fecha vermelho se gastou mais, verde se gastou menos.
-  // Ela tinge o fim do gradiente, a área, a projeção, o ponto e o balão.
-  const fim = bom ? POSITIVE : NEGATIVE;
   const sufixo = period.modo === "mes" ? "este mês" : "no período";
-  const bubbleText = `${formatBRL(Math.abs(calc.delta))} a ${bom ? "menos" : "mais"} ${sufixo}`;
   const mesNome = period.modo === "mes" ? MESES[period.mes] : null;
+  // O herói do card é o SALDO EM CONTA (posição atual), não mais o delta de
+  // gasto. O período manda no gráfico e no resultado do rodapé.
+  const saldo = inp.saldoAtual;
+  const positivoNoPeriodo = calc.resultado >= 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-start">
@@ -203,71 +172,67 @@ export function VisorHomeTop() {
       <div className="flex flex-col gap-5">
         {/* Forma do card do herói (Laboratório): raio 32, padding 20, hairline. */}
         <Card className="flex flex-col rounded-[32px] p-5 border border-[#f1f3f5]" padded={false} info={{
-          titulo: "Você gastou",
-          oQue: "Quanto você gastou no período vs. o mês anterior. Verde = gasto realizado até hoje · laranja = mesmo intervalo do mês passado · tracejada = projeção até o fim do período.",
-          comoCalcula: "Soma das saídas pagas, acumuladas dia a dia. A diferença em destaque é o total deste período menos o do anterior no mesmo ponto do mês.",
+          titulo: "Saldo em conta",
+          oQue: "Quanto você tem em conta agora, com o que entrou (verde) e o que saiu (vermelho) ao longo do período.",
+          comoCalcula: "O valor é o saldo consolidado das contas. As duas linhas acumulam, dia a dia, as entradas e as saídas já liquidadas no período; o resultado abaixo é entradas − saídas.",
         }}>
           <div className="flex items-center gap-3">
-            <span className="text-[16px] font-semibold text-ink">Você gastou</span>
+            <span className="text-[16px] font-semibold text-ink">Saldo em conta</span>
           </div>
-          {/* Herói (Laboratório): o INTEIRO em Roobert Variable 35/500 com
-              tracking −0.055em; o prefixo R$ segue em Semi Mono 30/500 e os
-              centavos em 22 (regras em `globals.css`, escopadas por `a4p-heroi`).
-              O sufixo é 14/200 num cinza mais claro. */}
+          {/* Herói: o SALDO consolidado. Roobert Variable 35/500 tracking
+              −0.055em; o prefixo R$ e os centavos vêm de `a4p-heroi`. O sufixo
+              traz o resultado do período (entradas − saídas). */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             <span className="a4p-heroi text-[35px] tabular-nums text-ink leading-none" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.055em" }}>
-              <AnimatedBRL value={Math.abs(calc.delta)} />
+              <AnimatedBRL value={Math.abs(saldo)} />
             </span>
             <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>
-              a {bom ? "menos" : "mais"} {sufixo}
+              {positivoNoPeriodo ? "+" : "−"}{formatBRL(Math.abs(calc.resultado))} {sufixo}
             </span>
           </div>
 
           <div className="relative mt-4" ref={boxRef}>
-            <figure className="m-0" role="img" aria-label={`Gasto acumulado ${mesNome ? "em " + mesNome : "no período"}: ${formatBRL(calc.gastoAtual)}; ${bom ? "abaixo" : "acima"} do mês anterior em ${formatBRL(Math.abs(calc.delta))}.`}>
-              {/* altura maior + folga no topo: o balão da referência é alto e
-                  precisa de espaço sem encostar na linha. */}
+            <figure className="m-0" role="img" aria-label={`Saldo em conta ${formatBRL(saldo)}. No período${mesNome ? " de " + mesNome : ""}: entradas ${formatBRL(calc.entradas)}, saídas ${formatBRL(calc.saidas)}.`}>
               <ResponsiveContainer width="100%" height={ALTURA}>
-                <ComposedChart data={calc.serie} margin={{ top: 34, right: 10, bottom: 4, left: 8 }}>
+                <ComposedChart data={calc.serie} margin={{ top: 18, right: 10, bottom: 4, left: 8 }}>
                   <defs>
                     {/* `userSpaceOnUse` de propósito: em `objectBoundingBox` (o
                         padrão) o SVG NÃO desenha o gradiente quando a bbox tem
-                        largura ou altura zero — e a linha do gasto fica achatada
-                        sempre que o mês corrente é bem menor que o anterior.
+                        largura ou altura zero — e uma série achatada some.
                         Por isso ancoramos nas dimensões reais do gráfico. */}
-                    <linearGradient id="visorTermica" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
-                      {stops.map((s, i) => (
-                        <stop key={i} offset={`${s.off}%`} stopColor={s.cor} />
-                      ))}
+                    <linearGradient id="visorEnt" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
+                      <stop offset="0%" stopColor={POSITIVE} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={POSITIVE} stopOpacity={1} />
                     </linearGradient>
-                    {/* Preenchimento suave sob a linha, na cor do desfecho. */}
-                    <linearGradient id="visorFill" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
-                      <stop offset="0%" stopColor={fim} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={fim} stopOpacity={0.02} />
+                    <linearGradient id="visorSai" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
+                      <stop offset="0%" stopColor={NEGATIVE} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={NEGATIVE} stopOpacity={1} />
+                    </linearGradient>
+                    <linearGradient id="visorFillEnt" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
+                      <stop offset="0%" stopColor={POSITIVE} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={POSITIVE} stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="visorFillSai" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
+                      <stop offset="0%" stopColor={NEGATIVE} stopOpacity={0.18} />
+                      <stop offset="100%" stopColor={NEGATIVE} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" hide />
                   <YAxis hide domain={[0, "auto"]} />
                   <Tooltip content={<GastoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                  {/* área sob o realizado */}
-                  <Area type="monotone" dataKey="gasto" stroke="none" fill="url(#visorFill)" {...chartAnim()} connectNulls />
-                  {/* mês anterior — tracejada cinza fina (régua de comparação) */}
-                  <Line type="monotone" dataKey="prev" stroke={PROJ} strokeWidth={1.3} strokeDasharray="7 6" strokeLinecap="round" dot={false} activeDot={{ r: 4 }} {...chartAnim(120)} connectNulls />
-                  {/* projeção — segue a cor do desfecho, esmaecida */}
-                  <Line type="monotone" dataKey="proj" stroke={fim} strokeOpacity={0.3} strokeWidth={1.8} strokeDasharray="5 4" strokeLinecap="round" dot={false} {...chartAnim(240)} connectNulls />
-                  {/* gasto realizado — gradiente térmico. Traço AFINADO em 30%
-                      (4.2 → 2.9): a linha continua sendo a heroína, mas para de
-                      engolir a curva nos períodos curtos. */}
-                  <Line type="monotone" dataKey="gasto" stroke="url(#visorTermica)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: fim, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} connectNulls />
-                  {/* âncora invisível do balão */}
-                  <Line dataKey="tip" stroke="transparent" dot={false} isAnimationActive={false} legendType="none">
-                    <LabelList dataKey="tip" content={<Callout text={bubbleText} good={bom} />} />
-                  </Line>
+                  <Area type="monotone" dataKey="ent" stroke="none" fill="url(#visorFillEnt)" {...chartAnim()} />
+                  <Area type="monotone" dataKey="sai" stroke="none" fill="url(#visorFillSai)" {...chartAnim(120)} />
+                  {/* ENTRADAS — verde em gradiente */}
+                  <Line type="monotone" dataKey="ent" stroke="url(#visorEnt)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} />
+                  {/* SAÍDAS — vermelho em gradiente */}
+                  <Line type="monotone" dataKey="sai" stroke="url(#visorSai)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: NEGATIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim(120)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </figure>
-            {/* Sem legenda: a referência não tem. O significado das linhas vive
-                no tooltip (hover) e no botão "i" do card. */}
+            <div className="flex items-center gap-4 mt-1 text-[13px] text-muted">
+              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: POSITIVE }} />Entradas</span>
+              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: NEGATIVE }} />Saídas</span>
+            </div>
           </div>
         </Card>
 
@@ -276,12 +241,17 @@ export function VisorHomeTop() {
 
       {/* DIREITA — Distribuição (donut + legenda rica) */}
       <Card className="flex flex-col">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-start justify-between gap-3">
+          {/* Título + o PERÍODO ativo: este box segue a mesma janela do gráfico
+              ao lado (mês ou semana), então o rótulo diz qual é. */}
+          <span className="flex flex-col gap-[2px] min-w-0">
           <span className="inline-flex items-center gap-3 text-[17px] text-ink" style={{ fontFamily: VARIAVEL, fontWeight: 400, letterSpacing: "-0.02em" }}>
             {tipoDist === "saida" ? "Distribuição dos gastos" : "Distribuição das entradas"}
             <InfoHint align="left"
               oQue="Para onde foi (ou de onde veio) o dinheiro no período, por categoria."
               comoCalcula="Soma dos lançamentos do período por categoria; o % é a fatia de cada uma no total. A tendência ▲/▼ compara com o mês anterior." />
+          </span>
+          <span className="text-[13px] text-faint truncate">{period.label}</span>
           </span>
           <div className="flex items-center gap-2">
             <div className="flex p-1 gap-1 rounded-pill bg-surface-2" role="tablist" aria-label="Tipo de distribuição">
@@ -345,61 +315,6 @@ export function VisorHomeTop() {
 /** Balão de callout no fim da linha — igual ao Visor (verde sólido, rabo p/ baixo). */
 /** Quebra o texto do balão em linhas curtas (o balão da referência é ALTO e
  *  estreito, não uma pílula larga). */
-function quebrar(texto: string, max = 10): string[] {
-  const linhas: string[] = [];
-  let atual = "";
-  for (const w of String(texto).split(" ")) {
-    const tent = atual ? `${atual} ${w}` : w;
-    if (tent.length > max && atual) { linhas.push(atual); atual = w; }
-    else atual = tent;
-  }
-  if (atual) linhas.push(atual);
-  return linhas;
-}
-
-function Callout(props: any) {
-  const { x, y, value, text, good, viewBox } = props;
-  if (value == null || typeof x !== "number" || typeof y !== "number") return null;
-  // Balão na cor do DESFECHO (verde gastou menos · vermelho gastou mais).
-  // Formato da referência: retângulo ALTO no topo-direita, texto quebrado em
-  // várias linhas e um bico curto apontando para baixo. O ponto final é um
-  // círculo sólido na mesma cor.
-  const bg = good ? "var(--color-positive)" : "var(--color-negative)";
-  const larguraArea = typeof viewBox?.width === "number" ? viewBox.width : 340;
-  const linhas = quebrar(text);
-  const lh = 16, padY = 9, padX = 11, tail = 7;
-  const bw = Math.max(74, ...linhas.map((l) => l.length * 7.1 + padX * 2));
-  const bh = linhas.length * lh + padY * 2;
-  // encostado no topo e alinhado com o ponto, sem sair da área do gráfico
-  const bx = Math.max(2, Math.min(x - bw / 2, larguraArea - bw - 2));
-  const by = 0;
-  const tx = Math.max(bx + 12, Math.min(x, bx + bw - 12));
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      <rect x={bx} y={by} width={bw} height={bh} rx={10} fill={bg} />
-      {/* bico curto, apontando para baixo */}
-      <polygon points={`${tx - 6},${by + bh} ${tx + 6},${by + bh} ${tx},${by + bh + tail}`} fill={bg} />
-      {/* ponto final — sólido, como na referência */}
-      <circle cx={x} cy={y} r={5.5} fill={bg} />
-      {linhas.map((l, i) => (
-        <text
-          key={i}
-          x={bx + bw / 2}
-          y={by + padY + i * lh + lh / 2}
-          fill="#fff"
-          fontSize={13}
-          fontWeight={700}
-          textAnchor="middle"
-          dominantBaseline="central"
-          style={{ fontVariantNumeric: "tabular-nums" }}
-        >
-          {l}
-        </text>
-      ))}
-    </g>
-  );
-}
-
 /**
  * Card "Dica" (= "Dica do Visor", na identidade all4pay: ink + lime). Mostra um
  * insight DINÂMICO (categoria que mais variou vs. mês anterior) + dicas curadas,
@@ -420,10 +335,11 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
   React.useEffect(() => { setI(0); }, [dicas.length]);
   const go = (d: number) => setI((p) => (p + d + dicas.length) % dicas.length);
   return (
-    // Degradê da marca (o MESMO do FAB "All 4 Pay AI", via `--gradient-marca`).
+    // Degradê da marca INVERTIDO (`--gradient-marca-inv`): mesmos stops do FAB
+    // "All 4 Pay AI", de baixo para cima.
     // Sobre lima tudo entra em `on-lime` — texto claro aqui seria ilegível; os
     // controles viram vidro escuro para não sumirem no fundo.
-    <Card className="flex flex-col gap-3" style={{ background: "var(--gradient-marca)" }}>
+    <Card className="flex flex-col gap-3" style={{ background: "var(--gradient-marca-inv)" }}>
       <div className="flex items-center gap-3">
         <span className="w-[34px] h-[34px] rounded-md inline-flex items-center justify-center shrink-0" style={{ background: "#11190C", color: "#E1FF00" }}>
           <Icon name="sparkles" size={18} color="currentColor" />
@@ -496,18 +412,18 @@ function DonutChart({ segs, total, centerLabel, size = 208 }: { segs: { name: st
 
 function GastoTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
-  const p = payload[0]?.payload as Ponto;
-  const projetado = p.gasto == null;
-  const valor = p.gasto ?? p.proj ?? 0;
+  const p = payload[0]?.payload as Ponto | undefined;
+  if (!p) return null;
   return (
-    <div className="bg-white rounded-card px-4 py-3 text-caption">
-      <div className="text-[15px] font-semibold text-ink mb-2">{p.label}</div>
-      <TipRow color={projetado ? PROJ : POSITIVE} k={projetado ? "Gasto (proj.)" : "Gasto acum."} v={formatBRL(valor)} />
-      {/* cinza: casa com a tracejada do mês anterior no gráfico */}
-      {p.prev != null && <TipRow color={PROJ} k="Mês anterior" v={formatBRL(p.prev)} />}
+    <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[190px]">
+      <div className="font-medium text-ink mb-[6px]">{p.label}</div>
+      <TipRow color={POSITIVE} k="Entradas" v={brlNoCents(p.ent)} />
+      <TipRow color={NEGATIVE} k="Saídas" v={brlNoCents(p.sai)} />
+      <TipRow color="var(--color-ink)" k="Resultado" v={brlNoCents(p.ent - p.sai)} />
     </div>
   );
 }
+
 function TipRow({ color, k, v }: { color: string; k: string; v: string }) {
   return (
     <div className="flex items-center justify-between gap-6 tabular-nums py-[2px]">

@@ -16,14 +16,12 @@ interface WidgetDef { id: string; label: string; grupo: Bloco; def?: boolean }
 
 /** Curados (ligados por padrão) + catálogo modular (desligados por padrão). */
 const CURADOS: WidgetDef[] = [
-  { id: "saude", label: "Saúde financeira (KPIs)", grupo: "Saúde financeira", def: true },
   // Caixa lidera a Home: fluxo de caixa primeiro, depois o calendário.
   { id: "cashflow", label: "Fluxo de caixa", grupo: "Caixa", def: true },
   { id: "calendar", label: "Calendário de transações", grupo: "Caixa", def: true },
   { id: "receivables", label: "A receber", grupo: "Operação", def: true },
   { id: "payables", label: "A pagar", grupo: "Operação", def: true },
   { id: "pendencias", label: "Pendências", grupo: "Operação", def: true },
-  { id: "sales", label: "Faturamento", grupo: "Receita", def: true },
   { id: "ultimosGastos", label: "Transações recentes", grupo: "Operação", def: true },
 ];
 
