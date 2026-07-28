@@ -38,12 +38,12 @@ export function AppShell({
       <div className="flex items-center gap-3 min-w-0">
         <MobileNavButton />
         <div className="min-w-0">
-          {/* Título da página (Laboratório): Roobert Semi Mono 23/900, tracking
-              −0.04em, sem caixa-alta. Vale para TODAS as telas — é o mesmo
-              componente; o Lab só conseguia selecionar o da Home. */}
+          {/* Título da página (Laboratório): Roobert Variable 29/500, tracking
+              −0.02em, entrelinha 110%, sem caixa-alta. Vale para TODAS as telas —
+              é o mesmo componente; o Lab só conseguia selecionar o da Home. */}
           <h1
-            className="m-0 text-[23px] leading-[1.15] text-ink truncate"
-            style={{ fontFamily: '"Roobert Semi Mono", ui-monospace, monospace', fontWeight: 900, letterSpacing: "-0.04em", textTransform: "none" }}
+            className="m-0 text-[29px] text-ink truncate"
+            style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1.1, textTransform: "none" }}
           >
             {title}
           </h1>

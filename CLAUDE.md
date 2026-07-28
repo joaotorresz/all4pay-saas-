@@ -130,6 +130,29 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
 Os tokens-base abaixo são o fallback/legado (tema claro base + dark mode); a
 identidade viva é a de cima.
 
+### Tipografia vigente (promovida do Laboratório)
+
+- **Fonte do app: `Roobert Variable`** (com fallback `Roobert`), inclusive nos
+  NÚMEROS — `.ds-visor`, `.ds-visor *`, `.a4p-num`, `.tabular-nums` e os eixos
+  de gráfico. O alinhamento tabular continua vindo de `tabular-nums`, não da
+  família. Tracking base 0.
+- **H1 da página** (`AppShell`): Variable **29/500**, tracking −0.02em,
+  entrelinha 110%, sem caixa-alta.
+- **H2 / `.text-h2`** (regra POR TIPO, em `globals.css`): Variable **17/400**,
+  tracking −0.02em, cor ink. Vem DEPOIS do bloco que põe 600 nos títulos.
+- **Título de card da Home** ("Distribuição dos gastos", "Calendário de
+  transações"): o MESMO tratamento do H2 — Variable 17/400, −0.02em, sem
+  caixa-alta.
+- **Herói** (`.a4p-heroi`): inteiro em Variable **35/500** tracking −0.055em ·
+  prefixo `R$` em **Semi Mono 30/500** ink · centavos **22** · sufixo
+  ("a menos este mês") 14/200 em `#CAC4B7`.
+- **Donut**: centro em Semi Mono (rótulo −0.065em · valor **18/400** −0.045em);
+  legenda com o NOME em `Roobert` **13/100**, o % em Semi Mono 12/900 e o valor
+  em Semi Mono 600.
+- **Fluxo de caixa**: totais do período em Variable **21/400** tracking
+  −0.075em; o subtítulo do período em 14/200 `#CAC4B7`.
+- **Botões** (`Button`): raio **10px** (variantes não-pill).
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,

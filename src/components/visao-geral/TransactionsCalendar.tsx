@@ -126,7 +126,13 @@ export function TransactionsCalendar() {
     >
       {/* Topo — micro-label + atalho, no modelo da referência */}
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-faint">
+        {/* Título do card (Laboratório): Roobert Variable 17/400, tracking
+            −0.02em, em ink e SEM caixa-alta — o mesmo tratamento de
+            "Distribuição dos gastos", para os cards da Home falarem igual. */}
+        <span
+          className="text-[17px] text-ink"
+          style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", textTransform: "none" }}
+        >
           {futuro ? "Calendário · projeção" : "Calendário de transações"}
         </span>
         <Link
