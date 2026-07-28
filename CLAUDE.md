@@ -984,6 +984,26 @@ da conta da lista real) e filtrável por conta na tela de Entradas/Saídas.
 - **Dados:** `useFluxoCaixa(filtros)` (`hooks.ts`) sobre `getRiscoInput`+
   `getAccountsList`. Sidebar/command palette ligam a rota.
 
+### Extrato de transações (`/recebimentos` e `/pagamentos`)
+
+`ExtratoTransacoes` (`src/components/visao-geral/ExtratoTransacoes.tsx`) é a
+**primeira aba** do `MoneyFunnel` nas duas páginas, no modelo de extrato:
+
+- **Carrossel de períodos** — 12 cards, um por **mês** ou por **semana** (botão
+  Mês/Semana), com o resultado líquido de cada um (verde/vermelho, **zero é
+  neutro**) e uma linha ligando os pontos por cima. Clicar seleciona; as setas
+  rolam. A faixa é montada do mais antigo ao mais novo, então um
+  `useLayoutEffect` + `requestAnimationFrame` põe o scroll no período ATUAL —
+  com `isLoading` nas deps, porque enquanto carrega a faixa nem existe no DOM.
+- **Barra de resumo** do período: contagem, entradas, saídas e resultado.
+- **Lista agrupada por dia** ("Hoje" · "Ontem" · "dom, jul 26"), com a conta, a
+  contraparte, o chip de categoria e o valor; clicar abre a ficha do contato.
+
+`direction` decide o que a LISTA mostra (entradas em Receber, saídas em Pagar);
+carrossel e resumo mostram os dois lados, porque o resultado do período só faz
+sentido com entradas e saídas juntas. Datas pela **data de caixa** (pagamento
+quando liquidado, vencimento quando pendente). Puro sobre o `RiskInput`.
+
 ### Funil PAGAR (Central de Pagamentos · Solicitações & aprovações · Reembolsos)
 
 Submenu **PAGAR** da Sidebar = funil de contas a pagar, sobre o mesmo hub
