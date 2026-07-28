@@ -14,6 +14,8 @@ import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@
 import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
 import { listarRegras } from "@/lib/regras";
 import { aplicarRegrasNoRelatorio } from "@/lib/regras-aplicar";
+import { adicionarRegra } from "@/lib/regras";
+import { sugerirRegra, type RegraCategorizacao } from "@/core/regras";
 import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
 import { hasImported } from "@/lib/imported";
@@ -48,6 +50,8 @@ export function UploadView() {
   const [cnaeBusy, setCnaeBusy] = React.useState(false);
   const [cnaeMsg, setCnaeMsg] = React.useState<string | null>(null);
   const [regraMsg, setRegraMsg] = React.useState<string | null>(null);
+  /** Regra proposta a partir da última correção — o ciclo que faz o sistema aprender de verdade. */
+  const [sugestao, setSugestao] = React.useState<RegraCategorizacao | null>(null);
   const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
@@ -157,7 +161,28 @@ export function UploadView() {
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.length) lerArquivos(e.target.files); };
   const onDrop = (e: React.DragEvent) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files?.length) lerArquivos(e.dataTransfer.files); };
 
-  const corrigir = (r: FinancialRecord, novaCat: string) => { aprender(r.contraparteNorm, novaCat); analisar(texto); };
+  /**
+   * Corrigir uma categoria faz duas coisas: memoriza a contraparte EXATA
+   * (comportamento antigo) e PROPÕE a regra por padrão, que é o que pega as
+   * próximas variações do mesmo fornecedor. A regra só entra se o dono aceitar.
+   */
+  const corrigir = (r: FinancialRecord, novaCat: string) => {
+    aprender(r.contraparteNorm, novaCat);
+    const s = sugerirRegra(
+      { id: r.id, tipo: r.tipo === "entrada" ? "entrada" : "saida", valor: r.valor, descricao: r.descricao, contraparte: r.contraparte || r.contraparteNorm },
+      novaCat,
+    );
+    setSugestao(s);
+    analisar(texto);
+  };
+
+  const aceitarSugestao = () => {
+    if (!sugestao) return;
+    adicionarRegra(sugestao);
+    setSugestao(null);
+    setRegraMsg(`Regra criada: ${sugestao.nome}. Vale para os próximos extratos.`);
+    analisarEAuto(texto); // reaplica já com a regra nova
+  };
 
   const confirmar = async () => {
     if (!report) return;
@@ -225,6 +250,23 @@ export function UploadView() {
           <Icon name="check" size={16} color="var(--color-positive)" />
           <span className="text-caption text-ink flex-1">Dados importados ativos — alimentando dashboard, DRE, risco, inteligência e todo o ERP.</span>
           <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline">Limpar dados importados</button>
+        </Card>
+      )}
+
+      {/* Correção → regra: fecha o ciclo de aprendizado (o motor já sugeriu). */}
+      {sugestao && (
+        <Card className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-start gap-3 min-w-0">
+            <Icon name="workflow" size={18} color="var(--color-text-secondary)" className="mt-[2px] shrink-0" />
+            <p className="m-0 text-label text-ink">
+              Quer que isso valha sempre? Toda {sugestao.quando.tipo === "entrada" ? "entrada" : "saída"} com{" "}
+              <b>{sugestao.quando.contraparte?.valor}</b> vira <b>{sugestao.entao.categoria}</b>.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button variant="primary" onClick={aceitarSugestao}>Criar regra</Button>
+            <Button variant="ghost" onClick={() => setSugestao(null)}>Agora não</Button>
+          </div>
         </Card>
       )}
 
