@@ -3,23 +3,25 @@
 /**
  * Funil de dinheiro unificado (Receber / Pagar) — junta num só lugar, em abas,
  * a EXECUÇÃO (Central de recebimentos/pagamentos) e a LISTA de TÍTULOS
- * (MovementsScreen: aberto/realizado/recorrente + filtro por conta). Acaba com
- * os dois menus que levavam ao mesmo ponto. Deep-link por `?aba=`; as rotas
- * antigas (`/recebiveis`, `/pagaveis`) redirecionam para a aba Títulos.
+ * (MovementsScreen: aberto/realizado/recorrente + filtro por conta), com o
+ * EXTRATO (`ExtratoTransacoes`) na frente. Acaba com os dois menus que levavam
+ * ao mesmo ponto. Deep-link por `?aba=`; as rotas antigas (`/recebiveis`,
+ * `/pagaveis`) redirecionam para a aba Títulos.
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { MovementsScreen } from "./MovementsScreen";
+import { ExtratoTransacoes } from "./ExtratoTransacoes";
 import { CentralRecebimentosView } from "@/components/recebimentos/CentralRecebimentosView";
 import { CentralPagamentosView } from "@/components/pagamentos/CentralPagamentosView";
 
-type Aba = "executar" | "titulos";
-const isAba = (s: string | null): s is Aba => s === "executar" || s === "titulos";
+type Aba = "transacoes" | "executar" | "titulos";
+const isAba = (s: string | null): s is Aba => s === "transacoes" || s === "executar" || s === "titulos";
 
 export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
   const router = useRouter();
   const base = direction === "saida" ? "/pagamentos" : "/recebimentos";
-  const [aba, setAba] = React.useState<Aba>("executar");
+  const [aba, setAba] = React.useState<Aba>("transacoes");
 
   React.useEffect(() => {
     const a = new URLSearchParams(window.location.search).get("aba");
@@ -29,6 +31,7 @@ export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
   const trocar = (id: Aba) => { setAba(id); router.replace(`${base}?aba=${id}`, { scroll: false }); };
 
   const ABAS: { id: Aba; label: string }[] = [
+    { id: "transacoes", label: "Transações" },
     { id: "executar", label: direction === "saida" ? "Pagar" : "Receber" },
     { id: "titulos", label: direction === "saida" ? "Títulos a pagar" : "Títulos a receber" },
   ];
@@ -48,9 +51,9 @@ export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
         ))}
       </div>
 
-      {aba === "executar"
-        ? (direction === "saida" ? <CentralPagamentosView /> : <CentralRecebimentosView />)
-        : <MovementsScreen direction={direction} />}
+      {aba === "transacoes" && <ExtratoTransacoes direction={direction} />}
+      {aba === "executar" && (direction === "saida" ? <CentralPagamentosView /> : <CentralRecebimentosView />)}
+      {aba === "titulos" && <MovementsScreen direction={direction} />}
     </div>
   );
 }
