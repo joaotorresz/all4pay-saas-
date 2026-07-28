@@ -109,8 +109,8 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
 - **Botões: "nada parece botão" TOTAL** — `Button` sem chrome nem fill escuro
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
-  O FAB **Guia** é um pill BRANCO flat (o de **Upload** saiu da Home — a entrada
-  de dados vive em `/upload`). O FAB **All 4 Pay AI** é a exceção sancionada:
+  Os FABs **Guia** e **Upload de dados** são pills BRANCOS flat; o de Upload
+  saiu da Home e só aparece em `/upload`, a casa da entrada de dados. O FAB **All 4 Pay AI** é a exceção sancionada:
   **centralizado** no rodapé (`left-1/2 -translate-x-1/2`), carrega o **degradê
   oficial da marca** com texto em **`on-lime`** e, num **tile BRANCO**, o **"4" da
   marca** (`Marca4` em `AssistantWidget.tsx` — o raio do wordmark, vetorizado do
@@ -1081,10 +1081,12 @@ por mês + lista `custosMensais` (contraparte · categoria · cadência ·
 amostra classificada + confirmação (`aplicarOnboarding`).
 
 **Wizard rápido** (`src/components/upload/UploadWizard.tsx`): modal de **3 etapas**
-que **não navega**, aberto pelo evento `a4p:open-upload` (montado no
-`OverviewGrid`). O FAB "Upload de dados" que o disparava **saiu da Home** — o
-rodapé ficou com um único FAB, o da IA; o wizard segue montado e disponível pelo
-evento:
+que **não navega**, aberto pelo evento `a4p:open-upload`. O FAB **"Upload de
+dados"** (documento avulso, manual) **saiu da Home e mora em `/upload`**
+(`IngestaoView`): a Home ficou com um FAB só, o da IA, e o botão está na casa
+dele — vale para qualquer aba da esteira e abre por cima dela. O `UploadWizard`
+está montado nos **dois** lugares (`OverviewGrid` e `IngestaoView`) — sem o
+ouvinte na tela ativa o evento não teria efeito:
 1. **Enviar** — caixa arrastável (boleto/comprovante/nota PNG·JPG·PDF; OFX/CSV em lote).
 2. **Leitura inteligente** — `lerDocumento()` (`src/lib/ocr-ingest.ts`: OCR por IA/
    local, ou FDIP p/ extrato) → `analisarDocumento()` (`src/lib/upload-doc.ts`):
