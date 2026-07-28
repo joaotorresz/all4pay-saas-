@@ -85,7 +85,6 @@ export const SECTIONS: Section[] = [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
       { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
-      { label: "Arquitetura & infraestrutura", href: "/plataforma", icon: "cpu" },
     ],
   },
 ];

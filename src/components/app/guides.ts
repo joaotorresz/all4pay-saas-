@@ -434,19 +434,6 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/dados": {
-    titulo: "Inteligência de dados — moat",
-    intro: "Cada empresa vira sinal de uma rede que aprende junto (cross-tenant): DNA financeiro, modelo auto-aprendiz, benchmark e crédito.",
-    comoUsar: "Leia o DNA e o benchmark vs setor; o modelo melhora a acurácia conforme mais empresas entram (curva de aprendizado).",
-    exemplo: "Veja 'X% dos pares semelhantes entraram em stress' e a PD recomendada para crédito.",
-    secoes: [
-      blocos([
-        { nome: "DNA financeiro", desc: "Arquétipo (agressiva/conservadora/sazonal…) + traços.", match: "DNA financeiro" },
-        { nome: "Benchmark vs setor", desc: "Seu valor vs mediana e percentil dos pares.", match: "Benchmark vs setor" },
-        { nome: "Credit intelligence", desc: "Probabilidade de inadimplência + limite + confiabilidade.", match: "Credit intelligence" },
-      ]),
-    ],
-  },
 
   /* ----------------------------- Equipe / Plataforma ----------------------------- */
   "/governanca": {
@@ -459,49 +446,6 @@ export const GUIDES: Record<string, Guide> = {
         { nome: "Trilha de auditoria", desc: "Eventos encadeados por SHA-256 + flags before/after.", match: "Trilha de auditoria" },
         { nome: "Policy engine / RBAC", desc: "Decisão por contexto; matriz papel × ação.", match: "Policy engine" },
         { nome: "Escada de aprovação", desc: "Fluxo por faixa de valor + biometria + SLA.", match: "Fluxo de aprovação" },
-      ]),
-    ],
-  },
-  "/plataforma": {
-    titulo: "Plataforma financeira",
-    intro: "A camada de infraestrutura em um hub: Arquitetura institucional (10 camadas, Treasury Core, reliability), Infraestrutura (Double-Entry Ledger Core, idempotência, fila) e Orquestração event-driven — em abas.",
-    comoUsar: "Troque entre as abas Arquitetura, Infraestrutura e Orquestração; cada uma tem um console interativo (dispare eventos, processe pagamentos, teste resiliência).",
-    exemplo: "Na aba Orquestração, dispare 'PIX_RECEBIDO R$ 2.000' → veja a cascata (ledger, recálculo de risco, webhook).",
-    secoes: [],
-  },
-  "/orquestracao": {
-    titulo: "Orquestração — Financial Operating System",
-    intro: "Toda ação vira evento e propaga pela cascata (event sourcing). Dispare um evento e veja o sistema reagir, com ledger e grafo.",
-    comoUsar: "Escolha tipo/valor/contraparte (ou um preset) e clique Orquestrar; acompanhe a cascata, o event store e o ledger.",
-    exemplo: "Dispare 'PIX_RECEBIDO R$ 2.000' → veja o ledger, o recálculo de risco e o webhook na cascata.",
-    secoes: [
-      blocos([
-        { nome: "Disparar evento", desc: "Escolha tipo/valor/contraparte e Orquestrar.", match: "Disparar evento" },
-        { nome: "Cascata", desc: "Event Store → Ledger → recálculo → decisão → auditoria → webhook.", match: "Cascata de orquestração" },
-      ]),
-    ],
-  },
-  "/infraestrutura": {
-    titulo: "Infraestrutura financeira",
-    intro: "A fundação bancária: ledger como verdade absoluta, idempotência, fila com retry e observabilidade de invariantes.",
-    comoUsar: "Processe um pagamento no orquestrador, repita a chave (idempotência) e simule falha + retry; acompanhe as invariantes.",
-    exemplo: "Reenvie o mesmo pagamento (mesma chave) → o sistema não paga 2x (idempotência).",
-    secoes: [
-      blocos([
-        { nome: "Ledger Core", desc: "Dupla partida; saldo derivado; rejeita transação desbalanceada.", match: "Ledger Core" },
-        { nome: "Payment Orchestrator / Fila", desc: "Idempotência → fila → ledger → liquidação; retry/backoff.", match: "Payment Orchestrator" },
-      ]),
-    ],
-  },
-  "/arquitetura": {
-    titulo: "Arquitetura institucional",
-    intro: "A visão de financial operating infrastructure: 10 camadas, serviços distribuídos, Treasury Core e Reliability Layer.",
-    comoUsar: "Explore as camadas e serviços; no Treasury Core veja posição/concentração/liquidez; rode o cenário de falha do Reliability.",
-    exemplo: "Reliability: rode o cenário → circuit breaker abre, DLQ recebe e recupera sem duplicar dinheiro.",
-    secoes: [
-      blocos([
-        { nome: "Treasury Core", desc: "Posição, concentração bancária (HHI), liquidez, cash positioning.", match: "Treasury Core" },
-        { nome: "Reliability layer", desc: "Circuit breaker / DLQ / lock em ação, sem duplicar.", match: "Reliability layer" },
       ]),
     ],
   },

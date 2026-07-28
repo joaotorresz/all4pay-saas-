@@ -7,21 +7,19 @@ import { QuantView } from "@/components/quant/QuantView";
 import { DecisaoView } from "@/components/decisao/DecisaoView";
 import { RiscoView } from "@/components/risco/RiscoView";
 import { AutonomoView } from "@/components/autonomo/AutonomoView";
-import { DadosView } from "@/components/dados/DadosView";
 
 /**
  * Centro de Inteligência — um cérebro, não cinco. Onda 3.2: Quant/Decisão/Risco/
  * Autônomo/Dados viram ABAS dentro do Copiloto (em vez de 5 destinos de menu).
  * Só a aba ativa renderiza → só ela consome dados.
  */
-type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo" | "dados";
+type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo";
 const ABAS: { id: Aba; label: string }[] = [
   { id: "copiloto", label: "All4Pay IA" },
   { id: "quant", label: "Quant" },
   { id: "decisao", label: "Decisão" },
   { id: "risco", label: "Risco" },
   { id: "autonomo", label: "Autônomo" },
-  { id: "dados", label: "Dados" },
 ];
 
 export function InteligenciaShell() {
@@ -59,7 +57,6 @@ export function InteligenciaShell() {
       {aba === "decisao" && <DecisaoView />}
       {aba === "risco" && <RiscoView />}
       {aba === "autonomo" && <AutonomoView />}
-      {aba === "dados" && <DadosView />}
     </div>
   );
 }

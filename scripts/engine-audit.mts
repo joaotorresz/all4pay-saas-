@@ -9,7 +9,6 @@ import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
 import { reconciliarAutomaticamente } from "@/core/financial-os/reconciliation.engine";
 import type { FinancialTransaction } from "@/core/financial-os/types";
-import { EventStore } from "@/core/orchestration/event-store";
 import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
 // (parseTexto reusado abaixo para os guards de parsing pt-BR/OFX)
@@ -83,15 +82,6 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const r2 = reconciliarAutomaticamente([txA, txB], [L1, L2]);
   const usados = [...r2.auto, ...r2.sugestoes].map((m) => m.ledger?.id).filter(Boolean).sort();
   ok("recon: colisão não estranha match único (L1+L2 usados)", usados.join(",") === "L1,L2" && r2.excecoes.length === 0);
-}
-
-// ── event-store: adulteração de campo de identidade quebra a integridade ────
-{
-  const es = new EventStore();
-  es.append({ tipo: "PIX_RECEBIDO", entidadeId: "org1", valor: 500, contraparte: "Cliente A", prioridade: "media", payload: {} });
-  ok("event-store: íntegro antes de adulterar", es.verificarIntegridade().intacta === true);
-  es.todos()[0].contraparte = "Cliente B";
-  ok("event-store: adulterar contraparte quebra integridade", es.verificarIntegridade().intacta === false);
 }
 
 // ── decision/risk-matrix: burn>0 + saldo≤0 satura o risco operacional ───────
