@@ -11,7 +11,8 @@ import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
 import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
-import { useFluxoCaixa, useContas } from "./hooks";
+import { useFluxoCaixa, useContas, useComparativo } from "./hooks";
+import { Comparativos } from "./Comparativos";
 import type {
   FluxoModelo, FluxoInteligente, PrevRealLinha, DiaCalendario, CrossCheck,
   ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
@@ -33,6 +34,7 @@ function Inner() {
   const { filtros } = useFluxoFiltros();
   const contas = useContas();
   const { data, isLoading } = useFluxoCaixa(filtros);
+  const comp = useComparativo(filtros);
   const { pro } = useModo();
 
   return (
@@ -40,6 +42,9 @@ function Inner() {
       <Card className="flex flex-col gap-4">
         <Header contas={contas.data ?? []} />
       </Card>
+
+      {/* Comparativos período × período anterior — a leitura de topo da página. */}
+      <Comparativos c={comp.data} isLoading={comp.isLoading} />
 
       {isLoading || !data ? (
         <Skeleton className="h-[240px]" />
