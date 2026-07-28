@@ -14,9 +14,6 @@ import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
 import { analisarVariancia, type OrcamentoOverride, type LinhaOrcId, type LinhaVariancia } from "@/core/budget";
 import { loadOrcamento, saveOrcamento } from "@/lib/budget";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { AppShell } from "@/components/app/AppShell";
 
 type Preset = "mes" | "mes_anterior" | "ytd" | "12m";
 const PRESETS: { id: Preset; label: string }[] = [
@@ -60,7 +57,7 @@ export function OrcamentoVarianciaView() {
   const limpar = () => { setOverride({}); void saveOrcamento({}); };
 
   return (
-    <AppShell title="Orçamento vs Realizado" crumb="Relatórios" actions={isDemo ? <DemoBadge /> : null}>
+    <>
       {/* Controles período + regime */}
       <div className="flex items-center gap-4 flex-wrap mb-4">
         <div className="flex items-center gap-1 flex-wrap">
@@ -201,7 +198,7 @@ export function OrcamentoVarianciaView() {
           </Card>
         </div>
       )}
-    </AppShell>
+    </>
   );
 }
 

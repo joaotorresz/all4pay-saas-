@@ -23,6 +23,8 @@ import { appendImported, setImported, clearImported, importedMovements, imported
 import { responderLocal } from "@/core/assistant/engine";
 import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
+import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
+import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido } from "@/core/cnae";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
@@ -564,6 +566,84 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const bate = (v: number) => { const p = brlParts(v); return `R$${p.integer},${p.decimals}` === formatBRL(v).replace(/\s/g, ""); };
   ok("brlParts carrega o inteiro em 1,999 → 2,00 (não 1,100)", brlParts(1.999).integer === "2" && brlParts(1.999).decimals === "00");
   ok("brlParts bate com formatBRL (1.999/9.996/99.995/1234.5/33.333)", [1.999, 9.996, 99.995, 1234.5, 33.333, 100, 0.5].every(bate));
+}
+
+
+// ── core/aquisicao: simulador "posso comprar?" — valores fechados ───────────
+{
+  // Caso do dono: entra 10k/mês, sai 6k, caixa 40k. Carro 150k, 20k de entrada,
+  // 48x de 3.200 + 1.250/mês de custo de posse.
+  const sit = { caixaAtual: 40000, receitaMensal: 10000, despesaMensal: 6000 };
+  const r = simularAquisicao(sit, { tipo: "veiculo", valor: 150000, entrada: 20000, parcelas: 48, taxaMensal: 0.018, parcelaInformada: 3200, custoMensalExtra: 1250 });
+  ok("aquisicao: sobra antes = receita − despesa (4000)", r.sobraAntes === 4000, `${r.sobraAntes}`);
+  ok("aquisicao: peso/mês = parcela + custo (4450)", r.pesoMensal === 4450, `${r.pesoMensal}`);
+  ok("aquisicao: sobra depois = 4000 − 4450 = −450", r.sobraDepois === -450, `${r.sobraDepois}`);
+  ok("aquisicao: caixa após entrada = 40k − 20k", r.caixaDepoisEntrada === 20000, `${r.caixaDepoisEntrada}`);
+  ok("aquisicao: sobra negativa ⇒ inviável", r.veredito === "inviavel", r.veredito);
+  ok("aquisicao: total pago = entrada + 48×3200", r.totalPago === 20000 + 48 * 3200, `${r.totalPago}`);
+  ok("aquisicao: juros = total parcelas − financiado", r.juros === 48 * 3200 - 130000, `${r.juros}`);
+  ok("aquisicao: comprometimento = 4450/10000", Math.abs(r.comprometimentoRenda - 0.445) < 1e-9, `${r.comprometimentoRenda}`);
+  ok("aquisicao: projeção tem horizonte parcelas+12", r.projecao.length === 48 + 12 + 1, `${r.projecao.length}`);
+  ok("aquisicao: mês 0 da projeção = caixa após entrada", r.projecao[0].comCompra === 20000);
+  ok("aquisicao: baseline cresce pela sobra (m12 = 40k+12×4k)", r.projecao[12].semCompra === 40000 + 12 * 4000, `${r.projecao[12].semCompra}`);
+  ok("aquisicao: alternativas não repetem a parcela informada", r.alternativas.every((a) => a.parcela !== 3200) || r.alternativas.length === 0);
+  ok("aquisicao: nenhum número vira NaN/Infinity", [r.parcela, r.totalPago, r.juros, r.sobraDepois, r.caixaFinal, r.comprometimentoRenda, r.mesesDeReserva].every(Number.isFinite));
+
+  // Cenário confortável: mesma renda, compra pequena à vista.
+  const ok2 = simularAquisicao(sit, { tipo: "outro", valor: 5000, entrada: 5000, parcelas: 0, taxaMensal: 0 });
+  ok("aquisicao: compra pequena à vista ⇒ confortável", ok2.veredito === "confortavel", ok2.veredito);
+  ok("aquisicao: à vista não tem parcela nem juros", ok2.parcela === 0 && ok2.juros === 0);
+
+  // Entrada maior que o caixa é inviável, sempre.
+  const nope = simularAquisicao(sit, { tipo: "outro", valor: 90000, entrada: 90000, parcelas: 0, taxaMensal: 0 });
+  ok("aquisicao: entrada > caixa ⇒ inviável", nope.veredito === "inviavel", nope.veredito);
+
+  // Dados degenerados não podem explodir.
+  const zero = simularAquisicao({ caixaAtual: 0, receitaMensal: 0, despesaMensal: 0 }, { tipo: "outro", valor: 0, entrada: 0, parcelas: 0, taxaMensal: 0 });
+  ok("aquisicao: tudo zero não gera NaN", [zero.sobraDepois, zero.comprometimentoRenda, zero.mesesDeReserva, zero.caixaFinal].every(Number.isFinite));
+
+  // Taxa implícita: 100k em 12x de 10.000 tem juros > 0 e < 5% a.m.
+  const ti = taxaImplicita(100000, 10000, 12);
+  ok("aquisicao: taxa implícita de 100k→12×10k fica entre 2,9% e 3,0% a.m.", ti > 0.029 && ti < 0.030, `${ti}`);
+  ok("aquisicao: sem juros (soma = principal) ⇒ taxa 0", taxaImplicita(12000, 1000, 12) === 0);
+
+  // situacaoDe: médias mensais a partir dos lançamentos realizados.
+  const sitDe = situacaoDe({
+    hoje: "2024-06-15", saldoAtual: 10000,
+    movements: [
+      { type: "entrada", amount: 3000, status: "pago", due_date: "2024-05-10", paid_date: "2024-05-10" },
+      { type: "entrada", amount: 3000, status: "pago", due_date: "2024-06-10", paid_date: "2024-06-10" },
+      { type: "saida", amount: 1000, status: "pago", due_date: "2024-05-20", paid_date: "2024-05-20" },
+      { type: "saida", amount: 1000, status: "pago", due_date: "2024-06-05", paid_date: "2024-06-05" },
+      { type: "saida", amount: 9999, status: "cancelado", due_date: "2024-06-05", paid_date: "2024-06-05" },
+    ],
+  });
+  ok("aquisicao/situacaoDe: 2 meses vistos ⇒ receita média 3000", sitDe.receitaMensal === 3000, `${sitDe.receitaMensal}`);
+  ok("aquisicao/situacaoDe: despesa média 1000 (cancelado fora)", sitDe.despesaMensal === 1000, `${sitDe.despesaMensal}`);
+  ok("aquisicao/situacaoDe: caixa = saldo atual", sitDe.caixaAtual === 10000);
+}
+
+// ── core/cnae: extração de CNPJ e mapa de atividade → categoria ─────────────
+{
+  ok("cnae: extrai CNPJ mascarado do histórico", extrairCNPJ("PIX ENVIADO 12.345.678/0001-95 POSTO") === "12345678000195");
+  ok("cnae: extrai CNPJ cru colado", extrairCNPJ("PIX QRS 45997418000153 LOJA") === "45997418000153");
+  ok("cnae: NÃO inventa CNPJ onde não há", extrairCNPJ("COMPRA CARTAO 5412 MERCADO") === null);
+  ok("cnae: linha digitável de boleto não vira CNPJ", extrairCNPJ("BOLETO 34191790010104351004791020150008291070026000") === null);
+  ok("cnae: rejeita dígito verificador errado", !cnpjValido("12345678000100"));
+  ok("cnae: rejeita sequência repetida", !cnpjValido("11111111111111"));
+  ok("cnae: extrai CPF válido", extrairCPF("PIX RECEBIDO 529.982.247-25 JOAO") === "52998224725");
+
+  const cat = (c: string) => categoriaPorCNAE(c)?.categoria;
+  ok("cnae: 4731 (posto) → Combustível", cat("4731-8/00") === "Combustível");
+  ok("cnae: 6201 (software) → Assinaturas / software", cat("6201-5/01") === "Assinaturas / software");
+  ok("cnae: 6821 (imobiliária) → Aluguel", cat("6821-8/01") === "Aluguel");
+  ok("cnae: 6920 (contabilidade) → Serviços profissionais", cat("6920-6/01") === "Serviços profissionais");
+  ok("cnae: 5611 (restaurante) → Alimentação", cat("5611-2/01") === "Alimentação");
+  ok("cnae: 61 (telecom) → Utilidades", cat("6110-8/01") === "Utilidades");
+  ok("cnae: 84 (adm. pública) → Impostos", cat("8411-6/00") === "Impostos");
+  ok("cnae: específico vence a divisão (4731 ≠ 47 genérico)", cat("4731-8/00") !== cat("4781-4/00"));
+  ok("cnae: subclasse é mais confiante que divisão", (categoriaPorCNAE("4731-8/00")?.confianca ?? 0) > (categoriaPorCNAE("6201-5/01")?.confianca ?? 0));
+  ok("cnae: CNAE vazio/curto → null", categoriaPorCNAE("") === null && categoriaPorCNAE("4") === null);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

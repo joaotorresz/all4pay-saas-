@@ -11,6 +11,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
 import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@/core/fdip";
+import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
 import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
 import { hasImported } from "@/lib/imported";
@@ -42,6 +43,8 @@ export function UploadView() {
   const [iaCat, setIaCat] = React.useState(false);
   const [catBusy, setCatBusy] = React.useState(false);
   const [catMsg, setCatMsg] = React.useState<string | null>(null);
+  const [cnaeBusy, setCnaeBusy] = React.useState(false);
+  const [cnaeMsg, setCnaeMsg] = React.useState<string | null>(null);
   const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
@@ -70,13 +73,35 @@ export function UploadView() {
   const temBaixaConfianca = (rep: FDIPReport) =>
     rep.classificacoes.some((c) => c.categoria !== "Transferência" && c.confianca < 0.9);
 
-  // Analisa e, com chave, dispara o Puzzlebot UMA vez por texto (automático).
+  /**
+   * CNPJ → CNAE: para os lançamentos que trazem um CNPJ (Pix/TED para empresa),
+   * consulta a atividade econômica e pré-categoriza. Roda ANTES da IA porque é
+   * determinístico e gratuito — o que ele resolve, a IA não precisa adivinhar.
+   * Best-effort: sem rede, o relatório segue como está.
+   */
+  const rodarCNAE = async (rep: FDIPReport) => {
+    setCnaeBusy(true); setCnaeMsg(null);
+    try {
+      const r = await enriquecerPorCNPJ(rep.records, rep.classificacoes);
+      if (r.recategorizados > 0) {
+        setReport({ ...rep, classificacoes: r.classificacoes });
+        setCnaeMsg(`${r.recategorizados} lançamento(s) categorizados pela atividade (CNAE) de ${r.empresasResolvidas} CNPJ(s).`);
+      }
+      return r.classificacoes;
+    } catch { return rep.classificacoes; }
+    finally { setCnaeBusy(false); }
+  };
+
+  // Analisa → CNAE (grátis) → Puzzlebot (com chave), UMA vez por texto.
   const analisarEAuto = (t: string) => {
     const rep = analisar(t);
-    if (rep && iaCat && autoRef.current !== t && temBaixaConfianca(rep)) {
-      autoRef.current = t;
-      void rodarAuto(rep, t);
-    }
+    if (!rep || autoRef.current === t) return;
+    autoRef.current = t;
+    void (async () => {
+      const cls = await rodarCNAE(rep);
+      const pos: FDIPReport = { ...rep, classificacoes: cls };
+      if (iaCat && temBaixaConfianca(pos)) await rodarAuto(pos, t);
+    })();
   };
 
   const carregarAmostra = () => { const a = amostraExtrato(); setTexto(a); analisarEAuto(a); };
@@ -187,7 +212,8 @@ export function UploadView() {
       {report && (
         <RevisaoImportacao
           report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
-          onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy} catMsg={catMsg}
+          onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}
+          catMsg={[cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />
       )}
       {report && (resultado || importado) && (
