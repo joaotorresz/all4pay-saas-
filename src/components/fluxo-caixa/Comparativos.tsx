@@ -22,7 +22,7 @@ import {
 import { Card, Icon, BRL, Skeleton } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
-import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados } from "@/core/cashflow/comparativo";
+import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -290,6 +290,33 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
 
 /* ========================= 4) Sankey "Para onde foi" ========================= */
 /**
+ * Cor de CADA nó — e, por tabela, do rastro que sai dele:
+ *   · Receita        → verde (é entrada)
+ *   · Despesas       → vermelho
+ *   · categorias     → tons do vermelho, um por categoria
+ *   · contrapartes   → HERDAM o tom da categoria que mais lhes manda dinheiro,
+ *                      então a subárvore inteira fica na mesma família de cor.
+ */
+function coresDosNos(s: SankeyDados): string[] {
+  const cores: string[] = new Array(s.nodes.length).fill(NEGATIVE);
+  let iCat = 0;
+  s.nodes.forEach((n, i) => {
+    if (n.nivel === 0) cores[i] = POSITIVE;
+    else if (n.nivel === 1) cores[i] = NEGATIVE;
+    else if (n.nivel === 2) cores[i] = tomDe(NEGATIVE, iCat++);
+  });
+  // Folhas: herdam a cor do maior pai (a contraparte pode receber de várias).
+  const maiorPai = new Map<number, { valor: number; source: number }>();
+  for (const l of s.links) {
+    if (s.nodes[l.target]?.nivel !== 3) continue;
+    const atual = maiorPai.get(l.target);
+    if (!atual || l.value > atual.valor) maiorPai.set(l.target, { valor: l.value, source: l.source });
+  }
+  for (const [alvo, { source }] of Array.from(maiorPai.entries())) cores[alvo] = cores[source];
+  return cores;
+}
+
+/**
  * Nó com rótulo + valor ao lado, como na referência: os dois primeiros níveis
  * (Receita/Despesas) rotulam à DIREITA e os demais à esquerda. O lado sai do
  * `nivel` do próprio dado — `containerWidth` não é confiável aqui (o Recharts
@@ -298,8 +325,9 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
 function SankeyNode(props: {
   x?: number; y?: number; width?: number; height?: number; index?: number;
   payload?: { name?: string; value?: number; nivel?: number };
+  cores?: string[];
 }) {
-  const { x = 0, y = 0, width = 0, height = 0, payload } = props;
+  const { x = 0, y = 0, width = 0, height = 0, payload, index = 0, cores = [] } = props;
   const nome = payload?.name ?? "";
   const valor = payload?.value ?? 0;
   const aDireita = (payload?.nivel ?? 0) >= 2;
@@ -307,13 +335,54 @@ function SankeyNode(props: {
   const anchor = aDireita ? "end" : "start";
   return (
     <Layer>
-      <Rectangle x={x} y={y} width={width} height={height} fill="var(--color-ink)" fillOpacity={0.55} radius={[3, 3, 3, 3]} />
+      <Rectangle x={x} y={y} width={width} height={height} fill={cores[index] ?? NEGATIVE} radius={[3, 3, 3, 3]} />
       {height > 12 && (
         <>
           <text x={tx} y={y + height / 2 - 5} textAnchor={anchor} fontSize={12} fill="var(--color-ink)" fontWeight={500}>{nome}</text>
           <text x={tx} y={y + height / 2 + 10} textAnchor={anchor} fontSize={11} fill={FAINT} className="tabular-nums">{formatBRL(valor)}</text>
         </>
       )}
+    </Layer>
+  );
+}
+
+/**
+ * Faixa em GRADIENTE da cor do nó de origem para a do nó de destino — o rastro
+ * "segue a cor referente". No primeiro elo isso desenha a leitura toda: o verde
+ * da receita virando o vermelho da despesa ao longo do caminho.
+ */
+function SankeyLink(props: {
+  sourceX?: number; targetX?: number; sourceY?: number; targetY?: number;
+  sourceControlX?: number; targetControlX?: number; linkWidth?: number; index?: number;
+  cores?: string[]; ligacoes?: SankeyLigacao[];
+}) {
+  const {
+    sourceX = 0, targetX = 0, sourceY = 0, targetY = 0,
+    sourceControlX = 0, targetControlX = 0, linkWidth = 0, index = 0,
+    cores = [], ligacoes = [],
+  } = props;
+  // Os índices vêm da NOSSA lista de ligações, pela posição: o `payload` que o
+  // Recharts entrega aqui não traz o índice dos nós (source/target chegam já
+  // resolvidos em objetos), e ler dele pintava todo rastro da cor do nó 0.
+  const l = ligacoes[index];
+  const corDe = cores[l?.source ?? 0] ?? NEGATIVE;
+  const corPara = cores[l?.target ?? 0] ?? NEGATIVE;
+  const gid = `a4pSankey${index}`;
+  return (
+    <Layer>
+      <defs>
+        <linearGradient id={gid} gradientUnits="userSpaceOnUse" x1={sourceX} y1={0} x2={targetX} y2={0}>
+          <stop offset="0%" stopColor={corDe} />
+          <stop offset="100%" stopColor={corPara} />
+        </linearGradient>
+      </defs>
+      <path
+        d={`M${sourceX},${sourceY}C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+        fill="none"
+        stroke={`url(#${gid})`}
+        strokeWidth={Math.max(1, linkWidth)}
+        strokeOpacity={0.34}
+      />
     </Layer>
   );
 }
@@ -333,6 +402,7 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
   }
   // A altura acompanha o número de nós — senão as faixas finas viram fio de cabelo.
   const altura = Math.max(320, Math.min(760, s.nodes.length * 46));
+  const cores = coresDosNos(s);
   return (
     <Card className="flex flex-col gap-3" info={{
       titulo: "Para onde foi",
@@ -346,11 +416,11 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
       <ResponsiveContainer width="100%" height={altura}>
         <Sankey
           data={{ nodes: s.nodes.map((n) => ({ name: n.name, nivel: n.nivel })), links: s.links }}
-          node={<SankeyNode />}
+          node={<SankeyNode cores={cores} />}
           nodePadding={22}
           nodeWidth={10}
           margin={{ top: 12, right: 170, bottom: 12, left: 24 }}
-          link={{ stroke: "var(--color-negative)", strokeOpacity: 0.12, fill: "var(--color-negative)", fillOpacity: 0.12 }}
+          link={<SankeyLink cores={cores} ligacoes={s.links} />}
         >
           <Tooltip
             content={({ active, payload }) => {
