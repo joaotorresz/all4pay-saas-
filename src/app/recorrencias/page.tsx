@@ -1,14 +1,11 @@
 "use client";
 
-import { AppShell } from "@/components/app/AppShell";
-import { RecorrenciasView } from "@/components/recorrencias/RecorrenciasView";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+// Consolidado no hub (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function RecorrenciasPage() {
-  return (
-    <AppShell title="Recorrências" crumb="Receber · receita recorrente (MRR)" actions={isDemo ? <DemoBadge /> : undefined}>
-      <RecorrenciasView />
-    </AppShell>
-  );
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/recebimentos?aba=recorrencias"); }, [r]);
+  return null;
 }

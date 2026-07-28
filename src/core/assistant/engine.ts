@@ -16,6 +16,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
+import { simularAquisicao, situacaoDe, presetPor, VEREDITO_LABEL, type TipoDecisao } from "@/core/aquisicao";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
 import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
@@ -147,6 +148,72 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const verbo = tipo === "entrada" ? "receber" : "pagar";
     if (!ab.length) return R(`Nada previsto para ${verbo} ${rotulo} (sem títulos pendentes nesse intervalo).`, [{ label: "Previsto", valor: fmt(0) }], ["previsto futuro"]);
     return R(`${rotulo.charAt(0).toUpperCase() + rotulo.slice(1)} você tem ${fmt(total)} a ${verbo} em ${ab.length} título(s).`, [{ label: `A ${verbo}`, valor: fmt(total) }, { label: "Títulos", valor: String(ab.length) }], ["previsto futuro"]);
+  }
+
+  // ——— POSSO COMPRAR? (decisão de aquisição sobre o MEU caixa) ———
+  // Vem ANTES do simulador de financiamento: "posso comprar um carro de 150
+  // mil em 48x" não é uma conta de parcela — é "isso cabe no meu caixa?".
+  // A diferença está no enquadramento ("posso/consigo/vale a pena"), então a
+  // regex exige o verbo de decisão; "financiamento de 150 mil em 48x" (conta
+  // pura) continua caindo no simulador de financiamento logo abaixo.
+  if (/\b(posso|consigo|d[áa] (pra|para)|tenho como|vale a pena|compensa)\s+(comprar|adquirir|financiar|trocar|pegar|investir)|cabe no (meu )?(caixa|bolso|or[çc]amento)/.test(p)) {
+    const mMil = p.match(/r?\$?\s*(\d[\d.]*(?:,\d+)?)\s*(milh\w*|mil|k|\bmi\b)/i);
+    const mRaw = p.match(/r\$\s*(\d[\d.]*(?:,\d+)?)/i);
+    let valor = 0;
+    if (mMil) { const b = parseFloat(mMil[1].replace(/\./g, "").replace(",", ".")); valor = b * (/milh|^mi$/i.test(mMil[2]) ? 1e6 : 1e3); }
+    else if (mRaw) valor = parseFloat(mRaw[1].replace(/\./g, "").replace(",", "."));
+
+    if (valor > 0) {
+      // O tipo do bem vem da própria frase — e traz junto o custo de POSSE
+      // típico (um carro não custa só a parcela: IPVA, seguro, combustível).
+      const tipo: TipoDecisao =
+        /carro|ve[íi]culo|moto|caminh|autom[óo]vel/.test(p) ? "veiculo"
+        : /im[óo]vel|casa|apartament|terreno|sala comercial/.test(p) ? "imovel"
+        : /m[áa]quina|equipament|maquin[áa]rio/.test(p) ? "equipamento"
+        : /reforma|obra/.test(p) ? "reforma"
+        : /viagem|viajar/.test(p) ? "viagem"
+        : /estoque|mercadoria/.test(p) ? "estoque"
+        : /unidade|filial|ponto|loja/.test(p) ? "unidade"
+        : "outro";
+      const pre = presetPor(tipo);
+      const mParc = p.match(/(\d{1,3})\s*(x|vezes|parcelas)\b/i);
+      const parcelas = mParc ? Math.max(1, parseInt(mParc[1], 10)) : pre.parcelasPadrao;
+      const mTaxa = p.match(/(\d[\d.]*(?:,\d+)?)\s*%/);
+      const taxa = mTaxa ? parseFloat(mTaxa[1].replace(",", ".")) / 100 : pre.taxaMensalPadrao;
+      const mEnt = p.match(/(\d[\d.]*(?:,\d+)?)\s*(mil|k)?\s*de entrada/i);
+      const entrada = mEnt
+        ? parseFloat(mEnt[1].replace(/\./g, "").replace(",", ".")) * (mEnt[2] ? 1e3 : 1)
+        : Math.round(valor * pre.entradaPct);
+
+      const sit = situacaoDe(input);
+      const r = simularAquisicao(sit, {
+        tipo, valor, entrada, parcelas, taxaMensal: taxa,
+        custoMensalExtra: Math.round((valor * pre.custoAnualPct) / 12),
+      });
+
+      const alt = r.alternativas.find((a) => a.veredito === "confortavel" || a.veredito === "aperta");
+      const extra = r.veredito === "confortavel"
+        ? ""
+        : alt ? ` Alternativa: ${alt.titulo.toLowerCase()} — parcela ${fmt(alt.parcela)}.`
+        : "";
+      // O `resumo` do motor já abre com o veredito ("Cabe no seu caixa…"),
+      // então NÃO repetir o rótulo aqui.
+      const posse = pre.custoAnualPct > 0
+        ? ` Já incluí ~${fmt(Math.round((valor * pre.custoAnualPct) / 12))}/mês de custo de manter.`
+        : "";
+
+      return R(
+        `${r.resumo}${posse}${extra} Abra Orçamento → "Posso comprar?" para simular outras condições.`,
+        [
+          { label: "Parcela", valor: `${fmt(r.parcela)}/mês${parcelas > 0 ? ` × ${parcelas}` : ""}` },
+          { label: "Peso no seu mês", valor: fmt(r.pesoMensal) },
+          { label: "Sobra depois", valor: `${fmt(r.sobraDepois)}/mês` },
+          { label: "Comprometimento da renda", valor: `${Math.round(r.comprometimentoRenda * 100)}%` },
+          ...(r.mesAperto !== null ? [{ label: "Caixa fica negativo", valor: `no mês ${r.mesAperto}` }] : []),
+        ],
+        ["simulador de decisão (seu caixa, entradas e saídas reais)"],
+      );
+    }
   }
 
   // ——— SIMULAR EMPRÉSTIMO / FINANCIAMENTO / PARCELAMENTO ———

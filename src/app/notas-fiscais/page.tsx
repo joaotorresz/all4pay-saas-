@@ -1,14 +1,11 @@
 "use client";
 
-import { AppShell } from "@/components/app/AppShell";
-import { NfseView } from "@/components/nfse/NfseView";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+// Consolidado num hub: esta rota redireciona (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function NotasFiscaisPage() {
-  return (
-    <AppShell title="Notas fiscais (NFS-e)" crumb="Receber · obrigação fiscal" actions={isDemo ? <DemoBadge /> : undefined}>
-      <NfseView />
-    </AppShell>
-  );
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/vendas?aba=notas"); }, [r]);
+  return null;
 }

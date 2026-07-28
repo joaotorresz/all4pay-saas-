@@ -33,17 +33,13 @@ export const SECTIONS: Section[] = [
   },
   {
     id: "receber", label: "Receber", items: [
-      { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Vendas", href: "/vendas", icon: "credit-card" },
-      { label: "Assinaturas / Recorrências", href: "/recorrencias", icon: "repeat" },
-      { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
-      { label: "Boletos", href: "/boletos", icon: "file-text" },
+      { label: "Receber", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Vendas e NFs", href: "/vendas", icon: "credit-card" },
     ],
   },
   {
     id: "pagar", label: "Pagar", items: [
-      { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
+      { label: "Pagar", href: "/pagamentos", icon: "arrow-up-right" },
     ],
   },
   {
@@ -56,39 +52,18 @@ export const SECTIONS: Section[] = [
   {
     id: "dados", label: "Dados & Cadastros", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
-      { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
-      { label: "Serviços", href: "/servicos", icon: "receipt" },
+      { label: "Cadastros", href: "/cadastros", icon: "users" },
     ],
   },
   // ----- Profundidade — revelada no Modo Pro -----
   {
-    id: "fiscal", label: "Fiscal & vendas", pro: true, items: [
-      { label: "Nova venda", href: "/nova-venda", icon: "plus" },
-      { label: "Painel de vendas", href: "/painel-vendas", icon: "credit-card" },
-      { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
+    id: "fiscal", label: "Fiscal", pro: true, items: [
       { label: "Impostos", href: "/impostos", icon: "receipt" },
-      { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
-      { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
     ],
   },
   {
     id: "contabilidade", label: "Contabilidade", pro: true, items: [
-      { label: "Razão contábil (GL)", href: "/razao", icon: "receipt" },
-      { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
-      { label: "Reconhecimento de receita", href: "/receita", icon: "repeat" },
-      { label: "Relatórios", href: "/relatorios", icon: "receipt" },
-      { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
-      { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers" },
-      { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
-      { label: "TXT Domínio · Envio NFs", href: "/contabilidade", icon: "file-text" },
-      { label: "Consolidado (multiempresa)", href: "/consolidado", icon: "building" },
-    ],
-  },
-  {
-    id: "estrutura", label: "Estrutura", pro: true, items: [
-      { label: "Projetos", href: "/projetos", icon: "target" },
-      { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
+      { label: "Contabilidade", href: "/contabilidade", icon: "receipt" },
     ],
   },
   {
@@ -106,7 +81,6 @@ export const SECTIONS: Section[] = [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
       { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
-      { label: "Arquitetura & infraestrutura", href: "/plataforma", icon: "cpu" },
     ],
   },
 ];
