@@ -12,6 +12,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
 import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@/core/fdip";
 import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
+import { listarRegras } from "@/lib/regras";
+import { aplicarRegrasNoRelatorio } from "@/lib/regras-aplicar";
 import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
 import { hasImported } from "@/lib/imported";
@@ -45,6 +47,7 @@ export function UploadView() {
   const [catMsg, setCatMsg] = React.useState<string | null>(null);
   const [cnaeBusy, setCnaeBusy] = React.useState(false);
   const [cnaeMsg, setCnaeMsg] = React.useState<string | null>(null);
+  const [regraMsg, setRegraMsg] = React.useState<string | null>(null);
   const autoRef = React.useRef<string>(""); // texto já auto-categorizado (anti-loop)
 
   React.useEffect(() => { setImportado(hasImported()); }, []);
@@ -92,14 +95,31 @@ export function UploadView() {
     finally { setCnaeBusy(false); }
   };
 
-  // Analisa → CNAE (grátis) → Puzzlebot (com chave), UMA vez por texto.
+  /**
+   * Cascata de classificação, do mais explícito ao mais especulativo:
+   *   REGRA do dono → CNPJ/CNAE → Puzzlebot (IA).
+   * Cada etapa só recebe o que a anterior não resolveu.
+   */
   const analisarEAuto = (t: string) => {
     const rep = analisar(t);
     if (!rep || autoRef.current === t) return;
     autoRef.current = t;
     void (async () => {
-      const cls = await rodarCNAE(rep);
-      const pos: FDIPReport = { ...rep, classificacoes: cls };
+      // 1) regras do dono — síncrono, vence tudo
+      const regras = listarRegras();
+      const rr = aplicarRegrasNoRelatorio(rep.records, rep.classificacoes, regras);
+      let atual: FDIPReport = rep;
+      if (rr.aplicados > 0) {
+        atual = { ...rep, classificacoes: rr.classificacoes };
+        setReport(atual);
+        setRegraMsg(`${rr.aplicados} lançamento(s) categorizados pelas suas regras (${rr.nomes.slice(0, 3).join(", ")}${rr.nomes.length > 3 ? "…" : ""}).`);
+      } else {
+        setRegraMsg(null);
+      }
+      // 2) CNPJ → CNAE
+      const cls = await rodarCNAE(atual);
+      const pos: FDIPReport = { ...atual, classificacoes: cls };
+      // 3) IA, só no que sobrou em dúvida
       if (iaCat && temBaixaConfianca(pos)) await rodarAuto(pos, t);
     })();
   };
@@ -213,7 +233,7 @@ export function UploadView() {
         <RevisaoImportacao
           report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
           onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}
-          catMsg={[cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
+          catMsg={[regraMsg, cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />
       )}
       {report && (resultado || importado) && (

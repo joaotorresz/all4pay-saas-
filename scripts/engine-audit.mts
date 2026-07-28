@@ -24,6 +24,7 @@ import { buscarKB } from "@/lib/assistant-kb";
 import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
+import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { brlParts, formatBRL } from "@/lib/format";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
@@ -645,6 +646,41 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cnae: 600001 (Petrobras) lê divisão 06, não 60", categoriaPorCNAE("600001")?.atividade === "Extração de petróleo e gás", `${categoriaPorCNAE("600001")?.atividade}`);
   ok("cnae: 111301 (arroz) lê divisão 01, não 11", categoriaPorCNAE("111301")?.atividade === "Agricultura e pecuária", `${categoriaPorCNAE("111301")?.atividade}`);
   ok("cnae: 910600 lê divisão 09, não 91", categoriaPorCNAE("910600")?.atividade === "Serviços de apoio à extração", `${categoriaPorCNAE("910600")?.atividade}`);
+}
+
+
+// ── core/regras: categorização por regra (a conciliação automática) ─────────
+{
+  const R = (o: Partial<RegraCategorizacao>): RegraCategorizacao =>
+    ({ id: "r", nome: "t", ativa: true, quando: {}, entao: {}, criadaEm: "", origem: "manual", ...o }) as RegraCategorizacao;
+  const alvos: AlvoRegra[] = [
+    { id: "a", tipo: "saida", valor: 300, contraparte: "POSTO SHELL 042" },
+    { id: "b", tipo: "saida", valor: 250, contraparte: "POSTO SHELL 118 RJ" },
+    { id: "c", tipo: "entrada", valor: 900, contraparte: "POSTO SHELL 042" },
+    { id: "d", tipo: "saida", valor: 80, contraparte: "PADARIA CENTRAL" },
+  ];
+  const gas = R({ id: "gas", quando: { contraparte: { op: "contem", valor: "posto shell" }, tipo: "saida" }, entao: { categoria: "Combustível" } });
+  const r1 = aplicarRegras(alvos, [gas]);
+  // O ganho sobre o aprendizado exato: pega as VARIAÇÕES do mesmo fornecedor.
+  ok("regras: uma regra pega as variações do fornecedor (042 e 118)", r1.map((x) => x.alvoId).join(",") === "a,b", r1.map((x) => x.alvoId).join(","));
+  ok("regras: condição de tipo exclui a entrada", !r1.some((x) => x.alvoId === "c"));
+
+  // Uma regra vazia pegaria TUDO — isso é sempre engano do usuário.
+  ok("regras: regra sem nenhuma condição não casa nada", regraCasa(R({ quando: {} }), alvos[0]) === false);
+  ok("regras: regra inativa não casa", regraCasa(R({ ativa: false, quando: { tipo: "saida" } }), alvos[0]) === false);
+  ok("regras: faixa de valor respeitada", aplicarRegras(alvos, [R({ quando: { tipo: "saida", valorMin: 200, valorMax: 400 }, entao: { categoria: "X" } })]).length === 2);
+  ok("regras: CNAE serve de condição", aplicarRegras([{ id: "e", tipo: "saida", valor: 100, cnae: "4731800" }], [R({ quando: { cnaePrefixo: "47" }, entao: { categoria: "Y" } })]).length === 1);
+  // Ordem = prioridade (como firewall): a primeira que casa vence.
+  const dupla = aplicarRegras([alvos[0]], [R({ id: "p1", quando: { tipo: "saida" }, entao: { categoria: "Primeira" } }), R({ id: "p2", quando: { tipo: "saida" }, entao: { categoria: "Segunda" } })]);
+  ok("regras: a primeira regra que casa vence", dupla[0]?.categoria === "Primeira", `${dupla[0]?.categoria}`);
+  ok("regras: sem regras não altera nada", aplicarRegras(alvos, []).length === 0);
+
+  // Núcleo da contraparte: tira número de loja/terminal e ruído de extrato.
+  ok("regras: núcleo remove ruído e números", nucleoContraparte("PIX ENVIADO POSTO SHELL 042 SP") === "posto shell", nucleoContraparte("PIX ENVIADO POSTO SHELL 042 SP"));
+  ok("regras: núcleo remove sufixo societário", nucleoContraparte("TED 12345 ALPHA TECNOLOGIA ME") === "alpha tecnologia");
+  const sug = sugerirRegra({ id: "x", tipo: "saida", valor: 300, contraparte: "PIX POSTO IPIRANGA 771" }, "Combustível");
+  ok("regras: correção sugere regra por padrão (não por nome exato)", sug?.quando.contraparte?.valor === "posto ipiranga", `${sug?.quando.contraparte?.valor}`);
+  ok("regras: contraparte impossível de reduzir → sem sugestão", sugerirRegra({ id: "y", tipo: "saida", valor: 10, contraparte: "123 456" }, "X") === null);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
