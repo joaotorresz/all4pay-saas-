@@ -1,14 +1,11 @@
 "use client";
 
-import { AppShell } from "@/components/app/AppShell";
-import { ReembolsosView } from "@/components/reembolsos/ReembolsosView";
-import { isDemo } from "@/lib/demo";
-import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+// Consolidado no hub (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function ReembolsosPage() {
-  return (
-    <AppShell title="Reembolsos" crumb="Pagar · reembolso a colaboradores" actions={isDemo ? <DemoBadge /> : undefined}>
-      <ReembolsosView />
-    </AppShell>
-  );
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/pagamentos?aba=reembolsos"); }, [r]);
+  return null;
 }

@@ -38,7 +38,7 @@ const ROUTES: RouteItem[] = [
   { label: "Decisão", href: "/copiloto?aba=decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Autônomo", href: "/copiloto?aba=autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },
   { label: "Risco de caixa", href: "/copiloto?aba=risco", icon: "trending-up", kw: "liquidez runway ruptura" },
-  { label: "Inadimplência", href: "/inadimplencia", icon: "gauge", kw: "credito clientes atraso cobranca" },
+  { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "gauge", kw: "credito clientes atraso cobranca" },
   { label: "Orquestração", href: "/plataforma?aba=orquestracao", icon: "network", kw: "eventos ledger cascata plataforma" },
   { label: "Infraestrutura", href: "/plataforma?aba=infraestrutura", icon: "layers", kw: "ledger pagamentos fila plataforma" },
   { label: "Arquitetura", href: "/plataforma?aba=arquitetura", icon: "building", kw: "tesouraria treasury plataforma" },

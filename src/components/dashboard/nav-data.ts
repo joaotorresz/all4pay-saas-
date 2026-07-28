@@ -33,17 +33,13 @@ export const SECTIONS: Section[] = [
   },
   {
     id: "receber", label: "Receber", items: [
-      { label: "Contas a receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Vendas", href: "/vendas", icon: "credit-card" },
-      { label: "Assinaturas / Recorrências", href: "/recorrencias", icon: "repeat" },
-      { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
-      { label: "Boletos", href: "/boletos", icon: "file-text" },
+      { label: "Receber", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Vendas e NFs", href: "/vendas", icon: "credit-card" },
     ],
   },
   {
     id: "pagar", label: "Pagar", items: [
-      { label: "Contas a pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Reembolsos", href: "/reembolsos", icon: "arrow-up-right" },
+      { label: "Pagar", href: "/pagamentos", icon: "arrow-up-right" },
     ],
   },
   {

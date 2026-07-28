@@ -237,7 +237,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Recebeu 3 boletos hoje → selecione-os e confirme o recebimento para o saldo refletir.",
     secoes: [],
   },
-  "/recorrencias": {
+  "/recebimentos?aba=recorrencias": {
     titulo: "Recorrências / Contratos",
     intro: "Motor de receita previsível (MRR): um contrato (cliente + itens do catálogo + ciclo) projeta as próximas faturas como entradas previstas no hub.",
     comoUsar: "Crie uma recorrência (cliente, itens, ciclo) e Ative — as faturas futuras entram no fluxo previsto. Pausar/Cancelar (churn) remove do fluxo.",
@@ -246,7 +246,7 @@ export const GUIDES: Record<string, Guide> = {
       blocos([{ nome: "Dashboard de assinatura", desc: "MRR, ativas, ticket médio e churn." }]),
     ],
   },
-  "/inadimplencia": {
+  "/recebimentos?aba=inadimplencia": {
     titulo: "Inadimplência — inteligência de crédito",
     intro: "Prevê inadimplência antes de acontecer, a partir do comportamento de pagamento de cada cliente (não de status estático). Explicável: cada fator carrega sua contribuição.",
     comoUsar: "Veja o score da carteira, abra o heatmap para um cliente e leia o porquê do risco (fatores) + a ação de cobrança recomendada.",
@@ -259,7 +259,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/boletos": {
+  "/recebimentos?aba=boletos": {
     titulo: "Boleto",
     intro: "Boletos colados ao recebível (no jsonb do movimento): gera/registra o boleto vinculado à entrada.",
     comoUsar: "Emita ou cole o boleto no recebível correspondente; o pagamento concilia e fecha o ciclo receita → caixa.",
@@ -303,7 +303,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Pagamento de R$ 8.000 (acima de R$ 5k) entra na fila → o aprovador confere e aprova; só então pode ser pago.",
     secoes: [],
   },
-  "/reembolsos": {
+  "/pagamentos?aba=reembolsos": {
     titulo: "Reembolsos",
     intro: "Reembolso do colaborador: formulário + itens (com OCR do comprovante) + chave Pix. Roteia pelo mesmo motor de alçada e, ao aprovar, gera uma saída por item.",
     comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída na Central de pagamentos.",
@@ -623,6 +623,8 @@ const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
   "/cadastros": "contatos",
   "/vendas": "lista",
+  "/recebimentos": "titulos",
+  "/pagamentos": "titulos",
 };
 
 export function guideForPath(pathname: string, aba?: string | null): Guide | null {
