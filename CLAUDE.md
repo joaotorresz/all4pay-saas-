@@ -153,6 +153,16 @@ identidade viva é a de cima.
   −0.075em; o subtítulo do período em 14/200 `#CAC4B7`.
 - **Botões** (`Button`): raio **10px** (variantes não-pill).
 
+### Laboratório de Design — regra de ouro
+
+O Lab é **sandbox**: `DesignLabStyle` só injeta CSS quando há estado SALVO no
+`localStorage`. Sem nada salvo ele não emite nada e quem manda é o design
+system. E os `DEFAULT_CORES` do Lab **têm de espelhar** os tokens reais do
+bloco `html:not(.dark) .ds-visor`. Quando divergem, o Lab repinta o app com
+valores que ninguém escolheu — foi o que aconteceu com as semânticas
+(verde-oliva `#3f6212` e tijolo `#b42318` no lugar do `#00ff62`/`#ff1100` do
+DS) para todo usuário que nunca abriu o Laboratório.
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,

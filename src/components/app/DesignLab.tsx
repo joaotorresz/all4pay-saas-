@@ -223,16 +223,30 @@ interface DesignState {
   padroes: Record<string, Overrides>; // edição por padrão (todos do tipo)
 }
 
+/* Os defaults do Lab TÊM de espelhar os tokens reais do DS (bloco
+   `html:not(.dark) .ds-visor` em globals.css). Quando divergem, abrir o
+   Laboratório — ou só carregá-lo — repinta o app com valores que ninguém
+   escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
+   (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f3f1ee",
-  cardBg: "#ffffff", surface2: "#f0eee9", border: "#eceae4",
+  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f8f9fa",
+  cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
   body: "#3f4a38", muted: "#6b7280",
-  positive: "#3f6212", negative: "#b42318", warning: "#92400e",
+  positive: "#00ff62", negative: "#ff1100", warning: "#ff6200",
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,
   cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {},
 };
+
+/** Estado salvo, ou `null` quando o usuário nunca mexeu no Laboratório. */
+function carregarSalvo(): DesignState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (!localStorage.getItem(KEY)) return null;
+  } catch { return null; }
+  return carregar();
+}
 
 function carregar(): DesignState {
   if (typeof window === "undefined") return DEFAULTS;
@@ -378,9 +392,16 @@ function aplicarTextos(s: DesignState) {
   }
 }
 
+/**
+ * Injeta os ajustes SALVOS do Laboratório. Sem nada salvo não emite estilo
+ * nenhum — o sandbox fica inerte e quem manda é o design system. Antes ele
+ * aplicava os DEFAULTS do Lab em toda visita, sobrescrevendo os tokens do DS
+ * para qualquer usuário que nunca tivesse aberto o Laboratório.
+ */
 export function DesignLabStyle() {
   React.useEffect(() => {
-    const s = carregar();
+    const s = carregarSalvo();
+    if (!s) return;
     aplicarCSS(s);
     aplicarTextos(s);
   }, []);
