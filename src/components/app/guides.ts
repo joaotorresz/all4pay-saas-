@@ -48,7 +48,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Contabilidade (razão) ----------------------------- */
-  "/razao": {
+  "/contabilidade?aba=razao": {
     titulo: "Razão (General Ledger)",
     intro: "A fonte única da verdade: razão de dupla entrada. Todo lançamento tem débito = crédito (validado no banco). É a base contábil auditável de todo o sistema.",
     comoUsar: "Clique em 'Backfill do histórico' para derivar lançamentos dos seus movimentos; ou 'Novo lançamento' para postar um manual (débito × crédito). Abra cada lançamento para ver as linhas por conta.",
@@ -65,7 +65,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/relatorios": {
+  "/contabilidade?aba=relatorios": {
     titulo: "Relatórios (Razão)",
     intro: "Relatórios calculados direto do razão de dupla entrada: DRE gerencial, Balanço patrimonial, Orçado × Realizado e pivot por dimensão. O razão é a fonte da verdade.",
     comoUsar: "Escolha o intervalo (De / Até). Para o orçamento, abra 'Editar orçamento' e informe o valor mensal por conta. Troque a dimensão do pivot (contraparte/centro).",
@@ -133,7 +133,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/fechamento": {
+  "/contabilidade?aba=fechamento": {
     titulo: "Fechamento contábil",
     intro: "Fechamento contínuo: o mês vira revisão e aprovação, não construção do zero. Tarefas de IA já vêm resolvidas; você trava o período quando fecha.",
     comoUsar: "Escolha o mês, marque as tarefas manuais (conciliar/variância/aprovar), lance as provisões sugeridas no razão e clique 'Travar período' para proteger os lançamentos.",
@@ -150,7 +150,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/cronogramas": {
+  "/contabilidade?aba=cronogramas": {
     titulo: "Cronogramas (amortização/depreciação)",
     intro: "Despesas antecipadas (amortização) e ativo imobilizado (depreciação) vivem aqui; os cronogramas consolidam num único lançamento mensal para o razão.",
     comoUsar: "Crie um cronograma (tipo, valor total, vida útil em meses, início, residual). Escolha o mês e clique 'Lançar no razão' para postar a parcela consolidada.",
@@ -166,7 +166,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/receita": {
+  "/contabilidade?aba=receita": {
     titulo: "Reconhecimento de receita",
     intro: "Reconhece a receita ao longo da obrigação (IFRS 15/CPC 47), a partir dos contratos de recorrência: MRR/ARR, receita diferida e waterfall de MRR.",
     comoUsar: "Crie/ative recorrências em /recorrencias. Aqui, clique 'Reconhecer competência no razão' para postar a parcela do mês de cada contrato (receita diferida → receita).",
@@ -182,7 +182,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/dimensoes": {
+  "/contabilidade?aba=dimensoes": {
     titulo: "Dimensões & Tags",
     intro: "Pivota os movimentos por qualquer dimensão e desce da agregação até a transação. Marque tags por transação para criar dimensões ilimitadas.",
     comoUsar: "Escolha a dimensão (categoria/centro/contraparte/tag), o período e o regime. Abra uma linha e use '+ tag' para etiquetar uma transação.",
@@ -266,7 +266,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Gere o boleto da fatura do cliente Acme → quando pago, baixa automaticamente.",
     secoes: [],
   },
-  "/notas-fiscais": {
+  "/vendas?aba=notas": {
     titulo: "Notas fiscais (NFS-e)",
     intro: "Emissão e controle de NFS-e (serviços), com os impostos brasileiros (ISS) e vínculo ao recebível/recorrência.",
     comoUsar: "Emita a NFS-e a partir de uma venda/recorrência; acompanhe número, código de verificação e status.",
@@ -319,21 +319,21 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Cadastrar ----------------------------- */
-  "/contatos": {
+  "/cadastros?aba=contatos": {
     titulo: "Contatos",
     intro: "Clientes, fornecedores e transportadoras, com validação de CPF/CNPJ e busca de endereço por CEP (ViaCEP). Editável (clicar numa linha abre o cadastro).",
     comoUsar: "Use 'Novo' para cadastrar (o CNPJ/CPF é validado e o CEP preenche o endereço). Clique numa linha para editar — ex.: adicionar o telefone que alimenta a cobrança.",
     exemplo: "Cadastre o fornecedor pelo CNPJ → o sistema valida e você completa o endereço pelo CEP.",
     secoes: [],
   },
-  "/produtos": {
+  "/cadastros?aba=produtos": {
     titulo: "Produtos",
     intro: "Cadastro de produtos: nome, SKU, unidade, marca, preço de venda/custo e estoque. Alimenta vendas e o DRE por linha.",
     comoUsar: "Use 'Novo' para cadastrar; informe preços e unidade. Use nas vendas para compor itens.",
     exemplo: "Cadastre 'Camiseta P' com preço R$ 49,90 e custo R$ 20 → margem aparece no DRE por linha.",
     secoes: [],
   },
-  "/servicos": {
+  "/cadastros?aba=servicos": {
     titulo: "Serviços",
     intro: "Cadastro de serviços: nome, código, unidade e preço. Base para vendas de serviço, recorrências e NFS-e.",
     comoUsar: "Use 'Novo' para cadastrar; reaproveite em recorrências e na emissão de NFS-e.",
@@ -349,14 +349,14 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Central POS ----------------------------- */
-  "/pos/taxas": {
+  "/vendas?aba=pos-taxas": {
     titulo: "Configuração de taxas all4pay",
     intro: "Simulador POS (maquininha): modela MDR + antecipação + online por MCC × range × bandeira, com o spread (margem) editável. Salva a configuração da sua operação.",
     comoUsar: "Escolha MCC, range, SELIC e ligue antecipação/online; edite o spread por grupo. A taxa final ao EC recalcula por parcela.",
     exemplo: "Restaurante (MCC 5812), range 1, com antecipação → veja a taxa final de crédito em 12x.",
     secoes: [],
   },
-  "/pos/venda": {
+  "/vendas?aba=pos": {
     titulo: "Simulador de venda (POS)",
     intro: "Simula uma venda na maquininha usando as taxas configuradas: calcula o líquido ao EC e registra o recebível líquido (e a tarifa como custo no DRE).",
     comoUsar: "Informe valor, bandeira e parcelas; veja o líquido e conclua para gerar o recebível (e a 'Tarifa de adquirência' como custo).",
@@ -522,7 +522,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Painel de vendas ----------------------------- */
-  "/painel-vendas": {
+  "/vendas?aba=painel": {
     titulo: "Painel de vendas",
     intro: "O dashboard comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
     comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",
@@ -536,7 +536,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Plano de Contas ----------------------------- */
-  "/plano-de-contas": {
+  "/contabilidade?aba=plano-de-contas": {
     titulo: "Plano de Contas",
     intro: "A espinha dorsal da classificação: hierarquia Grupo → Categoria (verde = receita · vermelho = despesa · cinza = resultado), no plano padrão para negócios digitais.",
     comoUsar: "Navegue pela hierarquia para entender onde cada lançamento cai. A aba 'Uso padrão' mostra o dicionário de auto-classificação (função do motor → categoria).",
@@ -550,7 +550,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Nova venda ----------------------------- */
-  "/nova-venda": {
+  "/vendas?aba=nova": {
     titulo: "Nova venda",
     intro: "A venda como documento-mãe: itens do catálogo, condição de pagamento e os efeitos em cascata (recebível, NF, imposto, DRE).",
     comoUsar: "Escolha cliente e itens (produtos/serviços), defina a condição (à vista/parcelado) e salve — o recebível e o resultado saem daqui.",
@@ -564,7 +564,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Projetos ----------------------------- */
-  "/projetos": {
+  "/cadastros?aba=projetos": {
     titulo: "Projetos",
     intro: "Dimensão de rateio: associe receitas e despesas a projetos para enxergar margem por projeto no DRE.",
     comoUsar: "Cadastre o projeto e use-o no rateio dos lançamentos (splits). O resultado por projeto sai no DRE por dimensão.",
@@ -574,7 +574,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Centros de Custo ----------------------------- */
-  "/centros-custo": {
+  "/cadastros?aba=centros-custo": {
     titulo: "Centros de Custo",
     intro: "A segunda dimensão de rateio: cada lançamento pode apontar um centro (Comercial, Operação, ADM…) e o DRE abre por centro de custo.",
     comoUsar: "Cadastre os centros e selecione-os nos lançamentos/vendas; o DRE por centro mostra onde o dinheiro é consumido.",
@@ -612,7 +612,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Consolidado multiempresa ----------------------------- */
-  "/consolidado": {
+  "/contabilidade?aba=consolidado": {
     titulo: "Consolidado (multiempresa)",
     intro: "A posição agregada das organizações em que você é membro: saldo, receita, despesa e resultado lado a lado (sem eliminações intercompany na v1).",
     comoUsar: "Compare as empresas e clique numa linha para entrar no contexto dela.",
@@ -666,11 +666,28 @@ export const GUIDES: Record<string, Guide> = {
 };
 
 /** Resolve o guia da rota (match exato ou prefixo mais longo). */
-export function guideForPath(pathname: string): Guide | null {
+/**
+ * Guia da tela atual. Com a consolidação em hubs, cada ABA tem o seu guia:
+ * a chave passou a ser `"/hub?aba=x"`. Resolve nesta ordem:
+ *   1) a aba exata (`/contabilidade?aba=razao`);
+ *   2) o hub inteiro  (`/contabilidade`);
+ *   3) o prefixo mais longo (sub-rotas).
+ * `aba` vem do `?aba=` da URL; sem ela, o hub cai na primeira aba — por isso
+ * `padraoDoHub` mapeia o hub para a aba que ele abre por padrão.
+ */
+const PADRAO_DO_HUB: Record<string, string> = {
+  "/contabilidade": "razao",
+  "/cadastros": "contatos",
+  "/vendas": "lista",
+};
+
+export function guideForPath(pathname: string, aba?: string | null): Guide | null {
+  const tab = aba || PADRAO_DO_HUB[pathname];
+  if (tab && GUIDES[`${pathname}?aba=${tab}`]) return GUIDES[`${pathname}?aba=${tab}`];
   if (GUIDES[pathname]) return GUIDES[pathname];
   let best: string | null = null;
   for (const key of Object.keys(GUIDES)) {
-    if (key === "/") continue;
+    if (key === "/" || key.includes("?")) continue;
     if (pathname.startsWith(key) && (!best || key.length > best.length)) best = key;
   }
   return best ? GUIDES[best] : null;

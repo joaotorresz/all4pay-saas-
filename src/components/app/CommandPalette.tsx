@@ -25,15 +25,15 @@ const ROUTES: RouteItem[] = [
   { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir" },
   { label: "Investor update", href: "/investidores", icon: "mail", kw: "investor update investidor relatorio mensal mrr arr burn runway captacao board email" },
   { label: "Plano de contratações", href: "/contratacoes", icon: "users", kw: "headcount contratacao contratar vaga equipe folha salario encargos runway plano time hiring" },
-  { label: "Razão (GL)", href: "/razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
-  { label: "Relatórios (Razão)", href: "/relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
-  { label: "Consolidado (multi-empresa)", href: "/consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
+  { label: "Razão (GL)", href: "/contabilidade?aba=razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
+  { label: "Relatórios (Razão)", href: "/contabilidade?aba=relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
+  { label: "Consolidado (multi-empresa)", href: "/contabilidade?aba=consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "Orçamento vs Realizado", href: "/orcamento", icon: "receipt", kw: "orcamento budget variancia flux analysis orcado realizado desvio analise variacao planejado" },
-  { label: "Fechamento contábil", href: "/fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
-  { label: "Cronogramas (amort./deprec.)", href: "/cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
-  { label: "Reconhecimento de receita", href: "/receita", icon: "trending-up", kw: "reconhecimento receita diferida deferred revenue mrr arr waterfall ifrs 15 cpc 47 asc 606 recorrencia assinatura" },
-  { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers", kw: "dimensoes tags pivot drill-down categoria centro custo contraparte relatorio dinamico" },
+  { label: "Fechamento contábil", href: "/contabilidade?aba=fechamento", icon: "shield-check", kw: "fechamento close checklist periodo travado locked provisao accrual conciliacao mensal" },
+  { label: "Cronogramas (amort./deprec.)", href: "/contabilidade?aba=cronogramas", icon: "layers", kw: "amortizacao depreciacao despesa antecipada prepaid ativo imobilizado fixed asset cronograma schedule" },
+  { label: "Reconhecimento de receita", href: "/contabilidade?aba=receita", icon: "trending-up", kw: "reconhecimento receita diferida deferred revenue mrr arr waterfall ifrs 15 cpc 47 asc 606 recorrencia assinatura" },
+  { label: "Dimensões & Tags", href: "/contabilidade?aba=dimensoes", icon: "layers", kw: "dimensoes tags pivot drill-down categoria centro custo contraparte relatorio dinamico" },
   { label: "Inteligência", href: "/copiloto?aba=quant", icon: "activity", kw: "quant kpis score saude" },
   { label: "Decisão", href: "/copiloto?aba=decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Autônomo", href: "/copiloto?aba=autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },
@@ -47,11 +47,11 @@ const ROUTES: RouteItem[] = [
   { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks", kw: "reconciliacao matching conciliar ingestao" },
   { label: "Automações", href: "/automacoes", icon: "workflow", kw: "regras alertas notificacoes" },
   { label: "Vendas", href: "/vendas", icon: "arrow-left-right", kw: "pedidos orcamentos compras" },
-  { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
-  { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
-  { label: "Produtos", href: "/produtos", icon: "credit-card", kw: "estoque sku" },
-  { label: "Serviços", href: "/servicos", icon: "repeat", kw: "servico" },
-  { label: "Contatos", href: "/contatos", icon: "file-text", kw: "clientes fornecedores telefone" },
+  { label: "Venda na maquininha (POS)", href: "/vendas?aba=pos", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
+  { label: "Taxas da maquininha (POS)", href: "/vendas?aba=pos-taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
+  { label: "Produtos", href: "/cadastros?aba=produtos", icon: "credit-card", kw: "estoque sku" },
+  { label: "Serviços", href: "/cadastros?aba=servicos", icon: "repeat", kw: "servico" },
+  { label: "Contatos", href: "/cadastros?aba=contatos", icon: "file-text", kw: "clientes fornecedores telefone" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
 ];
 
@@ -117,21 +117,21 @@ export function CommandPalette() {
           (parties.data ?? []).filter((p) => match(`${p.name} ${p.doc ?? ""} ${p.phone ?? ""}`)).map((p) => ({
             key: `pty:${p.id}`, grupo: "Contatos", titulo: p.name,
             sub: [p.is_customer && "Cliente", p.is_supplier && "Fornecedor", p.phone].filter(Boolean).join(" · ") || undefined,
-            href: "/contatos", icon: "users", contatoId: p.id,
+            href: "/cadastros?aba=contatos", icon: "users", contatoId: p.id,
           })),
         ),
       );
       out.push(
         ...cap(
           (products.data ?? []).filter((p) => match(`${p.name} ${p.sku ?? ""}`)).map((p) => ({
-            key: `prd:${p.id}`, grupo: "Produtos", titulo: p.name, sub: p.sku ?? undefined, href: "/produtos", icon: "credit-card",
+            key: `prd:${p.id}`, grupo: "Produtos", titulo: p.name, sub: p.sku ?? undefined, href: "/cadastros?aba=produtos", icon: "credit-card",
           })),
         ),
       );
       out.push(
         ...cap(
           (services.data ?? []).filter((s) => match(s.name)).map((s) => ({
-            key: `srv:${s.id}`, grupo: "Serviços", titulo: s.name, href: "/servicos", icon: "repeat",
+            key: `srv:${s.id}`, grupo: "Serviços", titulo: s.name, href: "/cadastros?aba=servicos", icon: "repeat",
           })),
         ),
       );

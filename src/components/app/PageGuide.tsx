@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { guideForPath, tourSteps } from "./guides";
 import { Tour } from "./Tour";
@@ -14,7 +14,9 @@ import { Tour } from "./Tour";
  */
 export function PageGuide() {
   const pathname = usePathname();
-  const guide = guideForPath(pathname);
+  const sp = useSearchParams();
+  // Com hubs, o guia é POR ABA (?aba=…) — ver `guideForPath`.
+  const guide = guideForPath(pathname, sp.get("aba"));
   const [open, setOpen] = React.useState(false);
   const [tour, setTour] = React.useState(false);
 
@@ -27,7 +29,7 @@ export function PageGuide() {
 
   // Opt-in: o guia NÃO abre sozinho (evita interceptar cliques na 1ª visita).
   // Fica disponível no botão flutuante "Guia". Fecha-se ao trocar de rota.
-  React.useEffect(() => { setOpen(false); }, [pathname]);
+  React.useEffect(() => { setOpen(false); }, [pathname, sp]);
 
   // Boas-vindas de primeira visita (só na Home): um convite discreto, não
   // bloqueante, apontando o tour — some para sempre ao dispensar ou aceitar.

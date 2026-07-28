@@ -68,7 +68,7 @@ export function AppShell({
       <RouteTracker />
       <DesignLabStyle />
       <DesignLab />
-      <PageGuide />
+      <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
       <AssistantWidget />
       <ContatoDrawer />
