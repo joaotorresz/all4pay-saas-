@@ -392,20 +392,49 @@ replicar: Plano de Contas com "Uso Padrão" (auto-classificação), **3 datas**
 propaga para recebível/NF/imposto, rateio por projeto/centro de custo, DRE/DFC em
 cascata com drill-down, conciliação IULI×OFX.
 
-- **Menu sem duplicação (um destino por página):** para eliminar "aba no menu +
-  aba interna", os motores viraram **abas de um hub** em vez de N entradas de
-  menu: **Inteligência** = uma entrada **All4Pay IA** → `/copiloto`
-  (`InteligenciaShell`: Copiloto/Quant/Decisão/Risco/Autônomo/Dados em abas);
-  **Plataforma** = **Automações** + **Arquitetura & infraestrutura** → `/plataforma`
-  (`PlataformaShell`: Arquitetura/Infraestrutura/Orquestração em abas). As rotas
-  antigas (`/decisao`, `/risco`, `/autonomo`, `/inteligencia`, `/dados`,
-  `/orquestracao`, `/infraestrutura`, `/arquitetura`) **redirecionam** para o hub
-  com `?aba=…` (deep-links preservados); `/recebiveis`→`/recebimentos?aba=titulos`,
-  `/pagaveis`→`/pagamentos?aba=titulos`, `/conciliacao`/`/contas`→`/upload?aba=…`.
-  O **módulo POS/maquininha** (`/pos/venda` simulador de venda na adquirência →
-  recebível líquido + tarifa como custo no DRE; `/pos/taxas` config de MDR/
-  antecipação por MCC×bandeira) estava órfão do menu e foi exposto em Vendas e NFs
-  / Cadastros. Command palette e `guides.ts` acompanham os destinos consolidados.
+- **HUBS — um destino por página (menu 39 → 18 entradas).** Telas irmãs viraram
+  ABAS de um hub em vez de N entradas de menu. O componente genérico é
+  **`HubShell`** (`src/components/app/HubShell.tsx`): só a aba ATIVA monta, e a
+  ordem/rótulo vivem numa lista `AbaHub[]` na própria `page.tsx` do hub.
+  - `/contabilidade` — Razão · Fechamento · Reconhecimento de receita · Relatórios ·
+    Plano de contas · Dimensões · Cronogramas · TXT Domínio · Consolidado
+  - `/cadastros` — Clientes & Fornecedores · Produtos · Serviços · Projetos ·
+    Centros de custo
+  - `/vendas` — Vendas · Painel · Nova venda · Notas fiscais · POS · Taxas do POS
+    (o POS estava **órfão do menu**; aqui fica onde se procura por ele)
+  - `/recebimentos` — Contas a receber · Recorrências · Inadimplência · Boletos
+  - `/pagamentos` — Contas a pagar · Reembolsos
+  - `/orcamento` — Planejado × Realizado · **Posso comprar?**
+  - `/copiloto` — All4Pay IA · Quant · Decisão · Risco · Autônomo
+  - `/upload` — Conectar · Enviar · Conciliar · **Regras**
+  A **1ª aba de cada hub é o uso diário**, então continua a um clique.
+
+- **`AppShell` aninhado vira passthrough.** Cada tela traz o seu próprio
+  `AppShell`; dentro de um hub isso duplicaria sidebar/header. `ShellGate`
+  (`src/components/app/shell-nesting.tsx` — módulo client, porque `AppShell` é
+  server component e não pode criar contexto) detecta o aninhamento e renderiza
+  só o conteúdo **+ as `actions` do header** (senão o botão "Novo produto"
+  sumiria dentro da aba). Foi o que permitiu consolidar ~20 telas **sem
+  reescrever nenhuma delas**.
+
+- **Rotas antigas redirecionam** para `hub?aba=…` (deep-links preservados):
+  `/razao` `/fechamento` `/receita` `/relatorios` `/plano-de-contas` `/dimensoes`
+  `/cronogramas` `/consolidado` → `/contabilidade`; `/contatos` `/produtos`
+  `/servicos` `/projetos` `/centros-custo` → `/cadastros`; `/painel-vendas`
+  `/nova-venda` `/notas-fiscais` `/pos/*` → `/vendas`; `/recorrencias`
+  `/inadimplencia` `/boletos` → `/recebimentos`; `/reembolsos` → `/pagamentos`;
+  `/decisao` `/risco` `/autonomo` `/inteligencia` → `/copiloto`;
+  `/recebiveis` `/pagaveis` `/conciliacao` `/contas` → hub correspondente.
+  Command palette e `guides.ts` apontam para o destino **com a aba**; o guia é
+  **por aba** (`guideForPath(pathname, aba)` + `PADRAO_DO_HUB`).
+
+- **REMOVIDOS (não reintroduzir).** Eram vitrine técnica sem uso operacional:
+  `/arquitetura`, `/infraestrutura`, `/dados`, `/orquestracao`, o hub
+  `/plataforma` e os motores `core/architecture`, `core/reliability`,
+  `core/orchestration`, `core/datamoat` (~2.600 linhas). **`core/platform` e
+  `core/treasury` FICARAM** — o primeiro é a idempotência de pagamento usada em
+  `lib/pagamentos.ts` (apagar reintroduz pagamento duplicado), o segundo alimenta
+  cockpit, `/contas` e o motor autônomo.
 
 - **Plano de Contas** (`/plano-de-contas`, `components/cadastros/PlanoDeContasView.tsx`):
   a espinha dorsal — hierarquia Grupo → Categoria codificada por cor (verde =
@@ -642,58 +671,6 @@ recomendação, e últimos lançamentos. Ligada a **5 caminhos**: Home "Top
 clientes", a IA (pergunta por contraparte ou "mostre a ficha de X"), DRE por
 cliente (nome clicável, reverse-map nome→id), e a coluna "ficha" em Contatos.
 
-### Financial Orchestration Layer (`/orquestracao`)
-
-`FinancialOrchestrator` (`src/core/orchestration/`) — o "cérebro operacional"
-(GAP 1): deixa de ser "vários módulos" e vira uma **Financial Operating System
-orientada a eventos**. Toda ação vira evento e propaga pela cascata. Puro,
-tipado, demo-safe. Versão `orchestration/1.0.0`.
-
-- **Event Store** (`event-store.ts`): append-only, **hash-chain SHA-256**
-  (event sourcing — `replay()` reconstrói estado; `verificarIntegridade()`
-  denuncia adulteração).
-- **Ledger** (`ledger.ts`): **dupla partida** real-time (cada evento → débito/
-  crédito por conta + hash + status); `saldos()` consolida.
-- **State Engine** (`state-engine.ts`): `aplicarEvento()` muta o `RiskInput` e
-  `calcularEstado()` recalcula caixa/liquidez/risco/projeção via
-  `scoreRiscoCaixa` (1 execução); `calcularDeltas()` mostra a propagação.
-- **Unified Financial Graph** (`graph.ts`): empresa → contas → clientes/
-  fornecedores → fluxos (base de crédito/underwriting/antifraude).
-- **`orquestrar(evento)`** (`index.ts`): roda a cascata Event Store → Ledger →
-  State Engine → Decisão/IA → Auditoria → Antifraude → Webhook, devolvendo
-  passos, deltas, reações e lançamentos. Eventos canônicos: `PIX_RECEBIDO`,
-  `BOLETO_EMITIDO/VENCIDO`, `PAGAMENTO_APROVADO/EXECUTADO`, `SALDO_NEGATIVO`…
-- **Dados:** reutiliza `getRiscoInput()`; hook `useOrquestracaoInput()`. UI em
-  `src/components/orquestracao/OrquestracaoView.tsx` (estado vivo + disparo de
-  eventos + cascata + event store + ledger + grafo). Stateful (orquestrador em
-  `useRef`).
-
-### Financial Infrastructure (`/infraestrutura`)
-
-`FinancialPlatform` (`src/core/platform/`) — GAP 3: a evolução de "produto" para
-**financial infrastructure company**. Domain Financial Architecture sobre um
-**Double-Entry Ledger Core** (saldo = estado DERIVADO do ledger, a verdade
-absoluta). Puro, tipado, demo-safe. Versão `platform/1.0.0`.
-
-- **Ledger Core** (`ledger-core.ts`): plano de contas tipado (asset/liability/
-  equity/revenue/expense), `postar()` rejeita transação **desbalanceada**
-  (D≠C), `saldo()` derivado dos lançamentos, `trialBalance()` (invariante
-  global), `reverter()` (estorno espelho). Caixa reconstruído por replay.
-- **Idempotency** (`idempotency.ts`): `idempotency_key` — o mesmo pagamento
-  nunca executa duas vezes.
-- **Financial Queue** (`queue.ts`): fila com retry/backoff, dedup por key e
-  `replay()`. **Payment Orchestrator** (`payment-orchestrator.ts`) coordena
-  PIX/boleto/TED/cartão: idempotência → fila → ledger (dupla partida) →
-  liquidação (`falharVezes` simula falha transitória reprocessada).
-- **Observability** (`observability.ts`): invariantes em tempo real —
-  integridade do ledger, divergência de saldo, jobs em falha, atraso de
-  liquidação. **Domains** (`domains.ts`): mapa dos 10 domínios → módulos.
-- **Facade** `FinancialPlatform` (`index.ts`): `processarPagamento()`, `saude()`,
-  `recuperarCaixa()` (state recovery). UI em
-  `src/components/infraestrutura/InfraestruturaView.tsx` (domínios + ledger +
-  orquestrador interativo + fila + observabilidade). Console de arquitetura
-  (stateful em `useRef`), independente de demo/live.
-
 ### Financial Decision Layer (`/decisao`)
 
 `decidir()` (`src/core/decision/`) — GAP 4: industrializa a inteligência. Deixa
@@ -720,52 +697,6 @@ motores quant/risco/crédito. Puro, explicável, demo-safe. Versão `decision/1.
 - **Dados:** reutiliza `getRiscoInput()`; hook `useDecisao()`. UI em
   `src/components/decisao/DecisaoView.tsx` (headline + matriz de risco + Monte
   Carlo + recomendações com impacto + plano autônomo + feature store).
-
-### Financial Data Moat (`/dados`)
-
-`analisarMoat()` (`src/core/datamoat/`) — GAP 5: o moat de dados (cross-tenant
-accumulated intelligence). Transforma cada empresa em sinal de uma rede que
-aprende junto. Puro, tipado, demo-safe. Versão `datamoat/1.0.0`.
-
-- **Data Lake / coorte** (`cohort.ts`): 320 empresas **sintéticas anonimizadas**
-  (RNG semeado) com features estruturadas + desfecho histórico (escalou/
-  saudável/stress/quebrou) — substrato de benchmark e modelos. Em produção vira
-  a base cross-tenant real.
-- **Self-Improving model** (`model.ts`): regressão logística treinada por
-  gradiente na coorte (padroniza → treina → holdout). **Curva de aprendizado**
-  (acurácia cresce com o nº de empresas — o moat). `probabilidadeStress()`.
-- **Company DNA** (`dna.ts`): arquétipo (agressiva/conservadora/sazonal/
-  recorrente…) + traços + assinatura.
-- **Benchmark Engine** (`benchmark.ts`): percentil + mediana vs pares reais da
-  coorte (setor/faixa). **Behavioral models** (`behavior.ts`): KNN aos desfechos
-  da coorte → "% dos pares semelhantes entraram em stress".
-- **Credit Intelligence** (`credit.ts`): PD pelo modelo + limite recomendado +
-  confiabilidade. **Treasury network** (janelas de stress por setor).
-- **Dados:** `mapearFeatures()` usa `analisarQuantitativo`; hook `useMoat()`. UI
-  em `src/components/dados/DadosView.tsx` (DNA radar + modelo/curva de
-  aprendizado + benchmark + comportamental + crédito + treasury).
-
-### Arquitetura Institucional (`/arquitetura`)
-
-GAP 6: a visão de **financial operating infrastructure** — unifica as camadas
-já construídas e fecha o que faltava (Treasury Core + Reliability Layer). Puro,
-demo-safe.
-
-- **Treasury Core** (`src/core/treasury/`): posição consolidada por conta/banco,
-  **concentração bancária** (HHI), liquidez em buckets (imediata/30d/90d), cash
-  positioning (8 semanas), exposição e stress testing (reusa `scoreRiscoCaixa`).
-  Consome `getAccountsList()` + `getRiscoInput()`.
-- **Reliability Layer** (`src/core/reliability/`): `CircuitBreaker` (abre após N
-  falhas → curto-circuito → meio-aberto), `DeadLetterQueue`, `LockManager`
-  (distributed lock anti-duplicidade) e `simularResiliencia()` (runner: retries
-  → DLQ → recuperação, sem duplicar dinheiro).
-- **Control plane** (`src/core/architecture/`): `arquiteturaInstitucional()` —
-  as 10 camadas institucionais, os 10 serviços financeiros distribuídos
-  (latência/throughput), o pipeline de tempo real, métricas de observabilidade
-  (liga ao ledger real via `FinancialPlatform`) e o isolamento multi-tenant.
-- **Dados:** hook `useArquitetura()` (accounts + risco). UI em
-  `src/components/arquitetura/ArquiteturaView.tsx` (camadas + serviços + pipeline
-  + Treasury Core + Reliability console interativo + observabilidade + tenancy).
 
 ### Autonomous Decision Layer (`/autonomo`)
 
@@ -820,6 +751,86 @@ do DRE por palavra-chave na categoria e respeita o **regime** (competência por
   categoria/centro escolhidos no lançamento/venda refletem na linha certa do DRE
   e no dashboard. O gráfico de **faturamento** conta toda a receita (não depende
   do texto `"venda"`).
+
+### Simulador de decisão — "posso comprar?" (`/orcamento` → aba)
+
+`simularAquisicao()` (`src/core/aquisicao/`, versão `aquisicao/1.0.0`) — responde
+a pergunta que o dono faz antes de assumir compromisso: *"tenho X de caixa e Y
+entrando por mês; se eu comprar isso, o que acontece com o meu caixa?"*. Puro,
+tipado, demo-safe. **Compõe `core/financing`** (Price/SAC) — não reimplementa
+amortização.
+
+- **`situacaoDe(input)`** deriva caixa · receita/mês · despesa/mês dos MESMOS
+  lançamentos do resto do sistema (média 6 meses, só realizado, ignora cancelado).
+  Nada é digitado à mão; o usuário pode ajustar para testar hipótese.
+- **Saída:** projeção mês a mês **com × sem** a compra · mês em que o caixa fica
+  negativo · veredito (`confortavel`/`aperta`/`arriscado`/`inviavel`) **sempre**
+  explicado por `Fator[]` (sobra, comprometimento da renda vs. teto de 30%,
+  reserva de emergência de 3 meses, juros, payback) · `Alternativa[]` com o
+  número de cada uma (mais entrada, mais prazo, "caberia até R$ X").
+- **`taxaImplicita(principal, parcela, n)`** descobre por bissecção o juro REAL
+  de um "3.200 em 48x". Uma parcela informada vale só para o cenário digitado —
+  as alternativas soltam a parcela e usam a taxa implícita, senão todas
+  repetiriam o mesmo valor.
+- **PF e PJ com o MESMO motor:** mudam só os `PRESETS` (veículo/imóvel/viagem/
+  educação × equipamento/unidade/estoque/contratação), que trazem prazo, taxa,
+  entrada e **custo de posse** típicos (`custoAnualPct` — um carro não custa só a
+  parcela: IPVA, seguro, combustível).
+- **Na IA:** "posso comprar um carro de 150 mil em 48x?" cai no motor nativo
+  (`core/assistant/engine`), que detecta o tipo pelo texto e já embute o custo de
+  posse. Vem ANTES do simulador de financiamento e exige o verbo de decisão
+  ("posso/consigo/vale a pena") — a conta PURA ("financiamento de 150 mil em
+  48x a 2%") continua na calculadora de parcela. Guarda de controle no corpus.
+- UI: `OrcamentoShell` + `SimuladorView` (`src/components/orcamento/`).
+
+### CNPJ → CNAE — pré-categorização por atividade (no `/upload`)
+
+`categoriaPorCNAE()` (`src/core/cnae/`, versão `cnae/1.0.0`) — "PIX ENVIADO
+12.345.678/0001-95" não diz nada; o CNAE diz. ~110 regras hierárquicas
+(subclasse > grupo > divisão) sobre a CNAE 2.3: `4731→Combustível`,
+`6821→Aluguel`, `6920→Serviços profissionais`, `62→Assinaturas/software`.
+
+- **`extrairCNPJ`/`extrairCPF`** validam os dígitos verificadores — é o que
+  impede a linha digitável de um boleto de virar CNPJ falso.
+- **⚠️ `normalizarCNAE`:** a BrasilAPI devolve `cnae_fiscal` como **NÚMERO**, e
+  todo CNAE das divisões 01–09 (agro, pecuária, extração) começa com zero, que se
+  perde: `0600-0/01` chega `600001` e lido cru vira divisão **60** (rádio/TV).
+  Como só a 1ª casa pode ser zero, um código completo com 6 dígitos significa
+  "faltou o zero". **Sem isso, todo o agronegócio era categorizado errado em
+  silêncio** (a confiança seguia alta). Não remover.
+- **`lib/cnpj.ts`** — BrasilAPI com cache de 60 dias, dedup de requisições em voo
+  e concorrência limitada (o mesmo fornecedor repete dezenas de vezes num extrato:
+  consulta uma vez). CORS da API é `*`, então o fetch sai do navegador.
+- **`lib/cnae-enrich.ts`** — passada sobre o relatório do FDIP. NUNCA sobrescreve
+  o que o usuário confirmou (`aprendido`) nem classificação já confiante (≥0.9):
+  o CNAE entra onde há dúvida. **Best-effort** — sem rede, o import segue igual.
+
+### Regras de categorização — conciliação automática (`/upload` → aba Regras)
+
+`aplicarRegras()` (`src/core/regras/`, versão `regras/1.0.0`) — o degrau acima do
+aprendizado do FDIP, que só casa a contraparte EXATA ("POSTO SHELL 042" e "POSTO
+SHELL 118" eram dois aprendizados). A regra pega por PADRÃO.
+
+- **Condições combináveis** (E lógico): contraparte/descrição (`contem`/`comeca`/
+  `igual`), tipo, faixa de valor e **prefixo de CNAE** (amarra com a consulta de
+  CNPJ). Uma regra **sem nenhuma condição não casa nada** — pegaria tudo, e isso
+  é sempre engano.
+- **A ORDEM é a prioridade:** a primeira regra que casa vence, como num firewall.
+  O desempate é arrastar a regra para cima — sem pesos para o usuário entender.
+- **`sugerirRegra()`** fecha o ciclo: ao corrigir uma categoria na revisão do
+  import, extrai o NÚCLEO do nome (`nucleoContraparte`: tira número de loja/
+  terminal e ruído de extrato — "PIX POSTO IPIRANGA 771" → "posto ipiranga") e
+  propõe a regra que pega todas as próximas. Só entra se o dono aceitar.
+- **Persistência:** `lib/regras.ts` (localStorage, síncrono — a importação precisa
+  das regras na hora) + contador de uso por regra (mostra o que trabalha e o que
+  virou letra morta). Aplicação: `lib/regras-aplicar.ts`.
+
+**CASCATA DE CLASSIFICAÇÃO** (do explícito ao especulativo — cada etapa só recebe
+o que a anterior não resolveu):
+`1. REGRA do dono` → `2. aprendizado exato` → `3. CNPJ/CNAE` → `4. palavra-chave`
+→ `5. inferência por tipo`. A regra vence até o "aprendido" porque aprendizado é
+implícito (uma confirmação pontual) e regra é explícita. Orquestrado em
+`UploadView.analisarEAuto`.
 
 ### Onboarding guiado / Criar empresa (`/comecar`)
 
@@ -1248,10 +1259,10 @@ npm run lint       # next lint
 npm run smoke      # roda os motores puros (src/core/*) sobre entradas normais +
                    # de borda e falha (exit 1) se algum número virar NaN/Infinity
                    # ou um score sair de [0,100]. Rede de segurança numérica dos
-                   # 11 motores (risco/quant/inad/decisão/executivo/fluxo/DRE/
-                   # datamoat/autônomo/tesouraria). Usa scripts/ts-alias-loader.mjs
+                   # 10 motores (risco/quant/inad/decisão/executivo/fluxo/DRE/
+                   # autônomo/tesouraria). Usa scripts/ts-alias-loader.mjs
                    # (resolve @/ → src/) + --experimental-strip-types.
-npm run corpus     # dispara ~180 frases pt-BR (formais + coloquiais) em
+npm run corpus     # dispara ~247 frases pt-BR (formais + coloquiais) em
                    # responderLocal e falha (exit 1) se alguma cair no intent
                    # errado. Guarda de roteamento da IA nativa (assistant/engine):
                    # protege contra colisões de regex ao mexer nos intents.
@@ -1273,7 +1284,11 @@ npm run audit      # guarda de regressão dos bugs de auditoria (scripts/engine-
                    # invariantes direcionais dos motores proprietários (score de
                    # saúde, crédito, ruptura: saudável > crítica) + idempotência
                    # (ledger, fila, appendImported) + tamper-evidence + robustez a
-                   # dados vazios. TZ=America/Sao_Paulo.
+                   # dados vazios. Cobre também aquisicao (valores fechados do
+                   # caso real + degenerados), cnae (zero à esquerda, boleto que
+                   # não vira CNPJ) e regras (regra sem condição não pega tudo,
+                   # variação do fornecedor pega numa regra só).
+                   # TZ=America/Sao_Paulo.
 npm run tz         # fronteira de mês em fuso UTC-3 (força TZ=America/Sao_Paulo):
                    # `new Date("YYYY-MM-DD")` é meia-noite UTC → no dia 1, em
                    # UTC-3, getMonth() local cai no mês anterior. Exige que
