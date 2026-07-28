@@ -329,6 +329,18 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   Saúde; pendências vencidas/a vencer → Operação; insights críticos →
   Inteligência; anomalias de despesa → Despesas). O bloco no topo ganha o selo
   **"Prioridade · {motivo}"**. Empate desfeito pela ordem-base do setor.
+- **Pílula de período** (`PeriodFilter`): três pills — **Essa semana** · **o MÊS
+  selecionado** (rótulo dinâmico "Julho 2026", não "Mês atual") · **Personalizado**.
+  O botão do mês e o Personalizado abrem o MESMO painel, com o **mês de
+  referência primeiro** e a duração depois; escolher 1 mês entra como
+  `setMonth` (modo "mes"), não como range.
+- **Card de dicas** (`VisorHomeTop`): fundo no **degradê da marca**
+  (`--gradient-marca`, o mesmo do FAB "All 4 Pay AI"), com texto e controles em
+  `on-lime`.
+- **Transações recentes** (`TransacoesRecentesCard`): o **extrato** da Home —
+  últimas 12 movimentações liquidadas, entradas E saídas juntas na ordem em que
+  caíram no caixa, com dia · contraparte · categoria · valor com sinal. Clicar
+  abre a ficha do contato. Substituiu "Últimos gastos" (só saídas).
 - **Cards do command center** (`HomeCards.tsx`, reusam os motores): `SaudeFinanceira`
   (Score·Runway·Burn·Liquidez via `useQuantitativo`), `IAInsights`/`Anomalias`
   (via `useCentroInteligencia`), `TopClientes`/`MaioresCategorias` (período-scoped

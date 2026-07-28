@@ -420,24 +420,30 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
   React.useEffect(() => { setI(0); }, [dicas.length]);
   const go = (d: number) => setI((p) => (p + d + dicas.length) % dicas.length);
   return (
-    <Card className="flex flex-col gap-3">
+    // Degradê da marca (o MESMO do FAB "All 4 Pay AI", via `--gradient-marca`).
+    // Sobre lima tudo entra em `on-lime` — texto claro aqui seria ilegível; os
+    // controles viram vidro escuro para não sumirem no fundo.
+    <Card className="flex flex-col gap-3" style={{ background: "var(--gradient-marca)" }}>
       <div className="flex items-center gap-3">
-        <span className="text-[15px] font-semibold text-ink">Dica all4pay</span>
-        <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2 transition-colors">
+        <span className="w-[34px] h-[34px] rounded-md inline-flex items-center justify-center shrink-0" style={{ background: "#11190C", color: "#E1FF00" }}>
+          <Icon name="sparkles" size={18} color="currentColor" />
+        </span>
+        <span className="text-[15px] font-semibold text-on-lime">Dica all4pay</span>
+        <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-on-lime hover:bg-black/10 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />
         </button>
       </div>
-      <p className="m-0 text-[15px] leading-snug text-muted min-h-[44px]">{dicas[i]}</p>
+      <p className="m-0 text-[15px] leading-snug text-on-lime min-h-[44px]">{dicas[i]}</p>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-[6px] flex-1">
           {dicas.map((_, k) => (
-            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-lime)" : "var(--color-surface-3)" }} />
+            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "#11190C" : "rgba(17,25,12,0.25)" }} />
           ))}
         </div>
-        <button onClick={() => go(-1)} aria-label="Dica anterior" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-surface-2 text-muted hover:text-ink hover:bg-surface-3 transition-colors">
+        <button onClick={() => go(-1)} aria-label="Dica anterior" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-black/10 text-on-lime hover:bg-black/20 transition-colors">
           <Icon name="chevron-left" size={16} color="currentColor" />
         </button>
-        <button onClick={() => go(1)} aria-label="Próxima dica" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-surface-2 text-muted hover:text-ink hover:bg-surface-3 transition-colors">
+        <button onClick={() => go(1)} aria-label="Próxima dica" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-black/10 text-on-lime hover:bg-black/20 transition-colors">
           <Icon name="chevron-right" size={16} color="currentColor" />
         </button>
       </div>

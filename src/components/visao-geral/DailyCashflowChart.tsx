@@ -24,7 +24,9 @@ import { EmptyState, VisuallyHidden } from "./shared";
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
-const LINE = "var(--color-chart-line)"; // linha de saldo acumulado — verde da marca
+// Linha de saldo: MESMO tratamento da linha de comparação do gráfico herói —
+// cinza tracejado. Não compete com as barras, que são quem conta a história.
+const LINE = "#c9cdd4";
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
@@ -161,8 +163,8 @@ export function DailyCashflowChart() {
                 </Bar>
               )}
               {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). Traço fino. */}
-              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={0.85} dot={false} connectNulls name="Saldo em caixa" />}
-              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={0.85} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.3} strokeDasharray="7 6" strokeLinecap="round" dot={false} connectNulls name="Saldo em caixa" />}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.3} strokeDasharray="3 5" strokeLinecap="round" dot={false} connectNulls name="Saldo projetado" />}
             </ComposedChart>
           </ResponsiveContainer>
           <Legend projetado={temProjecao} />
@@ -189,7 +191,7 @@ function Legend({ projetado }: { projetado?: boolean }) {
       <LegendDot color={POSITIVE} label="Entradas" />
       <LegendDot color={NEGATIVE} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">
-        <span className="inline-block w-4 border-t-2" style={{ borderColor: LINE }} />
+        <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LINE }} />
         Saldo em caixa
       </span>
       {projetado && (

@@ -85,240 +85,76 @@ function Kpi({ label, value, suffix, color, hint }: { label: string; value: Reac
 
 /* --------------------------- IA Insights --------------------------- */
 
-export function IAInsightsCard() {
-  const { data, isLoading } = useCentroInteligencia();
-  if (isLoading || !data) return <CardSkeleton tall />;
-  const insights = (data.insights ?? []).slice(0, 4);
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "IA · insights do dia",
-      oQue: "Os pontos que mais merecem sua atenção hoje, priorizados pela IA.",
-      comoCalcula: "Os motores de risco, quant e crédito geram sinais ordenados por impacto × urgência × probabilidade × criticidade.",
-    }}>
-      <Header icon="sparkles" href="/copiloto?aba=copiloto">IA · insights do dia</Header>
-      {insights.length === 0 ? (
-        <span className="text-caption text-faint">Sem insights relevantes agora.</span>
-      ) : (
-        insights.map((i) => (
-          <div key={i.id} className="flex items-start gap-2 py-2 border-t border-border-soft first:border-t-0">
-            <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: sevColor(i.severidade) }} />
-            <div className="min-w-0">
-              <div className="text-[17px] font-medium text-ink">{i.titulo}</div>
-              <div className="text-caption text-muted leading-[1.45]">{i.descricao}</div>
-            </div>
-          </div>
-        ))
-      )}
-    </Card>
-  );
-}
-
 /* ---------------------------- Anomalias ---------------------------- */
-
-export function AnomaliasCard() {
-  const { data, isLoading } = useCentroInteligencia();
-  if (isLoading || !data) return <CardSkeleton tall />;
-  const anomalias = (data.anomalias ?? []).slice(0, 4);
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Anomalias",
-      oQue: "Gastos fora do padrão, duplicidades e pagamentos atípicos detectados automaticamente.",
-      comoCalcula: "Cada categoria é comparada ao seu histórico; o que foge demais (z-score alto) ou se repete é sinalizado.",
-    }}>
-      <Header icon="triangle-alert" href="/copiloto?aba=copiloto">Anomalias</Header>
-      {anomalias.length === 0 ? (
-        <span className="text-caption text-faint">Nenhuma anomalia detectada.</span>
-      ) : (
-        anomalias.map((a) => (
-          <div key={a.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">
-            <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: sevColor(a.severidade) }} />
-            <div className="flex-1 min-w-0">
-              <div className="text-[17px] text-ink truncate">{a.titulo}</div>
-              <div className="text-caption text-faint truncate">{a.descricao}</div>
-            </div>
-            <span className="text-caption text-muted tabular-nums"><BRL value={a.valor} /></span>
-          </div>
-        ))
-      )}
-    </Card>
-  );
-}
 
 /* ----------------------- Top clientes (período) ----------------------- */
 
-export function TopClientesCard() {
-  const { data, isLoading } = useRiscoInput();
-  const period = usePeriod();
-  if (isLoading || !data) return <CardSkeleton tall />;
-
-  const acc = new Map<string, number>();
-  for (const m of data.movements) {
-    if (m.type !== "entrada") continue;
-    const d = realizado(m);
-    if (!d || d < period.from || d > period.to) continue;
-    const id = m.party_id ?? "—";
-    acc.set(id, (acc.get(id) ?? 0) + m.amount);
-  }
-  const total = Array.from(acc.values()).reduce((s, v) => s + v, 0);
-  const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Top clientes",
-      oQue: "Quem mais gerou receita realizada no período selecionado.",
-      comoCalcula: "Soma das entradas pagas por cliente no período; a barra e o % são a fatia de cada um sobre o total recebido.",
-    }}>
-      <Header icon="trending-up" href="/painel-vendas">Top clientes · {period.label.toLowerCase()}</Header>
-      {top.length === 0 || total === 0 ? (
-        <span className="text-caption text-faint">Sem receita realizada no período.</span>
-      ) : (
-        top.map(([id, val]) => {
-          const nome = data.partyNames?.[id] ?? (id === "—" ? "Sem contraparte" : id);
-          const share = total > 0 ? val / total : 0;
-          const clicavel = id !== "—";
-          const abrir = () => clicavel && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id } }));
-          return (
-            <button key={id} type="button" onClick={abrir} disabled={!clicavel}
-              className={`flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0 text-left w-full ${clicavel ? "hover:opacity-80 transition-opacity cursor-pointer" : "cursor-default"}`}>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[16px] text-ink truncate inline-flex items-center gap-1">{nome}{clicavel && <Icon name="arrow-up-right" size={12} color="var(--color-faint)" />}</span>
-                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
-              </div>
-              <BarShare pct={share} color="var(--color-ink)" />
-            </button>
-          );
-        })
-      )}
-    </Card>
-  );
-}
-
 /* ----------------------- Top fornecedores (período) ----------------------- */
-
-export function TopFornecedoresCard() {
-  const { data, isLoading } = useRiscoInput();
-  const period = usePeriod();
-  if (isLoading || !data) return <CardSkeleton tall />;
-
-  const acc = new Map<string, number>();
-  for (const m of data.movements) {
-    if (m.type !== "saida" || m.status !== "pago") continue;
-    const d = realizado(m);
-    if (!d || d < period.from || d > period.to) continue;
-    if (!m.party_id) continue; // só fornecedores identificados
-    acc.set(m.party_id, (acc.get(m.party_id) ?? 0) + m.amount);
-  }
-  const total = Array.from(acc.values()).reduce((s, v) => s + v, 0);
-  const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Top fornecedores",
-      oQue: "Para quem você mais pagou no período.",
-      comoCalcula: "Soma das saídas pagas por fornecedor identificado no período; a barra e o % são a fatia de cada um sobre o total pago a fornecedores.",
-    }}>
-      <Header icon="receipt" href="/pagamentos">Top fornecedores · {period.label.toLowerCase()}</Header>
-      {top.length === 0 || total === 0 ? (
-        <span className="text-caption text-faint">Sem pagamentos a fornecedor no período.</span>
-      ) : (
-        top.map(([id, val]) => {
-          const nome = data.partyNames?.[id] ?? id;
-          const share = total > 0 ? val / total : 0;
-          const abrir = () => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id } }));
-          return (
-            <button key={id} type="button" onClick={abrir} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0 text-left w-full hover:opacity-80 transition-opacity">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[16px] text-ink truncate inline-flex items-center gap-1">{nome}<Icon name="arrow-up-right" size={12} color="var(--color-faint)" /></span>
-                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
-              </div>
-              <BarShare pct={share} color="var(--color-warning)" />
-            </button>
-          );
-        })
-      )}
-    </Card>
-  );
-}
 
 /* ------------------- Maiores categorias de despesa ------------------- */
 
-export function MaioresCategoriasCard() {
-  const { data, isLoading } = useRiscoInput();
-  const period = usePeriod();
-  if (isLoading || !data) return <CardSkeleton tall />;
-
-  const acc = new Map<string, number>();
-  for (const m of data.movements) {
-    if (m.type !== "saida") continue;
-    const d = realizado(m);
-    if (!d || d < period.from || d > period.to) continue;
-    const cat = (m.category && String(m.category)) || "Outras";
-    acc.set(cat, (acc.get(cat) ?? 0) + m.amount);
-  }
-  const total = Array.from(acc.values()).reduce((s, v) => s + v, 0);
-  const top = Array.from(acc.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  return (
-    <Card className="flex flex-col gap-3" info={{
-      titulo: "Maiores despesas",
-      oQue: "Para onde foi a maior parte do seu dinheiro no período.",
-      comoCalcula: "Soma das saídas pagas por categoria no período; o % é a fatia de cada uma sobre o total gasto.",
-    }}>
-      <Header icon="receipt" href="/dre">Maiores despesas · {period.label.toLowerCase()}</Header>
-      {top.length === 0 || total === 0 ? (
-        <span className="text-caption text-faint">Sem despesas no período.</span>
-      ) : (
-        top.map(([cat, val]) => {
-          const share = total > 0 ? val / total : 0;
-          return (
-            <div key={cat} className="flex flex-col gap-1 py-[6px] border-t border-border-soft first:border-t-0">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[16px] text-ink truncate capitalize">{cat}</span>
-                <span className="text-caption text-muted tabular-nums shrink-0"><BRL value={val} /> · {Math.round(share * 100)}%</span>
-              </div>
-              <BarShare pct={share} color="var(--color-warning)" />
-            </div>
-          );
-        })
-      )}
-    </Card>
-  );
-}
-
 /* --------------------------- Últimos gastos --------------------------- */
 
-export function UltimosGastosCard() {
+/**
+ * Transações recentes — o EXTRATO da Home: as últimas movimentações
+ * liquidadas, entradas e saídas juntas, na ordem em que caíram no caixa.
+ * Cada linha diz o dia, quem recebeu/pagou e o valor com sinal — a leitura
+ * de um extrato bancário. Clicar abre a ficha da contraparte.
+ */
+export function TransacoesRecentesCard() {
   const { data, isLoading } = useRiscoInput();
   if (isLoading || !data) return <CardSkeleton tall />;
-  const gastos = data.movements
-    .filter((m) => m.type === "saida" && realizado(m))
+
+  const movs = data.movements
+    .filter((m) => m.status !== "cancelado" && realizado(m))
     .sort((a, b) => (realizado(b) ?? "").localeCompare(realizado(a) ?? ""))
-    .slice(0, 5);
+    .slice(0, 12);
+
   return (
     <Card className="flex flex-col gap-3" info={{
-      titulo: "Últimos gastos",
-      oQue: "Os pagamentos mais recentes que saíram do seu caixa.",
-      comoCalcula: "Saídas já liquidadas (pagas), ordenadas da mais recente para a mais antiga.",
+      titulo: "Transações recentes",
+      oQue: "O extrato da conta: as últimas entradas e saídas já liquidadas, na ordem em que caíram no caixa.",
+      comoCalcula: "Movimentos com baixa (pagos), ordenados da data de pagamento mais recente para a mais antiga. Entradas somam (+) e saídas subtraem (−) do saldo.",
     }}>
-      <Header icon="arrow-down-to-line" href="/pagamentos">Últimos gastos</Header>
-      {gastos.length === 0 ? (
-        <span className="text-caption text-faint">Nenhum gasto liquidado ainda.</span>
+      <Header icon="arrow-left-right" href="/recebimentos">Transações recentes</Header>
+      {movs.length === 0 ? (
+        <span className="text-caption text-faint">Nenhuma transação liquidada ainda.</span>
       ) : (
-        gastos.map((m) => {
-          const nome = (m.party_id && data.partyNames?.[m.party_id]) || String(m.category ?? "Despesa");
-          const pid = m.party_id;
-          const abrir = () => pid && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: pid } }));
-          return (
-            <button key={m.id} type="button" onClick={abrir} disabled={!pid}
-              className={`flex items-center justify-between gap-3 py-2 border-t border-border-soft first:border-t-0 text-left w-full ${pid ? "hover:opacity-80 transition-opacity cursor-pointer" : "cursor-default"}`}>
-              <div className="min-w-0">
-                <div className="text-[17px] text-ink truncate inline-flex items-center gap-1">{nome}{pid && <Icon name="arrow-up-right" size={11} color="var(--color-faint)" />}</div>
-                <div className="text-caption text-faint tabular-nums">{fmtDia(realizado(m))}</div>
-              </div>
-              <span className="text-[17px] text-ink tabular-nums"><BRL value={m.amount} /></span>
-            </button>
-          );
-        })
+        <div className="flex flex-col">
+          {movs.map((m) => {
+            const entrada = m.type === "entrada";
+            const nome = (m.party_id && data.partyNames?.[m.party_id]) || String(m.category ?? (entrada ? "Recebimento" : "Pagamento"));
+            const pid = m.party_id;
+            const abrir = () => pid && window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: pid } }));
+            return (
+              <button
+                key={m.id} type="button" onClick={abrir} disabled={!pid}
+                className={`flex items-center gap-3 py-[10px] border-t border-border-soft first:border-t-0 text-left w-full ${pid ? "hover:bg-surface-1 transition-colors cursor-pointer" : "cursor-default"}`}
+              >
+                {/* seta: entrou (↙ verde) × saiu (↗ vermelho) — o sinal do extrato */}
+                <span
+                  className="w-[30px] h-[30px] rounded-pill inline-flex items-center justify-center shrink-0"
+                  style={{ background: `color-mix(in srgb, ${entrada ? "var(--color-positive)" : "var(--color-negative)"} 14%, transparent)` }}
+                  aria-hidden
+                >
+                  <Icon name={entrada ? "arrow-down-to-line" : "arrow-up-right"} size={14} color={entrada ? "var(--color-positive)" : "var(--color-negative)"} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] text-ink truncate inline-flex items-center gap-1">
+                    {nome}{pid && <Icon name="arrow-up-right" size={11} color="var(--color-text-tertiary)" />}
+                  </div>
+                  <div className="text-caption text-faint tabular-nums">
+                    {fmtDia(realizado(m))}{m.category ? ` · ${m.category}` : ""}
+                  </div>
+                </div>
+                {/* valor SEMPRE em ink; o sinal e a seta dizem a direção */}
+                <span className="text-[15px] text-ink tabular-nums shrink-0 whitespace-nowrap">
+                  {entrada ? "+" : "−"}<BRL value={m.amount} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </Card>
   );

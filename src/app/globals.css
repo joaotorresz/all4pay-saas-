@@ -110,6 +110,10 @@
   --color-on-lime: #11190c; /* text/icon ON bright lime — dark in BOTH themes */
   --color-chart-line: #0e131e; /* linha dos gráficos: escura no claro, lime no escuro */
 
+  /* Degradê OFICIAL da marca (os 5 stops do guia, de cima para baixo). Usado
+     pelo FAB "All 4 Pay AI" e pelo card de dicas da Home. */
+  --gradient-marca: linear-gradient(180deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
+
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
   --gradient-hero-glow: #4b4d3d;
