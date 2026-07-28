@@ -56,39 +56,19 @@ export const SECTIONS: Section[] = [
   {
     id: "dados", label: "Dados & Cadastros", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Clientes & Fornecedores", href: "/contatos", icon: "users" },
-      { label: "Produtos", href: "/produtos", icon: "shopping-cart" },
-      { label: "Serviços", href: "/servicos", icon: "receipt" },
+      { label: "Cadastros", href: "/cadastros", icon: "users" },
     ],
   },
   // ----- Profundidade — revelada no Modo Pro -----
   {
     id: "fiscal", label: "Fiscal & vendas", pro: true, items: [
-      { label: "Nova venda", href: "/nova-venda", icon: "plus" },
-      { label: "Painel de vendas", href: "/painel-vendas", icon: "credit-card" },
-      { label: "Notas fiscais", href: "/notas-fiscais", icon: "file-text" },
+      { label: "Vendas e NFs", href: "/vendas", icon: "credit-card" },
       { label: "Impostos", href: "/impostos", icon: "receipt" },
-      { label: "Venda na maquininha (POS)", href: "/pos/venda", icon: "credit-card" },
-      { label: "Taxas da maquininha (POS)", href: "/pos/taxas", icon: "credit-card" },
     ],
   },
   {
     id: "contabilidade", label: "Contabilidade", pro: true, items: [
-      { label: "Razão contábil (GL)", href: "/razao", icon: "receipt" },
-      { label: "Fechamento mensal", href: "/fechamento", icon: "check" },
-      { label: "Reconhecimento de receita", href: "/receita", icon: "repeat" },
-      { label: "Relatórios", href: "/relatorios", icon: "receipt" },
-      { label: "Plano de Contas", href: "/plano-de-contas", icon: "layers" },
-      { label: "Dimensões & Tags", href: "/dimensoes", icon: "layers" },
-      { label: "Cronogramas", href: "/cronogramas", icon: "calendar" },
-      { label: "TXT Domínio · Envio NFs", href: "/contabilidade", icon: "file-text" },
-      { label: "Consolidado (multiempresa)", href: "/consolidado", icon: "building" },
-    ],
-  },
-  {
-    id: "estrutura", label: "Estrutura", pro: true, items: [
-      { label: "Projetos", href: "/projetos", icon: "target" },
-      { label: "Centros de Custo", href: "/centros-custo", icon: "building" },
+      { label: "Contabilidade", href: "/contabilidade", icon: "receipt" },
     ],
   },
   {

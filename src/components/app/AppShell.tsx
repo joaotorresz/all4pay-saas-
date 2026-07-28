@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ShellGate } from "@/components/app/shell-nesting";
 import { PageGuide } from "@/components/app/PageGuide";
 import { CommandPalette } from "@/components/app/CommandPalette";
 import { AssistantWidget } from "@/components/app/AssistantWidget";
@@ -53,7 +54,7 @@ export function AppShell({
       )}
     </header>
   );
-  return (
+  const chrome = (
     <div className="a4p-canvas fixed inset-0 flex bg-surface-1 overflow-hidden">
       <Sidebar />
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
@@ -74,4 +75,8 @@ export function AppShell({
       <NovaTransacao />
     </div>
   );
+
+  // Dentro de um hub, a tela-aba já está sob um AppShell: o gate corta o
+  // chrome duplicado e deixa só o conteúdo (ver `shell-nesting.tsx`).
+  return <ShellGate chrome={chrome} actions={actions}>{children}</ShellGate>;
 }

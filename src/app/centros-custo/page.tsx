@@ -1,3 +1,11 @@
 "use client";
-import { CentrosCustoView } from "@/components/cadastros/CentrosCustoView";
-export default function CentrosCustoPage() { return <CentrosCustoView />; }
+
+// Consolidado num hub (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/cadastros?aba=centros-custo"); }, [r]);
+  return null;
+}

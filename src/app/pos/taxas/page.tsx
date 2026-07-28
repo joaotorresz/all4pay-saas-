@@ -1,5 +1,11 @@
-import { CentralPosTaxasView } from "@/components/pos/CentralPosTaxasView";
+"use client";
 
-export default function PosTaxasPage() {
-  return <CentralPosTaxasView />;
+// Consolidado num hub (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/vendas?aba=pos-taxas"); }, [r]);
+  return null;
 }

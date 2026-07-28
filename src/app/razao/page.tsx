@@ -1,7 +1,11 @@
 "use client";
 
-import { RazaoView } from "@/components/razao/RazaoView";
+// Consolidado no hub de Contabilidade (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function RazaoPage() {
-  return <RazaoView />;
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/contabilidade?aba=razao"); }, [r]);
+  return null;
 }

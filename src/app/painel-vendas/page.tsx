@@ -1,10 +1,11 @@
 "use client";
-import { VendasDashboardView } from "@/components/dashboards/VendasDashboardView";
-import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
-export default function PainelVendasPage() {
-  return (
-    <PeriodProvider>
-      <VendasDashboardView />
-    </PeriodProvider>
-  );
+
+// Consolidado no hub de Vendas e NFs (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/vendas?aba=painel"); }, [r]);
+  return null;
 }

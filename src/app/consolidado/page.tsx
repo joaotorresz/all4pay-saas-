@@ -1,7 +1,11 @@
 "use client";
 
-import { ConsolidadoView } from "@/components/consolidado/ConsolidadoView";
+// Consolidado no hub de Contabilidade (deep-link preservado).
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function ConsolidadoPage() {
-  return <ConsolidadoView />;
+export default function Redir() {
+  const r = useRouter();
+  useEffect(() => { r.replace("/contabilidade?aba=consolidado"); }, [r]);
+  return null;
 }
