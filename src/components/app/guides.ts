@@ -195,6 +195,21 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
+  /* ----------------------------- All 4 Pay AI ----------------------------- */
+  "/all4pay-ai": {
+    titulo: "All 4 Pay AI",
+    intro: "O chat da IA em tela cheia, com histórico de conversas. É a MESMA IA do botão flutuante — muda só o espaço: aqui cabe a conversa longa, o gráfico grande e o histórico do lado.",
+    comoUsar: "Pergunte em português normal (“quanto gastei esse mês?”, “estou crescendo?”). A resposta passa pelas etapas de análise e vem com os números, as fontes do cálculo e, quando ajuda, um gráfico. As conversas ficam salvas à esquerda, agrupadas por data.",
+    exemplo: "“Quais meus maiores gastos?” → o total do mês, as três maiores categorias com percentual e um gráfico de barras. Depois: “e no mês passado?” — ela lembra do contexto.",
+    secoes: [
+      acoes([
+        { nome: "Perguntar", desc: "Conceitos (“o que é runway?”), números reais (saldo, margem, inadimplência) e simulações (financiamento, Simples, precificação).", match: "Envie uma mensagem" },
+        { nome: "Retomar uma conversa", desc: "Clique no histórico à esquerda — Hoje, Últimos 7 dias, Últimos 30 dias.", match: "Nova conversa" },
+        { nome: "Conferir a fonte", desc: "Cada resposta mostra os motores usados; o polegar 👍/👎 ensina a IA a priorizar suas perguntas." },
+      ]),
+    ],
+  },
+
   /* ----------------------------- Upload / ingestão ----------------------------- */
   "/upload": {
     titulo: "Entrada de dados",
