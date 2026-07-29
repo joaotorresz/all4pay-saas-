@@ -46,7 +46,7 @@ const CORPUS: [string, RegExp][] = [
   // saldo
   ["qual meu saldo?", /saldo/i], ["qual meu caixa?", /saldo/i], ["quanto de dinheiro eu tenho?", /saldo/i], ["quanta grana eu tenho?", /saldo/i],
   // gasto / receita
-  ["quanto gastei esse mês?", /gastou/i], ["quanto torrei esse mês?", /gastou/i], ["quanto recebi esse mês?", /recebeu/i], ["qual meu faturamento?", /receb|fatur/i],
+  ["quanto gastei esse mês?", /gastos pagos/i], ["quanto torrei esse mês?", /gastos pagos/i], ["quanto recebi esse mês?", /receita recebida/i], ["qual meu faturamento?", /receb|fatur/i],
   // a receber / pagar
   ["quanto tenho a receber?", /a receber/i], ["quanto o pessoal me deve?", /a receber|devedor|vencidos/i], ["quanto tenho a pagar?", /a pagar/i], ["quais minhas dívidas?", /a pagar/i],
   // inadimplência
@@ -67,8 +67,8 @@ const CORPUS: [string, RegExp][] = [
   // categoria específica
   ["quanto gastei com marketing?", /Marketing/i], ["quanto paguei de imposto?", /Impostos/i],
   // pontualidade
-  ["meus clientes pagam em dia?", /Seus clientes pagam/i], ["quanto meus clientes atrasam?", /clientes pagam|atraso|prazo/i], ["meus clientes são pontuais?", /clientes pagam|prazo|atraso/i],
-  ["pago minhas contas em dia?", /Você paga/i],
+  ["meus clientes pagam em dia?", /clientes pagam/i], ["quanto meus clientes atrasam?", /clientes pagam|atraso|prazo/i], ["meus clientes são pontuais?", /clientes pagam|prazo|atraso/i],
+  ["pago minhas contas em dia?", /pagamentos (são feitos|saem)/i],
   // LTV / burn diário / média
   ["quanto cada cliente me rende?", /Cada cliente rende/i], ["recebo em média por cliente?", /Cada cliente rende/i], ["quanto gasto por dia?", /por dia|gasta em média/i], ["qual meu gasto médio mensal?", /m[ée]dia|hist[óo]rico/i],
   // economizar
@@ -136,7 +136,7 @@ const CORPUS: [string, RegExp][] = [
   // quando existe uma despesa com o mesmo nome (guarda de direção no gasto-cat).
   ["quanto entra de Vendas?", /receb\w* .*de Vendas|receita/i],
   ["quanto recebo de vendas?", /receb\w* .*de Vendas|receita/i],
-  ["quanto gastei com marketing?", /gastou .*Marketing/i],
+  ["quanto gastei com marketing?", /pagos .*Marketing/i],
   // 14ª rodada (cont.): "maiores FORNECEDORES" não pode virar "maior cliente";
   // "qual fornecedor custa mais" tinha caído no fallback.
   ["quem são meus maiores fornecedores?", /fornecedor/i],
@@ -159,7 +159,7 @@ const CORPUS: [string, RegExp][] = [
   // 15ª rodada (cont.): "quantos FORNECEDORES" é CONTAGEM, não gasto com a
   // categoria homônima "Fornecedores" ("quanto" ⊂ "quantos").
   ["quantos fornecedores eu tenho?", /fornecedor\(es\) com movimento|contrapart/i],
-  ["quanto gastei com fornecedores?", /gastou .*Fornecedores/i],
+  ["quanto gastei com fornecedores?", /pagos .*Fornecedores/i],
   // 15ª rodada (cont.): mix de receita produto×serviço (não comparação de meses);
   // "vendi mais em maio ou junho" segue como comparação MENSAL.
   ["recebo mais de produto ou serviço?", /de produtos e .* de serviços/i],
@@ -203,8 +203,8 @@ const CORPUS: [string, RegExp][] = [
   ["qual minha carga tributária?", /carga tributária/i],
   ["quanto de imposto pago sobre a receita?", /carga tributária/i],
   // EBITDA como NÚMERO (motor), não conceito — a KB só explica "o que é EBITDA"
-  ["qual meu EBITDA?", /Seu EBITDA/i],
-  ["quanto é meu EBITDA esse mês?", /Seu EBITDA/i],
+  ["qual meu EBITDA?", /^O EBITDA/i],
+  ["quanto é meu EBITDA esse mês?", /^O EBITDA/i],
   // sinônimos → categoria: pessoal→Folha, luz→Utilidades
   ["qual meu gasto com pessoal?", /Folha|gastou/i],
   ["quanto gasto com funcionários?", /Folha|gastou/i],

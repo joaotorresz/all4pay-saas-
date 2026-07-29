@@ -518,6 +518,89 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
+   ALL 4 PAY AI — tipografia e movimento do assistente.
+
+   O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do
+   `<main>.ds-visor` (são irmãos dele no AppShell), então nenhuma
+   regra `.ds-visor …` os alcança — inclusive as do Laboratório.
+   Por isso a tipografia do chat é declarada aqui, no próprio
+   escopo, e o Lab ganhou `.a4p-ia`/`.a4p-ia-fab` como raízes.
+
+   Tipografia: Roobert Variable 400, tracking −0.5px em TODOS os
+   itens. Os números fogem da regra (`.a4p-num`/`.tabular-nums`
+   seguem em mono, como no resto do sistema).
+   ============================================================ */
+.a4p-ia,
+.a4p-ia *,
+.a4p-ia-fab,
+.a4p-ia-fab * {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+}
+.a4p-ia .tabular-nums,
+.a4p-ia .a4p-num,
+.a4p-ia .a4p-num * {
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+/* Abertura do painel: entra deslizando da direita COM leve escala e
+   desfoque que se dissolvem — a "mola" é o cubic-bezier (overshoot
+   suave). `transform`+`opacity`+`filter` são composited. */
+.a4p-ia {
+  transition:
+    transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1),
+    opacity 260ms ease-out,
+    filter 300ms ease-out;
+}
+.a4p-ia[data-aberto="0"] {
+  transform: translateX(100%) scale(0.97);
+  opacity: 0;
+  filter: blur(6px);
+}
+.a4p-ia[data-aberto="1"] {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Entrada dos itens: sobem e revelam. O atraso é dado inline
+   (`--a4p-atraso`) para escalonar a lista. */
+.a4p-entra {
+  animation: a4p-entra 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--a4p-atraso, 0ms);
+}
+@keyframes a4p-entra {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulso das etapas de análise: o passo corrente respira. */
+.a4p-pulso { animation: a4p-pulso 1.5s ease-in-out infinite; }
+@keyframes a4p-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Brilho que varre a barra de progresso da análise. */
+.a4p-varre {
+  background-size: 200% 100%;
+  animation: a4p-varre 1.4s linear infinite;
+}
+@keyframes a4p-varre {
+  from { background-position: 200% 50%; }
+  to { background-position: -200% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a4p-ia { transition: transform 120ms linear, opacity 120ms linear; }
+  .a4p-ia[data-aberto="0"] { filter: none; transform: translateX(100%); }
+  .a4p-entra { animation: none; }
+  .a4p-pulso, .a4p-varre { animation: none; }
+}
+
+/* ============================================================
    AURORA GLASS — o canvas do app e as superfícies de vidro.
    .a4p-canvas (raiz do AppShell): washes de aurora em lime a
    baixíssima opacidade sobre o fundo do tema (o lime segue sendo

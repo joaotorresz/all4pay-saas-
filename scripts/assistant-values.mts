@@ -96,7 +96,7 @@ const CASES: [string, RegExp, string][] = [
   // movimentado = 60000 + 36000 = 96000
   ["quanto movimentei no total?", /movimentou R\$.?96\.000/, "60000 + 36000"],
   // trimestre TRAILING (mai–jul): entradas 30000+20000+10000 = 60000
-  ["quanto entrou no trimestre?", /R\$.?60\.000 no trimestre/, "trailing mai+jun+jul entradas"],
+  ["quanto entrou no trimestre?", /no trimestre soma R\$.?60\.000/, "trailing mai+jun+jul entradas"],
   // semestre TRAILING (fev–jul = todo o dataset): entraram 60000
   ["como foi meu semestre?", /No semestre entraram R\$.?60\.000/, "trailing 6m entradas = 60000"],
   // produto vs serviço no mês (jul): produtos (Vendas A) 6000 vs serviços (B) 4000
