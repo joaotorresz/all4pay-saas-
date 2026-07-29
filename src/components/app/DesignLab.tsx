@@ -73,6 +73,14 @@ const PADROES: Padrao[] = [
   { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
   { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
   { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
+  // All 4 Pay AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
+  // dele no AppShell), então nada em `.ds-visor …` os alcança. Ganham âncora
+  // própria (`.a4p-ia`) para serem editáveis como o resto.
+  { id: "iaFab", label: "All 4 Pay AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
+  { id: "iaPergunta", label: "IA · pergunta", grupo: "Textos", teste: ".a4p-ia [data-ia='pergunta']", seletorTipo: ".a4p-ia [data-ia='pergunta']" },
+  { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
+  { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
+  { id: "iaChat", label: "All 4 Pay AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
   { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
   { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
   { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
@@ -88,6 +96,7 @@ const PADROES: Padrao[] = [
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
+  { id: "iaTudo", label: "All 4 Pay AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
 ];
 
 /** Alvos de borda oferecidos direto no Global (os mais pedidos). */
@@ -118,6 +127,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
   { id: "button", label: "Botões", dica: "ações" },
   { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
+  { id: "iaTudo", label: "All 4 Pay AI", dica: "o botão e o chat" },
   { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
@@ -127,10 +137,19 @@ function padraoDe(el: Element): Padrao | null {
 }
 
 /* ============ SELETOR ÚNICO (caminho estrutural do elemento) ============ */
-/** Âncoras estáveis: a sidebar e o main do app. */
+/**
+ * Âncoras estáveis: a sidebar, o painel/botão da IA e o main do app.
+ * A IA precisa da própria âncora — o FAB e o painel são IRMÃOS do
+ * `<main>.ds-visor` no AppShell, então sem isto o picker devolvia `null` e
+ * nada dentro da IA era selecionável.
+ */
 function raizDe(el: Element): { no: Element; prefixo: string } | null {
   const side = el.closest(".a4p-sidebar");
   if (side) return { no: side, prefixo: ".a4p-sidebar" };
+  const fab = el.closest(".a4p-ia-fab");
+  if (fab) return { no: fab, prefixo: ".a4p-ia-fab" };
+  const ia = el.closest(".a4p-ia");
+  if (ia) return { no: ia, prefixo: ".a4p-ia" };
   const main = el.closest("main.ds-visor") ?? el.closest(".ds-visor");
   if (main) return { no: main, prefixo: ".ds-visor" };
   return null;
@@ -160,7 +179,8 @@ function caminhoPai(sel: string): string | null {
   const i = sel.lastIndexOf(" > ");
   if (i < 0) return null;
   const p = sel.slice(0, i);
-  return p.includes(">") || p === ".a4p-sidebar" || p === ".ds-visor" ? p : null;
+  const RAIZES = [".a4p-sidebar", ".ds-visor", ".a4p-ia", ".a4p-ia-fab"];
+  return p.includes(">") || RAIZES.includes(p) ? p : null;
 }
 
 const contaAlvos = (sel: string): number => {

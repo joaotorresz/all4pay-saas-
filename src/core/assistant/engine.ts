@@ -81,15 +81,71 @@ function topClientes(ms: RiskMovement[], nomes: Record<string, string> | undefin
   for (const m of ms) { const k = m.party_id || "—"; map.set(k, (map.get(k) || 0) + Math.abs(m.amount)); }
   return Array.from(map.entries()).map(([id, valor]) => ({ nome: (nomes?.[id]) || (id === "—" ? "Sem cliente" : "Cliente"), valor })).sort((a, b) => b.valor - a.valor).slice(0, n);
 }
+/**
+ * Série mensal dos últimos `n` meses (do mais antigo ao atual), em ordem
+ * cronológica — é o que um gráfico de linha precisa. `metrica` escolhe entre
+ * receita, despesa e resultado; só entram lançamentos PAGOS (visão de caixa).
+ */
+function serieMensal(ms: RiskMovement[], hojeISO: string, n: number, metrica: "receita" | "despesa" | "resultado") {
+  const base = new Date(hojeISO + "T00:00:00");
+  const chaves: string[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    chaves.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
+  }
+  const acc = new Map<string, { rec: number; desp: number }>(chaves.map((k) => [k, { rec: 0, desp: 0 }]));
+  for (const m of ms) {
+    if (m.status !== "pago") continue;
+    const k = cashDate(m).slice(0, 7);
+    const cur = acc.get(k);
+    if (!cur) continue;
+    if (m.type === "entrada") cur.rec += Math.abs(m.amount); else cur.desp += Math.abs(m.amount);
+  }
+  return chaves.map((k) => {
+    const v = acc.get(k)!;
+    const [, mm] = k.split("-");
+    return {
+      nome: MES[Number(mm) - 1].slice(0, 3),
+      valor: metrica === "receita" ? v.rec : metrica === "despesa" ? v.desp : v.rec - v.desp,
+    };
+  });
+}
+
 /** party_id da contraparte de maior volume (|valor|) numa lista — ignora nulos. */
 function topId(ms: RiskMovement[]): string | undefined {
   const map = new Map<string, number>();
   for (const m of ms) { if (!m.party_id) continue; map.set(m.party_id, (map.get(m.party_id) || 0) + Math.abs(m.amount)); }
   return Array.from(map.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 }
-const R = (resposta: string, numeros: { label: string; valor: string }[], fontes: string[], confianca = 0.9): RespostaCopiloto => ({ resposta, numeros, fontes, confianca });
+/**
+ * Série opcional que acompanha uma resposta — quando a pergunta é sobre uma
+ * DISTRIBUIÇÃO (por categoria, por contraparte) ou uma EVOLUÇÃO (mês a mês),
+ * o número sozinho conta metade da história. Puro dado: quem desenha é o chat.
+ * `tom` escolhe a cor semântica (entrada/saída/neutro) sem o motor conhecer CSS.
+ */
+export interface GraficoResposta {
+  tipo: "barras" | "linha";
+  titulo: string;
+  tom: "entrada" | "saida" | "neutro";
+  dados: { nome: string; valor: number }[];
+}
 
-export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): (RespostaCopiloto & { contatoId?: string }) | null {
+/** Resposta do motor nativo — `RespostaCopiloto` + os extras da camada local. */
+export type RespostaLocal = RespostaCopiloto & { contatoId?: string; grafico?: GraficoResposta };
+
+const R = (
+  resposta: string,
+  numeros: { label: string; valor: string }[],
+  fontes: string[],
+  confianca = 0.9,
+  grafico?: GraficoResposta,
+): RespostaLocal => ({ resposta, numeros, fontes, confianca, ...(grafico ? { grafico } : {}) });
+
+/** Série de barras a partir de um `{nome, valor}[]` já ordenado. */
+const barras = (titulo: string, tom: GraficoResposta["tom"], dados: { nome: string; valor: number }[], n = 5): GraficoResposta | undefined =>
+  dados.length >= 2 ? { tipo: "barras", titulo, tom, dados: dados.slice(0, n) } : undefined;
+
+export function responderLocal(pergunta: string, input: RiskInput, ctx?: ExecutiveContext): RespostaLocal | null {
   const p = pergunta.toLowerCase();
   const hoje = input.hoje;
   const movs = ativos(input.movements);
@@ -106,7 +162,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const geral = totRec + totPag;
     if (vencidos.length === 0) return R("Nada está vencido no momento — não há títulos em atraso a receber nem a pagar.", [{ label: "Total em atraso", valor: fmt(0) }], ["títulos vencidos"]);
     return R(
-      `Você tem ${fmt(geral)} vencidos em ${vencidos.length} título(s): ${fmt(totRec)} a receber (${rec.length}) e ${fmt(totPag)} a pagar (${pag.length}).`,
+      `Há ${fmt(geral)} vencidos em ${vencidos.length} título(s): ${fmt(totRec)} a receber (${rec.length}) e ${fmt(totPag)} a pagar (${pag.length}).`,
       [{ label: "A receber vencido", valor: fmt(totRec) }, { label: "A pagar vencido", valor: fmt(totPag) }, { label: "Total em atraso", valor: fmt(geral) }],
       ["recebíveis vencidos", "contas a pagar vencidas"]);
   }
@@ -517,8 +573,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
     const arred = Math.round(media);
     const frase = arred <= 0
-      ? `Seus clientes pagam em dia — em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento. ${pctPrazo}% dos títulos foram pagos no prazo.`
-      : `Seus clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — vale apertar a cobrança.`;
+      ? `Os clientes pagam em dia: em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento. ${pctPrazo}% dos títulos foram pagos no prazo.`
+      : `Os clientes pagam com ${arred} dia(s) de atraso em média. Só ${pctPrazo}% foram pagos no prazo — Recomenda-se intensificar a cobrança.`;
     return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento dos clientes"], 0.88);
   }
 
@@ -532,8 +588,8 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const pctPrazo = Math.round((noPrazo / atrasos.length) * 100);
     const arred = Math.round(media);
     const frase = arred <= 0
-      ? `Você paga em dia — em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento (${pctPrazo}% no prazo). Boa disciplina, mas pagar exatamente no vencimento preserva mais caixa.`
-      : `Você paga com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasar demais gera multa/juros e arranha o relacionamento com fornecedores.`;
+      ? `Os pagamentos são feitos em dia: em média ${Math.abs(arred)} dia(s) ${arred < 0 ? "antes" : "no"} do vencimento (${pctPrazo}% no prazo). Disciplina adequada; ainda assim, pagar exatamente no vencimento preserva mais caixa.`
+      : `Os pagamentos saem com ${arred} dia(s) de atraso em média (${pctPrazo}% no prazo). Atrasos recorrentes geram multa e juros e comprometem o relacionamento com fornecedores.`;
     return R(frase, [{ label: "Atraso médio", valor: `${arred} d` }, { label: "Pagos no prazo", valor: `${pctPrazo}%` }, { label: "Títulos", valor: String(atrasos.length) }], ["comportamento de pagamento a fornecedores"], 0.88);
   }
 
@@ -546,7 +602,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
     const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
     return R(
-      `Você tem ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
+      `Há ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
       [{ label: "Total a receber", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
       ["recebíveis em aberto"]);
   }
@@ -559,7 +615,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
     const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
     return R(
-      `Você tem ${fmt(total)} a pagar em ${ab.length} título(s)${totVenc > 0 ? `, sendo ${fmt(totVenc)} já vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
+      `Há ${fmt(total)} a pagar em ${ab.length} título(s)${totVenc > 0 ? `, sendo ${fmt(totVenc)} já vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
       [{ label: "Total a pagar", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
       ["contas a pagar em aberto"]);
   }
@@ -611,9 +667,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const share = tot > 0 ? Math.round((top[0].valor / tot) * 100) : 0;
     return {
       ...R(
-        `Seu maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} (${share}% da receita do período). Em seguida: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
+        `O maior cliente ${w.label} é ${top[0].nome}, com ${fmt(top[0].valor)} — ${share}% da receita do período. Na sequência: ${top.slice(1).map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ") || "—"}.`,
         top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
-        ["receita por cliente"]),
+        ["receita por cliente"], 0.9,
+        barras(`Receita por cliente ${w.label}`, "entrada", top)),
       ...(topId(ent) ? { contatoId: topId(ent) } : {}),
     };
   }
@@ -634,9 +691,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       : `Saudável: seu maior cliente (${top[0].nome}) é ${share}% da receita, sem dependência crítica.`;
     return {
       ...R(
-        `${alerta} Os 3 maiores somam ${top3}% do que você recebe (últimos 6 meses).`,
+        `${alerta} Os 3 maiores respondem por ${top3}% da receita dos últimos 6 meses.`,
         [{ label: `Maior (${top[0].nome})`, valor: `${share}%` }, { label: "Top 3", valor: `${top3}%` }, { label: "Receita 6m", valor: fmt(tot) }],
-        ["receita por cliente", "índice de concentração"], 0.88),
+        ["receita por cliente", "índice de concentração"], 0.88,
+        barras("Receita por cliente · últimos 6 meses", "entrada", top)),
       ...(topId(ent) ? { contatoId: topId(ent) } : {}),
     };
   }
@@ -669,10 +727,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const [wa, wb] = [winOf(achados[0]), winOf(achados[1])];
       const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
       const va = soma(wa), vb = soma(wb);
-      const verbo = tipo === "entrada" ? "recebeu" : "gastou";
+      const verbo = tipo === "entrada" ? "recebidos" : "pagos";
       const maior = va >= vb ? wa : wb;
       return R(
-        `Você ${verbo} ${fmt(va)} em ${wa.label} e ${fmt(vb)} em ${wb.label} — ${va === vb ? "empate" : `mais em ${maior.label} (${fmt(Math.abs(va - vb))} de diferença)`}.`,
+        `Foram ${verbo} ${fmt(va)} em ${wa.label} e ${fmt(vb)} em ${wb.label} — ${va === vb ? "empate" : `mais em ${maior.label} (${fmt(Math.abs(va - vb))} de diferença)`}.`,
         [{ label: cap(wa.label), valor: fmt(va) }, { label: cap(wb.label), valor: fmt(vb) }],
         ["comparação por mês"]);
     }
@@ -723,7 +781,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Despesa";
     return {
       ...R(
-        `Seu maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+        `O maior gasto ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
         [{ label: "Maior gasto", valor: fmt(Math.abs(maior.amount)) }], ["despesas realizadas"]),
       ...(maior.party_id ? { contatoId: maior.party_id } : {}),
     };
@@ -738,7 +796,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const nome = (maior.party_id && nomes?.[maior.party_id]) || maior.category || "Recebimento";
     return {
       ...R(
-        `Seu maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
+        `O maior recebimento ${w.label} foi ${fmt(Math.abs(maior.amount))} — ${cap(String(nome))}${maior.category ? ` (${maior.category})` : ""}, em ${dia(cashDate(maior))}.`,
         [{ label: "Maior recebimento", valor: fmt(Math.abs(maior.amount)) }], ["receita realizada"]),
       ...(maior.party_id ? { contatoId: maior.party_id } : {}),
     };
@@ -753,9 +811,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (top.length === 0) return R(`Não encontrei receita paga ${w.label}.`, [], ["receita por categoria"]);
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${tot > 0 ? Math.round((c.valor / tot) * 100) : 0}%)`).join(", ");
     return R(
-      `Sua receita ${w.label} (${fmt(tot)} no total) vem principalmente de: ${lista}.`,
+      `A receita apurada ${w.label} soma ${fmt(tot)} e concentra-se em: ${lista}.`,
       top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
-      ["receita por categoria"]);
+      ["receita por categoria"], 0.9,
+      barras(`Receita por categoria ${w.label}`, "entrada", top));
   }
 
   // ——— POR CENTRO DE CUSTO / PROJETO ———
@@ -808,7 +867,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const w = janela(p, hoje);
       const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
-      return R(`Você gastou ${fmt(tot)} com ${cap(alvo)} ${w.label}, em ${sai.length} pagamento(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["despesas da categoria"]);
+      return R(`Foram pagos ${fmt(tot)} em ${cap(alvo)} ${w.label}, em ${sai.length} pagamento(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["despesas da categoria"]);
     }
   }
 
@@ -822,7 +881,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       const w = janela(p, hoje);
       const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && (m.category || "").toLowerCase().trim() === alvo && within(cashDate(m), w));
       const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
-      return R(`Você recebeu ${fmt(tot)} de ${cap(alvo)} ${w.label}, em ${ent.length} entrada(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["receita da categoria"]);
+      return R(`Foram recebidos ${fmt(tot)} de ${cap(alvo)} ${w.label}, em ${ent.length} entrada(s).`, [{ label: cap(alvo), valor: fmt(tot) }], ["receita da categoria"]);
     }
   }
 
@@ -835,9 +894,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (top.length === 0) return R(`Não encontrei gastos pagos ${w.label}.`, [], ["despesas por categoria"]);
     const lista = top.slice(0, 3).map((c) => `${c.nome} (${fmt(c.valor)}, ${Math.round((c.valor / tot) * 100)}%)`).join(", ");
     return R(
-      `Seus maiores gastos ${w.label} (${fmt(tot)} no total): ${lista}.`,
+      `Os maiores gastos ${w.label} totalizam ${fmt(tot)} e concentram-se em: ${lista}.`,
       top.slice(0, 4).map((c) => ({ label: c.nome, valor: fmt(c.valor) })),
-      ["despesas por categoria"]);
+      ["despesas por categoria"], 0.9,
+      barras(`Despesas por categoria ${w.label}`, "saida", top));
   }
 
   // ——— TOP FORNECEDORES ———
@@ -847,7 +907,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return {
-      ...R(`Seus maiores fornecedores ${w.label}: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`, top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"]),
+      ...R(`Os principais fornecedores ${w.label} são: ${top.map((c) => `${c.nome} (${fmt(c.valor)})`).join(", ")}.`,
+        top.map((c) => ({ label: c.nome, valor: fmt(c.valor) })), ["pagamentos por fornecedor"], 0.9,
+        barras(`Pagamentos por fornecedor ${w.label}`, "saida", top)),
       ...(topId(sai) ? { contatoId: topId(sai) } : {}),
     };
   }
@@ -858,7 +920,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const tipo: "entrada" | "saida" = forn ? "saida" : "entrada";
     const set = new Set<string>();
     for (const m of movs) if (m.type === tipo && m.party_id) set.add(m.party_id);
-    return R(`Você tem ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [{ label: forn ? "Fornecedores" : "Clientes", valor: String(set.size) }], ["contrapartes"]);
+    return R(`Há ${set.size} ${forn ? "fornecedor(es)" : "cliente(s)"} com movimento registrado.`, [{ label: forn ? "Fornecedores" : "Clientes", valor: String(set.size) }], ["contrapartes"]);
   }
 
   // ——— ONDE ECONOMIZAR / CORTAR (categoria que mais cresceu MoM) ———
@@ -886,7 +948,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (ent <= 0) return R(`Não houve receita paga ${w.label}, então não dá para calcular a margem do período.`, [], ["receita realizada"]);
     const margem = Math.round((res / ent) * 100);
     return R(
-      `Sua margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${margem >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
+      `A margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${margem >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
       [{ label: "Margem", valor: `${margem}%` }, { label: "Receita", valor: fmt(ent) }, { label: "Resultado", valor: fmt(res) }],
       ["fluxo de caixa realizado"]);
   }
@@ -900,9 +962,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const pct = Math.round(((a - b) / b) * 100);
     const dir = a > b ? "crescendo" : a < b ? "caindo" : "estável";
     return R(
-      `Sua receita está ${dir}: ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Mantenha o ritmo de vendas." : "Vale investigar o que caiu."}`,
+      `A receita está ${dir}: ${fmt(a)} ${atual.label} contra ${fmt(b)} ${ant.label} — variação de ${pct >= 0 ? "+" : ""}${pct}% no mês. ${a >= b ? "Recomenda-se manter o ritmo comercial." : "Recomenda-se investigar a origem da queda."}`,
       [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Crescimento", valor: `${pct >= 0 ? "+" : ""}${pct}%` }],
-      ["receita realizada (mês vs. mês)"]);
+      ["receita realizada (mês vs. mês)"], 0.9,
+      { tipo: "linha", titulo: "Receita mensal · últimos 6 meses", tom: "entrada", dados: serieMensal(movs, hoje, 6, "receita") });
   }
 
   // ——— PONTO DE EQUILÍBRIO / break-even (quanto faturar para empatar) ———
@@ -919,7 +982,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const recMes = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), wMes)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const falta = breakeven - recMes;
     return R(
-      `Seu ponto de equilíbrio é ${fmt(breakeven)}/mês — é o quanto você precisa faturar para cobrir as despesas. Este mês já recebeu ${fmt(recMes)}, ${falta > 0 ? `faltam ${fmt(falta)} para empatar` : `${fmt(-falta)} acima do equilíbrio (no lucro)`}.`,
+      `O ponto de equilíbrio é ${fmt(breakeven)}/mês — é o faturamento necessário para cobrir as despesas. Este mês já recebeu ${fmt(recMes)}, ${falta > 0 ? `faltam ${fmt(falta)} para empatar` : `${fmt(-falta)} acima do equilíbrio (no lucro)`}.`,
       [{ label: "Ponto de equilíbrio", valor: fmt(breakeven) }, { label: "Recebido no mês", valor: fmt(recMes) }, { label: falta > 0 ? "Falta" : "Acima", valor: fmt(Math.abs(falta)) }],
       ["despesa média mensal", "receita do mês"]);
   }
@@ -949,7 +1012,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (!meses.length) return R("Ainda não há histórico suficiente para calcular a média mensal.", [], ["histórico mensal"]);
     const media = meses.reduce((s, [, v]) => s + v, 0) / meses.length;
     return R(
-      `Sua média ${tipo === "entrada" ? "de receita" : "de gasto"} é ${fmt(media)} por mês, considerando os últimos ${meses.length} ${meses.length === 1 ? "mês" : "meses"}.`,
+      `A média ${tipo === "entrada" ? "de receita" : "de gasto"} é ${fmt(media)} por mês, considerando os últimos ${meses.length} ${meses.length === 1 ? "mês" : "meses"}.`,
       [{ label: "Média mensal", valor: fmt(media) }], ["histórico mensal"]);
   }
 
@@ -990,9 +1053,10 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const rotulo = `${MES[Number(mm) - 1]}/${yy}`;
     const metrica = porReceita ? "receita" : "resultado";
     return R(
-      `Seu ${pior ? "pior" : "melhor"} mês por ${metrica} foi ${cap(rotulo)}: ${fmt(alvo.valor)}${porReceita ? "" : ` (${fmt(alvo.rec)} de receita − ${fmt(alvo.desp)} de despesa)`}.`,
+      `O ${pior ? "pior" : "melhor"} mês por ${metrica} foi ${cap(rotulo)}, com ${fmt(alvo.valor)}${porReceita ? "" : ` (${fmt(alvo.rec)} de receita menos ${fmt(alvo.desp)} de despesa)`}.`,
       [{ label: cap(rotulo), valor: fmt(alvo.valor) }, { label: "Receita", valor: fmt(alvo.rec) }, { label: "Despesa", valor: fmt(alvo.desp) }],
-      ["histórico mensal realizado"], 0.88);
+      ["histórico mensal realizado"], 0.88,
+      { tipo: "linha", titulo: `${cap(metrica)} mensal · últimos 12 meses`, tom: porReceita ? "entrada" : "neutro", dados: serieMensal(movs, hoje, 12, porReceita ? "receita" : "resultado") });
   }
 
   // ——— GASTO MÉDIO POR DIA (burn diário) — antes do GASTO total ———
@@ -1006,7 +1070,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const porDia = tot / 30;
     if (tot <= 0) return R("Não houve gastos pagos nos últimos 30 dias para calcular o gasto diário.", [], ["despesas dos últimos 30 dias"]);
     return R(
-      `Você gasta em média ${fmt(porDia)} por dia — ${fmt(tot)} em despesas pagas nos últimos 30 dias. No mês, isso projeta ~${fmt(porDia * 30)}.`,
+      `O gasto médio é de ${fmt(porDia)} por dia — ${fmt(tot)} em despesas pagas nos últimos 30 dias. No mês, isso projeta ~${fmt(porDia * 30)}.`,
       [{ label: "Gasto/dia", valor: fmt(porDia) }, { label: "30 dias", valor: fmt(tot) }],
       ["despesas dos últimos 30 dias"], 0.88);
   }
@@ -1018,7 +1082,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const tot = sai.reduce((s, m) => s + Math.abs(m.amount), 0);
     const top = topCategorias(sai, 3);
     return R(
-      `Você gastou ${fmt(tot)} ${w.label}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}`,
+      `Os gastos pagos ${w.label} somam ${fmt(tot)}, em ${sai.length} pagamento(s).${top.length ? ` Maior categoria: ${top[0].nome} (${fmt(top[0].valor)}).` : ""}`,
       [{ label: `Gasto ${w.label}`, valor: fmt(tot) }, ...top.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["despesas realizadas"]);
   }
@@ -1035,7 +1099,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const liquida = bruta - impostos;
     if (bruta <= 0) return R(`Não houve receita paga ${w.label}, então não há receita líquida a calcular.`, [], ["receita líquida"]);
     return R(
-      `Sua receita líquida ${w.label} é ${fmt(liquida)}: ${fmt(bruta)} de receita bruta menos ${fmt(impostos)} de impostos sobre a venda.`,
+      `A receita líquida ${w.label} é ${fmt(liquida)}: ${fmt(bruta)} de receita bruta menos ${fmt(impostos)} de impostos sobre a venda.`,
       [{ label: "Receita líquida", valor: fmt(liquida) }, { label: "Receita bruta", valor: fmt(bruta) }, { label: "Impostos", valor: fmt(impostos) }],
       ["receita líquida", "impostos sobre venda"]);
   }
@@ -1050,7 +1114,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (bruta <= 0) return R(`Não houve receita paga ${w.label} para medir a carga tributária.`, [], ["carga tributária"]);
     const pct = Math.round((impostos / bruta) * 1000) / 10;
     return R(
-      `Sua carga tributária ${w.label} é ${pct}%: ${fmt(impostos)} de impostos sobre ${fmt(bruta)} de receita.`,
+      `A carga tributária ${w.label} é ${pct}%: ${fmt(impostos)} de impostos sobre ${fmt(bruta)} de receita.`,
       [{ label: "Carga tributária", valor: `${pct}%` }, { label: "Impostos", valor: fmt(impostos) }, { label: "Receita", valor: fmt(bruta) }],
       ["carga tributária"]);
   }
@@ -1071,7 +1135,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (receita <= 0) return R(`Não houve receita paga ${w.label} para calcular o EBITDA.`, [], ["DRE gerencial"]);
     const margem = recLiq > 0 ? Math.round((ebitda / recLiq) * 100) : 0;
     return R(
-      `Seu EBITDA ${w.label} é ${fmt(ebitda)} (${margem}% da receita líquida): a geração operacional antes de juros, impostos sobre o lucro e depreciação.`,
+      `O EBITDA ${w.label} é ${fmt(ebitda)} (${margem}% da receita líquida): a geração operacional antes de juros, impostos sobre o lucro e depreciação.`,
       [{ label: "EBITDA", valor: fmt(ebitda) }, { label: "Margem EBITDA", valor: `${margem}%` }, { label: "Receita", valor: fmt(receita) }],
       ["EBITDA", "DRE gerencial"]);
   }
@@ -1086,7 +1150,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const fcf = entradas - saidas;
     if (entradas <= 0 && saidas <= 0) return R(`Não houve movimento realizado ${w.label} para calcular o fluxo de caixa livre.`, [], ["fluxo de caixa livre"]);
     return R(
-      `Seu fluxo de caixa livre ${w.label} é ${fmt(fcf)}: ${fmt(entradas)} de entradas operacionais menos ${fmt(saidas)} de saídas — o caixa que ${fcf >= 0 ? "sobrou para reservar ou reinvestir" : "faltou e precisou vir do saldo/de fora"}.`,
+      `O fluxo de caixa livre ${w.label} é ${fmt(fcf)}: ${fmt(entradas)} de entradas operacionais menos ${fmt(saidas)} de saídas — o caixa que ${fcf >= 0 ? "sobrou para reservar ou reinvestir" : "faltou e precisou vir do saldo/de fora"}.`,
       [{ label: "Fluxo livre", valor: fmt(fcf) }, { label: "Entradas", valor: fmt(entradas) }, { label: "Saídas", valor: fmt(saidas) }],
       ["fluxo de caixa livre"]);
   }
@@ -1098,7 +1162,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const topC = topCategorias(ent, 3);
     return R(
-      `Você recebeu ${fmt(tot)} ${w.label}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
+      `A receita recebida ${w.label} soma ${fmt(tot)}, em ${ent.length} entrada(s).${topC.length ? ` Principal origem: ${topC[0].nome} (${fmt(topC[0].valor)}).` : ""}`,
       [{ label: `Receita ${w.label}`, valor: fmt(tot) }, ...topC.slice(0, 2).map((c) => ({ label: c.nome, valor: fmt(c.valor) }))],
       ["receita realizada"]);
   }
@@ -1137,9 +1201,9 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const soma = (w: Janela) => movs.filter((m) => m.type === tipo && m.status === "pago" && within(cashDate(m), w)).reduce((s, m) => s + Math.abs(m.amount), 0);
     const a = soma(atual), b = soma(ant);
     const dlt = a - b; const pct = b > 0 ? Math.round((dlt / b) * 100) : 0;
-    const verbo = tipo === "entrada" ? "recebeu" : "gastou";
+    const verbo = tipo === "entrada" ? "recebidos" : "pagos";
     return R(
-      `Você ${verbo} ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${dlt >= 0 ? "alta" : "queda"} de ${fmt(Math.abs(dlt))}${b > 0 ? ` (${Math.abs(pct)}%)` : ""}.`,
+      `Foram ${verbo} ${fmt(a)} ${atual.label} vs. ${fmt(b)} ${ant.label} — ${dlt >= 0 ? "alta" : "queda"} de ${fmt(Math.abs(dlt))}${b > 0 ? ` (${Math.abs(pct)}%)` : ""}.`,
       [{ label: cap(atual.label), valor: fmt(a) }, { label: cap(ant.label), valor: fmt(b) }, { label: "Variação", valor: `${dlt >= 0 ? "+" : "−"}${fmt(Math.abs(dlt))}` }],
       ["fluxo de caixa realizado"]);
   }
@@ -1150,7 +1214,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const ent = movs.filter((m) => m.type === "entrada" && m.status === "pago" && within(cashDate(m), w));
     const tot = ent.reduce((s, m) => s + Math.abs(m.amount), 0);
     const tm = ent.length ? tot / ent.length : 0;
-    return R(`Seu ticket médio ${w.label} é ${fmt(tm)} (${fmt(tot)} em ${ent.length} venda(s)).`, [{ label: "Ticket médio", valor: fmt(tm) }, { label: "Vendas", valor: String(ent.length) }], ["receita realizada"]);
+    return R(`O ticket médio ${w.label} é ${fmt(tm)} (${fmt(tot)} em ${ent.length} venda(s)).`, [{ label: "Ticket médio", valor: fmt(tm) }, { label: "Vendas", valor: String(ent.length) }], ["receita realizada"]);
   }
 
   // ——— CONTAGEM de vendas/transações ———
@@ -1193,7 +1257,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; meses.set(k, (meses.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
     const nets = Array.from(meses.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
     const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
-    if (input.saldoAtual <= 0) return R(`Seu saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora. Priorize entradas e segure saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }], ["saldo", "fluxo mensal"]);
+    if (input.saldoAtual <= 0) return R(`O saldo já está em ${fmt(input.saldoAtual)} — o caixa está no limite agora. Recomenda-se priorizar entradas e conter saídas.`, [{ label: "Saldo", valor: fmt(input.saldoAtual) }], ["saldo", "fluxo mensal"]);
     if (netMedio >= 0) return R(`Sem previsão de ruptura: nos últimos meses seu caixa cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o saldo de ${fmt(input.saldoAtual)} não se esgota.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.85);
     const burn = -netMedio;
     const mesesRest = input.saldoAtual / burn;
@@ -1201,7 +1265,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const futuro = new Date(hoje + "T00:00:00"); futuro.setDate(futuro.getDate() + Math.round(mesesRest * 30));
     const dataStr = dia(`${futuro.getFullYear()}-${pad(futuro.getMonth() + 1)}-${pad(futuro.getDate())}`);
     return R(
-      `No ritmo atual você queima ${fmt(burn)}/mês. Seu saldo de ${fmt(input.saldoAtual)} deve acabar por volta de ${dataStr} (~${mesesRest < 1 ? "menos de 1 mês" : `${Math.round(mesesRest)} ${Math.round(mesesRest) === 1 ? "mês" : "meses"}`}), se nada mudar. Vale agir na cobrança e nas despesas.`,
+      `No ritmo atual, o consumo de caixa é de ${fmt(burn)}/mês. O saldo de ${fmt(input.saldoAtual)} deve se esgotar por volta de ${dataStr} (~${mesesRest < 1 ? "menos de 1 mês" : `${Math.round(mesesRest)} ${Math.round(mesesRest) === 1 ? "mês" : "meses"}`}), se nada mudar. Vale agir na cobrança e nas despesas.`,
       [{ label: "Queima/mês", valor: fmt(burn) }, { label: "Ruptura", valor: dataStr }, { label: "Saldo", valor: fmt(input.saldoAtual) }],
       ["fluxo mensal", "saldo", "projeção de caixa"], 0.85);
   }
@@ -1210,7 +1274,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (/\bsaldo\b|meu caixa|qual (o )?meu caixa|quanto (eu )?tenho|quanto (h[áa]|tem) (no|em) caixa|quanto de (dinheiro|grana)|(dinheiro|grana) eu tenho|quanta grana|\ba grana\b|cad[êe] (minha |a |o )?(grana|dinheiro|saldo|caixa)|\bna conta\b|dindin|como (t[áa]|est[áa]) (a |o )?(grana|caixa|dinheiro|saldo)|(o |meu )?caixa,? como (t[áa]|est[áa]|anda|vai)|folga (n?o|de|em|d[oa]) (caixa|saldo)|tenho folga|situa[çc][ãa]o (do|de) (caixa|financeira|do dinheiro)|dispon[íi]vel|tenho em conta|meu dinheiro/.test(p)) {
     const runway = ctx?.runwayMeses;
     return R(
-      `Seu saldo consolidado é ${fmt(input.saldoAtual)}.${runway != null ? ` No ritmo atual de caixa, ele cobre cerca de ${runway} ${runway === 1 ? "mês" : "meses"} de operação.` : ""}`,
+      `O saldo consolidado é ${fmt(input.saldoAtual)}.${runway != null ? ` No ritmo atual de caixa, ele cobre cerca de ${runway} ${runway === 1 ? "mês" : "meses"} de operação.` : ""}`,
       [{ label: "Saldo atual", valor: fmt(input.saldoAtual) }, ...(runway != null ? [{ label: "Runway", valor: `${runway} m` }] : [])],
       ["saldo consolidado"]);
   }
@@ -1221,12 +1285,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       if (/\bdias?\b/.test(p)) {
         const dias = Math.round(ctx.runwayMeses * 30);
         return R(
-          `Seu caixa cobre cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`,
+          `O caixa cobre cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`,
           [{ label: "Dias de caixa", valor: `${dias} d` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }],
           ["motor quantitativo"]);
       }
       return R(
-        `Seu runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
+        `O runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
         [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
         ["motor quantitativo"]);
     }
@@ -1235,15 +1299,15 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     for (const m of movs) { if (m.status !== "pago") continue; const k = cashDate(m).slice(0, 7); if (!k) continue; mm.set(k, (mm.get(k) || 0) + (m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount))); }
     const nets = Array.from(mm.entries()).sort((a, b) => a[0].localeCompare(b[0])).slice(-3).map(([, v]) => v);
     const netMedio = nets.length ? nets.reduce((s, v) => s + v, 0) / nets.length : 0;
-    if (netMedio >= 0) return R(`Seu caixa não está sendo consumido — nos últimos meses ele cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o runway é praticamente ilimitado.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.82);
+    if (netMedio >= 0) return R(`O caixa não está sendo consumido — nos últimos meses ele cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o runway é praticamente ilimitado.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.82);
     const burn = -netMedio;
     const mesesR = input.saldoAtual / burn;
-    return R(`Seu runway é de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`, [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
+    return R(`O runway é de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`, [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
   }
 
   // ——— BURN ———
   if (ctx && /burn|queima de caixa|consumo de caixa|quanto.*queim/.test(p)) {
-    return R(`Seu burn é de ${fmt(ctx.burnRate)}/mês (saídas líquidas). Com o saldo de ${fmt(ctx.saldoAtual)}, isso equivale a ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"} de runway.`,
+    return R(`O burn é de ${fmt(ctx.burnRate)}/mês (saídas líquidas). Com o saldo de ${fmt(ctx.saldoAtual)}, isso equivale a ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"} de runway.`,
       [{ label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }], ["motor quantitativo"]);
   }
 
@@ -1251,7 +1315,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   if (ctx && /score|sa[úu]de|como (est[áa]|vai) (minha )?(empresa|sa[úu]de|financ)|nota da empresa|empresa (t[áa]|est[áa]|anda) saud|saud[áa]vel|empresa vai bem|minha empresa (t[áa]|est[áa]|vai) bem|como (t[ãa]o|est[ãa]o|v[ãa]o) (as |minhas )?finan[çc]|como (t[áa]|est[áa]|v[ãa]o) (as |minhas )?finan|finan[çc]as (t[ãa]o|est[ãa]o|v[ãa]o)|(t[ôo]|to|estou) indo bem|as coisas (v[ãa]o|est[ãa]o) bem|meu neg[óo]cio (vai|est[áa]) bem|(maior|principal) problema|maior risco|o que (t[áa]|est[áa]) errado|maior preocupa|resumo geral|resum[ae] (a |minha )?(situa|financ|empresa)|situa[çc][ãa]o geral|vis[ãa]o geral|panorama|(finan[çc]as|empresa|situa[çc][ãa]o).* no geral|como (est[áa] )?tudo/.test(p)) {
     const nivel = ctx.scoreFinanceiro >= 80 ? "excelente" : ctx.scoreFinanceiro >= 60 ? "boa" : ctx.scoreFinanceiro >= 40 ? "de atenção" : "crítica";
     return R(
-      `Sua saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
+      `A saúde financeira está ${nivel}: score ${ctx.scoreFinanceiro}/100, runway de ${ctx.runwayMeses} meses e inadimplência em ${Math.round(ctx.inadimplencia * 100)}%. Probabilidade de ruptura de caixa em 90 dias: ${Math.round(ctx.probRuptura * 100)}%.`,
       [{ label: "Score", valor: `${ctx.scoreFinanceiro}/100` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Prob. ruptura", valor: `${Math.round(ctx.probRuptura * 100)}%` }],
       ["motor quantitativo", "motor de risco"]);
   }
@@ -1272,7 +1336,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (!prox) return R(`Não há ${tipo === "entrada" ? "recebimentos" : "pagamentos"} futuros agendados.`, [], ["agenda de vencimentos"]);
     const nome = (prox.party_id && nomes?.[prox.party_id]) || prox.category || (tipo === "entrada" ? "Recebimento" : "Pagamento");
     return R(
-      `Seu próximo ${tipo === "entrada" ? "recebimento" : "pagamento"} é ${fmt(Math.abs(prox.amount))} em ${dia(prox.due_date)} — ${cap(String(nome))}.`,
+      `O próximo ${tipo === "entrada" ? "recebimento" : "pagamento"} é ${fmt(Math.abs(prox.amount))} em ${dia(prox.due_date)} — ${cap(String(nome))}.`,
       [{ label: "Valor", valor: fmt(Math.abs(prox.amount)) }, { label: "Vence", valor: dia(prox.due_date) }], ["agenda de vencimentos"]);
   }
 

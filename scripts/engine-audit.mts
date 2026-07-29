@@ -359,7 +359,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const gm = responderLocal("quanto gastei com mercado?", inpPF);
   const so = responderLocal("quanto sobrou esse mês?", inpPF);
-  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /gastou R\$.?1\.500 com Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
+  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
   ok("PF: resultado do mês (6000 − 2700 = 3300 sobrou)", !!so && /sobrou R\$.?3\.300/.test(so.resposta), so?.resposta?.slice(0, 50));
 }
 

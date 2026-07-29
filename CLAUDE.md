@@ -660,8 +660,47 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 A IA conversacional **saiu do menu** e virou um **FAB gradiente "All 4 Pay AI"**
 (`src/components/app/AssistantWidget.tsx`, montado no `AppShell`) que abre um
-painel de chat à direita, em toda tela. **Funciona sem chave** graças a três
-camadas encadeadas no `responder`:
+painel de chat à direita, em toda tela.
+
+**Identidade e movimento do chat** (regras próprias — o FAB e o painel são
+IRMÃOS do `<main>.ds-visor` no `AppShell`, então **nada em `.ds-visor …` os
+alcança**, inclusive o Laboratório):
+
+- **Âncoras `.a4p-ia-fab` (botão) e `.a4p-ia` (painel)** — declaradas em
+  `globals.css` e registradas como **raízes** no `DesignLab` (`raizDe`,
+  `PADROES`: *IA · botão · pergunta · resposta · sugestão · painel*, e o papel
+  **"All 4 Pay AI"** na aba Fontes). Sem isso o picker devolvia `null` e o botão
+  era ineditável.
+- **Tipografia do chat:** **Roobert Variable 400, tracking −0.5px** em TODOS os
+  itens (`.a4p-ia, .a4p-ia *`); os valores fogem da regra e seguem em mono
+  (`.tabular-nums`/`.a4p-num`), como no resto do sistema.
+- **Logo:** `MarcaIA` — o MESMO "4" da marca **girado 90°**, branco sobre o
+  degradê lima. Aparece no cabeçalho, no estado vazio e em cada análise. O
+  sparkle antigo saiu.
+- **Abertura:** o painel entra com slide + escala + desfoque que se dissolvem
+  (`.a4p-ia[data-aberto]`, cubic-bezier com overshoot suave). As mensagens e os
+  chips entram escalonados (`.a4p-entra` + `--a4p-atraso`).
+- **Nenhuma resposta é instantânea:** toda pergunta passa pelas **4 etapas
+  visíveis** de `ETAPAS` (lendo lançamentos → cruzando histórico → conferindo
+  números → redigindo), no ritmo de `RITMO` (~2,1s), com barra varrida e o passo
+  concluído ganhando um check. `analisar()` roda a encenação e o trabalho em
+  paralelo (`Promise.all`): para o motor nativo quem manda é o ritmo; para o
+  Claude, a rede. A pergunta entra na conversa na hora — só a resposta espera.
+- **Registro FORMAL:** o motor nativo e o prompt do Claude escrevem em terceira
+  pessoa, com vocabulário contábil ("A receita apurada em julho soma…",
+  "Recomenda-se antecipar…"), sem gíria nem tratamento direto. Os guardas
+  (`corpus`/`values`/`audit`) acompanham a prosa nova.
+- **Gráficos na resposta:** `responderLocal` pode devolver um `GraficoResposta`
+  (`{tipo: barras|linha, titulo, tom, dados}`) — hoje em receita/despesa por
+  categoria, receita por cliente, concentração, fornecedores, crescimento e
+  melhor/pior mês. Quem desenha é o `GraficoDaResposta` no chat, seguindo o DS:
+  **linha na cor da marca** com glow em degradê, **barras nas cores semânticas a
+  70%** (`color-mix` — cor de status é sinal, não preenchimento grande), eixos em
+  11px e entrada por `chartAnim()`. ⚠️ `YAxis` de barras precisa de
+  `interval={0}`: por padrão o Recharts **omite** ticks que julga colidir e some
+  com rótulos do meio.
+
+**Funciona sem chave** graças a três camadas encadeadas no `responder`:
 1. **Base de conhecimento** (`src/lib/assistant-kb.ts`): perguntas conceituais
    ("o que é runway?", "como calcula o EBITDA?") respondidas na hora + link
    **"Abrir {tela} ↗"** (a `rota` do conceito).
