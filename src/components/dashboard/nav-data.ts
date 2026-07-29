@@ -28,6 +28,9 @@ export const SECTIONS: Section[] = [
   {
     id: "inicio", label: "Início", items: [
       { label: "Início", href: "/", icon: "inicio" },
+      // A IA também vive no FAB flutuante (em toda tela); aqui é a tela CHEIA,
+      // com histórico de conversas. Mesmo motor, layouts diferentes.
+      { label: "All 4 Pay AI", href: "/all4pay-ai", icon: "sparkles" },
       { label: "Comece por aqui", href: "/comece", icon: "target" },
     ],
   },

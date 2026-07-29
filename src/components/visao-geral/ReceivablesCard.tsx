@@ -8,7 +8,7 @@ export function ReceivablesCard() {
   return (
     <OpenAmountWidget
       title="A Receber"
-      href="/recebimentos?aba=titulos"
+      href="/recebimentos"
       summary={data}
       isLoading={isLoading}
       isError={isError}

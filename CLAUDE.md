@@ -658,9 +658,30 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
 
 ### All 4 Pay AI — assistente flutuante (global) + ficha de contato
 
-A IA conversacional **saiu do menu** e virou um **FAB gradiente "All 4 Pay AI"**
-(`src/components/app/AssistantWidget.tsx`, montado no `AppShell`) que abre um
-painel de chat à direita, em toda tela.
+A IA tem **duas portas para o MESMO cérebro**:
+
+1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
+   `AppShell`) — painel à direita, disponível em toda tela. Some em
+   `/all4pay-ai` (lá seria redundante e cobria o campo de mensagem).
+2. **Tela cheia `/all4pay-ai`** (`src/components/ia/IAView.tsx`, entrada no menu
+   logo abaixo de *Início*) — chat completo com **histórico de conversas** à
+   esquerda, agrupado por recência (Hoje · Últimos 7 dias · Últimos 30 dias ·
+   Mais antigas), saudação pelo primeiro nome do perfil, chips de sugestão e
+   campo grande. Retomar uma conversa recarrega os turnos; "Nova conversa" zera.
+
+**O cérebro e as peças são compartilhados** — nada de duas IAs divergindo:
+
+- **`src/components/ia/useChatIA.ts`** — o pipeline (KB → motor nativo → Claude
+  com fallback determinístico), as etapas de análise, feedback, cópia e
+  `carregar()` para trocar de conversa. `onMudou` avisa a cada resposta (a
+  página usa para gravar).
+- **`src/components/ia/chat-kit.tsx`** — `Turno`, `MarcaIA`/`Marca4`,
+  `GraficoDaResposta`, `EtapasAnalise`, `BolhaResposta` e as `CURADAS`.
+- **`src/lib/ia-conversas.ts`** — histórico em `localStorage` (`a4p_ia_conversas`,
+  teto de 60), demo-safe e **síncrono**: a conversa entra na lista assim que a
+  primeira resposta chega. `agruparPorRecencia` compara **dias de calendário
+  local** (não 24h corridas — senão "ontem à noite" cairia em "Hoje").
+  Sincronizar por organização é evolução futura.
 
 **Identidade e movimento do chat** (regras próprias — o FAB e o painel são
 IRMÃOS do `<main>.ds-visor` no `AppShell`, então **nada em `.ds-visor …` os

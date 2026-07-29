@@ -22,7 +22,10 @@ const ROUTES: RouteItem[] = [
   { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
-  { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir" },
+  // Duas portas para a MESMA IA: o painel flutuante (rápido, sobre a tela atual)
+  // e a tela cheia com histórico de conversas.
+  { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir painel" },
+  { label: "All 4 Pay AI (tela cheia)", href: "/all4pay-ai", icon: "sparkles", kw: "ia chat conversas historico all4pay ai tela cheia assistente perguntar copiloto" },
   { label: "Investor update", href: "/investidores", icon: "mail", kw: "investor update investidor relatorio mensal mrr arr burn runway captacao board email" },
   { label: "Plano de contratações", href: "/contratacoes", icon: "users", kw: "headcount contratacao contratar vaga equipe folha salario encargos runway plano time hiring" },
   { label: "Razão (GL)", href: "/contabilidade?aba=razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
