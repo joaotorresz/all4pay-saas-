@@ -34,6 +34,16 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import {
+  diasEntre, panoramaAssinatura, validarDadosEmpresa, logoAceito, optantePeloSimples,
+  podeRemover, podeTrocarPerfil, filtrarUsuarios,
+  filtrarLogs, periodoForaDaJanela, JANELA_LOGS_DIAS,
+  consentimentoOpenFinance, mascararSegredo, certificadoValido,
+  precisaFila, statusExportacao, expiraEm, filtrarExportacoes,
+  LIMITE_PDF_LINHAS, LIMITE_XLSX_LINHAS, CATALOGO_INTEGRACOES,
+  PLATAFORMAS_VENDAS, BANCOS_OPEN_FINANCE,
+  type UsuarioEmpresa, type RegistroLog, type Exportacao, type EntradaAssinatura,
+} from "@/core/administracao";
+import {
   paraCP1252, deCP1252, statusEnvio, podeAdicionar, validarDestinatario,
   proximoEnvio, formatarProximoEnvio, resumoMesNFs, LIMITE_DESTINATARIOS,
   montarLancamentosDominio, gerarLanctosTxt, gerarLanctosBytes, conferirDominio,
@@ -2162,6 +2172,202 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dominio: líquido é entradas − saídas", conf.liquido === -734.5, String(conf.liquido));
   ok("dominio: conferência vazia não produz NaN",
     Number.isFinite(conferirDominio([]).liquido) && conferirDominio([]).lancamentos === 0);
+}
+
+// ── core/administracao: assinatura, usuários, logs, integrações, exports ───
+{
+  /* ------------------------------ datas ------------------------------ */
+
+  // ⚠️ Dias de CALENDÁRIO, não 24h corridas: um "expira em 8 dias" que vira 7
+  // depois das 21h é o erro que ninguém reporta e todo mundo desconfia.
+  ok("admin: diasEntre conta calendário", diasEntre("2026-08-02", "2026-08-10") === 8);
+  ok("admin: diasEntre é negativo quando já passou", diasEntre("2026-08-15", "2026-08-10") === -5);
+  ok("admin: vira o mês sem perder o dia", diasEntre("2026-08-31", "2026-09-01") === 1);
+  ok("admin: vira o ano sem perder o dia", diasEntre("2026-12-31", "2027-01-01") === 1);
+
+  /* ---------------------------- assinatura ---------------------------- */
+
+  const A = (o: Partial<EntradaAssinatura>): EntradaAssinatura => ({
+    hoje: "2026-08-02", plano: "all4pay", empresaId: "1639124",
+    planoContratado: null, expiracao: "2026-08-10", usuariosAtivos: 1,
+    donoAtivo: true, contas: [], receberNFs: false, emitirNFs: false,
+    plataformasConectadas: 0, ...o,
+  });
+
+  ok("assinatura: dias restantes batem com o calendário",
+    panoramaAssinatura(A({})).diasRestantes === 8);
+  ok("assinatura: expirada é marcada como expirada", (() => {
+    const p = panoramaAssinatura(A({ expiracao: "2026-07-20" }));
+    return p.expirado && p.diasRestantes === -13;
+  })());
+  ok("assinatura: sem data não inventa dias",
+    panoramaAssinatura(A({ expiracao: null })).diasRestantes === null);
+  // "Não informado" é mais honesto que repetir o nome do plano.
+  ok("assinatura: plano contratado vazio vira 'Não informado'",
+    panoramaAssinatura(A({})).planoContratado === "Não informado");
+
+  // ⚠️ "Elegíveis sem conexão" ≠ "contas não conectadas": só conta o banco que
+  // TEM conector. Contar todas transformaria a métrica em ruído permanente.
+  const contas = [
+    { id: "1", nome: "Itaú", conectada: true, elegivel: true },
+    { id: "2", nome: "Bradesco", conectada: false, elegivel: true },
+    { id: "3", nome: "Banco Local", conectada: false, elegivel: false },
+  ];
+  const pan = panoramaAssinatura(A({ contas }));
+  ok("assinatura: panorama de contas separa os três números",
+    pan.contasCadastradas === 3 && pan.contasConectadas === 1 && pan.elegiveisSemConexao === 1,
+    `${pan.contasCadastradas}/${pan.contasConectadas}/${pan.elegiveisSemConexao}`);
+  ok("assinatura: sem contas nada é NaN",
+    panoramaAssinatura(A({ contas: [] })).elegiveisSemConexao === 0);
+
+  /* --------------------------- dados da empresa --------------------------- */
+
+  ok("empresa: CNPJ com 13 dígitos é recusado",
+    !!validarDadosEmpresa({ tipoPessoa: "juridica", documento: "1234567800017", razaoSocial: "X" }).documento);
+  ok("empresa: CPF com 14 dígitos é recusado",
+    !!validarDadosEmpresa({ tipoPessoa: "fisica", documento: "34568449000172", razaoSocial: "X" }).documento);
+  ok("empresa: CNPJ de 14 passa",
+    !validarDadosEmpresa({ tipoPessoa: "juridica", documento: "34.568.449/0001-72", razaoSocial: "X" }).documento);
+  ok("empresa: razão social é obrigatória", !!validarDadosEmpresa({ documento: "34568449000172" }).razaoSocial);
+  ok("empresa: e-mail torto é recusado",
+    !!validarDadosEmpresa({ documento: "34568449000172", razaoSocial: "X", tipoPessoa: "juridica", email: "a@b" }).email);
+  ok("empresa: CEP de 7 dígitos é recusado",
+    !!validarDadosEmpresa({ documento: "34568449000172", razaoSocial: "X", tipoPessoa: "juridica", cep: "0471113" }).cep);
+  // ⚠️ O regime DECIDE o Simples — dois campos independentes divergiriam, e a
+  // divergência vira imposto calculado errado.
+  ok("empresa: Simples e MEI são optantes",
+    optantePeloSimples("simples") && optantePeloSimples("mei"));
+  ok("empresa: Presumido e Real não são",
+    !optantePeloSimples("presumido") && !optantePeloSimples("real"));
+  ok("empresa: logo .gif é recusado", !!logoAceito("marca.gif", 1000));
+  ok("empresa: logo de 6 MB é recusado", !!logoAceito("marca.png", 6 * 1024 * 1024));
+  ok("empresa: webp de 1 MB passa", logoAceito("marca.webp", 1024 * 1024) === null);
+
+  /* ------------------------------ usuários ------------------------------ */
+
+  const U = (o: Partial<UsuarioEmpresa>): UsuarioEmpresa => ({
+    id: "u1", nome: "João", email: "joao@e.com", perfil: "admin", dono: false, ...o,
+  });
+
+  // ⚠️ A organização não pode ficar sem administrador: quem desfaria precisa
+  // justamente do papel que acabou de sumir.
+  const soUmAdmin = [U({}), U({ id: "u2", perfil: "leitura", email: "b@e.com" })];
+  ok("usuarios: o único admin não pode ser removido", !!podeRemover(soUmAdmin, "u1"));
+  ok("usuarios: o único admin não pode ser REBAIXADO", !!podeTrocarPerfil(soUmAdmin, "u1", "leitura"));
+  ok("usuarios: com dois admins dá para remover um",
+    podeRemover([U({}), U({ id: "u2", perfil: "admin", email: "b@e.com" })], "u1") === null);
+  ok("usuarios: o dono nunca é removido", !!podeRemover([U({ dono: true }), U({ id: "u2", perfil: "admin" })], "u1"));
+  ok("usuarios: perfil não-admin sai sem impedimento",
+    podeRemover(soUmAdmin, "u2") === null);
+  ok("usuarios: promover para admin nunca é bloqueado",
+    podeTrocarPerfil(soUmAdmin, "u2", "admin") === null);
+  ok("usuarios: busca ignora acento e caixa",
+    filtrarUsuarios([U({ nome: "João Antônio" })], "joao anto").length === 1);
+
+  /* -------------------------------- logs -------------------------------- */
+
+  const L = (o: Partial<RegistroLog>): RegistroLog => ({
+    id: "l1", quando: "2026-08-01T10:30:00Z", acao: "alterou", usuario: "João",
+    origem: "Web", tipoEntidade: "Lançamento", entidadeId: "mov-1",
+    entidade: "mov-1", resumo: "valor: de 1000 para 10000", ...o,
+  });
+
+  // ⚠️ Pedir fora da janela de retenção precisa AVISAR. Devolver vazio diria
+  // "nada aconteceu" quando a verdade é "isso foi descartado" — e é numa
+  // auditoria que a diferença entre as duas frases importa.
+  ok("logs: a janela é de 30 dias", JANELA_LOGS_DIAS === 30);
+  ok("logs: período de 60 dias atrás é sinalizado",
+    periodoForaDaJanela("2026-08-02", "2026-06-02"));
+  ok("logs: período dentro da janela não é sinalizado",
+    !periodoForaDaJanela("2026-08-02", "2026-07-25"));
+  ok("logs: sem data inicial não sinaliza nada", !periodoForaDaJanela("2026-08-02", null));
+
+  // A busca varre o RESUMO — filtrar só pelo nome da entidade não acharia
+  // "mudou o valor de 1.000 para 10.000", que é o que se procura numa auditoria.
+  ok("logs: busca encontra no conteúdo do resumo",
+    filtrarLogs([L({})], { busca: "de 1000 para 10000" }).length === 1);
+  ok("logs: busca por entidade também funciona", filtrarLogs([L({})], { busca: "mov-1" }).length === 1);
+  ok("logs: filtro de ação exclui o resto",
+    filtrarLogs([L({}), L({ id: "l2", acao: "removeu" })], { acao: "removeu" }).length === 1);
+  ok("logs: janela de data exclui fora",
+    filtrarLogs([L({})], { de: "2026-08-02", ate: "2026-08-02" }).length === 0);
+  ok("logs: o próprio dia entra na janela",
+    filtrarLogs([L({})], { de: "2026-08-01", ate: "2026-08-01" }).length === 1);
+
+  /* ---------------------------- integrações ---------------------------- */
+
+  ok("integracoes: o catálogo tem os 8 cartões", CATALOGO_INTEGRACOES.length === 8);
+  ok("integracoes: ids do catálogo são únicos",
+    new Set(CATALOGO_INTEGRACOES.map((c) => c.id)).size === 8);
+  ok("integracoes: 18 plataformas de venda", PLATAFORMAS_VENDAS.length === 18, String(PLATAFORMAS_VENDAS.length));
+  ok("integracoes: 19 bancos homologados", BANCOS_OPEN_FINANCE.length === 19, String(BANCOS_OPEN_FINANCE.length));
+
+  // ⚠️ Um segredo NUNCA volta na tela: o que sobra é o prefixo (para saber QUAL
+  // chave é) e os quatro últimos. Devolver o valor inteiro transforma qualquer
+  // print ou sessão aberta num vazamento que o dono não percebe.
+  const chave = "a4p_live_9f2c8b1e4d7a3f5e";
+  const mascara = mascararSegredo(chave);
+  ok("segredo: a máscara NÃO contém o segredo", !mascara.includes("9f2c8b1e4d7a3f5e"), mascara);
+  ok("segredo: a máscara guarda o prefixo", mascara.startsWith("a4p_"), mascara);
+  ok("segredo: a máscara guarda os 4 últimos", mascara.endsWith("3f5e"), mascara);
+  ok("segredo: segredo curto vira só bolinhas", mascararSegredo("abc123") === "••••");
+  ok("segredo: vazio continua vazio", mascararSegredo("") === "");
+
+  // O consentimento do Open Finance vale 12 meses — regra do BC, e vencido
+  // significa extrato parado.
+  // A data de vencimento é montada em UTC de propósito (`Date.UTC`) e lida por
+  // `toISOString()`. Em UTC-3 as duas construções coincidem, então o guard
+  // abaixo NÃO é sobre fuso — ele trava a regra dos 12 meses e a preservação do
+  // dia, que é o que de fato já quebrou aqui.
+  const c1 = consentimentoOpenFinance("2025-09-15", "2026-08-02");
+  ok("openfinance: vence no MESMO dia, 12 meses depois", c1.vence === "2026-09-15", c1.vence);
+  ok("openfinance: 1º de março não recua para fevereiro",
+    consentimentoOpenFinance("2025-03-01", "2026-01-01").vence === "2026-03-01",
+    consentimentoOpenFinance("2025-03-01", "2026-01-01").vence);
+  ok("openfinance: entra na janela de aviso a 44 dias? não",
+    !c1.aVencer && !c1.vencido, `${c1.diasRestantes}`);
+  const c2 = consentimentoOpenFinance("2025-08-20", "2026-08-02");
+  ok("openfinance: a 18 dias já avisa", c2.aVencer && !c2.vencido, String(c2.diasRestantes));
+  const c3 = consentimentoOpenFinance("2025-06-01", "2026-08-02");
+  ok("openfinance: vencido é vencido", c3.vencido && c3.diasRestantes < 0, String(c3.diasRestantes));
+
+  ok("certificado: vencido é inválido", !certificadoValido("2026-07-01", "2026-08-02"));
+  ok("certificado: válido no próprio dia do vencimento", certificadoValido("2026-08-02", "2026-08-02"));
+  ok("certificado: ausente é inválido", !certificadoValido(null, "2026-08-02"));
+
+  /* -------------------------- exportações -------------------------- */
+
+  // ⚠️ Os limiares são POR FORMATO. Registrar toda exportação transformaria a
+  // fila num log onde o relatório de 40 mil linhas que a pessoa espera se
+  // perderia entre cinquenta downloads instantâneos.
+  ok("export: PDF de 301 linhas vai para a fila", precisaFila("pdf", LIMITE_PDF_LINHAS + 1));
+  ok("export: PDF de 300 linhas baixa na hora", !precisaFila("pdf", LIMITE_PDF_LINHAS));
+  // O caso que SEPARA os dois limiares: 1.000 linhas passa do teto do PDF e não
+  // chega perto do teto do XLSX. Um limiar único trataria os dois igual.
+  ok("export: XLSX de 1.000 linhas baixa na hora", !precisaFila("xlsx", 1_000));
+  ok("export: PDF de 1.000 linhas vai para a fila", precisaFila("pdf", 1_000));
+  ok("export: XLSX de 5.001 vai para a fila", precisaFila("xlsx", LIMITE_XLSX_LINHAS + 1));
+
+  const E = (o: Partial<Exportacao>): Exportacao => ({
+    id: "e1", relatorio: "Contas a pagar", nomeArquivo: "contas-a-pagar.xlsx",
+    formato: "xlsx", linhas: 9_000, exportadoEm: "2026-08-01", status: "pronto", ...o,
+  });
+
+  ok("export: expira 15 dias depois", expiraEm("2026-08-01") === "2026-08-16", expiraEm("2026-08-01"));
+  // ⚠️ Expirada continua NA LISTA, marcada — sumir faria parecer que a
+  // exportação nunca aconteceu.
+  ok("export: passado o prazo o status vira expirado",
+    statusExportacao(E({}), "2026-08-20") === "expirado");
+  ok("export: dentro do prazo continua pronto",
+    statusExportacao(E({}), "2026-08-10") === "pronto");
+  ok("export: processando não expira",
+    statusExportacao(E({ status: "processando" }), "2026-09-30") === "processando");
+  ok("export: erro não vira expirado",
+    statusExportacao(E({ status: "erro" }), "2026-09-30") === "erro");
+  ok("export: filtro de formato separa",
+    filtrarExportacoes([E({}), E({ id: "e2", formato: "pdf" })], { formato: "pdf" }).length === 1);
+  ok("export: filtro de período exclui fora",
+    filtrarExportacoes([E({})], { de: "2026-08-02", ate: "2026-08-30" }).length === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

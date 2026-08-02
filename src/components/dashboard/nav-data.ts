@@ -108,6 +108,7 @@ export const SECTIONS: Section[] = [
 export const CONFIG: Section = {
   id: "config", label: "Configurações", items: [
     { label: "Empresa", href: "/configuracoes", icon: "settings" },
+    { label: "Administração", href: "/dashboard/administration", icon: "shield-check" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
     { label: "Adicionar Empresa", href: "/empresas/nova", icon: "plus" },
   ],

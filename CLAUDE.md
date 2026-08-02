@@ -1063,6 +1063,62 @@ como **documento-mãe**: gera o recebível, ampara a NF e é a base do imposto.
 - **Notas fiscais** (`/invoices`), **Assinaturas** (`/subscriptions`, sobre
   `lib/recorrencias`) e **Links de pagamento** (`/payment-links`).
 
+### Administração (`/dashboard/administration/*`) + `core/administracao`
+
+`src/core/administracao/index.ts` (`administracao/1.0.0`, puro/tipado/demo-safe)
+— a camada de CONFIGURAÇÃO: nada aqui apura dinheiro. Ela governa quem entra, o
+que se conecta e o que sai, e por isso as regras que valem estão todas do lado
+de **negar**. Seis telas com rota própria + hub de 6 abas em
+`/dashboard/administration`.
+
+- **Assinatura** (`subscription`): plano, ID, expiração com `diasRestantes` em
+  dias de CALENDÁRIO (`diasEntre` fatia a string e compara em UTC — um "expira
+  em 8 dias" que vira 7 depois das 21h é o erro que ninguém reporta), usuários
+  ativos, dono ativo, panorama de contas e o que está conectado.
+  ⚠️ **"Elegíveis sem conexão" ≠ "contas não conectadas"**: só entra o banco que
+  TEM conector homologado; contar todas transformaria a métrica em ruído fixo.
+- **Dados da empresa** (`company-data`, abas Dados gerais + Contatos): grava no
+  **MESMO `a4p_company`** que o onboarding preencheu e `/configuracoes` lê — um
+  segundo cadastro produziria duas razões sociais divergentes, e a que sai na
+  nota fiscal seria a que ninguém editou. **O regime DECIDE o Simples**
+  (`optantePeloSimples`), não é uma segunda caixinha: dois campos independentes
+  divergem, e a divergência vira imposto errado. Logo até 5 MB; o aviso de
+  200×200px é **sugestão, não bloqueio** (logo pequeno é melhor que nenhum).
+- **Usuários** (`users`): lê `lib/governance` (RPCs com RLS em live).
+  ⚠️ **O último admin não pode ser removido NEM rebaixado** (`podeRemover` /
+  `podeTrocarPerfil`) — a organização ficaria sem quem convida outro, e desfazer
+  exige justamente o papel que acabou de sumir. O dono também não sai: a
+  titularidade se transfere. `usuariosDaEmpresa` costura o dono na lista quando
+  a fonte não o traz (em demo `participantes` começa vazio, e a tela dizia
+  "nenhum usuário" para quem estava logado).
+- **Logs** (`audit-logs`): traduz a trilha encadeada de `core/institutional` (a
+  que o sistema já assina por SHA-256) — um log paralelo discordaria do primeiro.
+  O `resumo` é o **"de X para Y"** derivado de `before`/`after`: sem ele a busca
+  por conteúdo seria inútil, porque ninguém procura "Lançamento", procura "de
+  1.000 para 10.000". ⚠️ **`periodoForaDaJanela` avisa** quando o período pedido
+  antecede os 30 dias de retenção: devolver vazio diria "nada aconteceu" quando
+  a verdade é "isso foi descartado", e é numa auditoria que a diferença importa.
+- **Integrações** (`integrations`): catálogo de 8 cartões (18 plataformas de
+  venda · 19 bancos de Open Finance), cada um com painel próprio via
+  `?cartao=`. ⚠️ **Um segredo se mostra UMA vez** (`mascararSegredo`): chave,
+  token e senha de certificado aparecem no momento em que nascem e nunca mais —
+  reexibi-los transforma qualquer print ou sessão aberta num vazamento que o
+  dono não percebe. O que fica guardado é prefixo + 4 últimos. O **consentimento
+  de Open Finance vale 12 meses** (regra do BC) e a tela avisa 30 dias antes:
+  vencido significa extrato e saldo congelados. **Certificado A1 vencido = a
+  captura de NF simplesmente para**, e ninguém nota, porque a tela continua
+  abrindo. O Domínio tem **dois interruptores independentes** (NFs × extratos) —
+  um só obrigaria a mandar o que ninguém pediu. O DDA exige **aceite**, não um
+  toggle: a adesão é ato do titular.
+  ⚠️ O estado vem do localStorage; lê-lo **durante o render** quebra a hidratação
+  (o painel remontava do zero) — daí o gate `montado`.
+- **Relatórios exportados** (`exported-reports`): ⚠️ os limiares são **por
+  formato** (PDF > 300 linhas · XLSX > 5.000). Abaixo deles o arquivo baixa na
+  hora e **não** entra na lista — registrar toda exportação transformaria a fila
+  num log onde o relatório de 40 mil linhas que a pessoa espera se perderia.
+  Retenção de 15 dias, e a exportação vencida **continua na lista marcada como
+  expirada**: sumir faria parecer que ela nunca aconteceu.
+
 ### Contabilidade — a ponte com o contador (`/dashboard/accounting/*`)
 
 `src/core/contabilidade/index.ts` (`contabilidade/1.0.0`, puro/tipado/demo-safe)
