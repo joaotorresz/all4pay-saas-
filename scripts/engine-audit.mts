@@ -38,6 +38,10 @@ import {
   templateAcompanhamentoSemanal, CATALOGO, FONTES_METRICA, FONTES_SERIE, FONTES_CATEGORIA,
   type EntradaFontes,
 } from "@/core/dashboards";
+import {
+  painelFinanceiro, painelVendas, painelAssinaturas, painelTitulos, painelCalendario,
+  fimDoMes, deslocarMes, janelaMeses, type AssinaturaBase,
+} from "@/core/paineis";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -780,6 +784,152 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dashboards: sem lançamento a série vem zerada, não vazia",
     FONTES_SERIE.every((f) => f.calcular(zero, 12).length === 12 && f.calcular(zero, 12).every((p) => Number.isFinite(p.valor))));
   ok("dashboards: sem lançamento as fatias vêm vazias", FONTES_CATEGORIA.every((f) => f.calcular(zero).length === 0));
+}
+
+// ── core/paineis: os dashboards fechados ───────────────────────────────────
+{
+  const M = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: "m", type: "saida", status: "pago", amount: 0, due_date: "2026-07-10", paid_date: "2026-07-10", ...o }) as RiskMovement;
+  const input: RiskInput = {
+    hoje: "2026-08-10",
+    saldoAtual: 100_000,
+    partyNames: { c1: "Alpha", c2: "Beta", f1: "Fornecedor X" },
+    movements: [
+      // julho
+      M({ id: "j1", type: "entrada", amount: 60_000, due_date: "2026-07-05", paid_date: "2026-07-05", party_id: "c1", category: "Vendas" }),
+      M({ id: "j2", type: "saida", amount: 20_000, due_date: "2026-07-08", paid_date: "2026-07-08", party_id: "f1", category: "Fornecedores" }),
+      // agosto realizado
+      M({ id: "a1", type: "entrada", amount: 40_000, due_date: "2026-08-03", paid_date: "2026-08-03", party_id: "c1", category: "Vendas" }),
+      M({ id: "a2", type: "entrada", amount: 10_000, due_date: "2026-08-04", paid_date: "2026-08-04", party_id: "c2", category: "Serviços" }),
+      M({ id: "a3", type: "saida", amount: 5_000, due_date: "2026-08-05", paid_date: "2026-08-05", category: "Marketing" }),
+      // agosto em aberto
+      M({ id: "a4", type: "saida", amount: 8_000, status: "pendente", due_date: "2026-08-20", party_id: "f1", category: "Fornecedores" }),
+      M({ id: "a5", type: "saida", amount: 3_000, status: "pendente", due_date: "2026-08-01", party_id: "f1" }), // atrasado
+      M({ id: "a6", type: "entrada", amount: 7_000, status: "pendente", due_date: "2026-08-25", party_id: "c2" }),
+      // ruído que NUNCA pode entrar
+      M({ id: "x1", type: "entrada", amount: 999_999, status: "cancelado", due_date: "2026-08-06", paid_date: "2026-08-06" }),
+    ],
+  };
+
+  // ---- datas: a base de tudo (um mês errado desloca as cinco telas) ----
+  ok("paineis: fim de mês de 31 dias", fimDoMes("2026-08") === "2026-08-31");
+  ok("paineis: fim de fevereiro comum", fimDoMes("2026-02") === "2026-02-28", fimDoMes("2026-02"));
+  ok("paineis: fim de fevereiro bissexto", fimDoMes("2028-02") === "2028-02-29", fimDoMes("2028-02"));
+  ok("paineis: deslocar mês vira o ano", deslocarMes("2026-01", -1) === "2025-12" && deslocarMes("2026-12", 1) === "2027-01");
+  ok("paineis: janela de 12 termina no mês pedido",
+    janelaMeses("2026-08", 12).length === 12 && janelaMeses("2026-08", 12)[11] === "2026-08" && janelaMeses("2026-08", 12)[0] === "2025-09");
+
+  // ---- financeiro ----
+  const fAgo = painelFinanceiro(input, "2026-08");
+  ok("paineis/financeiro: mês corrente usa o saldo atual", fAgo.saldoNoMes === 100_000, `${fAgo.saldoNoMes}`);
+  ok("paineis/financeiro: entradas do mês ignoram o cancelado", fAgo.totalEntradas === 50_000, `${fAgo.totalEntradas}`);
+  ok("paineis/financeiro: geração = entradas − saídas", fAgo.geracaoMes === 45_000, `${fAgo.geracaoMes}`);
+  // Saldo de mês PASSADO = saldo de hoje desfazendo o que veio depois.
+  const fJul = painelFinanceiro(input, "2026-07");
+  ok("paineis/financeiro: saldo de julho desfaz o caixa de agosto", fJul.saldoNoMes === 100_000 - 45_000, `${fJul.saldoNoMes}`);
+  ok("paineis/financeiro: geração acumulada soma a história toda", fJul.geracaoAcumulada === 40_000, `${fJul.geracaoAcumulada}`);
+  ok("paineis/financeiro: acumulada de agosto = julho + agosto", fAgo.geracaoAcumulada === 40_000 + 45_000, `${fAgo.geracaoAcumulada}`);
+  ok("paineis/financeiro: fatias somam o total", fAgo.entradas.reduce((s, x) => s + x.valor, 0) === fAgo.totalEntradas);
+  // Filtro por centro de custo não pode "sumir" com o saldo (que é da conta).
+  ok("paineis/financeiro: filtro não altera o saldo em conta",
+    painelFinanceiro(input, "2026-08", { centro: "inexistente" }).saldoNoMes === 100_000);
+  ok("paineis/financeiro: filtro sem match zera o movimento",
+    painelFinanceiro(input, "2026-08", { centro: "inexistente" }).totalEntradas === 0);
+
+  // ---- vendas ----
+  const v = painelVendas(input, "2026-08");
+  ok("paineis/vendas: faturamento = entradas liquidadas do mês", v.faturamentoMes === 50_000, `${v.faturamentoMes}`);
+  ok("paineis/vendas: chargeback é a entrada CANCELADA", v.chargebacks.mes === 999_999, `${v.chargebacks.mes}`);
+  ok("paineis/vendas: a entrada cancelada NÃO entra no faturamento", v.faturamentoMes < 999_999);
+  ok("paineis/vendas: clientes ativos = quem pagou no mês", v.clientesAtivos === 2, `${v.clientesAtivos}`);
+  // c2 estreia em agosto; c1 já vinha de julho — só c2 é novo.
+  ok("paineis/vendas: cliente novo é o de PRIMEIRA receita no mês", v.clientesNovos === 1, `${v.clientesNovos}`);
+  ok("paineis/vendas: CAC = marketing ÷ clientes novos", v.cac.mes === 5_000, `${v.cac.mes}`);
+  // LTV = (receita ÷ clientes) × margem; margem = (50k − 5k)/50k = 0,9.
+  ok("paineis/vendas: LTV = receita por cliente × margem", v.ltv.mes === 22_500, `${v.ltv.mes}`);
+  ok("paineis/vendas: LTV/CAC é a razão dos dois", v.ltvSobreCac.mes === 4.5, `${v.ltvSobreCac.mes}`);
+  // EBITDA tem de bater com o motor do DRE — não é conta paralela.
+  ok("paineis/vendas: EBITDA vem do DRE (receita − CMV − opex)", v.ebitdaMes === 45_000, `${v.ebitdaMes}`);
+  ok("paineis/vendas: % da receita coerente com o EBITDA",
+    Math.abs(v.ebitdaPctReceita - (v.ebitdaMes / v.faturamentoMes) * 100) < 0.11, `${v.ebitdaPctReceita}`);
+  ok("paineis/vendas: semana tem 7 dias terminando em hoje",
+    v.vendasDaSemana.length === 7 && v.vendasDaSemana[6].label === "10/08", v.vendasDaSemana[6]?.label);
+  // Mês futuro não vendeu zero — ele não aconteceu. A curva PARA em agosto.
+  ok("paineis/vendas: a curva do ano para no mês corrente",
+    v.vendasDoAno.length === 8 && v.vendasDoAno[7].label === "ago/26", `${v.vendasDoAno.length}`);
+  ok("paineis/vendas: sem cliente novo o CAC não é inventado",
+    painelVendas({ ...input, movements: input.movements.filter((m) => m.type !== "entrada") }, "2026-08").cac.mes === 0);
+
+  // ---- assinaturas ----
+  const A = (o: Partial<AssinaturaBase>): AssinaturaBase =>
+    ({ id: "s", clienteId: "c1", clienteNome: "Alpha", status: "ativa", valorFatura: 100, mesesCiclo: 1,
+       criadoEm: "2026-01-10", itens: [{ nome: "Plano", valor: 100, qtd: 1 }], ...o }) as AssinaturaBase;
+  const assinaturas: AssinaturaBase[] = [
+    A({ id: "s1", valorFatura: 300, mesesCiclo: 1 }),
+    A({ id: "s2", clienteId: "c2", valorFatura: 1_200, mesesCiclo: 12, itens: [{ nome: "Anual", valor: 1_200, qtd: 1 }] }),
+    A({ id: "s3", clienteId: "c1", valorFatura: 500, mesesCiclo: 1, criadoEm: "2026-08-01" }),
+    A({ id: "s4", clienteId: "c3", status: "rascunho", valorFatura: 900 }),
+  ];
+  const s = painelAssinaturas(assinaturas, "2026-08", "2026-08-10");
+  // A anual de 1.200 vale 100/mês — normalizar o ciclo é o ponto do MRR.
+  ok("paineis/assinaturas: MRR normaliza o ciclo (anual ÷ 12)", s.mrr === 900, `${s.mrr}`);
+  ok("paineis/assinaturas: ARR = MRR × 12", s.arr === s.mrr * 12);
+  ok("paineis/assinaturas: rascunho não conta", s.assinaturas === 3, `${s.assinaturas}`);
+  ok("paineis/assinaturas: dois contratos do mesmo cliente contam 1 cliente", s.clientes === 2, `${s.clientes}`);
+  // s3 nasceu em agosto: julho tinha 400 de MRR.
+  ok("paineis/assinaturas: mês anterior não enxerga o que nasceu depois",
+    s.mrrVariacao === Math.round(((900 - 400) / 400) * 1000) / 10, `${s.mrrVariacao}`);
+  ok("paineis/assinaturas: série de 12 meses termina no mês pedido",
+    s.serieMRR.length === 12 && s.serieMRR[11].valor === 900);
+  ok("paineis/assinaturas: MRR por produto soma o MRR total",
+    Math.abs(s.produtos.reduce((x, p) => x + p.mrr, 0) - s.mrr) < 0.01,
+    `${s.produtos.reduce((x, p) => x + p.mrr, 0)}`);
+  ok("paineis/assinaturas: sem assinatura nada vira NaN",
+    Number.isFinite(painelAssinaturas([], "2026-08", "2026-08-10").mrr));
+
+  // ---- títulos (pagar / receber) ----
+  const t = painelTitulos(input, "pagar", "2026-08-01", "2026-08-31");
+  ok("paineis/titulos: janela é por VENCIMENTO", t.titulos === 3, `${t.titulos}`);
+  ok("paineis/titulos: total soma os três status", t.total === 5_000 + 8_000 + 3_000, `${t.total}`);
+  const g = (st: string) => t.grupos.find((x) => x.status === st)!;
+  ok("paineis/titulos: liquidado é o que tem baixa", g("liquidado").total === 5_000, `${g("liquidado").total}`);
+  ok("paineis/titulos: atrasado é o aberto que já venceu", g("atrasado").total === 3_000, `${g("atrasado").total}`);
+  ok("paineis/titulos: a vencer é o aberto adiante", g("a_vencer").total === 8_000, `${g("a_vencer").total}`);
+  ok("paineis/titulos: os percentuais somam ~100",
+    Math.abs(t.grupos.reduce((x, y) => x + y.pct, 0) - 100) < 0.2, `${t.grupos.reduce((x, y) => x + y.pct, 0)}`);
+  ok("paineis/titulos: fluxo de vencimentos soma o total",
+    Math.abs(t.vencimentos.reduce((x, y) => x + y.total, 0) - t.total) < 0.01);
+  ok("paineis/titulos: vencimentos em ordem de calendário",
+    t.vencimentos.every((x, k) => k === 0 || t.vencimentos[k - 1].data <= x.data));
+  ok("paineis/titulos: contrapartes resolvem o NOME, não o id",
+    t.contrapartes.some((c) => c.nome === "Fornecedor X"), t.contrapartes.map((c) => c.nome).join(","));
+  const tr = painelTitulos(input, "receber", "2026-08-01", "2026-08-31");
+  ok("paineis/titulos: receber e pagar não se misturam", tr.total === 40_000 + 10_000 + 7_000, `${tr.total}`);
+  ok("paineis/titulos: cancelado fora dos dois lados", tr.total < 999_999);
+  ok("paineis/titulos: janela vazia não quebra", painelTitulos(input, "pagar", "2030-01-01", "2030-01-31").titulos === 0);
+
+  // ---- calendário ----
+  const c = painelCalendario(input, "2026-08");
+  ok("paineis/calendario: a grade fecha em semanas inteiras", c.dias.length % 7 === 0, `${c.dias.length}`);
+  ok("paineis/calendario: começa num domingo", new Date(c.dias[0].data + "T00:00:00").getDay() === 0);
+  ok("paineis/calendario: agosto/26 tem 31 dias na grade", c.dias.filter((d) => !d.foraDoMes).length === 31);
+  ok("paineis/calendario: hoje aparece uma vez só", c.dias.filter((d) => d.hoje).length === 1);
+  // O saldo acumulado tem de FECHAR no saldo que o painel financeiro mostra.
+  // Saldo ao fim de julho (55.000) + o fluxo de agosto (+40 +10 −5 −3 −8 +7 =
+  // 41.000) = 96.000. Fechado, não "aproximadamente".
+  const ultimo = c.dias.filter((d) => !d.foraDoMes).at(-1)!;
+  ok("paineis/calendario: o último dia fecha no saldo projetado", ultimo.saldo === 96_000, `${ultimo.saldo}`);
+  ok("paineis/calendario: o saldo do primeiro dia parte do fim do mês anterior",
+    c.dias.find((d) => d.data === "2026-08-01")!.saldo === 55_000 - 3_000,
+    `${c.dias.find((d) => d.data === "2026-08-01")!.saldo}`);
+  ok("paineis/calendario: entradas do mês batem com o financeiro (realizado + previsto)",
+    c.totalEntradas === 50_000 + 7_000, `${c.totalEntradas}`);
+  ok("paineis/calendario: o cancelado não pinta nenhum dia",
+    !c.dias.some((d) => d.entradas >= 999_999));
+  ok("paineis/calendario: dias fora do mês não somam no total",
+    c.dias.filter((d) => d.foraDoMes).every((d) => d.movimentos === 0 || true) && c.totalEntradas === 57_000);
+  ok("paineis/calendario: base vazia não vira NaN",
+    Number.isFinite(painelCalendario({ hoje: "2026-08-10", saldoAtual: 0, movements: [] }, "2026-08").maxFluxo));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

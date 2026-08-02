@@ -961,6 +961,52 @@ o que a anterior não resolveu):
 implícito (uma confirmação pontual) e regra é explícita. Orquestrado em
 `UploadView.analisarEAuto`.
 
+### Painéis fechados (`/dashboard/dashboards` — hub de 7 abas)
+
+`src/core/paineis/index.ts` (`paineis/1.0.0`, puro/tipado/demo-safe) — os
+dashboards CURADOS, ao lado do construtor. Cada painel responde uma pergunta
+definida e sai do MESMO `RiskInput` do DRE/fluxo/risco; o **EBITDA chega por
+`dreGerencial`**, não por conta paralela. Nenhum número é digitado ou estimado
+por fora. Um destino de menu (**Dashboards**), 7 abas, e cada painel com **rota
+própria** (`/dashboard/dashboards/financial|sales|subscriptions|payables|
+receivables`, `/dashboard/financial/calendar`) — o `HubShell`/`ShellGate` de
+sempre.
+
+- **Financeiro** (`painelFinanceiro`): saldo do mês, geração de caixa (mês e
+  acumulada), entradas/saídas por categoria. ⚠️ **Saldo de mês passado não fica
+  guardado** — parte-se do saldo de hoje e desfaz-se o que foi liquidado depois
+  do fim daquele mês (no mês corrente dá o próprio saldo atual).
+- **Vendas** (`painelVendas`): CAC · LTV · LTV/CAC · EBITDA em 3 janelas (mês/
+  trimestre/ano) + faturamento, reembolsos, chargebacks e as curvas semana/ano.
+  As definições são **explícitas no `InfoHint`** porque CAC e LTV mudam de
+  empresa para empresa: **CAC** = gasto de marketing ÷ clientes NOVOS (primeira
+  receita da história no período); **LTV** = (receita ÷ clientes que pagaram) ×
+  margem do período — medida do PERÍODO, não projeção de vida (exigiria churn
+  confiável); **chargeback** = entrada CANCELADA. Sem gasto de aquisição o
+  **LTV/CAC mostra "—"**, não `0,00`: indefinido ≠ péssimo. A curva do ano
+  **para no mês corrente** — mês futuro não vendeu zero, ele não aconteceu.
+- **Assinaturas** (`painelAssinaturas`): MRR/ARR/assinantes/churn/produtos sobre
+  `lib/recorrencias` (o mesmo contrato que projeta faturas para o fluxo). **MRR
+  normaliza o ciclo** (anual de 1.200 = 100/mês) e o MRR por produto é rateado
+  pelo peso do item na fatura.
+- **Contas a pagar / a receber** (`painelTitulos`): UMA view (`TitulosView
+  direcao=…`) — pagar e receber são o mesmo problema espelhado. Janela **por
+  vencimento** (é ela que responde "o que cai no período"), total + pago/a
+  vencer/atrasado, distribuição, fluxo de vencimentos empilhado e maiores
+  contrapartes. Nas áreas grandes (donut/barras) a cor de status entra a **70%
+  via `color-mix`** — cor semântica é sinal, chapada num donut vira fill.
+- **Calendário** (`painelCalendario`): grade em semanas inteiras (sempre começa
+  no domingo), colorir por **Fluxo diário** × **Saldo total**, intensidade
+  proporcional ao maior valor DO MÊS (zero é neutro). O saldo parte do fim do
+  mês anterior e **fecha no saldo do painel financeiro**.
+- **Filtros:** `FiltrosPainel` oferece **Conta** e **Centro de custo** — os dois
+  recortes que existem no lançamento e chegam ao motor. A referência trazia
+  "Projeto", mas nenhum movimento referencia projeto (o cadastro é local): o
+  filtro não filtraria nada.
+- Peças comuns em `src/components/paineis/shared.tsx` (`MesPicker`,
+  `FiltrosPainel`, `KpiSimples`/`KpiJanelas`/`KpiStatus`, `ListaFatias`).
+  Guardas de valor fechado no `engine-audit`.
+
 ### Dashboards customizados (`/dashboard/dashboards/custom`)
 
 O construtor: a Home é curada por nós, aqui a pessoa monta a DELA. `src/core/

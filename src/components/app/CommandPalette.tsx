@@ -18,7 +18,13 @@ const norm = (s: string) =>
 interface RouteItem { label: string; href: string; icon: string; kw: string; event?: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
-  { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "layers", kw: "dashboard customizado personalizado widget kpi grafico montar criar meu painel acompanhamento semanal" },
+  { label: "Meus dashboards", href: "/dashboard/dashboards?aba=meus", icon: "layers", kw: "dashboard customizado personalizado widget kpi grafico montar criar meu painel acompanhamento semanal" },
+  { label: "Dashboard Financeiro", href: "/dashboard/dashboards?aba=financeiro", icon: "trending-up", kw: "dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes" },
+  { label: "Dashboard de Vendas", href: "/dashboard/dashboards?aba=vendas", icon: "credit-card", kw: "dashboard vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
+  { label: "Dashboard de Assinaturas", href: "/dashboard/dashboards?aba=assinaturas", icon: "repeat", kw: "dashboard assinatura mrr arr churn assinante recorrencia saas produto" },
+  { label: "Dash de Contas a Pagar", href: "/dashboard/dashboards?aba=pagar", icon: "arrow-up-right", kw: "dash contas a pagar vencimento atrasado a vencer fornecedor titulo periodo" },
+  { label: "Dash de Contas a Receber", href: "/dashboard/dashboards?aba=receber", icon: "arrow-left-right", kw: "dash contas a receber inadimplencia vencimento atrasado cliente titulo periodo" },
+  { label: "Calendário financeiro", href: "/dashboard/financial/calendar", icon: "calendar", kw: "calendario dia mes vencimento fluxo diario saldo total agenda financeira" },
   { label: "Boas-vindas (dashboard)", href: "/dashboard", icon: "house", kw: "boas vindas saudacao atalhos acesso rapido empresa ativa dashboard home" },
   { label: "Comece por aqui", href: "/comece", icon: "target", kw:"comece jornada adesao primeiros passos onboarding tutorial aprender progresso guia inicio" },
   { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
