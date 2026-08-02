@@ -10,11 +10,12 @@ import { RelatoriosRazaoView } from "@/components/relatorios/RelatoriosRazaoView
 import { PlanoContasView } from "@/components/registros/PlanoContasView";
 import { DimensoesView } from "@/components/dimensoes/DimensoesView";
 import { CronogramasView } from "@/components/cronogramas/CronogramasView";
-import { ContabilidadeView } from "@/components/contabilidade/ContabilidadeView";
+import { EnvioNFsView } from "@/components/contabilidade-export/EnvioNFsView";
+import { DominioExportView } from "@/components/contabilidade-export/DominioExportView";
 import { ConsolidadoView } from "@/components/consolidado/ConsolidadoView";
 
 /**
- * Hub de Contabilidade — 9 telas irmãs viram 9 abas de UM destino de menu.
+ * Hub de Contabilidade — 10 telas irmãs viram 10 abas de UM destino de menu.
  * As rotas antigas (/razao, /fechamento, …) redirecionam para cá com ?aba=,
  * então nada quebra: links, favoritos e a command palette seguem funcionando.
  */
@@ -26,7 +27,8 @@ const ABAS: AbaHub[] = [
   { id: "plano-de-contas", label: "Plano de contas", render: () => <PlanoContasView /> },
   { id: "dimensoes", label: "Dimensões & tags", render: () => <DimensoesView /> },
   { id: "cronogramas", label: "Cronogramas", render: () => <CronogramasView /> },
-  { id: "envio", label: "TXT Domínio · NFs", render: () => <ContabilidadeView /> },
+  { id: "envio", label: "Envio das NFs", render: () => <EnvioNFsView /> },
+  { id: "txt-dominio", label: "TXT Domínio", render: () => <DominioExportView /> },
   { id: "consolidado", label: "Consolidado", render: () => <ConsolidadoView /> },
 ];
 

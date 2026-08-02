@@ -49,6 +49,8 @@ const ROUTES: RouteItem[] = [
   { label: "Razão (GL)", href: "/contabilidade?aba=razao", icon: "receipt", kw: "razao ledger gl dupla entrada balancete lancamento debito credito contabilidade backfill" },
   { label: "Relatórios (Razão)", href: "/contabilidade?aba=relatorios", icon: "receipt", kw: "relatorios dre balanco patrimonial pivot dimensao razao gl balance sheet contabil" },
   { label: "Consolidado (multi-empresa)", href: "/contabilidade?aba=consolidado", icon: "building", kw: "consolidado consolidacao multi empresa entidade holding filial matriz grupo" },
+  { label: "Envio de NFs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail", kw: "envio nfs contador xml mensal destinatario email verificado escritorio contabil pacote" },
+  { label: "Gerar TXT contábil (Domínio)", href: "/dashboard/accounting/dominio-export", icon: "file-text", kw: "txt contabil dominio lanctos partidas simples extrato exportar escritorio ansi" },
   { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "DRE (relatório em cascata)", href: "/dashboard/reports?aba=dre", icon: "file-text", kw: "dre relatorio cascata analise vertical horizontal ebitda margem contribuicao exportar pdf xlsx" },
   { label: "DFC (fluxo de caixa)", href: "/dashboard/reports?aba=dfc", icon: "file-text", kw: "dfc demonstracao fluxo de caixa saldo inicial regime caixa relatorio" },

@@ -34,6 +34,13 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import {
+  paraCP1252, deCP1252, statusEnvio, podeAdicionar, validarDestinatario,
+  proximoEnvio, formatarProximoEnvio, resumoMesNFs, LIMITE_DESTINATARIOS,
+  montarLancamentosDominio, gerarLanctosTxt, gerarLanctosBytes, conferirDominio,
+  dataDominio, valorDominio, campoDominio,
+  type DestinatarioContador, type MovimentoContabil, type MapasContabeis,
+} from "@/core/contabilidade";
+import {
   painelCompras, filtrarCompras, parcelasDaCompra, movimentosDaCompra,
   validarCompra, rateioFecha, anexoAceito, statusInicial, somarMeses,
   lerBoleto, linhaDeCodigoDeBarras, codigoDeBarrasDaLinha, dvModulo10, dvModulo11,
@@ -1993,6 +2000,168 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     resumoNFs([N({ id: "a" }), N({ id: "b", avaliacao: "aprovada" })]).pendentes === 1);
   ok("nfs: resumo vazio não produz NaN",
     Number.isFinite(resumoNFs([]).valorTotal) && resumoNFs([]).quantidade === 0);
+}
+
+// ── core/contabilidade: envio ao contador e TXT do Domínio ────────────────
+{
+  /* ---------------------------- envio das NFs ---------------------------- */
+
+  const D = (o: Partial<DestinatarioContador>): DestinatarioContador => ({
+    id: "d1", email: "contador@escritorio.com.br", verificado: false,
+    criadoEm: "2026-08-01", verificadoEm: null, ...o,
+  });
+
+  // ⚠️ Double opt-in não é etiqueta: o pacote leva a escrituração fiscal da
+  // empresa. Um e-mail digitado errado entregaria os XMLs a um estranho todo
+  // dia 1º, em silêncio, porque "o envio funciona".
+  ok("contador: sem verificado o envio fica INATIVO", statusEnvio([D({})]) === "inativo");
+  ok("contador: um verificado ativa", statusEnvio([D({ verificado: true })]) === "ativo");
+  ok("contador: lista vazia é inativa", statusEnvio([]) === "inativo");
+
+  const cinco = Array.from({ length: 5 }, (_, k) => D({ id: `d${k}`, email: `c${k}@e.com` }));
+  ok("contador: o teto é 5 destinatários", LIMITE_DESTINATARIOS === 5);
+  ok("contador: no teto não dá para adicionar", !podeAdicionar(cinco));
+  ok("contador: com 4 ainda dá", podeAdicionar(cinco.slice(0, 4)));
+  ok("contador: o 6º é recusado com motivo", !!validarDestinatario("novo@e.com", cinco));
+  ok("contador: e-mail duplicado é recusado",
+    !!validarDestinatario("C0@E.COM", cinco), "case-insensitive");
+  ok("contador: e-mail sem domínio é recusado", !!validarDestinatario("contador@", []));
+  ok("contador: e-mail válido passa", validarDestinatario("a@b.com.br", []) === null);
+
+  // O pacote sai no dia 1º do mês SEGUINTE, 21h — depois do fechamento.
+  ok("contador: próximo envio é o dia 1º do mês seguinte",
+    proximoEnvio("2026-08-15") === "2026-09-01T21:00", proximoEnvio("2026-08-15"));
+  // ⚠️ Virada de ano: dezembro + 1 é janeiro do ano SEGUINTE, não mês 13.
+  ok("contador: dezembro vira janeiro do ano seguinte",
+    proximoEnvio("2026-12-20") === "2027-01-01T21:00", proximoEnvio("2026-12-20"));
+  // ⚠️ Em UTC-3 o dia 1º lido de um Date UTC cai no mês anterior — a data aqui
+  // é fatiada da string, e é isso que este guard trava.
+  ok("contador: o dia 1º não escorrega para o mês anterior",
+    proximoEnvio("2026-09-01") === "2026-10-01T21:00", proximoEnvio("2026-09-01"));
+  ok("contador: formatação pt-BR do próximo envio",
+    formatarProximoEnvio("2026-09-01T21:00") === "01/09/2026, 21:00");
+
+  // ⚠️ "Arquivada" não é sinônimo de "existe": o arquivamento começa quando há
+  // destinatário verificado. Contar notas antigas prometeria um pacote que
+  // ninguém montou.
+  const notas = [
+    { emissao: "2026-08-03", arquivada: true },
+    { emissao: "2026-08-20", arquivada: true },
+    { emissao: "2026-07-30", arquivada: true },
+  ];
+  const semDest = resumoMesNFs(notas, [], "2026-08", null);
+  ok("contador: sem destinatário nada é arquivado",
+    semDest.entrada === 2 && semDest.entradaArquivadas === 0);
+  const comDest = resumoMesNFs(notas, [], "2026-08", "2026-08-10");
+  ok("contador: só arquiva o que veio DEPOIS da verificação",
+    comDest.entrada === 2 && comDest.entradaArquivadas === 1, String(comDest.entradaArquivadas));
+  ok("contador: nota cancelada não conta como arquivada",
+    resumoMesNFs([{ emissao: "2026-08-03", arquivada: false }], [], "2026-08", "2026-08-01")
+      .entradaArquivadas === 0);
+  ok("contador: entrada e saída são contadas em separado", (() => {
+    const r = resumoMesNFs(notas, [{ emissao: "2026-08-05", arquivada: true }], "2026-08", "2026-08-01");
+    return r.entrada === 2 && r.saida === 1;
+  })());
+
+  /* ------------------------------ CP-1252 ------------------------------ */
+
+  // ⚠️ O Domínio lê ANSI. Um arquivo UTF-8 faz "Manutenção" chegar como
+  // "ManutenÃ§Ã£o" no histórico de TODOS os lançamentos: o arquivo importa, os
+  // valores batem, e a escrituração fica ilegível.
+  const acentos = "Manutenção prédio · ÁÉÍÓÚ àâãç";
+  const bytes = paraCP1252(acentos);
+  ok("cp1252: acentos ocupam UM byte, não dois",
+    bytes.length === acentos.length, `${bytes.length} vs ${acentos.length}`);
+  ok("cp1252: NÃO é UTF-8",
+    bytes.length < new TextEncoder().encode(acentos).length);
+  ok("cp1252: ç é 0xE7 e ã é 0xE3",
+    bytes[Array.from(acentos).indexOf("ç")] === 0xe7 &&
+    bytes[Array.from(acentos).indexOf("ã")] === 0xe3);
+  ok("cp1252: ida e volta preserva o texto", deCP1252(bytes) === acentos, deCP1252(bytes));
+  // A faixa 0x80–0x9F é onde o 1252 diverge do Latin-1 — e é justamente a
+  // tipografia que aparece num histórico copiado e colado.
+  ok("cp1252: travessão, reticências e aspas curvas cabem",
+    deCP1252(paraCP1252("— … “aspas” ‘simples’ €")) === "— … “aspas” ‘simples’ €");
+  ok("cp1252: travessão é 0x97", paraCP1252("—")[0] === 0x97);
+  // O que não cabe é TRANSLITERADO, não descartado: "?" no meio da palavra é
+  // ruído que o contador não decifra.
+  ok("cp1252: caractere fora da tabela vira '?' e não some",
+    paraCP1252("A😀B").length === 3 && paraCP1252("A😀B")[1] === 0x3f);
+  ok("cp1252: string vazia devolve zero bytes", paraCP1252("").length === 0);
+
+  /* ------------------------------- Domínio ------------------------------- */
+
+  const M = (o: Partial<MovimentoContabil>): MovimentoContabil => ({
+    id: "m1", data: "2026-08-05", valor: 1_234.5, tipo: "saida",
+    descricao: "Aluguel do escritório", categoria: "Aluguel", centroCusto: null, ...o,
+  });
+  const mapas: MapasContabeis = {
+    categorias: { Aluguel: "4.1.2.001", Vendas: "3.1.1.001" },
+    centros: { Comercial: "CC-01" },
+  };
+
+  ok("dominio: data sai DDMMAAAA", dataDominio("2026-08-05") === "05082026");
+  // A data é fatiada da string: um Date UTC lido em UTC-3 recuaria um dia.
+  ok("dominio: o dia 1º não recua", dataDominio("2026-09-01") === "01092026");
+  ok("dominio: valor com vírgula decimal e sem milhar",
+    valorDominio(1_234.5) === "1234,50", valorDominio(1_234.5));
+  ok("dominio: centavos não se perdem", valorDominio(0.07) === "0,07");
+
+  // ⚠️ O separador é ';'. Um ponto e vírgula dentro do histórico partiria a
+  // linha em duas e deslocaria TODAS as colunas seguintes do lançamento.
+  ok("dominio: ';' no histórico é neutralizado",
+    !campoDominio("Pagamento; parcela 2").includes(";"), campoDominio("Pagamento; parcela 2"));
+  ok("dominio: quebra de linha no histórico é neutralizada",
+    !campoDominio("linha1\nlinha2").includes("\n"));
+
+  // Saída DEBITA a contrapartida, entrada CREDITA — partida simples vista do
+  // lado da conta bancária, que é a contrapartida fixa.
+  const montagem = montarLancamentosDominio(
+    [M({}), M({ id: "m2", tipo: "entrada", categoria: "Vendas", valor: 500, centroCusto: "Comercial" })],
+    mapas,
+  );
+  ok("dominio: saída é D e entrada é C",
+    montagem.linhas[0].natureza === "D" && montagem.linhas[1].natureza === "C");
+  ok("dominio: a conta vem do Plano de Contas", montagem.linhas[0].conta === "4.1.2.001");
+  ok("dominio: o centro de custo vem do cadastro", montagem.linhas[1].centroCusto === "CC-01");
+
+  // ⚠️ Sem código contábil o lançamento NÃO sai com o campo em branco: ele fica
+  // fora e vira pendência. O Domínio aceitaria a linha vazia e jogaria o valor
+  // numa conta transitória — o mês fecharia e o erro só apareceria depois.
+  const comBuraco = montarLancamentosDominio(
+    [M({}), M({ id: "m3", categoria: "Categoria sem código" })],
+    mapas,
+  );
+  ok("dominio: categoria sem código vira PENDÊNCIA, não linha vazia",
+    comBuraco.linhas.length === 1 && comBuraco.pendencias.length === 1);
+  ok("dominio: nenhuma linha sai com a conta em branco",
+    comBuraco.linhas.every((l) => l.conta.trim().length > 0));
+  ok("dominio: lançamento sem categoria também é pendência",
+    montarLancamentosDominio([M({ id: "m4", categoria: "" })], mapas).pendencias.length === 1);
+
+  // O arquivo: CRLF (destino Windows) e uma linha por lançamento.
+  const txt = gerarLanctosTxt(montagem.linhas);
+  ok("dominio: quebra de linha é CRLF", txt.includes("\r\n") && !/[^\r]\n/.test(txt));
+  ok("dominio: uma linha por lançamento",
+    txt.trimEnd().split("\r\n").length === 2, String(txt.trimEnd().split("\r\n").length));
+  ok("dominio: a linha tem os 7 campos do layout",
+    txt.trimEnd().split("\r\n").every((l) => l.split(";").length === 7));
+  ok("dominio: a primeira linha é a esperada",
+    txt.startsWith("05082026;4.1.2.001;D;1234,50;;Aluguel do escritório;"),
+    txt.split("\r\n")[0]);
+  ok("dominio: arquivo vazio não emite linha em branco", gerarLanctosTxt([]) === "");
+  // Os BYTES são ANSI — é o arquivo, não a string, que o Domínio lê.
+  ok("dominio: os bytes do arquivo são ANSI, não UTF-8",
+    gerarLanctosBytes(montagem.linhas).length === gerarLanctosTxt(montagem.linhas).length);
+
+  // Em partidas simples débito e crédito NÃO fecham em zero: são os dois
+  // sentidos do extrato, não os dois lados de um mesmo lançamento.
+  const conf = conferirDominio(montagem.linhas);
+  ok("dominio: conferência separa débito de crédito",
+    conf.debitos === 1_234.5 && conf.creditos === 500);
+  ok("dominio: líquido é entradas − saídas", conf.liquido === -734.5, String(conf.liquido));
+  ok("dominio: conferência vazia não produz NaN",
+    Number.isFinite(conferirDominio([]).liquido) && conferirDominio([]).lancamentos === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

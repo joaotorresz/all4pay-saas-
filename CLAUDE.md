@@ -466,7 +466,8 @@ cascata com drill-down, conciliação IULI×OFX.
   **`HubShell`** (`src/components/app/HubShell.tsx`): só a aba ATIVA monta, e a
   ordem/rótulo vivem numa lista `AbaHub[]` na própria `page.tsx` do hub.
   - `/contabilidade` — Razão · Fechamento · Reconhecimento de receita · Relatórios ·
-    Plano de contas · Dimensões · Cronogramas · TXT Domínio · Consolidado
+    Plano de contas · Dimensões · Cronogramas · Envio das NFs · TXT Domínio ·
+    Consolidado
   - `/cadastros` — Clientes & Fornecedores · Produtos · Serviços · Projetos ·
     Centros de custo
   - `/vendas` — Vendas · Painel · Nova venda · Notas fiscais · POS · Taxas do POS
@@ -1061,6 +1062,67 @@ como **documento-mãe**: gera o recebível, ampara a NF e é a base do imposto.
   vencimento, não a alíquota.
 - **Notas fiscais** (`/invoices`), **Assinaturas** (`/subscriptions`, sobre
   `lib/recorrencias`) e **Links de pagamento** (`/payment-links`).
+
+### Contabilidade — a ponte com o contador (`/dashboard/accounting/*`)
+
+`src/core/contabilidade/index.ts` (`contabilidade/1.0.0`, puro/tipado/demo-safe)
+— as duas entregas que saem do sistema PARA fora. Nenhuma apura número novo:
+elas empacotam o que o resto já apurou, e por isso o cuidado inteiro está em não
+deixar sair errado. Rotas próprias + abas do hub `/contabilidade`.
+
+**Envio de NFs ao contador** (`nfe-export`): pacote mensal com os XMLs de
+entrada e saída. As duas pontas já existem — entrada são as **NFs Recebidas**
+(`core/compras`) e saída são as notas das **Vendas** (`core/vendas`).
+
+- ⚠️ **Double opt-in decide o status.** `statusEnvio` só devolve `ativo` com ao
+  menos UM e-mail **verificado**. Não é etiqueta de newsletter: o pacote carrega
+  a escrituração fiscal da empresa, e um endereço digitado errado — uma letra a
+  mais no domínio — entregaria os XMLs a um estranho todo dia 1º, em silêncio,
+  porque "o envio funciona". (Em demo há um botão "Simular confirmação"; em
+  produção quem chama `verificarDestinatario` é o link do e-mail.)
+- **Teto de 5 destinatários** — limite de escopo, não de infraestrutura.
+- **`proximoEnvio` = dia 1º do mês SEGUINTE, 21h**, depois do fechamento: uma
+  nota emitida no dia 31 à noite ainda é daquela competência. A data é montada
+  **fatiando a string** (em UTC-3 um `Date` do dia 1º cai no mês anterior) e a
+  virada de dezembro vira janeiro do ano seguinte, não mês 13.
+- ⚠️ **"Arquivada" ≠ "existe".** `resumoMesNFs` só conta como arquivada a nota
+  emitida a partir de `arquivamentoDesde` (a verificação do PRIMEIRO
+  destinatário). Antes disso o sistema conta as notas mas não retém XML —
+  mostrar "12 arquivadas" prometeria um pacote que ninguém montou.
+
+**Gerar TXT contábil — Domínio** (`dominio-export`): o **consumidor** do campo
+"Código contábil (Domínio)" que Contas bancárias e Centros de Custo pedem desde
+a PARTE 03, e do `codigo` do Plano de Contas.
+
+- **Partidas simples = uma conta por linha**, porque a outra ponta é fixa: é a
+  conta bancária escolhida na tela. É por isso que ela pede o banco antes de
+  carregar qualquer coisa — sem ele o arquivo não tem o outro lado. Saída
+  **debita** a contrapartida, entrada **credita**.
+- ⚠️ **O arquivo sai em ANSI (Windows-1252), não UTF-8** (`cp1252.ts`, encoder
+  próprio — o `TextEncoder` do navegador só faz UTF-8). Um arquivo UTF-8 importa,
+  os valores batem, e "Manutenção" chega como "ManutenÃ§Ã£o" no histórico de
+  TODOS os lançamentos. A faixa 0x80–0x9F é onde o 1252 diverge do Latin-1 —
+  travessão, reticências e aspas curvas, justamente o que aparece num histórico
+  colado. O que não cabe é **transliterado** (acento removido), não descartado:
+  "?" no meio da palavra é ruído que o contador não decifra. **O Blob é montado a
+  partir dos BYTES** — passar a string faria o navegador regravar UTF-8. Quebras
+  **CRLF**. Validado decodificando o arquivo com `cp1252` no Python (e a recusa
+  do `utf-8` é a prova de que é ANSI).
+- ⚠️ **Lançamento sem código contábil NÃO vira linha com o campo em branco** —
+  ele sai da lista e entra em `pendencias`, listadas na tela. O Domínio aceita a
+  linha vazia e joga o valor numa conta transitória: o mês fecha, o total bate, e
+  o erro só aparece no balancete três semanas depois.
+- Separador `;` — um ponto e vírgula dentro do histórico partiria a linha em duas
+  e deslocaria todas as colunas seguintes daquele lançamento (`campoDominio`).
+  Valor com **vírgula decimal e sem separador de milhar**; data `DDMMAAAA`
+  fatiada da string. Débito e crédito **não fecham em zero** aqui: são os dois
+  sentidos do extrato, não os dois lados de um mesmo lançamento.
+- ⚠️ **A ordem dos campos varia entre versões do Domínio.** A emitida está em
+  `LAYOUT_DOMINIO`, **visível na tela**, e a prévia mostra as linhas exatas antes
+  de gerar — conferir contra a tela de importação do escritório evita reimportar
+  um mês inteiro. O `ContabilidadeView` antigo (códigos `1.1.1`/`3.1.1`/`4.1.1`
+  chumbados, sem conta, sem mês, Blob em UTF-8) foi **removido**: era exatamente
+  o conjunto de erros que esta tela corrige.
 
 ### Compras (`/dashboard/purchases/*`) + `core/compras`
 
