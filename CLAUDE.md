@@ -961,6 +961,58 @@ o que a anterior não resolveu):
 implícito (uma confirmação pontual) e regra é explícita. Orquestrado em
 `UploadView.analisarEAuto`.
 
+### Cadastros (`/cadastros` — hub de 9 abas) + `core/registros`
+
+`src/core/registros/index.ts` (`registros/1.0.0`, puro/tipado/demo-safe) — as
+regras que as telas de cadastro compartilham. Cada aba tem **rota própria** em
+`/dashboard/registrations/{bank-accounts|chart-of-accounts|products|projects|
+cost-centers|clients|suppliers|contracts}` e abre sozinha; no hub viram abas
+(`HubShell`/`ShellGate`) para o menu não ganhar nove entradas.
+
+- **Chrome comum** em `src/components/registros/kit.tsx` (`CabecalhoRegistro`
+  com "Novo X" + "Exportar XLSX" · `FiltrosRegistro` busca+selects ·
+  `TabelaRegistro` com **ID copiável** · `Campo`/`BlocoForm`/`InputDia` ·
+  `VazioRegistro`). Mudar o comportamento aqui muda nas oito telas.
+- **Contas bancárias**: a regra que dá caráter é o **cartão de crédito** —
+  escolhido o tipo, aparecem e passam a ser OBRIGATÓRIOS os dias de fechamento
+  e vencimento da fatura (1–31). Campos extras (tipo, agência, número, código
+  Domínio, dias) vivem em `lib/registros` indexados pelo id: `financial_accounts`
+  não tem essas colunas e o saldo continua vindo da fonte real.
+- **Plano de Contas** (substitui o `PlanoDeContasView` estático, agora removido;
+  `/contabilidade?aba=plano-de-contas` aponta para cá): árvore **editável**
+  (adicionar subcategoria, renomear, excluir), fio de cor por natureza (verde
+  receita · vermelho despesa), busca que **mantém os pais** de quem casa, e
+  `idsComDescendentes` para excluir grupo levando os netos. Subcategoria HERDA a
+  natureza do grupo. Aba **Uso Padrão**: as **18 funções** de `USOS_PADRAO`
+  amarradas a UMA categoria cada (só folhas entram).
+- **Clientes × Fornecedores**: uma view (`PartesView lado=…`) — a mesma entidade
+  `parties` com a flag invertida. Muda o vocabulário, a categoria padrão
+  (receita × despesa) e o bloco só do fornecedor (chave PIX + Dados PJ). Abas
+  Cadastro/Resumo. ⚠️ **`listParties` não devolve o endereço**, então os campos
+  abrem vazios ao editar: o endereço só entra no patch quando foi PREENCHIDO na
+  sessão — gravá-lo vazio apagaria o que está no banco.
+- **Contratos**: rateio por projeto e centro que precisa **fechar 100%** e
+  **vendas associadas** (só no contrato de CLIENTE) — `vendasDoContrato` traduz
+  competência (dia fixo × mesma data) e vencimento (mesmo mês × seguinte) em
+  datas reais dentro da vigência, e a tabela mostra o que SERÁ criado. Dia 31 em
+  fevereiro vira o último dia do mês. Anexo único de 5 MB, checado antes de
+  guardar.
+- ⚠️ **Rateio compara CENTÉSIMOS inteiros**, não float: `33,33 × 3` soma
+  `99.99000000000001` e `Math.abs(soma − 100) <= 0.01` dá `0.010000000000005` —
+  rejeitava a divisão em três, que é a mais comum que existe. Guarda no
+  `engine-audit`.
+
+### Exportar XLSX (`src/lib/xlsx.ts`) — sem dependência
+
+Um `.xlsx` é um ZIP de XMLs, e ZIP aceita entradas **STORED** (sem compressão):
+`gerarXLSX`/`baixarXLSX` emitem o arquivo real (CRC32 + headers ZIP + as 5
+partes do pacote OOXML) em ~150 linhas. O `xlsx` do npm acumulou CVEs e migrou
+para fora do registro — não vale trazer isso para dentro de um ERP financeiro
+por causa de um botão. Números saem como número (`<v>`), texto como `inlineStr`,
+`&`/`<` escapados (um `&` cru invalida o XML e o Excel recusa o arquivo INTEIRO),
+caracteres de controle removidos e nome de aba saneado (31 chars, sem `:\/?*[]`).
+Data fixa em 1980-01-01 → mesma tabela, mesmos bytes. Validado com `openpyxl`.
+
 ### Painéis fechados (`/dashboard/dashboards` — hub de 7 abas)
 
 `src/core/paineis/index.ts` (`paineis/1.0.0`, puro/tipado/demo-safe) — os

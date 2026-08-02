@@ -42,6 +42,13 @@ import {
   painelFinanceiro, painelVendas, painelAssinaturas, painelTitulos, painelCalendario,
   fimDoMes, deslocarMes, janelaMeses, type AssinaturaBase,
 } from "@/core/paineis";
+import {
+  validarContaBancaria, diaValido, rateioValido, somaRateio, filtrarRegistros, normalizar,
+  achatarPlano, idsComDescendentes, vendasDoContrato, validarContrato, contratoAtivo,
+  anexoCabe, USOS_PADRAO, TIPOS_CONTA,
+  type CategoriaPlano, type Contrato,
+} from "@/core/registros";
+import { gerarXLSX } from "@/lib/xlsx";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -930,6 +937,152 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     c.dias.filter((d) => d.foraDoMes).every((d) => d.movimentos === 0 || true) && c.totalEntradas === 57_000);
   ok("paineis/calendario: base vazia não vira NaN",
     Number.isFinite(painelCalendario({ hoje: "2026-08-10", saldoAtual: 0, movements: [] }, "2026-08").maxFluxo));
+}
+
+// ── core/registros: as regras das telas de cadastro ────────────────────────
+{
+  // ---- conta bancária: a regra condicional do cartão ----
+  const base = { nome: "Principal", banco: "Itaú", tipo: "corrente" as const };
+  ok("registros: conta corrente válida sem dias de fatura", Object.keys(validarContaBancaria(base)).length === 0);
+  ok("registros: nome obrigatório", !!validarContaBancaria({ ...base, nome: "  " }).nome);
+  ok("registros: banco obrigatório", !!validarContaBancaria({ ...base, banco: "" }).banco);
+  // O cartão SEM os dias não pode passar: a fatura não fecharia nem venceria.
+  const cartaoVazio = validarContaBancaria({ ...base, tipo: "cartao" });
+  ok("registros: cartão exige dia de fechamento", !!cartaoVazio.diaFechamento);
+  ok("registros: cartão exige dia de vencimento", !!cartaoVazio.diaVencimento);
+  ok("registros: cartão com os dois dias é válido",
+    Object.keys(validarContaBancaria({ ...base, tipo: "cartao", diaFechamento: 20, diaVencimento: 28 })).length === 0);
+  ok("registros: dia 0 e 32 são recusados", !diaValido(0) && !diaValido(32) && !diaValido(1.5));
+  ok("registros: dias 1 e 31 são aceitos", diaValido(1) && diaValido(31));
+  ok("registros: os 5 tipos de conta do print existem", TIPOS_CONTA.length === 5
+    && TIPOS_CONTA.some((t) => t.id === "cartao"));
+
+  // ---- rateio: tem de fechar 100% ----
+  ok("registros: rateio vazio é válido (= não ratear)", rateioValido([{ id: "", percentual: 0 }]));
+  ok("registros: rateio de 100 fecha", rateioValido([{ id: "a", percentual: 100 }]));
+  ok("registros: rateio de 80 NÃO fecha", !rateioValido([{ id: "a", percentual: 80 }]));
+  // A divisão em três é legítima e não pode ser recusada por 0,01 de dízima.
+  ok("registros: 33,33 + 33,33 + 33,34 fecha",
+    rateioValido([{ id: "a", percentual: 33.33 }, { id: "b", percentual: 33.33 }, { id: "c", percentual: 33.34 }]));
+  ok("registros: 33,33 × 3 (99,99) ainda fecha na tolerância",
+    rateioValido([{ id: "a", percentual: 33.33 }, { id: "b", percentual: 33.33 }, { id: "c", percentual: 33.33 }]));
+  ok("registros: 101 não fecha", !rateioValido([{ id: "a", percentual: 101 }]));
+  ok("registros: linha sem id não conta na soma",
+    somaRateio([{ id: "a", percentual: 60 }, { id: "", percentual: 999 }]) === 60,
+    `${somaRateio([{ id: "a", percentual: 60 }, { id: "", percentual: 999 }])}`);
+
+  // ---- busca e filtros ----
+  const pessoas = [
+    { id: "1", nome: "João Álvares", doc: "12345678000195", ativo: true },
+    { id: "2", nome: "Maria Souza", doc: "98765432000100", ativo: false },
+    { id: "3", nome: "Padaria Central", doc: "", ativo: true },
+  ];
+  const campos = (p: (typeof pessoas)[number]) => [p.nome, p.doc, p.id];
+  ok("registros: busca ignora acento nos DOIS sentidos",
+    filtrarRegistros(pessoas, "alvares", campos).length === 1 && filtrarRegistros(pessoas, "ÁLVARES", campos).length === 1);
+  // O operador digita o pedaço do meio que lembra, não o começo.
+  ok("registros: busca casa por substring, não só por prefixo",
+    filtrarRegistros(pessoas, "5678000", campos).length === 1);
+  ok("registros: status filtra ativo/inativo",
+    filtrarRegistros(pessoas, "", campos, "ativos").length === 2 && filtrarRegistros(pessoas, "", campos, "inativos").length === 1);
+  ok("registros: busca vazia não filtra nada", filtrarRegistros(pessoas, "   ", campos).length === 3);
+  ok("registros: normalizar tira acento e caixa", normalizar("ÇÃO Ótimo") === "cao otimo", normalizar("ÇÃO Ótimo"));
+
+  // ---- plano de contas ----
+  const plano: CategoriaPlano[] = [
+    { id: "g1", nome: "Receitas", codigo: "3", natureza: "receita", paiId: null },
+    { id: "c1", nome: "Produto", codigo: "", natureza: "receita", paiId: "g1" },
+    { id: "c2", nome: "Serviço", codigo: "", natureza: "receita", paiId: "g1" },
+    { id: "n1", nome: "Sub", codigo: "", natureza: "receita", paiId: "c1" },
+    { id: "g2", nome: "Despesas", codigo: "4", natureza: "despesa", paiId: null },
+  ];
+  const achatado = achatarPlano(plano);
+  ok("registros: achatar mantém todas as categorias", achatado.length === plano.length, `${achatado.length}`);
+  ok("registros: filho vem logo depois do pai, um nível abaixo",
+    achatado[0].cat.id === "g1" && achatado[1].cat.id === "c1" && achatado[1].nivel === 1 && achatado[2].nivel === 2,
+    achatado.map((a) => `${a.cat.id}:${a.nivel}`).join(" "));
+  // Um pai apontando para o próprio descendente travaria a recursão — o dado
+  // vem de edição livre, então o motor tem de sobreviver a ele.
+  const ciclo: CategoriaPlano[] = [
+    { id: "a", nome: "A", codigo: "", natureza: "receita", paiId: "b" },
+    { id: "b", nome: "B", codigo: "", natureza: "receita", paiId: "a" },
+  ];
+  ok("registros: ciclo no plano não trava o achatamento", achatarPlano(ciclo).length >= 0);
+  // Excluir um grupo tem de levar TODA a descendência, não só os filhos diretos.
+  ok("registros: excluir grupo leva netos junto",
+    idsComDescendentes(plano, "g1").sort().join(",") === "c1,c2,g1,n1",
+    idsComDescendentes(plano, "g1").sort().join(","));
+  ok("registros: excluir folha leva só ela", idsComDescendentes(plano, "n1").join(",") === "n1");
+  ok("registros: as 18 funções de uso padrão existem", USOS_PADRAO.length === 18, `${USOS_PADRAO.length}`);
+  ok("registros: cada função de uso padrão tem id único", new Set(USOS_PADRAO.map((f) => f.id)).size === 18);
+
+  // ---- contratos ----
+  const C = (o: Partial<Contrato>): Contrato => ({
+    id: "c", lado: "cliente", parteId: "p1", parteNome: "Alpha", objeto: "Mensalidade",
+    valor: 1000, inicio: "2026-01-01", fim: "2026-06-30", descricao: "",
+    projetos: [], centros: [], anexoNome: "", criadoEm: "2026-01-01", vendas: null, ...o,
+  });
+  ok("registros: contrato completo é válido", Object.keys(validarContrato(C({}))).length === 0,
+    JSON.stringify(validarContrato(C({}))));
+  ok("registros: fim anterior ao início é recusado", !!validarContrato(C({ fim: "2025-12-01" })).periodo);
+  ok("registros: descrição acima de 512 é recusada", !!validarContrato(C({ descricao: "x".repeat(513) })).descricao);
+  ok("registros: descrição de 512 passa", !validarContrato(C({ descricao: "x".repeat(512) })).descricao);
+  ok("registros: rateio quebrado bloqueia o contrato",
+    !!validarContrato(C({ centros: [{ id: "cc", percentual: 70 }] })).centros);
+  ok("registros: vigência decide ativo/encerrado",
+    contratoAtivo(C({}), "2026-03-01") && !contratoAtivo(C({}), "2026-08-01"));
+
+  // Agenda de vendas: 6 meses de vigência = 6 vendas, uma por mês.
+  const vendas = (o: Partial<Contrato["vendas"]>) => vendasDoContrato(C({
+    vendas: {
+      produtoId: "p", contaId: "a", metodo: "Pix", categoria: "cat", valorMensal: 500,
+      competencia: "dia_fixo", dataPrimeira: "2026-01-10", vencimento: "mesmo_mes",
+      diaVencimento: 10, emitirNF: false, ...o,
+    } as Contrato["vendas"],
+  }));
+  const v1 = vendas({});
+  ok("registros: uma venda por mês dentro da vigência", v1.length === 6, `${v1.length}`);
+  ok("registros: a primeira venda cai na data informada", v1[0].competencia === "2026-01-10", v1[0]?.competencia);
+  ok("registros: a última venda não passa do fim da vigência", v1[5].competencia <= "2026-06-30", v1[5]?.competencia);
+  ok("registros: dia fixo repete o mesmo dia todo mês",
+    v1.every((v) => v.competencia.endsWith("-10")), v1.map((v) => v.competencia).join(","));
+  // "Mesma data para todas" é o oposto: a competência NÃO anda.
+  const v2 = vendas({ competencia: "mesma_data" });
+  ok("registros: mesma data mantém a competência fixa",
+    v2.every((v) => v.competencia === "2026-01-10") && v2.length === 6, v2.map((v) => v.competencia).join(","));
+  // Vencimento no mês seguinte desloca só o VENCIMENTO, não a competência.
+  const v3 = vendas({ vencimento: "mes_seguinte" });
+  ok("registros: vencimento no mês seguinte desloca só o vencimento",
+    v3[0].competencia === "2026-01-10" && v3[0].vencimento === "2026-02-10",
+    `${v3[0]?.competencia} / ${v3[0]?.vencimento}`);
+  // Dia 31 em fevereiro tem de virar o último dia do mês, não 3 de março.
+  const v4 = vendas({ dataPrimeira: "2026-01-31", diaVencimento: 31 });
+  ok("registros: dia 31 em fevereiro vira o último dia do mês",
+    v4[1].vencimento === "2026-02-28", v4[1]?.vencimento);
+  ok("registros: sem configuração de vendas a agenda é vazia", vendasDoContrato(C({})).length === 0);
+  ok("registros: sem fim de vigência a agenda é vazia (não infinita)",
+    vendasDoContrato(C({ fim: "", vendas: { produtoId: "p", contaId: "a", metodo: "Pix", categoria: "c", valorMensal: 1, competencia: "dia_fixo", dataPrimeira: "2026-01-10", vencimento: "mesmo_mes", diaVencimento: 10, emitirNF: false } })).length === 0);
+
+  ok("registros: anexo de 5 MB passa e 5 MB + 1 byte não",
+    anexoCabe(5 * 1024 * 1024) && !anexoCabe(5 * 1024 * 1024 + 1) && !anexoCabe(0));
+
+  // ---- xlsx: o arquivo tem de ser um ZIP legítimo ----
+  const bytes = gerarXLSX([{ nome: "Teste", linhas: [["Nome", "Valor"], ["Açaí & Cia <SP>", 12.5]] }]);
+  ok("xlsx: começa com a assinatura de ZIP (PK\\x03\\x04)",
+    bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04);
+  ok("xlsx: termina com o End of Central Directory", (() => {
+    const n = bytes.length;
+    return bytes[n - 22] === 0x50 && bytes[n - 21] === 0x4b && bytes[n - 20] === 0x05 && bytes[n - 19] === 0x06;
+  })());
+  const texto = new TextDecoder().decode(bytes);
+  ok("xlsx: traz as 5 partes obrigatórias do pacote",
+    ["[Content_Types].xml", "_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/worksheets/sheet1.xml"]
+      .every((n) => texto.includes(n)));
+  // `&` e `<` crus tornariam o XML inválido e o Excel recusaria o arquivo INTEIRO.
+  ok("xlsx: escapa & e < do conteúdo", texto.includes("A&amp;ai".replace("A", "Aç")) || texto.includes("&amp;"));
+  ok("xlsx: número entra como número, não como texto", texto.includes("<v>12.5</v>"));
+  ok("xlsx: nome de aba proibido é saneado",
+    new TextDecoder().decode(gerarXLSX([{ nome: "a/b:c[d]", linhas: [] }])).includes('name="a-b-c-d-"'));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

@@ -43,7 +43,17 @@ export function listProjetos(): Projeto[] { return load<Projeto>(K_PROJ); }
 export function addProjeto(p: Omit<Projeto, "id">): Projeto {
   const xs = listProjetos(); const novo = { ...p, id: novoId(xs) }; save(K_PROJ, [novo, ...xs]); return novo;
 }
+export function updateProjeto(p: Projeto): Projeto[] {
+  const xs = listProjetos().map((x) => (x.id === p.id ? p : x));
+  save(K_PROJ, xs);
+  return xs;
+}
 export function listCentrosCusto(): CentroCusto[] { return load<CentroCusto>(K_CC); }
 export function addCentroCusto(c: Omit<CentroCusto, "id">): CentroCusto {
   const xs = listCentrosCusto(); const novo = { ...c, id: novoId(xs) }; save(K_CC, [novo, ...xs]); return novo;
+}
+export function updateCentroCusto(c: CentroCusto): CentroCusto[] {
+  const xs = listCentrosCusto().map((x) => (x.id === c.id ? c : x));
+  save(K_CC, xs);
+  return xs;
 }

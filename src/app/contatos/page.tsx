@@ -6,6 +6,6 @@ import { useRouter } from "next/navigation";
 
 export default function Redir() {
   const r = useRouter();
-  useEffect(() => { r.replace("/cadastros?aba=contatos"); }, [r]);
+  useEffect(() => { r.replace("/cadastros?aba=clientes"); }, [r]);
   return null;
 }

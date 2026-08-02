@@ -3,26 +3,35 @@
 import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { HubShell, type AbaHub } from "@/components/app/HubShell";
-import { ContatosLista } from "@/app/contatos/lista";
-import { ProdutosLista } from "@/app/produtos/lista";
 import { ServicosLista } from "@/app/servicos/lista";
-import { ProjetosView } from "@/components/cadastros/ProjetosView";
-import { CentrosCustoView } from "@/components/cadastros/CentrosCustoView";
+import { ContasBancariasView } from "@/components/registros/ContasBancariasView";
+import { PlanoContasView } from "@/components/registros/PlanoContasView";
+import { PartesView } from "@/components/registros/PartesView";
+import { ProdutosRegistroView } from "@/components/registros/ProdutosRegistroView";
+import { ProjetosRegistroView, CentrosCustoRegistroView } from "@/components/registros/ProjetosCentrosView";
+import { ContratosView } from "@/components/registros/ContratosView";
 
 /**
- * Hub de Cadastros — 5 telas de "quem/o quê" num destino só.
+ * Hub de Cadastros — o "quem/o quê" do ERP num destino só.
  *
- * As listas (Contatos/Produtos/Serviços) montam a tela inteira no próprio
- * `page.tsx`; como o `AppShell` detecta aninhamento e vira passthrough, dá para
- * reaproveitar a página como aba SEM refatorar nenhuma delas — o header e as
- * ações ("Novo produto") continuam vindo de lá, já corretos.
+ * Cada aba tem rota própria em `/dashboard/registrations/*` e abre sozinha;
+ * aqui viram abas para o menu não ganhar nove entradas. Clientes vem primeiro
+ * porque é o cadastro que mais se abre no dia a dia.
+ *
+ * Clientes e Fornecedores eram uma aba só ("Contatos"); separá-los é o que
+ * permite cada lado ter os campos que só ele tem — chave PIX e Dados PJ do
+ * fornecedor, categoria padrão de receita do cliente.
  */
 const ABAS: AbaHub[] = [
-  { id: "contatos", label: "Clientes & Fornecedores", render: () => <ContatosLista /> },
-  { id: "produtos", label: "Produtos", render: () => <ProdutosLista /> },
+  { id: "clientes", label: "Clientes", render: () => <PartesView lado="cliente" /> },
+  { id: "fornecedores", label: "Fornecedores", render: () => <PartesView lado="fornecedor" /> },
+  { id: "produtos", label: "Produtos", render: () => <ProdutosRegistroView /> },
   { id: "servicos", label: "Serviços", render: () => <ServicosLista /> },
-  { id: "projetos", label: "Projetos", render: () => <ProjetosView /> },
-  { id: "centros-custo", label: "Centros de custo", render: () => <CentrosCustoView /> },
+  { id: "contas", label: "Contas bancárias", render: () => <ContasBancariasView /> },
+  { id: "plano", label: "Plano de contas", render: () => <PlanoContasView /> },
+  { id: "centros-custo", label: "Centros de custo", render: () => <CentrosCustoRegistroView /> },
+  { id: "projetos", label: "Projetos", render: () => <ProjetosRegistroView /> },
+  { id: "contratos", label: "Contratos", render: () => <ContratosView /> },
 ];
 
 export default function CadastrosPage() {

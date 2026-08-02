@@ -62,7 +62,10 @@ const ROUTES: RouteItem[] = [
   { label: "Taxas da maquininha (POS)", href: "/vendas?aba=pos-taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
   { label: "Produtos", href: "/cadastros?aba=produtos", icon: "credit-card", kw: "estoque sku" },
   { label: "Serviços", href: "/cadastros?aba=servicos", icon: "repeat", kw: "servico" },
-  { label: "Contatos", href: "/cadastros?aba=contatos", icon: "file-text", kw: "clientes fornecedores telefone" },
+  { label: "Clientes", href: "/cadastros?aba=clientes", icon: "users", kw: "clientes contatos cadastro cpf cnpj categoria padrao receita" },
+  { label: "Fornecedores", href: "/cadastros?aba=fornecedores", icon: "users", kw: "fornecedores contatos cadastro cnpj pix dados pj simples nacional" },
+  { label: "Contas bancárias", href: "/cadastros?aba=contas", icon: "building", kw: "conta bancaria banco agencia cartao de credito fatura codigo dominio saldo inicial" },
+  { label: "Contratos", href: "/cadastros?aba=contratos", icon: "file-text", kw: "contrato fornecedor cliente vigencia rateio vendas recorrentes anexo" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
@@ -130,7 +133,7 @@ export function CommandPalette() {
           (parties.data ?? []).filter((p) => match(`${p.name} ${p.doc ?? ""} ${p.phone ?? ""}`)).map((p) => ({
             key: `pty:${p.id}`, grupo: "Contatos", titulo: p.name,
             sub: [p.is_customer && "Cliente", p.is_supplier && "Fornecedor", p.phone].filter(Boolean).join(" · ") || undefined,
-            href: "/cadastros?aba=contatos", icon: "users", contatoId: p.id,
+            href: "/cadastros?aba=clientes", icon: "users", contatoId: p.id,
           })),
         ),
       );

@@ -334,7 +334,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Cadastrar ----------------------------- */
-  "/cadastros?aba=contatos": {
+  "/cadastros?aba=clientes": {
     titulo: "Contatos",
     intro: "Clientes, fornecedores e transportadoras, com validação de CPF/CNPJ e busca de endereço por CEP (ViaCEP). Editável (clicar numa linha abre o cadastro).",
     comoUsar: "Use 'Novo' para cadastrar (o CNPJ/CPF é validado e o CEP preenche o endereço). Clique numa linha para editar — ex.: adicionar o telefone que alimenta a cobrança.",

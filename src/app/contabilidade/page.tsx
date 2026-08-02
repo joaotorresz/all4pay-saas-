@@ -7,7 +7,7 @@ import { RazaoView } from "@/components/razao/RazaoView";
 import { FechamentoView } from "@/components/fechamento/FechamentoView";
 import { ReceitaReconhecimentoView } from "@/components/receita/ReceitaView";
 import { RelatoriosRazaoView } from "@/components/relatorios/RelatoriosRazaoView";
-import { PlanoDeContasView } from "@/components/cadastros/PlanoDeContasView";
+import { PlanoContasView } from "@/components/registros/PlanoContasView";
 import { DimensoesView } from "@/components/dimensoes/DimensoesView";
 import { CronogramasView } from "@/components/cronogramas/CronogramasView";
 import { ContabilidadeView } from "@/components/contabilidade/ContabilidadeView";
@@ -23,7 +23,7 @@ const ABAS: AbaHub[] = [
   { id: "fechamento", label: "Fechamento mensal", render: () => <FechamentoView /> },
   { id: "receita", label: "Reconhecimento de receita", render: () => <ReceitaReconhecimentoView /> },
   { id: "relatorios", label: "Relatórios", render: () => <RelatoriosRazaoView /> },
-  { id: "plano-de-contas", label: "Plano de contas", render: () => <PlanoDeContasView /> },
+  { id: "plano-de-contas", label: "Plano de contas", render: () => <PlanoContasView /> },
   { id: "dimensoes", label: "Dimensões & tags", render: () => <DimensoesView /> },
   { id: "cronogramas", label: "Cronogramas", render: () => <CronogramasView /> },
   { id: "envio", label: "TXT Domínio · NFs", render: () => <ContabilidadeView /> },
