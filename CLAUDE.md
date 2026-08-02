@@ -253,12 +253,37 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   `Icon`, sobrepondo o set gerado. As **chaves** (`house`, `trending-up`, …)
   são estáveis: trocar de set é reescrever o mapa no gerador, não o app.
 
-App shell: `src/components/app/AppShell.tsx` — **menu vertical** (`Sidebar`,
-`.a4p-sidebar`: marca no topo · busca ⌘K · grupos planos · rodapé com Modo Pro ·
-tema · conta) + coluna de conteúdo com o header da página. Em < lg a Sidebar
-vira drawer (hambúrguer no header, evento `a4p:toggle-nav`). Os grupos/itens
-vêm de **`src/components/dashboard/nav-data.ts`** — a **fonte única**
-(`SECTIONS`/`CONFIG`/`SECTIONS_PESSOAL`/`CONFIG_PESSOAL`/`leafAtivo` +
+App shell: `src/components/app/AppShell.tsx` — **menu vertical em ACORDEÃO**
+(`Sidebar`, `.a4p-sidebar`), na taxonomia do ERP: marca · **Criar** · busca ⌘K ·
+grupos que abrem · rodapé com Configurações, Modo Pro, tema e conta.
+
+- **Grupos** (`SECTIONS` em `dashboard/nav-data.ts` — a fonte única): Início ·
+  All 4 Pay AI · Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações ·
+  Vendas e NFs · Compras · Contabilidade · Entrada de dados · Inteligência (Pro) ·
+  Governança (Pro) · Comece por aqui · Ajuda. `Section.href` presente ⇒ o grupo
+  **é** um destino (folha, sem chevron) — é assim que Início, Orçamento e Ajuda
+  ficam no mesmo nível dos que abrem.
+- ⚠️ **Um grupo aberto por vez.** Com quinze grupos, deixar todos abertos
+  devolveria a lista de 60 itens que o agrupamento existe para evitar — o menu
+  viraria rolagem em vez de índice. O grupo da rota atual abre sozinho e não
+  fecha: o menu tem de dizer onde você está mesmo depois de você abrir outro
+  grupo para explorar.
+- O marcador lima do item ativo fica à **direita**: à esquerda competiria com o
+  fio vertical que amarra os filhos ao pai, e os dois juntos viram ruído.
+- **Recolhida** vira trilho de ícones; clicar num ícone expande E abre o grupo —
+  recolher não pode custar o acesso.
+- **Criar** (`components/app/CriarNovo.tsx`, montado no `AppShell`, evento
+  `a4p:criar`): painel de duas colunas (Cadastros · Movimentações). ⚠️ Não
+  reimplementa formulário nenhum — cada item navega para a tela que já cria
+  aquilo ou abre o MESMO modal dos lançamentos; um segundo caminho de criação
+  divergiria do primeiro no dia em que um campo mudasse. No modo PF a lista é
+  curta (não há venda, contrato nem NF).
+- Guardas no `engine-audit`: rota duplicada, grupo sem destino, grupo sem ícone,
+  tela principal fora do menu e cobertura do dia a dia no Modo Simples.
+
+Em < lg a Sidebar vira drawer (hambúrguer no header, evento `a4p:toggle-nav`).
+Os grupos/itens vêm de **`src/components/dashboard/nav-data.ts`** — a **fonte
+única** (`SECTIONS`/`CONFIG`/`SECTIONS_PESSOAL`/`CONFIG_PESSOAL`/`leafAtivo` +
 `useNavSections()`, que resolve PF/PJ · Simples/Pro · admin). The reference
 composition is the **Início** dashboard (`/`) — see the Feature modules section
 below.

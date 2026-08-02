@@ -14,111 +14,150 @@ import { useTipoConta } from "@/components/app/useTipoConta";
 import { isPlatformAdmin } from "@/lib/admin";
 
 export type Item = { label: string; href?: string; icon: string; event?: string; soon?: boolean };
-export type Section = { id: string; label: string; pro?: boolean; items: Item[] };
+
+/**
+ * Um grupo do menu.
+ *
+ * `href` presente ⇒ o grupo É um destino (folha, sem chevron) — é assim que
+ * Início, Orçamento e Ajuda aparecem no mesmo nível dos grupos que abrem.
+ */
+export type Section = {
+  id: string;
+  label: string;
+  icon?: string;
+  href?: string;
+  pro?: boolean;
+  items: Item[];
+};
 
 /* ----------------------------- EMPRESA (PJ) -----------------------------
- * Reorganizado por JOB do usuário (não pela taxonomia contábil), para
- * ADESÃO PROGRESSIVA: o Modo Simples (padrão) mostra só o dia a dia —
- * Início · Receber · Pagar · Caixa & Resultado · Dados & Cadastros
- * (5 grupos, ~15 itens). O Modo Pro REVELA a profundidade — Fiscal &
- * vendas · Contabilidade · Estrutura · Inteligência · Governança &
- * Plataforma. Toda rota do sistema continua acessível (nada removido,
- * só reagrupado/priorizado). O usuário cresce do essencial ao 100%. */
+ * Taxonomia do ERP: Dashboards · Cadastros · DRE & DFC · Orçamento ·
+ * Movimentações · Vendas e NFs · Compras · Contabilidade, com Configurações
+ * no rodapé. O menu é um ACORDEÃO: o grupo abre e mostra as telas dele.
+ *
+ * ⚠️ Nenhuma rota foi removida. O que era exclusivo do all4pay (IA, motores,
+ * upload, governança) continua aqui — os motores seguem atrás do Modo Pro, que
+ * é o que evita que um menu de 60 itens caia de uma vez sobre quem chegou hoje.
+ */
 export const SECTIONS: Section[] = [
+  { id: "inicio", label: "Início", icon: "inicio", href: "/", items: [] },
+  { id: "ia", label: "All 4 Pay AI", icon: "sparkles", href: "/all4pay-ai", items: [] },
   {
-    id: "inicio", label: "Início", items: [
-      { label: "Início", href: "/", icon: "inicio" },
-      // A IA também vive no FAB flutuante (em toda tela); aqui é a tela CHEIA,
-      // com histórico de conversas. Mesmo motor, layouts diferentes.
-      { label: "All 4 Pay AI", href: "/all4pay-ai", icon: "sparkles" },
-      // Sete painéis (financeiro, vendas, assinaturas, CP/CR, calendário e os
-      // customizados) atrás de UMA entrada — cada um segue com rota própria.
-      { label: "Dashboards", href: "/dashboard/dashboards", icon: "layers" },
-      { label: "Comece por aqui", href: "/comece", icon: "target" },
+    id: "dashboards", label: "Dashboards", icon: "layers", items: [
+      { label: "Financeiro", href: "/dashboard/dashboards/financial", icon: "gauge" },
+      { label: "Vendas", href: "/dashboard/dashboards/sales", icon: "shopping-cart" },
+      { label: "Assinaturas", href: "/dashboard/dashboards/subscriptions", icon: "repeat" },
+      { label: "Contas a pagar", href: "/dashboard/dashboards/payables", icon: "arrow-up-right" },
+      { label: "Contas a receber", href: "/dashboard/dashboards/receivables", icon: "arrow-left-right" },
+      { label: "Calendário", href: "/dashboard/financial/calendar", icon: "calendar" },
+      { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "grip-vertical" },
     ],
   },
   {
-    id: "receber", label: "Receber", items: [
-      { label: "Receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Vendas e NFs", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+    id: "cadastros", label: "Cadastros", icon: "database", items: [
+      { label: "Contas bancárias", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
+      { label: "Plano de contas", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
+      { label: "Produtos", href: "/dashboard/registrations/products", icon: "b" },
+      { label: "Projetos", href: "/dashboard/registrations/projects", icon: "target" },
+      { label: "Centros de custo", href: "/dashboard/registrations/cost-centers", icon: "network" },
+      { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users" },
+      { label: "Fornecedores", href: "/dashboard/registrations/suppliers", icon: "building" },
+      { label: "Contratos", href: "/dashboard/registrations/contracts", icon: "file-text" },
     ],
   },
   {
-    id: "pagar", label: "Pagar", items: [
-      { label: "Pagar", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart" },
+    id: "dre-dfc", label: "DRE & DFC", icon: "activity", items: [
+      { label: "DRE", href: "/dashboard/reports/dre", icon: "trending-up" },
+      { label: "DRE multiempresas", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DFC", href: "/dashboard/reports/dfc", icon: "trending-up" },
+      { label: "DFC multiempresas", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Fechamento mensal", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
+      { label: "DRE executivo", href: "/dre", icon: "gauge" },
     ],
   },
+  { id: "orcamento", label: "Orçamento", icon: "target", href: "/orcamento", items: [] },
   {
-    // A operação do dinheiro: títulos, transferências, conciliação, extrato e
-    // fatura do cartão. Uma entrada; as telas se alcançam entre si.
-    id: "movimentacoes", label: "Movimentações", items: [
-      { label: "Contas & transferências", href: "/dashboard/financial/accounts-and-transfers", icon: "arrow-left-right" },
-      { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+    id: "movimentacoes", label: "Movimentações", icon: "building", items: [
+      { label: "Contas a receber", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
+      { label: "Contas a pagar", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Transferências", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
+      { label: "Conciliação", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "Extrato", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
     ],
   },
   {
-    id: "caixa", label: "Caixa & Resultado", items: [
-      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
-      { label: "DRE (resultado)", href: "/dre", icon: "trending-up" },
-      // Os relatórios contábeis (DRE/DFC em cascata, multiempresa e o
-      // fechamento mensal) — a face de RELATÓRIO, ao lado do DRE executivo.
-      { label: "Relatórios", href: "/dashboard/reports", icon: "file-text" },
-      { label: "Orçamento", href: "/orcamento", icon: "target" },
+    id: "vendas", label: "Vendas e NFs", icon: "shopping-cart", items: [
+      { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+      { label: "Assinaturas", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
+      { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
+      { label: "Impostos", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
+      { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
     ],
   },
   {
-    id: "dados", label: "Dados & Cadastros", items: [
+    id: "compras", label: "Compras", icon: "inbox", items: [
+      { label: "Compras", href: "/dashboard/purchases", icon: "inbox" },
+      { label: "Boletos recebidos", href: "/dashboard/purchases/received-boletos", icon: "file-text" },
+      { label: "NFs recebidas", href: "/dashboard/purchases/received-invoices", icon: "receipt" },
+    ],
+  },
+  {
+    id: "contabil", label: "Contabilidade", icon: "receipt", items: [
+      { label: "Envio das NFs", href: "/dashboard/accounting/nfe-export", icon: "mail" },
+      { label: "Gerar TXT contábil", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
+      { label: "Razão e fechamento", href: "/contabilidade", icon: "layers" },
+    ],
+  },
+  {
+    id: "entrada", label: "Entrada de dados", icon: "upload", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Cadastros", href: "/cadastros", icon: "users" },
+      { label: "Receber (extrato)", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Pagar (extrato)", href: "/pagamentos", icon: "arrow-up-right" },
+      { label: "Recorrências", href: "/recorrencias", icon: "repeat" },
     ],
   },
   // ----- Profundidade — revelada no Modo Pro -----
   {
-    id: "fiscal", label: "Fiscal", pro: true, items: [
-      { label: "Impostos", href: "/impostos", icon: "receipt" },
-    ],
-  },
-  {
-    id: "contabilidade", label: "Contabilidade", pro: true, items: [
-      { label: "Contabilidade", href: "/contabilidade", icon: "receipt" },
-    ],
-  },
-  {
-    // Um cérebro, não cinco: Copiloto + Quant/Decisão/Risco/Autônomo/Dados são
-    // ABAS internas de /copiloto — o menu tem uma única entrada.
-    id: "estrategia", label: "Inteligência", pro: true, items: [
-      { label: "All4Pay IA", href: "/copiloto", icon: "gauge" },
+    id: "inteligencia", label: "Inteligência", icon: "gauge", pro: true, items: [
+      { label: "Copiloto e motores", href: "/copiloto", icon: "gauge" },
+      { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Investor update", href: "/investidores", icon: "mail" },
       { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
+      { label: "Impostos (fiscal)", href: "/impostos", icon: "receipt" },
     ],
   },
   {
-    // Arquitetura/Infra/Orquestração viraram abas de /plataforma (um hub só).
-    id: "plataforma", label: "Governança & Plataforma", pro: true, items: [
+    id: "plataforma", label: "Governança", icon: "shield-check", pro: true, items: [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
-      { label: "Governança & Auditoria", href: "/governanca", icon: "shield-check" },
+      { label: "Governança & auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
+      { label: "Consolidado", href: "/consolidado", icon: "building" },
     ],
   },
+  { id: "comece", label: "Comece por aqui", icon: "target", href: "/comece", items: [] },
+  { id: "ajuda", label: "Ajuda", icon: "help-circle", href: "/dashboard/help", items: [] },
 ];
 
 export const CONFIG: Section = {
-  id: "config", label: "Configurações", items: [
-    { label: "Empresa", href: "/configuracoes", icon: "settings" },
-    { label: "Administração", href: "/dashboard/administration", icon: "shield-check" },
-    { label: "Central de ajuda", href: "/dashboard/help", icon: "help-circle" },
+  id: "config", label: "Configurações", icon: "settings", items: [
+    { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
+    { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },
+    { label: "Gerenciar usuários", href: "/dashboard/administration/users", icon: "users" },
+    { label: "Logs", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
+    { label: "Integrações", href: "/dashboard/administration/integrations", icon: "link" },
+    { label: "Relatórios exportados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
+    { label: "Empresa (perfil)", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
-    { label: "Adicionar Empresa", href: "/empresas/nova", icon: "plus" },
+    { label: "Adicionar empresa", href: "/empresas/nova", icon: "plus" },
   ],
 };
 
 /* ----------------------------- PESSOA FÍSICA (PF) ----------------------------- */
 export const SECTIONS_PESSOAL: Section[] = [
   {
-    id: "gastos", label: "Meu dia a dia", items: [
+    id: "gastos", label: "Meu dia a dia", icon: "inicio", items: [
       { label: "Resumo", href: "/", icon: "inicio" },
       { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
@@ -126,12 +165,12 @@ export const SECTIONS_PESSOAL: Section[] = [
     ],
   },
   {
-    id: "contas", label: "Contas & carteiras", items: [
+    id: "contas", label: "Contas & carteiras", icon: "credit-card", items: [
       { label: "Conectar & importar (Open finance)", href: "/upload", icon: "upload" },
     ],
   },
   {
-    id: "orcamento", label: "Orçamento & metas", items: [
+    id: "orcamento", label: "Orçamento & metas", icon: "target", items: [
       { label: "Orçamento mensal", href: "/orcamento", icon: "target" },
       { label: "Para onde foi meu dinheiro", href: "/dre", icon: "trending-up" },
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
@@ -140,7 +179,7 @@ export const SECTIONS_PESSOAL: Section[] = [
 ];
 
 export const CONFIG_PESSOAL: Section = {
-  id: "config", label: "Configurações", items: [
+  id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Meu perfil", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
   ],

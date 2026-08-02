@@ -34,6 +34,7 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import { GUIDES } from "@/components/app/guides";
+import { SECTIONS, CONFIG, leafAtivo } from "@/components/dashboard/nav-data";
 import {
   detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
   statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
@@ -2537,6 +2538,58 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     melhorGuia("tela", candidatosAjuda) === null &&
     melhorGuia("aparece", candidatosAjuda) === null);
   ok("ajuda: pergunta vazia devolve null", melhorGuia("   ", candidatosAjuda) === null);
+}
+
+// ── navegação: o menu em acordeão ─────────────────────────────────────────
+{
+  const todas = [...SECTIONS, CONFIG];
+  const itens = todas.flatMap((s) => s.items);
+  const rotas = [...todas.filter((s) => s.href).map((s) => s.href!), ...itens.map((i) => i.href).filter(Boolean)];
+
+  ok("nav: nenhuma rota duplicada no menu",
+    new Set(rotas).size === rotas.length,
+    rotas.filter((r, i) => rotas.indexOf(r) !== i).join(" | "));
+  ok("nav: ids de grupo são únicos", new Set(todas.map((s) => s.id)).size === todas.length);
+  // Um grupo sem `href` e sem filhos seria uma linha que abre para o nada.
+  ok("nav: todo grupo é folha OU tem filhos",
+    todas.every((s) => !!s.href || s.items.length > 0),
+    todas.filter((s) => !s.href && s.items.length === 0).map((s) => s.id).join(" | "));
+  ok("nav: todo grupo tem ícone", todas.every((s) => !!s.icon),
+    todas.filter((s) => !s.icon).map((s) => s.id).join(" | "));
+  ok("nav: todo item tem destino (href, evento ou 'em breve')",
+    itens.every((i) => !!i.href || !!i.event || !!i.soon));
+
+  // ⚠️ O acordeão abre o grupo da rota atual. Se uma tela não estiver em grupo
+  // nenhum, o menu fica MUDO justamente onde a pessoa está — ela não descobre
+  // as telas irmãs. Este guard cobre as rotas principais de cada módulo.
+  const PRINCIPAIS = [
+    "/", "/all4pay-ai", "/orcamento", "/dashboard/help", "/comece",
+    "/dashboard/purchases", "/dashboard/purchases/received-boletos",
+    "/dashboard/sales-invoices", "/dashboard/accounting/dominio-export",
+    "/dashboard/administration/users", "/fluxo-caixa", "/upload",
+    "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
+  ];
+  const orfas = PRINCIPAIS.filter(
+    (r) => !todas.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
+  );
+  ok("nav: nenhuma tela principal fica fora do menu", orfas.length === 0, orfas.join(" | "));
+  // Nota: uma sub-rota (`/x/y`) continua acesa pelo item pai (`/x`) — o guard
+  // acima cobre o caso real, que é a tela SEM pai no menu, como as de
+  // Administração, que entram uma a uma em Configurações.
+
+  // Os grupos `pro` são a profundidade — no Modo Simples eles somem, e o que
+  // sobra precisa continuar cobrindo o dia a dia.
+  const simples = SECTIONS.filter((s) => !s.pro);
+  const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/dashboard/purchases", "/dashboard/sales-invoices"];
+  const fora = DIA_A_DIA.filter(
+    (r) => !simples.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
+  );
+  ok("nav: o Modo Simples ainda cobre o dia a dia", fora.length === 0, fora.join(" | "));
+
+  // `leafAtivo` é o que decide o destaque: `/` não pode casar com tudo.
+  ok("nav: '/' só casa com a própria home", leafAtivo("/", "/dre") === false && leafAtivo("/", "/") === true);
+  ok("nav: sub-rota acende o item pai", leafAtivo("/dashboard/purchases", "/dashboard/purchases/new"));
+  ok("nav: rota com ?aba ainda casa", leafAtivo("/contabilidade?aba=razao", "/contabilidade"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

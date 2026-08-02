@@ -9,6 +9,7 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { CriarNovo } from "@/components/app/CriarNovo";
 
 /**
  * Standard app frame: route-aware sidebar + scrollable main column with a
@@ -73,6 +74,7 @@ export function AppShell({
       <AssistantWidget />
       <ContatoDrawer />
       <NovaTransacao />
+      <CriarNovo />
     </div>
   );
 

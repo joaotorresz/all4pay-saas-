@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
-import { leafAtivo, useNavSections, type Item } from "@/components/dashboard/nav-data";
+import { leafAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -15,10 +15,20 @@ const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const STORAGE_KEY = "a4p_sidebar_collapsed";
 
 /**
- * all4pay app sidebar — modelo **Visor**: seções com rótulo em CAIXA-ALTA e
- * itens PLANOS (sem acordeão). Item ativo = fundo `lime-tint` + texto ink + barra
- * lime à esquerda. Sem o widget de saldo (ganha espaço). Recolhível (rail de
- * ícones), drawer no mobile, rodapé com Modo Pro · tema · usuário.
+ * Sidebar em ACORDEÃO — o modelo do ERP.
+ *
+ * Cada grupo é uma linha com ícone, rótulo e chevron; abrir revela as telas
+ * dele, indentadas sob um fio vertical. Grupos sem filhos (Início, Orçamento,
+ * Ajuda) são folhas e navegam direto, no mesmo nível visual.
+ *
+ * ⚠️ **Um grupo aberto por vez.** Com treze grupos, deixar todos abertos
+ * devolveria a lista de 60 itens que o agrupamento existe para evitar — o menu
+ * viraria uma rolagem em vez de um índice. O grupo da tela atual abre sozinho e
+ * não fecha: o menu tem de dizer onde você está mesmo depois de você clicar em
+ * outro grupo para explorar.
+ *
+ * Recolhida vira um trilho de ícones; clicar num ícone expande e já abre o
+ * grupo — recolher não pode custar o acesso.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -71,9 +81,33 @@ export function Sidebar() {
   const col = collapsed && isDesktop;
 
   const { pro, set: setPro } = useModo();
-  // Grupos/itens vêm do módulo único de navegação (`dashboard/nav-data`), que
-  // já resolve PF/PJ · Simples/Pro · super-admin.
   const { sections: allSections, pessoal } = useNavSections();
+
+  // Configurações fica no rodapé, separada — é o último grupo da lista.
+  const config = allSections[allSections.length - 1];
+  const principais = allSections.slice(0, -1);
+
+  /** O grupo que contém a rota atual — abre sozinho e não fecha. */
+  const grupoDaRota = React.useMemo(
+    () => [...principais, config].find(
+      (s) => (s.href && leafAtivo(s.href, pathname)) || s.items.some((i) => leafAtivo(i.href, pathname)),
+    )?.id ?? null,
+    [principais, config, pathname],
+  );
+
+  const [aberto, setAberto] = React.useState<string | null>(null);
+  React.useEffect(() => { setAberto(grupoDaRota); }, [grupoDaRota]);
+
+  function alternar(id: string) {
+    if (col) {
+      // Recolhida: clicar num grupo expande a barra e já abre o grupo.
+      setCollapsed(false);
+      try { localStorage.setItem(STORAGE_KEY, "0"); } catch { /* ignore */ }
+      setAberto(id);
+      return;
+    }
+    setAberto((a) => (a === id ? null : id));
+  }
 
   return (
     <>
@@ -90,7 +124,7 @@ export function Sidebar() {
         )}
       >
         {/* Marca + recolher */}
-        <div className={cn("flex items-center pb-[18px] pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
+        <div className={cn("flex items-center pb-3 pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
           {!col && (
             <>
               <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
@@ -114,8 +148,22 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Busca — dispara a MESMA command palette do ⌘K. Fica aqui porque a
-            barra do topo saiu; sem isto a busca só existiria pelo atalho. */}
+        {/* Criar — a porta única de criação, no topo. */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
+          aria-label="Criar novo registro"
+          title="Criar novo registro"
+          className={cn(
+            "flex items-center justify-center h-10 mb-2 rounded-pill bg-lime text-on-lime font-semibold transition-opacity hover:opacity-90",
+            col ? "w-10 mx-auto px-0" : "gap-2 px-4",
+          )}
+        >
+          <Icon name="plus" size={16} color="var(--color-on-lime)" />
+          {!col && <span className="text-[15px]">Criar</span>}
+        </button>
+
+        {/* Busca — a MESMA command palette do ⌘K. */}
         <button
           type="button"
           onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
@@ -135,26 +183,26 @@ export function Sidebar() {
           )}
         </button>
 
-        {/* Nav — seções planas (modelo Visor) */}
-        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
-          {allSections.map((s, si) => (
-            <div key={s.id} className={cn("flex flex-col gap-[2px]", col ? "mt-2 first:mt-0" : "mt-3 first:mt-0", si === allSections.length - 1 && !col ? "pt-2 mt-3 border-t border-border-soft" : "")}>
-              {!col && (
-                <span className="px-[10px] pt-[2px] pb-[3px] text-[12px] font-semibold text-faint truncate">{s.label}</span>
-              )}
-              {s.items.map((it, i) => (
-                <NavItem key={it.href ?? it.label + i} item={it} pathname={pathname} collapsed={col} />
-              ))}
-            </div>
+        {/* Nav — acordeão */}
+        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[2px]">
+          {principais.map((s) => (
+            <Grupo
+              key={s.id} secao={s} pathname={pathname} collapsed={col}
+              aberto={aberto === s.id} onAlternar={() => alternar(s.id)}
+            />
           ))}
         </nav>
 
-        {/* Rodapé: Modo Pro · tema · usuário */}
+        {/* Rodapé: Configurações · Modo Pro · tema · usuário · Sair */}
         <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
+          <Grupo
+            secao={config} pathname={pathname} collapsed={col}
+            aberto={aberto === config.id} onAlternar={() => alternar(config.id)}
+          />
           {!pessoal && (
             <button
               onClick={() => setPro(pro ? "simples" : "pro")}
-              title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Fiscal, Contabilidade, Inteligência e Plataforma"}
+              title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Inteligência e Governança"}
               className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
             >
               <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
@@ -203,27 +251,97 @@ export function Sidebar() {
   );
 }
 
-/** Item de nav plano (modelo Visor). Ativo = fundo lime-tint + barra lime + ink. */
-function NavItem({ item, pathname, collapsed }: { item: Item; pathname: string; collapsed: boolean }) {
-  // Ação por evento (ex.: abrir modal).
+/* --------------------------------- grupo --------------------------------- */
+
+function Grupo({
+  secao, pathname, collapsed, aberto, onAlternar,
+}: {
+  secao: Section; pathname: string; collapsed: boolean;
+  aberto: boolean; onAlternar: () => void;
+}) {
+  const folha = !!secao.href;
+  const ativoFolha = folha && leafAtivo(secao.href, pathname);
+  const temFilhoAtivo = secao.items.some((i) => leafAtivo(i.href, pathname));
+  const destacado = ativoFolha || temFilhoAtivo;
+
+  const chrome = cn(
+    "relative flex items-center rounded-[12px] py-[9px] w-full transition-colors",
+    collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
+    destacado ? "bg-surface-2" : "hover:bg-surface-2/60",
+  );
+
+  const conteudo = (
+    <>
+      {/* O marcador lima fica à DIREITA: à esquerda ele competiria com o fio
+          vertical dos filhos, e os dois juntos viram ruído. */}
+      {destacado && (
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-pill bg-lime" aria-hidden />
+      )}
+      <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+      {!collapsed && (
+        <>
+          <span className={cn("text-[15px] truncate flex-1 text-left", destacado ? "text-ink font-semibold" : "text-muted font-medium")}>
+            {secao.label}
+          </span>
+          {!folha && (
+            <Icon
+              name={aberto ? "chevron-down" : "chevron-right"}
+              size={14}
+              color="var(--color-text-tertiary)"
+              className="shrink-0"
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col">
+      {folha ? (
+        <Link href={secao.href!} title={secao.label} aria-current={ativoFolha ? "page" : undefined} className={chrome}>
+          {conteudo}
+        </Link>
+      ) : (
+        <button
+          onClick={onAlternar}
+          title={secao.label}
+          aria-expanded={aberto}
+          className={chrome}
+        >
+          {conteudo}
+        </button>
+      )}
+
+      {!folha && aberto && !collapsed && (
+        // O fio vertical amarra os filhos ao pai — sem ele a indentação sozinha
+        // não diz de quem eles são quando a lista rola.
+        <div className="ml-[19px] pl-[13px] border-l border-border-soft flex flex-col gap-[1px] py-1">
+          {secao.items.map((it, i) => (
+            <SubItem key={it.href ?? it.label + i} item={it} pathname={pathname} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubItem({ item, pathname }: { item: Item; pathname: string }) {
   if (item.event && !item.href) {
     return (
       <button
         onClick={() => window.dispatchEvent(new Event(item.event!))}
         title={item.label}
-        className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]")}
+        className="flex items-center rounded-md py-[7px] px-[10px] text-left hover:bg-surface-2 transition-colors"
       >
-        <Icon name={item.icon} size={18} color="var(--color-lime)" />
-        {!collapsed && <span className="text-[15px] font-medium text-ink truncate">{item.label}</span>}
+        <span className="text-[14px] text-muted truncate">{item.label}</span>
       </button>
     );
   }
   if (item.soon || !item.href) {
-    if (collapsed) return null;
     return (
-      <span aria-disabled="true" className="relative flex items-center gap-[10px] px-[10px] rounded-md py-2 opacity-45 cursor-not-allowed select-none">
-        <Icon name={item.icon} size={18} color="var(--color-text-secondary)" />
-        <span className="text-[15px] text-muted truncate flex-1">{item.label}</span>
+      <span aria-disabled="true" className="flex items-center gap-2 rounded-md py-[7px] px-[10px] opacity-45 cursor-not-allowed select-none">
+        <span className="text-[14px] text-muted truncate flex-1">{item.label}</span>
         <span className="text-[11px] text-faint bg-surface-2 rounded-pill px-[6px] py-[1px] shrink-0">Em breve</span>
       </span>
     );
@@ -235,16 +353,11 @@ function NavItem({ item, pathname, collapsed }: { item: Item; pathname: string; 
       title={item.label}
       aria-current={on ? "page" : undefined}
       className={cn(
-        // Nav ativo CLEAN: pill branco discreto + texto/ícone ink + marcador LIMA
-        // fino à esquerda (lima como tempero, nunca preenchimento). Raio 12px.
-        "relative flex items-center rounded-[12px] py-2 transition-colors",
-        collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
+        "relative flex items-center rounded-md py-[7px] px-[10px] transition-colors",
         on ? "bg-white" : "hover:bg-surface-2",
       )}
     >
-      {on && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-[16px] w-[3px] rounded-pill bg-lime" aria-hidden />}
-      <Icon name={item.icon} size={18} color={on ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-      {!collapsed && <span className={cn("text-[15px] truncate", on ? "text-ink font-semibold" : "text-muted font-medium")}>{item.label}</span>}
+      <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>
     </Link>
   );
 }
