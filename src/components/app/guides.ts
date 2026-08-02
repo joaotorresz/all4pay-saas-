@@ -642,6 +642,178 @@ const PADRAO_DO_HUB: Record<string, string> = {
   "/pagamentos": "titulos",
 };
 
+/* --------- telas de Compras, Contabilidade, Administração e Ajuda --------- */
+
+Object.assign(GUIDES, {
+  "/dashboard/purchases": {
+    titulo: "Compras — pedidos com aprovação",
+    intro: "A compra nasce como PEDIDO, não como despesa. Ela só vira conta a pagar quando alguém aprova — é isso que separa esta tela de Contas a pagar.",
+    comoUsar: "Use os filtros de vencimento (caixa) e de competência (resultado) para achar o pedido. Aprove ou reprove na linha: aprovar coloca as parcelas no fluxo, reprovar as retira. Clique em '3×' para ver as parcelas que serão criadas.",
+    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil.",
+    secoes: [
+      acoes([
+        { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
+        { nome: "Aprovar / reprovar", desc: "A decisão que move o dinheiro. Reprovar retira os títulos do fluxo." },
+        { nome: "Exportar XLSX", desc: "Baixa os pedidos do filtro atual." },
+      ]),
+      blocos([
+        { nome: "Cards de status", desc: "Aprovadas · aguardando · reprovadas ou canceladas · total, com a fatia de cada uma.", match: "Aprovadas" },
+        { nome: "Data de vencimento/pagamento", desc: "A janela do CAIXA: quando o dinheiro sai. Compra paga entra pela data do pagamento.", match: "Data de vencimento" },
+        { nome: "Data de competência", desc: "A janela do RESULTADO: de que mês é a despesa no DRE.", match: "Data de competência" },
+        { nome: "Parcelas", desc: "O resto dos centavos vai na última parcela; a competência não se parcela.", match: "Pagamento" },
+      ]),
+    ],
+  },
+  "/dashboard/purchases/received-boletos": {
+    titulo: "Boletos recebidos (DDA)",
+    intro: "Os boletos emitidos contra o seu CNPJ. O DDA depende de adesão bancária, mas o boleto não depende de ninguém: a linha digitável carrega banco, valor e vencimento.",
+    comoUsar: "Cole a linha digitável (47 dígitos) ou o código de barras (44) em 'Adicionar boleto pelo número': o sistema lê tudo e confere os quatro dígitos verificadores. Depois use a seta para lançar em contas a pagar.",
+    exemplo: "Colando a linha de um boleto do Itaú, a tela mostra banco 341, R$ 3.456,70 e vencimento 15/09/2026 antes de você gravar qualquer coisa.",
+    secoes: [
+      acoes([
+        { nome: "Adicionar boleto pelo número", desc: "Lê e valida a linha digitável sem depender de integração.", match: "Adicionar boleto" },
+        { nome: "Lançar em contas a pagar", desc: "O boleto é a cobrança; virar título é o que o coloca no fluxo." },
+      ]),
+      blocos([
+        { nome: "Cards", desc: "Boletos, valor total, a vencer, vencidos e pagos.", match: "BOLETOS" },
+        { nome: "Buscar", desc: "Beneficiário, pagador ou código de barras — a busca ignora a pontuação.", match: "Buscar" },
+      ]),
+    ],
+  },
+  "/dashboard/purchases/received-invoices": {
+    titulo: "NFs recebidas (SEFAZ)",
+    intro: "As notas fiscais emitidas contra a sua empresa. A captura automática exige certificado digital; a chave de acesso impressa no DANFE, não.",
+    comoUsar: "Cole a chave de 44 dígitos em 'Lançar nota pela chave de acesso': o sistema lê UF, mês, CNPJ do emitente, modelo, série e número, e confere o dígito. Use os filtros e clique em Aplicar — com volume de SEFAZ, refiltrar a cada tecla custa caro.",
+    secoes: [
+      acoes([
+        { nome: "Lançar nota pela chave", desc: "Os 44 dígitos dizem quem emitiu, quando e qual documento é.", match: "Lançar nota" },
+        { nome: "Aprovar / recusar", desc: "A avaliação do usuário — o que ainda não foi avaliado conta como pendente." },
+      ]),
+      blocos([
+        { nome: "Cards", desc: "NFs no filtro, valor total e pendentes de validação.", match: "NFS NO FILTRO" },
+        { nome: "Filtros", desc: "Emissão, valor, tipo, status, fornecedor, categoria e avaliação.", match: "Filtros" },
+      ]),
+    ],
+  },
+  "/dashboard/accounting/nfe-export": {
+    titulo: "Envio de NFs ao contador",
+    intro: "O pacote mensal com os XMLs das notas de entrada e de saída, enviado para os e-mails do contador no dia 1º.",
+    comoUsar: "Adicione o e-mail do contador; ele precisa clicar no link de confirmação para começar a receber. Enquanto não houver um e-mail verificado o envio fica Inativo — e nada é arquivado.",
+    exemplo: "Sem destinatário verificado, o card do mês mostra as notas mas '0 arquivadas': o sistema conta, mas não retém XML para enviar.",
+    secoes: [
+      acoes([
+        { nome: "Adicionar e-mail", desc: "Até 5 destinatários; cada um confirma pelo link.", match: "Adicionar e-mail" },
+      ]),
+      blocos([
+        { nome: "Status", desc: "Ativo só com pelo menos um e-mail verificado.", match: "Status" },
+        { nome: "Mês corrente", desc: "Notas de entrada e de saída do mês, e quantas foram arquivadas.", match: "Mês corrente" },
+        { nome: "Destinatários", desc: "O teto de 5 é de escopo: o pacote leva a escrituração inteira.", match: "Destinatários" },
+      ]),
+    ],
+  },
+  "/dashboard/accounting/dominio-export": {
+    titulo: "Gerar TXT contábil — Domínio",
+    intro: "Exporta o extrato bancário no formato Partidas Simples (lanctos.txt) para importação direta no Domínio. É o consumidor do 'Código contábil (Domínio)' das contas e centros de custo.",
+    comoUsar: "Escolha a conta bancária e o mês, clique em Carregar lançamentos e confira a lista e a prévia do arquivo antes de gerar. O que estiver sem código contábil aparece como pendência e fica FORA do arquivo.",
+    exemplo: "O arquivo sai em ANSI (Windows-1252) com quebras CRLF — um arquivo UTF-8 importa e os valores batem, mas todo acento vira lixo no histórico.",
+    secoes: [
+      acoes([
+        { nome: "Carregar lançamentos", desc: "Traz os movimentos liquidados da conta no mês.", match: "Carregar lançamentos" },
+        { nome: "Gerar lanctos.txt", desc: "Baixa o arquivo em ANSI, pronto para importar.", match: "Gerar lanctos" },
+      ]),
+      blocos([
+        { nome: "Conferência", desc: "Lançamentos, débitos, créditos e o líquido do período.", match: "Lançamentos" },
+        { nome: "Prévia do arquivo", desc: "As linhas exatas — confira contra a tela de importação do escritório.", match: "Prévia do arquivo" },
+      ]),
+    ],
+  },
+  "/dashboard/administration/subscription": {
+    titulo: "Assinatura e plano",
+    intro: "O plano, a empresa ativa, quantos usuários têm acesso e o que já está conectado.",
+    comoUsar: "Veja os dias restantes da assinatura, quantas contas bancárias estão em Open Finance e quais integrações fiscais estão ativas. Clique em 'Usuários ativos' para abrir a gestão de usuários.",
+    secoes: [
+      blocos([
+        { nome: "Plano", desc: "ID da empresa, plano contratado e data de expiração com os dias restantes.", match: "ID da empresa" },
+        { nome: "Contas bancárias", desc: "Cadastradas, em Open Finance e elegíveis sem conexão.", match: "Contas bancárias" },
+        { nome: "Notas fiscais", desc: "Recebimento e emissão automática — cada um leva à configuração.", match: "Notas fiscais" },
+      ]),
+    ],
+  },
+  "/dashboard/administration/company-data": {
+    titulo: "Dados da empresa",
+    intro: "O cadastro da empresa: identificação, dados fiscais, endereço, canais e contatos. É o mesmo perfil que o onboarding preencheu — não há um segundo cadastro.",
+    comoUsar: "Preencha o CEP para o endereço se completar sozinho. O regime tributário DECIDE se a empresa é optante pelo Simples — não há uma segunda caixinha. Salve com 'Salvar alterações'.",
+    secoes: [
+      blocos([
+        { nome: "Logo da empresa", desc: "PNG, JPG ou WebP até 5 MB; abaixo de 200×200px aparece borrado nos relatórios.", match: "Logo da empresa" },
+        { nome: "Identificação", desc: "Tipo de pessoa, documento, razão social, fundação, segmento e status.", match: "Identificação" },
+        { nome: "Dados fiscais", desc: "Inscrições, contribuinte de ICMS, regime e regime especial de NFS-e.", match: "Dados fiscais" },
+        { nome: "Contatos", desc: "Contato principal e contato financeiro, na segunda aba.", match: "Contatos" },
+      ]),
+    ],
+  },
+  "/dashboard/administration/users": {
+    titulo: "Gerenciar usuários",
+    intro: "Quem tem acesso a esta empresa e com qual perfil.",
+    comoUsar: "Convide pelo e-mail (o convidado precisa ter conta) e escolha o perfil. Troque o perfil direto na linha. O último administrador não pode ser removido nem rebaixado — a empresa ficaria sem quem convida outro.",
+    secoes: [
+      acoes([
+        { nome: "Convidar usuário", desc: "Vincula um e-mail existente à empresa com um perfil.", match: "Convidar usuário" },
+        { nome: "Perfil", desc: "Admin, financeiro, operacional ou leitura." },
+      ]),
+    ],
+  },
+  "/dashboard/administration/audit-logs": {
+    titulo: "Logs de auditoria",
+    intro: "O histórico de alterações feitas pelos usuários, com o 'de X para Y' de cada mudança. Fica disponível pelos últimos 30 dias.",
+    comoUsar: "Escolha o período e clique em Aplicar. Use 'Buscar no conteúdo' para achar pelo valor que mudou, não só pelo nome da entidade. Pedir antes dos 30 dias faz a tela avisar — o que está fora foi descartado.",
+    secoes: [
+      blocos([
+        { nome: "Filtros", desc: "Período, usuário, conteúdo, ação, origem, tipo e entidade específica.", match: "Período" },
+        { nome: "Exportar XLSX", desc: "Baixa o histórico filtrado." },
+      ]),
+    ],
+  },
+  "/dashboard/administration/integrations": {
+    titulo: "Integrações",
+    intro: "Os oito conectores da plataforma: vendas, emissão e recebimento de NF, contabilidade, DDA, Open Finance, APIs e MCP.",
+    comoUsar: "Abra o cartão para configurar. Chave de API e token aparecem UMA vez, no momento em que nascem — copie na hora. O consentimento do Open Finance vale 12 meses e a tela avisa antes de vencer.",
+    exemplo: "Certificado A1 vencido para a captura de NF em silêncio: a tela de NFs recebidas continua abrindo, só não chega nada.",
+    secoes: [
+      blocos([
+        { nome: "Plataformas de vendas", desc: "18 conectores para importar vendas automaticamente.", match: "Plataformas de vendas" },
+        { nome: "Open Finance", desc: "Sincroniza extrato e saldo; o consentimento renova a cada 12 meses.", match: "Open Finance" },
+        { nome: "APIs", desc: "Chave por header X-API-Key e webhook de vendas.", match: "APIs" },
+        { nome: "MCP", desc: "Acesso de IAs com escopo controlado — escrita só se a IA precisar agir.", match: "MCP" },
+      ]),
+    ],
+  },
+  "/dashboard/administration/exported-reports": {
+    titulo: "Relatórios exportados",
+    intro: "A fila das exportações grandes de Contas a pagar e Contas a receber, processadas em segundo plano.",
+    comoUsar: "PDF com mais de 300 linhas e XLSX com mais de 5.000 entram aqui; menores baixam na hora e não aparecem na lista. O arquivo fica disponível por 15 dias e depois é marcado como expirado.",
+    secoes: [
+      blocos([
+        { nome: "Filtros", desc: "Período, formato e relatório.", match: "Período" },
+        { nome: "Status", desc: "Processando, pronto, erro ou expirado — o expirado continua na lista.", match: "Status" },
+      ]),
+    ],
+  },
+  "/dashboard/help": {
+    titulo: "Central de ajuda",
+    intro: "Chat com a base de ajuda, tours guiados por tela e os anúncios do produto.",
+    comoUsar: "Pergunte 'como faço X' no chat; se a resposta não existir, abra um chamado. Em Tours guiados, procure a tela e clique em Iniciar — o tour roda na própria tela apontando cada bloco.",
+    exemplo: "Senha, chave de API, cartão e CPF são detectados na sua mensagem antes do envio e removidos: a dúvida chega ao suporte, o segredo não.",
+    secoes: [
+      blocos([
+        { nome: "Chat online", desc: "Responde sobre uso do sistema e escala para chamado.", match: "Chat online" },
+        { nome: "Tours guiados", desc: "Um tour por tela, com progresso e filtro por status.", match: "Tours guiados" },
+        { nome: "Anúncios", desc: "Novidades e avisos da plataforma.", match: "Anúncios" },
+      ]),
+    ],
+  },
+} as Record<string, Guide>);
+
 export function guideForPath(pathname: string, aba?: string | null): Guide | null {
   const tab = aba || PADRAO_DO_HUB[pathname];
   if (tab && GUIDES[`${pathname}?aba=${tab}`]) return GUIDES[`${pathname}?aba=${tab}`];

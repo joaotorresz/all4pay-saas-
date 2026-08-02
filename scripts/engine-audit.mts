@@ -33,6 +33,13 @@ import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
+import { GUIDES } from "@/components/app/guides";
+import {
+  detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
+  statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
+  validarChamado, filtrarAnuncios, naoLidos, SUGESTOES,
+  type Tour as TourAjuda, type ProgressoTour, type Anuncio,
+} from "@/core/ajuda";
 import {
   diasEntre, panoramaAssinatura, validarDadosEmpresa, logoAceito, optantePeloSimples,
   podeRemover, podeTrocarPerfil, filtrarUsuarios,
@@ -2368,6 +2375,168 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     filtrarExportacoes([E({}), E({ id: "e2", formato: "pdf" })], { formato: "pdf" }).length === 1);
   ok("export: filtro de período exclui fora",
     filtrarExportacoes([E({})], { de: "2026-08-02", ate: "2026-08-30" }).length === 0);
+}
+
+// ── core/ajuda: detector de segredos, tours e anúncios ────────────────────
+{
+  /* -------------------------- detector de segredos -------------------------- */
+
+  const tipos = (t: string) => detectarSegredos(t).map((a) => a.tipo).join(",");
+
+  // O que PRECISA ser pego — é para isto que o aviso existe.
+  ok("segredos: senha declarada", tipos("Minha senha é Trocar@123") === "senha");
+  ok("segredos: senha com dois-pontos", tipos("password: sup3rS3cret") === "senha");
+  ok("segredos: chave com prefixo conhecido",
+    tipos("use a chave a4p_live_9f2c8b1e4d7a3f5e") === "token");
+  ok("segredos: token de MCP", tipos("mcp_0a1b2c3d4e5f6071") === "token");
+  ok("segredos: JWT", tipos("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk") === "jwt");
+  ok("segredos: cartão passa por Luhn", tipos("cartão 4111 1111 1111 1111") === "cartao");
+  ok("segredos: CNPJ com pontuação", tipos("CNPJ 34.568.449/0001-72") === "cnpj");
+  ok("segredos: CPF com pontuação", tipos("CPF 111.444.777-35") === "cpf");
+  ok("segredos: chave PIX aleatória (UUID)",
+    tipos("pix e3b0c442-98fc-1c14-9afb-f4c8996fb924") === "pix");
+  ok("segredos: linha digitável de boleto",
+    tipos("boleto 34191234546789012345767890123457715700000345670") === "boleto");
+
+  // ⚠️ O QUE NÃO PODE SER PEGO. Um detector que acusa qualquer sequência longa
+  // treina a pessoa a ignorar o aviso — e aí o aviso deixou de existir. Estes
+  // são textos que um financeiro escreve o dia inteiro.
+  ok("segredos: valor em reais NÃO é cartão", !temSegredo("Paguei R$ 1.234,56 e o total foi R$ 98.765,43"));
+  ok("segredos: número de NF NÃO é segredo", !temSegredo("A NF 000123456789 sumiu da lista"));
+  ok("segredos: data e competência NÃO são segredo", !temSegredo("Fatura 2026-08 vencendo dia 10/09/2026"));
+  // Este falso positivo apareceu no PRIMEIRO teste do detector: entropia
+  // sozinha acusa "contas-a-pagar-2026-08-31" (3,4 bits/char). A pontuação é o
+  // que separa nome legível de token.
+  ok("segredos: nome de arquivo com hífens NÃO é token",
+    !temSegredo("O relatório contas-a-pagar-2026-08-31 não abre"), tipos("contas-a-pagar-2026-08-31"));
+  ok("segredos: slug de rota NÃO é token", !temSegredo("abri /dashboard/financial/accounts-and-transfers"));
+  ok("segredos: CNPJ inválido não vira CNPJ", !temSegredo("o número 11.111.111/1111-11 apareceu"));
+  ok("segredos: 16 dígitos que falham Luhn não viram cartão",
+    !temSegredo("protocolo 1234567890123456"), tipos("1234567890123456"));
+  ok("segredos: texto comum é limpo", !temSegredo("Como faço para emitir uma nota fiscal de serviço?"));
+
+  // Luhn e entropia são as âncoras — se elas cederem, tudo vira falso positivo.
+  ok("segredos: Luhn aceita cartão de teste", luhn("4111111111111111"));
+  ok("segredos: Luhn recusa o mesmo número com um dígito trocado", !luhn("4111111111111112"));
+  ok("segredos: entropia separa aleatório de legível",
+    entropia("9f2c8b1e4d7a3f5e0c1d") > entropia("relatorio-de-contas"),
+    `${entropia("9f2c8b1e4d7a3f5e0c1d").toFixed(2)} vs ${entropia("relatorio-de-contas").toFixed(2)}`);
+
+  // ⚠️ Redige, NÃO bloqueia: impedir o envio faria a pessoa reescrever a mesma
+  // mensagem por fora. A dúvida chega ao suporte; o segredo não.
+  const cru = "Minha senha é Trocar@123 e a chave a4p_live_9f2c8b1e4d7a3f5e não funciona";
+  const limpo = redigirSegredos(cru);
+  ok("segredos: o texto redigido NÃO contém a senha", !limpo.includes("Trocar@123"), limpo);
+  ok("segredos: o texto redigido NÃO contém a chave", !limpo.includes("9f2c8b1e4d7a3f5e"), limpo);
+  ok("segredos: o texto redigido PRESERVA a dúvida", limpo.includes("não funciona"), limpo);
+  ok("segredos: redigir texto limpo não altera nada",
+    redigirSegredos("Como emito uma NFS-e?") === "Como emito uma NFS-e?");
+  // Sobreposição: um mesmo trecho não vira dois avisos.
+  ok("segredos: um trecho gera UM achado só",
+    detectarSegredos("cartão 4111111111111111").length === 1);
+
+  /* --------------------------------- tours --------------------------------- */
+
+  const T = (o: Partial<TourAjuda>): TourAjuda => ({
+    id: "/dre", rota: "/dre", titulo: "DRE", descricao: "Resultado do período",
+    passos: 6, secao: "Caixa & Resultado", ...o,
+  });
+  const tours = [
+    T({}),
+    T({ id: "/upload", rota: "/upload", titulo: "Upload de dados", descricao: "Importar extrato", secao: "Dados & Cadastros" }),
+    T({ id: "/", rota: "/", titulo: "Início", descricao: "Visão geral", secao: "Boas-vindas" }),
+  ];
+  const prog: Record<string, ProgressoTour> = {
+    "/dre": { passo: 3, concluido: false },
+    "/": { passo: 6, concluido: true },
+  };
+
+  ok("tours: status derivado do progresso",
+    statusTour(prog["/dre"]) === "em_andamento" &&
+    statusTour(prog["/"]) === "concluido" &&
+    statusTour(undefined) === "nao_iniciado");
+  const cont = contarTours(tours, prog);
+  ok("tours: a contagem fecha no total",
+    cont.nao_iniciado + cont.em_andamento + cont.concluido === cont.todos && cont.todos === 3,
+    JSON.stringify(cont));
+  ok("tours: filtro por status", filtrarTours(tours, "", "concluido", prog).length === 1);
+  // Quem procura "extrato" não sabe em que tela ela mora — é por isso que está
+  // procurando. A busca varre título, descrição e seção.
+  ok("tours: busca varre a descrição", filtrarTours(tours, "extrato", "todos", prog).length === 1);
+  ok("tours: busca ignora acento", filtrarTours(tours, "resultado", "todos", prog).length >= 1);
+  ok("tours: agrupamento não perde tour",
+    agruparTours(tours).reduce((s, g) => s + g.tours.length, 0) === 3);
+
+  // ⚠️ As duas travas do disparo automático — um tour que reaparece deixa de
+  // ser ajuda e vira obstáculo.
+  const vistas = new Set<string>(["/upload"]);
+  ok("tours: dispara na tela nunca vista",
+    tourAutomatico("/dre", tours, vistas, 0)?.id === "/dre");
+  ok("tours: NÃO dispara em tela já vista",
+    tourAutomatico("/upload", tours, vistas, 0) === null);
+  ok("tours: NÃO dispara um segundo na mesma sessão",
+    tourAutomatico("/dre", tours, vistas, 1) === null);
+  ok("tours: rota sem tour devolve null",
+    tourAutomatico("/inexistente", tours, vistas, 0) === null);
+
+  /* -------------------------------- chamados -------------------------------- */
+
+  ok("chamado: assunto é obrigatório", !!validarChamado({ descricao: "x".repeat(40) }).assunto);
+  // Um chamado de três palavras volta como "poderia detalhar?" e custa um dia.
+  ok("chamado: descrição curta é recusada",
+    !!validarChamado({ assunto: "Erro", descricao: "não abre" }).descricao);
+  ok("chamado: descrição suficiente passa",
+    Object.keys(validarChamado({ assunto: "Erro", descricao: "A tela de conciliação não carrega nada." })).length === 0);
+
+  /* -------------------------------- anúncios -------------------------------- */
+
+  const A = (o: Partial<Anuncio>): Anuncio => ({
+    id: "a1", titulo: "TXT do Domínio sai em ANSI",
+    corpo: "O arquivo é gerado em Windows-1252, não UTF-8.",
+    publicadoEm: "2026-08-02", lido: false, categoria: "Contabilidade", ...o,
+  });
+  ok("anuncios: filtro de não lidas", filtrarAnuncios([A({}), A({ id: "a2", lido: true })], { visualizacao: "nao_lidas" }).length === 1);
+  ok("anuncios: filtro de lidas", filtrarAnuncios([A({}), A({ id: "a2", lido: true })], { visualizacao: "lidas" }).length === 1);
+  ok("anuncios: janela de período exclui fora",
+    filtrarAnuncios([A({})], { de: "2026-09-01", ate: "2026-09-30" }).length === 0);
+  // Quem procura "Domínio" não sabe se a palavra está no título ou no corpo, e
+  // um resultado vazio parece ausência.
+  ok("anuncios: busca varre o corpo, não só o título",
+    filtrarAnuncios([A({})], { busca: "windows-1252" }).length === 1);
+  ok("anuncios: contagem de não lidas", naoLidos([A({}), A({ id: "a2", lido: true })]) === 1);
+
+  ok("ajuda: as sugestões são perguntas de USO, não de número",
+    SUGESTOES.every((s) => s.perguntas.every((q) => /^(como|onde|qual|o que)/i.test(q))),
+    SUGESTOES.flatMap((s) => s.perguntas).filter((q) => !/^(como|onde|qual|o que)/i.test(q)).join(" | "));
+
+  // ⚠️ TODA pergunta sugerida precisa ter resposta. Oferecer uma sugestão que
+  // cai em "não encontrei" é pior que não sugerir nada — e foi exatamente o que
+  // aconteceu na primeira versão: 14 das 16 falhavam, porque a base de
+  // conhecimento responde CONCEITO e as perguntas eram de USO. Este guard
+  // quebra se alguém acrescentar uma sugestão órfã ou apagar um guia.
+  const candidatosAjuda = Object.entries(GUIDES).map(([rota, g]) => ({
+    rota, titulo: g.titulo, intro: g.intro, comoUsar: g.comoUsar,
+    termos: g.secoes.flatMap((sec) => sec.itens.map((i) => `${i.nome} ${i.desc}`)),
+  }));
+  const semResposta = SUGESTOES.flatMap((s) => s.perguntas)
+    .filter((q) => !buscarKB(q) && !melhorGuia(q, candidatosAjuda));
+  ok("ajuda: TODA pergunta sugerida tem resposta",
+    semResposta.length === 0, semResposta.join(" | "));
+
+  // A camada de USO precisa existir de verdade — se ela sumir, as sugestões
+  // voltam a cair no vazio mesmo com a KB intacta.
+  ok("ajuda: 'como faço' é respondido pelo guia da tela",
+    melhorGuia("Como aprovar um pedido de compra?", candidatosAjuda)?.rota === "/dashboard/purchases",
+    String(melhorGuia("Como aprovar um pedido de compra?", candidatosAjuda)?.rota));
+  // ⚠️ A barra de 3 pontos: uma palavra que só aparece no CORPO de vários guias
+  // não pode eleger um deles. Com a barra em 1, "valor" e "tela" — palavras que
+  // um usuário digita sem querer dizer nada — passariam a devolver uma tela
+  // qualquer com ar de resposta certa.
+  ok("ajuda: palavra genérica de corpo não elege guia",
+    melhorGuia("valor", candidatosAjuda) === null &&
+    melhorGuia("tela", candidatosAjuda) === null &&
+    melhorGuia("aparece", candidatosAjuda) === null);
+  ok("ajuda: pergunta vazia devolve null", melhorGuia("   ", candidatosAjuda) === null);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

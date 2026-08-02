@@ -1063,6 +1063,54 @@ como **documento-mãe**: gera o recebível, ampara a NF e é a base do imposto.
 - **Notas fiscais** (`/invoices`), **Assinaturas** (`/subscriptions`, sobre
   `lib/recorrencias`) e **Links de pagamento** (`/payment-links`).
 
+### Central de Ajuda (`/dashboard/help`) + `core/ajuda`
+
+`src/core/ajuda/index.ts` (`ajuda/1.0.0`, puro/tipado/demo-safe) — três abas:
+Chat online · Tours guiados · Anúncios. ⚠️ **Nada aqui inventa conteúdo**: os
+tours e as respostas de "como faço" saem do catálogo de guias que o sistema já
+mantém por rota (`components/app/guides`). Uma segunda base envelheceria em
+silêncio — a tela mudaria e o tour continuaria ensinando a versão antiga.
+
+**O detector de segredos** (`core/ajuda/segredos.ts`) — o coração da parte.
+"Não compartilhe senhas" é um aviso que ninguém lê; o que funciona é o sistema
+ver o segredo ANTES de ele sair do navegador. Detecta senha declarada, JWT,
+token (prefixo conhecido ou entropia), chave PIX (UUID), cartão (**Luhn**),
+CPF/CNPJ (**dígito verificador**) e linha digitável — e **redige, não bloqueia**:
+impedir o envio faria a pessoa reescrever a mesma mensagem por fora; o objetivo é
+que a dúvida chegue ao suporte sem o segredo. O chamado grava o texto REDIGIDO.
+
+- ⚠️ **A regra que decide se presta é NÃO GRITAR LOBO.** Um detector que acusa
+  qualquer sequência longa treina a pessoa a ignorar o aviso — e aí o aviso
+  deixou de existir. Por isso todo detector é ancorado e validado. O primeiro
+  teste do próprio detector pegou o falso positivo que prova o ponto:
+  `contas-a-pagar-2026-08-31` tem 3,4 bits/char e passava como token. **O que
+  separa slug de token é a PONTUAÇÃO** — nome legível usa hífen entre palavras,
+  token não; dois ou mais separadores ⇒ é nome. Guardas cobrem os dois lados:
+  o que precisa ser pego E o que um financeiro escreve o dia inteiro (R$
+  1.234,56, NF 000123456789, datas, slugs de rota).
+
+**Chat em duas camadas** — CONCEITO ("o que é DRE") vem de `assistant-kb`; USO
+("como emitir uma nota") vem do `comoUsar` do guia da tela, via `melhorGuia`.
+⚠️ Sem a segunda camada, **14 das 16 perguntas sugeridas caíam em "não
+encontrei"**, porque a KB responde conceito. A barra do `melhorGuia` é 3 pontos
+(uma palavra no título ou três no corpo): menos que isso faria "valor" ou "tela"
+elegerem uma tela qualquer com ar de resposta certa. Guarda no `engine-audit`
+exige que **toda** sugestão resolva — sugestão órfã é pior que nenhuma.
+
+**Tours derivados dos guias** (`catalogoTours` em `lib/ajuda-store`): 42 tours,
+um por rota com ≥2 passos, agrupados pela seção do menu. ⚠️ **O disparo
+automático tem duas travas**, porque um tour que reaparece deixa de ser ajuda e
+vira obstáculo: **uma vez por tela, para sempre** (quem fechou, fechou) e **no
+máximo um por sessão** (quatro telas atravessadas não podem render quatro
+convites). E ele é um **convite discreto, não um modal** — a decisão anterior do
+`PageGuide` (não abrir sozinho para não interceptar o clique da primeira visita)
+continua valendo; há um interruptor para desligar de vez.
+
+⚠️ **As telas das PARTES 08–11 não tinham guia** — descoberto ao medir a
+cobertura das perguntas sugeridas. Foram adicionados 12 guias (Compras, Boletos,
+NFs recebidas, os dois de Contabilidade, os seis de Administração e a própria
+Ajuda), o que também levou o catálogo de tours de 30 para 42.
+
 ### Administração (`/dashboard/administration/*`) + `core/administracao`
 
 `src/core/administracao/index.ts` (`administracao/1.0.0`, puro/tipado/demo-safe)

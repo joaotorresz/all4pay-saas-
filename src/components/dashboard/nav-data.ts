@@ -109,6 +109,7 @@ export const CONFIG: Section = {
   id: "config", label: "Configurações", items: [
     { label: "Empresa", href: "/configuracoes", icon: "settings" },
     { label: "Administração", href: "/dashboard/administration", icon: "shield-check" },
+    { label: "Central de ajuda", href: "/dashboard/help", icon: "help-circle" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
     { label: "Adicionar Empresa", href: "/empresas/nova", icon: "plus" },
   ],
