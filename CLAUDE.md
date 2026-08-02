@@ -1032,7 +1032,47 @@ o filtro "Projeto" ficou de fora dos painéis. Agora existe ponta a ponta:
   transação do `ExtratoTransacoes` permite vincular/desvincular uma transação
   existente. `FiltroPainel.projeto` e o filtro dos relatórios consomem isso.
 
-### Cadastros (`/cadastros` — hub de 9 abas) + `core/registros`
+### Orçamento (`/dashboard/registrations/budgets`) + `core/orcamento`
+
+`src/core/orcamento/index.ts` (`orcamento/1.0.0`, puro/tipado/demo-safe) — o
+planejamento por categoria e mês, e a PONTE para o realizado.
+
+- **Cadastro em 2 etapas**, e isso é regra: a alocação mensal só existe depois
+  do período, porque é ele que decide quantas colunas a tabela tem. Etapa 1:
+  nome, período, **regime** (competência/caixa), formato (detalhado/resumido),
+  projeto, centro, descrição. Etapa 2: a tabela de alocação.
+- ⚠️ **`orcadoPorLinha` é o elo:** o orçamento é digitado por CATEGORIA ("folha,
+  40 mil/mês") e o relatório compara por LINHA da cascata (Despesas
+  Operacionais). Cada categoria orçada vira um movimento SINTÉTICO e passa pelo
+  MESMO classificador de `core/relatorios` — senão previsto e realizado
+  comparariam linhas diferentes e o desvio seria fantasia. As linhas "=" saem
+  das próprias fórmulas.
+- **`distribuir`** põe o resto no ÚLTIMO mês: 100 ÷ 3 = 33,33 × 3 = 99,99 e o
+  orçamento nasceria com um centavo a menos que o digitado.
+- **`ajustarAlocacoes`** mantém uma casa por mês quando o período muda —
+  tamanho diferente mostraria o valor do mês errado, calado.
+- **Só orçamentos do MESMO regime** aparecem no DRE (competência) e no DFC
+  (caixa): confrontar regimes diferentes produz um desvio que não diz nada. Se
+  o orçamento não cobre a janela toda, a tela avisa quantos meses ficaram sem
+  previsto.
+- ⚠️ **A cor da diferença vem do SINAL DA LINHA**, não do sinal do número: numa
+  linha de despesa, gastar mais que o orçado é diferença positiva e é RUIM.
+  Pintar de verde diria que estourar o orçamento foi um bom resultado.
+- Persistência em `lib/orcamentos` (localStorage). É também aba do hub de
+  Cadastros. Distinto de `/orcamento` (Planejado × Realizado + "Posso
+  comprar?"), que é a tela de ANÁLISE — aqui é o cadastro.
+
+### Consolidação multiempresa de verdade (`0020`)
+
+`org_movements(de, ate)` e `org_balances()` (`SECURITY DEFINER`, escopadas às
+orgs do `auth.uid()` via `organization_members`, anon revogado) devolvem os
+**lançamentos** de cada organização — o `org_consolidado` (0013) só dava totais,
+e a cascata precisa classificar lançamento a lançamento. `getRiscoInputPorOrg`
+(`lib/consolidado`) monta um `RiskInput` por org; devolve `null` quando a RPC
+não existe (migration pendente) e a tela cai na empresa atual **dizendo isso**.
+Migration gerada como arquivo — aplicar ao remoto.
+
+### Cadastros (`/cadastros` — hub de 10 abas) + `core/registros`
 
 `src/core/registros/index.ts` (`registros/1.0.0`, puro/tipado/demo-safe) — as
 regras que as telas de cadastro compartilham. Cada aba tem **rota própria** em

@@ -15,7 +15,12 @@ import {
 import { Card, Skeleton, Select, Icon } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
-import { montarDRE, montarDFC, rotuloColuna, compararOrcamento, type Relatorio } from "@/core/relatorios";
+import {
+  montarDRE, montarDFC, rotuloColuna, compararOrcamento,
+  ESTRUTURA_DRE, ESTRUTURA_DFC, type Relatorio,
+} from "@/core/relatorios";
+import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
+import { listarOrcamentos } from "@/lib/orcamentos";
 import {
   FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
   filtroPadrao, LAYOUT_PADRAO, temaPorId,
@@ -23,6 +28,7 @@ import {
 } from "./kit";
 
 const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
@@ -32,7 +38,10 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const [aplicados, setAplicados] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
   const [layout, setLayout] = React.useState<LayoutTabela>(LAYOUT_PADRAO);
   const [celula, setCelula] = React.useState<CelulaClicada | null>(null);
-  const [orcamento, setOrcamento] = React.useState("");
+  const [orcamentoId, setOrcamentoId] = React.useState("");
+  // A lista vem do localStorage → só depois de montar (hidratação).
+  const [orcamentos, setOrcamentos] = React.useState<Orcamento[]>([]);
+  React.useEffect(() => { setOrcamentos(listarOrcamentos()); }, []);
 
   const relatorio: Relatorio | null = React.useMemo(() => {
     if (!input) return null;
@@ -43,8 +52,27 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
     return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);
   }, [input, aplicados, tipo]);
 
-  const titulo = tipo === "dre" ? "DRE" : "DFC";
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
+
+  /**
+   * Só orçamentos do MESMO regime aparecem: comparar um orçamento de caixa com
+   * a DRE (competência) confrontaria coisas diferentes e o desvio não diria
+   * nada. É a mesma razão pela qual o cadastro pede o regime.
+   */
+  const regimeAlvo = tipo === "dre" ? "competencia" : "caixa";
+  const elegiveis = React.useMemo(
+    () => orcamentos.filter((o) => o.regime === regimeAlvo),
+    [orcamentos, regimeAlvo],
+  );
+  const escolhido = elegiveis.find((o) => o.id === orcamentoId) ?? null;
+
+  const comparacao = React.useMemo(() => {
+    if (!relatorio || !escolhido) return undefined;
+    const estrutura = tipo === "dre" ? ESTRUTURA_DRE : ESTRUTURA_DFC;
+    return compararOrcamento(relatorio, orcadoPorLinha(escolhido, estrutura, relatorio.colunas));
+  }, [relatorio, escolhido, tipo]);
+
+  const cob = relatorio && escolhido ? cobertura(escolhido, relatorio.colunas) : null;
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -72,18 +100,32 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           <div className="flex flex-col gap-[6px] mt-4">
             <label className="text-caption font-medium text-muted">Orçamento</label>
             <Select
-              value={orcamento}
-              onChange={setOrcamento}
-              options={[{ value: "", label: "Nenhum orçamento cadastrado" }]}
-              disabled
+              value={orcamentoId}
+              onChange={setOrcamentoId}
+              options={[
+                { value: "", label: elegiveis.length ? "Nenhum (só realizado)" : "Nenhum orçamento de " + (tipo === "dre" ? "competência" : "caixa") },
+                ...elegiveis.map((o) => ({ value: o.id, label: `${o.nome} · ${o.periodo.de.slice(0, 4)}` })),
+              ]}
+              disabled={elegiveis.length === 0}
             />
-            {/* Honestidade: o módulo de orçamento existe (/orcamento) mas ainda
-                não guarda um orçamento POR LINHA da cascata. Enquanto não
-                guardar, um select com opções falsas seria pior que o aviso. */}
-            <span className="text-caption text-faint">
-              A comparação liga assim que houver um orçamento salvo por linha do resultado.
-              Cadastre em Orçamento.
-            </span>
+            {elegiveis.length === 0 ? (
+              <span className="text-caption text-faint">
+                Cadastre um orçamento de {tipo === "dre" ? "competência" : "caixa"} em Cadastros › Orçamento.
+              </span>
+            ) : escolhido ? (
+              <div className="flex flex-col gap-1 mt-1">
+                <span className="text-caption text-muted tabular-nums">
+                  Receita prevista {fmtBRL(resumoOrcamento(escolhido).receita)} · Despesa {fmtBRL(resumoOrcamento(escolhido).despesa)}
+                </span>
+                {/* Um orçamento que não cobre a janela toda produziria "realizado
+                    sem previsto" sem o usuário entender por quê. */}
+                {cob && cob.cobertos < cob.total && (
+                  <span className="text-caption text-warning">
+                    O orçamento cobre {cob.cobertos} de {cob.total} meses do período — os demais aparecem sem previsto.
+                  </span>
+                )}
+              </div>
+            ) : null}
           </div>
         </Card>
       </div>
@@ -104,7 +146,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       ) : (
         <>
           {layout.mostrarGrafico && <GraficoResultado relatorio={relatorio} tipo={tipo} tema={layout.tema} />}
-          <TabelaRelatorio relatorio={relatorio} layout={layout} onCelula={setCelula} />
+          <TabelaRelatorio relatorio={relatorio} layout={layout} onCelula={setCelula} orcamento={comparacao} />
         </>
       )}
 

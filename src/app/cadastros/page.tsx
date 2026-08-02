@@ -10,12 +10,13 @@ import { PartesView } from "@/components/registros/PartesView";
 import { ProdutosRegistroView } from "@/components/registros/ProdutosRegistroView";
 import { ProjetosRegistroView, CentrosCustoRegistroView } from "@/components/registros/ProjetosCentrosView";
 import { ContratosView } from "@/components/registros/ContratosView";
+import { OrcamentosView } from "@/components/registros/OrcamentosView";
 
 /**
  * Hub de Cadastros — o "quem/o quê" do ERP num destino só.
  *
  * Cada aba tem rota própria em `/dashboard/registrations/*` e abre sozinha;
- * aqui viram abas para o menu não ganhar nove entradas. Clientes vem primeiro
+ * aqui viram abas para o menu não ganhar dez entradas. Clientes vem primeiro
  * porque é o cadastro que mais se abre no dia a dia.
  *
  * Clientes e Fornecedores eram uma aba só ("Contatos"); separá-los é o que
@@ -32,6 +33,7 @@ const ABAS: AbaHub[] = [
   { id: "centros-custo", label: "Centros de custo", render: () => <CentrosCustoRegistroView /> },
   { id: "projetos", label: "Projetos", render: () => <ProjetosRegistroView /> },
   { id: "contratos", label: "Contratos", render: () => <ContratosView /> },
+  { id: "orcamento", label: "Orçamento", render: () => <OrcamentosView /> },
 ];
 
 export default function CadastrosPage() {

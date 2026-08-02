@@ -71,6 +71,7 @@ const ROUTES: RouteItem[] = [
   { label: "Fornecedores", href: "/cadastros?aba=fornecedores", icon: "users", kw: "fornecedores contatos cadastro cnpj pix dados pj simples nacional" },
   { label: "Contas bancárias", href: "/cadastros?aba=contas", icon: "building", kw: "conta bancaria banco agencia cartao de credito fatura codigo dominio saldo inicial" },
   { label: "Contratos", href: "/cadastros?aba=contratos", icon: "file-text", kw: "contrato fornecedor cliente vigencia rateio vendas recorrentes anexo" },
+  { label: "Orçamento (cadastro)", href: "/cadastros?aba=orcamento", icon: "target", kw: "orcamento budget planejamento previsto alocacao mensal por categoria previsto realizado" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },

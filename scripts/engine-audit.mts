@@ -56,6 +56,11 @@ import {
   ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
 } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
+import {
+  validarOrcamento, orcadoPorLinha, resumoOrcamento, distribuir, ajustarAlocacoes,
+  cobertura, sugerirCategorias, mesesDoOrcamento, totalAlocacao,
+  type Orcamento,
+} from "@/core/orcamento";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -1292,6 +1297,130 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("docx: declara docDefaults e o estilo Normal",
     td.includes("<w:docDefaults>") && td.includes('w:styleId="Normal"'));
   ok("docx: escapa & e < do conteúdo", td.includes("&amp;") && td.includes("&lt;2026&gt;"));
+}
+
+// ── core/orcamento: previsto × realizado ───────────────────────────────────
+{
+  const O = (o: Partial<Orcamento>): Orcamento => ({
+    id: "o1", nome: "Orçamento 2026", regime: "competencia", formato: "detalhado",
+    periodo: { de: "2026-05-01", ate: "2026-06-30" },
+    projeto: null, centro: null, descricao: "", criadoEm: "2026-01-01",
+    alocacoes: [], ...o,
+  });
+
+  // ---- validação ----
+  ok("orcamento: completo é válido", Object.keys(validarOrcamento(O({}))).length === 0);
+  ok("orcamento: nome é obrigatório", !!validarOrcamento(O({ nome: " " })).nome);
+  ok("orcamento: período invertido é recusado",
+    !!validarOrcamento(O({ periodo: { de: "2026-06-01", ate: "2026-01-01" } })).periodo);
+  // Um orçamento de 10 anos viraria uma tabela de 120 colunas — ilegível e lenta.
+  ok("orcamento: período acima de 36 meses é recusado",
+    !!validarOrcamento(O({ periodo: { de: "2020-01-01", ate: "2026-12-31" } })).periodo);
+
+  // ---- distribuição: o total tem de FECHAR ----
+  // 100 ÷ 3 = 33,33 × 3 = 99,99. O resto vai no último mês, senão o orçamento
+  // nasce com um centavo a menos do que a pessoa digitou.
+  const d3 = distribuir(100, 3);
+  ok("orcamento: distribuir fecha o total exato",
+    Math.round(d3.reduce((s, v) => s + v, 0) * 100) === 10_000, `${d3.join(",")}`);
+  ok("orcamento: o resto vai no último mês", d3[2] > d3[0], `${d3.join(",")}`);
+  ok("orcamento: distribuir em 1 mês devolve o total", distribuir(100, 1)[0] === 100);
+  ok("orcamento: distribuir em 0 meses não quebra", distribuir(100, 0).length === 0);
+
+  // ---- ajustar colunas quando o período muda ----
+  const aloc = [{ categoria: "Folha", tipo: "saida" as const, valores: [10, 20, 30] }];
+  ok("orcamento: encurtar o período corta os meses do fim",
+    ajustarAlocacoes(aloc, 2)[0].valores.join(",") === "10,20");
+  ok("orcamento: alongar o período acrescenta zeros",
+    ajustarAlocacoes(aloc, 5)[0].valores.join(",") === "10,20,30,0,0");
+  // Tamanho diferente do nº de meses mostraria o valor do mês ERRADO, calado.
+  ok("orcamento: a alocação sempre tem uma casa por mês",
+    ajustarAlocacoes(aloc, 7)[0].valores.length === 7);
+
+  // ---- resumo ----
+  const orc = O({
+    alocacoes: [
+      { categoria: "Vendas", tipo: "entrada", valores: [100_000, 200_000] },
+      { categoria: "Folha de Pagamento", tipo: "saida", valores: [40_000, 40_000] },
+      { categoria: "Simples Nacional", tipo: "saida", valores: [10_000, 20_000] },
+      { categoria: "Fornecedores", tipo: "saida", valores: [30_000, 50_000] },
+    ],
+  });
+  const r = resumoOrcamento(orc);
+  ok("orcamento: receita prevista soma as entradas", r.receita === 300_000, `${r.receita}`);
+  ok("orcamento: despesa prevista soma as saídas", r.despesa === 190_000, `${r.despesa}`);
+  ok("orcamento: resultado = receita − despesa", r.resultado === 110_000, `${r.resultado}`);
+  ok("orcamento: dois meses no período", mesesDoOrcamento(orc).join(",") === "2026-05,2026-06");
+  ok("orcamento: total da linha soma os meses", totalAlocacao(orc.alocacoes[0]) === 300_000);
+
+  // ---- a PONTE: categoria orçada → linha da cascata ----
+  const colunas = ["2026-05", "2026-06"];
+  const porLinha = orcadoPorLinha(orc, ESTRUTURA_DRE, colunas);
+  const vl = (id: string, k = 0) => porLinha.find((l) => l.id === id)?.valores[k] ?? NaN;
+  ok("orcamento/ponte: receita cai em Receita Bruta", vl("receita_bruta") === 100_000, `${vl("receita_bruta")}`);
+  // "Simples Nacional" é DEDUÇÃO, não despesa operacional — a mesma
+  // classificação do realizado, senão previsto e realizado comparariam linhas
+  // diferentes e o desvio seria fantasia.
+  ok("orcamento/ponte: Simples Nacional cai em Deduções", vl("deducoes") === 10_000, `${vl("deducoes")}`);
+  ok("orcamento/ponte: Fornecedores cai em Custos Variáveis", vl("custos_variaveis") === 30_000, `${vl("custos_variaveis")}`);
+  ok("orcamento/ponte: Folha cai em Despesas Operacionais", vl("despesas_operacionais") === 40_000, `${vl("despesas_operacionais")}`);
+  // As linhas "=" saem das fórmulas, iguais ao realizado.
+  ok("orcamento/ponte: receita líquida orçada = bruta − deduções", vl("receita_liquida") === 90_000, `${vl("receita_liquida")}`);
+  ok("orcamento/ponte: EBITDA orçado fecha a cascata", vl("ebitda") === 20_000, `${vl("ebitda")}`);
+  ok("orcamento/ponte: a segunda coluna é o segundo mês", vl("receita_bruta", 1) === 200_000, `${vl("receita_bruta", 1)}`);
+
+  // Mês do relatório fora do orçamento fica ZERADO, não repete o mês anterior.
+  const foraDaJanela = orcadoPorLinha(orc, ESTRUTURA_DRE, ["2026-05", "2026-06", "2026-07"]);
+  ok("orcamento/ponte: mês sem orçamento fica zerado",
+    foraDaJanela.find((l) => l.id === "receita_bruta")!.valores[2] === 0);
+  ok("orcamento/ponte: categoria em branco é ignorada",
+    orcadoPorLinha(O({ alocacoes: [{ categoria: "  ", tipo: "saida", valores: [999] }] }), ESTRUTURA_DRE, colunas)
+      .find((l) => l.id === "despesas_operacionais")!.valores[0] === 0);
+
+  // ---- comparação com o realizado ----
+  // Fixture própria: realizado igual ao orçado de junho, para a diferença
+  // ficar em zero e o teste medir a PONTE, não os números do outro bloco.
+  const realInput: RiskInput = {
+    hoje: "2026-06-30", saldoAtual: 0, partyNames: {},
+    movements: [
+      { id: "a", type: "entrada", status: "pago", amount: 200_000, due_date: "2026-06-05", paid_date: "2026-06-05", category: "Vendas" },
+      { id: "b", type: "saida", status: "pago", amount: 40_000, due_date: "2026-06-06", paid_date: "2026-06-06", category: "Folha de Pagamento" },
+    ] as RiskMovement[],
+  };
+  const realizado = montarDRE(realInput, { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, tipo: "vertical" });
+  const cmp = compararOrcamento(realizado, orcadoPorLinha(orc, ESTRUTURA_DRE, realizado.colunas));
+  // Realizado 200.000 contra orçado 200.000 em junho → diferença zero.
+  ok("orcamento/comparação: realizado igual ao orçado dá diferença zero",
+    cmp.get("receita_bruta")![0].diferenca === 0, `${cmp.get("receita_bruta")![0].diferenca}`);
+  ok("orcamento/comparação: a diferença carrega o sinal certo",
+    cmp.get("despesas_operacionais")![0].diferenca === 40_000 - 40_000, `${cmp.get("despesas_operacionais")![0].diferenca}`);
+
+  // ---- cobertura ----
+  ok("orcamento: cobertura conta os meses em comum",
+    cobertura(orc, ["2026-05", "2026-06", "2026-07"]).cobertos === 2);
+  ok("orcamento: cobertura total quando a janela cabe",
+    cobertura(orc, ["2026-06"]).cobertos === 1 && cobertura(orc, ["2026-06"]).total === 1);
+
+  // ---- sugestão de categorias ----
+  const sug = sugerirCategorias([
+    { type: "entrada", category: "Vendas" },
+    { type: "saida", category: "Folha" },
+    { type: "entrada", category: "Vendas" },
+    { type: "saida", category: "  " },
+  ]);
+  ok("orcamento: sugere cada categoria uma vez", sug.length === 2, `${sug.length}`);
+  ok("orcamento: receita vem antes de despesa", sug[0].tipo === "entrada");
+  ok("orcamento: categoria vazia não vira sugestão", !sug.some((s) => !s.categoria.trim()));
+
+  // ---- a leitura da diferença depende do SINAL da linha ----
+  // Gastar mais que o orçado é diferença POSITIVA numa linha de despesa e é
+  // ruim; numa linha de receita é positiva e é boa. Pintar as duas de verde
+  // diria que estourar o orçamento foi um bom resultado.
+  const bomParaLinha = (dif: number, sinal: string) => (sinal === "-" ? dif < 0 : dif > 0);
+  ok("orcamento/leitura: receita acima do orçado é BOM", bomParaLinha(100, "+"));
+  ok("orcamento/leitura: despesa acima do orçado é RUIM", !bomParaLinha(100, "-"));
+  ok("orcamento/leitura: despesa abaixo do orçado é BOM", bomParaLinha(-100, "-"));
+  ok("orcamento/leitura: receita abaixo do orçado é RUIM", !bomParaLinha(-100, "+"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

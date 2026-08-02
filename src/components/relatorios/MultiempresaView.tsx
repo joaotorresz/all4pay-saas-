@@ -8,15 +8,19 @@
  * relatório em si sai do MESMO motor — consolidar somando os relatórios
  * prontos dobraria a lógica e as duas somas divergiriam na primeira regra nova.
  *
+ * A fonte é `getRiscoInputPorOrg` (RPC `org_movements`, migration 0020), que
+ * devolve os LANÇAMENTOS de cada organização em que o usuário é membro. Totais
+ * agregados não bastariam: a cascata classifica lançamento a lançamento.
+ *
  * ⚠️ Permissão: no ERP de referência este recurso é gateado por permissão
  * específica ("Você não possui permissão de DRE Multiempresas em nenhuma
- * empresa"). Aqui a lista sai das organizações em que o usuário É MEMBRO —
- * quem tem uma organização só vê uma, e a tela diz isso em vez de fingir.
+ * empresa"). Aqui o escopo é o mesmo do resto do sistema — as organizações em
+ * que o usuário É MEMBRO, garantido dentro da própria RPC.
  */
 import * as React from "react";
-import { Card, Button, Select, Icon, Skeleton, Checkbox } from "@/components/ui";
+import { Card, Select, Icon, Skeleton, Checkbox, BRL } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { getConsolidado, type EntidadeConsolidada } from "@/lib/consolidado";
+import { getRiscoInputPorOrg } from "@/lib/consolidado";
 import {
   montarConsolidado, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
   type RelatorioConsolidado,
@@ -30,7 +34,9 @@ import type { RiskInput } from "@/core/risk-engine/types";
 
 export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
-  const [entidades, setEntidades] = React.useState<EntidadeConsolidada[] | null>(null);
+  const [entidades, setEntidades] = React.useState<{ orgId: string; nome: string; input: RiskInput }[] | null>(null);
+  /** null = ainda carregando · false = a RPC não existe (migration pendente). */
+  const [fontePorOrg, setFontePorOrg] = React.useState<boolean | null>(null);
   const [selecionadas, setSelecionadas] = React.useState<string[]>([]);
   const [contasFiltro, setContasFiltro] = React.useState<"ativas" | "todas">("ativas");
   const [rascunho, setRascunho] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
@@ -38,16 +44,22 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
   const [layout, setLayout] = React.useState<LayoutTabela>(LAYOUT_PADRAO);
   const [celula, setCelula] = React.useState<CelulaClicada | null>(null);
 
+  // Os lançamentos por organização são buscados para a JANELA aplicada: puxar
+  // o histórico inteiro de N empresas para mostrar um trimestre seria desperdício.
+  const janela = aplicados?.intervalo ?? rascunho.intervalo;
   React.useEffect(() => {
     let vivo = true;
-    // A lista de empresas sai do MESMO consolidado de `/consolidado` — uma
-    // segunda fonte de "quais empresas existem" divergiria da primeira.
-    const ano = new Date().getFullYear();
-    getConsolidado(`${ano}-01-01`, `${ano}-12-31`)
-      .then((c) => { if (vivo) { setEntidades(c.entidades); setSelecionadas(c.entidades.map((x) => x.orgId)); } })
-      .catch(() => { if (vivo) setEntidades([]); });
+    getRiscoInputPorOrg(janela.de, janela.ate)
+      .then((r) => {
+        if (!vivo) return;
+        setFontePorOrg(r !== null);
+        const lista = r ?? (input ? [{ orgId: "atual", nome: "Empresa atual", input }] : []);
+        setEntidades(lista);
+        setSelecionadas((s) => (s.length ? s.filter((x) => lista.some((e) => e.orgId === x)) : lista.map((e) => e.orgId)));
+      })
+      .catch(() => { if (vivo) { setFontePorOrg(false); setEntidades([]); } });
     return () => { vivo = false; };
-  }, []);
+  }, [janela.de, janela.ate, input]);
 
   /**
    * Cada entidade precisa de um `RiskInput` próprio para o motor rodar. O
@@ -57,11 +69,12 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
    * tela diz isso, em vez de somar número inventado.
    */
   const consolidado: RelatorioConsolidado | null = React.useMemo(() => {
-    if (!input || !aplicados) return null;
+    if (!aplicados) return null;
     const escolhidas = (entidades ?? []).filter((e) => selecionadas.includes(e.orgId)).slice(0, MAX_EMPRESAS);
     const lista = escolhidas.length > 0
-      ? escolhidas.map((e, k) => ({ id: e.orgId, nome: e.nome, input: k === 0 ? input : vazio(input) }))
-      : [{ id: "atual", nome: "Empresa atual", input }];
+      ? escolhidas.map((e) => ({ id: e.orgId, nome: e.nome, input: e.input }))
+      : input ? [{ id: "atual", nome: "Empresa atual", input }] : [];
+    if (lista.length === 0) return null;
     return montarConsolidado(lista, tipo === "dre" ? ESTRUTURA_DRE : ESTRUTURA_DFC, {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
@@ -97,7 +110,7 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
                 <Skeleton className="h-[42px]" />
               ) : nEmpresas === 0 ? (
                 <div className="rounded-md bg-surface-2 px-3 py-[10px] text-caption text-muted">
-                  Você não participa de nenhuma outra organização — o relatório sai da empresa atual.
+                  Nenhuma organização com lançamentos no período — o relatório sai da empresa atual.
                 </div>
               ) : (
                 <div className="rounded-md bg-surface-2 p-3 max-h-[160px] overflow-y-auto flex flex-col gap-2">
@@ -149,20 +162,31 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
         </Card>
       ) : (
         <>
-          {consolidado.empresas.length > 1 && (
-            <Card>
-              <span className="text-h3 font-semibold text-ink">Empresas no consolidado</span>
-              <p className="m-0 mt-2 text-caption text-muted">
-                A consolidação roda sobre os lançamentos da organização ativa. As demais entram na lista quando a
-                fonte por organização expuser os lançamentos — até lá, somar zeros seria pior que dizer isto.
+          <Card>
+            <span className="text-h3 font-semibold text-ink">Empresas no consolidado</span>
+            {fontePorOrg === false && (
+              <p className="m-0 mt-2 text-caption text-warning">
+                A fonte por organização ainda não está disponível neste ambiente (migration 0020 pendente) —
+                o relatório sai da empresa atual.
               </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {consolidado.empresas.map((e) => (
-                  <span key={e.id} className="rounded-pill bg-surface-2 px-3 py-1 text-caption text-muted">{e.nome}</span>
-                ))}
-              </div>
-            </Card>
-          )}
+            )}
+            <div className="flex flex-col mt-3">
+              {consolidado.empresas.map((e) => {
+                const linha = e.relatorio.linhas.find((l) => l.id === (tipo === "dre" ? "receita_bruta" : "entradas_operacionais"));
+                return (
+                  <div key={e.id} className="flex items-baseline justify-between gap-3 py-2 border-b border-border-soft last:border-0">
+                    <span className="text-label text-ink truncate">{e.nome}</span>
+                    <span className="text-label text-ink tabular-nums shrink-0">
+                      <BRL value={linha?.total.valor ?? 0} />
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="m-0 mt-3 text-caption text-faint">
+              {tipo === "dre" ? "Receita bruta" : "Entradas"} de cada empresa no período. Sem eliminações intercompany (v1).
+            </p>
+          </Card>
           <TabelaRelatorio relatorio={consolidado.consolidado} layout={layout} onCelula={setCelula} />
         </>
       )}
@@ -172,7 +196,4 @@ export function MultiempresaView({ tipo }: { tipo: "dre" | "dfc" }) {
   );
 }
 
-/** Uma entidade sem lançamentos — a coluna existe, o número não é inventado. */
-const vazio = (base: RiskInput): RiskInput => ({
-  hoje: base.hoje, saldoAtual: 0, movements: [], partyNames: {}, horizonDias: 60,
-});
+

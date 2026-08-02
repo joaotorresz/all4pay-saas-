@@ -16,6 +16,7 @@ import { baixarXLSX } from "@/lib/xlsx";
 import {
   intervaloDoPreset, rotuloColuna,
   type Intervalo, type PresetPeriodo, type TipoAnalise, type Relatorio, type LinhaRelatorio,
+  type CelulaOrcamento, type SinalLinha,
 } from "@/core/relatorios";
 
 /* ================================== temas ================================== */
@@ -278,11 +279,13 @@ const fmt = (n: number, cifrao: boolean) => {
 export interface CelulaClicada { linha: string; coluna: string; movimentos: string[] }
 
 export function TabelaRelatorio({
-  relatorio, layout, onCelula,
+  relatorio, layout, onCelula, orcamento,
 }: {
   relatorio: Relatorio;
   layout: LayoutTabela;
   onCelula: (c: CelulaClicada) => void;
+  /** Comparação com orçamento por linha — acrescenta Orçado/Diferença/% por período. */
+  orcamento?: Map<string, CelulaOrcamento[]>;
 }) {
   const t = temaPorId(layout.tema);
   const [abertas, setAbertas] = React.useState<Set<string>>(new Set());
@@ -302,6 +305,9 @@ export function TabelaRelatorio({
 
   const pct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
   const mostrarPct = layout.nivel >= 1;
+  // Com orçamento cada período ganha 3 colunas extras (Orçado · Dif. · %).
+  const comOrc = !!orcamento;
+  const colsPorPeriodo = (mostrarPct ? 2 : 1) + (comOrc ? 3 : 0);
 
   return (
     <Card padded={false} className="overflow-hidden">
@@ -313,8 +319,8 @@ export function TabelaRelatorio({
                 Categoria
               </th>
               {relatorio.colunas.map((c) => (
-                <th key={c} colSpan={mostrarPct ? 2 : 1} className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">
-                  {rotuloColuna(c)}
+                <th key={c} colSpan={colsPorPeriodo} className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">
+                  {rotuloColuna(c)}{comOrc && <span className="font-normal opacity-70"> · realizado / orçado / dif. / %</span>}
                 </th>
               ))}
               <th colSpan={mostrarPct ? 2 : 1} className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">Total</th>
@@ -350,6 +356,7 @@ export function TabelaRelatorio({
                           onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos }) : undefined}
                         />
                         {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
+                        {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} sinalLinha={l.sinal} />}
                       </React.Fragment>
                     ))}
                     <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte
@@ -370,6 +377,10 @@ export function TabelaRelatorio({
                             onClick={c.movimentos.length ? () => onCelula({ linha: f.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos }) : undefined}
                           />
                           {mostrarPct && <td className="px-2 py-2 text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
+                          {/* O orçamento é por LINHA da cascata, não por categoria:
+                              a categoria deixa as três colunas vazias para a
+                              tabela não desalinhar. */}
+                          {comOrc && <CelulasOrcamento cifrao={layout.mostrarCifrao} />}
                         </React.Fragment>
                       ))}
                       <Valor valor={f.total.valor} cifrao={layout.mostrarCifrao} miudo
@@ -386,6 +397,48 @@ export function TabelaRelatorio({
       </div>
     </Card>
   );
+}
+
+/**
+ * Orçado · Diferença · % de um período.
+ *
+ * ⚠️ A cor NÃO pode vir do sinal da diferença: numa linha de despesa, gastar
+ * MAIS que o orçado é diferença positiva e é ruim; numa linha de receita é
+ * positiva e é boa. Pintar as duas de verde diria ao operador que estourar o
+ * orçamento foi um bom resultado. Quem decide é o sinal da LINHA.
+ */
+function CelulasOrcamento({
+  o, cifrao, sinalLinha,
+}: { o?: CelulaOrcamento; cifrao?: boolean; sinalLinha?: SinalLinha }) {
+  if (!o) {
+    return (
+      <>
+        <td className="px-3 py-[10px] text-right text-caption text-faint">—</td>
+        <td className="px-3 py-[10px] text-right text-caption text-faint">—</td>
+        <td className="px-2 py-[10px] text-right text-caption text-faint">—</td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="px-3 py-[10px] text-right text-caption text-muted tabular-nums">{fmt(o.orcado, !!cifrao)}</td>
+      <td className={`px-3 py-[10px] text-right text-caption tabular-nums ${corDaDiferenca(o.diferenca, sinalLinha)}`}>
+        {o.diferenca > 0 ? "+" : ""}{fmt(o.diferenca, !!cifrao)}
+      </td>
+      <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">
+        {o.pct == null ? "—" : `${o.pct > 0 ? "+" : ""}${o.pct.toFixed(1)}%`}
+      </td>
+    </>
+  );
+}
+
+/** Linha de saída ("-"): acima do orçado é ruim. Linha de entrada/total: o
+ *  contrário. Zero é neutro — não variou não é bom nem ruim. */
+function corDaDiferenca(dif: number, sinal?: SinalLinha): string {
+  if (dif === 0) return "text-faint";
+  const custo = sinal === "-";
+  const bom = custo ? dif < 0 : dif > 0;
+  return bom ? "text-positive" : "text-negative";
 }
 
 function Valor({
