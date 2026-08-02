@@ -28,7 +28,7 @@ import {
   listarVendas, lerConfigImpostos, salvarConfigImpostos, criarContasDeImpostos,
   listarLinks, salvarLink, removerLink, novoId,
 } from "@/lib/vendas-store";
-import { Painel, CardAnel } from "./VendasView";
+import { Painel, CardAnel } from "@/components/paineis/shared";
 
 const hoje = () => new Date();
 const mesAtual = () => String(hoje().getMonth() + 1).padStart(2, "0");

@@ -1062,6 +1062,65 @@ como **documento-mãe**: gera o recebível, ampara a NF e é a base do imposto.
 - **Notas fiscais** (`/invoices`), **Assinaturas** (`/subscriptions`, sobre
   `lib/recorrencias`) e **Links de pagamento** (`/payment-links`).
 
+### Compras (`/dashboard/purchases/*`) + `core/compras`
+
+`src/core/compras/index.ts` (`compras/1.0.0`, puro/tipado/demo-safe) — a compra
+como **PEDIDO que precisa de aprovação**, e é isso que a separa de "contas a
+pagar". Três telas: a lista com o funil de aprovação, a Nova Compra e as duas
+caixas de entrada fiscais (Boletos DDA · NFs SEFAZ).
+
+- ⚠️ **`movimentosDaCompra` devolve vazio para tudo que não está aprovado.** É a
+  regra central: um pedido *aguardando* que já entrasse no fluxo faria o dono
+  planejar o mês contando com uma saída que talvez nunca aconteça, e um pedido
+  *reprovado* ficaria para sempre pesando num caixa que nunca tocou. Aprovar/
+  reprovar em `lib/compras-store` é o ÚNICO caminho que mexe no dinheiro — e a
+  remoção usa `parcelasDaCompra` (não `movimentosDaCompra`, que já vem filtrado),
+  senão reprovar deixaria títulos órfãos vivos.
+- **Compra marcada como paga nasce APROVADA** (`statusInicial`): o dinheiro já
+  saiu da conta, então ela não pode ficar aguardando autorização — o fluxo de
+  caixa mostraria o dinheiro fora enquanto o card de aprovação ainda a contaria
+  como pendente. Reconhecer o fato não afrouxa o controle: quem lançou segue no
+  `criadoPor`.
+- **Duas datas, dois relatórios:** vencimento é CAIXA (aging, e o filtro usa a
+  data do PAGAMENTO quando a compra foi paga) · competência é RESULTADO (o mês
+  no DRE). **A competência não se parcela** — comprar em março para pagar em 6x
+  é uma despesa de março inteira. Parcelado exige ≥2 parcelas (sem quantidade
+  não há o que criar) e a tela **mostra as datas antes de gravar**. O resto dos
+  centavos vai na ÚLTIMA parcela; dia 31 em mês de 30 vira o último dia.
+- Rateio por projeto/centro compara **centésimos inteiros** (o mesmo bug do
+  `core/registros`: 33,33 × 3 = 99.99000000000001 e uma tolerância de 0,01
+  rejeita a divisão em três). Anexos: **1 MB**, conferidos ANTES de guardar.
+
+**Boletos Recebidos** (`received-boletos`) e **NFs Recebidas**
+(`received-invoices`) dependem de integrações que não existem aqui — DDA pede
+adesão bancária, captura de XML pede certificado A1/A3. **O documento, não.** As
+telas nascem operáveis porque o número se explica sozinho:
+
+- **`core/compras/boleto.ts`** — linha digitável (47) ⇄ código de barras (44),
+  módulo 10 por campo + módulo 11 geral, banco, valor e vencimento. A remontagem
+  é **posicional** (a linha reordena os campos e intercala 4 DVs que o código de
+  barras não tem — não é "o mesmo número com pontinhos").
+  ⚠️ **O fator de vencimento ACABA:** em 21/02/2025 chegou a 9999 e a FEBRABAN o
+  reiniciou em 1000, então o mesmo fator representa duas datas separadas por
+  9000 dias. Sem tratar o ciclo, todo boleto de 2025 em diante é lido com data
+  de 2000-e-poucos e cai como "vencido há 20 anos". A desambiguação é por janela
+  (mais de 3 anos no passado ⇒ ciclo novo); `fatorDaData` devolve o fator do
+  ciclo CORRENTE, senão sairia com 5 dígitos e empurraria o campo livre uma casa.
+  O beneficiário **não** está no código de barras (o campo livre é do banco):
+  preenchê-lo com o banco emissor diria que o Itaú é quem cobra, quando ele é só
+  o agente de arrecadação.
+- **`core/compras/nfe.ts`** — chave de acesso (44): UF, competência de emissão,
+  CNPJ do emitente, modelo (55 NF-e · 65 NFC-e · 57 CT-e), série, número e o DV
+  módulo 11 (resto 0 ou 1 ⇒ 0 — nunca 10, que não cabe numa casa). O **modelo da
+  chave** decide o tipo da nota, não o que o operador escolheria.
+- Os filtros da NF são em **duas camadas** (rascunho × aplicado, botão "Aplicar
+  filtros"): com volume de SEFAZ, refiltrar a cada tecla custa caro. O valor
+  aceita "1300" e "1.300,00" e compara em **centavos**. Boleto e nota deduplicam
+  pelo que os identifica de verdade — código de barras e chave de acesso.
+- Persistência em `lib/compras-store` (localStorage). `CardAnel`/`Painel` (o
+  cartão com anel do print) subiram para `components/paineis/shared.tsx`, agora
+  compartilhados com Vendas. Guardas no `engine-audit`.
+
 ### QR Code (`src/lib/qrcode.ts`) — sem dependência
 
 Modo byte, versões 1–10, nível M: GF(256), Reed-Solomon, as 8 máscaras e a

@@ -282,3 +282,65 @@ export const tooltipPainel: React.CSSProperties = {
   background: "var(--color-white)",
   fontSize: 13,
 };
+
+/* ------------------------------ cards com anel ------------------------------ */
+
+/**
+ * O cartão de status com anel — a anatomia que o print repete em Vendas e em
+ * Compras: a fatia que aquele estado representa do total, a contagem e o valor.
+ */
+export interface DadosAnel {
+  id: string;
+  label: string;
+  valor: number;
+  quantidade: number;
+  percentual: number;
+}
+
+/** O anel mostra a FATIA do total — não uma meta. Total é sempre 100%. */
+export function CardAnel({ c, onClick }: { c: DadosAnel; onClick?: () => void }) {
+  const cor = c.id === "total" ? "var(--color-ink)" : "var(--color-lime)";
+  const r = 20, circ = 2 * Math.PI * r;
+  return (
+    <Card
+      className={onClick ? "cursor-pointer hover:bg-surface-2/40 transition-colors" : undefined}
+      onClick={onClick}
+    >
+      <div className="flex items-center gap-4">
+        <svg width="52" height="52" viewBox="0 0 52 52" className="shrink-0" aria-hidden>
+          <circle cx="26" cy="26" r={r} fill="none" stroke="var(--color-surface-3)" strokeWidth="4" />
+          <circle
+            cx="26" cy="26" r={r} fill="none" stroke={cor} strokeWidth="4" strokeLinecap="round"
+            strokeDasharray={`${(circ * c.percentual) / 100} ${circ}`} transform="rotate(-90 26 26)"
+          />
+          <text x="26" y="29" textAnchor="middle" className="tabular-nums" style={{ fontSize: 10, fill: "var(--color-text-secondary)" }}>
+            {c.percentual.toFixed(0)}%
+          </text>
+        </svg>
+        <div className="min-w-0">
+          <div className="text-caption text-muted">
+            {c.label} <span className="text-faint tabular-nums">({c.quantidade})</span>
+          </div>
+          <div className="text-[20px] leading-none font-semibold text-ink tabular-nums mt-1">
+            <BRL value={c.valor} />
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+export function Painel({
+  titulo, cards, onEscolher,
+}: { titulo?: string; cards: DadosAnel[]; onEscolher?: (id: string) => void }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {titulo && (
+        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {cards.map((c) => <CardAnel key={c.id} c={c} onClick={onEscolher ? () => onEscolher(c.id) : undefined} />)}
+      </div>
+    </div>
+  );
+}

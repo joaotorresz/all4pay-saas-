@@ -34,6 +34,14 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import {
+  painelCompras, filtrarCompras, parcelasDaCompra, movimentosDaCompra,
+  validarCompra, rateioFecha, anexoAceito, statusInicial, somarMeses,
+  lerBoleto, linhaDeCodigoDeBarras, codigoDeBarrasDaLinha, dvModulo10, dvModulo11,
+  dataDoFator, fatorDaData, statusBoleto, resumoBoletos, filtrarBoletos,
+  lerChaveNFe, dvDaChave, filtrarNFs, valorDigitado, resumoNFs,
+  type Compra, type BoletoRecebido, type NFRecebida,
+} from "@/core/compras";
+import {
   fonteMetrica, fonteSerie, fonteCategoria, widgetPadrao, sugerirWidgets,
   templateAcompanhamentoSemanal, CATALOGO, FONTES_METRICA, FONTES_SERIE, FONTES_CATEGORIA,
   type EntradaFontes,
@@ -1783,6 +1791,208 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("qr: SVG traz a zona silenciosa de 4 módulos",
     svg.includes(`viewBox="0 0 ${qr.tamanho + 8} ${qr.tamanho + 8}"`), svg.slice(0, 120));
   ok("qr: SVG é auto-contido (sem fetch externo)", !svg.includes("http://") || svg.includes("www.w3.org/2000/svg"));
+}
+
+// ── core/compras: aprovação, parcelas, boleto e chave de NF-e ──────────────
+{
+  const C = (o: Partial<Compra>): Compra => ({
+    id: "c1", numero: "2026-C0001", fornecedorId: "f1", fornecedor: "Alpha Ltda",
+    contaId: "ac1", categoria: "Fornecedores", tipoPagamento: "a_vista", parcelas: 1,
+    vencimento: "2026-08-20", competencia: "2026-08-01", valor: 1_000,
+    documentoFiscal: "", especie: null, pago: false, dataPagamento: null,
+    projetos: [], centros: [], anexos: [], descricao: "", infoPagamento: "",
+    observacoes: "", status: "aguardando", criadoPor: "Você", criadoEm: "2026-08-01",
+    ...o,
+  });
+
+  // ---- a regra central: pedido não é despesa ----
+  // Se isto quebrar, um pedido aguardando aprovação volta a entrar no fluxo de
+  // caixa — e um pedido REPROVADO passa a pesar num caixa que nunca tocou.
+  ok("compras: aguardando não gera título", movimentosDaCompra(C({ status: "aguardando" })).length === 0);
+  ok("compras: reprovada não gera título", movimentosDaCompra(C({ status: "reprovada" })).length === 0);
+  ok("compras: cancelada não gera título", movimentosDaCompra(C({ status: "cancelada" })).length === 0);
+  ok("compras: aprovada gera título", movimentosDaCompra(C({ status: "aprovada" })).length === 1);
+  // Compra paga nasce aprovada: o dinheiro já saiu, não há o que autorizar.
+  ok("compras: paga nasce aprovada", statusInicial(true) === "aprovada");
+  ok("compras: não paga nasce aguardando", statusInicial(false) === "aguardando");
+
+  // ---- parcelas: o resto vai na ÚLTIMA ----
+  const tres = parcelasDaCompra(C({ tipoPagamento: "parcelado", parcelas: 3, valor: 100 }));
+  ok("compras: 3 parcelas de 100 somam exatamente 100",
+    Math.round(tres.reduce((s, p) => s + p.valor, 0) * 100) === 10_000,
+    tres.map((p) => p.valor).join("+"));
+  ok("compras: o centavo do resto fica na última", tres[2].valor === 33.34, String(tres[2].valor));
+  ok("compras: uma parcela por mês",
+    tres[0].vencimento === "2026-08-20" && tres[1].vencimento === "2026-09-20" && tres[2].vencimento === "2026-10-20");
+  // Dia 31 num mês de 30 vira o último dia — nunca escorrega para o mês seguinte.
+  ok("compras: 31/01 + 1 mês = 28/02", somarMeses("2026-01-31", 1) === "2026-02-28", somarMeses("2026-01-31", 1));
+  ok("compras: 31/03 + 1 mês = 30/04", somarMeses("2026-03-31", 1) === "2026-04-30");
+  // A competência NÃO se parcela: a despesa é do mês em que o bem entrou.
+  const parc = movimentosDaCompra(C({ status: "aprovada", tipoPagamento: "parcelado", parcelas: 4, valor: 400 }));
+  ok("compras: todas as parcelas têm a MESMA competência",
+    parc.every((m) => m.competencia === "2026-08-01"));
+  ok("compras: só a 1ª parcela pode nascer paga",
+    movimentosDaCompra(C({ status: "aprovada", pago: true, dataPagamento: "2026-08-20", tipoPagamento: "parcelado", parcelas: 3, valor: 300 }))
+      .filter((m) => m.status === "pago").length === 1);
+
+  // ---- validação ----
+  ok("compras: parcelado com 1 parcela é recusado",
+    !!validarCompra({ ...C({ tipoPagamento: "parcelado", parcelas: 1 }) }).parcelas);
+  // ⚠️ O rateio compara CENTÉSIMOS INTEIROS. Três linhas de 33,33 somam
+  // 99.99000000000001 em float, e um `Math.abs(soma - 100) <= 0.01` devolve
+  // 0.010000000000005 — rejeitando a divisão em três, que é a mais comum que
+  // existe. Foi o bug que a auditoria dos Cadastros pegou; aqui ele não volta.
+  ok("compras: rateio 33,33 × 3 fecha (a divisão mais comum que existe)",
+    rateioFecha([
+      { id: "a", nome: "A", percentual: 33.33 },
+      { id: "b", nome: "B", percentual: 33.33 },
+      { id: "c", nome: "C", percentual: 33.33 },
+    ]));
+  ok("compras: 33,33 + 33,33 + 33,34 também fecha",
+    rateioFecha([
+      { id: "a", nome: "A", percentual: 33.33 },
+      { id: "b", nome: "B", percentual: 33.33 },
+      { id: "c", nome: "C", percentual: 33.34 },
+    ]));
+  ok("compras: 99% não fecha (a folga é de um centavo, não de um ponto)",
+    !rateioFecha([{ id: "a", nome: "A", percentual: 99 }]));
+  ok("compras: rateio de 90% não fecha",
+    !rateioFecha([{ id: "a", nome: "A", percentual: 90 }]));
+  ok("compras: anexo de 2 MB é recusado", !!anexoAceito("nota.pdf", 2 * 1024 * 1024));
+  ok("compras: .exe é recusado", !!anexoAceito("virus.exe", 100));
+  ok("compras: .ofx de 500 KB passa", anexoAceito("extrato.ofx", 500 * 1024) === null);
+
+  // ---- filtros: a compra paga entra pela data do PAGAMENTO ----
+  const paga = C({ id: "c2", pago: true, dataPagamento: "2026-07-05", vencimento: "2026-08-20", status: "aprovada" });
+  ok("compras: paga é filtrada pela data do pagamento",
+    filtrarCompras([paga], { vencDe: "2026-07-01", vencAte: "2026-07-31" }).length === 1);
+  ok("compras: paga não aparece na janela do vencimento",
+    filtrarCompras([paga], { vencDe: "2026-08-01", vencAte: "2026-08-31" }).length === 0);
+
+  // ---- painel: total é 100% e a soma dos grupos fecha nele ----
+  const cards = painelCompras([
+    C({ id: "a", status: "aprovada", valor: 600 }),
+    C({ id: "b", status: "aguardando", valor: 300 }),
+    C({ id: "c", status: "reprovada", valor: 100 }),
+  ]);
+  const total = cards.find((c) => c.id === "total")!;
+  ok("compras: total do painel soma tudo", total.valor === 1_000 && total.quantidade === 3);
+  ok("compras: as fatias somam 100%",
+    Math.round(cards.filter((c) => c.id !== "total").reduce((s, c) => s + c.percentual, 0)) === 100);
+  ok("compras: reprovadas e canceladas caem no MESMO card",
+    painelCompras([C({ id: "a", status: "reprovada", valor: 50 }), C({ id: "b", status: "cancelada", valor: 50 })])
+      .find((c) => c.id === "reprovada")!.quantidade === 2);
+  // Lista vazia não pode virar NaN no anel.
+  ok("compras: painel vazio não produz NaN",
+    painelCompras([]).every((c) => Number.isFinite(c.percentual) && Number.isFinite(c.valor)));
+
+  /* ------------------------------- boleto ------------------------------- */
+
+  // Um boleto real montado a partir do código de barras: banco 341 (Itaú),
+  // moeda 9, fator do dia 20/08/2026 e valor R$ 1.234,56.
+  const fator = fatorDaData("2026-08-20");
+  const semDV = "3419" + String(fator).padStart(4, "0") + "0000123456" + "1234567890123456789012345";
+  const barras = semDV.slice(0, 4) + dvModulo11(semDV.slice(0, 4) + semDV.slice(4)) + semDV.slice(4);
+  const linha = linhaDeCodigoDeBarras(barras);
+
+  ok("boleto: linha digitável tem 47 dígitos", linha.length === 47, String(linha.length));
+  // Ida e volta: a linha reordena os campos do código de barras e intercala 4
+  // DVs. Um erro de índice aqui produz um boleto plausível e ilegível.
+  ok("boleto: linha → código de barras volta idêntico",
+    codigoDeBarrasDaLinha(linha) === barras, `${codigoDeBarrasDaLinha(linha)} != ${barras}`);
+
+  const lido = lerBoleto(linha, "2026-08-01")!;
+  ok("boleto: lê o valor exato", lido.valor === 1_234.56, String(lido.valor));
+  ok("boleto: lê o vencimento", lido.vencimento === "2026-08-20", String(lido.vencimento));
+  ok("boleto: identifica o banco", lido.banco === "341" && lido.bancoNome === "Itaú");
+  ok("boleto: os quatro DVs conferem", lido.valido && lido.problemas.length === 0, lido.problemas.join(" "));
+
+  // Um dígito trocado no meio precisa ser DENUNCIADO, não lido em silêncio —
+  // é a única coisa que separa "conferido" de "digitado".
+  const corrompida = linha.slice(0, 12) + (linha[12] === "9" ? "0" : "9") + linha.slice(13);
+  ok("boleto: dígito trocado é denunciado", !lerBoleto(corrompida, "2026-08-01")!.valido);
+
+  // ⚠️ O ciclo do fator: em 21/02/2025 ele chegou a 9999 e reiniciou em 1000.
+  // Sem tratar isso, todo boleto de 2025 em diante é lido com data de 2000-e-
+  // poucos e cai como "vencido há 20 anos".
+  ok("boleto: fator base 1000 = 07/10/1997 + 1000 dias",
+    dataDoFator(1000, "1998-01-01") === "2000-07-03", String(dataDoFator(1000, "1998-01-01")));
+  ok("boleto: o mesmo fator relido em 2026 cai no ciclo NOVO",
+    dataDoFator(1000, "2026-08-01") === "2025-02-22", String(dataDoFator(1000, "2026-08-01")));
+  ok("boleto: fator 0000 não inventa data", dataDoFator(0) === null);
+  ok("boleto: entrada curta demais devolve null", lerBoleto("123") === null);
+
+  // Módulo 10 e módulo 11 são regras diferentes e não intercambiáveis.
+  ok("boleto: módulo 10 conhecido", dvModulo10("341900001") === dvModulo10("341900001"));
+  ok("boleto: módulo 11 nunca devolve 0, 10 ou 11", (() => {
+    for (let k = 0; k < 60; k++) {
+      const dv = dvModulo11(String(k).padStart(43, "1"));
+      if (dv === 0 || dv === 10 || dv === 11) return false;
+    }
+    return true;
+  })());
+
+  const B = (o: Partial<BoletoRecebido>): BoletoRecebido => ({
+    id: "b1", origem: "manual", beneficiario: "Alpha Ltda", pagador: "Sua empresa",
+    leitura: lido, pago: false, dataPagamento: null, recebidoEm: "2026-08-01",
+    movimentoId: null, ...o,
+  });
+  ok("boleto: vencido é quem passou da data", statusBoleto(B({}), "2026-09-01") === "vencido");
+  ok("boleto: a vencer antes da data", statusBoleto(B({}), "2026-08-01") === "a_vencer");
+  ok("boleto: pago vence qualquer data", statusBoleto(B({ pago: true }), "2026-09-01") === "pago");
+  ok("boleto: resumo conta os três estados", (() => {
+    const r = resumoBoletos([B({ id: "a" }), B({ id: "b", pago: true })], "2026-09-01");
+    return r.quantidade === 2 && r.vencidos === 1 && r.pagos === 1;
+  })());
+  // A busca por código de barras ignora pontuação — ninguém digita os pontos.
+  ok("boleto: busca pelo número formatado encontra",
+    filtrarBoletos([B({})], linha.slice(0, 5) + "." + linha.slice(5, 10), "todos", "2026-08-01").length === 1);
+
+  /* -------------------------------- NF-e -------------------------------- */
+
+  // Chave real: SP (35), agosto/2026, CNPJ, modelo 55, série 1, nº 1234.
+  const base43 = "35" + "2608" + "12345678000195" + "55" + "001" + "000001234" + "1" + "12345678";
+  const chave = base43 + String(dvDaChave(base43));
+  const nf = lerChaveNFe(chave)!;
+  ok("nfe: chave tem 44 dígitos", chave.length === 44, String(chave.length));
+  ok("nfe: lê a UF", nf.uf === "SP");
+  ok("nfe: lê a competência de emissão", nf.emissao === "2026-08", nf.emissao);
+  ok("nfe: lê o CNPJ do emitente", nf.cnpj === "12345678000195");
+  ok("nfe: lê modelo, série e número",
+    nf.modeloLabel === "NF-e" && nf.serie === "1" && nf.numero === "1234",
+    `${nf.modeloLabel}/${nf.serie}/${nf.numero}`);
+  ok("nfe: o dígito confere", nf.valido);
+  ok("nfe: dígito trocado é denunciado",
+    !lerChaveNFe(base43 + String((Number(chave[43]) + 1) % 10))!.valido);
+  ok("nfe: modelo 65 é NFC-e",
+    lerChaveNFe("35260812345678000195" + "65" + "001" + "000001234" + "1" + "12345678" + "0")!.modeloLabel === "NFC-e");
+  // Resto 0 ou 1 no módulo 11 devolve 0 — nunca 10, que não cabe numa casa.
+  ok("nfe: DV nunca é 10", (() => {
+    for (let k = 0; k < 200; k++) if (dvDaChave(String(k).padStart(43, "7")) >= 10) return false;
+    return true;
+  })());
+  ok("nfe: chave curta devolve null", lerChaveNFe("3526081234") === null);
+
+  const N = (o: Partial<NFRecebida>): NFRecebida => ({
+    id: "n1", chave: nf, numero: "1234", tipo: "NFE", fornecedorId: null,
+    fornecedor: "Alpha Ltda", cnpj: nf.cnpj, emissao: "2026-08-10", valor: 1_300,
+    categoria: "Fornecedores", status: "recebida", avaliacao: "pendente", origem: "manual",
+    ...o,
+  });
+  // O operador copia o valor do DANFE (pt-BR) ou digita o número redondo.
+  ok("nfs: '1.300,00' e '1300' são o mesmo filtro",
+    valorDigitado("1.300,00") === 1_300 && valorDigitado("1300") === 1_300);
+  ok("nfs: campo vazio não filtra", valorDigitado("  ") === null);
+  ok("nfs: filtro de valor casa em centavos",
+    filtrarNFs([N({})], { valor: 1_300 }).length === 1);
+  ok("nfs: valor diferente não casa", filtrarNFs([N({})], { valor: 1_301 }).length === 0);
+  ok("nfs: janela de emissão exclui fora",
+    filtrarNFs([N({})], { de: "2026-09-01", ate: "2026-09-30" }).length === 0);
+  ok("nfs: busca por CNPJ encontra", filtrarNFs([N({})], { fornecedor: "12345678000195" }).length === 1);
+  ok("nfs: pendentes contam só o que não foi avaliado",
+    resumoNFs([N({ id: "a" }), N({ id: "b", avaliacao: "aprovada" })]).pendentes === 1);
+  ok("nfs: resumo vazio não produz NaN",
+    Number.isFinite(resumoNFs([]).valorTotal) && resumoNFs([]).quantidade === 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

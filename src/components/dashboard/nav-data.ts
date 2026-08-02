@@ -46,6 +46,7 @@ export const SECTIONS: Section[] = [
   {
     id: "pagar", label: "Pagar", items: [
       { label: "Pagar", href: "/pagamentos", icon: "arrow-up-right" },
+      { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart" },
     ],
   },
   {
