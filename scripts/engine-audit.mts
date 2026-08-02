@@ -57,6 +57,15 @@ import {
 } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
+  validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
+  painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
+  pendenciasConfig, configPadrao, urlDoLink, validarLink,
+  IMPOSTOS, ESFERA, STATUS_VENDA, METODOS_PAGAMENTO, PLATAFORMAS, STATUS_NF,
+  ALIQUOTAS_PADRAO, DIA_VENCIMENTO_PADRAO,
+  type Venda, type ConfigImpostos,
+} from "@/core/vendas";
+import { gerarQR, qrParaSVG } from "@/lib/qrcode";
+import {
   filtrarTitulos, resumoTitulos, statusDoTitulo, validarTransferencia,
   filtrarTransferencias, resumoTransferencias, extratoDaConta, faturasDoCartao,
   fluxoCaixaMensal, validarRegra, regraQueCasa, candidatoPara, conciliar,
@@ -1595,6 +1604,185 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     conciliar([semPar], [R({ funcao: "criar_conciliar" })], input)[0].acao === "criar");
   ok("mov/conciliacao: criar-e-sugerir propõe a criação",
     conciliar([semPar], [R({ funcao: "criar_sugerir" })], input)[0].acao === "propor_criacao");
+}
+
+// ── core/vendas: venda, painéis, impostos e links ──────────────────────────
+{
+  const V = (o: Partial<Venda>): Venda => ({
+    id: "v", numero: "2026-0001", clienteId: "c1", clienteNome: "Alpha",
+    competencia: "2026-08-10", vencimento: "2026-08-20",
+    itens: [{ produtoId: "p1", nome: "Curso", quantidade: 2, precoUnitario: 500 }],
+    valorTotal: 1_000, valorTotalComJuros: 0,
+    taxaPlataforma: { valor: 0, fornecedorId: "" },
+    taxaAntecipacao: { valor: 0, fornecedorId: "" },
+    taxaStreaming: { valor: 0, fornecedorId: "" },
+    comissaoCoprodutor: { valor: 0, fornecedorId: "" },
+    comissaoAfiliado: { valor: 0, fornecedorId: "" },
+    contaId: "ac1", operacao: "venda", status: "completa", metodo: "pix",
+    idExterno: "", categoria: "cat1", tipoPagamento: "avista", plataforma: "Hotmart",
+    chaveTransacao: "", pago: false, valorPago: 0, dataPagamento: null,
+    projetos: [], centros: [], descricao: "", textoDocumentoFiscal: "", observacoes: "",
+    statusNF: "a_emitir", numeroNF: "", criadoEm: "2026-08-10", ...o,
+  });
+
+  // ---- os cálculos ----
+  ok("vendas: total dos itens = qtd × preço", totalDosItens(V({}).itens) === 1_000);
+  const comTaxas = V({
+    taxaPlataforma: { valor: 100, fornecedorId: "f1" },
+    comissaoAfiliado: { valor: 200, fornecedorId: "f2" },
+  });
+  ok("vendas: soma das taxas", somaDasTaxas(comTaxas) === 300, `${somaDasTaxas(comTaxas)}`);
+  ok("vendas: líquido = bruto − taxas", valorLiquido(comTaxas) === 700, `${valorLiquido(comTaxas)}`);
+  // O juro cobrado do cliente foi para a plataforma; partir do total SEM juros
+  // deixaria esse dinheiro parecendo margem.
+  ok("vendas: líquido parte do total COM juros quando existe",
+    valorLiquido(V({ valorTotalComJuros: 1_200, taxaPlataforma: { valor: 200, fornecedorId: "" } })) === 1_000);
+  ok("vendas: sem taxa o líquido é o bruto", valorLiquido(V({})) === 1_000);
+  ok("vendas: os 13 status, 8 métodos e 21 plataformas do print existem",
+    STATUS_VENDA.length === 13 && METODOS_PAGAMENTO.length === 8 && PLATAFORMAS.length === 21 && STATUS_NF.length === 5);
+
+  // ---- validação ----
+  ok("vendas: venda completa é válida", Object.keys(validarVenda(V({}))).length === 0, JSON.stringify(validarVenda(V({}))));
+  ok("vendas: sem cliente é recusada", !!validarVenda(V({ clienteId: "" })).clienteId);
+  ok("vendas: sem produto é recusada",
+    !!validarVenda(V({ itens: [{ produtoId: "", nome: "", quantidade: 1, precoUnitario: 0 }] })).itens);
+  ok("vendas: quantidade zero é recusada",
+    !!validarVenda(V({ itens: [{ produtoId: "p1", nome: "X", quantidade: 0, precoUnitario: 10 }] })).itens);
+  ok("vendas: marcar pago exige valor e data",
+    !!validarVenda(V({ pago: true })).valorPago && !!validarVenda(V({ pago: true, valorPago: 10 })).dataPagamento);
+
+  // ---- painéis ----
+  const lista = [
+    V({ id: "a", status: "completa", valorTotal: 1_000, statusNF: "emitida" }),
+    V({ id: "b", status: "aprovada", valorTotal: 500, statusNF: "a_emitir" }),
+    V({ id: "c", status: "iniciada", valorTotal: 300, statusNF: "negada" }),
+    V({ id: "d", status: "chargeback", valorTotal: 200, statusNF: "cancelada" }),
+  ];
+  const pv = painelStatusVendas(lista);
+  const cv = (id: string) => pv.find((c) => c.id === id)!;
+  ok("vendas/painel: completa", cv("completa").valor === 1_000 && cv("completa").quantidade === 1);
+  ok("vendas/painel: chargeback", cv("chargeback").valor === 200);
+  ok("vendas/painel: total soma tudo", cv("total").valor === 2_000, `${cv("total").valor}`);
+  // "Iniciada" agrupa os estados de venda ainda não fechada — separá-los em
+  // cinco cards deixaria o painel ilegível.
+  ok("vendas/painel: iniciada agrupa os estados em aberto", cv("iniciada").valor === 300);
+  ok("vendas/painel: percentuais fecham ~100",
+    Math.abs(["completa", "aprovada", "iniciada", "chargeback", "reembolsada"]
+      .reduce((s, id) => s + cv(id).percentual, 0) - 100) < 0.3);
+  const pn = painelStatusNF(lista);
+  ok("vendas/nf: emitidas e com erro separadas",
+    pn.find((c) => c.id === "emitidas")!.valor === 1_000 && pn.find((c) => c.id === "erro")!.valor === 300);
+  ok("vendas/painel: lista vazia não vira NaN",
+    painelStatusVendas([]).every((c) => Number.isFinite(c.valor) && Number.isFinite(c.percentual)));
+
+  // ---- filtros ----
+  ok("vendas/filtro: por status", filtrarVendas(lista, { status: "completa" }).length === 1);
+  ok("vendas/filtro: por status da NF", filtrarVendas(lista, { statusNF: "negada" }).length === 1);
+  ok("vendas/filtro: busca acha pelo produto", filtrarVendas(lista, { busca: "curso" }).length === 4);
+  ok("vendas/filtro: busca sem acento", filtrarVendas(lista, { busca: "ALPHA" }).length === 4);
+  ok("vendas/filtro: janela por competência",
+    filtrarVendas(lista, { de: "2026-09-01" }).length === 0);
+
+  // ---- impostos ----
+  const cfg: ConfigImpostos = {
+    ...configPadrao("presumido"),
+    fornecedores: { municipal: "fm", estadual: "fe", federal: "ff" },
+    categorias: Object.fromEntries(IMPOSTOS.map((i) => [i, "cat"])) as ConfigImpostos["categorias"],
+    contaId: "ac1",
+  };
+  // Presumido serviços: PIS 0,65 · COFINS 3 · ISS 5 · CSLL 2,88 · IRPJ 4,8.
+  ok("impostos: alíquotas do presumido conferem",
+    ALIQUOTAS_PADRAO.presumido.pis === 0.65 && ALIQUOTAS_PADRAO.presumido.cofins === 3
+    && ALIQUOTAS_PADRAO.presumido.iss === 5 && ALIQUOTAS_PADRAO.presumido.csll === 2.88
+    && ALIQUOTAS_PADRAO.presumido.irpj === 4.8);
+  const prov = provisionarImpostos(lista, cfg);
+  // Base = 1.000 + 500 + 300 = 1.800 (chargeback fica de fora: não houve
+  // faturamento a tributar).
+  ok("impostos: chargeback/cancelada não são tributados", prov.faturamento === 1_800, `${prov.faturamento}`);
+  ok("impostos: PIS = 0,65% da base", prov.porImposto.pis === 11.7, `${prov.porImposto.pis}`);
+  ok("impostos: COFINS = 3% da base", prov.porImposto.cofins === 54, `${prov.porImposto.cofins}`);
+  ok("impostos: ISS = 5% da base", prov.porImposto.iss === 90, `${prov.porImposto.iss}`);
+  ok("impostos: IRPJ = 4,8% da base", prov.porImposto.irpj === 86.4, `${prov.porImposto.irpj}`);
+  ok("impostos: total = soma dos impostos",
+    Math.abs(prov.total - (11.7 + 54 + 90 + 86.4 + 51.84)) < 0.01, `${prov.total}`);
+  ok("impostos: uma linha por venda tributável", prov.linhas.length === 3);
+  ok("impostos: a linha soma os seus impostos",
+    Math.abs(prov.linhas[0].total - Object.values(prov.linhas[0].valores).reduce((s, x) => s + x, 0)) < 0.01);
+
+  // UMA conta por imposto — não uma por venda. O contribuinte recolhe o total
+  // do mês numa guia só.
+  const contasImp = contasAPagarDosImpostos(prov, cfg, "2026-08");
+  ok("impostos: uma conta a pagar por imposto com valor", contasImp.length === 5, `${contasImp.length}`);
+  ok("impostos: imposto zerado não vira conta", !contasImp.some((c) => c.valor === 0));
+  // PIS vence dia 25 do mês SEGUINTE ao de competência.
+  ok("impostos: PIS vence dia 25 do mês seguinte",
+    contasImp.find((c) => c.imposto === "pis")!.vencimento === "2026-09-25",
+    contasImp.find((c) => c.imposto === "pis")!.vencimento);
+  ok("impostos: ISS vence dia 10 do mês seguinte",
+    contasImp.find((c) => c.imposto === "iss")!.vencimento === "2026-09-10");
+  // Dia 0 = último dia do mês; setembro tem 30.
+  ok("impostos: IRPJ vence no ÚLTIMO dia do mês seguinte",
+    contasImp.find((c) => c.imposto === "irpj")!.vencimento === "2026-09-30",
+    contasImp.find((c) => c.imposto === "irpj")!.vencimento);
+  // Fevereiro é a prova do "último dia": 28 em ano comum.
+  const provFev = provisionarImpostos([V({ competencia: "2026-01-15" })], cfg);
+  ok("impostos: último dia respeita fevereiro",
+    contasAPagarDosImpostos(provFev, cfg, "2026-01").find((c) => c.imposto === "irpj")!.vencimento === "2026-02-28");
+  ok("impostos: a conta sai para o fornecedor da esfera certa",
+    contasImp.find((c) => c.imposto === "iss")!.fornecedorId === "fm"
+    && contasImp.find((c) => c.imposto === "pis")!.fornecedorId === "ff");
+  ok("impostos: ISS é municipal e ICMS estadual", ESFERA.iss === "municipal" && ESFERA.icms === "estadual");
+  ok("impostos: dias padrão do presumido conferem",
+    DIA_VENCIMENTO_PADRAO.pis === 25 && DIA_VENCIMENTO_PADRAO.iss === 10
+    && DIA_VENCIMENTO_PADRAO.icms === 20 && DIA_VENCIMENTO_PADRAO.irpj === 0);
+
+  // Sem configuração o botão NÃO libera: uma conta a pagar sem fornecedor é um
+  // título órfão, que ninguém sabe a quem pagar.
+  const comValor = IMPOSTOS.filter((i) => prov.porImposto[i] > 0);
+  ok("impostos: configuração completa não tem pendência", pendenciasConfig(cfg, comValor).length === 0);
+  ok("impostos: sem conta bancária há pendência",
+    pendenciasConfig({ ...cfg, contaId: "" }, comValor).some((p) => p.includes("conta bancária")));
+  ok("impostos: sem fornecedor da esfera há pendência",
+    pendenciasConfig({ ...cfg, fornecedores: { ...cfg.fornecedores, municipal: "" } }, comValor)
+      .some((p) => p.includes("municipais")));
+  ok("impostos: base vazia não vira NaN", Number.isFinite(provisionarImpostos([], cfg).total));
+
+  // ---- links de pagamento ----
+  ok("links: título é obrigatório", !!validarLink({ titulo: " " }).titulo);
+  ok("links: valor negativo é recusado", !!validarLink({ titulo: "X", valor: -1 }).valor);
+  ok("links: valor zero é aceito (link aberto)", Object.keys(validarLink({ titulo: "X", valor: 0 })).length === 0);
+  ok("links: url não duplica a barra",
+    urlDoLink({ id: "lk1" } as never, "https://app.com/") === "https://app.com/pagar/lk1");
+
+  // ---- QR code ----
+  // Validado por decodificação real (OpenCV) fora da suíte; aqui ficam as
+  // invariantes estruturais que quebrariam silenciosamente.
+  const qr = gerarQR("https://all4pay.com/pagar/lk_abc123");
+  ok("qr: versão 3 para uma URL de 35 bytes", qr.versao === 3 && qr.tamanho === 29, `v${qr.versao} ${qr.tamanho}`);
+  ok("qr: a matriz é quadrada e do tamanho certo",
+    qr.modulos.length === qr.tamanho && qr.modulos.every((l) => l.length === qr.tamanho));
+  // Os três finders são a primeira coisa que o leitor procura.
+  const finder = (y: number, x: number) =>
+    qr.modulos[y][x] && qr.modulos[y + 6][x] && qr.modulos[y][x + 6] && !qr.modulos[y + 1][x + 1];
+  ok("qr: os três finders estão no lugar",
+    finder(0, 0) && finder(0, qr.tamanho - 7) && finder(qr.tamanho - 7, 0));
+  // O módulo escuro fixo é obrigatório em toda versão.
+  ok("qr: módulo escuro fixo presente", qr.modulos[qr.tamanho - 8][8] === true);
+  // Timing alternado na linha/coluna 6.
+  ok("qr: padrão de timing alterna",
+    qr.modulos[6][8] === true && qr.modulos[6][9] === false && qr.modulos[8][6] === true);
+  ok("qr: texto maior escolhe versão maior",
+    gerarQR("x".repeat(120)).versao > qr.versao);
+  ok("qr: acento e travessão não quebram", gerarQR("Pagamento à ALL4PAY — R$ 1,00").tamanho > 0);
+  // Acima da versão 10 a função AVISA em vez de gerar um código que o leitor
+  // recusaria.
+  ok("qr: conteúdo grande demais é recusado com mensagem", (() => {
+    try { gerarQR("x".repeat(400)); return false; } catch { return true; }
+  })());
+  const svg = qrParaSVG(qr, 200);
+  ok("qr: SVG traz a zona silenciosa de 4 módulos",
+    svg.includes(`viewBox="0 0 ${qr.tamanho + 8} ${qr.tamanho + 8}"`), svg.slice(0, 120));
+  ok("qr: SVG é auto-contido (sem fetch externo)", !svg.includes("http://") || svg.includes("www.w3.org/2000/svg"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

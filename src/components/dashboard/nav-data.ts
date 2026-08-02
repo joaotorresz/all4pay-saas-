@@ -40,7 +40,7 @@ export const SECTIONS: Section[] = [
   {
     id: "receber", label: "Receber", items: [
       { label: "Receber", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Vendas e NFs", href: "/vendas", icon: "credit-card" },
+      { label: "Vendas e NFs", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
     ],
   },
   {

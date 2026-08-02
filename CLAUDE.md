@@ -1032,6 +1032,47 @@ o filtro "Projeto" ficou de fora dos painéis. Agora existe ponta a ponta:
   transação do `ExtratoTransacoes` permite vincular/desvincular uma transação
   existente. `FiltroPainel.projeto` e o filtro dos relatórios consomem isso.
 
+### Vendas e Notas Fiscais (`/dashboard/sales-invoices/*`) + `core/vendas`
+
+`src/core/vendas/index.ts` (`vendas/1.0.0`, puro/tipado/demo-safe) — a venda
+como **documento-mãe**: gera o recebível, ampara a NF e é a base do imposto.
+
+- **Lista** (`/dashboard/sales-invoices`): DOIS painéis — status da venda
+  (iniciada/aprovada/completa/reembolsada/chargeback/total) e status da NF
+  (emitidas/a emitir/com erro/total). São perguntas diferentes: venda completa
+  com NF a emitir é trabalho pendente, e um painel só esconderia isso.
+- **Nova venda** (`/new`): 13 status, 8 métodos, 21 plataformas, itens e o bloco
+  que dá caráter — **cinco pares taxa + fornecedor** (plataforma, antecipação,
+  streaming, coprodutor, afiliado) com o **líquido calculado ao lado do bruto**.
+  Num negócio digital é ali que o dinheiro some. ⚠️ O líquido parte do total
+  COM juros quando ele existe: o juro foi para a plataforma, e usar o total sem
+  juros o deixaria parecendo margem.
+- **Impostos** (`/tax-provisioning`): matriz ICMS/PIS/COFINS/IPI/ISS/CSLL/INSS/
+  IRPJ por venda, alíquotas por regime (padrão Lucro Presumido serviços: PIS
+  0,65 · COFINS 3 · ISS 5 · CSLL 2,88 · IRPJ 4,8) e **UMA conta a pagar por
+  imposto** — o contribuinte recolhe o total do mês numa guia só; um título por
+  venda sujaria o fluxo. Vencimentos padrão: PIS/COFINS 25 · ISS 10 · ICMS 20 ·
+  IRPJ/CSLL/IPI último dia, sempre no mês SEGUINTE ao de competência.
+  Chargeback/cancelada/reembolsada ficam fora da base (não houve faturamento).
+  O botão só libera com a configuração completa (`pendenciasConfig`) — conta a
+  pagar sem fornecedor é título órfão. "Propor fornecedores" cria Prefeitura,
+  Fazenda Estadual e Ministério da Fazenda. As alíquotas são **editáveis**: ISS
+  varia por município, ICMS por estado; o sistema garante a aritmética e o
+  vencimento, não a alíquota.
+- **Notas fiscais** (`/invoices`), **Assinaturas** (`/subscriptions`, sobre
+  `lib/recorrencias`) e **Links de pagamento** (`/payment-links`).
+
+### QR Code (`src/lib/qrcode.ts`) — sem dependência
+
+Modo byte, versões 1–10, nível M: GF(256), Reed-Solomon, as 8 máscaras e a
+escolha por **penalidade** (máscara ruim = QR que "às vezes" lê). ⚠️ Os 15 bits
+de formato entram do MAIS significativo para o menos (`14 - i`) e a cópia 2
+divide em **7 + 8** — errar qualquer um dos dois produz um código de aparência
+perfeita que **nenhum leitor decodifica**, porque o formato é a primeira coisa
+lida. Foi assim que este arquivo nasceu quebrado. Validado por comparação
+módulo a módulo com o `qrcode` do Python (0 diferenças) e por **decodificação
+real via OpenCV**, inclusive com acento e travessão.
+
 ### Movimentações financeiras (`/dashboard/financial/*`) + `core/movimentacoes`
 
 `src/core/movimentacoes/index.ts` (`movimentacoes/1.0.0`, puro/tipado/demo-safe)
