@@ -14,6 +14,8 @@ import {
   type SelectOption,
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
+import { listProjetos } from "@/lib/iuli-cadastros";
+import { vincularProjeto } from "@/lib/projeto-vinculo";
 import type {
   CategoryKind,
   LancamentoInput,
@@ -52,6 +54,7 @@ type FormState = {
   splits: SplitLine[];
   category_id: string;
   cost_center_id: string;
+  project_id: string;
   reference_code: string;
   repeatOn: boolean;
   repeatFreq: RecurrenceFreq;
@@ -77,6 +80,7 @@ const initialState = (): FormState => ({
   splits: [{ category_id: null, cost_center_id: null, percent: null }],
   category_id: "",
   cost_center_id: "",
+  project_id: "",
   reference_code: "",
   repeatOn: false,
   repeatFreq: "mensal",
@@ -116,6 +120,10 @@ export function ReceitaForm({
   const { data: parties } = usePartiesByRole(partyRole);
   const { data: categories } = useCategories(kind);
   const { data: costCenters } = useCostCenters();
+  // Projetos vêm do cadastro local (localStorage) — só depois de montar, para
+  // não divergir entre servidor e cliente na hidratação.
+  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  React.useEffect(() => { setProjetos(listProjetos()); }, []);
   const { data: accounts } = useAccountsList();
   const create = useCreateLancamento();
 
@@ -143,6 +151,7 @@ export function ReceitaForm({
     amount: f.amount,
     category_id: f.category_id || null,
     cost_center_id: f.cost_center_id || null,
+    project_id: f.project_id || null,
     reference_code: f.reference_code.trim() || null,
     splits: f.rateioOn ? f.splits : null,
     repeat: f.repeatOn
@@ -327,6 +336,16 @@ export function ReceitaForm({
                 options={opts(costCenters)}
                 value={f.cost_center_id}
                 onChange={(v) => set({ cost_center_id: v })}
+              />
+              {/* Projeto = centro de resultado TEMPORAL (uma campanha, um
+                  lançamento). É o que faz o filtro "Projeto" da DRE/DFC
+                  realmente filtrar. */}
+              <Select
+                label="Projeto"
+                placeholder="Selecione (opcional)"
+                options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+                value={f.project_id}
+                onChange={(v) => set({ project_id: v })}
               />
             </div>
 

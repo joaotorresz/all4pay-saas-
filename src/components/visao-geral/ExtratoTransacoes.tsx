@@ -28,6 +28,8 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { pagarLote, anexarComprovante, comprovanteDe, type MetodoPagamento } from "@/lib/pagamentos";
 import { receberLote } from "@/lib/recebimentos";
+import { listProjetos } from "@/lib/iuli-cadastros";
+import { vincularProjeto, projetoDoMovimento } from "@/lib/projeto-vinculo";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 const POSITIVE = "var(--color-positive)";
@@ -107,6 +109,11 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
   const [comprovante, setComprovante] = React.useState<string | null>(null);
   const [enviando, setEnviando] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
+  // Projetos vêm do cadastro local — só depois de montar (hidratação).
+  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  const [projeto, setProjeto] = React.useState("");
+  React.useEffect(() => { setProjetos(listProjetos()); }, []);
+  React.useEffect(() => { setProjeto(baixa ? (projetoDoMovimento(baixa.id) ?? "") : ""); }, [baixa]);
 
   const hoje = inp?.hoje?.slice(0, 10) ?? iso(new Date());
 
@@ -337,6 +344,23 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
               {baixa.category && <Linha label="Categoria" value={baixa.category} />}
               <Linha label="Valor" value={formatBRL(baixa.amount)} forte />
             </div>
+
+            {/* Projeto do lançamento — é este vínculo que faz o filtro "Projeto"
+                da DRE/DFC e dos painéis filtrar de verdade. Fica aqui porque é
+                onde se olha uma transação e se pergunta "de que campanha é?". */}
+            {projetos.length > 0 && (
+              <Select
+                label="Projeto"
+                value={projeto}
+                onChange={(v) => {
+                  setProjeto(v);
+                  vincularProjeto(baixa.id, v);
+                  qc.invalidateQueries({ queryKey: ["risco-input"] });
+                  show(v ? "Projeto vinculado." : "Projeto removido.");
+                }}
+                options={[{ value: "", label: "Sem projeto" }, ...projetos.map((p) => ({ value: p.id, label: p.nome }))]}
+              />
+            )}
 
             {baixa.status === "pago" ? (
               <>

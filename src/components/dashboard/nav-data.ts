@@ -52,6 +52,9 @@ export const SECTIONS: Section[] = [
     id: "caixa", label: "Caixa & Resultado", items: [
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "DRE (resultado)", href: "/dre", icon: "trending-up" },
+      // Os relatórios contábeis (DRE/DFC em cascata, multiempresa e o
+      // fechamento mensal) — a face de RELATÓRIO, ao lado do DRE executivo.
+      { label: "Relatórios", href: "/dashboard/reports", icon: "file-text" },
       { label: "Orçamento", href: "/orcamento", icon: "target" },
     ],
   },

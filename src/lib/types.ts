@@ -143,6 +143,8 @@ export interface SplitLine {
 export interface LancamentoInput {
   kind: CategoryKind;
   party_id: string | null;
+  /** Projeto (centro de resultado temporal). Vai para `movements.project_id`. */
+  project_id?: string | null;
   competence_date: string; // ISO
   description: string;
   amount: number;

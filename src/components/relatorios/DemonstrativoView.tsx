@@ -1,0 +1,170 @@
+"use client";
+
+/**
+ * DRE e DFC — a MESMA tela em dois regimes.
+ *
+ * A DRE é competência (quando o fato aconteceu) e a DFC é caixa (quando o
+ * dinheiro andou), começando pelo Saldo Inicial. Fora isso, filtros, layout,
+ * drill-down e exportação são idênticos — então é um componente só com
+ * `tipo`. Duplicar daria duas telas que divergem na primeira regra nova.
+ */
+import * as React from "react";
+import {
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
+} from "recharts";
+import { Card, Skeleton, Select, Icon } from "@/components/ui";
+import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { chartAnim } from "@/lib/chart-anim";
+import { montarDRE, montarDFC, rotuloColuna, compararOrcamento, type Relatorio } from "@/core/relatorios";
+import {
+  FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
+  filtroPadrao, LAYOUT_PADRAO, temaPorId,
+  type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
+} from "./kit";
+
+const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+
+export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
+  const { data: input, isLoading } = useRiscoInput();
+  const [rascunho, setRascunho] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
+  // Os filtros só valem depois de "Atualizar" — o print tem o botão, e um
+  // relatório que se recalcula a cada tecla pisca sem parar.
+  const [aplicados, setAplicados] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
+  const [layout, setLayout] = React.useState<LayoutTabela>(LAYOUT_PADRAO);
+  const [celula, setCelula] = React.useState<CelulaClicada | null>(null);
+  const [orcamento, setOrcamento] = React.useState("");
+
+  const relatorio: Relatorio | null = React.useMemo(() => {
+    if (!input) return null;
+    const f = {
+      intervalo: aplicados.intervalo, tipo: aplicados.tipo,
+      conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
+    };
+    return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);
+  }, [input, aplicados, tipo]);
+
+  const titulo = tipo === "dre" ? "DRE" : "DFC";
+  const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
+
+  return (
+    <div className="flex flex-col gap-5 pb-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <p className="m-0 text-label text-muted">
+          {tipo === "dre"
+            ? "Demonstração do Resultado do Exercício. Clique em qualquer célula para ver as transações."
+            : "Demonstração do Fluxo de Caixa. Clique em qualquer célula para ver as transações."}
+        </p>
+        {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
+        <FiltrosRelatorio
+          valor={rascunho}
+          onChange={setRascunho}
+          onAtualizar={() => setAplicados(rascunho)}
+        />
+        <Card>
+          <span className="text-h3 font-semibold text-ink">Comparar com orçamento</span>
+          <p className="m-0 mt-2 text-caption text-muted">
+            Selecione um orçamento para comparar previsto vs realizado. Novas colunas
+            (Orçado / Diferença / %) aparecem ao lado de cada período.
+          </p>
+          <div className="flex flex-col gap-[6px] mt-4">
+            <label className="text-caption font-medium text-muted">Orçamento</label>
+            <Select
+              value={orcamento}
+              onChange={setOrcamento}
+              options={[{ value: "", label: "Nenhum orçamento cadastrado" }]}
+              disabled
+            />
+            {/* Honestidade: o módulo de orçamento existe (/orcamento) mas ainda
+                não guarda um orçamento POR LINHA da cascata. Enquanto não
+                guardar, um select com opções falsas seria pior que o aviso. */}
+            <span className="text-caption text-faint">
+              A comparação liga assim que houver um orçamento salvo por linha do resultado.
+              Cadastre em Orçamento.
+            </span>
+          </div>
+        </Card>
+      </div>
+
+      <PainelLayout layout={layout} onChange={setLayout} />
+
+      {isLoading || !relatorio ? (
+        <Card><Skeleton className="h-[380px]" /></Card>
+      ) : relatorio.colunas.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center gap-3 py-14 text-center">
+            <Icon name="triangle-alert" size={20} color="var(--color-warning)" />
+            <p className="m-0 text-label text-muted max-w-[46ch]">
+              O período selecionado não cobre nenhum mês. Verifique se a data final é posterior à inicial.
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <>
+          {layout.mostrarGrafico && <GraficoResultado relatorio={relatorio} tipo={tipo} tema={layout.tema} />}
+          <TabelaRelatorio relatorio={relatorio} layout={layout} onCelula={setCelula} />
+        </>
+      )}
+
+      {celula && <GavetaTransacoes celula={celula} onFechar={() => setCelula(null)} />}
+    </div>
+  );
+}
+
+/* -------------------------------- gráfico -------------------------------- */
+
+/** A leitura visual da cascata: a linha do resultado sobre as barras do mês. */
+function GraficoResultado({
+  relatorio, tipo, tema,
+}: { relatorio: Relatorio; tipo: "dre" | "dfc"; tema: string }) {
+  const t = temaPorId(tema);
+  const idBarra = tipo === "dre" ? "receita_bruta" : "entradas_operacionais";
+  const idLinha = tipo === "dre" ? "resultado_liquido" : "saldo_final";
+  const barra = relatorio.linhas.find((l) => l.id === idBarra);
+  const linha = relatorio.linhas.find((l) => l.id === idLinha);
+
+  const dados = relatorio.colunas.map((c, k) => ({
+    label: rotuloColuna(c),
+    base: barra?.celulas[k]?.valor ?? 0,
+    resultado: linha?.celulas[k]?.valor ?? 0,
+  }));
+
+  return (
+    <Card>
+      <div className="flex items-baseline justify-between gap-3 mb-3">
+        <span className="text-h3 font-semibold text-ink">
+          {tipo === "dre" ? "Receita bruta e resultado líquido" : "Entradas e saldo final"}
+        </span>
+        <span className="text-caption text-faint">{relatorio.colunas.length} meses</span>
+      </div>
+      <div className="h-[260px] -ml-2" role="img" aria-label="Evolução do resultado no período">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={dados} margin={{ top: 6, right: 8, bottom: 0, left: 8 }}>
+            <XAxis dataKey="label" tickLine={false} axisLine={false} interval="preserveStartEnd"
+              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
+            <YAxis tickLine={false} axisLine={false} width={58}
+              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+              tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
+            <Tooltip formatter={(v: number) => brl0(v)} cursor={{ fill: "var(--color-surface-2)" }}
+              contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--color-white)", fontSize: 13 }} />
+            <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={[4, 4, 0, 0]} {...chartAnim()}>
+              {dados.map((_, k) => <Cell key={k} fill={`color-mix(in srgb, ${t.base} 55%, transparent)`} />)}
+            </Bar>
+            {/* Resultado negativo é informação, não erro: a linha muda de cor
+                pelo sinal do último ponto para a leitura ser imediata. */}
+            <Line
+              type="monotone" dataKey="resultado" name={tipo === "dre" ? "Resultado líquido" : "Saldo final"}
+              stroke={(dados.at(-1)?.resultado ?? 0) < 0 ? "var(--color-negative)" : "var(--color-lime)"}
+              strokeWidth={1.6} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+/** Reexporta para as telas multiempresa, que reaproveitam a comparação. */
+export { compararOrcamento };

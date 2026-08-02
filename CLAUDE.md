@@ -961,6 +961,77 @@ o que a anterior não resolveu):
 implícito (uma confirmação pontual) e regra é explícita. Orquestrado em
 `UploadView.analisarEAuto`.
 
+### Relatórios (`/dashboard/reports` — hub de 5 abas) + `core/relatorios`
+
+`src/core/relatorios/index.ts` (`relatorios/1.0.0`, puro/tipado/demo-safe) — a
+face de RELATÓRIO do resultado, ao lado do `core/dre` (que é o Intelligence
+Center). Rotas próprias: `/dashboard/reports/{dre|dfc|dre-multi|dfc-multi|
+monthly-closing}`.
+
+- **Estrutura fixa e explícita** (`ESTRUTURA_DRE`): (+) Receita Bruta → (−)
+  Deduções → (=) Receita Líquida → (−) Custos Variáveis → (=) Lucro Bruto → (−)
+  Despesas Variáveis → (=) Margem de Contribuição → (−) Despesas Operacionais →
+  (=) EBITDA → (+/−) Financeiro → (−) Impostos sobre o lucro → (+/−) Não
+  operacional → (=) Resultado Líquido. As linhas "=" saem de FÓRMULA sobre as
+  outras — nenhuma soma lançamento direto, o que impede valor contado 2×.
+- ⚠️ **Siglas de tributo ancoradas em `\b`.** Sem isso `iss` casa dentro de
+  "com**iss**ão" e toda comissão de afiliado vira imposto sobre vendas: some das
+  Despesas Variáveis, infla a Dedução, e a cascata fecha "certo" no número
+  errado. Vale para pis/ipi/das/icms/inss/irpj/csll. Guarda no `engine-audit`.
+- **Toda célula carrega os ids dos movimentos** que a formaram (`Celula.
+  movimentos`) — o drill-down abre a gaveta com as transações exatas, não uma
+  segunda consulta que poderia discordar do número.
+- **DRE = competência (vencimento) · DFC = caixa (pagamento).** É a diferença
+  inteira entre os dois: um pendente existe no resultado e não existe no caixa.
+  O DFC começa pelo **Saldo Inicial**, reconstruído do saldo de hoje (a mesma
+  técnica do painel financeiro, para os dois fecharem no mesmo número); saldo é
+  POSIÇÃO, então o "total" da linha é a última coluna, não a soma.
+- **AV/AH**: vertical = % sobre a receita bruta; horizontal = variação contra a
+  coluna anterior — `null` (→ "—") na primeira coluna, que não tem com que
+  comparar. Zero diria "não variou".
+- **Multiempresa**: consolida somando os `RiskInput` e rodando o MESMO motor
+  (somar relatórios prontos dobraria a lógica). Ids prefixados por empresa —
+  sem isso dois movimentos homônimos se anulariam no drill-down. Teto de 20.
+- **Fechamento mensal** (`montarFechamento`): DRE comparativa de 3/6/12 meses +
+  KPIs + pontos de atenção derivados dos próprios números + **textos redigidos e
+  EDITÁVEIS**. Gerar sem deixar editar tiraria a assinatura de quem responde;
+  pedir em branco faria o relatório nascer vazio todo mês. Histórico em
+  `lib/fechamentos` guarda o relatório INTEIRO — um fechamento é uma fotografia
+  assinada, recalculá-lo ao abrir mudaria o número depois de assinado.
+- **10 temas** (`kit.tsx` `TEMAS`) — extensão sancionada: o tema pinta APENAS o
+  cabeçalho e a faixa das linhas de total; o resto segue nos tokens.
+- **Exportação:** XLSX por `lib/xlsx`; **PDF pela impressão do navegador**
+  (`window.print()` — o gerador de PDF já está na máquina, respeita fonte e
+  paginação, e não custa dependência); **DOCX** por `lib/docx`.
+
+### `src/lib/docx.ts` — DOCX sem dependência
+
+Um `.docx` também é ZIP de XMLs, então reusa `zipar`/`crc32`/`escaparXML` do
+`lib/xlsx`. Escopo pequeno de propósito: título, parágrafo, lista e tabela.
+⚠️ `docDefaults` + o estilo **Normal** são obrigatórios: sem eles um parágrafo
+sem `pStyle` fica sem estilo nenhum e leitores que seguem a especificação
+(python-docx) devolvem `null`. Validado com `python-docx`.
+
+### Projeto no lançamento — o filtro que passou a filtrar
+
+O projeto era cadastro sem vínculo: nenhum `movement` o referenciava, e por isso
+o filtro "Projeto" ficou de fora dos painéis. Agora existe ponta a ponta:
+
+- **`RiskMovement.projeto`** (nome) resolvido em `getRiscoInput` — em live pelo
+  embed `project_id(name)`, em demo/pré-migration pelo vínculo local.
+- **`lib/projeto-vinculo.ts`** — mapa `movimento → projeto` (localStorage,
+  síncrono). É a fonte que faz funcionar HOJE, antes da migration.
+- ⚠️ O embed do projeto é **otimista com queda**: pedir `project_id(name)` antes
+  da migration não devolve nulo, o PostgREST devolve ERRO e derrubaria o
+  `getRiscoInput` inteiro. A query tenta com o embed e cai no select base.
+- **`0019_projects.sql`** (gerada como arquivo — aplicar ao remoto): tabela
+  `projects` + `movements.project_id` + `movement_splits.project_id`, RLS por
+  org, nome único por org, `on delete set null` (apagar projeto não pode apagar
+  lançamento).
+- **Onde se escolhe:** o `ReceitaForm` ganhou o select Projeto, e o modal de
+  transação do `ExtratoTransacoes` permite vincular/desvincular uma transação
+  existente. `FiltroPainel.projeto` e o filtro dos relatórios consomem isso.
+
 ### Cadastros (`/cadastros` — hub de 9 abas) + `core/registros`
 
 `src/core/registros/index.ts` (`registros/1.0.0`, puro/tipado/demo-safe) — as
@@ -1051,10 +1122,10 @@ sempre.
   no domingo), colorir por **Fluxo diário** × **Saldo total**, intensidade
   proporcional ao maior valor DO MÊS (zero é neutro). O saldo parte do fim do
   mês anterior e **fecha no saldo do painel financeiro**.
-- **Filtros:** `FiltrosPainel` oferece **Conta** e **Centro de custo** — os dois
-  recortes que existem no lançamento e chegam ao motor. A referência trazia
-  "Projeto", mas nenhum movimento referencia projeto (o cadastro é local): o
-  filtro não filtraria nada.
+- **Filtros:** `FiltrosPainel` oferece **Conta**, **Centro de custo** e
+  **Projeto** — os três recortes que existem no lançamento e chegam ao motor.
+  (O projeto passou a existir de verdade; ver "Projeto no lançamento".) Cada
+  select só habilita quando há o que escolher.
 - Peças comuns em `src/components/paineis/shared.tsx` (`MesPicker`,
   `FiltrosPainel`, `KpiSimples`/`KpiJanelas`/`KpiStatus`, `ListaFatias`).
   Guardas de valor fechado no `engine-audit`.

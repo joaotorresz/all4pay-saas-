@@ -49,6 +49,13 @@ import {
   type CategoriaPlano, type Contrato,
 } from "@/core/registros";
 import { gerarXLSX } from "@/lib/xlsx";
+import { gerarDOCX } from "@/lib/docx";
+import {
+  montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento,
+  mesesDoIntervalo, intervaloDoPreset, compararOrcamento,
+  ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
+} from "@/core/relatorios";
+import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -1083,6 +1090,208 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("xlsx: número entra como número, não como texto", texto.includes("<v>12.5</v>"));
   ok("xlsx: nome de aba proibido é saneado",
     new TextDecoder().decode(gerarXLSX([{ nome: "a/b:c[d]", linhas: [] }])).includes('name="a-b-c-d-"'));
+}
+
+// ── core/relatorios: DRE, DFC, consolidado e fechamento ────────────────────
+{
+  const M = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: "m", type: "saida", status: "pago", amount: 0, due_date: "2026-06-10", paid_date: "2026-06-10", ...o }) as RiskMovement;
+  const input: RiskInput = {
+    hoje: "2026-06-30",
+    saldoAtual: 100_000,
+    partyNames: {},
+    movements: [
+      // maio
+      M({ id: "r1", type: "entrada", amount: 100_000, due_date: "2026-05-10", paid_date: "2026-05-10", category: "Vendas" }),
+      M({ id: "d1", amount: 10_000, due_date: "2026-05-12", paid_date: "2026-05-12", category: "Simples Nacional" }),
+      // junho
+      M({ id: "r2", type: "entrada", amount: 200_000, due_date: "2026-06-05", paid_date: "2026-06-05", category: "Vendas", projeto: "Turma 12" }),
+      M({ id: "d2", amount: 20_000, due_date: "2026-06-06", paid_date: "2026-06-06", category: "ICMS s/ Vendas" }),
+      M({ id: "c1", amount: 50_000, due_date: "2026-06-07", paid_date: "2026-06-07", category: "Fornecedores", projeto: "Turma 12" }),
+      M({ id: "v1", amount: 30_000, due_date: "2026-06-08", paid_date: "2026-06-08", category: "Comissão de afiliado" }),
+      M({ id: "o1", amount: 40_000, due_date: "2026-06-09", paid_date: "2026-06-09", category: "Folha de Pagamento", costCenter: "Administrativo" }),
+      M({ id: "f1", amount: 5_000, due_date: "2026-06-11", paid_date: "2026-06-11", category: "Tarifas Bancárias" }),
+      // ruído
+      M({ id: "x1", type: "entrada", amount: 999_999, status: "cancelado", due_date: "2026-06-15", paid_date: "2026-06-15", category: "Vendas" }),
+      M({ id: "p1", type: "entrada", amount: 77_777, status: "pendente", due_date: "2026-07-20", category: "Vendas" }),
+    ],
+  };
+  const jun = { de: "2026-06-01", ate: "2026-06-30" };
+  const maiJun = { de: "2026-05-01", ate: "2026-06-30" };
+
+  // ---- colunas e presets ----
+  ok("relatorios: uma coluna por mês do intervalo",
+    mesesDoIntervalo(maiJun).join(",") === "2026-05,2026-06", mesesDoIntervalo(maiJun).join(","));
+  // Intervalo invertido não pode virar laço nem coluna fantasma.
+  ok("relatorios: intervalo invertido devolve zero colunas",
+    mesesDoIntervalo({ de: "2026-06-01", ate: "2026-01-01" }).length === 0);
+  ok("relatorios: trimestre = 3 meses terminando no mês de referência",
+    mesesDoIntervalo(intervaloDoPreset("trimestre", "2026-06")).join(",") === "2026-04,2026-05,2026-06");
+  ok("relatorios: semestre = 6 meses", mesesDoIntervalo(intervaloDoPreset("semestre", "2026-06")).length === 6);
+  ok("relatorios: ano = 12 meses do ano civil",
+    mesesDoIntervalo(intervaloDoPreset("ano", "2026-06")).length === 12);
+  ok("relatorios: fevereiro bissexto fecha no dia 29",
+    intervaloDoPreset("personalizado", "2028-02").ate === "2028-02-29");
+
+  // ---- DRE: a cascata inteira, com valores fechados ----
+  const dre = montarDRE(input, { intervalo: jun, tipo: "vertical" });
+  const v = (id: string, col = 0) => dre.linhas.find((l) => l.id === id)?.celulas[col]?.valor ?? NaN;
+  ok("relatorios/dre: receita bruta ignora cancelado", v("receita_bruta") === 200_000, `${v("receita_bruta")}`);
+  ok("relatorios/dre: imposto sobre venda vira DEDUÇÃO, não despesa", v("deducoes") === 20_000, `${v("deducoes")}`);
+  ok("relatorios/dre: receita líquida = bruta − deduções", v("receita_liquida") === 180_000, `${v("receita_liquida")}`);
+  ok("relatorios/dre: custo variável é o fornecedor", v("custos_variaveis") === 50_000, `${v("custos_variaveis")}`);
+  ok("relatorios/dre: lucro bruto = líquida − custos", v("lucro_bruto") === 130_000, `${v("lucro_bruto")}`);
+  ok("relatorios/dre: comissão é despesa VARIÁVEL", v("despesas_variaveis") === 30_000, `${v("despesas_variaveis")}`);
+  ok("relatorios/dre: margem de contribuição = bruto − variáveis", v("margem_contribuicao") === 100_000, `${v("margem_contribuicao")}`);
+  ok("relatorios/dre: folha é despesa OPERACIONAL", v("despesas_operacionais") === 40_000, `${v("despesas_operacionais")}`);
+  ok("relatorios/dre: EBITDA = margem − operacionais", v("ebitda") === 60_000, `${v("ebitda")}`);
+  // Tarifa bancária NÃO entra no EBITDA — é resultado financeiro, e entra com sinal.
+  ok("relatorios/dre: tarifa fica FORA do EBITDA", v("resultado_financeiro") === -5_000, `${v("resultado_financeiro")}`);
+  ok("relatorios/dre: resultado líquido = EBITDA + financeiro", v("resultado_liquido") === 55_000, `${v("resultado_liquido")}`);
+  // A cascata não pode contar o mesmo lançamento duas vezes.
+  const somaDeSomas = ["receita_bruta", "deducoes", "custos_variaveis", "despesas_variaveis", "despesas_operacionais", "impostos_lucro"]
+    .reduce((s, id) => s + Math.abs(v(id)), 0) + Math.abs(v("resultado_financeiro"));
+  ok("relatorios/dre: nenhum lançamento entra em duas linhas",
+    somaDeSomas === 200_000 + 20_000 + 50_000 + 30_000 + 40_000 + 0 + 5_000, `${somaDeSomas}`);
+  // COMPETÊNCIA × CAIXA: o pendente de julho existe no resultado (o fato
+  // aconteceu) e NÃO existe no caixa (o dinheiro não andou). É a diferença
+  // inteira entre os dois relatórios.
+  const jul = { de: "2026-07-01", ate: "2026-07-31" };
+  ok("relatorios: competência reconhece o pendente pelo vencimento",
+    montarDRE(input, { intervalo: jul, tipo: "vertical" }).linhas.find((l) => l.id === "receita_bruta")!.celulas[0].valor === 77_777);
+  ok("relatorios: caixa NÃO reconhece o pendente",
+    montarDFC(input, { intervalo: jul, tipo: "vertical" }).linhas.find((l) => l.id === "entradas_operacionais")!.celulas[0].valor === 0);
+
+  // Análise vertical: % sobre a receita bruta.
+  const av = (id: string) => dre.linhas.find((l) => l.id === id)?.celulas[0]?.av;
+  ok("relatorios/dre: AV da receita bruta é 100%", av("receita_bruta") === 100, `${av("receita_bruta")}`);
+  ok("relatorios/dre: AV do EBITDA = 30%", av("ebitda") === 30, `${av("ebitda")}`);
+
+  // Análise horizontal: primeira coluna não tem com que comparar.
+  const dreH = montarDRE(input, { intervalo: maiJun, tipo: "horizontal" });
+  const linhaR = dreH.linhas.find((l) => l.id === "receita_bruta")!;
+  ok("relatorios/dre: AH da primeira coluna é null, não zero", linhaR.celulas[0].ah === null);
+  ok("relatorios/dre: AH da segunda coluna = +100% (100k → 200k)", linhaR.celulas[1].ah === 100, `${linhaR.celulas[1].ah}`);
+  ok("relatorios/dre: total soma as colunas", linhaR.total.valor === 300_000, `${linhaR.total.valor}`);
+  ok("relatorios/dre: média = total ÷ nº de colunas", linhaR.media.valor === 150_000, `${linhaR.media.valor}`);
+
+  // Drill-down: a célula sabe QUAIS movimentos a formaram.
+  ok("relatorios/dre: célula carrega os ids do drill-down",
+    linhaR.celulas[1].movimentos.join(",") === "r2", linhaR.celulas[1].movimentos.join(","));
+  ok("relatorios/dre: categorias (nível 3) somam a linha",
+    (() => {
+      const l = dre.linhas.find((x) => x.id === "despesas_operacionais")!;
+      return Math.abs(l.filhos.reduce((s, f) => s + f.total.valor, 0) - l.total.valor) < 0.01;
+    })());
+
+  // ---- filtros: projeto agora filtra DE VERDADE ----
+  const soProjeto = montarDRE(input, { intervalo: jun, tipo: "vertical", projeto: "Turma 12" });
+  const vp = (id: string) => soProjeto.linhas.find((l) => l.id === id)?.celulas[0]?.valor ?? NaN;
+  ok("relatorios: filtro de PROJETO filtra a receita", vp("receita_bruta") === 200_000, `${vp("receita_bruta")}`);
+  ok("relatorios: filtro de projeto exclui o que não é do projeto", vp("despesas_operacionais") === 0, `${vp("despesas_operacionais")}`);
+  ok("relatorios: filtro de centro de custo filtra",
+    montarDRE(input, { intervalo: jun, tipo: "vertical", centro: "Administrativo" })
+      .linhas.find((l) => l.id === "despesas_operacionais")!.celulas[0].valor === 40_000);
+  // O mesmo filtro nos painéis.
+  ok("paineis: aplicarFiltro respeita projeto",
+    filtrarPainel(input.movements, { projeto: "Turma 12" }).length === 2,
+    `${filtrarPainel(input.movements, { projeto: "Turma 12" }).length}`);
+  ok("paineis: sem filtro de projeto nada é removido",
+    filtrarPainel(input.movements, {}).length === input.movements.length);
+
+  // ---- DFC: regime de caixa, começando pelo saldo inicial ----
+  const dfc = montarDFC(input, { intervalo: jun, tipo: "vertical" });
+  const vd = (id: string, col = 0) => dfc.linhas.find((l) => l.id === id)?.celulas[col]?.valor ?? NaN;
+  // Saldo de hoje (100k) desfazendo o caixa de junho (200 − 20 − 50 − 30 − 40 − 5 = +55k).
+  ok("relatorios/dfc: saldo inicial reconstruído do saldo de hoje", vd("saldo_inicial") === 45_000, `${vd("saldo_inicial")}`);
+  ok("relatorios/dfc: saldo final = inicial + fluxo líquido", vd("saldo_final") === 100_000, `${vd("saldo_final")}`);
+  ok("relatorios/dfc: pendente NÃO entra no caixa", vd("entradas_operacionais") === 200_000, `${vd("entradas_operacionais")}`);
+  ok("relatorios/dfc: financeiro entra com sinal", vd("fluxo_financiamento") === -5_000, `${vd("fluxo_financiamento")}`);
+  // Saldo é POSIÇÃO: o "total" é a última coluna, não a soma das colunas.
+  const dfc2 = montarDFC(input, { intervalo: maiJun, tipo: "vertical" });
+  const lSaldo = dfc2.linhas.find((l) => l.id === "saldo_final")!;
+  ok("relatorios/dfc: total do saldo é a ÚLTIMA posição, não a soma",
+    lSaldo.total.valor === lSaldo.celulas[lSaldo.celulas.length - 1].valor, `${lSaldo.total.valor}`);
+
+  // ---- consolidado ----
+  const cons = montarConsolidado(
+    [{ id: "a", nome: "A", input }, { id: "b", nome: "B", input }],
+    ESTRUTURA_DRE,
+    { intervalo: jun, tipo: "vertical", regime: "competencia" },
+  );
+  ok("relatorios/consolidado: soma as duas empresas",
+    cons.consolidado.linhas.find((l) => l.id === "receita_bruta")!.celulas[0].valor === 400_000,
+    `${cons.consolidado.linhas.find((l) => l.id === "receita_bruta")!.celulas[0].valor}`);
+  ok("relatorios/consolidado: cada empresa mantém a própria coluna",
+    cons.empresas.length === 2 && cons.empresas[0].relatorio.linhas.find((l) => l.id === "receita_bruta")!.celulas[0].valor === 200_000);
+  // Ids iguais em orgs diferentes se anulariam no drill-down sem o prefixo.
+  ok("relatorios/consolidado: ids são prefixados pela empresa",
+    cons.consolidado.linhas.find((l) => l.id === "receita_bruta")!.celulas[0].movimentos.join(",") === "a:r2,b:r2");
+  ok("relatorios/consolidado: teto de 20 empresas é respeitado",
+    montarConsolidado(
+      Array.from({ length: 25 }, (_, k) => ({ id: `e${k}`, nome: `E${k}`, input })),
+      ESTRUTURA_DRE, { intervalo: jun, tipo: "vertical", regime: "competencia" },
+    ).empresas.length === MAX_EMPRESAS);
+
+  // ---- orçamento ----
+  const comp = compararOrcamento(dre, [{ id: "receita_bruta", valores: [250_000] }]);
+  ok("relatorios/orcamento: diferença = realizado − orçado",
+    comp.get("receita_bruta")![0].diferenca === -50_000, `${comp.get("receita_bruta")![0].diferenca}`);
+  ok("relatorios/orcamento: % da diferença", comp.get("receita_bruta")![0].pct === -20, `${comp.get("receita_bruta")![0].pct}`);
+  // Sem orçamento na célula, 0% diria "bateu na mosca" — o oposto de "não orçado".
+  ok("relatorios/orcamento: linha sem orçamento devolve % null",
+    comp.get("ebitda")![0].pct === null);
+
+  // ---- fechamento mensal ----
+  const fech = montarFechamento(input, { mes: "6", ano: 2026, comparativo: 3, emitidoPor: "João", cargo: "CFO" });
+  ok("relatorios/fechamento: comparativo de 3 meses = 3 colunas", fech.relatorio.colunas.length === 3, `${fech.relatorio.colunas.length}`);
+  ok("relatorios/fechamento: última coluna é o mês de referência",
+    fech.relatorio.colunas[2] === "2026-06", fech.relatorio.colunas[2]);
+  ok("relatorios/fechamento: KPI de resultado bate com a DRE",
+    fech.kpis.find((k) => k.id === "resultado_liquido")!.valor === 55_000);
+  ok("relatorios/fechamento: margem EBITDA = 30%",
+    fech.kpis.find((k) => k.id === "margem_ebitda")!.valor === 30);
+  ok("relatorios/fechamento: sempre há pelo menos um ponto de atenção", fech.pontos.length >= 1);
+  ok("relatorios/fechamento: textos nascem preenchidos, não em branco",
+    fech.textos.resumo.length > 40 && fech.textos.destaques.length > 20);
+  // Prejuízo tem de virar alerta de severidade ALTA.
+  const prejuizo = montarFechamento(
+    { ...input, movements: input.movements.filter((m) => m.type === "saida") },
+    { mes: "6", ano: 2026, comparativo: 3, emitidoPor: "", cargo: "" },
+  );
+  ok("relatorios/fechamento: prejuízo vira ponto de atenção alto",
+    prejuizo.pontos.some((p) => p.id === "prejuizo" && p.severidade === "alta"));
+  ok("relatorios/fechamento: base vazia não quebra",
+    Number.isFinite(montarFechamento({ hoje: "2026-06-30", saldoAtual: 0, movements: [] },
+      { mes: "6", ano: 2026, comparativo: 3, emitidoPor: "", cargo: "" }).kpis[0].valor));
+
+  // ---- estruturas e robustez ----
+  ok("relatorios: toda linha 'total' referencia ids que existem",
+    [...ESTRUTURA_DRE, ...ESTRUTURA_DFC].every((l) =>
+      (l.formula ?? []).every((p) => [...ESTRUTURA_DRE, ...ESTRUTURA_DFC].some((x) => x.id === p.id))));
+  ok("relatorios: ids da estrutura não se repetem",
+    new Set(ESTRUTURA_DRE.map((l) => l.id)).size === ESTRUTURA_DRE.length
+    && new Set(ESTRUTURA_DFC.map((l) => l.id)).size === ESTRUTURA_DFC.length);
+  ok("relatorios: base vazia não vira NaN em nenhuma linha",
+    montarRelatorio({ hoje: "2026-06-30", saldoAtual: 0, movements: [] }, ESTRUTURA_DRE,
+      { intervalo: jun, tipo: "vertical", regime: "competencia" })
+      .linhas.every((l) => l.celulas.every((c) => Number.isFinite(c.valor))));
+
+  // ---- docx ----
+  const doc = gerarDOCX([
+    { tipo: "titulo", texto: "Fechamento & Análise <2026>", nivel: 1 },
+    { tipo: "tabela", cabecalho: ["Linha", "Valor"], linhas: [["EBITDA", "R$ 60.000,00"]] },
+  ]);
+  ok("docx: é um ZIP legítimo", doc[0] === 0x50 && doc[1] === 0x4b && doc[2] === 0x03 && doc[3] === 0x04);
+  const td = new TextDecoder().decode(doc);
+  ok("docx: traz as partes obrigatórias do pacote",
+    ["[Content_Types].xml", "word/document.xml", "word/styles.xml", "word/_rels/document.xml.rels"]
+      .every((n) => td.includes(n)));
+  // Sem o estilo Normal, um parágrafo sem pStyle fica sem estilo nenhum e
+  // leitores que seguem a especificação devolvem null.
+  ok("docx: declara docDefaults e o estilo Normal",
+    td.includes("<w:docDefaults>") && td.includes('w:styleId="Normal"'));
+  ok("docx: escapa & e < do conteúdo", td.includes("&amp;") && td.includes("&lt;2026&gt;"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

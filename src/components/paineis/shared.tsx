@@ -69,10 +69,10 @@ function Seta({ label, icone, onClick }: { label: string; icone: string; onClick
 /* -------------------------------- filtros -------------------------------- */
 
 /**
- * Conta e centro de custo — os dois recortes que EXISTEM no lançamento e
- * chegam até aqui (`accountId`/`costCenter`). A referência trazia "Projeto",
- * mas nenhum movimento referencia projeto no nosso modelo: o filtro não
- * filtraria nada, e um controle que não faz nada é pior que a ausência dele.
+ * Conta, centro de custo e projeto — os três recortes que existem no lançamento
+ * e chegam até aqui (`accountId`/`costCenter`/`projeto`). Cada select só
+ * aparece habilitado quando há algo para escolher: um filtro que não filtraria
+ * nada é pior que a ausência dele.
  */
 export function FiltrosPainel({
   filtro, onChange,
@@ -86,9 +86,17 @@ export function FiltrosPainel({
     return Array.from(s).sort();
   }, [input]);
 
+  // Projetos: os que REALMENTE aparecem em algum lançamento — oferecer um
+  // projeto sem movimento devolveria uma tela vazia sem explicação.
+  const projetos = React.useMemo(() => {
+    const s = new Set<string>();
+    for (const m of input?.movements ?? []) if (m.projeto) s.add(m.projeto);
+    return Array.from(s).sort();
+  }, [input]);
+
   return (
     <Card>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="flex flex-col gap-[6px]">
           <label className="text-caption font-medium text-muted">Conta</label>
           <Select
@@ -110,6 +118,18 @@ export function FiltrosPainel({
               ...centros.map((c) => ({ value: c, label: c })),
             ]}
             disabled={centros.length === 0}
+          />
+        </div>
+        <div className="flex flex-col gap-[6px]">
+          <label className="text-caption font-medium text-muted">Projeto</label>
+          <Select
+            value={filtro.projeto ?? ""}
+            onChange={(v) => onChange({ ...filtro, projeto: v || null })}
+            options={[
+              { value: "", label: projetos.length === 0 ? "Nenhum lançamento com projeto" : "Todos os projetos" },
+              ...projetos.map((p) => ({ value: p, label: p })),
+            ]}
+            disabled={projetos.length === 0}
           />
         </div>
       </div>

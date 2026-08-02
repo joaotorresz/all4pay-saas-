@@ -24,6 +24,8 @@ export interface RiskMovement {
   accountId?: string | null;
   /** Nome do centro de custo (resolvido do cadastro), quando houver. */
   costCenter?: string | null;
+  /** Nome do projeto do lançamento (centro de resultado temporal). */
+  projeto?: string | null;
 }
 
 export interface RiskInput {

@@ -49,18 +49,20 @@ export const rotuloMes = (mes: string) => `${MES_ABREV[Number(mes.slice(5, 7)) -
 const MES_LONGO = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 export const rotuloMesAno = (mes: string) => `${MES_LONGO[Number(mes.slice(5, 7)) - 1]} ${mes.slice(0, 4)}`;
 
-/** Filtros comuns a todos os painéis. Conta e centro de custo existem ponta a
- *  ponta nos lançamentos — por isso são estes, e não "projeto" (que hoje vive
- *  só no cadastro local e nenhum movimento referencia). */
+/** Filtros comuns a todos os painéis — os três recortes que existem ponta a
+ *  ponta no lançamento: conta, centro de custo e projeto. */
 export interface FiltroPainel {
   conta?: string | null;
   centro?: string | null;
+  /** Nome do projeto (o vínculo vem de `movements.project_id`). */
+  projeto?: string | null;
 }
 
 export function aplicarFiltro(ms: RiskMovement[], f: FiltroPainel = {}): RiskMovement[] {
   return ms.filter((m) => {
     if (f.conta && m.accountId !== f.conta) return false;
     if (f.centro && m.costCenter !== f.centro) return false;
+    if (f.projeto && m.projeto !== f.projeto) return false;
     return true;
   });
 }

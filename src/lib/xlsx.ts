@@ -25,7 +25,7 @@ export interface PlanilhaXLSX {
 
 /* ------------------------------ XML / células ------------------------------ */
 
-const escapar = (s: string) =>
+export const escaparXML = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     // Caracteres de controle são ILEGAIS em XML 1.0 e fazem o Excel recusar o
     // arquivo inteiro — um \t vindo de um campo colado derrubaria a exportação.
@@ -50,7 +50,7 @@ function celula(ref: string, v: CelulaXLSX): string {
     return `<c r="${ref}"><v>${v}</v></c>`;
   }
   // Texto vai como inlineStr: dispensa a tabela de strings compartilhadas.
-  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escapar(String(v))}</t></is></c>`;
+  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escaparXML(String(v))}</t></is></c>`;
 }
 
 function folhaXML(linhas: CelulaXLSX[][]): string {
@@ -75,19 +75,19 @@ const TABELA_CRC = (() => {
   return t;
 })();
 
-function crc32(b: Uint8Array): number {
+export function crc32(b: Uint8Array): number {
   let c = 0xffffffff;
   for (let i = 0; i < b.length; i++) c = TABELA_CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8);
   return (c ^ 0xffffffff) >>> 0;
 }
 
-interface Entrada { nome: string; dados: Uint8Array; crc: number }
+export interface Entrada { nome: string; dados: Uint8Array; crc: number }
 
 /**
  * Monta o ZIP. Data/hora ficam fixas em 1980-01-01 (o zero do formato MS-DOS):
  * a mesma tabela sempre gera bytes idênticos, o que torna a saída testável.
  */
-function zipar(entradas: Entrada[]): Uint8Array {
+export function zipar(entradas: Entrada[]): Uint8Array {
   const locais: Uint8Array[] = [];
   const central: Uint8Array[] = [];
   let offset = 0;
@@ -163,7 +163,7 @@ export function gerarXLSX(planilhas: PlanilhaXLSX[]): Uint8Array {
       nome: "xl/workbook.xml",
       texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${
-        abas.map((a, i) => `<sheet name="${escapar(nomeAba(a.nome))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")
+        abas.map((a, i) => `<sheet name="${escaparXML(nomeAba(a.nome))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")
       }</sheets></workbook>`,
     },
     {

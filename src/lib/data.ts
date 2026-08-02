@@ -8,6 +8,8 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
+import { vinculosProjeto } from "@/lib/projeto-vinculo";
+import { listProjetos } from "@/lib/iuli-cadastros";
 import {
   DEMO_ACCOUNTS,
   DEMO_MOVEMENTS,
@@ -463,6 +465,7 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       category: null,
       category_id: input.category_id,
       cost_center_id: input.cost_center_id,
+      project_id: input.project_id ?? null,
       party_id: input.party_id,
       amount: per,
       due_date: isoDay(due),
@@ -546,6 +549,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Dados importados (FDIP) já vêm com party_id = contraparteNorm e um cadastro
     // de parties; o seed determinístico usa a descrição como rótulo da contraparte.
     const imp = importedMovements();
+    // Projeto: o vínculo local é a fonte síncrona (ver lib/projeto-vinculo).
+    const vinculos = vinculosProjeto();
+    const nomeProjeto: Record<string, string> = {};
+    for (const p of listProjetos()) nomeProjeto[p.id] = p.nome;
     // Resolve a contraparte por party_id (cadastro) OU pela descrição (seed).
     // Assim o seed NÃO perde os nomes quando um upload cria o dataset importado.
     const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
@@ -559,6 +566,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
       accountId: m.account_id ?? null,
       category: m.category,
       costCenter: demoCostCenter(m.category),
+      projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -571,13 +579,23 @@ export async function getRiscoInput(): Promise<RiskInput> {
   }
 
   const supabase = createClient();
+  const COLUNAS_BASE =
+    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)";
+  /**
+   * O embed do projeto só resolve DEPOIS da migration `0019`. Pedir a coluna
+   * antes disso não devolve nulo — o PostgREST devolve erro e derrubaria o
+   * `getRiscoInput` inteiro, ou seja, o sistema todo. Por isso a tentativa é
+   * otimista com queda para o select base; sem a coluna, quem responde pelo
+   * projeto é o vínculo local.
+   */
+  const movimentos = async () => {
+    const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`);
+    if (!comProjeto.error) return comProjeto;
+    return supabase.from("movements").select(COLUNAS_BASE);
+  };
   const [accRes, movRes, partyRes] = await Promise.all([
     supabase.from("financial_accounts").select("balance"),
-    supabase
-      .from("movements")
-      .select(
-        "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)",
-      ),
+    movimentos(),
     supabase.from("parties").select("id,name"),
   ]);
   if (accRes.error) throw accRes.error;
@@ -588,7 +606,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
   );
   const embedName = (e: unknown): string | null =>
     Array.isArray(e) ? (e[0]?.name ?? null) : ((e as { name?: string } | null)?.name ?? null);
-  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown })[]).map((m) => ({
+  const vinculosLive = vinculosProjeto();
+  const nomeProjetoLive: Record<string, string> = {};
+  for (const p of listProjetos()) nomeProjetoLive[p.id] = p.nome;
+  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown; projeto?: unknown })[]).map((m) => ({
     id: m.id,
     type: m.type,
     status: m.status,
@@ -600,6 +621,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // categoria real (nome do cadastro) tem prioridade sobre o texto livre
     category: embedName(m.categoria) ?? m.category,
     costCenter: embedName(m.centro),
+    projeto: embedName(m.projeto) ?? nomeProjetoLive[vinculosLive[m.id] ?? ""] ?? null,
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {
