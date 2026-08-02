@@ -30,6 +30,16 @@ const ROUTES: RouteItem[] = [
   { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
+  { label: "Contas a Receber (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right", kw: "contas a receber titulos lista recebidas atrasadas cliente vencimento baixa lote" },
+  { label: "Contas a Pagar (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie" },
+  { label: "Transferências entre contas", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
+  { label: "Nova conta a receber", href: "/dashboard/financial/receivables/new", icon: "plus", kw: "nova conta a receber lancar titulo cliente competencia vencimento rateio anexo repetir" },
+  { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus", kw: "nova conta a pagar lancar titulo fornecedor especie nfe nfse pix rateio anexo" },
+  { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks", kw: "conciliacao bancaria ofx regras quadros conferencia fechamento extrato bater" },
+  { label: "Extrato da conta", href: "/dashboard/financial/statement", icon: "receipt", kw: "extrato conta bancaria saldo corrente periodo movimentacoes" },
+  { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card", kw: "fatura cartao de credito ciclo fechamento vencimento aberta paga parcial" },
+  { label: "Fluxo de caixa do mês", href: "/dashboard/reports/cash-flow", icon: "trending-up", kw: "fluxo de caixa mensal saldo inicial final entradas saidas transferencia contas" },
+  { label: "Importar em lote (planilha)", href: "/dashboard/financial/import", icon: "upload", kw: "importar lote planilha xlsx modelo contas a receber pagar transferencias" },
   // Duas portas para a MESMA IA: o painel flutuante (rápido, sobre a tela atual)
   // e a tela cheia com histórico de conversas.
   { label: "Perguntar à All4Pay IA", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir painel" },

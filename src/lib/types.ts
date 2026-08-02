@@ -106,7 +106,10 @@ export type PaymentMethod =
   | "cartao"
   | "dinheiro"
   | "transferencia";
-export type RecurrenceFreq = "semanal" | "mensal" | "anual";
+/** As seis frequências da tela de conta a receber/pagar (enum `recurrence_freq`,
+ *  estendido na migration 0021). */
+export type RecurrenceFreq =
+  | "diaria" | "semanal" | "mensal" | "bimestral" | "trimestral" | "anual";
 export type PartyType = "pf" | "pj";
 
 export interface Category {

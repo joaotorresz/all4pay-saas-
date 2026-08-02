@@ -199,3 +199,133 @@ export function baixarXLSX(nomeArquivo: string, planilhas: PlanilhaXLSX[]): void
   // Revogar na hora cancelaria o download em alguns navegadores.
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+
+/* ================================= leitura ================================= */
+
+/**
+ * LER um .xlsx — o outro lado da importação em lote.
+ *
+ * Escrever era fácil (ZIP STORED); ler é mais duro, porque planilhas reais vêm
+ * com as entradas em DEFLATE. A saída é a `DecompressionStream("deflate-raw")`,
+ * que TODO navegador moderno traz: descomprime sem uma linha de inflate
+ * própria e sem dependência. Onde a API não existe, só as entradas STORED são
+ * lidas — e a tela diz que o arquivo precisa ser salvo de novo.
+ */
+interface EntradaLida { nome: string; dados: Uint8Array }
+
+async function descomprimir(bytes: Uint8Array): Promise<Uint8Array> {
+  const DS = (globalThis as { DecompressionStream?: typeof DecompressionStream }).DecompressionStream;
+  if (!DS) throw new Error("sem-decompression-stream");
+  const stream = new Blob([bytes as unknown as BlobPart]).stream().pipeThrough(new DS("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Percorre o diretório central do ZIP — a fonte confiável dos offsets. */
+async function lerZip(buf: ArrayBuffer): Promise<EntradaLida[]> {
+  const b = new Uint8Array(buf);
+  const dv = new DataView(buf);
+  // O EOCD fica no fim; o comentário pode empurrá-lo até 64 KB para trás.
+  let eocd = -1;
+  for (let i = b.length - 22; i >= Math.max(0, b.length - 66_000); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("zip-invalido");
+  const nEntradas = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+
+  const out: EntradaLida[] = [];
+  for (let k = 0; k < nEntradas; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const metodo = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const nomeLen = dv.getUint16(p + 28, true);
+    const extraLen = dv.getUint16(p + 30, true);
+    const comentLen = dv.getUint16(p + 32, true);
+    const offset = dv.getUint32(p + 42, true);
+    const nome = new TextDecoder().decode(b.subarray(p + 46, p + 46 + nomeLen));
+    p += 46 + nomeLen + extraLen + comentLen;
+
+    // No cabeçalho local, nome e extra têm tamanhos PRÓPRIOS — reaproveitar os
+    // do diretório central desalinharia o início dos dados.
+    const nomeLocal = dv.getUint16(offset + 26, true);
+    const extraLocal = dv.getUint16(offset + 28, true);
+    const inicio = offset + 30 + nomeLocal + extraLocal;
+    const cru = b.subarray(inicio, inicio + compSize);
+    if (metodo === 0) out.push({ nome, dados: cru });
+    else if (metodo === 8) out.push({ nome, dados: await descomprimir(cru) });
+    // Outros métodos (bzip2, lzma) não aparecem em .xlsx de planilha real.
+  }
+  return out;
+}
+
+const semTags = (s: string) => s.replace(/<[^>]*>/g, "");
+/**
+ * Desescapa o XML da planilha.
+ *
+ * ⚠️ As referências NUMÉRICAS (`&#231;`) não são opcionais: o Excel e o
+ * openpyxl gravam os acentos assim, então sem elas "Descrição" chega
+ * "Descri&#231;&#227;o" — toda importação com português vem quebrada.
+ * O `&amp;` fica por ÚLTIMO: desfazê-lo antes transformaria "&amp;lt;" em "<".
+ */
+const desescapar = (s: string) =>
+  s.replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+
+/** Coluna "AB12" → índice 27 (0-based). */
+function indiceDaColuna(ref: string): number {
+  const letras = ref.replace(/[0-9]/g, "");
+  let n = 0;
+  for (const c of letras) n = n * 26 + (c.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+/**
+ * Lê a primeira aba de um .xlsx numa matriz de strings.
+ *
+ * Strings podem vir inline (`t="inlineStr"`) ou da tabela compartilhada
+ * (`sharedStrings.xml`) — planilhas do Excel/Sheets usam a segunda quase
+ * sempre, então ignorá-la devolveria uma matriz só de números.
+ */
+export async function lerXLSX(arquivo: Blob): Promise<string[][]> {
+  const entradas = await lerZip(await arquivo.arrayBuffer());
+  const dec = new TextDecoder();
+  const acha = (n: string) => entradas.find((e) => e.nome === n);
+
+  const compartilhadas: string[] = [];
+  const ss = acha("xl/sharedStrings.xml");
+  if (ss) {
+    for (const si of dec.decode(ss.dados).split("<si>").slice(1)) {
+      // Um <si> pode ter vários <t> (texto com formatação partida no meio).
+      const partes = Array.from(si.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)).map((m) => m[1]);
+      compartilhadas.push(desescapar(partes.join("")));
+    }
+  }
+
+  const folha = entradas.find((e) => /^xl\/worksheets\/sheet\d+\.xml$/.test(e.nome));
+  if (!folha) return [];
+  const xml = dec.decode(folha.dados);
+
+  const linhas: string[][] = [];
+  for (const row of xml.split("<row").slice(1)) {
+    const celulas: string[] = [];
+    const cs = Array.from(row.matchAll(/<c([^>]*)>([\s\S]*?)<\/c>|<c([^>]*)\/>/g));
+    for (const m of cs) {
+      const attrs = m[1] ?? m[3] ?? "";
+      const corpo = m[2] ?? "";
+      const ref = /r="([A-Z]+\d+)"/.exec(attrs)?.[1];
+      const tipo = /t="([^"]+)"/.exec(attrs)?.[1];
+      const bruto = /<v>([\s\S]*?)<\/v>/.exec(corpo)?.[1]
+        ?? /<t[^>]*>([\s\S]*?)<\/t>/.exec(corpo)?.[1] ?? "";
+      const valor = tipo === "s" ? (compartilhadas[Number(bruto)] ?? "") : desescapar(semTags(bruto));
+      const i = ref ? indiceDaColuna(ref) : celulas.length;
+      while (celulas.length < i) celulas.push("");
+      celulas[i] = valor;
+    }
+    linhas.push(celulas);
+  }
+  // Linhas totalmente vazias no fim da planilha são ruído do editor.
+  while (linhas.length && linhas[linhas.length - 1].every((c) => !c.trim())) linhas.pop();
+  return linhas;
+}

@@ -57,6 +57,13 @@ import {
 } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
+  filtrarTitulos, resumoTitulos, statusDoTitulo, validarTransferencia,
+  filtrarTransferencias, resumoTransferencias, extratoDaConta, faturasDoCartao,
+  fluxoCaixaMensal, validarRegra, regraQueCasa, candidatoPara, conciliar,
+  TIPOS_OFX, FUNCOES_REGRA,
+  type Transferencia, type RegraConciliacao, type TransacaoOFX,
+} from "@/core/movimentacoes";
+import {
   validarOrcamento, orcadoPorLinha, resumoOrcamento, distribuir, ajustarAlocacoes,
   cobertura, sugerirCategorias, mesesDoOrcamento, totalAlocacao,
   type Orcamento,
@@ -1421,6 +1428,173 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("orcamento/leitura: despesa acima do orçado é RUIM", !bomParaLinha(100, "-"));
   ok("orcamento/leitura: despesa abaixo do orçado é BOM", bomParaLinha(-100, "-"));
   ok("orcamento/leitura: receita abaixo do orçado é RUIM", !bomParaLinha(-100, "+"));
+}
+
+// ── core/movimentacoes: títulos, transferências, extrato, cartão, conciliação ──
+{
+  const M = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: "m", type: "saida", status: "pago", amount: 0, due_date: "2026-08-10", paid_date: "2026-08-10", ...o }) as RiskMovement;
+  const input: RiskInput = {
+    hoje: "2026-08-15",
+    saldoAtual: 100_000,
+    partyNames: { c1: "Alpha", f1: "Fornecedor X" },
+    movements: [
+      M({ id: "r1", type: "entrada", amount: 30_000, due_date: "2026-08-05", paid_date: "2026-08-05", party_id: "c1", accountId: "ac1", category: "Vendas" }),
+      M({ id: "r2", type: "entrada", amount: 20_000, status: "pendente", paid_date: null, due_date: "2026-08-20", party_id: "c1", accountId: "ac1" }),
+      M({ id: "r3", type: "entrada", amount: 10_000, status: "pendente", paid_date: null, due_date: "2026-08-01", party_id: "c1", accountId: "ac1" }), // atrasado
+      M({ id: "p1", amount: 8_000, due_date: "2026-08-08", paid_date: "2026-08-08", party_id: "f1", accountId: "ac1", category: "Fornecedores" }),
+      M({ id: "p2", amount: 5_000, status: "pendente", paid_date: null, due_date: "2026-08-25", party_id: "f1", accountId: "ac1" }),
+      M({ id: "x1", type: "entrada", amount: 999_999, status: "cancelado", due_date: "2026-08-10", accountId: "ac1" }),
+      // cartão de crédito
+      M({ id: "cc1", amount: 1_000, due_date: "2026-08-05", paid_date: "2026-08-05", accountId: "cartao1", category: "Software" }),
+      M({ id: "cc2", amount: 2_000, status: "pendente", paid_date: null, due_date: "2026-08-25", accountId: "cartao1", category: "Marketing" }),
+    ],
+  };
+
+  // ---- títulos ----
+  const rec = filtrarTitulos(input, "receber");
+  ok("mov/titulos: só entradas no lado receber", rec.length === 3, `${rec.length}`);
+  ok("mov/titulos: cancelado nunca aparece", !rec.some((m) => m.id === "x1"));
+  ok("mov/titulos: pagar traz só saídas", filtrarTitulos(input, "pagar").length === 4, `${filtrarTitulos(input, "pagar").length}`);
+  ok("mov/titulos: status liquidado/aberto/atrasado",
+    statusDoTitulo(input.movements[0], input.hoje) === "liquidado"
+    && statusDoTitulo(input.movements[1], input.hoje) === "aberto"
+    && statusDoTitulo(input.movements[2], input.hoje) === "atrasado");
+  ok("mov/titulos: janela por vencimento",
+    filtrarTitulos(input, "receber", { de: "2026-08-10", ate: "2026-08-31" }).length === 1);
+  ok("mov/titulos: filtro de conta", filtrarTitulos(input, "receber", { conta: "outra" }).length === 0);
+  // Busca sem acento e por substring — o operador digita o pedaço que lembra.
+  ok("mov/titulos: busca acha pela contraparte", filtrarTitulos(input, "receber", { busca: "alpha" }).length === 3);
+  ok("mov/titulos: busca acha pela categoria", filtrarTitulos(input, "pagar", { busca: "fornecedor" }).length >= 1);
+
+  const cards = resumoTitulos(rec, "receber", input.hoje);
+  const card = (id: string) => cards.find((c) => c.id === id)!;
+  ok("mov/cards: recebidas", card("liquidado").valor === 30_000 && card("liquidado").quantidade === 1);
+  ok("mov/cards: a receber", card("aberto").valor === 20_000);
+  ok("mov/cards: atrasadas", card("atrasado").valor === 10_000);
+  ok("mov/cards: total soma os três", card("total").valor === 60_000, `${card("total").valor}`);
+  // Os percentuais dos três status têm de fechar em 100 — é o anel do card.
+  ok("mov/cards: percentuais fecham 100",
+    Math.abs(card("liquidado").percentual + card("aberto").percentual + card("atrasado").percentual - 100) < 0.2);
+  ok("mov/cards: base vazia não vira NaN",
+    resumoTitulos([], "receber", input.hoje).every((c) => Number.isFinite(c.valor) && Number.isFinite(c.percentual)));
+
+  // ---- transferências ----
+  const T = (o: Partial<Transferencia>): Transferencia => ({
+    id: "t", contaOrigem: "ac1", contaDestino: "ac2", data: "2026-08-10",
+    dataChegada: null, valor: 1_000, descricao: "", conciliadaOrigem: false,
+    conciliadaDestino: false, criadoEm: "2026-08-10", ...o,
+  });
+  ok("mov/transf: válida passa", Object.keys(validarTransferencia(T({}))).length === 0);
+  // Transferir para a mesma conta não move nada e sujaria o extrato com duas
+  // linhas que se anulam.
+  ok("mov/transf: origem = destino é recusado", !!validarTransferencia(T({ contaDestino: "ac1" })).contaDestino);
+  ok("mov/transf: valor zero é recusado", !!validarTransferencia(T({ valor: 0 })).valor);
+  ok("mov/transf: chegada antes da saída é recusada",
+    !!validarTransferencia(T({ data: "2026-08-10", dataChegada: "2026-08-09" })).dataChegada);
+  const ts = [T({ id: "t1" }), T({ id: "t2", data: "2026-07-01", valor: 500 }), T({ id: "t3", conciliadaOrigem: true, conciliadaDestino: true })];
+  ok("mov/transf: resumo conta o mês corrente",
+    resumoTransferencias(ts, "2026-08-15").noMes === 2, `${resumoTransferencias(ts, "2026-08-15").noMes}`);
+  ok("mov/transf: valor total soma tudo", resumoTransferencias(ts, "2026-08-15").valor === 2_500);
+  ok("mov/transf: filtro de conciliação",
+    filtrarTransferencias(ts, { conciliacao: "sim" }).length === 1
+    && filtrarTransferencias(ts, { conciliacao: "nao" }).length === 2);
+
+  // ---- extrato ----
+  const ext = extratoDaConta(input, "ac1", "2026-08-01", "2026-08-31", 100_000);
+  // Só o liquidado entra no extrato: pendente não passou pelo banco.
+  ok("mov/extrato: só o liquidado aparece", ext.linhas.length === 2, `${ext.linhas.length}`);
+  ok("mov/extrato: entradas e saídas do período", ext.entradas === 30_000 && ext.saidas === 8_000);
+  // Abertura = saldo de hoje desfazendo o que entrou/saiu no período.
+  ok("mov/extrato: abertura reconstruída", ext.abertura === 100_000 - (30_000 - 8_000), `${ext.abertura}`);
+  ok("mov/extrato: fechamento = abertura + fluxo", ext.fechamento === 100_000, `${ext.fechamento}`);
+  // O saldo corrente tem de andar linha a linha, não repetir o mesmo número.
+  ok("mov/extrato: saldo corrente evolui",
+    ext.linhas[0].saldo !== ext.linhas[1].saldo);
+  ok("mov/extrato: conta sem movimento não quebra",
+    extratoDaConta(input, "inexistente", "2026-08-01", "2026-08-31", 0).linhas.length === 0);
+
+  // ---- fatura do cartão ----
+  const cartao = { id: "cartao1", nome: "Cartão", diaFechamento: 20, diaVencimento: 28 };
+  const faturas = faturasDoCartao(input, cartao, "2026-01-01", "2026-12-31");
+  ok("mov/cartao: agrupa por ciclo", faturas.length >= 1);
+  const fAgo = faturas.find((f) => f.vencimento.startsWith("2026-08"));
+  // Compra dia 05 (antes do fechamento dia 20) cai na fatura DESTE mês.
+  ok("mov/cartao: compra antes do fechamento fica no ciclo do mês",
+    !!fAgo && fAgo.total === 1_000, `${fAgo?.total}`);
+  // Compra dia 25 (depois do fechamento) cai na fatura do mês SEGUINTE — errar
+  // isso muda o mês em que a despesa aparece no caixa.
+  const fSet = faturas.find((f) => f.vencimento.startsWith("2026-09"));
+  ok("mov/cartao: compra após o fechamento vai para o ciclo seguinte",
+    !!fSet && fSet.total === 2_000, `${fSet?.total}`);
+  ok("mov/cartao: fatura toda paga fica 'paga'", fAgo?.status === "paga", `${fAgo?.status}`);
+  ok("mov/cartao: fatura sem pagamento não fica paga", fSet?.status !== "paga");
+  ok("mov/cartao: vencimento respeita o dia do cartão", faturas.every((f) => f.vencimento.endsWith("-28")));
+  ok("mov/cartao: janela filtra as faturas",
+    faturasDoCartao(input, cartao, "2026-09-01", "2026-09-30").length === 1);
+
+  // ---- fluxo de caixa mensal ----
+  const transfs = [T({ id: "tf1", contaOrigem: "ac1", contaDestino: "ac2", valor: 4_000, data: "2026-08-12" })];
+  const fx = fluxoCaixaMensal(input, "2026-08", [], transfs, 100_000);
+  ok("mov/fluxo: entradas do mês", fx.entradas === 30_000, `${fx.entradas}`);
+  ok("mov/fluxo: saídas do mês", fx.saidas === 9_000, `${fx.saidas}`);
+  // A transferência NÃO entra em entradas/saídas: ela tem colunas próprias,
+  // senão o faturamento inflaria com dinheiro que já era da empresa.
+  ok("mov/fluxo: transferência fica fora de entradas/saídas",
+    fx.entradas === 30_000 && fx.transferenciaEntrada === 4_000 && fx.transferenciaSaida === 4_000);
+  ok("mov/fluxo: saldo final = inicial + fluxo",
+    Math.abs(fx.saldoFinal - (fx.saldoInicial + fx.entradas - fx.saidas + fx.transferenciaEntrada - fx.transferenciaSaida)) < 0.01,
+    `${fx.saldoFinal} vs ${fx.saldoInicial}`);
+  ok("mov/fluxo: as linhas ficam em ordem de data",
+    fx.linhas.every((l, k) => k === 0 || fx.linhas[k - 1].data <= l.data));
+  ok("mov/fluxo: mês sem movimento não vira NaN",
+    Number.isFinite(fluxoCaixaMensal(input, "2020-01", [], [], 0).saldoFinal));
+
+  // ---- regras de conciliação ----
+  const R = (o: Partial<RegraConciliacao>): RegraConciliacao => ({
+    id: "r", nome: "Regra", descricao: "", contas: ["ac1"], tipo: "conta_pagar",
+    funcao: "pesquisar_conciliar", contem: "", ativa: true, criadaEm: "2026-01-01", usos: 0, ...o,
+  });
+  ok("mov/regra: válida passa", Object.keys(validarRegra(R({}))).length === 0);
+  ok("mov/regra: nome obrigatório", !!validarRegra(R({ nome: " " })).nome);
+  ok("mov/regra: sem conta é recusada", !!validarRegra(R({ contas: [] })).contas);
+  ok("mov/regra: descrição acima de 255 é recusada", !!validarRegra(R({ descricao: "x".repeat(256) })).descricao);
+  ok("mov/regra: os 4 tipos e as 5 funções do print existem",
+    TIPOS_OFX.length === 4 && FUNCOES_REGRA.length === 5);
+
+  const tx: TransacaoOFX = { id: "ofx1", contaId: "ac1", data: "2026-08-25", valor: 5_000, descricao: "PAGTO FORNECEDOR X", tipo: "conta_pagar" };
+  // Ordem = prioridade, como num firewall: a primeira que casa vence.
+  const duas = [R({ id: "a", nome: "Primeira" }), R({ id: "b", nome: "Segunda" })];
+  ok("mov/regra: a primeira que casa vence", regraQueCasa(tx, duas)?.nome === "Primeira");
+  ok("mov/regra: regra inativa não casa", regraQueCasa(tx, [R({ ativa: false })]) === null);
+  ok("mov/regra: tipo diferente não casa", regraQueCasa(tx, [R({ tipo: "conta_receber" })]) === null);
+  ok("mov/regra: conta fora da lista não casa", regraQueCasa(tx, [R({ contas: ["outra"] })]) === null);
+  ok("mov/regra: 'contém' filtra por trecho, sem acento",
+    !!regraQueCasa(tx, [R({ contem: "fornecedor" })]) && regraQueCasa(tx, [R({ contem: "aluguel" })]) === null);
+
+  // Casamento: mesmo sinal, valor a 1% e vencimento a até 5 dias.
+  ok("mov/conciliacao: acha o candidato certo", candidatoPara(tx, input)?.id === "p2");
+  ok("mov/conciliacao: valor fora de 1% não casa",
+    candidatoPara({ ...tx, valor: 9_000 }, input) === null);
+  ok("mov/conciliacao: data a mais de 5 dias não casa",
+    candidatoPara({ ...tx, data: "2026-09-20" }, input) === null);
+  ok("mov/conciliacao: sinal errado não casa",
+    candidatoPara({ ...tx, tipo: "conta_receber" }, input)?.id !== "p2");
+
+  const res = conciliar([tx], [R({ funcao: "pesquisar_conciliar" })], input);
+  ok("mov/conciliacao: pesquisar e conciliar concilia quando acha", res[0].acao === "conciliar");
+  ok("mov/conciliacao: sugerir só propõe", conciliar([tx], [R({ funcao: "sugerir" })], input)[0].acao === "sugerir");
+  ok("mov/conciliacao: ignorar não vira lançamento", conciliar([tx], [R({ funcao: "ignorar" })], input)[0].acao === "ignorar");
+  ok("mov/conciliacao: sem regra fica sem ação", conciliar([tx], [], input)[0].acao === "sem_regra");
+  // "Criar…" só age quando NÃO achou: criar em cima de um título existente é o
+  // caminho mais curto para duplicar o financeiro.
+  ok("mov/conciliacao: criar-e-conciliar NÃO cria quando já existe",
+    conciliar([tx], [R({ funcao: "criar_conciliar" })], input)[0].acao === "conciliar");
+  const semPar: TransacaoOFX = { ...tx, id: "ofx2", valor: 77, descricao: "TARIFA" };
+  ok("mov/conciliacao: criar-e-conciliar cria quando não existe",
+    conciliar([semPar], [R({ funcao: "criar_conciliar" })], input)[0].acao === "criar");
+  ok("mov/conciliacao: criar-e-sugerir propõe a criação",
+    conciliar([semPar], [R({ funcao: "criar_sugerir" })], input)[0].acao === "propor_criacao");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

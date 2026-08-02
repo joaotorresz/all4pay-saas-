@@ -1032,6 +1032,58 @@ o filtro "Projeto" ficou de fora dos painéis. Agora existe ponta a ponta:
   transação do `ExtratoTransacoes` permite vincular/desvincular uma transação
   existente. `FiltroPainel.projeto` e o filtro dos relatórios consomem isso.
 
+### Movimentações financeiras (`/dashboard/financial/*`) + `core/movimentacoes`
+
+`src/core/movimentacoes/index.ts` (`movimentacoes/1.0.0`, puro/tipado/demo-safe)
+— a camada OPERACIONAL do dinheiro: o que vence, o que já caiu, o que andou
+entre contas. Tudo sobre o MESMO `RiskInput` do DRE/fluxo/risco.
+
+- **Contas a receber / a pagar** (`/dashboard/financial/accounts-and-transfers`,
+  `?tab=receivables|payables|transfers`): uma `TitulosView` com `direcao` — os
+  dois lados são o mesmo problema espelhado. 4 cards com anel (recebidas · a
+  receber · atrasadas · total, cada um com valor, quantidade e % do total),
+  busca, filtro, **baixa em lote** (idempotente, via `pagarLote`/`receberLote`)
+  e paginação de 50 a 5000.
+- **Formulário** (`TituloForm`, `/dashboard/financial/{receivables|payables}/new`):
+  as duas condicionais do print — marcar *realizado* revela data/valor/desconto;
+  marcar *repetir* revela frequência e quantidade (obrigatórias: sem quantidade
+  a recorrência geraria lançamento para sempre) e **mostra as datas** que serão
+  criadas. Dia 31 num mês de 30 vira o último dia, nunca escorrega para o mês
+  seguinte. Só o **pagar** tem Espécie (NF-e/NFS-e) e exibe a **chave PIX** do
+  fornecedor escolhido. Anexos: png/jpg/jpeg/pdf/xml/xls/xlsx até 10 MB,
+  checados ANTES de guardar.
+- ⚠️ **Transferência é UM fato com DOIS lados.** O registro em
+  `lib/movimentacoes` mantém os dois lançamentos amarrados; apagar o fato apaga
+  os dois, senão o saldo entre as contas ficaria torto para sempre. Ela tem
+  colunas PRÓPRIAS no fluxo de caixa — misturá-la com entradas/saídas inflaria
+  o faturamento com dinheiro que já era da empresa. Origem = destino é recusado.
+- **Conciliação** (`/dashboard/financial/reconciliation`): Quadros · Conferência
+  · Regras · Fechamentos. A regra casa transação OFX com lançamento; a **ordem
+  da lista é a prioridade** (a primeira que casa vence, como num firewall) e o
+  desempate é arrastar. `candidatoPara` casa por sinal + valor a 1% + vencimento
+  a até 5 dias — sem tolerância quase nada conciliaria. ⚠️ As funções "criar…"
+  só agem quando NÃO acharam candidato: criar em cima de um título existente é
+  o caminho mais curto para duplicar o financeiro.
+- **Fatura do cartão** (`/dashboard/financial/credit-card-invoices`): agrupa por
+  CICLO — compra depois do fechamento cai na fatura do mês seguinte. Depende de
+  uma conta tipo Cartão com os dois dias preenchidos.
+- **Extrato** (`/dashboard/financial/statement`) e **Fluxo de caixa do mês**
+  (`/dashboard/reports/cash-flow`): saldo de abertura reconstruído do saldo de
+  hoje — a mesma técnica do painel financeiro, para os dois fecharem no mesmo
+  número.
+- **Importação em lote** (`/dashboard/financial/import?tipo=…`): baixa o modelo
+  `.xlsx`, sobe a planilha, **confere** e só então grava. Linhas com erro são
+  ignoradas e listadas; as boas entram.
+
+### Ler `.xlsx` (`lib/xlsx` `lerXLSX`) — sem dependência
+
+Escrever era ZIP STORED; ler é mais duro porque planilhas reais vêm em DEFLATE.
+A saída é a **`DecompressionStream("deflate-raw")`** do navegador — zero linhas
+de inflate próprias. Lê `sharedStrings.xml` (o Excel/Sheets quase sempre usa) e
+⚠️ **decodifica as referências NUMÉRICAS** (`&#231;`): o openpyxl e o Excel
+gravam acentos assim, e sem isso "Descrição" chega "Descri&#231;&#227;o" — toda
+importação em português vem quebrada. Round-trip validado contra `openpyxl`.
+
 ### Orçamento (`/dashboard/registrations/budgets`) + `core/orcamento`
 
 `src/core/orcamento/index.ts` (`orcamento/1.0.0`, puro/tipado/demo-safe) — o

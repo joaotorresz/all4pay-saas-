@@ -49,6 +49,16 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
+    // A operação do dinheiro: títulos, transferências, conciliação, extrato e
+    // fatura do cartão. Uma entrada; as telas se alcançam entre si.
+    id: "movimentacoes", label: "Movimentações", items: [
+      { label: "Contas & transferências", href: "/dashboard/financial/accounts-and-transfers", icon: "arrow-left-right" },
+      { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+      { label: "Extrato", href: "/dashboard/financial/statement", icon: "receipt" },
+      { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
+    ],
+  },
+  {
     id: "caixa", label: "Caixa & Resultado", items: [
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "DRE (resultado)", href: "/dre", icon: "trending-up" },
