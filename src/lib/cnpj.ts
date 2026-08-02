@@ -22,6 +22,22 @@ export interface DadosCNPJ {
   uf?: string;
   /** A categoria sugerida a partir do CNAE (o motor puro). */
   sugestao: ResultadoCNAE | null;
+  /* --- endereço e contato (autopreenchimento do cadastro de empresa) --- */
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  /** DDD + número, como a Receita devolve ("1115768700"). */
+  telefone?: string;
+  email?: string;
+  /** ISO da abertura ("2019-08-16") — vira a Data de Fundação. */
+  dataAbertura?: string;
+  porte?: string;
+  situacao?: string;
+  /** A Receita marca o Simples/MEI; alimenta o Regime Tributário. */
+  simples?: boolean;
+  mei?: boolean;
 }
 
 const CHAVE = "a4p_cnpj_cache";
@@ -80,15 +96,31 @@ export async function consultarCNPJ(cnpjEntrada: string): Promise<DadosCNPJ | nu
       if (!res.ok) return null;
       const j = (await res.json()) as Record<string, unknown>;
       const codigo = String(j.cnae_fiscal ?? "");
+      const txt = (k: string): string | undefined => {
+        const v = j[k];
+        return v == null || v === "" ? undefined : String(v);
+      };
       const dados: DadosCNPJ = {
         cnpj,
         razaoSocial: String(j.razao_social ?? ""),
-        nomeFantasia: (j.nome_fantasia as string) || undefined,
+        nomeFantasia: txt("nome_fantasia"),
         cnaePrincipal: codigo,
         cnaeDescricao: String(j.cnae_fiscal_descricao ?? ""),
-        municipio: (j.municipio as string) || undefined,
-        uf: (j.uf as string) || undefined,
+        municipio: txt("municipio"),
+        uf: txt("uf"),
         sugestao: categoriaPorCNAE(codigo),
+        cep: txt("cep"),
+        logradouro: txt("logradouro"),
+        numero: txt("numero"),
+        complemento: txt("complemento"),
+        bairro: txt("bairro"),
+        telefone: txt("ddd_telefone_1"),
+        email: txt("email"),
+        dataAbertura: txt("data_inicio_atividade"),
+        porte: txt("porte"),
+        situacao: txt("descricao_situacao_cadastral"),
+        simples: j.opcao_pelo_simples === true,
+        mei: j.opcao_pelo_mei === true,
       };
       return dados;
     } catch {

@@ -92,7 +92,7 @@ export const CONFIG: Section = {
   id: "config", label: "Configurações", items: [
     { label: "Empresa", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
-    { label: "Adicionar Empresa", href: "/comecar", icon: "plus" },
+    { label: "Adicionar Empresa", href: "/empresas/nova", icon: "plus" },
   ],
 };
 
