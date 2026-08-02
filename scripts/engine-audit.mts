@@ -33,6 +33,11 @@ import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
+import {
+  fonteMetrica, fonteSerie, fonteCategoria, widgetPadrao, sugerirWidgets,
+  templateAcompanhamentoSemanal, CATALOGO, FONTES_METRICA, FONTES_SERIE, FONTES_CATEGORIA,
+  type EntradaFontes,
+} from "@/core/dashboards";
 import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -681,6 +686,100 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const sug = sugerirRegra({ id: "x", tipo: "saida", valor: 300, contraparte: "PIX POSTO IPIRANGA 771" }, "Combustível");
   ok("regras: correção sugere regra por padrão (não por nome exato)", sug?.quando.contraparte?.valor === "posto ipiranga", `${sug?.quando.contraparte?.valor}`);
   ok("regras: contraparte impossível de reduzir → sem sugestão", sugerirRegra({ id: "y", tipo: "saida", valor: 10, contraparte: "123 456" }, "X") === null);
+}
+
+// ── core/dashboards: as fontes dos widgets customizados ────────────────────
+// O widget que o usuário monta lê as MESMAS bases do DRE/fluxo — se um número
+// aqui divergir, o dashboard dele mente com a cara do sistema.
+{
+  const M = (o: Partial<EntradaFontes["movements"][number]>) =>
+    ({ id: "m", type: "saida", amount: 0, status: "pago", due_date: "2026-07-10", paid_date: "2026-07-10", ...o }) as EntradaFontes["movements"][number];
+  const i: EntradaFontes = {
+    hoje: "2026-08-02",
+    saldoAtual: 50_000,
+    movements: [
+      M({ id: "1", type: "entrada", amount: 10_000, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Vendas" }),
+      M({ id: "2", type: "saida", amount: 4_000, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Folha" }),
+      M({ id: "3", type: "entrada", amount: 7_000, status: "pendente", due_date: "2026-07-20" }),   // vencido
+      M({ id: "4", type: "saida", amount: 2_000, status: "pendente", due_date: "2026-08-20" }),     // a vencer
+      M({ id: "5", type: "entrada", amount: 99_999, status: "cancelado", due_date: "2026-08-01", paid_date: "2026-08-01" }),
+      M({ id: "6", type: "saida", amount: 6_000, due_date: "2026-07-05", paid_date: "2026-07-05", category: "Folha" }),
+      M({ id: "7", type: "saida", amount: 3_000, due_date: "2024-01-05", paid_date: "2024-01-05", category: "Antigo" }), // fora da janela
+    ],
+  };
+  const met = (id: string) => fonteMetrica(id).calcular(i);
+
+  ok("dashboards: saldo é o saldo do sistema", met("saldo") === 50_000);
+  ok("dashboards: receita do mês só conta o realizado do mês", met("receita_mes") === 10_000, `${met("receita_mes")}`);
+  ok("dashboards: despesa do mês ignora julho", met("despesa_mes") === 4_000, `${met("despesa_mes")}`);
+  ok("dashboards: resultado = receita − despesa", met("resultado_mes") === 6_000, `${met("resultado_mes")}`);
+  ok("dashboards: cancelado NUNCA entra em nenhuma métrica", met("receita_mes") < 99_999);
+  ok("dashboards: a receber é o pendente de entrada", met("a_receber") === 7_000, `${met("a_receber")}`);
+  ok("dashboards: a pagar é o pendente de saída", met("a_pagar") === 2_000, `${met("a_pagar")}`);
+  ok("dashboards: vencido a receber só o que passou do dia", met("vencido_receber") === 7_000, `${met("vencido_receber")}`);
+  ok("dashboards: vencido a pagar não pega o que vence adiante", met("vencido_pagar") === 0, `${met("vencido_pagar")}`);
+  ok("dashboards: títulos em aberto = contagem de pendentes", met("qtd_pendentes") === 2, `${met("qtd_pendentes")}`);
+  // Burn = média mensal de saída realizada nos 6 meses; runway = saldo ÷ burn.
+  const burn = met("burn");
+  ok("dashboards: burn é média por MÊS observado, não soma", burn === 5_000, `${burn}`);
+  ok("dashboards: runway = saldo ÷ burn", met("runway") === Math.round((50_000 / burn) * 10) / 10, `${met("runway")}`);
+  ok("dashboards: nenhuma métrica devolve NaN/Infinity",
+    FONTES_METRICA.every((f) => Number.isFinite(f.calcular(i))));
+
+  const serie = (id: string) => fonteSerie(id).calcular(i, 12);
+  ok("dashboards: série tem 12 pontos e termina no mês de hoje",
+    serie("receita_12m").length === 12 && serie("receita_12m")[11].label === "ago/26",
+    serie("receita_12m")[11]?.label);
+  ok("dashboards: receita do último ponto = receita do mês", serie("receita_12m")[11].valor === met("receita_mes"));
+  ok("dashboards: resultado 12m = receita − despesa por mês",
+    serie("resultado_12m")[11].valor === serie("receita_12m")[11].valor - serie("despesa_12m")[11].valor);
+  // A linha de saldo é reconstruída para trás — tem de FECHAR no saldo de hoje.
+  const acc = serie("saldo_acumulado");
+  ok("dashboards: saldo acumulado termina exatamente no saldo atual", acc[11].valor === 50_000, `${acc[11].valor}`);
+
+  const cat = (id: string) => fonteCategoria(id).calcular(i);
+  const desp = cat("despesa_categoria");
+  ok("dashboards: fatias vêm da maior para a menor", desp.every((f, k) => k === 0 || desp[k - 1].valor >= f.valor));
+  // A janela da pizza é a MESMA da série — senão a fatia mostra o histórico
+  // inteiro ao lado de um KPI do mês e os dois números brigam na tela.
+  ok("dashboards: pizza de despesa respeita a janela de 12 meses",
+    desp.reduce((s, f) => s + f.valor, 0) === serie("despesa_12m").reduce((s, p) => s + p.valor, 0),
+    `${desp.reduce((s, f) => s + f.valor, 0)}`);
+  ok("dashboards: 'Antigo' (fora da janela) não aparece", !desp.some((f) => f.nome === "Antigo"));
+  ok("dashboards: status de títulos conta, não soma dinheiro",
+    fonteCategoria("status_titulos").unidade === "numero"
+      // 6 = todos os lançamentos VIVOS (o cancelado fica de fora), cada um em
+      // exatamente uma fatia: liquidado · em aberto · vencido.
+      && cat("status_titulos").reduce((s, f) => s + f.valor, 0) === 6,
+    `${cat("status_titulos").reduce((s, f) => s + f.valor, 0)}`);
+
+  // Fonte inexistente cai no padrão em vez de explodir (dashboard salvo antigo).
+  ok("dashboards: fonte desconhecida cai no padrão", fonteMetrica("nao_existe").id === FONTES_METRICA[0].id);
+  ok("dashboards: série desconhecida cai no padrão", fonteSerie("???").id === FONTES_SERIE[0].id);
+  ok("dashboards: categoria desconhecida cai no padrão", fonteCategoria("???").id === FONTES_CATEGORIA[0].id);
+
+  // Todo tipo do catálogo tem construtor, e todo widget nasce com fonte VÁLIDA.
+  ok("dashboards: todo item do catálogo constrói um widget do mesmo tipo",
+    CATALOGO.every((c) => widgetPadrao(c.tipo).tipo === c.tipo));
+  const fonteOk = (w: ReturnType<typeof widgetPadrao>) =>
+    w.tipo === "kpi" ? fonteMetrica(w.fonte).id === w.fonte
+      : w.tipo === "serie" ? fonteSerie(w.fonte).id === w.fonte
+      : w.tipo === "pizza" ? fonteCategoria(w.fonte).id === w.fonte
+      : true;
+  ok("dashboards: widget padrão nasce apontando para fonte que existe", CATALOGO.every((c) => fonteOk(widgetPadrao(c.tipo))));
+  ok("dashboards: sugestão do assistente só usa fontes válidas", sugerirWidgets().every(fonteOk));
+  ok("dashboards: template semanal só usa fontes válidas",
+    templateAcompanhamentoSemanal().paginas.flatMap((p) => p.widgets).every(fonteOk));
+  // Ids repetidos quebrariam a remoção/reordenação (React key + findIndex).
+  const ids = [...sugerirWidgets(), ...templateAcompanhamentoSemanal().paginas.flatMap((p) => p.widgets)].map((w) => w.id);
+  ok("dashboards: ids de widget não se repetem", new Set(ids).size === ids.length);
+
+  // Dataset vazio não pode virar NaN nem lista quebrada.
+  const zero: EntradaFontes = { hoje: "2026-08-02", saldoAtual: 0, movements: [] };
+  ok("dashboards: sem lançamento nenhuma métrica vira NaN", FONTES_METRICA.every((f) => Number.isFinite(f.calcular(zero))));
+  ok("dashboards: sem lançamento a série vem zerada, não vazia",
+    FONTES_SERIE.every((f) => f.calcular(zero, 12).length === 12 && f.calcular(zero, 12).every((p) => Number.isFinite(p.valor))));
+  ok("dashboards: sem lançamento as fatias vêm vazias", FONTES_CATEGORIA.every((f) => f.calcular(zero).length === 0));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

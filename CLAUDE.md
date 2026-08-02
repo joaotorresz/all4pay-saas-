@@ -961,6 +961,41 @@ o que a anterior não resolveu):
 implícito (uma confirmação pontual) e regra é explícita. Orquestrado em
 `UploadView.analisarEAuto`.
 
+### Dashboards customizados (`/dashboard/dashboards/custom`)
+
+O construtor: a Home é curada por nós, aqui a pessoa monta a DELA. `src/core/
+dashboards/index.ts` (`dashboards/1.0.0`, puro/tipado/demo-safe) traz o modelo
+(dashboard → **páginas** → widgets) e, o que importa, as **FONTES** — funções
+puras sobre o MESMO `RiskInput` do DRE/fluxo/risco. Widget montado à mão e
+número do sistema **nunca divergem**; é o inverso do "dashboard de planilha".
+
+- **3 famílias de fonte:** métrica (12 — saldo, receita/despesa/resultado do mês,
+  a receber/pagar, vencido dos dois lados, burn, runway, títulos em aberto,
+  ticket médio) · série (4 — receita/despesa/resultado 12m e **saldo acumulado**,
+  reconstruído para trás a partir do saldo de hoje para a linha FECHAR nele) ·
+  categoria (3 — despesa/receita por categoria e títulos por status).
+  `fonteMetrica/fonteSerie/fonteCategoria` caem no padrão quando o id não existe
+  — um dashboard salvo com fonte antiga abre, não explode.
+- **Janela casada:** as fatias respeitam os MESMOS 12 meses das séries
+  (`ultimos12Meses`). Sem isso a pizza somava o histórico inteiro (R$ 442 mil) ao
+  lado de um KPI "Despesa do mês" (R$ 38 mil) e os dois números brigavam na tela.
+  Guarda no `engine-audit`: total da pizza == soma da série.
+- **`FonteCategoria.unidade`**: "Títulos por status" CONTA — mostrar `R$ 6` para
+  6 títulos seria mentira. A `unidade` decide total, tooltip e legenda.
+- **6 widgets** (`CATALOGO`, espelhando o print): KPI · Texto livre · Gráfico de
+  série · Pizza/rosca · Saldos das contas · Lista da semana (CP/CR). Na Lista da
+  semana o total do grupo sai **separado por lado** (+entradas · −saídas): somar
+  recebível com pagável num número só não quer dizer nada.
+- **UI** (`src/components/dashboards-custom/`): `DashboardsCustomView` (lista com
+  Todos/Pessoal/Empresa + editor: nome, descrição, "Visível em todas as minhas
+  empresas", aparência, páginas múltiplas, **Assistente IA** = `sugerirWidgets()`
+  determinístico, catálogo) e `WidgetRender` (os 6 renderizadores). O catálogo é
+  modal por **`createPortal`** — o `Card` do DS tem transform e prenderia o
+  `position: fixed` (a mesma armadilha do modal de baixa).
+- Persistência em `src/lib/dashboards.ts` (localStorage `a4p_dashboards_custom`,
+  lista inteira numa chave só). Sincronizar por organização é evolução futura.
+- Entrada "Meus dashboards" no grupo Início + command palette.
+
 ### Onboarding guiado / Criar empresa (`/comecar`)
 
 `OnboardingWizard` (`src/components/onboarding/`) — fluxo de 7 passos com barra

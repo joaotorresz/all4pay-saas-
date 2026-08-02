@@ -31,6 +31,9 @@ export const SECTIONS: Section[] = [
       // A IA também vive no FAB flutuante (em toda tela); aqui é a tela CHEIA,
       // com histórico de conversas. Mesmo motor, layouts diferentes.
       { label: "All 4 Pay AI", href: "/all4pay-ai", icon: "sparkles" },
+      // A Home é curada por nós; aqui a pessoa monta a DELA, com os widgets
+      // e as fontes que quiser.
+      { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "layers" },
       { label: "Comece por aqui", href: "/comece", icon: "target" },
     ],
   },
