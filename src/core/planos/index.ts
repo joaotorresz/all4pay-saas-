@@ -1,0 +1,111 @@
+/**
+ * PLANOS — o que o Simples abre e o que só o Pro abre.
+ *
+ * ⚠️ **Gating de plano é decisão de SERVIDOR, não de menu.** O Modo Pro era uma
+ * cortina: com o modo em simples os grupos Inteligência e Governança sumiam da
+ * navegação, mas `/copiloto`, `/investidores`, `/impostos`, `/aprovacoes`,
+ * `/governanca` e `/automacoes` continuavam respondendo 200 e renderizando
+ * conteúdo inteiro para quem digitasse o endereço.
+ *
+ * Isso é ruim das duas maneiras possíveis, e não há terceira:
+ *  - **Se Pro é plano pago**, a receita vaza por digitação de endereço.
+ *  - **Se Pro não é plano pago**, o produto está escondendo do usuário
+ *    funcionalidade que ele já tem — pior ainda em percepção de valor.
+ *
+ * Este módulo é a fonte única do mapa rota → plano. Quem aplica é o
+ * `middleware.ts` (servidor, antes de qualquer render); o menu apenas reflete.
+ *
+ * Puro, sem I/O — dá para importar no Edge Runtime. Versão planos/1.0.0.
+ */
+
+export const PLANOS_VERSION = "planos/1.0.0";
+
+export type Plano = "simples" | "pro";
+
+export interface EstadoPlano {
+  plano: Plano;
+  /** Nome comercial do plano, como está na cobrança. */
+  nome: string;
+  /** `active` | `trial` | `past_due` | `none`. */
+  status: string;
+  expira?: string | null;
+  /**
+   * `true` quando o gating está DESLIGADO (demo, ou Supabase não configurado).
+   * A tela usa para não oferecer upgrade a quem não tem o que comprar.
+   */
+  aberto: boolean;
+}
+
+export const PLANO_ABERTO: EstadoPlano = {
+  plano: "pro", nome: "Demonstração", status: "none", aberto: true,
+};
+export const PLANO_SIMPLES: EstadoPlano = {
+  plano: "simples", nome: "Simples", status: "none", aberto: false,
+};
+
+/**
+ * As rotas que exigem Pro — **prefixos**, para pegar as sub-rotas junto
+ * (`/copiloto?aba=risco`, `/dashboard/administration/...`).
+ *
+ * ⚠️ Esta lista tem de espelhar EXATAMENTE os grupos `pro: true` de
+ * `nav-data.ts`. Uma guarda no `engine-audit` compara as duas e falha se
+ * divergirem: menu e servidor discordando é como o gating vira cortina de novo
+ * — some do menu, continua abrindo.
+ */
+export const ROTAS_PRO: string[] = [
+  // Grupo "Inteligência"
+  "/copiloto",
+  "/inadimplencia",
+  "/investidores",
+  "/contratacoes",
+  "/impostos",
+  // Grupo "Governança"
+  "/aprovacoes",
+  "/governanca",
+  "/automacoes",
+  "/consolidado",
+  // Rotas legadas que redirecionam para as de cima — sem elas, o redirect
+  // seria um caminho aberto para a mesma tela.
+  "/decisao",
+  "/risco",
+  "/autonomo",
+  "/inteligencia",
+];
+
+/**
+ * Rotas que NUNCA são bloqueadas, mesmo casando com um prefixo acima.
+ * A tela de upgrade e a de assinatura precisam abrir justamente para quem não
+ * tem o plano — trancá-las deixaria a pessoa sem caminho para comprar.
+ */
+const SEMPRE_ABERTAS = [
+  "/planos",
+  "/dashboard/administration/subscription",
+];
+
+/** A rota exige plano Pro? Compara PREFIXO, ignorando query string. */
+export function exigePro(pathname: string): boolean {
+  const p = (pathname.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+  if (SEMPRE_ABERTAS.some((r) => p === r || p.startsWith(`${r}/`))) return false;
+  return ROTAS_PRO.some((r) => p === r || p.startsWith(`${r}/`));
+}
+
+/** A pessoa pode abrir esta rota com este plano? */
+export function podeAbrir(pathname: string, estado: EstadoPlano): boolean {
+  if (estado.aberto) return true;
+  if (!exigePro(pathname)) return true;
+  return estado.plano === "pro";
+}
+
+/**
+ * O que o Pro desbloqueia, para a tela de upgrade dizer sem enrolação.
+ * Rótulos, não rotas: quem está decidindo comprar não lê caminho de URL.
+ */
+export const BENEFICIOS_PRO: { titulo: string; descricao: string }[] = [
+  { titulo: "Copiloto e motores de decisão", descricao: "Previsão de caixa por Monte Carlo, matriz de risco, recomendações com impacto medido e plano autônomo." },
+  { titulo: "Inteligência de crédito", descricao: "Score de inadimplência por cliente, alerta antecipado e estratégia de cobrança adaptativa." },
+  { titulo: "Investor update", descricao: "O relatório mensal para investidores, com os KPIs derivados dos seus próprios lançamentos." },
+  { titulo: "Fiscal e contratações", descricao: "Apuração de impostos por venda e simulação do custo real de contratar." },
+  { titulo: "Aprovações e governança", descricao: "Alçadas por valor, trilha de auditoria assinada e segregação de funções." },
+  { titulo: "Automações", descricao: "Regras SE→ENTÃO sobre os eventos financeiros, com notificação por WhatsApp e e-mail." },
+  { titulo: "Consolidado multiempresa", descricao: "A posição somada de todas as organizações em que você é membro." },
+];

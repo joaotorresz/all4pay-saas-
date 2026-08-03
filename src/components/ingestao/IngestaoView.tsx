@@ -17,15 +17,20 @@ import { UploadView } from "@/components/upload/UploadView";
 import { UploadWizard } from "@/components/upload/UploadWizard";
 import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
 import { RegrasView } from "./RegrasView";
+import { LimpezaDuplicatas } from "@/components/upload/LimpezaDuplicatas";
 
-type Aba = "conectar" | "enviar" | "conciliar" | "regras";
+type Aba = "conectar" | "enviar" | "conciliar" | "regras" | "limpeza";
 const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
   { id: "enviar", label: "Enviar", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
   { id: "conciliar", label: "Conciliar", icon: "list-checks", desc: "Casar o que entrou com os títulos previstos" },
   { id: "regras", label: "Regras", icon: "workflow", desc: "Categorização automática — escreva uma vez, vale sempre" },
+  // A idempotência resolve daqui para a frente; esta aba resolve o passado —
+  // as cópias que entraram antes de a chave existir.
+  { id: "limpeza", label: "Duplicatas", icon: "scan-line", desc: "Encontra e remove as cópias já gravadas na base" },
 ];
-const isAba = (s: string | null): s is Aba => s === "conectar" || s === "enviar" || s === "conciliar" || s === "regras";
+const isAba = (s: string | null): s is Aba =>
+  s === "conectar" || s === "enviar" || s === "conciliar" || s === "regras" || s === "limpeza";
 
 export function IngestaoView() {
   const router = useRouter();
@@ -68,6 +73,7 @@ export function IngestaoView() {
       {aba === "enviar" && <UploadView />}
       {aba === "conciliar" && <ConciliacaoView />}
       {aba === "regras" && <RegrasView />}
+      {aba === "limpeza" && <LimpezaDuplicatas />}
 
       {/* Botão fixo "Upload de dados" — o mesmo que existia na Home, agora na
           casa dele. Não navega: dispara `a4p:open-upload` e o wizard de 3

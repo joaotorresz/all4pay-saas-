@@ -23,6 +23,8 @@ import {
   filtrarTitulos, resumoTitulos, statusDoTitulo,
   type Direcao, type FiltroTitulos, type StatusTitulo, type CardResumo,
 } from "@/core/movimentacoes";
+import { janelaDoMesDe } from "@/core/indicadores";
+import { EscopoDaTela } from "./EscopoDaTela";
 
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000, 5000];
@@ -127,6 +129,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
+      {/* Esta tela é a leitura de POSIÇÃO (estoque de títulos). A faixa declara
+          isso e mostra ao lado o que a tela de extrato mede, porque as duas
+          respondem "quanto tenho a receber" com números diferentes — e as duas
+          estão certas. Ver `EscopoDaTela`. */}
+      <EscopoDaTela
+        leitura="posicao"
+        janela={janelaDoMesDe(input?.hoje ?? new Date().toISOString().slice(0, 10))}
+        direcao={direcao === "receber" ? "entrada" : "saida"}
+      />
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted">
           {direcao === "receber" ? "Valores a receber dos seus clientes." : "Valores a pagar aos seus fornecedores."}

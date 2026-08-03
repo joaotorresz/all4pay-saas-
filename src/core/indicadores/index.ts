@@ -488,6 +488,75 @@ export function painelIndicadores(
 }
 
 /* ========================================================================== */
+/* Posição × Fluxo — por que as duas telas de "a receber" não batem            */
+/* ========================================================================== */
+
+export interface PontePosicaoFluxo {
+  /** ESTOQUE de títulos (posição): tudo que existe, liquidado ou não. */
+  posicao: { liquidado: number; aberto: number; atrasado: number; total: number; titulos: number };
+  /** RESULTADO do período (fluxo): entradas − saídas liquidadas na janela. */
+  fluxo: { entradas: number; saidas: number; resultado: number; janela: Janela };
+  /** A frase que explica por que os dois números são diferentes e ambos certos. */
+  explicacao: string;
+}
+
+/**
+ * **A ponte entre as duas leituras de "quanto tenho a receber".**
+ *
+ * ⚠️ Existem duas telas respondendo a essa pergunta com números que não batem,
+ * e a razão não é defeito de cálculo — é que elas medem coisas diferentes:
+ *
+ *  - **Posição (estoque)** — "quantos títulos existem e quanto somam". Não tem
+ *    período: um título de 2024 ainda em aberto conta hoje. É a pergunta de
+ *    quem vai cobrar.
+ *  - **Fluxo (resultado)** — "quanto entrou menos quanto saiu neste período".
+ *    Tem período por definição, e pode ser NEGATIVO num mês em que se pagou
+ *    mais do que se recebeu. É a pergunta de quem vai decidir gasto.
+ *
+ * O defeito real era a interface não dizer isso: mesmo nome no menu, mesmo
+ * título na aba do navegador, e nada explicando a diferença. Quem abrisse as
+ * duas em sequência não tinha como saber qual era a verdade — e as duas eram.
+ *
+ * Esta função devolve as duas leituras JUNTAS, para cada tela mostrar a sua e
+ * declarar a outra.
+ */
+export function pontePosicaoFluxo(
+  input: RiskInput,
+  j: Janela,
+  direcao: "entrada" | "saida" = "entrada",
+): PontePosicaoFluxo {
+  const hoje = input.hoje.slice(0, 10);
+  const doLado = input.movements.filter((m) => m.type === direcao && !cancelado(m));
+
+  let liq = 0, aberto = 0, atrasado = 0;
+  for (const m of doLado) {
+    const v = magnitude(m);
+    if (liquidado(m)) liq += v;
+    else if (m.due_date?.slice(0, 10) < hoje) atrasado += v;
+    else aberto += v;
+  }
+
+  const e = entradas(input, j).valor;
+  const s = saidas(input, j).valor;
+  const rotulo = direcao === "entrada" ? "receber" : "pagar";
+
+  return {
+    posicao: {
+      liquidado: round2c(liq), aberto: round2c(aberto), atrasado: round2c(atrasado),
+      total: round2c(liq + aberto + atrasado), titulos: doLado.length,
+    },
+    fluxo: { entradas: round2c(e), saidas: round2c(s), resultado: round2c(e - s), janela: j },
+    explicacao:
+      `São duas perguntas diferentes. O ESTOQUE conta todos os títulos a ${rotulo} que existem, ` +
+      `sem recorte de período e sem descontar o outro lado — é o que se usa para cobrar. ` +
+      `O RESULTADO do período (${j.label}) é o que entrou menos o que saiu na janela, ` +
+      `e pode ser negativo num mês em que se pagou mais do que se recebeu — é o que se usa para decidir gasto.`,
+  };
+}
+
+const round2c = (n: number) => Math.round(n * 100) / 100;
+
+/* ========================================================================== */
 /* Reconciliação — por que o Razão e o extrato discordam                       */
 /* ========================================================================== */
 

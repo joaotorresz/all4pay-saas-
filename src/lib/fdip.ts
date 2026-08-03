@@ -9,6 +9,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
+import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/ingestao";
 import { setImported, clearImported } from "@/lib/imported";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
@@ -36,10 +37,15 @@ export function montarDataset(report: FDIPReport): { movements: Movement[]; acco
     .filter((r) => cls.get(r.id)?.destino !== "Transferência")
     .map((r) => {
       const pago = r.data <= hoje;
+      const tipo: Movement["type"] = r.tipo === "entrada" ? "entrada" : "saida";
+      // ⚠️ O descritivo BRUTO vai para campo próprio e a CHAVE de idempotência
+      // é calculada a partir dele. Sem a chave, reimportar o mesmo extrato
+      // duplicava a base inteira — cada linha entrava de novo com id novo.
+      const descritivoBruto = r.descricao || r.contraparte || "";
       return {
         id: r.id,
         account_id: ACC_ID,
-        type: r.tipo === "entrada" ? "entrada" : "saida",
+        type: tipo,
         status: pago ? "pago" : "pendente",
         category: cls.get(r.id)?.categoria ?? r.descricao,
         amount: r.valor,
@@ -48,6 +54,11 @@ export function montarDataset(report: FDIPReport): { movements: Movement[]; acco
         paid_date: pago ? r.data : null,
         reconciled: pago,
         description: r.contraparte,
+        descritivo_bruto: descritivoBruto,
+        origem: "extrato",
+        chave: chaveIdempotencia({
+          contaId: ACC_ID, data: r.data, valor: r.valor, tipo, descritivo: descritivoBruto,
+        }),
       } as Movement;
     });
 
@@ -140,12 +151,31 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         description: m.description,
         party_id: partyId ?? null,
         review_status: "pendente", // import: novo lançamento entra na fila de confirmação
+        // ⚠️ A chave é RECALCULADA com a conta REAL do banco. A do
+        // `montarDataset` usa a conta sintética do dataset local; gravar aquela
+        // faria a mesma linha ter chaves diferentes em demo e em live, e a
+        // idempotência valeria só num dos dois.
+        chave: chaveIdempotencia({
+          contaId: accId, data: m.paid_date || m.due_date, valor: m.amount,
+          tipo: m.type, descritivo: m.descritivo_bruto ?? m.description,
+        }),
+        descritivo_bruto: m.descritivo_bruto ?? m.description,
+        origem: "extrato",
       };
     });
-    // insere em lotes para extratos grandes
+    // Insere em lotes para extratos grandes.
+    //
+    // ⚠️ `upsert` com `ignoreDuplicates` sobre o índice único (org_id, chave):
+    // a linha que já existe é IGNORADA em vez de derrubar o lote inteiro. Um
+    // `insert` puro devolveria erro de violação de unicidade e as 499 linhas
+    // boas do lote se perderiam junto com a repetida.
     for (let i = 0; i < rows.length; i += 500) {
-      const { error } = await supabase.from("movements").insert(rows.slice(i, i + 500));
-      if (!error) out.movimentos += Math.min(500, rows.length - i);
+      const lote = rows.slice(i, i + 500);
+      const { data: inseridas, error } = await supabase
+        .from("movements")
+        .upsert(lote, { onConflict: "org_id,chave", ignoreDuplicates: true })
+        .select("id");
+      if (!error) out.movimentos += (inseridas as unknown[] | null)?.length ?? 0;
     }
   }
 

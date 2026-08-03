@@ -78,8 +78,8 @@ export const SECTIONS: Section[] = [
   { id: "orcamento", label: "Orçamento", icon: "target", href: "/orcamento", items: [] },
   {
     id: "movimentacoes", label: "Movimentações", icon: "building", items: [
-      { label: "Contas a receber", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
-      { label: "Contas a pagar", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Títulos a receber", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
+      { label: "Títulos a pagar", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
       { label: "Transferências", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
       { label: "Conciliação", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
@@ -113,7 +113,7 @@ export const SECTIONS: Section[] = [
   {
     id: "entrada", label: "Entrada de dados", icon: "upload", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Receber (extrato)", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Extrato de recebimentos", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Pagar (extrato)", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Recorrências", href: "/recorrencias", icon: "repeat" },
     ],

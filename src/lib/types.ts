@@ -38,6 +38,21 @@ export interface Movement {
   created_at?: string;
   /** Marcador de origem (ex.: `rec:<id>:<data>` p/ faturas de recorrência). */
   reference_code?: string | null;
+  /**
+   * Chave de idempotência da INGESTÃO (`core/ingestao.chaveIdempotencia`):
+   * conta · data · valor · sinal · descritivo normalizado. É ela que impede o
+   * mesmo extrato de entrar duas vezes.
+   */
+  chave?: string | null;
+  /**
+   * ⚠️ O descritivo BRUTO, como veio da origem — campo SEPARADO, nunca
+   * sobrescrito pela normalização nem pela categoria escolhida. É a única
+   * evidência de onde a linha veio, e é ela que resolve a dúvida no dia em que
+   * alguém disser "esse lançamento não é meu".
+   */
+  descritivo_bruto?: string | null;
+  /** De onde a linha entrou: extrato, ocr, openfinance, planilha, manual. */
+  origem?: string | null;
   /** Boleto colado ao recebível (movements.boleto jsonb). */
   boleto?: BoletoData | null;
 }

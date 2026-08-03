@@ -7,6 +7,7 @@
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
+import { chaveDeMovimento } from "@/core/ingestao";
 
 const KEY = "a4p_imported_dataset";
 
@@ -113,12 +114,25 @@ export function appendImported(input: {
       ajustarSaldo(m.type, m.amount); // dar baixa realiza o pendente → mexe no saldo
       return { ...m, status: "pago", paid_date: input.movement.paid_date ?? input.movement.due_date, reconciled: true };
     });
-  } else if (!movements.some((m) => m.id === input.movement.id)) {
-    // Dedup por id: reenviar o MESMO lançamento (confirmar 2x, roll-forward que
-    // recomputa o mesmo id) não pode duplicar o movimento nem ajustar o saldo 2x.
+  } else {
     const mov: Movement = { ...input.movement, account_id: contaAlvo?.id ?? input.movement.account_id };
-    if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
-    movements = [mov, ...movements];
+    // ⚠️ DEDUP EM DUAS CAMADAS, e as duas são necessárias:
+    //
+    //  1. **por id** — reenviar o MESMO objeto (confirmar duas vezes, um
+    //     roll-forward que recomputa o mesmo id) não pode duplicar nem ajustar
+    //     o saldo duas vezes;
+    //  2. **por CHAVE de idempotência** — o mesmo FATO chegando por outra porta
+    //     (o comprovante de um lançamento que o extrato já trouxe) tem id
+    //     diferente e é a mesma linha. Sem esta camada, subir o extrato e depois
+    //     o comprovante do mesmo pagamento contava a saída duas vezes.
+    const chave = mov.chave ?? chaveDeMovimento(mov);
+    const jaExiste =
+      movements.some((m) => m.id === mov.id) ||
+      movements.some((m) => (m.chave ?? chaveDeMovimento(m)) === chave);
+    if (!jaExiste) {
+      if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
+      movements = [{ ...mov, chave }, ...movements];
+    }
   }
 
   setImported({ ...base, movements, accounts, parties });

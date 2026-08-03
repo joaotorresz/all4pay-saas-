@@ -21,7 +21,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import {
   saldo, saldoInicial, entradas, saidas, resultado, burn, runway, runwayMeses,
   geracaoCaixaMensal, mrr, arr, inadimplencia, inadimplenciaTaxa, receitaTributavel,
-  painelIndicadores, reconciliarSaldo, foraDaBaseTributavel,
+  painelIndicadores, reconciliarSaldo, foraDaBaseTributavel, pontePosicaoFluxo,
   janela, janelaMes, janelaUltimosDias, janelaHoje, janelaDoMesDe, janelaAnterior,
   diasDe, dentro, contemHoje, saldoEm, saldoAbertura, assinado, magnitude,
   liquidado, dataDe, INDICADORES_VERSION,
@@ -33,7 +33,13 @@ import { analisarQuantitativo } from "@/core/quant";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { dailyCashflowRange, dailyCashflow, summarizeAccounts } from "@/lib/aggregations";
 import { painelAssinaturas } from "@/core/paineis";
+import {
+  prepararIngestao, linhasAGravar, planejarLimpeza, chaveIdempotencia,
+  CATEGORIAS_TODAS, type LinhaBruta, type LinhaExistente,
+} from "@/core/ingestao";
 import { montarInvestorUpdate } from "@/core/investor";
+import { exigePro, podeAbrir, PLANO_SIMPLES, PLANO_ABERTO } from "@/core/planos";
+import { SECTIONS } from "@/components/dashboard/nav-data";
 import { balancete } from "@/lib/ledger";
 import { CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta } from "@/core/ledger/chart";
 import { saldoPorNatureza } from "@/core/ledger";
@@ -491,6 +497,247 @@ const AGOSTO = janelaMes(2026, 7);
       ok(`degenerado/${nome}: ${chave} é finito`, Number.isFinite(v), `valor = ${v}`);
     }
   }
+}
+
+
+/* ========================================================================== */
+/* LINHA 15 — INGESTÃO: reimportar o mesmo extrato não duplica nada.           */
+/* ========================================================================== */
+{
+  const extrato: LinhaBruta[] = [
+    { contaId: "c1", data: "2026-08-03", valor: 12_000, tipo: "entrada", descritivo: "PIX RECEBIDO 998877 LOJA ALPHA LTDA", contraparte: "Loja Alpha", origem: "extrato" },
+    { contaId: "c1", data: "2026-08-05", valor: 4_200, tipo: "saida", descritivo: "TED ENVIADO FOLHA DE PAGAMENTO", origem: "extrato" },
+    { contaId: "c1", data: "2026-08-06", valor: 310.5, tipo: "saida", descritivo: "COMPRA CARTAO POSTO SHELL 042", origem: "extrato" },
+  ];
+
+  const p1 = prepararIngestao(extrato);
+  eq("ingestão: primeira passada aceita tudo", p1.resumo.novas + p1.resumo.revisar, 3);
+  eq("ingestão: nada é duplicata na primeira vez", p1.resumo.duplicatasBase, 0);
+
+  // A base depois de gravar a primeira passada.
+  const gravadas: LinhaExistente[] = linhasAGravar(p1).map((l, i) => ({
+    id: `m${i}`, chave: l.chave, account_id: l.contaId, paid_date: l.data, due_date: l.data,
+    amount: l.valor, type: l.tipo, descritivo_bruto: l.descritivoBruto,
+  }));
+
+  // ⚠️ O TESTE CENTRAL DA ONDA: o MESMO arquivo, de novo.
+  const p2 = prepararIngestao(extrato, gravadas);
+  eq("ingestão: reimportar o mesmo extrato não grava NADA", linhasAGravar(p2).length, 0);
+  eq("ingestão: as três viram duplicata da base", p2.resumo.duplicatasBase, 3);
+
+  // ⚠️ O MESMO lançamento em OUTRO formato ("Pix recebido - Alpha" vindo da API
+  // × "PIX RECEBIDO 998877 LOJA ALPHA LTDA" vindo do OFX). Nenhuma normalização
+  // honesta cola os dois textos sem também colar textos que descrevem coisas
+  // diferentes — e um falso positivo aqui DESCARTA dinheiro real, calado.
+  // Então a resposta é SUSPEITA, não descarte: conta+data+valor+sinal batem, o
+  // descritivo não, e quem decide é a pessoa.
+  const outroFormato: LinhaBruta[] = [
+    { contaId: "c1", data: "2026-08-03", valor: 12_000, tipo: "entrada", descritivo: "Pix recebido - Alpha", origem: "openfinance" },
+  ];
+  const pf = prepararIngestao(outroFormato, gravadas);
+  eq("ingestão: formato diferente vira SUSPEITA, não duplicata exata", pf.resumo.possiveisDuplicatas, 1);
+  eq("ingestão: e não é descartada em silêncio", linhasAGravar(pf).length, 1);
+  ok("ingestão: a suspeita aponta o lançamento existente", !!pf.linhas[0].duplicataDe);
+
+  // Duplicata DENTRO do arquivo (linha repetida na planilha) entra uma vez só.
+  const comRepetida = [...extrato, extrato[0]];
+  const p3 = prepararIngestao(comRepetida);
+  eq("ingestão: linha repetida no arquivo entra uma vez", linhasAGravar(p3).length, 3);
+  eq("ingestão: a repetição é marcada, não descartada em silêncio", p3.resumo.duplicatasArquivo, 1);
+
+  // ⚠️ O QUE **NÃO** PODE SER DUPLICATA — os falsos positivos que descartariam
+  // dinheiro de verdade:
+  const legitimas: LinhaBruta[] = [
+    // valor igual, dia seguinte
+    { contaId: "c1", data: "2026-08-04", valor: 12_000, tipo: "entrada", descritivo: "PIX RECEBIDO 998877 LOJA ALPHA LTDA", origem: "extrato" },
+    // mesmo dia e valor, SINAL oposto (um estorno)
+    { contaId: "c1", data: "2026-08-03", valor: 12_000, tipo: "saida", descritivo: "PIX RECEBIDO 998877 LOJA ALPHA LTDA", origem: "extrato" },
+    // mesmo tudo, OUTRA conta (as duas pernas de uma transferência)
+    { contaId: "c2", data: "2026-08-03", valor: 12_000, tipo: "entrada", descritivo: "PIX RECEBIDO 998877 LOJA ALPHA LTDA", origem: "extrato" },
+    // um centavo de diferença
+    { contaId: "c1", data: "2026-08-03", valor: 12_000.01, tipo: "entrada", descritivo: "PIX RECEBIDO 998877 LOJA ALPHA LTDA", origem: "extrato" },
+  ];
+  const pl = prepararIngestao(legitimas, gravadas);
+  eq("ingestão: nenhuma linha legítima vira duplicata EXATA", pl.resumo.duplicatasBase, 0);
+  // E, o que mais importa: todas continuam entrando.
+  eq("ingestão: todas as linhas legítimas são gravadas", linhasAGravar(pl).length, 4);
+  // Dia diferente, conta diferente e centavo diferente nem suspeita geram — só
+  // o estorno (mesmo dia/valor/conta, sinal oposto)… que também não, porque o
+  // sinal entra na chave aproximada.
+  eq("ingestão: variações de dia/conta/centavo não levantam suspeita", pl.resumo.possiveisDuplicatas, 0);
+
+  // Float não separa o que é igual.
+  eq("ingestão: 1234.56 e 1234.5600000001 são a mesma chave", 0,
+     chaveIdempotencia({ contaId: "c", data: "2026-08-01", valor: 1234.56, tipo: "saida", descritivo: "X" }) ===
+     chaveIdempotencia({ contaId: "c", data: "2026-08-01", valor: 1234.5600000001, tipo: "saida", descritivo: "X" }) ? 0 : 1);
+
+  // O descritivo BRUTO é preservado, não sobrescrito pela normalização.
+  const bruto = "PIX RECEBIDO 998877 LOJA ALPHA LTDA";
+  ok("ingestão: descritivo bruto preservado intacto",
+     p1.linhas[0].descritivoBruto === bruto && p1.linhas[0].descritivoNormalizado !== bruto,
+     `bruto="${p1.linhas[0].descritivoBruto}" norm="${p1.linhas[0].descritivoNormalizado}"`);
+
+  // `prepararIngestao` NÃO grava — é um plano. (Se gravasse, chamá-la duas
+  // vezes com a mesma base mudaria o resultado da segunda.)
+  const a = prepararIngestao(extrato, gravadas);
+  const b = prepararIngestao(extrato, gravadas);
+  eq("ingestão: preparar é puro (não grava)", a.resumo.duplicatasBase, b.resumo.duplicatasBase);
+}
+
+/* ========================================================================== */
+/* LINHA 16 — TAXONOMIA ÚNICA: uma porta ou outra, a mesma categoria.          */
+/* ========================================================================== */
+{
+  // O MESMO gasto entrando pelo extrato e pelo OCR de documento.
+  const porExtrato = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 890, tipo: "saida", descritivo: "PAGAMENTO ALUGUEL IMOBILIARIA CENTRO", origem: "extrato" },
+  ]);
+  const porOcr = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 890, tipo: "saida", descritivo: "ALUGUEL IMOBILIARIA CENTRO", origem: "ocr" },
+  ]);
+  ok("taxonomia: extrato e OCR classificam igual",
+     porExtrato.linhas[0].classificacao.categoria === porOcr.linhas[0].classificacao.categoria,
+     `${porExtrato.linhas[0].classificacao.categoria} ≠ ${porOcr.linhas[0].classificacao.categoria}`);
+  ok("taxonomia: a categoria sai da lista única",
+     CATEGORIAS_TODAS.some((c) => c.id === porOcr.linhas[0].classificacao.categoria));
+
+  // ⚠️ Categoria de RECEITA não captura uma SAÍDA: "pagamento ao Mercado Pago"
+  // é despesa, mesmo casando com o padrão da plataforma de recebimento.
+  const saidaPlataforma = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 100, tipo: "saida", descritivo: "MERCADO PAGO TAXA", origem: "extrato" },
+  ]);
+  ok("taxonomia: padrão de receita não classifica uma saída",
+     saidaPlataforma.linhas[0].classificacao.natureza !== "receita",
+     `caiu em ${saidaPlataforma.linhas[0].classificacao.categoria}`);
+
+  // O desconhecido entra marcado para REVISAR, não passa batido como certo.
+  const opaco = prepararIngestao([
+    { contaId: "c1", data: "2026-08-10", valor: 42, tipo: "saida", descritivo: "DEB AUT 9931 XPTO", origem: "extrato" },
+  ]);
+  ok("taxonomia: o que não se reconhece cai em 'revisar'", opaco.linhas[0].situacao === "revisar");
+  ok("taxonomia: e diz por quê", opaco.linhas[0].classificacao.motivo.includes("confira"));
+}
+
+/* ========================================================================== */
+/* LINHA 17 — LIMPEZA RETROATIVA: remove as cópias, mantém a primeira.         */
+/* ========================================================================== */
+{
+  const base: LinhaExistente[] = [
+    { id: "m001", due_date: "2026-08-03", paid_date: "2026-08-03", amount: 12_000, type: "entrada", account_id: "c1", descritivo_bruto: "PIX LOJA ALPHA" },
+    { id: "m002", due_date: "2026-08-03", paid_date: "2026-08-03", amount: 12_000, type: "entrada", account_id: "c1", descritivo_bruto: "PIX LOJA ALPHA" },
+    { id: "m003", due_date: "2026-08-03", paid_date: "2026-08-03", amount: 12_000, type: "entrada", account_id: "c1", descritivo_bruto: "PIX LOJA ALPHA" },
+    { id: "m004", due_date: "2026-08-05", paid_date: "2026-08-05", amount: 4_200, type: "saida", account_id: "c1", descritivo_bruto: "FOLHA" },
+  ];
+  const r = planejarLimpeza(base);
+  eq("limpeza: encontra as duas cópias", r.remover.length, 2);
+  ok("limpeza: MANTÉM a primeira (id estável), não a última",
+     r.grupos[0].manter === "m001", `manteria ${r.grupos[0].manter}`);
+  ok("limpeza: as removidas são as cópias", r.remover.includes("m002") && r.remover.includes("m003"));
+  ok("limpeza: o lançamento único não é tocado", !r.remover.includes("m004"));
+  eq("limpeza: mostra o impacto no caixa", r.impactoEntradas, 24_000);
+  eq("limpeza: e no resultado", r.impactoResultado, 24_000);
+
+  // Base limpa: nada a remover, e o relatório diz isso sem inventar grupo.
+  const limpa = planejarLimpeza(base.slice(0, 1).concat(base[3]));
+  eq("limpeza: base sem duplicata não remove nada", limpa.remover.length, 0);
+  eq("limpeza: e não lista grupos", limpa.grupos.length, 0);
+}
+
+
+/* ========================================================================== */
+/* LINHA 18 — GATING DE PLANO: menu e servidor dizem a MESMA coisa.            */
+/* ========================================================================== */
+{
+  // ⚠️ A guarda central do P0-18. O Modo Pro era uma cortina: os grupos sumiam
+  // do menu e as rotas continuavam abrindo. Agora quem tranca é o middleware,
+  // e ele lê `ROTAS_PRO`. Se as duas listas divergirem, um recurso some do menu
+  // e continua acessível por digitação — a cortina de volta, sem ninguém notar.
+  const doMenu = SECTIONS
+    .filter((sec) => sec.pro)
+    .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
+    .filter((h): h is string => !!h);
+
+  const semGate = doMenu.filter((h) => !exigePro(h));
+  ok("planos: toda rota Pro do menu é bloqueada no servidor", semGate.length === 0,
+     `sem gate: ${semGate.join(", ")}`);
+
+  // E o inverso: a lista do servidor não pode trancar o que o menu entrega no
+  // Simples — bloquear o que a pessoa já tem é o outro lado do mesmo defeito.
+  const doSimples = SECTIONS
+    .filter((sec) => !sec.pro)
+    .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
+    .filter((h): h is string => !!h);
+  const trancadoAToa = doSimples.filter((h) => exigePro(h));
+  ok("planos: nenhuma rota do Simples é trancada", trancadoAToa.length === 0,
+     `trancadas à toa: ${trancadoAToa.join(", ")}`);
+
+  // As rotas LEGADAS que redirecionam para as telas Pro também têm de estar
+  // trancadas — senão o redirect é uma porta lateral aberta para a mesma tela.
+  for (const legada of ["/decisao", "/risco", "/autonomo", "/inteligencia"]) {
+    ok(`planos: rota legada ${legada} exige Pro`, exigePro(legada));
+  }
+
+  // Sub-rotas e query string entram pelo mesmo prefixo.
+  ok("planos: sub-rota herda o bloqueio", exigePro("/copiloto/qualquer-coisa"));
+  ok("planos: query string não escapa do bloqueio", exigePro("/copiloto?aba=risco"));
+
+  // ⚠️ A tela de UPGRADE e a de assinatura nunca são bloqueadas: trancá-las
+  // deixaria quem não tem o plano sem caminho para comprá-lo.
+  ok("planos: /planos nunca é bloqueada", !exigePro("/planos"));
+  ok("planos: a tela de assinatura nunca é bloqueada",
+     !exigePro("/dashboard/administration/subscription"));
+
+  // O Simples não abre Pro; o Pro abre tudo; demo abre tudo.
+  ok("planos: Simples não abre rota Pro", !podeAbrir("/copiloto", PLANO_SIMPLES));
+  ok("planos: Simples abre rota comum", podeAbrir("/", PLANO_SIMPLES));
+  ok("planos: Pro abre rota Pro", podeAbrir("/copiloto", { ...PLANO_SIMPLES, plano: "pro" }));
+  ok("planos: demonstração abre tudo", podeAbrir("/copiloto", PLANO_ABERTO));
+}
+
+
+/* ========================================================================== */
+/* LINHA 19 — DUAS TELAS DE "A RECEBER": nomes distintos e leituras declaradas */
+/* ========================================================================== */
+{
+  const ponte = pontePosicaoFluxo(INPUT, AGOSTO, "entrada");
+
+  // As duas leituras são DIFERENTES por construção — e é isso que precisa ficar
+  // dito na tela. Um sistema em que elas coincidem por acaso esconde o problema.
+  ok("telas: posição e fluxo são leituras distintas",
+     ponte.posicao.total !== ponte.fluxo.resultado);
+
+  // A posição fecha: liquidado + aberto + atrasado == total, e conta TODOS os
+  // títulos do lado, sem recorte de período.
+  eq("telas: estoque fecha (liquidado + aberto + atrasado)",
+     ponte.posicao.liquidado + ponte.posicao.aberto + ponte.posicao.atrasado, ponte.posicao.total);
+  eq("telas: o estoque conta todos os títulos do lado",
+     ponte.posicao.titulos, DATASET.filter((m) => m.type === "entrada" && m.status !== "cancelado").length);
+
+  // O fluxo é o indicador canônico, não uma terceira conta.
+  eq("telas: o fluxo da ponte == resultado canônico", ponte.fluxo.resultado, resultado(INPUT, AGOSTO).valor);
+  eq("telas: as entradas da ponte == entradas canônicas", ponte.fluxo.entradas, entradas(INPUT, AGOSTO).valor);
+
+  // ⚠️ O fluxo PODE ser negativo (mês em que se pagou mais do que se recebeu) e
+  // a posição NUNCA é — somar magnitudes de títulos não produz número negativo.
+  // Confundir os dois é o que fazia um usuário achar que "a receber" era −33 mil.
+  ok("telas: o estoque nunca é negativo", ponte.posicao.total >= 0);
+
+  // A explicação nomeia as duas leituras — é ela que a interface mostra, e sem
+  // ela o usuário não tem como saber qual das telas é a verdade (são as duas).
+  ok("telas: a explicação nomeia ESTOQUE e RESULTADO",
+     ponte.explicacao.includes("ESTOQUE") && ponte.explicacao.includes("RESULTADO"));
+  ok("telas: a explicação diz o período do fluxo", ponte.explicacao.includes(AGOSTO.label));
+
+  // ⚠️ E os NOMES no menu têm de ser distintos. Rótulos quase idênticos apontando
+  // para leituras diferentes é o defeito original: mesmo nome, números diferentes.
+  const rotulos = SECTIONS
+    .flatMap((sec) => sec.items)
+    .filter((i) => i.href === "/recebimentos" || i.href?.includes("tab=receivables"))
+    .map((i) => i.label);
+  ok("telas: as duas entradas de menu têm nomes distintos",
+     new Set(rotulos).size === rotulos.length, `rótulos: ${rotulos.join(" | ")}`);
+  ok("telas: e nenhum é o genérico 'Contas a receber'",
+     !rotulos.includes("Contas a receber"), `rótulos: ${rotulos.join(" | ")}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

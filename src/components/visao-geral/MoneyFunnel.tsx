@@ -11,7 +11,24 @@
  * — o parâmetro é simplesmente ignorado.
  */
 import { ExtratoTransacoes } from "./ExtratoTransacoes";
+import { EscopoDaTela } from "@/components/movimentacoes/EscopoDaTela";
+import { janelaDoMesDe } from "@/core/indicadores";
+import { useRiscoInput } from "./hooks";
 
 export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
-  return <ExtratoTransacoes direction={direction} />;
+  const { data: inp } = useRiscoInput();
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Esta tela é a leitura de FLUXO (resultado do período). A faixa declara
+          isso e mostra ao lado o estoque de títulos, porque as duas telas
+          respondem "quanto tenho a receber" com números diferentes — e as duas
+          estão certas. Ver `EscopoDaTela`. */}
+      <EscopoDaTela
+        leitura="fluxo"
+        janela={janelaDoMesDe(inp?.hoje ?? new Date().toISOString().slice(0, 10))}
+        direcao={direction}
+      />
+      <ExtratoTransacoes direction={direction} />
+    </div>
+  );
 }

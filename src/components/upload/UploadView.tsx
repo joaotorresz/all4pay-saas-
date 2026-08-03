@@ -22,6 +22,9 @@ import { hasImported } from "@/lib/imported";
 import { lerDocumento } from "@/lib/ocr-ingest";
 import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
 import { RevisaoImportacao } from "./RevisaoImportacao";
+import { PrevisaoImportacao } from "./PrevisaoImportacao";
+import { prepararIngestao, type LinhaBruta, type LinhaExistente } from "@/core/ingestao";
+import { importedMovements } from "@/lib/imported";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -76,6 +79,41 @@ export function UploadView() {
     finally { setCatBusy(false); }
   };
   const autoCat = () => { if (report) void rodarAuto(report, texto); }; // re-disparo manual
+
+  /**
+   * O PLANO de ingestão — o que a pré-visualização mostra.
+   *
+   * ⚠️ Ele é derivado do report e do que JÁ ESTÁ na base, e não grava nada.
+   * Antes, "Confirmar importação" ia direto para a escrita: não havia como
+   * saber, antes de gravar, que metade do arquivo já estava lá.
+   */
+  const plano = React.useMemo(() => {
+    if (!report) return null;
+    const cls = new Map(report.classificacoes.map((c) => [c.recordId, c]));
+    const linhas: LinhaBruta[] = report.records.map((r) => ({
+      idOrigem: r.id,
+      contaId: "acc-import",
+      data: r.data,
+      valor: r.valor,
+      tipo: r.tipo === "entrada" ? "entrada" : "saida",
+      descritivo: r.descricao || r.contraparte || "",
+      contraparte: r.contraparte || null,
+      origem: "extrato",
+    }));
+    const existentes: LinhaExistente[] = (importedMovements() ?? []).map((m) => ({
+      id: m.id, chave: m.chave ?? null, account_id: m.account_id,
+      paid_date: m.paid_date, due_date: m.due_date, amount: m.amount, type: m.type,
+      description: m.description, descritivo_bruto: m.descritivo_bruto, category: m.category,
+    }));
+    // O aprendizado do FDIP já resolveu parte da classificação — passar adiante
+    // evita que a pré-visualização "reaprenda" errado o que o dono confirmou.
+    const aprendizado: Record<string, string> = {};
+    for (const r of report.records) {
+      const c = cls.get(r.id);
+      if (c?.aprendido && c.categoria) aprendizado[r.contraparteNorm ?? ""] = c.categoria;
+    }
+    return prepararIngestao(linhas, existentes, aprendizado, report.entidades.map((e) => e.nome));
+  }, [report]);
 
   const temBaixaConfianca = (rep: FDIPReport) =>
     rep.classificacoes.some((c) => c.categoria !== "Transferência" && c.confianca < 0.9);
@@ -270,7 +308,12 @@ export function UploadView() {
         </Card>
       )}
 
-      {/* Confirmação (estilo Open Finance) */}
+      {/* PRÉ-VISUALIZAÇÃO — o que vai entrar, antes de entrar. */}
+      {report && plano && !resultado && (
+        <PrevisaoImportacao plano={plano} onConfirmar={confirmar} aplicando={aplicando} />
+      )}
+
+      {/* Revisão detalhada (entidades, padrões, custos recorrentes) */}
       {report && (
         <RevisaoImportacao
           report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}

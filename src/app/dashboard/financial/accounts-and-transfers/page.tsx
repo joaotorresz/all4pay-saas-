@@ -11,8 +11,8 @@ import { TitulosView } from "@/components/movimentacoes/TitulosView";
 import { TransferenciasView } from "@/components/movimentacoes/TransferenciasView";
 
 const ABAS = [
-  { id: "receivables", label: "Contas a Receber", titulo: "Contas a Receber" },
-  { id: "payables", label: "Contas a Pagar", titulo: "Contas a Pagar" },
+  { id: "receivables", label: "Títulos a receber", titulo: "Títulos a receber" },
+  { id: "payables", label: "Títulos a pagar", titulo: "Títulos a pagar" },
   { id: "transfers", label: "Transferências", titulo: "Transferências" },
 ] as const;
 

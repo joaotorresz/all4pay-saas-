@@ -16,7 +16,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
  * que se abre de vez em quando.
  */
 const ABAS: AbaHub[] = [
-  { id: "titulos", label: "Contas a receber", render: () => <MoneyFunnel direction="entrada" /> },
+  { id: "titulos", label: "Extrato", render: () => <MoneyFunnel direction="entrada" /> },
   { id: "recorrencias", label: "Assinaturas / Recorrências", render: () => <RecorrenciasView /> },
   { id: "inadimplencia", label: "Inadimplência", render: () => <InadimplenciaView /> },
   { id: "boletos", label: "Boletos", render: () => <BoletosView /> },
@@ -24,7 +24,7 @@ const ABAS: AbaHub[] = [
 
 export default function ReceberPage() {
   return (
-    <AppShell title="Receber" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell title="Extrato de recebimentos" actions={isDemo ? <DemoBadge /> : undefined}>
       <Suspense fallback={null}><HubShell abas={ABAS} /></Suspense>
     </AppShell>
   );

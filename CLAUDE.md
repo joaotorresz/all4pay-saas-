@@ -676,6 +676,97 @@ de assinaturas × Investor Update × canônico (MRR), razão × extrato. É a gu
 que impede os defeitos de voltarem: enquanto ela não existia, a mesma pergunta
 tinha resposta diferente por tela e ninguém descobria até um cliente conferir.
 
+### ⚠️ INGESTÃO — `src/core/ingestao` (o pipeline ÚNICO de entrada)
+
+Toda porta por onde um lançamento entra passa por aqui: extrato em lote
+(CSV/OFX), documento avulso (OCR), Open Finance, planilha, recorrência. Antes
+eram DOIS pipelines com taxonomias diferentes, e o mesmo gasto entrava com nomes
+diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
+
+- **`chave.ts` — `chaveIdempotencia`**: SHA-256 de **conta · data · valor em
+  CENTAVOS · sinal · descritivo normalizado**. ⚠️ NÃO inclui id da linha, nome
+  do arquivo nem horário do upload — se incluísse, reimportar o mesmo extrato
+  geraria chaves novas, que é o que produz a base duplicada. SHA-256 e não um
+  hash de 53 bits: uma colisão aqui descarta um lançamento REAL, em silêncio.
+  - **`normalizarDescritivo`** tira ruído bancário (`PIX`/`TED`/`ENV`/`REC`…),
+    sufixo societário e sequências de 4+ dígitos (terminal/NSU/autorização).
+  - ⚠️ **`chaveAproximada`** (conta·data·valor·sinal, SEM descritivo) existe
+    porque a chave exata não resolve tudo: o mesmo lançamento sai do OFX e da
+    API com textos diferentes, e nenhuma normalização honesta os cola sem colar
+    também o que é diferente. Chave exata bate ⇒ pula. Aproximada bate ⇒
+    **suspeita**, que **ENTRA marcada** — descartar sozinho apagaria duas vendas
+    legítimas de mesmo valor no mesmo dia.
+- **`taxonomia.ts`** — a lista ÚNICA de categorias, em português, com `natureza`.
+  ⚠️ Uma categoria de RECEITA nunca classifica uma SAÍDA (e vice-versa):
+  "pagamento ao Mercado Pago" é despesa mesmo casando com o padrão da
+  plataforma. O desconhecido cai em "Outras receitas/despesas" com confiança
+  **0.4** — é uma ADMISSÃO de que não se sabe, e a tela precisa destacá-la.
+- **`prepararIngestao()` NÃO GRAVA.** Devolve um `PlanoIngestao` (linhas +
+  resumo + classificação por categoria + contrapartes novas); gravar é outra
+  chamada, depois da confirmação. Importar deixou de ser um botão que escreve.
+- ⚠️ **O descritivo BRUTO é preservado em campo próprio** (`descritivo_bruto` em
+  `movements`, `descritivoBruto` no plano). `description` é editável e
+  `category` é classificação nossa; nenhum dos dois serve de evidência de
+  origem, e é ela que resolve "esse lançamento não é meu".
+- **`planejarLimpeza()`** — a limpeza RETROATIVA. ⚠️ Mantém o **PRIMEIRO** de
+  cada grupo (id estável), porque é ele que baixas, conciliações, comprovantes e
+  os lançamentos do razão (`mov:<id>`) já referenciam. Devolve RELATÓRIO com
+  impacto em caixa; quem apaga é a tela, depois de mostrar — limpeza automática
+  é indistinguível de perda de dados.
+- **UI:** `PrevisaoImportacao` (a pré-visualização, em `/upload` → Enviar) e
+  `LimpezaDuplicatas` (aba **Duplicatas** de `/upload`).
+- **No banco (0023):** `movements.chave/descritivo_bruto/origem` + **índice
+  ÚNICO parcial** `(org_id, chave) where chave is not null`. É o que transforma
+  "o app tenta não duplicar" em "o banco não deixa". O `insert` virou `upsert`
+  com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
+  lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
+
+### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
+
+**Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
+Inteligência e Governança sumiam do menu e `/copiloto`, `/investidores`,
+`/impostos`, `/aprovacoes`, `/governanca` e `/automacoes` continuavam
+respondendo 200 para quem digitasse o endereço. Ruim das duas maneiras: se Pro é
+plano pago, a receita vaza por digitação; se não é, esconde-se do usuário o que
+ele já tem.
+
+- **`ROTAS_PRO`** é a fonte única do mapa rota→plano (prefixos, pegando
+  sub-rotas e query string). Inclui as rotas LEGADAS que redirecionam para as
+  telas Pro — sem elas o redirect é porta lateral aberta.
+- **`middleware.ts`** aplica: rota Pro + plano Simples → `/planos?de=<rota>`. A
+  RPC **`meu_plano()`** (migration 0022, `SECURITY DEFINER` escopada ao
+  `auth.uid()`) é a autoridade; falha de rede ⇒ trata como **Simples** (assumir
+  Pro num erro liberaria o produto pago em toda instabilidade). Só consulta
+  quando a rota exige Pro — uma RPC por navegação custaria latência em tudo.
+- **`/planos`** (`PlanosView`) diz o que você pediu, por que não abriu e o que o
+  Pro inclui. Bloquear sem oferecer caminho é pior que não bloquear.
+- **`lib/plano.ts`** (`usePlano`) é só para APRESENTAR. Quem autoriza é o
+  servidor; confiar nele para liberar tela repete o defeito.
+- ⚠️ **`SEMPRE_ABERTAS`**: `/planos` e a tela de assinatura nunca são
+  bloqueadas — trancá-las deixaria sem caminho para comprar.
+- Guarda na matriz: as rotas `pro: true` do `nav-data` e `ROTAS_PRO` têm de
+  coincidir nos dois sentidos. Divergir = a cortina de volta.
+
+### ⚠️ Duas telas de "a receber" — POSIÇÃO × FLUXO
+
+`/recebimentos` e `/dashboard/financial/accounts-and-transfers?tab=receivables`
+mostravam números que não batiam, com o mesmo título na aba do navegador e
+nomes quase idênticos no menu. **Nenhuma estava errada** — elas medem coisas
+diferentes, e a interface não dizia isso:
+
+- **Posição (estoque)**: quantos títulos existem e quanto somam. Sem período —
+  um título de 2024 em aberto conta hoje. Nunca é negativo. É a pergunta de quem
+  vai cobrar. → **"Títulos a receber"**.
+- **Fluxo (resultado)**: entradas − saídas liquidadas na janela. Tem período por
+  definição e **pode ser negativo**. É a pergunta de quem vai decidir gasto. →
+  **"Extrato de recebimentos"**.
+
+`pontePosicaoFluxo()` (`core/indicadores`) devolve as duas leituras juntas, e o
+componente **`EscopoDaTela`** (`components/movimentacoes/`) põe no topo das duas
+telas: o que ESTA mede, o que a OUTRA mede e o link para atravessar. A faixa não
+some — um aviso que se fecha é um aviso que ninguém vê quando volta em dúvida.
+Nomes e títulos de página passaram a ser distintos; guarda na matriz exige isso.
+
 ### Motor de Risco de Caixa (`/risco`)
 
 `scoreRiscoCaixa()` (`src/core/risk-engine/`) is a proprietary operational
@@ -2180,6 +2271,12 @@ npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.
                    # canônico (burn/runway), assinaturas × Investor Update ×
                    # canônico (MRR) e razão × extrato. É a guarda do "uma
                    # verdade só" — sem ela os mesmos defeitos voltam.
+                   # Cobre também a ONDA 2: idempotência da ingestão (reimportar
+                   # o mesmo extrato não grava nada; nenhuma linha legítima vira
+                   # duplicata), taxonomia única (extrato e OCR classificam
+                   # igual), limpeza retroativa (mantém o primeiro de cada
+                   # grupo), gating de plano (menu e servidor coincidem) e as
+                   # duas telas de "a receber" (posição × fluxo).
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
                    # + kb + tz + audit + consistencia (9 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI
