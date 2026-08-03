@@ -20,7 +20,11 @@ import {
 } from "recharts";
 import { Card, Skeleton, Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
+import {
+  painelIndicadores, janela, janelaAnterior, dentro, contemHoje, dataDe, magnitude,
+} from "@/core/indicadores";
 import { useRiscoInput } from "./hooks";
+import { ErroWidget } from "./shared";
 import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
 import { AnimatedBRL } from "./useCountUp";
 
@@ -35,8 +39,6 @@ const DV = ["#C8E600", "#93B300", "#5F7D1F", "#3F5A22", "#8A876F", "#B4B0A0", "#
 const brlNoCents = (n: number) => "R$ " + Math.round(n).toLocaleString("pt-BR");
 const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 
-const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.paid_date || mv.due_date;
-
 type Ponto = { idx: number; label: string; ent: number; sai: number };
 type Seg = { name: string; value: number; color: string; trend: number };
 
@@ -48,7 +50,7 @@ const SEMI_MONO = '"Roobert Semi Mono", ui-monospace, monospace';
 const VARIAVEL = '"Roobert Variable", "Roobert", sans-serif';
 
 export function VisorHomeTop() {
-  const { data: inp, isLoading } = useRiscoInput();
+  const { data: inp, isLoading, error, refetch } = useRiscoInput();
   const period = usePeriod();
   const router = useRouter();
   const [tipoDist, setTipoDist] = React.useState<"entrada" | "saida">("saida");
@@ -73,9 +75,7 @@ export function VisorHomeTop() {
     const isoAt = (base: Date, i: number) => { const d = new Date(base.getTime() + i * DAY); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
     const fromD = parse(period.from);
     const toD = parse(period.to);
-    const hojeD = parse(inp.hoje);
     const nDays = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / DAY) + 1);
-    const prevFromD = new Date(fromD.getTime() - nDays * DAY);
 
     // Duas séries acumuladas no período: ENTRADAS e SAÍDAS liquidadas.
     // Só o que teve baixa entra (é a leitura do que de fato passou no caixa);
@@ -83,11 +83,10 @@ export function VisorHomeTop() {
     const entByDay = new Map<string, number>();
     const saiByDay = new Map<string, number>();
     for (const mv of inp.movements) {
-      if (mv.status !== "pago") continue;
-      const ds = (mv.paid_date || mv.due_date || "").slice(0, 10);
+      const ds = dataDe(mv, "caixa");
       if (!ds) continue;
       const alvo = mv.type === "entrada" ? entByDay : saiByDay;
-      alvo.set(ds, (alvo.get(ds) || 0) + Math.abs(mv.amount));
+      alvo.set(ds, (alvo.get(ds) || 0) + magnitude(mv));
     }
     const fmtDia = (d: Date) => `${pad(d.getDate())}/${MES_ABBR[d.getMonth()]}`;
     const serie: Ponto[] = [];
@@ -104,26 +103,34 @@ export function VisorHomeTop() {
       });
     }
 
-    // distribuição por categoria — atual + anterior (p/ tendência)
-    const inWin = (t: number, a: Date, b: Date) => t >= a.getTime() && t <= b.getTime();
+    // distribuição por categoria — atual + anterior (p/ tendência).
+    //
+    // ⚠️ A JANELA e a REGRA vêm da camada canônica; este bloco só reparte por
+    // categoria o que ela já decidiu que conta. Antes o card tinha DUAS regras
+    // dentro de si: as linhas do gráfico contavam só `pago`, e estes totais
+    // contavam `!== cancelado` com `paid_date || due_date` — então o rodapé
+    // "resultado do período" e o donut incluíam títulos em aberto que as linhas
+    // não incluíam, no mesmo card.
+    const jAtual = janela(period.from, period.to);
+    const jPrev = janelaAnterior(jAtual);
     const catS = new Map<string, number>(), catE = new Map<string, number>();
     const catSPrev = new Map<string, number>(), catEPrev = new Map<string, number>();
-    let entradas = 0, saidas = 0;
-    const prevToD = new Date(prevFromD.getTime() + (nDays - 1) * DAY);
     for (const mv of inp.movements) {
-      if (mv.status === "cancelado") continue;
-      const ds = effDate(mv); if (!ds) continue;
-      const t = parse(ds.slice(0, 10)).getTime();
-      const v = Math.abs(mv.amount);
+      const ds = dataDe(mv, "caixa");
+      if (!ds) continue;
+      const v = magnitude(mv);
       const c = (mv.category || "Outros").trim() || "Outros";
-      if (inWin(t, fromD, toD)) {
-        if (mv.type === "entrada") { entradas += v; catE.set(c, (catE.get(c) || 0) + v); }
-        else { saidas += v; catS.set(c, (catS.get(c) || 0) + v); }
-      } else if (inWin(t, prevFromD, prevToD)) {
+      if (dentro(jAtual, ds)) {
+        if (mv.type === "entrada") catE.set(c, (catE.get(c) || 0) + v);
+        else catS.set(c, (catS.get(c) || 0) + v);
+      } else if (dentro(jPrev, ds)) {
         if (mv.type === "entrada") catEPrev.set(c, (catEPrev.get(c) || 0) + v);
         else catSPrev.set(c, (catSPrev.get(c) || 0) + v);
       }
     }
+    // Os três números do card saem da camada canônica — os mesmos que o DRE, o
+    // fluxo de caixa e o extrato mostram para este período.
+    const ind = painelIndicadores(inp, jAtual, "caixa");
     const buildSegs = (map: Map<string, number>, prevMap: Map<string, number>): Seg[] => {
       const arr = Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
       const top = arr.slice(0, 7);
@@ -143,13 +150,27 @@ export function VisorHomeTop() {
 
     return {
       serie,
-      entradas, saidas,
-      resultado: entradas - saidas,
+      entradas: ind.entradas.valor,
+      saidas: ind.saidas.valor,
+      resultado: ind.resultado.valor,
+      saldo: ind.saldo.valor,
+      janela: jAtual,
       segsEntrada: buildSegs(catE, catEPrev), segsSaida: buildSegs(catS, catSPrev),
       insight,
     };
   }, [inp, period.from, period.to]);
 
+  // ⚠️ A falha tem estado PRÓPRIO. Antes, `isLoading || !inp` mandava tudo para
+  // o esqueleto: consulta quebrada e consulta lenta ficavam idênticas na tela, e
+  // um erro de rede se apresentava como "carregando" para sempre.
+  if (error) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        <Card><ErroWidget titulo="Não foi possível carregar o saldo" erro={error} onTentarNovamente={() => refetch()} /></Card>
+        <Card><ErroWidget titulo="Não foi possível carregar a distribuição" erro={error} onTentarNovamente={() => refetch()} /></Card>
+      </div>
+    );
+  }
   if (isLoading || !inp || !calc) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
@@ -159,11 +180,15 @@ export function VisorHomeTop() {
     );
   }
 
-  const sufixo = period.modo === "mes" ? "este mês" : "no período";
+  // ⚠️ "este mês" só quando o mês navegado é o CORRENTE. Navegar para março e
+  // ler "este mês" faz o número parecer errado quando está certo — é a mesma
+  // confusão entre "mês selecionado" e "hoje" que a janela canônica separa.
+  const ehMesCorrente = period.modo === "mes" && contemHoje(calc.janela, inp.hoje);
+  const sufixo = ehMesCorrente ? "este mês" : period.modo === "mes" ? `em ${MESES[period.mes]}` : "no período";
   const mesNome = period.modo === "mes" ? MESES[period.mes] : null;
-  // O herói do card é o SALDO EM CONTA (posição atual), não mais o delta de
-  // gasto. O período manda no gráfico e no resultado do rodapé.
-  const saldo = inp.saldoAtual;
+  // O herói do card é o SALDO EM CONTA (posição atual). O período manda no
+  // gráfico e no resultado do rodapé.
+  const saldo = calc.saldo;
   const positivoNoPeriodo = calc.resultado >= 0;
 
   return (
@@ -184,7 +209,16 @@ export function VisorHomeTop() {
               −0.055em; o prefixo R$ e os centavos vêm de `a4p-heroi`. O sufixo
               traz o resultado do período (entradas − saídas). */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
-            <span className="a4p-heroi text-[30px] tabular-nums text-ink leading-none" style={{ fontFamily: VARIAVEL, fontWeight: 400 }}>
+            {/* ⚠️ SEM `Math.abs`. O herói exibia o saldo em módulo, então um
+                caixa de −R$ 31.000,16 aparecia como +R$ 31.000,16: a informação
+                mais importante da tela, com o sinal trocado. Um saldo negativo
+                é a coisa que a pessoa PRECISA ver — ele entra com o sinal e em
+                `negative`. */}
+            <span
+              className="a4p-heroi text-[30px] tabular-nums leading-none"
+              style={{ fontFamily: VARIAVEL, fontWeight: 400, color: saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
+            >
+              {saldo < 0 && <span aria-hidden>−</span>}
               <AnimatedBRL value={Math.abs(saldo)} />
             </span>
             <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>

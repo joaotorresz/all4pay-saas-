@@ -2,7 +2,14 @@
  * Pure aggregation helpers — the single computation path used by BOTH
  * the demo seed and live Supabase rows. Given raw movements/accounts,
  * they derive the shapes each widget renders.
+ *
+ * ⚠️ As regras de "o que conta" e "qual data" NÃO moram aqui: vêm de
+ * `core/indicadores/convencoes`. Este arquivo dá FORMA (baldes por dia, séries
+ * por mês) ao que aquela camada já decidiu. Quando a regra viveu nas duas
+ * pontas, as duas divergiram.
  */
+import { dataDe } from "@/core/indicadores/convencoes";
+import type { RiskMovement } from "@/core/risk-engine/types";
 import type {
   Movement,
   FinancialAccount,
@@ -124,9 +131,9 @@ export function dailyCashflow(
   const todayISO = isoDay(today);
 
   for (const m of movements) {
-    // realizado = só PAGO (exclui pendente/cancelado com paid_date solto),
-    // igual a dailyCashflowRange/Projetado.
-    const day = m.status === "pago" ? (m.paid_date ?? m.due_date) : null;
+    // Realizado = a data de caixa canônica (`core/indicadores`) — a mesma que
+    // `dailyCashflowRange` e todo o resto do sistema usam.
+    const day = dataDe(m as unknown as RiskMovement, "caixa");
     if (!day || day < startISO || day > todayISO) continue;
     const b = buckets.get(day) ?? { inflow: 0, outflow: 0 };
     if (m.type === "entrada") b.inflow += m.amount;
@@ -171,8 +178,12 @@ export function dailyCashflowRange(
 ): DailyCashflowPoint[] {
   const buckets = new Map<string, { inflow: number; outflow: number }>();
   for (const m of movements) {
-    if (m.status === "cancelado") continue;
-    const day = m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+    // ⚠️ A data de caixa vem da convenção canônica (`core/indicadores`), não de
+    // uma regra local. A versão anterior era `m.paid_date ?? (pago ? due : null)`,
+    // que aceitava QUALQUER linha com `paid_date` — inclusive um título ainda
+    // pendente. O gráfico diário somava 9.900 que o total do período não somava,
+    // no mesmo card. A matriz de consistência trava isso agora.
+    const day = dataDe(m as unknown as RiskMovement, "caixa");
     if (!day || day < fromISO || day > toISO) continue;
     const b = buckets.get(day) ?? { inflow: 0, outflow: 0 };
     if (m.type === "entrada") b.inflow += m.amount;

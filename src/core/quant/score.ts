@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import { serieMensal } from "./series";
 import { clamp01, normalizar, media } from "./stat";
+import { runwayDeFluxo, mesesDeRunway } from "@/core/indicadores";
 
 /** Pesos do modelo (somam 1.0) — auditáveis. */
 export const PESOS = {
@@ -167,8 +168,11 @@ export function cenariosPreditivos(
     const liquido = receita - despesa;
     const inad = clamp01(i.inadimplencia + dInad);
     const margem = receita > 0 ? liquido / receita : 0;
-    const runwayDias = liquido >= 0 ? 999 : input.saldoAtual / (-liquido / 30);
-    const runwayMeses = runwayDias >= 999 ? 24 : runwayDias / 30;
+    // Fórmula canônica (`core/indicadores`): o cenário projetado usa a MESMA
+    // conta do runway real — tetos diferentes faziam o projetado e o atual
+    // divergirem sem nenhuma premissa ter mudado.
+    const runwayDias = runwayDeFluxo(input.saldoAtual, liquido);
+    const runwayMeses = mesesDeRunway(runwayDias);
     const h = saude({
       ...i,
       margemOperacional: margem,

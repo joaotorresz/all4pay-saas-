@@ -8,6 +8,7 @@ import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type St
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import { isDemo } from "@/lib/demo";
+import { ErroWidget } from "@/components/visao-geral/shared";
 import type { Participante } from "@/core/onboarding";
 
 /** Campos de identidade editáveis (rótulo + chave em db). */
@@ -31,6 +32,7 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
   const [form, setForm] = React.useState<Record<string, string>>({});
   const [userModal, setUserModal] = React.useState<{ member: GovMember | null } | null>(null);
   const [membros, setMembros] = React.useState<GovMember[]>([]);
+  const [erroMembros, setErroMembros] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setCompany(loadCompany());        // pintura instantânea (cache)
@@ -39,7 +41,11 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
 
   // Governança: membros reais (demo: perfil local; live: organization_members).
   const recarregarMembros = React.useCallback(async () => {
-    try { setMembros(await listMembers()); } catch { setMembros([]); }
+    // ⚠️ Lista vazia por FALHA lê-se "não há mais ninguém na empresa" — e é
+    // sobre essa lista que se decide remover acesso. O erro tem de aparecer.
+    setErroMembros(null);
+    try { setMembros(await listMembers()); }
+    catch (e) { setErroMembros((e as Error).message || "Falha ao carregar os participantes."); }
   }, []);
   React.useEffect(() => { recarregarMembros(); }, [recarregarMembros]);
 
@@ -212,7 +218,9 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
                 Adicionar usuário
               </Button>
             </div>
-            {membros.length === 0 ? (
+            {erroMembros ? (
+              <ErroWidget titulo="Não foi possível carregar os participantes" erro={erroMembros} onTentarNovamente={() => { recarregarMembros(); }} />
+            ) : membros.length === 0 ? (
               <span className="text-caption text-faint py-2">Nenhum usuário ainda. Adicione participantes e defina o que cada um pode visualizar, editar e aprovar.</span>
             ) : membros.map((p) => (
               <div key={p.id} className="flex items-center gap-3 py-2 border-t border-border-soft first:border-t-0">

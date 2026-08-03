@@ -12,8 +12,17 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dreGerencial } from "@/core/dre/engine";
+import { mrr as mrrCanonico } from "@/core/indicadores";
 
 export const PAINEIS_VERSION = "paineis/1.0.0";
+
+/**
+ * O MRR canônico é apurado a partir dos CONTRATOS quando eles existem, e só
+ * cai nos lançamentos quando não existem. Aqui os contratos são a fonte, então
+ * o `RiskInput` não é consultado — este é o input mínimo que satisfaz a
+ * assinatura sem inventar dado.
+ */
+const SEM_MOVIMENTOS: RiskInput = { hoje: "1970-01-01", saldoAtual: 0, movements: [] };
 
 /* ------------------------------- utilitários ------------------------------- */
 
@@ -310,8 +319,17 @@ export interface PainelAssinaturas {
   produtos: { nome: string; assinaturas: number; mrr: number }[];
 }
 
-/** MRR de uma assinatura = fatura ÷ meses do ciclo (anual de 1.200 = 100/mês). */
-const mrrDe = (a: AssinaturaBase) => (a.mesesCiclo > 0 ? a.valorFatura / a.mesesCiclo : 0);
+/**
+ * MRR de um conjunto de assinaturas — delega ao indicador canônico
+ * (`core/indicadores.mrr`). A normalização do ciclo (anual de 1.200 = 100/mês)
+ * é a regra, e ela mora num lugar só: quatro implementações independentes de
+ * MRR conviviam no sistema, e a do Investor Update usava outra definição
+ * inteira.
+ */
+const mrrDoConjunto = (l: AssinaturaBase[]) =>
+  mrrCanonico(SEM_MOVIMENTOS, l.map((a) => ({
+    ativo: true, valorCiclo: a.valorFatura, mesesCiclo: a.mesesCiclo,
+  }))).valor;
 
 /** Vigente no mês = já existia e ainda não foi cancelada/pausada. Como o
  *  cadastro guarda só o status ATUAL, meses passados assumem vigente desde a
@@ -329,8 +347,8 @@ export function painelAssinaturas(assinaturas: AssinaturaBase[], mes: string, ho
 
   const atuais = doMes(mes);
   const anteriores = doMes(deslocarMes(mes, -1));
-  const mrr = round2(atuais.reduce((s, a) => s + mrrDe(a), 0));
-  const mrrAnt = round2(anteriores.reduce((s, a) => s + mrrDe(a), 0));
+  const mrr = round2(mrrDoConjunto(atuais));
+  const mrrAnt = round2(mrrDoConjunto(anteriores));
   const varPct = (agora: number, antes: number) =>
     antes > 0 ? Math.round(((agora - antes) / antes) * 1000) / 10 : agora > 0 ? 100 : 0;
 
@@ -347,7 +365,7 @@ export function painelAssinaturas(assinaturas: AssinaturaBase[], mes: string, ho
       const p = produtos.get(it.nome) ?? { assinaturas: 0, mrr: 0 };
       p.assinaturas += 1;
       // Rateia o MRR da assinatura pelo peso do item na fatura.
-      p.mrr += total > 0 ? mrrDe(a) * ((it.valor * it.qtd) / total) : 0;
+      p.mrr += total > 0 ? mrrDoConjunto([a]) * ((it.valor * it.qtd) / total) : 0;
       produtos.set(it.nome, p);
     }
   }
@@ -362,7 +380,7 @@ export function painelAssinaturas(assinaturas: AssinaturaBase[], mes: string, ho
     assinaturasVariacao: varPct(atuais.length, anteriores.length),
     clientesVariacao: varPct(clientesDe(atuais), clientesDe(anteriores)),
     churn: anteriores.length > 0 ? Math.round((perdidas / anteriores.length) * 1000) / 10 : 0,
-    serieMRR: janela.map((m) => ({ label: rotuloMes(m), valor: round2(doMes(m).reduce((s, a) => s + mrrDe(a), 0)) })),
+    serieMRR: janela.map((m) => ({ label: rotuloMes(m), valor: round2(mrrDoConjunto(doMes(m))) })),
     serieAssinaturas: janela.map((m) => {
       const l = doMes(m);
       return { label: rotuloMes(m), assinaturas: l.length, clientes: clientesDe(l) };

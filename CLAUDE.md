@@ -608,6 +608,74 @@ que o wizard coletou (governança/perfil ainda não têm tabela). Sem dados salv
 mostra CTA para `/comecar`. Link no rodapé da Sidebar ("Configurações"; "Adicionar
 Empresa" → `/comecar`). Não toca em schema/RLS.
 
+### ⚠️ UMA VERDADE SÓ — `src/core/indicadores` (a camada canônica)
+
+**Uma função por indicador. Nenhuma tela calcula indicador por conta própria.**
+Se um número aparece em duas telas, ele sai daqui nas duas. Pura, tipada,
+demo-safe, sem I/O e sem relógio (`hoje` vem do `RiskInput`). Versão
+`indicadores/1.0.0`.
+
+O defeito que ela existe para matar: cada tela somava os lançamentos do seu
+jeito, e nenhuma estava "errada" isoladamente — estavam respondendo perguntas
+diferentes com o mesmo rótulo.
+
+- **`convencoes.ts` — as regras por escrito**, em código. Quatro perguntas, uma
+  resposta cada:
+  1. **SINAL** — `amount` é MAGNITUDE; a direção vive em `type` e em lugar
+     nenhum mais. `assinado(m)` soma entrada e subtrai saída; ninguém escreve
+     `-m.amount` à mão. **Saldo nunca é exibido em módulo** (`Math.abs` sobre um
+     caixa negativo não formata, inverte).
+  2. **O QUE CONTA** — `liquidado(m) = status === "pago"`, uma definição só. O
+     sistema tinha três (`status==="pago"`, `paid_date != null`,
+     `status !== "cancelado"`), e elas discordam justamente nas linhas que
+     importam. `paid_date` é a DATA de um fato; quem diz que o fato aconteceu é
+     o `status`.
+  3. **QUAL DATA** — `dataDe(m, regime)`. No regime de **caixa** um movimento
+     não liquidado **não tem data** (devolve `null`): o `paid_date ?? due_date`
+     de várias telas fazia um pendente futuro cair no caixa de hoje.
+  4. **O SALDO** — `saldoEm(input, data)`. O nível vem do `balance` das contas
+     (o banco é a autoridade); os movimentos explicam a VARIAÇÃO, não o nível.
+     Passado = saldo de hoje menos os liquidados depois; futuro = mais os
+     previstos até lá. `saldoAbertura` é o ponto de partida de todo acumulado.
+- **`janela.ts` — o recorte de tempo como TIPO.** ⚠️ Um intervalo invertido
+  (`de > ate`, o caso "maior que hoje E menor que o fim do mês passado") vira
+  `vazia: true` + `motivo`, e o indicador devolve 0 **com aviso**. Zero mudo
+  lê-se "não há nada" quando a verdade é "você pediu um intervalo que não
+  existe". `contemHoje` separa **"mês selecionado" de "hoje"** — o rótulo "este
+  mês" só aparece quando o mês navegado é o corrente.
+- **Os 10 indicadores** (`index.ts`), cada um devolvendo `{ valor, procedencia }`
+  — de quantos lançamentos saiu, sob que regime, em que janela e por que
+  fórmula: `saldo` · `entradas` · `saidas` · `resultado` · `burn` · `runway`
+  (em DIAS; `runwayMeses` é ÷30, nunca um segundo teto) · `mrr` · `arr`
+  (= MRR×12) · `inadimplencia` · `receitaTributavel`. `painelIndicadores()` roda
+  os dez sobre a MESMA janela — é a forma preferida de consumo.
+  - `runwayDeFluxo(saldo, liquido)` isola a FÓRMULA para os simuladores: um
+    cenário é hipotético, mas o runway dele sai da mesma conta.
+  - `receitaTributavel` exclui transferência/resgate/empréstimo/receita
+    financeira. ⚠️ Regex ancorado em `\b` — sem isso `aporte` casa dentro de
+    "transp**orte**" e um frete sai da base do imposto.
+- **`reconciliarSaldo(input)`** — a conta que faltava entre o **Razão e o
+  extrato**. A diferença nunca foi misteriosa: é títulos em aberto + saldo
+  anterior ao histórico importado + liquidados sem data. Exibida no `/razao`
+  (`ConciliacaoCaixa`).
+- ⚠️ **O razão só posta o LIQUIDADO** (`lancamentosDeMovimentos` em
+  `core/ledger/chart.ts`). Postar previstos debitava "Caixa e equivalentes" com
+  dinheiro que não está na conta — era isso que descolava o balancete do extrato.
+- **Já migrados** para a camada: Home (`VisorHomeTop`), `lib/aggregations`
+  (`dailyCashflow`/`dailyCashflowRange`), `lib/ledger`, `core/quant`
+  (indicators + score), `core/paineis`, `lib/recorrencias`, `core/investor`,
+  `core/executive/scenario`. **A migração das demais telas segue por onda** —
+  a regra vale para código novo desde já.
+
+**`npm run consistencia` — A MATRIZ DE CONSISTÊNCIA CRUZADA** (14 linhas,
+`scripts/consistencia.mts`, dentro de `npm test` e do CI). As outras guardas
+verificam se um motor está certo sozinho; esta verifica se **dois caminhos
+diferentes chegam ao mesmo número** — Home × canônico, DRE × canônico, gráfico
+diário × total do período, risk-engine × quant × canônico (burn/runway), painel
+de assinaturas × Investor Update × canônico (MRR), razão × extrato. É a guarda
+que impede os defeitos de voltarem: enquanto ela não existia, a mesma pergunta
+tinha resposta diferente por tela e ninguém descobria até um cliente conferir.
+
 ### Motor de Risco de Caixa (`/risco`)
 
 `scoreRiscoCaixa()` (`src/core/risk-engine/`) is a proprietary operational
@@ -2105,8 +2173,15 @@ npm run tz         # fronteira de mês em fuso UTC-3 (força TZ=America/Sao_Paul
                    # série/DRE/liquidez enxerguem o mês corrente. SEMPRE parseie
                    # data-só como `new Date(s + "T00:00:00")` (local) ou fatie a
                    # string; NUNCA getDate/getMonth de um Date UTC para exibir.
+npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.mts):
+                   # exige que DOIS CAMINHOS diferentes cheguem ao MESMO número.
+                   # 14 linhas confrontando Home × canônico, DRE × canônico,
+                   # gráfico diário × total do período, risk-engine × quant ×
+                   # canônico (burn/runway), assinaturas × Investor Update ×
+                   # canônico (MRR) e razão × extrato. É a guarda do "uma
+                   # verdade só" — sem ela os mesmos defeitos voltam.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
-                   # + kb + tz + audit (8 guardas). Rode antes de commitar mudanças
+                   # + kb + tz + audit + consistencia (9 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI
                    # (.github/workflows/ci.yml) em push/PR.
 ```

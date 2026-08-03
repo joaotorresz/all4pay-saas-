@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
+import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
@@ -102,7 +103,12 @@ export interface KpisRecorrencia { mrr: number; ativas: number; ticketMedio: num
 export function kpisRecorrencia(): KpisRecorrencia {
   const list = cache ?? [];
   const ativas = list.filter((r) => r.status === "ativa");
-  const mrr = ativas.reduce((s, r) => s + totalFatura(r) / mesesDe(r.ciclo), 0);
+  // MRR pelo indicador canônico (`core/indicadores.mrr`): a normalização do
+  // ciclo é a regra e vive num lugar só.
+  const mrr = mrrCanonico(
+    { hoje: "1970-01-01", saldoAtual: 0, movements: [] },
+    ativas.map((r) => ({ ativo: true, valorCiclo: totalFatura(r), mesesCiclo: mesesDe(r.ciclo) })),
+  ).valor;
   const ticketMedio = ativas.length ? ativas.reduce((s, r) => s + totalFatura(r), 0) / ativas.length : 0;
   const churn = list.length ? list.filter((r) => r.status === "cancelada").length / list.length : 0;
   return { mrr, ativas: ativas.length, ticketMedio, churn, total: list.length };

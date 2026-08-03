@@ -10,6 +10,7 @@ import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
 import { calcularConcentracao } from "@/core/risk-engine/concentracao.engine";
 import { calcularRiscoInadimplencia } from "@/core/risk-engine/inadimplencia.engine";
 import { calcularSazonalidade } from "@/core/risk-engine/sazonalidade.engine";
+import { runwayMeses as runwayMesesCanonico } from "@/core/indicadores";
 import type { IndicadoresFinanceiros, VolatilidadeNivel } from "./types";
 import { serieMensal, receitaRecorrente } from "./series";
 import { clamp01, media, coefVariacao } from "./stat";
@@ -89,7 +90,11 @@ export function calcularIndicadores(input: RiskInput): IndicadoresFinanceiros {
 
   return {
     liquidezCorrente,
-    runwayMeses: runway.base >= 999 ? 24 : Math.round((runway.base / 30) * 10) / 10,
+    // ⚠️ A conversão é UMA: dias ÷ 30, do canônico. O `>= 999 ? 24` daqui fazia
+    // o quant dizer "24 meses" enquanto o motor de risco dizia 999 dias (33,3
+    // meses) sobre a MESMA empresa — dois tetos diferentes para o mesmo "não
+    // queima". O teto agora é só um, e mora em `core/indicadores`.
+    runwayMeses: runwayMesesCanonico(input).valor,
     burnRate: burn.burnMensal,
     burnMultiple: Math.round(burnMultiple * 100) / 100,
     margemOperacional,

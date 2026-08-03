@@ -3,8 +3,10 @@
  * (transação → conta do razão). Reusa o classificador do DRE como camada de
  * REGRAS; a IA (Claude) entra só como reforço quando a chave existir (Fase 1).
  */
-import type { AccountType } from "./index";
+import { lancamentoDeMovimento, type AccountType, type LedgerEntryInput } from "./index";
 import { classificarReceita, classificarDespesa } from "@/core/dre/engine";
+import { liquidado, dataDe, magnitude } from "@/core/indicadores/convencoes";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 export interface ContaPlano { code: string; name: string; type: AccountType }
 
@@ -39,4 +41,51 @@ export const tipoConta = (code: string): AccountType => byCode.get(code)?.type ?
 /** Conta de resultado para um movimento (regra determinística por categoria). */
 export function contaDeMovimento(m: { type: "entrada" | "saida"; category?: string | null }): string {
   return m.type === "entrada" ? REC[classificarReceita(m.category)] : DESP[classificarDespesa(m.category)];
+}
+
+/**
+ * Deriva os lançamentos de dupla entrada a partir dos movimentos — PURO.
+ *
+ * ⚠️ **Só o LIQUIDADO vira lançamento de caixa.** Esta linha é a correção da
+ * divergência entre o Razão e o extrato: a versão anterior postava tudo que não
+ * estivesse cancelado, então cada nota a receber em aberto entrava debitando
+ * "Caixa e equivalentes". O balancete somava dinheiro que não existia na conta,
+ * e o saldo contábil descolava do extrato pelo total dos títulos em aberto —
+ * exatamente a diferença que a auditoria registrou.
+ *
+ * Um título previsto é um fato de COMPETÊNCIA (contas a receber/a pagar), não
+ * de caixa. Enquanto o razão não tiver as contas de AR/AP com o seu próprio
+ * ciclo (reconhecimento → liquidação), o certo é não postá-lo — melhor faltar
+ * no razão do que existir no lugar errado.
+ *
+ * A data é a de CAIXA (`dataDe(m, "caixa")`), pela mesma convenção do resto do
+ * sistema, e um liquidado sem data nenhuma fica de fora: um lançamento contábil
+ * sem competência não tem em que mês entrar.
+ */
+export function lancamentosDeMovimentos(
+  input: RiskInput,
+  nomeDaParte?: (m: RiskMovement) => string | undefined,
+): LedgerEntryInput[] {
+  const saida: LedgerEntryInput[] = [];
+  for (const m of input.movements) {
+    if (!liquidado(m)) continue;
+    const data = dataDe(m, "caixa");
+    if (!data) continue;
+    saida.push(
+      lancamentoDeMovimento({
+        tipo: m.type,
+        valor: magnitude(m),
+        data,
+        contaCaixaId: CAIXA,
+        contaResultadoId: contaDeMovimento(m),
+        descricao: nomeDaParte?.(m) || m.category || "Lançamento",
+        externalKey: `mov:${m.id}`,
+        dimensions: {
+          ...(m.party_id ? { contraparte: nomeDaParte?.(m) ?? m.party_id } : {}),
+          ...(m.costCenter ? { centro: m.costCenter } : {}),
+        },
+      }),
+    );
+  }
+  return saida;
 }

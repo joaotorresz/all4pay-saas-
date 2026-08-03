@@ -1,8 +1,12 @@
 name: CI
 
-# Roda a suíte de verificação (typecheck + guardas da IA + build) em cada push
-# e PR. As guardas (smoke/corpus/values/edge) usam --experimental-strip-types,
-# que exige Node >= 22.6.
+# Roda a suíte de verificação (typecheck + guardas + build) em cada push e PR.
+# As guardas usam --experimental-strip-types, que exige Node >= 22.6.
+#
+# ⚠️ `npm test` inclui a MATRIZ DE CONSISTÊNCIA CRUZADA (`npm run consistencia`),
+# que confronta cada indicador entre os caminhos que o produzem — Home, DRE,
+# razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
+# diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
 on:
   push:
     branches: ["**"]
@@ -19,7 +23,7 @@ jobs:
           cache: "npm"
       - name: Install deps
         run: npm ci
-      - name: Test (typecheck + smoke + corpus + values + edge)
+      - name: Test (typecheck + guardas + matriz de consistência)
         run: npm test
       - name: Build
         run: npm run build

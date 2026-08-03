@@ -542,6 +542,18 @@ function demoCostCenter(cat: string | null): string {
   return "Administrativo";
 }
 
+/**
+ * O PostgREST descreve a ausência de um relacionamento assim (PGRST200). É a
+ * ÚNICA falha do embed que autoriza cair no select base — o resto sobe.
+ */
+const RELACAO_AUSENTE = /could not find a relationship|PGRST200|does not exist/i;
+
+/**
+ * Memória da capacidade do banco: `undefined` = ainda não se sabe, `true` = o
+ * embed resolve, `false` = não resolve (não tentar de novo nesta sessão).
+ */
+let embedProjetoOk: boolean | undefined;
+
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -582,15 +594,28 @@ export async function getRiscoInput(): Promise<RiskInput> {
   const COLUNAS_BASE =
     "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)";
   /**
-   * O embed do projeto só resolve DEPOIS da migration `0019`. Pedir a coluna
-   * antes disso não devolve nulo — o PostgREST devolve erro e derrubaria o
-   * `getRiscoInput` inteiro, ou seja, o sistema todo. Por isso a tentativa é
-   * otimista com queda para o select base; sem a coluna, quem responde pelo
-   * projeto é o vínculo local.
+   * O embed do projeto depende da FK `movements.project_id → projects`
+   * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
+   *
+   * ⚠️ A tentativa é feita UMA VEZ por sessão e o resultado fica em
+   * `embedProjetoOk`. Antes, cada chamada de `getRiscoInput` disparava um
+   * request que o PostgREST recusava com **HTTP 400** e só então caía no select
+   * base: o número certo aparecia na tela, mas o console e o painel de rede
+   * acumulavam um 400 por carregamento. Erro que sempre acontece deixa de ser
+   * lido — e é assim que o 400 de verdade, o dia em que aparecer, passa
+   * despercebido.
    */
   const movimentos = async () => {
-    const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`);
-    if (!comProjeto.error) return comProjeto;
+    if (embedProjetoOk !== false) {
+      const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`);
+      if (!comProjeto.error) { embedProjetoOk = true; return comProjeto; }
+      // Só o erro de relacionamento inexistente justifica a queda. Qualquer
+      // outra falha (rede, RLS, timeout) é um problema real e tem de subir —
+      // devolver dados parciais como se estivesse tudo bem é o que fazia a tela
+      // exibir números incompletos com toda a confiança.
+      if (!RELACAO_AUSENTE.test(comProjeto.error.message ?? "")) throw comProjeto.error;
+      embedProjetoOk = false;
+    }
     return supabase.from("movements").select(COLUNAS_BASE);
   };
   const [accRes, movRes, partyRes] = await Promise.all([

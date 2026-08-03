@@ -13,6 +13,9 @@ import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
+import { ErroWidget } from "@/components/visao-geral/shared";
+import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { reconciliarSaldo } from "@/core/indicadores";
 import { AppShell } from "@/components/app/AppShell";
 
 const fmtDia = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
@@ -32,8 +35,14 @@ export function RazaoView() {
   const [data, setData] = React.useState(hojeISO());
   const [desc, setDesc] = React.useState("");
 
+  const [erro, setErro] = React.useState<string | null>(null);
   const recarregar = React.useCallback(async () => {
-    try { setEntries(await getLedgerEntries()); } catch { setEntries([]); }
+    // ⚠️ `catch { setEntries([]) }` transformava uma consulta que FALHOU num
+    // razão VAZIO — e um balancete vazio fecha em zero, então a tela dizia
+    // "balanceado" sobre dados que ninguém conseguiu ler. Falha é falha.
+    setErro(null);
+    try { setEntries(await getLedgerEntries()); }
+    catch (e) { setEntries(null); setErro((e as Error).message || "Falha ao carregar o razão."); }
   }, []);
   React.useEffect(() => { recarregar(); }, [recarregar]);
 
@@ -104,7 +113,11 @@ export function RazaoView() {
           </Card>
         )}
 
-        {entries === null ? (
+        {erro ? (
+          <Card>
+            <ErroWidget titulo="Não foi possível carregar o razão" erro={erro} onTentarNovamente={() => { recarregar(); }} />
+          </Card>
+        ) : entries === null ? (
           <Card><Skeleton className="h-40 w-full" /></Card>
         ) : entries.length === 0 ? (
           <Card className="flex flex-col items-start gap-2">
@@ -113,6 +126,8 @@ export function RazaoView() {
           </Card>
         ) : (
           <>
+            <ConciliacaoCaixa />
+
             {/* Balancete (trial balance) */}
             <Card padded={false}>
               <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border-soft">
@@ -179,5 +194,66 @@ export function RazaoView() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * CONCILIAÇÃO CAIXA × EXTRATO — a conta que faltava.
+ *
+ * ⚠️ Esta é a resposta para "por que o Razão diz um número e o extrato diz
+ * outro". A pergunta parecia misteriosa e não era: a diferença tem parcelas
+ * conhecidas, e enquanto elas não apareciam na tela, cada lado defendia o seu
+ * total sem ninguém conseguir apontar onde os dois se separavam.
+ *
+ * O motor é `reconciliarSaldo` (`core/indicadores`), coberto pela matriz de
+ * consistência: derivado + previstos + abertura tem de fechar no extrato.
+ */
+function ConciliacaoCaixa() {
+  const { data: inp } = useRiscoInput();
+  const rec = React.useMemo(() => (inp ? reconciliarSaldo(inp) : null), [inp]);
+  if (!rec) return null;
+  return (
+    <Card
+      info={{
+        titulo: "Caixa do razão × extrato",
+        oQue: "Por que o saldo que sai dos lançamentos pode não ser o saldo que está na conta.",
+        comoCalcula:
+          "O extrato é a autoridade sobre quanto existe. Os lançamentos explicam a VARIAÇÃO desse valor. A diferença entre os dois é a soma de três parcelas: títulos ainda em aberto, o saldo que já existia antes do primeiro lançamento importado, e liquidados sem data.",
+      }}
+    >
+      <div className="flex flex-col gap-3">
+        <span className="text-label font-medium text-muted">Caixa do razão × extrato</span>
+        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
+          <div className="flex flex-col">
+            <span className="text-caption text-faint">Saldo no extrato</span>
+            <span className="text-h3 tabular-nums text-ink"><BRL value={rec.extrato} /></span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-caption text-faint">Somando todos os lançamentos</span>
+            <span className="text-h3 tabular-nums text-muted"><BRL value={rec.derivado} /></span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-caption text-faint">Diferença</span>
+            <span className="text-h3 tabular-nums" style={{ color: rec.fecha ? "var(--color-positive)" : "var(--color-warning)" }}>
+              <BRL value={rec.diferenca} />
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 pt-1 border-t border-border-soft">
+          {rec.parcelas.map((p) => (
+            <div key={p.rotulo} className="flex flex-col gap-[2px]">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[15px] text-ink">{p.rotulo}</span>
+                <span className="tabular-nums text-ink shrink-0"><BRL value={p.valor} /></span>
+              </div>
+              <span className="text-caption text-faint max-w-[70ch]">{p.explicacao}</span>
+            </div>
+          ))}
+        </div>
+        <StatusBadge tone={rec.fecha ? "positive" : "warning"}>
+          {rec.fecha ? "Conciliado — as parcelas explicam a diferença inteira" : "Resta uma diferença não explicada"}
+        </StatusBadge>
+      </div>
+    </Card>
   );
 }

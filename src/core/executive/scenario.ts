@@ -6,6 +6,7 @@
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { scoreDeIndicadores } from "@/core/quant/score";
 import type { ScenarioInput, ScenarioResultado } from "./types";
+import { runwayDeFluxo, mesesDeRunway } from "@/core/indicadores";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
@@ -20,8 +21,10 @@ export function simularCenario(
   const inad = clamp01(indic.inadimplencia + (sc.inadimplenciaDelta ?? 0));
   const margem = receita > 0 ? liquido / receita : 0;
   const burnRate = Math.max(0, -liquido);
-  const runwayDias = liquido >= 0 ? 999 : saldoAtual / (-liquido / 30);
-  const runwayMeses = runwayDias >= 999 ? 24 : Math.round((runwayDias / 30) * 10) / 10;
+  // Fórmula canônica (`core/indicadores`) — um cenário é hipotético, mas o
+  // runway de um cenário e o runway real têm de sair da mesma conta.
+  const runwayDias = runwayDeFluxo(saldoAtual, liquido);
+  const runwayMeses = mesesDeRunway(runwayDias);
 
   const scoreProjetado = scoreDeIndicadores({
     ...indic,

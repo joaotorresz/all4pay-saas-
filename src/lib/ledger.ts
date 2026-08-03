@@ -11,7 +11,9 @@ import { getRiscoInput } from "@/lib/data";
 import {
   lancamentoDeMovimento, saldoPorNatureza, type LedgerEntryInput, type AccountType,
 } from "@/core/ledger";
-import { PLANO_PADRAO, CAIXA, contaDeMovimento, nomeConta, tipoConta } from "@/core/ledger/chart";
+import {
+  PLANO_PADRAO, CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta,
+} from "@/core/ledger/chart";
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
@@ -37,23 +39,18 @@ function entryToLanc(e: LedgerEntryInput, id: string): RazaoLancamento {
 }
 
 /** Constrói lançamentos de dupla entrada a partir dos movimentos (ponte). */
+/**
+ * Os lançamentos derivados dos movimentos.
+ *
+ * A regra vive em `core/ledger/chart.lancamentosDeMovimentos` (pura, testada
+ * pela matriz de consistência); aqui só se busca o input. Antes a regra morava
+ * nesta função e postava TODO movimento não cancelado no caixa — incluindo os
+ * títulos em aberto, que é o que descolava o balancete do extrato.
+ */
 async function lancamentosDosMovimentos(): Promise<LedgerEntryInput[]> {
   const input = await getRiscoInput();
-  return input.movements
-    .filter((m) => m.status !== "cancelado")
-    .map((m) => lancamentoDeMovimento({
-      tipo: m.type,
-      valor: m.amount,
-      data: (m.paid_date || m.due_date),
-      contaCaixaId: CAIXA,
-      contaResultadoId: contaDeMovimento(m),
-      descricao: (m.party_id && input.partyNames?.[m.party_id]) || m.category || "Lançamento",
-      externalKey: `mov:${m.id}`,
-      dimensions: {
-        ...(m.party_id ? { contraparte: input.partyNames?.[m.party_id] ?? m.party_id } : {}),
-        ...(m.costCenter ? { centro: m.costCenter } : {}),
-      },
-    }));
+  return lancamentosDeMovimentos(input, (m) =>
+    (m.party_id && input.partyNames?.[m.party_id]) || undefined);
 }
 
 export const PLANO = PLANO_PADRAO;

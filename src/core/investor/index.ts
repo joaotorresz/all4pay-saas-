@@ -10,6 +10,7 @@
 import type { RiskInput } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
 import { CLASSIF_SAUDE_LABEL } from "@/core/quant/types";
+import { mrr as mrrCanonico } from "@/core/indicadores";
 
 export const VERSAO_INVESTOR = "investor/1.0.0";
 
@@ -64,7 +65,11 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const mesReferencia = `${MESES[Math.max(0, Number(mesS) - 1)]} de ${anoS}`;
 
   const receitaMes = q.serie.length ? q.serie[q.serie.length - 1].receita : ind.receitaMensal;
-  const mrrEstimado = ind.receitaRecorrente * ind.receitaMensal;
+  // ⚠️ MRR pelo indicador canônico. A conta anterior era
+  // `receitaRecorrente × receitaMensal` — um SHARE (0..1) multiplicado por um
+  // valor, que é uma definição diferente das outras três do sistema. O número
+  // que ia para o investidor não era o mesmo que a tela de assinaturas exibia.
+  const mrrEstimado = mrrCanonico(input).valor;
   const runway = ind.runwayMeses;
 
   const raw = {
@@ -87,7 +92,7 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
     { id: "runway", label: "Runway", valor: runway >= 120 ? "10+ anos" : `${runway.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses`, hint: "caixa ÷ burn" },
     { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true },
     { id: "mom", label: "Crescimento MoM", valor: `${raw.crescimentoMoM >= 0 ? "+" : ""}${pct(raw.crescimentoMoM, 1)}`, hint: "receita vs. mês anterior" },
-    { id: "mrr", label: "MRR estimado", valor: mrrEstimado, moeda: true, hint: "share recorrente × receita mensal" },
+    { id: "mrr", label: "MRR estimado", valor: mrrEstimado, moeda: true, hint: "receita das contrapartes recorrentes, mensalizada" },
     { id: "arr", label: "ARR estimado", valor: mrrEstimado * 12, moeda: true, hint: "MRR × 12" },
     { id: "margem", label: "Margem líquida", valor: pct(raw.margemLiquida, 1) },
     { id: "score", label: "Score de saúde", valor: `${raw.score}/100 · ${raw.classificacao}`, hint: "motor quantitativo (8 pilares)" },
