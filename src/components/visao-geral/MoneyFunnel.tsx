@@ -13,6 +13,7 @@
 import { ExtratoTransacoes } from "./ExtratoTransacoes";
 import { EscopoDaTela } from "@/components/movimentacoes/EscopoDaTela";
 import { janelaDoMesDe } from "@/core/indicadores";
+import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
 import { useRiscoInput } from "./hooks";
 
 export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
@@ -27,6 +28,13 @@ export function MoneyFunnel({ direction }: { direction: "entrada" | "saida" }) {
         leitura="fluxo"
         janela={janelaDoMesDe(inp?.hoje ?? new Date().toISOString().slice(0, 10))}
         direcao={direction}
+      />
+      {/* ⚠️ Item 4 do mapa de consolidação: esta tela mostra a VARIAÇÃO do
+          período, que não é um saldo — pode ser negativa. Declarar a base é o
+          que impede a comparação com o fluxo de caixa de parecer divergência. */}
+      <BaseDoSaldo
+        base="variacao_janela"
+        janela={janelaDoMesDe(inp?.hoje ?? new Date().toISOString().slice(0, 10))}
       />
       <ExtratoTransacoes direction={direction} />
     </div>

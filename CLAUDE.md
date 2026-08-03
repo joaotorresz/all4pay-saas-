@@ -721,6 +721,58 @@ diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
   com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
   lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
 
+### ⚠️ MAPA DE CONSOLIDAÇÃO — `src/core/rotas/consolidacao.ts`
+
+**Fundir não é apagar.** A rota legada quase sempre faz UMA coisa melhor que a
+canônica; apagá-la sem portar essa coisa é perda funcional que ninguém
+registra — o usuário descobre meses depois procurando um painel que sumiu, e aí
+já não há quem lembre que ele existia.
+
+`FUSOES` é a decisão escrita ANTES da refatoração. Cada par declara `canonico`,
+`aposentar`, o `porque` da escolha e a lista `portar` — o que precisa existir na
+canônica antes do desligamento, cada item com o **custo de perder** e um
+`feito`. Versão `consolidacao/1.0.0`.
+
+⚠️ **A invariante que dá valor ao mapa** (guarda na matriz): *nenhuma rota entra
+em `ALIASES` enquanto tiver item pendente*. Sem essa trava o mapa vira intenção,
+e intenção não impede perda. A guarda também publica o placar a cada execução
+(`3/8 fusões prontas · 10 itens a portar`), para a dívida não virar conhecimento
+tribal.
+
+**Os oito pares** (canônico ← aposentar): Cadastros `/dashboard/registrations` ←
+`/cadastros` · Títulos `/dashboard/financial/accounts-and-transfers` ←
+`/recebimentos` `/pagamentos` · DRE `/dashboard/reports/dre` ← `/dre` · Saldo
+(não aposenta nada — o defeito era de rótulo) · Impostos
+`/dashboard/sales-invoices/tax-provisioning` ← `/impostos` · IA `/all4pay-ai` ←
+`/copiloto` · Assinaturas `/dashboard/sales-invoices/subscriptions` ← a aba de
+Receber · Conciliação `/upload?aba=conciliar` ← `/conciliacao*`.
+
+**Prontas e colhidas:** saldo, assinaturas, conciliação.
+
+- **Item 4 (saldo) — `BaseDoSaldo`** (`components/movimentacoes/`). A função de
+  saldo já era uma só desde a ONDA 1; o que faltava era cada tela DIZER o
+  recorte. Agora `/fluxo-caixa` declara **projeção** (hoje + previstos até o fim
+  da janela), o extrato declara **variação** (entradas − saídas, pode ser
+  negativa) e o painel financeiro declara **posição** (saldo das contas hoje, não
+  muda ao trocar o mês) — e **cada uma mostra as outras duas ao lado**, que é o
+  que impede a tela vizinha de parecer errada.
+- **Item 7 (assinaturas)** — a terceira porta (aba dentro de Receber) saiu.
+  Sobram a LISTA (`Assinaturas e contratos`, em Vendas) e a LEITURA dela
+  (`Assinaturas (MRR e churn)`, em Dashboards), com rótulos distintos. ⚠️ A
+  guarda `nav: nenhuma rota duplicada` pegou a duplicata que eu mesmo criei ao
+  apontar dois grupos para a lista canônica.
+- **`ALIASES_DE_ABA`** (`core/rotas/aliases`) — uma aba tem endereço e as pessoas
+  o guardam nos favoritos. Aposentar a aba sem desviar o endereço faz o hub abrir
+  na primeira aba em silêncio, e a pessoa conclui que clicou errado. `destinoDe`
+  casa PRIMEIRO por caminho+query (a aba é mais específica que o hub).
+
+**As cinco pendentes**, com o que falta: Cadastros (a aba **Serviços** não existe
+em `registrations` — vira filtro explícito em Produtos) · Títulos (o **carrossel
+de sazonalidade** e a **baixa na linha**) · DRE (cartões EBITDA/margem/runway,
+drill-down, período padrão de 12 meses) · Impostos (a **projeção** da carga e o
+**regime como configuração**, não constante de arquivo) · IA (as quatro abas
+como painéis do assistente e o **histórico no servidor** por usuário e empresa).
+
 ### ⚠️ ROTAS, TÍTULO E CRIAÇÃO (ONDA 3)
 
 - **`src/core/rotas/aliases.ts`** — os **34** endereços antigos que ainda

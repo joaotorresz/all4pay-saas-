@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
 import { HubShell, type AbaHub } from "@/components/app/HubShell";
 import { MoneyFunnel } from "@/components/visao-geral/MoneyFunnel";
-import { RecorrenciasView } from "@/components/recorrencias/RecorrenciasView";
 import { InadimplenciaView } from "@/components/inadimplencia/InadimplenciaView";
 import { BoletosView } from "@/components/boletos/BoletosView";
 import { isDemo } from "@/lib/demo";
@@ -17,7 +16,6 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
  */
 const ABAS: AbaHub[] = [
   { id: "titulos", label: "Extrato", render: () => <MoneyFunnel direction="entrada" /> },
-  { id: "recorrencias", label: "Assinaturas / Recorrências", render: () => <RecorrenciasView /> },
   { id: "inadimplencia", label: "Inadimplência", render: () => <InadimplenciaView /> },
   { id: "boletos", label: "Boletos", render: () => <BoletosView /> },
 ];

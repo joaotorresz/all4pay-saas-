@@ -67,7 +67,7 @@ export const ALIASES: Alias[] = [
   { de: "/notas-fiscais", para: "/vendas?aba=notas", motivo: "consolidado no hub de vendas" },
 
   // — hub RECEBER / PAGAR —
-  { de: "/recorrencias", para: "/recebimentos?aba=recorrencias", motivo: "consolidado no hub de receber" },
+  { de: "/recorrencias", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa de consolidação, item 7)" },
   { de: "/inadimplencia", para: "/recebimentos?aba=inadimplencia", motivo: "consolidado no hub de receber" },
   { de: "/boletos", para: "/recebimentos?aba=boletos", motivo: "consolidado no hub de receber" },
   { de: "/reembolsos", para: "/pagamentos?aba=reembolsos", motivo: "consolidado no hub de pagar" },
@@ -104,11 +104,48 @@ export const ROTAS_REMOVIDAS: Alias[] = [
   { de: "/plataforma", para: "/governanca", motivo: "removida — hub esvaziado; governança assumiu" },
 ];
 
-/** Tudo que o `next.config` transforma em 308. */
-export const TODOS_OS_DESVIOS: Alias[] = [...ALIASES, ...ROTAS_REMOVIDAS];
+/**
+ * ABAS aposentadas dentro de hubs que continuam vivos.
+ *
+ * ⚠️ Uma aba tem endereço (`/recebimentos?aba=recorrencias`) e as pessoas o
+ * guardam nos favoritos como qualquer outro. Aposentar a aba sem desviar o
+ * endereço produz um hub que abre na primeira aba em silêncio — a pessoa acha
+ * que clicou errado, não que a tela mudou de lugar.
+ *
+ * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
+ */
+export const ALIASES_DE_ABA: Alias[] = [
+  {
+    de: "/recebimentos?aba=recorrencias",
+    para: "/dashboard/sales-invoices/subscriptions",
+    motivo: "assinaturas passaram a ter UMA lista canônica (mapa de consolidação, item 7)",
+  },
+];
 
-/** O destino de um endereço antigo, ou `null` se ele não é um desvio. */
-export function destinoDe(rota: string): string | null {
-  const p = (rota.split("?")[0] || "/").replace(/\/+$/, "") || "/";
-  return TODOS_OS_DESVIOS.find((a) => a.de === p)?.para ?? null;
+/** Tudo que o middleware transforma em 308. */
+export const TODOS_OS_DESVIOS: Alias[] = [...ALIASES, ...ROTAS_REMOVIDAS, ...ALIASES_DE_ABA];
+
+/**
+ * O destino de um endereço antigo, ou `null` se ele não é um desvio.
+ *
+ * Casa PRIMEIRO por caminho+query (a aba aposentada é mais específica que o
+ * hub) e só depois por caminho — a ordem inversa faria o hub capturar a aba.
+ */
+export function destinoDe(rota: string, busca?: string): string | null {
+  const [caminho, queryDaRota] = rota.split("?");
+  const p = (caminho || "/").replace(/\/+$/, "") || "/";
+  const q = (busca ?? queryDaRota ?? "").replace(/^\?/, "");
+
+  if (q) {
+    const params = new URLSearchParams(q);
+    for (const a of ALIASES_DE_ABA) {
+      const [ac, aq] = a.de.split("?");
+      if (ac !== p) continue;
+      const alvo = new URLSearchParams(aq ?? "");
+      let bate = true;
+      alvo.forEach((v, k) => { if (params.get(k) !== v) bate = false; });
+      if (bate) return a.para;
+    }
+  }
+  return [...ALIASES, ...ROTAS_REMOVIDAS].find((a) => a.de === p)?.para ?? null;
 }

@@ -40,6 +40,10 @@ import {
 import { montarInvestorUpdate } from "@/core/investor";
 import { exigePro, podeAbrir, PLANO_SIMPLES, PLANO_ABERTO } from "@/core/planos";
 import { TODOS_OS_DESVIOS, destinoDe } from "@/core/rotas/aliases";
+import {
+  FUSOES, PRONTAS, ROTAS_A_APOSENTAR, ITENS_PENDENTES,
+  prontaParaAposentar, pendencias,
+} from "@/core/rotas/consolidacao";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
@@ -1034,6 +1038,64 @@ const AGOSTO = janelaMes(2026, 7);
   ]) {
     ok(`criar: "${faltava}" existe no painel`, todas.some((a) => a.label === faltava));
   }
+}
+
+
+/* ========================================================================== */
+/* LINHA 25 — CONSOLIDAÇÃO: não se aposenta rota com pendência de porte.      */
+/* ========================================================================== */
+{
+  // ⚠️ A INVARIANTE QUE DÁ VALOR AO MAPA. Fundir não é apagar: a rota legada
+  // quase sempre faz UMA coisa melhor que a canônica, e apagá-la sem portar
+  // essa coisa é perda funcional que ninguém registra — o usuário descobre
+  // meses depois procurando um painel que sumiu.
+  //
+  // Enquanto uma fusão tiver item pendente, a rota legada NÃO pode virar alias.
+  const desligadasCedo = FUSOES.flatMap((f) =>
+    prontaParaAposentar(f)
+      ? []
+      : f.aposentar
+          .filter((r) => destinoDe(r) !== null)
+          .map((r) => `${r} (falta: ${pendencias(f).map((p) => p.o_que.slice(0, 40)).join(" · ")})`),
+  );
+  ok("consolidação: nenhuma rota é aposentada com porte pendente", desligadasCedo.length === 0,
+     desligadasCedo.join(" | "));
+
+  // O inverso: uma fusão PRONTA cujos aliases não existem é trabalho feito e
+  // não colhido — a canônica já tem tudo e o endereço antigo continua solto.
+  const prontasSemAlias = PRONTAS.flatMap((f) =>
+    f.aposentar.filter((r) => destinoDe(r) === null).map((r) => `${f.id}:${r}`),
+  );
+  ok("consolidação: fusão pronta tem o alias criado", prontasSemAlias.length === 0,
+     `sem alias: ${prontasSemAlias.join(", ")}`);
+
+  // Cada fusão declara canônico, motivo e ao menos um item de porte — uma
+  // fusão sem item declarado é uma que ninguém examinou.
+  for (const f of FUSOES) {
+    ok(`consolidação: ${f.id} tem canônico`, f.canonico.startsWith("/"));
+    ok(`consolidação: ${f.id} explica a escolha`, f.porque.length > 40);
+    ok(`consolidação: ${f.id} lista o que portar`, f.portar.length > 0);
+    // ⚠️ Todo item diz o CUSTO DE PERDER. Sem isso a lista vira inventário, e
+    // inventário é fácil de despachar num "isso ninguém usa".
+    const semCusto = f.portar.filter((p) => p.custo_de_perder.length < 40);
+    ok(`consolidação: ${f.id} declara o custo de cada perda`, semCusto.length === 0);
+  }
+
+  // A canônica de uma fusão não pode ser rota aposentada por OUTRA — seria
+  // fundir para dentro de algo que também vai embora.
+  const canonicoMorto = FUSOES.filter((f) =>
+    ROTAS_A_APOSENTAR.some((r) => r.split("?")[0] === f.canonico.split("?")[0]),
+  );
+  ok("consolidação: nenhuma canônica está na lista de aposentadas", canonicoMorto.length === 0,
+     `${canonicoMorto.map((f) => f.id).join(", ")}`);
+
+  // Nenhuma rota é aposentada por duas fusões diferentes.
+  ok("consolidação: cada rota é aposentada uma vez só",
+     new Set(ROTAS_A_APOSENTAR).size === ROTAS_A_APOSENTAR.length);
+
+  // O tamanho da dívida em um número — a guarda o publica para não virar
+  // conhecimento tribal.
+  console.log(`  · consolidação: ${PRONTAS.length}/${FUSOES.length} fusões prontas · ${ITENS_PENDENTES} itens a portar`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

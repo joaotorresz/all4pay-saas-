@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
    * destino certo mesmo quando a pessoa ainda precisa entrar, senão ela loga e
    * cai na Home, perdendo o endereço que tentou abrir.
    */
-  const desvio = destinoDe(pathname);
+  const desvio = destinoDe(pathname, request.nextUrl.search);
   if (desvio) {
     // 308 (permanente): são links já compartilhados e em favoritos. Um 302
     // diria ao navegador "volte a perguntar", e o endereço antigo nunca

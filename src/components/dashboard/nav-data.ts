@@ -46,7 +46,7 @@ export const SECTIONS: Section[] = [
     id: "dashboards", label: "Dashboards", icon: "layers", items: [
       { label: "Financeiro", href: "/dashboard/dashboards/financial", icon: "gauge" },
       { label: "Vendas", href: "/dashboard/dashboards/sales", icon: "shopping-cart" },
-      { label: "Assinaturas", href: "/dashboard/dashboards/subscriptions", icon: "repeat" },
+      { label: "Assinaturas (MRR e churn)", href: "/dashboard/dashboards/subscriptions", icon: "repeat" },
       { label: "Contas a pagar", href: "/dashboard/dashboards/payables", icon: "arrow-up-right" },
       { label: "Contas a receber", href: "/dashboard/dashboards/receivables", icon: "arrow-left-right" },
       { label: "Calendário", href: "/dashboard/financial/calendar", icon: "calendar" },
@@ -90,7 +90,7 @@ export const SECTIONS: Section[] = [
   {
     id: "vendas", label: "Vendas e NFs", icon: "shopping-cart", items: [
       { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
-      { label: "Assinaturas", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
+      { label: "Assinaturas e contratos", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
       { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
       { label: "Impostos", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
       { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
@@ -115,7 +115,6 @@ export const SECTIONS: Section[] = [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
       { label: "Extrato de recebimentos", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Pagar (extrato)", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Recorrências", href: "/recebimentos?aba=recorrencias", icon: "repeat" },
       // Inadimplência é OPERACIONAL (quem me deve), não um recurso pago. Vivia
       // duplicada no grupo Pro, o que a tornava paga num menu e grátis no hub.
       { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "triangle-alert" },
@@ -164,7 +163,6 @@ export const SECTIONS_PESSOAL: Section[] = [
       { label: "Resumo", href: "/", icon: "house" },
       { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Assinaturas / recorrentes", href: "/recebimentos?aba=recorrencias", icon: "repeat" },
     ],
   },
   {

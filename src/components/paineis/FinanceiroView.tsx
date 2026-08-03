@@ -13,6 +13,8 @@ import { painelFinanceiro, rotuloMesAno, type FiltroPainel } from "@/core/painei
 import {
   Subtitulo, MesPicker, FiltrosPainel, KpiSimples, TituloCard, ListaFatias, VazioPainel, mesCorrente,
 } from "./shared";
+import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
+import { janelaDoMesDe } from "@/core/indicadores";
 
 export function FinanceiroView() {
   const [mes, setMes] = React.useState(mesCorrente);
@@ -28,6 +30,12 @@ export function FinanceiroView() {
         <Subtitulo>Saldo · Geração de caixa · Entradas · Saídas.</Subtitulo>
         <MesPicker mes={mes} onChange={setMes} />
       </div>
+
+      {/* ⚠️ Item 4 do mapa de consolidação: este painel mostra a POSIÇÃO —
+          o saldo consolidado das contas hoje, que não muda ao trocar o mês.
+          As outras duas telas mostram projeção e variação; declarar isso é o
+          que impede os três números de parecerem contradição. */}
+      <BaseDoSaldo base="posicao_hoje" janela={janelaDoMesDe(`${mes}-01`)} />
 
       <FiltrosPainel filtro={filtro} onChange={setFiltro} />
 

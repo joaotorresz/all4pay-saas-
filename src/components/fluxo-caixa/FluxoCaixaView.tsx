@@ -8,7 +8,7 @@ import {
 import { Card, Icon, BRL, Button, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
-import { FluxoFiltrosProvider, useFluxoFiltros } from "./FiltrosContext";
+import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
 import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
 import { useFluxoCaixa, useContas, useComparativo } from "./hooks";
@@ -18,6 +18,8 @@ import type {
   ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
 } from "@/core/cashflow";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
+import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
+import { janela as fazJanela } from "@/core/indicadores";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -32,6 +34,16 @@ export function FluxoCaixaView() {
 
 function Inner() {
   const { filtros } = useFluxoFiltros();
+  /**
+   * A janela do filtro, no tipo canônico. ⚠️ O fluxo olha para FRENTE: a
+   * janela termina daqui a N dias, e é por isso que o saldo desta tela é o
+   * PROJETADO — declarar isso é o que impede a comparação com o extrato de
+   * parecer divergência.
+   */
+  const dias = PERIODOS.find((p) => p.id === filtros.periodo)?.dias ?? filtros.diasCustom;
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const fim = new Date(Date.now() + Math.max(0, dias - 1) * 86400000).toISOString().slice(0, 10);
+  const janelaDoFiltro = fazJanela(hojeISO, fim, `Próximos ${dias} dias`);
   const contas = useContas();
   const { data, isLoading } = useFluxoCaixa(filtros);
   const comp = useComparativo(filtros);
@@ -42,6 +54,12 @@ function Inner() {
       <Card className="flex flex-col gap-4">
         <Header contas={contas.data ?? []} />
       </Card>
+
+      {/* ⚠️ Esta tela projeta: o saldo que ela mostra é o de HOJE mais os
+          títulos previstos até o fim da janela. Declarar isso é o item 4 do
+          mapa de consolidação — três telas respondiam "quanto eu tenho" com
+          números diferentes e nenhuma dizia qual recorte usava. */}
+      <BaseDoSaldo base="projetado_fim" janela={janelaDoFiltro} />
 
       {/* Comparativos período × período anterior — a leitura de topo da página. */}
       <Comparativos c={comp.data} isLoading={comp.isLoading} />
