@@ -40,10 +40,36 @@ import {
 import { montarInvestorUpdate } from "@/core/investor";
 import { exigePro, podeAbrir, PLANO_SIMPLES, PLANO_ABERTO } from "@/core/planos";
 import { SECTIONS } from "@/components/dashboard/nav-data";
+import { CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA } from "@/lib/store-org";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { balancete } from "@/lib/ledger";
 import { CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta } from "@/core/ledger/chart";
 import { saldoPorNatureza } from "@/core/ledger";
 import type { Movement } from "@/lib/types";
+
+
+/**
+ * Varre `src/` atrás de chaves `a4p_*` literais. É como a guarda descobre uma
+ * chave nova que ninguém classificou — sem isso, a lista envelhece calada.
+ */
+function chavesUsadasNoCodigo(): string[] {
+  const achadas = new Set<string>();
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      const st = statSync(caminho);
+      if (st.isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      const txt = readFileSync(caminho, "utf8");
+      for (const m of txt.matchAll(/"(a4p_[a-z0-9_]+)"/g)) achadas.add(m[1]);
+    }
+  };
+  varrer("src");
+  // Prefixos de chave dinâmica (ex.: `a4p_live_<org>`) não são chaves.
+  return Array.from(achadas).filter((c) => !c.endsWith("_")).sort();
+}
+
 
 let fails = 0;
 const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`✗ FAIL ${n} ${x}`); } };
@@ -738,6 +764,64 @@ const AGOSTO = janelaMes(2026, 7);
      new Set(rotulos).size === rotulos.length, `rótulos: ${rotulos.join(" | ")}`);
   ok("telas: e nenhum é o genérico 'Contas a receber'",
      !rotulos.includes("Contas a receber"), `rótulos: ${rotulos.join(" | ")}`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 20 — PERSISTÊNCIA: dado de negócio não pode morar só no navegador.    */
+/* ========================================================================== */
+{
+  // ⚠️ A guarda do P0-17. 74 chaves de localStorage carregavam entidades de
+  // negócio inteiras: quem trocasse de máquina perdia aprovações, orçamento e
+  // fechamento; dois usuários da mesma empresa nunca viam o mesmo estado; e a
+  // trilha de auditoria ficava em zero porque nada passava pelo servidor.
+  //
+  // Esta guarda não conserta isso sozinha — ela impede que a lista de
+  // classificação se perca de vista enquanto a migração acontece por etapas.
+
+  // Nenhuma chave pode estar nas DUAS listas: ou é dado, ou é preferência.
+  const nasDuas = CHAVES_DE_NEGOCIO.filter((c) => PREFERENCIAS_LOCAIS.includes(c));
+  ok("persistência: nenhuma chave é dado E preferência", nasDuas.length === 0,
+     `ambíguas: ${nasDuas.join(", ")}`);
+  const emTres = PRECISAM_DE_TABELA_PROPRIA.filter(
+    (c) => CHAVES_DE_NEGOCIO.includes(c) || PREFERENCIAS_LOCAIS.includes(c));
+  ok("persistência: 'precisa de tabela própria' não se mistura", emTres.length === 0,
+     `ambíguas: ${emTres.join(", ")}`);
+
+  // As chaves de negócio são únicas (um typo duplicaria a sincronização).
+  ok("persistência: sem chaves de negócio repetidas",
+     new Set(CHAVES_DE_NEGOCIO).size === CHAVES_DE_NEGOCIO.length);
+
+  // ⚠️ As chaves que o CÓDIGO usa têm de estar classificadas. Uma chave nova
+  // que ninguém classifica é uma entidade de negócio que volta a morar só no
+  // navegador — em silêncio, que é como este defeito nasceu.
+  const usadas = chavesUsadasNoCodigo();
+  const classificadas = new Set([
+    ...CHAVES_DE_NEGOCIO, ...PREFERENCIAS_LOCAIS, ...PRECISAM_DE_TABELA_PROPRIA,
+  ]);
+  const orfas = usadas.filter((c) => !classificadas.has(c));
+  // ⚠️ TETO ZERO. Toda chave usada no código tem de estar em uma das três
+  // listas — dado de negócio, preferência do dispositivo, ou "precisa de tabela
+  // própria". Uma chave nova sem classificação é uma entidade que voltou a
+  // morar só no navegador, e foi assim, em silêncio, que este defeito nasceu.
+  ok("persistência: toda chave usada no código está classificada",
+     orfas.length === 0,
+     `${orfas.length} sem classificação: ${orfas.join(", ")}`);
+
+  // As entidades que a auditoria nomeou explicitamente têm de estar na lista de
+  // NEGÓCIO — são justamente as que doem quando se perdem.
+  for (const critica of [
+    "a4p_aprovacoes", "a4p_orcamentos", "a4p_reembolsos", "a4p_comprovantes",
+    "a4p_close_tasks", "a4p_pos_taxas", "a4p_company",
+  ]) {
+    ok(`persistência: ${critica} é dado de negócio`, CHAVES_DE_NEGOCIO.includes(critica));
+  }
+
+  // Tema e largura da barra NÃO são dado de negócio — sincronizá-los faria a
+  // preferência de um usuário mudar a tela do outro.
+  for (const pref of ["a4p_theme", "a4p_sidebar_width", "a4p_modo"]) {
+    ok(`persistência: ${pref} continua local`, PREFERENCIAS_LOCAIS.includes(pref));
+  }
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

@@ -1,29 +1,27 @@
 "use client";
 
 /**
- * Persistência dos orçamentos (localStorage, demo-safe).
+ * Persistência dos orçamentos.
+ *
+ * ⚠️ Migrado do localStorage puro para `store-org` (tabela `org_state`): o
+ * orçamento é ENTIDADE DE NEGÓCIO e vivia só no navegador — quem trocasse de
+ * máquina ou limpasse o cache perdia o planejamento do ano, e dois usuários da
+ * mesma empresa nunca viam o mesmo. O cache local continua, agora como cache.
  *
  * Síncrono de propósito: o select de orçamento do DRE/DFC precisa da lista na
  * hora, sem um estado de carregando que piscaria a cada troca de filtro.
  */
 import type { Orcamento } from "@/core/orcamento";
+import { ler, gravar as gravarOrg, CHAVES_ORG } from "@/lib/store-org";
 
-const CHAVE = "a4p_orcamentos";
+const CHAVE = CHAVES_ORG.orcamentos;
 
 export function listarOrcamentos(): Orcamento[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const s = localStorage.getItem(CHAVE);
-    const l = s ? (JSON.parse(s) as Orcamento[]) : [];
-    return l.sort((a, b) => b.periodo.de.localeCompare(a.periodo.de));
-  } catch {
-    return [];
-  }
+  return [...ler<Orcamento[]>(CHAVE, [])].sort((a, b) => b.periodo.de.localeCompare(a.periodo.de));
 }
 
 function gravar(l: Orcamento[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(CHAVE, JSON.stringify(l)); } catch { /* cota cheia */ }
+  gravarOrg(CHAVE, l);
 }
 
 export const orcamentoPorId = (id: string): Orcamento | null =>

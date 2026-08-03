@@ -13,6 +13,7 @@ import {
   iniciarAprovacao, aprovarPasso, regraParaValor, sugerirIA, REGRAS_PADRAO,
 } from "@/core/institutional/approval-flow";
 import type { ApprovalRequest, Usuario, Role, TransacaoContexto } from "@/core/institutional/types";
+import { ler, gravar as gravarOrg } from "@/lib/store-org";
 
 export type StatusSolic = "em_analise" | "aprovada" | "rejeitada" | "devolvida";
 
@@ -47,12 +48,12 @@ let hydrated = false;
 function loadLocal(): Solicitacao[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
-  try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
+  cache = ler<Solicitacao[]>(KEY, []);
   return cache!;
 }
 function saveLocal(list: Solicitacao[]) {
   cache = list;
-  if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+  gravarOrg(KEY, list);
 }
 
 export const SOLICITANTE_DEMO = "Operador (Financeiro)";

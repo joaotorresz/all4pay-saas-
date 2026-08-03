@@ -10,6 +10,7 @@ import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
 import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes, autorizarMovimento } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
+import { ler, gravar as gravarOrg } from "@/lib/store-org";
 
 export interface ItemReembolso { descricao: string; valor: number; data: string; categoria: string }
 export type StatusReembolso = "em_aprovacao" | "aprovado" | "rejeitado" | "a_pagar";
@@ -34,12 +35,12 @@ let hydrated = false;
 function loadLocal(): Reembolso[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
-  try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
+  cache = ler(KEY, []);
   return cache!;
 }
 function saveLocal(list: Reembolso[]) {
   cache = list;
-  if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+  gravarOrg(KEY, list);
 }
 
 const slug = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");

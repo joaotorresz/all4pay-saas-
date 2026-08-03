@@ -721,6 +721,50 @@ diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
   com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
   lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
 
+### ⚠️ PERSISTÊNCIA — `src/lib/store-org` + `org_state` (0024)
+
+**Dado de negócio não pode morar só no navegador.** 74 chaves de `localStorage`
+carregavam entidades inteiras — aprovações, orçamento, reembolsos, comprovantes,
+tarefas de fechamento, taxas de POS, dados da empresa. As consequências:
+trocar de máquina ou limpar o cache **perde** tudo · dois usuários da mesma
+empresa **nunca** veem o mesmo estado · a trilha de auditoria fica em **zero**
+porque nada passa pelo servidor · sem backup, restauração ou histórico · o teto
+de ~5 MB já estava perto de 9% com UMA empresa.
+
+- **`org_state`** (migration 0024): `(org_id, chave) → valor jsonb` + `versao` +
+  quem/quando, RLS por org, RPC `org_state_set` (`SECURITY INVOKER`). Não é a
+  modelagem final — uma aprovação merece a sua tabela. É a ponte que tira o dado
+  do navegador HOJE, sem inventar quinze schemas antes de saber quais campos
+  sobrevivem à primeira semana de uso.
+- **`store-org.ts`** mantém a API **síncrona** (`ler`/`gravar`) que as telas já
+  usam, com o localStorage como CACHE. Trocar quinze telas por leitura assíncrona
+  de uma vez é a mudança que não se consegue revisar.
+  - ⚠️ **O servidor vence na hidratação** — é o que faz o multiusuário
+    funcionar. Exceção: chave com escrita pendente (trabalho recém-feito).
+  - ⚠️ **O envio ao servidor vem ANTES do cache local.** `gravarLocal` lança
+    quando a cota estoura; se o envio viesse depois, o dado que não coube no
+    navegador também nunca subiria — perdido justamente quando o servidor é a
+    única saída. E `QuotaExceeded` **não** é engolido.
+  - `migrarParaServidor` só envia o que o servidor ainda NÃO tem: sobrescrever
+    com o local de um segundo dispositivo desfaria o trabalho de quem entrou
+    primeiro. Roda no `AppShell` (`SincronizacaoOrg`).
+- **As TRÊS listas** (`CHAVES_ORG` · `PREFERENCIAS_LOCAIS` ·
+  `PRECISAM_DE_TABELA_PROPRIA`) classificam **toda** chave usada no código.
+  Guarda na matriz com **teto ZERO**: uma chave nova sem classificação é uma
+  entidade que voltou a morar só no navegador — foi assim, em silêncio, que o
+  defeito nasceu. Tema/largura da barra/widgets ficam locais de propósito
+  (sincronizá-los faria a preferência de um mudar a tela do outro);
+  `a4p_imported_dataset` (vai para `movements`) e `a4p_produto_imagens` (binário
+  pertence a Storage) ficam de fora por decisão registrada.
+- **`/dashboard/administration/storage`** (`ArmazenamentoView`) torna a
+  limitação VISÍVEL: quantas chaves estão no servidor, quantas ainda só neste
+  navegador (com rótulo em português e tamanho), o % do teto de 5 MB e as
+  escritas não confirmadas. Quem trocava de máquina descobria a perda depois de
+  já ter perdido.
+- **Migrados até aqui:** orçamentos, aprovações, reembolsos e taxas de POS.
+  O restante está classificado e listado — a migração segue por leva, e a tela
+  de armazenamento mostra o que falta.
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos

@@ -5,6 +5,7 @@ import { CommandPalette } from "@/components/app/CommandPalette";
 import { AssistantWidget } from "@/components/app/AssistantWidget";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
+import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
@@ -88,6 +89,7 @@ export function AppShell({
       </main>
       </div>
       <RouteTracker />
+      <SincronizacaoOrg />
       <DesignLabStyle />
       <DesignLab />
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>

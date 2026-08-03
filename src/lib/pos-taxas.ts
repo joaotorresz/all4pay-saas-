@@ -12,6 +12,7 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
+import { ler, gravar as gravarOrg } from "@/lib/store-org";
 
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
@@ -227,17 +228,13 @@ function coerce(j: Partial<PosConfig> | null | undefined): PosConfig {
 
 /** Leitura SÍNCRONA do cache local — para a pintura inicial. */
 export function loadPosConfig(): PosConfig {
-  if (typeof window === "undefined") return POS_DEFAULT;
-  try {
-    const raw = localStorage.getItem(KEY);
-    return coerce(raw ? (JSON.parse(raw) as Partial<PosConfig>) : null);
-  } catch { return POS_DEFAULT; }
+  return coerce(ler<Partial<PosConfig> | null>(KEY, null));
 }
 
 /** Grava o cache local (síncrono). Em live, prefira `persistPosConfig`. */
 export function savePosConfig(c: PosConfig): void {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* ignore */ }
+  gravarOrg(KEY, c);
 }
 
 /** Config efetiva: demo → cache local; live → `pos_rates` da org (RLS), com
