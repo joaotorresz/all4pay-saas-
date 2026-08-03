@@ -187,7 +187,9 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border border-border-soft",
+          // Borda: o hairline dos cartões da Home, herdado do CSS
+          // (`.a4p-sidebar, .a4p-topbar`) — por isso `border` sem cor aqui.
+          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:static lg:translate-x-0 lg:shrink-0 lg:my-0 lg:ml-3 lg:mb-3 lg:h-[calc(100%-12px)]",
@@ -338,7 +340,10 @@ function Grupo({
   const chrome = cn(
     "relative flex items-center rounded-[12px] py-[9px] w-full transition-colors",
     collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
-    destacado ? "bg-surface-2" : "hover:bg-surface-2/60",
+    // Selecionado = a cor do FUNDO DA PÁGINA (surface-1). O item ativo vira um
+    // recorte do canvas dentro do cartão branco do menu — a mesma relação que o
+    // conteúdo tem com os boxes da Home.
+    destacado ? "bg-surface-1" : "hover:bg-surface-2/60",
   );
 
   const conteudo = (
@@ -425,7 +430,7 @@ function SubItem({ item, pathname }: { item: Item; pathname: string }) {
       aria-current={on ? "page" : undefined}
       className={cn(
         "relative flex items-center rounded-md py-[7px] px-[10px] transition-colors",
-        on ? "bg-white" : "hover:bg-surface-2",
+        on ? "bg-surface-1" : "hover:bg-surface-2/60",
       )}
     >
       <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>

@@ -273,10 +273,23 @@ App shell: `src/components/app/AppShell.tsx` — **barra superior** (`TopBar`) +
   voltam a empilhar, porque lado a lado não cabem. O recolher tem fundo cinza
   do DS (`surface-2`): sem ele o controle só existia no hover, e um botão que
   aparece ao passar o mouse é um botão que metade das pessoas nunca acha.
-- **TopBar e Sidebar são o MESMO material** (`.a4p-topbar` entra na regra de
-  `.a4p-sidebar` em `globals.css`): mesma superfície, mesmo raio de 20px e o
-  mesmo hairline. Estilizar um sem o outro faz a moldura do app parecer duas
-  peças de sistemas diferentes em volta do conteúdo.
+- **TopBar e Sidebar são o MESMO material — e o material é o do CARTÃO**
+  (`.a4p-topbar` entra na regra de `.a4p-sidebar` em `globals.css`): branco
+  sólido, raio 20px e o **mesmo hairline dos boxes da Home**, que agora vive no
+  token **`--a4p-hairline`** (`#f1f3f5` claro · `#232323` escuro) consumido pelos
+  dois lugares — `.ds-visor [data-card="1"]` e o chrome. Estilizar um sem o outro
+  faz a moldura do app parecer duas peças de sistemas diferentes em volta do
+  conteúdo.
+  ⚠️ **Sólido, não vidro.** As duas peças eram `--glass-bg-strong` + `backdrop-
+  filter`, e ao rolar o conteúdo aparecia POR BAIXO da barra de cima — ela lia
+  como se tivesse um fundo próprio atrás. Chrome que mostra o que está sob ele
+  não separa nada, e separar é a função dele.
+- A **marca da TopBar** é 20% maior que os 22px originais (26px); a barra subiu
+  para 60px para acomodá-la sem apertar os três ícones.
+- **Item selecionado do menu = a cor do FUNDO DA PÁGINA** (`bg-surface-1`, tanto
+  no grupo quanto na folha): dentro do cartão branco do menu, o ativo vira um
+  recorte do canvas — a mesma relação que o conteúdo tem com os boxes da Home.
+  Era `surface-2` no grupo e branco na folha (invisível sobre o cartão branco).
 
 Menu vertical em ACORDEÃO
 (`Sidebar`, `.a4p-sidebar`), na taxonomia do ERP: marca · **Criar** · busca ⌘K ·

@@ -99,6 +99,10 @@
   --color-surface-3: #eef0f3;
   --color-border: #edeff2;
   --color-border-soft: #eef0f3;
+  /* Hairline dos CARTÕES — a borda de 1px dos boxes da Home. A moldura do app
+     (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
+     de outro sistema em volta do conteúdo. */
+  --a4p-hairline: #f1f3f5;
   --color-text-secondary: #5b5b5b; /* muted / corpo */
   --color-text-tertiary: #8a8a8a; /* faint / legendas */
   --color-text-quaternary: #bbbcbd; /* placeholder */
@@ -168,6 +172,7 @@ html.dark {
   --color-surface-3: #232323;
   --color-border: #2a2a2a;
   --color-border-soft: #202020;
+  --a4p-hairline: #232323;
   --color-text-secondary: #9b9b96; /* muted */
   --color-text-tertiary: #6f6f6c; /* faint */
   --color-text-quaternary: #565654; /* placeholder */
@@ -452,8 +457,9 @@ html:not(.dark) .ds-visor {
 .ds-visor [data-card="1"] {
   background: var(--color-white);
   /* Hairline do Laboratório (#F1F3F5 — o export trazia "##F1F3F5", com dois
-     `#`, que o CSS descarta em silêncio). */
-  border: 1px solid #f1f3f5;
+     `#`, que o CSS descarta em silêncio). Vive no token `--a4p-hairline`
+     porque a Sidebar e a TopBar usam a MESMA borda. */
+  border: 1px solid var(--a4p-hairline);
   box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
@@ -633,20 +639,22 @@ html.dark .a4p-canvas {
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
 /* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
-   outro faz a moldura do app parecer duas peças de sistemas diferentes. */
+   outro faz a moldura do app parecer duas peças de sistemas diferentes.
+   E esse material é o do CARTÃO da Home — branco sólido + o mesmo hairline.
+
+   ⚠️ SÓLIDO, não vidro. Translúcido + blur deixava o conteúdo passar por baixo
+   ao rolar: a página deslizava visível dentro da barra de cima, como se ela
+   tivesse um fundo próprio atrás. Chrome que mostra o que está por baixo dele
+   não separa nada — e separar é a função dele. */
 .a4p-sidebar,
 .a4p-topbar {
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border-color: #dcdcda; /* hairline (Laboratório) */
+  background: var(--color-white);
+  border-color: var(--a4p-hairline);
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
   .a4p-glass,
-  .shadow-popover,
-  .a4p-sidebar,
-  .a4p-topbar {
+  .shadow-popover {
     background: var(--color-white);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

@@ -67,10 +67,10 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    // Mesma superfície e mesmo raio do cartão do menu: as duas peças de chrome
-    // do app leem como o MESMO material, e não como duas ilhas de estilos
-    // diferentes em volta do conteúdo.
-    <header className="shrink-0 flex items-center gap-2 h-[56px] mx-3 mt-3 px-3 lg:px-4 rounded-[20px] bg-white border border-border-soft a4p-topbar">
+    // Mesma superfície, mesmo raio e o MESMO hairline do cartão da Home (ver
+    // `.a4p-sidebar, .a4p-topbar` em globals.css): as peças de chrome do app
+    // leem como o material do conteúdo, não como ilhas de outro sistema.
+    <header className="shrink-0 flex items-center gap-2 h-[60px] mx-3 mt-3 px-3 lg:px-4 rounded-[20px] bg-white border a4p-topbar">
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
         aria-label="Abrir menu"
@@ -80,8 +80,10 @@ export function TopBar() {
       </button>
 
       <Link href="/" aria-label="Início" className="inline-flex items-center shrink-0">
-        <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-        <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
+        {/* Marca 20% maior que os 22px originais (a barra subiu para 60px para
+            acomodá-la sem apertar os ícones). */}
+        <Image src="/all4pay-dark.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto dark:hidden" priority />
+        <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto hidden dark:block" priority />
       </Link>
 
       <div className="flex-1" />
