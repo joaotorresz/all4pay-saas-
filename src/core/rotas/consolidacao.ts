@@ -67,7 +67,10 @@ export const FUSOES: Fusao[] = [
         o_que: "A aba Serviços — `registrations` tem `products` e NÃO tem `services`.",
         custo_de_perder:
           "É a perda funcional silenciosa que este mapa existe para impedir. Quem vende serviço perde o cadastro inteiro, e o produto passa a mentir que ele nunca existiu. Serviços vira um FILTRO EXPLÍCITO e visível dentro de Produtos — não uma aba escondida, senão a perda só muda de lugar.",
-        feito: false,
+        // Feito: segmentado Produtos | Serviços no topo de
+        // `ProdutosRegistroView`, com contagem em cada lado. A tela se chama
+        // "Produtos e serviços" no menu, no título e no inventário.
+        feito: true,
       },
       {
         o_que: "A aba Orçamento, que em `registrations` está em `budgets` mas fora do fluxo do hub.",
@@ -91,13 +94,31 @@ export const FUSOES: Fusao[] = [
           "O CARROSSEL DE SAZONALIDADE: doze períodos (mês ou semana) com o resultado líquido de cada um, ligados por uma linha, com o período atual já centralizado.",
         custo_de_perder:
           "É a única superfície do produto que responde 'como este mês se compara aos onze anteriores' sem abrir um relatório. A tela canônica mostra estoque de títulos e não tem noção de tempo. Perder isto é perder a leitura sazonal inteira.",
-        feito: false,
+        // Feito: `CarrosselSazonalidade` extraído do extrato e montado no topo
+        // da `TitulosView`. EXTRAÍDO, não copiado — duas cópias divergiriam no
+        // primeiro ajuste e o mesmo mês mostraria resultados diferentes.
+        feito: true,
       },
       {
         o_que: "A baixa NA PRÓPRIA LINHA (clicar na transação → confirmar → anexar comprovante).",
         custo_de_perder:
           "A canônica só tem baixa em lote, que exige marcar caixinhas. Para dar baixa em um título — o caso mais comum — o lote é o caminho mais longo.",
-        feito: false,
+        // Feito: `ModalBaixa` extraído do extrato; clicar na linha da
+        // `TitulosView` abre a confirmação. A checkbox para a propagação para
+        // não abrir o modal ao marcar em lote.
+        feito: true,
+      },
+      {
+        // ⚠️ DESCOBERTO ao portar os outros itens — não estava no mapa original.
+        // Registrar em vez de desligar assim mesmo é o ponto inteiro deste
+        // arquivo: eu ia aposentar o hub e levar três telas junto.
+        o_que:
+          "As abas Inadimplência, Boletos (em Receber) e Reembolsos (em Pagar) — a canônica não as tem.",
+        custo_de_perder:
+          "São três telas inteiras que só existem dentro dos hubs legados. Desligar o hub sem lhes dar rota própria as apagaria do produto, e ninguém notaria até alguém procurar 'boletos' e não achar.",
+        // Feito: `/dashboard/financial/overdue`, `/boletos` e `/reimbursements`
+        // ganharam rota própria, com os aliases de aba apontando para elas.
+        feito: true,
       },
       {
         o_que: "A faixa `EscopoDaTela`, que declara posição × fluxo e liga as duas leituras.",
@@ -121,19 +142,24 @@ export const FUSOES: Fusao[] = [
         o_que: "Os cartões de EBITDA, Margem EBITDA, Lucro líquido e Runway no topo.",
         custo_de_perder:
           "São a leitura de dez segundos. Sem eles, responder 'a empresa deu lucro?' exige ler a cascata inteira.",
-        feito: false,
+        // Feito: `CartoesExecutivos` no topo do relatório, alimentado por
+        // `dreGerencial` + `core/indicadores` — os mesmos motores da tabela.
+        feito: true,
       },
       {
         o_que: "O drill-down por linha até a categoria e daí até os lançamentos.",
         custo_de_perder:
           "Um número de DRE que não abre é um número que não se confere — e conferir é o que se faz num fechamento.",
-        feito: false,
+        // Já existia na canônica: `TabelaRelatorio onCelula` + `GavetaTransacoes`,
+        // que abre com os ids dos movimentos que formaram a célula.
+        feito: true,
       },
       {
         o_que: "O período padrão AMPLO (12 meses), em vez de abrir no mês corrente.",
         custo_de_perder:
           "Abrir no mês corrente mostra um DRE quase vazio no dia 2 e faz o usuário concluir que não há dados.",
-        feito: false,
+        // Feito: preset `doze_meses`, e ele é o `filtroPadrao`.
+        feito: true,
       },
     ],
   },

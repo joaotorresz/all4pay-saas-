@@ -3,7 +3,7 @@ import { ProdutosRegistroView } from "@/components/registros/ProdutosRegistroVie
 
 export default function ProdutosRegistroPage() {
   return (
-    <AppShell title="Produtos" crumb="Cadastros">
+    <AppShell title="Produtos e serviços" crumb="Cadastros">
       <ProdutosRegistroView />
     </AppShell>
   );

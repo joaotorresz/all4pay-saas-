@@ -39,18 +39,18 @@ export const ALIASES: Alias[] = [
   // — telas que viraram a MESMA tela —
   { de: "/visao-geral", para: "/", motivo: "a visão geral virou a Home" },
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
-  { de: "/recebiveis", para: "/recebimentos", motivo: "unificado no extrato de recebimentos" },
-  { de: "/pagaveis", para: "/pagamentos", motivo: "unificado no extrato de pagamentos" },
+  { de: "/recebiveis", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagaveis", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
   { de: "/assistente", para: "/copiloto", motivo: "assistente virou o copiloto" },
 
   // — hub CADASTROS —
-  { de: "/produtos", para: "/cadastros?aba=produtos", motivo: "consolidado no hub de cadastros" },
-  { de: "/servicos", para: "/cadastros?aba=servicos", motivo: "consolidado no hub de cadastros" },
-  { de: "/contatos", para: "/cadastros?aba=clientes", motivo: "consolidado no hub de cadastros" },
-  { de: "/projetos", para: "/cadastros?aba=projetos", motivo: "consolidado no hub de cadastros" },
-  { de: "/centros-custo", para: "/cadastros?aba=centros-custo", motivo: "consolidado no hub de cadastros" },
+  { de: "/produtos", para: "/dashboard/registrations/products", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/servicos", para: "/dashboard/registrations/products", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/contatos", para: "/dashboard/registrations/clients", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/projetos", para: "/dashboard/registrations/projects", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/centros-custo", para: "/dashboard/registrations/cost-centers", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
 
   // — hub CONTABILIDADE —
   { de: "/plano-de-contas", para: "/contabilidade?aba=plano-de-contas", motivo: "consolidado no hub de contabilidade" },
@@ -68,14 +68,27 @@ export const ALIASES: Alias[] = [
 
   // — hub RECEBER / PAGAR —
   { de: "/recorrencias", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa de consolidação, item 7)" },
-  { de: "/inadimplencia", para: "/recebimentos?aba=inadimplencia", motivo: "consolidado no hub de receber" },
-  { de: "/boletos", para: "/recebimentos?aba=boletos", motivo: "consolidado no hub de receber" },
-  { de: "/reembolsos", para: "/pagamentos?aba=reembolsos", motivo: "consolidado no hub de pagar" },
+  { de: "/inadimplencia", para: "/dashboard/financial/overdue", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
+  { de: "/boletos", para: "/dashboard/financial/boletos", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
+  { de: "/reembolsos", para: "/dashboard/financial/reimbursements", motivo: "ganhou rota própria ao aposentar o hub (mapa, item 2)" },
 
   // — hub ENTRADA DE DADOS —
   { de: "/conciliacao", para: "/upload?aba=conciliar", motivo: "conciliação única na esteira de ingestão" },
   { de: "/conciliacao-bancaria", para: "/upload?aba=conciliar", motivo: "conciliação única na esteira de ingestão" },
   { de: "/contas", para: "/upload?aba=conectar", motivo: "contas viraram a aba de conectar bancos" },
+  // ⚠️ O hub `/cadastros` foi APOSENTADO (mapa de consolidação, item 1): as
+  // oito páginas de `registrations` são o destino, e Serviços virou filtro
+  // explícito dentro de Produtos. Sem esse porte, apagar o hub apagaria o
+  // cadastro de serviço inteiro.
+  { de: "/cadastros", para: "/dashboard/registrations/clients", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  // ⚠️ Os hubs de Receber/Pagar foram APOSENTADOS (mapa, item 2) só depois de a
+  // canônica ganhar o carrossel de sazonalidade, a baixa na linha, e de as três
+  // abas órfãs (inadimplência, boletos, reembolsos) receberem rota própria.
+  // ⚠️ `/dre` foi APOSENTADO (mapa, item 3) depois de a canônica ganhar os
+  // cartões executivos e o período padrão de 12 meses. O drill-down já existia.
+  { de: "/dre", para: "/dashboard/reports/dre", motivo: "DRE consolidado no relatório canônico (mapa, item 3)" },
+  { de: "/recebimentos", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagamentos", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
   // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
   { de: "/risco", para: "/copiloto?aba=risco", motivo: "motor de risco virou aba do copiloto" },
@@ -115,6 +128,63 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
+  { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/recebimentos?aba=titulos", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/pagamentos?aba=titulos", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+
+  {
+    de: "/cadastros?aba=clientes",
+    para: "/dashboard/registrations/clients",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=fornecedores",
+    para: "/dashboard/registrations/suppliers",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=produtos",
+    para: "/dashboard/registrations/products",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=servicos",
+    para: "/dashboard/registrations/products",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=contas",
+    para: "/dashboard/registrations/bank-accounts",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=plano",
+    para: "/dashboard/registrations/chart-of-accounts",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=centros-custo",
+    para: "/dashboard/registrations/cost-centers",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=projetos",
+    para: "/dashboard/registrations/projects",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=contratos",
+    para: "/dashboard/registrations/contracts",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+  {
+    de: "/cadastros?aba=orcamento",
+    para: "/dashboard/registrations/budgets",
+    motivo: "aba do hub de cadastros aposentado (mapa, item 1)",
+  },
+
   {
     de: "/recebimentos?aba=recorrencias",
     para: "/dashboard/sales-invoices/subscriptions",

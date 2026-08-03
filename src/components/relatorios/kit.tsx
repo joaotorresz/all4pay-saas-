@@ -129,13 +129,16 @@ export const filtroPadrao = (): FiltrosRelatorioValor => {
   const d = hoje();
   const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   return {
-    preset: "personalizado",
-    intervalo: intervaloDoPreset("personalizado", mes),
+    // ⚠️ Doze meses por PADRÃO (mapa, item 3): abrir no mês corrente mostra um
+    // DRE quase vazio no dia 2, e o usuário conclui que não há dados.
+    preset: "doze_meses",
+    intervalo: intervaloDoPreset("doze_meses", mes),
     tipo: "vertical", conta: null, projeto: null, centro: null,
   };
 };
 
 const PRESETS: { id: PresetPeriodo; label: string }[] = [
+  { id: "doze_meses", label: "12 meses" },
   { id: "personalizado", label: "Personalizado" },
   { id: "trimestre", label: "Trimestre" },
   { id: "semestre", label: "Semestre" },

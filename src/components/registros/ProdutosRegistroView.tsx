@@ -1,18 +1,26 @@
 "use client";
 
 /**
- * Cadastros › Produtos.
+ * Cadastros › Produtos **e serviços**.
  *
- * O catálogo em forma de LISTA filtrável — a face operacional do mesmo cadastro
- * que `/cadastros?aba=produtos` mostra como cardápio. O que esta tela acrescenta
- * é o TIPO fiscal (não vou emitir NFs · produto · serviço · split), que decide
- * o que sai na nota, e o status, que tira do catálogo sem apagar o histórico.
+ * O catálogo em forma de LISTA filtrável. O que esta tela acrescenta é o TIPO
+ * fiscal (não vou emitir NFs · produto · serviço · split), que decide o que sai
+ * na nota, e o status, que tira do catálogo sem apagar o histórico.
+ *
+ * ⚠️ **O filtro Produtos / Serviços é a porta dos SERVIÇOS.** `registrations`
+ * tinha `products` e não tinha `services`: aposentar `/cadastros` sem isto
+ * apagaria o cadastro de serviço inteiro, e quem vende serviço abriria a tela
+ * achando que nunca cadastrou nada. É a perda funcional silenciosa que o mapa
+ * de consolidação existe para impedir.
+ *
+ * O filtro é um SEGMENTADO VISÍVEL, não uma opção escondida num select: uma aba
+ * que vira item de lista de filtro só muda o lugar onde a perda acontece.
  */
 import * as React from "react";
 import { Button, Input, Textarea, Select, BRL } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
-import { useProductsList } from "@/components/lancamentos/hooks";
+import { useProductsList, useServicesList } from "@/components/lancamentos/hooks";
 import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm";
 import { filtrarRegistros, type FiltroStatus } from "@/core/registros";
 import { TIPOS_PRODUTO, extraProduto, salvarExtraProduto, listExtrasProduto, type TipoProduto } from "@/lib/registros";
@@ -25,8 +33,15 @@ import type { Product } from "@/lib/types";
 const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const rotuloTipo = (t: TipoProduto) => TIPOS_PRODUTO.find((x) => x.id === t)?.label ?? "—";
 
+/** Produto e serviço são o MESMO cadastro para quem opera — muda o que sai na nota. */
+type Catalogo = "produtos" | "servicos";
+
 export function ProdutosRegistroView() {
-  const { data, isLoading } = useProductsList();
+  const [catalogo, setCatalogo] = React.useState<Catalogo>("produtos");
+  const produtos = useProductsList();
+  const servicos = useServicesList();
+  const ehServico = catalogo === "servicos";
+  const { data, isLoading } = ehServico ? servicos : produtos;
   const [busca, setBusca] = React.useState("");
   const [status, setStatus] = React.useState<FiltroStatus>("todos");
   const [tipo, setTipo] = React.useState("");
@@ -39,13 +54,21 @@ export function ProdutosRegistroView() {
   React.useEffect(() => { setExtras(listExtrasProduto()); }, []);
 
   const comExtras = React.useMemo(
-    () => (data ?? []).map((p) => ({
-      ...p,
-      tipo: (extras[p.id]?.tipo ?? "produto") as TipoProduto,
-      ativo: extras[p.id]?.ativo ?? true,
-      descricaoExtra: extras[p.id]?.descricao ?? "",
-    })),
-    [data, extras],
+    () => (data ?? []).map((p) => {
+      // O serviço tem menos campos que o produto (não tem SKU nem preço de
+      // venda separado); normalizar aqui deixa a MESMA tabela servir aos dois
+      // em vez de duplicar a tela.
+      const linha = p as { id: string; name: string; sku?: string | null; sale_price?: number | null; price?: number };
+      return {
+        ...linha,
+        sku: linha.sku ?? null,
+        sale_price: linha.sale_price ?? linha.price ?? 0,
+        tipo: (extras[linha.id]?.tipo ?? (ehServico ? "servico" : "produto")) as TipoProduto,
+        ativo: extras[linha.id]?.ativo ?? true,
+        descricaoExtra: extras[linha.id]?.descricao ?? "",
+      };
+    }),
+    [data, extras, ehServico],
   );
 
   const visiveis = React.useMemo(() => {
@@ -63,10 +86,37 @@ export function ProdutosRegistroView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <CabecalhoRegistro
-        subtitulo="Gerencie seu catálogo de produtos."
-        acaoNova={{ label: "Novo produto", onClick: () => setNovo(true) }}
-        exportar={{ nomeArquivo: "produtos", aba: "Produtos", linhas }}
+        subtitulo={ehServico ? "Gerencie o catálogo de serviços." : "Gerencie seu catálogo de produtos."}
+        acaoNova={{ label: ehServico ? "Novo serviço" : "Novo produto", onClick: () => setNovo(true) }}
+        exportar={{
+          nomeArquivo: ehServico ? "servicos" : "produtos",
+          aba: ehServico ? "Serviços" : "Produtos",
+          linhas,
+        }}
       />
+
+      {/* ⚠️ O segmentado é a porta dos serviços. Escondê-lo num select faria a
+          perda apenas mudar de lugar — quem procura "Serviços" no menu não
+          adivinha que ele virou uma opção dentro de um filtro. */}
+      <div className="flex items-center gap-1 p-1 rounded-pill bg-surface-2 self-start" role="tablist" aria-label="Tipo de item">
+        {([["produtos", "Produtos"], ["servicos", "Serviços"]] as [Catalogo, string][]).map(([id, rotulo]) => {
+          const on = catalogo === id;
+          return (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={on}
+              onClick={() => { setCatalogo(id); setBusca(""); setTipo(""); }}
+              className={`px-4 h-8 rounded-pill text-caption transition-colors ${on ? "bg-white text-ink font-medium" : "text-muted hover:text-ink"}`}
+            >
+              {rotulo}
+              <span className="ml-2 tabular-nums text-placeholder">
+                {(id === "servicos" ? servicos.data : produtos.data)?.length ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       <FiltrosRegistro
         busca={busca} onBusca={setBusca} placeholder="ID, nome, SKU ou descrição…"
@@ -77,20 +127,24 @@ export function ProdutosRegistroView() {
       />
 
       {isLoading ? (
-        <div className="text-label text-muted py-8 text-center">Carregando produtos…</div>
+        <div className="text-label text-muted py-8 text-center">Carregando {ehServico ? "serviços" : "produtos"}…</div>
       ) : (
         <TabelaRegistro
           itens={visiveis}
           vazio={
             <VazioRegistro
               texto={(data ?? []).length === 0
-                ? "Nenhum produto cadastrado. Cadastre o primeiro para vender e emitir nota."
-                : "Nenhum produto encontrado com esses filtros."}
-              acao={(data ?? []).length === 0 ? <Button variant="primary" onClick={() => setNovo(true)}>Novo produto</Button> : undefined}
+                ? ehServico
+                  ? "Nenhum serviço cadastrado. Cadastre o primeiro para vender e emitir NFS-e."
+                  : "Nenhum produto cadastrado. Cadastre o primeiro para vender e emitir nota."
+                : `Nenhum ${ehServico ? "serviço" : "produto"} encontrado com esses filtros.`}
+              acao={(data ?? []).length === 0
+                ? <Button variant="primary" onClick={() => setNovo(true)}>{ehServico ? "Novo serviço" : "Novo produto"}</Button>
+                : undefined}
             />
           }
           colunas={[
-            { chave: "nome", label: "Produto", render: (p) => (
+            { chave: "nome", label: ehServico ? "Serviço" : "Produto", render: (p) => (
               <div className="flex flex-col">
                 <span className="text-ink">{p.name}</span>
                 {p.descricaoExtra && <span className="text-caption text-faint truncate max-w-[42ch]">{p.descricaoExtra}</span>}
@@ -105,7 +159,7 @@ export function ProdutosRegistroView() {
         />
       )}
 
-      {novo && <ProdutoServicoForm kind="produto" onClose={() => setNovo(false)} onToast={show} />}
+      {novo && <ProdutoServicoForm kind={ehServico ? "servico" : "produto"} onClose={() => setNovo(false)} onToast={show} />}
 
       {editandoFiscal && (
         <FormFiscal

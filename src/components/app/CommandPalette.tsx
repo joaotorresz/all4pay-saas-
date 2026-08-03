@@ -60,7 +60,7 @@ const ROUTES: RouteItem[] = [
   { label: "Central de ajuda", href: "/dashboard/help", icon: "help-circle", kw: "ajuda suporte chamado duvida chat tour guiado anuncios novidades" },
   { label: "Tours guiados", href: "/dashboard/help?aba=tours", icon: "layers", kw: "tour guiado passo a passo aprender tela treinamento onboarding" },
   { label: "Anúncios e novidades", href: "/dashboard/help?aba=anuncios", icon: "mail", kw: "anuncios novidades mensagens comunicados release notes" },
-  { label: "DRE", href: "/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
+  { label: "DRE", href: "/dashboard/reports/dre", icon: "receipt", kw: "resultado demonstracao lucro receita despesa" },
   { label: "DRE (relatório em cascata)", href: "/dashboard/reports?aba=dre", icon: "file-text", kw: "dre relatorio cascata analise vertical horizontal ebitda margem contribuicao exportar pdf xlsx" },
   { label: "DFC (fluxo de caixa)", href: "/dashboard/reports?aba=dfc", icon: "file-text", kw: "dfc demonstracao fluxo de caixa saldo inicial regime caixa relatorio" },
   { label: "DRE Multiempresas", href: "/dashboard/reports?aba=dre-multi", icon: "building", kw: "dre multiempresas consolidado grupo holding varias empresas" },
@@ -75,7 +75,7 @@ const ROUTES: RouteItem[] = [
   { label: "Decisão", href: "/copiloto?aba=decisao", icon: "target", kw: "recomendacoes monte carlo" },
   { label: "Autônomo", href: "/copiloto?aba=autonomo", icon: "cpu", kw: "cobranca decisoes automatico whatsapp" },
   { label: "Risco de caixa", href: "/copiloto?aba=risco", icon: "trending-up", kw: "liquidez runway ruptura" },
-  { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "gauge", kw: "credito clientes atraso cobranca" },
+  { label: "Inadimplência", href: "/dashboard/financial/overdue", icon: "gauge", kw: "credito clientes atraso cobranca" },
   { label: "Orquestração", href: "/plataforma?aba=orquestracao", icon: "network", kw: "eventos ledger cascata plataforma" },
   { label: "Infraestrutura", href: "/plataforma?aba=infraestrutura", icon: "layers", kw: "ledger pagamentos fila plataforma" },
   { label: "Arquitetura", href: "/plataforma?aba=arquitetura", icon: "building", kw: "tesouraria treasury plataforma" },
@@ -96,13 +96,13 @@ const ROUTES: RouteItem[] = [
   { label: "Vendas (POS/orçamentos)", href: "/vendas", icon: "arrow-left-right", kw: "pedidos orcamentos compras pos maquininha" },
   { label: "Venda na maquininha (POS)", href: "/vendas?aba=pos", icon: "credit-card", kw: "pos maquininha cartao adquirencia venda liquido mdr" },
   { label: "Taxas da maquininha (POS)", href: "/vendas?aba=pos-taxas", icon: "credit-card", kw: "pos taxas mdr antecipacao mcc bandeira adquirencia" },
-  { label: "Produtos", href: "/cadastros?aba=produtos", icon: "credit-card", kw: "estoque sku" },
-  { label: "Serviços", href: "/cadastros?aba=servicos", icon: "repeat", kw: "servico" },
-  { label: "Clientes", href: "/cadastros?aba=clientes", icon: "users", kw: "clientes contatos cadastro cpf cnpj categoria padrao receita" },
-  { label: "Fornecedores", href: "/cadastros?aba=fornecedores", icon: "users", kw: "fornecedores contatos cadastro cnpj pix dados pj simples nacional" },
-  { label: "Contas bancárias", href: "/cadastros?aba=contas", icon: "building", kw: "conta bancaria banco agencia cartao de credito fatura codigo dominio saldo inicial" },
-  { label: "Contratos", href: "/cadastros?aba=contratos", icon: "file-text", kw: "contrato fornecedor cliente vigencia rateio vendas recorrentes anexo" },
-  { label: "Orçamento (cadastro)", href: "/cadastros?aba=orcamento", icon: "target", kw: "orcamento budget planejamento previsto alocacao mensal por categoria previsto realizado" },
+  { label: "Produtos", href: "/dashboard/registrations/products", icon: "credit-card", kw: "estoque sku" },
+  { label: "Serviços", href: "/dashboard/registrations/products", icon: "repeat", kw: "servico" },
+  { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users", kw: "clientes contatos cadastro cpf cnpj categoria padrao receita" },
+  { label: "Fornecedores", href: "/dashboard/registrations/suppliers", icon: "users", kw: "fornecedores contatos cadastro cnpj pix dados pj simples nacional" },
+  { label: "Contas bancárias", href: "/dashboard/registrations/bank-accounts", icon: "building", kw: "conta bancaria banco agencia cartao de credito fatura codigo dominio saldo inicial" },
+  { label: "Contratos", href: "/dashboard/registrations/contracts", icon: "file-text", kw: "contrato fornecedor cliente vigencia rateio vendas recorrentes anexo" },
+  { label: "Orçamento (cadastro)", href: "/dashboard/registrations/budgets", icon: "target", kw: "orcamento budget planejamento previsto alocacao mensal por categoria previsto realizado" },
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
@@ -170,21 +170,21 @@ export function CommandPalette() {
           (parties.data ?? []).filter((p) => match(`${p.name} ${p.doc ?? ""} ${p.phone ?? ""}`)).map((p) => ({
             key: `pty:${p.id}`, grupo: "Contatos", titulo: p.name,
             sub: [p.is_customer && "Cliente", p.is_supplier && "Fornecedor", p.phone].filter(Boolean).join(" · ") || undefined,
-            href: "/cadastros?aba=clientes", icon: "users", contatoId: p.id,
+            href: "/dashboard/registrations/clients", icon: "users", contatoId: p.id,
           })),
         ),
       );
       out.push(
         ...cap(
           (products.data ?? []).filter((p) => match(`${p.name} ${p.sku ?? ""}`)).map((p) => ({
-            key: `prd:${p.id}`, grupo: "Produtos", titulo: p.name, sub: p.sku ?? undefined, href: "/cadastros?aba=produtos", icon: "credit-card",
+            key: `prd:${p.id}`, grupo: "Produtos", titulo: p.name, sub: p.sku ?? undefined, href: "/dashboard/registrations/products", icon: "credit-card",
           })),
         ),
       );
       out.push(
         ...cap(
           (services.data ?? []).filter((s) => match(s.name)).map((s) => ({
-            key: `srv:${s.id}`, grupo: "Serviços", titulo: s.name, href: "/cadastros?aba=servicos", icon: "repeat",
+            key: `srv:${s.id}`, grupo: "Serviços", titulo: s.name, href: "/dashboard/registrations/products", icon: "repeat",
           })),
         ),
       );

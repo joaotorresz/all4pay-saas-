@@ -21,6 +21,9 @@ import {
 } from "@/core/relatorios";
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
 import { listarOrcamentos } from "@/lib/orcamentos";
+import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
+import { runwayMeses, saldo } from "@/core/indicadores";
+import type { RiskInput } from "@/core/risk-engine/types";
 import {
   FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
   filtroPadrao, LAYOUT_PADRAO, temaPorId,
@@ -130,6 +133,13 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         </Card>
       </div>
 
+      {/* ⚠️ PORTE do `/dre` (mapa de consolidação, item 3): os cartões
+          executivos. São a leitura de dez segundos — sem eles, responder "a
+          empresa deu lucro?" exige ler a cascata inteira. Os números saem dos
+          MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
+          paralela. */}
+      {tipo === "dre" && input && <CartoesExecutivos input={input} intervalo={aplicados.intervalo} />}
+
       <PainelLayout layout={layout} onChange={setLayout} />
 
       {isLoading || !relatorio ? (
@@ -210,3 +220,49 @@ function GraficoResultado({
 
 /** Reexporta para as telas multiempresa, que reaproveitam a comparação. */
 export { compararOrcamento };
+
+/**
+ * Os cartões de dez segundos: EBITDA, margem, lucro líquido, runway e caixa.
+ *
+ * ⚠️ Portados do `/dre` (mapa, item 3). Todos saem dos motores canônicos —
+ * `dreGerencial` para a cascata e `core/indicadores` para runway e saldo —, e
+ * não de uma conta própria: um cartão que discorda da tabela logo abaixo é
+ * pior que cartão nenhum.
+ */
+function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: { de: string; ate: string } }) {
+  const m = React.useMemo(() => {
+    const rows = movimentosNoPeriodo(input, "competencia", intervalo.de, intervalo.ate);
+    const g = dreGerencial(rows);
+    return {
+      receitaLiquida: g.receitaLiquida,
+      ebitda: g.ebitda,
+      margem: g.margemEbitda,
+      lucro: g.lucroLiquido,
+      runwayMeses: runwayMeses(input).valor,
+      caixa: saldo(input).valor,
+    };
+  }, [input, intervalo]);
+
+  const pct = (v: number) => `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  const cartoes: { label: string; valor: React.ReactNode; tom?: string }[] = [
+    { label: "Receita líquida", valor: brl0(m.receitaLiquida) },
+    { label: "EBITDA", valor: brl0(m.ebitda), tom: m.ebitda < 0 ? "var(--color-negative)" : undefined },
+    { label: "Margem EBITDA", valor: pct(m.margem) },
+    { label: "Lucro líquido", valor: brl0(m.lucro), tom: m.lucro < 0 ? "var(--color-negative)" : "var(--color-positive)" },
+    { label: "Runway", valor: `${m.runwayMeses}m` },
+    { label: "Caixa", valor: brl0(m.caixa), tom: m.caixa < 0 ? "var(--color-negative)" : undefined },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      {cartoes.map((c) => (
+        <Card key={c.label} className="flex flex-col gap-1">
+          <span className="text-caption text-faint">{c.label}</span>
+          <span className="text-[20px] font-semibold tabular-nums" style={{ color: c.tom ?? "var(--color-ink)" }}>
+            {c.valor}
+          </span>
+        </Card>
+      ))}
+    </div>
+  );
+}

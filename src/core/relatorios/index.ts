@@ -23,7 +23,12 @@ export const RELATORIOS_VERSION = "relatorios/1.0.0";
 
 /* ================================= período ================================= */
 
-export type PresetPeriodo = "personalizado" | "trimestre" | "semestre" | "ano";
+/**
+ * ⚠️ `doze_meses` é o PADRÃO (mapa de consolidação, item 3). Abrir no mês
+ * corrente mostra um relatório quase vazio no dia 2 e faz o usuário concluir
+ * que não há dados — a leitura de resultado é comparativa por natureza.
+ */
+export type PresetPeriodo = "doze_meses" | "personalizado" | "trimestre" | "semestre" | "ano";
 export type TipoAnalise = "vertical" | "horizontal";
 
 export interface Intervalo { de: string; ate: string }
@@ -59,6 +64,7 @@ export function mesesDoIntervalo(i: Intervalo): string[] {
 /** Traduz o preset num intervalo, ancorado no mês de referência. */
 export function intervaloDoPreset(preset: PresetPeriodo, mesRef: string, atual?: Intervalo): Intervalo {
   switch (preset) {
+    case "doze_meses": return { de: `${deslocarMes(mesRef, -11)}-01`, ate: fimDoMes(mesRef) };
     case "trimestre": return { de: `${deslocarMes(mesRef, -2)}-01`, ate: fimDoMes(mesRef) };
     case "semestre": return { de: `${deslocarMes(mesRef, -5)}-01`, ate: fimDoMes(mesRef) };
     case "ano": return { de: `${mesRef.slice(0, 4)}-01-01`, ate: `${mesRef.slice(0, 4)}-12-31` };

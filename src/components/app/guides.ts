@@ -81,7 +81,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Relatórios gerenciais ----------------------------- */
-  "/dre": {
+  "/dashboard/reports/dre": {
     titulo: "DRE Intelligence Center",
     intro: "Centro de resultado gerencial: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção. Roda sobre os movimentos.",
     comoUsar: "Defina o intervalo De/Até, a cadência (mensal/trimestral/semestral/anual — ajusta os meses do range) e o regime (competência/caixa). Clique nas linhas com ▸ para o drill-down.",
@@ -245,7 +245,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/recebimentos": {
+  "/dashboard/financial/accounts-and-transfers?tab=receivables": {
     titulo: "Central de recebimentos",
     intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",
     comoUsar: "Filtre/agrupe, selecione os títulos recebidos e dê baixa; o saldo da conta só sobe na liquidação.",
@@ -261,7 +261,7 @@ export const GUIDES: Record<string, Guide> = {
       blocos([{ nome: "Dashboard de assinatura", desc: "MRR, ativas, ticket médio e churn." }]),
     ],
   },
-  "/recebimentos?aba=inadimplencia": {
+  "/dashboard/financial/overdue": {
     titulo: "Inadimplência — inteligência de crédito",
     intro: "Prevê inadimplência antes de acontecer, a partir do comportamento de pagamento de cada cliente (não de status estático). Explicável: cada fator carrega sua contribuição.",
     comoUsar: "Veja o score da carteira, abra o heatmap para um cliente e leia o porquê do risco (fatores) + a ação de cobrança recomendada.",
@@ -274,7 +274,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/recebimentos?aba=boletos": {
+  "/dashboard/financial/boletos": {
     titulo: "Boleto",
     intro: "Boletos colados ao recebível (no jsonb do movimento): gera/registra o boleto vinculado à entrada.",
     comoUsar: "Emita ou cole o boleto no recebível correspondente; o pagamento concilia e fecha o ciclo receita → caixa.",
@@ -299,7 +299,7 @@ export const GUIDES: Record<string, Guide> = {
       acoes([{ nome: "Filtrar", desc: "Em aberto (a pagar) · Realizado (pago) · Recorrente." }]),
     ],
   },
-  "/pagamentos": {
+  "/dashboard/financial/accounts-and-transfers?tab=payables": {
     titulo: "Central de pagamentos",
     intro: "Executa os títulos de saída lançados, agrupados por período, com seleção múltipla, conta de saída e método. Idempotente (reenviar não paga 2x).",
     comoUsar: "Selecione os títulos, escolha a conta/método e pague (por linha ou em lote); anexe o comprovante. Títulos acima da alçada ficam bloqueados até aprovação.",
@@ -318,7 +318,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Pagamento de R$ 8.000 (acima de R$ 5k) entra na fila → o aprovador confere e aprova; só então pode ser pago.",
     secoes: [],
   },
-  "/pagamentos?aba=reembolsos": {
+  "/dashboard/financial/reimbursements": {
     titulo: "Reembolsos",
     intro: "Reembolso do colaborador: formulário + itens (com OCR do comprovante) + chave Pix. Roteia pelo mesmo motor de alçada e, ao aprovar, gera uma saída por item.",
     comoUsar: "O colaborador lança os itens (foto do comprovante extrai os campos) e a chave Pix; ao aprovar, vira saída na Central de pagamentos.",
@@ -334,25 +334,22 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Cadastrar ----------------------------- */
-  "/cadastros?aba=clientes": {
+  "/dashboard/registrations/clients": {
     titulo: "Contatos",
     intro: "Clientes, fornecedores e transportadoras, com validação de CPF/CNPJ e busca de endereço por CEP (ViaCEP). Editável (clicar numa linha abre o cadastro).",
     comoUsar: "Use 'Novo' para cadastrar (o CNPJ/CPF é validado e o CEP preenche o endereço). Clique numa linha para editar — ex.: adicionar o telefone que alimenta a cobrança.",
     exemplo: "Cadastre o fornecedor pelo CNPJ → o sistema valida e você completa o endereço pelo CEP.",
     secoes: [],
   },
-  "/cadastros?aba=produtos": {
-    titulo: "Produtos",
-    intro: "Cadastro de produtos: nome, SKU, unidade, marca, preço de venda/custo e estoque. Alimenta vendas e o DRE por linha.",
-    comoUsar: "Use 'Novo' para cadastrar; informe preços e unidade. Use nas vendas para compor itens.",
-    exemplo: "Cadastre 'Camiseta P' com preço R$ 49,90 e custo R$ 20 → margem aparece no DRE por linha.",
-    secoes: [],
-  },
-  "/cadastros?aba=servicos": {
-    titulo: "Serviços",
-    intro: "Cadastro de serviços: nome, código, unidade e preço. Base para vendas de serviço, recorrências e NFS-e.",
-    comoUsar: "Use 'Novo' para cadastrar; reaproveite em recorrências e na emissão de NFS-e.",
-    exemplo: "Cadastre 'Consultoria mensal' R$ 990 → use numa recorrência para virar MRR.",
+  // ⚠️ UM guia para a tela, porque é UMA tela: produtos e serviços são o mesmo
+  // cadastro com um filtro visível separando os dois (mapa de consolidação,
+  // item 1). Dois guias apontando para a mesma rota fariam a busca da Central
+  // de Ajuda escolher um deles por ordem de arquivo.
+  "/dashboard/registrations/products": {
+    titulo: "Produtos e serviços",
+    intro: "O catálogo do que você vende. O segmentado no topo separa PRODUTOS (nome, SKU, unidade, marca, preço de venda/custo) de SERVIÇOS (nome, código, unidade, preço). Alimenta vendas, recorrências, NFS-e e o DRE por linha.",
+    comoUsar: "Escolha Produtos ou Serviços no topo e use 'Novo' para cadastrar. O tipo fiscal decide o que sai na nota.",
+    exemplo: "Em Produtos, cadastre 'Camiseta P' a R$ 49,90 com custo R$ 20 → a margem aparece no DRE por linha. Em Serviços, cadastre 'Consultoria mensal' a R$ 990 → use numa recorrência para virar MRR.",
     secoes: [],
   },
   "/vendas": {
@@ -523,7 +520,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Projetos ----------------------------- */
-  "/cadastros?aba=projetos": {
+  "/dashboard/registrations/projects": {
     titulo: "Projetos",
     intro: "Dimensão de rateio: associe receitas e despesas a projetos para enxergar margem por projeto no DRE.",
     comoUsar: "Cadastre o projeto e use-o no rateio dos lançamentos (splits). O resultado por projeto sai no DRE por dimensão.",
@@ -533,7 +530,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Centros de Custo ----------------------------- */
-  "/cadastros?aba=centros-custo": {
+  "/dashboard/registrations/cost-centers": {
     titulo: "Centros de Custo",
     intro: "A segunda dimensão de rateio: cada lançamento pode apontar um centro (Comercial, Operação, ADM…) e o DRE abre por centro de custo.",
     comoUsar: "Cadastre os centros e selecione-os nos lançamentos/vendas; o DRE por centro mostra onde o dinheiro é consumido.",
@@ -636,10 +633,10 @@ export const GUIDES: Record<string, Guide> = {
  */
 const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
-  "/cadastros": "contatos",
+  "/dashboard/registrations/clients": "contatos",
   "/vendas": "lista",
-  "/recebimentos": "titulos",
-  "/pagamentos": "titulos",
+  "/dashboard/financial/accounts-and-transfers?tab=receivables": "titulos",
+  "/dashboard/financial/accounts-and-transfers?tab=payables": "titulos",
 };
 
 /* --------- telas de Compras, Contabilidade, Administração e Ajuda --------- */

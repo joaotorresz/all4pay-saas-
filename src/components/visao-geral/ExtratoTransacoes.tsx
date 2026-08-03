@@ -31,6 +31,11 @@ import { receberLote } from "@/lib/recebimentos";
 import { listProjetos } from "@/lib/iuli-cadastros";
 import { vincularProjeto, projetoDoMovimento } from "@/lib/projeto-vinculo";
 import type { RiskMovement } from "@/core/risk-engine/types";
+import { ModalBaixa } from "@/components/movimentacoes/ModalBaixa";
+import {
+  CarrosselSazonalidade, FaixaPeriodos, periodosComValores,
+  type Granularidade as Gran, type PeriodoSazonal as Periodo,
+} from "@/components/movimentacoes/CarrosselSazonalidade";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -46,7 +51,6 @@ const corDaCategoria = (nome: string) => {
   return CHIP[h % CHIP.length];
 };
 
-type Gran = "mes" | "semana";
 
 /** Data de caixa do movimento (pago → pagamento; pendente → vencimento). */
 const dataDe = (m: RiskMovement) => (m.status === "pago" ? m.paid_date || m.due_date : m.due_date).slice(0, 10);
@@ -56,33 +60,6 @@ const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.ge
 /** Parser seguro de data-só: `new Date("2026-07-28")` é meia-noite UTC. */
 const parse = (s: string) => new Date(s.slice(0, 10) + "T00:00:00");
 
-interface Periodo { key: string; label: string; de: string; ate: string; entradas: number; saidas: number; resultado: number }
-
-/** Últimos 12 meses (ou 12 semanas) terminando no de hoje, do mais antigo ao atual. */
-function montarPeriodos(hojeISO: string, gran: Gran): Periodo[] {
-  const hoje = parse(hojeISO);
-  const out: Periodo[] = [];
-  for (let i = 11; i >= 0; i--) {
-    if (gran === "mes") {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const fim = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      out.push({
-        key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
-        label: `${MESES[d.getMonth()]}${d.getFullYear() !== hoje.getFullYear() ? ` '${String(d.getFullYear()).slice(2)}` : ""}`,
-        de: iso(d), ate: iso(fim), entradas: 0, saidas: 0, resultado: 0,
-      });
-    } else {
-      const dom = new Date(hoje); dom.setDate(hoje.getDate() - hoje.getDay() - i * 7);
-      const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-      out.push({
-        key: `w-${iso(dom)}`,
-        label: `${dom.getDate()}/${MES_ABBR[dom.getMonth()]} – ${sab.getDate()}/${MES_ABBR[sab.getMonth()]}`,
-        de: iso(dom), ate: iso(sab), entradas: 0, saidas: 0, resultado: 0,
-      });
-    }
-  }
-  return out;
-}
 
 /** Cabeçalho de dia: "Hoje" · "Ontem" · "dom, jul 26". */
 function rotuloDia(diaISO: string, hojeISO: string): string {
@@ -99,7 +76,6 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
   const [gran, setGran] = React.useState<Gran>("mes");
   const [selKey, setSelKey] = React.useState<string | null>(null);
   const [busca, setBusca] = React.useState("");
-  const faixaRef = React.useRef<HTMLDivElement>(null);
   // Baixa direto na linha: o movimento clicado abre o modal de confirmação.
   const qc = useQueryClient();
   const { show, node: toast } = useToast();
@@ -117,38 +93,13 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
 
   const hoje = inp?.hoje?.slice(0, 10) ?? iso(new Date());
 
-  // Períodos com entradas/saídas somadas — a base do carrossel.
-  const periodos = React.useMemo(() => {
-    const ps = montarPeriodos(hoje, gran);
-    if (!inp) return ps;
-    for (const m of inp.movements) {
-      if (m.status === "cancelado") continue;
-      const d = dataDe(m);
-      const p = ps.find((x) => d >= x.de && d <= x.ate);
-      if (!p) continue;
-      if (m.type === "entrada") p.entradas += m.amount; else p.saidas += m.amount;
-    }
-    for (const p of ps) p.resultado = p.entradas - p.saidas;
-    return ps;
-  }, [inp, hoje, gran]);
+  // Períodos do carrossel — a MESMA função que a tela canônica usa.
+  const periodos = React.useMemo(() => periodosComValores(inp, hoje, gran), [inp, hoje, gran]);
 
   // Trocar de granularidade invalida a seleção antiga (as chaves mudam) e
   // recoloca a faixa no período ATUAL — ela é montada do mais antigo para o
   // mais novo, então sem isso o carrossel abre 12 meses atrás.
   React.useEffect(() => { setSelKey(null); }, [gran]);
-  // A faixa é montada do período mais ANTIGO para o mais novo, então sem isto
-  // o carrossel abre 12 meses atrás. O rAF é necessário: no efeito síncrono o
-  // conteúdo ainda não foi medido e `scrollWidth` sai igual a `clientWidth`.
-  React.useLayoutEffect(() => {
-    const id = requestAnimationFrame(() => {
-      const el = faixaRef.current;
-      if (el) el.scrollLeft = el.scrollWidth;
-    });
-    return () => cancelAnimationFrame(id);
-    // `isLoading` entra nas deps de propósito: enquanto carrega o card devolve
-    // um placeholder e a faixa nem existe no DOM, então o efeito precisa rodar
-    // DE NOVO quando os dados chegam.
-  }, [gran, periodos.length, isLoading]);
   const sel = periodos.find((p) => p.key === selKey) ?? periodos[periodos.length - 1];
 
   // Lançamentos do período selecionado, no lado da página, agrupados por dia.
@@ -206,49 +157,22 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
     return <Card><span className="text-caption text-faint">Carregando transações…</span></Card>;
   }
 
-  const rolar = (dir: 1 | -1) => faixaRef.current?.scrollBy({ left: dir * 340, behavior: "smooth" });
-
   return (
     <Card className="flex flex-col gap-0" padded={false} info={{
       titulo: "Transações",
       oQue: "O extrato do período: o resultado de cada mês (ou semana) na faixa de cima e, abaixo, os lançamentos dia a dia.",
       comoCalcula: "Cada período soma entradas e saídas pela data de caixa (pagamento quando liquidado, vencimento quando pendente). O resultado é entradas − saídas; a lista mostra só o lado da página.",
     }}>
-      {/* Topo — busca + granularidade */}
-      <div className="flex items-center justify-end gap-2 px-5 pt-5 pb-3 flex-wrap">
-        <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="tablist" aria-label="Granularidade">
-          {([["mes", "Mês"], ["semana", "Semana"]] as const).map(([id, label]) => (
-            <button
-              key={id} role="tab" aria-selected={gran === id} onClick={() => setGran(id)}
-              className={`rounded-pill px-4 py-[6px] text-caption font-medium transition-colors ${gran === id ? "bg-white text-ink" : "text-muted hover:text-ink"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {/* Busca + carrossel — o carrossel é a MESMA peça que a tela canônica de
+          títulos usa (`CarrosselSazonalidade`), não uma cópia. */}
+      <div className="flex items-center justify-end gap-2 px-5 pt-5 -mb-3 flex-wrap">
         <div className="w-[240px]">
           <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar transações…" aria-label="Buscar transações" />
         </div>
       </div>
-
-      {/* Carrossel de períodos com a linha do resultado por cima */}
-      <div className="relative">
-        <button
-          onClick={() => rolar(-1)} aria-label="Períodos anteriores"
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white border border-border inline-flex items-center justify-center text-muted hover:text-ink"
-        >
-          <Icon name="chevron-left" size={16} color="currentColor" />
-        </button>
-        <button
-          onClick={() => rolar(1)} aria-label="Próximos períodos"
-          className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-pill bg-white border border-border inline-flex items-center justify-center text-muted hover:text-ink"
-        >
-          <Icon name="chevron-right" size={16} color="currentColor" />
-        </button>
-        <div ref={faixaRef} className="overflow-x-auto px-12 pb-4">
-          <FaixaPeriodos periodos={periodos} selKey={sel?.key} onSelect={setSelKey} />
-        </div>
-      </div>
+      <CarrosselSazonalidade periodos={periodos} gran={gran} onGran={setGran} recarregarEm={isLoading}>
+        <FaixaPeriodos periodos={periodos} selKey={sel?.key} onSelect={setSelKey} />
+      </CarrosselSazonalidade>
 
       {/* Resumo do período selecionado */}
       <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-b border-border-soft flex-wrap">
@@ -324,96 +248,24 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
           elevação), e um ancestral transformado vira o bloco de contenção do
           `position: fixed` — dentro do Card o overlay nascia do tamanho do card
           e o modal caía centrado ~1000px abaixo da dobra. */}
-      {baixa && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4" onClick={() => setBaixa(null)}>
-          <div className="w-full max-w-[440px] bg-white rounded-card p-5 flex flex-col gap-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-h3 font-medium text-ink">
-                {baixa.status === "pago"
-                  ? (direction === "saida" ? "Pagamento realizado" : "Recebimento realizado")
-                  : (direction === "saida" ? "Confirmar pagamento" : "Confirmar recebimento")}
-              </span>
-              <button onClick={() => setBaixa(null)} aria-label="Fechar" className="w-8 h-8 rounded-pill inline-flex items-center justify-center text-muted hover:text-ink hover:bg-surface-2">
-                <Icon name="x" size={16} color="currentColor" />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-1 rounded-md bg-surface-1 p-3">
-              <Linha label={direction === "saida" ? "Beneficiário" : "Pagador"} value={(baixa.party_id && inp.partyNames?.[baixa.party_id]) || baixa.category || "—"} />
-              <Linha label="Vencimento" value={baixa.due_date.slice(0, 10).split("-").reverse().join("/")} />
-              {baixa.category && <Linha label="Categoria" value={baixa.category} />}
-              <Linha label="Valor" value={formatBRL(baixa.amount)} forte />
-            </div>
-
-            {/* Projeto do lançamento — é este vínculo que faz o filtro "Projeto"
-                da DRE/DFC e dos painéis filtrar de verdade. Fica aqui porque é
-                onde se olha uma transação e se pergunta "de que campanha é?". */}
-            {projetos.length > 0 && (
-              <Select
-                label="Projeto"
-                value={projeto}
-                onChange={(v) => {
-                  setProjeto(v);
-                  vincularProjeto(baixa.id, v);
-                  qc.invalidateQueries({ queryKey: ["risco-input"] });
-                  show(v ? "Projeto vinculado." : "Projeto removido.");
-                }}
-                options={[{ value: "", label: "Sem projeto" }, ...projetos.map((p) => ({ value: p.id, label: p.nome }))]}
-              />
-            )}
-
-            {baixa.status === "pago" ? (
-              <>
-                <span className="text-caption text-muted leading-[1.5]">
-                  Este título já foi liquidado{baixa.paid_date ? ` em ${baixa.paid_date.slice(0, 10).split("-").reverse().join("/")}` : ""}.
-                  {comprovante ? ` Comprovante anexado: ${comprovante}.` : " Nenhum comprovante anexado."}
-                </span>
-                <div className="flex items-center justify-end gap-2">
-                  <label className="inline-flex items-center gap-2 text-caption text-muted cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-surface-1">
-                    <Icon name="upload" size={14} color="currentColor" />
-                    {comprovante ? "Trocar comprovante" : "Anexar comprovante"}
-                    <input ref={fileRef} type="file" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) { anexarComprovante(baixa.id, f.name); setComprovante(f.name); show("Comprovante anexado."); } }} />
-                  </label>
-                  <Button variant="primary" onClick={() => setBaixa(null)}>Fechar</Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-3">
-                  <Select label={direction === "saida" ? "Conta de saída" : "Conta de destino"} value={conta} onChange={setConta}
-                    options={(contas.data?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))} containerClassName="flex-1 min-w-[170px]" />
-                  {direction === "saida" && (
-                    <Select label="Método" value={metodo} onChange={(v) => setMetodo(v as MetodoPagamento)}
-                      options={[{ value: "pix", label: "Pix" }, { value: "ted", label: "TED" }, { value: "boleto", label: "Boleto" }, { value: "of", label: "Open Finance" }]}
-                      containerClassName="min-w-[150px]" />
-                  )}
-                </div>
-
-                <label className="inline-flex items-center gap-2 text-caption text-muted cursor-pointer rounded-md border border-border px-3 py-2 hover:bg-surface-1">
-                  <Icon name="upload" size={14} color="currentColor" />
-                  {comprovante ? <span className="text-ink">{comprovante}</span> : "Anexar comprovante (opcional)"}
-                  <input ref={fileRef} type="file" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) setComprovante(f.name); }} />
-                </label>
-
-                <span className="text-caption text-muted leading-[1.5]">
-                  Ao confirmar, o saldo da conta {direction === "saida" ? "cai" : "sobe"} e o título passa a
-                  {direction === "saida" ? " “pago”" : " “recebido”"}. A operação é idempotente: confirmar de novo não
-                  {direction === "saida" ? " paga" : " credita"} duas vezes.
-                </span>
-
-                <div className="flex items-center justify-end gap-2">
-                  <Button variant="secondary" onClick={() => setBaixa(null)}>Cancelar</Button>
-                  <Button variant="primary" onClick={executarBaixa} disabled={enviando || !conta}>
-                    {enviando ? "Confirmando…" : (direction === "saida" ? "Confirmar pagamento" : "Confirmar recebimento")}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>,
-        document.body,
+      {baixa && (
+        <ModalBaixa
+          baixa={baixa}
+          ehSaida={direction === "saida"}
+          partyNames={inp.partyNames}
+          contas={contas.data?.accounts ?? []}
+          projetos={projetos}
+          projeto={projeto}
+          onProjeto={setProjeto}
+          onProjetoMudou={() => qc.invalidateQueries({ queryKey: ["risco-input"] })}
+          conta={conta} setConta={setConta}
+          metodo={metodo} setMetodo={setMetodo}
+          comprovante={comprovante} setComprovante={setComprovante}
+          enviando={enviando}
+          onConfirmar={executarBaixa}
+          onFechar={() => setBaixa(null)}
+          show={show}
+        />
       )}
       {toast}
     </Card>
@@ -434,44 +286,3 @@ function Linha({ label, value, forte }: { label: string; value: string; forte?: 
  * resultados. A linha vive num SVG absoluto do tamanho da faixa — em vez de um
  * gráfico separado, para os pontos caírem exatamente sobre cada card.
  */
-function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: Periodo[]; selKey?: string; onSelect: (k: string) => void }) {
-  const LARG = 150, ALT = 74;
-  const total = periodos.length * LARG;
-  const vals = periodos.map((p) => p.resultado);
-  const max = Math.max(...vals, 0), min = Math.min(...vals, 0);
-  const span = max - min || 1;
-  const y = (v: number) => 12 + (1 - (v - min) / span) * (ALT - 24);
-  const pontos = periodos.map((p, i) => ({ x: i * LARG + LARG / 2, y: y(p.resultado), key: p.key }));
-  const d = pontos.map((pt, i) => `${i ? "L" : "M"}${pt.x},${pt.y}`).join(" ");
-
-  return (
-    <div className="relative" style={{ width: total }}>
-      <svg width={total} height={ALT} className="absolute inset-x-0 top-0 pointer-events-none" aria-hidden>
-        <path d={d} fill="none" stroke="var(--color-chart-line)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
-        {pontos.map((pt) => (
-          <circle key={pt.key} cx={pt.x} cy={pt.y} r={pt.key === selKey ? 4.5 : 3} fill="#fff" stroke="var(--color-chart-line)" strokeWidth={1.4} />
-        ))}
-      </svg>
-      <div className="flex" style={{ paddingTop: ALT }}>
-        {periodos.map((p) => {
-          const on = p.key === selKey;
-          // Zero é NEUTRO: pintar de verde um período sem movimento diz que
-          // foi bom quando não houve nada.
-          const cor = p.resultado === 0 ? "var(--color-text-tertiary)" : p.resultado > 0 ? POSITIVE : NEGATIVE;
-          return (
-            <button
-              key={p.key} onClick={() => onSelect(p.key)} aria-pressed={on}
-              className={`shrink-0 flex flex-col items-center gap-1 rounded-[14px] py-3 transition-colors ${on ? "bg-surface-2" : "hover:bg-surface-1"}`}
-              style={{ width: LARG }}
-            >
-              <span className="text-[14px] text-muted truncate max-w-full px-2">{p.label}</span>
-              <span className="text-[17px] font-medium tabular-nums" style={{ color: cor }}>
-                {p.resultado < 0 ? "−" : ""}{formatBRL(Math.abs(p.resultado))}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

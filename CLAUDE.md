@@ -809,12 +809,33 @@ Receber · Conciliação `/upload?aba=conciliar` ← `/conciliacao*`.
   na primeira aba em silêncio, e a pessoa conclui que clicou errado. `destinoDe`
   casa PRIMEIRO por caminho+query (a aba é mais específica que o hub).
 
-**As cinco pendentes**, com o que falta: Cadastros (a aba **Serviços** não existe
-em `registrations` — vira filtro explícito em Produtos) · Títulos (o **carrossel
-de sazonalidade** e a **baixa na linha**) · DRE (cartões EBITDA/margem/runway,
-drill-down, período padrão de 12 meses) · Impostos (a **projeção** da carga e o
-**regime como configuração**, não constante de arquivo) · IA (as quatro abas
-como painéis do assistente e o **histórico no servidor** por usuário e empresa).
+**Colhidas até aqui: 6 de 8.** Além de saldo, assinaturas e conciliação:
+
+- **Cadastros** — `registrations` tinha `products` e NÃO tinha `services`.
+  Serviços virou **segmentado visível** no topo de `ProdutosRegistroView` (com
+  contagem dos dois lados), não uma opção escondida num select: uma aba que vira
+  item de filtro só muda o lugar onde a perda acontece. `/cadastros` aposentado,
+  com as dez abas mapeadas para as páginas canônicas.
+- **Títulos** — `CarrosselSazonalidade` e `ModalBaixa` foram **extraídos** do
+  extrato (não copiados: duas cópias divergem no primeiro ajuste, e a baixa move
+  DINHEIRO) e montados na `TitulosView`. ⚠️ **Ao portar, descobri três abas
+  órfãs** — Inadimplência, Boletos e Reembolsos só existiam dentro dos hubs
+  legados. Registrei como item novo no mapa em vez de desligar assim mesmo, e
+  cada uma ganhou rota própria em `/dashboard/financial/`. `/recebimentos` e
+  `/pagamentos` aposentados.
+  - Com as duas telas virando uma, o `EscopoDaTela` deixou de ser ponte entre
+    telas e virou a **declaração** do que o número mede, com a outra leitura ao
+    lado como contexto. O P0-16 foi resolvido na raiz, não por explicação.
+- **DRE** — `CartoesExecutivos` (EBITDA, margem, lucro, runway, caixa) no topo do
+  relatório, alimentado por `dreGerencial` + `core/indicadores`, os MESMOS
+  motores da tabela: um cartão que discorda da tabela logo abaixo é pior que
+  cartão nenhum. O preset **`doze_meses` virou o padrão** — abrir no mês corrente
+  mostra um DRE quase vazio no dia 2 e o usuário conclui que não há dados. O
+  drill-down já existia na canônica. `/dre` aposentado.
+
+**As duas pendentes:** Impostos (a **projeção** da carga e o **regime como
+configuração**, não constante de arquivo) · IA (as quatro abas como painéis do
+assistente e o **histórico no servidor** por usuário e empresa).
 
 ### ⚠️ ROTAS, TÍTULO E CRIAÇÃO (ONDA 3)
 

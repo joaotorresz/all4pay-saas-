@@ -17,7 +17,12 @@ import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton }
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
-import { pagarLote } from "@/lib/pagamentos";
+import { pagarLote, anexarComprovante, type MetodoPagamento } from "@/lib/pagamentos";
+import { formatBRL } from "@/lib/format";
+import { listProjetos } from "@/lib/iuli-cadastros";
+import { projetoDoMovimento } from "@/lib/projeto-vinculo";
+import { ModalBaixa } from "./ModalBaixa";
+import type { RiskMovement } from "@/core/risk-engine/types";
 import { receberLote } from "@/lib/recebimentos";
 import {
   filtrarTitulos, resumoTitulos, statusDoTitulo,
@@ -25,6 +30,9 @@ import {
 } from "@/core/movimentacoes";
 import { janelaDoMesDe } from "@/core/indicadores";
 import { EscopoDaTela } from "./EscopoDaTela";
+import {
+  CarrosselSazonalidade, FaixaPeriodos, periodosComValores, type Granularidade,
+} from "./CarrosselSazonalidade";
 
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000, 5000];
@@ -48,6 +56,21 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const [porPagina, setPorPagina] = React.useState(50);
   const [pagina, setPagina] = React.useState(1);
   const [marcados, setMarcados] = React.useState<Set<string>>(new Set());
+  // Carrossel de sazonalidade — portado do extrato.
+  const [gran, setGran] = React.useState<Granularidade>("mes");
+  const [selPeriodo, setSelPeriodo] = React.useState<string | null>(null);
+  // ⚠️ BAIXA NA LINHA — porte do extrato (mapa, item 2). A baixa em lote exige
+  // marcar caixinhas; para UM título, que é o caso comum, era o caminho mais
+  // longo que existia.
+  const [baixa, setBaixa] = React.useState<RiskMovement | null>(null);
+  const [contaBaixa, setContaBaixa] = React.useState("");
+  const [metodo, setMetodo] = React.useState<MetodoPagamento>("pix");
+  const [comprovante, setComprovante] = React.useState<string | null>(null);
+  const [enviandoBaixa, setEnviandoBaixa] = React.useState(false);
+  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  const [projeto, setProjeto] = React.useState("");
+  React.useEffect(() => { setProjetos(listProjetos()); }, []);
+  React.useEffect(() => { setProjeto(baixa ? (projetoDoMovimento(baixa.id) ?? "") : ""); }, [baixa]);
   const [executando, setExecutando] = React.useState(false);
 
   const parte = direcao === "receber" ? "Cliente" : "Fornecedor";
@@ -60,6 +83,11 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const cards = React.useMemo(
     () => (input ? resumoTitulos(titulos, direcao, input.hoje) : []),
     [titulos, direcao, input],
+  );
+
+  const periodos = React.useMemo(
+    () => periodosComValores(input, input?.hoje ?? new Date().toISOString().slice(0, 10), gran),
+    [input, gran],
   );
 
   const totalPaginas = Math.max(1, Math.ceil(titulos.length / porPagina));
@@ -113,6 +141,27 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
     }
   };
 
+  const executarBaixaUnica = async () => {
+    if (!baixa || !contaBaixa) return;
+    setEnviandoBaixa(true);
+    try {
+      const nome = (baixa.party_id && nomes[baixa.party_id]) || baixa.category || "Lançamento";
+      const item = { id: baixa.id, amount: Math.abs(baixa.amount), due_date: baixa.due_date, category: baixa.category ?? null };
+      const r = direcao === "pagar"
+        ? await pagarLote([{ ...item, beneficiario: nome }], contaBaixa, metodo)
+        : await receberLote([{ ...item, pagador: nome }], contaBaixa);
+      if (comprovante) anexarComprovante(baixa.id, comprovante);
+      await qc.invalidateQueries();
+      const ok = direcao === "pagar" ? (r as { liquidados: number }).liquidados : (r as { recebidos: number }).recebidos;
+      show(ok
+        ? `${direcao === "pagar" ? "Pago" : "Recebido"}: ${formatBRL(Math.abs(baixa.amount))} — saldo da conta atualizado.`
+        : `Este título já estava ${direcao === "pagar" ? "pago" : "recebido"}.`);
+      setBaixa(null); setComprovante(null);
+    } finally {
+      setEnviandoBaixa(false);
+    }
+  };
+
   const linhasXLSX = React.useMemo(() => [
     ["ID", "Vencimento", "Data de " + liquidado.toLowerCase(), "Status", "Categoria", parte, "Valor", liquidado],
     ...titulos.map((m) => [
@@ -138,6 +187,21 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
         janela={janelaDoMesDe(input?.hoje ?? new Date().toISOString().slice(0, 10))}
         direcao={direcao === "receber" ? "entrada" : "saida"}
       />
+      {/* ⚠️ PORTE do extrato (mapa de consolidação, item 2). Esta tela mostra
+          ESTOQUE de títulos e não tinha noção de tempo — o carrossel é a única
+          superfície que responde "como este mês se compara aos onze
+          anteriores" sem abrir um relatório. É a MESMA peça que o extrato usa,
+          não uma cópia: duas cópias divergem no primeiro ajuste. */}
+      <Card padded={false} info={{
+        titulo: "Os últimos 12 períodos",
+        oQue: "O resultado líquido de cada mês (ou semana), para enxergar sazonalidade sem abrir relatório.",
+        comoCalcula: "Cada período soma entradas e saídas pela data de caixa (pagamento quando liquidado, vencimento quando previsto). O resultado é entradas − saídas; zero é neutro, nem verde nem vermelho.",
+      }}>
+        <CarrosselSazonalidade periodos={periodos} gran={gran} onGran={setGran} recarregarEm={isLoading}>
+          <FaixaPeriodos periodos={periodos} selKey={selPeriodo ?? undefined} onSelect={setSelPeriodo} />
+        </CarrosselSazonalidade>
+      </Card>
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted">
           {direcao === "receber" ? "Valores a receber dos seus clientes." : "Valores a pagar aos seus fornecedores."}
@@ -295,9 +359,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                 {visiveis.map((m) => {
                   const st = input ? statusDoTitulo(m, input.hoje) : "aberto";
                   return (
-                    <tr key={m.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
+                    <tr key={m.id} onClick={() => setBaixa(m)} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors cursor-pointer">
                       <td className="px-6 py-3">
-                        <Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} />
+                        <span onClick={(e) => e.stopPropagation()}><Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} /></span>
                       </td>
                       <td className="px-6 py-3">
                         <span className="inline-flex items-center gap-2">
@@ -337,6 +401,25 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           </div>
         )}
       </Card>
+      {baixa && (
+        <ModalBaixa
+          baixa={baixa}
+          ehSaida={direcao === "pagar"}
+          partyNames={nomes}
+          contas={contas?.accounts ?? []}
+          projetos={projetos}
+          projeto={projeto}
+          onProjeto={setProjeto}
+          onProjetoMudou={() => qc.invalidateQueries({ queryKey: ["risco-input"] })}
+          conta={contaBaixa} setConta={setContaBaixa}
+          metodo={metodo} setMetodo={setMetodo}
+          comprovante={comprovante} setComprovante={setComprovante}
+          enviando={enviandoBaixa}
+          onConfirmar={executarBaixaUnica}
+          onFechar={() => setBaixa(null)}
+          show={show}
+        />
+      )}
       {node}
     </div>
   );

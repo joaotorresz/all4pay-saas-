@@ -57,7 +57,7 @@ export const SECTIONS: Section[] = [
     id: "cadastros", label: "Cadastros", icon: "database", items: [
       { label: "Contas bancárias", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
       { label: "Plano de contas", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
-      { label: "Produtos", href: "/dashboard/registrations/products", icon: "b" },
+      { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "b" },
       { label: "Projetos", href: "/dashboard/registrations/projects", icon: "target" },
       { label: "Centros de custo", href: "/dashboard/registrations/cost-centers", icon: "network" },
       { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users" },
@@ -72,7 +72,6 @@ export const SECTIONS: Section[] = [
       { label: "DFC", href: "/dashboard/reports/dfc", icon: "trending-up" },
       { label: "DFC multiempresas", href: "/dashboard/reports/dfc-multi", icon: "building" },
       { label: "Fechamento mensal", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
-      { label: "DRE (versão anterior)", href: "/dre", icon: "gauge" },
     ],
   },
   { id: "orcamento", label: "Planejado × Realizado", icon: "target", href: "/orcamento", items: [] },
@@ -113,11 +112,9 @@ export const SECTIONS: Section[] = [
   {
     id: "entrada", label: "Entrada de dados", icon: "upload", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Extrato de recebimentos", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Extrato de pagamentos", href: "/pagamentos", icon: "arrow-up-right" },
       // Inadimplência é OPERACIONAL (quem me deve), não um recurso pago. Vivia
       // duplicada no grupo Pro, o que a tornava paga num menu e grátis no hub.
-      { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "triangle-alert" },
+      { label: "Inadimplência", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
     ],
   },
   // ----- Profundidade — revelada no Modo Pro -----
@@ -162,8 +159,8 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
+      { label: "Extrato de pagamentos", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Minhas receitas", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
     ],
   },
   {
@@ -174,7 +171,7 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "orcamento", label: "Orçamento & metas", icon: "target", items: [
       { label: "Planejado × Realizado", href: "/orcamento", icon: "target" },
-      { label: "DRE (versão anterior)", href: "/dre", icon: "trending-up" },
+      { label: "DRE", href: "/dashboard/reports/dre", icon: "trending-up" },
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
     ],
   },
