@@ -279,6 +279,20 @@ grupos que abrem · rodapé com Configurações, Modo Pro, tema e conta.
   **+ de Criar** e a **lupa da busca** ficam, porque são controles com
   affordance própria, não linhas de menu. Os chevrons também ficam: eles dizem
   "isto abre".
+- **VIDRO (teste).** A barra usa o material translúcido à la Apple: fundo a
+  ~44% de branco, `backdrop-filter: blur(36px) saturate(190%)` (a saturação é o
+  que dá a vibrância — sem ela o desfoque lava a cor e sobra um cinza leitoso),
+  fio especular na borda interna e profundidade para a direita.
+  ⚠️ **Vidro sobre cor CHAPADA não lê como vidro** — desfocar um `#f8f9fa`
+  uniforme devolve o mesmo `#f8f9fa`. Por isso o `.a4p-canvas::before` pinta,
+  ATRÁS da barra, três véus de cor a baixa opacidade: é o que o blur curva. O
+  véu é preso à largura REAL da barra por `--a4p-sidebar-w` (publicada pelo
+  componente), senão ele tinge o conteúdo. ⚠️ Os estados dos itens ficam
+  translúcidos reescrevendo os TOKENS no escopo `.a4p-sidebar`, **não** por
+  seletor de substring: `[class*="bg-surface-2"]` casa também com
+  `hover:bg-surface-2`, e o fundo passava a valer sempre — todo item ganhava
+  uma caixa permanente e o hover deixava de existir. O bloco está isolado em
+  `globals.css` entre o comentário de abertura e `fim do vidro do menu`.
 - **A borda direita ARRASTA** (`role="separator"`): largura de 200 a 420px,
   guardada em `a4p_sidebar_width` por usuário; duplo clique restaura os 240
   padrão. Arrastar até quase fechar **recolhe** em vez de espremer o rótulo até

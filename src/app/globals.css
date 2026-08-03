@@ -632,12 +632,89 @@ html.dark .a4p-canvas {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
-.a4p-sidebar {
-  background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border-right-color: #dcdcda; /* hairline do menu (Laboratório) */
+/* ============================================================
+   MENU LATERAL — VIDRO (material à la Apple).  [TESTE]
+   Bloco isolado de propósito: apagar daqui até o fim do
+   comentário "fim do vidro do menu" devolve a Sidebar sólida.
+
+   ⚠️ Vidro sobre cor CHAPADA não lê como vidro — desfocar um
+   #f8f9fa uniforme devolve o mesmo #f8f9fa. Por isso o canvas
+   ganha, ATRÁS da barra, dois véus de cor a baixíssima opacidade:
+   é o que o blur tem para curvar. Eles ficam presos à faixa da
+   esquerda e não vazam para a área de conteúdo.
+   ============================================================ */
+.a4p-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  /* Preso à largura REAL da barra (publicada pelo componente): um pixel a mais
+     e o véu aparece tingindo o conteúdo, que não é o efeito pedido. */
+  width: var(--a4p-sidebar-w, 240px);
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(300px 300px at 12% 4%, rgba(223, 255, 0, 0.55), transparent 68%),
+    radial-gradient(340px 420px at 78% 40%, rgba(130, 200, 255, 0.42), transparent 70%),
+    radial-gradient(320px 340px at 6% 96%, rgba(255, 170, 120, 0.34), transparent 70%);
 }
+html.dark .a4p-canvas::before {
+  background:
+    radial-gradient(300px 300px at 12% 4%, rgba(223, 255, 0, 0.26), transparent 68%),
+    radial-gradient(340px 420px at 78% 40%, rgba(90, 160, 255, 0.28), transparent 70%),
+    radial-gradient(320px 340px at 6% 96%, rgba(255, 140, 90, 0.20), transparent 70%);
+}
+
+.a4p-sidebar {
+  /* Menos opaco que o vidro comum do DS: aqui o fundo É o efeito. */
+  background: rgba(255, 255, 255, 0.44);
+  /* `saturate` é o que dá a VIBRÂNCIA da Apple — sem ele o desfoque
+     lava a cor e o material vira um cinza leitoso. O `brightness` de volta
+     evita que o véu escureça o texto. */
+  -webkit-backdrop-filter: blur(36px) saturate(190%) brightness(1.04);
+  backdrop-filter: blur(36px) saturate(190%) brightness(1.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.55);
+  /* Fio especular na borda interna + profundidade para a direita —
+     é o que faz a placa parecer ter espessura, e não um retângulo
+     translúcido colado no fundo. */
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.55),
+    inset 1px 0 0 rgba(255, 255, 255, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    2px 0 24px rgba(17, 25, 12, 0.06);
+}
+html.dark .a4p-sidebar {
+  background: rgba(22, 22, 24, 0.55);
+  border-right: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    2px 0 28px rgba(0, 0, 0, 0.35);
+}
+
+/* Sobre vidro, um branco chapado parece adesivo — os estados dos itens
+   passam a ser translúcidos, e a cor que aparece é a do material.
+
+   ⚠️ Feito reescrevendo os TOKENS no escopo da barra, não com um seletor
+   por substring de classe. `[class*="bg-surface-2"]` casa também com
+   `hover:bg-surface-2`, e o fundo passava a valer SEMPRE — todo item do
+   menu ganhava uma caixa permanente, e o hover deixava de existir. */
+.a4p-sidebar {
+  --color-white: rgba(255, 255, 255, 0.62);
+  --color-surface-1: rgba(255, 255, 255, 0.34);
+  --color-surface-2: rgba(255, 255, 255, 0.42);
+  --color-surface-3: rgba(255, 255, 255, 0.52);
+}
+html.dark .a4p-sidebar {
+  --color-white: rgba(255, 255, 255, 0.10);
+  --color-surface-1: rgba(255, 255, 255, 0.05);
+  --color-surface-2: rgba(255, 255, 255, 0.08);
+  --color-surface-3: rgba(255, 255, 255, 0.12);
+}
+
+/* O botão Criar continua sólido: o lime é a única cor cheia da marca
+   na barra, e translúcido ele perderia o contraste com o texto. */
+.a4p-sidebar .bg-lime { background: var(--color-lime) !important; }
+/* fim do vidro do menu */
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
   .a4p-glass,

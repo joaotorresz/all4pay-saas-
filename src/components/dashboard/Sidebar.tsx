@@ -106,6 +106,19 @@ export function Sidebar() {
 
   const col = collapsed && isDesktop;
 
+  /**
+   * Publica a largura da barra numa CSS var global.
+   *
+   * ⚠️ `backdrop-filter` só enxerga o que está ATRÁS do elemento — um véu
+   * pintado dentro da própria barra não seria desfocado por ela. O véu que dá
+   * o que refratar vive no `.a4p-canvas::before`, e precisa saber onde a barra
+   * termina para não vazar sobre o conteúdo.
+   */
+  React.useEffect(() => {
+    const px = !isDesktop ? 240 : col ? 68 : largura;
+    document.documentElement.style.setProperty("--a4p-sidebar-w", `${px}px`);
+  }, [largura, col, isDesktop]);
+
   const aplicarLargura = React.useCallback((px: number) => {
     setLargura(px);
     try { localStorage.setItem(LARGURA_KEY, String(px)); } catch { /* ignore */ }
