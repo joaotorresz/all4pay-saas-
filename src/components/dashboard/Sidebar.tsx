@@ -13,6 +13,16 @@ import { cn } from "@/lib/utils";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const STORAGE_KEY = "a4p_sidebar_collapsed";
+const LARGURA_KEY = "a4p_sidebar_width";
+
+/** Largura padrão (o token `w-sidebar`), e os limites do arrasto. */
+const LARGURA_PADRAO = 240;
+const LARGURA_MIN = 200;
+const LARGURA_MAX = 420;
+/** Abaixo disto o arrasto RECOLHE em vez de espremer o rótulo. */
+const LIMIAR_RECOLHER = 160;
+/** Arrastando o trilho recolhido para além disto, ele volta a abrir. */
+const LIMIAR_EXPANDIR = 120;
 
 /**
  * Sidebar em ACORDEÃO — o modelo do ERP.
@@ -29,6 +39,15 @@ const STORAGE_KEY = "a4p_sidebar_collapsed";
  *
  * Recolhida vira um trilho de ícones; clicar num ícone expande e já abre o
  * grupo — recolher não pode custar o acesso.
+ *
+ * **Ícone só no trilho.** Aberta, a lista é de RÓTULOS: o texto já identifica a
+ * tela, e a coluna de glifos ao lado dele vira ruído — quinze ícones empilhados
+ * competem entre si e nenhum informa. Recolhida, o ícone passa a ser a única
+ * coisa que existe, e aí ele volta.
+ *
+ * **A borda direita arrasta.** Largura entre 200 e 420px, guardada por usuário.
+ * Arrastar até quase fechar RECOLHE (em vez de espremer o rótulo até virar
+ * reticências), e arrastar o trilho recolhido para a direita o reabre.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -38,7 +57,14 @@ export function Sidebar() {
   const [isDesktop, setIsDesktop] = React.useState(true);
   const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
 
-  React.useEffect(() => { setCollapsed(localStorage.getItem(STORAGE_KEY) === "1"); }, []);
+  const [largura, setLargura] = React.useState(LARGURA_PADRAO);
+  const [arrastando, setArrastando] = React.useState(false);
+
+  React.useEffect(() => {
+    setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+    const salva = Number(localStorage.getItem(LARGURA_KEY));
+    if (Number.isFinite(salva) && salva >= LARGURA_MIN && salva <= LARGURA_MAX) setLargura(salva);
+  }, []);
 
   React.useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -80,6 +106,53 @@ export function Sidebar() {
 
   const col = collapsed && isDesktop;
 
+  const aplicarLargura = React.useCallback((px: number) => {
+    setLargura(px);
+    try { localStorage.setItem(LARGURA_KEY, String(px)); } catch { /* ignore */ }
+  }, []);
+
+  const definirRecolhida = React.useCallback((v: boolean) => {
+    setCollapsed(v);
+    try { localStorage.setItem(STORAGE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+  }, []);
+
+  /**
+   * Arrasto da borda.
+   *
+   * A largura vem do X do ponteiro — a barra começa em 0, então o X já É a
+   * largura. Os listeners ficam no `document` (não na alça) para o arrasto
+   * sobreviver quando o ponteiro sai da barra, que é o caso normal ao alargar.
+   */
+  const iniciarArrasto = React.useCallback((e: React.PointerEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    setArrastando(true);
+    const mover = (ev: PointerEvent) => {
+      const x = ev.clientX;
+      if (collapsed) {
+        if (x > LIMIAR_EXPANDIR) {
+          definirRecolhida(false);
+          aplicarLargura(Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, x)));
+        }
+        return;
+      }
+      if (x < LIMIAR_RECOLHER) { definirRecolhida(true); return; }
+      aplicarLargura(Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, x)));
+    };
+    const soltar = () => {
+      setArrastando(false);
+      document.removeEventListener("pointermove", mover);
+      document.removeEventListener("pointerup", soltar);
+      document.body.style.removeProperty("user-select");
+      document.body.style.removeProperty("cursor");
+    };
+    // Sem isto o arrasto seleciona o texto do menu inteiro no caminho.
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("pointermove", mover);
+    document.addEventListener("pointerup", soltar);
+  }, [isDesktop, collapsed, aplicarLargura, definirRecolhida]);
+
   const { pro, set: setPro } = useModo();
   const { sections: allSections, pessoal } = useNavSections();
 
@@ -115,14 +188,32 @@ export function Sidebar() {
         <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       )}
       <aside
+        style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar h-full bg-white border-r border-border flex flex-col py-4 z-50",
+          "a4p-sidebar relative h-full bg-white border-r border-border flex flex-col py-4 z-50",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:static lg:translate-x-0 lg:shrink-0 lg:transition-[width]",
-          col ? "lg:w-[68px] lg:px-2" : "lg:w-sidebar lg:px-3",
+          "lg:static lg:translate-x-0 lg:shrink-0",
+          // A transição de largura sai durante o arrasto: com ela, a barra
+          // persegue o ponteiro com atraso e o gesto parece travado.
+          arrastando ? "" : "lg:transition-[width]",
+          col ? "lg:w-[68px] lg:px-2" : "lg:px-3",
         )}
       >
+        {/* Alça de redimensionar — a borda direita inteira. */}
+        <div
+          onPointerDown={iniciarArrasto}
+          onDoubleClick={() => { definirRecolhida(false); aplicarLargura(LARGURA_PADRAO); }}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar menu (duplo clique restaura a largura padrão)"
+          title="Arraste para redimensionar · duplo clique restaura"
+          className={cn(
+            "hidden lg:block absolute inset-y-0 -right-[3px] w-[6px] z-10 cursor-col-resize",
+            "after:absolute after:inset-y-0 after:left-[2px] after:w-[2px] after:transition-colors",
+            arrastando ? "after:bg-lime" : "hover:after:bg-border",
+          )}
+        />
         {/* Marca + recolher */}
         <div className={cn("flex items-center pb-3 pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
           {!col && (
@@ -205,7 +296,7 @@ export function Sidebar() {
               title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Inteligência e Governança"}
               className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
             >
-              <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+              {col && <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />}
               {!col && (
                 <>
                   <span className={cn("text-[15px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
@@ -277,7 +368,11 @@ function Grupo({
       {destacado && (
         <span className="absolute right-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-pill bg-lime" aria-hidden />
       )}
-      <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+      {/* Ícone SÓ no trilho: aberta, o rótulo já identifica a tela e a coluna de
+          glifos ao lado dele vira ruído. */}
+      {collapsed && (
+        <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+      )}
       {!collapsed && (
         <>
           <span className={cn("text-[15px] truncate flex-1 text-left", destacado ? "text-ink font-semibold" : "text-muted font-medium")}>

@@ -32,7 +32,8 @@ export function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
         collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
       )}
     >
-      <Icon name={dark ? "sun" : "moon"} size={17} color="var(--color-text-secondary)" />
+      {/* Ícone só no trilho recolhido — mesma regra dos itens do menu. */}
+      {collapsed && <Icon name={dark ? "sun" : "moon"} size={17} color="var(--color-text-secondary)" />}
       {!collapsed && <span className="text-[17px] font-medium text-muted">{label}</span>}
     </button>
   );

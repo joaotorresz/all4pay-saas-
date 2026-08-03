@@ -272,6 +272,21 @@ grupos que abrem · rodapé com Configurações, Modo Pro, tema e conta.
   fio vertical que amarra os filhos ao pai, e os dois juntos viram ruído.
 - **Recolhida** vira trilho de ícones; clicar num ícone expande E abre o grupo —
   recolher não pode custar o acesso.
+- **Ícone SÓ no trilho.** Aberta, a lista é de RÓTULOS: o texto já identifica a
+  tela, e a coluna de glifos ao lado dele vira ruído — quinze ícones empilhados
+  competem entre si e nenhum informa. Recolhida, o ícone é a única coisa que
+  existe, e aí ele volta. Vale para os grupos, o Modo Pro e o `ThemeToggle`; o
+  **+ de Criar** e a **lupa da busca** ficam, porque são controles com
+  affordance própria, não linhas de menu. Os chevrons também ficam: eles dizem
+  "isto abre".
+- **A borda direita ARRASTA** (`role="separator"`): largura de 200 a 420px,
+  guardada em `a4p_sidebar_width` por usuário; duplo clique restaura os 240
+  padrão. Arrastar até quase fechar **recolhe** em vez de espremer o rótulo até
+  virar reticências, e arrastar o trilho recolhido para a direita o **reabre**.
+  Os listeners de `pointermove/up` ficam no `document`, não na alça — o ponteiro
+  sai da barra assim que ela alarga, e presos à alça o arrasto morreria no
+  primeiro pixel. A transição de largura é desligada durante o gesto: com ela, a
+  barra persegue o ponteiro com atraso e o arrasto parece travado.
 - **Criar** (`components/app/CriarNovo.tsx`, montado no `AppShell`, evento
   `a4p:criar`): painel de duas colunas (Cadastros · Movimentações). ⚠️ Não
   reimplementa formulário nenhum — cada item navega para a tela que já cria
