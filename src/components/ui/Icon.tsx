@@ -11,6 +11,20 @@ const STROKE_PADRAO = 1.5;
  */
 const CUSTOM_ICONS: Record<string, SolarIcon> = {
   inicio: { b: '<path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" d="M12 3.5 20.6 9.7 17.3 19.8 6.7 19.8 3.4 9.7Z"/>', w: 24, h: 24 },
+  // Sino e "mais" (⋮) da barra superior — o set gerado não traz os dois, e a
+  // barra precisa deles. Desenhados no MESMO padrão (traço 1.5, cantos
+  // arredondados, viewBox 24) para não destoarem dos vizinhos.
+  bell: {
+    b: '<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+      + '<path d="M12 4.2c-3.1 0-5.6 2.5-5.6 5.6v2.05c0 .62-.21 1.22-.6 1.7l-.83 1.03c-.62.78-.07 1.92.92 1.92h12.22c.99 0 1.54-1.14.92-1.92l-.83-1.03a2.72 2.72 0 0 1-.6-1.7V9.8c0-3.1-2.5-5.6-5.6-5.6Z"/>'
+      + '<path d="M9.6 19.1a2.55 2.55 0 0 0 4.8 0"/>'
+      + '<path d="M12 4.2V2.6"/></g>',
+    w: 24, h: 24,
+  },
+  "more-vertical": {
+    b: '<g fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></g>',
+    w: 24, h: 24,
+  },
 };
 
 /**

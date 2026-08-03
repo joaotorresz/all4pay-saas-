@@ -1,16 +1,19 @@
 "use client";
 
 /**
- * Barra superior do app.
+ * Barra superior do app — no modelo da referência.
  *
- * A marca sai da Sidebar e sobe para cá: com o menu virando um cartão
- * flutuante, o logo preso dentro dele encolhia junto e sumia quando a barra
- * recolhia. No topo ele fica fixo, e a identidade não depende do estado do
- * menu.
+ * Marca à esquerda e, à direita, TRÊS ícones limpos: configurações, sino e o
+ * "mais" (⋮). Nada mais.
  *
- * À direita ficam as ações que valem em QUALQUER tela — busca, tema,
- * configurações, anúncios e a conta. Nada aqui é específico de uma página: o
- * que é da tela mora no header dela.
+ * ⚠️ O resto das ações globais (busca, tema, perfil, sair) mora dentro do ⋮.
+ * Uma barra com sete controles disputa atenção com o conteúdo — e o conteúdo é
+ * a razão da tela existir. Aqui em cima ficam só os três destinos que se usa
+ * de qualquer lugar; o quarto clique é aceitável para o que se usa uma vez por
+ * semana.
+ *
+ * A marca subiu da Sidebar porque, presa no cartão do menu, ela encolhia junto
+ * e sumia ao recolher.
  */
 import * as React from "react";
 import Image from "next/image";
@@ -64,7 +67,7 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-3 h-[60px] px-4 lg:px-5">
+    <header className="shrink-0 flex items-center gap-2 h-[60px] px-4 lg:px-6">
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
         aria-label="Abrir menu"
@@ -80,46 +83,38 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <button
-        type="button"
-        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
-        aria-label="Buscar no sistema"
-        title="Buscar no sistema"
-        className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors"
-      >
-        <Icon name="search" size={16} color="var(--color-text-secondary)" />
-        <span className="text-[14px] text-muted">Buscar…</span>
-        <kbd className="text-[11px] font-medium text-faint tabular-nums">⌘K</kbd>
-      </button>
-
-      <AcaoTopo icone="search" rotulo="Buscar" className="sm:hidden" onClick={() => window.dispatchEvent(new Event("a4p:open-search"))} />
-      <AcaoTopo icone={dark ? "sun" : "moon"} rotulo={dark ? "Tema claro" : "Tema escuro"} onClick={toggle} />
       <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration")} />
       <AcaoTopo
-        icone="mail"
-        rotulo="Anúncios"
-        badge={naoLidos}
+        icone="bell"
+        rotulo={naoLidos > 0 ? `Anúncios (${naoLidos} não lidos)` : "Anúncios"}
+        // ⚠️ Um PONTO, não um número. O sino diz "tem coisa nova"; a contagem
+        // exata é da tela de anúncios, e um badge numérico aqui vira um número
+        // que ninguém consegue zerar sem sair do que estava fazendo.
+        ponto={naoLidos > 0}
         onClick={() => router.push("/dashboard/help?aba=anuncios")}
       />
 
       <div ref={ref} className="relative">
-        <button
+        <AcaoTopo
+          icone="more-vertical"
+          rotulo="Mais"
           onClick={() => setMenu((m) => !m)}
-          aria-label="Conta"
-          aria-expanded={menu}
-          className="inline-flex items-center gap-2 pl-1 pr-2 h-9 rounded-pill hover:bg-surface-2 transition-colors"
-        >
-          <Avatar name={nome} size={28} />
-          <span className="hidden lg:block text-label text-ink max-w-[140px] truncate">{nome}</span>
-          <Icon name="chevron-down" size={14} color="var(--color-text-tertiary)" className={cn("transition-transform", menu && "rotate-180")} />
-        </button>
+          ativo={menu}
+        />
 
         {menu && (
-          <div className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white shadow-popover overflow-hidden">
-            <div className="px-4 py-3 border-b border-border-soft">
-              <div className="text-label font-medium text-ink truncate">{nome}</div>
-              <div className="text-caption text-faint truncate">{email}</div>
+          <div className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
+            <div className="px-4 py-3 border-b border-border-soft flex items-center gap-3">
+              <Avatar name={nome} size={30} />
+              <div className="min-w-0">
+                <div className="text-label font-medium text-ink truncate">{nome}</div>
+                <div className="text-caption text-faint truncate">{email}</div>
+              </div>
             </div>
+            <ItemMenu
+              icone="search" rotulo="Buscar" atalho="⌘K"
+              onClick={() => { setMenu(false); window.dispatchEvent(new Event("a4p:open-search")); }}
+            />
             <ItemMenu icone="settings" rotulo="Meu perfil" onClick={() => { setMenu(false); router.push("/configuracoes"); }} />
             <ItemMenu icone="help-circle" rotulo="Central de ajuda" onClick={() => { setMenu(false); router.push("/dashboard/help"); }} />
             <ItemMenu icone={dark ? "sun" : "moon"} rotulo={dark ? "Tema claro" : "Tema escuro"} onClick={() => { setMenu(false); toggle(); }} />
@@ -145,28 +140,32 @@ export function TopBar() {
 }
 
 function AcaoTopo({
-  icone, rotulo, onClick, badge, className,
-}: { icone: string; rotulo: string; onClick: () => void; badge?: number; className?: string }) {
+  icone, rotulo, onClick, ponto, ativo,
+}: { icone: string; rotulo: string; onClick: () => void; ponto?: boolean; ativo?: boolean }) {
   return (
     <button
       onClick={onClick}
       aria-label={rotulo}
       title={rotulo}
-      className={cn("relative inline-flex items-center justify-center w-9 h-9 rounded-pill text-muted hover:text-ink hover:bg-surface-2 transition-colors", className)}
+      className={cn(
+        "relative inline-flex items-center justify-center w-9 h-9 rounded-pill transition-colors",
+        ativo ? "bg-surface-2 text-ink" : "text-ink/70 hover:text-ink hover:bg-surface-2",
+      )}
     >
-      <Icon name={icone} size={18} color="currentColor" />
-      {!!badge && badge > 0 && (
-        <span className="absolute top-[5px] right-[5px] min-w-[15px] h-[15px] px-1 rounded-pill bg-lime text-on-lime text-[10px] font-semibold leading-[15px] tabular-nums">
-          {badge > 9 ? "9+" : badge}
-        </span>
+      <Icon name={icone} size={19} color="currentColor" />
+      {ponto && (
+        <span
+          className="absolute top-[7px] right-[8px] w-[7px] h-[7px] rounded-pill"
+          style={{ background: "var(--color-warning)", boxShadow: "0 0 0 2px var(--color-surface-1)" }}
+        />
       )}
     </button>
   );
 }
 
 function ItemMenu({
-  icone, rotulo, onClick, perigo,
-}: { icone: string; rotulo: string; onClick: () => void; perigo?: boolean }) {
+  icone, rotulo, atalho, onClick, perigo,
+}: { icone: string; rotulo: string; atalho?: string; onClick: () => void; perigo?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -176,7 +175,8 @@ function ItemMenu({
       )}
     >
       <Icon name={icone} size={15} color="currentColor" />
-      <span className="text-label">{rotulo}</span>
+      <span className="text-label flex-1">{rotulo}</span>
+      {atalho && <kbd className="text-[11px] font-medium text-faint tabular-nums">{atalho}</kbd>}
     </button>
   );
 }

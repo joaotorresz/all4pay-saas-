@@ -256,11 +256,16 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
 App shell: `src/components/app/AppShell.tsx` — **barra superior** (`TopBar`) +
 **menu vertical em ACORDEÃO** como CARTÃO flutuante.
 
-- **`TopBar`**: marca à esquerda; à direita busca ⌘K, tema, Configurações,
-  Anúncios (com contador de não lidos) e o menu da conta (perfil · ajuda · tema
-  · sair). A marca subiu para cá porque, presa no cartão do menu, ela encolhia
-  junto e sumia ao recolher. Só entram ações que valem em QUALQUER tela — o que
-  é da página mora no header dela.
+- **`TopBar`**: marca à esquerda e, à direita, **três ícones limpos** —
+  Configurações · sino (Anúncios) · **⋮**. Nada mais. O resto das ações globais
+  (busca ⌘K, perfil, ajuda, tema, sair) mora DENTRO do ⋮: uma barra com sete
+  controles disputa atenção com o conteúdo, e o conteúdo é a razão da tela
+  existir. O sino usa um **ponto**, não um número — ele diz "tem coisa nova"; a
+  contagem exata é da tela de anúncios, e um badge numérico aqui vira um número
+  que ninguém zera sem abandonar o que estava fazendo. `bell` e `more-vertical`
+  entraram em `CUSTOM_ICONS` (o set gerado não os traz), desenhados no mesmo
+  padrão: traço 1.5, cantos arredondados, viewBox 24. A marca subiu para cá
+  porque, presa no cartão do menu, ela encolhia junto e sumia ao recolher.
 - A Sidebar virou cartão com raio e respiro; o rodapé dela mantém Configurações,
   Modo Pro e a conta. Busca e tema saíram de lá (viraram duplicata da TopBar).
 
