@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession, planoDoUsuario } from "@/lib/supabase/middleware";
 import { exigePro } from "@/core/planos";
+import { destinoDe } from "@/core/rotas/aliases";
 
 /**
  * Route guard. Only enforces auth when Supabase is configured (live);
@@ -13,10 +14,31 @@ import { exigePro } from "@/core/planos";
  * quem digitasse o endereço. Menu é apresentação; quem tranca porta é servidor.
  */
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  /*
+   * ⚠️ OS ENDEREÇOS ANTIGOS, resolvidos no SERVIDOR e antes de tudo.
+   *
+   * Eram 34 desvios feitos no cliente: a página montava vazia, um `useEffect`
+   * disparava e só então o navegador ia para o destino. Sem redirecionamento
+   * HTTP, quem compartilha o link, o histórico e qualquer pré-visualização
+   * enxergam uma página em branco — e cada acesso pisca antes de sair do lugar.
+   *
+   * Vem ANTES da autenticação de propósito: um link antigo tem de levar ao
+   * destino certo mesmo quando a pessoa ainda precisa entrar, senão ela loga e
+   * cai na Home, perdendo o endereço que tentou abrir.
+   */
+  const desvio = destinoDe(pathname);
+  if (desvio) {
+    // 308 (permanente): são links já compartilhados e em favoritos. Um 302
+    // diria ao navegador "volte a perguntar", e o endereço antigo nunca
+    // deixaria de ser tratado como o canônico.
+    return NextResponse.redirect(new URL(desvio, request.url), 308);
+  }
+
   const { response, user, configured, supabase } = await updateSession(request);
   if (!configured) return response;
 
-  const { pathname } = request.nextUrl;
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/comecar") ||
@@ -36,7 +58,7 @@ export async function middleware(request: NextRequest) {
   // O plano só é consultado quando a rota realmente exige Pro: uma RPC por
   // navegação em TODA rota custaria latência na aplicação inteira para
   // responder a uma pergunta que quase nenhuma tela faz.
-  if (user && supabase && exigePro(pathname)) {
+  if (user && supabase && exigePro(pathname, request.nextUrl.searchParams)) {
     const plano = await planoDoUsuario(supabase);
     if (plano.plano !== "pro") {
       const url = request.nextUrl.clone();

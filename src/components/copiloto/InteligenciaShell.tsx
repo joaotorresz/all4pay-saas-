@@ -7,6 +7,7 @@ import { QuantView } from "@/components/quant/QuantView";
 import { DecisaoView } from "@/components/decisao/DecisaoView";
 import { RiscoView } from "@/components/risco/RiscoView";
 import { AutonomoView } from "@/components/autonomo/AutonomoView";
+import { OndeMais, IRMAS_IA } from "@/components/app/OndeMais";
 
 /**
  * Centro de Inteligência — um cérebro, não cinco. Onda 3.2: Quant/Decisão/Risco/
@@ -15,7 +16,7 @@ import { AutonomoView } from "@/components/autonomo/AutonomoView";
  */
 type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo";
 const ABAS: { id: Aba; label: string }[] = [
-  { id: "copiloto", label: "All4Pay IA" },
+  { id: "copiloto", label: "All 4 Pay AI" },
   { id: "quant", label: "Quant" },
   { id: "decisao", label: "Decisão" },
   { id: "risco", label: "Risco" },
@@ -35,6 +36,13 @@ export function InteligenciaShell() {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* ⚠️ Havia TRÊS superfícies de IA disputando o mesmo espaço e nenhuma
+          citava as outras — não existia resposta para "onde eu falo com a IA".
+          O botão flutuante já some aqui; esta faixa diz o que cada casa faz. */}
+      <OndeMais
+        estaTela="Os motores: quantitativo, decisão, risco de caixa e operação autônoma — números e planos, não conversa."
+        irmas={IRMAS_IA.copiloto}
+      />
       <div className="flex items-center gap-1 border-b border-border-soft -mt-1">
         {ABAS.map((a) => {
           const on = aba === a.id;

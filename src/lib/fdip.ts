@@ -69,13 +69,20 @@ export function montarDataset(report: FDIPReport): { movements: Movement[]; acco
     { id: ACC_ID, name: "Conta consolidada (importada)", bank: "inter", balance: Math.round(saldo * 100) / 100 },
   ];
 
-  const parties: Party[] = report.entidades.map((e) => ({
-    id: e.id,
-    type: "pj",
-    name: e.nome,
-    is_customer: e.tipo === "cliente",
-    is_supplier: e.tipo === "fornecedor",
-  }));
+  // ⚠️ Só quem é PESSOA vira cadastro. Um CPF solto, uma descrição de cobrança
+  // ("ANUIDADE DIFERENCIADA") e um termo genérico entravam como cliente, e todo
+  // relatório por cliente nascia contaminado a partir daí. Os movimentos deles
+  // continuam existindo — o que não existe é o cadastro falso.
+  const parties: Party[] = report.entidades
+    .filter((e) => e.ehPessoa !== false)
+    .map((e) => ({
+      id: e.id,
+      type: e.documento && e.documento.length === 11 ? "pf" : "pj",
+      name: e.nome,
+      doc: e.documento ?? undefined,
+      is_customer: e.tipo === "cliente",
+      is_supplier: e.tipo === "fornecedor",
+    })) as Party[];
 
   return { movements, accounts, parties };
 }

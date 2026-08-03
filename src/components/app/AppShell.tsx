@@ -5,6 +5,7 @@ import { CommandPalette } from "@/components/app/CommandPalette";
 import { AssistantWidget } from "@/components/app/AssistantWidget";
 import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
+import { TituloDaAba } from "@/components/app/TituloDaAba";
 import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
@@ -21,12 +22,18 @@ import { CriarNovo } from "@/components/app/CriarNovo";
  */
 export function AppShell({
   title,
+  tituloAba,
   actions,
   children,
   scopeClassName = "ds-visor",
   stickyHeader = true,
 }: {
   title: React.ReactNode;
+  /**
+   * Título da ABA do navegador. Só é preciso quando `title` é um nó (a Home usa
+   * `<InicioTitle />`) — de resto ele sai do próprio `title`.
+   */
+  tituloAba?: string;
   /** Aceito por compatibilidade, mas não exibido (breadcrumb removido do header). */
   crumb?: string;
   actions?: React.ReactNode;
@@ -88,6 +95,7 @@ export function AppShell({
         </div>
       </main>
       </div>
+      <TituloDaAba titulo={tituloAba ?? (typeof title === "string" ? title : null)} />
       <RouteTracker />
       <SincronizacaoOrg />
       <DesignLabStyle />

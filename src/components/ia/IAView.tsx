@@ -115,7 +115,13 @@ export function IAView() {
               </div>
             ))
           )}
-          <span className="text-[11px] text-faint mt-auto pt-2">O histórico fica neste navegador.</span>
+          {/* ⚠️ O aviso diz o que ISSO SIGNIFICA, não só onde o dado está. "Fica neste
+              navegador" é uma descrição técnica; o que a pessoa precisa saber é
+              que a conversa não a acompanha para outra máquina. */}
+          <span className="text-[11px] text-faint mt-auto pt-2 leading-[1.4]">
+            As conversas ficam neste navegador — não acompanham você em outra máquina
+            nem aparecem para os outros usuários da empresa.
+          </span>
         </aside>
       )}
 

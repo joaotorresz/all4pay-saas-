@@ -39,6 +39,10 @@ import {
 } from "@/core/ingestao";
 import { montarInvestorUpdate } from "@/core/investor";
 import { exigePro, podeAbrir, PLANO_SIMPLES, PLANO_ABERTO } from "@/core/planos";
+import { TODOS_OS_DESVIOS, destinoDe } from "@/core/rotas/aliases";
+import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
+import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
+import { tituloDaAba, MARCA } from "@/core/marca";
 import { SECTIONS } from "@/components/dashboard/nav-data";
 import { CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA } from "@/lib/store-org";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -821,6 +825,214 @@ const AGOSTO = janelaMes(2026, 7);
   // preferência de um usuário mudar a tela do outro.
   for (const pref of ["a4p_theme", "a4p_sidebar_width", "a4p_modo"]) {
     ok(`persistência: ${pref} continua local`, PREFERENCIAS_LOCAIS.includes(pref));
+  }
+}
+
+
+/* ========================================================================== */
+/* LINHA 21 — ROTAS: aliases documentados, sem ciclo e sem porta lateral.      */
+/* ========================================================================== */
+{
+  // ⚠️ Eram 34 desvios vivos na raiz do domínio: nenhum no menu, nenhum
+  // documentado, nenhum testado, e todos feitos no cliente (página em branco +
+  // useEffect). Agora vivem num registro só, viram 308 no middleware, e esta
+  // guarda cobra o que ninguém cobrava.
+
+  // Nenhum alias aponta para outro alias — um desvio em cadeia é um salto a
+  // mais no navegador e, no pior caso, um laço.
+  const emCiclo = TODOS_OS_DESVIOS.filter((a) => destinoDe(a.para) !== null);
+  ok("rotas: nenhum alias aponta para outro alias", emCiclo.length === 0,
+     `em cadeia: ${emCiclo.map((a) => `${a.de}→${a.para}`).join(", ")}`);
+
+  // Nenhum alias aponta para si mesmo.
+  const auto = TODOS_OS_DESVIOS.filter((a) => a.de === a.para.split("?")[0]);
+  ok("rotas: nenhum alias aponta para si mesmo", auto.length === 0,
+     `${auto.map((a) => a.de).join(", ")}`);
+
+  // Origem única: dois desvios com a mesma origem tornam o destino uma questão
+  // de ordem no arquivo, que é a pior forma de decidir para onde um link vai.
+  const origens = TODOS_OS_DESVIOS.map((a) => a.de);
+  ok("rotas: cada endereço antigo aparece uma vez só",
+     new Set(origens).size === origens.length);
+
+  // ⚠️ Nenhum alias pode estar no MENU. Se estivesse, o menu levaria a um
+  // redirecionamento — um salto visível a cada clique, no caminho mais usado.
+  const doMenu = new Set(
+    SECTIONS.flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
+      .filter((h): h is string => !!h)
+      .map((h) => h.split("?")[0]),
+  );
+  const aliasNoMenu = TODOS_OS_DESVIOS.filter((a) => doMenu.has(a.de));
+  ok("rotas: nenhum alias aparece no menu", aliasNoMenu.length === 0,
+     `${aliasNoMenu.map((a) => a.de).join(", ")}`);
+
+  // Todo alias carrega o MOTIVO. Sem ele, ninguém daqui a um ano sabe se pode
+  // remover — e a lista vira um cemitério que só cresce.
+  const semMotivo = TODOS_OS_DESVIOS.filter((a) => !a.motivo || a.motivo.length < 10);
+  ok("rotas: todo desvio explica por que existe", semMotivo.length === 0,
+     `${semMotivo.map((a) => a.de).join(", ")}`);
+
+  // As rotas REMOVIDAS que ainda aparecem em rastro antigo (marcadores de tour
+  // no navegador) têm de estar cobertas: um 404 num sistema recém-comprado
+  // lê-se como produto quebrado, não como página aposentada.
+  for (const morta of ["/arquitetura", "/infraestrutura", "/orquestracao", "/dados", "/plataforma"]) {
+    ok(`rotas: ${morta} (removida) tem destino, não 404`, destinoDe(morta) !== null);
+  }
+
+  // ⚠️ PORTA LATERAL: um alias Pro não pode desembocar em rota aberta. O
+  // `/consolidado` estava em ROTAS_PRO e o alias o mandava para
+  // `/contabilidade?aba=consolidado`, que é do Simples — o redirecionamento
+  // virava a porta que o gate deveria fechar.
+  const vazamentos = TODOS_OS_DESVIOS.filter((a) => exigePro(a.de) && !exigePro(a.para));
+  ok("rotas: alias de rota Pro não desemboca em rota aberta", vazamentos.length === 0,
+     `${vazamentos.map((a) => `${a.de}→${a.para}`).join(", ")}`);
+
+  // E a aba paga dentro de hub do Simples continua trancada, sem trancar o hub.
+  ok("rotas: a aba paga do hub exige Pro", exigePro("/contabilidade?aba=consolidado"));
+  ok("rotas: o hub em si continua aberto", !exigePro("/contabilidade"));
+  ok("rotas: outra aba do mesmo hub continua aberta", !exigePro("/contabilidade?aba=razao"));
+}
+
+/* ========================================================================== */
+/* LINHA 22 — TÍTULO DA ABA: uma grafia da marca, a tela primeiro.             */
+/* ========================================================================== */
+{
+  // ⚠️ Quase todo o sistema anunciava "all4pay — Tesouraria": Clientes,
+  // Produtos, DRE, Vendas, todos iguais. Com dez abas abertas, histórico e
+  // favoritos ficam indistinguíveis — e trabalhar com várias telas ao mesmo
+  // tempo é exatamente o que se faz num fechamento.
+  ok("título: a tela vem primeiro", tituloDaAba("Clientes").startsWith("Clientes"));
+  ok("título: a marca vem depois", tituloDaAba("Clientes").endsWith(MARCA));
+  ok("título: telas diferentes, títulos diferentes",
+     tituloDaAba("Clientes") !== tituloDaAba("Produtos"));
+  ok("título: sem tela, só a marca", tituloDaAba(null) === MARCA);
+  ok("título: string vazia não vira ' · all4pay'", tituloDaAba("   ") === MARCA);
+  // Uma grafia só: `all4pay` minúsculo, como no wordmark.
+  ok("título: a grafia canônica é minúscula", MARCA === "all4pay");
+}
+
+
+/* ========================================================================== */
+/* LINHA 23 — CADASTRO IMPORTADO: nome é nome, documento é documento.         */
+/* ========================================================================== */
+{
+  // ⚠️ Os três casos que a auditoria encontrou na PRIMEIRA linha da lista de
+  // clientes. Todo relatório por cliente nasce daqui — DRE por cliente,
+  // cobrança, segmentação, score de crédito.
+
+  // 1. CNPJ colado à razão social, com o parêntese invertido.
+  const colado = sanearContraparte("ACME COMERCIO LTDA (11.222.333/0001-81");
+  ok("cadastro: separa o documento da razão social", colado.documento === "11222333000181");
+  ok("cadastro: o nome sai sem o documento", !/\d{4}/.test(colado.nome), `nome = "${colado.nome}"`);
+  ok("cadastro: o nome sai sem parêntese órfão", !/[()]/.test(colado.nome), `nome = "${colado.nome}"`);
+  ok("cadastro: e continua sendo uma pessoa jurídica", colado.ehPessoa);
+
+  // 2. O nome que é APENAS um CPF.
+  const soCpf = sanearContraparte("529.982.247-25");
+  ok("cadastro: um CPF solto NÃO vira cliente", !soCpf.ehPessoa);
+  ok("cadastro: mas o documento é aproveitado", soCpf.documento === "52998224725");
+
+  // 3. Descrição de cobrança no lugar do favorecido.
+  ok("cadastro: 'ANUIDADE DIFERENCIADA' não vira cliente",
+     !sanearContraparte("ANUIDADE DIFERENCIADA").ehPessoa);
+
+  // ⚠️ E O QUE **NÃO** PODE SER RECUSADO — recusar um cliente real dói mais
+  // que aceitar um nome feio. Um detector que grita lobo é um detector que
+  // ninguém lê (a mesma regra do detector de segredos da Central de Ajuda).
+  for (const legitimo of [
+    "Mensalidade Servicos Ltda",   // começa com palavra de cobrança E é empresa
+    "Anuidade Clube SA",
+    "Taxa Consultoria EIRELI",
+    "Transporte Ipiranga Ltda",
+    "Joao da Silva ME",
+    "Padaria do Bairro",
+  ]) {
+    ok(`cadastro: "${legitimo}" é aceito`, sanearContraparte(legitimo).ehPessoa,
+       sanearContraparte(legitimo).motivo);
+  }
+
+  // Documento INVÁLIDO não é extraído — senão a linha digitável de um boleto
+  // vira CNPJ e o nome perde um pedaço.
+  const docFalso = sanearContraparte("EMPRESA X 11.111.111/1111-11");
+  ok("cadastro: documento com DV inválido não é extraído", docFalso.documento === null);
+
+  // ⚠️ O NOME NÃO É MAIS "O ALIAS MAIS LONGO". O mais longo é justamente o que
+  // tem o documento grudado — era essa a causa raiz.
+  const escolhido = melhorNome([
+    "ACME COMERCIO LTDA (11.222.333/0001-81",
+    "ACME",
+    "ACME COMERCIO",
+  ]);
+  ok("cadastro: o alias com documento colado não é escolhido como nome",
+     !/\d/.test(escolhido.nome), `escolheu "${escolhido.nome}"`);
+  ok("cadastro: mas o documento dele é aproveitado", escolhido.documento === "11222333000181");
+
+  // DEDUPLICAÇÃO: mesmo documento, grafias diferentes = uma contraparte só.
+  const dedup = deduplicar([
+    sanearContraparte("ACME COMERCIO LTDA 11.222.333/0001-81"),
+    sanearContraparte("Acme Comercio 11222333000181"),
+    sanearContraparte("Outra Empresa Ltda"),
+  ]);
+  eq("cadastro: mesmo CNPJ vira uma contraparte só", dedup.length, 2);
+
+  // E nomes diferentes SEM documento não são fundidos por engano.
+  eq("cadastro: empresas diferentes não são fundidas",
+     deduplicar([sanearContraparte("Alpha Ltda"), sanearContraparte("Beta Ltda")]).length, 2);
+}
+
+
+/* ========================================================================== */
+/* LINHA 24 — CRIAR: toda ação tem endereço, e a forma é declarada.           */
+/* ========================================================================== */
+{
+  const todas = [...ACOES_CADASTROS, ...ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA];
+
+  // ⚠️ Eram dezesseis `<button>` com navegação por código: nenhuma abria em
+  // nova aba, nenhuma respondia a Ctrl+clique, nenhuma tinha endereço para
+  // mandar a um colega. Toda ação passa a ter rota.
+  const semRota = todas.filter((a) => !a.rota || !a.rota.startsWith("/"));
+  ok("criar: toda ação tem endereço próprio", semRota.length === 0,
+     `sem rota: ${semRota.map((a) => a.label).join(", ")}`);
+
+  // Endereços únicos: dois itens no mesmo link tornam um deles inalcançável
+  // por endereço.
+  const rotas = todas.map((a) => a.rota);
+  ok("criar: nenhum endereço repetido", new Set(rotas).size === rotas.length,
+     `repetidos: ${rotas.filter((r, i) => rotas.indexOf(r) !== i).join(", ")}`);
+
+  // ⚠️ A FORMA é declarada em cada ação. Sem regra visível, "Novo cliente"
+  // abria modal e "Nova venda" trocava de tela, e o usuário não tinha como
+  // saber se ia perder o contexto ao clicar.
+  const semForma = todas.filter((a) => a.forma !== "modal" && a.forma !== "pagina");
+  ok("criar: toda ação declara modal ou página", semForma.length === 0);
+
+  // Documento COMPOSTO (itens, totais, impostos) é sempre PÁGINA — um
+  // formulário desses num modal é um formulário que não cabe.
+  for (const composto of ["Nova venda", "Nova compra", "Novo orçamento"]) {
+    const a = todas.find((x) => x.label === composto);
+    ok(`criar: "${composto}" abre em página`, a?.forma === "pagina", `forma = ${a?.forma}`);
+  }
+  // Cadastro simples é sempre MODAL — trocar de tela para digitar três campos
+  // custa o contexto por nada.
+  for (const simples of ["Novo cliente", "Novo fornecedor", "Novo produto"]) {
+    const a = todas.find((x) => x.label === simples);
+    ok(`criar: "${simples}" abre em modal`, a?.forma === "modal", `forma = ${a?.forma}`);
+  }
+
+  // ⚠️ CRIAR EMPRESA fora das listas: cria uma organização inteira, não um
+  // registro. Na mesma lista e com o mesmo peso de "Novo produto", a
+  // proximidade convida ao acidente.
+  ok("criar: 'Nova empresa' não está entre os cadastros",
+     !ACOES_CADASTROS.some((a) => a.label === ACAO_NOVA_EMPRESA.label));
+  ok("criar: nem entre as movimentações",
+     !ACOES_MOVIMENTACOES.some((a) => a.label === ACAO_NOVA_EMPRESA.label));
+
+  // As lacunas que a auditoria nomeou.
+  for (const faltava of [
+    "Nova nota fiscal", "Novo link de pagamento",
+    "Nova assinatura / recorrência", "Novo usuário",
+  ]) {
+    ok(`criar: "${faltava}" existe no painel`, todas.some((a) => a.label === faltava));
   }
 }
 

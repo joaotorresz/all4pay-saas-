@@ -721,6 +721,68 @@ diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
   com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
   lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
 
+### ⚠️ ROTAS, TÍTULO E CRIAÇÃO (ONDA 3)
+
+- **`src/core/rotas/aliases.ts`** — os **34** endereços antigos que ainda
+  respondem, num registro só. Eram desvios feitos no CLIENTE (página em branco +
+  `useEffect`), sem 308, sem canonical, sem teste e sem ninguém saber que
+  existiam. Agora o **`middleware.ts`** os resolve com **308 antes da
+  autenticação** — um link antigo tem de levar ao destino certo mesmo quando a
+  pessoa ainda precisa entrar, senão ela loga e cai na Home. `ROTAS_REMOVIDAS`
+  cobre `/arquitetura`, `/infraestrutura`, `/orquestracao`, `/dados` e
+  `/plataforma`, que respondiam 404 e ainda apareciam em marcador de tour.
+  Guarda: sem ciclo, sem origem repetida, nenhum alias no menu, todo desvio com
+  motivo, e **nenhum alias de rota Pro desembocando em rota aberta**.
+  - ⚠️ Foi essa última que achou **dois vazamentos**: `/consolidado` e
+    `/inadimplencia` eram Pro e os aliases os mandavam para abas de hub do
+    Simples — o redirecionamento virava a porta que o gate deveria fechar.
+    `ABAS_PRO` em `core/planos` fecha por par **rota+aba** (fechar por prefixo
+    trancaria o hub inteiro). Inadimplência **saiu** do Pro: o hub Receber já a
+    entrega, e trancar o que o menu oferece é o outro lado do defeito.
+- **`src/core/marca`** — **uma grafia só**: `all4pay` minúsculo (o assistente é
+  `All 4 Pay AI`, a única exceção). O título da aba é **`<Tela> · all4pay`**,
+  com a tela PRIMEIRO: quase todo o sistema anunciava "all4pay — Tesouraria",
+  e com dez abas abertas histórico e favoritos ficam indistinguíveis. Aplicado
+  por `TituloDaAba`, montado no `AppShell` — as telas são componentes de
+  cliente e não podem exportar `metadata`, que era a causa estrutural.
+- **`src/core/criar`** — o catálogo do painel Criar. ⚠️ Toda ação tem **rota**
+  e é renderizada como **`<Link>`**: eram dezesseis `<button>` com navegação por
+  código, sem nova aba, sem Ctrl+clique, sem endereço para mandar a um colega.
+  O `onClick` só chama `preventDefault` quando NÃO há modificador.
+  - **A regra modal × página**, que não existia: **modal** para cadastro
+    simples (poucos campos), **página** para documento composto (itens, totais,
+    impostos). O critério é o tamanho do formulário, cada ação declara o seu
+    `forma`, e a tela anuncia "aqui" ou "abre a tela" ANTES do clique.
+  - ⚠️ **"Nova empresa" saiu das colunas.** Criar tenant não é criar registro:
+    é uma organização com isolamento, membros e cobrança próprios. Na mesma
+    lista e com o mesmo peso de "Novo produto", a proximidade convida ao
+    acidente. Fica no rodapé, dizendo o que é.
+- **`core/ingestao/contraparte.ts`** — nome é nome, documento é documento.
+  ⚠️ A causa raiz da lista de clientes contaminada era
+  `sort((a, b) => b.length - a.length)[0]`: o nome escolhido era o alias **mais
+  longo**, que é justamente o que traz o CNPJ grudado. `melhorNome` prefere o
+  alias que é nome de gente; `sanearContraparte` extrai o documento (só com DV
+  válido), limpa parêntese órfão e **recusa** o que não é nome — CPF solto,
+  termo genérico, descrição de cobrança ("ANUIDADE DIFERENCIADA"). Estes não
+  viram cadastro. ⚠️ E o antídoto contra o falso positivo: sufixo societário ou
+  documento válido vencem a heurística, senão "Mensalidade Serviços Ltda" —
+  empresa real — seria recusada. Recusar cliente real dói mais que aceitar nome
+  feio.
+- **`Modo Pro` é um `role="switch"`** com `aria-checked` e estado visível
+  ("on"/"off"). Vinha sem papel e sem estado: um leitor de tela anunciava
+  "Modo Pro, botão" e nada mais, então apertar não produzia retorno nenhum — e a
+  conclusão correta a tirar era que o controle não funcionava.
+- **`OndeMais`** (`components/app/`) liga telas irmãs. Assinaturas aparecia em
+  três telas e IA em três superfícies, nenhuma citando as outras. A faixa diz o
+  que ESTA responde, o que as outras respondem, e — em assinaturas — por que o
+  MRR pode divergir do Investor Update (contratos × estimativa dos lançamentos;
+  a função de cálculo é a mesma desde a ONDA 1). O FAB da IA agora some também
+  em `/copiloto`, onde já era redundante.
+- **Período da Home**: quando a janela salva **não contém hoje**, a pílula avisa
+  ("Você não está vendo o mês atual") e volta em um clique. A Home abria em
+  "Maio 2026" com o sistema em agosto, ao lado de "Essa semana" — erro de
+  rótulo, não de cálculo, mas mina a confiança em tudo que está ao lado.
+
 ### ⚠️ PERSISTÊNCIA — `src/lib/store-org` + `org_state` (0024)
 
 **Dado de negócio não pode morar só no navegador.** 74 chaves de `localStorage`

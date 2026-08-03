@@ -103,8 +103,31 @@ export function PeriodFilter() {
   const btn = (ativo: boolean) =>
     `inline-flex items-center h-9 px-[18px] rounded-pill text-[16px] transition-colors ${ativo ? "bg-white text-ink" : "bg-transparent text-muted hover:text-ink"}`;
 
+  /*
+   * ⚠️ O período fica GUARDADO entre sessões, e nada dizia quando ele era
+   * antigo: a Home abria em "Maio 2026" com a data do sistema em agosto, ao
+   * lado de uma pílula escrita "Essa semana". Não era erro de cálculo — era
+   * erro de rótulo, e mina a confiança em tudo que está do lado.
+   *
+   * Quando a janela selecionada NÃO contém hoje, a pílula avisa e oferece a
+   * volta em um clique.
+   */
+  const hojeISO = isoDay(now);
+  const olhandoPassado = period.to < hojeISO || period.from > hojeISO;
+
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative flex items-center gap-2">
+      {olhandoPassado && (
+        <button
+          onClick={() => { period.setMonth(now.getFullYear(), now.getMonth()); setOpen(false); }}
+          className="inline-flex items-center gap-1 h-9 px-3 rounded-pill text-caption font-medium transition-colors"
+          style={{ background: "var(--color-lime-tint)", color: "var(--color-ink)" }}
+          title="Voltar para o mês corrente"
+        >
+          <Icon name="triangle-alert" size={13} color="currentColor" />
+          Você não está vendo o mês atual
+        </button>
+      )}
       <div className="flex items-center gap-2">
         <button style={btnStyle} className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
         <button

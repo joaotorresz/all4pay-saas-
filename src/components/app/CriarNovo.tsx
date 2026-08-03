@@ -12,6 +12,7 @@
  */
 import * as React from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -21,40 +22,14 @@ import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm";
 import { ContratoForm } from "@/components/lancamentos/ContratoForm";
 
-type Acao = { label: string; icon: string; rota?: string; modal?: string };
-
-const CADASTROS: Acao[] = [
-  { label: "Nova empresa", icon: "building", rota: "/empresas/nova" },
-  { label: "Novo dashboard", icon: "layers", rota: "/dashboard/dashboards/custom" },
-  { label: "Nova conta bancária", icon: "credit-card", rota: "/dashboard/registrations/bank-accounts" },
-  { label: "Nova categoria", icon: "database", rota: "/dashboard/registrations/chart-of-accounts" },
-  { label: "Novo cliente", icon: "users", modal: "cliente" },
-  { label: "Novo fornecedor", icon: "building", modal: "fornecedor" },
-  { label: "Novo produto", icon: "b", modal: "produto" },
-  { label: "Novo projeto", icon: "target", rota: "/dashboard/registrations/projects" },
-  { label: "Novo centro de custo", icon: "network", rota: "/dashboard/registrations/cost-centers" },
-  { label: "Novo contrato", icon: "file-text", modal: "contrato" },
-  { label: "Novo orçamento", icon: "target", rota: "/dashboard/registrations/budgets" },
-];
-
-const MOVIMENTACOES: Acao[] = [
-  { label: "Nova conta a receber", icon: "arrow-left-right", modal: "receita" },
-  { label: "Nova conta a pagar", icon: "arrow-up-right", modal: "despesa" },
-  { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new" },
-  { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new" },
-  { label: "Nova transferência", icon: "repeat", modal: "transferencia" },
-];
-
-/** No modo Pessoa Física a criação é curta — não há venda, contrato nem NF. */
-const CADASTROS_PF: Acao[] = [
-  { label: "Nova carteira / conta", icon: "credit-card", rota: "/dashboard/registrations/bank-accounts" },
-  { label: "Nova categoria", icon: "database", rota: "/dashboard/registrations/chart-of-accounts" },
-];
-const MOVIMENTACOES_PF: Acao[] = [
-  { label: "Nova receita", icon: "arrow-left-right", modal: "receita" },
-  { label: "Nova despesa", icon: "arrow-up-right", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", modal: "transferencia" },
-];
+import {
+  ACOES_CADASTROS as CADASTROS,
+  ACOES_MOVIMENTACOES as MOVIMENTACOES,
+  ACOES_CADASTROS_PF as CADASTROS_PF,
+  ACOES_MOVIMENTACOES_PF as MOVIMENTACOES_PF,
+  ACAO_NOVA_EMPRESA as CRIAR_TENANT,
+  type Acao,
+} from "@/core/criar";
 
 export function CriarNovo() {
   const router = useRouter();
@@ -82,10 +57,21 @@ export function CriarNovo() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function escolher(a: Acao) {
+  /**
+   * Clique NORMAL num item: fecha o painel e, se a ação é de modal, abre o
+   * modal sem navegar (é o caminho mais rápido para quem já está no app).
+   *
+   * ⚠️ **Clique com modificador não passa por aqui.** Ctrl/Cmd/Shift/botão do
+   * meio são tratados pelo próprio `<a>`: o `onClick` chama `preventDefault`
+   * apenas quando NÃO há modificador. Era isto que faltava — dezesseis ações e
+   * nenhuma abria em nova aba.
+   */
+  function escolher(e: React.MouseEvent, a: Acao) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return; // deixa o <a> agir
+    e.preventDefault();
     setAberto(false);
-    if (a.rota) { router.push(a.rota); return; }
-    if (a.modal) setModal(a.modal);
+    if (a.forma === "modal" && a.modal) { setModal(a.modal); return; }
+    router.push(a.rota);
   }
 
   const cadastros = pessoal ? CADASTROS_PF : CADASTROS;
@@ -115,6 +101,26 @@ export function CriarNovo() {
               <Coluna titulo="Cadastros" acoes={cadastros} onEscolher={escolher} />
               <Coluna titulo="Movimentações" acoes={movimentacoes} onEscolher={escolher} />
             </div>
+            {!pessoal && (
+              /* ⚠️ Criar EMPRESA fica FORA das duas colunas. Criar tenant não é
+                 criar registro: é uma organização inteira, com o seu isolamento
+                 de dados, os seus membros e a sua cobrança. Na mesma lista e com
+                 o mesmo peso de "Novo produto", a proximidade convidava ao
+                 acidente — e desfazer não é apagar uma linha. */
+              <div className="border-t border-border-soft px-5 py-3 flex items-center gap-3">
+                <Link
+                  href={CRIAR_TENANT.rota}
+                  onClick={(e) => escolher(e, CRIAR_TENANT)}
+                  className="inline-flex items-center gap-2 text-caption font-medium text-muted hover:text-ink"
+                >
+                  <Icon name="building" size={14} color="currentColor" />
+                  {CRIAR_TENANT.label}
+                </Link>
+                <span className="text-[11px] text-placeholder">
+                  cria uma organização separada, com dados e cobrança próprios
+                </span>
+              </div>
+            )}
           </div>
         </div>,
         document.body,
@@ -135,21 +141,31 @@ export function CriarNovo() {
 
 function Coluna({
   titulo, acoes, onEscolher,
-}: { titulo: string; acoes: Acao[]; onEscolher: (a: Acao) => void }) {
+}: { titulo: string; acoes: Acao[]; onEscolher: (e: React.MouseEvent, a: Acao) => void }) {
   return (
     <div className="py-2">
       <span className="block px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
       {acoes.map((a) => (
-        <button
+        // ⚠️ `<Link>`, não `<button>`. Com botão não havia endereço: nem nova
+        // aba, nem Ctrl+clique, nem pré-carregamento, nem link para mandar a um
+        // colega. Para um sistema usado por várias pessoas ao mesmo tempo, isso
+        // custa produtividade todo dia.
+        <Link
           key={a.label}
-          onClick={() => onEscolher(a)}
+          href={a.rota}
+          onClick={(e) => onEscolher(e, a)}
           className="w-full flex items-center gap-3 px-5 py-[9px] text-left hover:bg-surface-2 transition-colors"
         >
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-surface-2 shrink-0">
             <Icon name={a.icon} size={15} color="var(--color-text-secondary)" />
           </span>
-          <span className="text-label text-ink truncate">{a.label}</span>
-        </button>
+          <span className="text-label text-ink truncate flex-1">{a.label}</span>
+          {/* Diz, ANTES do clique, se vai abrir aqui ou trocar de tela — é a
+              informação que faltava para saber se o contexto se perde. */}
+          <span className="text-[11px] text-placeholder shrink-0">
+            {a.forma === "modal" ? "aqui" : "abre a tela"}
+          </span>
+        </Link>
       ))}
     </div>
   );

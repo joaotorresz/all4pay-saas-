@@ -274,16 +274,39 @@ export function Sidebar() {
             aberto={aberto === config.id} onAlternar={() => alternar(config.id)}
           />
           {!pessoal && (
+            /*
+             * ⚠️ É um SWITCH, não um botão. Antes vinha sem `role`, sem
+             * `aria-checked` e sem `type`: um leitor de tela anunciava
+             * "Modo Pro, botão" e NENHUM estado. Quem depende dele apertava,
+             * nada era anunciado, e a conclusão correta a tirar era que o
+             * controle não funcionava — foi o que aconteceu na auditoria.
+             *
+             * `role="switch"` + `aria-checked` fazem o estado ser anunciado a
+             * cada mudança; o texto "Ativado/Desativado" dá o mesmo retorno a
+             * quem enxerga. `type="button"` evita submit acidental.
+             */
             <button
+              type="button"
+              role="switch"
+              aria-checked={pro}
+              aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}`}
               onClick={() => setPro(pro ? "simples" : "pro")}
               title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Inteligência e Governança"}
-              className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
+              className={cn(
+                "relative flex items-center rounded-md py-2 w-full text-left transition-colors hover:bg-surface-1",
+                col ? "justify-center px-0" : "gap-[10px] px-[10px]",
+              )}
             >
               <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
               {!col && (
                 <>
                   <span className={cn("text-[15px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
-                  <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
+                  {/* Retorno visível do estado, ao lado do interruptor: a
+                      pastilha sozinha é sutil demais para responder "mudou?". */}
+                  <span className="ml-auto text-[11px] uppercase tracking-[0.06em] text-faint">
+                    {pro ? "on" : "off"}
+                  </span>
+                  <span className={cn("w-[34px] h-[20px] rounded-pill p-[2px] shrink-0 transition-colors", pro ? "bg-lime" : "bg-surface-3")} aria-hidden>
                     <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
                   </span>
                 </>

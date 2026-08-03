@@ -43,7 +43,7 @@ export function AcoesCopiloto() {
     <Card className="lg:col-span-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
-          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a All4Pay IA pode agir
+          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a All 4 Pay AI pode agir
           <InfoHint
             titulo="Ações recomendadas"
             oQue="As decisões que a IA pode executar por você (como cobrar um cliente) ou enviar para aprovação, em vez de só apontar o problema."

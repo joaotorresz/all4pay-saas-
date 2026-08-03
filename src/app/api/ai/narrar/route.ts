@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as { contexto?: unknown; briefing?: unknown; insights?: unknown; anomalias?: unknown };
 
-  const prompt = `Você é a All4Pay IA — o CFO digital DESTA empresa. Escreva em pt-BR como um controller sênior que conhece estes números: afiado, com opinião, específico. Nunca genérico.
+  const prompt = `Você é a All 4 Pay AI — o CFO digital DESTA empresa. Escreva em pt-BR como um controller sênior que conhece estes números: afiado, com opinião, específico. Nunca genérico.
 
 REGRAS (obrigatórias):
 - TODA frase carrega um número do CONTEXTO (R$, %, dias, meses) ou uma instrução concreta.

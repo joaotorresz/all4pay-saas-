@@ -18,6 +18,7 @@ import { chartAnim } from "@/lib/chart-anim";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura, type Recorrencia } from "@/lib/recorrencias";
 import { painelAssinaturas, rotuloMesAno, type AssinaturaBase } from "@/core/paineis";
 import { Subtitulo, MesPicker, TituloCard, VazioPainel, mesCorrente, tooltipPainel } from "./shared";
+import { OndeMais, IRMAS_ASSINATURAS, NOTA_MRR } from "@/components/app/OndeMais";
 
 const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 const mesesDoCiclo = (c: Recorrencia["ciclo"]) => CICLOS.find((x) => x.id === c)?.meses ?? 1;
@@ -67,6 +68,14 @@ export function AssinaturasView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
+      {/* ⚠️ Assinaturas aparecia em TRÊS telas com três recortes e nenhuma
+          citava as outras — nem explicava a divergência de MRR contra a tela de
+          investidores. Ver `OndeMais`. */}
+      <OndeMais
+        estaTela="Quanto a base recorrente vale por mês — MRR, ARR, churn e evolução."
+        irmas={IRMAS_ASSINATURAS.painel}
+        nota={NOTA_MRR}
+      />
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <Subtitulo>MRR · ARR · Assinantes · Churn · Produtos.</Subtitulo>
         <MesPicker mes={mes} onChange={setMes} />

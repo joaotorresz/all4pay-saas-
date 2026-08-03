@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { InstitutionalView } from "@/components/institucional/InstitutionalView";
 
 export const metadata: Metadata = {
-  title: "all4pay — Governança",
+  title: "Governança · all4pay",
   description:
     "Camada institucional: trilha de auditoria imutável (hash-chain), permissões granulares (RBAC + policy engine) e fluxo de aprovação.",
 };

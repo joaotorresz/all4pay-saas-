@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { DREView } from "@/components/dre/DREView";
 
 export const metadata: Metadata = {
-  title: "all4pay — DRE",
+  title: "DRE · all4pay",
   description:
     "DRE Intelligence Center: gerencial, financeiro, por cliente, por linha, comparativo, projetado e executivo — com drill-down, filtros e leitura por IA.",
 };

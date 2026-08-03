@@ -4,6 +4,7 @@
  * descoberta de padrões → plano de setup → central de confiança.
  */
 import { limparContraparte, fingerprint } from "@/core/financial-os/gateway";
+import { melhorNome } from "@/core/ingestao/contraparte";
 import { memoriaDe } from "./learning";
 import type {
   FinancialRecord,
@@ -226,15 +227,27 @@ export function resolverEntidades(records: FinancialRecord[]): Entidade[] {
     map.set(r.contraparteNorm, cur);
   }
   return Array.from(map.entries())
-    .map(([k, v]) => ({
-      id: k,
-      nome: Array.from(v.aliases).sort((a, b) => b.length - a.length)[0],
-      aliases: Array.from(v.aliases),
-      tipo: v.entradas >= v.saidas ? ("cliente" as const) : ("fornecedor" as const),
-      total: v.total,
-      transacoes: v.n,
-      recorrente: v.n >= 3,
-    }))
+    .map(([k, v]) => {
+      // ⚠️ O nome NÃO é mais "o alias mais longo". O mais longo é justamente o
+      // que traz o CNPJ grudado na razão social — foi assim que a lista de
+      // clientes nasceu com documento colado, parênteses invertidos e um nome
+      // que era só um CPF. `melhorNome` separa documento de razão social e
+      // recusa o que não é nome de ninguém.
+      const saneado = melhorNome(Array.from(v.aliases));
+      return {
+        id: k,
+        nome: saneado.nome || Array.from(v.aliases)[0] || k,
+        documento: saneado.documento,
+        /** `false` quando o texto é descrição de cobrança ou um número solto. */
+        ehPessoa: saneado.ehPessoa,
+        motivoNaoPessoa: saneado.motivo,
+        aliases: Array.from(v.aliases),
+        tipo: v.entradas >= v.saidas ? ("cliente" as const) : ("fornecedor" as const),
+        total: v.total,
+        transacoes: v.n,
+        recorrente: v.n >= 3,
+      };
+    })
     .sort((a, b) => b.total - a.total);
 }
 

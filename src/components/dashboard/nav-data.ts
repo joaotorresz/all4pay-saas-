@@ -115,14 +115,16 @@ export const SECTIONS: Section[] = [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
       { label: "Extrato de recebimentos", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Pagar (extrato)", href: "/pagamentos", icon: "arrow-up-right" },
-      { label: "Recorrências", href: "/recorrencias", icon: "repeat" },
+      { label: "Recorrências", href: "/recebimentos?aba=recorrencias", icon: "repeat" },
+      // Inadimplência é OPERACIONAL (quem me deve), não um recurso pago. Vivia
+      // duplicada no grupo Pro, o que a tornava paga num menu e grátis no hub.
+      { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "triangle-alert" },
     ],
   },
   // ----- Profundidade — revelada no Modo Pro -----
   {
     id: "inteligencia", label: "Inteligência", icon: "gauge", pro: true, items: [
       { label: "Copiloto e motores", href: "/copiloto", icon: "gauge" },
-      { label: "Inadimplência", href: "/inadimplencia", icon: "triangle-alert" },
       { label: "Investor update", href: "/investidores", icon: "mail" },
       { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
       { label: "Impostos (fiscal)", href: "/impostos", icon: "receipt" },
@@ -133,7 +135,7 @@ export const SECTIONS: Section[] = [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
       { label: "Governança & auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
-      { label: "Consolidado", href: "/consolidado", icon: "building" },
+      { label: "Consolidado", href: "/contabilidade?aba=consolidado", icon: "building" },
     ],
   },
   { id: "comece", label: "Comece por aqui", icon: "target", href: "/comece", items: [] },
@@ -162,7 +164,7 @@ export const SECTIONS_PESSOAL: Section[] = [
       { label: "Resumo", href: "/", icon: "house" },
       { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Assinaturas / recorrentes", href: "/recorrencias", icon: "repeat" },
+      { label: "Assinaturas / recorrentes", href: "/recebimentos?aba=recorrencias", icon: "repeat" },
     ],
   },
   {

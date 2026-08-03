@@ -10,7 +10,11 @@ import "@fontsource/boldonse"; // fonte de display p/ testes no Laboratório de 
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "all4pay — Tesouraria",
+  // ⚠️ Só o FALLBACK. O título real de cada tela é aplicado pelo `AppShell`
+  // (`TituloDaAba`), porque as telas são componentes de cliente e não podem
+  // exportar `metadata`. Era isto que fazia o sistema inteiro anunciar
+  // "all4pay — Tesouraria" em toda aba.
+  title: "all4pay",
   description: "ERP + gestão financeira. Construído sobre o Design System all4pay.",
 };
 

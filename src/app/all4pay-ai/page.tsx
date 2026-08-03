@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { IAView } from "@/components/ia/IAView";
 
 export const metadata: Metadata = {
-  title: "all4pay — All 4 Pay AI",
+  title: "All 4 Pay AI · all4pay",
   description:
     "O chat da All 4 Pay AI em tela inteira: pergunte sobre seus números, com histórico de conversas, gráficos nas respostas e as fontes de cada cálculo.",
 };

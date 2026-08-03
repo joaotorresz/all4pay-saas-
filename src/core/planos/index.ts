@@ -53,9 +53,11 @@ export const PLANO_SIMPLES: EstadoPlano = {
  * — some do menu, continua abrindo.
  */
 export const ROTAS_PRO: string[] = [
-  // Grupo "Inteligência"
+  // Grupo "Inteligência".
+  // ⚠️ `/inadimplencia` NÃO entra: o hub Receber (Simples) já a entrega como
+  // aba, e trancar o que o próprio menu oferece é o outro lado do defeito —
+  // esconder do usuário funcionalidade que ele já tem.
   "/copiloto",
-  "/inadimplencia",
   "/investidores",
   "/contratacoes",
   "/impostos",
@@ -82,11 +84,36 @@ const SEMPRE_ABERTAS = [
   "/dashboard/administration/subscription",
 ];
 
-/** A rota exige plano Pro? Compara PREFIXO, ignorando query string. */
-export function exigePro(pathname: string): boolean {
-  const p = (pathname.split("?")[0] || "/").replace(/\/+$/, "") || "/";
+/**
+ * ABAS Pro dentro de rotas do Simples.
+ *
+ * ⚠️ Um hub pode ser do Simples e ter UMA aba paga. `/consolidado` estava em
+ * `ROTAS_PRO`, mas o alias o mandava para `/contabilidade?aba=consolidado` —
+ * e `/contabilidade` é do Simples. O gate barrava o endereço antigo e deixava
+ * o novo aberto: o redirecionamento virava a porta lateral que ele deveria
+ * fechar. Fechar por prefixo não serve aqui (trancaria o hub inteiro), então a
+ * trava é pelo par rota+aba.
+ */
+const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
+  { rota: "/contabilidade", param: "aba", valores: ["consolidado"] },
+];
+
+/**
+ * A rota exige plano Pro? Compara PREFIXO e, quando há aba paga dentro de um
+ * hub do Simples, o par rota+aba.
+ */
+export function exigePro(pathname: string, busca?: string | URLSearchParams): boolean {
+  const [caminho, queryDaRota] = pathname.split("?");
+  const p = (caminho || "/").replace(/\/+$/, "") || "/";
   if (SEMPRE_ABERTAS.some((r) => p === r || p.startsWith(`${r}/`))) return false;
-  return ROTAS_PRO.some((r) => p === r || p.startsWith(`${r}/`));
+  if (ROTAS_PRO.some((r) => p === r || p.startsWith(`${r}/`))) return true;
+
+  const params = new URLSearchParams(
+    busca instanceof URLSearchParams ? busca.toString() : (busca ?? queryDaRota ?? ""),
+  );
+  return ABAS_PRO.some(
+    (a) => p === a.rota && a.valores.includes(params.get(a.param) ?? ""),
+  );
 }
 
 /** A pessoa pode abrir esta rota com este plano? */

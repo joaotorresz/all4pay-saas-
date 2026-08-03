@@ -46,6 +46,16 @@ export interface Classificacao {
 export interface Entidade {
   id: string;
   nome: string;
+  /** CNPJ/CPF extraído do nome (só dígitos), quando validado. */
+  documento?: string | null;
+  /**
+   * ⚠️ `false` quando o texto não é nome de ninguém — um número de CPF solto,
+   * "ANUIDADE DIFERENCIADA", um termo genérico. Estes NÃO viram cadastro de
+   * cliente: viram descrição do lançamento. Todo relatório por cliente nasce
+   * daqui, e aceitar qualquer coisa contamina tudo o que vem depois.
+   */
+  ehPessoa?: boolean;
+  motivoNaoPessoa?: string;
   aliases: string[];
   tipo: "cliente" | "fornecedor";
   total: number;

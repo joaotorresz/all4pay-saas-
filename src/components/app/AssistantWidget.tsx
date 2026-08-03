@@ -25,7 +25,14 @@ export function AssistantWidget() {
   const abrir = React.useCallback(() => { setOpen(true); setEverOpen(true); }, []);
   // Na tela cheia da IA o FAB é redundante — e ficava por cima do campo de
   // mensagem. O painel segue disponível por evento (⌘K → "Perguntar à IA").
-  const naTelaDaIA = usePathname() === "/all4pay-ai";
+  // ⚠️ O FAB some onde a IA JÁ ESTÁ na tela. Havia TRÊS superfícies de IA
+  // disputando o mesmo espaço — o chat de `/all4pay-ai`, as abas do
+  // `/copiloto` e este botão flutuante sobreposto a quase todo conteúdo —,
+  // e nenhuma resposta para "onde eu falo com a IA". O botão é o atalho de
+  // QUALQUER OUTRA tela; dentro das duas casas da IA ele é redundante e
+  // ainda cobre o campo de mensagem.
+  const rota = usePathname();
+  const naTelaDaIA = rota === "/all4pay-ai" || rota.startsWith("/copiloto");
 
   React.useEffect(() => {
     const h = () => abrir();

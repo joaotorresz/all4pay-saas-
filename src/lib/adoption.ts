@@ -101,7 +101,7 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
       { id: "dre", titulo: "Leia o seu resultado (DRE)", desc: "Quanto sobrou, por quê e onde — do faturamento ao lucro.", feito: viu("/dre"), href: "/dre", cta: "Abrir DRE" },
       { id: "fluxo", titulo: "Projete o caixa", desc: "Entradas × saídas, saldo acumulado e quando aperta.", feito: viu("/fluxo-caixa"), href: "/fluxo-caixa", cta: "Ver fluxo de caixa" },
       { id: "cobranca", titulo: "Acompanhe a inadimplência", desc: "Quem deve, quanto, e o risco de cada cliente.", feito: temRecebivel && viu("/inadimplencia"), href: "/inadimplencia", cta: "Ver inadimplência" },
-      { id: "ia", titulo: "Pergunte à All4Pay IA", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/copiloto"), href: "/copiloto", cta: "Abrir a IA" },
+      { id: "ia", titulo: "Pergunte à All 4 Pay AI", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/copiloto"), href: "/copiloto", cta: "Abrir a IA" },
     ]),
     montarEstagio("operar", "Operar", "Automatize e cresça", [
       { id: "automacoes", titulo: "Ligue uma automação", desc: "Regras que alertam e agem sozinhas (saldo crítico, cobrança).", feito: viu("/automacoes"), href: "/automacoes", cta: "Ver automações" },
