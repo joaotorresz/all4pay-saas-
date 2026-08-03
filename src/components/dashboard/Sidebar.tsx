@@ -40,11 +40,6 @@ const LIMIAR_EXPANDIR = 120;
  * Recolhida vira um trilho de ícones; clicar num ícone expande e já abre o
  * grupo — recolher não pode custar o acesso.
  *
- * **Ícone só no trilho.** Aberta, a lista é de RÓTULOS: o texto já identifica a
- * tela, e a coluna de glifos ao lado dele vira ruído — quinze ícones empilhados
- * competem entre si e nenhum informa. Recolhida, o ícone passa a ser a única
- * coisa que existe, e aí ele volta.
- *
  * **A borda direita arrasta.** Largura entre 200 e 420px, guardada por usuário.
  * Arrastar até quase fechar RECOLHE (em vez de espremer o rótulo até virar
  * reticências), e arrastar o trilho recolhido para a direita o reabre.
@@ -296,7 +291,7 @@ export function Sidebar() {
               title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Inteligência e Governança"}
               className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", col ? "justify-center px-0" : "gap-[10px] px-[10px]")}
             >
-              {col && <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />}
+              <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
               {!col && (
                 <>
                   <span className={cn("text-[15px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
@@ -368,11 +363,7 @@ function Grupo({
       {destacado && (
         <span className="absolute right-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-pill bg-lime" aria-hidden />
       )}
-      {/* Ícone SÓ no trilho: aberta, o rótulo já identifica a tela e a coluna de
-          glifos ao lado dele vira ruído. */}
-      {collapsed && (
-        <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-      )}
+      <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
       {!collapsed && (
         <>
           <span className={cn("text-[15px] truncate flex-1 text-left", destacado ? "text-ink font-semibold" : "text-muted font-medium")}>

@@ -40,7 +40,7 @@ export type Section = {
  * é o que evita que um menu de 60 itens caia de uma vez sobre quem chegou hoje.
  */
 export const SECTIONS: Section[] = [
-  { id: "inicio", label: "Início", icon: "inicio", href: "/", items: [] },
+  { id: "inicio", label: "Início", icon: "house", href: "/", items: [] },
   { id: "ia", label: "All 4 Pay AI", icon: "sparkles", href: "/all4pay-ai", items: [] },
   {
     id: "dashboards", label: "Dashboards", icon: "layers", items: [
@@ -157,8 +157,8 @@ export const CONFIG: Section = {
 /* ----------------------------- PESSOA FÍSICA (PF) ----------------------------- */
 export const SECTIONS_PESSOAL: Section[] = [
   {
-    id: "gastos", label: "Meu dia a dia", icon: "inicio", items: [
-      { label: "Resumo", href: "/", icon: "inicio" },
+    id: "gastos", label: "Meu dia a dia", icon: "house", items: [
+      { label: "Resumo", href: "/", icon: "house" },
       { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
       { label: "Assinaturas / recorrentes", href: "/recorrencias", icon: "repeat" },
