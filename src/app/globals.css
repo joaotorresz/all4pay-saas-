@@ -632,17 +632,21 @@ html.dark .a4p-canvas {
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
 }
-.a4p-sidebar {
+/* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
+   outro faz a moldura do app parecer duas peças de sistemas diferentes. */
+.a4p-sidebar,
+.a4p-topbar {
   background: var(--glass-bg-strong);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
   backdrop-filter: blur(var(--glass-blur)) saturate(150%);
-  border-right-color: #dcdcda; /* hairline do menu (Laboratório) */
+  border-color: #dcdcda; /* hairline (Laboratório) */
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],
   .a4p-glass,
   .shadow-popover,
-  .a4p-sidebar {
+  .a4p-sidebar,
+  .a4p-topbar {
     background: var(--color-white);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

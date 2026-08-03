@@ -187,7 +187,7 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px]",
+          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border border-border-soft",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:static lg:translate-x-0 lg:shrink-0 lg:my-0 lg:ml-3 lg:mb-3 lg:h-[calc(100%-12px)]",
@@ -211,39 +211,48 @@ export function Sidebar() {
             arrastando ? "after:bg-lime" : "hover:after:bg-border",
           )}
         />
-        {/* Recolher (a marca vive na TopBar) */}
-        <div className={cn("flex items-center pb-2", col ? "justify-center" : "justify-end px-1")}>
+        {/* Criar + recolher na MESMA linha: são os dois controles do topo do
+            cartão, e empilhá-los custava uma faixa de altura para nada.
+            Recolhida, a barra tem 68px — não cabem lado a lado, então ali eles
+            voltam a empilhar. */}
+        <div className={cn("flex items-center gap-2 mb-2", col ? "flex-col" : "")}>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
+            aria-label="Criar novo registro"
+            title="Criar novo registro"
+            className={cn(
+              "flex items-center justify-center h-10 rounded-pill bg-lime text-on-lime font-semibold transition-opacity hover:opacity-90",
+              col ? "w-10 px-0 order-2" : "flex-1 gap-2 px-4",
+            )}
+          >
+            <Icon name="plus" size={16} color="var(--color-on-lime)" />
+            {!col && <span className="text-[15px]">Criar</span>}
+          </button>
+
           <button
             onClick={toggleCollapsed}
             aria-label={col ? "Expandir menu" : "Recolher menu"}
             title={col ? "Expandir menu" : "Recolher menu"}
-            className={cn("hidden lg:inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px]", col ? "" : "ml-auto")}
+            // Fundo cinza do DS: sem ele o botão só existia no hover, e um
+            // controle que aparece ao passar o mouse é um controle que metade
+            // das pessoas nunca encontra.
+            className={cn(
+              "hidden lg:inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors",
+              col ? "order-1" : "",
+            )}
           >
             <Icon name={col ? "chevron-right" : "chevron-left"} size={17} color="var(--color-text-secondary)" />
           </button>
+
           <button
             onClick={() => setMobileOpen(false)}
             aria-label="Fechar menu"
-            className="lg:hidden inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px] ml-auto"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors"
           >
             <Icon name="x" size={18} color="var(--color-text-secondary)" />
           </button>
         </div>
-
-        {/* Criar — a porta única de criação, no topo. */}
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-          aria-label="Criar novo registro"
-          title="Criar novo registro"
-          className={cn(
-            "flex items-center justify-center h-10 mb-2 rounded-pill bg-lime text-on-lime font-semibold transition-opacity hover:opacity-90",
-            col ? "w-10 mx-auto px-0" : "gap-2 px-4",
-          )}
-        >
-          <Icon name="plus" size={16} color="var(--color-on-lime)" />
-          {!col && <span className="text-[15px]">Criar</span>}
-        </button>
 
         {/* Nav — acordeão */}
         <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[2px]">

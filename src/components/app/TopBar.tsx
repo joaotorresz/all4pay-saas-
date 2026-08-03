@@ -67,7 +67,10 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    <header className="shrink-0 flex items-center gap-2 h-[60px] px-4 lg:px-6">
+    // Mesma superfície e mesmo raio do cartão do menu: as duas peças de chrome
+    // do app leem como o MESMO material, e não como duas ilhas de estilos
+    // diferentes em volta do conteúdo.
+    <header className="shrink-0 flex items-center gap-2 h-[56px] mx-3 mt-3 px-3 lg:px-4 rounded-[20px] bg-white border border-border-soft a4p-topbar">
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
         aria-label="Abrir menu"

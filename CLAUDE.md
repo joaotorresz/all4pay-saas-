@@ -268,6 +268,15 @@ App shell: `src/components/app/AppShell.tsx` — **barra superior** (`TopBar`) +
   porque, presa no cartão do menu, ela encolhia junto e sumia ao recolher.
 - A Sidebar virou cartão com raio e respiro; o rodapé dela mantém Configurações,
   Modo Pro e a conta. Busca e tema saíram de lá (viraram duplicata da TopBar).
+  **Criar e o botão de recolher dividem a MESMA linha** no topo do cartão —
+  empilhá-los custava uma faixa de altura para nada; recolhida (68px) eles
+  voltam a empilhar, porque lado a lado não cabem. O recolher tem fundo cinza
+  do DS (`surface-2`): sem ele o controle só existia no hover, e um botão que
+  aparece ao passar o mouse é um botão que metade das pessoas nunca acha.
+- **TopBar e Sidebar são o MESMO material** (`.a4p-topbar` entra na regra de
+  `.a4p-sidebar` em `globals.css`): mesma superfície, mesmo raio de 20px e o
+  mesmo hairline. Estilizar um sem o outro faz a moldura do app parecer duas
+  peças de sistemas diferentes em volta do conteúdo.
 
 Menu vertical em ACORDEÃO
 (`Sidebar`, `.a4p-sidebar`), na taxonomia do ERP: marca · **Criar** · busca ⌘K ·
