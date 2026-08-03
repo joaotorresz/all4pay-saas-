@@ -44,11 +44,11 @@ export const SECTIONS: Section[] = [
   { id: "ia", label: "All 4 Pay AI", icon: "sparkles", href: "/all4pay-ai", items: [] },
   {
     id: "dashboards", label: "Dashboards", icon: "layers", items: [
-      { label: "Financeiro", href: "/dashboard/dashboards/financial", icon: "gauge" },
-      { label: "Vendas", href: "/dashboard/dashboards/sales", icon: "shopping-cart" },
+      { label: "Painel financeiro", href: "/dashboard/dashboards/financial", icon: "gauge" },
+      { label: "Painel de vendas", href: "/dashboard/dashboards/sales", icon: "shopping-cart" },
       { label: "Assinaturas (MRR e churn)", href: "/dashboard/dashboards/subscriptions", icon: "repeat" },
-      { label: "Contas a pagar", href: "/dashboard/dashboards/payables", icon: "arrow-up-right" },
-      { label: "Contas a receber", href: "/dashboard/dashboards/receivables", icon: "arrow-left-right" },
+      { label: "Painel de contas a pagar", href: "/dashboard/dashboards/payables", icon: "arrow-up-right" },
+      { label: "Painel de contas a receber", href: "/dashboard/dashboards/receivables", icon: "arrow-left-right" },
       { label: "Calendário", href: "/dashboard/financial/calendar", icon: "calendar" },
       { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "grip-vertical" },
     ],
@@ -72,16 +72,16 @@ export const SECTIONS: Section[] = [
       { label: "DFC", href: "/dashboard/reports/dfc", icon: "trending-up" },
       { label: "DFC multiempresas", href: "/dashboard/reports/dfc-multi", icon: "building" },
       { label: "Fechamento mensal", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
-      { label: "DRE executivo", href: "/dre", icon: "gauge" },
+      { label: "DRE (versão anterior)", href: "/dre", icon: "gauge" },
     ],
   },
-  { id: "orcamento", label: "Orçamento", icon: "target", href: "/orcamento", items: [] },
+  { id: "orcamento", label: "Planejado × Realizado", icon: "target", href: "/orcamento", items: [] },
   {
     id: "movimentacoes", label: "Movimentações", icon: "building", items: [
       { label: "Títulos a receber", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
       { label: "Títulos a pagar", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
       { label: "Transferências", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
-      { label: "Conciliação", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+      { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
       { label: "Extrato", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
@@ -92,7 +92,7 @@ export const SECTIONS: Section[] = [
       { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
       { label: "Assinaturas e contratos", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
       { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
-      { label: "Impostos", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
+      { label: "Impostos sobre vendas", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
       { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
     ],
   },
@@ -105,16 +105,16 @@ export const SECTIONS: Section[] = [
   },
   {
     id: "contabil", label: "Contabilidade", icon: "receipt", items: [
-      { label: "Envio das NFs", href: "/dashboard/accounting/nfe-export", icon: "mail" },
+      { label: "Envio das NFs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
       { label: "Gerar TXT contábil", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
-      { label: "Razão e fechamento", href: "/contabilidade", icon: "layers" },
+      { label: "Contabilidade", href: "/contabilidade", icon: "layers" },
     ],
   },
   {
     id: "entrada", label: "Entrada de dados", icon: "upload", items: [
       { label: "Upload de dados", href: "/upload", icon: "upload" },
       { label: "Extrato de recebimentos", href: "/recebimentos", icon: "arrow-left-right" },
-      { label: "Pagar (extrato)", href: "/pagamentos", icon: "arrow-up-right" },
+      { label: "Extrato de pagamentos", href: "/pagamentos", icon: "arrow-up-right" },
       // Inadimplência é OPERACIONAL (quem me deve), não um recurso pago. Vivia
       // duplicada no grupo Pro, o que a tornava paga num menu e grátis no hub.
       { label: "Inadimplência", href: "/recebimentos?aba=inadimplencia", icon: "triangle-alert" },
@@ -126,33 +126,34 @@ export const SECTIONS: Section[] = [
       { label: "Copiloto e motores", href: "/copiloto", icon: "gauge" },
       { label: "Investor update", href: "/investidores", icon: "mail" },
       { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
-      { label: "Impostos (fiscal)", href: "/impostos", icon: "receipt" },
+      { label: "Impostos (projeção)", href: "/impostos", icon: "receipt" },
     ],
   },
   {
     id: "plataforma", label: "Governança", icon: "shield-check", pro: true, items: [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
-      { label: "Governança & auditoria", href: "/governanca", icon: "shield-check" },
+      { label: "Governança e auditoria", href: "/governanca", icon: "shield-check" },
       { label: "Automações", href: "/automacoes", icon: "workflow" },
       { label: "Consolidado", href: "/contabilidade?aba=consolidado", icon: "building" },
     ],
   },
   { id: "comece", label: "Comece por aqui", icon: "target", href: "/comece", items: [] },
-  { id: "ajuda", label: "Ajuda", icon: "help-circle", href: "/dashboard/help", items: [] },
+  { id: "ajuda", label: "Central de ajuda", icon: "help-circle", href: "/dashboard/help", items: [] },
 ];
 
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
     { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
+    { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
     { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },
     { label: "Gerenciar usuários", href: "/dashboard/administration/users", icon: "users" },
     { label: "Logs", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
     { label: "Integrações", href: "/dashboard/administration/integrations", icon: "link" },
     { label: "Relatórios exportados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
-    { label: "Empresa (perfil)", href: "/configuracoes", icon: "settings" },
+    { label: "Configurações da empresa", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
-    { label: "Adicionar empresa", href: "/empresas/nova", icon: "plus" },
+    { label: "Nova empresa", href: "/empresas/nova", icon: "plus" },
   ],
 };
 
@@ -161,7 +162,7 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", href: "/", icon: "house" },
-      { label: "Meus gastos", href: "/pagamentos", icon: "arrow-up-right" },
+      { label: "Extrato de pagamentos", href: "/pagamentos", icon: "arrow-up-right" },
       { label: "Minhas receitas", href: "/recebimentos", icon: "arrow-left-right" },
     ],
   },
@@ -172,8 +173,8 @@ export const SECTIONS_PESSOAL: Section[] = [
   },
   {
     id: "orcamento", label: "Orçamento & metas", icon: "target", items: [
-      { label: "Orçamento mensal", href: "/orcamento", icon: "target" },
-      { label: "Para onde foi meu dinheiro", href: "/dre", icon: "trending-up" },
+      { label: "Planejado × Realizado", href: "/orcamento", icon: "target" },
+      { label: "DRE (versão anterior)", href: "/dre", icon: "trending-up" },
       { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
     ],
   },
@@ -181,7 +182,7 @@ export const SECTIONS_PESSOAL: Section[] = [
 
 export const CONFIG_PESSOAL: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
-    { label: "Meu perfil", href: "/configuracoes", icon: "settings" },
+    { label: "Configurações da empresa", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
   ],
 };

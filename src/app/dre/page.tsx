@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { DREView } from "@/components/dre/DREView";
 
 export const metadata: Metadata = {
-  title: "DRE · all4pay",
+  title: "DRE (versão anterior) · all4pay",
   description:
     "DRE Intelligence Center: gerencial, financeiro, por cliente, por linha, comparativo, projetado e executivo — com drill-down, filtros e leitura por IA.",
 };
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function DREPage() {
   return (
     <AppShell
-      title="DRE"
+      title="DRE (versão anterior)"
       crumb="DRE Intelligence Center"
       actions={isDemo ? <DemoBadge /> : null}
     >

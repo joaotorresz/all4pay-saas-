@@ -3,7 +3,7 @@ import { MultiempresaView } from "@/components/relatorios/MultiempresaView";
 
 export default function DFCMultiPage() {
   return (
-    <AppShell title="DFC Multiempresas" crumb="Relatórios">
+    <AppShell title="DFC multiempresas" crumb="Relatórios">
       <MultiempresaView tipo="dfc" />
     </AppShell>
   );

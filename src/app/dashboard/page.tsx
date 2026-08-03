@@ -3,7 +3,7 @@ import { DashboardHome } from "@/components/dashboard-home/DashboardHome";
 
 export default function DashboardHomePage() {
   return (
-    <AppShell title="Início" crumb="Dashboard">
+    <AppShell title="Painéis" crumb="Dashboards">
       <DashboardHome />
     </AppShell>
   );

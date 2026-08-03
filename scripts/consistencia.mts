@@ -44,10 +44,13 @@ import {
   FUSOES, PRONTAS, ROTAS_A_APOSENTAR, ITENS_PENDENTES,
   prontaParaAposentar, pendencias,
 } from "@/core/rotas/consolidacao";
+import {
+  INVENTARIO, CANONICAS, APOSENTANDO, nomesDuplicados,
+} from "@/core/rotas/inventario";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
-import { SECTIONS } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG } from "@/components/dashboard/nav-data";
 import { CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA } from "@/lib/store-org";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -78,6 +81,29 @@ function chavesUsadasNoCodigo(): string[] {
   return Array.from(achadas).filter((c) => !c.endsWith("_")).sort();
 }
 
+
+
+/**
+ * As rotas que o Next REALMENTE publica: todo diretório com `page.tsx` sob
+ * `src/app`. É a lista contra a qual o inventário é conferido — declarar é
+ * fácil, o difícil é declarar tudo, e só a varredura sabe o que existe.
+ */
+function rotasPublicadas(): string[] {
+  const out: string[] = [];
+  const varrer = (dir: string) => {
+    let itens: string[];
+    try { itens = readdirSync(dir); } catch { return; }
+    if (itens.includes("page.tsx")) {
+      out.push(dir.replace(/^src\/app/, "").replace(/^$/, "/") || "/");
+    }
+    for (const nome of itens) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) varrer(caminho);
+    }
+  };
+  varrer("src/app");
+  return out.sort();
+}
 
 let fails = 0;
 const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`✗ FAIL ${n} ${x}`); } };
@@ -1096,6 +1122,101 @@ const AGOSTO = janelaMes(2026, 7);
   // O tamanho da dívida em um número — a guarda o publica para não virar
   // conhecimento tribal.
   console.log(`  · consolidação: ${PRONTAS.length}/${FUSOES.length} fusões prontas · ${ITENS_PENDENTES} itens a portar`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 26 — INVENTÁRIO DE ROTAS: nenhuma rota viva fora do registro.        */
+/* ========================================================================== */
+{
+  // ⚠️ O CRITÉRIO DE CONCLUSÃO DA ONDA 6, em código: varre `src/app` atrás dos
+  // `page.tsx` que o Next realmente publica e confronta com o inventário
+  // declarado. Rota que ninguém declarou é rota que quebra sem ninguém ver,
+  // duplica uma função sem ninguém notar, e que o suporte não sabe explicar
+  // quando alguém a manda num print.
+  const publicadas = rotasPublicadas();
+  const declaradas = new Set(INVENTARIO.map((i) => i.rota));
+
+  const naoDeclaradas = publicadas.filter((r) => !declaradas.has(r));
+  ok("inventário: nenhuma rota publicada fora do inventário", naoDeclaradas.length === 0,
+     `${naoDeclaradas.length} não declarada(s): ${naoDeclaradas.join(", ")}`);
+
+  // O inverso: entrada no inventário sem página publicada é rota fantasma —
+  // o suporte manda o cliente para um 404.
+  const fantasmas = INVENTARIO.map((i) => i.rota).filter((r) => !publicadas.includes(r));
+  ok("inventário: nenhuma entrada aponta para rota inexistente", fantasmas.length === 0,
+     `fantasmas: ${fantasmas.join(", ")}`);
+
+  // ⚠️ NOME ÚNICO por tela. Dois nomes iguais tornam duas abas abertas
+  // indistinguíveis — que é o P1-16 voltando pela porta dos fundos.
+  const dupes = nomesDuplicados();
+  ok("inventário: cada tela tem um nome único", dupes.length === 0,
+     dupes.map((d) => `"${d.nome}" em ${d.rotas.join(" e ")}`).join(" | "));
+
+  // Toda rota tem DONO. Sem dono, uma rota órfã fica anos no ar porque remover
+  // parece arriscado e ninguém sabe a quem perguntar.
+  const semDono = INVENTARIO.filter((i) => !i.dono || i.dono === "outro");
+  ok("inventário: toda rota tem módulo dono", semDono.length === 0,
+     `sem dono: ${semDono.map((i) => i.rota).join(", ")}`);
+
+  // ⚠️ `aposentando` SEM DATA é uma intenção que nunca vence.
+  const semData = APOSENTANDO.filter((i) => !i.aposentadoriaEm);
+  ok("inventário: toda rota em aposentadoria tem data-limite", semData.length === 0,
+     `${semData.map((i) => i.rota).join(", ")}`);
+
+  // E as que estão em aposentadoria são EXATAMENTE as que o mapa manda fundir —
+  // duas listas discordando é a dívida contada duas vezes com números
+  // diferentes.
+  const doMapa = new Set(ROTAS_A_APOSENTAR.map((r) => r.split("?")[0]).filter((r) => r !== ""));
+  const noInventario = new Set(APOSENTANDO.map((i) => i.rota));
+  const soNoInventario = Array.from(noInventario).filter((r) => !doMapa.has(r));
+  const soNoMapa = Array.from(doMapa).filter((r) => !noInventario.has(r) && publicadas.includes(r));
+  ok("inventário: aposentadorias coincidem com o mapa de consolidação",
+     soNoInventario.length === 0 && soNoMapa.length === 0,
+     `só no inventário: ${soNoInventario.join(", ")} | só no mapa: ${soNoMapa.join(", ")}`);
+
+  // Nenhuma rota é ao mesmo tempo alias e página publicada — o alias venceria
+  // no middleware e a página ficaria morta no repositório, sem ninguém saber.
+  const aliasComPagina = TODOS_OS_DESVIOS
+    .map((a) => a.de)
+    .filter((d) => publicadas.includes(d));
+  ok("inventário: nenhum alias tem página publicada por baixo", aliasComPagina.length === 0,
+     `${aliasComPagina.join(", ")}`);
+
+  console.log(`  · inventário: ${publicadas.length} rotas publicadas · ${CANONICAS.length} canônicas · ${APOSENTANDO.length} em aposentadoria`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 27 — NOMENCLATURA: o menu diz o mesmo que a tela.                    */
+/* ========================================================================== */
+{
+  // ⚠️ O menu dizia "Movimentações" e a tela dizia "Tesouraria"; o menu dizia
+  // "Vendas e NFs" e a aba do navegador dizia outra coisa. Clicar num nome e
+  // chegar em outro faz a pessoa duvidar de que clicou certo — e, num produto
+  // com 81 rotas, duvidar do caminho é perder o caminho.
+  const nomePorRota = new Map(INVENTARIO.map((i) => [i.rota, i.nome]));
+  const itensDoMenu = [...SECTIONS, CONFIG].flatMap((s) => [
+    ...(s.href ? [{ label: s.label, href: s.href }] : []),
+    ...s.items.filter((i) => i.href).map((i) => ({ label: i.label, href: i.href as string })),
+  ]);
+
+  // Só rotas SEM query: a aba de um hub tem nome próprio, que legitimamente
+  // não é o nome do hub.
+  const divergentes = itensDoMenu
+    .filter((it) => !it.href.includes("?"))
+    .map((it) => ({ it, nome: nomePorRota.get(it.href) }))
+    .filter((x) => x.nome && x.nome !== x.it.label);
+  ok("nomenclatura: o rótulo do menu é o nome da tela", divergentes.length === 0,
+     divergentes.map((d) => `"${d.it.label}" → "${d.nome}"`).join(" | "));
+
+  // Todo destino do menu está no inventário — item de menu apontando para rota
+  // não declarada é como uma rota nova entra sem ninguém ver.
+  const foraDoInventario = itensDoMenu
+    .map((it) => it.href.split("?")[0])
+    .filter((r) => !nomePorRota.has(r) && destinoDe(r) === null);
+  ok("nomenclatura: todo destino do menu está no inventário", foraDoInventario.length === 0,
+     `${Array.from(new Set(foraDoInventario)).join(", ")}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

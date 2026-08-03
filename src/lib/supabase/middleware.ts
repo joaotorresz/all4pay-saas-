@@ -73,3 +73,27 @@ export async function planoDoUsuario(
     return PLANO_SIMPLES;
   }
 }
+
+
+/**
+ * Conta um acesso a endereço aposentado — fire-and-forget.
+ *
+ * ⚠️ Falha em silêncio de propósito, e esta é a única exceção sancionada à
+ * regra de não engolir erro: um desvio de rota NÃO pode quebrar porque a
+ * telemetria caiu. O usuário está tentando abrir uma tela; a contagem é nossa,
+ * não dele.
+ */
+export async function registrarAcessoAlias(rota: string): Promise<void> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return;
+  try {
+    await fetch(`${url}/rest/v1/rpc/registrar_acesso_alias`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_rota: rota }),
+    });
+  } catch {
+    /* telemetria não derruba navegação */
+  }
+}

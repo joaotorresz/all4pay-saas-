@@ -3,7 +3,7 @@ import { PlanoContasView } from "@/components/registros/PlanoContasView";
 
 export default function PlanoDeContasPage() {
   return (
-    <AppShell title="Plano de Contas" crumb="Cadastros">
+    <AppShell title="Plano de contas" crumb="Cadastros">
       <PlanoContasView />
     </AppShell>
   );

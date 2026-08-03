@@ -3,7 +3,7 @@ import { DominioExportView } from "@/components/contabilidade-export/DominioExpo
 
 export default function DominioExportPage() {
   return (
-    <AppShell title="Gerar TXT contábil — Domínio" crumb="Contabilidade">
+    <AppShell title="Gerar TXT contábil" crumb="Contabilidade">
       <DominioExportView />
     </AppShell>
   );

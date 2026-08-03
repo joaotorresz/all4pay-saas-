@@ -3,7 +3,7 @@ import { NovaEmpresaForm } from "@/components/empresas/NovaEmpresaForm";
 
 export default function NovaEmpresaPage() {
   return (
-    <AppShell title="Nova Empresa" crumb="Empresas">
+    <AppShell title="Nova empresa" crumb="Empresas">
       <NovaEmpresaForm />
     </AppShell>
   );

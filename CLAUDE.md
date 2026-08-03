@@ -721,6 +721,49 @@ diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
   com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
   lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
 
+### ⚠️ ONDA 6 — UMA SÓ PORTA: o inventário de rotas
+
+**`src/core/rotas/inventario.ts`** é a fonte da verdade para o menu, o teste e o
+suporte. Toda rota viva tem entrada com **nome único**, **dono** (módulo que
+responde), **status** (`canonica` · `aposentando` · `interna`) e, quando em
+aposentadoria, **data-limite** — sem data, "vamos aposentar" é intenção que
+nunca vence.
+
+⚠️ **A guarda VARRE `src/app/**​/page.tsx`** e confronta com o declarado. Falha
+nos dois sentidos: rota publicada sem declaração (é assim que uma rota nova
+entra sem ninguém ver) e entrada sem página (o suporte manda o cliente para um
+404). Provado quebrando os dois. Também cobra: nome único por tela, dono em
+todas, data em toda aposentadoria, coincidência com o mapa de consolidação, e
+nenhum alias com página publicada por baixo.
+
+O placar sai a cada execução: `82 rotas publicadas · 76 canônicas · 6 em
+aposentadoria`.
+
+- **Nomes únicos.** A guarda achou quatro pares "duas telas, um nome" —
+  `Início` em `/` e `/dashboard`, `Orçamento` em `/orcamento` e em
+  `registrations/budgets`, `Fluxo de Caixa` em `/fluxo-caixa` e no relatório,
+  `DRE` nas duas versões. Resolvidos: **Painéis** · **Planejado × Realizado** ·
+  **Fluxo de caixa (relatório)** · **DRE (versão anterior)**. Dois nomes iguais
+  tornam duas abas abertas indistinguíveis — é o P1-16 pela porta dos fundos.
+- **Menu = tela.** Eram **33 divergências** entre o rótulo do menu e o título da
+  tela. Clicar num nome e chegar em outro faz a pessoa duvidar de que clicou
+  certo, e num produto com 82 rotas duvidar do caminho é perder o caminho.
+  Guarda: rótulo do menu == nome da tela (rotas sem query; a aba de um hub tem
+  nome próprio, legitimamente).
+- **Registro de acesso aos aliases** (migration 0025, `rota_alias_acessos` +
+  `registrar_acesso_alias`). ⚠️ "Remover o alias quando ninguém mais usar" só é
+  possível se alguém contar — sem contagem, desligar é aposta: ou se remove cedo
+  e um cliente perde o favorito, ou se mantém para sempre e a lista vira
+  cemitério. O middleware conta por `event.waitUntil` (o 308 sai na hora; a
+  contagem termina depois) e a falha é engolida de propósito — **a única exceção
+  sancionada** à regra de não engolir erro: telemetria não derruba navegação.
+  `anon` pode registrar porque o clique num link antigo costuma vir ANTES do
+  login. `uso_dos_aliases(dias)` responde quem ainda usa.
+- **`/dashboard/administration/routes`** (`InventarioRotasView`) — o inventário
+  legível por quem atende. Um inventário que só o teste lê é metade de um
+  inventário: com um print na mão, o suporte precisa responder em dez segundos
+  se a rota existe, quem responde por ela e se vai continuar existindo.
+
 ### ⚠️ MAPA DE CONSOLIDAÇÃO — `src/core/rotas/consolidacao.ts`
 
 **Fundir não é apagar.** A rota legada quase sempre faz UMA coisa melhor que a

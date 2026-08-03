@@ -1,7 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server";
 import { updateSession, planoDoUsuario } from "@/lib/supabase/middleware";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
+import { registrarAcessoAlias } from "@/lib/supabase/middleware";
 
 /**
  * Route guard. Only enforces auth when Supabase is configured (live);
@@ -13,7 +14,7 @@ import { destinoDe } from "@/core/rotas/aliases";
  * `/aprovacoes`, `/governanca` e `/automacoes` continuavam respondendo 200 para
  * quem digitasse o endereço. Menu é apresentação; quem tranca porta é servidor.
  */
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const { pathname } = request.nextUrl;
 
   /*
@@ -30,6 +31,17 @@ export async function middleware(request: NextRequest) {
    */
   const desvio = destinoDe(pathname, request.nextUrl.search);
   if (desvio) {
+    /*
+     * ⚠️ REGISTRA O ACESSO antes de desviar. "Remover o alias quando ninguém
+     * mais usar" só é possível se alguém contar — sem contagem, desligar um
+     * endereço antigo é aposta: ou se remove cedo e um cliente perde o link
+     * que estava no favorito, ou se mantém para sempre por precaução, e a
+     * lista vira um cemitério que só cresce.
+     *
+     * `event.waitUntil` de propósito: a contagem não pode atrasar o desvio.
+     * A resposta 308 sai na hora; o registro termina depois.
+     */
+    event.waitUntil(registrarAcessoAlias(pathname));
     // 308 (permanente): são links já compartilhados e em favoritos. Um 302
     // diria ao navegador "volte a perguntar", e o endereço antigo nunca
     // deixaria de ser tratado como o canônico.

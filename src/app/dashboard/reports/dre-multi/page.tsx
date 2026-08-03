@@ -3,7 +3,7 @@ import { MultiempresaView } from "@/components/relatorios/MultiempresaView";
 
 export default function DREMultiPage() {
   return (
-    <AppShell title="DRE Multiempresas" crumb="Relatórios">
+    <AppShell title="DRE multiempresas" crumb="Relatórios">
       <MultiempresaView tipo="dre" />
     </AppShell>
   );

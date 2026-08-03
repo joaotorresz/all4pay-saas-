@@ -3,7 +3,7 @@ import { VendasView } from "@/components/paineis/VendasView";
 
 export default function DashboardVendasPage() {
   return (
-    <AppShell title="Dashboard de Vendas" crumb="Dashboard">
+    <AppShell title="Painel de vendas" crumb="Dashboard">
       <VendasView />
     </AppShell>
   );

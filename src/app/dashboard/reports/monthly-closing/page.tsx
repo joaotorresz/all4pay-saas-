@@ -3,7 +3,7 @@ import { FechamentoView } from "@/components/relatorios/FechamentoView";
 
 export default function FechamentoMensalPage() {
   return (
-    <AppShell title="Fechamento Mensal" crumb="Relatórios">
+    <AppShell title="Fechamento mensal" crumb="Relatórios">
       <FechamentoView />
     </AppShell>
   );

@@ -3,7 +3,7 @@ import { DashboardsCustomView } from "@/components/dashboards-custom/DashboardsC
 
 export default function DashboardsCustomPage() {
   return (
-    <AppShell title="Dashboards customizados" crumb="Dashboard">
+    <AppShell title="Meus dashboards" crumb="Dashboard">
       <DashboardsCustomView />
     </AppShell>
   );

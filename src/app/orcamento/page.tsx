@@ -6,7 +6,7 @@ import { OrcamentoShell } from "@/components/orcamento/OrcamentoShell";
 
 export default function OrcamentoPage() {
   return (
-    <AppShell title="Orçamento" crumb="Caixa & Resultado" actions={isDemo ? <DemoBadge /> : null}>
+    <AppShell title="Planejado × Realizado" crumb="Orçamento" actions={isDemo ? <DemoBadge /> : null}>
       <Suspense fallback={null}>
         <OrcamentoShell />
       </Suspense>

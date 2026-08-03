@@ -3,7 +3,7 @@ import { FluxoCaixaMensalView } from "@/components/movimentacoes/CaixaViews";
 
 export default function FluxoDeCaixaMensalPage() {
   return (
-    <AppShell title="Fluxo de Caixa" crumb="Relatórios">
+    <AppShell title="Fluxo de caixa (relatório)" crumb="Relatórios">
       <FluxoCaixaMensalView />
     </AppShell>
   );

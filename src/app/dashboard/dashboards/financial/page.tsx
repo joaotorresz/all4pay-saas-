@@ -3,7 +3,7 @@ import { FinanceiroView } from "@/components/paineis/FinanceiroView";
 
 export default function DashboardFinanceiroPage() {
   return (
-    <AppShell title="Dashboard Financeiro" crumb="Dashboard">
+    <AppShell title="Painel financeiro" crumb="Dashboard">
       <FinanceiroView />
     </AppShell>
   );

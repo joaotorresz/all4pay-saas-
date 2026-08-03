@@ -16,7 +16,7 @@ const ABAS: AbaHub[] = [
 
 export default function PagarPage() {
   return (
-    <AppShell title="Pagar" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell title="Extrato de pagamentos" actions={isDemo ? <DemoBadge /> : undefined}>
       <Suspense fallback={null}><HubShell abas={ABAS} /></Suspense>
     </AppShell>
   );
