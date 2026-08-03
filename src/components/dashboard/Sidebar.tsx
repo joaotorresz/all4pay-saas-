@@ -1,11 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
-import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
 import { leafAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
@@ -25,7 +23,11 @@ const LIMIAR_RECOLHER = 160;
 const LIMIAR_EXPANDIR = 120;
 
 /**
- * Sidebar em ACORDEÃO — o modelo do ERP.
+ * Sidebar em ACORDEÃO — CARTÃO flutuante, no modelo da referência.
+ *
+ * A barra não encosta mais nas bordas: é um cartão com raio e respiro, sobre o
+ * canvas. A marca subiu para a `TopBar` — presa aqui dentro, ela encolhia junto
+ * com o cartão e sumia ao recolher.
  *
  * Cada grupo é uma linha com ícone, rótulo e chevron; abrir revela as telas
  * dele, indentadas sob um fio vertical. Grupos sem filhos (Início, Orçamento,
@@ -185,10 +187,10 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "a4p-sidebar relative h-full bg-white border-r border-border flex flex-col py-4 z-50",
+          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px]",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:static lg:translate-x-0 lg:shrink-0",
+          "lg:static lg:translate-x-0 lg:shrink-0 lg:my-0 lg:ml-3 lg:mb-3 lg:h-[calc(100%-12px)]",
           // A transição de largura sai durante o arrasto: com ela, a barra
           // persegue o ponteiro com atraso e o gesto parece travado.
           arrastando ? "" : "lg:transition-[width]",
@@ -209,14 +211,8 @@ export function Sidebar() {
             arrastando ? "after:bg-lime" : "hover:after:bg-border",
           )}
         />
-        {/* Marca + recolher */}
-        <div className={cn("flex items-center pb-3 pt-1", col ? "justify-center" : "gap-[9px] px-2")}>
-          {!col && (
-            <>
-              <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-              <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
-            </>
-          )}
+        {/* Recolher (a marca vive na TopBar) */}
+        <div className={cn("flex items-center pb-2", col ? "justify-center" : "justify-end px-1")}>
           <button
             onClick={toggleCollapsed}
             aria-label={col ? "Expandir menu" : "Recolher menu"}
@@ -249,26 +245,6 @@ export function Sidebar() {
           {!col && <span className="text-[15px]">Criar</span>}
         </button>
 
-        {/* Busca — a MESMA command palette do ⌘K. */}
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
-          aria-label="Buscar no sistema"
-          title="Buscar no sistema"
-          className={cn(
-            "flex items-center h-9 mb-2 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors",
-            col ? "justify-center w-9 mx-auto px-0" : "gap-2 px-3",
-          )}
-        >
-          <Icon name="search" size={16} color="var(--color-text-secondary)" />
-          {!col && (
-            <>
-              <span className="text-[14px] text-muted truncate">Buscar…</span>
-              <kbd className="ml-auto text-[11px] font-medium text-faint tabular-nums">⌘K</kbd>
-            </>
-          )}
-        </button>
-
         {/* Nav — acordeão */}
         <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[2px]">
           {principais.map((s) => (
@@ -279,7 +255,8 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* Rodapé: Configurações · Modo Pro · tema · usuário · Sair */}
+        {/* Rodapé do cartão: Configurações · Modo Pro · conta (a referência
+            mantém o usuário DENTRO do menu; busca, tema e sair subiram). */}
         <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
           <Grupo
             secao={config} pathname={pathname} collapsed={col}
@@ -302,7 +279,6 @@ export function Sidebar() {
               )}
             </button>
           )}
-          <ThemeToggle collapsed={col} />
           <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
             <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
             {!col && (

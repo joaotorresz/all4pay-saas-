@@ -1,16 +1,18 @@
 "use client";
 
 /**
- * Filtro de período da Home (header) — três "box": Essa semana · Mês atual ·
- * Personalizado. No Personalizado, escolhe-se a DURAÇÃO (1/2/3/6/12 meses) e UM
- * único mês de referência: para 1 mês é o "Mês de consulta"; para N meses é o
- * mês final (a janela são os N meses terminando nele). O seletor de mês é um
- * dropdown no DS do sistema (não o <select> nativo). Aplica no PeriodContext.
+ * Filtro de período da Home (header) — duas pílulas: "Essa semana" e o MÊS
+ * selecionado. A segunda abre o painel, onde se escolhe a janela.
+ *
+ * A janela tem duas leituras da MESMA coisa: a duração (1/2/3/6/12 meses) e o
+ * par início–fim. Elas ficam em sincronia — mexer numa reescreve a outra —
+ * porque duas leituras que divergem fazem a tela mostrar um período e o
+ * relatório calcular outro.
  */
 import * as React from "react";
 import { Icon } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
-import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
+import { usePeriod, MES_ABBR } from "./PeriodContext";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const firstDay = (y: number, m: number) => `${y}-${pad(m + 1)}-01`;
@@ -19,6 +21,11 @@ const lastDay = (y: number, m: number) => { const d = new Date(y, m + 1, 0); ret
 type YM = { y: number; m: number };
 const encode = (v: YM) => `${v.y}.${v.m}`;
 const mesLabel = (v: YM) => `${MES_ABBR[v.m]}/${String(v.y).slice(2)}`;
+/** Índice absoluto de mês — deixa comparar e somar meses sem `Date`. */
+const idx = (v: YM) => v.y * 12 + v.m;
+const deIdx = (n: number): YM => ({ y: Math.floor(n / 12), m: n % 12 });
+/** Quantos meses a janela cobre, contando as duas pontas. */
+const duracaoEntre = (a: YM, b: YM) => idx(b) - idx(a) + 1;
 
 function weekRange() {
   const h = new Date(); h.setHours(0, 0, 0, 0);
@@ -38,13 +45,12 @@ export function PeriodFilter() {
   const wk = weekRange();
   const isWeek = period.modo === "range" && period.from === wk.from && period.to === wk.to;
   const isMonth = period.modo === "mes" && period.ano === now.getFullYear() && period.mes === now.getMonth();
-  // Janela de N meses (não é a semana nem um mês cheio) — o botão do mês
-  // segue marcado, já que é o único controle que resta além de "Essa semana".
   const isCustom = !isWeek && !isMonth;
 
-  // Personalizado: duração + mês de referência (único).
-  const [dur, setDur] = React.useState(1);
-  const [mesRef, setMesRef] = React.useState<YM>({ y: now.getFullYear(), m: now.getMonth() });
+  const atual: YM = { y: now.getFullYear(), m: now.getMonth() };
+  const [inicio, setInicio] = React.useState<YM>(atual);
+  const [fim, setFim] = React.useState<YM>(atual);
+  const dur = Math.max(1, duracaoEntre(inicio, fim));
 
   React.useEffect(() => {
     if (!open) return;
@@ -53,26 +59,42 @@ export function PeriodFilter() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  // opções de mês: 12 à FRENTE (projeção) + atual + 24 atrás. Futuro → passado.
+  /**
+   * As opções vão do mês CORRENTE para trás, 36 meses.
+   *
+   * ⚠️ Sem mês futuro. O painel oferecia doze meses à frente e a lista abria em
+   * "ago/27" — um mês que ainda não aconteceu, e cuja consulta só pode devolver
+   * vazio. Projeção é outra tela (fluxo de caixa); aqui se consulta o que já é.
+   */
   const opts: YM[] = [];
-  for (let i = 12; i >= -23; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    opts.push({ y: d.getFullYear(), m: d.getMonth() });
+  for (let i = 0; i >= -35; i--) opts.push(deIdx(idx(atual) + i));
+
+  /** Aplica a janela no contexto — 1 mês entra como MÊS, o resto como range. */
+  const aplicar = React.useCallback((a: YM, b: YM) => {
+    if (encode(a) === encode(b)) { period.setMonth(b.y, b.m); return; }
+    period.setRange(firstDay(a.y, a.m), lastDay(b.y, b.m));
+  }, [period]);
+
+  /** Pílula de duração: mantém o FIM e recua o início — é a leitura natural. */
+  function escolherDuracao(n: number) {
+    const novoInicio = deIdx(idx(fim) - (n - 1));
+    setInicio(novoInicio);
+    aplicar(novoInicio, fim);
   }
 
-  // Aplica a janela: N meses TERMINANDO no mês de referência.
-  const aplicar = (n: number, end: YM) => {
-    // 1 mês entra como MÊS (modo "mes"), não como range: assim o rótulo vira
-    // "Julho 2026" e o botão do mês aparece selecionado.
-    if (n === 1) { period.setMonth(end.y, end.m); return; }
-    const sd = new Date(end.y, end.m - (n - 1), 1);
-    period.setRange(firstDay(sd.getFullYear(), sd.getMonth()), lastDay(end.y, end.m));
-  };
+  function mudarInicio(v: YM) {
+    // Início depois do fim inverteria a janela; empurra o fim junto.
+    const novoFim = idx(v) > idx(fim) ? v : fim;
+    setInicio(v); setFim(novoFim);
+    aplicar(v, novoFim);
+  }
 
-  // FLAT: ativo = chip neutro sutil (surface-2, texto ink) · inativo = só texto.
-  // Nada de pill preto sólido — "nada parece botão".
-  // Pílulas de período (Laboratório): Roobert Variable 16/400, tracking
-  // −0.02em, raio pill, padding 18 e o ATIVO em branco sólido.
+  function mudarFim(v: YM) {
+    const novoInicio = idx(v) < idx(inicio) ? v : inicio;
+    setFim(v); setInicio(novoInicio);
+    aplicar(novoInicio, v);
+  }
+
   const btnStyle: React.CSSProperties = {
     fontFamily: '"Roobert Variable", "Roobert", sans-serif',
     fontWeight: 400,
@@ -85,29 +107,34 @@ export function PeriodFilter() {
     <div ref={ref} className="relative">
       <div className="flex items-center gap-2">
         <button style={btnStyle} className={btn(isWeek)} onClick={() => { period.setRange(wk.from, wk.to); setOpen(false); }}>Essa semana</button>
-        {/* Mostra o MÊS SELECIONADO (não o rótulo fixo "Mês atual") e abre o
-            MESMO painel do Personalizado — é por ele que se troca de mês. */}
-        <button style={btnStyle} className={btn(isMonth || isCustom || open)} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-          {MESES[period.mes]} {period.ano}
+        <button
+          style={btnStyle}
+          className={`${btn(isMonth || isCustom || open)} gap-2`}
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+        >
+          <span>{period.label}</span>
+          {/* ⚠️ A seta fica SEMPRE, inclusive com a pílula selecionada. Ela é o
+              que diz que o botão abre algo — some, e o mês vira um rótulo que
+              ninguém tenta clicar. */}
+          <Icon
+            name="chevron-down"
+            size={15}
+            color="currentColor"
+            className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          />
         </button>
       </div>
 
       {open && (
-        <div className="absolute right-0 mt-2 z-50 w-[300px] bg-white rounded-card p-4 flex flex-col gap-3">
-          {/* Ordem invertida (pedido): escolhe-se o MÊS primeiro; a duração é o
-              refinamento de quantos meses terminam nele. */}
-          <div className="flex flex-col gap-1">
-            <span className="text-caption font-medium text-muted">{dur === 1 ? "Mês de consulta" : "Mês de referência (fim)"}</span>
-            <MonthDropdown value={mesRef} options={opts} onChange={(ym) => { setMesRef(ym); aplicar(dur, ym); }} />
-          </div>
-
-          <div className="flex flex-col gap-2 pt-1">
+        <div className="absolute right-0 mt-2 z-50 w-[320px] bg-white rounded-card p-4 flex flex-col gap-3 border border-border-soft">
+          <div className="flex flex-col gap-2">
             <span className="text-caption text-faint">Duração</span>
             <div className="flex flex-wrap gap-2">
               {DURACOES.map((n) => (
                 <button
                   key={n}
-                  onClick={() => { setDur(n); aplicar(n, mesRef); }}
+                  onClick={() => escolherDuracao(n)}
                   className={`text-caption font-medium rounded-pill px-3 py-[6px] transition-colors ${dur === n ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}
                 >
                   {n} {n === 1 ? "mês" : "meses"}
@@ -115,6 +142,27 @@ export function PeriodFilter() {
               ))}
             </div>
           </div>
+
+          {dur === 1 ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-caption font-medium text-muted">Mês de consulta</span>
+              <MonthDropdown value={fim} options={opts} onChange={(ym) => { setInicio(ym); setFim(ym); aplicar(ym, ym); }} />
+            </div>
+          ) : (
+            // Janela de mais de um mês: os DOIS extremos ficam visíveis e
+            // editáveis. Só o mês final deixava o começo da janela implícito —
+            // quem precisa de "março a agosto" tinha de contar meses de cabeça.
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-caption font-medium text-muted">Mês inicial</span>
+                <MonthDropdown value={inicio} options={opts} onChange={mudarInicio} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-caption font-medium text-muted">Mês final</span>
+                <MonthDropdown value={fim} options={opts} onChange={mudarFim} />
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-1">
             <span className="text-caption text-faint">{period.label}</span>
@@ -126,7 +174,7 @@ export function PeriodFilter() {
   );
 }
 
-/** Dropdown de mês no DS do sistema (substitui o <select> nativo genérico). */
+/** Dropdown de mês no DS do sistema (substitui o `<select>` nativo genérico). */
 function MonthDropdown({ value, options, onChange }: { value: YM; options: YM[]; onChange: (v: YM) => void }) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
@@ -144,11 +192,11 @@ function MonthDropdown({ value, options, onChange }: { value: YM; options: YM[];
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 h-10 px-3 rounded-pill bg-surface-2 text-[15px] text-ink hover:bg-surface-3 transition-colors"
       >
-        <span className="capitalize">{mesLabel(value)}</span>
-        <Icon name="chevron-down" size={15} color="var(--color-text-secondary)" />
+        <span className="capitalize truncate">{mesLabel(value)}</span>
+        <Icon name="chevron-down" size={15} color="var(--color-text-secondary)" className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-card py-1">
+        <div className="absolute left-0 right-0 mt-1 z-50 max-h-[224px] overflow-y-auto bg-white rounded-card py-1 border border-border-soft">
           {options.map((o) => {
             const on = encode(o) === encode(value);
             return (

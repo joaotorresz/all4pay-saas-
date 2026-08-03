@@ -253,7 +253,18 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
   `Icon`, sobrepondo o set gerado. As **chaves** (`house`, `trending-up`, …)
   são estáveis: trocar de set é reescrever o mapa no gerador, não o app.
 
-App shell: `src/components/app/AppShell.tsx` — **menu vertical em ACORDEÃO**
+App shell: `src/components/app/AppShell.tsx` — **barra superior** (`TopBar`) +
+**menu vertical em ACORDEÃO** como CARTÃO flutuante.
+
+- **`TopBar`**: marca à esquerda; à direita busca ⌘K, tema, Configurações,
+  Anúncios (com contador de não lidos) e o menu da conta (perfil · ajuda · tema
+  · sair). A marca subiu para cá porque, presa no cartão do menu, ela encolhia
+  junto e sumia ao recolher. Só entram ações que valem em QUALQUER tela — o que
+  é da página mora no header dela.
+- A Sidebar virou cartão com raio e respiro; o rodapé dela mantém Configurações,
+  Modo Pro e a conta. Busca e tema saíram de lá (viraram duplicata da TopBar).
+
+Menu vertical em ACORDEÃO
 (`Sidebar`, `.a4p-sidebar`), na taxonomia do ERP: marca · **Criar** · busca ⌘K ·
 grupos que abrem · rodapé com Configurações, Modo Pro, tema e conta.
 

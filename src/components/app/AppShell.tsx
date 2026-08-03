@@ -9,6 +9,7 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { MobileNavButton } from "@/components/app/MobileNavButton";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { TopBar } from "@/components/app/TopBar";
 import { CriarNovo } from "@/components/app/CriarNovo";
 
 /**
@@ -73,7 +74,9 @@ export function AppShell({
     </header>
   );
   const chrome = (
-    <div className="a4p-canvas fixed inset-0 flex bg-surface-1 overflow-hidden">
+    <div className="a4p-canvas fixed inset-0 flex flex-col bg-surface-1 overflow-hidden">
+      <TopBar />
+      <div className="flex-1 flex min-h-0">
       <Sidebar />
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         {stickyHeader && header}
@@ -83,6 +86,7 @@ export function AppShell({
           {children}
         </div>
       </main>
+      </div>
       <RouteTracker />
       <DesignLabStyle />
       <DesignLab />
