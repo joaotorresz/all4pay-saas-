@@ -41,10 +41,27 @@ export function AppShell({
         <div className="min-w-0">
           {/* Título da página (Laboratório): Roobert Variable 29/500, tracking
               −0.02em, entrelinha 110%, sem caixa-alta. Vale para TODAS as telas —
-              é o mesmo componente; o Lab só conseguia selecionar o da Home. */}
+              é o mesmo componente; o Lab só conseguia selecionar o da Home.
+
+              ⚠️ `truncate` traz `overflow: hidden`, e com entrelinha de 110% a
+              caixa de linha fica MENOR que a altura real dos glifos: as
+              ascendentes e os acentos eram cortados no topo ("Bem-vindo, João!"
+              aparecia decapitado). O respiro vertical devolve a altura à caixa
+              e a margem negativa desfaz o deslocamento, então a entrelinha
+              documentada e o ritmo do cabeçalho continuam os mesmos. Fica no
+              `style` porque precisa sobreviver a qualquer fonte que o
+              Laboratório injete — inclusive uma mais alta que a Roobert. */}
           <h1
             className="m-0 text-[29px] text-ink truncate"
-            style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 500, letterSpacing: "-0.02em", lineHeight: 1.1, textTransform: "none" }}
+            style={{
+              fontFamily: '"Roobert Variable", "Roobert", sans-serif',
+              fontWeight: 500,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.1,
+              textTransform: "none",
+              paddingBlock: "0.2em",
+              marginBlock: "-0.2em",
+            }}
           >
             {title}
           </h1>
