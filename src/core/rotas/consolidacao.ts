@@ -201,13 +201,19 @@ export const FUSOES: Fusao[] = [
         o_que: "A PROJEÇÃO da carga tributária para os próximos meses, a partir da receita.",
         custo_de_perder:
           "A canônica olha para trás (o que foi vendido); a projeção olha para frente, e é ela que responde 'quanto vou pagar de imposto no trimestre'.",
-        feito: false,
+        // Feito: `ProjecaoCarga` no topo da tela canônica, projetando sobre a
+        // RECEITA TRIBUTÁVEL canônica (que já exclui transferência, resgate e
+        // empréstimo — projetar sobre "todas as entradas" inflaria o imposto).
+        feito: true,
       },
       {
         o_que: "O regime tributário como CONFIGURAÇÃO da empresa, não como constante de arquivo.",
         custo_de_perder:
           "Os dois módulos assumem regimes conflitantes entre si (`/impostos` crava Lucro Presumido; `core/tax` calcula Simples Nacional). Escolher um sem tornar o regime configurável só troca de erro.",
-        feito: false,
+        // Feito: `core/tax/regime.ts` — o perfil sai do `RegimeTributario` da
+        // empresa. Simples e MEI declaram que NÃO têm tabela fixa (faixa e
+        // valor fixo), em vez de fingir um percentual que não existe.
+        feito: true,
       },
     ],
   },
@@ -225,13 +231,19 @@ export const FUSOES: Fusao[] = [
         o_que: "As quatro abas (Quant, Decisão, Risco, Autônomo) como painéis dentro do assistente.",
         custo_de_perder:
           "São os motores proprietários inteiros. Aposentar `/copiloto` sem trazê-los apaga a parte do produto que mais difere de uma planilha.",
-        feito: false,
+        // Feito: `AssistenteShell` — Conversa + Quant + Decisão + Risco +
+        // Autônomo, só a aba ativa montando (os motores são caros).
+        feito: true,
       },
       {
         o_que: "Histórico de conversa POR USUÁRIO e POR EMPRESA, no servidor.",
         custo_de_perder:
           "Hoje o histórico é do DISPOSITIVO (`a4p_ia_conversas` no navegador): a conversa não acompanha a pessoa e não é vista por mais ninguém da empresa. Ver `store-org` — a chave já está classificada como dado de negócio.",
-        feito: false,
+        // Feito: `lib/ia-conversas` grava por `store-org` num mapa
+        // `usuário → conversas`. A ORG vem da RLS de `org_state`; o USUÁRIO vem
+        // da chave dentro do valor — acompanha a pessoa entre máquinas e não
+        // vaza para os colegas, as duas coisas ao mesmo tempo.
+        feito: true,
       },
       {
         o_que: "O botão flutuante fora das telas onde cobre conteúdo.",

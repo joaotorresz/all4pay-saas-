@@ -3,15 +3,24 @@
 /**
  * Histórico de conversas da All 4 Pay AI.
  *
- * Store local (`localStorage`), demo-safe e síncrono — a conversa precisa
- * aparecer na lista no instante em que a primeira resposta chega, sem esperar
- * rede. Não há PII além do que o próprio usuário digitou, e nada sai do
- * navegador. Sincronizar por organização é evolução futura (a tabela seria
- * espelho deste formato).
+ * ⚠️ **Por USUÁRIO e por EMPRESA, no servidor** (mapa de consolidação, item 6).
+ * O histórico vivia só no `localStorage`: a conversa era do DISPOSITIVO, não da
+ * pessoa. Trocar de máquina perdia tudo, e ninguém mais da empresa via nada —
+ * "nem a conversa é do usuário, é do dispositivo".
+ *
+ * Agora grava por `store-org` (tabela `org_state`, RLS por organização) num
+ * mapa `usuário → conversas`. A organização vem da RLS; o usuário vem da chave
+ * dentro do valor. Assim a conversa acompanha a pessoa entre máquinas e NÃO
+ * vaza para os colegas — as duas coisas ao mesmo tempo.
+ *
+ * A API continua SÍNCRONA de propósito: a conversa precisa aparecer na lista no
+ * instante em que a primeira resposta chega, sem esperar rede. `store-org` faz
+ * o cache local e sincroniza em segundo plano.
  */
 import type { Turno } from "@/components/ia/chat-kit";
+import { ler as lerOrg, gravar as gravarOrg, CHAVES_ORG } from "@/lib/store-org";
 
-const KEY = "a4p_ia_conversas";
+const KEY = CHAVES_ORG.iaConversas;
 const LIMITE = 60; // conversas guardadas; as mais antigas caem fora
 
 export interface Conversa {
@@ -25,17 +34,28 @@ export interface Conversa {
 
 const agora = () => new Date().toISOString();
 
+/**
+ * O usuário atual. ⚠️ Vem de um cache que o `AppShell` preenche ao logar; sem
+ * ele o histórico cai num balde "local", que é o comportamento anterior — nunca
+ * o de OUTRO usuário. Um erro aqui misturaria conversas de pessoas diferentes
+ * dentro da mesma empresa, e isso é pior que perder histórico.
+ */
+let usuarioAtual = "local";
+export function definirUsuarioDasConversas(id: string | null | undefined): void {
+  usuarioAtual = id && id.trim() ? id : "local";
+}
+
+type PorUsuario = Record<string, Conversa[]>;
+
 function ler(): Conversa[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(KEY);
-    const arr = raw ? (JSON.parse(raw) as Conversa[]) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
+  const mapa = lerOrg<PorUsuario>(KEY, {});
+  const arr = mapa[usuarioAtual];
+  return Array.isArray(arr) ? arr : [];
 }
 
 function gravar(cs: Conversa[]) {
-  try { localStorage.setItem(KEY, JSON.stringify(cs.slice(0, LIMITE))); } catch { /* cota cheia: segue sem histórico */ }
+  const mapa = lerOrg<PorUsuario>(KEY, {});
+  gravarOrg(KEY, { ...mapa, [usuarioAtual]: cs.slice(0, LIMITE) });
 }
 
 /** Da mais recente para a mais antiga. */

@@ -120,10 +120,9 @@ export const SECTIONS: Section[] = [
   // ----- Profundidade — revelada no Modo Pro -----
   {
     id: "inteligencia", label: "Inteligência", icon: "gauge", pro: true, items: [
-      { label: "Copiloto e motores", href: "/copiloto", icon: "gauge" },
+      { label: "Copiloto e motores", href: "/all4pay-ai?aba=quant", icon: "gauge" },
       { label: "Investor update", href: "/investidores", icon: "mail" },
       { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
-      { label: "Impostos (projeção)", href: "/impostos", icon: "receipt" },
     ],
   },
   {

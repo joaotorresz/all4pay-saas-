@@ -12,11 +12,24 @@
  */
 import * as React from "react";
 import { hidratar, migrarParaServidor, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
+import { definirUsuarioDasConversas } from "@/lib/ia-conversas";
+import { isDemo } from "@/lib/demo";
 
 export function SincronizacaoOrg() {
   React.useEffect(() => {
     let vivo = true;
     (async () => {
+      // ⚠️ Identifica o usuário ANTES de hidratar: o histórico da IA é um mapa
+      // `usuário → conversas` dentro do estado da organização, e hidratar sem
+      // saber quem é leria o balde errado.
+      if (!isDemo && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          const { data } = await createClient().auth.getUser();
+          definirUsuarioDasConversas(data.user?.id);
+        } catch { /* sem sessão: cai no balde local, nunca no de outro usuário */ }
+      }
+      if (!vivo) return;
       await migrarParaServidor(CHAVES_DE_NEGOCIO);
       if (!vivo) return;
       await hidratar(CHAVES_DE_NEGOCIO);

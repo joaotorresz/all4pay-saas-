@@ -3,7 +3,7 @@
  *
  * ⚠️ **Gating de plano é decisão de SERVIDOR, não de menu.** O Modo Pro era uma
  * cortina: com o modo em simples os grupos Inteligência e Governança sumiam da
- * navegação, mas `/copiloto`, `/investidores`, `/impostos`, `/aprovacoes`,
+ * navegação, mas `/copiloto`, `/investidores`, `/aprovacoes`,
  * `/governanca` e `/automacoes` continuavam respondendo 200 e renderizando
  * conteúdo inteiro para quem digitasse o endereço.
  *
@@ -54,20 +54,18 @@ export const PLANO_SIMPLES: EstadoPlano = {
  */
 export const ROTAS_PRO: string[] = [
   // Grupo "Inteligência".
-  // ⚠️ `/inadimplencia` NÃO entra: o hub Receber (Simples) já a entrega como
-  // aba, e trancar o que o próprio menu oferece é o outro lado do defeito —
-  // esconder do usuário funcionalidade que ele já tem.
-  "/copiloto",
+  // ⚠️ Nem `/inadimplencia` nem a apuração de impostos entram: as duas são
+  // OPERAÇÃO e o menu do Simples já as entrega. Trancar o que o próprio menu
+  // oferece é o outro lado do defeito — esconder do usuário o que ele já tem.
   "/investidores",
   "/contratacoes",
-  "/impostos",
   // Grupo "Governança"
   "/aprovacoes",
   "/governanca",
   "/automacoes",
   "/consolidado",
-  // Rotas legadas que redirecionam para as de cima — sem elas, o redirect
-  // seria um caminho aberto para a mesma tela.
+  // Rotas legadas que redirecionam para as ABAS Pro do assistente — sem elas,
+  // o redirect seria um caminho aberto para a mesma tela.
   "/decisao",
   "/risco",
   "/autonomo",
@@ -96,6 +94,11 @@ const SEMPRE_ABERTAS = [
  */
 const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
   { rota: "/contabilidade", param: "aba", valores: ["consolidado"] },
+  // ⚠️ A CONVERSA é Simples — é a porta da frente do produto. Os quatro
+  // MOTORES (quant, decisão, risco, autônomo) são Pro, e desde a fusão do
+  // item 6 eles são abas dela. Trancar `/all4pay-ai` inteiro esconderia o chat
+  // de todo mundo; trancar por aba fecha o que é pago e deixa a porta aberta.
+  { rota: "/all4pay-ai", param: "aba", valores: ["quant", "decisao", "risco", "autonomo"] },
 ];
 
 /**

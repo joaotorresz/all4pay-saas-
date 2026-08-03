@@ -43,7 +43,7 @@ export const ALIASES: Alias[] = [
   { de: "/pagaveis", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
-  { de: "/assistente", para: "/copiloto", motivo: "assistente virou o copiloto" },
+  { de: "/assistente", para: "/all4pay-ai", motivo: "assistente virou o copiloto" },
 
   // — hub CADASTROS —
   { de: "/produtos", para: "/dashboard/registrations/products", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
@@ -86,15 +86,25 @@ export const ALIASES: Alias[] = [
   // abas órfãs (inadimplência, boletos, reembolsos) receberem rota própria.
   // ⚠️ `/dre` foi APOSENTADO (mapa, item 3) depois de a canônica ganhar os
   // cartões executivos e o período padrão de 12 meses. O drill-down já existia.
+  // ⚠️ `/impostos` foi APOSENTADO (mapa, item 5) depois de a canônica ganhar a
+  // projeção da carga E o regime lido da configuração da empresa. A tela
+  // aposentada cravava Lucro Presumido serviços num array: uma empresa do
+  // Simples via uma projeção sem relação com o que paga.
+  // ⚠️ `/copiloto` foi APOSENTADO (mapa, item 6) depois de as quatro abas
+  // virarem painéis do assistente E o histórico passar a ser por usuário e por
+  // empresa no servidor. A conversa é a porta; os motores são relatórios que
+  // ela abre.
+  { de: "/copiloto", para: "/all4pay-ai", motivo: "IA tem UM ponto de entrada (mapa, item 6)" },
+  { de: "/impostos", para: "/dashboard/sales-invoices/tax-provisioning", motivo: "imposto tem UM módulo canônico (mapa, item 5)" },
   { de: "/dre", para: "/dashboard/reports/dre", motivo: "DRE consolidado no relatório canônico (mapa, item 3)" },
   { de: "/recebimentos", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/pagamentos", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
   // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
-  { de: "/risco", para: "/copiloto?aba=risco", motivo: "motor de risco virou aba do copiloto" },
-  { de: "/decisao", para: "/copiloto?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
-  { de: "/autonomo", para: "/copiloto?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
-  { de: "/inteligencia", para: "/copiloto?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
+  { de: "/risco", para: "/all4pay-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
+  { de: "/decisao", para: "/all4pay-ai?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
+  { de: "/autonomo", para: "/all4pay-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
+  { de: "/inteligencia", para: "/all4pay-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
   { de: "/consolidado", para: "/contabilidade?aba=consolidado", motivo: "consolidado virou aba de contabilidade" },
 ];
 
@@ -128,6 +138,10 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
+  { de: "/copiloto?aba=quant", para: "/all4pay-ai?aba=quant", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=decisao", para: "/all4pay-ai?aba=decisao", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=risco", para: "/all4pay-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=autonomo", para: "/all4pay-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },

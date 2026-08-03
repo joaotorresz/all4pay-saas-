@@ -196,9 +196,13 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- All 4 Pay AI ----------------------------- */
+  // ⚠️ UM guia, porque é UMA tela: a conversa e os quatro painéis dos motores
+  // (Quant, Decisão, Risco, Autônomo) vivem no mesmo destino desde a fusão do
+  // mapa de consolidação (item 6). Dois guias na mesma rota fariam a busca da
+  // Central de Ajuda escolher um deles por ordem de arquivo.
   "/all4pay-ai": {
     titulo: "All 4 Pay AI",
-    intro: "O chat da IA em tela cheia, com histórico de conversas. É a MESMA IA do botão flutuante — muda só o espaço: aqui cabe a conversa longa, o gráfico grande e o histórico do lado.",
+    intro: "A superfície ÚNICA de IA: a aba Conversa responde sobre os seus números, e as abas Quant, Decisão, Risco e Autônomo são os motores — score de saúde, Monte Carlo, runway e plano supervisionado. É a mesma IA do botão flutuante; aqui cabe a conversa longa, o gráfico grande e o histórico do lado.",
     comoUsar: "Pergunte em português normal (“quanto gastei esse mês?”, “estou crescendo?”). A resposta passa pelas etapas de análise e vem com os números, as fontes do cálculo e, quando ajuda, um gráfico. As conversas ficam salvas à esquerda, agrupadas por data.",
     exemplo: "“Quais meus maiores gastos?” → o total do mês, as três maiores categorias com percentual e um gráfico de barras. Depois: “e no mês passado?” — ela lembra do contexto.",
     secoes: [
@@ -377,23 +381,6 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Inteligência (Pro) ----------------------------- */
-  "/copiloto": {
-    titulo: "All 4 Pay AI — IA executiva que age",
-    intro: "A superfície única de IA: responde, prioriza E age. Orquestra os motores quant/risco/crédito/decisão; executa a ação reversível ou a envia para aprovação (alçada), tudo registrado na trilha ai_actions. Os consoles Decisão/Autônomo/Risco/Inteligência/Dados são abas aqui.",
-    comoUsar: "Em 'Ações recomendadas', clique Executar (ação reversível) ou Enviar p/ aprovação (move dinheiro). No chat, pergunte sobre o negócio (resposta com números e fontes) ou peça um lançamento ('rascunhe…') para aprovar e postar no razão.",
-    exemplo: "Pergunte 'posso contratar mais um vendedor?' (impacto no runway + fontes) ou 'rascunhe um lançamento de R$ 1.000 de despesa operacional paga em caixa' → aprove o rascunho.",
-    secoes: [
-      acoes([
-        { nome: "Ações recomendadas", desc: "Decisões priorizadas: Executar (reversível) ou Enviar p/ aprovação (HITL), com histórico na trilha.", match: "Ações recomendadas" },
-        { nome: "Chat que age", desc: "Pergunta de negócio com números/fontes; ou rascunho de lançamento balanceado p/ aprovar e postar.", match: "All 4 Pay AI" },
-      ]),
-      blocos([
-        { nome: "Briefing executivo", desc: "Resumo diário: saldo, runway, alertas, oportunidades, ruptura.", match: "Briefing executivo" },
-        { nome: "Insights priorizados", desc: "Ordenados por impacto × urgência × probabilidade × criticidade.", match: "Insights priorizados" },
-        { nome: "Anomalias / Forecast / Memória", desc: "Despesas fora do padrão, fluxo projetado e padrões aprendidos.", match: "Anomalias" },
-      ]),
-    ],
-  },
   "/inteligencia": {
     titulo: "Inteligência — camada quantitativa",
     intro: "O 'Bloomberg para PMEs': transforma lançamentos em métricas executivas, score de saúde, radar, projeção e interpretação de CFO digital.",
@@ -541,7 +528,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Impostos ----------------------------- */
-  "/impostos": {
+  "/dashboard/sales-invoices/tax-provisioning": {
     titulo: "Impostos",
     intro: "A visão fiscal: guias e tributos do período (DAS/Simples, retenções), com o peso da carga tributária sobre a receita.",
     comoUsar: "Acompanhe as guias do mês e os vencimentos; a carga tributária (% da receita) sai do motor de DRE.",

@@ -733,13 +733,22 @@ const AGOSTO = janelaMes(2026, 7);
 
   // As rotas LEGADAS que redirecionam para as telas Pro também têm de estar
   // trancadas — senão o redirect é uma porta lateral aberta para a mesma tela.
-  for (const legada of ["/decisao", "/risco", "/autonomo", "/inteligencia"]) {
-    ok(`planos: rota legada ${legada} exige Pro`, exigePro(legada));
-  }
 
-  // Sub-rotas e query string entram pelo mesmo prefixo.
-  ok("planos: sub-rota herda o bloqueio", exigePro("/copiloto/qualquer-coisa"));
-  ok("planos: query string não escapa do bloqueio", exigePro("/copiloto?aba=risco"));
+  // Sub-rotas entram pelo mesmo prefixo.
+  ok("planos: sub-rota herda o bloqueio", exigePro("/investidores/qualquer-coisa"));
+
+  // ⚠️ E o caso que a fusão da IA criou: a CONVERSA é Simples (é a porta da
+  // frente do produto), os quatro MOTORES são Pro e viraram abas dela.
+  // Trancar a rota inteira esconderia o chat de todo mundo.
+  ok("planos: a conversa da IA é aberta", !exigePro("/all4pay-ai"));
+  for (const motor of ["quant", "decisao", "risco", "autonomo"]) {
+    ok(`planos: o motor ${motor} exige Pro`, exigePro(`/all4pay-ai?aba=${motor}`));
+  }
+  // E os endereços legados dos motores continuam trancados — senão o
+  // redirecionamento seria a porta lateral que o gate deveria fechar.
+  for (const legada of ["/risco", "/decisao", "/autonomo", "/inteligencia"]) {
+    ok(`planos: a rota legada ${legada} continua trancada`, exigePro(legada));
+  }
 
   // ⚠️ A tela de UPGRADE e a de assinatura nunca são bloqueadas: trancá-las
   // deixaria quem não tem o plano sem caminho para comprá-lo.
@@ -748,10 +757,10 @@ const AGOSTO = janelaMes(2026, 7);
      !exigePro("/dashboard/administration/subscription"));
 
   // O Simples não abre Pro; o Pro abre tudo; demo abre tudo.
-  ok("planos: Simples não abre rota Pro", !podeAbrir("/copiloto", PLANO_SIMPLES));
+  ok("planos: Simples não abre rota Pro", !podeAbrir("/investidores", PLANO_SIMPLES));
   ok("planos: Simples abre rota comum", podeAbrir("/", PLANO_SIMPLES));
-  ok("planos: Pro abre rota Pro", podeAbrir("/copiloto", { ...PLANO_SIMPLES, plano: "pro" }));
-  ok("planos: demonstração abre tudo", podeAbrir("/copiloto", PLANO_ABERTO));
+  ok("planos: Pro abre rota Pro", podeAbrir("/investidores", { ...PLANO_SIMPLES, plano: "pro" }));
+  ok("planos: demonstração abre tudo", podeAbrir("/investidores", PLANO_ABERTO));
 }
 
 

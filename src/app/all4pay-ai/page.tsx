@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
-import { IAView } from "@/components/ia/IAView";
+import { Suspense } from "react";
+import { AssistenteShell } from "@/components/ia/AssistenteShell";
 
 export const metadata: Metadata = {
   title: "All 4 Pay AI · all4pay",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 export default function All4PayAIPage() {
   return (
     <AppShell title="All 4 Pay AI" actions={isDemo ? <DemoBadge /> : null}>
-      <IAView />
+      <Suspense fallback={null}><AssistenteShell /></Suspense>
     </AppShell>
   );
 }

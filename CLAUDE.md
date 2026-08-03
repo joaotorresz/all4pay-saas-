@@ -833,9 +833,24 @@ Receber · Conciliação `/upload?aba=conciliar` ← `/conciliacao*`.
   mostra um DRE quase vazio no dia 2 e o usuário conclui que não há dados. O
   drill-down já existia na canônica. `/dre` aposentado.
 
-**As duas pendentes:** Impostos (a **projeção** da carga e o **regime como
-configuração**, não constante de arquivo) · IA (as quatro abas como painéis do
-assistente e o **histórico no servidor** por usuário e empresa).
+- **Impostos** — `ProjecaoCarga` no topo da canônica, projetando sobre a
+  RECEITA TRIBUTÁVEL canônica (projetar sobre "todas as entradas" inflaria o
+  imposto). E `core/tax/regime.ts`: o perfil sai do `RegimeTributario` da
+  EMPRESA, não de um array cravado no arquivo. ⚠️ Simples e MEI declaram que
+  **não têm tabela fixa** (faixa e valor fixo) em vez de fingir um percentual
+  que não existe. `/impostos` aposentado.
+- **IA** — `AssistenteShell` em `/all4pay-ai`: Conversa + Quant + Decisão +
+  Risco + Autônomo, só a aba ativa montando (os motores são caros). O histórico
+  passou a gravar por `store-org` num mapa `usuário → conversas`: a ORG vem da
+  RLS de `org_state`, o USUÁRIO vem da chave dentro do valor — acompanha a
+  pessoa entre máquinas e não vaza para os colegas. `/copiloto` aposentado.
+  - ⚠️ **A conversa é Simples; os motores são Pro.** Trancar `/all4pay-ai`
+    inteiro esconderia o chat de todo mundo — a porta da frente do produto. O
+    gate é por ABA (`ABAS_PRO`), e as rotas legadas dos motores continuam
+    trancadas para o redirecionamento não virar porta lateral.
+
+**Placar: 8/8 fusões, 0 itens pendentes, 0 rotas em aposentadoria.** 79 rotas
+publicadas, todas canônicas.
 
 ### ⚠️ ROTAS, TÍTULO E CRIAÇÃO (ONDA 3)
 

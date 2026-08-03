@@ -101,7 +101,7 @@ export const NOTA_MRR =
 /** As duas casas da IA. */
 export const IRMAS_IA: Record<string, Irma[]> = {
   chat: [
-    { rota: "/copiloto", nome: "Copiloto e motores", responde: "quant, decisão, risco e operação autônoma" },
+    { rota: "/all4pay-ai", nome: "Copiloto e motores", responde: "quant, decisão, risco e operação autônoma" },
   ],
   copiloto: [
     { rota: "/all4pay-ai", nome: "All 4 Pay AI", responde: "conversa livre sobre os seus números" },
