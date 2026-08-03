@@ -18,6 +18,7 @@ import { adicionarRegra } from "@/lib/regras";
 import { sugerirRegra, type RegraCategorizacao } from "@/core/regras";
 import type { FinancialRecord } from "@/core/fdip/types";
 import { aplicarOnboarding, clearImported, type ResultadoOnboarding } from "@/lib/fdip";
+import { AcaoDestrutiva } from "@/components/ui/AcaoDestrutiva";
 import { hasImported } from "@/lib/imported";
 import { lerDocumento } from "@/lib/ocr-ingest";
 import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
@@ -234,7 +235,21 @@ export function UploadView() {
       setAplicando(false);
     }
   };
-  const limpar = async () => { clearImported(); setImportado(false); setResultado(null); setReport(null); setTexto(""); await qc.invalidateQueries(); };
+  /**
+   * ⚠️ Devolve o DESFAZER. Apagar o dataset é a ação mais destrutiva da tela —
+   * são meses de importação — e ela ficava a um clique, sem pergunta e sem
+   * volta. Ver `AcaoDestrutiva`.
+   */
+  const limpar = async () => {
+    const desfazer = clearImported();
+    setImportado(false); setResultado(null); setReport(null); setTexto("");
+    await qc.invalidateQueries();
+    return async () => {
+      desfazer();
+      setImportado(true);
+      await qc.invalidateQueries();
+    };
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -287,7 +302,13 @@ export function UploadView() {
         <Card className="flex items-center gap-3 border-l-4" style={{ borderLeftColor: "var(--color-lime)" }}>
           <Icon name="check" size={16} color="var(--color-positive)" />
           <span className="text-caption text-ink flex-1">Dados importados ativos — alimentando dashboard, DRE, risco, inteligência e todo o ERP.</span>
-          <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline">Limpar dados importados</button>
+          <AcaoDestrutiva
+            rotulo="Limpar dados importados"
+            titulo="Limpar dados importados"
+            descricao="Todos os lançamentos, contas e contatos que vieram das importações serão removidos, e o sistema volta a mostrar os dados de demonstração."
+            confirmarRotulo="Limpar tudo"
+            onConfirmar={limpar}
+          />
         </Card>
       )}
 

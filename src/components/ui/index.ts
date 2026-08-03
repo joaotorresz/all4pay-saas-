@@ -29,3 +29,4 @@ export {
   type DropdownItem,
 } from "./DropdownMenu";
 export { Icon, type IconProps, type IconName } from "./Icon";
+export { AcaoDestrutiva } from "./AcaoDestrutiva";

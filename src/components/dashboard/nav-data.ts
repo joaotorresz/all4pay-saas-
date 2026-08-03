@@ -142,6 +142,7 @@ export const CONFIG: Section = {
     { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
     { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
     { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
+    { label: "Nova empresa", href: "/empresas/nova", icon: "building" },
     { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },
     { label: "Gerenciar usuários", href: "/dashboard/administration/users", icon: "users" },
     { label: "Logs", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
@@ -149,7 +150,6 @@ export const CONFIG: Section = {
     { label: "Relatórios exportados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
     { label: "Configurações da empresa", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
-    { label: "Nova empresa", href: "/empresas/nova", icon: "plus" },
   ],
 };
 

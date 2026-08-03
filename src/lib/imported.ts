@@ -46,7 +46,17 @@ export function setImported(ds: ImportedDataset): void {
   }
 }
 
-export function clearImported(): void {
+/**
+ * Apaga o dataset importado e devolve a função que o RESTAURA.
+ *
+ * ⚠️ Devolver o desfazer é o ponto. A versão anterior apagava e pronto: quem
+ * clicasse por engano perdia meses de importação sem volta. O snapshot fica em
+ * memória — some ao recarregar a página, o que é aceitável porque o desfazer
+ * vale por segundos, e guardá-lo em disco recriaria o problema de espaço que a
+ * limpeza veio resolver.
+ */
+export function clearImported(): () => void {
+  const anterior = load();
   cache = null;
   if (typeof window !== "undefined") {
     try {
@@ -55,6 +65,9 @@ export function clearImported(): void {
       /* ignore */
     }
   }
+  return () => {
+    if (anterior) setImported(anterior);
+  };
 }
 
 export function hasImported(): boolean {

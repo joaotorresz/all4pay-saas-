@@ -47,6 +47,7 @@ import {
 import {
   INVENTARIO, CANONICAS, APOSENTANDO, nomesDuplicados,
 } from "@/core/rotas/inventario";
+import { CONTROLES, porTipo, malDeclarados } from "@/core/controles";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
@@ -1226,6 +1227,58 @@ const AGOSTO = janelaMes(2026, 7);
     .filter((r) => !nomePorRota.has(r) && destinoDe(r) === null);
   ok("nomenclatura: todo destino do menu está no inventário", foraDoInventario.length === 0,
      `${Array.from(new Set(foraDoInventario)).join(", ")}`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 28 — CONTROLES: destino declarado, e destruição com volta.           */
+/* ========================================================================== */
+{
+  // ⚠️ O critério da ONDA 7 é "zero controles sem destino ou sem efeito", e
+  // isso só é verificável se alguém escrever qual É o destino esperado. Um
+  // botão que não faz nada é indistinguível de um que faz algo invisível.
+
+  const problemas = malDeclarados();
+  ok("controles: todo controle declara destino, efeito ou papel", problemas.length === 0,
+     problemas.map((p) => `${p.controle.id}: ${p.problema}`).join(" | "));
+
+  // ⚠️ Todo destino de navegação tem de ser rota VIVA. Um botão apontando para
+  // rota que não existe é pior que botão sem destino: ele promete e entrega
+  // 404, e o usuário conclui que o produto está quebrado.
+  const rotas = new Set(INVENTARIO.map((i) => i.rota));
+  const destinosMortos = porTipo("navegacao")
+    .filter((c) => c.destino && !rotas.has(c.destino.split("?")[0]) && destinoDe(c.destino) === null);
+  ok("controles: todo destino de navegação existe", destinosMortos.length === 0,
+     destinosMortos.map((c) => `${c.id} → ${c.destino}`).join(", "));
+
+  // ⚠️ Nenhum destino de navegação pode ser um ALIAS: o botão levaria a um
+  // redirecionamento, e o salto aparece na barra de endereço a cada clique.
+  const viaAlias = porTipo("navegacao").filter((c) => c.destino && destinoDe(c.destino) !== null);
+  ok("controles: nenhum botão navega para um endereço aposentado", viaAlias.length === 0,
+     viaAlias.map((c) => `${c.id} → ${c.destino}`).join(", "));
+
+  // DESTRUIÇÃO: confirmação é obrigatória; desfazer também, salvo quando a
+  // tela mostra o impacto ANTES.
+  const destrutivas = porTipo("destrutiva");
+  ok("controles: existe ao menos uma destrutiva declarada", destrutivas.length > 0);
+  for (const d of destrutivas) {
+    ok(`controles: "${d.rotulo}" confirma antes`, d.confirma === true);
+    ok(`controles: "${d.rotulo}" desfaz ou mostra o impacto antes`,
+       d.desfaz === true || !!d.efeito?.includes("ANTES"));
+  }
+
+  // Tudo que abre sobreposto fecha por Esc — sem isso, quem navega por teclado
+  // fica preso dentro do modal.
+  const sobrepostos = CONTROLES.filter((c) => c.fechaPorEsc !== undefined);
+  ok("controles: todo sobreposto declara fechamento por Esc",
+     sobrepostos.every((c) => c.fechaPorEsc === true),
+     sobrepostos.filter((c) => !c.fechaPorEsc).map((c) => c.id).join(", "));
+
+  // O interruptor do Modo Pro — o controle nomeado pela auditoria.
+  const modo = CONTROLES.find((c) => c.id === "sidebar.modoPro");
+  ok("controles: o Modo Pro é um switch com papel ARIA", modo?.papel === "switch");
+
+  console.log(`  · controles: ${CONTROLES.length} declarados · ${destrutivas.length} destrutivos · ${porTipo("navegacao").length} de navegação`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

@@ -721,6 +721,44 @@ diferentes conforme a porta. Puro, tipado, demo-safe. Versão `ingestao/1.0.0`.
   com `ignoreDuplicates` — um `insert` puro derrubaria as 499 linhas boas do
   lote junto com a repetida. Parcial porque o histórico anterior não tem chave.
 
+### ⚠️ ONDA 7 — CONTROLES QUE FAZEM O QUE PROMETEM
+
+**`src/core/controles/index.ts`** declara, para cada controle estrutural, o que
+ele DEVE fazer. ⚠️ "Zero controles sem destino ou sem efeito" só é verificável
+se alguém escrever qual É o destino — um botão que não faz nada é
+indistinguível de um que faz algo invisível, e a diferença mora na intenção de
+quem o escreveu, que não fica no código.
+
+A guarda (linha 28 da matriz) cobra: navegação com destino que EXISTE no
+inventário e que **não é alias** (senão o botão leva a um redirecionamento
+visível a cada clique) · ação com efeito declarado · interruptor com papel ARIA
+· sobreposto que fecha por Esc · e a regra das destrutivas. Provada quebrando
+os cinco casos.
+
+⚠️ A lista cobre os controles ESTRUTURAIS, não cada `<button>` do produto: uma
+lista que tenta ser exaustiva envelhece na primeira tela nova e vira ficção.
+
+- **`AcaoDestrutiva`** (`components/ui/`) — confirmação **e** desfazer.
+  ⚠️ As duas metades resolvem coisas diferentes: a confirmação impede o
+  acidente, mas quem clica em "Sim" por reflexo não leu; o **desfazer** é o que
+  protege quem estava distraído, que é exatamente quem erra. Por isso
+  `onConfirmar` devolve a função de reversão — sem ela não há o que oferecer. O
+  foco abre no botão SEGURO (Cancelar): abrir em "Confirmar" faz um Enter
+  distraído executar a ação. `clearImported` passou a devolver o restaurador
+  (snapshot em memória; some ao recarregar, o que basta para 8 segundos).
+  A guarda aceita `desfaz: false` só quando a ação mostra o impacto ANTES — é o
+  caso da limpeza de duplicatas, que lista o que sai e quanto muda no caixa.
+- **Cabeçalho de tabela FIXO** — regra GLOBAL em `globals.css`
+  (`.ds-visor thead { position: sticky }`), não 29 edições. O produto tem 29
+  tabelas e só 4 tinham cabeçalho fixo; corrigir uma a uma deixaria a trigésima
+  de fora no dia em que fosse escrita. Fundo branco é obrigatório (sem ele as
+  linhas passam por baixo e o texto se sobrepõe).
+- **"Nova empresa" saiu do painel Criar** e vive em Administração. Criar tenant
+  é uma organização com isolamento, membros e cobrança próprios; o painel
+  explica onde ela está em vez de simplesmente sumir.
+- **Modo Pro**: `role="switch"` + `aria-checked`, alterna por **Espaço** com o
+  foco no controle (verificado no browser).
+
 ### ⚠️ ONDA 6 — UMA SÓ PORTA: o inventário de rotas
 
 **`src/core/rotas/inventario.ts`** é a fonte da verdade para o menu, o teste e o

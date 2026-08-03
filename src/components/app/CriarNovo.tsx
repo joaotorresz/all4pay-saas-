@@ -27,7 +27,6 @@ import {
   ACOES_MOVIMENTACOES as MOVIMENTACOES,
   ACOES_CADASTROS_PF as CADASTROS_PF,
   ACOES_MOVIMENTACOES_PF as MOVIMENTACOES_PF,
-  ACAO_NOVA_EMPRESA as CRIAR_TENANT,
   type Acao,
 } from "@/core/criar";
 
@@ -102,22 +101,14 @@ export function CriarNovo() {
               <Coluna titulo="Movimentações" acoes={movimentacoes} onEscolher={escolher} />
             </div>
             {!pessoal && (
-              /* ⚠️ Criar EMPRESA fica FORA das duas colunas. Criar tenant não é
-                 criar registro: é uma organização inteira, com o seu isolamento
-                 de dados, os seus membros e a sua cobrança. Na mesma lista e com
-                 o mesmo peso de "Novo produto", a proximidade convidava ao
-                 acidente — e desfazer não é apagar uma linha. */
-              <div className="border-t border-border-soft px-5 py-3 flex items-center gap-3">
-                <Link
-                  href={CRIAR_TENANT.rota}
-                  onClick={(e) => escolher(e, CRIAR_TENANT)}
-                  className="inline-flex items-center gap-2 text-caption font-medium text-muted hover:text-ink"
-                >
-                  <Icon name="building" size={14} color="currentColor" />
-                  {CRIAR_TENANT.label}
-                </Link>
+              /* ⚠️ Criar EMPRESA nem aparece aqui. Criar tenant é uma
+                 organização inteira — isolamento de dados, membros e cobrança
+                 próprios — e desfazer não é apagar uma linha. Ela vive em
+                 Administração, junto do resto que governa a plataforma. */
+              <div className="border-t border-border-soft px-5 py-3">
                 <span className="text-[11px] text-placeholder">
-                  cria uma organização separada, com dados e cobrança próprios
+                  Para criar outra empresa (organização separada, com dados e cobrança próprios),
+                  vá em Administração → Empresas.
                 </span>
               </div>
             )}
