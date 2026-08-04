@@ -9,6 +9,8 @@ import {
   type Solicitacao, type StatusSolic, type AcaoDecisao,
 } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
+import { usePermissoes } from "@/components/app/usePermissoes";
+import { motivoParaNaoAprovar, FRASE_RECUSA, nomeDoPapel } from "@/core/seguranca";
 
 type Aba = "fila" | "minhas" | "rejeitadas" | "todas";
 const ABAS: { id: Aba; label: string }[] = [
@@ -28,6 +30,8 @@ const STATUS: Record<StatusSolic, { label: string; cor: string }> = {
 
 export function AprovacoesView() {
   const { show, node } = useToast();
+  // O que EU posso fazer nesta empresa — a lista vem do servidor.
+  const { acoes, papel } = usePermissoes();
   const movs = usePagaveis();
   const parties = usePartiesPag();
   const [lista, setLista] = React.useState<Solicitacao[]>([]);
@@ -58,6 +62,23 @@ export function AprovacoesView() {
 
   const refresh = () => setLista(listSolicitacoes());
   const sel = lista.find((s) => s.id === selId) ?? null;
+
+  /**
+   * Por que esta solicitação NÃO pode ser decidida por mim — a mesma regra que
+   * o gatilho `approvals_segregacao` aplica no banco.
+   *
+   * ⚠️ A identidade comparada é a MESMA que o store usa ao decidir (o rótulo do
+   * passo de alçada atual). Comparar por outro critério aqui faria a tela
+   * liberar o que o store recusaria, ou o contrário — e as duas divergências
+   * aparecem para o usuário como um botão que mente.
+   */
+  const recusa = sel
+    ? motivoParaNaoAprovar(
+        { id: sel.id, solicitanteId: sel.solicitante, valor: sel.valor },
+        papelDoPassoAtual(sel)?.rotulo ?? null,
+        acoes,
+      )
+    : null;
 
   const filtradas = lista.filter((s) =>
     aba === "fila" ? s.statusFinal === "em_analise"
@@ -140,11 +161,28 @@ export function AprovacoesView() {
               <>
                 <Textarea value={coment} onChange={(e) => setComent(e.target.value)} placeholder="Comentário (opcional)" rows={2} />
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button variant="primary" size="sm" onClick={() => agir("aprovar")}>Aprovar</Button>
+                  {/*
+                    ⚠️ O botão fica DESABILITADO quando a regra recusaria, e a
+                    frase abaixo diz por quê. Antes ele ficava ativo e a recusa
+                    acontecia calada dentro do store (`return s`, sem mensagem):
+                    a pessoa clicava, nada mudava na tela, e a leitura correta a
+                    fazer era que o sistema estava quebrado — não que existe uma
+                    regra. Quem RECUSA de verdade é o banco (gatilho
+                    `approvals_segregacao`); aqui só se explica antes do clique.
+                  */}
+                  <Button variant="primary" size="sm" disabled={!!recusa} onClick={() => agir("aprovar")}>Aprovar</Button>
                   <button onClick={() => agir("devolver")} className="text-caption font-medium text-muted hover:text-ink bg-surface-2 rounded-pill px-3 py-[7px]">Devolver</button>
                   <button onClick={() => agir("rejeitar")} className="text-caption font-medium text-negative hover:opacity-80 bg-surface-2 rounded-pill px-3 py-[7px]">Rejeitar</button>
                 </div>
-                <span className="text-caption text-faint">Segregação: quem solicita não aprova a própria. Aprovado no último nível libera a execução na Central.</span>
+                {recusa ? (
+                  <span className="inline-flex items-start gap-[6px] text-caption" style={{ color: "var(--color-warning)" }}>
+                    <Icon name="shield-check" size={13} color="currentColor" />
+                    {FRASE_RECUSA[recusa]}
+                    {recusa === "sem-papel" && papel ? ` Seu papel: ${nomeDoPapel(papel)}.` : ""}
+                  </span>
+                ) : (
+                  <span className="text-caption text-faint">Segregação: quem solicita não aprova a própria. Aprovado no último nível libera a execução na Central.</span>
+                )}
               </>
             )}
 
