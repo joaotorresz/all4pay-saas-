@@ -9,14 +9,26 @@
  * já ter perdido, e quem convidasse um sócio descobria que os dois viam
  * estados diferentes sem entender por quê.
  *
- * Enquanto a migração não termina, o certo é o usuário poder ver o que ainda
- * está só no dispositivo — e não descobrir do jeito difícil.
+ * Na ONDA 8 ela ganhou as três coisas que faltavam para a promessa de
+ * persistência se sustentar:
+ *
+ *  1. **A meta** — quantos bytes de NEGÓCIO ainda dependem deste navegador. É o
+ *     número que a migração persegue; sem ele "quase pronto" é opinião.
+ *  2. **O backup** — baixar e restaurar o estado da organização. Um backup que
+ *     nunca foi restaurado não é backup; por isso a restauração informa quanto
+ *     tempo levou e o que recusou.
+ *  3. **O cache** — o que fica no dispositivo de propósito, mas VENCE. As duas
+ *     chaves de cache já tinham validade e mesmo assim cresciam sem parar: a
+ *     leitura ignorava a entrada velha em vez de removê-la. Ignorar não é
+ *     expirar.
  */
 import * as React from "react";
-import { Card, Button, Icon, StatusBadge, InfoHint } from "@/components/ui";
+import { Card, Button, Icon, StatusBadge, InfoHint, AcaoDestrutiva } from "@/components/ui";
 import {
   estadoSincronizacao, hidratar, migrarParaServidor,
-  CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, type EstadoSincronizacao,
+  expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
+  CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, CACHES_LOCAIS, META_BYTES_LOCAIS,
+  rotuloDaChave, type EstadoSincronizacao, type Backup,
 } from "@/lib/store-org";
 import { isDemo } from "@/lib/demo";
 
@@ -26,10 +38,15 @@ export function ArmazenamentoView() {
   const [est, setEst] = React.useState<EstadoSincronizacao | null>(null);
   const [ocupado, setOcupado] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
+  const [backup, setBackup] = React.useState<{ arquivo: string; dados: Backup } | null>(null);
+  const [erroArquivo, setErroArquivo] = React.useState<string | null>(null);
+  const inputArquivo = React.useRef<HTMLInputElement>(null);
 
   // ⚠️ Gate de montagem: `localStorage` lido durante o render quebra a
   // hidratação (foi o que já mordeu o painel de integrações).
   React.useEffect(() => { setEst(estadoSincronizacao()); }, []);
+
+  const atualizar = () => setEst(estadoSincronizacao());
 
   const sincronizar = async () => {
     setOcupado(true); setMsg(null);
@@ -37,15 +54,68 @@ export function ArmazenamentoView() {
       const m = await migrarParaServidor(CHAVES_DE_NEGOCIO);
       const h = await hidratar(CHAVES_DE_NEGOCIO);
       setMsg(`${m.enviadas} enviadas ao servidor · ${h} atualizadas a partir dele.`);
-      setEst(estadoSincronizacao());
+      atualizar();
     } finally {
       setOcupado(false);
     }
   };
 
+  function baixarBackup() {
+    const dados = exportarEstado();
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `all4pay-estado-${dados.geradoEm.slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setMsg(`Backup gerado com ${Object.keys(dados.chaves).length} itens.`);
+  }
+
+  async function escolherArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // permite reescolher o MESMO arquivo depois de um erro
+    setBackup(null); setErroArquivo(null); setMsg(null);
+    if (!f) return;
+    try {
+      const lido: unknown = JSON.parse(await f.text());
+      if (!backupValido(lido)) {
+        // ⚠️ Recusar com o motivo, não com "arquivo inválido": quem restaura um
+        // backup está num dia ruim, e "inválido" não diz se o arquivo é de
+        // outro sistema, se está truncado ou se é de uma versão futura.
+        setErroArquivo("Este arquivo não é um backup do all4pay (formato ou versão não reconhecidos).");
+        return;
+      }
+      setBackup({ arquivo: f.name, dados: lido });
+    } catch {
+      setErroArquivo("Não foi possível ler o arquivo — ele não é um JSON válido.");
+    }
+  }
+
+  async function restaurar() {
+    if (!backup) return;
+    // O estado VIGENTE vira o desfazer. Sem este instantâneo, restaurar o
+    // arquivo errado seria irreversível — e é justamente quem já está
+    // consertando algo que escolhe o arquivo errado.
+    const anterior = exportarEstado();
+    const r = await importarEstado(backup.dados);
+    atualizar();
+    setMsg(
+      `${r.restauradas} itens restaurados em ${r.ms} ms`
+      + (r.recusadas.length ? ` · ${r.recusadas.length} recusados (fora da lista de dados de negócio)` : ""),
+    );
+    setBackup(null);
+    return async () => {
+      await importarEstado(anterior);
+      atualizar();
+      setMsg("Restauração desfeita — o estado anterior voltou.");
+    };
+  }
+
   if (!est) return null;
 
   const alerta = est.pctTeto >= 60;
+  const bytesCache = est.caches.reduce((s, c) => s + c.bytes, 0);
 
   return (
     <div className="flex flex-col gap-5 pb-6 max-w-[860px]">
@@ -113,7 +183,7 @@ export function ArmazenamentoView() {
             <span className="text-label font-medium" style={{ color: "var(--color-warning)" }}>
               {est.pendentes.length} alterações não confirmadas pelo servidor
             </span>
-            <span className="text-caption text-faint">{est.pendentes.join(", ")}</span>
+            <span className="text-caption text-faint">{est.pendentes.map(rotuloDaChave).join(", ")}</span>
           </div>
         )}
 
@@ -130,6 +200,107 @@ export function ArmazenamentoView() {
         </div>
       </Card>
 
+      {/* ------------------------------ a meta ------------------------------ */}
+      <Card className="flex flex-col gap-3"
+        info={{
+          titulo: "Dependência do navegador",
+          oQue: "Quanto dado de negócio ainda depende deste dispositivo para existir.",
+          comoCalcula:
+            `Soma dos bytes das chaves de negócio presentes no localStorage. A meta é ZERO byte de negócio — e menos de ${kb(META_BYTES_LOCAIS)} no total, que é o tamanho que sobra quando o disco guarda só preferência de tela e cache descartável.`,
+        }}>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-h3 text-ink">Dependência deste navegador</span>
+          <StatusBadge tone={est.dentroDaMeta ? "positive" : "warning"}>
+            {est.dentroDaMeta ? "Dentro da meta" : `${kb(est.bytesDeNegocio)} de negócio no disco`}
+          </StatusBadge>
+        </div>
+        <p className="m-0 text-caption text-faint max-w-[70ch]">
+          A meta é que o navegador guarde apenas preferência de tela e cache que a rede
+          reconstitui. Enquanto houver dado de negócio aqui, limpar o cache desta máquina
+          significa perder trabalho — e é por isso que o número precisa ser visível, não
+          estimado.
+        </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="secondary"
+            disabled={!est.ativo || est.bytesDeNegocio === 0}
+            onClick={() => {
+              const r = enxugarLocal();
+              atualizar();
+              setMsg(r.removidas === 0
+                ? "Nada a liberar: o que está no disco ainda não foi confirmado pelo servidor."
+                : `${r.removidas} cópias locais removidas · ${kb(r.bytesLiberados)} liberados.`);
+            }}
+            leftIcon={<Icon name="trash-2" size={15} />}
+          >
+            Liberar espaço local
+          </Button>
+          <span className="text-caption text-faint max-w-[52ch]">
+            Remove do disco apenas o que o servidor já confirmou nesta sessão; o valor segue
+            em memória. Apagar antes da confirmação trocaria &ldquo;só existe no navegador&rdquo; por
+            &ldquo;não existe em lugar nenhum&rdquo;.
+          </span>
+        </div>
+      </Card>
+
+      {/* ------------------------- backup e restauração ---------------------- */}
+      <Card className="flex flex-col gap-3"
+        info={{
+          titulo: "Backup e restauração",
+          oQue: "Baixar o estado de negócio da organização num arquivo, e devolvê-lo quando preciso.",
+          comoCalcula:
+            "O arquivo traz apenas as chaves de dado de negócio. Preferência de tela e cache ficam de fora de propósito: restaurá-los sobrescreveria os ajustes da máquina onde a restauração acontece e reintroduziria dados vencidos.",
+        }}>
+        <span className="text-h3 text-ink">Backup e restauração</span>
+        <p className="m-0 text-caption text-faint max-w-[70ch]">
+          Um backup que nunca foi restaurado não é backup — é um arquivo. Por isso a
+          restauração informa quantos itens entraram, quanto tempo levou e o que foi
+          recusado.
+        </p>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button onClick={baixarBackup} leftIcon={<Icon name="arrow-down-to-line" size={15} />}>
+            Baixar backup
+          </Button>
+          <Button variant="secondary" onClick={() => inputArquivo.current?.click()}
+            leftIcon={<Icon name="upload" size={15} />}>
+            Escolher arquivo…
+          </Button>
+          <input
+            ref={inputArquivo} type="file" accept="application/json,.json"
+            className="hidden" onChange={escolherArquivo}
+            aria-label="Arquivo de backup para restaurar"
+          />
+        </div>
+
+        {erroArquivo && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-md" style={{ background: "var(--color-surface-2)" }}>
+            <Icon name="triangle-alert" size={15} color="var(--color-negative)" />
+            <span className="text-caption text-ink max-w-[62ch]">{erroArquivo}</span>
+          </div>
+        )}
+
+        {backup && (
+          <div className="flex flex-col gap-2 px-3 py-3 rounded-md" style={{ background: "var(--color-surface-2)" }}>
+            <span className="text-label text-ink">
+              {backup.arquivo} · {Object.keys(backup.dados.chaves).length} itens · gerado em{" "}
+              {backup.dados.geradoEm.slice(0, 10).split("-").reverse().join("/")}
+            </span>
+            <span className="text-caption text-faint max-w-[70ch]">
+              {Object.keys(backup.dados.chaves).slice(0, 8).map(rotuloDaChave).join(" · ")}
+              {Object.keys(backup.dados.chaves).length > 8 ? " …" : ""}
+            </span>
+            <AcaoDestrutiva
+              rotulo="Restaurar backup"
+              titulo="Restaurar este backup?"
+              descricao={`Os ${Object.keys(backup.dados.chaves).length} itens do arquivo substituem o que está no sistema hoje. O estado atual é guardado antes, e o desfazer o devolve.`}
+              confirmarRotulo="Restaurar"
+              onConfirmar={restaurar}
+            />
+          </div>
+        )}
+      </Card>
+
       {est.negocioLocal.length > 0 && (
         <Card padded={false}>
           <div className="px-5 py-3 border-b border-border-soft">
@@ -142,12 +313,56 @@ export function ArmazenamentoView() {
           {est.negocioLocal.map((k, i) => (
             <div key={k.chave} className={`flex items-center gap-3 px-5 py-2 ${i ? "border-t border-border-soft" : ""}`}>
               <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
-              <span className="flex-1 min-w-0 truncate text-[15px] text-ink">{rotulo(k.chave)}</span>
+              <span className="flex-1 min-w-0 truncate text-[15px] text-ink">{rotuloDaChave(k.chave)}</span>
               <span className="text-caption text-faint tabular-nums shrink-0">{kb(k.bytes)}</span>
             </div>
           ))}
         </Card>
       )}
+
+      {/* --------------------------- cache que vence ------------------------- */}
+      <Card className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-label font-medium text-muted">Cache deste dispositivo</span>
+          <span className="text-caption text-faint tabular-nums">{kb(bytesCache)}</span>
+        </div>
+        <p className="m-0 text-caption text-faint max-w-[70ch]">
+          Respostas de consultas públicas copiadas para não repetir a chamada. Perdê-las
+          custa uma requisição, não trabalho — mas elas VENCEM, e a entrada vencida que
+          ninguém remove ocupa a mesma cota de que os dados de verdade precisam.
+        </p>
+        <div className="flex flex-col gap-1">
+          {CACHES_LOCAIS.map((c) => {
+            const presente = est.caches.find((x) => x.chave === c.chave);
+            return (
+              <div key={c.chave} className="flex items-center gap-3">
+                <span className="flex-1 min-w-0 truncate text-caption text-ink">
+                  {c.origem} <span className="text-placeholder">· vale {c.ttlDias} dias</span>
+                </span>
+                <span className="text-caption text-faint tabular-nums shrink-0">
+                  {presente ? kb(presente.bytes) : "vazio"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="secondary" disabled={bytesCache === 0}
+            onClick={() => {
+              const r = expurgarCaches();
+              atualizar();
+              setMsg(r.removidas === 0
+                ? "Nenhuma entrada de cache está vencida."
+                : `${r.removidas} entradas vencidas removidas · ${kb(r.bytesLiberados)} liberados.`);
+            }}
+            leftIcon={<Icon name="trash-2" size={15} />}
+          >
+            Expurgar cache vencido
+          </Button>
+          <span className="text-caption text-faint">O expurgo também roda sozinho a cada sessão.</span>
+        </div>
+      </Card>
 
       <Card className="flex flex-col gap-2">
         <span className="text-label font-medium text-muted">Preferências deste dispositivo</span>
@@ -174,55 +389,3 @@ export function ArmazenamentoView() {
     </div>
   );
 }
-
-const ROTULOS: Record<string, string> = {
-  a4p_orcamentos: "Orçamentos",
-  a4p_aprovacoes: "Solicitações e aprovações",
-  a4p_reembolsos: "Reembolsos",
-  a4p_comprovantes: "Comprovantes de pagamento",
-  a4p_close_tasks: "Tarefas de fechamento mensal",
-  a4p_pos_taxas: "Taxas do POS",
-  a4p_company: "Dados da empresa",
-  a4p_plano_contas: "Plano de contas",
-  a4p_contas_bancarias: "Contas bancárias (campos extras)",
-  a4p_centros_custo: "Centros de custo",
-  a4p_projetos: "Projetos",
-  a4p_contratos: "Contratos",
-  a4p_recorrencias: "Recorrências e assinaturas",
-  a4p_regras_categorizacao: "Regras de categorização",
-  a4p_regras_conciliacao: "Regras de conciliação",
-  a4p_fechamentos: "Fechamentos assinados",
-  a4p_dashboards_custom: "Dashboards personalizados",
-  a4p_movimento_projeto: "Vínculo lançamento → projeto",
-  a4p_compras: "Compras e pedidos",
-  a4p_transferencias: "Transferências entre contas",
-  a4p_vendas_docs: "Vendas",
-  a4p_nfse: "Notas fiscais de serviço",
-  a4p_nfs_recebidas: "NFs recebidas",
-  a4p_boletos_recebidos: "Boletos recebidos (DDA)",
-  a4p_links_pagamento: "Links de pagamento",
-  a4p_impostos_config: "Configuração de impostos",
-  a4p_revrec: "Reconhecimento de receita",
-  a4p_cronogramas: "Cronogramas",
-  a4p_ledger: "Razão contábil",
-  a4p_locked_periods: "Períodos travados",
-  a4p_plano_usos: "Usos padrão do plano de contas",
-  a4p_party_extra: "Campos extras de contatos",
-  a4p_produto_extra: "Campos extras de produtos",
-  a4p_tags: "Tags",
-  a4p_assinatura: "Assinatura do sistema",
-  a4p_integracoes: "Integrações",
-  a4p_contador_destinatarios: "Destinatários do contador",
-  a4p_contador_execucoes: "Envios ao contador",
-  a4p_exportacoes: "Relatórios exportados",
-  a4p_chamados: "Chamados de suporte",
-  a4p_logs_admin: "Logs administrativos",
-  a4p_regras_uso: "Uso das regras de categorização",
-  a4p_fdip_memory: "Aprendizado da importação",
-  a4p_ia_memory: "Memória do assistente",
-  a4p_ia_conversas: "Conversas com a IA",
-  a4p_ajuda_conversa: "Conversa da Central de Ajuda",
-  a4p_ai_actions: "Ações registradas da IA",
-  a4p_orcamento: "Simulador de orçamento",
-};
-const rotulo = (c: string) => ROTULOS[c] ?? c;

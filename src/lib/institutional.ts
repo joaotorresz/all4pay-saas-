@@ -32,6 +32,30 @@ function mapAcao(acao: string): AuditAction {
   return "updated";
 }
 
+/**
+ * Que ENTIDADE o evento tocou.
+ *
+ * ⚠️ Tudo virava `movement` aqui — o acessor não tinha de onde tirar o tipo, e
+ * "Lançamento" era o rótulo que sobrava. Com o gatilho da 0026 a trilha passou
+ * a receber gravações de ESTADO (orçamento, aprovação, fechamento), e uma
+ * auditoria que chama fechamento de lançamento responde a pergunta errada com
+ * ar de resposta certa.
+ *
+ * O identificador do evento de estado é a CHAVE, não o id da linha: quem audita
+ * procura "orçamentos", e um uuid não se procura.
+ */
+function entidadeDoEvento(
+  acao: string,
+  depois: Record<string, unknown> | null,
+  idDaLinha: string,
+): { entityType: EntityType; entityId: string } {
+  if (acao.toLowerCase().startsWith("estado.")) {
+    const chave = typeof depois?.chave === "string" ? depois.chave : "";
+    return { entityType: "state", entityId: chave || idDaLinha };
+  }
+  return { entityType: "movement", entityId: idDaLinha };
+}
+
 /** Constrói a trilha (com cadeia de hash) a partir dos dados disponíveis. */
 export async function getAuditTrail(): Promise<{
   eventos: AuditEvent[];
@@ -59,9 +83,10 @@ export async function getAuditTrail(): Promise<{
       depois: Record<string, unknown> | null;
       created_at: string;
     };
+    const { entityType, entityId } = entidadeDoEvento(r.acao, r.depois, r.id);
     t.registrar({
-      entityType: "movement" as EntityType,
-      entityId: r.id,
+      entityType,
+      entityId,
       action: mapAcao(r.acao),
       before: r.antes,
       after: r.depois,

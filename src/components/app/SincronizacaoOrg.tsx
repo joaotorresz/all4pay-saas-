@@ -11,13 +11,17 @@
  *     mesma empresa passarem a ver o mesmo estado.
  */
 import * as React from "react";
-import { hidratar, migrarParaServidor, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
+import { hidratar, migrarParaServidor, expurgarCaches, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
 import { definirUsuarioDasConversas } from "@/lib/ia-conversas";
 import { isDemo } from "@/lib/demo";
 
 export function SincronizacaoOrg() {
   React.useEffect(() => {
     let vivo = true;
+    // ⚠️ O expurgo do cache roda SEMPRE, inclusive em demonstração e sem
+    // servidor: entrada vencida é lixo em qualquer modo, e ela disputa a mesma
+    // cota de 5 MB que o dado de verdade precisa quando a rede cai.
+    expurgarCaches();
     (async () => {
       // ⚠️ Identifica o usuário ANTES de hidratar: o histórico da IA é um mapa
       // `usuário → conversas` dentro do estado da organização, e hidratar sem

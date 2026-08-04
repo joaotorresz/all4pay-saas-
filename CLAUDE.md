@@ -979,7 +979,7 @@ de ~5 MB já estava perto de 9% com UMA empresa.
   - `migrarParaServidor` só envia o que o servidor ainda NÃO tem: sobrescrever
     com o local de um segundo dispositivo desfaria o trabalho de quem entrou
     primeiro. Roda no `AppShell` (`SincronizacaoOrg`).
-- **As TRÊS listas** (`CHAVES_ORG` · `PREFERENCIAS_LOCAIS` ·
+- **As QUATRO listas** (`CHAVES_ORG` · `PREFERENCIAS_LOCAIS` · `CACHES_LOCAIS` ·
   `PRECISAM_DE_TABELA_PROPRIA`) classificam **toda** chave usada no código.
   Guarda na matriz com **teto ZERO**: uma chave nova sem classificação é uma
   entidade que voltou a morar só no navegador — foi assim, em silêncio, que o
@@ -987,6 +987,10 @@ de ~5 MB já estava perto de 9% com UMA empresa.
   (sincronizá-los faria a preferência de um mudar a tela do outro);
   `a4p_imported_dataset` (vai para `movements`) e `a4p_produto_imagens` (binário
   pertence a Storage) ficam de fora por decisão registrada.
+- **`ROTULO_DA_CHAVE`/`rotuloDaChave`** dão nome em português a cada chave. Vive
+  no registro, não na tela: a auditoria passou a registrar cada gravação, e um
+  evento que diz `a4p_close_tasks` obriga quem audita a decifrar o
+  identificador. Guarda: toda chave de negócio tem rótulo.
 - **`/dashboard/administration/storage`** (`ArmazenamentoView`) torna a
   limitação VISÍVEL: quantas chaves estão no servidor, quantas ainda só neste
   navegador (com rótulo em português e tamanho), o % do teto de 5 MB e as
@@ -995,6 +999,56 @@ de ~5 MB já estava perto de 9% com UMA empresa.
 - **Migrados até aqui:** orçamentos, aprovações, reembolsos e taxas de POS.
   O restante está classificado e listado — a migração segue por leva, e a tela
   de armazenamento mostra o que falta.
+
+### ⚠️ ONDA 8 — A TRILHA LIGADA, O BACKUP QUE VOLTA, O CACHE QUE VENCE (0026)
+
+O achado era **"trilha de auditoria com ZERO eventos"**, e a causa não era a
+trilha: nada passava pelo servidor. Com `org_state` (0024) o dado passou a
+subir; faltavam o evento, a volta e a limpeza.
+
+- **O evento vem do BANCO, não da tela** (`org_state_auditar`, gatilho `after
+  insert or update` em `org_state`). ⚠️ Um evento escrito pelo código de tela
+  depende de alguém lembrar de escrevê-lo em cada caminho novo, e o caminho que
+  ninguém lembra é justamente o que a auditoria precisa. O gatilho não esquece:
+  se a linha mudou, o evento existe. **O payload é pequeno de propósito** —
+  chave, quem, quando, versão e tamanho, não o valor: um estado pode ter
+  megabytes, e duplicá-lo a cada gravação faria a trilha crescer mais rápido que
+  o dado. O valor continua em `org_state`, versionado.
+- **`EntityType` ganhou `state`** e `lib/institutional` o deriva de `acao`
+  (`estado.*`) e da CHAVE, não do id da linha. Sem isso toda gravação de
+  orçamento/fechamento entrava na trilha como **"Lançamento"** (o tipo que o
+  acessor usava por falta de outro) — a auditoria diria que houve um lançamento
+  onde não houve nenhum. Nos Logs: tipo **"Dado salvo"** (entra em
+  `TIPOS_ENTIDADE`, senão o filtro não o alcança) e frase própria
+  ("Orçamentos · versão 4 · 11,8 KB → 12,3 KB") no lugar do diff cru.
+- **Retenção como função** (`audit_log_expurgar(dias)`, 180 por padrão, gateada
+  por `is_platform_admin`): trilha sem retenção fica grande demais para
+  responder rápido, e resposta lenta vira resposta que não se pede.
+- **Backup e restauração** (`exportarEstado`/`importarEstado`/`backupValido` +
+  RPC `org_state_backup`, `SECURITY INVOKER` para a RLS continuar escopando).
+  ⚠️ Só dado de NEGÓCIO entra: restaurar preferência sobrescreveria os ajustes da
+  máquina onde a restauração acontece, e restaurar cache reintroduz o que a rede
+  dá de graça. **Chave fora da lista é RECUSADA** mesmo vindo no arquivo — um
+  backup adulterado não pode virar caminho para escrever no estado da
+  organização. A restauração **mede o tempo** (`ms`): "dá para restaurar" sem
+  tempo de recuperação é palavra. Na tela ela é `AcaoDestrutiva` com desfazer
+  real — o estado vigente é exportado ANTES e é ele que volta.
+- **Cache que EXPIRA** (`CACHES_LOCAIS` + `expurgarCaches`, no
+  `SincronizacaoOrg` a cada sessão). ⚠️ `a4p_cnpj_cache` e `a4p_municipios` já
+  tinham validade e mesmo assim cresciam sem parar: a leitura **ignorava** a
+  entrada vencida em vez de removê-la — resposta certa, byte eterno. Ignorar não
+  é expirar. O expurgo é por **ENTRADA**, não pela chave inteira: jogar tudo fora
+  faria a próxima importação reconsultar centenas de CNPJs que continuavam bons.
+- **A meta: menos de 50 KB locais** (`META_BYTES_LOCAIS`, `bytesDeNegocio`,
+  `dentroDaMeta`) — o tamanho que sobra quando o disco guarda só preferência e
+  cache. `enxugarLocal()` remove as cópias que **o servidor já confirmou nesta
+  sessão** (trava em `MIGRADAS`); apagar antes disso trocaria "só existe no
+  navegador" por "não existe em lugar nenhum".
+- Guardas na matriz (LINHA 20b, com `localStorage` de mentira — sem ele as três
+  funções devolveriam zero e a guarda passaria sem testar nada): o expurgo
+  remove o vencido E preserva o válido, é idempotente · o backup leva negócio e
+  não leva preferência · a restauração recusa chave estranha e mede o tempo ·
+  enxugar não remove o que o servidor não confirmou.
 
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
@@ -2551,7 +2605,11 @@ npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.
                    # duplicata), taxonomia única (extrato e OCR classificam
                    # igual), limpeza retroativa (mantém o primeiro de cada
                    # grupo), gating de plano (menu e servidor coincidem) e as
-                   # duas telas de "a receber" (posição × fluxo).
+                   # duas telas de "a receber" (posição × fluxo). E a ONDA 8:
+                   # o expurgo REMOVE o cache vencido (ignorar não é expirar) e
+                   # preserva o válido, o backup leva só dado de negócio e
+                   # recusa chave estranha ao restaurar, e enxugar o disco não
+                   # apaga o que o servidor ainda não confirmou.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
                    # + kb + tz + audit + consistencia (9 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI

@@ -273,6 +273,10 @@ export const ORIGENS_LOG = ["Web", "API", "Importação", "Automação", "Integr
 export const TIPOS_ENTIDADE = [
   "Lançamento", "Conta bancária", "Cliente", "Fornecedor", "Produto",
   "Venda", "Compra", "Nota fiscal", "Usuário", "Configuração",
+  // ⚠️ "Dado salvo" é o evento que o gatilho de `org_state` emite (orçamento,
+  // aprovação, fechamento). Sem entrada aqui o filtro por tipo não o alcança —
+  // e um evento que a auditoria não consegue isolar é um evento que ela não tem.
+  "Dado salvo",
 ];
 
 export interface RegistroLog {

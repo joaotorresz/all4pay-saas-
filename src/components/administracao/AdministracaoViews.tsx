@@ -17,6 +17,7 @@ import { baixarXLSX } from "@/lib/xlsx";
 import { getAccountsList } from "@/lib/data";
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
 import { getAuditTrail } from "@/lib/institutional";
+import { rotuloDaChave } from "@/lib/store-org";
 import { fetchCompany } from "@/lib/company";
 import {
   panoramaAssinatura, podeRemover, podeTrocarPerfil, filtrarUsuarios,
@@ -441,7 +442,11 @@ const ACAO_DA_TRILHA: Record<string, RegistroLog["acao"]> = {
 const ENTIDADE_DA_TRILHA: Record<string, string> = {
   payment: "Lançamento", invoice: "Nota fiscal", pix: "Lançamento",
   user: "Usuário", rule: "Configuração", movement: "Lançamento",
+  state: "Dado salvo",
 };
+
+const kbLog = (b: unknown) =>
+  typeof b === "number" ? `${Math.round((b / 1024) * 10) / 10} KB` : "—";
 
 /**
  * O resumo é o "de X para Y".
@@ -449,10 +454,31 @@ const ENTIDADE_DA_TRILHA: Record<string, string> = {
  * A trilha guarda `before`/`after` inteiros; a lista precisa da FRASE. Mostrar
  * só o nome da entidade tornaria a busca por conteúdo inútil — ninguém procura
  * "Lançamento", procura "de 1.000 para 10.000".
+ *
+ * ⚠️ O evento de ESTADO tem frase própria. O diff genérico o descreveria como
+ * "org_id: <uuid> · chave: a4p_close_tasks · versao: de 3 para 4" — verdadeiro e
+ * ilegível, e um log que só o autor decifra não serve à auditoria, que é o
+ * motivo de ele existir. O payload do gatilho é deliberadamente pequeno (versão
+ * e tamanho, não o valor), então a frase diz o que ele de fato responde: o quê,
+ * qual versão e quanto o dado cresceu.
  */
-function resumoDoEvento(e: { action: string; before: Record<string, unknown> | null; after: Record<string, unknown> | null }): string {
+function resumoDoEvento(e: {
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+}): string {
   const antes = e.before ?? {};
   const depois = e.after ?? {};
+  if (e.entityType === "state") {
+    const nome = rotuloDaChave(String(depois.chave ?? e.entityId ?? ""));
+    const versao = depois.versao != null ? ` · versão ${String(depois.versao)}` : "";
+    const tamanho = typeof antes.bytes === "number" && antes.bytes !== depois.bytes
+      ? ` · ${kbLog(antes.bytes)} → ${kbLog(depois.bytes)}`
+      : ` · ${kbLog(depois.bytes)}`;
+    return `${nome}${versao}${tamanho}`;
+  }
   const mudou = Object.keys(depois).filter((k) => JSON.stringify(antes[k]) !== JSON.stringify(depois[k]));
   if (mudou.length === 0) return e.action;
   return mudou
@@ -485,7 +511,9 @@ export function LogsView() {
       origem: e.ctx?.device?.includes("API") ? "API" : "Web",
       tipoEntidade: ENTIDADE_DA_TRILHA[e.entityType] ?? e.entityType,
       entidadeId: e.entityId,
-      entidade: e.entityId,
+      // O evento de estado se identifica pela CHAVE; mostrá-la crua obrigaria
+      // quem audita a decifrar `a4p_close_tasks`.
+      entidade: e.entityType === "state" ? rotuloDaChave(e.entityId) : e.entityId,
       resumo: resumoDoEvento(e),
     })),
     [trilha.data],

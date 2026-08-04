@@ -52,7 +52,11 @@ import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contr
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
 import { SECTIONS, CONFIG } from "@/components/dashboard/nav-data";
-import { CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA } from "@/lib/store-org";
+import {
+  CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
+  CACHES_LOCAIS, ROTULO_DA_CHAVE, rotuloDaChave,
+  expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
+} from "@/lib/store-org";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { balancete } from "@/lib/ledger";
@@ -840,14 +844,17 @@ const AGOSTO = janelaMes(2026, 7);
   // que ninguém classifica é uma entidade de negócio que volta a morar só no
   // navegador — em silêncio, que é como este defeito nasceu.
   const usadas = chavesUsadasNoCodigo();
+  const cacheChaves = CACHES_LOCAIS.map((c) => c.chave);
   const classificadas = new Set([
     ...CHAVES_DE_NEGOCIO, ...PREFERENCIAS_LOCAIS, ...PRECISAM_DE_TABELA_PROPRIA,
+    ...cacheChaves,
   ]);
   const orfas = usadas.filter((c) => !classificadas.has(c));
-  // ⚠️ TETO ZERO. Toda chave usada no código tem de estar em uma das três
-  // listas — dado de negócio, preferência do dispositivo, ou "precisa de tabela
-  // própria". Uma chave nova sem classificação é uma entidade que voltou a
-  // morar só no navegador, e foi assim, em silêncio, que este defeito nasceu.
+  // ⚠️ TETO ZERO. Toda chave usada no código tem de estar em uma das quatro
+  // listas — dado de negócio, preferência do dispositivo, cache que expira, ou
+  // "precisa de tabela própria". Uma chave nova sem classificação é uma
+  // entidade que voltou a morar só no navegador, e foi assim, em silêncio, que
+  // este defeito nasceu.
   ok("persistência: toda chave usada no código está classificada",
      orfas.length === 0,
      `${orfas.length} sem classificação: ${orfas.join(", ")}`);
@@ -865,6 +872,126 @@ const AGOSTO = janelaMes(2026, 7);
   // preferência de um usuário mudar a tela do outro.
   for (const pref of ["a4p_theme", "a4p_sidebar_width", "a4p_modo"]) {
     ok(`persistência: ${pref} continua local`, PREFERENCIAS_LOCAIS.includes(pref));
+  }
+
+  // O cache é a QUARTA lista e não se confunde com as outras três: ele fica no
+  // dispositivo (como preferência) mas VENCE (como nenhuma delas).
+  const cacheMisturado = cacheChaves.filter(
+    (c) => CHAVES_DE_NEGOCIO.includes(c) || PREFERENCIAS_LOCAIS.includes(c)
+        || PRECISAM_DE_TABELA_PROPRIA.includes(c));
+  ok("persistência: cache não se mistura com as outras listas",
+     cacheMisturado.length === 0, `ambíguas: ${cacheMisturado.join(", ")}`);
+  ok("persistência: todo cache declara validade",
+     CACHES_LOCAIS.every((c) => c.ttlDias > 0 && !!c.origem));
+
+  // ⚠️ Toda chave de negócio tem NOME em português. A trilha de auditoria passou
+  // a registrar cada gravação de estado; um evento que diz `a4p_close_tasks`
+  // obriga quem audita a decifrar o identificador, e auditoria que só o autor lê
+  // não é auditoria.
+  const semRotulo = [...CHAVES_DE_NEGOCIO, ...cacheChaves].filter((c) => !ROTULO_DA_CHAVE[c]);
+  ok("persistência: toda chave de negócio tem nome legível",
+     semRotulo.length === 0, `sem rótulo: ${semRotulo.join(", ")}`);
+  ok("persistência: chave desconhecida cai em si mesma, não em vazio",
+     rotuloDaChave("a4p_inexistente") === "a4p_inexistente");
+}
+
+
+/* ========================================================================== */
+/* LINHA 20b — ONDA 8: o cache VENCE, o backup VOLTA, o disco ENXUGA.         */
+/* ========================================================================== */
+{
+  // Estas três funções só agem no navegador. O `localStorage` de mentira abaixo
+  // é o que permite prová-las aqui — sem ele elas devolveriam zero e a guarda
+  // passaria sem ter testado nada, que é o pior resultado possível.
+  const memoriaFalsa = new Map<string, string>();
+  const armazem = {
+    getItem: (k: string) => memoriaFalsa.get(k) ?? null,
+    setItem: (k: string, v: string) => { memoriaFalsa.set(k, v); },
+    removeItem: (k: string) => { memoriaFalsa.delete(k); },
+    key: (i: number) => Array.from(memoriaFalsa.keys())[i] ?? null,
+    clear: () => memoriaFalsa.clear(),
+    get length() { return memoriaFalsa.size; },
+  };
+  const g = globalThis as unknown as { window?: unknown; localStorage?: unknown };
+  const janelaAntes = g.window, armazemAntes = g.localStorage;
+  g.window = g;
+  g.localStorage = armazem;
+
+  try {
+    const DIA = 24 * 3600 * 1000;
+    const agora = 1_700_000_000_000;
+
+    /* --- 1. IGNORAR NÃO É EXPIRAR ------------------------------------------ */
+    // ⚠️ O defeito real: os dois caches JÁ tinham validade, e a leitura já
+    // ignorava a entrada velha — o que dá a resposta certa e mesmo assim deixa
+    // o byte no disco para sempre. Um extrato com 300 fornecedores deixava 300
+    // entradas eternas na cota de 5 MB.
+    armazem.setItem("a4p_cnpj_cache", JSON.stringify({
+      novo: { t: agora - 10 * DIA, d: { nome: "Alfa" } },   // dentro dos 60 dias
+      velho: { t: agora - 90 * DIA, d: { nome: "Beta" } },  // vencido
+      semCarimbo: { d: { nome: "Gama" } },                  // sem data: some
+    }));
+    armazem.setItem("a4p_municipios", JSON.stringify({
+      SP: { t: agora - 5 * DIA, m: ["São Paulo"] },
+    }));
+
+    const expurgo = expurgarCaches(agora);
+    const cnpjDepois = JSON.parse(armazem.getItem("a4p_cnpj_cache") ?? "{}") as Record<string, unknown>;
+    ok("onda8: o expurgo REMOVE a entrada vencida", expurgo.removidas === 2,
+       `removidas: ${expurgo.removidas}`);
+    ok("onda8: o expurgo PRESERVA a entrada que ainda vale",
+       "novo" in cnpjDepois && !("velho" in cnpjDepois) && !("semCarimbo" in cnpjDepois),
+       `restou: ${Object.keys(cnpjDepois).join(", ")}`);
+    // ⚠️ Expurgar por ENTRADA, não a chave inteira: jogar tudo fora faria a
+    // próxima importação reconsultar centenas de CNPJs que continuavam bons.
+    ok("onda8: o cache dentro da validade não é jogado fora inteiro",
+       JSON.parse(armazem.getItem("a4p_municipios") ?? "{}").SP != null);
+    ok("onda8: o expurgo devolve bytes liberados", expurgo.bytesLiberados > 0);
+    // Rodar de novo não pode remover nada — o expurgo roda a cada sessão.
+    ok("onda8: expurgar duas vezes é idempotente", expurgarCaches(agora).removidas === 0);
+
+    /* --- 2. O BACKUP VOLTA -------------------------------------------------- */
+    armazem.setItem("a4p_orcamentos", JSON.stringify([{ id: "o1", nome: "2026" }]));
+    armazem.setItem("a4p_theme", JSON.stringify("dark"));
+    const b = exportarEstado();
+    ok("onda8: o backup se identifica", backupValido(b));
+    ok("onda8: o backup leva o dado de negócio", "a4p_orcamentos" in b.chaves);
+    // ⚠️ Preferência FICA DE FORA de propósito: restaurar tema e largura de menu
+    // sobrescreveria os ajustes da máquina onde a restauração acontece.
+    ok("onda8: o backup NÃO leva preferência de tela", !("a4p_theme" in b.chaves));
+
+    // ⚠️ Um arquivo adulterado não pode virar caminho para escrever qualquer
+    // coisa no estado da organização: chave fora da lista é RECUSADA.
+    const adulterado = {
+      ...b,
+      chaves: { ...b.chaves, a4p_theme: "light", a4p_invasor: { x: 1 } },
+    };
+    const r = await importarEstado(adulterado);
+    ok("onda8: a restauração recusa o que não é dado de negócio",
+       r.recusadas.includes("a4p_theme") && r.recusadas.includes("a4p_invasor"),
+       `recusadas: ${r.recusadas.join(", ")}`);
+    ok("onda8: a restauração não grava a chave recusada",
+       armazem.getItem("a4p_invasor") === null);
+    // ⚠️ O tempo é MEDIDO. "Dá para restaurar" sem tempo de recuperação é
+    // palavra; a tela mostra o número que sai daqui.
+    ok("onda8: a restauração mede o tempo de recuperação", typeof r.ms === "number" && r.ms >= 0);
+    ok("onda8: a restauração devolve o que entrou", r.restauradas === Object.keys(b.chaves).length,
+       `${r.restauradas} de ${Object.keys(b.chaves).length}`);
+
+    const naoBackup = [{ formato: "outra-coisa" }, { formato: "all4pay/estado-da-organizacao", versao: 9 }, null, "texto"];
+    ok("onda8: arquivo que não é backup é recusado", naoBackup.every((x) => !backupValido(x)));
+
+    /* --- 3. ENXUGAR NÃO PODE APAGAR O QUE SÓ EXISTE AQUI -------------------- */
+    // ⚠️ A trava do `enxugarLocal`: sem servidor (ou sem confirmação dele) ele
+    // não remove NADA. Apagar antes disso trocaria "o dado só existe no
+    // navegador" por "o dado não existe em lugar nenhum".
+    const enxugo = enxugarLocal();
+    ok("onda8: sem servidor, enxugar não remove nada", enxugo.removidas === 0);
+    ok("onda8: o dado de negócio continua no disco depois de enxugar",
+       armazem.getItem("a4p_orcamentos") !== null);
+  } finally {
+    g.window = janelaAntes;
+    g.localStorage = armazemAntes;
   }
 }
 

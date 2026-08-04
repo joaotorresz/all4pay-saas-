@@ -115,6 +115,32 @@ export const CONTROLES: Controle[] = [
     tipo: "destrutiva", confirma: true, desfaz: false,
     efeito: "remove as duplicatas já gravadas, mostrando o impacto em caixa ANTES",
   },
+  {
+    // ⚠️ Restaurar SOBRESCREVE o estado atual da organização. O desfazer aqui
+    // não é cortesia: quem restaura um backup costuma estar consertando um
+    // problema, e escolher o arquivo errado no meio disso troca um estrago por
+    // outro. A tela exporta o estado vigente ANTES de importar — é esse
+    // instantâneo que o desfazer devolve.
+    id: "armazenamento.restaurar", tela: "Armazenamento", rotulo: "Restaurar backup",
+    tipo: "destrutiva", confirma: true, desfaz: true,
+    efeito: "sobrescreve o estado da organização e oferece desfazer por 8 segundos",
+    fechaPorEsc: true,
+  },
+
+  /* ----------------------------- armazenamento --------------------------- */
+  {
+    id: "armazenamento.backup", tela: "Armazenamento", rotulo: "Baixar backup",
+    tipo: "acao", efeito: "baixa um arquivo com o estado de negócio da organização",
+  },
+  {
+    id: "armazenamento.expurgar", tela: "Armazenamento", rotulo: "Expurgar cache vencido",
+    tipo: "acao", efeito: "apaga as entradas de cache fora da validade e libera espaço local",
+  },
+  {
+    id: "armazenamento.enxugar", tela: "Armazenamento", rotulo: "Liberar espaço local",
+    tipo: "acao",
+    efeito: "remove do navegador as cópias já confirmadas pelo servidor, mantendo-as em memória",
+  },
 
   /* -------------------------------- modais ------------------------------- */
   { id: "modal.baixa", tela: "Títulos a receber", rotulo: "Confirmar recebimento", tipo: "acao", efeito: "liquida o título e credita a conta", fechaPorEsc: true },

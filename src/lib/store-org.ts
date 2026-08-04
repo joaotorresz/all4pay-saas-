@@ -137,9 +137,99 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_home_auto", "a4p_atalhos_home", "a4p_fluxo_filtros", "a4p_designlab",
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
-  "a4p_cnpj_cache", "a4p_municipios", "a4p_anuncios_lidos",
-  "a4p_sidebar_collapsed",
+  "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
 ];
+
+/**
+ * ⚠️ O TERCEIRO GRUPO — **cache que precisa expirar**.
+ *
+ * Nem toda chave local é preferência. Estas duas guardam respostas de API
+ * PÚBLICA (Receita/BrasilAPI e IBGE) copiadas para não repetir a consulta. Elas
+ * podem ficar no dispositivo — perdê-las custa uma requisição, não trabalho —
+ * mas se ficarem para sempre viram lixo que ocupa a cota de 5 MB que os dados
+ * de verdade precisam.
+ *
+ * ⚠️ **Elas já tinham validade e mesmo assim cresciam sem parar**: a leitura
+ * ignorava a entrada vencida, o que dá a resposta certa, mas ninguém nunca a
+ * REMOVIA — o byte continuava lá. Ignorar não é expirar. `expurgarCaches()`
+ * apaga de fato, e roda a cada sessão.
+ */
+export interface CacheLocal {
+  chave: string;
+  /** Depois de quantos dias uma entrada deixa de valer. */
+  ttlDias: number;
+  /** O que se perde ao expurgar — sempre reconstituível, por definição. */
+  origem: string;
+}
+
+export const CACHES_LOCAIS: CacheLocal[] = [
+  { chave: "a4p_cnpj_cache", ttlDias: 60, origem: "consulta de CNPJ (BrasilAPI)" },
+  { chave: "a4p_municipios", ttlDias: 90, origem: "lista de municípios (IBGE)" },
+];
+
+/**
+ * O NOME DE CADA CHAVE, em português.
+ *
+ * ⚠️ Vive aqui, junto do registro, e não na tela de armazenamento onde nasceu:
+ * a trilha de auditoria passou a registrar cada gravação de estado, e um evento
+ * que diz `a4p_close_tasks` obriga quem audita a decifrar o identificador. Dois
+ * mapas em telas diferentes divergiriam na primeira chave nova.
+ */
+export const ROTULO_DA_CHAVE: Record<string, string> = {
+  a4p_orcamentos: "Orçamentos",
+  a4p_aprovacoes: "Solicitações e aprovações",
+  a4p_reembolsos: "Reembolsos",
+  a4p_comprovantes: "Comprovantes de pagamento",
+  a4p_close_tasks: "Tarefas de fechamento mensal",
+  a4p_pos_taxas: "Taxas do POS",
+  a4p_company: "Dados da empresa",
+  a4p_plano_contas: "Plano de contas",
+  a4p_contas_bancarias: "Contas bancárias (campos extras)",
+  a4p_centros_custo: "Centros de custo",
+  a4p_projetos: "Projetos",
+  a4p_contratos: "Contratos",
+  a4p_recorrencias: "Recorrências e assinaturas",
+  a4p_regras_categorizacao: "Regras de categorização",
+  a4p_regras_conciliacao: "Regras de conciliação",
+  a4p_fechamentos: "Fechamentos assinados",
+  a4p_dashboards_custom: "Dashboards personalizados",
+  a4p_movimento_projeto: "Vínculo lançamento → projeto",
+  a4p_compras: "Compras e pedidos",
+  a4p_transferencias: "Transferências entre contas",
+  a4p_vendas_docs: "Vendas",
+  a4p_nfse: "Notas fiscais de serviço",
+  a4p_nfs_recebidas: "NFs recebidas",
+  a4p_boletos_recebidos: "Boletos recebidos (DDA)",
+  a4p_links_pagamento: "Links de pagamento",
+  a4p_impostos_config: "Configuração de impostos",
+  a4p_revrec: "Reconhecimento de receita",
+  a4p_cronogramas: "Cronogramas",
+  a4p_ledger: "Razão contábil",
+  a4p_locked_periods: "Períodos travados",
+  a4p_plano_usos: "Usos padrão do plano de contas",
+  a4p_party_extra: "Campos extras de contatos",
+  a4p_produto_extra: "Campos extras de produtos",
+  a4p_tags: "Tags",
+  a4p_assinatura: "Assinatura do sistema",
+  a4p_integracoes: "Integrações",
+  a4p_contador_destinatarios: "Destinatários do contador",
+  a4p_contador_execucoes: "Envios ao contador",
+  a4p_exportacoes: "Relatórios exportados",
+  a4p_chamados: "Chamados de suporte",
+  a4p_logs_admin: "Logs administrativos",
+  a4p_regras_uso: "Uso das regras de categorização",
+  a4p_fdip_memory: "Aprendizado da importação",
+  a4p_ia_memory: "Memória do assistente",
+  a4p_ia_conversas: "Conversas com a IA",
+  a4p_ajuda_conversa: "Conversa da Central de Ajuda",
+  a4p_ai_actions: "Ações registradas da IA",
+  a4p_orcamento: "Simulador de orçamento",
+  a4p_cnpj_cache: "Cache de consulta de CNPJ",
+  a4p_municipios: "Cache de municípios (IBGE)",
+};
+
+/** O nome legível de uma chave; a própria chave quando não há nome. */
+export const rotuloDaChave = (c: string): string => ROTULO_DA_CHAVE[c] ?? c;
 
 /** Chaves já migradas para o servidor nesta sessão. */
 const MIGRADAS = new Set<string>();
@@ -318,6 +408,152 @@ export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: 
 }
 
 /* ========================================================================== */
+/* CACHE — o que fica, mas vence                                               */
+/* ========================================================================== */
+
+/**
+ * Apaga as entradas VENCIDAS dos caches locais e devolve quantos bytes voltaram.
+ *
+ * ⚠️ Os dois caches guardam `{ [id]: { t: <ms>, … } }` — um carimbo por entrada.
+ * A leitura já respeitava a validade (entrada velha era ignorada e reconsultada),
+ * mas nada removia o registro: um extrato com 300 fornecedores deixava 300
+ * entradas para sempre. Expurgar por ENTRADA, e não a chave inteira, preserva o
+ * que ainda vale — jogar tudo fora faria a próxima importação reconsultar
+ * centenas de CNPJs que continuavam bons.
+ */
+export function expurgarCaches(agora = Date.now()): { removidas: number; bytesLiberados: number } {
+  if (typeof window === "undefined") return { removidas: 0, bytesLiberados: 0 };
+  let removidas = 0, bytesLiberados = 0;
+  for (const { chave, ttlDias } of CACHES_LOCAIS) {
+    let bruto: string | null = null;
+    try { bruto = localStorage.getItem(chave); } catch { continue; }
+    if (!bruto) continue;
+    let mapa: Record<string, { t?: number }>;
+    try { mapa = JSON.parse(bruto) as Record<string, { t?: number }>; } catch { continue; }
+    if (!mapa || typeof mapa !== "object") continue;
+
+    const limite = agora - ttlDias * 24 * 3600 * 1000;
+    const vivo: Record<string, unknown> = {};
+    let caiu = 0;
+    for (const [id, entrada] of Object.entries(mapa)) {
+      // Entrada sem carimbo não tem como ser datada: some, porque mantê-la
+      // eternamente é o mesmo defeito com outra roupa.
+      if (typeof entrada?.t === "number" && entrada.t >= limite) vivo[id] = entrada;
+      else caiu++;
+    }
+    if (caiu === 0) continue;
+    const novo = JSON.stringify(vivo);
+    try {
+      if (Object.keys(vivo).length === 0) localStorage.removeItem(chave);
+      else localStorage.setItem(chave, novo);
+      removidas += caiu;
+      bytesLiberados += bruto.length - (Object.keys(vivo).length ? novo.length : 0);
+    } catch { /* cota/erro: o cache velho é o menor dos problemas */ }
+  }
+  return { removidas, bytesLiberados };
+}
+
+/* ========================================================================== */
+/* BACKUP E RESTAURAÇÃO                                                        */
+/* ========================================================================== */
+
+export interface Backup {
+  formato: "all4pay/estado-da-organizacao";
+  versao: 1;
+  geradoEm: string;
+  /** Só dado de NEGÓCIO — preferência e cache não entram em backup. */
+  chaves: Record<string, unknown>;
+}
+
+/**
+ * Exporta o estado de negócio como um objeto restaurável.
+ *
+ * ⚠️ Preferência e cache ficam **de fora de propósito**. Um backup existe para
+ * devolver o TRABALHO; restaurar tema e largura de menu junto sobrescreveria os
+ * ajustes da máquina onde a restauração acontece, e restaurar cache reintroduz
+ * dados vencidos que a rede reconstitui de graça.
+ */
+export function exportarEstado(): Backup {
+  const chaves: Record<string, unknown> = {};
+  for (const c of CHAVES_DE_NEGOCIO) {
+    const v = memoria.has(c) ? memoria.get(c) : lerLocal<unknown>(c, null);
+    if (v !== null && v !== undefined) chaves[c] = v;
+  }
+  return {
+    formato: "all4pay/estado-da-organizacao",
+    versao: 1,
+    geradoEm: new Date().toISOString(),
+    chaves,
+  };
+}
+
+export function backupValido(b: unknown): b is Backup {
+  const x = b as Partial<Backup> | null;
+  return !!x && x.formato === "all4pay/estado-da-organizacao" && x.versao === 1
+    && !!x.chaves && typeof x.chaves === "object";
+}
+
+/**
+ * Restaura um backup. Devolve o que entrou e **quanto tempo levou** — é o
+ * "tempo de recuperação medido" que a política de backup exige; sem medir, a
+ * promessa de restauração é palavra.
+ *
+ * ⚠️ Restaurar SOBRESCREVE, e por isso é a tela que confirma, não esta função.
+ * Chave que não é dado de negócio é RECUSADA mesmo que venha no arquivo: um
+ * backup adulterado não pode virar caminho para escrever qualquer coisa no
+ * estado da organização.
+ */
+export async function importarEstado(b: Backup): Promise<{ restauradas: number; recusadas: string[]; ms: number }> {
+  const t0 = Date.now();
+  const permitidas = new Set(CHAVES_DE_NEGOCIO);
+  const recusadas: string[] = [];
+  let restauradas = 0;
+  for (const [chave, valor] of Object.entries(b.chaves)) {
+    if (!permitidas.has(chave)) { recusadas.push(chave); continue; }
+    memoria.set(chave, valor);
+    avisar(chave);
+    if (remoto()) { pendentesDeEnvio.set(chave, valor); await enviar(chave, valor); }
+    try { gravarLocal(chave, valor); } catch { /* servidor já recebeu */ }
+    restauradas++;
+  }
+  return { restauradas, recusadas, ms: Date.now() - t0 };
+}
+
+/* ========================================================================== */
+/* ENXUGAR — o alvo de menos de 50 KB locais                                   */
+/* ========================================================================== */
+
+/**
+ * Remove do `localStorage` as cópias de dado de negócio **já confirmadas no
+ * servidor**, mantendo o valor em memória para a sessão continuar síncrona.
+ *
+ * ⚠️ A trava é `MIGRADAS`: só sai do disco o que o servidor confirmou nesta
+ * sessão (envio aceito ou hidratação bem-sucedida). Apagar antes disso trocaria
+ * o problema "o dado só existe no navegador" por outro pior — "o dado não existe
+ * em lugar nenhum".
+ *
+ * O custo real: recarregar a página offline abre sem esses dados até a
+ * hidratação responder. É o preço de tirar o negócio do disco do navegador, e é
+ * menor que o de perdê-lo ao limpar o cache.
+ */
+export function enxugarLocal(): { removidas: number; bytesLiberados: number } {
+  if (typeof window === "undefined" || !remoto()) return { removidas: 0, bytesLiberados: 0 };
+  let removidas = 0, bytesLiberados = 0;
+  for (const c of CHAVES_DE_NEGOCIO) {
+    if (!MIGRADAS.has(c) || pendentesDeEnvio.has(c)) continue;
+    try {
+      const s = localStorage.getItem(c);
+      if (s === null) continue;
+      if (!memoria.has(c)) memoria.set(c, JSON.parse(s));
+      localStorage.removeItem(c);
+      removidas++;
+      bytesLiberados += c.length + s.length;
+    } catch { /* segue: chave ilegível não vale um throw */ }
+  }
+  return { removidas, bytesLiberados };
+}
+
+/* ========================================================================== */
 /* Diagnóstico                                                                 */
 /* ========================================================================== */
 
@@ -334,11 +570,23 @@ export interface EstadoSincronizacao {
   pctTeto: number;
   /** Chaves de NEGÓCIO ainda só no navegador — o que falta migrar. */
   negocioLocal: { chave: string; bytes: number }[];
-  /** Chaves que não estão em nenhuma das duas listas — decisão pendente. */
+  /** Cache local (expira) — bytes que a rede reconstitui de graça. */
+  caches: { chave: string; bytes: number }[];
+  /** Bytes de negócio ainda no disco — o número que a meta de 50 KB persegue. */
+  bytesDeNegocio: number;
+  /** `true` quando o disco local já é só preferência + cache (a meta). */
+  dentroDaMeta: boolean;
+  /** Chaves que não estão em nenhuma das listas — decisão pendente. */
   naoClassificadas: { chave: string; bytes: number }[];
 }
 
 const TETO_LOCALSTORAGE = 5 * 1024 * 1024;
+/**
+ * A meta da ONDA 8: **menos de 50 KB locais**. Não é um número estético — é o
+ * tamanho que sobra quando o disco do navegador guarda só preferência de tela e
+ * cache descartável, ou seja, quando nenhum dado de negócio depende dele.
+ */
+export const META_BYTES_LOCAIS = 50 * 1024;
 
 export function estadoSincronizacao(): EstadoSincronizacao {
   let bytes = 0;
@@ -356,6 +604,11 @@ export function estadoSincronizacao(): EstadoSincronizacao {
   }
   const negocio = new Set(CHAVES_DE_NEGOCIO);
   const prefs = new Set(PREFERENCIAS_LOCAIS);
+  const caches = new Set(CACHES_LOCAIS.map((c) => c.chave));
+  const semTabelaPropria = new Set(PRECISAM_DE_TABELA_PROPRIA);
+  const bytesDeNegocio = presentes
+    .filter((p) => negocio.has(p.chave))
+    .reduce((s, p) => s + p.bytes, 0);
   return {
     ativo: remoto(),
     sincronizadas: Array.from(MIGRADAS).sort(),
@@ -368,8 +621,12 @@ export function estadoSincronizacao(): EstadoSincronizacao {
     negocioLocal: presentes
       .filter((p) => negocio.has(p.chave) && !MIGRADAS.has(p.chave))
       .sort((a, b) => b.bytes - a.bytes),
+    caches: presentes.filter((p) => caches.has(p.chave)).sort((a, b) => b.bytes - a.bytes),
+    bytesDeNegocio,
+    dentroDaMeta: bytesDeNegocio === 0 && bytes < META_BYTES_LOCAIS,
     naoClassificadas: presentes
-      .filter((p) => !negocio.has(p.chave) && !prefs.has(p.chave))
+      .filter((p) => !negocio.has(p.chave) && !prefs.has(p.chave)
+        && !caches.has(p.chave) && !semTabelaPropria.has(p.chave))
       .sort((a, b) => b.bytes - a.bytes),
   };
 }
