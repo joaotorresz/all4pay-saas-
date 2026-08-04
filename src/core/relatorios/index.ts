@@ -432,15 +432,106 @@ export interface RelatorioConsolidado {
   /** Uma coluna extra por empresa, além do consolidado. */
   empresas: { id: string; nome: string; relatorio: Relatorio }[];
   consolidado: Relatorio;
+  /**
+   * O que foi ELIMINADO por ser operação entre empresas do grupo — listado,
+   * nunca só descontado. É por esta lista que o contador confere a diferença
+   * entre o consolidado e a soma das partes.
+   */
+  eliminacoes: Eliminacao[];
 }
 
 /** Teto de 20 empresas — o mesmo do print, e um limite real de leitura. */
 export const MAX_EMPRESAS = 20;
 
+/* ------------------------- eliminações entre empresas ---------------------- */
+
+/**
+ * ⚠️ **CONSOLIDAR NÃO É SOMAR.** Somar os lançamentos de duas empresas do mesmo
+ * grupo conta duas vezes o dinheiro que só andou entre elas: a holding fatura
+ * serviço para a operadora, a operadora paga. No consolidado isso é receita da
+ * holding, despesa da operadora — e **receita nenhuma do grupo**, porque nada
+ * entrou vindo de fora. O grupo aparece maior do que é, e é justamente esse
+ * número inflado que vai para o banco pedir crédito.
+ *
+ * A regra da eliminação, e por que ela é conservadora: só se elimina o par que
+ * se reconhece com CERTEZA — mesmo valor, mesma competência (com tolerância de
+ * dias), sentidos opostos, e as duas pontas sendo empresas DO GRUPO. Eliminar
+ * por semelhança ("mesmo valor no mesmo mês") apagaria vendas legítimas a
+ * terceiros que por acaso coincidem, e uma eliminação errada some com receita
+ * real — erro pior que não eliminar, porque não deixa rastro na soma.
+ */
+export interface Eliminacao {
+  /** Ids já prefixados por empresa, como no consolidado. */
+  entrada: string;
+  saida: string;
+  valor: number;
+  competencia: string;
+  /** Quem com quem — a linha que o contador confere. */
+  entre: string;
+  motivo: string;
+}
+
+/** Tolerância de dias entre as duas pontas do mesmo fato. */
+const DIAS_PAREAMENTO = 5;
+
+const diasEntreISO = (a: string, b: string): number =>
+  Math.abs(Math.round((Date.parse(`${a.slice(0, 10)}T00:00:00Z`) - Date.parse(`${b.slice(0, 10)}T00:00:00Z`)) / 86400000));
+
+/**
+ * Encontra os pares intercompany. `nomes` mapeia id da empresa → nome, e é ele
+ * que define QUEM está no grupo: a contraparte de um lançamento só é
+ * intercompany se o nome dela corresponde a outra empresa da consolidação.
+ */
+export function eliminacoesIntercompany(
+  entidades: readonly EntidadeRelatorio[],
+): Eliminacao[] {
+  const normal = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const porNome = new Map(entidades.map((e) => [normal(e.nome), e.id]));
+
+  interface Ponta { empresa: string; id: string; valor: number; data: string; alvo: string; tipo: "entrada" | "saida" }
+  const pontas: Ponta[] = [];
+  for (const e of entidades) {
+    for (const m of e.input.movements) {
+      if (m.status === "cancelado" || !m.due_date) continue;
+      const contraparte = m.party_id ? (e.input.partyNames?.[m.party_id] ?? "") : "";
+      const alvo = porNome.get(normal(contraparte)) ?? "";
+      // A contraparte tem de ser OUTRA empresa da consolidação.
+      if (!alvo || alvo === e.id) continue;
+      pontas.push({ empresa: e.id, id: `${e.id}:${m.id}`, valor: Math.abs(m.amount), data: m.due_date.slice(0, 10), alvo, tipo: m.type });
+    }
+  }
+
+  const nome = new Map(entidades.map((e) => [e.id, e.nome]));
+  const usados = new Set<string>();
+  const out: Eliminacao[] = [];
+  for (const e of pontas.filter((p) => p.tipo === "entrada")) {
+    if (usados.has(e.id)) continue;
+    const par = pontas.find((s) =>
+      s.tipo === "saida" && !usados.has(s.id)
+      // O espelho: a saída sai da empresa que a entrada aponta, e aponta de volta.
+      && s.empresa === e.alvo && s.alvo === e.empresa
+      && Math.round(s.valor * 100) === Math.round(e.valor * 100)
+      && diasEntreISO(s.data, e.data) <= DIAS_PAREAMENTO);
+    if (!par) continue;
+    usados.add(e.id); usados.add(par.id);
+    out.push({
+      entrada: e.id, saida: par.id, valor: e.valor, competencia: e.data,
+      entre: `${nome.get(e.empresa) ?? e.empresa} ↔ ${nome.get(par.empresa) ?? par.empresa}`,
+      motivo: "mesmo valor e competência, sentidos opostos, entre duas empresas da consolidação",
+    });
+  }
+  return out;
+}
+
 /**
  * Consolida somando os RiskInput e rodando o MESMO motor: consolidar somando os
  * relatórios prontos dobraria a lógica e as duas somas divergiriam na primeira
- * regra nova. Sem eliminações intercompany (v1) — igual ao `/consolidado`.
+ * regra nova.
+ *
+ * ⚠️ As eliminações são aplicadas ANTES do motor, removendo as duas pontas do
+ * conjunto unido — e ficam LISTADAS na saída. Eliminar em silêncio produziria
+ * um consolidado menor que a soma das partes sem nada que explique a diferença,
+ * e a primeira pergunta do contador seria exatamente essa.
  */
 export function montarConsolidado(
   entidades: EntidadeRelatorio[],
@@ -448,12 +539,16 @@ export function montarConsolidado(
   f: FiltroRelatorio,
 ): RelatorioConsolidado {
   const usadas = entidades.slice(0, MAX_EMPRESAS);
+  const eliminacoes = eliminacoesIntercompany(usadas);
+  const removidos = new Set(eliminacoes.flatMap((e) => [e.entrada, e.saida]));
   const unido: RiskInput = {
     hoje: usadas[0]?.input.hoje ?? new Date().toISOString().slice(0, 10),
     saldoAtual: usadas.reduce((s, e) => s + e.input.saldoAtual, 0),
     // Prefixa o id com a empresa: dois movimentos com o mesmo id em orgs
     // diferentes se anulariam no drill-down.
-    movements: usadas.flatMap((e) => e.input.movements.map((m) => ({ ...m, id: `${e.id}:${m.id}` }))),
+    movements: usadas
+      .flatMap((e) => e.input.movements.map((m) => ({ ...m, id: `${e.id}:${m.id}` })))
+      .filter((m) => !removidos.has(m.id)),
     partyNames: Object.assign({}, ...usadas.map((e) => e.input.partyNames ?? {})),
     horizonDias: 60,
   };
@@ -461,6 +556,7 @@ export function montarConsolidado(
     colunas: mesesDoIntervalo(f.intervalo),
     empresas: usadas.map((e) => ({ id: e.id, nome: e.nome, relatorio: montarRelatorio(e.input, estrutura, f) })),
     consolidado: montarRelatorio(unido, estrutura, f),
+    eliminacoes,
   };
 }
 

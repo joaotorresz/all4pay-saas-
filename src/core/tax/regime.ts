@@ -101,3 +101,59 @@ export function cargaProjetada(receita: number, regime: RegimeTributario): numbe
   if (!p.tributos) return 0;
   return receita * p.cargaTotal;
 }
+
+/* ========================================================================== */
+/* O REGIME DA EMPRESA — uma configuração, não três                            */
+/* ========================================================================== */
+
+/**
+ * ⚠️ **UMA CHAVE SÓ.** O regime tributário estava gravado em campos diferentes
+ * conforme a tela que salvou:
+ *
+ *  - `NovaEmpresaForm` grava **`regimeTributario`**;
+ *  - `DadosEmpresaView` grava **`regime`**;
+ *  - a projeção de carga lê `regime`; a tela de notas lê `regimeTributario ??
+ *    regime`; e a tela de impostos **não lia nenhum dos dois** — tinha as
+ *    alíquotas do Lucro Presumido cravadas no arquivo.
+ *
+ * O resultado é o defeito que o contador encontra em dez minutos: a mesma
+ * empresa aparece como Simples numa tela e Presumido na outra, e os dois
+ * módulos de imposto respondem números diferentes para a mesma pergunta. Não é
+ * divergência de cálculo — é divergência de CADASTRO, que é pior, porque não há
+ * fórmula errada para consertar.
+ *
+ * A precedência é declarada, não acidental: `regimeTributario` (o campo do
+ * cadastro jurídico, preenchido no onboarding com o CNPJ na mão) vence `regime`
+ * (o campo de edição rápida). Empatados, o mais recente venceria — mas não há
+ * carimbo de tempo por campo, e inventar um desempate silencioso é como o
+ * problema começou.
+ */
+export function regimeDaEmpresa(
+  db: Record<string, unknown> | null | undefined,
+  padrao: RegimeTributario = "presumido",
+): RegimeTributario {
+  const bruto = String(db?.regimeTributario ?? db?.regime ?? "").toLowerCase().trim();
+  if (!bruto) return padrao;
+  if (bruto.includes("simples")) return "simples";
+  if (bruto.includes("mei")) return "mei";
+  if (bruto.includes("real")) return "real";
+  if (bruto.includes("presumido")) return "presumido";
+  return padrao;
+}
+
+/**
+ * As duas chaves estão em desacordo? A tela de dados da empresa avisa.
+ *
+ * ⚠️ Resolver a precedência em silêncio conserta o número e esconde o defeito
+ * de cadastro: alguém preencheu dois campos com respostas diferentes, e só a
+ * empresa sabe qual está certa. Corrigir sem avisar é escolher por ela.
+ */
+export function regimeEmConflito(
+  db: Record<string, unknown> | null | undefined,
+): { conflito: boolean; cadastro?: string; edicao?: string } {
+  const a = String(db?.regimeTributario ?? "").toLowerCase().trim();
+  const b = String(db?.regime ?? "").toLowerCase().trim();
+  if (!a || !b) return { conflito: false };
+  const norm = (x: string) => regimeDaEmpresa({ regime: x });
+  return norm(a) === norm(b) ? { conflito: false } : { conflito: true, cadastro: a, edicao: b };
+}

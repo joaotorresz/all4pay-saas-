@@ -56,6 +56,8 @@ import {
 import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
+import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
+import { eliminacoesIntercompany } from "@/core/relatorios";
 import {
   TERMOS, termosProibidosEm, glossarioPublicado, VOZ, comVoz, ESTRANGEIRISMOS_PROIBIDOS,
   textoDeOrigem,
@@ -1444,6 +1446,85 @@ const AGOSTO = janelaMes(2026, 7);
   ok("onda11: a origem declara de quantos lançamentos saiu", /\d+ lançamento/.test(origem));
 }
 
+
+
+/* ========================================================================== */
+/* LINHA 20f — ONDA 13: prontidão contábil e fiscal.                          */
+/* ========================================================================== */
+{
+  /* ---- Regime tributário: UMA configuração -------------------------------- */
+  // ⚠️ O regime estava em campos diferentes conforme a tela que salvou:
+  // `regimeTributario` (cadastro) e `regime` (edição rápida). A mesma empresa
+  // aparecia como Simples numa tela e Presumido na outra — divergência de
+  // CADASTRO, que é pior que a de cálculo: não há fórmula errada para consertar.
+  ok("onda13: o regime sai de uma função só, das duas chaves",
+     regimeDaEmpresa({ regimeTributario: "Simples Nacional" }) === "simples"
+     && regimeDaEmpresa({ regime: "Lucro Real" }) === "real");
+  // A precedência é declarada: o cadastro jurídico vence a edição rápida.
+  ok("onda13: o cadastro vence a edição rápida",
+     regimeDaEmpresa({ regimeTributario: "simples", regime: "presumido" }) === "simples");
+  ok("onda13: sem nada, cai no padrão", regimeDaEmpresa({}) === "presumido");
+  ok("onda13: texto desconhecido não vira regime inventado",
+     regimeDaEmpresa({ regime: "qualquer coisa" }) === "presumido");
+  // ⚠️ Resolver em silêncio conserta o número e ESCONDE o defeito de cadastro:
+  // alguém preencheu dois campos com respostas diferentes, e só a empresa sabe
+  // qual está certa.
+  ok("onda13: o conflito entre as duas chaves é DENUNCIADO",
+     regimeEmConflito({ regimeTributario: "simples", regime: "presumido" }).conflito);
+  ok("onda13: sem conflito, não acusa",
+     !regimeEmConflito({ regimeTributario: "simples", regime: "Simples Nacional" }).conflito);
+
+  /* ---- A base do imposto -------------------------------------------------- */
+  // ⚠️ A tela de impostos somava TODA entrada — transferência entre contas
+  // próprias, resgate, empréstimo e rendimento entravam na base, e o sistema
+  // provisionava tributo sobre dinheiro que a empresa moveu de um bolso ao
+  // outro. `receitaTributavel` (canônico) é a base das DUAS telas agora.
+  const entradasAgosto = entradas(INPUT, AGOSTO, "competencia").valor;
+  const tributavel = receitaTributavel(INPUT, AGOSTO, "competencia").valor;
+  ok("onda13: a base tributável é MENOR que todas as entradas",
+     tributavel < entradasAgosto, `${tributavel} vs ${entradasAgosto}`);
+  ok("onda13: a diferença é exatamente o que não é faturamento",
+     cent(entradasAgosto - tributavel) === cent(20_000 + 900 + 15_000),
+     `${(entradasAgosto - tributavel).toFixed(2)}`);
+  // O perfil sai do regime, não de alíquotas cravadas no arquivo.
+  ok("onda13: cada regime tem perfil próprio",
+     perfilTributario("presumido").cargaTotal !== perfilTributario("real").cargaTotal);
+  // ⚠️ Simples e MEI declaram que NÃO têm tabela fixa em vez de fingir um
+  // percentual que não existe.
+  ok("onda13: Simples e MEI não fingem tabela fixa",
+     perfilTributario("simples").tributos === null && perfilTributario("mei").tributos === null);
+
+  /* ---- Eliminações entre empresas ----------------------------------------- */
+  // ⚠️ Somar duas empresas do grupo conta duas vezes o dinheiro que só andou
+  // entre elas: o grupo aparece maior do que é, e é esse número que vai ao banco.
+  const mkEmpresa = (id: string, nome: string, movs: RiskMovement[], nomes: Record<string, string>) =>
+    ({ id, nome, input: { hoje: HOJE, saldoAtual: 0, movements: movs, partyNames: nomes } as RiskInput });
+  const holding = mkEmpresa("h", "Holding Alfa",
+    [mv("ic1", "entrada", "pago", 10_000, "2026-08-10", "2026-08-10", "Serviços", "p-op")],
+    { "p-op": "Operadora Beta" });
+  const operadora = mkEmpresa("o", "Operadora Beta",
+    [mv("ic2", "saida", "pago", 10_000, "2026-08-12", "2026-08-12", "Serviços", "p-ho"),
+     mv("ext", "entrada", "pago", 50_000, "2026-08-05", "2026-08-05", "Vendas", "p-cli")],
+    { "p-ho": "Holding Alfa", "p-cli": "Cliente de fora" });
+
+  const elim = eliminacoesIntercompany([holding, operadora]);
+  ok("onda13: o par entre empresas do grupo é eliminado", elim.length === 1, `${elim.length}`);
+  ok("onda13: e o valor eliminado é o do par", elim[0] && cent(elim[0].valor) === cent(10_000));
+  // ⚠️ A venda para TERCEIRO não pode ser eliminada — apagar receita real é
+  // erro pior que não eliminar, porque não deixa rastro na soma.
+  ok("onda13: a venda a terceiro sobrevive",
+     !elim.some((e) => e.entrada.includes("ext") || e.saida.includes("ext")));
+  ok("onda13: a eliminação diz entre QUEM foi",
+     (elim[0]?.entre ?? "").includes("Holding Alfa") && (elim[0]?.entre ?? "").includes("Operadora Beta"));
+  // Uma ponta sem espelho do outro lado não é intercompany.
+  const soUmLado = eliminacoesIntercompany([holding, mkEmpresa("o", "Operadora Beta", [], { })]);
+  ok("onda13: sem o espelho, nada é eliminado", soUmLado.length === 0);
+  // Valores diferentes não pareiam, mesmo entre empresas do grupo.
+  const desigual = mkEmpresa("o", "Operadora Beta",
+    [mv("ic3", "saida", "pago", 9_999, "2026-08-12", "2026-08-12", "Serviços", "p-ho")],
+    { "p-ho": "Holding Alfa" });
+  ok("onda13: valor diferente não é o mesmo fato", eliminacoesIntercompany([holding, desigual]).length === 0);
+}
 
 /* ========================================================================== */
 /* LINHA 21 — ROTAS: aliases documentados, sem ciclo e sem porta lateral.      */

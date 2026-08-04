@@ -14,41 +14,62 @@ import { Card, Skeleton, Icon } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL } from "@/lib/format";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
+import { receitaTributavel, janelaMes } from "@/core/indicadores";
+import { perfilTributario, regimeDaEmpresa } from "@/core/tax/regime";
+import { loadCompany } from "@/lib/company";
 
-// Lucro Presumido (serviços) — base presumida 32%. Alíquotas efetivas s/ receita.
-const IMPOSTOS = [
-  { nome: "PIS", aliquota: 0.0065 },
-  { nome: "COFINS", aliquota: 0.03 },
-  { nome: "IRPJ", aliquota: 0.048 }, // 15% × 32% presumido
-  { nome: "CSLL", aliquota: 0.0288 }, // 9% × 32% presumido
-  { nome: "ISS", aliquota: 0.05 }, // municipal (estimado)
-];
-const ALIQUOTA_TOTAL = IMPOSTOS.reduce((s, i) => s + i.aliquota, 0);
+/**
+ * ⚠️ As alíquotas ERAM CRAVADAS AQUI, em Lucro Presumido serviços, para toda
+ * empresa. Uma optante pelo Simples via, nesta tela, a carga de um regime que
+ * não é o dela — e via um número diferente do que a projeção de carga (o outro
+ * módulo de imposto) mostrava, porque aquele lê o regime da empresa. Dois
+ * módulos, duas respostas, e nenhuma pergunta ao cadastro.
+ *
+ * Agora as duas telas saem de `perfilTributario(regimeDaEmpresa(...))` — uma
+ * fonte só para "qual é o regime" e uma só para "quanto ele custa".
+ */
 
 export function ImpostosView() {
   const { data, isLoading } = useRiscoInput();
 
+  // O regime vem do CADASTRO da empresa, resolvido por uma função só.
+  const regime = React.useMemo(
+    () => regimeDaEmpresa((loadCompany()?.db ?? null) as Record<string, unknown> | null), []);
+  const perfil = React.useMemo(() => perfilTributario(regime), [regime]);
+
   const calc = React.useMemo(() => {
     if (!data) return null;
     const hoje = new Date(data.hoje + "T00:00:00");
-    // receita (entradas) por mês de competência (due_date) — últimos 12 meses.
+    /**
+     * ⚠️ A BASE ERA "TODA ENTRADA". O laço somava `Math.abs(mv.amount)` de
+     * qualquer lançamento de entrada — e entrada, no extrato de uma empresa,
+     * inclui **transferência entre contas próprias, resgate de aplicação,
+     * empréstimo recebido e rendimento financeiro**. Nada disso é faturamento,
+     * e todos entravam na base do imposto: o sistema provisionava tributo sobre
+     * dinheiro que a empresa moveu de um bolso para o outro.
+     *
+     * `receitaTributavel` (canônico, ONDA 1) já exclui os quatro, com o regex
+     * ancorado que impede "transporte" de casar com "aporte". Uma função só,
+     * usada pelos dois módulos de imposto.
+     */
     const meses: { ym: string; label: string; receita: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      meses.push({ ym: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: `${MES_ABBR[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`, receita: 0 });
+      meses.push({
+        ym: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+        label: `${MES_ABBR[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`,
+        receita: receitaTributavel(data, janelaMes(d.getFullYear(), d.getMonth()), "competencia").valor,
+      });
     }
-    const idx = new Map(meses.map((m, i) => [m.ym, i]));
-    for (const mv of data.movements) {
-      if (mv.type !== "entrada") continue;
-      const ym = (mv.due_date || "").slice(0, 7);
-      const i = idx.get(ym);
-      if (i != null) meses[i].receita += Math.abs(mv.amount);
-    }
-    const totaisPorImposto = IMPOSTOS.map((imp) => ({ ...imp, total: meses.reduce((s, m) => s + m.receita * imp.aliquota, 0) }));
+    const tributos = perfil.tributos ?? [];
+    const totaisPorImposto = tributos.map((imp) => ({
+      nome: imp.nome, aliquota: imp.aliquota, origem: imp.origem,
+      total: meses.reduce((s, m) => s + m.receita * imp.aliquota, 0),
+    }));
     const receitaTotal = meses.reduce((s, m) => s + m.receita, 0);
-    const cargaTotal = receitaTotal * ALIQUOTA_TOTAL;
+    const cargaTotal = receitaTotal * perfil.cargaTotal;
     return { meses, totaisPorImposto, receitaTotal, cargaTotal };
-  }, [data]);
+  }, [data, perfil]);
 
   return (
     <AppShell title="Impostos · Provisionamento">
@@ -75,7 +96,7 @@ export function ImpostosView() {
                 </Card>
               ))}
               <Card className="flex flex-col gap-1" elevated style={{ background: "var(--color-lime-tint)" }} info={{ titulo: "Carga tributária total", oQue: "O total estimado de impostos sobre o faturamento dos últimos 12 meses.", comoCalcula: "Receita total por competência multiplicada pela soma de todas as alíquotas efetivas." }}>
-                <span className="text-caption text-muted">Carga total ({(ALIQUOTA_TOTAL * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)</span>
+                <span className="text-caption text-muted">Carga total ({(perfil.cargaTotal * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)</span>
                 <span className="text-[20px] font-semibold tabular-nums text-ink">{formatBRL(calc.cargaTotal)}</span>
               </Card>
             </div>
@@ -89,18 +110,18 @@ export function ImpostosView() {
                     <tr className="text-caption text-muted">
                       <th className="text-left font-medium px-5 py-2">Competência</th>
                       <th className="text-right font-medium px-3 py-2">Receita</th>
-                      {IMPOSTOS.map((i) => <th key={i.nome} className="text-right font-medium px-3 py-2">{i.nome}</th>)}
+                      {calc.totaisPorImposto.map((i) => <th key={i.nome} className="text-right font-medium px-3 py-2">{i.nome}</th>)}
                       <th className="text-right font-medium px-5 py-2">Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     {calc.meses.map((m, r) => {
-                      const totalMes = m.receita * ALIQUOTA_TOTAL;
+                      const totalMes = m.receita * perfil.cargaTotal;
                       return (
                         <tr key={m.ym} className={r ? "border-t border-border-soft" : ""}>
                           <td className="px-5 py-2 text-ink capitalize">{m.label}</td>
                           <td className="px-3 py-2 text-right tabular-nums text-ink">{formatBRL(m.receita)}</td>
-                          {IMPOSTOS.map((i) => <td key={i.nome} className="px-3 py-2 text-right tabular-nums text-muted">{formatBRL(m.receita * i.aliquota)}</td>)}
+                          {calc.totaisPorImposto.map((i) => <td key={i.nome} className="px-3 py-2 text-right tabular-nums text-muted">{formatBRL(m.receita * i.aliquota)}</td>)}
                           <td className="px-5 py-2 text-right tabular-nums font-medium text-ink">{formatBRL(totalMes)}</td>
                         </tr>
                       );

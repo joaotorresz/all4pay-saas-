@@ -1337,6 +1337,63 @@ desatualizada**: ele sobe, e foi isso que permitiu medir em vez de supor.
 
 **Placar final: 7 telas · 0 com problema · 4 fluxos · 0 com problema.**
 
+### ⚠️ ONDA 13 — PRONTIDÃO CONTÁBIL E FISCAL (0030)
+
+O contador é quem decide se a ferramenta fica ou sai. Três defeitos que ele
+encontra em dez minutos:
+
+- **⚠️ O REGIME ESTAVA EM TRÊS CHAVES.** `NovaEmpresaForm` gravava
+  `regimeTributario`; `DadosEmpresaView` gravava `regime`; a projeção de carga
+  lia `regime`; a tela de notas lia `regimeTributario ?? regime`; e a **tela de
+  impostos não lia nenhuma** — tinha as alíquotas do Lucro Presumido cravadas no
+  arquivo. A mesma empresa aparecia como Simples numa tela e Presumido na outra.
+  Não é divergência de cálculo, é de **cadastro** — pior, porque não há fórmula
+  errada para consertar. `regimeDaEmpresa()` resolve com precedência
+  DECLARADA (o cadastro jurídico vence a edição rápida) e `regimeEmConflito()`
+  **denuncia** o desacordo: resolver em silêncio conserta o número e esconde que
+  alguém preencheu dois campos com respostas diferentes.
+- **⚠️ A BASE DO IMPOSTO ERA "TODA ENTRADA".** A tela somava
+  `Math.abs(mv.amount)` de qualquer entrada — e entrada, num extrato, inclui
+  **transferência entre contas próprias, resgate, empréstimo e rendimento**. O
+  sistema provisionava tributo sobre dinheiro que a empresa moveu de um bolso
+  para o outro. Agora as duas telas usam `receitaTributavel` (canônico, ONDA 1).
+  Na fixture a diferença é exata: R$ 35.900 de não-faturamento fora da base.
+- **⚠️ O FECHAMENTO NÃO FECHAVA NADA.** `isPeriodLocked` era lido no render de
+  uma tabela — um AVISO que a importação em lote, a baixa em lote, a recorrência
+  e o próprio PostgREST ignoram. Migration 0030 põe a fechadura no BANCO
+  (gatilho em `movements`, por data de **competência**: um pagamento de hoje de
+  título antigo pertence ao mês antigo). Verificado: lançar, editar e apagar em
+  mês fechado → **bloqueados**.
+  - **A regra não é proibir, é exigir ESTORNO RASTREADO.** Proibir sem saída faz
+    o operador reabrir o mês, lançar e fechar de novo — o buraco que o
+    fechamento existe para impedir, agora sem rastro. `estornar_lancamento()`
+    cria a contrapartida **no mês aberto** ligada ao original por `estorno_de`;
+    o original só ganha o carimbo. Estorno sem motivo é recusado, estorno duplo
+    é recusado, e **reabrir mês exige motivo** — reabrir é a operação perigosa,
+    não fechar.
+- **Contador externo** é papel próprio: `ler` + `exportar` + `fechar`, **sem
+  `lancar` e sem `aprovar`**. Dar-lhe o papel de admin "porque é mais fácil" põe
+  um terceiro, fora da empresa, com poder de mover dinheiro. `fechar` sem
+  `lancar` define a função: ele responde pelo resultado do mês, não pelos
+  lançamentos que o formam.
+- **Eliminações entre empresas** (`eliminacoesIntercompany`). ⚠️ Consolidar não
+  é somar: a holding fatura para a operadora, a operadora paga, e no consolidado
+  isso é receita de uma, despesa da outra e **receita nenhuma do grupo**. O
+  grupo aparecia maior do que é — e é esse número que vai ao banco pedir
+  crédito. O pareamento é **conservador de propósito** (mesmo valor, competência
+  a até 5 dias, sentidos opostos, as duas pontas sendo empresas da consolidação):
+  eliminar por semelhança apagaria venda legítima a terceiro, e eliminação errada
+  some com receita real sem deixar rastro na soma. As eliminações ficam
+  **listadas** na saída — eliminar em silêncio produz um consolidado menor que a
+  soma das partes sem nada que explique a diferença.
+
+**O que NÃO foi feito, e por quê:** "validar a exportação contábil contra um
+arquivo real aceito pelo sistema do contador" exige o sistema Domínio do outro
+lado, que não existe aqui. O que há é a validação estrutural já feita (ANSI
+1252 conferido decodificando no Python, CRLF, layout visível na tela, recusa de
+lançamento sem código contábil) — que é forte e **não é a mesma coisa**. A
+conciliação com aceite formal também segue pendente.
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
