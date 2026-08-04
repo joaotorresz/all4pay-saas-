@@ -77,7 +77,8 @@
     "0030b_estorno_cast_enum",
     "0031_registro_de_ddl",
     "0020_org_movements",
-    "0033_teste_das_funcoes_definer"
+    "0033_teste_das_funcoes_definer",
+    "0018_ai_learning"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -240,16 +241,6 @@
       }
     ],
     "arquivo_sem_aplicacao": [
-      {
-        "nome": "0018_ai_learning",
-        "objetos_ausentes": [
-          "ai_learning",
-          "ai_learning_bump",
-          "ai_learning_feedback"
-        ],
-        "impacto": "o aprendizado da IA por organização NUNCA funcionou em produção; lib/assistant-memory engole a falha",
-        "resolver_ate": "2026-08-18"
-      },
       {
         "nome": "0019_projects",
         "objetos_ausentes": [],
