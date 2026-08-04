@@ -1093,6 +1093,21 @@ padrão** foram ajustados — sem isso a próxima tabela nasce com o buraco de n
   lembra de conferir — ficaria de fora. Verificado nos dois sentidos: 44 tabelas,
   0 vazamentos; e com uma tabela de política frouxa plantada, ele **nomeou** a
   tabela e contou as linhas.
+  - **`verificar_isolamento()`** é o mesmo teste, **registrado** na trilha
+    (`isolamento.verificar`, ou `isolamento.VAZAMENTO` quando acha algo — um
+    achado desses não pode ficar com o mesmo rótulo dos dias em que estava tudo
+    certo). Abrir a tela só LÊ; o botão "Testar agora" é que grava — registrar a
+    cada montagem encheria a trilha de eventos que ninguém pediu.
+  - ⚠️ **O que NÃO dá para registrar, e por quê:** a política de linha bloqueia a
+    leitura cruzada **sem deixar rastro** — uma linha filtrada é indistinguível
+    de uma linha que não existe, e o PostgreSQL não tem como registrar o que a
+    política escondeu sem transformar cada consulta do produto num registro.
+    Então o que fica na trilha é a VERIFICAÇÃO (quem conferiu, quando, quantas
+    tabelas, com que resultado), não a tentativa. É a diferença entre "o
+    isolamento está certo" e "o isolamento foi conferido no dia tal e estava
+    certo" — e é a segunda que uma auditoria consegue ler.
+  - Os eventos de segurança ganharam tipo próprio (`EntityType.security`, "Segurança" nos Logs): caídos no tipo de lançamento, ficariam escondidos entre
+    centenas de movimentos de dinheiro, que é onde ninguém procura por eles.
 - **Papéis reais** (`role_permissions` + `tem_permissao` + `minhas_permissoes`):
   leitor · lançador · aprovador · fechador · admin · titular, com as ações
   ler/exportar/lançar/baixar/aprovar/fechar/administrar/cobrança. ⚠️ **A matriz

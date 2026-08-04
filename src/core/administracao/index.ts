@@ -276,7 +276,7 @@ export const TIPOS_ENTIDADE = [
   // ⚠️ "Dado salvo" é o evento que o gatilho de `org_state` emite (orçamento,
   // aprovação, fechamento). Sem entrada aqui o filtro por tipo não o alcança —
   // e um evento que a auditoria não consegue isolar é um evento que ela não tem.
-  "Dado salvo",
+  "Dado salvo", "Segurança",
 ];
 
 export interface RegistroLog {

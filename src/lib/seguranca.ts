@@ -95,10 +95,21 @@ export async function carregarPermissoes(): Promise<MinhasPermissoes> {
 /* ISOLAMENTO E AUDITORIA                                                      */
 /* ========================================================================== */
 
-export async function rodarTesteIsolamento(): Promise<LinhaIsolamento[] | null> {
+/**
+ * Roda o teste de leitura cruzada.
+ *
+ * ⚠️ `registrar` decide QUAL das duas funções do banco é chamada, e a diferença
+ * é deliberada: a abertura da tela usa a versão que só lê, e o clique em
+ * "Testar agora" usa a que grava o resultado na trilha. Registrar a cada
+ * montagem encheria a trilha de eventos que ninguém pediu, e uma trilha cheia
+ * de ruído é uma trilha que não se lê — mas a verificação que alguém pediu
+ * precisa ficar registrada, senão "foi conferido" é memória de quem conferiu.
+ */
+export async function rodarTesteIsolamento(registrar = false): Promise<LinhaIsolamento[] | null> {
   // `null` = não foi possível TESTAR. A tela precisa dizer isso, e não "passou".
   if (semServidor()) return null;
-  const { data, error } = await (await cliente()).rpc("teste_isolamento");
+  const { data, error } = await (await cliente())
+    .rpc(registrar ? "verificar_isolamento" : "teste_isolamento");
   if (error || !data) return null;
   return (data as { tabela: string; linhas_de_outra_org: number; visiveis: number }[])
     .map((l) => ({

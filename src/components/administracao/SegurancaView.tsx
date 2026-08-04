@@ -42,7 +42,12 @@ export function SegurancaView() {
   const [testando, setTestando] = React.useState(false);
   const [msg, setMsg] = React.useState<string | null>(null);
 
-  const isolamento = useQuery({ queryKey: ["seguranca", "isolamento"], queryFn: rodarTesteIsolamento });
+  const isolamento = useQuery({
+    queryKey: ["seguranca", "isolamento"],
+    // Abrir a tela só LÊ; quem grava na trilha é o botão — ver a nota em
+    // `rodarTesteIsolamento`.
+    queryFn: () => rodarTesteIsolamento(false),
+  });
   const auditoria = useQuery({ queryKey: ["seguranca", "rls"], queryFn: auditoriaRLS });
   const revisao = useQuery({
     queryKey: ["seguranca", "revisao"],
@@ -65,11 +70,24 @@ export function SegurancaView() {
   const achados = achadosDaAuditoria(auditoria.data ?? []);
   const pendencias = revisao.data?.lista ? pendenciasDeAdmin(revisao.data.lista, hojeISO()) : [];
 
+  /**
+   * ⚠️ O botão chama a versão que REGISTRA. "Bloqueada e registrada" só se
+   * sustenta se houver algo legível depois — e a política de linha, sozinha,
+   * não deixa rastro: uma linha filtrada é indistinguível de uma linha que não
+   * existe. O que fica na trilha, então, é a verificação: quem conferiu, quando,
+   * quantas tabelas e com que resultado.
+   */
   async function retestar() {
     setTestando(true); setMsg(null);
     try {
-      await Promise.all([isolamento.refetch(), auditoria.refetch()]);
-      setMsg("Teste executado agora, contra o banco de produção.");
+      const [linhasNovas] = await Promise.all([rodarTesteIsolamento(true), auditoria.refetch()]);
+      await isolamento.refetch();
+      const r = resumoIsolamento(linhasNovas ?? []);
+      setMsg(
+        linhasNovas === null
+          ? "Não foi possível executar o teste."
+          : `${r.tabelas} tabelas conferidas agora · ${r.vazamentos} linhas de outra empresa · registrado na trilha.`,
+      );
     } finally { setTestando(false); }
   }
 

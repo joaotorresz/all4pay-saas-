@@ -30,7 +30,13 @@ export type EntityType =
    * como "Lançamento", que é o tipo que o acessor usava por falta de outro: a
    * auditoria ficaria dizendo que houve um lançamento onde não houve nenhum.
    */
-  | "state";
+  | "state"
+  /**
+   * ⚠️ **`security`** — trocar de organização e verificar o isolamento. São
+   * eventos de SEGURANÇA, e cair no tipo de lançamento os esconderia entre
+   * centenas de movimentos de dinheiro — que é onde ninguém procura por eles.
+   */
+  | "security";
 
 export type AuditAction =
   | "created"

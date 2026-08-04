@@ -442,7 +442,7 @@ const ACAO_DA_TRILHA: Record<string, RegistroLog["acao"]> = {
 const ENTIDADE_DA_TRILHA: Record<string, string> = {
   payment: "Lançamento", invoice: "Nota fiscal", pix: "Lançamento",
   user: "Usuário", rule: "Configuração", movement: "Lançamento",
-  state: "Dado salvo",
+  state: "Dado salvo", security: "Segurança",
 };
 
 const kbLog = (b: unknown) =>

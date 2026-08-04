@@ -322,6 +322,59 @@ $$;
 revoke execute on function public.teste_isolamento() from public, anon;
 grant execute on function public.teste_isolamento() to authenticated;
 
+/* ---------------------------------------------------------------------------
+ * `verificar_isolamento()` — o mesmo teste, **registrado**.
+ *
+ * ⚠️ A política de linha bloqueia a leitura cruzada e **não deixa rastro**: uma
+ * linha filtrada é indistinguível de uma linha que não existe, e o PostgreSQL
+ * não tem como registrar o que a política escondeu sem transformar cada
+ * consulta do produto num registro. Fingir o contrário seria pior que admitir.
+ *
+ * Então o que fica registrado não é a tentativa — é a VERIFICAÇÃO: quem
+ * conferiu, quando, quantas tabelas e com que resultado. É isso que uma
+ * auditoria consegue ler depois, e é a diferença entre "o isolamento está certo"
+ * e "o isolamento foi conferido no dia tal e estava certo".
+ *
+ * A ação muda de NOME quando o resultado muda (`isolamento.VAZAMENTO`): um
+ * achado desses não pode ficar escondido dentro de um registro de rotina, com o
+ * mesmo rótulo dos dias em que estava tudo certo.
+ *
+ * Continua `SECURITY INVOKER` — ela chama o teste, e o teste tem de rodar com os
+ * privilégios de quem pergunta.
+ * ------------------------------------------------------------------------- */
+create or replace function public.verificar_isolamento()
+returns table (tabela text, linhas_de_outra_org bigint, visiveis bigint)
+language plpgsql
+volatile
+security invoker
+set search_path = public
+as $$
+declare v_vaz bigint; v_tab int; v_org uuid := public.auth_org_id();
+begin
+  create temp table if not exists _iso (tabela text, linhas_de_outra_org bigint, visiveis bigint) on commit drop;
+  delete from _iso;
+  insert into _iso select * from public.teste_isolamento();
+  select coalesce(sum(t.linhas_de_outra_org), 0), count(*) into v_vaz, v_tab from _iso t;
+
+  insert into public.audit_log (org_id, usuario, acao, antes, depois)
+  values (
+    v_org,
+    coalesce(auth.uid()::text, 'sistema'),
+    case when v_vaz > 0 then 'isolamento.VAZAMENTO' else 'isolamento.verificar' end,
+    null,
+    jsonb_build_object(
+      'tabelas', v_tab,
+      'linhas_de_outra_org', v_vaz,
+      'tabelas_vazando', coalesce((select jsonb_agg(t.tabela) from _iso t where t.linhas_de_outra_org > 0), '[]'::jsonb)
+    )
+  );
+  return query select t.tabela, t.linhas_de_outra_org, t.visiveis from _iso t order by t.tabela;
+end;
+$$;
+
+revoke execute on function public.verificar_isolamento() from public, anon;
+grant execute on function public.verificar_isolamento() to authenticated;
+
 /* O inventário da política de acesso por linha, tabela a tabela. */
 create or replace function public.rls_auditoria()
 returns table (

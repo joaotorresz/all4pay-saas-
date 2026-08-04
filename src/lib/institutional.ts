@@ -50,9 +50,18 @@ function entidadeDoEvento(
   depois: Record<string, unknown> | null,
   idDaLinha: string,
 ): { entityType: EntityType; entityId: string } {
-  if (acao.toLowerCase().startsWith("estado.")) {
+  const k = acao.toLowerCase();
+  if (k.startsWith("estado.")) {
     const chave = typeof depois?.chave === "string" ? depois.chave : "";
     return { entityType: "state", entityId: chave || idDaLinha };
+  }
+  // ⚠️ Os eventos da ONDA 9 — trocar de empresa e verificar o isolamento — são
+  // de SEGURANÇA, não de dinheiro. Deixá-los cair no ramo abaixo os rotularia
+  // "Lançamento", que é o mesmo defeito que o ramo acima existe para corrigir:
+  // um evento de segurança escondido entre lançamentos é um evento que ninguém
+  // encontra quando precisa.
+  if (k.startsWith("organizacao.") || k.startsWith("isolamento.")) {
+    return { entityType: "security", entityId: acao };
   }
   return { entityType: "movement", entityId: idDaLinha };
 }
