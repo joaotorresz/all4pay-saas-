@@ -87,18 +87,21 @@
     "aplicadas_sem_arquivo": [
       {
         "nome": "create_approvals_table",
-        "motivo": "sessão anterior aplicou direto pelo painel",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "sessão anterior aplicou direto pelo painel - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "create_reembolsos_table",
-        "motivo": "tabela de reembolsos criada direto pelo painel na frente de aprovações",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "tabela de reembolsos criada direto pelo painel na frente de aprovações - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "create_nfse_table",
-        "motivo": "tabela de NFS-e criada direto pelo painel junto com o módulo de notas",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "tabela de NFS-e criada direto pelo painel junto com o módulo de notas - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "add_boleto_jsonb_to_movements",
@@ -117,18 +120,21 @@
       },
       {
         "nome": "create_pluggy_items_table",
-        "motivo": "Open Finance aplicado direto",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "Open Finance aplicado direto - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "create_bank_accounts_table",
-        "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "create_bank_transactions_table",
-        "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy",
-        "reconstruir_ate": "2026-08-18"
+        "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy - RECONSTRUIDA a partir do catalogo em 04/08/2026",
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "harden_rls_pluggy_authenticated",
@@ -268,6 +274,12 @@
         "objetos_ausentes": [],
         "impacto": "aplicada sob o nome org_state_auditoria_retencao_backup — só o nome diverge",
         "resolver_ate": "2026-08-18"
+      },
+      {
+        "nome": "0032_reconstrucao_tabelas_sem_arquivo",
+        "objetos_ausentes": [],
+        "impacto": "NAO se aplica ao banco atual - os objetos ja existem. Serve para montar um ambiente do zero, que hoje nasceria sem aprovacoes, reembolsos, NFS-e nem Open Finance",
+        "resolver_ate": "2026-12-31"
       }
     ]
   }
