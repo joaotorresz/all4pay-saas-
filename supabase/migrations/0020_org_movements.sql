@@ -77,8 +77,18 @@ as $$
   group by fa.org_id, o.name
 $$;
 
--- Anônimo nunca: estas funções atravessam RLS por desenho.
-revoke all on function public.org_movements(date, date) from anon;
-revoke all on function public.org_balances() from anon;
+-- ⚠️ REVOGAR DE `public` É OBRIGATÓRIO, NÃO ENFEITE.
+--
+-- O PostgreSQL concede `EXECUTE` a **PUBLIC** por padrão em toda função criada.
+-- A versão anterior revogava só de `anon` — e `anon` é membro de PUBLIC, então
+-- a concessão herdada continuava valendo e a revogação não fechava nada. Numa
+-- função `SECURITY DEFINER` que atravessa RLS por desenho, isso é o financeiro
+-- de todas as organizações do banco acessível com a chave anônima, que viaja no
+-- pacote do navegador.
+--
+-- É o mesmo defeito da ONDA 9 (`anon` com TRUNCATE): a porta parecia fechada
+-- porque alguém trancou a fechadura errada.
+revoke all on function public.org_movements(date, date) from public, anon;
+revoke all on function public.org_balances() from public, anon;
 grant execute on function public.org_movements(date, date) to authenticated;
 grant execute on function public.org_balances() to authenticated;

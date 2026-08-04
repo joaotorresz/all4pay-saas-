@@ -107,6 +107,32 @@ for (const d of [...semArquivo.values(), ...semAplicacao.values()]) {
      "renove com justificativa ou resolva");
 }
 
+/* ── 6. O MANIFESTO NÃO PODE ENVELHECER ───────────────────────────────────── */
+/**
+ * ⚠️ **A falha que quase deixei passar, e que derruba a promessa toda.**
+ *
+ * Esta guarda roda OFFLINE, contra o manifesto. Se alguém aplicar DDL à mão e
+ * nunca rodar `esquema:sync`, o manifesto continua igual, a comparação continua
+ * fechando e a guarda passa — para sempre. Eu havia afirmado que "nenhuma
+ * divergência indeclarada é possível a partir de agora", e a afirmação era
+ * falsa: o que eu tinha construído detecta divergência entre o manifesto e os
+ * arquivos, não entre o BANCO e os arquivos.
+ *
+ * O que fecha o buraco sem exigir credencial no CI é a IDADE do manifesto: um
+ * retrato velho é tratado como retrato ausente. Passado o prazo, a guarda
+ * reprova e obriga um `esquema:sync` — e é no sync que a alteração manual
+ * aparece e força a decisão (vira arquivo, ou vira dívida declarada).
+ *
+ * Sete dias porque é menor que qualquer ciclo de release aqui: uma alteração
+ * manual não sobrevive a uma semana sem ser vista.
+ */
+const IDADE_MAXIMA_DIAS = 7;
+const diasDesde = (iso: string): number =>
+  Math.floor((Date.parse(`${hoje}T00:00:00Z`) - Date.parse(`${iso}T00:00:00Z`)) / 86400000);
+const idade = diasDesde(m.gerado_em);
+ok(`manifesto VELHO (${idade} dias, teto ${IDADE_MAXIMA_DIAS})`, idade <= IDADE_MAXIMA_DIAS,
+   "rode `npm run esquema:sync` — um retrato velho não prova nada sobre o banco de hoje");
+
 /* ── Placar ───────────────────────────────────────────────────────────────── */
 const total = m.migrations_aplicadas.length;
 console.log(

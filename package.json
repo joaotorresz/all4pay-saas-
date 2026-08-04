@@ -22,7 +22,8 @@
     "mobile": "node ./scripts/mobile.mjs",
     "fluxos": "node ./scripts/fluxos-telefone.mjs",
     "ia-eval": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/ia-eval.mts",
-    "esquema": "node --experimental-strip-types ./scripts/esquema.mts"
+    "esquema": "node --experimental-strip-types ./scripts/esquema.mts",
+    "esquema:sync": "node ./scripts/esquema-sync.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",
