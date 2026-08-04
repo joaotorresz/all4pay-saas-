@@ -75,7 +75,9 @@
     "0027b_registro_do_teste_de_isolamento",
     "0030_fechamento_e_estorno",
     "0030b_estorno_cast_enum",
-    "0031_registro_de_ddl"
+    "0031_registro_de_ddl",
+    "0020_org_movements",
+    "0033_teste_das_funcoes_definer"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -247,15 +249,6 @@
         ],
         "impacto": "o aprendizado da IA por organização NUNCA funcionou em produção; lib/assistant-memory engole a falha",
         "resolver_ate": "2026-08-18"
-      },
-      {
-        "nome": "0020_org_movements",
-        "objetos_ausentes": [
-          "org_movements",
-          "org_balances"
-        ],
-        "impacto": "a consolidação multiempresa não tem fonte em produção — inclui as eliminações intercompany da ONDA 13",
-        "resolver_ate": "2026-08-11"
       },
       {
         "nome": "0019_projects",
