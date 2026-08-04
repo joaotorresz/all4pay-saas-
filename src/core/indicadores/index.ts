@@ -39,6 +39,27 @@ export * from "./janela";
 /* O contrato de saída                                                         */
 /* ========================================================================== */
 
+/**
+ * ⚠️ **O QUE O NÚMERO É** — a separação entre fato e modelo.
+ *
+ * Ela existia só como texto: o MRR estimado saía com a palavra "ESTIMADO"
+ * grudada na frase da fórmula. Uma frase não dá para a tela decidir nada, e não
+ * dá para o gerador de planilha recusar nada — então uma projeção de caixa e um
+ * saldo de extrato saíam do sistema com exatamente a mesma cara, e viravam a
+ * mesma linha na planilha que alguém manda para o banco.
+ *
+ *  - **`fato`** — soma de lançamentos que ACONTECERAM. Só isto pode sair do
+ *    sistema sem ressalva.
+ *  - **`estimativa`** — medido, mas por proxy ou média: o burn é a média de 90
+ *    dias, o MRR sem contrato é inferido de quem repete pagamento.
+ *  - **`projecao`** — conta sobre o FUTURO: runway, saldo numa data que ainda
+ *    não chegou, qualquer janela que inclua título não liquidado.
+ *
+ * A regra do produto que nasce daqui: **projeção não vira artefato externo sem
+ * marca** (ver `confiavelParaArtefato`).
+ */
+export type Natureza = "fato" | "estimativa" | "projecao";
+
 export interface Procedencia {
   /** Quantos lançamentos entraram na conta. */
   lancamentos: number;
@@ -46,6 +67,8 @@ export interface Procedencia {
   janela: Janela;
   /** Frase curta e literal do que foi somado — vai para o "i" dos boxes. */
   formula: string;
+  /** Fato, estimativa ou projeção — ver `Natureza`. */
+  natureza: Natureza;
   /** Preenchido quando o número é 0 por impossibilidade, não por ausência. */
   aviso?: string;
 }
@@ -55,9 +78,26 @@ export interface Indicador {
   procedencia: Procedencia;
 }
 
-const vazio = (j: Janela, formula: string, regime: Regime | "posicao" = "caixa"): Indicador => ({
+/** Só o FATO sai do sistema sem ressalva. Ver `Natureza`. */
+export const confiavelParaArtefato = (p: Procedencia): boolean =>
+  p.natureza === "fato" && !p.aviso;
+
+/**
+ * A natureza de uma soma de lançamentos, deduzida do que ENTROU nela.
+ *
+ * ⚠️ Não é declaração, é medição: se alguma linha contada ainda não foi
+ * liquidada, o número fala do que se espera receber ou pagar, e chamar isso de
+ * fato é o começo da divergência. No regime de caixa isso nunca acontece (um
+ * pendente não tem data de caixa); no de competência acontece o tempo todo.
+ */
+const naturezaDaSoma = (rows: readonly RiskMovement[]): Natureza =>
+  rows.some((m) => !liquidado(m)) ? "projecao" : "fato";
+
+const vazio = (
+  j: Janela, formula: string, regime: Regime | "posicao" = "caixa", natureza: Natureza = "fato",
+): Indicador => ({
   valor: 0,
-  procedencia: { lancamentos: 0, regime, janela: j, formula, aviso: j.motivo },
+  procedencia: { lancamentos: 0, regime, janela: j, formula, natureza, aviso: j.motivo },
 });
 
 /** Filtro comum: os movimentos que caem na janela sob o regime. */
@@ -88,7 +128,16 @@ export function saldo(input: RiskInput, j: Janela = janelaHoje(input.hoje)): Ind
       : j.ate < hoje
         ? "saldo de hoje menos os lançamentos liquidados após a data"
         : "saldo de hoje mais os lançamentos previstos até a data";
-  return { valor, procedencia: { lancamentos: input.movements.length, regime: "posicao", janela: j, formula } };
+  return {
+    valor,
+    procedencia: {
+      lancamentos: input.movements.length, regime: "posicao", janela: j, formula,
+      // ⚠️ Saldo numa data FUTURA soma os previstos: é projeção, não extrato.
+      // Era o mesmo número, com a mesma cara, para "quanto tenho" e "quanto
+      // vou ter" — e a segunda pergunta depende de todo mundo pagar em dia.
+      natureza: j.ate > hoje ? "projecao" : "fato",
+    },
+  };
 }
 
 /** Saldo de abertura da janela — o ponto de partida de todo gráfico acumulado. */
@@ -99,6 +148,7 @@ export function saldoInicial(input: RiskInput, j: Janela): Indicador {
     procedencia: {
       lancamentos: input.movements.length, regime: "posicao", janela: j,
       formula: "saldo no dia anterior ao início da janela",
+      natureza: j.de > input.hoje ? "projecao" : "fato",
     },
   };
 }
@@ -116,7 +166,10 @@ function somaDirecao(
   const rows = naJanela(input, j, regime).filter((m) => m.type === tipo);
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
-    procedencia: { lancamentos: rows.length, regime, janela: j, formula: `soma das ${rotulo} ${base}` },
+    procedencia: {
+      lancamentos: rows.length, regime, janela: j, formula: `soma das ${rotulo} ${base}`,
+      natureza: naturezaDaSoma(rows),
+    },
   };
 }
 
@@ -143,6 +196,7 @@ export function resultado(input: RiskInput, j: Janela, regime: Regime = "caixa")
     procedencia: {
       lancamentos: rows.length, regime, janela: j,
       formula: "entradas − saídas no período (mesma base das duas linhas)",
+      natureza: naturezaDaSoma(rows),
     },
   };
 }
@@ -171,7 +225,9 @@ export function burn(
   const liquido = rows.reduce((s, m) => s + assinado(m), 0) / meses;
   return {
     valor: Math.max(0, -liquido),
-    procedencia: { lancamentos: rows.length, regime: "caixa", janela: j, formula },
+    // O burn é MEDIDO, mas é uma média usada como ritmo: chamá-lo de fato
+    // sugere que o mês que vem queima exatamente isto.
+    procedencia: { lancamentos: rows.length, regime: "caixa", janela: j, formula, natureza: "estimativa" },
   };
 }
 
@@ -185,7 +241,7 @@ export function geracaoCaixaMensal(
   const rows = naJanela(input, j, "caixa");
   return {
     valor: semZeroNegativo(rows.reduce((s, m) => s + assinado(m), 0) / meses),
-    procedencia: { lancamentos: rows.length, regime: "caixa", janela: j, formula },
+    procedencia: { lancamentos: rows.length, regime: "caixa", janela: j, formula, natureza: "estimativa" },
   };
 }
 
@@ -214,7 +270,8 @@ export function runway(
   if (b.valor <= 0) dias = RUNWAY_CAP_DIAS;
   else if (saldoHoje <= 0) dias = 0; // já acabou — não há runway a projetar
   else dias = Math.min(RUNWAY_CAP_DIAS, Math.round(saldoHoje / (b.valor / 30)));
-  return { valor: dias, procedencia: { ...b.procedencia, formula } };
+  // Runway é conta sobre o FUTURO — a mais projeção de todas.
+  return { valor: dias, procedencia: { ...b.procedencia, formula, natureza: "projecao" } };
 }
 
 /**
@@ -284,13 +341,15 @@ export function mrr(
       procedencia: {
         lancamentos: ativos.length, regime: "competencia", janela: j,
         formula: "soma dos contratos ativos, cada um dividido pelos meses do seu ciclo",
+        // Contrato assinado é fato; o de baixo é inferência sobre quem repete.
+        natureza: "fato",
       },
     };
   }
   const est = receitaRecorrenteEstimada(input, j);
   return {
     valor: est.valor,
-    procedencia: { ...est.procedencia, formula: `ESTIMADO — ${est.procedencia.formula}` },
+    procedencia: { ...est.procedencia, formula: `ESTIMADO — ${est.procedencia.formula}`, natureza: "estimativa" },
   };
 }
 
@@ -301,7 +360,13 @@ export function mrr(
  */
 export function arr(input: RiskInput, contratos?: ContratoRecorrente[], j?: Janela): Indicador {
   const m = mrr(input, contratos, j);
-  return { valor: m.valor * 12, procedencia: { ...m.procedencia, formula: `${m.procedencia.formula}, × 12` } };
+  // ⚠️ ARR é sempre PROJEÇÃO, mesmo saindo de contratos: multiplicar por 12
+  // assume que a base de hoje se repete o ano inteiro, e é justamente essa
+  // suposição que o investidor precisa enxergar como suposição.
+  return {
+    valor: m.valor * 12,
+    procedencia: { ...m.procedencia, formula: `${m.procedencia.formula}, × 12`, natureza: "projecao" },
+  };
 }
 
 /**
@@ -331,7 +396,8 @@ function receitaRecorrenteEstimada(input: RiskInput, j: Janela): Indicador {
   const meses = Math.max(1, diasDe(j)) / 30;
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0) / meses,
-    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula },
+    // O nome já diz: é proxy de quem repete pagamento, não contrato assinado.
+    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "estimativa" },
   };
 }
 
@@ -363,7 +429,9 @@ export function inadimplencia(
   );
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
-    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula },
+    // ⚠️ Vencido é FATO: o título existe, a data passou e ninguém pagou. Não é
+    // previsão de calote — é o que já está em atraso hoje.
+    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "fato" },
   };
 }
 
@@ -386,7 +454,7 @@ export function inadimplenciaTaxa(input: RiskInput, j?: Janela): Indicador {
   const base = venc.valor + recebido;
   return {
     valor: base <= 0 ? 0 : venc.valor / base,
-    procedencia: { lancamentos: venc.procedencia.lancamentos, regime: "competencia", janela: jj, formula },
+    procedencia: { lancamentos: venc.procedencia.lancamentos, regime: "competencia", janela: jj, formula, natureza: "fato" },
   };
 }
 
@@ -431,7 +499,7 @@ export function receitaTributavel(
     .filter((m) => m.type === "entrada" && !foraDaBaseTributavel(m.category));
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
-    procedencia: { lancamentos: rows.length, regime, janela: j, formula },
+    procedencia: { lancamentos: rows.length, regime, janela: j, formula, natureza: naturezaDaSoma(rows) },
   };
 }
 
@@ -638,3 +706,87 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
   };
 }
 
+
+/* ========================================================================== */
+/* RECORTES — as perguntas que as telas faziam por conta própria               */
+/* ========================================================================== */
+
+/**
+ * A posição de UMA contraparte: quanto ela já pagou, quanto deve, o que venceu.
+ *
+ * ⚠️ Existe porque três telas faziam esta conta sozinhas — a ficha do contato, o
+ * motor da IA e o DRE por cliente — e as três usavam `Math.abs(m.amount)`
+ * direto, que é a convenção de sinal contornada. Enquanto a conta morava na
+ * tela, a correção da convenção não alcançava nenhuma delas.
+ *
+ * `share` é a participação na receita LIQUIDADA total: concentração de cliente
+ * se mede pelo que entrou, não pelo que foi prometido.
+ */
+export interface PosicaoContraparte {
+  recebido: number;
+  pago: number;
+  aReceber: number;
+  aPagar: number;
+  vencido: number;
+  share: number;
+  lancamentos: number;
+}
+
+export function posicaoDaContraparte(input: RiskInput, partyId: string): PosicaoContraparte {
+  const hoje = input.hoje.slice(0, 10);
+  const movs = input.movements.filter((m) => m.party_id === partyId && !cancelado(m));
+  const soma = (f: (m: RiskMovement) => boolean) =>
+    movs.filter(f).reduce((s, m) => s + magnitude(m), 0);
+
+  const recebido = soma((m) => m.type === "entrada" && liquidado(m));
+  const totalRecebidoGeral = input.movements
+    .filter((m) => m.type === "entrada" && liquidado(m) && !cancelado(m))
+    .reduce((s, m) => s + magnitude(m), 0);
+
+  return {
+    recebido,
+    pago: soma((m) => m.type === "saida" && liquidado(m)),
+    aReceber: soma((m) => m.type === "entrada" && previsto(m)),
+    aPagar: soma((m) => m.type === "saida" && previsto(m)),
+    vencido: soma((m) => previsto(m) && (m.due_date?.slice(0, 10) ?? "") < hoje),
+    share: totalRecebidoGeral > 0 ? recebido / totalRecebidoGeral : 0,
+    lancamentos: movs.length,
+  };
+}
+
+/**
+ * O que está PREVISTO (não liquidado) com vencimento dentro da janela.
+ *
+ * ⚠️ É POSIÇÃO, não fluxo: responde "o que vence aqui", que é a pergunta de
+ * quem vai cobrar ou pagar. Somar isto com o realizado do mesmo período conta
+ * o mesmo título duas vezes quando ele é quitado no meio do caminho.
+ */
+export function previstoNaJanela(
+  input: RiskInput, j: Janela, tipo: "entrada" | "saida" = "entrada",
+): Indicador {
+  const formula = `títulos de ${tipo === "entrada" ? "entrada" : "saída"} ainda em aberto com vencimento na janela`;
+  if (j.vazia) return vazio(j, formula, "competencia", "projecao");
+  const rows = input.movements.filter(
+    (m) => m.type === tipo && previsto(m) && !cancelado(m) && dentro(j, m.due_date),
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    // Sempre projeção: é dinheiro que ainda não se moveu.
+    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "projecao" },
+  };
+}
+
+/** O previsto em aberto de UMA conta — o que a conciliação precisa por conta. */
+export function previstoDaConta(input: RiskInput, accountId: string): Indicador {
+  const j = janelaHoje(input.hoje);
+  const rows = input.movements.filter(
+    (m) => m.accountId === accountId && previsto(m) && !cancelado(m),
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: j,
+      formula: "títulos em aberto vinculados à conta", natureza: "projecao",
+    },
+  };
+}

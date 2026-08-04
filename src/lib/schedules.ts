@@ -9,6 +9,7 @@ import type { Cronograma } from "@/core/schedules";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 const KEY = "a4p_cronogramas";
 const SEP = "\u001f";
@@ -68,7 +69,8 @@ export async function loadCronogramas(): Promise<Cronograma[]> {
       .order("created_at", { ascending: true }).limit(TETO_LINHAS);
     if (error) return [];
     return ((data ?? []) as Row[]).map(rowToCronograma);
-  } catch { return []; }
+  } catch (e) {
+    reportar("relatorio.cronogramas", e, "os cronogramas não carregam", true); return []; }
 }
 
 export async function salvarCronograma(c: Omit<Cronograma, "id"> & { id?: string }): Promise<Cronograma[]> {

@@ -16,6 +16,7 @@ import {
 } from "@/core/ledger/chart";
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
 export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
@@ -24,9 +25,11 @@ export interface ContaBalancete { conta: string; nome: string; tipo: AccountType
 const KEY = "a4p_ledger";
 const load = (): RazaoLancamento[] => {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as RazaoLancamento[]; } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as RazaoLancamento[]; } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return []; }
 };
-const save = (l: RazaoLancamento[]) => { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(l)); } catch { /* ignore */ } } };
+const save = (l: RazaoLancamento[]) => { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(l)); } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* ignore */ } } };
 
 function entryToLanc(e: LedgerEntryInput, id: string): RazaoLancamento {
   return {
@@ -294,7 +297,8 @@ export async function lockedPeriodsLive(): Promise<string[]> {
     const { entityId } = await seedPlanoLive();
     const { data } = await s.from("accounting_periods").select("period,status").eq("entity_id", entityId).eq("status", "locked").limit(TETO_LINHAS);
     return ((data ?? []) as Array<{ period: string }>).map((r) => String(r.period).slice(0, 7));
-  } catch { return []; }
+  } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return []; }
 }
 
 /** Get-or-create do período (accounting_periods) → id. */
@@ -332,13 +336,15 @@ export async function saveCloseTaskLive(mesISO: string, taskId: string, done: bo
     const { data: ja } = await s.from("close_tasks").select("id").eq("period_id", periodId).eq("title", taskId).maybeSingle();
     if (ja) await s.from("close_tasks").update({ status }).eq("id", (ja as { id: string }).id);
     else await s.from("close_tasks").insert({ period_id: periodId, title: taskId, kind: "standard", status });
-  } catch { /* best-effort */ }
+  } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* best-effort */ }
 }
 
 /* ----------------------------- categorização (regras + IA) ----------------------------- */
 
 async function iaConfigurada(): Promise<boolean> {
-  try { const r = await fetch("/api/ledger/categorize"); return !!(await r.json())?.configured; } catch { return false; }
+  try { const r = await fetch("/api/ledger/categorize"); return !!(await r.json())?.configured; } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return false; }
 }
 
 /** Categoriza um lote: regras para todos; Claude reforça as de baixa confiança (se houver chave). */
@@ -359,7 +365,8 @@ export async function categorizarLote(txs: TxParaCategorizar[]): Promise<Record<
           if (c?.id && c.code && valid.has(c.code)) out[c.id] = { id: c.id, code: c.code, confianca: Math.max(0.7, Number(c.confianca) || 0.8), motivo: "IA (Claude)" };
         }
       }
-    } catch { /* mantém as regras */ }
+    } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* mantém as regras */ }
   }
   return out;
 }

@@ -8,6 +8,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type ModeloReceita = "subscription" | "usage" | "milestone";
 export interface RevRecParcela { period: string; amount: number; recognized: boolean }
@@ -79,7 +80,8 @@ export async function listRevRec(): Promise<RevRecContrato[]> {
       .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     if (error) return [];
     return ((data ?? []) as unknown as ContratoRow[]).map(fromRow);
-  } catch { return []; }
+  } catch (e) {
+    reportar("relatorio.reconhecimento", e, "o reconhecimento de receita abre sem contratos", true); return []; }
 }
 
 export interface NovoRevRec { customer: string; total: number; model: ModeloReceita; startDate: string; endDate: string; parcelas: RevRecParcela[] }

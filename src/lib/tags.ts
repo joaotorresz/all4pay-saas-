@@ -8,6 +8,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type TagMap = Record<string, string[]>;
 
@@ -21,7 +22,8 @@ function loadLocal(): TagMap {
 }
 function persistLocal(map: TagMap): void {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(map)); } catch { /* ignore */ }
+  try { localStorage.setItem(KEY, JSON.stringify(map)); } catch (e) {
+    reportar("cadastro.tags", e, "as etiquetas somem dos lançamentos", true); /* ignore */ }
 }
 
 /** Hidrata o cache (demo: localStorage; live: movement_tags). */
@@ -56,7 +58,8 @@ export async function addTag(id: string, tag: string): Promise<TagMap> {
   map[id] = Array.from(atual);
   cache = map;
   if (isDemo) persistLocal(map);
-  else { try { await createClient().from("movement_tags").insert({ movement_id: id, tag: t }); } catch { /* best-effort */ } }
+  else { try { await createClient().from("movement_tags").insert({ movement_id: id, tag: t }); } catch (e) {
+    reportar("cadastro.tags", e, "as etiquetas somem dos lançamentos", true); /* best-effort */ } }
   return map;
 }
 
@@ -66,7 +69,8 @@ export async function removeTag(id: string, tag: string): Promise<TagMap> {
   if (map[id].length === 0) delete map[id];
   cache = map;
   if (isDemo) persistLocal(map);
-  else { try { await createClient().from("movement_tags").delete().eq("movement_id", id).eq("tag", tag); } catch { /* best-effort */ } }
+  else { try { await createClient().from("movement_tags").delete().eq("movement_id", id).eq("tag", tag); } catch (e) {
+    reportar("cadastro.tags", e, "as etiquetas somem dos lançamentos", true); /* best-effort */ } }
   return map;
 }
 

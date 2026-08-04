@@ -6,6 +6,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { reportar } from "@/lib/erros";
 
 export interface AdminOverview {
   orgs: number; orgs_ativas: number; trials: number; inadimplentes: number;
@@ -54,7 +55,8 @@ function demoOverview(orgs: AdminOrg[]): AdminOverview {
 /* ----------------------------- API ----------------------------- */
 export async function isPlatformAdmin(): Promise<boolean> {
   if (isDemo) return true; // em demo, libera para visualizar o modo admin
-  try { const { data } = await createClient().rpc("is_platform_admin"); return !!data; } catch { return false; }
+  try { const { data } = await createClient().rpc("is_platform_admin"); return !!data; } catch (e) {
+    reportar("admin.consulta", e, "o painel da plataforma abre sem os dados do cliente", true); return false; }
 }
 
 export async function getAdminOverview(): Promise<AdminOverview> {

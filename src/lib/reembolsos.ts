@@ -12,6 +12,7 @@ import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes, autorizarMovimen
 import type { Movement, Party } from "@/lib/types";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export interface ItemReembolso { descricao: string; valor: number; data: string; categoria: string }
 export type StatusReembolso = "em_aprovacao" | "aprovado" | "rejeitado" | "a_pagar";
@@ -75,7 +76,8 @@ export async function hydrateReembolsos(force = false): Promise<void> {
       .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as ReembolsoRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("financeiro.reembolsos", e, "os reembolsos não carregam", true); cache = cache ?? []; }
 }
 
 export function listReembolsos(): Reembolso[] {

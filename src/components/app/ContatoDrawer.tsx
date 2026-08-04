@@ -13,6 +13,7 @@ import { Icon, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
+import { posicaoDaContraparte } from "@/core/indicadores";
 
 const dia = (ds?: string | null) => (ds ? ds.slice(0, 10).split("-").reverse().join("/") : "—");
 const CLASS_COR: Record<string, string> = {
@@ -43,16 +44,15 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
     if (!inp || !id) return null;
     const movs = inp.movements.filter((m) => m.party_id === id && m.status !== "cancelado");
     const nome = inp.partyNames?.[id] ?? "Contato";
-    const recebido = movs.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const pago = movs.filter((m) => m.type === "saida" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const aReceber = movs.filter((m) => m.type === "entrada" && m.status === "pendente").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const aPagar = movs.filter((m) => m.type === "saida" && m.status === "pendente").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const vencido = movs.filter((m) => m.status === "pendente" && m.due_date.slice(0, 10) < inp.hoje).reduce((s, m) => s + Math.abs(m.amount), 0);
+    // ⚠️ A conta é da camada canônica, não desta tela. As cinco linhas que
+    // estavam aqui usavam `Math.abs(m.amount)` — a convenção de sinal
+    // contornada — e a mesma conta existia no motor da IA e no DRE por cliente.
+    const pos = posicaoDaContraparte(inp, id);
+    const { recebido, pago, aReceber, aPagar, vencido } = pos;
     const ultimos = [...movs].sort((a, b) => (b.paid_date || b.due_date).localeCompare(a.paid_date || a.due_date)).slice(0, 8);
     const perfil = inad?.clientes?.find((c) => c.clienteId === id) ?? null;
-    // participação na receita total (concentração)
-    const totalGeral = inp.movements.filter((m) => m.type === "entrada" && m.status === "pago").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const share = totalGeral > 0 ? recebido / totalGeral : 0;
+    // participação na receita total (concentração) — também canônica
+    const share = pos.share;
     // histórico dos últimos 6 meses (recebido pago, por mês de caixa)
     const byMonth = new Map<string, number>();
     for (const m of movs) { if (m.type !== "entrada" || m.status !== "pago") continue; const k = (m.paid_date || m.due_date || "").slice(0, 7); if (k) byMonth.set(k, (byMonth.get(k) || 0) + Math.abs(m.amount)); }

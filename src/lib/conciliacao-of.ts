@@ -9,6 +9,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export interface MatchConc {
   ofId: string; ofDesc: string; ofData: string;
@@ -22,7 +23,8 @@ export interface AvaliacaoIA { recomendacao: RecomendacaoIA; confiancaIA: number
 
 /** IA disponível para desempatar pares ambíguos? */
 export async function iaConciliacaoAtiva(): Promise<boolean> {
-  try { return !!(await fetch("/api/ai/conciliar").then((r) => r.json()))?.configured; } catch { return false; }
+  try { return !!(await fetch("/api/ai/conciliar").then((r) => r.json()))?.configured; } catch (e) {
+    reportar("conciliacao.openfinance", e, "a conciliação abre sem as transações do banco", true); return false; }
 }
 
 /** Avalia com IA os pares ambíguos (confiança média) → mapa ofId→avaliação. */
@@ -43,7 +45,8 @@ export async function avaliarComIA(matches: MatchConc[]): Promise<Map<string, Av
         if (a?.ofId && a.recomendacao) out.set(a.ofId, { recomendacao: a.recomendacao, confiancaIA: Number(a.confiancaIA ?? 0), motivo: String(a.motivo ?? "") });
       }
     }
-  } catch { /* sem IA: segue só o determinístico */ }
+  } catch (e) {
+    reportar("conciliacao.openfinance", e, "a conciliação abre sem as transações do banco", true); /* sem IA: segue só o determinístico */ }
   return out;
 }
 

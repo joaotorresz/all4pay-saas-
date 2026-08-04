@@ -21,6 +21,7 @@ import {
   listarRegrasConciliacao, salvarRegraConciliacao, removerRegraConciliacao,
   moverRegraConciliacao, novoIdMov,
 } from "@/lib/movimentacoes";
+import { previstoDaConta } from "@/core/indicadores";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 type Aba = "quadros" | "conferencia" | "regras" | "fechamentos";
@@ -81,7 +82,8 @@ function Quadros() {
         conta: c,
         total: ms.length,
         pendentes: pendentes.length,
-        valorPendente: pendentes.reduce((s, m) => s + Math.abs(m.amount), 0),
+        // Canônico: `magnitude` em vez de `Math.abs` solto na tela.
+        valorPendente: input ? previstoDaConta(input, c.id).valor : 0,
       };
     });
   }, [contas, input, busca]);

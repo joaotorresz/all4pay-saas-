@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 const KEY = "a4p_company";
 
@@ -65,7 +66,8 @@ export async function fetchCompany(): Promise<StoredCompany | null> {
     const c = data.profile as StoredCompany;
     saveCompany(c); // cache local
     return c;
-  } catch { return loadCompany(); }
+  } catch (e) {
+    reportar("cadastro.empresa", e, "os dados da empresa não carregam e a tela pede o cadastro de novo", true); return loadCompany(); }
 }
 
 /** Persiste o perfil: cache local + (live) upsert na linha única da org em
@@ -92,7 +94,8 @@ export async function getOrganizationName(): Promise<string | null> {
     const s = createClient();
     const { data } = await s.from("organizations").select("name").limit(1).maybeSingle();
     return (data as { name?: string } | null)?.name ?? null;
-  } catch {
+  } catch (e) {
+    reportar("cadastro.empresa", e, "os dados da empresa não carregam e a tela pede o cadastro de novo", true);
     return null;
   }
 }

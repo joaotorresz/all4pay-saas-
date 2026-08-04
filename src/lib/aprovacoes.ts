@@ -15,6 +15,7 @@ import {
 import type { ApprovalRequest, Usuario, Role, TransacaoContexto } from "@/core/institutional/types";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type StatusSolic = "em_analise" | "aprovada" | "rejeitada" | "devolvida";
 
@@ -106,7 +107,8 @@ export async function hydrateAprovacoes(force = false): Promise<void> {
     const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as ApprovalRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("financeiro.aprovacoes", e, "a fila de aprovação abre vazia, como se nada esperasse decisão", true); cache = cache ?? []; }
 }
 
 export function listSolicitacoes(): Solicitacao[] {

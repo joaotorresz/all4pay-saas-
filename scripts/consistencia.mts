@@ -18,6 +18,7 @@
  * Determinístico: um dataset fixo, sem relógio e sem rede.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import * as FIXTURE from "./fixture.mts";
 import {
   saldo, saldoInicial, entradas, saidas, resultado, burn, runway, runwayMeses,
   geracaoCaixaMensal, mrr, arr, inadimplencia, inadimplenciaTaxa, receitaTributavel,
@@ -52,6 +53,9 @@ import {
   resumoIsolamento, achadosDaAuditoria, pendenciasDeAdmin,
   motivoParaNaoAprovar, podeAprovar, FRASE_RECUSA, PAPEIS, ACOES, MATRIZ_DEMO,
 } from "@/core/seguranca";
+import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
+import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
+import { problemaDoIntervalo } from "@/core/indicadores";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
@@ -121,6 +125,46 @@ function consultasSemTeto(): string[] {
 }
 
 /**
+ * Indicadores RECALCULADOS dentro de componente de tela.
+ *
+ * ⚠️ Esta é a causa estrutural da divergência: cada tela somava os lançamentos
+ * do seu jeito, e nenhuma estava errada isoladamente — estavam respondendo
+ * perguntas diferentes com o mesmo rótulo. A camada canônica só resolve o
+ * problema se ninguém puder contorná-la, e contornar é fácil: um `filter` por
+ * tipo/status seguido de um `reduce` é a receita inteira.
+ *
+ * A varredura procura exatamente esse par dentro de `src/components/**`. Ela
+ * NÃO acusa somar uma lista já agregada pelo motor (um `reduce` sobre pontos de
+ * gráfico, sobre KPIs, sobre linhas de uma tabela) — o que ela pega é a tela
+ * indo aos LANÇAMENTOS e apurando de novo.
+ */
+function indicadoresRecalculadosEmTela(): string[] {
+  const out: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.tsx?$/.test(nome)) continue;
+      const txt = readFileSync(caminho, "utf8");
+      // Procura o `.reduce(` e olha PARA TRÁS: houve um `.filter(` por
+      // tipo/status de lançamento no caminho? Olhar para trás é o que funciona
+      // aqui — o corpo do filtro tem parênteses próprios (`(m) => …`), e um
+      // padrão que tente casar a expressão inteira de uma vez morre no primeiro.
+      for (const m of txt.matchAll(/\.reduce\(/g)) {
+        const antes = txt.slice(Math.max(0, m.index - 320), m.index);
+        const iFiltro = antes.lastIndexOf(".filter(");
+        if (iFiltro < 0) continue;
+        const trecho = antes.slice(iFiltro);
+        if (!/\.type\s*===\s*"(?:entrada|saida)"|\.status\s*===\s*"(?:pago|pendente)"/.test(trecho)) continue;
+        out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
+      }
+    }
+  };
+  varrer("src/components");
+  return out;
+}
+
+/**
  * As rotas que o Next REALMENTE publica: todo diretório com `page.tsx` sob
  * `src/app`. É a lista contra a qual o inventário é conferido — declarar é
  * fácil, o difícil é declarar tudo, e só a varredura sabe o que existe.
@@ -153,49 +197,7 @@ const eq = (n: string, a: number, b: number, x = "") =>
 /* Dataset determinístico — todas as armadilhas de uma vez.                    */
 /* ========================================================================== */
 
-const HOJE = "2026-08-15";
-const SALDO = 42_000;
-
-const mv = (
-  id: string, type: "entrada" | "saida", status: "pago" | "pendente" | "cancelado",
-  amount: number, due: string, paid?: string | null, category = "Geral", party = "A",
-): RiskMovement => ({ id, type, status, amount, due_date: due, paid_date: paid ?? null, category, party_id: party });
-
-const DATASET: RiskMovement[] = [
-  // — liquidados dentro do mês corrente —
-  mv("e1", "entrada", "pago", 12_000, "2026-08-03", "2026-08-03", "Vendas", "A"),
-  mv("e2", "entrada", "pago", 8_500, "2026-08-10", "2026-08-11", "Serviços", "B"),
-  mv("s1", "saida", "pago", 4_200, "2026-08-05", "2026-08-05", "Folha", "F"),
-  mv("s2", "saida", "pago", 1_800, "2026-08-12", "2026-08-12", "Aluguel", "G"),
-  // — ARMADILHA 1: pago com paid_date FORA do mês (competência ≠ caixa) —
-  mv("e3", "entrada", "pago", 5_000, "2026-07-28", "2026-08-02", "Vendas", "A"),
-  // — ARMADILHA 2: pendente COM paid_date preenchido. Três regras diferentes
-  //   do sistema discordavam exatamente aqui. Não é caixa: não foi liquidado. —
-  mv("x1", "entrada", "pendente", 9_900, "2026-08-20", "2026-08-20", "Vendas", "A"),
-  // — ARMADILHA 3: pendente vencido (inadimplência) —
-  mv("v1", "entrada", "pendente", 3_300, "2026-07-10", null, "Vendas", "C"),
-  mv("v2", "entrada", "pendente", 1_100, "2026-08-14", null, "Vendas", "C"),
-  // — ARMADILHA 4: vence HOJE — não está vencido —
-  mv("h1", "entrada", "pendente", 7_000, "2026-08-15", null, "Vendas", "D"),
-  // — ARMADILHA 5: cancelado com valor alto — não conta em lugar nenhum —
-  mv("c1", "entrada", "cancelado", 50_000, "2026-08-08", "2026-08-08", "Vendas", "A"),
-  // — ARMADILHA 6: entradas que NÃO são faturamento —
-  mv("t1", "entrada", "pago", 20_000, "2026-08-06", "2026-08-06", "Transferência entre contas", "A"),
-  mv("t2", "entrada", "pago", 900, "2026-08-07", "2026-08-07", "Rendimento de aplicação", "A"),
-  mv("t3", "entrada", "pago", 15_000, "2026-08-09", "2026-08-09", "Empréstimo bancário", "A"),
-  // — histórico para o ritmo de 90 dias —
-  mv("h2", "entrada", "pago", 11_000, "2026-06-05", "2026-06-05", "Vendas", "A"),
-  mv("h3", "saida", "pago", 14_500, "2026-06-20", "2026-06-20", "Folha", "F"),
-  mv("h4", "entrada", "pago", 9_000, "2026-07-05", "2026-07-05", "Vendas", "B"),
-  mv("h5", "saida", "pago", 16_000, "2026-07-18", "2026-07-18", "Folha", "F"),
-  // — pagáveis vencidos (o outro lado) —
-  mv("p1", "saida", "pendente", 2_400, "2026-08-01", null, "Fornecedores", "F"),
-];
-
-const INPUT: RiskInput = {
-  hoje: HOJE, saldoAtual: SALDO, movements: DATASET,
-  partyNames: { A: "Alpha", B: "Beta", C: "Gama", D: "Delta", F: "Forn", G: "Loc" },
-} as RiskInput;
+const { HOJE, SALDO, mv, DATASET, INPUT } = FIXTURE;
 
 const AGOSTO = janelaMes(2026, 7);
 
@@ -1145,6 +1147,120 @@ const AGOSTO = janelaMes(2026, 7);
   ok("onda9: nunca revisado é pendência",
      pendenciasDeAdmin([{ ...adminBase, revisadoEm: null }], "2026-08-04")
        .some((p) => p.problema === "nunca revisado"));
+}
+
+
+/* ========================================================================== */
+/* LINHA 20d — ONDA 10: fato × modelo, erro com dono, intervalo invertido.    */
+/* ========================================================================== */
+{
+  /* ---- A natureza de cada indicador --------------------------------------- */
+  // ⚠️ A separação existia só como TEXTO ("ESTIMADO — …" grudado na fórmula).
+  // Uma frase não deixa a tela marcar nada nem o gerador de planilha recusar
+  // nada, e por isso uma projeção de caixa e um saldo de extrato saíam do
+  // sistema com a mesma cara.
+  ok("onda10: saldo de hoje é FATO", saldo(INPUT, janelaHoje(HOJE)).procedencia.natureza === "fato");
+  const futuro = janela(HOJE, "2026-12-31");
+  ok("onda10: saldo em data futura é PROJEÇÃO",
+     saldo(INPUT, futuro).procedencia.natureza === "projecao",
+     saldo(INPUT, futuro).procedencia.natureza);
+  // Caixa só conta liquidado — logo é fato. Competência conta o previsto.
+  ok("onda10: entradas por caixa são FATO", entradas(INPUT, AGOSTO).procedencia.natureza === "fato");
+  ok("onda10: entradas por competência com pendente são PROJEÇÃO",
+     entradas(INPUT, AGOSTO, "competencia").procedencia.natureza === "projecao");
+  ok("onda10: burn é ESTIMATIVA (é média, não contagem)",
+     burn(INPUT).procedencia.natureza === "estimativa");
+  ok("onda10: runway é PROJEÇÃO", runway(INPUT).procedencia.natureza === "projecao");
+  ok("onda10: runway em meses continua PROJEÇÃO",
+     runwayMeses(INPUT).procedencia.natureza === "projecao");
+  ok("onda10: MRR com contrato é FATO",
+     mrr(INPUT, [{ ativo: true, valorCiclo: 300, mesesCiclo: 1 }]).procedencia.natureza === "fato");
+  ok("onda10: MRR sem contrato é ESTIMATIVA", mrr(INPUT).procedencia.natureza === "estimativa");
+  // ⚠️ ARR é projeção MESMO saindo de contrato: multiplicar por 12 supõe que a
+  // base de hoje se repete o ano inteiro, e é essa suposição que o investidor
+  // precisa enxergar como suposição.
+  ok("onda10: ARR é PROJEÇÃO mesmo com contrato",
+     arr(INPUT, [{ ativo: true, valorCiclo: 300, mesesCiclo: 1 }]).procedencia.natureza === "projecao");
+  // Vencido é fato: o título existe e a data passou. Não é previsão de calote.
+  ok("onda10: inadimplência é FATO", inadimplencia(INPUT).procedencia.natureza === "fato");
+
+  // Todo indicador do painel declara natureza — `versao`, `janela` e `regime`
+  // são metadados do painel, não indicadores, e por isso ficam de fora.
+  const doPainel = Object.values(painelIndicadores(INPUT, AGOSTO))
+    .filter((i): i is { valor: number; procedencia: { natureza: string } } =>
+      !!i && typeof i === "object" && "procedencia" in i);
+  ok("onda10: o painel declara natureza em TODOS os indicadores",
+     doPainel.length >= 10 && doPainel.every((i) => !!i.procedencia.natureza),
+     `${doPainel.length} indicadores`);
+
+  /* ---- O portão do artefato externo --------------------------------------- */
+  const pFato = saldo(INPUT, janelaHoje(HOJE)).procedencia;
+  const pProj = runway(INPUT).procedencia;
+  const soFato = avaliarExportacao([{ rotulo: "Saldo", procedencia: pFato }], "xlsx");
+  ok("onda10: só fato exporta sem nota", soFato.pode && soFato.nota === null);
+  const comProj = avaliarExportacao(
+    [{ rotulo: "Saldo", procedencia: pFato }, { rotulo: "Runway", procedencia: pProj }], "xlsx");
+  ok("onda10: projeção exporta MARCADA, não bloqueada", comProj.pode);
+  // ⚠️ A nota NOMEIA o item. "Alguns valores são projeções" transfere para o
+  // leitor o trabalho de adivinhar quais — e ninguém faz esse trabalho.
+  ok("onda10: a nota do arquivo nomeia o item projetado",
+     comProj.pode && (comProj.nota ?? "").includes("Runway"),
+     comProj.pode ? String(comProj.nota) : "bloqueado");
+  ok("onda10: o rótulo exportado carrega o sufixo",
+     rotuloExportado({ rotulo: "Runway", procedencia: pProj }) === "Runway (projeção)");
+  ok("onda10: fato não ganha sufixo",
+     rotuloExportado({ rotulo: "Saldo", procedencia: pFato }) === "Saldo");
+  // Indicador inválido (janela impossível) NÃO sai: exportar o zero dele cria
+  // um documento afirmando que não houve receita.
+  const invalido = entradas(INPUT, janela("2026-09-30", "2026-09-01")).procedencia;
+  ok("onda10: indicador com aviso NÃO vira arquivo",
+     !avaliarExportacao([{ rotulo: "Receita", procedencia: invalido }], "xlsx").pode);
+
+  /* ---- Intervalo invertido, recusado na ENTRADA --------------------------- */
+  ok("onda10: intervalo invertido é recusado com frase",
+     (problemaDoIntervalo("2026-08-31", "2026-08-01") ?? "").includes("invertido"));
+  ok("onda10: intervalo válido passa", problemaDoIntervalo("2026-08-01", "2026-08-31") === null);
+  ok("onda10: mesmo dia é válido", problemaDoIntervalo("2026-08-01", "2026-08-01") === null);
+  // Rascunho (metade preenchida) não é erro — recusar aqui faria a mensagem
+  // piscar enquanto a pessoa ainda está digitando.
+  ok("onda10: metade preenchida não acusa", problemaDoIntervalo("2026-08-01", "") === null);
+  // ⚠️ Data futura NÃO é recusada: pedir o previsto é legítimo, e quem marca
+  // isso é a natureza do indicador.
+  ok("onda10: intervalo no futuro é permitido",
+     problemaDoIntervalo("2027-01-01", "2027-12-31") === null);
+
+  /* ---- Falhas com dono ---------------------------------------------------- */
+  const agora = "2026-08-15T10:00:00.000Z";
+  const f400 = montarFalha({
+    origem: "movimentos.embedProjeto",
+    erro: { code: "PGRST200", message: "could not find a relationship" },
+    impacto: "relatórios sem a dimensão de projeto", degradado: true, quando: agora,
+  });
+  ok("onda10: a falha do embed de projeto tem dono", f400.dono === "financeiro", f400.dono);
+  ok("onda10: 400 do PostgREST é falha de DADOS", f400.categoria === "dados");
+  // ⚠️ Degradado AGRAVA: é o erro que o usuário não vê, logo o que ninguém
+  // reporta — precisa gritar mais alto para quem mantém, não menos.
+  ok("onda10: falha degradada continua sendo alta", f400.gravidade === "alto");
+  const rede = montarFalha({
+    origem: "ia.responder", erro: Object.assign(new TypeError("Failed to fetch"), {}),
+    impacto: "o assistente não responde", quando: agora,
+  });
+  ok("onda10: falha sem resposta do servidor é de REDE", rede.categoria === "rede", rede.categoria);
+  ok("onda10: cada módulo conhecido tem dono declarado",
+     ["movimentos", "dre", "importacao", "ia", "vendas", "admin"].every((m) => !!DONO_POR_MODULO[m]));
+  // Deduplicado por origem: vinte falhas da mesma consulta são UM problema, e
+  // listar as vinte esconde os outros que estão embaixo.
+  const muitas = [f400, { ...f400 }, { ...f400 }, rede];
+  ok("onda10: o alerta deduplica por origem", paraAlertar(muitas).length === 2,
+     `${paraAlertar(muitas).length}`);
+
+  /* ---- Nenhum indicador recalculado dentro de componente ------------------ */
+  // ⚠️ A causa estrutural da divergência: cada tela somava os lançamentos do
+  // seu jeito. A camada canônica só resolve se ninguém puder contorná-la.
+  const recalculos = indicadoresRecalculadosEmTela();
+  ok("onda10: nenhuma tela soma lançamentos por conta própria",
+     recalculos.length === 0,
+     `${recalculos.length}: ${recalculos.slice(0, 6).join(" · ")}`);
 }
 
 

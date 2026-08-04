@@ -12,6 +12,7 @@
 import * as React from "react";
 import { isDemo } from "@/lib/demo";
 import { PLANO_ABERTO, PLANO_SIMPLES, type EstadoPlano } from "@/core/planos";
+import { reportar } from "@/lib/erros";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -32,7 +33,8 @@ export async function carregarPlano(): Promise<EstadoPlano> {
     cache = l
       ? { plano: l.pro ? "pro" : "simples", nome: l.plano ?? "Simples", status: l.status ?? "none", expira: l.expira ?? null, aberto: false }
       : PLANO_SIMPLES;
-  } catch {
+  } catch (e) {
+    reportar("plano.carregar", e, "a tela assume o plano Simples e pode esconder o que a empresa contratou", true);
     cache = PLANO_SIMPLES;
   }
   return cache;

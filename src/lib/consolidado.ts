@@ -7,6 +7,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { reportar } from "@/lib/erros";
 
 export interface EntidadeConsolidada {
   orgId: string;
@@ -43,7 +44,8 @@ export async function getConsolidado(de: string, ate: string): Promise<Consolida
       return { orgId: String(r.org_id), nome: String(r.nome ?? "Organização"), saldo: Number(r.saldo ?? 0), receita, despesa, contas: Number(r.contas ?? 0), resultado: receita - despesa };
     });
     return consolidar(ents);
-  } catch { return consolidar([]); }
+  } catch (e) {
+    reportar("organizacao.consolidado", e, "o consolidado cai para a empresa atual em vez de somar todas", true); return consolidar([]); }
 }
 
 /* ------------------ lançamentos por organização (0020) ------------------ */

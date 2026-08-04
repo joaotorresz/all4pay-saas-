@@ -30,3 +30,4 @@ export {
 } from "./DropdownMenu";
 export { Icon, type IconProps, type IconName } from "./Icon";
 export { AcaoDestrutiva } from "./AcaoDestrutiva";
+export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } from "./Procedencia";

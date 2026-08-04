@@ -44,6 +44,7 @@ import type {
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 /**
  * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
@@ -615,6 +616,16 @@ export async function getRiscoInput(): Promise<RiskInput> {
       // devolver dados parciais como se estivesse tudo bem é o que fazia a tela
       // exibir números incompletos com toda a confiança.
       if (!RELACAO_AUSENTE.test(comProjeto.error.message ?? "")) throw comProjeto.error;
+      // ⚠️ A QUEDA É REPORTADA. Ela é a decisão certa em runtime — a tela abre
+      // com os números certos — e por isso mesmo era invisível: a dimensão de
+      // projeto sumia de TODOS os relatórios e ninguém tinha como saber. Foi
+      // este caminho que atravessou meses. `degradado: true` é o que separa
+      // "está tudo bem" de "está funcionando, e falta uma coisa".
+      reportar(
+        "movimentos.embedProjeto", comProjeto.error,
+        "os relatórios ficam sem a dimensão de projeto até a migration 0019 ser aplicada",
+        true,
+      );
       embedProjetoOk = false;
     }
     return supabase.from("movements").select(COLUNAS_BASE).limit(TETO_LINHAS);

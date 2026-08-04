@@ -11,6 +11,8 @@ import { useInadimplencia } from "@/components/visao-geral/hooks";
 import { emitirBoleto, marcarPagoBoleto, cancelarBoleto, statusEfetivo, type OpcoesBoleto } from "@/lib/boletos";
 import { isoDay } from "@/lib/aggregations";
 import type { Movement, Party, FinancialAccount, BoletoStatus } from "@/lib/types";
+import { previstoNaJanela, janela, janelaDoMesDe } from "@/core/indicadores";
+import type { RiskInput } from "@/core/risk-engine/types";
 
 const ST: Record<BoletoStatus, { label: string; cor: string }> = {
   gerado: { label: "Gerado", cor: "var(--color-muted)" },
@@ -40,8 +42,12 @@ export function BoletosView() {
   };
 
   const lista = recs.data ?? [];
-  const venceMes = lista.filter((m) => m.status === "pendente" && m.due_date.slice(0, 7) === hoje.slice(0, 7)).reduce((s, m) => s + m.amount, 0);
-  const prox30 = lista.filter((m) => m.status === "pendente" && m.due_date >= hoje && m.due_date <= isoDay(new Date(Date.now() + 30 * 864e5))).reduce((s, m) => s + m.amount, 0);
+  // O que VENCE numa janela é posição em aberto — indicador canônico, não uma
+  // soma local. `previstoNaJanela` marca o número como projeção, que é o que
+  // ele é: dinheiro que ainda não se moveu.
+  const inputBoletos = { hoje, saldoAtual: 0, movements: lista } as unknown as RiskInput;
+  const venceMes = previstoNaJanela(inputBoletos, janelaDoMesDe(hoje)).valor;
+  const prox30 = previstoNaJanela(inputBoletos, janela(hoje, isoDay(new Date(Date.now() + 30 * 864e5)))).valor;
 
   const refresh = async () => { await qc.invalidateQueries(); };
 

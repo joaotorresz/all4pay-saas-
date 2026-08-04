@@ -15,6 +15,7 @@ import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sc
 import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
 export const CICLOS: { id: Ciclo; label: string; meses: number }[] = [
@@ -92,7 +93,8 @@ export async function hydrateRecorrencias(force = false): Promise<void> {
       .eq("type", "entrada").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as RecRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("financeiro.recorrencias", e, "as assinaturas não aparecem e o MRR fica sem base", true); cache = cache ?? []; }
 }
 
 export function listRecorrencias(): Recorrencia[] {

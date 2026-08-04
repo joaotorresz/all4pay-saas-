@@ -15,6 +15,7 @@ import type { OrcamentoOverride, LinhaOrcId } from "@/core/budget";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 const KEY = "a4p_orcamento";
 /** Período sentinela = orçamento mensal recorrente (aplica a todo mês). */
@@ -31,7 +32,8 @@ function loadLocal(): OrcamentoOverride {
 
 function saveLocal(o: OrcamentoOverride): void {
   if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(o)); } catch { /* ignore */ }
+  try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {
+    reportar("orcamento.consulta", e, "o orçamento aparece vazio, como se ninguém tivesse planejado", true); /* ignore */ }
 }
 
 export async function loadOrcamento(): Promise<OrcamentoOverride> {
@@ -49,7 +51,8 @@ export async function loadOrcamento(): Promise<OrcamentoOverride> {
       if (linha) o[linha] = Number(r.amount);
     }
     return o;
-  } catch { return loadLocal(); }
+  } catch (e) {
+    reportar("orcamento.consulta", e, "o orçamento aparece vazio, como se ninguém tivesse planejado", true); return loadLocal(); }
 }
 
 export async function saveOrcamento(o: OrcamentoOverride): Promise<void> {

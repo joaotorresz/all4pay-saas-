@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
@@ -248,7 +249,8 @@ export async function fetchPosConfig(): Promise<PosConfig> {
     const cfg = coerce(data.config as Partial<PosConfig>);
     savePosConfig(cfg);
     return cfg;
-  } catch { return loadPosConfig(); }
+  } catch (e) {
+    reportar("vendas.posTaxas", e, "as taxas do POS voltam ao padrão e o líquido sai errado", true); return loadPosConfig(); }
 }
 
 /** Persiste o config: cache local + (live) upsert na linha única da org em

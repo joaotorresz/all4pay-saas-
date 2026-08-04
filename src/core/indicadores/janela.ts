@@ -138,3 +138,32 @@ export const contemHoje = (j: Janela, hojeISO: string): boolean => dentro(j, hoj
  */
 export const passada = (j: Janela, hojeISO: string): boolean => !j.vazia && j.ate < hojeISO.slice(0, 10);
 export const futura = (j: Janela, hojeISO: string): boolean => !j.vazia && j.de > hojeISO.slice(0, 10);
+
+/**
+ * O intervalo digitado é aceitável? Devolve a FRASE do problema, ou `null`.
+ *
+ * ⚠️ `janela()` já trata o intervalo invertido devolvendo `vazia` com motivo — e
+ * isso resolve o CÁLCULO, não a ENTRADA. Entre digitar "de 31/08 até 01/08" e
+ * ver a explicação, a pessoa já pediu o relatório, esperou e leu um resultado
+ * vazio; o aviso chega como conclusão de uma tentativa em vez de impedir a
+ * tentativa. Esta função existe para os campos de data recusarem na hora, com a
+ * mesma regra do motor.
+ *
+ * A data futura NÃO é recusada: pedir um período que ainda não terminou é
+ * legítimo (é assim que se olha o previsto). Quem decide o que fazer com o
+ * futuro é o indicador, e ele já marca isso como projeção.
+ */
+export function problemaDoIntervalo(de: string, ate: string): string | null {
+  const d = (de ?? "").slice(0, 10);
+  const a = (ate ?? "").slice(0, 10);
+  if (!d || !a) return null;                       // metade preenchida ainda é rascunho
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return "A data inicial não está completa.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(a)) return "A data final não está completa.";
+  if (d > a) {
+    return `Intervalo invertido: o início (${brDaISO(d)}) é depois do fim (${brDaISO(a)}). Nenhuma data cabe nos dois limites.`;
+  }
+  return null;
+}
+
+/** dd/mm/aaaa a partir da string ISO — fatiada, nunca por `Date` (fuso). */
+const brDaISO = (iso: string): string => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;

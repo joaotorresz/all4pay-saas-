@@ -12,6 +12,7 @@ import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type StatusNfse = "rascunho" | "processando" | "autorizada" | "rejeitada" | "enviada" | "cancelada";
 
@@ -85,7 +86,8 @@ export async function hydrateNfse(force = false): Promise<void> {
       .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as NfseRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("vendas.nfse", e, "as notas de serviço não aparecem na lista", true); cache = cache ?? []; }
 }
 
 export function listNfse(): Nfse[] {
