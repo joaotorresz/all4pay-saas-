@@ -8,6 +8,7 @@
 import type { Cronograma } from "@/core/schedules";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const KEY = "a4p_cronogramas";
 const SEP = "\u001f";
@@ -64,7 +65,7 @@ export async function loadCronogramas(): Promise<Cronograma[]> {
     const { data, error } = await createClient()
       .from("schedules")
       .select("id,kind,description,total,residual,start_period,periods")
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true }).limit(TETO_LINHAS);
     if (error) return [];
     return ((data ?? []) as Row[]).map(rowToCronograma);
   } catch { return []; }

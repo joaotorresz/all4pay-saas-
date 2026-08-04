@@ -14,6 +14,7 @@ import { appendImported, removerImported, importedMovements } from "@/lib/import
 import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
 import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
 export const CICLOS: { id: Ciclo; label: string; meses: number }[] = [
@@ -88,7 +89,7 @@ export async function hydrateRecorrencias(force = false): Promise<void> {
   try {
     const { data } = await createClient().from("recurrences")
       .select("id,party_id,description,amount,freq,start_date,due_day,active,itens,created_at,parties(name)")
-      .eq("type", "entrada").order("created_at", { ascending: false });
+      .eq("type", "entrada").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as RecRow[]).map(fromRow);
     hydrated = true;
   } catch { cache = cache ?? []; }

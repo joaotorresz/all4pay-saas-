@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
+import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
 import { leafAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,7 @@ export function Sidebar() {
     document.addEventListener("pointerup", soltar);
   }, [isDesktop, collapsed, aplicarLargura, definirRecolhida]);
 
-  const { pro, set: setPro } = useModo();
+  const { pro, set: setPro, temDireito } = useModo();
   const { sections: allSections, pessoal } = useNavSections();
 
   // Configurações fica no rodapé, separada — é o último grupo da lista.
@@ -289,9 +290,21 @@ export function Sidebar() {
               type="button"
               role="switch"
               aria-checked={pro}
-              aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}`}
-              onClick={() => setPro(pro ? "simples" : "pro")}
-              title={pro ? "Modo Pro ativo — some para o essencial (Simples)" : "Modo Pro — desbloqueia Inteligência e Governança"}
+              aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}${temDireito ? "" : " — não incluso no plano"}`}
+              /*
+               * ⚠️ O interruptor não LIBERA nada: ele revela o que o plano já
+               * inclui. Sem direito, `setPro` devolve `false` e a pessoa vai
+               * para a tela de planos — antes ele ligava o menu inteiro do Pro
+               * e cada destino devolvia essa mesma tela, um clique depois.
+               */
+              onClick={() => {
+                if (!setPro(pro ? "simples" : "pro")) router.push("/planos?de=modo-pro");
+              }}
+              title={
+                !temDireito ? "Modo Pro — não incluso no plano desta empresa. Ver planos."
+                : pro ? "Modo Pro ativo — some para o essencial (Simples)"
+                : "Modo Pro — revela Inteligência e Governança"
+              }
               className={cn(
                 "relative flex items-center rounded-md py-2 w-full text-left transition-colors hover:bg-surface-1",
                 col ? "justify-center px-0" : "gap-[10px] px-[10px]",
@@ -304,7 +317,7 @@ export function Sidebar() {
                   {/* Retorno visível do estado, ao lado do interruptor: a
                       pastilha sozinha é sutil demais para responder "mudou?". */}
                   <span className="ml-auto text-[11px] uppercase tracking-[0.06em] text-faint">
-                    {pro ? "on" : "off"}
+                    {!temDireito ? "plano" : pro ? "on" : "off"}
                   </span>
                   <span className={cn("w-[34px] h-[20px] rounded-pill p-[2px] shrink-0 transition-colors", pro ? "bg-lime" : "bg-surface-3")} aria-hidden>
                     <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
@@ -313,6 +326,10 @@ export function Sidebar() {
               )}
             </button>
           )}
+          {/* ⚠️ QUAL empresa está aberta, acima da conta. Num produto que mostra
+              saldo, o rótulo da empresa vale tanto quanto o número — e até a
+              ONDA 9 a interface não tinha como responder essa pergunta. */}
+          <SeletorOrganizacao collapsed={col} />
           <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
             <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
             {!col && (

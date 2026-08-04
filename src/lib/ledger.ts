@@ -15,6 +15,7 @@ import {
   PLANO_PADRAO, CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta,
 } from "@/core/ledger/chart";
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
 export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
@@ -291,7 +292,7 @@ export async function lockedPeriodsLive(): Promise<string[]> {
   try {
     const s = createClient();
     const { entityId } = await seedPlanoLive();
-    const { data } = await s.from("accounting_periods").select("period,status").eq("entity_id", entityId).eq("status", "locked");
+    const { data } = await s.from("accounting_periods").select("period,status").eq("entity_id", entityId).eq("status", "locked").limit(TETO_LINHAS);
     return ((data ?? []) as Array<{ period: string }>).map((r) => String(r.period).slice(0, 7));
   } catch { return []; }
 }
@@ -309,7 +310,7 @@ export async function closeTasksLive(): Promise<Record<string, Record<string, bo
   if (isDemo) return {};
   try {
     const s = createClient();
-    const { data } = await s.from("close_tasks").select("title,status,accounting_periods(period)");
+    const { data } = await s.from("close_tasks").select("title,status,accounting_periods(period)").limit(TETO_LINHAS);
     const out: Record<string, Record<string, boolean>> = {};
     for (const r of (data ?? []) as Array<{ title: string; status: string; accounting_periods?: { period?: string } }>) {
       const mes = String(r.accounting_periods?.period ?? "").slice(0, 7);
@@ -381,7 +382,7 @@ export async function ingerirOpenFinanceRazao(): Promise<{ lidas: number; postad
   if (!linhas.length) return { lidas: 0, postadas: 0 };
 
   // pula as já ingeridas (raw_events)
-  const { data: jaProc } = await s.from("raw_events").select("external_id").eq("provider", "pluggy");
+  const { data: jaProc } = await s.from("raw_events").select("external_id").eq("provider", "pluggy").limit(TETO_LINHAS);
   const feitas = new Set(((jaProc ?? []) as Array<{ external_id: string }>).map((r) => r.external_id));
   const novas = linhas.filter((t) => !feitas.has(t.pluggy_transaction_id));
   if (!novas.length) return { lidas: linhas.length, postadas: 0 };
@@ -430,7 +431,7 @@ async function seedPlanoLive(): Promise<{ entityId: string; codeMap: Record<stri
       entityCache = (novo as { id: string }).id;
     }
   }
-  const { data: contas } = await s.from("ledger_accounts").select("id,code").eq("entity_id", entityCache);
+  const { data: contas } = await s.from("ledger_accounts").select("id,code").eq("entity_id", entityCache).limit(TETO_LINHAS);
   const map: Record<string, string> = {};
   for (const c of (contas ?? []) as Array<{ id: string; code: string }>) map[c.code] = c.id;
   const faltam = PLANO_PADRAO.filter((p) => !map[p.code]);
@@ -438,7 +439,7 @@ async function seedPlanoLive(): Promise<{ entityId: string; codeMap: Record<stri
     const { data: criadas, error } = await s
       .from("ledger_accounts")
       .insert(faltam.map((p) => ({ entity_id: entityCache, code: p.code, name: p.name, type: p.type })))
-      .select("id,code");
+      .select("id,code").limit(TETO_LINHAS);
     if (error) throw error;
     for (const c of (criadas ?? []) as Array<{ id: string; code: string }>) map[c.code] = c.id;
   }

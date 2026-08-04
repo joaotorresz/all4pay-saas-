@@ -14,6 +14,7 @@ import {
 } from "@/core/institutional/approval-flow";
 import type { ApprovalRequest, Usuario, Role, TransacaoContexto } from "@/core/institutional/types";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type StatusSolic = "em_analise" | "aprovada" | "rejeitada" | "devolvida";
 
@@ -102,7 +103,7 @@ export async function hydrateAprovacoes(force = false): Promise<void> {
   if (hydrated && !force) return;
   if (isDemo) { cache = loadLocal(); hydrated = true; return; }
   try {
-    const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false });
+    const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as ApprovalRow[]).map(fromRow);
     hydrated = true;
   } catch { cache = cache ?? []; }

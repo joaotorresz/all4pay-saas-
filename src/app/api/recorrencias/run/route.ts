@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdmin } from "@/lib/supabase/admin";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export async function GET(req: Request) {
   const { data: recs, error } = await admin
     .from("recurrences")
     .select("id,org_id,type,party_id,amount,freq,start_date,end_date,due_day,description,category_id,cost_center_id")
-    .eq("active", true);
+    .eq("active", true).limit(TETO_LINHAS);
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
 
   const contaPorOrg = new Map<string, string | null>();

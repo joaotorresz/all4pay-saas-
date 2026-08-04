@@ -141,6 +141,7 @@ export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
     { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
+    { label: "Segurança e isolamento", href: "/dashboard/administration/security", icon: "shield-check" },
     { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
     { label: "Nova empresa", href: "/empresas/nova", icon: "building" },
     { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },

@@ -13,6 +13,7 @@ import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/
 import { setImported, clearImported } from "@/lib/imported";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export { clearImported } from "@/lib/imported";
 
@@ -110,7 +111,7 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
   const nomeParaId = new Map<string, string>();
   const parties = dataset.parties.map((p) => ({ type: "pj", name: p.name, is_customer: p.is_customer, is_supplier: p.is_supplier }));
   if (parties.length) {
-    const { data: criadas, error } = await supabase.from("parties").insert(parties).select("id,name");
+    const { data: criadas, error } = await supabase.from("parties").insert(parties).select("id,name").limit(TETO_LINHAS);
     if (!error) {
       out.clientes = clientes;
       out.fornecedores = fornecedores;
@@ -181,7 +182,7 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
       const { data: inseridas, error } = await supabase
         .from("movements")
         .upsert(lote, { onConflict: "org_id,chave", ignoreDuplicates: true })
-        .select("id");
+        .select("id").limit(TETO_LINHAS);
       if (!error) out.movimentos += (inseridas as unknown[] | null)?.length ?? 0;
     }
   }

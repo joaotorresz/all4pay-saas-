@@ -8,6 +8,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export interface MatchConc {
   ofId: string; ofDesc: string; ofData: string;
@@ -69,8 +70,8 @@ export async function getConciliacaoOF(): Promise<ConciliacaoOF | null> {
   const supabase = createClient();
   const cols = "id,type,amount,due_date,paid_date,party_id,description";
   const [pendRes, ofRes] = await Promise.all([
-    supabase.from("movements").select(cols).eq("status", "pendente"),
-    supabase.from("movements").select(cols).eq("status", "pago").like("reference_code", "pluggy:%"),
+    supabase.from("movements").select(cols).eq("status", "pendente").limit(TETO_LINHAS),
+    supabase.from("movements").select(cols).eq("status", "pago").like("reference_code", "pluggy:%").limit(TETO_LINHAS),
   ]);
   if (pendRes.error) throw pendRes.error;
   if (ofRes.error) throw ofRes.error;

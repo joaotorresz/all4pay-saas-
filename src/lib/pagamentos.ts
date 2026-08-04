@@ -10,6 +10,7 @@ import { isoDay } from "@/lib/aggregations";
 import { liquidarImported } from "@/lib/imported";
 import { FinancialPlatform } from "@/core/platform";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type MetodoPagamento = "pix" | "ted" | "boleto" | "of";
 
@@ -76,7 +77,7 @@ export async function pagarLote(
         .update({ status: "pago", paid_date: hoje, reconciled: true })
         .in("id", ids)
         .eq("status", "pendente")
-        .select("amount");
+        .select("amount").limit(TETO_LINHAS);
       if (!error && flipped) {
         liquidados = flipped.length;
         total = flipped.reduce((s, m) => s + Number((m as { amount: number }).amount), 0);

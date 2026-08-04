@@ -7,6 +7,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type TagMap = Record<string, string[]>;
 
@@ -27,7 +28,7 @@ function persistLocal(map: TagMap): void {
 export async function hydrateTags(): Promise<TagMap> {
   if (isDemo) { cache = loadLocal(); return cache; }
   try {
-    const { data } = await createClient().from("movement_tags").select("movement_id,tag");
+    const { data } = await createClient().from("movement_tags").select("movement_id,tag").limit(TETO_LINHAS);
     const map: TagMap = {};
     for (const r of (data ?? []) as Array<{ movement_id: string; tag: string }>) {
       (map[r.movement_id] ??= []).push(r.tag);

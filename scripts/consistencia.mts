@@ -48,6 +48,10 @@ import {
   INVENTARIO, CANONICAS, APOSENTANDO, nomesDuplicados,
 } from "@/core/rotas/inventario";
 import { CONTROLES, porTipo, malDeclarados } from "@/core/controles";
+import {
+  resumoIsolamento, achadosDaAuditoria, pendenciasDeAdmin,
+  motivoParaNaoAprovar, podeAprovar, FRASE_RECUSA, PAPEIS, ACOES, MATRIZ_DEMO,
+} from "@/core/seguranca";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
@@ -87,6 +91,34 @@ function chavesUsadasNoCodigo(): string[] {
 }
 
 
+
+/**
+ * Consultas ao banco SEM teto de linhas.
+ *
+ * ⚠️ Varre a cadeia inteira (`.from("x") … ;`) e cobra `.limit`, `.range` ou
+ * um resultado de linha única. A política de acesso por linha diz DE QUEM são
+ * as linhas; ela não diz QUANTAS — e uma consulta sem teto derruba a tela de
+ * quem tem mais dados, que é justamente o cliente que mais paga.
+ */
+function consultasSemTeto(): string[] {
+  const out: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      const txt = readFileSync(caminho, "utf8");
+      for (const m of txt.matchAll(/\.from\("([a-z_]+)"\)([\s\S]{0,700}?);/g)) {
+        const cadeia = m[2];
+        if (!/\.select\(/.test(cadeia)) continue;             // insert/update
+        if (/\.limit\(|\.single\(\)|\.maybeSingle\(\)|\.range\(/.test(cadeia)) continue;
+        out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length} (${m[1]})`);
+      }
+    }
+  };
+  varrer("src");
+  return out;
+}
 
 /**
  * As rotas que o Next REALMENTE publica: todo diretório com `page.tsx` sob
@@ -993,6 +1025,126 @@ const AGOSTO = janelaMes(2026, 7);
     g.window = janelaAntes;
     g.localStorage = armazemAntes;
   }
+}
+
+
+/* ========================================================================== */
+/* LINHA 20c — ONDA 9: isolamento, papéis e teto de linhas.                   */
+/* ========================================================================== */
+{
+  /* ---- O teto de linhas: TETO ZERO de consultas sem limite --------------- */
+  // ⚠️ A política de acesso por linha garante DE QUEM são as linhas, não
+  // QUANTAS. Uma empresa com cinco anos de extrato pedia tudo de uma vez: a
+  // tela congelava e o socorro do usuário — recarregar — refazia a consulta.
+  // Eram 60 consultas sem teto de 105.
+  const semTeto = consultasSemTeto();
+  ok("onda9: nenhuma consulta sem teto de linhas", semTeto.length === 0,
+     `${semTeto.length} sem limite: ${semTeto.slice(0, 5).join(", ")}`);
+
+  /* ---- O teste de isolamento --------------------------------------------- */
+  const limpo = [
+    { tabela: "movements", linhasDeOutraOrg: 0, visiveis: 554 },
+    { tabela: "parties", linhasDeOutraOrg: 0, visiveis: 20 },
+  ];
+  ok("onda9: sem vazamento, o isolamento passa", resumoIsolamento(limpo).ok);
+  // ⚠️ UMA linha da empresa errada já reprova. Não existe vazamento aceitável
+  // entre empresas num produto financeiro.
+  const vazando = [...limpo, { tabela: "budgets", linhasDeOutraOrg: 1, visiveis: 3 }];
+  const rv = resumoIsolamento(vazando);
+  ok("onda9: uma única linha de outra empresa REPROVA", !rv.ok && rv.vazamentos === 1);
+  ok("onda9: e a tabela é nomeada", rv.tabelasVazando.includes("budgets"));
+  // ⚠️ Não ter testado nada NÃO é aprovação: zero tabelas conferidas reprova,
+  // senão uma consulta que falhou em silêncio passaria como "tudo certo".
+  ok("onda9: nenhuma tabela conferida não é aprovação", !resumoIsolamento([]).ok);
+
+  /* ---- A auditoria da política ------------------------------------------- */
+  const base = {
+    rlsLigada: true, politicas: 1, temOrgId: true, politicaPorOrg: true,
+    alcancaAnonimo: false, anonPodeTruncar: false,
+  };
+  // ⚠️ O achado que a ONDA 9 encontrou medindo, não deduzindo: `anon` podia
+  // TRUNCATE em 57 de 59 tabelas, e TRUNCATE não passa por política de linha.
+  const truncar = achadosDaAuditoria([{ tabela: "movements", ...base, anonPodeTruncar: true }]);
+  ok("onda9: 'anônimo pode esvaziar a tabela' é crítico",
+     truncar[0]?.gravidade === "critico" && truncar[0].problema.includes("esvaziar"));
+  ok("onda9: e o porquê cita que a política não alcança",
+     truncar[0]?.porque.includes("TRUNCATE"));
+  ok("onda9: RLS desligada é crítico",
+     achadosDaAuditoria([{ tabela: "x", ...base, rlsLigada: false }])[0]?.gravidade === "critico");
+  // ⚠️ RLS ligada SEM política é o desenho correto das tabelas que só as
+  // funções `SECURITY DEFINER` acessam — acusar isso seria gritar lobo.
+  ok("onda9: RLS ligada sem política NÃO é achado",
+     achadosDaAuditoria([{ tabela: "platform_admins", ...base, politicas: 0, temOrgId: false, politicaPorOrg: false }]).length === 0);
+  ok("onda9: coluna de empresa sem política por empresa é alto",
+     achadosDaAuditoria([{ tabela: "y", ...base, politicaPorOrg: false }])[0]?.gravidade === "alto");
+  ok("onda9: a lista sai do mais grave para o menos",
+     achadosDaAuditoria([
+       { tabela: "b", ...base, alcancaAnonimo: true },
+       { tabela: "a", ...base, rlsLigada: false },
+     ])[0].gravidade === "critico");
+
+  /* ---- Segregação de funções --------------------------------------------- */
+  const pedido = { id: "s1", solicitanteId: "ana", valor: 5000 };
+  const TUDO = ["ler", "lancar", "aprovar"];
+  // ⚠️ A MESMA regra que o gatilho `approvals_segregacao` aplica no banco: a
+  // tela precisa saber explicar antes do clique o que o banco recusaria depois.
+  ok("onda9: quem solicita não aprova a própria solicitação",
+     motivoParaNaoAprovar(pedido, "ana", TUDO) === "propria-solicitacao");
+  ok("onda9: outra pessoa com o papel aprova",
+     podeAprovar(pedido, "bruno", TUDO));
+  ok("onda9: sem o papel não aprova nem a dos outros",
+     motivoParaNaoAprovar(pedido, "bruno", ["ler", "lancar"]) === "sem-papel");
+  // A ordem importa: quem não tem o papel não aprova NADA, então essa é a
+  // primeira pergunta — dizer "é a sua própria" a quem nem podia aprovar
+  // mandaria a pessoa procurar outro aprovador para um problema que é dela.
+  ok("onda9: a falta de papel vem antes da segregação",
+     motivoParaNaoAprovar(pedido, "ana", ["ler"]) === "sem-papel");
+  ok("onda9: toda recusa tem frase para o usuário",
+     !!FRASE_RECUSA["sem-papel"] && !!FRASE_RECUSA["propria-solicitacao"]);
+
+  /* ---- Papéis: vocabulário coerente -------------------------------------- */
+  const papeis = PAPEIS.map((p) => p.id);
+  ok("onda9: todo papel tem linha na matriz de referência",
+     papeis.every((p) => Array.isArray(MATRIZ_DEMO[p])));
+  ok("onda9: todo papel lê", papeis.every((p) => MATRIZ_DEMO[p].includes("ler")));
+  // ⚠️ `member` é legado e vale como `lancador`: reinterpretá-lo como algo mais
+  // poderoso daria poder de aprovação, de uma vez, a todo mundo que já é membro.
+  ok("onda9: o papel legado equivale ao lançador",
+     JSON.stringify(MATRIZ_DEMO.member) === JSON.stringify(MATRIZ_DEMO.lancador));
+  ok("onda9: o leitor não escreve e não exporta",
+     !MATRIZ_DEMO.leitor.includes("lancar") && !MATRIZ_DEMO.leitor.includes("exportar"));
+  ok("onda9: o lançador não aprova e não fecha",
+     !MATRIZ_DEMO.lancador.includes("aprovar") && !MATRIZ_DEMO.lancador.includes("fechar"));
+  ok("onda9: só a titularidade mexe em cobrança",
+     papeis.filter((p) => MATRIZ_DEMO[p].includes("cobranca")).join() === "owner");
+  ok("onda9: toda ação da matriz existe no vocabulário",
+     papeis.every((p) => MATRIZ_DEMO[p].every((a) => ACOES.some((x) => x.id === a))));
+
+  /* ---- Revisão do acesso administrativo ---------------------------------- */
+  const adminBase = {
+    userId: "u1", email: "dono@empresa.com", motivo: "sócio fundador",
+    expiraEm: "2027-01-01", revisadoEm: "2026-07-01", exigeMfa: true, fatoresMfa: 1,
+    mfaPrazo: null, acessos30d: 4, negados30d: 0, ultimoAcesso: "2026-08-01", pendente: false,
+  };
+  ok("onda9: administrador em dia não gera pendência",
+     pendenciasDeAdmin([adminBase], "2026-08-04").length === 0);
+  // ⚠️ "Sem segundo fator" alerta MESMO dentro do prazo: o prazo evita tirar o
+  // acesso hoje, não torna a situação aceitável.
+  const semMfa = pendenciasDeAdmin([{ ...adminBase, fatoresMfa: 0, mfaPrazo: "2026-09-03" }], "2026-08-04");
+  ok("onda9: sem segundo fator alerta antes do prazo vencer",
+     semMfa.some((p) => p.gravidade === "alto" && p.problema.includes("segundo fator")));
+  ok("onda9: com o prazo vencido vira crítico",
+     pendenciasDeAdmin([{ ...adminBase, fatoresMfa: 0, mfaPrazo: "2026-01-01" }], "2026-08-04")
+       .some((p) => p.gravidade === "critico"));
+  ok("onda9: acesso vencido e ainda na lista é crítico",
+     pendenciasDeAdmin([{ ...adminBase, expiraEm: "2026-01-01" }], "2026-08-04")
+       .some((p) => p.gravidade === "critico" && p.problema.includes("vencido")));
+  ok("onda9: tentativas negadas viram pendência",
+     pendenciasDeAdmin([{ ...adminBase, negados30d: 3 }], "2026-08-04")
+       .some((p) => p.problema.includes("negadas")));
+  ok("onda9: nunca revisado é pendência",
+     pendenciasDeAdmin([{ ...adminBase, revisadoEm: null }], "2026-08-04")
+       .some((p) => p.problema === "nunca revisado"));
 }
 
 

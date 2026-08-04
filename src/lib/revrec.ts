@@ -7,6 +7,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type ModeloReceita = "subscription" | "usage" | "milestone";
 export interface RevRecParcela { period: string; amount: number; recognized: boolean }
@@ -75,7 +76,7 @@ export async function listRevRec(): Promise<RevRecContrato[]> {
     const { data, error } = await createClient()
       .from("revenue_contracts")
       .select("id,customer,total,model,start_date,end_date,created_at,revenue_schedule(period,amount,recognized)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     if (error) return [];
     return ((data ?? []) as unknown as ContratoRow[]).map(fromRow);
   } catch { return []; }

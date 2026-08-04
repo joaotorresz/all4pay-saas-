@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { TrilhaAuditoria } from "@/core/institutional/audit";
 import { trilhaDemo } from "@/core/institutional/demo";
 import type { AuditAction, AuditEvent, EntityType } from "@/core/institutional/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const ACAO_MAP: Record<string, AuditAction> = {
   created: "created",
@@ -70,7 +71,7 @@ export async function getAuditTrail(): Promise<{
   const { data, error } = await supabase
     .from("audit_log")
     .select("id,usuario,acao,antes,depois,created_at")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
 
   const t = new TrilhaAuditoria();

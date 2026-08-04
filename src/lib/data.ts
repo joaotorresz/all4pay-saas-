@@ -43,6 +43,7 @@ import type {
   LancamentoInput,
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 /**
  * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
@@ -70,7 +71,7 @@ export async function getReceivables(): Promise<ReceivablesSummary> {
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "entrada")
-    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`).limit(TETO_LINHAS);
   if (error) throw error;
   return summarizeReceivables((data ?? []) as Movement[]);
 }
@@ -87,7 +88,7 @@ export async function getPayables(): Promise<PayablesSummary> {
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "saida")
-    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`).limit(TETO_LINHAS);
   if (error) throw error;
   return summarizePayables((data ?? []) as Movement[]);
 }
@@ -99,8 +100,8 @@ export async function getAccounts(): Promise<AccountsSummary> {
   }
   const supabase = createClient();
   const [accountsRes, unreconciledRes] = await Promise.all([
-    supabase.from("financial_accounts").select("*").order("balance", { ascending: false }),
-    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false).neq("status", "cancelado"),
+    supabase.from("financial_accounts").select("*").order("balance", { ascending: false }).limit(TETO_LINHAS),
+    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false).neq("status", "cancelado").limit(TETO_LINHAS),
   ]);
   if (accountsRes.error) throw accountsRes.error;
   if (unreconciledRes.error) throw unreconciledRes.error;
@@ -125,7 +126,7 @@ export async function getDailyCashflow(
     .from("movements")
     .select("type,amount,due_date,paid_date,status")
     .eq("status", "pago")
-    .gte("paid_date", isoDay(start));
+    .gte("paid_date", isoDay(start)).limit(TETO_LINHAS);
   if (error) throw error;
   return dailyCashflow((data ?? []) as Movement[], days);
 }
@@ -163,9 +164,9 @@ export async function getDailyCashflowRange(
   }
   const supabase = createClient();
   const [accRes, paidRes, pendRes] = await Promise.all([
-    supabase.from("financial_accounts").select("balance"),
-    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", hoje),
-    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pendente").gt("due_date", hoje).lte("due_date", to),
+    supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", hoje).limit(TETO_LINHAS),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pendente").gt("due_date", hoje).lte("due_date", to).limit(TETO_LINHAS),
   ]);
   if (paidRes.error) throw paidRes.error;
   if (pendRes.error) throw pendRes.error;
@@ -190,7 +191,7 @@ export async function getOpenMovements(
     .select(MOVEMENT_COLS)
     .eq("type", type)
     .eq("status", "pendente")
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -222,7 +223,7 @@ export async function getMovementsByFilter(
       .sort((a, b) => a.due_date.localeCompare(b.due_date));
   }
   const supabase = createClient();
-  let q = supabase.from("movements").select(MOVEMENT_COLS).eq("type", type);
+  let q = supabase.from("movements").select(MOVEMENT_COLS).eq("type", type).limit(TETO_LINHAS);
   if (filtro === "realizado") {
     q = q.eq("status", "pago").order("paid_date", { ascending: false });
   } else if (filtro === "recorrente") {
@@ -265,7 +266,7 @@ export async function getTrashedMovements(): Promise<Movement[]> {
   }
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("movements").select(MOVEMENT_COLS).eq("status", "cancelado").order("due_date", { ascending: false });
+    .from("movements").select(MOVEMENT_COLS).eq("status", "cancelado").order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -301,7 +302,7 @@ export async function getRecebiveisBoleto(): Promise<Movement[]> {
     .select(`${MOVEMENT_COLS},boleto`)
     .eq("type", "entrada")
     .or("status.eq.pendente,boleto.not.is.null")
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -321,7 +322,7 @@ export async function getUnreconciledMovements(
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("reconciled", false)
-    .order("due_date", { ascending: false });
+    .order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (accountId) query = query.eq("account_id", accountId);
   const { data, error } = await query;
   if (error) throw error;
@@ -338,7 +339,7 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
     .select("id,kind,name")
     .eq("kind", kind)
     .eq("active", true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Category[];
 }
@@ -350,7 +351,7 @@ export async function getCostCenters(): Promise<CostCenter[]> {
     .from("cost_centers")
     .select("id,name")
     .eq("active", true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as CostCenter[];
 }
@@ -368,7 +369,7 @@ export async function getParties(role: PartyRole): Promise<Party[]> {
     .from("parties")
     .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
     .eq(col, true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Party[];
 }
@@ -380,7 +381,7 @@ export async function getAccountsList(): Promise<FinancialAccount[]> {
   const { data, error } = await supabase
     .from("financial_accounts")
     .select("id,name,bank,balance")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as FinancialAccount[];
 }
@@ -404,7 +405,7 @@ export async function getBankAccounts(): Promise<BankAccount[]> {
   const { data, error } = await supabase
     .from("bank_accounts")
     .select("id,name,balance,currency,linked_financial_account_id,balance_source,pluggy_items(connector_name)")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   type Row = {
     id: string; name: string | null; balance: number | null; currency: string | null;
@@ -498,7 +499,7 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
   const { data: inserted, error } = await supabase
     .from("movements")
     .insert(rows)
-    .select("id");
+    .select("id").limit(TETO_LINHAS);
   if (error) throw error;
 
   const firstId = inserted?.[0]?.id;
@@ -607,7 +608,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
    */
   const movimentos = async () => {
     if (embedProjetoOk !== false) {
-      const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`);
+      const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`).limit(TETO_LINHAS);
       if (!comProjeto.error) { embedProjetoOk = true; return comProjeto; }
       // Só o erro de relacionamento inexistente justifica a queda. Qualquer
       // outra falha (rede, RLS, timeout) é um problema real e tem de subir —
@@ -616,12 +617,12 @@ export async function getRiscoInput(): Promise<RiskInput> {
       if (!RELACAO_AUSENTE.test(comProjeto.error.message ?? "")) throw comProjeto.error;
       embedProjetoOk = false;
     }
-    return supabase.from("movements").select(COLUNAS_BASE);
+    return supabase.from("movements").select(COLUNAS_BASE).limit(TETO_LINHAS);
   };
   const [accRes, movRes, partyRes] = await Promise.all([
-    supabase.from("financial_accounts").select("balance"),
+    supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
     movimentos(),
-    supabase.from("parties").select("id,name"),
+    supabase.from("parties").select("id,name").limit(TETO_LINHAS),
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
@@ -669,7 +670,7 @@ export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
     .select("type,status,category,amount,due_date")
     .eq("type", "entrada")
     .neq("status", "cancelado")
-    .gte("due_date", isoDay(start));
+    .gte("due_date", isoDay(start)).limit(TETO_LINHAS);
   if (error) throw error;
   return monthlySales((data ?? []) as Movement[], months);
 }

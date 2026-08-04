@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const KEY = "a4p_company";
 
@@ -76,7 +77,7 @@ export async function persistCompany(c: StoredCompany): Promise<void> {
   const { data, error } = await s
     .from("company_profiles")
     .update({ profile: c, updated_at: new Date().toISOString() })
-    .select("org_id");
+    .select("org_id").limit(TETO_LINHAS);
   if (error) throw error;
   if (!data || data.length === 0) {
     const { error: insErr } = await s.from("company_profiles").insert({ profile: c });

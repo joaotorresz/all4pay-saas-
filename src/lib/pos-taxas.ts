@@ -13,6 +13,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type Bandeira = "master" | "visa" | "elo";
 export const BANDEIRAS: { id: Bandeira; label: string }[] = [
@@ -260,7 +261,7 @@ export async function persistPosConfig(c: PosConfig): Promise<void> {
   const { data, error } = await s
     .from("pos_rates")
     .update({ config: c, updated_at: new Date().toISOString() })
-    .select("org_id");
+    .select("org_id").limit(TETO_LINHAS);
   if (error) throw error;
   if (!data || data.length === 0) {
     const { error: insErr } = await s.from("pos_rates").insert({ config: c });

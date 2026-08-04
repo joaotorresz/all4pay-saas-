@@ -31,6 +31,7 @@
  * sobrevivem à primeira semana de uso real.
  */
 import { isDemo } from "@/lib/demo";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -352,7 +353,7 @@ export async function hidratar(chaves: string[]): Promise<number> {
     const { data, error } = await createClient()
       .from("org_state")
       .select("chave,valor,versao")
-      .in("chave", chaves);
+      .in("chave", chaves).limit(TETO_LINHAS);
     if (error) throw error;
     let n = 0;
     for (const linha of (data ?? []) as { chave: string; valor: unknown; versao: number }[]) {
@@ -390,7 +391,7 @@ export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: 
   try {
     const { createClient } = await import("@/lib/supabase/client");
     const supabase = createClient();
-    const { data } = await supabase.from("org_state").select("chave").in("chave", locais);
+    const { data } = await supabase.from("org_state").select("chave").in("chave", locais).limit(TETO_LINHAS);
     const noServidor = new Set(((data ?? []) as { chave: string }[]).map((r) => r.chave));
     let enviadas = 0;
     for (const c of locais) {

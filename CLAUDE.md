@@ -1050,6 +1050,120 @@ subir; faltavam o evento, a volta e a limpeza.
   não leva preferência · a restauração recusa chave estranha e mede o tempo ·
   enxugar não remove o que o servidor não confirmou.
 
+### ⚠️ ONDA 9 — MULTIEMPRESA, PERMISSÃO E GATING DE VERDADE (0027–0029)
+
+**`src/core/seguranca`** (`seguranca/1.0.0`, puro/tipado/demo-safe) + três
+migrations. A camada pura **não autoriza nada** — quem autoriza é o banco; ela
+dá o vocabulário, lê os relatórios do servidor e repete a MESMA regra de
+segregação para o botão poder explicar antes do clique o que o banco recusaria
+depois dele.
+
+**O achado que sozinho justifica a onda:** ⚠️ **`anon` podia `TRUNCATE` em 57
+das 59 tabelas — e a política de acesso por linha NÃO cobre TRUNCATE.** Isso foi
+**medido, não deduzido**: numa tabela de teste com RLS ligada e política
+`using (false)` para `anon`, o `truncate` como `anon` levou 2 linhas a 0 sem
+erro nenhum. A chave `anon` viaja no pacote do navegador. Uma linha de SQL
+apagaria `movements` de TODAS as organizações sem violar política nenhuma.
+`TRUNCATE`, `TRIGGER` e `REFERENCES` foram revogados de `anon` e
+`authenticated`, `anon` perdeu toda concessão de tabela, e os **privilégios
+padrão** foram ajustados — sem isso a próxima tabela nasce com o buraco de novo.
+
+- **A organização ativa é uma ESCOLHA** (`user_active_org` + `trocar_organizacao`
+  + `minhas_organizacoes`, `SeletorOrganizacao` no rodapé da Sidebar).
+  ⚠️ `auth_org_id()` devolvia **a organização mais ANTIGA** do usuário, e toda a
+  RLS pende dela: quem entrava numa segunda empresa continuava vendo a primeira,
+  sem escolha e sem aviso. A escolha é lida com **JOIN no vínculo** — removido da
+  empresa, o JOIN não casa e a função cai no vínculo mais antigo em vez de
+  continuar entregando dados da empresa que a pessoa deixou. Sem escolha
+  registrada o comportamento é idêntico ao anterior (ninguém troca de empresa por
+  causa da migration). A política de `organizations` passou a ser por vínculo —
+  era `id = auth_org_id()`, então o seletor não conseguiria listar as outras, e
+  "escolher" entre opções invisíveis não é escolher.
+- ⚠️ **O plano vinha de OUTRA organização.** `meu_plano()` escolhia a assinatura
+  **mais favorável** entre todas as organizações do usuário enquanto
+  `auth_org_id()` escolhia a mais antiga: sócio de uma empresa Pro operava
+  qualquer outra empresa **com direitos de Pro**. O portão existia e mirava a
+  fechadura errada. Agora `meu_plano()` responde só pela organização aberta.
+- **`teste_isolamento()`** — o critério de conclusão, executável em produção por
+  qualquer usuário (`/dashboard/administration/security`). ⚠️ `SECURITY INVOKER`
+  de propósito: roda com os privilégios de QUEM CHAMA, contra as políticas de
+  verdade. Uma função `DEFINER` responderia sempre "está tudo bem", porque o dono
+  enxerga tudo — testaria a si mesma. A varredura é **dinâmica** (toda tabela com
+  `org_id` entra), senão a tabela criada depois deste arquivo — a que ninguém
+  lembra de conferir — ficaria de fora. Verificado nos dois sentidos: 44 tabelas,
+  0 vazamentos; e com uma tabela de política frouxa plantada, ele **nomeou** a
+  tabela e contou as linhas.
+- **Papéis reais** (`role_permissions` + `tem_permissao` + `minhas_permissoes`):
+  leitor · lançador · aprovador · fechador · admin · titular, com as ações
+  ler/exportar/lançar/baixar/aprovar/fechar/administrar/cobrança. ⚠️ **A matriz
+  mora no servidor e a interface PERGUNTA** (`usePermissoes`) — uma cópia no
+  cliente divergiria no primeiro ajuste, e a divergência vira botão que existe e
+  não funciona, ou botão que some para quem tinha direito. `member` é legado e
+  vale como `lancador`: reinterpretá-lo daria poder de aprovação, de uma vez, a
+  todo mundo que já é membro. Aplicado no servidor por políticas **restritivas**
+  (permissiva só amplia; restritiva é a única que tira) em `movements`,
+  `financial_accounts` e `org_state` — com uma restritiva **separada para DELETE**,
+  porque `with check` não cobre exclusão e apagar é a forma mais completa de
+  alterar.
+- **Segregação de funções** — o gatilho `approvals_segregacao` + a restrição
+  `approver_id <> requester_id`. As duas não são redundantes: a restrição é
+  estrutural (vale para qualquer caminho), o gatilho é quem **carimba** o
+  aprovador — sem ele `approver_id` é um campo que o cliente preenche, e bastaria
+  informar o nome de um colega. Verificado: auto-aprovação **bloqueada**, membro
+  sem o papel **bloqueado**, aprovador de verdade passa, e o carimbo sai com quem
+  decidiu.
+  - ⚠️ **O teste pegou um defeito meu:** `tem_permissao` perguntava pelo papel na
+    organização ATIVA, então quem é `member` na empresa A e `owner` na B aprovava
+    um pedido da A com o papel que tem na B. É o mesmo defeito do plano,
+    reaparecendo dentro do conserto. A pergunta certa nunca é "o que eu sou", é
+    "o que eu sou AQUI" — daí `tem_permissao(acao, org)`.
+- **Modo Pro é CONSEQUÊNCIA do plano** (`useModo`): sem direito, o interruptor
+  não liga e leva a `/planos`. Ele revelava o menu Pro inteiro pelo localStorage e
+  cada destino devolvia a tela de planos um clique depois — um menu que oferece o
+  que não abre não é vitrine, é uma sequência de portas trancadas. A preferência
+  local segue valendo para o caso oposto e legítimo: **quem TEM Pro simplificar a
+  própria tela**.
+- **O acesso administrativo deixa rastro** (`admin_acessos` + `admin_posso` +
+  `admin_exigir_acesso`, migration 0029). ⚠️ Treze funções respondem pela área
+  que enxerga **todas as organizações**, e **oito eram de leitura e não
+  registravam nada**: mudar o plano de um cliente deixava rastro, abrir a lista
+  de todos os clientes não. Numa investigação a pergunta nunca é "quem alterou",
+  é "quem viu". As treze foram reescritas **mecanicamente** (a chamada do portão
+  trocada, `STABLE` derrubado porque função não volátil não grava) — reescrever
+  treze corpos à mão para acrescentar uma linha é a forma mais provável de mudar
+  sem querer a consulta de um deles.
+  - ⚠️ **Por que `admin_posso` E `admin_exigir_acesso`:** uma exceção desfaz a
+    transação inteira, **inclusive o registro da negativa** — o primeiro teste
+    mostrou isso (duas tentativas, um registro). Não há transação autônoma no
+    PostgreSQL, e a saída por `dblink` foi descartada (exige guardar uma senha do
+    banco dentro de uma função). Então `admin_posso` **nunca levanta exceção** e
+    o registro dela sempre commita; o portão duro continua nas treze funções.
+  - **Autenticação reforçada com PRAZO** e **revisão periódica** (`expira_em`,
+    `revisado_em`, `mfa_prazo`): o único administrador de hoje não tem segundo
+    fator, e exigir agora tiraria o acesso de quem precisaria dele para
+    consertar. O prazo é uma data na tela, não uma intenção — e a tela alerta
+    desde já, porque um aviso que só aparece no vencimento chega junto com o
+    problema.
+- **Teto de linhas** (`src/lib/supabase/consulta.ts`, `TETO_LINHAS = 5000`):
+  eram **60 consultas sem limite** de 105. A política diz DE QUEM são as linhas,
+  não QUANTAS — uma empresa com cinco anos de extrato pedia tudo e a tela
+  congelava, e recarregar refazia a consulta. ⚠️ O `conferirTeto` existe porque
+  truncar em silêncio é pior que travar: um DRE sobre as primeiras 5.000 de
+  12.000 linhas não parece quebrado, parece um DRE. O teto definitivo é do
+  servidor (`db.max_rows` do PostgREST) — este é o do cliente, que existe para
+  dar o aviso que o servidor não tem como dar.
+- **Guardas (LINHA 20c)**: teto ZERO de consultas sem limite · uma linha de outra
+  empresa reprova · nenhuma tabela conferida **não** é aprovação · `anon` poder
+  esvaziar é crítico · RLS ligada sem política **não** é achado (é o desenho das
+  tabelas só-DEFINER) · segregação nos dois sentidos e na ordem certa · papéis
+  coerentes · pendências do acesso administrativo. Provadas quebrando.
+
+**O que fica para a continuação:** as políticas por papel cobrem as três tabelas
+de maior risco (`movements`, `financial_accounts`, `org_state`) — as demais
+seguem com a política de organização apenas, e a extensão é mecânica a partir
+daqui. O `db.max_rows` do PostgREST precisa ser ligado no painel do projeto
+(configuração de infraestrutura, não migration).
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
@@ -2605,7 +2719,11 @@ npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.
                    # duplicata), taxonomia única (extrato e OCR classificam
                    # igual), limpeza retroativa (mantém o primeiro de cada
                    # grupo), gating de plano (menu e servidor coincidem) e as
-                   # duas telas de "a receber" (posição × fluxo). E a ONDA 8:
+                   # duas telas de "a receber" (posição × fluxo). E a ONDA 9:
+                   # teto ZERO de consultas sem limite de linhas, uma linha de
+                   # outra empresa reprova o isolamento, "não testei" não é
+                   # aprovação, e a segregação de funções (quem pede não
+                   # autoriza) nos dois sentidos. E a ONDA 8:
                    # o expurgo REMOVE o cache vencido (ignorar não é expirar) e
                    # preserva o válido, o backup leva só dado de negócio e
                    # recusa chave estranha ao restaurar, e enxugar o disco não

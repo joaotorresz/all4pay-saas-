@@ -11,6 +11,7 @@ import { appendImported } from "@/lib/imported";
 import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes, autorizarMovimento } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
 import { ler, gravar as gravarOrg } from "@/lib/store-org";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export interface ItemReembolso { descricao: string; valor: number; data: string; categoria: string }
 export type StatusReembolso = "em_aprovacao" | "aprovado" | "rejeitado" | "a_pagar";
@@ -71,7 +72,7 @@ export async function hydrateReembolsos(force = false): Promise<void> {
   try {
     const { data } = await createClient().from("reembolsos")
       .select("id,colaborador_id,approval_id,movement_id,itens,amount,pix_key,status,created_at,parties(name)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as ReembolsoRow[]).map(fromRow);
     hydrated = true;
   } catch { cache = cache ?? []; }
@@ -176,7 +177,7 @@ async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number
     party_id: r.colaboradorId || null, due_date: hoje, paid_date: null, reconciled: false,
     description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
   }));
-  const { data } = await supabase.from("movements").insert(rows).select("id,amount");
+  const { data } = await supabase.from("movements").insert(rows).select("id,amount").limit(TETO_LINHAS);
   for (const row of (data ?? []) as { id: string; amount: number }[]) out.push({ id: row.id, valor: Number(row.amount) });
   return out;
 }

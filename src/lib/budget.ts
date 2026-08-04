@@ -14,6 +14,7 @@
 import type { OrcamentoOverride, LinhaOrcId } from "@/core/budget";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const KEY = "a4p_orcamento";
 /** Período sentinela = orçamento mensal recorrente (aplica a todo mês). */
@@ -40,7 +41,7 @@ export async function loadOrcamento(): Promise<OrcamentoOverride> {
       .from("budgets")
       .select("amount,dimensions")
       .eq("period", SENTINEL)
-      .eq("dimensions->>kind", KIND);
+      .eq("dimensions->>kind", KIND).limit(TETO_LINHAS);
     if (error) return loadLocal();
     const o: OrcamentoOverride = {};
     for (const r of (data ?? []) as Array<{ amount: number; dimensions: Record<string, unknown> }>) {
