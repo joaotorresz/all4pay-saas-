@@ -31,10 +31,16 @@ alter table public.movements add column if not exists boleto jsonb;
 alter table public.recurrences add column if not exists itens jsonb;
 
 /* ── anon não lê o vínculo de membros ────────────────────────────────────── */
--- ⚠️ `organization_members` é a tabela que RESPONDE "quem pertence a qual
+-- `organization_members` é a tabela que RESPONDE "quem pertence a qual
 -- empresa". Com ela legível por `anon`, o mapa inteiro de clientes e usuários
--- sai pela chave que viaja no navegador — sem precisar de nenhum vazamento de
--- dado financeiro.
+-- sairia pela chave que viaja no navegador — sem precisar de nenhum vazamento
+-- de dado financeiro.
+--
+-- ⚠️ NO BANCO ATUAL ISSO JÁ ESTÁ FECHADO: a ONDA 9 revogou toda concessão de
+-- tabela de `anon`, e a verificação confirma zero concessões aqui. A linha fica
+-- no arquivo porque um ambiente NOVO não herda aquela revogação em massa — e
+-- porque o `0012_org_members_revoke_anon` original, que esta linha reconstrói,
+-- existia justamente para isto e nunca teve arquivo.
 revoke all on table public.organization_members from anon;
 
 /* ── search_path fixo nas funções do razão ───────────────────────────────── */
