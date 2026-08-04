@@ -178,7 +178,7 @@ export function ComprasView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">

@@ -182,7 +182,7 @@ export function VendasView() {
             <Button variant="primary" onClick={() => router.push("/dashboard/sales-invoices/new")}>Nova venda</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">

@@ -13,6 +13,15 @@ export interface Column<T> {
   align?: "left" | "right";
   width?: number;
   render: (row: T) => React.ReactNode;
+  /**
+   * O papel da coluna no CARTÃO do telefone — ver `EntityTable`.
+   *
+   * `titulo` vai para a primeira linha em destaque, `valor` para a direita dela,
+   * e o resto vira par rótulo/valor abaixo. `oculta` some no telefone: numa
+   * tabela de quinze colunas, empilhar as quinze produz um cartão de meio metro,
+   * que é a rolagem horizontal trocada por rolagem vertical.
+   */
+  noTelefone?: "titulo" | "valor" | "detalhe" | "oculta";
 }
 
 export function EntityTable<T extends { id: string }>({
@@ -72,6 +81,26 @@ export function EntityTable<T extends { id: string }>({
 
   return (
     <Card padded={false}>
+      {/* ═══ TELEFONE: cartões ═══
+          ⚠️ A auditoria previu que tabelas largas não sobreviveriam a uma tela
+          pequena, e a medição confirmou: 15 colunas no DRE, 8 nos títulos, num
+          aparelho de 390px. A saída ANTERIOR era rolagem horizontal — e rolagem
+          horizontal numa tabela é a pior das duas opções: some com o rótulo da
+          coluna assim que a pessoa arrasta, e ninguém decide nada olhando um
+          valor sem saber de que coluna ele é.
+          O cartão inverte isso: cada linha vira um bloco onde o rótulo viaja
+          junto com o valor. */}
+      <div className="lg:hidden">
+        {rows.map((row, i) => (
+          <CartaoDeLinha
+            key={row.id} row={row} columns={columns} primeiro={i === 0}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+          />
+        ))}
+      </div>
+
+      {/* ═══ MONITOR: a tabela, como sempre ═══ */}
+      <div className="hidden lg:block">
       {/* Cabeçalho Ledger: micro-label caixa-alta com tracking largo */}
       <div className="flex items-center gap-3 px-5 py-[10px] text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
         {columns.map((c) => (
@@ -108,8 +137,57 @@ export function EntityTable<T extends { id: string }>({
           ))}
         </div>
       ))}
+      </div>
     </Card>
   );
+}
+
+/**
+ * Uma linha da tabela, como CARTÃO.
+ *
+ * ⚠️ A ordem não é a da tabela: o cartão começa pelo que identifica a linha
+ * (quem/o quê) com o valor ao lado, porque é assim que se procura uma linha numa
+ * lista — pelo nome, não pela terceira coluna. Sem `noTelefone` declarado, a
+ * primeira coluna vira o título e a última vira o valor, que é o arranjo certo
+ * na esmagadora maioria das tabelas do produto.
+ */
+function CartaoDeLinha<T extends { id: string }>({
+  row, columns, primeiro, onClick,
+}: { row: T; columns: Column<T>[]; primeiro: boolean; onClick?: () => void }) {
+  const titulo = columns.find((c) => c.noTelefone === "titulo") ?? columns[0];
+  const valor =
+    columns.find((c) => c.noTelefone === "valor")
+    ?? [...columns].reverse().find((c) => c.align === "right" && c !== titulo);
+  const detalhes = columns.filter(
+    (c) => c !== titulo && c !== valor && c.noTelefone !== "oculta",
+  );
+
+  const Corpo = (
+    <>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0 text-[15px] text-ink truncate">{titulo.render(row)}</span>
+        {valor && <span className="shrink-0 text-[15px] text-ink tabular-nums">{valor.render(row)}</span>}
+      </div>
+      {detalhes.length > 0 && (
+        <dl className="m-0 mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+          {detalhes.map((c) => (
+            <div key={c.key} className="min-w-0 flex flex-col">
+              {/* O rótulo viaja com o valor — é o que a rolagem horizontal perdia. */}
+              <dt className="text-[11px] uppercase tracking-[0.07em] text-faint truncate">{c.label}</dt>
+              <dd className="m-0 text-caption text-muted truncate">{c.render(row)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </>
+  );
+
+  const classe = cn("block w-full text-left px-4 py-3", !primeiro && "border-t border-border-soft");
+  // Linha clicável vira BOTÃO de verdade: uma `div` com `onClick` não recebe
+  // foco nem responde a Enter, e no telefone é o único jeito de abrir a ficha.
+  return onClick
+    ? <button type="button" onClick={onClick} className={cn(classe, "hover:bg-surface-2 transition-colors")}>{Corpo}</button>
+    : <div className={classe}>{Corpo}</div>;
 }
 
 function Empty({ title, hint, action }: { title: string; hint?: string; action?: React.ReactNode }) {

@@ -96,7 +96,7 @@ export function NotasFiscaisView() {
           <Card><Vazio texto="Nenhuma nota fiscal encontrada para os filtros selecionados." /></Card>
         ) : (
           <Card padded={false} className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-border-soft">
@@ -348,7 +348,7 @@ export function ImpostosView() {
         <Card><Vazio texto="Nenhuma venda tributável no período selecionado." /></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
@@ -571,7 +571,7 @@ export function AssinaturasVendasView() {
         </Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">

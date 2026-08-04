@@ -101,8 +101,11 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
             (Orçado / Diferença / %) aparecem ao lado de cada período.
           </p>
           <div className="flex flex-col gap-[6px] mt-4">
-            <label className="text-caption font-medium text-muted">Orçamento</label>
+            {/* O rótulo estava na tela e NÃO no campo: `label` sem `htmlFor` é
+                texto solto para quem usa leitor de tela. Passar pelo componente
+                associa os dois. */}
             <Select
+              label="Orçamento"
               value={orcamentoId}
               onChange={setOrcamentoId}
               options={[

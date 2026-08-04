@@ -376,7 +376,7 @@ function Stat({ label, value, tone = "var(--color-ink)", href, hrefLabel }: { la
 
 function Tabela({ head, rows, alignRight = [] }: { head: string[]; rows: React.ReactNode[][]; alignRight?: number[] }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
       <table className="w-full border-collapse text-caption">
         <thead>
           <tr className="text-faint">

@@ -1271,6 +1271,72 @@ publicada na Central de Ajuda (aba **Glossário**) e cobrada por guarda.
   microtexto escrito à mão: texto à mão envelhece na primeira mudança de fórmula
   e passa a descrever um cálculo que não existe, o que é pior que não explicar.
 
+### ⚠️ ONDA 12 — TELEFONE, ACESSIBILIDADE E DESEMPENHO (medido, não suposto)
+
+Este era o **ponto cego confesso** da auditoria: ninguém tinha validado o produto
+numa tela pequena. Agora ele é medido — `npm run mobile` e `npm run fluxos`
+dirigem um Chromium a **390×844** contra o build de produção.
+
+⚠️ A nota antiga de que `next start` não subia neste ambiente **está
+desatualizada**: ele sobe, e foi isso que permitiu medir em vez de supor.
+
+**O que a medição achou (linha de base em `core/desempenho.MEDIDO_EM`):**
+
+| Achado | Medida |
+| --- | --- |
+| Tabela do DRE num telefone | **15 colunas** · títulos 8 · extrato 5 |
+| Alvos de toque abaixo do mínimo | **97** em Títulos · 90 no DRE · 76 na Home |
+| Campos sem nome acessível | **51 numa tela só** (o checkbox de cada linha) |
+| Contraste reprovado | **26 ocorrências**, todas no mesmo token |
+
+- **O token que reprovava em TODO valor do produto.** `--color-text-quaternary`
+  (#a8a595) pinta o prefixo "R$" e os CENTAVOS, a 7pt: 2,20:1 sobre o canvas
+  contra os 4,5:1 exigidos. Agora **#6f6d62** (5,20:1 no branco). ⚠️ E as
+  **semânticas eram NEON** no `.ds-visor` (#00ff62 · #ff1100 · #ff6200),
+  promovidas do Laboratório: funcionam como preenchimento e são ilegíveis como
+  TEXTO — que é justamente onde aparecem (o valor de um recebimento). Voltaram à
+  família dessaturada que o DS documenta, escurecida o necessário para passar. O
+  espelho do `DesignLab` foi atualizado junto, senão ele repinta o app com
+  valores que ninguém escolheu.
+- **`Checkbox`, `Select` e `DateField` agora SEMPRE têm id.** O id só nascia
+  quando o rótulo era uma *string*; com rótulo em JSX (ou sem rótulo, como o
+  checkbox de linha de tabela) o `<label>` não apontava para lugar nenhum. Uma
+  correção nos três componentes zerou **51 + 9 campos anônimos**.
+- **Alvo de toque: 97 → 0.** Regra global que estende a ÁREA SENSÍVEL por
+  `::after` sem mexer no tamanho visual — aumentar o desenho resolveria o toque
+  e destruiria a densidade da tabela. ⚠️ A primeira versão usava
+  `@media (pointer: coarse)` e era **inverificável** (o navegador de automação
+  não emula ponteiro grosso); numa onda cujo critério é "medido", correção que
+  só funciona onde ninguém mede é indistinguível de correção nenhuma. O gatilho
+  virou a LARGURA. Dentro de célula, a área cresce só na vertical e para em
+  **24px** na horizontal — o piso do nível AA (WCAG 2.2, 2.5.8); os 44px são a
+  meta do AAA e valem onde não há vizinho a poucos pixels.
+- **Tabela vira CARTÃO no telefone** (`EntityTable`, `Column.noTelefone`). A
+  saída anterior era rolagem horizontal, que é a pior das duas: some com o
+  rótulo da coluna assim que a pessoa arrasta, e ninguém decide nada olhando um
+  valor sem saber de que coluna ele é. No cartão o rótulo viaja junto com o
+  valor, e a linha clicável virou `<button>` de verdade — uma `div` com
+  `onClick` não recebe foco nem responde a Enter.
+- **24 regiões roláveis ganharam foco de teclado** (`tabIndex`/`role="region"`):
+  sem isso, quem navega por teclado não consegue rolá-las e o conteúdo à direita
+  é inalcançável.
+- **Orçamento por tela** (`core/desempenho`), com os tetos ancorados no medido —
+  um teto que a tela já estoura nasce vermelho e é ignorado no primeiro dia.
+- **Os quatro fluxos essenciais, dirigidos toque a toque** (`npm run fluxos`).
+  ⚠️ Medir tela por tela não responde à pergunta: "a tela abre" e "dá para
+  APROVAR UM PAGAMENTO" são coisas diferentes. Dirigir os fluxos achou dois
+  defeitos que a medição por tela não acha:
+  - **"Criar" mora dentro da gaveta do menu** — existe no DOM, passa em
+    contraste e em alvo de toque, e está fora da tela no telefone. O caminho
+    real é menu → Criar → Despesa: 3 toques, dentro do teto de 4.
+  - **"Fotografar comprovante" não fotografava.** O campo não tinha `capture`,
+    então tocar em "Escolher arquivos" abre a GALERIA — e o papel que está na
+    mão da pessoa continua na mão. Agora há um botão **Fotografar** próprio
+    (`capture="environment"`, só no telefone): pôr `capture` no campo existente
+    resolveria a foto e quebraria o resto, porque ele também recebe CSV e OFX.
+
+**Placar final: 7 telas · 0 com problema · 4 fluxos · 0 com problema.**
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
@@ -2849,6 +2915,17 @@ npm run reconciliacao # A MATRIZ PAR A PAR (scripts/reconciliacao.mts): para cad
                    # previsto qual par quebraria. Burn e runway são reconciliados
                    # sobre uma empresa QUE QUEIMA — na fixture principal os dois
                    # dão zero/teto, e comparar zeros não reconcilia nada.
+npm run mobile     # A MEDIÇÃO NO TELEFONE (scripts/mobile.mjs): Chromium a 390x844
+                   # contra o build de produção — orçamento de desempenho por
+                   # tela, alvos de toque, hierarquia de cabeçalhos e auditoria
+                   # axe (WCAG 2.1 AA). Fora do `npm test` porque exige o app
+                   # SERVIDO: uma suíte que precisa de build deixa de ser rodada
+                   # antes de commitar. Suba `npx next start -p 3100` antes.
+npm run fluxos     # OS QUATRO FLUXOS ESSENCIAIS no telefone, dirigidos toque a
+                   # toque: consultar saldo, aprovar pagamento, lançar despesa e
+                   # fotografar comprovante. "A tela abre" e "a tarefa termina"
+                   # são perguntas diferentes — foi este que achou o "Criar"
+                   # dentro da gaveta e a câmera que abria a galeria.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
                    # + kb + tz + audit + consistencia + reconciliacao (10 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI

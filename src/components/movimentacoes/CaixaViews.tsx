@@ -160,7 +160,7 @@ export function FluxoCaixaMensalView() {
         <Card><p className="m-0 py-12 text-center text-label text-muted">Nenhuma movimentação no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
@@ -234,8 +234,8 @@ export function ExtratoView() {
               options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
             />
           </Campo>
-          <Campo label="De"><DateField value={de} onChange={setDe} /></Campo>
-          <Campo label="Até"><DateField value={ate} onChange={setAte} /></Campo>
+          <Campo label="De"><DateField aria-label="Data inicial" value={de} onChange={setDe} /></Campo>
+          <Campo label="Até"><DateField aria-label="Data final" value={ate} onChange={setAte} /></Campo>
         </div>
       </Card>
 
@@ -256,7 +256,7 @@ export function ExtratoView() {
             {!ext || ext.linhas.length === 0 ? (
               <p className="m-0 py-12 text-center text-label text-muted">Nenhum lançamento liquidado no período.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b border-border-soft">
@@ -355,8 +355,8 @@ export function FaturaCartaoView() {
 
       <Card>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <Campo label="De"><DateField value={de} onChange={setDe} /></Campo>
-          <Campo label="Até"><DateField value={ate} onChange={setAte} /></Campo>
+          <Campo label="De"><DateField aria-label="Data inicial" value={de} onChange={setDe} /></Campo>
+          <Campo label="Até"><DateField aria-label="Data final" value={ate} onChange={setAte} /></Campo>
           <Campo label="Cartões">
             <Select
               value={cartaoFiltro} onChange={setCartaoFiltro}

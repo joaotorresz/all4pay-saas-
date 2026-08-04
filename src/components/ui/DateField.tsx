@@ -21,11 +21,19 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
     { label, required, invalid, value, onChange, id, className, containerClassName, ...rest },
     ref,
   ) {
+    const gerado = React.useId();
+    /**
+     * ⚠️ SEMPRE há id — mesma correção do `Select` e do `Checkbox`. Sem rótulo
+     * string, o campo ficava sem `id`, o `<label>` não apontava para lugar
+     * nenhum e o leitor de tela anunciava só "data". A auditoria mediu isso nos
+     * filtros de período do DRE e do extrato: dois campos anônimos que decidem
+     * o que o relatório inteiro mostra.
+     */
     const inputId =
       id ||
       (typeof label === "string"
         ? `dt-${label.replace(/\s+/g, "-").toLowerCase()}`
-        : undefined);
+        : `dt-${gerado}`);
     return (
       <div className={cn("flex flex-col gap-[6px]", containerClassName)}>
         {label && (

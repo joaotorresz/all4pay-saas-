@@ -292,7 +292,7 @@ function PrevRealView({ linhas }: { linhas: PrevRealLinha[] }) {
   if (!linhas.length) return <Card><span className="text-caption text-faint">Sem lançamentos no período.</span></Card>;
   return (
     <Card padded={false}>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
         <table className="w-full border-collapse text-caption">
           <thead>
             <tr className="text-faint">

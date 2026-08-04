@@ -323,7 +323,7 @@ function Relatorio({
         <div className="px-6 py-4 border-b border-border-soft">
           <span className="text-h3 font-semibold text-ink">DRE comparativa</span>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
           <table className="w-full border-collapse text-label">
             <thead>
               <tr className="border-b border-border-soft">

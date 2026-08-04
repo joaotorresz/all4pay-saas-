@@ -83,7 +83,7 @@ export function ImpostosView() {
             {/* Matriz mês × imposto */}
             <Card padded={false} info={{ titulo: "Provisionamento mês a mês", oQue: "Detalha, por mês de competência, a receita e o imposto provisionado de cada tributo.", comoCalcula: "Para cada mês, multiplica a receita por competência pela alíquota de cada imposto; somar a coluna gera uma conta a pagar por tributo." }}>
               <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Provisionamento por mês de competência</div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
                 <table className="w-full text-[14px]">
                   <thead>
                     <tr className="text-caption text-muted">

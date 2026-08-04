@@ -19,6 +19,7 @@ import {
   type CelulaOrcamento, type SinalLinha,
 } from "@/core/relatorios";
 import { pctDeInteiro } from "@/lib/format";
+import { problemaDoIntervalo } from "@/core/indicadores";
 
 /* ================================== temas ================================== */
 
@@ -70,8 +71,8 @@ export function PainelLayout({ layout, onChange }: { layout: LayoutTabela; onCha
       <span className="text-h3 font-semibold text-ink">Layout da tabela</span>
       <div className="flex items-end gap-6 flex-wrap mt-3">
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Abrir até</label>
           <Select
+            label="Abrir até"
             value={String(layout.nivel)}
             onChange={(v) => onChange({ ...layout, nivel: Number(v) as 1 | 2 | 3 })}
             options={[
@@ -83,9 +84,10 @@ export function PainelLayout({ layout, onChange }: { layout: LayoutTabela; onCha
           />
         </div>
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Tema</label>
+          <label className="text-caption font-medium text-muted" htmlFor="rel-tema">Tema</label>
           <div className="flex items-center gap-2">
             <Select
+              id="rel-tema"
               value={layout.tema}
               onChange={(v) => onChange({ ...layout, tema: v })}
               options={TEMAS.map((x) => ({ value: x.id, label: x.nome }))}
@@ -175,10 +177,13 @@ export function FiltrosRelatorio({
       <span className="text-h3 font-semibold text-ink">Filtros</span>
 
       <div className="flex flex-col gap-[6px] mt-3">
-        <label className="text-caption font-medium text-muted">
+        {/* Este rótulo nomeia um GRUPO de pills, não um campo — por isso é um
+            `span` com `role="group"` embaixo, e não um `<label>` órfão que o
+            leitor de tela anuncia sem ter o que nomear. */}
+        <span className="text-caption font-medium text-muted" id="rel-periodo-rot">
           Período<span className="text-negative"> *</span>
-        </label>
-        <div className="flex items-center gap-2 flex-wrap">
+        </span>
+        <div className="flex items-center gap-2 flex-wrap" role="group" aria-labelledby="rel-periodo-rot">
           {PRESETS.map((p) => {
             const on = valor.preset === p.id;
             return (
@@ -199,23 +204,33 @@ export function FiltrosRelatorio({
         </div>
         <div className="flex items-center gap-2 flex-wrap mt-1">
           <DateField
+            label="Início do período"
             value={valor.intervalo.de}
             onChange={(v) => onChange({ ...valor, preset: "personalizado", intervalo: { ...valor.intervalo, de: v } })}
           />
           <Icon name="arrow-up-right" size={14} color="var(--color-text-tertiary)" />
           <DateField
+            label="Fim do período"
+            invalid={!!problemaDoIntervalo(valor.intervalo.de, valor.intervalo.ate)}
             value={valor.intervalo.ate}
             onChange={(v) => onChange({ ...valor, preset: "personalizado", intervalo: { ...valor.intervalo, ate: v } })}
           />
         </div>
+        {/* ⚠️ A recusa do intervalo invertido acontece AQUI, na entrada. O motor
+            já devolvia zero com motivo (ONDA 10), mas entre digitar e ver a
+            explicação a pessoa já tinha pedido o relatório e lido um vazio. */}
+        {problemaDoIntervalo(valor.intervalo.de, valor.intervalo.ate) && (
+          <p className="m-0 mt-1 text-caption" style={{ color: "var(--color-negative)" }} role="alert">
+            {problemaDoIntervalo(valor.intervalo.de, valor.intervalo.ate)}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">
-            Tipo<span className="text-negative"> *</span>
-          </label>
           <Select
+            label="Tipo"
+            required
             value={valor.tipo}
             onChange={(v) => onChange({ ...valor, tipo: v as TipoAnalise })}
             options={[
@@ -225,8 +240,8 @@ export function FiltrosRelatorio({
           />
         </div>
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Contas bancárias</label>
           <Select
+            label="Contas bancárias"
             value={valor.conta ?? ""}
             onChange={(v) => onChange({ ...valor, conta: v || null })}
             options={[
@@ -236,8 +251,8 @@ export function FiltrosRelatorio({
           />
         </div>
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Projeto</label>
           <Select
+            label="Projeto"
             value={valor.projeto ?? ""}
             onChange={(v) => onChange({ ...valor, projeto: v || null })}
             options={[
@@ -248,8 +263,8 @@ export function FiltrosRelatorio({
           />
         </div>
         <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Centro de custo</label>
           <Select
+            label="Centro de custo"
             value={valor.centro ?? ""}
             onChange={(v) => onChange({ ...valor, centro: v || null })}
             options={[
@@ -315,7 +330,7 @@ export function TabelaRelatorio({
 
   return (
     <Card padded={false} className="overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
         <table className="w-full border-collapse text-label">
           <thead>
             <tr style={{ background: t.base, color: t.texto }}>

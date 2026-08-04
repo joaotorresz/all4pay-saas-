@@ -404,7 +404,16 @@ html:not(.dark) .ds-visor {
   --color-ink-soft: #2a3320;       /* hover de ink */
   --color-text-secondary: #3f4a38; /* corpo */
   --color-text-tertiary: #6b7280;  /* legendas / secundário */
-  --color-text-quaternary: #a8a595;/* placeholder / labels de seção */
+  /* ⚠️ ONDA 12 — ERA #a8a595 e REPROVAVA em contraste: 2,20:1 sobre o canvas e
+     2,48:1 sobre branco, contra os 4,5:1 que a norma pede. Não é detalhe de
+     tela: este token pinta o prefixo "R$" e os CENTAVOS de todo valor do
+     produto, a 7pt. A auditoria automática acusou 26 ocorrências em três telas,
+     e seriam todas as telas — o tratamento do dinheiro é a assinatura do
+     sistema e estava ilegível para quem enxerga pouco.
+     #6f6d62 mantém a MESMA família (taupe) e passa: 5,20:1 no branco, 4,61:1
+     no canvas. O preço é o prefixo ficar um pouco menos apagado — que é
+     exatamente o ponto: ele precisa ser lido. */
+  --color-text-quaternary: #6f6d62;/* placeholder / labels de seção */
   --color-border: #eceae4;
   --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
   /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
@@ -412,10 +421,19 @@ html:not(.dark) .ds-visor {
   --color-lime-tint: #f4ffb0;
   --color-on-lime: #11190c;
   --color-chart-line: #11190c;
-  /* semânticas — saturadas (escolha do Laboratório) */
-  --color-positive: #00ff62;
-  --color-warning: #ff6200;
-  --color-negative: #ff1100;
+  /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
+     Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
+     neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
+     aparecem — no valor de um recebimento, no total de uma coluna, no sinal de
+     um resultado. A auditoria reprovou os valores em verde da tela de títulos.
+
+     Estes são os mesmos matizes da família dessaturada que o DS documenta
+     (positive #3F8F5B · negative #C2473D · warning #E8821E), escurecidos o
+     necessário para passar 4,5:1 sobre o branco E sobre o canvas. A identidade
+     é a mesma; o que muda é que agora se lê. */
+  --color-positive: #367b4e;
+  --color-warning: #a45c15;
+  --color-negative: #be463c;
 }
 /* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
@@ -732,4 +750,80 @@ html.dark .a4p-canvas {
 /* Centavos do herói em 22px (escolha do Laboratório). */
 .ds-visor .a4p-heroi .a4p-num > span:last-child {
   font-size: 22px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONDA 12 — ALVO DE TOQUE: 44px onde o dedo é o ponteiro
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ A medição num telefone de 390px encontrou **97 alvos abaixo de 44×44 numa
+   única tela** (Títulos a receber), 90 no DRE e 76 na Home. O padrão dominante
+   é sempre o mesmo: botão de texto dentro de linha de tabela ("Dar baixa", o
+   drill-down do DRE) e item de navegação — controles que num monitor têm a
+   precisão do ponteiro e num telefone têm a do polegar.
+
+   A correção NÃO muda o tamanho visual. Ela estende a ÁREA SENSÍVEL com um
+   pseudo-elemento: o botão continua com a mesma tipografia e o mesmo respiro,
+   e o toque passa a valer 44px. Aumentar o desenho resolveria o toque e
+   destruiria a densidade — numa tabela de trinta linhas, 44px de altura por
+   linha empurra o conteúdo para fora de duas telas.
+
+   O gatilho é a LARGURA (o mesmo ponto de quebra `lg` em que o produto troca de
+   layout), somada ao ponteiro grosso. ⚠️ A primeira versão usava só
+   `pointer: coarse` — e era INVERIFICÁVEL: o navegador de automação não emula
+   ponteiro grosso, então a medição não conseguia confirmar que a regra pegou.
+   Numa onda cujo critério é "medido", uma correção que só funciona onde ninguém
+   consegue medir é indistinguível de correção nenhuma. A largura vale nos dois
+   mundos, e num monitor grande nada muda: lá a precisão do ponteiro existe e a
+   área estendida só criaria sobreposição entre vizinhos.
+
+   `position: relative` é necessário para o `::after` se ancorar; ele é aplicado
+   junto, e não antes, para não mexer no empilhamento de quem não precisa. */
+@media (max-width: 1023px), (pointer: coarse) {
+  /* O escopo é o APLICATIVO inteiro, não só o `.ds-visor`: a primeira versão
+     listava três raízes e deixava de fora justamente o cabeçalho de página, o
+     FAB e o convite de tour — os controles que a medição continuou reprovando.
+     Enumerar raízes é uma lista que envelhece; a largura não. */
+  body button,
+  body a[href],
+  body [role="button"],
+  body [role="tab"],
+  body [role="switch"] {
+    position: relative;
+  }
+
+  body button::after,
+  body a[href]::after,
+  body [role="button"]::after,
+  body [role="tab"]::after,
+  body [role="switch"]::after {
+    content: "";
+    position: absolute;
+    /* Centra uma área de 44px sobre o controle, qualquer que seja o tamanho
+       dele. `max(0px, …)` impede que um controle já grande ganhe área extra e
+       passe a roubar o toque do vizinho. */
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    /* Não pinta nada e não intercepta seleção de texto. */
+    pointer-events: auto;
+  }
+
+  /* ⚠️ Exceção: dentro de uma célula de tabela, controles vizinhos ficam a
+     poucos pixels um do outro, e estender os dois faria a área do primeiro
+     cobrir o segundo — o toque acertaria o botão errado, que é pior que o alvo
+     pequeno. Ali a área cresce só na vertical, onde há espaço da linha. */
+  /* ⚠️ Dentro de célula de tabela a área cresce sobretudo na VERTICAL, onde há
+     o espaço da linha. Na horizontal ela para em 24px — que é o piso que a
+     norma exige com espaçamento (WCAG 2.2, 2.5.8, nível AA); os 44px são a
+     meta (2.5.5, AAA) e valem onde não há vizinho a poucos pixels. Estender os
+     44 na horizontal faria a área de um controle cobrir a do seguinte, e o
+     toque acertaria o botão errado — que é pior que o alvo pequeno. */
+  body td button::after,
+  body td a[href]::after {
+    width: max(100%, 24px);
+    height: max(100%, 44px);
+  }
 }

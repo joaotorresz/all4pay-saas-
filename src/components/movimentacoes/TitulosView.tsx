@@ -279,6 +279,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             </Campo>
             <Campo label="Conta bancária">
               <Select
+                aria-label="Filtrar por conta"
                 value={filtro.conta ?? ""}
                 onChange={(v) => setFiltro((f) => ({ ...f, conta: v || null }))}
                 options={[{ value: "", label: "Todas as contas" }, ...(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))]}
@@ -286,6 +287,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             </Campo>
             <Campo label="Status">
               <Select
+                aria-label="Filtrar por situação"
                 value={filtro.status ?? "todos"}
                 onChange={(v) => setFiltro((f) => ({ ...f, status: v as StatusTitulo | "todos" }))}
                 options={[
@@ -306,6 +308,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           <div className="flex items-center gap-2 text-caption text-muted">
             Mostrando
             <Select
+              aria-label="Itens por página"
               value={String(porPagina)}
               onChange={(v) => { setPorPagina(Number(v)); setPagina(1); }}
               options={PAGINAS.map((n) => ({ value: String(n), label: String(n) }))}
@@ -335,7 +338,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             <Button variant="primary" onClick={() => router.push(rotaNovo)}>Nova conta a {direcao}</Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">

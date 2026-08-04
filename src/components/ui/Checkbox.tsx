@@ -10,6 +10,17 @@ export interface CheckboxProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type"> {
   checked?: boolean;
   label?: React.ReactNode;
+  /**
+   * O nome do controle para quem NÃO enxerga a linha.
+   *
+   * ⚠️ Obrigatório quando não há `label` visível — que é o caso do checkbox de
+   * seleção de linha de tabela. A auditoria mediu **51 campos sem nome numa
+   * única tela** (Títulos a receber): cada linha da tabela tinha uma caixa que
+   * o leitor de tela anuncia como "caixa de seleção, não marcada" e nada mais.
+   * Com cinquenta delas em sequência, a tela é intransponível — não dá para
+   * saber QUAL título se está marcando para dar baixa.
+   */
+  ariaLabel?: string;
 }
 
 export function Checkbox({
@@ -19,13 +30,17 @@ export function Checkbox({
   disabled = false,
   id,
   className,
+  ariaLabel,
   ...rest
 }: CheckboxProps) {
+  const gerado = React.useId();
+  // ⚠️ SEMPRE há id. Antes ele só existia quando o rótulo era string: um
+  // checkbox sem rótulo textual ficava com `htmlFor` e `id` indefinidos, e o
+  // `<label>` em volta não nomeava nada — que é como 51 campos ficaram anônimos.
   const boxId =
     id ||
-    (typeof label === "string"
-      ? `cb-${label.replace(/\s+/g, "-").toLowerCase()}`
-      : undefined);
+    (typeof label === "string" ? `cb-${label.replace(/\s+/g, "-").toLowerCase()}` : `cb-${gerado}`);
+  const nome = ariaLabel ?? (typeof label === "string" ? undefined : rest["aria-label"]);
 
   return (
     <label
@@ -57,6 +72,7 @@ export function Checkbox({
       </span>
       <input
         id={boxId}
+        aria-label={nome}
         type="checkbox"
         checked={checked}
         onChange={onChange}

@@ -64,7 +64,7 @@ export function InstitutionalView() {
       {/* RBAC matrix */}
       <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Permissões granulares", oQue: "Mostra quem pode fazer o quê: a matriz de papéis contra ações no sistema.", comoCalcula: "Cada papel tem um conjunto fixo de permissões; a tabela marca onde o papel tem a ação liberada." }}>
         <SectionHead icon="users" title="Permissões granulares (RBAC)" sub="papel × ação" />
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
           <table className="w-full border-collapse text-caption">
             <thead>
               <tr className="text-faint">

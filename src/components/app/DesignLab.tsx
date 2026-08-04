@@ -252,7 +252,11 @@ const DEFAULT_CORES: Record<string, string> = {
   ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f8f9fa",
   cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
   body: "#3f4a38", muted: "#6b7280",
-  positive: "#00ff62", negative: "#ff1100", warning: "#ff6200",
+  // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
+  // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
+  // aconteceu antes com as semânticas. Atualizado junto com a correção de
+  // contraste da ONDA 12.
+  positive: "#367b4e", negative: "#be463c", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,

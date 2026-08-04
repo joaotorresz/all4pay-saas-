@@ -385,7 +385,7 @@ export function UsuariosView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhum usuário encontrado.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
@@ -605,7 +605,7 @@ export function LogsView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhum log encontrado no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
@@ -706,7 +706,7 @@ export function RelatoriosExportadosView() {
         <Card><p className="m-0 py-10 text-center text-label text-muted">Nenhuma exportação no período.</p></Card>
       ) : (
         <Card padded={false} className="overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">

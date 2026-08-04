@@ -221,7 +221,7 @@ export function VisorHomeTop() {
               {saldo < 0 && <span aria-hidden>−</span>}
               <AnimatedBRL value={Math.abs(saldo)} />
             </span>
-            <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "#CAC4B7" }}>
+            <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "var(--color-text-quaternary)" }}>
               {positivoNoPeriodo ? "+" : "−"}{formatBRL(Math.abs(calc.resultado))} {sufixo}
             </span>
           </div>

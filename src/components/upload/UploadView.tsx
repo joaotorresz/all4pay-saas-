@@ -275,10 +275,40 @@ export function UploadView() {
           <Icon name="upload" size={22} color="var(--color-text-secondary)" />
           <div className="text-label font-medium text-ink mt-2">Arraste arquivos aqui</div>
           <div className="text-caption text-faint">CSV · OFX · TXT (extrato em lote) ou PNG · JPG · PDF (boleto, comprovante, nota — lidos por OCR)</div>
-          <label className="inline-block mt-3 text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
-            {lendo ? "Lendo…" : "Escolher arquivos"}
-            <input type="file" multiple accept=".csv,.ofx,.txt,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
-          </label>
+          <div className="flex items-center justify-center gap-2 flex-wrap mt-3">
+            <label className="inline-block text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
+              {lendo ? "Lendo…" : "Escolher arquivos"}
+              <input type="file" multiple accept=".csv,.ofx,.txt,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
+            </label>
+
+            {/*
+              ⚠️ FOTOGRAFAR é um CONTROLE PRÓPRIO, e não um atributo no campo de
+              cima. O teste do fluxo no telefone mostrou o problema: sem
+              `capture`, tocar em "Escolher arquivos" abre a GALERIA — e o
+              comprovante que está na mão da pessoa continua na mão.
+              Pôr `capture` naquele campo resolveria a foto e quebraria o resto:
+              ele também recebe CSV e OFX, e um campo com `capture` força a
+              câmera e deixa de oferecer os arquivos. Duas tarefas, dois botões.
+
+              `environment` pede a câmera de TRÁS: a de frente enquadraria o
+              rosto de quem segura o papel.
+
+              Só aparece no telefone (`lg:hidden`) — num computador o botão
+              abriria a webcam, que não é onde o comprovante está.
+            */}
+            <label className="lg:hidden inline-flex items-center gap-2 text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
+              <Icon name="scan-line" size={16} color="currentColor" />
+              Fotografar
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={onFile}
+                className="hidden"
+                aria-label="Fotografar comprovante com a câmera"
+              />
+            </label>
+          </div>
         </div>
 
         <details className="text-caption">
