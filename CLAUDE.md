@@ -1394,6 +1394,60 @@ lado, que não existe aqui. O que há é a validação estrutural já feita (ANS
 lançamento sem código contábil) — que é forte e **não é a mesma coisa**. A
 conciliação com aceite formal também segue pendente.
 
+### ⚠️ ONDA 14 — IA RESPONSÁVEL: sem contradição, sem palpite afirmado
+
+**`src/core/ia/`** (`ia-coerencia/1.0.0` · `ia-confianca/1.0.0`) + o conjunto de
+avaliação `npm run ia-eval`, dentro de `npm test`.
+
+- **A CONTRADIÇÃO QUE A AUDITORIA NOMEOU** — "ruptura de caixa em zero dias" ao
+  lado de "runway de vinte e quatro meses". ⚠️ **Nenhuma das duas está errada.**
+  *Ruptura* olha o AGENDADO (títulos com data marcada nos próximos 60 dias);
+  *runway* olha o RITMO (saldo ÷ queima média de 90 dias). Uma empresa que gera
+  caixa tem runway no teto e ainda assim fica negativa amanhã se a folha vence
+  antes do recebimento. É o mesmo defeito que a ONDA 1 achou entre POSIÇÃO e
+  FLUXO: duas respostas verdadeiras a perguntas diferentes, exibidas com o mesmo
+  peso. `ponteRupturaRunway()` devolve as duas com o que cada uma **mede** e o
+  que cada uma **não enxerga** — e a frase que reconcilia diz o que FAZER
+  ("é problema de DATA, não de tamanho: antecipar um recebimento resolve, cortar
+  custo não"). Apagar uma das duas tiraria ou o aviso que evita o cheque
+  devolvido, ou a leitura que diz se a empresa está de pé.
+  - ⚠️ **`null` não é zero.** `rupturaDia` é `null` quando não há ruptura no
+    horizonte; tratar isso como "ruptura no dia zero" é, muito provavelmente,
+    como o zero foi parar ao lado de um runway longo. A guarda cobra os dois.
+- **Confiança com CRITÉRIO** (`calcularConfianca`). O motor devolvia
+  `confianca: 0.82` e a tela exibia "82%" — ninguém, nem quem escreveu, sabe o
+  que separa 0,82 de 0,79. Um número de confiança sem critério **empresta
+  autoridade** sem dar como conferir, e é sobre essas respostas que se decide sem
+  checar. Agora são quatro fatores nomeados, cada um com a frase que explica o
+  próprio valor: base · recência · **natureza** (o de maior peso) · cobertura.
+  ⚠️ Nenhuma quantidade de dado transforma projeção em fato — uma projeção sobre
+  5.000 lançamentos recentes vale menos que um fato sobre 30. E o **limitante**
+  é o que mais SUBTRAI (peso × o que falta), não o de menor valor: apontar um
+  fator fraco de peso baixo mandaria a pessoa consertar o que não importa.
+- **Configuração de provedor saiu da tela.** A interface mandava o usuário
+  "configurar a ANTHROPIC_API_KEY" — quem opera o caixa não tem acesso ao
+  servidor, não pode agir sobre o aviso, e o nome da chave revela qual provedor
+  está por trás. Guarda varrendo texto de tela (com os **comentários fora**: a
+  primeira versão dela acusou o próprio comentário que documenta a correção, e
+  guarda que reprova a documentação da correção treina quem a lê a ignorá-la).
+- **`npm run ia-eval` — 31 casos conhecidos.** ⚠️ Ele existe separado do corpus
+  e do `values` porque nenhum dos dois cobre o que a onda cobra: que a RESPOSTA
+  continue confiável quando alguém mexe no prompt ou troca o modelo — e essas
+  duas mudanças não tocam em fórmula nenhuma, então passam pelas outras guardas
+  sem serem notadas. Fixa: número citado == camada canônica · a resposta cita a
+  fonte · projeção no condicional · confiança com critério · valores fechados.
+  - ⚠️ O extrator do próprio teste nasceu errado (exigia centavos; a IA escreve
+    "R$ 42.000" quando o valor é redondo) e acusava a IA de citar número fora do
+    canônico. Um teste que reprova o certo é pior que teste nenhum — manda
+    consertar o que funciona.
+
+**O que fica declarado como não feito:** o link clicável de cada número para a
+tela de origem (a resposta já cita a fonte em texto, mas a navegação a partir
+dela não existe); a persistência do histórico da IA por usuário/empresa no
+servidor (segue em `localStorage`, classificado em `CHAVES_ORG`); e a separação
+visual entre o que a IA sugere e o que ela executa — os guardrails de execução
+existem em `core/autonomous` desde antes, mas a tela ainda não os distingue.
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
@@ -2984,7 +3038,14 @@ npm run fluxos     # OS QUATRO FLUXOS ESSENCIAIS no telefone, dirigidos toque a
                    # são perguntas diferentes — foi este que achou o "Criar"
                    # dentro da gaveta e a câmera que abria a galeria.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
-                   # + kb + tz + audit + consistencia + reconciliacao (10 guardas). Rode antes de commitar mudanças
+npm run ia-eval    # O CONJUNTO DE AVALIAÇÃO DA IA (scripts/ia-eval.mts): 31 casos
+                   # conhecidos que fixam o comportamento da RESPOSTA, não da
+                   # fórmula — número citado == canônico, fonte citada, projeção
+                   # no condicional, confiança com critério. Existe separado do
+                   # corpus e do values porque mexer no prompt ou trocar o modelo
+                   # não toca em fórmula nenhuma e passaria pelas outras guardas.
+                   # + kb + tz + audit + consistencia + reconciliacao + ia-eval
+                   # (11 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI
                    # (.github/workflows/ci.yml) em push/PR.
 ```

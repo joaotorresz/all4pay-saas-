@@ -58,6 +58,8 @@ import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
 import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
 import { eliminacoesIntercompany } from "@/core/relatorios";
+import { ponteRupturaRunway, contradicoesSemPonte } from "@/core/ia/coerencia";
+import { calcularConfianca } from "@/core/ia/confianca";
 import {
   TERMOS, termosProibidosEm, glossarioPublicado, VOZ, comVoz, ESTRANGEIRISMOS_PROIBIDOS,
   textoDeOrigem,
@@ -247,6 +249,44 @@ function casasDecimaisDePercentualEmTela(): string[] {
       out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
     }
   });
+  return out;
+}
+
+/**
+ * Nome de variável de provedor de modelo em texto que o USUÁRIO lê.
+ *
+ * ⚠️ A tela mandava "configure a ANTHROPIC_API_KEY". Quem opera o caixa não tem
+ * acesso ao servidor, não pode agir sobre o aviso, e o nome da chave ainda
+ * revela qual provedor está por trás. Isso é assunto de quem administra a
+ * instalação — e o lugar disso é o painel de administração, não o chat.
+ */
+function credenciaisEmTela(): string[] {
+  const out: string[] = [];
+  const proibidas = /ANTHROPIC_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY|sk-[a-zA-Z0-9]{8}/;
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.tsx$/.test(nome)) continue;
+      // ⚠️ COMENTÁRIOS FORA. A primeira versão desta guarda acusou o próprio
+      // comentário que explica por que a chave saiu da tela — e uma guarda que
+      // reprova a documentação da correção treina quem a lê a ignorá-la. O que
+      // interessa é o que o usuário LÊ, não o que o desenvolvedor escreveu.
+      const txt = readFileSync(caminho, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, " ")
+        .replace(/(^|\s)\/\/[^\n]*/g, " ");
+      for (const m of txt.matchAll(/>\s*([^<>{}\n]{3,120})</g)) {
+        if (proibidas.test(m[1])) out.push(`${caminho}: "${m[1].trim().slice(0, 50)}"`);
+      }
+      for (const m of txt.matchAll(/"([^"\n]{10,160})"/g)) {
+        if (proibidas.test(m[1]) && /config|informe|defina|adicione/i.test(m[1])) {
+          out.push(`${caminho}: "${m[1].slice(0, 50)}"`);
+        }
+      }
+    }
+  };
+  varrer("src/components");
+  varrer("src/app");
   return out;
 }
 
@@ -1524,6 +1564,51 @@ const AGOSTO = janelaMes(2026, 7);
     [mv("ic3", "saida", "pago", 9_999, "2026-08-12", "2026-08-12", "Serviços", "p-ho")],
     { "p-ho": "Holding Alfa" });
   ok("onda13: valor diferente não é o mesmo fato", eliminacoesIntercompany([holding, desigual]).length === 0);
+}
+
+
+/* ========================================================================== */
+/* LINHA 20g — ONDA 14: a IA não pode se contradizer nem afirmar palpite.     */
+/* ========================================================================== */
+{
+  // ⚠️ O caso que a auditoria nomeou: "ruptura de caixa em zero dias" ao lado
+  // de "runway de vinte e quatro meses". NENHUMA das duas está errada — elas
+  // respondem perguntas diferentes (o agendado por data × o ritmo médio), e é
+  // a tela que as apresenta como se fossem a mesma medida. Mesmo defeito que a
+  // ONDA 1 achou entre posição e fluxo.
+  const p = ponteRupturaRunway(INPUT, 2);
+  ok("onda14: a contradição aparente é detectada", p.pareceContradicao);
+  ok("onda14: e vem com a frase que reconcilia", p.explicacao.length > 60);
+  ok("onda14: a frase diz o que fazer, não só o que é", /antecipar|adiar/i.test(p.explicacao));
+  // ⚠️ `null` não é zero: tratar "sem ruptura no horizonte" como "ruptura no
+  // dia zero" é como o zero foi parar ao lado de um runway longo.
+  ok("onda14: ausência de ruptura não vira ruptura no dia zero",
+     !ponteRupturaRunway(INPUT, null).ruptura.existe);
+  ok("onda14: cada leitura declara o que NÃO enxerga",
+     !!p.ruptura.naoEnxerga && !!p.runway.naoEnxerga);
+  ok("onda14: duas frases opostas sem ponte são acusadas",
+     contradicoesSemPonte([
+       { id: "a", texto: "Ruptura de caixa em 0 dias.", cita: ["ruptura"] },
+       { id: "b", texto: "Runway de 24 meses.", cita: ["runway"] },
+     ]).length === 1);
+
+  // Confiança com CRITÉRIO — um número solto empresta autoridade sem dar como
+  // conferir, e é sobre essas respostas que se decide sem checar.
+  const alta = calcularConfianca({ lancamentos: 120, diasDesdeODado: 5, natureza: "fato", cobertura: 1 });
+  const baixa = calcularConfianca({ lancamentos: 2, diasDesdeODado: 200, natureza: "projecao", cobertura: 0.5 });
+  ok("onda14: a confiança separa fato recente de projeção rasa",
+     alta.nivel === "alta" && baixa.nivel === "baixa");
+  ok("onda14: todo fator de confiança explica o próprio valor",
+     alta.fatores.every((f) => f.porque.length > 8));
+  // ⚠️ Nenhuma quantidade de dado transforma suposição sobre o futuro em fato.
+  ok("onda14: projeção farta não supera fato modesto",
+     calcularConfianca({ lancamentos: 5000, diasDesdeODado: 1, natureza: "projecao", cobertura: 1 }).valor
+     < calcularConfianca({ lancamentos: 30, diasDesdeODado: 20, natureza: "fato", cobertura: 1 }).valor);
+
+  // Configuração de provedor de modelo não é assunto do usuário final.
+  const vazamentos = credenciaisEmTela();
+  ok("onda14: nenhuma chave de provedor citada ao usuário", vazamentos.length === 0,
+     vazamentos.slice(0, 3).join(" · "));
 }
 
 /* ========================================================================== */

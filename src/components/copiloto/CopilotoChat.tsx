@@ -55,7 +55,16 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
     // Caminho de AÇÃO: rascunhar lançamento (precisa do LLM + contexto do razão).
     if (QUER_LANCAMENTO.test(pq)) {
       if (!iaConfig) {
-        setTurnos((t) => [{ pergunta: pq, texto: "Para rascunhar e postar lançamentos, configure a ANTHROPIC_API_KEY. Posso responder perguntas de negócio normalmente.", modo: "basico" }, ...t]);
+        setTurnos((t) => [{ pergunta: pq, texto: /*
+           * ⚠️ O texto ANTES nomeava a variável de ambiente do provedor de
+           * modelo para o usuário final: "configure a ANTHROPIC_API_KEY". Isso
+           * é configuração de infraestrutura vazando para quem opera o caixa —
+           * ela não tem acesso ao servidor, não pode agir sobre o aviso, e o
+           * nome da chave revela qual provedor está por trás. Quem precisa
+           * dessa informação é quem administra a instalação, e o lugar dela é o
+           * painel de administração.
+           */
+          "Ainda não consigo rascunhar nem postar lançamentos nesta instalação. Posso responder perguntas sobre os seus números normalmente.", modo: "basico" }, ...t]);
         return;
       }
       setPensando(true);
@@ -137,7 +146,7 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
           <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
         </span>
         <span className="text-label font-medium text-muted">All 4 Pay AI</span>
-        <span className="text-caption text-faint ml-auto">{iaConfig ? "responde e age" : "responde · ações com ANTHROPIC_API_KEY"}</span>
+        <span className="text-caption text-faint ml-auto">{iaConfig ? "responde e age" : "responde perguntas · não executa ações"}</span>
       </div>
 
       <div className="flex gap-2">
