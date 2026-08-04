@@ -161,7 +161,10 @@ begin
   ) values (
     v_orig.org_id, v_orig.account_id,
     -- Sinal oposto: o estorno de uma entrada é uma saída.
-    case when v_orig.type = 'entrada' then 'saida' else 'entrada' end,
+    -- ⚠️ O cast para `movement_type` é obrigatório: `case … end` devolve TEXT, e
+    -- a coluna é enum. Sem ele a função falha em tempo de execução — o teste no
+    -- banco pegou isso, e a correção estava só no servidor até este commit.
+    (case when v_orig.type = 'entrada' then 'saida' else 'entrada' end)::movement_type,
     v_orig.status, v_orig.amount, v_hoje,
     case when v_orig.paid_date is null then null else v_hoje end,
     v_orig.party_id, v_orig.category,
