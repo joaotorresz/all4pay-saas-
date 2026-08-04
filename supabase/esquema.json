@@ -109,7 +109,8 @@
       {
         "nome": "add_boleto_jsonb_to_movements",
         "motivo": "coluna de boleto adicionada direto pelo painel na frente de cobrança",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
       },
       {
         "nome": "idempotencia_faturas_recorrencia",
@@ -119,7 +120,8 @@
       {
         "nome": "recurrences_add_itens_jsonb",
         "motivo": "coluna de itens do contrato adicionada direto pelo painel",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
       },
       {
         "nome": "create_pluggy_items_table",
@@ -142,32 +144,38 @@
       {
         "nome": "harden_rls_pluggy_authenticated",
         "motivo": "endurecimento de RLS aplicado como correção pontual, sem virar arquivo",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "harden_rls_approvals_nfse_reembolsos_authenticated",
         "motivo": "endurecimento de RLS aplicado como correção pontual, sem virar arquivo",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "idx_pluggy_items_org_connector_for_2a",
         "motivo": "índice de desempenho aplicado direto durante ajuste de consulta",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "frente_b_vinculo_contas_e_fila_confirmacao",
         "motivo": "vínculo de contas e fila de confirmação aplicados direto pelo painel",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
       },
       {
         "nome": "0010b_ledger_fn_search_path",
         "motivo": "correção pontual aplicada como patch",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
       },
       {
         "nome": "0012_org_members_revoke_anon",
         "motivo": "revogação de anon aplicada como patch imediato do 0012",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
       },
       {
         "nome": "maq_pricing_engine_schema",
@@ -263,6 +271,12 @@
         "nome": "0032_reconstrucao_tabelas_sem_arquivo",
         "objetos_ausentes": [],
         "impacto": "NAO se aplica ao banco atual - os objetos ja existem. Serve para montar um ambiente do zero, que hoje nasceria sem aprovacoes, reembolsos, NFS-e nem Open Finance",
+        "resolver_ate": "2026-12-31"
+      },
+      {
+        "nome": "0034_reconstrucao_alteracoes_avulsas",
+        "objetos_ausentes": [],
+        "impacto": "NAO se aplica ao banco atual - tudo ja existe. Serve para montar um ambiente do zero, que nasceria sem a coluna de boleto e sem os itens do contrato recorrente",
         "resolver_ate": "2026-12-31"
       }
     ]
