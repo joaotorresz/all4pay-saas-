@@ -107,6 +107,22 @@ for (const d of [...semArquivo.values(), ...semAplicacao.values()]) {
      "renove com justificativa ou resolva");
 }
 
+/* ── 5b. TODA DIVERGÊNCIA DECLARA QUEM A CRIOU ────────────────────────────── */
+/**
+ * ⚠️ "Herdei 29 problemas" e "criei 5" são frases muito diferentes, e sem
+ * autoria elas viram a mesma. A segunda é a única que obriga alguém a mudar o
+ * próprio comportamento — e foi ela que eu não escrevi: apresentei as 29 como
+ * herança até alguém perguntar quando cada uma foi aplicada.
+ *
+ * A fronteira não é opinião, é medida (a data do commit em que a sessão
+ * começou). Divergência sem autoria reprova.
+ */
+for (const d of [...semArquivo.values()]) {
+  ok(`sem autoria declarada: ${d.nome}`, !!(d as { origem?: string }).origem,
+     "quem aplicou isto, e quando?");
+  ok(`sem data de aplicação: ${d.nome}`, !!(d as { aplicada_em?: string }).aplicada_em);
+}
+
 /* ── 6. O MANIFESTO NÃO PODE ENVELHECER ───────────────────────────────────── */
 /**
  * ⚠️ **A falha que quase deixei passar, e que derruba a promessa toda.**
@@ -135,11 +151,17 @@ ok(`manifesto VELHO (${idade} dias, teto ${IDADE_MAXIMA_DIAS})`, idade <= IDADE_
 
 /* ── Placar ───────────────────────────────────────────────────────────────── */
 const total = m.migrations_aplicadas.length;
+const autoria = (m.divergencias_conhecidas as unknown as { _autoria?: { herdadas: number; minhas: number } })._autoria;
 console.log(
   `\nesquema: ${total} migrations aplicadas · ${arquivos.length} arquivos · `
   + `${aplicadasSemArquivo.length} sem arquivo · ${arquivosSemAplicacao.length} sem aplicação`
   + ` (manifesto de ${m.gerado_em})`,
 );
+if (autoria) {
+  // O placar da autoria sai a cada execução: uma dívida que não distingue o que
+  // foi herdado do que foi criado não ensina nada a quem a lê.
+  console.log(`         das sem arquivo: ${autoria.herdadas} herdadas · ${autoria.minhas} criadas nesta sessão`);
+}
 
 if (falhas > 0) {
   console.log(`\n✗ ${falhas} DIVERGÊNCIA(S) não declarada(s) entre repositório e banco.\n`);

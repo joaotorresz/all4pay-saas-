@@ -92,160 +92,218 @@
         "nome": "create_approvals_table",
         "motivo": "sessão anterior aplicou direto pelo painel - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "create_reembolsos_table",
         "motivo": "tabela de reembolsos criada direto pelo painel na frente de aprovações - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "create_nfse_table",
         "motivo": "tabela de NFS-e criada direto pelo painel junto com o módulo de notas - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "add_boleto_jsonb_to_movements",
         "motivo": "coluna de boleto adicionada direto pelo painel na frente de cobrança",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "idempotencia_faturas_recorrencia",
         "motivo": "índice de idempotência das faturas aplicado direto na frente de recorrências",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "recurrences_add_itens_jsonb",
         "motivo": "coluna de itens do contrato adicionada direto pelo painel",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "create_pluggy_items_table",
         "motivo": "Open Finance aplicado direto - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-15",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "create_bank_accounts_table",
         "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-15",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "create_bank_transactions_table",
         "motivo": "tabela do Open Finance criada direto pelo painel na frente Pluggy - RECONSTRUIDA a partir do catalogo em 04/08/2026",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-15",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "harden_rls_pluggy_authenticated",
         "motivo": "endurecimento de RLS aplicado como correção pontual, sem virar arquivo",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-15",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "harden_rls_approvals_nfse_reembolsos_authenticated",
         "motivo": "endurecimento de RLS aplicado como correção pontual, sem virar arquivo",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-15",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "idx_pluggy_items_org_connector_for_2a",
         "motivo": "índice de desempenho aplicado direto durante ajuste de consulta",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-16",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "frente_b_vinculo_contas_e_fila_confirmacao",
         "motivo": "vínculo de contas e fila de confirmação aplicados direto pelo painel",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo"
+        "reconstruida_em": "0032_reconstrucao_tabelas_sem_arquivo",
+        "aplicada_em": "2026-06-16",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       },
       {
         "nome": "0010b_ledger_fn_search_path",
         "motivo": "correção pontual aplicada como patch",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas",
+        "aplicada_em": "2026-06-18",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "0012_org_members_revoke_anon",
         "motivo": "revogação de anon aplicada como patch imediato do 0012",
         "reconstruir_ate": "2026-08-18",
-        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas"
+        "reconstruida_em": "0034_reconstrucao_alteracoes_avulsas",
+        "aplicada_em": "2026-06-19",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "maq_pricing_engine_schema",
         "motivo": "OUTRO PRODUTO (maquininha) no mesmo projeto Supabase — decidir se sai daqui",
-        "reconstruir_ate": "2026-09-01"
+        "reconstruir_ate": "2026-09-01",
+        "aplicada_em": "2026-07-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "maq_grants_authenticated",
         "motivo": "OUTRO PRODUTO (maquininha) no mesmo projeto Supabase - decidir se sai daqui",
-        "reconstruir_ate": "2026-09-01"
+        "reconstruir_ate": "2026-09-01",
+        "aplicada_em": "2026-07-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "create_maq_leads_and_whatsapp_log",
         "motivo": "idem — guarda PII de lead",
-        "reconstruir_ate": "2026-09-01"
+        "reconstruir_ate": "2026-09-01",
+        "aplicada_em": "2026-07-15",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "projects_and_movement_project_fk",
         "motivo": "aplicada com nome diferente do arquivo 0019_projects",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "plano_da_org_rpc",
         "motivo": "o CLAUDE.md a chama de 0022; nunca virou arquivo",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "ingestao_idempotencia_movements",
         "motivo": "o CLAUDE.md a chama de 0023",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "org_state_persistencia_por_organizacao",
         "motivo": "o CLAUDE.md a chama de 0024",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "rota_alias_acessos",
         "motivo": "o CLAUDE.md a chama de 0025",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-03",
+        "origem": "linha de julho / sessoes anteriores desta branch"
       },
       {
         "nome": "org_state_auditoria_retencao_backup",
         "motivo": "aplicada com nome diferente do arquivo 0026",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-04",
+        "origem": "esta sessao (ONDA 8 em diante)"
       },
       {
         "nome": "0028b_permissao_na_organizacao_da_linha",
         "motivo": "patch da ONDA 9 — conteúdo JÁ está no arquivo 0028",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-04",
+        "origem": "esta sessao (ONDA 8 em diante)"
       },
       {
         "nome": "0029b_admin_posso_registro_duravel",
         "motivo": "patch da ONDA 9 — conteúdo JÁ está no arquivo 0029",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-04",
+        "origem": "esta sessao (ONDA 8 em diante)"
       },
       {
         "nome": "0027b_registro_do_teste_de_isolamento",
         "motivo": "patch da ONDA 9 — conteúdo JÁ está no arquivo 0027",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-04",
+        "origem": "esta sessao (ONDA 8 em diante)"
       },
       {
         "nome": "0030b_estorno_cast_enum",
         "motivo": "patch da ONDA 13 — conteúdo JÁ está no arquivo 0030 (commit 4389572)",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-08-04",
+        "origem": "esta sessao (ONDA 8 em diante)"
       },
       {
         "nome": "extend_recurrence_freq",
         "motivo": "aplicada com nome diferente do arquivo 0021_recurrence_freq - so o nome diverge",
-        "reconstruir_ate": "2026-08-18"
+        "reconstruir_ate": "2026-08-18",
+        "aplicada_em": "2026-06-14",
+        "origem": "linha de junho (main viva) - aplicada direto, nunca arquivada em nenhuma linha"
       }
     ],
     "arquivo_sem_aplicacao": [
@@ -279,6 +337,25 @@
         "impacto": "NAO se aplica ao banco atual - tudo ja existe. Serve para montar um ambiente do zero, que nasceria sem a coluna de boleto e sem os itens do contrato recorrente",
         "resolver_ate": "2026-12-31"
       }
-    ]
+    ],
+    "_autoria": {
+      "_regra": [
+        "Toda divergencia declara QUEM a criou. Sem isso, 'herdei 29 problemas' e",
+        "'criei 5' viram a mesma frase - e a segunda e a unica que obriga a mudar",
+        "o proprio comportamento.",
+        "",
+        "A fronteira nao e opiniao: esta sessao comecou no commit 88fad0e (ONDA 7,",
+        "03/08/2026). Tudo aplicado a partir de 04/08 e desta sessao."
+      ],
+      "fronteira_desta_sessao": "2026-08-04 (commit 88fad0e e o ultimo anterior)",
+      "herdadas": 24,
+      "minhas": 5,
+      "detalhe": {
+        "linha_de_junho_com_main_viva": 14,
+        "entre_a_morte_de_main_e_esta_sessao": 10,
+        "esta_sessao": 5
+      },
+      "licao": "Metade das herdadas foi aplicada enquanto main estava viva, e main nao as arquivou: o habito de aplicar-sem-arquivar precede a bifurcacao. E eu o reproduzi 5 vezes ANTES de construir a guarda que o impede - so o 0030b eu havia notado sozinho."
+    }
   }
 }
