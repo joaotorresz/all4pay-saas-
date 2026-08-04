@@ -1179,6 +1179,98 @@ seguem com a política de organização apenas, e a extensão é mecânica a par
 daqui. O `db.max_rows` do PostgREST precisa ser ligado no painel do projeto
 (configuração de infraestrutura, não migration).
 
+### ⚠️ ONDA 10 — FATO × MODELO, ERRO COM DONO, RECONCILIAÇÃO PAR A PAR
+
+A camada canônica existia desde a ONDA 1; faltava torná-la **incontornável** e
+separar o que é fato do que é modelo.
+
+- **`Procedencia.natureza`** (`fato` · `estimativa` · `projecao`). ⚠️ A separação
+  existia só como TEXTO — a palavra "ESTIMADO" grudada na frase da fórmula. Uma
+  frase não deixa a tela marcar nada nem o gerador de planilha recusar nada, e
+  por isso projeção de caixa e saldo de extrato saíam com a mesma cara. Regras:
+  saldo em data futura é projeção · burn é estimativa (é média, não contagem) ·
+  **ARR é projeção mesmo saindo de contrato** (×12 supõe que a base de hoje se
+  repete o ano inteiro) · vencido é FATO (o título existe e a data passou).
+  `naturezaDaSoma` DEDUZ da base: se alguma linha contada não foi liquidada, o
+  número fala de expectativa.
+- **`npm run reconciliacao`** — a matriz PAR A PAR (`scripts/reconciliacao.mts`).
+  ⚠️ A matriz de consistência compara pares ESCOLHIDOS: protege o que alguém já
+  viu quebrar. Esta lista TODOS os caminhos de cada indicador e confronta as
+  n(n−1)/2 combinações — **13 indicadores · 42 caminhos · 53 pares**, critério de
+  **um centavo**. Burn e runway são reconciliados sobre `INPUT_QUEIMANDO`: na
+  fixture principal os dois dão zero/teto, e comparar zeros não reconcilia nada.
+  A fixture virou `scripts/fixture.mts`, compartilhada — duas guardas sobre
+  datasets diferentes podem discordar sem nenhuma estar errada.
+- **`src/core/erros`** — toda falha tem **dono** e **impacto**. A varredura achou
+  **33 `catch` de chamada a servidor engolindo o erro** (mais 77 de cache local,
+  onde engolir é defensável). ⚠️ `degradado: true` é a marca do erro que o
+  usuário NÃO vê — o 400 do embed de projeto seguiu por meses assim — e ele
+  **agrava** a gravidade em vez de abrandá-la. `lib/erros.ts` (`reportar`,
+  `comFalha`) nunca lança: instrumentação que derruba a tela é a primeira coisa
+  que alguém remove.
+- **`src/core/artefatos`** — projeção não vira planilha sem marca. **Marca, não
+  impede**: impedir empurraria para o print de tela, que é a mesma exportação sem
+  marca nenhuma. O bloqueio fica só para o indicador **inválido** (com `aviso`):
+  exportar um zero que significa "sua pergunta não fecha" cria um documento
+  afirmando que não houve receita. A nota **nomeia cada item**; "alguns valores
+  são projeções" transfere ao leitor um trabalho que ninguém faz. O sufixo entra
+  no RÓTULO, não numa coluna (colunas somem no copiar-e-colar).
+- **`problemaDoIntervalo`** — intervalo invertido recusado na ENTRADA. O motor já
+  tratava, mas entre digitar e ver a explicação a pessoa já pediu o relatório e
+  leu um vazio. Data futura **não** é recusada: pedir o previsto é legítimo.
+- **`MarcaProcedencia`/`InfoProcedencia`/`LinhaProcedencia`** (`components/ui/`):
+  o selo some no FATO — marcar tudo é não marcar nada. Cor `warning`, nunca
+  `negative`: projeção não é erro.
+- **Guarda com teto ZERO: nenhuma tela soma lançamentos por conta própria.** Ela
+  achou 9 recálculos em 3 telas, todos com `Math.abs(m.amount)` (a convenção de
+  sinal contornada). Migrados para `posicaoDaContraparte`, `previstoNaJanela` e
+  `previstoDaConta`. ⚠️ O primeiro padrão da varredura não pegava nada porque
+  tentava casar a expressão inteira, e o corpo do filtro tem parênteses próprios
+  (`(m) => …`); a versão que funciona acha o `.reduce(` e olha para trás.
+
+### ⚠️ ONDA 11 — UMA LÍNGUA, UMA VOZ, UM FORMATO
+
+**`src/core/glossario`** (`glossario/1.0.0`) — a decisão de vocabulário escrita,
+publicada na Central de Ajuda (aba **Glossário**) e cobrada por guarda.
+
+- **As decisões:** *a receber* (não "recebíveis" — palavra de banco; quem opera o
+  caixa diz "o que tenho a receber") · *movimentações* (não "tesouraria" — nome
+  de DEPARTAMENTO, e a maioria dos clientes é o dono sozinho) · *plano de contas*
+  = a ÁRVORE × *categoria* = a FOLHA do lançamento · *baixa* (não "liquidação") ·
+  *empresa* (não "tenant"/"workspace"). Cada termo carrega o **porquê** e as
+  **exceções** — sem elas a guarda acusaria "antecipação de recebíveis", que é o
+  nome do produto financeiro, e seria desligada na primeira semana.
+- **404 e erro próprios** (`src/app/not-found.tsx`, `error.tsx`). ⚠️ A 404 era a
+  tela padrão do framework: **"This page could not be found"** em inglês, sem
+  marca e **sem caminho de volta** — um engano de digitação virava o fim da
+  sessão. A tela de erro **reporta** a falha: sem isso, um erro de render morre
+  no navegador da pessoa (a mesma família de defeito da ONDA 10).
+- **Nenhum texto de interface em inglês** — a guarda achou 10 e todos foram
+  traduzidos: *dashboard* → **painel**, *Insights priorizados* → **Leituras
+  priorizadas**, *Cash Flow Digital Twin* → **Gêmeo digital do caixa**. A rota e
+  o nome de arquivo continuam `dashboard`; o que a pessoa LÊ é que mudou.
+- **Uma grafia da marca**: `all4pay` (o assistente, `All 4 Pay AI`, é a única
+  exceção). O `ALL4PAY` do comprovante do POS virou a grafia canônica.
+- **Um formato por grandeza** (`lib/format.ts` + `REGRAS_DE_FORMATO`):
+  ⚠️ percentual saía com **0, 1 e 2 casas — três no mesmo arquivo**
+  (`paineis/shared.tsx`). Agora `pct`/`pctDeInteiro` com **uma casa**: zero apaga
+  a diferença entre 12,4% e 12,9%, duas fingem precisão que uma média de 90 dias
+  não tem. 21 chamadas em 11 telas migradas. `dataBR` **fatia a string** (nunca
+  `new Date`, que em UTC−3 faz o dia 1º virar o último do mês anterior). O
+  negativo usa **`−` (U+2212)**, não o hífen (mais curto, serrilha a coluna) e
+  nunca parênteses (metade lê como observação). Valor impossível vira **"—"**,
+  nunca "NaN%".
+- **A voz** (`VOZ`/`comVoz`): o assistente dizia *"O runway é de 4 meses"*. Não
+  é — **seria**, se o ritmo dos últimos 90 dias continuasse. Fato afirma,
+  estimativa declara a média, projeção condiciona ("No ritmo atual, …"). ⚠️ O
+  primeiro rascunho tirou a palavra "runway" da resposta sobre runway e **a
+  guarda do corpus pegou**: suavizar não pode custar o termo que a pessoa
+  perguntou.
+- **Origem e período a um toque**: `textoDeOrigem(procedencia)` monta a frase do
+  que o motor devolveu — período, regime e de quantos lançamentos saiu. ⚠️ Não é
+  microtexto escrito à mão: texto à mão envelhece na primeira mudança de fórmula
+  e passa a descrever um cálculo que não existe, o que é pior que não explicar.
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
@@ -2738,13 +2830,27 @@ npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.
                    # teto ZERO de consultas sem limite de linhas, uma linha de
                    # outra empresa reprova o isolamento, "não testei" não é
                    # aprovação, e a segregação de funções (quem pede não
-                   # autoriza) nos dois sentidos. E a ONDA 8:
+                   # autoriza) nos dois sentidos. E as ONDAS 10/11: natureza de
+                   # cada indicador (fato x estimativa x projeção), artefato
+                   # externo com marca, intervalo invertido recusado na entrada,
+                   # falha com dono, teto ZERO de cálculo em tela, glossário
+                   # aplicado, nenhum texto de interface em inglês, uma grafia da
+                   # marca e um formato por grandeza. E a ONDA 8:
                    # o expurgo REMOVE o cache vencido (ignorar não é expirar) e
                    # preserva o válido, o backup leva só dado de negócio e
                    # recusa chave estranha ao restaurar, e enxugar o disco não
                    # apaga o que o servidor ainda não confirmou.
+npm run reconciliacao # A MATRIZ PAR A PAR (scripts/reconciliacao.mts): para cada
+                   # indicador, TODOS os caminhos que o sistema tem de calculá-lo,
+                   # confrontados em todas as n(n-1)/2 combinações, com critério de
+                   # UM CENTAVO. 13 indicadores · 42 caminhos · 53 pares. A matriz
+                   # de consistência compara pares ESCOLHIDOS (protege o que
+                   # alguém já viu quebrar); esta não depende de ninguém ter
+                   # previsto qual par quebraria. Burn e runway são reconciliados
+                   # sobre uma empresa QUE QUEIMA — na fixture principal os dois
+                   # dão zero/teto, e comparar zeros não reconcilia nada.
 npm test           # suíte completa: typecheck + smoke + corpus + values + edge
-                   # + kb + tz + audit + consistencia (9 guardas). Rode antes de commitar mudanças
+                   # + kb + tz + audit + consistencia + reconciliacao (10 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI
                    # (.github/workflows/ci.yml) em push/PR.
 ```

@@ -31,12 +31,13 @@ import {
   lerConversa, salvarConversa, limparConversa, listarAnuncios, marcarAnuncioLido,
   responderComoFazer, novoIdAjuda,
 } from "@/lib/ajuda-store";
+import { glossarioPublicado, REGRAS_DE_FORMATO } from "@/core/glossario";
 
 const agora = () => new Date().toISOString();
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-type Aba = "chat" | "tours" | "anuncios";
+type Aba = "chat" | "tours" | "anuncios" | "glossario";
 
 export function AjudaView() {
   const params = useSearchParams();
@@ -58,6 +59,7 @@ export function AjudaView() {
           ["chat", "Chat online", "help-circle"],
           ["tours", "Tours guiados", "layers"],
           ["anuncios", "Anúncios", "mail"],
+          ["glossario", "Glossário", "file-text"],
         ] as const).map(([id, label, icone]) => (
           <button
             key={id}
@@ -80,6 +82,7 @@ export function AjudaView() {
       {aba === "chat" && <ChatAjuda />}
       {aba === "tours" && <ToursGuiados />}
       {aba === "anuncios" && <Anuncios lista={anuncios} setLista={setAnuncios} />}
+      {aba === "glossario" && <Glossario />}
     </div>
   );
 }
@@ -549,6 +552,52 @@ function Anuncios({
           </Card>
         ))
       )}
+    </div>
+  );
+}
+
+/**
+ * O GLOSSÁRIO PUBLICADO.
+ *
+ * ⚠️ Um glossário que só existe no código é meia decisão: ele alinha quem
+ * escreve a tela e não alinha quem a lê. Publicá-lo aqui faz a escolha ficar
+ * conferível — e a coluna "em vez de" é a parte útil, porque a dúvida real do
+ * usuário não é "o que é a receber", é "isto é a mesma coisa que recebíveis?".
+ */
+function Glossario() {
+  const termos = glossarioPublicado();
+  return (
+    <div className="flex flex-col gap-4 max-w-[860px]">
+      <Card className="flex flex-col gap-2">
+        <span className="text-h3 text-ink">Como chamamos cada coisa</span>
+        <p className="m-0 text-caption text-faint max-w-[70ch]">
+          Uma palavra por coisa, e a mesma palavra em todas as telas. Quando existir outro
+          nome comum para o mesmo conceito, ele está na coluna da direita — é o mesmo objeto,
+          com o nome que usamos e o que você talvez conheça de outro sistema.
+        </p>
+      </Card>
+      <Card padded={false}>
+        {termos.map((t, i) => (
+          <div key={t.termo} className={`flex flex-col gap-1 px-5 py-3 ${i ? "border-t border-border-soft" : ""}`}>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span className="text-[15px] font-medium text-ink">{t.termo}</span>
+              {t.emVezDe.length > 0 && (
+                <span className="text-caption text-faint">em vez de: {t.emVezDe.join(", ")}</span>
+              )}
+            </div>
+            <span className="text-caption text-muted">{t.significa}</span>
+          </div>
+        ))}
+      </Card>
+      <Card className="flex flex-col gap-2">
+        <span className="text-label font-medium text-muted">Como escrevemos os números</span>
+        {Object.entries(REGRAS_DE_FORMATO).map(([k, v]) => (
+          <div key={k} className="flex flex-col">
+            <span className="text-caption text-ink">{v.regra}</span>
+            <span className="text-caption text-faint">{v.porque}</span>
+          </div>
+        ))}
+      </Card>
     </div>
   );
 }

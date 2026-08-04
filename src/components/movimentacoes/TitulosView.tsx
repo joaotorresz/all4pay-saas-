@@ -33,6 +33,7 @@ import { EscopoDaTela } from "./EscopoDaTela";
 import {
   CarrosselSazonalidade, FaixaPeriodos, periodosComValores, type Granularidade,
 } from "./CarrosselSazonalidade";
+import { pctDeInteiro } from "@/lib/format";
 
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000, 5000];
@@ -442,7 +443,7 @@ function CardTitulo({ c, onClick }: { c: CardResumo; onClick: () => void }) {
             transform="rotate(-90 28 28)"
           />
           <text x="28" y="31" textAnchor="middle" className="tabular-nums" style={{ fontSize: 11, fill: "var(--color-text-secondary)" }}>
-            {c.percentual.toFixed(0)}%
+            {pctDeInteiro(c.percentual)}
           </text>
         </svg>
         <div className="min-w-0">

@@ -26,6 +26,7 @@ import {
   type BenchmarkLinha,
 } from "@/core/quant/types";
 import { chartAnim } from "@/lib/chart-anim";
+import { pctDeInteiro } from "@/lib/format";
 
 const COR: Record<ClassificacaoSaude, string> = {
   excelente: "var(--color-positive)",
@@ -278,7 +279,7 @@ function Kpi({ label, value, tone = "var(--color-ink)" }: { label: string; value
 }
 
 function benchFmt(v: number, u: BenchmarkLinha["unidade"]) {
-  return u === "pct" ? `${(v * 100).toFixed(0)}%` : u === "x" ? `${v.toFixed(1)}x` : v.toFixed(1);
+  return u === "pct" ? `${pctDeInteiro((v * 100))}` : u === "x" ? `${v.toFixed(1)}x` : v.toFixed(1);
 }
 
 function BenchCard({ b }: { b: BenchmarkLinha }) {

@@ -23,6 +23,7 @@ import { Card, Icon, BRL, Skeleton } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
+import { pctDeInteiro } from "@/lib/format";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
@@ -63,7 +64,7 @@ function PilulaVariacao({ s }: { s: SerieComparada }) {
         <span className="inline-flex" style={sobe ? undefined : { transform: "scaleY(-1)" }}>
           <Icon name="trending-up" size={13} color="currentColor" />
         </span>
-        {sobe ? "+" : "−"}{Math.abs(s.variacao * 100).toFixed(1)}%
+        {sobe ? "+" : "−"}{pctDeInteiro(Math.abs(s.variacao * 100))}
       </span>
       <span className="text-[13px] text-faint">
         vs {s.totalAnterior < 0 ? "−" : ""}{formatBRL(Math.abs(s.totalAnterior))}

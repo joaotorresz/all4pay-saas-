@@ -43,7 +43,7 @@ export function DashboardsCustomView() {
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted max-w-[60ch]">
-          Crie e organize dashboards com os widgets e dados que importam para você.
+          Crie e organize painéis com os widgets e dados que importam para você.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="ghost" onClick={abrirTemplate}>
@@ -52,7 +52,7 @@ export function DashboardsCustomView() {
           </Button>
           <Button variant="primary" onClick={() => setEditando(dashboardVazio())}>
             <Icon name="plus" size={15} color="currentColor" />
-            Novo dashboard
+            Novo painel
           </Button>
         </div>
       </div>
@@ -74,11 +74,11 @@ export function DashboardsCustomView() {
       {visiveis.length === 0 ? (
         <Card>
           <div className="flex flex-col items-center gap-4 py-10">
-            <p className="m-0 text-label text-muted">Nenhum dashboard customizado encontrado.</p>
+            <p className="m-0 text-label text-muted">Você ainda não montou nenhum painel.</p>
             <div className="flex items-center gap-2 flex-wrap justify-center">
               <Button variant="primary" onClick={() => setEditando(dashboardVazio())}>
                 <Icon name="plus" size={15} color="currentColor" />
-                Novo dashboard
+                Novo painel
               </Button>
               <Button variant="ghost" onClick={abrirTemplate}>
                 <Icon name="calendar" size={15} color="currentColor" />
@@ -106,7 +106,7 @@ export function DashboardsCustomView() {
                 <Button variant="ghost" onClick={() => setEditando(d)}>Abrir</Button>
                 <button
                   onClick={() => setLista(removerDashboard(d.id))}
-                  aria-label="Excluir dashboard"
+                  aria-label="Excluir painel"
                   className="ml-auto p-1 rounded-md text-muted hover:text-negative hover:bg-surface-2"
                 >
                   <Icon name="trash-2" size={15} color="currentColor" />
@@ -165,7 +165,7 @@ function Editor({
       <Card>
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-5">
           <div className="flex flex-col gap-3 min-w-0">
-            <Input placeholder="Nome do dashboard" value={d.nome}
+            <Input placeholder="Nome do painel" value={d.nome}
               onChange={(e) => setD((s) => ({ ...s, nome: e.target.value }))} />
             <Input placeholder="Descrição (opcional)" value={d.descricao}
               onChange={(e) => setD((s) => ({ ...s, descricao: e.target.value }))} />
@@ -186,7 +186,7 @@ function Editor({
             <div>
               <Button variant="ghost" onClick={() => setAparencia((v) => !v)}>
                 <Icon name="sparkles" size={15} color="currentColor" />
-                Aparência do dashboard
+                Aparência do painel
               </Button>
               {aparencia && (
                 <div className="flex items-center gap-4 mt-3 flex-wrap">

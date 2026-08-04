@@ -152,7 +152,7 @@ export function VendasDashboardView() {
   );
 
   return (
-    <AppShell title="Dashboard de Vendas" actions={acoes}>
+    <AppShell title="Painel de vendas" actions={acoes}>
       <div className="flex flex-col gap-5 pb-6">
         <p className="m-0 -mt-1 text-caption text-muted">CAC · LTV · LTV/CAC · EBITDA · Receita · Reembolsos · Chargebacks · período: <span className="text-ink font-medium">{period.label}</span>.</p>
 

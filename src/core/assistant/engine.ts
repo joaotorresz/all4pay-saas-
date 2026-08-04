@@ -22,6 +22,7 @@ import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
+import { comVoz } from "@/core/glossario";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -1285,12 +1286,12 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       if (/\bdias?\b/.test(p)) {
         const dias = Math.round(ctx.runwayMeses * 30);
         return R(
-          `O caixa cobre cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`,
+          comVoz("projecao", `o caixa cobriria cerca de ${dias} dias de operação (runway de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}): saldo de ${fmt(ctx.saldoAtual)} sobre o burn de ${fmt(ctx.burnRate)}/mês.`),
           [{ label: "Dias de caixa", valor: `${dias} d` }, { label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }],
           ["motor quantitativo"]);
       }
       return R(
-        `O runway é de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobre o burn de ${fmt(ctx.burnRate)}/mês por esse tempo.`,
+        comVoz("projecao", `O runway seria de cerca de ${ctx.runwayMeses} ${ctx.runwayMeses === 1 ? "mês" : "meses"}: o saldo de ${fmt(ctx.saldoAtual)} cobriria esse tempo sobre um burn de ${fmt(ctx.burnRate)}/mês.`),
         [{ label: "Runway", valor: `${ctx.runwayMeses} m` }, { label: "Saldo", valor: fmt(ctx.saldoAtual) }, { label: "Burn", valor: `${fmt(ctx.burnRate)}/m` }],
         ["motor quantitativo"]);
     }
@@ -1302,7 +1303,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (netMedio >= 0) return R(`O caixa não está sendo consumido — nos últimos meses ele cresceu em média ${fmt(netMedio)}/mês. No ritmo atual o runway é praticamente ilimitado.`, [{ label: "Fluxo médio/mês", valor: fmt(netMedio) }, { label: "Saldo", valor: fmt(input.saldoAtual) }], ["fluxo mensal", "saldo"], 0.82);
     const burn = -netMedio;
     const mesesR = input.saldoAtual / burn;
-    return R(`O runway é de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`, [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
+    return R(comVoz("projecao", `O runway seria de cerca de ${mesesR < 1 ? "menos de 1 mês" : `${Math.round(mesesR)} ${Math.round(mesesR) === 1 ? "mês" : "meses"}`}: o saldo de ${fmt(input.saldoAtual)} cobre a queima de ${fmt(burn)}/mês.`), [{ label: "Runway", valor: mesesR < 1 ? "<1 m" : `${Math.round(mesesR)} m` }, { label: "Saldo", valor: fmt(input.saldoAtual) }, { label: "Queima/mês", valor: fmt(burn) }], ["fluxo mensal", "saldo"], 0.82);
   }
 
   // ——— BURN ———

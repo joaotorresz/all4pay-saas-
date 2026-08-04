@@ -12,6 +12,7 @@ import * as React from "react";
 import { Card, Icon, Select, BRL, InfoHint } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { deslocarMes, rotuloMesAno, type FiltroPainel } from "@/core/paineis";
+import { pctDeInteiro } from "@/lib/format";
 
 /* ------------------------------- subtítulo ------------------------------- */
 
@@ -187,7 +188,7 @@ export function KpiJanelas({
             <span className="text-label font-medium text-ink tabular-nums shrink-0">
               {l.valor == null ? <span className="text-faint">—</span>
                 : l.formato === "razao" ? l.valor.toFixed(2)
-                : l.formato === "pct" ? `${l.valor.toFixed(2)}%`
+                : l.formato === "pct" ? `${pctDeInteiro(l.valor)}`
                 : <BRL value={l.valor} />}
             </span>
           </div>
@@ -215,7 +216,7 @@ export function KpiStatus({
         <BRL value={valor} />
       </span>
       <span className="block mt-2 text-caption text-faint tabular-nums">
-        {pct != null && `${pct.toFixed(1)}% · `}{titulos} {titulos === 1 ? "título" : "títulos"}
+        {pct != null && `${pctDeInteiro(pct)} · `}{titulos} {titulos === 1 ? "título" : "títulos"}
       </span>
     </Card>
   );
@@ -267,7 +268,7 @@ export function ListaFatias({ fatias, total }: { fatias: { nome: string; valor: 
               <div className="h-full rounded-pill bg-lime" style={{ width: `${maior > 0 ? (f.valor / maior) * 100 : 0}%` }} />
             </div>
             <span className="text-caption text-faint tabular-nums shrink-0 w-[46px] text-right">
-              {total > 0 ? `${((f.valor / total) * 100).toFixed(1)}%` : "—"}
+              {total > 0 ? `${pctDeInteiro(((f.valor / total) * 100))}` : "—"}
             </span>
           </div>
         </div>
@@ -314,7 +315,7 @@ export function CardAnel({ c, onClick }: { c: DadosAnel; onClick?: () => void })
             strokeDasharray={`${(circ * c.percentual) / 100} ${circ}`} transform="rotate(-90 26 26)"
           />
           <text x="26" y="29" textAnchor="middle" className="tabular-nums" style={{ fontSize: 10, fill: "var(--color-text-secondary)" }}>
-            {c.percentual.toFixed(0)}%
+            {pctDeInteiro(c.percentual)}
           </text>
         </svg>
         <div className="min-w-0">

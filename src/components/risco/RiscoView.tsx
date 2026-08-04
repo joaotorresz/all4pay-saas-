@@ -16,6 +16,7 @@ import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
 import type { Nivel, PilarResult, LiquidezPonto, StressCenario, Alerta } from "@/core/risk-engine/types";
+import { pctDeInteiro } from "@/lib/format";
 
 const NIVEL_COLOR: Record<Nivel, string> = {
   baixo: "var(--color-positive)",
@@ -83,7 +84,7 @@ export function RiscoView() {
           <div className="h-full rounded-pill" style={{ width: `${data.score}%`, background: NIVEL_COLOR[data.nivel] }} />
         </div>
         <div className="flex gap-6 pt-1">
-          <Metric label="Prob. de ruptura" value={`${(data.probabilidadeRuptura * 100).toFixed(0)}%`} />
+          <Metric label="Prob. de ruptura" value={`${pctDeInteiro((data.probabilidadeRuptura * 100))}`} />
           <Metric label="Runway (base)" value={meses(data.runway.base)} />
         </div>
       </Card>
@@ -181,7 +182,7 @@ export function RiscoView() {
           <div key={c.id} className="flex flex-col gap-1">
             <div className="flex justify-between text-caption">
               <span className="text-ink truncate">{c.name}</span>
-              <span className="text-muted tabular-nums">{(c.share * 100).toFixed(0)}%</span>
+              <span className="text-muted tabular-nums">{pctDeInteiro((c.share * 100))}</span>
             </div>
             <div className="h-[6px] rounded-pill bg-surface-2 overflow-hidden">
               <div className="h-full rounded-pill bg-ink" style={{ width: `${c.share * 100}%` }} />

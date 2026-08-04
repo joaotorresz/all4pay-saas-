@@ -24,6 +24,7 @@
 import * as React from "react";
 import type { Procedencia as ProcedenciaDados } from "@/core/indicadores";
 import { InfoHint } from "./InfoHint";
+import { textoDeOrigem } from "@/core/glossario";
 import { cn } from "@/lib/utils";
 
 const ROTULO = { fato: "", estimativa: "estimativa", projecao: "projeção" } as const;
@@ -77,22 +78,6 @@ export function InfoProcedencia({
 }
 
 /**
- * "De onde vem e de que período" — a frase que a ONDA 11 exige em todo
- * indicador não óbvio, montada do que o motor já sabe.
- */
-export function textoDeOrigem(p: ProcedenciaDados): string {
-  const regime =
-    p.regime === "posicao" ? "posição das contas"
-      : p.regime === "caixa" ? "regime de caixa (data de pagamento)"
-      : "regime de competência (data de vencimento)";
-  const janela = p.janela.vazia ? "período inválido" : p.janela.label;
-  const base = p.regime === "posicao"
-    ? `${p.lancamentos} lançamentos considerados`
-    : `${p.lancamentos} lançamento${p.lancamentos === 1 ? "" : "s"}`;
-  return `Período: ${janela} · ${regime} · ${base}.`;
-}
-
-/**
  * A linha de rodapé de um box: período e origem, sempre visíveis.
  *
  * ⚠️ Fica no rodapé e não dentro do "i" quando o número é projeção: o que
@@ -111,3 +96,5 @@ export function LinhaProcedencia({
     </span>
   );
 }
+
+export { textoDeOrigem };

@@ -131,7 +131,7 @@ export function CentralPosTaxasView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-[6px]">
               <span className="text-label font-medium text-muted">Parceiro</span>
-              <div className="h-10 flex items-center text-body text-ink">ALL4PAY</div>
+              <div className="h-10 flex items-center text-body text-ink">all4pay</div>
             </div>
             <Select
               label="Descrição MCC"

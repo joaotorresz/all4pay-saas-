@@ -131,8 +131,8 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
 /* ---------- Insights ---------- */
 function InsightsCard({ insights, narr = {} }: { insights: import("@/core/executive/types").ExecutiveInsight[]; narr?: Record<string, string> }) {
   return (
-    <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Insights priorizados", oQue: "Lista o que merece sua atenção agora, do mais relevante para o menos, com a ação sugerida.", comoCalcula: "Cada insight é ordenado por impacto em reais, urgência, probabilidade e criticidade calculados sobre os seus dados." }}>
-      <span className="text-label font-medium text-muted">Insights priorizados · impacto × urgência</span>
+    <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Leituras priorizadas", oQue: "Lista o que merece sua atenção agora, do mais relevante para o menos, com a ação sugerida.", comoCalcula: "Cada leitura é ordenada por impacto em reais, urgência, probabilidade e criticidade calculados sobre os seus dados." }}>
+      <span className="text-label font-medium text-muted">Leituras priorizadas · impacto × urgência</span>
       {insights.length === 0 && <span className="text-caption text-faint">Nenhum insight relevante no momento.</span>}
       <div className="flex flex-col">
         {insights.map((i) => (

@@ -27,6 +27,7 @@ import {
   type Venda, type ItemVenda, type StatusVenda, type MetodoPagamento, type StatusNF,
 } from "@/core/vendas";
 import { listarVendas, salvarVenda, proximoNumero, novoId } from "@/lib/vendas-store";
+import { pctDeInteiro } from "@/lib/format";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 const semTaxa = () => ({ valor: 0, fornecedorId: "" });
@@ -231,7 +232,7 @@ export function VendaForm() {
               </span>
               <span className="text-caption text-faint tabular-nums">
                 {(v.valorTotalComJuros || v.valorTotal) > 0
-                  ? `${((liquido / (v.valorTotalComJuros || v.valorTotal)) * 100).toFixed(1)}% do bruto · taxas ${taxas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+                  ? `${pctDeInteiro(((liquido / (v.valorTotalComJuros || v.valorTotal)) * 100))} do bruto · taxas ${taxas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
                   : "Informe o valor total para ver o líquido."}
               </span>
             </div>

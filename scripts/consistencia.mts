@@ -56,6 +56,14 @@ import {
 import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
+import {
+  TERMOS, termosProibidosEm, glossarioPublicado, VOZ, comVoz, ESTRANGEIRISMOS_PROIBIDOS,
+  textoDeOrigem,
+} from "@/core/glossario";
+import { MARCA_IA } from "@/core/marca";
+import { pct, pctDeInteiro, dataBR, comSinal, MENOS } from "@/lib/format";
+
+import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
@@ -161,6 +169,82 @@ function indicadoresRecalculadosEmTela(): string[] {
     }
   };
   varrer("src/components");
+  return out;
+}
+
+const existe = (p: string): boolean => existsSync(p);
+const ler = (p: string): string => (existsSync(p) ? readFileSync(p, "utf8") : "");
+
+/** Varre `src/components` e `src/app` aplicando um teste a cada arquivo. */
+function varrerTelas(fn: (caminho: string, txt: string) => void): void {
+  const anda = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { anda(caminho); continue; }
+      if (!/\.tsx$/.test(nome)) continue;
+      fn(caminho, readFileSync(caminho, "utf8"));
+    }
+  };
+  anda("src/components");
+  anda("src/app");
+}
+
+/**
+ * Texto de INTERFACE em inglês.
+ *
+ * ⚠️ Procura a palavra proibida dentro de conteúdo de elemento (`>Texto<`) e em
+ * atributos que o usuário lê (`title`, `placeholder`, `aria-label`) — não no
+ * código. `dashboard`, `insights` e `balance` são nomes de variável legítimos
+ * em todo lugar; o que não pode é a pessoa LER isso.
+ */
+function textoDeInterfaceEmIngles(): string[] {
+  const out: string[] = [];
+  varrerTelas((caminho, txt) => {
+    const visiveis = [
+      ...txt.matchAll(/>\s*([A-Za-zÀ-ú][^<>{}\n]{2,60}?)\s*</g),
+      ...txt.matchAll(/(?:title|placeholder|aria-label)="([^"]{3,80})"/g),
+    ].map((m) => m[1]);
+    for (const v of visiveis) {
+      const baixo = v.toLowerCase();
+      for (const palavra of ESTRANGEIRISMOS_PROIBIDOS) {
+        if (new RegExp(`\\b${palavra}\\b`).test(baixo)) {
+          out.push(`${caminho}: "${v.slice(0, 40)}"`);
+          break;
+        }
+      }
+    }
+  });
+  return out;
+}
+
+/** Grafias da marca fora do padrão, em texto que o usuário lê. */
+function grafiasDaMarcaEmTela(): string[] {
+  const out: string[] = [];
+  varrerTelas((caminho, txt) => {
+    for (const m of txt.matchAll(/>\s*([^<>{}\n]{0,60})</g)) {
+      const v = m[1];
+      // `All 4 Pay AI` é o nome próprio do assistente — a exceção sancionada.
+      const semIA = v.replace(/All 4 Pay AI/g, "");
+      if (/All4Pay|ALL4PAY|All4pay|All 4 Pay/.test(semIA)) out.push(`${caminho}: "${v.trim()}"`);
+    }
+  });
+  return out;
+}
+
+/**
+ * Percentual com precisão fora do padrão em tela.
+ *
+ * ⚠️ O alvo é a INCONSISTÊNCIA, não o `toFixed`: `paineis/shared.tsx` tinha 0,
+ * 1 e 2 casas no mesmo arquivo. Depois da padronização, todo percentual sai por
+ * `pct`/`pctDeInteiro`.
+ */
+function casasDecimaisDePercentualEmTela(): string[] {
+  const out: string[] = [];
+  varrerTelas((caminho, txt) => {
+    for (const m of txt.matchAll(/\.toFixed\(\d\)\s*\}?\s*%/g)) {
+      out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
+    }
+  });
   return out;
 }
 
@@ -1261,6 +1345,103 @@ const AGOSTO = janelaMes(2026, 7);
   ok("onda10: nenhuma tela soma lançamentos por conta própria",
      recalculos.length === 0,
      `${recalculos.length}: ${recalculos.slice(0, 6).join(" · ")}`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 20e — ONDA 11: uma língua, uma voz, um formato.                      */
+/* ========================================================================== */
+{
+  /* ---- O glossário existe e decide ---------------------------------------- */
+  ok("onda11: o glossário publica o que cada palavra significa",
+     glossarioPublicado().length >= 8 && glossarioPublicado().every((t) => !!t.significa));
+  ok("onda11: toda decisão do glossário tem justificativa",
+     TERMOS.every((t) => t.porque.length > 30));
+  // ⚠️ Uma palavra não pode ser a canônica de um termo e a proibida de outro:
+  // seria uma regra que se contradiz, e regra contraditória não se aplica.
+  const canonicas = new Set(TERMOS.map((t) => t.termo.toLowerCase()));
+  const conflito = TERMOS.flatMap((t) => t.evitar).filter((e) => canonicas.has(e.toLowerCase()));
+  ok("onda11: nenhuma palavra é canônica e proibida ao mesmo tempo",
+     conflito.length === 0, conflito.join(", "));
+
+  ok("onda11: 'recebíveis' cede lugar a 'a receber'",
+     termosProibidosEm("Total de recebíveis em aberto")[0]?.use === "a receber");
+  ok("onda11: 'tesouraria' cede lugar a 'movimentações'",
+     termosProibidosEm("Painel de Tesouraria")[0]?.use === "movimentações");
+  // ⚠️ A exceção existe para a guarda não virar ruído: "antecipação de
+  // recebíveis" é o nome do produto financeiro, não jargão evitável. Uma guarda
+  // que acusa o nome certo é desligada na primeira semana.
+  ok("onda11: a exceção declarada não é acusada",
+     termosProibidosEm("Simulador de antecipação de recebíveis").length === 0);
+  ok("onda11: texto limpo não acusa nada",
+     termosProibidosEm("Contas a receber vencidas neste mês").length === 0);
+
+  /* ---- Nenhum texto em inglês para o usuário ------------------------------ */
+  // ⚠️ A 404 era a página padrão do framework: "This page could not be found",
+  // em inglês, sem marca e sem caminho de volta. Ela é a tela que mais aparece
+  // para quem clicou num link velho.
+  ok("onda11: existe página 404 própria", existe("src/app/not-found.tsx"));
+  ok("onda11: existe tela de erro própria", existe("src/app/error.tsx"));
+  const t404 = ler("src/app/not-found.tsx");
+  ok("onda11: a 404 fala português", /não existe|não encontrada/i.test(t404));
+  ok("onda11: a 404 leva de volta", t404.includes('href="/"'));
+  ok("onda11: a 404 assina a marca", t404.includes("MARCA"));
+  // A tela de erro REGISTRA — senão a falha de render morre no navegador da
+  // pessoa, que é a mesma família de defeito da ONDA 10.
+  ok("onda11: a tela de erro reporta a falha", ler("src/app/error.tsx").includes("reportar("));
+
+  const emIngles = textoDeInterfaceEmIngles();
+  ok("onda11: nenhum texto de interface em inglês", emIngles.length === 0,
+     `${emIngles.length}: ${emIngles.slice(0, 5).join(" · ")}`);
+
+  /* ---- Uma grafia da marca ------------------------------------------------ */
+  ok("onda11: a marca canônica é minúscula", MARCA === "all4pay");
+  // O assistente tem nome próprio — a única variação sancionada.
+  ok("onda11: o assistente é a exceção declarada", MARCA_IA === "All 4 Pay AI");
+  const grafias = grafiasDaMarcaEmTela();
+  ok("onda11: nenhuma grafia da marca fora do padrão", grafias.length === 0,
+     `${grafias.length}: ${grafias.slice(0, 4).join(" · ")}`);
+
+  /* ---- Um formato por grandeza -------------------------------------------- */
+  ok("onda11: percentual com uma casa e vírgula", pctDeInteiro(12.44) === "12,4%");
+  ok("onda11: percentual a partir de fração", pct(0.1244) === "12,4%");
+  // ⚠️ Não-número vira travessão, não "NaN%". "NaN" na tela de um financeiro é
+  // pior que um espaço vazio: parece um valor.
+  ok("onda11: valor impossível não vira NaN na tela", pct(Number.NaN) === "—");
+  ok("onda11: data é fatiada da string, não convertida", dataBR("2026-08-01") === "01/08/2026");
+  // Este é o teste do fuso: `new Date("2026-08-01")` em UTC−3 cairia em 31/07.
+  ok("onda11: o dia 1º continua sendo dia 1º", dataBR("2026-08-01").startsWith("01/"));
+  ok("onda11: data inválida vira travessão", dataBR("") === "—");
+  ok("onda11: o sinal de menos é o do numeral, não o hífen", MENOS === "−");
+  ok("onda11: negativo recebe o sinal certo", comSinal(-5, "R$ 5,00") === "−R$ 5,00");
+  ok("onda11: positivo não recebe sinal", comSinal(5, "R$ 5,00") === "R$ 5,00");
+  const casas = casasDecimaisDePercentualEmTela();
+  ok("onda11: percentual não tem três precisões diferentes na tela",
+     casas.length === 0, `${casas.length}: ${casas.slice(0, 5).join(" · ")}`);
+
+  /* ---- A voz: não afirmar o que é estimativa ------------------------------ */
+  // ⚠️ O assistente dizia "O runway é de 4 meses". Não é — SERIA, se o ritmo
+  // dos últimos 90 dias continuasse. A frase assertiva é a que vira decisão,
+  // porque quem lê "é" não confere a base.
+  ok("onda11: o fato afirma", VOZ.fato.prefixo === "");
+  ok("onda11: a projeção condiciona", VOZ.projecao.prefixo.includes("ritmo atual"));
+  ok("onda11: a estimativa declara que é média", VOZ.estimativa.prefixo.includes("média"));
+  const frase = comVoz("projecao", "O runway seria de cerca de 4 meses.");
+  ok("onda11: a voz prefixa sem emendar maiúscula", frase === "No ritmo atual, o runway seria de cerca de 4 meses.", frase);
+  ok("onda11: o fato não ganha prefixo",
+     comVoz("fato", "O saldo é de R$ 10,00.") === "O saldo é de R$ 10,00.");
+  // ⚠️ E a suavização não pode custar a palavra que a pessoa perguntou: o
+  // primeiro rascunho tirou "runway" da resposta sobre runway, e a guarda do
+  // corpus pegou.
+  ok("onda11: a resposta de runway continua dizendo 'runway'",
+     ler("src/core/assistant/engine.ts").includes("O runway seria de cerca de"));
+
+  /* ---- Toda métrica declara origem e período ------------------------------ */
+  const p = resultado(INPUT, AGOSTO).procedencia;
+  const origem = textoDeOrigem(p);
+  ok("onda11: a origem declara o período", origem.includes(AGOSTO.label));
+  ok("onda11: a origem declara o regime", /caixa|competência|posição/.test(origem));
+  ok("onda11: a origem declara de quantos lançamentos saiu", /\d+ lançamento/.test(origem));
 }
 
 

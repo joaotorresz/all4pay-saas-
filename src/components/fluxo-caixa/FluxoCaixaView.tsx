@@ -633,7 +633,7 @@ function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="cpu" size={14} color="var(--color-on-lime)" /></span>
-        <h2 className="m-0 text-label font-medium text-muted">Cash Flow Digital Twin — o gêmeo digital do caixa</h2>
+        <h2 className="m-0 text-label font-medium text-muted">Gêmeo digital do caixa do caixa</h2>
         <InfoHint
           align="left"
           titulo="Cash Flow Digital Twin"

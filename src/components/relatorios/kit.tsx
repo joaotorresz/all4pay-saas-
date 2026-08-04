@@ -18,6 +18,7 @@ import {
   type Intervalo, type PresetPeriodo, type TipoAnalise, type Relatorio, type LinhaRelatorio,
   type CelulaOrcamento, type SinalLinha,
 } from "@/core/relatorios";
+import { pctDeInteiro } from "@/lib/format";
 
 /* ================================== temas ================================== */
 
@@ -306,7 +307,7 @@ export function TabelaRelatorio({
   const visiveis = (l: LinhaRelatorio) =>
     layout.ocultarZeradas ? l.filhos.filter((f) => f.total.valor !== 0) : l.filhos;
 
-  const pct = (v: number | null) => (v == null ? "-" : `${v.toFixed(1)}%`);
+  const pct = (v: number | null) => (v == null ? "-" : `${pctDeInteiro(v)}`);
   const mostrarPct = layout.nivel >= 1;
   // Com orçamento cada período ganha 3 colunas extras (Orçado · Dif. · %).
   const comOrc = !!orcamento;
@@ -429,7 +430,7 @@ function CelulasOrcamento({
         {o.diferenca > 0 ? "+" : ""}{fmt(o.diferenca, !!cifrao)}
       </td>
       <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">
-        {o.pct == null ? "—" : `${o.pct > 0 ? "+" : ""}${o.pct.toFixed(1)}%`}
+        {o.pct == null ? "—" : `${o.pct > 0 ? "+" : ""}${pctDeInteiro(o.pct)}`}
       </td>
     </>
   );

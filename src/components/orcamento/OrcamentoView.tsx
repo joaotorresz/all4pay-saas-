@@ -14,6 +14,7 @@ import { periodoPreset } from "@/core/dre";
 import type { Regime } from "@/core/dre/types";
 import { analisarVariancia, type OrcamentoOverride, type LinhaOrcId, type LinhaVariancia } from "@/core/budget";
 import { loadOrcamento, saveOrcamento } from "@/lib/budget";
+import { pctDeInteiro } from "@/lib/format";
 
 type Preset = "mes" | "mes_anterior" | "ytd" | "12m";
 const PRESETS: { id: Preset; label: string }[] = [
@@ -34,7 +35,7 @@ const LINHAS_EDIT: { id: LinhaOrcId; label: string }[] = [
 const fmtDate = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
 const sinalTone = (s: LinhaVariancia["sinal"]): "positive" | "warning" | "neutral" =>
   s === "favoravel" ? "positive" : s === "desfavoravel" ? "warning" : "neutral";
-const pctLabel = (l: LinhaVariancia) => `${l.varValor >= 0 ? "+" : "−"}${Math.abs(l.varPct * 100).toFixed(0)}%`;
+const pctLabel = (l: LinhaVariancia) => `${l.varValor >= 0 ? "+" : "−"}${pctDeInteiro(Math.abs(l.varPct * 100))}`;
 
 export function OrcamentoVarianciaView() {
   const [preset, setPreset] = React.useState<Preset>("ytd");

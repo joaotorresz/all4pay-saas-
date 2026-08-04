@@ -19,6 +19,7 @@ import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura, type Recorr
 import { painelAssinaturas, rotuloMesAno, type AssinaturaBase } from "@/core/paineis";
 import { Subtitulo, MesPicker, TituloCard, VazioPainel, mesCorrente, tooltipPainel } from "./shared";
 import { OndeMais, IRMAS_ASSINATURAS, NOTA_MRR } from "@/components/app/OndeMais";
+import { pctDeInteiro } from "@/lib/format";
 
 const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 const mesesDoCiclo = (c: Recorrencia["ciclo"]) => CICLOS.find((x) => x.id === c)?.meses ?? 1;
@@ -255,7 +256,7 @@ export function AssinaturasView() {
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-caption text-muted">Churn no mês</span>
                 <span className={`text-label font-medium tabular-nums ${p.churn > 0 ? "text-negative" : "text-ink"}`}>
-                  {p.churn.toFixed(1)}%
+                  {pctDeInteiro(p.churn)}
                 </span>
               </div>
             </Card>
@@ -272,7 +273,7 @@ function Variacao({ pct }: { pct: number }) {
   if (pct === 0) return <span className="text-caption text-faint tabular-nums">0,00%</span>;
   return (
     <Pill variant={pct > 0 ? "yield" : "muted"}>
-      <span className="tabular-nums">{pct > 0 ? "+" : ""}{pct.toFixed(2)}%</span>
+      <span className="tabular-nums">{pct > 0 ? "+" : ""}{pctDeInteiro(pct)}</span>
     </Pill>
   );
 }
@@ -284,7 +285,7 @@ function Contador({ label, valor, pct }: { label: string; valor: number; pct: nu
       <div className="flex items-baseline justify-between gap-2 mt-2">
         <span className="text-[26px] leading-none font-semibold text-ink tabular-nums">{valor}</span>
         <span className={`text-caption tabular-nums ${pct > 0 ? "text-positive" : pct < 0 ? "text-negative" : "text-faint"}`}>
-          {pct > 0 ? "+" : ""}{pct.toFixed(2)}%
+          {pct > 0 ? "+" : ""}{pctDeInteiro(pct)}
         </span>
       </div>
     </div>

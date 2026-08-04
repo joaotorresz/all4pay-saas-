@@ -137,7 +137,7 @@ export function DashboardHome() {
 
         <div className="flex items-center gap-3 mt-5 flex-wrap">
           <Button variant="primary" onClick={() => router.push("/fluxo-caixa")}>
-            Abrir dashboard financeiro
+            Abrir painel financeiro
             <Icon name="arrow-up-right" size={15} color="currentColor" />
           </Button>
           <Button variant="ghost" onClick={() => router.push("/dre")}>Ver DRE do mês</Button>

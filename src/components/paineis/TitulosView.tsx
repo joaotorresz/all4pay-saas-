@@ -19,6 +19,7 @@ import { painelTitulos, fimDoMes, type FiltroPainel, type StatusTitulo } from "@
 import {
   Subtitulo, FiltrosPainel, KpiStatus, TituloCard, VazioPainel, tooltipPainel, type TomKpi,
 } from "./shared";
+import { pctDeInteiro } from "@/lib/format";
 
 const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
@@ -154,7 +155,7 @@ export function TitulosView({ direcao }: { direcao: "pagar" | "receber" }) {
                   <div key={g.status} className="flex items-center gap-2 py-[6px] border-b border-border-soft last:border-0">
                     <span className="w-[9px] h-[9px] rounded-sm shrink-0" style={{ background: COR[g.status] }} />
                     <span className="text-label text-muted flex-1 truncate">{g.label}</span>
-                    <span className="text-caption text-faint tabular-nums shrink-0">{g.pct.toFixed(1)}%</span>
+                    <span className="text-caption text-faint tabular-nums shrink-0">{pctDeInteiro(g.pct)}</span>
                     <span className="text-label text-ink tabular-nums shrink-0 w-[110px] text-right"><BRL value={g.total} /></span>
                   </div>
                 ))}

@@ -21,6 +21,7 @@ import { baixarDOCX, type BlocoDocx } from "@/lib/docx";
 import { montarFechamento, rotuloColuna, type Fechamento } from "@/core/relatorios";
 import { listarFechamentos, salvarFechamento, removerFechamento } from "@/lib/fechamentos";
 import { loadCompany } from "@/lib/company";
+import { pctDeInteiro } from "@/lib/format";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -229,8 +230,8 @@ function Relatorio({
         cabecalho: ["Indicador", "Valor", "Variação"],
         linhas: f.kpis.map((k) => [
           k.label,
-          k.formato === "pct" ? `${k.valor.toFixed(2)}%` : brl(k.valor),
-          k.variacao == null ? "—" : `${k.variacao > 0 ? "+" : ""}${k.variacao.toFixed(1)}%`,
+          k.formato === "pct" ? `${pctDeInteiro(k.valor)}` : brl(k.valor),
+          k.variacao == null ? "—" : `${k.variacao > 0 ? "+" : ""}${pctDeInteiro(k.variacao)}`,
         ]),
       },
       { tipo: "titulo", texto: "DRE comparativa", nivel: 2 },
@@ -280,11 +281,11 @@ function Relatorio({
           <Card key={k.id}>
             <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{k.label}</span>
             <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${k.valor < 0 ? "text-negative" : "text-ink"}`}>
-              {k.formato === "pct" ? `${k.valor.toFixed(2)}%` : <BRL value={k.valor} />}
+              {k.formato === "pct" ? `${pctDeInteiro(k.valor)}` : <BRL value={k.valor} />}
             </span>
             {k.variacao != null && (
               <span className={`block mt-2 text-caption tabular-nums ${k.variacao >= 0 ? "text-positive" : "text-negative"}`}>
-                {k.variacao > 0 ? "+" : ""}{k.variacao.toFixed(1)}% vs mês anterior
+                {k.variacao > 0 ? "+" : ""}{pctDeInteiro(k.variacao)} vs mês anterior
               </span>
             )}
           </Card>
