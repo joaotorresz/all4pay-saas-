@@ -102,7 +102,7 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 
 ## 📌 Antes de divulgar AMPLAMENTE (não bloqueia o soft-launch)
 
-- [ ] Página de **privacidade** (LGPD — o sistema guarda dado financeiro de terceiros)
+- [x] Página de **privacidade** — minuta factual no ar em `/privacidade`, ligada ao cadastro; revisar juridicamente e publicar encarregado/razão social antes da divulgação ampla
 - [ ] Canal de **suporte** visível (WhatsApp ou e-mail) com alguém olhando
 - [ ] SMTP próprio (item 1.4)
 - [ ] Decidir o destino do esquema `maq_*` (outro produto no mesmo banco)
@@ -117,4 +117,5 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 | RPCs do DRE multi com token real | ✅ devolvem dados — a dúvida que resta é só de tela |
 | Guard do wizard (cadastro sem sessão) | ✅ nos dois wizards |
 | P0-08 e P1-10 (números enganosos) | ✅ corrigidos |
+| Aviso de beta nos dois wizards + `/privacidade` (minuta LGPD) | ✅ no ar |
 | Roadmap completo com estado medido | `ROADMAP_LANCAMENTO.md` |
