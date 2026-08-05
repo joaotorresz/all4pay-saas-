@@ -43,12 +43,18 @@ export const SECTIONS: Section[] = [
   { id: "inicio", label: "Início", icon: "house", href: "/", items: [] },
   { id: "ia", label: "All 4 Pay AI", icon: "sparkles", href: "/all4pay-ai", items: [] },
   {
-    id: "dashboards", label: "Dashboards", icon: "layers", items: [
+    id: "dashboards", label: "Dashboards", icon: "layers", pro: true, items: [
       // ⚠️ Os cinco painéis curados e o Calendário SAÍRAM (05/08/2026). Cada um
       // respondia uma pergunta que outra tela já responde — e duas telas com o
       // mesmo rótulo produzem dois números, um deles sempre mais velho. Os
       // endereços viraram desvio 308 em `core/rotas/aliases`, então favorito e
       // link compartilhado continuam chegando na tela que responde.
+      //
+      // O que sobrou é o CONSTRUTOR, e ele passou a exigir plano. Montar painel
+      // é a função que pressupõe que a pessoa já sabe qual número quer olhar —
+      // quem chegou hoje precisa da Home, não de uma tela em branco com um
+      // catálogo de widgets. Como todo item Pro, quem não tem o plano cai em
+      // `/planos` pelo middleware, não numa tela que abre e não funciona.
       { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "grip-vertical" },
     ],
   },

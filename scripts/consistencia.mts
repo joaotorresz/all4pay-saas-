@@ -896,6 +896,24 @@ const AGOSTO = janelaMes(2026, 7);
   ok("planos: nenhuma rota do Simples é trancada", trancadoAToa.length === 0,
      `trancadas à toa: ${trancadoAToa.join(", ")}`);
 
+  // ⚠️ OS CINCO ITENS PAGOS, NOMEADOS. A conferência acima é estrutural (o que
+  // está em grupo `pro` tem gate); esta é NOMINAL. As duas não se substituem:
+  // mover um item para um grupo do Simples faria a estrutural continuar
+  // passando — ela só confere o que está no grupo pago com o que está trancado,
+  // e um item que saiu dos dois lados sai da conferência junto. É exatamente
+  // assim que um recurso pago vira grátis sem ninguém notar.
+  const PAGOS = [
+    "/aprovacoes",
+    "/governanca",
+    "/investidores",
+    "/contratacoes",
+    "/dashboard/dashboards/custom",
+  ];
+  for (const rota of PAGOS) {
+    ok(`planos: ${rota} exige plano`, exigePro(rota));
+    ok(`planos: ${rota} não abre no Simples`, !podeAbrir(rota, PLANO_SIMPLES));
+  }
+
   // As rotas LEGADAS que redirecionam para as telas Pro também têm de estar
   // trancadas — senão o redirect é uma porta lateral aberta para a mesma tela.
 
