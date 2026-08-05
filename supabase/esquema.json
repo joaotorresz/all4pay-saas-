@@ -25,9 +25,9 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 67,
+    "funcoes": 68,
     "politicas": 65,
-    "gatilhos": 21,
+    "gatilhos": 22,
     "indices": 155,
     "enums": 11,
     "colunas": 531,
@@ -89,7 +89,8 @@
     "20260804211753_0033_teste_das_funcoes_definer",
     "20260804212212_0018_ai_learning",
     "20260805182528_trilha_append_only",
-    "20260805233807_identidade_de_plataforma_e_trilha_do_admin"
+    "20260805233807_identidade_de_plataforma_e_trilha_do_admin",
+    "20260805234628_mrr_derivado_do_plano"
   ],
   "divergencias_conhecidas": {
     "_regra": [

@@ -2111,6 +2111,66 @@ const AGOSTO = janelaMes(2026, 7);
 
 
 /* ========================================================================== */
+/* LINHA 30 — MÉTRICA NÃO SE DIGITA: o MRR não sai do cliente.                 */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ Métrica que se digita não é métrica: é opinião com casa decimal. O
+   * defeito não estava onde parecia — a TELA já derivava o MRR do preço do
+   * plano; a FUNÇÃO é que aceitava o número como parâmetro. Derivação feita na
+   * tela é convenção, e convenção se perde na primeira refatoração: ninguém
+   * precisa ser mal-intencionado para o número passar a mentir, basta um
+   * script de correção em lote informar o valor "certo".
+   *
+   * Quem calcula agora é um gatilho no banco (migration
+   * `20260805234628_mrr_derivado_do_plano`), e ele vale para TODO caminho de
+   * escrita — inclusive o webhook do provedor de pagamento, que ainda não
+   * existe. Esta guarda cobra o lado que o banco não alcança: que nenhum
+   * arquivo do cliente volte a mandar o número.
+   */
+  const arquivos: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (/\.(ts|tsx)$/.test(nome)) arquivos.push(caminho);
+    }
+  };
+  varrer("src");
+
+  /*
+   * ⚠️ O padrão é ESTREITO de propósito, e a primeira versão não era: ela
+   * casava `mrr:` em qualquer objeto e acusou `core/indicadores` e
+   * `core/paineis`, que CALCULAM o MRR — que é o trabalho deles. Uma guarda
+   * que reprova o certo é pior que guarda nenhuma: ela treina quem a lê a
+   * ignorá-la. O que não pode existir é o PARÂMETRO (`p_mrr`) e a escrita
+   * direta na tabela de assinaturas.
+   */
+  const mandamMrr = arquivos.filter((f) => {
+    const txt = readFileSync(f, "utf8");
+    return /p_mrr/.test(txt) || /from\("subscriptions"\)[\s\S]{0,200}?(insert|update|upsert)/.test(txt);
+  });
+  ok("mrr: nenhuma tela informa o MRR ao servidor", mandamMrr.length === 0,
+     mandamMrr.join(", "));
+
+  // E a assinatura da função no cliente não pode ter o parâmetro de volta.
+  const admin = readFileSync("src/lib/admin.ts", "utf8");
+  const assinatura = admin.match(/export async function setSubscription\(([^)]*)\)/)?.[1] ?? "";
+  ok("mrr: setSubscription não recebe MRR", !/mrr/i.test(assinatura), assinatura);
+
+  // ⚠️ E a regra escrita, para quem for mexer nisso daqui a um ano: trial e
+  // inadimplente NÃO entram no MRR. Trial é a aposta de que vai virar receita;
+  // inadimplente é o título que existe sem o dinheiro ter entrado. Contar
+  // qualquer um dos dois é como um SaaS descobre tarde que a receita reportada
+  // não era caixa.
+  const migration = readFileSync(
+    "supabase/migrations/20260805234628_mrr_derivado_do_plano.sql", "utf8");
+  ok("mrr: a regra do gatilho é preço do plano SÓ quando ativa",
+     /new\.status = 'active'/.test(migration) && /else 0/.test(migration));
+}
+
+
+/* ========================================================================== */
 /* LINHA 29 — NAVEGAÇÃO: o teto do menu e a justificativa de toda rota.        */
 /* ========================================================================== */
 {
