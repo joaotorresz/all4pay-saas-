@@ -120,7 +120,11 @@ export const SECTIONS: Section[] = [
   // ----- Profundidade — revelada no Modo Pro -----
   {
     id: "inteligencia", label: "Inteligência", icon: "gauge", pro: true, items: [
-      { label: "Copiloto e motores", href: "/all4pay-ai?aba=quant", icon: "gauge" },
+      // ⚠️ "Copiloto e motores" (→ /all4pay-ai?aba=quant) SAIU. Era a terceira
+      // porta para a MESMA IA: o FAB global, a tela cheia em `/all4pay-ai` e
+      // mais este atalho. Três entradas para um só destino é o que faz a pessoa
+      // duvidar de que são a mesma coisa — e foi assim que a IA já teve seis.
+      // Ficam duas: o FAB em toda tela e a tela cheia para conversa longa.
       { label: "Investor update", href: "/investidores", icon: "mail" },
       { label: "Plano de contratações", href: "/contratacoes", icon: "users" },
     ],
@@ -140,9 +144,6 @@ export const SECTIONS: Section[] = [
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
-    { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
-    { label: "Segurança e isolamento", href: "/dashboard/administration/security", icon: "shield-check" },
-    { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
     { label: "Nova empresa", href: "/empresas/nova", icon: "building" },
     { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },
     { label: "Gerenciar usuários", href: "/dashboard/administration/users", icon: "users" },
@@ -205,9 +206,26 @@ export function useNavSections(): { sections: Section[]; pessoal: boolean } {
   // PF tem a sua árvore; PJ esconde os grupos `pro` no Modo Simples.
   const base = pessoal ? SECTIONS_PESSOAL : SECTIONS.filter((s) => pro || !s.pro);
   const configBase = pessoal ? CONFIG_PESSOAL : CONFIG;
+  /**
+   * ⚠️ FERRAMENTA DE ENGENHARIA NÃO MORA NAS CONFIGURAÇÕES DO CLIENTE.
+   *
+   * "Inventário de rotas", "Armazenamento" e "Segurança e isolamento" estavam
+   * em `CONFIG`, visíveis para TODO usuário. Nenhum cliente vai usá-las, e as
+   * três expõem detalhe interno do produto — a lista de rotas publicadas, as
+   * chaves que ainda vivem no navegador, o resultado do teste de isolamento.
+   * Elas não foram apagadas: mudaram de casa para o painel de plataforma, onde
+   * já vive quem responde por elas. É o mesmo gate de `isPlatformAdmin` que já
+   * governava "Administração".
+   */
+  const FERRAMENTAS_DE_PLATAFORMA: Item[] = [
+    { label: "Administração", href: "/admin", icon: "shield-check" },
+    { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
+    { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
+    { label: "Segurança e isolamento", href: "/dashboard/administration/security", icon: "shield-check" },
+  ];
   const config: Section = {
     ...configBase,
-    items: [...configBase.items, ...(admin ? [{ label: "Administração", href: "/admin", icon: "shield-check" } as Item] : [])],
+    items: [...configBase.items, ...(admin ? FERRAMENTAS_DE_PLATAFORMA : [])],
   };
   return { sections: [...base, config], pessoal };
 }
