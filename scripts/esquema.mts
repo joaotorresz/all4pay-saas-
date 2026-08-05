@@ -59,18 +59,42 @@ if (!existsSync(CAMINHO)) {
 const m: Manifesto = JSON.parse(readFileSync(CAMINHO, "utf8"));
 const arquivos = readdirSync(DIR).filter((f) => f.endsWith(".sql")).map((f) => f.replace(/\.sql$/, ""));
 
+/**
+ * ⚠️ A IDENTIDADE DE UMA MIGRATION É A VERSÃO, NÃO O NOME.
+ *
+ * O CLI do Supabase pareia arquivo com histórico remoto pelos 14 dígitos do
+ * prefixo e ignora o resto do nome. Enquanto os arquivos se chamavam
+ * `0001_…`/`0034_…`, NADA pareava: 30 arquivos de um lado, 54 versões do outro.
+ * `db push` recusava com `LegacyDbPushMissingLocalError` — e imprimia, como
+ * sugestão, um `migration repair --status reverted` com as 54 versões. Seguir
+ * essa sugestão zera o histórico remoto e faz o `push` seguinte querer aplicar
+ * os 30 arquivos sobre a base de produção. Foi medido: 54 → 0 linhas, e o
+ * dry-run seguinte listou os 30.
+ *
+ * Por isso a comparação aqui é por VERSÃO, e por isso existe a regra abaixo:
+ * arquivo sem prefixo de 14 dígitos REPROVA. É o que impede o buraco de voltar.
+ */
+const versaoDe = (s: string): string => s.match(/^(\d{14})_/)?.[1] ?? s;
+const versoesDeArquivo = new Set(arquivos.map(versaoDe));
+const versoesAplicadas = new Set(m.migrations_aplicadas.map(versaoDe));
+
+for (const f of arquivos) {
+  ok(`arquivo sem prefixo de versão: ${f}`, /^\d{14}_/.test(f),
+     "renomeie para <versao_remota>_<nome>.sql — sem isso o CLI não pareia e o `db push` volta a sugerir apagar o histórico");
+}
+
 const semArquivo = new Map(m.divergencias_conhecidas.aplicadas_sem_arquivo.map((d) => [d.nome, d]));
 const semAplicacao = new Map(m.divergencias_conhecidas.arquivo_sem_aplicacao.map((d) => [d.nome, d]));
 
 /* ── 1. Toda migration aplicada tem arquivo, ou é divergência declarada ───── */
-const aplicadasSemArquivo = m.migrations_aplicadas.filter((a) => !arquivos.includes(a));
+const aplicadasSemArquivo = m.migrations_aplicadas.filter((a) => !versoesDeArquivo.has(versaoDe(a)));
 for (const a of aplicadasSemArquivo) {
   ok(`aplicada sem arquivo e SEM declaração: ${a}`, semArquivo.has(a),
      "aplicaram no banco e o repositório não sabe — vire arquivo ou declare a dívida");
 }
 
 /* ── 2. Todo arquivo foi aplicado, ou é divergência declarada ─────────────── */
-const arquivosSemAplicacao = arquivos.filter((f) => !m.migrations_aplicadas.includes(f));
+const arquivosSemAplicacao = arquivos.filter((f) => !versoesAplicadas.has(versaoDe(f)));
 for (const f of arquivosSemAplicacao) {
   ok(`arquivo sem aplicação e SEM declaração: ${f}`, semAplicacao.has(f),
      "o arquivo existe e o banco não tem — declare com os objetos ausentes e o impacto");
@@ -80,7 +104,7 @@ for (const f of arquivosSemAplicacao) {
 // ⚠️ Sem isto a lista só cresce: alguém conserta a divergência, esquece de tirar
 // a linha, e a próxima pessoa lê uma dívida que não existe mais.
 for (const d of semArquivo.keys()) {
-  ok(`declaração obsoleta (já tem arquivo): ${d}`, !arquivos.includes(d) || !m.migrations_aplicadas.includes(d),
+  ok(`declaração obsoleta (já tem arquivo): ${d}`, !versoesDeArquivo.has(versaoDe(d)),
      "resolvida — remova da lista");
 }
 
