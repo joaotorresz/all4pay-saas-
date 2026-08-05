@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
-import { persistCompany } from "@/lib/company";
+import { persistCompany, saveCompany } from "@/lib/company";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -62,6 +62,13 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
   const [email, setEmail] = React.useState("");
   const [senha, setSenha] = React.useState("");
   const [erro, setErro] = React.useState<string | null>(null);
+  /**
+   * ⚠️ Quando o cadastro cria o usuário mas o e-mail precisa ser confirmado, NÃO
+   * há sessão — e sem sessão o app não abre. Antes o código seguia como se
+   * houvesse, e a pessoa caía numa rota que a rejeitava depois de preencher os 7
+   * passos. Este estado troca o empurrão-para-o-nada por um aviso claro.
+   */
+  const [confirmeEmail, setConfirmeEmail] = React.useState(false);
 
   const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
   const progress = Math.round(((step + 1) / PASSOS.length) * 100);
@@ -109,8 +116,24 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
+            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
             if (error) throw new Error(error.message);
+            // ⚠️ signUp SÓ devolve sessão quando o e-mail é autoconfirmado no
+            // projeto. Com confirmação ligada, `session` é null: o usuário
+            // existe mas não está logado. Seguir daqui grava perfil/estrutura
+            // ÓRFÃOS (sem sessão, a RLS recusa ou o dado fica sem dono) e depois
+            // joga a pessoa numa rota que a rejeita. A saída certa é parar e
+            // pedir a confirmação — o resto acontece no primeiro login.
+            if (!data.session) {
+              // Salva o perfil no NAVEGADOR antes de parar — é a metade que não
+              // exige sessão. Assim a frase da tela de confirmação é verdadeira:
+              // ao entrar, o perfil já está preenchido. A estrutura e o import
+              // dependem de sessão e entram no primeiro login.
+              try { saveCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
+              setConfirmeEmail(true);
+              setAplicando(false);
+              return;
+            }
           } else {
             const { error } = await supabase.auth.signInAnonymously();
             if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
@@ -137,6 +160,34 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
     if (step < PASSOS.length - 1) setStep(step + 1);
   };
   const back = () => step > 0 && setStep(step - 1);
+
+  // ⚠️ Cadastro criado, e-mail a confirmar: o app não abre sem sessão, então
+  // esta tela SUBSTITUI o wizard em vez de deixar a pessoa presa nos passos.
+  // Ela explica o que fazer e não finge que a conta já está pronta.
+  if (confirmeEmail) {
+    return (
+      <div className="min-h-screen bg-surface-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md flex flex-col items-start gap-4">
+          <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
+          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
+          <Card className="flex flex-col gap-3 w-full">
+            <span className="text-h3 text-ink">Confirme seu e-mail para entrar</span>
+            <p className="m-0 text-body text-muted">
+              Criamos a sua conta e um ambiente inicial. Enviamos um link de
+              confirmação para <span className="text-ink font-medium">{email.trim()}</span> —
+              abra-o e você entra direto no sistema.
+            </p>
+            <p className="m-0 text-caption text-faint">
+              As suas respostas ficaram guardadas neste navegador: ao entrar, o
+              perfil da empresa já aparece preenchido{report ? " e você retoma a importação do extrato" : ""}.
+              Se o e-mail não chegar em alguns minutos, confira o spam ou tente
+              entrar em <a href="/login" className="text-ink underline">Entrar</a>.
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-1 flex flex-col items-center px-4 py-8">

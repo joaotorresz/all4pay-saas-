@@ -12,7 +12,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Input, Button, CurrencyInput, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
-import { persistCompany, type StoredCompany } from "@/lib/company";
+import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { setTipoConta } from "@/components/app/useTipoConta";
 import type { Estrutura, PerfilEmpresa } from "@/core/onboarding";
@@ -37,6 +37,8 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
   const [orcamento, setOrcamento] = React.useState(0);
   const [aplicando, setAplicando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
+  // Ver a nota no wizard PJ: cadastro sem sessão não pode empurrar para "/".
+  const [confirmeEmail, setConfirmeEmail] = React.useState(false);
 
   const progress = Math.round(((step + 1) / PASSOS.length) * 100);
   const next = () => step < PASSOS.length - 1 && setStep(step + 1);
@@ -71,8 +73,13 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
+            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
             if (error) throw new Error(error.message);
+            // signUp sem sessão (e-mail a confirmar): salva o perfil local e para.
+            if (!data.session) {
+              try { saveCompany(montarPerfil()); } catch { /* segue */ }
+              setConfirmeEmail(true); setAplicando(false); return;
+            }
           } else {
             const { error } = await supabase.auth.signInAnonymously();
             if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
@@ -89,6 +96,30 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
       setAplicando(false);
     }
   };
+
+  if (confirmeEmail) {
+    return (
+      <div className="min-h-screen bg-surface-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md flex flex-col items-start gap-4">
+          <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
+          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
+          <Card className="flex flex-col gap-3 w-full">
+            <span className="text-h3 text-ink">Confirme seu e-mail para entrar</span>
+            <p className="m-0 text-body text-muted">
+              Criamos a sua conta. Enviamos um link de confirmação para{" "}
+              <span className="text-ink font-medium">{email.trim()}</span> — abra-o
+              e você entra direto.
+            </p>
+            <p className="m-0 text-caption text-faint">
+              Suas respostas ficaram guardadas neste navegador. Se o e-mail não
+              chegar em alguns minutos, confira o spam ou tente entrar em{" "}
+              <a href="/login" className="text-ink underline">Entrar</a>.
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-1 flex flex-col items-center px-4 py-8">
