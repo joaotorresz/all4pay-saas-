@@ -40,7 +40,13 @@ function loadLocal(): Reembolso[] {
   cache = ler(KEY, []);
   return cache!;
 }
+/**
+ * ⚠️ Só a DEMONSTRAÇÃO grava aqui. Em live este arquivo lê e escreve a tabela,
+ * e a chave de estado ficou congelada em `store-org` — as duas moradas do
+ * mesmo dado eram o defeito, não a redundância.
+ */
 function saveLocal(list: Reembolso[]) {
+  if (!isDemo) return;  // congelada em live: a casa do dado é a tabela
   cache = list;
   gravarOrg(KEY, list);
 }
@@ -184,4 +190,12 @@ async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number
   return out;
 }
 
-export function clearReembolsos(): void { saveLocal([]); }
+/**
+ * Limpa a lista de reembolsos da DEMONSTRAÇÃO.
+ *
+ * ⚠️ Em live não faz nada, de propósito: a casa do dado é a tabela, e limpar
+ * a chave daria a impressão de ter apagado uma fila que continua inteira no
+ * banco. Apagar de verdade é operação de tabela, com confirmação e volta —
+ * não uma função exportada que qualquer tela pode chamar.
+ */
+export function clearReembolsos(): void { if (!isDemo) return; saveLocal([]); }

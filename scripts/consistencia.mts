@@ -73,6 +73,7 @@ import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/
 import { tituloDaAba, MARCA } from "@/core/marca";
 import { SECTIONS, CONFIG, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
+  CHAVES_ORG, CHAVES_CONGELADAS, estaCongelada,
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
   CACHES_LOCAIS, ROTULO_DA_CHAVE, rotuloDaChave,
   expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
@@ -2043,6 +2044,69 @@ const AGOSTO = janelaMes(2026, 7);
   ok("controles: o Modo Pro é um switch com papel ARIA", modo?.papel === "switch");
 
   console.log(`  · controles: ${CONTROLES.length} declarados · ${destrutivas.length} destrutivos · ${porTipo("navegacao").length} de navegação`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 20d — DUPLA MORADA: aprovação e reembolso têm UMA casa em live.       */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ O MESMO DEFEITO DAS TELAS DUPLICADAS, AGORA NOS DADOS. Aprovações e
+   * reembolsos existiam ao mesmo tempo como tabela (`approvals`,
+   * `reembolsos`) e como chave de estado (`a4p_aprovacoes`, `a4p_reembolsos`,
+   * que o caminho genérico ainda subia para `org_state`). Duas cópias do mesmo
+   * fato divergem no primeiro ajuste — e aqui o fato é quem autorizou um
+   * pagamento. Divergência ali é o pagamento autorizado duas vezes, ou o que
+   * ninguém autorizou.
+   *
+   * A decisão: a TABELA é o caminho único de leitura, a escrita na chave
+   * PAROU, e o dado antigo fica parado onde está. ⚠️ A MIGRAÇÃO do que já subiu
+   * continua BLOQUEADA até haver restauração de backup testada e datada —
+   * mexer no dado que só tem uma cópia, sem ensaio de volta, é a operação que
+   * não se desfaz. Esta guarda cobra a parada de sangrar, não a operação.
+   */
+  ok("dupla morada: as duas chaves estão congeladas",
+     estaCongelada("a4p_aprovacoes") && estaCongelada("a4p_reembolsos"));
+  ok("dupla morada: o congelamento não vazou para as outras chaves",
+     !estaCongelada("a4p_orcamentos") && !estaCongelada("a4p_comprovantes"));
+
+  // ⚠️ Congelada continua CLASSIFICADA. Tirá-la de `CHAVES_ORG` a esconderia da
+  // guarda de classificação, e uma chave fora das listas é exatamente como
+  // este defeito nasceu — sem ninguém para perguntar onde ela mora.
+  const classificadas = new Set<string>(Object.values(CHAVES_ORG));
+  ok("dupla morada: chave congelada continua classificada",
+     CHAVES_CONGELADAS.every((c) => classificadas.has(c)),
+     CHAVES_CONGELADAS.filter((c) => !classificadas.has(c)).join(", "));
+
+  /*
+   * E a varredura, com teto ZERO: nenhum caminho grava as duas chaves fora da
+   * demonstração. A trava do `store-org` já recusa a escrita, mas ela é uma
+   * função que alguém pode contornar chamando `gravarLocal` direto — e a
+   * segunda cópia não precisa de duas chamadas para existir, precisa de uma.
+   */
+  const donos = ["src/lib/aprovacoes.ts", "src/lib/reembolsos.ts"];
+  for (const arquivo of donos) {
+    const txt = readFileSync(arquivo, "utf8");
+    const corpo = txt.slice(txt.indexOf("function saveLocal"));
+    ok(`dupla morada: ${arquivo} não grava a chave em live`,
+       /function saveLocal[^}]*if \(!isDemo\) return;/.test(corpo),
+       "o `saveLocal` precisa sair cedo quando não é demonstração");
+  }
+  const arquivosDeSrc: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (/\.(ts|tsx)$/.test(nome)) arquivosDeSrc.push(caminho);
+    }
+  };
+  varrer("src");
+  const fora = arquivosDeSrc
+    .filter((f) => !donos.includes(f) && !f.endsWith("store-org.ts"))
+    .filter((f) => /a4p_aprovacoes|a4p_reembolsos/.test(readFileSync(f, "utf8")));
+  ok("dupla morada: só os donos e o registro citam as duas chaves", fora.length === 0,
+     fora.join(", "));
 }
 
 

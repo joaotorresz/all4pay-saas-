@@ -53,7 +53,13 @@ function loadLocal(): Solicitacao[] {
   cache = ler<Solicitacao[]>(KEY, []);
   return cache!;
 }
+/**
+ * ⚠️ Só a DEMONSTRAÇÃO grava aqui. Em live este arquivo lê e escreve a tabela,
+ * e a chave de estado ficou congelada em `store-org` — as duas moradas do
+ * mesmo dado eram o defeito, não a redundância.
+ */
 function saveLocal(list: Solicitacao[]) {
+  if (!isDemo) return;  // congelada em live: a casa do dado é a tabela
   cache = list;
   gravarOrg(KEY, list);
 }
@@ -222,4 +228,12 @@ function rotuloAcao(a: AcaoDecisao): string {
   return a === "aprovar" ? "Aprovou" : a === "rejeitar" ? "Rejeitou" : "Devolveu para ajuste";
 }
 
-export function clearAprovacoes(): void { saveLocal([]); }
+/**
+ * Limpa a fila de aprovação da DEMONSTRAÇÃO.
+ *
+ * ⚠️ Em live não faz nada, de propósito: a casa do dado é a tabela, e limpar
+ * a chave daria a impressão de ter apagado uma fila que continua inteira no
+ * banco. Apagar de verdade é operação de tabela, com confirmação e volta —
+ * não uma função exportada que qualquer tela pode chamar.
+ */
+export function clearAprovacoes(): void { if (!isDemo) return; saveLocal([]); }
