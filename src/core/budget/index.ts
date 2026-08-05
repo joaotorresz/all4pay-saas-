@@ -46,6 +46,14 @@ export interface ResumoVariancia {
   receitaOrcado: number; receitaRealizado: number;
   ebitdaOrcado: number; ebitdaRealizado: number;
   lucroOrcado: number; lucroRealizado: number;
+  /**
+   * ⚠️ `true` quando ao menos uma linha do resumo usou o BASELINE AUTOMÁTICO
+   * (média da janela anterior) em vez de uma meta digitada. Sem isto, o cartão
+   * mostrava "orçado / vs orçado" idêntico, e comparar o realizado com a própria
+   * média disfarçava de planejamento o que é auto-referência. A tela usa para
+   * marcar a procedência — o mesmo fato × estimativa da ONDA 10.
+   */
+  orcadoTemBaseline: boolean;
 }
 
 export interface VarianciaReport {
@@ -178,6 +186,10 @@ export function analisarVariancia(
     get("impostos")[campo] + get("cmv")[campo] + get("folha")[campo] + get("opex")[campo];
   const ebitdaOrcado = receita.orcado - somaDesp("orcado");
   const ebitdaRealizado = receita.realizado - somaDesp("realizado");
+  // Se qualquer linha que entra no resumo foi orçada por baseline automático, o
+  // resumo inteiro carrega estimativa — um EBITDA "orçado" cuja receita é meta e
+  // cujo OPEX é média não é um plano, é uma mistura, e a marca avisa disso.
+  const orcadoTemBaseline = linhas.some((l) => l.origemOrcado === "auto");
   const resumo: ResumoVariancia = {
     receitaOrcado: receita.orcado,
     receitaRealizado: receita.realizado,
@@ -185,6 +197,7 @@ export function analisarVariancia(
     ebitdaRealizado,
     lucroOrcado: ebitdaOrcado - get("financeiro").orcado,
     lucroRealizado: ebitdaRealizado - get("financeiro").realizado,
+    orcadoTemBaseline,
   };
 
   return { periodoLabel, regime, de, ate, meses, linhas, resumo, narrativa: montarNarrativa(linhas, resumo, periodoLabel), versao: VERSAO_ORCAMENTO };

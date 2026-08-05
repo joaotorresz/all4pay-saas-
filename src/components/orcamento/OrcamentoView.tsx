@@ -110,9 +110,9 @@ export function OrcamentoVarianciaView() {
 
           {/* Resumo: Receita · EBITDA · Lucro (orçado vs realizado) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ResumoCard titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada vs orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
-            <ResumoCard titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado vs orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
-            <ResumoCard titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido vs orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada vs orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado vs orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido vs orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
           </div>
 
           {/* Narrativa (flux analysis) */}
@@ -203,17 +203,29 @@ export function OrcamentoVarianciaView() {
   );
 }
 
-function ResumoCard({ titulo, orcado, realizado, maiorEhBom, info }: { titulo: string; orcado: number; realizado: number; maiorEhBom: boolean; info?: InfoConteudo }) {
+function ResumoCard({ titulo, orcado, realizado, maiorEhBom, baseline, info }: { titulo: string; orcado: number; realizado: number; maiorEhBom: boolean; baseline?: boolean; info?: InfoConteudo }) {
   const delta = realizado - orcado;
   const bom = maiorEhBom ? delta >= 0 : delta <= 0;
   const tone = Math.abs(delta) < 1 ? "text-muted" : bom ? "text-positive" : "text-negative";
+  // ⚠️ Quando o "orçado" é BASELINE AUTOMÁTICO (média da janela anterior), o
+  // rótulo muda: não é uma meta, e chamar de "vs orçado" faz o usuário ler como
+  // "bati o plano" o que é "diferi da minha própria média". É a estimativa da
+  // ONDA 10, aqui numa tela que a onda não alcançou.
+  const rotulo = baseline ? "baseline" : "orçado";
   return (
     <Card className="flex flex-col gap-1" info={info}>
       <span className="text-label font-medium text-muted">{titulo}</span>
       <span className="text-[28px] leading-none font-semibold text-ink tabular-nums"><BRL value={realizado} /></span>
-      <span className="text-caption text-faint tabular-nums">orçado <BRL value={orcado} /></span>
+      <span className="text-caption text-faint tabular-nums inline-flex items-center gap-1">
+        {rotulo} <BRL value={orcado} />
+        {baseline && (
+          <span className="text-[11px] uppercase tracking-[0.07em]" style={{ color: "var(--color-warning)" }} title="Baseline automático: média da janela anterior, não uma meta que você definiu.">
+            · estimativa
+          </span>
+        )}
+      </span>
       <span className={`text-caption font-medium tabular-nums ${tone}`}>
-        {delta >= 0 ? "+" : "−"}<span className="tabular-nums">R$ {Math.abs(Math.round(delta)).toLocaleString("pt-BR")}</span> vs orçado
+        {delta >= 0 ? "+" : "−"}<span className="tabular-nums">R$ {Math.abs(Math.round(delta)).toLocaleString("pt-BR")}</span> vs {rotulo}
       </span>
     </Card>
   );

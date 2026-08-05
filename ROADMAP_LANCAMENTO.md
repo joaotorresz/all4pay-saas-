@@ -102,10 +102,10 @@ lançamento** — ambos os defeitos são de conserto barato e vivíveis num beta
 o asterisco certo. Em P1-06 quase declarei um defeito que a leitura do contexto
 desmentiu; verificar antes de afirmar segurou.
 
-| 3.1 | Onboarding 100% sobre pré-requisito inexistente (P0-08) | ⚠️ **CONFIRMADO** — onboarding em branco pontua 42/100, e "Governança" lê 100% por causa de 1 aprovador DEFAULT que o wizard pré-semeia. 26 dos 42 pontos vêm de defaults não tocados. Severidade média: número em que o gestor confia e está errado. Conserto: pilar só pontua o que o usuário confirmou |
+| 3.1 | Onboarding 100% sobre pré-requisito inexistente (P0-08) | ✅ **CORRIGIDO** — o pilar só conta participante com NOME real (o placeholder do wizard tem nome vazio). Onboarding em branco: 42→23/100, "Governança" 100%→15%. Quem cadastra de verdade continua em 42 — o conserto não pune quem preencheu |
 | 3.2 | Filtros com dados fantasma (P0-12) | ✅ **corrigido na linha viva** — filtros de painel derivam opções de lançamentos reais (código documenta a correção). Nuance baixa: filtro de categoria em Contatos lista todo o plano de contas, não só as usadas — mas são categorias reais, não fantasma. NÃO é bloqueio |
 | 3.3 | Contadores de registros divergentes (P1-06) | ✅ **não se reproduz** — as 4 telas de lista renderizam a lista filtrada na tabela; o único "total" é o chip da aba Resumo (outra aba), que está certo. Quase declarei um defeito que a leitura do contexto desmentiu — verificar antes de afirmar. NÃO é bloqueio |
-| 3.4 | Orçamento automático vendido como planejamento (P1-10) | ⚠️ **PARCIAL** — a ENTRADA divulga "em branco = baseline automático (média da janela anterior)", mas o cartão de RESUMO mostra "orçado X · +Y vs orçado" idêntico, seja plano ou média. Comparar realizado com a própria média disfarçado de meta. Conserto: marca de procedência (natureza=estimativa da ONDA 10), que já existe no DS. NÃO é bloqueio |
+| 3.4 | Orçamento automático vendido como planejamento (P1-10) | ✅ **CORRIGIDO** — o motor já sabia `origemOrcado: auto\|manual`; a flag subiu ao resumo (`orcadoTemBaseline`) e o cartão agora rotula "baseline · estimativa" e "vs baseline" quando não há meta digitada, em vez de "orçado / vs orçado". Marca de procedência da ONDA 10 na tela que a onda não alcançou |
 
 ---
 
