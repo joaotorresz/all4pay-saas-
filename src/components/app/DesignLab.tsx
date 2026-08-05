@@ -272,14 +272,14 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f8f9fa",
+  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f7f6ef",
   cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
   body: "#3f4a38", muted: "#6b7280",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
   // contraste da ONDA 12.
-  positive: "#367b4e", negative: "#be463c", warning: "#a45c15",
+  positive: "#4dff00", negative: "#ff1500", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,
