@@ -432,7 +432,11 @@ h1, h2, h3,
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
 html:not(.dark) .ds-visor {
   /* neutros / superfícies — paleta All4Pay (spec Vendria→lima) */
-  --color-surface-1: #f8f9fa;      /* canvas frio (Laboratório) */
+  /* Canvas QUENTE, promovido do Laboratório. O #f8f9fa anterior era frio e
+     destoava do resto da paleta, que é toda quente (`surface-2` #f3f1ee,
+     `border` #eceae4) — o fundo da página puxava para o azul enquanto as
+     seções puxavam para o bege. Contraste do `ink` sobre ele: 16,59:1. */
+  --color-surface-1: #f7f6ef;      /* canvas quente */
   --color-surface-2: #f3f1ee;      /* seção / hover suave (warm) */
   --color-surface-3: #e9e6df;
   --color-white: #ffffff;
@@ -467,9 +471,24 @@ html:not(.dark) .ds-visor {
      (positive #3F8F5B · negative #C2473D · warning #E8821E), escurecidos o
      necessário para passar 4,5:1 sobre o branco E sobre o canvas. A identidade
      é a mesma; o que muda é que agora se lê. */
-  --color-positive: #367b4e;
+  /* ⚠️ NEON, PROMOVIDO DO LABORATÓRIO EM 05/08/2026 — DECISÃO TOMADA COM O
+     CONTRASTE MEDIDO EM MÃOS, não por descuido. Quem encontrar isto depois:
+     não "conserte" achando que escapou.
+
+     Medido (WCAG, texto normal exige 4,5:1):
+       positive #4dff00 → 1,24:1 sobre o canvas · 1,34:1 sobre o card
+       negative #ff1500 → 3,62:1 sobre o canvas · 3,92:1 sobre o card
+
+     O parágrafo acima descreve a decisão ANTERIOR (ONDA 12), que substituiu
+     este mesmo neon pela família dessaturada depois de medir 26 reprovações.
+     A escolha foi revertida deliberadamente. O custo conhecido: estas cores
+     aparecem como TEXTO no produto — o valor de um recebimento, o sinal de um
+     lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
+     claro. Se um dia isto voltar à família dessaturada, o valor anterior era
+     positive #367b4e · negative #be463c. */
+  --color-positive: #4dff00;
   --color-warning: #a45c15;
-  --color-negative: #be463c;
+  --color-negative: #ff1500;
 }
 /* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
@@ -862,4 +881,113 @@ html.dark .a4p-canvas {
     width: max(100%, 24px);
     height: max(100%, 44px);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AJUSTES POR ELEMENTO PROMOVIDOS DO LABORATÓRIO — 05/08/2026
+   ══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ LEIA ANTES DE CONFIAR NESTE BLOCO. Estes seletores são POSICIONAIS
+   (`nth-of-type` a partir de `.ds-visor`), não semânticos. Foram promovidos
+   literalmente, por decisão explícita, com as limitações abaixo já MEDIDAS
+   contra o app no dia da promoção:
+
+     · DOIS dos dez não casavam nada — os do `R$` e do `54.156` do KPI. A
+       estrutura depende do SINAL do número: com saldo negativo existe um
+       `<span>` a mais para o `−`, com saldo positivo não. Ficam aqui inertes
+       até a tela ter saldo negativo.
+     · O seletor do `−` acertava o VALOR INTEIRO (`R$2.187.405,05`), não o
+       sinal. Onde o saldo é positivo, ele põe 40px na cifra toda.
+     · Os demais casavam CONTEÚDO DIFERENTE do rotulado ("R$ 243.423" acertava
+       "R$ 173.828"; "Folha de pagamento" acertava "imposto"; "RESUMO
+       FINANCEIRO" acertava "Bem-vindo!"). São posições, não papéis.
+
+   E a Home é REORDENÁVEL — por arrasto (`a4p_home_order`) e por urgência da
+   IA. Toda reordenação move o que cada `nth-of-type` alcança. `.ds-visor` vale
+   em TODA tela, então estas regras também pintam o que estiver na mesma
+   posição em outras páginas.
+
+   Se um dia isto começar a pintar a coisa errada, a causa está aqui, e o
+   conserto é traduzir cada regra para o PAPEL correspondente (card, h1,
+   título de card) em vez de para a posição. */
+
+/* “+R$ 345.250,04 em Junho” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+}
+
+/* “Junho 2026” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+  line-height: 2 !important;
+}
+
+/* “Folha de pagamento” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* Card do saldo — raio, respiro e fio */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) {
+  font-size: 16px !important;
+  border-radius: 25px !important;
+  padding: 22px !important;
+  margin: 0 !important;
+  border-color: #f2f2f2 !important;
+}
+
+/* ── Obviously Narrow: SÓ no herói da Home e em TEXTO ──────────────────────
+   ⚠️ A Obviously tem NOVE larguras de dígito (o `1` mede 271/1000 em contra
+   519 do `0`) e não tem `tnum`. Por isso ela fica no número-herói, que é único
+   na tela e não forma coluna, e fora de tabela, DRE, extrato e eixos, onde o
+   desalinhamento apareceria linha a linha. O valor do donut (“R$ 243.423”)
+   ficou DE FORA por essa razão — é valor, mas não é o herói. */
+
+/* herói · o sinal “−” (ver ressalva: onde o saldo é positivo, pega a cifra toda) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* herói · o prefixo “R$” (inerte enquanto o saldo for positivo) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+}
+
+/* herói · o inteiro “54.156” (inerte enquanto o saldo for positivo) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(2) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+  color: #1f1f1f !important;
+}
+
+/* título de card — “Distribuição das entradas” (TEXTO, não valor) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.010em !important;
+}
+
+/* H1 da página — “RESUMO FINANCEIRO” (TEXTO, não valor) */
+.ds-visor > div > div:nth-of-type(1) > header > div:nth-of-type(1) > div > h1 {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
 }

@@ -74,12 +74,13 @@ export function TopBar() {
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
         aria-label="Abrir menu"
+        data-topbar="hamburguer"
         className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-muted hover:bg-surface-2"
       >
         <Icon name="menu" size={19} color="currentColor" />
       </button>
 
-      <Link href="/" aria-label="Início" className="inline-flex items-center shrink-0">
+      <Link href="/" aria-label="Início" data-topbar="marca" className="inline-flex items-center shrink-0">
         {/* Marca 20% maior que os 22px originais (a barra subiu para 60px para
             acomodá-la sem apertar os ícones). */}
         <Image src="/all4pay-dark.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto dark:hidden" priority />
@@ -108,7 +109,7 @@ export function TopBar() {
         />
 
         {menu && (
-          <div className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
+          <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
             <div className="px-4 py-3 border-b border-border-soft flex items-center gap-3">
               <Avatar name={nome} size={30} />
               <div className="min-w-0">
@@ -152,6 +153,11 @@ function AcaoTopo({
       onClick={onClick}
       aria-label={rotulo}
       title={rotulo}
+      // ⚠️ Marcação estável para o Laboratório. Sem ela o único seletor
+      // possível seria `.a4p-topbar button`, que pega junto o hambúrguer do
+      // telefone — e editar "os ícones da direita" mexeria num botão que nem
+      // está na tela em desktop. Mesmo padrão do `data-ia` do chat.
+      data-topbar="acao"
       className={cn(
         "relative inline-flex items-center justify-center w-9 h-9 rounded-pill transition-colors",
         ativo ? "bg-surface-2 text-ink" : "text-ink/70 hover:text-ink hover:bg-surface-2",

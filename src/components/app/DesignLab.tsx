@@ -74,7 +74,7 @@ const COR_CAMPOS: CorCampo[] = [
 const SECOES_COR = ["Fundos", "Texto", "Marca", "Status"] as const;
 
 /* ===================== PADRÕES RECONHECIDOS ===================== */
-interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Textos" | "Componentes" }
+interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Barra superior" | "Textos" | "Componentes" }
 // Ordem = prioridade (específico → genérico).
 const PADROES: Padrao[] = [
   { id: "menuActive", label: "Menu · item ativo", grupo: "Menu", teste: '.a4p-sidebar nav a[aria-current="page"]', seletorTipo: '.a4p-sidebar nav a[aria-current="page"]' },
@@ -89,6 +89,13 @@ const PADROES: Padrao[] = [
   { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
   { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
   { id: "iaChat", label: "All 4 Pay AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
+  // Barra superior — irmã do `<main>.ds-visor`, então nada em `.ds-visor …` a
+  // alcança. Editável em partes, porque "a barra" não é uma coisa só: o fundo
+  // é a superfície do chrome, a marca é identidade e os ícones são controles.
+  { id: "topbarBg", label: "Barra superior · fundo", grupo: "Barra superior", teste: ".a4p-topbar", seletorTipo: ".a4p-topbar" },
+  { id: "topbarMarca", label: "Barra superior · marca", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='marca']", seletorTipo: ".a4p-topbar [data-topbar='marca']" },
+  { id: "topbarIcone", label: "Barra superior · ícones", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='acao']", seletorTipo: ".a4p-topbar [data-topbar='acao']" },
+  { id: "topbarMenu", label: "Barra superior · menu ⋮", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='menu']", seletorTipo: ".a4p-topbar [data-topbar='menu']" },
   { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
   { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
   { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
@@ -105,6 +112,7 @@ const PADROES: Padrao[] = [
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
   { id: "iaTudo", label: "All 4 Pay AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
+  { id: "topbarTudo", label: "Barra superior (toda)", grupo: "Barra superior", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
 ];
 
 /** Alvos de borda oferecidos direto no Global (os mais pedidos). */
@@ -154,6 +162,13 @@ function padraoDe(el: Element): Padrao | null {
 function raizDe(el: Element): { no: Element; prefixo: string } | null {
   const side = el.closest(".a4p-sidebar");
   if (side) return { no: side, prefixo: ".a4p-sidebar" };
+  // ⚠️ A barra superior é IRMÃ do `<main>.ds-visor` no AppShell (ambas vivem
+  // dentro do `.a4p-canvas`), exatamente como a IA. Sem âncora própria o
+  // `closest` não achava raiz nenhuma, `caminhoUnico` devolvia `null` e clicar
+  // em qualquer coisa da barra com o picker simplesmente não selecionava — o
+  // mesmo defeito que o chat teve antes de ganhar `.a4p-ia`.
+  const topo = el.closest(".a4p-topbar");
+  if (topo) return { no: topo, prefixo: ".a4p-topbar" };
   const fab = el.closest(".a4p-ia-fab");
   if (fab) return { no: fab, prefixo: ".a4p-ia-fab" };
   const ia = el.closest(".a4p-ia");
@@ -257,19 +272,36 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f8f9fa",
+  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f7f6ef",
   cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
   body: "#3f4a38", muted: "#6b7280",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
   // contraste da ONDA 12.
-  positive: "#367b4e", negative: "#be463c", warning: "#a45c15",
+  positive: "#4dff00", negative: "#ff1500", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,
   cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {},
 };
+
+/**
+ * `true` quando o estado é EXATAMENTE o de fábrica — ninguém mexeu em nada.
+ * Compara campo a campo em vez de `JSON.stringify` do objeto inteiro: a ordem
+ * das chaves de `cores` pode variar entre o objeto de fábrica e o que volta do
+ * `localStorage`, e uma diferença de ORDEM faria o Lab se achar "alterado" e
+ * voltar a gravar sozinho — que é o defeito que isto existe para impedir.
+ */
+function ehPadrao(s: DesignState): boolean {
+  if (s.font !== DEFAULTS.font || s.numMesmaFonte !== DEFAULTS.numMesmaFonte) return false;
+  if (s.tracking !== DEFAULTS.tracking) return false;
+  if (s.selecoes.length > 0 || Object.keys(s.padroes).length > 0) return false;
+  const a = s.cores, b = DEFAULT_CORES;
+  const chaves = Object.keys(a).concat(Object.keys(b));
+  for (const k of chaves) if (a[k] !== b[k]) return false;
+  return true;
+}
 
 /** Estado salvo, ou `null` quando o usuário nunca mexeu no Laboratório. */
 function carregarSalvo(): DesignState | null {
@@ -378,7 +410,12 @@ function montarCSS(s: DesignState): string {
     // Idem p/ os cards: a folha declara-se "unlayered de propósito (vence as
     // utilities bg-white)", então não confiamos só no token.
     `html:not(.dark) .ds-visor [data-card="1"]{background-color:${s.cores.cardBg} !important}`,
-    `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *{font-family:${stack};}`,
+    // ⚠️ A barra superior entra aqui junto com a sidebar. Sem ela, trocar a
+    // "fonte do app" deixava o chrome de cima na tipografia antiga — e uma
+    // barra que não acompanha o resto lê como pedaço de outro sistema, que é
+    // exatamente o que a decisão de dar a ela o MESMO material do cartão
+    // (`.a4p-sidebar, .a4p-topbar` em globals.css) existe para evitar.
+    `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *,.a4p-topbar,.a4p-topbar *{font-family:${stack};}`,
     `.ds-visor,.ds-visor *{letter-spacing:${tr}em;}`,
   ];
   if (s.numMesmaFonte) out.push(`.ds-visor .tabular-nums,.ds-visor .a4p-num,.ds-visor .a4p-num *{font-family:${stack} !important;}`);
@@ -452,8 +489,41 @@ export function DesignLab() {
   const [foco, setFoco] = React.useState<DOMRect | null>(null);
   const refs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
-  React.useEffect(() => { setS(carregar()); }, []);
+  /**
+   * ⚠️ O LABORATÓRIO NÃO PODE GRAVAR SOZINHO.
+   *
+   * Este efeito escrevia no `localStorage` no PRIMEIRO render, com o estado
+   * inicial. Como o painel monta no `AppShell`, isso acontecia em toda tela,
+   * para todo usuário: a chave nascia sozinha, `carregarSalvo()` passava a
+   * achá-la e o `DesignLabStyle` injetava CSS para sempre. Medido: apagar a
+   * chave e recarregar devolvia 717 caracteres de CSS injetado.
+   *
+   * A consequência não é cosmética. A injeção do Lab VENCE os tokens do
+   * `globals.css`, então quem tivesse a chave gravada com os valores antigos
+   * continuaria vendo os antigos depois de o design system mudar — e a regra
+   * "sem nada salvo ele não emite nada e quem manda é o design system"
+   * simplesmente não valia.
+   *
+   * Duas travas, porque uma só não resolve:
+   *   1. `primeiro` pula o run inicial (que roda com `DEFAULTS`, antes de
+   *      `carregar()`). Sem ela, o painel pintaria os defaults por um tick por
+   *      cima do que o `DesignLabStyle` já aplicou corretamente.
+   *   2. `tinhaSalvo` + `ehPadrao` seguram o caso em que nada foi salvo E nada
+   *      foi mexido: `carregar()` devolve um OBJETO NOVO igual aos defaults, o
+   *      que dispara o efeito de novo — e sem esta trava ele gravaria ali.
+   */
+  const primeiro = React.useRef(true);
+  const tinhaSalvo = React.useRef(false);
+
   React.useEffect(() => {
+    tinhaSalvo.current = carregarSalvo() !== null;
+    setS(carregar());
+  }, []);
+
+  React.useEffect(() => {
+    if (primeiro.current) { primeiro.current = false; return; }
+    if (!tinhaSalvo.current && ehPadrao(s)) return;
+    tinhaSalvo.current = true;
     aplicarCSS(s);
     aplicarTextos(s);
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }
@@ -493,7 +563,21 @@ export function DesignLab() {
   const clearPadProp = (id: string, p: Prop) =>
     setS((prev) => { const ov = { ...prev.padroes[id] }; delete ov[p]; const padroes = { ...prev.padroes }; if (Object.keys(ov).length) padroes[id] = ov; else delete padroes[id]; return { ...prev, padroes }; });
 
-  const resetTudo = () => setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {} });
+  /**
+   * Reset = DEVOLVER O APP AO DESIGN SYSTEM, não "voltar aos meus defaults".
+   * Por isso apaga a chave e ESVAZIA o estilo injetado, além de baixar a trava
+   * `tinhaSalvo` — sem isso o efeito abaixo gravaria os defaults de novo no
+   * tick seguinte e o Lab continuaria pintando, que é justamente o estado do
+   * qual a pessoa está tentando sair.
+   */
+  const resetTudo = () => {
+    tinhaSalvo.current = false;
+    primeiro.current = true;
+    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+    const el = typeof document !== "undefined" ? document.getElementById(STYLE_ID) : null;
+    if (el) el.textContent = "";
+    setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {} });
+  };
 
   /* ---- realce de um seletor (hover no painel) ---- */
   const realcar = (seletor: string | null) => {
