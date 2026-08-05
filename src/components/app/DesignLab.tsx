@@ -286,6 +286,23 @@ const DEFAULTS: DesignState = {
   cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {},
 };
 
+/**
+ * `true` quando o estado é EXATAMENTE o de fábrica — ninguém mexeu em nada.
+ * Compara campo a campo em vez de `JSON.stringify` do objeto inteiro: a ordem
+ * das chaves de `cores` pode variar entre o objeto de fábrica e o que volta do
+ * `localStorage`, e uma diferença de ORDEM faria o Lab se achar "alterado" e
+ * voltar a gravar sozinho — que é o defeito que isto existe para impedir.
+ */
+function ehPadrao(s: DesignState): boolean {
+  if (s.font !== DEFAULTS.font || s.numMesmaFonte !== DEFAULTS.numMesmaFonte) return false;
+  if (s.tracking !== DEFAULTS.tracking) return false;
+  if (s.selecoes.length > 0 || Object.keys(s.padroes).length > 0) return false;
+  const a = s.cores, b = DEFAULT_CORES;
+  const chaves = Object.keys(a).concat(Object.keys(b));
+  for (const k of chaves) if (a[k] !== b[k]) return false;
+  return true;
+}
+
 /** Estado salvo, ou `null` quando o usuário nunca mexeu no Laboratório. */
 function carregarSalvo(): DesignState | null {
   if (typeof window === "undefined") return null;
@@ -472,8 +489,41 @@ export function DesignLab() {
   const [foco, setFoco] = React.useState<DOMRect | null>(null);
   const refs = React.useRef<Record<string, HTMLDivElement | null>>({});
 
-  React.useEffect(() => { setS(carregar()); }, []);
+  /**
+   * ⚠️ O LABORATÓRIO NÃO PODE GRAVAR SOZINHO.
+   *
+   * Este efeito escrevia no `localStorage` no PRIMEIRO render, com o estado
+   * inicial. Como o painel monta no `AppShell`, isso acontecia em toda tela,
+   * para todo usuário: a chave nascia sozinha, `carregarSalvo()` passava a
+   * achá-la e o `DesignLabStyle` injetava CSS para sempre. Medido: apagar a
+   * chave e recarregar devolvia 717 caracteres de CSS injetado.
+   *
+   * A consequência não é cosmética. A injeção do Lab VENCE os tokens do
+   * `globals.css`, então quem tivesse a chave gravada com os valores antigos
+   * continuaria vendo os antigos depois de o design system mudar — e a regra
+   * "sem nada salvo ele não emite nada e quem manda é o design system"
+   * simplesmente não valia.
+   *
+   * Duas travas, porque uma só não resolve:
+   *   1. `primeiro` pula o run inicial (que roda com `DEFAULTS`, antes de
+   *      `carregar()`). Sem ela, o painel pintaria os defaults por um tick por
+   *      cima do que o `DesignLabStyle` já aplicou corretamente.
+   *   2. `tinhaSalvo` + `ehPadrao` seguram o caso em que nada foi salvo E nada
+   *      foi mexido: `carregar()` devolve um OBJETO NOVO igual aos defaults, o
+   *      que dispara o efeito de novo — e sem esta trava ele gravaria ali.
+   */
+  const primeiro = React.useRef(true);
+  const tinhaSalvo = React.useRef(false);
+
   React.useEffect(() => {
+    tinhaSalvo.current = carregarSalvo() !== null;
+    setS(carregar());
+  }, []);
+
+  React.useEffect(() => {
+    if (primeiro.current) { primeiro.current = false; return; }
+    if (!tinhaSalvo.current && ehPadrao(s)) return;
+    tinhaSalvo.current = true;
     aplicarCSS(s);
     aplicarTextos(s);
     try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* ignore */ }
@@ -513,7 +563,21 @@ export function DesignLab() {
   const clearPadProp = (id: string, p: Prop) =>
     setS((prev) => { const ov = { ...prev.padroes[id] }; delete ov[p]; const padroes = { ...prev.padroes }; if (Object.keys(ov).length) padroes[id] = ov; else delete padroes[id]; return { ...prev, padroes }; });
 
-  const resetTudo = () => setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {} });
+  /**
+   * Reset = DEVOLVER O APP AO DESIGN SYSTEM, não "voltar aos meus defaults".
+   * Por isso apaga a chave e ESVAZIA o estilo injetado, além de baixar a trava
+   * `tinhaSalvo` — sem isso o efeito abaixo gravaria os defaults de novo no
+   * tick seguinte e o Lab continuaria pintando, que é justamente o estado do
+   * qual a pessoa está tentando sair.
+   */
+  const resetTudo = () => {
+    tinhaSalvo.current = false;
+    primeiro.current = true;
+    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+    const el = typeof document !== "undefined" ? document.getElementById(STYLE_ID) : null;
+    if (el) el.textContent = "";
+    setS({ ...DEFAULTS, cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {} });
+  };
 
   /* ---- realce de um seletor (hover no painel) ---- */
   const realcar = (seletor: string | null) => {
