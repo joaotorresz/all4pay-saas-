@@ -136,6 +136,12 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
               <span className="text-h3 font-medium text-ink">Criar conta pessoal</span>
               <span className="text-label font-medium tabular-nums text-ink">{progress}%</span>
             </div>
+          {/* O aviso de beta é parte do plano de lançamento: declarar o que
+              ainda não faz é o que faz um beta ser levado a sério. */}
+          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
+            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
+            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
+          </p>
             <div className="h-2 rounded-pill bg-surface-2 overflow-hidden mt-2">
               <div className="h-full rounded-pill bg-ink transition-all duration-300" style={{ width: `${progress}%` }} />
             </div>

@@ -219,6 +219,15 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             </div>
             <p className="m-0 text-caption text-muted mt-2">Nossa IA configurará seu ambiente financeiro a partir destas informações.</p>
           </div>
+          {/* O aviso de beta é PARTE do plano de lançamento: um beta que declara
+              o que ainda não faz é levado a sério; um que esconde perde o
+              cliente no primeiro buraco. */}
+          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
+            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
+            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
+          </p>
+          <div>
+          </div>
         </div>
 
         <Card className="flex flex-col gap-4">

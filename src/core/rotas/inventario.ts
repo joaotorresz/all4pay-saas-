@@ -139,6 +139,8 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica" },
   { rota: "/orcamento", nome: "Planejado × Realizado", dono: "orcamento", status: "canonica" },
   { rota: "/planos", nome: "Planos", dono: "acesso", status: "canonica" },
+  // Pública por natureza: quem lê política de privacidade ainda não tem conta.
+  { rota: "/privacidade", nome: "Privacidade", dono: "acesso", status: "canonica" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica" },
   { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica" },
   { rota: "/upload", nome: "Upload de dados", dono: "ingestao", status: "canonica" },
