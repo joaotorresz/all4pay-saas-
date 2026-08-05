@@ -83,8 +83,8 @@ nunca testou de ponta a ponta**. É aqui que o beta vive ou morre.
 | # | Ação | Estado |
 | --- | --- | --- |
 | 2.1 | **Guard do wizard** (PJ e PF): `signUp` sem sessão → tela "confirme seu e-mail" + perfil salvo local, em vez de gravar órfão e empurrar para rota que rejeita | ✅ **feito e medido** |
-| 2.2 | **Cadastro → 1º lançamento** dirigido toque a toque, produção real, telefone + computador | após 0.3 |
-| 2.3 | **DRE multi 0/0** — preciso da sua medição logado. Se for do componente, conserto (~1h) | aguarda medição |
+| 2.2 | **Cadastro → 1º lançamento** | 🟡 **backend MEDIDO em produção** (05/08, usuário real): login → conta seed → lançamento criado → leitura → isolamento 1 org/zero vazamento. Falta o drive de UI, após 0.3 (autoconfirm) |
+| 2.3 | **DRE multi 0/0** | 🟡 **camada de dados SÃ** — `org_balances`/`org_movements` testadas com JWT REAL devolvem dados (05/08). O 0/0 medido de fora era quase certamente sem sessão. Resta 1 olhada logado (checklist 3.1); se persistir, é componente (~1h) |
 | 2.4 | Varredura de erro no cadastro: nenhum 4xx/5xx silencioso no caminho feliz | com 2.2 |
 
 ---
