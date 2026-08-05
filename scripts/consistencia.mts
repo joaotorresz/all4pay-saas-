@@ -71,7 +71,7 @@ import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
-import { SECTIONS, CONFIG } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
   CACHES_LOCAIS, ROTULO_DA_CHAVE, rotuloDaChave,
@@ -877,22 +877,26 @@ const AGOSTO = janelaMes(2026, 7);
   // do menu e as rotas continuavam abrindo. Agora quem tranca é o middleware,
   // e ele lê `ROTAS_PRO`. Se as duas listas divergirem, um recurso some do menu
   // e continua acessível por digitação — a cortina de volta, sem ninguém notar.
-  const doMenu = SECTIONS
-    .filter((sec) => sec.pro)
+  // ⚠️ A marca de plano passou a ser do ITEM, não do grupo (o menu voltou a ser
+  // por assunto). A conferência acompanha: `menuDoPlano(..., false)` é
+  // LITERALMENTE o que o Simples enxerga — a mesma função que a barra lateral
+  // chama. Conferir contra uma segunda implementação diria que o Simples está
+  // coberto olhando uma lista que o Simples nunca vê.
+  const TODOS_OS_GRUPOS = [...SECTIONS, CONFIG];
+  const rotasDe = (secs: typeof TODOS_OS_GRUPOS) => secs
     .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
     .filter((h): h is string => !!h);
 
-  const semGate = doMenu.filter((h) => !exigePro(h));
+  const noSimples = new Set(rotasDe(menuDoPlano(TODOS_OS_GRUPOS, false)));
+  const soNoPro = rotasDe(menuDoPlano(TODOS_OS_GRUPOS, true)).filter((h) => !noSimples.has(h));
+
+  const semGate = soNoPro.filter((h) => !exigePro(h));
   ok("planos: toda rota Pro do menu é bloqueada no servidor", semGate.length === 0,
      `sem gate: ${semGate.join(", ")}`);
 
   // E o inverso: a lista do servidor não pode trancar o que o menu entrega no
   // Simples — bloquear o que a pessoa já tem é o outro lado do mesmo defeito.
-  const doSimples = SECTIONS
-    .filter((sec) => !sec.pro)
-    .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
-    .filter((h): h is string => !!h);
-  const trancadoAToa = doSimples.filter((h) => exigePro(h));
+  const trancadoAToa = [...noSimples].filter((h) => exigePro(h));
   ok("planos: nenhuma rota do Simples é trancada", trancadoAToa.length === 0,
      `trancadas à toa: ${trancadoAToa.join(", ")}`);
 

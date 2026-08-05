@@ -34,7 +34,7 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import { GUIDES } from "@/components/app/guides";
-import { SECTIONS, CONFIG, leafAtivo } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
   detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
   statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
@@ -2569,17 +2569,28 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",
     "/dashboard/financial/reconciliation", "/dashboard/registrations/bank-accounts",
   ];
+  // ⚠️ Quatro telas NÃO estão no menu de propósito, e a exceção não é branda:
+  // cada uma declara em `ACOES_GLOBAIS` onde mora (o botão flutuante da IA, o
+  // menu ⋮ da barra superior). Uma tela com porta global E linha de menu é a
+  // duplicata que produziu seis entradas para a mesma IA; uma tela sem porta
+  // nenhuma só existe para quem já sabe o endereço. A guarda cobra a porta.
+  const comPortaGlobal = new Set(ACOES_GLOBAIS.map((a) => a.rota));
+  const semOnde = ACOES_GLOBAIS.filter((a) => !a.onde || a.onde.length < 10);
+  ok("nav: toda ação global declara ONDE mora", semOnde.length === 0,
+    semOnde.map((a) => a.rota).join(" | "));
   const orfas = PRINCIPAIS.filter(
-    (r) => !todas.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
+    (r) => !comPortaGlobal.has(r)
+      && !todas.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
   );
   ok("nav: nenhuma tela principal fica fora do menu", orfas.length === 0, orfas.join(" | "));
   // Nota: uma sub-rota (`/x/y`) continua acesa pelo item pai (`/x`) — o guard
   // acima cobre o caso real, que é a tela SEM pai no menu, como as de
   // Administração, que entram uma a uma em Configurações.
 
-  // Os grupos `pro` são a profundidade — no Modo Simples eles somem, e o que
-  // sobra precisa continuar cobrindo o dia a dia.
-  const simples = SECTIONS.filter((s) => !s.pro);
+  // Os itens `pro` são a profundidade — no Modo Simples eles somem, e o que
+  // sobra precisa continuar cobrindo o dia a dia. `menuDoPlano` é a MESMA
+  // função que a barra lateral usa para montar a lista.
+  const simples = menuDoPlano(SECTIONS, false);
   const DIA_A_DIA = ["/", "/orcamento", "/fluxo-caixa", "/upload", "/dashboard/purchases", "/dashboard/sales-invoices"];
   const fora = DIA_A_DIA.filter(
     (r) => !simples.some((s) => (s.href && leafAtivo(s.href, r)) || s.items.some((i) => leafAtivo(i.href, r))),
