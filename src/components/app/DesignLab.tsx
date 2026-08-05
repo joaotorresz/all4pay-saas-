@@ -74,7 +74,7 @@ const COR_CAMPOS: CorCampo[] = [
 const SECOES_COR = ["Fundos", "Texto", "Marca", "Status"] as const;
 
 /* ===================== PADRÕES RECONHECIDOS ===================== */
-interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Textos" | "Componentes" }
+interface Padrao { id: string; label: string; teste: string; seletorTipo: string; grupo: "Menu" | "Barra superior" | "Textos" | "Componentes" }
 // Ordem = prioridade (específico → genérico).
 const PADROES: Padrao[] = [
   { id: "menuActive", label: "Menu · item ativo", grupo: "Menu", teste: '.a4p-sidebar nav a[aria-current="page"]', seletorTipo: '.a4p-sidebar nav a[aria-current="page"]' },
@@ -89,6 +89,13 @@ const PADROES: Padrao[] = [
   { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
   { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
   { id: "iaChat", label: "All 4 Pay AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
+  // Barra superior — irmã do `<main>.ds-visor`, então nada em `.ds-visor …` a
+  // alcança. Editável em partes, porque "a barra" não é uma coisa só: o fundo
+  // é a superfície do chrome, a marca é identidade e os ícones são controles.
+  { id: "topbarBg", label: "Barra superior · fundo", grupo: "Barra superior", teste: ".a4p-topbar", seletorTipo: ".a4p-topbar" },
+  { id: "topbarMarca", label: "Barra superior · marca", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='marca']", seletorTipo: ".a4p-topbar [data-topbar='marca']" },
+  { id: "topbarIcone", label: "Barra superior · ícones", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='acao']", seletorTipo: ".a4p-topbar [data-topbar='acao']" },
+  { id: "topbarMenu", label: "Barra superior · menu ⋮", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='menu']", seletorTipo: ".a4p-topbar [data-topbar='menu']" },
   { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
   { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
   { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
@@ -105,6 +112,7 @@ const PADROES: Padrao[] = [
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
   { id: "iaTudo", label: "All 4 Pay AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
+  { id: "topbarTudo", label: "Barra superior (toda)", grupo: "Barra superior", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
 ];
 
 /** Alvos de borda oferecidos direto no Global (os mais pedidos). */
@@ -154,6 +162,13 @@ function padraoDe(el: Element): Padrao | null {
 function raizDe(el: Element): { no: Element; prefixo: string } | null {
   const side = el.closest(".a4p-sidebar");
   if (side) return { no: side, prefixo: ".a4p-sidebar" };
+  // ⚠️ A barra superior é IRMÃ do `<main>.ds-visor` no AppShell (ambas vivem
+  // dentro do `.a4p-canvas`), exatamente como a IA. Sem âncora própria o
+  // `closest` não achava raiz nenhuma, `caminhoUnico` devolvia `null` e clicar
+  // em qualquer coisa da barra com o picker simplesmente não selecionava — o
+  // mesmo defeito que o chat teve antes de ganhar `.a4p-ia`.
+  const topo = el.closest(".a4p-topbar");
+  if (topo) return { no: topo, prefixo: ".a4p-topbar" };
   const fab = el.closest(".a4p-ia-fab");
   if (fab) return { no: fab, prefixo: ".a4p-ia-fab" };
   const ia = el.closest(".a4p-ia");
@@ -378,7 +393,12 @@ function montarCSS(s: DesignState): string {
     // Idem p/ os cards: a folha declara-se "unlayered de propósito (vence as
     // utilities bg-white)", então não confiamos só no token.
     `html:not(.dark) .ds-visor [data-card="1"]{background-color:${s.cores.cardBg} !important}`,
-    `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *{font-family:${stack};}`,
+    // ⚠️ A barra superior entra aqui junto com a sidebar. Sem ela, trocar a
+    // "fonte do app" deixava o chrome de cima na tipografia antiga — e uma
+    // barra que não acompanha o resto lê como pedaço de outro sistema, que é
+    // exatamente o que a decisão de dar a ela o MESMO material do cartão
+    // (`.a4p-sidebar, .a4p-topbar` em globals.css) existe para evitar.
+    `.ds-visor,.ds-visor *,.a4p-sidebar,.a4p-sidebar *,.a4p-topbar,.a4p-topbar *{font-family:${stack};}`,
     `.ds-visor,.ds-visor *{letter-spacing:${tr}em;}`,
   ];
   if (s.numMesmaFonte) out.push(`.ds-visor .tabular-nums,.ds-visor .a4p-num,.ds-visor .a4p-num *{font-family:${stack} !important;}`);
