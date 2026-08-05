@@ -62,7 +62,6 @@ export const ROTAS_PRO: string[] = [
   // Grupo "Governança"
   "/aprovacoes",
   "/governanca",
-  "/automacoes",
   "/consolidado",
   // Rotas legadas que redirecionam para as ABAS Pro do assistente — sem elas,
   // o redirect seria um caminho aberto para a mesma tela.

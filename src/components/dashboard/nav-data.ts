@@ -133,7 +133,6 @@ export const SECTIONS: Section[] = [
     id: "plataforma", label: "Governança", icon: "shield-check", pro: true, items: [
       { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks" },
       { label: "Governança e auditoria", href: "/governanca", icon: "shield-check" },
-      { label: "Automações", href: "/automacoes", icon: "workflow" },
       { label: "Consolidado", href: "/contabilidade?aba=consolidado", icon: "building" },
     ],
   },

@@ -29,7 +29,6 @@ const NOME_DA_ROTA: Record<string, string> = {
   "/impostos": "Apuração de impostos",
   "/aprovacoes": "Solicitações e aprovações",
   "/governanca": "Governança e auditoria",
-  "/automacoes": "Automações",
   "/consolidado": "Consolidado multiempresa",
   "/decisao": "Motor de decisão",
   "/risco": "Motor de risco de caixa",

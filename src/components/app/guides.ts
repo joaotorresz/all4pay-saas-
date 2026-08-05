@@ -228,14 +228,6 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/automacoes": {
-    titulo: "Automações",
-    intro: "Motor de regras low-code (gatilho + condições + ações) com auditoria e ponte para o risco. Cada evento financeiro pode disparar uma ação.",
-    comoUsar: "Crie/edite regras (SE evento E condição ENTÃO ação). As execuções ficam auditadas; em live, rodam sobre eventos derivados do estado real.",
-    exemplo: "SE saldo < R$ 5.000 ENTÃO notificar no WhatsApp; SE despesa variar > 30% ENTÃO recalcular risco e alertar.",
-    secoes: [],
-  },
-
   /* ----------------------------- Receber ----------------------------- */
   "/recebiveis": {
     titulo: "Entradas",

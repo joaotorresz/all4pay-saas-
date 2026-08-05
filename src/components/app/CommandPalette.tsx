@@ -82,7 +82,6 @@ const ROUTES: RouteItem[] = [
   { label: "Inteligência de dados", href: "/all4pay-ai?aba=dados", icon: "database", kw: "moat benchmark dna" },
   { label: "Governança", href: "/governanca", icon: "shield-check", kw: "auditoria rbac aprovacao" },
   { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks", kw: "reconciliacao matching conciliar ingestao" },
-  { label: "Automações", href: "/automacoes", icon: "workflow", kw: "regras alertas notificacoes" },
   { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart", kw: "vendas notas fiscais status venda nf plataforma hotmart taxa liquido" },
   { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus", kw: "nova venda lancar produto taxa plataforma comissao coprodutor afiliado liquido" },
   { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text", kw: "nota fiscal nf emitida processando cancelada negada download lote" },
