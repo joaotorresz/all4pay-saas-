@@ -41,10 +41,10 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   // `liga`. Serve para avaliar texto; nos valores as colunas não alinham, que é
   // justamente o que o `tabular-nums` do sistema existe para garantir.
   { id: "knocky", label: "Knocky Semibold", stack: '"Knocky",sans-serif' },
-  // ⚠️ DEMO de 66 caracteres: sem `$`, sem `%`, sem hífen/menos e sem NENHUM
-  // acento pt-BR. O texto não some — sai misturado, alternando de fonte dentro
-  // da mesma palavra ("Distribuição", "R$"). O rótulo avisa antes do clique.
-  { id: "obviously", label: "Obviously Narrow (demo · sem acentos e sem R$)", stack: '"Obviously Narrow",sans-serif' },
+  // Versão completa: 365 caracteres, com `$`, `%`, menos (U+2212) e todos os
+  // acentos pt-BR. ⚠️ Dígitos PROPORCIONAIS (nove larguras; o `1` mede metade
+  // do `0`) e sem `tnum` — em coluna de valores não alinha. Vale para texto.
+  { id: "obviously", label: "Obviously Narrow Bold", stack: '"Obviously Narrow",sans-serif' },
   { id: "geist", label: "Geist Mono", stack: '"Geist Mono Variable",ui-monospace,monospace' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
