@@ -96,6 +96,26 @@
   font-display: swap;
 }
 
+/* Obviously Demo Narrow Bold — candidata em avaliação, SÓ pelo Laboratório.
+   ⚠️ É uma DEMO com 66 caracteres: `,.` + `0-9` + `A-Z` + `a-z` + espaço. Não é
+   uma fonte incompleta em detalhes — faltam exatamente os sinais que este
+   produto mais usa:
+     · `$`  → todo "R$" sai partido (o R nela, o $ no fallback)
+     · `%`  → percentuais
+     · `-`  e `−` (U+2212) → todo valor negativo
+     · todos os acentos pt-BR → "Distribuição", "Saídas", "Orçamento"…
+   O navegador resolve caractere a caractere, então o texto NÃO deixa de
+   aparecer: ele aparece MISTURADO, alternando entre duas fontes dentro da mesma
+   palavra. Serve para julgar o desenho das letras e dos dígitos; não serve para
+   avaliar a tela como ela ficaria. Uma licença completa resolveria. */
+@font-face {
+  font-family: "Obviously Narrow";
+  src: url("/fonts/obviously-narrow-bold.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------
