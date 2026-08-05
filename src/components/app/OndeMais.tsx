@@ -71,18 +71,20 @@ export function OndeMais({
 /* Os conjuntos conhecidos                                                     */
 /* ========================================================================== */
 
-/** As três telas de assinatura. */
+/**
+ * As telas de assinatura.
+ *
+ * ⚠️ Eram TRÊS. O painel de assinaturas (`/dashboard/dashboards/subscriptions`)
+ * saiu no corte de 05/08/2026 — ele lia o MESMO motor da lista e a diferença
+ * era só a forma de mostrar, então o que restava era um segundo lugar onde o
+ * MRR aparecia e podia parecer discordar. Sobraram duas, que respondem
+ * perguntas de verdade diferentes: os CONTRATOS e as FATURAS que eles geram.
+ */
 export const IRMAS_ASSINATURAS: Record<string, Irma[]> = {
-  painel: [
-    { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas em Vendas", responde: "a lista dos contratos, um a um" },
-    { rota: "/recebimentos?aba=recorrencias", nome: "Recorrências em Receber", responde: "as faturas que elas geram no caixa" },
-  ],
   lista: [
-    { rota: "/dashboard/dashboards/subscriptions", nome: "Dashboard de Assinaturas", responde: "MRR, ARR, churn e evolução" },
     { rota: "/recebimentos?aba=recorrencias", nome: "Recorrências em Receber", responde: "as faturas que elas geram no caixa" },
   ],
   recorrencias: [
-    { rota: "/dashboard/dashboards/subscriptions", nome: "Dashboard de Assinaturas", responde: "MRR, ARR, churn e evolução" },
     { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas em Vendas", responde: "a lista dos contratos, um a um" },
   ],
 };

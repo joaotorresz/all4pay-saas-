@@ -44,12 +44,11 @@ export const SECTIONS: Section[] = [
   { id: "ia", label: "All 4 Pay AI", icon: "sparkles", href: "/all4pay-ai", items: [] },
   {
     id: "dashboards", label: "Dashboards", icon: "layers", items: [
-      { label: "Painel financeiro", href: "/dashboard/dashboards/financial", icon: "gauge" },
-      { label: "Painel de vendas", href: "/dashboard/dashboards/sales", icon: "shopping-cart" },
-      { label: "Assinaturas (MRR e churn)", href: "/dashboard/dashboards/subscriptions", icon: "repeat" },
-      { label: "Painel de contas a pagar", href: "/dashboard/dashboards/payables", icon: "arrow-up-right" },
-      { label: "Painel de contas a receber", href: "/dashboard/dashboards/receivables", icon: "arrow-left-right" },
-      { label: "Calendário", href: "/dashboard/financial/calendar", icon: "calendar" },
+      // ⚠️ Os cinco painéis curados e o Calendário SAÍRAM (05/08/2026). Cada um
+      // respondia uma pergunta que outra tela já responde — e duas telas com o
+      // mesmo rótulo produzem dois números, um deles sempre mais velho. Os
+      // endereços viraram desvio 308 em `core/rotas/aliases`, então favorito e
+      // link compartilhado continuam chegando na tela que responde.
       { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "grip-vertical" },
     ],
   },
