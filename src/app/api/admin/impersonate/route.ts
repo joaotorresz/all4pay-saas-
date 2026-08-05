@@ -3,11 +3,21 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdmin } from "@/lib/supabase/admin";
 
 /**
- * Impersonação "logar como" — SERVER-ONLY. O super-admin assume a sessão do
- * OWNER de uma organização: gera um magic link (service role) que loga como
- * aquele usuário; daí em diante o app responde via RLS daquela org. Gateado:
- * só quem está em `platform_admins`. Toda impersonação é AUDITADA (admin_audit).
- * Requer SUPABASE_SERVICE_ROLE_KEY. Para voltar à conta de admin: sair e logar.
+ * Impersonação "logar como" — SERVER-ONLY. O administrador da plataforma assume
+ * a sessão do OWNER de uma organização: gera um magic link (chave de serviço)
+ * que loga como aquele usuário; daí em diante o app responde via RLS daquela
+ * org. Requer SUPABASE_SERVICE_ROLE_KEY. Para voltar: sair e logar.
+ *
+ * ⚠️ O PORTÃO MAIS PODEROSO DO PAINEL ERA O MAIS FRACO. Ele conferia só se o
+ * `user_id` existia em `platform_admins` — sem segundo fator, sem prazo de
+ * revisão, sem expiração — enquanto as treze funções administrativas, que
+ * apenas LEEM, passavam por `admin_veredito()`. Ler a lista de clientes era
+ * mais difícil que entrar na conta de um deles.
+ *
+ * Agora a conferência é `admin_exigir_acesso`, chamada com a sessão de QUEM
+ * PEDE (não com a chave de serviço, que não tem dono): ela aplica o mesmo
+ * veredito e REGISTRA a tentativa em `admin_acessos` — inclusive quando nega,
+ * que é o registro que mais importa.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,17 +28,29 @@ export async function POST(req: Request) {
   if (!orgId) return NextResponse.json({ ok: false, reason: "orgId ausente" }, { status: 400 });
 
   // 1) quem está chamando
-  const { data: auth } = await createClient().auth.getUser();
+  const doChamador = createClient();
+  const { data: auth } = await doChamador.auth.getUser();
   const caller = auth?.user;
   if (!caller) return NextResponse.json({ ok: false, reason: "não autenticado" }, { status: 401 });
 
-  // 2) service role (bypassa RLS) — necessário para gerar a sessão
+  /*
+   * 2) O PORTÃO, com a sessão de quem pede.
+   *
+   * ⚠️ Tem de ser o cliente do CHAMADOR, não o de serviço: `admin_veredito()`
+   * responde pelo `auth.uid()`, e a chave de serviço não tem dono — chamada por
+   * ela, a função negaria sempre (e, pior, negaria sem saber de quem). É esta
+   * chamada que aplica segundo fator, prazo e expiração, e que grava a
+   * tentativa em `admin_acessos` mesmo quando o resultado é "não".
+   */
+  const { error: negado } = await doChamador.rpc("admin_exigir_acesso", {
+    p_funcao: "impersonate",
+    p_alvo: orgId,
+  });
+  if (negado) return NextResponse.json({ ok: false, reason: negado.message }, { status: 403 });
+
+  // 3) service role (bypassa RLS) — necessário para gerar a sessão
   const admin = createAdmin();
   if (!admin) return NextResponse.json({ ok: false, reason: "SUPABASE_SERVICE_ROLE_KEY não configurada" }, { status: 501 });
-
-  // 3) o chamador é super-admin?
-  const { data: adm } = await admin.from("platform_admins").select("user_id").eq("user_id", caller.id).maybeSingle();
-  if (!adm) return NextResponse.json({ ok: false, reason: "acesso negado" }, { status: 403 });
 
   // 4) owner da org-alvo
   const { data: owner } = await admin
@@ -49,7 +71,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: error?.message ?? "falha ao gerar sessão" }, { status: 500 });
   }
 
-  // 6) auditoria
+  /*
+   * 6) auditoria da ação CONCLUÍDA.
+   *
+   * A TENTATIVA já ficou registrada em `admin_acessos` no passo 2, antes de
+   * qualquer efeito — então uma falha aqui não deixa mais a impersonação sem
+   * rastro nenhum, que era o caso quando este `insert` era o único registro e
+   * vinha depois do link já gerado.
+   */
   await admin.from("admin_audit").insert({ admin_id: caller.id, action: "impersonate", target: orgId, detail: { email } });
 
   return NextResponse.json({ ok: true, link: link.properties.action_link, email });
