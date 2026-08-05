@@ -2045,5 +2045,82 @@ const AGOSTO = janelaMes(2026, 7);
   console.log(`  · controles: ${CONTROLES.length} declarados · ${destrutivas.length} destrutivos · ${porTipo("navegacao").length} de navegação`);
 }
 
+
+/* ========================================================================== */
+/* LINHA 29 — NAVEGAÇÃO: o teto do menu e a justificativa de toda rota.        */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ AS DUAS GUARDAS QUE IMPEDEM O MENU DE VOLTAR A QUINZE GRUPOS.
+   *
+   * A entropia aqui não é figura de linguagem: já aconteceu duas vezes neste
+   * repositório. Ninguém acrescentou quinze grupos de uma vez — cada um entrou
+   * sozinho, defensável, com um dono que precisava daquilo hoje. O que faltava
+   * era o momento em que alguém teria de OLHAR O TOTAL, e é ele que estas duas
+   * criam.
+   *
+   * Os tetos estão ancorados no MEDIDO, não num número redondo com folga. Um
+   * teto com folga é um teto que já nasce autorizando o próximo item, e a folga
+   * some sem discussão nenhuma; um teto no medido obriga quem quer acrescentar
+   * a dizer o que sai. É a mesma decisão dos orçamentos de desempenho da
+   * ONDA 12 — teto ancorado no que existe, subir exige justificativa escrita.
+   */
+  const TETO_GRUPOS = 6;        // Início · Movimentações · Entradas · Relatórios · Cadastros · Contabilidade e impostos
+  const TETO_ITENS_POR_GRUPO = 10;  // Relatórios, o maior
+  const TETO_ITENS_TOTAL = 50;      // a soma de hoje, incluindo o rodapé de Configurações
+
+  ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
+     SECTIONS.length <= TETO_GRUPOS,
+     `${SECTIONS.length} grupos: ${SECTIONS.map((s) => s.label).join(" · ")}`);
+
+  const gordos = [...SECTIONS, CONFIG].filter((s) => s.items.length > TETO_ITENS_POR_GRUPO);
+  ok(`nav: nenhum grupo passa de ${TETO_ITENS_POR_GRUPO} itens`, gordos.length === 0,
+     gordos.map((s) => `${s.label} (${s.items.length})`).join(", "));
+
+  const total = [...SECTIONS, CONFIG].reduce((n, s) => n + s.items.length + (s.href ? 1 : 0), 0);
+  ok(`nav: o menu inteiro não passa de ${TETO_ITENS_TOTAL} destinos`, total <= TETO_ITENS_TOTAL,
+     `${total} destinos`);
+
+  // ⚠️ E o que a soma esconde: um menu dentro do teto ainda pode ter um grupo
+  // com um item só, que é uma linha de menu fingindo ser uma categoria. `href`
+  // presente é o caso legítimo (o grupo É o destino, como Início).
+  const magros = SECTIONS.filter((s) => !s.href && s.items.length < 2);
+  ok("nav: nenhum grupo existe para abrigar um item só", magros.length === 0,
+     magros.map((s) => s.label).join(", "));
+
+  /*
+   * A segunda: ROTA NOVA EXIGE LINHA COM DONO E CRITÉRIO.
+   *
+   * A guarda da LINHA 26 já cobra que toda rota publicada tenha linha. O que
+   * ela não cobrava é a linha DIZER ALGUMA COISA: `dono` respondia "a quem
+   * perguntar" e nada respondia "por que isto existe". Sem essa segunda
+   * pergunta, uma rota entra porque alguém precisava dela hoje e fica para
+   * sempre, porque remover parece arriscado e ninguém sabe o que ela custa.
+   */
+  const CRITERIOS = ["nucleo", "diferencial", "travada", "ferramenta"];
+  const semCriterio = INVENTARIO.filter((i) => !CRITERIOS.includes(i.criterio));
+  ok("inventário: toda rota declara o critério pelo qual existe", semCriterio.length === 0,
+     semCriterio.map((i) => i.rota).join(", "));
+  const semDono = INVENTARIO.filter((i) => !i.dono);
+  ok("inventário: toda rota tem dono", semDono.length === 0,
+     semDono.map((i) => i.rota).join(", "));
+
+  // ⚠️ Coerência entre o critério e o gate: o que está declarado como TRAVADA
+  // tem de estar trancado no servidor, e o que está trancado tem de estar
+  // declarado. As duas listas divergirem é o defeito da cortina de novo —
+  // agora com uma declaração escrita dizendo que está tudo certo.
+  const travadasSemGate = INVENTARIO.filter((i) => i.criterio === "travada" && !exigePro(i.rota));
+  ok("inventário: rota declarada travada é bloqueada no servidor", travadasSemGate.length === 0,
+     travadasSemGate.map((i) => i.rota).join(", "));
+  const gateSemDeclaracao = INVENTARIO.filter((i) => i.criterio !== "travada" && exigePro(i.rota));
+  ok("inventário: rota bloqueada no servidor está declarada travada", gateSemDeclaracao.length === 0,
+     gateSemDeclaracao.map((i) => i.rota).join(", "));
+
+  const porCriterio = CRITERIOS.map(
+    (c) => `${INVENTARIO.filter((i) => i.criterio === c).length} ${c}`,
+  ).join(" · ");
+  console.log(`  · nav: ${SECTIONS.length} grupos · ${total} destinos · inventário: ${porCriterio}`);
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
 if (fails > 0) process.exit(1);
