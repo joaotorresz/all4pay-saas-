@@ -12,9 +12,25 @@ on:
     branches: ["**"]
   pull_request:
 
+# ⚠️ TODO push num branch com PR aberto disparava DOIS runs idênticos (o evento
+# `push` e o `pull_request`), e os dois competiam pelos mesmos minutos para
+# responder a mesma pergunta. Agrupar por ref e cancelar o anterior resolve as
+# duas coisas: some a duplicata, e um push novo não fica atrás de uma execução
+# que já não interessa.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # ⚠️ O padrão do GitHub é SEIS HORAS. Em 05/08 duas execuções ficaram presas
+    # no passo de build — o mesmo commit compilou aqui em ~2 minutos e o deploy
+    # de pré-visualização subiu normalmente, então era o runner, não o código.
+    # Sem teto, um travamento desses deixa o PR com verificação pendente por um
+    # turno inteiro de trabalho, e "pendente" é indistinguível de "ainda não
+    # rodou" para quem chega depois. O teto é 6x a duração medida (~2 min).
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
