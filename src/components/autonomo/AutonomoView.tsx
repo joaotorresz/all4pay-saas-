@@ -39,7 +39,7 @@ export function AutonomoView() {
     );
   }
   if (isError || !data) {
-    return <Card><p className="text-muted">Não foi possível rodar a operação autônoma.</p></Card>;
+    return <Card><p className="text-muted">Não foi possível calcular as sugestões agora.</p></Card>;
   }
 
   const { decisoes, nextBestAction, politicas, collections, routing, hitl } = data;
@@ -51,17 +51,24 @@ export function AutonomoView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Headline + next best action */}
-      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Operação autônoma", oQue: "Mostra o diagnóstico geral e a próxima melhor ação que o sistema recomenda executar agora." }}>
+      {/*
+        * ⚠️ "Operação financeira autônoma" descrevia uma coisa que não existe.
+        * Nada aqui roda sozinho: o motor lê o estado, aplica as políticas e
+        * PROPÕE. Quem age é uma pessoa, clicando, no card de sugestões do
+        * copiloto. O nome antigo não era só otimista — ele fazia o operador
+        * supor que a cobrança estava saindo enquanto ele não fizesse nada.
+        */}
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Sugestões do motor", oQue: "O diagnóstico geral e a sugestão de maior prioridade agora. São sugestões — nada é executado sem você." }}>
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="cpu" size={14} color="var(--color-on-lime)" />
           </span>
-          <span className="text-label font-medium text-muted">Operação financeira autônoma</span>
+          <span className="text-label font-medium text-muted">Sugestões do motor financeiro</span>
         </div>
         <p className="m-0 text-h3 leading-[1.5] font-regular text-ink">{data.headline}</p>
         {nextBestAction && (
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-surface-1 p-3">
-            <span className="text-caption font-medium text-faint tracking-wide">Próxima melhor ação</span>
+            <span className="text-caption font-medium text-faint tracking-wide">Sugestão de maior prioridade</span>
             <span className="text-[18px] font-medium text-ink">{nextBestAction.acao}</span>
             <span className="text-caption text-muted">{nextBestAction.impacto}</span>
             <span className="text-caption text-faint ml-auto">confiança {Math.round(nextBestAction.confianca * 100)}%</span>
@@ -70,21 +77,21 @@ export function AutonomoView() {
       </Card>
 
       {/* Decisões */}
-      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Decisões financeiras", oQue: "Lista as decisões que o sistema propõe (cobrar, pagar, mover capital, reduzir risco) por prioridade.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada decisão com impacto esperado, confiança e os fatores que a explicam." }}>
-        <span className="text-label font-medium text-muted">Decisões financeiras</span>
+      <Card className="lg:col-span-2 flex flex-col gap-3" info={{ titulo: "Sugestões por prioridade", oQue: "O que o motor sugere fazer (cobrar, pagar, mover capital, reduzir risco), em ordem de prioridade. Executar é decisão sua, no copiloto.", comoCalcula: "As políticas avaliam o estado da operação e emitem cada sugestão com impacto esperado, confiança e os fatores que a explicam." }}>
+        <span className="text-label font-medium text-muted">Sugestões por prioridade</span>
         {decisoes.length === 0 ? (
-          <span className="text-caption text-faint">Operação estável — nenhuma decisão acionável.</span>
+          <span className="text-caption text-faint">Operação estável — nada a sugerir agora.</span>
         ) : (
           decisoes.map((d) => <DecisaoRow key={d.id} d={d} />)
         )}
       </Card>
 
       {/* Human-in-the-loop */}
-      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Human-in-the-loop", oQue: "Mostra o que roda sozinho e o que fica na sua mão, mantendo o controle sobre o dinheiro.", comoCalcula: "Ações reversíveis e abaixo do limite automático com confiança suficiente executam sozinhas; o resto escala para aprovação." }}>
-        <span className="text-label font-medium text-muted">Human-in-the-loop</span>
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "O que precisa de aprovação", oQue: "Separa a sugestão que você pode acionar direto da que só segue passando pela alçada.", comoCalcula: "Sugestão reversível, abaixo do limite e com confiança suficiente fica na sua mão; acima disso, só por aprovação." }}>
+        <span className="text-label font-medium text-muted">O que precisa de aprovação</span>
         <div className="flex gap-6">
           <div>
-            <div className="text-caption text-faint">Automáticas</div>
+            <div className="text-caption text-faint">Direto com você</div>
             <div className="text-h2 font-medium tabular-nums text-positive leading-none">{hitl.automaticas}</div>
           </div>
           <div>
@@ -93,7 +100,7 @@ export function AutonomoView() {
           </div>
         </div>
         <span className="text-caption text-faint">
-          Executa sozinho até <BRL value={hitl.limiteAutomatico} /> e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%; acima disso, escala para aprovação. Ações reversíveis (cobrança/monitoramento) são automáticas.
+          Até <BRL value={hitl.limiteAutomatico} /> e confiança ≥ {Math.round(hitl.confiancaMinima * 100)}%, a sugestão fica na sua mão; acima disso, só segue por aprovação. ⚠️ Nada é executado sem alguém clicar — nem aqui, nem depois.
         </span>
         {decisoes.filter((d) => d.modo === "requer_aprovacao").length > 0 && (
           <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
@@ -106,14 +113,14 @@ export function AutonomoView() {
       </Card>
 
       {/* Políticas */}
-      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Políticas autônomas", oQue: "Mostra as regras SE então que guiam a operação e quais foram acionadas agora.", comoCalcula: "Cada política avalia o contexto (risco, saldo, inadimplência, concentração) e dispara quando a condição é atendida." }}>
-        <span className="text-label font-medium text-muted">Políticas autônomas · SE → ENTÃO</span>
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Políticas", oQue: "As regras SE→ENTÃO que produzem as sugestões, e quais delas o estado de hoje acionou.", comoCalcula: "Cada política avalia o contexto (risco, saldo, inadimplência, concentração) e emite a sugestão quando a condição é atendida." }}>
+        <span className="text-label font-medium text-muted">Políticas · SE → ENTÃO</span>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
           {politicas.map((p) => <PoliticaRow key={p.id} p={p} />)}
         </div>
       </Card>
 
-      {/* Cobrança autônoma */}
+      {/* Cobrança sugerida */}
       <CobrancaCard collections={collections} partyDe={partyDe} />
 
       {/* Roteamento de pagamento */}
@@ -141,7 +148,7 @@ function DecisaoRow({ d }: { d: FinancialDecision }) {
           </span>
           <span className="text-[17px] font-medium text-ink">{d.titulo}</span>
           <span className="text-caption font-medium ml-auto" style={{ color: auto ? "var(--color-positive)" : "var(--color-warning)" }}>
-            {auto ? "automático" : "requer aprovação"}
+            {auto ? "decisão sua" : "requer aprovação"}
           </span>
         </div>
         <span className="text-caption text-muted">{d.recomendacao}</span>
@@ -238,7 +245,7 @@ function CobrancaCard({ collections, partyDe }: { collections: CollectionPlan[];
     <Card className="lg:col-span-2 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-1">
-          Cobrança autônoma · canal · horário · estratégia
+          Cobrança sugerida · canal · horário · estratégia
           <InfoHint align="left" oQue="Organiza a cobrança dos clientes em aberto, definindo canal, horário e tom para cada um." comoCalcula="Um modelo preditivo escolhe canal, horário e estratégia por cliente a partir do comportamento de pagamento dele." />
         </span>
         <Button variant="primary" size="sm" disabled={enviando || enviaveis.length === 0} onClick={disparar}>

@@ -1,10 +1,19 @@
 "use client";
 
 /**
- * Ações do Copiloto — o que faz o /copiloto AGIR (não só informar). Lê as
- * decisões priorizadas do motor autônomo (que já une decisão/crédito/anomalias/
- * tesouraria) e deixa o operador EXECUTAR a ação reversível ou ENVIAR para a
- * alçada — tudo registrado na trilha `ai_actions` (demo + live).
+ * SUGESTÕES do copiloto — o que o motor autônomo recomenda, com a fronteira
+ * entre sugerir e fazer visível na própria linha.
+ *
+ * ⚠️ Este card dizia "a All 4 Pay AI pode agir", oferecia um botão "Executar" e
+ * carimbava "Feita" — para uma chamada cujo efeito inteiro era escrever uma
+ * linha na trilha. O motor é bom e a priorização é real; o que era falso era o
+ * VERBO. E um verbo falso aqui não é exagero de marketing: quem lê "Feita" ao
+ * lado de "cobrar cliente X" para de cobrar o cliente X.
+ *
+ * Cada sugestão declara agora o que acontece ao clicar, ANTES do clique:
+ *   - cobrança → sai de verdade por WhatsApp (simulada, e dito, sem chave);
+ *   - acima da alçada → abre uma solicitação em /aprovações;
+ *   - o resto → fica registrada na trilha, e nada mais acontece.
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,16 +52,16 @@ export function AcoesCopiloto() {
     <Card className="lg:col-span-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
-          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Ações recomendadas — a All 4 Pay AI pode agir
+          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Sugestões da All 4 Pay AI
           <InfoHint
-            titulo="Ações recomendadas"
-            oQue="As decisões que a IA pode executar por você (como cobrar um cliente) ou enviar para aprovação, em vez de só apontar o problema."
-            comoCalcula="O motor autônomo prioriza cada decisão por impacto e confiança; ações reversíveis dentro da alçada rodam na hora, acima disso vão para aprovação."
+            titulo="Sugestões da All 4 Pay AI"
+            oQue="O que o motor recomenda fazer agora, em ordem de impacto. São SUGESTÕES: nada é executado sem você clicar, e cada linha diz o que o clique faz."
+            comoCalcula="O motor autônomo prioriza cada sugestão por impacto e confiança. Só duas coisas saem daqui de verdade: a cobrança por WhatsApp e a abertura de uma solicitação na alçada. As demais ficam registradas na trilha."
           />
         </span>
         {data?.hitl && (
           <span className="text-caption text-faint">
-            executa sozinho até <BRL value={data.hitl.limiteAutomatico} /> · acima disso, vai para aprovação
+            acima de <BRL value={data.hitl.limiteAutomatico} />, a sugestão só segue por aprovação
           </span>
         )}
       </div>
@@ -65,6 +74,9 @@ export function AcoesCopiloto() {
         <div className="flex flex-col">
           {decisoes.map((d, i) => {
             const auto = d.modo === "automatico";
+            // A cobrança é a ÚNICA que sai do sistema — o rótulo do botão tem
+            // de separá-la das demais antes do clique, não depois.
+            const cobra = d.tipo === "cobranca" && auto;
             const done = feito[d.id];
             return (
               <div key={d.id} className={`flex items-start gap-3 py-3 ${i ? "border-t border-border-soft" : ""}`}>
@@ -82,10 +94,15 @@ export function AcoesCopiloto() {
                   {done && <div className="text-caption text-positive mt-1">✓ {done}</div>}
                 </div>
                 {done ? (
-                  <StatusBadge tone="positive">{feito[d.id]?.includes("aprovação") ? "Enviada" : "Feita"}</StatusBadge>
+                  // ⚠️ "Feita" some. O selo repete o que a mensagem do motor
+                  // disse ter acontecido — e ela agora distingue enviada de
+                  // registrada, que é a distinção inteira.
+                  <StatusBadge tone={done.includes("Nenhuma ação") || done.startsWith("Simulação") ? "neutral" : "positive"}>
+                    {done.includes("aprovação") ? "Em aprovação" : done.includes("enviada") ? "Enviada" : "Registrada"}
+                  </StatusBadge>
                 ) : (
-                  <Button size="sm" variant={auto ? "primary" : "secondary"} disabled={busy === d.id} onClick={() => agir(d)}>
-                    {busy === d.id ? "…" : auto ? "Executar" : "Enviar p/ aprovação"}
+                  <Button size="sm" variant="secondary" disabled={busy === d.id} onClick={() => agir(d)}>
+                    {busy === d.id ? "…" : cobra ? "Enviar cobrança" : auto ? "Registrar sugestão" : "Enviar p/ aprovação"}
                   </Button>
                 )}
               </div>
@@ -96,7 +113,7 @@ export function AcoesCopiloto() {
 
       {trail.length > 0 && (
         <div className="border-t border-border-soft pt-3 flex flex-col gap-1">
-          <span className="text-caption font-medium text-faint">Histórico de ações da IA</span>
+          <span className="text-caption font-medium text-faint">Trilha das sugestões</span>
           {trail.slice(0, 6).map((a) => (
             <div key={a.id} className="flex items-center justify-between gap-3 text-caption">
               <span className="text-muted truncate">{a.titulo}</span>

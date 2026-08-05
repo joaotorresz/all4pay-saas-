@@ -1,10 +1,20 @@
 /**
- * Camada de AÇÃO do Copiloto — o que torna a IA "que age" (não só informa).
- * Une a trilha `ai_actions` (demo + live) ao executor de `FinancialDecision`
- * (dos motores decisão/autônomo) com human-in-the-loop:
- *   - `automatico`  → executa a ação reversível e registra na trilha;
- *   - `requer_aprovacao` → abre uma solicitação na alçada (`/aprovacoes`).
- * Toda ação — executada ou proposta — vira um registro auditável em `ai_actions`.
+ * Camada de ação do Copiloto — e a fronteira, escrita, entre o que a IA
+ * SUGERE e o que ela de fato FAZ.
+ *
+ * ⚠️ Esta fronteira não existia, e a interface ficava do lado errado dela. O
+ * botão dizia "Executar", o resultado dizia "executada" e o histórico dizia
+ * "Feita" — para uma função cujo corpo inteiro era escrever uma linha na
+ * trilha. Ninguém foi cobrado, nenhum monitoramento foi ativado, nenhum
+ * fornecedor foi renegociado. Um sistema financeiro que afirma ter agido sem
+ * ter agido não é uma promessa exagerada: é um registro falso, e ele vai ser
+ * lido no dia em que alguém perguntar por que a cobrança não chegou.
+ *
+ * Só DUAS coisas acontecem de verdade daqui, e as duas são verificáveis:
+ *   - `requer_aprovacao` → abre uma solicitação na alçada (`/aprovacoes`);
+ *   - cobrança → sai por `/api/cobranca/whatsapp` (Twilio; **simulada** sem
+ *     chave, e a mensagem diz qual dos dois foi).
+ * Todo o resto é SUGESTÃO REGISTRADA — e é assim que a trilha a nomeia.
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
@@ -15,7 +25,12 @@ import type { Party } from "@/lib/types";
 
 const KEY = "a4p_ai_actions";
 
-export type StatusAcao = "executada" | "proposta" | "lida";
+/**
+ * ⚠️ `registrada` é o estado que faltava. Sem ele, tudo que a IA propunha
+ * caía em "executada" por não haver terceira opção — e a trilha, que é a
+ * prova de o que aconteceu, passava a afirmar o que não aconteceu.
+ */
+export type StatusAcao = "executada" | "registrada" | "proposta" | "lida";
 export interface AcaoIA {
   id: string;
   ts: string;
@@ -95,13 +110,26 @@ export async function executarDecisao(d: FinancialDecision): Promise<ResultadoEx
     return { ok: true, status: "proposta", mensagem: "Enviada para aprovação na alçada (/aprovacoes)." };
   }
 
-  // Ação reversível dentro da alçada → executa e registra.
-  const detalhe =
-    d.tipo === "cobranca" ? "Cobrança acionada (segmentação do all4pay; envio em Cobrança/Autônomo)."
-    : d.tipo === "risco" ? "Monitoramento ativado e alerta registrado."
-    : d.recomendacao;
-  await logAcaoIA({ kind: "decision", titulo: d.titulo, detalhe, status: "executada" });
-  return { ok: true, status: "executada", mensagem: detalhe };
+  /*
+   * ⚠️ AQUI NÃO SE EXECUTA NADA, e é por isso que a mensagem mudou.
+   *
+   * Este ramo escrevia "Monitoramento ativado e alerta registrado" e marcava a
+   * ação como executada. Nenhum monitoramento é ativado por esta função — o
+   * corpo dela é uma linha na trilha. A frase certa é a que descreve o que
+   * aconteceu: a sugestão ficou registrada, com quem a viu e quando.
+   *
+   * A cobrança é a única que age de verdade, e ela NÃO passa por aqui: a tela
+   * a manda para `dispararCobranca`, que sai pela Twilio.
+   */
+  await logAcaoIA({
+    kind: "decision", titulo: d.titulo,
+    detalhe: `Sugestão registrada · ${d.recomendacao}`,
+    status: "registrada",
+  });
+  return {
+    ok: true, status: "registrada",
+    mensagem: "Sugestão registrada na trilha. Nenhuma ação foi executada.",
+  };
 }
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
@@ -169,10 +197,24 @@ export async function dispararCobranca(collections: CollectionPlan[], parties: P
     });
     const j = await res.json().catch(() => ({}));
     const enviados = (j.enviados ?? []) as Array<{ resultado?: { ok?: boolean } }>;
-    const ok = enviados.filter((e) => e.resultado?.ok).length || alvos.length;
-    const msg = `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.`;
-    await logAcaoIA({ kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg, status: "executada" });
-    return { ok: true, status: "executada", mensagem: msg };
+    /*
+     * ⚠️ Era `enviados.filter(ok).length || alvos.length`. Com ZERO entregas o
+     * `0 ||` caía no total e a tela dizia "enviada para 3 de 3" justamente no
+     * caso em que nenhuma saiu — o relato mais falso possível é o que só mente
+     * quando tudo deu errado.
+     */
+    const ok = enviados.filter((e) => e.resultado?.ok).length;
+    // Sem chave da Twilio o envio é SIMULADO no servidor. Chamar isso de
+    // "enviada" faria a pessoa parar de cobrar um cliente que nunca foi avisado.
+    const real = !!(j?.provedores as { whatsapp?: boolean } | undefined)?.whatsapp;
+    const msg = real
+      ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.`
+      : `Simulação: ${alvos.length} cobrança(s) preparada(s), nenhuma enviada — o envio por WhatsApp não está configurado.`;
+    await logAcaoIA({
+      kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg,
+      status: real && ok > 0 ? "executada" : "registrada",
+    });
+    return { ok: real && ok > 0, status: real && ok > 0 ? "executada" : "registrada", mensagem: msg };
   } catch {
     const msg = "Não foi possível disparar a cobrança agora.";
     await logAcaoIA({ kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg, status: "proposta" });
