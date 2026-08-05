@@ -43,9 +43,23 @@ Sem isto, o resto é construir sobre areia.
 | 0.6 | **Proteger `main`**: 12 checks obrigatórios, sem bypass de admin | GitHub → Branch protection | Converte "aviso" em "trava". Foi com guardas verdes e sem trava que as 29 derivas conviveram |
 
 ⚠️ **0.4 é irreversível.** Não é merge (144 arquivos conflitantes, nenhum lado é
-base). É renomear: `main → main-junho-2026`, `linha-viva → main`. Antes disso eu
-listo os **54 arquivos que só existem em `main`** para você ver se algo se perdeu
-no reinício.
+base). É renomear: `main → main-junho-2026`, `linha-viva → main`.
+
+**Verificado (05/08):** os **54 arquivos que só existem em `main`** foram
+conferidos um a um e **nenhum é perda funcional**:
+
+- ~24 rotas antigas (`/pagamentos`, `/dre`, `/copiloto`…) → viraram **aliases**
+  com redirect na ONDA 6; cada link antigo ainda leva ao destino;
+- ~24 motores/telas de vitrine técnica (`datamoat`, `orchestration`,
+  `arquitetura`, `inbox`…) → **removidos por decisão** (~2.600 linhas sem uso);
+- `CentralPagamentosView`/`CentralRecebimentosView`/`lib/inbox` → removidos, o
+  funil foi unificado;
+- `AccountsCard` → o componente sumiu, a **função sobrevive** (saldo em
+  `BaseDoSaldo`/`FinanceiroView`);
+- `SalesChart` → só mudou de lugar; o hook `useSalesChart` segue ativo.
+
+Ou seja: promover a linha viva a `main` **não descarta nenhuma funcionalidade**.
+O que `main` tem a mais são versões ANTIGAS do que já evoluiu.
 
 ---
 
