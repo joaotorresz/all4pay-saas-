@@ -79,6 +79,23 @@
   font-display: swap;
 }
 
+/* Knocky Semibold — candidata em avaliação, disponível SÓ pelo Laboratório.
+   ⚠️ Um corte único (usWeightClass 600). A faixa `100 900` existe para o
+   navegador não recusar a família quando o Lab pedir outro peso: sem ela, um
+   `font-weight:400` cairia no fallback e a pessoa concluiria que a fonte não
+   carregou. O peso desenhado continua sendo um só — o resto é sintético.
+   ⚠️ E ela NÃO tem `tnum`: as features do arquivo são `aalt` e `liga`. Onde o
+   sistema exige numeral tabular (`.a4p-num`, `.tabular-nums`, eixos de
+   gráfico), as colunas não vão alinhar. É a razão de ela entrar como fonte de
+   TEXTO para teste, e não como fonte de valores. */
+@font-face {
+  font-family: "Knocky";
+  src: url("/fonts/knocky-semibold.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------

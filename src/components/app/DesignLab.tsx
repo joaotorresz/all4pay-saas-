@@ -37,6 +37,10 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   { id: "roobert-mono", label: "Roobert Mono", stack: '"Roobert Mono",ui-monospace,monospace' },
   { id: "boldonse", label: "Boldonse", stack: '"Boldonse",sans-serif' },
   { id: "schibsted", label: "Schibsted Grotesk", stack: '"Schibsted Grotesk Variable",sans-serif' },
+  // ⚠️ Corte único (Semibold, 600) e SEM `tnum` — o arquivo só traz `aalt` e
+  // `liga`. Serve para avaliar texto; nos valores as colunas não alinham, que é
+  // justamente o que o `tabular-nums` do sistema existe para garantir.
+  { id: "knocky", label: "Knocky Semibold", stack: '"Knocky",sans-serif' },
   { id: "geist", label: "Geist Mono", stack: '"Geist Mono Variable",ui-monospace,monospace' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
