@@ -12,13 +12,20 @@ on:
     branches: ["**"]
   pull_request:
 
-# ⚠️ TODO push num branch com PR aberto disparava DOIS runs idênticos (o evento
-# `push` e o `pull_request`), e os dois competiam pelos mesmos minutos para
-# responder a mesma pergunta. Agrupar por ref e cancelar o anterior resolve as
-# duas coisas: some a duplicata, e um push novo não fica atrás de uma execução
-# que já não interessa.
+# ⚠️ TODO push num branch com PR aberto dispara DOIS runs idênticos (o evento
+# `push` e o `pull_request`), e os dois competem pelos mesmos minutos para
+# responder a mesma pergunta. O grupo tem de render a MESMA CHAVE nos dois
+# eventos, senão não agrupa nada.
+#
+# A primeira versão desta linha usava `pull_request.number || github.ref`, e ela
+# NÃO funcionava: no `push` a chave saía `refs/heads/<branch>` e no
+# `pull_request` saía `43` — duas chaves distintas, dois grupos, os dois runs
+# de pé. Medido no commit 5086210: as duas execuções rodaram inteiras, lado a
+# lado. `head.ref` (no PR) e `ref_name` (no push) dão os dois o nome do branch,
+# que é a identidade certa: um run por branch, e um push novo cancela o
+# anterior, que já não interessa.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
