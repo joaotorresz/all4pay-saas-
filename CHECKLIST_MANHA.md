@@ -103,8 +103,56 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 - [ ] Backup ativo **e restauração testada** (1.1 + 1.2 + meu teste)
 - [ ] Produção sai de `main` protegida (bloco 2)
 - [ ] Cadastro → 1º lançamento ponta a ponta (1.3 + meu drive + o ensaio)
-- [ ] `npm run fluxos` — 4 fluxos essenciais ✓ (já passam; reconfiro após o deploy final)
-- [ ] `npm test` — 12 guardas ✓ (já passam)
+- [ ] `npm run fluxos` — **3 de 4 passam · 1 falha REAL** (ver abaixo)
+- [x] `npm test` — 12 guardas ✓ (reconferidas na árvore com a navegação nova)
+
+### 🔴 A falha que apareceu ao reconferir: **não há como criar nada a partir do Início**
+
+Medido a 390px **e** a 1280px, na árvore que está no ar:
+
+| Rota | Menu lateral | Botão "Criar" |
+| --- | --- | --- |
+| `/` (Início) | **0** | **0** |
+| `/dashboard/registrations/clients` | 1 | 1 |
+| `/dashboard/reports/dre` | 1 | 1 |
+
+**Causa, localizada:** a navegação horizontal (PR #46) transformou a barra
+lateral no **segundo nível** do grupo aberto, e `Sidebar.tsx:180` faz
+`if (itens.length === 0) return null`. Início é um grupo-folha, sem filhos — a
+lateral some, e o botão **Criar**, que mora no topo dela, some junto. O painel
+`CriarNovo` continua montado no `AppShell` e as rotas de criação continuam
+existindo: **o que sumiu foi a porta**, não os cômodos.
+
+**Por que isso é do portão, e não estética:** o Início é onde todo mundo cai. No
+computador ainda há o ⌘K; no telefone não há teclado — a pessoa entra, olha o
+saldo e **não tem como lançar uma despesa** sem antes descobrir que precisa
+navegar para outro grupo. Foi exatamente isto que o fluxo dirigido pegou e a
+medição tela a tela não pega: o botão não está "pequeno" nem "com pouco
+contraste", ele **não existe** naquela tela.
+
+**Conserto (não apliquei — o arquivo é de outra frente em andamento, e mexer
+nele às cegas cria conflito):** ou o Criar sobe para a `NavHorizontal`/`TopBar`,
+onde não depende de o grupo ter filhos, ou a `Sidebar` passa a renderizar o
+cabeçalho mesmo com `itens.length === 0`. A primeira é a que eu escolheria: o
+Criar é global, e prendê-lo ao segundo nível é o que produziu o defeito.
+**➜ Me diga: *"pode consertar o Criar"*** e eu aplico em ~20 min com o fluxo
+remedido.
+
+### Nota sobre as outras duas falhas que apareceram e NÃO são defeito
+
+Na primeira execução, 3 dos 4 fluxos falharam. Duas dessas falhas eram **do meu
+ambiente**, não do produto: sem `NEXT_PUBLIC_ALL4PAY_DEMO=true` o build local
+sobe sem dados de demonstração, e uma tela sem números não tem saldo para
+mostrar nem pagamento para aprovar. Com a variável, saldo e aprovação passam
+(`R$ 2.187.405,05` visível a 318px do topo, aprovar em 2 toques). Rodei também
+contra a árvore **anterior** à navegação horizontal para separar as duas
+coisas — só assim dá para dizer qual falha é do produto.
+
+⚠️ E um achado de processo: **`playwright` nunca esteve declarado no
+`package.json`**. Os comandos `npm run fluxos` e `npm run mobile` — os dois que
+o portão cita — não rodavam num checkout limpo, o que torna "os 4 fluxos
+passam" uma afirmação que ninguém além de mim conseguia reproduzir. A
+dependência entrou como `devDependency` neste commit.
 
 ## 📌 Antes de divulgar AMPLAMENTE (não bloqueia o soft-launch)
 
