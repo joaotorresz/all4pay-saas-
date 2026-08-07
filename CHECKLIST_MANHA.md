@@ -104,7 +104,50 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 - [ ] Produção sai de `main` protegida (bloco 2)
 - [ ] Cadastro → 1º lançamento ponta a ponta (1.3 + meu drive + o ensaio)
 - [ ] `npm run fluxos` — **3 de 4 passam · 1 falha REAL** (ver abaixo)
+- [ ] `npm run mobile` — **1 de 7 telas limpa** · 23 falhas de contraste (ver abaixo)
 - [x] `npm test` — 12 guardas ✓ (reconferidas na árvore com a navegação nova)
+
+### 🔴 A nova paleta reprovou em contraste — inclusive num VALOR
+
+`npm run mobile` a 390×844, na árvore que está no ar. Era **7 telas · 0 com
+problema** na ONDA 12; agora:
+
+```
+✗ Início            3276ms (teto 2600)      ✓ Aprovações
+✗ Fluxo de caixa    66 req · contraste ×10  ✗ Títulos a receber   contraste ×7
+✗ Extrato           contraste ×1            ✗ Entrada de dados    65 req · contraste ×5
+✗ DRE               64 req
+```
+
+**Duas causas, as duas do PR #48**, extraídas do axe (par de cores, não
+impressão minha):
+
+| Onde | Hoje | Precisa |
+| --- | --- | --- |
+| `text-muted`/`text-faint` = **`#6a7282`** sobre `#f3f1ee` | **4,29:1** | `#666e7d` (4,55:1) |
+| o mesmo cinza sobre `#f7f6ef` | **4,46:1** | `#697181` (4,53:1) |
+| **`--color-positive` `#2cd662`** como TEXTO de valor, sobre branco | **1,92:1** | `#1c883e` (4,53:1) |
+| `--color-negative` `#d62c2c` sobre o canvas `#f4f3f0` | 4,45:1 | `#d42c2c` (4,51:1) |
+
+⚠️ **A terceira linha é a grave**, e é a ONDA 12 voltando pela mesma porta: o
+`#2cd662` está pintando **`R$ …` a 17px** — o número, que é a razão da tela
+existir — a **1,92:1**. Não é um rótulo decorativo; é o valor. As duas primeiras
+linhas erram por pouco (4,29 e 4,46 contra 4,5) e explicam a maior parte das 23
+ocorrências, porque esse cinza é o texto de aba e de micro-rótulo do produto
+inteiro.
+
+O `#6f6d62` que a ONDA 12 consertou **sobreviveu** — o problema é o cinza NOVO,
+que veio junto com a paleta.
+
+**Também não apliquei:** é o mesmo `globals.css` que a outra frente está
+editando, e dois editores no mesmo arquivo hoje é conflito garantido. Os quatro
+valores acima já estão calculados no mínimo escurecimento que passa — é
+substituição direta.
+**➜ Me diga: *"pode ajustar a paleta"*** e aplico os quatro + rerodo a medição.
+
+*(Os estouros de requisições e o tempo do Início são orçamento de desempenho,
+não acessibilidade — vivíveis num beta, mas ficam registrados porque a linha de
+base da ONDA 12 era zero.)*
 
 ### 🔴 A falha que apareceu ao reconferir: **não há como criar nada a partir do Início**
 
