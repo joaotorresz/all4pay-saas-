@@ -8,7 +8,6 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
@@ -27,7 +26,6 @@ const INK = "var(--color-ink)";
 // Linha de saldo: MESMO tratamento da linha de comparação do gráfico herói —
 // cinza tracejado. Não compete com as barras, que são quem conta a história.
 const LINE = "#c9cdd4";
-const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
 
@@ -61,7 +59,7 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
           −0.075em, entrelinha 115% — sempre em ink; o tipo é dado pelo dot. */}
       <span
         className="text-[21px] tabular-nums"
-        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "#000000" }}
+        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "var(--color-ink)" }}
       >
         <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
         <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
@@ -70,11 +68,19 @@ function PeriodTotal({ label, value, color, active, onClick }: { label: string; 
   );
 }
 
+/**
+ * Linha do tooltip, no `indicator="line"` da referência: o marcador é um
+ * TRAÇO vertical, não um ponto.
+ *
+ * ⚠️ Num tooltip de três linhas o ponto redondo empata com o texto e vira
+ * ruído; o traço acompanha a altura da linha e lê como a série que ele
+ * representa — que é o motivo de a referência usar essa variante.
+ */
 function Row({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 tabular-nums">
-      <span className="inline-flex items-center gap-[6px] text-muted">
-        <span className="w-2 h-2 rounded-pill" style={{ background: color }} />
+      <span className="inline-flex items-center gap-[8px] text-muted">
+        <span className="w-[3px] h-[12px] rounded-pill shrink-0" style={{ background: color }} />
         {k}
       </span>
       <span className="text-ink">{v}</span>
@@ -136,29 +142,33 @@ export function DailyCashflowChart() {
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               stackOffset="sign"
             >
-              <CartesianGrid stroke={GRID} vertical={false} />
+              {/* ⚠️ A GRADE SAIU. Na referência não há `CartesianGrid`: com o
+                  eixo lateral já oculto, as linhas horizontais não ancoram
+                  valor nenhum — eram régua sem números. O que localiza a
+                  leitura é o tooltip. */}
               <XAxis
                 dataKey="label"
                 tick={{ fontSize: 13, fill: FAINT }}
+                axisLine={false}
+                tickMargin={10}
                 tickLine={false}
-                axisLine={{ stroke: GRID }}
                 interval="preserveStartEnd"
               />
               {/* eixo lateral OCULTO (mantém a escala) — pedido do usuário */}
               <YAxis yAxisId="flow" hide />
               <YAxis yAxisId="balance" orientation="right" hide />
               <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
-              <Tooltip
-                content={<CashflowTooltip />}
-                cursor={{ fill: "rgba(127,127,127,0.10)" }}
-              />
+              {/* `cursor={false}`, como na referência: a faixa cinza atrás da
+                  barra competia com o próprio destaque dela (`activeBar`) —
+                  dois realces para o mesmo dia. */}
+              <Tooltip content={<CashflowTooltip />} cursor={false} />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[4, 4, 0, 0]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[0, 0, 4, 4]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}

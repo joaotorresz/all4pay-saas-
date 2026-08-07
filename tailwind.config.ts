@@ -69,20 +69,26 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // DS All4Pay — Hanken Grotesk (fonte de marca) é a face do sistema;
-        // Geist Mono carrega os números tabulares (self-hosted via Fontsource).
+        // DS All4Pay — ROOBERT TRIAL em tudo. A face do sistema e a dos valores
+        // saem da MESMA família; o que muda é o corte.
+        //
+        // ⚠️ `mono` é Roobert Mono, não uma monoespaçada de outra família. Os
+        // valores precisam de largura fixa para as colunas alinharem (é a
+        // assinatura do sistema, documentada no CLAUDE.md) — trocar por uma
+        // proporcional faria cada linha começar num ponto diferente. Roobert
+        // Mono resolve as duas exigências ao mesmo tempo: é monoespaçada E é
+        // Roobert.
         sans: [
-          '"Hanken Grotesk Variable"',
-          '"Hanken Grotesk"',
-          '"Schibsted Grotesk Variable"',
+          '"Roobert"',
+          '"Roobert Variable"',
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "sans-serif",
         ],
         mono: [
-          '"Geist Mono Variable"',
-          '"Geist Mono"',
+          '"Roobert Mono"',
+          '"Roobert Semi Mono"',
           "ui-monospace",
           "SFMono-Regular",
           "Menlo",

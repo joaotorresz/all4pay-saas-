@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
 import { Providers } from "./providers";
-// DS "Ledger" — tipografia self-hosted (Fontsource, sem fetch externo):
-// Schibsted Grotesk (neo-grotesca; UI/títulos/corpo) + Geist Mono (TODOS os
-// números: dinheiro, tabelas, eixos de gráfico — precisão de terminal).
-import "@fontsource-variable/hanken-grotesk";
-import "@fontsource-variable/schibsted-grotesk";
-import "@fontsource-variable/geist-mono";
-import "@fontsource/boldonse"; // fonte de display p/ testes no Laboratório de Design
+// ⚠️ TIPOGRAFIA: ROOBERT TRIAL EM TUDO.
+//
+// Os pacotes Fontsource de Hanken Grotesk, Schibsted Grotesk e Geist Mono
+// saíram: nenhuma regra do sistema os pedia mais, e importá-los continuaria
+// baixando três famílias que ninguém renderiza — peso de bundle por engano.
+//
+// A Roobert NÃO entra por aqui: ela é self-hosted em `public/fonts/` e
+// declarada em `@font-face` no topo do `globals.css`. Os cortes cobrem a
+// escala inteira (Light · Regular · Medium · SemiBold) e os valores usam
+// Roobert Mono, que é da mesma família e monoespaçada — as colunas continuam
+// alinhando.
+//
+// `boldonse` fica: é fonte de DISPLAY exclusiva do Laboratório de Design, que
+// só injeta CSS quando há estado salvo. Não pinta nada por padrão.
+import "@fontsource/boldonse";
 import "./globals.css";
 
 export const metadata: Metadata = {
