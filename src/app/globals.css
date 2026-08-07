@@ -139,6 +139,26 @@
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
   --a4p-hairline: #f1f3f5;
+
+  /* ============================================================
+     MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
+     superior e o respiro em volta — deixou de ser cartão branco e virou
+     um fundo near-black; o app inteiro passou a morar num CARTÃO claro
+     arredondado por cima dele.
+
+     ⚠️ Estes tokens existem porque o chrome agora tem uma paleta PRÓPRIA,
+     independente do tema: a barra é escura no claro E no escuro. Usar
+     `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
+     que é exatamente o defeito que um token dedicado evita.
+     ============================================================ */
+  --a4p-chrome: #12151a;        /* fundo da moldura */
+  --a4p-chrome-ink: #ffffff;    /* texto/ícone sobre a moldura */
+  --a4p-chrome-mut: #9aa0a6;    /* secundário sobre a moldura */
+  --a4p-chrome-field: #1b1f26;  /* busca e botões de ícone */
+  --a4p-chrome-field-hover: #232830;
+  --a4p-app-bg: #f7f6ef;        /* interior do cartão = canvas quente do ds-visor */
+  --a4p-app-radius: 28px;
+
   --color-text-secondary: #5b5b5b; /* muted / corpo */
   --color-text-tertiary: #8a8a8a; /* faint / legendas */
   --color-text-quaternary: #bbbcbd; /* placeholder */
@@ -209,6 +229,13 @@ html.dark {
   --color-border: #2a2a2a;
   --color-border-soft: #202020;
   --a4p-hairline: #232323;
+  /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
+     o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
+     mesmo preto e a moldura desaparece — que é o oposto da referência. */
+  --a4p-chrome: #08080a;
+  --a4p-chrome-field: #17171a;
+  --a4p-chrome-field-hover: #1f1f23;
+  --a4p-app-bg: #141414;
   --color-text-secondary: #9b9b96; /* muted */
   --color-text-tertiary: #6f6f6c; /* faint */
   --color-text-quaternary: #565654; /* placeholder */
@@ -690,8 +717,37 @@ html:not(.dark) .ds-visor {
    Unlayered de propósito (vence as utilities bg-white).
    ============================================================ */
 .a4p-canvas {
-  /* fundo CLEAN, chapado #F3F1EE (spec do site) — sem véus/aurora. */
-  background: var(--color-surface-1);
+  /* ⚠️ A raiz do AppShell é a MOLDURA, não mais o canvas do conteúdo. O canvas
+     claro mudou de lugar: vive no `.a4p-app-card`, que flutua por cima daqui.
+     Ver o bloco "MOLDURA ESCURA" no topo do arquivo. */
+  background: var(--a4p-chrome);
+}
+
+/* Segunda linha da moldura: as abas dos grupos. Fica sobre o mesmo fundo
+   escuro, então herda a cor de lá e não pinta nada por conta própria. */
+.a4p-nav-h {
+  color: var(--a4p-chrome-mut);
+}
+/* A faixa de abas rola na horizontal quando não cabe. A barra de rolagem é
+   escondida de propósito: ela apareceria SOBRE o sublinhado lima do item ativo
+   e leria como um segundo marcador. O conteúdo continua alcançável por arrasto,
+   roda e teclado (a região tem `tabIndex`). */
+.a4p-nav-scroll {
+  scrollbar-width: none;
+}
+.a4p-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* O app inteiro dentro de UM cartão arredondado sobre a moldura escura.
+   `overflow: hidden` é o que faz o conteúdo respeitar o raio ao rolar — sem
+   ele a lista passa por cima do canto e o arredondamento vira desenho de
+   fundo. O drawer da Sidebar em < lg é `position: fixed` e não é recortado
+   por isto (só transform/filter num ancestral fariam isso). */
+.a4p-app-card {
+  background: var(--a4p-app-bg);
+  border-radius: var(--a4p-app-radius);
+  overflow: hidden;
 }
 /* REGRA DO SITE: NENHUMA sombra, de nenhuma maneira (design clean). O
    !important vence box-shadows inline (cards, popovers, FABs, toggles). */
@@ -719,10 +775,19 @@ html.dark .a4p-canvas {
    ao rolar: a página deslizava visível dentro da barra de cima, como se ela
    tivesse um fundo próprio atrás. Chrome que mostra o que está por baixo dele
    não separa nada — e separar é a função dele. */
-.a4p-sidebar,
-.a4p-topbar {
+.a4p-sidebar {
   background: var(--color-white);
   border-color: var(--a4p-hairline);
+}
+/* ⚠️ A TopBar SAIU do material do cartão. Ela era branca com o mesmo hairline
+   dos boxes; agora é a moldura escura, e por isso não herda mais nada daqui —
+   as cores dela vêm dos tokens `--a4p-chrome-*`, que não invertem com o tema.
+   Quem for reunificar as duas peças um dia: elas deixaram de ser o mesmo
+   material de propósito, e o motivo é a referência Sphere UI. */
+.a4p-topbar {
+  background: transparent;
+  border-color: transparent;
+  color: var(--a4p-chrome-ink);
 }
 @media (prefers-reduced-transparency: reduce) {
   .ds-visor [data-card="1"],

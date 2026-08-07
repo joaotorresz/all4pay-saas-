@@ -9,9 +9,9 @@ import { TituloDaAba } from "@/components/app/TituloDaAba";
 import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
-import { MobileNavButton } from "@/components/app/MobileNavButton";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
+import { NavHorizontal } from "@/components/app/NavHorizontal";
 import { CriarNovo } from "@/components/app/CriarNovo";
 
 /**
@@ -45,8 +45,12 @@ export function AppShell({
 }) {
   const header = (
     <header className="flex items-end justify-between gap-3 flex-wrap px-4 sm:px-6 lg:px-8 pt-5 lg:pt-[26px] pb-[18px]">
+      {/* ⚠️ O `MobileNavButton` saiu daqui. Com a moldura escura, o hambúrguer
+          da TopBar e este ficavam um embaixo do outro no telefone, a ~50px de
+          distância, abrindo a MESMA gaveta — dois controles idênticos empilhados
+          fazem a pessoa duvidar de que são o mesmo. A barra é quem oferece o
+          menu agora, e ela está sempre visível. */}
       <div className="flex items-center gap-3 min-w-0">
-        <MobileNavButton />
         <div className="min-w-0">
           {/* Título da página (Laboratório): Roobert Variable 29/500, tracking
               −0.02em, entrelinha 110%, sem caixa-alta. Vale para TODAS as telas —
@@ -82,9 +86,19 @@ export function AppShell({
     </header>
   );
   const chrome = (
-    <div className="a4p-canvas fixed inset-0 flex flex-col bg-surface-1 overflow-hidden">
+    // A raiz é a MOLDURA escura (`.a4p-canvas`); o app inteiro mora no cartão
+    // claro arredondado logo abaixo da barra. `bg-surface-1` saiu daqui: o
+    // fundo agora vem do token da moldura, e a utility venceria a regra do CSS.
+    <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
       <TopBar />
-      <div className="flex-1 flex min-h-0 pt-3">
+      {/* Segunda linha da moldura: os GRUPOS. A lateral, abaixo, lista os itens
+          do grupo ativo — os dois níveis da mesma árvore, um por superfície. */}
+      <NavHorizontal />
+      {/* Margens do cartão == padding da TopBar (`px-4 lg:px-6`): a marca e a
+          borda esquerda do cartão caem na MESMA vertical. Com 12 aqui e 16 lá
+          a moldura ficava com dois alinhamentos, que é o tipo de desencontro
+          que se sente sem saber nomear. */}
+      <div className="a4p-app-card flex-1 flex min-h-0 mx-4 mb-4 lg:mx-6 lg:mb-6">
       <Sidebar />
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         {stickyHeader && header}

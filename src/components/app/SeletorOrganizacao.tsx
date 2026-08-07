@@ -20,7 +20,18 @@ import { listarMinhasOrganizacoes, trocarOrganizacao, type OrganizacaoDoUsuario 
 import { nomeDoPapel } from "@/core/seguranca";
 import { cn } from "@/lib/utils";
 
-export function SeletorOrganizacao({ collapsed = false }: { collapsed?: boolean }) {
+/**
+ * `variante`:
+ * - `rodape` — o formato original, no rodapé claro da Sidebar; o painel abre
+ *   para CIMA, porque ali não há espaço abaixo.
+ * - `chrome` — na barra escura de navegação; o painel abre para BAIXO. Abrir
+ *   para cima aqui jogaria a lista para fora da janela.
+ */
+export function SeletorOrganizacao({
+  collapsed = false,
+  variante = "rodape",
+}: { collapsed?: boolean; variante?: "rodape" | "chrome" }) {
+  const noChrome = variante === "chrome";
   const [orgs, setOrgs] = React.useState<OrganizacaoDoUsuario[] | null>(null);
   const [aberto, setAberto] = React.useState(false);
   const [trocando, setTrocando] = React.useState<string | null>(null);
@@ -67,26 +78,42 @@ export function SeletorOrganizacao({ collapsed = false }: { collapsed?: boolean 
         aria-label={`Empresa aberta: ${ativa.nome}. Trocar de empresa.`}
         title={`${ativa.nome} · ${nomeDoPapel(ativa.papel)}`}
         className={cn(
-          "flex items-center w-full rounded-md py-2 transition-colors hover:bg-surface-1",
-          collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
+          "flex items-center transition-colors",
+          noChrome
+            ? "h-8 gap-2 px-3 rounded-pill"
+            : "w-full rounded-md py-2 hover:bg-surface-1",
+          !noChrome && (collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]"),
         )}
+        style={noChrome ? { background: "var(--a4p-chrome-field)", color: "var(--a4p-chrome-ink)" } : undefined}
       >
-        <Icon name="building" size={18} color="var(--color-text-secondary)" />
-        {!collapsed && (
+        <Icon name="building" size={noChrome ? 15 : 18} color={noChrome ? "currentColor" : "var(--color-text-secondary)"} />
+        {noChrome ? (
           <>
-            <span className="min-w-0 flex flex-col items-start">
-              <span className="text-[15px] font-medium text-ink truncate max-w-[150px]">{ativa.nome}</span>
-              <span className="text-[11px] text-faint">{nomeDoPapel(ativa.papel)}</span>
-            </span>
-            <Icon name="chevrons-up-down" size={14} color="var(--color-text-tertiary)" className="ml-auto shrink-0" />
+            <span className="text-[13px] font-medium truncate max-w-[160px]">{ativa.nome}</span>
+            <Icon name="chevrons-up-down" size={13} color="var(--a4p-chrome-mut)" className="shrink-0" />
           </>
+        ) : (
+          !collapsed && (
+            <>
+              <span className="min-w-0 flex flex-col items-start">
+                <span className="text-[15px] font-medium text-ink truncate max-w-[150px]">{ativa.nome}</span>
+                <span className="text-[11px] text-faint">{nomeDoPapel(ativa.papel)}</span>
+              </span>
+              <Icon name="chevrons-up-down" size={14} color="var(--color-text-tertiary)" className="ml-auto shrink-0" />
+            </>
+          )
         )}
       </button>
 
       {aberto && (
         <div
           role="listbox"
-          className="absolute bottom-full left-0 mb-2 w-[260px] max-h-[320px] overflow-y-auto rounded-card p-1 z-50 bg-glass-strong shadow-popover"
+          className={cn(
+            "absolute w-[260px] max-h-[320px] overflow-y-auto rounded-card p-1 z-[60] bg-glass-strong shadow-popover",
+            // Na barra escura ele abre para BAIXO e ancora à direita; para cima
+            // sairia da janela, e à esquerda passaria por cima das abas.
+            noChrome ? "top-full right-0 mt-2" : "bottom-full left-0 mb-2",
+          )}
         >
           {orgs.map((o) => (
             <button

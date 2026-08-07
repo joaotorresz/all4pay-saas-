@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
 
 export const metadata = { title: `Privacidade · ${MARCA}` };
@@ -18,7 +19,8 @@ export const metadata = { title: `Privacidade · ${MARCA}` };
  */
 export default function Privacidade() {
   return (
-    <main className="min-h-screen bg-surface-1 flex flex-col items-center px-4 py-12">
+    <MolduraPublica>
+      <main className="flex flex-col items-center px-4 py-12">
       <article className="w-full max-w-2xl flex flex-col gap-6">
         <header className="flex flex-col gap-2">
           <span className="text-caption uppercase tracking-[0.08em] text-faint">{MARCA}</span>
@@ -86,6 +88,7 @@ export default function Privacidade() {
           </Link>
         </footer>
       </article>
-    </main>
+      </main>
+    </MolduraPublica>
   );
 }

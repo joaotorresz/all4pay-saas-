@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button, Input, Icon } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useTipoConta } from "@/components/app/useTipoConta";
+import { MolduraPublica } from "@/components/app/MolduraPublica";
 
 const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
@@ -61,15 +62,12 @@ export default function LoginPage() {
   const erroSenha = touched && view === "signin" && !password;
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-surface-1">
+    // `grid lg:grid-cols-2` no cartão: quem rola aqui é a coluna do
+    // formulário, não o cartão inteiro (a arte é fixa).
+    <MolduraPublica cartaoClassName="grid lg:grid-cols-2">
       {/* Coluna esquerda — formulário */}
-      <div className="flex flex-col items-center justify-center px-6 py-12">
+      <div className="flex flex-col items-center justify-center px-6 py-12 overflow-y-auto">
         <div className="w-[380px] max-w-full flex flex-col gap-6">
-          <div>
-            <Image src="/all4pay-dark.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto dark:hidden" priority />
-            <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto hidden dark:block" priority />
-          </div>
-
           <div>
             <h1 className="m-0 text-h2 font-medium text-ink leading-none">
               {view === "signin" ? "Entrar" : "Redefinir senha"}
@@ -185,7 +183,7 @@ export default function LoginPage() {
 
       {/* Coluna direita — arte (camadas de fluxo financeiro), some no mobile */}
       <ArtPanel pessoal={pessoal} />
-    </div>
+    </MolduraPublica>
   );
 }
 
