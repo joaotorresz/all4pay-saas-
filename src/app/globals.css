@@ -723,6 +723,22 @@ html:not(.dark) .ds-visor {
   background: var(--a4p-chrome);
 }
 
+/* Segunda linha da moldura: as abas dos grupos. Fica sobre o mesmo fundo
+   escuro, então herda a cor de lá e não pinta nada por conta própria. */
+.a4p-nav-h {
+  color: var(--a4p-chrome-mut);
+}
+/* A faixa de abas rola na horizontal quando não cabe. A barra de rolagem é
+   escondida de propósito: ela apareceria SOBRE o sublinhado lima do item ativo
+   e leria como um segundo marcador. O conteúdo continua alcançável por arrasto,
+   roda e teclado (a região tem `tabIndex`). */
+.a4p-nav-scroll {
+  scrollbar-width: none;
+}
+.a4p-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* O app inteiro dentro de UM cartão arredondado sobre a moldura escura.
    `overflow: hidden` é o que faz o conteúdo respeitar o raio ao rolar — sem
    ele a lista passa por cima do canto e o arredondamento vira desenho de

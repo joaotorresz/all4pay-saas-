@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
 import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
-import { leafAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
+import { grupoDaRota, leafAtivo, useNavSections, type Item } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -151,34 +151,33 @@ export function Sidebar() {
     document.addEventListener("pointerup", soltar);
   }, [isDesktop, collapsed, aplicarLargura, definirRecolhida]);
 
-  const { pro, set: setPro, temDireito } = useModo();
-  const { sections: allSections, pessoal } = useNavSections();
+  const { sections } = useNavSections();
 
-  // Configurações fica no rodapé, separada — é o último grupo da lista.
-  const config = allSections[allSections.length - 1];
-  const principais = allSections.slice(0, -1);
+  /**
+   * ⚠️ A Sidebar deixou de listar os GRUPOS: eles subiram para a barra
+   * horizontal (`NavHorizontal`). Aqui ficam só os ITENS do grupo em que você
+   * está — os dois níveis da mesma árvore, cada um na sua superfície.
+   *
+   * Manter o acordeão dos seis grupos aqui embaixo com os mesmos seis lá em
+   * cima seria navegação duplicada: dois caminhos para cada destino, que
+   * divergem no dia em que alguém mexe num deles. É o defeito que este
+   * repositório passou ondas removendo.
+   *
+   * O grupo sai de `grupoDaRota()` — a MESMA função da barra, para as duas não
+   * discordarem sobre onde você está.
+   */
+  const grupo = React.useMemo(() => grupoDaRota(sections, pathname), [sections, pathname]);
+  const itens = grupo?.items ?? [];
 
-  /** O grupo que contém a rota atual — abre sozinho e não fecha. */
-  const grupoDaRota = React.useMemo(
-    () => [...principais, config].find(
-      (s) => (s.href && leafAtivo(s.href, pathname)) || s.items.some((i) => leafAtivo(i.href, pathname)),
-    )?.id ?? null,
-    [principais, config, pathname],
-  );
-
-  const [aberto, setAberto] = React.useState<string | null>(null);
-  React.useEffect(() => { setAberto(grupoDaRota); }, [grupoDaRota]);
-
-  function alternar(id: string) {
-    if (col) {
-      // Recolhida: clicar num grupo expande a barra e já abre o grupo.
-      setCollapsed(false);
-      try { localStorage.setItem(STORAGE_KEY, "0"); } catch { /* ignore */ }
-      setAberto(id);
-      return;
-    }
-    setAberto((a) => (a === id ? null : id));
-  }
+  /**
+   * ⚠️ Sem itens (o Início é folha), a barra não é renderizada — e o conteúdo
+   * fica com a largura toda. Uma coluna vazia ao lado do painel seria pior que
+   * ausência: ela ocupa espaço prometendo algo que não existe.
+   *
+   * O drawer do telefone acompanha: o hambúrguer da TopBar some junto, senão
+   * seria um botão que abre o nada.
+   */
+  if (itens.length === 0) return null;
 
   return (
     <>
@@ -260,208 +259,62 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Nav — acordeão */}
-        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[2px]">
-          {principais.map((s) => (
-            <Grupo
-              key={s.id} secao={s} pathname={pathname} collapsed={col}
-              aberto={aberto === s.id} onAlternar={() => alternar(s.id)}
-            />
+        {/* O grupo em que você está — a barra horizontal marca o mesmo. */}
+        {!col && (
+          <div className="px-[10px] pb-[6px] shrink-0">
+            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint truncate block">
+              {grupo?.label}
+            </span>
+          </div>
+        )}
+
+        {/* Nav — os ITENS do grupo ativo, lista plana. O acordeão saiu junto
+            com os grupos, que agora vivem na barra horizontal. */}
+        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[1px]">
+          {itens.map((it, i) => (
+            <SubItem key={it.href ?? it.label + i} item={it} pathname={pathname} collapsed={col} />
           ))}
         </nav>
-
-        {/* Rodapé do cartão: Configurações · Modo Pro · conta (a referência
-            mantém o usuário DENTRO do menu; busca, tema e sair subiram). */}
-        <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
-          <Grupo
-            secao={config} pathname={pathname} collapsed={col}
-            aberto={aberto === config.id} onAlternar={() => alternar(config.id)}
-          />
-          {!pessoal && (
-            /*
-             * ⚠️ É um SWITCH, não um botão. Antes vinha sem `role`, sem
-             * `aria-checked` e sem `type`: um leitor de tela anunciava
-             * "Modo Pro, botão" e NENHUM estado. Quem depende dele apertava,
-             * nada era anunciado, e a conclusão correta a tirar era que o
-             * controle não funcionava — foi o que aconteceu na auditoria.
-             *
-             * `role="switch"` + `aria-checked` fazem o estado ser anunciado a
-             * cada mudança; o texto "Ativado/Desativado" dá o mesmo retorno a
-             * quem enxerga. `type="button"` evita submit acidental.
-             */
-            <button
-              type="button"
-              role="switch"
-              aria-checked={pro}
-              aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}${temDireito ? "" : " — não incluso no plano"}`}
-              /*
-               * ⚠️ O interruptor não LIBERA nada: ele revela o que o plano já
-               * inclui. Sem direito, `setPro` devolve `false` e a pessoa vai
-               * para a tela de planos — antes ele ligava o menu inteiro do Pro
-               * e cada destino devolvia essa mesma tela, um clique depois.
-               */
-              onClick={() => {
-                if (!setPro(pro ? "simples" : "pro")) router.push("/planos?de=modo-pro");
-              }}
-              title={
-                !temDireito ? "Modo Pro — não incluso no plano desta empresa. Ver planos."
-                : pro ? "Modo Pro ativo — some para o essencial (Simples)"
-                : "Modo Pro — revela Inteligência e Governança"
-              }
-              className={cn(
-                "relative flex items-center rounded-md py-2 w-full text-left transition-colors hover:bg-surface-1",
-                col ? "justify-center px-0" : "gap-[10px] px-[10px]",
-              )}
-            >
-              <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-              {!col && (
-                <>
-                  <span className={cn("text-[15px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
-                  {/* Retorno visível do estado, ao lado do interruptor: a
-                      pastilha sozinha é sutil demais para responder "mudou?". */}
-                  <span className="ml-auto text-[11px] uppercase tracking-[0.06em] text-faint">
-                    {!temDireito ? "plano" : pro ? "on" : "off"}
-                  </span>
-                  <span className={cn("w-[34px] h-[20px] rounded-pill p-[2px] shrink-0 transition-colors", pro ? "bg-lime" : "bg-surface-3")} aria-hidden>
-                    <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
-                  </span>
-                </>
-              )}
-            </button>
-          )}
-          {/* ⚠️ QUAL empresa está aberta, acima da conta. Num produto que mostra
-              saldo, o rótulo da empresa vale tanto quanto o número — e até a
-              ONDA 9 a interface não tinha como responder essa pergunta. */}
-          <SeletorOrganizacao collapsed={col} />
-          <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
-            <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
-            {!col && (
-              <>
-                <div className="min-w-0">
-                  <div className="text-label font-medium text-ink truncate">{isDemo ? "Demonstração" : (usuario?.nome ?? "Conta")}</div>
-                  <div className="text-[13px] text-faint truncate">{isDemo ? "modo demonstração" : (usuario?.email ?? "")}</div>
-                </div>
-                {SUPA_CONFIGURED ? (
-                  <button
-                    onClick={async () => {
-                      const { createClient } = await import("@/lib/supabase/client");
-                      await createClient().auth.signOut();
-                      router.push("/login");
-                      router.refresh();
-                    }}
-                    aria-label="Sair"
-                    className="ml-auto inline-flex p-1 rounded-md hover:bg-surface-2"
-                    title="Sair"
-                  >
-                    <Icon name="arrow-up-right" size={15} color="var(--color-text-tertiary)" />
-                  </button>
-                ) : (
-                  <Icon name="chevrons-up-down" size={15} color="var(--color-text-tertiary)" className="ml-auto" />
-                )}
-              </>
-            )}
-          </div>
-        </div>
       </aside>
     </>
   );
 }
 
-/* --------------------------------- grupo --------------------------------- */
+/**
+ * A linha de uma tela. Deixou de ser "sub-item" na prática — com os grupos na
+ * barra horizontal, ela é o item principal da lateral —, e por isso ganhou o
+ * ÍCONE: recolhida a 68px o rótulo some, e sem ícone a barra vira uma coluna de
+ * retângulos vazios.
+ */
+function SubItem({ item, pathname, collapsed }: { item: Item; pathname: string; collapsed?: boolean }) {
+  const linha = collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]";
 
-function Grupo({
-  secao, pathname, collapsed, aberto, onAlternar,
-}: {
-  secao: Section; pathname: string; collapsed: boolean;
-  aberto: boolean; onAlternar: () => void;
-}) {
-  const folha = !!secao.href;
-  const ativoFolha = folha && leafAtivo(secao.href, pathname);
-  const temFilhoAtivo = secao.items.some((i) => leafAtivo(i.href, pathname));
-  const destacado = ativoFolha || temFilhoAtivo;
-
-  const chrome = cn(
-    "relative flex items-center rounded-[12px] py-[9px] w-full transition-colors",
-    collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
-    // Selecionado = a cor do FUNDO DA PÁGINA (surface-1). O item ativo vira um
-    // recorte do canvas dentro do cartão branco do menu — a mesma relação que o
-    // conteúdo tem com os boxes da Home.
-    destacado ? "bg-surface-1" : "hover:bg-surface-2/60",
-  );
-
-  const conteudo = (
-    <>
-      {/* O marcador lima fica à DIREITA: à esquerda ele competiria com o fio
-          vertical dos filhos, e os dois juntos viram ruído. */}
-      {destacado && (
-        <span className="absolute right-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-pill bg-lime" aria-hidden />
-      )}
-      <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-      {!collapsed && (
-        <>
-          <span className={cn("text-[15px] truncate flex-1 text-left", destacado ? "text-ink font-semibold" : "text-muted font-medium")}>
-            {secao.label}
-          </span>
-          {!folha && (
-            <Icon
-              name={aberto ? "chevron-down" : "chevron-right"}
-              size={14}
-              color="var(--color-text-tertiary)"
-              className="shrink-0"
-            />
-          )}
-        </>
-      )}
-    </>
-  );
-
-  return (
-    <div className="flex flex-col">
-      {folha ? (
-        <Link href={secao.href!} title={secao.label} aria-current={ativoFolha ? "page" : undefined} className={chrome}>
-          {conteudo}
-        </Link>
-      ) : (
-        <button
-          onClick={onAlternar}
-          title={secao.label}
-          aria-expanded={aberto}
-          className={chrome}
-        >
-          {conteudo}
-        </button>
-      )}
-
-      {!folha && aberto && !collapsed && (
-        // O fio vertical amarra os filhos ao pai — sem ele a indentação sozinha
-        // não diz de quem eles são quando a lista rola.
-        <div className="ml-[19px] pl-[13px] border-l border-border-soft flex flex-col gap-[1px] py-1">
-          {secao.items.map((it, i) => (
-            <SubItem key={it.href ?? it.label + i} item={it} pathname={pathname} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SubItem({ item, pathname }: { item: Item; pathname: string }) {
   if (item.event && !item.href) {
     return (
       <button
         onClick={() => window.dispatchEvent(new Event(item.event!))}
         title={item.label}
-        className="flex items-center rounded-md py-[7px] px-[10px] text-left hover:bg-surface-2 transition-colors"
+        className={cn("flex items-center rounded-md py-[8px] text-left hover:bg-surface-2 transition-colors", linha)}
       >
-        <span className="text-[14px] text-muted truncate">{item.label}</span>
+        <Icon name={item.icon} size={17} color="var(--color-text-secondary)" className="shrink-0" />
+        {!collapsed && <span className="text-[14px] text-muted truncate">{item.label}</span>}
       </button>
     );
   }
   if (item.soon || !item.href) {
     return (
-      <span aria-disabled="true" className="flex items-center gap-2 rounded-md py-[7px] px-[10px] opacity-45 cursor-not-allowed select-none">
-        <span className="text-[14px] text-muted truncate flex-1">{item.label}</span>
-        <span className="text-[11px] text-faint bg-surface-2 rounded-pill px-[6px] py-[1px] shrink-0">Em breve</span>
+      <span
+        aria-disabled="true"
+        title={item.label}
+        className={cn("flex items-center rounded-md py-[8px] opacity-45 cursor-not-allowed select-none", linha)}
+      >
+        <Icon name={item.icon} size={17} color="var(--color-text-secondary)" className="shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="text-[14px] text-muted truncate flex-1">{item.label}</span>
+            <span className="text-[11px] text-faint bg-surface-2 rounded-pill px-[6px] py-[1px] shrink-0">Em breve</span>
+          </>
+        )}
       </span>
     );
   }
@@ -472,11 +325,20 @@ function SubItem({ item, pathname }: { item: Item; pathname: string }) {
       title={item.label}
       aria-current={on ? "page" : undefined}
       className={cn(
-        "relative flex items-center rounded-md py-[7px] px-[10px] transition-colors",
+        "relative flex items-center rounded-md py-[8px] transition-colors",
+        linha,
         on ? "bg-surface-1" : "hover:bg-surface-2/60",
       )}
     >
-      <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>
+      <Icon
+        name={item.icon}
+        size={17}
+        color={on ? "var(--color-ink)" : "var(--color-text-secondary)"}
+        className="shrink-0"
+      />
+      {!collapsed && (
+        <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>
+      )}
     </Link>
   );
 }
