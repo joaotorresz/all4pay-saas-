@@ -89,6 +89,30 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   return response;
 }
 
+/**
+ * ⚠️ ARQUIVO ESTÁTICO NÃO PASSA PELA PORTARIA.
+ *
+ * O matcher excluía `_next/static` e `.png`, mas nada mais — então
+ * `/fonts/roobert-medium.otf` entrava aqui e, sem sessão, era desviado para
+ * `/login` com **307**. O efeito: na tela de login (e em qualquer visita não
+ * autenticada) a Roobert nunca carregava, e o texto caía no fallback do
+ * sistema sem nenhum erro visível. Medido em produção: `http=307`,
+ * `content-type: text/plain`, 15 bytes — a fonte respondia com um
+ * redirecionamento.
+ *
+ * As fontes são self-hosted justamente para não depender de fetch externo;
+ * trancá-las atrás do login desfaz metade disso. E mesmo para quem ESTÁ
+ * autenticado havia custo: cada arquivo disparava uma verificação de sessão
+ * no Supabase antes de ser servido.
+ *
+ * A lista cobre o que vive em `public/`: fontes, imagens, o CSV de exemplo e
+ * os manifestos. Extensão é o critério certo aqui — um caminho novo em
+ * `public/` passa a funcionar sozinho, enquanto uma lista de PASTAS
+ * (`fonts|exemplos|…`) precisaria ser editada a cada pasta nova, e ninguém
+ * lembra até a fonte sumir de novo.
+ */
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|webp|avif|svg|ico|otf|ttf|woff|woff2|eot|css|js|map|txt|xml|csv|json|webmanifest)$).*)",
+  ],
 };
