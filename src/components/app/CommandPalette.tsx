@@ -18,20 +18,19 @@ const norm = (s: string) =>
 interface RouteItem { label: string; href: string; icon: string; kw: string; event?: string }
 const ROUTES: RouteItem[] = [
   { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
-  { label: "Meus dashboards", href: "/dashboard/dashboards?aba=meus", icon: "layers", kw: "dashboard customizado personalizado widget kpi grafico montar criar meu painel acompanhamento semanal" },
-  { label: "Dashboard Financeiro", href: "/dashboard/dashboards?aba=financeiro", icon: "trending-up", kw: "dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes" },
-  { label: "Dashboard de Vendas", href: "/dashboard/dashboards?aba=vendas", icon: "credit-card", kw: "dashboard vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
-  { label: "Dashboard de Assinaturas", href: "/dashboard/dashboards?aba=assinaturas", icon: "repeat", kw: "dashboard assinatura mrr arr churn assinante recorrencia saas produto" },
-  { label: "Dash de Contas a Pagar", href: "/dashboard/dashboards?aba=pagar", icon: "arrow-up-right", kw: "dash contas a pagar vencimento atrasado a vencer fornecedor titulo periodo" },
-  { label: "Dash de Contas a Receber", href: "/dashboard/dashboards?aba=receber", icon: "arrow-left-right", kw: "dash contas a receber inadimplencia vencimento atrasado cliente titulo periodo" },
-  { label: "Calendário financeiro", href: "/dashboard/financial/calendar", icon: "calendar", kw: "calendario dia mes vencimento fluxo diario saldo total agenda financeira" },
+  // ⚠️ Os seis painéis curados saíram da palette com as telas (05/08/2026). As
+  // PALAVRAS deles não podem sair junto: quem procura "mrr", "cac" ou
+  // "calendario" continua procurando a mesma coisa, e uma busca que não acha
+  // ensina a pessoa a não usar a busca. Cada termo foi dobrado na entrada da
+  // tela que responde — assinaturas, vendas, títulos, fluxo de caixa.
+  { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "layers", kw: "dashboard customizado personalizado widget kpi grafico montar criar meu painel acompanhamento semanal" },
   { label: "Boas-vindas (dashboard)", href: "/dashboard", icon: "house", kw: "boas vindas saudacao atalhos acesso rapido empresa ativa dashboard home" },
   { label: "Comece por aqui", href: "/comece", icon: "target", kw:"comece jornada adesao primeiros passos onboarding tutorial aprender progresso guia inicio" },
   { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
-  { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria" },
-  { label: "Contas a Receber (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right", kw: "contas a receber titulos lista recebidas atrasadas cliente vencimento baixa lote" },
-  { label: "Contas a Pagar (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie" },
+  { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes calendario financeiro dia vencimento fluxo diario saldo total agenda financeira" },
+  { label: "Contas a Receber (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right", kw: "contas a receber titulos lista recebidas atrasadas cliente vencimento baixa lote dash painel inadimplencia a vencer periodo" },
+  { label: "Contas a Pagar (lista)", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right", kw: "contas a pagar titulos lista pagas atrasadas fornecedor vencimento baixa lote especie dash painel a vencer periodo" },
   { label: "Transferências entre contas", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "arrow-left-right", kw: "transferencia entre contas origem destino ted doc chegada conciliacao" },
   { label: "Nova conta a receber", href: "/dashboard/financial/receivables/new", icon: "plus", kw: "nova conta a receber lancar titulo cliente competencia vencimento rateio anexo repetir" },
   { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus", kw: "nova conta a pagar lancar titulo fornecedor especie nfe nfse pix rateio anexo" },
@@ -82,13 +81,12 @@ const ROUTES: RouteItem[] = [
   { label: "Inteligência de dados", href: "/all4pay-ai?aba=dados", icon: "database", kw: "moat benchmark dna" },
   { label: "Governança", href: "/governanca", icon: "shield-check", kw: "auditoria rbac aprovacao" },
   { label: "Conciliação", href: "/upload?aba=conciliar", icon: "list-checks", kw: "reconciliacao matching conciliar ingestao" },
-  { label: "Automações", href: "/automacoes", icon: "workflow", kw: "regras alertas notificacoes" },
-  { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart", kw: "vendas notas fiscais status venda nf plataforma hotmart taxa liquido" },
+  { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart", kw: "vendas notas fiscais status venda nf plataforma hotmart taxa liquido dashboard de vendas cac ltv ebitda faturamento reembolso chargeback aquisicao cliente" },
   { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus", kw: "nova venda lancar produto taxa plataforma comissao coprodutor afiliado liquido" },
   { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text", kw: "nota fiscal nf emitida processando cancelada negada download lote" },
   { label: "Provisionamento de impostos", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt", kw: "impostos provisionamento icms pis cofins ipi iss csll inss irpj lucro presumido conta a pagar" },
   { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "credit-card", kw: "link de pagamento qr code cobrar cliente pix checkout" },
-  { label: "Assinaturas (vendas)", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat", kw: "assinaturas recorrentes ciclo status cancelada expirada mrr" },
+  { label: "Assinaturas (vendas)", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat", kw: "assinaturas recorrentes ciclo status cancelada expirada mrr arr churn assinante recorrencia saas produto dashboard de assinaturas" },
   { label: "Compras", href: "/dashboard/purchases", icon: "shopping-cart", kw: "compras pedido de compra aprovacao aprovada reprovada aguardando fornecedor competencia" },
   { label: "Nova compra", href: "/dashboard/purchases/new", icon: "plus", kw: "nova compra pedido fornecedor parcelado competencia vencimento rateio anexo" },
   { label: "Boletos recebidos", href: "/dashboard/purchases/received-boletos", icon: "file-text", kw: "boleto dda linha digitavel codigo de barras vencido a vencer beneficiario" },

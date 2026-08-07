@@ -46,12 +46,42 @@ export type StatusRota =
   /** Não é destino de usuário (layout técnico, callback, rota de sistema). */
   | "interna";
 
+/**
+ * A PILHA em que a rota caiu quando o produto foi classificado.
+ *
+ * ⚠️ Sem isto o inventário responde "esta rota existe e alguém responde por
+ * ela" e não responde a pergunta que decide o corte: **por que ela continua
+ * existindo?** Foi assim que o produto chegou a oito grupos de vitrine técnica
+ * — nenhuma rota estava errada isoladamente, e nenhuma tinha de se justificar.
+ *
+ *  - **`nucleo`** — o que um financeiro paga para ter, mais o que o produto
+ *    precisa para entregar isso (entrar, cobrar, ler a política). Corte aqui
+ *    é perda de função.
+ *  - **`diferencial`** — sustenta preço sem ser o núcleo: a superfície de IA,
+ *    planejado × realizado, a jornada de adesão. Fica com escopo apertado.
+ *  - **`travada`** — boa e cara de manter; existe atrás do plano.
+ *  - **`ferramenta`** — instrumento de quem opera a plataforma, não do
+ *    cliente. Vive atrás do portão de administrador.
+ *
+ * A quinta pilha da classificação — **corte** — não vira valor aqui de
+ * propósito: rota cortada não tem linha. O que sobra dela é o desvio em
+ * `aliases.ts`, e é lá que ela tem de ser procurada.
+ */
+export type CriterioRota = "nucleo" | "diferencial" | "travada" | "ferramenta";
+
 export interface RotaInventario {
   rota: string;
   /** O nome ÚNICO da tela. */
   nome: string;
   dono: Modulo;
   status: StatusRota;
+  /**
+   * Por que ela continua existindo. ⚠️ OBRIGATÓRIO — é o campo que faz uma
+   * rota nova ter de se justificar antes de ser publicada. Um campo opcional
+   * aqui seria preenchido nas antigas e esquecido justamente nas novas, que
+   * são as que ninguém discutiu.
+   */
+  criterio: CriterioRota;
   /** Data-limite do desligamento. Obrigatória quando `aposentando`. */
   aposentadoriaEm?: string;
 }
@@ -63,88 +93,80 @@ export interface RotaInventario {
  * ninguém acompanha.
  */
 export const INVENTARIO: RotaInventario[] = [
-  { rota: "/", nome: "Início", dono: "home", status: "canonica" },
-  { rota: "/admin", nome: "Administração da plataforma", dono: "plataforma", status: "canonica" },
-  { rota: "/all4pay-ai", nome: "All 4 Pay AI", dono: "inteligencia", status: "canonica" },
-  { rota: "/aprovacoes", nome: "Solicitações & aprovações", dono: "governanca", status: "canonica" },
-  { rota: "/automacoes", nome: "Automações", dono: "governanca", status: "canonica" },
-  { rota: "/comecar", nome: "Criar empresa", dono: "acesso", status: "canonica" },
-  { rota: "/comece", nome: "Comece por aqui", dono: "adocao", status: "canonica" },
-  { rota: "/configuracoes", nome: "Configurações da empresa", dono: "plataforma", status: "canonica" },
-  { rota: "/contabilidade", nome: "Contabilidade", dono: "contabilidade", status: "canonica" },
-  { rota: "/contratacoes", nome: "Plano de contratações", dono: "inteligencia", status: "canonica" },
-  { rota: "/dashboard", nome: "Painéis", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/accounting/dominio-export", nome: "Gerar TXT contábil", dono: "contabilidade", status: "canonica" },
-  { rota: "/dashboard/accounting/nfe-export", nome: "Envio das NFs ao contador", dono: "contabilidade", status: "canonica" },
-  { rota: "/dashboard/administration", nome: "Administração", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/audit-logs", nome: "Logs", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/company-data", nome: "Dados da empresa", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/exported-reports", nome: "Relatórios exportados", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/integrations", nome: "Integrações", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/routes", nome: "Inventário de rotas", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/storage", nome: "Armazenamento", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/security", nome: "Segurança e isolamento", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/subscription", nome: "Assinatura", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/administration/users", nome: "Gerenciar usuários", dono: "plataforma", status: "canonica" },
-  { rota: "/dashboard/dashboards", nome: "Dashboards", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/custom", nome: "Meus dashboards", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/financial", nome: "Painel financeiro", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/payables", nome: "Painel de contas a pagar", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/receivables", nome: "Painel de contas a receber", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/sales", nome: "Painel de vendas", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/dashboards/subscriptions", nome: "Assinaturas (MRR e churn)", dono: "paineis", status: "canonica" },
-  { rota: "/dashboard/financial/accounts-and-transfers", nome: "Títulos a receber", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/calendar", nome: "Calendário", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/boletos", nome: "Boletos", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/overdue", nome: "Inadimplência", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/reimbursements", nome: "Reembolsos", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/credit-card-invoices", nome: "Fatura do cartão", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/import", nome: "Importação em lote", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/payables/new", nome: "Nova conta a pagar", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/receivables/new", nome: "Nova conta a receber", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/reconciliation", nome: "Conciliação bancária", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/financial/statement", nome: "Extrato", dono: "movimentacoes", status: "canonica" },
-  { rota: "/dashboard/help", nome: "Central de ajuda", dono: "ajuda", status: "canonica" },
-  { rota: "/dashboard/purchases", nome: "Compras", dono: "compras", status: "canonica" },
-  { rota: "/dashboard/purchases/new", nome: "Nova compra", dono: "compras", status: "canonica" },
-  { rota: "/dashboard/purchases/received-boletos", nome: "Boletos recebidos", dono: "compras", status: "canonica" },
-  { rota: "/dashboard/purchases/received-invoices", nome: "NFs recebidas", dono: "compras", status: "canonica" },
-  { rota: "/dashboard/registrations/bank-accounts", nome: "Contas bancárias", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/budgets", nome: "Orçamento", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/chart-of-accounts", nome: "Plano de contas", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/clients", nome: "Clientes", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/contracts", nome: "Contratos", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/cost-centers", nome: "Centros de custo", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/products", nome: "Produtos e serviços", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/projects", nome: "Projetos", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/registrations/suppliers", nome: "Fornecedores", dono: "cadastros", status: "canonica" },
-  { rota: "/dashboard/reports", nome: "Relatórios", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/cash-flow", nome: "Fluxo de caixa (relatório)", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/dfc", nome: "DFC", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/dfc-multi", nome: "DFC multiempresas", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/dre", nome: "DRE", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/dre-multi", nome: "DRE multiempresas", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/reports/monthly-closing", nome: "Fechamento mensal", dono: "relatorios", status: "canonica" },
-  { rota: "/dashboard/sales-invoices", nome: "Vendas", dono: "vendas", status: "canonica" },
-  { rota: "/dashboard/sales-invoices/invoices", nome: "Notas fiscais", dono: "vendas", status: "canonica" },
-  { rota: "/dashboard/sales-invoices/new", nome: "Nova venda", dono: "vendas", status: "canonica" },
-  { rota: "/dashboard/sales-invoices/payment-links", nome: "Links de pagamento", dono: "vendas", status: "canonica" },
-  { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas e contratos", dono: "vendas", status: "canonica" },
-  { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos sobre vendas", dono: "vendas", status: "canonica" },
-  { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica" },
-  { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica" },
-  { rota: "/governanca", nome: "Governança e auditoria", dono: "governanca", status: "canonica" },
-  { rota: "/investidores", nome: "Investor update", dono: "inteligencia", status: "canonica" },
-  { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica" },
-  { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica" },
-  { rota: "/orcamento", nome: "Planejado × Realizado", dono: "orcamento", status: "canonica" },
-  { rota: "/planos", nome: "Planos", dono: "acesso", status: "canonica" },
+  { rota: "/", nome: "Início", dono: "home", status: "canonica", criterio: "nucleo" },
+  { rota: "/admin", nome: "Administração da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/all4pay-ai", nome: "All 4 Pay AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
+  { rota: "/aprovacoes", nome: "Solicitações & aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
+  { rota: "/comecar", nome: "Criar empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  { rota: "/comece", nome: "Comece por aqui", dono: "adocao", status: "canonica", criterio: "diferencial" },
+  { rota: "/configuracoes", nome: "Configurações da empresa", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/contabilidade", nome: "Contabilidade", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/contratacoes", nome: "Plano de contratações", dono: "inteligencia", status: "canonica", criterio: "travada" },
+  { rota: "/dashboard", nome: "Painéis", dono: "paineis", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/accounting/dominio-export", nome: "Gerar TXT contábil", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/accounting/nfe-export", nome: "Envio das NFs ao contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration", nome: "Administração", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/audit-logs", nome: "Logs", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/company-data", nome: "Dados da empresa", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/exported-reports", nome: "Relatórios exportados", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/integrations", nome: "Integrações", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/routes", nome: "Inventário de rotas", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/dashboard/administration/storage", nome: "Armazenamento", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/dashboard/administration/security", nome: "Segurança e isolamento", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/dashboard/administration/subscription", nome: "Assinatura", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/administration/users", nome: "Gerenciar usuários", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/dashboards/custom", nome: "Meus dashboards", dono: "paineis", status: "canonica", criterio: "travada" },
+  { rota: "/dashboard/financial/accounts-and-transfers", nome: "Títulos a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/boletos", nome: "Boletos", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/overdue", nome: "Inadimplência", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/reimbursements", nome: "Reembolsos", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/credit-card-invoices", nome: "Fatura do cartão", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/import", nome: "Importação em lote", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/payables/new", nome: "Nova conta a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/receivables/new", nome: "Nova conta a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/reconciliation", nome: "Conciliação bancária", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/financial/statement", nome: "Extrato", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/help", nome: "Central de ajuda", dono: "ajuda", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/purchases", nome: "Compras", dono: "compras", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/purchases/new", nome: "Nova compra", dono: "compras", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/purchases/received-boletos", nome: "Boletos recebidos", dono: "compras", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/purchases/received-invoices", nome: "NFs recebidas", dono: "compras", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/bank-accounts", nome: "Contas bancárias", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/budgets", nome: "Orçamento", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/chart-of-accounts", nome: "Plano de contas", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/clients", nome: "Clientes", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/contracts", nome: "Contratos", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/cost-centers", nome: "Centros de custo", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/products", nome: "Produtos e serviços", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/projects", nome: "Projetos", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/registrations/suppliers", nome: "Fornecedores", dono: "cadastros", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports", nome: "Relatórios", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/cash-flow", nome: "Fluxo de caixa (relatório)", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/dfc", nome: "DFC", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/dfc-multi", nome: "DFC multiempresas", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/dre", nome: "DRE", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/dre-multi", nome: "DRE multiempresas", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/monthly-closing", nome: "Fechamento mensal", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices", nome: "Vendas", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices/invoices", nome: "Notas fiscais", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices/new", nome: "Nova venda", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices/payment-links", nome: "Links de pagamento", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas e contratos", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos sobre vendas", dono: "vendas", status: "canonica", criterio: "nucleo" },
+  { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/governanca", nome: "Governança e auditoria", dono: "governanca", status: "canonica", criterio: "travada" },
+  { rota: "/investidores", nome: "Investor update", dono: "inteligencia", status: "canonica", criterio: "travada" },
+  { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
+  { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  { rota: "/orcamento", nome: "Planejado × Realizado", dono: "orcamento", status: "canonica", criterio: "diferencial" },
+  { rota: "/planos", nome: "Planos", dono: "acesso", status: "canonica", criterio: "nucleo" },
   // Pública por natureza: quem lê política de privacidade ainda não tem conta.
-  { rota: "/privacidade", nome: "Privacidade", dono: "acesso", status: "canonica" },
-  { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica" },
-  { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica" },
-  { rota: "/upload", nome: "Upload de dados", dono: "ingestao", status: "canonica" },
-  { rota: "/vendas", nome: "Vendas e NFs", dono: "vendas", status: "canonica" },
+  { rota: "/privacidade", nome: "Privacidade", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/upload", nome: "Upload de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },
+  { rota: "/vendas", nome: "Vendas e NFs", dono: "vendas", status: "canonica", criterio: "nucleo" },
 ];
 
 /* ========================================================================== */

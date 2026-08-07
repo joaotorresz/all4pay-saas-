@@ -59,10 +59,15 @@ export const ROTAS_PRO: string[] = [
   // oferece é o outro lado do defeito — esconder do usuário o que ele já tem.
   "/investidores",
   "/contratacoes",
+  // Grupo "Dashboards" — sobrou o construtor, e ele é Pro. ⚠️ O prefixo é a
+  // rota do CONSTRUTOR, não `/dashboard/dashboards`: o hub esvaziado é um
+  // desvio 308, e trancá-lo faria o endereço antigo bater no gate antes de
+  // chegar ao destino — a pessoa veria a tela de planos sem nunca saber para
+  // onde o link dela ia.
+  "/dashboard/dashboards/custom",
   // Grupo "Governança"
   "/aprovacoes",
   "/governanca",
-  "/automacoes",
   "/consolidado",
   // Rotas legadas que redirecionam para as ABAS Pro do assistente — sem elas,
   // o redirect seria um caminho aberto para a mesma tela.
@@ -138,4 +143,5 @@ export const BENEFICIOS_PRO: { titulo: string; descricao: string }[] = [
   { titulo: "Aprovações e governança", descricao: "Alçadas por valor, trilha de auditoria assinada e segregação de funções." },
   { titulo: "Automações", descricao: "Regras SE→ENTÃO sobre os eventos financeiros, com notificação por WhatsApp e e-mail." },
   { titulo: "Consolidado multiempresa", descricao: "A posição somada de todas as organizações em que você é membro." },
+  { titulo: "Dashboards personalizados", descricao: "Monte os seus próprios painéis, com as métricas e os gráficos que você acompanha — sobre os mesmos números do sistema." },
 ];

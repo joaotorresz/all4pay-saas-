@@ -96,9 +96,19 @@ export async function getAdminPlans(): Promise<AdminPlan[]> {
   }));
 }
 
-export async function setSubscription(orgId: string, planId: string | null, status: SubStatus, mrr: number): Promise<void> {
+/**
+ * Define plano e estado da assinatura.
+ *
+ * ⚠️ NÃO recebe MRR, e isso é o ponto. A tela já o derivava do preço do plano,
+ * mas a função aceitava o número como parâmetro — a derivação era convenção de
+ * tela, e convenção de tela se perde na primeira refatoração. Ninguém precisa
+ * ser mal-intencionado para o número passar a mentir: basta um script de
+ * correção em lote informar o valor "certo". Agora quem calcula é um gatilho
+ * no banco, para todo caminho de escrita.
+ */
+export async function setSubscription(orgId: string, planId: string | null, status: SubStatus): Promise<void> {
   if (isDemo) return;
-  const { error } = await createClient().rpc("admin_set_subscription", { p_org: orgId, p_plan: planId, p_status: status, p_mrr: mrr, p_period_end: null });
+  const { error } = await createClient().rpc("admin_set_subscription", { p_org: orgId, p_plan: planId, p_status: status, p_period_end: null });
   if (error) throw new Error(error.message);
 }
 

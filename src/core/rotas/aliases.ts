@@ -106,6 +106,25 @@ export const ALIASES: Alias[] = [
   { de: "/autonomo", para: "/all4pay-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
   { de: "/inteligencia", para: "/all4pay-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
   { de: "/consolidado", para: "/contabilidade?aba=consolidado", motivo: "consolidado virou aba de contabilidade" },
+
+  // — PAINÉIS CURADOS aposentados (corte de superfície, 05/08/2026) —
+  //
+  // ⚠️ Cada painel respondia uma pergunta que OUTRA tela já responde, e a
+  // duplicata custava o de sempre: dois números com o mesmo rótulo, um deles
+  // sempre mais desatualizado. O motor (`core/paineis`) FICA — ele é um dos
+  // caminhos que a matriz de reconciliação confronta para o MRR, e apagá-lo
+  // tiraria a conferência junto com a tela. O que sai é a superfície.
+  //
+  // O destino de cada um é a tela que já responde a MESMA pergunta, não a
+  // Home: mandar tudo para a Home é o desvio que faz a pessoa concluir que a
+  // função sumiu.
+  { de: "/dashboard/dashboards", para: "/dashboard/dashboards/custom", motivo: "hub esvaziado; sobrou o construtor" },
+  { de: "/dashboard/dashboards/financial", para: "/fluxo-caixa", motivo: "saldo, geração de caixa e entradas/saídas já são o fluxo de caixa" },
+  { de: "/dashboard/dashboards/sales", para: "/dashboard/sales-invoices", motivo: "a lista de vendas já traz os painéis de status" },
+  { de: "/dashboard/dashboards/subscriptions", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa, item 7)" },
+  { de: "/dashboard/dashboards/payables", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
+  { de: "/dashboard/dashboards/receivables", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
+  { de: "/dashboard/financial/calendar", para: "/fluxo-caixa", motivo: "o calendário diário já é um bloco do fluxo de caixa" },
 ];
 
 /**
@@ -204,6 +223,19 @@ export const ALIASES_DE_ABA: Alias[] = [
     para: "/dashboard/sales-invoices/subscriptions",
     motivo: "assinaturas passaram a ter UMA lista canônica (mapa de consolidação, item 7)",
   },
+
+  // — abas do hub de dashboards, aposentado com os painéis curados —
+  //
+  // ⚠️ A command palette apontava para `?aba=…`, e endereço de palette entra
+  // no histórico do navegador como qualquer outro. Sem estes pares o hub
+  // desviaria para o construtor levando quem pediu o painel de vendas.
+  { de: "/dashboard/dashboards?aba=financeiro", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=vendas", para: "/dashboard/sales-invoices", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=assinaturas", para: "/dashboard/sales-invoices/subscriptions", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=pagar", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=receber", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=calendario", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=meus", para: "/dashboard/dashboards/custom", motivo: "aba do hub de dashboards aposentado" },
 ];
 
 /** Tudo que o middleware transforma em 308. */

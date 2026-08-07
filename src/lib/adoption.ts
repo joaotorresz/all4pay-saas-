@@ -104,7 +104,6 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
       { id: "ia", titulo: "Pergunte à All 4 Pay AI", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/all4pay-ai"), href: "/all4pay-ai", cta: "Abrir a IA" },
     ]),
     montarEstagio("operar", "Operar", "Automatize e cresça", [
-      { id: "automacoes", titulo: "Ligue uma automação", desc: "Regras que alertam e agem sozinhas (saldo crítico, cobrança).", feito: viu("/automacoes"), href: "/automacoes", cta: "Ver automações" },
       { id: "investidores", titulo: "Gere um Investor update", desc: "Relatório mensal para investidores, pronto dos seus números.", feito: viu("/investidores"), href: "/investidores", cta: "Ver Investor update" },
       { id: "orcamento", titulo: "Defina o orçamento", desc: "Meta por linha e a variância orçado × realizado.", feito: viu("/orcamento"), href: "/orcamento", cta: "Abrir orçamento" },
     ]),

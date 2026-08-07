@@ -71,8 +71,9 @@ import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
-import { SECTIONS, CONFIG } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
+  CHAVES_ORG, CHAVES_CONGELADAS, estaCongelada,
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
   CACHES_LOCAIS, ROTULO_DA_CHAVE, rotuloDaChave,
   expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
@@ -877,24 +878,46 @@ const AGOSTO = janelaMes(2026, 7);
   // do menu e as rotas continuavam abrindo. Agora quem tranca é o middleware,
   // e ele lê `ROTAS_PRO`. Se as duas listas divergirem, um recurso some do menu
   // e continua acessível por digitação — a cortina de volta, sem ninguém notar.
-  const doMenu = SECTIONS
-    .filter((sec) => sec.pro)
+  // ⚠️ A marca de plano passou a ser do ITEM, não do grupo (o menu voltou a ser
+  // por assunto). A conferência acompanha: `menuDoPlano(..., false)` é
+  // LITERALMENTE o que o Simples enxerga — a mesma função que a barra lateral
+  // chama. Conferir contra uma segunda implementação diria que o Simples está
+  // coberto olhando uma lista que o Simples nunca vê.
+  const TODOS_OS_GRUPOS = [...SECTIONS, CONFIG];
+  const rotasDe = (secs: typeof TODOS_OS_GRUPOS) => secs
     .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
     .filter((h): h is string => !!h);
 
-  const semGate = doMenu.filter((h) => !exigePro(h));
+  const noSimples = new Set(rotasDe(menuDoPlano(TODOS_OS_GRUPOS, false)));
+  const soNoPro = rotasDe(menuDoPlano(TODOS_OS_GRUPOS, true)).filter((h) => !noSimples.has(h));
+
+  const semGate = soNoPro.filter((h) => !exigePro(h));
   ok("planos: toda rota Pro do menu é bloqueada no servidor", semGate.length === 0,
      `sem gate: ${semGate.join(", ")}`);
 
   // E o inverso: a lista do servidor não pode trancar o que o menu entrega no
   // Simples — bloquear o que a pessoa já tem é o outro lado do mesmo defeito.
-  const doSimples = SECTIONS
-    .filter((sec) => !sec.pro)
-    .flatMap((sec) => [sec.href, ...sec.items.map((i) => i.href)])
-    .filter((h): h is string => !!h);
-  const trancadoAToa = doSimples.filter((h) => exigePro(h));
+  const trancadoAToa = [...noSimples].filter((h) => exigePro(h));
   ok("planos: nenhuma rota do Simples é trancada", trancadoAToa.length === 0,
      `trancadas à toa: ${trancadoAToa.join(", ")}`);
+
+  // ⚠️ OS CINCO ITENS PAGOS, NOMEADOS. A conferência acima é estrutural (o que
+  // está em grupo `pro` tem gate); esta é NOMINAL. As duas não se substituem:
+  // mover um item para um grupo do Simples faria a estrutural continuar
+  // passando — ela só confere o que está no grupo pago com o que está trancado,
+  // e um item que saiu dos dois lados sai da conferência junto. É exatamente
+  // assim que um recurso pago vira grátis sem ninguém notar.
+  const PAGOS = [
+    "/aprovacoes",
+    "/governanca",
+    "/investidores",
+    "/contratacoes",
+    "/dashboard/dashboards/custom",
+  ];
+  for (const rota of PAGOS) {
+    ok(`planos: ${rota} exige plano`, exigePro(rota));
+    ok(`planos: ${rota} não abre no Simples`, !podeAbrir(rota, PLANO_SIMPLES));
+  }
 
   // As rotas LEGADAS que redirecionam para as telas Pro também têm de estar
   // trancadas — senão o redirect é uma porta lateral aberta para a mesma tela.
@@ -2021,6 +2044,206 @@ const AGOSTO = janelaMes(2026, 7);
   ok("controles: o Modo Pro é um switch com papel ARIA", modo?.papel === "switch");
 
   console.log(`  · controles: ${CONTROLES.length} declarados · ${destrutivas.length} destrutivos · ${porTipo("navegacao").length} de navegação`);
+}
+
+
+/* ========================================================================== */
+/* LINHA 20d — DUPLA MORADA: aprovação e reembolso têm UMA casa em live.       */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ O MESMO DEFEITO DAS TELAS DUPLICADAS, AGORA NOS DADOS. Aprovações e
+   * reembolsos existiam ao mesmo tempo como tabela (`approvals`,
+   * `reembolsos`) e como chave de estado (`a4p_aprovacoes`, `a4p_reembolsos`,
+   * que o caminho genérico ainda subia para `org_state`). Duas cópias do mesmo
+   * fato divergem no primeiro ajuste — e aqui o fato é quem autorizou um
+   * pagamento. Divergência ali é o pagamento autorizado duas vezes, ou o que
+   * ninguém autorizou.
+   *
+   * A decisão: a TABELA é o caminho único de leitura, a escrita na chave
+   * PAROU, e o dado antigo fica parado onde está. ⚠️ A MIGRAÇÃO do que já subiu
+   * continua BLOQUEADA até haver restauração de backup testada e datada —
+   * mexer no dado que só tem uma cópia, sem ensaio de volta, é a operação que
+   * não se desfaz. Esta guarda cobra a parada de sangrar, não a operação.
+   */
+  ok("dupla morada: as duas chaves estão congeladas",
+     estaCongelada("a4p_aprovacoes") && estaCongelada("a4p_reembolsos"));
+  ok("dupla morada: o congelamento não vazou para as outras chaves",
+     !estaCongelada("a4p_orcamentos") && !estaCongelada("a4p_comprovantes"));
+
+  // ⚠️ Congelada continua CLASSIFICADA. Tirá-la de `CHAVES_ORG` a esconderia da
+  // guarda de classificação, e uma chave fora das listas é exatamente como
+  // este defeito nasceu — sem ninguém para perguntar onde ela mora.
+  const classificadas = new Set<string>(Object.values(CHAVES_ORG));
+  ok("dupla morada: chave congelada continua classificada",
+     CHAVES_CONGELADAS.every((c) => classificadas.has(c)),
+     CHAVES_CONGELADAS.filter((c) => !classificadas.has(c)).join(", "));
+
+  /*
+   * E a varredura, com teto ZERO: nenhum caminho grava as duas chaves fora da
+   * demonstração. A trava do `store-org` já recusa a escrita, mas ela é uma
+   * função que alguém pode contornar chamando `gravarLocal` direto — e a
+   * segunda cópia não precisa de duas chamadas para existir, precisa de uma.
+   */
+  const donos = ["src/lib/aprovacoes.ts", "src/lib/reembolsos.ts"];
+  for (const arquivo of donos) {
+    const txt = readFileSync(arquivo, "utf8");
+    const corpo = txt.slice(txt.indexOf("function saveLocal"));
+    ok(`dupla morada: ${arquivo} não grava a chave em live`,
+       /function saveLocal[^}]*if \(!isDemo\) return;/.test(corpo),
+       "o `saveLocal` precisa sair cedo quando não é demonstração");
+  }
+  const arquivosDeSrc: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (/\.(ts|tsx)$/.test(nome)) arquivosDeSrc.push(caminho);
+    }
+  };
+  varrer("src");
+  const fora = arquivosDeSrc
+    .filter((f) => !donos.includes(f) && !f.endsWith("store-org.ts"))
+    .filter((f) => /a4p_aprovacoes|a4p_reembolsos/.test(readFileSync(f, "utf8")));
+  ok("dupla morada: só os donos e o registro citam as duas chaves", fora.length === 0,
+     fora.join(", "));
+}
+
+
+/* ========================================================================== */
+/* LINHA 30 — MÉTRICA NÃO SE DIGITA: o MRR não sai do cliente.                 */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ Métrica que se digita não é métrica: é opinião com casa decimal. O
+   * defeito não estava onde parecia — a TELA já derivava o MRR do preço do
+   * plano; a FUNÇÃO é que aceitava o número como parâmetro. Derivação feita na
+   * tela é convenção, e convenção se perde na primeira refatoração: ninguém
+   * precisa ser mal-intencionado para o número passar a mentir, basta um
+   * script de correção em lote informar o valor "certo".
+   *
+   * Quem calcula agora é um gatilho no banco (migration
+   * `20260805234628_mrr_derivado_do_plano`), e ele vale para TODO caminho de
+   * escrita — inclusive o webhook do provedor de pagamento, que ainda não
+   * existe. Esta guarda cobra o lado que o banco não alcança: que nenhum
+   * arquivo do cliente volte a mandar o número.
+   */
+  const arquivos: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (/\.(ts|tsx)$/.test(nome)) arquivos.push(caminho);
+    }
+  };
+  varrer("src");
+
+  /*
+   * ⚠️ O padrão é ESTREITO de propósito, e a primeira versão não era: ela
+   * casava `mrr:` em qualquer objeto e acusou `core/indicadores` e
+   * `core/paineis`, que CALCULAM o MRR — que é o trabalho deles. Uma guarda
+   * que reprova o certo é pior que guarda nenhuma: ela treina quem a lê a
+   * ignorá-la. O que não pode existir é o PARÂMETRO (`p_mrr`) e a escrita
+   * direta na tabela de assinaturas.
+   */
+  const mandamMrr = arquivos.filter((f) => {
+    const txt = readFileSync(f, "utf8");
+    return /p_mrr/.test(txt) || /from\("subscriptions"\)[\s\S]{0,200}?(insert|update|upsert)/.test(txt);
+  });
+  ok("mrr: nenhuma tela informa o MRR ao servidor", mandamMrr.length === 0,
+     mandamMrr.join(", "));
+
+  // E a assinatura da função no cliente não pode ter o parâmetro de volta.
+  const admin = readFileSync("src/lib/admin.ts", "utf8");
+  const assinatura = admin.match(/export async function setSubscription\(([^)]*)\)/)?.[1] ?? "";
+  ok("mrr: setSubscription não recebe MRR", !/mrr/i.test(assinatura), assinatura);
+
+  // ⚠️ E a regra escrita, para quem for mexer nisso daqui a um ano: trial e
+  // inadimplente NÃO entram no MRR. Trial é a aposta de que vai virar receita;
+  // inadimplente é o título que existe sem o dinheiro ter entrado. Contar
+  // qualquer um dos dois é como um SaaS descobre tarde que a receita reportada
+  // não era caixa.
+  const migration = readFileSync(
+    "supabase/migrations/20260805234628_mrr_derivado_do_plano.sql", "utf8");
+  ok("mrr: a regra do gatilho é preço do plano SÓ quando ativa",
+     /new\.status = 'active'/.test(migration) && /else 0/.test(migration));
+}
+
+
+/* ========================================================================== */
+/* LINHA 29 — NAVEGAÇÃO: o teto do menu e a justificativa de toda rota.        */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ AS DUAS GUARDAS QUE IMPEDEM O MENU DE VOLTAR A QUINZE GRUPOS.
+   *
+   * A entropia aqui não é figura de linguagem: já aconteceu duas vezes neste
+   * repositório. Ninguém acrescentou quinze grupos de uma vez — cada um entrou
+   * sozinho, defensável, com um dono que precisava daquilo hoje. O que faltava
+   * era o momento em que alguém teria de OLHAR O TOTAL, e é ele que estas duas
+   * criam.
+   *
+   * Os tetos estão ancorados no MEDIDO, não num número redondo com folga. Um
+   * teto com folga é um teto que já nasce autorizando o próximo item, e a folga
+   * some sem discussão nenhuma; um teto no medido obriga quem quer acrescentar
+   * a dizer o que sai. É a mesma decisão dos orçamentos de desempenho da
+   * ONDA 12 — teto ancorado no que existe, subir exige justificativa escrita.
+   */
+  const TETO_GRUPOS = 6;        // Início · Movimentações · Entradas · Relatórios · Cadastros · Contabilidade e impostos
+  const TETO_ITENS_POR_GRUPO = 10;  // Relatórios, o maior
+  const TETO_ITENS_TOTAL = 50;      // a soma de hoje, incluindo o rodapé de Configurações
+
+  ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
+     SECTIONS.length <= TETO_GRUPOS,
+     `${SECTIONS.length} grupos: ${SECTIONS.map((s) => s.label).join(" · ")}`);
+
+  const gordos = [...SECTIONS, CONFIG].filter((s) => s.items.length > TETO_ITENS_POR_GRUPO);
+  ok(`nav: nenhum grupo passa de ${TETO_ITENS_POR_GRUPO} itens`, gordos.length === 0,
+     gordos.map((s) => `${s.label} (${s.items.length})`).join(", "));
+
+  const total = [...SECTIONS, CONFIG].reduce((n, s) => n + s.items.length + (s.href ? 1 : 0), 0);
+  ok(`nav: o menu inteiro não passa de ${TETO_ITENS_TOTAL} destinos`, total <= TETO_ITENS_TOTAL,
+     `${total} destinos`);
+
+  // ⚠️ E o que a soma esconde: um menu dentro do teto ainda pode ter um grupo
+  // com um item só, que é uma linha de menu fingindo ser uma categoria. `href`
+  // presente é o caso legítimo (o grupo É o destino, como Início).
+  const magros = SECTIONS.filter((s) => !s.href && s.items.length < 2);
+  ok("nav: nenhum grupo existe para abrigar um item só", magros.length === 0,
+     magros.map((s) => s.label).join(", "));
+
+  /*
+   * A segunda: ROTA NOVA EXIGE LINHA COM DONO E CRITÉRIO.
+   *
+   * A guarda da LINHA 26 já cobra que toda rota publicada tenha linha. O que
+   * ela não cobrava é a linha DIZER ALGUMA COISA: `dono` respondia "a quem
+   * perguntar" e nada respondia "por que isto existe". Sem essa segunda
+   * pergunta, uma rota entra porque alguém precisava dela hoje e fica para
+   * sempre, porque remover parece arriscado e ninguém sabe o que ela custa.
+   */
+  const CRITERIOS = ["nucleo", "diferencial", "travada", "ferramenta"];
+  const semCriterio = INVENTARIO.filter((i) => !CRITERIOS.includes(i.criterio));
+  ok("inventário: toda rota declara o critério pelo qual existe", semCriterio.length === 0,
+     semCriterio.map((i) => i.rota).join(", "));
+  const semDono = INVENTARIO.filter((i) => !i.dono);
+  ok("inventário: toda rota tem dono", semDono.length === 0,
+     semDono.map((i) => i.rota).join(", "));
+
+  // ⚠️ Coerência entre o critério e o gate: o que está declarado como TRAVADA
+  // tem de estar trancado no servidor, e o que está trancado tem de estar
+  // declarado. As duas listas divergirem é o defeito da cortina de novo —
+  // agora com uma declaração escrita dizendo que está tudo certo.
+  const travadasSemGate = INVENTARIO.filter((i) => i.criterio === "travada" && !exigePro(i.rota));
+  ok("inventário: rota declarada travada é bloqueada no servidor", travadasSemGate.length === 0,
+     travadasSemGate.map((i) => i.rota).join(", "));
+  const gateSemDeclaracao = INVENTARIO.filter((i) => i.criterio !== "travada" && exigePro(i.rota));
+  ok("inventário: rota bloqueada no servidor está declarada travada", gateSemDeclaracao.length === 0,
+     gateSemDeclaracao.map((i) => i.rota).join(", "));
+
+  const porCriterio = CRITERIOS.map(
+    (c) => `${INVENTARIO.filter((i) => i.criterio === c).length} ${c}`,
+  ).join(" · ");
+  console.log(`  · nav: ${SECTIONS.length} grupos · ${total} destinos · inventário: ${porCriterio}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

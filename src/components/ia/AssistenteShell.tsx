@@ -8,7 +8,7 @@
  * resposta para "onde eu falo com a IA".
  *
  * A decisão: a **conversa é a porta** — é o que as pessoas procuram. As quatro
- * abas (Quant, Decisão, Risco, Autônomo) são RELATÓRIOS que a conversa deve
+ * abas (Quant, Decisão, Risco, Sugestões) são RELATÓRIOS que a conversa deve
  * saber abrir, não um segundo lugar para conversar. Então elas viram painéis
  * AQUI, e `/copiloto` é aposentado.
  *
@@ -30,7 +30,11 @@ const ABAS: { id: Aba; label: string; descricao: string }[] = [
   { id: "quant", label: "Quant", descricao: "score de saúde, radar e cenários" },
   { id: "decisao", label: "Decisão", descricao: "Monte Carlo e recomendações com impacto" },
   { id: "risco", label: "Risco", descricao: "runway, ruptura e stress de caixa" },
-  { id: "autonomo", label: "Autônomo", descricao: "decisões e plano supervisionado" },
+  // ⚠️ Chamava-se "Autônomo" e prometia autonomia que não existe: a aba
+  // PROPÕE, e quem age é uma pessoa no card de sugestões. O identificador
+  // (`autonomo`) fica — ele é endereço, e mudá-lo quebraria o link antigo e o
+  // gate de plano que fecha esta aba pelo par rota+aba.
+  { id: "autonomo", label: "Sugestões", descricao: "o que o motor recomenda fazer agora" },
 ];
 
 const ehAba = (s: string | null): s is Aba => ABAS.some((a) => a.id === s);

@@ -1,20 +1,54 @@
 name: CI
 
-# Roda a suíte de verificação (typecheck + guardas + build) em cada push e PR.
+# Roda a suíte de verificação (typecheck + guardas + build) em cada PR e em cada
+# push aos branches de integração.
 # As guardas usam --experimental-strip-types, que exige Node >= 22.6.
 #
 # ⚠️ `npm test` inclui a MATRIZ DE CONSISTÊNCIA CRUZADA (`npm run consistencia`),
 # que confronta cada indicador entre os caminhos que o produzem — Home, DRE,
 # razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
 # diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
+
+# ⚠️ `push` fica restrito aos branches de INTEGRAÇÃO. Com `["**"]`, todo push
+# num branch com PR aberto disparava DOIS runs idênticos — o `push` e o
+# `pull_request` — competindo pelos mesmos minutos para responder a mesma
+# pergunta. Branch de trabalho é coberto pelo `pull_request`, que dispara a cada
+# push no head. O custo declarado: um branch SEM PR aberto não roda a suíte no
+# push; ele passa a rodar no instante em que o PR abre, e branch sem PR não vai
+# a lugar nenhum.
 on:
   push:
-    branches: ["**"]
+    branches: [main, claude/epic-fermi-i423xk]
   pull_request:
+
+# O grupo existe para o caso SUPERADO: dois pushes seguidos no mesmo branch, e a
+# execução do commit velho perde a graça no instante em que o novo chega.
+#
+# ⚠️ Ele NÃO serve para matar o run duplicado — quem resolve isso é o gatilho
+# acima. Cancelar deixa no PR uma verificação com conclusão `cancelled`, e o
+# GitHub conta isso como não-sucesso: medido no commit 13c7203, o `verify`
+# sobrevivente passou, o Vercel passou, e o PR ficou em `unstable` por causa do
+# cancelado. Trocar um run desperdiçado por um X vermelho permanente é pior que
+# o problema — um PR que parece quebrado é o mesmo defeito que o teto de tempo
+# veio corrigir.
+#
+# A chave tem de render igual nos dois eventos: `head.ref` (no PR) e `ref_name`
+# (no push) dão os dois o nome do branch. `pull_request.number || github.ref`
+# NÃO servia — rendia `43` num evento e `refs/heads/<branch>` no outro.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # ⚠️ O padrão do GitHub é SEIS HORAS. Em 05/08 duas execuções ficaram presas
+    # no passo de build — o mesmo commit compilou aqui em ~2 minutos e o deploy
+    # de pré-visualização subiu normalmente, então era o runner, não o código.
+    # Sem teto, um travamento desses deixa o PR com verificação pendente por um
+    # turno inteiro de trabalho, e "pendente" é indistinguível de "ainda não
+    # rodou" para quem chega depois. O teto é 6x a duração medida (~2 min).
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

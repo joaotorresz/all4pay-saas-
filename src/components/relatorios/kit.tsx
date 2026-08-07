@@ -35,17 +35,25 @@ import { problemaDoIntervalo } from "@/core/indicadores";
  */
 export interface TemaRelatorio { id: string; nome: string; base: string; suave: string; texto: string }
 
+/**
+ * DOIS TEMAS, não dez.
+ *
+ * ⚠️ Um DRE precisa ser lido igual por todo mundo — pelo dono, pelo contador,
+ * pelo banco que recebe o PDF. Dez paletas eram escolha que ninguém pediu num
+ * documento cuja função é não variar, e cada uma é superfície de suporte: um
+ * cliente com o relatório "Vinho" e outro com "Oceano" descrevem telas
+ * diferentes ao pedir ajuda sobre a mesma coisa.
+ *
+ * ⚠️ Ressalva honesta: o corte NÃO foi por contraste. Medi os dez como texto
+ * sobre a base do cabeçalho e todos passavam em AA — o pior era `porsol`, com
+ * 5,00:1 contra os 4,5:1 exigidos. O motivo é consistência, não legibilidade.
+ *
+ * Os ids removidos continuam abrindo: `temaPorId` cai no padrão quando não
+ * acha. Um fechamento assinado com "Oceano" não quebra — ele volta em Padrão.
+ */
 export const TEMAS: TemaRelatorio[] = [
-  { id: "moss", nome: "Padrão (Moss)", base: "#2F6B3A", suave: "#E7F0E7", texto: "#FFFFFF" },
-  { id: "lime", nome: "Luminous Lime", base: "#DCFF00", suave: "#F8FFCB", texto: "#11190C" },
-  { id: "grafite", nome: "Grafite", base: "#3A3A3A", suave: "#EDEDED", texto: "#FFFFFF" },
-  { id: "marinho", nome: "Marinho", base: "#1E3A5F", suave: "#E4EAF2", texto: "#FFFFFF" },
-  { id: "ardosia", nome: "Ardósia", base: "#4A5568", suave: "#EDF0F4", texto: "#FFFFFF" },
-  { id: "porsol", nome: "Pôr do Sol", base: "#B4531E", suave: "#F7E9E0", texto: "#FFFFFF" },
-  { id: "oceano", nome: "Oceano", base: "#186C7A", suave: "#E1F0F2", texto: "#FFFFFF" },
-  { id: "floresta", nome: "Floresta", base: "#1F4D2E", suave: "#E3EDE6", texto: "#FFFFFF" },
-  { id: "vinho", nome: "Vinho", base: "#6B1F35", suave: "#F3E4E8", texto: "#FFFFFF" },
-  { id: "mono", nome: "Monocromático", base: "#11190C", suave: "#F0F0EE", texto: "#FFFFFF" },
+  { id: "moss", nome: "Padrão", base: "#2F6B3A", suave: "#E7F0E7", texto: "#FFFFFF" },
+  { id: "mono", nome: "Alto contraste", base: "#11190C", suave: "#F0F0EE", texto: "#FFFFFF" },
 ];
 
 export const temaPorId = (id: string) => TEMAS.find((t) => t.id === id) ?? TEMAS[0];

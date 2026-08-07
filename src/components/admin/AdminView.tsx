@@ -61,14 +61,15 @@ function AdminBody() {
   const [verOrg, setVerOrg] = React.useState<{ id: string; nome: string } | null>(null);
   const [verUser, setVerUser] = React.useState<{ id: string; email: string } | null>(null);
 
-  const planById = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.id, p])), [plans.data]);
   const planByName = React.useMemo(() => new Map((plans.data ?? []).map((p) => [p.name, p])), [plans.data]);
 
   const salvar = async (orgId: string, planId: string | null, status: SubStatus) => {
-    const plan = planId ? planById.get(planId) : undefined;
-    const mrr = status === "active" && plan ? plan.priceMonth : 0;
+    // ⚠️ A tela NÃO calcula mais o MRR. Ela decide plano e estado; o número
+    // sai do gatilho no banco, a partir do preço do plano. Enquanto era a tela
+    // que o mandava, o servidor aceitava qualquer valor de quem soubesse
+    // chamar a função — e o painel somaria esse valor como se fosse receita.
     setBusy(orgId);
-    try { await setSubscription(orgId, planId, status, mrr); await qc.invalidateQueries({ queryKey: ["admin-orgs"] }); await qc.invalidateQueries({ queryKey: ["admin-overview"] }); show("Assinatura atualizada"); }
+    try { await setSubscription(orgId, planId, status); await qc.invalidateQueries({ queryKey: ["admin-orgs"] }); await qc.invalidateQueries({ queryKey: ["admin-overview"] }); show("Assinatura atualizada"); }
     catch (e) { show((e as Error)?.message ?? "Falha ao salvar"); }
     finally { setBusy(null); }
   };

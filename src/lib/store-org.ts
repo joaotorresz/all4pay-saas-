@@ -104,6 +104,33 @@ export const CHAVES_ORG = {
 } as const;
 
 /**
+ * ⚠️ CHAVES CONGELADAS — a entidade JÁ TEM TABELA, e a chave é só o rastro.
+ *
+ * Aprovações e reembolsos moravam nos dois lugares ao mesmo tempo: em live o
+ * código lia e escrevia `public.approvals` / `public.reembolsos` **e** a chave
+ * continuava indo para `org_state` pelo caminho genérico. Dupla morada é o
+ * mesmo defeito das telas duplicadas, agora nos dados — e ele termina do mesmo
+ * jeito: dois números com o mesmo rótulo, e quem os compara não tem como saber
+ * qual é o certo. Uma aprovação divergente não é um relatório feio; é um
+ * pagamento que alguém autoriza duas vezes ou não autoriza nenhuma.
+ *
+ * A decisão de hoje, escrita: **a TABELA é o caminho único de leitura**, a
+ * escrita na chave PARA, e o dado antigo fica onde está. A migração do que já
+ * subiu para `org_state` está BLOQUEADA até existir restauração de backup
+ * testada e datada — mexer no dado que só tem uma cópia, sem ensaio de volta,
+ * é a operação que não se desfaz.
+ *
+ * Só vale em live: em demonstração não há tabela nenhuma, e o navegador é a
+ * casa legítima — congelar ali apagaria a demonstração em vez de proteger dado.
+ */
+export const CHAVES_CONGELADAS: readonly string[] = [
+  "a4p_aprovacoes",
+  "a4p_reembolsos",
+];
+
+export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
+
+/**
  * ⚠️ Entidades que **não cabem** num key-value e precisam de tabela/bucket
  * próprios. Estão listadas aqui, e não em `CHAVES_ORG`, porque enfiá-las numa
  * coluna `jsonb` trocaria um problema por outro:
@@ -284,6 +311,14 @@ function gravarLocal(chave: string, valor: unknown) {
  * O valor do servidor chega por `hidratar()` e dispara os ouvintes.
  */
 export function ler<T>(chave: string, padrao: T): T {
+  /*
+   * ⚠️ Chave congelada em live devolve o PADRÃO, não a cópia velha do
+   * navegador. Um `??` que caísse no localStorage quando a tabela vem vazia
+   * seria a dupla morada de volta pela porta dos fundos — e pior, ela só
+   * apareceria em quem tem o rastro antigo, que é justamente quem não seria
+   * consultado ao testar.
+   */
+  if (remoto() && estaCongelada(chave)) return padrao;
   if (memoria.has(chave)) return memoria.get(chave) as T;
   const v = lerLocal(chave, padrao);
   memoria.set(chave, v);
@@ -302,6 +337,10 @@ export function ler<T>(chave: string, padrao: T): T {
  * a interface poder dizer "não salvo no servidor" em vez de fingir que salvou.
  */
 export function gravar<T>(chave: string, valor: T): void {
+  // ⚠️ Congelada em live: a tabela é a casa. Escrever aqui recriaria a segunda
+  // cópia que esta trava existe para parar — inclusive no servidor, via
+  // `org_state`, que é onde ela ficaria mais convincente e mais errada.
+  if (remoto() && estaCongelada(chave)) return;
   memoria.set(chave, valor);
   avisar(chave);
 
@@ -383,6 +422,9 @@ export async function hidratar(chaves: string[]): Promise<number> {
 export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: number; jaExistiam: number }> {
   if (!remoto()) return { enviadas: 0, jaExistiam: 0 };
   const locais = chaves.filter((c) => {
+    // A migração é justamente o caminho que subiria o rastro antigo para o
+    // servidor. Congelada não sobe: o dado fica parado onde está.
+    if (estaCongelada(c)) return false;
     if (typeof window === "undefined") return false;
     try { return localStorage.getItem(c) !== null; } catch { return false; }
   });
@@ -511,6 +553,14 @@ export async function importarEstado(b: Backup): Promise<{ restauradas: number; 
   let restauradas = 0;
   for (const [chave, valor] of Object.entries(b.chaves)) {
     if (!permitidas.has(chave)) { recusadas.push(chave); continue; }
+    /*
+     * ⚠️ Congelada também é RECUSADA na restauração — e este é o caso menos
+     * óbvio dos dois. Um backup antigo carrega a chave, e restaurá-lo
+     * recriaria a segunda morada exatamente no momento em que ninguém está
+     * olhando para ela: quem restaura está resolvendo outro problema. A
+     * aprovação e o reembolso voltam pela tabela, que é onde eles moram.
+     */
+    if (remoto() && estaCongelada(chave)) { recusadas.push(chave); continue; }
     memoria.set(chave, valor);
     avisar(chave);
     if (remoto()) { pendentesDeEnvio.set(chave, valor); await enviar(chave, valor); }
