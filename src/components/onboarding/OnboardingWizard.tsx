@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
+import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { formatBRL } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
@@ -166,10 +166,9 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
   // Ela explica o que fazer e não finge que a conta já está pronta.
   if (confirmeEmail) {
     return (
-      <div className="min-h-screen bg-surface-1 flex flex-col items-center justify-center px-4 py-8">
+      <MolduraPublica>
+        <div className="min-h-full flex flex-col items-center justify-center px-4 py-8">
         <div className="w-full max-w-md flex flex-col items-start gap-4">
-          <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
           <Card className="flex flex-col gap-3 w-full">
             <span className="text-h3 text-ink">Confirme seu e-mail para entrar</span>
             <p className="m-0 text-body text-muted">
@@ -185,18 +184,18 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             </p>
           </Card>
         </div>
-      </div>
+        </div>
+      </MolduraPublica>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-1 flex flex-col items-center px-4 py-8">
+    <MolduraPublica>
+      <div className="flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-3xl flex flex-col gap-5">
         {/* Cabeçalho + progresso */}
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
-            <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
+          <div className="flex items-center justify-end">
             <div className="flex items-center gap-3">
               <button onClick={onTrocarTipo} className="text-caption text-muted hover:text-ink underline">Sou pessoa física</button>
               <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
@@ -253,7 +252,8 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
         </div>
         <p className="text-center text-caption text-faint">MVP em teste — você pode avançar com campos em branco.</p>
       </div>
-    </div>
+      </div>
+    </MolduraPublica>
   );
 }
 

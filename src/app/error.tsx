@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
 import { reportar } from "@/lib/erros";
 
@@ -26,7 +27,8 @@ export default function Erro({
   }, [error]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-surface-1">
+    <MolduraPublica>
+      <main className="min-h-full flex items-center justify-center px-6 py-12">
       <div className="flex flex-col items-start gap-5 max-w-[520px]">
         <span className="text-caption uppercase tracking-[0.08em] text-faint">{MARCA}</span>
 
@@ -56,6 +58,7 @@ export default function Erro({
           </a>
         </div>
       </div>
-    </main>
+      </main>
+    </MolduraPublica>
   );
 }
