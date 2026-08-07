@@ -38,7 +38,7 @@ Sem isto, o resto é construir sobre areia.
 | 0.2 | Confirmar **backup diário ativo** | Database → Backups | "Existe backup" ≠ "o backup volta" — o teste é a Fase 1 |
 | 0.3 | **Ligar `mailer_autoconfirm`** (por ora) | Auth → Email → desmarcar "Confirm email" | Achado hoje: confirmação está LIGADA, sem SMTP e sem tela de espera. Sem isto, **ninguém entra depois de cadastrar** (a guarda 2.1 evita o dado órfão, mas a pessoa ainda não entra) |
 | 0.3b | **SMTP próprio** (Resend/SES) OU aceitar autoconfirm | Auth → SMTP Settings | Achado hoje: o e-mail padrão do Supabase tem **rate limit baixíssimo** — o cadastro devolveu `429 over_email_send_rate_limit` no 2º teste. Com autoconfirm (0.3) o cadastro não depende de e-mail; mas "esqueci a senha" depende, e vai bater no mesmo teto |
-| 0.4 | Decidir a **linha do produto** | — | `main` morta desde 17/06, sem ancestral comum com a linha viva. Recomendo: a linha viva vira `main` |
+| ~~0.4~~ | ~~Decidir a **linha do produto**~~ | — | ✅ **RESOLVIDO em 07/08 pelo merge do PR #1**, por um caminho melhor que o que propus: `main` = `fed25aa`, merge das duas raízes, com a **árvore idêntica à da linha viva** (zero arquivo de diferença), **nenhum** dos módulos removidos na ONDA 6 ressuscitado e **12 guardas verdes** na árvore mergeada. Não renomear mais nada |
 | 0.5 | **Vercel → produção aponta para `main`** | Vercel → Settings → Git | Hoje qualquer push na branch de trabalho vai ao ar. Com cliente dentro, é acidente com data marcada |
 | 0.6 | **Proteger `main`**: 12 checks obrigatórios, sem bypass de admin | GitHub → Branch protection | Converte "aviso" em "trava". Foi com guardas verdes e sem trava que as 29 derivas conviveram |
 

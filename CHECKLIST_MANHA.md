@@ -30,26 +30,32 @@
 
 ---
 
-## 🌿 BLOCO 2 — A linha do produto (~20 min) · decisão irreversível
+## 🌿 BLOCO 2 — A linha do produto (~10 min)
 
-**Contexto medido:** `main` está morta desde 17/06 e não tem ancestral comum com
-a linha que está no ar. Os 54 arquivos que só existem em `main` foram conferidos
-um a um: **zero perda funcional** (detalhe no ROADMAP_LANCAMENTO.md).
+### ✅ 2.1 A decisão foi TOMADA — pelo merge do PR #1 (07/08)
 
-### ☐ 2.1 Renomear as branches
-No seu terminal (ou me diga *"pode renomear"* que eu faço):
+Você mergeou o PR #1 e isso **resolveu o item**, por um caminho melhor que o que
+eu tinha proposto. Medido agora, não suposto:
 
-```bash
-git fetch origin
-git branch -m main main-junho-2026           # arquiva a linha antiga
-git push origin main-junho-2026
-git push origin --delete main
-git push origin claude/epic-fermi-i423xk:main  # a linha viva vira main
-```
+- `main` = `fed25aa`, um merge de duas raízes (a linha de junho `6743b5f` + a
+  linha viva `d5ff76f`);
+- **a árvore de `main` é byte a byte idêntica à da linha viva** — `git diff` entre
+  as duas dá **zero arquivos**. O histórico de junho entrou; o conteúdo antigo,
+  não;
+- **nada ressuscitou**: conferi um a um os alvos que a ONDA 6 removeu de
+  propósito (`/arquitetura`, `/dados`, `/orquestracao`, `core/datamoat`,
+  `core/orchestration`, `lib/inbox`, `CentralPagamentosView`) — **nenhum voltou**;
+  73 rotas nos dois lados;
+- **as 12 guardas passam na árvore mergeada** (rodei `npm test` inteiro nela).
 
-- **Deu certo quando:** `main` no GitHub mostra os commits das ondas (o último título fala de P0-08/P1-10)
+⚠️ **NÃO execute mais o `git branch -m` que estava aqui.** Renomear agora
+desfaria o merge e recriaria o problema que ele fechou.
 
-### ☐ 2.2 Vercel: produção sai de `main`
+*(Nota de higiene, não bloqueia: com o merge, `typecheck` falha até apagar a
+pasta `.next` — ela guarda tipos de rotas que o PR #43 excluiu. `rm -rf .next`
+resolve. Só afeta build local, nunca a Vercel, que builda do zero.)*
+
+### ☐ 2.2 Vercel: produção sai de `main` ← **agora é o que falta**
 - **Onde:** [vercel.com](https://vercel.com) → projeto `all4pay-saas` → **Settings → Git** → Production Branch = `main`
 - **Deu certo quando:** o próximo deploy de produção lista `main` como branch — confira em `https://all4pay-saas.vercel.app/api/version` (o campo `branch` tem de dizer `main`)
 
@@ -119,3 +125,21 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 | P0-08 e P1-10 (números enganosos) | ✅ corrigidos |
 | Aviso de beta nos dois wizards + `/privacidade` (minuta LGPD) | ✅ no ar |
 | Roadmap completo com estado medido | `ROADMAP_LANCAMENTO.md` |
+| Árvore mergeada (`main` = `fed25aa`) conferida | ✅ **12 guardas verdes** · tree idêntica à linha viva · zero arquivo ressuscitado |
+
+### O que mais entrou no repositório enquanto eu trabalhava (não é meu)
+
+Outra linha de trabalho subiu **24 commits** na branch e entrou no merge — vale
+saber que existe, porque muda telas que eu não medi:
+
+- **PR #43**: menu de 15 para 6 grupos, painéis curados, "sugestão em vez de
+  execução". O inventário agora fecha em **6 grupos · 50 destinos**;
+- **CI**: teto de tempo no job e cancelamento de run duplicado;
+- **3 migrations novas** em nomenclatura de timestamp (`20260805…`), diferente do
+  `00NN_` que eu usava — as duas convenções convivem no diretório;
+- a guarda de esquema agora fecha em **57 migrations · 57 arquivos · 0 deriva**
+  (manifesto de 05/08, dentro da validade de 7 dias).
+
+⚠️ Eu **não** dirigi as telas do PR #43 no telefone nem no navegador. As
+medições da ONDA 12 (7 telas, 4 fluxos) são anteriores a ele. Se o ensaio do
+bloco 4 esbarrar em algo de menu/painel, é aí que provavelmente está.
