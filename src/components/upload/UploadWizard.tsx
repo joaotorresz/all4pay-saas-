@@ -4,7 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, BRL, Select, CurrencyInput, DateField } from "@/components/ui";
 import { listParties } from "@/lib/cadastros";
-import { getOpenMovements } from "@/lib/data";
+import { getOpenMovements, getRiscoInput } from "@/lib/data";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { lerDocumento, ocrConfigurado, type LeituraDocumento } from "@/lib/ocr-ingest";
 import { analisarDocumento, confirmarDocumento, ACAO_MAP, type AnaliseDocumento, type AcaoFinal } from "@/lib/upload-doc";
@@ -67,12 +67,13 @@ export function UploadWizard() {
       const res = await lerDocumento(file, ocrOn);
       setLeitura(res);
       if (res.kind === "doc") {
-        const [parties, aPagar, aReceber] = await Promise.all([
+        const [parties, aPagar, aReceber, risco] = await Promise.all([
           listParties().catch(() => [] as Party[]),
           getOpenMovements("saida").catch(() => [] as Movement[]),
           getOpenMovements("entrada").catch(() => [] as Movement[]),
+          getRiscoInput().catch(() => null),
         ]);
-        const an = analisarDocumento(res.fields, parties, [...aPagar, ...aReceber]);
+        const an = analisarDocumento(res.fields, parties, [...aPagar, ...aReceber], risco?.movements ?? []);
         setAnalise(an);
         setCategoria(an.fields.categoria ?? "");
         setValor(an.fields.valor ?? 0);
@@ -265,7 +266,7 @@ function Passos({ etapa }: { etapa: Etapa }) {
         return (
           <React.Fragment key={l}>
             <div className="flex items-center gap-2">
-              <span className={`w-5 h-5 rounded-pill inline-flex items-center justify-center text-[12px] tabular-nums ${ativo ? "bg-lime text-on-lime" : feito ? "bg-ink text-white" : "bg-surface-2 text-faint"}`}>
+              <span className={`w-5 h-5 rounded-pill inline-flex items-center justify-center text-[12px] tabular-nums ${ativo ? "bg-lime text-on-lime" : feito ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-faint"}`}>
                 {feito ? "✓" : n}
               </span>
               <span className={`text-caption ${ativo ? "text-ink font-medium" : "text-faint"}`}>{l}</span>
@@ -361,7 +362,7 @@ function Confirmacao({
       {/* Ação — corrija se a leitura veio errada */}
       <div className="flex flex-col gap-[6px]">
         <span className="text-label font-medium text-muted">Ação {corrigido && <span className="text-caption text-warning">· corrigido</span>}</span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {(["Vou pagar", "Vou receber", "Paguei", "Recebi"] as AcaoFinal[]).map((op) => {
             const on = acao === op;
             return (

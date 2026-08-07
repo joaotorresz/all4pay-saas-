@@ -25,6 +25,7 @@ function gauss(r: () => number): number {
 }
 
 const SEMANAS = ["1ª", "2ª", "3ª", "4ª", "5ª"];
+const MESES_PT = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 export function preverCaixa(f: FinancialFeatures, hojeISO: string, horizonteDias = 90, paths = 400): Prediction {
   const meanDia = (f.receitaMensal - f.despesaMensal) / 30;
@@ -71,7 +72,12 @@ export function preverCaixa(f: FinancialFeatures, hojeISO: string, horizonteDias
     const dt = new Date(base);
     dt.setDate(base.getDate() + diaProvavel);
     dataProvavel = dt.toISOString().slice(0, 10);
-    semana = `${SEMANAS[Math.min(4, Math.floor((dt.getDate() - 1) / 7))]} semana de ${dt.toLocaleDateString("pt-BR", { month: "long" })}`;
+    // Semana/mês derivados da data UTC (não de getters locais): em fuso negativo
+    // (UTC-3) dt é a meia-noite UTC = dia anterior local, o que jogava a semana e
+    // o mês um dia para trás (ex.: "5ª semana de junho" em vez de "1ª de julho").
+    const ddP = Number(dataProvavel.slice(8, 10));
+    const mmP = Number(dataProvavel.slice(5, 7));
+    semana = `${SEMANAS[Math.min(4, Math.floor((ddP - 1) / 7))]} semana de ${MESES_PT[mmP - 1]}`;
   }
 
   const fim = cols[horizonteDias];

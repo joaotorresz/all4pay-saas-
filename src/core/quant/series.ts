@@ -13,7 +13,7 @@ export interface MesPonto {
 }
 
 export function serieMensal(input: RiskInput, meses = 12): MesPonto[] {
-  const base = new Date(input.hoje);
+  const base = new Date(input.hoje + "T00:00:00"); // meia-noite LOCAL: em UTC-3, new Date("YYYY-MM-DD") cai no mês anterior no 1º dia
   const pts: MesPonto[] = [];
   for (let i = meses - 1; i >= 0; i--) {
     const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
@@ -35,17 +35,20 @@ export function serieMensal(input: RiskInput, meses = 12): MesPonto[] {
 
 /** Share de receita recorrente: clientes presentes em ≥3 meses distintos. */
 export function receitaRecorrente(input: RiskInput, meses = 12): number {
-  const base = new Date(input.hoje);
-  const corte = new Date(base.getFullYear(), base.getMonth() - (meses - 1), 1)
-    .toISOString()
-    .slice(0, 7);
+  const base = new Date(input.hoje + "T00:00:00"); // meia-noite LOCAL: em UTC-3, new Date("YYYY-MM-DD") cai no mês anterior no 1º dia
+  // corte local (não UTC) p/ não deslocar o mês em fuso negativo no início do mês
+  const c = new Date(base.getFullYear(), base.getMonth() - (meses - 1), 1);
+  const corte = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}`;
+  // teto = mês atual: exclui lançamentos "pago" com data FUTURA (ex.: recorrências
+  // projetadas marcadas pagas à frente) para a janela bater com a série mensal.
+  const atual = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}`;
   const mesesPorCliente = new Map<string, Set<string>>();
   const receitaPorCliente = new Map<string, number>();
   let total = 0;
   for (const m of input.movements) {
     if (m.type !== "entrada" || m.status !== "pago") continue;
     const ym = (m.paid_date ?? m.due_date).slice(0, 7);
-    if (ym < corte) continue;
+    if (ym < corte || ym > atual) continue;
     const id = m.party_id ?? "—";
     (mesesPorCliente.get(id) ?? mesesPorCliente.set(id, new Set()).get(id)!).add(ym);
     receitaPorCliente.set(id, (receitaPorCliente.get(id) ?? 0) + m.amount);

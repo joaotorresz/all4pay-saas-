@@ -5,6 +5,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export interface PendingMovement {
   id: string;
@@ -23,7 +24,7 @@ export async function getPendingMovements(): Promise<PendingMovement[]> {
     .from("movements")
     .select("id,type,amount,due_date,paid_date,description,category,party_id")
     .eq("review_status", "pendente")
-    .order("due_date", { ascending: false });
+    .order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as PendingMovement[];
 }
@@ -97,7 +98,7 @@ export async function findOrCreateParty(input: {
     const { data } = await supabase.from("parties").select("id,name").eq("doc_digits", docDigits).maybeSingle();
     if (data) return { id: data.id, name: data.name, reused: true };
   } else {
-    const { data } = await supabase.from("parties").select("id,name").ilike("name", input.name);
+    const { data } = await supabase.from("parties").select("id,name").ilike("name", input.name).limit(TETO_LINHAS);
     const hit = (data ?? []).find((p) => normalizarNome(p.name) === normalizarNome(input.name));
     if (hit) return { id: hit.id, name: hit.name, reused: true };
   }

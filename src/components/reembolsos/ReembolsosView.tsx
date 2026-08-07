@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea } from "@/components/ui";
+import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, DateField, Textarea, InfoHint } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { lerDocumento } from "@/lib/ocr-ingest";
 import {
@@ -79,9 +80,9 @@ export function ReembolsosView() {
           : r.status === "a_pagar");
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
+    <div className="grid grid-cols-1 lg:grid-cols-1 sm:grid-cols-3 gap-5 items-start pb-4">
       {/* Solicitar reembolso */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Solicitar reembolso", oQue: "O colaborador lança as despesas a reembolsar; o comprovante pode ser lido por OCR.", comoCalcula: "Cada item soma no total; ao solicitar, o pedido é roteado para aprovação conforme a alçada." }}>
         <span className="text-label font-medium text-muted">Solicitar reembolso</span>
         <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Colaborador" />
         <Input value={chavePix} onChange={(e) => setChavePix(e.target.value)} placeholder="Chave Pix do colaborador" />
@@ -97,7 +98,7 @@ export function ReembolsosView() {
         {itens.map((it, i) => (
           <div key={i} className="flex flex-col gap-2 rounded-md border border-border-soft p-2">
             <Input value={it.descricao} onChange={(e) => setItem(i, { descricao: e.target.value })} placeholder="Descrição (ex.: almoço cliente)" />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <CurrencyInput value={it.valor} onValueChange={(v) => setItem(i, { valor: v })} />
               <DateField value={it.data} onChange={(v) => setItem(i, { data: v })} />
             </div>
@@ -121,10 +122,11 @@ export function ReembolsosView() {
             const on = aba === id;
             return <button key={id} onClick={() => setAba(id)} className={`relative px-3 py-2 text-caption ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}>{label}{on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}</button>;
           })}
+          <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." /></span>
         </div>
         <div className="flex flex-col max-h-[560px] overflow-y-auto">
           {filtradas.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhum reembolso aqui. Aprovações ficam em <b className="text-muted font-medium">Solicitações &amp; aprovações</b>.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhum reembolso aqui. Aprovações ficam em <Link href="/aprovacoes" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Solicitações &amp; aprovações</Link>.</p>
           ) : filtradas.map((r) => (
             <div key={r.id} className="flex items-start gap-3 px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="w-2 h-2 rounded-pill mt-[6px] shrink-0" style={{ background: STATUS[r.status].cor }} />
@@ -137,7 +139,7 @@ export function ReembolsosView() {
           ))}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <b className="text-muted font-medium">Central de Pagamentos</b> para o Pix ao colaborador.</span>
+          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <Link href="/pagamentos" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Central de Pagamentos</Link> para o Pix ao colaborador.</span>
         </div>
       </Card>
       {node}

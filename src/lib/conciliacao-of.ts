@@ -8,6 +8,8 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export interface MatchConc {
   ofId: string; ofDesc: string; ofData: string;
@@ -16,17 +18,63 @@ export interface MatchConc {
 }
 export interface ConciliacaoOF { matches: MatchConc[]; pendentesSemMatch: number; ofSemMatch: number }
 
+export type RecomendacaoIA = "conciliar" | "revisar" | "rejeitar";
+export interface AvaliacaoIA { recomendacao: RecomendacaoIA; confiancaIA: number; motivo: string }
+
+/** IA disponível para desempatar pares ambíguos? */
+export async function iaConciliacaoAtiva(): Promise<boolean> {
+  try { return !!(await fetch("/api/ai/conciliar").then((r) => r.json()))?.configured; } catch (e) {
+    reportar("conciliacao.openfinance", e, "a conciliação abre sem as transações do banco", true); return false; }
+}
+
+/** Avalia com IA os pares ambíguos (confiança média) → mapa ofId→avaliação. */
+export async function avaliarComIA(matches: MatchConc[]): Promise<Map<string, AvaliacaoIA>> {
+  const out = new Map<string, AvaliacaoIA>();
+  if (matches.length === 0) return out;
+  const pares = matches.map((m) => ({
+    ofId: m.ofId, ofDesc: m.ofDesc, ofData: m.ofData,
+    pendDesc: m.pendDesc, dueDate: m.dueDate, valor: m.amount, tipo: m.tipo, confianca: m.confianca,
+  }));
+  try {
+    const j = await fetch("/api/ai/conciliar", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pares }),
+    }).then((r) => r.json());
+    if (j?.ok && Array.isArray(j.avaliacoes)) {
+      for (const a of j.avaliacoes as Array<AvaliacaoIA & { ofId: string }>) {
+        if (a?.ofId && a.recomendacao) out.set(a.ofId, { recomendacao: a.recomendacao, confiancaIA: Number(a.confiancaIA ?? 0), motivo: String(a.motivo ?? "") });
+      }
+    }
+  } catch (e) {
+    reportar("conciliacao.openfinance", e, "a conciliação abre sem as transações do banco", true); /* sem IA: segue só o determinístico */ }
+  return out;
+}
+
+
+/** Amostra determinística (demo) — mostra a confirmação profissional mesmo sem
+ *  banco conectado. Em live os pares vêm do matching real abaixo. */
+const DEMO_CONC: ConciliacaoOF = {
+  matches: [
+    { ofId: "of-1", ofDesc: "PIX recebido · ACME Ltda", ofData: "2026-06-12", pendId: "p-1", pendDesc: "NF 1042 · ACME Ltda", dueDate: "2026-06-12", tipo: "entrada", amount: 4800, confianca: 98 },
+    { ofId: "of-2", ofDesc: "TED · Distribuidora Sul", ofData: "2026-06-10", pendId: "p-2", pendDesc: "Boleto fornecedor · Distribuidora Sul", dueDate: "2026-06-11", tipo: "saida", amount: 2350.9, confianca: 88 },
+    { ofId: "of-3", ofDesc: "Débito · Posto Ipiranga", ofData: "2026-06-09", pendId: "p-3", pendDesc: "Combustível (previsto)", dueDate: "2026-06-07", tipo: "saida", amount: 520, confianca: 72 },
+    { ofId: "of-4", ofDesc: "PIX recebido · João Mendes", ofData: "2026-06-08", pendId: "p-4", pendDesc: "Serviço · João Mendes", dueDate: "2026-06-05", tipo: "entrada", amount: 1200, confianca: 64 },
+  ],
+  pendentesSemMatch: 3,
+  ofSemMatch: 5,
+};
+
 interface MovRow { id: string; type: "entrada" | "saida"; amount: number; due_date: string; paid_date: string | null; party_id: string | null; description: string | null }
 
 const diasEntre = (a: string, b: string) => Math.abs(Math.round((Date.parse(a) - Date.parse(b)) / 86400000));
 
 export async function getConciliacaoOF(): Promise<ConciliacaoOF | null> {
-  if (isDemo) return null;
+  if (isDemo) return DEMO_CONC;
   const supabase = createClient();
   const cols = "id,type,amount,due_date,paid_date,party_id,description";
   const [pendRes, ofRes] = await Promise.all([
-    supabase.from("movements").select(cols).eq("status", "pendente"),
-    supabase.from("movements").select(cols).eq("status", "pago").like("reference_code", "pluggy:%"),
+    supabase.from("movements").select(cols).eq("status", "pendente").limit(TETO_LINHAS),
+    supabase.from("movements").select(cols).eq("status", "pago").like("reference_code", "pluggy:%").limit(TETO_LINHAS),
   ]);
   if (pendRes.error) throw pendRes.error;
   if (ofRes.error) throw ofRes.error;

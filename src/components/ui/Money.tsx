@@ -26,6 +26,8 @@ export interface MoneyProps extends React.HTMLAttributes<HTMLSpanElement> {
   integerWeight?: 400 | 500;
   prefixSize?: number;
   prefixWeight?: 400 | 500;
+  /** Cor do prefixo "R$". Sem valor, segue o cinza `placeholder` do DS. */
+  prefixColor?: string;
   decimalSep?: string;
 }
 
@@ -41,6 +43,7 @@ export function Money({
   integerWeight = 400,
   prefixSize,
   prefixWeight = 500,
+  prefixColor,
   decimalSep = ",",
   className,
   style,
@@ -52,15 +55,16 @@ export function Money({
   return (
     <span
       className={cn(
-        "inline-flex items-baseline whitespace-nowrap font-sans leading-none tabular-nums",
+        // a4p-num: valores monetários entram em MONO (DS Ledger, globals.css)
+        "a4p-num inline-flex items-baseline whitespace-nowrap leading-none tabular-nums",
         className,
       )}
       style={{ letterSpacing: "-0.01em", ...style }}
       {...rest}
     >
       <span
-        className="text-placeholder mr-[5px]"
-        style={{ fontSize: curPx, fontWeight: prefixWeight }}
+        className={cn("mr-[5px]", prefixColor ? undefined : "text-placeholder")}
+        style={{ fontSize: curPx, fontWeight: prefixWeight, color: prefixColor }}
       >
         {currency}
       </span>

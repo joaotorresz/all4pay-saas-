@@ -22,6 +22,7 @@ import {
   type RuleSuggestion,
   type ExecucaoAcao,
 } from "@/core/financial-os";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 /** RiskInput síncrono a partir do seed (para a ponte event-bus → risco). */
 function demoRiscoInput(): RiskInput {
@@ -182,7 +183,7 @@ const ruleToRow = (r: FinancialRule) => ({ id: r.id, nome: r.nome, trigger: r.tr
 export async function listRules(): Promise<FinancialRule[]> {
   if (isDemo) return DEMO_RULES;
   const s = createClient();
-  const { data, error } = await s.from("financial_rules").select("id,nome,trigger,conditions,actions,prioridade,ativo");
+  const { data, error } = await s.from("financial_rules").select("id,nome,trigger,conditions,actions,prioridade,ativo").limit(TETO_LINHAS);
   if (error) throw error;
   if (!data || data.length === 0) {
     await s.from("financial_rules").upsert(DEMO_RULES.map(ruleToRow));

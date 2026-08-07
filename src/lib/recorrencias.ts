@@ -12,7 +12,10 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
+import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
 export const CICLOS: { id: Ciclo; label: string; meses: number }[] = [
@@ -87,10 +90,11 @@ export async function hydrateRecorrencias(force = false): Promise<void> {
   try {
     const { data } = await createClient().from("recurrences")
       .select("id,party_id,description,amount,freq,start_date,due_day,active,itens,created_at,parties(name)")
-      .eq("type", "entrada").order("created_at", { ascending: false });
+      .eq("type", "entrada").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as RecRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("financeiro.recorrencias", e, "as assinaturas não aparecem e o MRR fica sem base", true); cache = cache ?? []; }
 }
 
 export function listRecorrencias(): Recorrencia[] {
@@ -102,7 +106,12 @@ export interface KpisRecorrencia { mrr: number; ativas: number; ticketMedio: num
 export function kpisRecorrencia(): KpisRecorrencia {
   const list = cache ?? [];
   const ativas = list.filter((r) => r.status === "ativa");
-  const mrr = ativas.reduce((s, r) => s + totalFatura(r) / mesesDe(r.ciclo), 0);
+  // MRR pelo indicador canônico (`core/indicadores.mrr`): a normalização do
+  // ciclo é a regra e vive num lugar só.
+  const mrr = mrrCanonico(
+    { hoje: "1970-01-01", saldoAtual: 0, movements: [] },
+    ativas.map((r) => ({ ativo: true, valorCiclo: totalFatura(r), mesesCiclo: mesesDe(r.ciclo) })),
+  ).valor;
   const ticketMedio = ativas.length ? ativas.reduce((s, r) => s + totalFatura(r), 0) / ativas.length : 0;
   const churn = list.length ? list.filter((r) => r.status === "cancelada").length / list.length : 0;
   return { mrr, ativas: ativas.length, ticketMedio, churn, total: list.length };
@@ -171,6 +180,7 @@ export async function ativarRecorrencia(id: string): Promise<void> {
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
         reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+        reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       ids.push(mid);
     });
@@ -213,15 +223,24 @@ export async function rolarRecorrencias(): Promise<number> {
     const futuras = movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente" && m.due_date >= hoje).length;
     if (futuras >= 3) continue;
     const projetadas = r.projetadas ?? r.movimentos.length;
+    // Dedup por vencimento: projetarProximasFaturas parte SEMPRE de hoje e cobre
+    // 6 meses, sobrepondo as faturas pendentes que ainda restam. Sem isto, o
+    // top-up cria uma 2ª fatura (id novo) p/ o mesmo mês → MRR/recebíveis em dobro.
+    const jaTem = new Set(
+      movs.filter((m) => m.id.startsWith(`${r.id}-fat`) && m.status === "pendente").map((m) => m.due_date),
+    );
     projetarProximasFaturas(r, 6).forEach((f, k) => {
+      if (jaTem.has(f.vencimento)) return; // já há fatura pendente p/ esse vencimento
       const mid = `${r.id}-fat${projetadas + k}`;
       appendImported({ movement: {
         id: mid, account_id: "", type: "entrada", status: "pendente",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: f.valor, party_id: r.clienteId, due_date: f.vencimento, paid_date: null,
         reconciled: false, description: `${r.titulo} · ${f.periodo}`,
+        reference_code: refFatura(r.id, f.vencimento),
       } as Movement });
       r.movimentos.push(mid); novas++;
+      jaTem.add(f.vencimento);
     });
     r.projetadas = projetadas + 6;
   }

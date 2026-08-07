@@ -79,7 +79,7 @@ export function ContratoForm({
 
   return (
     <FormModal title="Novo contrato" size="large" onClose={onClose} onSave={submit} saving={create.isPending}>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select
           label="Tipo"
           options={[
@@ -100,7 +100,7 @@ export function ContratoForm({
         />
       </div>
       <Input label="Descrição *" value={f.description} onChange={(e) => set({ description: e.target.value })} invalid={bad("description")} />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <CurrencyInput label="Valor recorrente" required value={f.amount} onValueChange={(v) => set({ amount: v })} invalid={bad("amount")} />
         <Select
           label="Periodicidade"
@@ -114,12 +114,12 @@ export function ContratoForm({
           onChange={(v) => set({ freq: v as RecurrenceFreq })}
         />
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <DateField label="Data início" required value={f.start_date} onChange={(v) => set({ start_date: v })} />
         <DateField label="Data fim" value={f.end_date} onChange={(v) => set({ end_date: v })} />
         <Input label="Dia de vencimento" inputMode="numeric" value={f.due_day} onChange={(e) => set({ due_day: Number(e.target.value) || 1 })} />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Select label="Categoria" required placeholder="Selecione" options={opts(categories)} value={f.category_id} onChange={(v) => set({ category_id: v })} invalid={bad("category")} />
         <Select label="Centro de custo" placeholder="Selecione (opcional)" options={opts(costCenters)} value={f.cost_center_id} onChange={(v) => set({ cost_center_id: v })} />
       </div>

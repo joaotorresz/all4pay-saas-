@@ -8,6 +8,8 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
+import { vinculosProjeto } from "@/lib/projeto-vinculo";
+import { listProjetos } from "@/lib/iuli-cadastros";
 import {
   DEMO_ACCOUNTS,
   DEMO_MOVEMENTS,
@@ -41,6 +43,8 @@ import type {
   LancamentoInput,
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 /**
  * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
@@ -54,7 +58,7 @@ const seedAccounts = (): FinancialAccount[] => importedAccounts() ?? DEMO_ACCOUN
 const demoDelay = () => new Promise((r) => setTimeout(r, 550));
 
 const MOVEMENT_COLS =
-  "id,account_id,type,status,category,amount,due_date,paid_date,reconciled,description";
+  "id,account_id,type,status,category,amount,due_date,paid_date,reconciled,description,reference_code";
 
 export async function getReceivables(): Promise<ReceivablesSummary> {
   if (isDemo) {
@@ -68,7 +72,7 @@ export async function getReceivables(): Promise<ReceivablesSummary> {
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "entrada")
-    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`).limit(TETO_LINHAS);
   if (error) throw error;
   return summarizeReceivables((data ?? []) as Movement[]);
 }
@@ -85,7 +89,7 @@ export async function getPayables(): Promise<PayablesSummary> {
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("type", "saida")
-    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`);
+    .or(`status.eq.pendente,and(status.eq.pago,paid_date.eq.${hoje})`).limit(TETO_LINHAS);
   if (error) throw error;
   return summarizePayables((data ?? []) as Movement[]);
 }
@@ -97,8 +101,8 @@ export async function getAccounts(): Promise<AccountsSummary> {
   }
   const supabase = createClient();
   const [accountsRes, unreconciledRes] = await Promise.all([
-    supabase.from("financial_accounts").select("*").order("balance", { ascending: false }),
-    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false).neq("status", "cancelado"),
+    supabase.from("financial_accounts").select("*").order("balance", { ascending: false }).limit(TETO_LINHAS),
+    supabase.from("movements").select("account_id,reconciled").eq("reconciled", false).neq("status", "cancelado").limit(TETO_LINHAS),
   ]);
   if (accountsRes.error) throw accountsRes.error;
   if (unreconciledRes.error) throw unreconciledRes.error;
@@ -123,7 +127,7 @@ export async function getDailyCashflow(
     .from("movements")
     .select("type,amount,due_date,paid_date,status")
     .eq("status", "pago")
-    .gte("paid_date", isoDay(start));
+    .gte("paid_date", isoDay(start)).limit(TETO_LINHAS);
   if (error) throw error;
   return dailyCashflow((data ?? []) as Movement[], days);
 }
@@ -161,9 +165,9 @@ export async function getDailyCashflowRange(
   }
   const supabase = createClient();
   const [accRes, paidRes, pendRes] = await Promise.all([
-    supabase.from("financial_accounts").select("balance"),
-    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", hoje),
-    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pendente").gt("due_date", hoje).lte("due_date", to),
+    supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pago").gte("paid_date", from).lte("paid_date", hoje).limit(TETO_LINHAS),
+    supabase.from("movements").select("type,amount,due_date,paid_date,status").eq("status", "pendente").gt("due_date", hoje).lte("due_date", to).limit(TETO_LINHAS),
   ]);
   if (paidRes.error) throw paidRes.error;
   if (pendRes.error) throw pendRes.error;
@@ -188,7 +192,47 @@ export async function getOpenMovements(
     .select(MOVEMENT_COLS)
     .eq("type", type)
     .eq("status", "pendente")
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true }).limit(TETO_LINHAS);
+  if (error) throw error;
+  return (data ?? []) as Movement[];
+}
+
+/** Filtro da tela unificada de Entradas/Saídas. */
+export type MovementFilter = "aberto" | "realizado" | "recorrente";
+
+/** Lista de movimentos de uma direção por filtro (em aberto / realizado /
+ *  recorrente) — base da tela unificada. Demo e live idênticos. */
+export async function getMovementsByFilter(
+  type: MovementType,
+  filtro: MovementFilter,
+): Promise<Movement[]> {
+  if (isDemo) {
+    await demoDelay();
+    const todos = seedMovements().filter((m) => m.type === type);
+    if (filtro === "realizado") {
+      return todos
+        .filter((m) => m.status === "pago")
+        .sort((a, b) => (b.paid_date ?? b.due_date).localeCompare(a.paid_date ?? a.due_date));
+    }
+    if (filtro === "recorrente") {
+      return todos
+        .filter((m) => (m.reference_code ?? "").startsWith("rec:") && m.status !== "cancelado")
+        .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    }
+    return todos
+      .filter((m) => m.status === "pendente")
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+  }
+  const supabase = createClient();
+  let q = supabase.from("movements").select(MOVEMENT_COLS).eq("type", type).limit(TETO_LINHAS);
+  if (filtro === "realizado") {
+    q = q.eq("status", "pago").order("paid_date", { ascending: false });
+  } else if (filtro === "recorrente") {
+    q = q.like("reference_code", "rec:%").neq("status", "cancelado").order("due_date", { ascending: true });
+  } else {
+    q = q.eq("status", "pendente").order("due_date", { ascending: true });
+  }
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -223,7 +267,7 @@ export async function getTrashedMovements(): Promise<Movement[]> {
   }
   const supabase = createClient();
   const { data, error } = await supabase
-    .from("movements").select(MOVEMENT_COLS).eq("status", "cancelado").order("due_date", { ascending: false });
+    .from("movements").select(MOVEMENT_COLS).eq("status", "cancelado").order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -259,7 +303,7 @@ export async function getRecebiveisBoleto(): Promise<Movement[]> {
     .select(`${MOVEMENT_COLS},boleto`)
     .eq("type", "entrada")
     .or("status.eq.pendente,boleto.not.is.null")
-    .order("due_date", { ascending: true });
+    .order("due_date", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Movement[];
 }
@@ -279,7 +323,7 @@ export async function getUnreconciledMovements(
     .from("movements")
     .select(MOVEMENT_COLS)
     .eq("reconciled", false)
-    .order("due_date", { ascending: false });
+    .order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (accountId) query = query.eq("account_id", accountId);
   const { data, error } = await query;
   if (error) throw error;
@@ -296,7 +340,7 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
     .select("id,kind,name")
     .eq("kind", kind)
     .eq("active", true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Category[];
 }
@@ -308,7 +352,7 @@ export async function getCostCenters(): Promise<CostCenter[]> {
     .from("cost_centers")
     .select("id,name")
     .eq("active", true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as CostCenter[];
 }
@@ -326,7 +370,7 @@ export async function getParties(role: PartyRole): Promise<Party[]> {
     .from("parties")
     .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
     .eq(col, true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Party[];
 }
@@ -338,7 +382,7 @@ export async function getAccountsList(): Promise<FinancialAccount[]> {
   const { data, error } = await supabase
     .from("financial_accounts")
     .select("id,name,bank,balance")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as FinancialAccount[];
 }
@@ -362,7 +406,7 @@ export async function getBankAccounts(): Promise<BankAccount[]> {
   const { data, error } = await supabase
     .from("bank_accounts")
     .select("id,name,balance,currency,linked_financial_account_id,balance_source,pluggy_items(connector_name)")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   type Row = {
     id: string; name: string | null; balance: number | null; currency: string | null;
@@ -423,6 +467,7 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       category: null,
       category_id: input.category_id,
       cost_center_id: input.cost_center_id,
+      project_id: input.project_id ?? null,
       party_id: input.party_id,
       amount: per,
       due_date: isoDay(due),
@@ -455,7 +500,7 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
   const { data: inserted, error } = await supabase
     .from("movements")
     .insert(rows)
-    .select("id");
+    .select("id").limit(TETO_LINHAS);
   if (error) throw error;
 
   const firstId = inserted?.[0]?.id;
@@ -482,7 +527,7 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
       end_date: input.repeat.until,
       category_id: input.category_id,
       cost_center_id: input.cost_center_id,
-      due_day: new Date(input.due_date).getDate(),
+      due_day: Number(input.due_date.slice(8, 10)), // dia do mês da string ISO (TZ-independente; new Date(UTC).getDate() erraria em UTC-3)
     });
     if (re) throw re;
   }
@@ -499,6 +544,18 @@ function demoCostCenter(cat: string | null): string {
   return "Administrativo";
 }
 
+/**
+ * O PostgREST descreve a ausência de um relacionamento assim (PGRST200). É a
+ * ÚNICA falha do embed que autoriza cair no select base — o resto sobe.
+ */
+const RELACAO_AUSENTE = /could not find a relationship|PGRST200|does not exist/i;
+
+/**
+ * Memória da capacidade do banco: `undefined` = ainda não se sabe, `true` = o
+ * embed resolve, `false` = não resolve (não tentar de novo nesta sessão).
+ */
+let embedProjetoOk: boolean | undefined;
+
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -506,6 +563,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Dados importados (FDIP) já vêm com party_id = contraparteNorm e um cadastro
     // de parties; o seed determinístico usa a descrição como rótulo da contraparte.
     const imp = importedMovements();
+    // Projeto: o vínculo local é a fonte síncrona (ver lib/projeto-vinculo).
+    const vinculos = vinculosProjeto();
+    const nomeProjeto: Record<string, string> = {};
+    for (const p of listProjetos()) nomeProjeto[p.id] = p.nome;
     // Resolve a contraparte por party_id (cadastro) OU pela descrição (seed).
     // Assim o seed NÃO perde os nomes quando um upload cria o dataset importado.
     const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
@@ -519,6 +580,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
       accountId: m.account_id ?? null,
       category: m.category,
       costCenter: demoCostCenter(m.category),
+      projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -531,14 +593,47 @@ export async function getRiscoInput(): Promise<RiskInput> {
   }
 
   const supabase = createClient();
+  const COLUNAS_BASE =
+    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)";
+  /**
+   * O embed do projeto depende da FK `movements.project_id → projects`
+   * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
+   *
+   * ⚠️ A tentativa é feita UMA VEZ por sessão e o resultado fica em
+   * `embedProjetoOk`. Antes, cada chamada de `getRiscoInput` disparava um
+   * request que o PostgREST recusava com **HTTP 400** e só então caía no select
+   * base: o número certo aparecia na tela, mas o console e o painel de rede
+   * acumulavam um 400 por carregamento. Erro que sempre acontece deixa de ser
+   * lido — e é assim que o 400 de verdade, o dia em que aparecer, passa
+   * despercebido.
+   */
+  const movimentos = async () => {
+    if (embedProjetoOk !== false) {
+      const comProjeto = await supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`).limit(TETO_LINHAS);
+      if (!comProjeto.error) { embedProjetoOk = true; return comProjeto; }
+      // Só o erro de relacionamento inexistente justifica a queda. Qualquer
+      // outra falha (rede, RLS, timeout) é um problema real e tem de subir —
+      // devolver dados parciais como se estivesse tudo bem é o que fazia a tela
+      // exibir números incompletos com toda a confiança.
+      if (!RELACAO_AUSENTE.test(comProjeto.error.message ?? "")) throw comProjeto.error;
+      // ⚠️ A QUEDA É REPORTADA. Ela é a decisão certa em runtime — a tela abre
+      // com os números certos — e por isso mesmo era invisível: a dimensão de
+      // projeto sumia de TODOS os relatórios e ninguém tinha como saber. Foi
+      // este caminho que atravessou meses. `degradado: true` é o que separa
+      // "está tudo bem" de "está funcionando, e falta uma coisa".
+      reportar(
+        "movimentos.embedProjeto", comProjeto.error,
+        "os relatórios ficam sem a dimensão de projeto até a migration 0019 ser aplicada",
+        true,
+      );
+      embedProjetoOk = false;
+    }
+    return supabase.from("movements").select(COLUNAS_BASE).limit(TETO_LINHAS);
+  };
   const [accRes, movRes, partyRes] = await Promise.all([
-    supabase.from("financial_accounts").select("balance"),
-    supabase
-      .from("movements")
-      .select(
-        "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)",
-      ),
-    supabase.from("parties").select("id,name"),
+    supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
+    movimentos(),
+    supabase.from("parties").select("id,name").limit(TETO_LINHAS),
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
@@ -548,7 +643,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
   );
   const embedName = (e: unknown): string | null =>
     Array.isArray(e) ? (e[0]?.name ?? null) : ((e as { name?: string } | null)?.name ?? null);
-  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown })[]).map((m) => ({
+  const vinculosLive = vinculosProjeto();
+  const nomeProjetoLive: Record<string, string> = {};
+  for (const p of listProjetos()) nomeProjetoLive[p.id] = p.nome;
+  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown; projeto?: unknown })[]).map((m) => ({
     id: m.id,
     type: m.type,
     status: m.status,
@@ -560,6 +658,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // categoria real (nome do cadastro) tem prioridade sobre o texto livre
     category: embedName(m.categoria) ?? m.category,
     costCenter: embedName(m.centro),
+    projeto: embedName(m.projeto) ?? nomeProjetoLive[vinculosLive[m.id] ?? ""] ?? null,
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {
@@ -582,7 +681,7 @@ export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {
     .select("type,status,category,amount,due_date")
     .eq("type", "entrada")
     .neq("status", "cancelado")
-    .gte("due_date", isoDay(start));
+    .gte("due_date", isoDay(start)).limit(TETO_LINHAS);
   if (error) throw error;
   return monthlySales((data ?? []) as Movement[], months);
 }

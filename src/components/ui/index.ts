@@ -5,6 +5,7 @@
  */
 export { Button, type ButtonProps } from "./Button";
 export { Card, type CardProps } from "./Card";
+export { InfoHint, type InfoConteudo } from "./InfoHint";
 export { Badge, type BadgeProps } from "./Badge";
 export { Pill, type PillProps } from "./Pill";
 export { Avatar, type AvatarProps } from "./Avatar";
@@ -12,6 +13,7 @@ export { Input, type InputProps } from "./Input";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
 export { Select, type SelectProps, type SelectOption } from "./Select";
 export { DateField, type DateFieldProps } from "./DateField";
+export { DatePicker, type DatePickerProps } from "./DatePicker";
 export { CurrencyInput, type CurrencyInputProps } from "./CurrencyInput";
 export { Switch, type SwitchProps } from "./Switch";
 export { Textarea, type TextareaProps } from "./Textarea";
@@ -27,3 +29,5 @@ export {
   type DropdownItem,
 } from "./DropdownMenu";
 export { Icon, type IconProps, type IconName } from "./Icon";
+export { AcaoDestrutiva } from "./AcaoDestrutiva";
+export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } from "./Procedencia";

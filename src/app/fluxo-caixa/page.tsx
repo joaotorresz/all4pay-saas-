@@ -8,7 +8,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 export default function FluxoCaixaPage() {
   return (
     <AppShell
-      title="Fluxo de Caixa"
+      title="Fluxo de caixa"
       crumb="Centro operacional do caixa"
       actions={isDemo ? <DemoBadge /> : undefined}
     >

@@ -9,12 +9,24 @@ import { ContratoForm } from "@/components/lancamentos/ContratoForm";
 import { PartyForm } from "@/components/lancamentos/PartyForm";
 import { ProdutoServicoForm } from "@/components/lancamentos/ProdutoServicoForm";
 import { MarcaForm, UnidadeForm } from "@/components/lancamentos/MarcaUnidadeForm";
+import { useTipoConta } from "@/components/app/useTipoConta";
 
 /**
  * "Novo depósito" — primary button that opens a grouped action menu
  * (modeled on Conta Azul's "Novo registro"). Each item opens its own
  * form. Alt+letter shortcuts fire the action from anywhere.
  */
+// Pessoa Física: só o essencial do dia a dia (receita/despesa/transferência).
+const GROUPS_PESSOAL: DropdownGroup[] = [
+  {
+    label: "Adicionar",
+    items: [
+      { id: "despesa", label: "Nova despesa", shortcut: "D" },
+      { id: "receita", label: "Nova receita", shortcut: "R" },
+      { id: "transferencia", label: "Transferência entre contas", shortcut: "T" },
+    ],
+  },
+];
 const GROUPS: DropdownGroup[] = [
   {
     label: "Lançamentos",
@@ -49,20 +61,23 @@ const GROUPS: DropdownGroup[] = [
   },
 ];
 
-const SHORTCUTS: Record<string, string> = Object.fromEntries(
-  GROUPS.flatMap((g) =>
+const shortcutsDe = (groups: DropdownGroup[]): Record<string, string> => Object.fromEntries(
+  groups.flatMap((g) =>
     g.items.filter((i) => i.shortcut).map((i) => [i.shortcut!.toLowerCase(), i.id]),
   ),
 );
 
 export function NovoDeposito() {
+  const { pessoal } = useTipoConta();
+  const groups = pessoal ? GROUPS_PESSOAL : GROUPS;
   const [action, setAction] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    const shortcuts = shortcutsDe(groups);
     const onKey = (e: KeyboardEvent) => {
       if (!e.altKey || e.ctrlKey || e.metaKey) return;
-      const id = SHORTCUTS[e.key.toLowerCase()];
+      const id = shortcuts[e.key.toLowerCase()];
       if (id) {
         e.preventDefault();
         setAction(id);
@@ -70,7 +85,7 @@ export function NovoDeposito() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [groups]);
 
   React.useEffect(() => {
     if (!toast) return;
@@ -83,9 +98,9 @@ export function NovoDeposito() {
   return (
     <>
       <DropdownMenu
-        groups={GROUPS}
+        groups={groups}
         onSelect={setAction}
-        menuLabel="Novo registro"
+        menuLabel={pessoal ? "Adicionar" : "Novo registro"}
         width={272}
         trigger={({ open, toggle }) => (
           <Button
@@ -96,7 +111,7 @@ export function NovoDeposito() {
             rightIcon={<Icon name="chevron-down" size={15} />}
             leftIcon={<Icon name="plus" size={15} />}
           >
-            Novo lançamento
+            {pessoal ? "Adicionar" : "Novo lançamento"}
           </Button>
         )}
       />

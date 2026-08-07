@@ -7,6 +7,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import type { Estrutura } from "@/core/onboarding";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export interface ResultadoEstrutura {
   contas: number;
@@ -41,7 +42,7 @@ export async function aplicarEstrutura(estrutura: Estrutura): Promise<ResultadoE
   // Centros de custo
   const centros = estrutura.centrosCusto.map((x) => x.trim()).filter(Boolean);
   if (centros.length) {
-    const { data } = await s.from("cost_centers").select("name");
+    const { data } = await s.from("cost_centers").select("name").limit(TETO_LINHAS);
     const have = new Set((data ?? []).map((r) => norm((r as { name: string }).name)));
     const novos = centros.filter((n) => !have.has(norm(n)));
     if (novos.length) {
@@ -53,7 +54,7 @@ export async function aplicarEstrutura(estrutura: Estrutura): Promise<ResultadoE
   // Unidades
   const unidades = estrutura.unidades.map((x) => x.trim()).filter(Boolean);
   if (unidades.length) {
-    const { data } = await s.from("units").select("name");
+    const { data } = await s.from("units").select("name").limit(TETO_LINHAS);
     const have = new Set((data ?? []).map((r) => norm((r as { name: string }).name)));
     const novos = unidades.filter((n) => !have.has(norm(n)));
     if (novos.length) {
@@ -65,7 +66,7 @@ export async function aplicarEstrutura(estrutura: Estrutura): Promise<ResultadoE
   // Contas bancárias (banco · tipo) — as do usuário, além da conta inicial do seed
   const contas = estrutura.contas.filter((c) => c.banco?.trim() && c.banco !== "—");
   if (contas.length) {
-    const { data } = await s.from("financial_accounts").select("name");
+    const { data } = await s.from("financial_accounts").select("name").limit(TETO_LINHAS);
     const have = new Set((data ?? []).map((r) => norm((r as { name: string }).name)));
     const rows = contas
       .map((c) => ({ name: `${c.banco} · ${c.tipo}`.trim(), bank: bankSlug(c.banco), balance: 0 }))

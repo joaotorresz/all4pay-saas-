@@ -6,8 +6,10 @@
 import type { RiskInput, LiquidezPonto, RunwayCenarios, BurnResult } from "./types";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
 
-const label = (d: Date) =>
-  `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+// Label DD/MM derivado da CHAVE UTC (não de getters locais): em fuso negativo
+// (UTC-3, todo o Brasil) getDate/getMonth de um Date de meia-noite UTC caem no
+// dia anterior — o rótulo mostrava a data um dia adiantada. Ver types: `key`.
+const labelDe = (key: string) => `${key.slice(8, 10)}/${key.slice(5, 7)}`;
 
 /**
  * Projeção diária:
@@ -43,7 +45,7 @@ export function calcularLiquidezProjetada(input: RiskInput): {
     saldo += (inflow.get(key) ?? 0) - (outflow.get(key) ?? 0);
     const ruptura = saldo < 0;
     if (ruptura && rupturaDia === null) rupturaDia = i;
-    pontos.push({ date: key, label: label(d), saldo, ruptura });
+    pontos.push({ date: key, label: labelDe(key), saldo, ruptura });
   }
   return { pontos, rupturaDia };
 }

@@ -7,12 +7,13 @@ import { isoDay } from "@/lib/aggregations";
 import type { Movement } from "@/lib/types";
 import { DEMO_ACCOUNTS } from "@/lib/demo/seed";
 import { cancelMovement } from "@/lib/data";
+import { useAccountsList } from "@/components/lancamentos/hooks";
+import { isPeriodLocked } from "@/lib/close";
 import { useToast } from "@/components/listas/ListChrome";
 import { EditMovementModal } from "./EditMovementModal";
 import { EmptyState } from "./shared";
 
-const accountName = (id: string) =>
-  DEMO_ACCOUNTS.find((a) => a.id === id)?.name ?? id;
+const encurtaId = (id: string) => (id?.length > 10 ? `Conta ${id.slice(0, 4)}` : id);
 
 function dueStatus(due: string): { tone: "warning" | "neutral" | "positive"; label: string } {
   const today = isoDay(new Date());
@@ -49,13 +50,19 @@ export function MovementsTable({
   isError: boolean;
   emptyTitle: string;
   emptyHint?: string;
-  variant?: "open" | "reconcile";
+  variant?: "open" | "reconcile" | "paid";
   /** Mostra o "Editar" no topo (modo seleção em lote) + Editar por linha. */
   editable?: boolean;
   /** Chamado após editar/cancelar/excluir em lote — o chamador invalida a lista. */
   onChanged?: () => void;
 }) {
   const { show, node } = useToast();
+  const { data: accounts } = useAccountsList();
+  const nomeConta = React.useCallback(
+    (id: string) =>
+      accounts?.find((a) => a.id === id)?.name ?? DEMO_ACCOUNTS.find((a) => a.id === id)?.name ?? encurtaId(id),
+    [accounts],
+  );
   const [editing, setEditing] = React.useState<Movement | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [selMode, setSelMode] = React.useState(false);
@@ -68,6 +75,7 @@ export function MovementsTable({
   const sairSelecao = () => { setSelMode(false); setSel(new Set()); };
 
   const cancelar = async (m: Movement) => {
+    if (isPeriodLocked(m.due_date)) { show("Período fechado — destrave em Fechamento para editar."); return; }
     if (!window.confirm(`Excluir "${m.description ?? "lançamento"}"? Vai para a Lixeira (pode ser restaurado).`)) return;
     setBusy(m.id);
     try { await cancelMovement(m.id); show("Enviado para a Lixeira"); onChanged?.(); }
@@ -80,8 +88,11 @@ export function MovementsTable({
     if (!window.confirm(`Excluir ${sel.size} lançamento(s)? Vão para a Lixeira (podem ser restaurados).`)) return;
     setBusy("lote");
     try {
-      for (const id of Array.from(sel)) await cancelMovement(id);
-      show(`${sel.size} enviado(s) para a Lixeira`);
+      const lockedSet = new Set(lista.filter((m) => isPeriodLocked(m.due_date)).map((m) => m.id));
+      const alvos = Array.from(sel).filter((id) => !lockedSet.has(id));
+      for (const id of alvos) await cancelMovement(id);
+      const pulados = sel.size - alvos.length;
+      show(pulados > 0 ? `${alvos.length} enviado(s); ${pulados} em período travado` : `${alvos.length} enviado(s) para a Lixeira`);
       sairSelecao();
       onChanged?.();
     } catch {
@@ -138,45 +149,58 @@ export function MovementsTable({
       )}
 
       <Card padded={false}>
-        <div className="flex items-center gap-3 px-5 py-2 text-caption font-medium text-muted border-b border-border-soft">
+        <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
           {selMode && <span className="w-[18px]" />}
           <span className="flex-1">Descrição</span>
-          <span className="w-[110px]">Vencimento</span>
+          <span className="w-[110px]">{variant === "paid" ? "Liquidação" : "Vencimento"}</span>
           <span className="w-[120px]">Status</span>
           <span className="w-[140px] text-right">Valor</span>
           {editable && <span className="w-[150px]" />}
         </div>
         {lista.map((m, i) => {
           const parts = brlParts(m.amount);
+          const isOut = m.type === "saida";
           const status = variant === "reconcile"
             ? { tone: "warning" as const, label: "Não conciliado" }
+            : variant === "paid"
+            ? { tone: "positive" as const, label: isOut ? "Pago" : "Recebido" }
             : dueStatus(m.due_date);
-          const isOut = m.type === "saida";
+          const dateShown = variant === "paid" ? (m.paid_date ?? m.due_date) : m.due_date;
           const on = sel.has(m.id);
           return (
             <div
               key={m.id}
               onClick={selMode ? () => toggleRow(m.id) : undefined}
-              className={`flex items-center gap-3 px-5 py-3 ${i ? "border-t border-border-soft" : ""} ${selMode ? "cursor-pointer hover:bg-surface-1" : ""} ${on ? "bg-surface-1" : ""}`}
+              className={`flex items-center gap-3 px-3 sm:px-5 py-3 ${i ? "border-t border-border-soft" : ""} ${selMode ? "cursor-pointer hover:bg-surface-1" : ""} ${on ? "bg-surface-1" : ""}`}
             >
               {selMode && <Checkbox on={on} />}
               <Avatar name={m.description ?? "—"} size={32} />
               <div className="flex-1 min-w-0">
-                <div className="text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
-                <div className="text-caption text-faint tabular-nums">{accountName(m.account_id)}</div>
+                <div className="text-[16px] sm:text-[17px] font-medium text-ink truncate">{m.description ?? "Movimentação"}</div>
+                <div className="text-caption text-faint tabular-nums truncate">{nomeConta(m.account_id)}</div>
+                {/* Telas pequenas: data + status sob a descrição (colunas escondidas) */}
+                <div className="sm:hidden text-caption text-faint tabular-nums mt-[2px]">
+                  {fmtDate(dateShown)} · {status.label}
+                </div>
               </div>
-              <span className="w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(m.due_date)}</span>
-              <span className="w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
-              <span className="w-[140px] flex justify-end">
+              <span className="hidden sm:block w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(dateShown)}</span>
+              <span className="hidden sm:block w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
+              <span className="w-[100px] sm:w-[140px] flex justify-end shrink-0">
                 <Money integer={parts.integer} decimals={parts.decimals} size="sm" color={isOut ? "var(--color-negative)" : "var(--color-ink)"} />
               </span>
               {editable && (
-                <span className="w-[150px] flex justify-end gap-1">
+                <span className="w-auto sm:w-[150px] flex justify-end gap-1 shrink-0">
                   {!selMode && (
-                    <>
-                      <button onClick={() => setEditing(m)} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>
-                      <button onClick={() => cancelar(m)} disabled={busy === m.id} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2 disabled:opacity-45">{busy === m.id ? "…" : "Excluir"}</button>
-                    </>
+                    isPeriodLocked(m.due_date) ? (
+                      <span className="text-caption text-faint inline-flex items-center gap-1 px-2 py-1" title="Período fechado (travado)">
+                        <Icon name="shield-check" size={13} color="var(--color-text-tertiary)" />Travado
+                      </span>
+                    ) : (
+                      <>
+                        <button onClick={() => setEditing(m)} className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">Editar</button>
+                        <button onClick={() => cancelar(m)} disabled={busy === m.id} className="text-caption text-negative px-2 py-1 rounded-sm hover:bg-surface-2 disabled:opacity-45">{busy === m.id ? "…" : "Excluir"}</button>
+                      </>
+                    )
                   )}
                 </span>
               )}

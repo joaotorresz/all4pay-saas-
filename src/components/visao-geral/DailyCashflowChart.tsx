@@ -6,7 +6,6 @@ import {
   Bar,
   Cell,
   Line,
-  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -15,19 +14,22 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton } from "@/components/ui";
-import { formatBRL, formatBRLCompact, brlParts } from "@/lib/format";
+import { formatBRL, brlParts } from "@/lib/format";
 import { isoDay } from "@/lib/aggregations";
 import type { DailyCashflowPoint } from "@/lib/types";
 import { useDailyCashflowRange } from "./hooks";
-import { usePeriod, MES_ABBR } from "./PeriodContext";
+import { usePeriod } from "./PeriodContext";
 import { EmptyState, VisuallyHidden } from "./shared";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
-const LINE = "var(--color-chart-line)"; // linha de saldo acumulado — verde da marca
+// Linha de saldo: MESMO tratamento da linha de comparação do gráfico herói —
+// cinza tracejado. Não compete com as barras, que são quem conta a história.
+const LINE = "#c9cdd4";
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
+import { chartAnim } from "@/lib/chart-anim";
 
 function CashflowTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -42,18 +44,29 @@ function CashflowTooltip({ active, payload, label }: any) {
   );
 }
 
-function PeriodTotal({ label, value, color }: { label: string; value: number; color: string }) {
+function PeriodTotal({ label, value, color, active, onClick }: { label: string; value: number; color: string; active?: boolean; onClick?: () => void }) {
   const neg = value < 0;
   const { integer, decimals } = brlParts(value);
   return (
-    <div className="flex flex-col">
-      <span className="text-[12px] text-faint">{label}</span>
-      {/* R$ no MESMO tamanho dos números · decimais ~30% menores · Onest herdada */}
-      <span className="text-[20px] font-medium tabular-nums" style={{ color }}>
-        <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
-        <span style={{ fontSize: "0.7em" }}>,{decimals}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex flex-col items-start text-left rounded-md px-3 py-2 transition-colors ${active ? "bg-surface-2" : "hover:bg-surface-1"}`}
+    >
+      <span className="text-[12px] text-faint inline-flex items-center gap-[5px]">
+        <span className="w-[7px] h-[7px] rounded-pill" style={{ background: color }} />{label}
       </span>
-    </div>
+      {/* Valor do período (Laboratório): Roobert Variable 21/400, tracking
+          −0.075em, entrelinha 115% — sempre em ink; o tipo é dado pelo dot. */}
+      <span
+        className="text-[21px] tabular-nums"
+        style={{ fontFamily: '"Roobert Variable", "Roobert", sans-serif', fontWeight: 400, letterSpacing: "-0.02em", lineHeight: 1.15, color: "#000000" }}
+      >
+        <span className="text-faint">R$ </span>{neg ? "−" : ""}{integer}
+        <span data-cents="" style={{ fontSize: "0.7em" }}>,{decimals}</span>
+      </span>
+    </button>
   );
 }
 
@@ -75,20 +88,9 @@ export function DailyCashflowChart() {
   const temProjecao = (data ?? []).some((d) => d.projetado && (d.inflow !== 0 || d.outflow !== 0));
   const legenda = period.label + (temProjecao ? " · projetado" : "");
 
-  // "Essa semana": domingo → sábado da semana do dia atual.
-  const essaSemana = () => {
-    const h = new Date(); h.setHours(0, 0, 0, 0);
-    const dom = new Date(h); dom.setDate(h.getDate() - h.getDay()); // 0 = domingo
-    const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-    period.setRange(isoDay(dom), isoDay(sab));
-  };
-  // "Esse mês": volta ao mês atual e vigente (sai de qualquer range).
-  const esseMes = () => { const n = new Date(); period.setMonth(n.getFullYear(), n.getMonth()); };
-
   const hojeISO = isoDay(new Date());
-  const hojeLabel = (data ?? []).find((d) => d.date === hojeISO)?.label;
-  // Início de mês DENTRO do intervalo (exceto o 1º ponto) → linha vertical.
-  const mesInicios = (data ?? []).filter((d, i) => i > 0 && d.date.slice(8, 10) === "01");
+  // Filtro por tipo (botões Entradas/Saídas abaixo do gráfico).
+  const [filtro, setFiltro] = React.useState<"todos" | "entrada" | "saida">("todos");
 
   const hasFlow =
     !!data && data.some((d) => d.inflow !== 0 || d.outflow !== 0);
@@ -99,36 +101,20 @@ export function DailyCashflowChart() {
   const resultado = entradas - saidas;
 
   return (
-    <Card className="flex flex-col">
-      <div className="flex items-start justify-between gap-3 mb-3">
+    <Card className="flex flex-col" info={{
+      titulo: "Fluxo de caixa",
+      oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
+      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
+    }}>
+      <div className="mb-3 flex items-center gap-3">
         <div className="min-w-0">
-          {/* subtítulo (período · projetado) ABAIXO do título */}
-          <h2 className="m-0 text-h3 font-medium text-ink truncate">Fluxo de caixa</h2>
-          <span className="text-caption text-faint">{legenda}</span>
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          <button
-            onClick={essaSemana}
-            className="inline-flex items-center rounded-[18px] bg-ink text-lime px-4 h-9 text-[16px] font-semibold"
-          >
-            Essa semana
-          </button>
-          <button
-            onClick={esseMes}
-            className="inline-flex items-center rounded-[18px] bg-surface-1 text-ink px-4 h-9 text-[16px] font-semibold"
-          >
-            Esse mês
-          </button>
+          {/* subtítulo (período · projetado) ABAIXO do título. Os filtros de período
+              vivem no topo da página (não duplicar aqui). */}
+          <h2 className="m-0 text-h3 font-medium text-ink">{period.futuro ? "Fluxo de caixa projetado" : "Fluxo de caixa"}</h2>
+          {/* O subtítulo do período saiu (Laboratório): o período já está no
+              header da página, então repeti-lo aqui era ruído. */}
         </div>
       </div>
-
-      {!isLoading && !isError && hasFlow && (
-        <div className="flex items-center gap-12 -mt-1 mb-1 flex-wrap">
-          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} />
-          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} />
-          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} />
-        </div>
-      )}
 
       {isLoading && <Skeleton className="h-[260px] w-full" rounded="md" />}
       {isError && (
@@ -150,14 +136,6 @@ export function DailyCashflowChart() {
               margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               stackOffset="sign"
             >
-              <defs>
-                {/* Glow em gradiente sob a linha de saldo — igual à referência */}
-                <linearGradient id="cashGlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#dcff00" stopOpacity={0.22} />
-                  <stop offset="70%" stopColor="#dcff00" stopOpacity={0.06} />
-                  <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid stroke={GRID} vertical={false} />
               <XAxis
                 dataKey="label"
@@ -166,64 +144,42 @@ export function DailyCashflowChart() {
                 axisLine={{ stroke: GRID }}
                 interval="preserveStartEnd"
               />
-              <YAxis
-                yAxisId="flow"
-                tick={{ fontSize: 13, fill: FAINT }}
-                tickLine={false}
-                axisLine={false}
-                width={56}
-                tickFormatter={(v) => formatBRLCompact(v)}
-              />
+              {/* eixo lateral OCULTO (mantém a escala) — pedido do usuário */}
+              <YAxis yAxisId="flow" hide />
               <YAxis yAxisId="balance" orientation="right" hide />
               <ReferenceLine yAxisId="flow" y={0} stroke="var(--color-border)" />
-              {/* Glow ao FUNDO (antes das barras) — não tinge os candles */}
-              <Area
-                yAxisId="balance"
-                type="monotone"
-                dataKey="balance"
-                stroke="none"
-                fill="url(#cashGlow)"
-                isAnimationActive={false}
-                name="Saldo em caixa"
-              />
               <Tooltip
                 content={<CashflowTooltip />}
                 cursor={{ fill: "rgba(127,127,127,0.10)" }}
               />
-              <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[3, 3, 0, 0]} maxBarSize={56} name="Entradas" isAnimationActive={false}>
-                {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
-              </Bar>
-              <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[0, 0, 3, 3]} maxBarSize={56} name="Saídas" isAnimationActive={false}>
-                {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
-              </Bar>
-              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). */}
-              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.4} dot={false} connectNulls name="Saldo em caixa" />
-              <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.4} strokeDasharray="4 3" dot={false} connectNulls name="Saldo projetado" />
-              {/* Linhas verticais: início de mês (faint tracejado) e dia atual (ink). */}
-              {mesInicios.map((d) => (
-                <ReferenceLine
-                  key={`m-${d.date}`}
-                  yAxisId="flow"
-                  x={d.label}
-                  stroke="var(--color-border)"
-                  strokeDasharray="3 3"
-                  label={{ value: MES_ABBR[Number(d.date.slice(5, 7)) - 1], position: "insideTopLeft", fontSize: 11, fill: FAINT }}
-                />
-              ))}
-              {hojeLabel && (
-                <ReferenceLine
-                  yAxisId="flow"
-                  x={hojeLabel}
-                  stroke="var(--color-ink)"
-                  strokeWidth={1.2}
-                  label={{ value: "hoje", position: "insideTopRight", fontSize: 11, fill: "var(--color-ink)" }}
-                />
+              {filtro !== "saida" && (
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                  {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+                </Bar>
               )}
+              {filtro !== "entrada" && (
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[6, 6, 6, 6]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                  {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
+                </Bar>
+              )}
+              {/* Saldo: linha cheia até hoje (realizado), tracejada à frente (projetado). Traço fino. */}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado ? null : d.balance)} stroke={LINE} strokeWidth={1.3} strokeDasharray="7 6" strokeLinecap="round" dot={false} connectNulls name="Saldo em caixa" />}
+              {filtro === "todos" && <Line yAxisId="balance" type="monotone" dataKey={(d: DailyCashflowPoint) => (d.projetado || d.date === hojeISO ? d.balance : null)} stroke={LINE} strokeWidth={1.3} strokeDasharray="3 5" strokeLinecap="round" dot={false} connectNulls name="Saldo projetado" />}
             </ComposedChart>
           </ResponsiveContainer>
           <Legend projetado={temProjecao} />
           <VisuallyHidden>{cashflowAria(data, legenda)}</VisuallyHidden>
         </figure>
+      )}
+
+      {/* Totais do período — ABAIXO do gráfico. Entradas/Saídas são BOTÕES que
+          filtram o gráfico (clique de novo p/ voltar); Resultado mostra tudo. */}
+      {!isLoading && !isError && hasFlow && (
+        <div className="flex items-center gap-x-3 gap-y-2 mt-4 pt-4 border-t border-border-soft flex-wrap">
+          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} active={filtro === "entrada"} onClick={() => setFiltro((f) => (f === "entrada" ? "todos" : "entrada"))} />
+          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} active={filtro === "saida"} onClick={() => setFiltro((f) => (f === "saida" ? "todos" : "saida"))} />
+          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} active={filtro === "todos"} onClick={() => setFiltro("todos")} />
+        </div>
       )}
     </Card>
   );
@@ -235,7 +191,7 @@ function Legend({ projetado }: { projetado?: boolean }) {
       <LegendDot color={POSITIVE} label="Entradas" />
       <LegendDot color={NEGATIVE} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">
-        <span className="inline-block w-4 border-t-2" style={{ borderColor: LINE }} />
+        <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LINE }} />
         Saldo em caixa
       </span>
       {projetado && (

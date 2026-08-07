@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { TrilhaAuditoria } from "@/core/institutional/audit";
 import { trilhaDemo } from "@/core/institutional/demo";
 import type { AuditAction, AuditEvent, EntityType } from "@/core/institutional/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const ACAO_MAP: Record<string, AuditAction> = {
   created: "created",
@@ -32,6 +33,39 @@ function mapAcao(acao: string): AuditAction {
   return "updated";
 }
 
+/**
+ * Que ENTIDADE o evento tocou.
+ *
+ * ⚠️ Tudo virava `movement` aqui — o acessor não tinha de onde tirar o tipo, e
+ * "Lançamento" era o rótulo que sobrava. Com o gatilho da 0026 a trilha passou
+ * a receber gravações de ESTADO (orçamento, aprovação, fechamento), e uma
+ * auditoria que chama fechamento de lançamento responde a pergunta errada com
+ * ar de resposta certa.
+ *
+ * O identificador do evento de estado é a CHAVE, não o id da linha: quem audita
+ * procura "orçamentos", e um uuid não se procura.
+ */
+function entidadeDoEvento(
+  acao: string,
+  depois: Record<string, unknown> | null,
+  idDaLinha: string,
+): { entityType: EntityType; entityId: string } {
+  const k = acao.toLowerCase();
+  if (k.startsWith("estado.")) {
+    const chave = typeof depois?.chave === "string" ? depois.chave : "";
+    return { entityType: "state", entityId: chave || idDaLinha };
+  }
+  // ⚠️ Os eventos da ONDA 9 — trocar de empresa e verificar o isolamento — são
+  // de SEGURANÇA, não de dinheiro. Deixá-los cair no ramo abaixo os rotularia
+  // "Lançamento", que é o mesmo defeito que o ramo acima existe para corrigir:
+  // um evento de segurança escondido entre lançamentos é um evento que ninguém
+  // encontra quando precisa.
+  if (k.startsWith("organizacao.") || k.startsWith("isolamento.")) {
+    return { entityType: "security", entityId: acao };
+  }
+  return { entityType: "movement", entityId: idDaLinha };
+}
+
 /** Constrói a trilha (com cadeia de hash) a partir dos dados disponíveis. */
 export async function getAuditTrail(): Promise<{
   eventos: AuditEvent[];
@@ -46,7 +80,7 @@ export async function getAuditTrail(): Promise<{
   const { data, error } = await supabase
     .from("audit_log")
     .select("id,usuario,acao,antes,depois,created_at")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
 
   const t = new TrilhaAuditoria();
@@ -59,9 +93,10 @@ export async function getAuditTrail(): Promise<{
       depois: Record<string, unknown> | null;
       created_at: string;
     };
+    const { entityType, entityId } = entidadeDoEvento(r.acao, r.depois, r.id);
     t.registrar({
-      entityType: "movement" as EntityType,
-      entityId: r.id,
+      entityType,
+      entityId,
       action: mapAcao(r.acao),
       before: r.antes,
       after: r.depois,

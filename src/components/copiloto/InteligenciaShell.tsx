@@ -1,39 +1,48 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { CopilotoView } from "@/components/copiloto/CopilotoView";
 import { QuantView } from "@/components/quant/QuantView";
 import { DecisaoView } from "@/components/decisao/DecisaoView";
 import { RiscoView } from "@/components/risco/RiscoView";
 import { AutonomoView } from "@/components/autonomo/AutonomoView";
-import { DadosView } from "@/components/dados/DadosView";
+import { OndeMais, IRMAS_IA } from "@/components/app/OndeMais";
 
 /**
  * Centro de Inteligência — um cérebro, não cinco. Onda 3.2: Quant/Decisão/Risco/
  * Autônomo/Dados viram ABAS dentro do Copiloto (em vez de 5 destinos de menu).
  * Só a aba ativa renderiza → só ela consome dados.
  */
-type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo" | "dados";
+type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo";
 const ABAS: { id: Aba; label: string }[] = [
-  { id: "copiloto", label: "Copiloto" },
+  { id: "copiloto", label: "All 4 Pay AI" },
   { id: "quant", label: "Quant" },
   { id: "decisao", label: "Decisão" },
   { id: "risco", label: "Risco" },
   { id: "autonomo", label: "Autônomo" },
-  { id: "dados", label: "Dados" },
 ];
 
 export function InteligenciaShell() {
+  const sp = useSearchParams();
   const [aba, setAba] = React.useState<Aba>("copiloto");
 
-  // Deep-link opcional: /copiloto?aba=quant
+  // Deep-link reativo (/copiloto?aba=…) — troca a aba também quando se navega
+  // pela Sidebar/command palette estando já no Copiloto.
   React.useEffect(() => {
-    const p = new URLSearchParams(window.location.search).get("aba") as Aba | null;
+    const p = sp.get("aba") as Aba | null;
     if (p && ABAS.some((a) => a.id === p)) setAba(p);
-  }, []);
+  }, [sp]);
 
   return (
     <div className="flex flex-col gap-5">
+      {/* ⚠️ Havia TRÊS superfícies de IA disputando o mesmo espaço e nenhuma
+          citava as outras — não existia resposta para "onde eu falo com a IA".
+          O botão flutuante já some aqui; esta faixa diz o que cada casa faz. */}
+      <OndeMais
+        estaTela="Os motores: quantitativo, decisão, risco de caixa e operação autônoma — números e planos, não conversa."
+        irmas={IRMAS_IA.copiloto}
+      />
       <div className="flex items-center gap-1 border-b border-border-soft -mt-1">
         {ABAS.map((a) => {
           const on = aba === a.id;
@@ -56,7 +65,6 @@ export function InteligenciaShell() {
       {aba === "decisao" && <DecisaoView />}
       {aba === "risco" && <RiscoView />}
       {aba === "autonomo" && <AutonomoView />}
-      {aba === "dados" && <DadosView />}
     </div>
   );
 }

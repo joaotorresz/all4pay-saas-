@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, Checkbox } from "@/components/ui";
+import { Card, Icon, BRL, Button, Input, Select, CurrencyInput, Checkbox, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties } from "@/lib/cadastros";
@@ -74,7 +74,7 @@ export function NfseView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Nova NFS-e */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Nova NFS-e", oQue: "Emite uma nota fiscal de serviço para um tomador, já calculando o ISS e ligando a receita ao recebimento.", comoCalcula: "ISS igual ao valor do serviço vezes a alíquota informada; o líquido é o valor menos o ISS." }}>
         <span className="text-label font-medium text-muted">Nova NFS-e</span>
         <Select label="Tomador" value={tomadorId} onChange={setTomadorId} options={[{ value: "", label: "Selecione…" }, ...clientes.map((c: Party) => ({ value: c.id, label: c.name }))]} />
         <Select label="Código de serviço (LC 116)" value={codigo} onChange={setCodigo} options={SERVICOS.map((s) => ({ value: s, label: s }))} />
@@ -102,7 +102,7 @@ export function NfseView() {
       {/* Lista de notas */}
       <Card padded={false} className="lg:col-span-2">
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Notas fiscais de serviço</span>
+          <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada liga a receita bruta e o ISS à DRE e o recebimento a recebíveis, sem reconciliação manual." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">

@@ -36,6 +36,23 @@ export interface Movement {
   reconciled: boolean;
   description: string | null;
   created_at?: string;
+  /** Marcador de origem (ex.: `rec:<id>:<data>` p/ faturas de recorrência). */
+  reference_code?: string | null;
+  /**
+   * Chave de idempotência da INGESTÃO (`core/ingestao.chaveIdempotencia`):
+   * conta · data · valor · sinal · descritivo normalizado. É ela que impede o
+   * mesmo extrato de entrar duas vezes.
+   */
+  chave?: string | null;
+  /**
+   * ⚠️ O descritivo BRUTO, como veio da origem — campo SEPARADO, nunca
+   * sobrescrito pela normalização nem pela categoria escolhida. É a única
+   * evidência de onde a linha veio, e é ela que resolve a dúvida no dia em que
+   * alguém disser "esse lançamento não é meu".
+   */
+  descritivo_bruto?: string | null;
+  /** De onde a linha entrou: extrato, ocr, openfinance, planilha, manual. */
+  origem?: string | null;
   /** Boleto colado ao recebível (movements.boleto jsonb). */
   boleto?: BoletoData | null;
 }
@@ -55,6 +72,8 @@ export interface BoletoData {
   instrucoes?: string;
   emitido_em: string;
   paid_date?: string | null;
+  /** PIX "copia e cola" (BR Code/EMV) do mesmo título — pagamento instantâneo. */
+  pix_copia_cola?: string | null;
 }
 
 /* ---- Derived shapes returned by the widget hooks ---- */
@@ -102,7 +121,10 @@ export type PaymentMethod =
   | "cartao"
   | "dinheiro"
   | "transferencia";
-export type RecurrenceFreq = "semanal" | "mensal" | "anual";
+/** As seis frequências da tela de conta a receber/pagar (enum `recurrence_freq`,
+ *  estendido na migration 0021). */
+export type RecurrenceFreq =
+  | "diaria" | "semanal" | "mensal" | "bimestral" | "trimestral" | "anual";
 export type PartyType = "pf" | "pj";
 
 export interface Category {
@@ -139,6 +161,8 @@ export interface SplitLine {
 export interface LancamentoInput {
   kind: CategoryKind;
   party_id: string | null;
+  /** Projeto (centro de resultado temporal). Vai para `movements.project_id`. */
+  project_id?: string | null;
   competence_date: string; // ISO
   description: string;
   amount: number;

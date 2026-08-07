@@ -55,8 +55,8 @@ export function CurrencyInput({
       )}
       <div
         className={cn(
-          "flex items-center gap-2 bg-white rounded-md px-3 h-10 border",
-          invalid ? "border-negative" : "border-border",
+          "flex items-center gap-2 bg-surface-2 rounded-md px-3 h-10 border",
+          invalid ? "border-negative" : "border-transparent",
         )}
       >
         <span className="text-faint text-[17px]">R$</span>

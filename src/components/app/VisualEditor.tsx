@@ -56,6 +56,12 @@ function loadEdits(): Record<string, ElementOverride> {
   try { return JSON.parse(localStorage.getItem(EDITS_KEY) || "{}"); } catch { return {}; }
 }
 
+/** Lê o translate(x,y) atual do inline-style (default 0,0). */
+function parseTranslate(el: HTMLElement): { x: number; y: number } {
+  const m = /translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px/.exec(el.style.transform || "");
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+}
+
 /* ----------------------------- tema ----------------------------- */
 
 interface ThemeVals {
@@ -94,6 +100,8 @@ export function VisualEditor() {
   const [edits, setEdits] = React.useState<Record<string, ElementOverride>>({});
   const [theme, setTheme] = React.useState<ThemeVals>(THEME_DEFAULTS);
   const [tick, setTick] = React.useState(0); // força re-leitura dos controles
+  const [salvando, setSalvando] = React.useState<"idle" | "saving" | "saved" | "local">("idle");
+  const saveTimer = React.useRef<number | null>(null);
 
   React.useEffect(() => { setMontado(true); setEdits(loadEdits()); setTheme(loadTheme()); }, []);
 
@@ -128,6 +136,8 @@ export function VisualEditor() {
       if (t.closest("[data-a4p-editor]")) return;
       e.preventDefault(); e.stopPropagation();
       setSel(t); setTick((n) => n + 1);
+      // Sai do modo seleção ao escolher → libera as alças de mover/redimensionar.
+      setSelecionando(false);
     };
     const onOver = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
@@ -155,6 +165,52 @@ export function VisualEditor() {
     return () => { delete sel.dataset.a4pSel; };
   }, [sel]);
 
+  /* retângulo do selecionado (para desenhar as alças de mover/redimensionar) */
+  const [rect, setRect] = React.useState<DOMRect | null>(null);
+  const medirRect = React.useCallback(() => { setRect(sel ? sel.getBoundingClientRect() : null); }, [sel]);
+  React.useEffect(() => {
+    if (!sel) { setRect(null); return; }
+    medirRect();
+    const on = () => medirRect();
+    window.addEventListener("scroll", on, true);
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on, true); window.removeEventListener("resize", on); };
+  }, [sel, medirRect, tick]);
+
+  /* arrastar: mover (transform translate) ou redimensionar (width/height).
+     Live no DOM; ao soltar, grava no mesmo formato (estilos) p/ exportar. */
+  const iniciarDrag = (modo: "move" | "e" | "s" | "se") => (e: React.PointerEvent) => {
+    if (!sel) return;
+    e.preventDefault(); e.stopPropagation();
+    const r = sel.getBoundingClientRect();
+    const tr = parseTranslate(sel);
+    const ini = { x: e.clientX, y: e.clientY, w: r.width, h: r.height, tx: tr.x, ty: tr.y };
+    const move = (ev: PointerEvent) => {
+      if (!sel) return;
+      const dx = ev.clientX - ini.x, dy = ev.clientY - ini.y;
+      if (modo === "move") {
+        sel.style.setProperty("transform", `translate(${Math.round(ini.tx + dx)}px, ${Math.round(ini.ty + dy)}px)`, "important");
+      } else {
+        if (modo !== "s") sel.style.setProperty("width", `${Math.max(40, Math.round(ini.w + dx))}px`, "important");
+        if (modo !== "e") sel.style.setProperty("height", `${Math.max(24, Math.round(ini.h + dy))}px`, "important");
+      }
+      setRect(sel.getBoundingClientRect());
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      if (!sel) return;
+      if (modo === "move") {
+        const v = sel.style.transform; registrar((ov) => { ov.estilos["transform"] = v; });
+      } else {
+        if (sel.style.width) { const w = sel.style.width; registrar((ov) => { ov.estilos["width"] = w; }); }
+        if (sel.style.height) { const h = sel.style.height; registrar((ov) => { ov.estilos["height"] = h; }); }
+      }
+      setTick((n) => n + 1);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up, { once: true });
+  };
+
   /* valores atuais do elemento selecionado (para os controles) */
   const cur = React.useMemo(() => {
     if (!sel || typeof window === "undefined") return null;
@@ -168,6 +224,7 @@ export function VisualEditor() {
     return {
       soTexto,
       texto: soTexto ? (sel.textContent ?? "") : "",
+      oculto: cs.display === "none",
       color: rgbToHex(cs.color),
       bg: rgbToHex(cs.backgroundColor),
       fontSize: Math.round(parseFloat(cs.fontSize)) || 16,
@@ -208,15 +265,76 @@ export function VisualEditor() {
     sel.textContent = value;
     registrar((ov) => { ov.texto = value; });
   }
+  function removeStyle(cssProp: string) {
+    if (!sel) return;
+    sel.style.removeProperty(cssProp);
+    registrar((ov) => { delete ov.estilos[cssProp]; });
+    setTick((n) => n + 1);
+  }
+  /** Apaga (oculta) o elemento — reversível. Persistido como display:none. */
+  function apagarEl() {
+    if (!sel) return;
+    setStyle("display", "none");
+  }
+  function restaurarEl() {
+    if (!sel) return;
+    removeStyle("display");
+  }
+  /** Reseta tamanho (width/height) e posição (transform) do elemento. */
+  function resetGeo() {
+    if (!sel) return;
+    ["width", "height", "transform"].forEach((p) => removeStyle(p));
+  }
+
+  const buildPayload = React.useCallback(() => ({
+    app: "all4pay",
+    geradoEm: new Date().toISOString(),
+    tema: themeToCssVars(theme),
+    elementos: Object.values(loadEdits()),
+  }), [theme]);
+
+  /* AUTO-SAVE no arquivo design-edits.json (via API). Em FS somente-leitura
+   *  (serverless) cai para "local" — segue valendo o navegador + Exportar. */
+  const salvarArquivo = React.useCallback(() => {
+    setSalvando("saving");
+    fetch("/api/design", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    })
+      .then((r) => r.json())
+      .then((j) => setSalvando(j?.ok ? "saved" : "local"))
+      .catch(() => setSalvando("local"));
+  }, [buildPayload]);
+
+  /* dispara o auto-save (debounce) a cada mudança de elemento ou tema */
+  React.useEffect(() => {
+    if (!montado) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(salvarArquivo, 600);
+    return () => { if (saveTimer.current) window.clearTimeout(saveTimer.current); };
+  }, [edits, theme, montado, salvarArquivo]);
+
+  /* hidrata do arquivo na carga, se o navegador ainda não tem edições */
+  React.useEffect(() => {
+    if (!montado) return;
+    if (Object.keys(loadEdits()).length > 0) return;
+    fetch("/api/design")
+      .then((r) => r.json())
+      .then((j) => {
+        const elementos: ElementOverride[] = j?.ok && Array.isArray(j.data?.elementos) ? j.data.elementos : [];
+        if (!elementos.length) return;
+        const map: Record<string, ElementOverride> = {};
+        for (const ov of elementos) map[ov.selector] = ov;
+        try { localStorage.setItem(EDITS_KEY, JSON.stringify(map)); } catch { /* ignore */ }
+        setEdits(map);
+        window.setTimeout(reaplicar, 100);
+      })
+      .catch(() => { /* arquivo indisponível — segue no navegador */ });
+  }, [montado, reaplicar]);
 
   function exportar() {
-    const payload = {
-      app: "all4pay",
-      geradoEm: new Date().toISOString(),
-      tema: themeToCssVars(theme),
-      elementos: Object.values(loadEdits()),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(buildPayload(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "all4pay-edicoes.json"; a.click();
@@ -249,6 +367,45 @@ export function VisualEditor() {
         [data-a4p-sel] { outline: 2px solid #dcff00 !important; outline-offset: 1px !important; }
       `}</style>
 
+      {/* alças de mover / redimensionar sobre o elemento selecionado */}
+      {sel && rect && !selecionando && !cur?.oculto && (
+        <div
+          className="fixed z-[59] pointer-events-none"
+          style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
+        >
+          {/* mover (grip no canto superior esquerdo) */}
+          <button
+            onPointerDown={iniciarDrag("move")}
+            title="Mover (arraste)"
+            className="pointer-events-auto absolute -top-3 -left-3 w-6 h-6 rounded-pill bg-ink inline-flex items-center justify-center"
+            style={{ cursor: "move" }}
+          >
+            <Icon name="grip-vertical" size={13} color="var(--color-lime)" />
+          </button>
+          {/* largura (lateral direita) */}
+          <span
+            onPointerDown={iniciarDrag("e")}
+            title="Arraste para a largura"
+            className="pointer-events-auto absolute top-1/2 -right-[6px] -translate-y-1/2 w-[12px] h-[12px] rounded-sm bg-white border-2 border-ink"
+            style={{ cursor: "ew-resize" }}
+          />
+          {/* altura (base) */}
+          <span
+            onPointerDown={iniciarDrag("s")}
+            title="Arraste para a altura"
+            className="pointer-events-auto absolute left-1/2 -bottom-[6px] -translate-x-1/2 w-[12px] h-[12px] rounded-sm bg-white border-2 border-ink"
+            style={{ cursor: "ns-resize" }}
+          />
+          {/* largura + altura (canto inferior direito) */}
+          <span
+            onPointerDown={iniciarDrag("se")}
+            title="Arraste para largura + altura"
+            className="pointer-events-auto absolute -right-[7px] -bottom-[7px] w-[14px] h-[14px] rounded-sm bg-lime border-2 border-ink"
+            style={{ cursor: "nwse-resize" }}
+          />
+        </div>
+      )}
+
       {/* botão flutuante */}
       <button
         onClick={() => setAberto((o) => !o)}
@@ -274,7 +431,7 @@ export function VisualEditor() {
               <button
                 key={t}
                 onClick={() => setAba(t)}
-                className={["px-3 h-8 rounded-pill text-caption", aba === t ? "bg-ink text-white" : "text-muted hover:bg-surface-1"].join(" ")}
+                className={["px-3 h-8 rounded-pill text-caption", aba === t ? "bg-surface-3 text-ink font-semibold" : "text-muted hover:bg-surface-1"].join(" ")}
               >
                 {t === "elemento" ? "Elemento" : "Tema"}
               </button>
@@ -301,6 +458,22 @@ export function VisualEditor() {
                       {cur.soTexto && cur.texto ? ` · “${cur.texto.slice(0, 32)}”` : ""}
                     </div>
 
+                    <div className="flex items-center gap-2">
+                      {cur.oculto ? (
+                        <>
+                          <span className="text-caption text-warning flex-1">Elemento apagado (oculto).</span>
+                          <button onClick={restaurarEl} className="px-3 h-9 rounded-sm border border-border text-caption text-ink hover:bg-surface-1 inline-flex items-center gap-1">
+                            <Icon name="rotate-ccw" size={13} color="var(--color-text-secondary)" /> Restaurar
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={apagarEl} className="w-full px-3 h-9 rounded-sm border border-border text-caption text-negative hover:bg-surface-2 inline-flex items-center justify-center gap-1">
+                          <Icon name="trash-2" size={13} color="var(--color-negative)" /> Apagar elemento
+                        </button>
+                      )}
+                    </div>
+
+                    {!cur.oculto && (<>
                     {cur.soTexto && (
                       <Campo label="Texto">
                         <textarea
@@ -352,7 +525,16 @@ export function VisualEditor() {
                         <button onClick={() => setStyle("border", "1px solid var(--color-border)")} className="px-3 h-9 rounded-sm border border-border text-caption text-muted hover:bg-surface-1">1px</button>
                       </div>
                     </Campo>
+                    <Campo label="Tamanho e posição">
+                      <div className="flex items-center gap-2">
+                        <span className="text-caption text-faint flex-1">Arraste as alças sobre o elemento: laterais = largura/altura · grip ↖ = mover.</span>
+                        <button onClick={resetGeo} className="px-3 h-9 rounded-sm border border-border text-caption text-muted hover:bg-surface-1 inline-flex items-center gap-1 shrink-0">
+                          <Icon name="rotate-ccw" size={13} color="var(--color-text-secondary)" /> Resetar
+                        </button>
+                      </div>
+                    </Campo>
                     <p className="text-caption text-faint">Dica: gráficos são desenhos (SVG). Dá pra editar o card/texto ao redor; cores de série eu ajusto pelo código a partir do export.</p>
+                    </>)}
                   </>
                 )}
               </>
@@ -387,8 +569,18 @@ export function VisualEditor() {
             )}
           </div>
 
-          {/* rodapé: export / limpar */}
+          {/* rodapé: status do auto-save + export / limpar */}
           <div className="border-t border-border-soft p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-caption">
+              <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: salvando === "saved" ? "var(--color-positive)" : salvando === "saving" ? "var(--color-warning)" : salvando === "local" ? "var(--color-faint)" : "var(--color-border)" }} />
+              <span className="text-muted">
+                {salvando === "saving" ? "Salvando no arquivo…"
+                  : salvando === "saved" ? "Salvo em design-edits.json"
+                  : salvando === "local" ? "Salvo no navegador (arquivo indisponível neste ambiente)"
+                  : "Pronto para editar"}
+              </span>
+              <button onClick={salvarArquivo} className="ml-auto text-muted hover:text-ink underline">Salvar agora</button>
+            </div>
             <Button variant="primary" fullWidth leftIcon={<Icon name="arrow-down-to-line" size={15} />} onClick={exportar}>
               Exportar tudo (.json)
             </Button>
@@ -396,7 +588,7 @@ export function VisualEditor() {
               <Button variant="secondary" onClick={reaplicar}>Reaplicar</Button>
               <Button variant="ghost" leftIcon={<Icon name="rotate-ccw" size={15} />} onClick={limparTudo}>Limpar edições</Button>
             </div>
-            <p className="text-caption text-faint">Tudo fica só no seu navegador. Exporte e me mande o <code>all4pay-edicoes.json</code> no Claude Code — eu aplico no código.</p>
+            <p className="text-caption text-faint">As alterações salvam sozinhas em <code>design-edits.json</code> (quando o ambiente permite gravar) e no navegador. O botão Exportar baixa o mesmo JSON para me mandar no Claude Code.</p>
           </div>
         </div>
       )}

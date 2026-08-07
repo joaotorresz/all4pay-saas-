@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { receberImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type MetodoRecebimento = "pix" | "ted" | "boleto" | "of";
 
@@ -45,7 +46,7 @@ export async function receberLote(
 
   const supabase = createClient();
   // só os ainda pendentes (idempotência) — busca quais sobraram pendentes
-  const { data: pend } = await supabase.from("movements").select("id,amount").in("id", ids).eq("status", "pendente").eq("type", "entrada");
+  const { data: pend } = await supabase.from("movements").select("id,amount").in("id", ids).eq("status", "pendente").eq("type", "entrada").limit(TETO_LINHAS);
   const alvo = (pend ?? []) as { id: string; amount: number }[];
   if (!alvo.length) return { recebidos: 0, total: 0, detalhe: "Nada a receber (já recebidos)." };
   const total = alvo.reduce((s, m) => s + Number(m.amount), 0);

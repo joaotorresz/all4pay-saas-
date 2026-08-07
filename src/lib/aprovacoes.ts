@@ -13,6 +13,9 @@ import {
   iniciarAprovacao, aprovarPasso, regraParaValor, sugerirIA, REGRAS_PADRAO,
 } from "@/core/institutional/approval-flow";
 import type { ApprovalRequest, Usuario, Role, TransacaoContexto } from "@/core/institutional/types";
+import { ler, gravar as gravarOrg } from "@/lib/store-org";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type StatusSolic = "em_analise" | "aprovada" | "rejeitada" | "devolvida";
 
@@ -47,12 +50,18 @@ let hydrated = false;
 function loadLocal(): Solicitacao[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
-  try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
+  cache = ler<Solicitacao[]>(KEY, []);
   return cache!;
 }
+/**
+ * ⚠️ Só a DEMONSTRAÇÃO grava aqui. Em live este arquivo lê e escreve a tabela,
+ * e a chave de estado ficou congelada em `store-org` — as duas moradas do
+ * mesmo dado eram o defeito, não a redundância.
+ */
 function saveLocal(list: Solicitacao[]) {
+  if (!isDemo) return;  // congelada em live: a casa do dado é a tabela
   cache = list;
-  if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+  gravarOrg(KEY, list);
 }
 
 export const SOLICITANTE_DEMO = "Operador (Financeiro)";
@@ -101,10 +110,11 @@ export async function hydrateAprovacoes(force = false): Promise<void> {
   if (hydrated && !force) return;
   if (isDemo) { cache = loadLocal(); hydrated = true; return; }
   try {
-    const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false });
+    const { data } = await createClient().from("approvals").select("id,movement_id,amount,reason,justification,status,level,levels_required,created_at").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as ApprovalRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("financeiro.aprovacoes", e, "a fila de aprovação abre vazia, como se nada esperasse decisão", true); cache = cache ?? []; }
 }
 
 export function listSolicitacoes(): Solicitacao[] {
@@ -218,4 +228,12 @@ function rotuloAcao(a: AcaoDecisao): string {
   return a === "aprovar" ? "Aprovou" : a === "rejeitar" ? "Rejeitou" : "Devolveu para ajuste";
 }
 
-export function clearAprovacoes(): void { saveLocal([]); }
+/**
+ * Limpa a fila de aprovação da DEMONSTRAÇÃO.
+ *
+ * ⚠️ Em live não faz nada, de propósito: a casa do dado é a tabela, e limpar
+ * a chave daria a impressão de ter apagado uma fila que continua inteira no
+ * banco. Apagar de verdade é operação de tabela, com confirmação e volta —
+ * não uma função exportada que qualquer tela pode chamar.
+ */
+export function clearAprovacoes(): void { if (!isDemo) return; saveLocal([]); }

@@ -61,29 +61,47 @@ const config: Config = {
         warning: "var(--color-warning)", // amber alert
         positive: "var(--color-positive)", // muted green (approved / gains / vence hoje)
         negative: "var(--color-negative)", // muted brick red (overdue / vencido)
+
+        // ---- Aurora glass (superfícies translúcidas; blur via CSS) ----
+        glass: {
+          DEFAULT: "var(--glass-bg)", // vidro dos cards
+          strong: "var(--glass-bg-strong)", // vidro dos overlays (popover/sidebar)
+        },
       },
       fontFamily: {
+        // DS All4Pay — Hanken Grotesk (fonte de marca) é a face do sistema;
+        // Geist Mono carrega os números tabulares (self-hosted via Fontsource).
         sans: [
-          "var(--font-onest)",
-          "Onest",
+          '"Hanken Grotesk Variable"',
+          '"Hanken Grotesk"',
+          '"Schibsted Grotesk Variable"',
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
           "sans-serif",
+        ],
+        mono: [
+          '"Geist Mono Variable"',
+          '"Geist Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "monospace",
         ],
       },
       fontSize: {
         // Roc Grotesk Regular: peso 400, tracking -0.01em, line-height 22px na
         // escala de texto; nos tamanhos grandes (heróis de uma linha) o lh 22px
         // é menor que o glifo, então usamos leading-none (1) para não recortar.
+        // Escala de tipos Visor (DM Sans): número-herói ~36 · título de card ~18.
         display: ["62px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h1: ["48px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        "value-lg": ["38px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h2: ["34px", { lineHeight: "1", letterSpacing: "-0.01em" }],
-        h3: ["24px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
-        body: ["18px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
-        label: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
-        caption: ["14px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        h1: ["44px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        "value-lg": ["36px", { lineHeight: "1", letterSpacing: "-0.01em" }],
+        h2: ["30px", { lineHeight: "1.05", letterSpacing: "-0.01em" }],
+        h3: ["18px", { lineHeight: "1.1", letterSpacing: "-0.01em" }],
+        body: ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        label: ["15px", { lineHeight: "21px", letterSpacing: "-0.01em" }],
+        caption: ["13px", { lineHeight: "19px", letterSpacing: "-0.01em" }],
       },
       fontWeight: {
         // Onest — múltiplos pesos (Regular · Medium · SemiBold).
@@ -110,17 +128,18 @@ const config: Config = {
         sidebar: "240px",
       },
       borderRadius: {
-        // 3 levels + pill. Bigger container => bigger radius.
-        card: "36px", // large cards, panels, tooltip (DS v2 / Onest)
+        // Ledger: cards 16px · botões/inputs 10px · badges 8px · pills.
+        card: "16px", // cards, panels, tooltip
         md: "10px", // buttons, inputs, command bar
         sm: "8px", // smaller buttons, rectangular badges
         pill: "999px", // action pills, avatars
       },
       boxShadow: {
-        // Sombras removidas dos boxes do sistema (flat). hero-glow é marketing.
-        card: "none",
-        popover: "none",
-        pill: "none",
+        // Aurora glass — sombras var-backed (globals.css define claro/escuro):
+        // fio luminoso 1px (inset) + ambiente suave. hero-glow é marketing.
+        card: "var(--shadow-card)",
+        popover: "var(--shadow-popover)",
+        pill: "var(--shadow-pill)",
         "hero-glow": "0 -40px 120px -20px rgba(220,255,0,0.18)", // marketing only
       },
       transitionDuration: {

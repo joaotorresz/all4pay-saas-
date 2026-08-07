@@ -1,36 +1,20 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { Providers } from "./providers";
+// DS "Ledger" — tipografia self-hosted (Fontsource, sem fetch externo):
+// Schibsted Grotesk (neo-grotesca; UI/títulos/corpo) + Geist Mono (TODOS os
+// números: dinheiro, tabelas, eixos de gráfico — precisão de terminal).
+import "@fontsource-variable/hanken-grotesk";
+import "@fontsource-variable/schibsted-grotesk";
+import "@fontsource-variable/geist-mono";
+import "@fontsource/boldonse"; // fonte de display p/ testes no Laboratório de Design
 import "./globals.css";
 
-/**
- * Brand face: Roc Grotesk Regular (Sharp Type, commercial) — arquivo licenciado
- * carregado localmente. Único peso usado em todo o sistema: 400.
- */
-const roc = localFont({
-  src: "./fonts/RocGrotesk-Regular.otf",
-  weight: "400",
-  style: "normal",
-  variable: "--font-roc",
-  display: "swap",
-});
-
-/**
- * Onest (test DS) — carregada para o teste do novo design system na Home.
- * Título: SemiBold (600) · subtítulos/corpo: Regular (400).
- */
-const onest = localFont({
-  src: [
-    { path: "./fonts/Onest-Regular.ttf", weight: "400", style: "normal" },
-    { path: "./fonts/Onest-Medium.ttf", weight: "500", style: "normal" },
-    { path: "./fonts/Onest-SemiBold.ttf", weight: "600", style: "normal" },
-  ],
-  variable: "--font-onest",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "all4pay — Tesouraria",
+  // ⚠️ Só o FALLBACK. O título real de cada tela é aplicado pelo `AppShell`
+  // (`TituloDaAba`), porque as telas são componentes de cliente e não podem
+  // exportar `metadata`. Era isto que fazia o sistema inteiro anunciar
+  // "all4pay — Tesouraria" em toda aba.
+  title: "all4pay",
   description: "ERP + gestão financeira. Construído sobre o Design System all4pay.",
 };
 
@@ -40,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" className={`${roc.variable} ${onest.variable}`}>
+    <html lang="pt-BR">
       <head>
         {/* Anti-flash: aplica o tema salvo antes da pintura. */}
         <script

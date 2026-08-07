@@ -29,7 +29,10 @@ const PESOS: Record<string, number> = {
 function receitaMensalSerie(input: RiskInput): number[] {
   const map = new Map<string, number>();
   for (const m of input.movements) {
-    if (m.type !== "entrada") continue;
+    // só receita REALIZADA (pago), por data de caixa — alinhado a burn/
+    // sazonalidade. Antes contava cancelado/pendente/mês parcial, inflando o CV
+    // e subestimando a previsibilidade (e o score).
+    if (m.type !== "entrada" || m.status !== "pago") continue;
     const d = m.paid_date ?? m.due_date;
     const k = d.slice(0, 7);
     map.set(k, (map.get(k) ?? 0) + m.amount);

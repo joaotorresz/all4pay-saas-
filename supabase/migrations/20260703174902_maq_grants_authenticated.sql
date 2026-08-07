@@ -1,0 +1,2 @@
+grant select, insert, update on maq_settings, maq_customer_rate, maq_cost_rate, maq_mcc_category, maq_cnae_mcc, maq_installment, maq_online_spread to authenticated;
+grant execute on function maq_is_admin() to authenticated, anon;

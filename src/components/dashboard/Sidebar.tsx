@@ -1,138 +1,84 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
-import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { useModo } from "@/components/app/useModo";
+import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
+import { leafAtivo, useNavSections, type Item, type Section } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const STORAGE_KEY = "a4p_sidebar_collapsed";
+const LARGURA_KEY = "a4p_sidebar_width";
+
+/** Largura padrão (o token `w-sidebar`), e os limites do arrasto. */
+const LARGURA_PADRAO = 240;
+const LARGURA_MIN = 200;
+const LARGURA_MAX = 420;
+/** Abaixo disto o arrasto RECOLHE em vez de espremer o rótulo. */
+const LIMIAR_RECOLHER = 160;
+/** Arrastando o trilho recolhido para além disto, ele volta a abrir. */
+const LIMIAR_EXPANDIR = 120;
 
 /**
- * all4pay app sidebar — navegação AGRUPADA (acordeão), route-aware.
- * Reforma só de agrupamento visual: nenhum href de rota mudou. Os 21 itens
- * flat viraram 7 grupos de corpo + Configurações. Itens de roadmap entram como
- * "Em breve" (desabilitados, sem href — nunca <a> morto).
+ * Sidebar em ACORDEÃO — CARTÃO flutuante, no modelo da referência.
  *
- * Mantém: marca, busca ⌘K, toggle de tema, bloco do usuário, recolher (ícones).
+ * A barra não encosta mais nas bordas: é um cartão com raio e respiro, sobre o
+ * canvas. A marca subiu para a `TopBar` — presa aqui dentro, ela encolhia junto
+ * com o cartão e sumia ao recolher.
+ *
+ * Cada grupo é uma linha com ícone, rótulo e chevron; abrir revela as telas
+ * dele, indentadas sob um fio vertical. Grupos sem filhos (Início, Orçamento,
+ * Ajuda) são folhas e navegam direto, no mesmo nível visual.
+ *
+ * ⚠️ **Um grupo aberto por vez.** Com treze grupos, deixar todos abertos
+ * devolveria a lista de 60 itens que o agrupamento existe para evitar — o menu
+ * viraria uma rolagem em vez de um índice. O grupo da tela atual abre sozinho e
+ * não fecha: o menu tem de dizer onde você está mesmo depois de você clicar em
+ * outro grupo para explorar.
+ *
+ * Recolhida vira um trilho de ícones; clicar num ícone expande e já abre o
+ * grupo — recolher não pode custar o acesso.
+ *
+ * **A borda direita arrasta.** Largura entre 200 e 420px, guardada por usuário.
+ * Arrastar até quase fechar RECOLHE (em vez de espremer o rótulo até virar
+ * reticências), e arrastar o trilho recolhido para a direita o reabre.
  */
-type Leaf = { label: string; href?: string; soon?: boolean; event?: string };
-type Group = { id: string; label: string; icon: string; children: Node[] };
-type Node = Leaf | Group;
-const isGroup = (n: Node): n is Group => "children" in n;
-
-// Link de topo, fora de grupo.
-const INICIO = { label: "Início", icon: "house", href: "/" };
-
-// Menu enxuto (3 verbos) — relatório de melhorias. Avançado fica atrás do Pro.
-// INÍCIO é link solto acima. Entradas/Saídas/Contas = "Dinheiro" (quanto
-// entra/sai/tenho). Equipe e Inteligência só no Modo Pro.
-const GROUPS: Group[] = [
-  {
-    id: "entradas", label: "Entradas", icon: "arrow-left-right", children: [
-      { label: "Central de recebimentos", href: "/recebimentos" },
-      { label: "A receber", href: "/recebiveis" },
-      { label: "Recorrências / Contratos", href: "/recorrencias" },
-      { label: "Inadimplência", href: "/inadimplencia" },
-      { label: "Boleto", href: "/boletos" },
-      { label: "Notas fiscais (NFS-e)", href: "/notas-fiscais" },
-      { label: "Lixeira", href: "/lixeira" },
-    ],
-  },
-  {
-    id: "saidas", label: "Saídas", icon: "arrow-up-right", children: [
-      { label: "Central de pagamentos", href: "/pagamentos" },
-      { label: "A pagar", href: "/pagaveis" },
-      { label: "Reembolsos", href: "/reembolsos" },
-      { label: "Lixeira", href: "/lixeira" },
-    ],
-  },
-  {
-    id: "contas", label: "Contas & Banco", icon: "upload", children: [
-      { label: "Open finance", href: "/contas" },
-      { label: "Importar dados", href: "/upload" },
-      { label: "Conciliação", href: "/conciliacao" },
-    ],
-  },
-  {
-    id: "cadastros", label: "Cadastrar", icon: "users", children: [
-      { label: "Nova transação", event: "a4p:open-nova-transacao" }, // porta única
-      { label: "Contatos", href: "/contatos" },
-      { label: "Produtos", href: "/produtos" },
-      { label: "Serviços", href: "/servicos" },
-      { label: "Vendas", href: "/vendas" },
-    ],
-  },
-  {
-    id: "pos", label: "Central POS", icon: "credit-card", children: [
-      { label: "Configuração de taxas all4pay", href: "/pos/taxas" },
-      { label: "Simulador de venda", href: "/pos/venda" },
-    ],
-  },
-  {
-    id: "relatorios", label: "Relatórios", icon: "receipt", children: [
-      { label: "DRE", href: "/dre" },
-      { label: "Fluxo de Caixa", href: "/fluxo-caixa" },
-    ],
-  },
-  // ----- Pro (escondidos no Modo Simples) -----
-  {
-    id: "equipe", label: "Equipe", icon: "shield-check", children: [
-      { label: "Solicitações & aprovações", href: "/aprovacoes" },
-      { label: "Governança & Auditoria", href: "/governanca" },
-    ],
-  },
-  {
-    id: "inteligencia", label: "Inteligência", icon: "sparkles", children: [
-      // um cérebro, não cinco — Quant/Decisão/Risco/Autônomo/Dados viram abas
-      // dentro do Copiloto (deep-link ?aba=). Rotas standalone seguem vivas.
-      { label: "Copiloto", href: "/copiloto" },
-    ],
-  },
-];
-
-// Configurações (rodapé navegável) — Plataforma aninhada (Pro).
-const CONFIG: Group = {
-  id: "config", label: "Configurações", icon: "settings", children: [
-    { label: "Empresa", href: "/configuracoes" },
-    {
-      id: "plataforma", label: "Plataforma (avançado)", icon: "cpu", children: [
-        { label: "Orquestração", href: "/orquestracao" },
-        { label: "Infraestrutura", href: "/infraestrutura" },
-        { label: "Arquitetura", href: "/arquitetura" },
-        { label: "Automações", href: "/automacoes" },
-      ],
-    },
-    { label: "Adicionar Empresa", href: "/comecar" },
-    { label: "Central de Ajuda", soon: true },
-  ],
-};
-
-function leafAtivo(href: string | undefined, pathname: string): boolean {
-  // "/" não marca (Início cuida disso; "Contas financeiras → /" é só atalho).
-  if (!href || href === "/") return false;
-  return pathname === href || pathname.startsWith(href + "/") || pathname.startsWith(href);
-}
-function contemAtivo(n: Node, pathname: string): boolean {
-  return isGroup(n) ? n.children.some((c) => contemAtivo(c, pathname)) : leafAtivo(n.href, pathname);
-}
-
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
-  const [open, setOpen] = React.useState<Record<string, boolean>>({});
-  // Identidade REAL do usuário logado (sem fallback fake). Demo mostra rótulo de demo.
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [isDesktop, setIsDesktop] = React.useState(true);
   const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
+
+  const [largura, setLargura] = React.useState(LARGURA_PADRAO);
+  const [arrastando, setArrastando] = React.useState(false);
 
   React.useEffect(() => {
     setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+    const salva = Number(localStorage.getItem(LARGURA_KEY));
+    if (Number.isFinite(salva) && salva >= LARGURA_MIN && salva <= LARGURA_MAX) setLargura(salva);
   }, []);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  React.useEffect(() => {
+    const toggle = () => setMobileOpen((o) => !o);
+    window.addEventListener("a4p:toggle-nav", toggle);
+    return () => window.removeEventListener("a4p:toggle-nav", toggle);
+  }, []);
+
+  React.useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   React.useEffect(() => {
     if (isDemo || !SUPA_CONFIGURED) return;
@@ -147,6 +93,7 @@ export function Sidebar() {
     });
     return () => { ativo = false; };
   }, []);
+
   const toggleCollapsed = () => {
     setCollapsed((c) => {
       const next = !c;
@@ -154,228 +101,379 @@ export function Sidebar() {
       return next;
     });
   };
-  // Grupo aberto = preferência explícita do usuário, senão "contém a rota ativa".
-  const aberto = (g: Group) => open[g.id] ?? contemAtivo(g, pathname);
-  const toggleGrupo = (id: string) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? false) }));
-  // Ao recolher um grupo no modo ícones, expande o rail e abre aquele grupo.
-  const abrirDoIcone = (id: string) => { setCollapsed(false); setOpen((o) => ({ ...o, [id]: true })); };
 
-  const inicioOn = pathname === "/";
+  const col = collapsed && isDesktop;
 
-  // Modo Simples (padrão) esconde Inteligência (grupo) e Plataforma (subgrupo).
-  const { pro, set: setPro } = useModo();
-  // Modo Simples (padrão) esconde Equipe e Inteligência (Pro). Plataforma idem.
-  const gruposVis = pro ? GROUPS : GROUPS.filter((g) => g.id !== "inteligencia" && g.id !== "equipe");
-  const configVis: Group = pro ? CONFIG : { ...CONFIG, children: CONFIG.children.filter((c) => !(isGroup(c) && c.id === "plataforma")) };
-  const topoVis: Group[] = [...gruposVis, configVis];
+  const aplicarLargura = React.useCallback((px: number) => {
+    setLargura(px);
+    try { localStorage.setItem(LARGURA_KEY, String(px)); } catch { /* ignore */ }
+  }, []);
+
+  const definirRecolhida = React.useCallback((v: boolean) => {
+    setCollapsed(v);
+    try { localStorage.setItem(STORAGE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
+  }, []);
+
+  /**
+   * Arrasto da borda.
+   *
+   * A largura vem do X do ponteiro — a barra começa em 0, então o X já É a
+   * largura. Os listeners ficam no `document` (não na alça) para o arrasto
+   * sobreviver quando o ponteiro sai da barra, que é o caso normal ao alargar.
+   */
+  const iniciarArrasto = React.useCallback((e: React.PointerEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    setArrastando(true);
+    const mover = (ev: PointerEvent) => {
+      const x = ev.clientX;
+      if (collapsed) {
+        if (x > LIMIAR_EXPANDIR) {
+          definirRecolhida(false);
+          aplicarLargura(Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, x)));
+        }
+        return;
+      }
+      if (x < LIMIAR_RECOLHER) { definirRecolhida(true); return; }
+      aplicarLargura(Math.min(LARGURA_MAX, Math.max(LARGURA_MIN, x)));
+    };
+    const soltar = () => {
+      setArrastando(false);
+      document.removeEventListener("pointermove", mover);
+      document.removeEventListener("pointerup", soltar);
+      document.body.style.removeProperty("user-select");
+      document.body.style.removeProperty("cursor");
+    };
+    // Sem isto o arrasto seleciona o texto do menu inteiro no caminho.
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("pointermove", mover);
+    document.addEventListener("pointerup", soltar);
+  }, [isDesktop, collapsed, aplicarLargura, definirRecolhida]);
+
+  const { pro, set: setPro, temDireito } = useModo();
+  const { sections: allSections, pessoal } = useNavSections();
+
+  // Configurações fica no rodapé, separada — é o último grupo da lista.
+  const config = allSections[allSections.length - 1];
+  const principais = allSections.slice(0, -1);
+
+  /** O grupo que contém a rota atual — abre sozinho e não fecha. */
+  const grupoDaRota = React.useMemo(
+    () => [...principais, config].find(
+      (s) => (s.href && leafAtivo(s.href, pathname)) || s.items.some((i) => leafAtivo(i.href, pathname)),
+    )?.id ?? null,
+    [principais, config, pathname],
+  );
+
+  const [aberto, setAberto] = React.useState<string | null>(null);
+  React.useEffect(() => { setAberto(grupoDaRota); }, [grupoDaRota]);
+
+  function alternar(id: string) {
+    if (col) {
+      // Recolhida: clicar num grupo expande a barra e já abre o grupo.
+      setCollapsed(false);
+      try { localStorage.setItem(STORAGE_KEY, "0"); } catch { /* ignore */ }
+      setAberto(id);
+      return;
+    }
+    setAberto((a) => (a === id ? null : id));
+  }
 
   return (
-    <aside
-      className={cn(
-        "a4p-sidebar shrink-0 h-full bg-white border-r border-border flex flex-col py-4 transition-[width] duration-200 ease-out",
-        collapsed ? "w-[68px] px-2" : "w-sidebar px-3",
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       )}
-    >
-      {/* Brand + toggle */}
-      <div className={cn("flex items-center pb-[14px] pt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
-        {!collapsed && (
-          // Sidebar sempre escura → logo lime nos dois temas.
-          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto" priority />
-        )}
-        <button
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
-          className={cn("inline-flex items-center justify-center rounded-md hover:bg-surface-2 p-[6px]", collapsed ? "" : "ml-auto")}
-        >
-          <Icon name={collapsed ? "chevron-right" : "chevron-left"} size={17} color="var(--color-text-secondary)" />
-        </button>
-      </div>
-
-      {/* Command bar (⌘K) */}
-      <button
-        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
+      <aside
+        style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          "flex items-center bg-lime-tint border border-[#ECF6B8] rounded-md mb-[14px] cursor-pointer",
-          collapsed ? "justify-center py-[9px]" : "gap-2 px-[11px] py-[9px]",
+          // Borda: o hairline dos cartões da Home, herdado do CSS
+          // (`.a4p-sidebar, .a4p-topbar`) — por isso `border` sem cor aqui.
+          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border",
+          "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "lg:static lg:translate-x-0 lg:shrink-0 lg:my-0 lg:ml-3 lg:mb-3 lg:h-[calc(100%-12px)]",
+          // A transição de largura sai durante o arrasto: com ela, a barra
+          // persegue o ponteiro com atraso e o gesto parece travado.
+          arrastando ? "" : "lg:transition-[width]",
+          col ? "lg:w-[68px] lg:px-2" : "lg:px-3",
         )}
-        title="Buscar (⌘K)"
       >
-        <Icon name="search" size={15} color="var(--color-text-secondary)" />
-        {!collapsed && (
-          <>
-            <span className="text-label text-muted font-regular">Buscar</span>
-            <span className="ml-auto text-[13px] font-medium text-faint bg-black/5 rounded-[5px] px-[5px] py-[2px]">⌘K</span>
-          </>
-        )}
-      </button>
-
-      {/* Nav — rola sozinha quando transborda */}
-      <nav className="flex flex-col gap-[2px] flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
-        {collapsed ? (
-          <>
-            {/* Modo ícones: Início + ícone de cada grupo (abre o rail e o grupo) */}
-            <Link href="/" title="Início" aria-current={inicioOn ? "page" : undefined}
-              className={cn("relative flex items-center justify-center rounded-md py-2", inicioOn ? "bg-surface-2" : "hover:bg-surface-1")}>
-              {inicioOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
-              <Icon name="house" size={17} color={inicioOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-            </Link>
-            {topoVis.map((g) => {
-              const on = contemAtivo(g, pathname);
-              return (
-                <button key={g.id} onClick={() => abrirDoIcone(g.id)} title={g.label}
-                  className={cn("relative flex items-center justify-center rounded-md py-2", on ? "bg-surface-2" : "hover:bg-surface-1")}>
-                  {on && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
-                  <Icon name={g.icon} size={17} color={on ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-                </button>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            {/* Início (link de topo) */}
-            <Link href="/" aria-current={inicioOn ? "page" : undefined}
-              className={cn("relative flex items-center gap-[10px] px-[10px] rounded-md py-2", inicioOn ? "bg-surface-2" : "hover:bg-surface-1")}>
-              {inicioOn && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
-              <Icon name="house" size={17} color={inicioOn ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-              <span className={cn("text-[17px] font-medium truncate", inicioOn ? "text-ink" : "text-muted")}>{INICIO.label}</span>
-            </Link>
-
-            {gruposVis.map((g) => (
-              <GrupoNode key={g.id} grupo={g} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
-            ))}
-
-            {/* Configurações (rodapé navegável, ainda na área de rolagem) */}
-            <div className="mt-2 pt-2 border-t border-border-soft">
-              <GrupoNode grupo={configVis} depth={0} pathname={pathname} aberto={aberto} toggle={toggleGrupo} />
-            </div>
-          </>
-        )}
-      </nav>
-
-      {/* Rodapé fixo: tema + usuário */}
-      <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
-        {/* Modo Simples × Pro */}
-        <button
-          onClick={() => setPro(pro ? "simples" : "pro")}
-          title={pro ? "Modo Pro (motores e Plataforma visíveis)" : "Modo Simples (essencial)"}
-          className={cn("relative flex items-center rounded-md py-2 hover:bg-surface-1", collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]")}
-        >
-          <Icon name="sparkles" size={17} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-          {!collapsed && (
-            <>
-              <span className={cn("text-[17px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
-              <span className={cn("ml-auto w-[34px] h-[20px] rounded-pill p-[2px] transition-colors", pro ? "bg-lime" : "bg-surface-3")}>
-                <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
-              </span>
-            </>
+        {/* Alça de redimensionar — a borda direita inteira. */}
+        <div
+          onPointerDown={iniciarArrasto}
+          onDoubleClick={() => { definirRecolhida(false); aplicarLargura(LARGURA_PADRAO); }}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar menu (duplo clique restaura a largura padrão)"
+          title="Arraste para redimensionar · duplo clique restaura"
+          className={cn(
+            "hidden lg:block absolute inset-y-0 -right-[3px] w-[6px] z-10 cursor-col-resize",
+            "after:absolute after:inset-y-0 after:left-[2px] after:w-[2px] after:transition-colors",
+            arrastando ? "after:bg-lime" : "hover:after:bg-border",
           )}
-        </button>
-        <ThemeToggle collapsed={collapsed} />
-        <div className={cn("flex items-center pt-2 pb-1 mt-1", collapsed ? "justify-center" : "gap-[9px] px-2")}>
-          <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
-          {!collapsed && (
-            <>
-              <div className="min-w-0">
-                <div className="text-label font-medium text-ink truncate">{isDemo ? "Demonstração" : (usuario?.nome ?? "Conta")}</div>
-                <div className="text-[13px] text-faint truncate">{isDemo ? "modo demonstração" : (usuario?.email ?? "")}</div>
-              </div>
-              {SUPA_CONFIGURED ? (
-                <button
-                  onClick={async () => {
-                    const { createClient } = await import("@/lib/supabase/client");
-                    await createClient().auth.signOut();
-                    router.push("/login");
-                    router.refresh();
-                  }}
-                  aria-label="Sair"
-                  className="ml-auto inline-flex p-1 rounded-md hover:bg-surface-2"
-                  title="Sair"
-                >
-                  <Icon name="arrow-up-right" size={15} color="var(--color-text-tertiary)" />
-                </button>
-              ) : (
-                <Icon name="chevrons-up-down" size={15} color="var(--color-text-tertiary)" className="ml-auto" />
-              )}
-            </>
-          )}
+        />
+        {/* Criar + recolher na MESMA linha: são os dois controles do topo do
+            cartão, e empilhá-los custava uma faixa de altura para nada.
+            Recolhida, a barra tem 68px — não cabem lado a lado, então ali eles
+            voltam a empilhar. */}
+        <div className={cn("flex items-center gap-2 mb-2", col ? "flex-col" : "")}>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
+            aria-label="Criar novo registro"
+            title="Criar novo registro"
+            className={cn(
+              "flex items-center justify-center h-10 rounded-pill bg-lime text-on-lime font-semibold transition-opacity hover:opacity-90",
+              col ? "w-10 px-0 order-2" : "flex-1 gap-2 px-4",
+            )}
+          >
+            <Icon name="plus" size={16} color="var(--color-on-lime)" />
+            {!col && <span className="text-[15px]">Criar</span>}
+          </button>
+
+          <button
+            onClick={toggleCollapsed}
+            aria-label={col ? "Expandir menu" : "Recolher menu"}
+            title={col ? "Expandir menu" : "Recolher menu"}
+            // Fundo cinza do DS: sem ele o botão só existia no hover, e um
+            // controle que aparece ao passar o mouse é um controle que metade
+            // das pessoas nunca encontra.
+            className={cn(
+              "hidden lg:inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors",
+              col ? "order-1" : "",
+            )}
+          >
+            <Icon name={col ? "chevron-right" : "chevron-left"} size={17} color="var(--color-text-secondary)" />
+          </button>
+
+          <button
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fechar menu"
+            className="lg:hidden inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors"
+          >
+            <Icon name="x" size={18} color="var(--color-text-secondary)" />
+          </button>
         </div>
-      </div>
-    </aside>
+
+        {/* Nav — acordeão */}
+        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[2px]">
+          {principais.map((s) => (
+            <Grupo
+              key={s.id} secao={s} pathname={pathname} collapsed={col}
+              aberto={aberto === s.id} onAlternar={() => alternar(s.id)}
+            />
+          ))}
+        </nav>
+
+        {/* Rodapé do cartão: Configurações · Modo Pro · conta (a referência
+            mantém o usuário DENTRO do menu; busca, tema e sair subiram). */}
+        <div className="shrink-0 flex flex-col gap-[2px] pt-[10px] mt-[10px] border-t border-border-soft">
+          <Grupo
+            secao={config} pathname={pathname} collapsed={col}
+            aberto={aberto === config.id} onAlternar={() => alternar(config.id)}
+          />
+          {!pessoal && (
+            /*
+             * ⚠️ É um SWITCH, não um botão. Antes vinha sem `role`, sem
+             * `aria-checked` e sem `type`: um leitor de tela anunciava
+             * "Modo Pro, botão" e NENHUM estado. Quem depende dele apertava,
+             * nada era anunciado, e a conclusão correta a tirar era que o
+             * controle não funcionava — foi o que aconteceu na auditoria.
+             *
+             * `role="switch"` + `aria-checked` fazem o estado ser anunciado a
+             * cada mudança; o texto "Ativado/Desativado" dá o mesmo retorno a
+             * quem enxerga. `type="button"` evita submit acidental.
+             */
+            <button
+              type="button"
+              role="switch"
+              aria-checked={pro}
+              aria-label={`Modo Pro: ${pro ? "ativado" : "desativado"}${temDireito ? "" : " — não incluso no plano"}`}
+              /*
+               * ⚠️ O interruptor não LIBERA nada: ele revela o que o plano já
+               * inclui. Sem direito, `setPro` devolve `false` e a pessoa vai
+               * para a tela de planos — antes ele ligava o menu inteiro do Pro
+               * e cada destino devolvia essa mesma tela, um clique depois.
+               */
+              onClick={() => {
+                if (!setPro(pro ? "simples" : "pro")) router.push("/planos?de=modo-pro");
+              }}
+              title={
+                !temDireito ? "Modo Pro — não incluso no plano desta empresa. Ver planos."
+                : pro ? "Modo Pro ativo — some para o essencial (Simples)"
+                : "Modo Pro — revela Inteligência e Governança"
+              }
+              className={cn(
+                "relative flex items-center rounded-md py-2 w-full text-left transition-colors hover:bg-surface-1",
+                col ? "justify-center px-0" : "gap-[10px] px-[10px]",
+              )}
+            >
+              <Icon name="sparkles" size={18} color={pro ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+              {!col && (
+                <>
+                  <span className={cn("text-[15px] font-medium", pro ? "text-ink" : "text-muted")}>Modo Pro</span>
+                  {/* Retorno visível do estado, ao lado do interruptor: a
+                      pastilha sozinha é sutil demais para responder "mudou?". */}
+                  <span className="ml-auto text-[11px] uppercase tracking-[0.06em] text-faint">
+                    {!temDireito ? "plano" : pro ? "on" : "off"}
+                  </span>
+                  <span className={cn("w-[34px] h-[20px] rounded-pill p-[2px] shrink-0 transition-colors", pro ? "bg-lime" : "bg-surface-3")} aria-hidden>
+                    <span className={cn("block w-[16px] h-[16px] rounded-pill bg-white transition-transform", pro && "translate-x-[14px]")} />
+                  </span>
+                </>
+              )}
+            </button>
+          )}
+          {/* ⚠️ QUAL empresa está aberta, acima da conta. Num produto que mostra
+              saldo, o rótulo da empresa vale tanto quanto o número — e até a
+              ONDA 9 a interface não tinha como responder essa pergunta. */}
+          <SeletorOrganizacao collapsed={col} />
+          <div className={cn("flex items-center pt-2 pb-1 mt-1", col ? "justify-center" : "gap-[9px] px-2")}>
+            <Avatar name={isDemo ? "Demonstração" : (usuario?.nome ?? "all4pay")} size={30} />
+            {!col && (
+              <>
+                <div className="min-w-0">
+                  <div className="text-label font-medium text-ink truncate">{isDemo ? "Demonstração" : (usuario?.nome ?? "Conta")}</div>
+                  <div className="text-[13px] text-faint truncate">{isDemo ? "modo demonstração" : (usuario?.email ?? "")}</div>
+                </div>
+                {SUPA_CONFIGURED ? (
+                  <button
+                    onClick={async () => {
+                      const { createClient } = await import("@/lib/supabase/client");
+                      await createClient().auth.signOut();
+                      router.push("/login");
+                      router.refresh();
+                    }}
+                    aria-label="Sair"
+                    className="ml-auto inline-flex p-1 rounded-md hover:bg-surface-2"
+                    title="Sair"
+                  >
+                    <Icon name="arrow-up-right" size={15} color="var(--color-text-tertiary)" />
+                  </button>
+                ) : (
+                  <Icon name="chevrons-up-down" size={15} color="var(--color-text-tertiary)" className="ml-auto" />
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </aside>
+    </>
   );
 }
 
-/** Cabeçalho de grupo (acordeão) + filhos recursivos (expandido). */
-function GrupoNode({
-  grupo, depth, pathname, aberto, toggle,
+/* --------------------------------- grupo --------------------------------- */
+
+function Grupo({
+  secao, pathname, collapsed, aberto, onAlternar,
 }: {
-  grupo: Group; depth: number; pathname: string;
-  aberto: (g: Group) => boolean; toggle: (id: string) => void;
+  secao: Section; pathname: string; collapsed: boolean;
+  aberto: boolean; onAlternar: () => void;
 }) {
-  const on = aberto(grupo);
-  const temAtivo = contemAtivo(grupo, pathname);
-  const padHeader = 10 + depth * 14;
+  const folha = !!secao.href;
+  const ativoFolha = folha && leafAtivo(secao.href, pathname);
+  const temFilhoAtivo = secao.items.some((i) => leafAtivo(i.href, pathname));
+  const destacado = ativoFolha || temFilhoAtivo;
+
+  const chrome = cn(
+    "relative flex items-center rounded-[12px] py-[9px] w-full transition-colors",
+    collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]",
+    // Selecionado = a cor do FUNDO DA PÁGINA (surface-1). O item ativo vira um
+    // recorte do canvas dentro do cartão branco do menu — a mesma relação que o
+    // conteúdo tem com os boxes da Home.
+    destacado ? "bg-surface-1" : "hover:bg-surface-2/60",
+  );
+
+  const conteudo = (
+    <>
+      {/* O marcador lima fica à DIREITA: à esquerda ele competiria com o fio
+          vertical dos filhos, e os dois juntos viram ruído. */}
+      {destacado && (
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-pill bg-lime" aria-hidden />
+      )}
+      <Icon name={secao.icon ?? "layers"} size={18} color={destacado ? "var(--color-ink)" : "var(--color-text-secondary)"} />
+      {!collapsed && (
+        <>
+          <span className={cn("text-[15px] truncate flex-1 text-left", destacado ? "text-ink font-semibold" : "text-muted font-medium")}>
+            {secao.label}
+          </span>
+          {!folha && (
+            <Icon
+              name={aberto ? "chevron-down" : "chevron-right"}
+              size={14}
+              color="var(--color-text-tertiary)"
+              className="shrink-0"
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="flex flex-col">
-      <button
-        onClick={() => toggle(grupo.id)}
-        aria-expanded={on}
-        className={cn("relative flex items-center gap-[10px] rounded-md py-2 text-left hover:bg-surface-1", on && "bg-transparent")}
-        style={{ paddingLeft: padHeader, paddingRight: 8 }}
-      >
-        <Icon name={grupo.icon} size={17} color={temAtivo ? "var(--color-ink)" : "var(--color-text-secondary)"} />
-        <span className={cn("text-[17px] font-medium truncate flex-1", temAtivo ? "text-ink" : "text-muted")}>{grupo.label}</span>
-        <Icon name={on ? "chevron-down" : "chevron-right"} size={15} color="var(--color-text-tertiary)" />
-      </button>
-      {on && grupo.children.map((c, i) =>
-        isGroup(c)
-          ? <GrupoNode key={c.id} grupo={c} depth={depth + 1} pathname={pathname} aberto={aberto} toggle={toggle} />
-          : <FolhaNode key={i} folha={c} depth={depth + 1} pathname={pathname} />,
+      {folha ? (
+        <Link href={secao.href!} title={secao.label} aria-current={ativoFolha ? "page" : undefined} className={chrome}>
+          {conteudo}
+        </Link>
+      ) : (
+        <button
+          onClick={onAlternar}
+          title={secao.label}
+          aria-expanded={aberto}
+          className={chrome}
+        >
+          {conteudo}
+        </button>
+      )}
+
+      {!folha && aberto && !collapsed && (
+        // O fio vertical amarra os filhos ao pai — sem ele a indentação sozinha
+        // não diz de quem eles são quando a lista rola.
+        <div className="ml-[19px] pl-[13px] border-l border-border-soft flex flex-col gap-[1px] py-1">
+          {secao.items.map((it, i) => (
+            <SubItem key={it.href ?? it.label + i} item={it} pathname={pathname} />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-/** Item-folha: link real, ou "Em breve" desabilitado (nunca <a> morto). */
-function FolhaNode({ folha, depth, pathname }: { folha: Leaf; depth: number; pathname: string }) {
-  const pad = 10 + depth * 14;
-  // Ação (abre um modal via evento) — ex.: "Nova transação" (porta única).
-  if (folha.event) {
+function SubItem({ item, pathname }: { item: Item; pathname: string }) {
+  if (item.event && !item.href) {
     return (
       <button
-        onClick={() => window.dispatchEvent(new Event(folha.event!))}
-        className="relative flex items-center rounded-md py-[7px] text-left hover:bg-surface-1 w-full"
-        style={{ paddingLeft: pad, paddingRight: 8 }}
+        onClick={() => window.dispatchEvent(new Event(item.event!))}
+        title={item.label}
+        className="flex items-center rounded-md py-[7px] px-[10px] text-left hover:bg-surface-2 transition-colors"
       >
-        <span className="text-[15px] truncate text-ink font-medium inline-flex items-center gap-2">
-          <Icon name="plus" size={14} color="var(--color-lime)" />
-          {folha.label}
-        </span>
+        <span className="text-[14px] text-muted truncate">{item.label}</span>
       </button>
     );
   }
-  if (folha.soon || !folha.href) {
+  if (item.soon || !item.href) {
     return (
-      <span
-        aria-disabled="true"
-        className="relative flex items-center gap-[10px] rounded-md py-[7px] text-left opacity-45 cursor-not-allowed select-none"
-        style={{ paddingLeft: pad, paddingRight: 8 }}
-      >
-        <span className="text-[15px] text-muted truncate flex-1">{folha.label}</span>
+      <span aria-disabled="true" className="flex items-center gap-2 rounded-md py-[7px] px-[10px] opacity-45 cursor-not-allowed select-none">
+        <span className="text-[14px] text-muted truncate flex-1">{item.label}</span>
         <span className="text-[11px] text-faint bg-surface-2 rounded-pill px-[6px] py-[1px] shrink-0">Em breve</span>
       </span>
     );
   }
-  const on = leafAtivo(folha.href, pathname);
+  const on = leafAtivo(item.href, pathname);
   return (
     <Link
-      href={folha.href}
+      href={item.href}
+      title={item.label}
       aria-current={on ? "page" : undefined}
-      className={cn("relative flex items-center rounded-md py-[7px] text-left", on ? "bg-surface-2" : "hover:bg-surface-1")}
-      style={{ paddingLeft: pad, paddingRight: 8 }}
+      className={cn(
+        "relative flex items-center rounded-md py-[7px] px-[10px] transition-colors",
+        on ? "bg-surface-1" : "hover:bg-surface-2/60",
+      )}
     >
-      {on && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[18px] rounded-pill bg-ink" />}
-      <span className={cn("text-[15px] truncate", on ? "text-ink font-medium" : "text-muted")}>{folha.label}</span>
+      <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>
     </Link>
   );
 }

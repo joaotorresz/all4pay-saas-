@@ -24,6 +24,8 @@ export interface PeriodValue {
   to: string; // ISO — fim (inclusive)
   days: number;
   label: string;
+  /** true quando o período começa DEPOIS de hoje (mês/janela à frente). */
+  futuro: boolean;
 }
 
 interface PeriodCtx extends PeriodValue {
@@ -38,13 +40,18 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 function monthValue(ano: number, mes: number): PeriodValue {
   const last = new Date(ano, mes + 1, 0);
-  return { modo: "mes", ano, mes, from: `${ano}-${pad(mes + 1)}-01`, to: isoDay(last), days: last.getDate(), label: `${MESES[mes]} ${ano}` };
+  const from = `${ano}-${pad(mes + 1)}-01`;
+  return { modo: "mes", ano, mes, from, to: isoDay(last), days: last.getDate(), label: `${MESES[mes]} ${ano}`, futuro: from > isoDay(new Date()) };
 }
 function rangeValue(from: string, to: string): PeriodValue {
   const a = new Date(from + "T00:00:00"); const b = new Date(to + "T00:00:00");
   const days = Math.max(1, Math.round((b.getTime() - a.getTime()) / 86400000) + 1);
-  const label = `${MES_ABBR[a.getMonth()]}/${a.getFullYear()} – ${MES_ABBR[b.getMonth()]}/${b.getFullYear()}`;
-  return { modo: "range", ano: a.getFullYear(), mes: a.getMonth(), from, to, days, label };
+  // Rótulo por DIA (ex.: "07/jun – 14/jun"); inclui o ano só se o range cruzar anos.
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const dia = (d: Date, comAno: boolean) => `${pad2(d.getDate())}/${MES_ABBR[d.getMonth()]}${comAno ? `/${String(d.getFullYear()).slice(2)}` : ""}`;
+  const cruzaAno = a.getFullYear() !== b.getFullYear();
+  const label = `${dia(a, cruzaAno)} – ${dia(b, cruzaAno)}`;
+  return { modo: "range", ano: a.getFullYear(), mes: a.getMonth(), from, to, days, label, futuro: from > isoDay(new Date()) };
 }
 
 interface Sel { ym: { ano: number; mes: number }; range: { from: string; to: string } | null }

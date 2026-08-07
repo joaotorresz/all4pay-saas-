@@ -7,6 +7,7 @@
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
+import { chaveDeMovimento } from "@/core/ingestao";
 
 const KEY = "a4p_imported_dataset";
 
@@ -45,7 +46,17 @@ export function setImported(ds: ImportedDataset): void {
   }
 }
 
-export function clearImported(): void {
+/**
+ * Apaga o dataset importado e devolve a função que o RESTAURA.
+ *
+ * ⚠️ Devolver o desfazer é o ponto. A versão anterior apagava e pronto: quem
+ * clicasse por engano perdia meses de importação sem volta. O snapshot fica em
+ * memória — some ao recarregar a página, o que é aceitável porque o desfazer
+ * vale por segundos, e guardá-lo em disco recriaria o problema de espaço que a
+ * limpeza veio resolver.
+ */
+export function clearImported(): () => void {
+  const anterior = load();
   cache = null;
   if (typeof window !== "undefined") {
     try {
@@ -54,6 +65,9 @@ export function clearImported(): void {
       /* ignore */
     }
   }
+  return () => {
+    if (anterior) setImported(anterior);
+  };
 }
 
 export function hasImported(): boolean {
@@ -115,8 +129,23 @@ export function appendImported(input: {
     });
   } else {
     const mov: Movement = { ...input.movement, account_id: contaAlvo?.id ?? input.movement.account_id };
-    if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
-    movements = [mov, ...movements];
+    // ⚠️ DEDUP EM DUAS CAMADAS, e as duas são necessárias:
+    //
+    //  1. **por id** — reenviar o MESMO objeto (confirmar duas vezes, um
+    //     roll-forward que recomputa o mesmo id) não pode duplicar nem ajustar
+    //     o saldo duas vezes;
+    //  2. **por CHAVE de idempotência** — o mesmo FATO chegando por outra porta
+    //     (o comprovante de um lançamento que o extrato já trouxe) tem id
+    //     diferente e é a mesma linha. Sem esta camada, subir o extrato e depois
+    //     o comprovante do mesmo pagamento contava a saída duas vezes.
+    const chave = mov.chave ?? chaveDeMovimento(mov);
+    const jaExiste =
+      movements.some((m) => m.id === mov.id) ||
+      movements.some((m) => (m.chave ?? chaveDeMovimento(m)) === chave);
+    if (!jaExiste) {
+      if (mov.status === "pago") ajustarSaldo(mov.type, mov.amount);
+      movements = [{ ...mov, chave }, ...movements];
+    }
   }
 
   setImported({ ...base, movements, accounts, parties });
@@ -226,7 +255,8 @@ export function updateImportedParty(id: string, patch: Partial<Party>): boolean 
   if (!ds) return false;
   const i = ds.parties.findIndex((p) => p.id === id);
   if (i < 0) return false;
-  ds.parties[i] = { ...ds.parties[i], ...patch };
-  setImported({ ...ds });
+  // Copy-on-write (como os outros writers): não mutar o array do cache in place.
+  const parties = ds.parties.map((p, j) => (j === i ? { ...p, ...patch } : p));
+  setImported({ ...ds, parties });
   return true;
 }

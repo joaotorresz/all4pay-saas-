@@ -54,6 +54,12 @@ export class PaymentOrchestrator {
     if (p.falharVezes && !this.falhasRestantes.has(p.idempotencyKey))
       this.falhasRestantes.set(p.idempotencyKey, p.falharVezes);
 
+    // Reenvio de um job que já esgotou as tentativas (falha) ou ficou pendente
+    // de retry: reabre com orçamento zerado. Sem isso, o loop abaixo veria
+    // status "falha" e devolveria falha permanente — uma indisponibilidade
+    // transitória que passou nunca se auto-curaria por processarPagamento.
+    if (job.status === "falha" || job.status === "retentando") this.queue.replay(job.id);
+
     // 3) Drena o job com retry até concluir ou esgotar.
     let last: QueueJob = job;
     while (last.status !== "concluido" && last.status !== "falha") {

@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 export type StatusNfse = "rascunho" | "processando" | "autorizada" | "rejeitada" | "enviada" | "cancelada";
 
@@ -81,10 +83,11 @@ export async function hydrateNfse(force = false): Promise<void> {
   try {
     const { data } = await createClient().from("nfse")
       .select("id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at,parties(name)")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as NfseRow[]).map(fromRow);
     hydrated = true;
-  } catch { cache = cache ?? []; }
+  } catch (e) {
+    reportar("vendas.nfse", e, "as notas de serviço não aparecem na lista", true); cache = cache ?? []; }
 }
 
 export function listNfse(): Nfse[] {

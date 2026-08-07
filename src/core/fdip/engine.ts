@@ -4,6 +4,7 @@
  * descoberta de padrões → plano de setup → central de confiança.
  */
 import { limparContraparte, fingerprint } from "@/core/financial-os/gateway";
+import { melhorNome } from "@/core/ingestao/contraparte";
 import { memoriaDe } from "./learning";
 import type {
   FinancialRecord,
@@ -43,8 +44,9 @@ function parseData(s: string): string | null {
   s = s.trim();
   let m: RegExpExecArray | null;
   if ((m = /(\d{4})-(\d{2})-(\d{2})/.exec(s))) return `${m[1]}-${m[2]}-${m[3]}`;
-  if ((m = /(\d{2})[/\-.](\d{2})[/\-.](\d{4})/.exec(s))) return `${m[3]}-${m[2]}-${m[1]}`;
-  if ((m = /(\d{2})[/\-.](\d{2})[/\-.](\d{2})\b/.exec(s))) return `20${m[3]}-${m[2]}-${m[1]}`;
+  // dia/mês podem vir com 1 dígito ("1/3/2024") — pad p/ não descartar a linha.
+  if ((m = /(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/.exec(s))) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  if ((m = /(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})\b/.exec(s))) return `20${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   return null;
 }
@@ -54,7 +56,11 @@ function parseValor(s: string): { valor: number; sign: number } | null {
   let sign = 1;
   if (/^-/.test(raw) || /d$/i.test(raw)) sign = -1;
   raw = raw.replace(/[cd]$/i, "").replace(/-/g, "");
+  // pt-BR: vírgula = decimal, ponto = milhar. Sem vírgula, o ponto SÓ é decimal
+  // se for um único ponto com ≤2 dígitos finais (OFX "2500.00"); senão é milhar
+  // ("2.500" = 2500, "1.234.567" = 1234567) — antes virava 2.5 (erro de 1000×).
   if (raw.includes(",")) raw = raw.replace(/\./g, "").replace(",", ".");
+  else if ((raw.match(/\./g) || []).length > 1 || /\.\d{3}$/.test(raw)) raw = raw.replace(/\./g, "");
   const v = parseFloat(raw);
   if (Number.isNaN(v)) return null;
   return { valor: Math.abs(v), sign };
@@ -121,7 +127,9 @@ function parseCSV(text: string): ParseResult {
     // posicional: descobre a coluna de data e a de valor
     const cols = split(lines[0]);
     di = cols.findIndex((c) => parseData(c));
-    vi = cols.findIndex((c, i) => i !== di && parseValor(c));
+    // exclui colunas com cara de data: parseValor("16/01/2024") = 16 (parseFloat
+    // para no "/"), então sem isto a coluna de valor casaria numa 2ª data.
+    vi = cols.findIndex((c, i) => i !== di && !parseData(c) && parseValor(c));
     if (di < 0) di = 0;
     if (vi < 0) vi = cols.length - 1;
     si = cols.findIndex((_, i) => i !== di && i !== vi);
@@ -219,15 +227,27 @@ export function resolverEntidades(records: FinancialRecord[]): Entidade[] {
     map.set(r.contraparteNorm, cur);
   }
   return Array.from(map.entries())
-    .map(([k, v]) => ({
-      id: k,
-      nome: Array.from(v.aliases).sort((a, b) => b.length - a.length)[0],
-      aliases: Array.from(v.aliases),
-      tipo: v.entradas >= v.saidas ? ("cliente" as const) : ("fornecedor" as const),
-      total: v.total,
-      transacoes: v.n,
-      recorrente: v.n >= 3,
-    }))
+    .map(([k, v]) => {
+      // ⚠️ O nome NÃO é mais "o alias mais longo". O mais longo é justamente o
+      // que traz o CNPJ grudado na razão social — foi assim que a lista de
+      // clientes nasceu com documento colado, parênteses invertidos e um nome
+      // que era só um CPF. `melhorNome` separa documento de razão social e
+      // recusa o que não é nome de ninguém.
+      const saneado = melhorNome(Array.from(v.aliases));
+      return {
+        id: k,
+        nome: saneado.nome || Array.from(v.aliases)[0] || k,
+        documento: saneado.documento,
+        /** `false` quando o texto é descrição de cobrança ou um número solto. */
+        ehPessoa: saneado.ehPessoa,
+        motivoNaoPessoa: saneado.motivo,
+        aliases: Array.from(v.aliases),
+        tipo: v.entradas >= v.saidas ? ("cliente" as const) : ("fornecedor" as const),
+        total: v.total,
+        transacoes: v.n,
+        recorrente: v.n >= 3,
+      };
+    })
     .sort((a, b) => b.total - a.total);
 }
 
@@ -246,9 +266,19 @@ export function descobrirPadroes(records: FinancialRecord[], cls: Map<string, Cl
     const periodicidade: Recorrencia["periodicidade"] = meses.size >= 3 && Math.abs(meses.size - e.transacoes) <= 2 ? "mensal" : e.transacoes > meses.size * 3 ? "semanal" : "irregular";
     const categoria = cls.get(recs[0].id)?.categoria ?? "—";
     const assinatura = recs.some((r) => cls.get(r.id)?.categoria === "Assinaturas / software");
-    recorrencias.push({ contraparte: e.nome, categoria, periodicidade, valorMedio: e.total / e.transacoes, ocorrencias: e.transacoes, assinatura });
+    // a maioria dos lançamentos define o lado (custo × receita recorrente)
+    const saidas = recs.filter((r) => r.tipo === "saida").length;
+    const tipo: Recorrencia["tipo"] = saidas * 2 >= recs.length ? "saida" : "entrada";
+    const mediaMensal = meses.size > 0 ? e.total / meses.size : 0;
+    recorrencias.push({ contraparte: e.nome, categoria, periodicidade, valorMedio: e.total / e.transacoes, ocorrencias: e.transacoes, assinatura, tipo, mediaMensal });
   }
   recorrencias.sort((a, b) => b.ocorrencias - a.ocorrencias);
+
+  // Custos recorrentes/mensais — o "boleto fixo" que a empresa paga todo mês
+  const custosMensais = recorrencias
+    .filter((r) => r.tipo === "saida" && r.periodicidade !== "irregular")
+    .sort((a, b) => b.mediaMensal - a.mediaMensal);
+  const custoRecorrenteMensal = custosMensais.reduce((s, r) => s + r.mediaMensal, 0);
 
   // Sazonalidade da receita
   const porMes = new Map<string, number>();
@@ -262,6 +292,8 @@ export function descobrirPadroes(records: FinancialRecord[], cls: Map<string, Cl
   return {
     recorrencias,
     assinaturas: recorrencias.filter((r) => r.assinatura),
+    custosMensais,
+    custoRecorrenteMensal,
     clientesRecorrentes: entidades.filter((e) => e.recorrente && e.tipo === "cliente").length,
     fornecedoresRecorrentes: entidades.filter((e) => e.recorrente && e.tipo === "fornecedor").length,
     sazonalidade,

@@ -34,6 +34,7 @@ import type {
   BrandInput,
   UnitInput,
 } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 const delay = () => new Promise((r) => setTimeout(r, 450));
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}`;
@@ -42,14 +43,14 @@ const uuid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}`;
 export async function getBrands(): Promise<Brand[]> {
   if (isDemo) return DEMO_BRANDS;
   const s = createClient();
-  const { data, error } = await s.from("brands").select("id,name").order("name");
+  const { data, error } = await s.from("brands").select("id,name").order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Brand[];
 }
 export async function getUnits(): Promise<Unit[]> {
   if (isDemo) return DEMO_UNITS;
   const s = createClient();
-  const { data, error } = await s.from("units").select("id,name,abbrev").order("name");
+  const { data, error } = await s.from("units").select("id,name,abbrev").order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Unit[];
 }
@@ -60,21 +61,21 @@ export async function getSalespeople(): Promise<Salesperson[]> {
     .from("salespeople")
     .select("id,name")
     .eq("active", true)
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Salesperson[];
 }
 export async function getProducts(): Promise<Product[]> {
   if (isDemo) return DEMO_PRODUCTS;
   const s = createClient();
-  const { data, error } = await s.from("products").select("id,name,sale_price").order("name");
+  const { data, error } = await s.from("products").select("id,name,sale_price").order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Product[];
 }
 export async function getServices(): Promise<Service[]> {
   if (isDemo) return DEMO_SERVICES;
   const s = createClient();
-  const { data, error } = await s.from("services").select("id,name,price").order("name");
+  const { data, error } = await s.from("services").select("id,name,price").order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Service[];
 }
@@ -86,7 +87,7 @@ export async function listProducts(): Promise<Product[]> {
   const { data, error } = await s
     .from("products")
     .select("id,name,sku,sale_price")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Product[];
 }
@@ -96,7 +97,7 @@ export async function listServices(): Promise<Service[]> {
   const { data, error } = await s
     .from("services")
     .select("id,name,price")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Service[];
 }
@@ -107,7 +108,7 @@ export async function listParties(): Promise<Party[]> {
   const { data, error } = await s
     .from("parties")
     .select("id,type,name,doc,phone,email,is_customer,is_supplier,is_carrier")
-    .order("name");
+    .order("name").limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []) as Party[];
 }
@@ -117,7 +118,7 @@ export async function listSales(): Promise<SaleDocRow[]> {
   const { data, error } = await s
     .from("sales_docs")
     .select("id,kind,item_kind,doc_date,total,status,parties(name)")
-    .order("doc_date", { ascending: false });
+    .order("doc_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []).map((r) => {
     const row = r as Record<string, unknown>;

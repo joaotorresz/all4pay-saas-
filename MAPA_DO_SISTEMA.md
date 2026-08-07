@@ -243,15 +243,66 @@ fechadas.*
 
 ---
 
+## 8.6. Campfire (ERP nativo de IA) — gaps e execução
+
+Do doc "Campfire — Anatomia do Sistema". O que o Campfire tem e a all4pay
+**ainda não** (priorizado por valor × esforço; lógica pura, demo-safe):
+
+| Gap (Campfire) | Status na all4pay |
+| --- | --- |
+| **Orçado vs Realizado + Análise de variação (flux analysis)** com explicação no nível da transação | ✅ **feito** — `src/core/budget` (`analisarVariancia`) + `/orcamento` ("Orçamento vs Realizado"). Por linha do resultado: orçado · realizado · desvio (R$/%) + drill-down de categorias e transações + narrativa. Orçamento mensal editável (`lib/budget.ts`); sem ele, baseline automático (run-rate). Reusa a classificação do DRE. |
+| **Fechamento contábil contínuo**: checklist de close + **períodos travados** + tarefas de IA (provisões/accruals, lançamentos faltantes) | ✅ **feito** — `src/core/close` (`montarFechamento`) + `/fechamento`. Checklist com tarefas de IA já resolvidas (lançamentos faltantes = recorrentes ausentes, pendências a baixar, provisões/accruals pela média) + tarefas manuais (conciliar/variância/aprovar) + **prontidão %**. **Travar período** (`lib/close.ts`) bloqueia editar/excluir lançamentos do mês na `MovementsTable`. |
+| **Cronogramas**: despesa antecipada (amortização) + ativo imobilizado (depreciação) → lançamento mensal automático | ✅ **feito** — `src/core/schedules` + `/cronogramas`. Cronogramas lineares (vida útil/residual) que consolidam num **lançamento mensal por tipo** (amortização/depreciação) para revisão; progresso por item; CRUD local (`lib/schedules.ts`, seed em demo). |
+| **Reconhecimento de receita (IFRS 15/CPC 47)** + receita diferida + **waterfall de receita/ARR** | ✅ **feito** — `src/core/revenue` + `/receita`. Reusa os contratos de recorrência: MRR/ARR, **receita diferida** (faturado − reconhecido no ciclo), reconhecimento 1/ciclo por mês, **waterfall de MRR** (trajetória + novos) e churn MRR atual. |
+| **Dimensões/tags customizadas** + drill-down até a transação de qualquer relatório | ✅ **feito** — `src/core/dimensions` + `/dimensoes`. Pivota por categoria/centro/contraparte/**tag customizada** com drill-down até a transação; marca/desmarca tags por transação (`lib/tags.ts`), criando dimensões ilimitadas. |
+| Razão dupla-partida · IA no núcleo (categoriza/concilia) · trilha de auditoria · aprovação por alçada · cobrança/dunning | ✅ já existem (`core/platform`, FDIP, `institutional`, `/aprovacoes`, cobrança WhatsApp) |
+
+## 8.7. Blueprint Campfire — ERP nativo de IA (`docs/SISTEMA_all4pay_financeiro.md`)
+
+Especificação-mãe (vive em `docs/`). Regra de ouro: **comece pelo razão**. As
+fases entram **na ordem do .md** (o .md prevalece).
+
+| Fase | Entrega | Status |
+| --- | --- | --- |
+| **0** | **Razão de dupla entrada** (fonte única): `entities`, `ledger_accounts`, `accounting_periods`, `journal_entries`, `journal_lines`, `dimensions`, `budgets`, `schedules`, `revenue_contracts/_schedule`, `close_tasks`, `raw_events`, `ai_actions` + **triggers no banco** (D=C; período travado rejeita postagem) + RLS por org. | ✅ **migration `0010` aplicada no remoto** (13 tabelas, 2 triggers, RLS); domínio TS em `src/core/ledger` (invariante, saldo por natureza, ponte movimento→lançamento, estorno). `search_path` das funções fixado. |
+| **1** | Ingestão→razão: mapear transações em lançamentos; categorização; conciliação. | ✅ **feita** — `/razao` (balancete + lançamentos) + `lib/ledger.ts`: `backfillRazao` (movements→dupla entrada, idempotente) + `postarLancamento` manual + **`ingerirOpenFinanceRazao`** (Pluggy `bank_transactions`→razão, idempotente por `pluggy:<txid>` + `raw_events`). Categorização: **regras** (`core/ledger/categorize`) + **Claude** (`/api/ledger/categorize`, gated por chave) reforçando baixa confiança. Live insere em `journal_entries/_lines` (trigger garante D=C). |
+| **2** | Relatórios + drill-down + dimensões sobre `journal_lines` (DRE/Balanço/pivot). | ✅ **feita** — `/relatorios` (`RelatoriosRazaoView`): **DRE gerencial**, **Balanço patrimonial** (Ativo = Passivo + PL, com selo de fechamento) e **pivot por dimensão** (contraparte/centro), tudo calculado do razão (`dreDoRazao`/`balancoDoRazao`/`pivotDoRazao` em `lib/ledger`). O `/dre` rico segue sobre `movements` (gerencial); o GL é a fonte contábil. |
+| **3** | Orçado vs realizado + flux com IA sobre `budgets`. | ✅ **feita** — seção "Orçado × Realizado · do razão" em `/relatorios` (`lib/budget-gl`): realizado vem do GL (`dreDoRazao`), orçamento mensal por conta (editor), variância R$/% + sinal favorável/desfavorável + narrativa (flux). Orçamento local (demo); tabela `budgets` (live) é evolução. O `/orcamento` antigo (sobre movements) segue. |
+| **4** | Fechamento (checklist+IA) + cronogramas. | ✅ **feita** — `/cronogramas`: "Lançar no razão" posta o lançamento mensal consolidado (depreciação/amortização × acumulada, idempotente `cron:<mes>`). `/fechamento`: provisões → "Lançar" posta no razão (despesa × provisões a pagar, `prov:<mes>:<cat>`); travar período chama `travarPeriodoLive` (live → `accounting_periods.status=locked`, o trigger do banco passa a rejeitar postagens). Plano ganhou contas de depreciação/amortização/acumulada/provisões. |
+| **5** | Receita CPC 47 + faturamento + NFS-e + PIX/boleto. | ✅ **núcleo CPC 47 ligado** — `/receita`: "Reconhecer competência no razão" posta, por contrato ativo, o lançamento de reconhecimento (débito **Receita diferida** × crédito Receita de serviços, idempotente `revrec:<id>:<mes>`). Faturamento/NFS-e/boletos/PIX já existem no produto. ⏳ ingestão de contrato por PDF→IA e billing→GL como evolução. |
+| **6** | Assistente conversacional sobre o razão (Claude + MCP). | ✅ **feita** — `/assistente`: o modelo recebe `contextoRazao()` (números, não o banco cru), responde com fontes e propõe **rascunho balanceado** (validado por `exigirBalanceado`) que só posta com **aprovação humana** (`postarLancamento`); trilha em `ai_actions` (`registrarAcaoIA`). Claude via `/api/ledger/assistant` (gated por chave); sem chave, `responderBasico`. ⏳ expor o domínio como MCP é evolução. |
+
+> As Fases 3–5 já têm UI construída sobre `movements` (engines demo-safe). O
+> trabalho é **religar ao GL real** (dupla entrada) conforme o .md, para virar
+> auditável. Fase 0 é a fundação que destrava isso.
+
+### Temos e o Campfire **não** tem — **analisar** (manter/integrar ao GL)
+
+Diferenciais proprietários do all4pay ausentes no Campfire. **Ponto: analisar**
+como cada um se integra à arquitetura do razão (consome o GL em vez de `movements`):
+
+- **analisar** — Motor de Risco de Caixa (`/risco`): score, runway, ruptura, stress.
+- **analisar** — Inteligência de Crédito / Inadimplência (`/inadimplencia`): previsão de default + AI Collections.
+- **analisar** — Camada Quantitativa (`/inteligencia`): KPIs institucionais + score de saúde ("Bloomberg PME").
+- **analisar** — Decision Engine + Monte Carlo (`/decisao`) e Autonomous Ops (`/autonomo`: cobrança/roteamento autônomos).
+- **analisar** — Financial Data Moat (`/dados`): inteligência cross-tenant + curva de aprendizado.
+- **analisar** — Orquestração/Infra/Arquitetura (`/orquestracao` `/infraestrutura` `/arquitetura`): event sourcing, ledger-core, treasury, reliability.
+- **analisar** — Cobrança real via WhatsApp (Twilio) e alertas (Resend) disparados por evento.
+- **analisar** — Onboarding inteligente + Business Maturity Score + Financial DNA.
+
+> Decisão pendente: estes engines hoje leem `RiskInput`/`movements`. Com o GL,
+> a fonte vira `journal_lines` (mais rica: dimensões, dupla entrada). Avaliar
+> custo/benefício de portar cada um por fase, sem perder os diferenciais.
+
 ## 9. Status — execução do Relatório de Melhorias
 
 | # do relatório | Ação | Status |
 | --- | --- | --- |
 | 1 | Versionar TODO o schema (Open Finance + locais) | ✅ `0008_open_finance.sql` + `0009_persist_local_stores.sql` (idempotentes) |
 | 2 | Enxugar o menu (3 verbos; avançado atrás de Pro) | ✅ Sidebar: Entradas/Saídas/Contas & Banco · Cadastrar · Relatórios · Central POS; Equipe + Inteligência só no Modo Pro; Cartões "em breve" removido |
-| 3 | Unificar Entradas/Saídas/Contas | 🟡 **Parcial** — agrupado no menu; **tela unificada com filtros ainda a construir** |
+| 3 | Unificar Entradas/Saídas/Contas | ✅ `MovementsScreen` — `/recebiveis`="Entradas" e `/pagaveis`="Saídas" com filtro segmentado **Em aberto · Realizado · Recorrente** (contagens por aba) sobre o mesmo hub de movements |
 | 4 | "Nova transação" como porta única | ✅ `NovaTransacao` (AppShell) — Recebi/Paguei/Vou receber/Vou pagar → form progressivo → `useCreateLancamento` |
-| 5 | Migrar localStorage→Postgres | ✅ **approvals/reembolsos/nfse**: as libs JÁ tinham caminho live; `0009` agora cria as tabelas **com as colunas exatas** do código → wiring completo (falta só aplicar no remoto). 🟡 **pos_rates/company_profiles**: tabelas criadas, wiring das libs pendente |
+| 5 | Migrar localStorage→Postgres | ✅ **approvals/reembolsos/nfse**: libs já tinham caminho live; `0009` aplicada no remoto. ✅ **pos_rates/company_profiles**: `pos-taxas.ts` e `company.ts` ganharam `fetch*`/`persist*` (cache local p/ pintura + upsert update-then-insert na linha única da org); Central POS, Simulador, Configurações e Onboarding já gravam/hidratam do DB em live |
 | 6 | Fechar ciclo POS→DRE com taxa MDR | ✅ `concluirVendaPos` grava "Tarifas de adquirência" (custo) além do recebível líquido |
 | 7 | Completar OU acessorizar cadastros pela metade | ✅ vendedores/marcas/unidades **fora do menu** (não expõem incompleto); completar quando entrarem no fluxo |
 | 8 | Reintroduzir inteligência/governança como Pro | ✅ grupos **Equipe** e **Inteligência** atrás do Modo Pro |
@@ -259,11 +310,26 @@ fechadas.*
 **Próximas juntas (precisam de banco ao vivo para validar):**
 - **#5 restante**: `pos-taxas`/`company` ainda só locais (síncronos no client —
   o wiring vira refactor async; tabelas já versionadas em `0009`).
-- **#1 governança real**: colunas em `organization_members` prontas (`0009`).
-  Persistir permissões/limite de membros **existentes** é direto; **adicionar
-  usuário** depende de um **fluxo de convite** (criar conta no `auth` via
-  service-role + e-mail) — tarefa de backend, não dá pra testar nesta sessão.
-- **#3 unificação**: telas únicas "Entradas"/"Saídas" com filtros (em aberto/
-  realizado/recorrente), substituindo a navegação por sub-telas.
+- **#1 governança real**: ✅ **ligada** — a tela de Governança (Configurações)
+  agora lê/grava em `organization_members` via `src/lib/governance.ts`
+  (display_name/email/permissions/approval_limit/can_cancel; demo segue no
+  perfil local). Editar papel/permissões/limite de membros **existentes**
+  persiste de verdade; o proprietário é protegido (não some/exclui).
+  ⏳ **Adicionar usuário** ainda depende de **fluxo de convite** (criar conta no
+  `auth` via service-role + e-mail) — botão desabilitado em live até lá.
+- **Responsivo (mobile/tablet)**: ✅ shell adaptável — a `Sidebar` vira **drawer
+  off-canvas** em `< lg` (hambúrguer no header `MobileNavButton` → evento
+  `a4p:toggle-nav`, backdrop, fecha ao navegar); header/título/padding encolhem;
+  `MovementsTable` dobra data+status sob a descrição no mobile; grids 2/3-col dos
+  formulários/cards empilham (`grid-cols-1 sm:grid-cols-N`). Desktop intacto (`lg+`).
+- **#3 unificação**: ✅ **feito** — `MovementsScreen` (`src/components/visao-geral/`)
+  liga `/recebiveis` ("Entradas") e `/pagaveis` ("Saídas") com filtro segmentado
+  Em aberto · Realizado · Recorrente (cada aba com contagem). Reusa `MovementsTable`
+  (novo modo `paid`: status "Pago/Recebido" + coluna Liquidação) e o accessor
+  `getMovementsByFilter`. "Realizado" lê pagos; "Recorrente" filtra por
+  `reference_code` `rec:%` (agora marcado também no demo). Edição/lote só no
+  "Em aberto".
 - **Aplicar `0008`/`0009`** no Supabase remoto (e gerar o ambiente de produção
-  a partir das migrations versionadas).
+  a partir das migrations versionadas). ✅ **Aplicadas** no projeto `all4pay-saas`
+  (`dzszmbowhzopocqydnxu`) via MCP — idempotentes; advisor de segurança sem
+  novos alertas de RLS. Continuam no repo para provisionar um ambiente limpo.

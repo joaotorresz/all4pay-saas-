@@ -9,7 +9,7 @@ import { isDemo } from "@/lib/demo";
 export default function ConfiguracoesPage() {
   const { show, node } = useToast();
   return (
-    <AppShell title="Configurações" crumb="Empresa" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell title="Configurações da empresa" crumb="Empresa" actions={isDemo ? <DemoBadge /> : undefined}>
       <ConfiguracoesView onToast={show} />
       {node}
     </AppShell>

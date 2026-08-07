@@ -2,9 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Button
- * Solid ink primary, bordered secondary, ghost tertiary, plus a lime
- * accent. Text weight 500. Presses with a tiny scale(0.98). 3 sizes.
+ * all4pay DS — Button (identidade corporativa: FLAT, sem chrome)
+ * Regra da marca: nada "parece botão" — SEM borda, SEM sombra, bem arredondado
+ * (pill). Preenchimentos sutis no tom da marca: primary = pill ink discreto ·
+ * secondary = pill neutro (surface-2) · ghost = só texto (muted→ink) · accent =
+ * lime. Peso 500. Toque com scale(0.98). 3 tamanhos.
  */
 type ButtonVariant = "primary" | "secondary" | "ghost" | "accent";
 type ButtonSize = "sm" | "md" | "lg";
@@ -25,11 +27,13 @@ const sizeClasses: Record<ButtonSize, string> = {
   lg: "text-body gap-2 px-[22px] h-12",
 };
 
+// "NADA PARECE BOTÃO": sem borda, sem sombra, sem fill sólido/escuro. Primary e
+// accent = chip neutro sutil (surface-2); secondary/ghost = só texto muted→ink.
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-white border border-ink",
-  secondary: "bg-white text-ink border border-border",
-  ghost: "bg-transparent text-ink border border-transparent",
-  accent: "bg-lime text-on-lime border border-lime",
+  primary: "bg-surface-2 text-ink hover:bg-surface-3",
+  secondary: "bg-transparent text-muted hover:text-ink",
+  ghost: "bg-transparent text-muted hover:text-ink",
+  accent: "bg-surface-2 text-ink hover:bg-surface-3",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -56,7 +60,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "inline-flex items-center justify-center font-medium leading-none whitespace-nowrap",
           "transition-[background-color,border-color,transform,opacity] duration-120 ease-out",
           "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45",
-          pill ? "rounded-pill" : "rounded-md",
+          // marca é bem arredondada: pill por padrão (o prop `pill` fica p/ compat)
+          // Raio 10px — regra POR TIPO do Laboratório ("Botão: radius 10").
+          // Aplicada ao PRIMITIVO, não a todo `<button>` da tela: um seletor
+          // `.ds-visor button` também quadraria toggles, FABs e segmentados.
+          pill ? "rounded-pill" : "rounded-[10px]",
           fullWidth && "w-full",
           sizeClasses[size],
           variantClasses[variant],

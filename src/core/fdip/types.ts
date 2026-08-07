@@ -46,6 +46,16 @@ export interface Classificacao {
 export interface Entidade {
   id: string;
   nome: string;
+  /** CNPJ/CPF extraído do nome (só dígitos), quando validado. */
+  documento?: string | null;
+  /**
+   * ⚠️ `false` quando o texto não é nome de ninguém — um número de CPF solto,
+   * "ANUIDADE DIFERENCIADA", um termo genérico. Estes NÃO viram cadastro de
+   * cliente: viram descrição do lançamento. Todo relatório por cliente nasce
+   * daqui, e aceitar qualquer coisa contamina tudo o que vem depois.
+   */
+  ehPessoa?: boolean;
+  motivoNaoPessoa?: string;
   aliases: string[];
   tipo: "cliente" | "fornecedor";
   total: number;
@@ -60,11 +70,19 @@ export interface Recorrencia {
   valorMedio: number;
   ocorrencias: number;
   assinatura: boolean;
+  /** entrada (receita recorrente) ou saída (custo recorrente) */
+  tipo: "entrada" | "saida";
+  /** quanto isso representa POR MÊS (total ÷ meses observados) */
+  mediaMensal: number;
 }
 
 export interface Padroes {
   recorrencias: Recorrencia[];
   assinaturas: Recorrencia[];
+  /** os CUSTOS recorrentes (saídas mensais/semanais), maiores primeiro */
+  custosMensais: Recorrencia[];
+  /** soma da média mensal dos custos recorrentes — o "boleto fixo" do mês */
+  custoRecorrenteMensal: number;
   clientesRecorrentes: number;
   fornecedoresRecorrentes: number;
   sazonalidade: { label: string; indice: number }[];

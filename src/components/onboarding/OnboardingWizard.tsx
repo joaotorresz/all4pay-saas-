@@ -9,8 +9,11 @@ import { createClient } from "@/lib/supabase/client";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
+import { persistCompany, saveCompany } from "@/lib/company";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
+import { useTipoConta } from "@/components/app/useTipoConta";
+import { OnboardingPessoal } from "./OnboardingPessoal";
 
 const PASSOS = ["Dados básicos", "Perfil empresarial", "Governança", "Estrutura financeira", "Onboarding inteligente", "Análise IA", "Ambiente criado"];
 
@@ -33,7 +36,14 @@ const UNIDADES = ["Matriz", "Filial", "Projeto", "Online", "Operação"];
 const DRE_OPTS = ["Gerencial", "Financeiro", "Por centro de custo", "Por produto", "Por cliente", "Consolidado (holding)"];
 const FLUXO_OPTS = ["Operacional", "Projetado", "Competência", "Híbrido"];
 
+/** Cadastro — escolhe a roupa pelo tipo de conta (PF enxuta × PJ completa). */
 export function OnboardingWizard() {
+  const { pessoal, set: setTipo } = useTipoConta();
+  if (pessoal) return <OnboardingPessoal onTrocarTipo={() => setTipo("empresa")} />;
+  return <OnboardingEmpresa onTrocarTipo={() => setTipo("pessoal")} />;
+}
+
+function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
   const router = useRouter();
   const [step, setStep] = React.useState(0);
 
@@ -52,6 +62,13 @@ export function OnboardingWizard() {
   const [email, setEmail] = React.useState("");
   const [senha, setSenha] = React.useState("");
   const [erro, setErro] = React.useState<string | null>(null);
+  /**
+   * ⚠️ Quando o cadastro cria o usuário mas o e-mail precisa ser confirmado, NÃO
+   * há sessão — e sem sessão o app não abre. Antes o código seguia como se
+   * houvesse, e a pessoa caía numa rota que a rejeitava depois de preencher os 7
+   * passos. Este estado troca o empurrão-para-o-nada por um aviso claro.
+   */
+  const [confirmeEmail, setConfirmeEmail] = React.useState(false);
 
   const configured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
   const progress = Math.round(((step + 1) / PASSOS.length) * 100);
@@ -99,17 +116,32 @@ export function OnboardingWizard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
+            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
             if (error) throw new Error(error.message);
+            // ⚠️ signUp SÓ devolve sessão quando o e-mail é autoconfirmado no
+            // projeto. Com confirmação ligada, `session` é null: o usuário
+            // existe mas não está logado. Seguir daqui grava perfil/estrutura
+            // ÓRFÃOS (sem sessão, a RLS recusa ou o dado fica sem dono) e depois
+            // joga a pessoa numa rota que a rejeita. A saída certa é parar e
+            // pedir a confirmação — o resto acontece no primeiro login.
+            if (!data.session) {
+              // Salva o perfil no NAVEGADOR antes de parar — é a metade que não
+              // exige sessão. Assim a frase da tela de confirmação é verdadeira:
+              // ao entrar, o perfil já está preenchido. A estrutura e o import
+              // dependem de sessão e entram no primeiro login.
+              try { saveCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
+              setConfirmeEmail(true);
+              setAplicando(false);
+              return;
+            }
           } else {
             const { error } = await supabase.auth.signInAnonymously();
             if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
           }
         }
       }
-      try {
-        localStorage.setItem("a4p_company", JSON.stringify({ db, perfil, participantes, estrutura }));
-      } catch { /* ignore */ }
+      // Perfil: cache local + (live) company_profiles. Best-effort.
+      try { await persistCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
       // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
       if (configured) {
@@ -129,6 +161,34 @@ export function OnboardingWizard() {
   };
   const back = () => step > 0 && setStep(step - 1);
 
+  // ⚠️ Cadastro criado, e-mail a confirmar: o app não abre sem sessão, então
+  // esta tela SUBSTITUI o wizard em vez de deixar a pessoa presa nos passos.
+  // Ela explica o que fazer e não finge que a conta já está pronta.
+  if (confirmeEmail) {
+    return (
+      <div className="min-h-screen bg-surface-1 flex flex-col items-center justify-center px-4 py-8">
+        <div className="w-full max-w-md flex flex-col items-start gap-4">
+          <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
+          <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
+          <Card className="flex flex-col gap-3 w-full">
+            <span className="text-h3 text-ink">Confirme seu e-mail para entrar</span>
+            <p className="m-0 text-body text-muted">
+              Criamos a sua conta e um ambiente inicial. Enviamos um link de
+              confirmação para <span className="text-ink font-medium">{email.trim()}</span> —
+              abra-o e você entra direto no sistema.
+            </p>
+            <p className="m-0 text-caption text-faint">
+              As suas respostas ficaram guardadas neste navegador: ao entrar, o
+              perfil da empresa já aparece preenchido{report ? " e você retoma a importação do extrato" : ""}.
+              Se o e-mail não chegar em alguns minutos, confira o spam ou tente
+              entrar em <a href="/login" className="text-ink underline">Entrar</a>.
+            </p>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface-1 flex flex-col items-center px-4 py-8">
       <div className="w-full max-w-3xl flex flex-col gap-5">
@@ -137,7 +197,10 @@ export function OnboardingWizard() {
           <div className="flex items-center justify-between">
             <Image src="/all4pay-dark.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto dark:hidden" priority />
             <Image src="/all4pay-lime.png" alt="all4pay" width={110} height={22} className="h-[22px] w-auto hidden dark:block" priority />
-            <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
+            <div className="flex items-center gap-3">
+              <button onClick={onTrocarTipo} className="text-caption text-muted hover:text-ink underline">Sou pessoa física</button>
+              <span className="text-caption text-faint">Tempo estimado: 5–10 min</span>
+            </div>
           </div>
           <div>
             <div className="flex items-baseline justify-between">
@@ -155,6 +218,15 @@ export function OnboardingWizard() {
               ))}
             </div>
             <p className="m-0 text-caption text-muted mt-2">Nossa IA configurará seu ambiente financeiro a partir destas informações.</p>
+          </div>
+          {/* O aviso de beta é PARTE do plano de lançamento: um beta que declara
+              o que ainda não faz é levado a sério; um que esconde perde o
+              cliente no primeiro buraco. */}
+          <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
+            Beta gratuito. Seus dados são reais e ficam salvos; algumas integrações ainda
+            estão chegando. <a href="/privacidade" className="underline hover:text-ink">Como tratamos seus dados</a>.
+          </p>
+          <div>
           </div>
         </div>
 
@@ -193,7 +265,7 @@ function ChipMulti({ options, value, onChange }: { options: string[]; value: str
       {options.map((o) => {
         const on = value.includes(o);
         return (
-          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-ink text-white border-ink" : "bg-white text-muted border-border hover:text-ink"}`}>
+          <button key={o} onClick={() => toggle(o)} className={`text-caption font-medium rounded-pill px-3 py-1 border ${on ? "bg-surface-3 text-ink border-transparent font-semibold" : "bg-white text-muted border-border hover:text-ink"}`}>
             {o}
           </button>
         );

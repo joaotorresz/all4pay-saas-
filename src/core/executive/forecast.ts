@@ -28,7 +28,7 @@ export function motorPreditivo(input: RiskInput, horizonteMeses = 3): Forecast {
       ? ultimos.reduce((s, v, i) => s + v * pesos[i], 0) / pesos.reduce((a, b) => a + b, 0)
       : 0;
 
-  const base = new Date(input.hoje);
+  const base = new Date(input.hoje + "T00:00:00"); // meia-noite LOCAL: new Date(UTC) desloca a projeção 1 mês em UTC-3 no dia 1
   const previsto: ForecastPonto[] = [];
   for (let k = 1; k <= horizonteMeses; k++) {
     const d = new Date(base.getFullYear(), base.getMonth() + k, 1);
@@ -42,8 +42,11 @@ export function motorPreditivo(input: RiskInput, horizonteMeses = 3): Forecast {
 
   // Janela de pressão: mês previsto de menor líquido.
   const pior = [...previsto].sort((a, b) => a.valor - b.valor)[0];
+  // Só faz sentido testar queda relativa (×0.8) com baseMM POSITIVO. Para baseMM
+  // negativo (empresa queimando caixa), baseMM*0.8 é MAIOR (menos negativo), o que
+  // dispararia a janela sempre, mesmo num fluxo plano — gate em baseMM > 0.
   const janelaPressao =
-    pior && pior.valor < baseMM * 0.8
+    pior && baseMM > 0 && pior.valor < baseMM * 0.8
       ? {
           mes: pior.label,
           texto: `Pressão de caixa estimada em ${pior.label} (líquido projetado ${fmt(pior.valor)}).`,

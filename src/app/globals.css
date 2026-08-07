@@ -2,6 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Quatro cortes
+   estáticos cobrindo a escala de peso da UI: Light · Regular · Medium ·
+   SemiBold. As faixas de `font-weight` não podem se sobrepor — o browser
+   escolhe o arquivo pela faixa em que o peso pedido cai. */
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-light.otf") format("opentype");
+  font-weight: 100 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-regular.otf") format("opentype");
+  font-weight: 360 440;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-medium.otf") format("opentype");
+  font-weight: 450 550;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert";
+  src: url("/fonts/roobert-semibold.otf") format("opentype");
+  font-weight: 560 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Roobert VF — a variável (um arquivo, 100–900 contínuo). Fica numa família
+   PRÓPRIA para não competir com os cortes estáticos acima; útil para testar
+   pesos intermediários no Laboratório de Design. */
+@font-face {
+  font-family: "Roobert Variable";
+  src: url("/fonts/roobert-variable.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Roobert Semi Mono TRIAL — largura semi-tabular (meio-termo entre a
+   proporcional e a monoespaçada). Light + Regular. */
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-light.otf") format("opentype");
+  font-weight: 200 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-regular.otf") format("opentype");
+  font-weight: 360 480;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roobert Semi Mono";
+  src: url("/fonts/roobert-semimono-medium.otf") format("opentype");
+  font-weight: 490 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Roobert Mono TRIAL — monoespaçada de verdade (candidata a números). */
+@font-face {
+  font-family: "Roobert Mono";
+  src: url("/fonts/roobert-mono-semibold.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Knocky Semibold — candidata em avaliação, disponível SÓ pelo Laboratório.
+   ⚠️ Um corte único (usWeightClass 600). A faixa `100 900` existe para o
+   navegador não recusar a família quando o Lab pedir outro peso: sem ela, um
+   `font-weight:400` cairia no fallback e a pessoa concluiria que a fonte não
+   carregou. O peso desenhado continua sendo um só — o resto é sintético.
+   ⚠️ E ela NÃO tem `tnum`: as features do arquivo são `aalt` e `liga`. Onde o
+   sistema exige numeral tabular (`.a4p-num`, `.tabular-nums`, eixos de
+   gráfico), as colunas não vão alinhar. É a razão de ela entrar como fonte de
+   TEXTO para teste, e não como fonte de valores. */
+@font-face {
+  font-family: "Knocky";
+  src: url("/fonts/knocky-semibold.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Obviously Narrow Bold — candidata em avaliação, SÓ pelo Laboratório.
+   Versão COMPLETA (365 caracteres, 553 glifos, com kerning): `$`, `%`, hífen e
+   menos (U+2212) e todos os acentos pt-BR, maiúsculos e minúsculos. Substituiu
+   a demo de 66 caracteres, que trocava de fonte no meio da palavra.
+   ⚠️ DÍGITOS PROPORCIONAIS, e isto foi MEDIDO no arquivo: as dez cifras têm
+   NOVE larguras diferentes — o `1` mede 271/1000 em contra 519 do `0`, quase
+   meio em de diferença. Não há `tnum` para corrigir (as features são case,
+   dnom, frac, lnum, locl, onum, salt, ss01-ss06, sups). Numa coluna de valores
+   cada linha começa num ponto diferente, que é exatamente o que o
+   `tabular-nums` do sistema existe para impedir. Candidata a TEXTO; os valores
+   precisam continuar em Geist Mono. */
+@font-face {
+  font-family: "Obviously Narrow";
+  src: url("/fonts/obviously-narrow-bold.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------
@@ -12,44 +125,70 @@
    isn't also a token. See CLAUDE.md.
    ============================================================ */
 :root {
-  /* Neutrals */
+  /* Neutrals — paleta Visor Finance (light); o dark continua em html.dark */
   --color-black-pure: #000000;
-  --color-ink: #171717;
-  --color-ink-soft: #0c0c0b;
+  --color-ink: #0e131e; /* text-strong do Visor */
+  --color-ink-soft: #0e131e;
   --color-white: #ffffff;
-  --color-surface-1: #eceef2; /* fundo da página (DS v2 / Onest) */
-  --color-surface-2: #f7f7f5;
-  --color-surface-3: #f4f4f3;
-  --color-border: #e9e9e9;
-  --color-border-soft: #efefef;
-  --color-text-secondary: #797975;
-  --color-text-tertiary: #959595;
-  --color-text-quaternary: #b3b3b2;
+  --color-surface-1: #f6f7f9; /* canvas do Visor */
+  --color-surface-2: #eef0f3; /* inset / row */
+  --color-surface-3: #eef0f3;
+  --color-border: #edeff2;
+  --color-border-soft: #eef0f3;
+  /* Hairline dos CARTÕES — a borda de 1px dos boxes da Home. A moldura do app
+     (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
+     de outro sistema em volta do conteúdo. */
+  --a4p-hairline: #f1f3f5;
+  --color-text-secondary: #5b5b5b; /* muted / corpo */
+  --color-text-tertiary: #8a8a8a; /* faint / legendas */
+  --color-text-quaternary: #bbbcbd; /* placeholder */
 
-  /* Accent */
-  --color-lime: #dcff00;
-  --color-lime-alt: #e0f80a;
-  --color-lime-tint: #f8ffcb;
-  --color-on-lime: #171717; /* text/icon ON bright lime — dark in BOTH themes */
-  --color-chart-line: #171717; /* linha dos gráficos: PRETA no claro, lime no escuro */
+  /* Accent — lima assinatura All4Pay */
+  --color-lime: #e1ff00;
+  --color-lime-alt: #cfea00;
+  --color-lime-tint: #f4ffb0;
+  --color-on-lime: #11190c; /* text/icon ON bright lime — dark in BOTH themes */
+  --color-chart-line: #0e131e; /* linha dos gráficos: escura no claro, lime no escuro */
+
+  /* Degradê OFICIAL da marca (os 5 stops do guia, de cima para baixo). Usado
+     pelo FAB "All 4 Pay AI" e pelo card de dicas da Home. */
+  --gradient-marca: linear-gradient(180deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
+  /* O mesmo degradê de baixo para cima — usado no card de dicas. */
+  --gradient-marca-inv: linear-gradient(0deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
+  /* Versão em ONDA: os mesmos stops repetidos numa faixa LARGA e na diagonal —
+     deslizar essa faixa (classe `.a4p-onda`) faz a cor ondular entre os tons
+     sem nunca sair da paleta. */
+  --gradient-marca-onda: linear-gradient(100deg, #d0ff00 0%, #e8ff00 15%, #d8ff00 30%, #f5ff00 45%, #e1ff00 60%, #f5ff00 75%, #d8ff00 90%, #d0ff00 100%);
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
   --gradient-hero-glow: #4b4d3d;
 
-  /* Status */
-  --color-warning: #e8821e;
-  --color-positive: #3f8f5b;
-  --color-negative: #c2473d;
+  /* Status — semânticas do Visor (verde/vermelho vivos) */
+  --color-warning: #f45900;
+  --color-positive: #28aa00;
+  --color-negative: #d9000a;
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 36px;
+  --radius-card: 16px;
   --radius-md: 10px;
   --radius-sm: 8px;
   --radius-pill: 999px;
-  --shadow-card: none;
-  --shadow-popover: none;
-  --shadow-pill: none;
+
+  /* Glass — SÓ overlays (popover/sidebar/drawers); cards são sólidos (Ledger).
+     strong = vidro dos overlays · edge = fio de 1px do vidro. */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.84);
+  --glass-edge: rgba(255, 255, 255, 0.65);
+  --glass-blur: 20px;
+  /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
+  --shadow-card:
+    0 1px 2px rgba(14, 19, 30, 0.04),
+    0 8px 24px -18px rgba(14, 19, 30, 0.1);
+  --shadow-popover:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 24px 64px -16px rgba(14, 19, 30, 0.22);
+  --shadow-pill: 0 8px 24px -10px rgba(14, 19, 30, 0.2);
 }
 
 /* ============================================================
@@ -69,6 +208,7 @@ html.dark {
   --color-surface-3: #232323;
   --color-border: #2a2a2a;
   --color-border-soft: #202020;
+  --a4p-hairline: #232323;
   --color-text-secondary: #9b9b96; /* muted */
   --color-text-tertiary: #6f6f6c; /* faint */
   --color-text-quaternary: #565654; /* placeholder */
@@ -83,10 +223,17 @@ html.dark {
   --color-positive: #57a877;
   --color-negative: #d8584c;
 
-  /* Sombras mais densas (elevação no escuro) */
-  --shadow-card: none;
-  --shadow-popover: none;
-  --shadow-pill: none;
+  /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline */
+  --glass-bg: rgba(24, 24, 26, 0.66);
+  --glass-bg-strong: rgba(20, 20, 22, 0.84);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 24px -18px rgba(0, 0, 0, 0.5);
+  --shadow-popover:
+    inset 0 1px 0 0 var(--glass-edge),
+    0 24px 64px -16px rgba(0, 0, 0, 0.65);
+  --shadow-pill: 0 8px 24px -10px rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -105,8 +252,9 @@ html.dark {
   body {
     @apply bg-surface-1 text-ink font-sans;
     -webkit-font-smoothing: antialiased;
-    /* tabular-nums always — columns align, updating values don't shiver */
-    font-variant-numeric: tabular-nums;
+    /* Prosa em numerais PROPORCIONAIS (o tnum da Schibsted alarga ponto/vírgula).
+       Alinhamento tabular é responsabilidade dos contextos .tabular-nums/.a4p-num,
+       que entram em Geist Mono (DS Ledger). */
     /* Roc Grotesk Regular: peso 400, espaçamento -0.01em, line-height base 22px */
     font-weight: 400;
     letter-spacing: -0.01em;
@@ -128,32 +276,6 @@ html.dark {
     font-family: inherit;
   }
 
-  /* DS "Onest" (teste · Home): títulos em SemiBold 600. Precisa estar nesta
-     layer p/ vencer o `*{font-weight:400!important}` acima (mesma layer +
-     seletor mais específico). Subtítulos/corpo seguem 400 (Regular). */
-  .ds-onest :is(h1, h2, h3, .text-display, .text-h1, .text-h2, .text-h3) {
-    font-weight: var(--a4p-title-weight, 600) !important;
-  }
-  /* número do dia do calendário em SemiBold */
-  .ds-onest [data-day-num] {
-    font-weight: 600 !important;
-  }
-  /* tracking dos números (tabular-nums) */
-  .ds-onest .tabular-nums {
-    letter-spacing: var(--a4p-num-tracking, -0.03px) !important;
-  }
-  /* tema Onest usa múltiplos pesos: reabilita medium/semibold (vence o reset 400) */
-  .ds-onest .font-medium {
-    font-weight: 500 !important;
-  }
-  .ds-onest .font-semibold {
-    font-weight: 600 !important;
-  }
-  /* rótulos dos eixos do gráfico (Recharts) em peso 500 */
-  .ds-onest .recharts-cartesian-axis-tick-value {
-    font-weight: 500 !important;
-  }
-
   /* Quiet, soft scrollbar — matches the restrained product feel. */
   ::-webkit-scrollbar {
     width: 10px;
@@ -171,6 +293,97 @@ html.dark {
 }
 
 /* ============================================================
+   Animação de entrada (clean) — os cards "sobem" suavemente ao carregar
+   a página. Respeita prefers-reduced-motion. Stagger leve por posição.
+   ============================================================ */
+@keyframes a4pRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.ds-visor [data-card="1"] {
+  /* `backwards` (não `both`): mantém o estado inicial durante o delay, mas NÃO
+     fixa o transform no fim — assim o hover-lift abaixo volta a funcionar. */
+  animation: a4pRise 0.5s cubic-bezier(0.22, 0.7, 0.25, 1) backwards;
+}
+/* stagger leve nos primeiros cards de cada grade */
+.ds-visor [data-card="1"]:nth-child(1) { animation-delay: 0.02s; }
+.ds-visor [data-card="1"]:nth-child(2) { animation-delay: 0.07s; }
+.ds-visor [data-card="1"]:nth-child(3) { animation-delay: 0.12s; }
+.ds-visor [data-card="1"]:nth-child(4) { animation-delay: 0.17s; }
+.ds-visor [data-card="1"]:nth-child(5) { animation-delay: 0.21s; }
+.ds-visor [data-card="1"]:nth-child(6) { animation-delay: 0.25s; }
+@media (prefers-reduced-motion: reduce) {
+  .ds-visor [data-card="1"] { animation: none; }
+}
+
+/* ============================================================
+   Feedback de CLIQUE (tátil & suave) — além de button/a, qualquer
+   item clicável (linhas de tabela, cards-botão com .cursor-pointer)
+   responde ao toque; botões sólidos ganham um leve brilho no press.
+   ============================================================ */
+.cursor-pointer { transition: transform 0.26s var(--ease-press, cubic-bezier(0.34,1.26,0.64,1)), background-color 0.18s ease, opacity 0.18s ease; }
+.cursor-pointer:active { transform: scale(0.985); }
+button:active:not(:disabled) { filter: brightness(0.98); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .cursor-pointer { transition: none !important; }
+  .cursor-pointer:active, button:active:not(:disabled) { transform: none !important; filter: none !important; }
+}
+
+/* ============================================================
+   Micro-interações (clean & suave) — easing consistente, press
+   com retorno macio no clique, realce sutil dos ícones, elevação
+   dos cards e foco visível discreto. O clique é o herói.
+   ============================================================ */
+:root {
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1); /* easeOutQuint — limpo, sem overshoot */
+  --ease-press: cubic-bezier(0.34, 1.26, 0.64, 1); /* leve "pop" no retorno do clique */
+}
+button, a, [role="button"], summary, label[for], .a4p-hoverable {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.24s var(--ease-smooth), transform 0.26s var(--ease-press), opacity 0.18s ease;
+}
+/* clique → press macio (escala) com retorno levemente elástico */
+button:active, a:active, [role="button"]:active, summary:active { transform: scale(0.955); }
+
+/* Ícones (Phosphor) — realce sutil no hover do clicável; encolhe no clique */
+.a4p-icon { transition: transform 0.26s var(--ease-press); transform-origin: center; will-change: transform; }
+button:hover .a4p-icon,
+a:hover .a4p-icon,
+[role="button"]:hover .a4p-icon,
+.group:hover .a4p-icon,
+.a4p-hoverable:hover .a4p-icon { transform: scale(1.12); }
+button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
+
+/* Cards (DS Visor) — elevação suave ao passar o mouse */
+.ds-visor [data-card="1"] {
+  transition: transform 0.28s var(--ease-smooth), box-shadow 0.28s var(--ease-smooth);
+}
+.ds-visor [data-card="1"]:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 1px 2px rgba(14, 19, 30, 0.04),
+    0 16px 40px -20px rgba(14, 19, 30, 0.16);
+}
+
+/* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
+:where(button, a, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+/* Campos — transição suave no foco */
+input, select, textarea { transition: border-color 0.18s ease, box-shadow 0.2s var(--ease-smooth), background-color 0.18s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  button, a, [role="button"], .a4p-icon, .ds-visor [data-card="1"], input, select, textarea {
+    transition: none !important;
+  }
+  button:active, a:active, [role="button"]:active,
+  .ds-visor [data-card="1"]:hover, button:hover .a4p-icon, a:hover .a4p-icon { transform: none !important; }
+}
+
+/* ============================================================
    DS v2 (Onest) — padrões promovidos do teste da Home para TODO o sistema.
    Unlayered de propósito: vencem as utilities do Tailwind.
    ============================================================ */
@@ -179,82 +392,602 @@ h1, h2, h3,
 .text-display, .text-h1, .text-h2, .text-h3 {
   font-weight: 600;
 }
-/* números com tracking apertado (vence o inline do <Money>) */
+/* Números tabulares (sans): alinhados, espaçamento normal. Os VALORES
+   monetários (Money/BRL) e os eixos de gráfico é que entram em mono —
+   frases com número no meio continuam na grotesca. */
 .tabular-nums {
-  letter-spacing: -1.04px !important;
+  letter-spacing: 0 !important;
+  font-variant-numeric: tabular-nums;
 }
-/* rótulos dos eixos dos gráficos (Recharts) em Medium */
+/* Gráficos no MESMO padrão: rótulos de eixo em mono 11px, discretos. */
 .recharts-cartesian-axis-tick-value {
-  font-weight: 500;
+  font-family: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 11px;
+  fill: var(--color-text-tertiary);
 }
 
 /* ============================================================
-   DS "Onest" — escopo de TESTE aplicado só ao <main> da Home
-   (scopeClassName="ds-onest"). Validar antes de levar ao sistema.
-   Fundo #eceef2 · boxes #fff · 13px · sem bordas/sombras · Onest.
-   Unlayered de propósito: vence as utilities do Tailwind (bg/radius/font).
+   DS "LEDGER" — a identidade vigente (escopo .ds-visor, todo o app).
+   Editorial-terminal: Schibsted Grotesk (neo-grotesca) na UI, Geist
+   Mono em TODOS os números, cards sólidos com hairline 1px + micro
+   sombra (o vidro fica só nos overlays/sidebar), raio 16px, lime como
+   único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
    ============================================================ */
-.ds-onest {
-  /* ================= PAINEL EDITÁVEL (mexa só nos valores) =================
-     Edite os números/cores abaixo e me mande este bloco de volta — ou edite
-     direto no GitHub (branch claude/epic-fermi-i423xk → src/app/globals.css).
-     ------------------------------------------------------------------------ */
-  --a4p-bg: #eceef2;          /* fundo principal da página */
-  --a4p-box-bg: #ffffff;      /* cor de fundo dos boxes */
-  --a4p-box-radius: 36px;     /* arredondamento das bordas do box */
-  --a4p-box-padding: 45px;    /* espaçamento interno (conteúdo ↔ borda) */
-  --a4p-title-weight: 600;    /* peso do título (400=Regular · 500=Medium · 600=SemiBold) */
-  --a4p-num-tracking: -1.04px;/* espaçamento (letter-spacing) dos números */
-  --a4p-borders: transparent; /* cor das bordas (transparent = sem borda) */
-  /* ======================================================================== */
+.ds-visor {
+  /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
+  --a4p-bg: #f3f1ee;          /* bg/base — canvas geral do app (site corporativo) */
+  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS brancos */
+  --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
+  --a4p-box-padding: 24px;    /* respiro interno */
+  --a4p-box-border: transparent; /* SEM borda (design clean) */
+  /* ========================================================================= */
 
-  background-color: var(--a4p-bg);
-  font-family: var(--font-onest), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --color-surface-1: var(--a4p-bg);
-  --color-white: var(--a4p-box-bg);
-  --color-border: var(--a4p-borders);
-  --color-border-soft: var(--a4p-borders);
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
   --radius-card: var(--a4p-box-radius);
+  /* o canvas vive no .a4p-canvas (AppShell) — o main é transparente */
+  background: transparent;
 }
-/* a utility rounded-card é 16px fixa → sobrescreve com o valor do painel */
-.ds-onest .rounded-card {
+/* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
+html:not(.dark) .ds-visor {
+  /* neutros / superfícies — paleta All4Pay (spec Vendria→lima) */
+  /* Canvas QUENTE, promovido do Laboratório. O #f8f9fa anterior era frio e
+     destoava do resto da paleta, que é toda quente (`surface-2` #f3f1ee,
+     `border` #eceae4) — o fundo da página puxava para o azul enquanto as
+     seções puxavam para o bege. Contraste do `ink` sobre ele: 16,59:1. */
+  --color-surface-1: #f7f6ef;      /* canvas quente */
+  --color-surface-2: #f3f1ee;      /* seção / hover suave (warm) */
+  --color-surface-3: #e9e6df;
+  --color-white: #ffffff;
+  --color-ink: #11190c;            /* títulos/valores */
+  --color-ink-soft: #2a3320;       /* hover de ink */
+  --color-text-secondary: #3f4a38; /* corpo */
+  --color-text-tertiary: #6b7280;  /* legendas / secundário */
+  /* ⚠️ ONDA 12 — ERA #a8a595 e REPROVAVA em contraste: 2,20:1 sobre o canvas e
+     2,48:1 sobre branco, contra os 4,5:1 que a norma pede. Não é detalhe de
+     tela: este token pinta o prefixo "R$" e os CENTAVOS de todo valor do
+     produto, a 7pt. A auditoria automática acusou 26 ocorrências em três telas,
+     e seriam todas as telas — o tratamento do dinheiro é a assinatura do
+     sistema e estava ilegível para quem enxerga pouco.
+     #6f6d62 mantém a MESMA família (taupe) e passa: 5,20:1 no branco, 4,61:1
+     no canvas. O preço é o prefixo ficar um pouco menos apagado — que é
+     exatamente o ponto: ele precisa ser lido. */
+  --color-text-quaternary: #6f6d62;/* placeholder / labels de seção */
+  --color-border: #eceae4;
+  --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
+  /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
+  --color-lime: #e1ff00;
+  --color-lime-tint: #f4ffb0;
+  --color-on-lime: #11190c;
+  --color-chart-line: #11190c;
+  /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
+     Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
+     neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
+     aparecem — no valor de um recebimento, no total de uma coluna, no sinal de
+     um resultado. A auditoria reprovou os valores em verde da tela de títulos.
+
+     Estes são os mesmos matizes da família dessaturada que o DS documenta
+     (positive #3F8F5B · negative #C2473D · warning #E8821E), escurecidos o
+     necessário para passar 4,5:1 sobre o branco E sobre o canvas. A identidade
+     é a mesma; o que muda é que agora se lê. */
+  /* ⚠️ NEON, PROMOVIDO DO LABORATÓRIO EM 05/08/2026 — DECISÃO TOMADA COM O
+     CONTRASTE MEDIDO EM MÃOS, não por descuido. Quem encontrar isto depois:
+     não "conserte" achando que escapou.
+
+     Medido (WCAG, texto normal exige 4,5:1):
+       positive #4dff00 → 1,24:1 sobre o canvas · 1,34:1 sobre o card
+       negative #ff1500 → 3,62:1 sobre o canvas · 3,92:1 sobre o card
+
+     O parágrafo acima descreve a decisão ANTERIOR (ONDA 12), que substituiu
+     este mesmo neon pela família dessaturada depois de medir 26 reprovações.
+     A escolha foi revertida deliberadamente. O custo conhecido: estas cores
+     aparecem como TEXTO no produto — o valor de um recebimento, o sinal de um
+     lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
+     claro. Se um dia isto voltar à família dessaturada, o valor anterior era
+     positive #367b4e · negative #be463c. */
+  --color-positive: #4dff00;
+  --color-warning: #a45c15;
+  --color-negative: #ff1500;
+}
+/* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
+   `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
+.ds-visor,
+.ds-visor * {
+  font-family: "Hanken Grotesk Variable", "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
+}
+/* Títulos: Roobert SemiBold (600) na cor ink #11190C. Textos/subtítulos herdam
+   Medium #787664 (via --color-text-secondary). */
+.ds-visor h1, .ds-visor h2, .ds-visor h3,
+.ds-visor .text-display, .ds-visor .text-h1, .ds-visor .text-h2, .ds-visor .text-h3,
+.ds-visor .text-value-lg {
+  font-weight: 600;
+  color: var(--color-ink);
+  letter-spacing: 0;
+}
+/* Os NÚMEROS NÃO seguem a fonte da UI (o Laboratório veio com "aplicar também
+   nos números" desligado): a UI é Hanken Grotesk e os valores ficam em Roobert
+   Variable, que é a face dos números do sistema. O alinhamento tabular vem de
+   `tabular-nums` / `font-variant-numeric`, não da família. */
+.ds-visor .a4p-num,
+.ds-visor .a4p-num *,
+.ds-visor .tabular-nums,
+.ds-visor .recharts-cartesian-axis-tick-value {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  letter-spacing: 0;
+}
+/* rounded-card (36px fixo) → raio do painel */
+.ds-visor .rounded-card {
   border-radius: var(--a4p-box-radius);
 }
-/* p-6 (24px padrão) → valor do painel */
-.ds-onest .p-6 {
+/* Cards SÓLIDOS, CLEAN: sem borda e sem sombra (spec do site).
+   A superfície vem do TOKEN (`--color-white`), nunca de hex literal — era
+   `#ffffff` cravado, o que deixava o card branco também no tema escuro e
+   ignorava qualquer troca de superfície. `border-width: 0` (em vez do
+   shorthand `border: 0`) preserva a cor de borda do tema para quem quiser
+   ligar uma borda depois. */
+.ds-visor [data-card="1"] {
+  background: var(--color-white);
+  /* Hairline do Laboratório (#F1F3F5 — o export trazia "##F1F3F5", com dois
+     `#`, que o CSS descarta em silêncio). Vive no token `--a4p-hairline`
+     porque a Sidebar e a TopBar usam a MESMA borda. */
+  border: 1px solid var(--a4p-hairline);
+  box-shadow: none;
+}
+/* padding 45px (default do Card) → 24px do painel */
+.ds-visor [data-card="1"].p-\[45px\] {
   padding: var(--a4p-box-padding);
 }
-/* títulos de widget (text-h3) maiores na Home */
-.ds-onest .text-h3 {
-  font-size: 31px;
+.ds-visor .p-6 {
+  padding: var(--a4p-box-padding);
 }
-/* esconde os títulos de bloco (Caixa, Operação, Resumo executivo, …) na Home */
-.ds-onest [data-block-header] {
+/* Cards — regra POR TIPO do Laboratório: o conteúdo dos boxes fala em Roobert
+   Variable, peso 400. Aplicada ao CARD (não a `*`), então é só o padrão: quem
+   tem peso explícito dentro (títulos, heróis) continua vencendo por herança. */
+.ds-visor [data-card="1"] {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-weight: 400;
+}
+
+/* Subtítulos (H2) — regra POR TIPO do Laboratório: Roobert Variable 17/400,
+   tracking −0.02em, na cor ink. Precisa vir DEPOIS do bloco que põe 600 nos
+   títulos, senão o peso 600 vence pela ordem. */
+.ds-visor h2,
+.ds-visor .text-h2 {
+  font-family: "Roobert Variable", "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+/* títulos de card calmos (~18px) */
+.ds-visor .text-h3 {
+  font-size: 18px;
+}
+/* números-herói: mono em peso 600 (700 no mono fica pesado demais) */
+.ds-visor .text-display,
+.ds-visor .text-h1,
+.ds-visor .text-value-lg {
+  font-weight: 600 !important;
+}
+/* esconde os títulos de bloco na Home (mantém o layout calmo) */
+.ds-visor [data-block-header] {
   display: none;
 }
 
 /* ============================================================
-   Sidebar lateral SEMPRE no visual escuro (igual ao dark mode),
-   também no tema claro. Ícones na variante verde (lime) e bold.
-   Reaproveita a paleta escura redefinindo as variáveis no escopo
-   do <aside> — todo o conteúdo (bg-white, text-ink, bordas) inverte.
+   Onda do degradê da marca — a faixa larga desliza da esquerda
+   para a direita e volta, então as cores ondulam entre si. Só o
+   `background-position` anima (composited, sem repintar layout).
+   Respeita `prefers-reduced-motion`.
    ============================================================ */
-.a4p-sidebar {
-  --color-white: #161616;        /* fundo da sidebar */
-  --color-ink: #f4f4f2;          /* texto/itens ativos */
-  --color-ink-soft: #fafafa;
-  --color-surface-1: #0e0e0e;
-  --color-surface-2: #1b1b1b;    /* hover/ativo */
-  --color-surface-3: #232323;
-  --color-border: #2a2a2a;
-  --color-border-soft: #202020;
-  --color-text-secondary: #9b9b96;
-  --color-text-tertiary: #6f6f6c;
-  --color-text-quaternary: #565654;
-  --color-lime-tint: #23270d;    /* wash do command bar no escuro */
+.a4p-onda {
+  background-size: 320% 100%;
+  background-position: 0% 50%;
+  animation: a4p-onda 7s ease-in-out infinite;
 }
-/* ícones lime + bold (CSS vence os atributos stroke/stroke-width do SVG) */
-.a4p-sidebar svg {
-  stroke: var(--color-lime);
-  stroke-width: 2.5px;
+@keyframes a4p-onda {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a4p-onda { animation: none; }
+}
+
+/* ============================================================
+   ALL 4 PAY AI — tipografia e movimento do assistente.
+
+   O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do
+   `<main>.ds-visor` (são irmãos dele no AppShell), então nenhuma
+   regra `.ds-visor …` os alcança — inclusive as do Laboratório.
+   Por isso a tipografia do chat é declarada aqui, no próprio
+   escopo, e o Lab ganhou `.a4p-ia`/`.a4p-ia-fab` como raízes.
+
+   Tipografia: Roobert Variable 400, tracking −0.5px em TODOS os
+   itens. Os números fogem da regra (`.a4p-num`/`.tabular-nums`
+   seguem em mono, como no resto do sistema).
+   ============================================================ */
+.a4p-ia,
+.a4p-ia *,
+.a4p-ia-fab,
+.a4p-ia-fab * {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+}
+.a4p-ia .tabular-nums,
+.a4p-ia .a4p-num,
+.a4p-ia .a4p-num * {
+  font-family: "Geist Mono Variable", ui-monospace, monospace;
+  letter-spacing: 0;
+}
+
+/* Abertura do painel: entra deslizando da direita COM leve escala e
+   desfoque que se dissolvem — a "mola" é o cubic-bezier (overshoot
+   suave). `transform`+`opacity`+`filter` são composited. */
+.a4p-ia {
+  transition:
+    transform 420ms cubic-bezier(0.22, 1.2, 0.36, 1),
+    opacity 260ms ease-out,
+    filter 300ms ease-out;
+}
+.a4p-ia[data-aberto="0"] {
+  transform: translateX(100%) scale(0.97);
+  opacity: 0;
+  filter: blur(6px);
+}
+.a4p-ia[data-aberto="1"] {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  filter: blur(0);
+}
+
+/* Entrada dos itens: sobem e revelam. O atraso é dado inline
+   (`--a4p-atraso`) para escalonar a lista. */
+.a4p-entra {
+  animation: a4p-entra 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--a4p-atraso, 0ms);
+}
+@keyframes a4p-entra {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulso das etapas de análise: o passo corrente respira. */
+.a4p-pulso { animation: a4p-pulso 1.5s ease-in-out infinite; }
+@keyframes a4p-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Brilho que varre a barra de progresso da análise. */
+.a4p-varre {
+  background-size: 200% 100%;
+  animation: a4p-varre 1.4s linear infinite;
+}
+@keyframes a4p-varre {
+  from { background-position: 200% 50%; }
+  to { background-position: -200% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a4p-ia { transition: transform 120ms linear, opacity 120ms linear; }
+  .a4p-ia[data-aberto="0"] { filter: none; transform: translateX(100%); }
+  .a4p-entra { animation: none; }
+  .a4p-pulso, .a4p-varre { animation: none; }
+}
+
+/* ============================================================
+   AURORA GLASS — o canvas do app e as superfícies de vidro.
+   .a4p-canvas (raiz do AppShell): washes de aurora em lime a
+   baixíssima opacidade sobre o fundo do tema (o lime segue sendo
+   tempero — são véus, nunca preenchimentos). As superfícies
+   flutuantes (popovers/menus/palette via .shadow-popover, a
+   Sidebar via .a4p-sidebar e qualquer painel com .a4p-glass)
+   viram vidro forte: translúcidas + blur + fio luminoso.
+   Unlayered de propósito (vence as utilities bg-white).
+   ============================================================ */
+.a4p-canvas {
+  /* fundo CLEAN, chapado #F3F1EE (spec do site) — sem véus/aurora. */
+  background: var(--color-surface-1);
+}
+/* REGRA DO SITE: NENHUMA sombra, de nenhuma maneira (design clean). O
+   !important vence box-shadows inline (cards, popovers, FABs, toggles). */
+.ds-visor *,
+.ds-visor *::before,
+.ds-visor *::after {
+  box-shadow: none !important;
+}
+html.dark .a4p-canvas {
+  background:
+    radial-gradient(1100px 640px at 88% -12%, rgba(223, 255, 0, 0.05), transparent 62%),
+    var(--color-surface-1);
+}
+.a4p-glass,
+.shadow-popover {
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+/* A barra de cima e o cartão do menu são o MESMO material: mudar um sem o
+   outro faz a moldura do app parecer duas peças de sistemas diferentes.
+   E esse material é o do CARTÃO da Home — branco sólido + o mesmo hairline.
+
+   ⚠️ SÓLIDO, não vidro. Translúcido + blur deixava o conteúdo passar por baixo
+   ao rolar: a página deslizava visível dentro da barra de cima, como se ela
+   tivesse um fundo próprio atrás. Chrome que mostra o que está por baixo dele
+   não separa nada — e separar é a função dele. */
+.a4p-sidebar,
+.a4p-topbar {
+  background: var(--color-white);
+  border-color: var(--a4p-hairline);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ds-visor [data-card="1"],
+  .a4p-glass,
+  .shadow-popover {
+    background: var(--color-white);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ============================================================
+   Sidebar lateral — segue o tema (vidro claro no claro, fumê no
+   escuro). Texto/itens ink, ícones monocromáticos. O lime fica só
+   nos acentos pontuais (marca, "Nova transação", etc.).
+   ============================================================ */
+
+/* ============================================================
+   CABEÇALHO DE TABELA FIXO AO ROLAR.
+
+   ⚠️ Regra GLOBAL, não 29 edições. O produto tem 29 tabelas e só 4 tinham
+   cabeçalho fixo; corrigir uma a uma deixaria a trigésima de fora no dia em que
+   ela fosse escrita. Numa tabela de títulos com centenas de linhas, rolar até o
+   meio sem cabeçalho significa não saber mais qual coluna é vencimento e qual é
+   pagamento — e é exatamente aí que se confere dinheiro.
+
+   O fundo BRANCO é obrigatório: sem ele as linhas passam por baixo do
+   cabeçalho e o texto se sobrepõe. A borda inferior desenha o limite quando o
+   cabeçalho está "flutuando" sobre o conteúdo.
+   ============================================================ */
+.ds-visor thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-white);
+}
+.ds-visor thead th {
+  background: var(--color-white);
+  box-shadow: inset 0 -1px 0 var(--a4p-hairline);
+}
+/* Tabela dentro de um cartão herda o raio do cartão no topo. */
+.ds-visor [data-card="1"] thead th:first-child { border-top-left-radius: inherit; }
+.ds-visor [data-card="1"] thead th:last-child { border-top-right-radius: inherit; }
+
+/* ============================================================
+   Sem centavos — telas que exibem valores arredondados (a Home).
+   O `<BRL>` marca os decimais com `data-cents`; a tela decide se
+   mostra, aplicando `a4p-sem-centavos` no seu escopo.
+   ============================================================ */
+.a4p-sem-centavos [data-cents] {
+  display: none;
+}
+
+/* ============================================================
+   Modo "selecionar item na tela" (Laboratório de Design).
+   Muitos enfeites são `pointer-events:none` (o centro do donut,
+   overlays de gráfico) — sem isto o clique os atravessa e eles
+   nunca poderiam ser editados. Vale só enquanto se seleciona.
+   ============================================================ */
+.a4p-picking .ds-visor *,
+.a4p-picking .a4p-sidebar * {
+  pointer-events: auto !important;
+}
+
+/* ============================================================
+   Herói "Você gastou" — o Laboratório pediu o prefixo R$ do MESMO
+   tamanho/cor do inteiro (o padrão do <BRL> é menor e faint). Fica
+   escopado ao herói: o tratamento assinatura segue no resto do app.
+   ============================================================ */
+/* Prefixo R$ do herói: Roobert Semi Mono 30/500 em ink (o padrão do <BRL> é
+   menor e faint). O inteiro fica em Roobert Variable 35, definido no
+   componente — por isso o prefixo carrega tamanho PRÓPRIO em px, não 1em. */
+.ds-visor .a4p-heroi .a4p-num > span:first-child {
+  font-family: "Roobert Variable", "Roobert", sans-serif;
+  font-size: 30px;
+  font-weight: 400;
+  color: var(--color-ink);
+  margin-right: 0.1em;
+}
+/* Centavos do herói em 22px (escolha do Laboratório). */
+.ds-visor .a4p-heroi .a4p-num > span:last-child {
+  font-size: 22px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONDA 12 — ALVO DE TOQUE: 44px onde o dedo é o ponteiro
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ A medição num telefone de 390px encontrou **97 alvos abaixo de 44×44 numa
+   única tela** (Títulos a receber), 90 no DRE e 76 na Home. O padrão dominante
+   é sempre o mesmo: botão de texto dentro de linha de tabela ("Dar baixa", o
+   drill-down do DRE) e item de navegação — controles que num monitor têm a
+   precisão do ponteiro e num telefone têm a do polegar.
+
+   A correção NÃO muda o tamanho visual. Ela estende a ÁREA SENSÍVEL com um
+   pseudo-elemento: o botão continua com a mesma tipografia e o mesmo respiro,
+   e o toque passa a valer 44px. Aumentar o desenho resolveria o toque e
+   destruiria a densidade — numa tabela de trinta linhas, 44px de altura por
+   linha empurra o conteúdo para fora de duas telas.
+
+   O gatilho é a LARGURA (o mesmo ponto de quebra `lg` em que o produto troca de
+   layout), somada ao ponteiro grosso. ⚠️ A primeira versão usava só
+   `pointer: coarse` — e era INVERIFICÁVEL: o navegador de automação não emula
+   ponteiro grosso, então a medição não conseguia confirmar que a regra pegou.
+   Numa onda cujo critério é "medido", uma correção que só funciona onde ninguém
+   consegue medir é indistinguível de correção nenhuma. A largura vale nos dois
+   mundos, e num monitor grande nada muda: lá a precisão do ponteiro existe e a
+   área estendida só criaria sobreposição entre vizinhos.
+
+   `position: relative` é necessário para o `::after` se ancorar; ele é aplicado
+   junto, e não antes, para não mexer no empilhamento de quem não precisa. */
+@media (max-width: 1023px), (pointer: coarse) {
+  /* O escopo é o APLICATIVO inteiro, não só o `.ds-visor`: a primeira versão
+     listava três raízes e deixava de fora justamente o cabeçalho de página, o
+     FAB e o convite de tour — os controles que a medição continuou reprovando.
+     Enumerar raízes é uma lista que envelhece; a largura não. */
+  body button,
+  body a[href],
+  body [role="button"],
+  body [role="tab"],
+  body [role="switch"] {
+    position: relative;
+  }
+
+  body button::after,
+  body a[href]::after,
+  body [role="button"]::after,
+  body [role="tab"]::after,
+  body [role="switch"]::after {
+    content: "";
+    position: absolute;
+    /* Centra uma área de 44px sobre o controle, qualquer que seja o tamanho
+       dele. `max(0px, …)` impede que um controle já grande ganhe área extra e
+       passe a roubar o toque do vizinho. */
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    /* Não pinta nada e não intercepta seleção de texto. */
+    pointer-events: auto;
+  }
+
+  /* ⚠️ Exceção: dentro de uma célula de tabela, controles vizinhos ficam a
+     poucos pixels um do outro, e estender os dois faria a área do primeiro
+     cobrir o segundo — o toque acertaria o botão errado, que é pior que o alvo
+     pequeno. Ali a área cresce só na vertical, onde há espaço da linha. */
+  /* ⚠️ Dentro de célula de tabela a área cresce sobretudo na VERTICAL, onde há
+     o espaço da linha. Na horizontal ela para em 24px — que é o piso que a
+     norma exige com espaçamento (WCAG 2.2, 2.5.8, nível AA); os 44px são a
+     meta (2.5.5, AAA) e valem onde não há vizinho a poucos pixels. Estender os
+     44 na horizontal faria a área de um controle cobrir a do seguinte, e o
+     toque acertaria o botão errado — que é pior que o alvo pequeno. */
+  body td button::after,
+  body td a[href]::after {
+    width: max(100%, 24px);
+    height: max(100%, 44px);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   AJUSTES POR ELEMENTO PROMOVIDOS DO LABORATÓRIO — 05/08/2026
+   ══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ LEIA ANTES DE CONFIAR NESTE BLOCO. Estes seletores são POSICIONAIS
+   (`nth-of-type` a partir de `.ds-visor`), não semânticos. Foram promovidos
+   literalmente, por decisão explícita, com as limitações abaixo já MEDIDAS
+   contra o app no dia da promoção:
+
+     · DOIS dos dez não casavam nada — os do `R$` e do `54.156` do KPI. A
+       estrutura depende do SINAL do número: com saldo negativo existe um
+       `<span>` a mais para o `−`, com saldo positivo não. Ficam aqui inertes
+       até a tela ter saldo negativo.
+     · O seletor do `−` acertava o VALOR INTEIRO (`R$2.187.405,05`), não o
+       sinal. Onde o saldo é positivo, ele põe 40px na cifra toda.
+     · Os demais casavam CONTEÚDO DIFERENTE do rotulado ("R$ 243.423" acertava
+       "R$ 173.828"; "Folha de pagamento" acertava "imposto"; "RESUMO
+       FINANCEIRO" acertava "Bem-vindo!"). São posições, não papéis.
+
+   E a Home é REORDENÁVEL — por arrasto (`a4p_home_order`) e por urgência da
+   IA. Toda reordenação move o que cada `nth-of-type` alcança. `.ds-visor` vale
+   em TODA tela, então estas regras também pintam o que estiver na mesma
+   posição em outras páginas.
+
+   Se um dia isto começar a pintar a coisa errada, a causa está aqui, e o
+   conserto é traduzir cada regra para o PAPEL correspondente (card, h1,
+   título de card) em vez de para a posição. */
+
+/* “+R$ 345.250,04 em Junho” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 400 !important;
+}
+
+/* “Junho 2026” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+  line-height: 2 !important;
+}
+
+/* “Folha de pagamento” */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(2) {
+  font-family: "Roobert Variable", "Roobert", sans-serif !important;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* Card do saldo — raio, respiro e fio */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) {
+  font-size: 16px !important;
+  border-radius: 25px !important;
+  padding: 22px !important;
+  margin: 0 !important;
+  border-color: #f2f2f2 !important;
+}
+
+/* ── Obviously Narrow: SÓ no herói da Home e em TEXTO ──────────────────────
+   ⚠️ A Obviously tem NOVE larguras de dígito (o `1` mede 271/1000 em contra
+   519 do `0`) e não tem `tnum`. Por isso ela fica no número-herói, que é único
+   na tela e não forma coluna, e fora de tabela, DRE, extrato e eixos, onde o
+   desalinhamento apareceria linha a linha. O valor do donut (“R$ 243.423”)
+   ficou DE FORA por essa razão — é valor, mas não é o herói. */
+
+/* herói · o sinal “−” (ver ressalva: onde o saldo é positivo, pega a cifra toda) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.005em !important;
+}
+
+/* herói · o prefixo “R$” (inerte enquanto o saldo for positivo) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+}
+
+/* herói · o inteiro “54.156” (inerte enquanto o saldo for positivo) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(2) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 40px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
+  color: #1f1f1f !important;
+}
+
+/* título de card — “Distribuição das entradas” (TEXTO, não valor) */
+.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(1) {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.010em !important;
+}
+
+/* H1 da página — “RESUMO FINANCEIRO” (TEXTO, não valor) */
+.ds-visor > div > div:nth-of-type(1) > header > div:nth-of-type(1) > div > h1 {
+  font-family: "Obviously Narrow", sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.000em !important;
 }

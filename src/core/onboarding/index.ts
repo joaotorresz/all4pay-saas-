@@ -73,10 +73,16 @@ export function calcularMaturidade(
   const topShare = report?.grafo.topCliente?.share ?? 0.5;
   const recorrente = report?.plano.estimativas.receitaRecorrentePct ?? (/mensal|recorr/i.test(perfil.frequencia) ? 0.6 : 0.3);
   const qualidade = report ? report.confidence.alta / Math.max(1, report.confidence.lidos) : 0.25;
-  const aprovadores = participantes.filter((p) => p.aprovaPagamentos);
+  // ⚠️ O wizard PRÉ-SEMEIA um participante em branco (CFO, aprova, limite R$ 50
+  // mil, mas nome e e-mail vazios). Contá-lo fazia "Governança" ler 100% num
+  // onboarding em que o usuário não cadastrou ninguém — um pré-requisito que não
+  // existe pontuando cheio. Só participante com NOME é real; o resto é o
+  // placeholder do formulário.
+  const participantesReais = participantes.filter((p) => p.nome.trim().length > 0);
+  const aprovadores = participantesReais.filter((p) => p.aprovaPagamentos);
 
   const pilares: Pilar[] = [
-    { nome: "Governança", valor: aprovadores.some((p) => p.limite) ? 1 : participantes.length > 0 ? 0.5 : 0.15 },
+    { nome: "Governança", valor: aprovadores.some((p) => p.limite) ? 1 : participantesReais.length > 0 ? 0.5 : 0.15 },
     { nome: "Diversificação de receita", valor: clamp01(perfil.meiosRecebimento.length / 4) },
     { nome: "Concentração de clientes", valor: clamp01(1 - topShare) },
     { nome: "Organização financeira", valor: (estrutura.contas.length > 0 ? 0.5 : 0) + (estrutura.centrosCusto.length > 0 || report ? 0.5 : 0) },

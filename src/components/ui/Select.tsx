@@ -28,11 +28,22 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     { label, required, invalid, options, placeholder, value, onChange, id, className, containerClassName, ...rest },
     ref,
   ) {
+    const gerado = React.useId();
+    /**
+     * ⚠️ SEMPRE há id — e o `<label>` sempre aponta para ele.
+     *
+     * Antes, o id só nascia quando o rótulo era uma STRING. Um `Select` com
+     * rótulo em JSX (com um "i" ao lado, por exemplo) ficava com `htmlFor` e
+     * `id` indefinidos, e o rótulo deixava de nomear o campo. A auditoria mediu
+     * **7 selects sem nome só na tela do DRE** — os filtros de período, regime e
+     * conta. Quem usa leitor de tela ouvia "lista, Agosto 2026" e não tinha como
+     * saber que aquilo era o filtro de período.
+     */
     const selectId =
       id ||
       (typeof label === "string"
         ? `sel-${label.replace(/\s+/g, "-").toLowerCase()}`
-        : undefined);
+        : `sel-${gerado}`);
     return (
       <div className={cn("flex flex-col gap-[6px]", containerClassName)}>
         {label && (
@@ -45,13 +56,14 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <select
             ref={ref}
             id={selectId}
+            aria-label={typeof label === "string" ? undefined : (rest["aria-label"] ?? placeholder)}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className={cn(
-              "w-full appearance-none h-10 pl-3 pr-9 rounded-md bg-white border text-body text-ink",
+              "w-full appearance-none h-10 pl-3 pr-9 rounded-md bg-surface-2 border text-body text-ink",
               "outline-none focus:border-faint",
               value === "" ? "text-placeholder" : "text-ink",
-              invalid ? "border-negative" : "border-border",
+              invalid ? "border-negative" : "border-transparent",
               className,
             )}
             {...rest}

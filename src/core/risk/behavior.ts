@@ -95,14 +95,19 @@ export function extrairFeatures(
   const tendenciaRecente = tendencia(atrasoAntigo, atrasoRecente);
 
   const ticketMedio = media(eventos.map((e) => e.valor));
-  const ticketRecente = media(
-    eventos.filter((e) => e.due_date >= corte).map((e) => e.valor),
-  );
+  const recentesTicket = eventos.filter((e) => e.due_date >= corte);
+  const ticketRecente = media(recentesTicket.map((e) => e.valor));
   const ticketAntigo = media(
     eventos.filter((e) => e.due_date < corte).map((e) => e.valor),
   );
+  // Sem faturamento recente = "sem sinal", NÃO queda de 100%. Sem o guarda de
+  // recentesTicket.length, um cliente adimplente porém dormente (só faturas
+  // antigas) daria ticketRecente=0 → variacao=-1 → falso "ticket caiu 100%"
+  // disparando early-warning/score/recomendação indevidamente.
   const variacaoTicket =
-    ticketAntigo > 0 ? (ticketRecente - ticketAntigo) / ticketAntigo : 0;
+    recentesTicket.length && ticketAntigo > 0
+      ? (ticketRecente - ticketAntigo) / ticketAntigo
+      : 0;
 
   const abertos = eventos.filter((e) => e.emAberto);
   const volumeAberto = abertos.reduce((s, e) => s + e.valor, 0);

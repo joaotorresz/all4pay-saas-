@@ -29,7 +29,10 @@ const PESOS: Record<DimensaoRisco, number> = {
 };
 
 export function calcularRiskMatrix(f: FinancialFeatures): RiskMatrix {
-  const burnRatio = f.burnMensal > 0 && f.saldo > 0 ? f.burnMensal / (f.saldo / 6) : 0;
+  // Queimando caixa SEM colchão positivo é o pior estado — deve saturar em 1,
+  // não zerar. O guarda antigo (saldo>0) mapeava saldo≤0 para risco 0 (mínimo),
+  // contradizendo o próprio fator "consumo de caixa relevante".
+  const burnRatio = f.burnMensal <= 0 ? 0 : f.saldo > 0 ? f.burnMensal / (f.saldo / 6) : 1;
 
   const baseDims: { id: DimensaoRisco; label: string; probabilidade: number; fator: string }[] = [
     {

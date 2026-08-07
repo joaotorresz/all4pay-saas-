@@ -44,8 +44,10 @@ const LABEL_RECEITA: Record<LinhaReceita, string> = {
 export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
   const c = (cat ?? "").toLowerCase();
   if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
-  if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
+  // folha ANTES de cmv: "Custo de pessoal" casa "custo" (cmv) mas é folha; as
+  // palavras de cmv (mercadoria/fornecedor/insumo/combust) não casam folha.
   if (/folha|sal[aá]r|pessoal|encargo|pró-labore|pro-labore/.test(c)) return "folha";
+  if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
   if (/tarifa|juros|banc|financ|iof/.test(c)) return "financeiro";
   return "opex";
 }
@@ -107,7 +109,7 @@ export function dreGerencial(movs: RiskMovement[]): DREGerencial {
   const lair = ebit - financeiro;
   const ir = 0; // sem linha de IR dedicada nos dados
   const lucroLiquido = lair - ir;
-  const base = receitaLiquida || 1;
+  const base = receitaLiquida > 0 ? receitaLiquida : 1; // evita margens de sinal invertido quando líquida < 0
   const pct = (v: number) => v / base;
 
   const compReceita = (Object.keys(a.receitaPorLinha) as LinhaReceita[])
@@ -279,7 +281,7 @@ function somarAggs(aggs: Agg[]): Agg {
 
 export function dreComparativo(input: RiskInput, regime: Regime): DREComparativo {
   const meses = porMes(input, regime);
-  const hoje = new Date(input.hoje);
+  const hoje = new Date(input.hoje + "T00:00:00"); // local: evita mês anterior em UTC-3 no 1º dia
   const ymAtual = input.hoje.slice(0, 7);
   const prev = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
   const ymPrev = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
@@ -290,7 +292,9 @@ export function dreComparativo(input: RiskInput, regime: Regime): DREComparativo
   const anterior = meses.get(ymPrev) ?? empty;
 
   const ytdAggs = Array.from(meses.entries()).filter(([ym]) => ym >= `${ano}-01` && ym <= ymAtual).map(([, a]) => a);
-  const corte12 = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1).toISOString().slice(0, 7);
+  // corte local (não UTC) p/ não errar o mês no início do mês em fuso negativo
+  const c12 = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1);
+  const corte12 = `${c12.getFullYear()}-${String(c12.getMonth() + 1).padStart(2, "0")}`;
   const m12Aggs = Array.from(meses.entries()).filter(([ym]) => ym >= corte12 && ym <= ymAtual).map(([, a]) => a);
 
   const periodos: DREPeriodo[] = [
@@ -312,7 +316,14 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
   const fc = motorPreditivo(input, 12);
   // Receita projetada média mensal a partir do histórico de receita realizada.
   const meses = porMes(input, "competencia");
-  const receitasMes = Array.from(meses.values()).map((a) => a.receita).filter((v) => v > 0);
+  // Ordena por mês (YYYY-MM) ANTES do slice: porMes preserva ordem de inserção
+  // (1ª aparição no array de movements), não cronológica. Sem o sort, "últimos
+  // 6 meses" pegava 6 meses arbitrários (o live não tem ORDER BY due_date),
+  // enviesando a receita-base da projeção.
+  const receitasMes = Array.from(meses.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, agg]) => agg.receita)
+    .filter((v) => v > 0);
   const ult6 = receitasMes.slice(-6);
   const receitaMensalBase = ult6.length ? ult6.reduce((s, v) => s + v, 0) / ult6.length : 0;
   void fc;

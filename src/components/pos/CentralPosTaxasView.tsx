@@ -14,7 +14,8 @@ import {
   type RateTable,
   type PosConfig,
   loadPosConfig,
-  savePosConfig,
+  fetchPosConfig,
+  persistPosConfig,
   POS_DEFAULT,
   mccCodigo,
   custoTable,
@@ -60,7 +61,10 @@ export function CentralPosTaxasView() {
   const [abertos, setAbertos] = React.useState<Record<string, boolean>>({});
   const toggleParcela = (id: string) => setAbertos((o) => ({ ...o, [id]: !o[id] }));
 
-  React.useEffect(() => { setCfg(loadPosConfig()); }, []);
+  React.useEffect(() => {
+    setCfg(loadPosConfig());           // pintura instantânea (cache)
+    fetchPosConfig().then(setCfg);     // hidrata do pos_rates (live)
+  }, []);
 
   const editando = draft !== null;
   const ativo = draft ?? cfg;
@@ -68,7 +72,7 @@ export function CentralPosTaxasView() {
 
   function persistir(next: PosConfig) {
     setCfg(next);
-    savePosConfig(next);
+    persistPosConfig(next).catch(() => { /* cache local já gravou */ });
     setSalvo(true);
     window.setTimeout(() => setSalvo(false), 2000);
   }
@@ -122,12 +126,12 @@ export function CentralPosTaxasView() {
         <div className="text-caption text-faint -mb-1">Simulador visão parceiro · MDR + Antecipação</div>
 
         {/* Informações de precificação */}
-        <Card>
+        <Card info={{ titulo: "Informações de precificação", oQue: "Define os parâmetros que alimentam o cálculo das taxas: ramo, range, SELIC e antecipação.", comoCalcula: "O MCC e o range escolhidos determinam a tabela de custo; SELIC e taxa de antecipação entram no custo do parceiro e no spread." }}>
           <div className="text-h3 text-ink mb-4">Informações de precificação</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-[6px]">
               <span className="text-label font-medium text-muted">Parceiro</span>
-              <div className="h-10 flex items-center text-body text-ink">ALL4PAY</div>
+              <div className="h-10 flex items-center text-body text-ink">all4pay</div>
             </div>
             <Select
               label="Descrição MCC"
@@ -185,7 +189,7 @@ export function CentralPosTaxasView() {
         </Card>
 
         {/* Taxa de custo MDR — reage a MCC × Range */}
-        <Card className="overflow-x-auto">
+        <Card className="overflow-x-auto" info={{ titulo: "Taxa de custo MDR", oQue: "O que a all4pay paga de custo por grupo e bandeira, antes da margem.", comoCalcula: "Vem da tabela de custo do MCC e do range selecionados, cruzando grupo (débito/crédito/pix) com bandeira." }}>
           <div className="text-h3 text-ink mb-1">Taxa de custo MDR</div>
           <p className="text-caption text-faint mb-4">
             Custo por grupo × bandeira para {mccCodigo(ativo.mccDesc)} · {ativo.range} (o que a all4pay paga).
@@ -199,7 +203,7 @@ export function CentralPosTaxasView() {
         </Card>
 
         {/* Spread — editável em % */}
-        <Card className="overflow-x-auto">
+        <Card className="overflow-x-auto" info={{ titulo: "Spread", oQue: "A margem do parceiro somada ao custo para formar a taxa final.", comoCalcula: "Valor em pontos percentuais por grupo e bandeira. Taxa MDR ao EC = custo mais spread." }}>
           <div className="text-h3 text-ink mb-1">Spread</div>
           <p className="text-caption text-faint mb-4">
             Margem do parceiro em %. Aumentar/diminuir aqui reflete diretamente na taxa final ao EC (Taxa MDR = Custo + Spread).
@@ -217,7 +221,7 @@ export function CentralPosTaxasView() {
         </Card>
 
         {/* Taxa final ao estabelecimento — por parcela, reage aos toggles */}
-        <Card className="overflow-x-auto">
+        <Card className="overflow-x-auto" info={{ titulo: "Taxa final ao estabelecimento", oQue: "A taxa efetiva que o lojista paga, por parcela e bandeira.", comoCalcula: "Custo mais spread, somando a antecipação por parcela quando ativada (e dependente de online ou presencial)." }}>
           <div className="text-h3 text-ink mb-1">Taxa final para o estabelecimento (MDR + antecipação)</div>
           <p className="text-caption text-faint mb-4">
             Taxa efetiva ao EC por parcela.{" "}

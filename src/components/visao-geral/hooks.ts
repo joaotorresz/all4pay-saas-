@@ -14,6 +14,8 @@ import {
   getDailyCashflowRange,
   getSales,
   getOpenMovements,
+  getMovementsByFilter,
+  type MovementFilter,
   getUnreconciledMovements,
   getRiscoInput,
   getAccountsList,
@@ -23,10 +25,9 @@ import { isDemo } from "@/lib/demo";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarInadimplencia } from "@/core/risk";
 import { analisarQuantitativo } from "@/core/quant";
+import { montarInvestorUpdate } from "@/core/investor";
 import { centroInteligencia } from "@/core/executive";
 import { decidir } from "@/core/decision";
-import { analisarMoat } from "@/core/datamoat";
-import { arquiteturaInstitucional } from "@/core/architecture";
 import { treasuryCore } from "@/core/treasury";
 import { operacaoAutonoma } from "@/core/autonomous";
 import { financialDRE, periodoPreset, type DREFiltro } from "@/core/dre";
@@ -78,19 +79,15 @@ export function useQuantitativo() {
   };
 }
 
-/** Arquitetura institucional + Treasury Core (control plane GAP 6). */
-export function useArquitetura() {
-  const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
-  const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+/** Investor update: mesmo input, roda montarInvestorUpdate. */
+export function useInvestorUpdate() {
+  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
   return {
-    isLoading: acc.isLoading || inp.isLoading,
-    isError: acc.isError || inp.isError,
-    data:
-      acc.data && inp.data
-        ? { arq: arquiteturaInstitucional(), treasury: treasuryCore(acc.data, inp.data) }
-        : undefined,
+    ...q,
+    data: q.data ? montarInvestorUpdate(q.data) : undefined,
   };
 }
+
 
 /** DRE Intelligence Center — recomputa por período (preset) e regime. */
 export function useDRE(
@@ -117,14 +114,17 @@ export function useOperacaoAutonoma() {
   };
 }
 
-/** Financial Data Moat: DNA, benchmark, comportamento, crédito e modelo. */
-export function useMoat() {
-  const q = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+/** Treasury Core: posição consolidada, concentração bancária, liquidez em buckets. */
+export function useTreasuryCore() {
+  const acc = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  const inp = useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
   return {
-    ...q,
-    data: q.data ? analisarMoat(q.data) : undefined,
+    isLoading: acc.isLoading || inp.isLoading,
+    isError: acc.isError || inp.isError,
+    data: acc.data && inp.data ? treasuryCore(acc.data, inp.data) : undefined,
   };
 }
+
 
 /** Decision Engine: feature store → risco → previsão → recomendação → plano. */
 export function useDecisao() {
@@ -191,6 +191,13 @@ export function useOpenMovements(type: MovementType) {
   return useQuery({
     queryKey: ["open-movements", type],
     queryFn: () => getOpenMovements(type),
+  });
+}
+
+export function useMovementsByFilter(type: MovementType, filtro: MovementFilter) {
+  return useQuery({
+    queryKey: ["movements-filter", type, filtro],
+    queryFn: () => getMovementsByFilter(type, filtro),
   });
 }
 

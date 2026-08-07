@@ -35,8 +35,8 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div
           className={cn(
-            "flex items-center gap-2 bg-white rounded-md px-3 h-10 border",
-            invalid ? "border-warning" : "border-border",
+            "flex items-center gap-2 bg-surface-2 rounded-md px-3 h-10 border",
+            invalid ? "border-warning" : "border-transparent",
           )}
         >
           {prefix && (

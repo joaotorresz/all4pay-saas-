@@ -210,7 +210,11 @@ export function montarFluxoCaixa(
     let total = 0;
     for (const m of janela) {
       if (m.type !== tipo) continue;
-      if (tipo === "saida" && (ehInvestimento(m) || ehFinanciamento(m))) continue;
+      // Fora do operacional nos DOIS sentidos: uma ENTRADA de financiamento/
+      // investimento é contada à parte (financiamentos/investimentos). Sem isto,
+      // um empréstimo recebido entrava em entradas.total E em financiamentos —
+      // dobrando no fluxo livre / saldo final.
+      if (ehInvestimento(m) || ehFinanciamento(m)) continue;
       const g = tipo === "entrada" ? grupoEntrada(m) : grupoSaida(m);
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push({ label: nome(input, m), valor: m.amount });
@@ -223,7 +227,7 @@ export function montarFluxoCaixa(
   };
   const entradas = buildGrupos("entrada");
   const saidas = buildGrupos("saida");
-  const investimentos = -janela.filter((m) => m.type === "saida" && ehInvestimento(m)).reduce((s, m) => s + m.amount, 0);
+  const investimentos = janela.filter((m) => ehInvestimento(m)).reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
   const financiamentos = janela.filter((m) => ehFinanciamento(m)).reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
   const operacional = entradas.total - saidas.total;
   const livre = operacional + investimentos + financiamentos;
@@ -276,7 +280,7 @@ export function montarFluxoCaixa(
       passos: [
         { label: "Boleto / título", ok: temPendSaida, detalhe: temPendSaida ? "há contas a pagar em aberto" : "nenhuma conta a pagar pendente" },
         { label: "Nota fiscal", ok: false, detalhe: "vincule a NF na Caixa de Entrada" },
-        { label: "Contrato / recorrência", ok: risco.sazonalidade.indiceMesAtual !== undefined, detalhe: "recorrências detectadas alimentam o previsto" },
+        { label: "Contrato / recorrência", ok: quant.indicadores.receitaRecorrente > 0, detalhe: quant.indicadores.receitaRecorrente > 0 ? `${Math.round(quant.indicadores.receitaRecorrente * 100)}% de receita recorrente` : "sem recorrência detectada" },
         { label: "Fornecedor cadastrado", ok: fornecedores > 0, detalhe: `${fornecedores} fornecedores no cadastro` },
         { label: "Orçamento disponível", ok: saldoAtual > saidasPrevistas, detalhe: saldoAtual > saidasPrevistas ? "saldo cobre as saídas do período" : "saídas acima do saldo — atenção" },
         { label: "Saldo em conta", ok: saldoAtual > 0, detalhe: fmtBRL(saldoAtual) },

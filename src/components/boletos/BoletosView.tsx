@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, BRL, Button, Select, CurrencyInput, Input } from "@/components/ui";
+import { Card, Icon, BRL, Button, Select, CurrencyInput, Input, InfoHint } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { getRecebiveisBoleto, getAccountsList } from "@/lib/data";
@@ -11,6 +11,8 @@ import { useInadimplencia } from "@/components/visao-geral/hooks";
 import { emitirBoleto, marcarPagoBoleto, cancelarBoleto, statusEfetivo, type OpcoesBoleto } from "@/lib/boletos";
 import { isoDay } from "@/lib/aggregations";
 import type { Movement, Party, FinancialAccount, BoletoStatus } from "@/lib/types";
+import { previstoNaJanela, janela, janelaDoMesDe } from "@/core/indicadores";
+import type { RiskInput } from "@/core/risk-engine/types";
 
 const ST: Record<BoletoStatus, { label: string; cor: string }> = {
   gerado: { label: "Gerado", cor: "var(--color-muted)" },
@@ -40,8 +42,12 @@ export function BoletosView() {
   };
 
   const lista = recs.data ?? [];
-  const venceMes = lista.filter((m) => m.status === "pendente" && m.due_date.slice(0, 7) === hoje.slice(0, 7)).reduce((s, m) => s + m.amount, 0);
-  const prox30 = lista.filter((m) => m.status === "pendente" && m.due_date >= hoje && m.due_date <= isoDay(new Date(Date.now() + 30 * 864e5))).reduce((s, m) => s + m.amount, 0);
+  // O que VENCE numa janela é posição em aberto — indicador canônico, não uma
+  // soma local. `previstoNaJanela` marca o número como projeção, que é o que
+  // ele é: dinheiro que ainda não se moveu.
+  const inputBoletos = { hoje, saldoAtual: 0, movements: lista } as unknown as RiskInput;
+  const venceMes = previstoNaJanela(inputBoletos, janelaDoMesDe(hoje)).valor;
+  const prox30 = previstoNaJanela(inputBoletos, janela(hoje, isoDay(new Date(Date.now() + 30 * 864e5)))).valor;
 
   const refresh = async () => { await qc.invalidateQueries(); };
 
@@ -62,19 +68,25 @@ export function BoletosView() {
   };
   const cancelar = async (m: Movement) => { setBusy(m.id); try { await cancelarBoleto(m); await refresh(); show("Boleto cancelado"); } finally { setBusy(null); } };
   const enviar = (m: Movement) => show(`Enviado ao pagador via Cobrança (WhatsApp/e-mail) — ${nomeDe(m)}`); // reusa Cobrança existente
+  const copiarPix = async (m: Movement) => {
+    const code = m.boleto?.pix_copia_cola;
+    if (!code) { show("PIX indisponível — cadastre o CNPJ da empresa em Configurações."); return; }
+    try { await navigator.clipboard.writeText(code); show("PIX copia e cola copiado — pagamento instantâneo"); }
+    catch { show("Não foi possível copiar o PIX automaticamente"); }
+  };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
       {/* Dashboard de cobranças — reusa analisarInadimplencia (aging) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Vence neste mês" v={venceMes} />
-        <Kpi label="Próximos 30 dias" v={prox30} />
-        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" />
-        <Kpi label="Perda esperada" v={inad.data?.resumo.inadimplenciaEsperada ?? 0} tone="var(--color-warning)" />
+        <Kpi label="Vence neste mês" v={venceMes} info={{ titulo: "Vence neste mês", oQue: "Quanto há de boleto a receber com vencimento dentro do mês corrente.", comoCalcula: "Soma dos recebíveis pendentes cujo vencimento cai no mês de hoje." }} />
+        <Kpi label="Próximos 30 dias" v={prox30} info={{ titulo: "Próximos 30 dias", oQue: "Quanto vai vencer no próximo mês — o que está por entrar.", comoCalcula: "Soma dos recebíveis pendentes com vencimento entre hoje e 30 dias à frente." }} />
+        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" info={{ titulo: "Inadimplência (vencido)", oQue: "Quanto já passou do vencimento e ainda não foi pago.", comoCalcula: "Exposição vencida calculada pelo motor de inadimplência sobre os recebíveis em atraso." }} />
+        <Kpi label="Perda esperada" v={inad.data?.resumo.inadimplenciaEsperada ?? 0} tone="var(--color-warning)" info={{ titulo: "Perda esperada", oQue: "Estimativa do quanto da carteira tende a não ser pago.", comoCalcula: "Inadimplência esperada do motor: valor em aberto ponderado pela probabilidade de calote por cliente." }} />
       </div>
 
       {inad.data && inad.data.clientes.length > 0 && (
-        <Card className="flex flex-col gap-2">
+        <Card className="flex flex-col gap-2" info={{ titulo: "Aging — clientes em risco", oQue: "Mostra os clientes com maior risco de atraso e o valor em aberto de cada um.", comoCalcula: "Score e segmento vêm do motor de inadimplência; o valor é o volume em aberto do cliente." }}>
           <span className="text-label font-medium text-muted">Aging — clientes em risco (do motor de inadimplência)</span>
           <div className="flex flex-col gap-1">
             {inad.data.clientes.slice(0, 6).map((c) => (
@@ -91,7 +103,7 @@ export function BoletosView() {
       {/* Recebíveis → boleto */}
       <Card padded={false}>
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink">Recebíveis · boletos</span>
+          <span className="inline-flex items-center text-body font-medium text-ink">Recebíveis · boletos<InfoHint align="left" titulo="Recebíveis · boletos" oQue="Os recebíveis em aberto onde você emite o boleto, copia o PIX, marca pago ou cancela." comoCalcula="Lista os recebíveis pendentes; emitir gera nosso número e linha digitável, e marcar pago concilia e credita o saldo." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.8fr_0.9fr_1.2fr_1.4fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
@@ -119,6 +131,7 @@ export function BoletosView() {
                   {!st && <button disabled={busy === m.id} onClick={() => setEmitindo(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px]">Emitir boleto</button>}
                   {(st === "emitido" || st === "vencido") && <>
                     <button disabled={busy === m.id} onClick={() => pagar(m)} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-2 py-[4px]">Marcar pago</button>
+                    {m.boleto?.pix_copia_cola && <button onClick={() => copiarPix(m)} title="Copiar PIX copia e cola (BR Code)" className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">PIX</button>}
                     <button onClick={() => enviar(m)} className="text-caption font-medium text-ink bg-surface-2 rounded-pill px-2 py-[4px]">Enviar</button>
                     <button onClick={() => cancelar(m)} title="Cancelar" className="inline-flex p-[4px] rounded-md hover:bg-surface-2"><Icon name="x" size={12} color="var(--color-text-tertiary)" /></button>
                   </>}
@@ -129,7 +142,7 @@ export function BoletosView() {
           })}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Boleto próprio: ao marcar pago, concilia automático (não passa pelo /conciliacao) e o saldo sobe. Emissão real do trilho fica como integração PSP (mockada).</span>
+          <span className="text-caption text-faint">O <b className="text-muted font-medium">PIX</b> (copia e cola) é gerado de verdade — BR Code/EMV com a chave da empresa (CNPJ), sem PSP. O trilho do <b className="text-muted font-medium">boleto bancário</b> (linha digitável registrada) depende de integração com o banco emissor/PSP — por ora simulado. Ao marcar pago, concilia automático e o saldo sobe.</span>
         </div>
       </Card>
 
@@ -173,9 +186,9 @@ function EmitirModal({ mov, contas, busy, onClose, onConfirm, nome }: {
   );
 }
 
-function Kpi({ label, v, tone = "var(--color-ink)" }: { label: string; v: number; tone?: string }) {
+function Kpi({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
-    <Card className="flex flex-col gap-1">
+    <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
       <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}><BRL value={v} /></span>
     </Card>

@@ -35,6 +35,8 @@ const SETOR_BASE: Record<string, Bloco[]> = {
   "E-commerce": ["Receita", "Operação", "Despesas", "Saúde financeira", "Inteligência"],
   Saúde: ["Operação", "Saúde financeira", "Receita", "Despesas", "Inteligência"],
   Educação: ["Receita", "Saúde financeira", "Operação", "Despesas", "Inteligência"],
+  // Pessoa Física — controle de gastos: despesas e receita lideram, saúde depois.
+  Pessoal: ["Despesas", "Receita", "Saúde financeira", "Operação", "Inteligência"],
 };
 
 export function useHomeContext(auto: boolean): HomeContext {

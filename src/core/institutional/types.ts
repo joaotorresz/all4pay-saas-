@@ -22,7 +22,21 @@ export type EntityType =
   | "user"
   | "rule"
   | "movement"
-  | "account";
+  | "account"
+  /**
+   * ⚠️ **`state`** — a gravação de um estado da organização (`org_state`), o
+   * evento que o gatilho da migration 0026 emite. Sem um tipo próprio, toda
+   * gravação de orçamento, aprovação ou fechamento entrava na trilha rotulada
+   * como "Lançamento", que é o tipo que o acessor usava por falta de outro: a
+   * auditoria ficaria dizendo que houve um lançamento onde não houve nenhum.
+   */
+  | "state"
+  /**
+   * ⚠️ **`security`** — trocar de organização e verificar o isolamento. São
+   * eventos de SEGURANÇA, e cair no tipo de lançamento os esconderia entre
+   * centenas de movimentos de dinheiro — que é onde ninguém procura por eles.
+   */
+  | "security";
 
 export type AuditAction =
   | "created"

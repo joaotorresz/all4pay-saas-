@@ -3,25 +3,16 @@
 import * as React from "react";
 import { ReceivablesCard } from "./ReceivablesCard";
 import { PayablesCard } from "./PayablesCard";
-import { AccountsCard } from "./AccountsCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
 import { TransactionsCalendar } from "./TransactionsCalendar";
-import { SalesChart } from "./SalesChart";
 import { FirstRunCard } from "./FirstRunCard";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
 import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
-import {
-  SaudeFinanceiraCard,
-  IAInsightsCard,
-  AnomaliasCard,
-  TopClientesCard,
-  MaioresCategoriasCard,
-  UltimosGastosCard,
-  PendenciasCard,
-} from "./HomeCards";
-import { ResumoHojeCard, useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
+import { TransacoesRecentesCard } from "./HomeCards";
+import { useCockpitCtx, CATALOG_BY_ID, type CockpitCtx } from "./cockpit";
 import { UploadWizard } from "@/components/upload/UploadWizard";
+import { JornadaCard } from "@/components/comece/Jornada";
 
 const KEY_VIS = "a4p_home_widgets";
 const KEY_ORD = "a4p_home_order";
@@ -29,19 +20,11 @@ const KEY_AUTO = "a4p_home_auto";
 
 /** Cards "bespoke" (curados) — id → componente + se ocupa a linha inteira. */
 const BESPOKE: Record<string, { node: React.ReactNode; full?: boolean }> = {
-  saude: { node: <SaudeFinanceiraCard />, full: true },
   cashflow: { node: <DailyCashflowChart />, full: true },
   calendar: { node: <TransactionsCalendar />, full: true },
-  accounts: { node: <AccountsCard />, full: true },
   receivables: { node: <ReceivablesCard /> },
   payables: { node: <PayablesCard /> },
-  pendencias: { node: <PendenciasCard /> },
-  sales: { node: <SalesChart />, full: true },
-  topClientes: { node: <TopClientesCard /> },
-  maioresCategorias: { node: <MaioresCategoriasCard /> },
-  ultimosGastos: { node: <UltimosGastosCard /> },
-  iaInsights: { node: <IAInsightsCard /> },
-  anomalias: { node: <AnomaliasCard /> },
+  ultimosGastos: { node: <TransacoesRecentesCard />, full: true },
 };
 const GRUPO_DE = new Map(HOME_WIDGETS.map((w) => [w.id, w.grupo]));
 /** Ordem fixa dentro do bloco Caixa: Fluxo de caixa · Calendário · resto. */
@@ -50,7 +33,6 @@ const caixaRank = (id: string) => { const i = CAIXA_PRIO.indexOf(id); return i <
 
 /** Resolve o nó e a largura de qualquer widget (curado, "Hoje" ou catálogo). */
 function widgetNode(id: string, ctx: CockpitCtx): { node: React.ReactNode; full: boolean } {
-  if (id === "hoje") return { node: <ResumoHojeCard ctx={ctx} />, full: true };
   const b = BESPOKE[id];
   if (b) return { node: b.node, full: !!b.full };
   const cat = CATALOG_BY_ID.get(id);
@@ -97,8 +79,9 @@ export function OverviewGrid() {
   const algumVisivel = HOME_WIDGET_IDS.some(on);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-9">
       <FirstRunCard />
+      <JornadaCard />
 
       {hc.ordemBlocos.map((bloco) => {
         const idsRaw = ordem.filter((id) => GRUPO_DE.get(id) === bloco && on(id));
@@ -120,12 +103,26 @@ export function OverviewGrid() {
               )}
             </div>
             {bloco === "Caixa" ? (
-              // Teste: Fluxo de caixa 70% · Calendário 30% (lado a lado no desktop).
-              <div className="grid grid-cols-1 md:grid-cols-10 gap-5 items-start">
+              // Fluxo de caixa e Calendário lado a lado, mesma largura (simétrico).
+              <div className="grid grid-cols-1 md:grid-cols-10 gap-5 items-stretch">
                 {ids.map((id) => {
                   const w = widgetNode(id, ctx);
-                  const span = id === "cashflow" ? "md:col-span-7" : id === "calendar" ? "md:col-span-3" : "md:col-span-10";
-                  return <div key={id} className={span}>{w.node}</div>;
+                  const span = id === "cashflow" || id === "calendar" ? "md:col-span-5" : "md:col-span-10";
+                  return <div key={id} className={`${span} flex [&>*]:w-full`}>{w.node}</div>;
+                })}
+              </div>
+            ) : bloco === "Operação" ? (
+              // A receber · A pagar · Pendências dividem a MESMA linha em 3 (1/3
+              // cada); Hoje/Saldo·contas ocupam a largura toda.
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+                {ids.map((id) => {
+                  const w = widgetNode(id, ctx);
+                  const trio = id === "receivables" || id === "payables" || id === "pendencias";
+                  return (
+                    <div key={id} className={trio ? "flex [&>*]:w-full" : "md:col-span-3"}>
+                      {w.node}
+                    </div>
+                  );
                 })}
               </div>
             ) : (
@@ -163,15 +160,6 @@ export function OverviewGrid() {
         onClose={() => setDrawer(false)}
       />
 
-      {/* Botão fixo: Upload de dados (abre o wizard aqui, sem navegar) */}
-      <button
-        onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
-        aria-label="Enviar documento para upload de dados"
-        className="fixed bottom-[84px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-lime text-on-lime shadow-popover px-4 py-3 hover:brightness-95 transition"
-      >
-        <Icon name="upload" size={18} color="var(--color-on-lime)" />
-        <span className="text-[15px] font-medium">Upload de dados</span>
-      </button>
 
       <UploadWizard />
     </div>

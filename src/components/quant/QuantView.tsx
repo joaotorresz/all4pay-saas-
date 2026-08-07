@@ -25,6 +25,8 @@ import {
   type IndicadoresFinanceiros,
   type BenchmarkLinha,
 } from "@/core/quant/types";
+import { chartAnim } from "@/lib/chart-anim";
+import { pctDeInteiro } from "@/lib/format";
 
 const COR: Record<ClassificacaoSaude, string> = {
   excelente: "var(--color-positive)",
@@ -62,7 +64,14 @@ export function QuantView() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Score de saúde */}
-      <Card className="lg:col-span-1 flex flex-col gap-4">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-4"
+        info={{
+          titulo: "Score de saúde financeira",
+          oQue: "Uma nota de 0 a 100 para a saúde do negócio, com a tendência e a chance de ruptura em 90 dias.",
+          comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento em um score único.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Score de saúde financeira</span>
         <div className="flex items-end gap-3">
           <span className="text-[62px] leading-none font-medium tabular-nums" style={{ color: COR[score.classificacao] }}>
@@ -93,7 +102,14 @@ export function QuantView() {
       </Card>
 
       {/* Radar executivo */}
-      <Card className="lg:col-span-2 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-2"
+        info={{
+          titulo: "Radar executivo",
+          oQue: "Mostra de relance a empresa em 7 dimensões — quanto mais cheio o radar, mais saudável.",
+          comoCalcula: "Cada dimensão é normalizada de 0 a 100 a partir dos indicadores e desenhada como um eixo do radar.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Radar executivo</span>
         <div role="img" aria-label={`Radar: ${radar.map((d) => `${d.dimensao} ${d.valor}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={240}>
@@ -107,7 +123,14 @@ export function QuantView() {
       </Card>
 
       {/* Narrativa executiva (CFO digital) */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-3"
+        info={{
+          titulo: "CFO digital",
+          oQue: "Lê os números do negócio e explica em texto, como faria um CFO, o que está bom, o que preocupa e o que priorizar.",
+          comoCalcula: "A IA financeira interpreta os indicadores e o score de forma determinística e monta a leitura executiva.",
+        }}
+      >
         <div className="flex items-center gap-2">
           <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
             <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
@@ -118,7 +141,14 @@ export function QuantView() {
       </Card>
 
       {/* KPIs institucionais */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-3"
+        info={{
+          titulo: "Indicadores institucionais",
+          oQue: "O painel de KPIs do negócio: liquidez, runway, burn, margens, crescimento, ticket, inadimplência e mais.",
+          comoCalcula: "Cada indicador é calculado a partir dos lançamentos e da série mensal, no padrão usado por análise financeira institucional.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Indicadores institucionais</span>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-x-5 gap-y-4">
           <Kpi label="Liquidez corrente" value={liq(i.liquidezCorrente)} />
@@ -141,7 +171,14 @@ export function QuantView() {
       </Card>
 
       {/* Score temporal */}
-      <Card className="lg:col-span-2 flex flex-col gap-2">
+      <Card
+        className="lg:col-span-2 flex flex-col gap-2"
+        info={{
+          titulo: "Evolução do score",
+          oQue: "Acompanha como o score de saúde se moveu mês a mês, para ver se a empresa está melhorando ou piorando.",
+          comoCalcula: "O score de saúde é recalculado para cada mês da série e desenhado ao longo do tempo.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Evolução do score</span>
         <div role="img" aria-label={`Evolução do score: ${scoreTemporal.map((m) => `${m.label} ${m.score}`).join(", ")}`}>
           <ResponsiveContainer width="100%" height={200}>
@@ -167,7 +204,7 @@ export function QuantView() {
                   ) : null
                 }
               />
-              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" isAnimationActive={false} />
+              <Area type="monotone" dataKey="score" stroke="none" fill="url(#quantGlow)" {...chartAnim()} />
               <Line type="monotone" dataKey="score" stroke="var(--color-chart-line)" strokeWidth={1.4} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -175,7 +212,14 @@ export function QuantView() {
       </Card>
 
       {/* Cenários preditivos */}
-      <Card className="lg:col-span-1 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-1 flex flex-col gap-3"
+        info={{
+          titulo: "Score preditivo · cenários",
+          oQue: "Mostra como o score ficaria sob choques de receita, despesa ou inadimplência, e em quanto tempo.",
+          comoCalcula: "Cada cenário aplica o choque sobre os indicadores e recalcula o score projetado, exibindo a variação.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Score preditivo · cenários</span>
         {cenarios.map((c) => (
           <div key={c.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
@@ -191,7 +235,14 @@ export function QuantView() {
       </Card>
 
       {/* Benchmark setorial */}
-      <Card className="lg:col-span-3 flex flex-col gap-3">
+      <Card
+        className="lg:col-span-3 flex flex-col gap-3"
+        info={{
+          titulo: "Benchmark setorial",
+          oQue: "Compara seus números (margem, eficiência, inadimplência, crescimento) com a mediana do setor.",
+          comoCalcula: "Cada métrica da empresa é confrontada com a referência setorial e marcada como acima ou abaixo da média.",
+        }}
+      >
         <span className="text-label font-medium text-muted">Benchmark setorial</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {benchmark.map((b) => (
@@ -228,7 +279,7 @@ function Kpi({ label, value, tone = "var(--color-ink)" }: { label: string; value
 }
 
 function benchFmt(v: number, u: BenchmarkLinha["unidade"]) {
-  return u === "pct" ? `${(v * 100).toFixed(0)}%` : u === "x" ? `${v.toFixed(1)}x` : v.toFixed(1);
+  return u === "pct" ? `${pctDeInteiro((v * 100))}` : u === "x" ? `${v.toFixed(1)}x` : v.toFixed(1);
 }
 
 function BenchCard({ b }: { b: BenchmarkLinha }) {

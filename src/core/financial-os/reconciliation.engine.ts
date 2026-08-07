@@ -17,8 +17,9 @@ const simValor = (a: number, b: number) =>
   a === 0 && b === 0 ? 1 : 1 - Math.min(1, Math.abs(a - b) / Math.max(a, b));
 
 const simData = (a: string, b: string) => {
-  const dias = Math.abs((+new Date(a) - +new Date(b)) / 86_400_000);
-  return Math.max(0, 1 - dias / 15); // tolera até ~15 dias
+  const ms = +new Date(a) - +new Date(b);
+  if (!Number.isFinite(ms)) return 0; // data ausente/inválida não deve virar NaN no confidence
+  return Math.max(0, 1 - Math.abs(ms) / 86_400_000 / 15); // tolera até ~15 dias
 };
 
 const simTexto = (a?: string, b?: string) => {
@@ -84,8 +85,19 @@ export function reconciliarAutomaticamente(
     })
     .sort((a, b) => (b.best?.confidence ?? 0) - (a.best?.confidence ?? 0));
 
-  for (const { tx, best } of candidatos) {
-    if (best && !usados.has(best.ledger.id)) {
+  for (const { tx } of candidatos) {
+    // Recomputa o melhor entre os lançamentos AINDA não usados: o pré-cálculo
+    // serviu só para ordenar (o par globalmente mais forte casa primeiro). Se o
+    // melhor global de tx já foi consumido por outra transação, tx ainda pode
+    // casar com o melhor disponível — sem isso um match único válido cairia
+    // direto para a fila manual só por colisão de "melhor par".
+    let best: { ledger: FinancialTransaction; confidence: number; breakdown: MatchBreakdown } | null = null;
+    for (const lg of ledger) {
+      if (lg.tipo !== tx.tipo || usados.has(lg.id)) continue;
+      const { confidence, breakdown } = pontuarMatch(tx, lg);
+      if (!best || confidence > best.confidence) best = { ledger: lg, confidence, breakdown };
+    }
+    if (best) {
       usados.add(best.ledger.id);
       results.push({
         transacao: tx,

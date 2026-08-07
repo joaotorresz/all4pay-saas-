@@ -10,6 +10,7 @@ import { isoDay } from "@/lib/aggregations";
 import { liquidarImported } from "@/lib/imported";
 import { FinancialPlatform } from "@/core/platform";
 import type { Movement } from "@/lib/types";
+import { TETO_LINHAS } from "@/lib/supabase/consulta";
 
 export type MetodoPagamento = "pix" | "ted" | "boleto" | "of";
 
@@ -67,17 +68,25 @@ export async function pagarLote(
       liquidados = out.liquidados; total = out.total;
     } else {
       const supabase = createClient();
-      const { error } = await supabase
+      // Idempotência no BD (espelha o demo): só liquida o que AINDA está pendente
+      // e debita pelo que efetivamente virou pago. Sem o gate `.eq(status,pendente)`,
+      // reenviar um título já pago (fila idempotente em memória zera entre
+      // instâncias serverless) debitaria o saldo de novo — pagamento em dobro.
+      const { data: flipped, error } = await supabase
         .from("movements")
         .update({ status: "pago", paid_date: hoje, reconciled: true })
-        .in("id", ids);
-      if (!error) {
-        liquidados = ids.length;
-        total = novos.reduce((s, n) => s + n.amount, 0);
-        // debita o saldo da conta de saída
-        const { data } = await supabase.from("financial_accounts").select("balance").eq("id", accountId).single();
-        const saldo = data ? Number((data as { balance: number }).balance) : null;
-        if (saldo != null) await supabase.from("financial_accounts").update({ balance: Math.round((saldo - total) * 100) / 100 }).eq("id", accountId);
+        .in("id", ids)
+        .eq("status", "pendente")
+        .select("amount").limit(TETO_LINHAS);
+      if (!error && flipped) {
+        liquidados = flipped.length;
+        total = flipped.reduce((s, m) => s + Number((m as { amount: number }).amount), 0);
+        // debita o saldo da conta de saída (só o que de fato liquidou agora)
+        if (total > 0) {
+          const { data } = await supabase.from("financial_accounts").select("balance").eq("id", accountId).single();
+          const saldo = data ? Number((data as { balance: number }).balance) : null;
+          if (saldo != null) await supabase.from("financial_accounts").update({ balance: Math.round((saldo - total) * 100) / 100 }).eq("id", accountId);
+        }
       }
     }
   }
