@@ -140,7 +140,12 @@ export const SECTIONS: Section[] = [
     id: "cadastros", label: "Cadastros", icon: "database", items: [
       { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users" },
       { label: "Fornecedores", href: "/dashboard/registrations/suppliers", icon: "building" },
-      { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "b" },
+      // ⚠️ Era `icon: "b"` — não é nome de ícone, é uma CHAVE da estrutura de
+      // dados do conjunto (`{ b, w, h }`), colhida por engano ao montar a
+      // lista. Passou despercebido porque a lateral não desenhava o ícone dos
+      // itens; com a navegação em dois níveis ela desenha, e a linha aparecia
+      // sem glifo nenhum ao lado das outras sete.
+      { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "shopping-cart" },
       { label: "Contas bancárias", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
       { label: "Plano de contas", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
       { label: "Centros de custo", href: "/dashboard/registrations/cost-centers", icon: "network" },
@@ -228,6 +233,27 @@ export function leafAtivo(href: string | undefined, pathname: string): boolean {
   if (href === "/") return pathname === "/";
   const base = href.split("?")[0];
   return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * O grupo que responde pela rota atual.
+ *
+ * ⚠️ Isto é UMA função porque a navegação passou a ter DUAS superfícies: a
+ * barra horizontal (que grupo está ativo) e a lateral (quais itens mostrar).
+ * Cada uma derivando o grupo por conta própria é a receita para a barra
+ * destacar "Relatórios" enquanto a lateral lista Cadastros — e o usuário não
+ * tem como saber qual das duas está certa. As duas chamam daqui.
+ *
+ * Devolve `null` quando a rota não pertence a grupo nenhum (as telas de
+ * `ACOES_GLOBAIS`, que têm porta própria): aí nenhuma aba fica marcada, que é
+ * a verdade — você não está em nenhum grupo.
+ */
+export function grupoDaRota(sections: Section[], pathname: string): Section | null {
+  return (
+    sections.find(
+      (s) => (s.href && leafAtivo(s.href, pathname)) || s.items.some((i) => leafAtivo(i.href, pathname)),
+    ) ?? null
+  );
 }
 
 /**

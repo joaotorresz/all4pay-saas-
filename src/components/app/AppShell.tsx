@@ -11,6 +11,7 @@ import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { TopBar } from "@/components/app/TopBar";
+import { NavHorizontal } from "@/components/app/NavHorizontal";
 import { CriarNovo } from "@/components/app/CriarNovo";
 
 /**
@@ -90,6 +91,9 @@ export function AppShell({
     // fundo agora vem do token da moldura, e a utility venceria a regra do CSS.
     <div className="a4p-canvas fixed inset-0 flex flex-col overflow-hidden">
       <TopBar />
+      {/* Segunda linha da moldura: os GRUPOS. A lateral, abaixo, lista os itens
+          do grupo ativo — os dois níveis da mesma árvore, um por superfície. */}
+      <NavHorizontal />
       {/* Margens do cartão == padding da TopBar (`px-4 lg:px-6`): a marca e a
           borda esquerda do cartão caem na MESMA vertical. Com 12 aqui e 16 lá
           a moldura ficava com dois alinhamentos, que é o tipo de desencontro

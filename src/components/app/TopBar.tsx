@@ -23,7 +23,8 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { grupoDaRota, useNavSections } from "@/components/dashboard/nav-data";
 import { Avatar, Icon } from "@/components/ui";
 import { useTheme } from "@/components/app/ThemeToggle";
 import { isDemo } from "@/lib/demo";
@@ -34,7 +35,12 @@ const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export function TopBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { dark, toggle } = useTheme();
+  const { sections } = useNavSections();
+  // Mesma função que a barra horizontal e a lateral usam — as três não podem
+  // discordar sobre em que grupo você está.
+  const temLateral = (grupoDaRota(sections, pathname)?.items.length ?? 0) > 0;
   const [naoLidos, setNaoLidos] = React.useState(0);
   const [menu, setMenu] = React.useState(false);
   const [usuario, setUsuario] = React.useState<{ nome: string; email: string } | null>(null);
@@ -73,15 +79,20 @@ export function TopBar() {
 
   return (
     <header className="shrink-0 flex items-center gap-3 h-[68px] px-4 lg:px-6 a4p-topbar">
-      <button
-        onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
-        aria-label="Abrir menu"
-        data-topbar="hamburguer"
-        className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md shrink-0"
-        style={{ color: "var(--a4p-chrome-mut)" }}
-      >
-        <Icon name="menu" size={19} color="currentColor" />
-      </button>
+      {/* ⚠️ Só existe quando HÁ gaveta. O grupo ativo pode não ter itens (o
+          Início é folha) e aí a lateral não é renderizada — um hambúrguer ali
+          seria um botão que abre o nada, que é pior que botão nenhum. */}
+      {temLateral && (
+        <button
+          onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
+          aria-label="Abrir menu"
+          data-topbar="hamburguer"
+          className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md shrink-0"
+          style={{ color: "var(--a4p-chrome-mut)" }}
+        >
+          <Icon name="menu" size={19} color="currentColor" />
+        </button>
+      )}
 
       <Link href="/" aria-label="Início" data-topbar="marca" className="flex items-center gap-3 shrink-0">
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
