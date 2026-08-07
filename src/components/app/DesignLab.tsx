@@ -28,15 +28,20 @@ const KEY = "a4p_designlab";
 const STYLE_ID = "a4p-designlab-style";
 
 /* ============================== FONTES ============================== */
+/*
+ * ⚠️ Hanken Grotesk, Schibsted Grotesk e Geist Mono SAÍRAM da lista junto com
+ * os pacotes Fontsource que as carregavam. Uma candidata que não carrega é um
+ * controle quebrado: quem a escolhesse veria o fallback do sistema e concluiria
+ * que o Laboratório não funciona. Se um dia voltarem, o import no layout tem de
+ * voltar junto.
+ */
 const FONTS: { id: string; label: string; stack: string }[] = [
   { id: "", label: "— herdar —", stack: "" },
-  { id: "hanken", label: "Hanken Grotesk", stack: '"Hanken Grotesk Variable","Hanken Grotesk",sans-serif' },
   { id: "roobert", label: "Roobert", stack: '"Roobert",sans-serif' },
   { id: "roobert-vf", label: "Roobert Variable", stack: '"Roobert Variable","Roobert",sans-serif' },
   { id: "roobert-semimono", label: "Roobert Semi Mono", stack: '"Roobert Semi Mono",ui-monospace,monospace' },
   { id: "roobert-mono", label: "Roobert Mono", stack: '"Roobert Mono",ui-monospace,monospace' },
   { id: "boldonse", label: "Boldonse", stack: '"Boldonse",sans-serif' },
-  { id: "schibsted", label: "Schibsted Grotesk", stack: '"Schibsted Grotesk Variable",sans-serif' },
   // ⚠️ Corte único (Semibold, 600) e SEM `tnum` — o arquivo só traz `aalt` e
   // `liga`. Serve para avaliar texto; nos valores as colunas não alinham, que é
   // justamente o que o `tabular-nums` do sistema existe para garantir.
@@ -45,7 +50,6 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   // acentos pt-BR. ⚠️ Dígitos PROPORCIONAIS (nove larguras; o `1` mede metade
   // do `0`) e sem `tnum` — em coluna de valores não alinha. Vale para texto.
   { id: "obviously", label: "Obviously Narrow Bold", stack: '"Obviously Narrow",sans-serif' },
-  { id: "geist", label: "Geist Mono", stack: '"Geist Mono Variable",ui-monospace,monospace' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
 const FONTS_GLOBAL = FONTS.filter((f) => f.id);
@@ -286,7 +290,9 @@ const DEFAULT_CORES: Record<string, string> = {
   positive: "#2cd662", negative: "#d62c2c", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
-  font: "hanken", numMesmaFonte: false, tracking: -1,
+  // Espelha o sistema: Roobert Trial. Deixar "hanken" aqui faria o Laboratório
+  // repintar o app com uma fonte que nem é mais carregada.
+  font: "roobert", numMesmaFonte: false, tracking: -1,
   cores: { ...DEFAULT_CORES }, selecoes: [], padroes: {},
 };
 

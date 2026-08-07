@@ -2937,13 +2937,60 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
   browser escolhe o arquivo pela faixa). A **variável** (`roobert-variable.ttf`)
   entra numa família própria, **`Roobert Variable`**, para não competir com os
   estáticos; serve para testar pesos intermediários no Laboratório.
-- Fontes (DS Ledger): **Schibsted Grotesk Variable** (UI) + **Geist Mono
-  Variable** (valores) — importadas no `layout.tsx` via **Fontsource** (npm,
-  self-hosted, sem fetch externo) e definidas como `sans`/`mono` no Tailwind.
-  Títulos 600 · corpo 400/500 · heróis mono 600. DM Sans/Roobert/Onest/Roc
-  aposentadas (arquivos antigos seguem em `src/app/fonts/` sem uso). O `AppShell`
-  aplica `scopeClassName="ds-visor"` por padrão (paleta clara via
-  `html:not(.dark) .ds-visor` — o **dark mode é preservado**).
+- ⚠️ **ROOBERT TRIAL É A ÚNICA FONTE DO SISTEMA.** `sans` = `Roobert`,
+  `mono` = **`Roobert Mono`**. Hanken Grotesk, Schibsted Grotesk e Geist Mono
+  foram removidas (os pacotes Fontsource saíram do `layout.tsx`: nenhuma regra
+  os pedia, e mantê-los baixava três famílias que ninguém renderiza).
+  - `mono` é Roobert **Mono**, não uma monoespaçada de outra família: os valores
+    precisam de largura fixa para as colunas alinharem. Roobert Mono resolve as
+    duas exigências — é monoespaçada E é Roobert.
+  - ⚠️ Ao trocar a fonte, **MEÇA no navegador**. A troca por token deixou
+    "Obviously Narrow" renderizando no H1: ela não era só candidata do
+    Laboratório — CINCO regras posicionais com `!important` (promovidas do Lab,
+    perto do fim do `globals.css`) a aplicavam ao herói, ao título de card e ao
+    H1. Nenhuma busca por `font-family` no componente acharia isso.
+  - Knocky e Obviously Narrow seguem em `@font-face` como candidatas **só do
+    Laboratório**: nenhuma regra do produto as usa, então não são baixadas.
+  - O `AppShell` aplica `scopeClassName="ds-visor"` por padrão (paleta clara via
+    `html:not(.dark) .ds-visor` — o **dark mode é preservado**).
+
+### ⚠️ PUBLICAR: a produção NÃO sai do `main`
+
+**A Vercel publica de `claude/epic-fermi-i423xk`.** Isto foi medido, não
+suposto: três merges entraram no `main` num mesmo dia (PRs #1, #45 e #46) e
+NENHUM gerou build de produção — o hash do CSS servido não mudou. Empurrar o
+mesmo conteúdo para a `epic-fermi` disparou o build em minutos.
+
+**O fluxo padrão de toda publicação**, na ordem:
+
+1. PR → `main`, com CI verde;
+2. merge no `main`;
+3. `git merge origin/main` para dentro de `claude/epic-fermi-i423xk` e push —
+   **é este passo que publica**;
+4. conferir em produção que o **hash do CSS mudou** e que o marcador da
+   mudança aparece no arquivo servido. Hash igual = build não saiu.
+
+⚠️ Merge, nunca force-push: a `epic-fermi` tem MAIS DE UM ESCRITOR (outra
+sessão commitou nela no meio desta), e ela carrega commits que o `main` não
+tem.
+
+⚠️ **O conserto de verdade é na Vercel** — Settings → Git → Production Branch
+para `main`. Enquanto isso não for feito, todo merge no `main` para no meio do
+caminho, e o passo 3 é obrigatório. Um passo manual que "todo mundo sabe" é o
+passo que alguém esquece.
+
+**Conferir a publicação, na prática:**
+
+```bash
+curl -s https://all4pay-saas.vercel.app/login | grep -o '/_next/static/css/[^"]*'
+# pegue o bundle grande e procure o marcador da sua mudança:
+curl -s "https://all4pay-saas.vercel.app/_next/static/css/<hash>.css" | grep -c "<seu-token>"
+```
+
+⚠️ **A tela de login não mostra o app.** `/` responde **307** para `/login`
+quando não há sessão, e o login é uma tela pública — a moldura escura aparece,
+mas menu, abas e cards só depois de entrar. Conferir "no olho" pelo login leva
+à conclusão errada de que nada mudou.
 
 ### Commands
 
