@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { MARCA } from "@/core/marca";
 
 export const metadata = { title: `Página não encontrada · ${MARCA}` };
@@ -26,7 +27,8 @@ export const metadata = { title: `Página não encontrada · ${MARCA}` };
  */
 export default function NaoEncontrada() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 bg-surface-1">
+    <MolduraPublica>
+      <main className="min-h-full flex items-center justify-center px-6 py-12">
       <div className="flex flex-col items-start gap-5 max-w-[520px]">
         <span className="text-caption uppercase tracking-[0.08em] text-faint">{MARCA}</span>
 
@@ -58,6 +60,7 @@ export default function NaoEncontrada() {
           </Link>
         </div>
       </div>
-    </main>
+      </main>
+    </MolduraPublica>
   );
 }
