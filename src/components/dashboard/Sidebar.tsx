@@ -193,7 +193,10 @@ export function Sidebar() {
           "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:static lg:translate-x-0 lg:shrink-0 lg:my-0 lg:ml-3 lg:mb-3 lg:h-[calc(100%-12px)]",
+          // Dentro do cartão do app (`.a4p-app-card`, raio 28 + overflow
+          // hidden): sem a margem no TOPO o canto arredondado do cartão
+          // recortava o canto do menu, e o cartão parecia mal desenhado.
+          "lg:static lg:translate-x-0 lg:shrink-0 lg:mt-3 lg:ml-3 lg:mb-3 lg:h-[calc(100%-24px)]",
           // A transição de largura sai durante o arrasto: com ela, a barra
           // persegue o ponteiro com atraso e o gesto parece travado.
           arrastando ? "" : "lg:transition-[width]",

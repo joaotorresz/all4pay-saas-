@@ -1,19 +1,24 @@
 "use client";
 
 /**
- * Barra superior do app — no modelo da referência.
+ * Barra superior do app — a MOLDURA ESCURA (referência Sphere UI).
  *
- * Marca à esquerda e, à direita, TRÊS ícones limpos: configurações, sino e o
- * "mais" (⋮). Nada mais.
+ * Marca à esquerda · busca ao centro · ações e conta à direita, tudo sobre o
+ * fundo near-black do `.a4p-canvas`. O app fica num cartão claro arredondado
+ * por baixo desta barra.
  *
- * ⚠️ O resto das ações globais (busca, tema, perfil, sair) mora dentro do ⋮.
- * Uma barra com sete controles disputa atenção com o conteúdo — e o conteúdo é
- * a razão da tela existir. Aqui em cima ficam só os três destinos que se usa
- * de qualquer lugar; o quarto clique é aceitável para o que se usa uma vez por
- * semana.
+ * ⚠️ As cores NÃO saem dos tokens de tema (`ink`/`muted`): elas vêm de
+ * `--a4p-chrome-*`, que valem igual no claro e no escuro. A barra é escura nos
+ * dois temas, então `text-ink` aqui daria texto quase preto sobre fundo quase
+ * preto no tema claro.
  *
- * A marca subiu da Sidebar porque, presa no cartão do menu, ela encolhia junto
- * e sumia ao recolher.
+ * ⚠️ A busca voltou para a barra, revertendo a decisão anterior de deixar só o
+ * ⌘K. Ela é o elemento que mais define a referência — mas continua sendo UMA
+ * busca só: o campo aqui é um BOTÃO que abre a mesma command palette. Um
+ * segundo campo de busca de verdade divergiria do primeiro no dia em que
+ * alguém mexesse num dos dois.
+ *
+ * O resto das ações globais (tema, perfil, sair) segue dentro do ⋮.
  */
 import * as React from "react";
 import Image from "next/image";
@@ -67,27 +72,44 @@ export function TopBar() {
   const email = isDemo ? "modo demonstração" : (usuario?.email ?? "");
 
   return (
-    // Mesma superfície, mesmo raio e o MESMO hairline do cartão da Home (ver
-    // `.a4p-sidebar, .a4p-topbar` em globals.css): as peças de chrome do app
-    // leem como o material do conteúdo, não como ilhas de outro sistema.
-    <header className="shrink-0 flex items-center gap-2 h-[60px] mx-3 mt-3 px-3 lg:px-4 rounded-[20px] bg-white border a4p-topbar">
+    <header className="shrink-0 flex items-center gap-3 h-[68px] px-4 lg:px-6 a4p-topbar">
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:toggle-nav"))}
         aria-label="Abrir menu"
         data-topbar="hamburguer"
-        className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md text-muted hover:bg-surface-2"
+        className="lg:hidden inline-flex items-center justify-center w-9 h-9 rounded-md shrink-0"
+        style={{ color: "var(--a4p-chrome-mut)" }}
       >
         <Icon name="menu" size={19} color="currentColor" />
       </button>
 
-      <Link href="/" aria-label="Início" data-topbar="marca" className="inline-flex items-center shrink-0">
-        {/* Marca 20% maior que os 22px originais (a barra subiu para 60px para
-            acomodá-la sem apertar os ícones). */}
-        <Image src="/all4pay-dark.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto dark:hidden" priority />
-        <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto hidden dark:block" priority />
+      <Link href="/" aria-label="Início" data-topbar="marca" className="flex items-center gap-3 shrink-0">
+        {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
+            versão escura sumiria no claro — o inverso do que fazia antes. */}
+        <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto" priority />
+        {isDemo && (
+          <span className="hidden sm:block text-[11px] leading-none" style={{ color: "var(--a4p-chrome-mut)" }}>
+            Demonstração
+          </span>
+        )}
       </Link>
 
-      <div className="flex-1" />
+      {/* Busca: campo por fora, BOTÃO por dentro — abre a command palette. */}
+      <button
+        onClick={() => window.dispatchEvent(new Event("a4p:open-search"))}
+        data-topbar="busca"
+        aria-label="Buscar (⌘K)"
+        className="hidden md:flex flex-1 max-w-[620px] mx-auto items-center gap-3 h-11 px-4 rounded-pill transition-colors text-left"
+        style={{ background: "var(--a4p-chrome-field)", color: "var(--a4p-chrome-mut)" }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--a4p-chrome-field-hover)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = "var(--a4p-chrome-field)"; }}
+      >
+        <Icon name="search" size={18} color="currentColor" />
+        <span className="flex-1 text-label">Buscar…</span>
+        <kbd className="text-[11px] font-medium tabular-nums">⌘K</kbd>
+      </button>
+
+      <div className="flex-1 md:hidden" />
 
       <AcaoTopo icone="settings" rotulo="Configurações" onClick={() => router.push("/dashboard/administration")} />
       <AcaoTopo
@@ -101,12 +123,26 @@ export function TopBar() {
       />
 
       <div ref={ref} className="relative">
-        <AcaoTopo
-          icone="more-vertical"
-          rotulo="Mais"
+        {/* Bloco da conta: avatar + nome + chevron, no molde da referência. Em
+            telas estreitas sobra só o avatar — nome e e-mail seriam os
+            primeiros a virar reticências. */}
+        <button
           onClick={() => setMenu((m) => !m)}
-          ativo={menu}
-        />
+          data-topbar="conta"
+          aria-label="Conta e mais opções"
+          aria-expanded={menu}
+          className="flex items-center gap-2.5 h-11 pl-1.5 pr-2 sm:pr-3 rounded-pill transition-colors"
+          style={{ background: menu ? "var(--a4p-chrome-field-hover)" : "var(--a4p-chrome-field)" }}
+        >
+          <Avatar name={nome} size={32} />
+          <span className="hidden sm:flex flex-col items-start min-w-0 max-w-[150px]">
+            <span className="text-[13px] font-medium leading-tight truncate w-full" style={{ color: "var(--a4p-chrome-ink)" }}>{nome}</span>
+            <span className="text-[11px] leading-tight truncate w-full" style={{ color: "var(--a4p-chrome-mut)" }}>{email}</span>
+          </span>
+          <span style={{ color: "var(--a4p-chrome-mut)" }} className="shrink-0">
+            <Icon name="chevron-down" size={16} color="currentColor" />
+          </span>
+        </button>
 
         {menu && (
           <div data-topbar="menu" className="absolute right-0 mt-2 z-[60] w-[248px] rounded-card bg-white border border-border-soft overflow-hidden">
@@ -159,15 +195,22 @@ function AcaoTopo({
       // está na tela em desktop. Mesmo padrão do `data-ia` do chat.
       data-topbar="acao"
       className={cn(
-        "relative inline-flex items-center justify-center w-9 h-9 rounded-pill transition-colors",
-        ativo ? "bg-surface-2 text-ink" : "text-ink/70 hover:text-ink hover:bg-surface-2",
+        "relative inline-flex items-center justify-center w-11 h-11 rounded-pill transition-colors shrink-0",
       )}
+      style={{
+        background: ativo ? "var(--a4p-chrome-field-hover)" : "var(--a4p-chrome-field)",
+        color: "var(--a4p-chrome-ink)",
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--a4p-chrome-field-hover)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = ativo ? "var(--a4p-chrome-field-hover)" : "var(--a4p-chrome-field)"; }}
     >
       <Icon name={icone} size={19} color="currentColor" />
       {ponto && (
         <span
-          className="absolute top-[7px] right-[8px] w-[7px] h-[7px] rounded-pill"
-          style={{ background: "var(--color-warning)", boxShadow: "0 0 0 2px var(--color-surface-1)" }}
+          className="absolute top-[9px] right-[10px] w-[7px] h-[7px] rounded-pill"
+          // O anel agora é da MOLDURA, não do canvas claro: o ponto vive sobre
+          // o chip escuro, e um anel claro em volta dele viraria um alvo.
+          style={{ background: "var(--color-warning)", boxShadow: "0 0 0 2px var(--a4p-chrome-field)" }}
         />
       )}
     </button>
