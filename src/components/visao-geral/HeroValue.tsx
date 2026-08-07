@@ -57,7 +57,7 @@ export function HeroValue({
           integerWeight={500}
           prefixSize={size}
           prefixWeight={500}
-          prefixColor="#000000"
+          prefixColor="var(--color-ink)"
           color={color}
         />
         {srValue && <VisuallyHidden>{srValue}</VisuallyHidden>}
