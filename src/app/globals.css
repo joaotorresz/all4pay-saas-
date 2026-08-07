@@ -127,7 +127,7 @@
 :root {
   /* Neutrals — paleta Visor Finance (light); o dark continua em html.dark */
   --color-black-pure: #000000;
-  --color-ink: #0e131e; /* text-strong do Visor */
+  --color-ink: #1a1a1a; /* texto preto do produto */
   --color-ink-soft: #0e131e;
   --color-white: #ffffff;
   --color-surface-1: #f6f7f9; /* canvas do Visor */
@@ -156,11 +156,16 @@
   --a4p-chrome-mut: #9aa0a6;    /* secundário sobre a moldura */
   --a4p-chrome-field: #1b1f26;  /* busca e botões de ícone */
   --a4p-chrome-field-hover: #232830;
-  --a4p-app-bg: #f7f6ef;        /* interior do cartão = canvas quente do ds-visor */
+  /* Fundo da área onde ficam os cards (o interior do cartão do app).
+     ⚠️ O valor pedido veio como `#FBFCFP` — `P` não é dígito hexadecimal, e o
+     CSS descarta a declaração inteira em silêncio (foi o mesmo tipo de erro do
+     `##F1F3F5` no hairline). Adotado `#FBFCFD`, que completa a sequência
+     FB·FC·FD; se a intenção era outra, é UMA casa que muda. */
+  --a4p-app-bg: #fbfcfd;
   --a4p-app-radius: 28px;
 
-  --color-text-secondary: #5b5b5b; /* muted / corpo */
-  --color-text-tertiary: #8a8a8a; /* faint / legendas */
+  --color-text-secondary: #6a7282; /* cinza do produto */
+  --color-text-tertiary: #6a7282; /* cinza do produto */
   --color-text-quaternary: #bbbcbd; /* placeholder */
 
   /* Accent — lima assinatura All4Pay */
@@ -186,8 +191,8 @@
 
   /* Status — semânticas do Visor (verde/vermelho vivos) */
   --color-warning: #f45900;
-  --color-positive: #28aa00;
-  --color-negative: #d9000a;
+  --color-positive: #2cd662;
+  --color-negative: #d62c2c;
 
   /* Radii / shadows (for inline + SVG use) */
   --radius-card: 16px;
@@ -467,10 +472,10 @@ html:not(.dark) .ds-visor {
   --color-surface-2: #f3f1ee;      /* seção / hover suave (warm) */
   --color-surface-3: #e9e6df;
   --color-white: #ffffff;
-  --color-ink: #11190c;            /* títulos/valores */
+  --color-ink: #1a1a1a;            /* texto preto do produto */
   --color-ink-soft: #2a3320;       /* hover de ink */
-  --color-text-secondary: #3f4a38; /* corpo */
-  --color-text-tertiary: #6b7280;  /* legendas / secundário */
+  --color-text-secondary: #6a7282; /* cinza do produto */
+  --color-text-tertiary: #6a7282;  /* cinza do produto */
   /* ⚠️ ONDA 12 — ERA #a8a595 e REPROVAVA em contraste: 2,20:1 sobre o canvas e
      2,48:1 sobre branco, contra os 4,5:1 que a norma pede. Não é detalhe de
      tela: este token pinta o prefixo "R$" e os CENTAVOS de todo valor do
@@ -513,9 +518,9 @@ html:not(.dark) .ds-visor {
      lançamento —, e a 1,24:1 o positivo é praticamente ilegível sobre o fundo
      claro. Se um dia isto voltar à família dessaturada, o valor anterior era
      positive #367b4e · negative #be463c. */
-  --color-positive: #4dff00;
+  --color-positive: #2cd662;
   --color-warning: #a45c15;
-  --color-negative: #ff1500;
+  --color-negative: #d62c2c;
 }
 /* Hanken Grotesk (fonte de marca All4Pay) em TODO o conteúdo — vence o
    `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
@@ -587,6 +592,34 @@ html:not(.dark) .ds-visor {
   font-weight: 400;
   letter-spacing: -0.02em;
   color: var(--color-ink);
+}
+
+/* ============================================================
+   TÍTULO DE CARD — Roobert Trial 15/500, tracking −0.5px, cinza.
+   ------------------------------------------------------------
+   Regra por PAPEL (título dentro de um card), não por posição: o
+   `WidgetHeader` renderiza `<h2 class="text-h3">`, e outros cards usam
+   `.text-h2`/`h3` direto. Alcançar os quatro casos com um seletor de
+   descendência é o que faz a mudança valer nos ~94 widgets sem editar
+   nenhum deles — e é o oposto das regras `nth-of-type` do Laboratório,
+   que quebram quando alguém reordena a tela.
+
+   ⚠️ Precisa vir DEPOIS dos blocos acima (que põem 600/17px/ink nos
+   títulos), senão eles vencem pela ordem do cascade — foi exatamente o
+   que já aconteceu com o H2 e está documentado no comentário dele.
+
+   O tracking pedido é −0.5px (absoluto), não em `em`: em 15px daria
+   −0.033em, e escrever em px é o que mantém o valor igual ao pedido se
+   alguém mudar o tamanho depois. */
+.ds-visor [data-card="1"] h2,
+.ds-visor [data-card="1"] h3,
+.ds-visor [data-card="1"] .text-h2,
+.ds-visor [data-card="1"] .text-h3 {
+  font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  color: var(--color-text-secondary);
 }
 
 /* títulos de card calmos (~18px) */
@@ -727,6 +760,79 @@ html:not(.dark) .ds-visor {
    escuro, então herda a cor de lá e não pinta nada por conta própria. */
 .a4p-nav-h {
   color: var(--a4p-chrome-mut);
+}
+
+/* ============================================================
+   LIQUID GLASS — o fundo das abas do menu superior.
+   ------------------------------------------------------------
+   Técnica da referência (freefrontend "Liquid Glass Distortion Card"):
+   `backdrop-filter` combinando desfoque com um filtro SVG de
+   `feDisplacementMap`, que curva o que está ATRÁS do elemento como um
+   vidro grosso curva a luz.
+
+   ⚠️ O QUE O EFEITO PODE E NÃO PODE FAZER AQUI. Ele refrata o fundo — na
+   demo original, uma foto de montanha, cheia de detalhe para entortar.
+   A barra da all4pay é um near-black CHAPADO: não há textura por baixo, e
+   distorcer uma cor sólida devolve a mesma cor sólida. Por isso o realce
+   não vem só do deslocamento; vem também do fio de luz na borda e do
+   brilho superior, que é o que faz a pílula ler como vidro sobre um fundo
+   liso. Sem eles o filtro estaria ligado e invisível.
+
+   ⚠️ `backdrop-filter: url()` só funciona no Chromium. O `@supports` abaixo
+   é a ordem certa: a versão SEM distorção vem primeiro e vale para todos;
+   quem suporta ganha o deslocamento por cima. Ao contrário, Safari e
+   Firefox ficariam com a pílula sem fundo nenhum.
+   ============================================================ */
+.a4p-glass-pill {
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(
+    145deg,
+    rgb(255 255 255 / 0.14) 0%,
+    rgb(255 255 255 / 0.06) 42%,
+    rgb(255 255 255 / 0.03) 100%
+  );
+  -webkit-backdrop-filter: blur(6px) saturate(150%);
+  backdrop-filter: blur(6px) saturate(150%);
+  box-shadow:
+    /* fio de luz na borda superior — a quina iluminada do vidro */
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    /* parede interna, que dá espessura */
+    inset 0 0 0 1px rgb(255 255 255 / 0.10),
+    /* sombra de contato: sem ela a pílula flutua sem peso */
+    0 2px 10px -4px rgb(0 0 0 / 0.55);
+}
+/* O brilho especular que escorre no topo — o detalhe que mais vende a
+   leitura de vidro quando o fundo é liso. */
+.a4p-glass-pill::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.22) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: -1;
+}
+@supports (backdrop-filter: url("#a4p-liquid-glass")) {
+  .a4p-glass-pill {
+    -webkit-backdrop-filter: blur(4px) saturate(150%) url("#a4p-liquid-glass");
+    backdrop-filter: blur(4px) saturate(150%) url("#a4p-liquid-glass");
+  }
+}
+/* Vidro é uma superfície, não uma animação: quem pede menos movimento
+   continua vendo a pílula, só sem a transição de estado. */
+@media (prefers-reduced-motion: reduce) {
+  .a4p-glass-pill { transition: none; }
+}
+/* `prefers-reduced-transparency`: a mesma regra que o resto do DS já segue
+   para vidro — vira sólido em vez de sumir. */
+@media (prefers-reduced-transparency: reduce) {
+  .a4p-glass-pill {
+    background: var(--a4p-chrome-field);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .a4p-glass-pill::before { display: none; }
 }
 /* A faixa de abas rola na horizontal quando não cabe. A barra de rolagem é
    escondida de propósito: ela apareceria SOBRE o sublinhado lima do item ativo

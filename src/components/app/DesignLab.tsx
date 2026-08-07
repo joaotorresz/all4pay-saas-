@@ -272,14 +272,18 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  ink: "#11190c", lime: "#e1ff00", onLime: "#11190c", bg: "#f7f6ef",
+  // ⚠️ Atualizado junto com a troca de paleta: ink #1a1a1a, cinzas #6a7282,
+  // fundo da área dos cards #fbfcfd, semânticas #2cd662/#d62c2c. Deixar os
+  // valores velhos aqui faria o Lab repintar o app com a paleta ANTERIOR para
+  // quem abrisse a tela — que é literalmente o defeito descrito acima.
+  ink: "#1a1a1a", lime: "#e1ff00", onLime: "#11190c", bg: "#fbfcfd",
   cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
-  body: "#3f4a38", muted: "#6b7280",
+  body: "#6a7282", muted: "#6a7282",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
   // contraste da ONDA 12.
-  positive: "#4dff00", negative: "#ff1500", warning: "#a45c15",
+  positive: "#2cd662", negative: "#d62c2c", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   font: "hanken", numMesmaFonte: false, tracking: -1,
