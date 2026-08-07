@@ -109,14 +109,18 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 
 ### 🔴 A nova paleta reprovou em contraste — inclusive num VALOR
 
-`npm run mobile` a 390×844, na árvore que está no ar. Era **7 telas · 0 com
-problema** na ONDA 12; agora:
+`npm run mobile` a 390×844. Era **7 telas · 0 com problema** na ONDA 12.
+Medido em **`654903a`** (depois dos PRs #48 e #49, ou seja: os números abaixo
+**sobreviveram** às duas passadas visuais seguintes, não são de uma árvore
+velha):
 
 ```
-✗ Início            3276ms (teto 2600)      ✓ Aprovações
+✓ Início            1632ms                  ✓ Aprovações
 ✗ Fluxo de caixa    66 req · contraste ×10  ✗ Títulos a receber   contraste ×7
-✗ Extrato           contraste ×1            ✗ Entrada de dados    65 req · contraste ×5
-✗ DRE               64 req
+✗ Extrato           contraste ×1            ✗ Entrada de dados    66 req · contraste ×5
+✗ DRE               63 req
+
+7 telas · 5 com problema · 23 ocorrências de contraste
 ```
 
 **Duas causas, as duas do PR #48**, extraídas do axe (par de cores, não
