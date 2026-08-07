@@ -61,8 +61,33 @@ export function NavHorizontal() {
   return (
     <nav
       aria-label="Seções do sistema"
-      className="a4p-nav-h shrink-0 flex items-center gap-4 h-[46px] px-4 lg:px-6"
+      className="a4p-nav-h shrink-0 flex items-center gap-4 h-[52px] px-4 lg:px-6"
     >
+      {/*
+        O filtro que a pílula de vidro consome (`.a4p-glass-pill`). Fica aqui
+        porque `backdrop-filter: url(#id)` resolve o id no DOCUMENTO, e esta
+        barra é montada uma vez só pelo AppShell.
+
+        ⚠️ DIVERGI da referência de propósito. Ela usa `feImage` + um mapa de
+        deslocamento embutido como data-URI, desenhado para curvar as BORDAS de
+        um retângulo específico. Isso é preciso para o card dela e frágil aqui:
+        o mapa é do tamanho do elemento, e as abas mudam de largura conforme o
+        rótulo — "Início" e "Contabilidade e impostos" precisariam de mapas
+        diferentes. `feTurbulence` gera a distorção proceduralmente e serve
+        qualquer largura, que é o que uma barra de navegação exige.
+
+        `seed` fixo: sem ele o ruído muda a cada repaint e a pílula "ferve".
+      */}
+      <svg width="0" height="0" aria-hidden focusable="false" className="absolute pointer-events-none">
+        <defs>
+          <filter id="a4p-liquid-glass" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves={2} seed={7} result="ruido" />
+            <feGaussianBlur in="ruido" stdDeviation="1.6" result="suave" />
+            <feDisplacementMap in="SourceGraphic" in2="suave" scale={14} xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
+
       {/* ⚠️ Rola na horizontal em vez de quebrar em duas linhas: uma segunda
           linha de abas empurra o cartão do app para baixo e come altura de
           conteúdo em telas que já têm pouca. */}
@@ -83,16 +108,18 @@ export function NavHorizontal() {
               href={href}
               data-nav-h={s.id}
               aria-current={marcado ? "page" : undefined}
+              // ⚠️ Sem ícone: a aba é só o rótulo. Com a pílula de vidro, o
+              // glifo competia com o fundo translúcido em vez de ajudar a ler.
+              // O marcador do ativo passou a ser a PRÓPRIA pílula acesa — o
+              // sublinhado lima saiu junto, senão haveria dois marcadores
+              // dizendo a mesma coisa.
               className={cn(
-                "relative inline-flex items-center gap-2 px-3 whitespace-nowrap text-[14px] transition-colors",
-                // O sublinhado lima é o marcador; ele vive no ::after para não
-                // deslocar o texto ao entrar (uma borda empurraria a linha).
-                "after:absolute after:left-3 after:right-3 after:bottom-0 after:h-[2px] after:rounded-pill after:transition-opacity",
-                marcado ? "after:bg-lime after:opacity-100" : "after:opacity-0",
+                "a4p-glass-pill inline-flex items-center px-4 py-[7px] rounded-pill",
+                "whitespace-nowrap text-[14px] transition-[color,opacity] duration-150",
+                marcado ? "" : "opacity-70 hover:opacity-100",
               )}
               style={{ color: marcado ? "var(--a4p-chrome-ink)" : "var(--a4p-chrome-mut)" }}
             >
-              {s.icon && <Icon name={s.icon} size={16} color="currentColor" />}
               {s.label}
             </Link>
           );
