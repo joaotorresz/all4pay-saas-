@@ -286,14 +286,18 @@ valores que ninguém escolheu — foi o que aconteceu com as semânticas
 (verde-oliva `#3f6212` e tijolo `#b42318` no lugar do `#00ff62`/`#ff1100` do
 DS) para todo usuário que nunca abriu o Laboratório.
 
-⚠️ **O Lab abre pela paleta (⌘K → "Laboratório de Design"), não por botão
-flutuante.** O FAB "Design" ficava fixo no canto inferior esquerdo de TODA tela,
-para TODO usuário — inclusive em produção. Um sandbox de design não é função do
-produto: ele repinta o app com valores que ninguém do outro lado escolheu, e um
-botão permanente por cima do conteúdo convida ao clique acidental justamente de
-quem não sabe o que ele faz. A paleta é o mesmo caminho de "Personalizar Home",
-pela mesma razão — quem procura acha em duas teclas, quem não procura não
-esbarra. `DesignLab` escuta `a4p:open-lab`.
+**O Lab tem DUAS portas:** o botão flutuante "Design" (canto inferior esquerdo)
+e a paleta (⌘K → "Laboratório de Design", evento `a4p:open-lab`). As duas abrem
+o mesmo painel. O botão existe porque iterar em design é um ciclo curto — mexer,
+olhar, mexer de novo — e duas teclas por rodada viram atrito onde o trabalho é
+repetir a rodada.
+
+⚠️ **O custo, para não ser esquecido:** `DesignLab` é montado no `AppShell` sem
+condição, então o botão aparece para TODO usuário em TODA tela, inclusive em
+produção — um sandbox que repinta o app com valores que ninguém do outro lado
+escolheu. Enquanto o produto é operado por quem o desenha, o custo é aceitável.
+No dia em que houver cliente do outro lado, o gate certo é **por papel** (só
+quem administra a plataforma vê o botão), não remover a ferramenta.
 
 ⚠️ **O selo "Demonstração" (`DemoBadge`) é `demo &&`** — ele NÃO existe em
 produção. Ele não é decoração: é o que impede alguém de confundir dado do seed
