@@ -286,6 +286,34 @@ valores que ninguém escolheu — foi o que aconteceu com as semânticas
 (verde-oliva `#3f6212` e tijolo `#b42318` no lugar do `#00ff62`/`#ff1100` do
 DS) para todo usuário que nunca abriu o Laboratório.
 
+⚠️ **O ajuste vale para TODA A CLASSE, não para o elemento.** Ao selecionar um
+item, o escopo abre em **"Toda a classe"** (`escopo: "tipo"`) — mexer no título
+de um card muda os seis títulos de card. "Só este" fica a um clique para a
+exceção legítima. Abrindo em "só este", cada ajuste nascia preso a um elemento
+e ou se repetia o mesmo trabalho item a item, ou se promovia um ajuste que
+valia para um e deixava os outros trinta divergentes — que é como um sistema
+vira uma coleção de telas parecidas.
+
+- **`PADROES`** é o catálogo curado (nav horizontal, TopBar, card, tabela,
+  campo, eixo de gráfico, `.a4p-num`, `.a4p-heroi`, `.a4p-label`…). ⚠️ **A ordem
+  É a prioridade**, do específico ao genérico, porque `padraoDe` usa
+  `closest()`, que sobe a árvore: com `.a4p-canvas` no topo, clicar num título
+  de card selecionava "Moldura escura do app" (medido — 1 alvo, classe errada).
+  As duas superfícies que envolvem tudo (`.a4p-app-card`, `.a4p-canvas`) ficam
+  no FIM.
+- **`classeDe`** é a saída para o que o catálogo não cobre — e ele sempre vai
+  ficar para trás, porque é curado à mão. Lê a classe de sistema do próprio
+  elemento (`[data-card]`, `.a4p-num`, `.text-h2`, a tag) e monta o seletor,
+  escopado à mesma raiz (sem isso, mexer num `h2` do menu repintaria os `h2` do
+  conteúdo). ⚠️ **Nunca usa `nth-of-type`** — foi coordenada de DOM em vez de
+  papel que fez os blocos promovidos vencerem a regra de papel.
+- O painel mostra **quantos elementos** serão atingidos antes do primeiro
+  arrasto, e o seletor quando a classe foi deduzida. "Todos do tipo" sem número
+  é um salto no escuro.
+
+Provado no navegador: um arrasto num título de card levou os **6** elementos da
+classe de 15/17px para 34px.
+
 **O Lab tem DUAS portas:** o botão flutuante "Design" (canto inferior esquerdo)
 e a paleta (⌘K → "Laboratório de Design", evento `a4p:open-lab`). As duas abrem
 o mesmo painel. O botão existe porque iterar em design é um ciclo curto — mexer,
