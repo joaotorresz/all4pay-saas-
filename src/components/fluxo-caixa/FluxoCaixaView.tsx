@@ -380,9 +380,9 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
           <ComposedChart data={bandas} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="projGlow" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#dcff00" stopOpacity={0.20} />
-                <stop offset="70%" stopColor="#dcff00" stopOpacity={0.05} />
-                <stop offset="100%" stopColor="#dcff00" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--color-lime)" stopOpacity={0.20} />
+                <stop offset="70%" stopColor="var(--color-lime)" stopOpacity={0.05} />
+                <stop offset="100%" stopColor="var(--color-lime)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
@@ -395,7 +395,7 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
               labelFormatter={(d) => `Dia ${d}`}
             />
             <Area dataKey="p90" stroke="none" fill="url(#projGlow)" />
-            <Area dataKey="p10" stroke="none" fill="#ffffff" fillOpacity={0} />
+            <Area dataKey="p10" stroke="none" fill="var(--color-white)" fillOpacity={0} />
             <Line dataKey="p90" stroke="var(--color-border)" strokeWidth={1} dot={false} strokeDasharray="3 3" />
             <Line dataKey="p10" stroke="var(--color-border)" strokeWidth={1} dot={false} strokeDasharray="3 3" />
             <Line dataKey="p50" stroke="var(--color-chart-line)" strokeWidth={1.6} dot={false} />

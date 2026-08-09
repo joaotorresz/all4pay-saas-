@@ -206,7 +206,7 @@ export function PageGuide() {
               )}
 
               {guide.exemplo && (
-                <div className="rounded-md bg-lime-tint border border-[#ECF6B8] px-4 py-3">
+                <div className="rounded-md bg-lime-tint border border-[color:var(--color-lime-tint)] px-4 py-3">
                   <span className="text-caption font-medium text-faint tracking-wide">Exemplo</span>
                   <p className="m-0 text-caption leading-[1.5] text-ink mt-1">{guide.exemplo}</p>
                 </div>

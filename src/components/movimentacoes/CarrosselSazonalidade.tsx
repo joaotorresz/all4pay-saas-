@@ -197,7 +197,7 @@ export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: Period
       <svg width={total} height={ALT} className="absolute inset-x-0 top-0 pointer-events-none" aria-hidden>
         <path d={d} fill="none" stroke="var(--color-chart-line)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
         {pontos.map((pt) => (
-          <circle key={pt.key} cx={pt.x} cy={pt.y} r={pt.key === selKey ? 4.5 : 3} fill="#fff" stroke="var(--color-chart-line)" strokeWidth={1.4} />
+          <circle key={pt.key} cx={pt.x} cy={pt.y} r={pt.key === selKey ? 4.5 : 3} fill="var(--color-white)" stroke="var(--color-chart-line)" strokeWidth={1.4} />
         ))}
       </svg>
       <div className="flex" style={{ paddingTop: ALT }}>

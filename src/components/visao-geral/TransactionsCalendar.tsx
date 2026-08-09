@@ -46,7 +46,7 @@ function fundoDe(net: number, nivel: number): string {
  *  escuros o bastante ali); ink nos intermediários, faint no dia sem movimento. */
 function textoDe(nivel: number): string {
   if (nivel === 0) return "var(--color-text-tertiary)";
-  if (nivel === 4) return "#fff";
+  if (nivel === 4) return "var(--color-white)";
   return "var(--color-ink)";
 }
 

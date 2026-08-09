@@ -61,6 +61,9 @@ const config: Config = {
         warning: "var(--color-warning)", // amber alert
         positive: "var(--color-positive)", // muted green (approved / gains / vence hoje)
         negative: "var(--color-negative)", // muted brick red (overdue / vencido)
+        // Verde-lima de estado do guia — MARCA/preenchimento pontual (ponto,
+        // barra, realce), nunca texto: 1,69:1 sobre o branco quente.
+        "positive-spot": "var(--color-positive-spot)",
 
         // ---- Aurora glass (superfícies translúcidas; blur via CSS) ----
         glass: {
@@ -69,15 +72,16 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // DS All4Pay — ROOBERT TRIAL em tudo. A face do sistema e a dos valores
-        // saem da MESMA família; o que muda é o corte.
+        // ⚠️ TRÊS FAMÍLIAS, TRÊS PAPÉIS (guia vigente):
+        //   display → Gellix Bold 700: número que impressiona e headline.
+        //   sans    → Roobert 500: tudo que se lê.
+        //   mono    → Roobert Mono: o papel de RÓTULO (11px, caixa alta,
+        //             0,44px) — eyebrow, tag de estado, unidade, timestamp.
         //
-        // ⚠️ `mono` é Roobert Mono, não uma monoespaçada de outra família. Os
-        // valores precisam de largura fixa para as colunas alinharem (é a
-        // assinatura do sistema, documentada no CLAUDE.md) — trocar por uma
-        // proporcional faria cada linha começar num ponto diferente. Roobert
-        // Mono resolve as duas exigências ao mesmo tempo: é monoespaçada E é
-        // Roobert.
+        // Gellix carrega os VALORES porque o arquivo tem `tnum` (medido): sem
+        // numeral tabular, cada linha de uma coluna de dinheiro começaria num
+        // ponto diferente. É o que separa ela das outras candidatas.
+        display: ['"Gellix"', '"Roobert"', "sans-serif"],
         sans: [
           '"Roobert"',
           '"Roobert Variable"',
@@ -120,7 +124,10 @@ const config: Config = {
         label: "-0.01em",
       },
       spacing: {
-        // base-4 / 8 scale
+        // Escala do guia: base 8, meio-passos de 4 e microajustes de 1,5 e 2
+        // para bordas e traços. Nada fora desta lista.
+        px2: "1.5px",
+        "0.5": "2px",
         "1": "4px",
         "2": "8px",
         "3": "12px",
@@ -130,15 +137,24 @@ const config: Config = {
         "8": "32px",
         "10": "40px",
         "12": "48px",
+        "14": "56px",
         "16": "64px",
+        "18": "72px",
+        "20": "80px",
+        "22": "88px",
+        "24": "96px",
+        "26": "104px",
+        "28": "112px",
         sidebar: "240px",
       },
       borderRadius: {
-        // Ledger: cards 16px · botões/inputs 10px · badges 8px · pills.
-        card: "16px", // cards, panels, tooltip
-        md: "10px", // buttons, inputs, command bar
-        sm: "8px", // smaller buttons, rectangular badges
-        pill: "999px", // action pills, avatars
+        // ⚠️ A CURVA PERTENCE AO CARD, NÃO AO CONTROLE. O card leva o raio
+        // grande e constante da marca; o botão é reto (`rounded-none`), e
+        // `pill` fica para os chips, onde a forma redonda É a função.
+        card: "22px", // cards, panels, tooltip — grande e constante
+        md: "10px", // campos e superfícies menores
+        sm: "8px",
+        pill: "999px", // chips, toggles, avatares
       },
       boxShadow: {
         // Aurora glass — sombras var-backed (globals.css define claro/escuro):

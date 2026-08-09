@@ -62,7 +62,7 @@ export function Checkbox({
           <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
             <path
               d="M2.5 6.2L4.8 8.5L9.5 3.5"
-              stroke="#fff"
+              stroke="var(--color-white)"
               strokeWidth="1.7"
               strokeLinecap="round"
               strokeLinejoin="round"

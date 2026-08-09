@@ -169,21 +169,35 @@
    Keep them in sync with the config — never add a value here that
    isn't also a token. See CLAUDE.md.
    ============================================================ */
+/* ============================================================
+   PALETA QUENTE — a identidade vigente (9 cores nomeadas).
+
+   ⚠️ O BRANCO É SEMPRE QUENTE (#FEFDF0), NUNCA #FFFFFF. O PRETO É SEMPRE
+   QUENTE E AMARRONZADO (#28211B), NUNCA #000000. Os dois puros existem só
+   como `--color-black-pure` (marketing) e não têm uso no app.
+
+   As nove: White #FEFDF0 · Beige #EEEDDB · Dark Beige #DDDCC5 · Grey #534D41 ·
+   Dark Grey #37332A · Black #28211B · Placeholder #A9A6A4 · Border #D4D3D1 ·
+   Accent #C8D930. A guarda `npm run paleta` reprova hex fora desta lista.
+
+   A base é sempre o par branco quente + bege; o preto quente entra em blocos
+   de contraste e nos cards de DADO; o degradê é reservado a momentos de
+   destaque e nunca é fundo de tela com muito texto.
+   ============================================================ */
 :root {
-  /* Neutrals — paleta Visor Finance (light); o dark continua em html.dark */
-  --color-black-pure: #000000;
-  --color-ink: #1a1a1a; /* texto preto do produto */
-  --color-ink-soft: #0e131e;
-  --color-white: #ffffff;
-  --color-surface-1: #f6f7f9; /* canvas do Visor */
-  --color-surface-2: #eef0f3; /* inset / row */
-  --color-surface-3: #eef0f3;
-  --color-border: #edeff2;
-  --color-border-soft: #eef0f3;
-  /* Hairline dos CARTÕES — a borda de 1px dos boxes da Home. A moldura do app
+  --color-black-pure: #000000; /* marketing only — nunca no app */
+  --color-ink: #28211b; /* Black (quente) */
+  --color-ink-soft: #37332a; /* Dark Grey */
+  --color-white: #fefdf0; /* White (quente) — superfície de card */
+  --color-surface-1: #fefdf0; /* canvas padrão */
+  --color-surface-2: #eeeddb; /* Beige — seção / hover / camada intermediária */
+  --color-surface-3: #dddcc5; /* Dark Beige — desabilitado / teclado / sheet */
+  --color-border: #d4d3d1; /* Border */
+  --color-border-soft: #eeeddb; /* Beige como divisor suave */
+  /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
-  --a4p-hairline: #f1f3f5;
+  --a4p-hairline: #d4d3d1;
 
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
@@ -196,48 +210,80 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #12151a;        /* fundo da moldura */
-  --a4p-chrome-ink: #ffffff;    /* texto/ícone sobre a moldura */
-  --a4p-chrome-mut: #9aa0a6;    /* secundário sobre a moldura */
-  --a4p-chrome-field: #1b1f26;  /* busca e botões de ícone */
-  --a4p-chrome-field-hover: #232830;
-  /* Fundo da área onde ficam os cards (o interior do cartão do app).
-     ⚠️ O valor pedido veio como `#FBFCFP` — `P` não é dígito hexadecimal, e o
-     CSS descarta a declaração inteira em silêncio (foi o mesmo tipo de erro do
-     `##F1F3F5` no hairline). Adotado `#FBFCFD`, que completa a sequência
-     FB·FC·FD; se a intenção era outra, é UMA casa que muda. */
-  --a4p-app-bg: #fbfcfd;
+  --a4p-chrome: #28211b;        /* Black quente — fundo da moldura */
+  --a4p-chrome-ink: #fefdf0;    /* White quente sobre a moldura */
+  --a4p-chrome-mut: #a9a6a4;    /* Placeholder — secundário sobre a moldura */
+  --a4p-chrome-field: #37332a;  /* Dark Grey — busca e botões de ícone */
+  --a4p-chrome-field-hover: #534d41; /* Grey */
+  /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
+     branco QUENTE, que é o fundo padrão de tela do sistema. */
+  --a4p-app-bg: #fefdf0;
   --a4p-app-radius: 28px;
 
-  --color-text-secondary: #6a7282; /* cinza do produto */
-  --color-text-tertiary: #6a7282; /* cinza do produto */
-  --color-text-quaternary: #bbbcbd; /* placeholder */
+  --color-text-secondary: #534d41; /* Grey — corpo e labels */
+  /* ⚠️ `faint` pinta o prefixo "R$" e os CENTAVOS de todo valor, a 7pt. A
+     paleta tem UM cinza de texto (Grey #534D41) e um Placeholder #A9A6A4 —
+     e o Placeholder dá 2,36:1 sobre o branco quente, contra os 4,5:1 da
+     norma. Foi exatamente esta a reprovação da ONDA 12, em 26 ocorrências.
+     Então `faint` é o MESMO Grey (8,21:1): a hierarquia do tratamento do
+     dinheiro vem do TAMANHO, que é como `Money`/`BRL` já a constroem, não de
+     um quarto cinza que a paleta não tem. */
+  --color-text-tertiary: #534d41; /* Grey */
+  --color-text-quaternary: #a9a6a4; /* Placeholder — SÓ placeholder de campo */
 
-  /* Accent — lima assinatura All4Pay */
-  --color-lime: #e1ff00;
-  --color-lime-alt: #cfea00;
-  --color-lime-tint: #f4ffb0;
-  --color-on-lime: #11190c; /* text/icon ON bright lime — dark in BOTH themes */
-  --color-chart-line: #0e131e; /* linha dos gráficos: escura no claro, lime no escuro */
+  /* Accent — #C8D930. Único acento da paleta. */
+  --color-lime: #c8d930;
+  --color-lime-alt: #dbff4d; /* o lima do fim do degradê */
+  --color-lime-tint: #fffad7; /* wash quente (stop 2 do degradê) */
+  --color-on-lime: #28211b; /* Black quente SOBRE o acento — nos dois temas */
+  --color-chart-line: #28211b;
 
-  /* Degradê OFICIAL da marca (os 5 stops do guia, de cima para baixo). Usado
-     pelo FAB "All 4 Pay AI" e pelo card de dicas da Home. */
-  --gradient-marca: linear-gradient(180deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
-  /* O mesmo degradê de baixo para cima — usado no card de dicas. */
-  --gradient-marca-inv: linear-gradient(0deg, #d0ff00 0%, #d8ff00 25%, #e1ff00 50%, #e8ff00 75%, #f5ff00 100%);
-  /* Versão em ONDA: os mesmos stops repetidos numa faixa LARGA e na diagonal —
-     deslizar essa faixa (classe `.a4p-onda`) faz a cor ondular entre os tons
-     sem nunca sair da paleta. */
-  --gradient-marca-onda: linear-gradient(100deg, #d0ff00 0%, #e8ff00 15%, #d8ff00 30%, #f5ff00 45%, #e1ff00 60%, #f5ff00 75%, #d8ff00 90%, #d0ff00 100%);
+  /* Degradê OFICIAL da marca: do branco quente ao lima.
+     ⚠️ Reservado a DESTAQUE (ícone, celebração, capa, CTA final). Nunca fundo
+     de tela com muito texto — os stops claros do topo não sustentam leitura. */
+  --gradient-marca: linear-gradient(183deg, #fefdf0 0.5%, #fffad7 35%, #ffefa2 63%, #dbff4d 89%);
+  /* O mesmo degradê invertido (lima em cima) — card de dicas. */
+  --gradient-marca-inv: linear-gradient(3deg, #fefdf0 0.5%, #fffad7 35%, #ffefa2 63%, #dbff4d 89%);
+  /* Versão em ONDA: os mesmos stops numa faixa LARGA e na diagonal — deslizar
+     essa faixa (classe `.a4p-onda`) faz a cor ondular sem sair da paleta. */
+  --gradient-marca-onda: linear-gradient(100deg, #fefdf0 0%, #fffad7 20%, #ffefa2 40%, #dbff4d 55%, #ffefa2 70%, #fffad7 85%, #fefdf0 100%);
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
   --gradient-hero-glow: #4b4d3d;
 
-  /* Status — semânticas do Visor (verde/vermelho vivos) */
+  /* ⚠️ STATUS — DE PROPÓSITO FORA DA PALETA DE NOVE.
+     A paleta quente nomeia nove cores e NENHUMA delas é vermelha: ela é uma
+     paleta de MARCA, não o conjunto semântico de um ERP. Um sistema que
+     mostra vencido, saída e prejuízo precisa de um sinal negativo, e não há
+     de onde tirá-lo sem inventar. Então as três semânticas seguem como
+     estavam — decisão anterior, tomada com o contraste medido, registrada
+     abaixo no bloco `.ds-visor` — e são as ÚNICAS exceções sancionadas.
+     A guarda `npm run paleta` conhece as três e reprova qualquer outra. */
   --color-warning: #f45900;
   --color-positive: #2cd662;
   --color-negative: #d62c2c;
+  /* O verde-lima de estado positivo citado no guia. É cor de MARCA, então
+     entra como marca/preenchimento pontual (ponto, barra, realce) — nunca
+     como texto: 1,69:1 sobre o branco quente. */
+  --color-positive-spot: #4be200;
+
+  /* ============================================================
+     RAMPA CATEGÓRICA — as fatias de um donut, as pilhas de uma barra.
+     ⚠️ Feita com `color-mix` sobre os tokens, NÃO com oito hexes novos: a
+     paleta tem um acento só, e categorias se distinguem por INTENSIDADE do
+     mesmo matiz, nunca por matizes avulsos. Como sai dos tokens, ela inverte
+     junto no tema escuro sem uma segunda tabela para manter em sincronia.
+     A rampa anterior eram oito hexes copiados em dois arquivos — quando um
+     mudava, o outro não. ============================================================ */
+  --a4p-cat-1: var(--color-lime);
+  --a4p-cat-2: color-mix(in srgb, var(--color-lime) 78%, var(--color-ink));
+  --a4p-cat-3: color-mix(in srgb, var(--color-lime) 56%, var(--color-ink));
+  --a4p-cat-4: color-mix(in srgb, var(--color-lime) 36%, var(--color-ink));
+  --a4p-cat-5: color-mix(in srgb, var(--color-surface-3) 82%, var(--color-ink));
+  --a4p-cat-6: var(--color-surface-3);
+  --a4p-cat-7: color-mix(in srgb, var(--color-text-secondary) 62%, var(--color-white));
+  --a4p-cat-8: var(--color-ink);
 
   /* Radii / shadows (for inline + SVG use) */
   --radius-card: 16px;
@@ -247,18 +293,21 @@
 
   /* Glass — SÓ overlays (popover/sidebar/drawers); cards são sólidos (Ledger).
      strong = vidro dos overlays · edge = fio de 1px do vidro. */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-bg-strong: rgba(255, 255, 255, 0.84);
-  --glass-edge: rgba(255, 255, 255, 0.65);
+  /* O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
+     vidro branco frio sobre canvas quente lê como uma folha de outro sistema
+     por cima do app. E a sombra é do Black quente, não de um azul-cinza. */
+  --glass-bg: rgba(254, 253, 240, 0.72);
+  --glass-bg-strong: rgba(254, 253, 240, 0.84);
+  --glass-edge: rgba(254, 253, 240, 0.65);
   --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
   --shadow-card:
-    0 1px 2px rgba(14, 19, 30, 0.04),
-    0 8px 24px -18px rgba(14, 19, 30, 0.1);
+    0 1px 2px rgba(40, 33, 27, 0.05),
+    0 8px 24px -18px rgba(40, 33, 27, 0.12);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(14, 19, 30, 0.22);
-  --shadow-pill: 0 8px 24px -10px rgba(14, 19, 30, 0.2);
+    0 24px 64px -16px rgba(40, 33, 27, 0.24);
+  --shadow-pill: 0 8px 24px -10px rgba(40, 33, 27, 0.22);
 }
 
 /* ============================================================
@@ -269,31 +318,34 @@
    mandando. Status levemente clareados para legibilidade no escuro.
    ============================================================ */
 html.dark {
-  /* Neutrals (invertidas) */
-  --color-ink: #f4f4f2; /* texto primário, números — near-white (não branco puro) */
-  --color-ink-soft: #fafafa;
-  --color-white: #161616; /* superfície de card/elevada */
-  --color-surface-1: #0e0e0e; /* fundo da página (near-black, nunca #000 no app) */
-  --color-surface-2: #1b1b1b; /* hover de linha / seção */
-  --color-surface-3: #232323;
-  --color-border: #2a2a2a;
-  --color-border-soft: #202020;
-  --a4p-hairline: #232323;
+  /* Neutrals invertidas — SEM sair da paleta quente. O escuro do sistema é o
+     Black #28211B e o Dark Grey #37332A da tabela; os cinzas neutros
+     anteriores (#161616, #0e0e0e, #2a2a2a) eram frios e brigavam com o
+     branco quente que continua sendo o texto. */
+  --color-ink: #fefdf0; /* White quente vira o texto */
+  --color-ink-soft: #eeeddb; /* Beige */
+  --color-white: #37332a; /* Dark Grey — superfície de card/elevada */
+  --color-surface-1: #28211b; /* Black quente — fundo da página */
+  --color-surface-2: #37332a; /* hover de linha / seção */
+  --color-surface-3: #534d41; /* Grey */
+  --color-border: #534d41; /* Grey como borda no escuro */
+  --color-border-soft: #37332a;
+  --a4p-hairline: #534d41;
   /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
      o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
      mesmo preto e a moldura desaparece — que é o oposto da referência. */
-  --a4p-chrome: #08080a;
-  --a4p-chrome-field: #17171a;
-  --a4p-chrome-field-hover: #1f1f23;
-  --a4p-app-bg: #141414;
-  --color-text-secondary: #9b9b96; /* muted */
-  --color-text-tertiary: #6f6f6c; /* faint */
-  --color-text-quaternary: #565654; /* placeholder */
+  --a4p-chrome: #1c1712; /* Black quente rebaixado — a moldura sob o cartão */
+  --a4p-chrome-field: #37332a;
+  --a4p-chrome-field-hover: #534d41;
+  --a4p-app-bg: #28211b; /* Black quente — o cartão do app no escuro */
+  --color-text-secondary: #dddcc5; /* Dark Beige — corpo sobre o escuro */
+  --color-text-tertiary: #dddcc5;
+  --color-text-quaternary: #a9a6a4; /* Placeholder */
 
-  /* Accent — lime manda igual; o wash (tint) vira um olival escuro */
-  --color-lime-tint: #23270d;
-  /* on-lime continua #171717 (texto escuro no lime brilhante) */
-  --color-chart-line: #dcff00; /* linha dos gráficos vira o verde da marca no escuro */
+  /* Accent — o mesmo #C8D930 manda igual; o wash vira um olival escuro */
+  --color-lime-tint: #37332a;
+  /* on-lime continua Black quente (texto escuro sobre o acento) */
+  --color-chart-line: #c8d930; /* linha dos gráficos vira o acento no escuro */
 
   /* Status — clareados ~1 passo para contraste no escuro */
   --color-warning: #f0962e;
@@ -301,16 +353,18 @@ html.dark {
   --color-negative: #d8584c;
 
   /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline */
-  --glass-bg: rgba(24, 24, 26, 0.66);
-  --glass-bg-strong: rgba(20, 20, 22, 0.84);
-  --glass-edge: rgba(255, 255, 255, 0.08);
+  /* rgba do Black quente e do White quente — o vidro do escuro é a mesma
+     matéria do claro, só invertida. */
+  --glass-bg: rgba(40, 33, 27, 0.68);
+  --glass-bg-strong: rgba(40, 33, 27, 0.86);
+  --glass-edge: rgba(254, 253, 240, 0.1);
   --shadow-card:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 8px 24px -18px rgba(0, 0, 0, 0.5);
+    0 1px 2px rgba(20, 16, 13, 0.34),
+    0 8px 24px -18px rgba(20, 16, 13, 0.55);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(0, 0, 0, 0.65);
-  --shadow-pill: 0 8px 24px -10px rgba(0, 0, 0, 0.5);
+    0 24px 64px -16px rgba(20, 16, 13, 0.68);
+  --shadow-pill: 0 8px 24px -10px rgba(20, 16, 13, 0.55);
 }
 
 @layer base {
@@ -359,13 +413,13 @@ html.dark {
     height: 10px;
   }
   ::-webkit-scrollbar-thumb {
-    background: #e2e2e0;
+    background: var(--color-border);
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: padding-box;
   }
   html.dark ::-webkit-scrollbar-thumb {
-    background: #2e2e2e;
+    background: var(--color-border);
   }
 }
 
@@ -493,8 +547,8 @@ h1, h2, h3,
    ============================================================ */
 .ds-visor {
   /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #f3f1ee;          /* bg/base — canvas geral do app (site corporativo) */
-  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS brancos */
+  --a4p-bg: #fefdf0;          /* bg/base — White quente, canvas geral */
+  --a4p-box-bg: #fefdf0;      /* cards SÓLIDOS em White quente (nunca #ffffff) */
   --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
   --a4p-box-padding: 24px;    /* respiro interno */
   --a4p-box-border: transparent; /* SEM borda (design clean) */
@@ -508,36 +562,29 @@ h1, h2, h3,
 }
 /* cores Visor — SÓ no tema claro (preserva o dark mode em todas as telas). */
 html:not(.dark) .ds-visor {
-  /* neutros / superfícies — paleta All4Pay (spec Vendria→lima) */
-  /* Canvas QUENTE, promovido do Laboratório. O #f8f9fa anterior era frio e
-     destoava do resto da paleta, que é toda quente (`surface-2` #f3f1ee,
-     `border` #eceae4) — o fundo da página puxava para o azul enquanto as
-     seções puxavam para o bege. Contraste do `ink` sobre ele: 16,59:1. */
-  --color-surface-1: #f7f6ef;      /* canvas quente */
-  --color-surface-2: #f3f1ee;      /* seção / hover suave (warm) */
-  --color-surface-3: #e9e6df;
-  --color-white: #ffffff;
-  --color-ink: #1a1a1a;            /* texto preto do produto */
-  --color-ink-soft: #2a3320;       /* hover de ink */
-  --color-text-secondary: #6a7282; /* cinza do produto */
-  --color-text-tertiary: #6a7282;  /* cinza do produto */
-  /* ⚠️ ONDA 12 — ERA #a8a595 e REPROVAVA em contraste: 2,20:1 sobre o canvas e
-     2,48:1 sobre branco, contra os 4,5:1 que a norma pede. Não é detalhe de
-     tela: este token pinta o prefixo "R$" e os CENTAVOS de todo valor do
-     produto, a 7pt. A auditoria automática acusou 26 ocorrências em três telas,
-     e seriam todas as telas — o tratamento do dinheiro é a assinatura do
-     sistema e estava ilegível para quem enxerga pouco.
-     #6f6d62 mantém a MESMA família (taupe) e passa: 5,20:1 no branco, 4,61:1
-     no canvas. O preço é o prefixo ficar um pouco menos apagado — que é
-     exatamente o ponto: ele precisa ser lido. */
-  --color-text-quaternary: #6f6d62;/* placeholder / labels de seção */
-  --color-border: #eceae4;
-  --color-border-soft: #f4f2ee;    /* border/hairline — grade de gráfico */
-  /* acento lima #E1FF00 — texto/ícone SEMPRE escuro (#11190C) por cima */
-  --color-lime: #e1ff00;
-  --color-lime-tint: #f4ffb0;
-  --color-on-lime: #11190c;
-  --color-chart-line: #11190c;
+  /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
+     app, então divergir aqui é repintar o produto com valores que ninguém
+     escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
+  --color-surface-1: #fefdf0;      /* White quente — canvas padrão */
+  --color-surface-2: #eeeddb;      /* Beige */
+  --color-surface-3: #dddcc5;      /* Dark Beige */
+  --color-white: #fefdf0;          /* superfície de card — NUNCA #ffffff */
+  --color-ink: #28211b;            /* Black quente — NUNCA #000000 */
+  --color-ink-soft: #37332a;       /* Dark Grey */
+  --color-text-secondary: #534d41; /* Grey */
+  --color-text-tertiary: #534d41;  /* Grey */
+  /* ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
+     texto-fantasma de um campo vazio e para NADA que precise ser lido.
+     Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
+     (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
+  --color-text-quaternary: #a9a6a4;/* Placeholder */
+  --color-border: #d4d3d1;         /* Border */
+  --color-border-soft: #eeeddb;    /* Beige — grade de gráfico / divisor */
+  /* Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
+  --color-lime: #c8d930;
+  --color-lime-tint: #fffad7;
+  --color-on-lime: #28211b;
+  --color-chart-line: #28211b;
   /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
      Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
      neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
@@ -567,32 +614,109 @@ html:not(.dark) .ds-visor {
   --color-warning: #a45c15;
   --color-negative: #d62c2c;
 }
-/* Roobert Trial (fonte de marca All4Pay) em TODO o conteúdo — vence o
-   `.font-sans` explícito de alguns componentes. Unlayered → ganha das utilities. */
+/* ============================================================
+   TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
+
+   · DISPLAY — Gellix Bold (700). Afirmação de marca e NÚMERO que precisa
+     impressionar: o valor monetário principal da tela, o título de uma tela
+     de destaque, a porcentagem grande do donut. Sempre número ou palavra
+     curta, nunca parágrafo.
+   · TEXTO — Roobert 500. Tudo que se lê com conforto: parágrafos, nomes de
+     transação, rótulos de campo, itens de menu, texto de botão.
+   · RÓTULO — a classe `.a4p-label` (11px · 500 · 0,44px · CAIXA ALTA · 1,35).
+     Eyebrow de seção, tag de estado, numeração de etapa, timestamp, unidade,
+     seletor de período.
+
+   Regra de ouro: se é número, é Gellix; se é conteúdo, é Roobert; se é
+   rótulo ou estado, é a classe de rótulo em caixa alta.
+   ============================================================ */
+.ds-visor {
+  --font-display: "Gellix", "Roobert", sans-serif;
+  --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
+     casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
+     Uma monoespaçada de fora resolveria a largura e traria um segundo
+     desenho de letra para dentro do sistema, que é o que as três famílias
+     existem para evitar. */
+  --font-mono: "Roobert Mono", "Roobert Semi Mono", ui-monospace, monospace;
+}
 .ds-visor,
 .ds-visor * {
-  font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
-/* Títulos: Roobert SemiBold (600) na cor ink #11190C. Textos/subtítulos herdam
-   Medium #787664 (via --color-text-secondary). */
-.ds-visor h1, .ds-visor h2, .ds-visor h3,
-.ds-visor .text-display, .ds-visor .text-h1, .ds-visor .text-h2, .ds-visor .text-h3,
-.ds-visor .text-value-lg {
-  font-weight: 600;
+/* Títulos de seção e de card: TEXTO (Roobert), não display — 8.3 restringe a
+   Gellix ao número e ao título de tela de destaque. */
+.ds-visor h2, .ds-visor h3,
+.ds-visor .text-h2, .ds-visor .text-h3 {
+  font-weight: 500;
   color: var(--color-ink);
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
 }
-/* Os NÚMEROS NÃO seguem a fonte da UI (o Laboratório veio com "aplicar também
-   nos números" desligado): a UI é Hanken Grotesk e os valores ficam em Roobert
-   Variable, que é a face dos números do sistema. O alinhamento tabular vem de
-   `tabular-nums` / `font-variant-numeric`, não da família. */
+/* ⚠️ O `h1` de página NÃO é display, e isto é a regra 8.3 sendo obedecida ao
+   pé da letra: a Gellix aparece em TRÊS situações e só nelas — o valor
+   monetário principal, o título de uma tela de DESTAQUE, e a porcentagem
+   grande do donut. "Fluxo de caixa" no alto de um relatório é navegação, não
+   afirmação de marca; pôr a display ali gastaria o recurso em toda tela e ele
+   deixaria de destacar coisa nenhuma.
+   Tela de destaque pede a classe explícita `.a4p-heroi`. */
+.ds-visor h1,
+.ds-visor .text-h1 {
+  font-weight: 500;
+  color: var(--color-ink);
+  letter-spacing: -0.02em;
+}
+.ds-visor .text-display,
+.ds-visor .a4p-heroi {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-ink);
+  letter-spacing: -0.03em;
+}
+/* ⚠️ OS VALORES SÃO GELLIX — e isto só é possível porque o arquivo TEM `tnum`
+   (medido com fontTools). Sem numeral tabular cada linha de uma coluna de
+   dinheiro começaria num ponto diferente, que é o defeito que o `tabular-nums`
+   do sistema existe para impedir; foi por faltar `tnum` que Knocky, Obviously
+   e Deacon ficaram fora dos valores. O `font-feature-settings` é explícito
+   porque a classe utilitária sozinha não alcança o SVG dos gráficos. */
 .ds-visor .a4p-num,
 .ds-visor .a4p-num *,
 .ds-visor .tabular-nums,
+.ds-visor .text-value-lg {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+/* Eixo de gráfico é UNIDADE, não valor-herói: papel de rótulo. Em Gellix Bold
+   a 11px o eixo competiria com a série que ele mede. */
 .ds-visor .recharts-cartesian-axis-tick-value {
-  font-family: "Roobert Variable", "Roobert", sans-serif;
-  letter-spacing: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.44px;
+}
+/* ============================================================
+   A CLASSE DE RÓTULO — a única caixa-alta sancionada do sistema.
+   11px · 500 · 0,44px · uppercase · 1,35. Usada por eyebrow de seção, tag de
+   estado (PENDENTE, PAGO), seletor de período (1S/1M/6M/1A/TUDO), numeração
+   de etapa, timestamp e unidade.
+   ============================================================ */
+.a4p-label {
+  font-family: var(--font-mono, "Roobert Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.44px;
+  text-transform: uppercase;
+  line-height: 1.35;
+}
+
+/* O degradê da marca como superfície — SÓ destaque (ícone, celebração, capa,
+   CTA final). Quem escreve por cima usa `text-on-lime`: o degradê termina no
+   lima claro e texto branco sumiria ali. */
+.a4p-gradiente-marca {
+  background-image: var(--gradient-marca);
 }
 /* rounded-card (36px fixo) → raio do painel */
 .ds-visor .rounded-card {
@@ -660,7 +784,7 @@ html:not(.dark) .ds-visor {
 .ds-visor [data-card="1"] h3,
 .ds-visor [data-card="1"] .text-h2,
 .ds-visor [data-card="1"] .text-h3 {
-  font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.5px;
@@ -1108,110 +1232,24 @@ html.dark .a4p-canvas {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   AJUSTES POR ELEMENTO PROMOVIDOS DO LABORATÓRIO — 05/08/2026
+   OS AJUSTES POSICIONAIS DO LABORATÓRIO SAÍRAM — 09/08/2026
    ══════════════════════════════════════════════════════════════════════════
 
-   ⚠️ LEIA ANTES DE CONFIAR NESTE BLOCO. Estes seletores são POSICIONAIS
-   (`nth-of-type` a partir de `.ds-visor`), não semânticos. Foram promovidos
-   literalmente, por decisão explícita, com as limitações abaixo já MEDIDAS
-   contra o app no dia da promoção:
+   ⚠️ Aqui viviam ~15 blocos de `nth-of-type` a partir de `.ds-visor`, com
+   `font-family`, `font-size` e `color` em `!important`, promovidos do
+   Laboratório. Eles endereçavam POSIÇÃO no DOM, não papel — e a própria nota
+   que os acompanhava já registrava, medido no dia da promoção, que dois não
+   casavam nada, um pintava o valor inteiro em vez do sinal, e os outros
+   acertavam conteúdo diferente do rotulado.
 
-     · DOIS dos dez não casavam nada — os do `R$` e do `54.156` do KPI. A
-       estrutura depende do SINAL do número: com saldo negativo existe um
-       `<span>` a mais para o `−`, com saldo positivo não. Ficam aqui inertes
-       até a tela ter saldo negativo.
-     · O seletor do `−` acertava o VALOR INTEIRO (`R$2.187.405,05`), não o
-       sinal. Onde o saldo é positivo, ele põe 40px na cifra toda.
-     · Os demais casavam CONTEÚDO DIFERENTE do rotulado ("R$ 243.423" acertava
-       "R$ 173.828"; "Folha de pagamento" acertava "imposto"; "RESUMO
-       FINANCEIRO" acertava "Bem-vindo!"). São posições, não papéis.
+   O que forçou a remoção: o `!important` deles VENCIA a regra de papel, então
+   o valor-herói continuava em Roobert 400 depois de o sistema mandar Gellix
+   Bold nos números. Medido no navegador: `.a4p-num` computava
+   `font-family: Roobert; font-weight: 400`. Um sistema em que a regra de
+   papel perde para uma coordenada de DOM não é um sistema — e a nota antiga
+   já prescrevia exatamente este conserto: "traduzir cada regra para o PAPEL
+   correspondente em vez de para a posição".
 
-   E a Home é REORDENÁVEL — por arrasto (`a4p_home_order`) e por urgência da
-   IA. Toda reordenação move o que cada `nth-of-type` alcança. `.ds-visor` vale
-   em TODA tela, então estas regras também pintam o que estiver na mesma
-   posição em outras páginas.
-
-   Se um dia isto começar a pintar a coisa errada, a causa está aqui, e o
-   conserto é traduzir cada regra para o PAPEL correspondente (card, h1,
-   título de card) em vez de para a posição. */
-
-/* “+R$ 345.250,04 em Junho” */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(2) {
-  font-family: "Roobert Variable", "Roobert", sans-serif !important;
-  font-size: 16px !important;
-  font-weight: 400 !important;
-}
-
-/* “Junho 2026” */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(2) {
-  font-family: "Roobert Variable", "Roobert", sans-serif !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.000em !important;
-  line-height: 2 !important;
-}
-
-/* “Folha de pagamento” */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span:nth-of-type(2) {
-  font-family: "Roobert Variable", "Roobert", sans-serif !important;
-  font-size: 15px !important;
-  font-weight: 400 !important;
-  letter-spacing: -0.005em !important;
-}
-
-/* Card do saldo — raio, respiro e fio */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) {
-  font-size: 16px !important;
-  border-radius: 25px !important;
-  padding: 22px !important;
-  margin: 0 !important;
-  border-color: #f2f2f2 !important;
-}
-
-/* ── Obviously Narrow: SÓ no herói da Home e em TEXTO ──────────────────────
-   ⚠️ A Obviously tem NOVE larguras de dígito (o `1` mede 271/1000 em contra
-   519 do `0`) e não tem `tnum`. Por isso ela fica no número-herói, que é único
-   na tela e não forma coluna, e fora de tabela, DRE, extrato e eixos, onde o
-   desalinhamento apareceria linha a linha. O valor do donut (“R$ 243.423”)
-   ficou DE FORA por essa razão — é valor, mas não é o herói. */
-
-/* herói · o sinal “−” (ver ressalva: onde o saldo é positivo, pega a cifra toda) */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(1) {
-  font-family: "Roobert", "Roobert Variable", sans-serif !important;
-  font-size: 40px !important;
-  font-weight: 400 !important;
-  letter-spacing: -0.005em !important;
-}
-
-/* herói · o prefixo “R$” (inerte enquanto o saldo for positivo) */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(1) {
-  font-family: "Roobert", "Roobert Variable", sans-serif !important;
-  font-size: 40px !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.000em !important;
-}
-
-/* herói · o inteiro “54.156” (inerte enquanto o saldo for positivo) */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(3) > span:nth-of-type(1) > span:nth-of-type(2) > span:nth-of-type(2) {
-  font-family: "Roobert", "Roobert Variable", sans-serif !important;
-  font-size: 40px !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.000em !important;
-  color: #1f1f1f !important;
-}
-
-/* título de card — “Distribuição das entradas” (TEXTO, não valor) */
-.ds-visor > div > div:nth-of-type(2) > div:nth-of-type(2) > div:nth-of-type(1) > span > span:nth-of-type(1) {
-  font-family: "Roobert", "Roobert Variable", sans-serif !important;
-  font-size: 22px !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.010em !important;
-}
-
-/* H1 da página — “RESUMO FINANCEIRO” (TEXTO, não valor) */
-.ds-visor > div > div:nth-of-type(1) > header > div:nth-of-type(1) > div > h1 {
-  font-family: "Roobert", "Roobert Variable", sans-serif !important;
-  font-size: 28px !important;
-  font-weight: 400 !important;
-  letter-spacing: 0.000em !important;
-}
+   Não reintroduzir. O que se quer ajustar tem nome: `.a4p-num` (valor),
+   `h1`/`.text-h1` (título de destaque), `[data-card="1"] h2` (título de
+   card), `.a4p-label` (rótulo). ══════════════════════════════════════════ */

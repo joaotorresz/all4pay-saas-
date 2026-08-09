@@ -30,12 +30,12 @@ import { AnimatedBRL } from "./useCountUp";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
-const PROJ = "#c9cdd4";
+const PROJ = "var(--color-text-quaternary)";
 import { chartAnim } from "@/lib/chart-anim";
 /* paleta categórica do data-viz — cores vibrantes e distintas */
 // Paleta da MARCA (lima → verde → oliva → taupe → ink): a maior fatia herda o
 // lima (herói) e as menores desbotam pros neutros — distinção sem sair da marca.
-const DV = ["#C8E600", "#93B300", "#5F7D1F", "#3F5A22", "#8A876F", "#B4B0A0", "#6B6A5A", "#11190C"];
+const DV = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
 const brlNoCents = (n: number) => "R$ " + Math.round(n).toLocaleString("pt-BR");
 const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 
@@ -196,14 +196,14 @@ export function VisorHomeTop() {
       {/* ESQUERDA — herói (gasto comparado) + Dica */}
       <div className="flex flex-col gap-5">
         {/* Forma do card do herói (Laboratório): raio 32, padding 20, hairline. */}
-        <Card className="flex flex-col rounded-[32px] p-5 border border-[#f1f3f5]" padded={false} info={{
+        <Card className="flex flex-col rounded-[32px] p-5 border border-[color:var(--a4p-hairline)]" padded={false} info={{
           titulo: "Saldo em conta",
           oQue: "Quanto você tem em conta agora, com o que entrou (verde) e o que saiu (vermelho) ao longo do período.",
           comoCalcula: "O valor é o saldo consolidado das contas. As duas linhas acumulam, dia a dia, as entradas e as saídas já liquidadas no período; o resultado abaixo é entradas − saídas.",
         }}>
           <div className="flex items-center gap-3">
             {/* Título do card (Laboratório): Roobert Variable 15/400, −0.02em. */}
-            <span className="text-[15px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, letterSpacing: "-0.02em", color: "#11190c" }}>Saldo em conta</span>
+            <span className="text-[15px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, letterSpacing: "-0.02em", color: "var(--color-ink)" }}>Saldo em conta</span>
           </div>
           {/* Herói: o SALDO consolidado. Roobert Variable 35/500 tracking
               −0.055em; o prefixo R$ e os centavos vêm de `a4p-heroi`. O sufixo
@@ -254,13 +254,13 @@ export function VisorHomeTop() {
                   </defs>
                   <XAxis dataKey="label" hide />
                   <YAxis hide domain={[0, "auto"]} />
-                  <Tooltip content={<GastoTooltip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
+                  <Tooltip content={<GastoTooltip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                   <Area type="monotone" dataKey="ent" stroke="none" fill="url(#visorFillEnt)" {...chartAnim()} />
                   <Area type="monotone" dataKey="sai" stroke="none" fill="url(#visorFillSai)" {...chartAnim(120)} />
                   {/* ENTRADAS — verde em gradiente */}
-                  <Line type="monotone" dataKey="ent" stroke="url(#visorEnt)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim()} />
+                  <Line type="monotone" dataKey="ent" stroke="url(#visorEnt)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim()} />
                   {/* SAÍDAS — vermelho em gradiente */}
-                  <Line type="monotone" dataKey="sai" stroke="url(#visorSai)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: NEGATIVE, stroke: "#fff", strokeWidth: 2 }} {...chartAnim(120)} />
+                  <Line type="monotone" dataKey="sai" stroke="url(#visorSai)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: NEGATIVE, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim(120)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </figure>
@@ -330,7 +330,7 @@ export function VisorHomeTop() {
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
                       {s.trend !== 0 && (
                         <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
-                          style={{ background: subiu ? tint("#C2473D", 0.10) : "rgba(63,143,91,0.12)" }}>
+                          style={{ background: subiu ? tint("#D62C2C", 0.10) : "rgba(63,143,91,0.12)" }}>
                           <Icon name={subiu ? "trending-up" : "trending-down"} size={13} color={subiu ? "var(--color-negative)" : "var(--color-positive)"} />
                         </span>
                       )}
@@ -378,16 +378,16 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
       <div className="flex items-center gap-3">
         {/* O tile do sparkle saiu (Laboratório). Título e texto em Roobert
             Variable nos cinzas escolhidos — vide a ressalva de contraste no PR. */}
-        <span className="text-[17px]" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.02em", color: "#5c5c5c" }}>Dica all4pay</span>
+        <span className="text-[17px]" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.02em", color: "var(--color-ink)" }}>Dica all4pay</span>
         <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-on-lime hover:bg-black/10 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />
         </button>
       </div>
-      <p className="m-0 text-[14px] leading-snug min-h-[44px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, color: "#a3a3a3" }}>{dicas[i]}</p>
+      <p className="m-0 text-[14px] leading-snug min-h-[44px]" style={{ fontFamily: VARIAVEL, fontWeight: 400, color: "var(--color-text-secondary)" }}>{dicas[i]}</p>
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-[6px] flex-1">
           {dicas.map((_, k) => (
-            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "#11190C" : "rgba(17,25,12,0.25)" }} />
+            <span key={k} className="h-[6px] rounded-pill transition-all" style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-ink)" : "rgba(17,25,12,0.25)" }} />
           ))}
         </div>
         <button onClick={() => go(-1)} aria-label="Dica anterior" className="w-8 h-8 rounded-pill inline-flex items-center justify-center bg-black/10 text-on-lime hover:bg-black/20 transition-colors">
