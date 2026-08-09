@@ -54,6 +54,10 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   // arquivo. Em português troca de fonte a cada acento e o `R$` perde a cifra.
   // Vale para avaliar maiúsculas e números em título curto; não para o produto.
   { id: "deacon", label: "Deacon Condensed Black ⚠ sem acentos", stack: '"Deacon Condensed",sans-serif' },
+  // 507 caracteres, acentos pt-BR completos e `tnum` — a única candidata que
+  // também alinha COLUNA DE VALORES. Corte único (Bold 700): outros pesos são
+  // sintéticos. Medido no arquivo.
+  { id: "gellix", label: "Gellix Bold (só o Bold é real)", stack: '"Gellix",sans-serif' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
 const FONTS_GLOBAL = FONTS.filter((f) => f.id);
