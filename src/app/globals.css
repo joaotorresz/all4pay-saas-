@@ -115,6 +115,27 @@
   font-display: swap;
 }
 
+/* Deacon Condensed Test Black — candidata em avaliação, SÓ pelo Laboratório.
+   ⚠️ MEDIDO NO ARQUIVO (fontTools): 67 glifos, 66 caracteres mapeados. É o
+   MESMO tamanho da demo de Obviously que já teve de ser trocada por "trocar de
+   fonte no meio da palavra" — e aqui o problema é maior, porque falta
+   justamente o que um app financeiro em português usa o tempo todo:
+
+     · TODOS os acentos pt-BR: á à â ã é ê í ó ô õ ú ç (e as maiúsculas);
+     · o cifrão `$`, o percentual `%`, o menos tipográfico `−` e os dois-pontos.
+
+   Consequência prática: "Contabilidade e impostos" troca de fonte em cada
+   acento, e `R$` perde a cifra. Serve para avaliar o DESENHO das maiúsculas e
+   dos números em títulos curtos sem acento — não para o produto.
+   ⚠️ E é `Test`/`Trial` no nome: uso comercial exige licença. */
+@font-face {
+  font-family: "Deacon Condensed";
+  src: url("/fonts/deacon-condensed-black.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------
