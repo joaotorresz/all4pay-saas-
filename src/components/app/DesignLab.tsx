@@ -573,6 +573,27 @@ export function DesignLab() {
     setS(carregar());
   }, []);
 
+  /*
+   * ⚠️ O LABORATÓRIO ABRE PELA PALETA (⌘K → "Laboratório de Design"), não por
+   * um botão flutuante.
+   *
+   * O FAB ficava fixo no canto inferior esquerdo de TODA tela, para TODO
+   * usuário — inclusive em produção. Um sandbox de design não é função do
+   * produto: ele repinta o app com valores que ninguém do outro lado escolheu,
+   * e um botão permanente por cima do conteúdo convida ao clique acidental
+   * justamente de quem não sabe o que ele faz. A tela existe para o conteúdo;
+   * a ferramenta de quem desenha a tela não disputa espaço com ele.
+   *
+   * A paleta é o lugar certo: quem procura o Lab acha em duas teclas, e quem
+   * não procura não esbarra. É o mesmo caminho já usado por "Personalizar
+   * Home", pela mesma razão.
+   */
+  React.useEffect(() => {
+    const abrir = () => setOpen(true);
+    window.addEventListener("a4p:open-lab", abrir);
+    return () => window.removeEventListener("a4p:open-lab", abrir);
+  }, []);
+
   React.useEffect(() => {
     if (primeiro.current) { primeiro.current = false; return; }
     if (!tinhaSalvo.current && ehPadrao(s)) return;
@@ -700,14 +721,6 @@ export function DesignLab() {
 
   return (
     <>
-      <button data-designlab onClick={() => setOpen((o) => !o)} aria-label="Laboratório de Design"
-        title="Laboratório de Design" className="fixed bottom-5 left-5 z-[85] inline-flex items-center gap-2 rounded-pill bg-ink text-white pl-3 pr-4 py-[9px] shadow-popover hover:opacity-90">
-        <span className="w-[26px] h-[26px] rounded-md bg-lime inline-flex items-center justify-center">
-          <Icon name="palette" size={15} color="var(--color-on-lime)" />
-        </span>
-        <span className="text-[14px] font-semibold">Design</span>
-      </button>
-
       {/* realce (picker) */}
       {picking && hover && <Realce rect={hover.rect} label={hover.label} />}
       {/* realce (hover no painel) */}
