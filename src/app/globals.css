@@ -136,6 +136,30 @@
   font-display: swap;
 }
 
+/* Gellix TRIAL Bold — candidata do Laboratório, e a PRIMEIRA que não tem o
+   defeito das outras. Medido no arquivo (fontTools): 759 glifos, 507
+   caracteres, 196 KB.
+
+   · ASCII, acentos pt-BR e símbolos (`$` `%` `−` `–` `—`): COMPLETOS;
+   · e tem `tnum` — numeral tabular de verdade. É a única candidata que
+     poderia servir também para VALORES, porque as colunas alinham. Knocky,
+     Obviously e Deacon falham exatamente aí.
+
+   ⚠️ CORTE ÚNICO (usWeightClass 700). A faixa `100 900` existe para o
+   navegador não recusar a família quando o Lab pedir outro peso — sem ela um
+   `font-weight:400` cairia no fallback e a pessoa concluiria que a fonte não
+   carregou. O peso DESENHADO é um só; o resto é sintético, e um "Light"
+   pedido aqui é o Bold afinado pelo navegador, não um corte real. Mesmo
+   tratamento da Knocky.
+   ⚠️ `TRIAL` no nome: uso comercial exige licença. */
+@font-face {
+  font-family: "Gellix";
+  src: url("/fonts/gellix-bold.otf") format("opentype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
    all4pay Design System — runtime CSS variables
    ------------------------------------------------------------
