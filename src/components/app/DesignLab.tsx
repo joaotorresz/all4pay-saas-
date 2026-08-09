@@ -50,6 +50,10 @@ const FONTS: { id: string; label: string; stack: string }[] = [
   // acentos pt-BR. ⚠️ Dígitos PROPORCIONAIS (nove larguras; o `1` mede metade
   // do `0`) e sem `tnum` — em coluna de valores não alinha. Vale para texto.
   { id: "obviously", label: "Obviously Narrow Bold", stack: '"Obviously Narrow",sans-serif' },
+  // ⚠️ 66 caracteres — SEM acento pt-BR, sem `$`, `%`, `−` e `:`. Medido no
+  // arquivo. Em português troca de fonte a cada acento e o `R$` perde a cifra.
+  // Vale para avaliar maiúsculas e números em título curto; não para o produto.
+  { id: "deacon", label: "Deacon Condensed Black ⚠ sem acentos", stack: '"Deacon Condensed",sans-serif' },
   { id: "system", label: "Sistema", stack: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" },
 ];
 const FONTS_GLOBAL = FONTS.filter((f) => f.id);
@@ -260,6 +264,41 @@ interface Selecao {
   amostra: string;      // trecho do texto, p/ você reconhecer no painel
   escopo: "este" | "tipo";
   ov: Overrides;
+  /**
+   * O valor COMPUTADO do elemento no momento da seleção — a régua abre aqui.
+   *
+   * ⚠️ Sem isto os controles sentavam no MÍNIMO da escala (8px, peso 100,
+   * tracking −8). O número ao lado dizia "—", mas a alça na ponta esquerda diz
+   * outra coisa: lê-se "este texto está no menor tamanho possível". E o dano
+   * não era só de leitura — pegar uma alça no mínimo e cutucá-la aplica um
+   * valor perto do mínimo, então o primeiro arrasto COLAPSAVA o texto para
+   * ~8px/peso 100 de uma vez. Abrindo no valor real, o primeiro arrasto é um
+   * ajuste fino a partir de onde as coisas de fato estão.
+   */
+  base?: Partial<Record<Prop, number | string>>;
+}
+
+/** Lê do elemento o que as réguas precisam para abrir na posição certa. */
+function baseComputada(el: Element): Partial<Record<Prop, number | string>> {
+  try {
+    const c = getComputedStyle(el);
+    const px = (v: string) => Math.round(parseFloat(v) || 0);
+    const fs = parseFloat(c.fontSize) || 16;
+    const lh = parseFloat(c.lineHeight); // "normal" vira NaN
+    return {
+      size: px(c.fontSize),
+      weight: Math.round(Number(c.fontWeight) || 400),
+      // tracking é guardado em centésimos de `em` (a escala do controle)
+      tracking: Math.round(((parseFloat(c.letterSpacing) || 0) / fs) * 100),
+      lineHeight: Number.isFinite(lh) ? Math.round((lh / fs) * 100) : 120,
+      radius: px(c.borderRadius),
+      padding: px(c.paddingTop),
+      borderW: px(c.borderTopWidth),
+      opacity: Math.round((Number(c.opacity) || 1) * 100),
+    };
+  } catch {
+    return {};
+  }
 }
 interface DesignState {
   font: string;
@@ -622,6 +661,8 @@ export function DesignLab() {
       const nova: Selecao = {
         key, seletor, padraoId: p?.id ?? "", rotulo: p?.label ?? el.tagName.toLowerCase(),
         amostra: (el.textContent ?? "").trim().slice(0, 42), escopo: "este", ov: {},
+        // As réguas abrem no valor REAL do elemento — ver a nota em `Selecao`.
+        base: baseComputada(el),
       };
       // Se este elemento já foi selecionado antes, reabre o cartão existente.
       let alvoKey = key;
@@ -765,7 +806,7 @@ export function DesignLab() {
                                 <button onClick={() => subirNivel(sel.key)} className="text-[11px] text-muted hover:text-ink underline">selecionar o container ↑</button>
                               </div>
                               {ORDEM_PROPS.map((p) => (
-                                <Controle key={p} prop={p} valor={sel.ov[p]}
+                                <Controle key={p} prop={p} valor={sel.ov[p]} base={sel.base?.[p]}
                                   onChange={(v) => setSelProp(sel.key, p, v)} onClear={() => clearSelProp(sel.key, p)} />
                               ))}
                             </div>
@@ -1006,7 +1047,7 @@ function Realce({ rect, label, sutil }: { rect: DOMRect; label: string; sutil?: 
   );
 }
 
-function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: number | string | undefined; onChange: (v: number | string) => void; onClear: () => void }) {
+function Controle({ prop, valor, base, onChange, onClear }: { prop: Prop; valor: number | string | undefined; base?: number | string; onChange: (v: number | string) => void; onClear: () => void }) {
   const m = PROPS_META[prop];
   const ativo = valor !== undefined;
 
@@ -1032,7 +1073,18 @@ function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: numbe
           <span className="text-muted">{m.label}</span>
           {ativo && <Limpar onClick={onClear} />}
         </div>
-        <input value={(valor as string) ?? ""} placeholder="escreva p/ trocar · vazio apaga · × restaura" onChange={(e) => onChange(e.target.value)}
+        {/*
+          ⚠️ ESVAZIAR O CAMPO REMOVE O AJUSTE — não apaga o texto do elemento.
+          Antes, `onChange("")` gravava `texto: ""` e o `aplicarTextos` fazia
+          `el.textContent = ""`: o rótulo sumia da tela. E o gesto que causava
+          isso é o mais natural que existe — selecionar tudo e apagar para
+          desfazer o que se acabou de escrever. Quem quisesse mesmo esconder o
+          texto tem o interruptor "Ocultar o texto" logo acima, que é reversível
+          e diz o que faz. Mesma regra do campo de Fonte, que já tratava vazio
+          como "sem ajuste".
+        */}
+        <input value={(valor as string) ?? ""} placeholder="escreva p/ trocar · vazio remove o ajuste"
+          onChange={(e) => (e.target.value === "" ? onClear() : onChange(e.target.value))}
           className="w-full text-caption text-ink bg-white rounded-sm px-2 py-[6px] border border-border" />
       </div>
     );
@@ -1077,7 +1129,9 @@ function Controle({ prop, valor, onChange, onClear }: { prop: Prop; valor: numbe
       </div>
     );
   }
-  const v = (valor as number) ?? m.min ?? 0;
+  // Sem ajuste, a régua abre no valor REAL do elemento (a `base`), não no
+  // mínimo da escala — ver a nota em `Selecao.base`.
+  const v = (valor as number) ?? (typeof base === "number" ? base : undefined) ?? m.min ?? 0;
   return (
     <label className="flex flex-col gap-1">
       <div className="flex items-center justify-between text-caption">
