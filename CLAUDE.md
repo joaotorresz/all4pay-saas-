@@ -179,6 +179,20 @@ valores que ninguém escolheu — foi o que aconteceu com as semânticas
 (verde-oliva `#3f6212` e tijolo `#b42318` no lugar do `#00ff62`/`#ff1100` do
 DS) para todo usuário que nunca abriu o Laboratório.
 
+⚠️ **O Lab abre pela paleta (⌘K → "Laboratório de Design"), não por botão
+flutuante.** O FAB "Design" ficava fixo no canto inferior esquerdo de TODA tela,
+para TODO usuário — inclusive em produção. Um sandbox de design não é função do
+produto: ele repinta o app com valores que ninguém do outro lado escolheu, e um
+botão permanente por cima do conteúdo convida ao clique acidental justamente de
+quem não sabe o que ele faz. A paleta é o mesmo caminho de "Personalizar Home",
+pela mesma razão — quem procura acha em duas teclas, quem não procura não
+esbarra. `DesignLab` escuta `a4p:open-lab`.
+
+⚠️ **O selo "Demonstração" (`DemoBadge`) é `demo &&`** — ele NÃO existe em
+produção. Ele não é decoração: é o que impede alguém de confundir dado do seed
+com dado real, que é a mesma família de defeito que fez `isDemo` virar opt-in
+explícito (`src/lib/demo.ts`). Não remover.
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,
