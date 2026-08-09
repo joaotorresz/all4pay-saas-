@@ -574,19 +574,20 @@ export function DesignLab() {
   }, []);
 
   /*
-   * ⚠️ O LABORATÓRIO ABRE PELA PALETA (⌘K → "Laboratório de Design"), não por
-   * um botão flutuante.
+   * DUAS PORTAS PARA O LABORATÓRIO: o botão flutuante e a paleta
+   * (⌘K → "Laboratório de Design"). As duas abrem o mesmo painel.
    *
-   * O FAB ficava fixo no canto inferior esquerdo de TODA tela, para TODO
-   * usuário — inclusive em produção. Um sandbox de design não é função do
-   * produto: ele repinta o app com valores que ninguém do outro lado escolheu,
-   * e um botão permanente por cima do conteúdo convida ao clique acidental
-   * justamente de quem não sabe o que ele faz. A tela existe para o conteúdo;
-   * a ferramenta de quem desenha a tela não disputa espaço com ele.
+   * O botão voltou a pedido de quem desenha o sistema: iterar em design é um
+   * ciclo curto — mexer, olhar, mexer de novo —, e duas teclas por rodada
+   * viram atrito onde o trabalho é justamente repetir a rodada.
    *
-   * A paleta é o lugar certo: quem procura o Lab acha em duas teclas, e quem
-   * não procura não esbarra. É o mesmo caminho já usado por "Personalizar
-   * Home", pela mesma razão.
+   * ⚠️ O que continua verdade e não deve ser esquecido: o `DesignLab` é
+   * montado no `AppShell` sem condição, então este botão aparece para TODO
+   * usuário, em TODA tela, inclusive em produção. É um sandbox que repinta o
+   * app com valores que ninguém do outro lado escolheu. Enquanto o produto
+   * for operado por quem o desenha, o custo é aceitável e a decisão é dele;
+   * no dia em que houver cliente do outro lado, o gate certo é por PAPEL
+   * (só quem administra a plataforma vê o botão), não remover a ferramenta.
    */
   React.useEffect(() => {
     const abrir = () => setOpen(true);
@@ -721,6 +722,20 @@ export function DesignLab() {
 
   return (
     <>
+      {/* Botão flutuante — a porta rápida. A outra é ⌘K → "Laboratório de
+          Design"; as duas chamam o mesmo painel. Cores por TOKEN (`bg-ink`,
+          `bg-lime`, `text-on-lime`), nunca hex: o Lab é a ferramenta que
+          repinta o sistema, e ele mesmo fora da paleta seria o primeiro
+          contra-exemplo da regra que ele existe para ajustar. */}
+      <button data-designlab onClick={() => setOpen((o) => !o)} aria-label="Laboratório de Design"
+        title="Laboratório de Design (⌘K → Laboratório)"
+        className="fixed bottom-5 left-5 z-[85] inline-flex items-center gap-2 rounded-pill bg-ink text-white pl-3 pr-4 py-[9px] shadow-popover hover:opacity-90">
+        <span className="w-[26px] h-[26px] rounded-md bg-lime inline-flex items-center justify-center">
+          <Icon name="palette" size={15} color="var(--color-on-lime)" />
+        </span>
+        <span className="text-[14px] font-semibold">Design</span>
+      </button>
+
       {/* realce (picker) */}
       {picking && hover && <Realce rect={hover.rect} label={hover.label} />}
       {/* realce (hover no painel) */}

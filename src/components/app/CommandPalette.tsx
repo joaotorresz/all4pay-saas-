@@ -104,8 +104,9 @@ const ROUTES: RouteItem[] = [
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
-  // Único acesso ao Laboratório desde que o botão flutuante saiu (ele ficava
-  // por cima do conteúdo em toda tela, para todo usuário — vide DesignLab).
+  // Segunda porta do Laboratório (a primeira é o botão flutuante). Fica porque
+  // quem já sabe o nome chega mais rápido pela paleta do que procurando o
+  // botão — e porque uma tela cheia pode cobrir o canto onde ele mora.
   { label: "Laboratório de Design", href: "/", icon: "palette", kw: "laboratorio design lab tipografia fonte cor token sandbox experimentar aparencia", event: "a4p:open-lab" },
 ];
 
