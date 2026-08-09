@@ -108,6 +108,20 @@ const PADROES: Padrao[] = [
   { id: "topbarMarca", label: "Barra superior · marca", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='marca']", seletorTipo: ".a4p-topbar [data-topbar='marca']" },
   { id: "topbarIcone", label: "Barra superior · ícones", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='acao']", seletorTipo: ".a4p-topbar [data-topbar='acao']" },
   { id: "topbarMenu", label: "Barra superior · menu ⋮", grupo: "Barra superior", teste: ".a4p-topbar [data-topbar='menu']", seletorTipo: ".a4p-topbar [data-topbar='menu']" },
+  // Navegação HORIZONTAL — as pílulas de vidro sob a barra. Vivem fora do
+  // `<main>.ds-visor` (irmãs dele), pela mesma razão da TopBar e da IA.
+  { id: "navAtivo", label: "Navegação · aba ativa", grupo: "Barra superior", teste: '.a4p-nav-h [aria-current="page"]', seletorTipo: '.a4p-nav-h [aria-current="page"]' },
+  { id: "navItem", label: "Navegação · aba", grupo: "Barra superior", teste: ".a4p-nav-h a,.a4p-nav-h button", seletorTipo: ".a4p-nav-h a,.a4p-nav-h button" },
+  { id: "navBg", label: "Navegação · faixa", grupo: "Barra superior", teste: ".a4p-nav-h", seletorTipo: ".a4p-nav-h" },
+  // Papéis da paleta quente. `.a4p-heroi` e `.a4p-label` são as classes que o
+  // design system expõe POR PAPEL — é por elas que se ajusta, não por posição.
+  { id: "heroi", label: "Herói (tela de destaque)", grupo: "Textos", teste: ".ds-visor .a4p-heroi", seletorTipo: ".ds-visor .a4p-heroi" },
+  { id: "labelMono", label: "Rótulo (caixa alta)", grupo: "Textos", teste: ".a4p-label", seletorTipo: ".a4p-label" },
+  { id: "cabecTabela", label: "Cabeçalho de tabela", grupo: "Componentes", teste: ".ds-visor thead th", seletorTipo: ".ds-visor thead th" },
+  { id: "linhaTabela", label: "Linha de tabela", grupo: "Componentes", teste: ".ds-visor tbody tr", seletorTipo: ".ds-visor tbody tr" },
+  { id: "celulaTabela", label: "Célula de tabela", grupo: "Componentes", teste: ".ds-visor tbody td", seletorTipo: ".ds-visor tbody td" },
+  { id: "campo", label: "Campo de formulário", grupo: "Componentes", teste: ".ds-visor input,.ds-visor select,.ds-visor textarea", seletorTipo: ".ds-visor input,.ds-visor select,.ds-visor textarea" },
+  { id: "eixo", label: "Eixo de gráfico", grupo: "Componentes", teste: ".ds-visor .recharts-cartesian-axis-tick-value", seletorTipo: ".ds-visor .recharts-cartesian-axis-tick-value" },
   { id: "kpi", label: "Valor / KPI", grupo: "Textos", teste: ".ds-visor .a4p-num,.ds-visor .text-value-lg", seletorTipo: ".ds-visor .a4p-num,.ds-visor .text-value-lg" },
   { id: "h1", label: "Título da página (H1)", grupo: "Textos", teste: ".ds-visor h1,.ds-visor .text-h1", seletorTipo: ".ds-visor h1,.ds-visor .text-h1" },
   { id: "h2", label: "Subtítulo (H2)", grupo: "Textos", teste: ".ds-visor h2,.ds-visor .text-h2", seletorTipo: ".ds-visor h2,.ds-visor .text-h2" },
@@ -118,6 +132,18 @@ const PADROES: Padrao[] = [
   { id: "label", label: "Rótulo", grupo: "Textos", teste: ".ds-visor .text-label", seletorTipo: ".ds-visor .text-label" },
   { id: "caption", label: "Legenda", grupo: "Textos", teste: ".ds-visor .text-caption", seletorTipo: ".ds-visor .text-caption" },
   { id: "body", label: "Corpo", grupo: "Textos", teste: ".ds-visor .text-body", seletorTipo: ".ds-visor .text-body" },
+  /*
+   * ⚠️ AS DUAS SUPERFÍCIES QUE ENVOLVEM TUDO FICAM NO FIM DA LISTA.
+   *
+   * `padraoDe` usa `closest()`, que sobe a árvore — então um padrão de
+   * CONTAINER declarado antes vence o elemento específico que está dentro
+   * dele. Com `.a4p-canvas` no topo, clicar num título de card selecionava
+   * "Moldura escura do app": medido no navegador, o painel abria com 1 alvo e
+   * a classe errada. A ordem desta lista É a prioridade, do específico ao
+   * genérico, e estas duas são o mais genérico que existe.
+   */
+  { id: "cartaoApp", label: "Cartão do app (área clara)", grupo: "Componentes", teste: ".a4p-app-card", seletorTipo: ".a4p-app-card" },
+  { id: "moldura", label: "Moldura escura do app", grupo: "Componentes", teste: ".a4p-canvas", seletorTipo: ".a4p-canvas" },
   // Papéis amplos usados pela aba "Fontes". `teste` nunca casa: não entram no
   // picker (seriam genéricos demais), só na atribuição por papel.
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
@@ -162,6 +188,100 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
 function padraoDe(el: Element): Padrao | null {
   for (const p of PADROES) { try { if (el.closest(p.teste)) return p; } catch { /* ignore */ } }
   return null;
+}
+
+/* ============ A CLASSE DO ELEMENTO (quando o catálogo não cobre) ============ */
+/**
+ * ⚠️ O CATÁLOGO SEMPRE VAI FICAR PARA TRÁS. `PADROES` é curado à mão e envelhece
+ * na primeira tela nova; sem uma saída, clicar num elemento não catalogado
+ * deixava o escopo "todos do tipo" DESLIGADO e sem como ligar — o ajuste ficava
+ * preso naquele elemento, e a pessoa só descobria depois de repetir o mesmo
+ * ajuste seis vezes.
+ *
+ * Esta função lê a CLASSE DE SISTEMA que o próprio elemento carrega e monta o
+ * seletor a partir dela. A ordem é do mais significativo ao mais genérico, e
+ * ela é deliberadamente conservadora: prefere o atributo/classe que o design
+ * system publica (`data-card`, `.a4p-num`, `.text-h2`) e só cai no nome da tag
+ * quando não há nada melhor.
+ *
+ * ⚠️ Ela NUNCA usa `nth-of-type`. Foi exatamente esse tipo de seletor —
+ * coordenada de DOM em vez de papel — que fez os ~15 blocos promovidos do
+ * Laboratório vencerem a regra de papel e manterem o valor-herói na fonte
+ * errada. Classe é papel; posição não é.
+ */
+const CLASSES_DO_SISTEMA: { seletor: string; rotulo: string }[] = [
+  // atributos que o DS publica
+  { seletor: '[data-card="1"]', rotulo: "Card" },
+  { seletor: "[data-icontile]", rotulo: "Chip de ícone" },
+  // papéis tipográficos
+  { seletor: ".a4p-num", rotulo: "Valor" },
+  { seletor: ".a4p-heroi", rotulo: "Herói" },
+  { seletor: ".a4p-label", rotulo: "Rótulo (caixa alta)" },
+  { seletor: ".tabular-nums", rotulo: "Número tabular" },
+  { seletor: ".text-display", rotulo: "Display" },
+  { seletor: ".text-h1", rotulo: "Título H1" },
+  { seletor: ".text-h2", rotulo: "Título H2" },
+  { seletor: ".text-h3", rotulo: "Título de card" },
+  { seletor: ".text-value-lg", rotulo: "Valor grande" },
+  { seletor: ".text-body", rotulo: "Corpo" },
+  { seletor: ".text-label", rotulo: "Rótulo" },
+  { seletor: ".text-caption", rotulo: "Legenda" },
+  // superfícies e controles
+  { seletor: ".a4p-glass-pill", rotulo: "Pílula de vidro" },
+  { seletor: ".a4p-gradiente-marca", rotulo: "Superfície em degradê" },
+];
+
+/** Tags cujo NOME já é o papel — última parada antes de desistir. */
+const TAGS_COM_PAPEL: Record<string, string> = {
+  h1: "Título H1", h2: "Título H2", h3: "Título H3",
+  button: "Botão", a: "Link", th: "Cabeçalho de tabela",
+  td: "Célula de tabela", tr: "Linha de tabela", li: "Item de lista",
+  input: "Campo", select: "Seleção", textarea: "Campo de texto",
+  label: "Rótulo de campo", p: "Parágrafo",
+};
+
+/**
+ * Monta um Padrao sintético para um elemento fora do catálogo, escopado à
+ * mesma RAIZ do elemento (`.ds-visor`, `.a4p-sidebar`, `.a4p-topbar`…) — sem o
+ * escopo, mexer num `h2` do menu repintaria os `h2` do conteúdo, que é a
+ * surpresa que faria a pessoa desligar a função.
+ */
+function classeDe(el: Element): Padrao | null {
+  const raiz = raizDe(el);
+  if (!raiz) return null;
+  for (const c of CLASSES_DO_SISTEMA) {
+    try {
+      if (el.matches(c.seletor)) {
+        return { id: `auto:${raiz.prefixo} ${c.seletor}`, label: c.rotulo, grupo: "Textos",
+          teste: c.seletor, seletorTipo: `${raiz.prefixo} ${c.seletor}` };
+      }
+    } catch { /* ignore */ }
+  }
+  const tag = el.tagName.toLowerCase();
+  const papel = TAGS_COM_PAPEL[tag];
+  if (papel) {
+    return { id: `auto:${raiz.prefixo} ${tag}`, label: papel, grupo: "Textos",
+      teste: tag, seletorTipo: `${raiz.prefixo} ${tag}` };
+  }
+  return null;
+}
+
+/**
+ * O padrão do elemento: o catálogo primeiro (curado, com rótulo em português),
+ * a classe depois. `padraoPorId` resolve os dois — os sintéticos carregam o
+ * seletor dentro do próprio id, para sobreviverem a um reload sem precisar de
+ * uma segunda tabela persistida.
+ */
+function padraoOuClasse(el: Element): Padrao | null {
+  return padraoDe(el) ?? classeDe(el);
+}
+
+function padraoPorId(id: string): Padrao | null {
+  if (id.startsWith("auto:")) {
+    const seletorTipo = id.slice(5);
+    return { id, label: "classe", grupo: "Textos", teste: seletorTipo, seletorTipo };
+  }
+  return PADROES.find((p) => p.id === id) ?? null;
 }
 
 /* ============ SELETOR ÚNICO (caminho estrutural do elemento) ============ */
@@ -482,7 +602,7 @@ function montarCSS(s: DesignState): string {
   for (const sel of s.selecoes) {
     if (!Object.keys(sel.ov).length) continue;
     const alvo = sel.escopo === "tipo"
-      ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor)
+      ? (padraoPorId(sel.padraoId)?.seletorTipo ?? sel.seletor)
       : sel.seletor;
     const r = regra(alvo, sel.ov);
     if (r) out.push(r);
@@ -504,7 +624,7 @@ function aplicarTextos(s: DesignState) {
     const t = sel.ov.texto;
     if (typeof t !== "string") continue;
     const alvo = sel.escopo === "tipo"
-      ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor)
+      ? (padraoPorId(sel.padraoId)?.seletorTipo ?? sel.seletor)
       : sel.seletor;
     try {
       document.querySelectorAll(alvo).forEach((el) => {
@@ -682,11 +802,26 @@ export function DesignLab() {
       const seletor = caminhoUnico(el);
       if (!seletor) return;
       e.preventDefault(); e.stopPropagation();
-      const p = padraoDe(el);
+      const p = padraoOuClasse(el);
       const key = `s${Date.now().toString(36)}`;
       const nova: Selecao = {
         key, seletor, padraoId: p?.id ?? "", rotulo: p?.label ?? el.tagName.toLowerCase(),
-        amostra: (el.textContent ?? "").trim().slice(0, 42), escopo: "este", ov: {},
+        amostra: (el.textContent ?? "").trim().slice(0, 42),
+        /*
+         * ⚠️ O PADRÃO É "TODOS DA MESMA CLASSE", não "só este".
+         *
+         * Editar um item de design quase nunca quer dizer "quero este
+         * diferente dos seus iguais" — quer dizer "o tratamento desta classe
+         * está errado". Abrindo em "só este", cada ajuste nascia preso a um
+         * elemento e a pessoa repetia o mesmo trabalho item a item, ou pior:
+         * promovia um ajuste que valia para um e deixava os outros trinta
+         * divergentes, que é como um sistema vira uma coleção de telas
+         * parecidas.
+         *
+         * "Só este" continua a um clique, para o caso legítimo de exceção.
+         * Sem classe reconhecida não há o que propagar, e aí cai em "este".
+         */
+        escopo: p ? "tipo" : "este", ov: {},
         // As réguas abrem no valor REAL do elemento — ver a nota em `Selecao`.
         base: baseComputada(el),
       };
@@ -787,7 +922,7 @@ export function DesignLab() {
                     </div>
                     <p className="m-0 text-label text-ink font-medium">Nenhum item selecionado</p>
                     <p className="m-0 mt-1 text-caption text-muted leading-snug">
-                      Clique em <strong>Selecionar item na tela</strong> e escolha o elemento exato que você quer mudar. Só ele será alterado.
+                      Clique em <strong>Selecionar item na tela</strong> e escolha o elemento. O ajuste vale para <strong>toda a classe</strong> dele — todos os títulos de card, todos os valores, todas as abas —, e “Só este” fica a um clique para a exceção.
                     </p>
                   </div>
                 ) : (
@@ -796,7 +931,7 @@ export function DesignLab() {
                       const n = Object.keys(sel.ov).length;
                       const aberto = expandido === sel.key;
                       const alvos = typeof document !== "undefined"
-                        ? contaAlvos(sel.escopo === "tipo" ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor) : 0;
+                        ? contaAlvos(sel.escopo === "tipo" ? (padraoPorId(sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor) : 0;
                       return (
                         <div key={sel.key} ref={(el) => { refs.current[sel.key] = el; }}
                           onMouseEnter={() => realcar(sel.seletor)} onMouseLeave={() => realcar(null)}
@@ -823,20 +958,36 @@ export function DesignLab() {
                           </div>
                           {aberto && (
                             <div className="px-3 pb-3 pt-2 flex flex-col gap-3 border-t border-border-soft bg-surface-1/40">
-                              {/* escopo */}
+                              {/* Escopo — abre em "toda a classe". O botão diz
+                                  QUANTOS elementos vai atingir antes do
+                                  primeiro arrasto: "todos do tipo" sem número
+                                  é um salto no escuro. */}
                               <div className="flex items-center gap-2">
                                 <span className="text-caption text-muted">Aplicar em</span>
                                 <div className="inline-flex rounded-md border border-border overflow-hidden ml-auto">
                                   <button onClick={() => setEscopo(sel.key, "este")}
                                     className={`px-2 py-1 text-[11px] ${sel.escopo === "este" ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>Só este</button>
                                   <button onClick={() => setEscopo(sel.key, "tipo")} disabled={!sel.padraoId}
-                                    className={`px-2 py-1 text-[11px] disabled:opacity-40 ${sel.escopo === "tipo" ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>Todos do tipo</button>
+                                    title={sel.padraoId ? `Aplica a todos os "${sel.rotulo}" desta região` : "Este elemento não carrega uma classe do sistema"}
+                                    className={`px-2 py-1 text-[11px] disabled:opacity-40 ${sel.escopo === "tipo" ? "bg-ink text-white" : "text-muted hover:bg-surface-2"}`}>Toda a classe</button>
                                 </div>
                               </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[11px] text-faint">{alvos} elemento{alvos === 1 ? "" : "s"} afetado{alvos === 1 ? "" : "s"}</span>
-                                <button onClick={() => subirNivel(sel.key)} className="text-[11px] text-muted hover:text-ink underline">selecionar o container ↑</button>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[11px] text-faint">
+                                  {sel.escopo === "tipo"
+                                    ? <>muda <strong className="text-ink">{alvos}</strong> elemento{alvos === 1 ? "" : "s"} da classe <span className="text-ink">{sel.rotulo}</span></>
+                                    : <>muda só este elemento</>}
+                                </span>
+                                <button onClick={() => subirNivel(sel.key)} className="text-[11px] text-muted hover:text-ink underline shrink-0">container ↑</button>
                               </div>
+                              {sel.escopo === "tipo" && sel.padraoId.startsWith("auto:") && (
+                                // Classe deduzida do próprio elemento (o catálogo
+                                // não a cobria). Mostrar o seletor é o que
+                                // permite conferir o alcance antes de mexer.
+                                <code className="text-[10px] text-faint break-all leading-tight">
+                                  {padraoPorId(sel.padraoId)?.seletorTipo}
+                                </code>
+                              )}
                               {ORDEM_PROPS.map((p) => (
                                 <Controle key={p} prop={p} valor={sel.ov[p]} base={sel.base?.[p]}
                                   onChange={(v) => setSelProp(sel.key, p, v)} onClear={() => clearSelProp(sel.key, p)} />
@@ -1250,7 +1401,7 @@ function gerarInstrucao(s: DesignState): string {
     for (const sel of sels) {
       L.push(`  • ${sel.rotulo}${sel.amostra ? ` — “${sel.amostra}”` : ""}`);
       L.push(`      escopo: ${sel.escopo === "este" ? "só este elemento" : "todos do tipo"}`);
-      L.push(`      seletor: ${sel.escopo === "tipo" ? (PADROES.find((p) => p.id === sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor}`);
+      L.push(`      seletor: ${sel.escopo === "tipo" ? (padraoPorId(sel.padraoId)?.seletorTipo ?? sel.seletor) : sel.seletor}`);
       for (const k of ORDEM_PROPS) if (k in sel.ov) L.push(`      ${k}: ${valorLegivel(k, sel.ov[k]!)}`);
     }
   }
