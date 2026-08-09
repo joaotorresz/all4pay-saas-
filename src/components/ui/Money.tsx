@@ -63,7 +63,7 @@ export function Money({
       {...rest}
     >
       <span
-        className={cn("mr-[5px]", prefixColor ? undefined : "text-placeholder")}
+        className={cn("mr-[5px]", prefixColor ? undefined : "text-faint")}
         style={{ fontSize: curPx, fontWeight: prefixWeight, color: prefixColor }}
       >
         {currency}
@@ -73,7 +73,7 @@ export function Money({
       </span>
       {showDecimals && (
         <span
-          className="text-placeholder ml-px font-regular"
+          className="text-faint ml-px font-regular"
           style={{ fontSize: Math.round(px * 0.4) }}
         >
           {decimalSep}

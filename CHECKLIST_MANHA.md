@@ -107,51 +107,50 @@ criar conta → importar extrato (use public/exemplos/extrato-exemplo-all4pay.cs
 - [ ] `npm run mobile` — **1 de 7 telas limpa** · 23 falhas de contraste (ver abaixo)
 - [x] `npm test` — 12 guardas ✓ (reconferidas na árvore com a navegação nova)
 
-### 🔴 A nova paleta reprovou em contraste — inclusive num VALOR
+### 🟢 Contraste: 34 → 4 ocorrências. O `R$` e os centavos de TODO valor voltaram a ser legíveis
 
-`npm run mobile` a 390×844. Era **7 telas · 0 com problema** na ONDA 12.
-Medido em **`654903a`** (depois dos PRs #48 e #49, ou seja: os números abaixo
-**sobreviveram** às duas passadas visuais seguintes, não são de uma árvore
-velha):
+Com a paleta quente (PR #53) a medição chegou a **7 telas de 7 com problema · 34
+ocorrências**. Extraí os pares do axe e **31 das 34 eram a mesma coisa**:
+`#a9a6a4` a **2,36:1**, pintando o prefixo `R$` e os **centavos** de todo valor
+do produto.
+
+⚠️ **A regra certa já estava escrita — em dois lugares — e o componente não a
+seguia.** O `globals.css` do PR #53 diz, com todas as letras: *"Placeholder
+#A9A6A4 … serve para o texto-fantasma de um campo vazio e para NADA que precise
+ser lido. Quem pinta o prefixo R$ e os centavos é `--color-text-tertiary`."* E o
+`tailwind.config.ts` rotula `faint` como *"currency prefix + decimals"*. Só que
+`Money.tsx` e `BRL.tsx` usavam **`text-placeholder`**, não `text-faint`.
+
+Não é divergência de gosto: é a decisão registrada na folha de estilo e
+contrariada pelo componente que a consome. Por isso **apliquei** — trocar duas
+classes em dois arquivos é implementar a regra da outra frente, não sobrepor uma
+decisão dela. (E `Money`/`BRL` não estão entre os arquivos que ela vem editando,
+então não há conflito a criar.)
+
+**Medido depois, não deduzido:**
 
 ```
-✓ Início            1632ms                  ✓ Aprovações
-✗ Fluxo de caixa    66 req · contraste ×10  ✗ Títulos a receber   contraste ×7
-✗ Extrato           contraste ×1            ✗ Entrada de dados    66 req · contraste ×5
-✗ DRE               63 req
-
-7 telas · 5 com problema · 23 ocorrências de contraste
+antes  7 telas com problema · 34 ocorrências
+depois 6 telas com problema ·  4 ocorrências   (Aprovações voltou a ficar limpa)
 ```
 
-**Duas causas, as duas do PR #48**, extraídas do axe (par de cores, não
-impressão minha):
+`npm test` verde nas **13** guardas, incluindo a `paleta` nova do PR #53.
 
-| Onde | Hoje | Precisa |
+**O que sobra (4 ocorrências) é decisão de paleta, e essa eu não tomo:**
+
+| Onde | Hoje | Mínimo que passa (sobre `#FEFDF0`) |
 | --- | --- | --- |
-| `text-muted`/`text-faint` = **`#6a7282`** sobre `#f3f1ee` | **4,29:1** | `#666e7d` (4,55:1) |
-| o mesmo cinza sobre `#f7f6ef` | **4,46:1** | `#697181` (4,53:1) |
-| **`--color-positive` `#2cd662`** como TEXTO de valor, sobre branco | **1,92:1** | `#1c883e` (4,53:1) |
-| `--color-negative` `#d62c2c` sobre o canvas `#f4f3f0` | 4,45:1 | `#d42c2c` (4,51:1) |
+| **`--color-positive` `#2cd662`** pintando `R$ …` a 17px | **1,88:1** | `#1c863e` (4,53:1) |
+| `#a9a6a4` num rótulo de 14px que sobrou | 2,36:1 | `#767473` (4,54:1) |
 
-⚠️ **A terceira linha é a grave**, e é a ONDA 12 voltando pela mesma porta: o
-`#2cd662` está pintando **`R$ …` a 17px** — o número, que é a razão da tela
-existir — a **1,92:1**. Não é um rótulo decorativo; é o valor. As duas primeiras
-linhas erram por pouco (4,29 e 4,46 contra 4,5) e explicam a maior parte das 23
-ocorrências, porque esse cinza é o texto de aba e de micro-rótulo do produto
-inteiro.
+O commit do PR #53 diz que as semânticas ficaram como estavam *"decisão
+anterior, tomada com o contraste medido"* — e o `#2cd662` sobre branco dá
+**1,88:1**. Vale a pena reconciliar essa frase com o número antes de fechar a
+paleta.
+**➜ Me diga: *"pode ajustar o positive"*** e aplico + rerodo.
 
-O `#6f6d62` que a ONDA 12 consertou **sobreviveu** — o problema é o cinza NOVO,
-que veio junto com a paleta.
-
-**Também não apliquei:** é o mesmo `globals.css` que a outra frente está
-editando, e dois editores no mesmo arquivo hoje é conflito garantido. Os quatro
-valores acima já estão calculados no mínimo escurecimento que passa — é
-substituição direta.
-**➜ Me diga: *"pode ajustar a paleta"*** e aplico os quatro + rerodo a medição.
-
-*(Os estouros de requisições e o tempo do Início são orçamento de desempenho,
-não acessibilidade — vivíveis num beta, mas ficam registrados porque a linha de
-base da ONDA 12 era zero.)*
+*(Os estouros de requisições são orçamento de desempenho, não acessibilidade —
+vivíveis num beta, mas ficam registrados porque a linha de base era zero.)*
 
 ### 🔴 A falha que apareceu ao reconferir: **não há como criar nada a partir do Início**
 

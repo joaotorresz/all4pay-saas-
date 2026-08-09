@@ -30,14 +30,14 @@ export function BRL({
   const { integer, decimals } = brlParts(value);
   return (
     <span className={cn("a4p-num inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
-      <span className="text-placeholder font-medium" style={{ fontSize: "0.72em", marginRight: "0.16em" }}>
+      <span className="text-faint font-medium" style={{ fontSize: "0.72em", marginRight: "0.16em" }}>
         {prefix}
       </span>
       <span>{neg ? "−" : ""}{integer}</span>
       {showDecimals && (
         // `data-cents` permite a uma tela inteira esconder os centavos por CSS
         // (`.a4p-sem-centavos`), sem ter de passar showDecimals em cada uso.
-        <span data-cents="" className="text-placeholder" style={{ fontSize: "0.72em", marginLeft: "0.04em" }}>
+        <span data-cents="" className="text-faint" style={{ fontSize: "0.72em", marginLeft: "0.04em" }}>
           ,{decimals}
         </span>
       )}
