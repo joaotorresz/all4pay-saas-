@@ -44,7 +44,7 @@ const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julh
 const DIA_ABBR = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 /** Paleta dos chips de categoria — tons do próprio DS, não matizes avulsos. */
-const CHIP = ["#C8E600", "#93B300", "#5F7D1F", "#3F5A22", "#8A876F", "#B4B0A0", "#6B6A5A", "#11190C"];
+const CHIP = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
 const corDaCategoria = (nome: string) => {
   let h = 0;
   for (let i = 0; i < nome.length; i++) h = (h * 31 + nome.charCodeAt(i)) >>> 0;

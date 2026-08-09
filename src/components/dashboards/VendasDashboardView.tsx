@@ -184,8 +184,8 @@ export function VendasDashboardView() {
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
                       <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
-                      <Tooltip content={<DiaTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
+                      <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
+                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -197,8 +197,8 @@ export function VendasDashboardView() {
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
                       <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
-                      <Tooltip content={<DiaTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "#fff", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
+                      <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
+                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -215,14 +215,14 @@ export function VendasDashboardView() {
                 <ComposedChart data={calc.serieRME} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                   <defs>
                     <linearGradient id="recGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#28AA00" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="#28AA00" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="var(--color-positive)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
                   <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
-                  <Tooltip content={<RmeTip />} cursor={{ stroke: "#c9cdd4", strokeDasharray: "3 3" }} />
+                  <Tooltip content={<RmeTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" />
                   <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={POSITIVE} strokeWidth={2.2} fill="url(#recGlow)" activeDot={{ r: 5 }} {...chartAnim()} />
                   <Line type="monotone" dataKey="mc" name="Margem de contribuição" stroke={ORANGE} strokeWidth={2} dot={false} activeDot={{ r: 5 }} {...chartAnim(120)} />

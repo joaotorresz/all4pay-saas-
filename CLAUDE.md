@@ -31,8 +31,115 @@ from its tokens and its components.
 5. **Lime is a spice — under ~5% of any screen.** Sanctioned uses only: the
    brand mark, the `NEW` badge, the "Render mais ↗" yield pill, the ⌘K command
    bar tint, an occasional dot/marker. **Never** as a large fill or background.
-6. **Off-black `ink` (#171717), never pure `#000`** in the app. Pure black is
-   reserved for the marketing hero only.
+6. **O branco é sempre QUENTE (`#FEFDF0`) e o preto é sempre QUENTE e
+   amarronzado (`#28211B`).** Nunca `#FFFFFF`, nunca `#000000` no app — o par
+   puro só existe no token de marketing que o nomeia.
+
+---
+
+## ⚠️ IDENTIDADE VIGENTE — A PALETA QUENTE (substitui as anteriores)
+
+Esta é a regra de cima. As seções de identidade mais abaixo (DS LEDGER, DS
+Visor, "tipografia promovida do Laboratório") descrevem estados ANTERIORES e
+ficam como histórico; onde discordarem desta, **esta vence**.
+
+### As nove cores, e nada além delas
+
+| Nome | HEX | Papel |
+| --- | --- | --- |
+| White | `#FEFDF0` | fundo padrão de tela **e** superfície de card |
+| Beige | `#EEEDDB` | camada intermediária: seção, hover, bottom sheet, divisor |
+| Dark Beige | `#DDDCC5` | desabilitado, teclado numérico, fundo de sheet |
+| Grey | `#534D41` | corpo, labels, prefixo `R$` e centavos |
+| Dark Grey | `#37332A` | bloco de contraste, hover do preto |
+| Black | `#28211B` | títulos, chrome, **card de DADO**, botão primário |
+| Placeholder | `#A9A6A4` | **só** texto-fantasma de campo vazio |
+| Border | `#D4D3D1` | bordas e hairlines |
+| Accent | `#C8D930` | o único acento |
+
+**Degradê da marca:** `linear-gradient(183deg, #FEFDF0 0.5%, #FFFAD7 35%,
+#FFEFA2 63%, #DBFF4D 89%)` — do branco quente ao lima. Reservado a DESTAQUE
+(ícone, celebração, capa, CTA final) e **nunca fundo de tela com muito texto**.
+
+**A base é sempre branco quente + bege.** O preto quente entra em blocos de
+contraste e nos cards de dado.
+
+⚠️ **As semânticas ficam FORA da paleta, de propósito.** A tabela de marca não
+tem vermelho — e um ERP que mostra vencido, saída e prejuízo precisa de um.
+`positive` / `negative` / `warning` seguem como estavam (decisão anterior,
+tomada com o contraste medido) e são as **únicas** exceções sancionadas, junto
+com as cores de marca de terceiro (o laranja do Itaú, o roxo do Nubank — não
+são nossas para repintar).
+
+⚠️ **`Placeholder` não é um quarto cinza de texto.** Ele dá 2,36:1 sobre o
+branco quente. O prefixo `R$` e os centavos usam **Grey** (8,21:1) — foi essa
+exata reprovação que a ONDA 12 mediu em 26 ocorrências. A hierarquia do
+tratamento do dinheiro vem do TAMANHO, não de um cinza mais claro.
+
+**Rampa categórica** (`--a4p-cat-1..8`): feita com `color-mix` sobre os tokens,
+não com oito hexes. Categorias se distinguem por INTENSIDADE do mesmo matiz —
+a paleta tem um acento só. Eram oito hexes copiados em dois arquivos; quando um
+mudava, o outro não.
+
+### Três famílias, três papéis
+
+- **Gellix Bold (700)** — *display*. O valor monetário principal da tela, o
+  título de uma tela de **destaque** (`.a4p-heroi`), a porcentagem grande do
+  donut. Sempre número ou palavra curta, nunca parágrafo.
+  ⚠️ Ela carrega os VALORES porque o arquivo tem **`tnum`** (medido com
+  fontTools). Sem numeral tabular, cada linha de uma coluna de dinheiro
+  começaria num ponto diferente — é o que barrou Knocky, Obviously e Deacon.
+- **Roobert 500** — *texto*. Tudo que se lê: parágrafos, nomes de transação,
+  rótulos de campo, itens de menu, texto de botão, títulos de card.
+- **`.a4p-label`** — *rótulo*. `11px · 500 · 0,44px · CAIXA ALTA · 1,35`, em
+  `var(--font-mono)` (Roobert Mono). Eyebrow de seção, tag de estado, seletor
+  de período, numeração de etapa, timestamp, unidade, eixo de gráfico. **A
+  única caixa-alta sancionada.**
+
+⚠️ **O `h1` de página NÃO é display.** A regra 8.3 restringe a Gellix a três
+situações; "Fluxo de caixa" no alto de um relatório é navegação, não afirmação
+de marca. Gastar a display em toda tela é deixar de destacar qualquer coisa.
+
+**Padrão de tela: rótulo + valor, não título + subtítulo.** Subtítulo só quando
+o título sozinho não resolve a decisão de quem lê.
+
+### Botões — isto INVERTE a doutrina "nada parece botão"
+
+Cantos **retos** (`rounded-none`), padding **16px/20px**. Primário = Black
+quente com texto White quente, **um por tela**. Secundário = Beige. Terciário =
+texto. Accent = o degradê, **só no CTA final de um fluxo**.
+
+⚠️ **A curva pertence ao CARD, não ao controle.** O card leva o raio grande e
+constante (22px); o botão é reto. `pill` sobrevive só para chips (seletor de
+período), onde a forma redonda É a função.
+
+### `npm run paleta` — a guarda que torna a regra verificável
+
+"Nenhuma página ou elemento fora do design system" só é regra se alguém puder
+reprovar quem sai dela. Sem guarda é intenção: a primeira tela nova traz um hex
+conveniente, ninguém vê no diff, e seis meses depois o sistema tem quarenta
+cinzas — foi assim que as semânticas neon entraram por uma janela do
+Laboratório e repintaram o produto inteiro.
+
+Ela cobra três coisas, sobre 532 arquivos: **(1)** nenhum hex fora da paleta +
+semânticas + stops do degradê + as exceções declaradas COM MOTIVO em
+`scripts/paleta.mts`; **(2)** nenhum `#fff`/`#000` no app — a regra mais fácil
+de furar sem querer, porque `#fff` é o que os dedos escrevem sozinhos;
+**(3)** o espelho batendo entre `:root`, `.ds-visor` e os `DEFAULT_CORES` do
+Laboratório. Provada quebrando (hex inventado + branco puro → sai com 1).
+
+A primeira versão dela reprovava a PRÓPRIA documentação: comentário de bloco em
+CSS atravessa linhas, e este repositório explica cada defeito citando o hex que
+o causou. Uma guarda que reprova a documentação da regra treina quem a lê a
+ignorá-la.
+
+⚠️ **Os ~15 blocos posicionais promovidos do Laboratório foram REMOVIDOS**
+(`nth-of-type` a partir de `.ds-visor`, com `font-family`/`font-size` em
+`!important`). Eles venciam a regra de papel: medido no navegador, o
+valor-herói continuava em `Roobert 400` depois de o sistema mandar Gellix Bold
+nos números. Um sistema em que a regra de papel perde para uma coordenada de
+DOM não é um sistema. Não reintroduzir — o que se quer ajustar tem nome
+(`.a4p-num`, `.a4p-heroi`, `[data-card="1"] h2`, `.a4p-label`).
 
 ---
 
@@ -3087,6 +3194,12 @@ npm run reconciliacao # A MATRIZ PAR A PAR (scripts/reconciliacao.mts): para cad
                    # previsto qual par quebraria. Burn e runway são reconciliados
                    # sobre uma empresa QUE QUEIMA — na fixture principal os dois
                    # dão zero/teto, e comparar zeros não reconcilia nada.
+npm run paleta     # A GUARDA DA PALETA (scripts/paleta.mts), dentro de `npm test`:
+                   # nenhum hex fora das 9 cores quentes + 3 semânticas + os
+                   # stops do degradê + as exceções DECLARADAS COM MOTIVO ·
+                   # nenhum #fff/#000 no app · e o espelho batendo entre :root,
+                   # .ds-visor e os DEFAULT_CORES do Laboratório. É o que torna
+                   # "nenhum elemento fora do DS" verificável em vez de intenção.
 npm run mobile     # A MEDIÇÃO NO TELEFONE (scripts/mobile.mjs): Chromium a 390x844
                    # contra o build de produção — orçamento de desempenho por
                    # tela, alvos de toque, hierarquia de cabeçalhos e auditoria

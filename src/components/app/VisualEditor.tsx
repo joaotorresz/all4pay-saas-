@@ -45,7 +45,7 @@ function cssPath(el: Element): string {
 
 function rgbToHex(rgb: string): string {
   const m = rgb.match(/[\d.]+/g);
-  if (!m) return "#000000";
+  if (!m) return "#28211b";
   if (m.length >= 4 && Number(m[3]) === 0) return "transparent";
   const [r, g, b] = m.map((x) => Math.round(Number(x)));
   return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
@@ -69,8 +69,9 @@ interface ThemeVals {
   titleWeight: string; tracking: number; semBorda: boolean; borderColor: string;
 }
 const THEME_DEFAULTS: ThemeVals = {
-  bg: "#eceef2", boxBg: "#ffffff", radius: 24, padding: 31.2,
-  titleWeight: "600", tracking: -0.03, semBorda: true, borderColor: "#e6e8ec",
+  // Espelho da paleta quente — mesmas razões do DesignLab.
+  bg: "#fefdf0", boxBg: "#fefdf0", radius: 22, padding: 24,
+  titleWeight: "600", tracking: -0.03, semBorda: true, borderColor: "#d4d3d1",
 };
 function themeToCssVars(v: ThemeVals): Record<string, string> {
   return {
@@ -363,8 +364,8 @@ export function VisualEditor() {
       {/* estilos de destaque (hover/selecionado) */}
       <style>{`
         body.a4p-editing * { cursor: crosshair !important; }
-        [data-a4p-hover] { outline: 2px dashed rgba(220,255,0,.7) !important; outline-offset: 1px !important; }
-        [data-a4p-sel] { outline: 2px solid #dcff00 !important; outline-offset: 1px !important; }
+        [data-a4p-hover] { outline: 2px dashed rgba(200,217,48,.7) !important; outline-offset: 1px !important; }
+        [data-a4p-sel] { outline: 2px solid #c8d930 !important; outline-offset: 1px !important; }
       `}</style>
 
       {/* alças de mover / redimensionar sobre o elemento selecionado */}
@@ -444,7 +445,7 @@ export function VisualEditor() {
                 <Button
                   variant={selecionando ? "accent" : "primary"}
                   onClick={() => setSelecionando((s) => !s)}
-                  leftIcon={<Icon name="palette" size={15} color={selecionando ? "var(--color-on-lime)" : "#fff"} />}
+                  leftIcon={<Icon name="palette" size={15} color={selecionando ? "var(--color-on-lime)" : "var(--color-white)"} />}
                 >
                   {selecionando ? "Selecionando… (clique num elemento)" : "Selecionar elemento"}
                 </Button>
@@ -606,7 +607,7 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function Cor({ value, onChange, allowNone }: { value: string; onChange: (c: string) => void; allowNone?: boolean }) {
-  const safe = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#ffffff";
+  const safe = /^#[0-9a-fA-F]{6}$/.test(value) ? value : "#fefdf0";
   return (
     <div className="inline-flex items-center gap-2">
       <input type="color" value={safe} onChange={(e) => onChange(e.target.value)} className="w-9 h-9 rounded-md border border-border bg-white p-0 cursor-pointer" aria-label="Cor" />

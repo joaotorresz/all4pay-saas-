@@ -186,7 +186,7 @@ export function IAView() {
               />
               <button onClick={() => responder(texto)} disabled={pensando || !texto.trim()} aria-label="Enviar"
                 className="w-9 h-9 rounded-pill inline-flex items-center justify-center bg-ink text-white disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0">
-                <Icon name="arrow-up" size={16} color="#fff" />
+                <Icon name="arrow-up" size={16} color="var(--color-on-lime)" />
               </button>
             </div>
             <p className="m-0 mt-2 text-center text-[11px] text-faint">A all4pay IA pode cometer erros — confira os valores.</p>

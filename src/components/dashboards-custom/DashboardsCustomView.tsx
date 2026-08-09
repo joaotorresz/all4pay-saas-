@@ -21,7 +21,8 @@ import { listarDashboards, salvarDashboard, removerDashboard } from "@/lib/dashb
 import { WidgetRender } from "./WidgetRender";
 
 type Aba = "todos" | "pessoal" | "empresa";
-const CORES = ["#DCFF00", "#93B300", "#3F8F5B", "#2F6BFF", "#8A876F", "#11190C"];
+// Cor de capa do dashboard: a rampa categórica do sistema.
+const CORES = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-6)", "var(--a4p-cat-8)"];
 
 export function DashboardsCustomView() {
   const [lista, setLista] = React.useState<DashboardCustom[]>([]);

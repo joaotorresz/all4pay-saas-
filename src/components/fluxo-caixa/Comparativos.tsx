@@ -29,7 +29,7 @@ const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
-const PREV = "#9aa0a6"; // cinza da linha tracejada de comparação (neutro, dos dois lados)
+const PREV = "var(--color-text-quaternary)"; // cinza da linha tracejada de comparação (neutro, dos dois lados)
 
 /** Tons do MESMO matiz para as categorias (o DS não tem paleta categórica). */
 const TONS = [100, 76, 56, 40, 28, 19, 13, 9];

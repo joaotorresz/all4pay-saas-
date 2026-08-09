@@ -52,8 +52,12 @@ export interface TemaRelatorio { id: string; nome: string; base: string; suave: 
  * acha. Um fechamento assinado com "Oceano" não quebra — ele volta em Padrão.
  */
 export const TEMAS: TemaRelatorio[] = [
-  { id: "moss", nome: "Padrão", base: "#2F6B3A", suave: "#E7F0E7", texto: "#FFFFFF" },
-  { id: "mono", nome: "Alto contraste", base: "#11190C", suave: "#F0F0EE", texto: "#FFFFFF" },
+  // ⚠️ Os dois temas saem da PALETA (Grey e Black quentes sobre Beige), não de
+  // um verde-musgo próprio: o relatório é o rosto do sistema na mão do
+  // contador, e uma cor que não existe em nenhuma tela o faz parecer emitido
+  // por outro produto. O tema pinta APENAS o cabeçalho e a faixa dos totais.
+  { id: "moss", nome: "Padrão", base: "#534D41", suave: "#EEEDDB", texto: "#FEFDF0" },
+  { id: "mono", nome: "Alto contraste", base: "#28211B", suave: "#DDDCC5", texto: "#FEFDF0" },
 ];
 
 export const temaPorId = (id: string) => TEMAS.find((t) => t.id === id) ?? TEMAS[0];

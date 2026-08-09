@@ -52,8 +52,8 @@ export function Marca4({ size = 18 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden className="shrink-0">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#CFEA00" />
-          <stop offset="1" stopColor="#8CC000" />
+          <stop offset="0" stopColor="var(--color-lime)" />
+          <stop offset="1" stopColor="var(--a4p-cat-3)" />
         </linearGradient>
       </defs>
       <path fill={`url(#${id})`} d={PATH_4} />
@@ -75,7 +75,7 @@ export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: num
     >
       <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 100 100">
         <g transform="rotate(90 50 50)">
-          <path fill="#fff" d={PATH_4} />
+          <path fill="var(--color-white)" d={PATH_4} />
         </g>
       </svg>
     </span>
@@ -185,7 +185,7 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
           className="a4p-varre h-full rounded-pill transition-[width] duration-500"
           style={{
             width: `${((etapa + 1) / ETAPAS.length) * 100}%`,
-            backgroundImage: "linear-gradient(90deg,var(--color-lime),#8CC000,var(--color-lime))",
+            backgroundImage: "linear-gradient(90deg,var(--color-lime),var(--a4p-cat-3),var(--color-lime))",
           }}
         />
       </div>
