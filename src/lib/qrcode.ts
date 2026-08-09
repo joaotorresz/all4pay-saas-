@@ -341,7 +341,14 @@ function penalidade(m: boolean[][]): number {
 }
 
 /** SVG do QR — string pronta para `dangerouslySetInnerHTML` ou download. */
-export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#11190C"): string {
+/*
+ * ⚠️ AS CORES DO QR SÃO LITERAIS, e de propósito: o leitor precisa de
+ * contraste alto entre módulo e fundo, e um `var(--color-*)` não atravessa um
+ * SVG baixado nem um `dangerouslySetInnerHTML` fora do escopo do tema. São os
+ * valores da paleta (Black e White quentes), não o par puro — a diferença é
+ * invisível para o leitor e mantém o código na língua do sistema.
+ */
+export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#28211B"): string {
   const quiet = 4; // zona silenciosa exigida pela norma
   const total = qr.tamanho + quiet * 2;
   const partes: string[] = [];
@@ -350,5 +357,5 @@ export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#11190C"): string 
       if (qr.modulos[y][x]) partes.push(`M${x + quiet} ${y + quiet}h1v1h-1z`);
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${tamanhoPx}" height="${tamanhoPx}" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code do link de pagamento"><rect width="${total}" height="${total}" fill="#fff"/><path d="${partes.join("")}" fill="${cor}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${tamanhoPx}" height="${tamanhoPx}" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code do link de pagamento"><rect width="${total}" height="${total}" fill="#FEFDF0"/><path d="${partes.join("")}" fill="${cor}"/></svg>`;
 }

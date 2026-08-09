@@ -17,7 +17,7 @@ export interface PillProps
 }
 
 const variantClasses: Record<PillVariant, string> = {
-  yield: "bg-lime-tint text-ink border border-[#EAF59A]",
+  yield: "bg-lime-tint text-ink border border-[color:var(--color-lime-tint)]",
   surface: "bg-white text-ink border border-border shadow-pill",
   muted: "bg-surface-2 text-muted border border-border",
   ghost: "bg-transparent text-ink border border-transparent",

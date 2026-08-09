@@ -318,9 +318,9 @@ function LiquidezChart({ pontos, rupturaDia }: { pontos: LiquidezPonto[]; ruptur
         <AreaChart data={pontos} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="liq" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#dcff00" stopOpacity="0.30" />
-              <stop offset="70%" stopColor="#dcff00" stopOpacity="0.06" />
-              <stop offset="100%" stopColor="#dcff00" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--color-lime)" stopOpacity="0.30" />
+              <stop offset="70%" stopColor="var(--color-lime)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--color-lime)" stopOpacity="0" />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />

@@ -19,8 +19,10 @@ import {
   fonteMetrica, fonteSerie, fonteCategoria, type Widget, type EntradaFontes,
 } from "@/core/dashboards";
 
-/** Escala da marca (lima → verde → oliva → neutros), igual ao donut da Home. */
-const PALETA = ["#C8E600", "#93B300", "#5F7D1F", "#3F5A22", "#8A876F", "#B4B0A0", "#6B6A5A", "#11190C"];
+/** A rampa categórica do sistema (mesma do donut da Home). Vem dos tokens
+ *  (`--a4p-cat-*`, feitos com `color-mix` sobre o acento e os neutros), não de
+ *  oito hexes copiados — era assim, e quando um arquivo mudava o outro não. */
+const PALETA = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
 const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 export function WidgetRender({ w }: { w: Widget }) {

@@ -319,13 +319,13 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  // ⚠️ Atualizado junto com a troca de paleta: ink #1a1a1a, cinzas #6a7282,
-  // fundo da área dos cards #fbfcfd, semânticas #2cd662/#d62c2c. Deixar os
-  // valores velhos aqui faria o Lab repintar o app com a paleta ANTERIOR para
-  // quem abrisse a tela — que é literalmente o defeito descrito acima.
-  ink: "#1a1a1a", lime: "#e1ff00", onLime: "#11190c", bg: "#fbfcfd",
-  cardBg: "#ffffff", surface2: "#f3f1ee", border: "#eceae4",
-  body: "#6a7282", muted: "#6a7282",
+  // ⚠️ ESPELHO DA PALETA QUENTE. Deixar os valores velhos aqui faria o Lab
+  // repintar o app com a paleta ANTERIOR para quem abrisse a tela — que é
+  // literalmente o defeito descrito acima. A guarda `npm run paleta` confere
+  // este bloco contra os tokens reais e reprova quando divergem.
+  ink: "#28211b", lime: "#c8d930", onLime: "#28211b", bg: "#fefdf0",
+  cardBg: "#fefdf0", surface2: "#eeeddb", border: "#d4d3d1",
+  body: "#534d41", muted: "#534d41",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
@@ -573,6 +573,27 @@ export function DesignLab() {
     setS(carregar());
   }, []);
 
+  /*
+   * ⚠️ O LABORATÓRIO ABRE PELA PALETA (⌘K → "Laboratório de Design"), não por
+   * um botão flutuante.
+   *
+   * O FAB ficava fixo no canto inferior esquerdo de TODA tela, para TODO
+   * usuário — inclusive em produção. Um sandbox de design não é função do
+   * produto: ele repinta o app com valores que ninguém do outro lado escolheu,
+   * e um botão permanente por cima do conteúdo convida ao clique acidental
+   * justamente de quem não sabe o que ele faz. A tela existe para o conteúdo;
+   * a ferramenta de quem desenha a tela não disputa espaço com ele.
+   *
+   * A paleta é o lugar certo: quem procura o Lab acha em duas teclas, e quem
+   * não procura não esbarra. É o mesmo caminho já usado por "Personalizar
+   * Home", pela mesma razão.
+   */
+  React.useEffect(() => {
+    const abrir = () => setOpen(true);
+    window.addEventListener("a4p:open-lab", abrir);
+    return () => window.removeEventListener("a4p:open-lab", abrir);
+  }, []);
+
   React.useEffect(() => {
     if (primeiro.current) { primeiro.current = false; return; }
     if (!tinhaSalvo.current && ehPadrao(s)) return;
@@ -700,14 +721,6 @@ export function DesignLab() {
 
   return (
     <>
-      <button data-designlab onClick={() => setOpen((o) => !o)} aria-label="Laboratório de Design"
-        title="Laboratório de Design" className="fixed bottom-5 left-5 z-[85] inline-flex items-center gap-2 rounded-pill bg-ink text-white pl-3 pr-4 py-[9px] shadow-popover hover:opacity-90">
-        <span className="w-[26px] h-[26px] rounded-md bg-lime inline-flex items-center justify-center">
-          <Icon name="palette" size={15} color="var(--color-on-lime)" />
-        </span>
-        <span className="text-[14px] font-semibold">Design</span>
-      </button>
-
       {/* realce (picker) */}
       {picking && hover && <Realce rect={hover.rect} label={hover.label} />}
       {/* realce (hover no painel) */}
@@ -958,7 +971,7 @@ export function DesignLab() {
                       {BORDAS.map((b) => {
                         const ov = s.padroes[b.id] ?? {};
                         const w = ov.borderW as number | undefined;
-                        const cor = (ov.borderColor as string) ?? "#eceae4";
+                        const cor = (ov.borderColor as string) ?? "#d4d3d1";
                         return (
                           <div key={b.id}
                             onMouseEnter={() => realcar(PADROES.find((p) => p.id === b.id)?.seletorTipo ?? null)}
@@ -1045,7 +1058,7 @@ function Realce({ rect, label, sutil }: { rect: DOMRect; label: string; sutil?: 
       }}>
       {label && (
         <span className="absolute -top-6 left-0 text-[11px] font-semibold px-2 py-[2px] rounded-md whitespace-nowrap"
-          style={{ background: "var(--color-ink,#11190c)", color: "var(--color-lime,#e1ff00)" }}>{label}</span>
+          style={{ background: "var(--color-ink,#28211b)", color: "var(--color-lime,#c8d930)" }}>{label}</span>
       )}
     </div>
   );
@@ -1106,7 +1119,7 @@ function Controle({ prop, valor, base, onChange, onClear }: { prop: Prop; valor:
     );
   }
   if (m.kind === "color") {
-    const v = (valor as string) ?? "#000000";
+    const v = (valor as string) ?? "#28211b";
     return (
       <div className="flex items-center gap-2">
         <input type="color" value={v} onChange={(e) => onChange(e.target.value)}

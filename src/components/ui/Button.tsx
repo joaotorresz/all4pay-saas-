@@ -2,11 +2,22 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Button (identidade corporativa: FLAT, sem chrome)
- * Regra da marca: nada "parece botão" — SEM borda, SEM sombra, bem arredondado
- * (pill). Preenchimentos sutis no tom da marca: primary = pill ink discreto ·
- * secondary = pill neutro (surface-2) · ghost = só texto (muted→ink) · accent =
- * lime. Peso 500. Toque com scale(0.98). 3 tamanhos.
+ * all4pay DS — Button (paleta quente)
+ *
+ * ⚠️ ISTO INVERTE A DOUTRINA ANTERIOR ("nada parece botão", pill sem fill).
+ * O guia vigente define o botão por forma e contraste:
+ *   · CANTOS RETOS (`border-radius: 0`) e padding 16px/20px;
+ *   · PRIMÁRIO = Black quente com texto em White quente — um por tela;
+ *   · SECUNDÁRIO = Beige com texto em Black quente (ou só contorno em Border);
+ *   · TERCIÁRIO = texto com sublinhado;
+ *   · ACCENT = o degradê da marca com texto em Black quente, reservado ao CTA
+ *     final de um fluxo.
+ * O texto do botão é TEXTO (Roobert 500) — nunca a classe de rótulo, nunca
+ * caixa alta forçada.
+ *
+ * O raio pertence ao CARD, não ao controle: é o card que carrega a curva da
+ * marca, e o botão que fica reto. `pill` sobrevive só para os controles que
+ * são chips por definição (seletor de período), onde a forma É a função.
  */
 type ButtonVariant = "primary" | "secondary" | "ghost" | "accent";
 type ButtonSize = "sm" | "md" | "lg";
@@ -21,19 +32,21 @@ export interface ButtonProps
   fullWidth?: boolean;
 }
 
+// Padding de referência do guia: 16px vertical / 20px horizontal (o `md`).
+// `sm` e `lg` mantêm a proporção descendo e subindo um passo da escala base-8.
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "text-label gap-2 px-[14px] h-8",
-  md: "text-[17px] gap-2 px-[18px] h-10",
-  lg: "text-body gap-2 px-[22px] h-12",
+  sm: "text-caption gap-2 px-3 py-2",
+  md: "text-body gap-2 px-5 py-4",
+  lg: "text-body gap-2 px-6 py-4",
 };
 
-// "NADA PARECE BOTÃO": sem borda, sem sombra, sem fill sólido/escuro. Primary e
-// accent = chip neutro sutil (surface-2); secondary/ghost = só texto muted→ink.
 const variantClasses: Record<ButtonVariant, string> = {
-  primary: "bg-surface-2 text-ink hover:bg-surface-3",
-  secondary: "bg-transparent text-muted hover:text-ink",
-  ghost: "bg-transparent text-muted hover:text-ink",
-  accent: "bg-surface-2 text-ink hover:bg-surface-3",
+  primary: "bg-ink text-white hover:bg-ink-soft",
+  secondary: "bg-surface-2 text-ink hover:bg-surface-3",
+  ghost: "bg-transparent text-ink hover:bg-surface-2",
+  // O degradê só no CTA final. `text-on-lime` porque o fim do degradê é o
+  // lima claro: texto branco ali some.
+  accent: "a4p-gradiente-marca text-on-lime hover:opacity-90",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -60,11 +73,10 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "inline-flex items-center justify-center font-medium leading-none whitespace-nowrap",
           "transition-[background-color,border-color,transform,opacity] duration-120 ease-out",
           "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45",
-          // marca é bem arredondada: pill por padrão (o prop `pill` fica p/ compat)
-          // Raio 10px — regra POR TIPO do Laboratório ("Botão: radius 10").
-          // Aplicada ao PRIMITIVO, não a todo `<button>` da tela: um seletor
-          // `.ds-visor button` também quadraria toggles, FABs e segmentados.
-          pill ? "rounded-pill" : "rounded-[10px]",
+          // ⚠️ CANTOS RETOS. Aplicado ao PRIMITIVO, não a todo `<button>` da
+          // tela: um seletor `.ds-visor button` também quadraria os chips de
+          // período, os toggles e os FABs, que são redondos por definição.
+          pill ? "rounded-pill" : "rounded-none",
           fullWidth && "w-full",
           sizeClasses[size],
           variantClasses[variant],

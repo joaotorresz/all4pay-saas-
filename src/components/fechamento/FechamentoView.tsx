@@ -99,7 +99,7 @@ export function FechamentoView() {
               <button key={m} onClick={() => setMes(m)}
                 className={`text-caption font-medium rounded-pill px-3 py-1 inline-flex items-center gap-1 ${m === mesAtivo ? "bg-surface-3 text-ink font-semibold" : "bg-surface-2 text-muted hover:text-ink"}`}>
                 {mesLabel(m)}
-                {isPeriodLocked(m) && <Icon name="shield-check" size={12} color={m === mesAtivo ? "#fff" : "var(--color-text-tertiary)"} />}
+                {isPeriodLocked(m) && <Icon name="shield-check" size={12} color={m === mesAtivo ? "var(--color-white)" : "var(--color-text-tertiary)"} />}
               </button>
             ))}
           </div>
@@ -139,7 +139,7 @@ export function FechamentoView() {
                   <button onClick={() => toggleTarefa(t.id)} aria-label={t.status === "ok" ? "Desmarcar" : "Marcar"}
                     className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-sm border shrink-0"
                     style={{ borderColor: t.status === "ok" ? "var(--color-ink)" : "var(--color-border)", background: t.status === "ok" ? "var(--color-ink)" : "transparent" }}>
-                    {t.status === "ok" && <Icon name="check" size={13} color="#fff" />}
+                    {t.status === "ok" && <Icon name="check" size={13} color="var(--color-white)" />}
                   </button>
                 ) : (
                   <span className="inline-flex items-center justify-center w-[20px] h-[20px] rounded-sm bg-lime-tint shrink-0" title="Tarefa de IA (automática)">

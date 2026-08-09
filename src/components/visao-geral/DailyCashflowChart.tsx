@@ -25,7 +25,7 @@ const NEGATIVE = "var(--color-negative)";
 const INK = "var(--color-ink)";
 // Linha de saldo: MESMO tratamento da linha de comparação do gráfico herói —
 // cinza tracejado. Não compete com as barras, que são quem conta a história.
-const LINE = "#c9cdd4";
+const LINE = "var(--color-text-quaternary)";
 const FAINT = "var(--color-text-tertiary)";
 import { chartAnim } from "@/lib/chart-anim";
 

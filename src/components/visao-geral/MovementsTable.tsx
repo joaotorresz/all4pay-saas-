@@ -30,7 +30,7 @@ const fmtDate = (iso: string) => {
 function Checkbox({ on }: { on: boolean }) {
   return (
     <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-sm border shrink-0" style={{ borderColor: on ? "var(--color-ink)" : "var(--color-border)", background: on ? "var(--color-ink)" : "transparent" }}>
-      {on && <Icon name="check" size={12} color="#ffffff" />}
+      {on && <Icon name="check" size={12} color="var(--color-white)" />}
     </span>
   );
 }

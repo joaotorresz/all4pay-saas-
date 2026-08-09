@@ -5,7 +5,7 @@ export function DemoBadge() {
   return (
     <Badge
       variant="new"
-      className="!bg-lime-tint !text-ink !tracking-normal !normal-case border border-[#EAF59A]"
+      className="!bg-lime-tint !text-ink !tracking-normal !normal-case border border-[color:var(--color-lime-tint)]"
       title="Dados de demonstração — conecte o Supabase para ver dados reais"
     >
       Demonstração
