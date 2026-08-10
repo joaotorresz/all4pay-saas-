@@ -260,7 +260,7 @@ function Resumo({
 function Numero({ label, valor, alerta }: { label: string; valor: number; alerta?: boolean }) {
   return (
     <Card>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className={`block mt-2 text-[26px] leading-none font-semibold tabular-nums ${alerta ? "text-warning" : "text-ink"}`}>
         {valor}
       </span>

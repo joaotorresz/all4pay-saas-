@@ -102,7 +102,7 @@ export function EntityTable<T extends { id: string }>({
       {/* ═══ MONITOR: a tabela, como sempre ═══ */}
       <div className="hidden lg:block">
       {/* Cabeçalho Ledger: micro-label caixa-alta com tracking largo */}
-      <div className="flex items-center gap-3 px-5 py-[10px] text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+      <div className="flex items-center gap-3 px-5 py-[10px] text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
         {columns.map((c) => (
           <span
             key={c.key}
@@ -173,7 +173,7 @@ function CartaoDeLinha<T extends { id: string }>({
           {detalhes.map((c) => (
             <div key={c.key} className="min-w-0 flex flex-col">
               {/* O rótulo viaja com o valor — é o que a rolagem horizontal perdia. */}
-              <dt className="text-[11px] uppercase tracking-[0.07em] text-faint truncate">{c.label}</dt>
+              <dt className="text-[11px] tracking-[0.07em] text-faint truncate">{c.label}</dt>
               <dd className="m-0 text-caption text-muted truncate">{c.render(row)}</dd>
             </div>
           ))}

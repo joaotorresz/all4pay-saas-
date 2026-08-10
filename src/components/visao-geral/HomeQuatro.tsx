@@ -242,7 +242,10 @@ function Leitura({ icone, nome, valor, ultimo }: { icone: IconName; nome: string
       <span className="w-7 h-7 rounded-pill bg-ink inline-flex items-center justify-center shrink-0">
         <Icon name={icone} size={14} color="var(--color-white)" />
       </span>
-      <span className="text-label text-ink flex-1 min-w-0 truncate">{nome}</span>
+      {/* Corpo de legenda, não de rótulo: com `text-label` a palavra
+          "consolidadas" caía na reticência, e a reticência comia justamente a
+          palavra que carrega o sentido da linha. */}
+      <span className="text-caption text-ink flex-1 min-w-0 truncate">{nome}</span>
       <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0"><BRL value={valor} showDecimals={false} /></span>
     </div>
   );
@@ -277,28 +280,27 @@ function Calendario({ input }: { input: RiskInput }) {
 
       {/* A faixa de dias da referência: número grande, dia da semana embaixo,
           e o selecionado num pill escuro. */}
-      <div className="flex items-stretch gap-1 mt-5 overflow-x-auto a4p-nav-scroll" role="tablist"
+      <div className="flex items-center justify-between gap-1 mt-5 overflow-x-auto a4p-nav-scroll" role="tablist"
         aria-label="Dias">
         {faixa.map((d, i) => {
           const ativo = d === sel;
           return (
             <React.Fragment key={d}>
-              {i > 0 && <span aria-hidden className="w-px bg-border-soft my-3" />}
-              {/* O dia selecionado é uma CÁPSULA escura e alta, com o número
-                  em cima e o nome embaixo — a forma da referência. Um pill
-                  raso deixava os dois na mesma linha de peso; a cápsula é o
-                  que separa "o dia que estou vendo" dos outros seis. */}
+              {i > 0 && <span aria-hidden className="w-px h-8 bg-border-soft shrink-0" />}
+              {/* ⚠️ A FORMA É UMA CÁPSULA VERTICAL — estreita e alta, com as
+                  pontas totalmente redondas. Errei isto duas vezes: primeiro
+                  com `rounded-pill` num botão LARGO (`flex-1`), que vira um
+                  pill deitado; depois com um raio fixo de 20px, que vira um
+                  quadrado de cantos redondos. O que faz a forma é a PROPORÇÃO:
+                  largura fixa menor que a altura, e só então o raio total lê
+                  como cápsula em pé. */}
               <button role="tab" aria-selected={ativo} onClick={() => setSel(d)}
-                className={`flex-1 min-w-[52px] rounded-[20px] py-3 flex flex-col items-center gap-[3px] transition-colors ${
+                className={`w-[56px] h-[74px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-1 transition-colors ${
                   ativo ? "bg-ink text-white" : "hover:bg-surface-2"
                 }`}>
                 <span className={`text-label font-semibold tabular-nums leading-none ${ativo ? "" : "text-ink"}`}>
                   {partes(d).dia}
                 </span>
-                {/* ⚠️ Caixa Aa e fonte de TEXTO, não a classe de rótulo. O
-                    dia da semana ao lado do número é leitura, não etiqueta de
-                    estado — em caixa alta ele competia com o próprio número
-                    que qualifica. */}
                 <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>{DIAS[diaDaSemana(d)]}</span>
               </button>
             </React.Fragment>

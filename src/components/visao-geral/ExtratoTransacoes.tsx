@@ -209,7 +209,7 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
         <div className="flex flex-col">
           {grupos.map((g) => (
             <div key={g.dia} className="flex flex-col">
-              <div className="px-5 pt-5 pb-2 text-[12px] font-medium uppercase tracking-[0.08em] text-faint">{g.rotulo}</div>
+              <div className="px-5 pt-5 pb-2 text-[12px] font-medium tracking-[0.08em] text-faint">{g.rotulo}</div>
               {g.itens.map((m) => {
                 const nome = (m.party_id && inp.partyNames?.[m.party_id]) || m.category || (m.type === "entrada" ? "Recebimento" : "Pagamento");
                 const cat = m.category || "Outros";

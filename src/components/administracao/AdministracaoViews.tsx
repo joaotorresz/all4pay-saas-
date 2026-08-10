@@ -139,7 +139,7 @@ export function AssinaturaView() {
       <Card>
         <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Plano</span>
+            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Plano</span>
             <span className="text-h2 font-semibold text-ink">{nomeEmpresa}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border-soft">
@@ -723,7 +723,7 @@ export function RelatoriosExportadosView() {
                       <td className="px-6 py-3 text-label text-muted tabular-nums">{fmtDia(e.exportadoEm)}</td>
                       <td className="px-6 py-3 text-label text-ink">{e.relatorio}</td>
                       <td className="px-6 py-3 text-caption text-faint">{e.nomeArquivo}</td>
-                      <td className="px-6 py-3 text-label text-muted uppercase">{e.formato}</td>
+                      <td className="px-6 py-3 text-label text-muted">{e.formato}</td>
                       <td className="px-6 py-3">
                         <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                           <span className="w-[7px] h-[7px] rounded-pill" style={{
@@ -774,7 +774,7 @@ function Dado({
     <div className="flex items-start gap-3">
       <Icon name={icone} size={16} color="var(--color-text-tertiary)" />
       <span className="flex flex-col gap-[4px] min-w-0">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotulo}</span>
         {children ?? <span className="text-label text-ink tabular-nums truncate">{valor}</span>}
       </span>
     </div>
@@ -812,7 +812,7 @@ function LinhaIntegracao({
 
 function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
+    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );

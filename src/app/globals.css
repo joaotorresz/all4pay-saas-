@@ -743,7 +743,13 @@ html:not(.dark) .ds-visor {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.44px;
-  text-transform: uppercase;
+  /* ⚠️ SEM CAIXA ALTA. A classe continua sendo o papel de RÓTULO (11px,
+     tracking aberto, mono) — o que saiu foi o `text-transform: uppercase`.
+     A decisão anterior tratava a caixa-alta como "a única sancionada"; a
+     vigente é que NENHUM texto do produto sobe de caixa. O rótulo continua se
+     distinguindo pelo corpo, pelo tracking e pela família, que é o que ele
+     precisa para não competir com o conteúdo que nomeia. */
+  text-transform: none;
   line-height: 1.35;
 }
 

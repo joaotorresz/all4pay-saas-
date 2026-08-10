@@ -129,7 +129,7 @@ export function OrcamentoVarianciaView() {
 
           {/* Tabela orçado × realizado por linha + drill-down */}
           <Card padded={false}>
-            <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+            <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
               <span className="flex-1 inline-flex items-center gap-1">Linha · {report.periodoLabel}<InfoHint align="left" titulo="Orçado vs realizado por linha" oQue="Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam." comoCalcula="Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." /></span>
               <span className="w-[120px] text-right">Orçado</span>
               <span className="w-[120px] text-right">Realizado</span>
@@ -219,7 +219,7 @@ function ResumoCard({ titulo, orcado, realizado, maiorEhBom, baseline, info }: {
       <span className="text-caption text-faint tabular-nums inline-flex items-center gap-1">
         {rotulo} <BRL value={orcado} />
         {baseline && (
-          <span className="text-[11px] uppercase tracking-[0.07em]" style={{ color: "var(--color-warning)" }} title="Baseline automático: média da janela anterior, não uma meta que você definiu.">
+          <span className="text-[11px] tracking-[0.07em]" style={{ color: "var(--color-warning)" }} title="Baseline automático: média da janela anterior, não uma meta que você definiu.">
             · estimativa
           </span>
         )}

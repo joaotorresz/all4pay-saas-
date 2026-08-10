@@ -1338,7 +1338,7 @@ function Secao({ titulo, hint, children }: { titulo: string; hint?: string; chil
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-baseline gap-2">
-        <h3 className="m-0 text-[12px] font-semibold uppercase tracking-wide text-faint">{titulo}</h3>
+        <h3 className="m-0 text-[12px] font-semibold tracking-wide text-faint">{titulo}</h3>
         {hint && <span className="text-[11px] text-faint">· {hint}</span>}
       </div>
       {children}

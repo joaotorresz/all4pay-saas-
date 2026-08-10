@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { DemoBadge } from "./DemoBadge";
-import { PeriodFilter } from "./PeriodFilter";
+import { MesAtual } from "./MesAtual";
 
 /**
  * Header actions for Início.
@@ -15,7 +15,7 @@ export function InicioActions({ demo }: { demo: boolean }) {
   return (
     <>
       {demo && <DemoBadge />}
-      <PeriodFilter />
+      <MesAtual />
     </>
   );
 }

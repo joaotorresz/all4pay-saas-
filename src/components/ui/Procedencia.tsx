@@ -44,7 +44,7 @@ export function MarcaProcedencia({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-[3px] text-[11px] uppercase tracking-[0.07em] align-middle",
+        "inline-flex items-center gap-[3px] text-[11px] tracking-[0.07em] align-middle",
         className,
       )}
       style={{ color: "var(--color-warning)" }}

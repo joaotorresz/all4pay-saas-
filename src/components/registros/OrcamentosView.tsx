@@ -350,15 +350,15 @@ function Alocacao({
             <table className="w-full border-collapse text-label">
               <thead>
                 <tr className="border-b border-border-soft">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint sticky left-0 bg-white min-w-[220px]">
+                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint sticky left-0 bg-white min-w-[220px]">
                     Categoria
                   </th>
                   {meses.map((m) => (
-                    <th key={m} className="px-3 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint min-w-[120px]">
+                    <th key={m} className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint min-w-[120px]">
                       {rotuloColuna(m)}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Total</th>
+                  <th className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Total</th>
                   <th className="px-3 py-3" />
                 </tr>
               </thead>
@@ -442,7 +442,7 @@ function Resumo({ label, valor, tom }: { label: string; valor: number; tom?: "po
   const cor = tom === "positivo" ? "text-positive" : tom === "negativo" ? "text-negative" : "text-ink";
   return (
     <Card>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${cor}`}>
         <BRL value={valor} />
       </span>

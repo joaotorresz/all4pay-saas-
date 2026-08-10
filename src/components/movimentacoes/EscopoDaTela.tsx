@@ -54,7 +54,7 @@ export function EscopoDaTela({
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 rounded-card bg-surface-1 border border-border-soft">
       <div className="flex flex-col">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint inline-flex items-center gap-1">
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint inline-flex items-center gap-1">
           Esta tela mostra
           <InfoHint
             align="left"
@@ -70,7 +70,7 @@ export function EscopoDaTela({
 
       <span className="hidden sm:block w-px self-stretch bg-border-soft" aria-hidden />
       <div className="flex flex-col">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">A outra leitura</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">A outra leitura</span>
         <span className="text-[15px] text-muted">{aOutra.rotulo}</span>
         <span className="text-h3 tabular-nums text-muted"><BRL value={aOutra.valor} /></span>
         <span className="text-caption text-faint">medida diferente, não divergência</span>

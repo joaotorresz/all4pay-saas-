@@ -268,11 +268,11 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b border-border-soft">
-                    <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint w-[60px]">Linha</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint w-[60px]">Linha</th>
                     {modelo.colunas.map((c) => (
-                      <th key={c} className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{c}</th>
+                      <th key={c} className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">{c}</th>
                     ))}
-                    <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Situação</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Situação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -328,7 +328,7 @@ function Numero({ label, valor, tom }: { label: string; valor: string; tom?: "po
   const cor = tom === "positivo" ? "text-positive" : tom === "negativo" ? "text-negative" : "text-ink";
   return (
     <Card>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${cor}`}>{valor}</span>
     </Card>
   );

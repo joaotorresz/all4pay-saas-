@@ -87,7 +87,7 @@ export function CriarNovo() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-5 py-3 border-b border-border-soft flex items-center justify-between gap-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Criar novo</span>
+              <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Criar novo</span>
               <button
                 onClick={() => setAberto(false)}
                 aria-label="Fechar"
@@ -135,7 +135,7 @@ function Coluna({
 }: { titulo: string; acoes: Acao[]; onEscolher: (e: React.MouseEvent, a: Acao) => void }) {
   return (
     <div className="py-2">
-      <span className="block px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
+      <span className="block px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
       {acoes.map((a) => (
         // ⚠️ `<Link>`, não `<button>`. Com botão não havia endereço: nem nova
         // aba, nem Ctrl+clique, nem pré-carregamento, nem link para mandar a um

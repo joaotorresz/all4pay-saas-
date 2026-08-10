@@ -346,16 +346,16 @@ export function TabelaRelatorio({
         <table className="w-full border-collapse text-label">
           <thead>
             <tr style={{ background: t.base, color: t.texto }}>
-              <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] sticky left-0 z-[1] min-w-[260px]" style={{ background: t.base }}>
+              <th className="px-4 py-3 text-left text-[11px] font-semibold tracking-[0.08em] sticky left-0 z-[1] min-w-[260px]" style={{ background: t.base }}>
                 Categoria
               </th>
               {relatorio.colunas.map((c) => (
-                <th key={c} colSpan={colsPorPeriodo} className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">
+                <th key={c} colSpan={colsPorPeriodo} className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">
                   {rotuloColuna(c)}{comOrc && <span className="font-normal opacity-70"> · realizado / orçado / dif. / %</span>}
                 </th>
               ))}
-              <th colSpan={mostrarPct ? 2 : 1} className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">Total</th>
-              <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em]">Média</th>
+              <th colSpan={mostrarPct ? 2 : 1} className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">Total</th>
+              <th className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">Média</th>
             </tr>
           </thead>
           <tbody>

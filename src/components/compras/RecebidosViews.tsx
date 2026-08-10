@@ -518,7 +518,7 @@ function Kpi({
   return (
     <Card>
       <div className="flex flex-col gap-2">
-        <span className="inline-flex items-center gap-[6px] text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+        <span className="inline-flex items-center gap-[6px] text-[11px] font-medium tracking-[0.08em] text-faint">
           <Icon name={icone} size={13} color="currentColor" />
           {rotulo}
         </span>
@@ -533,7 +533,7 @@ function Kpi({
 function Leitura({ rotulo, valor, node, cor }: { rotulo: string; valor?: string; node?: React.ReactNode; cor?: string }) {
   return (
     <span className="flex flex-col gap-[2px]">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotulo}</span>
       <span className="text-label tabular-nums" style={{ color: cor ?? "var(--color-ink)" }}>{node ?? valor}</span>
     </span>
   );
@@ -541,7 +541,7 @@ function Leitura({ rotulo, valor, node, cor }: { rotulo: string; valor?: string;
 
 function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
+    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );

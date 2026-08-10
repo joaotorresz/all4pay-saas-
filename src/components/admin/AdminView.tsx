@@ -104,7 +104,7 @@ function AdminBody() {
           <div className="p-5"><Skeleton className="h-32 w-full" /></div>
         ) : (
           <>
-            <div className="hidden lg:grid grid-cols-[1.6fr_0.7fr_1fr_1.1fr_0.8fr_0.9fr] gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+            <div className="hidden lg:grid grid-cols-[1.6fr_0.7fr_1fr_1.1fr_0.8fr_0.9fr] gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
               <span>Empresa</span><span>Membros</span><span>Plano</span><span>Status</span><span className="text-right">MRR</span><span className="text-right">Atividade</span>
             </div>
             {(orgs.data ?? []).map((org, i) => {
@@ -150,7 +150,7 @@ function AdminBody() {
           <div className="p-5"><Skeleton className="h-24 w-full" /></div>
         ) : (
           <>
-            <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_0.7fr] gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+            <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_0.7fr] gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
               <span>E-mail</span><span>Cadastro</span><span>Último acesso</span><span className="text-right">Orgs</span>
             </div>
             {(users.data ?? []).map((u, i) => (

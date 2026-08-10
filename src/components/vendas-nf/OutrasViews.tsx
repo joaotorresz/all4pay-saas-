@@ -101,7 +101,7 @@ export function NotasFiscaisView() {
                 <thead>
                   <tr className="border-b border-border-soft">
                     {["Nº da NF", "Venda", "Emissão", "Cliente", "Valor", "Status"].map((h, i) => (
-                      <th key={h} className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
+                      <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -326,7 +326,7 @@ export function ImpostosView() {
             </p>
           </div>
           <div className="text-right">
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Faturamento total no período</div>
+            <div className="text-[11px] font-medium tracking-[0.08em] text-faint">Faturamento total no período</div>
             <div className="text-[24px] leading-none font-semibold text-ink tabular-nums mt-1"><BRL value={provisao.faturamento} /></div>
           </div>
           <Button
@@ -352,14 +352,14 @@ export function ImpostosView() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Venda</th>
-                  <th className="px-3 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Base</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Venda</th>
+                  <th className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Base</th>
                   {IMPOSTOS.map((i) => (
-                    <th key={i} className="px-3 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                    <th key={i} className="px-3 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">
                       {ROTULO_IMPOSTO[i]}
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Total</th>
+                  <th className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -576,7 +576,7 @@ export function AssinaturasVendasView() {
               <thead>
                 <tr className="border-b border-border-soft">
                   {["ID", "Status", "Cliente", "Ciclo", "Produto", "Valor recorrente"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
+                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
                   ))}
                 </tr>
               </thead>

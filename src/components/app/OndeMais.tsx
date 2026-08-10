@@ -42,12 +42,12 @@ export function OndeMais({
   if (irmas.length === 0) return null;
   return (
     <div className="flex flex-col gap-2 px-4 py-3 rounded-card bg-surface-1 border border-border-soft">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
         Esta tela responde
       </span>
       <span className="text-[15px] text-ink">{estaTela}</span>
       <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint pt-1">
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint pt-1">
           O mesmo assunto, em outro recorte
         </span>
         {irmas.map((i) => (
