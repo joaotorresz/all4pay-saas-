@@ -108,6 +108,10 @@ const ROUTES: RouteItem[] = [
   // quem já sabe o nome chega mais rápido pela paleta do que procurando o
   // botão — e porque uma tela cheia pode cobrir o canto onde ele mora.
   { label: "Laboratório de Design", href: "/", icon: "palette", kw: "laboratorio design lab tipografia fonte cor token sandbox experimentar aparencia", event: "a4p:open-lab" },
+  // ⚠️ ÚNICA porta do painel Criar depois que o botão saiu da lateral. Sem
+  // esta linha, as dezesseis ações de criação ficariam sem caminho — o painel
+  // continuaria montado, respondendo a um evento que ninguém dispara.
+  { label: "Criar novo registro", href: "/", icon: "plus", kw: "criar novo cadastro lancamento receita despesa transferencia venda compra cliente fornecedor produto servico nota contrato", event: "a4p:criar" },
 ];
 
 interface Hit { key: string; grupo: string; titulo: string; sub?: string; href: string; icon: string; event?: string; contatoId?: string }

@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar, Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
 import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
-import { grupoDaRota, leafAtivo, useNavSections, type Item } from "@/components/dashboard/nav-data";
+import { grupoDaRota, indiceItemAtivo, useNavSections, type Item } from "@/components/dashboard/nav-data";
 import { isDemo } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +14,15 @@ const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 const STORAGE_KEY = "a4p_sidebar_collapsed";
 const LARGURA_KEY = "a4p_sidebar_width";
 
-/** Largura padrão (o token `w-sidebar`), e os limites do arrasto. */
-const LARGURA_PADRAO = 240;
+/**
+ * Largura padrão, e os limites do arrasto.
+ *
+ * ⚠️ Subiu de 240 para 288 quando a linha ganhou tile + título + subtítulo +
+ * chevron: em 240 sobravam ~138px para o texto e "Impostos sobre vendas" já
+ * saía como "Impostos sobre …". Reticência no TÍTULO apaga o nome do destino,
+ * que é a única coisa que a linha precisa entregar.
+ */
+const LARGURA_PADRAO = 288;
 const LARGURA_MIN = 200;
 const LARGURA_MAX = 420;
 /** Abaixo disto o arrasto RECOLHE em vez de espremer o rótulo. */
@@ -49,6 +56,8 @@ const LIMIAR_EXPANDIR = 120;
  */
 export function Sidebar() {
   const pathname = usePathname();
+  // A aba faz parte de ONDE VOCÊ ESTÁ: três itens deste menu diferem só nela.
+  const busca = useSearchParams().toString();
   const router = useRouter();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -167,7 +176,8 @@ export function Sidebar() {
    * discordarem sobre onde você está.
    */
   const grupo = React.useMemo(() => grupoDaRota(sections, pathname), [sections, pathname]);
-  const itens = grupo?.items ?? [];
+  const itens = React.useMemo(() => grupo?.items ?? [], [grupo]);
+  const iAtivo = React.useMemo(() => indiceItemAtivo(itens, pathname, busca), [itens, pathname, busca]);
 
   /**
    * ⚠️ Sem itens (o Início é folha), a barra não é renderizada — e o conteúdo
@@ -187,9 +197,11 @@ export function Sidebar() {
       <aside
         style={isDesktop && !col ? { width: largura } : undefined}
         className={cn(
-          // Borda: o hairline dos cartões da Home, herdado do CSS
-          // (`.a4p-sidebar, .a4p-topbar`) — por isso `border` sem cor aqui.
-          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px] border",
+          // ⚠️ SEM BORDA. O que separa a lateral do canvas é o CONTRASTE entre
+          // as duas superfícies (branco sobre cinza), a mesma relação que já
+          // vale para os cards — um fio aqui vira uma terceira linha
+          // competindo com o recorte que o próprio contraste desenha.
+          "a4p-sidebar relative bg-white flex flex-col py-3 z-50 rounded-[20px]",
           "fixed inset-y-0 left-0 w-sidebar px-3 transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           // Dentro do cartão do app (`.a4p-app-card`, raio 28 + overflow
@@ -216,25 +228,12 @@ export function Sidebar() {
             arrastando ? "after:bg-lime" : "hover:after:bg-border",
           )}
         />
-        {/* Criar + recolher na MESMA linha: são os dois controles do topo do
-            cartão, e empilhá-los custava uma faixa de altura para nada.
-            Recolhida, a barra tem 68px — não cabem lado a lado, então ali eles
-            voltam a empilhar. */}
-        <div className={cn("flex items-center gap-2 mb-2", col ? "flex-col" : "")}>
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-            aria-label="Criar novo registro"
-            title="Criar novo registro"
-            className={cn(
-              "flex items-center justify-center h-10 rounded-pill bg-lime text-on-lime font-semibold transition-opacity hover:opacity-90",
-              col ? "w-10 px-0 order-2" : "flex-1 gap-2 px-4",
-            )}
-          >
-            <Icon name="plus" size={16} color="var(--color-on-lime)" />
-            {!col && <span className="text-[15px]">Criar</span>}
-          </button>
-
+        {/* ⚠️ O botão "Criar" SAIU da lateral. Ele não foi apagado: a porta
+            passou para a paleta (⌘K → "Criar novo registro", o mesmo evento
+            `a4p:criar`) — remover o único acesso deixaria o painel de criação,
+            com dezesseis ações, sem caminho nenhum, que é como uma tela vira
+            código morto sem ninguém notar. */}
+        <div className={cn("flex items-center gap-2 mb-2", col ? "flex-col" : "justify-end")}>
           <button
             onClick={toggleCollapsed}
             aria-label={col ? "Expandir menu" : "Recolher menu"}
@@ -259,20 +258,30 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* O grupo em que você está — a barra horizontal marca o mesmo. */}
+        {/* O grupo em que você está — a barra horizontal marca o mesmo.
+            ⚠️ Era um micro-rótulo de 11px em cinza-claro, que lia como legenda
+            do canto e não como o título da coluna. Agora é TÍTULO: o mesmo
+            corpo dos títulos de card, em ink. */}
+        {/* ⚠️ O título QUEBRA, não corta. "Contabilidade e impostos" não cabe
+            numa linha de 240px, e a reticência num TÍTULO apaga justamente a
+            palavra que diz de que grupo se trata. Duas linhas custam uma faixa
+            de altura; meio título custa a informação. */}
         {!col && (
-          <div className="px-[10px] pb-[6px] shrink-0">
-            <span className="text-[11px] font-medium tracking-[0.08em] text-faint truncate block">
-              {grupo?.label}
-            </span>
+          <div className="px-[10px] pb-3 pt-1 shrink-0">
+            <h2 className="m-0 text-ink text-[20px] leading-[1.15]">{grupo?.label}</h2>
           </div>
         )}
 
         {/* Nav — os ITENS do grupo ativo, lista plana. O acordeão saiu junto
-            com os grupos, que agora vivem na barra horizontal. */}
-        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1 gap-[1px]">
+            com os grupos, que agora vivem na barra horizontal.
+            O fio entre as linhas é o divisor do sistema (cinza): com ícone,
+            título e subtítulo, duas linhas coladas viram um bloco só. */}
+        <nav className="flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden -mr-1 pr-1">
           {itens.map((it, i) => (
-            <SubItem key={it.href ?? it.label + i} item={it} pathname={pathname} collapsed={col} />
+            <React.Fragment key={it.href ?? it.label + i}>
+              {i > 0 && !col && <span aria-hidden className="h-px bg-border-soft mx-[10px] shrink-0" />}
+              <SubItem item={it} ativo={i === iAtivo} collapsed={col} />
+            </React.Fragment>
           ))}
         </nav>
       </aside>
@@ -281,23 +290,65 @@ export function Sidebar() {
 }
 
 /**
- * A linha de uma tela. Deixou de ser "sub-item" na prática — com os grupos na
- * barra horizontal, ela é o item principal da lateral —, e por isso ganhou o
- * ÍCONE: recolhida a 68px o rótulo some, e sem ícone a barra vira uma coluna de
- * retângulos vazios.
+ * ⚠️ O TILE DO ÍCONE É QUEM CARREGA O ESTADO — não o fundo da linha.
+ *
+ * Antes o item selecionado era pintado por inteiro (`bg-surface-1`). Com uma
+ * linha de duas alturas (título + subtítulo), um retângulo cheio vira o
+ * elemento mais pesado da coluna e disputa com o conteúdo da página ao lado.
+ * Concentrando o estado num quadrado de 38px, o marcador fica pequeno,
+ * inequívoco e sempre no mesmo lugar — inclusive recolhida, onde o rótulo some
+ * e o tile é a única coisa que resta.
+ *
+ * Selecionado leva o DEGRADÊ DA MARCA; o resto, cinza do sistema. O glifo é
+ * ink nos dois: o degradê é claro, e trocar o glifo para branco o apagaria.
+ * É um uso sancionado do lima (ícone de destaque, um por vez) — a regra dos
+ * ~5% continua valendo justamente porque só há um selecionado.
  */
-function SubItem({ item, pathname, collapsed }: { item: Item; pathname: string; collapsed?: boolean }) {
-  const linha = collapsed ? "justify-center px-0" : "gap-[10px] px-[10px]";
+function TileIcone({ icone, ativo }: { icone: string; ativo: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className="w-[38px] h-[38px] rounded-[12px] inline-flex items-center justify-center shrink-0"
+      style={ativo ? { background: "var(--gradient-marca)" } : { background: "var(--color-surface-2)" }}
+    >
+      <Icon name={icone} size={19} color="var(--color-ink)" />
+    </span>
+  );
+}
+
+/** Título + subtítulo. O subtítulo vem da fonte única (`Item.desc`). */
+function Rotulos({ item, ativo }: { item: Item; ativo: boolean }) {
+  return (
+    <span className="flex flex-col min-w-0 flex-1">
+      {/* O título QUEBRA; o subtítulo corta. A hierarquia decide: sem o nome
+          inteiro a linha não diz para onde leva, e um subtítulo pela metade
+          ainda dá a pista. */}
+      <span className={cn("text-[15px] leading-[1.25]", ativo ? "text-ink font-semibold" : "text-ink")}>
+        {item.label}
+      </span>
+      {item.desc && <span className="text-[12px] text-muted truncate">{item.desc}</span>}
+    </span>
+  );
+}
+
+/**
+ * A linha de uma tela: tile do ícone · título e subtítulo · chevron.
+ *
+ * O chevron não é decoração — ele diz que a linha LEVA a algum lugar, que é o
+ * que a diferença entre esta lista e uma lista de rótulos.
+ */
+function SubItem({ item, ativo, collapsed }: { item: Item; ativo: boolean; collapsed?: boolean }) {
+  const linha = collapsed ? "justify-center px-0" : "gap-3 px-[10px]";
 
   if (item.event && !item.href) {
     return (
       <button
         onClick={() => window.dispatchEvent(new Event(item.event!))}
         title={item.label}
-        className={cn("flex items-center rounded-md py-[8px] text-left hover:bg-surface-2 transition-colors", linha)}
+        className={cn("flex items-center rounded-[14px] py-[10px] text-left hover:bg-surface-2/60 transition-colors", linha)}
       >
-        <Icon name={item.icon} size={17} color="var(--color-text-secondary)" className="shrink-0" />
-        {!collapsed && <span className="text-[14px] text-muted truncate">{item.label}</span>}
+        <TileIcone icone={item.icon} ativo={false} />
+        {!collapsed && <Rotulos item={item} ativo={false} />}
       </button>
     );
   }
@@ -306,38 +357,36 @@ function SubItem({ item, pathname, collapsed }: { item: Item; pathname: string; 
       <span
         aria-disabled="true"
         title={item.label}
-        className={cn("flex items-center rounded-md py-[8px] opacity-45 cursor-not-allowed select-none", linha)}
+        className={cn("flex items-center rounded-[14px] py-[10px] opacity-45 cursor-not-allowed select-none", linha)}
       >
-        <Icon name={item.icon} size={17} color="var(--color-text-secondary)" className="shrink-0" />
+        <TileIcone icone={item.icon} ativo={false} />
         {!collapsed && (
           <>
-            <span className="text-[14px] text-muted truncate flex-1">{item.label}</span>
+            <Rotulos item={item} ativo={false} />
             <span className="text-[11px] text-faint bg-surface-2 rounded-pill px-[6px] py-[1px] shrink-0">Em breve</span>
           </>
         )}
       </span>
     );
   }
-  const on = leafAtivo(item.href, pathname);
+  const on = ativo;
   return (
     <Link
       href={item.href}
       title={item.label}
       aria-current={on ? "page" : undefined}
       className={cn(
-        "relative flex items-center rounded-md py-[8px] transition-colors",
+        "relative flex items-center rounded-[14px] py-[10px] transition-colors",
         linha,
-        on ? "bg-surface-1" : "hover:bg-surface-2/60",
+        on ? "" : "hover:bg-surface-2/60",
       )}
     >
-      <Icon
-        name={item.icon}
-        size={17}
-        color={on ? "var(--color-ink)" : "var(--color-text-secondary)"}
-        className="shrink-0"
-      />
+      <TileIcone icone={item.icon} ativo={on} />
       {!collapsed && (
-        <span className={cn("text-[14px] truncate", on ? "text-ink font-semibold" : "text-muted")}>{item.label}</span>
+        <>
+          <Rotulos item={item} ativo={on} />
+          <Icon name="chevron-right" size={16} color="var(--color-text-secondary)" className="shrink-0" />
+        </>
       )}
     </Link>
   );
