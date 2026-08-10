@@ -99,7 +99,10 @@ export function AppShell({
           a moldura ficava com dois alinhamentos, que é o tipo de desencontro
           que se sente sem saber nomear. */}
       <div className="a4p-app-card flex-1 flex min-h-0 mx-4 mb-4 lg:mx-6 lg:mb-6">
-      <Sidebar />
+      {/* A lateral lê o `?tab=` para saber QUAL item está na tela (três deles
+          apontam para o mesmo caminho). `useSearchParams` exige a fronteira de
+          Suspense — a mesma que o `PageGuide` já usa logo abaixo. */}
+      <React.Suspense fallback={null}><Sidebar /></React.Suspense>
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
         {stickyHeader && header}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
