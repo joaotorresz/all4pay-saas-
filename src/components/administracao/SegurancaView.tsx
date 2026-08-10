@@ -17,7 +17,7 @@
  */
 import * as React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Card, Button, Icon, StatusBadge, Badge } from "@/components/ui";
+import { Card, Button, Icon, StatusBadge, Badge, Textarea } from "@/components/ui";
 import {
   rodarIsolamentoCompleto, auditoriaRLS, listarRevisaoAdmin, listarAcessosAdmin,
   revisarAdmin, adminPosso, semServidor, type AcessoAdmin,
@@ -25,7 +25,7 @@ import {
 import {
   resumoPorVerbo, porTabela, nomeDoVerbo, VERBOS,
   achadosDaAuditoria, pendenciasDeAdmin, nomeDoPapel,
-  type Achado, type Gravidade, type TentativaIsolamento,
+  type Achado, type Gravidade, type TentativaIsolamento, type AdminRevisao,
 } from "@/core/seguranca";
 import { usePermissoes } from "@/components/app/usePermissoes";
 
@@ -245,28 +245,9 @@ export function SegurancaView() {
               {pendencias.length > 0 && <Badge variant="count">{pendencias.length} pendências</Badge>}
             </div>
             {revisao.data.lista.map((a, i) => (
-              <div key={a.userId} className={`flex items-center gap-3 px-5 py-3 flex-wrap ${i ? "border-t border-border-soft" : ""}`}>
-                <Icon name={a.pendente ? "triangle-alert" : "shield-check"} size={15}
-                  color={a.pendente ? "var(--color-warning)" : "var(--color-positive)"} />
-                <div className="flex-1 min-w-0">
-                  <span className="block truncate text-[15px] text-ink">{a.email ?? a.userId}</span>
-                  <span className="block text-caption text-faint">
-                    {a.motivo ?? "sem motivo registrado"} ·{" "}
-                    {a.fatoresMfa > 0 ? "com segundo fator" : `sem segundo fator (prazo ${a.mfaPrazo ?? "—"})`} ·{" "}
-                    {a.revisadoEm ? `revisado em ${a.revisadoEm.slice(0, 10)}` : "nunca revisado"} ·{" "}
-                    {a.acessos30d} acessos em 30 dias
-                    {a.negados30d > 0 ? ` (${a.negados30d} negados)` : ""}
-                  </span>
-                </div>
-                {pode("administrar") && (
-                  <Button variant="ghost" onClick={async () => {
-                    await revisarAdmin(a.userId, 6);
-                    await revisao.refetch();
-                  }}>
-                    Revisar por 6 meses
-                  </Button>
-                )}
-              </div>
+              <LinhaRevisao key={a.userId} a={a} primeira={i === 0}
+                podeAdministrar={pode("administrar")}
+                aoRevisar={() => revisao.refetch()} />
             ))}
           </Card>
 
@@ -315,6 +296,98 @@ function Numero({ rotulo, valor, nota, cor }: { rotulo: string; valor: number; n
       <span className="text-caption text-faint">{rotulo}</span>
       <span className="text-[22px] font-semibold tabular-nums" style={{ color: cor ?? "var(--color-ink)" }}>{valor}</span>
       <span className="text-caption text-faint">{nota}</span>
+    </div>
+  );
+}
+
+/**
+ * Uma linha da revisão de acesso administrativo.
+ *
+ * ⚠️ O botão de um clique ("Revisar por 6 meses") virou um campo de MOTIVO, e a
+ * mudança é o ponto: um clique registrava que alguém tinha clicado, não o que
+ * foi decidido. Numa auditoria a pergunta nunca é "foi revisado?", é "com base
+ * em quê?" — e `revisado_em` sozinho não responde.
+ *
+ * ⚠️ O mínimo de 20 caracteres é cobrado pelo BANCO. Aqui ele só desabilita o
+ * botão e explica antes do clique; validar apenas no cliente seria a mesma
+ * decoração de antes, porque a RPC pode ser chamada direto.
+ */
+function LinhaRevisao({
+  a, primeira, podeAdministrar, aoRevisar,
+}: {
+  a: AdminRevisao;
+  primeira: boolean;
+  podeAdministrar: boolean;
+  aoRevisar: () => void | Promise<unknown>;
+}) {
+  const [motivo, setMotivo] = React.useState("");
+  const [abrindo, setAbrindo] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [erro, setErro] = React.useState<string | null>(null);
+  const curto = motivo.trim().length < 20;
+
+  async function confirmar() {
+    setSalvando(true); setErro(null);
+    try {
+      await revisarAdmin(a.userId, motivo.trim(), 6);
+      setMotivo(""); setAbrindo(false);
+      await aoRevisar();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível registrar a revisão.");
+    } finally { setSalvando(false); }
+  }
+
+  return (
+    <div className={`flex flex-col gap-2 px-5 py-3 ${primeira ? "" : "border-t border-border-soft"}`}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Icon name={a.pendente ? "triangle-alert" : "shield-check"} size={15}
+          color={a.pendente ? "var(--color-warning)" : "var(--color-positive)"} />
+        <div className="flex-1 min-w-0">
+          <span className="block truncate text-[15px] text-ink">{a.email ?? a.userId}</span>
+          <span className="block text-caption text-faint">
+            {a.motivo ?? "sem motivo registrado"} ·{" "}
+            {a.fatoresMfa > 0 ? "com segundo fator" : `sem segundo fator (prazo ${a.mfaPrazo ?? "—"})`} ·{" "}
+            {a.revisadoEm
+              ? `revisado em ${a.revisadoEm.slice(0, 10)}${a.revisadoPorEmail ? ` por ${a.revisadoPorEmail}` : ""}`
+              : "nunca revisado"}
+            {a.autoRevisao ? " (por si mesmo)" : ""} ·{" "}
+            {a.proximaRevisao ? `próxima em ${a.proximaRevisao}` : "sem próxima revisão agendada"} ·{" "}
+            {a.acessos30d} acessos em 30 dias
+            {a.negados30d > 0 ? ` (${a.negados30d} negados)` : ""}
+          </span>
+        </div>
+        {podeAdministrar && !abrindo && (
+          <Button variant="ghost" onClick={() => setAbrindo(true)}>Revisar</Button>
+        )}
+      </div>
+
+      {abrindo && (
+        <div className="flex flex-col gap-2 pl-[26px]">
+          <Textarea
+            label="Por que este acesso continua?"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            rows={2}
+            placeholder="Ex.: responde pelo suporte de plataforma e é o contato de incidente; acesso conferido com o titular."
+          />
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={confirmar} disabled={curto || salvando}>
+              {salvando ? "Registrando…" : "Registrar revisão por 6 meses"}
+            </Button>
+            <Button variant="ghost" onClick={() => { setAbrindo(false); setErro(null); }}>
+              Cancelar
+            </Button>
+            <span className="text-caption text-faint">
+              {curto
+                ? `Faltam ${20 - motivo.trim().length} caracteres — o servidor recusa abaixo de 20.`
+                : "A decisão fica na trilha, com o seu nome e a data da próxima revisão."}
+            </span>
+          </div>
+          {erro && (
+            <span className="text-caption" style={{ color: "var(--color-negative)" }}>{erro}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

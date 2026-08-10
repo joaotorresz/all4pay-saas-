@@ -53,7 +53,7 @@ import {
   resumoIsolamento, achadosDaAuditoria, pendenciasDeAdmin,
   motivoParaNaoAprovar, podeAprovar, FRASE_RECUSA, PAPEIS, ACOES, MATRIZ_DEMO,
   resumoPorVerbo, ABERTURAS_DECLARADAS, COMANDOS,
-  type LinhaAuditoriaRLS, type TentativaIsolamento, type Comando,
+  type LinhaAuditoriaRLS, type TentativaIsolamento, type Comando, type AdminRevisao,
 } from "@/core/seguranca";
 import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
@@ -2439,6 +2439,45 @@ const AGOSTO = janelaMes(2026, 7);
   const comSemPriv = resumoPorVerbo([t({}), t({ tabela: "subscriptions", resultado: "sem privilégio" })]);
   ok("isolamento: sem privilégio não reprova, mas é contado",
      comSemPriv.ok === true && comSemPriv.naoTentadas === 1);
+
+  /* ── a revisão de acesso administrativo ─────────────────────────────────── */
+
+  const adm = (o: Partial<AdminRevisao>): AdminRevisao => ({
+    userId: "u", email: "a@b.c", motivo: "Responde pelo suporte de plataforma.",
+    expiraEm: null, revisadoEm: "2026-06-01T00:00:00Z",
+    revisadoPor: "outro", revisadoPorEmail: "chefe@b.c", autoRevisao: false,
+    proximaRevisao: "2026-12-01",
+    exigeMfa: true, fatoresMfa: 1, mfaPrazo: null,
+    acessos30d: 3, negados30d: 0, ultimoAcesso: null, pendente: false,
+    ...o,
+  });
+  const HOJE = "2026-08-10";
+
+  ok("admin: em dia não gera pendência",
+     pendenciasDeAdmin([adm({})], HOJE).length === 0,
+     JSON.stringify(pendenciasDeAdmin([adm({})], HOJE)));
+
+  // ⚠️ Vencida é ALTO e "nunca revisado" é MÉDIO, nesta ordem: nunca revisado é
+  // uma pendência que ninguém prometeu resolver; vencida é uma data que alguém
+  // escolheu e deixou passar — o controle existe, foi agendado, e falhou.
+  const vencida = pendenciasDeAdmin([adm({ proximaRevisao: "2026-07-01" })], HOJE);
+  ok("admin: revisão vencida é alto",
+     vencida.some((p) => p.gravidade === "alto" && p.problema.includes("vencida")),
+     JSON.stringify(vencida));
+  const nunca = pendenciasDeAdmin([adm({ revisadoEm: null, proximaRevisao: null })], HOJE);
+  ok("admin: nunca revisado é médio",
+     nunca.some((p) => p.gravidade === "medio" && p.problema === "nunca revisado"));
+
+  // ⚠️ A autorrevisão NÃO é bloqueada no banco (com um administrador só, o
+  // bloqueio travaria a revisão inteira) — então ela precisa APARECER. Uma
+  // segregação que não se pode cumprir vira exceção silenciosa; declarada, vira
+  // dívida visível, e some sozinha no dia em que houver um segundo nome.
+  ok("admin: revisão assinada pela própria pessoa aparece",
+     pendenciasDeAdmin([adm({ autoRevisao: true })], HOJE)
+       .some((p) => p.problema.includes("por si mesmo")));
+
+  ok("admin: sem motivo registrado continua sendo pendência",
+     pendenciasDeAdmin([adm({ motivo: null })], HOJE).some((p) => p.problema.includes("motivo")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

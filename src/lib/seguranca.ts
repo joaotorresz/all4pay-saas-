@@ -230,6 +230,10 @@ export async function listarRevisaoAdmin(): Promise<AdminRevisao[] | null> {
     motivo: (l.motivo as string) ?? null,
     expiraEm: (l.expira_em as string) ?? null,
     revisadoEm: (l.revisado_em as string) ?? null,
+    revisadoPor: (l.revisado_por as string) ?? null,
+    revisadoPorEmail: (l.revisado_por_email as string) ?? null,
+    autoRevisao: !!l.auto_revisao,
+    proximaRevisao: (l.proxima_revisao as string) ?? null,
     exigeMfa: !!l.exige_mfa,
     fatoresMfa: Number(l.fatores_mfa ?? 0),
     mfaPrazo: (l.mfa_prazo as string) ?? null,
@@ -260,8 +264,39 @@ export async function listarAcessosAdmin(dias = 30): Promise<AcessoAdmin[] | nul
   }));
 }
 
-export async function revisarAdmin(userId: string, meses = 6): Promise<void> {
+/**
+ * Revisar um acesso administrativo — com MOTIVO.
+ *
+ * ⚠️ O motivo não é validado só aqui. O banco recusa abaixo de 20 caracteres,
+ * e é ele quem manda: a checagem no cliente existe para dizer a frase antes do
+ * clique, não para autorizar. Fosse só aqui, bastaria chamar a RPC direto.
+ *
+ * ⚠️ E `revisar` deixou de mexer em `expira_em`. Eram o mesmo campo, então
+ * revisar era idêntico a renovar — uma revisão que só sabe renovar é um botão
+ * de prorrogar com outro nome. Agora `proxima_revisao` diz quando alguém
+ * precisa olhar; `expira_em` diz quando o acesso morre sozinho.
+ */
+export async function revisarAdmin(
+  userId: string, motivo: string, meses = 6,
+): Promise<void> {
   if (semServidor()) return;
-  const { error } = await (await cliente()).rpc("admin_revisar", { p_user: userId, p_meses: meses });
+  const { error } = await (await cliente())
+    .rpc("admin_revisar", { p_user: userId, p_motivo: motivo, p_meses: meses });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Ajusta o prazo para cadastrar o segundo fator.
+ *
+ * ⚠️ O servidor recusa qualquer data além de 90 dias. Sem esse teto,
+ * "configurável" significaria empurrar a data para sempre, um clique por vez,
+ * com a aparência de que existe um controle.
+ */
+export async function ajustarPrazoMfa(
+  userId: string, prazoISO: string, motivo: string,
+): Promise<void> {
+  if (semServidor()) return;
+  const { error } = await (await cliente())
+    .rpc("admin_definir_prazo_mfa", { p_user: userId, p_prazo: prazoISO, p_motivo: motivo });
   if (error) throw new Error(error.message);
 }

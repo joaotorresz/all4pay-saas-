@@ -413,6 +413,13 @@ export interface AdminRevisao {
   motivo: string | null;
   expiraEm: string | null;
   revisadoEm: string | null;
+  /** Quem assinou a última revisão. */
+  revisadoPor: string | null;
+  revisadoPorEmail: string | null;
+  /** A última revisão foi assinada pela própria pessoa revisada. */
+  autoRevisao: boolean;
+  /** Quando alguém precisa olhar de novo — distinto de `expiraEm`. */
+  proximaRevisao: string | null;
   exigeMfa: boolean;
   fatoresMfa: number;
   mfaPrazo: string | null;
@@ -446,6 +453,23 @@ export function pendenciasDeAdmin(lista: readonly AdminRevisao[], hojeISO: strin
     if (!a.revisadoEm) {
       out.push({ tabela: quem, gravidade: "medio", problema: "nunca revisado",
         porque: "Sem revisão, a lista de quem vê tudo só cresce — cada nome que fica é um nome que ninguém decidiu manter." });
+    } else if (a.proximaRevisao && a.proximaRevisao < hojeISO) {
+      // ⚠️ Vencida é PIOR que nunca revisada, e por isso é `alto`: "nunca
+      // revisado" é uma pendência que ninguém prometeu resolver; vencida é uma
+      // data que alguém escolheu e deixou passar — o controle existe, foi
+      // agendado, e falhou.
+      out.push({ tabela: quem, gravidade: "alto",
+        problema: `revisão vencida em ${a.proximaRevisao}`,
+        porque: "A data foi decidida por quem revisou da última vez. Passar dela sem novo exame é o controle deixando de existir sem que ninguém decida desligá-lo." });
+    }
+    if (a.autoRevisao) {
+      // ⚠️ Não é bloqueado no banco de propósito: com UM administrador só,
+      // proibir a autorrevisão deixaria o acesso sem revisão possível para
+      // sempre — a regra produziria o estado que ela existe para evitar. Fica
+      // como dívida VISÍVEL, que é o que a torna resolvível no dia em que
+      // houver um segundo nome.
+      out.push({ tabela: quem, gravidade: "medio", problema: "revisado por si mesmo",
+        porque: "Quem é revisado não deveria assinar a própria revisão. Enquanto houver um administrador só, isto fica declarado em vez de bloqueado — bloquear travaria a revisão inteira." });
     }
     if (a.negados30d > 0) {
       out.push({ tabela: quem, gravidade: "alto", problema: `${a.negados30d} tentativas negadas em 30 dias`,

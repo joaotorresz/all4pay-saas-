@@ -25,12 +25,12 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 73,
+    "funcoes": 75,
     "politicas": 65,
     "gatilhos": 22,
     "indices": 157,
     "enums": 11,
-    "colunas": 531,
+    "colunas": 532,
     "restricoes": 186
   },
   "migrations_aplicadas": [
@@ -95,7 +95,8 @@
     "20260810214611_isolamento_testado_por_verbo",
     "20260810214913_alheio_e_nem_meu_nem_da_empresa",
     "20260810215651_auditor_classifica_recorte_e_comando",
-    "20260810215942_recorte_reconhece_portao_de_administrador"
+    "20260810215942_recorte_reconhece_portao_de_administrador",
+    "20260810220704_revisao_administrativa_com_motivo_aprovador_e_prazo"
   ],
   "divergencias_conhecidas": {
     "_regra": [
