@@ -75,7 +75,7 @@ function AdminBody() {
   };
 
   const o = overview.data;
-  const planOpts = [{ value: "", label: "—" }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · R$ ${p.priceMonth}` }))];
+  const planOpts = [{ value: "", label: "—" }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · R$${p.priceMonth}` }))];
 
   return (
     <div className="flex flex-col gap-6 pb-4">
@@ -233,7 +233,7 @@ function MrrCard() {
           <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -2 }}>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => "R$ " + (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => "R$" + (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
               <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
                 <div className="font-medium text-ink mb-1">{label}</div>
@@ -409,7 +409,7 @@ function UserDetailModal({ userId, email, onClose }: { userId: string; email: st
                         <Campo label="CPF do representante" v={pf(p, "repCpf", "cpf")} />
                         <Campo label="E-mail do representante" v={pf(p, "repEmail") || o.emailMembro} />
                         <Campo label="Telefone do representante" v={pf(p, "repTelefone")} />
-                        {o.aprovaAte != null && <Campo label="Alçada de aprovação" v={`R$ ${o.aprovaAte.toLocaleString("pt-BR")}`} />}
+                        {o.aprovaAte != null && <Campo label="Alçada de aprovação" v={`R$${o.aprovaAte.toLocaleString("pt-BR")}`} />}
                       </div>
                     </div>
                   );

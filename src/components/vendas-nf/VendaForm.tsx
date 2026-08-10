@@ -6,7 +6,7 @@
  * A peça central é **Valores e taxas**: cinco pares de taxa + fornecedor
  * (plataforma, antecipação, streaming, coprodutor, afiliado) e o **valor
  * líquido calculado**. Num negócio digital é ali que o dinheiro some — a venda
- * de R$ 1.000 na plataforma vira R$ 700 na conta, e o dono só descobre no fim
+ * de R$1.000 na plataforma vira R$700 na conta, e o dono só descobre no fim
  * do mês. Mostrar o líquido ao lado do bruto é o ponto da tela.
  */
 import * as React from "react";

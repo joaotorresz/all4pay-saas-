@@ -73,7 +73,7 @@ export function calcularMaturidade(
   const topShare = report?.grafo.topCliente?.share ?? 0.5;
   const recorrente = report?.plano.estimativas.receitaRecorrentePct ?? (/mensal|recorr/i.test(perfil.frequencia) ? 0.6 : 0.3);
   const qualidade = report ? report.confidence.alta / Math.max(1, report.confidence.lidos) : 0.25;
-  // ⚠️ O wizard PRÉ-SEMEIA um participante em branco (CFO, aprova, limite R$ 50
+  // ⚠️ O wizard PRÉ-SEMEIA um participante em branco (CFO, aprova, limite R$50
   // mil, mas nome e e-mail vazios). Contá-lo fazia "Governança" ler 100% num
   // onboarding em que o usuário não cadastrou ninguém — um pré-requisito que não
   // existe pontuando cheio. Só participante com NOME é real; o resto é o

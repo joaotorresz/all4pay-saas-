@@ -146,7 +146,7 @@ export async function registrarAcaoIA(kind: string, prompt: string, result: unkn
   await logAcaoIA({ kind, titulo: prompt, detalhe, status: kind === "draft_entry" ? "executada" : "lida" });
 }
 
-const fmtBRL = (v: number) => "R$ " + Math.round(v).toLocaleString("pt-BR");
+const fmtBRL = (v: number) => "R$" + Math.round(v).toLocaleString("pt-BR");
 
 /** Resposta determinística (sem ANTHROPIC_API_KEY) — leitura básica do razão. */
 export function responderBasico(pergunta: string, ctx: ContextoRazao): string {

@@ -76,7 +76,7 @@ export function perfilTributario(regime: RegimeTributario): PerfilTributario {
       return {
         regime, rotulo: "MEI", tributos: null, cargaTotal: 0,
         observacao:
-          `No MEI o DAS é um valor FIXO mensal (cerca de R$ ${MEI_DAS_MENSAL.toFixed(2).replace(".", ",")}), não um percentual sobre a receita. Projetar percentual aqui daria um número que não existe.`,
+          `No MEI o DAS é um valor FIXO mensal (cerca de R$${MEI_DAS_MENSAL.toFixed(2).replace(".", ",")}), não um percentual sobre a receita. Projetar percentual aqui daria um número que não existe.`,
       };
     case "real":
       return {

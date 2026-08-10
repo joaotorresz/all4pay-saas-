@@ -77,5 +77,5 @@ export function recomendarCredito(
 }
 
 function formatLimite(v: number): string {
-  return v >= 1000 ? `R$ ${(v / 1000).toFixed(0)}k` : `R$ ${v}`;
+  return v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`;
 }

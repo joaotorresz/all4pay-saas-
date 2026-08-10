@@ -99,7 +99,7 @@ export interface FluxoModelo {
 // ---------- Helpers ----------
 const fmtBRL = (n: number) => {
   try { return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }); }
-  catch { return `R$ ${Math.round(n)}`; }
+  catch { return `R$${Math.round(n)}`; }
 };
 function addDias(iso: string, d: number): string {
   const dt = new Date(iso + "T00:00:00");

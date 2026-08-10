@@ -949,7 +949,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     if (ent <= 0) return R(`Não houve receita paga ${w.label}, então não dá para calcular a margem do período.`, [], ["receita realizada"]);
     const margem = Math.round((res / ent) * 100);
     return R(
-      `A margem ${w.label} é ${margem}%: de cada R$ 100 que entraram, ${margem >= 0 ? `sobraram R$ ${margem}` : `faltaram R$ ${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
+      `A margem ${w.label} é ${margem}%: de cada R$100 que entraram, ${margem >= 0 ? `sobraram R$${margem}` : `faltaram R$${-margem}`}. Receita ${fmt(ent)}, despesa ${fmt(sai)}, resultado ${fmt(res)}.`,
       [{ label: "Margem", valor: `${margem}%` }, { label: "Receita", valor: fmt(ent) }, { label: "Resultado", valor: fmt(res) }],
       ["fluxo de caixa realizado"]);
   }

@@ -23,7 +23,7 @@ import {
  *  (`--a4p-cat-*`, feitos com `color-mix` sobre o acento e os neutros), não de
  *  oito hexes copiados — era assim, e quando um arquivo mudava o outro não. */
 const PALETA = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 export function WidgetRender({ w }: { w: Widget }) {
   const { data: input, isLoading } = useRiscoInput();

@@ -198,7 +198,13 @@
   --color-surface-2: #f1f3f6; /* chips / seções / hover */
   --color-surface-3: #dddcc5; /* Dark Beige — desabilitado / teclado / sheet */
   --color-border: #d4d3d1; /* Border */
-  --color-border-soft: #eeeddb; /* Beige como divisor suave */
+  /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
+     trabalho são cinza-frio (#F1F3F6): uma linha quente sobre um fundo frio lê
+     como amarelada, e o sistema ganhava um segundo matiz que ninguém escolheu.
+     Sai do PRÓPRIO token de borda, clareado — assim o divisor continua mais
+     leve que a borda (que é o papel dele) sem inventar um décimo hex e sem
+     escurecer as ~330 linhas que já existem: muda o MATIZ, não o peso. */
+  --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
@@ -584,7 +590,10 @@ html:not(.dark) .ds-visor {
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
   --color-text-quaternary: #a9a6a4;/* Placeholder */
   --color-border: #d4d3d1;         /* Border */
-  --color-border-soft: #eeeddb;    /* Beige — grade de gráfico / divisor */
+  /* Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
+     Ver o porquê na declaração de cima — divergir aqui repintaria o app com
+     um valor que ninguém escolheu, que é o defeito das semânticas neon. */
+  --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
   /* Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
   --color-lime: #c8d930;
   --color-lime-tint: #fffad7;
@@ -1230,7 +1239,11 @@ html.dark .a4p-canvas {
   font-size: 1em;
   font-weight: 700;
   color: var(--color-ink);
-  margin-right: 0.1em;
+  /* ⚠️ SEM respiro — `R$333,00`, uma peça só. Esta regra já tinha vencido o
+     componente uma vez (mantinha o prefixo em 0.72em depois de `Money`/`BRL`
+     terem sido corrigidos) e venceu de novo pela margem: 0.1em sobre o herói
+     de 33px dá os 3,3px que apareceram na medição. Ao mexer no prefixo, mexa
+     AQUI TAMBÉM — no herói, quem manda é esta folha, não o componente. */
 }
 /* Centavos do herói — relativos ao herói (`em`), não em px fixo: com px, um
    ajuste no tamanho do herói deixava prefixo e centavos para trás e a

@@ -20,14 +20,33 @@ const brlCompact = new Intl.NumberFormat("pt-BR", {
 
 const groupedInt = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
-/** "R$ 1.284.900,00" — full BRL string (for tooltips, sr-only, axes). */
-export function formatBRL(value: number): string {
-  return brl.format(value);
+/*
+ * ⚠️ SEM ESPAÇO entre a moeda e o número: `R$1.284.900,00`.
+ *
+ * O `Intl` do pt-BR insere um espaço NÃO SEPARÁVEL (U+00A0) depois do `R$` —
+ * não é o espaço do teclado, então procurar por `"R$ "` no código não acha
+ * nada e a diferença atravessa a revisão. Foi assim que `Money`/`BRL` ficaram
+ * colados enquanto a frase da dica ao lado seguia com respiro: o mesmo valor
+ * sai por dois caminhos, e só um tinha sido corrigido.
+ *
+ * Vale para o texto que a IA escreve, o rótulo de leitor de tela, o tooltip e
+ * a planilha exportada — é o mesmo dinheiro, e uma grafia só.
+ */
+function semRespiro(s: string): string {
+  // Só o separador que vem LOGO APÓS a moeda: `\s` alcança o U+00A0, e ancorar
+  // na moeda preserva o espaço do formato compacto ("R$1,3 mi") — colar ali
+  // produziria "R$1,3mi", que é outra coisa.
+  return s.replace(/R\$\s+/g, "R$");
 }
 
-/** "R$ 1,3 mi" — compact BRL (for tight chart axes). */
+/** "R$1.284.900,00" — full BRL string (for tooltips, sr-only, axes). */
+export function formatBRL(value: number): string {
+  return semRespiro(brl.format(value));
+}
+
+/** "R$1,3 mi" — compact BRL (for tight chart axes). */
 export function formatBRLCompact(value: number): string {
-  return brlCompact.format(value);
+  return semRespiro(brlCompact.format(value));
 }
 
 /**

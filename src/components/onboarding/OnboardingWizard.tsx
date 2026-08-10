@@ -23,14 +23,14 @@ const MODELOS = ["B2B", "B2C", "Marketplace", "Assinatura", "Projeto", "Recorrê
 const RECEITAS = ["Venda de produto", "Venda de serviço", "Mensalidade", "Aluguel", "Intermediação", "Taxa", "Comissão", "Juros", "Receita financeira"];
 const FREQ = ["Diária", "Semanal", "Mensal", "Sazonal", "Projeto"];
 const FUNC = ["1-10", "11-50", "51-100", "101-500", "500+"];
-const FAT = ["até R$ 360 mil", "R$ 360 mil – 4,8 mi", "R$ 4,8 – 20 mi", "R$ 20 – 50 mi", "R$ 50 mi+"];
+const FAT = ["até R$360 mil", "R$360 mil – 4,8 mi", "R$4,8 – 20 mi", "R$20 – 50 mi", "R$50 mi+"];
 const BANCOS = ["Itaú", "Bradesco", "Santander", "Banco do Brasil", "Caixa", "Nubank", "Inter", "C6", "BTG", "Sicoob", "Sicredi", "Mercado Pago"];
 const MEIOS = ["PIX", "Boleto", "Cartão", "TED", "Dinheiro", "Link de pagamento", "Marketplace", "Internacional"];
 const DESPESAS = ["Folha", "Impostos", "Aluguel", "Marketing", "Combustível", "Fornecedores", "Software", "Logística"];
 const PORTES = ["MEI", "ME", "EPP", "LTDA", "SA", "Holding", "SPE", "Outro"];
 const REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Outro"];
 const FUNCOES = ["Administrador", "CEO", "CFO", "Financeiro", "Tesouraria", "Controller", "Contador", "Jurídico", "Operador", "Auditor", "Conselheiro", "Investidor"];
-const LIMITES = ["R$ 10 mil", "R$ 50 mil", "R$ 500 mil", "Sem limite"];
+const LIMITES = ["R$10 mil", "R$50 mil", "R$500 mil", "Sem limite"];
 const CENTROS = ["Comercial", "Operações", "Administrativo", "Financeiro", "Marketing", "Logística"];
 const UNIDADES = ["Matriz", "Filial", "Projeto", "Online", "Operação"];
 const DRE_OPTS = ["Gerencial", "Financeiro", "Por centro de custo", "Por produto", "Por cliente", "Consolidado (holding)"];
@@ -49,7 +49,7 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
 
   const [db, setDb] = React.useState({ razaoSocial: "", fantasia: "", cnpj: "", ie: "", im: "", fundacao: "", natureza: "", porte: "", repNome: "", repCpf: "", repCargo: "", repEmail: "", repTelefone: "", cep: "", rua: "", numero: "", cidade: "", estado: "", pais: "Brasil", regime: "", contribuinteIcms: false, exportadora: false });
   const [perfil, setPerfil] = React.useState<PerfilEmpresa>({ setor: "", modelo: "", receitaPrincipal: "", frequencia: "", funcionarios: "", faturamento: "", bancos: [], meiosRecebimento: [], despesas: [] });
-  const [participantes, setParticipantes] = React.useState<Participante[]>([{ nome: "", funcao: "CFO", email: "", aprovaPagamentos: true, limite: "R$ 50 mil" }]);
+  const [participantes, setParticipantes] = React.useState<Participante[]>([{ nome: "", funcao: "CFO", email: "", aprovaPagamentos: true, limite: "R$50 mil" }]);
   const [estrutura, setEstrutura] = React.useState<Estrutura>({ contas: [], centrosCusto: [], unidades: [], dre: ["Gerencial", "Por centro de custo"], fluxoCaixa: "Híbrido" });
   const [contaTipos, setContaTipos] = React.useState<string[]>([]);
 
@@ -347,7 +347,7 @@ function PassoPerfil({ perfil, setPerfil }: { perfil: PerfilEmpresa; setPerfil: 
 
 function PassoGovernanca({ participantes, setParticipantes }: { participantes: Participante[]; setParticipantes: (f: Participante[] | ((p: Participante[]) => Participante[])) => void }) {
   const upd = (i: number, k: keyof Participante, v: any) => setParticipantes((ps) => ps.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
-  const add = () => setParticipantes((ps) => [...ps, { nome: "", funcao: "Financeiro", email: "", aprovaPagamentos: false, limite: "R$ 10 mil" }]);
+  const add = () => setParticipantes((ps) => [...ps, { nome: "", funcao: "Financeiro", email: "", aprovaPagamentos: false, limite: "R$10 mil" }]);
   const rem = (i: number) => setParticipantes((ps) => ps.filter((_, j) => j !== i));
   return (
     <>

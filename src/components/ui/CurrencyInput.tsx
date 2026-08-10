@@ -55,7 +55,10 @@ export function CurrencyInput({
       )}
       <div
         className={cn(
-          "flex items-center gap-2 bg-surface-2 rounded-md px-3 h-10 border",
+          // Sem `gap`: a moeda encosta no número também no campo (`R$1.234,56`),
+          // como em todo valor exibido. Um respiro só aqui faria o mesmo
+          // dinheiro ter duas grafias conforme estivesse sendo lido ou digitado.
+          "flex items-center bg-surface-2 rounded-md px-3 h-10 border",
           invalid ? "border-negative" : "border-transparent",
         )}
       >
