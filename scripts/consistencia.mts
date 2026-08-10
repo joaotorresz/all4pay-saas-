@@ -993,8 +993,22 @@ const AGOSTO = janelaMes(2026, 7);
     .map((i) => i.label);
   ok("telas: as duas entradas de menu têm nomes distintos",
      new Set(rotulos).size === rotulos.length, `rótulos: ${rotulos.join(" | ")}`);
-  ok("telas: e nenhum é o genérico 'Contas a receber'",
-     !rotulos.includes("Contas a receber"), `rótulos: ${rotulos.join(" | ")}`);
+  /*
+   * ⚠️ A PROIBIÇÃO DO NOME GENÉRICO SAIU, e a premissa dela é que morreu.
+   *
+   * Ela existia porque havia DUAS telas de "a receber" — `/recebimentos`
+   * (posição) e a aba de títulos (fluxo) —, e um rótulo genérico apontando
+   * para uma delas deixava a outra indistinguível. `/recebimentos` foi
+   * aposentada na consolidação e não está mais no inventário: com uma porta
+   * só, "Contas a receber" deixou de ser ambíguo e passou a ser o nome que um
+   * dono de PME usa.
+   *
+   * O que fica no lugar protege o MESMO defeito pela raiz: se alguém
+   * reintroduzir uma segunda porta para o mesmo lado, isto reprova — e aí a
+   * discussão de nome volta com ela.
+   */
+  ok("telas: existe UMA porta de menu para 'a receber'", rotulos.length === 1,
+     `rótulos: ${rotulos.join(" | ")}`);
 }
 
 
@@ -2189,9 +2203,29 @@ const AGOSTO = janelaMes(2026, 7);
    * a dizer o que sai. É a mesma decisão dos orçamentos de desempenho da
    * ONDA 12 — teto ancorado no que existe, subir exige justificativa escrita.
    */
-  const TETO_GRUPOS = 6;        // Início · Movimentações · Entradas · Relatórios · Cadastros · Contabilidade e impostos
-  const TETO_ITENS_POR_GRUPO = 10;  // Relatórios, o maior
-  const TETO_ITENS_TOTAL = 50;      // a soma de hoje, incluindo o rodapé de Configurações
+  /*
+   * ⚠️ OS TRÊS TETOS SUBIRAM, e a justificativa é a que a própria regra exige.
+   *
+   * A divisão anterior (6 grupos) agrupava por FORMATO e escondia o ciclo do
+   * dinheiro: "Movimentações" misturava títulos em aberto com extrato,
+   * "Entradas" colidia semanticamente com receita, e "Cadastros" juntava
+   * cliente, plano de contas e orçamento — três coisas usadas em três lugares
+   * diferentes. A divisão nova é pelo CICLO (Caixa e bancos · Receber · Pagar
+   * · Vender) e por DOMÍNIO (Contábil · Análise · Inteligência), e isso custa
+   * dois grupos a mais.
+   *
+   * O que NÃO mudou é o princípio: teto ancorado no medido, não num número
+   * redondo com folga, para que o próximo item obrigue alguém a dizer o que
+   * sai. Estes três valores são exatamente o que a estrutura tem hoje.
+   *
+   * O custo aceito, escrito para não ser esquecido: 8 grupos é mais do que a
+   * regra dos ~7 confortáveis, e 66 destinos é um menu grande. O que torna
+   * isso operável é que a lateral mostra só o grupo em que você está — nunca
+   * os 66 de uma vez.
+   */
+  const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Receber · Pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
+  const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
+  const TETO_ITENS_TOTAL = 66;      // a soma de hoje, incluindo o rodapé
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,

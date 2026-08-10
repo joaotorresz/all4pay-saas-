@@ -3,7 +3,7 @@ import { ArmazenamentoView } from "@/components/administracao/ArmazenamentoView"
 
 export default function Page() {
   return (
-    <AppShell title="Armazenamento" crumb="Administração">
+    <AppShell title="Armazenamento e backup" crumb="Administração">
       <ArmazenamentoView />
     </AppShell>
   );

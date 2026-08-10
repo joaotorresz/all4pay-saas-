@@ -4,7 +4,7 @@ import { AjudaView } from "@/components/ajuda/AjudaView";
 
 export default function AjudaPage() {
   return (
-    <AppShell title="Central de ajuda" crumb="Ajuda">
+    <AppShell title="Ajuda" crumb="Ajuda">
       <Suspense fallback={null}>
         <AjudaView />
       </Suspense>

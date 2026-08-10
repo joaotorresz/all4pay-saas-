@@ -44,7 +44,7 @@ export function JornadaCard() {
 
   return (
     <Card className="flex flex-col gap-4" info={{
-      titulo: "Comece por aqui",
+      titulo: "Primeiros passos",
       oQue: "Sua jornada no all4pay em 4 estágios (conectar, organizar, analisar, operar). Cada passo é marcado sozinho quando você o cumpre.",
       comoCalcula: "O progresso é derivado do seu estado real: dados importados, contatos, categorias, e as telas que você já conheceu.",
     }}>
@@ -53,7 +53,7 @@ export function JornadaCard() {
           <Icon name="target" size={18} color="var(--color-on-lime)" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="m-0 text-h3 font-medium text-ink">Comece por aqui</h2>
+          <h2 className="m-0 text-h3 font-medium text-ink">Primeiros passos</h2>
           <span className="text-caption text-faint">{feitos} de {total} passos · seu app fica mais completo a cada um</span>
         </div>
         <span className="text-value-lg font-semibold tabular-nums text-ink leading-none">{pct}%</span>
@@ -85,7 +85,7 @@ export function JornadaView() {
   const router = useRouter();
 
   return (
-    <AppShell title="Comece por aqui">
+    <AppShell title="Primeiros passos">
       <div className="flex flex-col gap-5 pb-8 max-w-[900px]">
         {/* Cabeçalho de progresso */}
         <Card className="flex flex-col gap-4">
