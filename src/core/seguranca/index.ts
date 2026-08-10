@@ -254,12 +254,66 @@ export function porTabela(
 /* A AUDITORIA DA POLÍTICA DE LINHA                                            */
 /* ========================================================================== */
 
+export type Comando = "select" | "insert" | "update" | "delete";
+export const COMANDOS: Comando[] = ["select", "insert", "update", "delete"];
+export const NOME_DO_COMANDO: Record<Comando, string> = {
+  select: "Ler", insert: "Inserir", update: "Atualizar", delete: "Apagar",
+};
+
+/**
+ * ⚠️ Um recorte que NÃO protege. `ABERTO` é `using (true)`; `outro` e
+ * `sem condição` são expressões que o classificador não reconheceu — e o que
+ * não se reconhece não se pode chamar de seguro.
+ *
+ * `usuário` e `vínculo` ficam FORA desta lista de propósito: são recortes mais
+ * estreitos que o por empresa (entregam as suas linhas, não as da sua empresa)
+ * e foi tratá-los como ausência de recorte que produziu os dois achados Altos
+ * falsos que abriram esta onda.
+ */
+const RECORTES_QUE_NAO_PROTEGEM = ["ABERTO", "outro", "sem condição"];
+
+/**
+ * As aberturas que são DECISÃO, não descuido — cada uma com o motivo escrito.
+ *
+ * ⚠️ Sem esta lista só haveria dois caminhos, e os dois são ruins: ou a guarda
+ * acusa uma abertura legítima para sempre (e quem a lê aprende a ignorar o
+ * vermelho), ou alguém afrouxa a regra e a próxima abertura ilegítima entra
+ * pela mesma porta. Uma exceção com motivo escrito é revisável; uma regra
+ * afrouxada não é. É o mesmo desenho de `scripts/paleta.mts`.
+ *
+ * ⚠️ A exceção é por TABELA **e COMANDO**. `role_permissions` ter leitura
+ * aberta não autoriza escrita aberta nela — e é a escrita que transformaria a
+ * matriz de papéis em algo que qualquer usuário reescreve para si mesmo.
+ */
+export const ABERTURAS_DECLARADAS: {
+  tabela: string; comando: Comando; porque: string;
+}[] = [
+  {
+    tabela: "role_permissions",
+    comando: "select",
+    porque:
+      "É a matriz papel×ação — a REGRA, não o dado. Ler quais ações cada papel "
+      + "tem não expõe empresa nenhuma, e é ela que permite a interface explicar "
+      + "antes do clique o que o banco recusaria depois dele. A escrita segue "
+      + "negada por ausência de política.",
+  },
+];
+
+const declarada = (tabela: string, comando: Comando): boolean =>
+  ABERTURAS_DECLARADAS.some((a) => a.tabela === tabela && a.comando === comando);
+
 export interface LinhaAuditoriaRLS {
   tabela: string;
   rlsLigada: boolean;
   politicas: number;
   temOrgId: boolean;
   politicaPorOrg: boolean;
+  /** Como o acesso é recortado, somando as políticas permissivas. */
+  recorte: string;
+  /** Recorte por comando; `"nenhuma"` = sem política permissiva ⇒ negado por padrão. */
+  comandos: Record<Comando, string>;
+  /** O que o papel do cliente pode sequer tentar. */
+  privilegios: Record<Comando, boolean>;
   alcancaAnonimo: boolean;
   anonPodeTruncar: boolean;
 }
@@ -285,8 +339,23 @@ export interface Achado {
  *  - **RLS desligada** é crítico: com as concessões padrão, a tabela é pública.
  *  - **RLS ligada sem política** NÃO é achado: é negar tudo, e é o desenho
  *    correto das tabelas que só as funções `SECURITY DEFINER` acessam.
- *  - **`org_id` sem política que o use** é alto: a coluna diz que a tabela é
- *    multiempresa e nada garante o recorte.
+ *  - **Comando com política permissiva que NÃO recorta** é alto — e só quando
+ *    o papel do cliente tem o privilégio daquele comando, senão a tabela está
+ *    fechada por concessão e a política é irrelevante.
+ *
+ * ⚠️ A regra anterior era "tem `org_id` e nenhuma política menciona
+ * `auth_org_id()`" — casamento de string. Ela acusava `organization_members` e
+ * `user_active_org`, que são recortadas por `user_id = auth.uid()`: um recorte
+ * MAIS ESTREITO que o por empresa, e sem política nenhuma de escrita (o padrão
+ * do PostgreSQL é negar). As duas tabelas mais fechadas do banco apareciam como
+ * as duas mais abertas.
+ *
+ * E o conserto que a tela sugeria pioraria a segurança: escrever uma política
+ * por empresa em `organization_members` deixaria qualquer membro ENUMERAR todos
+ * os colegas, que é justamente o que a RPC `org_members` existe para controlar.
+ *
+ * Guarda que grita lobo treina quem a lê a ignorá-la — e o dia em que ela
+ * estiver certa é o dia em que ninguém olha.
  */
 export function achadosDaAuditoria(linhas: readonly LinhaAuditoriaRLS[]): Achado[] {
   const out: Achado[] = [];
@@ -304,12 +373,22 @@ export function achadosDaAuditoria(linhas: readonly LinhaAuditoriaRLS[]): Achado
         problema: "sem política de acesso por linha",
         porque: "Com as concessões padrão do banco, uma tabela sem política responde a qualquer sessão.",
       });
-    } else if (l.temOrgId && !l.politicaPorOrg && l.politicas > 0) {
-      out.push({
-        tabela: l.tabela, gravidade: "alto",
-        problema: "tem coluna de empresa, mas nenhuma política a usa",
-        porque: "A coluna declara que a tabela é multiempresa; sem política por empresa, o recorte depende de quem consulta.",
-      });
+    } else {
+      for (const cmd of COMANDOS) {
+        const recorte = l.comandos?.[cmd];
+        if (!recorte || !RECORTES_QUE_NAO_PROTEGEM.includes(recorte)) continue;
+        // Sem o privilégio, a política sequer chega a ser avaliada: a tabela
+        // está fechada uma camada antes, e apontá-la aqui seria ruído.
+        if (l.privilegios && l.privilegios[cmd] === false) continue;
+        if (declarada(l.tabela, cmd)) continue;
+        out.push({
+          tabela: l.tabela, gravidade: "alto",
+          problema: `${NOME_DO_COMANDO[cmd].toLowerCase()} liberado sem recorte (${recorte})`,
+          porque: recorte === "ABERTO"
+            ? "A política permissiva deste comando é `using (true)`: ela vale para qualquer linha, de qualquer empresa."
+            : "A condição desta política não foi reconhecida como recorte por empresa, usuário ou vínculo — e o que não se reconhece não se pode chamar de seguro.",
+        });
+      }
     }
     if (l.alcancaAnonimo && l.politicas > 0) {
       out.push({

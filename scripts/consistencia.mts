@@ -52,6 +52,8 @@ import { CONTROLES, porTipo, malDeclarados } from "@/core/controles";
 import {
   resumoIsolamento, achadosDaAuditoria, pendenciasDeAdmin,
   motivoParaNaoAprovar, podeAprovar, FRASE_RECUSA, PAPEIS, ACOES, MATRIZ_DEMO,
+  resumoPorVerbo, ABERTURAS_DECLARADAS, COMANDOS,
+  type LinhaAuditoriaRLS, type TentativaIsolamento, type Comando,
 } from "@/core/seguranca";
 import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
@@ -1225,6 +1227,9 @@ const AGOSTO = janelaMes(2026, 7);
   /* ---- A auditoria da política ------------------------------------------- */
   const base = {
     rlsLigada: true, politicas: 1, temOrgId: true, politicaPorOrg: true,
+    recorte: "empresa",
+    comandos: { select: "empresa", insert: "empresa", update: "empresa", delete: "empresa" },
+    privilegios: { select: true, insert: true, update: true, delete: true },
     alcancaAnonimo: false, anonPodeTruncar: false,
   };
   // ⚠️ O achado que a ONDA 9 encontrou medindo, não deduzindo: `anon` podia
@@ -1240,8 +1245,19 @@ const AGOSTO = janelaMes(2026, 7);
   // funções `SECURITY DEFINER` acessam — acusar isso seria gritar lobo.
   ok("onda9: RLS ligada sem política NÃO é achado",
      achadosDaAuditoria([{ tabela: "platform_admins", ...base, politicas: 0, temOrgId: false, politicaPorOrg: false }]).length === 0);
-  ok("onda9: coluna de empresa sem política por empresa é alto",
-     achadosDaAuditoria([{ tabela: "y", ...base, politicaPorOrg: false }])[0]?.gravidade === "alto");
+  // ⚠️ ESTA ASSERÇÃO FOI REESCRITA NA ONDA 2, e a versão anterior era:
+  //   "coluna de empresa sem política por empresa é alto"
+  // — a mesma regra de casamento de string que produzia os dois achados Altos
+  // falsos em `organization_members` e `user_active_org`. Ela não foi apagada,
+  // foi CORRIGIDA: a proteção que ela carrega (tabela multiempresa alcançável
+  // sem recorte é grave) continua valendo; o que mudou é o que conta como
+  // "sem recorte" — hoje é a condição em si, não a ausência de um nome de
+  // função no texto dela.
+  ok("onda9→2: coluna de empresa alcançável SEM RECORTE é alto",
+     achadosDaAuditoria([{
+       ...base, tabela: "y", politicaPorOrg: false, recorte: "ABERTO",
+       comandos: { select: "ABERTO", insert: "empresa", update: "empresa", delete: "empresa" },
+     }])[0]?.gravidade === "alto");
   ok("onda9: a lista sai do mais grave para o menos",
      achadosDaAuditoria([
        { tabela: "b", ...base, alcancaAnonimo: true },
@@ -2326,6 +2342,103 @@ const AGOSTO = janelaMes(2026, 7);
     (c) => `${INVENTARIO.filter((i) => i.criterio === c).length} ${c}`,
   ).join(" · ");
   console.log(`  · nav: ${SECTIONS.length} grupos · ${total} destinos · inventário: ${porCriterio}`);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LINHA 29 — ONDA 2: o auditor de isolamento não pode gritar lobo
+   ═══════════════════════════════════════════════════════════════════════════
+
+   ⚠️ Esta linha existe por causa de um defeito que só aparece quando alguém
+   confere: a tela de segurança reportava dois achados ALTOS
+   (`organization_members`, `user_active_org`) que não existiam. O auditor
+   decidia "tem política por empresa" com um `like '%auth_org_id()%'` — e as
+   duas tabelas são recortadas por `user_id = auth.uid()`, que é MAIS ESTREITO.
+
+   E o conserto que a tela sugeria pioraria a segurança: uma política por
+   empresa em `organization_members` deixaria qualquer membro enumerar os
+   colegas — que é o que a RPC `org_members` existe para controlar.
+
+   As duas metades são cobradas: o achado verdadeiro tem de aparecer, e o falso
+   tem de sumir. Uma guarda que só checasse a segunda passaria com o auditor
+   desligado.
+*/
+{
+  const linha = (over: Partial<LinhaAuditoriaRLS>): LinhaAuditoriaRLS => ({
+    tabela: "t", rlsLigada: true, politicas: 1, temOrgId: true, politicaPorOrg: false,
+    recorte: "empresa",
+    comandos: { select: "empresa", insert: "empresa", update: "empresa", delete: "empresa" },
+    privilegios: { select: true, insert: true, update: true, delete: true },
+    alcancaAnonimo: false, anonPodeTruncar: false,
+    ...over,
+  });
+
+  // O FALSO que abriu a onda: recorte por usuário, escrita negada por ausência.
+  const porUsuario = linha({
+    tabela: "organization_members", recorte: "usuário",
+    comandos: { select: "usuário", insert: "nenhuma", update: "nenhuma", delete: "nenhuma" },
+  });
+  ok("segurança: recorte por usuário NÃO é achado",
+     achadosDaAuditoria([porUsuario]).length === 0,
+     JSON.stringify(achadosDaAuditoria([porUsuario])));
+
+  // O VERDADEIRO: `using (true)` num comando que o cliente tem privilégio de usar.
+  const aberta = linha({
+    tabela: "movements", recorte: "ABERTO",
+    comandos: { select: "ABERTO", insert: "empresa", update: "empresa", delete: "empresa" },
+  });
+  const achadosAberta = achadosDaAuditoria([aberta]);
+  ok("segurança: política `using (true)` VIRA achado alto",
+     achadosAberta.length === 1 && achadosAberta[0].gravidade === "alto",
+     JSON.stringify(achadosAberta));
+
+  // ⚠️ Sem privilégio a política sequer é avaliada: a tabela está fechada uma
+  // camada antes. Acusá-la aqui seria o mesmo ruído, com outro nome.
+  const abertaSemPrivilegio = linha({
+    tabela: "subscriptions", recorte: "ABERTO",
+    comandos: { select: "ABERTO", insert: "nenhuma", update: "nenhuma", delete: "nenhuma" },
+    privilegios: { select: false, insert: false, update: false, delete: false },
+  });
+  ok("segurança: sem concessão, política aberta não é achado",
+     achadosDaAuditoria([abertaSemPrivilegio]).length === 0);
+
+  // A abertura declarada some — mas só no comando declarado.
+  const declaradaLinha = linha({
+    tabela: "role_permissions", temOrgId: false, recorte: "ABERTO",
+    comandos: { select: "ABERTO", insert: "ABERTO", update: "nenhuma", delete: "nenhuma" },
+  });
+  const achadosDeclarada = achadosDaAuditoria([declaradaLinha]);
+  ok("segurança: abertura declarada some, e SÓ no comando declarado",
+     achadosDeclarada.length === 1 && achadosDeclarada[0].problema.includes("inserir"),
+     JSON.stringify(achadosDeclarada));
+
+  // ⚠️ Toda exceção carrega MOTIVO — sem isso a lista vira o lugar onde se
+  // esconde o que incomoda, e a guarda passa a proteger o silêncio.
+  const semMotivo = ABERTURAS_DECLARADAS.filter((a) => (a.porque ?? "").trim().length < 40);
+  ok("segurança: toda abertura declarada tem motivo escrito", semMotivo.length === 0,
+     semMotivo.map((a) => `${a.tabela}.${a.comando}`).join(", "));
+  const comandoInvalido = ABERTURAS_DECLARADAS.filter(
+    (a) => !COMANDOS.includes(a.comando as Comando),
+  );
+  ok("segurança: abertura declarada aponta um comando real", comandoInvalido.length === 0);
+
+  /* ── o teste de isolamento por verbo ────────────────────────────────────── */
+
+  const t = (o: Partial<TentativaIsolamento>): TentativaIsolamento =>
+    ({ tabela: "movements", verbo: "ler", resultado: "negado", vazou: false, detalhe: "", ...o });
+
+  // ⚠️ Lista vazia NUNCA é aprovação. É o defeito que esta onda encontrou:
+  // `teste_isolamento()` abortava em `subscriptions` (42501) e a tela ficava
+  // sem resposta — um resumo que somasse zero de nada diria "aprovado".
+  ok("isolamento: nada testado NÃO é aprovado", resumoPorVerbo([]).ok === false);
+
+  ok("isolamento: uma tentativa que passou reprova o conjunto",
+     resumoPorVerbo([t({}), t({ verbo: "apagar", resultado: "VAZOU", vazou: true })]).ok === false);
+
+  // "Sem privilégio" é resposta legítima e forte (fechada por concessão), mas
+  // precisa aparecer contada — senão o placar conta como conferido o que não foi.
+  const comSemPriv = resumoPorVerbo([t({}), t({ tabela: "subscriptions", resultado: "sem privilégio" })]);
+  ok("isolamento: sem privilégio não reprova, mas é contado",
+     comSemPriv.ok === true && comSemPriv.naoTentadas === 1);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

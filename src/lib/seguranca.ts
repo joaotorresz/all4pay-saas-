@@ -13,7 +13,7 @@ import { isDemo } from "@/lib/demo";
 import type {
   LinhaIsolamento, LinhaAuditoriaRLS, AdminRevisao, Papel, TentativaIsolamento,
 } from "@/core/seguranca";
-import { MATRIZ_DEMO } from "@/core/seguranca";
+import { MATRIZ_DEMO, COMANDOS, type Comando } from "@/core/seguranca";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const semServidor = () => isDemo || !SUPA_CONFIGURED;
@@ -153,15 +153,31 @@ export async function auditoriaRLS(): Promise<LinhaAuditoriaRLS[] | null> {
   if (semServidor()) return null;
   const { data, error } = await (await cliente()).rpc("rls_auditoria");
   if (error || !data) return null;
-  return (data as Record<string, unknown>[]).map((l) => ({
-    tabela: String(l.tabela),
-    rlsLigada: !!l.rls_ligada,
-    politicas: Number(l.politicas ?? 0),
-    temOrgId: !!l.tem_org_id,
-    politicaPorOrg: !!l.politica_por_org,
-    alcancaAnonimo: !!l.alcanca_anonimo,
-    anonPodeTruncar: !!l.anon_pode_truncar,
-  }));
+  return (data as Record<string, unknown>[]).map((l) => {
+    // ⚠️ `comandos` e `privilegios` chegam como jsonb e podem faltar enquanto o
+    // banco novo não estiver aplicado. O padrão então é o que NÃO acusa nada —
+    // um erro de leitura não pode nascer como achado Alto.
+    const cmds = (l.comandos ?? {}) as Record<string, string>;
+    const privs = (l.privilegios ?? {}) as Record<string, boolean>;
+    const porComando = Object.fromEntries(
+      COMANDOS.map((c) => [c, cmds[c] ?? "nenhuma"]),
+    ) as Record<Comando, string>;
+    const porPrivilegio = Object.fromEntries(
+      COMANDOS.map((c) => [c, privs[c] ?? false]),
+    ) as Record<Comando, boolean>;
+    return {
+      tabela: String(l.tabela),
+      rlsLigada: !!l.rls_ligada,
+      politicas: Number(l.politicas ?? 0),
+      temOrgId: !!l.tem_org_id,
+      politicaPorOrg: !!l.politica_por_org,
+      recorte: String(l.recorte ?? "—"),
+      comandos: porComando,
+      privilegios: porPrivilegio,
+      alcancaAnonimo: !!l.alcanca_anonimo,
+      anonPodeTruncar: !!l.anon_pode_truncar,
+    };
+  });
 }
 
 /* ========================================================================== */

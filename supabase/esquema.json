@@ -25,7 +25,7 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 71,
+    "funcoes": 73,
     "politicas": 65,
     "gatilhos": 22,
     "indices": 157,
@@ -93,7 +93,9 @@
     "20260805234628_mrr_derivado_do_plano",
     "20260810200453_codigo_unico_de_produto_e_servico",
     "20260810214611_isolamento_testado_por_verbo",
-    "20260810214913_alheio_e_nem_meu_nem_da_empresa"
+    "20260810214913_alheio_e_nem_meu_nem_da_empresa",
+    "20260810215651_auditor_classifica_recorte_e_comando",
+    "20260810215942_recorte_reconhece_portao_de_administrador"
   ],
   "divergencias_conhecidas": {
     "_regra": [
