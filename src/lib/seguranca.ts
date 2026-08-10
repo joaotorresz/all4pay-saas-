@@ -11,7 +11,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import type {
-  LinhaIsolamento, LinhaAuditoriaRLS, AdminRevisao, Papel,
+  LinhaIsolamento, LinhaAuditoriaRLS, AdminRevisao, Papel, TentativaIsolamento,
 } from "@/core/seguranca";
 import { MATRIZ_DEMO } from "@/core/seguranca";
 
@@ -117,6 +117,36 @@ export async function rodarTesteIsolamento(registrar = false): Promise<LinhaIsol
       linhasDeOutraOrg: Number(l.linhas_de_outra_org),
       visiveis: Number(l.visiveis),
     }));
+}
+
+/**
+ * O teste POR VERBO — o que a tela usa a partir da ONDA 2.
+ *
+ * ⚠️ Ele não substitui `rodarTesteIsolamento` por gosto: o antigo respondia
+ * "quantas linhas de outra empresa eu enxergo", que é UM verbo. Este tenta
+ * ler, agregar, inserir, atualizar e apagar contra a empresa alheia, cada
+ * tentativa numa subtransação que é desfeita — e devolve o resultado por
+ * TABELA e por VERBO, porque "vazou" sem dizer onde e como não dá para
+ * consertar.
+ *
+ * ⚠️ Devolver `null` continua significando **não foi possível testar**, nunca
+ * "passou". Foi a única coisa que o desenho anterior acertou, e é ela que
+ * impede um erro de rede de virar selo de aprovação.
+ */
+export async function rodarIsolamentoCompleto(
+  registrar = false,
+): Promise<TentativaIsolamento[] | null> {
+  if (semServidor()) return null;
+  const { data, error } = await (await cliente())
+    .rpc(registrar ? "verificar_isolamento_completo" : "teste_isolamento_completo");
+  if (error || !data) return null;
+  return (data as Record<string, unknown>[]).map((l) => ({
+    tabela: String(l.tabela),
+    verbo: String(l.verbo),
+    resultado: String(l.resultado),
+    vazou: !!l.vazou,
+    detalhe: String(l.detalhe ?? ""),
+  }));
 }
 
 export async function auditoriaRLS(): Promise<LinhaAuditoriaRLS[] | null> {

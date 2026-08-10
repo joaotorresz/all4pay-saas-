@@ -158,6 +158,98 @@ export function resumoIsolamento(linhas: readonly LinhaIsolamento[]): ResumoIsol
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/* O TESTE POR VERBO — o que o anterior não perguntava                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Uma TENTATIVA: uma tabela, um verbo, um veredicto.
+ *
+ * ⚠️ O teste anterior contava linhas visíveis. Isso é UM verbo, e a pergunta
+ * "estamos isolados?" não se responde com ele: ler pode estar fechado e
+ * escrever aberto, porque `with check` não cobre exclusão e uma política de
+ * `ALL` não protege o mesmo que uma de só-`SELECT`.
+ */
+export interface TentativaIsolamento {
+  tabela: string;
+  verbo: string;
+  /** `VAZOU` · `negado` · `sem privilégio` · `sem molde` · `sem alvo` · `erro`. */
+  resultado: string;
+  vazou: boolean;
+  detalhe: string;
+}
+
+export const VERBOS: { id: string; nome: string; oQue: string }[] = [
+  { id: "ler",       nome: "Ler",       oQue: "Enxergo alguma linha que não é minha nem da minha empresa?" },
+  { id: "agregar",   nome: "Agregar",   oQue: "Uma contagem devolve o número mesmo com as linhas escondidas?" },
+  { id: "inserir",   nome: "Inserir",   oQue: "Consigo gravar uma linha pertencente a outra empresa?" },
+  { id: "atualizar", nome: "Atualizar", oQue: "Consigo alterar uma linha de outra empresa?" },
+  { id: "apagar",    nome: "Apagar",    oQue: "Consigo apagar uma linha de outra empresa?" },
+  { id: "definer",   nome: "Função",    oQue: "As funções que passam por cima da política devolvem dado alheio?" },
+];
+
+export const nomeDoVerbo = (v: string): string =>
+  VERBOS.find((x) => x.id === v)?.nome ?? v;
+
+export interface ResumoPorVerbo {
+  tabelas: number;
+  tentativas: number;
+  vazamentos: TentativaIsolamento[];
+  /** Tentativas que não chegaram a acontecer (sem privilégio, sem molde, erro). */
+  naoTentadas: number;
+  ok: boolean;
+}
+
+/**
+ * ⚠️ `ok` exige **zero** vazamentos E ter TENTADO — as duas coisas.
+ *
+ * "Zero" sem tentativa é o defeito que esta onda encontrou: `teste_isolamento()`
+ * abortava na primeira tabela sem privilégio (`subscriptions`, 42501) e a tela
+ * ficava com "Não foi possível testar" desde o dia em que foi escrita. Um
+ * resumo que somasse zero de uma lista vazia teria dito "aprovado".
+ *
+ * ⚠️ `naoTentadas` NÃO reprova, e isso é decisão, não descuido: "authenticated
+ * não tem SELECT nesta tabela" é uma resposta legítima e forte — a tabela está
+ * fechada por CONCESSÃO, que é mais duro que fechada por política. O que ela
+ * não pode é sumir do relatório, senão o placar conta como conferido o que não
+ * foi.
+ */
+export function resumoPorVerbo(linhas: readonly TentativaIsolamento[]): ResumoPorVerbo {
+  const vazamentos = linhas.filter((l) => l.vazou);
+  const naoTentadas = linhas.filter(
+    (l) => l.resultado === "sem privilégio" || l.resultado === "sem molde" ||
+           l.resultado === "sem alvo" || l.resultado === "erro",
+  ).length;
+  return {
+    tabelas: new Set(linhas.map((l) => l.tabela)).size,
+    tentativas: linhas.length,
+    vazamentos,
+    naoTentadas,
+    ok: linhas.length > 0 && vazamentos.length === 0,
+  };
+}
+
+/** Agrupa por tabela, preservando a ordem dos verbos declarada em `VERBOS`. */
+export function porTabela(
+  linhas: readonly TentativaIsolamento[],
+): { tabela: string; tentativas: TentativaIsolamento[]; vazou: boolean }[] {
+  const mapa = new Map<string, TentativaIsolamento[]>();
+  for (const l of linhas) {
+    const atual = mapa.get(l.tabela);
+    if (atual) atual.push(l);
+    else mapa.set(l.tabela, [l]);
+  }
+  const ordem = (v: string) => {
+    const i = VERBOS.findIndex((x) => x.id === v);
+    return i < 0 ? VERBOS.length : i;
+  };
+  return Array.from(mapa.entries()).map(([tabela, tentativas]) => ({
+    tabela,
+    tentativas: [...tentativas].sort((a, b) => ordem(a.verbo) - ordem(b.verbo)),
+    vazou: tentativas.some((t) => t.vazou),
+  }));
+}
+
 /* ========================================================================== */
 /* A AUDITORIA DA POLÍTICA DE LINHA                                            */
 /* ========================================================================== */

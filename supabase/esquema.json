@@ -25,10 +25,10 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 68,
+    "funcoes": 71,
     "politicas": 65,
     "gatilhos": 22,
-    "indices": 155,
+    "indices": 157,
     "enums": 11,
     "colunas": 531,
     "restricoes": 186
@@ -91,7 +91,9 @@
     "20260805182528_trilha_append_only",
     "20260805233807_identidade_de_plataforma_e_trilha_do_admin",
     "20260805234628_mrr_derivado_do_plano",
-    "20260810200453_codigo_unico_de_produto_e_servico"
+    "20260810200453_codigo_unico_de_produto_e_servico",
+    "20260810214611_isolamento_testado_por_verbo",
+    "20260810214913_alheio_e_nem_meu_nem_da_empresa"
   ],
   "divergencias_conhecidas": {
     "_regra": [
