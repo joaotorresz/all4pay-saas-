@@ -9,7 +9,7 @@ import { BoletosView } from "@/components/boletos/BoletosView";
  */
 export default function Page() {
   return (
-    <AppShell title="Boletos" crumb="Financeiro">
+    <AppShell title="Boletos e PIX" crumb="Financeiro">
       <BoletosView />
     </AppShell>
   );

@@ -7,7 +7,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 
 export default function AprovacoesPage() {
   return (
-    <AppShell title="Solicitações & aprovações" crumb="Pagar · gate de alçada" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell title="Aprovações" crumb="Pagar · gate de alçada" actions={isDemo ? <DemoBadge /> : undefined}>
       <AprovacoesView />
     </AppShell>
   );

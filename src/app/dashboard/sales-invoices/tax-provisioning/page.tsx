@@ -4,7 +4,7 @@ import { ProjecaoCarga } from "@/components/vendas/ProjecaoCarga";
 
 export default function ImpostosPage() {
   return (
-    <AppShell title="Impostos sobre vendas" crumb="Vendas e NFs">
+    <AppShell title="Impostos e obrigações" crumb="Vendas e NFs">
       <div className="flex flex-col gap-5">
         {/* ⚠️ PORTE de `/impostos` (mapa de consolidação, item 5). Esta tela
             APURA o que já foi vendido e gera a conta a pagar — olha para trás.

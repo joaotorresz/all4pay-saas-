@@ -265,7 +265,11 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             <Icon name="check" size={15} color="currentColor" />
             {executando
               ? "Confirmando…"
-              : `Dar baixa${marcadosAbertos.length ? ` (${marcadosAbertos.length})` : ""}`}
+              /* ⚠️ "Dar baixa" é jargão contábil: quem opera o caixa de uma
+                 PME diz "recebi" e "paguei". O verbo agora acompanha o LADO —
+                 o mesmo `direcao` que já decide "Cliente"/"Fornecedor" e
+                 "Recebido"/"Pago" nesta tela. */
+              : `${direcao === "receber" ? "Registrar recebimento" : "Registrar pagamento"}${marcadosAbertos.length ? ` (${marcadosAbertos.length})` : ""}`}
           </Button>
         </div>
 

@@ -115,8 +115,20 @@ export function AppShell({
       <TituloDaAba titulo={tituloAba ?? (typeof title === "string" ? title : null)} />
       <RouteTracker />
       <SincronizacaoOrg />
-      <DesignLabStyle />
-      <DesignLab />
+      {/* ⚠️ O LABORATÓRIO SAIU DE PRODUÇÃO. Ele é um sandbox que repinta o app
+          com valores que ninguém do outro lado escolheu, e o botão flutuante
+          aparecia para TODO usuário em TODA tela — ruído sobre a interface do
+          cliente. Não foi apagado: continua inteiro em `npm run dev`, que é
+          onde o design é feito.
+          `DesignLabStyle` sai JUNTO, e de propósito: ele injeta o CSS salvo no
+          navegador. Deixá-lo montado manteria a repintura de quem já salvou
+          algo, sem existir mais a ferramenta para desfazer. */}
+      {process.env.NODE_ENV !== "production" && (
+        <>
+          <DesignLabStyle />
+          <DesignLab />
+        </>
+      )}
       <React.Suspense fallback={null}><PageGuide /></React.Suspense>
       <CommandPalette />
       <AssistantWidget />

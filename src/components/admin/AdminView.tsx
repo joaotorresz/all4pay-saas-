@@ -6,6 +6,7 @@
  * usuários com conta/ativos e planos. Acesso gateado por `isPlatformAdmin`.
  */
 import * as React from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
@@ -45,8 +46,38 @@ export function AdminView() {
   }
   return (
     <AppShell title="Administração da plataforma" actions={isDemo ? <DemoBadge /> : null}>
+      <FerramentasInternas />
       <AdminBody />
     </AppShell>
+  );
+}
+
+/**
+ * As ferramentas que respondem pela PLATAFORMA, não pela empresa do cliente.
+ *
+ * ⚠️ O inventário de rotas saiu do menu de Configurações — ele lista as 73
+ * rotas do produto com dono e status, e isso é conteúdo de quem MANTÉM o
+ * sistema, não de quem o usa. Mas "sair do menu" não pode virar "sumir": sem
+ * uma porta aqui, a tela ficaria acessível só para quem decorou a URL, que é
+ * a definição de tela órfã.
+ */
+function FerramentasInternas() {
+  return (
+    <Card className="mb-4">
+      <h2 className="text-h3 m-0">Ferramentas internas</h2>
+      <p className="m-0 mt-1 text-caption text-muted">
+        Respondem pela plataforma — não aparecem no menu do cliente.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link
+          href="/dashboard/administration/routes"
+          className="inline-flex items-center gap-2 rounded-pill bg-surface-2 hover:bg-surface-3 transition-colors px-4 h-9 text-[14px] text-ink"
+        >
+          <Icon name="network" size={15} color="var(--color-text-secondary)" />
+          Inventário de rotas
+        </Link>
+      </div>
+    </Card>
   );
 }
 

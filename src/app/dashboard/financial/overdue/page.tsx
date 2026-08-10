@@ -9,7 +9,7 @@ import { InadimplenciaView } from "@/components/inadimplencia/InadimplenciaView"
  */
 export default function Page() {
   return (
-    <AppShell title="Inadimplência" crumb="Financeiro">
+    <AppShell title="Inadimplência e cobrança" crumb="Financeiro">
       <InadimplenciaView />
     </AppShell>
   );

@@ -4,7 +4,7 @@ import { IntegracoesView } from "@/components/administracao/IntegracoesView";
 
 export default function Page() {
   return (
-    <AppShell title="Integrações" crumb="Administração">
+    <AppShell title="Integrações e API" crumb="Administração">
       <Suspense fallback={null}>
         <IntegracoesView />
       </Suspense>

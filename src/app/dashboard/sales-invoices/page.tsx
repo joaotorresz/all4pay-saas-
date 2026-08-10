@@ -3,7 +3,7 @@ import { VendasView } from "@/components/vendas-nf/VendasView";
 
 export default function VendasPage() {
   return (
-    <AppShell title="Vendas" crumb="Vendas e NFs">
+    <AppShell title="Painel de vendas" crumb="Vendas e NFs">
       <VendasView />
     </AppShell>
   );
