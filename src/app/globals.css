@@ -703,6 +703,24 @@ html:not(.dark) .ds-visor {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
+/*
+ * VALOR EM LINHA — o número de uma agenda ou de uma lista não é o valor-herói
+ * da tela: ele acompanha um nome e uma categoria em Roobert, e em Gellix Bold
+ * ficava com mais peso que a informação que qualifica. Segue com
+ * `tabular-nums`, que é o que mantém a coluna alinhada — a largura fixa vem
+ * da feature, não da família.
+ *
+ * ⚠️ Precisa dos dois seletores (`.a4p-num.a4p-valor-texto`) para vencer a
+ * regra do valor, que é mais específica que uma classe sozinha.
+ */
+.ds-visor .a4p-num.a4p-valor-texto,
+.ds-visor .a4p-valor-texto .a4p-num,
+.ds-visor .a4p-valor-texto .a4p-num * {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 /* Eixo de gráfico é UNIDADE, não valor-herói: papel de rótulo. Em Gellix Bold
    a 11px o eixo competiria com a série que ele mede. */
 .ds-visor .recharts-cartesian-axis-tick-value {
