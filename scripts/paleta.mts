@@ -42,6 +42,19 @@ const PALETA = new Map<string, string>([
   ["#c8d930", "Accent"],
 ]);
 
+/*
+ * ⚠️ AS SUPERFÍCIES DE TRABALHO. A tabela de marca descreve a IDENTIDADE
+ * (branco quente + bege + preto quente); estas três descrevem a MOLDURA e a
+ * ÁREA onde o operador passa o dia, e foram escolhidas no Laboratório com a
+ * tela na frente. Ficam nomeadas aqui, e não soltas como "exceção", porque
+ * são estruturais: qualquer tela nova as consome pelos tokens.
+ */
+const SUPERFICIES = new Set([
+  "#2c251e", // moldura escura do app
+  "#f1f3f6", // área de trabalho / chips
+  "#ffffff", // superfície do card — ver a nota no bloco de branco/preto
+]);
+
 /** Stops do degradê da marca — fazem parte da identidade, não são avulsos. */
 const DEGRADE = new Set(["#fffad7", "#ffefa2", "#dbff4d"]);
 
@@ -77,7 +90,7 @@ const EXCECOES = new Map<string, string>([
 ]);
 
 const permitido = (hex: string) =>
-  PALETA.has(hex) || DEGRADE.has(hex) || EXCECOES.has(hex);
+  PALETA.has(hex) || DEGRADE.has(hex) || SUPERFICIES.has(hex) || EXCECOES.has(hex);
 
 interface Achado { arquivo: string; linha: number; hex: string; trecho: string }
 
@@ -129,7 +142,20 @@ for (const arquivo of arquivos) {
       if (hex === "#ffffff" || hex === "#000000") {
         // O token que NOMEIA o preto puro (marketing) é a única declaração
         // legítima; o resto é o defeito que a regra ataca.
-        const ehTokenDeclarado = declara && /black-pure|hero-from|hero-glow/.test(linha);
+        /*
+         * ⚠️ O BRANCO PURO PASSOU A SER A SUPERFÍCIE DO CARD — decisão tomada
+         * com a tela na frente, junto com a remoção da borda: o que separa o
+         * card do fundo virou o CONTRASTE entre as duas superfícies, e para
+         * isso o card precisa ser mais claro que a área.
+         *
+         * A regra NÃO foi desligada, só estreitada: `#ffffff` vale apenas na
+         * linha que DECLARA o token (`--color-white`, `cardBg` no espelho do
+         * Laboratório). Um `#fff` solto num componente continua reprovando —
+         * é ele que produz as quarenta superfícies levemente diferentes, e é
+         * a parte da regra que carrega o valor.
+         */
+        const ehTokenDeclarado = declara
+          && /black-pure|hero-from|hero-glow|--color-white|cardBg|boxBg|--a4p-box-bg/.test(linha);
         if (!ehTokenDeclarado) brancoPreto.push({ arquivo: rel, linha: i + 1, hex, trecho });
         continue;
       }
