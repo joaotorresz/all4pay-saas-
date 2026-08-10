@@ -1647,6 +1647,59 @@ servidor (segue em `localStorage`, classificado em `CHAVES_ORG`); e a separaçã
 visual entre o que a IA sugere e o que ela executa — os guardrails de execução
 existem em `core/autonomous` desde antes, mas a tela ainda não os distingue.
 
+### ⚠️ ONDA 2 (bis) — O ISOLAMENTO TESTADO, NÃO AFIRMADO
+
+A tela de segurança reportava dois achados **Altos** e um teste que dizia "Não
+foi possível testar". Os dois Altos eram **falso positivo**; o teste **nunca
+tinha rodado**.
+
+- ⚠️ **`teste_isolamento()` abortava na primeira tabela sem privilégio.** Ele
+  varre toda tabela com `org_id` e faz `execute … count(*)`; `subscriptions` tem
+  `org_id` e `authenticated` **não tem SELECT** nela (de propósito, desde a
+  0014 — só `DEFINER` alcança). O `execute` levanta `42501`, o plpgsql não
+  trata, a função inteira morre. Medido com `set local role authenticated`.
+  **O placar "44 tabelas, 0 vazamentos" da ONDA 9 foi medido com papel
+  privilegiado, não com o do cliente.** O que estava certo e fica: o resumo
+  exige `linhas > 0`, então "não testei" nunca virou "aprovado".
+- **`teste_isolamento_completo()`** tenta **cinco verbos por tabela** — ler,
+  agregar, inserir, atualizar, apagar — cada um num subbloco `begin/exception`,
+  que em plpgsql é subtransação: a escrita ACONTECE e é desfeita ao capturar. As
+  variáveis não voltam com o rollback (documentado), e é isso que permite marcar
+  o veredicto e ainda assim não deixar a linha.
+  - **Agregar é pergunta própria**: um `count()`/`sum()` vaza o FATO sem vazar a
+    LINHA, e nenhuma contagem de linhas enxerga isso.
+  - **Apagar também**: `with check` não cobre exclusão, e apagar é a forma mais
+    completa de alterar.
+  - ⚠️ **Tabela sem privilégio vira LINHA de resultado**, nunca exceção.
+- ⚠️ **`organization_members` e `user_active_org` NÃO ganharam política nova.**
+  Elas são recortadas por `user_id = auth.uid()` — mais estreito que por
+  empresa — e só têm política de SELECT. Escrever a política que o auditor
+  cobrava **abriria** acesso: qualquer membro passaria a enumerar os colegas,
+  que é o que a RPC `org_members` existe para controlar.
+- ⚠️ **Alheio é "nem meu nem da minha empresa".** A primeira versão do teste
+  equiparava isso a "de outra empresa" e acusou `organization_members` — eram os
+  vínculos do PRÓPRIO usuário na outra empresa dele. O predicado sai da tabela:
+  havendo `user_id`, a linha do próprio usuário nunca é alheia.
+- **`rls_auditoria()` classifica por RECORTE e por COMANDO** (empresa · vínculo ·
+  usuário · administrador · papel · ABERTO · fechado · nega tudo), mais o
+  privilégio que `authenticated` tem de sequer tentar. Achado alto = comando com
+  política permissiva que não recorta **E** com a concessão. Medido: 29 → 1.
+  - ⚠️ Os 29 vinham de sete `maq_*` cujo `maq_is_admin()` não era reconhecido —
+    sete falsos Altos, o mesmo defeito reaparecendo dentro do conserto.
+    `%_is_admin%` cobre a família; enumerar nomes envelhece.
+  - O 1 restante é **`ABERTURAS_DECLARADAS`**: `role_permissions.select`, por
+    tabela **e comando**, com motivo escrito. Ler a regra é legítimo; reescrevê-la
+    não seria.
+- **Revisão administrativa virou processo.** `admin_revisar` carimbava
+  `revisado_em` E empurrava `expira_em` no mesmo gesto — revisar era o mesmo ato
+  que renovar. Separados: `expira_em` (quando o acesso morre) × `proxima_revisao`
+  (quando alguém olha). **Motivo obrigatório de 20+ caracteres, cobrado pelo
+  banco** — barra o vazio E o de fachada. `admin_definir_prazo_mfa` com **teto de
+  90 dias**: prazo que se empurra sem limite não é prazo.
+  - ⚠️ **A autorrevisão não é bloqueada, e é decisão registrada**: com UM
+    administrador, proibi-la deixaria o acesso sem revisão possível para sempre.
+    Fica marcada (`auto_revisao`), vira pendência e evento próprio na trilha.
+
 ### ⚠️ PLANOS — `src/core/planos` (gating de servidor, não de menu)
 
 **Gating de plano é decisão de SERVIDOR.** O Modo Pro era uma cortina: os grupos
@@ -3278,6 +3331,16 @@ npm run paleta     # A GUARDA DA PALETA (scripts/paleta.mts), dentro de `npm tes
                    # nenhum #fff/#000 no app · e o espelho batendo entre :root,
                    # .ds-visor e os DEFAULT_CORES do Laboratório. É o que torna
                    # "nenhum elemento fora do DS" verificável em vez de intenção.
+npm run isolamento # A GUARDA DE DUAS EMPRESAS (scripts/isolamento-par.sql, job
+                   # próprio no CI). Cria DUAS empresas e DOIS usuários pelo
+                   # gatilho de signup — não por INSERT à mão, que testaria um
+                   # caminho que nenhum cliente percorre — põe dinheiro em cada
+                   # uma e tenta o cruzamento nos dois sentidos: ler, agregar,
+                   # inserir, atualizar, apagar. Termina em ROLLBACK, então roda
+                   # com segurança contra qualquer banco, inclusive produção.
+                   # Exige SUPABASE_DB_URL e FALHA sem ela: guarda que "pula
+                   # quando não tem credencial" é guarda que não roda, que foi
+                   # exatamente o defeito da ONDA 2.
 npm run mobile     # A MEDIÇÃO NO TELEFONE (scripts/mobile.mjs): Chromium a 390x844
                    # contra o build de produção — orçamento de desempenho por
                    # tela, alvos de toque, hierarquia de cabeçalhos e auditoria

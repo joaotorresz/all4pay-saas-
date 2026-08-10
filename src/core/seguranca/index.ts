@@ -158,9 +158,149 @@ export function resumoIsolamento(linhas: readonly LinhaIsolamento[]): ResumoIsol
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/* O TESTE POR VERBO — o que o anterior não perguntava                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Uma TENTATIVA: uma tabela, um verbo, um veredicto.
+ *
+ * ⚠️ O teste anterior contava linhas visíveis. Isso é UM verbo, e a pergunta
+ * "estamos isolados?" não se responde com ele: ler pode estar fechado e
+ * escrever aberto, porque `with check` não cobre exclusão e uma política de
+ * `ALL` não protege o mesmo que uma de só-`SELECT`.
+ */
+export interface TentativaIsolamento {
+  tabela: string;
+  verbo: string;
+  /** `VAZOU` · `negado` · `sem privilégio` · `sem molde` · `sem alvo` · `erro`. */
+  resultado: string;
+  vazou: boolean;
+  detalhe: string;
+}
+
+export const VERBOS: { id: string; nome: string; oQue: string }[] = [
+  { id: "ler",       nome: "Ler",       oQue: "Enxergo alguma linha que não é minha nem da minha empresa?" },
+  { id: "agregar",   nome: "Agregar",   oQue: "Uma contagem devolve o número mesmo com as linhas escondidas?" },
+  { id: "inserir",   nome: "Inserir",   oQue: "Consigo gravar uma linha pertencente a outra empresa?" },
+  { id: "atualizar", nome: "Atualizar", oQue: "Consigo alterar uma linha de outra empresa?" },
+  { id: "apagar",    nome: "Apagar",    oQue: "Consigo apagar uma linha de outra empresa?" },
+  { id: "definer",   nome: "Função",    oQue: "As funções que passam por cima da política devolvem dado alheio?" },
+];
+
+export const nomeDoVerbo = (v: string): string =>
+  VERBOS.find((x) => x.id === v)?.nome ?? v;
+
+export interface ResumoPorVerbo {
+  tabelas: number;
+  tentativas: number;
+  vazamentos: TentativaIsolamento[];
+  /** Tentativas que não chegaram a acontecer (sem privilégio, sem molde, erro). */
+  naoTentadas: number;
+  ok: boolean;
+}
+
+/**
+ * ⚠️ `ok` exige **zero** vazamentos E ter TENTADO — as duas coisas.
+ *
+ * "Zero" sem tentativa é o defeito que esta onda encontrou: `teste_isolamento()`
+ * abortava na primeira tabela sem privilégio (`subscriptions`, 42501) e a tela
+ * ficava com "Não foi possível testar" desde o dia em que foi escrita. Um
+ * resumo que somasse zero de uma lista vazia teria dito "aprovado".
+ *
+ * ⚠️ `naoTentadas` NÃO reprova, e isso é decisão, não descuido: "authenticated
+ * não tem SELECT nesta tabela" é uma resposta legítima e forte — a tabela está
+ * fechada por CONCESSÃO, que é mais duro que fechada por política. O que ela
+ * não pode é sumir do relatório, senão o placar conta como conferido o que não
+ * foi.
+ */
+export function resumoPorVerbo(linhas: readonly TentativaIsolamento[]): ResumoPorVerbo {
+  const vazamentos = linhas.filter((l) => l.vazou);
+  const naoTentadas = linhas.filter(
+    (l) => l.resultado === "sem privilégio" || l.resultado === "sem molde" ||
+           l.resultado === "sem alvo" || l.resultado === "erro",
+  ).length;
+  return {
+    tabelas: new Set(linhas.map((l) => l.tabela)).size,
+    tentativas: linhas.length,
+    vazamentos,
+    naoTentadas,
+    ok: linhas.length > 0 && vazamentos.length === 0,
+  };
+}
+
+/** Agrupa por tabela, preservando a ordem dos verbos declarada em `VERBOS`. */
+export function porTabela(
+  linhas: readonly TentativaIsolamento[],
+): { tabela: string; tentativas: TentativaIsolamento[]; vazou: boolean }[] {
+  const mapa = new Map<string, TentativaIsolamento[]>();
+  for (const l of linhas) {
+    const atual = mapa.get(l.tabela);
+    if (atual) atual.push(l);
+    else mapa.set(l.tabela, [l]);
+  }
+  const ordem = (v: string) => {
+    const i = VERBOS.findIndex((x) => x.id === v);
+    return i < 0 ? VERBOS.length : i;
+  };
+  return Array.from(mapa.entries()).map(([tabela, tentativas]) => ({
+    tabela,
+    tentativas: [...tentativas].sort((a, b) => ordem(a.verbo) - ordem(b.verbo)),
+    vazou: tentativas.some((t) => t.vazou),
+  }));
+}
+
 /* ========================================================================== */
 /* A AUDITORIA DA POLÍTICA DE LINHA                                            */
 /* ========================================================================== */
+
+export type Comando = "select" | "insert" | "update" | "delete";
+export const COMANDOS: Comando[] = ["select", "insert", "update", "delete"];
+export const NOME_DO_COMANDO: Record<Comando, string> = {
+  select: "Ler", insert: "Inserir", update: "Atualizar", delete: "Apagar",
+};
+
+/**
+ * ⚠️ Um recorte que NÃO protege. `ABERTO` é `using (true)`; `outro` e
+ * `sem condição` são expressões que o classificador não reconheceu — e o que
+ * não se reconhece não se pode chamar de seguro.
+ *
+ * `usuário` e `vínculo` ficam FORA desta lista de propósito: são recortes mais
+ * estreitos que o por empresa (entregam as suas linhas, não as da sua empresa)
+ * e foi tratá-los como ausência de recorte que produziu os dois achados Altos
+ * falsos que abriram esta onda.
+ */
+const RECORTES_QUE_NAO_PROTEGEM = ["ABERTO", "outro", "sem condição"];
+
+/**
+ * As aberturas que são DECISÃO, não descuido — cada uma com o motivo escrito.
+ *
+ * ⚠️ Sem esta lista só haveria dois caminhos, e os dois são ruins: ou a guarda
+ * acusa uma abertura legítima para sempre (e quem a lê aprende a ignorar o
+ * vermelho), ou alguém afrouxa a regra e a próxima abertura ilegítima entra
+ * pela mesma porta. Uma exceção com motivo escrito é revisável; uma regra
+ * afrouxada não é. É o mesmo desenho de `scripts/paleta.mts`.
+ *
+ * ⚠️ A exceção é por TABELA **e COMANDO**. `role_permissions` ter leitura
+ * aberta não autoriza escrita aberta nela — e é a escrita que transformaria a
+ * matriz de papéis em algo que qualquer usuário reescreve para si mesmo.
+ */
+export const ABERTURAS_DECLARADAS: {
+  tabela: string; comando: Comando; porque: string;
+}[] = [
+  {
+    tabela: "role_permissions",
+    comando: "select",
+    porque:
+      "É a matriz papel×ação — a REGRA, não o dado. Ler quais ações cada papel "
+      + "tem não expõe empresa nenhuma, e é ela que permite a interface explicar "
+      + "antes do clique o que o banco recusaria depois dele. A escrita segue "
+      + "negada por ausência de política.",
+  },
+];
+
+const declarada = (tabela: string, comando: Comando): boolean =>
+  ABERTURAS_DECLARADAS.some((a) => a.tabela === tabela && a.comando === comando);
 
 export interface LinhaAuditoriaRLS {
   tabela: string;
@@ -168,6 +308,12 @@ export interface LinhaAuditoriaRLS {
   politicas: number;
   temOrgId: boolean;
   politicaPorOrg: boolean;
+  /** Como o acesso é recortado, somando as políticas permissivas. */
+  recorte: string;
+  /** Recorte por comando; `"nenhuma"` = sem política permissiva ⇒ negado por padrão. */
+  comandos: Record<Comando, string>;
+  /** O que o papel do cliente pode sequer tentar. */
+  privilegios: Record<Comando, boolean>;
   alcancaAnonimo: boolean;
   anonPodeTruncar: boolean;
 }
@@ -193,8 +339,23 @@ export interface Achado {
  *  - **RLS desligada** é crítico: com as concessões padrão, a tabela é pública.
  *  - **RLS ligada sem política** NÃO é achado: é negar tudo, e é o desenho
  *    correto das tabelas que só as funções `SECURITY DEFINER` acessam.
- *  - **`org_id` sem política que o use** é alto: a coluna diz que a tabela é
- *    multiempresa e nada garante o recorte.
+ *  - **Comando com política permissiva que NÃO recorta** é alto — e só quando
+ *    o papel do cliente tem o privilégio daquele comando, senão a tabela está
+ *    fechada por concessão e a política é irrelevante.
+ *
+ * ⚠️ A regra anterior era "tem `org_id` e nenhuma política menciona
+ * `auth_org_id()`" — casamento de string. Ela acusava `organization_members` e
+ * `user_active_org`, que são recortadas por `user_id = auth.uid()`: um recorte
+ * MAIS ESTREITO que o por empresa, e sem política nenhuma de escrita (o padrão
+ * do PostgreSQL é negar). As duas tabelas mais fechadas do banco apareciam como
+ * as duas mais abertas.
+ *
+ * E o conserto que a tela sugeria pioraria a segurança: escrever uma política
+ * por empresa em `organization_members` deixaria qualquer membro ENUMERAR todos
+ * os colegas, que é justamente o que a RPC `org_members` existe para controlar.
+ *
+ * Guarda que grita lobo treina quem a lê a ignorá-la — e o dia em que ela
+ * estiver certa é o dia em que ninguém olha.
  */
 export function achadosDaAuditoria(linhas: readonly LinhaAuditoriaRLS[]): Achado[] {
   const out: Achado[] = [];
@@ -212,12 +373,22 @@ export function achadosDaAuditoria(linhas: readonly LinhaAuditoriaRLS[]): Achado
         problema: "sem política de acesso por linha",
         porque: "Com as concessões padrão do banco, uma tabela sem política responde a qualquer sessão.",
       });
-    } else if (l.temOrgId && !l.politicaPorOrg && l.politicas > 0) {
-      out.push({
-        tabela: l.tabela, gravidade: "alto",
-        problema: "tem coluna de empresa, mas nenhuma política a usa",
-        porque: "A coluna declara que a tabela é multiempresa; sem política por empresa, o recorte depende de quem consulta.",
-      });
+    } else {
+      for (const cmd of COMANDOS) {
+        const recorte = l.comandos?.[cmd];
+        if (!recorte || !RECORTES_QUE_NAO_PROTEGEM.includes(recorte)) continue;
+        // Sem o privilégio, a política sequer chega a ser avaliada: a tabela
+        // está fechada uma camada antes, e apontá-la aqui seria ruído.
+        if (l.privilegios && l.privilegios[cmd] === false) continue;
+        if (declarada(l.tabela, cmd)) continue;
+        out.push({
+          tabela: l.tabela, gravidade: "alto",
+          problema: `${NOME_DO_COMANDO[cmd].toLowerCase()} liberado sem recorte (${recorte})`,
+          porque: recorte === "ABERTO"
+            ? "A política permissiva deste comando é `using (true)`: ela vale para qualquer linha, de qualquer empresa."
+            : "A condição desta política não foi reconhecida como recorte por empresa, usuário ou vínculo — e o que não se reconhece não se pode chamar de seguro.",
+        });
+      }
     }
     if (l.alcancaAnonimo && l.politicas > 0) {
       out.push({
@@ -242,6 +413,13 @@ export interface AdminRevisao {
   motivo: string | null;
   expiraEm: string | null;
   revisadoEm: string | null;
+  /** Quem assinou a última revisão. */
+  revisadoPor: string | null;
+  revisadoPorEmail: string | null;
+  /** A última revisão foi assinada pela própria pessoa revisada. */
+  autoRevisao: boolean;
+  /** Quando alguém precisa olhar de novo — distinto de `expiraEm`. */
+  proximaRevisao: string | null;
   exigeMfa: boolean;
   fatoresMfa: number;
   mfaPrazo: string | null;
@@ -275,6 +453,23 @@ export function pendenciasDeAdmin(lista: readonly AdminRevisao[], hojeISO: strin
     if (!a.revisadoEm) {
       out.push({ tabela: quem, gravidade: "medio", problema: "nunca revisado",
         porque: "Sem revisão, a lista de quem vê tudo só cresce — cada nome que fica é um nome que ninguém decidiu manter." });
+    } else if (a.proximaRevisao && a.proximaRevisao < hojeISO) {
+      // ⚠️ Vencida é PIOR que nunca revisada, e por isso é `alto`: "nunca
+      // revisado" é uma pendência que ninguém prometeu resolver; vencida é uma
+      // data que alguém escolheu e deixou passar — o controle existe, foi
+      // agendado, e falhou.
+      out.push({ tabela: quem, gravidade: "alto",
+        problema: `revisão vencida em ${a.proximaRevisao}`,
+        porque: "A data foi decidida por quem revisou da última vez. Passar dela sem novo exame é o controle deixando de existir sem que ninguém decida desligá-lo." });
+    }
+    if (a.autoRevisao) {
+      // ⚠️ Não é bloqueado no banco de propósito: com UM administrador só,
+      // proibir a autorrevisão deixaria o acesso sem revisão possível para
+      // sempre — a regra produziria o estado que ela existe para evitar. Fica
+      // como dívida VISÍVEL, que é o que a torna resolvível no dia em que
+      // houver um segundo nome.
+      out.push({ tabela: quem, gravidade: "medio", problema: "revisado por si mesmo",
+        porque: "Quem é revisado não deveria assinar a própria revisão. Enquanto houver um administrador só, isto fica declarado em vez de bloqueado — bloquear travaria a revisão inteira." });
     }
     if (a.negados30d > 0) {
       out.push({ tabela: quem, gravidade: "alto", problema: `${a.negados30d} tentativas negadas em 30 dias`,

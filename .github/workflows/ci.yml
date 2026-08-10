@@ -61,3 +61,41 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ISOLAMENTO — duas empresas, dois usuários, num banco de verdade
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ Job SEPARADO do `verify`, e de propósito. Ele sobe um Supabase local
+  # (Docker) e leva minutos; pendurá-lo no `verify` faria a suíte que se roda a
+  # cada commit passar a custar o dobro, e guarda cara é guarda que alguém
+  # desliga. Aqui os dois correm em paralelo e o PR só fica verde com os dois.
+  #
+  # ⚠️ Por que um banco de verdade, e não uma simulação: as outras guardas desta
+  # onda são puras e conferem o que o auditor RESPONDE. Esta confere o que o
+  # banco FAZ — e é a única que pegaria uma política que existe, parece certa
+  # no inventário e não filtra. A diferença entre as duas é a diferença entre
+  # "a política parece certa" e "o banco me deixou".
+  #
+  # ⚠️ `supabase start` aplica as migrations do repositório do zero, então esta
+  # guarda também prova que a sequência inteira roda num banco limpo — o que a
+  # `esquema` só consegue afirmar a partir de um retrato.
+  isolamento:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Só o banco: os demais serviços (studio, realtime, storage, edge) não
+      # participam de nada aqui e cada um é uma imagem para baixar.
+      - name: Subir o Postgres com as migrations aplicadas
+        run: supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      - name: Guarda de isolamento (duas empresas, dois usuários)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run isolamento
