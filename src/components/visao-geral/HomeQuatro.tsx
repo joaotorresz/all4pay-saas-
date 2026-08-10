@@ -363,90 +363,83 @@ function Dicas({ input }: { input: RiskInput }) {
   const router = useRouter();
   const r = React.useMemo(() => montarDicas(input), [input]);
   const [i, setI] = React.useState(0);
-  const total = r.modo === "dicas" ? r.dicas.length : 0;
-  const atual = r.dicas[Math.min(i, Math.max(0, total - 1))];
+
+  /*
+   * A referência tem DUAS caixas: a escura, que carrega o contexto (o
+   * assunto da leitura), e a clara por dentro, que carrega a mensagem. É a
+   * relação card-sobre-canvas do resto do sistema, invertida — e é o que faz
+   * este card ler como uma peça de outra natureza (a IA) e não como mais um
+   * card de dado.
+   */
+  const itens: { contexto: string; mensagem: string; rota?: string }[] =
+    r.modo === "onboarding"
+      ? r.passos.map((p) => ({
+          contexto: p.titulo,
+          mensagem: p.feito ? `${p.texto} Feito.` : p.texto,
+          rota: p.rota,
+        }))
+      : r.dicas.map((d) => ({
+          contexto: d.titulo,
+          mensagem: d.base
+            ? `${d.texto} (base: ${d.base.rotulo}, ${formatBRL(d.base.valor)})`
+            : d.texto,
+          rota: d.rota,
+        }));
+
+  const total = itens.length;
+  const atual = itens[Math.min(i, Math.max(0, total - 1))];
+  const ir = (passo: number) => setI((k) => (k + passo + total) % total);
 
   return (
-    <div className="rounded-card p-5 flex flex-col min-h-[300px]" data-card="1"
-      style={{ background: "var(--color-ink)" }}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-h2 m-0" style={{ color: "var(--a4p-chrome-ink)" }}>Dicas all4pay</h2>
-        <BotaoEscuro icone="arrow-up-right" rotulo="Abrir o assistente"
-          onClick={() => window.dispatchEvent(new Event("a4p:open-ia"))} />
-      </div>
+    <div
+      className="rounded-[40px] p-6 flex flex-col min-h-[340px]"
+      data-card="1"
+      style={{ background: "var(--color-ink)" }}
+    >
+      <h2 className="text-h2 m-0 px-2 pt-1" style={{ color: "var(--a4p-chrome-ink)" }}>
+        {atual ? atual.contexto : "Dicas all4pay"}
+      </h2>
 
-      {r.modo === "onboarding" ? (
-        <div className="mt-4 flex flex-col gap-2">
-          <p className="m-0 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
-            Faltam alguns passos para o sistema conseguir ler a sua operação.
-          </p>
-          {r.passos.map((p) => (
-            <button key={p.id} onClick={() => router.push(p.rota)}
-              className="text-left rounded-card px-4 py-3 flex items-center gap-3 hover:opacity-90"
-              style={{ background: "var(--a4p-chrome-field)" }}>
-              <span className="w-6 h-6 rounded-pill inline-flex items-center justify-center shrink-0"
-                style={{ background: p.feito ? "var(--color-lime)" : "var(--a4p-chrome-field-hover)" }}>
-                <Icon name={p.feito ? "check" : "plus"} size={13}
-                  color={p.feito ? "var(--color-on-lime)" : "var(--a4p-chrome-ink)"} />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-label" style={{ color: "var(--a4p-chrome-ink)" }}>{p.titulo}</span>
-                <span className="block text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>{p.texto}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : !atual ? (
-        <p className="m-0 mt-6 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
-          Nada fora do padrão neste mês.
+      <div
+        className="mt-5 flex-1 rounded-[32px] px-6 py-8 flex flex-col items-center justify-center gap-6"
+        style={{ background: "var(--color-white)" }}
+      >
+        <p className="m-0 text-body text-center max-w-[46ch]" style={{ color: "var(--color-ink)" }}>
+          {atual
+            ? atual.mensagem
+            : "Assim que os primeiros lançamentos entrarem, as leituras do seu mês aparecem aqui."}
         </p>
-      ) : (
-        <>
-          <div className="mt-5 flex-1">
-            <span className="a4p-label" style={{ color: "var(--color-lime)" }}>{atual.titulo}</span>
-            <p className="m-0 mt-2 text-h3 leading-snug" style={{ color: "var(--a4p-chrome-ink)" }}>
-              {atual.texto}
-            </p>
-            {/* A CONTA por trás da frase. Uma dica sem procedência é uma
-                afirmação — e ninguém confia duas vezes num número que não
-                consegue conferir. */}
-            {atual.base && (
-              <p className="m-0 mt-2 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
-                base: {atual.base.rotulo} · {formatBRL(atual.base.valor)}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-3 mt-4">
-            <span className="flex items-center gap-[6px]">
-              {r.dicas.map((d, k) => (
-                <button key={d.id} onClick={() => setI(k)} aria-label={`Dica ${k + 1}`}
-                  className="h-[6px] rounded-pill transition-all"
-                  style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-lime)" : "var(--a4p-chrome-field-hover)" }} />
-              ))}
-            </span>
-            <span className="flex items-center gap-2">
-              {atual.rota && (
-                <button onClick={() => router.push(atual.rota!)}
-                  className="text-caption underline" style={{ color: "var(--a4p-chrome-mut)" }}>ver ↗</button>
-              )}
-              <BotaoEscuro icone="chevron-left" rotulo="Dica anterior"
-                onClick={() => setI((k) => (k - 1 + total) % total)} />
-              <BotaoEscuro icone="chevron-right" rotulo="Próxima dica"
-                onClick={() => setI((k) => (k + 1) % total)} />
-            </span>
-          </div>
-        </>
-      )}
+
+        {total > 1 && (
+          <span className="flex items-center gap-3">
+            <SetaDica icone="chevron-left" rotulo="Anterior" onClick={() => ir(-1)} />
+            <SetaDica icone="chevron-right" rotulo="Próxima" onClick={() => ir(1)} />
+          </span>
+        )}
+
+        {atual?.rota && (
+          <button
+            onClick={() => router.push(atual.rota!)}
+            className="text-caption text-muted hover:text-ink underline"
+          >
+            ver ↗
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-function BotaoEscuro({ icone, rotulo, onClick }: { icone: IconName; rotulo: string; onClick?: () => void }) {
+/** Seta redonda em lima — o par de navegação da referência. */
+function SetaDica({ icone, rotulo, onClick }: { icone: IconName; rotulo: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} aria-label={rotulo} title={rotulo}
-      className="w-8 h-8 rounded-pill inline-flex items-center justify-center shrink-0"
-      style={{ background: "var(--a4p-chrome-field)" }}>
-      <Icon name={icone} size={15} color="var(--a4p-chrome-ink)" />
+    <button
+      onClick={onClick}
+      aria-label={rotulo}
+      className="w-11 h-11 rounded-pill inline-flex items-center justify-center transition-opacity hover:opacity-85"
+      style={{ background: "var(--color-lime)" }}
+    >
+      <Icon name={icone} size={18} color="var(--color-on-lime)" />
     </button>
   );
 }
