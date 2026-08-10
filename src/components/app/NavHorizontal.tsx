@@ -93,7 +93,12 @@ export function NavHorizontal() {
           conteúdo em telas que já têm pouca. */}
       <div
         ref={faixa}
-        className="flex-1 min-w-0 flex items-stretch gap-1 overflow-x-auto a4p-nav-scroll"
+        // ⚠️ O respiro entre as pills subiu de 4 para 12px. Sem borda e com o
+        // não selecionado em branco sobre branco, 4px deixava os rótulos
+        // quase encostados: o que separava um grupo do seguinte era só o
+        // espaço entre duas palavras, e a faixa lia como uma frase longa em
+        // vez de uma lista de destinos.
+        className="flex-1 min-w-0 flex items-stretch gap-3 overflow-x-auto a4p-nav-scroll"
         tabIndex={0}
         role="region"
         aria-label="Seções (rolável)"

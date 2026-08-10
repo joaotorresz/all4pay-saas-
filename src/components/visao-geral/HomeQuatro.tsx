@@ -155,8 +155,11 @@ function Resumo({ input }: { input: RiskInput }) {
               "do mês" saiu por CABER: o rótulo acima já fixa o mês, e a
               alternativa era a reticência comendo a palavra que carrega o
               sentido — "Entradas consoli…" não informa nada. */}
+          {/* Entrada sobe, saída desce. `arrow-down-to-line` estava aqui e é
+              o glifo de DOWNLOAD (mapeado para `download-01`): ele diz
+              "baixar arquivo", não "dinheiro saindo". */}
           <Leitura icone="arrow-up" nome="Entradas consolidadas" valor={ent} />
-          <Leitura icone="arrow-down-to-line" nome="Saídas consolidadas" valor={sai} />
+          <Leitura icone="arrow-down" nome="Saídas consolidadas" valor={sai} />
           <Leitura icone="activity" nome="Resultado consolidado" valor={res} ultimo />
         </div>
       </div>
@@ -347,7 +350,7 @@ function LinhaAgenda({ m, input }: { m: RiskMovement; input: RiskInput }) {
   return (
     <div className="flex items-center gap-3 rounded-card bg-surface-2 px-4 py-3">
       <span className="w-9 h-9 rounded-pill bg-white inline-flex items-center justify-center shrink-0">
-        <Icon name={entrada ? "arrow-up" : "arrow-down-to-line"} size={15} color="var(--color-ink)" />
+        <Icon name={entrada ? "arrow-up" : "arrow-down"} size={15} color="var(--color-ink)" />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-label text-ink truncate">{nome}</span>
@@ -538,7 +541,7 @@ function Recentes({ input }: { input: RiskInput }) {
                   <td className="py-3">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className="w-9 h-9 rounded-card bg-surface-2 inline-flex items-center justify-center shrink-0">
-                        <Icon name={entrada ? "arrow-up" : "arrow-down-to-line"} size={15} color="var(--color-ink)" />
+                        <Icon name={entrada ? "arrow-up" : "arrow-down"} size={15} color="var(--color-ink)" />
                       </span>
                       <span className="text-label text-ink truncate">{nome}</span>
                     </span>
