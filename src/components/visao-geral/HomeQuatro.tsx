@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Bar, BarChart, Cell, ResponsiveContainer, XAxis } from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Card, Icon, BRL, type IconName } from "@/components/ui";
 import { useRiscoInput } from "./hooks";
 import { chartAnim } from "@/lib/chart-anim";
@@ -111,15 +111,22 @@ function Resumo({ input }: { input: RiskInput }) {
         <div className="h-[210px] mt-5" role="img"
           aria-label={`Entradas e saídas dos meses ${meses.map((m) => m.rotulo).join(", ")}.`}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dados} barGap={6} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
+            {/* Velas EMPILHADAS: a altura da coluna passa a ser o movimento
+                total do mês, e a divisão interna mostra quanto dele foi
+                entrada e quanto foi saída. Lado a lado, a comparação era
+                entre duas colunas; empilhado, ela é dentro da mesma. */}
+            <BarChart data={dados} margin={{ top: 24, right: 0, left: 0, bottom: 0 }}>
               <XAxis dataKey="nome" axisLine={false} tickLine={false} tickMargin={10}
                 tick={{ fill: "var(--color-text-secondary)" }} />
-              <Bar dataKey="entradas" radius={[8, 8, 8, 8]} maxBarSize={34} {...chartAnim()}>
-                {dados.map((_, i) => <Cell key={i} fill="var(--a4p-cat-1)" />)}
-              </Bar>
-              <Bar dataKey="saidas" radius={[8, 8, 8, 8]} maxBarSize={34} {...chartAnim(120)}>
-                {dados.map((_, i) => <Cell key={i} fill="var(--a4p-cat-3)" />)}
-              </Bar>
+              <Tooltip content={<ResumoTooltip />} cursor={{ fill: "var(--color-surface-2)", radius: 12 }} />
+              {/* O raio arredonda só a ponta EXPOSTA de cada pedaço: o de baixo
+                  na base, o de cima no topo. Arredondar os quatro cantos dos
+                  dois abriria uma fresta na emenda e a pilha deixaria de ler
+                  como uma coluna só. */}
+              <Bar dataKey="saidas" stackId="mes" radius={[0, 0, 10, 10]} maxBarSize={56}
+                fill="var(--a4p-cat-3)" {...chartAnim()} />
+              <Bar dataKey="entradas" stackId="mes" radius={[10, 10, 0, 0]} maxBarSize={56}
+                fill="var(--a4p-cat-1)" {...chartAnim(120)} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -146,6 +153,42 @@ function Resumo({ input }: { input: RiskInput }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+function ResumoTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { dataKey?: string | number; value?: number }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const de = (k: string) => payload.find((p) => p.dataKey === k)?.value ?? 0;
+  const ent = de("entradas");
+  const sai = de("saidas");
+  return (
+    <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[190px]">
+      <span className="a4p-label text-muted">{label}</span>
+      <div className="mt-2 flex flex-col gap-[6px]">
+        <LinhaTip cor="var(--a4p-cat-1)" nome="Entradas" valor={ent} />
+        <LinhaTip cor="var(--a4p-cat-3)" nome="Saídas" valor={sai} />
+        <span className="border-t border-border-soft pt-[6px] flex items-center justify-between gap-4">
+          <span className="text-caption text-muted">Resultado</span>
+          <span className="text-caption text-ink tabular-nums"><BRL value={ent - sai} showDecimals={false} /></span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function LinhaTip({ cor, nome, valor }: { cor: string; nome: string; valor: number }) {
+  return (
+    <span className="flex items-center justify-between gap-4">
+      <span className="inline-flex items-center gap-2 text-caption text-muted">
+        <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: cor }} />
+        {nome}
+      </span>
+      <span className="text-caption text-ink tabular-nums"><BRL value={valor} showDecimals={false} /></span>
+    </span>
   );
 }
 
@@ -420,7 +463,7 @@ export function HomeQuatro() {
 
   if (isLoading || !input) {
     return (
-      <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr]">
+      <div className="grid gap-5 lg:grid-cols-2">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="rounded-card bg-white h-[320px] animate-pulse" data-card="1" />
         ))}
@@ -430,13 +473,22 @@ export function HomeQuatro() {
 
   // A grade da referência: em cima 3/5 + 2/5; embaixo o bloco da IA menor que
   // a tabela, que é quem precisa de largura.
+  /*
+   * ⚠️ DUAS GRADES, não uma. As linhas têm proporções DIFERENTES (em cima
+   * 60/40, embaixo 30/70) e uma grade CSS só tem um template de colunas para
+   * todas as linhas. Forçar tudo numa grade exigiria `grid-column` com spans
+   * inventados, que quebra na primeira mudança de proporção.
+   */
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.55fr_1fr] items-start">
-      <Resumo input={input} />
-      <Calendario input={input} />
-      <Dicas />
-      <div className="lg:col-start-2 lg:row-start-2 lg:hidden" />
-      <Recentes input={input} />
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr] items-start">
+        <Resumo input={input} />
+        <Calendario input={input} />
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[3fr_7fr] items-start">
+        <Dicas />
+        <Recentes input={input} />
+      </div>
     </div>
   );
 }
