@@ -356,11 +356,33 @@ produção. Ele não é decoração: é o que impede alguém de confundir dado d
 com dado real, que é a mesma família de defeito que fez `isDemo` virar opt-in
 explícito (`src/lib/demo.ts`). Não remover.
 
+### ⚠️ Três decisões recentes que valem para TODA tela nova
+
+- **O divisor é CINZA, não bege.** `--color-border-soft` era Beige (`#EEEDDB`)
+  e as superfícies de trabalho são cinza-frio (`#F1F3F6`): linha quente sobre
+  fundo frio lê como amarelada, e o sistema carregava um segundo matiz que
+  ninguém escolheu. Agora sai do PRÓPRIO token de borda, clareado por
+  `color-mix` — muda o MATIZ e não o peso, então as ~330 linhas existentes não
+  ficam mais pesadas e nenhum décimo hex entra na paleta.
+- **A moeda ENCOSTA no número: `R$333,00`.** Sem respiro, em qualquer lugar —
+  valor exibido, campo de formulário, texto da IA, rótulo de leitor de tela,
+  planilha exportada. ⚠️ O mesmo valor sai por QUATRO caminhos (`Money`/`BRL`,
+  a regra do herói em `globals.css`, o `Intl` via `formatBRL` e as strings
+  montadas à mão), e corrigir só um deixa o produto com duas grafias.
+  E o espaço do `Intl` é **não separável** (U+00A0): procurar `"R$ "` no
+  código não acha nada, que é como a diferença sobreviveu a várias revisões.
+- **`.a4p-dia-num`** — o número do dia num seletor de data. Existe porque
+  `text-h3` DENTRO de um card não é "18px", é o papel *título de card*
+  (`.ds-visor [data-card="1"] .text-h3` → 15px/500/taupe): usá-lo mantinha o
+  número pequeno e ainda o pintava de cinza sobre o preto do dia selecionado.
+  E peso não é alavanca — `.ds-visor *` fixa 500 e EMPATA com `.font-semibold`,
+  vencendo por ordem de origem; daí as duas classes no seletor.
+
 ### Token cheat-sheet
 
 - **Neutrals:** `ink` (#171717), `ink-soft`, `white`, `surface-1/2/3`,
-  `border` / `border-soft`, text greys `muted` (#797975) · `faint` (#959595) ·
-  `placeholder` (#B3B3B2).
+  `border` / `border-soft` (**cinza**, derivado de `border`), text greys
+  `muted` (#797975) · `faint` (#959595) · `placeholder` (#B3B3B2).
 - **Accent:** `lime` (#DCFF00), `lime-tint` (#F8FFCB).
 - **Status:** `warning` (#E8821E), `positive` (#3F8F5B), `negative` (#C2473D —
   overdue / vencido, same desaturated family). Status colors are *small
