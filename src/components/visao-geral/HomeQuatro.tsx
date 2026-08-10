@@ -62,7 +62,13 @@ function tresMeses(input: RiskInput): Mes[] {
     const m = mes - k;
     const a = ano + Math.floor((m - 1) / 12);
     const mm = ((m - 1) % 12 + 12) % 12;
-    const j = janelaMes(a, mm + 1);
+    // ⚠️ `janelaMes` recebe o mês 0-BASED (como `Date.getMonth()`), e está
+    // documentado assim — todos os outros chamadores passam `getMonth()`.
+    // Com `mm + 1` cada barra mostrava o mês SEGUINTE: agosto caía em
+    // setembro, que ainda não aconteceu, e a terceira coluna saía vazia ao
+    // lado de um "entradas do mês" de R$ 607 mil. O gráfico não parecia
+    // quebrado — parecia um mês fraco, que é o pior tipo de erro num número.
+    const j = janelaMes(a, mm);
     out.push({
       rotulo: MESES[mm],
       entradas: entradasDe(input, j).valor,
