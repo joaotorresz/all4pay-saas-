@@ -116,7 +116,8 @@ const PADROES: Padrao[] = [
   // Papéis da paleta quente. `.a4p-heroi` e `.a4p-label` são as classes que o
   // design system expõe POR PAPEL — é por elas que se ajusta, não por posição.
   { id: "heroi", label: "Herói (tela de destaque)", grupo: "Textos", teste: ".ds-visor .a4p-heroi", seletorTipo: ".ds-visor .a4p-heroi" },
-  { id: "labelMono", label: "Rótulo (caixa alta)", grupo: "Textos", teste: ".a4p-label", seletorTipo: ".a4p-label" },
+  { id: "labelMono", label: "Rótulo (micro)", grupo: "Textos", teste: ".a4p-label", seletorTipo: ".a4p-label" },
+  { id: "diaNum", label: "Dia do calendário", grupo: "Textos", teste: ".ds-visor .a4p-dia-num", seletorTipo: ".ds-visor .a4p-dia-num" },
   { id: "cabecTabela", label: "Cabeçalho de tabela", grupo: "Componentes", teste: ".ds-visor thead th", seletorTipo: ".ds-visor thead th" },
   { id: "linhaTabela", label: "Linha de tabela", grupo: "Componentes", teste: ".ds-visor tbody tr", seletorTipo: ".ds-visor tbody tr" },
   { id: "celulaTabela", label: "Célula de tabela", grupo: "Componentes", teste: ".ds-visor tbody td", seletorTipo: ".ds-visor tbody td" },
@@ -216,7 +217,8 @@ const CLASSES_DO_SISTEMA: { seletor: string; rotulo: string }[] = [
   // papéis tipográficos
   { seletor: ".a4p-num", rotulo: "Valor" },
   { seletor: ".a4p-heroi", rotulo: "Herói" },
-  { seletor: ".a4p-label", rotulo: "Rótulo (caixa alta)" },
+  { seletor: ".a4p-dia-num", rotulo: "Dia do calendário" },
+  { seletor: ".a4p-label", rotulo: "Rótulo (micro)" },
   { seletor: ".tabular-nums", rotulo: "Número tabular" },
   { seletor: ".text-display", rotulo: "Display" },
   { seletor: ".text-h1", rotulo: "Título H1" },
