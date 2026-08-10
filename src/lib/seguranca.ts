@@ -11,9 +11,9 @@
  */
 import { isDemo } from "@/lib/demo";
 import type {
-  LinhaIsolamento, LinhaAuditoriaRLS, AdminRevisao, Papel,
+  LinhaIsolamento, LinhaAuditoriaRLS, AdminRevisao, Papel, TentativaIsolamento,
 } from "@/core/seguranca";
-import { MATRIZ_DEMO } from "@/core/seguranca";
+import { MATRIZ_DEMO, COMANDOS, type Comando } from "@/core/seguranca";
 
 const SUPA_CONFIGURED = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const semServidor = () => isDemo || !SUPA_CONFIGURED;
@@ -119,19 +119,65 @@ export async function rodarTesteIsolamento(registrar = false): Promise<LinhaIsol
     }));
 }
 
+/**
+ * O teste POR VERBO — o que a tela usa a partir da ONDA 2.
+ *
+ * ⚠️ Ele não substitui `rodarTesteIsolamento` por gosto: o antigo respondia
+ * "quantas linhas de outra empresa eu enxergo", que é UM verbo. Este tenta
+ * ler, agregar, inserir, atualizar e apagar contra a empresa alheia, cada
+ * tentativa numa subtransação que é desfeita — e devolve o resultado por
+ * TABELA e por VERBO, porque "vazou" sem dizer onde e como não dá para
+ * consertar.
+ *
+ * ⚠️ Devolver `null` continua significando **não foi possível testar**, nunca
+ * "passou". Foi a única coisa que o desenho anterior acertou, e é ela que
+ * impede um erro de rede de virar selo de aprovação.
+ */
+export async function rodarIsolamentoCompleto(
+  registrar = false,
+): Promise<TentativaIsolamento[] | null> {
+  if (semServidor()) return null;
+  const { data, error } = await (await cliente())
+    .rpc(registrar ? "verificar_isolamento_completo" : "teste_isolamento_completo");
+  if (error || !data) return null;
+  return (data as Record<string, unknown>[]).map((l) => ({
+    tabela: String(l.tabela),
+    verbo: String(l.verbo),
+    resultado: String(l.resultado),
+    vazou: !!l.vazou,
+    detalhe: String(l.detalhe ?? ""),
+  }));
+}
+
 export async function auditoriaRLS(): Promise<LinhaAuditoriaRLS[] | null> {
   if (semServidor()) return null;
   const { data, error } = await (await cliente()).rpc("rls_auditoria");
   if (error || !data) return null;
-  return (data as Record<string, unknown>[]).map((l) => ({
-    tabela: String(l.tabela),
-    rlsLigada: !!l.rls_ligada,
-    politicas: Number(l.politicas ?? 0),
-    temOrgId: !!l.tem_org_id,
-    politicaPorOrg: !!l.politica_por_org,
-    alcancaAnonimo: !!l.alcanca_anonimo,
-    anonPodeTruncar: !!l.anon_pode_truncar,
-  }));
+  return (data as Record<string, unknown>[]).map((l) => {
+    // ⚠️ `comandos` e `privilegios` chegam como jsonb e podem faltar enquanto o
+    // banco novo não estiver aplicado. O padrão então é o que NÃO acusa nada —
+    // um erro de leitura não pode nascer como achado Alto.
+    const cmds = (l.comandos ?? {}) as Record<string, string>;
+    const privs = (l.privilegios ?? {}) as Record<string, boolean>;
+    const porComando = Object.fromEntries(
+      COMANDOS.map((c) => [c, cmds[c] ?? "nenhuma"]),
+    ) as Record<Comando, string>;
+    const porPrivilegio = Object.fromEntries(
+      COMANDOS.map((c) => [c, privs[c] ?? false]),
+    ) as Record<Comando, boolean>;
+    return {
+      tabela: String(l.tabela),
+      rlsLigada: !!l.rls_ligada,
+      politicas: Number(l.politicas ?? 0),
+      temOrgId: !!l.tem_org_id,
+      politicaPorOrg: !!l.politica_por_org,
+      recorte: String(l.recorte ?? "—"),
+      comandos: porComando,
+      privilegios: porPrivilegio,
+      alcancaAnonimo: !!l.alcanca_anonimo,
+      anonPodeTruncar: !!l.anon_pode_truncar,
+    };
+  });
 }
 
 /* ========================================================================== */
@@ -184,6 +230,10 @@ export async function listarRevisaoAdmin(): Promise<AdminRevisao[] | null> {
     motivo: (l.motivo as string) ?? null,
     expiraEm: (l.expira_em as string) ?? null,
     revisadoEm: (l.revisado_em as string) ?? null,
+    revisadoPor: (l.revisado_por as string) ?? null,
+    revisadoPorEmail: (l.revisado_por_email as string) ?? null,
+    autoRevisao: !!l.auto_revisao,
+    proximaRevisao: (l.proxima_revisao as string) ?? null,
     exigeMfa: !!l.exige_mfa,
     fatoresMfa: Number(l.fatores_mfa ?? 0),
     mfaPrazo: (l.mfa_prazo as string) ?? null,
@@ -214,8 +264,39 @@ export async function listarAcessosAdmin(dias = 30): Promise<AcessoAdmin[] | nul
   }));
 }
 
-export async function revisarAdmin(userId: string, meses = 6): Promise<void> {
+/**
+ * Revisar um acesso administrativo — com MOTIVO.
+ *
+ * ⚠️ O motivo não é validado só aqui. O banco recusa abaixo de 20 caracteres,
+ * e é ele quem manda: a checagem no cliente existe para dizer a frase antes do
+ * clique, não para autorizar. Fosse só aqui, bastaria chamar a RPC direto.
+ *
+ * ⚠️ E `revisar` deixou de mexer em `expira_em`. Eram o mesmo campo, então
+ * revisar era idêntico a renovar — uma revisão que só sabe renovar é um botão
+ * de prorrogar com outro nome. Agora `proxima_revisao` diz quando alguém
+ * precisa olhar; `expira_em` diz quando o acesso morre sozinho.
+ */
+export async function revisarAdmin(
+  userId: string, motivo: string, meses = 6,
+): Promise<void> {
   if (semServidor()) return;
-  const { error } = await (await cliente()).rpc("admin_revisar", { p_user: userId, p_meses: meses });
+  const { error } = await (await cliente())
+    .rpc("admin_revisar", { p_user: userId, p_motivo: motivo, p_meses: meses });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Ajusta o prazo para cadastrar o segundo fator.
+ *
+ * ⚠️ O servidor recusa qualquer data além de 90 dias. Sem esse teto,
+ * "configurável" significaria empurrar a data para sempre, um clique por vez,
+ * com a aparência de que existe um controle.
+ */
+export async function ajustarPrazoMfa(
+  userId: string, prazoISO: string, motivo: string,
+): Promise<void> {
+  if (semServidor()) return;
+  const { error } = await (await cliente())
+    .rpc("admin_definir_prazo_mfa", { p_user: userId, p_prazo: prazoISO, p_motivo: motivo });
   if (error) throw new Error(error.message);
 }
