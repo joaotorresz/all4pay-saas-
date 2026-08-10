@@ -33,8 +33,8 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 /* ------------------------------- utilidades ------------------------------- */
 
-const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const DIAS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 /** Data-só fatiada da string — `new Date("YYYY-MM-DD")` cai no dia anterior em UTC−3. */
 function partes(iso: string) {
@@ -102,8 +102,11 @@ function Resumo({ input }: { input: RiskInput }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-h2 m-0">Resumo</h2>
-          <span className="a4p-label text-muted bg-surface-2 rounded-pill px-3 py-[6px] inline-flex items-center gap-[6px] shrink-0">
-            <Icon name="calendar" size={13} color="var(--color-text-secondary)" />
+          {/* Mesma tipografia e corpo do título "Resumo", em caixa Aa: os
+              dois são o cabeçalho do card, e um deles em micro-caixa-alta
+              fazia a dupla parecer de sistemas diferentes. */}
+          <span className="text-h2 text-muted bg-surface-2 rounded-pill px-4 py-[6px] inline-flex items-center gap-2 shrink-0">
+            <Icon name="calendar" size={16} color="var(--color-text-secondary)" />
             {meses[0].rotulo} – {ultimo.rotulo}
           </span>
         </div>
@@ -135,8 +138,8 @@ function Resumo({ input }: { input: RiskInput }) {
       {/* A coluna de leituras da referência: rótulo com glifo, valor-herói em
           cima e três linhas embaixo, cada uma com a sua variação. */}
       <div className="lg:w-[280px] shrink-0 lg:border-l border-border-soft lg:pl-6">
-        <span className="a4p-label text-muted inline-flex items-center gap-[6px]">
-          <Icon name="trending-up" size={13} color="var(--color-text-secondary)" />
+        <span className="text-h2 text-muted inline-flex items-center gap-2">
+          <Icon name="trending-up" size={16} color="var(--color-text-secondary)" />
           Saldo atual deste mês
         </span>
         <div className="a4p-heroi mt-2 tabular-nums leading-none">
@@ -225,7 +228,11 @@ function Legenda({ cor, nome }: { cor: string; nome: string }) {
 function Leitura({ icone, nome, valor, ultimo }: { icone: IconName; nome: string; valor: number; ultimo?: boolean }) {
   return (
     <div className={`flex items-center gap-3 py-[14px] ${ultimo ? "" : "border-b border-border-soft"}`}>
-      <Icon name={icone} size={15} color="var(--color-text-secondary)" />
+      {/* Disco preto com o glifo em branco — o mesmo tratamento do tile de
+          ícone do DS, que é o que dá peso igual às três leituras. */}
+      <span className="w-7 h-7 rounded-pill bg-ink inline-flex items-center justify-center shrink-0">
+        <Icon name={icone} size={14} color="var(--color-white)" />
+      </span>
       <span className="text-label text-ink flex-1 min-w-0 truncate">{nome}</span>
       <span className="text-label tabular-nums text-ink shrink-0"><BRL value={valor} showDecimals={false} /></span>
     </div>
@@ -281,7 +288,11 @@ function Calendario({ input }: { input: RiskInput }) {
                 <span className={`text-label tabular-nums leading-none ${ativo ? "" : "text-ink"}`}>
                   {partes(d).dia}
                 </span>
-                <span className={`a4p-label ${ativo ? "" : "text-muted"}`}>{DIAS[diaDaSemana(d)]}</span>
+                {/* ⚠️ Caixa Aa e fonte de TEXTO, não a classe de rótulo. O
+                    dia da semana ao lado do número é leitura, não etiqueta de
+                    estado — em caixa alta ele competia com o próprio número
+                    que qualifica. */}
+                <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>{DIAS[diaDaSemana(d)]}</span>
               </button>
             </React.Fragment>
           );
