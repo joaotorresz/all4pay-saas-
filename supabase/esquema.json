@@ -21,7 +21,7 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-08-05",
+  "gerado_em": "2026-08-10",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
@@ -90,7 +90,8 @@
     "20260804212212_0018_ai_learning",
     "20260805182528_trilha_append_only",
     "20260805233807_identidade_de_plataforma_e_trilha_do_admin",
-    "20260805234628_mrr_derivado_do_plano"
+    "20260805234628_mrr_derivado_do_plano",
+    "20260810200453_codigo_unico_de_produto_e_servico"
   ],
   "divergencias_conhecidas": {
     "_regra": [

@@ -1977,6 +1977,54 @@ const AGOSTO = janelaMes(2026, 7);
 
 
 /* ========================================================================== */
+/* ========================================================================== */
+/* LINHA 26b — REGIME: uma pergunta, uma resposta, um lugar.                   */
+/* ========================================================================== */
+{
+  /*
+   * ⚠️ O regime tributário é a entrada de TODO cálculo de imposto e do custo de
+   * aquisição de estoque. Ele estava gravado em duas chaves com formatos
+   * diferentes (`regimeTributario`, texto de exibição; `regime`, o enum) e LIDO
+   * por precedência reescrita à mão em cada tela — quatro cópias, uma delas
+   * esquecendo o MEI e devolvendo "presumido" para quem é MEI.
+   *
+   * Não é divergência de cálculo, é de CADASTRO: a mesma empresa aparecia como
+   * Simples numa tela e Presumido na outra, e não há fórmula errada para
+   * consertar. Esta guarda existe porque a quinta cópia entra na próxima tela
+   * nova, e ninguém vê no diff.
+   */
+  const raiz = "src";
+  const arquivos: string[] = [];
+  (function varrer(d: string) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = `${d}/${e.name}`;
+      if (e.isDirectory()) varrer(f);
+      else if (/\.tsx?$/.test(e.name)) arquivos.push(f);
+    }
+  })(raiz);
+
+  // A assinatura da precedência reescrita à mão: as duas chaves na mesma
+  // expressão, fora do resolvedor.
+  const copias = arquivos.filter((f) => {
+    if (f.endsWith("core/tax/regime.ts")) return false;   // o resolvedor
+    const txt = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    return /regimeTributario\s*\?\?\s*[\w.]*\bregime\b/.test(txt);
+  });
+  ok("regime: nenhuma tela reescreve a precedência das duas chaves", copias.length === 0,
+     copias.join(" | "));
+
+  // E o resolvedor conhece os quatro regimes — foi o MEI que a cópia perdeu.
+  ok("regime: MEI é reconhecido", regimeDaEmpresa({ regimeTributario: "MEI" }) === "mei");
+  ok("regime: Simples pelo texto do onboarding", regimeDaEmpresa({ regimeTributario: "Simples Nacional" }) === "simples");
+  ok("regime: o cadastro jurídico vence a edição rápida",
+     regimeDaEmpresa({ regimeTributario: "Simples Nacional", regime: "presumido" }) === "simples");
+  ok("regime: desacordo entre as duas chaves é DENUNCIADO",
+     regimeEmConflito({ regimeTributario: "Simples Nacional", regime: "presumido" }).conflito === true);
+  ok("regime: acordo não vira alarme falso",
+     regimeEmConflito({ regimeTributario: "Simples Nacional", regime: "simples" }).conflito === false);
+}
+
+
 /* LINHA 27 — NOMENCLATURA: o menu diz o mesmo que a tela.                    */
 /* ========================================================================== */
 {
