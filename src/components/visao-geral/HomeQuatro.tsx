@@ -14,6 +14,8 @@ import {
   janelaDoMesDe,
   janelaMes,
 } from "@/core/indicadores";
+import { montarDicas } from "@/core/dicas";
+import { formatBRL } from "@/lib/format";
 import { assinado } from "@/core/indicadores/convencoes";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
@@ -345,53 +347,96 @@ function LinhaAgenda({ m, input }: { m: RiskMovement; input: RiskInput }) {
 
 /* ------------------------------ dicas all4pay ----------------------------- */
 
-const SUGESTOES: { icone: IconName; texto: string }[] = [
-  { icone: "trending-up", texto: "Como está meu caixa?" },
-  { icone: "mail", texto: "Quem está me devendo?" },
-  { icone: "receipt", texto: "Quanto vou pagar de imposto?" },
-];
+/**
+ * DICAS all4pay — o que a movimentação do cliente está dizendo.
+ *
+ * Duas faces, e a escolha entre elas é do motor (`core/dicas`):
+ * com histórico, as LEITURAS (custo fixo contra o mês anterior, categoria que
+ * disparou, vencido, fôlego); sem histórico, os PASSOS que faltam.
+ *
+ * ⚠️ Conta nova não recebe dica, recebe caminho. Sem base, toda comparação
+ * vira uma frase confiante sobre nada — "seu custo fixo caiu 100%" quando o
+ * que houve foi um mês sem dado. Este card existe para a pessoa confiar no
+ * que lê; uma leitura inventada custa mais do que a ausência dela.
+ */
+function Dicas({ input }: { input: RiskInput }) {
+  const router = useRouter();
+  const r = React.useMemo(() => montarDicas(input), [input]);
+  const [i, setI] = React.useState(0);
+  const total = r.modo === "dicas" ? r.dicas.length : 0;
+  const atual = r.dicas[Math.min(i, Math.max(0, total - 1))];
 
-function Dicas() {
   return (
-    // O bloco escuro da referência. É o único card de fundo escuro da Home —
-    // o contraste é o que o faz ler como uma peça de outra natureza (a IA), e
-    // não como mais um card de dado.
-    <div className="rounded-card bg-ink p-5 flex flex-col" data-card="1"
+    <div className="rounded-card p-5 flex flex-col min-h-[300px]" data-card="1"
       style={{ background: "var(--color-ink)" }}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-h2 m-0" style={{ color: "var(--a4p-chrome-ink)" }}>Dicas all4pay</h2>
-        <span className="flex items-center gap-2">
-          <BotaoEscuro icone="sparkles" rotulo="Sugestões da IA" />
-          <BotaoEscuro icone="arrow-up-right" rotulo="Abrir o assistente"
-            onClick={() => window.dispatchEvent(new Event("a4p:open-ia"))} />
-        </span>
+        <BotaoEscuro icone="arrow-up-right" rotulo="Abrir o assistente"
+          onClick={() => window.dispatchEvent(new Event("a4p:open-ia"))} />
       </div>
 
-      <div className="mt-4 rounded-card p-4 flex-1 flex flex-col" style={{ background: "var(--a4p-chrome-field)" }}>
-        <div className="flex flex-col gap-2 items-start">
-          {SUGESTOES.map((s) => (
-            <button key={s.texto}
-              onClick={() => window.dispatchEvent(new CustomEvent("a4p:ia-perguntar", { detail: { texto: s.texto } }))}
-              className="inline-flex items-center gap-2 rounded-pill pl-1 pr-4 py-1 transition-opacity hover:opacity-80"
-              style={{ background: "var(--a4p-chrome-field-hover)" }}>
-              <span className="w-7 h-7 rounded-pill inline-flex items-center justify-center shrink-0"
-                style={{ background: "var(--color-lime)" }}>
-                <Icon name={s.icone} size={14} color="var(--color-on-lime)" />
+      {r.modo === "onboarding" ? (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="m-0 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
+            Faltam alguns passos para o sistema conseguir ler a sua operação.
+          </p>
+          {r.passos.map((p) => (
+            <button key={p.id} onClick={() => router.push(p.rota)}
+              className="text-left rounded-card px-4 py-3 flex items-center gap-3 hover:opacity-90"
+              style={{ background: "var(--a4p-chrome-field)" }}>
+              <span className="w-6 h-6 rounded-pill inline-flex items-center justify-center shrink-0"
+                style={{ background: p.feito ? "var(--color-lime)" : "var(--a4p-chrome-field-hover)" }}>
+                <Icon name={p.feito ? "check" : "plus"} size={13}
+                  color={p.feito ? "var(--color-on-lime)" : "var(--a4p-chrome-ink)"} />
               </span>
-              <span className="text-caption" style={{ color: "var(--a4p-chrome-ink)" }}>{s.texto}</span>
+              <span className="min-w-0">
+                <span className="block text-label" style={{ color: "var(--a4p-chrome-ink)" }}>{p.titulo}</span>
+                <span className="block text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>{p.texto}</span>
+              </span>
             </button>
           ))}
         </div>
-        <div className="mt-auto pt-5 flex items-center gap-2">
-          <span className="text-caption flex-1" style={{ color: "var(--a4p-chrome-mut)" }}>Pergunte qualquer coisa…</span>
-          <button onClick={() => window.dispatchEvent(new Event("a4p:open-ia"))}
-            aria-label="Perguntar ao All 4 Pay AI"
-            className="w-8 h-8 rounded-pill inline-flex items-center justify-center shrink-0"
-            style={{ background: "var(--color-lime)" }}>
-            <Icon name="arrow-up" size={15} color="var(--color-on-lime)" />
-          </button>
-        </div>
-      </div>
+      ) : !atual ? (
+        <p className="m-0 mt-6 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
+          Nada fora do padrão neste mês.
+        </p>
+      ) : (
+        <>
+          <div className="mt-5 flex-1">
+            <span className="a4p-label" style={{ color: "var(--color-lime)" }}>{atual.titulo}</span>
+            <p className="m-0 mt-2 text-h3 leading-snug" style={{ color: "var(--a4p-chrome-ink)" }}>
+              {atual.texto}
+            </p>
+            {/* A CONTA por trás da frase. Uma dica sem procedência é uma
+                afirmação — e ninguém confia duas vezes num número que não
+                consegue conferir. */}
+            {atual.base && (
+              <p className="m-0 mt-2 text-caption" style={{ color: "var(--a4p-chrome-mut)" }}>
+                base: {atual.base.rotulo} · {formatBRL(atual.base.valor)}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-3 mt-4">
+            <span className="flex items-center gap-[6px]">
+              {r.dicas.map((d, k) => (
+                <button key={d.id} onClick={() => setI(k)} aria-label={`Dica ${k + 1}`}
+                  className="h-[6px] rounded-pill transition-all"
+                  style={{ width: k === i ? 20 : 6, background: k === i ? "var(--color-lime)" : "var(--a4p-chrome-field-hover)" }} />
+              ))}
+            </span>
+            <span className="flex items-center gap-2">
+              {atual.rota && (
+                <button onClick={() => router.push(atual.rota!)}
+                  className="text-caption underline" style={{ color: "var(--a4p-chrome-mut)" }}>ver ↗</button>
+              )}
+              <BotaoEscuro icone="chevron-left" rotulo="Dica anterior"
+                onClick={() => setI((k) => (k - 1 + total) % total)} />
+              <BotaoEscuro icone="chevron-right" rotulo="Próxima dica"
+                onClick={() => setI((k) => (k + 1) % total)} />
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -399,7 +444,7 @@ function Dicas() {
 function BotaoEscuro({ icone, rotulo, onClick }: { icone: IconName; rotulo: string; onClick?: () => void }) {
   return (
     <button onClick={onClick} aria-label={rotulo} title={rotulo}
-      className="w-8 h-8 rounded-pill inline-flex items-center justify-center"
+      className="w-8 h-8 rounded-pill inline-flex items-center justify-center shrink-0"
       style={{ background: "var(--a4p-chrome-field)" }}>
       <Icon name={icone} size={15} color="var(--a4p-chrome-ink)" />
     </button>
@@ -527,7 +572,7 @@ export function HomeQuatro() {
         <Calendario input={input} />
       </div>
       <div className="grid gap-5 lg:grid-cols-[3fr_7fr] items-start">
-        <Dicas />
+        <Dicas input={input} />
         <Recentes input={input} />
       </div>
     </div>
