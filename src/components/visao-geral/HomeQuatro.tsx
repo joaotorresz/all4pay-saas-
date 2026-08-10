@@ -14,6 +14,7 @@ import {
   janelaDoMesDe,
   janelaMes,
 } from "@/core/indicadores";
+import { assinado } from "@/core/indicadores/convencoes";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 /**
@@ -326,9 +327,17 @@ function LinhaAgenda({ m, input }: { m: RiskMovement; input: RiskInput }) {
         <span className="block text-label text-ink truncate">{nome}</span>
         <span className="block text-caption text-muted truncate">{m.category ?? (entrada ? "Entrada" : "Saída")}</span>
       </span>
-      <span className="a4p-label text-muted shrink-0">{estado}</span>
-      <span className="text-label tabular-nums text-ink shrink-0">
-        <BRL value={m.amount} showDecimals={false} />
+      {/* O estado tem o MESMO tratamento da categoria logo acima: os dois
+          qualificam a transação, e um deles em micro-caixa-alta virava um
+          selo com mais peso que o nome de quem cobra. */}
+      <span className="text-caption text-muted shrink-0">{estado}</span>
+      {/* ⚠️ O SINAL VEM DE `assinado`, não de um `-m.amount` escrito à mão:
+          `amount` é MAGNITUDE e a direção vive em `type` — é a convenção da
+          camada canônica, e contorná-la aqui é como o sistema passou a somar
+          entrada com saída em telas diferentes. O `+` explícito da entrada o
+          `BRL` não desenha (ele só nega), então entra ao lado. */}
+      <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0">
+        {entrada && "+"}<BRL value={assinado(m)} showDecimals={false} />
       </span>
     </div>
   );
