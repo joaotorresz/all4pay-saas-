@@ -298,7 +298,12 @@ function Calendario({ input }: { input: RiskInput }) {
                 className={`w-[56px] h-[74px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-1 transition-colors ${
                   ativo ? "bg-ink text-white" : "hover:bg-surface-2"
                 }`}>
-                <span className={`text-label font-semibold tabular-nums leading-none ${ativo ? "" : "text-ink"}`}>
+                {/* O número manda na cápsula, e o papel é `.a4p-dia-num` (o
+                    porquê de cada decisão está na regra, em `globals.css`).
+                    A cor fica EXPLÍCITA nos dois estados: depender da herança
+                    do botão é o que deixava o número refém de uma regra de
+                    card — medido, ele saía cinza sobre o preto do selecionado. */}
+                <span className={`a4p-dia-num ${ativo ? "text-white" : "text-ink"}`}>
                   {partes(d).dia}
                 </span>
                 <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>{DIAS[diaDaSemana(d)]}</span>

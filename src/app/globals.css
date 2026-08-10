@@ -725,6 +725,38 @@ html:not(.dark) .ds-visor {
   letter-spacing: -0.01em;
 }
 
+/*
+ * DIA DE UM SELETOR DE DATA — o número grande da cápsula do calendário.
+ * É um papel próprio, e precisa existir por três razões medidas no navegador:
+ *
+ * 1. Não é TÍTULO DE CARD. `text-h3` parece só "18px", mas dentro de um card
+ *    ele É o papel título (`.ds-visor [data-card="1"] .text-h3` → 15px/500/
+ *    taupe, mais específico que o utilitário): usá-lo mantinha o número em
+ *    15px e ainda o pintava de cinza SOBRE o preto da cápsula selecionada.
+ * 2. Não é VALOR. `tabular-nums`/`a4p-num` trazem a display (Gellix Bold), e
+ *    alinhamento tabular não compra nada aqui — cada dia é centrado na própria
+ *    caixa de 56px, não empilhado numa coluna. Data fala Roobert.
+ * 3. O peso não é alavanca neste sistema. `.ds-visor *` fixa 500 e EMPATA em
+ *    especificidade com `.font-semibold` (0,1,0 nos dois), vencendo por ordem
+ *    de origem — então `font-semibold` no componente não sobe nada. Daí as
+ *    duas classes no seletor (0,2,0), a mesma técnica do valor em linha acima.
+ *
+ * Com o peso travado, a hierarquia vem do TAMANHO — que é a mesma decisão já
+ * tomada para o dinheiro (o centavo encolhe, não clareia). 18px contra os 13px
+ * do dia da semana é o que faz o número mandar na cápsula.
+ *
+ * Tem NOME de propósito: um ajuste no Laboratório precisa alcançar o papel, e
+ * foi coordenada de DOM (`nth-of-type`) que fez os blocos promovidos vencerem
+ * a regra de papel. Não trocar por posição.
+ */
+.ds-visor .a4p-dia-num {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
 /* Eixo de gráfico é UNIDADE, não valor-herói: papel de rótulo. Em Gellix Bold
    a 11px o eixo competiria com a série que ele mede. */
 .ds-visor .recharts-cartesian-axis-tick-value {
