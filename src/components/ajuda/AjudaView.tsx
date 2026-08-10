@@ -32,12 +32,13 @@ import {
   responderComoFazer, novoIdAjuda,
 } from "@/lib/ajuda-store";
 import { glossarioPublicado, REGRAS_DE_FORMATO } from "@/core/glossario";
+import { JornadaView } from "@/components/comece/Jornada";
 
 const agora = () => new Date().toISOString();
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-type Aba = "chat" | "tours" | "anuncios" | "glossario";
+type Aba = "chat" | "tours" | "anuncios" | "glossario" | "passos";
 
 export function AjudaView() {
   const params = useSearchParams();
@@ -60,6 +61,12 @@ export function AjudaView() {
           ["tours", "Tours guiados", "layers"],
           ["anuncios", "Anúncios", "mail"],
           ["glossario", "Glossário", "file-text"],
+          // ⚠️ "Primeiros passos" precisa de uma porta AQUI. A jornada tinha
+          // duas moradas declaradas — o menu ⋮ e um cartão na Home —, e o
+          // cartão deixou de existir quando a Home virou quatro cards: o
+          // `JornadaCard` só era montado no `OverviewGrid`, que ficou órfão.
+          // A declaração continuou prometendo uma porta que não abria mais.
+          ["passos", "Primeiros passos", "target"],
         ] as const).map(([id, label, icone]) => (
           <button
             key={id}
@@ -83,6 +90,8 @@ export function AjudaView() {
       {aba === "tours" && <ToursGuiados />}
       {aba === "anuncios" && <Anuncios lista={anuncios} setLista={setAnuncios} />}
       {aba === "glossario" && <Glossario />}
+      {/* A jornada inteira, aninhada: o `ShellGate` corta o chrome duplicado. */}
+      {aba === "passos" && <JornadaView />}
     </div>
   );
 }

@@ -74,7 +74,7 @@ export type Section = {
 export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
   { rota: "/all4pay-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
   { rota: "/dashboard/help", onde: "menu ⋮ da barra superior" },
-  { rota: "/comece", onde: "menu ⋮ da barra superior + o cartão da Jornada na Home" },
+  { rota: "/comece", onde: "aba Primeiros passos na Central de ajuda + menu ⋮ da barra superior" },
   { rota: "/configuracoes", onde: "menu ⋮ da barra superior (Meu perfil)" },
 ];
 
