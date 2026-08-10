@@ -221,7 +221,7 @@ export function VisorHomeTop() {
                 porque depende do sinal do saldo. */}
             <span
               className="a4p-heroi tabular-nums leading-none"
-              style={{ color: saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
+              style={{ color: "var(--color-ink)" }}
             >
               {saldo < 0 && <span aria-hidden>−</span>}
               <AnimatedBRL value={Math.abs(saldo)} />

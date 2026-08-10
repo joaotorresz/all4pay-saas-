@@ -199,7 +199,7 @@ function Valor({ label, v, destaque }: { label: string; v: number; destaque?: bo
       <span className="text-caption text-faint">{label}</span>
       <span
         className={`text-[18px] tabular-nums ${destaque ? "font-semibold" : ""}`}
-        style={{ color: destaque && v < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
+        style={{ color: "var(--color-ink)" }}
       >
         {v < 0 && <span aria-hidden>−</span>}<BRL value={Math.abs(v)} />
       </span>

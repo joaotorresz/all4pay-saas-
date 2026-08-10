@@ -247,7 +247,7 @@ function LinhaFluxo({ label, valor, forte, destaque }: { label: string; valor: n
   return (
     <div className={`flex items-center justify-between py-[7px] ${destaque ? "bg-surface-2 rounded-md px-3" : ""}`}>
       <span className={`text-${forte ? "body" : "caption"} ${forte ? "text-ink font-medium" : "text-muted"}`}>{label}</span>
-      <span className="tabular-nums" style={{ color: valor < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
+      <span className="tabular-nums" style={{ color: "var(--color-ink)" }}>
         {valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} />
       </span>
     </div>
@@ -335,7 +335,7 @@ function CalendarioView({ dias }: { dias: DiaCalendario[] }) {
           <span className="text-caption text-faint">{i === 0 ? "Hoje" : d.label}</span>
           <span className="text-caption text-positive tabular-nums">+<BRL value={d.recebe} /></span>
           <span className="text-caption text-muted tabular-nums">−<BRL value={d.paga} /></span>
-          <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: d.saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
+          <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: "var(--color-ink)" }}>
             {d.saldo < 0 ? "−" : ""}<BRL value={Math.abs(d.saldo)} />
           </span>
         </Card>
@@ -568,7 +568,7 @@ function WhatIfView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: nu
       <div className="grid grid-cols-3 gap-3 border-t border-border-soft pt-3">
         <Mini label="Runway" v={`${res.runwayMeses.toFixed(0)}m`} />
         <Mini label="Score" v={`${Math.round(res.scoreProjetado)}`} />
-        <Mini label="Resultado/mês" v={<BRL value={res.liquidoMensal} />} tone={res.liquidoMensal < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
+        <Mini label="Resultado/mês" v={<BRL value={res.liquidoMensal} />} tone={"var(--color-ink)"} />
       </div>
     </Card>
   );
