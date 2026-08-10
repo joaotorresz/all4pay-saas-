@@ -165,7 +165,7 @@ function Conteudo({
       {/* Executivo */}
       <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-6 gap-5">
         <Stat label="Receita líquida" value={<BRL value={gerencial.receitaLiquida} />} href="/recebimentos" hrefLabel="Ver a receber" />
-        <Stat label="EBITDA" value={<BRL value={gerencial.ebitda} />} tone={gerencial.ebitda < 0 ? "var(--color-negative)" : "var(--color-ink)"} />
+        <Stat label="EBITDA" value={<BRL value={gerencial.ebitda} />} tone={"var(--color-ink)"} />
         <Stat label="Margem EBITDA" value={pct(gerencial.margemEbitda)} />
         <Stat label="Lucro líquido" value={<BRL value={gerencial.lucroLiquido} />} tone={gerencial.lucroLiquido < 0 ? "var(--color-negative)" : "var(--color-positive)"} />
         <Stat label="Runway" value={`${financeiro.runwayMeses}m`} href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" />
@@ -353,7 +353,7 @@ function FinRow({ label, v, bold }: { label: string; v: number; bold?: boolean }
   return (
     <div className={`flex justify-between ${bold ? "border-t border-border-soft pt-1" : ""}`}>
       <span className={`text-caption ${bold ? "font-medium text-ink" : "text-muted"}`}>{label}</span>
-      <span className="text-caption tabular-nums font-medium" style={{ color: v < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
+      <span className="text-caption tabular-nums font-medium" style={{ color: "var(--color-ink)" }}>
         {sign(v)}<BRL value={Math.abs(v)} />
       </span>
     </div>

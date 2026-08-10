@@ -5,10 +5,12 @@ import { brlParts } from "@/lib/format";
 /**
  * all4pay DS — BRL (inline Money)
  * ------------------------------------------------------------
- * O mesmo tratamento do <Money> (★) porém INLINE e relativo ao contexto:
- * prefixo "R$" menor + faint · inteiro herói (herda cor/tamanho) · decimais
- * menores + faint. Sempre `tabular-nums`. Use no lugar de `<BRL value={x} />`
- * em qualquer exibição de valor (KPIs, listas, tooltips, captions).
+ * ⚠️ O PREFIXO "R$" TEM O MESMO TAMANHO, PESO E COR DO NÚMERO. Ele era menor
+ * e `faint` — o tratamento-assinatura antigo. A moeda deixou de ser um
+ * detalhe apagado ao lado do valor e passou a fazer parte dele: é uma peça só,
+ * na mesma fonte e no mesmo corpo. Os CENTAVOS seguem menores, porque ali a
+ * hierarquia é real (o inteiro é a informação, o centavo é o resto).
+ * Sempre `tabular-nums`.
  *
  * Diferente do <Money> (que usa px absolutos para os heróis grandes), o <BRL>
  * dimensiona o R$/decimais em `em` — então encaixa em qualquer font-size.
@@ -30,9 +32,7 @@ export function BRL({
   const { integer, decimals } = brlParts(value);
   return (
     <span className={cn("a4p-num inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
-      <span className="text-faint font-medium" style={{ fontSize: "0.72em", marginRight: "0.16em" }}>
-        {prefix}
-      </span>
+      <span style={{ marginRight: "0.16em" }}>{prefix}</span>
       <span>{neg ? "−" : ""}{integer}</span>
       {showDecimals && (
         // `data-cents` permite a uma tela inteira esconder os centavos por CSS

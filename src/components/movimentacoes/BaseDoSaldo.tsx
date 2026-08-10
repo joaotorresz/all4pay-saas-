@@ -75,7 +75,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
         </span>
         <span
           className="text-h3 tabular-nums"
-          style={{ color: valor < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
+          style={{ color: "var(--color-ink)" }}
         >
           {valor < 0 && <span aria-hidden>−</span>}<BRL value={Math.abs(valor)} />
         </span>

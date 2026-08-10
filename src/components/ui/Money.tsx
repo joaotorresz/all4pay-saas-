@@ -42,7 +42,7 @@ export function Money({
   color = "var(--color-ink)",
   integerWeight = 400,
   prefixSize,
-  prefixWeight = 500,
+  prefixWeight,
   prefixColor,
   decimalSep = ",",
   className,
@@ -50,7 +50,14 @@ export function Money({
   ...rest
 }: MoneyProps) {
   const px = typeof size === "number" ? size : SIZE_PX[size];
-  const curPx = prefixSize != null ? prefixSize : Math.round(px * 0.44);
+  /*
+   * ⚠️ O PREFIXO ACOMPANHA O NÚMERO — mesmo corpo, mesmo peso, mesma cor.
+   * Era `px * 0.44` e `text-faint`: a moeda ficava como uma nota de rodapé ao
+   * lado do valor. Agora os dois são uma peça só. `prefixSize`/`prefixWeight`/
+   * `prefixColor` continuam existindo para o caso pontual que precise
+   * divergir — o que muda é o PADRÃO.
+   */
+  const curPx = prefixSize != null ? prefixSize : px;
 
   return (
     <span
@@ -63,8 +70,8 @@ export function Money({
       {...rest}
     >
       <span
-        className={cn("mr-[5px]", prefixColor ? undefined : "text-faint")}
-        style={{ fontSize: curPx, fontWeight: prefixWeight, color: prefixColor }}
+        className="mr-[5px]"
+        style={{ fontSize: curPx, fontWeight: prefixWeight ?? integerWeight, color: prefixColor ?? color }}
       >
         {currency}
       </span>
