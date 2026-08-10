@@ -1163,7 +1163,11 @@ html.dark .a4p-canvas {
    componente — por isso o prefixo carrega tamanho PRÓPRIO em px, não 1em. */
 .ds-visor .a4p-heroi .a4p-num > span:first-child {
   font-family: var(--font-display);
-  font-size: 0.72em;
+  /* ⚠️ 1em — o prefixo tem o MESMO corpo do número. Ele ficou em `0.72em`
+     depois de `Money`/`BRL` já terem sido corrigidos, e essa regra, por ser
+     mais específica, continuava encolhendo o R$ só no herói: o componente
+     dizia uma coisa e a folha, outra. */
+  font-size: 1em;
   font-weight: 700;
   color: var(--color-ink);
   margin-right: 0.1em;
