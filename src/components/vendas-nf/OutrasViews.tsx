@@ -16,6 +16,7 @@ import { usePartiesList, useCreateParty } from "@/components/lancamentos/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { listPlanoContas } from "@/lib/registros";
+import { regimeDaEmpresa } from "@/core/tax/regime";
 import { loadCompany } from "@/lib/company";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura } from "@/lib/recorrencias";
 import {
@@ -216,11 +217,17 @@ export function ImpostosView() {
     const c = loadCompany();
     // O regime vive no bloco fiscal que o onboarding coleta; quando não há,
     // Lucro Presumido é o padrão da maioria das PMEs de serviço.
-    const db = (c?.db ?? {}) as Record<string, unknown>;
-    const t = String(db.regimeTributario ?? db.regime ?? "").toLowerCase();
-    if (t.includes("simples")) return "simples" as Regime;
-    if (t.includes("real")) return "real" as Regime;
-    return "presumido" as Regime;
+    // ⚠️ Era a QUARTA cópia da precedência, escrita à mão — e ela esquecia o
+    // MEI, devolvendo "presumido" para quem é MEI. Precedência duplicada não
+    // diverge quando é escrita; diverge quando alguém ajusta UMA delas.
+    const r = regimeDaEmpresa((c?.db ?? null) as Record<string, unknown> | null);
+    // ⚠️ `core/vendas` só conhece três regimes; o MEI cai em Simples, que é a
+    // família dele. Não é exato — o MEI recolhe DAS FIXO, não percentual sobre
+    // a venda —, mas é a aproximação CERTA: antes ele caía em "presumido" e
+    // recebia as alíquotas de um regime que não é nem parente do dele.
+    // Tratar MEI como primeira classe aqui é mexer na configuração de
+    // impostos inteira, e isso não cabe nesta correção.
+    return (r === "mei" ? "simples" : r) as Regime;
   }, []);
 
   const mesCompetencia = `${ano}-${mes}`;
