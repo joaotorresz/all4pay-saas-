@@ -136,18 +136,44 @@ depois 6 telas com problema ·  4 ocorrências   (Aprovações voltou a ficar li
 
 `npm test` verde nas **13** guardas, incluindo a `paleta` nova do PR #53.
 
-**O que sobra (4 ocorrências) é decisão de paleta, e essa eu não tomo:**
+**O que sobra são decisões de paleta, e essas eu não tomo.** Remedido em
+`3c17e58` (depois do PR #56, que trocou as superfícies dos cards — por isso o
+número mudou):
 
-| Onde | Hoje | Mínimo que passa (sobre `#FEFDF0`) |
+| Onde | Hoje | Mínimo que passa |
 | --- | --- | --- |
-| **`--color-positive` `#2cd662`** pintando `R$ …` a 17px | **1,88:1** | `#1c863e` (4,53:1) |
-| `#a9a6a4` num rótulo de 14px que sobrou | 2,36:1 | `#767473` (4,54:1) |
+| **texto branco no botão "Design"** (o FAB do Laboratório, PR #54) | **1,03:1** | qualquer cor de texto real — hoje é branco sobre quase-branco |
+| **`--color-positive` `#2cd662`** pintando `R$ …` a 17px | **1,92:1** | `#1c863e` (4,53:1) |
+| `#a9a6a4` num rótulo de 14px que sobrou | 2,42:1 | `#787675` (4,52:1) |
 
-O commit do PR #53 diz que as semânticas ficaram como estavam *"decisão
-anterior, tomada com o contraste medido"* — e o `#2cd662` sobre branco dá
-**1,88:1**. Vale a pena reconciliar essa frase com o número antes de fechar a
-paleta.
-**➜ Me diga: *"pode ajustar o positive"*** e aplico + rerodo.
+⚠️ **A primeira é nova e é a pior de todas em número:** 1,03:1 é texto branco
+sobre fundo branco — o rótulo "Design" está, para efeitos práticos, **invisível**,
+em 5 das 7 telas. Não é sutileza de 4,3 contra 4,5; é um botão sem legenda
+legível. (E vale lembrar que o `CLAUDE.md` registra a remoção desse FAB por
+outra razão: um sandbox de design fixo por cima do conteúdo, em produção,
+convida ao clique de quem não sabe o que ele faz. O PR #54 o trouxe de volta
+como "uma de duas portas" — a decisão é de quem o trouxe; o contraste é
+mensurável.)
+
+A segunda continua valendo: o commit do PR #53 diz que as semânticas ficaram
+*"com o contraste medido"*, e `#2cd662` sobre o branco quente dá **1,92:1**
+pintando um valor. Vale reconciliar a frase com o número.
+
+**➜ Me diga: *"pode ajustar as cores que reprovam"*** e aplico as três +
+rerodo a medição.
+
+### Nota de método: isto vai continuar acontecendo
+
+Seis PRs visuais entraram em três dias (#48, #49, #51, #53, #54, #56), e cada um
+mexeu em cor ou superfície. Como `npm run mobile` exige o app SERVIDO, ele está
+**fora do `npm test`** — ou seja, nada reprova uma cor ilegível no caminho até o
+`main`. A guarda `paleta` do PR #53 cobra que o hex esteja na paleta, não que
+ele seja **legível** onde é usado.
+
+O conserto estrutural seria uma guarda de CONTRASTE sobre os pares
+token-texto × token-superfície que o DS declara, rodando offline dentro do
+`npm test`. Não escrevi: é decisão de escopo sua, e mexeria num terreno que a
+guarda `paleta` já ocupa. **➜ Me diga: *"escreva a guarda de contraste"***.
 
 *(Os estouros de requisições são orçamento de desempenho, não acessibilidade —
 vivíveis num beta, mas ficam registrados porque a linha de base era zero.)*
