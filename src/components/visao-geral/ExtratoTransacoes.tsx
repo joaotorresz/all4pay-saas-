@@ -189,10 +189,10 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
           </span>
           <span className="text-muted">{totalItens} lançamento{totalItens === 1 ? "" : "s"}</span>
           <span className="inline-flex items-center gap-[5px]" style={{ color: POSITIVE }}>
-            <Icon name="arrow-down-to-line" size={13} color="currentColor" />{formatBRL(sel?.entradas ?? 0)}
+            <Icon name="arrow-up" size={13} color="currentColor" />{formatBRL(sel?.entradas ?? 0)}
           </span>
           <span className="inline-flex items-center gap-[5px]" style={{ color: NEGATIVE }}>
-            <Icon name="arrow-up-right" size={13} color="currentColor" />{formatBRL(sel?.saidas ?? 0)}
+            <Icon name="arrow-down" size={13} color="currentColor" />{formatBRL(sel?.saidas ?? 0)}
           </span>
           <span className="font-medium" style={{ color: (sel?.resultado ?? 0) < 0 ? NEGATIVE : POSITIVE }}>
             {(sel?.resultado ?? 0) < 0 ? "−" : ""}{formatBRL(Math.abs(sel?.resultado ?? 0))}

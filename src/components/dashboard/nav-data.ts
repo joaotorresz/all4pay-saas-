@@ -109,8 +109,8 @@ export const SECTIONS: Section[] = [
   { id: "inicio", label: "Início", icon: "house", href: "/", items: [] },
   {
     id: "movimentacoes", label: "Movimentações", icon: "arrow-left-right", items: [
-      { label: "Títulos a receber", desc: "O que os clientes ainda devem", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
-      { label: "Títulos a pagar", desc: "O que a empresa ainda deve", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Títulos a receber", desc: "O que os clientes ainda devem", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-up" },
+      { label: "Títulos a pagar", desc: "O que a empresa ainda deve", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
       { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
       { label: "Conciliação bancária", desc: "Banco × lançamentos", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
@@ -199,8 +199,8 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
-      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
+      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
+      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-up" },
     ],
   },
   {

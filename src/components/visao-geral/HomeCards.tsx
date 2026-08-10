@@ -104,7 +104,7 @@ export function TransacoesRecentesCard() {
                   style={{ background: `color-mix(in srgb, ${entrada ? "var(--color-positive)" : "var(--color-negative)"} 14%, transparent)` }}
                   aria-hidden
                 >
-                  <Icon name={entrada ? "arrow-down-to-line" : "arrow-up-right"} size={14} color={entrada ? "var(--color-positive)" : "var(--color-negative)"} />
+                  <Icon name={entrada ? "arrow-up" : "arrow-down"} size={14} color={entrada ? "var(--color-positive)" : "var(--color-negative)"} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] text-ink truncate inline-flex items-center gap-1">

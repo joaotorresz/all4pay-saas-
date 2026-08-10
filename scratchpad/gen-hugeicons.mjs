@@ -31,7 +31,11 @@ const MAP = {
   calendar: "calendar-03",
   sparkles: "sparkles",
   "arrow-up-right": "arrow-up-right-01",
-  "arrow-up": "arrow-up-01",
+  // ⚠️ SETA, não chevron. `arrow-up-01` é um chevron (só a ponta, sem haste) e
+  // lia como "^" ao lado de um valor — não como direção do dinheiro. O par
+  // -02 tem haste + ponta, e é o que faz entrada/saída se lerem como opostos.
+  "arrow-up": "arrow-up-02",
+  "arrow-down": "arrow-down-02",
   "arrow-down-to-line": "download-01",
   x: "cancel-01",
   check: "tick-02",
