@@ -295,7 +295,7 @@ function Calendario({ input }: { input: RiskInput }) {
                   largura fixa menor que a altura, e só então o raio total lê
                   como cápsula em pé. */}
               <button role="tab" aria-selected={ativo} onClick={() => setSel(d)}
-                className={`w-[56px] h-[74px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-1 transition-colors ${
+                className={`w-[56px] h-[92px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-[6px] transition-colors ${
                   ativo ? "bg-ink text-white" : "hover:bg-surface-2"
                 }`}>
                 {/* O número manda na cápsula, e o papel é `.a4p-dia-num` (o

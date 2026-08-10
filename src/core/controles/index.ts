@@ -65,7 +65,11 @@ export const CONTROLES: Controle[] = [
   { id: "topbar.anuncios", tela: "Início", rotulo: "Anúncios", tipo: "navegacao", destino: "/dashboard/help" },
   { id: "topbar.mais", tela: "Início", rotulo: "Mais", tipo: "acao", efeito: "abre o menu de conta, busca, tema e sair", fechaPorEsc: true },
   {
-    id: "sidebar.criar", tela: "Início", rotulo: "Criar", tipo: "acao",
+    // ⚠️ Mudou de MORADA, não de existência: o botão saiu da lateral (que
+    // passou a ser só a lista de telas do grupo) e a porta virou a paleta.
+    // O id ficou como registro de que o controle é o mesmo — o que a guarda
+    // cobra é que ele TENHA efeito e feche por Esc, não onde ele mora.
+    id: "palette.criar", tela: "Início", rotulo: "Criar novo registro", tipo: "acao",
     efeito: "abre o painel Criar novo, com todas as ações em <Link>", fechaPorEsc: true,
   },
   {

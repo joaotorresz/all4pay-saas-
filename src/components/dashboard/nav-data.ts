@@ -15,6 +15,19 @@ import { isPlatformAdmin } from "@/lib/admin";
 
 export type Item = {
   label: string;
+  /**
+   * O SUBTÍTULO da linha do menu — o que ESTA tela responde, em uma frase.
+   *
+   * ⚠️ Mora aqui, na fonte única, e não na Sidebar: o mesmo item aparece na
+   * lateral, na paleta e nas guardas, e um texto escrito na tela divergiria no
+   * dia em que a lista mudasse de lugar. É a mesma razão pela qual `label` e
+   * `icon` já viviam aqui.
+   *
+   * Ele não repete o rótulo com outras palavras — diz a PERGUNTA que a tela
+   * responde ("O que os clientes ainda devem"), porque um subtítulo que só
+   * parafraseia o título ocupa uma linha e não decide nada.
+   */
+  desc?: string;
   href?: string;
   icon: string;
   event?: string;
@@ -96,88 +109,88 @@ export const SECTIONS: Section[] = [
   { id: "inicio", label: "Início", icon: "house", href: "/", items: [] },
   {
     id: "movimentacoes", label: "Movimentações", icon: "arrow-left-right", items: [
-      { label: "Títulos a receber", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
-      { label: "Títulos a pagar", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
-      { label: "Transferências", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
-      { label: "Conciliação bancária", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
-      { label: "Extrato", href: "/dashboard/financial/statement", icon: "receipt" },
-      { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
+      { label: "Títulos a receber", desc: "O que os clientes ainda devem", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
+      { label: "Títulos a pagar", desc: "O que a empresa ainda deve", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
+      { label: "Conciliação bancária", desc: "Banco × lançamentos", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+      { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
+      { label: "Fatura do cartão", desc: "Compras agrupadas por ciclo", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
       // Inadimplência é OPERACIONAL (quem me deve), não recurso pago. Vivia
       // duplicada no grupo Pro, o que a tornava paga num menu e grátis no hub.
-      { label: "Inadimplência", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
+      { label: "Inadimplência", desc: "Quem está atrasado, e o risco", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
       // Aprovar pagamento é o que se faz COM o dinheiro — mora ao lado dele, e
       // não num grupo separado só porque é pago.
-      { label: "Solicitações & aprovações", href: "/aprovacoes", icon: "list-checks", pro: true },
+      { label: "Solicitações & aprovações", desc: "O que depende de alçada", href: "/aprovacoes", icon: "list-checks", pro: true },
     ],
   },
   {
     id: "entradas", label: "Entradas", icon: "upload", items: [
-      { label: "Upload de dados", href: "/upload", icon: "upload" },
-      { label: "Vendas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
-      { label: "Assinaturas e contratos", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
-      { label: "Notas fiscais", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
-      { label: "Links de pagamento", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
-      { label: "Compras", href: "/dashboard/purchases", icon: "inbox" },
-      { label: "Boletos recebidos", href: "/dashboard/purchases/received-boletos", icon: "file-text" },
-      { label: "NFs recebidas", href: "/dashboard/purchases/received-invoices", icon: "receipt" },
+      { label: "Upload de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
+      { label: "Vendas", desc: "Pedidos, status e taxas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+      { label: "Assinaturas e contratos", desc: "Receita recorrente e churn", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
+      { label: "Notas fiscais", desc: "Emitidas, a emitir e com erro", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
+      { label: "Links de pagamento", desc: "Cobrança por link", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
+      { label: "Compras", desc: "Pedidos que passam por aprovação", href: "/dashboard/purchases", icon: "inbox" },
+      { label: "Boletos recebidos", desc: "DDA: o que chegou para pagar", href: "/dashboard/purchases/received-boletos", icon: "file-text" },
+      { label: "NFs recebidas", desc: "XMLs de entrada da SEFAZ", href: "/dashboard/purchases/received-invoices", icon: "receipt" },
     ],
   },
   {
     id: "relatorios", label: "Relatórios", icon: "trending-up", items: [
-      { label: "DRE", href: "/dashboard/reports/dre", icon: "trending-up" },
-      { label: "DFC", href: "/dashboard/reports/dfc", icon: "trending-up" },
-      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "activity" },
-      { label: "Planejado × Realizado", href: "/orcamento", icon: "target" },
-      { label: "DRE multiempresas", href: "/dashboard/reports/dre-multi", icon: "building" },
-      { label: "DFC multiempresas", href: "/dashboard/reports/dfc-multi", icon: "building" },
-      { label: "Consolidado", href: "/contabilidade?aba=consolidado", icon: "building", pro: true },
-      { label: "Investor update", href: "/investidores", icon: "mail", pro: true },
-      { label: "Plano de contratações", href: "/contratacoes", icon: "users", pro: true },
-      { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
+      { label: "DRE", desc: "Resultado por competência", href: "/dashboard/reports/dre", icon: "trending-up" },
+      { label: "DFC", desc: "Caixa pela data de pagamento", href: "/dashboard/reports/dfc", icon: "trending-up" },
+      { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
+      { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento", icon: "target" },
+      { label: "DRE multiempresas", desc: "Resultado consolidado do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
+      { label: "DFC multiempresas", desc: "Caixa consolidado do grupo", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "Consolidado", desc: "Posição somada das empresas", href: "/contabilidade?aba=consolidado", icon: "building", pro: true },
+      { label: "Investor update", desc: "O relatório mensal do investidor", href: "/investidores", icon: "mail", pro: true },
+      { label: "Plano de contratações", desc: "O impacto de contratar", href: "/contratacoes", icon: "users", pro: true },
+      { label: "Meus dashboards", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
     ],
   },
   {
     id: "cadastros", label: "Cadastros", icon: "database", items: [
-      { label: "Clientes", href: "/dashboard/registrations/clients", icon: "users" },
-      { label: "Fornecedores", href: "/dashboard/registrations/suppliers", icon: "building" },
+      { label: "Clientes", desc: "Quem compra, e o risco", href: "/dashboard/registrations/clients", icon: "users" },
+      { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
       // ⚠️ Era `icon: "b"` — não é nome de ícone, é uma CHAVE da estrutura de
       // dados do conjunto (`{ b, w, h }`), colhida por engano ao montar a
       // lista. Passou despercebido porque a lateral não desenhava o ícone dos
       // itens; com a navegação em dois níveis ela desenha, e a linha aparecia
       // sem glifo nenhum ao lado das outras sete.
-      { label: "Produtos e serviços", href: "/dashboard/registrations/products", icon: "shopping-cart" },
-      { label: "Contas bancárias", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
-      { label: "Plano de contas", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
-      { label: "Centros de custo", href: "/dashboard/registrations/cost-centers", icon: "network" },
-      { label: "Projetos", href: "/dashboard/registrations/projects", icon: "target" },
-      { label: "Contratos", href: "/dashboard/registrations/contracts", icon: "file-text" },
+      { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
+      { label: "Contas bancárias", desc: "Contas, carteiras e cartões", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
+      { label: "Plano de contas", desc: "A árvore que classifica tudo", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
+      { label: "Centros de custo", desc: "Onde o gasto é alocado", href: "/dashboard/registrations/cost-centers", icon: "network" },
+      { label: "Projetos", desc: "O recorte por iniciativa", href: "/dashboard/registrations/projects", icon: "target" },
+      { label: "Contratos", desc: "Vigência, rateio e faturas previstas", href: "/dashboard/registrations/contracts", icon: "file-text" },
     ],
   },
   {
     id: "contabil", label: "Contabilidade e impostos", icon: "receipt", items: [
-      { label: "Impostos sobre vendas", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
-      { label: "Fechamento mensal", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
-      { label: "Contabilidade", href: "/contabilidade", icon: "layers" },
-      { label: "Envio das NFs ao contador", href: "/dashboard/accounting/nfe-export", icon: "mail" },
-      { label: "Gerar TXT contábil", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
+      { label: "Impostos sobre vendas", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
+      { label: "Fechamento mensal", desc: "Fechar e travar o mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
+      { label: "Contabilidade", desc: "Razão e balancete", href: "/contabilidade", icon: "layers" },
+      { label: "Envio das NFs ao contador", desc: "O pacote mensal de XMLs", href: "/dashboard/accounting/nfe-export", icon: "mail" },
+      { label: "Gerar TXT contábil", desc: "O arquivo para o sistema Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
     ],
   },
 ];
 
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
-    { label: "Assinatura", href: "/dashboard/administration/subscription", icon: "credit-card" },
-    { label: "Nova empresa", href: "/empresas/nova", icon: "building" },
-    { label: "Dados da empresa", href: "/dashboard/administration/company-data", icon: "building" },
-    { label: "Gerenciar usuários", href: "/dashboard/administration/users", icon: "users" },
-    { label: "Logs", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
-    { label: "Integrações", href: "/dashboard/administration/integrations", icon: "link" },
-    { label: "Relatórios exportados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
+    { label: "Assinatura", desc: "Plano, cobrança e vencimento", href: "/dashboard/administration/subscription", icon: "credit-card" },
+    { label: "Nova empresa", desc: "Abrir outra organização", href: "/empresas/nova", icon: "building" },
+    { label: "Dados da empresa", desc: "Razão social, endereço e fiscal", href: "/dashboard/administration/company-data", icon: "building" },
+    { label: "Gerenciar usuários", desc: "Quem entra, e com que papel", href: "/dashboard/administration/users", icon: "users" },
+    { label: "Logs", desc: "A trilha de auditoria assinada", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
+    { label: "Integrações", desc: "Bancos, plataformas e certificados", href: "/dashboard/administration/integrations", icon: "link" },
+    { label: "Relatórios exportados", desc: "A fila e os arquivos gerados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
     // Alçadas, papéis e a trilha assinada são ADMINISTRAÇÃO, não um assunto do
     // dia a dia — vieram do grupo "Governança", que existia por preço.
-    { label: "Governança e auditoria", href: "/governanca", icon: "shield-check", pro: true },
-    { label: "Configurações da empresa", href: "/configuracoes", icon: "settings" },
-    { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
+    { label: "Governança e auditoria", desc: "Alçadas, papéis e isolamento", href: "/governanca", icon: "shield-check", pro: true },
+    { label: "Configurações da empresa", desc: "Perfil e estrutura financeira", href: "/configuracoes", icon: "settings" },
+    { label: "Lixeira", desc: "Excluídos, ainda recuperáveis", href: "/lixeira", icon: "trash-2" },
   ],
 };
 
@@ -185,29 +198,29 @@ export const CONFIG: Section = {
 export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
-      { label: "Resumo", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
-      { label: "Minhas receitas", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
+      { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
+      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-up-right" },
+      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-left-right" },
     ],
   },
   {
     id: "contas", label: "Contas & carteiras", icon: "credit-card", items: [
-      { label: "Conectar & importar (Open finance)", href: "/upload", icon: "upload" },
+      { label: "Conectar & importar (Open finance)", desc: "Trazer os extratos do banco", href: "/upload", icon: "upload" },
     ],
   },
   {
     id: "orcamento", label: "Orçamento & metas", icon: "target", items: [
-      { label: "Planejado × Realizado", href: "/orcamento", icon: "target" },
-      { label: "DRE", href: "/dashboard/reports/dre", icon: "trending-up" },
-      { label: "Fluxo de caixa", href: "/fluxo-caixa", icon: "trending-up" },
+      { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento", icon: "target" },
+      { label: "DRE", desc: "Resultado por competência", href: "/dashboard/reports/dre", icon: "trending-up" },
+      { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "trending-up" },
     ],
   },
 ];
 
 export const CONFIG_PESSOAL: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
-    { label: "Configurações da empresa", href: "/configuracoes", icon: "settings" },
-    { label: "Lixeira", href: "/lixeira", icon: "trash-2" },
+    { label: "Configurações da empresa", desc: "Perfil e estrutura financeira", href: "/configuracoes", icon: "settings" },
+    { label: "Lixeira", desc: "Excluídos, ainda recuperáveis", href: "/lixeira", icon: "trash-2" },
   ],
 };
 
@@ -233,6 +246,41 @@ export function leafAtivo(href: string | undefined, pathname: string): boolean {
   if (href === "/") return pathname === "/";
   const base = href.split("?")[0];
   return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * QUAL item da lista está na tela — e aqui a QUERY importa.
+ *
+ * ⚠️ `leafAtivo` descarta o `?tab=` de propósito: para achar o GRUPO, qualquer
+ * aba de `accounts-and-transfers` serve. Para achar o ITEM, não: três linhas
+ * ("Títulos a receber", "Títulos a pagar", "Transferências") apontam para o
+ * MESMO caminho e diferem só na aba, e usar `leafAtivo` marcava as três ao
+ * mesmo tempo. Enquanto o selecionado era um cinza discreto isso passou; com o
+ * degradê da marca no tile, três acentos acesos de uma vez viram um erro
+ * visível — e continuavam sendo uma resposta errada à pergunta "onde estou".
+ *
+ * Devolve o ÍNDICE (não um booleano por item) porque a decisão só existe
+ * olhando a lista inteira: sem `?tab=` na URL o hub abre na PRIMEIRA aba, e um
+ * item sozinho não tem como saber que é ele.
+ */
+export function indiceItemAtivo(itens: Item[], pathname: string, busca: string): number {
+  const candidatos = itens
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => leafAtivo(it.href, pathname));
+  if (candidatos.length <= 1) return candidatos[0]?.i ?? -1;
+
+  const atual = new URLSearchParams(busca);
+  const exato = candidatos.find(({ it }) => {
+    const q = (it.href ?? "").split("?")[1];
+    if (!q) return false;
+    // `forEach` e não `for…of`: o alvo de compilação do projeto não itera
+    // `URLSearchParams` diretamente, e o espalhamento quebra o typecheck.
+    let bate = true;
+    new URLSearchParams(q).forEach((v, k) => { if (atual.get(k) !== v) bate = false; });
+    return bate;
+  });
+  // Nenhum casou: a URL veio sem o parâmetro, e o hub abre na primeira aba.
+  return exato ? exato.i : candidatos[0].i;
 }
 
 /**
@@ -281,10 +329,10 @@ export function useNavSections(): { sections: Section[]; pessoal: boolean } {
    * governava "Administração".
    */
   const FERRAMENTAS_DE_PLATAFORMA: Item[] = [
-    { label: "Administração", href: "/admin", icon: "shield-check" },
-    { label: "Inventário de rotas", href: "/dashboard/administration/routes", icon: "network" },
-    { label: "Armazenamento", href: "/dashboard/administration/storage", icon: "database" },
-    { label: "Segurança e isolamento", href: "/dashboard/administration/security", icon: "shield-check" },
+    { label: "Administração", desc: "Todos os clientes da plataforma", href: "/admin", icon: "shield-check" },
+    { label: "Inventário de rotas", desc: "Rota, dono e status", href: "/dashboard/administration/routes", icon: "network" },
+    { label: "Armazenamento", desc: "O que subiu, e o que não", href: "/dashboard/administration/storage", icon: "database" },
+    { label: "Segurança e isolamento", desc: "Isolamento entre empresas", href: "/dashboard/administration/security", icon: "shield-check" },
   ];
   const config: Section = {
     ...configBase,
