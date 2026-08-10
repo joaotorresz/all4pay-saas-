@@ -108,8 +108,7 @@ function Resumo({ input }: { input: RiskInput }) {
           {/* Mesma tipografia e corpo do título "Resumo", em caixa Aa: os
               dois são o cabeçalho do card, e um deles em micro-caixa-alta
               fazia a dupla parecer de sistemas diferentes. */}
-          <span className="text-h2 text-muted bg-surface-2 rounded-pill px-4 py-[6px] inline-flex items-center gap-2 shrink-0">
-            <Icon name="calendar" size={16} color="var(--color-text-secondary)" />
+          <span className="text-h2 text-muted bg-surface-2 rounded-pill px-4 py-[6px] shrink-0">
             {meses[0].rotulo} – {ultimo.rotulo}
           </span>
         </div>
@@ -141,17 +140,24 @@ function Resumo({ input }: { input: RiskInput }) {
       {/* A coluna de leituras da referência: rótulo com glifo, valor-herói em
           cima e três linhas embaixo, cada uma com a sua variação. */}
       <div className="lg:w-[280px] shrink-0 lg:border-l border-border-soft lg:pl-6">
-        <span className="text-h2 text-muted inline-flex items-center gap-2">
-          <Icon name="trending-up" size={16} color="var(--color-text-secondary)" />
-          Saldo atual deste mês
-        </span>
+        <span className="text-h2 text-muted">Saldo atual deste mês</span>
         <div className="a4p-heroi mt-2 tabular-nums leading-none">
           <BRL value={saldoAtual} />
         </div>
         <div className="mt-5 flex flex-col">
-          <Leitura icone="arrow-up" nome="Entradas do mês" valor={ent} />
-          <Leitura icone="arrow-down-to-line" nome="Saídas do mês" valor={sai} />
-          <Leitura icone="activity" nome="Resultado do mês" valor={res} ultimo />
+          {/* ⚠️ "CONSOLIDADO" NÃO É ENFEITE NO RÓTULO — é o que estes números
+              já são. `entradas`/`saidas`/`resultado` rodam no regime de CAIXA,
+              e a convenção canônica (`liquidado`) só conta o que tem
+              `status === "pago"`. Previsto e vencido ficam de fora, que é
+              exatamente a diferença entre "consolidado" e "a receber".
+              O rótulo agora DIZ isso; antes, "Entradas do mês" cabia nas duas
+              leituras e o número respondia só uma.
+              "do mês" saiu por CABER: o rótulo acima já fixa o mês, e a
+              alternativa era a reticência comendo a palavra que carrega o
+              sentido — "Entradas consoli…" não informa nada. */}
+          <Leitura icone="arrow-up" nome="Entradas consolidadas" valor={ent} />
+          <Leitura icone="arrow-down-to-line" nome="Saídas consolidadas" valor={sai} />
+          <Leitura icone="activity" nome="Resultado consolidado" valor={res} ultimo />
         </div>
       </div>
     </Card>
@@ -237,7 +243,7 @@ function Leitura({ icone, nome, valor, ultimo }: { icone: IconName; nome: string
         <Icon name={icone} size={14} color="var(--color-white)" />
       </span>
       <span className="text-label text-ink flex-1 min-w-0 truncate">{nome}</span>
-      <span className="text-label tabular-nums text-ink shrink-0"><BRL value={valor} showDecimals={false} /></span>
+      <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0"><BRL value={valor} showDecimals={false} /></span>
     </div>
   );
 }
@@ -267,12 +273,6 @@ function Calendario({ input }: { input: RiskInput }) {
     >
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-h2 m-0">Calendário de transações</h2>
-        <button
-          onClick={() => window.dispatchEvent(new Event("a4p:criar"))}
-          aria-label="Novo lançamento"
-          className="shrink-0 w-8 h-8 rounded-pill bg-surface-2 hover:bg-surface-3 inline-flex items-center justify-center">
-          <Icon name="plus" size={16} color="var(--color-ink)" />
-        </button>
       </div>
 
       {/* A faixa de dias da referência: número grande, dia da semana embaixo,
@@ -284,11 +284,15 @@ function Calendario({ input }: { input: RiskInput }) {
           return (
             <React.Fragment key={d}>
               {i > 0 && <span aria-hidden className="w-px bg-border-soft my-3" />}
+              {/* O dia selecionado é uma CÁPSULA escura e alta, com o número
+                  em cima e o nome embaixo — a forma da referência. Um pill
+                  raso deixava os dois na mesma linha de peso; a cápsula é o
+                  que separa "o dia que estou vendo" dos outros seis. */}
               <button role="tab" aria-selected={ativo} onClick={() => setSel(d)}
-                className={`flex-1 min-w-[46px] rounded-pill py-2 flex flex-col items-center gap-[2px] transition-colors ${
+                className={`flex-1 min-w-[52px] rounded-[20px] py-3 flex flex-col items-center gap-[3px] transition-colors ${
                   ativo ? "bg-ink text-white" : "hover:bg-surface-2"
                 }`}>
-                <span className={`text-label tabular-nums leading-none ${ativo ? "" : "text-ink"}`}>
+                <span className={`text-label font-semibold tabular-nums leading-none ${ativo ? "" : "text-ink"}`}>
                   {partes(d).dia}
                 </span>
                 {/* ⚠️ Caixa Aa e fonte de TEXTO, não a classe de rótulo. O
@@ -484,8 +488,12 @@ function Recentes({ input }: { input: RiskInput }) {
         <table className="w-full border-collapse">
           <thead>
             <tr>
+              {/* Cabeçalho em TEXTO, caixa Aa. A micro-caixa-alta é o papel de
+                  RÓTULO do sistema (tag de estado, unidade) — um cabeçalho de
+                  coluna é o nome do que está embaixo, e em caixa alta ele
+                  pesava mais que o conteúdo que nomeia. */}
               {["Contraparte", "Tipo", "Categoria", "Data", "Valor", "Situação"].map((c, i) => (
-                <th key={c} className={`a4p-label text-muted font-medium pb-3 ${i > 3 ? "text-right" : "text-left"}`}>{c}</th>
+                <th key={c} className={`text-caption text-muted font-medium pb-3 ${i > 3 ? "text-right" : "text-left"}`}>{c}</th>
               ))}
             </tr>
           </thead>
@@ -507,12 +515,12 @@ function Recentes({ input }: { input: RiskInput }) {
                   </td>
                   <td className="py-3 text-label text-muted">{entrada ? "Entrada" : "Saída"}</td>
                   <td className="py-3 text-label text-muted truncate">{m.category ?? "—"}</td>
-                  <td className="py-3 text-label text-muted tabular-nums">{dia} {MESES[mes - 1]}</td>
-                  <td className="py-3 text-label text-ink tabular-nums text-right">
+                  <td className="py-3 text-label a4p-valor-texto text-muted tabular-nums">{dia} {MESES[mes - 1]}</td>
+                  <td className="py-3 text-label a4p-valor-texto text-ink tabular-nums text-right">
                     <BRL value={m.amount} showDecimals={false} />
                   </td>
                   <td className="py-3 text-right">
-                    <span className="a4p-label text-muted inline-flex items-center gap-[6px] justify-end">
+                    <span className="text-caption text-muted inline-flex items-center gap-[6px] justify-end">
                       <span className="w-[7px] h-[7px] rounded-pill shrink-0"
                         style={{ background: m.status === "pago" ? "var(--color-positive)" : "var(--color-warning)" }} />
                       {m.status === "pago" ? "Liquidado" : "Previsto"}
