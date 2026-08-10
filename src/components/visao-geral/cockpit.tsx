@@ -1287,7 +1287,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         <MetricCard icon="gauge" label="Margem líquida"
           tone={g.margemLiquida >= 0.15 ? POS : g.margemLiquida >= 0 ? WARN : NEG}
           value={pctTxt(g.margemLiquida)}
-          answer={`De cada R$ 100 faturados, ${g.margemLiquida >= 0 ? `sobram R$ ${Math.round(g.margemLiquida * 100)}` : `faltam R$ ${Math.round(-g.margemLiquida * 100)}`} no fim.`}
+          answer={`De cada R$100 faturados, ${g.margemLiquida >= 0 ? `sobram R$${Math.round(g.margemLiquida * 100)}` : `faltam R$${Math.round(-g.margemLiquida * 100)}`} no fim.`}
           info={{ titulo: "Margem líquida", oQue: "A rentabilidade final do mês, depois de absolutamente tudo.", comoCalcula: "Lucro líquido ÷ receita bruta, no mês pela competência." }} />
       );
     },

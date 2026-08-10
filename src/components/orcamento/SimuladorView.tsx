@@ -29,7 +29,7 @@ import {
   type TipoDecisao, type SituacaoAtual, type Veredito, type ResultadoSimulacao,
 } from "@/core/aquisicao";
 
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 /** Cor do veredito — status é sinal semântico pequeno, nunca preenchimento. */
 const TOM: Record<Veredito, { cor: string; icone: string }> = {

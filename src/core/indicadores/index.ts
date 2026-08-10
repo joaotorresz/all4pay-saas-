@@ -320,8 +320,8 @@ export interface ContratoRecorrente {
 /**
  * **MRR — receita recorrente MENSALIZADA.**
  *
- * A normalização do ciclo é a regra inteira: um contrato anual de R$ 1.200 vale
- * R$ 100 de MRR, não R$ 1.200. Somar o valor da fatura sem dividir pelo ciclo
+ * A normalização do ciclo é a regra inteira: um contrato anual de R$1.200 vale
+ * R$100 de MRR, não R$1.200. Somar o valor da fatura sem dividir pelo ciclo
  * inflava o MRR de quem vende plano anual — e era o que duas das quatro
  * implementações anteriores faziam.
  *

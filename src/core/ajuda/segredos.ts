@@ -6,7 +6,7 @@
  * dizer o que viu — com o trecho na tela, não com uma frase genérica.
  *
  * ⚠️ A regra que decide se isto presta: **não gritar lobo**. Um financeiro
- * escreve "R$ 1.234,56", "NF 000123456" e "movimento 4111111111111111"? Não —
+ * escreve "R$1.234,56", "NF 000123456" e "movimento 4111111111111111"? Não —
  * mas escreve números o dia inteiro. Um detector que acusa qualquer sequência
  * longa treina a pessoa a ignorar o aviso, e aí o aviso deixou de existir.
  * Por isso todo detector aqui é ANCORADO e VALIDADO: cartão passa por Luhn,

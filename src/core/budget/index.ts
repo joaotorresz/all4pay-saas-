@@ -108,7 +108,7 @@ function baselineMensal(input: RiskInput, regime: Regime, de: string, ate: strin
 }
 
 const arred = (v: number) => Math.round(v);
-const fmt = (v: number) => "R$ " + arred(v).toLocaleString("pt-BR");
+const fmt = (v: number) => "R$" + arred(v).toLocaleString("pt-BR");
 
 function montarNarrativa(linhas: LinhaVariancia[], resumo: ResumoVariancia, periodo: string): string[] {
   const out: string[] = [];

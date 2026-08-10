@@ -44,7 +44,7 @@ export function sugerirRegras(transacoes: FinancialTransaction[]): RuleSuggestio
   return out;
 }
 
-const formatK = (n: number) => `R$ ${Math.round(n / 1000)}k`;
+const formatK = (n: number) => `R$${Math.round(n / 1000)}k`;
 
 /** Converte uma sugestão aceita em regra concreta. */
 export function materializarRegra(s: RuleSuggestion, id: string): FinancialRule {

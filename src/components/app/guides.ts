@@ -56,7 +56,7 @@ export const GUIDES: Record<string, Guide> = {
     secoes: [
       acoes([
         { nome: "Backfill do histórico", desc: "Deriva lançamentos de dupla entrada dos seus movimentos (idempotente).", match: "Backfill" },
-        { nome: "Novo lançamento", desc: "Posta um lançamento manual balanceado (débito × crédito).", match: "Novo lançamento", exemplo: "Débito Caixa R$ 500 × Crédito Receita de vendas R$ 500." },
+        { nome: "Novo lançamento", desc: "Posta um lançamento manual balanceado (débito × crédito).", match: "Novo lançamento", exemplo: "Débito Caixa R$500 × Crédito Receita de vendas R$500." },
         { nome: "Importar Open Finance", desc: "Em live, traz transações do banco (Pluggy) para o razão, categorizadas.", match: "Importar Open Finance" },
       ]),
       blocos([
@@ -73,7 +73,7 @@ export const GUIDES: Record<string, Guide> = {
     secoes: [
       blocos([
         { nome: "DRE do razão", desc: "Receita − despesa por conta no período.", match: "DRE gerencial · do razão" },
-        { nome: "Orçado × Realizado", desc: "Variância R$/% por conta + narrativa (flux); realizado vem do razão.", match: "Orçado × Realizado", exemplo: "Orçou R$ 10k de marketing e gastou R$ 13k → desvio +30% desfavorável." },
+        { nome: "Orçado × Realizado", desc: "Variância R$/% por conta + narrativa (flux); realizado vem do razão.", match: "Orçado × Realizado", exemplo: "Orçou R$10k de marketing e gastou R$13k → desvio +30% desfavorável." },
         { nome: "Balanço patrimonial", desc: "Ativo = Passivo + PL + resultado, com selo de fechamento.", match: "Balanço patrimonial" },
         { nome: "Pivot por dimensão", desc: "Resultado por contraparte ou centro de custo.", match: "Pivot por dimensão" },
       ]),
@@ -124,7 +124,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Orçamento vs Realizado",
     intro: "Compara cada linha do resultado contra o orçamento e EXPLICA o desvio até a categoria e a transação (flux analysis). Sem orçamento manual, usa baseline automático (run-rate).",
     comoUsar: "Escolha período e regime. Em 'Editar orçamento', informe o valor mensal por linha (em branco = automático). Abra cada linha para ver categorias e transações que explicam o desvio.",
-    exemplo: "Defina R$ 8k/mês de Folha; se o realizado vier R$ 9,5k, a linha mostra +19% desfavorável e as transações que puxaram.",
+    exemplo: "Defina R$8k/mês de Folha; se o realizado vier R$9,5k, a linha mostra +19% desfavorável e as transações que puxaram.",
     secoes: [
       blocos([
         { nome: "Resumo", desc: "Receita, EBITDA e Lucro: realizado vs orçado + desvio.", match: "EBITDA" },
@@ -154,7 +154,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Cronogramas (amortização/depreciação)",
     intro: "Despesas antecipadas (amortização) e ativo imobilizado (depreciação) vivem aqui; os cronogramas consolidam num único lançamento mensal para o razão.",
     comoUsar: "Crie um cronograma (tipo, valor total, vida útil em meses, início, residual). Escolha o mês e clique 'Lançar no razão' para postar a parcela consolidada.",
-    exemplo: "Notebook de R$ 18.000, 36 meses, residual R$ 1.800 → R$ 450/mês de depreciação lançados automaticamente.",
+    exemplo: "Notebook de R$18.000, 36 meses, residual R$1.800 → R$450/mês de depreciação lançados automaticamente.",
     secoes: [
       acoes([
         { nome: "Novo cronograma", desc: "Tipo, valor, vida útil, início e (depreciação) residual.", match: "Cronogramas" },
@@ -170,7 +170,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Reconhecimento de receita",
     intro: "Reconhece a receita ao longo da obrigação (IFRS 15/CPC 47), a partir dos contratos de recorrência: MRR/ARR, receita diferida e waterfall de MRR.",
     comoUsar: "Crie/ative recorrências em /recorrencias. Aqui, clique 'Reconhecer competência no razão' para postar a parcela do mês de cada contrato (receita diferida → receita).",
-    exemplo: "Contrato anual de R$ 12.000 cobrado à vista → reconhece R$ 1.000/mês; o resto fica como receita diferida (passivo).",
+    exemplo: "Contrato anual de R$12.000 cobrado à vista → reconhece R$1.000/mês; o resto fica como receita diferida (passivo).",
     secoes: [
       acoes([
         { nome: "Reconhecer competência", desc: "Posta no razão a receita do mês de cada contrato ativo.", match: "Reconhecer competência" },
@@ -219,7 +219,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Entrada de dados",
     intro: "A esteira única de ingestão, em três abas: Conectar (Open Finance/bancos + posição por conta), Enviar (extratos CSV/OFX e documentos por OCR via FDIP) e Conciliar (casa o que entrou com os títulos previstos, baixa única). Tudo o que entra no sistema passa por aqui.",
     comoUsar: "Escolha a aba: em Conectar, autorize o banco; em Enviar, arraste arquivos (ou cole/use a amostra) e confirme; em Conciliar, revise as filas (auto/sugestão/exceção) e dê baixa.",
-    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$ 1.200 casa com a fatura de R$ 1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
+    exemplo: "Conecte o banco (Conectar) → o extrato entra → em Conciliar, um PIX de R$1.200 casa com a fatura de R$1.200 do cliente; ou arraste um CSV em Enviar → revise e confirme.",
     secoes: [
       acoes([
         { nome: "Conectar", desc: "Open Finance (Pluggy): bancos, extrato e posição consolidada por conta." },
@@ -252,7 +252,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Recorrências / Contratos",
     intro: "Motor de receita previsível (MRR): um contrato (cliente + itens do catálogo + ciclo) projeta as próximas faturas como entradas previstas no hub.",
     comoUsar: "Crie uma recorrência (cliente, itens, ciclo) e Ative — as faturas futuras entram no fluxo previsto. Pausar/Cancelar (churn) remove do fluxo.",
-    exemplo: "Mensalidade de R$ 990 para o cliente Acme, ciclo mensal → projeta R$ 990/mês em A receber e no MRR.",
+    exemplo: "Mensalidade de R$990 para o cliente Acme, ciclo mensal → projeta R$990/mês em A receber e no MRR.",
     secoes: [
       blocos([{ nome: "Dashboard de assinatura", desc: "MRR, ativas, ticket médio e churn." }]),
     ],
@@ -281,7 +281,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Notas fiscais (NFS-e)",
     intro: "Emissão e controle de NFS-e (serviços), com os impostos brasileiros (ISS) e vínculo ao recebível/recorrência.",
     comoUsar: "Emita a NFS-e a partir de uma venda/recorrência; acompanhe número, código de verificação e status.",
-    exemplo: "Emita a NFS-e do serviço de consultoria de R$ 5.000 → o ISS é calculado e a nota fica vinculada.",
+    exemplo: "Emita a NFS-e do serviço de consultoria de R$5.000 → o ISS é calculado e a nota fica vinculada.",
     secoes: [],
   },
 
@@ -311,7 +311,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Solicitações & aprovações",
     intro: "Gate de alçada de nível bancário: títulos acima do limite precisam de aprovação, com sugestão de IA, trilha e segregação de funções.",
     comoUsar: "Nas abas (fila/minhas/todas), abra uma solicitação e Aprove / Rejeite / Devolva. A IA sugere com base no histórico do favorecido.",
-    exemplo: "Pagamento de R$ 8.000 (acima de R$ 5k) entra na fila → o aprovador confere e aprova; só então pode ser pago.",
+    exemplo: "Pagamento de R$8.000 (acima de R$5k) entra na fila → o aprovador confere e aprova; só então pode ser pago.",
     secoes: [],
   },
   "/dashboard/financial/reimbursements": {
@@ -345,7 +345,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Produtos e serviços",
     intro: "O catálogo do que você vende. O segmentado no topo separa PRODUTOS (nome, SKU, unidade, marca, preço de venda/custo) de SERVIÇOS (nome, código, unidade, preço). Alimenta vendas, recorrências, NFS-e e o DRE por linha.",
     comoUsar: "Escolha Produtos ou Serviços no topo e use 'Novo' para cadastrar. O tipo fiscal decide o que sai na nota.",
-    exemplo: "Em Produtos, cadastre 'Camiseta P' a R$ 49,90 com custo R$ 20 → a margem aparece no DRE por linha. Em Serviços, cadastre 'Consultoria mensal' a R$ 990 → use numa recorrência para virar MRR.",
+    exemplo: "Em Produtos, cadastre 'Camiseta P' a R$49,90 com custo R$20 → a margem aparece no DRE por linha. Em Serviços, cadastre 'Consultoria mensal' a R$990 → use numa recorrência para virar MRR.",
     secoes: [],
   },
   "/vendas": {
@@ -368,7 +368,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Simulador de venda (POS)",
     intro: "Simula uma venda na maquininha usando as taxas configuradas: calcula o líquido ao EC e registra o recebível líquido (e a tarifa como custo no DRE).",
     comoUsar: "Informe valor, bandeira e parcelas; veja o líquido e conclua para gerar o recebível (e a 'Tarifa de adquirência' como custo).",
-    exemplo: "Venda de R$ 1.000 em 3x crédito → o líquido cai em Recebimentos e a taxa entra como despesa.",
+    exemplo: "Venda de R$1.000 em 3x crédito → o líquido cai em Recebimentos e a taxa entra como despesa.",
     secoes: [],
   },
 
@@ -446,7 +446,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Empresa / Configurações",
     intro: "Tela de empresa: nome da organização (do Supabase), identidade jurídica editável, perfil empresarial, governança (participantes) e estrutura financeira.",
     comoUsar: "Edite a identidade jurídica e salve. Em Governança, adicione/edite participantes (papel, permissões, limite de aprovação); em live, grava nos membros da organização.",
-    exemplo: "Defina um participante como 'Gestor' que aprova até R$ 5.000 → ele passa a aparecer no gate de alçada.",
+    exemplo: "Defina um participante como 'Gestor' que aprova até R$5.000 → ele passa a aparecer no gate de alçada.",
     secoes: [
       blocos([
         { nome: "Identidade jurídica", desc: "Razão social, CNPJ, regime, representante — editável." },
@@ -489,7 +489,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Nova venda",
     intro: "A venda como documento-mãe: itens do catálogo, condição de pagamento e os efeitos em cascata (recebível, NF, imposto, DRE).",
     comoUsar: "Escolha cliente e itens (produtos/serviços), defina a condição (à vista/parcelado) e salve — o recebível e o resultado saem daqui.",
-    exemplo: "Venda de R$ 3.000 em 3x → 3 recebíveis de R$ 1.000 aparecem em Contas a receber e a receita no DRE.",
+    exemplo: "Venda de R$3.000 em 3x → 3 recebíveis de R$1.000 aparecem em Contas a receber e a receita no DRE.",
     secoes: [
       blocos([
         { nome: "Itens", desc: "Linhas de produto/serviço com quantidade, preço e desconto." },
@@ -576,7 +576,7 @@ export const GUIDES: Record<string, Guide> = {
     titulo: "Plano de contratações",
     intro: "Headcount planning × runway: monte o plano de vagas e veja o impacto REAL no caixa antes de contratar — cada vaga entra com salário + 13º + férias com 1/3 + FGTS (~1,3× o salário).",
     comoUsar: "Adicione as vagas (cargo, salário, quantidade, mês de início). O painel ao lado recalcula custo do plano, runway e score antes/depois, e projeta o caixa mês a mês por 12 meses.",
-    exemplo: "2 engenheiros de R$ 12 mil a partir do mês 3 → custo real ~R$ 31 mil/mês; se o caixa projetado ficar negativo em algum mês, o plano avisa.",
+    exemplo: "2 engenheiros de R$12 mil a partir do mês 3 → custo real ~R$31 mil/mês; se o caixa projetado ficar negativo em algum mês, o plano avisa.",
     secoes: [
       blocos([
         { nome: "Vagas do plano", desc: "As contratações simuladas, com custo real por vaga.", match: "Vagas do plano" },
@@ -625,7 +625,7 @@ Object.assign(GUIDES, {
     titulo: "Compras — pedidos com aprovação",
     intro: "A compra nasce como PEDIDO, não como despesa. Ela só vira conta a pagar quando alguém aprova — é isso que separa esta tela de Contas a pagar.",
     comoUsar: "Use os filtros de vencimento (caixa) e de competência (resultado) para achar o pedido. Aprove ou reprove na linha: aprovar coloca as parcelas no fluxo, reprovar as retira. Clique em '3×' para ver as parcelas que serão criadas.",
-    exemplo: "Um pedido de R$ 30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$ 10 mil.",
+    exemplo: "Um pedido de R$30 mil em 3× aguardando aprovação NÃO aparece no fluxo de caixa. Aprovado, entram três títulos de R$10 mil.",
     secoes: [
       acoes([
         { nome: "Nova compra", desc: "Abre o pedido: fornecedor, conta, categoria, as duas datas e o valor.", match: "Nova compra" },
@@ -644,7 +644,7 @@ Object.assign(GUIDES, {
     titulo: "Boletos recebidos (DDA)",
     intro: "Os boletos emitidos contra o seu CNPJ. O DDA depende de adesão bancária, mas o boleto não depende de ninguém: a linha digitável carrega banco, valor e vencimento.",
     comoUsar: "Cole a linha digitável (47 dígitos) ou o código de barras (44) em 'Adicionar boleto pelo número': o sistema lê tudo e confere os quatro dígitos verificadores. Depois use a seta para lançar em contas a pagar.",
-    exemplo: "Colando a linha de um boleto do Itaú, a tela mostra banco 341, R$ 3.456,70 e vencimento 15/09/2026 antes de você gravar qualquer coisa.",
+    exemplo: "Colando a linha de um boleto do Itaú, a tela mostra banco 341, R$3.456,70 e vencimento 15/09/2026 antes de você gravar qualquer coisa.",
     secoes: [
       acoes([
         { nome: "Adicionar boleto pelo número", desc: "Lê e valida a linha digitável sem depender de integração.", match: "Adicionar boleto" },
