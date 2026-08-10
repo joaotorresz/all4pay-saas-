@@ -66,7 +66,7 @@ export function ContasView() {
         </Card>
         <Kpi label="Liquidez imediata" v={t.liquidez.imediata} info={{ titulo: "Liquidez imediata", oQue: "Quanto você tem disponível agora, sem depender de recebimentos futuros.", comoCalcula: "Saldo das contas no momento, dentro do horizonte imediato." }} />
         <Kpi label="Curto prazo (30d)" v={t.liquidez.curto30} info={{ titulo: "Curto prazo (30d)", oQue: "Caixa esperado considerando o que entra e sai nos próximos 30 dias.", comoCalcula: "Saldo atual mais recebimentos menos pagamentos previstos até 30 dias." }} />
-        <Kpi label="Projetada (90d)" v={t.liquidez.projetada90} tone={t.liquidez.projetada90 < 0 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Projetada (90d)", oQue: "A folga de caixa projetada para os próximos 90 dias.", comoCalcula: "Saldo atual mais recebimentos menos pagamentos previstos até 90 dias." }} />
+        <Kpi label="Projetada (90d)" v={t.liquidez.projetada90} tone={"var(--color-ink)"} info={{ titulo: "Projetada (90d)", oQue: "A folga de caixa projetada para os próximos 90 dias.", comoCalcula: "Saldo atual mais recebimentos menos pagamentos previstos até 90 dias." }} />
       </div>
 
       {/* Exposição + concentração */}
@@ -154,7 +154,7 @@ export function ContasView() {
                 <span className="text-caption text-faint">{w.semana} · {w.periodo}</span>
                 <span className="text-caption text-positive tabular-nums">+<BRL value={w.entradas} /></span>
                 <span className="text-caption text-muted tabular-nums">−<BRL value={w.saidas} /></span>
-                <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: w.acumulado < 0 ? "var(--color-negative)" : "var(--color-ink)" }}>
+                <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: "var(--color-ink)" }}>
                   {w.acumulado < 0 ? "−" : ""}<BRL value={Math.abs(w.acumulado)} />
                 </span>
               </div>
