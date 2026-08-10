@@ -266,7 +266,7 @@ function FormTransferencia({
       <p className="m-0 text-label text-muted">Realize uma transferência entre contas bancárias.</p>
 
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Conta bancária de origem</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Conta bancária de origem</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaOrigem}>
             <Select
@@ -280,7 +280,7 @@ function FormTransferencia({
         </div>
 
         <div className="mt-6 pt-6 border-t border-border-soft">
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Conta bancária de destino</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Conta bancária de destino</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 items-start">
             <Campo label="Conta bancária" obrigatorio erro={erros.contaDestino}>
               <Select
@@ -339,7 +339,7 @@ function FormTransferencia({
 function Numero({ label, valor }: { label: string; valor: React.ReactNode }) {
   return (
     <Card>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className="block mt-2 text-[24px] leading-none font-semibold text-ink tabular-nums">{valor}</span>
     </Card>
   );
@@ -347,7 +347,7 @@ function Numero({ label, valor }: { label: string; valor: React.ReactNode }) {
 
 function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
+    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );

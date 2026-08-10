@@ -30,7 +30,7 @@ export default function NaoEncontrada() {
     <MolduraPublica>
       <main className="min-h-full flex items-center justify-center px-6 py-12">
       <div className="flex flex-col items-start gap-5 max-w-[520px]">
-        <span className="text-caption uppercase tracking-[0.08em] text-faint">{MARCA}</span>
+        <span className="text-caption tracking-[0.08em] text-faint">{MARCA}</span>
 
         <h1 className="m-0 text-h2 text-ink">Esta página não existe</h1>
 

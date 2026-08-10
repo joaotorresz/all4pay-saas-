@@ -146,7 +146,7 @@ function ChatAjuda() {
       <Card>
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
               Chamados e conversas recentes
             </span>
             <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ function ChatAjuda() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {SUGESTOES.map((s) => (
                 <div key={s.categoria} className="flex flex-col gap-2">
-                  <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{s.categoria}</span>
+                  <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{s.categoria}</span>
                   {s.perguntas.map((q) => (
                     <button
                       key={q} onClick={() => enviar(q)}
@@ -442,7 +442,7 @@ function ToursGuiados() {
       ) : (
         grupos.map((g) => (
           <div key={g.secao} className="flex flex-col gap-3">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{g.secao}</span>
+            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{g.secao}</span>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {g.tours.map((t) => {
                 const st = statusTour(progresso[t.id]);

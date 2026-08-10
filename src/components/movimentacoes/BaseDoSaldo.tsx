@@ -64,7 +64,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 rounded-card bg-surface-1 border border-border-soft">
       <div className="flex flex-col">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint inline-flex items-center gap-1">
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint inline-flex items-center gap-1">
           {d.rotulo}
           <InfoHint
             align="left"

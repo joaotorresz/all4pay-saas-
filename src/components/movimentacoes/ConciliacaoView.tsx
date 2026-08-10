@@ -169,7 +169,7 @@ function Conferencia() {
               <thead>
                 <tr className="border-b border-border-soft">
                   {["Data", "Contraparte", "Categoria", "Situação", "Valor"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>
+                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 4 ? "text-right" : "text-left"}`}>
                       {h}
                     </th>
                   ))}

@@ -51,11 +51,11 @@ export function InfoHint({ titulo, oQue, comoCalcula, className, align = "right"
           onClick={(e) => e.stopPropagation()}
         >
           {titulo && <div className="text-[14px] font-semibold text-ink mb-2">{titulo}</div>}
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-faint">Para que serve</div>
+          <div className="text-[11px] font-semibold tracking-wide text-faint">Para que serve</div>
           <p className="m-0 mt-1 text-[13px] leading-[1.5] text-muted">{oQue}</p>
           {comoCalcula && (
             <>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-faint mt-3">Como é calculado</div>
+              <div className="text-[11px] font-semibold tracking-wide text-faint mt-3">Como é calculado</div>
               <p className="m-0 mt-1 text-[13px] leading-[1.5] text-muted">{comoCalcula}</p>
             </>
           )}

@@ -117,7 +117,7 @@ export function DashboardHome() {
     <div className="flex flex-col gap-5 pb-4">
       {/* ------------------------------- saudação ------------------------------- */}
       <Card>
-        <div className="text-caption font-medium text-faint uppercase tracking-[0.08em]">
+        <div className="text-caption font-medium text-faint tracking-[0.08em]">
           {dataLonga}
         </div>
 

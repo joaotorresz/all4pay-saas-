@@ -158,7 +158,7 @@ export function KpiSimples({
 }) {
   return (
     <Card className="h-full flex flex-col justify-between" info={info}>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className="mt-3 text-[28px] leading-none font-semibold tabular-nums" style={{ color: COR_TOM[tom] }}>
         <BRL value={valor} />
       </span>
@@ -180,7 +180,7 @@ export function KpiJanelas({
 }) {
   return (
     <Card className="h-full" info={info}>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <div className="flex flex-col mt-3">
         {linhas.map((l) => (
           <div key={l.nome} className="flex items-baseline justify-between gap-3 py-[6px] border-b border-border-soft last:border-0">
@@ -211,7 +211,7 @@ export function KpiStatus({
   return (
     <Card className="h-full relative overflow-hidden" info={info}>
       <span className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: COR_TOM[tom] }} />
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span className="block mt-3 text-[28px] leading-none font-semibold tabular-nums" style={{ color: COR_TOM[tom] }}>
         <BRL value={valor} />
       </span>
@@ -337,7 +337,7 @@ export function Painel({
   return (
     <div className="flex flex-col gap-3">
       {titulo && (
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {cards.map((c) => <CardAnel key={c.id} c={c} onClick={onEscolher ? () => onEscolher(c.id) : undefined} />)}

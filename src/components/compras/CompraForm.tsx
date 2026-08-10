@@ -224,7 +224,7 @@ export function CompraForm() {
 
           {previa.length > 1 && (
             <div className="rounded-md bg-surface-2 px-4 py-3">
-              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+              <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
                 Parcelas que serão criadas
               </span>
               <div className="mt-2 flex flex-wrap gap-x-8 gap-y-2">

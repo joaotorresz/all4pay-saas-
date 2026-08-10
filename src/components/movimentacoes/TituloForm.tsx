@@ -340,7 +340,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
       {/* --------------------------- realizado (condicional) --------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotuloAcao.toUpperCase()}</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotuloAcao.toUpperCase()}</span>
         <div className="flex flex-col gap-2 mt-3">
           <Checkbox
             checked={f.realizado}
@@ -376,7 +376,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
       {/* ---------------------------- repetir (condicional) ---------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">REPETIR</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">REPETIR</span>
         <div className="mt-3">
           <Checkbox checked={f.repetir} onChange={(e) => set("repetir", e.target.checked)} label="Repetir lançamento" />
         </div>
@@ -435,7 +435,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
       {/* --------------------------------- anexos --------------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">ANEXOS</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">ANEXOS</span>
         <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
@@ -499,7 +499,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Card className="h-full">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
       <div className="flex flex-col gap-4 mt-3">{children}</div>
     </Card>
   );

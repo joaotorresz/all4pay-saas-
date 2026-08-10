@@ -101,7 +101,7 @@ export function IAView() {
           ) : (
             grupos.map((g) => (
               <div key={g.label} className="flex flex-col gap-1">
-                <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint px-1 pt-1">{g.label}</span>
+                <span className="text-[11px] font-medium tracking-[0.08em] text-faint px-1 pt-1">{g.label}</span>
                 {g.conversas.map((c) => (
                   <div key={c.id}
                     className={`group flex items-center gap-1 rounded-md px-2 py-[7px] transition-colors ${c.id === ativa ? "bg-surface-2" : "hover:bg-surface-1"}`}>
