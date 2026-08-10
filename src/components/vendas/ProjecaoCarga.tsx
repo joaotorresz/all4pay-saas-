@@ -18,7 +18,7 @@ import * as React from "react";
 import { Card, BRL, Icon, StatusBadge, Select } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { loadCompany } from "@/lib/company";
-import { perfilTributario } from "@/core/tax/regime";
+import { perfilTributario, regimeDaEmpresa } from "@/core/tax/regime";
 import { REGIMES, type RegimeTributario } from "@/core/administracao";
 import { receitaTributavel, janelaMes, janelaUltimosDias, parseLocal } from "@/core/indicadores";
 
@@ -33,8 +33,15 @@ export function ProjecaoCarga() {
 
   React.useEffect(() => {
     // localStorage só depois de montar (hidratação).
-    const db = loadCompany()?.db as { regime?: RegimeTributario } | undefined;
-    if (db?.regime) { setRegime(db.regime); setSalvo(db.regime); }
+    // ⚠️ Pelo RESOLVEDOR, não por `db.regime` cru. Esta tela importava
+    // `regimeDaEmpresa` e mesmo assim lia a chave direto: uma empresa que
+    // preencheu o regime no onboarding (que grava `regimeTributario`) caía no
+    // padrão aqui e via a carga de um regime que não é o dela.
+    const db = loadCompany()?.db as Record<string, unknown> | undefined;
+    if (db && (db.regime || db.regimeTributario)) {
+      const r = regimeDaEmpresa(db);
+      setRegime(r); setSalvo(r);
+    }
   }, []);
 
   const perfil = perfilTributario(regime);
