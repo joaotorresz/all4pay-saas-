@@ -78,8 +78,8 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
           <div className="min-w-0">
             <div className="text-[16px] font-semibold text-ink truncate inline-flex items-center gap-2">
               {resumo?.nome ?? "Contato"}
-              {resumo?.ehCliente && <span className="text-[10px] font-medium uppercase tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Cliente</span>}
-              {resumo?.ehFornecedor && <span className="text-[10px] font-medium uppercase tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Fornecedor</span>}
+              {resumo?.ehCliente && <span className="text-[10px] font-medium tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Cliente</span>}
+              {resumo?.ehFornecedor && <span className="text-[10px] font-medium tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[1px]">Fornecedor</span>}
             </div>
             {resumo?.perfil && (
               <div className="text-caption capitalize" style={{ color: CLASS_COR[resumo.perfil.classificacao] }}>
@@ -110,7 +110,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
               {/* Histórico de recebimento (6 meses) */}
               {resumo.historico.some((h) => h.valor > 0) && (
                 <section className="flex flex-col gap-1">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-faint inline-flex items-center gap-1">
+                  <div className="text-[11px] font-semibold tracking-wide text-faint inline-flex items-center gap-1">
                     Recebido por mês
                     <InfoHint align="left" oQue="Quanto este contato pagou a você mês a mês, nos últimos 6 meses." comoCalcula="Soma das entradas pagas do contato, agrupadas pelo mês de caixa (paid_date)." />
                   </div>
@@ -121,7 +121,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
               {/* Risco de crédito */}
               {resumo.perfil && (
                 <section className="flex flex-col gap-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-faint inline-flex items-center gap-1">
+                  <div className="text-[11px] font-semibold tracking-wide text-faint inline-flex items-center gap-1">
                     Risco de crédito
                     <InfoHint align="left" oQue="O risco de o cliente atrasar/não pagar, previsto pelo comportamento de pagamento dele." comoCalcula="Score 0–100 do motor de inadimplência (atraso médio, tendência, oscilação, recorrência); quanto maior, pior. Os fatores abaixo explicam a nota." />
                   </div>
@@ -146,7 +146,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
 
               {/* Últimos lançamentos */}
               <section className="flex flex-col gap-1">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-faint mb-1">Últimos lançamentos</div>
+                <div className="text-[11px] font-semibold tracking-wide text-faint mb-1">Últimos lançamentos</div>
                 {resumo.ultimos.length === 0 ? (
                   <span className="text-caption text-faint">Sem lançamentos.</span>
                 ) : resumo.ultimos.map((m) => (

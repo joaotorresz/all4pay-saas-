@@ -83,7 +83,7 @@ export function DimensoesView() {
         <Card><span className="text-caption text-faint">Nenhum movimento no período.</span></Card>
       ) : (
         <Card padded={false} info={{ titulo: "Análise por dimensão", oQue: "Agrupa os movimentos pela dimensão escolhida (categoria, centro de custo, contraparte ou tag) com drill-down até a transação.", comoCalcula: "Soma receita e despesa de cada grupo no período e regime; resultado igual a receita menos despesa." }}>
-          <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+          <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
             <span className="flex-1">{DIMENSOES.find((d) => d.id === dim)?.label} · {report.periodoLabel}</span>
             <span className="w-[120px] text-right">Receita</span>
             <span className="w-[120px] text-right">Despesa</span>

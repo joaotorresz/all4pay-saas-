@@ -240,7 +240,7 @@ export function ComprasView() {
                       {aberta === c.id && (
                         <tr className="border-b border-border-soft bg-surface-2/40">
                           <td colSpan={9} className="px-6 py-4">
-                            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
                               Parcelas geradas
                             </span>
                             <div className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
@@ -295,7 +295,7 @@ function Faixa({
 
 function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
+    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );

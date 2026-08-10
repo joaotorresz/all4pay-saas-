@@ -279,7 +279,7 @@ function Relatorio({
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {f.kpis.map((k) => (
           <Card key={k.id}>
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{k.label}</span>
+            <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{k.label}</span>
             <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${k.valor < 0 ? "text-negative" : "text-ink"}`}>
               {k.formato === "pct" ? `${pctDeInteiro(k.valor)}` : <BRL value={k.valor} />}
             </span>
@@ -327,9 +327,9 @@ function Relatorio({
           <table className="w-full border-collapse text-label">
             <thead>
               <tr className="border-b border-border-soft">
-                <th className="px-6 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Linha</th>
+                <th className="px-6 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Linha</th>
                 {f.relatorio.colunas.map((c) => (
-                  <th key={c} className="px-4 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                  <th key={c} className="px-4 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">
                     {rotuloColuna(c)}
                   </th>
                 ))}

@@ -245,7 +245,7 @@ const fmtPct = (n: number) => `${(n * 100).toLocaleString("pt-BR", { minimumFrac
 function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, string][]; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-2" info={info}>
-      <span className="text-caption font-semibold tracking-wide uppercase" style={{ color: POSITIVE }}>{titulo}</span>
+      <span className="text-caption font-semibold tracking-wide" style={{ color: POSITIVE }}>{titulo}</span>
       <div className="flex flex-col">
         {rows.map(([k, v], i) => (
           <div key={k} className={`flex items-center justify-between gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
@@ -264,7 +264,7 @@ function DestaqueCard({ titulo, rows, tint, info }: { titulo: string; rows: [str
   const cor = isNeg ? "var(--color-negative)" : POSITIVE;
   return (
     <Card className="flex flex-col gap-2" style={{ background: bg }} info={info}>
-      <span className="text-caption font-semibold tracking-wide uppercase" style={{ color: cor }}>{titulo}</span>
+      <span className="text-caption font-semibold tracking-wide" style={{ color: cor }}>{titulo}</span>
       <div className="flex flex-col">
         {rows.map(([k, v], i) => (
           <div key={k} className={`flex items-center justify-between gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>

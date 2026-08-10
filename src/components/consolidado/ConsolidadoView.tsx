@@ -48,7 +48,7 @@ export function ConsolidadoView() {
             </div>
 
             <Card padded={false} info={{ titulo: "Posição por empresa", oQue: "Mostra saldo, receita, despesa e resultado de cada organização e a soma consolidada.", comoCalcula: "Uma linha por empresa em que você é membro; a última linha soma as colunas, sem eliminações intercompany." }}>
-              <div className="hidden sm:grid grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+              <div className="hidden sm:grid grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
                 <span>Empresa</span><span className="text-right">Saldo</span><span className="text-right">Receita</span><span className="text-right">Despesa</span><span className="text-right">Resultado</span>
               </div>
               {c.entidades.map((e, i) => (

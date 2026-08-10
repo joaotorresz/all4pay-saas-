@@ -158,10 +158,10 @@ function Arvore({ cats, onCats }: { cats: CategoriaPlano[]; onCats: (c: Categori
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
-                  <th className="px-6 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint w-[140px]">ID</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint w-[100px]">Código</th>
-                  <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Categoria</th>
-                  <th className="px-6 py-3 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Ações</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint w-[140px]">ID</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint w-[100px]">Código</th>
+                  <th className="px-4 py-3 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Categoria</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Ações</th>
                 </tr>
               </thead>
               <tbody>

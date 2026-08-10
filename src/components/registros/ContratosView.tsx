@@ -496,9 +496,9 @@ function BlocoVendas({
                 <table className="w-full border-collapse">
                   <thead className="sticky top-0 bg-white">
                     <tr className="border-b border-border-soft">
-                      <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Competência</th>
-                      <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Vencimento</th>
-                      <th className="px-4 py-2 text-right text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Valor</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Competência</th>
+                      <th className="px-4 py-2 text-left text-[11px] font-medium tracking-[0.08em] text-faint">Vencimento</th>
+                      <th className="px-4 py-2 text-right text-[11px] font-medium tracking-[0.08em] text-faint">Valor</th>
                     </tr>
                   </thead>
                   <tbody>

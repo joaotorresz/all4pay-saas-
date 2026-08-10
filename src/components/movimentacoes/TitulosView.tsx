@@ -464,7 +464,7 @@ function CardTitulo({ c, onClick }: { c: CardResumo; onClick: () => void }) {
 
 function Th({ children, direita, className }: { children?: React.ReactNode; direita?: boolean; className?: string }) {
   return (
-    <th className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"} ${className ?? ""}`}>
+    <th className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"} ${className ?? ""}`}>
       {children}
     </th>
   );

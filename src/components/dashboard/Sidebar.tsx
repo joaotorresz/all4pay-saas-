@@ -262,7 +262,7 @@ export function Sidebar() {
         {/* O grupo em que você está — a barra horizontal marca o mesmo. */}
         {!col && (
           <div className="px-[10px] pb-[6px] shrink-0">
-            <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint truncate block">
+            <span className="text-[11px] font-medium tracking-[0.08em] text-faint truncate block">
               {grupo?.label}
             </span>
           </div>

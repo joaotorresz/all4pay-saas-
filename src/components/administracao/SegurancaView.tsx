@@ -159,7 +159,7 @@ export function SegurancaView() {
           <span className="text-h3 text-ink">{papel ? nomeDoPapel(papel) : "—"}</span>
           {(["ler", "exportar", "lancar", "baixar", "aprovar", "fechar", "administrar", "cobranca"] as const).map((a) => (
             <span key={a}
-              className="text-[11px] uppercase tracking-[0.08em] px-2 py-[3px] rounded-pill"
+              className="text-[11px] tracking-[0.08em] px-2 py-[3px] rounded-pill"
               style={{
                 background: pode(a) ? "var(--color-lime-tint)" : "var(--color-surface-2)",
                 color: pode(a) ? "var(--color-ink)" : "var(--color-placeholder)",
@@ -304,7 +304,7 @@ function ListaAchados({ achados }: { achados: Achado[] }) {
     <div className="flex flex-col gap-2">
       {achados.map((a, i) => (
         <div key={`${a.tabela}-${i}`} className="flex items-start gap-3">
-          <span className="text-[11px] uppercase tracking-[0.08em] shrink-0 mt-[3px] w-[54px]" style={{ color: COR[a.gravidade] }}>
+          <span className="text-[11px] tracking-[0.08em] shrink-0 mt-[3px] w-[54px]" style={{ color: COR[a.gravidade] }}>
             {ROTULO[a.gravidade]}
           </span>
           <div className="min-w-0">

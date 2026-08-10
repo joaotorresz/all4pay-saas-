@@ -160,7 +160,7 @@ export function VendaForm() {
       {/* ------------------------------ produtos ------------------------------ */}
       <Card>
         <div className="flex items-center justify-between gap-3">
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">PRODUTOS</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">PRODUTOS</span>
           {totalItens > 0 && (
             <span className="text-caption text-muted tabular-nums">
               Soma dos itens: <b className="text-ink"><BRL value={totalItens} /></b>
@@ -212,7 +212,7 @@ export function VendaForm() {
 
       {/* --------------------------- valores e taxas --------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">VALORES E TAXAS</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">VALORES E TAXAS</span>
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-6 mt-3">
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Valor recebido</span>
@@ -265,7 +265,7 @@ export function VendaForm() {
 
       {/* ---------------------------- dados gerais ---------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">DADOS GERAIS</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">DADOS GERAIS</span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select value={v.contaId} onChange={(x) => set("contaId", x)} placeholder="Selecione a conta"
@@ -307,7 +307,7 @@ export function VendaForm() {
       {/* ------------------------- recebimento e nota ------------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
         <Card>
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">RECEBIMENTO</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">RECEBIMENTO</span>
           <div className="mt-3">
             <Checkbox checked={v.pago} onChange={(e) => setV((s) => ({
               ...s, pago: e.target.checked,
@@ -329,7 +329,7 @@ export function VendaForm() {
         </Card>
 
         <Card>
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">NOTA FISCAL</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">NOTA FISCAL</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
             <Campo label="Status da NF">
               <Select value={v.statusNF} onChange={(x) => set("statusNF", x as StatusNF)}
@@ -354,7 +354,7 @@ export function VendaForm() {
 
       {/* -------------------------- campos de texto -------------------------- */}
       <Card>
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">CAMPOS DE TEXTO</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">CAMPOS DE TEXTO</span>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Descrição">
             <Textarea value={v.descricao} onChange={(e) => set("descricao", e.target.value)} rows={3} />
@@ -385,7 +385,7 @@ export function VendaForm() {
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Card className="h-full">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{titulo}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
       <div className="flex flex-col gap-4 mt-3">{children}</div>
     </Card>
   );

@@ -117,7 +117,7 @@ export function ReceitaReconhecimentoView() {
 
           {/* Reconhecimento por contrato + diferida */}
           <Card padded={false} info={{ titulo: "Reconhecimento por contrato", oQue: "Detalha por contrato o MRR, a receita diferida e quanto do ciclo atual já decorreu.", comoCalcula: "A receita é apropriada ao longo da obrigação (1 sobre ciclo por mês); a parte faturada e não reconhecida é a receita diferida." }}>
-            <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+            <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
               <span className="flex-1">Contrato</span>
               <span className="w-[110px] text-right">MRR</span>
               <span className="w-[120px] text-right">Diferida</span>

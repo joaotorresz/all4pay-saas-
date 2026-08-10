@@ -272,7 +272,7 @@ export function EnvioNFsView() {
 function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-[6px]">
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotulo}</span>
       {children}
     </div>
   );

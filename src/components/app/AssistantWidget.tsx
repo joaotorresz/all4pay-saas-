@@ -88,7 +88,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
         <header className="flex items-center gap-2 px-4 h-[60px] border-b border-border-soft shrink-0">
           <MarcaIA size={28} radius={8} />
           <span className="text-[16px] font-semibold text-ink">All 4 Pay AI</span>
-          <span className="text-[10px] font-semibold tracking-wide uppercase text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
+          <span className="text-[10px] font-semibold tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
           {turnos.length > 0 && (
             <button onClick={() => carregar([])} aria-label="Nova conversa" title="Nova conversa" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
               <Icon name="edit" size={16} color="currentColor" />
@@ -132,7 +132,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
 
           {/* sugestões (chips) — aprendidas + curadas */}
           <div className="flex flex-col gap-2 mt-auto pt-2">
-            {turnos.length === 0 && <span className="text-[11px] font-medium text-faint uppercase tracking-wide">Sugestões</span>}
+            {turnos.length === 0 && <span className="text-[11px] font-medium text-faint tracking-wide">Sugestões</span>}
             <div className="flex flex-wrap gap-2">
               {sugeridas.map((q, i) => (
                 <button key={q} data-ia="chip" onClick={() => responder(q)} disabled={pensando}

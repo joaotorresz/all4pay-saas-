@@ -165,7 +165,7 @@ export function FluxoCaixaMensalView() {
               <thead>
                 <tr className="border-b border-border-soft">
                   {["Data", "Descrição", "Valor", "Saldo"].map((h, i) => (
-                    <th key={h} className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i > 1 ? "text-right" : "text-left"}`}>{h}</th>
+                    <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i > 1 ? "text-right" : "text-left"}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -261,7 +261,7 @@ export function ExtratoView() {
                   <thead>
                     <tr className="border-b border-border-soft">
                       {["Data", "Descrição", "Categoria", "Valor", "Saldo"].map((h, i) => (
-                        <th key={h} className={`px-6 py-3 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${i > 2 ? "text-right" : "text-left"}`}>{h}</th>
+                        <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i > 2 ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -376,7 +376,7 @@ export function FaturaCartaoView() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
-          <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Faturas no período</span>
+          <span className="text-[11px] font-medium tracking-[0.08em] text-faint">Faturas no período</span>
           <span className="block mt-2 text-[24px] leading-none font-semibold text-ink tabular-nums">{faturas.length}</span>
         </Card>
         <Kpi label="Total em aberto" valor={emAberto} cor={emAberto > 0 ? "var(--color-warning)" : undefined} />
@@ -441,7 +441,7 @@ export function FaturaCartaoView() {
 function Kpi({ label, valor, cor, forte }: { label: string; valor: number; cor?: string; forte?: boolean }) {
   return (
     <Card>
-      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{label}</span>
+      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
       <span
         className={`block mt-2 text-[${forte ? 24 : 22}px] leading-none font-semibold tabular-nums`}
         style={{ color: cor ?? "var(--color-ink)", fontSize: forte ? 24 : 22 }}

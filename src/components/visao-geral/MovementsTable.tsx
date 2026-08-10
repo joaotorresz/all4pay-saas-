@@ -149,7 +149,7 @@ export function MovementsTable({
       )}
 
       <Card padded={false}>
-        <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint border-b border-border-soft">
+        <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
           {selMode && <span className="w-[18px]" />}
           <span className="flex-1">Descrição</span>
           <span className="w-[110px]">{variant === "paid" ? "Liquidação" : "Vencimento"}</span>

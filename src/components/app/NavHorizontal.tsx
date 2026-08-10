@@ -113,12 +113,17 @@ export function NavHorizontal() {
               // O marcador do ativo passou a ser a PRÓPRIA pílula acesa — o
               // sublinhado lima saiu junto, senão haveria dois marcadores
               // dizendo a mesma coisa.
+              // ⚠️ O VIDRO SAIU. A pílula translúcida dependia de
+              // `backdrop-filter`, que só o Chromium desenha por inteiro — e
+              // um controle que muda de forma conforme o navegador não é do
+              // design system, é um efeito. As abas passaram às superfícies
+              // que o sistema já tem: branco quando em repouso, cinza
+              // (`surface-2`) quando selecionada, sem borda.
               className={cn(
-                "a4p-glass-pill inline-flex items-center px-4 py-[7px] rounded-pill",
-                "whitespace-nowrap text-[14px] transition-[color,opacity] duration-150",
-                marcado ? "" : "opacity-70 hover:opacity-100",
+                "inline-flex items-center px-4 py-[7px] rounded-pill border-0",
+                "whitespace-nowrap text-[14px] transition-colors duration-150",
+                marcado ? "bg-surface-2 text-ink" : "bg-white text-ink hover:bg-surface-2",
               )}
-              style={{ color: marcado ? "var(--a4p-chrome-ink)" : "var(--a4p-chrome-mut)" }}
             >
               {s.label}
             </Link>
@@ -155,7 +160,7 @@ export function NavHorizontal() {
           >
             <Icon name="sparkles" size={15} color="currentColor" />
             <span className="text-[13px] font-medium">Modo Pro</span>
-            <span className="text-[10px] uppercase tracking-[0.06em]">
+            <span className="text-[10px] tracking-[0.06em]">
               {!temDireito ? "plano" : pro ? "on" : "off"}
             </span>
             <span

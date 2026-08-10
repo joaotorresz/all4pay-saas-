@@ -256,7 +256,7 @@ export function DominioExportView() {
                   )}
 
                   <div className="flex flex-col gap-2">
-                    <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
+                    <span className="text-[11px] font-medium tracking-[0.08em] text-faint">
                       Prévia do arquivo
                     </span>
                     <pre className="m-0 p-4 rounded-md bg-surface-2 text-caption text-ink tabular-nums overflow-x-auto">
@@ -298,7 +298,7 @@ function Kpi({ rotulo, valor, node }: { rotulo: string; valor?: string; node?: R
   return (
     <Card>
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{rotulo}</span>
+        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotulo}</span>
         <span className="text-[20px] leading-none font-semibold text-ink tabular-nums">{node ?? valor}</span>
       </div>
     </Card>
@@ -325,7 +325,7 @@ function Aviso({
 
 function Th({ children, direita }: { children: React.ReactNode; direita?: boolean }) {
   return (
-    <th className={`px-6 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
+    <th className={`px-6 py-2 text-[11px] font-medium tracking-[0.08em] text-faint ${direita ? "text-right" : "text-left"}`}>
       {children}
     </th>
   );

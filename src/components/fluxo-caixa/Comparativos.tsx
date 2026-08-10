@@ -89,7 +89,7 @@ function CardComparativo({
   return (
     <Card className="flex flex-col gap-3" info={{ titulo, ...info }}>
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-faint">{titulo}</span>
+        <span className="text-[13px] font-medium tracking-[0.06em] text-faint">{titulo}</span>
         <Link href={href} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink shrink-0">
           Ver mais ↗
         </Link>
@@ -396,7 +396,7 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
         oQue: "O caminho do dinheiro no período: da receita às despesas, e delas às categorias e contrapartes.",
         comoCalcula: "Cada fluxo é a soma das saídas do período; a largura da faixa é o valor. Abre até 8 categorias e, dentro de cada uma, as 4 maiores contrapartes.",
       }}>
-        <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-faint">Para onde foi</span>
+        <span className="text-[13px] font-medium tracking-[0.06em] text-faint">Para onde foi</span>
         <span className="text-caption text-faint">Sem saídas no período selecionado.</span>
       </Card>
     );
@@ -411,7 +411,7 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
       comoCalcula: "Cada fluxo é a soma das saídas do período; a largura da faixa é o valor. Abre até 8 categorias e, dentro de cada uma, as 4 maiores contrapartes.",
     }}>
       <div className="flex items-start justify-between gap-3">
-        <span className="text-[13px] font-medium uppercase tracking-[0.06em] text-faint">Para onde foi</span>
+        <span className="text-[13px] font-medium tracking-[0.06em] text-faint">Para onde foi</span>
         <span className="text-[13px] text-muted tabular-nums">{formatBRL(total)}</span>
       </div>
       <ResponsiveContainer width="100%" height={altura}>

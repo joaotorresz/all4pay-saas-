@@ -23,7 +23,7 @@ export default function Privacidade() {
       <main className="flex flex-col items-center px-4 py-12">
       <article className="w-full max-w-2xl flex flex-col gap-6">
         <header className="flex flex-col gap-2">
-          <span className="text-caption uppercase tracking-[0.08em] text-faint">{MARCA}</span>
+          <span className="text-caption tracking-[0.08em] text-faint">{MARCA}</span>
           <h1 className="m-0 text-h2 text-ink">Privacidade e proteção de dados</h1>
           <p className="m-0 text-caption text-faint">
             Versão beta deste documento · atualizada em 05/08/2026 · sujeita a revisão
