@@ -34,7 +34,7 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import { GUIDES } from "@/components/app/guides";
-import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, menuDoPlano } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, menuDoPlano, PLATAFORMA_ITENS } from "@/components/dashboard/nav-data";
 import {
   detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
   statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
@@ -2549,6 +2549,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("nav: nenhuma rota duplicada no menu",
     new Set(rotas).size === rotas.length,
     rotas.filter((r, i) => rotas.indexOf(r) !== i).join(" | "));
+
+  /*
+   * ⚠️ E O MENU DE QUEM ADMINISTRA A PLATAFORMA TAMBÉM. A checagem acima varre
+   * `SECTIONS`/`CONFIG` — o shape ESTÁTICO. Os itens de plataforma são
+   * anexados a Configurações em tempo de execução (`useNavSections`), então
+   * eles ficavam fora da varredura: três telas apareceram duas vezes no mesmo
+   * grupo, com rótulos diferentes ("Armazenamento" e "Armazenamento e backup",
+   * "Segurança" e "Segurança e isolamento"), e nenhuma guarda viu.
+   *
+   * Duplicata só existe para quem tem o papel, que é justamente quem menos
+   * reclama — e por isso ela sobreviveria.
+   */
+  const rotasAdmin = [...rotas, ...PLATAFORMA_ITENS.map((i) => i.href).filter(Boolean)];
+  ok("nav: nem no menu de quem administra a plataforma",
+    new Set(rotasAdmin).size === rotasAdmin.length,
+    rotasAdmin.filter((r, i) => rotasAdmin.indexOf(r) !== i).join(" | "));
   ok("nav: ids de grupo são únicos", new Set(todas.map((s) => s.id)).size === todas.length);
   // Um grupo sem `href` e sem filhos seria uma linha que abre para o nada.
   ok("nav: todo grupo é folha OU tem filhos",

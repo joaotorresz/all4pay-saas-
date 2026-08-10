@@ -207,6 +207,16 @@ export const SECTIONS: Section[] = [
   },
 ];
 
+/**
+ * Os itens que SÓ quem responde pela plataforma vê. Exportado porque a guarda
+ * de rota duplicada precisa varrer o menu REAL — este bloco é anexado a
+ * Configurações em tempo de execução, e foi por ele não ser varrido que três
+ * duplicatas passaram despercebidas.
+ */
+export const PLATAFORMA_ITENS: Item[] = [
+  { label: "Administração", desc: "Todos os clientes da plataforma", href: "/admin", icon: "shield-check" },
+];
+
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Empresa", desc: "Razão social, endereço e fiscal", href: "/dashboard/administration/company-data", icon: "building" },
@@ -361,12 +371,24 @@ export function useNavSections(): { sections: Section[]; pessoal: boolean } {
    * já vive quem responde por elas. É o mesmo gate de `isPlatformAdmin` que já
    * governava "Administração".
    */
-  const FERRAMENTAS_DE_PLATAFORMA: Item[] = [
-    { label: "Administração", desc: "Todos os clientes da plataforma", href: "/admin", icon: "shield-check" },
-    { label: "Inventário de rotas", desc: "Rota, dono e status", href: "/dashboard/administration/routes", icon: "network" },
-    { label: "Armazenamento", desc: "O que subiu, e o que não", href: "/dashboard/administration/storage", icon: "database" },
-    { label: "Segurança e isolamento", desc: "Isolamento entre empresas", href: "/dashboard/administration/security", icon: "shield-check" },
-  ];
+  /*
+   * ⚠️ SÓ O QUE É DE PLATAFORMA, E SÓ UMA VEZ.
+   *
+   * Esta lista carregava quatro itens, e três viraram DUPLICATA quando o
+   * rodapé de Configurações foi redesenhado: `storage` e `security` passaram a
+   * ser itens do cliente ("Armazenamento e backup", "Segurança"), e continuavam
+   * aqui com outro nome — para quem administra a plataforma, o mesmo grupo
+   * mostrava duas entradas para a mesma tela, com rótulos diferentes. É o
+   * defeito das portas duplicadas que este repositório passou ondas removendo,
+   * reintroduzido pela porta dos fundos: a guarda de rota duplicada varre
+   * `SECTIONS`/`CONFIG` estáticos e não via esta lista, que é anexada em
+   * tempo de execução.
+   *
+   * O "Inventário de rotas" saiu por outro motivo: ele mudou de casa para
+   * `/admin`, onde ganhou porta própria. Mantê-lo aqui seria "mover" que não
+   * move nada.
+   */
+  const FERRAMENTAS_DE_PLATAFORMA: Item[] = PLATAFORMA_ITENS;
   const config: Section = {
     ...configBase,
     items: [...configBase.items, ...(admin ? FERRAMENTAS_DE_PLATAFORMA : [])],
