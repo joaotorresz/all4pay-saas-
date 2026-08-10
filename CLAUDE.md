@@ -64,6 +64,28 @@ ficam como histórico; onde discordarem desta, **esta vence**.
 **A base é sempre branco quente + bege.** O preto quente entra em blocos de
 contraste e nos cards de dado.
 
+⚠️ **AS TRÊS SUPERFÍCIES DE TRABALHO ficam FORA da tabela de marca**, e de
+propósito: a tabela descreve a IDENTIDADE; estas descrevem a moldura e a área
+onde o operador passa o dia. Escolhidas no Laboratório, com a tela na frente.
+
+| Token | Valor | Papel |
+| --- | --- | --- |
+| `--a4p-chrome` | `#2C251E` | moldura escura em volta do app |
+| `--a4p-app-bg` · `--color-surface-1` · `--color-surface-2` | `#F1F3F6` | área de trabalho, chips, seções |
+| `--color-white` | `#FFFFFF` | superfície do card |
+
+⚠️ **O CARD NÃO TEM BORDA.** O que o separa do fundo é o CONTRASTE entre as
+duas superfícies (branco sobre `#F1F3F6`), não um fio. Um hairline aqui vira
+uma terceira linha competindo com o recorte que o próprio contraste desenha —
+e um contorno que quase não se vê é pior que nenhum: some em tela fraca e
+aparece em tela boa, então o card muda de peso conforme o monitor.
+
+⚠️ **O branco puro voltou SÓ como superfície de card.** A regra "nunca
+`#ffffff`" não foi desligada, foi ESTREITADA: a guarda aceita `#ffffff`
+apenas na linha que DECLARA o token; um `#fff` solto num componente continua
+reprovando — é ele que produz as quarenta superfícies levemente diferentes, e
+é a parte da regra que carrega o valor. Provado quebrando.
+
 ⚠️ **As semânticas ficam FORA da paleta, de propósito.** A tabela de marca não
 tem vermelho — e um ERP que mostra vencido, saída e prejuízo precisa de um.
 `positive` / `negative` / `warning` seguem como estavam (decisão anterior,
@@ -83,7 +105,9 @@ mudava, o outro não.
 
 ### Três famílias, três papéis
 
-- **Gellix Bold (700)** — *display*. O valor monetário principal da tela, o
+- **Gellix Bold (700)** — *display*. O valor monetário principal da tela (o
+  herói é **33px**, na regra de papel `.a4p-heroi` — nunca num `text-[Npx]` do
+  componente, senão a promoção do Laboratório nasce inerte), o
   título de uma tela de **destaque** (`.a4p-heroi`), a porcentagem grande do
   donut. Sempre número ou palavra curta, nunca parágrafo.
   ⚠️ Ela carrega os VALORES porque o arquivo tem **`tnum`** (medido com

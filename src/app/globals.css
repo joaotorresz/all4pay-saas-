@@ -188,9 +188,14 @@
   --color-black-pure: #000000; /* marketing only — nunca no app */
   --color-ink: #28211b; /* Black (quente) */
   --color-ink-soft: #37332a; /* Dark Grey */
-  --color-white: #fefdf0; /* White (quente) — superfície de card */
-  --color-surface-1: #fefdf0; /* canvas padrão */
-  --color-surface-2: #eeeddb; /* Beige — seção / hover / camada intermediária */
+  /* ⚠️ SUPERFÍCIES — ajuste vindo do Laboratório (ver CLAUDE.md). O par
+     branco+bege da tabela de marca continua sendo a identidade; o que mudou
+     é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
+     frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
+     branco puro para separar da área por CONTRASTE, agora que não há borda. */
+  --color-white: #ffffff; /* superfície de card */
+  --color-surface-1: #f1f3f6; /* área de trabalho (dentro do cartão do app) */
+  --color-surface-2: #f1f3f6; /* chips / seções / hover */
   --color-surface-3: #dddcc5; /* Dark Beige — desabilitado / teclado / sheet */
   --color-border: #d4d3d1; /* Border */
   --color-border-soft: #eeeddb; /* Beige como divisor suave */
@@ -210,14 +215,14 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #28211b;        /* Black quente — fundo da moldura */
+  --a4p-chrome: #2c251e;        /* moldura escura (Black quente rebaixado) */
   --a4p-chrome-ink: #fefdf0;    /* White quente sobre a moldura */
   --a4p-chrome-mut: #a9a6a4;    /* Placeholder — secundário sobre a moldura */
   --a4p-chrome-field: #37332a;  /* Dark Grey — busca e botões de ícone */
   --a4p-chrome-field-hover: #534d41; /* Grey */
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #fefdf0;
+  --a4p-app-bg: #f1f3f6;
   --a4p-app-radius: 28px;
 
   --color-text-secondary: #534d41; /* Grey — corpo e labels */
@@ -547,8 +552,8 @@ h1, h2, h3,
    ============================================================ */
 .ds-visor {
   /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #fefdf0;          /* bg/base — White quente, canvas geral */
-  --a4p-box-bg: #fefdf0;      /* cards SÓLIDOS em White quente (nunca #ffffff) */
+  --a4p-bg: #f1f3f6;          /* bg/base — área de trabalho */
+  --a4p-box-bg: #ffffff;      /* cards SÓLIDOS */
   --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
   --a4p-box-padding: 24px;    /* respiro interno */
   --a4p-box-border: transparent; /* SEM borda (design clean) */
@@ -565,10 +570,10 @@ html:not(.dark) .ds-visor {
   /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #fefdf0;      /* White quente — canvas padrão */
-  --color-surface-2: #eeeddb;      /* Beige */
+  --color-surface-1: #f1f3f6;      /* área de trabalho */
+  --color-surface-2: #f1f3f6;      /* chips / seções */
   --color-surface-3: #dddcc5;      /* Dark Beige */
-  --color-white: #fefdf0;          /* superfície de card — NUNCA #ffffff */
+  --color-white: #ffffff;          /* superfície de card */
   --color-ink: #28211b;            /* Black quente — NUNCA #000000 */
   --color-ink-soft: #37332a;       /* Dark Grey */
   --color-text-secondary: #534d41; /* Grey */
@@ -674,6 +679,14 @@ html:not(.dark) .ds-visor {
   color: var(--color-ink);
   letter-spacing: -0.03em;
 }
+/* Tamanho do herói — 33px (escolha do Laboratório, promovida).
+   ⚠️ Ele mora AQUI, na regra de papel, e não mais no `text-[30px]` do
+   componente: com o tamanho preso à classe utilitária, o ajuste do
+   Laboratório só sobrevivia enquanto ele injetava `!important`, e a promoção
+   para o código nascia inerte. É o mesmo defeito dos blocos posicionais. */
+.ds-visor .a4p-heroi {
+  font-size: 33px;
+}
 /* ⚠️ OS VALORES SÃO GELLIX — e isto só é possível porque o arquivo TEM `tnum`
    (medido com fontTools). Sem numeral tabular cada linha de uma coluna de
    dinheiro começaria num ponto diferente, que é o defeito que o `tabular-nums`
@@ -730,10 +743,15 @@ html:not(.dark) .ds-visor {
    ligar uma borda depois. */
 .ds-visor [data-card="1"] {
   background: var(--color-white);
-  /* Hairline do Laboratório (#F1F3F5 — o export trazia "##F1F3F5", com dois
-     `#`, que o CSS descarta em silêncio). Vive no token `--a4p-hairline`
-     porque a Sidebar e a TopBar usam a MESMA borda. */
-  border: 1px solid var(--a4p-hairline);
+  /* ⚠️ CARD SEM BORDA. O que separa o card do fundo é o CONTRASTE das duas
+     superfícies (branco sobre a área clara), não um fio. Com a área do app
+     numa cor própria, o hairline virava uma terceira linha competindo com a
+     que o próprio recorte já desenha — e um contorno que quase não se vê é
+     pior que nenhum: some em telas fracas e aparece nas boas, então o card
+     muda de peso conforme o monitor.
+     `border-width: 0` em vez do shorthand `border: 0` preserva a cor de borda
+     do tema para quem quiser ligar uma borda pontual depois. */
+  border-width: 0;
   box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
@@ -1144,15 +1162,17 @@ html.dark .a4p-canvas {
    menor e faint). O inteiro fica em Roobert Variable 35, definido no
    componente — por isso o prefixo carrega tamanho PRÓPRIO em px, não 1em. */
 .ds-visor .a4p-heroi .a4p-num > span:first-child {
-  font-family: "Roobert Variable", "Roobert", sans-serif;
-  font-size: 30px;
-  font-weight: 400;
+  font-family: var(--font-display);
+  font-size: 0.72em;
+  font-weight: 700;
   color: var(--color-ink);
   margin-right: 0.1em;
 }
-/* Centavos do herói em 22px (escolha do Laboratório). */
+/* Centavos do herói — relativos ao herói (`em`), não em px fixo: com px, um
+   ajuste no tamanho do herói deixava prefixo e centavos para trás e a
+   composição se desmontava a cada mudança. */
 .ds-visor .a4p-heroi .a4p-num > span:last-child {
-  font-size: 22px;
+  font-size: 0.66em;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

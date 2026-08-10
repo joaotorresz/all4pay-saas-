@@ -214,9 +214,14 @@ export function VisorHomeTop() {
                 mais importante da tela, com o sinal trocado. Um saldo negativo
                 é a coisa que a pessoa PRECISA ver — ele entra com o sinal e em
                 `negative`. */}
+            {/* ⚠️ SEM fonte e SEM tamanho no `style`: os dois vêm da classe de
+                papel `.a4p-heroi` (Gellix 33px, em globals.css). Presos aqui,
+                o inline vencia a regra do design system e todo ajuste de
+                herói promovido do Laboratório nascia inerte — só a COR fica,
+                porque depende do sinal do saldo. */}
             <span
-              className="a4p-heroi text-[30px] tabular-nums leading-none"
-              style={{ fontFamily: VARIAVEL, fontWeight: 400, color: saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
+              className="a4p-heroi tabular-nums leading-none"
+              style={{ color: saldo < 0 ? "var(--color-negative)" : "var(--color-ink)" }}
             >
               {saldo < 0 && <span aria-hidden>−</span>}
               <AnimatedBRL value={Math.abs(saldo)} />
