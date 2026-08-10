@@ -38,7 +38,7 @@ const BANCOS = [
   "Original", "C6", "PagBank", "Mercado Pago", "Stone", "PicPay",
 ];
 
-/** "1.234,56" / "1234,56" / "R$ 590,00" → 1234.56 */
+/** "1.234,56" / "1234,56" / "R$590,00" → 1234.56 */
 function parseBRL(raw: string): number | null {
   const limpo = raw.replace(/[^\d.,]/g, "");
   if (!limpo) return null;

@@ -69,8 +69,11 @@ export function Money({
       style={{ letterSpacing: "-0.01em", ...style }}
       {...rest}
     >
+      {/* ⚠️ SEM ESPAÇO entre a moeda e o número: `R$333,00`, uma peça só.
+          Era `mr-[5px]`, e o respiro fazia o prefixo ler como um rótulo ao
+          lado do valor em vez de fazer parte dele — a mesma razão pela qual
+          ele já tinha voltado ao mesmo corpo, peso e cor do inteiro. */}
       <span
-        className="mr-[5px]"
         style={{ fontSize: curPx, fontWeight: prefixWeight ?? integerWeight, color: prefixColor ?? color }}
       >
         {currency}

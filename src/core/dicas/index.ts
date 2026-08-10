@@ -5,7 +5,7 @@
  * exagerar o que ele faz. É aprendizado ESTATÍSTICO sobre o histórico do
  * próprio cliente: a linha de base sai dos meses anteriores DELE, e cada dica
  * compara o mês corrente contra essa base. É exatamente o que a pergunta do
- * exemplo pede ("custo fixo em R$ 30.000, 10% acima do mês passado") e não
+ * exemplo pede ("custo fixo em R$30.000, 10% acima do mês passado") e não
  * precisa de treino, rótulo nem servidor de inferência para responder.
  *
  * A diferença importa na prática: um modelo treinado erra de formas que não
@@ -77,7 +77,7 @@ const pct = (atual: number, base: number): number | null =>
   base === 0 ? null : ((atual - base) / Math.abs(base)) * 100;
 
 const fmt = (n: number) =>
-  "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+  "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 const fmtPct = (n: number) => `${n < 0 ? "−" : "+"}${Math.abs(n).toFixed(1).replace(".", ",")}%`;
 

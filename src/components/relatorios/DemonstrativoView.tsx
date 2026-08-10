@@ -30,7 +30,7 @@ import {
   type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
 } from "./kit";
 
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$ " + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {

@@ -31,7 +31,7 @@ interface Turno {
 }
 
 const QUER_LANCAMENTO = /lan[çc]ament|rascunh|d[eé]bit|cr[eé]dit|\bposte\b|registr(e|ar)|estorn|provis|partida/i;
-const SUGESTOES_ACAO = ["Rascunhe um lançamento de R$ 1.000 de despesa operacional paga em caixa."];
+const SUGESTOES_ACAO = ["Rascunhe um lançamento de R$1.000 de despesa operacional paga em caixa."];
 
 export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias?: unknown[]; insights?: unknown[] }) {
   const qc = useQueryClient();

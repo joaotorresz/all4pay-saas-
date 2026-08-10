@@ -144,7 +144,7 @@ export const ESTRANGEIRISMOS_PROIBIDOS = [
  */
 export const REGRAS_DE_FORMATO = {
   moeda: {
-    regra: "R$ 1.234,56 — prefixo cinza, milhar com ponto, decimal com vírgula, sempre 2 casas.",
+    regra: "R$1.234,56 — prefixo cinza, milhar com ponto, decimal com vírgula, sempre 2 casas.",
     porque: "É o formato do extrato bancário. Qualquer variação faz o número parecer de outro sistema.",
   },
   percentual: {

@@ -176,7 +176,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "h1", label: "Título da página", dica: "“Bem-vindo, João!”" },
   { id: "h2", label: "Subtítulo / seção", dica: "títulos de bloco" },
   { id: "h3", label: "Título de card", dica: "“Você gastou”" },
-  { id: "numeros", label: "Números / dinheiro", dica: "R$ 243.586,52" },
+  { id: "numeros", label: "Números / dinheiro", dica: "R$243.586,52" },
   { id: "body", label: "Corpo", dica: "parágrafos" },
   { id: "label", label: "Rótulos", dica: "labels de campo" },
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
@@ -1038,7 +1038,7 @@ export function DesignLab() {
                         {/* amostra na fonte escolhida */}
                         <div className="rounded-sm bg-surface-2 px-2 py-[6px] text-ink truncate"
                           style={{ fontFamily: stack || undefined, fontSize: (ov.size as number) ?? 16 }}>
-                          {papel.id === "numeros" ? "R$ 243.586,52" : "Bem-vindo, João!"}
+                          {papel.id === "numeros" ? "R$243.586,52" : "Bem-vindo, João!"}
                         </div>
                       </div>
                     );

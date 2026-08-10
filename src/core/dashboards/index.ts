@@ -233,7 +233,7 @@ function porCategoria(ms: MovimentoBase[]): FatiaCategoria[] {
  * Janela de 12 meses das fatias — a MESMA das séries.
  *
  * Sem janela a pizza somava o histórico inteiro e ficava ao lado de um KPI
- * "Despesa do mês": R$ 442 mil contra R$ 38 mil, sem nada explicando a
+ * "Despesa do mês": R$442 mil contra R$38 mil, sem nada explicando a
  * diferença. Com a janela casada, o total da pizza bate com a soma da série.
  */
 function ultimos12Meses(i: EntradaFontes, ms: MovimentoBase[]): MovimentoBase[] {

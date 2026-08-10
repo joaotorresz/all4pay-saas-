@@ -34,7 +34,7 @@ export function ParticipanteModal({
   const [papel, setPapel] = React.useState<PapelUsuario>(inicial?.papel ?? "operador");
   const [perm, setPerm] = React.useState<PermissoesUsuario>(inicial?.permissoes ?? permDe(inicial?.papel ?? "operador"));
   const [aprova, setAprova] = React.useState(inicial?.aprovaPagamentos ?? false);
-  const [limite, setLimite] = React.useState(inicial?.limite ?? "R$ 5 mil");
+  const [limite, setLimite] = React.useState(inicial?.limite ?? "R$5 mil");
 
   // Trocar o papel reaplica as permissões-padrão dele (usuário pode ajustar depois).
   const trocarPapel = (p: PapelUsuario) => { setPapel(p); setPerm(permDe(p)); };
@@ -71,7 +71,7 @@ export function ParticipanteModal({
       <Linha rotulo="Pode aprovar pagamentos" desc="Participa do fluxo de alçada">
         <Switch checked={aprova} onChange={() => setAprova((v) => !v)} />
       </Linha>
-      {aprova && <Input label="Limite de aprovação" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="Ex.: R$ 50 mil" />}
+      {aprova && <Input label="Limite de aprovação" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="Ex.: R$50 mil" />}
     </FormModal>
   );
 }

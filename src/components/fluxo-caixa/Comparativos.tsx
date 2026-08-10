@@ -36,11 +36,11 @@ const TONS = [100, 76, 56, 40, 28, 19, 13, 9];
 const tomDe = (cor: string, i: number) =>
   `color-mix(in srgb, ${cor} ${TONS[Math.min(i, TONS.length - 1)]}%, transparent)`;
 
-/** Eixo Y curto: R$ 6.000 · R$ 40k — sem estourar a largura do card. */
+/** Eixo Y curto: R$6.000 · R$40k — sem estourar a largura do card. */
 function tickBRL(v: number): string {
   const abs = Math.abs(v);
   const s = abs >= 1000 ? `${(abs / 1000).toLocaleString("pt-BR", { maximumFractionDigits: abs >= 10000 ? 0 : 1 })}k` : String(abs);
-  return `${v < 0 ? "−" : ""}R$ ${s}`;
+  return `${v < 0 ? "−" : ""}R$${s}`;
 }
 
 /* ============================ pílula de variação ============================ */

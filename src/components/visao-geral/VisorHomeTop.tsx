@@ -36,7 +36,7 @@ import { chartAnim } from "@/lib/chart-anim";
 // Paleta da MARCA (lima → verde → oliva → taupe → ink): a maior fatia herda o
 // lima (herói) e as menores desbotam pros neutros — distinção sem sair da marca.
 const DV = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
-const brlNoCents = (n: number) => "R$ " + Math.round(n).toLocaleString("pt-BR");
+const brlNoCents = (n: number) => "R$" + Math.round(n).toLocaleString("pt-BR");
 const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 
 type Ponto = { idx: number; label: string; ent: number; sai: number };
@@ -210,7 +210,7 @@ export function VisorHomeTop() {
               traz o resultado do período (entradas − saídas). */}
           <div className="flex items-baseline gap-2 mt-2 flex-wrap">
             {/* ⚠️ SEM `Math.abs`. O herói exibia o saldo em módulo, então um
-                caixa de −R$ 31.000,16 aparecia como +R$ 31.000,16: a informação
+                caixa de −R$31.000,16 aparecia como +R$31.000,16: a informação
                 mais importante da tela, com o sinal trocado. Um saldo negativo
                 é a coisa que a pessoa PRECISA ver — ele entra com o sinal e em
                 `negative`. */}

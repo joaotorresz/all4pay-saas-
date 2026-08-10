@@ -49,7 +49,7 @@ interface LinhaLida {
   data: string;
 }
 
-/** "1.234,56" · "1234.56" · "R$ 1.234,56" → 1234.56 */
+/** "1.234,56" · "1234.56" · "R$1.234,56" → 1234.56 */
 function paraNumero(s: string): number {
   const limpo = (s ?? "").replace(/[R$\s]/g, "");
   if (!limpo) return NaN;

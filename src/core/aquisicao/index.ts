@@ -442,7 +442,7 @@ function montarResumo(
 
 /* ------------------------------ formatação ------------------------------ */
 const brl = (n: number) =>
-  "R$ " + Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  "R$" + Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtSinal = (n: number) => (n < 0 ? "−" : "") + brl(n);
 const pct = (f: number) => `${(f * 100).toFixed(f * 100 < 10 ? 1 : 0)}%`;
 

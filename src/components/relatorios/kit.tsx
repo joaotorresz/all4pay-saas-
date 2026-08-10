@@ -304,7 +304,7 @@ export function FiltrosRelatorio({
 
 const fmt = (n: number, cifrao: boolean) => {
   const s = Math.abs(n).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${n < 0 ? "−" : ""}${cifrao ? "R$ " : ""}${s}`;
+  return `${n < 0 ? "−" : ""}${cifrao ? "R$" : ""}${s}`;
 };
 
 export interface CelulaClicada { linha: string; coluna: string; movimentos: string[] }

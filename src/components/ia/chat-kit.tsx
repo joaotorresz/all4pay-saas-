@@ -268,7 +268,7 @@ export const CURADAS = [
   "Onde posso economizar?",
   "Quanto vai sobrar esse mês?",
   "Quem está me devendo?",
-  "Posso gastar R$ 5.000?",
+  "Posso gastar R$5.000?",
   "Quais meus maiores fornecedores?",
   "Qual minha margem esse mês?",
   "Estou crescendo?",

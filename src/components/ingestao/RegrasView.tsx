@@ -157,8 +157,8 @@ export function RegrasView() {
               const cond = [
                 q.contraparte?.valor ? `contraparte ${OPS.find((o) => o.id === q.contraparte!.op)?.label} "${q.contraparte.valor}"` : null,
                 q.tipo ? (q.tipo === "entrada" ? "entradas" : "saídas") : null,
-                q.valorMin ? `≥ R$ ${q.valorMin.toLocaleString("pt-BR")}` : null,
-                q.valorMax ? `≤ R$ ${q.valorMax.toLocaleString("pt-BR")}` : null,
+                q.valorMin ? `≥ R$${q.valorMin.toLocaleString("pt-BR")}` : null,
+                q.valorMax ? `≤ R$${q.valorMax.toLocaleString("pt-BR")}` : null,
                 q.cnaePrefixo ? `CNAE ${q.cnaePrefixo}…` : null,
               ].filter(Boolean).join(" · ");
               const n = uso[r.id] ?? 0;

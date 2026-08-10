@@ -69,7 +69,7 @@ function tresMeses(input: RiskInput): Mes[] {
     // documentado assim — todos os outros chamadores passam `getMonth()`.
     // Com `mm + 1` cada barra mostrava o mês SEGUINTE: agosto caía em
     // setembro, que ainda não aconteceu, e a terceira coluna saía vazia ao
-    // lado de um "entradas do mês" de R$ 607 mil. O gráfico não parecia
+    // lado de um "entradas do mês" de R$607 mil. O gráfico não parecia
     // quebrado — parecia um mês fraco, que é o pior tipo de erro num número.
     const j = janelaMes(a, mm);
     out.push({
@@ -302,9 +302,22 @@ function Calendario({ input }: { input: RiskInput }) {
                     porquê de cada decisão está na regra, em `globals.css`).
                     A cor fica EXPLÍCITA nos dois estados: depender da herança
                     do botão é o que deixava o número refém de uma regra de
-                    card — medido, ele saía cinza sobre o preto do selecionado. */}
-                <span className={`a4p-dia-num ${ativo ? "text-white" : "text-ink"}`}>
-                  {partes(d).dia}
+                    card — medido, ele saía cinza sobre o preto do selecionado.
+
+                    No SELECIONADO o número entra num disco branco e vira preto:
+                    a inversão dentro da inversão é o que separa o dia escolhido
+                    dos vizinhos sem precisar de um segundo sinal (fio, ponto,
+                    negrito). O disco tem tamanho FIXO — em `w-full` ele viraria
+                    um oval acompanhando a caixa, o mesmo erro de proporção que
+                    a própria cápsula levou duas rodadas para acertar. */}
+                <span
+                  className={`w-8 h-8 rounded-pill inline-flex items-center justify-center shrink-0 ${
+                    ativo ? "bg-white" : ""
+                  }`}
+                >
+                  {/* Preto nos DOIS estados: no selecionado é o disco branco
+                      que segura a leitura, no resto é o próprio fundo do card. */}
+                  <span className="a4p-dia-num text-ink">{partes(d).dia}</span>
                 </span>
                 <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>{DIAS[diaDaSemana(d)]}</span>
               </button>
@@ -407,9 +420,27 @@ function Dicas({ input }: { input: RiskInput }) {
       data-card="1"
       style={{ background: "var(--color-ink)" }}
     >
-      <h2 className="text-h2 m-0 px-2 pt-1" style={{ color: "var(--a4p-chrome-ink)" }}>
-        {atual ? atual.contexto : "Dicas all4pay"}
-      </h2>
+      {/* O destino da leitura mora no TOPO DIREITO, como botão redondo.
+          Era um "ver ↗" sublinhado no rodapé: preso embaixo, ele competia com
+          o par de setas de navegação — duas coisas com cara de controle lado a
+          lado, uma que troca a dica e outra que sai da tela. Separando por
+          POSIÇÃO, cada gesto fica num canto e nenhum precisa de rótulo. */}
+      <div className="flex items-start justify-between gap-3 px-2 pt-1">
+        <h2 className="text-h2 m-0" style={{ color: "var(--a4p-chrome-ink)" }}>
+          {atual ? atual.contexto : "Dicas all4pay"}
+        </h2>
+        {atual?.rota && (
+          <button
+            onClick={() => router.push(atual.rota!)}
+            aria-label={`Abrir ${atual.contexto}`}
+            title={`Abrir ${atual.contexto}`}
+            className="w-9 h-9 rounded-pill inline-flex items-center justify-center shrink-0 transition-opacity hover:opacity-85"
+            style={{ background: "var(--color-white)" }}
+          >
+            <Icon name="arrow-up-right" size={17} color="var(--color-ink)" />
+          </button>
+        )}
+      </div>
 
       <div
         className="mt-5 flex-1 rounded-[32px] px-6 py-8 flex flex-col items-center justify-center gap-6"
@@ -428,14 +459,6 @@ function Dicas({ input }: { input: RiskInput }) {
           </span>
         )}
 
-        {atual?.rota && (
-          <button
-            onClick={() => router.push(atual.rota!)}
-            className="text-caption text-muted hover:text-ink underline"
-          >
-            ver ↗
-          </button>
-        )}
       </div>
     </div>
   );

@@ -32,10 +32,12 @@ export function BRL({
   const { integer, decimals } = brlParts(value);
   return (
     <span className={cn("a4p-num inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
-      {/* ⚠️ O SINAL VEM ANTES DA MOEDA: −R$ 31.000, não R$ −31.000. O menos
+      {/* ⚠️ O SINAL VEM ANTES DA MOEDA: −R$31.000, não R$−31.000. O menos
           qualifica o VALOR inteiro, não o algarismo — e no meio, entre a
           moeda e o número, ele se lê por um instante como parte da cifra. */}
-      <span style={{ marginRight: "0.16em" }}>{neg ? "−" : ""}{prefix}</span>
+      {/* Sem respiro entre a moeda e o número (`−R$31.000`): o prefixo é parte
+          do valor, não um rótulo ao lado dele. Mesma decisão no `Money`. */}
+      <span>{neg ? "−" : ""}{prefix}</span>
       <span>{integer}</span>
       {showDecimals && (
         // `data-cents` permite a uma tela inteira esconder os centavos por CSS
