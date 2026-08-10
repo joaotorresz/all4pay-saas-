@@ -96,7 +96,8 @@
     "20260810214913_alheio_e_nem_meu_nem_da_empresa",
     "20260810215651_auditor_classifica_recorte_e_comando",
     "20260810215942_recorte_reconhece_portao_de_administrador",
-    "20260810220704_revisao_administrativa_com_motivo_aprovador_e_prazo"
+    "20260810220704_revisao_administrativa_com_motivo_aprovador_e_prazo",
+    "20260810222258_concessoes_de_tabela_declaradas_em_migration"
   ],
   "divergencias_conhecidas": {
     "_regra": [
