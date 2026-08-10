@@ -119,14 +119,10 @@ function Resumo({ input }: { input: RiskInput }) {
               <XAxis dataKey="nome" axisLine={false} tickLine={false} tickMargin={10}
                 tick={{ fill: "var(--color-text-secondary)" }} />
               <Tooltip content={<ResumoTooltip />} cursor={{ fill: "var(--color-surface-2)", radius: 12 }} />
-              {/* O raio arredonda só a ponta EXPOSTA de cada pedaço: o de baixo
-                  na base, o de cima no topo. Arredondar os quatro cantos dos
-                  dois abriria uma fresta na emenda e a pilha deixaria de ler
-                  como uma coluna só. */}
-              <Bar dataKey="saidas" stackId="mes" radius={[0, 0, 10, 10]} maxBarSize={56}
-                fill="var(--a4p-cat-3)" {...chartAnim()} />
-              <Bar dataKey="entradas" stackId="mes" radius={[10, 10, 0, 0]} maxBarSize={56}
-                fill="var(--a4p-cat-1)" {...chartAnim(120)} />
+              <Bar dataKey="saidas" stackId="mes" maxBarSize={72}
+                fill="var(--a4p-cat-3)" shape={<Vela />} {...chartAnim()} />
+              <Bar dataKey="entradas" stackId="mes" maxBarSize={72}
+                fill="var(--a4p-cat-1)" shape={<Vela />} {...chartAnim(120)} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -153,6 +149,31 @@ function Resumo({ input }: { input: RiskInput }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Um pedaço da vela: retângulo com os QUATRO cantos arredondados e um
+ * respiro na emenda.
+ *
+ * ⚠️ O Recharts empilha os segmentos encostados e só sabe arredondar a ponta
+ * exposta — entrada e saída viravam uma coluna contínua com uma dobra de cor
+ * no meio. A separação é o que faz os dois lerem como duas quantidades e não
+ * como uma barra bicolor. Como não há gap de pilha na biblioteca, cada
+ * segmento desenha a si mesmo encolhido pela metade do respiro em cada ponta.
+ *
+ * O `Math.max` protege o mês magro: sem ele, um segmento menor que o respiro
+ * sairia com altura negativa e o SVG simplesmente não desenharia nada — um
+ * valor pequeno viraria um valor ausente.
+ */
+const RESPIRO = 6;
+function Vela(props: { x?: number; y?: number; width?: number; height?: number; fill?: string }) {
+  const { x = 0, y = 0, width = 0, height = 0, fill } = props;
+  if (height <= 0) return null;
+  const h = Math.max(2, height - RESPIRO);
+  return (
+    <rect x={x} y={y + RESPIRO / 2} width={width} height={h}
+      rx={Math.min(12, width / 2, h / 2)} fill={fill} />
   );
 }
 
