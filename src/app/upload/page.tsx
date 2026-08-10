@@ -8,7 +8,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 export default function UploadPage() {
   return (
     <AppShell
-      title="Upload de dados"
+      title="Entrada de dados"
       crumb="Ingestão · conectar · enviar · conciliar"
       actions={isDemo ? <DemoBadge /> : undefined}
     >

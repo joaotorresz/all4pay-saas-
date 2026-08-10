@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { InstitutionalView } from "@/components/institucional/InstitutionalView";
 
 export const metadata: Metadata = {
-  title: "Governança e auditoria · all4pay",
+  title: "Governança e aprovações · all4pay",
   description:
     "Camada institucional: trilha de auditoria imutável (hash-chain), permissões granulares (RBAC + policy engine) e fluxo de aprovação.",
 };
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default function GovernancaPage() {
   return (
     <AppShell
-      title="Governança e auditoria"
+      title="Governança e aprovações"
       crumb="Camada institucional"
       actions={isDemo ? <DemoBadge /> : null}
     >

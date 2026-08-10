@@ -17,7 +17,7 @@ const norm = (s: string) =>
 
 interface RouteItem { label: string; href: string; icon: string; kw: string; event?: string }
 const ROUTES: RouteItem[] = [
-  { label: "Início", href: "/", icon: "house", kw: "dashboard visao geral fluxo de caixa faturamento home painel" },
+  { label: "Visão geral", href: "/", icon: "house", kw: "inicio home dashboard visao geral fluxo de caixa faturamento painel" },
   // ⚠️ Os seis painéis curados saíram da palette com as telas (05/08/2026). As
   // PALAVRAS deles não podem sair junto: quem procura "mrr", "cac" ou
   // "calendario" continua procurando a mesma coisa, e uma busca que não acha
@@ -25,7 +25,7 @@ const ROUTES: RouteItem[] = [
   // tela que responde — assinaturas, vendas, títulos, fluxo de caixa.
   { label: "Meus dashboards", href: "/dashboard/dashboards/custom", icon: "layers", kw: "dashboard customizado personalizado widget kpi grafico montar criar meu painel acompanhamento semanal" },
   { label: "Boas-vindas (dashboard)", href: "/dashboard", icon: "house", kw: "boas vindas saudacao atalhos acesso rapido empresa ativa dashboard home" },
-  { label: "Comece por aqui", href: "/comece", icon: "target", kw:"comece jornada adesao primeiros passos onboarding tutorial aprender progresso guia inicio" },
+  { label: "Primeiros passos", href: "/comece", icon: "target", kw:"comece jornada adesao primeiros passos onboarding tutorial aprender progresso guia inicio" },
   { label: "Upload de dados", href: "/upload?aba=enviar", icon: "upload", kw: "importar extrato ofx csv upload boleto comprovante nota ocr caixa de entrada entrada de dados onboarding ingestao enviar" },
   { label: "Open finance", href: "/upload?aba=conectar", icon: "building", kw: "open finance banco conta pluggy conectar ingestao posicao saldo" },
   { label: "Fluxo de Caixa", href: "/fluxo-caixa", icon: "trending-up", kw: "fluxo caixa cashflow projecao monte carlo cenarios runway burn waterfall heatmap calendario tesouraria dashboard financeiro saldo geracao de caixa entradas saidas por categoria mes calendario financeiro dia vencimento fluxo diario saldo total agenda financeira" },
@@ -104,10 +104,6 @@ const ROUTES: RouteItem[] = [
   { label: "Configurações", href: "/configuracoes", icon: "settings", kw: "empresa perfil governanca" },
   // Único acesso ao drawer depois que a engrenagem saiu do header da Home.
   { label: "Personalizar Home", href: "/", icon: "settings", kw: "personalizar home widgets blocos cards ligar desligar reordenar", event: "a4p:open-personalizar" },
-  // Segunda porta do Laboratório (a primeira é o botão flutuante). Fica porque
-  // quem já sabe o nome chega mais rápido pela paleta do que procurando o
-  // botão — e porque uma tela cheia pode cobrir o canto onde ele mora.
-  { label: "Laboratório de Design", href: "/", icon: "palette", kw: "laboratorio design lab tipografia fonte cor token sandbox experimentar aparencia", event: "a4p:open-lab" },
   // ⚠️ ÚNICA porta do painel Criar depois que o botão saiu da lateral. Sem
   // esta linha, as dezesseis ações de criação ficariam sem caminho — o painel
   // continuaria montado, respondendo a um evento que ninguém dispara.

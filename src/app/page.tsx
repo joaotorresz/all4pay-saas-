@@ -7,16 +7,16 @@ import { HomeQuatro } from "@/components/visao-geral/HomeQuatro";
 import { PeriodProvider } from "@/components/visao-geral/PeriodContext";
 
 export const metadata: Metadata = {
-  title: "Início · all4pay",
+  title: "Visão geral · all4pay",
   description:
-    "Início: a receber, a pagar, contas financeiras, fluxo de caixa e vendas.",
+    "Visão geral: a receber, a pagar, contas financeiras, fluxo de caixa e vendas.",
 };
 
 export default function HomePage() {
   return (
     <PeriodProvider>
       {/* `a4p-sem-centavos`: na Home os valores aparecem arredondados (sem vírgula). */}
-      <AppShell title={<InicioTitle />} tituloAba="Início" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor a4p-sem-centavos" stickyHeader={false}>
+      <AppShell title={<InicioTitle />} tituloAba="Visão geral" actions={<InicioActions demo={isDemo} />} scopeClassName="ds-visor a4p-sem-centavos" stickyHeader={false}>
         {/* ⚠️ A Home tem QUATRO cards e só eles: Resumo · Calendário de
             transações · Dicas all4pay · Transações recentes. O cockpit
             modular (`OverviewGrid`, ~94 widgets) e o topo antigo
