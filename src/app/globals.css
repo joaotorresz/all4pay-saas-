@@ -710,9 +710,13 @@ html:not(.dark) .ds-visor {
  * `tabular-nums`, que é o que mantém a coluna alinhada — a largura fixa vem
  * da feature, não da família.
  *
- * ⚠️ Precisa dos dois seletores (`.a4p-num.a4p-valor-texto`) para vencer a
- * regra do valor, que é mais específica que uma classe sozinha.
+ * ⚠️ Precisa de DUAS classes no mesmo seletor para vencer a regra do valor —
+ * `.ds-visor .a4p-num` e `.ds-visor .tabular-nums` são mais específicas que
+ * uma classe sozinha. E precisa cobrir as DUAS âncoras: o `.a4p-num` do
+ * componente `BRL` e o `.tabular-nums` de uma célula de tabela com texto
+ * cru. Faltando a segunda, a data da tabela continuava em Gellix 700 — medido.
  */
+.ds-visor .tabular-nums.a4p-valor-texto,
 .ds-visor .a4p-num.a4p-valor-texto,
 .ds-visor .a4p-valor-texto .a4p-num,
 .ds-visor .a4p-valor-texto .a4p-num * {
