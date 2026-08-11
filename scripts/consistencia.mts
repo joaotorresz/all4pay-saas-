@@ -198,6 +198,27 @@ function indicadoresRecalculadosEmTela(): string[] {
 const existe = (p: string): boolean => existsSync(p);
 const ler = (p: string): string => (existsSync(p) ? readFileSync(p, "utf8") : "");
 
+/**
+ * Varre uma pasta inteira, com o filtro de extensão que o chamador quiser.
+ *
+ * ⚠️ Existe separada de `varrerTelas` porque aquela só olha `.tsx` em
+ * `components`/`app` — e os ESCRITORES do banco vivem em `src/lib/*.ts` e nas
+ * rotas de API. Uma guarda sobre escritores que varre só telas passaria sem
+ * olhar exatamente onde o defeito mora.
+ */
+function varrerArquivos(raiz: string, filtro: RegExp): string[] {
+  const out: string[] = [];
+  const anda = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { anda(caminho); continue; }
+      if (filtro.test(nome)) out.push(caminho);
+    }
+  };
+  anda(raiz);
+  return out;
+}
+
 /** Varre `src/components` e `src/app` aplicando um teste a cada arquivo. */
 function varrerTelas(fn: (caminho: string, txt: string) => void): void {
   const anda = (dir: string) => {
@@ -2383,10 +2404,17 @@ const AGOSTO = janelaMes(2026, 7);
    * existir; "Contas a pagar" é a obrigação depois de existir. Se o próximo
    * item não couber claramente de um dos dois lados, o sinal é de fundir, não
    * de subir o teto de novo.
+   *
+   * ⚠️ +1 destino: "Contas recorrentes". A justificativa é a pergunta que
+   * nenhuma tela respondia — *quanto a empresa compromete todo mês só para
+   * continuar existindo*. Ela não é a soma do mês (que mistura o aluguel que
+   * volta com a compra avulsa que não volta) nem sai do painel (que é sobre
+   * situação, não sobre repetição). O grupo continua com 3 itens, dentro do
+   * teto por grupo, e o teto total sobe pelo destino que realmente entrou.
    */
   const TETO_GRUPOS = 9;            // Visão geral · Caixa e bancos · Receber · Pagar · Contas a pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 67;      // a soma de hoje, incluindo o rodapé
+  const TETO_ITENS_TOTAL = 68;      // a soma de hoje, incluindo o rodapé
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,
@@ -2961,6 +2989,76 @@ const AGOSTO = janelaMes(2026, 7);
   ok("onda5: extrato NÃO é origem de título", !ehOrigemDeTitulo("extrato"));
   for (const o of ["venda", "contrato", "importacao", "manual", "conciliacao"]) {
     ok(`onda5: "${o}" é origem de título`, ehOrigemDeTitulo(o));
+  }
+
+  /*
+   * ⚠️ TETO ZERO: NENHUM ESCRITOR DE `movements` SEM `origem`.
+   *
+   * A ONDA 5 pôs a fechadura no BANCO — `titulo_exige_origem()` recusa com
+   * `A4P05` — e não conferiu quem tinha a chave. Dois escritores ficaram sem
+   * ela, e o custo foi assimétrico: `createLancamento` derrubava TODA gravação
+   * manual em produção (o formulário de nova conta a pagar, o painel Criar,
+   * receita e despesa), e o gerador de faturas recorrentes falhava dentro de um
+   * cron, onde o vestígio é um contador que ninguém abre.
+   *
+   * Uma regra que vive só no banco é meia regra: o servidor recusa, mas nada no
+   * repositório reprova o escritor que nasce sem o campo — e a recusa aparece
+   * meses depois, na tela de um cliente, como "o botão não funciona".
+   *
+   * ⚠️ A varredura pega o `.insert(` em `movements` e exige `origem` no MESMO
+   * bloco. `upsert` de ingestão fica de fora porque a ingestão já carrega a sua
+   * (`fdip`/`ingestao`), e um `update` não dispara o gatilho — ele é `BEFORE
+   * INSERT`, de propósito: exigir retroativamente reprovaria toda edição de
+   * lançamento antigo.
+   */
+  {
+    /*
+     * ⚠️ A JANELA É A FUNÇÃO INTEIRA, não o que vem DEPOIS do `.insert(`.
+     *
+     * A primeira versão olhava 1400 caracteres à frente e acusou três
+     * escritores CORRETOS (`cadastros`, `pos-venda`, `reembolsos`): os três
+     * montam a linha em cima e passam `rows` para o insert, então a `origem`
+     * está ATRÁS do ponto de casamento. É o mesmo defeito de direção que a
+     * ONDA 10 já tinha cometido na varredura de cálculo em tela — e uma guarda
+     * que reprova o código certo é desligada na primeira semana.
+     *
+     * Uma janela simétrica em torno do `.insert(` resolveria a direção e abriria
+     * um falso NEGATIVO: um escritor sem `origem` passaria emprestado a do
+     * vizinho. Recortar pela função dá o escopo exato.
+     */
+    const INICIO_FUNCAO = /\n(?:export\s+)?(?:async\s+)?function\s|\n(?:export\s+)?const\s+\w+\s*=/g;
+    const escopoDe = (txt: string, ate: number): string => {
+      let de = 0;
+      INICIO_FUNCAO.lastIndex = 0;
+      for (const m of txt.matchAll(INICIO_FUNCAO)) {
+        if ((m.index ?? 0) >= ate) break;
+        de = m.index ?? 0;
+      }
+      return txt.slice(de, ate + 900);
+    };
+    /**
+     * A ÚNICA exceção, declarada com motivo: `createLancamento` insere um
+     * `rows` vindo de `buildMovementRows`, que é outra função — e ela é
+     * conferida pelo nome na asserção seguinte, que é mais forte que a
+     * varredura.
+     */
+    const DECLARADAS = new Set(["src/lib/data.ts"]);
+    const semOrigem: string[] = [];
+    for (const arq of varrerArquivos("src", /\.(ts|tsx)$/)) {
+      if (DECLARADAS.has(arq.replace(/\\/g, "/"))) continue;
+      const txt = ler(arq);
+      for (const m of txt.matchAll(/from\("movements"\)[\s\S]{0,120}?\.insert\(/g)) {
+        const fim = (m.index ?? 0) + m[0].length;
+        if (!/\borigem\s*:/.test(escopoDe(txt, fim))) {
+          semOrigem.push(`${arq}:${txt.slice(0, m.index).split("\n").length}`);
+        }
+      }
+    }
+    const rows = /function buildMovementRows[\s\S]{0,3200}?\n}/.exec(ler("src/lib/data.ts"));
+    ok("onda5: nenhum escritor de movements grava sem origem",
+       semOrigem.length === 0, semOrigem.join(" | "));
+    ok("onda5: buildMovementRows carrega a origem",
+       !!rows && /\borigem\s*:/.test(rows[0]));
   }
 
   /* ---- Contraparte -------------------------------------------------------- */

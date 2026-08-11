@@ -93,6 +93,8 @@ import {
   montarPainelContasPagar, opcoesDeFiltro,
   periodoMes, periodoSemana, periodoPersonalizado, periodoInvalido,
 } from "@/core/contas-pagar";
+import { planejarLancamento } from "@/core/contas-pagar/lancamento";
+import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
   painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
@@ -887,7 +889,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("paineis: fim de mês de 31 dias", fimDoMes("2026-08") === "2026-08-31");
   ok("paineis: fim de fevereiro comum", fimDoMes("2026-02") === "2026-02-28", fimDoMes("2026-02"));
   ok("paineis: fim de fevereiro bissexto", fimDoMes("2028-02") === "2028-02-29", fimDoMes("2028-02"));
-  ok("paineis: deslocar mês vira o ano", deslocarMes("2026-01", -1) === "2025-12" && deslocarMes("2026-12", 1) === "2027-01");
+  ok("paineis: deslocar mês vira o ano", deslocarMesCP("2026-01", -1) === "2025-12" && deslocarMesCP("2026-12", 1) === "2027-01");
   ok("paineis: janela de 12 termina no mês pedido",
     janelaMeses("2026-08", 12).length === 12 && janelaMeses("2026-08", 12)[11] === "2026-08" && janelaMeses("2026-08", 12)[0] === "2025-09");
 
@@ -2737,6 +2739,173 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cpagar: intervalo invertido é recusado, não trocado",
      periodoInvalido(periodoPersonalizado("2026-08-31", "2026-08-01"))
      && !periodoInvalido(periodoPersonalizado("2026-08-01", "2026-08-31")));
+}
+
+// ── contas-a-pagar/lancamento: única × recorrente × parcelada ──────────────
+{
+  const base = { vencimento: "2026-08-31", competencia: "2026-08-10", valor: 4000 };
+
+  const u = planejarLancamento({ ...base, modo: "unica" });
+  ok("lanc: única cria um título só", u.titulos.length === 1 && u.total === 4000);
+  ok("lanc: única não tem compromisso mensal", u.mensal === null && !u.ehCustoFixo);
+
+  // ⚠️ O PAR QUE JUSTIFICA A TELA: os MESMOS números (4.000 e 12) somam
+  // R$ 48.000 num modo e R$ 4.000 no outro. Enquanto isso morava numa caixinha
+  // "repetir", nada dizia qual dos dois estava sendo criado.
+  const r = planejarLancamento({ ...base, modo: "recorrente", frequencia: "mensal", ocorrencias: 12 });
+  const p = planejarLancamento({ ...base, modo: "parcelada", parcelas: 12 });
+  ok("lanc: recorrente = valor de CADA vez", r.total === 48_000 && r.titulos.every((t) => t.valor === 4000),
+     String(r.total));
+  ok("lanc: parcelada = valor TOTAL", p.total === 4000, String(p.total));
+  ok("lanc: os dois modos NÃO dão o mesmo número", r.total !== p.total);
+
+  // A competência: cada ocorrência é um fato novo; a compra é um fato só.
+  ok("lanc: na recorrente a competência acompanha o vencimento",
+     r.titulos[1].competencia === r.titulos[1].vencimento);
+  ok("lanc: na parcelada a competência NÃO se parcela",
+     p.titulos.every((t) => t.competencia === "2026-08-10"));
+
+  // Centavos: 4000/12 = 333,333… — o resto tem de ir na última.
+  const soma = Math.round(p.titulos.reduce((s, t) => s + t.valor, 0) * 100) / 100;
+  ok("lanc: as parcelas somam exatamente o total", soma === 4000, String(soma));
+  ok("lanc: o resto vai na ÚLTIMA parcela", p.titulos[11].valor > p.titulos[0].valor);
+
+  // Dia 31 num mês de 30 vira o último dia, nunca o dia 1º do mês seguinte.
+  ok("lanc: 31/08 → 30/09, não 01/10", p.titulos[1].vencimento === "2026-09-30",
+     p.titulos[1].vencimento);
+  ok("lanc: fevereiro recebe o último dia", planejarLancamento({
+    ...base, vencimento: "2027-01-31", modo: "parcelada", parcelas: 2,
+  }).titulos[1].vencimento === "2027-02-28");
+
+  // Custo fixo × recorrente variável — é a resposta do usuário que separa.
+  ok("lanc: recorrente de valor estável é custo fixo", r.ehCustoFixo);
+  ok("lanc: recorrente de valor que varia NÃO é custo fixo",
+     !planejarLancamento({ ...base, modo: "recorrente", frequencia: "mensal", ocorrencias: 12, valorFixo: false }).ehCustoFixo);
+  // ⚠️ E a parcela NUNCA é custo fixo: ela acaba, e um custo que acaba não
+  // responde "quanto a empresa gasta todo mês para existir".
+  ok("lanc: parcela não é custo fixo", !p.ehCustoFixo);
+
+  // O mensal normaliza o ciclo: um anual de 1.200 pesa 100 por mês.
+  const anual = planejarLancamento({ ...base, valor: 1200, modo: "recorrente", frequencia: "anual", ocorrencias: 3 });
+  ok("lanc: o anual é normalizado para o mês", anual.mensal === 100, String(anual.mensal));
+
+  // Recusas na ENTRADA, com o motivo em português.
+  ok("lanc: recorrência sem quantidade é recusada",
+     planejarLancamento({ ...base, modo: "recorrente", frequencia: "mensal", ocorrencias: 1 }).problemas.length > 0);
+  ok("lanc: parcelamento de 1 parcela é recusado",
+     planejarLancamento({ ...base, modo: "parcelada", parcelas: 1 }).problemas.length > 0);
+  ok("lanc: valor zero é recusado e não gera título",
+     planejarLancamento({ ...base, valor: 0, modo: "unica" }).titulos.length === 0);
+}
+
+// ── contas-a-pagar/recorrentes: o que se repete, o que acaba, o custo fixo ─
+{
+  const mv = (
+    id: string, amount: number, due: string,
+    extra: Partial<RiskMovement> = {},
+  ): RiskMovement => ({
+    id, type: "saida", status: "pago", amount, due_date: due, paid_date: due,
+    category: "Aluguel", party_id: "p1", ...extra,
+  });
+
+  // Seis meses, terminando em agosto/2026.
+  const meses = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"];
+  const linhas: RiskMovement[] = [];
+  // FIXA: aluguel, sempre 5.000, nos seis meses.
+  meses.forEach((m, k) => linhas.push(mv(`al${k}`, 5000, `${m}-05`)));
+  // VARIÁVEL: energia, oscila muito, nos seis meses.
+  const luz = [800, 1400, 600, 1800, 700, 1500];
+  meses.forEach((m, k) => linhas.push(mv(`lz${k}`, luz[k], `${m}-10`,
+    { category: "Utilidades", party_id: "p2" })));
+  // PARCELADA: notebook em 10x de 900 — repete igual ao aluguel, e ACABA.
+  meses.forEach((m, k) => linhas.push(mv(`nb${k}`, 900, `${m}-15`,
+    { category: "Equipamentos", party_id: "p3", parcelas: 10, parcela: k + 1 })));
+  // AVULSA: cadeiras, uma vez só, em agosto.
+  linhas.push(mv("cad", 3000, "2026-08-20", { category: "Móveis", party_id: "p4" }));
+  // E uma ENTRADA, que não é conta a pagar.
+  linhas.push({ id: "in", type: "entrada", status: "pago", amount: 90_000, due_date: "2026-08-01", paid_date: "2026-08-01" });
+
+  const INPUT: RiskInput = {
+    hoje: "2026-08-11", saldoAtual: 10_000, movements: linhas,
+    partyNames: { p1: "Imobiliária Norte", p2: "Energia SA", p3: "TechStore", p4: "Móveis Sul" },
+  };
+
+  const p = montarPainelRecorrentes(INPUT, "2026-08");
+  const esp = (c: string) => p.grupos.find((g) => g.contraparte === c)?.especie;
+
+  ok("recor: aluguel estável é FIXA", esp("Imobiliária Norte") === "fixa", String(esp("Imobiliária Norte")));
+  ok("recor: energia que oscila é VARIÁVEL", esp("Energia SA") === "variavel", String(esp("Energia SA")));
+  // ⚠️ A asserção que justifica o campo `parcelas`: pelo PADRÃO, o notebook é
+  // idêntico ao aluguel — mesmo valor, todo mês, seis meses. Só o dado diz que
+  // ele acaba.
+  ok("recor: parcela que parece aluguel é PARCELADA", esp("TechStore") === "parcelada", String(esp("TechStore")));
+  ok("recor: compra de uma vez é AVULSA", esp("Móveis Sul") === "avulsa", String(esp("Móveis Sul")));
+
+  // O custo fixo NÃO inclui a parcela nem a avulsa.
+  ok("recor: o custo fixo é só o que continua", p.custoFixoMensal === 5000, String(p.custoFixoMensal));
+  ok("recor: o custo fixo nomeia quantos compromissos o formam", p.compromissosFixos === 1);
+  // ⚠️ E ele é MENOR que o total do mês — se fossem iguais, um dos dois estaria
+  // respondendo a pergunta do outro.
+  ok("recor: total do mês = 5000+1500+900+3000", p.totalDoMes === 10_400, String(p.totalDoMes));
+  ok("recor: custo fixo < total do mês", p.custoFixoMensal < p.totalDoMes);
+  ok("recor: a entrada não entra em conta a pagar",
+     !p.categorias.some((c) => c.valor === 90_000));
+
+  // As frações fecham, e as categorias somam o mês.
+  const somaCat = Math.round(p.categorias.reduce((s, c) => s + c.valor, 0) * 100) / 100;
+  ok("recor: as categorias somam o total do mês", somaCat === p.totalDoMes, String(somaCat));
+  const somaEsp = Math.round(p.especies.reduce((s, e) => s + e.valor, 0) * 100) / 100;
+  ok("recor: as espécies somam o total do mês", somaEsp === p.totalDoMes, String(somaEsp));
+  ok("recor: as frações da espécie fecham em 1",
+     Math.abs(p.especies.reduce((s, e) => s + e.fracao, 0) - 1) < 1e-9);
+
+  // O gráfico: seis colunas, e cada uma soma as quatro espécies.
+  ok("recor: o gráfico traz os 6 meses", p.meses.length === 6 && p.meses[5].mes === "2026-08");
+  ok("recor: cada coluna soma as espécies",
+     p.meses.every((m) => Math.abs((m.fixa + m.variavel + m.parcelada + m.avulsa) - m.total) < 0.011));
+
+  // A média mensal usa os meses OBSERVADOS, não os 6 da janela.
+  const novo: RiskInput = { ...INPUT, movements: [
+    mv("n1", 2000, "2026-07-05", { category: "Software", party_id: "p9" }),
+    mv("n2", 2000, "2026-08-05", { category: "Software", party_id: "p9" }),
+    mv("n3", 2000, "2026-06-05", { category: "Software", party_id: "p9" }),
+  ], partyNames: { p9: "SaaS Novo" } };
+  const q = montarPainelRecorrentes(novo, "2026-08");
+  ok("recor: contrato novo custa o que custa, não 1/6 disso",
+     q.grupos[0].mediaMensal === 2000, String(q.grupos[0].mediaMensal));
+
+  // Uma aparição não é padrão.
+  const uma: RiskInput = { ...INPUT, movements: [mv("u", 500, "2026-08-01")], partyNames: {} };
+  ok("recor: uma aparição só não vira recorrente",
+     montarPainelRecorrentes(uma, "2026-08").custoFixoMensal === 0);
+
+  // Base vazia: zero sem NaN e sem divisão por zero.
+  const vazio = montarPainelRecorrentes({ ...INPUT, movements: [] }, "2026-08");
+  ok("recor: base vazia dá zero sem NaN",
+     vazio.totalDoMes === 0 && vazio.custoFixoMensal === 0
+     && vazio.especies.every((e) => e.fracao === 0) && vazio.meses.length === 6);
+
+  // ⚠️ ZERO É UM VALOR, NÃO A AUSÊNCIA DE VALOR (ONDA 4). Com histórico curto
+  // nenhum grupo alcança o mínimo e a soma sai zero CORRETAMENTE — e "seu custo
+  // fixo é R$ 0,00" afirma que a empresa não tem custo fixo, que é o oposto do
+  // que a base diz. Ela não diz nada ainda.
+  const curto: RiskInput = { ...INPUT, movements: [
+    mv("c1", 5000, "2026-07-05"), mv("c2", 5000, "2026-08-05"),
+  ] };
+  const pc = montarPainelRecorrentes(curto, "2026-08");
+  ok("recor: histórico curto marca o custo fixo como indisponível",
+     pc.custoFixoIndisponivel !== null && pc.mesesComDados === 2,
+     `${pc.mesesComDados} meses`);
+  ok("recor: e o motivo diz como resolver",
+     !!pc.custoFixoIndisponivel?.comoResolver);
+  // ⚠️ E com base suficiente ele NÃO fica indisponível — senão a marca cobriria
+  // todo caso e deixaria de significar alguma coisa.
+  ok("recor: com base suficiente o custo fixo é respondido",
+     p.custoFixoIndisponivel === null && p.mesesComDados === 6, String(p.mesesComDados));
+
+  // Deslocar mês atravessa o ano sem virar mês 13.
+  ok("recor: dezembro + 1 = janeiro do ano seguinte", deslocarMesCP("2026-12", 1) === "2027-01");
+  ok("recor: janeiro − 1 = dezembro do ano anterior", deslocarMesCP("2026-01", -1) === "2025-12");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

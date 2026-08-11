@@ -76,6 +76,12 @@ export async function GET(req: Request) {
         description: r.description ?? (tipo === "saida" ? "Despesa recorrente" : "Fatura recorrente"),
         reference_code: refFatura(r.id as string, d),
         review_status: "confirmado", // previsto programado — não vai p/ a fila de Confirmação
+        // ⚠️ O SEGUNDO buraco da mesma família, e o mais caro: aqui a recusa do
+        // gatilho `titulo_exige_origem()` cairia num `insert` cujo erro só é
+        // contado quando não é 23505 — ou seja, a fatura recorrente deixaria de
+        // ser gerada e o único vestígio seria um contador de falhas num job que
+        // ninguém abre. Contrato é o que ele materializa.
+        origem: "contrato",
       });
       if (!insErr) (tipo === "saida" ? t.saidas++ : t.entradas++);
       else if (insErr.code !== "23505") t.falhas++;

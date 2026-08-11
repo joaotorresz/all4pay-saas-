@@ -26,6 +26,19 @@ export interface RiskMovement {
   costCenter?: string | null;
   /** Nome do projeto do lançamento (centro de resultado temporal). */
   projeto?: string | null;
+  /**
+   * Quantas parcelas a COMPRA tem, quando é parcelada (`installment_total`).
+   *
+   * ⚠️ Existe para separar o que ACABA do que CONTINUA. Uma parcela repete
+   * mensalmente igualzinho a um aluguel — pelo padrão dos lançamentos as duas
+   * são indistinguíveis — e mesmo assim não são a mesma coisa: a parcela tem
+   * fim, e um compromisso com fim não responde "quanto a empresa gasta todo mês
+   * para existir". Sem este campo, o custo fixo sai inflado pela compra
+   * parcelada de um notebook.
+   */
+  parcelas?: number | null;
+  /** Qual parcela é esta, 1-based (`installment_no`). */
+  parcela?: number | null;
 }
 
 export interface RiskInput {
