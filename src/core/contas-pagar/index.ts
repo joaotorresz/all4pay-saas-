@@ -111,8 +111,10 @@ export interface DiaDoCalendario {
   /** Total pago neste dia. */
   pago: number;
   quantidade: number;
-  /** A situação predominante do dia — decide a cor do marcador. */
+  /** A situação predominante do dia — decide a cor do marcador. `null` = dia vazio. */
   situacao: Situacao | null;
+  /** É hoje? O calendário marca o dia corrente mesmo quando ele não tem nada. */
+  ehHoje: boolean;
 }
 
 export interface PainelContasPagar {
@@ -123,9 +125,33 @@ export interface PainelContasPagar {
   atrasadas: CardContasPagar;
   /** A distribuição por situação, para o gráfico radial. */
   distribuicao: { situacao: Situacao; rotulo: string; valor: number; quantidade: number; fracao: number }[];
-  /** Os dias do período que têm algo — o calendário só pinta o que existe. */
+  /**
+   * TODOS os dias do período, do primeiro ao último — inclusive os vazios.
+   *
+   * ⚠️ Antes só entravam os dias COM lançamento, e a faixa do calendário ficava
+   * com buracos invisíveis: 01, 02, 05, 11, 25. Quem olha lê a sequência como
+   * se fosse contínua e conclui coisas erradas sobre o espaçamento — dois
+   * vencimentos "colados" podiam estar a duas semanas um do outro. Um
+   * calendário que pula dia deixa de ser calendário e vira uma lista ordenada
+   * por data.
+   */
   dias: DiaDoCalendario[];
+  /**
+   * O período tinha mais dias do que o `TETO_DIAS` — a faixa mostra os
+   * primeiros. ⚠️ Truncar em silêncio faria um intervalo de dois anos parecer
+   * um trimestre.
+   */
+  diasTruncados: boolean;
 }
+
+/**
+ * Quantos dias a faixa desenha, no máximo.
+ *
+ * ⚠️ Um trimestre. O mês e a semana cabem folgados; o que este teto protege é o
+ * intervalo personalizado — "de 01/2024 a hoje" renderizaria mais de mil
+ * cápsulas e travaria a tela. O corte é DITO na saída, nunca calado.
+ */
+export const TETO_DIAS = 92;
 
 /* ========================================================================== */
 /* O motor                                                                     */
@@ -212,8 +238,8 @@ export function montarPainelContasPagar(
 
   /* ---- O calendário ------------------------------------------------------ */
   const porDia = new Map<string, DiaDoCalendario>();
-  const toque = (data: string) =>
-    porDia.get(data) ?? { data, aPagar: 0, pago: 0, quantidade: 0, situacao: null };
+  const toque = (data: string): DiaDoCalendario =>
+    porDia.get(data) ?? { data, aPagar: 0, pago: 0, quantidade: 0, situacao: null, ehHoje: data === hoje };
 
   for (const m of pagas) {
     const d = (m.paid_date ?? m.due_date).slice(0, 10);
@@ -226,15 +252,24 @@ export function montarPainelContasPagar(
     porDia.set(d, { ...x, aPagar: round2(x.aPagar + magnitude(m)), quantidade: x.quantidade + 1 });
   }
 
-  const dias = Array.from(porDia.values()).map((d) => ({
-    ...d,
-    // ⚠️ A situação do DIA é a mais urgente que ele contém, não a mais
-    // frequente: um dia com nove pagas e um título vencido precisa aparecer
-    // como vencido, senão o marcador esconde justamente o que exige ação.
-    situacao: d.aPagar > 0
-      ? (d.data < hoje ? "atrasado" as const : "a_vencer" as const)
-      : d.pago > 0 ? "pago" as const : null,
-  })).sort((a, b) => a.data.localeCompare(b.data));
+  // ⚠️ A faixa percorre o PERÍODO, não o mapa: é isso que garante que 03 venha
+  // depois de 02 mesmo quando nenhum dos dois tem lançamento. O mapa só
+  // preenche o que existe.
+  const dias: DiaDoCalendario[] = [];
+  for (let d = de; d <= ate && dias.length < TETO_DIAS; d = somarDia(d)) {
+    const x = toque(d);
+    dias.push({
+      ...x,
+      // ⚠️ A situação do DIA é a mais urgente que ele contém, não a mais
+      // frequente: um dia com nove pagas e um título vencido precisa aparecer
+      // como vencido, senão o marcador esconde justamente o que exige ação.
+      situacao: x.aPagar > 0
+        ? (d < hoje ? "atrasado" as const : "a_vencer" as const)
+        : x.pago > 0 ? "pago" as const : null,
+      ehHoje: d === hoje,
+    });
+  }
+  const diasTruncados = dias.length > 0 && dias[dias.length - 1].data < ate;
 
   return {
     versao: CONTAS_PAGAR_VERSION,
@@ -244,7 +279,14 @@ export function montarPainelContasPagar(
     atrasadas: cardAtrasadas,
     distribuicao,
     dias,
+    diasTruncados,
   };
+}
+
+/** O dia seguinte, sempre em UTC. */
+function somarDia(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(a, m - 1, d + 1)).toISOString().slice(0, 10);
 }
 
 /* ========================================================================== */

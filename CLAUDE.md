@@ -802,10 +802,23 @@ que dia cada coisa cai. Roda sobre o MESMO `RiskInput` do resto do sistema.
   regra de `core/indicadores.inadimplencia`.
 - **A situação do DIA no calendário é a mais URGENTE que ele contém**, não a
   mais frequente: um dia com nove pagas e um vencido aparece como vencido,
-  senão o marcador esconde justamente o que exige ação. A grade sempre começa
-  na **segunda** da semana do primeiro dia e termina no **domingo** da semana
-  do último — o que fica fora do período é esmaecido, não escondido, senão a
-  coluna "quarta" muda de lugar entre um período e outro.
+  senão o marcador esconde justamente o que exige ação.
+- **O calendário fala a MESMA língua do "Calendário de transações" da Visão
+  geral**: faixa horizontal de cápsulas (56×86, disco a 46px — 82% da largura),
+  o dia escolhido num pill escuro com o número em disco branco, e a agenda do
+  dia embaixo. Era uma grade mensal; duas telas do mesmo produto respondendo
+  "o que cai em cada dia" com desenhos diferentes obrigam quem opera a
+  reaprender a leitura ao trocar de tela.
+- ⚠️ **A faixa traz TODOS os dias do período, inclusive os vazios** (esmaecidos).
+  Antes só entravam os dias com lançamento e a faixa ficava com buracos
+  invisíveis — 01, 02, 05, 11, 25 —, que quem olha lê como sequência contínua:
+  dois vencimentos "colados" podiam estar a duas semanas um do outro. Um
+  calendário que pula dia deixa de ser calendário e vira lista ordenada por
+  data. Teto de **92 dias** (`TETO_DIAS`) para o intervalo personalizado, e o
+  corte é DITO na tela.
+- **A faixa abre no dia selecionado** (`useLayoutEffect`, antes da pintura), e o
+  padrão é **HOJE mesmo quando vazio** — "nada vence hoje" é uma resposta, e
+  pular para outro dia porque hoje está vazio esconde justamente essa resposta.
 - **Períodos:** `periodoMes` (pré-selecionado) · `periodoSemana` (⚠️ **segunda
   a domingo**, não domingo a sábado: com origem no domingo, o vencimento de
   segunda cai na "semana passada" na manhã de segunda-feira, que é exatamente
@@ -822,7 +835,8 @@ que dia cada coisa cai. Roda sobre o MESMO `RiskInput` do resto do sistema.
   período e foi pago fora dele NÃO entra), "vence hoje" nos dois sentidos, os
   filtros recortando os três cards e o filtro sem correspondência devolvendo
   **vazio** (e não tudo), as frações fechando em 1, o período vazio sem divisão
-  por zero, e a semana de segunda a domingo. Provadas quebrando as cinco.
+  por zero, a semana de segunda a domingo, e o calendário com o período INTEIRO
+  (agosto tem 31 cápsulas, nenhuma pulada, com o teto avisando quando corta).
 - ⚠️ **O menu foi de 8 para 9 grupos**, com a justificativa que o teto exige
   (em `scripts/consistencia.mts`): a linha "Contas a pagar" SAIU do grupo
   "Pagar" e virou a área. "Pagar" fica com o que CERCA a obrigação (compra,

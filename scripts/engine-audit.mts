@@ -2627,6 +2627,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
 // ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──
 {
+  /** Dias entre duas datas-só, em UTC — para provar que a faixa não pula dia. */
+  const diasEntreISO = (a: string, b: string) => {
+    const [a1, m1, d1] = a.split("-").map(Number);
+    const [a2, m2, d2] = b.split("-").map(Number);
+    return Math.round((Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000);
+  };
   const mv = (
     id: string, amount: number, status: RiskMovement["status"],
     due_date: string, paid_date: string | null,
@@ -2691,7 +2697,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // ⚠️ Período SEM nada não divide por zero e não desenha anel nenhum.
   const vazio = montarPainelContasPagar(INPUT, { de: "2027-01-01", ate: "2027-01-31" });
   ok("cpagar: período vazio dá zero sem NaN",
-     vazio.distribuicao.every((d) => d.valor === 0 && d.fracao === 0) && vazio.dias.length === 0);
+     vazio.distribuicao.every((d) => d.valor === 0 && d.fracao === 0)
+     && vazio.dias.every((d) => d.quantidade === 0));
+  // ⚠️ E a FAIXA existe mesmo assim: o calendário desenha o período inteiro,
+  // não só o que tem lançamento. Um mês vazio são 31 cápsulas vazias, e é essa
+  // a resposta — "não vence nada em janeiro" —, não uma faixa em branco.
+  ok("cpagar: o calendário desenha o período inteiro, com ou sem lançamento",
+     vazio.dias.length === 31 && vazio.dias[0].data === "2027-01-01"
+     && vazio.dias[30].data === "2027-01-31", String(vazio.dias.length));
 
   /* ---- OS FILTROS FILTRAM (a exigência explícita desta tela) ------------- */
   const porProjeto = montarPainelContasPagar(INPUT, { ...AGOSTO, projeto: "Obra Norte" });
@@ -2723,6 +2736,27 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cpagar: dia que só tem pagamento é marcado como pago", dia("2026-08-03")?.situacao === "pago");
   ok("cpagar: os dias saem em ordem",
      p.dias.map((d) => d.data).join(",") === [...p.dias.map((d) => d.data)].sort().join(","));
+  /*
+   * ⚠️ NENHUM DIA PULADO — a asserção que a versão anterior não podia fazer.
+   *
+   * Antes a faixa continha só os dias COM lançamento: 01, 02, 05, 11, 25. Quem
+   * olha lê a sequência como contínua e conclui coisas erradas sobre o
+   * espaçamento — dois vencimentos "colados" podiam estar a duas semanas um do
+   * outro. Um calendário que pula dia deixa de ser calendário.
+   */
+  ok("cpagar: agosto tem os 31 dias, sem buraco",
+     p.dias.length === 31
+     && p.dias.every((d, k) => k === 0 || diasEntreISO(p.dias[k - 1].data, d.data) === 1),
+     String(p.dias.length));
+  ok("cpagar: os dias vazios entram com zero, não somem",
+     p.dias.some((d) => d.quantidade === 0 && d.aPagar === 0 && d.pago === 0 && d.situacao === null));
+  ok("cpagar: o dia de hoje vem marcado", p.dias.filter((d) => d.ehHoje).length === 1
+     && p.dias.find((d) => d.ehHoje)?.data === "2026-08-11");
+  // O teto protege o intervalo personalizado enorme — e DIZ que cortou.
+  const longo = montarPainelContasPagar(INPUT, { de: "2026-01-01", ate: "2027-12-31" });
+  ok("cpagar: intervalo enorme é cortado no teto E avisa",
+     longo.dias.length === 92 && longo.diasTruncados === true, String(longo.dias.length));
+  ok("cpagar: intervalo dentro do teto NÃO diz que cortou", p.diasTruncados === false);
 
   /* ---- Os períodos ------------------------------------------------------- */
   const mes = periodoMes("2026-08-11");
