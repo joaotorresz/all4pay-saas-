@@ -15,7 +15,8 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import type { FinancialAccount } from "@/lib/types";
 import {
-  runwayMeses as runwayMesesCanonico, type Indicador as IndicadorCanonico,
+  runwayMeses as runwayMesesCanonico, saldo as saldoCanonico, previstoNaJanela,
+  janela as janelaCanonica, type Indicador as IndicadorCanonico,
 } from "@/core/indicadores";
 
 export const CASHFLOW_VERSION = "cashflow/1.0.0";
@@ -38,6 +39,15 @@ export interface ResumoExecutivo {
    * significa nada.
    */
   runway: IndicadorCanonico;
+  /**
+   * ⚠️ Os três primeiros cartões, também INTEIROS. Os campos `number` acima
+   * continuam existindo porque meia dúzia de blocos desta página os consome
+   * como número — mas o cartão do resumo executivo lê daqui, porque é ele que
+   * a pessoa olha de relance, e é de relance que "R$ 0" vira "não entra nada".
+   */
+  caixaCanonico: IndicadorCanonico;
+  entradasCanonicas: IndicadorCanonico;
+  saidasCanonicas: IndicadorCanonico;
   chanceRuptura: number; // 0..1
   score: number; // 0..100
 }
@@ -213,6 +223,9 @@ export function montarFluxoCaixa(
     burn: risco.burn.burnMensal,
     runwayMeses: quant.indicadores.runwayMeses,
     runway: runwayMesesCanonico(input),
+    caixaCanonico: saldoCanonico(input),
+    entradasCanonicas: previstoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "entrada"),
+    saidasCanonicas: previstoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "saida"),
     chanceRuptura: risco.probabilidadeRuptura,
     score: quant.score.score,
   };

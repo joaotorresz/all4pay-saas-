@@ -34,6 +34,8 @@ export const INDICADORES_VERSION = "indicadores/1.0.0";
 
 export * from "./convencoes";
 export * from "./janela";
+export * from "./classificacao";
+export * from "./resultado";
 
 /* ========================================================================== */
 /* O contrato de saída                                                         */

@@ -22,42 +22,20 @@ import type {
   DREPeriodo,
 } from "./types";
 import { uid } from "./types";
+import {
+  classificarDespesa, classificarReceita, LABEL_DESPESA, LABEL_RECEITA,
+  type LinhaDespesa, type LinhaReceita,
+} from "@/core/indicadores/classificacao";
 
 /* ---- Classificação ---- */
-export type LinhaDespesa = "impostos" | "cmv" | "folha" | "financeiro" | "opex";
-export type LinhaReceita = "vendas" | "servicos" | "juros" | "outras";
-
-const LABEL_DESPESA: Record<LinhaDespesa, string> = {
-  impostos: "Impostos sobre receita",
-  cmv: "CMV / Fornecedores",
-  folha: "Folha de pagamento",
-  financeiro: "Resultado financeiro",
-  opex: "Despesas operacionais",
-};
-const LABEL_RECEITA: Record<LinhaReceita, string> = {
-  vendas: "Vendas",
-  servicos: "Serviços prestados",
-  juros: "Juros / receitas financeiras",
-  outras: "Outras receitas",
-};
-
-export function classificarDespesa(cat: string | null | undefined): LinhaDespesa {
-  const c = (cat ?? "").toLowerCase();
-  if (/imposto|tribut|\bdas\b|irpj|iss|icms|pis|cofins/.test(c)) return "impostos";
-  // folha ANTES de cmv: "Custo de pessoal" casa "custo" (cmv) mas é folha; as
-  // palavras de cmv (mercadoria/fornecedor/insumo/combust) não casam folha.
-  if (/folha|sal[aá]r|pessoal|encargo|pró-labore|pro-labore/.test(c)) return "folha";
-  if (/fornecedor|cmv|custo|mercadoria|insumo|combust/.test(c)) return "cmv";
-  if (/tarifa|juros|banc|financ|iof/.test(c)) return "financeiro";
-  return "opex";
-}
-export function classificarReceita(cat: string | null | undefined): LinhaReceita {
-  const c = (cat ?? "").toLowerCase();
-  if (/serviç|servico/.test(c)) return "servicos";
-  if (/juros|rendiment|aplicac/.test(c)) return "juros";
-  if (/venda/.test(c)) return "vendas";
-  return "outras";
-}
+// ⚠️ MUDOU DE CASA, não de conteúdo. Ela vive em `core/indicadores/classificacao`
+// porque a camada canônica também precisa dela (para responder "qual foi o
+// EBITDA") e não pode importar `core/dre` sem fechar um ciclo. Reexportada
+// daqui para não quebrar os ~10 consumidores que já a importavam deste módulo.
+export {
+  classificarDespesa, classificarReceita,
+  type LinhaDespesa, type LinhaReceita,
+} from "@/core/indicadores/classificacao";
 
 /* ---- Período / regime ---- */
 const refDate = (m: RiskMovement, regime: Regime) =>
