@@ -1687,6 +1687,44 @@ sem movimento é uma barra ausente; saldo é posição; um mês sem faturamento 
 mesmo dever zero de imposto. A guarda também recusa exceção que aponte para
 arquivo inexistente.
 
+**A CASCATA DO RESULTADO ganhou o contrato** (`core/indicadores/resultado.ts`):
+receita bruta · deduções · receita líquida · custo · lucro bruto · despesa
+operacional · EBITDA · lucro líquido · as três margens · estoque de títulos ·
+churn · posição consolidada. `painelResultado()` roda a cascata inteira sobre a
+MESMA janela — pedir linha a linha convida a passar janelas diferentes sem
+querer, e é assim que uma tela mostra a receita de agosto com o EBITDA de julho.
+
+⚠️ **A MARGEM é o caso mais perigoso da onda.** Toda margem é razão sobre a
+receita: sem receita não existe margem, e "margem de 0%" lê como *"vendeu e não
+sobrou nada"* — a notícia ruim — quando a verdade é *"não vendeu"*. As duas
+mandam o dono fazer coisas OPOSTAS: a primeira manda cortar custo, a segunda
+manda vender. Um percentual é a única grandeza em que o zero da ausência e o
+zero do desastre são graficamente idênticos. (Ao plantar o defeito, a guarda
+colheu `-Infinity` — a divisão por zero era real.)
+
+⚠️ **Empresa que não respondeu não vale ZERO no consolidado.** É o defeito na
+forma mais cara: o total sai menor que a realidade com a cara de completo, e é
+esse número que vai ao banco pedir crédito. `posicaoConsolidada` fica
+indisponível e **nomeia quem faltou**.
+
+⚠️ **O classificador MUDOU DE CASA** (`core/dre/engine` →
+`core/indicadores/classificacao`, reexportado de onde estava para não quebrar os
+consumidores). A camada canônica precisa saber o que é imposto, custo e folha, e
+importar `core/dre` de dentro dela fecharia um CICLO (`indicadores → dre/engine
+→ liquidez.engine → indicadores`). A alternativa — reescrever os regex — é
+exatamente a doença que a ONDA 1 mata: duas classificações que começam idênticas
+e divergem na primeira categoria nova. **A ordem interna é regra: folha antes de
+cmv**, senão "Custo de pessoal" casa `custo` e a folha inteira migra para o CMV,
+inflando o lucro bruto sem nada parecer errado.
+
+**Guarda LINHA 31c:** a cascata canônica é conferida PAR A PAR contra
+`dreGerencial` (receita bruta, líquida, lucro bruto, EBITDA, lucro líquido, as
+margens) — acrescentar o contrato exigiu reescrever a aritmética num segundo
+lugar, e nada além desta guarda obriga os dois a concordar. Provada quebrando.
+
+**Origem clicável ligada** nos cartões executivos do DRE, no resumo executivo do
+fluxo de caixa e no saldo do extrato em `/razao`.
+
 **Fica declarado como não feito:** `RiskInput` carrega `saldoAtual: number` e
 não as contas, então "R$ 0 de saldo" e "nenhuma conta cadastrada" continuam
 indistinguíveis — consertar é mexer no formato da entrada, não no indicador.

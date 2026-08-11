@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
 } from "recharts";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, type InfoConteudo } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, ValorIndicador, type InfoConteudo } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
@@ -203,9 +203,13 @@ function Bloco({ titulo, icon, info, children }: { titulo: string; icon: string;
 function ExecutiveSummary({ m }: { m: FluxoModelo }) {
   const r = m.resumo;
   const cards = [
-    { label: "Caixa atual", node: <BRL value={r.caixaAtual} />, tone: "ink" },
-    { label: "Entradas previstas", node: <BRL value={r.entradasPrevistas} />, tone: "positive" },
-    { label: "Saídas previstas", node: <BRL value={r.saidasPrevistas} />, tone: "ink" },
+    // ⚠️ Os três primeiros passaram a ler o indicador INTEIRO e a abrir a
+    // origem no clique (fórmula, período, regime e os lançamentos que compõem).
+    // "R$ 0 de entradas previstas" e "nenhum título vence nesta janela" são
+    // frases diferentes, e é a segunda que diz o que fazer.
+    { label: "Caixa atual", node: <ValorIndicador indicador={r.caixaCanonico} titulo="Caixa atual" />, tone: "ink" },
+    { label: "Entradas previstas", node: <ValorIndicador indicador={r.entradasCanonicas} titulo="Entradas previstas" />, tone: "positive" },
+    { label: "Saídas previstas", node: <ValorIndicador indicador={r.saidasCanonicas} titulo="Saídas previstas" />, tone: "ink" },
     { label: "Geração de caixa", node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: r.geracaoCaixa >= 0 ? "positive" : "negative" },
     { label: "Burn", node: <BRL value={r.burn} />, tone: "ink" },
     // ⚠️ O "∞" saía de `>= 99`, que é o TETO do cálculo lido como se fosse a

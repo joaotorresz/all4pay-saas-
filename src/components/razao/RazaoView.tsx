@@ -7,7 +7,7 @@
  */
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge, InfoHint } from "@/components/ui";
+import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skeleton, StatusBadge, InfoHint, ValorIndicador } from "@/components/ui";
 import { getLedgerEntries, balancete, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
@@ -16,7 +16,7 @@ import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { ErroWidget } from "@/components/visao-geral/shared";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { reconciliarSaldo } from "@/core/indicadores";
+import { reconciliarSaldo, saldo } from "@/core/indicadores";
 import { AppShell } from "@/components/app/AppShell";
 
 const fmtDia = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
@@ -212,7 +212,8 @@ export function RazaoView() {
 function ConciliacaoCaixa() {
   const { data: inp } = useRiscoInput();
   const rec = React.useMemo(() => (inp ? reconciliarSaldo(inp) : null), [inp]);
-  if (!rec) return null;
+  const saldoCanonico = React.useMemo(() => (inp ? saldo(inp) : null), [inp]);
+  if (!rec || !saldoCanonico) return null;
   return (
     <Card
       info={{
@@ -227,7 +228,13 @@ function ConciliacaoCaixa() {
         <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2">
           <div className="flex flex-col">
             <span className="text-caption text-faint">Saldo no extrato</span>
-            <span className="text-h3 tabular-nums text-ink"><BRL value={rec.extrato} /></span>
+            {/* A origem a um clique — e aqui ela responde a pergunta que a
+                própria caixa levanta: de onde sai o número que o razão tem de
+                alcançar. É o extrato que é a autoridade, e o painel diz isso
+                com todas as letras em vez de deixar implícito. */}
+            <span className="text-h3 tabular-nums text-ink">
+              <ValorIndicador indicador={saldoCanonico} titulo="Saldo no extrato" />
+            </span>
           </div>
           <div className="flex flex-col">
             <span className="text-caption text-faint">Somando todos os lançamentos</span>
