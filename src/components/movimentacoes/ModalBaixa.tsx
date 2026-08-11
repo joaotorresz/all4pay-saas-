@@ -16,6 +16,7 @@
  * Extraído em vez de duplicado: a operação move DINHEIRO, e duas cópias
  * divergirem aqui significa dois comportamentos de liquidação diferentes.
  */
+import { HistoricoRegistro } from "@/components/app/HistoricoRegistro";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Icon, Button, Select } from "@/components/ui";
@@ -130,6 +131,13 @@ export function ModalBaixa({
                   {ehSaida ? " “pago”" : " “recebido”"}. A operação é idempotente: confirmar de novo não
                   {ehSaida ? " paga" : " credita"} duas vezes.
                 </span>
+
+                {/* ⚠️ O histórico fica NO modal da baixa, e não numa tela à
+                    parte: a pergunta "quem mexeu nisto?" é feita onde o
+                    registro está. Numa página separada, a pessoa teria de sair
+                    do título, procurá-lo de novo numa lista de milhares e
+                    voltar — e por isso ninguém consultaria. */}
+                <HistoricoRegistro entidade="movements" id={baixa.id} />
 
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="secondary" onClick={() => onFechar()}>Cancelar</Button>

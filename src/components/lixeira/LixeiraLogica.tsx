@@ -127,7 +127,7 @@ export function LixeiraLogica() {
             key={chave(i)}
             className={`flex items-center gap-3 px-5 py-3 flex-wrap ${n ? "border-t border-border-soft" : ""}`}
           >
-            <Icon name="trash" size={15} color="var(--color-faint)" />
+            <Icon name="trash-2" size={15} color="var(--color-faint)" />
             <div className="flex-1 min-w-0">
               <span className="block truncate text-[15px] text-ink">{i.resumo}</span>
               <span className="block text-caption text-faint">
