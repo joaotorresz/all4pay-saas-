@@ -101,6 +101,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/comece", nome: "Primeiros passos", dono: "adocao", status: "canonica", criterio: "diferencial" },
   { rota: "/configuracoes", nome: "Configurações da empresa", dono: "plataforma", status: "canonica", criterio: "nucleo" },
   { rota: "/contabilidade", nome: "Contabilidade", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
+  { rota: "/contas-a-pagar", nome: "Painel de contas a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contratacoes", nome: "Plano de contratações", dono: "inteligencia", status: "canonica", criterio: "travada" },
   { rota: "/dashboard", nome: "Painéis", dono: "paineis", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/dominio-export", nome: "Gerar TXT contábil", dono: "contabilidade", status: "canonica", criterio: "nucleo" },

@@ -2362,9 +2362,31 @@ const AGOSTO = janelaMes(2026, 7);
    * isso operável é que a lateral mostra só o grupo em que você está — nunca
    * os 66 de uma vez.
    */
-  const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Receber · Pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
+  /*
+   * ⚠️ NONO GRUPO: "Contas a pagar" — a justificativa que o teto exige.
+   *
+   * A regra manda dizer O QUE SAI. Saiu: a linha "Contas a pagar" deixou o
+   * grupo "Pagar" e virou a área. "Pagar" continua com o que CERCA a
+   * obrigação — compra que precisa de aprovação, NF de entrada, boleto que
+   * chegou, reembolso, fornecedor — e a obrigação em si passou a ter casa
+   * própria, com a leitura agregada (dashboard) e a leitura título a título
+   * lado a lado.
+   *
+   * O teto de destinos NÃO subiu junto, e isso é o ponto: o dashboard é uma
+   * pergunta que ninguém respondia (quanto já saiu, quanto vai vencer, quanto
+   * venceu, em que dia), mas a linha herdada não é destino novo — mudou de
+   * grupo. O total sobe de 66 para 67 por um destino, um só.
+   *
+   * O custo aceito, escrito para não ser esquecido: 9 grupos passa dos ~7
+   * confortáveis, e agora existem dois grupos cujo nome fala de pagar. O que
+   * os separa é a pergunta — "Pagar" é o fluxo de trabalho até a obrigação
+   * existir; "Contas a pagar" é a obrigação depois de existir. Se o próximo
+   * item não couber claramente de um dos dois lados, o sinal é de fundir, não
+   * de subir o teto de novo.
+   */
+  const TETO_GRUPOS = 9;            // Visão geral · Caixa e bancos · Receber · Pagar · Contas a pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 66;      // a soma de hoje, incluindo o rodapé
+  const TETO_ITENS_TOTAL = 67;      // a soma de hoje, incluindo o rodapé
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,
