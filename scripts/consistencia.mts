@@ -43,6 +43,11 @@ import {
   mesmoDocumento, contraparteSuspeita, contraparteNoLadoErrado, motivoSemScore,
 } from "@/core/dominio/contraparte";
 import { auditarQualidade, planejarFusao } from "@/core/qualidade";
+import {
+  regimeDoCadastro, divergenciaDeRegime, PERFIL_NAO_DECLARADO, perfilEm,
+  problemasDoHistorico, calcularFatorR, explicarFatorR,
+} from "@/core/fiscal/perfil";
+import { apurar } from "@/core/fiscal/apuracao";
 import { dailyCashflowRange, dailyCashflow, summarizeAccounts } from "@/lib/aggregations";
 import { painelAssinaturas } from "@/core/paineis";
 import {
@@ -3031,6 +3036,127 @@ const AGOSTO = janelaMes(2026, 7);
      plano?.mantido === "p1" && plano.absorvidos.length === 2);
   ok("onda5: a fusão conta os vínculos a reapontar", plano?.vinculos === 11);
   ok("onda5: fundir um produto sozinho não é fusão", planejarFusao(["p1"]) === null);
+}
+
+
+/* ========================================================================== */
+/* LINHA 33 — ONDA 6: regime único, e nenhuma apuração por omissão.          */
+/* ========================================================================== */
+{
+  /* ---- A ausência NÃO vira Lucro Presumido ------------------------------ */
+  // ⚠️ ESTA é a asserção central da onda. `regimeDaEmpresa(db, padrao =
+  // "presumido")` transformava um localStorage vazio em R$ 284.823,41 de
+  // imposto apurado — a doença da ONDA 4 no domínio fiscal, onde a ausência
+  // não vira R$ 0 numa tela, vira guia com valor e vencimento.
+  ok("onda6: cadastro vazio é 'não declarado', nunca presumido",
+     regimeDoCadastro(null) === "nao_declarado"
+     && regimeDoCadastro({}) === "nao_declarado"
+     && regimeDoCadastro({ regime: "" }) === "nao_declarado");
+  ok("onda6: o que está declarado é lido das DUAS chaves históricas",
+     regimeDoCadastro({ regime: "Simples Nacional" }) === "simples"
+     && regimeDoCadastro({ regimeTributario: "Lucro Presumido" }) === "presumido");
+  const div = divergenciaDeRegime({ regimeTributario: "Simples Nacional", regime: "Lucro Presumido" });
+  ok("onda6: duas chaves em desacordo são DENUNCIADAS, não resolvidas em silêncio",
+     div.conflito && div.cadastro === "simples" && div.edicao === "presumido");
+
+  /* ---- Nenhuma apuração sem regime -------------------------------------- */
+  const L = Array.from({ length: 13 }, (_, i) => ({
+    id: `m${i}`, tipo: "entrada" as const, valor: 100_000,
+    categoria: "Receita de serviços",
+    competencia: `2026-${String(i + 1).padStart(2, "0")}-15`.replace("2026-13", "2027-01"),
+    liquidado: true,
+  }));
+  const semRegime = apurar(PERFIL_NAO_DECLARADO, L, "2026-12");
+  ok("onda6: regime não declarado não apura imposto nenhum",
+     !!semRegime.indisponivel && semRegime.total === 0 && semRegime.tributos.length === 0);
+  ok("onda6: e diz o que fazer a respeito",
+     (semRegime.indisponivel?.comoResolver ?? "").length > 40);
+
+  /* ---- Simples: a memória reproduz a conta ------------------------------ */
+  const perfilIII = { ...PERFIL_NAO_DECLARADO, regime: "simples" as const, anexo: "III" as const };
+  const ap = apurar(perfilIII, L, "2026-12");
+  // Conferência INDEPENDENTE, refeita à mão: RBT12 = 11 × 100.000 = 1.100.000,
+  // faixa 4 do Anexo III (nominal 16%, dedução 35.640).
+  const efetivaEsperada = (1_100_000 * 0.16 - 35_640) / 1_100_000;
+  eq("cruzado: DAS do Simples == a conta refeita à mão", ap.total, 100_000 * efetivaEsperada);
+  ok("onda6: a memória tem os cinco passos e cada um traz a fórmula",
+     ap.tributos[0].memoria.length >= 5
+     && ap.tributos[0].memoria.every((m) => m.formula.length > 10),
+     `${ap.tributos[0].memoria.length} passos`);
+  // ⚠️ Reprodutibilidade não é a frase, são os IDs: "12 lançamentos" é um
+  // número sobre o número; o que fecha a conta é poder ver os 12.
+  ok("onda6: a memória aponta QUAIS lançamentos formaram a base",
+     (ap.tributos[0].memoria[0].movimentos ?? []).length > 0);
+  ok("onda6: Simples sem anexo não apura — 6% e 15,5% não têm meio-termo a assumir",
+     !!apurar({ ...perfilIII, anexo: null }, L, "2026-12").indisponivel);
+
+  /* ---- Presumido: as efetivas SAEM da base presumida --------------------- */
+  const perfilLP = { ...PERFIL_NAO_DECLARADO, regime: "presumido" as const };
+  const lp = apurar(perfilLP, L, "2026-12");
+  const irpj = lp.tributos.find((t) => t.sigla === "IRPJ")!;
+  const csll = lp.tributos.find((t) => t.sigla === "CSLL")!;
+  // 15% e 9% sobre base presumida de 32% dão as efetivas conhecidas de 4,8% e
+  // 2,88% — mas só na parte BÁSICA: o adicional é progressivo e entra por cima.
+  eq("cruzado: base presumida de serviços == 32% da receita", irpj.base, 100_000 * 0.32);
+  eq("cruzado: CSLL == 9% sobre a base presumida", csll.valor, 100_000 * 0.32 * 0.09);
+  // ⚠️ O ADICIONAL É O QUE UMA ALÍQUOTA FIXA NÃO CONSEGUE REPRESENTAR: 10%
+  // sobre o que excede R$ 20.000 de base POR MÊS. Com 32.000 de base, o
+  // excedente é 12.000. Uma carga única de 16,33% ignora isso e erra conforme
+  // a receita se distribui pelos meses.
+  eq("cruzado: IRPJ == 15% da base + 10% do que excede R$ 20.000",
+     irpj.valor, 100_000 * 0.32 * 0.15 + (100_000 * 0.32 - 20_000) * 0.10);
+  ok("onda6: sem alíquota de ISS declarada, o ISS NÃO entra com palpite",
+     !lp.tributos.some((t) => t.sigla === "ISS") && !!lp.indisponivel,
+     "o total sairia incompleto sem dizer");
+  const lpIss = apurar({ ...perfilLP, issAliquota: 0.05, municipio: "São Paulo" }, L, "2026-12");
+  eq("cruzado: com ISS declarado, ele entra pela alíquota do município",
+     lpIss.tributos.find((t) => t.sigla === "ISS")!.valor, 100_000 * 0.05);
+
+  /* ---- Lucro Real: modelado, não habilitado ------------------------------ */
+  ok("onda6: Lucro Real pode ser declarado e NÃO apura por receita",
+     !!apurar({ ...PERFIL_NAO_DECLARADO, regime: "real" as const }, L, "2026-12").indisponivel);
+
+  /* ---- Fator R: o anexo como consequência do dado ------------------------ */
+  const comFolha = [
+    ...L,
+    { id: "f1", tipo: "saida" as const, valor: 40_000, categoria: "Folha de pagamento",
+      competencia: "2026-06-05", liquidado: true },
+  ];
+  const fr = calcularFatorR(comFolha, "2026-01-01", "2026-12-31");
+  ok("onda6: o fator R decide o anexo, e a frase explica o porquê",
+     fr.anexoIndicado !== null && explicarFatorR(fr).includes("%"));
+  // ⚠️ O resgate FORA da base: sem esta exclusão o denominador infla, o fator R
+  // cai e a empresa vai parar no Anexo V — que custa mais que o dobro.
+  const comResgate = calcularFatorR([
+    { id: "r", tipo: "entrada", valor: 100_000, categoria: "Receita de serviços", competencia: "2026-03-01", liquidado: true },
+    { id: "g", tipo: "entrada", valor: 900_000, categoria: "Resgate de aplicação", competencia: "2026-03-02", liquidado: true },
+    { id: "f", tipo: "saida", valor: 32_000, categoria: "Folha de pagamento", competencia: "2026-03-05", liquidado: true },
+  ], "2026-01-01", "2026-12-31");
+  eq("cruzado: o resgate fica FORA do denominador do fator R", comResgate.receita12m, 100_000);
+  ok("onda6: e por isso o anexo indicado continua o III", comResgate.anexoIndicado === "III");
+  ok("onda6: sem receita não há fator R — 0% leria como 'não tem folha'",
+     calcularFatorR([{ id: "f", tipo: "saida", valor: 1, categoria: "Folha", competencia: "2026-03-01", liquidado: true }],
+       "2026-01-01", "2026-12-31").valor === null);
+
+  /* ---- Vigência: o passado não é recalculado com a regra de hoje --------- */
+  const hist = { perfis: [
+    { ...PERFIL_NAO_DECLARADO, regime: "simples" as const, anexo: "III" as const,
+      vigenteDe: "2025-01-01", vigenteAte: "2025-12-31" },
+    { ...PERFIL_NAO_DECLARADO, regime: "presumido" as const, vigenteDe: "2026-01-01", vigenteAte: null },
+  ] };
+  ok("onda6: a apuração de 2025 usa o regime de 2025",
+     perfilEm(hist, "2025-06-15").regime === "simples");
+  ok("onda6: e a de 2026 usa o de 2026", perfilEm(hist, "2026-06-15").regime === "presumido");
+  ok("onda6: data sem perfil não inventa regime",
+     perfilEm(hist, "2024-06-15").regime === "nao_declarado");
+  // Sobreposição é o defeito mais perigoso do histórico: a apuração passa a
+  // depender de qual perfil a função escolheu.
+  const sobreposto = { perfis: [
+    { ...PERFIL_NAO_DECLARADO, regime: "simples" as const, vigenteDe: "2025-01-01", vigenteAte: null },
+    { ...PERFIL_NAO_DECLARADO, regime: "presumido" as const, vigenteDe: "2026-01-01", vigenteAte: null },
+  ] };
+  ok("onda6: dois regimes cobrindo a mesma data são denunciados",
+     problemasDoHistorico(sobreposto).some((p) => p.includes("Dois regimes")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
