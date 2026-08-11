@@ -31,7 +31,7 @@
  * Puro, tipado, sem I/O e sem relógio. Versão `folha-rescisao/1.0.0`.
  */
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
-import { inssDe, irrfDe, inssEmpregado, irrfEmpregado } from "./tabelas";
+import { inssDe, irrfDe, inssEmpregado, irrfEmpregado, TABELAS_PADRAO, type TabelasLegais } from "./tabelas";
 import { anteciparParaDiaUtil } from "./calendario";
 import { encargosPatronais, FGTS, type LinhaMemoria, type Colaborador } from "./index";
 
@@ -210,6 +210,7 @@ function mesesEntreDatas(de: string, ate: string): number {
 
 export function calcularRescisao(
   c: Colaborador, e: EntradaRescisao, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): CalculoRescisao {
   const problemas: string[] = [];
   const alertas: string[] = [];
@@ -221,8 +222,8 @@ export function calcularRescisao(
 
   const regra = REGRAS[e.modalidade];
   const competencia = (e.desligamento || "").slice(0, 7);
-  const ti = inssDe(competencia || "2025-01");
-  const tr = irrfDe(competencia || "2025-01");
+  const ti = inssDe(competencia || "2025-01", tabelas);
+  const tr = irrfDe(competencia || "2025-01", tabelas);
   const enc = encargosPatronais(regime, anexo);
   const bruto = Math.max(0, c.valor);
   const diaria = bruto / 30;

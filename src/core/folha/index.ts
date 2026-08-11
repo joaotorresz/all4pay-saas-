@@ -36,7 +36,7 @@
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
 import {
   inssDe, irrfDe, inssEmpregado, irrfEmpregado, tetoINSS,
-  type TabelaINSS, type TabelaIRRF,
+  type TabelaINSS, type TabelaIRRF, type TabelasLegais, TABELAS_PADRAO,
 } from "./tabelas";
 import {
   vencimentoSalario, vencimentoFGTS, vencimentoDARF, vencimentoDecimo, mesSeguinte,
@@ -206,9 +206,10 @@ export interface CalculoCLT {
 
 export function calcularCLT(
   c: Colaborador, competencia: string, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): CalculoCLT {
-  const ti = inssDe(competencia);
-  const tr = irrfDe(competencia);
+  const ti = inssDe(competencia, tabelas);
+  const tr = irrfDe(competencia, tabelas);
   const enc = encargosPatronais(regime, anexo);
   const bruto = round2(Math.max(0, c.valor));
 
@@ -240,7 +241,17 @@ export function calcularCLT(
   const memoria: LinhaMemoria[] = [
     { passo: 1, descricao: "Salário bruto", formula: "informado no cadastro", valor: bruto },
     { passo: 2, descricao: "(−) INSS do empregado", formula: `progressivo por faixa · ${ti.tabela.fonte}`, valor: -inss },
-    { passo: 3, descricao: "(−) IRRF do empregado", formula: `base ${brl(ir.base)} · critério ${ir.criterio} · ${tr.tabela.fonte}`, valor: -ir.imposto },
+    /**
+     * ⚠️ O REDUTOR PRECISA APARECER, mesmo (e principalmente) quando zera o
+     * imposto. Um "(−) IRRF R$ 0,00" sozinho num salário de R$ 5.000 lê como
+     * defeito de cálculo — quem confere sabe que ali havia R$ 312,89 no ano
+     * passado. Nomear a lei transforma o zero de suspeita em resposta.
+     */
+    { passo: 3, descricao: "(−) IRRF do empregado",
+      formula: ir.redutor > 0
+        ? `base ${brl(ir.base)} · critério ${ir.criterio} · tabela ${brl(ir.impostoDaTabela)} − redutor ${brl(ir.redutor)} (${tr.tabela.redutor?.fonte ?? "redutor legal"})`
+        : `base ${brl(ir.base)} · critério ${ir.criterio} · ${tr.tabela.fonte}`,
+      valor: -ir.imposto },
     { passo: 4, descricao: "(−) Outros descontos", formula: "VT + VR + saúde + pensão + outros", valor: -outros },
     { passo: 5, descricao: "(=) Líquido a receber", formula: "bruto − descontos", valor: liquido },
     { passo: 6, descricao: "(+) FGTS", formula: `${bruto} × 8%`, valor: fgts },
@@ -372,6 +383,7 @@ export interface TituloFolha {
  */
 export function titulosDaCompetencia(
   c: Colaborador, competencia: string, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): TituloFolha[] {
   if (!ativoEm(c, competencia)) return [];
   const base = { colaboradorId: c.id, colaborador: c.nome, competencia };
@@ -389,7 +401,7 @@ export function titulosDaCompetencia(
     }];
   }
 
-  const k = calcularCLT(c, competencia, regime, anexo);
+  const k = calcularCLT(c, competencia, regime, anexo, tabelas);
   const titulos: TituloFolha[] = [
     {
       ...base, tipo: "salario",
@@ -438,12 +450,13 @@ export function ativoEm(c: Colaborador, competencia: string): boolean {
  */
 export function titulosDoDecimo(
   c: Colaborador, ano: number, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): TituloFolha[] {
   if (c.vinculo !== "clt") return [];
   const dez = `${ano}-12`;
   if (!ativoEm(c, dez)) return [];
   const { primeira, segunda } = vencimentoDecimo(ano);
-  const k = calcularCLT(c, dez, regime, anexo);
+  const k = calcularCLT(c, dez, regime, anexo, tabelas);
   const metade = round2(k.bruto / 2);
   const segundaParcela = round2(k.bruto - metade - k.inss - k.irrf);
   return [
@@ -501,15 +514,16 @@ export interface PainelFolha {
 
 export function montarPainelFolha(
   colaboradores: Colaborador[], competencia: string, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): PainelFolha {
   const ativos = colaboradores.filter((c) => ativoEm(c, competencia));
   const linhas: LinhaFolha[] = ativos.map((c) => {
-    const titulos = titulosDaCompetencia(c, competencia, regime, anexo);
+    const titulos = titulosDaCompetencia(c, competencia, regime, anexo, tabelas);
     if (c.vinculo === "pj") {
       const pj = calcularPJ(c, competencia);
       return { colaborador: c, clt: null, pj, custoTotal: pj.custoTotal, liquido: pj.liquido, titulos };
     }
-    const clt = calcularCLT(c, competencia, regime, anexo);
+    const clt = calcularCLT(c, competencia, regime, anexo, tabelas);
     return { colaborador: c, clt, pj: null, custoTotal: clt.custoTotal, liquido: clt.liquido, titulos };
   });
   linhas.sort((a, b) => b.custoTotal - a.custoTotal);
@@ -542,11 +556,12 @@ export function montarPainelFolha(
  */
 export function custoAnual(
   colaboradores: Colaborador[], ano: number, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): number {
   let total = 0;
   for (let m = 1; m <= 12; m++) {
     const comp = `${ano}-${String(m).padStart(2, "0")}`;
-    total += montarPainelFolha(colaboradores, comp, regime, anexo).custoTotal;
+    total += montarPainelFolha(colaboradores, comp, regime, anexo, tabelas).custoTotal;
   }
   return round2(total);
 }
@@ -563,9 +578,10 @@ export function custoAnual(
  */
 export function compararVinculo(
   bruto: number, competencia: string, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): { clt: number; pj: number; diferenca: number; percentual: number; alerta: string } {
   const base: Colaborador = { id: "sim", nome: "Simulação", vinculo: "clt", valor: bruto, desde: competencia };
-  const clt = calcularCLT(base, competencia, regime, anexo).custoTotal;
+  const clt = calcularCLT(base, competencia, regime, anexo, tabelas).custoTotal;
   const pj = calcularPJ({ ...base, vinculo: "pj" }, competencia).custoTotal;
   return {
     clt, pj,
