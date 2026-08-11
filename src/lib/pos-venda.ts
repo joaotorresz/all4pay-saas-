@@ -92,6 +92,8 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
   const rows: Record<string, unknown>[] = Array.from({ length: n }, (_, i) => ({
     account_id: accId,
     type: "entrada",
+    // ⚠️ ONDA 5: recebível do POS vem da VENDA.
+    origem: "venda" as const,
     status: "pendente",
     category: "venda",
     amount: valorDe(i),
@@ -103,6 +105,7 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
   }));
   if (taxa > 0) {
     rows.push({
+      origem: "venda" as const,
       account_id: accId,
       type: "saida",
       status: "pago",

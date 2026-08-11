@@ -169,6 +169,16 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         }),
         descritivo_bruto: m.descritivo_bruto ?? m.description,
         origem: "extrato",
+        // ⚠️ ONDA 5 — A LINHA QUE FAZ A SEPARAÇÃO EXISTIR. Estas linhas vêm de
+        // um EXTRATO: dinheiro que já passou pela conta. Marcá-las como
+        // `especie: "extrato"` é o que impede cada uma de aparecer como título
+        // a receber ou a pagar — é daqui que saíram "DISNEY PLUS" e "APPLE COM
+        // BILL" na lista de cobrança.
+        //
+        // E é obrigatório em outro sentido: o gatilho `movements_origem`
+        // RECUSA `origem = 'extrato'` sem esta marca, justamente para que a
+        // importação não possa continuar produzindo títulos por omissão.
+        especie: "extrato",
       };
     });
     // Insere em lotes para extratos grandes.
