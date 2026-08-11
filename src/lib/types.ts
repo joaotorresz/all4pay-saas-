@@ -181,7 +181,27 @@ export interface LancamentoInput {
   account_id: string | null;
   settled: boolean; // recebido / pago
   nsu: string | null;
+  /**
+   * DE ONDE O TÍTULO VEIO — obrigatório no banco desde a ONDA 5.
+   *
+   * ⚠️ Este campo não é metadado: o gatilho `titulo_exige_origem()` RECUSA a
+   * gravação sem ele (`A4P05`, "Este título não diz de onde veio"). Quando o
+   * escritor não o enviava, TODO lançamento manual em produção era rejeitado
+   * pelo banco e a tela dizia "Não foi possível salvar. Tente novamente" — um
+   * conselho que nunca funcionaria, porque tentar de novo reproduz a recusa.
+   *
+   * Opcional no tipo apenas para não quebrar chamadas existentes; o writer
+   * aplica `manual` como padrão, que é o que um formulário de tela é.
+   */
+  origem?: OrigemTitulo;
 }
+
+/**
+ * As cinco procedências que o banco aceita. `extrato` fica de fora de
+ * propósito: um lançamento de extrato NÃO é um título (regra da ONDA 5, e o
+ * gatilho recusa explicitamente) — ele entra pela espécie `extrato`.
+ */
+export type OrigemTitulo = "venda" | "contrato" | "importacao" | "manual" | "conciliacao";
 
 /* ---- Vendas/Compras + cadastros (migration 0003) ---- */
 

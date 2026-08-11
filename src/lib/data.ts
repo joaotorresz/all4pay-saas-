@@ -488,6 +488,21 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       group_id: groupId,
       installment_no: n > 1 ? i + 1 : null,
       installment_total: n > 1 ? n : null,
+      /**
+       * ⚠️ A LINHA QUE FALTAVA, e ela derrubava TODA gravação manual em
+       * produção.
+       *
+       * A ONDA 5 pôs a fechadura no banco (`titulo_exige_origem()` recusa com
+       * `A4P05` um título sem procedência) e não deu a chave a este escritor —
+       * o único que os formulários de tela usam. Medido contra o banco real
+       * numa transação desfeita: sem `origem`, "Este título não diz de onde
+       * veio"; com `origem = 'manual'`, passa.
+       *
+       * O defeito atravessou despercebido porque a recusa acontece no SERVIDOR
+       * e a tela a traduzia para "Tente novamente" — o único conselho que não
+       * podia dar certo, já que repetir reproduz exatamente a mesma recusa.
+       */
+      origem: input.origem ?? "manual",
     };
   });
 }
@@ -588,6 +603,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
       category: m.category,
       costCenter: demoCostCenter(m.category),
       projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
+      parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
+      parcela: (m as { installment_no?: number | null }).installment_no ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -601,7 +618,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,categoria:category_id(name),centro:cost_center_id(name)";
+    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -653,7 +670,17 @@ export async function getRiscoInput(): Promise<RiskInput> {
   const vinculosLive = vinculosProjeto();
   const nomeProjetoLive: Record<string, string> = {};
   for (const p of listProjetos()) nomeProjetoLive[p.id] = p.nome;
-  const movements = ((movRes.data ?? []) as (Movement & { categoria?: unknown; centro?: unknown; projeto?: unknown })[]).map((m) => ({
+  // ⚠️ O `select` traz um SUBCONJUNTO das colunas de `Movement` (sem
+  // `reconciled`/`description`), então a asserção direta deixou de compilar ao
+  // acrescentar as colunas de parcela. Passar por `unknown` é o que declara que
+  // a forma vinda do PostgREST é parcial de propósito — e não um `any` solto,
+  // que apagaria a checagem dos campos que o mapeamento usa.
+  const movements = ((movRes.data ?? []) as unknown as (Pick<
+    Movement, "id" | "type" | "status" | "amount" | "due_date" | "paid_date" | "party_id" | "account_id" | "category"
+  > & {
+    categoria?: unknown; centro?: unknown; projeto?: unknown;
+    installment_no?: number | null; installment_total?: number | null;
+  })[]).map((m) => ({
     id: m.id,
     type: m.type,
     status: m.status,
@@ -666,6 +693,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     category: embedName(m.categoria) ?? m.category,
     costCenter: embedName(m.centro),
     projeto: embedName(m.projeto) ?? nomeProjetoLive[vinculosLive[m.id] ?? ""] ?? null,
+    // Parcela: separa o compromisso que ACABA do que continua (ver RiskMovement).
+    parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
+    parcela: (m as { installment_no?: number | null }).installment_no ?? null,
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {

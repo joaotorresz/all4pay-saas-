@@ -162,7 +162,8 @@ export const SECTIONS: Section[] = [
      */
     id: "contas-a-pagar", label: "Contas a pagar", icon: "file-text", items: [
       { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "gauge" },
-      { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
+      { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Contas recorrentes", desc: "O que se repete, e quanto custa por mês", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
     ],
   },
   {
