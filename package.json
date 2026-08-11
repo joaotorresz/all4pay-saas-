@@ -26,6 +26,7 @@
     "esquema": "node --experimental-strip-types ./scripts/esquema.mts",
     "paleta": "node --experimental-strip-types ./scripts/paleta.mts",
     "esquema:sync": "node ./scripts/esquema-sync.mjs",
+    "taxonomia": "node scripts/taxonomia.mjs",
     "isolamento": "node ./scripts/isolamento.mjs"
   },
   "dependencies": {

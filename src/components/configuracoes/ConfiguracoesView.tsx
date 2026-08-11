@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, Input, Button, Icon, Badge, InfoHint } from "@/components/ui";
 import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
+import { QualidadeDeDados } from "./QualidadeDeDados";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import { isDemo } from "@/lib/demo";
 import { ErroWidget } from "@/components/visao-geral/shared";
@@ -100,6 +101,13 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
 
   return (
     <div className="flex flex-col gap-5 pb-4 max-w-4xl">
+      {/* ⚠️ A qualidade dos dados vem PRIMEIRO, antes do cadastro da empresa.
+          Ela é a única coisa nesta tela que muda número de relatório; razão
+          social e endereço não. Pôr o painel no fim faria dele um rodapé que
+          ninguém rola até — e a sujeira que ele mostra continua contaminando
+          relatório, IA e decisão enquanto isso. */}
+      <QualidadeDeDados />
+
       {/* Organização */}
       <Card className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">

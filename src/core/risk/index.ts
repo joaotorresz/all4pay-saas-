@@ -7,6 +7,7 @@
  * Consome o mesmo RiskInput do motor de risco de caixa.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { motivoSemScore } from "@/core/dominio/contraparte";
 import type {
   CustomerRiskProfile,
   InadimplenciaPortfolio,
@@ -58,6 +59,17 @@ export function analisarInadimplencia(
       input.partyNames?.[id] ?? (id === SEM_CLIENTE ? "Sem contraparte" : id);
     const eventos = eventosDoCliente(movs, hoje);
     if (eventos.length === 0) continue;
+
+    // ⚠️ ONDA 5 — O PORTÃO DO SCORE. "DISNEY PLUS" e "IOF ROTATIVO" chegaram
+    // aqui como clientes porque a importação transformou descritivo de extrato
+    // em cadastro, e o motor lhes atribuiu probabilidade de pagamento. Não é só
+    // inútil: o número tem aparência de análise e ainda entra na média
+    // ponderada da carteira, movendo o indicador que o dono usa para decidir a
+    // quem vender a prazo.
+    //
+    // O portão fica AQUI, no motor, e não na tela: é ele que produz o número, e
+    // filtrar na exibição deixaria a média já contaminada.
+    if (motivoSemScore({ tipo: "cliente", nome })) continue;
 
     const features = extrairFeatures(
       id,

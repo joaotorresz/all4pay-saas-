@@ -142,6 +142,9 @@ export async function createTransferencia(input: TransferenciaInput): Promise<vo
   const s = createClient();
   const groupId = uuid();
   const common = {
+    // ⚠️ ONDA 5: transferência entre contas é lançamento MANUAL — o banco
+    // exige `origem` em todo título novo (gatilho `movements_origem`).
+    origem: "manual" as const,
     status: "pago" as const,
     category: null,
     amount: input.amount,
@@ -215,6 +218,8 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
       // Parcelado: N lançamentos A RECEBER, um por mês, ligados pelo group_id (doc).
       const parcela = Math.round((total / n) * 100) / 100;
       const rows = Array.from({ length: n }, (_, i) => ({
+        // ⚠️ ONDA 5: parcela de venda/compra nasce do DOCUMENTO de venda.
+        origem: "venda" as const,
         account_id: input.account_id,
         type: tipo,
         status: "pendente",
@@ -235,6 +240,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
     } else {
       const settled = input.settled;
       const { error: me } = await s.from("movements").insert({
+        origem: "venda" as const,
         account_id: input.account_id,
         type: tipo,
         status: settled ? "pago" : "pendente",

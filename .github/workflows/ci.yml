@@ -136,3 +136,11 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/trilha-completa.sql
+      # ⚠️ Terceira guarda no MESMO job, e pela mesma razão: as três precisam do
+      # banco construído do zero pelas migrations. Um gatilho aplicado à mão no
+      # remoto some no primeiro `db reset` e ninguém descobre até a primeira
+      # despesa entrar dentro de uma receita.
+      - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run taxonomia
