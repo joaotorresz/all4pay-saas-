@@ -2409,12 +2409,21 @@ const AGOSTO = janelaMes(2026, 7);
    * nenhuma tela respondia — *quanto a empresa compromete todo mês só para
    * continuar existindo*. Ela não é a soma do mês (que mistura o aluguel que
    * volta com a compra avulsa que não volta) nem sai do painel (que é sobre
-   * situação, não sobre repetição). O grupo continua com 3 itens, dentro do
-   * teto por grupo, e o teto total sobe pelo destino que realmente entrou.
+   * situação, não sobre repetição).
+   *
+   * ⚠️ +1 destino: "Folha salarial". A pergunta é outra e nenhuma das três
+   * anteriores a responde: *quanto a equipe custa de verdade*. A folha não é
+   * uma conta recorrente — um CLT gera TRÊS títulos por mês em duas datas mais
+   * duas parcelas de 13º por ano, e o valor do salário depende de tabela legal
+   * e de quantos dependentes a pessoa tem. Enfiá-la em "Contas recorrentes"
+   * misturaria o que se calcula com o que se observa.
+   *
+   * O grupo continua com 4 itens, dentro do teto por grupo, e o teto total
+   * sobe pelos dois destinos que realmente entraram.
    */
   const TETO_GRUPOS = 9;            // Visão geral · Caixa e bancos · Receber · Pagar · Contas a pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 68;      // a soma de hoje, incluindo o rodapé
+  const TETO_ITENS_TOTAL = 69;      // a soma de hoje, incluindo o rodapé
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,

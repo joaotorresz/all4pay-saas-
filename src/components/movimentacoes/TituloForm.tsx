@@ -40,6 +40,10 @@ import {
   planejarLancamento, ROTULO_MODO, EXPLICACAO_MODO, FREQUENCIAS,
   type ModoLancamento, type Frequencia,
 } from "@/core/contas-pagar/lancamento";
+import {
+  BlocoFolha, FOLHA_PADRAO, colaboradorDe, titulosDoCadastro, type DadosFolha,
+} from "./BlocoFolha";
+import { regimeDaEmpresa, saveColaborador } from "@/lib/folha";
 import { appendImported } from "@/lib/imported";
 import { vincularProjeto } from "@/lib/projeto-vinculo";
 import { isDemo } from "@/lib/demo";
@@ -50,7 +54,11 @@ import type { RecurrenceFreq } from "@/lib/types";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
-const MODOS: ModoLancamento[] = ["unica", "recorrente", "parcelada"];
+// ⚠️ O modo "folha" só existe no lado de PAGAR: não se contrata um
+// funcionário para receber. Oferecê-lo em "nova conta a receber" seria um
+// caminho que não leva a lugar nenhum.
+const MODOS_PAGAR: ModoLancamento[] = ["unica", "recorrente", "parcelada", "folha"];
+const MODOS_RECEBER: ModoLancamento[] = ["unica", "recorrente", "parcelada"];
 
 const ESPECIES = [
   { value: "nfe", label: "NF-e (Danfe) — Produtos" },
@@ -72,6 +80,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
   const rotuloAcao = receber ? "Recebimento" : "Pagamento";
 
   const [modo, setModo] = React.useState<ModoLancamento>("unica");
+  const mesAtual = hoje().slice(0, 7);
+  const [folha, setFolha] = React.useState<DadosFolha>(() => FOLHA_PADRAO(mesAtual));
+  // O regime sai da fonte única do perfil fiscal — ver `lib/folha`.
+  const fiscal = React.useMemo(() => regimeDaEmpresa(), []);
   const [f, setF] = React.useState({
     parteId: "", competencia: hoje(), vencimento: hoje(), valor: 0,
     contaId: "", categoria: "", mostrarDRE: true, descricao: "", documentoFiscal: "",
@@ -144,10 +156,21 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       if (!f.dataRealizado) e.dataRealizado = `Informe a data de ${rotuloAcao.toLowerCase()}.`;
       if (!f.valorRealizado || f.valorRealizado <= 0) e.valorRealizado = "Informe o valor realizado.";
     }
-    // ⚠️ As recusas do MODO vêm do motor, não de uma segunda lista aqui: duas
-    // validações da mesma regra divergem no primeiro ajuste, e a que diverge
-    // em silêncio é sempre a da tela.
-    if (plano.problemas.length > 0) e.modo = plano.problemas[0];
+    if (modo === "folha") {
+      // ⚠️ No modo folha a categoria e a contraparte são DERIVADAS (o motor
+      // sabe se o título é salário, FGTS ou DARF), então as duas obrigações do
+      // formulário comum não se aplicam — cobrá-las travaria o cadastro num
+      // campo que a folha preenche sozinha.
+      delete e.categoria;
+      delete e.parteId;
+      if (!folha.nome.trim()) e.modo = "Informe o nome do colaborador.";
+      else if (folha.competencias < 1) e.modo = "Gere ao menos uma competência.";
+    } else if (plano.problemas.length > 0) {
+      // ⚠️ As recusas do MODO vêm do motor, não de uma segunda lista aqui: duas
+      // validações da mesma regra divergem no primeiro ajuste, e a que diverge
+      // em silêncio é sempre a da tela.
+      e.modo = plano.problemas[0];
+    }
     if (!rateioValido(projetos)) e.projetos = "O rateio por projeto precisa somar 100%.";
     if (!rateioValido(centros)) e.centros = "O rateio por centro de custo precisa somar 100%.";
     return e;
@@ -162,6 +185,44 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
     }
     setSalvando(true);
     try {
+      if (modo === "folha") {
+        /**
+         * ⚠️ A FOLHA TEM O SEU PRÓPRIO CAMINHO, e não passa pelo `plano`.
+         *
+         * Os títulos vêm de `core/folha`, que sabe que um CLT gera três por mês
+         * em duas datas mais duas parcelas de 13º por ano. Empurrá-los pelo
+         * caminho comum — que assume um valor e uma cadência — erraria a data
+         * de dois deles e o valor do terceiro.
+         *
+         * O colaborador é GRAVADO junto: sem ele a tela de folha não teria de
+         * onde recalcular, e o mês seguinte exigiria digitar tudo de novo.
+         */
+        const colab = colaboradorDe(folha, f.valor, centros.find((c) => c.id)?.id ?? null);
+        saveColaborador(colab);
+        const titulos = titulosDoCadastro(colab, folha.competencias, fiscal.regime, fiscal.anexo);
+        titulos.forEach((t, k) => {
+          appendImported({
+            movement: {
+              id: `mv_${Date.now().toString(36)}_${k}`,
+              account_id: f.contaId,
+              type: "saida",
+              status: "pendente",
+              amount: t.valor,
+              due_date: t.vencimento,
+              paid_date: null,
+              reconciled: false,
+              category: t.categoria,
+              description: t.descricao,
+              party_id: null,
+              origem: "manual",
+            } as never,
+          });
+        });
+        qc.invalidateQueries();
+        show(`${colab.nome} cadastrado · ${titulos.length} títulos agendados.`);
+        router.push("/contas-a-pagar/folha");
+        return;
+      }
       if (isDemo) {
         // Em demo o lançamento entra no dataset importado — é o mesmo caminho
         // do upload, então saldo, DRE e fluxo reagem na hora.
@@ -253,9 +314,39 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       </button>
 
       {/* ============================ O TIPO, PRIMEIRO ============================ */}
-      <SeletorDeModo modo={modo} onModo={setModo} />
+      <SeletorDeModo modo={modo} onModo={setModo} receber={receber} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {modo === "folha" && (
+          <BlocoFolha
+            dados={folha} onDados={setFolha} valor={f.valor}
+            regime={fiscal.regime} anexo={fiscal.anexo}
+          />
+        )}
+        {modo === "folha" && (
+          /* ⚠️ Conta bancária e valor continuam sendo do formulário comum: é de
+             uma conta real que o dinheiro sai, e é o bruto que o motor precisa.
+             Duplicá-los dentro do bloco criaria dois campos para a mesma coisa. */
+          <Bloco titulo="CONTA E VALOR">
+            <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
+              <Select
+                value={f.contaId}
+                onChange={(v) => set("contaId", v)}
+                placeholder="Selecione uma opção"
+                options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </Campo>
+            <Campo
+              label={folha.vinculo === "clt" ? "Salário bruto mensal" : "Valor da nota"}
+              obrigatorio erro={erros.valor}
+              ajuda={folha.vinculo === "clt" ? "O bruto, antes de qualquer desconto." : undefined}
+            >
+              <CurrencyInput value={f.valor} onValueChange={(v) => set("valor", v)} />
+            </Campo>
+            {erros.modo && <span className="text-caption text-negative">{erros.modo}</span>}
+          </Bloco>
+        )}
+        {modo !== "folha" && <>
         {/* ---------------------------- dados gerais ----------------------------
             ⚠️ SUBIU. Conta e categoria decidem em qual conta o dinheiro sai e em
             que linha do resultado ele aparece — as duas perguntas que o resto do
@@ -406,10 +497,14 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             <Textarea value={f.dadosPagamento} onChange={(e) => set("dadosPagamento", e.target.value)} rows={2} />
           </Campo>
         </Bloco>
+        </>}
       </div>
 
-      {/* --------------------------- realizado (condicional) --------------------------- */}
-      <Card>
+      {/* --------------------------- realizado (condicional) ---------------------------
+          ⚠️ Fora da folha: um cadastro de colaborador cria títulos FUTUROS em
+          várias datas, e "pagamento realizado" só faria sentido para um deles.
+          A baixa acontece na lista, título a título. */}
+      {modo !== "folha" && <Card>
         <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotuloAcao.toUpperCase()}</span>
         <div className="flex flex-col gap-2 mt-3">
           <Checkbox
@@ -442,10 +537,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             </Campo>
           </div>
         )}
-      </Card>
+      </Card>}
 
       {/* -------------------- o que vai ser criado (pré-visualização) -------------------- */}
-      {modo !== "unica" && plano.titulos.length > 0 && (
+      {modo !== "unica" && modo !== "folha" && plano.titulos.length > 0 && (
         <Card>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <span className="a4p-label text-faint">O que vai ser criado</span>
@@ -490,7 +585,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       )}
 
       {/* -------------------------- projeto e centro de custo -------------------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      {modo !== "folha" && <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Rateio
           titulo="Projetos" singular="projeto"
           opcoes={cadProjetos.map((p) => ({ value: p.id, label: p.nome }))}
@@ -501,10 +596,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           opcoes={cadCentros.map((c) => ({ value: c.id, label: c.nome }))}
           linhas={centros} onChange={setCentros} erro={erros.centros}
         />
-      </div>
+      </div>}
 
       {/* --------------------------------- anexos --------------------------------- */}
-      <Card>
+      {modo !== "folha" && <Card>
         <span className="text-[11px] font-medium tracking-[0.08em] text-faint">ANEXOS</span>
         <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
@@ -542,7 +637,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               </div>
             ))}
         </div>
-      </Card>
+      </Card>}
 
       <div className="flex items-center justify-end gap-2">
         <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
@@ -579,12 +674,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
  * exatamente essa pessoa que erra.
  */
 function SeletorDeModo({
-  modo, onModo,
-}: { modo: ModoLancamento; onModo: (m: ModoLancamento) => void }) {
+  modo, onModo, receber,
+}: { modo: ModoLancamento; onModo: (m: ModoLancamento) => void; receber: boolean }) {
+  const MODOS = receber ? MODOS_RECEBER : MODOS_PAGAR;
   return (
     <Card>
       <span className="a4p-label text-faint">Tipo do lançamento</span>
-      <div role="radiogroup" aria-label="Tipo do lançamento" className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div role="radiogroup" aria-label="Tipo do lançamento" className={`mt-3 grid grid-cols-1 gap-3 ${receber ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {MODOS.map((m) => {
           const on = m === modo;
           return (

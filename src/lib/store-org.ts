@@ -70,6 +70,7 @@ export const CHAVES_ORG = {
   fechamentos: "a4p_fechamentos",
   dashboardsCustom: "a4p_dashboards_custom",
   movimentoProjeto: "a4p_movimento_projeto",
+  colaboradores: "a4p_colaboradores",
   // — segunda leva: as demais entidades que a varredura encontrou —
   compras: "a4p_compras",
   transferencias: "a4p_transferencias",
@@ -204,6 +205,7 @@ export const CACHES_LOCAIS: CacheLocal[] = [
  * mapas em telas diferentes divergiriam na primeira chave nova.
  */
 export const ROTULO_DA_CHAVE: Record<string, string> = {
+  a4p_colaboradores: "Colaboradores (folha salarial)",
   a4p_orcamentos: "Orçamentos",
   a4p_aprovacoes: "Solicitações e aprovações",
   a4p_reembolsos: "Reembolsos",
