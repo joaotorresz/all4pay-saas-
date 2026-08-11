@@ -262,7 +262,15 @@ export async function encerrarRecorrencia(id: string, status: "pausada" | "cance
   const s = createClient();
   await s.from("recurrences").update({ active: false }).eq("id", r.id);
   // remove faturas FUTURAS pendentes desta recorrência (não toca o já realizado)
-  await s.from("movements").delete().like("reference_code", `rec:${r.id}:%`).eq("status", "pendente").gte("due_date", isoDay(new Date()));
+  // ⚠️ Precisa dos ids: a exclusão lógica é por registro, porque é ela que
+  // grava o "antes" de cada fatura. Um update em massa deixaria uma trilha
+  // dizendo "algo mudou em N linhas", que não responde nada sobre UMA delas.
+  const { data: futuras } = await s.from("movements").select("id")
+    .like("reference_code", `rec:${r.id}:%`).eq("status", "pendente")
+    .gte("due_date", isoDay(new Date())).limit(TETO_LINHAS);
+  const { excluirLogicoEmLote } = await import("@/lib/exclusao");
+  await excluirLogicoEmLote("movements", (futuras ?? []).map((x: { id: string }) => String(x.id)),
+    `Recorrência ${status === "cancelada" ? "cancelada" : "pausada"}`);
   r.status = status;
   cache = [...list];
 }

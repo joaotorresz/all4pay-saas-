@@ -103,8 +103,12 @@ begin
 
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  update public.movements set amount = 0 where org_id = ob;
-  get diagnostics n = row_count;
+  begin
+    update public.movements set amount = 0 where org_id = ob;
+    get diagnostics n = row_count;
+  exception when insufficient_privilege then
+    n := 0;   -- sem a concessão, nem chega a tentar
+  end;
   reset role;
   if n > 0 then falhas := falhas || format('A alterou %s lançamento(s) da empresa B', n); end if;
 
@@ -112,9 +116,21 @@ begin
   -- pode recusar a escrita e ainda aceitar o apagamento, e apagar é a forma
   -- mais completa de alterar.
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
+  --
+  -- ⚠️ O `begin/exception` aqui NÃO é zelo: sem ele, a ONDA 3 derrubou esta
+  -- guarda inteira. Ao revogar o `DELETE` do papel do cliente, este `delete`
+  -- passou a levantar `42501`, o plpgsql não tratava, e o bloco morria — que é
+  -- EXATAMENTE o defeito que a ONDA 2 corrigiu em `teste_isolamento()`,
+  -- reaparecendo dentro da guarda escrita para substituí-lo. Uma tentativa que
+  -- nem começa é a resposta MAIS forte que existe (fechado por concessão, e não
+  -- por política), e ela tem de virar resultado, nunca exceção.
   set local role authenticated;
-  delete from public.movements where org_id = ob;
-  get diagnostics n = row_count;
+  begin
+    delete from public.movements where org_id = ob;
+    get diagnostics n = row_count;
+  exception when insufficient_privilege then
+    n := 0;
+  end;
   reset role;
   if n > 0 then falhas := falhas || format('A apagou %s lançamento(s) da empresa B', n); end if;
 

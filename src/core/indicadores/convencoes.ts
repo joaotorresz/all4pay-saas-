@@ -116,7 +116,12 @@ export function dataDe(m: RiskMovement, regime: Regime): string | null {
  *
  * **O saldo em uma data futura** é o saldo de hoje MAIS os previstos até lá:
  *
- *     saldo(d) = saldoAtual + Σ assinado(m), para m previsto com d(m) em (hoje, d]
+ *     saldo(d) = saldoAtual + Σ assinado(m), para m previsto com d(m) em [hoje, d]
+ *
+ * ⚠️ O intervalo é FECHADO em hoje. O título que vence hoje e ainda está em
+ * aberto não está no saldo do banco — mas vai sair da conta, e deixá-lo fora
+ * de toda projeção futura tornava o projetado otimista pelo valor do que vence
+ * hoje, todos os dias.
  *
  * Uma implementação, um número — é o que faz a Home, o extrato, o calendário e
  * o painel financeiro fecharem no mesmo lugar.
@@ -137,7 +142,14 @@ export function saldoEm(input: RiskInput, dataISO: string): number {
     for (const m of input.movements) {
       if (!previsto(m)) continue;
       const d = m.due_date?.slice(0, 10);
-      if (d && d > hoje && d <= alvo) saldo += assinado(m);
+      // ⚠️ `>= hoje`, não `> hoje`. O título que vence HOJE e ainda está em
+      // aberto não entrou no saldo do banco (por isso a posição de hoje não o
+      // conta) — mas ele vai sair da conta, e excluí-lo de TODA projeção
+      // futura deixava o saldo projetado otimista pelo valor do que vence
+      // hoje, todo santo dia. O teste de coerência achou isto pelo lado da
+      // identidade: a variação até 31/08 não batia com os previstos do trecho,
+      // e a diferença era exatamente o vencimento de hoje.
+      if (d && d >= hoje && d <= alvo) saldo += assinado(m);
     }
   }
   return semZeroNegativo(saldo);

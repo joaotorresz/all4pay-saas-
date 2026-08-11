@@ -15,9 +15,9 @@
  * para a mesma pergunta é o que faz o usuário parar de confiar em todos.
  */
 import * as React from "react";
-import { Icon, BRL, InfoHint } from "@/components/ui";
+import { Icon, BRL, InfoHint, ValorIndicador, SemDados } from "@/components/ui";
 import {
-  saldo, saldoInicial, resultado, type Janela,
+  saldo, saldoInicial, resultado, type Janela, type Indicador,
 } from "@/core/indicadores";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 
@@ -45,15 +45,38 @@ const DESCRICAO: Record<BaseSaldo, { rotulo: string; base: string }> = {
   },
 };
 
+/** Uma das duas leituras vizinhas: o número, ou a razão de não haver número. */
+function LeituraAoLado({ indicador }: { indicador: Indicador }) {
+  if (indicador.indisponivel) {
+    return (
+      <SemDados
+        motivo={indicador.indisponivel.motivo}
+        codigo={indicador.indisponivel.codigo}
+        className="text-caption"
+      />
+    );
+  }
+  return (
+    <>
+      {indicador.valor < 0 && <span aria-hidden>−</span>}
+      <BRL value={Math.abs(indicador.valor)} />
+    </>
+  );
+}
+
 export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela }) {
   const { data: inp } = useRiscoInput();
   const calc = React.useMemo(() => {
     if (!inp) return null;
+    // ⚠️ Os indicadores chegam INTEIROS. Esta faixa existe para dizer o que
+    // cada número mede, e é a última tela do produto que poderia exibir um
+    // R$ 0 sem saber se é resultado ou ausência: as três leituras aparecem
+    // lado a lado, e um zero mudo no meio faz as outras duas parecerem erradas.
     return {
-      posicao_hoje: saldo(inp).valor,
-      projetado_fim: saldo(inp, janela).valor,
-      variacao_janela: resultado(inp, janela).valor,
-      abertura: saldoInicial(inp, janela).valor,
+      posicao_hoje: saldo(inp),
+      projetado_fim: saldo(inp, janela),
+      variacao_janela: resultado(inp, janela),
+      abertura: saldoInicial(inp, janela),
     };
   }, [inp, janela]);
   if (!calc) return null;
@@ -77,7 +100,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
           className="text-h3 tabular-nums"
           style={{ color: "var(--color-ink)" }}
         >
-          {valor < 0 && <span aria-hidden>−</span>}<BRL value={Math.abs(valor)} />
+          <ValorIndicador indicador={valor} titulo={d.rotulo} />
         </span>
       </div>
 
@@ -90,7 +113,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
             <span key={k} className="text-faint">
               {DESCRICAO[k].rotulo}:{" "}
               <span className="tabular-nums text-muted">
-                {calc[k] < 0 && <span aria-hidden>−</span>}<BRL value={Math.abs(calc[k])} />
+                <LeituraAoLado indicador={calc[k]} />
               </span>
             </span>
           ))}

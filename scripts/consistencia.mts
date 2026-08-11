@@ -21,11 +21,12 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import * as FIXTURE from "./fixture.mts";
 import {
   saldo, saldoInicial, entradas, saidas, resultado, burn, runway, runwayMeses,
+  runwayDeFluxo,
   geracaoCaixaMensal, mrr, arr, inadimplencia, inadimplenciaTaxa, receitaTributavel,
   painelIndicadores, reconciliarSaldo, foraDaBaseTributavel, pontePosicaoFluxo,
   janela, janelaMes, janelaUltimosDias, janelaHoje, janelaDoMesDe, janelaAnterior,
   diasDe, dentro, contemHoje, saldoEm, saldoAbertura, assinado, magnitude,
-  liquidado, dataDe, INDICADORES_VERSION,
+  liquidado, dataDe, INDICADORES_VERSION, temValor, valorOuNulo,
 } from "@/core/indicadores";
 import { calcularBurnRate } from "@/core/risk-engine/burn.engine";
 import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
@@ -386,9 +387,13 @@ const AGOSTO = janelaMes(2026, 7);
   eq("saldo: abertura do mês + líquidos até hoje == saldo de hoje", abertura + liquidosAteHoje, SALDO);
 
   // O saldo futuro incorpora os previstos — e SÓ os previstos.
+  // ⚠️ O intervalo é FECHADO em hoje (`>= HOJE`). Era `> HOJE`, e o teste de
+  // coerência achou a diferença pela identidade: o título que vence hoje e não
+  // foi pago ficava de fora de TODA projeção, deixando o saldo projetado
+  // otimista pelo valor do vencimento do dia — todos os dias.
   const fim = saldoEm(INPUT, "2026-08-31");
   const previstosAteFim = DATASET
-    .filter((m) => m.status === "pendente" && m.due_date > HOJE && m.due_date <= "2026-08-31")
+    .filter((m) => m.status === "pendente" && m.due_date >= HOJE && m.due_date <= "2026-08-31")
     .reduce((s, m) => s + assinado(m), 0);
   eq("saldo: futuro == hoje + previstos da janela", fim, SALDO + previstosAteFim);
 
@@ -481,12 +486,28 @@ const AGOSTO = janelaMes(2026, 7);
   eq("cruzado: burn do risk-engine == burn canônico", be.burnMensal, b);
   eq("cruzado: geração do risk-engine == geração canônica", be.liquidoMensal, g);
 
+  // ⚠️ ONDA 4 — ESTAS TRÊS ASSERÇÕES FORAM REESCRITAS, e a razão é a doença que
+  // a onda persegue. Antes elas comparavam NÚMERO com NÚMERO, e por isso
+  // exigiam que todo caminho inventasse um runway mesmo quando não existe um:
+  // era assim que "33 meses" saía ao lado de um caixa negativo.
+  //
+  // A comparação certa tem duas partes. Primeiro a FÓRMULA: todo caminho tem de
+  // usar a mesma conta (`runwayDeFluxo`), e é isso que mata o `CAP = 999` que
+  // vivia dentro do risk-engine. Depois a DISPONIBILIDADE: quando o canônico
+  // diz que não há resposta, nenhum caminho pode apresentar um número como se
+  // houvesse — que é a regra dura desta onda.
   const re = calcularRunway(INPUT.saldoAtual, be);
-  eq("cruzado: runway do risk-engine == runway canônico (dias)", re.base, runway(INPUT).valor);
+  const rc = runway(INPUT);
+  eq("cruzado: runway do risk-engine == a fórmula única",
+     re.base, runwayDeFluxo(INPUT.saldoAtual, be.liquidoMensal));
 
   const risco = scoreRiscoCaixa(INPUT);
-  eq("cruzado: runway do score de risco == runway canônico", risco.runway.base, runway(INPUT).valor);
-  eq("cruzado: runwayDias do score == runway canônico", risco.runwayDias, runway(INPUT).valor);
+  eq("cruzado: runway do score == a fórmula única",
+     risco.runway.base, runwayDeFluxo(INPUT.saldoAtual, be.liquidoMensal));
+  eq("cruzado: runwayDias do score == runway do score", risco.runwayDias, risco.runway.base);
+  ok("cruzado: se o canônico tem número, ele bate com os demais",
+     rc.indisponivel !== undefined || rc.valor === re.base,
+     `canônico ${rc.valor} × risk-engine ${re.base}`);
   eq("cruzado: burn do score de risco == burn canônico", risco.burn.burnMensal, b);
 
   const q = analisarQuantitativo(INPUT);
@@ -494,13 +515,37 @@ const AGOSTO = janelaMes(2026, 7);
   eq("cruzado: runway do quant (meses) == runway canônico (meses)",
      Math.round(q.indicadores.runwayMeses * 10) / 10, runwayMeses(INPUT).valor);
 
-  // Sem queima o runway é o teto, não zero — zero diria o oposto do que ocorre.
+  // ⚠️ ONDA 4 — ASSERÇÃO REESCRITA. A anterior dizia "quem gera caixa tem runway
+  // no TETO", e o teto era 999 dias. Estava errada por dentro: quem gera caixa
+  // não tem runway longo, tem runway INDEFINIDO — não há taxa de queima pela
+  // qual dividir. Devolver o teto respondia "33 meses" a uma pergunta sem
+  // resposta numérica, e foi assim que o número apareceu ao lado de um burn
+  // zero na tela de fluxo de caixa.
+  //
+  // A proteção que ela carregava continua: zero também é resposta errada, e por
+  // isso o teste cobra que NÃO seja zero exibido como fato.
   const gerador: RiskInput = {
     ...INPUT,
     movements: [mv("g1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
   };
   ok("ritmo: quem gera caixa tem burn 0", burn(gerador).valor === 0);
-  ok("ritmo: quem gera caixa tem runway no teto", runway(gerador).valor >= 999);
+  const rGer = runway(gerador);
+  ok("ritmo→onda4: quem gera caixa NÃO recebe um número de runway",
+     rGer.indisponivel !== undefined, `veio ${rGer.valor}`);
+  ok("ritmo→onda4: e o motivo diz que não houve queima",
+     (rGer.indisponivel?.motivo ?? "").includes("queima"),
+     rGer.indisponivel?.motivo ?? "sem motivo");
+
+  // ⚠️ O caso que a auditoria mediu: caixa NEGATIVO e sem queima. Antes saía o
+  // teto — fôlego anunciado para quem já está no vermelho.
+  const negativoSemQueima: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("n1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
+  };
+  const rNeg = runway(negativoSemQueima);
+  ok("onda4: caixa negativo não tem runway, e o motivo o diz",
+     rNeg.indisponivel !== undefined && rNeg.indisponivel.motivo.includes("negativo"),
+     rNeg.indisponivel?.motivo ?? `veio ${rNeg.valor}`);
 
   // Caixa já negativo E queimando: runway 0, nunca negativo (um runway de −40
   // dias já foi exibido como se fossem 40 dias de folga).
@@ -1374,7 +1419,11 @@ const AGOSTO = janelaMes(2026, 7);
 
   /* ---- O portão do artefato externo --------------------------------------- */
   const pFato = saldo(INPUT, janelaHoje(HOJE)).procedencia;
-  const pProj = runway(INPUT).procedencia;
+  // ⚠️ A projeção vem de quem QUEIMA. Sobre a fixture principal o runway agora
+  // é indisponível (a empresa gera caixa), e indisponível não é "projeção que
+  // sai marcada" — é ausência, que não vira arquivo nenhum. Usar o INPUT aqui
+  // testaria o portão errado e daria a impressão de que a marcação foi perdida.
+  const pProj = runway(FIXTURE.INPUT_QUEIMANDO).procedencia;
   const soFato = avaliarExportacao([{ rotulo: "Saldo", procedencia: pFato }], "xlsx");
   ok("onda10: só fato exporta sem nota", soFato.pode && soFato.nota === null);
   const comProj = avaliarExportacao(
@@ -1394,6 +1443,13 @@ const AGOSTO = janelaMes(2026, 7);
   const invalido = entradas(INPUT, janela("2026-09-30", "2026-09-01")).procedencia;
   ok("onda10: indicador com aviso NÃO vira arquivo",
      !avaliarExportacao([{ rotulo: "Receita", procedencia: invalido }], "xlsx").pode);
+  // ONDA 4: e a AUSÊNCIA também não. Um runway indisponível carrega `valor: 0`,
+  // e é exatamente esse zero que não pode virar linha de planilha — do outro
+  // lado ele lê como "zero dias de fôlego", que é o oposto do que aconteceu.
+  const ausente = runway(INPUT);
+  ok("onda4: indicador indisponível não vira arquivo",
+     !!ausente.indisponivel
+     && !avaliarExportacao([{ rotulo: "Runway", procedencia: ausente.procedencia }], "xlsx").pode);
 
   /* ---- Intervalo invertido, recusado na ENTRADA --------------------------- */
   ok("onda10: intervalo invertido é recusado com frase",
@@ -1629,6 +1685,10 @@ const AGOSTO = janelaMes(2026, 7);
   // respondem perguntas diferentes (o agendado por data × o ritmo médio), e é
   // a tela que as apresenta como se fossem a mesma medida. Mesmo defeito que a
   // ONDA 1 achou entre posição e fluxo.
+  // ⚠️ A contradição mudou de forma com a ONDA 4 e ficou MAIS nítida: antes era
+  // "ruptura em 2 dias × runway de 33 meses" (o teto como fato); agora é
+  // "ruptura em 2 dias × não há queima a medir". A ponte tem de reconhecer as
+  // duas — é a mesma pergunta com e sem número.
   const p = ponteRupturaRunway(INPUT, 2);
   ok("onda14: a contradição aparente é detectada", p.pareceContradicao);
   ok("onda14: e vem com a frase que reconcilia", p.explicacao.length > 60);
@@ -2478,6 +2538,234 @@ const AGOSTO = janelaMes(2026, 7);
 
   ok("admin: sem motivo registrado continua sendo pendência",
      pendenciasDeAdmin([adm({ motivo: null })], HOJE).some((p) => p.problema.includes("motivo")));
+
+  /* ── ONDA 3: nenhuma exclusão física no código ──────────────────────────── */
+  //
+  // ⚠️ O banco já revogou o `DELETE` do papel do cliente, então uma exclusão
+  // física nem funcionaria — mas falharia em PRODUÇÃO, na mão do usuário, com
+  // "permission denied". Esta guarda a pega no commit, que é onde custa barato.
+  //
+  // ⚠️ A exceção é DECLARADA e é uma só: `movement_tags` é VÍNCULO, não
+  // entidade. "Tirar a etiqueta" tem de tirar mesmo — guardar etiquetas
+  // removidas para sempre é lixo que ninguém vai à lixeira buscar. Sem a lista,
+  // a guarda seria desligada na primeira exceção legítima.
+  {
+    const EXCECOES: { arquivo: string; tabela: string; porque: string }[] = [
+      {
+        arquivo: "src/lib/tags.ts",
+        tabela: "movement_tags",
+        porque: "Etiqueta é vínculo, não entidade: remover tem de remover. Uma lixeira de etiquetas seria lixo que ninguém busca.",
+      },
+    ];
+    const infratores: string[] = [];
+    const varrerDeletes = (dir: string) => {
+      for (const nome of readdirSync(dir)) {
+        const caminho = join(dir, nome);
+        if (statSync(caminho).isDirectory()) { varrerDeletes(caminho); continue; }
+        if (!/\.(ts|tsx)$/.test(nome)) continue;
+        // ⚠️ Os comentários saem ANTES da busca. A primeira versão desta guarda
+        // acusaria o próprio arquivo que documenta a regra — e guarda que
+        // reprova a documentação da regra treina quem a lê a ignorá-la.
+        const txt = readFileSync(caminho, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "")
+          .replace(/^\s*\*.*$/gm, "");
+        if (!/\.delete\(\)/.test(txt)) continue;
+        if (EXCECOES.some((e) => caminho.replace(/\\/g, "/").endsWith(e.arquivo))) continue;
+        infratores.push(caminho.replace(/\\/g, "/"));
+      }
+    };
+    varrerDeletes("src");
+    ok("onda3: nenhuma exclusão física fora da exceção declarada",
+       infratores.length === 0, infratores.join(", "));
+    const semPorque = EXCECOES.filter((e) => (e.porque ?? "").trim().length < 40);
+    ok("onda3: toda exceção de exclusão física tem motivo escrito", semPorque.length === 0,
+       semPorque.map((e) => e.arquivo).join(", "));
+  }
+}
+
+
+/* ========================================================================== */
+/* LINHA 31 — ONDA 4: zero é um valor, não a ausência de valor.               */
+/* ========================================================================== */
+{
+  // ⚠️ A guarda inteira existe porque o defeito é INVISÍVEL na tela: um zero
+  // legítimo e um zero de ignorância são pixel por pixel o mesmo. Só o contrato
+  // os separa, e só um teste impede o contrato de ser desfeito por um `?? 0`.
+  const VAZIA = janela("2026-09-30", "2026-09-01");
+  const semNada: RiskInput = { ...INPUT, movements: [] };
+  // Agosto sem nada liquidado — o caso EXATO da Home: saldo negativo ao lado de
+  // entradas, saídas e resultado em R$ 0.
+  const agostoSeco: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("j1", "saida", "pago", 9_000, "2026-07-28", "2026-07-28")],
+  };
+
+  /* ---- Janela impossível --------------------------------------------------- */
+  for (const [nome, ind] of [
+    ["entradas", entradas(INPUT, VAZIA)],
+    ["saídas", saidas(INPUT, VAZIA)],
+    ["resultado", resultado(INPUT, VAZIA)],
+    ["saldo", saldo(INPUT, VAZIA)],
+    ["burn", burn(INPUT, VAZIA)],
+    ["runway", runway(INPUT, VAZIA)],
+  ] as const) {
+    ok(`onda4: ${nome} sobre janela impossível é indisponível, não zero`,
+       ind.indisponivel?.codigo === "janela_invalida",
+       `veio ${ind.indisponivel?.codigo ?? "com valor"}`);
+  }
+
+  /* ---- Janela legítima, nada dentro --------------------------------------- */
+  const eAgo = entradas(agostoSeco, AGOSTO);
+  const sAgo = saidas(agostoSeco, AGOSTO);
+  const rAgo = resultado(agostoSeco, AGOSTO);
+  ok("onda4: o caso da Home — entradas de um mês sem movimento não são R$ 0",
+     eAgo.indisponivel?.codigo === "sem_lancamentos", String(eAgo.valor));
+  ok("onda4: idem saídas", sAgo.indisponivel?.codigo === "sem_lancamentos");
+  ok("onda4: idem resultado", rAgo.indisponivel?.codigo === "sem_lancamentos");
+  // ⚠️ E o saldo CONTINUA sendo número: ele é posição, não período. Marcá-lo
+  // indisponível junto seria trocar um erro por outro — apagar o único número
+  // verdadeiro da tela.
+  ok("onda4: mas o saldo do mesmo instante continua respondendo",
+     temValor(saldo(agostoSeco, janelaHoje(HOJE))) && saldo(agostoSeco, janelaHoje(HOJE)).valor === -31_000);
+  ok("onda4: cada ausência diz o que fazer",
+     [eAgo, sAgo, rAgo].every((i) => (i.indisponivel?.comoResolver ?? "").length > 20));
+
+  /* ---- Zero por empate É resposta ----------------------------------------- */
+  const empate: RiskInput = {
+    ...INPUT,
+    movements: [
+      mv("e1", "entrada", "pago", 5_000, "2026-08-04", "2026-08-04"),
+      mv("e2", "saida", "pago", 5_000, "2026-08-05", "2026-08-05"),
+    ],
+  };
+  const rEmp = resultado(empate, AGOSTO);
+  ok("onda4: zero por EMPATE não é ausência — entrou e saiu o mesmo tanto",
+     temValor(rEmp) && rEmp.valor === 0, `${rEmp.valor} / ${rEmp.indisponivel?.codigo ?? "ok"}`);
+
+  /* ---- Silêncio não é boa notícia ----------------------------------------- */
+  const bSeco = burn(semNada);
+  ok("onda4: sem lançamento nenhum o burn não é zero", bSeco.indisponivel?.codigo === "sem_lancamentos");
+  const rwSeco = runway(semNada);
+  // ⚠️ A ordem dentro de `runway` decide qual frase sai. Com burn zerado por
+  // AUSÊNCIA, um `burn <= 0` conferido antes responderia "a empresa gerou
+  // caixa" — uma afirmação sobre a operação, construída a partir de nada.
+  ok("onda4: e o runway não diz 'a empresa gerou caixa' quando não sabe de nada",
+     rwSeco.indisponivel?.codigo === "sem_lancamentos",
+     rwSeco.indisponivel?.codigo ?? "com valor");
+
+  /* ---- Razão sem denominador ---------------------------------------------- */
+  const taxaSemBase = inadimplenciaTaxa(semNada);
+  ok("onda4: 0% de inadimplência sem nada vencido é ausência de base",
+     taxaSemBase.indisponivel?.codigo === "sem_base", String(taxaSemBase.valor));
+
+  /* ---- A ausência atravessa o derivado ------------------------------------ */
+  const rwm = runwayMeses(semNada);
+  ok("onda4: dividir a ausência por 30 não a transforma em número",
+     rwm.indisponivel?.codigo === "sem_lancamentos");
+  const arrSeco = arr(semNada);
+  ok("onda4: nem multiplicá-la por 12", !!arrSeco.indisponivel);
+  ok("onda4: MRR estimado sem receita nenhuma é indisponível",
+     mrr(semNada).indisponivel?.codigo === "sem_lancamentos");
+
+  /* ---- As duas leituras da ausência --------------------------------------- */
+  // ⚠️ `sem_queima` e `caixa_negativo` produzem o mesmo runway ausente e são o
+  // oposto um do outro. Um consumidor que só tivesse a frase precisaria casar
+  // substring de português — a fragilidade que este repositório já pagou três
+  // vezes. Por isso o CÓDIGO.
+  ok("onda4: quem gera caixa recebe 'sem_queima'",
+     runway(INPUT).indisponivel?.codigo === "sem_queima");
+  const noVermelho: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("v1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
+  };
+  ok("onda4: quem está no vermelho recebe 'caixa_negativo'",
+     runway(noVermelho).indisponivel?.codigo === "caixa_negativo");
+  ok("onda4: e a ponte da IA distingue os dois — só o primeiro é contradição",
+     ponteRupturaRunway(INPUT, 2).pareceContradicao
+     && !ponteRupturaRunway(noVermelho, 2).pareceContradicao);
+
+  /* ---- valorOuNulo é a fronteira ------------------------------------------ */
+  ok("onda4: valorOuNulo devolve null, nunca 0, na ausência",
+     valorOuNulo(runway(semNada)) === null && valorOuNulo(saldo(INPUT)) === 42_000);
+}
+
+
+/* ========================================================================== */
+/* LINHA 31b — ONDA 4: nenhuma TELA lê `.valor` sem perguntar se ele existe.  */
+/* ========================================================================== */
+{
+  // ⚠️ Esta é a guarda que impede a onda de se desfazer sozinha. O contrato
+  // está na camada canônica, mas quem o honra é a tela — e o gesto que o
+  // desfaz é de UMA linha: `indicador.valor` em vez de `<ValorIndicador>`.
+  // Ninguém decide fazer isso; é o que os dedos escrevem, exatamente como o
+  // `#fff` que a guarda da paleta persegue.
+  //
+  // A exceção existe e é declarada COM MOTIVO, porque há usos legítimos: um
+  // gráfico precisa de número para desenhar altura de barra, e "sem movimento"
+  // num eixo é uma barra ausente — que já é a leitura correta.
+  const CANONICOS = [
+    "saldo", "saldoInicial", "entradas", "saidas", "resultado", "burn", "runway",
+    "runwayMeses", "geracaoCaixaMensal", "mrr", "arr", "inadimplencia",
+    "inadimplenciaTaxa", "receitaTributavel", "previstoNaJanela", "previstoDaConta",
+  ];
+  const EXCECOES_VALOR: { arquivo: string; porque: string }[] = [
+    {
+      arquivo: "src/components/visao-geral/HomeQuatro.tsx",
+      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e saldo é posição, que sempre existe. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
+    },
+    {
+      arquivo: "src/components/relatorios/DemonstrativoView.tsx",
+      porque: "Só o saldo, que é posição das contas e não tem estado de ausência. O runway do mesmo cartão já lê o indicador inteiro.",
+    },
+    {
+      arquivo: "src/components/movimentacoes/ConciliacaoView.tsx",
+      porque: "previstoDaConta alimenta a comparação por conta na conciliação; ali zero significa 'esta conta não tem previsto', que é o fato e é o que a linha precisa dizer.",
+    },
+    {
+      arquivo: "src/components/boletos/BoletosView.tsx",
+      porque: "previstoNaJanela soma boletos a vencer no mês; zero é a resposta certa (nenhum boleto a vencer) e a tela já mostra a lista vazia ao lado.",
+    },
+    {
+      arquivo: "src/components/fiscal/ImpostosView.tsx",
+      porque: "A série de 12 meses da base tributável. Um mês sem receita deve mesmo somar zero de imposto — o imposto é sobre o que se faturou, e não faturar nada é a razão certa para não dever nada. Aqui zero é resposta, não ignorância.",
+    },
+    {
+      arquivo: "src/components/vendas/ProjecaoCarga.tsx",
+      porque: "A base da projeção de imposto sobre 365 dias; a tela recusa projetar quando a base é zero, com frase própria.",
+    },
+  ];
+
+  const infratores: string[] = [];
+  const padrao = new RegExp(`\\b(${CANONICOS.join("|")})(De)?\\s*\\([^;]*?\\)\\.valor\\b`);
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.tsx?$/.test(nome)) continue;
+      const rel = caminho.replace(/\\/g, "/");
+      if (EXCECOES_VALOR.some((e) => rel.endsWith(e.arquivo))) continue;
+      // Comentários fora: este repositório documenta cada defeito citando o
+      // código que o causou, e uma guarda que reprova a própria documentação
+      // treina quem a lê a ignorá-la.
+      const txt = readFileSync(caminho, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      if (padrao.test(txt)) infratores.push(rel);
+    }
+  };
+  varrer("src/components");
+  ok("onda4: nenhuma tela lê o valor sem perguntar se ele existe",
+     infratores.length === 0, infratores.join(", "));
+  const semPorque = EXCECOES_VALOR.filter((e) => e.porque.trim().length < 60);
+  ok("onda4: toda exceção de leitura direta tem motivo escrito",
+     semPorque.length === 0, semPorque.map((e) => e.arquivo).join(", "));
+  // ⚠️ E a exceção tem de apontar para um arquivo que EXISTE: uma lista de
+  // dispensas para arquivos apagados vira licença silenciosa quando alguém
+  // recria o nome.
+  const fantasmas = EXCECOES_VALOR.filter((e) => !existsSync(e.arquivo));
+  ok("onda4: nenhuma exceção aponta para arquivo inexistente",
+     fantasmas.length === 0, fantasmas.map((e) => e.arquivo).join(", "));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

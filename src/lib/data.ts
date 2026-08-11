@@ -280,12 +280,19 @@ export async function restoreMovement(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Exclui DEFINITIVAMENTE um lançamento da lixeira (sem volta). */
-export async function purgeMovement(id: string): Promise<void> {
+/**
+ * Apaga DEFINITIVAMENTE um lançamento — sem volta.
+ *
+ * ⚠️ O servidor recusa se o lançamento não estiver na LIXEIRA LÓGICA. Não é
+ * limitação: é o desenho. Apagar de vez passou a exigir dois atos separados
+ * (excluir, depois expurgar), com um evento em cada e uma janela entre eles em
+ * que dá para voltar atrás — que é a definição prática de reversível. Exige
+ * também o papel de quem administra e um motivo escrito.
+ */
+export async function purgeMovement(id: string, motivo: string): Promise<void> {
   if (isDemo) { removerImported([id]); return; }
-  const supabase = createClient();
-  const { error } = await supabase.from("movements").delete().eq("id", id);
-  if (error) throw error;
+  const { expurgar } = await import("@/lib/exclusao");
+  await expurgar("movements", id, motivo);
 }
 
 /** Recebíveis para a tela de Boleto: entrada em aberto OU com boleto (inclui o

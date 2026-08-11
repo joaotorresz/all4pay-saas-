@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Card, Icon, BRL, type IconName } from "@/components/ui";
+import { Card, Icon, BRL, ValorIndicador, type IconName } from "@/components/ui";
 import { useRiscoInput } from "./hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -17,6 +17,7 @@ import {
 import { montarDicas } from "@/core/dicas";
 import { formatBRL } from "@/lib/format";
 import { assinado } from "@/core/indicadores/convencoes";
+import type { Indicador } from "@/core/indicadores";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 /**
@@ -85,9 +86,15 @@ function Resumo({ input }: { input: RiskInput }) {
   const meses = React.useMemo(() => tresMeses(input), [input]);
   const jMes = janelaDoMesDe(input.hoje);
   const saldoAtual = saldoDe(input).valor;
-  const ent = entradasDe(input, jMes).valor;
-  const sai = saidasDe(input, jMes).valor;
-  const res = resultadoDe(input, jMes).valor;
+  // ⚠️ AQUI ESTAVA O DEFEITO da auditoria, e ele não era de cálculo: os quatro
+  // números estavam certos. O saldo é POSIÇÃO (−R$ 31.000 hoje) e os outros
+  // três são o PERÍODO — e nenhum lançamento foi liquidado em agosto, porque o
+  // último pagamento foi 28/07. Lidos lado a lado, "R$ 0 · R$ 0 · R$ 0" ao lado
+  // de um saldo negativo faz o saldo parecer errado. Os indicadores agora
+  // chegam inteiros e a tela decide o que mostrar.
+  const ent = entradasDe(input, jMes);
+  const sai = saidasDe(input, jMes);
+  const res = resultadoDe(input, jMes);
 
   const dados = meses.map((m) => ({ nome: m.rotulo, entradas: m.entradas, saidas: m.saidas }));
   const ultimo = meses[meses.length - 1];
@@ -158,9 +165,9 @@ function Resumo({ input }: { input: RiskInput }) {
           {/* Entrada sobe, saída desce. `arrow-down-to-line` estava aqui e é
               o glifo de DOWNLOAD (mapeado para `download-01`): ele diz
               "baixar arquivo", não "dinheiro saindo". */}
-          <Leitura icone="arrow-up" nome="Entradas consolidadas" valor={ent} />
-          <Leitura icone="arrow-down" nome="Saídas consolidadas" valor={sai} />
-          <Leitura icone="activity" nome="Resultado consolidado" valor={res} ultimo />
+          <Leitura icone="arrow-up" nome="Entradas consolidadas" indicador={ent} />
+          <Leitura icone="arrow-down" nome="Saídas consolidadas" indicador={sai} />
+          <Leitura icone="activity" nome="Resultado consolidado" indicador={res} ultimo />
         </div>
       </div>
     </Card>
@@ -237,7 +244,9 @@ function Legenda({ cor, nome }: { cor: string; nome: string }) {
   );
 }
 
-function Leitura({ icone, nome, valor, ultimo }: { icone: IconName; nome: string; valor: number; ultimo?: boolean }) {
+function Leitura({ icone, nome, indicador, ultimo }: {
+  icone: IconName; nome: string; indicador: Indicador; ultimo?: boolean;
+}) {
   return (
     <div className={`flex items-center gap-3 py-[14px] ${ultimo ? "" : "border-b border-border-soft"}`}>
       {/* Disco preto com o glifo em branco — o mesmo tratamento do tile de
@@ -249,7 +258,12 @@ function Leitura({ icone, nome, valor, ultimo }: { icone: IconName; nome: string
           "consolidadas" caía na reticência, e a reticência comia justamente a
           palavra que carrega o sentido da linha. */}
       <span className="text-caption text-ink flex-1 min-w-0 truncate">{nome}</span>
-      <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0"><BRL value={valor} showDecimals={false} /></span>
+      {/* ⚠️ O valor passou a ser CLICÁVEL: fórmula, período, regime e os
+          lançamentos que o compõem, a um toque. Um número sem origem só pode
+          ser aceito ou rejeitado — não conferido. */}
+      <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0">
+        <ValorIndicador indicador={indicador} titulo={nome} />
+      </span>
     </div>
   );
 }
