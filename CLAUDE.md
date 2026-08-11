@@ -834,6 +834,92 @@ que dia cada coisa cai. Roda sobre o MESMO `RiskInput` do resto do sistema.
   rota e o nome do arquivo continuam livres; o que a pessoa LÊ é que a regra
   cobra.
 
+**Os outros dois itens da área** (o menu tem 3):
+
+- **Títulos a pagar** (`/contas-a-pagar/titulos`) — o MESMO `TitulosView` da tela
+  de títulos, com `direcao="pagar"`, **sem as abas** de receber e
+  transferências. É o mesmo componente, não uma cópia: duas listas de títulos
+  divergiriam no primeiro ajuste, e é dinheiro que elas somam.
+- **Contas recorrentes** (`/contas-a-pagar/recorrentes`) — quatro cards no
+  layout 30/70 · 50/50: ① a leitura que ALTERNA por setas (total do mês ×
+  custo fixo mensal), ② as velas por mês (o mesmo desenho do "Resumo" da Home),
+  ③ o mês por categoria, ④ fixas × parceladas com os compromissos nomeados.
+
+### ⚠️ `core/contas-pagar/lancamento` — os três modos de lançar
+
+`planejarLancamento()` (`contas-pagar-lancamento/1.0.0`) substitui a caixinha
+"repetir lançamento" que ficava no PÉ do formulário, depois dos anexos.
+
+⚠️ **O tipo é a primeira pergunta, não a última**, porque o MESMO par de números
+significa coisas diferentes conforme o modo: 4.000 em 12x **recorrente** são
+R$ 48.000 de compromisso; 4.000 em 12x **parcelada** são R$ 4.000. Enquanto isso
+morava numa caixinha e o campo se chamava só "Valor", nada na tela dizia qual
+dos dois estava sendo criado — e lançar uma compra parcelada como recorrência
+multiplica a própria dívida por doze no fluxo de caixa. Agora o **rótulo do
+campo de valor muda com o modo** ("Valor total da compra" × "Valor de cada
+ocorrência") e a tela mostra o que VAI criar antes de salvar.
+
+- ⚠️ **A competência não se parcela** — comprar em março para pagar em 6x é uma
+  despesa de março inteira. Na recorrência é o contrário: cada ocorrência é um
+  fato NOVO e a competência acompanha o vencimento. É a diferença contábil entre
+  os dois modos, e é ela que decide em que mês o resultado aparece.
+- ⚠️ **Recorrente ≠ custo fixo automaticamente.** Aluguel repete e é fixo;
+  energia repete e varia. A recorrente carrega "o valor é sempre o mesmo", e é
+  essa resposta — não o fato de repetir — que a faz entrar no custo fixo.
+  **Parcela nunca é custo fixo**: ela acaba, e um custo que acaba não responde
+  "quanto a empresa gasta todo mês para existir".
+- O resto dos centavos vai na ÚLTIMA parcela; dia 31 num mês de 30 vira o último
+  dia (nunca o dia 1º do seguinte, que adiantaria a cobrança em um mês).
+- **Contrato saiu do formulário** e o bloco **Dados gerais subiu** para o topo:
+  conta e categoria decidem de onde o dinheiro sai e em que linha do resultado
+  ele aparece, e ficavam depois de um campo que quase nunca é preenchido.
+
+### ⚠️ `core/contas-pagar/recorrentes` — o custo fixo, derivado
+
+`montarPainelRecorrentes()` (`contas-recorrentes/1.0.0`) classifica cada conta a
+pagar em **fixa · variável · parcelada · avulsa** sobre uma janela de 6 meses,
+agrupando por **contraparte + categoria**.
+
+- ⚠️ **Parcelada e aluguel são indistinguíveis pelo PADRÃO** — mesmo valor, mesmo
+  dia, todo mês. O que os separa é o FIM, e ele não está no padrão: está no dado
+  (`RiskMovement.parcelas`, vindo de `installment_total`). Sem essa marca o custo
+  fixo sai inflado pela compra parcelada de um notebook. Medido na guarda: com a
+  marca desligada, R$ 5.000 de custo fixo viram R$ 5.900.
+- **Presença em ≥ 3 dos 6 meses** para ser padrão; oscilação (coeficiente de
+  variação) acima de **15%** vira "variável". A média é sobre os meses
+  OBSERVADOS, não sobre os 6 da janela — um contrato que começou há dois meses
+  custa o que custa, e dividir por seis o faria parecer um terço.
+- ⚠️ **Sem histórico, o custo fixo fica INDISPONÍVEL** (regra da ONDA 4). Com dois
+  meses de lançamentos nenhum grupo alcança o mínimo e a soma sai zero
+  corretamente — mas "seu custo fixo mensal é R$ 0,00" afirma que a empresa não
+  tem custo fixo, que é o oposto do que a base diz. O motivo ocupa o lugar do
+  número, e diz como resolver.
+
+### ⚠️ O DEFEITO DE GRAVAÇÃO: a origem que faltava (auditado)
+
+**Todo lançamento manual em produção era recusado pelo banco.** A ONDA 5 pôs a
+fechadura (`titulo_exige_origem()` recusa com `A4P05` um título sem procedência)
+e não conferiu quem tinha a chave: `buildMovementRows` — o único escritor que os
+formulários de tela usam — não enviava `origem`. Medido contra o banco real numa
+transação desfeita: sem `origem`, *"Este título não diz de onde veio"*; com
+`origem = 'manual'`, passa.
+
+⚠️ **E a tela escondia o motivo.** O `catch` mostrava *"Não foi possível salvar.
+Tente novamente"* — o único conselho que não podia funcionar, porque repetir
+reproduz a mesma recusa. O banco mandava mensagem E `hint`, e os dois eram
+jogados fora. Agora a mensagem real vai para a tela e a falha é reportada.
+
+O **segundo buraco da mesma família** estava no cron de recorrências
+(`/api/recorrencias/run`), e é o mais caro: ali a recusa cairia num contador de
+falhas dentro de um job que ninguém abre.
+
+**Guarda com teto ZERO** (`onda5: nenhum escritor de movements grava sem
+origem`): varre todo `.insert(` em `movements` e exige `origem` no escopo da
+FUNÇÃO. ⚠️ A primeira versão olhava só para a frente do `.insert(` e acusou três
+escritores CORRETOS que montam a linha antes — o mesmo defeito de direção que a
+ONDA 10 já cometera; uma guarda que reprova o código certo é desligada na
+primeira semana.
+
 ### Telas de listagem
 
 Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
