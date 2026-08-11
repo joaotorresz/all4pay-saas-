@@ -71,6 +71,14 @@ export interface Procedencia {
   natureza: Natureza;
   /** Preenchido quando o número é 0 por impossibilidade, não por ausência. */
   aviso?: string;
+  /**
+   * Os ids dos lançamentos que ENTRARAM na conta.
+   *
+   * ⚠️ `lancamentos` diz QUANTOS; isto diz QUAIS — e a diferença é a que separa
+   * "confie em mim, são 34" de conferir os 34. Só as somas o preenchem: um
+   * saldo vem do `balance` das contas e uma média não tem linha para apontar.
+   */
+  movimentos?: readonly string[];
 }
 
 /**
@@ -276,7 +284,7 @@ function somaDirecao(
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
     procedencia: {
       lancamentos: rows.length, regime, janela: j, formula,
-      natureza: naturezaDaSoma(rows),
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
     },
   };
 }
@@ -308,7 +316,7 @@ export function resultado(input: RiskInput, j: Janela, regime: Regime = "caixa")
     valor: semZeroNegativo(rows.reduce((s, m) => s + assinado(m), 0)),
     procedencia: {
       lancamentos: rows.length, regime, janela: j, formula,
-      natureza: naturezaDaSoma(rows),
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
     },
   };
 }
@@ -614,7 +622,10 @@ export function inadimplencia(
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
     // ⚠️ Vencido é FATO: o título existe, a data passou e ninguém pagou. Não é
     // previsão de calote — é o que já está em atraso hoje.
-    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "fato" },
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: j, formula,
+      natureza: "fato", movimentos: rows.map((m) => m.id),
+    },
   };
 }
 
@@ -692,7 +703,10 @@ export function receitaTributavel(
     .filter((m) => m.type === "entrada" && !foraDaBaseTributavel(m.category));
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
-    procedencia: { lancamentos: rows.length, regime, janela: j, formula, natureza: naturezaDaSoma(rows) },
+    procedencia: {
+      lancamentos: rows.length, regime, janela: j, formula,
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
+    },
   };
 }
 

@@ -14,6 +14,9 @@ import { financialDRE } from "@/core/dre";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import type { FinancialAccount } from "@/lib/types";
+import {
+  runwayMeses as runwayMesesCanonico, type Indicador as IndicadorCanonico,
+} from "@/core/indicadores";
 
 export const CASHFLOW_VERSION = "cashflow/1.0.0";
 
@@ -25,6 +28,16 @@ export interface ResumoExecutivo {
   geracaoCaixa: number;
   burn: number;
   runwayMeses: number;
+  /**
+   * ⚠️ O runway CANÔNICO, inteiro — é ele que a tela deve ler.
+   *
+   * `runwayMeses` continua aqui porque meia dúzia de blocos desta página o
+   * consomem como número; mas era ele, sozinho, que produzia "33 meses de
+   * fôlego" com burn zero, e o cartão do resumo executivo é onde essa frase
+   * era lida. Quando `indisponivel` está preenchido, o número é 0 e não
+   * significa nada.
+   */
+  runway: IndicadorCanonico;
   chanceRuptura: number; // 0..1
   score: number; // 0..100
 }
@@ -199,6 +212,7 @@ export function montarFluxoCaixa(
     geracaoCaixa: entradasPrevistas - saidasPrevistas,
     burn: risco.burn.burnMensal,
     runwayMeses: quant.indicadores.runwayMeses,
+    runway: runwayMesesCanonico(input),
     chanceRuptura: risco.probabilidadeRuptura,
     score: quant.score.score,
   };

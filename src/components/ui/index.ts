@@ -31,3 +31,4 @@ export {
 export { Icon, type IconProps, type IconName } from "./Icon";
 export { AcaoDestrutiva } from "./AcaoDestrutiva";
 export { MarcaProcedencia, InfoProcedencia, LinhaProcedencia, textoDeOrigem } from "./Procedencia";
+export { ValorIndicador, SemDados, PainelOrigem, type FormatoValor } from "./ValorIndicador";

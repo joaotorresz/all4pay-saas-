@@ -2686,5 +2686,83 @@ const AGOSTO = janelaMes(2026, 7);
      valorOuNulo(runway(semNada)) === null && valorOuNulo(saldo(INPUT)) === 42_000);
 }
 
+
+/* ========================================================================== */
+/* LINHA 31b — ONDA 4: nenhuma TELA lê `.valor` sem perguntar se ele existe.  */
+/* ========================================================================== */
+{
+  // ⚠️ Esta é a guarda que impede a onda de se desfazer sozinha. O contrato
+  // está na camada canônica, mas quem o honra é a tela — e o gesto que o
+  // desfaz é de UMA linha: `indicador.valor` em vez de `<ValorIndicador>`.
+  // Ninguém decide fazer isso; é o que os dedos escrevem, exatamente como o
+  // `#fff` que a guarda da paleta persegue.
+  //
+  // A exceção existe e é declarada COM MOTIVO, porque há usos legítimos: um
+  // gráfico precisa de número para desenhar altura de barra, e "sem movimento"
+  // num eixo é uma barra ausente — que já é a leitura correta.
+  const CANONICOS = [
+    "saldo", "saldoInicial", "entradas", "saidas", "resultado", "burn", "runway",
+    "runwayMeses", "geracaoCaixaMensal", "mrr", "arr", "inadimplencia",
+    "inadimplenciaTaxa", "receitaTributavel", "previstoNaJanela", "previstoDaConta",
+  ];
+  const EXCECOES_VALOR: { arquivo: string; porque: string }[] = [
+    {
+      arquivo: "src/components/visao-geral/HomeQuatro.tsx",
+      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e saldo é posição, que sempre existe. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
+    },
+    {
+      arquivo: "src/components/relatorios/DemonstrativoView.tsx",
+      porque: "Só o saldo, que é posição das contas e não tem estado de ausência. O runway do mesmo cartão já lê o indicador inteiro.",
+    },
+    {
+      arquivo: "src/components/movimentacoes/ConciliacaoView.tsx",
+      porque: "previstoDaConta alimenta a comparação por conta na conciliação; ali zero significa 'esta conta não tem previsto', que é o fato e é o que a linha precisa dizer.",
+    },
+    {
+      arquivo: "src/components/boletos/BoletosView.tsx",
+      porque: "previstoNaJanela soma boletos a vencer no mês; zero é a resposta certa (nenhum boleto a vencer) e a tela já mostra a lista vazia ao lado.",
+    },
+    {
+      arquivo: "src/components/fiscal/ImpostosView.tsx",
+      porque: "A série de 12 meses da base tributável. Um mês sem receita deve mesmo somar zero de imposto — o imposto é sobre o que se faturou, e não faturar nada é a razão certa para não dever nada. Aqui zero é resposta, não ignorância.",
+    },
+    {
+      arquivo: "src/components/vendas/ProjecaoCarga.tsx",
+      porque: "A base da projeção de imposto sobre 365 dias; a tela recusa projetar quando a base é zero, com frase própria.",
+    },
+  ];
+
+  const infratores: string[] = [];
+  const padrao = new RegExp(`\\b(${CANONICOS.join("|")})(De)?\\s*\\([^;]*?\\)\\.valor\\b`);
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.tsx?$/.test(nome)) continue;
+      const rel = caminho.replace(/\\/g, "/");
+      if (EXCECOES_VALOR.some((e) => rel.endsWith(e.arquivo))) continue;
+      // Comentários fora: este repositório documenta cada defeito citando o
+      // código que o causou, e uma guarda que reprova a própria documentação
+      // treina quem a lê a ignorá-la.
+      const txt = readFileSync(caminho, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      if (padrao.test(txt)) infratores.push(rel);
+    }
+  };
+  varrer("src/components");
+  ok("onda4: nenhuma tela lê o valor sem perguntar se ele existe",
+     infratores.length === 0, infratores.join(", "));
+  const semPorque = EXCECOES_VALOR.filter((e) => e.porque.trim().length < 60);
+  ok("onda4: toda exceção de leitura direta tem motivo escrito",
+     semPorque.length === 0, semPorque.map((e) => e.arquivo).join(", "));
+  // ⚠️ E a exceção tem de apontar para um arquivo que EXISTE: uma lista de
+  // dispensas para arquivos apagados vira licença silenciosa quando alguém
+  // recria o nome.
+  const fantasmas = EXCECOES_VALOR.filter((e) => !existsSync(e.arquivo));
+  ok("onda4: nenhuma exceção aponta para arquivo inexistente",
+     fantasmas.length === 0, fantasmas.map((e) => e.arquivo).join(", "));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
 if (fails > 0) process.exit(1);
