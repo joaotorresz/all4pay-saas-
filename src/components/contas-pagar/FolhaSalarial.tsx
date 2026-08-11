@@ -26,8 +26,11 @@ import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColabor
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccounts } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
-import { appendImported } from "@/lib/imported";
+import { criarTitulos } from "@/lib/data";
+import { reportar } from "@/lib/erros";
 import { ModalFerias, ModalRescisao, type TituloGerado } from "./ModalFolha";
+import { ModalTabelas } from "./ModalTabelas";
+import { tabelasDaEmpresa } from "@/lib/folha-tabelas";
 import {
   montarPainelFolha, custoAnual, ROTULO_VINCULO, ROTULO_TITULO,
   type PainelFolha, type LinhaFolha, type Colaborador,
@@ -54,6 +57,9 @@ export function FolhaSalarial() {
   const [aberto, setAberto] = React.useState<string | null>(null);
   const [ferias, setFerias] = React.useState<Colaborador | null>(null);
   const [rescisao, setRescisao] = React.useState<Colaborador | null>(null);
+  const [verTabelas, setVerTabelas] = React.useState(false);
+  // A versão força o recálculo depois de o contador entrar com uma vigência.
+  const [versaoTabelas, setVersaoTabelas] = React.useState(0);
   const qc = useQueryClient();
   const { data: contas } = useAccounts();
   const { show, node } = useToast();
@@ -61,47 +67,73 @@ export function FolhaSalarial() {
   /**
    * ⚠️ É AQUI QUE A DATA VIRA DINHEIRO NO SISTEMA.
    *
-   * O título entra pelo MESMO caminho de qualquer outra conta a pagar
-   * (`appendImported` em demo, o writer em live) com `origem: "manual"` — a
-   * origem que a ONDA 5 exige e cuja ausência recusava toda gravação. O
-   * vencimento vem do motor: dois dias antes das férias, dez dias depois do
+   * O título entra por `criarTitulos`, o escritor único: em demonstração ele
+   * anexa ao dataset, em produção ele GRAVA NO BANCO. A versão anterior chamava
+   * `appendImported` direto, sem olhar para `isDemo` — em produção a linha ia
+   * para um store que ninguém lê, e a tela dizia que tinha agendado.
+   *
+   * O vencimento vem do motor: dois dias antes das férias, dez dias depois do
    * desligamento, já antecipado quando cai em dia não útil.
    */
-  const agendar = React.useCallback((titulos: TituloGerado[]) => {
+  const agendar = React.useCallback(async (titulos: TituloGerado[]): Promise<boolean> => {
     const conta = (contas?.accounts ?? [])[0]?.id ?? "";
-    titulos.forEach((t, k) => {
-      appendImported({
-        movement: {
-          id: `mv_${Date.now().toString(36)}_${k}`,
-          account_id: conta,
-          type: "saida",
-          status: "pendente",
-          amount: t.valor,
-          due_date: t.vencimento,
-          paid_date: null,
-          reconciled: false,
-          category: t.categoria,
-          description: t.descricao,
-          party_id: null,
-          origem: "manual",
-        } as never,
-      });
-    });
-    qc.invalidateQueries();
-  }, [contas, qc]);
+    if (!conta) {
+      show("Cadastre uma conta bancária antes: o título precisa dizer de qual conta o dinheiro sai.");
+      return false;
+    }
+    try {
+      await criarTitulos(titulos.map((t) => ({
+        account_id: conta,
+        type: "saida" as const,
+        amount: t.valor,
+        due_date: t.vencimento,
+        competence_date: t.vencimento,
+        category: t.categoria,
+        description: t.descricao,
+        origem: "manual" as const,
+      })));
+      qc.invalidateQueries();
+      return true;
+    } catch (err) {
+      /**
+       * ⚠️ A MENSAGEM DO BANCO VAI PARA A TELA, inteira.
+       *
+       * A lição da ONDA 5: "Não foi possível salvar. Tente novamente" é o único
+       * conselho que não pode dar certo, porque repetir reproduz a mesma
+       * recusa. O banco manda `message` e `hint` — os dois são a resposta.
+       */
+      const e = err as { message?: string; hint?: string };
+      reportar("folha.agendar", err, "os títulos da folha não foram criados e o caixa não os enxerga");
+      show(e?.message ? `Não foi possível agendar: ${e.message}${e.hint ? ` ${e.hint}` : ""}` : "Não foi possível agendar os títulos.");
+      return false;
+    }
+  }, [contas, qc, show]);
 
   // ⚠️ Lido num efeito, não no render: `store-org` toca `localStorage`, e ler
   // durante o render quebra a hidratação (a tela remonta do zero).
   React.useEffect(() => { setColaboradores(listColaboradores()); }, []);
 
   const fiscal = React.useMemo(() => regimeDaEmpresa(), []);
+  /**
+   * ⚠️ As tabelas vêm da EMPRESA (as de fábrica + as que o contador entrou) e
+   * entram por parâmetro em cada motor. Lidas num memo com `colaboradores` na
+   * dependência para não tocarem `localStorage` durante o primeiro render.
+   */
+  const tabelas = React.useMemo(
+    // `void versaoTabelas` é a dependência DE VERDADE: a leitura é do
+    // localStorage, que o React não observa. Sem tocá-la aqui, o lint a remove
+    // por "desnecessária" e a folha continua com a tabela velha depois de o
+    // contador entrar com a nova.
+    () => { void versaoTabelas; return colaboradores ? tabelasDaEmpresa() : undefined; },
+    [colaboradores, versaoTabelas],
+  );
   const painel: PainelFolha | null = React.useMemo(
-    () => (colaboradores ? montarPainelFolha(colaboradores, mes, fiscal.regime, fiscal.anexo) : null),
-    [colaboradores, mes, fiscal],
+    () => (colaboradores ? montarPainelFolha(colaboradores, mes, fiscal.regime, fiscal.anexo, tabelas) : null),
+    [colaboradores, mes, fiscal, tabelas],
   );
   const anual = React.useMemo(
-    () => (colaboradores?.length ? custoAnual(colaboradores, Number(mes.slice(0, 4)), fiscal.regime, fiscal.anexo) : 0),
-    [colaboradores, mes, fiscal],
+    () => (colaboradores?.length ? custoAnual(colaboradores, Number(mes.slice(0, 4)), fiscal.regime, fiscal.anexo, tabelas) : 0),
+    [colaboradores, mes, fiscal, tabelas],
   );
 
   if (!painel) {
@@ -148,10 +180,13 @@ export function FolhaSalarial() {
             <div className="min-w-0">
               <p className="m-0 text-body text-ink">A tabela legal usada não é a mais recente.</p>
               <p className="m-0 mt-1 text-caption text-muted">
-                As faixas do INSS e do IRRF mudam por lei todo ano. O cálculo continua rodando com a
-                última tabela conhecida — confira com o contador antes de usar estes valores para
-                recolher.
+                As faixas do INSS mudam por portaria todo janeiro, e o valor só existe quando ela sai —
+                o sistema não tem como deduzi-lo. O cálculo segue com a última tabela conhecida; quando
+                o seu contador mandar a do ano, entre com ela aqui.
               </p>
+              <Button variant="ghost" onClick={() => setVerTabelas(true)}>
+                Ver as tabelas em uso
+              </Button>
             </div>
           </div>
         </Card>
@@ -169,6 +204,10 @@ export function FolhaSalarial() {
         <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
           <span className="text-h3 text-ink">Folha de {rotuloMes(mes)}</span>
           <div className="flex items-center gap-1">
+            {/* Um caminho permanente para as tabelas, não só pelo aviso: a
+                pergunta "com que números isto foi calculado" é legítima também
+                quando está tudo em dia. */}
+            <Button variant="ghost" onClick={() => setVerTabelas(true)}>Tabelas legais</Button>
             <Seta label="Mês anterior" icone="chevron-left" onClick={() => setMes(deslocar(mes, -1))} />
             <span className="text-label text-ink tabular-nums px-2">{mes.split("-").reverse().join("/")}</span>
             <Seta label="Próximo mês" icone="chevron-right" onClick={() => setMes(deslocar(mes, 1))} />
@@ -285,10 +324,12 @@ export function FolhaSalarial() {
       )}
       {ferias && (
         <ModalFerias
-          colaborador={ferias} regime={fiscal.regime} anexo={fiscal.anexo}
+          colaborador={ferias} regime={fiscal.regime} anexo={fiscal.anexo} tabelas={tabelas}
           onFechar={() => setFerias(null)}
-          onConfirmar={(titulos) => {
-            agendar(titulos);
+          onConfirmar={async (titulos) => {
+            // ⚠️ Só confirma o que DEU CERTO: anunciar o agendamento antes de
+            // saber se o banco aceitou é como o defeito nasceu.
+            if (!(await agendar(titulos))) return;
             show(`Férias de ${ferias.nome} agendadas para ${dataBR(titulos[0].vencimento)}.`);
             setFerias(null);
           }}
@@ -296,10 +337,10 @@ export function FolhaSalarial() {
       )}
       {rescisao && (
         <ModalRescisao
-          colaborador={rescisao} regime={fiscal.regime} anexo={fiscal.anexo}
+          colaborador={rescisao} regime={fiscal.regime} anexo={fiscal.anexo} tabelas={tabelas}
           onFechar={() => setRescisao(null)}
-          onConfirmar={(titulos, desligadoEm) => {
-            agendar(titulos);
+          onConfirmar={async (titulos, desligadoEm) => {
+            if (!(await agendar(titulos))) return;
             /**
              * ⚠️ A RESCISÃO ENCERRA A VIGÊNCIA do colaborador, e é isso que
              * impede a folha de continuar cobrando salário de quem saiu. Sem
@@ -311,6 +352,13 @@ export function FolhaSalarial() {
             show(`Rescisão de ${rescisao.nome} agendada para ${dataBR(titulos[0].vencimento)}.`);
             setRescisao(null);
           }}
+        />
+      )}
+      {verTabelas && (
+        <ModalTabelas
+          competencia={mes}
+          onFechar={() => setVerTabelas(false)}
+          onMudou={() => setVersaoTabelas((v) => v + 1)}
         />
       )}
       {node}
