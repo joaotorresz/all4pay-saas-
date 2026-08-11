@@ -24,13 +24,13 @@
   "gerado_em": "2026-08-10",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 65,
-    "funcoes": 86,
-    "politicas": 99,
-    "gatilhos": 64,
-    "indices": 193,
+    "tabelas": 66,
+    "funcoes": 89,
+    "politicas": 101,
+    "gatilhos": 65,
+    "indices": 196,
     "enums": 11,
-    "colunas": 641,
+    "colunas": 655,
     "restricoes": 186
   },
   "migrations_aplicadas": [
@@ -104,7 +104,8 @@
     "20260811013123_lixeira_fala_identificador_em_texto",
     "20260811013235_lixeira_expurgo_em_dois_passos",
     "20260811014345_estorno_de_baixa_e_de_transferencia",
-    "20260811015208_estorno_contabil_e_de_conciliacao"
+    "20260811015208_estorno_contabil_e_de_conciliacao",
+    "20260811015541_assinatura_de_fechamento_por_hash"
   ],
   "divergencias_conhecidas": {
     "_regra": [
