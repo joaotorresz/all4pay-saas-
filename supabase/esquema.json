@@ -25,7 +25,7 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 81,
+    "funcoes": 83,
     "politicas": 99,
     "gatilhos": 64,
     "indices": 192,
@@ -102,7 +102,8 @@
     "20260811012829_exclusao_logica_lixeira_e_restauracao",
     "20260811013013_lixeira_so_para_quem_e_entidade",
     "20260811013123_lixeira_fala_identificador_em_texto",
-    "20260811013235_lixeira_expurgo_em_dois_passos"
+    "20260811013235_lixeira_expurgo_em_dois_passos",
+    "20260811014345_estorno_de_baixa_e_de_transferencia"
   ],
   "divergencias_conhecidas": {
     "_regra": [
