@@ -35,6 +35,14 @@ import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarQuantitativo } from "@/core/quant";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
+import {
+  valoresBemFormados, valoresSemRotulo, pareceIngles, traduzirCategoria,
+  ehOrigemDeTitulo,
+} from "@/core/dominio";
+import {
+  mesmoDocumento, contraparteSuspeita, contraparteNoLadoErrado, motivoSemScore,
+} from "@/core/dominio/contraparte";
+import { auditarQualidade, planejarFusao } from "@/core/qualidade";
 import { dailyCashflowRange, dailyCashflow, summarizeAccounts } from "@/lib/aggregations";
 import { painelAssinaturas } from "@/core/paineis";
 import {
@@ -2880,6 +2888,149 @@ const AGOSTO = janelaMes(2026, 7);
      faltando.indisponivel?.codigo === "sem_base", String(faltando.valor));
   ok("onda4: e o motivo NOMEIA quem faltou",
      (faltando.indisponivel?.motivo ?? "").includes("Operadora"), faltando.indisponivel?.motivo ?? "");
+}
+
+
+/* ========================================================================== */
+/* LINHA 32 — ONDA 5: taxonomia, catálogo e higiene de dados.                */
+/* ========================================================================== */
+{
+  /* ---- O vocabulário é único e está em português ------------------------ */
+  ok("onda5: todo valor de domínio é chave bem formada",
+     valoresBemFormados().length === 0, valoresBemFormados().join(", "));
+  ok("onda5: todo valor de domínio tem rótulo em português",
+     valoresSemRotulo().length === 0, valoresSemRotulo().join(", "));
+
+  // ⚠️ EMPRÉSTIMO LINGUÍSTICO NÃO É INGLÊS. O primeiro detector acusou
+  // "Assinaturas / software" — e um detector que grita lobo é um detector que
+  // ninguém lê, que é o mesmo defeito do detector de segredos da Ajuda. Estas
+  // são as frases que um financeiro escreve o dia inteiro.
+  //
+  // ⚠️ E a lista de empréstimos precisa fazer TRABALHO, não decorar. Medido: a
+  // primeira versão desta guarda só testava "software" e "marketing", que
+  // sequer estão no vocabulário inglês — desligar `EMPRESTIMOS` inteiro não
+  // fazia a guarda falhar, então ela não testava nada. A palavra que a lista
+  // realmente protege é `internet`: ela É chave do de-para (Utilidades) e É
+  // português corrente. É por ela que a guarda tem de passar.
+  for (const bom of [
+    "Internet", "Telefone e internet", "Provedor de internet",
+    "Assinaturas / software", "Marketing digital", "Site e e-mail",
+    "Design e layout", "Delivery", "Notebook", "Backup em cloud",
+  ]) {
+    ok(`onda5: "${bom}" NÃO é acusado de inglês`, !pareceIngles(bom));
+  }
+  for (const ruim of ["Salary", "Electricity", "Telecommunications", "Bank Fees", "Other Expenses"]) {
+    ok(`onda5: "${ruim}" é acusado de inglês`, pareceIngles(ruim));
+  }
+  ok("onda5: o de-para traduz o que conhece",
+     traduzirCategoria("Electricity") === "Utilidades"
+     && traduzirCategoria("Salary") === "Folha de pagamento");
+  // ⚠️ E NÃO inventa: um palpite de tradução numa categoria contábil move
+  // dinheiro de linha no DRE.
+  ok("onda5: o de-para não inventa tradução",
+     traduzirCategoria("Zorblax Holdings") === null);
+
+  /* ---- Extrato não é título --------------------------------------------- */
+  ok("onda5: extrato NÃO é origem de título", !ehOrigemDeTitulo("extrato"));
+  for (const o of ["venda", "contrato", "importacao", "manual", "conciliacao"]) {
+    ok(`onda5: "${o}" é origem de título`, ehOrigemDeTitulo(o));
+  }
+
+  /* ---- Contraparte -------------------------------------------------------- */
+  ok("onda5: o CNPJ próprio é reconhecido mesmo mascarado",
+     mesmoDocumento("12.345.678/0001-95", "12345678000195"));
+  ok("onda5: documento curto não casa por acidente",
+     !mesmoDocumento("123", "123"));
+  ok("onda5: ESTORNO TARIFA não é contraparte",
+     contraparteSuspeita("ESTORNO TARIFA")?.natureza === "estorno");
+  ok("onda5: IOF ROTATIVO não é contraparte",
+     contraparteSuspeita("IOF ROTATIVO")?.natureza === "financeiro");
+  // ⚠️ E o detector NÃO pode recusar contraparte real — recusar cliente
+  // legítimo dói mais que aceitar nome feio, como já ficou decidido na ONDA 3
+  // da ingestão.
+  for (const real of ["Alpha Comércio Ltda", "Mensalidade Serviços Ltda", "DISNEY PLUS", "WIX"]) {
+    ok(`onda5: "${real}" NÃO é acusado de ser tarifa`, contraparteSuspeita(real) === null);
+  }
+  // ⚠️ DISNEY PLUS e WIX são pegos por OUTRA regra: a do lado. Foi a medição
+  // que separou as duas — o detector de nomes nunca acharia isto.
+  ok("onda5: fornecedor no a receber é pego pela regra do LADO",
+     contraparteNoLadoErrado({ nome: "DISNEY PLUS", saidas: 7, entradas: 0 }, "entrada")?.codigo
+       === "fornecedor_como_cliente");
+  ok("onda5: quem compra E vende não é acusado",
+     contraparteNoLadoErrado({ nome: "Beta", saidas: 4, entradas: 9 }, "entrada") === null);
+  ok("onda5: sem histórico não há acusação",
+     contraparteNoLadoErrado({ nome: "Nova", saidas: 0, entradas: 0 }, "entrada") === null);
+
+  /* ---- Score de crédito --------------------------------------------------- */
+  ok("onda5: assinatura de streaming não recebe score",
+     motivoSemScore({ tipo: "cliente", nome: "IOF ROTATIVO" })?.codigo === "contraparte_suspeita");
+  ok("onda5: fornecedor não recebe score",
+     motivoSemScore({ tipo: "fornecedor", nome: "Alpha" })?.codigo === "nao_e_cliente");
+  ok("onda5: cliente identificado recebe score",
+     motivoSemScore({ tipo: "cliente", nome: "Alpha", documento: "12345678901" }) === null);
+
+  /* ---- O relatório de qualidade ------------------------------------------- */
+  const sujo = auditarQualidade({
+    documentoDaOrganizacao: "12.345.678/0001-95",
+    nomeDaOrganizacao: "all4pay",
+    contrapartes: [
+      { id: "c1", nome: "all4pay Ltda", documento: "12345678000195" },
+      { id: "c2", nome: "ESTORNO TARIFA" },
+    ],
+    categorias: [
+      { id: "k1", nome: "Salary", natureza: "despesa" },
+      { id: "k3", nome: "Receita bruta", natureza: "receita" },
+      { id: "k4", nome: "Aluguel", natureza: "despesa", paiId: "k3" },
+      { id: "k5", nome: "Aluguel", natureza: "despesa" },
+    ],
+    produtos: [
+      { id: "p1", nome: "Garrafa", codigo: "223321" },
+      { id: "p4", nome: "Outra", codigo: "223321" },
+      { id: "p2", nome: "Teste telesena" },
+      { id: "p3", nome: "Teste telesena" },
+    ],
+    lancamentos: [
+      { id: "m1", tipo: "entrada", situacao: "pendente", valor: 500_000, categoria: "Juros", contraparteId: "c1" },
+    ],
+  });
+  const cod = (c: string) => sujo.achados.find((a) => a.codigo === c);
+  for (const c of [
+    "titulo_sem_origem", "titulo_com_cnpj_proprio", "contraparte_suspeita",
+    "categoria_em_ingles", "categoria_duplicada", "arvore_invalida",
+    "produto_codigo_duplicado", "produto_nome_duplicado",
+  ]) {
+    ok(`onda5: a auditoria acha "${c}"`, !!cod(c), "não achou");
+  }
+  ok("onda5: nome duplicado é ATENÇÃO, código duplicado é CRÍTICO",
+     cod("produto_nome_duplicado")?.gravidade === "atencao"
+     && cod("produto_codigo_duplicado")?.gravidade === "critico");
+  ok("onda5: todo achado diz a CONSEQUÊNCIA, não só o sintoma",
+     sujo.achados.every((a) => a.porQueImporta.length > 80),
+     sujo.achados.filter((a) => a.porQueImporta.length <= 80).map((a) => a.codigo).join(", "));
+  ok("onda5: base suja não passa no portão", !sujo.limpo);
+
+  // ⚠️ E o oposto: base limpa tem de dar ZERO. Uma auditoria que sempre acha
+  // algo é uma auditoria que ninguém consegue zerar — e um portão inalcançável
+  // é um portão abandonado.
+  const limpa = auditarQualidade({
+    documentoDaOrganizacao: "12.345.678/0001-95",
+    contrapartes: [{ id: "c1", nome: "Alpha Comércio", documento: "98765432000110" }],
+    categorias: [{ id: "k1", nome: "Aluguel", natureza: "despesa" }],
+    produtos: [{ id: "p1", nome: "Garrafa", codigo: "A1" }],
+    lancamentos: [
+      { id: "m1", tipo: "saida", situacao: "pago", valor: 100, categoria: "Aluguel",
+        contraparteId: "c1", centroCustoId: "cc1", origem: "manual" },
+    ],
+  });
+  ok("onda5: base limpa dá zero crítico", limpa.limpo && limpa.criticos === 0,
+     `${limpa.criticos} críticos`);
+
+  /* ---- Fusão: o primeiro fica, e os vínculos são reapontados -------------- */
+  const plano = planejarFusao(["p1", "p2", "p3"], { p2: 4, p3: 7 });
+  ok("onda5: a fusão mantém o PRIMEIRO (id que o histórico já referencia)",
+     plano?.mantido === "p1" && plano.absorvidos.length === 2);
+  ok("onda5: a fusão conta os vínculos a reapontar", plano?.vinculos === 11);
+  ok("onda5: fundir um produto sozinho não é fusão", planejarFusao(["p1"]) === null);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

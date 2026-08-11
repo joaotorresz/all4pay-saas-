@@ -292,10 +292,18 @@ export function traduzirCategoria(nome: string | null | undefined): string | nul
 
 /**
  * ⚠️ **Empréstimos linguísticos NÃO contam.** Software, marketing, site,
- * e-mail, design, layout, cloud, streaming, delivery, checkout, feedback e
- * outros entraram no português e são o que um financeiro escreve o dia inteiro.
- * O primeiro detector que escrevi acusou "Assinaturas / software" — e um
- * detector que grita lobo é um detector que ninguém lê.
+ * e-mail, design, layout, cloud, streaming, delivery e outros entraram no
+ * português e são o que um financeiro escreve o dia inteiro. Um detector que
+ * grita lobo é um detector que ninguém lê.
+ *
+ * ⚠️ **Duas proteções diferentes, e vale saber qual protege o quê.** A maioria
+ * destas palavras nunca chega a ser candidata: elas simplesmente não estão no
+ * vocabulário inglês abaixo. A lista só faz TRABALHO nas que estão nos dois
+ * lados — `internet` é o caso claro, chave do de-para (→ Utilidades) e
+ * português corrente. Medido ao provar a guarda: desligar `EMPRESTIMOS`
+ * inteiro não mudava nada para "software", e mudava para "internet". A guarda
+ * foi reescrita para exercer o caso que a lista realmente sustenta; a versão
+ * anterior passava sem testar nada.
  */
 export const EMPRESTIMOS = new Set([
   "software", "marketing", "site", "email", "e-mail", "design", "layout",
