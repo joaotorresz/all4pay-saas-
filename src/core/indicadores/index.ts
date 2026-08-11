@@ -73,10 +73,89 @@ export interface Procedencia {
   aviso?: string;
 }
 
+/**
+ * ⚠️ ONDA 4 — **ZERO É UM VALOR, NÃO A AUSÊNCIA DE VALOR.**
+ *
+ * Foi a raiz medida das três contradições que a auditoria apontou, e as três
+ * eram a MESMA doença: o sistema preenchendo o silêncio com um número em vez de
+ * dizer que não sabe.
+ *
+ *  - A Home mostrava saldo de −R$ 31.000 ao lado de entradas, saídas e
+ *    resultado em R$ 0. Os dois números estavam CERTOS: o saldo é posição, o
+ *    resto é o período — e nenhum lançamento foi liquidado em agosto (o último
+ *    pagamento foi 28/07). "R$ 0" e "nada se moveu" não são a mesma frase, e
+ *    lidas lado a lado a primeira parece erro.
+ *  - O fluxo de caixa mostrava runway de 33 meses com burn zero. 33 meses era o
+ *    TETO saindo como fato — e sobre saldo negativo, onde runway nem se define.
+ *  - A contabilidade rotulava R$ 437.983,17 de resíduo como "conciliado":
+ *    diferença absorvida em vez de nomeada.
+ *
+ * Daí o campo. Quando ele está preenchido, `valor` **não deve ser exibido** — a
+ * tela mostra o motivo. E o motivo é uma frase para quem OPERA, não um código:
+ * "não há queima no período" resolve; "runway indisponível" só empurra a
+ * pergunta adiante.
+ */
+/**
+ * ⚠️ O código existe para quem CONSOME decidir sem ler a frase.
+ *
+ * "Não há queima" e "o caixa já é negativo" produzem ambos um runway
+ * indisponível, e são o oposto um do outro: o primeiro é a empresa saudável, o
+ * segundo é a empresa quebrada. Um consumidor que precise distinguir os dois só
+ * teria a frase — e casar substring de texto em português é a fragilidade que
+ * este repositório já pagou três vezes (o auditor de RLS, o classificador
+ * `maq_*`, o extrator do ia-eval). A frase é para a PESSOA; o código é para o
+ * código.
+ */
+export type MotivoIndisponivel =
+  /** O intervalo pedido não existe (`de > ate`). */
+  | "janela_invalida"
+  /** Nenhum lançamento na janela para medir. */
+  | "sem_lancamentos"
+  /** O divisor não existe — não há razão a calcular. */
+  | "sem_base"
+  /** O ponto de partida já é negativo; a projeção não se define. */
+  | "caixa_negativo"
+  /** Não houve consumo no período — não há prazo a projetar. */
+  | "sem_queima";
+
+export interface Indisponivel {
+  codigo: MotivoIndisponivel;
+  motivo: string;
+  /** O que a pessoa pode fazer para o número existir. Vazio quando não há o que fazer. */
+  comoResolver?: string;
+}
+
 export interface Indicador {
+  /** ⚠️ Só é resposta quando `indisponivel` é `undefined`. */
   valor: number;
+  /** Preenchido = não há número. A tela mostra o motivo, nunca o `valor`. */
+  indisponivel?: Indisponivel;
   procedencia: Procedencia;
 }
+
+/** `true` quando há um número para mostrar. */
+export const temValor = (i: Indicador): boolean => !i.indisponivel;
+
+/**
+ * O valor, ou `null` quando não há.
+ *
+ * ⚠️ `null` e não `0`: é a fronteira onde a ausência costuma virar número de
+ * novo. Um `?? 0` numa tela desfaz a onda inteira, e por isso a guarda de
+ * coerência procura exatamente esse padrão.
+ */
+export const valorOuNulo = (i: Indicador): number | null =>
+  i.indisponivel ? null : i.valor;
+
+/** Constrói um indicador SEM resposta. */
+const semDados = (
+  j: Janela, formula: string, codigo: MotivoIndisponivel, motivo: string,
+  regime: Regime | "posicao" = "caixa", natureza: Natureza = "fato",
+  comoResolver?: string, lancamentos = 0,
+): Indicador => ({
+  valor: 0,
+  indisponivel: { codigo, motivo, comoResolver },
+  procedencia: { lancamentos, regime, janela: j, formula, natureza, aviso: motivo },
+});
 
 /** Só o FATO sai do sistema sem ressalva. Ver `Natureza`. */
 export const confiavelParaArtefato = (p: Procedencia): boolean =>
@@ -256,22 +335,66 @@ export const RUNWAY_CAP_DIAS = 999;
  * devolviam meses e versões que capavam em 24 meses, e comparar duas telas
  * exigia saber qual era qual.
  *
- * Sem queima, devolve `RUNWAY_CAP_DIAS`: infinito não cabe num eixo de gráfico,
- * e zero diria o contrário do que acontece.
+ * ⚠️ Sem queima ele NÃO devolve mais `RUNWAY_CAP_DIAS`. O teto continua
+ * existindo para o caso legítimo — a empresa queima pouquíssimo e a divisão dá
+ * um número que não cabe num eixo — mas ali ele sai com `aviso` dizendo que é
+ * teto. O que saiu foi o teto respondendo à AUSÊNCIA de queima, que era o
+ * "runway de 33 meses" medido sobre saldo negativo.
  */
 export function runway(
   input: RiskInput, j: Janela = janelaUltimosDias(JANELA_RITMO_DIAS, input.hoje),
 ): Indicador {
-  const formula = "saldo atual ÷ queima diária média (0 se o caixa já está negativo)";
-  if (j.vazia) return vazio(j, formula);
+  const formula = "saldo atual ÷ queima diária média";
+  if (j.vazia) {
+    return semDados(j, formula, "janela_invalida",
+      j.motivo ?? "o período pedido não existe", "caixa", "projecao");
+  }
   const b = burn(input, j);
   const saldoHoje = input.saldoAtual;
-  let dias: number;
-  if (b.valor <= 0) dias = RUNWAY_CAP_DIAS;
-  else if (saldoHoje <= 0) dias = 0; // já acabou — não há runway a projetar
-  else dias = Math.min(RUNWAY_CAP_DIAS, Math.round(saldoHoje / (b.valor / 30)));
+
+  // ⚠️ A ORDEM DESTES DOIS TESTES ESTAVA INVERTIDA, e era o defeito medido:
+  // `burn <= 0` vinha primeiro e devolvia o TETO, então uma empresa com o caixa
+  // NEGATIVO e sem queima recebia "33 meses de runway". Duas mentiras numa: o
+  // teto saindo como fato, e um fôlego anunciado para quem já está no vermelho.
+  if (saldoHoje <= 0) {
+    return semDados(
+      j, formula, "caixa_negativo",
+      "o caixa já está negativo — não há fôlego a projetar",
+      "caixa", "projecao",
+      "Entre com um recebimento ou aporte para que o runway volte a existir.",
+      b.procedencia.lancamentos,
+    );
+  }
+  if (b.valor <= 0) {
+    // Não é runway infinito: é runway INDEFINIDO. A empresa gerou caixa na
+    // janela, então não há taxa de queima pela qual dividir. Devolver um teto
+    // aqui responde "33 meses" a uma pergunta que não tem resposta numérica.
+    return semDados(
+      j, formula, "sem_queima",
+      "não houve queima no período — a empresa gerou caixa, então não há prazo a calcular",
+      "caixa", "projecao",
+      undefined,
+      b.procedencia.lancamentos,
+    );
+  }
+  if (b.procedencia.lancamentos === 0) {
+    return semDados(
+      j, formula, "sem_lancamentos",
+      "nenhum lançamento liquidado na janela para medir o ritmo",
+      "caixa", "projecao",
+      "Importe o extrato do período ou dê baixa nos títulos já pagos.",
+    );
+  }
+
+  const bruto = Math.round(saldoHoje / (b.valor / 30));
+  // ⚠️ Quando o teto morde, ele é DITO. Um número que na verdade é "pelo menos
+  // isso" exibido como se fosse exato é a mesma família de defeito do 33.
+  const dias = Math.min(RUNWAY_CAP_DIAS, bruto);
+  const aviso = bruto > RUNWAY_CAP_DIAS
+    ? `no ritmo atual passa de ${Math.round(RUNWAY_CAP_DIAS / 30)} meses; o valor é o teto do cálculo, não a medida`
+    : undefined;
   // Runway é conta sobre o FUTURO — a mais projeção de todas.
-  return { valor: dias, procedencia: { ...b.procedencia, formula, natureza: "projecao" } };
+  return { valor: dias, procedencia: { ...b.procedencia, formula, natureza: "projecao", aviso } };
 }
 
 /**

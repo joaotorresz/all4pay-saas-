@@ -35,8 +35,16 @@ import { runway, runwayMeses, burn, saldo, janelaHoje, RUNWAY_CAP_DIAS } from "@
 export const COERENCIA_VERSION = "ia-coerencia/1.0.0";
 
 export interface LeituraDeCaixa {
-  /** O número, na unidade dele. */
+  /** O número, na unidade dele. ⚠️ Só é resposta quando `indisponivel` é vazio. */
   valor: number;
+  /**
+   * Preenchido quando NÃO há número — a frase que a tela mostra no lugar dele.
+   *
+   * ⚠️ Uma leitura sem número não some da ponte: "não há queima a medir" é
+   * justamente metade da contradição que esta camada existe para explicar.
+   * Omitir a leitura deixaria a ruptura sozinha na tela, parecendo consenso.
+   */
+  indisponivel?: string;
   unidade: "dias" | "meses" | "reais";
   /** O que ESTA leitura mede — a frase que impede a confusão. */
   mede: string;
@@ -75,9 +83,18 @@ export function ponteRupturaRunway(
   input: RiskInput,
   rupturaDia: number | null,
 ): PonteRupturaRunway {
-  const dias = runway(input).valor;
-  const meses = runwayMeses(input).valor;
+  const r = runway(input);
+  const rm = runwayMeses(input);
+  const dias = r.indisponivel ? null : r.valor;
+  const meses = rm.indisponivel ? null : rm.valor;
   const temRuptura = rupturaDia !== null && rupturaDia >= 0;
+  // ⚠️ Duas ausências opostas, e a diferença decide tudo. `sem_queima` é a
+  // empresa que gera caixa — o lado TRANQUILO da contradição, e o que faz a
+  // ruptura próxima parecer inexplicável. `caixa_negativo` é o contrário: ali
+  // ruptura e runway dizem a MESMA coisa, e anunciar contradição mandaria a
+  // pessoa procurar um engano onde há só uma empresa no vermelho.
+  const ritmoTranquilo = r.indisponivel?.codigo === "sem_queima"
+    || (dias !== null && dias >= RUNWAY_LONGO_DIAS);
 
   const leituraRuptura: LeituraDeCaixa & { existe: boolean } = {
     existe: temRuptura,
@@ -88,15 +105,15 @@ export function ponteRupturaRunway(
   };
 
   const leituraRunway: LeituraDeCaixa = {
-    valor: meses,
+    valor: meses ?? 0,
+    indisponivel: rm.indisponivel?.motivo,
     unidade: "meses",
     mede: "quanto tempo o saldo de hoje cobre a queima MÉDIA dos últimos 90 dias",
     naoEnxerga: "quando cada título vence — uma média mensal não sabe que a folha cai antes do recebimento",
   };
 
   const rupturaProxima = temRuptura && rupturaDia <= RUPTURA_PROXIMA_DIAS;
-  const runwayLongo = dias >= RUNWAY_LONGO_DIAS;
-  const pareceContradicao = rupturaProxima && runwayLongo;
+  const pareceContradicao = rupturaProxima && ritmoTranquilo;
 
   return {
     ruptura: leituraRuptura,
@@ -113,9 +130,15 @@ export function ponteRupturaRunway(
  * ⚠️ Ela diz o que FAZER, não só o que é. "As duas leituras medem coisas
  * diferentes" é verdadeiro e inútil: quem lê quer saber se precisa agir hoje.
  */
-export function frasePonte(rupturaDias: number, runwayMeses: number, runwayDias: number): string {
+export function frasePonte(
+  rupturaDias: number, runwayMeses: number | null, runwayDias: number | null,
+): string {
   const quando = rupturaDias === 0 ? "hoje" : rupturaDias === 1 ? "amanhã" : `em ${rupturaDias} dias`;
-  const folego = runwayDias >= RUNWAY_CAP_DIAS
+  // ⚠️ `null` (não há queima a medir) e o TETO dizem a mesma coisa ao leitor —
+  // "o ritmo não está consumindo o caixa" — e por isso compartilham a frase.
+  // O que não podem compartilhar é o NÚMERO: era o teto saindo como se fosse
+  // fôlego medido.
+  const folego = runwayDias === null || runwayMeses === null || runwayDias >= RUNWAY_CAP_DIAS
     ? "a operação não está queimando caixa no ritmo dos últimos 90 dias"
     : `no ritmo dos últimos 90 dias o saldo cobriria cerca de ${runwayMeses} meses`;
   return (

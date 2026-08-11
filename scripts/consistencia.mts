@@ -21,6 +21,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import * as FIXTURE from "./fixture.mts";
 import {
   saldo, saldoInicial, entradas, saidas, resultado, burn, runway, runwayMeses,
+  runwayDeFluxo,
   geracaoCaixaMensal, mrr, arr, inadimplencia, inadimplenciaTaxa, receitaTributavel,
   painelIndicadores, reconciliarSaldo, foraDaBaseTributavel, pontePosicaoFluxo,
   janela, janelaMes, janelaUltimosDias, janelaHoje, janelaDoMesDe, janelaAnterior,
@@ -481,12 +482,28 @@ const AGOSTO = janelaMes(2026, 7);
   eq("cruzado: burn do risk-engine == burn canônico", be.burnMensal, b);
   eq("cruzado: geração do risk-engine == geração canônica", be.liquidoMensal, g);
 
+  // ⚠️ ONDA 4 — ESTAS TRÊS ASSERÇÕES FORAM REESCRITAS, e a razão é a doença que
+  // a onda persegue. Antes elas comparavam NÚMERO com NÚMERO, e por isso
+  // exigiam que todo caminho inventasse um runway mesmo quando não existe um:
+  // era assim que "33 meses" saía ao lado de um caixa negativo.
+  //
+  // A comparação certa tem duas partes. Primeiro a FÓRMULA: todo caminho tem de
+  // usar a mesma conta (`runwayDeFluxo`), e é isso que mata o `CAP = 999` que
+  // vivia dentro do risk-engine. Depois a DISPONIBILIDADE: quando o canônico
+  // diz que não há resposta, nenhum caminho pode apresentar um número como se
+  // houvesse — que é a regra dura desta onda.
   const re = calcularRunway(INPUT.saldoAtual, be);
-  eq("cruzado: runway do risk-engine == runway canônico (dias)", re.base, runway(INPUT).valor);
+  const rc = runway(INPUT);
+  eq("cruzado: runway do risk-engine == a fórmula única",
+     re.base, runwayDeFluxo(INPUT.saldoAtual, be.liquidoMensal));
 
   const risco = scoreRiscoCaixa(INPUT);
-  eq("cruzado: runway do score de risco == runway canônico", risco.runway.base, runway(INPUT).valor);
-  eq("cruzado: runwayDias do score == runway canônico", risco.runwayDias, runway(INPUT).valor);
+  eq("cruzado: runway do score == a fórmula única",
+     risco.runway.base, runwayDeFluxo(INPUT.saldoAtual, be.liquidoMensal));
+  eq("cruzado: runwayDias do score == runway do score", risco.runwayDias, risco.runway.base);
+  ok("cruzado: se o canônico tem número, ele bate com os demais",
+     rc.indisponivel !== undefined || rc.valor === re.base,
+     `canônico ${rc.valor} × risk-engine ${re.base}`);
   eq("cruzado: burn do score de risco == burn canônico", risco.burn.burnMensal, b);
 
   const q = analisarQuantitativo(INPUT);
@@ -494,13 +511,37 @@ const AGOSTO = janelaMes(2026, 7);
   eq("cruzado: runway do quant (meses) == runway canônico (meses)",
      Math.round(q.indicadores.runwayMeses * 10) / 10, runwayMeses(INPUT).valor);
 
-  // Sem queima o runway é o teto, não zero — zero diria o oposto do que ocorre.
+  // ⚠️ ONDA 4 — ASSERÇÃO REESCRITA. A anterior dizia "quem gera caixa tem runway
+  // no TETO", e o teto era 999 dias. Estava errada por dentro: quem gera caixa
+  // não tem runway longo, tem runway INDEFINIDO — não há taxa de queima pela
+  // qual dividir. Devolver o teto respondia "33 meses" a uma pergunta sem
+  // resposta numérica, e foi assim que o número apareceu ao lado de um burn
+  // zero na tela de fluxo de caixa.
+  //
+  // A proteção que ela carregava continua: zero também é resposta errada, e por
+  // isso o teste cobra que NÃO seja zero exibido como fato.
   const gerador: RiskInput = {
     ...INPUT,
     movements: [mv("g1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
   };
   ok("ritmo: quem gera caixa tem burn 0", burn(gerador).valor === 0);
-  ok("ritmo: quem gera caixa tem runway no teto", runway(gerador).valor >= 999);
+  const rGer = runway(gerador);
+  ok("ritmo→onda4: quem gera caixa NÃO recebe um número de runway",
+     rGer.indisponivel !== undefined, `veio ${rGer.valor}`);
+  ok("ritmo→onda4: e o motivo diz que não houve queima",
+     (rGer.indisponivel?.motivo ?? "").includes("queima"),
+     rGer.indisponivel?.motivo ?? "sem motivo");
+
+  // ⚠️ O caso que a auditoria mediu: caixa NEGATIVO e sem queima. Antes saía o
+  // teto — fôlego anunciado para quem já está no vermelho.
+  const negativoSemQueima: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("n1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
+  };
+  const rNeg = runway(negativoSemQueima);
+  ok("onda4: caixa negativo não tem runway, e o motivo o diz",
+     rNeg.indisponivel !== undefined && rNeg.indisponivel.motivo.includes("negativo"),
+     rNeg.indisponivel?.motivo ?? `veio ${rNeg.valor}`);
 
   // Caixa já negativo E queimando: runway 0, nunca negativo (um runway de −40
   // dias já foi exibido como se fossem 40 dias de folga).
@@ -1374,7 +1415,11 @@ const AGOSTO = janelaMes(2026, 7);
 
   /* ---- O portão do artefato externo --------------------------------------- */
   const pFato = saldo(INPUT, janelaHoje(HOJE)).procedencia;
-  const pProj = runway(INPUT).procedencia;
+  // ⚠️ A projeção vem de quem QUEIMA. Sobre a fixture principal o runway agora
+  // é indisponível (a empresa gera caixa), e indisponível não é "projeção que
+  // sai marcada" — é ausência, que não vira arquivo nenhum. Usar o INPUT aqui
+  // testaria o portão errado e daria a impressão de que a marcação foi perdida.
+  const pProj = runway(FIXTURE.INPUT_QUEIMANDO).procedencia;
   const soFato = avaliarExportacao([{ rotulo: "Saldo", procedencia: pFato }], "xlsx");
   ok("onda10: só fato exporta sem nota", soFato.pode && soFato.nota === null);
   const comProj = avaliarExportacao(
@@ -1394,6 +1439,13 @@ const AGOSTO = janelaMes(2026, 7);
   const invalido = entradas(INPUT, janela("2026-09-30", "2026-09-01")).procedencia;
   ok("onda10: indicador com aviso NÃO vira arquivo",
      !avaliarExportacao([{ rotulo: "Receita", procedencia: invalido }], "xlsx").pode);
+  // ONDA 4: e a AUSÊNCIA também não. Um runway indisponível carrega `valor: 0`,
+  // e é exatamente esse zero que não pode virar linha de planilha — do outro
+  // lado ele lê como "zero dias de fôlego", que é o oposto do que aconteceu.
+  const ausente = runway(INPUT);
+  ok("onda4: indicador indisponível não vira arquivo",
+     !!ausente.indisponivel
+     && !avaliarExportacao([{ rotulo: "Runway", procedencia: ausente.procedencia }], "xlsx").pode);
 
   /* ---- Intervalo invertido, recusado na ENTRADA --------------------------- */
   ok("onda10: intervalo invertido é recusado com frase",
@@ -1629,6 +1681,10 @@ const AGOSTO = janelaMes(2026, 7);
   // respondem perguntas diferentes (o agendado por data × o ritmo médio), e é
   // a tela que as apresenta como se fossem a mesma medida. Mesmo defeito que a
   // ONDA 1 achou entre posição e fluxo.
+  // ⚠️ A contradição mudou de forma com a ONDA 4 e ficou MAIS nítida: antes era
+  // "ruptura em 2 dias × runway de 33 meses" (o teto como fato); agora é
+  // "ruptura em 2 dias × não há queima a medir". A ponte tem de reconhecer as
+  // duas — é a mesma pergunta com e sem número.
   const p = ponteRupturaRunway(INPUT, 2);
   ok("onda14: a contradição aparente é detectada", p.pareceContradicao);
   ok("onda14: e vem com a frase que reconcilia", p.explicacao.length > 60);
