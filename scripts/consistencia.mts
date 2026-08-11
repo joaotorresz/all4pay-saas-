@@ -27,6 +27,8 @@ import {
   janela, janelaMes, janelaUltimosDias, janelaHoje, janelaDoMesDe, janelaAnterior,
   diasDe, dentro, contemHoje, saldoEm, saldoAbertura, assinado, magnitude,
   liquidado, dataDe, INDICADORES_VERSION, temValor, valorOuNulo,
+  painelResultado, receitaBruta, deducoes, receitaLiquida, custo,
+  despesaOperacional, ebitda, margem, estoqueDeTitulos, churn, posicaoConsolidada,
 } from "@/core/indicadores";
 import { calcularBurnRate } from "@/core/risk-engine/burn.engine";
 import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
@@ -2766,6 +2768,118 @@ const AGOSTO = janelaMes(2026, 7);
   const fantasmas = EXCECOES_VALOR.filter((e) => !existsSync(e.arquivo));
   ok("onda4: nenhuma exceção aponta para arquivo inexistente",
      fantasmas.length === 0, fantasmas.map((e) => e.arquivo).join(", "));
+}
+
+
+/* ========================================================================== */
+/* LINHA 31c — ONDA 4: a cascata canônica × o motor do DRE.                  */
+/* ========================================================================== */
+{
+  // ⚠️ Esta é a guarda que impede o remédio de virar a doença. `core/indicadores/
+  // resultado` acrescenta o CONTRATO à cascata (dizer quando não sabe), e
+  // acrescentar contrato exigiu reescrever a aritmética num segundo lugar —
+  // que é exatamente o padrão que a ONDA 1 existe para matar. As duas
+  // implementações compartilham o classificador (mesmo módulo, mesmos regex),
+  // mas nada além disso as obriga a concordar. Isto obriga.
+  const J = janelaMes(2026, 7);
+  const rowsDRE = INPUT.movements.filter(
+    (m) => m.status !== "cancelado" && (m.due_date ?? "") >= J.de && (m.due_date ?? "") <= J.ate,
+  );
+  const g = dreGerencial(rowsDRE);
+  const p = painelResultado(INPUT, J, "competencia");
+
+  const par = (nome: string, canonico: typeof p.ebitda, doDRE: number) => {
+    ok(`onda4: ${nome} existe nos dois caminhos`, !canonico.indisponivel,
+       canonico.indisponivel?.motivo ?? "");
+    if (canonico.indisponivel) return;
+    eq(`cruzado: ${nome} canônico == ${nome} do dreGerencial`, canonico.valor, doDRE);
+  };
+  par("receita bruta", p.receitaBruta, g.receitaBruta);
+  par("receita líquida", p.receitaLiquida, g.receitaLiquida);
+  par("lucro bruto", p.lucroBruto, g.lucroBruto);
+  par("EBITDA", p.ebitda, g.ebitda);
+  par("lucro líquido", p.lucroLiquido, g.lucroLiquido);
+  par("margem EBITDA", p.margemEbitda, g.margemEbitda);
+  par("margem bruta", p.margemBruta, g.margemBruta);
+
+  // E a cascata canônica fecha sobre si mesma — as identidades por escrito.
+  eq("onda4: receita líquida == bruta − deduções",
+     p.receitaLiquida.valor, p.receitaBruta.valor - p.deducoes.valor);
+  eq("onda4: lucro bruto == receita líquida − custo",
+     p.lucroBruto.valor, p.receitaLiquida.valor - p.custo.valor);
+  eq("onda4: EBITDA == lucro bruto − despesa operacional",
+     p.ebitda.valor, p.lucroBruto.valor - p.despesaOperacional.valor);
+
+  /* ---- E o contrato, nos casos que a especificação nomeia ---------------- */
+  const semNada: RiskInput = { ...INPUT, movements: [] };
+  for (const [nome, ind] of [
+    ["receita bruta", receitaBruta(semNada)],
+    ["deduções", deducoes(semNada)],
+    ["receita líquida", receitaLiquida(semNada)],
+    ["custo", custo(semNada)],
+    ["despesa operacional", despesaOperacional(semNada)],
+    ["EBITDA", ebitda(semNada)],
+  ] as const) {
+    ok(`onda4: ${nome} sem lançamento é ausência, não R$ 0`,
+       ind.indisponivel?.codigo === "sem_lancamentos", String(ind.valor));
+  }
+
+  // ⚠️ A MARGEM é o caso mais perigoso da onda: "0%" lê como "vendeu e não
+  // sobrou nada" — a notícia ruim — quando a verdade é "não vendeu". As duas
+  // mandam o dono fazer coisas OPOSTAS: cortar custo × vender.
+  const soDespesa: RiskInput = {
+    ...INPUT,
+    movements: [mv("d1", "saida", "pago", 12_000, "2026-08-05", "2026-08-05", "Folha", "F")],
+  };
+  const mg = margem(soDespesa, "ebitda", AGOSTO);
+  ok("onda4: margem sem receita é ausência de BASE, não 0%",
+     mg.indisponivel?.codigo === "sem_base", `${mg.valor} / ${mg.indisponivel?.codigo ?? "com valor"}`);
+  ok("onda4: e o motivo explica que prejuízo não é margem negativa",
+     /raz[ãa]o sobre a receita/i.test(mg.indisponivel?.motivo ?? ""), mg.indisponivel?.motivo ?? "");
+
+  /* ---- Estoque de títulos: POSIÇÃO, e zero é resposta -------------------- */
+  const est = estoqueDeTitulos(INPUT, "entrada");
+  ok("onda4: o estoque de títulos existe e é projeção", !est.indisponivel && est.procedencia.natureza === "projecao");
+  eq("cruzado: estoque de títulos == soma dos previstos de entrada",
+     est.valor,
+     DATASET.filter((m) => m.type === "entrada" && m.status === "pendente")
+       .reduce((s, m) => s + magnitude(m), 0));
+  ok("onda4: sem título nenhum daquele lado, é ausência",
+     estoqueDeTitulos(semNada, "entrada").indisponivel?.codigo === "sem_lancamentos");
+
+  /* ---- Churn: sem base anterior, retenção perfeita é MENTIRA ------------- */
+  const jJul = janelaMes(2026, 6), jAgo = janelaMes(2026, 7);
+  const primeiroMes: RiskInput = {
+    ...INPUT,
+    movements: [mv("c1", "entrada", "pago", 3_000, "2026-08-04", "2026-08-04", "Vendas", "A")],
+  };
+  const ch = churn(primeiroMes, jAgo, jJul);
+  ok("onda4: churn sem carteira anterior é ausência, não 0% de perda",
+     ch.indisponivel?.codigo === "sem_base", String(ch.valor));
+  // Com carteira dos dois lados, ele responde — e responde o que se espera.
+  const carteira: RiskInput = {
+    ...INPUT,
+    movements: [
+      mv("k1", "entrada", "pago", 1_000, "2026-07-05", "2026-07-05", "Vendas", "A"),
+      mv("k2", "entrada", "pago", 1_000, "2026-07-06", "2026-07-06", "Vendas", "B"),
+      mv("k3", "entrada", "pago", 1_000, "2026-08-05", "2026-08-05", "Vendas", "A"),
+    ],
+  };
+  eq("onda4: churn de 1 em 2 clientes é 0,5", churn(carteira, jAgo, jJul).valor, 0.5);
+
+  /* ---- Posição consolidada: empresa que não respondeu não vale zero ------ */
+  const grupo = [
+    { nome: "Holding", input: INPUT },
+    { nome: "Operadora", input: { ...INPUT, saldoAtual: 10_000 } as RiskInput },
+  ];
+  eq("onda4: consolidado == soma dos saldos", posicaoConsolidada(grupo).valor, SALDO + 10_000);
+  // ⚠️ É o defeito na forma mais cara: o consolidado sai menor que a realidade
+  // com a cara de completo, e é esse número que vai ao banco pedir crédito.
+  const faltando = posicaoConsolidada(grupo, ["Operadora"]);
+  ok("onda4: empresa que não respondeu não vale zero no consolidado",
+     faltando.indisponivel?.codigo === "sem_base", String(faltando.valor));
+  ok("onda4: e o motivo NOMEIA quem faltou",
+     (faltando.indisponivel?.motivo ?? "").includes("Operadora"), faltando.indisponivel?.motivo ?? "");
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

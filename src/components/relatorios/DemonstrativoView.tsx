@@ -12,7 +12,7 @@ import * as React from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon, SemDados } from "@/components/ui";
+import { Card, Skeleton, Select, Icon, ValorIndicador, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -22,7 +22,7 @@ import {
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
 import { listarOrcamentos } from "@/lib/orcamentos";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
-import { runwayMeses, saldo } from "@/core/indicadores";
+import { runwayMeses, saldo, painelResultado, janela } from "@/core/indicadores";
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
   FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
@@ -233,37 +233,43 @@ export { compararOrcamento };
  * pior que cartão nenhum.
  */
 function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: { de: string; ate: string } }) {
+  // ⚠️ Os seis chegam INTEIROS, como `Indicador`. A cascata vem de
+  // `painelResultado` (a camada canônica) e não mais de `dreGerencial` lido
+  // campo a campo — não porque a aritmética mudasse (ela é conferida par a par
+  // na matriz de consistência), mas porque `number` não sabe dizer que não
+  // sabe. "EBITDA de R$ 0" e "não houve lançamento no período" saíam idênticos
+  // de um `number`, num cartão executivo, que é onde a leitura de relance vira
+  // decisão.
   const m = React.useMemo(() => {
-    const rows = movimentosNoPeriodo(input, "competencia", intervalo.de, intervalo.ate);
-    const g = dreGerencial(rows);
+    const j = janela(intervalo.de, intervalo.ate, "Período do relatório");
+    const p = painelResultado(input, j, "competencia");
     return {
-      receitaLiquida: g.receitaLiquida,
-      ebitda: g.ebitda,
-      margem: g.margemEbitda,
-      lucro: g.lucroLiquido,
-      // ⚠️ O runway chega INTEIRO, não como `.valor`. Sobre uma empresa que
-      // gera caixa (ou já está no vermelho) o número não existe, e "0m" no
-      // cartão executivo lê como "acabou o fôlego" — o oposto do primeiro caso
-      // e uma repetição do segundo com autoridade de cartão.
+      receitaLiquida: p.receitaLiquida,
+      ebitda: p.ebitda,
+      margem: p.margemEbitda,
+      lucro: p.lucroLiquido,
       runway: runwayMeses(input),
-      caixa: saldo(input).valor,
+      caixa: saldo(input),
     };
   }, [input, intervalo]);
 
-  const pct = (v: number) => `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-  const cartoes: { label: string; valor: React.ReactNode; tom?: string }[] = [
-    { label: "Receita líquida", valor: brl0(m.receitaLiquida) },
-    { label: "EBITDA", valor: brl0(m.ebitda), tom: m.ebitda < 0 ? "var(--color-negative)" : undefined },
-    { label: "Margem EBITDA", valor: pct(m.margem) },
-    { label: "Lucro líquido", valor: brl0(m.lucro), tom: m.lucro < 0 ? "var(--color-negative)" : "var(--color-positive)" },
-    {
-      label: "Runway",
-      valor: m.runway.indisponivel
-        ? <SemDados motivo={m.runway.indisponivel.motivo} codigo={m.runway.indisponivel.codigo}
-                    className="text-caption" />
-        : `${m.runway.valor}m`,
-    },
-    { label: "Caixa", valor: brl0(m.caixa), tom: m.caixa < 0 ? "var(--color-negative)" : undefined },
+  const tomDe = (i: { valor: number; indisponivel?: unknown }, bom = false) =>
+    i.indisponivel ? undefined
+      : i.valor < 0 ? "var(--color-negative)"
+      : bom ? "var(--color-positive)" : undefined;
+
+  const cartoes: {
+    label: string; indicador: typeof m.ebitda; formato: FormatoValor; tom?: string;
+  }[] = [
+    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda" },
+    { label: "EBITDA", indicador: m.ebitda, formato: "moeda", tom: tomDe(m.ebitda) },
+    // ⚠️ A margem é o cartão mais perigoso da tela: "0%" lê como "vendeu e não
+    // sobrou nada" quando a verdade pode ser "não vendeu", e as duas leituras
+    // mandam cortar custo × vender. O indicador declara a ausência de base.
+    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual" },
+    { label: "Lucro líquido", indicador: m.lucro, formato: "moeda", tom: tomDe(m.lucro, true) },
+    { label: "Runway", indicador: m.runway, formato: "meses" },
+    { label: "Caixa", indicador: m.caixa, formato: "moeda", tom: tomDe(m.caixa) },
   ];
 
   return (
@@ -271,8 +277,10 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
       {cartoes.map((c) => (
         <Card key={c.label} className="flex flex-col gap-1">
           <span className="text-caption text-faint">{c.label}</span>
+          {/* A origem a um clique: fórmula, período, regime e os lançamentos
+              que compõem o número — no próprio número. */}
           <span className="text-[20px] font-semibold tabular-nums" style={{ color: c.tom ?? "var(--color-ink)" }}>
-            {c.valor}
+            <ValorIndicador indicador={c.indicador} titulo={c.label} formato={c.formato} />
           </span>
         </Card>
       ))}
