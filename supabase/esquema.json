@@ -25,12 +25,12 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 83,
+    "funcoes": 86,
     "politicas": 99,
     "gatilhos": 64,
-    "indices": 192,
+    "indices": 193,
     "enums": 11,
-    "colunas": 639,
+    "colunas": 641,
     "restricoes": 186
   },
   "migrations_aplicadas": [
@@ -103,7 +103,8 @@
     "20260811013013_lixeira_so_para_quem_e_entidade",
     "20260811013123_lixeira_fala_identificador_em_texto",
     "20260811013235_lixeira_expurgo_em_dois_passos",
-    "20260811014345_estorno_de_baixa_e_de_transferencia"
+    "20260811014345_estorno_de_baixa_e_de_transferencia",
+    "20260811015208_estorno_contabil_e_de_conciliacao"
   ],
   "divergencias_conhecidas": {
     "_regra": [

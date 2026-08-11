@@ -114,18 +114,37 @@ export async function getConciliacaoOF(): Promise<ConciliacaoOF | null> {
 /** Concilia um par: o movimento do banco (OF) herda a classificação do título e
  *  o título previsto é cancelado (Lixeira). Não duplica nem re-cria no próximo sync
  *  (o movimento OF segue vinculado à bank_transaction pelo reference_code). */
+/**
+ * Concilia um título previsto com a linha do extrato.
+ *
+ * ⚠️ Passou a chamar `conciliar_movimentos` no servidor, e não a fazer os três
+ * updates aqui. O motivo não é elegância: a versão anterior aplicava o EFEITO
+ * (cancelava o previsto, copiava a classificação) e não guardava o PAR. Sem o
+ * par não existe estorno possível — dá para reabrir o título, mas não dá para
+ * saber com o que ele casou nem soltar o outro lado, e a mesma entrada ficaria
+ * conciliada e prevista ao mesmo tempo, contada duas vezes.
+ *
+ * E os três updates soltos não eram atômicos: uma falha no meio deixava um
+ * lado conciliado e o outro não.
+ */
 export async function conciliar(pendId: string, ofId: string): Promise<void> {
   if (isDemo) return;
-  const supabase = createClient();
-  const { data: pend } = await supabase.from("movements").select("party_id,category_id,cost_center_id,description").eq("id", pendId).maybeSingle();
-  if (pend) {
-    const patch: Record<string, unknown> = {};
-    if (pend.party_id) patch.party_id = pend.party_id;
-    if (pend.category_id) patch.category_id = pend.category_id;
-    if (pend.cost_center_id) patch.cost_center_id = pend.cost_center_id;
-    if (pend.description) patch.description = pend.description;
-    if (Object.keys(patch).length) await supabase.from("movements").update(patch).eq("id", ofId);
-  }
-  const { error } = await supabase.from("movements").update({ status: "cancelado" }).eq("id", pendId);
-  if (error) throw error;
+  const { error } = await createClient()
+    .rpc("conciliar_movimentos", { p_previsto: pendId, p_extrato: ofId });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Desfaz a conciliação, soltando OS DOIS lados.
+ *
+ * ⚠️ A classificação que desceu para a linha do extrato NÃO volta atrás, e é
+ * decisão: ela pode ter sido ajustada à mão depois, e reverter por cima
+ * apagaria trabalho que ninguém pediu para apagar. O antes e o depois estão na
+ * aba de histórico daquele lançamento, onde uma pessoa decide.
+ */
+export async function estornarConciliacao(id: string, motivo: string): Promise<void> {
+  if (isDemo) return;
+  const { error } = await createClient()
+    .rpc("estornar_conciliacao", { p_id: id, p_motivo: motivo });
+  if (error) throw new Error(error.message);
 }
