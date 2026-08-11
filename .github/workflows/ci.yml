@@ -96,9 +96,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # ⚠️ O TOKEN é o conserto, e a causa era essa: a ação resolve a release
+      # pela API do GitHub, e sem token a chamada é anônima — 60 requisições por
+      # HORA compartilhadas por IP com todos os runners hospedados. A guarda
+      # reprovou por "rate limit exceeded" sem nada de errado no código, e uma
+      # guarda que reprova por infraestrutura treina quem a lê a ignorar a
+      # reprovação — que é o começo de ignorar as verdadeiras.
+      #
+      # `latest` fica de propósito: fixar versão aqui trocaria uma falha
+      # ocasional de rede por uma dívida silenciosa, com a CLI congelando numa
+      # versão que ninguém revisita até o dia em que ela para de subir o
+      # Postgres. O `GITHUB_TOKEN` é automático em qualquer repositório.
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Só o banco: os demais serviços (studio, realtime, storage, edge) não
       # participam de nada aqui e cada um é uma imagem para baixar.
       - name: Subir o Postgres com as migrations aplicadas
