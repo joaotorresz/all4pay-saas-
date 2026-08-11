@@ -241,7 +241,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/dashboard/financial/accounts-and-transfers?tab=receivables": {
+  "/contas-a-receber/titulos": {
     titulo: "Central de recebimentos",
     intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",
     comoUsar: "Filtre/agrupe, selecione os títulos recebidos e dê baixa; o saldo da conta só sobe na liquidação.",
@@ -295,7 +295,7 @@ export const GUIDES: Record<string, Guide> = {
       acoes([{ nome: "Filtrar", desc: "Em aberto (a pagar) · Realizado (pago) · Recorrente." }]),
     ],
   },
-  "/dashboard/financial/accounts-and-transfers?tab=payables": {
+  "/contas-a-pagar/titulos": {
     titulo: "Central de pagamentos",
     intro: "Executa os títulos de saída lançados, agrupados por período, com seleção múltipla, conta de saída e método. Idempotente (reenviar não paga 2x).",
     comoUsar: "Selecione os títulos, escolha a conta/método e pague (por linha ou em lote); anexe o comprovante. Títulos acima da alçada ficam bloqueados até aprovação.",
@@ -614,8 +614,8 @@ const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
   "/vendas": "lista",
-  "/dashboard/financial/accounts-and-transfers?tab=receivables": "titulos",
-  "/dashboard/financial/accounts-and-transfers?tab=payables": "titulos",
+  "/contas-a-receber/titulos": "titulos",
+  "/contas-a-pagar/titulos": "titulos",
 };
 
 /* --------- telas de Compras, Contabilidade, Administração e Ajuda --------- */

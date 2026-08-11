@@ -39,8 +39,8 @@ export const ALIASES: Alias[] = [
   // — telas que viraram a MESMA tela —
   { de: "/visao-geral", para: "/", motivo: "a visão geral virou a Home" },
   { de: "/criar", para: "/", motivo: "criar virou painel, não rota" },
-  { de: "/recebiveis", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
-  { de: "/pagaveis", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/recebiveis", para: "/contas-a-receber/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagaveis", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
   { de: "/assistente", para: "/all4pay-ai", motivo: "assistente virou o copiloto" },
@@ -97,8 +97,8 @@ export const ALIASES: Alias[] = [
   { de: "/copiloto", para: "/all4pay-ai", motivo: "IA tem UM ponto de entrada (mapa, item 6)" },
   { de: "/impostos", para: "/dashboard/sales-invoices/tax-provisioning", motivo: "imposto tem UM módulo canônico (mapa, item 5)" },
   { de: "/dre", para: "/dashboard/reports/dre", motivo: "DRE consolidado no relatório canônico (mapa, item 3)" },
-  { de: "/recebimentos", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
-  { de: "/pagamentos", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/recebimentos", para: "/contas-a-receber/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
+  { de: "/pagamentos", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
   // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
   { de: "/risco", para: "/all4pay-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
@@ -122,8 +122,8 @@ export const ALIASES: Alias[] = [
   { de: "/dashboard/dashboards/financial", para: "/fluxo-caixa", motivo: "saldo, geração de caixa e entradas/saídas já são o fluxo de caixa" },
   { de: "/dashboard/dashboards/sales", para: "/dashboard/sales-invoices", motivo: "a lista de vendas já traz os painéis de status" },
   { de: "/dashboard/dashboards/subscriptions", para: "/dashboard/sales-invoices/subscriptions", motivo: "assinaturas têm UMA lista canônica (mapa, item 7)" },
-  { de: "/dashboard/dashboards/payables", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
-  { de: "/dashboard/dashboards/receivables", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
+  { de: "/dashboard/dashboards/payables", para: "/contas-a-pagar/titulos", motivo: "títulos a pagar têm UMA tela canônica (mapa, item 2)" },
+  { de: "/dashboard/dashboards/receivables", para: "/contas-a-receber/titulos", motivo: "títulos a receber têm UMA tela canônica (mapa, item 2)" },
   { de: "/dashboard/financial/calendar", para: "/fluxo-caixa", motivo: "o calendário diário já é um bloco do fluxo de caixa" },
 ];
 
@@ -164,8 +164,31 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
-  { de: "/recebimentos?aba=titulos", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
-  { de: "/pagamentos?aba=titulos", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  /**
+   * ⚠️ As duas apontavam para as ABAS do hub de títulos, e agora apontam para
+   * as telas próprias. Deixá-las no hub faria um endereço antigo desembocar
+   * numa aba que virou alias — um desvio levando a outro desvio, que é como um
+   * favorito acaba piscando duas telas antes de parar.
+   */
+  { de: "/recebimentos?aba=titulos", para: "/contas-a-receber/titulos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+  { de: "/pagamentos?aba=titulos", para: "/contas-a-pagar/titulos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
+
+  /**
+   * ⚠️ **AS DUAS ABAS DE TÍTULOS DO HUB VIRARAM DESVIO.**
+   *
+   * O hub `accounts-and-transfers` nasceu com três abas — receber, pagar e
+   * transferências. Quando "Títulos a pagar" ganhou tela própria, a aba ficou:
+   * duas portas para a mesma lista, uma delas fora do menu e por isso invisível
+   * na revisão. Ao criar o lado de receber isso viraria TRÊS padrões para a
+   * mesma leitura.
+   *
+   * O hub fica sendo o que sobrou dele e só isso: transferências. Os endereços
+   * das abas continuam respondendo, porque uma aba TEM endereço e as pessoas o
+   * guardam nos favoritos — aposentá-la sem desviar faria o hub abrir na
+   * primeira aba em silêncio, e quem clicou concluiria que errou o link.
+   */
+  { de: "/dashboard/financial/accounts-and-transfers?tab=receivables", para: "/contas-a-receber/titulos", motivo: "aba de títulos a receber virou tela própria" },
+  { de: "/dashboard/financial/accounts-and-transfers?tab=payables", para: "/contas-a-pagar/titulos", motivo: "aba de títulos a pagar virou tela própria" },
 
   {
     de: "/cadastros?aba=clientes",
@@ -232,8 +255,8 @@ export const ALIASES_DE_ABA: Alias[] = [
   { de: "/dashboard/dashboards?aba=financeiro", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=vendas", para: "/dashboard/sales-invoices", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=assinaturas", para: "/dashboard/sales-invoices/subscriptions", motivo: "aba do hub de dashboards aposentado" },
-  { de: "/dashboard/dashboards?aba=pagar", para: "/dashboard/financial/accounts-and-transfers?tab=payables", motivo: "aba do hub de dashboards aposentado" },
-  { de: "/dashboard/dashboards?aba=receber", para: "/dashboard/financial/accounts-and-transfers?tab=receivables", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=pagar", para: "/contas-a-pagar/titulos", motivo: "aba do hub de dashboards aposentado" },
+  { de: "/dashboard/dashboards?aba=receber", para: "/contas-a-receber/titulos", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=calendario", para: "/fluxo-caixa", motivo: "aba do hub de dashboards aposentado" },
   { de: "/dashboard/dashboards?aba=meus", para: "/dashboard/dashboards/custom", motivo: "aba do hub de dashboards aposentado" },
 ];

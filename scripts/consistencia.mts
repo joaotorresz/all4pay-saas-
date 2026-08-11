@@ -1070,9 +1070,21 @@ const AGOSTO = janelaMes(2026, 7);
 
   // ⚠️ E os NOMES no menu têm de ser distintos. Rótulos quase idênticos apontando
   // para leituras diferentes é o defeito original: mesmo nome, números diferentes.
+  /**
+   * ⚠️ A LISTA DE CANDIDATOS MUDOU JUNTO COM A PORTA, e é isso que mantém a
+   * guarda viva.
+   *
+   * Ela nasceu apontando para `/recebimentos` e para a aba `tab=receivables`,
+   * que eram as duas portas da época. Com a fusão de "Receber" e "Vender", a
+   * porta canônica virou `/contas-a-receber/titulos` e a aba virou desvio — se
+   * eu tivesse deixado a lista velha, a guarda passaria a contar ZERO e
+   * reprovaria o estado correto, o que a faria ser desligada em vez de
+   * corrigida. O que ela protege continua igual: UMA porta por leitura.
+   */
+  const PORTAS_DE_RECEBER = ["/recebimentos", "/contas-a-receber/titulos"];
   const rotulos = SECTIONS
     .flatMap((sec) => sec.items)
-    .filter((i) => i.href === "/recebimentos" || i.href?.includes("tab=receivables"))
+    .filter((i) => PORTAS_DE_RECEBER.includes(i.href ?? "") || i.href?.includes("tab=receivables"))
     .map((i) => i.label);
   ok("telas: as duas entradas de menu têm nomes distintos",
      new Set(rotulos).size === rotulos.length, `rótulos: ${rotulos.join(" | ")}`);
@@ -2421,7 +2433,15 @@ const AGOSTO = janelaMes(2026, 7);
    * O grupo continua com 4 itens, dentro do teto por grupo, e o teto total
    * sobe pelos dois destinos que realmente entraram.
    */
-  const TETO_GRUPOS = 9;            // Visão geral · Caixa e bancos · Receber · Pagar · Contas a pagar · Vender · Contábil e fiscal · Análise e relatórios · Inteligência
+  /**
+   * ⚠️ O teto CAIU de 9 para 8, e o que ele mede continua sendo o mesmo.
+   *
+   * "Receber" e "Vender" viraram um grupo só ("Contas a receber"), porque eram
+   * o mesmo ciclo cortado ao meio. Deixar o teto em 9 depois de reduzir os
+   * grupos guardaria uma folga que ninguém pediu, e a folga é exatamente por
+   * onde o menu volta a crescer.
+   */
+  const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Contas a receber · Pagar · Contas a pagar · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
   const TETO_ITENS_TOTAL = 69;      // a soma de hoje, incluindo o rodapé
 
