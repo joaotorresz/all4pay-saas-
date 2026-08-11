@@ -90,6 +90,10 @@ import {
 } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
+  montarPainelContasPagar, opcoesDeFiltro,
+  periodoMes, periodoSemana, periodoPersonalizado, periodoInvalido,
+} from "@/core/contas-pagar";
+import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
   painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
   pendenciasConfig, configPadrao, urlDoLink, validarLink,
@@ -2617,6 +2621,122 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("nav: '/' só casa com a própria home", leafAtivo("/", "/dre") === false && leafAtivo("/", "/") === true);
   ok("nav: sub-rota acende o item pai", leafAtivo("/dashboard/purchases", "/dashboard/purchases/new"));
   ok("nav: rota com ?aba ainda casa", leafAtivo("/contabilidade?aba=razao", "/contabilidade"));
+}
+
+// ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──
+{
+  const mv = (
+    id: string, amount: number, status: RiskMovement["status"],
+    due_date: string, paid_date: string | null,
+    extra: Partial<RiskMovement> = {},
+  ): RiskMovement => ({
+    id, type: "saida", status, amount, due_date, paid_date,
+    category: "Fornecedores", ...extra,
+  });
+
+  const INPUT: RiskInput = {
+    hoje: "2026-08-11",
+    saldoAtual: 10_000,
+    partyNames: { p1: "Fornecedor Alfa" },
+    movements: [
+      // Pagas DENTRO do período, pela data de PAGAMENTO.
+      mv("pg1", 1_000, "pago", "2026-07-28", "2026-08-03", { party_id: "p1" }),
+      mv("pg2", 500, "pago", "2026-08-05", "2026-08-05", { costCenter: "Comercial" }),
+      // ⚠️ Vence no período mas foi PAGA fora dele: não entra em nenhum card.
+      // É a prova de que pago usa `paid_date` e não `due_date`.
+      mv("pg3", 999, "pago", "2026-08-20", "2026-09-02"),
+      // Vence HOJE e está em aberto → A VENCER, jamais atrasada.
+      mv("hj", 2_000, "pendente", "2026-08-11", null),
+      mv("av", 3_000, "pendente", "2026-08-25", null, { projeto: "Obra Norte" }),
+      mv("at", 4_000, "pendente", "2026-08-02", null, { projeto: "Obra Norte", costCenter: "Comercial" }),
+      // Cancelada não é obrigação; entrada não é conta a pagar.
+      mv("cx", 9_999, "cancelado", "2026-08-07", null),
+      { id: "in", type: "entrada", status: "pago", amount: 50_000, due_date: "2026-08-04", paid_date: "2026-08-04" },
+    ],
+  };
+
+  const AGOSTO = { de: "2026-08-01", ate: "2026-08-31" };
+  const p = montarPainelContasPagar(INPUT, AGOSTO);
+
+  ok("cpagar: pago no período usa a DATA DE PAGAMENTO", p.pagoNoPeriodo.total === 1_500 && p.pagoNoPeriodo.quantidade === 2,
+     `${p.pagoNoPeriodo.total} / ${p.pagoNoPeriodo.quantidade}`);
+  // ⚠️ Se um dia alguém trocar `paid_date` por `due_date` no card de pagas,
+  // `pg1` sai (venceu em julho) e `pg3` entra — o total continuaria com cara
+  // de total, e é por isso que a asserção é sobre o VALOR, não sobre a soma.
+  ok("cpagar: título pago fora do período não conta", !p.pagoNoPeriodo.contas.some((c) => c.id === "pg3"));
+  ok("cpagar: 'vence hoje' é a vencer, não atrasada",
+     p.aVencer.contas.some((c) => c.id === "hj") && !p.atrasadas.contas.some((c) => c.id === "hj"));
+  ok("cpagar: a vencer soma o que vence de hoje em diante", p.aVencer.total === 5_000, String(p.aVencer.total));
+  ok("cpagar: atrasadas somam o que venceu antes de hoje", p.atrasadas.total === 4_000, String(p.atrasadas.total));
+  ok("cpagar: cancelada e entrada ficam fora",
+     ![...p.pagoNoPeriodo.contas, ...p.aVencer.contas, ...p.atrasadas.contas].some((c) => c.id === "cx" || c.id === "in"));
+  ok("cpagar: atraso em dias sai da data, não do relógio",
+     p.atrasadas.contas.find((c) => c.id === "at")?.diasAtraso === 9);
+  ok("cpagar: a contraparte vem do cadastro quando existe",
+     p.pagoNoPeriodo.contas.find((c) => c.id === "pg1")?.contraparte === "Fornecedor Alfa");
+  // A relação abre com o maior primeiro — é o que se resolve antes.
+  ok("cpagar: a relação vem do maior para o menor",
+     p.aVencer.contas.map((c) => c.valor).join(",") === "3000,2000");
+
+  // A distribuição é PROPORÇÃO — e é a única leitura em que as três somam.
+  const soma = p.distribuicao.reduce((s, d) => s + d.fracao, 0);
+  ok("cpagar: as frações da distribuição fecham em 1", Math.abs(soma - 1) < 1e-9, String(soma));
+  ok("cpagar: a distribuição bate com os três cards",
+     p.distribuicao.find((d) => d.situacao === "pago")!.valor === 1_500
+     && p.distribuicao.find((d) => d.situacao === "a_vencer")!.valor === 5_000
+     && p.distribuicao.find((d) => d.situacao === "atrasado")!.valor === 4_000);
+
+  // ⚠️ Período SEM nada não divide por zero e não desenha anel nenhum.
+  const vazio = montarPainelContasPagar(INPUT, { de: "2027-01-01", ate: "2027-01-31" });
+  ok("cpagar: período vazio dá zero sem NaN",
+     vazio.distribuicao.every((d) => d.valor === 0 && d.fracao === 0) && vazio.dias.length === 0);
+
+  /* ---- OS FILTROS FILTRAM (a exigência explícita desta tela) ------------- */
+  const porProjeto = montarPainelContasPagar(INPUT, { ...AGOSTO, projeto: "Obra Norte" });
+  ok("cpagar: filtro de projeto recorta os três cards",
+     porProjeto.pagoNoPeriodo.total === 0 && porProjeto.aVencer.total === 3_000 && porProjeto.atrasadas.total === 4_000,
+     `${porProjeto.pagoNoPeriodo.total}/${porProjeto.aVencer.total}/${porProjeto.atrasadas.total}`);
+  const porCentro = montarPainelContasPagar(INPUT, { ...AGOSTO, centro: "Comercial" });
+  ok("cpagar: filtro de centro de custo recorta os três cards",
+     porCentro.pagoNoPeriodo.total === 500 && porCentro.aVencer.total === 0 && porCentro.atrasadas.total === 4_000,
+     `${porCentro.pagoNoPeriodo.total}/${porCentro.aVencer.total}/${porCentro.atrasadas.total}`);
+  const ambos = montarPainelContasPagar(INPUT, { ...AGOSTO, projeto: "Obra Norte", centro: "Comercial" });
+  ok("cpagar: os dois filtros se combinam em E", ambos.atrasadas.total === 4_000 && ambos.aVencer.total === 0);
+  // ⚠️ E o filtro que não deveria achar nada devolve VAZIO, não tudo: um
+  // filtro que ignora o valor desconhecido é indistinguível de nenhum filtro.
+  const nenhum = montarPainelContasPagar(INPUT, { ...AGOSTO, projeto: "Não existe" });
+  ok("cpagar: filtro sem correspondência devolve vazio",
+     nenhum.pagoNoPeriodo.total === 0 && nenhum.aVencer.total === 0 && nenhum.atrasadas.total === 0);
+
+  const opc = opcoesDeFiltro(INPUT);
+  ok("cpagar: as opções saem só do que existe nos títulos a pagar",
+     opc.projetos.join(",") === "Obra Norte" && opc.centros.join(",") === "Comercial",
+     `${opc.projetos.join("|")} / ${opc.centros.join("|")}`);
+
+  /* ---- O calendário ------------------------------------------------------ */
+  const dia = (d: string) => p.dias.find((x) => x.data === d);
+  ok("cpagar: o dia do pagamento entra pelo pago", dia("2026-08-03")?.pago === 1_000);
+  ok("cpagar: o dia do vencimento entra pelo a pagar", dia("2026-08-25")?.aPagar === 3_000);
+  ok("cpagar: dia com título vencido é marcado como vencido", dia("2026-08-02")?.situacao === "atrasado");
+  ok("cpagar: dia que só tem pagamento é marcado como pago", dia("2026-08-03")?.situacao === "pago");
+  ok("cpagar: os dias saem em ordem",
+     p.dias.map((d) => d.data).join(",") === [...p.dias.map((d) => d.data)].sort().join(","));
+
+  /* ---- Os períodos ------------------------------------------------------- */
+  const mes = periodoMes("2026-08-11");
+  ok("cpagar: o mês vai do dia 1 ao último", mes.de === "2026-08-01" && mes.ate === "2026-08-31");
+  ok("cpagar: fevereiro bissexto fecha no dia 29", periodoMes("2028-02-10").ate === "2028-02-29");
+  // ⚠️ Segunda a domingo. Numa semana que começa no domingo, o vencimento de
+  // segunda cairia na "semana passada" na manhã de segunda-feira.
+  const sem = periodoSemana("2026-08-11");           // 11/08/2026 é uma terça
+  ok("cpagar: a semana vai de segunda a domingo", sem.de === "2026-08-10" && sem.ate === "2026-08-16",
+     `${sem.de}..${sem.ate}`);
+  const domingo = periodoSemana("2026-08-16");
+  ok("cpagar: no domingo a semana ainda é a que começou na segunda",
+     domingo.de === "2026-08-10" && domingo.ate === "2026-08-16", `${domingo.de}..${domingo.ate}`);
+  ok("cpagar: intervalo invertido é recusado, não trocado",
+     periodoInvalido(periodoPersonalizado("2026-08-31", "2026-08-01"))
+     && !periodoInvalido(periodoPersonalizado("2026-08-01", "2026-08-31")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
