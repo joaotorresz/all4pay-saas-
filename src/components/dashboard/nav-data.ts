@@ -116,7 +116,7 @@ export const SECTIONS: Section[] = [
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
       { label: "Conciliação bancária", desc: "Banco × lançamentos", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
-      { label: "Transferências", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/accounts-and-transfers?tab=transfers", icon: "repeat" },
+      { label: "Transferências entre contas", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/accounts-and-transfers", icon: "repeat" },
       { label: "Contas bancárias", desc: "Contas, carteiras e cartões", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
       { label: "Fatura do cartão", desc: "Compras agrupadas por ciclo", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
       // Upload, OCR, Open Finance, regras e duplicatas são ABAS desta tela —
@@ -125,13 +125,48 @@ export const SECTIONS: Section[] = [
     ],
   },
   {
-    id: "receber", label: "Receber", icon: "arrow-up", items: [
-      { label: "Contas a receber", desc: "O que os clientes ainda devem", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-up" },
+    /**
+     * ⚠️ **"Receber" e "Vender" viraram UM grupo, e não é arrumação de menu.**
+     *
+     * Os dois descreviam o mesmo ciclo cortado ao meio: vender é o que ORIGINA
+     * o recebível, receber é o que acontece com ele depois. Separados, o dono
+     * abria "Vender" para saber quanto entrou e encontrava faturamento, ou
+     * abria "Receber" para saber por que o mês foi fraco e não via a venda que
+     * não aconteceu. Pior: o mesmo cliente aparecia nos dois lados com números
+     * diferentes, e nenhum estava errado — eram datas diferentes do mesmo
+     * negócio, sem nada dizendo isso.
+     *
+     * A área agora começa pelo PAINEL, que carrega a ponte (faturado × recebido
+     * × a receber) justamente porque juntar os dois na mesma tela é o que torna
+     * a soma indevida tentadora.
+     *
+     * ⚠️ **"Contas a receber" saiu do hub de abas e virou tela própria**, como
+     * já tinha acontecido do lado de pagar. Manter as duas portas deixaria a
+     * mesma leitura em dois endereços — o defeito que a ONDA 6 mediu 33 vezes,
+     * e que a guarda de rota duplicada agora recusa.
+     *
+     * ⚠️ **"Taxas de adquirência" saiu da lista** e continua a um clique, na
+     * própria tela do POS (é aba do mesmo hub). Duas linhas de menu apontando
+     * para duas abas do MESMO hub gastam duas entradas para uma decisão só — e
+     * o teto de 12 itens existe para forçar essa conversa em vez de deixar o
+     * grupo crescer até virar a lista de 60 que o agrupamento veio evitar.
+     */
+    id: "contas-a-receber", label: "Contas a receber", icon: "arrow-up", items: [
+      { label: "Painel de contas a receber", desc: "Recebido, a vencer e vencido no período", href: "/contas-a-receber", icon: "gauge" },
+      { label: "Títulos a receber", desc: "O que os clientes ainda devem, título a título", href: "/contas-a-receber/titulos", icon: "arrow-up" },
+      { label: "Inadimplência e cobrança", desc: "Quem está atrasado, e o risco", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
       { label: "Boletos e PIX", desc: "Cobrança emitida", href: "/dashboard/financial/boletos", icon: "file-text" },
       { label: "Links de pagamento", desc: "Cobrança por link", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
       { label: "Assinaturas e recorrência", desc: "Receita recorrente e churn", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
-      { label: "Inadimplência e cobrança", desc: "Quem está atrasado, e o risco", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
+      { label: "Painel de vendas", desc: "Pedidos, status e taxas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+      { label: "Nova venda", desc: "Registrar uma venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
+      { label: "Notas fiscais emitidas", desc: "Emitidas, a emitir e com erro", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
+      // ⚠️ Aponta para a ABA, não para `/pos/venda`: aquela rota é um
+      // redirecionamento de cliente, e um item de menu que leva a um redirect
+      // pisca uma tela em branco antes de chegar ao destino.
+      { label: "Maquininha (POS)", desc: "Venda no balcão e taxas de adquirência", href: "/vendas?aba=pos", icon: "credit-card" },
       { label: "Clientes", desc: "Quem compra, e o risco", href: "/dashboard/registrations/clients", icon: "users" },
+      { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
     ],
   },
   {
@@ -165,19 +200,6 @@ export const SECTIONS: Section[] = [
       { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
       { label: "Contas recorrentes", desc: "O que se repete, e quanto custa por mês", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
-    ],
-  },
-  {
-    id: "vender", label: "Vender", icon: "shopping-cart", items: [
-      { label: "Painel de vendas", desc: "Pedidos, status e taxas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
-      { label: "Nova venda", desc: "Registrar uma venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
-      // ⚠️ Aponta para a ABA, não para `/pos/venda`: aquela rota é um
-      // redirecionamento de cliente, e um item de menu que leva a um redirect
-      // pisca uma tela em branco antes de chegar ao destino.
-      { label: "Maquininha (POS)", desc: "Venda no balcão", href: "/vendas?aba=pos", icon: "credit-card" },
-      { label: "Taxas de adquirência", desc: "Quanto a maquininha leva", href: "/vendas?aba=pos-taxas", icon: "credit-card" },
-      { label: "Notas fiscais emitidas", desc: "Emitidas, a emitir e com erro", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
-      { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
     ],
   },
   {
@@ -264,8 +286,8 @@ export const SECTIONS_PESSOAL: Section[] = [
   {
     id: "gastos", label: "Meu dia a dia", icon: "house", items: [
       { label: "Resumo", desc: "Seu mês em uma tela", href: "/", icon: "house" },
-      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
-      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/dashboard/financial/accounts-and-transfers?tab=receivables", icon: "arrow-up" },
+      { label: "Extrato de pagamentos", desc: "Tudo que você pagou", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
+      { label: "Minhas receitas", desc: "Tudo que você recebeu", href: "/contas-a-receber/titulos", icon: "arrow-up" },
     ],
   },
   {

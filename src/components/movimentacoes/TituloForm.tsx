@@ -285,7 +285,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       qc.invalidateQueries();
       const n = plano.titulos.length;
       show(`Conta a ${direcao} criada${n > 1 ? ` · ${n} ${modo === "parcelada" ? "parcelas" : "ocorrências"}` : ""}.`);
-      router.push(`/dashboard/financial/accounts-and-transfers?tab=${receber ? "receivables" : "payables"}`);
+      router.push(receber ? "/contas-a-receber/titulos" : "/contas-a-pagar/titulos");
     } catch (err) {
       /**
        * ⚠️ O MOTIVO REAL VAI PARA A TELA, e a falha é REPORTADA.
