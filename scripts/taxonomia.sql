@@ -17,6 +17,14 @@
 
 \set ON_ERROR_STOP on
 
+-- ⚠️ A TRANSAÇÃO EXPLÍCITA É OBRIGATÓRIA, e a falta dela quase passou. Sem
+-- `begin;` o psql roda em autocommit: o bloco DO comita, e o `rollback` do fim
+-- só emite um aviso de "nenhuma transação em andamento". A guarda deixaria
+-- organização, conta, categorias, produtos e lançamentos de teste no banco — e
+-- uma guarda de HIGIENE que suja o banco é a piada que ela existe para evitar.
+-- A próxima execução ainda mediria a sujeira criada pela anterior.
+begin;
+
 do $guarda$
 declare
   v_org uuid;
@@ -26,8 +34,11 @@ declare
   add_falha text;
 begin
   insert into public.organizations (name) values ('Guarda Taxonomia') returning id into v_org;
-  insert into public.financial_accounts (org_id, name, balance)
-    values (v_org, 'Conta guarda', 0) returning id into v_conta;
+  -- ⚠️ `bank` é NOT NULL. Contra o remoto eu reaproveitei uma conta existente e
+  -- não vi; contra um banco do ZERO — que é o que esta guarda existe para
+  -- exercer — a fixture precisa criar a sua, e obedecer ao schema inteiro.
+  insert into public.financial_accounts (org_id, name, bank, balance)
+    values (v_org, 'Conta guarda', 'inter', 0) returning id into v_conta;
 
   /* -- 1. Despesa NÃO pode ser filha de receita -------------------------- */
   insert into public.categories (org_id, kind, name)
@@ -113,15 +124,17 @@ begin
   end;
 
   if array_length(falhas, 1) > 0 then
-    raise exception E'GUARDA DE TAXONOMIA REPROVOU:\n  - %',
+    -- ⚠️ SENTINELA, pelo mesmo motivo do `[A4P-VAZAMENTO]`: é por ela que o
+    -- runner distingue "o banco aceitou o que devia recusar" de "a fixture nem
+    -- montou". Sem isso, um `bank` NOT NULL esquecido é anunciado como falha
+    -- de taxonomia — e quem lê procura o defeito no lugar errado.
+    raise exception E'[A4P-TAXONOMIA] GUARDA DE TAXONOMIA REPROVOU:\n  - %',
       array_to_string(falhas, E'\n  - ');
   end if;
 
   raise notice 'guarda de taxonomia: 9 casos, 0 falhas';
 end $guarda$;
 
--- ⚠️ ROLLBACK: a guarda cria organização, categorias, produtos e lançamentos de
--- teste. Deixá-los no banco faria a próxima execução medir sujeira criada pela
--- execução anterior — e faria a guarda ser a origem do dado sujo que ela existe
--- para impedir.
+-- ⚠️ ROLLBACK: fecha o `begin;` do topo e descarta tudo que a guarda criou. É
+-- o que a torna segura contra qualquer banco, inclusive produção.
 rollback;
