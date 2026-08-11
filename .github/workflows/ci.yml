@@ -64,6 +64,15 @@ jobs:
           node-version: "22"
           cache: "npm"
       - name: Install deps
+        # ⚠️ O `playwright` entrou como devDependency para que `npm run mobile` e
+        # `npm run fluxos` rodem num checkout limpo — sem ele, os dois comandos
+        # que o portão de lançamento cita só funcionavam na máquina de quem
+        # tinha o pacote instalado à mão. Mas o postinstall dele baixa ~130 MB
+        # de navegadores, e a CI não roda nenhum dos dois (os dois exigem o app
+        # SERVIDO, o que este job não faz). Baixar navegador que ninguém abre é
+        # minuto de CI gasto em nada, e uma chamada de rede a mais para falhar.
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
         run: npm ci
       - name: Test (typecheck + guardas + matriz de consistência)
         run: npm test
