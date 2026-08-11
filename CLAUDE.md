@@ -783,6 +783,57 @@ cascata com drill-down, conciliação IULI×OFX.
   de auto-classificação (função do motor → categoria padrão → quando é usada).
   Demo-safe, estático (reconstrução fiel do relatório).
 
+### Contas a pagar (`/contas-a-pagar`) + `core/contas-pagar`
+
+`montarPainelContasPagar()` (`contas-pagar/1.0.0`, puro/tipado/demo-safe) — o
+**painel** da obrigação: quanto já saiu, quanto vai vencer, quanto venceu, e em
+que dia cada coisa cai. Roda sobre o MESMO `RiskInput` do resto do sistema.
+
+- ⚠️ **Os três cards NÃO somam entre si**, e por isso não existe um "total
+  geral" acima deles. **Pago** olha a data de **pagamento** (caixa que saiu);
+  **A vencer** e **Atrasadas** olham a data de **vencimento** (caixa que vai
+  sair). Somar os três misturaria dinheiro que saiu com dinheiro que vai sair.
+  O radial existe justamente para dar a PROPORÇÃO sem sugerir a soma — e é a
+  única leitura em que somá-las faz sentido, porque ali a pergunta é de
+  proporção.
+- ⚠️ **"Vence hoje" é A VENCER, não atrasado.** Um título que vence hoje e não
+  foi pago ainda está no prazo; contá-lo como atraso criaria um pico de
+  inadimplência toda manhã, que sumiria à tarde sem nada ter acontecido. Mesma
+  regra de `core/indicadores.inadimplencia`.
+- **A situação do DIA no calendário é a mais URGENTE que ele contém**, não a
+  mais frequente: um dia com nove pagas e um vencido aparece como vencido,
+  senão o marcador esconde justamente o que exige ação. A grade sempre começa
+  na **segunda** da semana do primeiro dia e termina no **domingo** da semana
+  do último — o que fica fora do período é esmaecido, não escondido, senão a
+  coluna "quarta" muda de lugar entre um período e outro.
+- **Períodos:** `periodoMes` (pré-selecionado) · `periodoSemana` (⚠️ **segunda
+  a domingo**, não domingo a sábado: com origem no domingo, o vencimento de
+  segunda cai na "semana passada" na manhã de segunda-feira, que é exatamente
+  quando se abre a tela) · `periodoPersonalizado`. Intervalo invertido é
+  **recusado na entrada** (`periodoInvalido`), não trocado em silêncio.
+- **`opcoesDeFiltro`** oferece só projeto/centro que APARECEM em algum título a
+  pagar. Um filtro que oferece trinta opções e devolve vazio em vinte e oito
+  ensina a pessoa a não confiar no filtro; o select desabilita quando não há o
+  que escolher.
+- **UI:** `components/contas-pagar/DashboardContasPagar.tsx`. A tela não soma
+  nada (teto ZERO da ONDA 10) — filtra, escolhe o recorte e desenha.
+- **Guardas** no `engine-audit` (bloco `cpagar:`): valores fechados dos três
+  cards sobre uma fixture, o pago que usa `paid_date` (um título que vence no
+  período e foi pago fora dele NÃO entra), "vence hoje" nos dois sentidos, os
+  filtros recortando os três cards e o filtro sem correspondência devolvendo
+  **vazio** (e não tudo), as frações fechando em 1, o período vazio sem divisão
+  por zero, e a semana de segunda a domingo. Provadas quebrando as cinco.
+- ⚠️ **O menu foi de 8 para 9 grupos**, com a justificativa que o teto exige
+  (em `scripts/consistencia.mts`): a linha "Contas a pagar" SAIU do grupo
+  "Pagar" e virou a área. "Pagar" fica com o que CERCA a obrigação (compra,
+  aprovação, NF de entrada, boleto, reembolso, fornecedor); "Contas a pagar"
+  fica com a obrigação depois de existir — o painel e a lista título a título.
+  Só um destino novo entrou (66 → 67).
+- ⚠️ **A tela se chama "Painel de contas a pagar", não "Dashboard"**: a ONDA 11
+  traduziu *dashboard* → **painel** e pôs uma guarda varrendo texto de tela. A
+  rota e o nome do arquivo continuam livres; o que a pessoa LÊ é que a regra
+  cobra.
+
 ### Telas de listagem
 
 Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`

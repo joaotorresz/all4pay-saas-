@@ -136,13 +136,33 @@ export const SECTIONS: Section[] = [
   },
   {
     id: "pagar", label: "Pagar", icon: "arrow-down", items: [
-      { label: "Contas a pagar", desc: "O que a empresa ainda deve", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
       { label: "Compras", desc: "Pedidos que passam por aprovação", href: "/dashboard/purchases", icon: "inbox" },
       { label: "Aprovações", desc: "O que depende de alçada", href: "/aprovacoes", icon: "list-checks", pro: true },
       { label: "NFs recebidas", desc: "XMLs de entrada da SEFAZ", href: "/dashboard/purchases/received-invoices", icon: "receipt" },
       { label: "Boletos recebidos (DDA)", desc: "O que chegou para pagar", href: "/dashboard/purchases/received-boletos", icon: "file-text" },
       { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
       { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
+    ],
+  },
+  {
+    /**
+     * ⚠️ O grupo NASCE com dois itens porque o item que já existia mudou de
+     * casa, não porque se inventou um segundo destino para calar a guarda.
+     *
+     * "Contas a pagar" era uma LINHA dentro de "Pagar", e "Pagar" também
+     * abriga compras, aprovações, NFs de entrada e fornecedores — coisas que
+     * cercam a obrigação sem serem a obrigação. Com uma área própria, um grupo
+     * chamado "Pagar" e uma linha chamada "Contas a pagar" ficariam lado a
+     * lado significando quase a mesma coisa, e duas portas com nomes parecidos
+     * para leituras diferentes é o defeito que a ONDA 6 mediu 33 vezes.
+     *
+     * A linha herdada recebeu o nome do DOMÍNIO — "títulos" é a palavra do
+     * glossário para o documento em aberto (ONDA 11) — e o dashboard responde
+     * a outra pergunta: quanto, em que situação, e em que dia cai.
+     */
+    id: "contas-a-pagar", label: "Contas a pagar", icon: "file-text", items: [
+      { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "gauge" },
+      { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/dashboard/financial/accounts-and-transfers?tab=payables", icon: "arrow-down" },
     ],
   },
   {
