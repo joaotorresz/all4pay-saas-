@@ -88,6 +88,7 @@ export async function salvarCronograma(c: Omit<Cronograma, "id"> & { id?: string
 
 export async function removerCronograma(id: string): Promise<Cronograma[]> {
   if (isDemo) { const next = loadLocal().filter((x) => x.id !== id); persistLocal(next); return next; }
-  await createClient().from("schedules").delete().eq("id", id);
+  const { excluirLogico } = await import("@/lib/exclusao");
+  await excluirLogico("schedules", id);
   return loadCronogramas();
 }

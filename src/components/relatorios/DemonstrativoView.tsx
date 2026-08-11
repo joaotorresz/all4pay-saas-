@@ -12,7 +12,7 @@ import * as React from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon } from "@/components/ui";
+import { Card, Skeleton, Select, Icon, SemDados } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -241,7 +241,11 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
       ebitda: g.ebitda,
       margem: g.margemEbitda,
       lucro: g.lucroLiquido,
-      runwayMeses: runwayMeses(input).valor,
+      // ⚠️ O runway chega INTEIRO, não como `.valor`. Sobre uma empresa que
+      // gera caixa (ou já está no vermelho) o número não existe, e "0m" no
+      // cartão executivo lê como "acabou o fôlego" — o oposto do primeiro caso
+      // e uma repetição do segundo com autoridade de cartão.
+      runway: runwayMeses(input),
       caixa: saldo(input).valor,
     };
   }, [input, intervalo]);
@@ -252,7 +256,13 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
     { label: "EBITDA", valor: brl0(m.ebitda), tom: m.ebitda < 0 ? "var(--color-negative)" : undefined },
     { label: "Margem EBITDA", valor: pct(m.margem) },
     { label: "Lucro líquido", valor: brl0(m.lucro), tom: m.lucro < 0 ? "var(--color-negative)" : "var(--color-positive)" },
-    { label: "Runway", valor: `${m.runwayMeses}m` },
+    {
+      label: "Runway",
+      valor: m.runway.indisponivel
+        ? <SemDados motivo={m.runway.indisponivel.motivo} codigo={m.runway.indisponivel.codigo}
+                    className="text-caption" />
+        : `${m.runway.valor}m`,
+    },
     { label: "Caixa", valor: brl0(m.caixa), tom: m.caixa < 0 ? "var(--color-negative)" : undefined },
   ];
 

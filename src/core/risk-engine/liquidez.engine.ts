@@ -3,6 +3,7 @@
  * ponderando entradas pela probabilidade de recebimento. Daqui nascem
  * ruptura, runway e o ponto de quebra.
  */
+import { runwayDeFluxo } from "@/core/indicadores";
 import type { RiskInput, LiquidezPonto, RunwayCenarios, BurnResult } from "./types";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
 
@@ -52,12 +53,15 @@ export function calcularLiquidezProjetada(input: RiskInput): {
 
 /** Runway em 3 cenários, a partir do burn mensal e do saldo. */
 export function calcularRunway(saldoAtual: number, burn: BurnResult): RunwayCenarios {
-  const CAP = 999; // “saudável” quando gera caixa
-  const dias = (receita: number, despesa: number) => {
-    const liquidoDia = (receita - despesa) / 30;
-    if (liquidoDia >= 0) return CAP;
-    return Math.max(0, Math.round(saldoAtual / -liquidoDia));
-  };
+  // ⚠️ ONDA 4: o teto e a fórmula eram DAQUI — um `CAP = 999` local e uma conta
+  // própria, ao lado do `RUNWAY_CAP_DIAS` da camada canônica. Duas fórmulas de
+  // runway no mesmo produto é como "33 meses" e "0 meses" apareciam na mesma
+  // tela sem que nenhuma das duas estivesse errada isoladamente.
+  //
+  // Os CENÁRIOS continuam aqui (base/pessimista/otimista são hipóteses, não
+  // medições), mas a conta é uma só.
+  const dias = (receita: number, despesa: number) =>
+    runwayDeFluxo(saldoAtual, receita - despesa);
   return {
     base: dias(burn.receitaMensal, burn.despesaMensal),
     pessimista: dias(burn.receitaMensal * 0.8, burn.despesaMensal * 1.1),

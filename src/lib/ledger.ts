@@ -474,7 +474,14 @@ async function postarLiveLote(entries: LedgerEntryInput[]): Promise<number> {
     const entryId = (cab as { id: string }).id;
     const linhas = e.lines.map((l) => ({ journal_entry_id: entryId, account_id: codeMap[l.accountId], debit: l.debit ?? 0, credit: l.credit ?? 0, dimensions: l.dimensions ?? {} }));
     const { error: e2 } = await s.from("journal_lines").insert(linhas);
-    if (e2) { await s.from("journal_entries").delete().eq("id", entryId); continue; }
+    if (e2) {
+      // ⚠️ O cabeçalho nasceu e as linhas não entraram: ele fica na lixeira em
+      // vez de sumir. Um lançamento contábil que se apaga sozinho ao falhar é
+      // exatamente o que o razão não pode ter — a tentativa também é fato.
+      const { excluirLogico } = await import("@/lib/exclusao");
+      await excluirLogico("journal_entries", entryId, "Linhas do lançamento não foram aceitas");
+      continue;
+    }
     const { error: e3 } = await s.from("journal_entries").update({ status: "posted", posted_at: new Date().toISOString() }).eq("id", entryId);
     if (e3) continue; // trigger rejeitou (desbalanceado) — não conta
     n++;

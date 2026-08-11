@@ -8,6 +8,14 @@ name: CI
 # que confronta cada indicador entre os caminhos que o produzem — Home, DRE,
 # razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
 # diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
+#
+# ⚠️ E inclui o TESTE DE COERÊNCIA (`npm run coerencia`), que pergunta outra
+# coisa: se a tela pode exibir uma COMBINAÇÃO de números que não pode ser
+# verdade ao mesmo tempo — saldo que não bate com os lançamentos, resultado
+# zero com lançamentos no período, runway finito com burn zero, ruptura sem
+# projeção negativa, DRE que não fecha com o balancete. Nenhuma dessas é erro
+# de fórmula, e é por isso que as outras guardas não as pegavam: cada número,
+# sozinho, passa em tudo.
 
 # ⚠️ `push` fica restrito aos branches de INTEGRAÇÃO. Com `["**"]`, todo push
 # num branch com PR aberto disparava DOIS runs idênticos — o `push` e o
@@ -88,9 +96,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # ⚠️ O TOKEN é o conserto, e a causa era essa: a ação resolve a release
+      # pela API do GitHub, e sem token a chamada é anônima — 60 requisições por
+      # HORA compartilhadas por IP com todos os runners hospedados. A guarda
+      # reprovou por "rate limit exceeded" sem nada de errado no código, e uma
+      # guarda que reprova por infraestrutura treina quem a lê a ignorar a
+      # reprovação — que é o começo de ignorar as verdadeiras.
+      #
+      # `latest` fica de propósito: fixar versão aqui trocaria uma falha
+      # ocasional de rede por uma dívida silenciosa, com a CLI congelando numa
+      # versão que ninguém revisita até o dia em que ela para de subir o
+      # Postgres. O `GITHUB_TOKEN` é automático em qualquer repositório.
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Só o banco: os demais serviços (studio, realtime, storage, edge) não
       # participam de nada aqui e cada um é uma imagem para baixar.
       - name: Subir o Postgres com as migrations aplicadas
@@ -99,3 +120,10 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run isolamento
+      # ⚠️ Mesmo job, e não um terceiro: as duas guardas precisam do MESMO banco
+      # construído do zero, e subir o stack de novo custaria os mesmos minutos
+      # para responder a uma pergunta que já tem o banco na frente.
+      - name: Guarda da trilha (nenhuma tabela de negócio sem auditoria)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/trilha-completa.sql

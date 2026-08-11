@@ -330,9 +330,8 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
 
 export async function deleteProduct(id: string): Promise<void> {
   if (isDemo) return void (await delay());
-  const s = createClient();
-  const { error } = await s.from("products").delete().eq("id", id);
-  if (error) throw error;
+  const { excluirLogico } = await import("@/lib/exclusao");
+  await excluirLogico("products", id);
 }
 
 export async function createService(input: ServiceInput): Promise<void> {

@@ -1593,6 +1593,104 @@ lado, que não existe aqui. O que há é a validação estrutural já feita (ANS
 lançamento sem código contábil) — que é forte e **não é a mesma coisa**. A
 conciliação com aceite formal também segue pendente.
 
+### ⚠️ ONDA 4 — ZERO É UM VALOR, NÃO A AUSÊNCIA DE VALOR
+
+As três contradições que a auditoria nomeou eram **a mesma doença**: o sistema
+preenchendo o silêncio com um número em vez de dizer que não sabe.
+
+- A Home mostrava saldo de **−R$ 31.000** ao lado de entradas, saídas e
+  resultado em **R$ 0**. Os quatro estavam CERTOS — saldo é posição, o resto é
+  período, e nenhum lançamento foi liquidado em agosto (o último pagamento foi
+  28/07). Lidos juntos, o primeiro parecia erro.
+- O fluxo de caixa mostrava **runway de 33 meses com burn zero** — o
+  `RUNWAY_CAP_DIAS` saindo como fato, e sobre saldo negativo, onde runway nem
+  se define.
+- A contabilidade rotulava **R$ 437.983,17** de resíduo como "conciliado":
+  diferença absorvida em vez de nomeada.
+
+**O contrato** (`core/indicadores`): `Indicador.indisponivel = { codigo, motivo,
+comoResolver? }`. Preenchido, **`valor` não deve ser exibido**. ⚠️ O **motivo** é
+frase para quem opera; o **código** é para quem consome — `sem_queima` e
+`caixa_negativo` produzem ambos um runway ausente e são o oposto um do outro, e
+casar substring de português já custou caro três vezes aqui (o auditor de RLS,
+o classificador `maq_*`, o extrator do `ia-eval`). Cinco códigos:
+`janela_invalida` · `sem_lancamentos` · `sem_base` · `caixa_negativo` ·
+`sem_queima`.
+
+⚠️ **A ORDEM dos testes dentro de `runway` errou DUAS vezes**, e a segunda é a
+sutil: `burn <= 0` conferido antes da ausência do burn respondia *"a empresa
+gerou caixa"* — uma afirmação sobre a operação construída a partir de nada.
+**Silêncio não é boa notícia.**
+
+**O que NÃO virou ausência, de propósito:** o **saldo** (é posição, não período
+— marcá-lo junto apagaria o único número verdadeiro da tela no exato caso que a
+onda conserta); a **inadimplência em reais** com nada vencido (zero ali é
+notícia boa e real); e o **zero por EMPATE**, que é resultado. Só o vazio é
+vazio.
+
+⚠️ A ausência **atravessa o derivado**: dividir por 30 (`runwayMeses`) ou
+multiplicar por 12 (`arr`) não a transforma em número. É por essa porta que o
+defeito volta depois de consertado na origem.
+
+**A tela** (`components/ui/ValorIndicador.tsx`): `ValorIndicador` · `SemDados` ·
+`PainelOrigem`. Com `indisponivel`, o número **não aparece** — nem cinza, nem
+pequeno, nem entre parênteses (um R$ 0 desbotado continua sendo R$ 0 para quem
+passa o olho, e é essa leitura que vira decisão). O motivo ocupa o LUGAR do
+número, em **forma curta** — a frase inteira não cabe numa coluna nem num KPI
+de 280px, e o conserto de layout mais provável seria alguém trocar de volta por
+`{valor}`. As cinco formas curtas são neutras ou negativas de propósito.
+
+**A origem a UM CLIQUE, no próprio número**: fórmula, período, regime, quantos
+lançamentos — e **quais**. `Procedencia.movimentos` carrega os ids: "34
+lançamentos" é um número sobre o número; o que fecha a conta é poder ver os 34.
+Só as somas o preenchem — uma média não tem linha para apontar.
+
+**`npm run coerencia`** (dentro de `npm test` e do CI) — o teste que pergunta o
+que nenhuma outra guarda pergunta: **se a tela pode exibir uma COMBINAÇÃO de
+números que não pode ser verdade ao mesmo tempo.** Cinco condições sobre **nove
+conjuntos** (fixture, empresa que queima, o seed da demonstração, vazio, só
+pendente, só cancelado, caixa negativo, empate exato, tudo no futuro): saldo ×
+lançamentos · resultado zero com lançamentos · runway finito com burn zero ·
+ruptura sem projeção negativa · DRE que não fecha com o balancete. Nenhuma é
+erro de fórmula — cada número, sozinho, passa em tudo.
+
+**Ele achou dois defeitos que nenhuma guarda anterior via:**
+
+- ⚠️ **O saldo projetado ignorava o vencimento de HOJE.** `saldoEm` somava os
+  previstos com `due_date > hoje`; o título que vence hoje e não foi pago não
+  está no saldo do banco (certo) mas **vai sair da conta**, e ficava fora de
+  TODA projeção futura — projetado otimista pelo valor do que vence hoje, todos
+  os dias. O intervalo virou **fechado em hoje**.
+- ⚠️ **A condição 4 não testava nada.** Lia `s.liquidez?.rupturaDia`; os campos
+  são do score, não de um sub-objeto, então colhia `undefined` e passava nos
+  nove conjuntos. **Só apareceu porque plantar o defeito que ela existe para
+  pegar não a fez falhar.** Guarda que não reprova o defeito plantado não é
+  guarda: é a aparência de uma.
+
+E um terceiro que era do enunciado: "saldo == soma dos lançamentos" é FALSO
+como regra e reprovou três dos nove conjuntos, todos corretos. São **duas
+identidades, uma para cada lado de hoje** — o passado casa com os liquidados, o
+futuro casa com os previstos. Cobrar a frouxa reprovaria toda empresa real, e
+guarda que reprova o certo é desligada na primeira semana.
+
+⚠️ **`reconciliarSaldo` ganhou `residuo`.** "Conciliado", sozinho, lê como "não
+há diferença" — e a auditoria leu assim, sobre R$ 437.983,17. Havia diferença,
+ela estava explicada, e as duas frases mandam a pessoa fazer coisas diferentes.
+O selo do `/razao` agora diz o VALOR e o que foi feito com ele; quando não
+fecha, diz **quanto sobrou** (uma diferença sem número não dá para investigar
+nem para ignorar).
+
+**Guarda LINHA 31b, teto ZERO:** nenhuma tela lê `.valor` de um indicador
+canônico sem perguntar se ele existe. Seis exceções declaradas COM MOTIVO,
+todas do mesmo tipo — zero ali é resposta, não ignorância: a barra de um mês
+sem movimento é uma barra ausente; saldo é posição; um mês sem faturamento deve
+mesmo dever zero de imposto. A guarda também recusa exceção que aponte para
+arquivo inexistente.
+
+**Fica declarado como não feito:** `RiskInput` carrega `saldoAtual: number` e
+não as contas, então "R$ 0 de saldo" e "nenhuma conta cadastrada" continuam
+indistinguíveis — consertar é mexer no formato da entrada, não no indicador.
+
 ### ⚠️ ONDA 14 — IA RESPONSÁVEL: sem contradição, sem palpite afirmado
 
 **`src/core/ia/`** (`ia-coerencia/1.0.0` · `ia-confianca/1.0.0`) + o conjunto de
@@ -3316,6 +3414,20 @@ npm run consistencia  # A MATRIZ DE CONSISTÊNCIA CRUZADA (scripts/consistencia.
                    # preserva o válido, o backup leva só dado de negócio e
                    # recusa chave estranha ao restaurar, e enxugar o disco não
                    # apaga o que o servidor ainda não confirmou.
+npm run coerencia  # O TESTE DE COERÊNCIA (scripts/coerencia.mts, ONDA 4): pergunta
+                   # o que nenhuma outra guarda pergunta — se a tela pode exibir
+                   # uma COMBINAÇÃO de números que não pode ser verdade ao mesmo
+                   # tempo. Cinco condições sobre NOVE conjuntos (fixture, quem
+                   # queima, o seed da demo, vazio, só pendente, só cancelado,
+                   # caixa negativo, empate exato, tudo no futuro): saldo x
+                   # lançamentos · resultado zero com lançamentos no período ·
+                   # runway finito com burn zero · ruptura sem projeção negativa ·
+                   # DRE que não fecha com o balancete. Nenhuma é erro de fórmula
+                   # — cada número, sozinho, passa em tudo, e é por isso que as
+                   # outras guardas não as pegavam. Achou dois defeitos reais: o
+                   # saldo projetado ignorando o vencimento de HOJE, e uma das
+                   # próprias condições lendo campo que não existe (descoberta
+                   # porque plantar o defeito não a fez falhar).
 npm run reconciliacao # A MATRIZ PAR A PAR (scripts/reconciliacao.mts): para cada
                    # indicador, TODOS os caminhos que o sistema tem de calculá-lo,
                    # confrontados em todas as n(n-1)/2 combinações, com critério de
@@ -3359,8 +3471,8 @@ npm run ia-eval    # O CONJUNTO DE AVALIAÇÃO DA IA (scripts/ia-eval.mts): 31 c
                    # no condicional, confiança com critério. Existe separado do
                    # corpus e do values porque mexer no prompt ou trocar o modelo
                    # não toca em fórmula nenhuma e passaria pelas outras guardas.
-                   # + kb + tz + audit + consistencia + reconciliacao + ia-eval
-                   # (11 guardas). Rode antes de commitar mudanças
+                   # + kb + tz + audit + consistencia + reconciliacao +
+                   # coerencia + ia-eval + esquema + paleta (14 guardas). Rode antes de commitar mudanças
                    # no motor da IA / core/* / lib de dados. Também roda no CI
                    # (.github/workflows/ci.yml) em push/PR.
 ```

@@ -5,7 +5,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
 } from "recharts";
-import { Card, Icon, BRL, Button, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, Icon, BRL, Button, Skeleton, InfoHint, SemDados, type InfoConteudo } from "@/components/ui";
 import { simularCenario } from "@/core/executive/scenario";
 import type { ScenarioInput } from "@/core/executive/types";
 import { FluxoFiltrosProvider, useFluxoFiltros, PERIODOS } from "./FiltrosContext";
@@ -208,7 +208,17 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
     { label: "Saídas previstas", node: <BRL value={r.saidasPrevistas} />, tone: "ink" },
     { label: "Geração de caixa", node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: r.geracaoCaixa >= 0 ? "positive" : "negative" },
     { label: "Burn", node: <BRL value={r.burn} />, tone: "ink" },
-    { label: "Runway", node: <span>{r.runwayMeses >= 99 ? "∞" : r.runwayMeses.toFixed(0)} <span className="text-caption text-faint">meses</span></span>, tone: "ink" },
+    // ⚠️ O "∞" saía de `>= 99`, que é o TETO do cálculo lido como se fosse a
+    // medida — foi essa a linha que exibiu "33 meses de fôlego" ao lado de um
+    // burn zero. Agora o cartão pergunta ao indicador se existe número.
+    {
+      label: "Runway",
+      node: r.runway.indisponivel
+        ? <SemDados motivo={r.runway.indisponivel.motivo} codigo={r.runway.indisponivel.codigo}
+                    className="text-caption" />
+        : <span>{r.runway.valor.toFixed(0)} <span className="text-caption text-faint">meses</span></span>,
+      tone: "ink",
+    },
     { label: "Chance de ruptura", node: <span>{pct(r.chanceRuptura)}</span>, tone: r.chanceRuptura > 0.2 ? "negative" : r.chanceRuptura > 0.08 ? "warning" : "positive" },
     { label: "Financial Score", node: <span>{Math.round(r.score)}<span className="text-caption text-faint">/100</span></span>, tone: "ink" },
   ];

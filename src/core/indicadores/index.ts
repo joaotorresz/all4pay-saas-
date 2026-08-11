@@ -71,12 +71,99 @@ export interface Procedencia {
   natureza: Natureza;
   /** Preenchido quando o número é 0 por impossibilidade, não por ausência. */
   aviso?: string;
+  /**
+   * Os ids dos lançamentos que ENTRARAM na conta.
+   *
+   * ⚠️ `lancamentos` diz QUANTOS; isto diz QUAIS — e a diferença é a que separa
+   * "confie em mim, são 34" de conferir os 34. Só as somas o preenchem: um
+   * saldo vem do `balance` das contas e uma média não tem linha para apontar.
+   */
+  movimentos?: readonly string[];
+}
+
+/**
+ * ⚠️ ONDA 4 — **ZERO É UM VALOR, NÃO A AUSÊNCIA DE VALOR.**
+ *
+ * Foi a raiz medida das três contradições que a auditoria apontou, e as três
+ * eram a MESMA doença: o sistema preenchendo o silêncio com um número em vez de
+ * dizer que não sabe.
+ *
+ *  - A Home mostrava saldo de −R$ 31.000 ao lado de entradas, saídas e
+ *    resultado em R$ 0. Os dois números estavam CERTOS: o saldo é posição, o
+ *    resto é o período — e nenhum lançamento foi liquidado em agosto (o último
+ *    pagamento foi 28/07). "R$ 0" e "nada se moveu" não são a mesma frase, e
+ *    lidas lado a lado a primeira parece erro.
+ *  - O fluxo de caixa mostrava runway de 33 meses com burn zero. 33 meses era o
+ *    TETO saindo como fato — e sobre saldo negativo, onde runway nem se define.
+ *  - A contabilidade rotulava R$ 437.983,17 de resíduo como "conciliado":
+ *    diferença absorvida em vez de nomeada.
+ *
+ * Daí o campo. Quando ele está preenchido, `valor` **não deve ser exibido** — a
+ * tela mostra o motivo. E o motivo é uma frase para quem OPERA, não um código:
+ * "não há queima no período" resolve; "runway indisponível" só empurra a
+ * pergunta adiante.
+ */
+/**
+ * ⚠️ O código existe para quem CONSOME decidir sem ler a frase.
+ *
+ * "Não há queima" e "o caixa já é negativo" produzem ambos um runway
+ * indisponível, e são o oposto um do outro: o primeiro é a empresa saudável, o
+ * segundo é a empresa quebrada. Um consumidor que precise distinguir os dois só
+ * teria a frase — e casar substring de texto em português é a fragilidade que
+ * este repositório já pagou três vezes (o auditor de RLS, o classificador
+ * `maq_*`, o extrator do ia-eval). A frase é para a PESSOA; o código é para o
+ * código.
+ */
+export type MotivoIndisponivel =
+  /** O intervalo pedido não existe (`de > ate`). */
+  | "janela_invalida"
+  /** Nenhum lançamento na janela para medir. */
+  | "sem_lancamentos"
+  /** O divisor não existe — não há razão a calcular. */
+  | "sem_base"
+  /** O ponto de partida já é negativo; a projeção não se define. */
+  | "caixa_negativo"
+  /** Não houve consumo no período — não há prazo a projetar. */
+  | "sem_queima";
+
+export interface Indisponivel {
+  codigo: MotivoIndisponivel;
+  motivo: string;
+  /** O que a pessoa pode fazer para o número existir. Vazio quando não há o que fazer. */
+  comoResolver?: string;
 }
 
 export interface Indicador {
+  /** ⚠️ Só é resposta quando `indisponivel` é `undefined`. */
   valor: number;
+  /** Preenchido = não há número. A tela mostra o motivo, nunca o `valor`. */
+  indisponivel?: Indisponivel;
   procedencia: Procedencia;
 }
+
+/** `true` quando há um número para mostrar. */
+export const temValor = (i: Indicador): boolean => !i.indisponivel;
+
+/**
+ * O valor, ou `null` quando não há.
+ *
+ * ⚠️ `null` e não `0`: é a fronteira onde a ausência costuma virar número de
+ * novo. Um `?? 0` numa tela desfaz a onda inteira, e por isso a guarda de
+ * coerência procura exatamente esse padrão.
+ */
+export const valorOuNulo = (i: Indicador): number | null =>
+  i.indisponivel ? null : i.valor;
+
+/** Constrói um indicador SEM resposta. */
+const semDados = (
+  j: Janela, formula: string, codigo: MotivoIndisponivel, motivo: string,
+  regime: Regime | "posicao" = "caixa", natureza: Natureza = "fato",
+  comoResolver?: string, lancamentos = 0,
+): Indicador => ({
+  valor: 0,
+  indisponivel: { codigo, motivo, comoResolver },
+  procedencia: { lancamentos, regime, janela: j, formula, natureza, aviso: motivo },
+});
 
 /** Só o FATO sai do sistema sem ressalva. Ver `Natureza`. */
 export const confiavelParaArtefato = (p: Procedencia): boolean =>
@@ -93,12 +180,36 @@ export const confiavelParaArtefato = (p: Procedencia): boolean =>
 const naturezaDaSoma = (rows: readonly RiskMovement[]): Natureza =>
   rows.some((m) => !liquidado(m)) ? "projecao" : "fato";
 
+/**
+ * O indicador de uma janela que não existe (`de > ate`).
+ *
+ * ⚠️ Ele já devolvia `aviso`, e isso bastava para o portão de artefato — mas
+ * NÃO para a tela, que lia `valor` e mostrava R$ 0. Um zero aqui responde "não
+ * houve receita" a uma pergunta que ninguém chegou a fazer, porque o intervalo
+ * pedido não recorta período nenhum. Passa a ser ausência declarada.
+ */
 const vazio = (
   j: Janela, formula: string, regime: Regime | "posicao" = "caixa", natureza: Natureza = "fato",
-): Indicador => ({
-  valor: 0,
-  procedencia: { lancamentos: 0, regime, janela: j, formula, natureza, aviso: j.motivo },
-});
+): Indicador =>
+  semDados(j, formula, "janela_invalida",
+    j.motivo ?? "o período pedido não existe", regime, natureza,
+    "Corrija as datas: a data inicial está depois da final.");
+
+/**
+ * O indicador de uma janela LEGÍTIMA onde nada aconteceu.
+ *
+ * ⚠️ Este é o caso da Home: saldo de −R$ 31.000 ao lado de entradas, saídas e
+ * resultado em R$ 0, porque o último pagamento foi em 28/07 e a janela era
+ * agosto. Os quatro números estavam certos e, lidos juntos, o primeiro parecia
+ * erro. "R$ 0" e "nada se moveu neste período" não são a mesma frase — e a
+ * segunda ainda diz o que fazer.
+ */
+const semMovimento = (
+  j: Janela, formula: string, regime: Regime | "posicao" = "caixa",
+): Indicador =>
+  semDados(j, formula, "sem_lancamentos",
+    "nenhum lançamento no período", regime, "fato",
+    "Escolha outro período, ou importe o extrato se o movimento existiu e não entrou.");
 
 /** Filtro comum: os movimentos que caem na janela sob o regime. */
 function naJanela(input: RiskInput, j: Janela, regime: Regime): RiskMovement[] {
@@ -162,13 +273,18 @@ function somaDirecao(
 ): Indicador {
   const rotulo = tipo === "entrada" ? "entradas" : "saídas";
   const base = regime === "caixa" ? "liquidadas (data de pagamento)" : "por competência (data de vencimento)";
-  if (j.vazia) return vazio(j, `${rotulo} ${base}`, regime);
+  const formula = `soma das ${rotulo} ${base}`;
+  if (j.vazia) return vazio(j, formula, regime);
   const rows = naJanela(input, j, regime).filter((m) => m.type === tipo);
+  // ⚠️ Nenhuma linha não é "somou zero". A soma de nada não é um total; é a
+  // ausência de totais. Devolver 0 aqui é o que põe "R$ 0" ao lado de um saldo
+  // negativo e faz o saldo parecer errado.
+  if (rows.length === 0) return semMovimento(j, formula, regime);
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
     procedencia: {
-      lancamentos: rows.length, regime, janela: j, formula: `soma das ${rotulo} ${base}`,
-      natureza: naturezaDaSoma(rows),
+      lancamentos: rows.length, regime, janela: j, formula,
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
     },
   };
 }
@@ -189,14 +305,18 @@ export const saidas = (input: RiskInput, j: Janela, regime: Regime = "caixa"): I
  * negativo é como tem de chegar na tela.
  */
 export function resultado(input: RiskInput, j: Janela, regime: Regime = "caixa"): Indicador {
-  if (j.vazia) return vazio(j, "entradas − saídas", regime);
+  const formula = "entradas − saídas no período (mesma base das duas linhas)";
+  if (j.vazia) return vazio(j, formula, regime);
   const rows = naJanela(input, j, regime);
+  // ⚠️ Zero por EMPATE e zero por VAZIO são leituras opostas: "entrou e saiu o
+  // mesmo tanto" × "não houve movimento". Só o segundo é ausência — o primeiro
+  // é um resultado, e um resultado nulo é informação.
+  if (rows.length === 0) return semMovimento(j, formula, regime);
   return {
     valor: semZeroNegativo(rows.reduce((s, m) => s + assinado(m), 0)),
     procedencia: {
-      lancamentos: rows.length, regime, janela: j,
-      formula: "entradas − saídas no período (mesma base das duas linhas)",
-      natureza: naturezaDaSoma(rows),
+      lancamentos: rows.length, regime, janela: j, formula,
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
     },
   };
 }
@@ -222,6 +342,14 @@ export function burn(
   if (j.vazia) return vazio(j, formula);
   const meses = Math.max(1, diasDe(j)) / 30;
   const rows = naJanela(input, j, "caixa");
+  // ⚠️ Sem lançamento liquidado não há RITMO a medir, e "burn zero" lê como "a
+  // empresa não queima caixa" — a leitura mais tranquilizadora possível, dita
+  // justamente quando o sistema não sabe de nada. É o mesmo zero da Home.
+  if (rows.length === 0) {
+    return semDados(j, formula, "sem_lancamentos",
+      "nenhum lançamento liquidado no período para medir o ritmo", "caixa", "estimativa",
+      "Importe o extrato do período ou dê baixa nos títulos já pagos.");
+  }
   const liquido = rows.reduce((s, m) => s + assinado(m), 0) / meses;
   return {
     valor: Math.max(0, -liquido),
@@ -256,22 +384,68 @@ export const RUNWAY_CAP_DIAS = 999;
  * devolviam meses e versões que capavam em 24 meses, e comparar duas telas
  * exigia saber qual era qual.
  *
- * Sem queima, devolve `RUNWAY_CAP_DIAS`: infinito não cabe num eixo de gráfico,
- * e zero diria o contrário do que acontece.
+ * ⚠️ Sem queima ele NÃO devolve mais `RUNWAY_CAP_DIAS`. O teto continua
+ * existindo para o caso legítimo — a empresa queima pouquíssimo e a divisão dá
+ * um número que não cabe num eixo — mas ali ele sai com `aviso` dizendo que é
+ * teto. O que saiu foi o teto respondendo à AUSÊNCIA de queima, que era o
+ * "runway de 33 meses" medido sobre saldo negativo.
  */
 export function runway(
   input: RiskInput, j: Janela = janelaUltimosDias(JANELA_RITMO_DIAS, input.hoje),
 ): Indicador {
-  const formula = "saldo atual ÷ queima diária média (0 se o caixa já está negativo)";
-  if (j.vazia) return vazio(j, formula);
+  const formula = "saldo atual ÷ queima diária média";
+  if (j.vazia) {
+    return semDados(j, formula, "janela_invalida",
+      j.motivo ?? "o período pedido não existe", "caixa", "projecao");
+  }
   const b = burn(input, j);
   const saldoHoje = input.saldoAtual;
-  let dias: number;
-  if (b.valor <= 0) dias = RUNWAY_CAP_DIAS;
-  else if (saldoHoje <= 0) dias = 0; // já acabou — não há runway a projetar
-  else dias = Math.min(RUNWAY_CAP_DIAS, Math.round(saldoHoje / (b.valor / 30)));
+
+  // ⚠️ A ORDEM DESTES DOIS TESTES ESTAVA INVERTIDA, e era o defeito medido:
+  // `burn <= 0` vinha primeiro e devolvia o TETO, então uma empresa com o caixa
+  // NEGATIVO e sem queima recebia "33 meses de runway". Duas mentiras numa: o
+  // teto saindo como fato, e um fôlego anunciado para quem já está no vermelho.
+  if (saldoHoje <= 0) {
+    return semDados(
+      j, formula, "caixa_negativo",
+      "o caixa já está negativo — não há fôlego a projetar",
+      "caixa", "projecao",
+      "Entre com um recebimento ou aporte para que o runway volte a existir.",
+      b.procedencia.lancamentos,
+    );
+  }
+  // ⚠️ ESTA ORDEM TAMBÉM IMPORTA, e o erro é sutil: sem lançamento nenhum o
+  // burn dá zero, e um `burn <= 0` conferido antes responderia "a empresa gerou
+  // caixa" — uma afirmação sobre a operação, feita a partir de nada. Silêncio
+  // não é boa notícia. Por isso a ausência do burn atravessa primeiro.
+  if (b.indisponivel) {
+    return semDados(
+      j, formula, b.indisponivel.codigo, b.indisponivel.motivo,
+      "caixa", "projecao", b.indisponivel.comoResolver, b.procedencia.lancamentos,
+    );
+  }
+  if (b.valor <= 0) {
+    // Não é runway infinito: é runway INDEFINIDO. A empresa gerou caixa na
+    // janela, então não há taxa de queima pela qual dividir. Devolver um teto
+    // aqui responde "33 meses" a uma pergunta que não tem resposta numérica.
+    return semDados(
+      j, formula, "sem_queima",
+      "não houve queima no período — a empresa gerou caixa, então não há prazo a calcular",
+      "caixa", "projecao",
+      undefined,
+      b.procedencia.lancamentos,
+    );
+  }
+
+  const bruto = Math.round(saldoHoje / (b.valor / 30));
+  // ⚠️ Quando o teto morde, ele é DITO. Um número que na verdade é "pelo menos
+  // isso" exibido como se fosse exato é a mesma família de defeito do 33.
+  const dias = Math.min(RUNWAY_CAP_DIAS, bruto);
+  const aviso = bruto > RUNWAY_CAP_DIAS
+    ? `no ritmo atual passa de ${Math.round(RUNWAY_CAP_DIAS / 30)} meses; o valor é o teto do cálculo, não a medida`
+    : undefined;
   // Runway é conta sobre o FUTURO — a mais projeção de todas.
-  return { valor: dias, procedencia: { ...b.procedencia, formula, natureza: "projecao" } };
+  return { valor: dias, procedencia: { ...b.procedencia, formula, natureza: "projecao", aviso } };
 }
 
 /**
@@ -295,8 +469,12 @@ export const mesesDeRunway = (dias: number): number => Math.round((dias / 30) * 
 /** O mesmo runway em meses (dias ÷ 30) — uma conversão, não outro cálculo. */
 export function runwayMeses(input: RiskInput, j?: Janela): Indicador {
   const r = runway(input, j);
+  // ⚠️ A indisponibilidade ATRAVESSA a conversão. Dividir a ausência por 30 e
+  // devolver um número seria reintroduzir o zero pela porta do derivado — que é
+  // como o defeito volta depois de consertado na origem.
   return {
     valor: Math.round((r.valor / 30) * 10) / 10,
+    indisponivel: r.indisponivel,
     procedencia: { ...r.procedencia, formula: `${r.procedencia.formula}, convertido em meses (÷30)` },
   };
 }
@@ -349,6 +527,7 @@ export function mrr(
   const est = receitaRecorrenteEstimada(input, j);
   return {
     valor: est.valor,
+    indisponivel: est.indisponivel,
     procedencia: { ...est.procedencia, formula: `ESTIMADO — ${est.procedencia.formula}`, natureza: "estimativa" },
   };
 }
@@ -365,6 +544,7 @@ export function arr(input: RiskInput, contratos?: ContratoRecorrente[], j?: Jane
   // suposição que o investidor precisa enxergar como suposição.
   return {
     valor: m.valor * 12,
+    indisponivel: m.indisponivel,
     procedencia: { ...m.procedencia, formula: `${m.procedencia.formula}, × 12`, natureza: "projecao" },
   };
 }
@@ -391,8 +571,19 @@ function receitaRecorrenteEstimada(input: RiskInput, j: Janela): Indicador {
   const recorrentes = new Set(
     Array.from(mesesPorParte.entries()).filter(([, s]) => s.size >= 3).map(([k]) => k),
   );
-  const rows = naJanela(input, j, "competencia")
-    .filter((m) => m.type === "entrada" && recorrentes.has(m.party_id ?? m.category ?? "—"));
+  // ⚠️ Duas ausências diferentes, e só uma é ausência de verdade. SEM receita
+  // nenhuma na janela não dá para estimar nada — o proxy não tem sobre o que
+  // trabalhar. COM receita e nenhuma dela recorrente, zero é a resposta certa e
+  // é informação: nada do que entra se repete.
+  const receitaNaJanela = naJanela(input, j, "competencia").filter((m) => m.type === "entrada");
+  if (receitaNaJanela.length === 0) {
+    return semDados(j, formula, "sem_lancamentos",
+      "nenhuma receita no período para estimar o que se repete",
+      "competencia", "estimativa",
+      "Cadastre os contratos em Assinaturas — com eles o MRR deixa de ser estimativa.");
+  }
+  const rows = receitaNaJanela
+    .filter((m) => recorrentes.has(m.party_id ?? m.category ?? "—"));
   const meses = Math.max(1, diasDe(j)) / 30;
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0) / meses,
@@ -431,7 +622,10 @@ export function inadimplencia(
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
     // ⚠️ Vencido é FATO: o título existe, a data passou e ninguém pagou. Não é
     // previsão de calote — é o que já está em atraso hoje.
-    procedencia: { lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "fato" },
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: j, formula,
+      natureza: "fato", movimentos: rows.map((m) => m.id),
+    },
   };
 }
 
@@ -452,8 +646,18 @@ export function inadimplenciaTaxa(input: RiskInput, j?: Janela): Indicador {
     .filter((m) => m.type === "entrada" && liquidado(m) && dentro(jj, m.due_date) && m.due_date.slice(0, 10) < hoje)
     .reduce((s, m) => s + magnitude(m), 0);
   const base = venc.valor + recebido;
+  // ⚠️ Base zero é a ausência do DENOMINADOR, e "0% de inadimplência" lê como
+  // "todo mundo pagou" — a melhor notícia possível — quando a verdade é que
+  // nada venceu no período. É a mesma doença do runway: uma razão sem divisor
+  // saindo como se fosse a razão medida.
+  if (base <= 0) {
+    return semDados(jj, formula, "sem_base",
+      "nada venceu no período — não há base sobre a qual medir atraso",
+      "competencia", "fato",
+      "Escolha um período que contenha vencimentos.", venc.procedencia.lancamentos);
+  }
   return {
-    valor: base <= 0 ? 0 : venc.valor / base,
+    valor: venc.valor / base,
     procedencia: { lancamentos: venc.procedencia.lancamentos, regime: "competencia", janela: jj, formula, natureza: "fato" },
   };
 }
@@ -499,7 +703,10 @@ export function receitaTributavel(
     .filter((m) => m.type === "entrada" && !foraDaBaseTributavel(m.category));
   return {
     valor: rows.reduce((s, m) => s + magnitude(m), 0),
-    procedencia: { lancamentos: rows.length, regime, janela: j, formula, natureza: naturezaDaSoma(rows) },
+    procedencia: {
+      lancamentos: rows.length, regime, janela: j, formula,
+      natureza: naturezaDaSoma(rows), movimentos: rows.map((m) => m.id),
+    },
   };
 }
 
@@ -637,6 +844,17 @@ export interface Reconciliacao {
   /** As parcelas que explicam a diferença, cada uma com seu valor. */
   parcelas: { rotulo: string; valor: number; explicacao: string }[];
   fecha: boolean;
+  /**
+   * ⚠️ O que SOBRA depois das parcelas — o resíduo NOMEADO, em reais.
+   *
+   * A auditoria achou R$ 437.983,17 rotulados como "conciliado". A conta
+   * estava certa e as parcelas estavam listadas; o que faltava era o número do
+   * resto. `fecha: true` sem resíduo à vista convida a ler "não há diferença",
+   * quando o que houve foi "a diferença foi explicada" — e as duas frases
+   * mandam a pessoa fazer coisas diferentes. Zero quando fecha; o valor exato
+   * quando não.
+   */
+  residuo: number;
 }
 
 /**
@@ -677,6 +895,11 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
   // realizado ou não, tratado como se tivesse passado pelo caixa.
   const derivado = liquidadoTotal + previstoTotal;
   const aberturaHistorica = extrato - liquidadoTotal;
+  // Em centavos inteiros: `extrato - (liquidado + abertura)` em ponto flutuante
+  // devolve resíduos de 1e-10 que não são diferença nenhuma.
+  const residuo = semZeroNegativo(
+    Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) / 100,
+  );
 
   return {
     extrato,
@@ -702,7 +925,8 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           "Lançamentos marcados como pagos sem data de pagamento nem vencimento. Entram no total e ficam fora de qualquer linha do tempo.",
       },
     ],
-    fecha: Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) === 0,
+    fecha: residuo === 0,
+    residuo,
   };
 }
 

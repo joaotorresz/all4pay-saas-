@@ -59,7 +59,11 @@ export async function saveOrcamento(o: OrcamentoOverride): Promise<void> {
   if (isDemo) { saveLocal(o); return; }
   const sb = createClient();
   // Regrava o orçamento recorrente: apaga as linhas do sentinela e insere as atuais.
-  await sb.from("budgets").delete().eq("period", SENTINEL).eq("dimensions->>kind", KIND);
+  const { data: antigos } = await sb.from("budgets").select("id")
+    .eq("period", SENTINEL).eq("dimensions->>kind", KIND).limit(TETO_LINHAS);
+  const { excluirLogicoEmLote } = await import("@/lib/exclusao");
+  await excluirLogicoEmLote("budgets", (antigos ?? []).map((x: { id: string }) => String(x.id)),
+    "Orçamento regravado");
   const rows = (Object.entries(o) as [LinhaOrcId, number][])
     .filter(([, v]) => v != null && v > 0)
     .map(([linha, amount]) => ({ period: SENTINEL, amount, dimensions: { kind: KIND, linha } }));
