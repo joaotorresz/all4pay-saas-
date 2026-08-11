@@ -11,6 +11,7 @@ import { Card, BRL, Button, Icon, Select, CurrencyInput, DatePicker, Input, Skel
 import { getLedgerEntries, balancete, postarLancamento, clearRazao, ingerirOpenFinanceRazao, PLANO, type RazaoLancamento } from "@/lib/ledger";
 import { CAIXA } from "@/core/ledger/chart";
 import { totais } from "@/core/ledger";
+import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { ErroWidget } from "@/components/visao-geral/shared";
@@ -250,8 +251,16 @@ function ConciliacaoCaixa() {
             </div>
           ))}
         </div>
+        {/* ⚠️ "Conciliado", sozinho, lê como "não há diferença" — e a auditoria
+            leu exatamente assim, sobre R$ 437.983,17. Havia diferença, ela
+            estava explicada, e as duas frases mandam a pessoa fazer coisas
+            diferentes. Agora o selo diz o VALOR da diferença e o que foi feito
+            com ele; e quando não fecha, diz quanto sobrou — "resta uma
+            diferença" sem número não dá para investigar nem para ignorar. */}
         <StatusBadge tone={rec.fecha ? "positive" : "warning"}>
-          {rec.fecha ? "Conciliado — as parcelas explicam a diferença inteira" : "Resta uma diferença não explicada"}
+          {rec.fecha
+            ? `Diferença de ${formatBRL(Math.abs(rec.diferenca))} explicada pelas parcelas acima — nada absorvido`
+            : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação`}
         </StatusBadge>
       </div>
     </Card>

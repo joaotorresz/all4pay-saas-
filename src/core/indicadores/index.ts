@@ -844,6 +844,17 @@ export interface Reconciliacao {
   /** As parcelas que explicam a diferença, cada uma com seu valor. */
   parcelas: { rotulo: string; valor: number; explicacao: string }[];
   fecha: boolean;
+  /**
+   * ⚠️ O que SOBRA depois das parcelas — o resíduo NOMEADO, em reais.
+   *
+   * A auditoria achou R$ 437.983,17 rotulados como "conciliado". A conta
+   * estava certa e as parcelas estavam listadas; o que faltava era o número do
+   * resto. `fecha: true` sem resíduo à vista convida a ler "não há diferença",
+   * quando o que houve foi "a diferença foi explicada" — e as duas frases
+   * mandam a pessoa fazer coisas diferentes. Zero quando fecha; o valor exato
+   * quando não.
+   */
+  residuo: number;
 }
 
 /**
@@ -884,6 +895,11 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
   // realizado ou não, tratado como se tivesse passado pelo caixa.
   const derivado = liquidadoTotal + previstoTotal;
   const aberturaHistorica = extrato - liquidadoTotal;
+  // Em centavos inteiros: `extrato - (liquidado + abertura)` em ponto flutuante
+  // devolve resíduos de 1e-10 que não são diferença nenhuma.
+  const residuo = semZeroNegativo(
+    Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) / 100,
+  );
 
   return {
     extrato,
@@ -909,7 +925,8 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           "Lançamentos marcados como pagos sem data de pagamento nem vencimento. Entram no total e ficam fora de qualquer linha do tempo.",
       },
     ],
-    fecha: Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) === 0,
+    fecha: residuo === 0,
+    residuo,
   };
 }
 

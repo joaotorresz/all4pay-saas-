@@ -194,6 +194,12 @@ function condicao1(nome: string, input: RiskInput) {
   const rec = reconciliarSaldo(input);
   exigir(nome, "a reconciliação explica a diferença inteira", rec.fecha,
     `extrato ${rec.extrato.toFixed(2)} × derivado ${rec.derivado.toFixed(2)}`);
+  // ⚠️ E o resíduo é NOMEADO, não absorvido: `fecha` verdadeiro exige resíduo
+  // zero em reais. Era a terceira contradição da auditoria — R$ 437.983,17
+  // rotulados "conciliado", com a conta certa e o resto do resto sem nome.
+  exigir(nome, "fechou == resíduo zero, em reais",
+    rec.fecha === (Math.abs(rec.residuo) < CENTAVO),
+    `fecha=${rec.fecha} e resíduo ${rec.residuo.toFixed(2)}`);
 }
 
 /* ========================================================================== */
