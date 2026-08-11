@@ -934,6 +934,70 @@ escritores CORRETOS que montam a linha antes — o mesmo defeito de direção qu
 ONDA 10 já cometera; uma guarda que reprova o código certo é desligada na
 primeira semana.
 
+### ⚠️ FOLHA SALARIAL — `src/core/folha` (`/contas-a-pagar/folha`)
+
+**O salário não é o custo**, e é essa a razão de o módulo existir. Um CLT de
+R$ 5.000 custa entre R$ 6.450 e R$ 8.122 por mês conforme o REGIME da empresa —
+a diferença são encargos e provisões que não aparecem em lugar nenhum até
+estourarem: em novembro o 13º, em janeiro as férias, todo mês o FGTS e o DARF.
+
+- ⚠️ **CLT × PJ não é diferença de alíquota, é de QUEM RECOLHE.** No CLT a
+  empresa DESCONTA do salário o que é do empregado (INSS e IRRF saem do bruto e
+  não custam nada a mais) e PAGA POR CIMA o que é dela (FGTS sempre, patronal
+  conforme o regime). No PJ a empresa paga a nota e, acima dos limites, RETÉM.
+  Trocar um lado pelo outro produz um custo plausível e errado.
+- ⚠️ **A CONTRIBUIÇÃO PATRONAL DEPENDE DO REGIME**, e errar isso infla o custo
+  em 20% para a maioria das PMEs. Simples nos Anexos I/II/III/V **não recolhe
+  CPP à parte** (está no DAS); **o Anexo IV é a exceção** e recolhe por fora,
+  como o Lucro Presumido/Real. Medido: a mesma folha dá **1,29×** no Anexo III
+  e **1,62×** no Presumido.
+- ⚠️ **Regime não declarado usa o cenário mais CARO — e o texto diz "teto", não
+  "piso".** A primeira versão da tela chamava o resultado de piso; com 28% de
+  encargo ele é o oposto, e um rótulo invertido faz o dono planejar para cima
+  achando que planejou para baixo. O texto também não afirma um regime que a
+  empresa não declarou.
+- ⚠️ **AS TABELAS LEGAIS VENCEM, e a tela diz quando.** As faixas do INSS e do
+  IRRF mudam por lei todo ano; o cálculo continua rodando com a tabela velha e o
+  resultado sai com duas casas decimais e ar de exatidão. `TABELAS_INSS` e
+  `TABELAS_IRRF` têm **vigência e fonte**, o cálculo **declara qual usou**, e
+  competência além da última tabela conhecida marca `tabelaDesatualizada`.
+- ⚠️ **O INSS é progressivo POR FAIXA.** Aplicar a alíquota da faixa sobre o
+  salário inteiro — o erro intuitivo — desconta quase o dobro: 14% de R$ 5.000
+  dá R$ 700 contra os R$ 509,60 devidos. E acima do **teto** (R$ 951,63 na
+  tabela de 2025) a contribuição não cresce.
+- ⚠️ **O IRRF roda os DOIS critérios e usa o mais vantajoso** para o empregado:
+  base legal (bruto − INSS − dependentes − pensão) × base simplificada (bruto −
+  desconto único). Somar os dois cobraria imposto a menos.
+- ⚠️ **A folha tem QUATRO datas, não uma.** Salário no **5º dia útil** do mês
+  seguinte, FGTS no **dia 20**, DARF de INSS/IRRF no **dia 20**, 13º em **30/11
+  e 20/12**. "5º dia útil" ≠ "dia 5": em março de 2025 o Carnaval empurra para o
+  dia 11. `core/folha/calendario` calcula a **Páscoa** (Meeus) porque três
+  feriados nacionais dependem dela e caem justamente nessa janela; 20/11 entrou
+  em 2024. Vencimento em dia não útil **antecipa**, nunca posterga.
+- ⚠️ **O FGTS venceu no dia 7 até a competência 02/2024** e passou para o dia 20
+  com o FGTS Digital. A data velha "funciona" (pagar antes nunca dá erro) e
+  esconde treze dias de folga de caixa que não existem.
+- **O 4º modo do formulário** (`Colaborador (folha)`) existe porque a folha NÃO
+  é uma conta recorrente: um CLT gera **três títulos por mês em duas datas** mais
+  duas parcelas de 13º por ano, e o valor do salário depende de tabela legal.
+  ⚠️ `planejarLancamento` **RECUSA** o modo `folha` explicitamente — sem isso ele
+  cairia no ramo da parcelada e geraria N parcelas do salário, calado.
+- **A tela** (`/contas-a-pagar/folha`) mostra o custo da equipe com o
+  multiplicador, quem custa quanto com a **memória de cálculo de 11 passos**, e
+  os vencimentos **agrupados por DATA** (a pergunta é "o que sai no dia 20", e
+  uma lista por pessoa obriga a somar de cabeça).
+- ⚠️ **`compararVinculo` nunca devolve o número sozinho.** A escolha entre CLT e
+  PJ é jurídica, não financeira: contratar como PJ quem trabalha com
+  subordinação, habitualidade e exclusividade expõe a empresa ao reconhecimento
+  de vínculo, cujo passivo supera a economia acumulada. O alerta vai junto, e há
+  guarda exigindo isso.
+- **Guardas** no `engine-audit` (bloco `folha:`): valores fechados conferidos À
+  MÃO faixa a faixa (INSS 113,85 no piso · 509,60 em 5.000 · teto 951,63; IRRF
+  312,89 pelo simplificado e 1.579,57 pelo legal), o custo por regime
+  (6.450,01 × 8.122,23), as quatro datas com feriado móvel, os três títulos por
+  CLT, o 13º em duas parcelas com a segunda menor, e a tabela que vence.
+  **Provadas quebrando oito defeitos.**
+
 ### Telas de listagem
 
 Read screens reusing the cadastros: `/produtos`, `/servicos`, `/contatos`
