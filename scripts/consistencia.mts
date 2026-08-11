@@ -26,7 +26,7 @@ import {
   painelIndicadores, reconciliarSaldo, foraDaBaseTributavel, pontePosicaoFluxo,
   janela, janelaMes, janelaUltimosDias, janelaHoje, janelaDoMesDe, janelaAnterior,
   diasDe, dentro, contemHoje, saldoEm, saldoAbertura, assinado, magnitude,
-  liquidado, dataDe, INDICADORES_VERSION,
+  liquidado, dataDe, INDICADORES_VERSION, temValor, valorOuNulo,
 } from "@/core/indicadores";
 import { calcularBurnRate } from "@/core/risk-engine/burn.engine";
 import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
@@ -2578,6 +2578,112 @@ const AGOSTO = janelaMes(2026, 7);
     ok("onda3: toda exceção de exclusão física tem motivo escrito", semPorque.length === 0,
        semPorque.map((e) => e.arquivo).join(", "));
   }
+}
+
+
+/* ========================================================================== */
+/* LINHA 31 — ONDA 4: zero é um valor, não a ausência de valor.               */
+/* ========================================================================== */
+{
+  // ⚠️ A guarda inteira existe porque o defeito é INVISÍVEL na tela: um zero
+  // legítimo e um zero de ignorância são pixel por pixel o mesmo. Só o contrato
+  // os separa, e só um teste impede o contrato de ser desfeito por um `?? 0`.
+  const VAZIA = janela("2026-09-30", "2026-09-01");
+  const semNada: RiskInput = { ...INPUT, movements: [] };
+  // Agosto sem nada liquidado — o caso EXATO da Home: saldo negativo ao lado de
+  // entradas, saídas e resultado em R$ 0.
+  const agostoSeco: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("j1", "saida", "pago", 9_000, "2026-07-28", "2026-07-28")],
+  };
+
+  /* ---- Janela impossível --------------------------------------------------- */
+  for (const [nome, ind] of [
+    ["entradas", entradas(INPUT, VAZIA)],
+    ["saídas", saidas(INPUT, VAZIA)],
+    ["resultado", resultado(INPUT, VAZIA)],
+    ["saldo", saldo(INPUT, VAZIA)],
+    ["burn", burn(INPUT, VAZIA)],
+    ["runway", runway(INPUT, VAZIA)],
+  ] as const) {
+    ok(`onda4: ${nome} sobre janela impossível é indisponível, não zero`,
+       ind.indisponivel?.codigo === "janela_invalida",
+       `veio ${ind.indisponivel?.codigo ?? "com valor"}`);
+  }
+
+  /* ---- Janela legítima, nada dentro --------------------------------------- */
+  const eAgo = entradas(agostoSeco, AGOSTO);
+  const sAgo = saidas(agostoSeco, AGOSTO);
+  const rAgo = resultado(agostoSeco, AGOSTO);
+  ok("onda4: o caso da Home — entradas de um mês sem movimento não são R$ 0",
+     eAgo.indisponivel?.codigo === "sem_lancamentos", String(eAgo.valor));
+  ok("onda4: idem saídas", sAgo.indisponivel?.codigo === "sem_lancamentos");
+  ok("onda4: idem resultado", rAgo.indisponivel?.codigo === "sem_lancamentos");
+  // ⚠️ E o saldo CONTINUA sendo número: ele é posição, não período. Marcá-lo
+  // indisponível junto seria trocar um erro por outro — apagar o único número
+  // verdadeiro da tela.
+  ok("onda4: mas o saldo do mesmo instante continua respondendo",
+     temValor(saldo(agostoSeco, janelaHoje(HOJE))) && saldo(agostoSeco, janelaHoje(HOJE)).valor === -31_000);
+  ok("onda4: cada ausência diz o que fazer",
+     [eAgo, sAgo, rAgo].every((i) => (i.indisponivel?.comoResolver ?? "").length > 20));
+
+  /* ---- Zero por empate É resposta ----------------------------------------- */
+  const empate: RiskInput = {
+    ...INPUT,
+    movements: [
+      mv("e1", "entrada", "pago", 5_000, "2026-08-04", "2026-08-04"),
+      mv("e2", "saida", "pago", 5_000, "2026-08-05", "2026-08-05"),
+    ],
+  };
+  const rEmp = resultado(empate, AGOSTO);
+  ok("onda4: zero por EMPATE não é ausência — entrou e saiu o mesmo tanto",
+     temValor(rEmp) && rEmp.valor === 0, `${rEmp.valor} / ${rEmp.indisponivel?.codigo ?? "ok"}`);
+
+  /* ---- Silêncio não é boa notícia ----------------------------------------- */
+  const bSeco = burn(semNada);
+  ok("onda4: sem lançamento nenhum o burn não é zero", bSeco.indisponivel?.codigo === "sem_lancamentos");
+  const rwSeco = runway(semNada);
+  // ⚠️ A ordem dentro de `runway` decide qual frase sai. Com burn zerado por
+  // AUSÊNCIA, um `burn <= 0` conferido antes responderia "a empresa gerou
+  // caixa" — uma afirmação sobre a operação, construída a partir de nada.
+  ok("onda4: e o runway não diz 'a empresa gerou caixa' quando não sabe de nada",
+     rwSeco.indisponivel?.codigo === "sem_lancamentos",
+     rwSeco.indisponivel?.codigo ?? "com valor");
+
+  /* ---- Razão sem denominador ---------------------------------------------- */
+  const taxaSemBase = inadimplenciaTaxa(semNada);
+  ok("onda4: 0% de inadimplência sem nada vencido é ausência de base",
+     taxaSemBase.indisponivel?.codigo === "sem_base", String(taxaSemBase.valor));
+
+  /* ---- A ausência atravessa o derivado ------------------------------------ */
+  const rwm = runwayMeses(semNada);
+  ok("onda4: dividir a ausência por 30 não a transforma em número",
+     rwm.indisponivel?.codigo === "sem_lancamentos");
+  const arrSeco = arr(semNada);
+  ok("onda4: nem multiplicá-la por 12", !!arrSeco.indisponivel);
+  ok("onda4: MRR estimado sem receita nenhuma é indisponível",
+     mrr(semNada).indisponivel?.codigo === "sem_lancamentos");
+
+  /* ---- As duas leituras da ausência --------------------------------------- */
+  // ⚠️ `sem_queima` e `caixa_negativo` produzem o mesmo runway ausente e são o
+  // oposto um do outro. Um consumidor que só tivesse a frase precisaria casar
+  // substring de português — a fragilidade que este repositório já pagou três
+  // vezes. Por isso o CÓDIGO.
+  ok("onda4: quem gera caixa recebe 'sem_queima'",
+     runway(INPUT).indisponivel?.codigo === "sem_queima");
+  const noVermelho: RiskInput = {
+    ...INPUT, saldoAtual: -31_000,
+    movements: [mv("v1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")],
+  };
+  ok("onda4: quem está no vermelho recebe 'caixa_negativo'",
+     runway(noVermelho).indisponivel?.codigo === "caixa_negativo");
+  ok("onda4: e a ponte da IA distingue os dois — só o primeiro é contradição",
+     ponteRupturaRunway(INPUT, 2).pareceContradicao
+     && !ponteRupturaRunway(noVermelho, 2).pareceContradicao);
+
+  /* ---- valorOuNulo é a fronteira ------------------------------------------ */
+  ok("onda4: valorOuNulo devolve null, nunca 0, na ausência",
+     valorOuNulo(runway(semNada)) === null && valorOuNulo(saldo(INPUT)) === 42_000);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);
