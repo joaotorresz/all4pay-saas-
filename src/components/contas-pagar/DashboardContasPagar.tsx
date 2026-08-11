@@ -542,11 +542,24 @@ function Calendario({
   const dias = painel.dias;
   const [sel, setSel] = React.useState<string | null>(null);
 
-  // O dia escolhido por padrão: hoje quando ele tem algo, senão o primeiro que
-  // tem. Abrir num dia vazio faria a agenda nascer dizendo "nada aqui".
+  // ⚠️ O estado vazio passou a ser a ausência de TÍTULOS, não de dias: agora a
+  // faixa sempre tem dias (o período inteiro), então `dias.length === 0` só
+  // aconteceria num intervalo degenerado e deixaria a tela desenhar trinta
+  // cápsulas vazias em vez de dizer que não há nada.
+  const semTitulos = dias.every((d) => d.quantidade === 0);
+
+  /**
+   * O dia escolhido por padrão, em ordem de preferência: HOJE (quando cai no
+   * período), depois o primeiro dia que tenha algo, e só então o primeiro dia.
+   *
+   * ⚠️ Hoje vem primeiro mesmo quando está vazio: quem abre a tela quer saber
+   * o que tem HOJE, e "nada vence hoje" é uma resposta — abrir num outro dia
+   * porque hoje está vazio esconde justamente essa resposta.
+   */
   const selecionado = React.useMemo(() => {
     if (sel && dias.some((d) => d.data === sel)) return sel;
-    return dias.find((d) => d.data === hoje)?.data ?? dias[0]?.data ?? null;
+    if (dias.some((d) => d.data === hoje)) return hoje;
+    return dias.find((d) => d.quantidade > 0)?.data ?? dias[0]?.data ?? null;
   }, [sel, dias, hoje]);
 
   const doDia = React.useMemo(() => {
@@ -592,7 +605,7 @@ function Calendario({
         <span className="text-caption text-faint">{periodo.rotulo}</span>
       </div>
 
-      {dias.length === 0 ? (
+      {semTitulos ? (
         <p className="m-0 py-12 text-center text-body text-muted">
           Nenhuma conta a pagar no período selecionado.
         </p>
@@ -618,7 +631,7 @@ function Calendario({
                     onClick={() => setSel(d.data)}
                     className={`w-[56px] h-[86px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-[5px] transition-colors ${
                       ativo ? "bg-ink text-white" : "hover:bg-surface-2"
-                    }`}
+                    } ${!ativo && d.quantidade === 0 ? "opacity-45" : ""}`}
                   >
                     <span className={`w-[46px] h-[46px] rounded-pill inline-flex items-center justify-center shrink-0 relative ${ativo ? "bg-white" : ""}`}>
                       <span className="a4p-dia-num text-ink">{d.data.slice(8, 10)}</span>
@@ -634,8 +647,14 @@ function Calendario({
                         />
                       )}
                     </span>
-                    <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>
-                      {DIAS_CURTOS[domingoZero(d.data)]}
+                    {/* ⚠️ HOJE é marcado mesmo sem estar selecionado. Com o
+                        período inteiro na faixa, o dia corrente vira mais uma
+                        cápsula entre trinta — e é dele que se parte para ler
+                        "o que já venceu" e "o que ainda vem". */}
+                    <span className={`text-caption leading-none ${
+                      ativo ? "" : d.ehHoje ? "text-ink font-medium" : "text-muted"
+                    }`}>
+                      {d.ehHoje && !ativo ? "hoje" : DIAS_CURTOS[domingoZero(d.data)]}
                     </span>
                   </button>
                 </React.Fragment>
@@ -667,6 +686,13 @@ function Calendario({
               </span>
             )}
           </div>
+
+          {painel.diasTruncados && (
+            <p className="m-0 text-caption text-warning">
+              O calendário mostra os primeiros {dias.length} dias do período.
+              Estreite o intervalo para ver o restante.
+            </p>
+          )}
         </>
       )}
     </Card>
