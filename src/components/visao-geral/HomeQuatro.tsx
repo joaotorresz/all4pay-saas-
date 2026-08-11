@@ -311,8 +311,15 @@ function Calendario({ input }: { input: RiskInput }) {
                   quadrado de cantos redondos. O que faz a forma é a PROPORÇÃO:
                   largura fixa menor que a altura, e só então o raio total lê
                   como cápsula em pé. */}
+              {/* ⚠️ O RESPIRO É DE 5px DE CADA LADO, e é ele que faz a forma
+                  ler como a referência. Com o disco a 32px numa cápsula de
+                  56px sobrava 12px de cada lado: o disco flutuava no meio de
+                  um campo preto e a peça lia como "um círculo dentro de um
+                  retângulo", não como uma cápsula com um dia dentro. O que
+                  define o desenho é a RAZÃO disco/cápsula — 46/56, ou seja
+                  82% da largura — e não o tamanho do disco isolado. */}
               <button role="tab" aria-selected={ativo} onClick={() => setSel(d)}
-                className={`w-[56px] h-[92px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-[6px] transition-colors ${
+                className={`w-[56px] h-[86px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-[5px] transition-colors ${
                   ativo ? "bg-ink text-white" : "hover:bg-surface-2"
                 }`}>
                 {/* O número manda na cápsula, e o papel é `.a4p-dia-num` (o
@@ -328,7 +335,7 @@ function Calendario({ input }: { input: RiskInput }) {
                     um oval acompanhando a caixa, o mesmo erro de proporção que
                     a própria cápsula levou duas rodadas para acertar. */}
                 <span
-                  className={`w-8 h-8 rounded-pill inline-flex items-center justify-center shrink-0 ${
+                  className={`w-[46px] h-[46px] rounded-pill inline-flex items-center justify-center shrink-0 ${
                     ativo ? "bg-white" : ""
                   }`}
                 >

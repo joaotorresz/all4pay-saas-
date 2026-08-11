@@ -140,7 +140,7 @@ function CardAlternante({
       }}
     >
       <div className="flex items-center justify-between gap-2 pr-8">
-        <span className="a4p-label text-faint">{l.rotulo}</span>
+        <span className="text-h3 text-ink">{l.rotulo}</span>
         <div className="flex items-center gap-1 shrink-0">
           <Seta label="Leitura anterior" icone="chevron-left" onClick={() => setI((v) => (v + leituras.length - 1) % leituras.length)} />
           <span className="text-caption text-faint tabular-nums">{(i % leituras.length) + 1}/{leituras.length}</span>
@@ -298,7 +298,7 @@ function VelaTooltip({ active, payload, label }: {
   const total = CAMADAS.reduce((s, e) => s + de(e), 0);
   return (
     <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[210px]">
-      <span className="a4p-label text-muted">{label}</span>
+      <span className="text-label text-ink">{label}</span>
       <div className="mt-2 flex flex-col gap-[6px]">
         {[...CAMADAS].reverse().filter((e) => de(e) > 0).map((e) => (
           <span key={e} className="flex items-center justify-between gap-4">
@@ -468,7 +468,7 @@ function Lista({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <span className="a4p-label text-faint">{titulo}</span>
+      <span className="text-h3 text-ink">{titulo}</span>
       {grupos.length === 0 ? (
         <span className="text-caption text-faint">Nenhuma.</span>
       ) : grupos.map((g) => (
