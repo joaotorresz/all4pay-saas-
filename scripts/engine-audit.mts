@@ -96,6 +96,13 @@ import {
 import { planejarLancamento } from "@/core/contas-pagar/lancamento";
 import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
+  calcularCLT, calcularPJ, inssEmpregado, irrfEmpregado, tetoINSS, inssDe, irrfDe,
+  encargosPatronais, titulosDaCompetencia, titulosDoDecimo, montarPainelFolha,
+  compararVinculo, custoAnual, diaUtilDoMes, vencimentoSalario, vencimentoFGTS,
+  vencimentoDARF, pascoa, feriadosNacionais, ehDiaUtil, anteciparParaDiaUtil,
+  type Colaborador,
+} from "@/core/folha";
+import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
   painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
   pendenciasConfig, configPadrao, urlDoLink, validarLink,
@@ -2830,6 +2837,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      planejarLancamento({ ...base, modo: "parcelada", parcelas: 1 }).problemas.length > 0);
   ok("lanc: valor zero é recusado e não gera título",
      planejarLancamento({ ...base, valor: 0, modo: "unica" }).titulos.length === 0);
+  // ⚠️ O modo `folha` NÃO cai no ramo da parcelada. Sem a recusa explícita ele
+  // geraria N parcelas do salário em silêncio — o defeito mais barato de
+  // escrever e o mais caro de achar, porque nada quebra e o número sai errado.
+  const f = planejarLancamento({ ...base, modo: "folha", parcelas: 12 });
+  ok("lanc: o modo folha é RECUSADO por este planejador",
+     f.titulos.length === 0 && f.total === 0 && f.problemas.length > 0);
 }
 
 // ── contas-a-pagar/recorrentes: o que se repete, o que acaba, o custo fixo ─
@@ -2940,6 +2953,234 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // Deslocar mês atravessa o ano sem virar mês 13.
   ok("recor: dezembro + 1 = janeiro do ano seguinte", deslocarMesCP("2026-12", 1) === "2027-01");
   ok("recor: janeiro − 1 = dezembro do ano anterior", deslocarMesCP("2026-01", -1) === "2025-12");
+}
+
+// ── folha: as tabelas legais, os encargos por regime e as quatro datas ────
+{
+  const ti = inssDe("2025-06").tabela;
+  const tr = irrfDe("2025-06").tabela;
+
+  /* ---- INSS: progressivo por faixa, com teto -------------------------------
+   * ⚠️ Os valores são conferidos À MÃO, faixa a faixa. Um teste que só compara
+   * o motor com ele mesmo passa com a fórmula errada.
+   * 1518×7,5% = 113,85 · (2793,88−1518)×9% = 114,83 · (4190,83−2793,88)×12% =
+   * 167,63 · (8157,41−4190,83)×14% = 555,32 → teto 951,63.
+   */
+  ok("folha: INSS do piso é 7,5% do piso", inssEmpregado(1518, ti) === 113.85,
+     String(inssEmpregado(1518, ti)));
+  ok("folha: INSS de 5.000 é progressivo, não 14% sobre tudo",
+     inssEmpregado(5000, ti) === 509.60, String(inssEmpregado(5000, ti)));
+  // ⚠️ 14% sobre 5.000 daria 700 — o erro intuitivo tira 190 reais a mais do
+  // contracheque todo mês.
+  ok("folha: o erro de alíquota única daria muito mais", 5000 * 0.14 > inssEmpregado(5000, ti) * 1.3);
+  ok("folha: o teto do INSS é 951,63", tetoINSS(ti) === 951.63, String(tetoINSS(ti)));
+  ok("folha: acima do teto o INSS não cresce",
+     inssEmpregado(30_000, ti) === tetoINSS(ti), String(inssEmpregado(30_000, ti)));
+
+  /* ---- IRRF: o critério mais vantajoso vence ------------------------------- */
+  const ir5k = irrfEmpregado(5000, 509.60, 0, 0, tr);
+  ok("folha: IRRF de 5.000 usa o simplificado (312,89)",
+     ir5k.imposto === 312.89 && ir5k.criterio === "simplificado",
+     `${ir5k.imposto} ${ir5k.criterio}`);
+  const ir10k = irrfEmpregado(10_000, 951.63, 0, 0, tr);
+  ok("folha: IRRF de 10.000 usa o legal (1.579,57)",
+     ir10k.imposto === 1579.57 && ir10k.criterio === "legal",
+     `${ir10k.imposto} ${ir10k.criterio}`);
+  // ⚠️ E os dependentes só ajudam no critério LEGAL — no simplificado eles não
+  // entram. Somar os dois cobraria imposto a menos.
+  const comDep = irrfEmpregado(10_000, 951.63, 3, 0, tr);
+  ok("folha: dependente reduz o IRRF", comDep.imposto < ir10k.imposto);
+  ok("folha: quem ganha até a faixa de isenção não paga IRRF",
+     irrfEmpregado(2000, 150, 0, 0, tr).imposto === 0);
+
+  /* ---- O ENCARGO PATRONAL DEPENDE DO REGIME -------------------------------
+   * É a asserção que sozinha justifica ler o perfil fiscal: a MESMA folha
+   * custa 29% a mais no Simples III e 62% a mais no Presumido.
+   */
+  ok("folha: Simples Anexo III não recolhe patronal (está no DAS)",
+     encargosPatronais("simples", "III").total === 0);
+  ok("folha: Simples Anexo IV RECOLHE patronal fora do DAS",
+     encargosPatronais("simples", "IV").total > 0.27);
+  ok("folha: Presumido recolhe patronal", encargosPatronais("presumido", null).total > 0.27);
+  /*
+   * ⚠️ REGIME NÃO DECLARADO É TETO, NÃO PISO — e o texto tem de dizer isso.
+   *
+   * A primeira versão da tela chamava o resultado de "um piso"; com 28% de
+   * encargo patronal ele é exatamente o oposto. Um rótulo invertido num número
+   * de custo faz o dono planejar para cima achando que planejou para baixo.
+   */
+  const semRegime = encargosPatronais("nao_declarado", null);
+  ok("folha: sem regime declarado aplica o cenário mais CARO",
+     semRegime.total >= encargosPatronais("simples", "III").total
+     && semRegime.total >= 0.27, String(semRegime.total));
+  ok("folha: e o texto diz que declarar só REDUZ",
+     /reduzir/i.test(semRegime.porque) && !/piso/i.test(semRegime.porque), semRegime.porque);
+  // ⚠️ E ele NÃO pode afirmar um regime que a empresa não declarou.
+  ok("folha: o texto não inventa o regime do cliente",
+     !/Lucro Presumido/.test(semRegime.porque) && !/Simples/.test(semRegime.porque));
+
+  const clt = (regime: "simples" | "presumido", anexo: "III" | "IV" | null, bruto = 5000) =>
+    calcularCLT({ id: "c1", nome: "Ana", vinculo: "clt", valor: bruto, desde: "2025-01" }, "2025-06", regime, anexo);
+
+  const simples3 = clt("simples", "III");
+  const presumido = clt("presumido", null);
+  // 5000 + 400 (FGTS) + 0 + 416,67 (13º) + 555,56 (férias) + 77,78 (FGTS s/ provisão)
+  ok("folha: custo no Simples III fecha em 6.450,01",
+     simples3.custoTotal === 6450.01, String(simples3.custoTotal));
+  // 5000 + 400 + 1400 (28%) + 416,67 + 555,56 + 350,00
+  ok("folha: custo no Presumido fecha em 8.122,23",
+     presumido.custoTotal === 8122.23, String(presumido.custoTotal));
+  ok("folha: o regime muda o custo em mais de 25 pontos",
+     presumido.multiplicador - simples3.multiplicador > 0.25,
+     `${simples3.multiplicador} vs ${presumido.multiplicador}`);
+
+  /* ---- O SALÁRIO NÃO É O CUSTO ------------------------------------------- */
+  ok("folha: o custo é sempre MAIOR que o bruto", simples3.custoTotal > simples3.bruto);
+  ok("folha: o líquido é sempre MENOR que o bruto", simples3.liquido < simples3.bruto);
+  // ⚠️ E os dois lados NÃO se confundem: INSS e IRRF saem do bruto (não custam
+  // a mais), FGTS e patronal entram por cima. Trocar um pelo outro produz um
+  // custo plausível e errado.
+  ok("folha: INSS e IRRF NÃO entram no custo da empresa",
+     Math.abs(simples3.custoTotal - (simples3.bruto + simples3.fgts + simples3.patronal
+       + simples3.provisaoDecimo + simples3.provisaoFerias
+       + simples3.provisaoEncargosSobreProvisao)) < 0.011);
+  ok("folha: a memória de cálculo tem os 11 passos", simples3.memoria.length === 11);
+
+  /* ---- PJ: a nota é o custo, a retenção é do prestador --------------------- */
+  const pj = calcularPJ({ id: "p1", nome: "Beta ME", vinculo: "pj", valor: 7000, desde: "2025-01" }, "2025-06");
+  ok("folha: no PJ o custo é a nota cheia", pj.custoTotal === 7000);
+  ok("folha: prestador do Simples não sofre retenção", pj.totalRetido === 0);
+  const pjFora = calcularPJ({ id: "p2", nome: "Gama SA", vinculo: "pj", valor: 7000, desde: "2025-01" },
+    "2025-06", { doSimples: false });
+  // 7000 × 1,5% = 105 (acima dos 10 de dispensa) + 7000 × 4,65% = 325,50 (acima dos 5.000)
+  ok("folha: fora do Simples a retenção existe",
+     pjFora.irrf === 105 && pjFora.pisCofinsCsll === 325.5, `${pjFora.irrf}/${pjFora.pisCofinsCsll}`);
+  // ⚠️ Abaixo do limite mensal, PIS/COFINS/CSLL NÃO se aplicam — reter de quem
+  // é dispensado tira dinheiro que só volta na declaração anual.
+  const pjPequeno = calcularPJ({ id: "p3", nome: "Delta", vinculo: "pj", valor: 3000, desde: "2025-01" },
+    "2025-06", { doSimples: false });
+  ok("folha: abaixo de 5.000 não há PIS/COFINS/CSLL", pjPequeno.pisCofinsCsll === 0);
+  ok("folha: mas o IRRF de 1,5% continua", pjPequeno.irrf === 45);
+
+  /* ---- AS QUATRO DATAS ---------------------------------------------------- */
+  // ⚠️ "5º dia útil" ≠ "dia 5". Junho de 2025 começa num domingo: os dias úteis
+  // são 2,3,4,5,6 → o 5º é dia 6.
+  ok("folha: o 5º dia útil de junho/2025 é dia 6",
+     diaUtilDoMes("2025-06", 5) === "2025-06-06", diaUtilDoMes("2025-06", 5));
+  // Março de 2025: o Carnaval cai em 3 e 4/3, então os úteis são 5,6,7,10,11.
+  ok("folha: o Carnaval empurra o 5º dia útil de março/2025 para o dia 11",
+     diaUtilDoMes("2025-03", 5) === "2025-03-11", diaUtilDoMes("2025-03", 5));
+  ok("folha: o salário de maio vence no 5º dia útil de junho",
+     vencimentoSalario("2025-05") === "2025-06-06", vencimentoSalario("2025-05"));
+  // ⚠️ FGTS mudou de dia 7 para dia 20 na competência 03/2024 (FGTS Digital).
+  ok("folha: FGTS antes de 03/2024 vencia no dia 7",
+     vencimentoFGTS("2024-01").slice(8) <= "07", vencimentoFGTS("2024-01"));
+  ok("folha: FGTS de 05/2025 vence no dia 20",
+     vencimentoFGTS("2025-05") === "2025-06-20", vencimentoFGTS("2025-05"));
+  ok("folha: o DARF vence no dia 20 do mês seguinte",
+     vencimentoDARF("2025-05") === "2025-06-20", vencimentoDARF("2025-05"));
+  // Antecipa, nunca posterga — 20/07/2025 é domingo.
+  ok("folha: vencimento em domingo ANTECIPA para sexta",
+     vencimentoDARF("2025-06") === "2025-07-18", vencimentoDARF("2025-06"));
+
+  /* ---- Feriados móveis ---------------------------------------------------- */
+  ok("folha: a Páscoa de 2025 é 20/04", pascoa(2025) === "2025-04-20", pascoa(2025));
+  ok("folha: a Páscoa de 2026 é 05/04", pascoa(2026) === "2026-04-05", pascoa(2026));
+  ok("folha: o Carnaval de 2025 é 03 e 04/03",
+     feriadosNacionais(2025).includes("2025-03-04") && feriadosNacionais(2025).includes("2025-03-03"));
+  ok("folha: Corpus Christi de 2025 é 19/06", feriadosNacionais(2025).includes("2025-06-19"));
+  ok("folha: 20/11 é feriado a partir de 2024",
+     feriadosNacionais(2024).includes("2024-11-20") && !feriadosNacionais(2023).includes("2023-11-20"));
+  ok("folha: feriado não é dia útil", !ehDiaUtil("2025-12-25"));
+  ok("folha: antecipar de 25/12 (quinta) cai em 24/12",
+     anteciparParaDiaUtil("2025-12-25") === "2025-12-24", anteciparParaDiaUtil("2025-12-25"));
+
+  /* ---- OS TÍTULOS: três por CLT, um por PJ -------------------------------- */
+  const ana: Colaborador = { id: "c1", nome: "Ana", vinculo: "clt", valor: 5000, desde: "2025-01" };
+  const t = titulosDaCompetencia(ana, "2025-05", "presumido", null);
+  ok("folha: um CLT gera TRÊS títulos, em datas diferentes", t.length === 3
+     && new Set(t.map((x) => x.vencimento)).size === 2, String(t.length));
+  ok("folha: o título de salário é o LÍQUIDO, não o bruto",
+     t.find((x) => x.tipo === "salario")!.valor === presumido.liquido);
+  /*
+   * ⚠️ O DARF EXISTE MESMO NO PISO, e a primeira versão desta guarda afirmava o
+   * contrário — que quem ganha o mínimo, num regime sem patronal, não geraria
+   * guia. Está errado: o INSS do EMPREGADO é retido a partir do primeiro real
+   * e quem recolhe é a empresa. O que zera no piso é o IRRF (faixa de isenção)
+   * e o patronal (Anexo III), não o INSS.
+   *
+   * Fica como asserção de VALOR, que é o que ela deveria ter sido: o DARF é
+   * exatamente INSS + IRRF + patronal, e no piso do Anexo III ele é só o INSS.
+   */
+  const piso: Colaborador = { id: "c2", nome: "Bia", vinculo: "clt", valor: 1518, desde: "2025-01" };
+  const tp = titulosDaCompetencia(piso, "2025-05", "simples", "III");
+  const kPiso = calcularCLT(piso, "2025-05", "simples", "III");
+  ok("folha: no piso do Anexo III o DARF é só o INSS do empregado",
+     tp.find((x) => x.tipo === "darf")?.valor === 113.85
+     && kPiso.irrf === 0 && kPiso.patronal === 0,
+     String(tp.find((x) => x.tipo === "darf")?.valor));
+  ok("folha: o DARF é INSS + IRRF + patronal, sempre",
+     Math.abs((t.find((x) => x.tipo === "darf")?.valor ?? 0)
+       - (presumido.inss + presumido.irrf + presumido.patronal)) < 0.011);
+  const tpj = titulosDaCompetencia({ ...ana, id: "p", vinculo: "pj" }, "2025-05", "presumido", null);
+  ok("folha: um PJ gera UM título", tpj.length === 1 && tpj[0].tipo === "nota");
+
+  /* ---- Vigência: quem saiu não custa -------------------------------------- */
+  ok("folha: antes de entrar, não custa",
+     titulosDaCompetencia(ana, "2024-12", "presumido", null).length === 0);
+  ok("folha: depois de sair, não custa",
+     titulosDaCompetencia({ ...ana, ate: "2025-03" }, "2025-05", "presumido", null).length === 0);
+
+  /* ---- 13º: duas parcelas, a segunda menor ------------------------------- */
+  const d = titulosDoDecimo(ana, 2025, "presumido", null);
+  ok("folha: o 13º sai em DUAS parcelas", d.length === 2);
+  ok("folha: a 1ª parcela é metade do bruto, sem desconto", d[0].valor === 2500);
+  // ⚠️ A segunda vem MENOR: os descontos do 13º inteiro saem dela.
+  ok("folha: a 2ª parcela vem menor que a 1ª", d[1].valor < d[0].valor, String(d[1].valor));
+  ok("folha: as parcelas vencem em 30/11 e 20/12",
+     d[0].vencimento.startsWith("2025-11") && d[1].vencimento.startsWith("2025-12"),
+     `${d[0].vencimento} ${d[1].vencimento}`);
+
+  /* ---- O painel ----------------------------------------------------------- */
+  const equipe: Colaborador[] = [
+    ana,
+    { id: "c3", nome: "Caio", vinculo: "clt", valor: 3000, desde: "2025-01" },
+    { id: "p1", nome: "Delta ME", vinculo: "pj", valor: 8000, desde: "2025-01" },
+  ];
+  const painel = montarPainelFolha(equipe, "2025-06", "presumido", null);
+  ok("folha: o painel conta os dois vínculos", painel.quantosCLT === 2 && painel.quantosPJ === 1);
+  ok("folha: o bruto é a soma dos salários e notas", painel.totalBruto === 16_000);
+  ok("folha: os encargos são a diferença entre custo e bruto",
+     Math.abs(painel.custoTotal - painel.totalBruto - painel.totalEncargos) < 0.011);
+  ok("folha: o painel ordena por custo, maior primeiro",
+     painel.linhas[0].custoTotal >= painel.linhas[1].custoTotal);
+  ok("folha: os títulos saem em ordem de vencimento",
+     painel.titulos.map((x) => x.vencimento).join(",")
+       === [...painel.titulos.map((x) => x.vencimento)].sort().join(","));
+
+  /* ---- O anual NÃO é o mensal × 12 --------------------------------------- */
+  // ⚠️ O 13º e as férias já entram provisionados no mensal; multiplicar por
+  // doze os contaria de novo.
+  const anual = custoAnual([ana], 2025, "presumido", null);
+  ok("folha: o anual é a soma das doze competências",
+     Math.abs(anual - presumido.custoTotal * 12) < 1, `${anual}`);
+
+  /* ---- A TABELA VENCE ----------------------------------------------------- */
+  // ⚠️ A asserção que separa "número certo" de "número com cara de certo".
+  ok("folha: competência dentro da vigência não acusa desatualização",
+     !clt("presumido", null).tabelas.desatualizada);
+  const futuro = calcularCLT(ana, "2030-06", "presumido", null);
+  ok("folha: competência muito à frente MARCA a tabela como desatualizada",
+     futuro.tabelas.desatualizada && futuro.tabelas.mesesDeAtraso > 12,
+     String(futuro.tabelas.mesesDeAtraso));
+
+  /* ---- CLT × PJ: o número vem com o alerta jurídico ----------------------- */
+  const cmp = compararVinculo(5000, "2025-06", "presumido", null);
+  ok("folha: a comparação devolve os dois custos", cmp.clt > cmp.pj && cmp.percentual > 50);
+  // ⚠️ O alerta não é decoração: a escolha entre CLT e PJ é jurídica, e um
+  // número sozinho convida à pejotização.
+  ok("folha: a comparação NUNCA vem sem o alerta de vínculo",
+     cmp.alerta.includes("vínculo") && cmp.alerta.length > 100);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

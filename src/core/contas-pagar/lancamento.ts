@@ -30,18 +30,33 @@
 
 export const LANCAMENTO_VERSION = "contas-pagar-lancamento/1.0.0";
 
-export type ModoLancamento = "unica" | "recorrente" | "parcelada";
+export type ModoLancamento = "unica" | "recorrente" | "parcelada" | "folha";
 
 export const ROTULO_MODO: Record<ModoLancamento, string> = {
   unica: "Conta única",
   recorrente: "Conta recorrente",
   parcelada: "Compra parcelada",
+  folha: "Colaborador (folha)",
 };
 
 export const EXPLICACAO_MODO: Record<ModoLancamento, string> = {
   unica: "Um título, um vencimento. Lançado uma vez só.",
   recorrente: "Um compromisso que se repete. O valor informado é o de cada ocorrência.",
   parcelada: "Uma compra só, dividida em parcelas. O valor informado é o total da compra.",
+  /**
+   * ⚠️ O quarto modo existe porque a folha NÃO É uma conta recorrente.
+   *
+   * Um CLT não gera um título por mês: gera TRÊS, em datas diferentes, para
+   * credores diferentes — salário no 5º dia útil, FGTS no dia 20, DARF de
+   * INSS/IRRF no dia 20 — mais duas parcelas de 13º no fim do ano. E o valor
+   * do salário não é o que se digita: é o líquido depois de INSS e IRRF, que
+   * dependem de tabela legal e de quantos dependentes a pessoa tem.
+   *
+   * Lançar isso como "recorrente de R$ 5.000 por 12 meses" erra a data de dois
+   * títulos, o valor do terceiro, e esquece o 13º — que é justamente o que
+   * pega o caixa de surpresa em novembro.
+   */
+  folha: "Um funcionário CLT ou um prestador PJ. O sistema calcula os descontos, os encargos e agenda cada vencimento.",
 };
 
 export type Frequencia = "semanal" | "quinzenal" | "mensal" | "bimestral" | "trimestral" | "semestral" | "anual";
@@ -176,6 +191,26 @@ export function planejarLancamento(e: EntradaLancamento): PlanoLancamento {
     if (n < 2) problemas.push("Uma compra parcelada precisa de ao menos 2 parcelas.");
     if (n > TETO_PARCELAS) problemas.push(`No máximo ${TETO_PARCELAS} parcelas.`);
   }
+  /**
+   * ⚠️ A FOLHA NÃO PASSA POR AQUI, e a recusa é explícita de propósito.
+   *
+   * Sem este bloco o modo `folha` cairia no fim da função — o ramo da
+   * parcelada — e geraria N parcelas do salário, calado. Um `switch` sem caso
+   * padrão que "simplesmente funciona" para o valor novo é o defeito mais
+   * barato de escrever e o mais caro de achar: nada quebra, e o número sai
+   * errado.
+   *
+   * Quem monta os títulos da folha é `core/folha.titulosDaCompetencia`, que
+   * sabe das três datas, dos descontos e das tabelas legais.
+   */
+  if (e.modo === "folha") {
+    return {
+      versao: LANCAMENTO_VERSION, modo: e.modo, titulos: [], total: 0, mensal: null,
+      ehCustoFixo: true,
+      problemas: ["A folha é montada por `core/folha`, não por este planejador."],
+    };
+  }
+
   if (problemas.length > 0) return vazio();
 
   if (e.modo === "unica") {
