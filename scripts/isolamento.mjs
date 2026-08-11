@@ -40,6 +40,25 @@ try {
   const err = /** @type {{ stderr?: Buffer|string, message?: string }} */ (e);
   const texto = String(err.stderr ?? err.message ?? e);
   console.error(texto.trim());
-  console.error("\n✗ ISOLAMENTO ROMPIDO — o banco deixou uma empresa alcançar dado da outra.");
+
+  // ⚠️ QUALQUER erro do psql saía como "ISOLAMENTO ROMPIDO", e isso é MENTIR
+  // sobre a natureza da falha. Medido na ONDA 5: um gatilho novo recusou a
+  // fixture desta própria guarda por falta de `origem`, e o painel do CI
+  // anunciou uma brecha de segurança que não existia — quem lesse largaria
+  // tudo para investigar um vazamento inexistente.
+  //
+  // A distinção sai do PRÓPRIO script: ele só levanta a exceção de veredicto
+  // quando um cruzamento passa, e essa exceção carrega a palavra ISOLAMENTO.
+  // Erro que não a carrega é falha de setup — e dizer isso é a diferença entre
+  // um alarme e um alarme confiável.
+  // A sentinela `[A4P-VAZAMENTO]` é levantada SÓ no veredicto do script, e não
+  // aparece em comentário nenhum — casar pela frase em português faria o
+  // comentário que documenta esta decisão disparar o alarme que ele explica.
+  const rompeu = texto.includes("[A4P-VAZAMENTO]");
+  console.error(rompeu
+    ? "\n✗ ISOLAMENTO ROMPIDO — o banco deixou uma empresa alcançar dado da outra."
+    : "\n✗ A GUARDA NÃO RODOU — o script falhou antes de concluir o veredicto.\n"
+      + "  Isto NÃO é um vazamento: é a fixture ou o schema recusando o setup.\n"
+      + "  Leia o erro do psql acima; ele diz qual regra do produto barrou a montagem.");
   process.exit(1);
 }

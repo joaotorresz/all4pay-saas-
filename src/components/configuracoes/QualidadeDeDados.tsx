@@ -20,8 +20,10 @@
  * 190 títulos de uma vez sem volta é a operação mais cara desta tela.
  */
 import * as React from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, Button, Icon, Badge, Skeleton } from "@/components/ui";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, Icon, Badge, Skeleton, AcaoDestrutiva } from "@/components/ui";
+import { useToast } from "@/components/listas/ListChrome";
+import { corrigirEmMassa, temExecucao, fraseDoResultado } from "@/lib/qualidade-corrigir";
 import { auditarOrganizacao } from "@/lib/qualidade";
 import type { Achado, Gravidade } from "@/core/qualidade";
 
@@ -38,9 +40,14 @@ const ROTULO_GRAVIDADE: Record<Gravidade, string> = {
 /** ⚠️ Só os 8 primeiros: uma lista de 1.277 itens não é lista, é rolagem. */
 const AMOSTRA = 8;
 
-function Bloco({ a }: { a: Achado }) {
+function Bloco({ a, aoCorrigir }: { a: Achado; aoCorrigir: (msg: string) => void }) {
   const [aberto, setAberto] = React.useState(false);
   const mostrados = aberto ? a.itens : a.itens.slice(0, AMOSTRA);
+  // ⚠️ `corrigivelEmMassa` diz que o achado ADMITE correção mecânica;
+  // `temExecucao` diz que ela está IMPLEMENTADA. Os dois precisam ser
+  // verdadeiros — um botão que promete e não escreve é pior que botão nenhum,
+  // porque o contador não cai e a pessoa conclui que a correção não funciona.
+  const executavel = a.corrigivelEmMassa && temExecucao(a.codigo);
 
   return (
     <div className="flex flex-col gap-2 py-4 border-t border-border-soft first:border-t-0">
@@ -80,9 +87,27 @@ function Bloco({ a }: { a: Achado }) {
         {/* ⚠️ O botão só existe onde a correção é MECÂNICA. Onde ela exige
             julgamento — "este fornecedor é mesmo cliente?" — oferecer um botão
             de lote seria oferecer o erro em lote. */}
-        {a.corrigivelEmMassa && a.acao && (
+        {executavel && a.acao && (
+          <AcaoDestrutiva
+            rotulo={a.acao}
+            titulo={a.acao}
+            descricao={
+              `${a.itens.length} ${a.itens.length === 1 ? "registro será alterado" : "registros serão alterados"}. `
+              + "A alteração pode ser desfeita logo em seguida."
+            }
+            confirmarRotulo={`Corrigir ${a.itens.length}`}
+            onConfirmar={async () => {
+              const r = await corrigirEmMassa(a);
+              aoCorrigir(fraseDoResultado(r));
+              return r.desfazer;
+            }}
+          />
+        )}
+        {a.corrigivelEmMassa && !executavel && (
+          // ⚠️ Dizer que a execução não existe é melhor que esconder: quem lê
+          // fica sabendo que a correção é manual, em vez de procurar um botão.
           <span className="text-caption text-faint">
-            Correção em massa disponível: {a.acao.toLowerCase()}
+            Correção em massa ainda não automatizada — corrija pela tela do registro.
           </span>
         )}
       </div>
@@ -91,6 +116,8 @@ function Bloco({ a }: { a: Achado }) {
 }
 
 export function QualidadeDeDados() {
+  const qc = useQueryClient();
+  const { show, node } = useToast();
   const q = useQuery({
     queryKey: ["qualidade-de-dados"],
     queryFn: auditarOrganizacao,
@@ -121,6 +148,14 @@ export function QualidadeDeDados() {
   }
 
   const r = q.data;
+
+  // ⚠️ Depois de corrigir, a auditoria RODA DE NOVO. Um contador que não cai
+  // depois da correção ensina que a correção não funciona — e é a queda do
+  // número que fecha o ciclo entre ver o problema e acreditar que ele saiu.
+  const aoCorrigir = (msg: string) => {
+    show(msg);
+    qc.invalidateQueries({ queryKey: ["qualidade-de-dados"] });
+  };
 
   return (
     <Card padded={false} className="flex flex-col">
@@ -160,8 +195,9 @@ export function QualidadeDeDados() {
       ) : null}
 
       <div className="px-5 pb-2">
-        {r.achados.map((a) => <Bloco key={a.codigo} a={a} />)}
+        {r.achados.map((a) => <Bloco key={a.codigo} a={a} aoCorrigir={aoCorrigir} />)}
       </div>
+      {node}
     </Card>
   );
 }
