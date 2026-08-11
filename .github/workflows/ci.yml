@@ -99,3 +99,10 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run isolamento
+      # ⚠️ Mesmo job, e não um terceiro: as duas guardas precisam do MESMO banco
+      # construído do zero, e subir o stack de novo custaria os mesmos minutos
+      # para responder a uma pergunta que já tem o banco na frente.
+      - name: Guarda da trilha (nenhuma tabela de negócio sem auditoria)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/trilha-completa.sql
