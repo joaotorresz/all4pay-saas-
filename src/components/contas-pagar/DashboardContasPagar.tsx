@@ -18,8 +18,9 @@
  */
 import * as React from "react";
 import {
-  ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, Cell,
+  ResponsiveContainer, PieChart, Pie, Sector, Tooltip, Cell,
 } from "recharts";
+import type { PieSectorDataItem } from "recharts/types/polar/Pie";
 import { Card, BRL, Icon, Select, DateField, Skeleton } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL, dataBR, pct } from "@/lib/format";
@@ -188,7 +189,7 @@ function Filtros({
     <Card className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-[6px]">
-          <span className="a4p-label text-faint">Período</span>
+          <span className="text-h3 text-ink">Período</span>
           <div
             role="group"
             aria-label="Período das contas a pagar"
@@ -292,7 +293,7 @@ function CardExpansivel({
           className="inline-block w-2 h-2 rounded-pill shrink-0"
           style={{ background: TOKEN_SITUACAO[situacao] }}
         />
-        <span className="a4p-label text-faint">{titulo}</span>
+        <span className="text-h3 text-ink">{titulo}</span>
       </div>
 
       <div className="flex items-end justify-between gap-3">
@@ -358,7 +359,7 @@ function CardExpansivel({
 }
 
 /* ========================================================================== */
-/* Distribuição por situação (radial)                                          */
+/* Distribuição por situação (donut ativo)                                     */
 /* ========================================================================== */
 
 const tooltipStyle = {
@@ -368,20 +369,50 @@ const tooltipStyle = {
   fontSize: 12,
 } as const;
 
+/**
+ * O SETOR ATIVO — o padrão "donut active".
+ *
+ * ⚠️ Ele não é enfeite de hover: com três fatias de cores semânticas, a fatia
+ * apontada precisa se declarar sem depender só do tooltip, que some no toque e
+ * cobre o próprio gráfico. O setor cresce para fora e ganha um arco fino
+ * destacado — dois sinais de forma, nenhum de cor, porque a cor aqui já carrega
+ * o significado (pago · a vencer · vencido) e usá-la também para "selecionado"
+ * faria a mesma dimensão dizer duas coisas.
+ */
+function SetorAtivo(props: PieSectorDataItem) {
+  const { outerRadius = 0, ...resto } = props;
+  return (
+    <g>
+      <Sector {...resto} outerRadius={outerRadius + 8} />
+      <Sector
+        {...resto}
+        outerRadius={outerRadius + 14}
+        innerRadius={outerRadius + 10}
+      />
+    </g>
+  );
+}
+
 function Distribuicao({ painel }: { painel: PainelContasPagar }) {
-  // O RadialBarChart empilha de fora para dentro; a ordem aqui é a ordem dos
-  // anéis, do mais externo ao mais interno.
-  const dados = painel.distribuicao.map((d) => ({
-    nome: d.rotulo,
-    valor: d.valor,
-    quantidade: d.quantidade,
-    // ⚠️ O anel é desenhado sobre a FRAÇÃO (0–100), não sobre o valor: num eixo
-    // absoluto o anel maior encostaria na borda e os outros dois ficariam
-    // indistinguíveis entre si.
-    fracao: Math.round(d.fracao * 1000) / 10,
-    cor: TOKEN_SITUACAO[d.situacao],
-  }));
-  const vazio = painel.distribuicao.every((d) => d.valor === 0);
+  const dados = painel.distribuicao
+    // ⚠️ Fatia de valor zero SAI do desenho. O Recharts a renderiza como um
+    // traço de espessura nula que o mouse ainda alcança — dá para "selecionar"
+    // uma fatia invisível e o centro passa a exibir R$ 0,00 sem que nada tenha
+    // acontecido na tela. A legenda continua listando as três, com o zero.
+    .filter((d) => d.valor > 0)
+    .map((d) => ({
+      nome: d.rotulo,
+      valor: d.valor,
+      quantidade: d.quantidade,
+      fracao: d.fracao,
+      cor: TOKEN_SITUACAO[d.situacao],
+    }));
+  const vazio = dados.length === 0;
+
+  // A fatia em foco: a maior por padrão — abrir com nada em foco desperdiça o
+  // centro do donut, que é o lugar de maior leitura do desenho.
+  const [ativo, setAtivo] = React.useState(0);
+  const foco = dados[Math.min(ativo, Math.max(0, dados.length - 1))];
 
   const resumo = painel.distribuicao
     .map((d) => `${d.rotulo}: ${formatBRL(d.valor)} (${pct(d.fracao)})`)
@@ -394,10 +425,10 @@ function Distribuicao({ painel }: { painel: PainelContasPagar }) {
         titulo: "Distribuição por situação",
         oQue: "A proporção entre o que já foi pago, o que ainda vai vencer e o que está vencido no período.",
         comoCalcula:
-          "Cada anel é a fatia do total das três situações somadas. É a única leitura em que somá-las faz sentido, porque a pergunta aqui é de proporção — os três cards acima nunca devem ser somados num total.",
+          "Cada fatia é a parte do total das três situações somadas. É a única leitura em que somá-las faz sentido, porque a pergunta aqui é de proporção — os três cards acima nunca devem ser somados num total.",
       }}
     >
-      <h2 className="m-0 text-h3 pr-8">Distribuição por status</h2>
+      <span className="text-h3 text-ink pr-8">Distribuição por status</span>
 
       {vazio ? (
         <p className="m-0 text-body text-muted py-10 text-center">
@@ -405,46 +436,72 @@ function Distribuicao({ painel }: { painel: PainelContasPagar }) {
         </p>
       ) : (
         <>
-          <div className="h-[220px]" role="img" aria-label={`Distribuição por status. ${resumo}`}>
+          <div className="h-[230px]" role="img" aria-label={`Distribuição por status. ${resumo}`}>
             <ResponsiveContainer width="100%" height="100%">
-              <RadialBarChart
-                data={dados}
-                innerRadius="34%"
-                outerRadius="96%"
-                startAngle={90}
-                endAngle={-270}
-                barCategoryGap={6}
-              >
-                <PolarAngleAxis type="number" domain={[0, 100]} tick={false} axisLine={false} />
-                <RadialBar dataKey="fracao" background cornerRadius={999} {...chartAnim()}>
+              <PieChart>
+                <Pie
+                  data={dados}
+                  dataKey="valor"
+                  nameKey="nome"
+                  innerRadius="55%"
+                  outerRadius="72%"
+                  paddingAngle={2}
+                  stroke="none"
+                  activeIndex={Math.min(ativo, dados.length - 1)}
+                  activeShape={SetorAtivo}
+                  onMouseEnter={(_, k) => setAtivo(k)}
+                  {...chartAnim()}
+                >
                   {dados.map((d) => <Cell key={d.nome} fill={d.cor} />)}
-                </RadialBar>
+                </Pie>
                 <Tooltip
                   contentStyle={tooltipStyle}
-                  formatter={(_v: number, _n: string, item: { payload?: { valor: number } }) =>
-                    formatBRL(item?.payload?.valor ?? 0)
-                  }
+                  formatter={(v: number) => formatBRL(v)}
                 />
-              </RadialBarChart>
+              </PieChart>
             </ResponsiveContainer>
+            {/* O CENTRO responde pela fatia em foco. Um donut com o buraco
+                vazio gasta o ponto de maior leitura do desenho, e obriga a
+                percorrer a legenda para saber quanto vale o que se está
+                olhando. */}
+            <div className="relative -mt-[150px] mb-[110px] flex flex-col items-center pointer-events-none">
+              <span className="a4p-num text-[19px] leading-none text-ink">
+                <BRL value={foco?.valor ?? 0} showDecimals={false} />
+              </span>
+              <span className="text-caption text-muted mt-1">{foco?.nome}</span>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
-            {painel.distribuicao.map((d) => (
-              <div key={d.situacao} className="flex items-center gap-2 text-caption">
-                <span
-                  aria-hidden
-                  className="inline-block w-2 h-2 rounded-pill shrink-0"
-                  style={{ background: TOKEN_SITUACAO[d.situacao] }}
-                />
-                <span className="text-muted flex-1 truncate">
-                  {ROTULO_SITUACAO[d.situacao]}
-                  <span className="text-faint"> · {d.quantidade}</span>
-                </span>
-                <span className="a4p-num text-faint tabular-nums">{pct(d.fracao)}</span>
-                <span className="a4p-num text-ink"><BRL value={d.valor} /></span>
-              </div>
-            ))}
+            {painel.distribuicao.map((d) => {
+              const k = dados.findIndex((x) => x.nome === d.rotulo);
+              const emFoco = k >= 0 && k === Math.min(ativo, dados.length - 1);
+              return (
+                <button
+                  key={d.situacao}
+                  type="button"
+                  disabled={k < 0}
+                  onMouseEnter={() => k >= 0 && setAtivo(k)}
+                  onFocus={() => k >= 0 && setAtivo(k)}
+                  onClick={() => k >= 0 && setAtivo(k)}
+                  className={`flex items-center gap-2 text-caption text-left rounded-md px-2 py-1 -mx-2 transition-colors ${
+                    emFoco ? "bg-surface-2" : ""
+                  } ${k < 0 ? "opacity-50" : "hover:bg-surface-2"}`}
+                >
+                  <span
+                    aria-hidden
+                    className="inline-block w-2 h-2 rounded-pill shrink-0"
+                    style={{ background: TOKEN_SITUACAO[d.situacao] }}
+                  />
+                  <span className="text-muted flex-1 truncate">
+                    {ROTULO_SITUACAO[d.situacao]}
+                    <span className="text-faint"> · {d.quantidade}</span>
+                  </span>
+                  <span className="a4p-num text-faint tabular-nums">{pct(d.fracao)}</span>
+                  <span className="a4p-num text-ink"><BRL value={d.valor} /></span>
+                </button>
+              );
+            })}
           </div>
         </>
       )}
@@ -456,116 +513,161 @@ function Distribuicao({ painel }: { painel: PainelContasPagar }) {
 /* Calendário                                                                  */
 /* ========================================================================== */
 
-const DIAS_DA_SEMANA = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+const DIAS_CURTOS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-/** Soma dias a uma data-só, sempre em UTC (nunca `new Date("YYYY-MM-DD")` local). */
-function somarDias(iso: string, n: number): string {
+/** Dia da semana 0=domingo, para o rótulo da cápsula. */
+function domingoZero(iso: string): number {
   const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
-  return new Date(Date.UTC(a, m - 1, d + n)).toISOString().slice(0, 10);
+  return new Date(Date.UTC(a, m - 1, d)).getUTCDay();
 }
 
-/** Dia da semana com SEGUNDA em 0 — a mesma origem de `periodoSemana`. */
-function diaDaSemana(iso: string): number {
-  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
-  const dow = new Date(Date.UTC(a, m - 1, d)).getUTCDay();
-  return dow === 0 ? 6 : dow - 1;
-}
-
+/**
+ * O CALENDÁRIO — a MESMA linguagem do "Calendário de transações" da Visão
+ * geral: faixa horizontal de cápsulas verticais, o dia escolhido num pill
+ * escuro com o número num disco branco, e a agenda daquele dia embaixo.
+ *
+ * ⚠️ Era uma grade mensal. Duas telas do mesmo produto respondendo "o que cai
+ * em cada dia" com desenhos diferentes obrigam quem opera a reaprender a
+ * leitura ao trocar de tela — e nenhuma das duas fica sendo "a" forma de
+ * mostrar dia no all4pay. A grade também não cabia no recorte: o período aqui
+ * pode ser uma semana ou um intervalo qualquer, e uma grade de mês desenha
+ * sempre 42 células, esmaecendo o que ficou de fora.
+ *
+ * A faixa mostra os dias QUE TÊM ALGO, na ordem. Um calendário de contas a
+ * pagar cheio de dias vazios gasta a largura com o que não exige ação.
+ */
 function Calendario({
   painel, periodo, hoje,
 }: { painel: PainelContasPagar; periodo: Periodo; hoje: string }) {
-  const porDia = React.useMemo(
-    () => new Map(painel.dias.map((d) => [d.data, d])),
-    [painel.dias],
-  );
+  const dias = painel.dias;
+  const [sel, setSel] = React.useState<string | null>(null);
+
+  // O dia escolhido por padrão: hoje quando ele tem algo, senão o primeiro que
+  // tem. Abrir num dia vazio faria a agenda nascer dizendo "nada aqui".
+  const selecionado = React.useMemo(() => {
+    if (sel && dias.some((d) => d.data === sel)) return sel;
+    return dias.find((d) => d.data === hoje)?.data ?? dias[0]?.data ?? null;
+  }, [sel, dias, hoje]);
+
+  const doDia = React.useMemo(() => {
+    if (!selecionado) return [];
+    const todas = [
+      ...painel.pagoNoPeriodo.contas.map((c) => ({ ...c, situacao: "pago" as Situacao })),
+      ...painel.aVencer.contas.map((c) => ({ ...c, situacao: "a_vencer" as Situacao })),
+      ...painel.atrasadas.contas.map((c) => ({ ...c, situacao: "atrasado" as Situacao })),
+    ];
+    return todas.filter((c) => c.data === selecionado).sort((a, b) => b.valor - a.valor);
+  }, [painel, selecionado]);
 
   /**
-   * ⚠️ A grade começa na SEGUNDA da semana do primeiro dia e termina no DOMINGO
-   * da semana do último — mesmo que o período seja um intervalo qualquer. Um
-   * calendário que começa no meio de uma linha faz a coluna "quarta" mudar de
-   * lugar entre um período e outro, e ninguém consegue ler o dia da semana.
-   * O que está FORA do período fica esmaecido, não escondido: sumir com ele
-   * criaria buracos na grade.
+   * ⚠️ A FAIXA ABRE NO DIA SELECIONADO, não no início.
+   *
+   * Um período de um mês rende trinta cápsulas e só sete cabem; sem rolar, a
+   * peça abre em 01 e o dia escolhido — que é o de hoje — fica fora da vista.
+   * Pior: como o pill escuro é o ÚNICO sinal de seleção, a faixa parecia não
+   * ter dia nenhum selecionado, e a agenda embaixo falava de um dia que não
+   * estava na tela.
+   *
+   * `useLayoutEffect` porque o ajuste precisa acontecer ANTES da pintura: num
+   * `useEffect` a faixa aparece no 01 e salta.
    */
-  const celulas = React.useMemo(() => {
-    const inicio = somarDias(periodo.de, -diaDaSemana(periodo.de));
-    const fim = somarDias(periodo.ate, 6 - diaDaSemana(periodo.ate));
-    const out: string[] = [];
-    // Teto de 6 semanas de segurança: um intervalo personalizado de dois anos
-    // renderizaria 730 células e travaria a tela.
-    for (let d = inicio; d <= fim && out.length < 42; d = somarDias(d, 1)) out.push(d);
-    const ultimo = out[out.length - 1];
-    return { dias: out, truncado: !!ultimo && ultimo < fim };
-  }, [periodo]);
+  const faixaRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const alvo = faixaRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    alvo?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [selecionado, dias.length]);
 
   return (
     <Card
       className="flex flex-col gap-3"
       info={{
         titulo: "Calendário de contas a pagar",
-        oQue: "Onde cada obrigação cai no calendário do período selecionado.",
+        oQue: "Em que dia cada obrigação do período cai.",
         comoCalcula:
-          "Cada dia mostra o total de títulos em aberto que VENCEM nele e o total PAGO nele. A cor do dia é a situação mais urgente que ele contém — um dia com nove pagas e uma vencida aparece como vencida.",
+          "Cada dia soma o que VENCE nele (em aberto) e o que foi PAGO nele. A cor do dia é a situação mais urgente que ele contém — um dia com nove pagas e uma vencida aparece como vencida.",
       }}
     >
       <div className="flex items-baseline justify-between gap-3 pr-8">
-        <h2 className="m-0 text-h3">Calendário de contas a pagar</h2>
+        <span className="text-h3 text-ink">Calendário de contas a pagar</span>
         <span className="text-caption text-faint">{periodo.rotulo}</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
-        {DIAS_DA_SEMANA.map((d) => (
-          <div key={d} className="a4p-label text-faint text-center py-1">{d}</div>
-        ))}
-
-        {celulas.dias.map((data) => {
-          const dentro = data >= periodo.de && data <= periodo.ate;
-          const dia = porDia.get(data);
-          const ehHoje = data === hoje;
-          const total = (dia?.aPagar ?? 0) + (dia?.pago ?? 0);
-          return (
-            <div
-              key={data}
-              className={
-                "min-h-[68px] rounded-md p-[6px] flex flex-col gap-1 transition-colors " +
-                (dentro ? "bg-surface-2" : "bg-transparent opacity-40")
-              }
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span
-                  className={
-                    "a4p-num text-caption " +
-                    (ehHoje ? "text-ink font-semibold" : "text-muted")
-                  }
-                >
-                  {data.slice(8, 10)}
-                </span>
-                {dia?.situacao && (
-                  <span
-                    aria-hidden
-                    className="inline-block w-[6px] h-[6px] rounded-pill shrink-0"
-                    style={{ background: TOKEN_SITUACAO[dia.situacao] }}
-                  />
-                )}
-              </div>
-              {dia && total > 0 && (
-                <span
-                  className="a4p-num text-[11px] leading-tight text-ink"
-                  title={`${dia.quantidade} título(s) · a pagar ${formatBRL(dia.aPagar)} · pago ${formatBRL(dia.pago)}`}
-                >
-                  <BRL value={total} showDecimals={false} />
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {celulas.truncado && (
-        <p className="m-0 text-caption text-warning">
-          O calendário mostra as primeiras seis semanas do período. Estreite o
-          intervalo para ver o restante.
+      {dias.length === 0 ? (
+        <p className="m-0 py-12 text-center text-body text-muted">
+          Nenhuma conta a pagar no período selecionado.
         </p>
+      ) : (
+        <>
+          <div
+            ref={faixaRef}
+            className="flex items-center gap-1 mt-2 overflow-x-auto a4p-nav-scroll"
+            role="tablist" aria-label="Dias com contas a pagar"
+            tabIndex={0}
+          >
+            {dias.map((d, i) => {
+              const ativo = d.data === selecionado;
+              return (
+                <React.Fragment key={d.data}>
+                  {i > 0 && <span aria-hidden className="w-px h-8 bg-border-soft shrink-0" />}
+                  {/* A MESMA cápsula da Visão geral: 56×86 com o disco a 46px
+                      — 82% da largura. A razão disco/cápsula é o que faz a
+                      forma; um disco pequeno num campo preto lê como círculo
+                      dentro de retângulo. */}
+                  <button
+                    role="tab" aria-selected={ativo}
+                    onClick={() => setSel(d.data)}
+                    className={`w-[56px] h-[86px] shrink-0 rounded-pill flex flex-col items-center justify-center gap-[5px] transition-colors ${
+                      ativo ? "bg-ink text-white" : "hover:bg-surface-2"
+                    }`}
+                  >
+                    <span className={`w-[46px] h-[46px] rounded-pill inline-flex items-center justify-center shrink-0 relative ${ativo ? "bg-white" : ""}`}>
+                      <span className="a4p-dia-num text-ink">{d.data.slice(8, 10)}</span>
+                      {/* O marcador da situação fica NA cápsula, não numa
+                          célula de grade: é o que sobrou da leitura de cor da
+                          versão anterior, e ele continua sendo a única coisa
+                          que diz "aqui tem vencido" sem abrir o dia. */}
+                      {d.situacao && (
+                        <span
+                          aria-hidden
+                          className="absolute -bottom-[1px] right-[2px] w-[7px] h-[7px] rounded-pill"
+                          style={{ background: TOKEN_SITUACAO[d.situacao], outline: "2px solid var(--color-white)" }}
+                        />
+                      )}
+                    </span>
+                    <span className={`text-caption leading-none ${ativo ? "" : "text-muted"}`}>
+                      {DIAS_CURTOS[domingoZero(d.data)]}
+                    </span>
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </div>
+
+          <div className="mt-2 flex flex-col gap-2">
+            {doDia.length === 0 ? (
+              <p className="m-0 py-8 text-center text-caption text-muted">Nada neste dia.</p>
+            ) : doDia.slice(0, 5).map((c) => (
+              <div key={c.id} className="flex items-center gap-3 rounded-card bg-surface-2 px-4 py-3">
+                <span className="w-9 h-9 rounded-pill bg-white inline-flex items-center justify-center shrink-0">
+                  <Icon name="arrow-down" size={15} color="var(--color-ink)" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-label text-ink truncate">{c.contraparte}</span>
+                  <span className="block text-caption text-muted truncate">{c.categoria}</span>
+                </span>
+                <span className="text-caption text-muted shrink-0">{ROTULO_SITUACAO[c.situacao]}</span>
+                <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0">
+                  <BRL value={c.valor} showDecimals={false} />
+                </span>
+              </div>
+            ))}
+            {doDia.length > 5 && (
+              <span className="text-caption text-faint text-center">
+                +{doDia.length - 5} neste dia
+              </span>
+            )}
+          </div>
+        </>
       )}
     </Card>
   );
