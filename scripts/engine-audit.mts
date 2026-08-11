@@ -100,6 +100,8 @@ import {
   encargosPatronais, titulosDaCompetencia, titulosDoDecimo, montarPainelFolha,
   compararVinculo, custoAnual, diaUtilDoMes, vencimentoSalario, vencimentoFGTS,
   vencimentoDARF, pascoa, feriadosNacionais, ehDiaUtil, anteciparParaDiaUtil,
+  calcularFerias, diasPorFaltas, maximoAbono,
+  calcularRescisao, diasAviso, estimarFGTS, REGRAS,
   type Colaborador,
 } from "@/core/folha";
 import {
@@ -127,6 +129,7 @@ import type { Movement } from "@/lib/types";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 
 let fails = 0;
+const round2ea = (n: number) => Math.round(n * 100) / 100;
 const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`✗ FAIL ${n} ${x}`); } };
 
 // ── platform/ledger-core: guarda de duplo estorno ──────────────────────────
@@ -3181,6 +3184,172 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // número sozinho convida à pejotização.
   ok("folha: a comparação NUNCA vem sem o alerta de vínculo",
      cmp.alerta.includes("vínculo") && cmp.alerta.length > 100);
+}
+
+// ── folha/ferias e folha/rescisao: valores fechados e as datas legais ─────
+{
+  const ana: Colaborador = { id: "c1", nome: "Ana", vinculo: "clt", valor: 5000, desde: "2020-03" };
+
+  /* ---- FÉRIAS ------------------------------------------------------------ */
+  // ⚠️ A tabela de faltas é em DEGRAUS. Da 5ª para a 6ª o direito cai de 30
+  // para 24 — seis dias de uma vez. Uma regra proporcional daria 29.
+  ok("ferias: 5 faltas não tiram nada", diasPorFaltas(5) === 30);
+  ok("ferias: a 6ª falta tira SEIS dias de uma vez", diasPorFaltas(6) === 24);
+  ok("ferias: acima de 32 faltas não há direito", diasPorFaltas(33) === 0);
+  ok("ferias: o abono é 1/3 do direito", maximoAbono(30) === 10 && maximoAbono(24) === 8);
+
+  const f = calcularFerias(ana,
+    { inicio: "2025-07-14", diasGozados: 20, diasAbono: 10, faltas: 0, adiantar13: false },
+    "presumido", null);
+  // 5000/30 = 166,6667 · ×20 = 3.333,33 · terço 1.111,11 · ×10 = 1.666,67 · terço 555,56
+  ok("ferias: 20 dias de um salário de 5.000 = 3.333,33", f.ferias === 3333.33, String(f.ferias));
+  ok("ferias: o terço constitucional é 1/3 disso", f.tercoFerias === 1111.11, String(f.tercoFerias));
+  ok("ferias: o abono de 10 dias = 1.666,67", f.abono === 1666.67, String(f.abono));
+
+  /*
+   * ⚠️ A ASSERÇÃO CENTRAL DAS FÉRIAS: o abono e o terço sobre ele NÃO entram na
+   * base de imposto. São verbas indenizatórias. Somá-los — o erro fácil, porque
+   * saem no mesmo recibo — desconta imposto de uma verba isenta, dinheiro que
+   * sai do bolso do funcionário e só volta na declaração anual.
+   */
+  ok("ferias: o abono NÃO entra na base tributável",
+     f.baseTributavel === 4444.44, String(f.baseTributavel));
+  ok("ferias: a base é só férias + terço, não o total de proventos",
+     f.baseTributavel < f.totalProventos && f.totalProventos === 6666.67,
+     `${f.baseTributavel} de ${f.totalProventos}`);
+  // Se o abono fosse tributado, o INSS seria maior — é a diferença que a regra
+  // protege.
+  ok("ferias: tributar o abono descontaria mais",
+     inssEmpregado(f.totalProventos, inssDe("2025-07").tabela) > f.inss);
+  ok("ferias: o FGTS também não incide sobre o abono",
+     Math.abs(f.fgts - f.baseTributavel * 0.08) < 0.011);
+
+  /*
+   * ⚠️ VENCE DOIS DIAS ANTES DO INÍCIO, e antecipa quando cai em dia não útil.
+   * 14/07/2025 − 2 = 12/07, um sábado → 11/07. Pagar no dia do início já é
+   * atraso, e o atraso DOBRA a remuneração (Súmula 450 do TST).
+   */
+  ok("ferias: vence 2 dias antes, antecipando o sábado",
+     f.vencimento === "2025-07-11", f.vencimento);
+  ok("ferias: o retorno é o início + os dias gozados",
+     f.retorno === "2025-08-03", f.retorno);
+
+  // As recusas de entrada.
+  ok("ferias: vender mais de 1/3 é recusado",
+     calcularFerias(ana, { inicio: "2025-07-14", diasGozados: 15, diasAbono: 15, faltas: 0, adiantar13: false }, "presumido", null)
+       .problemas.length > 0);
+  ok("ferias: período menor que 5 dias é recusado",
+     calcularFerias(ana, { inicio: "2025-07-14", diasGozados: 3, diasAbono: 0, faltas: 0, adiantar13: false }, "presumido", null)
+       .problemas.some((p) => /5 dias/.test(p)));
+  ok("ferias: passar do direito é recusado",
+     calcularFerias(ana, { inicio: "2025-07-14", diasGozados: 30, diasAbono: 10, faltas: 20, adiantar13: false }, "presumido", null)
+       .problemas.length > 0);
+  // O adiantamento do 13º entra nos proventos e NÃO na base — é tributado em
+  // dezembro, sobre o 13º inteiro. Tributar agora cobraria duas vezes.
+  const fAdiant = calcularFerias(ana,
+    { inicio: "2025-07-14", diasGozados: 30, diasAbono: 0, faltas: 0, adiantar13: true }, "presumido", null);
+  ok("ferias: o adiantamento do 13º é metade do salário", fAdiant.adiantamento13 === 2500);
+  ok("ferias: e ele NÃO é tributado agora",
+     fAdiant.baseTributavel === round2ea(5000 + 5000 / 3), String(fAdiant.baseTributavel));
+
+  /* ---- RESCISÃO ---------------------------------------------------------- */
+  // ⚠️ 30 dias + 3 por ano completo, teto de 90. Fixar em 30 subestima o custo
+  // de dispensar quem tem tempo de casa em até dois terços.
+  ok("rescisao: o aviso cresce 3 dias por ano", diasAviso(0) === 30 && diasAviso(5) === 45);
+  ok("rescisao: o aviso para em 90 dias", diasAviso(20) === 90 && diasAviso(50) === 90);
+
+  const rescindir = (modalidade: Parameters<typeof calcularRescisao>[1]["modalidade"]) =>
+    calcularRescisao(ana, {
+      modalidade, desligamento: "2025-08-20", admissao: "2020-03-02",
+      avisoTrabalhado: false, diasFeriasVencidas: 30, saldoFGTS: 0, estimarSaldo: true,
+    }, "presumido", null);
+
+  const semJusta = rescindir("sem_justa_causa");
+  const pedido = rescindir("pedido_demissao");
+  const justa = rescindir("justa_causa");
+  const acordo = rescindir("acordo");
+
+  ok("rescisao: 5 anos e 5 meses dão 45 dias de aviso",
+     semJusta.anosCompletos === 5 && semJusta.diasAviso === 45,
+     `${semJusta.anosCompletos}a ${semJusta.diasAviso}d`);
+  ok("rescisao: sem justa causa o líquido fecha em 23.814,54",
+     semJusta.liquido === 23814.54, String(semJusta.liquido));
+  ok("rescisao: a multa de 40% sobre o saldo estimado é 10.560",
+     semJusta.multaFGTS === 10560, String(semJusta.multaFGTS));
+
+  /*
+   * ⚠️ AS TRÊS ASSERÇÕES QUE A MODALIDADE DECIDE — e que um cálculo único
+   * erraria em três dos quatro casos.
+   */
+  ok("rescisao: pedido de demissão NÃO tem multa do FGTS", pedido.multaFGTS === 0);
+  ok("rescisao: e o aviso não cumprido é DESCONTADO, não recebido",
+     pedido.verbas.some((v) => v.natureza === "desconto" && /Aviso/.test(v.nome)));
+  ok("rescisao: justa causa não gera 13º nem férias PROPORCIONAIS",
+     !justa.verbas.some((v) => /proporcional/i.test(v.nome)),
+     justa.verbas.map((v) => v.nome).join(" | "));
+  /*
+   * ⚠️ E O CONTRAPONTO, que é o erro mais caro: férias VENCIDAS são devidas em
+   * TODAS as modalidades, inclusive na justa causa (Súmula 171 do TST). Quem
+   * pensa "justa causa não recebe nada" deixa de pagar e vira reclamação.
+   */
+  ok("rescisao: mas as férias VENCIDAS são devidas até na justa causa",
+     justa.verbas.some((v) => /vencidas/i.test(v.nome) && v.valor > 0),
+     justa.verbas.map((v) => v.nome).join(" | "));
+  ok("rescisao: o acordo paga METADE do aviso e 20% de multa",
+     acordo.diasAviso === 23 && acordo.multaFGTS === 5280,
+     `${acordo.diasAviso}d ${acordo.multaFGTS}`);
+  ok("rescisao: e o acordo NÃO dá seguro-desemprego",
+     !REGRAS.acordo.seguroDesemprego && acordo.alertas.some((a) => /seguro/i.test(a)));
+
+  // O saldo de salário existe em todas — é o que sobra sempre.
+  for (const [nome, r] of [["sem justa", semJusta], ["pedido", pedido], ["justa", justa], ["acordo", acordo]] as const) {
+    ok(`rescisao: ${nome} sempre tem saldo de salário`,
+       r.verbas.some((v) => /Saldo de salário/.test(v.nome)));
+  }
+
+  // ⚠️ Verba INDENIZATÓRIA não é tributada: aviso indenizado e férias (vencidas
+  // e proporcionais) ficam fora da base. Tributá-las descontaria imposto de
+  // quem acabou de perder o emprego.
+  ok("rescisao: a base tributável é só saldo + 13º",
+     semJusta.baseTributavel === 6666.66, String(semJusta.baseTributavel));
+  ok("rescisao: o aviso indenizado NÃO é tributado",
+     semJusta.verbas.find((v) => /Aviso prévio indenizado/.test(v.nome))?.tributavel === false);
+
+  /*
+   * ⚠️ DEZ DIAS CORRIDOS do desligamento (art. 477 §6º, Reforma de 2017), sem
+   * distinção entre aviso trabalhado e indenizado. O prazo antigo ainda circula
+   * e atrasa a rescisão em nove dias — o que custa UM SALÁRIO de multa.
+   * 20/08/2025 + 10 = 30/08, sábado → antecipa para 29/08.
+   */
+  ok("rescisao: vence em 10 dias corridos, antecipando o sábado",
+     semJusta.vencimento === "2025-08-29", semJusta.vencimento);
+  ok("rescisao: o prazo NÃO muda com o aviso trabalhado",
+     calcularRescisao(ana, {
+       modalidade: "sem_justa_causa", desligamento: "2025-08-20", admissao: "2020-03-02",
+       avisoTrabalhado: true, diasFeriasVencidas: 30, saldoFGTS: 0, estimarSaldo: true,
+     }, "presumido", null).vencimento === semJusta.vencimento);
+
+  // ⚠️ O saldo do FGTS é uma ESTIMATIVA que SUBESTIMA — e o cálculo diz isso.
+  ok("rescisao: o saldo estimado vem marcado e alertado",
+     semJusta.saldoEstimado && semJusta.alertas.some((a) => /ESTIMADO/.test(a)));
+  ok("rescisao: informado o saldo real, a marca some",
+     !calcularRescisao(ana, {
+       modalidade: "sem_justa_causa", desligamento: "2025-08-20", admissao: "2020-03-02",
+       avisoTrabalhado: false, diasFeriasVencidas: 30, saldoFGTS: 40_000, estimarSaldo: false,
+     }, "presumido", null).saldoEstimado);
+  ok("rescisao: a estimativa é 8% do salário por mês", estimarFGTS(5000, 66) === 26_400);
+
+  // A multa entra no CUSTO mas não no líquido — ela vai para a conta vinculada.
+  ok("rescisao: a multa está no custo e fora do líquido",
+     semJusta.custoTotal > semJusta.liquido + semJusta.multaFGTS - 1
+     && !semJusta.verbas.some((v) => /multa/i.test(v.nome)));
+
+  // Recusa de entrada.
+  ok("rescisao: desligamento antes da admissão é recusado",
+     calcularRescisao(ana, {
+       modalidade: "sem_justa_causa", desligamento: "2019-01-01", admissao: "2020-03-02",
+       avisoTrabalhado: false, diasFeriasVencidas: 0, saldoFGTS: 0, estimarSaldo: true,
+     }, "presumido", null).problemas.length > 0);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

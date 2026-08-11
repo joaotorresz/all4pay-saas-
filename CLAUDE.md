@@ -986,6 +986,41 @@ estourarem: em novembro o 13º, em janeiro as férias, todo mês o FGTS e o DARF
   multiplicador, quem custa quanto com a **memória de cálculo de 11 passos**, e
   os vencimentos **agrupados por DATA** (a pergunta é "o que sai no dia 20", e
   uma lista por pessoa obriga a somar de cabeça).
+- ⚠️ **FÉRIAS: o ABONO NÃO É TRIBUTADO.** O funcionário pode vender até 1/3
+  (10 dias); esses dias e o terço sobre eles são **indenizatórios** — sem INSS,
+  sem IRRF e sem FGTS. Somá-los à base (o erro fácil, porque saem no mesmo
+  recibo) desconta imposto de verba isenta, dinheiro que só volta na declaração
+  anual. As **faltas reduzem em DEGRAUS** (art. 130): a 6ª falta tira seis dias
+  de uma vez, e interpolar daria 29 dias, que não existe na lei. O pagamento
+  vence **dois dias antes do início** (art. 145) — pagar no dia já é atraso, e
+  o atraso DOBRA a remuneração (Súmula 450 do TST).
+- ⚠️ **RESCISÃO: a MODALIDADE decide quais verbas existem.** As mesmas cinco
+  aparecem ou somem conforme quem terminou o contrato — um cálculo único acerta
+  um caso e erra os outros quatro. As regras vivem em `REGRAS`, em DADOS, não
+  em `if` espalhado.
+  - **Férias VENCIDAS são devidas em TODAS as modalidades**, inclusive na justa
+    causa (Súmula 171 do TST). O que a justa causa tira são as PROPORCIONAIS —
+    confundir as duas é o erro que mais vira reclamação, porque quem faz a conta
+    pensa "justa causa não recebe nada".
+  - **O aviso cresce 3 dias por ano completo**, teto de 90 (Lei 12.506/2011).
+    Fixar em 30 subestima o custo de dispensar quem tem tempo de casa em até
+    dois terços.
+  - **Dez dias corridos** do desligamento (art. 477 §6º, Reforma de 2017), sem
+    distinção entre aviso trabalhado e indenizado. O prazo antigo ainda circula
+    e atrasa em nove dias, o que custa **um salário** de multa.
+  - **Aviso indenizado e férias são indenizatórios** — ficam fora da base de
+    INSS/IRRF. Tributá-los descontaria imposto de quem acabou de perder o
+    emprego.
+  - ⚠️ **O saldo do FGTS é ESTIMADO e a estimativa SUBESTIMA** (8% × salário ×
+    meses). O saldo real inclui depósitos sobre 13º e férias e correção
+    monetária. A tela marca a estimativa e manda buscar o extrato — uma multa de
+    40% sobre saldo baixo é uma multa baixa, e a diferença aparece na
+    homologação, quando já não há o que renegociar.
+  - **A multa vira título SEPARADO**: ela é depositada na conta vinculada, não
+    paga ao empregado. Somá-la ao líquido pagaria ao funcionário dinheiro do
+    fundo.
+  - **Rescindir encerra a vigência** do colaborador (`ate`), senão o mês
+    seguinte geraria salário, FGTS e DARF de um contrato que não existe mais.
 - ⚠️ **`compararVinculo` nunca devolve o número sozinho.** A escolha entre CLT e
   PJ é jurídica, não financeira: contratar como PJ quem trabalha com
   subordinação, habitualidade e exclusividade expõe a empresa ao reconhecimento
