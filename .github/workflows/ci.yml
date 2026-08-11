@@ -8,6 +8,14 @@ name: CI
 # que confronta cada indicador entre os caminhos que o produzem — Home, DRE,
 # razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
 # diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
+#
+# ⚠️ E inclui o TESTE DE COERÊNCIA (`npm run coerencia`), que pergunta outra
+# coisa: se a tela pode exibir uma COMBINAÇÃO de números que não pode ser
+# verdade ao mesmo tempo — saldo que não bate com os lançamentos, resultado
+# zero com lançamentos no período, runway finito com burn zero, ruptura sem
+# projeção negativa, DRE que não fecha com o balancete. Nenhuma dessas é erro
+# de fórmula, e é por isso que as outras guardas não as pegavam: cada número,
+# sozinho, passa em tudo.
 
 # ⚠️ `push` fica restrito aos branches de INTEGRAÇÃO. Com `["**"]`, todo push
 # num branch com PR aberto disparava DOIS runs idênticos — o `push` e o

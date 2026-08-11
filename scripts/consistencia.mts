@@ -387,9 +387,13 @@ const AGOSTO = janelaMes(2026, 7);
   eq("saldo: abertura do mês + líquidos até hoje == saldo de hoje", abertura + liquidosAteHoje, SALDO);
 
   // O saldo futuro incorpora os previstos — e SÓ os previstos.
+  // ⚠️ O intervalo é FECHADO em hoje (`>= HOJE`). Era `> HOJE`, e o teste de
+  // coerência achou a diferença pela identidade: o título que vence hoje e não
+  // foi pago ficava de fora de TODA projeção, deixando o saldo projetado
+  // otimista pelo valor do vencimento do dia — todos os dias.
   const fim = saldoEm(INPUT, "2026-08-31");
   const previstosAteFim = DATASET
-    .filter((m) => m.status === "pendente" && m.due_date > HOJE && m.due_date <= "2026-08-31")
+    .filter((m) => m.status === "pendente" && m.due_date >= HOJE && m.due_date <= "2026-08-31")
     .reduce((s, m) => s + assinado(m), 0);
   eq("saldo: futuro == hoje + previstos da janela", fim, SALDO + previstosAteFim);
 
