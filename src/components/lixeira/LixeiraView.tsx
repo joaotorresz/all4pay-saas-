@@ -5,7 +5,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, Icon, Money, Avatar, Skeleton, InfoHint } from "@/components/ui";
 import { brlParts } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
-import { getTrashedMovements, restoreMovement, purgeMovement } from "@/lib/data";
+import { getTrashedMovements, restoreMovement } from "@/lib/data";
+import { excluirLogico } from "@/lib/exclusao";
+import { LixeiraLogica } from "@/components/lixeira/LixeiraLogica";
 import type { Movement, MovementType } from "@/lib/types";
 import { EmptyState } from "@/components/visao-geral/shared";
 
@@ -35,11 +37,20 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
     catch { show("Não foi possível restaurar"); }
     finally { setBusy(null); }
   };
+  /**
+   * ⚠️ Deixou de apagar de vez. Antes este botão era a exclusão FÍSICA, num
+   * clique, com um `window.confirm` como única defesa — e quem clica em "Sim"
+   * por reflexo não leu. Agora ele manda o lançamento para a lixeira lógica,
+   * logo abaixo, de onde ele volta com um clique. Apagar em definitivo continua
+   * possível, mas é o segundo ato, feito lá, por quem administra e com motivo.
+   */
   const excluir = async (m: Movement) => {
-    if (!window.confirm(`Excluir definitivamente "${m.description ?? "lançamento"}"? Esta ação não tem volta.`)) return;
     setBusy(m.id);
-    try { await purgeMovement(m.id); show("Excluído definitivamente"); await qc.invalidateQueries(); }
-    catch { show("Não foi possível excluir"); }
+    try {
+      await excluirLogico("movements", m.id, "Removido da lista de cancelados");
+      show("Foi para a lixeira — dá para restaurar abaixo.");
+      await qc.invalidateQueries();
+    } catch { show("Não foi possível excluir"); }
     finally { setBusy(null); }
   };
 
@@ -104,6 +115,7 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
           })}
         </Card>
       )}
+      <LixeiraLogica />
       {node}
     </div>
   );

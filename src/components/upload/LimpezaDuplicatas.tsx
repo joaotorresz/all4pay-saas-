@@ -48,13 +48,14 @@ export function LimpezaDuplicatas() {
       if (isDemo) {
         removerImported(rel.remover);
       } else {
-        const { createClient } = await import("@/lib/supabase/client");
-        const supabase = createClient();
-        // Em lotes: um `in` com milhares de ids estoura o limite da URL.
-        for (let i = 0; i < rel.remover.length; i += 200) {
-          const { error: e } = await supabase.from("movements").delete().in("id", rel.remover.slice(i, i + 200));
-          if (e) throw e;
-        }
+        // ⚠️ Exclusão LÓGICA: a limpeza de duplicatas já mostra o impacto em
+        // caixa antes de agir, mas mostrar não é o mesmo que poder desfazer.
+        // Agora o que sai vai para a lixeira, com o motivo escrito na trilha.
+        const { excluirLogicoEmLote } = await import("@/lib/exclusao");
+        const r2 = await excluirLogicoEmLote(
+          "movements", rel.remover, "Limpeza de duplicatas da importação",
+        );
+        if (r2.falhas.length) throw new Error(r2.falhas[0].erro);
       }
       setFeito(rel.remover.length);
       // ⚠️ Recalcula TODOS os derivados: saldo, DRE, fluxo, risco, painéis.

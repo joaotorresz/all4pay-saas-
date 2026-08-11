@@ -2478,6 +2478,50 @@ const AGOSTO = janelaMes(2026, 7);
 
   ok("admin: sem motivo registrado continua sendo pendência",
      pendenciasDeAdmin([adm({ motivo: null })], HOJE).some((p) => p.problema.includes("motivo")));
+
+  /* ── ONDA 3: nenhuma exclusão física no código ──────────────────────────── */
+  //
+  // ⚠️ O banco já revogou o `DELETE` do papel do cliente, então uma exclusão
+  // física nem funcionaria — mas falharia em PRODUÇÃO, na mão do usuário, com
+  // "permission denied". Esta guarda a pega no commit, que é onde custa barato.
+  //
+  // ⚠️ A exceção é DECLARADA e é uma só: `movement_tags` é VÍNCULO, não
+  // entidade. "Tirar a etiqueta" tem de tirar mesmo — guardar etiquetas
+  // removidas para sempre é lixo que ninguém vai à lixeira buscar. Sem a lista,
+  // a guarda seria desligada na primeira exceção legítima.
+  {
+    const EXCECOES: { arquivo: string; tabela: string; porque: string }[] = [
+      {
+        arquivo: "src/lib/tags.ts",
+        tabela: "movement_tags",
+        porque: "Etiqueta é vínculo, não entidade: remover tem de remover. Uma lixeira de etiquetas seria lixo que ninguém busca.",
+      },
+    ];
+    const infratores: string[] = [];
+    const varrerDeletes = (dir: string) => {
+      for (const nome of readdirSync(dir)) {
+        const caminho = join(dir, nome);
+        if (statSync(caminho).isDirectory()) { varrerDeletes(caminho); continue; }
+        if (!/\.(ts|tsx)$/.test(nome)) continue;
+        // ⚠️ Os comentários saem ANTES da busca. A primeira versão desta guarda
+        // acusaria o próprio arquivo que documenta a regra — e guarda que
+        // reprova a documentação da regra treina quem a lê a ignorá-la.
+        const txt = readFileSync(caminho, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "")
+          .replace(/^\s*\*.*$/gm, "");
+        if (!/\.delete\(\)/.test(txt)) continue;
+        if (EXCECOES.some((e) => caminho.replace(/\\/g, "/").endsWith(e.arquivo))) continue;
+        infratores.push(caminho.replace(/\\/g, "/"));
+      }
+    };
+    varrerDeletes("src");
+    ok("onda3: nenhuma exclusão física fora da exceção declarada",
+       infratores.length === 0, infratores.join(", "));
+    const semPorque = EXCECOES.filter((e) => (e.porque ?? "").trim().length < 40);
+    ok("onda3: toda exceção de exclusão física tem motivo escrito", semPorque.length === 0,
+       semPorque.map((e) => e.arquivo).join(", "));
+  }
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

@@ -25,12 +25,12 @@
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 65,
-    "funcoes": 77,
-    "politicas": 65,
+    "funcoes": 81,
+    "politicas": 99,
     "gatilhos": 64,
-    "indices": 158,
+    "indices": 192,
     "enums": 11,
-    "colunas": 537,
+    "colunas": 639,
     "restricoes": 186
   },
   "migrations_aplicadas": [
@@ -98,7 +98,11 @@
     "20260810215942_recorte_reconhece_portao_de_administrador",
     "20260810220704_revisao_administrativa_com_motivo_aprovador_e_prazo",
     "20260810222258_concessoes_de_tabela_declaradas_em_migration",
-    "20260811012230_trilha_de_negocio_por_gatilho"
+    "20260811012230_trilha_de_negocio_por_gatilho",
+    "20260811012829_exclusao_logica_lixeira_e_restauracao",
+    "20260811013013_lixeira_so_para_quem_e_entidade",
+    "20260811013123_lixeira_fala_identificador_em_texto",
+    "20260811013235_lixeira_expurgo_em_dois_passos"
   ],
   "divergencias_conhecidas": {
     "_regra": [

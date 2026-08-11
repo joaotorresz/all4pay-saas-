@@ -192,7 +192,10 @@ export async function cancelarNfse(id: string): Promise<void> {
   const remover = nf.movimentos.filter((m) => m !== nf.movimentoReceita);
   if (remover.length) {
     if (isDemo) removerImported(remover);
-    else { const s = createClient(); await s.from("movements").delete().in("id", remover); }
+    else {
+      const { excluirLogicoEmLote } = await import("@/lib/exclusao");
+      await excluirLogicoEmLote("movements", remover, "Nota fiscal cancelada");
+    }
   }
   list[i] = { ...nf, movimentos: [], status: "cancelada" }; cache = [...list];
   if (isDemo) saveLocal([...list]); else await createClient().from("nfse").update({ status: "cancelada" }).eq("id", id);
