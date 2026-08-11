@@ -24,7 +24,7 @@ import {
   calcularFerias, FERIAS_PADRAO, diasPorFaltas, maximoAbono,
   calcularRescisao, ROTULO_MODALIDADE, EXPLICACAO_MODALIDADE,
   type Colaborador, type EntradaFerias, type EntradaRescisao, type Modalidade,
-  type LinhaMemoria,
+  type LinhaMemoria, type TabelasLegais,
 } from "@/core/folha";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -143,20 +143,21 @@ function Vencimento({ data, regra }: { data: string; regra: string }) {
 /* ========================================================================== */
 
 export function ModalFerias({
-  colaborador, regime, anexo, onFechar, onConfirmar,
+  colaborador, regime, anexo, tabelas, onFechar, onConfirmar,
 }: {
   colaborador: Colaborador;
   regime: Regime;
   anexo: Anexo | null;
   onFechar: () => void;
-  onConfirmar: (titulos: TituloGerado[]) => void;
+  tabelas?: TabelasLegais;
+  onConfirmar: (titulos: TituloGerado[]) => void | Promise<void>;
 }) {
   const [e, setE] = React.useState<EntradaFerias>({ ...FERIAS_PADRAO, inicio: hoje() });
   const set = <K extends keyof EntradaFerias>(k: K, v: EntradaFerias[K]) => setE((s) => ({ ...s, [k]: v }));
 
   const calc = React.useMemo(
-    () => calcularFerias(colaborador, e, regime, anexo),
-    [colaborador, e, regime, anexo],
+    () => calcularFerias(colaborador, e, regime, anexo, tabelas),
+    [colaborador, e, regime, anexo, tabelas],
   );
   const direito = diasPorFaltas(e.faltas);
   const ok = calc.problemas.length === 0 && calc.liquido > 0;
@@ -237,13 +238,14 @@ const MODALIDADES: Modalidade[] = [
 ];
 
 export function ModalRescisao({
-  colaborador, regime, anexo, onFechar, onConfirmar,
+  colaborador, regime, anexo, tabelas, onFechar, onConfirmar,
 }: {
   colaborador: Colaborador;
   regime: Regime;
   anexo: Anexo | null;
   onFechar: () => void;
-  onConfirmar: (titulos: TituloGerado[], desligadoEm: string) => void;
+  tabelas?: TabelasLegais;
+  onConfirmar: (titulos: TituloGerado[], desligadoEm: string) => void | Promise<void>;
 }) {
   const [e, setE] = React.useState<EntradaRescisao>({
     modalidade: "sem_justa_causa",
@@ -257,8 +259,8 @@ export function ModalRescisao({
   const set = <K extends keyof EntradaRescisao>(k: K, v: EntradaRescisao[K]) => setE((s) => ({ ...s, [k]: v }));
 
   const calc = React.useMemo(
-    () => calcularRescisao(colaborador, e, regime, anexo),
-    [colaborador, e, regime, anexo],
+    () => calcularRescisao(colaborador, e, regime, anexo, tabelas),
+    [colaborador, e, regime, anexo, tabelas],
   );
   const ok = calc.problemas.length === 0 && calc.liquido > 0;
 

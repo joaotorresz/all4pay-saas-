@@ -3070,6 +3070,77 @@ const AGOSTO = janelaMes(2026, 7);
        !!rows && /\borigem\s*:/.test(rows[0]));
   }
 
+  /* ---- O ESCRITOR MORTO: gravar onde, em produção, ninguém lê ------------- */
+  {
+    /**
+     * ═════════════════════════════════════════════════════════════════════
+     * TETO ZERO — nenhuma gravação cai só no dataset da DEMONSTRAÇÃO.
+     * ═════════════════════════════════════════════════════════════════════
+     *
+     * ⚠️ `appendImported` escreve no dataset de demonstração, e TODO acessor só
+     * o consulta dentro de `if (isDemo)` (`lib/data.ts`: `importedMovements()
+     * ?? DEMO_MOVEMENTS`, sempre atrás do desvio). Chamá-lo sem esse desvio faz
+     * a linha ir, em produção, para um `localStorage` que nada lê: o título não
+     * aparece no contas a pagar, nem no fluxo, nem no DRE, nem no razão.
+     *
+     * **E é SILENCIOSO**, que é o que o torna caro: escrever no `localStorage`
+     * não falha, então a tela anuncia sucesso. Foi assim que a folha salarial
+     * disse "6 títulos agendados" e o sistema não mostrou nenhum, e assim que
+     * a Nova venda disse "gerou recebível" sem gerar.
+     *
+     * É primo do defeito de `origem` da ONDA 5 — escritor que não alcança o
+     * banco — com uma diferença que piora o diagnóstico: lá o banco RECUSAVA e
+     * a tela escondia a recusa; aqui não havia recusa para esconder, porque a
+     * gravação nunca foi tentada. Nenhuma guarda anterior via isto: a de
+     * `origem` só olha quem já fala com `movements`, e quem grava só no
+     * dataset nunca chega lá.
+     *
+     * A varredura recorta pela FUNÇÃO, não por uma janela de linhas — mesma
+     * técnica (e mesma lição) da guarda de `origem`: uma janela só para a
+     * frente reprova quem monta a linha acima da chamada.
+     */
+    const INICIO = /\n(?:export\s+)?(?:async\s+)?function\s|\n(?:export\s+)?const\s+\w+\s*=|\n\s{2}const\s+\w+\s*=\s*React\.useCallback/g;
+    const escopo = (txt: string, ate: number): string => {
+      let de = 0;
+      for (const m of txt.matchAll(INICIO)) {
+        if ((m.index ?? 0) >= ate) break;
+        de = m.index ?? 0;
+      }
+      return txt.slice(de, ate);
+    };
+    const cegos: string[] = [];
+    for (const arq of varrerArquivos("src", /\.(ts|tsx)$/)) {
+      const caminho = arq.replace(/\\/g, "/");
+      // O próprio store é quem implementa o dataset — ele não se desvia de si.
+      if (caminho === "src/lib/imported.ts") continue;
+      const txt = ler(arq);
+      for (const m of txt.matchAll(/\bappendImported\s*\(/g)) {
+        if (!/\bisDemo\b/.test(escopo(txt, m.index ?? 0))) {
+          cegos.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
+        }
+      }
+    }
+    ok("escritor: nenhuma gravação cai só no dataset de demonstração",
+       cegos.length === 0, cegos.join(" | "));
+    /**
+     * E a contrapartida: o escritor único precisa MESMO ter os dois caminhos.
+     * Sem esta asserção, alguém "resolveria" a guarda acima apagando a chamada
+     * em vez de gravar no banco — e o título voltaria a sumir, agora sem nem o
+     * dataset para guardá-lo.
+     */
+    const dados = ler("src/lib/data.ts");
+    const escritor = /export async function criarTitulos[\s\S]{0,4000}?\n}/.exec(dados);
+    ok("escritor: criarTitulos grava no dataset em demo E no banco em live",
+       !!escritor
+       && /if \(isDemo\)/.test(escritor[0])
+       && /appendImported/.test(escritor[0])
+       && /from\("movements"\)[\s\S]{0,200}?\.insert\(/.test(escritor[0]));
+    // ⚠️ E LANÇA quando o banco recusa: um escritor de dinheiro que engole erro
+    // é indistinguível de um que funciona — foi assim que o defeito durou.
+    ok("escritor: criarTitulos não engole a recusa do banco",
+       !!escritor && /if \(error\) throw error;/.test(escritor[0]));
+  }
+
   /* ---- Contraparte -------------------------------------------------------- */
   ok("onda5: o CNPJ próprio é reconhecido mesmo mascarado",
      mesmoDocumento("12.345.678/0001-95", "12345678000195"));

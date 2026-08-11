@@ -934,6 +934,49 @@ escritores CORRETOS que montam a linha antes — o mesmo defeito de direção qu
 ONDA 10 já cometera; uma guarda que reprova o código certo é desligada na
 primeira semana.
 
+### ⚠️ O SEGUNDO DEFEITO DE GRAVAÇÃO: o escritor MORTO (auditado)
+
+**Três telas gravavam num lugar que, em produção, ninguém lê** — e diziam que
+tinha dado certo. O usuário cadastrou um funcionário CLT e "não apareceu em nada
+do sistema"; era isto.
+
+`appendImported` escreve no dataset da DEMONSTRAÇÃO, e todo acessor só o
+consulta dentro de `if (isDemo)` (`importedMovements() ?? DEMO_MOVEMENTS`, sempre
+atrás do desvio). A folha (cadastro de colaborador e agendamento de
+férias/rescisão) e a **Nova venda** o chamavam direto, sem olhar para `isDemo`:
+em live a linha ia para o `localStorage` e era lida por nada — nem contas a
+pagar, nem fluxo, nem DRE, nem razão.
+
+⚠️ **E era silencioso, que é o que o tornou caro.** Escrever no `localStorage`
+não falha, então a tela anunciava *"cadastrado · 6 títulos agendados"* e
+*"Venda lançada · gerou recebível"*. É primo do defeito de `origem` acima —
+escritor que não alcança o banco — com uma diferença que piora o diagnóstico:
+lá o banco RECUSAVA e a tela escondia a recusa; aqui não havia recusa para
+esconder, porque a gravação nunca foi tentada. A guarda de `origem` não o via:
+ela só olha quem já fala com `movements`, e quem grava só no dataset nunca
+chega lá.
+
+**`criarTitulos`** (`lib/data.ts`) é o escritor único: dataset em demonstração,
+`movements` em produção (com `origem` e `especie: "titulo"`), e **LANÇA** quando
+o banco recusa — um escritor de dinheiro que engole erro é indistinguível de um
+que funciona. Ele existe separado de `createLancamento` porque este monta N
+parcelas IGUAIS espaçadas de mês em mês, e a folha não tem esse formato: um CLT
+gera salário, FGTS e DARF na mesma competência, com valores diferentes e em
+duas datas.
+
+⚠️ **O cadastro do colaborador passou a ser gravado DEPOIS dos títulos.** Antes
+vinha primeiro; numa recusa do banco isso deixaria um colaborador na folha sem
+nenhuma obrigação no caixa, e a próxima tentativa o duplicaria.
+
+**Guarda com teto ZERO** (`escritor: nenhuma gravação cai só no dataset de
+demonstração`): varre `appendImported` fora de `lib/imported.ts` e exige
+`isDemo` no escopo da FUNÇÃO — mesma técnica e mesma lição da guarda de
+`origem`. Mais duas asserções sobre o próprio `criarTitulos` (os dois caminhos
+existem · a recusa não é engolida), senão alguém "resolveria" a primeira
+apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
+Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
+`isDemo: false` o POST chega a `movements` com a linha inteira.
+
 ### ⚠️ FOLHA SALARIAL — `src/core/folha` (`/contas-a-pagar/folha`)
 
 **O salário não é o custo**, e é essa a razão de o módulo existir. Um CLT de
@@ -961,6 +1004,44 @@ estourarem: em novembro o 13º, em janeiro as férias, todo mês o FGTS e o DARF
   resultado sai com duas casas decimais e ar de exatidão. `TABELAS_INSS` e
   `TABELAS_IRRF` têm **vigência e fonte**, o cálculo **declara qual usou**, e
   competência além da última tabela conhecida marca `tabelaDesatualizada`.
+  - ⚠️ **"Desatualizada" é sobre EXTRAPOLAR, não sobre ser antiga.** A regra era
+    `tabela !== ultima`, e ela funcionou enquanto a mais nova era também a
+    vigente. No instante em que entrou a vigência de 2026, todo recálculo de
+    2025 passou a ser acusado — e ele está CERTO, porque a folha de junho de
+    2025 se calcula com a tabela de 2025. Uma guarda que acusa o cálculo correto
+    é uma guarda que se aprende a fechar sem ler, e aí ela não serve para
+    janeiro, que é a única hora em que importa. O corte agora é o **ANO**, que é
+    a cadência da lei.
+  - ⚠️ **AS TABELAS SÃO EDITÁVEIS, e agora de verdade.** O arquivo prometia isso
+    em comentário desde o início e nada implementava. `lib/folha-tabelas` +
+    `ModalTabelas` deixam o contador entrar a portaria de janeiro; `TabelasLegais`
+    entra **por parâmetro** em cada motor (`calcularCLT`, `montarPainelFolha`,
+    `custoAnual`, `calcularFerias`, `calcularRescisao`…), nunca por estado de
+    módulo — um motor de folha auditável não pode ter memória escondida, senão o
+    mesmo colaborador na mesma competência dá números diferentes conforme o que
+    rodou antes. ⚠️ O que a empresa digita entra **por cima, por vigência**: a
+    tabela de fábrica nunca é apagada, senão um recálculo de 2024 sairia com a
+    tabela de 2026 e um mês fechado mudaria de valor depois de fechado.
+    ⚠️ E `custoAnual` recebeu o parâmetro e o IGNOROU na primeira versão — o
+    typecheck não vê parâmetro não usado, e o anual sairia com a tabela de
+    fábrica enquanto o mensal usava a do contador.
+- ⚠️ **O IRRF DE 2026 NÃO MEXEU NAS FAIXAS** (Lei 15.270/2025). A leitura
+  intuitiva de "isento até cinco mil" é que a primeira faixa virou R$ 5.000 — e
+  não virou. A tabela mensal é a mesma; o que entrou foi um **redutor** sobre o
+  imposto já apurado, que o zera em R$ 5.000 e se dissolve linearmente até
+  R$ 7.350 (`redutor = máx(0, 978,62 − 0,133145 × rendimento)`). Reescrever as
+  faixas para "chegar no mesmo lugar" acerta os dois extremos e erra todo mundo
+  no meio da rampa — provado quebrando: com R$ 5.000 na primeira faixa, quem
+  ganha R$ 5.001 também sai isento e a rampa some. Medido: R$ 5.000 saía com
+  R$ 312,89 de IRRF e passa a ZERO; R$ 6.000 vai de R$ 562,63 para R$ 382,88;
+  acima de R$ 7.350 nada muda. O redutor **nunca vira crédito**, e ele aparece
+  NOMEADO na memória de cálculo — um "IRRF R$ 0,00" solto num salário de cinco
+  mil lê como defeito para quem conferiu o ano passado.
+- ⚠️ **A tabela de INSS de 2026 NÃO foi inventada.** Ela sai de portaria
+  interministerial de janeiro, reajustada pelo INPC; não dá para deduzi-la, e
+  chutar quatro faixas é exatamente o defeito que esta seção inteira existe para
+  impedir. O sistema segue com a de 2025, **marca a competência de 2026 como
+  desatualizada** e oferece a tela para o contador entrar com a portaria.
 - ⚠️ **O INSS é progressivo POR FAIXA.** Aplicar a alíquota da faixa sobre o
   salário inteiro — o erro intuitivo — desconta quase o dobro: 14% de R$ 5.000
   dá R$ 700 contra os R$ 509,60 devidos. E acima do **teto** (R$ 951,63 na

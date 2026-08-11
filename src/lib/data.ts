@@ -26,7 +26,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount, removerImported } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount, removerImported, appendImported } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -553,6 +553,113 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
     });
     if (re) throw re;
   }
+}
+
+/* ========================================================================== */
+/* Títulos avulsos — o escritor que faltava                                    */
+/* ========================================================================== */
+
+/**
+ * Uma linha a gravar, já pronta: valor, data e categoria decididos por quem
+ * chamou.
+ *
+ * ⚠️ É o que `createLancamento` NÃO resolve. Ele monta N parcelas iguais,
+ * espaçadas de mês em mês, a partir de UM valor — o formato de uma despesa
+ * parcelada. A folha não tem esse formato: um CLT gera salário, FGTS e DARF na
+ * mesma competência, com valores diferentes e em DUAS datas. Empurrá-la pelo
+ * caminho comum erraria a data de dois títulos e o valor do terceiro.
+ */
+export interface TituloAvulso {
+  account_id: string;
+  type: MovementType;
+  amount: number;
+  /** Vencimento "YYYY-MM-DD" — é ele que responde "o que cai no dia 20". */
+  due_date: string;
+  /** Competência: em que mês o resultado reconhece a despesa. */
+  competence_date?: string | null;
+  category?: string | null;
+  description?: string | null;
+  party_id?: string | null;
+  status?: "pendente" | "pago";
+  paid_date?: string | null;
+  origem?: LancamentoInput["origem"];
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * GRAVA TÍTULOS PRONTOS — em demonstração E em produção.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **ESTE ESCRITOR EXISTE PORQUE TRÊS TELAS GRAVAVAM NUM LUGAR QUE, EM
+ * PRODUÇÃO, NINGUÉM LÊ.**
+ *
+ * Folha (cadastro de colaborador e agendamento de férias/rescisão) e Nova venda
+ * chamavam `appendImported` DIRETO, sem olhar para `isDemo`. Esse store é o
+ * dataset da demonstração: `getRiscoInput` e todos os acessores só o consultam
+ * dentro de `if (isDemo)`. Em live a linha ia para o `localStorage` e era lida
+ * por nada — o título não aparecia no contas a pagar, nem no fluxo, nem no DRE,
+ * nem no razão.
+ *
+ * E a tela dizia **"cadastrado · 6 títulos agendados"**, porque escrever no
+ * `localStorage` não falha. É a mesma família do defeito de `origem` da ONDA 5 —
+ * um escritor que não alcança o banco — só que pior num ponto: lá o banco
+ * RECUSAVA e a tela escondia a recusa; aqui não havia recusa nenhuma para
+ * esconder, porque a gravação nunca foi tentada.
+ *
+ * Por isso a função **LANÇA** quando o banco recusa. Um escritor de dinheiro que
+ * engole erro é indistinguível de um que funciona, e foi assim que o defeito
+ * chegou até aqui.
+ */
+export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
+  if (linhas.length === 0) return;
+
+  if (isDemo) {
+    linhas.forEach((l, k) => {
+      appendImported({
+        movement: {
+          id: `mv_${Date.now().toString(36)}_${k}`,
+          account_id: l.account_id,
+          type: l.type,
+          status: l.status ?? "pendente",
+          amount: l.amount,
+          due_date: l.due_date,
+          paid_date: l.paid_date ?? null,
+          reconciled: false,
+          category: l.category ?? null,
+          description: l.description ?? null,
+          party_id: l.party_id ?? null,
+          origem: l.origem ?? "manual",
+        } as never,
+      });
+    });
+    return;
+  }
+
+  const supabase = createClient();
+  const { error } = await supabase.from("movements").insert(
+    linhas.map((l) => ({
+      account_id: l.account_id,
+      type: l.type,
+      status: l.status ?? "pendente",
+      amount: l.amount,
+      due_date: l.due_date,
+      competence_date: l.competence_date ?? l.due_date,
+      paid_date: l.paid_date ?? null,
+      reconciled: false,
+      category: l.category ?? null,
+      description: l.description ?? null,
+      party_id: l.party_id ?? null,
+      /**
+       * ⚠️ `origem` é a chave da fechadura da ONDA 5 (`titulo_exige_origem`
+       * recusa com A4P05 um título sem procedência). `especie: "titulo"` é a
+       * outra metade: sem ela a linha fica sem classificação e cai na dívida
+       * que a tela de qualidade de dados cobra.
+       */
+      origem: l.origem ?? "manual",
+      especie: "titulo",
+    })),
+  );
+  if (error) throw error;
 }
 
 /** Input for the cash-risk engine (scoreRiscoCaixa). */

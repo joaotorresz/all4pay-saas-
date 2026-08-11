@@ -48,7 +48,7 @@ import { appendImported } from "@/lib/imported";
 import { vincularProjeto } from "@/lib/projeto-vinculo";
 import { isDemo } from "@/lib/demo";
 import { reportar } from "@/lib/erros";
-import { createLancamento } from "@/lib/data";
+import { createLancamento, criarTitulos } from "@/lib/data";
 import type { Direcao } from "@/core/movimentacoes";
 import type { RecurrenceFreq } from "@/lib/types";
 
@@ -196,28 +196,30 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
          *
          * O colaborador é GRAVADO junto: sem ele a tela de folha não teria de
          * onde recalcular, e o mês seguinte exigiria digitar tudo de novo.
+         *
+         * ⚠️ **OS TÍTULOS VÃO POR `criarTitulos`, não por `appendImported`.**
+         * A versão anterior chamava o segundo direto, sem olhar para `isDemo`:
+         * em produção a linha caía no dataset da demonstração, que nenhum
+         * acessor lê fora de `if (isDemo)`. O colaborador aparecia na folha
+         * (o cadastro vai por `store-org`, que sobe ao servidor) e os títulos
+         * não apareciam em lugar nenhum — e a tela anunciava o agendamento.
          */
         const colab = colaboradorDe(folha, f.valor, centros.find((c) => c.id)?.id ?? null);
-        saveColaborador(colab);
         const titulos = titulosDoCadastro(colab, folha.competencias, fiscal.regime, fiscal.anexo);
-        titulos.forEach((t, k) => {
-          appendImported({
-            movement: {
-              id: `mv_${Date.now().toString(36)}_${k}`,
-              account_id: f.contaId,
-              type: "saida",
-              status: "pendente",
-              amount: t.valor,
-              due_date: t.vencimento,
-              paid_date: null,
-              reconciled: false,
-              category: t.categoria,
-              description: t.descricao,
-              party_id: null,
-              origem: "manual",
-            } as never,
-          });
-        });
+        await criarTitulos(titulos.map((t) => ({
+          account_id: f.contaId,
+          type: "saida" as const,
+          amount: t.valor,
+          due_date: t.vencimento,
+          competence_date: t.vencimento,
+          category: t.categoria,
+          description: t.descricao,
+          origem: "manual" as const,
+        })));
+        // ⚠️ O cadastro só é gravado DEPOIS de os títulos entrarem. Gravá-lo
+        // antes deixaria, numa recusa do banco, um colaborador na folha sem
+        // nenhuma obrigação no caixa — e a próxima tentativa o duplicaria.
+        saveColaborador(colab);
         qc.invalidateQueries();
         show(`${colab.nome} cadastrado · ${titulos.length} títulos agendados.`);
         router.push("/contas-a-pagar/folha");

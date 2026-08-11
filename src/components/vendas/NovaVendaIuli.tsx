@@ -8,7 +8,8 @@
  * Cálculo em tempo real (Valor Total = Σ qtd×preço; Valor Líquido = Total − taxas)
  * e PROPAGAÇÃO: gera Conta a Receber (vencimento) → caso pago, caixa; NF a Emitir;
  * Provisionamento de Imposto; entra por competência na DRE e por caixa na DFC.
- * Demo-safe: ao salvar, anexa 1 movimento de entrada (appendImported).
+ * Ao salvar, cria o recebível por `criarTitulos` — dataset em demonstração,
+ * banco em produção.
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -18,11 +19,10 @@ import { Card, Button, Input, Select, CurrencyInput, DateField, Checkbox, Icon, 
 import { SectionTitle } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { listParties, listProducts, listServices } from "@/lib/cadastros";
-import { getAccountsList, getCategories } from "@/lib/data";
-import { appendImported } from "@/lib/imported";
+import { getAccountsList, getCategories, criarTitulos } from "@/lib/data";
+import { reportar } from "@/lib/erros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
 import { formatBRL } from "@/lib/format";
-import type { Movement } from "@/lib/types";
 
 const STATUS = ["Iniciada", "Boleto Gerado", "Aguardando pagamento", "Em Análise", "Aprovada", "Completa", "Expirada", "Atrasada", "Cancelada", "Reclamada", "Reembolsada", "Reembolso Manual", "Chargeback"];
 const METODOS = ["Crédito", "Débito", "Boleto", "PIX", "TED/DOC", "Saldo Plataforma Externa", "Perguntar ao Cliente", "Outros"];
@@ -93,7 +93,15 @@ export function NovaVendaIuli() {
     return { ...t, [key]: { ...cur, ...patch } };
   });
 
-  const salvar = () => {
+  /**
+   * ⚠️ **A VENDA GRAVAVA SÓ NO DATASET DA DEMONSTRAÇÃO.**
+   *
+   * `appendImported` era chamado direto, sem olhar para `isDemo`. Em produção
+   * o recebível ia para o `localStorage` — que nenhum acessor lê fora de
+   * `if (isDemo)` — e a tela dizia "Venda lançada · gerou recebível". O mesmo
+   * defeito que a folha tinha, na tela onde ele custa faturamento.
+   */
+  const salvar = async () => {
     setErro(null);
     if (!clienteId) return setErro("Selecione o cliente.");
     if (!competencia) return setErro("Informe a data de competência.");
@@ -101,20 +109,27 @@ export function NovaVendaIuli() {
     // validação condicional: taxa preenchida exige fornecedor
     for (const t of TAXAS) { const x = taxas[t.key]; if (x?.valor > 0 && !x.fornecedor) return setErro(`Vincule um fornecedor à ${t.label}.`); }
     const catNome = categorias.data?.find((c) => c.id === categoria)?.name || "Venda";
-    const mov: Movement = {
-      id: `venda-${Date.now()}`,
-      account_id: contaId,
-      type: "entrada",
-      status: pago ? "pago" : "pendente",
-      category: catNome,
-      amount: Math.round(valorTotal * 100) / 100,
-      party_id: clienteId || null,
-      due_date: vencimento || competencia,
-      paid_date: pago ? (dataPagamento || competencia) : null,
-      reconciled: false,
-      description: descricao || textoFiscal || "Venda",
-    };
-    appendImported({ movement: mov });
+    try {
+      await criarTitulos([{
+        account_id: contaId,
+        type: "entrada",
+        status: pago ? "pago" : "pendente",
+        category: catNome,
+        amount: Math.round(valorTotal * 100) / 100,
+        party_id: clienteId || null,
+        due_date: vencimento || competencia,
+        competence_date: competencia,
+        paid_date: pago ? (dataPagamento || competencia) : null,
+        description: descricao || textoFiscal || "Venda",
+        // A venda é o documento-mãe do recebível — é essa a procedência.
+        origem: "venda",
+      }]);
+    } catch (err) {
+      const e = err as { message?: string; hint?: string };
+      reportar("venda.criar", err, "a venda não gerou recebível e o faturamento fica sem ela");
+      setErro(e?.message ? `Não foi possível lançar: ${e.message}${e.hint ? ` ${e.hint}` : ""}` : "Não foi possível lançar a venda.");
+      return;
+    }
     qc.invalidateQueries();
     show("Venda lançada · gerou recebível, NF a emitir e provisionamento de imposto");
     setTimeout(() => router.push("/vendas"), 900);

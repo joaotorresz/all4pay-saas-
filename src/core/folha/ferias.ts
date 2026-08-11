@@ -24,7 +24,7 @@
  * Puro, tipado, sem I/O e sem relógio. Versão `folha-ferias/1.0.0`.
  */
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
-import { inssDe, irrfDe, inssEmpregado, irrfEmpregado } from "./tabelas";
+import { inssDe, irrfDe, inssEmpregado, irrfEmpregado, TABELAS_PADRAO, type TabelasLegais } from "./tabelas";
 import { anteciparParaDiaUtil } from "./calendario";
 import { encargosPatronais, FGTS, type LinhaMemoria, type Colaborador } from "./index";
 
@@ -127,6 +127,7 @@ const somarDias = (iso: string, n: number) => {
 
 export function calcularFerias(
   c: Colaborador, e: EntradaFerias, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
 ): CalculoFerias {
   const problemas: string[] = [];
   const diasDireito = diasPorFaltas(e.faltas);
@@ -154,8 +155,8 @@ export function calcularFerias(
     problemas.push("Cada período de férias precisa ter no mínimo 5 dias corridos.");
   }
 
-  const ti = inssDe(competencia || "2025-01");
-  const tr = irrfDe(competencia || "2025-01");
+  const ti = inssDe(competencia || "2025-01", tabelas);
+  const tr = irrfDe(competencia || "2025-01", tabelas);
   const enc = encargosPatronais(regime, anexo);
   const bruto = Math.max(0, c.valor);
   const diaria = bruto / 30;

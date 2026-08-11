@@ -2996,6 +2996,54 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("folha: quem ganha até a faixa de isenção não paga IRRF",
      irrfEmpregado(2000, 150, 0, 0, tr).imposto === 0);
 
+  /* ---- O REDUTOR DE 2026 — a isenção até 5 mil ----------------------------
+   * ⚠️ Estes valores foram conferidos À MÃO antes de virarem asserção, e os
+   * dois EXTREMOS são o que prova que os coeficientes estão certos: o
+   * abatimento tem de cobrir exatamente o imposto em R$ 5.000 e chegar
+   * exatamente a zero em R$ 7.350. Coeficiente errado quebra um dos dois — ou
+   * sobra imposto para quem a lei isentou, ou aparece um degrau no meio da
+   * rampa.
+   */
+  {
+    const t26 = irrfDe("2026-08").tabela;
+    const t25 = irrfDe("2025-12").tabela;
+    ok("folha26: a vigência de 2026 traz o redutor", !!t26.redutor && !t25.redutor);
+    // ⚠️ As FAIXAS não mudaram: a lei abate o imposto, não reescreve a tabela.
+    ok("folha26: as faixas de 2026 são as mesmas de 2025",
+       JSON.stringify(t26.faixas) === JSON.stringify(t25.faixas));
+
+    const a5k = irrfEmpregado(5000, 509.60, 0, 0, t26);
+    ok("folha26: 5.000 retinha 312,89 e passa a reter ZERO",
+       a5k.impostoDaTabela === 312.89 && a5k.imposto === 0,
+       `${a5k.impostoDaTabela} → ${a5k.imposto}`);
+    /**
+     * ⚠️ SEM DEGRAU logo acima do limite. Uma isenção "até 5.000" implementada
+     * como corte seco faria quem ganha R$ 5.001 pagar R$ 313 — trezentos reais
+     * por um real a mais. O redutor é uma rampa, e é isso que esta asserção
+     * fixa: um real acima, o imposto é de centavos.
+     */
+    const a5001 = irrfEmpregado(5001, 509.74, 0, 0, t26);
+    ok("folha26: um real acima de 5.000 não cria degrau",
+       a5001.imposto > 0 && a5001.imposto < 1, String(a5001.imposto));
+
+    const a6k = irrfEmpregado(6000, 649.60, 0, 0, t26);
+    ok("folha26: 6.000 fica no meio da rampa (562,63 → 382,88)",
+       a6k.impostoDaTabela === 562.63 && a6k.imposto === 382.88,
+       `${a6k.impostoDaTabela} → ${a6k.imposto}`);
+
+    // O outro extremo: em 7.350 o abatimento acabou, e nada muda dali para cima.
+    const a7350 = irrfEmpregado(7350, 838.60, 0, 0, t26);
+    ok("folha26: em 7.350 o redutor zerou", a7350.redutor === 0
+       && a7350.imposto === a7350.impostoDaTabela, String(a7350.redutor));
+    const a8k = irrfEmpregado(8000, 929.60, 0, 0, t26);
+    ok("folha26: acima de 7.350 o imposto é o da tabela",
+       a8k.imposto === irrfEmpregado(8000, 929.60, 0, 0, t25).imposto);
+
+    // ⚠️ E o redutor NUNCA vira crédito: isento é zero, não devolução na folha.
+    const isento = irrfEmpregado(3000, 253.41, 0, 0, t26);
+    ok("folha26: o redutor não devolve dinheiro", isento.imposto === 0 && isento.redutor >= 0);
+  }
+
   /* ---- O ENCARGO PATRONAL DEPENDE DO REGIME -------------------------------
    * É a asserção que sozinha justifica ler o perfil fiscal: a MESMA folha
    * custa 29% a mais no Simples III e 62% a mais no Presumido.
@@ -3172,6 +3220,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // ⚠️ A asserção que separa "número certo" de "número com cara de certo".
   ok("folha: competência dentro da vigência não acusa desatualização",
      !clt("presumido", null).tabelas.desatualizada);
+  /**
+   * ⚠️ O FALSO POSITIVO QUE ESTA ASSERÇÃO EXISTE PARA IMPEDIR.
+   *
+   * Ao entrar a vigência de IRRF de 2026, a regra antiga (`tabela !== ultima`)
+   * passou a acusar TODO recálculo de 2025 — que usa a tabela de 2025 porque é
+   * essa a tabela de 2025. Um aviso que aparece no cálculo certo é um aviso que
+   * a pessoa aprende a fechar sem ler, e aí ele não serve mais para janeiro,
+   * que é a única hora em que ele importa.
+   */
+  ok("folha: recalcular um mês PASSADO com a tabela da época não é desatualização",
+     !calcularCLT(ana, "2025-06", "presumido", null).tabelas.desatualizada
+     && !calcularCLT(ana, "2025-12", "presumido", null).tabelas.desatualizada);
+  // ⚠️ Mas virar o ano SEM tabela nova é desatualização — é o caso de hoje, com
+  // o INSS parado em 2025 e a competência em 2026.
+  ok("folha: atravessar janeiro sem tabela nova MARCA a competência",
+     calcularCLT(ana, "2026-08", "presumido", null).tabelas.desatualizada);
   const futuro = calcularCLT(ana, "2030-06", "presumido", null);
   ok("folha: competência muito à frente MARCA a tabela como desatualizada",
      futuro.tabelas.desatualizada && futuro.tabelas.mesesDeAtraso > 12,
