@@ -3393,38 +3393,49 @@ Never satisfy a one-off by inlining a raw value. Discipline > variety:
   - O `AppShell` aplica `scopeClassName="ds-visor"` por padrão (paleta clara via
     `html:not(.dark) .ds-visor` — o **dark mode é preservado**).
 
-### ⚠️ PUBLICAR: a produção NÃO sai do `main`
+### ⚠️ PUBLICAR: o `main` publica — e o `/api/versao` é quem responde isso
 
-**A Vercel publica de `claude/epic-fermi-i423xk`.** Isto foi medido, não
-suposto: três merges entraram no `main` num mesmo dia (PRs #1, #45 e #46) e
-NENHUM gerou build de produção — o hash do CSS servido não mudou. Empurrar o
-mesmo conteúdo para a `epic-fermi` disparou o build em minutos.
+**A Vercel publica do `main`.** Medido em 11/08/2026, não suposto: o merge do
+PR #80 no `main` (`1f3f792`) apareceu em produção em ~1 minuto, com
+`/api/versao` respondendo `{"commit":"1f3f792…","branch":"main"}` e o hash de
+um dos CSS mudando (`a46620678d50d03c` → `00bcb917ce01e2b2`).
+
+⚠️ **Isto CONTRADIZ o que esta seção afirmou por meses**, e a contradição é a
+parte que vale guardar. A afirmação anterior — "a Vercel publica de
+`claude/epic-fermi-i423xk`" — também tinha sido medida, e estava certa quando
+foi escrita: três merges no `main` num mesmo dia (PRs #1, #45 e #46) não
+geraram build. O Production Branch foi corrigido para `main` depois disso, e a
+NOTA não foi. Uma medição correta envelhece; uma medição correta que virou
+regra escrita envelhece ensinando o passo errado — e por meses eu repeti a
+frase antiga em vez de remedir, inclusive para o usuário.
 
 **O fluxo padrão de toda publicação**, na ordem:
 
 1. PR → `main`, com CI verde;
-2. merge no `main`;
-3. `git merge origin/main` para dentro de `claude/epic-fermi-i423xk` e push —
-   **é este passo que publica**;
-4. conferir em produção que o **hash do CSS mudou** e que o marcador da
-   mudança aparece no arquivo servido. Hash igual = build não saiu.
+2. merge no `main` — **é este passo que publica**;
+3. conferir em produção pelo **`/api/versao`**: o `commit` tem de ser o da sua
+   mudança. Este é o sinal DIRETO; o hash do CSS é o indireto, e serve de
+   segunda opinião (ele não muda quando a mudança não toca em estilo).
 
-⚠️ Merge, nunca force-push: a `epic-fermi` tem MAIS DE UM ESCRITOR (outra
-sessão commitou nela no meio desta), e ela carrega commits que o `main` não
-tem.
-
-⚠️ **O conserto de verdade é na Vercel** — Settings → Git → Production Branch
-para `main`. Enquanto isso não for feito, todo merge no `main` para no meio do
-caminho, e o passo 3 é obrigatório. Um passo manual que "todo mundo sabe" é o
-passo que alguém esquece.
+⚠️ **`claude/epic-fermi-i423xk` continua existindo e ainda recebe merges do
+`main` nesta rotina.** Ela não publica mais nada, mas carrega commits que o
+`main` não tem e tem MAIS DE UM ESCRITOR — então: merge, nunca force-push.
+Aposentá-la é decisão pendente do dono do repositório; enquanto ela viver,
+mantê-la em dia é o que impede a divergência de crescer calada.
 
 **Conferir a publicação, na prática:**
 
 ```bash
-curl -s https://all4pay-saas.vercel.app/login | grep -o '/_next/static/css/[^"]*'
-# pegue o bundle grande e procure o marcador da sua mudança:
-curl -s "https://all4pay-saas.vercel.app/_next/static/css/<hash>.css" | grep -c "<seu-token>"
+# 1) O sinal DIRETO — o commit que está servindo agora:
+curl -s https://all4pay-saas.vercel.app/api/versao
+# 2) A segunda opinião — o hash do CSS tem de mudar (só se a mudança tocar em estilo):
+curl -s https://all4pay-saas.vercel.app/login | grep -o '/_next/static/css/[^"]*' | sort -u
 ```
+
+⚠️ **Rota nova não se confere pelo código HTTP.** Sem sessão o middleware
+responde **307 para `/login`** tanto para uma rota que existe quanto para uma
+que não existe — os dois casos são indistinguíveis de fora. O que prova que a
+rota subiu é o `commit` do `/api/versao` ser o da mudança, mais o build verde.
 
 ⚠️ **A tela de login não mostra o app.** `/` responde **307** para `/login`
 quando não há sessão, e o login é uma tela pública — a moldura escura aparece,
