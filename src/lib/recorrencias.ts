@@ -199,6 +199,8 @@ export async function ativarRecorrencia(id: string): Promise<void> {
     const datas = datasFaturaCron(isoDay(new Date()), cicloParaFreq(r.ciclo), r.diaFaturamento, isoDay(new Date()), 180);
     for (const d of datas) {
       const { error } = await supabase.from("movements").insert({
+        // ⚠️ ONDA 5: fatura de recorrência vem de CONTRATO.
+        origem: "contrato" as const,
         account_id: accId, type: "entrada", status: "pendente",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: totalFatura(r), party_id: r.clienteId || null, due_date: d, paid_date: null,

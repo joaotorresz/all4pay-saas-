@@ -302,6 +302,8 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   }
   if (accId) {
     const { error } = await supabase.from("movements").insert({
+      // ⚠️ ONDA 5: documento avulso lido por OCR é IMPORTAÇÃO.
+      origem: "importacao" as const,
       account_id: accId,
       type: tipoMov,
       status: pago ? "pago" : "pendente",

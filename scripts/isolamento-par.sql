@@ -59,10 +59,15 @@ begin
     raise exception 'GUARDA INVÁLIDA: o seed não criou conta bancária para uma das empresas.';
   end if;
 
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date)
-  values (oa, ca, 'entrada', 1111.11, 'segredo da empresa A', 'pago', current_date);
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date)
-  values (ob, cb, 'entrada', 2222.22, 'segredo da empresa B', 'pago', current_date);
+  -- ⚠️ `origem` é obrigatória desde a ONDA 5 (gatilho `movements_origem`), e a
+  -- ausência dela aqui derrubou esta guarda inteira num `ERROR` que o runner
+  -- traduziu como "ISOLAMENTO ROMPIDO". A fixture de uma guarda tem de
+  -- obedecer às regras do produto: no dia em que ela precisa de uma exceção
+  -- para existir, ela deixou de testar o produto.
+  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
+  values (oa, ca, 'entrada', 1111.11, 'segredo da empresa A', 'pago', current_date, 'manual');
+  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
+  values (ob, cb, 'entrada', 2222.22, 'segredo da empresa B', 'pago', current_date, 'manual');
 
   --------------------------------------------------------------- LEITURA ----
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
@@ -92,8 +97,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.movements (org_id, account_id, type, amount, description, status, due_date)
-    values (ob, cb, 'saida', 9.99, 'invasão', 'pago', current_date);
+    insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
+    values (ob, cb, 'saida', 9.99, 'invasão', 'pago', current_date, 'manual');
     passou := true;
   exception when others then
     passou := false;
@@ -149,7 +154,12 @@ begin
 
   ----------------------------------------------------------------- veredicto -
   if array_length(falhas, 1) > 0 then
-    raise exception E'ISOLAMENTO ROMPIDO — % ocorrência(s):\n  · %',
+    -- ⚠️ `[A4P-VAZAMENTO]` é SENTINELA, não decoração: é por ela que o runner
+    -- distingue "um cruzamento passou" de "o script nem chegou ao veredicto".
+    -- Casar pela frase em português falharia — este arquivo tem um comentário
+    -- que a contém, e um comentário no CONTEXT do erro faria uma falha de
+    -- setup ser anunciada como brecha de segurança.
+    raise exception E'[A4P-VAZAMENTO] ISOLAMENTO ROMPIDO — % ocorrência(s):\n  · %',
       array_length(falhas, 1), array_to_string(falhas, E'\n  · ');
   end if;
 

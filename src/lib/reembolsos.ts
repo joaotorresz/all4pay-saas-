@@ -181,6 +181,8 @@ async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number
   const accId = (accs as { id: string }[] | null)?.[0]?.id;
   if (!accId) return out;
   const rows = r.itens.map((it) => ({
+    // ⚠️ ONDA 5: o reembolso é lançado por uma pessoa, não importado.
+    origem: "manual" as const,
     account_id: accId, type: "saida", status: "pendente", category: it.categoria, amount: it.valor,
     party_id: r.colaboradorId || null, due_date: hoje, paid_date: null, reconciled: false,
     description: `Reembolso · ${r.colaborador} · ${it.descricao}`,
