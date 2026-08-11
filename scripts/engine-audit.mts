@@ -94,6 +94,9 @@ import {
   periodoMes, periodoSemana, periodoPersonalizado, periodoInvalido,
 } from "@/core/contas-pagar";
 import { planejarLancamento } from "@/core/contas-pagar/lancamento";
+import {
+  montarPainelContasReceber, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
+} from "@/core/contas-receber";
 import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
   calcularCLT, calcularPJ, inssEmpregado, irrfEmpregado, tetoINSS, inssDe, irrfDe,
@@ -3414,6 +3417,168 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        modalidade: "sem_justa_causa", desligamento: "2019-01-01", admissao: "2020-03-02",
        avisoTrabalhado: false, diasFeriasVencidas: 0, saldoFGTS: 0, estimarSaldo: true,
      }, "presumido", null).problemas.length > 0);
+}
+
+
+/* ========================================================================== */
+/* CONTAS A RECEBER — o painel, o envelhecimento e a ponte com a venda        */
+/* ========================================================================== */
+{
+  const mvR = (
+    id: string, amount: number, status: RiskMovement["status"],
+    due_date: string, paid_date: string | null,
+    extra: Partial<RiskMovement> = {},
+  ): RiskMovement => ({
+    id, type: "entrada", status, amount, due_date, paid_date,
+    category: "Vendas", ...extra,
+  });
+
+  const INPUT: RiskInput = {
+    hoje: "2026-08-11",
+    saldoAtual: 10_000,
+    partyNames: { p1: "Cliente Alfa", p2: "Cliente Beta", p3: "Cliente Gama" },
+    movements: [
+      // Recebidas DENTRO do período, pela data de PAGAMENTO.
+      mvR("rc1", 2_000, "pago", "2026-07-28", "2026-08-03", { party_id: "p1" }),
+      mvR("rc2", 1_000, "pago", "2026-08-05", "2026-08-05"),
+      // ⚠️ Vence no período e foi RECEBIDA fora dele: não entra em card nenhum.
+      mvR("rc3", 777, "pago", "2026-08-20", "2026-09-02"),
+      // Vence HOJE e está em aberto → A VENCER, jamais vencida.
+      mvR("hj", 3_000, "pendente", "2026-08-11", null, { party_id: "p2" }),
+      mvR("av", 5_000, "pendente", "2026-08-25", null, { party_id: "p1", projeto: "Contrato Sul" }),
+      // Vencidas com IDADES diferentes — e duas delas FORA da janela de agosto.
+      mvR("at9", 1_500, "pendente", "2026-08-02", null, { party_id: "p2" }),
+      mvR("at72", 2_500, "pendente", "2026-05-31", null, { party_id: "p2" }),
+      mvR("at218", 800, "pendente", "2026-01-05", null, { party_id: "p3" }),
+      // ⚠️ Entrada que NÃO é recebível: ninguém deve isto à empresa.
+      mvR("tr", 20_000, "pendente", "2026-08-15", null, { category: "Transferência entre contas" }),
+      mvR("cx", 9_999, "cancelado", "2026-08-07", null),
+      { id: "sa", type: "saida", status: "pendente", amount: 4_000, due_date: "2026-08-09", paid_date: null },
+    ],
+  };
+  const AGOSTO = { de: "2026-08-01", ate: "2026-08-31" };
+  const r = montarPainelContasReceber(INPUT, AGOSTO);
+
+  /* ---- Os três cards, com as datas que os separam ----------------------- */
+  ok("creceber: recebido no período usa a DATA DE RECEBIMENTO",
+     r.recebidoNoPeriodo.total === 3_000 && r.recebidoNoPeriodo.quantidade === 2,
+     `${r.recebidoNoPeriodo.total} / ${r.recebidoNoPeriodo.quantidade}`);
+  ok("creceber: recebida fora do período não conta",
+     !r.recebidoNoPeriodo.titulos.some((t) => t.id === "rc3"));
+  ok("creceber: 'vence hoje' é a vencer, não vencida",
+     r.aVencer.titulos.some((t) => t.id === "hj") && !r.vencidas.titulos.some((t) => t.id === "hj"));
+  ok("creceber: a vencer soma o que vence de hoje em diante", r.aVencer.total === 8_000,
+     String(r.aVencer.total));
+  ok("creceber: o card de vencidas é do PERÍODO", r.vencidas.total === 1_500,
+     String(r.vencidas.total));
+
+  /* ---- A regra que separa este motor de uma cópia do de pagar ------------ */
+  // ⚠️ Sem esta linha, a transferência entre contas próprias apareceria como
+  // dinheiro a cobrar de um cliente — e ela sozinha vale 20 mil na fixture.
+  ok("creceber: transferência entre contas próprias NÃO é recebível",
+     ![...r.recebidoNoPeriodo.titulos, ...r.aVencer.titulos, ...r.vencidas.titulos]
+       .some((t) => t.id === "tr")
+     && r.carteira.emAberto === 12_800, String(r.carteira.emAberto));
+  ok("creceber: cancelada e saída ficam fora",
+     ![...r.recebidoNoPeriodo.titulos, ...r.aVencer.titulos, ...r.vencidas.titulos]
+       .some((t) => t.id === "cx" || t.id === "sa"));
+
+  /* ---- A CARTEIRA é posição, não período -------------------------------- */
+  /**
+   * ⚠️ A asserção que registra o defeito que eu ia publicar: com o
+   * envelhecimento preso ao período, `at72` (venceu em maio) e `at218`
+   * (janeiro) sumiriam ao olhar agosto — justamente a dívida velha, que é o
+   * motivo de existir uma tela de cobrança.
+   */
+  ok("creceber: a carteira enxerga o vencido de FORA da janela",
+     r.carteira.vencido === 4_800 && r.carteira.titulos === 5,
+     `${r.carteira.vencido} / ${r.carteira.titulos}`);
+  ok("creceber: o vencido da carteira é maior que o vencido do período",
+     r.carteira.vencido > r.vencidas.total);
+
+  /* ---- O envelhecimento -------------------------------------------------- */
+  const faixa = (id: string) => r.envelhecimento.find((e) => e.faixa === id)!;
+  ok("creceber: 9 dias caem em 'até 30'", faixa("ate_30").valor === 1_500);
+  ok("creceber: 72 dias caem em '61 a 90'", faixa("de_61_a_90").valor === 2_500);
+  ok("creceber: 218 dias caem em 'mais de 90'", faixa("acima_90").valor === 800);
+  ok("creceber: faixa sem título vale zero, e aparece", faixa("de_31_a_60").valor === 0
+     && r.envelhecimento.length === 4);
+  // As frações fecham em 1 sobre o VENCIDO, não sobre a carteira.
+  const somaFaixas = r.envelhecimento.reduce((s, e) => s + e.fracao, 0);
+  ok("creceber: as faixas fecham em 1 sobre o vencido", Math.abs(somaFaixas - 1) < 1e-9,
+     String(somaFaixas));
+  // ⚠️ Os limites, um a um: é onde um `<` no lugar de `<=` passa despercebido.
+  ok("creceber: os limites das faixas não escorregam",
+     faixaDoAtraso(1) === "ate_30" && faixaDoAtraso(30) === "ate_30"
+     && faixaDoAtraso(31) === "de_31_a_60" && faixaDoAtraso(60) === "de_31_a_60"
+     && faixaDoAtraso(61) === "de_61_a_90" && faixaDoAtraso(90) === "de_61_a_90"
+     && faixaDoAtraso(91) === "acima_90");
+
+  /* ---- A concentração ---------------------------------------------------- */
+  ok("creceber: a exposição agrupa por cliente e ordena pelo maior",
+     r.exposicao[0].cliente === "Cliente Beta" && r.exposicao[0].emAberto === 7_000
+     && r.exposicao[0].vencido === 4_000 && r.exposicao[0].quantidade === 3,
+     JSON.stringify(r.exposicao[0]));
+  ok("creceber: a concentração do maior cliente é sobre a carteira",
+     Math.abs(r.concentracaoMaiorCliente - 7_000 / 12_800) < 1e-9,
+     String(r.concentracaoMaiorCliente));
+
+  /* ---- O calendário: o período INTEIRO ---------------------------------- */
+  ok("creceber: agosto tem 31 cápsulas, nenhuma pulada", r.dias.length === 31
+     && r.dias[0].data === "2026-08-01" && r.dias[30].data === "2026-08-31");
+  ok("creceber: o dia mostra a situação mais URGENTE que contém",
+     r.dias.find((d) => d.data === "2026-08-02")?.situacao === "vencido");
+  ok("creceber: hoje é marcado mesmo sem nada vencendo",
+     r.dias.find((d) => d.data === "2026-08-11")?.ehHoje === true);
+
+  /* ---- A PONTE: faturar não é receber ------------------------------------ */
+  const ponte = ponteVendaRecebimento(INPUT, AGOSTO);
+  ok("creceber: faturado é por competência (o vencimento)", ponte.faturado === 11_277,
+     String(ponte.faturado));
+  ok("creceber: recebido é por caixa", ponte.recebido === 3_000, String(ponte.recebido));
+  ok("creceber: a receber é o que vence no período", ponte.aReceber === 9_500,
+     String(ponte.aReceber));
+  /**
+   * ⚠️ A asserção que dá sentido à ponte: os três NÃO fecham entre si. Se um
+   * dia `faturado === recebido + aReceber`, alguém colapsou as três datas numa
+   * só e a tela voltou a sugerir a soma que a ponte existe para impedir.
+   */
+  ok("creceber: os três números da ponte não se somam",
+     ponte.faturado !== ponte.recebido + ponte.aReceber);
+  ok("creceber: a conversão em caixa é recebido ÷ faturado",
+     Math.abs((ponte.conversaoEmCaixa ?? -1) - 3_000 / 11_277) < 1e-9);
+  // ⚠️ Sem faturamento a conversão é AUSENTE, não 0% — "0% do que faturei
+  // entrou" manda cobrar; "não faturei" manda vender (regra da ONDA 4).
+  const vazio = ponteVendaRecebimento(
+    { ...INPUT, movements: [] }, AGOSTO,
+  );
+  ok("creceber: sem faturamento a conversão é ausente, não zero",
+     vazio.conversaoEmCaixa === null);
+
+  /* ---- Os filtros -------------------------------------------------------- */
+  const soAlfa = montarPainelContasReceber(INPUT, { ...AGOSTO, cliente: "Cliente Alfa" });
+  ok("creceber: o filtro por cliente recorta os cards",
+     soAlfa.aVencer.total === 5_000 && soAlfa.recebidoNoPeriodo.total === 2_000,
+     `${soAlfa.aVencer.total} / ${soAlfa.recebidoNoPeriodo.total}`);
+  // ⚠️ Filtro sem correspondência devolve VAZIO, nunca tudo.
+  const ninguem = montarPainelContasReceber(INPUT, { ...AGOSTO, cliente: "Não existe" });
+  ok("creceber: filtro sem correspondência devolve vazio",
+     ninguem.aVencer.total === 0 && ninguem.carteira.emAberto === 0);
+  const ops = opcoesDeFiltroReceber(INPUT);
+  ok("creceber: o filtro só oferece o que existe no recebível",
+     ops.projetos.join(",") === "Contrato Sul"
+     && ops.clientes.includes("Cliente Beta")
+     && !ops.clientes.includes("Transferência entre contas"),
+     ops.clientes.join(" | "));
+
+  /* ---- Período vazio, sem divisão por zero ------------------------------- */
+  const semNada = montarPainelContasReceber(
+    { ...INPUT, movements: [] }, AGOSTO,
+  );
+  ok("creceber: período vazio não divide por zero",
+     semNada.distribuicao.every((d) => d.fracao === 0)
+     && semNada.concentracaoMaiorCliente === 0
+     && semNada.envelhecimento.every((e) => e.fracao === 0));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

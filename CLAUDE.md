@@ -783,6 +783,82 @@ cascata com drill-down, conciliação IULI×OFX.
   de auto-classificação (função do motor → categoria padrão → quando é usada).
   Demo-safe, estático (reconstrução fiel do relatório).
 
+### ⚠️ CONTAS A RECEBER — a fusão de "Receber" e "Vender" (`/contas-a-receber`)
+
+**Os dois menus descreviam o mesmo ciclo cortado ao meio.** Vender é o que
+ORIGINA o recebível; receber é o que acontece com ele depois. Separados, o dono
+abria "Vender" para saber quanto entrou e encontrava faturamento, ou abria
+"Receber" para saber por que o mês foi fraco e não via a venda que não
+aconteceu. O mesmo cliente aparecia nos dois lados com números diferentes, e
+nenhum estava errado — eram datas diferentes do mesmo negócio, sem nada dizendo
+isso. Os dois grupos viraram **um**, de 13 itens para 12.
+
+`montarPainelContasReceber()` (`contas-receber/1.0.0`) tem a mesma estrutura do
+painel de pagar — e de propósito: duas telas do mesmo produto que respondem
+"quanto, em que situação e em que dia cai" com desenhos diferentes obrigam quem
+opera a reaprender a leitura ao trocar de lado. **Três coisas mudam:**
+
+- ⚠️ **NEM TODA ENTRADA É ALGO QUE ALGUÉM DEVE.** No lado de pagar,
+  `type === "saida"` basta. Aqui não: transferência entre contas próprias,
+  resgate, empréstimo e rendimento entram no extrato como ENTRADA e não são
+  recebível. A regra vem de `foraDaBaseTributavel` (ONDA 13, onde o mesmo
+  defeito já valia R$ 35.900 na base do imposto). Na fixture da guarda ela
+  sozinha vale R$ 20.000 — sem ela, a tela manda cobrar de um cliente uma
+  transferência que a empresa fez para si mesma.
+- ⚠️ **O ATRASO TEM IDADE.** Contas a pagar não precisa disso — o que venceu,
+  paga-se. No recebível a idade É a informação: 15 dias é lembrete, 90 dias é
+  protesto ou perda. Faixas de até 30 · 31–60 · 61–90 · +90.
+- ⚠️ **A CONCENTRAÇÃO É RISCO, e o total a esconde.** R$ 100 mil de vinte
+  clientes e de um só são o mesmo número e situações diferentes: no segundo, um
+  calote quebra o mês. Concentrar FORNECEDOR é poder de barganha; concentrar
+  CLIENTE é exposição.
+
+⚠️ **DUAS ESCALAS DE TEMPO CONVIVEM NA TELA, e ela diz qual é qual.** Os três
+cards e o calendário são o PERÍODO; **envelhecimento e exposição são a CARTEIRA
+inteira**, sem recorte. Descobri isto montando a fixture, e era um defeito que
+eu ia publicar: com tudo preso ao período, um título vencido desde junho some ao
+olhar agosto — justamente a dívida velha, que é o motivo de existir uma tela de
+cobrança. É a distinção POSIÇÃO × FLUXO da ONDA 1, e sem o rótulo "carteira
+inteira" os dois blocos pareceriam discordar do card de vencidas.
+
+⚠️ **`ponteVendaRecebimento` é a parte que a fusão trouxe, e a mais fácil de ler
+errado.** Juntar vender e receber põe na mesma tela dois números que a intuição
+manda somar e que **contam o mesmo dinheiro duas vezes**: *faturei* olha a
+COMPETÊNCIA, *recebi* olha o CAIXA, *vou receber* olha o VENCIMENTO. Uma venda
+de R$ 3.000 em 3x fatura R$ 3.000 hoje e gera três títulos de R$ 1.000. A ponte
+devolve os três com o que cada um mede e a frase que reconcilia — mesma solução
+de `pontePosicaoFluxo`. A conversão em caixa é **ausente** sem faturamento, não
+0%: "0% do que faturei entrou" manda cobrar, "não faturei" manda vender.
+
+⚠️ **A data de competência sai de `dataDe(m, "competencia")`, a função
+canônica.** Escrevi `competence_date ?? due_date` na primeira versão e o
+typecheck pegou — `RiskMovement` não tem esse campo, e a convenção do sistema é
+que competência É o vencimento. Uma segunda regra de data, mesmo "equivalente",
+é como duas telas passam a discordar sobre em que mês uma venda entrou.
+
+- **O chrome é COMPARTILHADO** (`components/titulos/kit.tsx`): filtro de
+  período, card que abre a relação, donut de proporção e faixa de dias foram
+  **extraídos** do painel de pagar quando o de receber nasceu, não copiados.
+  Duas cópias divergem no primeiro ajuste, e quando isso acontece com um
+  calendário as duas telas passam a responder "o que cai em cada dia" com
+  desenhos diferentes. As peças são NEUTRAS: recebem cor, rótulo e linhas
+  prontas, e nenhuma sabe o que é "pago" ou "recebido".
+- **Títulos a receber** (`/contas-a-receber/titulos`) é a MESMA `TitulosView`
+  com `direcao="receber"`, como do lado de pagar.
+- ⚠️ **O hub `accounts-and-transfers` virou só Transferências.** Ele tinha três
+  abas; quando "Títulos a pagar" ganhou tela própria, a aba ficou — duas portas
+  para a mesma lista, uma delas fora do menu e por isso invisível na revisão.
+  Criar o lado de receber faria TRÊS padrões para a mesma leitura. As abas
+  viraram desvio em `ALIASES_DE_ABA` (uma aba TEM endereço e as pessoas o
+  guardam), e a guarda `nenhum alias aponta para outro alias` pegou **oito
+  desvios** que passariam a desembocar num desvio.
+- **Guardas** no `engine-audit` (bloco `creceber:`): os três cards com as datas
+  que os separam, a transferência que não é recebível, a carteira enxergando o
+  vencido de fora da janela, os limites das faixas um a um, a concentração, o
+  calendário com o período inteiro, os três números da ponte **não fechando**
+  entre si, e o filtro sem correspondência devolvendo vazio. **Provadas
+  quebrando cinco defeitos.**
+
 ### Contas a pagar (`/contas-a-pagar`) + `core/contas-pagar`
 
 `montarPainelContasPagar()` (`contas-pagar/1.0.0`, puro/tipado/demo-safe) — o

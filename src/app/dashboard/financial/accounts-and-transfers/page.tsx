@@ -1,57 +1,29 @@
 "use client";
 
 /**
- * Contas a Receber · Contas a Pagar · Transferências — as três abas do dia a
- * dia do dinheiro num destino só, como no print (`?tab=`).
+ * TRANSFERÊNCIAS ENTRE CONTAS — o que sobrou deste hub, e de propósito.
+ *
+ * ⚠️ Ele tinha três abas: títulos a receber, títulos a pagar e transferências.
+ * As duas primeiras ganharam tela própria (`/contas-a-receber/titulos` e
+ * `/contas-a-pagar/titulos`) e as abas viraram DESVIO em `ALIASES_DE_ABA` — o
+ * middleware resolve os endereços antigos com 308, então favorito e link
+ * antigos continuam chegando ao lugar certo.
+ *
+ * Manter as abas aqui deixaria a mesma lista de títulos em dois endereços, com
+ * uma das portas fora do menu e por isso invisível na revisão. É o defeito que
+ * a ONDA 6 mediu 33 vezes, e a única razão de ele ter sobrevivido tanto tempo
+ * neste hub é que ninguém navegava até a aba.
  */
-import * as React from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 import { AppShell } from "@/components/app/AppShell";
-import { TitulosView } from "@/components/movimentacoes/TitulosView";
 import { TransferenciasView } from "@/components/movimentacoes/TransferenciasView";
 
-const ABAS = [
-  { id: "receivables", label: "Títulos a receber", titulo: "Títulos a receber" },
-  { id: "payables", label: "Títulos a pagar", titulo: "Títulos a pagar" },
-  { id: "transfers", label: "Transferências", titulo: "Transferências" },
-] as const;
-
-function Conteudo() {
-  const sp = useSearchParams();
-  const router = useRouter();
-  const aba = ABAS.find((a) => a.id === sp.get("tab")) ?? ABAS[0];
-
+export default function TransferenciasPage() {
   return (
-    <AppShell title={aba.titulo} crumb="Financeiro">
-      <div className="flex flex-col gap-5">
-        <div className="flex items-center gap-1 border-b border-border-soft -mt-1 overflow-x-auto">
-          {ABAS.map((a) => {
-            const on = a.id === aba.id;
-            return (
-              <button
-                key={a.id}
-                onClick={() => router.replace(`/dashboard/financial/accounts-and-transfers?tab=${a.id}`)}
-                aria-current={on ? "page" : undefined}
-                className={`relative px-3 py-2 text-label whitespace-nowrap transition-colors ${on ? "text-ink font-medium" : "text-muted hover:text-ink"}`}
-              >
-                {a.label}
-                {on && <span className="absolute left-0 -bottom-px w-full h-[2px] bg-ink rounded-pill" />}
-              </button>
-            );
-          })}
-        </div>
-        {aba.id === "transfers"
-          ? <TransferenciasView />
-          : <TitulosView direcao={aba.id === "receivables" ? "receber" : "pagar"} />}
-      </div>
+    <AppShell title="Transferências entre contas" crumb="Caixa e bancos">
+      <Suspense fallback={null}>
+        <TransferenciasView />
+      </Suspense>
     </AppShell>
-  );
-}
-
-export default function ContasETransferenciasPage() {
-  return (
-    <React.Suspense fallback={null}>
-      <Conteudo />
-    </React.Suspense>
   );
 }
