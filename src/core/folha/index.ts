@@ -580,3 +580,14 @@ export function compararVinculo(
 }
 
 export { mesSeguinte };
+
+/* ========================================================================== */
+/* Férias e rescisão                                                           */
+/* ========================================================================== */
+/**
+ * ⚠️ Reexportados no FIM do arquivo, não no topo: os dois módulos importam
+ * `encargosPatronais` e `FGTS` daqui, e um `export *` antes das definições
+ * fecharia um ciclo em que o import chega com `undefined`.
+ */
+export * from "./ferias";
+export * from "./rescisao";

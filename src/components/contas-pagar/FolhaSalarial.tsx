@@ -22,7 +22,12 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
-import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores } from "@/lib/folha";
+import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAccounts } from "@/components/visao-geral/hooks";
+import { useToast } from "@/components/listas/ListChrome";
+import { appendImported } from "@/lib/imported";
+import { ModalFerias, ModalRescisao, type TituloGerado } from "./ModalFolha";
 import {
   montarPainelFolha, custoAnual, ROTULO_VINCULO, ROTULO_TITULO,
   type PainelFolha, type LinhaFolha, type Colaborador,
@@ -47,6 +52,43 @@ export function FolhaSalarial() {
   const [colaboradores, setColaboradores] = React.useState<Colaborador[] | null>(null);
   const [mes, setMes] = React.useState(mesAtual);
   const [aberto, setAberto] = React.useState<string | null>(null);
+  const [ferias, setFerias] = React.useState<Colaborador | null>(null);
+  const [rescisao, setRescisao] = React.useState<Colaborador | null>(null);
+  const qc = useQueryClient();
+  const { data: contas } = useAccounts();
+  const { show, node } = useToast();
+
+  /**
+   * ⚠️ É AQUI QUE A DATA VIRA DINHEIRO NO SISTEMA.
+   *
+   * O título entra pelo MESMO caminho de qualquer outra conta a pagar
+   * (`appendImported` em demo, o writer em live) com `origem: "manual"` — a
+   * origem que a ONDA 5 exige e cuja ausência recusava toda gravação. O
+   * vencimento vem do motor: dois dias antes das férias, dez dias depois do
+   * desligamento, já antecipado quando cai em dia não útil.
+   */
+  const agendar = React.useCallback((titulos: TituloGerado[]) => {
+    const conta = (contas?.accounts ?? [])[0]?.id ?? "";
+    titulos.forEach((t, k) => {
+      appendImported({
+        movement: {
+          id: `mv_${Date.now().toString(36)}_${k}`,
+          account_id: conta,
+          type: "saida",
+          status: "pendente",
+          amount: t.valor,
+          due_date: t.vencimento,
+          paid_date: null,
+          reconciled: false,
+          category: t.categoria,
+          description: t.descricao,
+          party_id: null,
+          origem: "manual",
+        } as never,
+      });
+    });
+    qc.invalidateQueries();
+  }, [contas, qc]);
 
   // ⚠️ Lido num efeito, não no render: `store-org` toca `localStorage`, e ler
   // durante o render quebra a hidratação (a tela remonta do zero).
@@ -193,6 +235,8 @@ export function FolhaSalarial() {
                     setColaboradores(listColaboradores());
                     return () => { restaurarColaboradores(antes); setColaboradores(antes); };
                   }}
+                  onFerias={() => setFerias(l.colaborador)}
+                  onRescindir={() => setRescisao(l.colaborador)}
                 />
               ))}
             </div>
@@ -239,6 +283,37 @@ export function FolhaSalarial() {
           </Card>
         </div>
       )}
+      {ferias && (
+        <ModalFerias
+          colaborador={ferias} regime={fiscal.regime} anexo={fiscal.anexo}
+          onFechar={() => setFerias(null)}
+          onConfirmar={(titulos) => {
+            agendar(titulos);
+            show(`Férias de ${ferias.nome} agendadas para ${dataBR(titulos[0].vencimento)}.`);
+            setFerias(null);
+          }}
+        />
+      )}
+      {rescisao && (
+        <ModalRescisao
+          colaborador={rescisao} regime={fiscal.regime} anexo={fiscal.anexo}
+          onFechar={() => setRescisao(null)}
+          onConfirmar={(titulos, desligadoEm) => {
+            agendar(titulos);
+            /**
+             * ⚠️ A RESCISÃO ENCERRA A VIGÊNCIA do colaborador, e é isso que
+             * impede a folha de continuar cobrando salário de quem saiu. Sem
+             * gravar o `ate`, o mês seguinte geraria salário, FGTS e DARF de um
+             * contrato que não existe mais.
+             */
+            saveColaborador({ ...rescisao, ate: desligadoEm.slice(0, 7) });
+            setColaboradores(listColaboradores());
+            show(`Rescisão de ${rescisao.nome} agendada para ${dataBR(titulos[0].vencimento)}.`);
+            setRescisao(null);
+          }}
+        />
+      )}
+      {node}
     </div>
   );
 }
@@ -257,12 +332,14 @@ function agruparPorData(titulos: PainelFolha["titulos"]) {
 }
 
 function LinhaColaborador({
-  linha, aberto, onAbrir, onRemover,
+  linha, aberto, onAbrir, onRemover, onFerias, onRescindir,
 }: {
   linha: LinhaFolha;
   aberto: boolean;
   onAbrir: () => void;
   onRemover: () => () => void;
+  onFerias: () => void;
+  onRescindir: () => void;
 }) {
   const c = linha.colaborador;
   const memoria = linha.clt?.memoria ?? linha.pj?.memoria ?? [];
@@ -306,6 +383,20 @@ function LinhaColaborador({
               <span className="a4p-num text-ink shrink-0"><BRL value={l.valor} /></span>
             </div>
           ))}
+          {/* ⚠️ Só para CLT: férias e rescisão são institutos da CLT. Oferecê-los
+              a um prestador PJ seria um caminho que a lei não tem. */}
+          {linha.colaborador.vinculo === "clt" && (
+            <div className="pt-2 border-t border-border-soft flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={onFerias}>
+                <Icon name="calendar" size={14} color="currentColor" />
+                Programar férias
+              </Button>
+              <Button variant="ghost" onClick={onRescindir}>
+                <Icon name="arrow-up-right" size={14} color="currentColor" />
+                Calcular rescisão
+              </Button>
+            </div>
+          )}
           <div className="pt-2 border-t border-border-soft">
             {/* ⚠️ Remover um colaborador NÃO apaga os títulos já criados: eles
                 são obrigações que existem no financeiro por conta própria. A
