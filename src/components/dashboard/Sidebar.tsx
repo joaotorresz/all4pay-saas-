@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Avatar, Icon } from "@/components/ui";
+import { Avatar, Button, Icon } from "@/components/ui";
 import { useModo } from "@/components/app/useModo";
 import { SeletorOrganizacao } from "@/components/app/SeletorOrganizacao";
 import { grupoDaRota, indiceItemAtivo, useNavSections, type Item } from "@/components/dashboard/nav-data";
@@ -257,6 +257,31 @@ export function Sidebar() {
             <Icon name="x" size={18} color="var(--color-text-secondary)" />
           </button>
         </div>
+
+        {/* A AÇÃO PRIMÁRIA DO GRUPO — acima do título, acima da lista.
+            ⚠️ Ela vem de `Section.acao` (a fonte única), não de um `if` por id
+            aqui dentro: a coluna lateral não pode saber que "contas a pagar"
+            tem uma rota de criação, senão o segundo grupo com botão vira um
+            segundo caso particular no mesmo componente.
+            Fica visível em TODOS os itens do grupo — quem está em Folha
+            salarial também lança uma conta a pagar sem voltar. */}
+        {grupo?.acao && (
+          <div className={cn("shrink-0 pb-3", col ? "px-0" : "px-[10px]")}>
+            <Button
+              variant="primary"
+              fullWidth={!col}
+              onClick={() => router.push(grupo.acao!.href)}
+              // Recolhida, sobra o ícone — e o rótulo vive no `aria-label`,
+              // senão o botão fica mudo para leitor de tela.
+              aria-label={grupo.acao.label}
+              title={grupo.acao.label}
+              className={col ? "w-full px-0 py-3" : undefined}
+            >
+              <Icon name={grupo.acao.icon} size={15} color="currentColor" />
+              {!col && grupo.acao.label}
+            </Button>
+          </div>
+        )}
 
         {/* O grupo em que você está — a barra horizontal marca o mesmo.
             ⚠️ Era um micro-rótulo de 11px em cinza-claro, que lia como legenda

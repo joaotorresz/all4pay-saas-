@@ -60,6 +60,17 @@ export type Section = {
   /** Mesmo papel do `Item.desc` — só os grupos-FOLHA (com `href`) o usam. */
   desc?: string;
   items: Item[];
+  /**
+   * A ação primária do grupo — o botão no topo da coluna lateral.
+   *
+   * ⚠️ Mora AQUI, na fonte única, e não dentro da Sidebar. Se a barra
+   * conhecesse a rota de "Nova conta a pagar" ela passaria a saber de negócio,
+   * e o segundo grupo que ganhasse um botão exigiria um `if` por id — que é
+   * como um componente de navegação vira uma lista de casos particulares.
+   *
+   * Ausente ⇒ o grupo não tem ação primária e a coluna começa direto no título.
+   */
+  acao?: { label: string; href: string; icon: string };
 };
 
 /**
@@ -195,8 +206,10 @@ export const SECTIONS: Section[] = [
      * glossário para o documento em aberto (ONDA 11) — e o dashboard responde
      * a outra pergunta: quanto, em que situação, e em que dia cai.
      */
-    id: "contas-a-pagar", label: "Contas a pagar", icon: "file-text", items: [
-      { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "gauge" },
+    id: "contas-a-pagar", label: "Contas a pagar", icon: "file-text",
+    acao: { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus" },
+    items: [
+      { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "layout-dashboard" },
       { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
       { label: "Contas recorrentes", desc: "O que se repete, e quanto custa por mês", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
