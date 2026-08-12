@@ -1540,6 +1540,58 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("mov/cards: base vazia não vira NaN",
     resumoTitulos([], "receber", input.hoje).every((c) => Number.isFinite(c.valor) && Number.isFinite(c.percentual)));
 
+  /**
+   * ⚠️ **O PAINEL NÃO PODE MUDAR POR CAUSA DO PRÓPRIO FILTRO.**
+   *
+   * O defeito: a tela calculava os cards sobre a lista JÁ filtrada pelo status.
+   * Clicar em "Recebidas" deixava a lista só com as recebidas, os cards
+   * recalculavam sobre ela, e "A receber" e "Atrasadas" zeravam — como se
+   * filtrar tivesse apagado os outros títulos.
+   *
+   * A invariante é esta: seja qual for o status escolhido para a TABELA, os
+   * cards saem da mesma base (todos os outros recortes, sem o status). Aqui ela
+   * é medida — não basta a varredura de texto, porque um dia alguém troca o
+   * nome da variável e a varredura passa a aprovar o defeito.
+   */
+  {
+    const base = filtrarTitulos(input, "receber", { status: "todos" });
+    const esperados = resumoTitulos(base, "receber", input.hoje);
+    for (const st of ["liquidado", "aberto", "atrasado"] as const) {
+      // A tabela recorta...
+      const tabela = filtrarTitulos(input, "receber", { status: st });
+      // ...mas os cards continuam saindo da base inteira.
+      const obtidos = resumoTitulos(base, "receber", input.hoje);
+      ok(`mov/cards: filtrar por "${st}" não mexe nos cards`,
+        JSON.stringify(obtidos) === JSON.stringify(esperados)
+        && tabela.every((m) => statusDoTitulo(m, input.hoje) === st),
+        `${tabela.length} na tabela`);
+    }
+    // E o contrário, que é o defeito em si: calcular sobre a lista filtrada
+    // ZERA os outros dois. A asserção fixa que essa é a leitura errada.
+    const errado = resumoTitulos(filtrarTitulos(input, "receber", { status: "liquidado" }), "receber", input.hoje);
+    ok("mov/cards: calcular sobre a lista filtrada zeraria os outros (o defeito)",
+      errado.find((c) => c.id === "aberto")!.valor === 0
+      && esperados.find((c) => c.id === "aberto")!.valor > 0);
+  }
+
+  /**
+   * ⚠️ O período do gráfico recorta a MESMA janela que os cards e a tabela.
+   * Sem isto, clicar num mês pintava a cápsula e não mudava número nenhum — um
+   * controle que parece filtrar e não filtra faz quem clica concluir que os
+   * valores abaixo já são daquele mês.
+   */
+  {
+    const janela = { de: "2026-08-10", ate: "2026-08-31" };
+    const cardsDaJanela = resumoTitulos(
+      filtrarTitulos(input, "receber", { ...janela, status: "todos" }), "receber", input.hoje,
+    );
+    const todos = resumoTitulos(filtrarTitulos(input, "receber", { status: "todos" }), "receber", input.hoje);
+    ok("mov/cards: a janela do gráfico recorta os cards",
+      cardsDaJanela.find((c) => c.id === "total")!.valor
+        < todos.find((c) => c.id === "total")!.valor,
+      `${cardsDaJanela.find((c) => c.id === "total")!.valor} < ${todos.find((c) => c.id === "total")!.valor}`);
+  }
+
   // ---- transferências ----
   const T = (o: Partial<Transferencia>): Transferencia => ({
     id: "t", contaOrigem: "ac1", contaDestino: "ac2", data: "2026-08-10",

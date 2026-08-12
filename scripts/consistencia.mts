@@ -3161,6 +3161,31 @@ const AGOSTO = janelaMes(2026, 7);
        !!escritor && /if \(error\) throw error;/.test(escritor[0]));
   }
 
+  /* ---- O painel que se apaga sozinho -------------------------------------- */
+  {
+    /**
+     * ⚠️ A varredura é o par da asserção de VALOR no `engine-audit`
+     * ("filtrar por X não mexe nos cards"). Ela existe porque a de valor prova
+     * a regra sobre o motor, e o defeito estava na TELA: era ela que entregava
+     * a lista errada. Uma sem a outra deixa metade do caminho descoberta.
+     */
+    const tela = ler("src/components/movimentacoes/TitulosView.tsx");
+    const memo = /const baseDosCards[\s\S]{0,400}?\);/.exec(tela);
+    ok("titulos: os cards saem de uma base SEM o filtro de status",
+       !!memo && /status:\s*"todos"/.test(memo[0]),
+       memo ? "sem status: todos" : "não achei baseDosCards");
+    // ⚠️ E `resumoTitulos` não pode voltar a receber a lista já filtrada.
+    ok("titulos: resumoTitulos não recebe a lista filtrada",
+       !/resumoTitulos\(\s*titulos\b/.test(tela));
+    // O período do gráfico precisa CHEGAR ao filtro — senão a cápsula pinta e
+    // nada muda, que é o estado anterior.
+    ok("titulos: o período do gráfico entra na janela dos títulos",
+       /de:\s*janela\.de/.test(tela) && /ate:\s*janela\.ate/.test(tela));
+    // O card selecionado precisa se declarar (cinza + aria-pressed).
+    ok("titulos: o card selecionado é anunciado",
+       /aria-pressed=\{selecionado\}/.test(tela) && /bg-surface-2/.test(tela));
+  }
+
   /* ---- Contraparte -------------------------------------------------------- */
   ok("onda5: o CNPJ próprio é reconhecido mesmo mascarado",
      mesmoDocumento("12.345.678/0001-95", "12345678000195"));
