@@ -28,6 +28,8 @@ import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCa
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
+import { projetarRecorrentes, datasDaRegra, porMes, type RegraRecorrente } from "@/core/contas-pagar/projecao";
+import { datasFaturaCron } from "@/lib/recorrencias-sched";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
@@ -2783,6 +2785,160 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const fraude = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "ebitda" } });
   ok("t7: declaração apontando para um TOTAL é ignorada (cai no palpite)",
      valorDa(fraude, "despesas_operacionais") === 1_000);
+}
+
+/* ── projecao: as ocorrências futuras das REGRAS de recorrência ── */
+{
+  const regra = (
+    id: string, valor: number, inicio: string, fim: string | null,
+    extra: Partial<RegraRecorrente> = {},
+  ): RegraRecorrente => ({
+    id, descricao: `Regra ${id}`, valor, frequencia: "mensal",
+    inicio, fim, diaVencimento: 10, ativa: true, ...extra,
+  });
+  const titulo = (id: string, ref: string | null, amount: number, due: string): RiskMovement => ({
+    id, type: "saida", status: "pendente", amount, due_date: due, paid_date: null,
+    referenceCode: ref, category: "Fornecedores",
+  });
+
+  const JAN_JUN = { de: "2026-01-01", ate: "2026-06-30" };
+
+  // ── caso 1: recorrência com FIM no meio do intervalo ──
+  // Começa em janeiro, acaba em 2026-03-31 ⇒ jan, fev, mar. Abril não existe.
+  {
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-01-10", "2026-03-31")], movimentos: [], ...JAN_JUN });
+    ok("projecao: a data de fim corta a projeção", r.ocorrencias.length === 3 && r.total === 3_000,
+       `${r.ocorrencias.length} × ${r.total}`);
+    ok("projecao: nada é projetado depois do fim",
+       r.ocorrencias.every((o) => o.vencimento <= "2026-03-31"));
+    // ⚠️ O dia do FIM ainda é vigência: uma regra que acaba EXATAMENTE no dia do
+    // vencimento tem essa última ocorrência. Cortar com `>=` perderia um mês.
+    const noDia = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-01-10", "2026-03-10")], movimentos: [], ...JAN_JUN });
+    ok("projecao: o dia do fim ainda vence", noDia.ocorrencias.length === 3);
+  }
+
+  // ── caso 2: recorrência cancelada (ou pausada) não projeta ──
+  {
+    const r = projetarRecorrentes({
+      regras: [regra("a", 1_000, "2026-01-10", null), regra("b", 500, "2026-01-10", null, { ativa: false })],
+      movimentos: [], ...JAN_JUN,
+    });
+    ok("projecao: regra inativa não projeta",
+       r.ocorrencias.every((o) => o.regraId === "a") && r.regrasInativas === 1 && r.total === 6_000,
+       `${r.total} · inativas ${r.regrasInativas}`);
+  }
+
+  // ── caso 3: mês JÁ materializado não duplica ──
+  // ⚠️ O título de março tem o `reference_code` da regra e um valor DIFERENTE
+  // (1.200): se a projeção somasse os dois, o total iria a 7.200; se ela
+  // ignorasse o título, iria a 6.000 e esconderia o valor real cobrado.
+  {
+    const movimentos = [titulo("m1", "rec:a:2026-03-10", 1_200, "2026-03-10")];
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-01-10", null)], movimentos, ...JAN_JUN });
+    ok("projecao: mês materializado não duplica", r.ocorrencias.length === 6, String(r.ocorrencias.length));
+    // ⚠️ 1.200 no realizado E 1.200 nos cinco projetados: a última cobrança
+    // CONHECIDA vira o valor esperado dos meses seguintes, porque é ela que diz
+    // o que a conta custa hoje. A regra ainda diz 1.000, e é essa divergência
+    // que marca as ocorrências como estimadas.
+    ok("projecao: o mês materializado vale o valor do TÍTULO",
+       r.total === 7_200 && r.totalRealizado === 1_200 && r.totalProjetado === 6_000,
+       `${r.total} / ${r.totalRealizado} / ${r.totalProjetado}`);
+    ok("projecao: a divergência de valor marca os meses futuros",
+       r.ocorrencias.filter((o) => o.origem === "projetado").every((o) => o.estimada && o.valor === 1_200));
+    const marco = r.ocorrencias.find((o) => o.mes === "2026-03");
+    ok("projecao: o mês materializado é marcado como realizado",
+       marco?.origem === "realizado" && marco?.movimentoId === "m1");
+    // ⚠️ O casamento é por MÊS, não pela data exata: o materializador arredonda
+    // o dia e a regra pode ter mudado de dia. Um título no dia 15 continua
+    // suprimindo a projeção do dia 10 do mesmo mês.
+    const outroDia = projetarRecorrentes({
+      regras: [regra("a", 1_000, "2026-01-10", null)],
+      movimentos: [titulo("m2", "rec:a:2026-03-15", 1_200, "2026-03-15")], ...JAN_JUN,
+    });
+    // ⚠️ A asserção é sobre a ORIGEM, não sobre o total. Plantei o defeito
+    // (casar pela data exata) e o total continuou 7.200: com a divergência de
+    // valor, a ocorrência PROJETADA de março vale o mesmo que o título, e os
+    // dois números coincidem. Um teste que só olha o total aprova a duplicata
+    // sempre que o valor projetado bater com o real — que é o caso comum.
+    const marcoOutroDia = outroDia.ocorrencias.find((o) => o.mes === "2026-03");
+    ok("projecao: o casamento é por mês, não pelo dia",
+       outroDia.ocorrencias.length === 6
+       && marcoOutroDia?.origem === "realizado" && marcoOutroDia?.movimentoId === "m2",
+       `${outroDia.ocorrencias.length} · ${marcoOutroDia?.origem} · ${marcoOutroDia?.movimentoId}`);
+    // Título de OUTRA regra não suprime nada.
+    const outraRegra = projetarRecorrentes({
+      regras: [regra("a", 1_000, "2026-01-10", null)],
+      movimentos: [titulo("m3", "rec:zzz:2026-03-10", 1_200, "2026-03-10")], ...JAN_JUN,
+    });
+    ok("projecao: título de outra regra não suprime", outraRegra.total === 6_000);
+    // E um título SEM `reference_code` (a maioria do banco) é invisível aqui —
+    // ele não pertence a regra nenhuma e não pode suprimir uma projeção.
+    const semRef = projetarRecorrentes({
+      regras: [regra("a", 1_000, "2026-01-10", null)],
+      movimentos: [titulo("m4", null, 1_200, "2026-03-10")], ...JAN_JUN,
+    });
+    ok("projecao: título sem chave não suprime", semRef.total === 6_000);
+  }
+
+  // ── caso 4: recorrência criada no MEIO do intervalo ──
+  {
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-04-10", null)], movimentos: [], ...JAN_JUN });
+    ok("projecao: regra que começa no meio só vale dali para frente",
+       r.ocorrencias.length === 3 && r.ocorrencias[0].vencimento === "2026-04-10",
+       `${r.ocorrencias.length} · ${r.ocorrencias[0]?.vencimento}`);
+  }
+
+  // ── valor: a regra manda, exceto quando a última cobrança discorda ──
+  {
+    const movimentos = [titulo("m1", "rec:a:2026-02-10", 1_500, "2026-02-10")];
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-01-10", null)], movimentos, ...JAN_JUN });
+    const futuro = r.ocorrencias.filter((o) => o.origem === "projetado");
+    ok("projecao: valor divergente usa a última cobrança e marca estimada",
+       futuro.every((o) => o.valor === 1_500 && o.estimada) && r.regrasComValorDivergente === 1,
+       `${futuro[0]?.valor} · estimada ${futuro[0]?.estimada}`);
+  }
+
+  // ── a fase do ciclo sai do INÍCIO da regra, não do início do intervalo ──
+  {
+    const r = projetarRecorrentes({
+      regras: [regra("t", 900, "2026-01-10", null, { frequencia: "trimestral" })],
+      movimentos: [], ...JAN_JUN,
+    });
+    ok("projecao: trimestral respeita a fase do início",
+       r.ocorrencias.map((o) => o.mes).join(",") === "2026-01,2026-04",
+       r.ocorrencias.map((o) => o.mes).join(","));
+  }
+
+  // ── intervalo invertido devolve VAZIO, não silêncio ──
+  {
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-01-10", null)], movimentos: [], de: "2026-06-30", ate: "2026-01-01" });
+    ok("projecao: intervalo invertido devolve vazio", r.ocorrencias.length === 0 && r.total === 0);
+  }
+
+  // ── nunca negativo, e mês vazio vale ZERO ──
+  {
+    const r = projetarRecorrentes({ regras: [regra("a", 1_000, "2026-05-10", null)], movimentos: [], ...JAN_JUN });
+    const linhas = porMes(r);
+    ok("projecao: porMes traz TODOS os meses do intervalo", linhas.length === 6, String(linhas.length));
+    ok("projecao: mês sem ocorrência vale zero", linhas[0].total === 0 && linhas[0].mes === "2026-01");
+    ok("projecao: nenhum valor é negativo",
+       linhas.every((l) => l.total >= 0 && l.realizado >= 0 && l.projetado >= 0));
+    ok("projecao: a soma dos meses fecha com o total",
+       Math.round(linhas.reduce((s, l) => s + l.total, 0) * 100) / 100 === r.total);
+  }
+
+  // ── a projeção e o MATERIALIZADOR têm de gerar as MESMAS datas ──
+  // ⚠️ Sem isto a tela diz dia 10 e o título nasce dia 15, e a mesma conta
+  // aparece duas vezes com um dia de diferença. As duas implementações são
+  // separadas de propósito (o cron só olha para a frente; a projeção aceita
+  // qualquer intervalo), e é esta guarda que as mantém de acordo.
+  {
+    const r = regra("a", 1_000, "2026-01-05", null, { diaVencimento: 31 });
+    const meu = datasDaRegra(r, "2026-03-01", "2026-06-30");
+    const dele = datasFaturaCron(r.inicio, r.frequencia, r.diaVencimento, "2026-03-01", 121);
+    ok("projecao: as datas batem com as do materializador",
+       meu.join(",") === dele.join(","), `${meu.join(",")} ≠ ${dele.join(",")}`);
+  }
 }
 
 // ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──

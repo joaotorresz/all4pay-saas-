@@ -43,6 +43,7 @@ import type {
   LancamentoInput,
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
+import type { RegraRecorrente } from "@/core/contas-pagar/projecao";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
 
@@ -685,6 +686,47 @@ const RELACAO_AUSENTE = /could not find a relationship|PGRST200|does not exist/i
  */
 let embedProjetoOk: boolean | undefined;
 
+/** O nome de um embed do PostgREST, que vem objeto ou array de um item. */
+const embedName = (e: unknown): string | null =>
+  Array.isArray(e) ? ((e[0] as { name?: string } | undefined)?.name ?? null) : ((e as { name?: string } | null)?.name ?? null);
+
+/**
+ * As REGRAS de recorrência de SAÍDA — a fonte da projeção de contas recorrentes.
+ *
+ * ⚠️ Existe separada de `listRecorrencias` (`lib/recorrencias.ts`) porque
+ * aquela filtra `type = "entrada"` e descarta o `end_date`: ela serve às
+ * assinaturas (MRR), onde a pergunta é outra. Reaproveitá-la aqui traria a
+ * lista errada e sem a data que termina o compromisso — que é justamente o
+ * campo que impede a projeção de continuar cobrando um contrato encerrado.
+ *
+ * Demo-safe: em demonstração não há tabela, e o dataset importado não carrega
+ * regras — devolve vazio, e a tela diz que não há recorrência cadastrada em vez
+ * de inventar uma.
+ */
+export async function getRegrasRecorrentes(): Promise<RegraRecorrente[]> {
+  if (isDemo) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("recurrences")
+    .select("id,description,amount,freq,start_date,end_date,due_day,active,party_id,parties(name),categoria:category_id(name)")
+    .eq("type", "saida")
+    .order("description")
+    .limit(TETO_LINHAS);
+  if (error) throw error;
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+    id: String(r.id),
+    descricao: String(r.description ?? "Conta recorrente"),
+    contraparte: embedName(r.parties as never) ?? null,
+    categoria: embedName(r.categoria as never) ?? null,
+    valor: Number(r.amount ?? 0),
+    frequencia: (r.freq as RegraRecorrente["frequencia"]) ?? "mensal",
+    inicio: String(r.start_date ?? "").slice(0, 10),
+    fim: r.end_date ? String(r.end_date).slice(0, 10) : null,
+    diaVencimento: r.due_day == null ? null : Number(r.due_day),
+    ativa: r.active !== false,
+  }));
+}
+
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -712,6 +754,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
       projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
       parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
       parcela: (m as { installment_no?: number | null }).installment_no ?? null,
+      referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -725,7 +768,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -772,8 +815,6 @@ export async function getRiscoInput(): Promise<RiskInput> {
     (s, a) => s + Number((a as { balance: number }).balance),
     0,
   );
-  const embedName = (e: unknown): string | null =>
-    Array.isArray(e) ? (e[0]?.name ?? null) : ((e as { name?: string } | null)?.name ?? null);
   const vinculosLive = vinculosProjeto();
   const nomeProjetoLive: Record<string, string> = {};
   for (const p of listProjetos()) nomeProjetoLive[p.id] = p.nome;
@@ -803,6 +844,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Parcela: separa o compromisso que ACABA do que continua (ver RiskMovement).
     parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
     parcela: (m as { installment_no?: number | null }).installment_no ?? null,
+    // A chave que liga o título à REGRA de recorrência que o gerou.
+    referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {
