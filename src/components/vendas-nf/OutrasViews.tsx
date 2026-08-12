@@ -68,7 +68,7 @@ export function NotasFiscaisView() {
           Consulte e baixe as notas fiscais emitidas. Use as abas para alternar entre a lista detalhada e o
           download em lote.
         </p>
-        <Button variant="ghost" disabled={comNF.length === 0}
+        <Button variant="outline" disabled={comNF.length === 0}
           onClick={() => baixarXLSX("notas-fiscais", [{ nome: "Notas fiscais", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
           Exportar XLSX
@@ -535,7 +535,7 @@ export function AssinaturasVendasView() {
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted">Gerencie assinaturas e cobranças recorrentes.</p>
-        <Button variant="ghost" disabled={visiveis.length === 0}
+        <Button variant="outline" disabled={visiveis.length === 0}
           onClick={() => baixarXLSX("assinaturas", [{
             nome: "Assinaturas",
             linhas: [["ID", "Status", "Cliente", "Ciclo", "Produtos", "Valor recorrente"],

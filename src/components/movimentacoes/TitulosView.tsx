@@ -259,18 +259,18 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             Nova conta a {direcao}
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             disabled={titulos.length === 0}
             onClick={() => baixarXLSX(`contas-a-${direcao}`, [{ nome: `Contas a ${direcao}`, linhas: linhasXLSX }])}
           >
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
-          <Button variant="ghost" disabled={titulos.length === 0} onClick={() => window.print()}>
+          <Button variant="outline" disabled={titulos.length === 0} onClick={() => window.print()}>
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>
-          <Button variant="ghost" onClick={() => router.push(`/dashboard/financial/import?tipo=${direcao}`)}>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/financial/import?tipo=${direcao}`)}>
             <Icon name="upload" size={15} color="currentColor" />
             Importar
           </Button>
