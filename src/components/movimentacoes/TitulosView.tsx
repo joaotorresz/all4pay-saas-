@@ -28,8 +28,6 @@ import {
   filtrarTitulos, resumoTitulos, statusDoTitulo,
   type Direcao, type FiltroTitulos, type StatusTitulo, type CardResumo,
 } from "@/core/movimentacoes";
-import { janelaDoMesDe } from "@/core/indicadores";
-import { EscopoDaTela } from "./EscopoDaTela";
 import {
   CarrosselSazonalidade, FaixaPeriodos, periodosComValores, type Granularidade,
 } from "./CarrosselSazonalidade";
@@ -219,15 +217,6 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      {/* Esta tela é a leitura de POSIÇÃO (estoque de títulos). A faixa declara
-          isso e mostra ao lado o que a tela de extrato mede, porque as duas
-          respondem "quanto tenho a receber" com números diferentes — e as duas
-          estão certas. Ver `EscopoDaTela`. */}
-      <EscopoDaTela
-        leitura="posicao"
-        janela={janelaDoMesDe(input?.hoje ?? new Date().toISOString().slice(0, 10))}
-        direcao={direcao === "receber" ? "entrada" : "saida"}
-      />
       {/* ⚠️ PORTE do extrato (mapa de consolidação, item 2). Esta tela mostra
           ESTOQUE de títulos e não tinha noção de tempo — o carrossel é a única
           superfície que responde "como este mês se compara aos onze
