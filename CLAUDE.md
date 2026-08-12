@@ -1079,6 +1079,38 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ O TERCEIRO DEFEITO DE GRAVAÇÃO: a DUPLA MORADA do cadastro (auditado)
+
+**Salvar uma conta a pagar falhava sempre que uma categoria era escolhida.**
+`movements.category_id` é UUID com chave estrangeira para `categories`; o
+formulário mandava o id do **plano de contas**, que mora em `org_state` com id
+próprio, numérico. Reproduzido contra o banco de produção: `22P02 invalid input
+syntax for type uuid: "217290"`.
+
+⚠️ **O defeito é a DUPLA MORADA, não a coluna.** O mesmo conceito — "categoria"
+— existe em dois lugares com chaves de tipos diferentes, e só um deles é o que a
+chave estrangeira aceita. É a mesma família dos dois anteriores (escritor que
+não alcança o banco), com a diferença que aqui o banco RECUSA e nomeia o tipo,
+não o campo. Enquanto as duas moradas existirem, **a que grava dinheiro tem de
+ser a do banco**: o plano de contas segue sendo a ÁRVORE que Cadastros edita, e
+o lançamento aponta para a FOLHA que existe em `categories`.
+
+- O formulário lê `useCategories()` (a tabela real) no lugar de
+  `listPlanoContas()`. **`criarCategoria`** grava na tabela e leva a linha do
+  DRE junto — é o primeiro escritor da coluna `dre_linha`, que sem ele seria
+  schema inerte.
+- ⚠️ **`exigirUUID` falha ANTES da rede e NOMEIA o campo em português.** A
+  mensagem do Postgres não nomeia campo nenhum e cita um número que não aparece
+  em lugar nenhum da interface — quem opera lê "erro ao salvar" e não tem o que
+  fazer com isso. A trava não conserta a dupla morada; ela a torna legível em um
+  segundo em vez de uma sessão de depuração.
+
+**Guarda com teto ZERO** (bloco `uuid:`): todo id de cadastro passa pela trava
+no montador de linhas, a trava existe e nomeia o campo, e o formulário **não
+volta** a tirar a categoria do plano local. Provada plantando os dois defeitos.
+Provado nos dois sentidos contra produção, em transação desfeita: a linha que o
+formulário monta hoje é aceita; `select '217290'::uuid` é recusado.
+
 ### ⚠️ `core/contas-pagar/projecao` — o que AINDA VAI vencer, derivado da REGRA
 
 `projetarRecorrentes()` (`contas-pagar-projecao/1.0.0`) responde *"quanto eu vou

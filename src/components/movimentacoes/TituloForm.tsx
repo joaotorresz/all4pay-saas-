@@ -31,11 +31,13 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
-import { usePartiesList } from "@/components/lancamentos/hooks";
+import { useCategories, usePartiesList } from "@/components/lancamentos/hooks";
+import { criarCategoria } from "@/lib/data";
+import type { Category } from "@/lib/types";
 import { PartyForm } from "@/components/lancamentos/PartyForm";
-import { listPlanoContas, salvarCategoria, extraParty, novoIdRegistro } from "@/lib/registros";
+import { extraParty } from "@/lib/registros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
-import { rateioValido, somaRateio, linhasDREdaNatureza, type LinhaRateio, type CategoriaPlano } from "@/core/registros";
+import { rateioValido, somaRateio, linhasDREdaNatureza, type LinhaRateio } from "@/core/registros";
 import {
   planejarLancamento, ROTULO_MODO, EXPLICACAO_MODO, FREQUENCIAS,
   type ModoLancamento, type Frequencia,
@@ -112,12 +114,28 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
    * nascendo vazio, a primeira categoria que alguém cria é raiz — e ela sumia
    * da lista logo depois de ter sido criada ali mesmo.
    */
-  const [planoContas, setPlanoContas] = React.useState<CategoriaPlano[]>([]);
-  React.useEffect(() => { setPlanoContas(listPlanoContas()); }, []);
+  /**
+   * ⚠️ **AS CATEGORIAS VÊM DA TABELA REAL (`public.categories`), não do plano
+   * de contas local — e esta é a correção de um defeito que derrubava TODA
+   * gravação com categoria.**
+   *
+   * `movements.category_id` é UUID com chave estrangeira para `categories`. O
+   * plano de contas da tela mora em `org_state` e tem id próprio, numérico
+   * (`novoIdRegistro`). Mandar aquele id para esta coluna produz
+   * `22P02 invalid input syntax for type uuid: "217290"` — reproduzido contra o
+   * banco de produção. O usuário via "erro ao salvar" e nada mais.
+   *
+   * O plano de contas continua sendo a ÁRVORE que a tela de Cadastros edita; o
+   * que o lançamento aponta é a FOLHA que existe no banco. Enquanto as duas
+   * moradas existirem, a que grava dinheiro tem de ser a do banco.
+   */
   const natureza = receber ? "receita" : "despesa";
+  const { data: catsDoBanco } = useCategories(receber ? "receita" : "despesa");
+  const [criadas, setCriadas] = React.useState<Category[]>([]);
   const categorias = React.useMemo(
-    () => planoContas.filter((c) => c.natureza === natureza),
-    [planoContas, natureza],
+    () => [...(catsDoBanco ?? []), ...criadas]
+      .map((c) => ({ id: c.id, nome: c.name })),
+    [catsDoBanco, criadas],
   );
   /** O rascunho da categoria que está sendo criada de dentro do lançamento. */
   const [criando, setCriando] = React.useState<{ nome: string; linha: string } | null>(null);
@@ -489,15 +507,20 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
                 <Button
                   variant="secondary"
                   disabled={!criando.nome.trim() || !criando.linha}
-                  onClick={() => {
-                    const nova: CategoriaPlano = {
-                      id: novoIdRegistro(), nome: criando.nome.trim(), codigo: "",
-                      natureza, paiId: null, dreLinha: criando.linha,
-                    };
-                    setPlanoContas(salvarCategoria(nova));
-                    set("categoria", nova.id);
-                    setCriando(null);
-                    show(`Categoria "${nova.nome}" criada.`);
+                  onClick={async () => {
+                    try {
+                      // ⚠️ Grava na TABELA, não no plano local: é o id dela que
+                      // o lançamento vai apontar. A linha do DRE viaja junto —
+                      // é o que dá uso à coluna `dre_linha`.
+                      const nova = await criarCategoria(criando.nome.trim(), natureza, criando.linha);
+                      setCriadas((xs) => [...xs, nova]);
+                      set("categoria", nova.id);
+                      setCriando(null);
+                      show(`Categoria "${nova.name}" criada.`);
+                    } catch (err) {
+                      const e = err as { message?: string };
+                      show(e?.message ? `Não foi possível criar a categoria: ${e.message}` : "Não foi possível criar a categoria.");
+                    }
                   }}
                 >
                   Criar e usar
