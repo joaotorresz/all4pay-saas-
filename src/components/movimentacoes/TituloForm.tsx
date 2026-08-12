@@ -329,7 +329,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           /* ⚠️ Conta bancária e valor continuam sendo do formulário comum: é de
              uma conta real que o dinheiro sai, e é o bruto que o motor precisa.
              Duplicá-los dentro do bloco criaria dois campos para a mesma coisa. */
-          <Bloco titulo="CONTA E VALOR">
+          <Bloco titulo="Conta e valor">
             <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
               <Select
                 value={f.contaId}
@@ -355,7 +355,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             formulário pressupõe respondidas. Ficavam depois das datas e do valor,
             e "Contrato" ocupava o lugar nobre com um campo que quase nunca é
             preenchido. */}
-        <Bloco titulo="DADOS GERAIS">
+        <Bloco titulo="Dados gerais">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select
               value={f.contaId}
@@ -390,7 +390,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ------------------------------- a parte ------------------------------- */}
-        <Bloco titulo={rotuloParte.toUpperCase()}>
+        <Bloco titulo={rotuloParte}>
           <Campo label={rotuloParte} obrigatorio erro={erros.parteId}>
             <div className="flex items-center gap-2">
               <Select
@@ -423,7 +423,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ---------------------------- datas e valor ---------------------------- */}
-        <Bloco titulo="DATAS E VALOR">
+        <Bloco titulo="Datas e valor">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Campo label="Data de competência" obrigatorio erro={erros.competencia} ajuda="Quando o fato aconteceu — é o que o DRE lê.">
               <DateField value={f.competencia} onChange={(v) => set("competencia", v)} />
@@ -488,7 +488,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ---------------------------- campos de texto ---------------------------- */}
-        <Bloco titulo="CAMPOS DE TEXTO">
+        <Bloco titulo="Campos de texto">
           <Campo label="Descrição">
             <Input value={f.descricao} onChange={(e) => set("descricao", e.target.value)} />
           </Campo>
@@ -507,7 +507,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           várias datas, e "pagamento realizado" só faria sentido para um deles.
           A baixa acontece na lista, título a título. */}
       {modo !== "folha" && <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotuloAcao.toUpperCase()}</span>
+        <span className="a4p-label text-faint">{rotuloAcao}</span>
         <div className="flex flex-col gap-2 mt-3">
           <Checkbox
             checked={f.realizado}
@@ -602,7 +602,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
       {/* --------------------------------- anexos --------------------------------- */}
       {modo !== "folha" && <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">ANEXOS</span>
+        <span className="a4p-label text-faint">Anexos</span>
         <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
@@ -720,7 +720,7 @@ function SeletorDeModo({
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Card className="h-full">
-      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
+      <span className="a4p-label text-faint">{titulo}</span>
       <div className="flex flex-col gap-4 mt-3">{children}</div>
     </Card>
   );
