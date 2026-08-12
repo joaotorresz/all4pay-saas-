@@ -191,11 +191,55 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
     return e;
   };
 
+  /**
+   * A ORDEM dos campos na tela — é ela que decide para onde rolar.
+   *
+   * ⚠️ Escrita, e não deduzida do objeto de erros: `Object.keys` devolve a
+   * ordem de INSERÇÃO do validador, que não tem nada a ver com a ordem visual.
+   * Rolar para o segundo campo com problema deixando o primeiro acima da dobra
+   * é quase tão ruim quanto não rolar.
+   */
+  const ORDEM_DOS_CAMPOS = [
+    "contaId", "categoria", "parteId",
+    "competencia", "vencimento", "valor",
+    "dataRealizado", "valorRealizado", "projetos", "centros",
+    /**
+     * ⚠️ `modo` fica por ÚLTIMO, e não por ser menos importante.
+     *
+     * Ele carrega as recusas do MOTOR (`plano.problemas`), que em boa parte são
+     * o ECO de um campo vazio — "Informe o valor" chega tanto como `e.valor`
+     * quanto como `e.modo`. Com `modo` na frente, o aviso falava do valor
+     * enquanto a tela rolava para o alto, até o seletor de tipo, que não tem
+     * campo para preencher. Medido no navegador antes de trocar a ordem.
+     *
+     * Deixando-o no fim, ele só ganha a vez quando é a ÚNICA recusa — o caso
+     * em que a mensagem realmente é sobre o modo (quantidade de parcelas,
+     * ocorrências, nome do colaborador).
+     */
+    "modo",
+  ];
+
   const salvar = async () => {
     const e = validar();
     setErros(e);
     if (Object.keys(e).length > 0) {
-      show("Revise os campos obrigatórios.");
+      /**
+       * ⚠️ **A TELA VAI ATÉ O CAMPO.** O formulário é longo e o botão Salvar
+       * fica no fim: com um campo obrigatório vazio lá em cima, o efeito
+       * visível de clicar em Salvar era NADA — o erro era desenhado fora da
+       * dobra e o aviso genérico não dizia qual campo. Foi assim que "clico em
+       * salvar e não acontece nada" virou a leitura correta do que a pessoa vê.
+       *
+       * O foco vai junto com a rolagem: quem navega por teclado não enxerga o
+       * campo que a rolagem revelou.
+       */
+      const primeiro = ORDEM_DOS_CAMPOS.find((k) => e[k]) ?? Object.keys(e)[0];
+      show(e[primeiro] ?? "Revise os campos obrigatórios.");
+      const alvo = document.querySelector<HTMLElement>(`[data-campo="${primeiro}"]`);
+      if (alvo) {
+        alvo.scrollIntoView({ behavior: "smooth", block: "center" });
+        alvo.querySelector<HTMLElement>("input, select, button, textarea")?.focus({ preventScroll: true });
+      }
       return;
     }
     setSalvando(true);
@@ -299,8 +343,29 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       }
       qc.invalidateQueries();
       const n = plano.titulos.length;
-      show(`Conta a ${direcao} criada${n > 1 ? ` · ${n} ${modo === "parcelada" ? "parcelas" : "ocorrências"}` : ""}.`);
-      router.push(receber ? "/contas-a-receber/titulos" : "/contas-a-pagar/titulos");
+      /**
+       * ⚠️ **A CONFIRMAÇÃO TEM DE SOBREVIVER À NAVEGAÇÃO.** `show()` seguido de
+       * `router.push()` no mesmo instante desmontava este componente — e com
+       * ele o portal do toast — antes de qualquer pixel aparecer. O efeito
+       * visível de salvar era uma troca de tela sem uma palavra dizendo que
+       * deu certo, e a leitura correta de quem opera é "não sei se salvou".
+       *
+       * A mensagem viaja na URL e quem a exibe é a tela de destino, que já
+       * está montada quando ela aparece.
+       *
+       * ⚠️ E leva o MÊS do primeiro vencimento: a lista abre no mês corrente
+       * (senão ela despeja o consolidado inteiro), então um título lançado
+       * para dezembro cairia fora da janela e a tela de destino pareceria não
+       * ter recebido nada — o mesmo "não sei se salvou" por outro caminho.
+       */
+      const criados = `${n} ${n === 1 ? "título" : (modo === "parcelada" ? "parcelas" : "ocorrências")}`;
+      const primeiroVenc = plano.titulos[0]?.vencimento ?? f.vencimento;
+      const destino = receber ? "/contas-a-receber/titulos" : "/contas-a-pagar/titulos";
+      const q = new URLSearchParams({
+        criado: `Conta a ${direcao} criada · ${criados}.`,
+        mes: primeiroVenc.slice(0, 7),
+      });
+      router.push(`${destino}?${q.toString()}`);
     } catch (err) {
       /**
        * ⚠️ O MOTIVO REAL VAI PARA A TELA, e a falha é REPORTADA.
@@ -345,7 +410,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
              uma conta real que o dinheiro sai, e é o bruto que o motor precisa.
              Duplicá-los dentro do bloco criaria dois campos para a mesma coisa. */
           <Bloco titulo="Conta e valor">
-            <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
+            <Campo label="Conta bancária" obrigatorio campo="contaId" erro={erros.contaId}>
               <SelectBusca
                 value={f.contaId}
                 onChange={(v) => set("contaId", v)}
@@ -356,7 +421,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             </Campo>
             <Campo
               label={folha.vinculo === "clt" ? "Salário bruto mensal" : "Valor da nota"}
-              obrigatorio erro={erros.valor}
+              obrigatorio campo="valor" erro={erros.valor}
               ajuda={folha.vinculo === "clt" ? "O bruto, antes de qualquer desconto." : undefined}
             >
               <CurrencyInput value={f.valor} onValueChange={(v) => set("valor", v)} />
@@ -372,7 +437,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             e "Contrato" ocupava o lugar nobre com um campo que quase nunca é
             preenchido. */}
         <Bloco titulo="Dados gerais">
-          <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
+          <Campo label="Conta bancária" obrigatorio campo="contaId" erro={erros.contaId}>
             <SelectBusca
               value={f.contaId}
               onChange={(v) => set("contaId", v)}
@@ -381,7 +446,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
             />
           </Campo>
-          <Campo label="Categoria" obrigatorio erro={erros.categoria}>
+          <Campo label="Categoria" obrigatorio campo="categoria" erro={erros.categoria}>
             {/* ⚠️ `SelectBusca` e não o `Select` nativo: o plano de contas é
                 longo e ABERTO. Quando o nome não está lá, o caminho antigo era
                 abandonar o lançamento, ir ao cadastro, criar e voltar do começo
@@ -401,7 +466,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           </Campo>
           {criando && (
             <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-3">
-              <span className="a4p-label text-faint">Nova categoria de {natureza}</span>
+              <span className="text-h3 font-semibold text-ink">Nova categoria de {natureza}</span>
               <Campo label="Nome">
                 <Input value={criando.nome} onChange={(e) => setCriando({ ...criando, nome: e.target.value })} />
               </Campo>
@@ -460,7 +525,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
         {/* ------------------------------- a parte ------------------------------- */}
         <Bloco titulo={rotuloParte}>
-          <Campo label={rotuloParte} obrigatorio erro={erros.parteId}>
+          <Campo label={rotuloParte} obrigatorio campo="parteId" erro={erros.parteId}>
             <div className="flex items-center gap-2">
               {/* ⚠️ O placeholder dizia "Digite nome ou documento…" num
                   `<select>` NATIVO, onde não se digita nada. A promessa estava
@@ -498,12 +563,12 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         {/* ---------------------------- datas e valor ---------------------------- */}
         <Bloco titulo="Datas e valor">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Campo label="Data de competência" obrigatorio erro={erros.competencia} ajuda="Quando o fato aconteceu — é o que o DRE lê.">
+            <Campo label="Data de competência" obrigatorio campo="competencia" erro={erros.competencia} ajuda="Quando o fato aconteceu — é o que o DRE lê.">
               <DateField value={f.competencia} onChange={(v) => set("competencia", v)} />
             </Campo>
             <Campo
               label={modo === "unica" ? "Data de vencimento" : "Primeiro vencimento"}
-              obrigatorio erro={erros.vencimento}
+              obrigatorio campo="vencimento" erro={erros.vencimento}
               ajuda="Quando cai — é o que a cobrança lê."
             >
               <DateField value={f.vencimento} onChange={(v) => set("vencimento", v)} />
@@ -515,7 +580,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
               significava R$ 48.000 ou R$ 4.000 e nada na tela dizia qual. */}
           <Campo
             label={modo === "parcelada" ? "Valor total da compra" : modo === "recorrente" ? "Valor de cada ocorrência" : "Valor"}
-            obrigatorio erro={erros.valor}
+            obrigatorio campo="valor" erro={erros.valor}
             ajuda={modo === "parcelada"
               ? "O preço cheio. As parcelas saem dele."
               : modo === "recorrente" ? "Quanto vence a cada vez — não o total do período." : undefined}
@@ -580,7 +645,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           várias datas, e "pagamento realizado" só faria sentido para um deles.
           A baixa acontece na lista, título a título. */}
       {modo !== "folha" && <Card>
-        <span className="a4p-label text-faint">{rotuloAcao}</span>
+        <span className="text-h3 font-semibold text-ink">{rotuloAcao}</span>
         <div className="flex flex-col gap-2 mt-3">
           <Checkbox
             checked={f.realizado}
@@ -596,10 +661,10 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </div>
         {f.realizado && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-border-soft">
-            <Campo label={`Data de ${rotuloAcao.toLowerCase()}`} obrigatorio erro={erros.dataRealizado}>
+            <Campo label={`Data de ${rotuloAcao.toLowerCase()}`} obrigatorio campo="dataRealizado" erro={erros.dataRealizado}>
               <DateField value={f.dataRealizado} onChange={(v) => set("dataRealizado", v)} />
             </Campo>
-            <Campo label={`Valor ${receber ? "recebido" : "pago"}`} obrigatorio erro={erros.valorRealizado}>
+            <Campo label={`Valor ${receber ? "recebido" : "pago"}`} obrigatorio campo="valorRealizado" erro={erros.valorRealizado}>
               <CurrencyInput value={f.valorRealizado} onValueChange={(v) => set("valorRealizado", v)} />
             </Campo>
             <Campo
@@ -618,7 +683,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
       {modo !== "unica" && modo !== "folha" && plano.titulos.length > 0 && (
         <Card>
           <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <span className="a4p-label text-faint">O que vai ser criado</span>
+            <span className="text-h3 font-semibold text-ink">O que vai ser criado</span>
             <span className="text-caption text-muted">
               {plano.titulos.length} {modo === "parcelada" ? "parcelas" : "ocorrências"} ·{" "}
               <b className="text-ink"><BRL value={plano.total} /></b> no total
@@ -664,18 +729,18 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         <Rateio
           titulo="Projetos" singular="projeto"
           opcoes={cadProjetos.map((p) => ({ value: p.id, label: p.nome }))}
-          linhas={projetos} onChange={setProjetos} erro={erros.projetos}
+          linhas={projetos} onChange={setProjetos} erro={erros.projetos} campoErro="projetos"
         />
         <Rateio
           titulo="Centros de custo" singular="centro de custo"
           opcoes={cadCentros.map((c) => ({ value: c.id, label: c.nome }))}
-          linhas={centros} onChange={setCentros} erro={erros.centros}
+          linhas={centros} onChange={setCentros} erro={erros.centros} campoErro="centros"
         />
       </div>}
 
       {/* --------------------------------- anexos --------------------------------- */}
       {modo !== "folha" && <Card>
-        <span className="a4p-label text-faint">Anexos</span>
+        <span className="text-h3 font-semibold text-ink">Anexos</span>
         <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
@@ -754,7 +819,7 @@ function SeletorDeModo({
   const MODOS = receber ? MODOS_RECEBER : MODOS_PAGAR;
   return (
     <Card>
-      <span className="a4p-label text-faint">Tipo do lançamento</span>
+      <span className="text-h3 font-semibold text-ink" data-campo="modo">Tipo do lançamento</span>
       <div role="radiogroup" aria-label="Tipo do lançamento" className={`mt-3 grid grid-cols-1 gap-3 ${receber ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4"}`}>
         {MODOS.map((m) => {
           const on = m === modo;
@@ -793,17 +858,26 @@ function SeletorDeModo({
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Card className="h-full">
-      <span className="a4p-label text-faint">{titulo}</span>
+      {/* ⚠️ O MESMO tratamento de "Projetos" e "Centros de custo" (`Rateio`),
+          que são cards irmãos deste mesmo formulário. Antes o eyebrow era
+          `.a4p-label` (mono, pequeno, faint) e os dois vizinhos eram título de
+          card — dois desenhos para o mesmo papel, um do lado do outro. */}
+      <span className="text-h3 font-semibold text-ink">{titulo}</span>
       <div className="flex flex-col gap-4 mt-3">{children}</div>
     </Card>
   );
 }
 
 function Campo({
-  label, obrigatorio, erro, ajuda, children,
-}: { label: string; obrigatorio?: boolean; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  label, obrigatorio, erro, ajuda, campo, children,
+}: {
+  label: string; obrigatorio?: boolean; erro?: string; ajuda?: string;
+  /** A chave do erro — é por ela que o salvar acha o campo para rolar até ele. */
+  campo?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-[6px]">
+    <div className="flex flex-col gap-[6px]" data-campo={campo}>
       <label className="text-caption font-medium text-muted">
         {label}
         {obrigatorio && (
@@ -820,18 +894,20 @@ function Campo({
 }
 
 function Rateio({
-  titulo, singular, opcoes, linhas, onChange, erro,
+  titulo, singular, opcoes, linhas, onChange, erro, campoErro,
 }: {
   titulo: string; singular: string;
   opcoes: { value: string; label: string }[];
   linhas: LinhaRateio[];
   onChange: (l: LinhaRateio[]) => void;
   erro?: string;
+  /** A chave do erro, para o salvar rolar até aqui. */
+  campoErro?: string;
 }) {
   const soma = somaRateio(linhas);
   const ok = rateioValido(linhas);
   return (
-    <Card>
+    <Card data-campo={campoErro}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-h3 font-semibold text-ink">{titulo}</span>
         <div className="flex items-center gap-3">

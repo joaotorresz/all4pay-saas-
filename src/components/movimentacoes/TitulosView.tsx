@@ -11,7 +11,7 @@
  * ferramenta de trabalho de quem opera cobrança e pagamento o dia inteiro.
  */
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
@@ -57,7 +57,24 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const [marcados, setMarcados] = React.useState<Set<string>>(new Set());
   // Carrossel de sazonalidade — portado do extrato.
   const [gran, setGran] = React.useState<Granularidade>("mes");
-  const [selPeriodo, setSelPeriodo] = React.useState<string | null>(null);
+  /**
+   * ⚠️ **A TELA ABRE NO MÊS CORRENTE, não no consolidado.**
+   *
+   * Sem recorte ela despejava TODOS os títulos já lançados de uma vez — o
+   * total de dois anos de operação num número só, no alto da tela. Quem abre
+   * lê aquilo como "o que eu devo", e o susto é justificado: não é. O mês é o
+   * recorte que a pergunta "o que eu pago agora" pede, e trocá-lo continua a
+   * um clique.
+   *
+   * O valor inicial vem da URL quando o formulário acabou de criar um título
+   * em outro mês — senão a tela de destino abriria em agosto para um título
+   * lançado em dezembro, e pareceria não ter recebido nada.
+   */
+  const query = useSearchParams();
+  const [selPeriodo, setSelPeriodo] = React.useState<string | null>(
+    () => query.get("mes"),
+  );
+  const [abriuNoMes, setAbriuNoMes] = React.useState(false);
   // ⚠️ BAIXA NA LINHA — porte do extrato (mapa, item 2). A baixa em lote exige
   // marcar caixinhas; para UM título, que é o caso comum, era o caminho mais
   // longo que existia.
@@ -99,6 +116,32 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
    * não filtra é pior que controle nenhum, porque quem clica conclui que os
    * valores abaixo já são de agosto.
    */
+  /**
+   * ⚠️ A seleção inicial acontece DEPOIS que os períodos existem — antes disso
+   * `periodos` está vazio e a chave do mês não casaria com cápsula nenhuma.
+   * O `abriuNoMes` garante que isto rode UMA vez: sem ele, desmarcar o período
+   * seria desfeito no render seguinte e o filtro ficaria impossível de limpar.
+   */
+  React.useEffect(() => {
+    if (abriuNoMes || periodos.length === 0 || !input) return;
+    setAbriuNoMes(true);
+    if (selPeriodo) return;
+    const mesDeHoje = input.hoje.slice(0, 7);
+    if (periodos.some((p) => p.key === mesDeHoje)) setSelPeriodo(mesDeHoje);
+  }, [abriuNoMes, periodos, input, selPeriodo]);
+
+  // A confirmação vinda do formulário: ela é exibida AQUI porque esta tela já
+  // está montada quando aparece — no formulário, o `router.push` desmontava o
+  // portal do toast antes de um pixel sair.
+  const [avisou, setAvisou] = React.useState(false);
+  React.useEffect(() => {
+    if (avisou) return;
+    const msg = query.get("criado");
+    if (!msg) return;
+    setAvisou(true);
+    show(msg);
+  }, [avisou, query, show]);
+
   const janela = React.useMemo(() => {
     const p = periodos.find((x) => x.key === selPeriodo);
     // As datas digitadas à mão continuam podendo sobrepor — quem abriu o painel
@@ -566,7 +609,16 @@ function CardTitulo({
         aria-label={`${selecionado ? "Remover o filtro de" : "Filtrar por"} ${c.label}`}
         onClick={onClick}
         className={`w-full text-left p-6 rounded-card cursor-pointer transition-colors ${
-          selecionado ? "bg-surface-2 ring-1 ring-border" : "hover:bg-surface-2/40"
+          /* ⚠️ BORDA fina, não fundo cinza. O `bg-surface-2` do selecionado é
+             quase o mesmo cinza do canvas da página (`surface-1`), então o card
+             escolhido DESAPARECIA no fundo em vez de se destacar — o oposto do
+             que a seleção precisa comunicar.
+             ⚠️ E é BORDER, não `ring`: medido no navegador, o `ring-1` saía com
+             `box-shadow: none` dentro do card (a regra do `[data-card="1"]`
+             vence), então o estado selecionado não desenhava NADA. A borda
+             transparente no estado normal reserva o pixel — sem ela o card
+             pula 1px ao ser escolhido. */
+          selecionado ? "border border-border" : "border border-transparent hover:bg-surface-2/40"
         }`}
       >
       <div className="flex items-center gap-4">

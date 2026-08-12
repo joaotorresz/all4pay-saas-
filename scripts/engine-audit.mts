@@ -3031,6 +3031,38 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const AGOSTO = { de: "2026-08-01", ate: "2026-08-31" };
   const p = montarPainelContasPagar(INPUT, AGOSTO);
 
+  // ── a faixa vai ATÉ ONDE HOUVER TÍTULO, e não para em hoje ──
+  // ⚠️ `montarPeriodos` monta doze meses TERMINANDO no mês corrente — a leitura
+  // sazonal, que olha para trás. Numa tela de títulos isso escondia o que a
+  // pessoa acabou de lançar: uma compra em 12x ou o salário agendado para
+  // dezembro ficavam sem cápsula e sem coluna, e quem lançou concluía que o
+  // lançamento não entrou.
+  {
+    const futuro: RiskInput = {
+      hoje: "2026-08-11", saldoAtual: 0,
+      movements: [
+        { id: "f1", type: "saida", status: "pendente", amount: 900, due_date: "2026-08-20", paid_date: null },
+        { id: "f2", type: "saida", status: "pendente", amount: 700, due_date: "2026-12-05", paid_date: null },
+      ],
+    };
+    const fx = periodosPorVencimento(futuro, futuro.hoje, "mes", "pagar");
+    const chaves = fx.map((x) => x.key);
+    ok("t9: a faixa alcança o mês do título mais distante",
+       chaves[chaves.length - 1] === "2026-12", chaves.slice(-4).join(","));
+    ok("t9: e o valor cai no mês certo",
+       fx.find((x) => x.key === "2026-12")?.total === 700
+       && fx.find((x) => x.key === "2026-08")?.total === 900);
+    // Os meses do meio entram VAZIOS, não pulados: uma faixa que pula mês deixa
+    // de ser calendário e vira lista ordenada por data.
+    ok("t9: os meses entre hoje e o título distante existem, em zero",
+       ["2026-09", "2026-10", "2026-11"].every((m) => fx.find((x) => x.key === m)?.total === 0));
+    // Sem título futuro, a faixa continua com os doze de sempre — a extensão é
+    // consequência do DADO, não uma janela nova cravada.
+    const semFuturo = periodosPorVencimento(
+      { ...futuro, movements: [futuro.movements[0]] }, futuro.hoje, "mes", "pagar");
+    ok("t9: sem título futuro a faixa não cresce", semFuturo.length === 12, String(semFuturo.length));
+  }
+
   // ── a faixa de períodos: TOTAL a pagar, nunca resultado, nunca negativo ──
   // ⚠️ A agregação NOVA existe ao lado da de resultado, não no lugar dela: o
   // extrato pergunta "como foi o mês" (com sinal e cor) e a tela de títulos

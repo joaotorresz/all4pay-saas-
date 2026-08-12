@@ -233,7 +233,28 @@ export function Sidebar() {
             `a4p:criar`) — remover o único acesso deixaria o painel de criação,
             com dezesseis ações, sem caminho nenhum, que é como uma tela vira
             código morto sem ninguém notar. */}
+        {/* ⚠️ **A AÇÃO E O RECOLHER DIVIDEM A MESMA LINHA.** Empilhados, os dois
+            custavam uma faixa de altura inteira no topo do cartão para nada —
+            e a mesma decisão já valia para o antigo "Criar" (está no guia).
+            Recolhida (68px), eles voltam a empilhar: lado a lado não cabem. */}
         <div className={cn("flex items-center gap-2 mb-2", col ? "flex-col" : "justify-end")}>
+          {grupo?.acao && (
+            <Button
+              variant="primary"
+              onClick={() => router.push(grupo.acao!.href)}
+              // Recolhida, sobra o ícone — e o rótulo vive no `aria-label`,
+              // senão o botão fica mudo para leitor de tela.
+              aria-label={grupo.acao.label}
+              title={grupo.acao.label}
+              // `h-10` para casar EXATAMENTE com o botão de recolher (40px):
+              // dois controles na mesma linha com alturas diferentes leem como
+              // desalinhamento, não como hierarquia.
+              className={cn("h-10 py-0", col ? "w-full px-0 order-2" : "flex-1 min-w-0")}
+            >
+              <Icon name={grupo.acao.icon} size={15} color="currentColor" />
+              {!col && <span className="truncate">{grupo.acao.label}</span>}
+            </Button>
+          )}
           <button
             onClick={toggleCollapsed}
             aria-label={col ? "Expandir menu" : "Recolher menu"}
@@ -257,31 +278,6 @@ export function Sidebar() {
             <Icon name="x" size={18} color="var(--color-text-secondary)" />
           </button>
         </div>
-
-        {/* A AÇÃO PRIMÁRIA DO GRUPO — acima do título, acima da lista.
-            ⚠️ Ela vem de `Section.acao` (a fonte única), não de um `if` por id
-            aqui dentro: a coluna lateral não pode saber que "contas a pagar"
-            tem uma rota de criação, senão o segundo grupo com botão vira um
-            segundo caso particular no mesmo componente.
-            Fica visível em TODOS os itens do grupo — quem está em Folha
-            salarial também lança uma conta a pagar sem voltar. */}
-        {grupo?.acao && (
-          <div className={cn("shrink-0 pb-3", col ? "px-0" : "px-[10px]")}>
-            <Button
-              variant="primary"
-              fullWidth={!col}
-              onClick={() => router.push(grupo.acao!.href)}
-              // Recolhida, sobra o ícone — e o rótulo vive no `aria-label`,
-              // senão o botão fica mudo para leitor de tela.
-              aria-label={grupo.acao.label}
-              title={grupo.acao.label}
-              className={col ? "w-full px-0 py-3" : undefined}
-            >
-              <Icon name={grupo.acao.icon} size={15} color="currentColor" />
-              {!col && grupo.acao.label}
-            </Button>
-          </div>
-        )}
 
         {/* O grupo em que você está — a barra horizontal marca o mesmo.
             ⚠️ Era um micro-rótulo de 11px em cinza-claro, que lia como legenda

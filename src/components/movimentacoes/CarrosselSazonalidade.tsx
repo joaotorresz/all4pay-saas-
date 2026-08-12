@@ -82,7 +82,11 @@ export function CarrosselSazonalidade({
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-3 flex-wrap">
-        {titulo ? <span className="a4p-label text-faint">{titulo}</span> : <span />}
+        {/* ⚠️ `text-label text-muted` — o MESMO tratamento da frase de escopo logo
+            abaixo ("Valores a pagar aos seus fornecedores…"). O `.a4p-label` é
+            mono e faint: ao lado de uma frase em Roobert, os dois textos da
+            mesma tela pareciam vir de sistemas diferentes. */}
+        {titulo ? <span className="text-label text-muted">{titulo}</span> : <span />}
         <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="tablist" aria-label="Granularidade">
           {([["mes", "Mês"], ["semana", "Semana"]] as [Granularidade, string][]).map(([id, label]) => (

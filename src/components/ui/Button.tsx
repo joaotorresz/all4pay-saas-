@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  *
  * ⚠️ ISTO INVERTE A DOUTRINA ANTERIOR ("nada parece botão", pill sem fill).
  * O guia vigente define o botão por forma e contraste:
- *   · CANTOS RETOS (`border-radius: 0`) e padding 16px/20px;
+ *   · padding 16px/20px (o raio, ver abaixo, passou a ser o do card);
  *   · PRIMÁRIO = Black quente com texto em White quente — um por tela;
  *   · SECUNDÁRIO = Beige com texto em Black quente (ou só contorno em Border);
  *   · TERCIÁRIO = texto com sublinhado;
@@ -15,9 +15,11 @@ import { cn } from "@/lib/utils";
  * O texto do botão é TEXTO (Roobert 500) — nunca a classe de rótulo, nunca
  * caixa alta forçada.
  *
- * O raio pertence ao CARD, não ao controle: é o card que carrega a curva da
- * marca, e o botão que fica reto. `pill` sobrevive só para os controles que
- * são chips por definição (seletor de período), onde a forma É a função.
+ * ⚠️ O RAIO acompanha o CARD: `rounded-card` (22px no escopo `.ds-visor`), o
+ * mesmo token dos boxes da Home. A doutrina de "cantos retos" citada acima é
+ * histórica — um botão de canto vivo encostado num card de 22px lia como peça
+ * de outro sistema. `pill` sobrevive para os controles em que a forma redonda
+ * É a função (chips de período, FABs).
  */
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "accent";
 type ButtonSize = "sm" | "md" | "lg";
@@ -95,10 +97,22 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           "inline-flex items-center justify-center font-medium leading-none whitespace-nowrap",
           "transition-[background-color,border-color,transform,opacity] duration-120 ease-out",
           "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45",
-          // ⚠️ CANTOS RETOS. Aplicado ao PRIMITIVO, não a todo `<button>` da
-          // tela: um seletor `.ds-visor button` também quadraria os chips de
-          // período, os toggles e os FABs, que são redondos por definição.
-          pill ? "rounded-pill" : "rounded-none",
+          /**
+           * ⚠️ O RAIO É O DO CARD DA HOME — `rounded-card`, que no escopo
+           * `.ds-visor` resolve para `--a4p-box-radius` (22px).
+           *
+           * Estava `rounded-none`, herdado da doutrina "cantos retos" de uma
+           * identidade anterior: no produto de hoje, um botão de canto vivo ao
+           * lado de um card de 22px lê como peça de outro sistema. Vai pelo
+           * TOKEN e não por um valor: mudar o raio dos cards passa a mudar o
+           * dos botões junto, que é o comportamento que se quer de um sistema.
+           *
+           * Aplicado ao PRIMITIVO, não a todo `<button>` da tela: um seletor
+           * `.ds-visor button` também arredondaria os chips de período, os
+           * toggles e os FABs, que já têm forma própria. `pill` sobrevive para
+           * os controles em que a forma redonda É a função.
+           */
+          pill ? "rounded-pill" : "rounded-card",
           fullWidth && "w-full",
           sizeClasses[size],
           variantClasses[variant],
