@@ -354,6 +354,37 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
   return (data ?? []) as Category[];
 }
 
+/**
+ * Cria uma categoria na tabela REAL (`public.categories`) e devolve a linha.
+ *
+ * ⚠️ Existe porque o formulário de lançamento precisa de um `category_id` que
+ * seja UUID de verdade: `movements.category_id` é FK para `categories`, e o
+ * plano de contas da tela vive em `org_state` com id numérico próprio
+ * (`novoIdRegistro`). Mandar aquele id para esta coluna é o que produzia
+ * `22P02 invalid input syntax for type uuid` em TODA gravação com categoria —
+ * medido contra o banco de produção.
+ *
+ * `dre_linha` viaja junto: é a coluna da migration `20260812144846`, e sem um
+ * escritor ela seria schema inerte.
+ */
+export async function criarCategoria(
+  nome: string, kind: CategoryKind, dreLinha?: string | null,
+): Promise<Category> {
+  if (isDemo) {
+    const nova = { id: `demo-cat-${Date.now()}`, kind, name: nome };
+    DEMO_CATEGORIES.push(nova);
+    return nova;
+  }
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ name: nome, kind, dre_linha: dreLinha ?? null })
+    .select("id,kind,name")
+    .single();
+  if (error) throw error;
+  return data as Category;
+}
+
 export async function getCostCenters(): Promise<CostCenter[]> {
   if (isDemo) return DEMO_COST_CENTERS;
   const supabase = createClient();
@@ -459,6 +490,29 @@ export async function updateAccount(
   if (error) throw error;
 }
 
+/**
+ * O valor é um UUID — ou a gravação para AQUI, com o nome do campo.
+ *
+ * ⚠️ Sem isto, um id que não é UUID atravessa o app inteiro e só é recusado
+ * pelo PostgREST, com `invalid input syntax for type uuid: "217290"`. Essa
+ * mensagem chega à tela e não diz NADA a quem opera: não nomeia o campo, não
+ * sugere ação, e o número não aparece em lugar nenhum da interface. O defeito
+ * real é sempre o mesmo — um cadastro que mora no navegador com id próprio
+ * sendo mandado para uma coluna que é chave estrangeira.
+ *
+ * Falhar aqui não conserta a dupla morada; ela é nomeada na mensagem, e quem
+ * lê descobre em um segundo o que levaria uma sessão de depuração.
+ */
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function exigirUUID(valor: string | null | undefined, campo: string): string | null {
+  if (!valor) return null;
+  if (RE_UUID.test(valor)) return valor;
+  throw new Error(
+    `O ${campo} escolhido ainda não existe no banco (id "${valor}"). `
+    + "Ele foi cadastrado só neste navegador — abra Cadastros e crie-o de novo para que o lançamento possa apontar para ele.",
+  );
+}
+
 /** Build the movement rows for a lançamento (handles parcelamento). */
 function buildMovementRows(input: LancamentoInput, groupId: string) {
   const type: MovementType = input.kind === "receita" ? "entrada" : "saida";
@@ -474,10 +528,10 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       type,
       status: settledNow ? "pago" : "pendente",
       category: null,
-      category_id: input.category_id,
-      cost_center_id: input.cost_center_id,
-      project_id: input.project_id ?? null,
-      party_id: input.party_id,
+      category_id: exigirUUID(input.category_id, "categoria"),
+      cost_center_id: exigirUUID(input.cost_center_id, "centro de custo"),
+      project_id: exigirUUID(input.project_id ?? null, "projeto"),
+      party_id: exigirUUID(input.party_id, "contato"),
       amount: per,
       due_date: isoDay(due),
       paid_date: settledNow ? isoDay(new Date()) : null,

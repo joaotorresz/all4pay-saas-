@@ -3190,6 +3190,36 @@ const AGOSTO = janelaMes(2026, 7);
     ok("projecao: o painel de contas a pagar declara o mesmo",
        /já lançados/.test(ler("src/components/contas-pagar/DashboardContasPagar.tsx")));
 
+    /**
+     * ⚠️ **NENHUM ID DE CADASTRO LOCAL VAI PARA UMA COLUNA UUID.**
+     *
+     * `movements.category_id` (e `cost_center_id`, `project_id`, `party_id`) é
+     * UUID com chave estrangeira. O plano de contas, os projetos e os centros
+     * de custo moram em `org_state` com id PRÓPRIO, numérico. Mandar aquele id
+     * para esta coluna produz `22P02 invalid input syntax for type uuid:
+     * "217290"` — reproduzido contra o banco de produção, e era o que derrubava
+     * TODA gravação de conta a pagar com categoria escolhida.
+     *
+     * A trava é `exigirUUID` no montador de linhas: ela falha ANTES da rede,
+     * nomeando o campo em português. A mensagem do Postgres não nomeia campo
+     * nenhum e cita um número que não aparece em lugar nenhum da interface.
+     */
+    const dadosTxt = ler("src/lib/data.ts");
+    const montador = /function buildMovementRows[\s\S]{0,3000}?\n}/.exec(dadosTxt)?.[0] ?? "";
+    const semTrava = ["category_id", "cost_center_id", "project_id", "party_id"]
+      .filter((c) => !new RegExp(`${c}: exigirUUID\\(`).test(montador));
+    ok("uuid: todo id de cadastro passa pela trava antes de virar linha",
+       montador.length > 0 && semTrava.length === 0, semTrava.join(" | "));
+    ok("uuid: a trava recusa o que não é UUID e nomeia o campo",
+       /invalid input syntax|não existe no banco/.test(dadosTxt)
+       && /function exigirUUID/.test(dadosTxt));
+    /**
+     * E o formulário de lançamento NÃO pode voltar a alimentar a categoria pelo
+     * plano de contas local — é de lá que o id numérico vinha.
+     */
+    ok("uuid: o formulário de título não tira a categoria do plano local",
+       !/listPlanoContas/.test(ler("src/components/movimentacoes/TituloForm.tsx")));
+
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));
     /**
