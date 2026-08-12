@@ -263,8 +263,17 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
       </Card>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">
+        {/* ⚠️ **A TELA DIZ O QUE CONTA.** Esta lista tem os títulos que EXISTEM;
+            a projeção de contas recorrentes conta o compromisso que a REGRA
+            cria, inclusive nos meses que ainda não viraram título. As duas
+            respondem perguntas diferentes e podem divergir muito no mesmo mês —
+            medido em produção, outubro tem R$ 20.640 de títulos e R$ 40.802 de
+            compromisso recorrente, e nenhum centavo do segundo está aqui. Sem
+            esta frase, quem abre as duas conclui que uma está errada. */}
+        <p className="m-0 text-label text-muted max-w-[62ch]">
           {direcao === "receber" ? "Valores a receber dos seus clientes." : "Valores a pagar aos seus fornecedores."}
+          {" "}Só entram os títulos <b className="text-ink">já lançados</b>
+          {direcao === "pagar" && <> — o que ainda vai vencer por contrato aparece em Contas recorrentes</>}.
         </p>
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <Button variant="primary" onClick={() => router.push(rotaNovo)}>
