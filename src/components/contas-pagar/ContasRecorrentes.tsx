@@ -20,7 +20,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, PieChart, Pie, Cell,
 } from "recharts";
 import { Card, BRL, Icon, Skeleton } from "@/components/ui";
-import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { useRiscoInput, useRegrasRecorrentes } from "@/components/visao-geral/hooks";
 import { formatBRL, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -28,6 +28,10 @@ import {
   ROTULO_ESPECIE, TOKEN_ESPECIE, JANELA_MESES, MESES_MINIMOS,
   type PainelRecorrentes, type Especie,
 } from "@/core/contas-pagar/recorrentes";
+import {
+  projetarRecorrentes, porMes, janelasDoSeletor, fraseDoCusto, fraseDaProporcao,
+  type ResumoProjecao, type JanelaId, type Janela,
+} from "@/core/contas-pagar/projecao";
 
 const tooltipStyle = {
   background: "var(--color-white)",
@@ -38,7 +42,15 @@ const tooltipStyle = {
 
 export function ContasRecorrentes() {
   const { data: input, isLoading } = useRiscoInput();
+  const { data: regras } = useRegrasRecorrentes();
   const [passo, setPasso] = React.useState(0);
+  /**
+   * ⚠️ A JANELA é da TELA, não de um card. Ela alimenta o resumo do custo E o
+   * gráfico — dois controles de tempo na mesma tela, um por card, produziriam
+   * um card falando de agosto ao lado de um gráfico dos últimos seis meses, com
+   * nada explicando por que os números não se encontram.
+   */
+  const [janelaId, setJanelaId] = React.useState<JanelaId>("ultimos6");
 
   const mes = React.useMemo(() => {
     if (!input) return "";
@@ -49,6 +61,27 @@ export function ContasRecorrentes() {
     () => (input && mes ? montarPainelRecorrentes(input, mes) : null),
     [input, mes],
   );
+
+  const janelas = React.useMemo(
+    () => (input ? janelasDoSeletor(input.hoje) : []),
+    [input],
+  );
+  const janela = janelas.find((j) => j.id === janelaId) ?? janelas[0];
+
+  /**
+   * A projeção — só por REGRA (`recurrences`), nunca pelo padrão inferido.
+   *
+   * ⚠️ Em demonstração não há tabela de regras e o acessor devolve vazio: a
+   * projeção sai zerada e a tela DIZ isso, em vez de inventar uma recorrência
+   * para preencher o gráfico.
+   */
+  const projecao: ResumoProjecao | null = React.useMemo(() => {
+    if (!input || !janela) return null;
+    return projetarRecorrentes({
+      regras: regras ?? [], movimentos: input.movements,
+      de: janela.de, ate: janela.ate,
+    });
+  }, [input, regras, janela]);
 
   if (isLoading || !painel) {
     return (
@@ -69,8 +102,14 @@ export function ContasRecorrentes() {
           responsivo dentro de grid sem largura mínima zero empurra a coluna e
           desfaz a proporção pedida. */}
       <div className="grid grid-cols-1 lg:grid-cols-[30%_minmax(0,1fr)] gap-4 items-stretch">
-        <CardAlternante painel={painel} mes={mes} passo={passo} onPasso={setPasso} />
-        <CardVelas painel={painel} />
+        <CardAlternante
+          painel={painel} mes={mes} passo={passo} onPasso={setPasso}
+          projecao={projecao} janela={janela} hoje={input?.hoje ?? ""}
+        />
+        <CardVelas
+          painel={painel} projecao={projecao} janelas={janelas}
+          janelaId={janelaId} onJanela={setJanelaId}
+        />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <CardCategorias painel={painel} />
@@ -94,11 +133,79 @@ interface Leitura {
 }
 
 function CardAlternante({
-  painel, mes, passo, onPasso,
-}: { painel: PainelRecorrentes; mes: string; passo: number; onPasso: (n: number) => void }) {
+  painel, mes, passo, onPasso, projecao, janela, hoje,
+}: {
+  painel: PainelRecorrentes; mes: string; passo: number; onPasso: (n: number) => void;
+  projecao: ResumoProjecao | null; janela: Janela | undefined; hoje: string;
+}) {
   const [i, setI] = React.useState(0);
 
+  /**
+   * ⚠️ **A LEITURA DO INTERVALO vem primeiro, e o tempo verbal dela sai de
+   * `fraseDoCusto`** — uma função só, no motor, e nenhum ternário de conjugação
+   * na JSX. "Seu custo recorrente FOI de R$ 40 mil" é um fato contábil; "ESTARÁ
+   * em R$ 40 mil" é uma expectativa sobre regras que podem ser canceladas
+   * amanhã. Lidas rápido, as duas mandam o dono fazer coisas diferentes, e
+   * fixar tudo no futuro faria a tela mentir sobre todo mês já fechado.
+   */
+  const doIntervalo: Leitura | null = projecao && janela ? {
+    rotulo: janela.rotulo,
+    valor: projecao.total,
+    /**
+     * ⚠️ **ZERO NÃO É A AUSÊNCIA DE ZERO** (regra da ONDA 4). Sem nenhuma regra
+     * de recorrência cadastrada, o total sai R$ 0,00 corretamente — mas "seu
+     * custo recorrente será de R$ 0,00" AFIRMA que a empresa não tem conta que
+     * se repita, e a verdade é que o sistema não sabe: ninguém cadastrou
+     * recorrência nenhuma. As duas leituras mandam o dono fazer coisas
+     * opostas — a primeira o deixa tranquilo, a segunda manda ele cadastrar.
+     *
+     * Um mês em que as regras existem e nada vence continua valendo R$ 0,00,
+     * porque aí o zero é resposta.
+     */
+    indisponivel: projecao.regrasConsideradas === 0 ? {
+      motivo: "Nenhuma regra de recorrência alcança este período.",
+      comoResolver: "Cadastre a repetição ao lançar uma conta a pagar — é ela que projeta os meses à frente.",
+    } : null,
+    // A média é sobre os meses do INTERVALO, não sobre os que têm ocorrência:
+    // um mês sem conta recorrente é um mês em que não se pagou nada, e tirá-lo
+    // do divisor inflaria a média justamente onde ela deve baixar.
+    aproximado: projecao.totalProjetado > 0,
+    detalhe: (
+      <>
+        <span className="block">
+          {fraseDoCusto(janela.de, janela.ate, hoje)}{" "}
+          <strong className="font-medium text-ink">{formatBRL(projecao.total)}</strong>
+          {projecao.meses > 0 && <> — média de {formatBRL(projecao.total / projecao.meses)} por mês.</>}
+        </span>
+        {projecao.totalProjetado > 0 && (
+          <span className="block mt-1">
+            {pct(projecao.totalProjetado / (projecao.total || 1))}{" "}
+            {fraseDaProporcao(janela.de, janela.ate, hoje)}
+            {projecao.totalRealizado > 0 && <> — o resto já tem título lançado.</>}.
+          </span>
+        )}
+        <span className="block mt-1 text-faint">
+          {/* ⚠️ O card mede SÓ o que tem regra de recorrência cadastrada — não é
+              o total de contas a pagar do período. Sem esta linha ele seria
+              lido como "meu gasto do semestre", e a diferença para o total real
+              apareceria como um erro de cálculo que não existe. */}
+          Considera {projecao.regrasConsideradas === 1 ? "1 regra" : `${projecao.regrasConsideradas} regras`} de
+          recorrência{projecao.regrasSemPrazo > 0 && <> · {projecao.regrasSemPrazo} sem data de término</>}.
+        </span>
+        {projecao.regrasComValorDivergente > 0 && (
+          <span className="block mt-1">
+            {projecao.regrasComValorDivergente === 1
+              ? "1 recorrência usa"
+              : `${projecao.regrasComValorDivergente} recorrências usam`}{" "}
+            a última cobrança conhecida, e não o valor cadastrado.
+          </span>
+        )}
+      </>
+    ),
+  } : null;
+
   const leituras: Leitura[] = [
+    ...(doIntervalo ? [doIntervalo] : []),
     {
       rotulo: "Total de contas a pagar",
       valor: painel.totalDoMes,
@@ -160,7 +267,14 @@ function CardAlternante({
           </>
         ) : (
           <>
-            {l.aproximado && <span className="text-caption text-muted">está em aproximadamente</span>}
+            {l.aproximado && (
+              // ⚠️ Marcador de ESTIMATIVA, discreto: o número não é uma
+              // contagem de títulos, é aritmética sobre uma regra.
+              <span className="inline-flex items-center gap-[6px] text-caption text-muted">
+                <span className="w-[6px] h-[6px] rounded-pill bg-warning" aria-hidden />
+                valor estimado
+              </span>
+            )}
             <span className="a4p-num text-[30px] leading-none text-ink">
               <BRL value={l.valor} />
             </span>
@@ -231,24 +345,94 @@ function Vela(props: { x?: number; y?: number; width?: number; height?: number; 
 
 const CAMADAS: Especie[] = ["avulsa", "variavel", "parcelada", "fixa"];
 
-function CardVelas({ painel }: { painel: PainelRecorrentes }) {
-  const vazio = painel.meses.every((m) => m.total === 0);
+function CardVelas({
+  painel, projecao, janelas, janelaId, onJanela,
+}: {
+  painel: PainelRecorrentes;
+  projecao: ResumoProjecao | null;
+  janelas: Janela[];
+  janelaId: JanelaId;
+  onJanela: (id: JanelaId) => void;
+}) {
+  const olhandoParaFrente = janelaId !== "ultimos6";
+  const linhas = React.useMemo(() => (projecao ? porMes(projecao) : []), [projecao]);
+  const vazioPassado = painel.meses.every((m) => m.total === 0);
+  const vazioFuturo = linhas.every((l) => l.total === 0);
+
   return (
     <Card
       className="flex flex-col"
       info={{
-        titulo: "Os últimos meses",
-        oQue: "Como o gasto mensal se divide entre o que se repete e o que não se repete.",
-        comoCalcula:
-          "Cada coluna é o total de contas a pagar do mês, dividido pelas quatro espécies. A classificação é do compromisso inteiro (contraparte + categoria), não de um lançamento isolado.",
+        titulo: olhandoParaFrente ? "O que ainda vai vencer" : "Os últimos meses",
+        oQue: olhandoParaFrente
+          ? "Quanto as contas recorrentes vão custar em cada mês à frente."
+          : "Como o gasto mensal se divide entre o que se repete e o que não se repete.",
+        comoCalcula: olhandoParaFrente
+          ? "Cada coluna soma as ocorrências das REGRAS de recorrência cadastradas que vencem no mês. Onde já existe título lançado para a regra naquele mês, vale o título (nunca os dois). O resto é projeção: valor da regra, ou a última cobrança conhecida quando ela discorda."
+          : "Cada coluna é o total de contas a pagar do mês, dividido pelas quatro espécies. A classificação é do compromisso inteiro (contraparte + categoria), não de um lançamento isolado.",
       }}
     >
-      <div className="flex items-baseline justify-between gap-3 pr-8">
+      <div className="flex items-baseline justify-between gap-3 pr-8 flex-wrap">
         <h2 className="m-0 text-h3">Contas a pagar por mês</h2>
-        <span className="text-caption text-faint">últimos {JANELA_MESES} meses</span>
+        {/* ⚠️ O seletor SUBSTITUI o rótulo fixo "últimos 6 meses". Um texto que
+            descreve a janela sem permitir trocá-la obriga quem quer olhar para
+            frente a sair da tela — que é exatamente o que faltava aqui. */}
+        <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="tablist" aria-label="Período">
+          {janelas.map((j) => (
+            <button
+              key={j.id} role="tab" aria-selected={j.id === janelaId}
+              onClick={() => onJanela(j.id)}
+              className={`rounded-pill px-3 py-[6px] text-caption font-medium transition-colors ${
+                j.id === janelaId ? "bg-white text-ink" : "text-muted hover:text-ink"
+              }`}
+            >
+              {j.rotulo}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {vazio ? (
+      {/* ⚠️ A troca de janela TROCA A PERGUNTA, e a tela diz isso. O passado
+          mostra TODAS as contas a pagar, classificadas por espécie a partir do
+          padrão observado; o futuro mostra SÓ o que as regras de recorrência
+          projetam. Desenhá-los no mesmo eixo sem avisar faria a coluna de
+          setembro parecer uma queda de gasto, quando ela mede outra coisa. */}
+      {olhandoParaFrente && (
+        <p className="m-0 mt-2 text-caption text-muted">
+          À frente só entram as contas com regra de recorrência cadastrada — não é o total de contas a pagar.
+        </p>
+      )}
+
+      {olhandoParaFrente ? (
+        vazioFuturo ? (
+          <p className="m-0 text-body text-muted py-14 text-center">
+            {projecao && projecao.regrasConsideradas === 0
+              ? "Nenhuma regra de recorrência alcança este período."
+              : "Nada a vencer neste período."}
+          </p>
+        ) : (
+          <>
+            <div className="h-[230px] mt-4" role="img"
+              aria-label={`Contas recorrentes por mês. ${linhas.map((l) => `${rotuloMes(l.mes)}: ${formatBRL(l.total)}${l.temProjecao ? " (estimativa)" : ""}`).join(", ")}.`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={linhas} margin={{ top: 16, right: 0, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tickMargin={10}
+                    tickFormatter={rotuloMes} tick={{ fill: "var(--color-text-secondary)" }} />
+                  <Tooltip content={<ProjecaoTooltip />} cursor={{ fill: "var(--color-surface-2)", radius: 12 }} />
+                  {/* Realizado sólido; projetado com opacidade reduzida e
+                      contorno tracejado — o corte visual acontece no mês em que
+                      um vira o outro, sem precisar de uma linha explicando. */}
+                  <Bar dataKey="realizado" stackId="mes" maxBarSize={72}
+                    fill={TOKEN_ESPECIE.fixa} shape={<Vela />} {...chartAnim(0)} />
+                  <Bar dataKey="projetado" stackId="mes" maxBarSize={72}
+                    fill={TOKEN_ESPECIE.fixa} shape={<VelaProjetada />} {...chartAnim(90)} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <LegendaProjecao />
+          </>
+        )
+      ) : vazioPassado ? (
         <p className="m-0 text-body text-muted py-14 text-center">
           Nenhuma conta a pagar nos últimos {JANELA_MESES} meses.
         </p>
@@ -272,6 +456,77 @@ function CardVelas({ painel }: { painel: PainelRecorrentes }) {
         </>
       )}
     </Card>
+  );
+}
+
+/**
+ * A vela PROJETADA — mesmo desenho, opacidade reduzida e contorno tracejado.
+ *
+ * ⚠️ Duas marcas e não uma: só a opacidade some em tela fraca e em impressão, e
+ * é justamente numa impressão que alguém leva o número para uma reunião. O
+ * tracejado sobrevive aos dois.
+ */
+function VelaProjetada(props: { x?: number; y?: number; width?: number; height?: number; fill?: string }) {
+  const { x = 0, y = 0, width = 0, height = 0, fill } = props;
+  if (height <= 0) return null;
+  const h = Math.max(2, height - RESPIRO);
+  const r = Math.min(12, width / 2, h / 2);
+  return (
+    <g>
+      <rect x={x} y={y + RESPIRO / 2} width={width} height={h} rx={r} fill={fill} opacity={0.38} />
+      <rect x={x + 0.75} y={y + RESPIRO / 2 + 0.75} width={Math.max(0, width - 1.5)} height={Math.max(0, h - 1.5)}
+        rx={r} fill="none" stroke={fill} strokeWidth={1.5} strokeDasharray="4 3" />
+    </g>
+  );
+}
+
+function LegendaProjecao() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 mt-1 text-caption text-muted">
+      <span className="inline-flex items-center gap-[6px]">
+        <span className="w-2 h-2 rounded-pill" style={{ background: TOKEN_ESPECIE.fixa }} />
+        Realizado
+      </span>
+      <span className="inline-flex items-center gap-[6px]">
+        <span className="w-2 h-2 rounded-pill border border-dashed"
+          style={{ background: TOKEN_ESPECIE.fixa, opacity: 0.38, borderColor: TOKEN_ESPECIE.fixa }} />
+        Projetado
+      </span>
+    </div>
+  );
+}
+
+function ProjecaoTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { dataKey?: string | number; value?: number }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const de = (k: string) => payload.find((p) => p.dataKey === k)?.value ?? 0;
+  const realizado = de("realizado");
+  const projetado = de("projetado");
+  return (
+    <div className="rounded-card bg-white shadow-popover px-4 py-3 min-w-[210px]">
+      <p className="m-0 text-caption text-muted">{label ? rotuloMes(String(label)) : ""}</p>
+      <p className="m-0 mt-1 a4p-num text-[17px] text-ink">
+        <BRL value={realizado + projetado} />
+      </p>
+      {realizado > 0 && (
+        <p className="m-0 mt-2 text-caption text-muted flex items-center justify-between gap-4">
+          <span>Realizado</span><span className="tabular-nums">{formatBRL(realizado)}</span>
+        </p>
+      )}
+      {projetado > 0 && (
+        <>
+          <p className="m-0 mt-1 text-caption text-muted flex items-center justify-between gap-4">
+            <span>Projetado</span><span className="tabular-nums">{formatBRL(projetado)}</span>
+          </p>
+          {/* ⚠️ O tooltip DIZ que é estimativa. Sem isso o número de novembro
+              tem a mesma cara do de julho, e um deles ainda não aconteceu. */}
+          <p className="m-0 mt-2 text-caption text-warning">Estimativa a partir das regras de recorrência.</p>
+        </>
+      )}
+    </div>
   );
 }
 

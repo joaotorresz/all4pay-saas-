@@ -14,6 +14,7 @@ import {
   DEMO_ACCOUNTS,
   DEMO_MOVEMENTS,
   DEMO_CATEGORIES,
+  DEMO_RECORRENCIAS,
   DEMO_COST_CENTERS,
   DEMO_PARTIES,
 } from "@/lib/demo/seed";
@@ -704,7 +705,7 @@ const embedName = (e: unknown): string | null =>
  * de inventar uma.
  */
 export async function getRegrasRecorrentes(): Promise<RegraRecorrente[]> {
-  if (isDemo) return [];
+  if (isDemo) return DEMO_RECORRENCIAS;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("recurrences")

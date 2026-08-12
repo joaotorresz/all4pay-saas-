@@ -28,7 +28,10 @@ import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCa
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
-import { projetarRecorrentes, datasDaRegra, porMes, type RegraRecorrente } from "@/core/contas-pagar/projecao";
+import {
+  projetarRecorrentes, datasDaRegra, porMes, tempoDoIntervalo, fraseDoCusto, fraseDaProporcao,
+  janelasDoSeletor, mesesNoIntervalo, type RegraRecorrente,
+} from "@/core/contas-pagar/projecao";
 import { datasFaturaCron } from "@/lib/recorrencias-sched";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
@@ -2925,6 +2928,52 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
        linhas.every((l) => l.total >= 0 && l.realizado >= 0 && l.projetado >= 0));
     ok("projecao: a soma dos meses fecha com o total",
        Math.round(linhas.reduce((s, l) => s + l.total, 0) * 100) / 100 === r.total);
+  }
+
+  // ── o tempo verbal sai do INTERVALO, não de um ternário na tela ──
+  {
+    const H = "2026-08-12";
+    ok("projecao: intervalo passado fala no passado",
+       tempoDoIntervalo("2026-01-01", "2026-06-30", H) === "passado"
+       && fraseDoCusto("2026-01-01", "2026-06-30", H) === "Seu custo recorrente foi de");
+    ok("projecao: intervalo futuro fala no futuro",
+       tempoDoIntervalo("2026-09-01", "2027-02-28", H) === "futuro"
+       && fraseDoCusto("2026-09-01", "2027-02-28", H) === "Seu custo recorrente estará em");
+    ok("projecao: intervalo que cruza hoje tem frase própria",
+       tempoDoIntervalo("2026-08-01", "2027-01-31", H) === "cruza"
+       && fraseDoCusto("2026-08-01", "2027-01-31", H) === "Seu custo recorrente será de");
+    // ⚠️ As bordas: o dia de hoje pertence ao intervalo que termina hoje E ao
+    // que começa hoje. Um `<`/`>` trocado aqui faria a janela "próximos 6
+    // meses" — que começa hoje — ser anunciada no passado.
+    ok("projecao: o intervalo que termina HOJE não é passado", tempoDoIntervalo("2026-01-01", H, H) === "cruza");
+    ok("projecao: o intervalo que começa HOJE não é futuro", tempoDoIntervalo(H, "2027-01-01", H) === "cruza");
+    // ⚠️ A PROPORÇÃO também se conjuga. "ainda é projeção" é vocabulário de
+    // futuro, e apareceu (medido no navegador) num intervalo passado ao lado de
+    // um valor que descreve meses já vividos. No passado a proporção diz outra
+    // coisa: o dinheiro saiu, só que nenhum título ficou ligado à regra.
+    ok("projecao: a proporção no passado não fala de expectativa",
+       fraseDaProporcao("2026-01-01", "2026-06-30", H) === "do valor foi derivado da regra, sem título ligado a ela"
+       && fraseDaProporcao("2026-09-01", "2027-02-28", H) === "do valor ainda é projeção");
+
+    // ── as três janelas do seletor, em meses FECHADOS ──
+    const js = janelasDoSeletor(H);
+    ok("projecao: o seletor tem as três janelas", js.length === 3 && js.map((j) => j.id).join(",") === "ultimos6,proximos6,proximos12");
+    const u6 = js[0], p6 = js[1], p12 = js[2];
+    ok("projecao: últimos 6 meses termina no fim do mês corrente",
+       u6.de === "2026-03-01" && u6.ate === "2026-08-31", `${u6.de}..${u6.ate}`);
+    ok("projecao: próximos 6 meses INCLUI o mês corrente",
+       p6.de === "2026-08-01" && p6.ate === "2027-01-31", `${p6.de}..${p6.ate}`);
+    ok("projecao: próximos 12 meses vai até o fim do 12º",
+       p12.de === "2026-08-01" && p12.ate === "2027-07-31", `${p12.de}..${p12.ate}`);
+    ok("projecao: cada janela cobre exatamente os meses do rótulo",
+       mesesNoIntervalo(u6.de, u6.ate).length === 6
+       && mesesNoIntervalo(p6.de, p6.ate).length === 6
+       && mesesNoIntervalo(p12.de, p12.ate).length === 12);
+    // Fevereiro: o último dia do mês tem de ser 28/29, nunca o dia 1º do
+    // seguinte (a armadilha de `new Date` em UTC-3 que a guarda `tz` cobra).
+    ok("projecao: fevereiro fecha no último dia",
+       janelasDoSeletor("2026-02-10")[0].ate === "2026-02-28",
+       janelasDoSeletor("2026-02-10")[0].ate);
   }
 
   // ── a projeção e o MATERIALIZADOR têm de gerar as MESMAS datas ──

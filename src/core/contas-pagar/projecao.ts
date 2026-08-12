@@ -353,3 +353,109 @@ export function porMes(r: ResumoProjecao): MesProjetado[] {
   }
   return Array.from(base.values());
 }
+
+/* ========================================================================== */
+/* O tempo verbal                                                              */
+/* ========================================================================== */
+
+export type TempoDoIntervalo = "passado" | "futuro" | "cruza";
+
+/**
+ * Onde o intervalo cai em relação a hoje.
+ *
+ * `passado` — terminou antes de hoje · `futuro` — começa depois de hoje ·
+ * `cruza` — hoje está dentro dele.
+ */
+export function tempoDoIntervalo(de: string, ate: string, hoje: string): TempoDoIntervalo {
+  const h = dia(hoje);
+  if (dia(ate) < h) return "passado";
+  if (dia(de) > h) return "futuro";
+  return "cruza";
+}
+
+/**
+ * A FRASE do custo recorrente, conjugada pelo intervalo.
+ *
+ * ⚠️ **Mora aqui, e não na JSX, de propósito.** Três tempos verbais espalhados
+ * em ternário dentro do componente é a forma mais provável de a tela afirmar no
+ * passado um número que fala do futuro — e o custo de errar é alto: "seu custo
+ * recorrente FOI de R$ 40 mil" é um fato sobre a contabilidade, enquanto "estará
+ * em R$ 40 mil" é uma expectativa sobre uma regra que pode ser cancelada
+ * amanhã. Lidas rápido, as duas frases mandam o dono fazer coisas diferentes.
+ *
+ * Fixar tudo no futuro (o atalho tentador) faria a tela mentir sobre janeiro
+ * passado toda vez que alguém olhasse para trás.
+ */
+export const FRASES: Record<TempoDoIntervalo, string> = {
+  passado: "Seu custo recorrente foi de",
+  futuro: "Seu custo recorrente estará em",
+  cruza: "Seu custo recorrente será de",
+};
+
+export const fraseDoCusto = (de: string, ate: string, hoje: string): string =>
+  FRASES[tempoDoIntervalo(de, ate, hoje)];
+
+/**
+ * A frase da PROPORÇÃO derivada da regra — também conjugada.
+ *
+ * ⚠️ "ainda é projeção" é vocabulário de futuro, e ele apareceu (medido no
+ * navegador) num intervalo passado, ao lado de um valor que descreve meses já
+ * vividos. O que a proporção diz num intervalo passado é outra coisa: aquele
+ * dinheiro saiu, só que nenhum título ficou LIGADO à regra — é uma lacuna de
+ * registro, não uma expectativa.
+ */
+export const FRASES_PROPORCAO: Record<TempoDoIntervalo, string> = {
+  passado: "do valor foi derivado da regra, sem título ligado a ela",
+  futuro: "do valor ainda é projeção",
+  cruza: "do valor ainda é projeção",
+};
+
+export const fraseDaProporcao = (de: string, ate: string, hoje: string): string =>
+  FRASES_PROPORCAO[tempoDoIntervalo(de, ate, hoje)];
+
+/* ========================================================================== */
+/* As janelas do seletor                                                       */
+/* ========================================================================== */
+
+export type JanelaId = "ultimos6" | "proximos6" | "proximos12";
+
+export interface Janela {
+  id: JanelaId;
+  rotulo: string;
+  de: string;
+  ate: string;
+}
+
+/** O primeiro dia do mês deslocado n posições a partir do mês de `hoje`. */
+function primeiroDia(hoje: string, n: number): string {
+  const [a, m] = dia(hoje).split("-").map(Number);
+  const d = new Date(Date.UTC(a, m - 1 + n, 1));
+  return d.toISOString().slice(0, 10);
+}
+
+/** O último dia do mês deslocado n posições a partir do mês de `hoje`. */
+function ultimoDia(hoje: string, n: number): string {
+  const [a, m] = dia(hoje).split("-").map(Number);
+  const d = new Date(Date.UTC(a, m + n, 0));
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * As três janelas do seletor, sempre em MESES FECHADOS.
+ *
+ * ⚠️ Fechadas de propósito: uma janela que começa hoje e termina daqui a seis
+ * meses corta o mês corrente ao meio, e a primeira coluna do gráfico sairia
+ * menor que as outras sem que nada na tela explicasse por quê — a pessoa leria
+ * como queda de gasto.
+ *
+ * "Próximos" INCLUI o mês corrente: a pergunta "quanto vou pagar" é sobre o que
+ * ainda vai vencer, e o que vence dia 25 deste mês é a resposta mais próxima
+ * que existe. Excluí-lo esconderia justamente o mês em que dá para agir.
+ */
+export function janelasDoSeletor(hoje: string): Janela[] {
+  return [
+    { id: "ultimos6", rotulo: "Últimos 6 meses", de: primeiroDia(hoje, -5), ate: ultimoDia(hoje, 0) },
+    { id: "proximos6", rotulo: "Próximos 6 meses", de: primeiroDia(hoje, 0), ate: ultimoDia(hoje, 5) },
+    { id: "proximos12", rotulo: "Próximos 12 meses", de: primeiroDia(hoje, 0), ate: ultimoDia(hoje, 11) },
+  ];
+}
