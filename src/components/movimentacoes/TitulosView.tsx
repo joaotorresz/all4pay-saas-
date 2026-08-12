@@ -18,7 +18,7 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { pagarLote, anexarComprovante, type MetodoPagamento } from "@/lib/pagamentos";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, dataBR } from "@/lib/format";
 import { listProjetos } from "@/lib/iuli-cadastros";
 import { projetoDoMovimento } from "@/lib/projeto-vinculo";
 import { ModalBaixa } from "./ModalBaixa";
@@ -77,18 +77,58 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const parte = direcao === "receber" ? "Cliente" : "Fornecedor";
   const liquidado = direcao === "receber" ? "Recebido" : "Pago";
 
-  const titulos = React.useMemo(
-    () => (input ? filtrarTitulos(input, direcao, { ...filtro, busca }) : []),
-    [input, direcao, filtro, busca],
-  );
-  const cards = React.useMemo(
-    () => (input ? resumoTitulos(titulos, direcao, input.hoje) : []),
-    [titulos, direcao, input],
-  );
-
   const periodos = React.useMemo(
     () => periodosComValores(input, input?.hoje ?? new Date().toISOString().slice(0, 10), gran),
     [input, gran],
+  );
+
+  /**
+   * O período escolhido no gráfico é o RECORTE DE TEMPO da tela inteira.
+   *
+   * ⚠️ Antes ele não filtrava nada: `selPeriodo` só pintava a cápsula. Clicar
+   * em "Agosto" não mudava um número sequer — um controle que parece filtrar e
+   * não filtra é pior que controle nenhum, porque quem clica conclui que os
+   * valores abaixo já são de agosto.
+   */
+  const janela = React.useMemo(() => {
+    const p = periodos.find((x) => x.key === selPeriodo);
+    // As datas digitadas à mão continuam podendo sobrepor — quem abriu o painel
+    // de filtro e escreveu um intervalo quis exatamente aquele intervalo.
+    return {
+      de: filtro.de ?? p?.de ?? null,
+      ate: filtro.ate ?? p?.ate ?? null,
+      rotulo: filtro.de || filtro.ate ? null : (p?.label ?? null),
+    };
+  }, [periodos, selPeriodo, filtro.de, filtro.ate]);
+
+  /**
+   * ⚠️ **OS CARDS NÃO OLHAM A LISTA JÁ FILTRADA PELO STATUS.**
+   *
+   * Era esse o defeito: `resumoTitulos` rodava sobre `titulos`, que já tinha o
+   * status aplicado. Clicar em "Pagas" deixava a lista só com as pagas, os
+   * cards recalculavam sobre ela, e "A vencer" e "Vencidas" zeravam — como se
+   * filtrar tivesse APAGADO os outros títulos. Um painel que muda de valor por
+   * causa do próprio filtro deixa de ser painel.
+   *
+   * Os cards leem a base com TODOS os outros recortes (busca, conta, categoria,
+   * período) e SEM o status. O status recorta só a tabela.
+   */
+  const baseDosCards = React.useMemo(
+    () => (input
+      ? filtrarTitulos(input, direcao, { ...filtro, de: janela.de, ate: janela.ate, status: "todos", busca })
+      : []),
+    [input, direcao, filtro, janela, busca],
+  );
+  const cards = React.useMemo(
+    () => (input ? resumoTitulos(baseDosCards, direcao, input.hoje) : []),
+    [baseDosCards, direcao, input],
+  );
+
+  const titulos = React.useMemo(
+    () => (input
+      ? filtrarTitulos(input, direcao, { ...filtro, de: janela.de, ate: janela.ate, busca })
+      : []),
+    [input, direcao, filtro, janela, busca],
   );
 
   const totalPaginas = Math.max(1, Math.ceil(titulos.length / porPagina));
@@ -198,8 +238,25 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
         oQue: "O resultado líquido de cada mês (ou semana), para enxergar sazonalidade sem abrir relatório.",
         comoCalcula: "Cada período soma entradas e saídas pela data de caixa (pagamento quando liquidado, vencimento quando previsto). O resultado é entradas − saídas; zero é neutro, nem verde nem vermelho.",
       }}>
-        <CarrosselSazonalidade periodos={periodos} gran={gran} onGran={setGran} recarregarEm={isLoading}>
-          <FaixaPeriodos periodos={periodos} selKey={selPeriodo ?? undefined} onSelect={setSelPeriodo} />
+        <CarrosselSazonalidade
+          periodos={periodos} gran={gran} recarregarEm={isLoading}
+          onGran={(g) => {
+            // ⚠️ Trocar mês↔semana invalida a seleção: as chaves são de
+            // granularidades diferentes, e manter a antiga deixaria a tela
+            // filtrada por um período que nenhuma cápsula mostra como ativo.
+            setGran(g);
+            setSelPeriodo(null);
+            setPagina(1);
+          }}
+        >
+          <FaixaPeriodos
+            periodos={periodos} selKey={selPeriodo ?? undefined}
+            onSelect={(k) => {
+              // Clicar de novo no período ativo o desfaz — mesma regra do card.
+              setSelPeriodo((atual) => (atual === k ? null : k));
+              setPagina(1);
+            }}
+          />
         </CarrosselSazonalidade>
       </Card>
 
@@ -238,11 +295,44 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {cards.map((c) => <CardTitulo key={c.id} c={c} onClick={() => {
-            setFiltro((f) => ({ ...f, status: c.id === "total" ? "todos" : (c.id as StatusTitulo) }));
-            setPagina(1);
-          }} />)}
+          {cards.map((c) => {
+            const alvo = c.id === "total" ? "todos" : (c.id as StatusTitulo);
+            const ativo = (filtro.status ?? "todos") === alvo;
+            return (
+              <CardTitulo
+                key={c.id} c={c} selecionado={ativo}
+                onClick={() => {
+                  // ⚠️ Clicar no card já selecionado DESFAZ o filtro. Sem isso,
+                  // a única saída é abrir o painel e trocar o select — e quem
+                  // filtrou com um clique espera desfiltrar com outro.
+                  setFiltro((f) => ({ ...f, status: ativo ? "todos" : alvo }));
+                  setPagina(1);
+                }}
+              />
+            );
+          })}
         </div>
+      )}
+
+      {/* ⚠️ O recorte vigente, DITO. A faixa do gráfico soma pelo CAIXA e os
+          títulos são filtrados pelo VENCIMENTO — sem esta linha, o total dos
+          cards não bateria com a barra do mês e as duas leituras pareceriam
+          discordar, quando na verdade respondem perguntas diferentes. */}
+      {(janela.de || janela.ate) && (
+        <p className="m-0 -mt-2 text-caption text-muted">
+          Mostrando títulos com <b className="text-ink">vencimento</b>
+          {janela.rotulo
+            ? <> em <b className="text-ink">{janela.rotulo}</b></>
+            : <> entre {janela.de ? dataBR(janela.de) : "o início"} e {janela.ate ? dataBR(janela.ate) : "hoje"}</>}
+          {" · "}
+          <button
+            type="button"
+            onClick={() => { setSelPeriodo(null); setFiltro((f) => ({ ...f, de: null, ate: null })); setPagina(1); }}
+            className="underline underline-offset-2 hover:text-ink"
+          >
+            ver todo o período
+          </button>
+        </p>
       )}
 
       {/* ------------------------------ barra de ações ------------------------------ */}
@@ -435,12 +525,39 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
 
 /* --------------------------------- peças --------------------------------- */
 
-/** O card com o anel: o percentual é a fatia do total, não uma meta. */
-function CardTitulo({ c, onClick }: { c: CardResumo; onClick: () => void }) {
+/**
+ * O card com o anel: o percentual é a fatia do total, não uma meta.
+ *
+ * ⚠️ **É um `<button>`, não um `Card` com `onClick`.** Ele filtra a tabela
+ * abaixo, então precisa receber foco e responder a Enter — uma `div` clicável
+ * deixa quem navega por teclado sem acesso ao filtro (a mesma correção que a
+ * ONDA 12 já fez nas linhas de tabela).
+ *
+ * ⚠️ O card SELECIONADO ganha o cinza do sistema (`surface-2`) e um contorno,
+ * não uma cor nova: os três anéis já carregam as cores semânticas, e usar cor
+ * também para "selecionado" faria a mesma dimensão dizer duas coisas.
+ */
+function CardTitulo({
+  c, selecionado, onClick,
+}: { c: CardResumo; selecionado: boolean; onClick: () => void }) {
   const cor = c.id === "total" ? "var(--color-ink)" : COR_STATUS[c.id as StatusTitulo];
   const r = 22, circ = 2 * Math.PI * r;
   return (
-    <Card className="cursor-pointer hover:bg-surface-2/40 transition-colors" onClick={onClick}>
+    <Card padded={false}>
+      {/* ⚠️ O cinza vai no BOTÃO, não no `Card`. A regra do DS
+          (`.ds-visor [data-card="1"]`) pinta o fundo do card com
+          `--color-white` e vence a classe utilitária — medido no navegador: o
+          card "selecionado" continuava branco. O botão preenche o card inteiro,
+          então pintá-lo dá o mesmo resultado visual sem disputar com o DS. */}
+      <button
+        type="button"
+        aria-pressed={selecionado}
+        aria-label={`${selecionado ? "Remover o filtro de" : "Filtrar por"} ${c.label}`}
+        onClick={onClick}
+        className={`w-full text-left p-6 rounded-card cursor-pointer transition-colors ${
+          selecionado ? "bg-surface-2 ring-1 ring-border" : "hover:bg-surface-2/40"
+        }`}
+      >
       <div className="flex items-center gap-4">
         <svg width="56" height="56" viewBox="0 0 56 56" className="shrink-0" aria-hidden>
           <circle cx="28" cy="28" r={r} fill="none" stroke="var(--color-surface-3)" strokeWidth="5" />
@@ -462,6 +579,7 @@ function CardTitulo({ c, onClick }: { c: CardResumo; onClick: () => void }) {
           </div>
         </div>
       </div>
+      </button>
     </Card>
   );
 }
