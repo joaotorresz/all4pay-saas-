@@ -126,9 +126,34 @@ export function periodosPorVencimento(
   gran: Granularidade,
   direcao: Direcao,
 ): PeriodoSazonal[] {
+  const titulos = input ? filtrarTitulos(input, direcao) : [];
+  /**
+   * ⚠️ **A FAIXA VAI ATÉ ONDE HOUVER TÍTULO, e não para em hoje.**
+   *
+   * `montarPeriodos` monta doze meses TERMINANDO no mês corrente — a leitura
+   * sazonal, que olha para trás. Numa tela de títulos isso esconde o que a
+   * pessoa acabou de lançar: uma compra em 12x ou o salário agendado para
+   * dezembro ficavam fora da faixa, sem cápsula para clicar e sem coluna no
+   * gráfico. Quem lançou concluía que o lançamento não entrou.
+   *
+   * Estender é aritmética sobre o dado, não uma janela fixa: o último mês é o
+   * do vencimento mais distante que EXISTE. Teto de 36 meses à frente para um
+   * título com data digitada errada (2099) não gerar mil cápsulas.
+   */
+  const ultimo = titulos.reduce(
+    (max, m) => { const d = m.due_date?.slice(0, 10) ?? ""; return d > max ? d : max; },
+    "",
+  );
   const ps = montarPeriodos(hojeISO, gran).map((p) => ({ ...p, total: 0 }));
+  if (ultimo) {
+    const fimAtual = ps[ps.length - 1]?.ate ?? hojeISO;
+    let guarda = 0;
+    while (ultimo > (ps[ps.length - 1]?.ate ?? fimAtual) && guarda++ < TETO_FUTURO) {
+      ps.push({ ...proximoPeriodo(ps[ps.length - 1], gran), total: 0 });
+    }
+  }
   if (!input) return ps;
-  for (const m of filtrarTitulos(input, direcao)) {
+  for (const m of titulos) {
     const d = m.due_date?.slice(0, 10);
     if (!d) continue;
     const p = ps.find((x) => d >= x.de && d <= x.ate);
@@ -136,6 +161,36 @@ export function periodosPorVencimento(
     p.total = (p.total ?? 0) + magnitude(m);
   }
   return ps;
+}
+
+/** Quantos períodos a faixa aceita ADIANTE do mês corrente. */
+const TETO_FUTURO = 36;
+
+/**
+ * O período seguinte a um dado — mesma aritmética de `montarPeriodos`, para as
+ * duas nunca discordarem sobre onde um mês começa.
+ */
+function proximoPeriodo(ultimo: PeriodoSazonal, gran: Granularidade): PeriodoSazonal {
+  if (gran === "semana") {
+    const dom = new Date(`${ultimo.ate}T00:00:00Z`); dom.setUTCDate(dom.getUTCDate() + 1);
+    const sab = new Date(dom); sab.setUTCDate(dom.getUTCDate() + 6);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    return {
+      key: `w-${iso(dom)}`,
+      label: `${dom.getUTCDate()}/${MES_ABBR[dom.getUTCMonth()]} – ${sab.getUTCDate()}/${MES_ABBR[sab.getUTCMonth()]}`,
+      de: iso(dom), ate: iso(sab), entradas: 0, saidas: 0, resultado: 0,
+    };
+  }
+  const [a, m] = ultimo.key.split("-").map(Number);
+  const ini = new Date(Date.UTC(a, m, 1));
+  const fim = new Date(Date.UTC(a, m + 1, 0));
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const anoAtual = new Date(`${ultimo.ate}T00:00:00Z`).getUTCFullYear();
+  return {
+    key: `${ini.getUTCFullYear()}-${pad(ini.getUTCMonth() + 1)}`,
+    label: `${MESES[ini.getUTCMonth()]}${ini.getUTCFullYear() !== anoAtual ? ` '${String(ini.getUTCFullYear()).slice(2)}` : ""}`,
+    de: iso(ini), ate: iso(fim), entradas: 0, saidas: 0, resultado: 0,
+  };
 }
 
 /** Soma assinada dos movimentos de um período — usada pelas guardas. */
