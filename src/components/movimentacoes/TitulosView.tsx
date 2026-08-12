@@ -28,10 +28,8 @@ import {
   filtrarTitulos, resumoTitulos, statusDoTitulo,
   type Direcao, type FiltroTitulos, type StatusTitulo, type CardResumo,
 } from "@/core/movimentacoes";
-import { janelaDoMesDe } from "@/core/indicadores";
-import { EscopoDaTela } from "./EscopoDaTela";
 import {
-  CarrosselSazonalidade, FaixaPeriodos, periodosComValores, type Granularidade,
+  CarrosselSazonalidade, FaixaPeriodos, periodosPorVencimento, type Granularidade,
 } from "./CarrosselSazonalidade";
 import { pctDeInteiro } from "@/lib/format";
 
@@ -77,9 +75,20 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const parte = direcao === "receber" ? "Cliente" : "Fornecedor";
   const liquidado = direcao === "receber" ? "Recebido" : "Pago";
 
+  /**
+   * ⚠️ **A faixa mede o TOTAL A PAGAR (ou a receber) do período, não o
+   * resultado.** Numa tela de títulos, "entradas − saídas" é a pergunta errada:
+   * a lista abaixo tem um lado só, e um resultado líquido calculado sobre os
+   * dois lados nunca ia bater com ela.
+   *
+   * E é `periodosPorVencimento`, uma agregação NOVA — a de resultado continua
+   * intacta servindo ao extrato, que é a tela onde aquela pergunta é a certa.
+   * Como as duas somam pelo VENCIMENTO, a barra do mês passou a ser o total
+   * exato dos títulos que a tabela lista.
+   */
   const periodos = React.useMemo(
-    () => periodosComValores(input, input?.hoje ?? new Date().toISOString().slice(0, 10), gran),
-    [input, gran],
+    () => periodosPorVencimento(input, input?.hoje ?? new Date().toISOString().slice(0, 10), gran, direcao),
+    [input, gran, direcao],
   );
 
   /**
@@ -219,15 +228,6 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      {/* Esta tela é a leitura de POSIÇÃO (estoque de títulos). A faixa declara
-          isso e mostra ao lado o que a tela de extrato mede, porque as duas
-          respondem "quanto tenho a receber" com números diferentes — e as duas
-          estão certas. Ver `EscopoDaTela`. */}
-      <EscopoDaTela
-        leitura="posicao"
-        janela={janelaDoMesDe(input?.hoje ?? new Date().toISOString().slice(0, 10))}
-        direcao={direcao === "receber" ? "entrada" : "saida"}
-      />
       {/* ⚠️ PORTE do extrato (mapa de consolidação, item 2). Esta tela mostra
           ESTOQUE de títulos e não tinha noção de tempo — o carrossel é a única
           superfície que responde "como este mês se compara aos onze
@@ -235,11 +235,12 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           não uma cópia: duas cópias divergem no primeiro ajuste. */}
       <Card padded={false} info={{
         titulo: "Os últimos 12 períodos",
-        oQue: "O resultado líquido de cada mês (ou semana), para enxergar sazonalidade sem abrir relatório.",
-        comoCalcula: "Cada período soma entradas e saídas pela data de caixa (pagamento quando liquidado, vencimento quando previsto). O resultado é entradas − saídas; zero é neutro, nem verde nem vermelho.",
+        oQue: `O total a ${direcao} de cada mês (ou semana), para enxergar sazonalidade sem abrir relatório.`,
+        comoCalcula: `Cada período soma os títulos a ${direcao} com VENCIMENTO dentro dele — o mesmo recorte da tabela abaixo, então a barra do mês é o total dos títulos listados. Cancelados ficam de fora. É uma soma de obrigações: nunca é negativa, e período sem título vence R$ 0,00.`,
       }}>
         <CarrosselSazonalidade
           periodos={periodos} gran={gran} recarregarEm={isLoading}
+          titulo={`Total a ${direcao} por período`}
           onGran={(g) => {
             // ⚠️ Trocar mês↔semana invalida a seleção: as chaves são de
             // granularidades diferentes, e manter a antiga deixaria a tela
@@ -250,6 +251,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           }}
         >
           <FaixaPeriodos
+            modo="total"
             periodos={periodos} selKey={selPeriodo ?? undefined}
             onSelect={(k) => {
               // Clicar de novo no período ativo o desfaz — mesma regra do card.
@@ -270,18 +272,18 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             Nova conta a {direcao}
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             disabled={titulos.length === 0}
             onClick={() => baixarXLSX(`contas-a-${direcao}`, [{ nome: `Contas a ${direcao}`, linhas: linhasXLSX }])}
           >
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
-          <Button variant="ghost" disabled={titulos.length === 0} onClick={() => window.print()}>
+          <Button variant="outline" disabled={titulos.length === 0} onClick={() => window.print()}>
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>
-          <Button variant="ghost" onClick={() => router.push(`/dashboard/financial/import?tipo=${direcao}`)}>
+          <Button variant="outline" onClick={() => router.push(`/dashboard/financial/import?tipo=${direcao}`)}>
             <Icon name="upload" size={15} color="currentColor" />
             Importar
           </Button>

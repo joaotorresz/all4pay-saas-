@@ -21,6 +21,7 @@ import {
 } from "@/core/relatorios";
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
 import { listarOrcamentos } from "@/lib/orcamentos";
+import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { runwayMeses, saldo, painelResultado, janela } from "@/core/indicadores";
 import type { RiskInput } from "@/core/risk-engine/types";
@@ -45,15 +46,22 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   // A lista vem do localStorage → só depois de montar (hidratação).
   const [orcamentos, setOrcamentos] = React.useState<Orcamento[]>([]);
   React.useEffect(() => { setOrcamentos(listarOrcamentos()); }, []);
+  // ⚠️ A linha declarada de cada categoria — sai do plano de contas da empresa
+  // e VENCE a classificação por palavra-chave dentro do motor. Lido no efeito
+  // (não no render) porque a fonte é o cache local, e ler no render quebra a
+  // hidratação.
+  const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
+  React.useEffect(() => { setLinhaPorCategoria(linhasDeCategoria()); }, []);
 
   const relatorio: Relatorio | null = React.useMemo(() => {
     if (!input) return null;
     const f = {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
+      linhaPorCategoria,
     };
     return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);
-  }, [input, aplicados, tipo]);
+  }, [input, aplicados, tipo, linhaPorCategoria]);
 
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
 

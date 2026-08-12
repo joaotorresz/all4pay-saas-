@@ -220,7 +220,7 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
 
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border-soft flex-wrap">
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => baixarXLSX(`modelo-${tipo}`, [{
               nome: modelo.titulo.slice(0, 31),
               linhas: [modelo.colunas, ...modelo.exemplo],

@@ -25,6 +25,23 @@ const CUSTOM_ICONS: Record<string, SolarIcon> = {
     b: '<g fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></g>',
     w: 24, h: 24,
   },
+  /**
+   * O painel — quatro áreas de tamanhos diferentes, como um dashboard real.
+   *
+   * ⚠️ Entra aqui porque o set gerado NÃO traz este glifo, e inventar um fora
+   * do padrão seria sair do conjunto que o DS fixa. Desenhado com as mesmas
+   * regras dos vizinhos: traço 1.5, cantos arredondados (`rx`), viewBox 24.
+   * Quatro retângulos DESIGUAIS de propósito — quatro iguais leem como grade
+   * ou tabela, não como painel.
+   */
+  "layout-dashboard": {
+    b: '<g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">'
+      + '<rect x="3.2" y="3.2" width="7.6" height="9.2" rx="1.6"/>'
+      + '<rect x="13.2" y="3.2" width="7.6" height="5.6" rx="1.6"/>'
+      + '<rect x="13.2" y="11.6" width="7.6" height="9.2" rx="1.6"/>'
+      + '<rect x="3.2" y="15.2" width="7.6" height="5.6" rx="1.6"/></g>',
+    w: 24, h: 24,
+  },
 };
 
 /**

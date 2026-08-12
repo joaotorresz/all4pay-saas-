@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * marca, e o botão que fica reto. `pill` sobrevive só para os controles que
  * são chips por definição (seletor de período), onde a forma É a função.
  */
-type ButtonVariant = "primary" | "secondary" | "ghost" | "accent";
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "accent";
 type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps
@@ -43,6 +43,28 @@ const sizeClasses: Record<ButtonSize, string> = {
 const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-ink text-white hover:bg-ink-soft",
   secondary: "bg-surface-2 text-ink hover:bg-surface-3",
+  /**
+   * A forma de CONTORNO do secundário — a que o guia já previa ("Beige com
+   * texto em Black quente **ou só contorno em Border**") e que nunca tinha sido
+   * escrita como variante.
+   *
+   * ⚠️ **O defeito que ela conserta:** as ações secundárias de cabeçalho
+   * (Exportar XLSX, Exportar PDF, Importar) usavam `ghost` — fundo transparente
+   * e nenhuma borda. Sobre o branco do card elas ficavam indistinguíveis de
+   * texto até alguém passar o mouse por cima, e um controle que só existe no
+   * hover é um controle que metade das pessoas nunca acha (a mesma lição do
+   * botão de recolher da barra lateral).
+   *
+   * Fica no PRIMITIVO, e não em CSS por tela: a borda escrita à mão em vinte
+   * cabeçalhos diverge no primeiro ajuste de token — que é exatamente como um
+   * sistema ganha três cinzas de borda diferentes.
+   *
+   * `ghost` continua existindo e continua certo onde o botão é terciário de
+   * verdade (dentro de uma linha de tabela, num popover, ao lado de um
+   * primário): contornar TUDO devolve o ruído que o contorno existe para
+   * organizar.
+   */
+  outline: "bg-transparent text-ink border border-border hover:bg-surface-2",
   ghost: "bg-transparent text-ink hover:bg-surface-2",
   // O degradê só no CTA final. `text-on-lime` porque o fim do degradê é o
   // lima claro: texto branco ali some.

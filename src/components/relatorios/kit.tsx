@@ -580,7 +580,7 @@ export function BotoesExportar({
         que já está na máquina, respeita a fonte e a paginação, e não custa uma
         dependência de renderização no bundle.
       */}
-      <Button variant="ghost" onClick={() => window.print()}>
+      <Button variant="outline" onClick={() => window.print()}>
         <Icon name="file-text" size={15} color="currentColor" />
         Exportar PDF
       </Button>

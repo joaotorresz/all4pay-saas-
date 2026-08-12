@@ -116,7 +116,7 @@ export function BoletosView() {
             Recarregar
           </Button>
           <Button
-            variant="ghost" disabled={filtrada.length === 0}
+            variant="outline" disabled={filtrada.length === 0}
             onClick={() => baixarXLSX("boletos-recebidos", [{ nome: "Boletos", linhas: linhasXLSX }])}
           >
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
@@ -341,7 +341,7 @@ export function NFsRecebidasView() {
             Recarregar
           </Button>
           <Button
-            variant="ghost" disabled={filtrada.length === 0}
+            variant="outline" disabled={filtrada.length === 0}
             onClick={() => baixarXLSX("nfs-recebidas", [{ nome: "NFs recebidas", linhas: linhasXLSX }])}
           >
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />

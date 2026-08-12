@@ -79,7 +79,7 @@ export function FluxoCaixaMensalView() {
           O fluxo de caixa de todas as contas bancárias e as suas movimentações, conforme os filtros.
         </p>
         <Button
-          variant="ghost" disabled={!fluxo || fluxo.linhas.length === 0}
+          variant="outline" disabled={!fluxo || fluxo.linhas.length === 0}
           onClick={() => baixarXLSX(`fluxo-de-caixa-${mes}`, [{ nome: "Fluxo de caixa", linhas: linhasXLSX }])}
         >
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
@@ -213,7 +213,7 @@ export function ExtratoView() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted">Extrato da conta bancária no período selecionado.</p>
         <Button
-          variant="ghost" disabled={!ext || ext.linhas.length === 0}
+          variant="outline" disabled={!ext || ext.linhas.length === 0}
           onClick={() => ext && baixarXLSX(`extrato-${de}-${ate}`, [{
             nome: "Extrato",
             linhas: [["Data", "Descrição", "Categoria", "Tipo", "Valor", "Saldo"],

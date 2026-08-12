@@ -77,16 +77,16 @@ export function VendasView() {
             <Icon name="plus" size={15} color="currentColor" />
             Nova venda
           </Button>
-          <Button variant="ghost" disabled={vendas.length === 0}
+          <Button variant="outline" disabled={vendas.length === 0}
             onClick={() => baixarXLSX("vendas", [{ nome: "Vendas", linhas: linhasXLSX }])}>
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
-          <Button variant="ghost" disabled={vendas.length === 0} onClick={() => window.print()}>
+          <Button variant="outline" disabled={vendas.length === 0} onClick={() => window.print()}>
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>
-          <Button variant="ghost" onClick={() => router.push("/dashboard/financial/import?tipo=receber")}>
+          <Button variant="outline" onClick={() => router.push("/dashboard/financial/import?tipo=receber")}>
             <Icon name="upload" size={15} color="currentColor" />
             Importar vendas
           </Button>

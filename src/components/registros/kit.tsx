@@ -37,7 +37,7 @@ export function CabecalhoRegistro({
         )}
         {exportar && (
           <Button
-            variant="ghost"
+            variant="outline"
             disabled={!temDados}
             onClick={() => baixarXLSX(exportar.nomeArquivo, [{ nome: exportar.aba, linhas: exportar.linhas }])}
           >

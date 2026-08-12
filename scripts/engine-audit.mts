@@ -26,6 +26,8 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { brlParts, formatBRL } from "@/lib/format";
+import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
+import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
@@ -34,7 +36,7 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import { GUIDES } from "@/components/app/guides";
-import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, menuDoPlano, PLATAFORMA_ITENS } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, indiceItemAtivo, menuDoPlano, PLATAFORMA_ITENS } from "@/components/dashboard/nav-data";
 import {
   detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
   statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
@@ -2688,6 +2690,99 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("nav: '/' só casa com a própria home", leafAtivo("/", "/dre") === false && leafAtivo("/", "/") === true);
   ok("nav: sub-rota acende o item pai", leafAtivo("/dashboard/purchases", "/dashboard/purchases/new"));
   ok("nav: rota com ?aba ainda casa", leafAtivo("/contabilidade?aba=razao", "/contabilidade"));
+
+  // ── o item ATIVO é exato; o grupo é que é por prefixo ──
+  // ⚠️ O defeito: em `/contas-a-pagar/titulos` o painel (`/contas-a-pagar`) e a
+  // própria tela casam por PREFIXO, o desempate por query não resolve (nenhum
+  // dos dois tem query) e o primeiro da lista ganhava — o painel ficava aceso
+  // nas quatro telas da área, e o destaque parava de responder "onde estou".
+  const itensCP: { label: string; href: string; icon: string }[] = [
+    { label: "Painel de contas a pagar", href: "/contas-a-pagar", icon: "layout-dashboard" },
+    { label: "Títulos a pagar", href: "/contas-a-pagar/titulos", icon: "file-text" },
+    { label: "Contas recorrentes", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
+    { label: "Folha salarial", href: "/contas-a-pagar/folha", icon: "users" },
+  ];
+  const acesos = itensCP.map((_, i) => i).filter(
+    (i) => indiceItemAtivo(itensCP, itensCP[i].href, "") === i,
+  );
+  ok("nav: cada tela da área acende o SEU item, e só ele", acesos.length === 4, `acesos: ${acesos.join(",")}`);
+  ok(
+    "nav: o item pai não fica preso aceso na sub-rota",
+    indiceItemAtivo(itensCP, "/contas-a-pagar/titulos", "") === 1,
+  );
+  // O prefixo SOBREVIVE onde nenhum item declara a rota: `.../new` não tem
+  // linha no menu, e marcar o pai é a resposta certa ali.
+  ok(
+    "nav: sub-rota sem item próprio ainda acende o pai",
+    indiceItemAtivo(
+      [{ label: "Compras", href: "/dashboard/purchases", icon: "cart" }],
+      "/dashboard/purchases/new",
+      "",
+    ) === 0,
+  );
+  // E as três linhas que apontam para o MESMO caminho continuam desempatando
+  // pela aba — o exato não pode atropelar essa regra.
+  const abas = [
+    { label: "Títulos a receber", href: "/x?tab=receivables", icon: "a" },
+    { label: "Títulos a pagar", href: "/x?tab=payables", icon: "a" },
+    { label: "Transferências", href: "/x?tab=transfers", icon: "a" },
+  ];
+  ok("nav: hub com abas desempata pela query", indiceItemAtivo(abas, "/x", "tab=transfers") === 2);
+}
+
+/* ── t7: a categoria DECLARA a linha do DRE (e o total nunca é escolhível) ── */
+{
+  // ⚠️ As linhas de TOTAL (`=`) não podem aparecer na escolha: elas saem de
+  // FÓRMULA sobre as outras, e apontar uma categoria para uma delas somaria o
+  // lançamento na linha E de novo dentro do total que a contém — o mesmo valor
+  // contado duas vezes, com a cascata fechando "certo".
+  const totais = ESTRUTURA_DRE.filter((l) => l.tipo === "total").map((l) => l.id);
+  const despesa = linhasDREdaNatureza("despesa").map((l) => l.id);
+  const receita = linhasDREdaNatureza("receita").map((l) => l.id);
+  ok("t7: linha de total nunca é escolhível",
+     [...despesa, ...receita].every((id) => !totais.includes(id)),
+     [...despesa, ...receita].filter((id) => totais.includes(id)).join(" "));
+  ok("t7: despesa não escolhe Receita Bruta", !despesa.includes("receita_bruta"));
+  ok("t7: receita não escolhe Despesas Operacionais", !receita.includes("despesas_operacionais"));
+  ok("t7: as linhas de ambos os lados existem", despesa.length > 0 && receita.length > 0);
+  ok("t7: a validação recusa a linha de outra natureza",
+     linhaDREvalida("despesas_operacionais", "despesa") && !linhaDREvalida("despesas_operacionais", "receita"));
+  ok("t7: a validação recusa linha inexistente", !linhaDREvalida("linha_que_nao_existe", "despesa"));
+
+  // ⚠️ E a parte que dá sentido ao campo: a linha DECLARADA vence o palpite por
+  // palavra-chave. "Ferramentas do time" não casa com regex nenhum e cai na
+  // linha genérica; declarada, ela entra onde quem cadastrou mandou.
+  const mvT7 = (id: string, category: string, amount: number): RiskMovement => ({
+    id, type: "saida", status: "pago", amount,
+    due_date: "2026-08-10", paid_date: "2026-08-10", category,
+  });
+  const IN_T7: RiskInput = {
+    hoje: "2026-08-11", saldoAtual: 0,
+    movements: [
+      { id: "r", type: "entrada", status: "pago", amount: 10_000, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Vendas" },
+      mvT7("f", "Ferramentas do time", 1_000),
+    ],
+  };
+  const janelaT7 = { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, tipo: "vertical" as const };
+  const valorDa = (r: ReturnType<typeof montarDRE>, id: string) =>
+    r.linhas.find((l) => l.id === id)?.celulas[0]?.valor ?? 0;
+
+  const sem = montarDRE(IN_T7, janelaT7);
+  const com = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "custos_variaveis" } });
+  ok("t7: sem declaração, o palpite manda (despesa operacional)",
+     valorDa(sem, "despesas_operacionais") === 1_000 && valorDa(sem, "custos_variaveis") === 0,
+     `${valorDa(sem, "despesas_operacionais")} / ${valorDa(sem, "custos_variaveis")}`);
+  ok("t7: a linha DECLARADA vence o palpite",
+     valorDa(com, "custos_variaveis") === 1_000 && valorDa(com, "despesas_operacionais") === 0,
+     `${valorDa(com, "custos_variaveis")} / ${valorDa(com, "despesas_operacionais")}`);
+  // O valor não pode aparecer nos DOIS lugares — o teste acima já falharia, mas
+  // esta asserção nomeia a consequência (dinheiro contado duas vezes).
+  ok("t7: o lançamento entra em UMA linha só",
+     valorDa(com, "custos_variaveis") + valorDa(com, "despesas_operacionais") === 1_000);
+  // E a declaração não pode desviar o valor para uma linha de TOTAL.
+  const fraude = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "ebitda" } });
+  ok("t7: declaração apontando para um TOTAL é ignorada (cai no palpite)",
+     valorDa(fraude, "despesas_operacionais") === 1_000);
 }
 
 // ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──
@@ -2730,6 +2825,45 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   const AGOSTO = { de: "2026-08-01", ate: "2026-08-31" };
   const p = montarPainelContasPagar(INPUT, AGOSTO);
+
+  // ── a faixa de períodos: TOTAL a pagar, nunca resultado, nunca negativo ──
+  // ⚠️ A agregação NOVA existe ao lado da de resultado, não no lugar dela: o
+  // extrato pergunta "como foi o mês" (com sinal e cor) e a tela de títulos
+  // pergunta "quanto vence aqui" (uma soma de obrigações, que não tem sinal).
+  {
+    const fx = periodosPorVencimento(INPUT, INPUT.hoje, "mes", "pagar");
+    const ago = fx.find((x) => x.key === "2026-08");
+    const jul = fx.find((x) => x.key === "2026-07");
+    // 500 + 999 + 2.000 + 3.000 + 4.000 — pelo VENCIMENTO. `pg1` venceu em
+    // julho (mesmo tendo sido paga em agosto) e a cancelada não é obrigação.
+    ok("t9: o total do período sai do VENCIMENTO, não da data de caixa",
+       ago?.total === 10_499 && jul?.total === 1_000, `${ago?.total} / ${jul?.total}`);
+    // A entrada de R$ 50.000 não pode aparecer do lado de pagar, e é ela que
+    // tornaria um "resultado" negativo se a grandeza fosse a errada.
+    ok("t9: a faixa de pagar ignora entradas", (ago?.total ?? 0) === 10_499);
+    ok("t9: a faixa de receber vê a entrada",
+       periodosPorVencimento(INPUT, INPUT.hoje, "mes", "receber").find((x) => x.key === "2026-08")?.total === 50_000);
+    // ⚠️ A asserção que dá sentido à tarefa: NENHUM período pode vir negativo,
+    // em nenhuma granularidade e em nenhum dos dois sentidos. Se algum vier, é
+    // defeito de DADO (um `amount` com sinal) e tem de aparecer — mascarar com
+    // `Math.abs` na tela transformaria um lançamento invertido em número
+    // plausível.
+    const todos = (["mes", "semana"] as const).flatMap((g) =>
+      (["pagar", "receber"] as const).flatMap((d) => periodosPorVencimento(INPUT, INPUT.hoje, g, d)));
+    ok("t9: nenhum período vem negativo", todos.every((x) => (x.total ?? 0) >= 0),
+       todos.filter((x) => (x.total ?? 0) < 0).map((x) => `${x.key}=${x.total}`).join(" "));
+    // Período sem título vale ZERO — a resposta "nada vence aqui", não ausência.
+    ok("t9: período sem título soma zero", fx.find((x) => x.key === "2026-03")?.total === 0);
+    ok("t9: a faixa traz sempre os 12 períodos", fx.length === 12);
+    // E a agregação de RESULTADO segue intacta: ela responde outra coisa e dá
+    // outro número no MESMO agosto — 50.000 de entrada menos 10.500 de saídas
+    // pela data de CAIXA (pg1 entra porque foi paga em agosto, pg3 sai porque
+    // foi paga em setembro). É a prova de que as duas não foram fundidas: 39.500
+    // contra os 10.499 da faixa de títulos, sobre os mesmos lançamentos.
+    const res = periodosComValores(INPUT, INPUT.hoje, "mes").find((x) => x.key === "2026-08");
+    ok("t9: a agregação de resultado continua respondendo o resultado",
+       res?.resultado === 39_500 && res?.total === undefined, `${res?.resultado}`);
+  }
 
   ok("cpagar: pago no período usa a DATA DE PAGAMENTO", p.pagoNoPeriodo.total === 1_500 && p.pagoNoPeriodo.quantidade === 2,
      `${p.pagoNoPeriodo.total} / ${p.pagoNoPeriodo.quantidade}`);
