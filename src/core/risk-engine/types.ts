@@ -39,6 +39,18 @@ export interface RiskMovement {
   parcelas?: number | null;
   /** Qual parcela é esta, 1-based (`installment_no`). */
   parcela?: number | null;
+  /**
+   * O código de referência da origem (`movements.reference_code`).
+   *
+   * ⚠️ Existe aqui por UMA razão: `rec:<regraId>:<data>` é o que liga um título
+   * à REGRA de recorrência que o gerou, com unicidade imposta pelo banco
+   * (`movements_rec_ref_uniq`). Sem esse campo chegando à camada de motores, a
+   * projeção de recorrentes não tem como saber que o mês já foi materializado —
+   * e uma projeção que não enxerga o título existente soma o mesmo compromisso
+   * duas vezes no mesmo mês. A chave já existia no banco; o que faltava era o
+   * transporte.
+   */
+  referenceCode?: string | null;
 }
 
 export interface RiskInput {

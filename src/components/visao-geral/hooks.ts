@@ -19,6 +19,7 @@ import {
   getUnreconciledMovements,
   getRiscoInput,
   getAccountsList,
+  getRegrasRecorrentes,
 } from "@/lib/data";
 import { getAuditTrail } from "@/lib/institutional";
 import { isDemo } from "@/lib/demo";
@@ -50,6 +51,17 @@ export function useFirstRun() {
 /** RiskInput cru (movements + partyNames) — para cards período-scoped da Home. */
 export function useRiscoInput() {
   return useQuery({ queryKey: ["risco-input"], queryFn: getRiscoInput });
+}
+
+/**
+ * As REGRAS de recorrência de saída — a fonte da projeção de contas recorrentes.
+ *
+ * ⚠️ Consulta própria, e não um campo do `RiskInput`: as regras são um cadastro
+ * e não um lançamento, e enfiá-las na entrada canônica faria TODA tela do
+ * produto pagar uma consulta a mais para servir a uma.
+ */
+export function useRegrasRecorrentes() {
+  return useQuery({ queryKey: ["regras-recorrentes"], queryFn: getRegrasRecorrentes });
 }
 
 /** Cash-risk engine: fetches the input then runs scoreRiscoCaixa over it. */

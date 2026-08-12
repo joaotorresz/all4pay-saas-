@@ -171,6 +171,48 @@ function buildMovements(): Movement[] {
 
 export const DEMO_MOVEMENTS: Movement[] = buildMovements();
 
+/**
+ * As REGRAS de recorrência da demonstração — a fonte da projeção de contas
+ * recorrentes.
+ *
+ * ⚠️ Existem porque, sem elas, o gráfico de "próximos meses" abre vazio na
+ * demonstração e a função inteira fica invisível para quem está avaliando o
+ * produto. Não são lançamentos: são o CADASTRO da repetição, o equivalente à
+ * tabela `recurrences` em live.
+ *
+ * Ancoradas em `hoje` como o resto do seed, e escolhidas para cobrir os três
+ * casos que a tela precisa saber mostrar: o contrato que ACABA dentro da
+ * janela, o que não tem prazo, e o de ciclo mais longo que o mensal (que não
+ * aparece em todo mês).
+ */
+export const DEMO_RECORRENCIAS: {
+  id: string; descricao: string; contraparte: string; categoria: string;
+  valor: number; frequencia: "mensal" | "trimestral" | "anual";
+  inicio: string; fim: string | null; diaVencimento: number; ativa: boolean;
+}[] = (() => {
+  const hoje = new Date();
+  const mesAtras = (n: number) => {
+    const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - n, 1));
+    return d.toISOString().slice(0, 10);
+  };
+  const mesAFrente = (n: number) => {
+    const d = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + n + 1, 0));
+    return d.toISOString().slice(0, 10);
+  };
+  return [
+    { id: "dr1", descricao: "Aluguel do escritório", contraparte: "Imobiliária Centro", categoria: "Aluguel", valor: 8_400, frequencia: "mensal", inicio: mesAtras(14), fim: null, diaVencimento: 5, ativa: true },
+    { id: "dr2", descricao: "Plano de saúde da equipe", contraparte: "Saúde Empresarial", categoria: "Folha de pagamento", valor: 5_260, frequencia: "mensal", inicio: mesAtras(9), fim: null, diaVencimento: 10, ativa: true },
+    { id: "dr3", descricao: "Software de gestão", contraparte: "Nuvem Sistemas", categoria: "Software e assinaturas", valor: 1_890, frequencia: "mensal", inicio: mesAtras(6), fim: null, diaVencimento: 20, ativa: true },
+    // ⚠️ ACABA dentro da janela de 12 meses — é este que prova que a projeção
+    // para de cobrar um contrato encerrado.
+    { id: "dr4", descricao: "Consultoria contábil", contraparte: "Contabilidade Prisma", categoria: "Serviços profissionais", valor: 2_300, frequencia: "mensal", inicio: mesAtras(4), fim: mesAFrente(3), diaVencimento: 15, ativa: true },
+    // Ciclo mais longo: não aparece em todo mês, e o mês sem ele vale R$ 0,00.
+    { id: "dr5", descricao: "Seguro predial", contraparte: "Seguradora União", categoria: "Seguros", valor: 4_100, frequencia: "trimestral", inicio: mesAtras(5), fim: null, diaVencimento: 25, ativa: true },
+    // Cancelada: não projeta nada, e a tela não a conta.
+    { id: "dr6", descricao: "Coworking (encerrado)", contraparte: "Estação Coworking", categoria: "Aluguel", valor: 1_200, frequencia: "mensal", inicio: mesAtras(12), fim: null, diaVencimento: 8, ativa: false },
+  ];
+})();
+
 export const DEMO_CATEGORIES: Category[] = [
   { id: "cat-venda", kind: "receita", name: "Venda de produtos" },
   { id: "cat-servico", kind: "receita", name: "Prestação de serviços" },
