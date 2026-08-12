@@ -20,80 +20,15 @@ import { formatBRL } from "@/lib/format";
 
 const POSITIVE = "var(--color-positive)";
 const NEGATIVE = "var(--color-negative)";
-import { dataDe, magnitude, assinado } from "@/core/indicadores";
-import type { RiskInput } from "@/core/risk-engine/types";
-
-export type Granularidade = "mes" | "semana";
-
-export interface PeriodoSazonal {
-  key: string;
-  label: string;
-  de: string;
-  ate: string;
-  entradas: number;
-  saidas: number;
-  resultado: number;
-}
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const parse = (s: string) => new Date(`${s.slice(0, 10)}T00:00:00`);
-
-const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const MES_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-
-/** Os doze períodos terminando no de hoje, do mais antigo ao atual. */
-export function montarPeriodos(hojeISO: string, gran: Granularidade): PeriodoSazonal[] {
-  const hoje = parse(hojeISO);
-  const out: PeriodoSazonal[] = [];
-  for (let i = 11; i >= 0; i--) {
-    if (gran === "mes") {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-      const fim = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      out.push({
-        key: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
-        label: `${MESES[d.getMonth()]}${d.getFullYear() !== hoje.getFullYear() ? ` '${String(d.getFullYear()).slice(2)}` : ""}`,
-        de: iso(d), ate: iso(fim), entradas: 0, saidas: 0, resultado: 0,
-      });
-    } else {
-      const dom = new Date(hoje); dom.setDate(hoje.getDate() - hoje.getDay() - i * 7);
-      const sab = new Date(dom); sab.setDate(dom.getDate() + 6);
-      out.push({
-        key: `w-${iso(dom)}`,
-        label: `${dom.getDate()}/${MES_ABBR[dom.getMonth()]} – ${sab.getDate()}/${MES_ABBR[sab.getMonth()]}`,
-        de: iso(dom), ate: iso(sab), entradas: 0, saidas: 0, resultado: 0,
-      });
-    }
-  }
-  return out;
-}
-
-/**
- * Preenche os períodos com os movimentos.
- *
- * ⚠️ A data de caixa vem de `core/indicadores` (`dataDe`), e o pendente entra
- * pelo VENCIMENTO — a faixa mostra o que já aconteceu E o que está previsto,
- * porque a pergunta sazonal é sobre o mês, não sobre o extrato bancário.
- */
-export function periodosComValores(
-  input: RiskInput | undefined,
-  hojeISO: string,
-  gran: Granularidade,
-): PeriodoSazonal[] {
-  const ps = montarPeriodos(hojeISO, gran);
-  if (!input) return ps;
-  for (const m of input.movements) {
-    if (m.status === "cancelado") continue;
-    const d = dataDe(m, "caixa") ?? m.due_date?.slice(0, 10);
-    if (!d) continue;
-    const p = ps.find((x) => d >= x.de && d <= x.ate);
-    if (!p) continue;
-    if (m.type === "entrada") p.entradas += magnitude(m);
-    else p.saidas += magnitude(m);
-  }
-  for (const p of ps) p.resultado = p.entradas - p.saidas;
-  return ps;
-}
+// ⚠️ As agregações e os cortes de tempo moram em `core/movimentacoes/periodos`
+// — um `.tsx` não pode ser importado pelas guardas (o Node não parseia JSX), e
+// uma soma de dinheiro fora do alcance do teste é uma soma sem rede. Aqui fica
+// só o DESENHO; a reexportação preserva os pontos de chamada existentes.
+export {
+  montarPeriodos, periodosComValores, periodosPorVencimento, resultadoDoPeriodo,
+  type Granularidade, type PeriodoSazonal,
+} from "@/core/movimentacoes/periodos";
+import type { Granularidade, PeriodoSazonal } from "@/core/movimentacoes/periodos";
 
 /**
  * A faixa rolável com as setas e o período atual já centralizado.
@@ -109,11 +44,22 @@ export function CarrosselSazonalidade({
   onGran,
   children,
   recarregarEm,
+  titulo,
 }: {
   periodos: PeriodoSazonal[];
   gran: Granularidade;
   onGran: (g: Granularidade) => void;
   children: React.ReactNode;
+  /**
+   * O que a faixa MEDE, dito na tela.
+   *
+   * ⚠️ Sem ele o cabeçalho tem só o seletor de granularidade, e doze números
+   * grandes sem rótulo obrigam quem olha a deduzir a grandeza — dedução que
+   * mudou de resposta quando a tela de títulos passou a somar obrigações em vez
+   * de resultado. Opcional: o extrato segue sem rótulo, onde o contexto da
+   * página já responde.
+   */
+  titulo?: string;
   /** Muda quando os dados chegam — força a faixa a reabrir no período atual. */
   recarregarEm?: unknown;
 }) {
@@ -135,7 +81,9 @@ export function CarrosselSazonalidade({
 
   return (
     <>
-      <div className="flex items-center justify-end gap-2 px-5 pt-5 pb-3 flex-wrap">
+      <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-3 flex-wrap">
+        {titulo ? <span className="a4p-label text-faint">{titulo}</span> : <span />}
+        <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="tablist" aria-label="Granularidade">
           {([["mes", "Mês"], ["semana", "Semana"]] as [Granularidade, string][]).map(([id, label]) => (
             <button
@@ -145,6 +93,7 @@ export function CarrosselSazonalidade({
               {label}
             </button>
           ))}
+        </div>
         </div>
       </div>
       <div className="relative">
@@ -165,16 +114,6 @@ export function CarrosselSazonalidade({
     </>
   );
 }
-
-/** Soma assinada dos movimentos de um período — usada pelas guardas. */
-export const resultadoDoPeriodo = (input: RiskInput, p: PeriodoSazonal): number =>
-  input.movements
-    .filter((m) => m.status !== "cancelado")
-    .filter((m) => {
-      const d = dataDe(m, "caixa") ?? m.due_date?.slice(0, 10);
-      return !!d && d >= p.de && d <= p.ate;
-    })
-    .reduce((s, m) => s + assinado(m), 0);
 
 /**
  * Os cartões da faixa, com a linha do resultado por cima.
@@ -226,14 +165,28 @@ function caminhoSuave(pts: { x: number; y: number }[]): string {
   return d;
 }
 
-export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: PeriodoSazonal[]; selKey?: string; onSelect: (k: string) => void }) {
+export function FaixaPeriodos({ periodos, selKey, onSelect, modo = "resultado" }: {
+  periodos: PeriodoSazonal[];
+  selKey?: string;
+  onSelect: (k: string) => void;
+  /**
+   * O que a cápsula mostra.
+   *
+   * `resultado` (padrão) — entradas − saídas, com sinal e com cor semântica.
+   * `total` — o total do período, sempre positivo, **sem sinal e sem cor**: uma
+   * soma de obrigações não é boa nem ruim, e pintar de vermelho o mês que tem
+   * mais contas a pagar diria que ter contas é um problema.
+   */
+  modo?: "resultado" | "total";
+}) {
   const LARG = 150, ALT = 74;
   const total = periodos.length * LARG;
-  const vals = periodos.map((p) => p.resultado);
+  const valorDe = (p: PeriodoSazonal) => (modo === "total" ? (p.total ?? 0) : p.resultado);
+  const vals = periodos.map(valorDe);
   const max = Math.max(...vals, 0), min = Math.min(...vals, 0);
   const span = max - min || 1;
   const y = (v: number) => 12 + (1 - (v - min) / span) * (ALT - 24);
-  const pontos = periodos.map((p, i) => ({ x: i * LARG + LARG / 2, y: y(p.resultado), key: p.key }));
+  const pontos = periodos.map((p, i) => ({ x: i * LARG + LARG / 2, y: y(valorDe(p)), key: p.key }));
   const d = caminhoSuave(pontos);
 
   return (
@@ -256,9 +209,13 @@ export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: Period
       <div className="flex" style={{ paddingTop: ALT }}>
         {periodos.map((p) => {
           const on = p.key === selKey;
+          const v = valorDe(p);
           // Zero é NEUTRO: pintar de verde um período sem movimento diz que
-          // foi bom quando não houve nada.
-          const cor = p.resultado === 0 ? "var(--color-text-tertiary)" : p.resultado > 0 ? POSITIVE : NEGATIVE;
+          // foi bom quando não houve nada. No modo `total` a cor é neutra
+          // SEMPRE — a grandeza não tem lado bom.
+          const cor = modo === "total"
+            ? "var(--color-ink)"
+            : v === 0 ? "var(--color-text-tertiary)" : v > 0 ? POSITIVE : NEGATIVE;
           return (
             <button
               key={p.key} onClick={() => onSelect(p.key)} aria-pressed={on}
@@ -267,7 +224,7 @@ export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: Period
             >
               <span className="text-[14px] text-muted truncate max-w-full px-2">{p.label}</span>
               <span className="text-[17px] font-medium tabular-nums" style={{ color: cor }}>
-                {p.resultado < 0 ? "−" : ""}{formatBRL(Math.abs(p.resultado))}
+                {v < 0 ? "−" : ""}{formatBRL(v < 0 ? -v : v)}
               </span>
             </button>
           );

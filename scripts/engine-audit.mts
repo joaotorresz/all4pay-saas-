@@ -26,6 +26,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { brlParts, formatBRL } from "@/lib/format";
+import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
@@ -2768,6 +2769,45 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   const AGOSTO = { de: "2026-08-01", ate: "2026-08-31" };
   const p = montarPainelContasPagar(INPUT, AGOSTO);
+
+  // ── a faixa de períodos: TOTAL a pagar, nunca resultado, nunca negativo ──
+  // ⚠️ A agregação NOVA existe ao lado da de resultado, não no lugar dela: o
+  // extrato pergunta "como foi o mês" (com sinal e cor) e a tela de títulos
+  // pergunta "quanto vence aqui" (uma soma de obrigações, que não tem sinal).
+  {
+    const fx = periodosPorVencimento(INPUT, INPUT.hoje, "mes", "pagar");
+    const ago = fx.find((x) => x.key === "2026-08");
+    const jul = fx.find((x) => x.key === "2026-07");
+    // 500 + 999 + 2.000 + 3.000 + 4.000 — pelo VENCIMENTO. `pg1` venceu em
+    // julho (mesmo tendo sido paga em agosto) e a cancelada não é obrigação.
+    ok("t9: o total do período sai do VENCIMENTO, não da data de caixa",
+       ago?.total === 10_499 && jul?.total === 1_000, `${ago?.total} / ${jul?.total}`);
+    // A entrada de R$ 50.000 não pode aparecer do lado de pagar, e é ela que
+    // tornaria um "resultado" negativo se a grandeza fosse a errada.
+    ok("t9: a faixa de pagar ignora entradas", (ago?.total ?? 0) === 10_499);
+    ok("t9: a faixa de receber vê a entrada",
+       periodosPorVencimento(INPUT, INPUT.hoje, "mes", "receber").find((x) => x.key === "2026-08")?.total === 50_000);
+    // ⚠️ A asserção que dá sentido à tarefa: NENHUM período pode vir negativo,
+    // em nenhuma granularidade e em nenhum dos dois sentidos. Se algum vier, é
+    // defeito de DADO (um `amount` com sinal) e tem de aparecer — mascarar com
+    // `Math.abs` na tela transformaria um lançamento invertido em número
+    // plausível.
+    const todos = (["mes", "semana"] as const).flatMap((g) =>
+      (["pagar", "receber"] as const).flatMap((d) => periodosPorVencimento(INPUT, INPUT.hoje, g, d)));
+    ok("t9: nenhum período vem negativo", todos.every((x) => (x.total ?? 0) >= 0),
+       todos.filter((x) => (x.total ?? 0) < 0).map((x) => `${x.key}=${x.total}`).join(" "));
+    // Período sem título vale ZERO — a resposta "nada vence aqui", não ausência.
+    ok("t9: período sem título soma zero", fx.find((x) => x.key === "2026-03")?.total === 0);
+    ok("t9: a faixa traz sempre os 12 períodos", fx.length === 12);
+    // E a agregação de RESULTADO segue intacta: ela responde outra coisa e dá
+    // outro número no MESMO agosto — 50.000 de entrada menos 10.500 de saídas
+    // pela data de CAIXA (pg1 entra porque foi paga em agosto, pg3 sai porque
+    // foi paga em setembro). É a prova de que as duas não foram fundidas: 39.500
+    // contra os 10.499 da faixa de títulos, sobre os mesmos lançamentos.
+    const res = periodosComValores(INPUT, INPUT.hoje, "mes").find((x) => x.key === "2026-08");
+    ok("t9: a agregação de resultado continua respondendo o resultado",
+       res?.resultado === 39_500 && res?.total === undefined, `${res?.resultado}`);
+  }
 
   ok("cpagar: pago no período usa a DATA DE PAGAMENTO", p.pagoNoPeriodo.total === 1_500 && p.pagoNoPeriodo.quantidade === 2,
      `${p.pagoNoPeriodo.total} / ${p.pagoNoPeriodo.quantidade}`);
