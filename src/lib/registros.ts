@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Persistência dos cadastros do módulo de registros (localStorage, demo-safe).
+ * Persistência dos cadastros do módulo de registros (por EMPRESA, demo-safe).
  *
  * Contas bancárias vivem em `financial_accounts` (nome, banco, saldo) — o resto
  * do que estas telas cadastram (tipo, agência, número, código Domínio, dias de
@@ -12,22 +12,30 @@
  * Síncrono de propósito — os formulários precisam do dado na hora.
  */
 import type { ContaBancaria, CategoriaPlano, Contrato } from "@/core/registros";
+import { linhaDREvalida } from "@/core/registros";
 
 /* --------------------------------- base --------------------------------- */
 
-function ler<T>(chave: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
-  try {
-    const s = localStorage.getItem(chave);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch {
-    return padrao;
-  }
-}
-function gravar(chave: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(chave, JSON.stringify(v)); } catch { /* cota cheia */ }
-}
+/**
+ * ⚠️ **A persistência é POR EMPRESA — via `store-org`, não `localStorage` cru.**
+ *
+ * Estas chaves (`a4p_plano_contas`, `a4p_contas_bancarias`, `a4p_centros_custo`,
+ * `a4p_projetos`, `a4p_contratos`) já estavam classificadas em `CHAVES_ORG`
+ * desde a ONDA 7 — a lista dizia que eram dado de NEGÓCIO e deviam morar no
+ * servidor. Só que este arquivo tinha um `ler`/`gravar` PRÓPRIO, escrevendo
+ * direto no navegador: a classificação estava certa e não valia nada, porque
+ * ninguém a consumia.
+ *
+ * O efeito era o que a ONDA 7 já tinha nomeado: trocar de máquina perde o plano
+ * de contas, dois sócios da mesma empresa nunca veem as mesmas categorias, e
+ * limpar o cache apaga a estrutura contábil inteira. Num plano de contas isso é
+ * pior que em qualquer outra chave, porque os lançamentos ficam apontando para
+ * ids de categoria que deixaram de existir.
+ *
+ * A API continua SÍNCRONA (o `store-org` mantém o cache local na frente e
+ * hidrata do servidor) — nenhum formulário precisou virar assíncrono.
+ */
+import { ler, gravar } from "@/lib/store-org";
 
 let seq = 0;
 /** Id curto e copiável, no formato dos prints (numérico crescente). */
@@ -63,63 +71,49 @@ export const BANCOS = [
 const K_PLANO = "a4p_plano_contas";
 const K_USOS = "a4p_plano_usos";
 
-/** Plano inicial opinativo (negócios digitais) — o ponto de partida editável. */
-function planoPadrao(): CategoriaPlano[] {
-  const cats: CategoriaPlano[] = [];
-  const add = (nome: string, natureza: "receita" | "despesa", paiId: string | null, id: string) =>
-    cats.push({ id, nome, codigo: "", natureza, paiId });
+/**
+ * ⚠️ **O PLANO NASCE VAZIO — e o que saiu daqui foram 32 categorias de
+ * fábrica.**
+ *
+ * O plano padrão era opinativo para "negócios digitais": Taxa Comissao
+ * Coprodutor, Tarifa De Streaming, Saque da Plataforma. Uma transportadora, uma
+ * clínica ou uma loja abria o formulário e via trinta e duas categorias que não
+ * são dela, com as três ou quatro que servem escondidas no meio — e o caminho
+ * mais curto era escolher a menos errada. Categoria escolhida por aproximação é
+ * lançamento na linha errada do DRE, todo mês, sem nada na tela parecendo
+ * defeito.
+ *
+ * Vazio, o formulário faz a pergunta certa na primeira vez: a lista está vazia,
+ * o campo oferece CRIAR o que a pessoa digitou, e a criação exige a linha do
+ * DRE. O plano que nasce é o da empresa, e cada categoria dele foi uma decisão.
+ */
+export const listPlanoContas = (): CategoriaPlano[] => ler<CategoriaPlano[]>(K_PLANO, []);
 
-  add("Receitas de Produtos", "receita", null, "217266");
-  add("Produto Físico", "receita", "217266", "217267");
-  add("Produto Online", "receita", "217266", "217268");
-  add("Outros Produtos", "receita", "217266", "217269");
-  add("Receitas de Serviços", "receita", null, "217270");
-  add("Mentoria", "receita", "217270", "217271");
-  add("Treinamento", "receita", "217270", "217272");
-  add("Consultoria", "receita", "217270", "217273");
-  add("Receitas Financeiras", "receita", null, "217274");
-  add("Rendimento de Aplicações", "receita", "217274", "217275");
-  add("Devolução de Estorno", "receita", "217274", "217276");
-  add("Reserva a Receber", "receita", "217274", "217277");
-  add("Saque da Plataforma", "receita", "217274", "217278");
-  add("Reembolso", "receita", "217274", "217279");
-
-  add("Custos de Venda", "despesa", null, "217280");
-  add("Taxa Plataforma", "despesa", "217280", "217281");
-  add("Taxa de Antecipação", "despesa", "217280", "217282");
-  add("Taxa Comissao Coprodutor", "despesa", "217280", "217283");
-  add("Taxa Comissao Afiliado", "despesa", "217280", "217284");
-  add("Tarifa De Streaming", "despesa", "217280", "217285");
-  add("Chargeback", "despesa", "217280", "217286");
-  add("Reembolsado", "despesa", "217280", "217287");
-  add("Despesas Operacionais", "despesa", null, "217288");
-  add("Folha de Pagamento", "despesa", "217288", "217289");
-  add("Marketing", "despesa", "217288", "217290");
-  add("Software e Assinaturas", "despesa", "217288", "217291");
-  add("Aluguel", "despesa", "217288", "217292");
-  add("Despesas Financeiras", "despesa", null, "217293");
-  add("Tarifas Bancárias", "despesa", "217293", "217294");
-  add("Juros", "despesa", "217293", "217295");
-  add("Bloqueio Judicial", "despesa", "217293", "217296");
-  add("Reserva a Pagar", "despesa", "217293", "217297");
-  add("Impostos", "despesa", null, "217298");
-  add("Simples Nacional", "despesa", "217298", "217299");
-  return cats;
-}
-
-export function listPlanoContas(): CategoriaPlano[] {
-  const salvo = ler<CategoriaPlano[] | null>(K_PLANO, null);
-  // Sem nada salvo, serve o plano padrão SEM gravar: quem nunca editou continua
-  // vendo o padrão atualizado quando ele melhorar.
-  return salvo && salvo.length > 0 ? salvo : planoPadrao();
+/**
+ * Cria (ou substitui) UMA categoria — o caminho que o formulário de lançamento
+ * usa quando a pessoa cria a categoria sem sair de lá.
+ *
+ * ⚠️ Recusa a linha do DRE que não existe para a natureza. A validação mora
+ * aqui, e não só no componente, porque este é o ponto por onde TODA criação
+ * passa: uma checagem que vive na tela some no dia em que uma segunda tela
+ * chamar a mesma função.
+ */
+export function salvarCategoria(c: CategoriaPlano): CategoriaPlano[] {
+  if (c.dreLinha && !linhaDREvalida(c.dreLinha, c.natureza)) {
+    throw new Error(`A linha "${c.dreLinha}" não existe no DRE para uma categoria de ${c.natureza}.`);
+  }
+  const out = [...listPlanoContas().filter((x) => x.id !== c.id), { ...c, id: c.id || novoIdRegistro() }];
+  gravar(K_PLANO, out);
+  return out;
 }
 export function salvarPlanoContas(cats: CategoriaPlano[]): CategoriaPlano[] {
   gravar(K_PLANO, cats);
   return cats;
 }
+/** Volta ao estado inicial — que agora é o VAZIO, não um plano de fábrica. */
 export const resetarPlanoContas = (): CategoriaPlano[] => {
   gravar(K_PLANO, []);
-  return planoPadrao();
+  return [];
 };
 
 export const listUsosPadrao = (): Record<string, string> => ler<Record<string, string>>(K_USOS, {});
@@ -196,4 +190,28 @@ export const listExtrasProduto = (): Record<string, ExtraProduto> =>
 export const extraProduto = (id: string): ExtraProduto => listExtrasProduto()[id] ?? {};
 export function salvarExtraProduto(id: string, e: ExtraProduto): void {
   gravar(K_EXTRA_PROD, { ...listExtrasProduto(), [id]: { ...extraProduto(id), ...e } });
+}
+
+/* ------------------------- plano de contas → DRE ------------------------- */
+
+/**
+ * O MAPA que liga a categoria à linha do DRE — `nome (minúsculo)` → id da linha.
+ *
+ * ⚠️ **É por aqui que o vínculo sai do cadastro e chega ao relatório.** Ele é
+ * montado na TELA e entregue por parâmetro a `montarDRE`/`montarDFC`
+ * (`FiltroRelatorio.linhaPorCategoria`), porque `core/relatorios` é puro: ler o
+ * plano lá dentro faria o mesmo relatório dar números diferentes conforme o
+ * navegador.
+ *
+ * A chave é o NOME e não o id porque é o nome que viaja no lançamento
+ * (`RiskMovement.category` é texto, resolvido de `categories.name`). Categoria
+ * sem linha declarada simplesmente não entra no mapa — e aí o relatório cai na
+ * classificação por palavra-chave, como sempre fez.
+ */
+export function linhasDeCategoria(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of listPlanoContas()) {
+    if (c.dreLinha) out[c.nome.trim().toLowerCase()] = c.dreLinha;
+  }
+  return out;
 }

@@ -87,7 +87,7 @@ export function TransferenciasView() {
             Nova transferência
           </Button>
           <Button
-            variant="ghost" disabled={visiveis.length === 0}
+            variant="outline" disabled={visiveis.length === 0}
             onClick={() => baixarXLSX("transferencias", [{ nome: "Transferências", linhas: linhasXLSX }])}
           >
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />

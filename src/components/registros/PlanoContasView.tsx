@@ -209,13 +209,17 @@ function Arvore({ cats, onCats }: { cats: CategoriaPlano[]; onCats: (c: Categori
         <Button
           variant="ghost"
           onClick={() => {
-            if (!window.confirm("Restaurar o plano de contas padrão? As categorias criadas por você serão perdidas.")) return;
+            // ⚠️ Não existe mais "plano padrão" para restaurar: o plano nasce
+            // vazio e cada categoria dele foi uma decisão de alguém. O botão
+            // diz o que faz de verdade — ESVAZIA — e o aviso é explícito, senão
+            // "restaurar" soa como voltar a um estado bom conhecido.
+            if (!window.confirm("Apagar TODAS as categorias? Os lançamentos já feitos mantêm o nome da categoria, mas o plano fica vazio e você terá de cadastrar de novo.")) return;
             onCats(resetarPlanoContas());
-            show("Plano padrão restaurado.");
+            show("Plano de contas esvaziado.");
           }}
         >
-          <Icon name="rotate-ccw" size={15} color="currentColor" />
-          Restaurar plano padrão
+          <Icon name="trash-2" size={15} color="currentColor" />
+          Esvaziar plano de contas
         </Button>
       </div>
 

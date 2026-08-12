@@ -27,15 +27,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
+  Card, Button, Icon, Input, Textarea, Select, SelectBusca, DateField, CurrencyInput, Checkbox, BRL,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
 import { PartyForm } from "@/components/lancamentos/PartyForm";
-import { listPlanoContas, extraParty } from "@/lib/registros";
+import { listPlanoContas, salvarCategoria, extraParty, novoIdRegistro } from "@/lib/registros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
-import { rateioValido, somaRateio, type LinhaRateio } from "@/core/registros";
+import { rateioValido, somaRateio, linhasDREdaNatureza, type LinhaRateio, type CategoriaPlano } from "@/core/registros";
 import {
   planejarLancamento, ROTULO_MODO, EXPLICACAO_MODO, FREQUENCIAS,
   type ModoLancamento, type Frequencia,
@@ -103,10 +103,25 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
   const cadProjetos = React.useMemo(() => listProjetos(), []);
   const cadCentros = React.useMemo(() => listCentrosCusto(), []);
+  /**
+   * ⚠️ As categorias são ESTADO, não `useMemo` — a pessoa pode criar uma sem
+   * sair do formulário, e uma lista memoizada não veria a nova.
+   *
+   * E o filtro perdeu o `&& c.paiId`: ele só deixava passar SUBcategoria, o que
+   * fazia sentido quando o plano vinha de fábrica em dois níveis. Com o plano
+   * nascendo vazio, a primeira categoria que alguém cria é raiz — e ela sumia
+   * da lista logo depois de ter sido criada ali mesmo.
+   */
+  const [planoContas, setPlanoContas] = React.useState<CategoriaPlano[]>([]);
+  React.useEffect(() => { setPlanoContas(listPlanoContas()); }, []);
+  const natureza = receber ? "receita" : "despesa";
   const categorias = React.useMemo(
-    () => listPlanoContas().filter((c) => c.natureza === (receber ? "receita" : "despesa") && c.paiId),
-    [receber],
+    () => planoContas.filter((c) => c.natureza === natureza),
+    [planoContas, natureza],
   );
+  /** O rascunho da categoria que está sendo criada de dentro do lançamento. */
+  const [criando, setCriando] = React.useState<{ nome: string; linha: string } | null>(null);
+  const linhasDRE = React.useMemo(() => linhasDREdaNatureza(natureza), [natureza]);
   const elegiveis = React.useMemo(
     () => (partes ?? []).filter((p) => (receber ? p.is_customer : p.is_supplier)),
     [partes, receber],
@@ -329,12 +344,13 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           /* ⚠️ Conta bancária e valor continuam sendo do formulário comum: é de
              uma conta real que o dinheiro sai, e é o bruto que o motor precisa.
              Duplicá-los dentro do bloco criaria dois campos para a mesma coisa. */
-          <Bloco titulo="CONTA E VALOR">
+          <Bloco titulo="Conta e valor">
             <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
-              <Select
+              <SelectBusca
                 value={f.contaId}
                 onChange={(v) => set("contaId", v)}
-                placeholder="Selecione uma opção"
+                placeholder="Busque a conta…"
+                invalid={!!erros.contaId}
                 options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
               />
             </Campo>
@@ -355,23 +371,76 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             formulário pressupõe respondidas. Ficavam depois das datas e do valor,
             e "Contrato" ocupava o lugar nobre com um campo que quase nunca é
             preenchido. */}
-        <Bloco titulo="DADOS GERAIS">
+        <Bloco titulo="Dados gerais">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
-            <Select
+            <SelectBusca
               value={f.contaId}
               onChange={(v) => set("contaId", v)}
-              placeholder="Selecione uma opção"
+              placeholder="Busque a conta…"
+              invalid={!!erros.contaId}
               options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
             />
           </Campo>
           <Campo label="Categoria" obrigatorio erro={erros.categoria}>
-            <Select
+            {/* ⚠️ `SelectBusca` e não o `Select` nativo: o plano de contas é
+                longo e ABERTO. Quando o nome não está lá, o caminho antigo era
+                abandonar o lançamento, ir ao cadastro, criar e voltar do começo
+                — e o atalho que as pessoas tomam nessa hora é escolher a
+                categoria menos errada, que é lançamento na linha errada do DRE
+                todo mês. */}
+            <SelectBusca
               value={f.categoria}
               onChange={(v) => set("categoria", v)}
-              placeholder="Selecione…"
+              placeholder="Busque ou crie…"
+              invalid={!!erros.categoria}
+              vazio="Seu plano de contas está vazio. Digite o nome e crie a primeira categoria."
               options={categorias.map((c) => ({ value: c.id, label: c.nome }))}
+              onCriar={(texto) => setCriando({ nome: texto, linha: "" })}
+              rotuloCriar={(t) => `Criar categoria "${t}"`}
             />
           </Campo>
+          {criando && (
+            <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-3">
+              <span className="a4p-label text-faint">Nova categoria de {natureza}</span>
+              <Campo label="Nome">
+                <Input value={criando.nome} onChange={(e) => setCriando({ ...criando, nome: e.target.value })} />
+              </Campo>
+              {/* ⚠️ A linha do DRE é OBRIGATÓRIA, e só as linhas de SOMA da
+                  natureza aparecem. Sem ela, a categoria nova cairia na
+                  classificação por palavra-chave — que acerta "Aluguel" e erra
+                  calada em "Ferramentas do time", com a cascata fechando certo
+                  na linha errada. As linhas de TOTAL (Receita Líquida, EBITDA)
+                  nunca entram: elas saem de fórmula, e apontar uma categoria
+                  para uma delas contaria o mesmo valor duas vezes. */}
+              <Campo label="Linha do DRE" obrigatorio ajuda="Onde os lançamentos desta categoria entram no resultado.">
+                <Select
+                  value={criando.linha}
+                  onChange={(v) => setCriando({ ...criando, linha: v })}
+                  placeholder="Selecione a linha…"
+                  options={linhasDRE.map((l) => ({ value: l.id, label: l.label }))}
+                />
+              </Campo>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={!criando.nome.trim() || !criando.linha}
+                  onClick={() => {
+                    const nova: CategoriaPlano = {
+                      id: novoIdRegistro(), nome: criando.nome.trim(), codigo: "",
+                      natureza, paiId: null, dreLinha: criando.linha,
+                    };
+                    setPlanoContas(salvarCategoria(nova));
+                    set("categoria", nova.id);
+                    setCriando(null);
+                    show(`Categoria "${nova.nome}" criada.`);
+                  }}
+                >
+                  Criar e usar
+                </Button>
+                <Button variant="ghost" onClick={() => setCriando(null)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
           {!receber && (
             <Campo label="Espécie" ajuda="A nota que ampara a despesa.">
               <Select
@@ -390,13 +459,17 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ------------------------------- a parte ------------------------------- */}
-        <Bloco titulo={rotuloParte.toUpperCase()}>
+        <Bloco titulo={rotuloParte}>
           <Campo label={rotuloParte} obrigatorio erro={erros.parteId}>
             <div className="flex items-center gap-2">
-              <Select
+              {/* ⚠️ O placeholder dizia "Digite nome ou documento…" num
+                  `<select>` NATIVO, onde não se digita nada. A promessa estava
+                  escrita na tela e o controle não a cumpria; agora cumpre. */}
+              <SelectBusca
                 value={f.parteId}
                 onChange={(v) => set("parteId", v)}
                 placeholder="Digite nome ou documento…"
+                invalid={!!erros.parteId}
                 options={elegiveis.map((p) => ({ value: p.id, label: `${p.name}${p.doc ? ` · ${p.doc}` : ""}` }))}
                 containerClassName="flex-1 min-w-0"
               />
@@ -423,7 +496,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ---------------------------- datas e valor ---------------------------- */}
-        <Bloco titulo="DATAS E VALOR">
+        <Bloco titulo="Datas e valor">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Campo label="Data de competência" obrigatorio erro={erros.competencia} ajuda="Quando o fato aconteceu — é o que o DRE lê.">
               <DateField value={f.competencia} onChange={(v) => set("competencia", v)} />
@@ -488,7 +561,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         </Bloco>
 
         {/* ---------------------------- campos de texto ---------------------------- */}
-        <Bloco titulo="CAMPOS DE TEXTO">
+        <Bloco titulo="Campos de texto">
           <Campo label="Descrição">
             <Input value={f.descricao} onChange={(e) => set("descricao", e.target.value)} />
           </Campo>
@@ -507,7 +580,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
           várias datas, e "pagamento realizado" só faria sentido para um deles.
           A baixa acontece na lista, título a título. */}
       {modo !== "folha" && <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{rotuloAcao.toUpperCase()}</span>
+        <span className="a4p-label text-faint">{rotuloAcao}</span>
         <div className="flex flex-col gap-2 mt-3">
           <Checkbox
             checked={f.realizado}
@@ -602,7 +675,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
       {/* --------------------------------- anexos --------------------------------- */}
       {modo !== "folha" && <Card>
-        <span className="text-[11px] font-medium tracking-[0.08em] text-faint">ANEXOS</span>
+        <span className="a4p-label text-faint">Anexos</span>
         <label className="mt-3 flex flex-col items-center justify-center gap-2 rounded-card bg-surface-2 border border-dashed border-border py-10 cursor-pointer hover:bg-surface-3 transition-colors">
           <Icon name="upload" size={20} color="var(--color-text-tertiary)" />
           <span className="text-label text-muted">Arraste arquivos para cá ou clique para selecionar</span>
@@ -720,7 +793,7 @@ function SeletorDeModo({
 function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <Card className="h-full">
-      <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{titulo}</span>
+      <span className="a4p-label text-faint">{titulo}</span>
       <div className="flex flex-col gap-4 mt-3">{children}</div>
     </Card>
   );
@@ -786,10 +859,10 @@ function Rateio({
           <span className="text-caption text-faint">Nenhuma alocação cadastrada.</span>
         ) : linhas.map((l, k) => (
           <div key={k} className="flex items-center gap-2">
-            <Select
+            <SelectBusca
               value={l.id}
               onChange={(v) => onChange(linhas.map((x, i) => (i === k ? { ...x, id: v } : x)))}
-              placeholder={`Selecione o ${singular}`}
+              placeholder={`Busque o ${singular}…`}
               options={opcoes}
               containerClassName="flex-1 min-w-0"
             />

@@ -9,6 +9,7 @@
  *
  * Versão registros/1.0.0.
  */
+import { ESTRUTURA_DRE } from "@/core/relatorios";
 
 export const REGISTROS_VERSION = "registros/1.0.0";
 
@@ -155,7 +156,53 @@ export interface CategoriaPlano {
   natureza: Natureza;
   /** null = raiz (grupo). */
   paiId: string | null;
+  /**
+   * A LINHA DO DRE em que os lançamentos desta categoria caem.
+   *
+   * ⚠️ Antes disso, a linha era ADIVINHADA por palavra-chave no nome da
+   * categoria (`core/relatorios` e `core/dre/engine`) — "Taxa Plataforma" caía
+   * em Despesas Variáveis porque o texto contém "taxa". Funciona enquanto as
+   * categorias são as de fábrica e o nome segue o padrão que o regex espera;
+   * quebra em silêncio na primeira categoria que a empresa cria com o nome
+   * dela ("Ferramentas do time"), que passa a cair na linha genérica sem nada
+   * na tela dizendo isso. O resultado fecha — sempre fecha, porque a cascata é
+   * aritmética — só que na linha errada, e é a linha que o contador lê.
+   *
+   * Vazio ⇒ a classificação por palavra-chave continua valendo (é o que
+   * mantém funcionando tudo que já existe). Preenchido, ele VENCE: é a resposta
+   * de quem cadastrou, e ela ganha de uma heurística sobre o nome.
+   */
+  dreLinha?: string;
 }
+
+/**
+ * As linhas do DRE que uma categoria pode escolher — as de SOMA, na natureza
+ * dela.
+ *
+ * ⚠️ **As linhas de TOTAL (`=`) ficam de fora, e isso não é detalhe.**
+ *
+ * ⚠️ Duas travas independentes as barram (o `tipo === "soma"` e o filtro de
+ * sinal), e a guarda só reprova quando as DUAS caem — foi medido plantando cada
+ * uma sozinha. Isso está certo assim: a guarda cobra a PROPRIEDADE ("nenhum
+ * total escolhível"), não o caminho que a produz, senão ela reprovaria uma
+ * simplificação legítima do filtro. Receita
+ * Líquida, Lucro Bruto, EBITDA e Resultado Líquido saem de FÓRMULA sobre as
+ * outras; apontar uma categoria para uma delas somaria o lançamento na linha e
+ * de novo dentro do total que a contém — o mesmo valor contado duas vezes, com
+ * a cascata fechando "certo". É por isso que a lista é derivada da estrutura e
+ * não digitada: uma linha nova no DRE aparece aqui sozinha, e uma linha de
+ * total nunca aparece por engano.
+ */
+export function linhasDREdaNatureza(natureza: Natureza): { id: string; label: string }[] {
+  return ESTRUTURA_DRE
+    .filter((l) => l.tipo === "soma")
+    .filter((l) => (natureza === "receita" ? l.sinal === "+" || l.sinal === "+/-" : l.sinal === "-" || l.sinal === "+/-"))
+    .map((l) => ({ id: l.id, label: l.label }));
+}
+
+/** A linha existe e é escolhível para esta natureza. */
+export const linhaDREvalida = (id: string, natureza: Natureza): boolean =>
+  linhasDREdaNatureza(natureza).some((l) => l.id === id);
 
 /** Achata a árvore na ordem de exibição, carregando o nível de indentação. */
 export function achatarPlano(cats: CategoriaPlano[]): { cat: CategoriaPlano; nivel: number }[] {

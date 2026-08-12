@@ -113,7 +113,7 @@ export function ComprasView() {
             Nova compra
           </Button>
           <Button
-            variant="ghost"
+            variant="outline"
             disabled={lista.length === 0}
             onClick={() => baixarXLSX("compras", [{ nome: "Compras", linhas: linhasXLSX }])}
           >

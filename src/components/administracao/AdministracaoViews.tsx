@@ -337,7 +337,7 @@ export function UsuariosView() {
             <Icon name="plus" size={15} color="currentColor" />
             Convidar usuário
           </Button>
-          <Button variant="ghost" disabled={lista.length === 0} onClick={() => baixarXLSX("usuarios", [{ nome: "Usuários", linhas: linhasXLSX }])}>
+          <Button variant="outline" disabled={lista.length === 0} onClick={() => baixarXLSX("usuarios", [{ nome: "Usuários", linhas: linhasXLSX }])}>
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
@@ -545,7 +545,7 @@ export function LogsView() {
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted">Histórico de alterações realizadas pelos usuários da empresa.</p>
-        <Button variant="ghost" disabled={lista.length === 0} onClick={() => baixarXLSX("logs", [{ nome: "Logs", linhas: linhasXLSX }])}>
+        <Button variant="outline" disabled={lista.length === 0} onClick={() => baixarXLSX("logs", [{ nome: "Logs", linhas: linhasXLSX }])}>
           <Icon name="arrow-down-to-line" size={15} color="currentColor" />
           Exportar XLSX
         </Button>

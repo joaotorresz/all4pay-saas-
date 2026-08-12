@@ -121,9 +121,21 @@ export const FUSOES: Fusao[] = [
         feito: true,
       },
       {
-        o_que: "A faixa `EscopoDaTela`, que declara posição × fluxo e liga as duas leituras.",
+        /**
+         * ⚠️ A FAIXA FOI REMOVIDA DA TELA depois, a pedido — e o item continua
+         * `feito` porque a PREMISSA dele morreu, não porque alguém desistiu.
+         *
+         * Ela existia para reconciliar DUAS telas de "a receber" que mostravam
+         * números diferentes. As duas viraram uma (`/contas-a-receber/titulos`),
+         * então não há mais um segundo número para explicar — e uma faixa fixa
+         * explicando uma divergência que não existe mais é ruído no topo da
+         * tela que a pessoa usa todo dia. O componente saiu junto; o motor
+         * (`pontePosicaoFluxo`) fica, guardado na matriz, para o dia em que a
+         * dupla leitura reaparecer.
+         */
+        o_que: "A leitura posição × fluxo, que ligava as duas telas de a receber.",
         custo_de_perder:
-          "Sem ela volta o P0-16: dois números para a mesma pergunta e nada explicando a diferença.",
+          "Sem ela voltaria o P0-16: dois números para a mesma pergunta e nada explicando a diferença. Resolvido na raiz — hoje há uma tela só.",
         feito: true,
       },
     ],
