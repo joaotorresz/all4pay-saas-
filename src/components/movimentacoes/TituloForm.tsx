@@ -346,10 +346,11 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
              Duplicá-los dentro do bloco criaria dois campos para a mesma coisa. */
           <Bloco titulo="Conta e valor">
             <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
-              <Select
+              <SelectBusca
                 value={f.contaId}
                 onChange={(v) => set("contaId", v)}
-                placeholder="Selecione uma opção"
+                placeholder="Busque a conta…"
+                invalid={!!erros.contaId}
                 options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
               />
             </Campo>
@@ -372,10 +373,11 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             preenchido. */}
         <Bloco titulo="Dados gerais">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
-            <Select
+            <SelectBusca
               value={f.contaId}
               onChange={(v) => set("contaId", v)}
-              placeholder="Selecione uma opção"
+              placeholder="Busque a conta…"
+              invalid={!!erros.contaId}
               options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
             />
           </Campo>
@@ -460,10 +462,14 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
         <Bloco titulo={rotuloParte}>
           <Campo label={rotuloParte} obrigatorio erro={erros.parteId}>
             <div className="flex items-center gap-2">
-              <Select
+              {/* ⚠️ O placeholder dizia "Digite nome ou documento…" num
+                  `<select>` NATIVO, onde não se digita nada. A promessa estava
+                  escrita na tela e o controle não a cumpria; agora cumpre. */}
+              <SelectBusca
                 value={f.parteId}
                 onChange={(v) => set("parteId", v)}
                 placeholder="Digite nome ou documento…"
+                invalid={!!erros.parteId}
                 options={elegiveis.map((p) => ({ value: p.id, label: `${p.name}${p.doc ? ` · ${p.doc}` : ""}` }))}
                 containerClassName="flex-1 min-w-0"
               />
@@ -853,10 +859,10 @@ function Rateio({
           <span className="text-caption text-faint">Nenhuma alocação cadastrada.</span>
         ) : linhas.map((l, k) => (
           <div key={k} className="flex items-center gap-2">
-            <Select
+            <SelectBusca
               value={l.id}
               onChange={(v) => onChange(linhas.map((x, i) => (i === k ? { ...x, id: v } : x)))}
-              placeholder={`Selecione o ${singular}`}
+              placeholder={`Busque o ${singular}…`}
               options={opcoes}
               containerClassName="flex-1 min-w-0"
             />
