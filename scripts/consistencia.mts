@@ -3140,6 +3140,56 @@ const AGOSTO = janelaMes(2026, 7);
         }
       }
     }
+    /**
+     * ⚠️ **TETO ZERO: a projeção não entra no painel nem na lista de títulos.**
+     *
+     * A tela de contas recorrentes soma o compromisso da REGRA — inclusive nos
+     * meses que ainda não viraram título. O painel de contas a pagar e a lista
+     * de títulos somam o que EXISTE. Somar a projeção em qualquer um dos dois
+     * criaria um segundo significado de "a pagar" na tela que mais precisa de
+     * um só, e o número resultante não bateria nem com o extrato nem com a
+     * lista logo abaixo dele.
+     *
+     * Medido em produção quando esta regra foi escrita: outubro/26 tem
+     * R$ 20.640 em títulos e R$ 40.802,55 de compromisso recorrente, sem um
+     * centavo em comum. Somados, dariam R$ 61.442 de uma dívida que não existe.
+     *
+     * A guarda é por IMPORTAÇÃO: quem consome `core/contas-pagar/projecao`
+     * precisa estar declarado aqui, com motivo. É a mesma técnica do mapa de
+     * consolidação — a dívida existe declarada, ou não existe.
+     */
+    const CONSUMIDORES_DA_PROJECAO: Record<string, string> = {
+      "src/components/contas-pagar/ContasRecorrentes.tsx":
+        "a tela da projeção — é ela que a pergunta existe para responder",
+      "src/lib/data.ts":
+        "só o TIPO da regra, para o acessor devolver o formato que o motor pede",
+      "src/components/visao-geral/hooks.ts":
+        "o hook que carrega as regras, sem somar nada",
+    };
+    const intrusos: string[] = [];
+    for (const arq of varrerArquivos("src", /\.(ts|tsx)$/)) {
+      const caminho = arq.replace(/\\/g, "/");
+      if (caminho.startsWith("src/core/contas-pagar/")) continue; // o motor e seus vizinhos
+      if (!/from "@\/core\/contas-pagar\/projecao"/.test(ler(arq))) continue;
+      if (!(caminho in CONSUMIDORES_DA_PROJECAO)) intrusos.push(caminho);
+    }
+    ok("projecao: só quem está declarado consome a projeção de recorrentes",
+       intrusos.length === 0, intrusos.join(" | "));
+    // E a declaração não pode apontar para arquivo que não existe: uma exceção
+    // órfã é uma permissão que ninguém usa e que ninguém revoga.
+    const orfas = Object.keys(CONSUMIDORES_DA_PROJECAO).filter((f) => !existe(f));
+    ok("projecao: nenhum consumidor declarado aponta para arquivo inexistente",
+       orfas.length === 0, orfas.join(" | "));
+    /**
+     * ⚠️ E as duas telas de título DIZEM o que contam. Sem a frase, quem abre
+     * as duas conclui que uma está errada — e é a pergunta "qual dos dois está
+     * certo" que a guarda existe para nunca mais deixar aparecer.
+     */
+    ok("projecao: a lista de títulos declara que conta só o já lançado",
+       /já lançados/.test(ler("src/components/movimentacoes/TitulosView.tsx")));
+    ok("projecao: o painel de contas a pagar declara o mesmo",
+       /já lançados/.test(ler("src/components/contas-pagar/DashboardContasPagar.tsx")));
+
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));
     /**

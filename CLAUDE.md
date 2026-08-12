@@ -1079,6 +1079,103 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ `core/contas-pagar/projecao` — o que AINDA VAI vencer, derivado da REGRA
+
+`projetarRecorrentes()` (`contas-pagar-projecao/1.0.0`) responde *"quanto eu vou
+pagar"* — que não se responde com histórico, porque o histórico não sabe que o
+contrato acaba em março. Alimenta o card de custo e o seletor de próximos 6/12
+meses em `/contas-a-pagar/recorrentes`.
+
+⚠️ **A FONTE É A REGRA (`recurrences`), e só ela.** O produto tem DUAS noções de
+conta recorrente: a regra cadastrada e o PADRÃO inferido dos lançamentos
+(`./recorrentes.ts`, que é o que a tela mostrava). Projetar pelas duas faria a
+mesma tela ter duas definições, e só a primeira tem chave para casar com o
+título materializado — a segunda é agrupamento heurístico, sem id, e projeção
+sem chave duplica dinheiro no dia em que o materializador voltar a rodar.
+
+⚠️ **A CHAVE ANTI-DUPLICIDADE é `rec:<regraId>:<data>`** — a MESMA que o
+materializador grava em `movements.reference_code` (`refFatura`), com índice
+único parcial no banco. **Mas o casamento é pelo par (regra, MÊS)**, não pela
+chave exata: o materializador arredonda o dia (`min(diaVencimento, 28)`) e a
+regra pode ter mudado de dia desde que o título nasceu — exigir data idêntica
+deixaria passar uma duplicata separada por 24 horas. Título existente SEMPRE
+suprime a projeção do mês, e o valor exibido é o do TÍTULO.
+
+⚠️ **A chave existia no banco e não chegava aos motores.** `RiskMovement` não
+declarava `reference_code` e `getRiscoInput` não o selecionava; sem esse
+transporte não havia como casar nada. O campo (`referenceCode`) é opcional e é
+lido nos dois caminhos, demo e live.
+
+- **Fim de contrato corta a projeção**, e o DIA do fim ainda é vigência (`>`,
+  não `>=`). **Regra inativa não projeta** — ⚠️ no banco `active` é UM booleano,
+  então **pausada e cancelada são indistinguíveis**: as duas param a projeção e
+  o produto não consegue dizer qual foi. Limitação de schema, não escolha.
+- **A fase do ciclo sai do INÍCIO da regra**, nunca do início do intervalo: um
+  trimestral que começou em janeiro vence em abril, não no primeiro mês que
+  alguém resolveu olhar.
+- **Valor:** a regra manda, EXCETO quando a última cobrança conhecida discorda —
+  aí vale o valor real e a ocorrência sai `estimada`. Nenhum reajuste inventado:
+  **não há campo de indexação nem histórico de valor** em `recurrences`.
+- **`porMes` traz TODOS os meses**, inclusive os vazios em R$ 0,00 — pular o mês
+  faria a linha ligar fevereiro a abril como se março não existisse. Nada é
+  negativo: uma soma de obrigações não tem sinal.
+- **O tempo verbal mora no motor** (`fraseDoCusto`/`fraseDaProporcao`), não em
+  ternário na JSX: "foi de" · "estará em" · "será de". ⚠️ A PROPORÇÃO também se
+  conjuga — "ainda é projeção" é vocabulário de futuro e apareceu num intervalo
+  passado, onde a frase diz outra coisa (o dinheiro saiu, só que nenhum título
+  ficou ligado à regra). E **sem regra cadastrada o motivo ocupa o lugar do
+  número** (ONDA 4): "custo recorrente de R$ 0,00" afirma que a empresa não tem
+  conta que se repita, quando a verdade é que ninguém cadastrou nada.
+- No gráfico, o projetado tem **opacidade reduzida E contorno tracejado** —
+  duas marcas porque só a opacidade some em tela fraca e em impressão, e é numa
+  impressão que alguém leva o número para uma reunião.
+
+⚠️ **A TROCA DE JANELA TROCA A PERGUNTA, e as três telas dizem o que contam.**
+Passado = TODAS as contas a pagar por espécie; futuro = SÓ o que as regras
+projetam. Medido em produção: **outubro/26 tem R$ 20.640 em títulos e
+R$ 40.802,55 de compromisso recorrente, sem um centavo em comum** — a projeção é
+quase o dobro do total de contas a pagar do mês. Sem a frase, quem abre as duas
+telas conclui que uma está errada; nenhuma está.
+
+⚠️ **TETO ZERO: a projeção NÃO entra no painel nem na lista de títulos**
+(guarda `projecao: só quem está declarado consome a projeção`). Somá-la ali
+criaria um segundo significado de "a pagar" na tela que mais precisa de um só, e
+os R$ 61.442 resultantes seriam uma dívida que não existe. Os consumidores são
+declarados COM MOTIVO em `scripts/consistencia.mts`; a guarda também exige que
+as duas telas de título continuem declarando que contam só o já lançado.
+
+⚠️ **O MATERIALIZADOR ESTÁ PARADO EM PRODUÇÃO, e isto explica o tamanho da
+divergência.** O cron `/api/recorrencias/run` (Vercel Cron diário, horizonte de
+90 dias) **nunca completou uma execução**: zero eventos `materializar_recorrencias`
+na trilha numa janela de oito dias, 7 de 8 recorrências ativas sem nenhum
+título, e os 9 títulos `rec:%` existentes datam de 16/06 com `origem: null` —
+assinatura de `ativarRecorrencia`, não do cron. **Nem o outro cron
+(`/api/financial-os/run`) deixou rastro diário**, e ele não precisa do service
+role — o que descarta "falta a chave" como causa única e aponta para os crons
+não dispararem. Descartados com verificação: o middleware (`/api` está na lista
+pública) e o `vercel.json` (dois crons diários, dentro do limite do plano).
+Falta olhar o painel da Vercel (Cron Jobs habilitados) e o
+`SUPABASE_SERVICE_ROLE_KEY` do ambiente de produção — sem ele a rota devolve
+**503 em silêncio**, sem escrever na trilha, que é por que oito dias sem
+materializar não apareceram em lugar nenhum.
+
+⚠️ **Ligar o materializador MOVE números já exibidos.** Com o horizonte de 90
+dias entrariam ~20 títulos, **≈ R$ 87.400** de contas a pagar pendentes — sobe
+"A vencer", entra no fluxo de caixa e derruba runway e score sem nada ter
+acontecido no negócio. Na tela de recorrentes o valor não muda (o cron grava o
+`amount` da regra), mas a ocorrência troca de `projetado` para `realizado`; onde
+a projeção usava a última cobrança conhecida, o número **muda**. Não é
+retroativo ao passado (o cron só emite datas ≥ hoje).
+
+**Guardas** no `engine-audit` (bloco `projecao:`): fim no meio do intervalo,
+regra cancelada, mês já materializado (não duplicar), regra criada no meio, fase
+do ciclo, intervalo invertido, mês vazio em zero, o tempo verbal nas bordas, as
+três janelas em meses fechados, e a igualdade de datas com `datasFaturaCron`.
+⚠️ **Um dos testes passava por coincidência** e só apareceu ao plantar o
+defeito: o casamento por mês era verificado pelo TOTAL, e com valor divergente a
+ocorrência projetada vale o mesmo que o título — os dois números coincidem e o
+teste aprovava a duplicata. Agora ele afirma sobre a ORIGEM.
+
 ### ⚠️ FOLHA SALARIAL — `src/core/folha` (`/contas-a-pagar/folha`)
 
 **O salário não é o custo**, e é essa a razão de o módulo existir. Um CLT de
