@@ -182,6 +182,50 @@ export const resultadoDoPeriodo = (input: RiskInput, p: PeriodoSazonal): number 
  * ⚠️ Zero é NEUTRO (nem verde nem vermelho): um mês sem movimento pintado de
  * verde diria que foi um mês bom.
  */
+/**
+ * A CURVA SUAVE — o equivalente ao `type="monotone"` do Recharts.
+ *
+ * ⚠️ Esta faixa NÃO é um gráfico Recharts: é um `<path>` desenhado à mão, então
+ * "suavizar" não é trocar um prop — é interpolar. O algoritmo é o mesmo que o
+ * `monotone` usa (Fritsch–Carlson): tangentes pela média das inclinações
+ * vizinhas, LIMITADAS para a curva nunca ultrapassar os próprios pontos.
+ *
+ * O limite é o ponto inteiro. Uma spline solta (Catmull-Rom sem restrição)
+ * produz barrigas que passam abaixo do menor valor — num gráfico de dinheiro
+ * isso desenha um mês menor do que ele foi, entre dois meses que existem. A
+ * suavização não pode inventar um vale que o dado não tem.
+ */
+function caminhoSuave(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M${pts[0].x},${pts[0].y}`;
+  const n = pts.length;
+  const dx: number[] = [], delta: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x);
+    delta.push((pts[i + 1].y - pts[i].y) / (pts[i + 1].x - pts[i].x));
+  }
+  const m: number[] = new Array(n);
+  m[0] = delta[0];
+  m[n - 1] = delta[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    // Mudança de direção ⇒ tangente ZERO: é o que crava o vértice no ponto e
+    // impede a curva de "passar direto" por um pico.
+    m[i] = delta[i - 1] * delta[i] <= 0 ? 0 : (delta[i - 1] + delta[i]) / 2;
+  }
+  for (let i = 0; i < n - 1; i++) {
+    if (delta[i] === 0) { m[i] = 0; m[i + 1] = 0; continue; }
+    const a = m[i] / delta[i], b = m[i + 1] / delta[i];
+    const s = a * a + b * b;
+    if (s > 9) { const t = 3 / Math.sqrt(s); m[i] = t * a * delta[i]; m[i + 1] = t * b * delta[i]; }
+  }
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const t = dx[i] / 3;
+    d += ` C${pts[i].x + t},${pts[i].y + m[i] * t} ${pts[i + 1].x - t},${pts[i + 1].y - m[i + 1] * t} ${pts[i + 1].x},${pts[i + 1].y}`;
+  }
+  return d;
+}
+
 export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: PeriodoSazonal[]; selKey?: string; onSelect: (k: string) => void }) {
   const LARG = 150, ALT = 74;
   const total = periodos.length * LARG;
@@ -190,14 +234,23 @@ export function FaixaPeriodos({ periodos, selKey, onSelect }: { periodos: Period
   const span = max - min || 1;
   const y = (v: number) => 12 + (1 - (v - min) / span) * (ALT - 24);
   const pontos = periodos.map((p, i) => ({ x: i * LARG + LARG / 2, y: y(p.resultado), key: p.key }));
-  const d = pontos.map((pt, i) => `${i ? "L" : "M"}${pt.x},${pt.y}`).join(" ");
+  const d = caminhoSuave(pontos);
 
   return (
     <div className="relative" style={{ width: total }}>
       <svg width={total} height={ALT} className="absolute inset-x-0 top-0 pointer-events-none" aria-hidden>
-        <path d={d} fill="none" stroke="var(--color-chart-line)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+        {/* ⚠️ A linha é NEUTRA ESCURA (`ink-soft`), não a cor de gráfico.
+            `--color-chart-line` é o lima da marca, reservado às séries
+            temporais de saldo e score; usá-lo aqui gastava o acento numa faixa
+            que é contexto, não destaque — e a regra do DS é que o lima fica
+            abaixo de ~5% da tela. */}
+        <path d={d} fill="none" stroke="var(--color-ink-soft)" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" />
+        {/* Os marcadores PERFURAM a linha: preenchidos com a superfície em que
+            o gráfico está desenhado (o card é branco) e contornados na cor da
+            linha. Preencher com o cinza do canvas deixaria discos cinza sobre
+            um card branco — que não é o mesmo efeito. */}
         {pontos.map((pt) => (
-          <circle key={pt.key} cx={pt.x} cy={pt.y} r={pt.key === selKey ? 4.5 : 3} fill="var(--color-white)" stroke="var(--color-chart-line)" strokeWidth={1.4} />
+          <circle key={pt.key} cx={pt.x} cy={pt.y} r={pt.key === selKey ? 4.5 : 3} fill="var(--color-white)" stroke="var(--color-ink-soft)" strokeWidth={1.4} />
         ))}
       </svg>
       <div className="flex" style={{ paddingTop: ALT }}>
