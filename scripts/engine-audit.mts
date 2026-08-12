@@ -27,6 +27,7 @@ import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE }
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
+import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
 import { dailyCashflow } from "@/lib/aggregations";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { precoPorMargem, precoPorMarkup, analisarPreco, pontoEquilibrioUnidades, precoComImpostos } from "@/core/pricing";
@@ -2727,6 +2728,61 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     { label: "Transferências", href: "/x?tab=transfers", icon: "a" },
   ];
   ok("nav: hub com abas desempata pela query", indiceItemAtivo(abas, "/x", "tab=transfers") === 2);
+}
+
+/* ── t7: a categoria DECLARA a linha do DRE (e o total nunca é escolhível) ── */
+{
+  // ⚠️ As linhas de TOTAL (`=`) não podem aparecer na escolha: elas saem de
+  // FÓRMULA sobre as outras, e apontar uma categoria para uma delas somaria o
+  // lançamento na linha E de novo dentro do total que a contém — o mesmo valor
+  // contado duas vezes, com a cascata fechando "certo".
+  const totais = ESTRUTURA_DRE.filter((l) => l.tipo === "total").map((l) => l.id);
+  const despesa = linhasDREdaNatureza("despesa").map((l) => l.id);
+  const receita = linhasDREdaNatureza("receita").map((l) => l.id);
+  ok("t7: linha de total nunca é escolhível",
+     [...despesa, ...receita].every((id) => !totais.includes(id)),
+     [...despesa, ...receita].filter((id) => totais.includes(id)).join(" "));
+  ok("t7: despesa não escolhe Receita Bruta", !despesa.includes("receita_bruta"));
+  ok("t7: receita não escolhe Despesas Operacionais", !receita.includes("despesas_operacionais"));
+  ok("t7: as linhas de ambos os lados existem", despesa.length > 0 && receita.length > 0);
+  ok("t7: a validação recusa a linha de outra natureza",
+     linhaDREvalida("despesas_operacionais", "despesa") && !linhaDREvalida("despesas_operacionais", "receita"));
+  ok("t7: a validação recusa linha inexistente", !linhaDREvalida("linha_que_nao_existe", "despesa"));
+
+  // ⚠️ E a parte que dá sentido ao campo: a linha DECLARADA vence o palpite por
+  // palavra-chave. "Ferramentas do time" não casa com regex nenhum e cai na
+  // linha genérica; declarada, ela entra onde quem cadastrou mandou.
+  const mvT7 = (id: string, category: string, amount: number): RiskMovement => ({
+    id, type: "saida", status: "pago", amount,
+    due_date: "2026-08-10", paid_date: "2026-08-10", category,
+  });
+  const IN_T7: RiskInput = {
+    hoje: "2026-08-11", saldoAtual: 0,
+    movements: [
+      { id: "r", type: "entrada", status: "pago", amount: 10_000, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Vendas" },
+      mvT7("f", "Ferramentas do time", 1_000),
+    ],
+  };
+  const janelaT7 = { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, tipo: "vertical" as const };
+  const valorDa = (r: ReturnType<typeof montarDRE>, id: string) =>
+    r.linhas.find((l) => l.id === id)?.celulas[0]?.valor ?? 0;
+
+  const sem = montarDRE(IN_T7, janelaT7);
+  const com = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "custos_variaveis" } });
+  ok("t7: sem declaração, o palpite manda (despesa operacional)",
+     valorDa(sem, "despesas_operacionais") === 1_000 && valorDa(sem, "custos_variaveis") === 0,
+     `${valorDa(sem, "despesas_operacionais")} / ${valorDa(sem, "custos_variaveis")}`);
+  ok("t7: a linha DECLARADA vence o palpite",
+     valorDa(com, "custos_variaveis") === 1_000 && valorDa(com, "despesas_operacionais") === 0,
+     `${valorDa(com, "custos_variaveis")} / ${valorDa(com, "despesas_operacionais")}`);
+  // O valor não pode aparecer nos DOIS lugares — o teste acima já falharia, mas
+  // esta asserção nomeia a consequência (dinheiro contado duas vezes).
+  ok("t7: o lançamento entra em UMA linha só",
+     valorDa(com, "custos_variaveis") + valorDa(com, "despesas_operacionais") === 1_000);
+  // E a declaração não pode desviar o valor para uma linha de TOTAL.
+  const fraude = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "ebitda" } });
+  ok("t7: declaração apontando para um TOTAL é ignorada (cai no palpite)",
+     valorDa(fraude, "despesas_operacionais") === 1_000);
 }
 
 // ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──

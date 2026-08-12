@@ -27,15 +27,15 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
+  Card, Button, Icon, Input, Textarea, Select, SelectBusca, DateField, CurrencyInput, Checkbox, BRL,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
 import { PartyForm } from "@/components/lancamentos/PartyForm";
-import { listPlanoContas, extraParty } from "@/lib/registros";
+import { listPlanoContas, salvarCategoria, extraParty, novoIdRegistro } from "@/lib/registros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
-import { rateioValido, somaRateio, type LinhaRateio } from "@/core/registros";
+import { rateioValido, somaRateio, linhasDREdaNatureza, type LinhaRateio, type CategoriaPlano } from "@/core/registros";
 import {
   planejarLancamento, ROTULO_MODO, EXPLICACAO_MODO, FREQUENCIAS,
   type ModoLancamento, type Frequencia,
@@ -103,10 +103,25 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
 
   const cadProjetos = React.useMemo(() => listProjetos(), []);
   const cadCentros = React.useMemo(() => listCentrosCusto(), []);
+  /**
+   * ⚠️ As categorias são ESTADO, não `useMemo` — a pessoa pode criar uma sem
+   * sair do formulário, e uma lista memoizada não veria a nova.
+   *
+   * E o filtro perdeu o `&& c.paiId`: ele só deixava passar SUBcategoria, o que
+   * fazia sentido quando o plano vinha de fábrica em dois níveis. Com o plano
+   * nascendo vazio, a primeira categoria que alguém cria é raiz — e ela sumia
+   * da lista logo depois de ter sido criada ali mesmo.
+   */
+  const [planoContas, setPlanoContas] = React.useState<CategoriaPlano[]>([]);
+  React.useEffect(() => { setPlanoContas(listPlanoContas()); }, []);
+  const natureza = receber ? "receita" : "despesa";
   const categorias = React.useMemo(
-    () => listPlanoContas().filter((c) => c.natureza === (receber ? "receita" : "despesa") && c.paiId),
-    [receber],
+    () => planoContas.filter((c) => c.natureza === natureza),
+    [planoContas, natureza],
   );
+  /** O rascunho da categoria que está sendo criada de dentro do lançamento. */
+  const [criando, setCriando] = React.useState<{ nome: string; linha: string } | null>(null);
+  const linhasDRE = React.useMemo(() => linhasDREdaNatureza(natureza), [natureza]);
   const elegiveis = React.useMemo(
     () => (partes ?? []).filter((p) => (receber ? p.is_customer : p.is_supplier)),
     [partes, receber],
@@ -365,13 +380,65 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             />
           </Campo>
           <Campo label="Categoria" obrigatorio erro={erros.categoria}>
-            <Select
+            {/* ⚠️ `SelectBusca` e não o `Select` nativo: o plano de contas é
+                longo e ABERTO. Quando o nome não está lá, o caminho antigo era
+                abandonar o lançamento, ir ao cadastro, criar e voltar do começo
+                — e o atalho que as pessoas tomam nessa hora é escolher a
+                categoria menos errada, que é lançamento na linha errada do DRE
+                todo mês. */}
+            <SelectBusca
               value={f.categoria}
               onChange={(v) => set("categoria", v)}
-              placeholder="Selecione…"
+              placeholder="Busque ou crie…"
+              invalid={!!erros.categoria}
+              vazio="Seu plano de contas está vazio. Digite o nome e crie a primeira categoria."
               options={categorias.map((c) => ({ value: c.id, label: c.nome }))}
+              onCriar={(texto) => setCriando({ nome: texto, linha: "" })}
+              rotuloCriar={(t) => `Criar categoria "${t}"`}
             />
           </Campo>
+          {criando && (
+            <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-3">
+              <span className="a4p-label text-faint">Nova categoria de {natureza}</span>
+              <Campo label="Nome">
+                <Input value={criando.nome} onChange={(e) => setCriando({ ...criando, nome: e.target.value })} />
+              </Campo>
+              {/* ⚠️ A linha do DRE é OBRIGATÓRIA, e só as linhas de SOMA da
+                  natureza aparecem. Sem ela, a categoria nova cairia na
+                  classificação por palavra-chave — que acerta "Aluguel" e erra
+                  calada em "Ferramentas do time", com a cascata fechando certo
+                  na linha errada. As linhas de TOTAL (Receita Líquida, EBITDA)
+                  nunca entram: elas saem de fórmula, e apontar uma categoria
+                  para uma delas contaria o mesmo valor duas vezes. */}
+              <Campo label="Linha do DRE" obrigatorio ajuda="Onde os lançamentos desta categoria entram no resultado.">
+                <Select
+                  value={criando.linha}
+                  onChange={(v) => setCriando({ ...criando, linha: v })}
+                  placeholder="Selecione a linha…"
+                  options={linhasDRE.map((l) => ({ value: l.id, label: l.label }))}
+                />
+              </Campo>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  disabled={!criando.nome.trim() || !criando.linha}
+                  onClick={() => {
+                    const nova: CategoriaPlano = {
+                      id: novoIdRegistro(), nome: criando.nome.trim(), codigo: "",
+                      natureza, paiId: null, dreLinha: criando.linha,
+                    };
+                    setPlanoContas(salvarCategoria(nova));
+                    set("categoria", nova.id);
+                    setCriando(null);
+                    show(`Categoria "${nova.nome}" criada.`);
+                  }}
+                >
+                  Criar e usar
+                </Button>
+                <Button variant="ghost" onClick={() => setCriando(null)}>Cancelar</Button>
+              </div>
+            </div>
+          )}
           {!receber && (
             <Campo label="Espécie" ajuda="A nota que ampara a despesa.">
               <Select

@@ -21,16 +21,16 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-08-11",
+  "gerado_em": "2026-08-12",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
     "tabelas": 66,
     "funcoes": 90,
     "politicas": 101,
-    "gatilhos": 61,
+    "gatilhos": 67,
     "indices": 198,
     "enums": 11,
-    "colunas": 656,
+    "colunas": 657,
     "restricoes": 191
   },
   "migrations_aplicadas": [
@@ -107,7 +107,8 @@
     "20260811015208_estorno_contabil_e_de_conciliacao",
     "20260811015541_assinatura_de_fechamento_por_hash",
     "20260811115639_taxonomia_arvore_do_plano_e_chave_de_produto",
-    "20260811115711_arvore_do_plano_compara_enum_nao_texto"
+    "20260811115711_arvore_do_plano_compara_enum_nao_texto",
+    "20260812144846_categoria_declara_a_linha_do_dre"
   ],
   "divergencias_conhecidas": {
     "_regra": [

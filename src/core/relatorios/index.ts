@@ -256,6 +256,26 @@ export interface FiltroRelatorio {
   centro?: string | null;
   /** Regime: DRE usa competência; DFC usa caixa. */
   regime: "competencia" | "caixa";
+  /**
+   * A LINHA DECLARADA de cada categoria — `nome da categoria (minúsculo)` → id
+   * da linha. Vem do plano de contas da empresa.
+   *
+   * ⚠️ **Ela VENCE a classificação por palavra-chave**, e é essa precedência
+   * que dá sentido ao campo. O regex sobre o nome da categoria é um palpite:
+   * acerta enquanto as categorias são as de fábrica ("Taxa Plataforma" cai em
+   * Despesas Variáveis porque contém "taxa") e erra calado na primeira que a
+   * empresa cria com o nome dela. Quem cadastrou a categoria sabe em que linha
+   * ela entra; o regex, não.
+   *
+   * Ausente ou sem a categoria ⇒ o palpite continua valendo, que é o que mantém
+   * de pé todo lançamento anterior a esta decisão.
+   *
+   * ⚠️ Chega por PARÂMETRO, nunca lido de dentro: `core/relatorios` é puro e
+   * sem I/O, e um `localStorage` aqui faria o mesmo relatório dar números
+   * diferentes conforme o navegador — que é o defeito que a camada canônica
+   * existe para impedir.
+   */
+  linhaPorCategoria?: Record<string, string>;
 }
 
 export interface Relatorio {
@@ -311,7 +331,11 @@ export function montarRelatorio(
   for (const m of movs) {
     const k = indice.get(mesDe(dataDoRegime(m, f.regime)));
     if (k === undefined) continue;
-    const linha = estrutura.find((l) => l.tipo === "soma" && l.casa?.(m));
+    const declarada = f.linhaPorCategoria?.[(m.category ?? "").trim().toLowerCase()];
+    const linha = (declarada
+      ? estrutura.find((l) => l.id === declarada && l.tipo === "soma")
+      : undefined)
+      ?? estrutura.find((l) => l.tipo === "soma" && l.casa?.(m));
     if (!linha) continue;
     // Linhas "+/-" carregam o sinal do movimento; as demais são magnitude
     // (o sinal já está na estrutura, e a fórmula do total aplica).
