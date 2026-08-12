@@ -340,12 +340,36 @@ export function menuDoPlano(sections: Section[], pro: boolean): Section[] {
     .filter((s) => !!s.href || s.items.length > 0);
 }
 
-/** Item ativo: rota exata (ou prefixo de sub-rota); `/` só casa com `/`. */
+/**
+ * A rota pertence a este destino — **por PREFIXO**.
+ *
+ * Serve para achar o GRUPO: `/contas-a-pagar/titulos` tem de resolver para o
+ * grupo "Contas a pagar" mesmo que nenhum item aponte exatamente para ela.
+ *
+ * ⚠️ **NÃO serve para marcar o item ativo** — ver `itemDaRota` abaixo.
+ */
 export function leafAtivo(href: string | undefined, pathname: string): boolean {
   if (!href) return false;
   if (href === "/") return pathname === "/";
   const base = href.split("?")[0];
   return pathname === base || pathname.startsWith(base + "/");
+}
+
+/**
+ * ESTE item é a tela aberta — **correspondência EXATA**.
+ *
+ * ⚠️ **O bug que isto conserta:** "Painel de contas a pagar" (`/contas-a-pagar`)
+ * ficava aceso em `/contas-a-pagar/titulos`, `/recorrentes` e `/folha`, porque
+ * `leafAtivo` casa por prefixo. Um item PAI de uma área cujas telas moram sob
+ * ele fica permanentemente ativo, e o destaque deixa de responder "onde estou"
+ * — passa a responder "em que área estou", que a barra de cima já responde.
+ *
+ * As duas funções existem porque as perguntas são DIFERENTES, e foi juntá-las
+ * numa só que produziu o defeito: para o grupo, prefixo; para o item, exato.
+ */
+export function itemDaRota(href: string | undefined, pathname: string): boolean {
+  if (!href) return false;
+  return pathname === href.split("?")[0];
 }
 
 /**
@@ -364,9 +388,18 @@ export function leafAtivo(href: string | undefined, pathname: string): boolean {
  * item sozinho não tem como saber que é ele.
  */
 export function indiceItemAtivo(itens: Item[], pathname: string, busca: string): number {
-  const candidatos = itens
+  const porPrefixo = itens
     .map((it, i) => ({ it, i }))
     .filter(({ it }) => leafAtivo(it.href, pathname));
+  // ⚠️ **O EXATO VENCE O PREFIXO.** Em `/contas-a-pagar/titulos` os dois itens
+  // casam por prefixo — o painel (`/contas-a-pagar`) e a própria tela — e o
+  // desempate por query não resolvia (nenhum dos dois TEM query), então caía no
+  // primeiro da lista e o painel ficava preso aceso nas quatro telas da área.
+  // Quando existe item apontando EXATAMENTE para a rota, é ele; o prefixo só
+  // sobrevive para a sub-rota que nenhum item declara (`.../products/new`),
+  // onde marcar o pai é a resposta certa.
+  const exatos = porPrefixo.filter(({ it }) => itemDaRota(it.href, pathname));
+  const candidatos = exatos.length > 0 ? exatos : porPrefixo;
   if (candidatos.length <= 1) return candidatos[0]?.i ?? -1;
 
   const atual = new URLSearchParams(busca);

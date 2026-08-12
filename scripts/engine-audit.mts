@@ -34,7 +34,7 @@ import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
 import { GUIDES } from "@/components/app/guides";
-import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, menuDoPlano, PLATAFORMA_ITENS } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, ACOES_GLOBAIS, leafAtivo, indiceItemAtivo, menuDoPlano, PLATAFORMA_ITENS } from "@/components/dashboard/nav-data";
 import {
   detectarSegredos, redigirSegredos, temSegredo, luhn, entropia, melhorGuia,
   statusTour, contarTours, filtrarTours, agruparTours, tourAutomatico,
@@ -2688,6 +2688,44 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("nav: '/' só casa com a própria home", leafAtivo("/", "/dre") === false && leafAtivo("/", "/") === true);
   ok("nav: sub-rota acende o item pai", leafAtivo("/dashboard/purchases", "/dashboard/purchases/new"));
   ok("nav: rota com ?aba ainda casa", leafAtivo("/contabilidade?aba=razao", "/contabilidade"));
+
+  // ── o item ATIVO é exato; o grupo é que é por prefixo ──
+  // ⚠️ O defeito: em `/contas-a-pagar/titulos` o painel (`/contas-a-pagar`) e a
+  // própria tela casam por PREFIXO, o desempate por query não resolve (nenhum
+  // dos dois tem query) e o primeiro da lista ganhava — o painel ficava aceso
+  // nas quatro telas da área, e o destaque parava de responder "onde estou".
+  const itensCP: { label: string; href: string; icon: string }[] = [
+    { label: "Painel de contas a pagar", href: "/contas-a-pagar", icon: "layout-dashboard" },
+    { label: "Títulos a pagar", href: "/contas-a-pagar/titulos", icon: "file-text" },
+    { label: "Contas recorrentes", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
+    { label: "Folha salarial", href: "/contas-a-pagar/folha", icon: "users" },
+  ];
+  const acesos = itensCP.map((_, i) => i).filter(
+    (i) => indiceItemAtivo(itensCP, itensCP[i].href, "") === i,
+  );
+  ok("nav: cada tela da área acende o SEU item, e só ele", acesos.length === 4, `acesos: ${acesos.join(",")}`);
+  ok(
+    "nav: o item pai não fica preso aceso na sub-rota",
+    indiceItemAtivo(itensCP, "/contas-a-pagar/titulos", "") === 1,
+  );
+  // O prefixo SOBREVIVE onde nenhum item declara a rota: `.../new` não tem
+  // linha no menu, e marcar o pai é a resposta certa ali.
+  ok(
+    "nav: sub-rota sem item próprio ainda acende o pai",
+    indiceItemAtivo(
+      [{ label: "Compras", href: "/dashboard/purchases", icon: "cart" }],
+      "/dashboard/purchases/new",
+      "",
+    ) === 0,
+  );
+  // E as três linhas que apontam para o MESMO caminho continuam desempatando
+  // pela aba — o exato não pode atropelar essa regra.
+  const abas = [
+    { label: "Títulos a receber", href: "/x?tab=receivables", icon: "a" },
+    { label: "Títulos a pagar", href: "/x?tab=payables", icon: "a" },
+    { label: "Transferências", href: "/x?tab=transfers", icon: "a" },
+  ];
+  ok("nav: hub com abas desempata pela query", indiceItemAtivo(abas, "/x", "tab=transfers") === 2);
 }
 
 // ── contas-a-pagar: valores fechados, datas certas e os filtros filtrando ──
