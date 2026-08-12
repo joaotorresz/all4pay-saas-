@@ -930,6 +930,32 @@ que dia cada coisa cai. Roda sobre o MESMO `RiskInput` do resto do sistema.
   de títulos, com `direcao="pagar"`, **sem as abas** de receber e
   transferências. É o mesmo componente, não uma cópia: duas listas de títulos
   divergiriam no primeiro ajuste, e é dinheiro que elas somam.
+  - ⚠️ **O PAINEL NÃO PODE MUDAR POR CAUSA DO PRÓPRIO FILTRO.** Os quatro cards
+    eram calculados sobre a lista JÁ filtrada pelo status: clicar em "Pagas"
+    zerava "A vencer" e "Vencidas", como se filtrar tivesse APAGADO os outros
+    títulos. Agora eles saem de `baseDosCards`, que traz todos os recortes
+    (busca, conta, categoria, período) **menos o status** — o status recorta só
+    a tabela. Um painel que se apaga sozinho deixa de ser painel.
+  - ⚠️ **O período do gráfico não filtrava nada.** `selPeriodo` só pintava a
+    cápsula; clicar em "Agosto" não mudava um número sequer. Um controle que
+    parece filtrar e não filtra é pior que controle nenhum, porque quem clica
+    conclui que os valores abaixo já são daquele mês. Agora ele entra na janela
+    dos cards E da tabela, e trocar mês↔semana limpa a seleção (as chaves são de
+    granularidades diferentes).
+  - ⚠️ **A faixa soma pelo CAIXA e os títulos filtram pelo VENCIMENTO**, então o
+    total dos cards não bate com a barra do mês — e a tela DIZ o recorte
+    ("Mostrando títulos com vencimento em Agosto"), senão as duas leituras
+    pareceriam discordar. Mesmo tratamento de escopo do painel de receber.
+  - O card selecionado ganha o **cinza do sistema** e `aria-pressed`, e clicar
+    nele de novo desfaz o filtro. ⚠️ O cinza vai no BOTÃO, não no `Card`: a
+    regra `.ds-visor [data-card="1"]` pinta o fundo com `--color-white` e vence
+    a classe utilitária — medido no navegador, o card "selecionado" continuava
+    branco.
+  - Guardas: valor no `engine-audit` (`filtrar por X não mexe nos cards`, com a
+    asserção que fixa o defeito — calcular sobre a lista filtrada zera os
+    outros) **e** varredura de tela na matriz. Uma sem a outra deixa metade do
+    caminho descoberta: a de valor prova a regra sobre o motor, e o defeito
+    estava na TELA, que entregava a lista errada.
 - **Contas recorrentes** (`/contas-a-pagar/recorrentes`) — quatro cards no
   layout 30/70 · 50/50: ① a leitura que ALTERNA por setas (total do mês ×
   custo fixo mensal), ② as velas por mês (o mesmo desenho do "Resumo" da Home),
