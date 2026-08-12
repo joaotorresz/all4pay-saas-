@@ -113,6 +113,16 @@ export function DashboardContasPagar() {
         ]}
       />
 
+      {/* ⚠️ **O PAINEL DIZ O QUE CONTA**, pela mesma razão da tela de títulos:
+          ele soma títulos que EXISTEM. A projeção de contas recorrentes soma o
+          compromisso da REGRA, inclusive onde ainda não há título — e enquanto
+          a materialização não roda, os dois números do mesmo mês ficam bem
+          distantes. Uma frase evita a pergunta "qual dos dois está certo". */}
+      <p className="m-0 -mt-1 text-caption text-muted max-w-[70ch]">
+        Soma os títulos <b className="text-ink">já lançados</b> no período. O que ainda
+        vai vencer por contrato, e ainda não virou título, aparece em Contas recorrentes.
+      </p>
+
       {invalido && (
         <Card className="border border-warning/40">
           <p className="m-0 text-body text-ink">
