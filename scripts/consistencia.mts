@@ -2983,6 +2983,64 @@ const AGOSTO = janelaMes(2026, 7);
 
 
 /* ========================================================================== */
+/* LINHA 31e — PERÍMETRO: a área da plataforma nega em TRÊS camadas.         */
+/* ========================================================================== */
+{
+  /**
+   * ⚠️ **O relato era "abri /admin de uma sessão comum e vi tudo".** Ele não se
+   * confirmou como vazamento: a conta usada no teste É o único dono de
+   * plataforma cadastrado. Medido em produção com um `member` de verdade, e
+   * repetido para cinco perfis × cinco alvos, **25 de 25 negados** — o banco
+   * sempre trancou.
+   *
+   * ⚠️ **O que faltava era o 403 no PERÍMETRO.** `/admin` respondia 200 para
+   * qualquer autenticado, entregava o pacote do painel e deixava o CLIENTE
+   * decidir mostrar "Acesso restrito". Decisão de acesso no cliente é
+   * apresentação, não controle: quem baixou o pacote leva a planta da área
+   * (nomes de RPC, campos, forma da tela) sem ter a chave.
+   *
+   * Esta guarda cobra as TRÊS camadas. Nenhuma é redundante: o middleware pode
+   * deixar de cobrir uma rota nova, o server component pega o que escapar dele,
+   * e o banco é o único que continua valendo se os dois falharem.
+   */
+  const mw = ler("src/middleware.ts");
+  ok("plataforma: o middleware bloqueia /admin e /api/admin",
+     /pathname === "\/admin"/.test(mw) && /\/api\/admin\//.test(mw)
+     && /ehDonoDaPlataforma/.test(mw));
+  ok("plataforma: e responde 403, não redirecionamento",
+     /status: 403/.test(mw),
+     "um redirect esconde a recusa e sugere que outra sessão resolveria");
+
+  const pag = ler("src/app/admin/page.tsx");
+  ok("plataforma: a página de /admin confere no SERVIDOR",
+     !/^"use client"/m.test(pag) && /is_platform_admin/.test(pag),
+     "a página era 'use client' e só o cliente decidia");
+
+  /**
+   * ⚠️ **Falha FECHADA nas duas camadas.** Um perímetro que abre quando a
+   * checagem falha abre exatamente quando o sistema está pior.
+   */
+  const mwHelper = ler("src/lib/supabase/middleware.ts");
+  ok("plataforma: a checagem falha FECHADA (erro ⇒ nega)",
+     /export async function ehDonoDaPlataforma[\s\S]{0,600}?catch \{\s*return false;/.test(mwHelper)
+     && /catch \{ dono = false; \}/.test(pag));
+
+  /**
+   * ⚠️ **Os DOIS papéis precisam ter nomes diferentes na tela.** São 16
+   * admins/owners de organização e 1 dono de plataforma, em tabelas separadas —
+   * mas ambos se chamavam "admin", e foi essa ambiguidade que fez a auditoria
+   * concluir invasão onde havia acesso legítimo. Um controle que ninguém
+   * consegue nomear é um controle que ninguém consegue auditar.
+   */
+  const nav = ler("src/components/dashboard/nav-data.ts");
+  const av = ler("src/components/admin/AdminView.tsx");
+  ok("plataforma: o menu distingue dono da plataforma de admin de organização",
+     /Dono da plataforma/.test(nav) && !/label: "Administração", desc: "Todos os clientes/.test(nav));
+  ok("plataforma: a recusa na tela EXPLICA que são papéis diferentes",
+     /papel diferente de administrador da sua empresa/i.test(av));
+}
+
+/* ========================================================================== */
 /* LINHA 31d — CONTRATO: o cartão do DRE == a linha da tabela.               */
 /* ========================================================================== */
 {

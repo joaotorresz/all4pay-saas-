@@ -112,7 +112,8 @@
     "20260813141626_dado_de_demonstracao_tem_marca",
     "20260813141800_own_integracao_adquirencia",
     "20260813144459_own_token_cache_pull_first",
-    "20260813150045_amostra_declara_o_motivo"
+    "20260813150045_amostra_declara_o_motivo",
+    "20260813172432_plataforma_revoga_anon_e_leitura_residual"
   ],
   "divergencias_conhecidas": {
     "_regra": [
