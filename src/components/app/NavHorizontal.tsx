@@ -61,7 +61,25 @@ export function NavHorizontal() {
   return (
     <nav
       aria-label="Seções do sistema"
-      className="a4p-nav-h shrink-0 flex items-center gap-4 h-[52px] px-4 lg:px-6"
+      /*
+       * ⚠️ `min-w-0` + `max-w-full` + `overflow-hidden` — sem os três, a barra
+       * não rola no telefone e os itens ficam INACESSÍVEIS, não só cortados.
+       *
+       * `shrink-0` sozinho impedia o `<nav>` de encolher abaixo da largura do
+       * conteúdo: ele crescia até ~1100px e o container interno, que já tinha
+       * `overflow-x-auto`, media contra esse pai grande demais. Resultado
+       * medido a 375px (viewport efetiva 256px): `scrollWidth === clientWidth`,
+       * `overflow-x: visible`, e **2 dos 9 destinos alcançáveis** — "Contas a
+       * receber", "Contas a pagar", "Análise e relatórios" e "Configurações"
+       * ficavam posicionados além da viewport, sem área rolável que os
+       * alcançasse. No celular não havia como chegar ao DRE nem às
+       * Configurações.
+       *
+       * `shrink-0` fica: ele protege a ALTURA da barra. O que faltava era
+       * limitar a LARGURA — são eixos diferentes, e é por isso que a classe
+       * parecia correta na leitura do código.
+       */
+      className="a4p-nav-h shrink-0 min-w-0 max-w-full overflow-hidden flex items-center gap-4 h-[52px] px-4 lg:px-6"
     >
       {/*
         O filtro que a pílula de vidro consome (`.a4p-glass-pill`). Fica aqui
@@ -99,6 +117,7 @@ export function NavHorizontal() {
         // espaço entre duas palavras, e a faixa lia como uma frase longa em
         // vez de uma lista de destinos.
         className="flex-1 min-w-0 flex items-stretch gap-3 overflow-x-auto a4p-nav-scroll"
+        data-rolavel="1"
         tabIndex={0}
         role="region"
         aria-label="Seções (rolável)"

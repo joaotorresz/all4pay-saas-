@@ -1104,6 +1104,26 @@ html:not(.dark) .ds-visor {
    roda e teclado (a região tem `tabIndex`). */
 .a4p-nav-scroll {
   scrollbar-width: none;
+  /* Rolagem por toque com encaixe suave — sem isto o arrasto no telefone
+     "escorrega" e passa direto pelo grupo que a pessoa queria. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+/* ⚠️ O INDICADOR de que há mais coisa à direita.
+   Uma barra que rola sem dizer que rola é indistinguível de uma barra cortada:
+   quem olha conclui que o menu acaba ali e não tenta arrastar. A máscara
+   esmaece a borda enquanto houver conteúdo fora, e some no fim da rolagem
+   (`animation-timeline: scroll()` onde houver suporte; onde não houver, o
+   esmaecimento fica fixo, que ainda comunica "tem mais"). */
+@media (max-width: 1023px) {
+  .a4p-nav-scroll {
+    /* ⚠️ O token, não `#000`: numa máscara só o canal ALFA importa, então
+       qualquer cor opaca serve — e a guarda da paleta reprova preto puro no
+       app, com razão. Usar o hex aqui abriria a exceção "é só uma máscara",
+       que é como a regra começa a ser furada. */
+    -webkit-mask-image: linear-gradient(to right, var(--color-ink) 0, var(--color-ink) calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, var(--color-ink) 0, var(--color-ink) calc(100% - 28px), transparent 100%);
+  }
 }
 .a4p-nav-scroll::-webkit-scrollbar {
   display: none;

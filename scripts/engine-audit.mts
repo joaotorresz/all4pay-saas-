@@ -1274,7 +1274,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("relatorios/dre: EBITDA = margem − operacionais", v("ebitda") === 60_000, `${v("ebitda")}`);
   // Tarifa bancária NÃO entra no EBITDA — é resultado financeiro, e entra com sinal.
   ok("relatorios/dre: tarifa fica FORA do EBITDA", v("resultado_financeiro") === -5_000, `${v("resultado_financeiro")}`);
-  ok("relatorios/dre: resultado líquido = EBITDA + financeiro", v("resultado_liquido") === 55_000, `${v("resultado_liquido")}`);
+  ok("relatorios/dre: resultado líquido = EBIT + financeiro", v("resultado_liquido") === 55_000, `${v("resultado_liquido")}`);
+  // ⚠️ Sem D&A lançada, EBITDA e EBIT coincidem — e é justamente por isso que o
+  // rótulo errado sobreviveu tanto tempo: na base sem depreciação, os dois
+  // números são iguais e nada denuncia a troca de nome.
+  ok("relatorios/dre: sem D&A lançada, EBIT == EBITDA", v("ebit") === v("ebitda"), `ebit=${v("ebit")} ebitda=${v("ebitda")}`);
   // A cascata não pode contar o mesmo lançamento duas vezes.
   const somaDeSomas = ["receita_bruta", "deducoes", "custos_variaveis", "despesas_variaveis", "despesas_operacionais", "impostos_lucro"]
     .reduce((s, id) => s + Math.abs(v(id)), 0) + Math.abs(v("resultado_financeiro"));
@@ -1289,10 +1293,25 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("relatorios: caixa NÃO reconhece o pendente",
     montarDFC(input, { intervalo: jul, tipo: "vertical" }).linhas.find((l) => l.id === "entradas_operacionais")!.celulas[0].valor === 0);
 
-  // Análise vertical: % sobre a receita bruta.
-  const av = (id: string) => dre.linhas.find((l) => l.id === id)?.celulas[0]?.av;
-  ok("relatorios/dre: AV da receita bruta é 100%", av("receita_bruta") === 100, `${av("receita_bruta")}`);
-  ok("relatorios/dre: AV do EBITDA = 30%", av("ebitda") === 30, `${av("ebitda")}`);
+  /* Análise vertical — a BASE é declarada, e as duas leituras têm de fechar.
+   *
+   * ⚠️ O padrão passou a ser RECEITA LÍQUIDA. A bruta inclui imposto sobre
+   * venda que nunca foi da empresa; medir despesa contra dinheiro que sai em
+   * guia infla toda a coluna. Estas guardas fixavam a base antiga e por isso
+   * reprovaram a troca — corrigi-las é registrar a decisão, não afrouxá-las:
+   * cada uma agora DIZ sobre que base afirma.
+   */
+  const avCom = (base: "receita_bruta" | "receita_liquida") => {
+    const r = montarDRE(input, { intervalo: jun, tipo: "vertical", baseVertical: base });
+    return (id: string) => r.linhas.find((l) => l.id === id)?.celulas[0]?.av;
+  };
+  const avB = avCom("receita_bruta"), avL = avCom("receita_liquida");
+  ok("relatorios/dre: com base BRUTA, a receita bruta é 100%", avB("receita_bruta") === 100, `${avB("receita_bruta")}`);
+  ok("relatorios/dre: com base BRUTA, o EBITDA é 30%", avB("ebitda") === 30, `${avB("ebitda")}`);
+  ok("relatorios/dre: com base LÍQUIDA (padrão), a receita líquida é 100%", avL("receita_liquida") === 100, `${avL("receita_liquida")}`);
+  ok("relatorios/dre: a base padrão é a LÍQUIDA", 
+     dre.linhas.find((l) => l.id === "receita_liquida")?.celulas[0]?.av === 100,
+     `av(receita_liquida)=${dre.linhas.find((l) => l.id === "receita_liquida")?.celulas[0]?.av}`);
 
   // Análise horizontal: primeira coluna não tem com que comparar.
   const dreH = montarDRE(input, { intervalo: maiJun, tipo: "horizontal" });

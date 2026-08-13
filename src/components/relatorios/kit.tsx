@@ -73,7 +73,10 @@ export interface LayoutTabela {
 }
 
 export const LAYOUT_PADRAO: LayoutTabela = {
-  nivel: 3, tema: "moss", ocultarZeradas: false, mostrarCifrao: true, mostrarGrafico: false,
+    // ⚠️ LIGADO por padrão: numa cascata de 13 linhas com dezenas de categorias,
+  // as zeradas são a maioria e empurram para fora da tela justamente as que
+  // têm valor. Quem precisa ver o zero desliga em um clique.
+  nivel: 3, tema: "moss", ocultarZeradas: true, mostrarCifrao: true, mostrarGrafico: false,
 };
 
 export function PainelLayout({ layout, onChange }: { layout: LayoutTabela; onChange: (l: LayoutTabela) => void }) {
