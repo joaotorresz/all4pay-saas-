@@ -356,6 +356,30 @@ produção. Ele não é decoração: é o que impede alguém de confundir dado d
 com dado real, que é a mesma família de defeito que fez `isDemo` virar opt-in
 explícito (`src/lib/demo.ts`). Não remover.
 
+### ⚠️ UM DEFEITO REFUTADO, e por que ele fica escrito (A4P-028)
+
+**"A coluna Total do DFC exibe percentual onde deveria exibir valor" — CANCELADO.
+O defeito não existe.** Medido no DOM: a linha tem 28 células, o cabeçalho usa
+`<th colSpan=2>Total</th>` e a célula do valor está lá — DRE
+`R$523.147,94 | 100,0% | Média R$43.595,66`; DFC
+`R$519.976,29 | 100,0% | Média R$43.331,36`. A medição anterior lia a célula do
+PERCENTUAL como se fosse a do total. A "regressão do DRE" reportada em seguida
+era o mesmo engano, pela mesma razão.
+
+⚠️ **Fica registrado porque achado refutado que não é escrito volta.** Sem esta
+nota, o mesmo relatório reaparece na próxima auditoria, alguém "corrige" o
+`kit.tsx` para fazer aparecer um valor que já aparece, e aí a tabela ganha uma
+célula a mais — um defeito real criado para resolver um imaginário.
+
+**Não mexer no `kit.tsx` por causa disto.** A célula do Total renderiza valor
+**e** percentual, em duas células, e sempre renderizou: `<Valor
+valor={l.total.valor} …/>` seguido de `{mostrarPct && <td>{pct(l.total.av)}</td>}`.
+
+⚠️ A lição de método vale mais que o item: **contar células no DOM antes de
+concluir que uma sumiu.** Quatro números lidos sob quatro cabeçalhos não
+provam quatro células quando um dos cabeçalhos tem `colSpan=2` — e foi essa
+aritmética, não o código, que produziu o falso positivo.
+
 ### ⚠️ Três decisões recentes que valem para TODA tela nova
 
 - **O divisor é CINZA, não bege.** `--color-border-soft` era Beige (`#EEEDDB`)

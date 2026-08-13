@@ -39,7 +39,7 @@ import { extraParty } from "@/lib/registros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
 import { rateioValido, somaRateio, linhasDREdaNatureza, type LinhaRateio } from "@/core/registros";
 import {
-  planejarLancamento, ROTULO_MODO, EXPLICACAO_MODO, FREQUENCIAS,
+  planejarLancamento, rotuloModo, explicacaoModo, FREQUENCIAS,
   type ModoLancamento, type Frequencia,
 } from "@/core/contas-pagar/lancamento";
 import {
@@ -865,10 +865,10 @@ function SeletorDeModo({
                 >
                   {on && <span className="w-2 h-2 rounded-pill bg-white" />}
                 </span>
-                {ROTULO_MODO[m]}
+                {rotuloModo(m, receber)}
               </span>
               <span className={"text-caption " + (on ? "text-white/70" : "text-muted")}>
-                {EXPLICACAO_MODO[m]}
+                {explicacaoModo(m, receber)}
               </span>
             </button>
           );
