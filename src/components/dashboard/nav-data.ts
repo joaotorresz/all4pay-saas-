@@ -271,7 +271,7 @@ export const SECTIONS: Section[] = [
  * duplicatas passaram despercebidas.
  */
 export const PLATAFORMA_ITENS: Item[] = [
-  { label: "Administração", desc: "Todos os clientes da plataforma", href: "/admin", icon: "shield-check" },
+  { label: "Dono da plataforma", desc: "Todos os clientes — fora da sua empresa", href: "/admin", icon: "shield-check" },
 ];
 
 export const CONFIG: Section = {

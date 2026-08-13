@@ -26,7 +26,7 @@ import type { Achado, CodigoAchado } from "@/core/qualidade";
 import { updateImportedMovement, importedMovements } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 
 export interface ResultadoCorrecao {
   /** Quantos registros foram efetivamente corrigidos. */
@@ -79,8 +79,8 @@ async function marcarComoExtrato(ids: string[]): Promise<ResultadoCorrecao> {
   // ⚠️ O estado anterior é lido ANTES de escrever. Sem isso o desfazer seria
   // uma promessa sem lastro — e é justamente numa correção de 190 linhas que
   // alguém vai precisar dele.
-  const { data: antes } = await s
-    .from("movements").select("id,origem,especie").in("id", ids).limit(TETO_LINHAS);
+  const { data: antes } = await semAmostra(s
+    .from("movements").select("id,origem,especie")).in("id", ids).limit(TETO_LINHAS);
 
   const { data: feitas, error } = await s
     .from("movements")
@@ -187,8 +187,8 @@ async function reclassificarSuspeitas(achado: Achado): Promise<ResultadoCorrecao
   let corrigidos = 0;
   const reverter: { id: string; category: string | null }[] = [];
   for (const [partyId, categoria] of Array.from(destino)) {
-    const { data: antes } = await s
-      .from("movements").select("id,category").eq("party_id", partyId).limit(TETO_LINHAS);
+    const { data: antes } = await semAmostra(s
+      .from("movements").select("id,category")).eq("party_id", partyId).limit(TETO_LINHAS);
     reverter.push(...((antes ?? []) as { id: string; category: string | null }[]));
     const { data: feitas } = await s
       .from("movements").update({ category: categoria }).eq("party_id", partyId)

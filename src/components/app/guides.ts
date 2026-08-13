@@ -474,7 +474,7 @@ export const GUIDES: Record<string, Guide> = {
   "/contabilidade?aba=plano-de-contas": {
     titulo: "Plano de Contas",
     intro: "A espinha dorsal da classificação: hierarquia Grupo → Categoria (verde = receita · vermelho = despesa · cinza = resultado), no plano padrão para negócios digitais.",
-    comoUsar: "Navegue pela hierarquia para entender onde cada lançamento cai. A aba 'Uso padrão' mostra o dicionário de auto-classificação (função do motor → categoria).",
+    comoUsar: "Navegue pela hierarquia para entender onde cada lançamento cai. A aba 'Uso padrão' mostra em que categoria o sistema classifica cada tipo de lançamento automaticamente.",
     exemplo: "Quer saber por que 'combustível' caiu em Logística? Veja a categoria correspondente na aba Uso padrão.",
     secoes: [
       blocos([

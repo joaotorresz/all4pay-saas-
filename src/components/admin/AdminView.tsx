@@ -33,19 +33,19 @@ const ativoUsuario = (iso: string | null) => !!iso && Date.now() - Date.parse(is
 export function AdminView() {
   const adm = useQuery({ queryKey: ["is-admin"], queryFn: isPlatformAdmin });
 
-  if (adm.isLoading) return <AppShell title="Administração"><Skeleton className="h-40 w-full" /></AppShell>;
+  if (adm.isLoading) return <AppShell title="Dono da plataforma"><Skeleton className="h-40 w-full" /></AppShell>;
   if (!adm.data) {
     return (
-      <AppShell title="Administração">
+      <AppShell title="Dono da plataforma">
         <Card className="flex flex-col items-start gap-2">
           <span className="text-h3 font-medium text-ink">Acesso restrito</span>
-          <span className="text-caption text-muted">Esta área é exclusiva do administrador da plataforma.</span>
+          <span className="text-caption text-muted">Esta área é exclusiva do DONO DA PLATAFORMA — um papel diferente de administrador da sua empresa. Ser admin da sua organização não dá acesso aqui.</span>
         </Card>
       </AppShell>
     );
   }
   return (
-    <AppShell title="Administração da plataforma" actions={isDemo ? <DemoBadge /> : null}>
+    <AppShell title="Dono da plataforma" actions={isDemo ? <DemoBadge /> : null}>
       <FerramentasInternas />
       <AdminBody />
     </AppShell>

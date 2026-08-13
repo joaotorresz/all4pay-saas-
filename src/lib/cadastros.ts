@@ -34,7 +34,7 @@ import type {
   BrandInput,
   UnitInput,
 } from "@/lib/types";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 
 const delay = () => new Promise((r) => setTimeout(r, 450));
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}`;
@@ -115,9 +115,9 @@ export async function listParties(): Promise<Party[]> {
 export async function listSales(): Promise<SaleDocRow[]> {
   if (isDemo) return DEMO_SALES;
   const s = createClient();
-  const { data, error } = await s
+  const { data, error } = await semAmostra(s
     .from("sales_docs")
-    .select("id,kind,item_kind,doc_date,total,status,parties(name)")
+    .select("id,kind,item_kind,doc_date,total,status,parties(name)"))
     .order("doc_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []).map((r) => {

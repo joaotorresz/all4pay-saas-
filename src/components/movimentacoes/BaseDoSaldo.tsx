@@ -33,15 +33,19 @@ export type BaseSaldo =
 const DESCRICAO: Record<BaseSaldo, { rotulo: string; base: string }> = {
   posicao_hoje: {
     rotulo: "Saldo em conta, hoje",
-    base: "o `balance` consolidado das contas financeiras — o que o banco diz que existe agora. Não muda ao trocar o período.",
+    base: "o saldo somado das suas contas — o que o banco diz que existe agora. Não muda ao trocar o período.",
   },
   projetado_fim: {
     rotulo: "Saldo projetado para o fim do período",
     base: "o saldo de hoje MAIS os títulos previstos que vencem até o fim da janela. É uma projeção, não uma posição.",
   },
   variacao_janela: {
-    rotulo: "Resultado do período",
-    base: "entradas menos saídas liquidadas na janela. Não é um saldo: pode ser negativo num mês em que se pagou mais do que se recebeu.",
+    // ⚠️ O REGIME entra no rótulo. Esta leitura fica ao lado de outras que
+    // rodam em COMPETÊNCIA (o DRE, na mesma tela do Fluxo de caixa), e duas
+    // respostas diferentes para "quanto sobrou" sem dizer o recorte fazem uma
+    // parecer errada. É a mesma decisão do `EscopoDaTela`.
+    rotulo: "Resultado do período (caixa)",
+    base: "entradas menos saídas LIQUIDADAS na janela — regime de caixa. Não é um saldo: pode ser negativo num mês em que se pagou mais do que se recebeu, e não conta o que ainda vai vencer.",
   },
 };
 
@@ -72,10 +76,35 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
     // cada número mede, e é a última tela do produto que poderia exibir um
     // R$ 0 sem saber se é resultado ou ausência: as três leituras aparecem
     // lado a lado, e um zero mudo no meio faz as outras duas parecerem erradas.
+    /**
+     * ⚠️ **"Sem movimento" era a razão ERRADA para a ausência.**
+     *
+     * `resultado` no regime de CAIXA conta só o liquidado, e liquidado acontece
+     * no PASSADO. Quando esta faixa é montada no Fluxo de caixa, a janela do
+     * filtro é `[hoje, hoje + N dias]` — para frente. Medido na base real: **0
+     * liquidados dentro da janela**, nas duas durações testadas. O indicador
+     * saía `sem_lancamentos` e a tela imprimia *"— sem movimento"*, ao lado de
+     * um bloco de DRE que trazia número (competência, olhando para trás).
+     *
+     * As duas leituras estavam certas; o que faltava era dizer POR QUE uma
+     * delas não tem número. "Sem movimento" acusa a empresa de não ter feito
+     * nada; a verdade é que resultado realizado não existe no futuro.
+     */
+    const futura = janela.de >= inp.hoje;
+    const res = resultado(inp, janela);
     return {
       posicao_hoje: saldo(inp),
       projetado_fim: saldo(inp, janela),
-      variacao_janela: resultado(inp, janela),
+      variacao_janela: futura && res.indisponivel?.codigo === "sem_lancamentos"
+        ? {
+            ...res,
+            indisponivel: {
+              codigo: "sem_base" as const,
+              motivo: "o período escolhido é futuro — resultado realizado só existe depois que o dinheiro anda",
+              comoResolver: "Para ver o resultado já realizado, escolha um período que termine hoje ou antes.",
+            },
+          }
+        : res,
       abertura: saldoInicial(inp, janela),
     };
   }, [inp, janela]);
@@ -93,7 +122,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
             align="left"
             titulo="Qual saldo é este"
             oQue={`Esta tela mostra ${d.base}`}
-            comoCalcula="Todas as telas do sistema usam a mesma função de saldo (core/indicadores): o nível vem do saldo das contas e os lançamentos apenas o deslocam — para trás com o que já foi liquidado, para frente com o que está previsto. O que muda entre as telas é o RECORTE, e é ele que está declarado aqui."
+            comoCalcula="Todas as telas partem do mesmo saldo: o que está nas suas contas hoje. Os lançamentos só deslocam esse valor — para trás com o que já foi pago ou recebido, para frente com o que ainda vai vencer. O que muda de uma tela para outra é o RECORTE de tempo, e é ele que está escrito aqui."
           />
         </span>
         <span

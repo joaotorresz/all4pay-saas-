@@ -23,7 +23,8 @@ import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/co
 import { listarOrcamentos } from "@/lib/orcamentos";
 import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
-import { runwayMeses, saldo, painelResultado, janela } from "@/core/indicadores";
+import { runwayMeses, saldo } from "@/core/indicadores";
+import { cascataDRE } from "@/core/relatorios/cascata";
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
   FiltrosRelatorio, PainelLayout, TabelaRelatorio, GavetaTransacoes, BotoesExportar,
@@ -241,26 +242,50 @@ export { compararOrcamento };
  * pior que cartão nenhum.
  */
 function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: { de: string; ate: string } }) {
-  // ⚠️ Os seis chegam INTEIROS, como `Indicador`. A cascata vem de
-  // `painelResultado` (a camada canônica) e não mais de `dreGerencial` lido
-  // campo a campo — não porque a aritmética mudasse (ela é conferida par a par
+  // ⚠️ Os seis chegam INTEIROS, como `Indicador`: `number` não sabe dizer que
+  // não sabe — não porque a aritmética mudasse (ela é conferida par a par
   // na matriz de consistência), mas porque `number` não sabe dizer que não
   // sabe. "EBITDA de R$ 0" e "não houve lançamento no período" saíam idênticos
   // de um `number`, num cartão executivo, que é onde a leitura de relance vira
   // decisão.
+  /**
+   * ⚠️ **OS CARTÕES LEEM A MESMA CASCATA QUE A TABELA.** Eles saíam de
+   * `painelResultado`, uma segunda agregação — e as duas discordavam: a base
+   * dos cartões somava TODA entrada em `receita`, inclusive a financeira, e
+   * Receita Líquida e EBITDA vinham inflados pelo valor exato dos juros do
+   * período. Medido injetando R$ 500.000 de juros numa base real: divergência
+   * de R$ 500.000,00 nos dois cartões.
+   *
+   * Agora não há duas contas: `cascataDRE` roda `montarRelatorio` sobre
+   * `ESTRUTURA_DRE` — a MESMA chamada que desenha a tabela logo abaixo — e os
+   * cartões leem as linhas dela. Divergir deixou de ser possível, em vez de
+   * deixar de acontecer.
+   */
   const m = React.useMemo(() => {
-    const j = janela(intervalo.de, intervalo.ate, "Período do relatório");
-    const p = painelResultado(input, j, "competencia");
+    const c = cascataDRE(input, { intervalo });
     return {
-      receitaLiquida: p.receitaLiquida,
-      ebitda: p.ebitda,
-      margem: p.margemEbitda,
-      lucro: p.lucroLiquido,
+      receitaLiquida: c.linhas.receita_liquida,
+      ebitda: c.linhas.ebitda,
+      margem: c.margemEbitda,
+      lucro: c.linhas.resultado_liquido,
       runway: runwayMeses(input),
       caixa: saldo(input),
     };
   }, [input, intervalo]);
 
+  /**
+   * A cor do prejuízo.
+   *
+   * ⚠️ **Todo cartão de valor recebe `tomDe`**, não só alguns. Receita líquida e
+   * Margem EBITDA ficavam de fora: uma margem de −285% saía em tinta neutra, do
+   * mesmo tom de uma margem saudável, e quem passa o olho lê "está tudo bem".
+   * O sinal sozinho não resolve — o `−` tem dois caracteres de largura numa
+   * tela que a pessoa varre em um segundo.
+   *
+   * ⚠️ O positivo NÃO fica verde por padrão (`bom = false`): pintar todo número
+   * positivo de verde gasta a cor e faz o vermelho perder força justamente onde
+   * ele precisa ter. Verde só onde "positivo" é a notícia — o lucro.
+   */
   const tomDe = (i: { valor: number; indisponivel?: unknown }, bom = false) =>
     i.indisponivel ? undefined
       : i.valor < 0 ? "var(--color-negative)"
@@ -269,12 +294,12 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
   const cartoes: {
     label: string; indicador: typeof m.ebitda; formato: FormatoValor; tom?: string;
   }[] = [
-    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda" },
+    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda", tom: tomDe(m.receitaLiquida) },
     { label: "EBITDA", indicador: m.ebitda, formato: "moeda", tom: tomDe(m.ebitda) },
     // ⚠️ A margem é o cartão mais perigoso da tela: "0%" lê como "vendeu e não
     // sobrou nada" quando a verdade pode ser "não vendeu", e as duas leituras
     // mandam cortar custo × vender. O indicador declara a ausência de base.
-    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual" },
+    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual", tom: tomDe(m.margem) },
     { label: "Lucro líquido", indicador: m.lucro, formato: "moeda", tom: tomDe(m.lucro, true) },
     { label: "Runway", indicador: m.runway, formato: "meses" },
     { label: "Caixa", indicador: m.caixa, formato: "moeda", tom: tomDe(m.caixa) },

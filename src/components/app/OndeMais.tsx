@@ -98,7 +98,7 @@ export const IRMAS_ASSINATURAS: Record<string, Irma[]> = {
  * do número diz qual dos dois caminhos foi usado.
  */
 export const NOTA_MRR =
-  "O MRR daqui sai dos contratos cadastrados. Quando não há contrato, o Investor Update estima a receita recorrente a partir dos lançamentos — por isso os dois números podem diferir muito enquanto o cadastro de assinaturas estiver incompleto. Os dois usam a mesma função de cálculo; o que muda é a fonte.";
+  "O MRR daqui sai dos contratos cadastrados. Quando não há contrato, o Investor Update estima a receita recorrente a partir dos lançamentos — por isso os dois números podem diferir muito enquanto o cadastro de assinaturas estiver incompleto. A conta é a mesma nos dois lugares; o que muda é de onde os dados saem.";
 
 /** As duas casas da IA. */
 export const IRMAS_IA: Record<string, Irma[]> = {
