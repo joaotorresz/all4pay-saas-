@@ -107,6 +107,53 @@ silêncio.
 
 ---
 
+## ⚠️ "A CI não rodou" quase nunca é a CI — o buraco do branch reaproveitado
+
+**Antes de suspeitar de minutos, cota ou workflow desabilitado, olhe o
+`mergeable_state` do PR.** Um PR em conflito com a base **não gera run nenhum**,
+e "nenhum run" é visualmente idêntico a "o Actions está bloqueado".
+
+O mecanismo: o gatilho `pull_request` roda contra `refs/pull/N/merge`, a
+prévia do merge. Com conflito, o GitHub não consegue construir essa referência
+e simplesmente não cria o run. E o `push` deste repositório é restrito a `main`
+e `claude/epic-fermi-i423xk` (decisão declarada em `ci.yml` — evita dois runs
+idênticos competindo pelos mesmos minutos), então **branch de trabalho depende
+exclusivamente do `pull_request`**. Conflito ⇒ silêncio total.
+
+**A causa a montante é reaproveitar o branch depois de um squash-merge.** O
+squash reescreve o trabalho num commit novo: a cabeça antiga do branch **não
+vira ancestral** do `main`. Continuar committando ali faz o PR seguinte nascer
+divergente, e ele conflita em qualquer arquivo que os dois lados tenham tocado
+— na prática, sempre `CLAUDE.md` e `scripts/consistencia.mts`, que toda mudança
+edita.
+
+Medido em 13/08/2026: o PR #95 foi squash-mergeado às 19:24 de 12/08 a partir
+deste mesmo branch; o PR #96 nasceu dele às 14:32 do dia seguinte, **já
+conflitado**, e passou ~20 horas sem um único run. No instante em que o merge
+de `main` resolveu o conflito, o run apareceu em **4 segundos** e o estado do PR
+foi de `dirty` para `unstable`. Nada de cobrança mudou nesse instante — o que
+mudou foi o conflito. Ao longo dessas 20 horas também não houve push em `main`
+nem em `epic-fermi`, o que explica por que nem lá havia runs e por que a
+ausência pareceu geral.
+
+**O que fazer, na ordem:**
+
+1. **Depois de todo squash-merge, reinicie o branch a partir do `main`**
+   (`git fetch origin main && git checkout -B <branch> origin/main`). É o passo
+   que impede o conflito de existir. O branch só carrega história já mergeada,
+   então não se perde nada.
+2. Se um PR já estiver sem run, **cheque `mergeable_state` primeiro**. `dirty`
+   é a resposta; qualquer outra investigação depois disso.
+3. Resolvendo, **use MERGE de `main` no branch, nunca rebase** — este branch tem
+   mais de um escritor e rebase reescreveria história compartilhada.
+
+⚠️ **O custo de errar o diagnóstico cresce com o que está no PR.** Aqui ele foi
+tempo perdido e um aviso errado ao dono do repositório ("destrave os minutos do
+Actions"). No PR seguinte pode haver motor de cálculo dentro — e aí "achei que a
+CI estava quebrada" vira código de dinheiro mergeado sem uma guarda ter rodado.
+
+---
+
 ## O que ainda NÃO está automatizado, e é honesto dizer
 
 A regra acima é **processo, não trava**: quem tem a chave de serviço continua
