@@ -235,6 +235,53 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("cashflow: operacional puro = entradas - saídas (600)", Math.abs(oper.fluxo.operacional - 600) < 1e-6, `operacional=${oper.fluxo.operacional}`);
 }
 
+/* ── A4P-007: "Venceu × Foi pago" olha para TRÁS ────────────────────────────
+ *
+ * ⚠️ A janela era `[hoje, hoje + N]`, e **pagamento é fato do passado**: nesta
+ * base, 101 de 101 liquidados têm `paid_date` anterior a hoje. A coluna do
+ * pago somava zero contra um previsto cheio, e toda contraparte aparecia como
+ * se não tivesse pago nada — um comparativo em que um dos lados não PODE
+ * existir não compara, acusa.
+ *
+ * As duas colunas são ancoradas no MESMO conjunto (o que venceu na janela),
+ * senão um título vencido meses antes e quitado agora entraria só no lado do
+ * pago e produziria 300% de cumprimento num mês de atraso.
+ *
+ * Provada plantando o defeito: com a janela para a frente, quem pagou tudo sai
+ * com `realizado = 0` e quem não pagou SOME da tabela.
+ */
+{
+  const HOJE = "2026-08-13";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+       due_date: HOJE, paid_date: null, status: "pendente", party_id: null, ...o }) as RiskMovement;
+  const inp = (movements: RiskMovement[]): RiskInput =>
+    ({ hoje: HOJE, saldoAtual: 50000, partyNames: {}, movements } as RiskInput);
+
+  const m = montarFluxoCaixa(inp([
+    // Alpha venceu 15.000 no mês passado e pagou tudo.
+    mv({ amount: 10000, due_date: "2026-07-20", paid_date: "2026-07-21", status: "pago", category: "Alpha" }),
+    mv({ amount: 5000, due_date: "2026-07-25", paid_date: "2026-07-26", status: "pago", category: "Alpha" }),
+    // Beta venceu 8.000 e não pagou — é atraso, não ausência.
+    mv({ amount: 8000, due_date: "2026-07-22", category: "Beta" }),
+    // Um título FUTURO não pertence a nenhum dos dois lados.
+    mv({ amount: 99999, due_date: "2026-09-10", category: "Alpha" }),
+  ]), [], { dias: 30 });
+
+  const linha = (k: string) => m.prevReal.find((l) => l.label === k);
+  const alpha = linha("Alpha"), beta = linha("Beta");
+  ok("A4P-007: quem venceu no período aparece nas duas pontas",
+     !!alpha && !!beta, `linhas=${m.prevReal.map((l) => l.label).join(",") || "(vazio)"}`);
+  ok("A4P-007: quem pagou tudo mostra 15.000 × 15.000, não 0 no pago",
+     alpha?.planejado === 15000 && alpha?.realizado === 15000,
+     `venceu=${alpha?.planejado} pago=${alpha?.realizado}`);
+  ok("A4P-007: quem não pagou é ATRASO (8.000 × 0), não some da tabela",
+     beta?.planejado === 8000 && beta?.realizado === 0,
+     `venceu=${beta?.planejado} pago=${beta?.realizado}`);
+  ok("A4P-007: vencimento FUTURO não entra em nenhuma das duas colunas",
+     alpha?.planejado === 15000, `venceu=${alpha?.planejado} (99999 vazou se somar 114999)`);
+}
+
 // ── dre/dreProjetado: base = 6 meses MAIS RECENTES (cronológico), não ordem de inserção ──
 {
   // 8 meses: 2025-12=100 … 2026-07=800 (atual). Os 6 mais recentes = fev..jul
