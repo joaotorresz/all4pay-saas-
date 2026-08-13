@@ -70,7 +70,7 @@ export function perfilTributario(regime: RegimeTributario): PerfilTributario {
       return {
         regime, rotulo: "Simples Nacional", tributos: null, cargaTotal: 0,
         observacao:
-          "No Simples a alíquota é EFETIVA por faixa — depende do faturamento dos últimos 12 meses (RBT12) e do anexo. Não há tabela fixa: use `calcularSimplesNacional`.",
+          "No Simples a alíquota é EFETIVA por faixa — depende do faturamento dos últimos 12 meses (RBT12) e do anexo. Não existe percentual fixo: o sistema calcula a alíquota do seu mês a partir do seu faturamento.",
       };
     case "mei":
       return {

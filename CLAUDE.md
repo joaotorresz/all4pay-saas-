@@ -1111,6 +1111,95 @@ volta** a tirar a categoria do plano local. Provada plantando os dois defeitos.
 Provado nos dois sentidos contra produção, em transação desfeita: a linha que o
 formulário monta hoje é aceita; `select '217290'::uuid` é recusado.
 
+### ⚠️ DADO DE DEMONSTRAÇÃO TEM MARCA — `is_sample` (auditado)
+
+**A amostra do `/upload` estava dentro do DRE de clientes reais.** O botão
+"Carregar amostra" e um extrato de banco de verdade gravam a MESMA linha:
+`aplicarOnboarding` põe `origem: 'extrato'` nos dois. No banco não havia campo
+que os separasse.
+
+Medido em produção: **458 lançamentos, R$ 6,18 milhões**, em 3 organizações
+reais (52,8% · 21,6% · 35,4% do total de cada uma), todos batendo com as 14
+contrapartes fixas de `core/fdip/sample.ts` e todos com `origem`, `chave` e
+`descritivo_bruto` NULOS — gravados por uma versão de `aplicarOnboarding`
+anterior às colunas de procedência.
+
+⚠️ **O R$ 500.000 de "Juros recebidos" NÃO era amostra nem seed.** Era um
+lançamento **manual**, descrição "Teste", competência 23/06/2026. `seed_org`
+insere categorias, centros de custo, unidades e uma conta — **nunca movimento**;
+o que vem do seed é o NOME da categoria "Juros recebidos" (migration 0005), e é
+só isso que o fazia parecer demonstração. **Sozinho ele era a receita inteira de
+junho daquela organização** (R$ 500.000 → zero depois da marca). Marcá-lo foi
+decisão nomeada, **pelo id**: nenhuma regra de procedência o alcança, e uma
+regra por texto ("descrição contém Teste") alcançaria o cliente legítimo amanhã.
+
+- **`is_sample boolean not null default false`** nas cinco tabelas que carregam
+  dinheiro (`movements`, `movement_splits`, `sales_docs`, `sale_items`,
+  `recurrences`), com índice **parcial** (`where is_sample`) — a pergunta
+  frequente é "esta empresa TEM amostra?", que é a do banner.
+  ⚠️ `not null` importa: com nulo no meio, `is_sample = false` deixaria linhas de
+  fora e o filtro do relatório **esconderia dado real**, que é pior que a
+  contaminação que ele conserta.
+- ⚠️ **A DIREÇÃO DO PADRÃO É A DECISÃO INTEIRA.** `semAmostra`
+  (`lib/supabase/consulta.ts`) **exclui por omissão**; ver demonstração exige
+  dizer. Um filtro que precisa ser LEMBRADO é opcional na prática — basta a
+  próxima tela esquecer e a contaminação volta em silêncio, porque um DRE com
+  amostra dentro não parece quebrado, parece um DRE.
+- ⚠️ **A saída é uma PALAVRA, não um booleano.** `semAmostra(q, true)` seria
+  ilegível no ponto de chamada, e um `true` vindo de variável desligaria o filtro
+  sem a revisão perceber. `"incluir-amostra"` é pesquisável: `grep` lista todos
+  os lugares que veem demonstração — a pergunta que uma auditoria faz.
+- ⚠️ O genérico **não é recursivo** (`<T>`, não `<T extends ComIgual<T>>`): o
+  construtor do PostgREST carrega os tipos das colunas e a restrição recursiva
+  estoura em `TS2589`, medido no primeiro ponto de chamada.
+- **`BannerAmostra`** (montado no `AppShell`, acima do cabeçalho e fora da área
+  que rola) diz "Esta organização contém dados de demonstração" com a contagem
+  por tabela e o botão que remove. ⚠️ **Não fecha e não tem "x"**: aviso que se
+  dispensa é aviso que some justamente quando alguém volta em dúvida. Ele some
+  quando a CAUSA some. Cor `warning`, nunca `negative` — ter amostra não é erro,
+  é estado que pede decisão.
+- ⚠️ **A purga é exclusão FÍSICA, e é exceção declarada** à exclusão lógica da
+  ONDA 3. Mandar amostra para a lixeira mantém dentro da base exatamente o que a
+  purga existe para tirar, num canto que nenhum relatório varre. A lixeira
+  protege o registro do CLIENTE contra o clique errado; aqui não há registro do
+  cliente a proteger, e o impacto (contagem por tabela) está na tela ANTES.
+  Filho antes de pai na ordem de exclusão.
+- **Guardas** (bloco `amostra:`, teto ZERO): nenhuma leitura das cinco tabelas
+  escapa do filtro (varredura com olhar **para trás**, a lição da guarda de
+  `origem`) · a saída é explícita · **todo nome da amostra é reconhecido pela
+  migration** (acrescentar um cliente à amostra sem acrescentá-lo lá deixaria o
+  próximo lote sem marca) · o banner não tem como ser dispensado. **Provadas
+  quebrando os três defeitos.**
+  ⚠️ A última nasceu reprovando o PRÓPRIO banner: o comentário que explica a
+  regra usa a palavra "fechado". Comentários saem antes da busca — a mesma lição
+  da guarda de exclusão física e da varredura da ONDA 14.
+
+⚠️ **Fica declarado como NÃO feito:** a importação da amostra também cria
+**contatos** (`parties`) e uma conta "Conta consolidada" (`financial_accounts`).
+Eles seguem nas listas depois da purga. Ficaram fora porque cadastro não é
+lançamento e porque um contato pode ter sido editado e virado cadastro de
+verdade — pendência VISÍVEL na migration, não esquecimento.
+
+### ⚠️ TEXTO DE TELA NÃO FALA DE IMPLEMENTAÇÃO
+
+Varredura por prosa de interface que vaza o código: identificador entre crases,
+`função`, `selector`, `hook`, `endpoint`, nome de coluna. **Nove reescritos** —
+entre eles *"Não há tabela fixa: use `calcularSimplesNacional`"* (impostos),
+*"a mesma função de saldo (core/indicadores)"* e *"o `balance` consolidado"*
+(`BaseDoSaldo`), *"(`movement_id`)"* (NFS-e), *"numa subtransação que é
+desfeita"* (segurança) e *"para me mandar no Claude Code"* (editor visual — este
+citava a ferramenta de desenvolvimento ao usuário final).
+
+⚠️ **Nem toda ocorrência é vazamento, e tratá-las como iguais é o erro.**
+"Função da regra" e "função de tesouraria" usam *função* no sentido de PAPEL —
+português correto; "JSON válido" descreve o arquivo que a pessoa acabou de
+escolher; "endpoints da API pública" é o vocabulário de quem integra. Trocá-las
+pioraria o texto. O que separa é a pergunta: **quem lê consegue agir com isso?**
+
+⚠️ Metadado interno (`core/rotas/consolidacao.ts`) **não** entrou: ele não é
+renderizado. Já `aliases.ts:motivo` aparece no inventário de rotas e foi
+reescrito.
+
 ### ⚠️ `core/contas-pagar/projecao` — o que AINDA VAI vencer, derivado da REGRA
 
 `projetarRecorrentes()` (`contas-pagar-projecao/1.0.0`) responde *"quanto eu vou

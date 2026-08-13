@@ -5,7 +5,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 
 export interface PendingMovement {
   id: string;
@@ -20,9 +20,9 @@ export interface PendingMovement {
 
 export async function getPendingMovements(): Promise<PendingMovement[]> {
   if (isDemo) return [];
-  const { data, error } = await createClient()
+  const { data, error } = await semAmostra(createClient()
     .from("movements")
-    .select("id,type,amount,due_date,paid_date,description,category,party_id")
+    .select("id,type,amount,due_date,paid_date,description,category,party_id"))
     .eq("review_status", "pendente")
     .order("due_date", { ascending: false }).limit(TETO_LINHAS);
   if (error) throw error;

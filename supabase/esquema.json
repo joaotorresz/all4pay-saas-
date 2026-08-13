@@ -21,17 +21,17 @@
     "repositório não tem como saber que ficou para trás — foi assim que 26",
     "migrations chegaram à produção sem ninguém contar."
   ],
-  "gerado_em": "2026-08-12",
+  "gerado_em": "2026-08-13",
   "projeto": "dzszmbowhzopocqydnxu",
   "contagens": {
-    "tabelas": 66,
-    "funcoes": 90,
-    "politicas": 101,
-    "gatilhos": 67,
-    "indices": 198,
+    "tabelas": 75,
+    "funcoes": 91,
+    "politicas": 110,
+    "gatilhos": 72,
+    "indices": 233,
     "enums": 11,
-    "colunas": 657,
-    "restricoes": 191
+    "colunas": 824,
+    "restricoes": 228
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -108,7 +108,9 @@
     "20260811015541_assinatura_de_fechamento_por_hash",
     "20260811115639_taxonomia_arvore_do_plano_e_chave_de_produto",
     "20260811115711_arvore_do_plano_compara_enum_nao_texto",
-    "20260812144846_categoria_declara_a_linha_do_dre"
+    "20260812144846_categoria_declara_a_linha_do_dre",
+    "20260813141626_dado_de_demonstracao_tem_marca",
+    "20260813141800_own_integracao_adquirencia"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -121,7 +123,16 @@
       "não transcrito do catálogo — e a fidelidade foi PROVADA comparando o md5",
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
-    "aplicadas_sem_arquivo": [],
+    "aplicadas_sem_arquivo": [
+      {
+        "nome": "20260813141800_own_integracao_adquirencia",
+        "motivo": "aplicada direto ao banco de produção por outro escritor em 13/08/2026, às 14:18 — nove minutos depois da migration da marca de demonstração. Não passou por arquivo no repositório, então o SQL só existe em `supabase_migrations.schema_migrations.statements`.",
+        "impacto": "um ambiente montado do zero nasce SEM os objetos que ela cria (as contagens de tabela subiram de 66 para 75 entre um retrato e outro). Enquanto o arquivo não existir, `db reset` produz um banco diferente do de produção — que é exatamente a deriva que esta guarda existe para impedir.",
+        "reconstruir_ate": "2026-08-20",
+        "origem": "outro escritor — NÃO foi criada nesta sessão; recuperar o SQL literal de `schema_migrations.statements` e provar a fidelidade pelo md5, como foi feito com as 26 de 05/08/2026",
+        "aplicada_em": "2026-08-13"
+      }
+    ],
     "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {

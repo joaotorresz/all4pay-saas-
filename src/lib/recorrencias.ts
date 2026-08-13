@@ -14,7 +14,7 @@ import { appendImported, removerImported, importedMovements } from "@/lib/import
 import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
 import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
 
 export type Ciclo = "semanal" | "mensal" | "bimestral" | "trimestral" | "quadrimestral" | "semestral" | "anual";
@@ -88,8 +88,8 @@ export async function hydrateRecorrencias(force = false): Promise<void> {
   if (hydrated && !force) return;
   if (isDemo) { cache = loadLocal(); hydrated = true; return; }
   try {
-    const { data } = await createClient().from("recurrences")
-      .select("id,party_id,description,amount,freq,start_date,due_day,active,itens,created_at,parties(name)")
+    const { data } = await semAmostra(createClient().from("recurrences")
+      .select("id,party_id,description,amount,freq,start_date,due_day,active,itens,created_at,parties(name)"))
       .eq("type", "entrada").order("created_at", { ascending: false }).limit(TETO_LINHAS);
     cache = ((data ?? []) as unknown as RecRow[]).map(fromRow);
     hydrated = true;
@@ -267,7 +267,7 @@ export async function encerrarRecorrencia(id: string, status: "pausada" | "cance
   // ⚠️ Precisa dos ids: a exclusão lógica é por registro, porque é ela que
   // grava o "antes" de cada fatura. Um update em massa deixaria uma trilha
   // dizendo "algo mudou em N linhas", que não responde nada sobre UMA delas.
-  const { data: futuras } = await s.from("movements").select("id")
+  const { data: futuras } = await semAmostra(s.from("movements").select("id"))
     .like("reference_code", `rec:${r.id}:%`).eq("status", "pendente")
     .gte("due_date", isoDay(new Date())).limit(TETO_LINHAS);
   const { excluirLogicoEmLote } = await import("@/lib/exclusao");

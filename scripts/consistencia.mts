@@ -2650,6 +2650,12 @@ const AGOSTO = janelaMes(2026, 7);
         tabela: "movement_tags",
         porque: "Etiqueta é vínculo, não entidade: remover tem de remover. Uma lixeira de etiquetas seria lixo que ninguém busca.",
       },
+      {
+        arquivo: "src/lib/amostra.ts",
+        tabela: "as cinco tabelas com is_sample",
+        porque:
+          "Dado de demonstração não é dado do cliente: mandá-lo para a lixeira mantém dentro da base exatamente aquilo que a purga existe para tirar, num canto que nenhum relatório varre e que ninguém vai revisar. A exclusão lógica da ONDA 3 protege o registro do cliente contra o clique errado — aqui não há registro do cliente a proteger, e o impacto é mostrado ANTES (a contagem por tabela está na tela no momento da confirmação).",
+      },
     ];
     const infratores: string[] = [];
     const varrerDeletes = (dir: string) => {
@@ -3219,6 +3225,111 @@ const AGOSTO = janelaMes(2026, 7);
      */
     ok("uuid: o formulário de título não tira a categoria do plano local",
        !/listPlanoContas/.test(ler("src/components/movimentacoes/TituloForm.tsx")));
+
+    /**
+     * ⚠️ **TETO ZERO: NENHUMA LEITURA DE DINHEIRO VÊ DADO DE DEMONSTRAÇÃO.**
+     *
+     * O botão "Carregar amostra" grava lançamentos de mentira no banco de
+     * verdade, e até a migration `20260813141626` eles eram indistinguíveis de
+     * um extrato importado — os dois gravam `origem = 'extrato'`. Medido em
+     * produção: 458 lançamentos, R$ 6,18 milhões, em 3 organizações reais.
+     *
+     * `semAmostra` conserta isso, mas só enquanto TODA leitura passar por ele.
+     * Sem esta guarda a regra é convenção: basta a próxima tela nova esquecer
+     * o filtro e a contaminação volta por uma porta que ninguém revisou — e
+     * volta em SILÊNCIO, porque um DRE com dado de amostra dentro não parece
+     * quebrado, parece um DRE.
+     *
+     * ⚠️ A varredura olha só para `.select(`. `insert`/`update`/`delete` por id
+     * não podem ser filtrados: a purga precisa justamente ALCANÇAR a amostra, e
+     * filtrá-la ali faria o botão "Remover dados de demonstração" não remover
+     * nada — o defeito mais cruel possível, porque a tela diria que limpou.
+     */
+    const TABELAS_AMOSTRA = ["movements", "movement_splits", "sales_docs", "sale_items", "recurrences"];
+    /**
+     * As saídas declaradas COM MOTIVO. Cada uma vê a amostra de propósito.
+     * ⚠️ A lista é por ARQUIVO + motivo: uma exceção sem motivo escrito é
+     * indistinguível de um esquecimento, e é assim que a lista cresce até virar
+     * a regra.
+     */
+    const VEEM_AMOSTRA: Record<string, string> = {
+      "src/lib/amostra.ts": "é quem CONTA e PURGA a amostra — filtrar aqui a tornaria invisível para si mesma",
+    };
+    const semFiltro: string[] = [];
+    for (const bruto of varrerArquivos("src", /\.(ts|tsx)$/)) {
+      const arq = bruto.replace(/\\/g, "/");
+      if (VEEM_AMOSTRA[arq]) continue;
+      const txt = ler(bruto);
+      for (const tbl of TABELAS_AMOSTRA) {
+        const rx = new RegExp(`\\.from\\("${tbl}"\\)\\s*\\.select\\(`, "g");
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(txt))) {
+          // O `semAmostra(` precisa estar ANTES, na mesma expressão. Olhar para
+          // trás (e não para a frente) foi a lição da guarda de `origem`: o
+          // montador da linha costuma vir antes do `.from(`.
+          const antes = txt.slice(Math.max(0, m.index - 400), m.index);
+          if (!/semAmostra\(/.test(antes)) {
+            semFiltro.push(`${arq}: .from("${tbl}").select(`);
+          }
+        }
+      }
+    }
+    ok("amostra: nenhuma leitura de dinheiro escapa do filtro de demonstração",
+       semFiltro.length === 0, semFiltro.slice(0, 8).join(" | "));
+
+    /**
+     * A saída é uma PALAVRA, não um booleano. `semAmostra(q, true)` seria
+     * ilegível no ponto de chamada e um `true` vindo de variável desligaria o
+     * filtro sem a revisão perceber.
+     */
+    const consultaTxt = ler("src/lib/supabase/consulta.ts");
+    ok("amostra: a saída do filtro é explícita e pesquisável",
+       /"incluir-amostra"/.test(consultaTxt) && /export function semAmostra/.test(consultaTxt));
+
+    /**
+     * ⚠️ **A assinatura da amostra tem de bater com a amostra.** A migration
+     * reconheceu o histórico sem marca pelos nomes fixos de
+     * `core/fdip/sample.ts`. Acrescentar um cliente à amostra sem acrescentá-lo
+     * à migration deixaria o próximo lote importado sem marca, e ninguém veria.
+     */
+    const amostraTxt = ler("src/core/fdip/sample.ts");
+    const migracao = ler("supabase/migrations/20260813141626_dado_de_demonstracao_tem_marca.sql");
+    const nomesDaAmostra = [
+      ...(amostraTxt.match(/const CLIENTES = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+      ...(amostraTxt.match(/const FORN = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+      ...(amostraTxt.match(/const ASSIN = \[([\s\S]*?)\];/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+    ].map((m) => m[1]);
+    const foraDaMigracao = nomesDaAmostra.filter((n) => {
+      // A migration guarda o PREFIXO do nome (sem o sufixo societário), que é o
+      // que o descritivo de extrato preserva.
+      const nucleo = n.replace(/\s+(LTDA|SA|ME)$/i, "").toUpperCase();
+      return !migracao.toUpperCase().includes(nucleo);
+    });
+    ok("amostra: todo nome da amostra é reconhecido pela migration",
+       nomesDaAmostra.length >= 14 && foraDaMigracao.length === 0,
+       `${nomesDaAmostra.length} nomes · fora: ${foraDaMigracao.join(", ")}`);
+
+    /**
+     * O banner não pode ter como ser fechado: um aviso com "x" é fechado por
+     * reflexo e nunca mais visto, e quem abre o DRE três semanas depois não
+     * sabe que aqueles números têm dado de mentira dentro.
+     */
+    /**
+     * ⚠️ **Os comentários saem ANTES da busca** — e isto foi provado quebrando:
+     * a primeira versão desta guarda REPROVOU o próprio banner, porque o
+     * comentário que explica a regra usa a palavra "fechado" ("um aviso com 'x'
+     * é fechado por reflexo"). Guarda que reprova a documentação da regra
+     * treina quem a lê a ignorá-la — é a mesma lição da guarda de exclusão
+     * física logo acima e da varredura de texto da ONDA 14.
+     */
+    const semComentario = (s: string) => s
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/^\s*\*.*$/gm, "");
+    const bannerTxt = ler("src/components/app/BannerAmostra.tsx");
+    ok("amostra: o banner não tem como ser dispensado",
+       /Esta organização contém dados de demonstração/.test(bannerTxt)
+       && !/dispensar|setFechado|onClose|onDismiss/i.test(semComentario(bannerTxt)));
 
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));

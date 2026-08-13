@@ -46,11 +46,11 @@ export const ALIASES: Alias[] = [
   { de: "/assistente", para: "/all4pay-ai", motivo: "assistente virou o copiloto" },
 
   // — hub CADASTROS —
-  { de: "/produtos", para: "/dashboard/registrations/products", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
-  { de: "/servicos", para: "/dashboard/registrations/products", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
-  { de: "/contatos", para: "/dashboard/registrations/clients", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
-  { de: "/projetos", para: "/dashboard/registrations/projects", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
-  { de: "/centros-custo", para: "/dashboard/registrations/cost-centers", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/produtos", para: "/dashboard/registrations/products", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
+  { de: "/servicos", para: "/dashboard/registrations/products", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
+  { de: "/contatos", para: "/dashboard/registrations/clients", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
+  { de: "/projetos", para: "/dashboard/registrations/projects", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
+  { de: "/centros-custo", para: "/dashboard/registrations/cost-centers", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
 
   // — hub CONTABILIDADE —
   { de: "/plano-de-contas", para: "/contabilidade?aba=plano-de-contas", motivo: "consolidado no hub de contabilidade" },
@@ -80,7 +80,7 @@ export const ALIASES: Alias[] = [
   // oito páginas de `registrations` são o destino, e Serviços virou filtro
   // explícito dentro de Produtos. Sem esse porte, apagar o hub apagaria o
   // cadastro de serviço inteiro.
-  { de: "/cadastros", para: "/dashboard/registrations/clients", motivo: "cadastros consolidados em `registrations` (mapa, item 1)" },
+  { de: "/cadastros", para: "/dashboard/registrations/clients", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
   // ⚠️ Os hubs de Receber/Pagar foram APOSENTADOS (mapa, item 2) só depois de a
   // canônica ganhar o carrossel de sazonalidade, a baixa na linha, e de as três
   // abas órfãs (inadimplência, boletos, reembolsos) receberem rota própria.

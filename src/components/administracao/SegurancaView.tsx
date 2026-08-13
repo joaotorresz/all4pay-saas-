@@ -101,7 +101,7 @@ export function SegurancaView() {
           titulo: "Teste de isolamento",
           oQue: "Tenta, agora, ler, contar, gravar, alterar e apagar dado de outra empresa.",
           comoCalcula:
-            "Para cada tabela com coluna de empresa o banco faz cinco tentativas reais — cada uma numa subtransação que é desfeita, então nada fica gravado. A resposta correta é 'negado' em todas. Roda com as suas credenciais e contra as políticas de verdade: uma função com privilégio de dono enxergaria tudo e responderia sempre que está tudo bem.",
+            "Para cada tipo de registro o sistema faz cinco tentativas de verdade — ler, contar, criar, alterar e apagar — e desfaz cada uma em seguida, então nada fica gravado. A resposta certa é 'negado' em todas. O teste roda com o SEU acesso, não com um acesso privilegiado: um acesso de administrador enxergaria tudo e responderia sempre que está tudo bem.",
         }}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="text-h3 text-ink">Isolamento entre empresas</span>

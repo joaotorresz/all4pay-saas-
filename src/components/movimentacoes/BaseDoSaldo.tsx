@@ -33,7 +33,7 @@ export type BaseSaldo =
 const DESCRICAO: Record<BaseSaldo, { rotulo: string; base: string }> = {
   posicao_hoje: {
     rotulo: "Saldo em conta, hoje",
-    base: "o `balance` consolidado das contas financeiras — o que o banco diz que existe agora. Não muda ao trocar o período.",
+    base: "o saldo somado das suas contas — o que o banco diz que existe agora. Não muda ao trocar o período.",
   },
   projetado_fim: {
     rotulo: "Saldo projetado para o fim do período",
@@ -93,7 +93,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
             align="left"
             titulo="Qual saldo é este"
             oQue={`Esta tela mostra ${d.base}`}
-            comoCalcula="Todas as telas do sistema usam a mesma função de saldo (core/indicadores): o nível vem do saldo das contas e os lançamentos apenas o deslocam — para trás com o que já foi liquidado, para frente com o que está previsto. O que muda entre as telas é o RECORTE, e é ele que está declarado aqui."
+            comoCalcula="Todas as telas partem do mesmo saldo: o que está nas suas contas hoje. Os lançamentos só deslocam esse valor — para trás com o que já foi pago ou recebido, para frente com o que ainda vai vencer. O que muda de uma tela para outra é o RECORTE de tempo, e é ele que está escrito aqui."
           />
         </span>
         <span
