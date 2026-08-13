@@ -40,8 +40,12 @@ const DESCRICAO: Record<BaseSaldo, { rotulo: string; base: string }> = {
     base: "o saldo de hoje MAIS os títulos previstos que vencem até o fim da janela. É uma projeção, não uma posição.",
   },
   variacao_janela: {
-    rotulo: "Resultado do período",
-    base: "entradas menos saídas liquidadas na janela. Não é um saldo: pode ser negativo num mês em que se pagou mais do que se recebeu.",
+    // ⚠️ O REGIME entra no rótulo. Esta leitura fica ao lado de outras que
+    // rodam em COMPETÊNCIA (o DRE, na mesma tela do Fluxo de caixa), e duas
+    // respostas diferentes para "quanto sobrou" sem dizer o recorte fazem uma
+    // parecer errada. É a mesma decisão do `EscopoDaTela`.
+    rotulo: "Resultado do período (caixa)",
+    base: "entradas menos saídas LIQUIDADAS na janela — regime de caixa. Não é um saldo: pode ser negativo num mês em que se pagou mais do que se recebeu, e não conta o que ainda vai vencer.",
   },
 };
 
@@ -72,10 +76,35 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
     // cada número mede, e é a última tela do produto que poderia exibir um
     // R$ 0 sem saber se é resultado ou ausência: as três leituras aparecem
     // lado a lado, e um zero mudo no meio faz as outras duas parecerem erradas.
+    /**
+     * ⚠️ **"Sem movimento" era a razão ERRADA para a ausência.**
+     *
+     * `resultado` no regime de CAIXA conta só o liquidado, e liquidado acontece
+     * no PASSADO. Quando esta faixa é montada no Fluxo de caixa, a janela do
+     * filtro é `[hoje, hoje + N dias]` — para frente. Medido na base real: **0
+     * liquidados dentro da janela**, nas duas durações testadas. O indicador
+     * saía `sem_lancamentos` e a tela imprimia *"— sem movimento"*, ao lado de
+     * um bloco de DRE que trazia número (competência, olhando para trás).
+     *
+     * As duas leituras estavam certas; o que faltava era dizer POR QUE uma
+     * delas não tem número. "Sem movimento" acusa a empresa de não ter feito
+     * nada; a verdade é que resultado realizado não existe no futuro.
+     */
+    const futura = janela.de >= inp.hoje;
+    const res = resultado(inp, janela);
     return {
       posicao_hoje: saldo(inp),
       projetado_fim: saldo(inp, janela),
-      variacao_janela: resultado(inp, janela),
+      variacao_janela: futura && res.indisponivel?.codigo === "sem_lancamentos"
+        ? {
+            ...res,
+            indisponivel: {
+              codigo: "sem_base" as const,
+              motivo: "o período escolhido é futuro — resultado realizado só existe depois que o dinheiro anda",
+              comoResolver: "Para ver o resultado já realizado, escolha um período que termine hoje ou antes.",
+            },
+          }
+        : res,
       abertura: saldoInicial(inp, janela),
     };
   }, [inp, janela]);
