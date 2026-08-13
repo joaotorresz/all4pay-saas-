@@ -136,7 +136,7 @@ export function NfseView() {
           ))}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Nota autorizada liga a receita ao recebimento (`movement_id`): receita bruta e ISS caem na DRE sem reconciliação manual — o resultado gerencial já é o fiscal.</span>
+          <span className="text-caption text-faint">Nota autorizada já fica ligada ao recebimento: a receita bruta e o ISS entram no DRE sem conferência manual — o resultado gerencial e o fiscal passam a ser o mesmo.</span>
         </div>
       </Card>
       {node}

@@ -18,9 +18,15 @@
 
 do $guarda$
 declare
+  -- ⚠️ As duas últimas entraram em `20260813182600`, e são as categorias que a
+  -- ONDA 3 já declarava aplicadas ao produto de adquirência:
+  -- `own_webhook_eventos` é o bruto que entra (o papel de `raw_events`) e
+  -- `own_sync_execucoes` é log de execução (o papel de `ddl_log`, e ele já É
+  -- uma trilha). Nenhuma das duas tem decisão humana atrás para registrar.
   fora text[] := array[
     'audit_log','org_state','admin_acessos','admin_audit',
-    'rota_alias_acessos','ddl_log','raw_events'
+    'rota_alias_acessos','ddl_log','raw_events',
+    'own_webhook_eventos','own_sync_execucoes'
   ];
   faltando text[];
   n_ok int;

@@ -1,5 +1,5 @@
 import { type NextRequest, type NextFetchEvent, NextResponse } from "next/server";
-import { updateSession, planoDoUsuario } from "@/lib/supabase/middleware";
+import { updateSession, planoDoUsuario, ehDonoDaPlataforma } from "@/lib/supabase/middleware";
 import { exigePro } from "@/core/planos";
 import { destinoDe } from "@/core/rotas/aliases";
 import { registrarAcessoAlias } from "@/lib/supabase/middleware";
@@ -69,6 +69,47 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   * A ÁREA DA PLATAFORMA — 403 no PERÍMETRO, antes de servir qualquer byte
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * ⚠️ **O que existia e o que faltava.** O banco já trancava de verdade:
+   * medido em produção com o papel de um usuário comum, `admin_orgs()`,
+   * `admin_users()`, `admin_overview()` e `admin_set_subscription()` respondem
+   * *"Acesso administrativo negado"*, e `plans`/`subscriptions`/
+   * `platform_admins` dão *permission denied* no acesso direto. **Não havia
+   * vazamento de dado.**
+   *
+   * O que faltava era o 403 no perímetro: `/admin` respondia **200** para
+   * qualquer usuário autenticado, entregava o pacote JavaScript do painel e
+   * deixava o CLIENTE decidir mostrar "Acesso restrito". Decisão de acesso no
+   * cliente é apresentação, não controle — e um 200 informa que a rota existe.
+   *
+   * ⚠️ **403, não redirecionamento.** Mandar para a Home esconderia a recusa e
+   * faria a pessoa achar que clicou errado; mandar para `/login` sugeriria que
+   * basta outra sessão. O 403 diz a verdade: a rota existe e você não entra.
+   *
+   * ⚠️ **`/api/admin/*` entra aqui apesar de `/api` ser público no matcher
+   * acima.** Aquela exceção existe para as rotas que se autenticam sozinhas
+   * (webhook, cron com segredo). O endpoint de personificação já checa por
+   * dentro — este é o segundo cadeado, e ele vem antes do handler rodar.
+   */
+  const areaDaPlataforma = pathname === "/admin"
+    || pathname.startsWith("/admin/")
+    || pathname.startsWith("/api/admin/");
+  if (areaDaPlataforma && supabase) {
+    if (!user || !(await ehDonoDaPlataforma(supabase))) {
+      return new NextResponse(
+        JSON.stringify({
+          erro: "acesso_restrito",
+          mensagem: "Esta área é exclusiva do administrador da plataforma.",
+        }),
+        { status: 403, headers: { "content-type": "application/json; charset=utf-8" } },
+      );
+    }
   }
 
   // O plano só é consultado quando a rota realmente exige Pro: uma RPC por

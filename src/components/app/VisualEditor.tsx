@@ -589,7 +589,7 @@ export function VisualEditor() {
               <Button variant="secondary" onClick={reaplicar}>Reaplicar</Button>
               <Button variant="ghost" leftIcon={<Icon name="rotate-ccw" size={15} />} onClick={limparTudo}>Limpar edições</Button>
             </div>
-            <p className="text-caption text-faint">As alterações salvam sozinhas em <code>design-edits.json</code> (quando o ambiente permite gravar) e no navegador. O botão Exportar baixa o mesmo JSON para me mandar no Claude Code.</p>
+            <p className="text-caption text-faint">As alterações salvam sozinhas neste navegador. Use Exportar para baixar um arquivo com elas e enviar a quem cuida do design.</p>
           </div>
         </div>
       )}

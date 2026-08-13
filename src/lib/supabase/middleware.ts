@@ -52,6 +52,37 @@ export async function updateSession(request: NextRequest) {
  * Falha de rede/RPC ⇒ trata como **Simples**. Assumir Pro num erro transformaria
  * qualquer instabilidade em liberação geral do produto pago.
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * O DONO DA PLATAFORMA — a pergunta que o perímetro faz antes de servir /admin
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **Este é um papel DIFERENTE de "admin da organização", e a confusão entre
+ * os dois é o defeito que esta função existe para fechar.** Há 16 admins/owners
+ * de organização e 1 dono de plataforma; eles vivem em tabelas separadas
+ * (`organization_members.role` × `platform_admins`) e sempre viveram — mas
+ * ambos se chamavam "admin" na interface, e foi por isso que um teste de
+ * segurança concluiu que a área tinha sido invadida quando, na verdade, quem a
+ * abriu era o dono.
+ *
+ * ⚠️ **Falha FECHADA.** Erro de rede, RPC ausente, resposta estranha: tudo
+ * responde `false`. É o oposto do gating de plano logo abaixo, onde assumir o
+ * plano menor é o lado seguro — aqui o lado seguro é negar. Um perímetro que
+ * abre quando a checagem falha é um perímetro que abre exatamente quando o
+ * sistema está pior.
+ */
+export async function ehDonoDaPlataforma(
+  supabase: ReturnType<typeof createServerClient>,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc("is_platform_admin");
+    if (error) return false;
+    return data === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function planoDoUsuario(
   supabase: ReturnType<typeof createServerClient>,
 ): Promise<EstadoPlano> {

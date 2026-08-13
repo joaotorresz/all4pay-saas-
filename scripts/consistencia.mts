@@ -75,7 +75,8 @@ import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
 import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
-import { eliminacoesIntercompany } from "@/core/relatorios";
+import { eliminacoesIntercompany, montarDRE } from "@/core/relatorios";
+import { cascataDRE, REGRAS_CASCATA } from "@/core/relatorios/cascata";
 import { ponteRupturaRunway, contradicoesSemPonte } from "@/core/ia/coerencia";
 import { calcularConfianca } from "@/core/ia/confianca";
 import {
@@ -2650,6 +2651,12 @@ const AGOSTO = janelaMes(2026, 7);
         tabela: "movement_tags",
         porque: "Etiqueta é vínculo, não entidade: remover tem de remover. Uma lixeira de etiquetas seria lixo que ninguém busca.",
       },
+      {
+        arquivo: "src/lib/amostra.ts",
+        tabela: "as cinco tabelas com is_sample",
+        porque:
+          "Dado de demonstração não é dado do cliente: mandá-lo para a lixeira mantém dentro da base exatamente aquilo que a purga existe para tirar, num canto que nenhum relatório varre e que ninguém vai revisar. A exclusão lógica da ONDA 3 protege o registro do cliente contra o clique errado — aqui não há registro do cliente a proteger, e o impacto é mostrado ANTES (a contagem por tabela está na tela no momento da confirmação).",
+      },
     ];
     const infratores: string[] = [];
     const varrerDeletes = (dir: string) => {
@@ -2976,6 +2983,188 @@ const AGOSTO = janelaMes(2026, 7);
 
 
 /* ========================================================================== */
+/* LINHA 31e — PERÍMETRO: a área da plataforma nega em TRÊS camadas.         */
+/* ========================================================================== */
+{
+  /**
+   * ⚠️ **O relato era "abri /admin de uma sessão comum e vi tudo".** Ele não se
+   * confirmou como vazamento: a conta usada no teste É o único dono de
+   * plataforma cadastrado. Medido em produção com um `member` de verdade, e
+   * repetido para cinco perfis × cinco alvos, **25 de 25 negados** — o banco
+   * sempre trancou.
+   *
+   * ⚠️ **O que faltava era o 403 no PERÍMETRO.** `/admin` respondia 200 para
+   * qualquer autenticado, entregava o pacote do painel e deixava o CLIENTE
+   * decidir mostrar "Acesso restrito". Decisão de acesso no cliente é
+   * apresentação, não controle: quem baixou o pacote leva a planta da área
+   * (nomes de RPC, campos, forma da tela) sem ter a chave.
+   *
+   * Esta guarda cobra as TRÊS camadas. Nenhuma é redundante: o middleware pode
+   * deixar de cobrir uma rota nova, o server component pega o que escapar dele,
+   * e o banco é o único que continua valendo se os dois falharem.
+   */
+  const mw = ler("src/middleware.ts");
+  ok("plataforma: o middleware bloqueia /admin e /api/admin",
+     /pathname === "\/admin"/.test(mw) && /\/api\/admin\//.test(mw)
+     && /ehDonoDaPlataforma/.test(mw));
+  ok("plataforma: e responde 403, não redirecionamento",
+     /status: 403/.test(mw),
+     "um redirect esconde a recusa e sugere que outra sessão resolveria");
+
+  const pag = ler("src/app/admin/page.tsx");
+  ok("plataforma: a página de /admin confere no SERVIDOR",
+     !/^"use client"/m.test(pag) && /is_platform_admin/.test(pag),
+     "a página era 'use client' e só o cliente decidia");
+
+  /**
+   * ⚠️ **Falha FECHADA nas duas camadas.** Um perímetro que abre quando a
+   * checagem falha abre exatamente quando o sistema está pior.
+   */
+  const mwHelper = ler("src/lib/supabase/middleware.ts");
+  ok("plataforma: a checagem falha FECHADA (erro ⇒ nega)",
+     /export async function ehDonoDaPlataforma[\s\S]{0,600}?catch \{\s*return false;/.test(mwHelper)
+     && /catch \{ dono = false; \}/.test(pag));
+
+  /**
+   * ⚠️ **Os DOIS papéis precisam ter nomes diferentes na tela.** São 16
+   * admins/owners de organização e 1 dono de plataforma, em tabelas separadas —
+   * mas ambos se chamavam "admin", e foi essa ambiguidade que fez a auditoria
+   * concluir invasão onde havia acesso legítimo. Um controle que ninguém
+   * consegue nomear é um controle que ninguém consegue auditar.
+   */
+  const nav = ler("src/components/dashboard/nav-data.ts");
+  const av = ler("src/components/admin/AdminView.tsx");
+  ok("plataforma: o menu distingue dono da plataforma de admin de organização",
+     /Dono da plataforma/.test(nav) && !/label: "Administração", desc: "Todos os clientes/.test(nav));
+  ok("plataforma: a recusa na tela EXPLICA que são papéis diferentes",
+     /papel diferente de administrador da sua empresa/i.test(av));
+}
+
+/* ========================================================================== */
+/* LINHA 31d — CONTRATO: o cartão do DRE == a linha da tabela.               */
+/* ========================================================================== */
+{
+  /**
+   * ⚠️ **O defeito que esta guarda fixa.** Na tela `/dashboard/reports/dre`, os
+   * cartões do topo e a tabela abaixo discordavam: os cartões saíam de
+   * `painelResultado`, cuja base soma TODA entrada em `receita` — inclusive a
+   * financeira — enquanto a tabela sempre excluiu o financeiro da Receita Bruta.
+   * Receita Líquida e EBITDA dos cartões vinham inflados **exatamente pela
+   * receita financeira do período**.
+   *
+   * ⚠️ **Por que nenhuma guarda pegou.** A LINHA 31c compara a cascata canônica
+   * com `dreGerencial` — e os dois compartilham a MESMA base errada
+   * (`core/dre/engine.ts:65`, `receita += m.amount`). Duas implementações
+   * erradas do mesmo jeito concordam perfeitamente. É a terceira guarda desta
+   * base a passar por coincidência, e a mais cara: ela cobria a tela em que o
+   * número vira decisão.
+   *
+   * ⚠️ **E o Lucro Líquido BATIA**, o que fazia a divergência parecer
+   * impossível: os cartões somavam a receita financeira em cima e subtraíam a
+   * despesa financeira embaixo; a tabela deixava as duas no meio. Os dois
+   * chegam ao mesmo fim por caminhos diferentes.
+   */
+  const linhaDaTabela = (r: ReturnType<typeof montarDRE>, id: string) =>
+    r.linhas.find((l) => l.id === id)?.total.valor ?? NaN;
+
+  /* ---- 1. Para QUALQUER período e filtro, cartão == linha ---------------- */
+  const PERIODOS = [
+    { de: "2026-08-01", ate: "2026-08-31" },
+    { de: "2025-09-01", ate: "2026-08-31" },
+    { de: "2026-01-01", ate: "2026-12-31" },
+    { de: "2026-06-01", ate: "2026-06-30" },
+  ];
+  const FILTROS: { nome: string; f: Record<string, unknown> }[] = [
+    { nome: "sem filtro", f: {} },
+    { nome: "por conta", f: { conta: "acc-1" } },
+    { nome: "por centro", f: { centro: "Comercial" } },
+  ];
+  const PARES: [string, string][] = [
+    ["Receita líquida", "receita_liquida"],
+    ["EBITDA", "ebitda"],
+    ["Lucro líquido", "resultado_liquido"],
+  ];
+  for (const intervalo of PERIODOS) {
+    for (const { nome, f } of FILTROS) {
+      const c = cascataDRE(INPUT, { intervalo, ...f });
+      const tab = montarDRE(INPUT, { intervalo, tipo: "vertical", ...f });
+      for (const [rotulo, id] of PARES) {
+        const doCartao = c.linhas[id as keyof typeof c.linhas];
+        if (doCartao.indisponivel) continue;
+        eq(`contrato-dre: cartão "${rotulo}" == linha da tabela (${intervalo.de}..${intervalo.ate}, ${nome})`,
+           doCartao.valor, linhaDaTabela(tab, id));
+      }
+    }
+  }
+
+  /* ---- 2. As regras que a especificação nomeia --------------------------- */
+  const cRef = cascataDRE(INPUT, { intervalo: { de: "2025-09-01", ate: "2026-08-31" } });
+  for (const r of REGRAS_CASCATA) {
+    eq(`contrato-dre: ${r.nome}`, r.diferenca(cRef), 0);
+  }
+
+  /* ---- 3. O CASO QUE O DEFEITO ESCONDIA: financeiro inverte o sinal ------ */
+  /**
+   * ⚠️ Este é o caso que dá valor à guarda inteira. Uma operação que PERDE
+   * dinheiro (EBITDA negativo) mas tem uma receita financeira grande — resgate
+   * de aplicação, juros de um caixa parado — aparecia com **EBITDA positivo**
+   * nos cartões. O dono lia "a operação deu lucro" quando ela deu prejuízo, e
+   * o número que o desmentiria (a tabela) estava logo abaixo, discordando.
+   */
+  const OPERACAO_NO_PREJUIZO: RiskMovement[] = [
+    mv("v1", "entrada", "pago", 100_000, "2026-08-05", "2026-08-05", "Vendas", "C1"),
+    mv("f1", "saida", "pago", 260_000, "2026-08-05", "2026-08-05", "Folha de pagamento", "F1"),
+    // A receita financeira, sozinha, maior que o buraco da operação.
+    mv("j1", "entrada", "pago", 400_000, "2026-08-10", "2026-08-10", "Juros recebidos", "B1"),
+  ];
+  const inputPrejuizo: RiskInput = { ...INPUT, movements: OPERACAO_NO_PREJUIZO };
+  const jan = { de: "2026-08-01", ate: "2026-08-31" };
+  const cp = cascataDRE(inputPrejuizo, { intervalo: jan });
+  const tp = montarDRE(inputPrejuizo, { intervalo: jan, tipo: "vertical" });
+
+  eq("contrato-dre: com juros grandes, EBITDA do cartão == o da tabela",
+     cp.linhas.ebitda.valor, linhaDaTabela(tp, "ebitda"));
+  eq("contrato-dre: e vale −160.000 (100k de venda − 260k de folha)",
+     cp.linhas.ebitda.valor, -160_000);
+  ok("contrato-dre: o EBITDA continua NEGATIVO apesar dos R$ 400.000 de juros",
+     cp.linhas.ebitda.valor < 0, String(cp.linhas.ebitda.valor));
+  eq("contrato-dre: a receita financeira está na linha dela, não na receita",
+     cp.linhas.resultado_financeiro.valor, 400_000);
+  eq("contrato-dre: e a Receita Bruta NÃO a contém",
+     cp.linhas.receita_bruta.valor, 100_000);
+  // E o lucro líquido continua fechando — é ele que sempre batia.
+  eq("contrato-dre: lucro líquido == EBITDA + resultado financeiro",
+     cp.linhas.resultado_liquido.valor, -160_000 + 400_000);
+
+  /**
+   * A fórmula ANTIGA, reproduzida aqui para mostrar o que se perdia: somando a
+   * receita financeira na receita, o EBITDA sairia +240.000 — POSITIVO — sobre
+   * a mesma operação que perdeu R$ 160.000.
+   */
+  const comoEra = (100_000 + 400_000) - 260_000;
+  ok("contrato-dre: a fórmula antiga inverteria o sinal (prova do que se corrigiu)",
+     comoEra > 0 && cp.linhas.ebitda.valor < 0, `antiga ${comoEra} × atual ${cp.linhas.ebitda.valor}`);
+
+  /* ---- 4. Margem: denominador zero é ausência, não 0% -------------------- */
+  const soDespesaDRE: RiskInput = {
+    ...INPUT,
+    movements: [mv("d9", "saida", "pago", 5_000, "2026-08-05", "2026-08-05", "Folha de pagamento", "F")],
+  };
+  const cm = cascataDRE(soDespesaDRE, { intervalo: jan });
+  ok("contrato-dre: margem EBITDA sem receita líquida é AUSÊNCIA, não 0%",
+     cm.margemEbitda.indisponivel?.codigo === "sem_base",
+     String(cm.margemEbitda.indisponivel?.codigo ?? cm.margemEbitda.valor));
+
+  /* ---- 5. A tela não pode voltar a ter duas contas ----------------------- */
+  const telaDRE = ler("src/components/relatorios/DemonstrativoView.tsx");
+  ok("contrato-dre: os cartões leem a cascata única, não uma segunda agregação",
+     /cascataDRE\(/.test(telaDRE) && !/painelResultado\(/.test(telaDRE));
+  ok("contrato-dre: todo cartão de valor recebe a cor de prejuízo",
+     (telaDRE.match(/tom: tomDe\(/g) ?? []).length >= 5);
+}
+
+
+/* ========================================================================== */
 /* LINHA 32 — ONDA 5: taxonomia, catálogo e higiene de dados.                */
 /* ========================================================================== */
 {
@@ -3219,6 +3408,132 @@ const AGOSTO = janelaMes(2026, 7);
      */
     ok("uuid: o formulário de título não tira a categoria do plano local",
        !/listPlanoContas/.test(ler("src/components/movimentacoes/TituloForm.tsx")));
+
+    /**
+     * ⚠️ **TETO ZERO: NENHUMA LEITURA DE DINHEIRO VÊ DADO DE DEMONSTRAÇÃO.**
+     *
+     * O botão "Carregar amostra" grava lançamentos de mentira no banco de
+     * verdade, e até a migration `20260813141626` eles eram indistinguíveis de
+     * um extrato importado — os dois gravam `origem = 'extrato'`. Medido em
+     * produção: 458 lançamentos, R$ 6,18 milhões, em 3 organizações reais.
+     *
+     * `semAmostra` conserta isso, mas só enquanto TODA leitura passar por ele.
+     * Sem esta guarda a regra é convenção: basta a próxima tela nova esquecer
+     * o filtro e a contaminação volta por uma porta que ninguém revisou — e
+     * volta em SILÊNCIO, porque um DRE com dado de amostra dentro não parece
+     * quebrado, parece um DRE.
+     *
+     * ⚠️ A varredura olha só para `.select(`. `insert`/`update`/`delete` por id
+     * não podem ser filtrados: a purga precisa justamente ALCANÇAR a amostra, e
+     * filtrá-la ali faria o botão "Remover dados de demonstração" não remover
+     * nada — o defeito mais cruel possível, porque a tela diria que limpou.
+     */
+    const TABELAS_AMOSTRA = ["movements", "movement_splits", "sales_docs", "sale_items", "recurrences"];
+    /**
+     * As saídas declaradas COM MOTIVO. Cada uma vê a amostra de propósito.
+     * ⚠️ A lista é por ARQUIVO + motivo: uma exceção sem motivo escrito é
+     * indistinguível de um esquecimento, e é assim que a lista cresce até virar
+     * a regra.
+     */
+    const VEEM_AMOSTRA: Record<string, string> = {
+      "src/lib/amostra.ts": "é quem CONTA e PURGA a amostra — filtrar aqui a tornaria invisível para si mesma",
+    };
+    const semFiltro: string[] = [];
+    for (const bruto of varrerArquivos("src", /\.(ts|tsx)$/)) {
+      const arq = bruto.replace(/\\/g, "/");
+      if (VEEM_AMOSTRA[arq]) continue;
+      const txt = ler(bruto);
+      for (const tbl of TABELAS_AMOSTRA) {
+        const rx = new RegExp(`\\.from\\("${tbl}"\\)\\s*\\.select\\(`, "g");
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(txt))) {
+          // O `semAmostra(` precisa estar ANTES, na mesma expressão. Olhar para
+          // trás (e não para a frente) foi a lição da guarda de `origem`: o
+          // montador da linha costuma vir antes do `.from(`.
+          const antes = txt.slice(Math.max(0, m.index - 400), m.index);
+          if (!/semAmostra\(/.test(antes)) {
+            semFiltro.push(`${arq}: .from("${tbl}").select(`);
+          }
+        }
+      }
+    }
+    ok("amostra: nenhuma leitura de dinheiro escapa do filtro de demonstração",
+       semFiltro.length === 0, semFiltro.slice(0, 8).join(" | "));
+
+    /**
+     * A saída é uma PALAVRA, não um booleano. `semAmostra(q, true)` seria
+     * ilegível no ponto de chamada e um `true` vindo de variável desligaria o
+     * filtro sem a revisão perceber.
+     */
+    const consultaTxt = ler("src/lib/supabase/consulta.ts");
+    ok("amostra: a saída do filtro é explícita e pesquisável",
+       /"incluir-amostra"/.test(consultaTxt) && /export function semAmostra/.test(consultaTxt));
+
+    /**
+     * ⚠️ **A assinatura da amostra tem de bater com a amostra.** A migration
+     * reconheceu o histórico sem marca pelos nomes fixos de
+     * `core/fdip/sample.ts`. Acrescentar um cliente à amostra sem acrescentá-lo
+     * à migration deixaria o próximo lote importado sem marca, e ninguém veria.
+     */
+    const amostraTxt = ler("src/core/fdip/sample.ts");
+    const migracao = ler("supabase/migrations/20260813141626_dado_de_demonstracao_tem_marca.sql");
+    const nomesDaAmostra = [
+      ...(amostraTxt.match(/const CLIENTES = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+      ...(amostraTxt.match(/const FORN = \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+      ...(amostraTxt.match(/const ASSIN = \[([\s\S]*?)\];/)?.[1] ?? "").matchAll(/"([^"]+)"/g),
+    ].map((m) => m[1]);
+    const foraDaMigracao = nomesDaAmostra.filter((n) => {
+      // A migration guarda o PREFIXO do nome (sem o sufixo societário), que é o
+      // que o descritivo de extrato preserva.
+      const nucleo = n.replace(/\s+(LTDA|SA|ME)$/i, "").toUpperCase();
+      return !migracao.toUpperCase().includes(nucleo);
+    });
+    ok("amostra: todo nome da amostra é reconhecido pela migration",
+       nomesDaAmostra.length >= 14 && foraDaMigracao.length === 0,
+       `${nomesDaAmostra.length} nomes · fora: ${foraDaMigracao.join(", ")}`);
+
+    /**
+     * O banner não pode ter como ser fechado: um aviso com "x" é fechado por
+     * reflexo e nunca mais visto, e quem abre o DRE três semanas depois não
+     * sabe que aqueles números têm dado de mentira dentro.
+     */
+    /**
+     * ⚠️ **Os comentários saem ANTES da busca** — e isto foi provado quebrando:
+     * a primeira versão desta guarda REPROVOU o próprio banner, porque o
+     * comentário que explica a regra usa a palavra "fechado" ("um aviso com 'x'
+     * é fechado por reflexo"). Guarda que reprova a documentação da regra
+     * treina quem a lê a ignorá-la — é a mesma lição da guarda de exclusão
+     * física logo acima e da varredura de texto da ONDA 14.
+     */
+    const semComentario = (s: string) => s
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "")
+      .replace(/^\s*\*.*$/gm, "");
+    /**
+     * ⚠️ **A DÍVIDA TÉCNICA TEM DE CONTINUAR VISÍVEL.** `lancamento_teste` é um
+     * valor PROVISÓRIO do enum: ele existe porque hoje não há estado Cancelado
+     * de primeira classe, e vence quando a Central Financeira (P-10) chegar.
+     *
+     * Sem esta guarda, a nota que explica isso é um comentário como outro
+     * qualquer — some numa refatoração e o provisório vira permanente sem
+     * ninguém decidir. Ela cobra que os dois lados (o motor e a migration)
+     * continuem citando a origem (P-01) e o vencimento (P-10).
+     */
+    const debitoOndeVive = [
+      "src/lib/supabase/consulta.ts",
+      "supabase/migrations/20260813150045_amostra_declara_o_motivo.sql",
+    ];
+    const semDivida = debitoOndeVive.filter((f) => {
+      const t = ler(f);
+      return !(/lancamento_teste/.test(t) && /P-01/.test(t) && /P-10/.test(t));
+    });
+    ok("amostra: a dívida de `lancamento_teste` continua declarada com origem e vencimento",
+       semDivida.length === 0, semDivida.join(" | "));
+
+    const bannerTxt = ler("src/components/app/BannerAmostra.tsx");
+    ok("amostra: o banner não tem como ser dispensado",
+       /Esta organização contém dados de demonstração/.test(bannerTxt)
+       && !/dispensar|setFechado|onClose|onDismiss/i.test(semComentario(bannerTxt)));
 
     ok("escritor: nenhuma gravação cai só no dataset de demonstração",
        cegos.length === 0, cegos.join(" | "));

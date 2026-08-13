@@ -7,6 +7,7 @@ import { ContatoDrawer } from "@/components/app/ContatoDrawer";
 import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
 import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
+import { BannerAmostra } from "@/components/app/BannerAmostra";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -104,6 +105,12 @@ export function AppShell({
           Suspense — a mesma que o `PageGuide` já usa logo abaixo. */}
       <React.Suspense fallback={null}><Sidebar /></React.Suspense>
       <main className={`flex-1 flex flex-col min-w-0 min-h-0${scopeClassName ? ` ${scopeClassName}` : ""}`}>
+        {/* ⚠️ ACIMA do cabeçalho e FORA da área que rola: o aviso de dado de
+            demonstração precisa valer para toda tela e não pode sair de vista
+            quando a pessoa rola o DRE — que é exatamente onde a contaminação
+            aparece. Não fecha e não tem "x": some quando a amostra for
+            removida, e só então. */}
+        <BannerAmostra />
         {stickyHeader && header}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}

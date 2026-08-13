@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdmin } from "@/lib/supabase/admin";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +35,9 @@ export async function GET(req: Request) {
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const geradoEm = new Date().toISOString();
 
-  const { data: recs, error } = await admin
+  const { data: recs, error } = await semAmostra(admin
     .from("recurrences")
-    .select("id,org_id,type,party_id,amount,freq,start_date,end_date,due_day,description,category_id,cost_center_id")
+    .select("id,org_id,type,party_id,amount,freq,start_date,end_date,due_day,description,category_id,cost_center_id"))
     .eq("active", true).limit(TETO_LINHAS);
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
 
