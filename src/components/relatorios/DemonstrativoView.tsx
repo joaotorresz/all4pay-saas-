@@ -9,6 +9,7 @@
  * `tipo`. Duplicar daria duas telas que divergem na primeira regra nova.
  */
 import * as React from "react";
+import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
@@ -32,7 +33,17 @@ import {
   type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
 } from "./kit";
 
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+/**
+ * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
+ * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
+ * O cartão "Custo fixo R$2, −64,2%" só fecha com o valor real: a variação é
+ * calculada sobre 1,54 e exibida ao lado de um 2 — duas grandezas na mesma
+ * frase, uma delas arredondada, e quem confere conclui que a conta está errada.
+ *
+ * Abreviação (k, mi) continua permitida SÓ em eixo de gráfico, onde o rótulo
+ * não cabe — e o tooltip mostra o valor cheio.
+ */
+const brl0 = (n: number) => formatBRL(n);
 const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {

@@ -39,6 +39,35 @@ export const ROTULO_MODO: Record<ModoLancamento, string> = {
   folha: "Colaborador (folha)",
 };
 
+/**
+ * ⚠️ **O MESMO MODO TEM NOME DIFERENTE DOS DOIS LADOS.**
+ *
+ * A tela de "Nova conta a RECEBER" oferecia *"Compra parcelada — uma compra só,
+ * dividida em parcelas"*. Do lado de receber não há compra nenhuma: quem
+ * parcela é o CLIENTE, e o que se lança é uma **venda**. O rótulo estava certo
+ * quando o formulário só existia para pagar, e envelheceu no dia em que ele
+ * passou a servir os dois lados — mesma peça, dois vocabulários.
+ *
+ * ⚠️ É uma FUNÇÃO com a direção, não um segundo mapa: dois mapas divergem no
+ * primeiro ajuste, e aí "recorrente" passa a explicar coisas diferentes de cada
+ * lado sem ninguém decidir isso.
+ */
+const ROTULO_RECEBER: Partial<Record<ModoLancamento, string>> = {
+  parcelada: "Venda parcelada",
+};
+const EXPLICACAO_RECEBER: Partial<Record<ModoLancamento, string>> = {
+  parcelada: "Uma venda só, dividida em parcelas. O valor informado é o total da venda.",
+  recorrente: "Um recebimento que se repete. O valor informado é o de cada ocorrência.",
+};
+
+/** O rótulo do modo no vocabulário do lado em que a tela está. */
+export const rotuloModo = (m: ModoLancamento, receber: boolean): string =>
+  (receber ? ROTULO_RECEBER[m] : undefined) ?? ROTULO_MODO[m];
+
+/** A frase do modo no vocabulário do lado em que a tela está. */
+export const explicacaoModo = (m: ModoLancamento, receber: boolean): string =>
+  (receber ? EXPLICACAO_RECEBER[m] : undefined) ?? EXPLICACAO_MODO[m];
+
 export const EXPLICACAO_MODO: Record<ModoLancamento, string> = {
   unica: "Um título, um vencimento. Lançado uma vez só.",
   recorrente: "Um compromisso que se repete. O valor informado é o de cada ocorrência.",
