@@ -356,6 +356,38 @@ produção. Ele não é decoração: é o que impede alguém de confundir dado d
 com dado real, que é a mesma família de defeito que fez `isDemo` virar opt-in
 explícito (`src/lib/demo.ts`). Não remover.
 
+### ⚠️ O PADRÃO: ESTE SISTEMA CONSTRÓI INSTRUMENTAÇÃO E NÃO LIGA EM NADA QUE AJA
+
+**Detecção sem consumidor é PIOR que ausência de detecção**, porque produz
+sensação de cobertura sem cobertura. Quem audita vê o mecanismo existir e
+conclui que o risco está coberto; o mecanismo funciona perfeitamente e não
+alcança ninguém.
+
+Não é um incidente. São, até agora, **três**, e todos descobertos por acidente:
+
+| instrumentação | estado | como apareceu |
+| --- | --- | --- |
+| `ddl_log` + gatilho `registrar_ddl_trg` | **305 comandos registrados**, incluindo os 127 de 13/08 com `contexto = mgmt-api` — a assinatura exata de DDL aplicado por fora do repositório | só foi lido quando fui desenhar uma trava que já existia |
+| Trilha de auditoria (`audit_log`) | **zero eventos** por meses | a ONDA 8 foi investigar por quê; a causa era que nada passava pelo servidor |
+| Guarda `trilha-completa` | não enxergava as 9 tabelas `own_*` que deveria guardar | só passou a vê-las quando o ARQUIVO da migration entrou no repositório |
+
+⚠️ **O que os três têm em comum não é esquecimento — é uma assimetria de
+esforço.** Construir o registro é a parte visível e satisfatória; construir
+quem age sobre ele é trabalho sem nada para mostrar no fim. Então o primeiro é
+feito e o segundo fica para depois, e "depois" não chega porque nada falha
+enquanto não chega.
+
+⚠️ **A regra, daqui em diante: instrumentação só conta como FEITA quando vem
+com o consumidor que age sobre ela.** Um log sem leitor, um gatilho sem guarda,
+uma métrica sem limiar e uma trilha sem tela não são entregas parciais — são
+entregas que produzem o efeito oposto ao pretendido, porque desligam a
+desconfiança que teria levado alguém a olhar.
+
+O teste, antes de fechar qualquer item que crie registro: **se isto começar a
+registrar algo grave amanhã, quem descobre, por qual caminho, e em quanto
+tempo?** Se a resposta for "alguém teria de pensar em consultar", não está
+feito.
+
 ### ⚠️ UM DEFEITO REFUTADO, e por que ele fica escrito (A4P-028)
 
 **"A coluna Total do DFC exibe percentual onde deveria exibir valor" — CANCELADO.

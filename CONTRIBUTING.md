@@ -154,6 +154,36 @@ CI estava quebrada" vira código de dinheiro mergeado sem uma guarda ter rodado.
 
 ---
 
+## ⚠️ EXPAND / CONTRACT — a condição para acoplar migration ao deploy
+
+Acoplar a migration ao merge para `main` é a arquitetura certa: hoje código e
+schema sobem por **eventos diferentes**, e foi essa dessincronia que produziu o
+13/08 — cinco migrations no banco enquanto os commits que as usam estavam
+parados num branch.
+
+⚠️ **Mas acoplar SEM esta regra piora as coisas.** A migration roda enquanto o
+código antigo ainda está servindo: numa janela de segundos a minutos, o schema
+novo convive com o binário velho. Adicionar coluna nessa janela é inócuo;
+**remover ou renomear derruba produção na hora.**
+
+Por isso toda migration se classifica em uma das duas:
+
+- **Expand** — acrescenta (coluna, tabela, índice, função, política nova). Sobe
+  **junto ou antes** do código que a usa. Segura porque o código velho ignora o
+  que não conhece.
+- **Contract** — remove ou renomeia (drop, rename, alteração de tipo que
+  quebra leitura, `not null` em coluna que o código ainda deixa vazia). Sobe
+  **pelo menos um release DEPOIS** do código que parou de usar aquilo.
+
+Na prática, tirar uma coluna leva dois releases: primeiro o código para de
+lê-la, publica e fica; só então a migration a remove. É mais lento de
+propósito — a lentidão é o que dá à janela de convivência um lado seguro.
+
+⚠️ **A regra vale mesmo quando "ninguém mais usa".** "Ninguém usa" é uma
+afirmação sobre o código do repositório; produção serve o que foi publicado, e
+os dois só coincidem depois do deploy. É a mesma distinção que fez a guarda
+`trilha-completa` não enxergar as tabelas que só existiam no banco.
+
 ## O que ainda NÃO está automatizado, e é honesto dizer
 
 A regra acima é **processo, não trava**: quem tem a chave de serviço continua
