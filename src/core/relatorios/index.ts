@@ -119,6 +119,25 @@ const ehDespesaVariavel = (m: RiskMovement) => /comiss|taxa|gateway|adquiren|pla
 const ehFinanceiro = (m: RiskMovement) => /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
 const ehNaoOperacional = (m: RiskMovement) => /n[ãa]o operacional|venda de ativo|imobilizado|indeniza|multa contratual/.test(cat(m));
+/**
+ * ⚠️ **DEPRECIAÇÃO E AMORTIZAÇÃO — a linha que faltava, e que tornava o rótulo
+ * "EBITDA" falso.**
+ *
+ * O *A* de EBITDA é justamente *amortization*: EBITDA é o resultado ANTES de
+ * depreciação e amortização. A cascata não tinha essa linha, então a
+ * depreciação — quando lançada — caía dentro de *Despesas Operacionais* e era
+ * subtraída ali. O número apresentado como EBITDA já vinha líquido de D&A, ou
+ * seja, era **EBIT**. Duas linhas com o mesmo valor e nomes diferentes é pior
+ * que uma linha só: quem compara o "EBITDA" desta tela com o múltiplo de
+ * mercado de um concorrente compara coisas diferentes com o mesmo nome.
+ *
+ * ⚠️ Ancorado em `\b` no que pode colidir: sem a borda, `amortiza` casaria em
+ * "amortização de EMPRÉSTIMO", que é financeiro e não D&A — é o mesmo erro que
+ * fazia `iss` casar dentro de "com**iss**ão".
+ */
+const ehDepreciacao = (m: RiskMovement) =>
+  /deprecia|amortiza[çc][ãa]o do imobilizado|amortiza[çc][ãa]o de intang|exaust[ãa]o|\bd&a\b/.test(cat(m))
+  || (/amortiza/.test(cat(m)) && !/empr[ée]stimo|financiamento|d[íi]vida|contrato/.test(cat(m)));
 
 /**
  * A cascata do resultado, exatamente na ordem em que o relatório apresenta.
@@ -156,12 +175,23 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "despesas_operacionais", label: "Despesas Operacionais", tipo: "soma", sinal: "-", nivel: 1,
+    // ⚠️ D&A sai DAQUI e ganha linha própria abaixo do EBITDA. Enquanto ela
+    // ficava aqui dentro, o "EBITDA" já vinha líquido de depreciação — era EBIT.
     casa: (m) => saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && !ehCustoVariavel(m)
-      && !ehDespesaVariavel(m) && !ehFinanceiro(m) && !ehImpostoLucro(m) && !ehNaoOperacional(m),
+      && !ehDespesaVariavel(m) && !ehFinanceiro(m) && !ehImpostoLucro(m) && !ehNaoOperacional(m)
+      && !ehDepreciacao(m),
   },
   {
-    id: "ebitda", label: "EBITDA", tipo: "total", sinal: "=", nivel: 1,
+    id: "ebitda", label: "EBITDA (antes de D&A)", tipo: "total", sinal: "=", nivel: 1,
     formula: [{ id: "margem_contribuicao", sinal: 1 }, { id: "despesas_operacionais", sinal: -1 }],
+  },
+  {
+    id: "depreciacao_amortizacao", label: "Depreciação e Amortização", tipo: "soma", sinal: "-", nivel: 1,
+    casa: (m) => saida(m) && ehDepreciacao(m),
+  },
+  {
+    id: "ebit", label: "EBIT (resultado operacional)", tipo: "total", sinal: "=", nivel: 1,
+    formula: [{ id: "ebitda", sinal: 1 }, { id: "depreciacao_amortizacao", sinal: -1 }],
   },
   {
     id: "resultado_financeiro", label: "Resultado Financeiro", tipo: "soma", sinal: "+/-", nivel: 1,
@@ -179,7 +209,9 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "resultado_liquido", label: "Resultado Líquido", tipo: "total", sinal: "=", nivel: 1,
     formula: [
-      { id: "ebitda", sinal: 1 },
+      // ⚠️ Parte do EBIT, não do EBITDA: o resultado líquido é DEPOIS da
+      // depreciação. Somar a partir do EBITDA devolveria a D&A ao lucro.
+      { id: "ebit", sinal: 1 },
       { id: "resultado_financeiro", sinal: 1 },
       { id: "impostos_lucro", sinal: -1 },
       { id: "nao_operacional", sinal: 1 },
@@ -248,9 +280,26 @@ export interface LinhaRelatorio {
   filhos: LinhaRelatorio[];
 }
 
+/**
+ * ⚠️ **A BASE DA ANÁLISE VERTICAL, e por que ela precisou virar escolha.**
+ *
+ * Era a **receita bruta**, fixa. Num mês de receita baixa isso produz leituras
+ * como *"Assinaturas / software 3451,4%"* — aritmeticamente corretas e
+ * inúteis: o percentual deixa de medir composição e passa a medir o quanto a
+ * base encolheu. Pior, ele CHAMA A ATENÇÃO justamente no mês em que não há o
+ * que ver.
+ *
+ * O padrão passou a ser **receita líquida**, que é a base contábil usual da AV
+ * — a bruta inclui impostos sobre venda que nunca foram da empresa, e comparar
+ * despesa contra dinheiro que vai embora em guia infla toda a coluna.
+ */
+export type BaseVertical = "receita_bruta" | "receita_liquida";
+
 export interface FiltroRelatorio {
   intervalo: Intervalo;
   tipo: TipoAnalise;
+  /** Base da AV. Padrão: `receita_liquida`. */
+  baseVertical?: BaseVertical;
   conta?: string | null;
   projeto?: string | null;
   centro?: string | null;
@@ -377,16 +426,40 @@ export function montarRelatorio(
     valorDe.set("saldo_final", final);
   }
 
-  // Base da análise vertical: a receita bruta (DRE) ou as entradas (DFC).
-  const idBase = estrutura.some((l) => l.id === "receita_bruta") ? "receita_bruta" : "entradas_operacionais";
+  /*
+   * Base da análise vertical: a linha escolhida (DRE) ou as entradas (DFC).
+   * ⚠️ O padrão é RECEITA LÍQUIDA — ver `BaseVertical`.
+   */
+  const idBase = estrutura.some((l) => l.id === "receita_bruta")
+    ? (f.baseVertical ?? "receita_liquida")
+    : "entradas_operacionais";
   const base = valorDe.get(idBase) ?? colunas.map(() => 0);
+
+  /**
+   * ⚠️ **A BASE INSIGNIFICANTE — o que produzia "Assinaturas / software 3451,4%".**
+   *
+   * Quando a receita de um mês desaba, o denominador da AV desaba junto e todo
+   * percentual estoura. O número está aritmeticamente certo e é inútil: ele
+   * deixou de medir COMPOSIÇÃO e passou a medir o quanto a base encolheu — e,
+   * pior, grita justamente no mês em que não há o que ler.
+   *
+   * O corte é 1% da média do período (a régua que você pediu). Abaixo disso a
+   * célula devolve `null`, que a tela já renderiza como "—".
+   *
+   * ⚠️ `null` e não zero, e não um número grande escondido: "—" diz *não dá
+   * para calcular*; "0%" diria *essa linha não representa nada da receita*, que
+   * é uma afirmação diferente e falsa. É a mesma regra da ONDA 4.
+   */
+  const mediaBase = base.reduce((s, v) => s + Math.abs(v), 0) / (base.length || 1);
+  const PISO_BASE = 0.01; // 1% da média do período
+  const baseUsavel = (k: number) => Math.abs(base[k] ?? 0) >= mediaBase * PISO_BASE && base[k] !== 0;
 
   const montaCelulas = (valores: number[], movsIds: string[][], acumulado: boolean): {
     celulas: Celula[]; total: Celula; media: Celula;
   } => {
     const celulas = valores.map((v, k) => ({
       valor: round2(v),
-      av: f.tipo === "vertical" && base[k] ? round2((v / base[k]) * 100) : null,
+      av: f.tipo === "vertical" && baseUsavel(k) ? round2((v / base[k]) * 100) : null,
       // AH da primeira coluna não existe — não há período anterior com que
       // comparar. `null` vira "—" na tela; 0 diria "não variou".
       ah: f.tipo === "horizontal" && k > 0 && valores[k - 1] !== 0
