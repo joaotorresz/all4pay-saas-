@@ -27,7 +27,7 @@
   "tabelas": 75,
   "funcoes": 91,
   "politicas": 110,
-  "gatilhos": 72,
+  "gatilhos": 73,
   "indices": 233,
   "enums": 11,
   "colunas": 824,
@@ -113,7 +113,8 @@
   "20260813141800_own_integracao_adquirencia",
   "20260813144459_own_token_cache_pull_first",
   "20260813150045_amostra_declara_o_motivo",
-  "20260813172432_plataforma_revoga_anon_e_leitura_residual"
+  "20260813172432_plataforma_revoga_anon_e_leitura_residual",
+  "20260813184540_trilha_alcanca_as_tabelas_de_adquirencia"
  ],
  "divergencias_conhecidas": {
   "_regra": [
@@ -136,25 +137,7 @@
     "origem": "outro escritor (sessao de agente da integracao OWN) — NAO foi criada nesta sessao. Ver CONTRIBUTING.md: e o caso que motivou a regra."
    }
   ],
-  "arquivo_sem_aplicacao": [
-   {
-    "nome": "20260813182600_trilha_alcanca_as_tabelas_de_adquirencia",
-    "motivo": "É o estado ESPERADO, nao uma deriva: o arquivo existe e o banco ainda nao tem porque a regra do CONTRIBUTING diz que producao recebe migration pelo merge em main, nao antes. A declaracao existe para a guarda distinguir 'ainda nao mergeado' de 'esquecido' — sem ela as duas situacoes tem a mesma cara.",
-    "objetos_ausentes": [
-     "gatilho zz_auditar_own_lojistas em public.own_lojistas",
-     "gatilho zz_auditar_own_terminais em public.own_terminais",
-     "gatilho zz_auditar_own_transacoes em public.own_transacoes",
-     "gatilho zz_auditar_own_parcelas em public.own_parcelas",
-     "gatilho zz_auditar_own_antecipacoes em public.own_antecipacoes",
-     "gatilho zz_auditar_own_liquidacoes em public.own_liquidacoes",
-     "gatilho zz_auditar_own_erp_credenciais em public.own_erp_credenciais"
-    ],
-    "impacto": "as 7 tabelas de adquirencia com decisao humana atras seguem SEM trilha de auditoria em producao — medido em 13/08, e sao exatamente estas 7 (mais as 2 declaradas como excecao). As 9 estao VAZIAS (0 linhas), entao nada retroativo se perde; o que se perde e o registro de quem cadastrou, ativou ou revogou o primeiro dado que entrar antes do merge.",
-    "resolver_ate": "2026-08-20",
-    "resolve_em": "merge do PR #96 em main",
-    "origem": "esta sessao — escrita para fechar o buraco que a guarda `trilha-completa` acusou assim que o arquivo da integracao OWN entrou no repositorio. O buraco e anterior e e de producao: a varredura da ONDA 3 rodou em 11/08 e a migration OWN foi aplicada em 13/08, depois dela."
-   }
-  ],
+  "arquivo_sem_aplicacao": [],
   "objetos_sem_migration": [
    {
     "nome": "maq_cnpj_cache",
