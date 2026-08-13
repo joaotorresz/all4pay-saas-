@@ -34,6 +34,9 @@ import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import { analisarQuantitativo } from "@/core/quant";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
+import { painelResultado } from "@/core/indicadores/resultado";
+import { cascataDRE } from "@/core/relatorios/cascata";
+import { classificarReceita } from "@/core/indicadores/classificacao";
 import { dailyCashflowRange } from "@/lib/aggregations";
 import { painelAssinaturas } from "@/core/paineis";
 import { montarInvestorUpdate } from "@/core/investor";
@@ -121,14 +124,64 @@ const MATRIZ: Linha[] = [
     ],
   },
   {
-    indicador: "receita (agosto, competência)",
+    /**
+     * ⚠️ **ENTRADAS e RECEITA BRUTA deixaram de ser o mesmo indicador.**
+     *
+     * Esta linha somava os três caminhos como se fossem um só, e por isso
+     * OBRIGAVA `dreGerencial.receitaBruta` a valer o mesmo que a soma de todas
+     * as entradas — o que é falso assim que existe rendimento de aplicação.
+     * *Entradas* é CAIXA (tudo que entrou); *receita bruta* é RESULTADO (o que
+     * a operação faturou). Juros recebidos entram no caixa e não são
+     * faturamento; eles pertencem ao resultado financeiro.
+     *
+     * Somar os dois numa linha só é o mesmo defeito que a ONDA 1 achou entre
+     * POSIÇÃO e FLUXO: duas perguntas diferentes com o mesmo rótulo.
+     */
+    indicador: "entradas de caixa (agosto, competência)",
     unidade: "R$",
-    porque: "o DRE apura por competência; a Home, por caixa. As duas leituras existem — e cada uma tem de fechar com a sua.",
+    porque: "tudo que entrou na janela, sem separar operação de resultado financeiro.",
     caminhos: [
       { via: "canônico entradas(competência)", valor: entradas(INPUT, AGOSTO, "competencia").valor },
-      { via: "DRE receita bruta", valor: dre.receitaBruta },
       { via: "movimentos do DRE (soma)", valor:
         rowsComp.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0) },
+    ],
+  },
+  {
+    indicador: "receita bruta operacional (agosto, competência)",
+    unidade: "R$",
+    porque: "TRÊS motores apuram a mesma cascata. Nada além desta linha os obriga a concordar, e foi por isso que dois deles somaram receita financeira dentro da receita bruta por meses.",
+    caminhos: [
+      /**
+       * ⚠️ **`core/relatorios` está DECLARADAMENTE fora desta linha, e o motivo
+       * é um defeito ainda ABERTO — não um desacordo tolerado.**
+       *
+       * Ele usa um classificador PRÓPRIO, mais largo, e por isso mede
+       * R$ 58.500 onde os três daqui medem R$ 73.500. A diferença de
+       * R$ 15.000 é um **"Empréstimo bancário"** que `core/relatorios` trata
+       * como financeiro (certo: dinheiro emprestado não é faturamento) e o
+       * classificador canônico devolve como `outras`, ou seja, receita
+       * operacional.
+       *
+       * ⚠️ E há um segundo, PIOR, em que os quatro caminhos concordam e todos
+       * erram: **R$ 20.000 de "Transferência entre contas" contam como receita
+       * bruta** nos quatro. É dinheiro que já era da empresa. O predicado
+       * canônico `foraDaBaseTributavel` (core/indicadores) já nomeia
+       * exatamente esse conjunto — transferência, resgate, empréstimo, aporte,
+       * juros — e a cascata do DRE nunca o consultou.
+       *
+       * Corrigir isso muda a taxonomia `LinhaReceita`, que é a espinha do
+       * drill-down do DRE inteiro, então fica DECLARADO com número em vez de
+       * corrigido de passagem. Enquanto não for decidido, esta linha guarda os
+       * três que compartilham o classificador; incluir o quarto faria a matriz
+       * reprovar todo dia sem ninguém poder consertá-la, e guarda que reprova
+       * sem saída é guarda que se aprende a ignorar.
+       */
+      { via: "DRE receita bruta", valor: dre.receitaBruta },
+      { via: "canônico painelResultado", valor: painelResultado(INPUT, AGOSTO, "competencia").receitaBruta.valor },
+      { via: "entradas − receita financeira", valor:
+        rowsComp.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0)
+        - rowsComp.filter((m) => m.type === "entrada" && classificarReceita(m.category) === "juros")
+                  .reduce((s, m) => s + Math.abs(m.amount), 0) },
     ],
   },
   {

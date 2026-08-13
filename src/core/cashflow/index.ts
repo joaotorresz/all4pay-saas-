@@ -50,7 +50,43 @@ export interface ResumoExecutivo {
   saidasCanonicas: IndicadorCanonico;
   chanceRuptura: number; // 0..1
   score: number; // 0..100
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * ⚠️ **AS DUAS JANELAS DO MESMO CARTÃO — A4P-005**
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * `geracaoCaixa` e `burn` ficam lado a lado e olham para lados OPOSTOS do
+   * tempo:
+   *
+   *  · **geração de caixa** = entradas − saídas **PREVISTAS**, no intervalo
+   *    `[hoje, hoje + N]` do filtro. É o FUTURO agendado.
+   *  · **burn** = média mensal do que foi **REALIZADO** nos últimos 90 dias
+   *    (`calcularBurnRate`, janela fixa). É o PASSADO consumado.
+   *
+   * Sem dizer isso, o cartão convida a subtrair um do outro — e a conta não
+   * significa nada, porque nenhum dos dois números fala do período do outro.
+   * Foi assim que "geração de caixa positiva" apareceu ao lado de um burn
+   * alto, e a leitura natural ("estou gerando mais do que queimo") era falsa:
+   * o positivo vinha de recebimentos que ainda não aconteceram.
+   *
+   * ⚠️ **Nenhum dos dois muda de valor.** A decisão foi ROTULAR, não alinhar
+   * as janelas — alinhar exigiria escolher qual pergunta sacrificar, e as duas
+   * são legítimas: "o que vem pela frente" e "em que ritmo venho queimando".
+   * É o mesmo desenho de `pontePosicaoFluxo` e de `ponteRupturaRunway`: duas
+   * respostas verdadeiras a perguntas diferentes, exibidas com o mesmo peso,
+   * viram contradição aparente até alguém escrever qual é qual.
+   *
+   * ⚠️ Os rótulos são DERIVADOS dos parâmetros reais (o `dias` do filtro, a
+   * janela do motor de burn), nunca microtexto escrito à mão — texto à mão
+   * envelhece na primeira mudança de fórmula e passa a descrever um cálculo
+   * que não existe mais, que é pior do que não explicar (regra da ONDA 11).
+   */
+  janelaGeracao: string;
+  janelaBurn: string;
 }
+
+/** A janela do motor de burn, em dias. Espelha o padrão de `calcularBurnRate`. */
+export const BURN_JANELA_DIAS = 90;
 
 export interface FluxoItem { label: string; valor: number }
 export interface FluxoGrupo { label: string; valor: number; itens: FluxoItem[] }
@@ -228,6 +264,11 @@ export function montarFluxoCaixa(
     saidasCanonicas: previstoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "saida"),
     chanceRuptura: risco.probabilidadeRuptura,
     score: quant.score.score,
+    // Derivados dos parâmetros REAIS: `dias` é o horizonte do filtro da tela e
+    // `BURN_JANELA_DIAS` é o padrão de `calcularBurnRate`. Mudar qualquer um
+    // dos dois muda a frase junto, sem ninguém precisar lembrar.
+    janelaGeracao: `previsto · próximos ${dias} dias`,
+    janelaBurn: `realizado · média dos últimos ${BURN_JANELA_DIAS} dias`,
   };
 
   // ----- Bloco 2: Fluxo inteligente (árvore) -----
@@ -264,17 +305,40 @@ export function montarFluxoCaixa(
     saldoFinal: saldoAtual + livre,
   };
 
-  // ----- Bloco 3: Previsto x Realizado (por contraparte) -----
+  /* ----- Bloco 3: Previsto x Realizado (por contraparte) -----
+   *
+   * ⚠️ **A JANELA OLHA PARA TRÁS — A4P-007.**
+   *
+   * Ela era `[hoje, hoje + N]`, e isso tornava o bloco incapaz de dizer a
+   * verdade: **pagamento é fato do passado.** Medido nesta base, 101 de 101
+   * movimentos liquidados têm `paid_date` ANTERIOR a hoje — então a coluna
+   * *Realizado* somava praticamente zero contra um *Planejado* cheio, e toda
+   * contraparte aparecia como se não tivesse pago nada. Um comparativo em que
+   * um dos dois lados não pode existir não compara: ele acusa.
+   *
+   * Agora a janela é `[hoje − N, hoje]`, e as duas colunas são ancoradas no
+   * MESMO conjunto — os títulos que **venceram** no período:
+   *
+   *  · **planejado** = o que venceu na janela (o compromisso do período);
+   *  · **realizado** = a parte desses mesmos títulos que já foi paga.
+   *
+   * ⚠️ Ancorar as duas no vencimento é o que impede o percentual de explodir.
+   * A alternativa — somar em *realizado* tudo que foi PAGO na janela — traria
+   * títulos vencidos meses antes e quitados agora, sem contrapartida no
+   * *planejado*: a contraparte apareceria com 300% de cumprimento num mês em
+   * que ela só pagou atrasado. Aqui, o atraso aparece como o que é: um título
+   * que venceu e ainda não foi pago.
+   */
+  const inicioPR = addDias(hoje, -dias);
   const grupoPR = new Map<string, { plan: number; real: number }>();
   for (const m of movs) {
     if (m.status === "cancelado") continue;
-    const dueNaJanela = m.due_date >= hoje && m.due_date <= fim;
-    const paidNaJanela = !!m.paid_date && m.paid_date >= hoje && m.paid_date <= fim;
-    if (!dueNaJanela && !paidNaJanela) continue;
+    // Só o que VENCEU na janela retroativa entra — nos dois lados.
+    if (!(m.due_date >= inicioPR && m.due_date <= hoje)) continue;
     const k = nome(input, m);
     const cur = grupoPR.get(k) ?? { plan: 0, real: 0 };
-    if (dueNaJanela) cur.plan += m.amount;
-    if (m.status === "pago" && (paidNaJanela || dueNaJanela)) cur.real += m.amount;
+    cur.plan += m.amount;
+    if (m.status === "pago") cur.real += m.amount;
     grupoPR.set(k, cur);
   }
   const prevReal: PrevRealLinha[] = Array.from(grupoPR.entries())
