@@ -71,11 +71,11 @@ function Inner() {
           {/* Modo Simples: 3 blocos essenciais. */}
           <ExecutiveSummary m={data} />
           <Bloco
-            titulo="Previsto × Realizado"
+            titulo="Venceu × Foi pago"
             icon="list-checks"
             info={{
-              oQue: "Compara, linha a linha, o que estava planejado com o que de fato aconteceu no período, com um comentário da IA.",
-              comoCalcula: "Agrupa os lançamentos por contraparte e confronta o valor planejado com o realizado, mostrando a diferença e o percentual.",
+              oQue: "Olha para trás: dos títulos que venceram no período, quanto já foi efetivamente pago — por contraparte, com um comentário da IA.",
+              comoCalcula: "Toma os títulos com vencimento dentro da janela retroativa e compara o total que venceu com a parte dele que está paga. As duas colunas saem do mesmo conjunto de títulos, então o percentual é o quanto do compromisso do período foi cumprido; o que falta é atraso.",
             }}
           ><PrevRealView linhas={data.prevReal} /></Bloco>
           <Bloco
@@ -210,8 +210,11 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
     { label: "Caixa atual", node: <ValorIndicador indicador={r.caixaCanonico} titulo="Caixa atual" />, tone: "ink" },
     { label: "Entradas previstas", node: <ValorIndicador indicador={r.entradasCanonicas} titulo="Entradas previstas" />, tone: "positive" },
     { label: "Saídas previstas", node: <ValorIndicador indicador={r.saidasCanonicas} titulo="Saídas previstas" />, tone: "ink" },
-    { label: "Geração de caixa", node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: r.geracaoCaixa >= 0 ? "positive" : "negative" },
-    { label: "Burn", node: <BRL value={r.burn} />, tone: "ink" },
+    // ⚠️ A4P-005: estes dois olham para lados OPOSTOS do tempo e ficam lado a
+    // lado. A janela de cada um vai NO CARTÃO — sem ela, a leitura natural é
+    // subtrair um do outro, e a conta não significa nada.
+    { label: "Geração de caixa", janela: r.janelaGeracao, node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: r.geracaoCaixa >= 0 ? "positive" : "negative" },
+    { label: "Burn", janela: r.janelaBurn, node: <BRL value={r.burn} />, tone: "ink" },
     // ⚠️ O "∞" saía de `>= 99`, que é o TETO do cálculo lido como se fosse a
     // medida — foi essa a linha que exibiu "33 meses de fôlego" ao lado de um
     // burn zero. Agora o cartão pergunta ao indicador se existe número.
@@ -235,6 +238,11 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
         <Card key={c.label} className="flex flex-col gap-1">
           <span className="text-caption text-faint">{c.label}</span>
           <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: cor[c.tone] }}>{c.node}</span>
+          {/* A janela só aparece onde ela DISTINGUE: marcar todos os cartões
+              seria não marcar nenhum, a mesma regra do selo de procedência. */}
+          {"janela" in c && c.janela ? (
+            <span className="text-[11px] leading-tight text-faint">{c.janela}</span>
+          ) : null}
         </Card>
       ))}
     </div>
@@ -303,7 +311,7 @@ function GrupoFluxo({ titulo, total, grupos, tom }: { titulo: string; total: num
 
 /* ---------- 3. Previsto x Realizado ---------- */
 function PrevRealView({ linhas }: { linhas: PrevRealLinha[] }) {
-  if (!linhas.length) return <Card><span className="text-caption text-faint">Sem lançamentos no período.</span></Card>;
+  if (!linhas.length) return <Card><span className="text-caption text-faint">Nenhum título venceu neste período.</span></Card>;
   return (
     <Card padded={false}>
       <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Tabela rolável">
@@ -311,8 +319,8 @@ function PrevRealView({ linhas }: { linhas: PrevRealLinha[] }) {
           <thead>
             <tr className="text-faint">
               <th className="text-left font-medium py-3 px-4">Linha</th>
-              <th className="text-right font-medium py-3 px-3">Planejado</th>
-              <th className="text-right font-medium py-3 px-3">Realizado</th>
+              <th className="text-right font-medium py-3 px-3">Venceu</th>
+              <th className="text-right font-medium py-3 px-3">Foi pago</th>
               <th className="text-right font-medium py-3 px-3">Diferença</th>
               <th className="text-right font-medium py-3 px-3">%</th>
               <th className="text-left font-medium py-3 px-4 w-[34%]">IA</th>

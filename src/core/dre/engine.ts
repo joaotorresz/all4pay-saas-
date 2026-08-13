@@ -56,14 +56,38 @@ interface Agg {
   receitaPorLinha: Record<LinhaReceita, number>;
   despesaPorLinha: Record<LinhaDespesa, number>;
 }
+/**
+ * ⚠️ **`receita` É A OPERACIONAL — a receita financeira NÃO entra aqui.**
+ *
+ * Ela somava TODA entrada, inclusive a classificada como `juros`. O efeito
+ * atravessava a cascata inteira: receita bruta, receita líquida, lucro bruto
+ * e **EBITDA** — que por definição exclui o resultado financeiro — saíam
+ * inflados pelo rendimento de aplicação. E a linha "Resultado financeiro" era
+ * **unilateral**: só subtraía a despesa financeira, então a receita financeira
+ * não aparecia onde deveria e aparecia onde não deveria.
+ *
+ * ⚠️ **Este motor estava errado; `core/relatorios` estava certo.** Lá a
+ * `receita_bruta` já exclui o financeiro e o `resultado_financeiro` entra com
+ * o sinal do movimento. Corrigir aqui é alinhar ao que já era a referência —
+ * não é uma terceira interpretação.
+ *
+ * ⚠️ **Por que a guarda LINHA 31c não pegava:** ela confronta esta cascata com
+ * a de `core/relatorios` par a par, e passava porque a fixture não tinha uma
+ * única entrada financeira. Duas implementações só divergem no dado que as
+ * separa; sem esse dado, comparar as duas não prova nada. A fixture passou a
+ * ter juros recebidos — é essa parte que impede o defeito de voltar.
+ */
 function agregar(movs: RiskMovement[]): Agg {
   const receitaPorLinha = { vendas: 0, servicos: 0, juros: 0, outras: 0 } as Record<LinhaReceita, number>;
   const despesaPorLinha = { impostos: 0, cmv: 0, folha: 0, financeiro: 0, opex: 0 } as Record<LinhaDespesa, number>;
   let receita = 0;
   for (const m of movs) {
     if (m.type === "entrada") {
-      receita += m.amount;
-      receitaPorLinha[classificarReceita(m.category)] += m.amount;
+      const linha = classificarReceita(m.category);
+      receitaPorLinha[linha] += m.amount;
+      // Só a OPERACIONAL entra na receita bruta. `juros` é resultado
+      // financeiro e é somado lá embaixo, uma vez só.
+      if (linha !== "juros") receita += m.amount;
     } else {
       despesaPorLinha[classificarDespesa(m.category)] += m.amount;
     }
@@ -83,7 +107,11 @@ export function dreGerencial(movs: RiskMovement[]): DREGerencial {
   const ebitda = lucroBruto - opex;
   const depreciacao = 0; // não informado no fluxo de movimentos
   const ebit = ebitda - depreciacao;
-  const financeiro = a.despesaPorLinha.financeiro;
+  // ⚠️ O resultado financeiro tem DOIS lados. Ele era só a despesa, então a
+  // receita financeira não tinha para onde ir — e acabava dentro da receita
+  // bruta, que é o defeito de cima. `financeiro` aqui é o LÍQUIDO: positivo
+  // quando a empresa ganhou mais do que pagou de juros.
+  const financeiro = a.despesaPorLinha.financeiro - a.receitaPorLinha.juros;
   const lair = ebit - financeiro;
   const ir = 0; // sem linha de IR dedicada nos dados
   const lucroLiquido = lair - ir;

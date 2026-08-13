@@ -92,8 +92,14 @@ function base(input: RiskInput, j: Janela, regime: Regime): Base {
     if (cancelado(m) || !dentro(j, dataDe(m, regime))) continue;
     rows.push(m);
     if (m.type === "entrada") {
-      receita += magnitude(m);
-      receitaPorLinha[classificarReceita(m.category)] += magnitude(m);
+      // ⚠️ `receita` é a OPERACIONAL. A receita financeira (juros, rendimento
+      // de aplicação) é resultado financeiro e entra só na sua linha — somá-la
+      // aqui inflava receita bruta, líquida, lucro bruto e o EBITDA, que por
+      // definição exclui o financeiro. Mesmo defeito que `core/dre/engine`
+      // tinha; `core/relatorios` sempre esteve certo e é a referência.
+      const linhaR = classificarReceita(m.category);
+      receitaPorLinha[linhaR] += magnitude(m);
+      if (linhaR !== "juros") receita += magnitude(m);
     } else {
       despesaPorLinha[classificarDespesa(m.category)] += magnitude(m);
     }
@@ -189,8 +195,12 @@ export const lucroLiquido = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
   linha(input, j, regime, "EBITDA − resultado financeiro",
+    // ⚠️ O resultado financeiro tem DOIS lados: a receita financeira soma, a
+    // despesa subtrai. Era só a despesa, e por isso o juros recebido não tinha
+    // para onde ir — acabava dentro da receita bruta.
     (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-      - b.despesaPorLinha.opex - b.despesaPorLinha.folha - b.despesaPorLinha.financeiro);
+      - b.despesaPorLinha.opex - b.despesaPorLinha.folha
+      - b.despesaPorLinha.financeiro + b.receitaPorLinha.juros);
 
 /* -------------------------------------------------------------------------- */
 /* 18. AS MARGENS — o caso perigoso                                            */
@@ -203,7 +213,8 @@ const NUMERADOR: Record<LinhaDaMargem, (b: Base) => number> = {
   ebitda: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
     - b.despesaPorLinha.opex - b.despesaPorLinha.folha,
   liquida: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-    - b.despesaPorLinha.opex - b.despesaPorLinha.folha - b.despesaPorLinha.financeiro,
+    - b.despesaPorLinha.opex - b.despesaPorLinha.folha
+    - b.despesaPorLinha.financeiro + b.receitaPorLinha.juros,
 };
 
 /**
