@@ -147,10 +147,20 @@ function Resumo({ input }: { input: RiskInput }) {
       {/* A coluna de leituras da referência: rótulo com glifo, valor-herói em
           cima e três linhas embaixo, cada uma com a sua variação. */}
       <div className="lg:w-[280px] shrink-0 lg:border-l border-border-soft lg:pl-6">
-        <span className="text-h2 text-muted">Saldo atual deste mês</span>
+        {/* ⚠️ **"deste mês" era MENTIRA sobre o número.** Este valor é o
+            `balance` somado das contas — a POSIÇÃO acumulada de toda a história
+            da empresa, conferida no extrato. Chamá-lo de "saldo atual deste
+            mês" fazia quem lê entender *resultado do mês*, e os dois são
+            grandezas diferentes: um não muda ao trocar o mês navegado, o outro
+            só fala do mês. É a mesma distinção POSIÇÃO × FLUXO que o
+            `BaseDoSaldo` declara nas telas de movimentação.
+            O resultado do mês continua logo abaixo, na terceira leitura, agora
+            nomeado como a métrica separada que ele é. */}
+        <span className="text-h2 text-muted">Saldo em conta hoje</span>
         <div className="a4p-heroi mt-2 tabular-nums leading-none">
           <BRL value={saldoAtual} />
         </div>
+        <span className="text-caption text-faint">Posição das contas, não o resultado do mês</span>
         <div className="mt-5 flex flex-col">
           {/* ⚠️ "CONSOLIDADO" NÃO É ENFEITE NO RÓTULO — é o que estes números
               já são. `entradas`/`saidas`/`resultado` rodam no regime de CAIXA,

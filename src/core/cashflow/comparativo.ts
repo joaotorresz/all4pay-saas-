@@ -232,7 +232,26 @@ function montarSankey(
   // categoria → contraparte → valor
   const arvore = new Map<string, Map<string, number>>();
   let totalDespesa = 0;
+  /**
+   * ⚠️ **A RECEITA É MEDIDA, não copiada da despesa.**
+   *
+   * O nó "Receita" recebia `totalDespesa` — o MESMO número da despesa e do
+   * total do widget. Medido na base real: o card exibia R$ 1.307.891,17 de
+   * "Receita" quando a receita do período era R$ 523.147,94; os R$ 1.307.891,17
+   * eram as SAÍDAS. Três números iguais na tela porque eram a mesma variável.
+   *
+   * Vinha de uma convenção de Sankey — "o primeiro elo carrega a parcela da
+   * receita que virou saída, daí os 100%" — que é defensável como FLUXO e
+   * indefensável como RÓTULO: quem lê "Receita R$ 1,3 milhão" entende
+   * faturamento, não "quanto da receita virou despesa".
+   *
+   * Agora a receita sai dos lançamentos de entrada do mesmo recorte, e
+   * reconcilia com a Receita Bruta do DRE no mesmo período (conferido: os dois
+   * dão R$ 523.147,94 em 365 dias e R$ 37.770,27 em 90).
+   */
+  let totalReceita = 0;
   for (const m of noPeriodo) {
+    if (m.type === "entrada") { totalReceita += m.amount; continue; }
     if (m.type !== "saida") continue;
     totalDespesa += m.amount;
     const cat = m.category || CATEGORIA_PADRAO;
@@ -246,9 +265,26 @@ function montarSankey(
   const links: SankeyLigacao[] = [];
   if (!totalDespesa) return { nodes, links, total: 0 };
 
-  const idxReceita = nodes.push({ name: "Receita", valor: totalDespesa, nivel: 0 }) - 1;
+  const idxReceita = nodes.push({ name: "Receita", valor: totalReceita, nivel: 0 }) - 1;
   const idxDespesa = nodes.push({ name: "Despesas", valor: totalDespesa, nivel: 1 }) - 1;
-  links.push({ source: idxReceita, target: idxDespesa, value: totalDespesa });
+  /**
+   * ⚠️ **O elo não pode carregar mais do que a fonte tem.** Num Sankey, o que
+   * sai de um nó é limitado pelo que entrou nele: mandar R$ 1,3 milhão para
+   * fora de uma "Receita" de R$ 523 mil desenha dinheiro que não existiu.
+   *
+   * Quando a despesa supera a receita — que é o caso de toda empresa que queima
+   * caixa, ou seja, exatamente quando alguém abre esta tela — a diferença tem
+   * uma origem, e ela é o CAIXA. Nomeá-la é o que torna o desenho honesto: o
+   * gráfico passa a mostrar que parte do gasto NÃO foi paga pelo faturamento
+   * do período.
+   */
+  links.push({ source: idxReceita, target: idxDespesa, value: Math.min(totalReceita, totalDespesa) });
+  if (totalDespesa > totalReceita) {
+    const idxCaixa = nodes.push({
+      name: "Caixa (déficit do período)", valor: totalDespesa - totalReceita, nivel: 0,
+    }) - 1;
+    links.push({ source: idxCaixa, target: idxDespesa, value: totalDespesa - totalReceita });
+  }
 
   // Categorias das maiores para as menores; no máximo 8 (o resto vira "Outras").
   const cats = Array.from(arvore.entries())
