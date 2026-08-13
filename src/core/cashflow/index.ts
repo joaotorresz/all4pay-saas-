@@ -281,7 +281,7 @@ export function montarFluxoCaixa(
     .map(([label, v]) => {
       const diff = v.real - v.plan;
       const pct = v.plan > 0 ? v.real / v.plan - 1 : (v.real > 0 ? 1 : 0);
-      return { label, planejado: v.plan, realizado: v.real, diff, pct, ia: comentarioPR(label, pct, diff) };
+      return { label, planejado: v.plan, realizado: v.real, diff, pct, ia: comentarioPR(label, pct, diff, v.real, v.plan) };
     })
     .sort((a, b) => (b.planejado + b.realizado) - (a.planejado + a.realizado))
     .slice(0, 8);
@@ -401,7 +401,27 @@ export function montarFluxoCaixa(
 }
 
 // ---------- sub-helpers ----------
-function comentarioPR(label: string, pct: number, diff: number): string {
+/**
+ * ⚠️ **A IA NÃO OPINA SOBRE UM ZERO QUE NÃO PODIA SER OUTRA COISA.**
+ *
+ * A janela deste bloco é `[hoje, hoje + N dias]` — para FRENTE. Pagamento
+ * acontece no passado: medido na base real, **101 de 101 lançamentos pagos têm
+ * `paid_date` anterior a hoje, e nenhum cai na janela**. O lado "Realizado" é,
+ * por construção, zero para tudo que ainda vai vencer.
+ *
+ * Sobre esse zero estrutural a frase saía como *"Abaixo do previsto (−100%) —
+ * verifique atraso ou redução em Folha de pagamento"*, mandando o dono
+ * investigar um atraso que não existe. É pior que um número errado: é um número
+ * errado com uma ordem de serviço em cima.
+ *
+ * Enquanto a janela não for decidida (ver o relatório do item 3), a linha diz o
+ * que de fato sabe — que o período ainda não aconteceu — em vez de inventar uma
+ * causa.
+ */
+function comentarioPR(label: string, pct: number, diff: number, realizado = 0, planejado = 0): string {
+  if (realizado === 0 && planejado > 0) {
+    return "Ainda não realizado — o período está à frente, então não há execução a comparar.";
+  }
   if (Math.abs(pct) < 0.03) return "Em linha com o planejado.";
   if (pct > 0) return diff > 0
     ? `Acima do previsto (+${Math.round(pct * 100)}%) — possível crescimento operacional ou reajuste de ${label}.`
