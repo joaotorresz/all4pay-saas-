@@ -77,6 +77,7 @@ import { problemaDoIntervalo } from "@/core/indicadores";
 import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
 import { eliminacoesIntercompany, montarDRE } from "@/core/relatorios";
 import { cascataDRE, REGRAS_CASCATA } from "@/core/relatorios/cascata";
+import { classificarReceita } from "@/core/indicadores/classificacao";
 import { ponteRupturaRunway, contradicoesSemPonte } from "@/core/ia/coerencia";
 import { calcularConfianca } from "@/core/ia/confianca";
 import {
@@ -503,7 +504,29 @@ const AGOSTO = janelaMes(2026, 7);
   eq("cruzado: DRE competência == entradas canônicas (competência)", dreEnt, compE);
 
   const dre = dreGerencial(rows);
-  eq("cruzado: receita bruta do DRE == entradas canônicas", dre.receitaBruta, compE);
+  /**
+   * ⚠️ **ESTA ASSERÇÃO EXIGIA O DEFEITO, e por isso ele sobreviveu.**
+   *
+   * Ela afirmava `receita bruta == todas as entradas`. Isso só é verdade numa
+   * empresa que nunca teve rendimento de aplicação — e é falso por construção:
+   * *entradas* é um conceito de CAIXA (tudo que entrou) e *receita bruta* é um
+   * conceito de RESULTADO (o que a operação faturou). Juros recebidos entram no
+   * caixa e não são faturamento.
+   *
+   * Enquanto ela existiu nesta forma, corrigir `dreGerencial` REPROVAVA a
+   * matriz — a guarda protegia o número inflado. Esta fixture tem R$ 900 de
+   * receita financeira, e foi ela que denunciou a troca.
+   *
+   * A identidade correta não perde nada: as duas partes somadas têm de dar as
+   * entradas. Nada some, nada é contado duas vezes.
+   */
+  const receitaFin = rows
+    .filter((m) => m.type === "entrada" && classificarReceita(m.category) === "juros")
+    .reduce((s, m) => s + Math.abs(m.amount), 0);
+  ok("cruzado: a fixture TEM receita financeira (senão esta linha não prova nada)",
+     receitaFin > 0, `receitaFinanceira=${receitaFin}`);
+  eq("cruzado: receita bruta do DRE + receita financeira == entradas canônicas",
+     dre.receitaBruta + receitaFin, compE);
 
   const compS = saidas(INPUT, AGOSTO, "competencia").valor;
   const dreDesp = rows.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -2898,6 +2921,61 @@ const AGOSTO = janelaMes(2026, 7);
   par("lucro bruto", p.lucroBruto, g.lucroBruto);
   par("EBITDA", p.ebitda, g.ebitda);
   par("lucro líquido", p.lucroLiquido, g.lucroLiquido);
+
+  /* ─────────────────────────────────────────────────────────────────────────
+   * ⚠️ **A RECEITA FINANCEIRA — o dado que faltava para esta guarda provar algo**
+   * ─────────────────────────────────────────────────────────────────────────
+   *
+   * As asserções acima confrontam `painelResultado` com `dreGerencial`, e
+   * passavam com os DOIS errados: ambos somavam a receita financeira dentro da
+   * receita bruta, então ela atravessava receita líquida, lucro bruto e o
+   * **EBITDA** — que por definição exclui o resultado financeiro. Duas
+   * implementações só divergem no dado que as separa; sem uma única entrada
+   * financeira na fixture, comparar as duas não prova nada.
+   *
+   * `core/relatorios` sempre esteve certo (a `receita_bruta` exclui o
+   * financeiro e o `resultado_financeiro` entra com o sinal do movimento), e é
+   * contra ele que as outras duas passam a ser conferidas — com juros no
+   * meio, que é a única forma de a comparação ter conteúdo.
+   *
+   * Provado plantando: devolvendo `receita += m.amount` para toda entrada, as
+   * três primeiras asserções deste bloco reprovam.
+   */
+  {
+    const HOJE = "2026-07-15";
+    const J2 = janelaMes(2026, 6); // julho — janelaMes é 0-indexado
+    const mv = (o: Partial<RiskMovement>): RiskMovement =>
+      ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+         due_date: "2026-07-10", paid_date: "2026-07-10", status: "pago",
+         category: "Vendas", party_id: null, ...o }) as RiskMovement;
+    const movs = [
+      mv({ amount: 100_000, category: "Vendas de produtos" }),
+      mv({ amount: 30_000, category: "Rendimento de aplicação" }),   // receita FINANCEIRA
+      mv({ type: "saida", amount: 20_000, category: "Fornecedores" }),
+      mv({ type: "saida", amount: 10_000, category: "Folha de pagamento" }),
+      mv({ type: "saida", amount: 2_000, category: "Tarifas bancárias" }), // despesa financeira
+    ];
+    const inp = { hoje: HOJE, saldoAtual: 0, partyNames: {}, movements: movs } as unknown as RiskInput;
+
+    const cas = cascataDRE(inp, { intervalo: { de: J2.de, ate: J2.ate } });
+    const gf = dreGerencial(movs);
+    const pf = painelResultado(inp, J2, "competencia");
+
+    eq("financeira: receita bruta do dreGerencial == a de core/relatorios (100k, sem os juros)",
+       gf.receitaBruta, cas.linhas.receita_bruta.valor);
+    eq("financeira: receita bruta canônica == a de core/relatorios",
+       pf.receitaBruta.valor, cas.linhas.receita_bruta.valor);
+    // ⚠️ A asserção que nomeia o defeito: EBITDA exclui o resultado financeiro.
+    // Com o juros dentro da receita, ele saía 30.000 maior.
+    eq("financeira: EBITDA do dreGerencial == o de core/relatorios (juros FORA)",
+       gf.ebitda, cas.linhas.ebitda.valor);
+    ok("financeira: os juros não estão dentro da receita bruta",
+       Math.abs(gf.receitaBruta - 100_000) < 1e-6, `receitaBruta=${gf.receitaBruta}`);
+    // E a contrapartida: eles não somem — aparecem no resultado financeiro,
+    // com os dois lados (30.000 de receita − 2.000 de tarifa = +28.000).
+    eq("financeira: o resultado financeiro tem os DOIS lados (+28.000)",
+       cas.linhas.resultado_financeiro.valor, 28_000);
+  }
   par("margem EBITDA", p.margemEbitda, g.margemEbitda);
   par("margem bruta", p.margemBruta, g.margemBruta);
 
