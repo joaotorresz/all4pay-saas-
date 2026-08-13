@@ -75,7 +75,8 @@ import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
 import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
-import { eliminacoesIntercompany } from "@/core/relatorios";
+import { eliminacoesIntercompany, montarDRE } from "@/core/relatorios";
+import { cascataDRE, REGRAS_CASCATA } from "@/core/relatorios/cascata";
 import { ponteRupturaRunway, contradicoesSemPonte } from "@/core/ia/coerencia";
 import { calcularConfianca } from "@/core/ia/confianca";
 import {
@@ -2978,6 +2979,130 @@ const AGOSTO = janelaMes(2026, 7);
      faltando.indisponivel?.codigo === "sem_base", String(faltando.valor));
   ok("onda4: e o motivo NOMEIA quem faltou",
      (faltando.indisponivel?.motivo ?? "").includes("Operadora"), faltando.indisponivel?.motivo ?? "");
+}
+
+
+/* ========================================================================== */
+/* LINHA 31d — CONTRATO: o cartão do DRE == a linha da tabela.               */
+/* ========================================================================== */
+{
+  /**
+   * ⚠️ **O defeito que esta guarda fixa.** Na tela `/dashboard/reports/dre`, os
+   * cartões do topo e a tabela abaixo discordavam: os cartões saíam de
+   * `painelResultado`, cuja base soma TODA entrada em `receita` — inclusive a
+   * financeira — enquanto a tabela sempre excluiu o financeiro da Receita Bruta.
+   * Receita Líquida e EBITDA dos cartões vinham inflados **exatamente pela
+   * receita financeira do período**.
+   *
+   * ⚠️ **Por que nenhuma guarda pegou.** A LINHA 31c compara a cascata canônica
+   * com `dreGerencial` — e os dois compartilham a MESMA base errada
+   * (`core/dre/engine.ts:65`, `receita += m.amount`). Duas implementações
+   * erradas do mesmo jeito concordam perfeitamente. É a terceira guarda desta
+   * base a passar por coincidência, e a mais cara: ela cobria a tela em que o
+   * número vira decisão.
+   *
+   * ⚠️ **E o Lucro Líquido BATIA**, o que fazia a divergência parecer
+   * impossível: os cartões somavam a receita financeira em cima e subtraíam a
+   * despesa financeira embaixo; a tabela deixava as duas no meio. Os dois
+   * chegam ao mesmo fim por caminhos diferentes.
+   */
+  const linhaDaTabela = (r: ReturnType<typeof montarDRE>, id: string) =>
+    r.linhas.find((l) => l.id === id)?.total.valor ?? NaN;
+
+  /* ---- 1. Para QUALQUER período e filtro, cartão == linha ---------------- */
+  const PERIODOS = [
+    { de: "2026-08-01", ate: "2026-08-31" },
+    { de: "2025-09-01", ate: "2026-08-31" },
+    { de: "2026-01-01", ate: "2026-12-31" },
+    { de: "2026-06-01", ate: "2026-06-30" },
+  ];
+  const FILTROS: { nome: string; f: Record<string, unknown> }[] = [
+    { nome: "sem filtro", f: {} },
+    { nome: "por conta", f: { conta: "acc-1" } },
+    { nome: "por centro", f: { centro: "Comercial" } },
+  ];
+  const PARES: [string, string][] = [
+    ["Receita líquida", "receita_liquida"],
+    ["EBITDA", "ebitda"],
+    ["Lucro líquido", "resultado_liquido"],
+  ];
+  for (const intervalo of PERIODOS) {
+    for (const { nome, f } of FILTROS) {
+      const c = cascataDRE(INPUT, { intervalo, ...f });
+      const tab = montarDRE(INPUT, { intervalo, tipo: "vertical", ...f });
+      for (const [rotulo, id] of PARES) {
+        const doCartao = c.linhas[id as keyof typeof c.linhas];
+        if (doCartao.indisponivel) continue;
+        eq(`contrato-dre: cartão "${rotulo}" == linha da tabela (${intervalo.de}..${intervalo.ate}, ${nome})`,
+           doCartao.valor, linhaDaTabela(tab, id));
+      }
+    }
+  }
+
+  /* ---- 2. As regras que a especificação nomeia --------------------------- */
+  const cRef = cascataDRE(INPUT, { intervalo: { de: "2025-09-01", ate: "2026-08-31" } });
+  for (const r of REGRAS_CASCATA) {
+    eq(`contrato-dre: ${r.nome}`, r.diferenca(cRef), 0);
+  }
+
+  /* ---- 3. O CASO QUE O DEFEITO ESCONDIA: financeiro inverte o sinal ------ */
+  /**
+   * ⚠️ Este é o caso que dá valor à guarda inteira. Uma operação que PERDE
+   * dinheiro (EBITDA negativo) mas tem uma receita financeira grande — resgate
+   * de aplicação, juros de um caixa parado — aparecia com **EBITDA positivo**
+   * nos cartões. O dono lia "a operação deu lucro" quando ela deu prejuízo, e
+   * o número que o desmentiria (a tabela) estava logo abaixo, discordando.
+   */
+  const OPERACAO_NO_PREJUIZO: RiskMovement[] = [
+    mv("v1", "entrada", "pago", 100_000, "2026-08-05", "2026-08-05", "Vendas", "C1"),
+    mv("f1", "saida", "pago", 260_000, "2026-08-05", "2026-08-05", "Folha de pagamento", "F1"),
+    // A receita financeira, sozinha, maior que o buraco da operação.
+    mv("j1", "entrada", "pago", 400_000, "2026-08-10", "2026-08-10", "Juros recebidos", "B1"),
+  ];
+  const inputPrejuizo: RiskInput = { ...INPUT, movements: OPERACAO_NO_PREJUIZO };
+  const jan = { de: "2026-08-01", ate: "2026-08-31" };
+  const cp = cascataDRE(inputPrejuizo, { intervalo: jan });
+  const tp = montarDRE(inputPrejuizo, { intervalo: jan, tipo: "vertical" });
+
+  eq("contrato-dre: com juros grandes, EBITDA do cartão == o da tabela",
+     cp.linhas.ebitda.valor, linhaDaTabela(tp, "ebitda"));
+  eq("contrato-dre: e vale −160.000 (100k de venda − 260k de folha)",
+     cp.linhas.ebitda.valor, -160_000);
+  ok("contrato-dre: o EBITDA continua NEGATIVO apesar dos R$ 400.000 de juros",
+     cp.linhas.ebitda.valor < 0, String(cp.linhas.ebitda.valor));
+  eq("contrato-dre: a receita financeira está na linha dela, não na receita",
+     cp.linhas.resultado_financeiro.valor, 400_000);
+  eq("contrato-dre: e a Receita Bruta NÃO a contém",
+     cp.linhas.receita_bruta.valor, 100_000);
+  // E o lucro líquido continua fechando — é ele que sempre batia.
+  eq("contrato-dre: lucro líquido == EBITDA + resultado financeiro",
+     cp.linhas.resultado_liquido.valor, -160_000 + 400_000);
+
+  /**
+   * A fórmula ANTIGA, reproduzida aqui para mostrar o que se perdia: somando a
+   * receita financeira na receita, o EBITDA sairia +240.000 — POSITIVO — sobre
+   * a mesma operação que perdeu R$ 160.000.
+   */
+  const comoEra = (100_000 + 400_000) - 260_000;
+  ok("contrato-dre: a fórmula antiga inverteria o sinal (prova do que se corrigiu)",
+     comoEra > 0 && cp.linhas.ebitda.valor < 0, `antiga ${comoEra} × atual ${cp.linhas.ebitda.valor}`);
+
+  /* ---- 4. Margem: denominador zero é ausência, não 0% -------------------- */
+  const soDespesaDRE: RiskInput = {
+    ...INPUT,
+    movements: [mv("d9", "saida", "pago", 5_000, "2026-08-05", "2026-08-05", "Folha de pagamento", "F")],
+  };
+  const cm = cascataDRE(soDespesaDRE, { intervalo: jan });
+  ok("contrato-dre: margem EBITDA sem receita líquida é AUSÊNCIA, não 0%",
+     cm.margemEbitda.indisponivel?.codigo === "sem_base",
+     String(cm.margemEbitda.indisponivel?.codigo ?? cm.margemEbitda.valor));
+
+  /* ---- 5. A tela não pode voltar a ter duas contas ----------------------- */
+  const telaDRE = ler("src/components/relatorios/DemonstrativoView.tsx");
+  ok("contrato-dre: os cartões leem a cascata única, não uma segunda agregação",
+     /cascataDRE\(/.test(telaDRE) && !/painelResultado\(/.test(telaDRE));
+  ok("contrato-dre: todo cartão de valor recebe a cor de prejuízo",
+     (telaDRE.match(/tom: tomDe\(/g) ?? []).length >= 5);
 }
 
 
