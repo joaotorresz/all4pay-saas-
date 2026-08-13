@@ -115,6 +115,37 @@ export const TABELAS_COM_AMOSTRA = [
 export type IncluirAmostra = "incluir-amostra";
 
 /**
+ * POR QUE a linha está marcada. `is_sample` sozinho significava duas coisas com
+ * destinos diferentes, e a purga em lote trataria as duas igual.
+ *
+ * - **`onboarding_demo`** — veio do botão "Carregar amostra". Não é dado de
+ *   ninguém: purga em lote, sem cerimônia.
+ * - **`lancamento_teste`** — lixo de teste marcado à mão, pelo id. É um registro
+ *   que EXISTIU na operação de uma empresa; o desfecho correto é ser cancelado
+ *   com trilha, não sumir.
+ *
+ * ⚠️ **DÍVIDA TÉCNICA — `lancamento_teste` é provisório.**
+ * Origem: prompt **P-01** (isolamento do dado de amostra, 13/08/2026).
+ * Vence com: prompt **P-10** (Central Financeira).
+ *
+ * Ele existe porque hoje não há onde pôr um lançamento que aconteceu e não
+ * vale. Quando a Central Financeira tiver o estado **Cancelado** de primeira
+ * classe, o lançamento de R$ 500.000 com descrição "Teste" passa a ser um
+ * cancelado — com autor, data e motivo — e sai desta flag.
+ *
+ * Ao fazer P-10: converter a linha para Cancelado, limpar `is_sample` e
+ * `sample_reason`, e remover o valor do enum no banco. **Se o valor ainda
+ * existir depois de P-10, a dívida não foi paga — só mudou de lugar.**
+ */
+export type MotivoAmostra = "onboarding_demo" | "lancamento_teste";
+
+/** O rótulo em português de cada motivo — o banner não fala `onboarding_demo`. */
+export const ROTULO_MOTIVO: Record<MotivoAmostra, string> = {
+  onboarding_demo: "importados pelo botão de amostra",
+  lancamento_teste: "lançamentos de teste",
+};
+
+/**
  * O contrato mínimo do construtor.
  *
  * ⚠️ **Sem restrição recursiva** (`T extends ComIgual<T>`, como faz `comTeto`).

@@ -3326,6 +3326,27 @@ const AGOSTO = janelaMes(2026, 7);
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "")
       .replace(/^\s*\*.*$/gm, "");
+    /**
+     * ⚠️ **A DÍVIDA TÉCNICA TEM DE CONTINUAR VISÍVEL.** `lancamento_teste` é um
+     * valor PROVISÓRIO do enum: ele existe porque hoje não há estado Cancelado
+     * de primeira classe, e vence quando a Central Financeira (P-10) chegar.
+     *
+     * Sem esta guarda, a nota que explica isso é um comentário como outro
+     * qualquer — some numa refatoração e o provisório vira permanente sem
+     * ninguém decidir. Ela cobra que os dois lados (o motor e a migration)
+     * continuem citando a origem (P-01) e o vencimento (P-10).
+     */
+    const debitoOndeVive = [
+      "src/lib/supabase/consulta.ts",
+      "supabase/migrations/20260813150045_amostra_declara_o_motivo.sql",
+    ];
+    const semDivida = debitoOndeVive.filter((f) => {
+      const t = ler(f);
+      return !(/lancamento_teste/.test(t) && /P-01/.test(t) && /P-10/.test(t));
+    });
+    ok("amostra: a dívida de `lancamento_teste` continua declarada com origem e vencimento",
+       semDivida.length === 0, semDivida.join(" | "));
+
     const bannerTxt = ler("src/components/app/BannerAmostra.tsx");
     ok("amostra: o banner não tem como ser dispensado",
        /Esta organização contém dados de demonstração/.test(bannerTxt)

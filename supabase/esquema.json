@@ -110,7 +110,9 @@
     "20260811115711_arvore_do_plano_compara_enum_nao_texto",
     "20260812144846_categoria_declara_a_linha_do_dre",
     "20260813141626_dado_de_demonstracao_tem_marca",
-    "20260813141800_own_integracao_adquirencia"
+    "20260813141800_own_integracao_adquirencia",
+    "20260813144459_own_token_cache_pull_first",
+    "20260813150045_amostra_declara_o_motivo"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -125,12 +127,12 @@
     ],
     "aplicadas_sem_arquivo": [
       {
-        "nome": "20260813141800_own_integracao_adquirencia",
-        "motivo": "aplicada direto ao banco de produção por outro escritor em 13/08/2026, às 14:18 — nove minutos depois da migration da marca de demonstração. Não passou por arquivo no repositório, então o SQL só existe em `supabase_migrations.schema_migrations.statements`.",
-        "impacto": "um ambiente montado do zero nasce SEM os objetos que ela cria (as contagens de tabela subiram de 66 para 75 entre um retrato e outro). Enquanto o arquivo não existir, `db reset` produz um banco diferente do de produção — que é exatamente a deriva que esta guarda existe para impedir.",
+        "nome": "20260813144459_own_token_cache_pull_first",
+        "motivo": "aplicada direto ao banco de producao pela MESMA sessao de agente da integracao OWN, em 13/08/2026 as 14:44 — ou seja, DEPOIS de a divergencia anterior da mesma sessao ter sido detectada, e enquanto ela estava sendo reconciliada. Nao passou por arquivo no repositorio.",
+        "impacto": "um ambiente montado do zero nasce sem os objetos que ela cria. O SQL literal existe em supabase_migrations.schema_migrations.statements e e recuperavel pelo mesmo procedimento usado nas outras (md5 conferido), mas depende de alguem perceber.",
         "reconstruir_ate": "2026-08-20",
-        "origem": "outro escritor — NÃO foi criada nesta sessão; recuperar o SQL literal de `schema_migrations.statements` e provar a fidelidade pelo md5, como foi feito com as 26 de 05/08/2026",
-        "aplicada_em": "2026-08-13"
+        "aplicada_em": "2026-08-13",
+        "origem": "outro escritor (sessao de agente da integracao OWN) — NAO foi criada nesta sessao. Ver CONTRIBUTING.md: e o caso que motivou a regra."
       }
     ],
     "arquivo_sem_aplicacao": [],
