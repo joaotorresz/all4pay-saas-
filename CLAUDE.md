@@ -1204,6 +1204,37 @@ Eles seguem nas listas depois da purga. Ficaram fora porque cadastro não é
 lançamento e porque um contato pode ter sido editado e virado cadastro de
 verdade — pendência VISÍVEL na migration, não esquecimento.
 
+### ⚠️ O DRE DE TODO CLIENTE NOVO É CLASSIFICADO POR ADIVINHAÇÃO, EM SILÊNCIO
+
+`FiltroRelatorio.linhaPorCategoria` — a linha DECLARADA de cada categoria, que
+**vence** o palpite por palavra-chave — era alimentado **só pelo plano de contas
+LOCAL** (`lib/registros.linhasDeCategoria`, que lê o que a tela de Cadastros
+gravou). Quem nunca abriu aquela tela não tinha linha declarada nenhuma, e o
+motor caía no regex sobre o nome da categoria **sem nada dizer**.
+
+⚠️ **Isto não é defeito de uma organização: é o comportamento PADRÃO de todo
+cliente novo.** Ninguém termina o onboarding com o plano de contas declarado —
+então o DRE de quem acabou de entrar é montado por adivinhação, e a tela não
+avisa. O palpite acerta enquanto as categorias são as de fábrica e erra calado
+na primeira que a empresa cria com o nome dela.
+
+O que já foi feito: `getLinhasDeCategoria()` (`lib/data`) lê
+`categories.dre_linha` — a tabela que os LANÇAMENTOS referenciam — e o relatório
+mescla as duas fontes. Isso faz a declaração funcionar; **não** faz ninguém
+declarar.
+
+**Medido:** na organização auditada, sem a linha declarada, INSS patronal e IRPJ
+caíam em *dedução sobre a receita* (`ehImpostoVenda` casa `\binss\b` e
+`\birpj\b`), levando a dedução a **47,54% da receita bruta** — impossível em
+qualquer regime brasileiro. Encargo de folha e imposto sobre o lucro entrando
+ACIMA do EBITDA fazem a DRE afirmar que a OPERAÇÃO vai pior do que vai.
+
+⚠️ **Consequência de produto, na fila e ainda NÃO resolvida.** Uma das duas:
+ou **o onboarding obriga a declarar o plano de contas**, ou **o DRE declara na
+tela que está classificando por palpite** até alguém declarar. Enquanto nenhuma
+das duas existir, o sistema entrega um DRE adivinhado com a mesma cara de um
+DRE conferido — e é essa indistinguibilidade que faz o defeito atravessar.
+
 ### ⚠️ TODA FIXTURE PROVA QUE O CAMINHO TESTADO RECEBEU VALOR
 
 **Asserte que o número MUDOU, não apenas que nada quebrou.** Um teste verde só

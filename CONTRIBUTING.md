@@ -91,6 +91,36 @@ O corte é entre **forma** e **conteúdo**: mudar a forma (tabela, coluna,
 política, função, gatilho) é migration; corrigir conteúdo (marcar uma linha,
 apagar duplicata) é operação, e a trilha de auditoria a registra.
 
+### ⚠️ RECLASSIFICAR DADO É EXPAND/CONTRACT — o código que INTERPRETA vai antes
+
+A regra do expand/contract vale para **dado**, não só para schema:
+
+> **Reclassificação de dado só entra em produção DEPOIS do código que a
+> interpreta.** Primeiro publica-se quem sabe ler a nova forma; só então o dado
+> muda de forma.
+
+**O caso que a motivou (14/08).** Uma categoria genérica "Impostos" foi separada
+em quatro — Simples Nacional, INSS patronal, FGTS e IRPJ/CSLL — com a natureza
+declarada em `categories.dre_linha`. O dado foi reclassificado em produção
+**antes** de o código que lê `dre_linha` estar publicado. Resultado: produção
+ficou num estado PARCIAL, com o palpite por palavra-chave ainda mandando —
+deduções caíram de R$ 248.707,93 para R$ 204.068,69, exatamente o FGTS, **o
+único dos quatro que o regex soltou**. INSS, IRPJ e Simples seguiram presos na
+dedução, e o DRE mostrou 39,0% de dedução sobre a receita: ainda impossível em
+qualquer regime brasileiro.
+
+⚠️ **E a invariante segurou por SORTE, não por desenho.** O resultado líquido
+não se mexeu porque as três categorias presas continuaram caindo em linhas que
+se anulam na cascata — coincidência da ordem em que os regex casam, não
+propriedade da operação. Numa separação em que o regex soltasse duas das quatro,
+o fundo teria mudado, e a janela entre a reclassificação e o deploy teria
+publicado um resultado errado para o cliente.
+
+**Na prática:** o PR que ensina o código a ler a nova classificação vai primeiro
+e **merge antes**; o `UPDATE` que reclassifica vem depois. Se a ordem se
+inverter por acidente, a janela é visível — e o conserto é mergear, não
+reverter o dado.
+
 ---
 
 ## Depois de aplicar qualquer coisa
