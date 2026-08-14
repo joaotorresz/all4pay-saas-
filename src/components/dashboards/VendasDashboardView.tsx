@@ -39,14 +39,33 @@ const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const RE = {
   reembolso: /reembol/i,
   chargeback: /chargeback|estorno/i,
+  /*
+   * ⚠️ `marketing` sobreviveu porque CAC não é linha do DRE: "quanto gastei
+   * para adquirir cliente" é recorte de VENDA, e a `ESTRUTURA_DRE` não tem
+   * essa linha. Mantê-lo aqui é honesto; movê-lo para a cascata seria inventar
+   * estrutura contábil para caber uma métrica de marketing.
+   *
+   * ⚠️ **`variavel` e `foraEbitda` FORAM REMOVIDOS.** Eles eram a
+   * classificação PRÓPRIA desta tela — a sexta do sistema — e produziam margem
+   * de contribuição e EBITDA que ninguém obrigava a concordar com o relatório.
+   * Quem responde por essas três linhas agora é `cascataDRE`.
+   */
   marketing: /marketing|ads|an[úu]ncio|facebook|google|tr[áa]fego|publicidade|m[íi]dia/i,
-  variavel: /cmv|custo|mercadoria|insumo|comiss|taxa|gateway|adquir|frete|fornecedor/i,
-  // despesas FORA do EBITDA (financeiro, depreciação/amortização, IR/CSLL):
-  foraEbitda: /juros|financ|empr[ée]st|deprecia|amortiz|irpj|csll|imposto de renda/i,
 };
 
 const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.due_date || mv.paid_date || "";
 import { chartAnim } from "@/lib/chart-anim";
+/*
+ * ⚠️ **A cascata é a fonte de RECEITA, MC e EBITDA desta tela.** Antes elas
+ * saíam de uma soma inline com regex próprio (`RE.variavel`, `RE.foraEbitda`) e
+ * `receita` era TODA entrada — empréstimo, aporte e rendimento inclusive. Era a
+ * sexta contagem de resultado do sistema (`docs/auditoria.md`, #10).
+ *
+ * O que continua saindo do laço: CAC, LTV, clientes distintos, marketing,
+ * reembolso e chargeback. Eles não são linhas do DRE — são leituras de VENDA, e
+ * migrá-las para a cascata seria inventar linha que a estrutura não tem.
+ */
+import { cascataDRE } from "@/core/relatorios/cascata";
 
 export function VendasDashboardView() {
   const { data, isLoading } = useRiscoInput();
@@ -74,7 +93,7 @@ export function VendasDashboardView() {
     };
     let reembMes = 0, reembAno = 0, chargeMes = 0, chargeAno = 0;
     // séries mensais do ANO selecionado (12 meses) p/ os gráficos
-    const monthly = Array.from({ length: 12 }, () => ({ receita: 0, despVar: 0, despOp: 0 }));
+    const monthly = Array.from({ length: 12 }, () => ({ receita: 0, mc: 0, ebitda: 0 }));
     // série da SEMANA-âncora (domingo→sábado)
     const semana = WEEKDAYS.map((d) => ({ dia: d, receita: 0 }));
     // âncora da semana: hoje se o mês selecionado é o atual; senão o último dia do mês
@@ -97,10 +116,11 @@ export function VendasDashboardView() {
       const inTri = inAno && mi >= qStart && mi < qStart + 3;
 
       if (mv.type === "entrada") {
-        if (inMes) { W.mes.receita += v; if (mv.party_id) W.mes.cli.add(mv.party_id); }
-        if (inTri) { W.tri.receita += v; if (mv.party_id) W.tri.cli.add(mv.party_id); }
-        if (inAno) { W.ano.receita += v; if (mv.party_id) W.ano.cli.add(mv.party_id); monthly[mi].receita += v; }
-        // semana
+        // ⚠️ Só os CLIENTES e a série da semana saem do laço. Receita é linha do
+        // DRE e vem da cascata — ver abaixo.
+        if (inMes && mv.party_id) W.mes.cli.add(mv.party_id);
+        if (inTri && mv.party_id) W.tri.cli.add(mv.party_id);
+        if (inAno && mv.party_id) W.ano.cli.add(mv.party_id);
         const d = new Date(ds + "T00:00:00");
         if (d >= domingo && d <= sabado) semana[d.getDay()].receita += v;
       } else {
@@ -110,12 +130,33 @@ export function VendasDashboardView() {
         if (ehMkt) { if (inMes) W.mes.marketing += v; if (inTri) W.tri.marketing += v; if (inAno) W.ano.marketing += v; }
         if (ehReemb) { if (inMes) reembMes += v; if (inAno) reembAno += v; }
         if (ehCharge) { if (inMes) chargeMes += v; if (inAno) chargeAno += v; }
-        if (inAno) {
-          if (RE.variavel.test(cat)) monthly[mi].despVar += v;
-          if (!RE.foraEbitda.test(cat)) monthly[mi].despOp += v; // entra no EBITDA
-        }
       }
     }
+
+    /* ── RECEITA, MARGEM DE CONTRIBUIÇÃO E EBITDA: da cascata ─────────────── */
+    /*
+     * ⚠️ Uma chamada por mês do ano e uma por janela. A cascata classifica pela
+     * `ESTRUTURA_DRE` — a mesma que desenha o relatório — então "receita" aqui
+     * passa a ser FATURAMENTO, e não "tudo que entrou". Na base auditada a
+     * diferença é de R$ 15.000 de empréstimo bancário e R$ 20.000 de
+     * transferência entre contas próprias.
+     */
+    const janelaCascata = (de: string, ate: string) =>
+      cascataDRE(data, { intervalo: { de, ate }, regime: "competencia" });
+    const ultimoDia = (ano: number, mesIdx: number) => `${ano}-${pad(mesIdx + 1)}-${pad(new Date(ano, mesIdx + 1, 0).getDate())}`;
+
+    for (let i = 0; i < 12; i++) {
+      const c = janelaCascata(`${Y}-${pad(i + 1)}-01`, ultimoDia(Y, i));
+      monthly[i].receita = c.linhas.receita_bruta.valor;
+      monthly[i].mc = c.linhas.margem_contribuicao.valor;
+      monthly[i].ebitda = c.linhas.ebitda.valor;
+    }
+    const cMes = janelaCascata(`${monthSel}-01`, ultimoDia(Y, M));
+    const cTri = janelaCascata(`${Y}-${pad(qStart + 1)}-01`, ultimoDia(Y, qStart + 2));
+    const cAno = janelaCascata(`${Y}-01-01`, `${Y}-12-31`);
+    W.mes.receita = cMes.linhas.receita_bruta.valor;
+    W.tri.receita = cTri.linhas.receita_bruta.valor;
+    W.ano.receita = cAno.linhas.receita_bruta.valor;
 
     const ltv = (w: { receita: number; cli: Set<string> }) => w.receita / Math.max(1, w.cli.size);
     const cac = (w: { marketing: number; cli: Set<string> }) => w.marketing / Math.max(1, w.cli.size);
@@ -125,14 +166,14 @@ export function VendasDashboardView() {
     const ltvMes = ltv(W.mes), ltvTri = ltv(W.tri), ltvAno = ltv(W.ano);
 
     // EBITDA: mês, acumulado (YTD = jan..mês selecionado) e % receita
-    const ebitdaMes = monthly[M].receita - monthly[M].despOp;
+    const ebitdaMes = monthly[M].ebitda;
     let ebitdaAcum = 0, receitaAcum = 0;
-    for (let i = 0; i <= M; i++) { ebitdaAcum += monthly[i].receita - monthly[i].despOp; receitaAcum += monthly[i].receita; }
+    for (let i = 0; i <= M; i++) { ebitdaAcum += monthly[i].ebitda; receitaAcum += monthly[i].receita; }
     const pctReceita = receitaAcum > 0 ? ebitdaAcum / receitaAcum : 0;
 
     // séries dos gráficos
     const serieAno = monthly.map((m, i) => ({ mes: MES_ABBR[i], receita: m.receita }));
-    const serieRME = monthly.map((m, i) => ({ mes: MES_ABBR[i], receita: m.receita, mc: m.receita - m.despVar, ebitda: m.receita - m.despOp }));
+    const serieRME = monthly.map((m, i) => ({ mes: MES_ABBR[i], receita: m.receita, mc: m.mc, ebitda: m.ebitda }));
 
     return {
       faturamentoMes: W.mes.receita, reembMes, reembAno, chargeMes, chargeAno,
