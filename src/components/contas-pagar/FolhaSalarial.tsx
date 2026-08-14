@@ -227,7 +227,7 @@ export function FolhaSalarial() {
         ) : (
           <>
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Numero rotulo="Salários e notas" valor={painel.totalBruto}
+              <Numero rotulo="Salários e notas (bruto)" valor={painel.totalBruto} forte
                 detalhe={`${painel.quantosCLT} CLT · ${painel.quantosPJ} PJ`} />
               <Numero rotulo="A equipe recebe" valor={painel.totalLiquido}
                 detalhe="líquido, depois dos descontos" />
@@ -236,8 +236,8 @@ export function FolhaSalarial() {
               {/* ⚠️ O CUSTO em destaque, com o multiplicador ao lado: é o número
                   que muda a decisão de contratar, e o único que não aparece em
                   nenhum contracheque. */}
-              <Numero rotulo="A empresa gasta" valor={painel.custoTotal} forte
-                detalhe={`${painel.multiplicador.toFixed(2)}× o bruto`} />
+              <Numero rotulo="Custo total da empresa" valor={painel.custoTotal}
+                detalhe={`${painel.multiplicador.toFixed(2)}× o bruto — bruto + FGTS, patronal e provisões`} />
             </div>
             <p className="m-0 mt-4 text-caption text-muted">
               Regime <b className="text-ink">{ROTULO_REGIME[painel.regime]}</b>
@@ -400,10 +400,18 @@ function LinhaColaborador({
             {ROTULO_VINCULO[c.vinculo]}{c.cargo ? ` · ${c.cargo}` : ""}
           </span>
         </span>
+        {/*
+          * ⚠️ **O NÚMERO GRANDE ERA O CUSTO, e o rótulo embaixo dizia "bruto".**
+          * Quem passa o olho lê o valor em destaque e o rótulo mais próximo — e
+          * concluía que o salário do colaborador é R$ 16.244,44 quando ele é
+          * R$ 10.000,00. O custo é a informação certa para decidir contratar, e
+          * continua na linha; o que estava errado era a HIERARQUIA, que
+          * apresentava um número sob o nome de outro.
+          */}
         <span className="text-right shrink-0">
-          <span className="a4p-num block text-label text-ink"><BRL value={linha.custoTotal} /></span>
+          <span className="a4p-num block text-label text-ink"><BRL value={c.valor} /></span>
           <span className="block text-caption text-faint">
-            bruto <BRL value={c.valor} showDecimals={false} />
+            custo <BRL value={linha.custoTotal} showDecimals={false} />
             {linha.clt && ` · ${linha.clt.multiplicador.toFixed(2)}×`}
           </span>
         </span>

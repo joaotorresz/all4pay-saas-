@@ -301,3 +301,77 @@ categorias presas caíram em linhas que se anulam na cascata. Numa separação e
 que o regex soltasse duas das quatro, o fundo teria mudado. A regra está no
 `CONTRIBUTING.md`: **reclassificação de dado é expand/contract — o código que
 interpreta vai antes.**
+
+
+---
+
+## FOLHA — o que se reproduziu do relatório de 13/08, e o que não
+
+Medido chamando `calcularCLT` direto, dois CLT de R$ 10.000 e R$ 2.500, sem
+dependentes e sem outros descontos:
+
+| | INSS | IRRF | Líquido | Custo | Fator |
+| --- | --- | --- | --- | --- | --- |
+| R$ 10.000 | 951,63 *(teto)* | 1.579,57 | **7.468,80** | 16.244,44 | 1,62× |
+| R$ 2.500 | 202,23 | 0,00 | **2.297,77** | 4.061,11 | 1,62× |
+| **total** | | | **R$ 9.766,57** | R$ 20.305,55 | |
+
+**Desconto de 21,9%** — a faixa esperada. Não reproduzi os R$ 7.966 (36,3%).
+
+### ❌ "Fator idêntico é matematicamente impossível" — não é. É correto.
+
+`custoTotal` = bruto + FGTS + patronal + provisões, e **todas** essas parcelas
+são proporcionais ao bruto. INSS e IRRF do empregado são **desconto** — saem do
+bolso dele e não entram no custo do empregador. Logo o fator de custo é o mesmo
+para qualquer salário; o que a progressividade muda é o **líquido**, e ele muda:
+R$ 7.468,80 × R$ 2.297,77.
+
+Há uma asserção no `engine-audit` para impedir que alguém "conserte" isso.
+
+### ❌ "36,3% de desconto" — não reproduz
+
+O motor dá 21,9%. Um líquido menor exigiria `valeTransporte`, `planoSaude`,
+pensão ou `outrosDescontos` no cadastro — que entram em `outros` legitimamente.
+
+### ✅ "O número grande é o custo, com rótulo de bruto" — real, corrigido
+
+O cartão exibia `custoTotal` em destaque e "bruto R$ 10.000" abaixo. Invertido:
+**bruto em destaque, custo como métrica secundária rotulada como custo.**
+
+### ✅ Anexo IV é tratado
+
+`encargosPatronais`: `noDAS = simples && anexo !== null && anexo !== "IV"`. No
+Anexo IV o patronal é recolhido **fora** do DAS (1,62×); no Anexo III entra no
+DAS (1,29×). Medido nos três regimes.
+
+---
+
+## RECONCILIAÇÃO: o projetado × o efetivamente pago
+
+Só ficou possível depois da separação de categorias. Org `835278a9`,
+out/2025 a jun/2026 (os 9 meses em que as três categorias coexistem):
+
+| | Pago | % da folha paga | A lei manda |
+| --- | --- | --- | --- |
+| Folha de pagamento | R$ 734.970,10 | — | — |
+| FGTS | R$ 44.639,24 | **6,1%** | 8% |
+| INSS patronal (GPS) | R$ 81.286,03 | **11,1%** | 27,8% (CPP 20 + RAT 2 + terceiros 5,8) |
+
+**Não fecha, e a divergência é grande:** o FGTS pago é R$ 14.158,37 **menor** que
+8% da folha; o INSS pago é R$ 123.035,66 menor que 27,8%.
+
+E as duas pontas **também não concordam entre si**, o que descarta uma explicação
+única:
+
+- base implícita pelo FGTS (÷ 8%) → **R$ 557.990,50**
+- base implícita pelo INSS (÷ 27,8%) → **R$ 292.395,79**
+- folha efetivamente paga → **R$ 734.970,10**
+
+Três bases diferentes para os mesmos meses. Não atribuo a causa — as
+possibilidades que os números admitem: "Folha de pagamento" mistura CLT com PJ e
+pró-labore (que não geram FGTS nem CPP); parte do valor é líquido e parte é
+bruto; ou o dado semeado não é internamente consistente.
+
+⚠️ **E um achado independente da alíquota:** INSS e FGTS **param em junho/2026**,
+enquanto a folha segue até agosto. Dois meses de folha sem encargo nenhum — isso
+sozinho impede qualquer reconciliação de fechar, e nenhuma calculadora conserta.

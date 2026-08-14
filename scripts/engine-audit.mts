@@ -3483,6 +3483,64 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("recor: janeiro − 1 = dezembro do ano anterior", deslocarMesCP("2026-01", -1) === "2025-12");
 }
 
+// ── folha: CINCO SALÁRIOS, uma por faixa, conferidos À MÃO ────────────────
+/*
+ * ⚠️ **Cada caso prova que o caminho RECEBEU VALOR** (regra do CLAUDE.md): não
+ * basta o cálculo não explodir — o número tem de ser o esperado, e os casos têm
+ * de DISCRIMINAR entre si. Um conjunto de salários que produzisse o mesmo
+ * líquido não testaria a progressividade que ele existe para fixar.
+ *
+ * Tabela de 2025 (junho), sem dependentes, regime Lucro Presumido.
+ */
+{
+  const CASOS = [
+    // 1.518 — PISO. Só a 1ª faixa: 1518 × 7,5% = 113,85. IRRF zero (base abaixo
+    // da 1ª faixa mesmo pelo critério legal).
+    { bruto: 1518, inss: 113.85, irrf: 0, liquido: 1404.15, custo: 2465.91 },
+    // 2.500 — 2ª faixa. 1518×7,5% = 113,85 · (2500−1518)×9% = 88,38 → 202,23.
+    { bruto: 2500, inss: 202.23, irrf: 0, liquido: 2297.77, custo: 4061.11 },
+    // 5.000 — 4ª faixa. 113,85 + 114,83 + 167,63 + (5000−4190,83)×14% = 113,28
+    // → 509,60. IRRF pelo SIMPLIFICADO: 312,89 (menor que o legal).
+    { bruto: 5000, inss: 509.60, irrf: 312.89, liquido: 4177.51, custo: 8122.23 },
+    // 10.000 — ACIMA DO TETO do INSS: 951,63 e não cresce mais.
+    { bruto: 10000, inss: 951.63, irrf: 1579.57, liquido: 7468.80, custo: 16244.44 },
+    // 30.000 — bem acima do teto: INSS idêntico ao de 10.000; só o IRRF cresce.
+    { bruto: 30000, inss: 951.63, irrf: 7079.57, liquido: 21968.80, custo: 48733.33 },
+  ];
+  for (const k of CASOS) {
+    const c = calcularCLT({ id: "f", nome: "f", tipo: "clt", valor: k.bruto, dependentes: 0 } as never,
+      "2025-06", "presumido" as never, null);
+    ok(`folha: ${k.bruto} → INSS ${k.inss}`, c.inss === k.inss, String(c.inss));
+    ok(`folha: ${k.bruto} → IRRF ${k.irrf}`, c.irrf === k.irrf, String(c.irrf));
+    ok(`folha: ${k.bruto} → líquido ${k.liquido}`, c.liquido === k.liquido, String(c.liquido));
+    ok(`folha: ${k.bruto} → custo ${k.custo}`, c.custoTotal === k.custo, String(c.custoTotal));
+  }
+
+  /*
+   * ⚠️ **OS CASOS DISCRIMINAM** — cinco líquidos DIFERENTES. Sem isto, uma
+   * implementação que devolvesse sempre o mesmo número passaria nas asserções
+   * acima se por acaso acertasse uma delas.
+   */
+  const liquidos = new Set(CASOS.map((k) => k.liquido));
+  ok("folha: os cinco casos produzem líquidos DIFERENTES", liquidos.size === 5, `${liquidos.size} distintos`);
+
+  /*
+   * ⚠️ **E O MULTIPLICADOR É CONSTANTE — de propósito, e isto NÃO é defeito.**
+   *
+   * Foi reportado como erro ("dois salários com o mesmo 1,62× é matematicamente
+   * impossível"). É o contrário: `custoTotal` é bruto + FGTS + patronal +
+   * provisões, e TODAS essas parcelas são proporcionais ao bruto. O INSS e o
+   * IRRF do empregado são DESCONTO — saem do bolso dele, não entram no custo do
+   * empregador. Então o fator de custo é o mesmo para qualquer salário, e o que
+   * a progressividade muda é o LÍQUIDO, asserido acima.
+   *
+   * Esta asserção existe para impedir que alguém "conserte" o que está certo.
+   */
+  const fatores = new Set(CASOS.map((k) => Math.round((k.custo / k.bruto) * 1000)));
+  ok("folha: o multiplicador de CUSTO é o mesmo para todo salário (encargo é proporcional)",
+     fatores.size === 1, `${[...fatores].map((f) => (f / 1000).toFixed(3)).join(", ")}`);
+}
+
 // ── folha: as tabelas legais, os encargos por regime e as quatro datas ────
 {
   const ti = inssDe("2025-06").tabela;
