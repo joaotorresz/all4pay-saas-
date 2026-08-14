@@ -161,6 +161,22 @@ const ehDepreciacao = (m: RiskMovement) =>
  * Cada linha "=" é calculada das anteriores — nenhuma delas soma lançamento
  * diretamente, o que impede um valor aparecer duas vezes.
  */
+/**
+ * A declaração que tira o lançamento do relatório INTEIRO.
+ *
+ * ⚠️ Não é um id de linha, e não pode virar um: uma linha de transferência no
+ * DRE mostraria no resultado um dinheiro que só mudou de bolso. É a ausência
+ * de linha, dita — e dizer é o que a separa de "esqueceram de classificar".
+ *
+ * ⚠️ **Ela existe porque a alternativa era silenciosa.** Uma declaração que o
+ * montador não reconhece cai no palpite por palavra-chave sem avisar ninguém:
+ * "Credit card payment" viraria despesa operacional e o custo da empresa
+ * subiria pelo valor da fatura que ela já pagou uma vez, dentro dos
+ * lançamentos individuais. O mesmo vale para o DFC, onde ela também sai das
+ * seções operacionais.
+ */
+export const LINHA_TRANSFERENCIA = "transferencia";
+
 export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "receita_bruta", label: "Receita Bruta Operacional", tipo: "soma", sinal: "+", nivel: 1,
@@ -418,16 +434,36 @@ export function montarRelatorio(
     const k = indice.get(mesDe(dataDoRegime(m, f.regime)));
     if (k === undefined) continue;
     const declarada = f.linhaPorCategoria?.[(m.category ?? "").trim().toLowerCase()];
+    // ⚠️ TRANSFERÊNCIA NÃO É LINHA — é a ausência de linha, declarada.
+    // Pagamento de fatura de cartão, boleto de transferência e movimento entre
+    // contas próprias não são receita nem despesa: o dinheiro trocou de bolso.
+    // Sem esta saída, a única forma de tirá-los do resultado seria não
+    // declará-los — e aí o palpite por palavra-chave os põe em despesa
+    // operacional, inflando o custo com dinheiro que a empresa não gastou.
+    if (declarada === LINHA_TRANSFERENCIA) continue;
     const linha = (declarada
       ? estrutura.find((l) => l.id === declarada && l.tipo === "soma")
       : undefined)
       ?? estrutura.find((l) => l.tipo === "soma" && l.casa?.(m));
     if (!linha) continue;
-    // Linhas "+/-" carregam o sinal do movimento; as demais são magnitude
-    // (o sinal já está na estrutura, e a fórmula do total aplica).
+    /**
+     * Linhas "+/-" carregam o sinal do movimento; as demais são magnitude —
+     * o sinal já está na estrutura, e a fórmula do total o aplica.
+     *
+     * ⚠️ **Exceção: ENTRADA numa linha de sinal "-" é ESTORNO, e entra
+     * negativa.** Uma restituição de imposto é a dedução voltando; somá-la em
+     * magnitude faria a devolução AUMENTAR a dedução — o contribuinte recebe
+     * dinheiro de volta e o DRE registra que ele pagou mais imposto. O mesmo
+     * vale para devolução de fornecedor e estorno de despesa.
+     *
+     * Sem esta linha, a única saída seria classificar a restituição como
+     * receita — e aí ela infla o faturamento, que foi exatamente o defeito
+     * medido (R$ 655,30 de restituição dentro da receita bruta).
+     */
+    const estorno = linha.sinal === "-" && m.type === "entrada";
     const v = linha.sinal === "+/-"
       ? (m.type === "entrada" ? m.amount : -m.amount)
-      : Math.abs(m.amount);
+      : estorno ? -Math.abs(m.amount) : Math.abs(m.amount);
     soma.get(linha.id)![k] += v;
     movsPorLinha.get(linha.id)![k].push(m.id);
 

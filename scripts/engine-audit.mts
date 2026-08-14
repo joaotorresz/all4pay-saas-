@@ -96,11 +96,7 @@ import {
 } from "@/core/registros";
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
-import {
-  montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento,
-  mesesDoIntervalo, intervaloDoPreset, compararOrcamento,
-  ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
-} from "@/core/relatorios";
+import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -4546,6 +4542,72 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("revisao: e NÃO pega o que um financeiro escreve o dia inteiro",
      ["NF-e 123/45", "PIX — João", "Boleto Condomínio", "DARF 0561", "R$ 1.234,56 — taxa"]
        .every((t) => !descritivoIlegivel(t)));
+}
+
+/* ── TRANSFERÊNCIA FORA, ESTORNO NEGATIVO ──────────────────────────────────
+ *
+ * Duas regras que a Etapa 4 do de-para exigiu, e as duas mexem no resultado.
+ *
+ * ⚠️ **`transferencia` não é linha, é a ausência de linha DITA.** Antes, a
+ * única forma de tirar um pagamento de fatura de cartão do resultado era não
+ * declará-lo — e aí o palpite por palavra-chave o punha em despesa operacional,
+ * inflando o custo com dinheiro que só mudou de bolso. Medido: R$ 267,70 nesta
+ * organização (fatura de cartão R$ 167,70 + boleto de transferência R$ 100,00).
+ *
+ * ⚠️ **ENTRADA numa linha de sinal "-" é ESTORNO, e entra negativa.** Uma
+ * restituição de imposto é a dedução voltando; em magnitude ela AUMENTARIA a
+ * dedução — o contribuinte recebe dinheiro de volta e o DRE registra que ele
+ * pagou mais imposto. Sem esta regra, a única saída seria classificar a
+ * restituição como receita, e aí ela infla o faturamento (era o estado medido:
+ * R$ 655,30 dentro da receita bruta).
+ */
+{
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "saida", amount: 1000,
+       due_date: "2026-03-10", paid_date: "2026-03-10", status: "pago",
+       category: "Aluguel", party_id: null, ...o }) as RiskMovement;
+  const INPUT: RiskInput = {
+    hoje: "2026-08-31", saldoAtual: 0, partyNames: {},
+    movements: [
+      mv({ type: "entrada", amount: 100_000, category: "Vendas" }),
+      mv({ amount: 10_000, category: "Simples Nacional" }),
+      mv({ type: "entrada", amount: 655.30, category: "Restituição de impostos" }),
+      mv({ amount: 267.70, category: "Credit card payment" }),
+    ],
+  } as RiskInput;
+  const DECL: Record<string, string> = {
+    "vendas": "receita_bruta", "simples nacional": "deducoes",
+    "restituição de impostos": "deducoes", "credit card payment": LINHA_TRANSFERENCIA,
+  };
+  const rodar = (decl: Record<string, string>) => montarRelatorio(INPUT, ESTRUTURA_DRE, {
+    intervalo: { de: "2026-03-01", ate: "2026-03-31" }, tipo: "dre",
+    regime: "competencia", linhaPorCategoria: decl,
+  });
+  const val = (r: ReturnType<typeof rodar>, id: string) =>
+    Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? NaN) * 100) / 100;
+
+  const r = rodar(DECL);
+  /* ---- A transferência não entra em NENHUMA linha ------------------------ */
+  // Sem a saída declarada ela cairia em despesa operacional — é o "antes".
+  const semSaida = rodar({ ...DECL, "credit card payment": "despesas_operacionais" });
+  ok("transferencia: declarada, não entra em linha nenhuma",
+     val(r, "despesas_operacionais") === 0, String(val(r, "despesas_operacionais")));
+  ok("transferencia: e o controle prova que o caminho recebia valor",
+     val(semSaida, "despesas_operacionais") === 267.70, String(val(semSaida, "despesas_operacionais")));
+  // ⚠️ O resultado MUDA pelo valor exato da transferência — e é isso que se
+  // quer: ela nunca foi despesa. Somar zeros não provaria nada.
+  ok("transferencia: o resultado melhora exatamente o valor dela",
+     Math.round((val(r, "resultado_liquido") - val(semSaida, "resultado_liquido")) * 100) / 100 === 267.70,
+     `${val(r, "resultado_liquido")} × ${val(semSaida, "resultado_liquido")}`);
+
+  /* ---- O estorno REDUZ a dedução, não aumenta --------------------------- */
+  ok("estorno: a restituição REDUZ a dedução (10.000 − 655,30)",
+     val(r, "deducoes") === 9_344.70, String(val(r, "deducoes")));
+  // ⚠️ A asserção que fixa o defeito: em magnitude daria 10.655,30 — a
+  // devolução aumentando o imposto pago.
+  ok("estorno: em magnitude daria 10.655,30, e não dá", val(r, "deducoes") !== 10_655.30);
+  ok("estorno: e a restituição NÃO está na receita bruta",
+     val(r, "receita_bruta") === 100_000, String(val(r, "receita_bruta")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

@@ -688,3 +688,116 @@ ela está na fila com a ação "Desativar a regra", e não só os títulos dela.
 **Hipótese que caiu:** "a tela lia a contraparte como descrição". Como no item 1
 do lote anterior, o achado é real e o endereço estava errado — **diagnóstico
 trocado**, não refutado.
+
+
+---
+
+# ETAPA 4 APLICADA (14/08/2026) — e a invariante SE MOVEU
+
+**81 lançamentos reclassificados.** `venda`→`Vendas` (64) · `Internet / telecom`,
+`Electricity`, `Telecommunications`→`Utilidades` (7) · `Housing`, `Gyms`,
+`Video streaming`, `Music streaming`→**A classificar — possível pessoal** (8) ·
+`Impostos` (entrada)→**Restituição de impostos** (2). Mais 10 categorias criadas
+com linha declarada e `Marketing`→`despesas_operacionais`.
+
+## ⚠️ O RESULTADO LÍQUIDO MUDOU — +R$ 267,70, e a causa é uma só
+
+| | Valor |
+| --- | ---: |
+| Antes | −R$ 784.743,23 |
+| Depois | **−R$ 784.475,53** |
+| Diferença | **+R$ 267,70** |
+
+**Isolado, não deduzido.** Rodando a MESMA apuração com um único parâmetro
+trocado — a transferência voltando a contar como despesa operacional — o
+resultado dá **exatamente −R$ 784.743,23**. Ou seja: *toda* a Etapa 4 é neutra
+no fundo, **exceto** tirar as transferências do DRE, e essa parte move o
+resultado pelo valor exato delas (fatura de cartão R$ 167,70 + boleto de
+transferência R$ 100,00).
+
+Não é defeito: é a correção fazendo efeito. Uma transferência nunca foi despesa,
+e enquanto ela estava lá o custo da empresa carregava dinheiro que só mudou de
+bolso. Mas **fica declarado**, porque a regra é parar e dizer quando o fundo se
+mexe — e porque a invariante "o resultado líquido não muda" foi formulada para
+reclassificação PURA, e esta operação não é só isso.
+
+## Os sete valores, medidos (12 meses, competência, sem amostra)
+
+| Linha | Antes | Depois |
+| --- | ---: | ---: |
+| Receita Bruta Operacional | 523.147,94 | **522.492,64** |
+| Deduções | 248.707,93 | **46.144,70** |
+| Despesas Variáveis | 54.417,61 | **39,40** |
+| **Margem de Contribuição** | 220.022,40 | **476.308,54** |
+| Despesas Operacionais | 1.003.471,98 | **1.181.611,76** |
+| EBITDA | −783.449,58 | **−705.303,22** |
+| **Resultado Financeiro** | −1.293,65 | **−1.254,25** |
+| Impostos sobre o Lucro | 0,00 | **75.982,66** |
+| Resultado não Operacional | 0,00 | **−1.935,40** |
+| **Resultado Líquido** | −784.743,23 | **−784.475,53** |
+
+⚠️ A Margem de Contribuição sobe **R$ 256.286,14**, não os R$ 71.043,14 do
+Marketing: a dedução caiu R$ 202.563,23 junto, porque INSS patronal e IRPJ/CSLL
+saíram dela na Etapa 1 e a restituição passou a reduzi-la. Os R$ 71.043,14 são
+só a parcela do Marketing.
+
+## Duas regras novas no motor, e as duas mexem no resultado
+
+- **`LINHA_TRANSFERENCIA`** — `transferencia` não é linha, é a ausência de linha
+  DITA. Antes, a única forma de tirar um pagamento de fatura do resultado era
+  não declará-lo, e aí o palpite o punha em despesa operacional. Declaração
+  desconhecida cai no palpite **em silêncio** — era esse o risco.
+- **ENTRADA em linha de sinal "-" é ESTORNO** e entra negativa. Em magnitude, a
+  restituição AUMENTARIA a dedução: o contribuinte recebe de volta e o DRE
+  registra que pagou mais imposto.
+
+Guardas no `engine-audit`, provadas quebrando as duas.
+
+## ⚠️ A4P-018 — REESCRITO: a linha NÃO é fabricada
+
+**Refutada a hipótese de linha fabricada.** Medido: existem **4** lançamentos com
+`party_id` → GOOGLE ADS CAMPANHA, todos R$ 35.000, todos com a chave apontando
+para *Assinaturas / software*, em 4 meses distintos. O widget agrupa por
+contraparte + categoria e a média sai de 140.000 ÷ 4 = R$ 35.000/mês. **Todos os
+campos da linha vêm do MESMO conjunto coerente.**
+
+⚠️ **O que explica a sua medição:** os 12 "GOOGLE ADS CAMPANHA" e 12 "META ADS"
+de R$ 1.763,92–5.089,43 têm o nome do fornecedor na **descrição** e
+`party_id` **NULO**. São população diferente. E `getRiscoInput` resolve
+`category` pela CHAVE antes do texto (`embedName(m.categoria) ?? m.category`),
+então o app enxerga "Assinaturas / software" onde o texto está vazio.
+
+### ⚠️ Mas há um defeito real ao lado, e ele é novo
+
+`contraparte: nomes[party_id] ?? ultimo.category ?? "Sem contraparte"` — **quando
+não há contraparte, o widget usa a CATEGORIA como nome dela**. Os 24 lançamentos
+de Google e Meta (R$ 71.043,14) não têm `party_id`, então aparecem numa única
+linha chamada **"Marketing"**, fundindo dois fornecedores distintos e ignorando
+o nome que está na descrição. Um campo ocupando o lugar de outro — a mesma
+família que a hipótese suspeitava, no fallback e não no agrupamento.
+
+**Não corrigido nesta rodada.** Fica na fila.
+
+## ⚠️ `competence_date` — MEDIDO, e é pior que fallback silencioso
+
+| | |
+| --- | --- |
+| Lançamentos reais | 530 |
+| Com `competence_date` | **123 (23,2%)** |
+| Desses, iguais ao vencimento | 121 |
+| Desses, diferentes | **2** |
+
+⚠️ **Não há fallback: o motor NUNCA lê `competence_date`.**
+`dataDe(m, "competencia")` devolve `m.due_date`, ponto
+(`core/indicadores/convencoes.ts`), e `RiskMovement` sequer declara o campo —
+`getRiscoInput` não o seleciona. **A coluna é inerte.** "DRE por competência" é
+DRE por vencimento, por definição escrita, não por acidente.
+
+**Exposição hoje: zero.** Os 2 lançamentos em que competência ≠ vencimento
+diferem por dias DENTRO do mesmo mês (11→12/06 e 10→15/06), e a apuração é
+mensal. O risco é estrutural: no dia em que alguém lançar uma compra de março
+para vencer em abril, o DRE a põe em abril e não avisa.
+
+**Não corrigido, como instruído.** É decisão de produto: ou a competência passa a
+ser lida (e aí `RiskMovement` ganha o campo, com `?? due_date` explícito), ou o
+sistema para de chamar de competência o que apura por vencimento.
