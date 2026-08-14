@@ -269,3 +269,35 @@ grupo pagando pela mesma conta, ou (c) recolhimento indevido.
 A classificação escolhida — `impostos_lucro` — é a correta **para o que o
 documento diz que é**. Ela não resolve a dúvida, e não deve dar a impressão de
 que resolveu: quem decide é o contador, e a decisão pode mudar a categoria.
+
+
+---
+
+## MEDIDO NA APLICAÇÃO PUBLICADA (`d1a4668`)
+
+Código publicado sobre o dado de produção, org `835278a9`, 01/09/2025 a
+31/08/2026, 261 lançamentos, com o `linhaPorCategoria` que
+`getLinhasDeCategoria()` devolve para esta organização:
+
+| Linha | Medido | Esperado |
+| --- | --- | --- |
+| Deduções | R$ 46.800,00 | ✓ |
+| Receita Líquida | R$ 476.347,94 | ✓ |
+| Despesas Operacionais | R$ 1.129.397,25 | ✓ |
+| EBITDA | −R$ 707.466,92 | ✓ |
+| Impostos sobre o Lucro | R$ 75.982,66 | ✓ |
+| **Resultado Líquido** | **−R$ 784.743,23** | ✓ **inalterado** |
+| Margem EBITDA | −148,5% | ✓ |
+
+### ⚠️ A janela PARCIAL que existiu entre a reclassificação e o merge
+
+O dado foi reclassificado no banco **antes** de o código que o interpreta estar
+publicado. Nessa janela, produção mostrou deduções de **R$ 204.068,69** (39,0%
+da receita) — o palpite por palavra-chave soltou o **FGTS** e segurou INSS,
+IRPJ e Simples.
+
+⚠️ **O resultado líquido não se mexeu por SORTE**, não por desenho: as três
+categorias presas caíram em linhas que se anulam na cascata. Numa separação em
+que o regex soltasse duas das quatro, o fundo teria mudado. A regra está no
+`CONTRIBUTING.md`: **reclassificação de dado é expand/contract — o código que
+interpreta vai antes.**
