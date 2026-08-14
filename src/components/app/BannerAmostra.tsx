@@ -50,6 +50,16 @@ export function BannerAmostra() {
   const detalhe = Object.entries(data?.porTabela ?? {})
     .map(([t, n]) => `${n} ${NOME[t] ?? t}`)
     .join(" · ");
+  /**
+   * ⚠️ **O QUE O BOTÃO APAGA E O QUE ELE DEIXA, separados.**
+   *
+   * `is_sample` marca duas coisas de destinos opostos. A purga passou a
+   * remover só a amostra do onboarding; o lançamento marcado à mão fica, e
+   * sai por decisão nomeada. O banner tem de dizer isso — um aviso que conta
+   * 147 ao lado de um botão que apaga 146 ensina a não confiar no aviso.
+   */
+  const purgaveis = data?.purgaveis ?? 0;
+  const preservadas = data?.preservadas ?? 0;
 
   return (
     <div
@@ -63,14 +73,27 @@ export function BannerAmostra() {
         {/* O número vem antes da explicação: quem já entendeu o aviso quer saber
             o tamanho, e quem não entendeu lê a frase inteira de qualquer forma. */}
         <span className="text-muted">
-          {detalhe} de exemplo já estão fora dos relatórios, mas seguem gravados.
+          {detalhe} já estão fora dos relatórios, mas seguem gravados.
+          {preservadas > 0 && (
+            <>
+              {" "}Destes, <b className="text-ink tabular-nums">{purgaveis}</b> vieram do botão de
+              amostra e o botão ao lado remove;{" "}
+              <b className="text-ink tabular-nums">{preservadas}</b> foram marcados à mão e{" "}
+              <b className="text-ink">ficam</b> — eles existiram na operação e saem por decisão
+              própria, com trilha.
+            </>
+          )}
         </span>
       </span>
       <AcaoDestrutiva
         rotulo="Remover dados de demonstração"
         titulo="Remover dados de demonstração"
         descricao={
-          `Serão apagados ${detalhe}. Os relatórios não mudam — eles já ignoram estes registros. `
+          `Serão apagados ${purgaveis} de ${total} registros marcados — só os que vieram do botão de amostra. `
+          + (preservadas > 0
+            ? `Os outros ${preservadas} foram marcados à mão e permanecem. `
+            : "")
+          + "Os relatórios não mudam — eles já ignoram estes registros. "
           + "Esta ação não pode ser desfeita."
         }
         confirmarRotulo="Remover"

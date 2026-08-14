@@ -3637,7 +3637,49 @@ const AGOSTO = janelaMes(2026, 7);
     ok("amostra: a dívida de `lancamento_teste` continua declarada com origem e vencimento",
        semDivida.length === 0, semDivida.join(" | "));
 
+    /**
+     * ⚠️ **O BOTÃO APAGA O QUE O BOTÃO DIZ — e só isso.**
+     *
+     * `is_sample` marca duas coisas de destinos opostos, e o vocabulário já
+     * dizia isso desde que nasceu: `onboarding_demo` não é dado de ninguém e
+     * purga em lote; `lancamento_teste` é um registro que EXISTIU na operação
+     * de uma empresa, marcado à mão pelo id, e o desfecho correto dele é ser
+     * cancelado com trilha. A purga apagava os dois (`.eq("is_sample", true)`
+     * e nada mais).
+     *
+     * Medido em produção (14/08/26): o clique levaria junto **1 lançamento de
+     * R$ 500.000,00** com descrição "Teste", debaixo de um aviso que anuncia
+     * "dados de demonstração". 146 `onboarding_demo` + 1 `lancamento_teste` na
+     * organização auditada; 168 e 144 nas outras duas, sem nenhum de teste.
+     *
+     * Provada quebrando: tirando o `sample_reason` do `delete`, esta reprova.
+     */
+    const libAmostra = ler("src/lib/amostra.ts");
+    const purga = /export async function purgarAmostra[\s\S]{0,2500}?\n}/.exec(libAmostra);
+    ok("amostra: a purga remove só o motivo purgável, nunca o marcado à mão",
+       !!purga
+       && /\.eq\("sample_reason", MOTIVO_PURGAVEL\)/.test(purga[0])
+       && /MOTIVO_PURGAVEL[^\n]*=\s*"onboarding_demo"/.test(libAmostra),
+       purga ? "predicado sem sample_reason" : "purgarAmostra não encontrada");
+    /**
+     * E a contrapartida, sem a qual a guarda acima se "resolve" pelo lado
+     * errado: a contagem tem de saber separar os dois, senão o banner conta
+     * 147 ao lado de um botão que apaga 146 — e um aviso que discorda do
+     * botão ao lado ensina a não confiar no aviso.
+     */
+    const contagem = /export async function contarAmostra[\s\S]{0,3500}?\n}/.exec(libAmostra);
+    ok("amostra: a contagem separa o que a purga leva do que ela deixa",
+       !!contagem
+       // A contagem do purgável sai do MESMO predicado da purga — duas contas
+       // para a mesma pergunta é como o banner e o botão passam a discordar.
+       && /\.eq\("sample_reason", MOTIVO_PURGAVEL\)/.test(contagem[0])
+       && /preservadas: total - purgaveis/.test(contagem[0]),
+       contagem ? "a contagem não usa o predicado da purga" : "contarAmostra não encontrada");
+
     const bannerTxt = ler("src/components/app/BannerAmostra.tsx");
+    ok("amostra: o banner diz o que fica, não só o que sai",
+       /purgaveis/.test(bannerTxt) && /preservadas/.test(bannerTxt)
+       && /ficam/.test(bannerTxt));
     ok("amostra: o banner não tem como ser dispensado",
        /Esta organização contém dados de demonstração/.test(bannerTxt)
        && !/dispensar|setFechado|onClose|onDismiss/i.test(semComentario(bannerTxt)));
