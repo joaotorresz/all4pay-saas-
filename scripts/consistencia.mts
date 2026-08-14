@@ -3701,6 +3701,36 @@ const AGOSTO = janelaMes(2026, 7);
        && /from\("movements"\)[\s\S]{0,200}?\.insert\(/.test(escritor[0]));
     // ⚠️ E LANÇA quando o banco recusa: um escritor de dinheiro que engole erro
     // é indistinguível de um que funciona — foi assim que o defeito durou.
+    /**
+     * ⚠️ **LANÇAMENTO DE VALOR ZERO NÃO É LANÇAMENTO.**
+     *
+     * Achado ao levantar o de-para das categorias (14/08): duas ENTRADAS de
+     * "Tarifas bancárias" com `amount = 0,00` e um "Planilha" de saída, também
+     * zero. Não classificam errado — não deveriam existir. É lacuna de
+     * VALIDAÇÃO, não de classificação.
+     *
+     * O custo não é o zero: é que ele ocupa linha em toda contagem, entra na
+     * média por lançamento e no ticket médio puxando os dois para baixo, e
+     * aparece na lista de títulos como obrigação a conferir que não existe.
+     *
+     * ⚠️ A trava tem de existir nos DOIS escritores. Validar só no formulário
+     * deixa a porta aberta pela metade — e a metade aberta é sempre a menos
+     * olhada: por `criarTitulos` entra a folha, que ninguém digita linha a
+     * linha. Provada quebrando cada um dos dois.
+     */
+    const temTrava = /function exigirValor\([\s\S]{0,900}?valor === 0[\s\S]{0,900}?valor < 0/.test(dadosTxt);
+    ok("valor: a trava de valor zero existe e também recusa negativo", temTrava);
+    const construtor = /function buildMovementRows[\s\S]{0,2500}?\n}/.exec(dadosTxt);
+    ok("valor: o formulário não grava lançamento de valor zero",
+       !!construtor && /exigirValor\(input\.amount\)/.test(construtor[0]));
+    const titulos = /export async function criarTitulos[\s\S]{0,4000}?\n}/.exec(dadosTxt);
+    ok("valor: o escritor de títulos também não grava valor zero",
+       !!titulos && /exigirValor\(l\.amount\)/.test(titulos[0]));
+    // ⚠️ E a mensagem é para quem OPERA: sem nomear o campo e sem dizer o que
+    // fazer, ela é "erro ao salvar" com outro texto (lição do `exigirUUID`).
+    ok("valor: a recusa diz o que fazer, não só que recusou",
+       /não pode ser zero/.test(dadosTxt) && /Informe quanto entrou ou saiu/.test(dadosTxt));
+
     ok("escritor: criarTitulos não engole a recusa do banco",
        !!escritor && /if \(error\) throw error;/.test(escritor[0]));
   }

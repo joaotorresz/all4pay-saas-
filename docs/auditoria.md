@@ -573,3 +573,118 @@ passariam a recortar por `dataEsperada` — com a correção do item 2 aplicada 
 aos cartões, a agenda do mês passaria a discordar do KPI logo acima. Pego pela
 própria fixture, antes de sair do galho, e corrigido no mesmo PR: a regra de
 expectativa mora num lugar só.
+
+
+---
+
+# LOTE P-07 — de-para das categorias · ETAPAS 1 a 3 (14/08/2026)
+
+Org `835278a9`, sem amostra. **A Etapa 4 (aplicar o de-para) não foi executada.**
+
+## ETAPA 1 — `categories` deduplicada: 29 → 18 linhas
+
+Antes de escrever, duas medições:
+
+1. **Toda linha removida tem ZERO referências** — movimentos, rateios,
+   recorrências, produtos, serviços, filhos e texto órfão, todos zero nas 11.
+   Não houve repontamento a fazer: a consolidação é um no-op de relacionamento.
+2. **Declarar `dre_linha` nos sobreviventes não move nenhuma linha do DRE.**
+   Rodado com o motor real, comparando o estado de produção (só as quatro já
+   declaradas) contra o proposto: as 15 linhas de nível 1 saem idênticas ao
+   centavo. É o que separa deduplicação de de-para — se uma linha se mexesse, a
+   declaração seria Etapa 4 e entraria sob outra aprovação.
+
+**Removidas (11):** 7 duplicatas de nome exato — Aluguel, Folha de pagamento,
+Marketing, Outras despesas, Tarifas bancárias ×2, Vendas ×2 — e **4 variantes**,
+que eram o risco real que você apontou: `Utilidades (água, luz, internet)`,
+`Fornecedores`, `Impostos e taxas`. Sobreviventes escolhidos pela referência:
+`Vendas` ficou com a que tem 5 produtos e 1 serviço; `Aluguel`, com a que tem o
+lançamento.
+
+**Declaradas (12 novas + 4 que já eram):** todas as que hoje o palpite já
+acertava. **`Marketing` e `Impostos` ficaram SEM declaração de propósito** — são
+exatamente as duas que a Etapa 4 move de linha, e declará-las agora seria
+aplicar o de-para fora de ordem.
+
+## ETAPA 2 — as cinco alterações
+
+- **(a)** `Housing` não funde com `Aluguel`. Acatado.
+- **(b)** Categoria **"A classificar — possível pessoal"** criada, natureza
+  `nao_operacional`. Nenhum lançamento movido (isso é Etapa 4).
+- **(c)** `Tarifas de adquirência` → `despesa_variavel`: aprovado, **e a fixture
+  do item 1 foi trocada antes**. Ela não fixa mais R$ 1.293,65 — asserta a
+  IDENTIDADE: *o resíduo do par ingênuo é o resultado financeiro que a cascata
+  apurou, seja ele qual for*. Provada nos dois sentidos: trocando o valor do
+  financeiro na fixture ela continua passando; removendo o financeiro ela
+  reprova (R2).
+- **(d)** `Mensalidade` aprovada como `receita_bruta`, marcada para o **P-13**.
+- **(e)** Os dois de R$ 0,00 saíram do de-para e viraram achado próprio, abaixo.
+
+### ⚠️ ACHADO NOVO — o sistema aceitava lançamento de valor zero
+
+Não é classificação, é **validação**. Medido: duas entradas de "Tarifas
+bancárias" e um "Planilha" de saída, todos R$ 0,00.
+
+O custo não é o zero — ele não move caixa nem resultado. É que ele **ocupa linha
+em toda contagem**: "26 lançamentos de tarifa" vira 28, a média por lançamento e
+o ticket médio caem, e a lista de títulos mostra uma obrigação a conferir que não
+existe. Um número que ninguém consegue explicar faz duvidar dos vizinhos.
+
+`exigirValor` recusa zero **e negativo** — o negativo por outra razão: `amount` é
+MAGNITUDE nesta base, a direção mora em `type`, e um valor negativo inverteria o
+sinal duas vezes em todo motor que usa `assinado()`. A trava está nos **dois**
+escritores (`buildMovementRows` e `criarTitulos`); validar só um deixa aberta a
+porta menos olhada, que é por onde entra a folha. Guardas provadas quebrando
+cada um dos dois.
+
+**Fica declarado como não feito:** os três lançamentos de valor zero JÁ gravados
+continuam na base. Eles aparecem na fila de revisão (motivo `valor_zero`), para
+saírem por decisão, não por varredura.
+
+## ETAPA 3 — a fila de revisão, como tela
+
+`core/revisao` (`revisao/1.0.0`) + `/upload?aba=revisao`. **Nada aqui é
+classificado — a fila SEPARA** e mostra as três fontes lado a lado (descrição ·
+categoria que o relatório lê · categoria que a chave diz), porque é a
+discordância entre elas que exige gente.
+
+Seis motivos: classificação não propagada · sem categoria · entrada com nome de
+salário · descrição ilegível · valor zero · **regra recorrente contraditória**.
+
+⚠️ **A regra recorrente entra na fila, não só os títulos que ela gera** — ver a
+resposta à pergunta do A4P-018 abaixo. Corrigir os filhos e deixar a regra viva
+a faz materializar o mesmo defeito no mês seguinte, e quem corrigiu conclui que
+o sistema desfez o trabalho dela.
+
+⚠️ **O detector de "descrição ilegível" nasceu errado nos DOIS sentidos, e a
+fixture pegou.** Ele media proporção de letras: `! [=]E?s rica NE Bro,` tem 65%
+e passava; `NF-e 123/45` tem 30% e era acusado. Deixava passar exatamente o caso
+medido e acusava o que um financeiro escreve o dia inteiro. O critério agora é
+marca de leitura ótica (colchete, chave, igual — duas ou mais) ou pontuação
+dentro de palavra (`E?s`). A guarda cobra os dois lados: o que tem de ser pego,
+e o que não pode ser.
+
+## ⚠️ A4P-018 FECHA — mas com causa diferente da hipótese
+
+**São os mesmos lançamentos.** `party_id` idêntico (`31b10574`) nos quatro de
+R$ 35.000: contraparte **GOOGLE ADS CAMPANHA**, categoria **Assinaturas /
+software**, descrição **"Salário"**.
+
+**Mas a tela NÃO estava lendo a contraparte como descrição.** Ela agrupa por
+contraparte + categoria por desenho, e foi isso que exibiu. Dado o dado, ela
+estava certa.
+
+A causa é o **cadastro da recorrência `d9439421`**, que já nasce contraditório:
+`description = "Salário"`, `party_id → GOOGLE ADS CAMPANHA`, `category_id →
+Assinaturas / software`, R$ 35.000/mês, mensal, **ativa e sem data de fim**. Os
+quatro títulos são filhos fiéis dela — três carregam `reference_code`
+`rec:d9439421:…`. Não há defeito de código na tela de recorrentes.
+
+⚠️ **E ela continua projetando.** Sendo ativa e sem fim, esse único cadastro
+responde por R$ 35.000/mês da projeção de compromisso recorrente — a maior
+parcela dos R$ 40.802,55 de outubro/26 já registrados neste arquivo. Por isso
+ela está na fila com a ação "Desativar a regra", e não só os títulos dela.
+
+**Hipótese que caiu:** "a tela lia a contraparte como descrição". Como no item 1
+do lote anterior, o achado é real e o endereço estava errado — **diagnóstico
+trocado**, não refutado.

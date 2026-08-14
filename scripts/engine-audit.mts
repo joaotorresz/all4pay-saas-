@@ -15,6 +15,7 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
+import { montarFilaRevisao, descritivoIlegivel, type ItemRevisao } from "@/core/revisao";
 import { cascataDRE } from "@/core/relatorios/cascata";
 import {
   valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
@@ -4429,31 +4430,122 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // Sem esta asserção, tudo abaixo passaria com o financeiro em zero — que é
   // exatamente o estado em que a medição errada me convenceu de que não havia
   // defeito. Fixture sobre o vazio é pior que fixture nenhuma.
-  ok("caixa: a fixture tem resultado financeiro de verdade (−1.293,65)",
-     cent(financeiro) === -TARIFAS, String(financeiro));
-  ok("caixa: a abertura é reconstruída do saldo de hoje (680.884,72)",
-     cent(abertura) === 680_884.72, String(abertura));
+  ok("caixa: a fixture tem resultado financeiro de verdade, não zero",
+     cent(financeiro) === -TARIFAS && financeiro !== 0, String(financeiro));
+  ok("caixa: a abertura é reconstruída do saldo de hoje",
+     cent(abertura) === cent(SALDO_HOJE - (ENTRADAS - SAIDAS_OP - TARIFAS)), String(abertura));
 
   /* ---- A decomposição TOTAL fecha, sem resíduo ---------------------------- */
   const residuo = cent(abertura + entradasTotais - saidasTotais - fechamento);
   ok("caixa: abertura + entradas totais − saídas totais = fechamento, ao centavo",
      residuo === 0, `resíduo = ${residuo}`);
-  ok("caixa: as saídas totais incluem o financeiro (1.231.861,17)",
-     cent(saidasTotais) === cent(SAIDAS_OP + TARIFAS), String(saidasTotais));
+  // Derivado das linhas, não de um literal: as saídas totais são as
+  // operacionais mais o que o financeiro tirou do caixa.
+  ok("caixa: as saídas totais incluem o financeiro apurado pela cascata",
+     cent(saidasTotais) === cent(val("saidas_operacionais") - Math.min(0, financeiro)),
+     String(saidasTotais));
 
   /* ---- E o par INGÊNUO não fecha — e sobra o financeiro ------------------- */
-  // ⚠️ Esta é a asserção que documenta o fantasma. Ela tem de FALHAR de fechar:
-  // se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
-  // `saidas_operacionais` e a linha passou a contar duas vezes (ela já sai em
-  // `fluxo_financiamento`). O nome da linha é "operacionais" — ela não pode.
+  /**
+   * ⚠️ Esta é a asserção que documenta o fantasma. Ela tem de FALHAR de fechar:
+   * se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
+   * `saidas_operacionais` e a linha passou a contar duas vezes (ela já sai em
+   * `fluxo_financiamento`). O nome da linha é "operacionais" — ela não pode.
+   *
+   * ⚠️ **E ela NÃO fixa um número.** A primeira versão cobrava R$ 1.293,65, o
+   * valor medido em produção. Basta uma reclassificação legítima — mover
+   * "Tarifas de adquirência" de resultado financeiro para despesa variável,
+   * que é o que ela é (MDR é custo de vender) — para o valor mudar e a guarda
+   * reprovar código correto. Guarda que reprova o certo é desligada na primeira
+   * semana, ou "consertada" com o número novo, e aí ela deixou de medir a
+   * regra e passou a memorizar um dataset.
+   *
+   * O que a regra diz é uma IDENTIDADE: o resíduo do par ingênuo é, sempre, o
+   * resultado financeiro que a própria cascata apurou — seja ele qual for.
+   */
   const residuoIngenuo = cent(
     abertura + val("entradas_operacionais") - val("saidas_operacionais") - fechamento,
   );
-  ok("caixa: o par ingênuo NÃO fecha, e o que sobra é exatamente o financeiro",
-     residuoIngenuo === TARIFAS, String(residuoIngenuo));
+  ok("caixa: o par ingênuo NÃO fecha, e o que sobra é o financeiro da cascata",
+     residuoIngenuo === cent(-financeiro) && residuoIngenuo !== 0,
+     `resíduo ${residuoIngenuo} × financeiro ${cent(-financeiro)}`);
   ok("caixa: o financeiro não é contado duas vezes no fluxo líquido",
      cent(val("fluxo_liquido")) === cent(ENTRADAS - SAIDAS_OP - TARIFAS),
      String(val("fluxo_liquido")));
+}
+
+/* ── A FILA DE REVISÃO — separa, não classifica ─────────────────────────────
+ *
+ * Os casos são os MEDIDOS na org 835278a9 em 14/08, um a um. A fixture usa os
+ * valores e textos reais porque o que ela protege é o CRITÉRIO: uma regra que
+ * deixe de pegar o lixo de OCR, ou que passe a acusar "NF-e 123/45", perde a
+ * fila do mesmo jeito — por omissão ou por ruído.
+ *
+ * ⚠️ A regra recorrente entra na fila junto com os títulos que ela gera.
+ * Medido: os quatro "Salário" de R$ 35.000 são filhos FIÉIS da regra
+ * `d9439421` (descrição *Salário*, contraparte *GOOGLE ADS CAMPANHA*,
+ * categoria *Assinaturas / software*). Corrigir os filhos e deixar a regra viva
+ * a faz materializar o mesmo defeito no mês seguinte.
+ */
+{
+  const it = (o: Partial<ItemRevisao>): ItemRevisao =>
+    ({ id: "x", origem: "lancamento", descricao: null, valor: 100, data: "2026-06-10",
+       tipo: "saida", categoriaTexto: "Aluguel", categoriaChave: null, contraparte: null, ...o });
+
+  const FILA = montarFilaRevisao([
+    // Os cinco de R$ 35.000 com a chave contradizendo a descrição.
+    it({ id: "a", descricao: "Salário", valor: 35_000, categoriaTexto: null, categoriaChave: "Assinaturas / software" }),
+    it({ id: "b", descricao: "123", valor: 35_000, categoriaTexto: null, categoriaChave: "Aluguel" }),
+    // As duas ENTRADAS com nome de salário.
+    it({ id: "c", descricao: "Salary", valor: 8_500, tipo: "entrada", categoriaTexto: "Salary" }),
+    // O lixo de leitura ótica, vencido desde 2023 e em aberto.
+    it({ id: "d", descricao: "! [=]E?s rica NE Bro,", valor: 32, data: "2023-05-05" }),
+    // Valor zero.
+    it({ id: "e", descricao: "Estorno", valor: 0, tipo: "entrada", categoriaTexto: "Tarifas bancárias" }),
+    // A regra recorrente contraditória.
+    it({ id: "f", origem: "recorrencia", descricao: "Salário", valor: 35_000,
+         categoriaTexto: null, categoriaChave: "Assinaturas / software", contraparte: "GOOGLE ADS CAMPANHA" }),
+    /* ---- E o que NÃO pode entrar: a fila só serve se não gritar lobo ------ */
+    it({ id: "ok1", descricao: "NF-e 123/45", valor: 1_200, categoriaTexto: "Fornecedores" }),
+    it({ id: "ok2", descricao: "PIX — João", valor: 300, categoriaTexto: "Utilidades" }),
+    it({ id: "ok3", descricao: "Folha de pagamento", valor: 20_000, categoriaTexto: "Folha de pagamento" }),
+    // Recorrência COERENTE: descrição de folha com categoria de folha.
+    it({ id: "ok4", origem: "recorrencia", descricao: "Salário", valor: 9_000,
+         categoriaChave: "Folha de pagamento", contraparte: "Equipe" }),
+  ]);
+  const por = (m: string) => FILA.achados.filter((a) => a.motivo === m).map((a) => a.id);
+
+  ok("revisao: a chave que contradiz a descrição entra na fila",
+     por("categoria_nao_propagada").join(",") === "a,b", por("categoria_nao_propagada").join(","));
+  ok("revisao: entrada com nome de salário entra", por("entrada_com_cara_de_folha").join(",") === "c");
+  ok("revisao: lixo de leitura ótica entra", por("descritivo_ilegivel").join(",") === "d");
+  ok("revisao: valor zero entra", por("valor_zero").join(",") === "e");
+  ok("revisao: a REGRA recorrente entra, não só os títulos dela",
+     por("regra_inconsistente").join(",") === "f", por("regra_inconsistente").join(","));
+  /**
+   * ⚠️ A asserção que decide se a fila presta: ela NÃO grita lobo. Um detector
+   * que acusa nota fiscal, PIX e folha coerente treina a pessoa a fechar a aba,
+   * e aí ele deixou de existir. Mesma regra do detector de segredos.
+   */
+  ok("revisao: nada legítimo entra na fila",
+     !FILA.achados.some((a) => a.id.startsWith("ok")),
+     FILA.achados.filter((a) => a.id.startsWith("ok")).map((a) => `${a.id}:${a.motivo}`).join(" | "));
+  ok("revisao: são exatamente os 6 achados medidos", FILA.achados.length === 6, String(FILA.achados.length));
+  // O maior primeiro: a fila é trabalho humano, e trabalho humano se prioriza
+  // por consequência.
+  ok("revisao: o maior valor vem primeiro", Math.abs(FILA.achados[0].valor) === 35_000);
+  ok("revisao: o total é a soma das MAGNITUDES, não um saldo",
+     Math.abs(FILA.total - (35_000 * 3 + 8_500 + 32)) < 1e-6, String(FILA.total));
+  // ⚠️ Cada achado sai com a PERGUNTA — sem ela a fila é uma lista de acusações
+  // sem o que fazer, e quem abre fecha.
+  ok("revisao: todo achado diz o que perguntar",
+     FILA.achados.every((a) => a.pergunta.length > 10 && a.explicacao.length > 10));
+
+  /* ---- O detector de ilegível, nos dois sentidos ------------------------- */
+  ok("revisao: ilegível pega o que é ilegível", descritivoIlegivel("! [=]E?s rica NE Bro,") === true);
+  ok("revisao: e NÃO pega o que um financeiro escreve o dia inteiro",
+     ["NF-e 123/45", "PIX — João", "Boleto Condomínio", "DARF 0561", "R$ 1.234,56 — taxa"]
+       .every((t) => !descritivoIlegivel(t)));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

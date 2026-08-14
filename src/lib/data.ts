@@ -543,11 +543,47 @@ function exigirUUID(valor: string | null | undefined, campo: string): string | n
   );
 }
 
+/**
+ * ⚠️ **LANÇAMENTO DE VALOR ZERO NÃO É LANÇAMENTO** — e o sistema aceitava.
+ *
+ * Achado ao levantar o de-para das categorias (14/08): a organização auditada
+ * tem duas ENTRADAS de "Tarifas bancárias" com `amount = 0,00` e um "Planilha"
+ * de saída, também zero. Nenhuma delas classifica errado — elas simplesmente
+ * não deveriam existir. É lacuna de VALIDAÇÃO, não de classificação.
+ *
+ * O custo não é o zero em si (ele não move caixa nem resultado): é que ele
+ * ocupa uma linha em toda contagem — "26 lançamentos de tarifa" vira 28 —,
+ * entra em média por lançamento e em ticket médio puxando os dois para baixo,
+ * e aparece na lista de títulos como uma obrigação a conferir que não existe.
+ * Um número que ninguém consegue explicar é um número que faz duvidar dos
+ * vizinhos.
+ *
+ * ⚠️ **Negativo também é recusado, e por outra razão.** `amount` é MAGNITUDE
+ * nesta base — a direção mora em `type` e em lugar nenhum mais (convenção da
+ * ONDA 1). Um valor negativo aqui inverteria o sinal duas vezes em todo motor
+ * que usa `assinado()`, e o efeito seria uma entrada que subtrai.
+ */
+function exigirValor(valor: number, campo = "valor"): number {
+  if (!Number.isFinite(valor) || valor === 0) {
+    throw new Error(
+      `O ${campo} do lançamento não pode ser zero. `
+      + "Informe quanto entrou ou saiu — se o objetivo era só registrar o fato sem dinheiro, use uma anotação no contato.",
+    );
+  }
+  if (valor < 0) {
+    throw new Error(
+      `O ${campo} do lançamento não pode ser negativo. `
+      + "Escolha entrada ou saída para dizer a direção; o valor é sempre positivo.",
+    );
+  }
+  return valor;
+}
+
 /** Build the movement rows for a lançamento (handles parcelamento). */
 function buildMovementRows(input: LancamentoInput, groupId: string) {
   const type: MovementType = input.kind === "receita" ? "entrada" : "saida";
   const n = Math.max(1, input.installments);
-  const per = Math.round((input.amount / n) * 100) / 100;
+  const per = Math.round((exigirValor(input.amount) / n) * 100) / 100;
   const base = new Date(input.due_date);
   return Array.from({ length: n }, (_, i) => {
     const due = new Date(base);
@@ -698,6 +734,10 @@ export interface TituloAvulso {
  */
 export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
   if (linhas.length === 0) return;
+  // ⚠️ A MESMA trava do formulário, no OUTRO escritor. Validar só num dos dois
+  // deixa a porta aberta pela metade — e é sempre a porta menos olhada que fica
+  // aberta: aqui entra a folha, que ninguém digita linha a linha.
+  linhas.forEach((l) => exigirValor(l.amount));
 
   if (isDemo) {
     linhas.forEach((l, k) => {
