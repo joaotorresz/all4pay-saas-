@@ -394,6 +394,107 @@ for (const caso of CASOS) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
+/* 2c. A RECLASSIFICAÇÃO NÃO MOVE O FUNDO — primeira parcela do plano de contas */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+{
+  /*
+   * ⚠️ **A asserção que prova que ninguém errou a mão.** Separar uma categoria
+   * genérica em quatro é RECLASSIFICAÇÃO: o dinheiro muda de linha, não de
+   * valor. Se o RESULTADO LÍQUIDO se mexer, a operação deixou de ser
+   * reclassificação e virou alteração de número — e aí o problema não é de
+   * apresentação, é de fundo.
+   *
+   * O caso reproduz o defeito real da organização auditada: uma categoria
+   * genérica "Impostos" com quatro coisas dentro — Simples (dedução da
+   * receita), INSS e FGTS (encargo de FOLHA) e IRPJ (imposto sobre o LUCRO).
+   * Medido lá: deduções de 47,54% da receita, impossível em qualquer regime
+   * brasileiro; três quartos do valor estavam na linha errada.
+   *
+   * ⚠️ E é o caso que só passa com `linhaPorCategoria`: "INSS patronal (GPS)"
+   * casa `\binss\b` em `ehImpostoVenda`, então SEM a linha declarada ele volta
+   * a cair em dedução da receita. É essa a diferença entre declarar a linha e
+   * torcer para o regex acertar.
+   */
+  const generico: RiskInput = {
+    hoje: "2026-08-15", saldoAtual: 0,
+    movements: [
+      mv("g_r", "entrada", "pago", 100_000, "2026-08-01", "2026-08-01", "Vendas", "A"),
+      mv("g_s", "saida", "pago", 9_000, "2026-08-20", "2026-08-20", "Impostos", "G"),
+      mv("g_i", "saida", "pago", 8_000, "2026-08-07", "2026-08-07", "Impostos", "G"),
+      mv("g_f", "saida", "pago", 5_000, "2026-08-07", "2026-08-07", "Impostos", "G"),
+      mv("g_j", "saida", "pago", 7_000, "2026-08-20", "2026-08-20", "Impostos", "G"),
+    ],
+    partyNames: { A: "Alpha", G: "Fisco" },
+  } as RiskInput;
+
+  const separado: RiskInput = {
+    ...generico,
+    movements: [
+      mv("g_r", "entrada", "pago", 100_000, "2026-08-01", "2026-08-01", "Vendas", "A"),
+      mv("g_s", "saida", "pago", 9_000, "2026-08-20", "2026-08-20", "Simples Nacional", "G"),
+      mv("g_i", "saida", "pago", 8_000, "2026-08-07", "2026-08-07", "INSS patronal (GPS)", "G"),
+      mv("g_f", "saida", "pago", 5_000, "2026-08-07", "2026-08-07", "FGTS", "G"),
+      mv("g_j", "saida", "pago", 7_000, "2026-08-20", "2026-08-20", "IRPJ / CSLL", "G"),
+    ],
+  } as RiskInput;
+
+  /** A linha DECLARADA de cada categoria — o formato do plano de contas. */
+  const LINHA_POR_CATEGORIA: Record<string, string> = {
+    "simples nacional": "deducoes",
+    "inss patronal (gps)": "despesas_operacionais",
+    "fgts": "despesas_operacionais",
+    "irpj / csll": "impostos_lucro",
+  };
+
+  /*
+   * ⚠️ **DÚVIDA REGISTRADA — a organização auditada está no SIMPLES e pagou
+   * DARF IRPJ no mesmo período** (R$ 75.982,66 em 9 guias). No Simples o IRPJ
+   * está DENTRO do DAS. Pode ser mudança de regime, outra entidade do grupo
+   * pagando pela mesma conta, ou recolhimento indevido — quem decide é o
+   * contador.
+   *
+   * A classificação como imposto sobre o lucro está certa PARA O QUE O
+   * DOCUMENTO DIZ QUE É, e é só isso que ela afirma. Fica escrito aqui para
+   * ninguém ler o teste verde como se a dúvida tivesse sido resolvida.
+   */
+  const antes = cascataDRE(generico, { intervalo: AGOSTO, regime: "competencia" });
+  const depois = cascataDRE(separado, { intervalo: AGOSTO, regime: "competencia", linhaPorCategoria: LINHA_POR_CATEGORIA });
+
+  const conferir = (nome: string, obtido: number, esperado: number) => {
+    if (Math.abs(obtido - esperado) > 0.01) erro(`reclassificação · ${nome}`, `deu ${fmt(obtido)}, esperado ${fmt(esperado)}`);
+    else ok(`reclassificação · ${nome}`, fmt(obtido));
+  };
+
+  // ANTES: os quatro juntos viram dedução (29.000 de 100.000 = 29%).
+  conferir("antes · deduções engolem os quatro", antes.linhas.deducoes.valor, 29_000);
+  // DEPOIS: só o Simples é dedução.
+  conferir("depois · dedução é só o Simples", depois.linhas.deducoes.valor, 9_000);
+  conferir("depois · INSS e FGTS viram despesa operacional", depois.linhas.despesas_operacionais.valor, 13_000);
+  conferir("depois · IRPJ vira imposto sobre o lucro", depois.linhas.impostos_lucro.valor, 7_000);
+  conferir("depois · EBITDA sobe pelo que saiu da dedução", depois.linhas.ebitda.valor, 78_000);
+
+  // ⚠️ O FUNDO NÃO SE MEXE. É a asserção que separa reclassificar de alterar.
+  const d = depois.linhas.resultado_liquido.valor - antes.linhas.resultado_liquido.valor;
+  if (Math.abs(d) > 0.01) {
+    erro("reclassificação · o RESULTADO LÍQUIDO não pode mudar",
+      `mexeu ${fmt(d)}: antes ${fmt(antes.linhas.resultado_liquido.valor)}, depois ${fmt(depois.linhas.resultado_liquido.valor)} — isto deixou de ser reclassificação`);
+  } else {
+    ok("reclassificação · o RESULTADO LÍQUIDO não muda", `${fmt(depois.linhas.resultado_liquido.valor)} nos dois`);
+  }
+
+  // ⚠️ Sem a linha declarada, o INSS volta para a dedução — é o que prova que o
+  // caso testa `linhaPorCategoria` e não a sorte do regex.
+  const semDeclaracao = cascataDRE(separado, { intervalo: AGOSTO, regime: "competencia" });
+  if (semDeclaracao.linhas.deducoes.valor <= 9_000) {
+    erro("reclassificação · o caso DEPENDE da linha declarada",
+      `sem linhaPorCategoria a dedução deu ${fmt(semDeclaracao.linhas.deducoes.valor)} — se já está certa, o caso não prova que a declaração é necessária`);
+  } else {
+    ok("reclassificação · sem a linha declarada o INSS volta para a dedução", fmt(semDeclaracao.linhas.deducoes.valor));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
 /* 3. QUEM CITA NÚMERO DE RESULTADO DIZ DE QUE PERÍODO E REGIME ELE SAIU      */
 /* ══════════════════════════════════════════════════════════════════════════ */
 

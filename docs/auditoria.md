@@ -212,3 +212,60 @@ existe: `linhaPorCategoria` — a linha DECLARADA de cada categoria, que **vence
 o palpite por palavra-chave. Quem cadastrou a categoria sabe em que linha ela
 entra; o regex, não. Separar "Impostos" em Simples · INSS · FGTS · IRPJ resolve
 os quatro de uma vez.
+
+
+---
+
+## PRIMEIRA PARCELA DA MIGRAÇÃO DO PLANO DE CONTAS — aplicada
+
+A categoria genérica **"Impostos"** virou quatro, **com natureza fixa**, no
+formato que a migração maior vai herdar (`categories.dre_linha`):
+
+| Categoria | `dre_linha` | Por quê |
+| --- | --- | --- |
+| Simples Nacional | `deducoes` | é o único que é dedução da receita |
+| INSS patronal (GPS) | `despesas_operacionais` | encargo de **folha** |
+| FGTS | `despesas_operacionais` | encargo de **folha** |
+| IRPJ / CSLL | `impostos_lucro` | imposto sobre o **lucro** |
+
+**48 lançamentos** reclassificados (12 de cada) — a janela auditada tem 36; os
+outros 12 estão fora dela e ficaram consistentes de graça.
+
+### O efeito, medido antes e depois
+
+| Linha | Antes | Depois |
+| --- | --- | --- |
+| Deduções | R$ 248.707,93 | **R$ 46.800,00** |
+| Receita Líquida | R$ 274.440,01 | **R$ 476.347,94** |
+| Despesas Operacionais | R$ 1.003.471,98 | **R$ 1.129.397,25** |
+| EBITDA | −R$ 783.449,58 | **−R$ 707.466,92** |
+| Impostos s/ Lucro | R$ 0,00 | **R$ 75.982,66** |
+| **Resultado Líquido** | **−R$ 784.743,23** | **−R$ 784.743,23** |
+| Margem EBITDA | −285,5% | **−148,5%** |
+
+⚠️ **O resultado líquido NÃO se mexeu** — é reclassificação, não alteração de
+valor. Essa é a asserção que prova que ninguém errou a mão, e ela está travada
+no contrato (`reclassificação · o RESULTADO LÍQUIDO não muda`).
+
+### A fiação que faltava
+
+`linhaPorCategoria` só era alimentado pelo plano de contas **local**
+(`lib/registros`). Quem nunca abriu a tela de Cadastros não tinha linha
+declarada nenhuma, e o motor caía no palpite por palavra-chave sem nada dizer.
+Agora `getLinhasDeCategoria()` (`lib/data`) lê **`categories.dre_linha`** — a
+tabela que os lançamentos referenciam — e o relatório mescla as duas fontes.
+
+⚠️ **Sem a linha declarada, "INSS patronal (GPS)" volta para a dedução**, porque
+`ehImpostoVenda` casa `\binss\b`. O contrato tem um caso que falha se isso
+deixar de ser verdade — é ele que impede alguém de concluir que o regex bastava.
+
+### ⚠️ DÚVIDA REGISTRADA, para o contador confirmar
+
+A empresa está cadastrada como **Simples Nacional** e pagou **DARF IRPJ** no
+mesmo período (R$ 75.982,66 em 9 guias). **No Simples o IRPJ está dentro do
+DAS.** Isso pode indicar (a) mudança de regime no período, (b) outra entidade do
+grupo pagando pela mesma conta, ou (c) recolhimento indevido.
+
+A classificação escolhida — `impostos_lucro` — é a correta **para o que o
+documento diz que é**. Ela não resolve a dúvida, e não deve dar a impressão de
+que resolveu: quem decide é o contador, e a decisão pode mudar a categoria.

@@ -367,6 +367,36 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
  * `dre_linha` viaja junto: é a coluna da migration `20260812144846`, e sem um
  * escritor ela seria schema inerte.
  */
+/**
+ * A LINHA DECLARADA de cada categoria — `nome (minúsculo)` → id da linha do DRE.
+ *
+ * ⚠️ **Sai de `categories.dre_linha`, que é a tabela que os LANÇAMENTOS
+ * referenciam.** O plano de contas local (`lib/registros.linhasDeCategoria`)
+ * responde pela árvore que a tela de Cadastros edita; quem carrega dinheiro é
+ * esta. Enquanto só o local alimentava o relatório, a linha declarada não valia
+ * para quem nunca abriu aquela tela — e o motor caía no palpite por palavra-
+ * chave sem que nada dissesse isso.
+ *
+ * ⚠️ Foi assim que **INSS e FGTS** entraram como DEDUÇÃO DA RECEITA na
+ * organização auditada: `ehImpostoVenda` casa `\binss\b`, e encargo de folha
+ * não é dedução de receita. Quem cadastrou a categoria sabe em que linha ela
+ * entra; o regex, não.
+ */
+export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
+  if (isDemo) return {};
+  const supabase = createClient();
+  if (!supabase) return {};
+  // Teto de linhas como toda consulta do sistema: a política diz DE QUEM são
+  // as linhas, não QUANTAS.
+  const { data, error } = await supabase.from("categories").select("name,dre_linha").limit(TETO_LINHAS);
+  if (error || !data) return {};
+  const out: Record<string, string> = {};
+  for (const c of data as { name: string | null; dre_linha: string | null }[]) {
+    if (c.name && c.dre_linha) out[c.name.trim().toLowerCase()] = c.dre_linha;
+  }
+  return out;
+}
+
 export async function criarCategoria(
   nome: string, kind: CategoryKind, dreLinha?: string | null,
 ): Promise<Category> {
