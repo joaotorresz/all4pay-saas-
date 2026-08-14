@@ -1003,6 +1003,53 @@ export function previstoNaJanela(
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **O CANCELADO É INVISÍVEL, E ISSO É CERTO — CALADO É QUE NÃO É**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `liquidado`/`previsto` descartam o cancelado, e devem mesmo: um título
+ * cancelado não é receita, não é despesa e não vai ao caixa. O defeito não é a
+ * exclusão, é o SILÊNCIO — nenhum relatório diz que ela aconteceu, então um
+ * DRE montado sobre uma base com centenas de títulos cancelados tem exatamente
+ * a mesma cara de um DRE montado sobre uma base limpa.
+ *
+ * Medido na organização auditada (14/08/26, fora a amostra): **119 títulos
+ * cancelados somando R$ 579.361,41** — R$ 189.960,40 de entrada e
+ * R$ 389.401,01 de saída. No período de 12 meses do relatório, 62 títulos e
+ * R$ 395.722,13. Quem confere o faturamento contra o extrato do banco encontra
+ * essa diferença e não tem por onde começar a explicá-la.
+ *
+ * ⚠️ Isto NÃO vira linha da cascata e NÃO entra em soma nenhuma — vira RODAPÉ.
+ * Somá-lo devolveria ao resultado dinheiro que ninguém deve nem receberá, que
+ * é um defeito muito pior do que o silêncio que ele conserta.
+ */
+export interface Cancelados {
+  quantidade: number;
+  /** Magnitudes, sempre positivas — não se somam entre si (lados opostos). */
+  entradas: number;
+  saidas: number;
+  /** A soma das magnitudes: "quanto de título foi cancelado", sem direção. */
+  total: number;
+  janela: Janela;
+}
+
+/** Os títulos cancelados com vencimento na janela. Rodapé, nunca linha. */
+export function canceladosNaJanela(
+  input: RiskInput, j: Janela, tipo?: "entrada" | "saida",
+): Cancelados {
+  const rows = j.vazia
+    ? []
+    : input.movements.filter(
+        (m) => cancelado(m) && dentro(j, m.due_date) && (!tipo || m.type === tipo),
+      );
+  const soma = (tipo: "entrada" | "saida") =>
+    rows.filter((m) => m.type === tipo).reduce((s, m) => s + magnitude(m), 0);
+  const entradas = soma("entrada");
+  const saidas = soma("saida");
+  return { quantidade: rows.length, entradas, saidas, total: entradas + saidas, janela: j };
+}
+
+/**
  * O que já VENCEU e continua em aberto — a dívida (ou o crédito) atrasada.
  *
  * ⚠️ É POSIÇÃO e é FATO: o título existe e a data passou. Não tem janela — um

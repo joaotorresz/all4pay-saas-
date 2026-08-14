@@ -15,8 +15,9 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
+import { cascataDRE } from "@/core/relatorios/cascata";
 import {
-  valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto,
+  valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
   janela as janelaCanonica,
 } from "@/core/indicadores";
 import { analisarQuantitativo } from "@/core/quant";
@@ -4291,6 +4292,74 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vencido: o calendário mostra o vencido no dia de hoje",
      !!hojeNoCalendario && Math.abs(hojeNoCalendario.paga - 74_248.59) < 1e-6,
      String(hojeNoCalendario?.paga));
+}
+
+/* ── O CANCELADO É INVISÍVEL, E CALADO ──────────────────────────────────────
+ *
+ * ⚠️ Excluir o cancelado do resultado está CERTO: ele não é receita, não é
+ * despesa e não vai ao caixa. O defeito era o silêncio — um DRE sobre uma base
+ * com centenas de cancelados tem a mesma cara de um DRE sobre base limpa, e a
+ * diferença só aparece para quem confere o total contra o extrato.
+ *
+ * Medido na organização auditada (14/08/26, fora a amostra): **119 títulos
+ * cancelados, R$ 579.361,41** — R$ 189.960,40 de entrada e R$ 389.401,01 de
+ * saída. No período de 12 meses do relatório: 62 títulos, R$ 395.722,13.
+ * Conferido na trilha de auditoria: nenhum evento alterou `status` em momento
+ * algum, e os 123 `movements.criar` registrados nasceram pendentes ou pagos —
+ * os cancelamentos são ANTERIORES à trilha (junho/26). Não é deriva recente de
+ * semântica: é estado preexistente, e por isso se documenta em vez de desfazer.
+ *
+ * ⚠️ A asserção que dá sentido ao caso: o cancelado continua FORA de toda soma.
+ * Um rodapé que virasse linha devolveria ao resultado dinheiro que ninguém deve
+ * nem receberá — defeito bem pior do que o silêncio que ele conserta.
+ */
+{
+  const HOJE = "2026-08-14";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+       due_date: "2026-08-10", paid_date: "2026-08-10", status: "pago",
+       category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const AGOSTO = janelaCanonica("2026-08-01", "2026-08-31", "Agosto/26");
+
+  const INPUT: RiskInput = {
+    hoje: HOJE, saldoAtual: 10_000, partyNames: {},
+    movements: [
+      mv({ amount: 20_000 }),
+      mv({ type: "saida", amount: 5_000, category: "Fornecedores" }),
+      mv({ amount: 133_851.63, status: "cancelado", paid_date: null }),
+      mv({ type: "saida", amount: 261_870.50, status: "cancelado", paid_date: null, category: "Fornecedores" }),
+      // Cancelado FORA da janela — não pode entrar no rodapé do período.
+      mv({ amount: 999_999, due_date: "2026-03-02", status: "cancelado", paid_date: null }),
+    ],
+  } as RiskInput;
+
+  const c = canceladosNaJanela(INPUT, AGOSTO);
+  ok("cancelado: o rodapé conta os títulos cancelados da janela", c.quantidade === 2,
+     String(c.quantidade));
+  ok("cancelado: entrada e saída ficam separadas",
+     Math.abs(c.entradas - 133_851.63) < 1e-6 && Math.abs(c.saidas - 261_870.50) < 1e-6,
+     `${c.entradas} / ${c.saidas}`);
+  ok("cancelado: o total é a soma das magnitudes (395.722,13)",
+     Math.abs(c.total - 395_722.13) < 1e-6, String(c.total));
+  ok("cancelado: cancelado fora da janela não entra no rodapé",
+     Math.abs(c.total - 395_722.13) < 1e-6 && c.quantidade === 2);
+  ok("cancelado: o painel de pagar rodapeia só o lado dele",
+     canceladosNaJanela(INPUT, AGOSTO, "saida").quantidade === 1
+     && Math.abs(canceladosNaJanela(INPUT, AGOSTO, "saida").total - 261_870.50) < 1e-6);
+  // ⚠️ Sem cancelado o rodapé SOME. Rodapé permanente de "0 cancelados" é ruído
+  // em toda tela, e ruído treina a pessoa a não ler o rodapé no dia em que ele
+  // tem algo a dizer.
+  ok("cancelado: base limpa não produz rodapé",
+     canceladosNaJanela({ ...INPUT, movements: INPUT.movements.filter((m) => m.status !== "cancelado") }, AGOSTO)
+       .quantidade === 0);
+
+  /* ---- E O NÚMERO CONTINUA FORA DAS SOMAS ------------------------------- */
+  // Esta é a asserção que impede o "conserto" errado: alguém somar o rodapé.
+  const cascata = cascataDRE(INPUT, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, regime: "competencia" });
+  ok("cancelado: a receita bruta ignora o cancelado (20.000, não 153.851,63)",
+     Math.abs(cascata.linhas.receita_bruta.valor - 20_000) < 1e-6, String(cascata.linhas.receita_bruta.valor));
+  ok("cancelado: o resultado líquido ignora o cancelado (15.000)",
+     Math.abs(cascata.linhas.resultado_liquido.valor - 15_000) < 1e-6, String(cascata.linhas.resultado_liquido.valor));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
