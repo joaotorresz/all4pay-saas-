@@ -39,6 +39,7 @@ import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { valorOuNulo, type Indicador, type Janela } from "@/core/indicadores";
 import { painelResultado } from "@/core/indicadores/resultado";
 import { montarInvestorUpdate } from "@/core/investor";
+import { analisarQuantitativo } from "@/core/quant";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
@@ -537,6 +538,39 @@ for (const caso of CASOS) {
       `sem linhaPorCategoria a dedução deu ${fmt(semDeclaracao.linhas.deducoes.valor)} — se já está certa, o caso não prova que a declaração é necessária`);
   } else {
     ok("reclassificação · sem a linha declarada o INSS volta para a dedução", fmt(semDeclaracao.linhas.deducoes.valor));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* 2d. #8 NÃO MIGRA — mas nenhum número dele usa nome de linha do DRE        */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+{
+  /*
+   * ⚠️ **A guarda do caso que NÃO migrou.** `core/quant` mede CAIXA (burn de 90
+   * dias) e continua medindo — o score pergunta "o caixa aguenta?", e caixa é a
+   * resposta certa. O risco dele nunca foi a fonte: era o NOME. Enquanto se
+   * chamava "margem líquida" e "margem operacional", a Home mostrava dois
+   * números diferentes com o mesmo rótulo — um de caixa, outro de competência —
+   * e quem lia concluía que o sistema se contradiz.
+   *
+   * Esta asserção é sobre o VOCABULÁRIO, e é o que impede o nome de voltar.
+   */
+  const proibidos = ["margemLiquida", "margemOperacional"] as const;
+  const chaves = Object.keys(analisarQuantitativo(FIXTURE.INPUT).indicadores);
+  const reincidentes = proibidos.filter((k) => chaves.includes(k));
+  if (reincidentes.length > 0) {
+    erro("#8 · nenhum número de caixa usa nome de linha do DRE",
+      `${reincidentes.join(", ")} voltou a existir em quant/indicadores. Dois regimes, dois nomes: use margemCaixa90d / eficienciaDeCaixa`);
+  } else {
+    ok("#8 · nenhum número de caixa usa nome de linha do DRE", "margemCaixa90d · eficienciaDeCaixa");
+  }
+  // E o número segue existindo — renomear não pode ter apagado a leitura.
+  const i = analisarQuantitativo(FIXTURE.INPUT_QUEIMANDO).indicadores;
+  if (typeof i.margemCaixa90d !== "number" || Number.isNaN(i.margemCaixa90d)) {
+    erro("#8 · a leitura de caixa continua existindo", `margemCaixa90d = ${i.margemCaixa90d}`);
+  } else {
+    ok("#8 · a leitura de caixa continua existindo", `${(i.margemCaixa90d * 100).toFixed(1)}%`);
   }
 }
 

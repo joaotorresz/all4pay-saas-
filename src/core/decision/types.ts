@@ -23,7 +23,8 @@ export interface FinancialFeatures {
   concentracaoReceita: number; // 0..1
   concentracaoFornecedor: number; // 0..1
   ticketMedio: number;
-  margemOperacional: number;
+  /** ⚠️ Margem de CAIXA (90d). Ver `docs/auditoria.md`, #8 — dois regimes, dois nomes. */
+  margemCaixa90d: number;
   crescimentoMensal: number;
   sazonalidade: number; // 0..1
   scoreSaude: number; // 0..100

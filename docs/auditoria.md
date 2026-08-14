@@ -72,13 +72,13 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 | **#5** | `core/paineis` — painel de Vendas | `cascataDRE` via a fachada | ✅ **FEITO** |
 | **#6** | `core/indicadores/resultado` — `painelResultado` | `cascataDRE` (mantendo o contrato ONDA 4) | ✅ **FEITO** |
 | **#7** | IA — `assistant/engine.ts` | `cascataDRE` | ✅ **FEITO** (PR #44) |
-| **#8** | `core/quant/indicators` → `/inteligencia` | deriva de `calcularBurnRate` | 🔤 **NÃO migra — RENOMEIA** |
-| **#9** | Investor Update (`core/investor`) | consome `quant.indicadores` | ⏳ migra |
-| **#10** | `/dashboard/dashboards/sales` | **soma crua** de `movements` | ⏳ |
+| **#8** | `core/quant/indicators` → `/inteligencia` | `calcularBurnRate` (CAIXA) | 🔤 **NÃO MIGROU — RENOMEADO.** `margemOperacional`→`margemCaixa90d`, `margemLiquida`→`eficienciaDeCaixa`. O regime é dito na tela. Guarda de vocabulário no contrato |
+| **#9** | Investor Update (`core/investor`) | `cascataDRE` (receita do mês, margem líquida) | ✅ **FEITO** |
+| **#10** | `/dashboard/dashboards/sales` | `cascataDRE` (receita, MC, EBITDA) | ✅ **FEITO** |
 | **#11** | `core/budget` / Orçamento | `core/relatorios` | ✅ **OK** |
 | **#12** | `core/fiscal/apuracao` + `/impostos` | `receitaTributavel` | ✅ **OK** |
 | **#13** | Exportações XLSX/DOCX/PDF | `linhasParaPlanilha` | ✅ **OK** |
-| **#14** | `core/onboarding` (DNA/maturidade) | `core/fdip` | ⏳ **verificar antes de migrar** |
+| **#14** | `core/onboarding` (DNA/maturidade) | `core/fdip` | 🔤 **NÃO MIGROU — RENOMEADO.** Verificado: não CONSEGUE consumir a cascata (sem categoria, classificação de confiança 0.4, extrato sem competência). Virou *estimativa da importação*, com aviso na tela |
 
 ### São CINCO agregações independentes, não duas
 
@@ -86,9 +86,9 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 2. ~~**`dreGerencial`**~~ — **curada**: virou FACHADA FINA da cascata (#4, #5). Zero agregação própria;
 3. ~~**`painelResultado`**~~ — **curada**: lê a cascata e veste o contrato da ONDA 4 (dizer quando não sabe). Zero agregação própria;
 4. ~~a inline da IA~~ — **curada** no PR #44;
-5. **`quant`/burn** (`core/quant/indicators`) — #8, e por tabela #9.
+5. **`quant`/burn** (`core/quant/indicators`) — #8. **Permanece, por desenho**: mede CAIXA, e o score de saúde pergunta "o caixa aguenta?". O que mudou foi o NOME.
 
-Mais **duas somas cruas** sem classificador nenhum: **#10** e **#14**.
+As duas somas cruas foram fechadas: **#10** migrou; **#14** foi renomeado (não consegue migrar).
 
 ---
 
@@ -101,10 +101,10 @@ Um PR por vez, **verde antes do próximo**.
 | ✅ 1º | **#7** IA | Feito no PR #44, com o contrato nascendo junto |
 | ✅ 2º | **#3 · #4 · #5** | #3 removido (morto). `dreGerencial` virou **fachada fina** sobre `cascataDRE`, com `regime` obrigatório. Contrato estendido aos **dois regimes** |
 | ✅ 3º | **#6** `painelResultado` | Lê a cascata mantendo o contrato da ONDA 4. `ehReceitaOperacional` é a única definição de receita operacional no código |
-| 4º | **#10** `VendasDashboardView` | Soma crua de `movements`, sem classificador |
-| 5º | **#14** `core/fdip` | ⚠️ **Verificar ANTES se ele CONSEGUE consumir a cascata.** Roda no onboarding, sobre dado **ainda não classificado**. Se não conseguir, a correção **não é migrar**: é parar de chamar aquilo de *receita* e *EBITDA* e rotular como **estimativa da importação** |
-| 6º | **#9** Investor Update | **Migra.** Investidor que lê "margem líquida" espera competência; número derivado de caixa sob esse rótulo aparece contra você numa diligência |
-| 7º | **#8** `quant`/score | ⚠️ **NÃO migra.** Mantém o burn como fonte e **RENOMEIA** — *"margem de caixa 90d"*, *"eficiência de caixa"* — ganhando ao lado as métricas de competência vindas da cascata. **Dois regimes, dois nomes** |
+| ✅ 4º | **#10** `VendasDashboardView` | Receita, MC e EBITDA da cascata. `RE.variavel` e `RE.foraEbitda` removidos; `RE.marketing` fica (CAC não é linha do DRE) |
+| ✅ 5º | **#14** `core/fdip` | **Não consegue** — verificado. Renomeado para *estimativa da importação*, com aviso na tela |
+| ✅ 6º | **#9** Investor Update | Migrado. Receita do mês e margem líquida em competência; a margem é `null` sem receita |
+| ✅ 7º | **#8** `quant`/score | **Não migrou, renomeou.** `margemCaixa90d` e `eficienciaDeCaixa`, com o regime dito em cada cartão. Guarda de vocabulário no contrato impede o nome de voltar |
 
 ---
 

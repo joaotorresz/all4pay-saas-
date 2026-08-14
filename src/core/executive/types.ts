@@ -43,7 +43,8 @@ export interface ExecutiveContext {
   burnRate: number;
   receitaMensal: number;
   despesaMensal: number;
-  margemOperacional: number;
+  /** ⚠️ Margem de CAIXA (90d). Ver `docs/auditoria.md`, #8 — dois regimes, dois nomes. */
+  margemCaixa90d: number;
   crescimentoMensal: number;
   inadimplencia: number; // 0..1
   scoreFinanceiro: number; // 0..100 (saúde)

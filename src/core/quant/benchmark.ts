@@ -19,7 +19,7 @@ export function motorBenchmarking(
 ): BenchmarkLinha[] {
   const b = BENCHMARKS[setor];
   return [
-    { metrica: "Margem operacional", empresa: i.margemOperacional, setor: b.margem, unidade: "pct", acima: i.margemOperacional >= b.margem },
+    { metrica: "Margem de caixa (90d)", empresa: i.margemCaixa90d, setor: b.margem, unidade: "pct", acima: i.margemCaixa90d >= b.margem },
     { metrica: "Eficiência operacional", empresa: i.eficienciaOperacional, setor: b.eficiencia, unidade: "num", acima: i.eficienciaOperacional >= b.eficiencia },
     { metrica: "Inadimplência", empresa: i.inadimplencia, setor: b.inadimplencia, unidade: "pct", acima: i.inadimplencia <= b.inadimplencia },
     { metrica: "Crescimento mensal", empresa: i.crescimentoMensal, setor: b.crescimento, unidade: "pct", acima: i.crescimentoMensal >= b.crescimento },

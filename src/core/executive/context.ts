@@ -37,7 +37,7 @@ export function construirContexto(
     burnRate: i.burnRate,
     receitaMensal: i.receitaMensal,
     despesaMensal: i.despesaMensal,
-    margemOperacional: i.margemOperacional,
+    margemCaixa90d: i.margemCaixa90d,
     crescimentoMensal: i.crescimentoMensal,
     inadimplencia: i.inadimplencia,
     scoreFinanceiro: m.quant.score.score,

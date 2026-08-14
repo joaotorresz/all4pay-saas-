@@ -41,7 +41,7 @@ export function construirFeatures(input: RiskInput): FeatureStore {
     concentracaoReceita: i.concentracaoReceita,
     concentracaoFornecedor: concentracaoFornecedor(input),
     ticketMedio: i.ticketMedio,
-    margemOperacional: i.margemOperacional,
+    margemCaixa90d: i.margemCaixa90d,
     crescimentoMensal: i.crescimentoMensal,
     sazonalidade: i.sazonalidade,
     scoreSaude: q.score.score,
