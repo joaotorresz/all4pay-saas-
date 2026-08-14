@@ -1033,6 +1033,49 @@ export interface Cancelados {
   janela: Janela;
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **QUANTOS LANÇAMENTOS DA JANELA NÃO TÊM COMPETÊNCIA** — o fallback, dito
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * O motor passou a ler `competence_date`; quando ela falta, o vencimento
+ * continua valendo. **Esse fallback não pode ser silencioso**: um DRE montado
+ * metade por competência e metade por vencimento tem a mesma cara de um DRE
+ * conferido, e a diferença só aparece quando alguém lança uma compra de março
+ * para vencer em abril.
+ *
+ * Medido na organização auditada: 123 de 530 lançamentos (23,2%) têm
+ * competência, e as duas únicas divergências caem no mesmo mês — o DRE não muda
+ * um centavo hoje. O risco é estrutural, não realizado, e é exatamente por isso
+ * que ele precisa estar escrito na tela em vez de esperado da memória de
+ * alguém.
+ *
+ * Instrumentação com consumidor, pela regra R4: quem chama isto MOSTRA.
+ */
+export interface CoberturaCompetencia {
+  /** Lançamentos considerados na janela (não cancelados). */
+  total: number;
+  /** Quantos declararam a competência. */
+  comCompetencia: number;
+  /** Quantos caíram no vencimento por falta dela. */
+  semCompetencia: number;
+  /** 0..1 — `null` quando não há lançamento para medir. */
+  cobertura: number | null;
+}
+
+export function coberturaCompetencia(input: RiskInput, j: Janela): CoberturaCompetencia {
+  const rows = j.vazia
+    ? []
+    : input.movements.filter((m) => !cancelado(m) && dentro(j, dataDe(m, "competencia")));
+  const com = rows.filter((m) => !!m.competence_date).length;
+  return {
+    total: rows.length,
+    comCompetencia: com,
+    semCompetencia: rows.length - com,
+    cobertura: rows.length === 0 ? null : com / rows.length,
+  };
+}
+
 /** Os títulos cancelados com vencimento na janela. Rodapé, nunca linha. */
 export function canceladosNaJanela(
   input: RiskInput, j: Janela, tipo?: "entrada" | "saida",

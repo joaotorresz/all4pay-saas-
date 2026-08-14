@@ -3193,7 +3193,9 @@ const AGOSTO = janelaMes(2026, 7);
   ];
   for (const intervalo of PERIODOS) {
     for (const { nome, f } of FILTROS) {
-      const c = cascataDRE(INPUT, { intervalo, ...f });
+      // ⚠️ `regime` explícito: a cascata declara que ele é obrigatório e sem
+      // padrão, e omiti-lo aqui atravessava o tipo pelo spread.
+      const c = cascataDRE(INPUT, { intervalo, regime: "competencia", ...f });
       const tab = montarDRE(INPUT, { intervalo, tipo: "vertical", ...f });
       for (const [rotulo, id] of PARES) {
         const doCartao = c.linhas[id as keyof typeof c.linhas];

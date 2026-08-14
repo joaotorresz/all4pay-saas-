@@ -801,3 +801,80 @@ para vencer em abril, o DRE a põe em abril e não avisa.
 **Não corrigido, como instruído.** É decisão de produto: ou a competência passa a
 ser lida (e aí `RiskMovement` ganha o campo, com `?? due_date` explícito), ou o
 sistema para de chamar de competência o que apura por vencimento.
+
+
+---
+
+# CORREÇÕES DE 14/08 (noite) — invariante, contraparte, competência
+
+## 1. A invariante do fundo, na forma geral
+
+`Δ Resultado Líquido = −(total do que SAIU do DRE)`, zero quando nada sai. A
+asserção do contrato foi trocada: antes cobrava "não pode mudar", o que
+reprovaria toda remoção legítima. Agora há dois casos lado a lado —
+reclassificação pura (Δ = 0) e remoção (Δ = valor do removido) — e o segundo
+tem asserção de que os dois cenários DISCORDAM, senão o caso não testa nada.
+
+## 2. A4P-018 — REFUTADA a acusação de linha fabricada
+
+Os 4 lançamentos de R$ 35.000 têm `party_id` → GOOGLE ADS CAMPANHA **de
+verdade**, todos com a chave apontando para *Assinaturas / software*, em 4 meses
+distintos. A média de R$ 35.000/mês sai deles. Todos os campos da linha vêm do
+mesmo conjunto coerente. **A linha não é fabricada.**
+
+O que explicava a leitura contrária: os 12 "GOOGLE ADS CAMPANHA" e 12 "META ADS"
+de R$ 1.763,92–5.089,43 têm o nome na **descrição** e `party_id` NULO — população
+diferente, medida por um caminho que a tela não usa.
+
+### O defeito real, corrigido
+
+`nomes[party_id] ?? ultimo.category ?? "Sem contraparte"` — sem cadastro, a
+CATEGORIA virava o nome da contraparte. E como a **chave do agrupamento** sai
+daí, os 24 lançamentos de Google e Meta (R$ 71.043,14) colapsavam num único
+compromisso chamado "Marketing", com as médias somadas.
+
+Agora: cadastro → descrição normalizada (`nucleoContraparte`) → "Sem
+contraparte". **A categoria não entra em nenhum degrau.** Guarda provada
+quebrando: com a categoria de volta, os dois fornecedores viram um grupo só.
+
+## 3. `competence_date` — o motor passou a ler
+
+**Medido ANTES de aplicar, como instruído:** zero diferença nas sete linhas do
+DRE entre apurar por vencimento e por competência. Confirmado o esperado.
+
+| | |
+| --- | --- |
+| Lançamentos reais | 530 |
+| Com competência | 123 (23,2%) |
+| Diferentes do vencimento | 2 — e no mesmo mês |
+
+**Quem preenche, medido por origem:**
+
+| `origem` | total | com competência |
+| --- | ---: | ---: |
+| `manual` (o formulário) | 121 | **121 — 100%** |
+| nula (importação / onboarding) | 407 | **2** |
+| `venda` | 2 | 0 |
+
+⚠️ **Não é o formulário: é a importação.** O modelo de planilha em lote
+(`ImportacaoView`) **não tem coluna de competência** — não é que ela não seja
+exigida, ela não existe. E o extrato/onboarding grava sem. É por aí que entram
+os 77%.
+
+### ⚠️ A correção desenterrou uma SEGUNDA implementação da regra de data
+
+`core/relatorios.dataDoRegime` repetia a regra por conta própria. Foi por isso
+que ligar a competência em `dataDe` não mudou nada no DRE na primeira tentativa:
+**o relatório nunca chamava a função canônica.** Agora delega.
+
+⚠️ **E a delegação trocou o regime em silêncio, num caso que a guarda pegou.**
+Com `regime` indefinido, a expressão antiga caía em competência por acidente do
+ternário e a delegação caía em caixa pelo acidente inverso — R$ 5.000 de
+diferença entre o cartão e a tabela na fixture. A normalização passou a ser
+DITA, e a chamada que omitia o regime foi corrigida.
+
+### A fixture que separa os dois regimes
+
+Uma compra com competência em **março** e vencimento/pagamento em **abril** cai
+em março no DRE e em abril no DFC — e a guarda exige que os dois **discordem**
+sobre ela. Era esse caso que não existia no sistema.

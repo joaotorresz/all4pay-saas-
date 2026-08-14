@@ -86,7 +86,13 @@ export type Regime = "caixa" | "competencia";
  */
 export function dataDe(m: RiskMovement, regime: Regime): string | null {
   if (cancelado(m)) return null;
-  if (regime === "competencia") return m.due_date ? m.due_date.slice(0, 10) : null;
+  if (regime === "competencia") {
+    // ⚠️ A competência é o que a pessoa digitou como "quando o fato
+    // aconteceu". O vencimento é o fallback DECLARADO (a tela informa quantos
+    // lançamentos caíram nele), nunca uma substituição silenciosa.
+    const d = m.competence_date || m.due_date;
+    return d ? d.slice(0, 10) : null;
+  }
   if (!liquidado(m)) return null;
   // Liquidado sem `paid_date` é dado incompleto vindo de importação antiga: o
   // vencimento é a melhor aproximação da data em que o dinheiro se moveu.

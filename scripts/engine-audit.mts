@@ -19,6 +19,7 @@ import { montarFilaRevisao, descritivoIlegivel, type ItemRevisao } from "@/core/
 import { cascataDRE } from "@/core/relatorios/cascata";
 import {
   valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
+  coberturaCompetencia,
   janela as janelaCanonica,
 } from "@/core/indicadores";
 import { analisarQuantitativo } from "@/core/quant";
@@ -4608,6 +4609,120 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("estorno: em magnitude daria 10.655,30, e não dá", val(r, "deducoes") !== 10_655.30);
   ok("estorno: e a restituição NÃO está na receita bruta",
      val(r, "receita_bruta") === 100_000, String(val(r, "receita_bruta")));
+}
+
+/* ── COMPETÊNCIA ≠ VENCIMENTO ≠ CAIXA ──────────────────────────────────────
+ *
+ * ⚠️ **O caso que sozinho separa os dois regimes, e que o sistema não tinha.**
+ * Uma compra com competência em MARÇO e vencimento em ABRIL tem de cair em
+ * março no DRE e em abril no DFC. Antes caía em abril nos dois: `dataDe(m,
+ * "competencia")` devolvia `due_date` e `RiskMovement` sequer declarava
+ * `competence_date` — não era fallback silencioso, era coluna inerte.
+ *
+ * A consequência não era o número (medido: 23,2% preenchido, e as duas
+ * divergências caem no mesmo mês, então o DRE não muda um centavo). Era o
+ * formulário exigir "Data de competência" e dizer *"quando o fato aconteceu — é
+ * o que o DRE lê"*. E era de produto: um DRE que apura por vencimento não é
+ * competência nem caixa, e os dois relatórios passavam a diferir só por
+ * pago-versus-não-pago.
+ */
+{
+  const COMP = "2026-03-15", VENC = "2026-04-10", PAGO = "2026-04-10";
+  const compra: RiskMovement = {
+    id: "c1", type: "saida", status: "pago", amount: 12_000,
+    due_date: VENC, paid_date: PAGO, competence_date: COMP,
+    category: "Fornecedores / insumos", party_id: null,
+  } as RiskMovement;
+  const INPUT: RiskInput = { hoje: "2026-08-31", saldoAtual: 0, partyNames: {}, movements: [compra] } as RiskInput;
+  const MARCO = { de: "2026-03-01", ate: "2026-03-31" };
+  const ABRIL = { de: "2026-04-01", ate: "2026-04-30" };
+
+  const dre = (i: { de: string; ate: string }) =>
+    montarRelatorio(INPUT, ESTRUTURA_DRE, { intervalo: i, tipo: "dre", regime: "competencia" })
+      .linhas.find((l) => l.id === "custos_variaveis")!.total.valor;
+  const dfc = (i: { de: string; ate: string }) =>
+    montarRelatorio(INPUT, ESTRUTURA_DFC, { intervalo: i, tipo: "dfc", regime: "caixa" })
+      .linhas.find((l) => l.id === "saidas_operacionais")!.total.valor;
+
+  ok("competencia: o DRE põe a compra em MARÇO (a competência)", dre(MARCO) === 12_000, String(dre(MARCO)));
+  ok("competencia: e NÃO em abril", dre(ABRIL) === 0, String(dre(ABRIL)));
+  ok("competencia: o DFC põe a mesma compra em ABRIL (o caixa)", dfc(ABRIL) === 12_000, String(dfc(ABRIL)));
+  ok("competencia: e NÃO em março", dfc(MARCO) === 0, String(dfc(MARCO)));
+  /**
+   * ⚠️ A asserção que dá sentido ao caso: os dois regimes têm de DISCORDAR
+   * sobre este lançamento. Se um dia concordarem, a competência voltou a ser o
+   * vencimento e o sistema tem de novo um regime só com dois nomes.
+   */
+  ok("competencia: os dois regimes discordam sobre o mesmo lançamento",
+     dre(MARCO) !== dfc(MARCO) && dre(ABRIL) !== dfc(ABRIL));
+
+  /* ---- Sem competência, o vencimento vale — e a tela DIZ quantos ---------- */
+  const semComp: RiskMovement = { ...compra, id: "c2", competence_date: null } as RiskMovement;
+  const MISTO: RiskInput = { ...INPUT, movements: [compra, semComp] } as RiskInput;
+  ok("competencia: sem o campo, o vencimento continua valendo",
+     montarRelatorio(MISTO, ESTRUTURA_DRE, { intervalo: ABRIL, tipo: "dre", regime: "competencia" })
+       .linhas.find((l) => l.id === "custos_variaveis")!.total.valor === 12_000);
+  // ⚠️ Instrumentação com consumidor (R4): o fallback é DECLARADO. Sem este
+  // número na tela, um DRE metade por competência e metade por vencimento tem a
+  // mesma cara de um conferido.
+  const cob = coberturaCompetencia(MISTO, janelaCanonica("2026-03-01", "2026-04-30", "Mar–Abr"));
+  ok("competencia: a cobertura conta quantos caíram no vencimento",
+     cob.total === 2 && cob.comCompetencia === 1 && cob.semCompetencia === 1
+     && Math.abs((cob.cobertura ?? 0) - 0.5) < 1e-9,
+     `${cob.comCompetencia}/${cob.total}`);
+}
+
+/* ── A CONTRAPARTE NUNCA É A CATEGORIA ─────────────────────────────────────
+ *
+ * ⚠️ Era `nomes[party_id] ?? ultimo.category ?? "Sem contraparte"`. Sem cadastro
+ * de contraparte, a CATEGORIA virava o nome dela — e como a CHAVE do
+ * agrupamento sai daí, fornecedores distintos viravam um compromisso só.
+ *
+ * Medido na organização auditada: 12 lançamentos "GOOGLE ADS CAMPANHA" e 12
+ * "META ADS FACEBOOK INSTAGRAM", R$ 71.043,14 no período, todos com `party_id`
+ * NULO e o nome do fornecedor na DESCRIÇÃO. Colapsavam numa linha chamada
+ * "Marketing".
+ *
+ * ⚠️ E o achado nasceu de uma acusação REFUTADA: a linha "GOOGLE ADS CAMPANHA ·
+ * Assinaturas / software · R$ 35.000/mês" NÃO era fabricada — os 4 lançamentos
+ * de R$ 35.000 têm `party_id` de verdade apontando para essa contraparte, e a
+ * média sai deles. O defeito estava ao lado, no fallback.
+ */
+{
+  const mv = (desc: string, valor: number, mes: string): RiskMovement =>
+    ({ id: `${desc}-${mes}`, type: "saida", status: "pago", amount: valor,
+       due_date: `${mes}-10`, paid_date: `${mes}-10`, category: "Marketing",
+       party_id: null, descricao: desc } as RiskMovement);
+  const MESES = ["2026-03", "2026-04", "2026-05", "2026-06"];
+  const INPUT: RiskInput = {
+    hoje: "2026-06-30", saldoAtual: 0, partyNames: { "p-goog": "GOOGLE ADS CAMPANHA" },
+    movements: [
+      ...MESES.map((m) => mv("GOOGLE ADS CAMPANHA", 3_000, m)),
+      ...MESES.map((m) => mv("META ADS FACEBOOK INSTAGRAM", 2_000, m)),
+      // O caso com contraparte CADASTRADA continua vencendo a descrição.
+      ...MESES.map((m) => ({ ...mv("qualquer texto", 35_000, m), party_id: "p-goog",
+        category: "Assinaturas / software" } as RiskMovement)),
+    ],
+  } as RiskInput;
+
+  const painel = montarPainelRecorrentes(INPUT, "2026-06");
+  const nomes = painel.grupos.map((g) => g.contraparte);
+
+  ok("contraparte: a categoria NUNCA vira o nome da contraparte",
+     !nomes.includes("Marketing"), nomes.join(" | "));
+  ok("contraparte: Google e Meta ficam SEPARADOS",
+     nomes.filter((n) => /google/i.test(n)).length >= 1 && nomes.some((n) => /meta/i.test(n)),
+     nomes.join(" | "));
+  // ⚠️ A asserção que fixa o defeito: eram DOIS fornecedores num grupo só.
+  const semParty = painel.grupos.filter((g) => !/^GOOGLE ADS CAMPANHA$/.test(g.contraparte));
+  ok("contraparte: os dois sem cadastro viram DOIS compromissos, não um",
+     semParty.length === 2, `${semParty.length}: ${semParty.map((g) => g.contraparte).join(" | ")}`);
+  ok("contraparte: a cadastrada vence a descrição",
+     nomes.includes("GOOGLE ADS CAMPANHA"), nomes.join(" | "));
+  // E a média de cada um sai do próprio grupo, não da soma dos dois.
+  const google = painel.grupos.find((g) => /google/i.test(g.contraparte) && g.categoria === "Marketing");
+  ok("contraparte: a média é do fornecedor, não da soma",
+     Math.abs((google?.mediaMensal ?? 0) - 3_000) < 1e-6, String(google?.mediaMensal));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

@@ -521,13 +521,66 @@ for (const caso of CASOS) {
   conferir("depois · IRPJ vira imposto sobre o lucro", depois.linhas.impostos_lucro.valor, 7_000);
   conferir("depois · EBITDA sobe pelo que saiu da dedução", depois.linhas.ebitda.valor, 78_000);
 
-  // ⚠️ O FUNDO NÃO SE MEXE. É a asserção que separa reclassificar de alterar.
-  const d = depois.linhas.resultado_liquido.valor - antes.linhas.resultado_liquido.valor;
-  if (Math.abs(d) > 0.01) {
-    erro("reclassificação · o RESULTADO LÍQUIDO não pode mudar",
-      `mexeu ${fmt(d)}: antes ${fmt(antes.linhas.resultado_liquido.valor)}, depois ${fmt(depois.linhas.resultado_liquido.valor)} — isto deixou de ser reclassificação`);
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * ⚠️ A INVARIANTE DO FUNDO — na forma GERAL, não na forma "não muda"
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   *     Δ Resultado Líquido = −(total do que SAIU do DRE)
+   *
+   * e portanto **zero quando nada sai**. Reclassificar DENTRO do DRE é neutro
+   * no fundo: a linha muda, a cascata reordena, o resultado não se move.
+   * REMOVER não é reclassificar, e move o fundo pelo valor exato do removido.
+   *
+   * ⚠️ **A forma antiga ("o resultado líquido não pode mudar") reprovaria toda
+   * correção legítima que tire algo do DRE.** Foi o que aconteceu ao declarar
+   * `transferencia`: o resultado subiu R$ 267,70 — fatura de cartão R$ 167,70 e
+   * boleto de transferência R$ 100,00 —, e isso é a correção funcionando. Uma
+   * transferência nunca foi despesa; enquanto ela estava lá, o custo da empresa
+   * carregava dinheiro que só mudou de bolso. Guarda que reprova o certo é
+   * desligada na primeira semana, ou "consertada" com o número novo — e aí ela
+   * deixou de medir a regra e passou a memorizar um dataset.
+   *
+   * O sinal: uma SAÍDA removida melhora o resultado (+), uma ENTRADA removida
+   * o piora (−).
+   */
+  const deltaEsperado = (removidos: readonly RiskMovement[]) =>
+    removidos.reduce((t, m) => t + (m.type === "saida" ? m.amount : -m.amount), 0);
+
+  const conferirFundo = (
+    nome: string, a: typeof antes, b: typeof depois, removidos: readonly RiskMovement[],
+  ) => {
+    const d = b.linhas.resultado_liquido.valor - a.linhas.resultado_liquido.valor;
+    const esperado = deltaEsperado(removidos);
+    if (Math.abs(d - esperado) > 0.01) {
+      erro(`fundo · ${nome}`,
+        `Δ deu ${fmt(d)}, esperado ${fmt(esperado)} (o que saiu do DRE) — `
+        + `antes ${fmt(a.linhas.resultado_liquido.valor)}, depois ${fmt(b.linhas.resultado_liquido.valor)}`);
+    } else {
+      ok(`fundo · ${nome}`, `Δ ${fmt(d)} = −(saiu ${fmt(-esperado)})`);
+    }
+  };
+
+  // Reclassificação pura: nada saiu, então o fundo não se mexe.
+  conferirFundo("reclassificar dentro do DRE é neutro (Δ = 0)", antes, depois, []);
+
+  /* ---- E o caso que a forma antiga reprovaria: algo SAI do DRE ----------- */
+  const fatura = mv("g_t", "saida", "pago", 267.70, "2026-08-15", "2026-08-15", "Credit card payment", "T");
+  const comFatura: RiskInput = { ...separado, movements: [...separado.movements, fatura] } as RiskInput;
+  const dentro = cascataDRE(comFatura, {
+    intervalo: AGOSTO, regime: "competencia", linhaPorCategoria: LINHA_POR_CATEGORIA,
+  });
+  const fora = cascataDRE(comFatura, {
+    intervalo: AGOSTO, regime: "competencia",
+    linhaPorCategoria: { ...LINHA_POR_CATEGORIA, "credit card payment": "transferencia" },
+  });
+  conferirFundo("remover do DRE move o fundo pelo valor exato", dentro, fora, [fatura]);
+  // ⚠️ E o caso tem de DISCRIMINAR: se os dois fechassem igual, a declaração de
+  // transferência não estaria fazendo nada e o teste aprovaria o vazio.
+  if (Math.abs(fora.linhas.resultado_liquido.valor - dentro.linhas.resultado_liquido.valor) < 0.01) {
+    erro("fundo · o caso da transferência não discrimina", "os dois cenários deram o mesmo resultado");
   } else {
-    ok("reclassificação · o RESULTADO LÍQUIDO não muda", `${fmt(depois.linhas.resultado_liquido.valor)} nos dois`);
+    ok("fundo · o caso da transferência discrimina", fmt(fora.linhas.resultado_liquido.valor - dentro.linhas.resultado_liquido.valor));
   }
 
   // ⚠️ Sem a linha declarada, o INSS volta para a dedução — é o que prova que o

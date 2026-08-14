@@ -893,7 +893,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+    "id,account_id,type,status,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -964,6 +964,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     accountId: m.account_id ?? null,
     // categoria real (nome do cadastro) tem prioridade sobre o texto livre
     category: embedName(m.categoria) ?? m.category,
+    // A competência e a descrição, que o motor não enxergava (ver RiskMovement).
+    competence_date: (m as { competence_date?: string | null }).competence_date ?? null,
+    descricao: (m as { description?: string | null }).description ?? null,
     costCenter: embedName(m.centro),
     projeto: embedName(m.projeto) ?? nomeProjetoLive[vinculosLive[m.id] ?? ""] ?? null,
     // Parcela: separa o compromisso que ACABA do que continua (ver RiskMovement).

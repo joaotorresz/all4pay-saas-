@@ -1335,6 +1335,62 @@ estava certo, e escrevê-lo impede o achado de voltar) — os três ficam regist
 juntos de propósito, porque **o que decide não é a força da medição, é se ela
 mediu o que a conclusão afirma.**
 
+### ⚠️ A INVARIANTE DO FUNDO — na forma GERAL, não em "não pode mudar"
+
+> **Δ Resultado Líquido = −(total do que SAIU do DRE)**, e zero quando nada sai.
+
+Reclassificar DENTRO do DRE é neutro no fundo: a linha muda, a cascata reordena,
+o resultado não se move. **Remover não é reclassificar**, e move o fundo pelo
+valor exato do removido — uma SAÍDA removida melhora o resultado, uma ENTRADA
+removida o piora.
+
+⚠️ **A forma antiga ("o resultado líquido não pode mudar") reprovaria toda
+correção legítima que tire algo do DRE.** Foi o que aconteceu ao declarar
+`transferencia`: o resultado subiu **R$ 267,70** (fatura de cartão R$ 167,70 +
+boleto de transferência R$ 100,00), e isso é a correção funcionando — uma
+transferência nunca foi despesa, e enquanto ela estava lá o custo da empresa
+carregava dinheiro que só mudou de bolso.
+
+Uma guarda que reprova o certo é desligada na primeira semana, ou "consertada"
+com o número novo — e aí ela deixou de medir a regra e passou a memorizar um
+dataset. A asserção do contrato (`scripts/contrato-resultado.mts`) cobra a forma
+geral, com o caso de remoção ao lado do de reclassificação pura.
+
+### ⚠️ A COMPETÊNCIA É LIDA — e o fallback é DECLARADO
+
+`competence_date` existia no banco e o motor **nunca a lia**: `dataDe(m,
+"competencia")` devolvia `due_date` e `RiskMovement` sequer declarava o campo.
+Não era fallback silencioso — era **coluna inerte**, e "DRE por competência" era
+DRE por vencimento por definição escrita.
+
+⚠️ **O custo não era o número.** Medido: 23,2% preenchido (123 de 530), e as duas
+únicas divergências caem no mesmo mês — o DRE não muda um centavo. O custo era o
+formulário exigir "Data de competência" e dizer, no texto de ajuda, *"quando o
+fato aconteceu — é o que o DRE lê"*. O sistema afirmava algo falso a quem digita,
+no instante em que digita. E a consequência é de produto: um DRE que apura por
+vencimento não é competência nem caixa, e os dois relatórios passam a diferir só
+por pago-versus-não-pago.
+
+⚠️ **A correção descobriu uma SEGUNDA implementação da regra de data.**
+`core/relatorios.dataDoRegime` repetia `regime === "caixa" ? paid_date :
+due_date` por conta própria — por isso ligar a competência em `dataDe` não mudou
+nada no DRE: o relatório nunca a chamava. Agora ela delega.
+
+⚠️ **E a delegação trocou o regime em silêncio, num caso.** Com `regime`
+indefinido (o spread de um filtro genérico atravessa o tipo), a expressão antiga
+caía em COMPETÊNCIA por acidente do ternário e a delegação caía em CAIXA pelo
+acidente inverso — R$ 5.000 de diferença entre o cartão e a tabela, pego pela
+guarda. A normalização agora é DITA. Nenhum dos dois padrões se defende sozinho;
+o que não pode é a escolha depender de qual operador veio primeiro.
+
+**Quem preenche:** 121 de 121 lançamentos de `origem = 'manual'` têm competência
+— o formulário exige e cumpre. Os 405 sem vêm da IMPORTAÇÃO (`origem` nula, o
+extrato/onboarding), e o modelo de planilha em lote (`ImportacaoView`) **não tem
+coluna de competência**. É por aí que entram 77%.
+
+O fallback para o vencimento continua, e a tela do DRE DIZ quantos lançamentos
+do período caíram nele (`coberturaCompetencia`) — instrumentação com consumidor.
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não

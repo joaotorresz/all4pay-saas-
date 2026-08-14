@@ -18,6 +18,7 @@
  * Puro, tipado, demo-safe. Versão relatorios/1.0.0.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { dataDe } from "@/core/indicadores/convencoes";
 
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
 
@@ -387,8 +388,39 @@ export interface Relatorio {
   base: number[];
 }
 
-const dataDoRegime = (m: RiskMovement, regime: "competencia" | "caixa") =>
-  (regime === "caixa" ? (m.paid_date || m.due_date) : m.due_date || m.paid_date || "").slice(0, 10);
+/**
+ * ⚠️ **DELEGA para a convenção canônica — era uma SEGUNDA implementação.**
+ *
+ * Esta função repetia a regra de data por conta própria (`regime === "caixa" ?
+ * paid_date : due_date`), e foi por isso que ligar a competência em
+ * `dataDe` não mudou nada no DRE: o relatório nunca a chamava. Duas
+ * implementações da mesma regra é exatamente a doença que a camada canônica
+ * existe para matar — elas começam idênticas e divergem na primeira mudança,
+ * que foi o que aconteceu aqui.
+ *
+ * O último recurso (`|| paid_date`) fica: um liquidado sem vencimento tem a
+ * data de pagamento como melhor aproximação, e devolver vazio o tiraria do
+ * relatório inteiro.
+ */
+const dataDoRegime = (m: RiskMovement, regime: "competencia" | "caixa") => {
+  /**
+   * ⚠️ **A normalização não é defensividade — ela impede uma TROCA SILENCIOSA
+   * de regime, e a guarda pegou uma.**
+   *
+   * O tipo diz que `regime` é obrigatório, mas há chamada que o omite (o spread
+   * de um filtro genérico atravessa o tipo). Com `undefined`, a expressão
+   * antiga caía no ramo de COMPETÊNCIA por acidente do ternário; a delegação
+   * caía no de CAIXA, pelo mesmo acidente ao contrário. O efeito medido na
+   * fixture: um pagamento com vencimento em julho e caixa em agosto mudava de
+   * mês, e a Receita Líquida divergia em R$ 5.000 entre o cartão e a tabela.
+   *
+   * Nenhum dos dois padrões é defensável por si; o que não pode acontecer é a
+   * escolha ser feita por qual operador veio primeiro. Aqui ela é DITA, e
+   * mantém o comportamento histórico.
+   */
+  const r: "competencia" | "caixa" = regime === "caixa" ? "caixa" : "competencia";
+  return (dataDe(m, r) ?? m.paid_date ?? m.due_date ?? "").slice(0, 10);
+};
 
 function aplicaFiltros(ms: RiskMovement[], f: FiltroRelatorio): RiskMovement[] {
   return ms.filter((m) => {
