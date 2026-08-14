@@ -330,10 +330,14 @@ export function montarPlano(records: FinancialRecord[], cls: Classificacao[], en
   const totalDesp = despesas.reduce((s, r) => s + r.valor, 0);
   const m = Math.max(1, meses);
 
-  const receitaMensal = totalRec / m;
-  const despesaMensal = totalDesp / m;
-  const ebitda = receitaMensal - despesaMensal;
-  const margemEbitda = receitaMensal > 0 ? ebitda / receitaMensal : 0;
+  /*
+   * ⚠️ Isto é ENTRADA e SAÍDA do extrato dividido por meses observados — não
+   * receita e despesa no sentido do DRE. Ver o comentário em `SetupPlan.estimativas`.
+   */
+  const entradaMensalEstimada = totalRec / m;
+  const saidaMensalEstimada = totalDesp / m;
+  const resultadoMensalEstimado = entradaMensalEstimada - saidaMensalEstimada;
+  const margemEstimada = entradaMensalEstimada > 0 ? resultadoMensalEstimado / entradaMensalEstimada : 0;
 
   const categorias = Array.from(new Set(cls.map((c) => c.categoria))).filter((c) => c !== "Transferência");
   const centrosCusto = Array.from(new Set(categorias.map((c) => CENTRO[c] ?? "Administrativo")));
@@ -346,15 +350,15 @@ export function montarPlano(records: FinancialRecord[], cls: Classificacao[], en
   const oportunidades: string[] = [];
   const assMensal = padroes.assinaturas.reduce((s, a) => s + a.valorMedio, 0);
   if (assMensal > 0) oportunidades.push(`${padroes.assinaturas.length} assinaturas somam ~${fmt(assMensal)}/mês — revisar redundâncias.`);
-  if (margemEbitda > 0.15) oportunidades.push(`Margem EBITDA estimada saudável (${Math.round(margemEbitda * 100)}%) — espaço para reinvestir.`);
+  if (margemEstimada > 0.15) oportunidades.push(`Sobra estimada da importação em ${Math.round(margemEstimada * 100)}% das entradas — espaço para reinvestir. Não é margem EBITDA: o DRE só existe depois de classificar.`);
   if (receitaRecorrentePct > 0.4) oportunidades.push(`${Math.round(receitaRecorrentePct * 100)}% da receita é recorrente — base previsível.`);
 
   const riscos: string[] = [];
   const top = entidades.find((e) => e.tipo === "cliente");
   if (top && totalRec > 0 && top.total / totalRec > 0.3) riscos.push(`Concentração: ${top.nome} ~ ${Math.round((top.total / totalRec) * 100)}% da receita.`);
-  if (ebitda < 0) riscos.push(`Queima estimada de ${fmt(-ebitda)}/mês.`);
+  if (resultadoMensalEstimado < 0) riscos.push(`Queima estimada de ${fmt(-resultadoMensalEstimado)}/mês (estimativa da importação).`);
   const combust = cls.filter((c) => c.categoria === "Combustível").length;
-  if (combust > 0 && despesaMensal > 0) riscos.push("Despesa de combustível relevante — monitorar variação de preço.");
+  if (combust > 0 && saidaMensalEstimada > 0) riscos.push("Despesa de combustível relevante — monitorar variação de preço.");
 
   return {
     clientes: entidades.filter((e) => e.tipo === "cliente").length,
@@ -364,7 +368,7 @@ export function montarPlano(records: FinancialRecord[], cls: Classificacao[], en
     categorias,
     centrosCusto,
     recorrencias: padroes.recorrencias.length,
-    estimativas: { receitaMensal, despesaMensal, ebitda, margemEbitda, burnMensal: Math.max(0, -ebitda), receitaRecorrentePct },
+    estimativas: { entradaMensalEstimada, saidaMensalEstimada, resultadoMensalEstimado, margemEstimada, burnMensal: Math.max(0, -resultadoMensalEstimado), receitaRecorrentePct },
     oportunidades,
     riscos,
   };

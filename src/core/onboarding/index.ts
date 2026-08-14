@@ -129,7 +129,7 @@ export function montarDNA(
   const saz = report?.padroes.sazonalidade ?? [];
   const amp = saz.length ? Math.max(...saz.map((s) => s.indice)) - Math.min(...saz.map((s) => s.indice)) : 0;
   const recorrente = (report?.plano.estimativas.receitaRecorrentePct ?? 0) > 0.5;
-  const ebitda = report?.plano.estimativas.ebitda ?? 0;
+  const resultadoEstimado = report?.plano.estimativas.resultadoMensalEstimado ?? 0;
 
   return [
     { label: "Empresa", valor: dadosBasicos.fantasia || dadosBasicos.razaoSocial || "Sua empresa" },
@@ -139,9 +139,14 @@ export function montarDNA(
     { label: "Clientes", valor: String(report?.plano.clientes ?? 0) },
     { label: "Fornecedores", valor: String(report?.plano.fornecedores ?? 0) },
     { label: "Dependência maior cliente", valor: `${Math.round(top * 100)}%` },
-    { label: "EBITDA estimado", valor: report ? `${fmt(ebitda)}/mês` : "—" },
+    // ⚠️ **O rótulo mudou junto com o número.** Era "EBITDA estimado", e não é
+    // EBITDA: sai de entradas − saídas do extrato importado, sem dedução, sem
+    // custo e sem linha financeira, sobre classificação de confiança declarada.
+    // Chamar de EBITDA aqui entrega ao cliente novo um número com nome de
+    // demonstração contábil e conteúdo de média de extrato.
+    { label: "Resultado estimado da importação", valor: report ? `${fmt(resultadoEstimado)}/mês` : "—" },
     { label: "Sazonalidade", valor: amp > 0.6 ? "Alta" : amp > 0.3 ? "Média" : "Baixa" },
-    { label: "Liquidez", valor: ebitda >= 0 ? "Boa" : "Atenção" },
+    { label: "Liquidez", valor: resultadoEstimado >= 0 ? "Boa" : "Atenção" },
     { label: "Concentração bancária", valor: perfil.bancos.length > 1 ? "Distribuída" : "Elevada" },
     { label: "Estrutura recomendada", valor: /sa|holding|spe/i.test(dadosBasicos.porte) ? "Holding operacional" : "Operação única" },
     { label: "DRE recomendado", valor: "Gerencial + por centro de custo" },
