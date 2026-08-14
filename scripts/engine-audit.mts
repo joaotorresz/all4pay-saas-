@@ -114,6 +114,7 @@ import {
   calcularFerias, diasPorFaltas, maximoAbono,
   calcularRescisao, diasAviso, estimarFGTS, REGRAS,
   type Colaborador,
+  conferirEncargos,
 } from "@/core/folha";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
@@ -3539,6 +3540,31 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const fatores = new Set(CASOS.map((k) => Math.round((k.custo / k.bruto) * 1000)));
   ok("folha: o multiplicador de CUSTO é o mesmo para todo salário (encargo é proporcional)",
      fatores.size === 1, `${[...fatores].map((f) => (f / 1000).toFixed(3)).join(", ")}`);
+}
+
+// ── folha: o aviso de encargo divergente ──────────────────────────────────
+{
+  /*
+   * ⚠️ Os quatro casos que decidem se o aviso PRESTA. Um aviso que aparece
+   * sempre é um aviso que se aprende a ignorar — e aí ele não existe quando
+   * importa.
+   */
+  ok("folha: encargo dentro da faixa NÃO avisa (10% de desvio)",
+     conferirEncargos(10_000, 11_000).divergente === false, "10%");
+  ok("folha: encargo 25% ABAIXO avisa", conferirEncargos(10_000, 7_500).divergente === true, "-25%");
+  ok("folha: encargo 30% ACIMA avisa", conferirEncargos(10_000, 13_000).divergente === true, "+30%");
+  /*
+   * ⚠️ **Sem lançamento não é divergência, é ausência.** Sem esta linha o aviso
+   * apareceria para toda empresa que ainda não importou o extrato do mês, com
+   * desvio de −100% — ruído, não achado.
+   */
+  ok("folha: sem lançamento na competência NÃO avisa",
+     conferirEncargos(10_000, 0).divergente === false && conferirEncargos(10_000, 0).comparavel === false);
+  // E o caso REAL medido na organização auditada: FGTS a 6,1% e INSS a 11,1%
+  // contra 8% e 27,8% — ~57% abaixo do projetado. Tem de avisar.
+  ok("folha: o caso real da organização auditada avisa",
+     conferirEncargos(263_119.71, 125_925.27).divergente === true,
+     `${Math.round(conferirEncargos(263_119.71, 125_925.27).desvio * 100)}%`);
 }
 
 // ── folha: as tabelas legais, os encargos por regime e as quatro datas ────

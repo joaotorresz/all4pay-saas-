@@ -547,6 +547,57 @@ export function montarPainelFolha(
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/* A CONFERÊNCIA CONTRA O QUE FOI PAGO                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface ConferenciaEncargos {
+  /** FGTS + patronal que a calculadora projeta para a competência. */
+  projetado: number;
+  /** O que foi efetivamente lançado nas categorias de encargo, na competência. */
+  lancado: number;
+  /** `lancado / projetado − 1`. Negativo = lançou menos do que a lei manda. */
+  desvio: number;
+  /** ⚠️ `true` acima de 20% em qualquer direção — o limiar do aviso. */
+  divergente: boolean;
+  /** `false` quando não há o que comparar: sem projeção ou sem lançamento. */
+  comparavel: boolean;
+}
+
+/** As categorias que carregam encargo patronal, pelo nome declarado no plano. */
+export const CATEGORIAS_ENCARGO = ["FGTS", "INSS patronal (GPS)"] as const;
+
+/**
+ * ⚠️ **O SISTEMA SABER E NÃO AVISAR já foi um achado (A4P-072).**
+ *
+ * A calculadora projeta o encargo pela lei; o extrato diz o que a empresa
+ * realmente recolheu. Quando os dois discordam muito, uma das duas coisas está
+ * errada — e as duas são caras: recolher a menos gera passivo com multa e juros,
+ * e a projeção errada faz o dono planejar caixa sobre um número que não vai
+ * acontecer.
+ *
+ * ⚠️ **O limiar é 20% e existe para não gritar lobo.** Encargo tem arredondamento,
+ * competência que atravessa o mês e verba que não entra na base — divergência
+ * pequena é normal, e um aviso que aparece todo mês é um aviso que se aprende a
+ * ignorar. Acima de 20% não é arredondamento: é quadro de pessoal diferente do
+ * cadastrado, regime diferente do declarado, ou guia que não foi lançada.
+ *
+ * ⚠️ **Não acusa quando não há o que comparar.** Sem lançamento na competência o
+ * desvio seria −100% e o aviso apareceria para toda empresa que ainda não
+ * importou o extrato do mês — que é ruído, não achado.
+ */
+export function conferirEncargos(projetado: number, lancado: number): ConferenciaEncargos {
+  const comparavel = projetado > 0 && lancado > 0;
+  const desvio = comparavel ? lancado / projetado - 1 : 0;
+  return {
+    projetado: round2(projetado),
+    lancado: round2(lancado),
+    desvio,
+    divergente: comparavel && Math.abs(desvio) > 0.20,
+    comparavel,
+  };
+}
+
 /**
  * O custo ANUAL da folha — o número que muda a decisão de contratar.
  *

@@ -1235,6 +1235,44 @@ tela que está classificando por palpite** até alguém declarar. Enquanto nenhu
 das duas existir, o sistema entrega um DRE adivinhado com a mesma cara de um
 DRE conferido — e é essa indistinguibilidade que faz o defeito atravessar.
 
+### ⚠️ A4P-036 — REFUTADO: a folha estava certa, quem mediu errado fui eu
+
+**"A tela mostra líquido de R$ 7.966 sobre bruto de R$ 12.500 (36,3% de
+desconto); o correto seria ~21%." — CANCELADO. O defeito não existe.**
+
+Consultado o cadastro real (`org_state.a4p_colaboradores`): o colaborador de
+R$ 10.000 tem **R$ 1.000 de vale-refeição e R$ 800 de vale-transporte**. São
+descontos legítimos de contracheque, e entram em `outros`. Rodando
+`montarPainelFolha` sobre o cadastro REAL: líquido **R$ 7.966,57**, descontos
+**R$ 4.533,43 (36,3%)** — a tela ao centavo.
+
+⚠️ **O erro de método foi meu, e é exatamente o que este arquivo persegue.** Eu
+medi `calcularCLT` com colaboradores "nus" — sem VR, sem VT — e comparei o
+resultado com a tela, que usava o cadastro real. Duas entradas diferentes, uma
+conclusão de divergência. É a mesma família de "o teste passou provando o
+vazio", pelo avesso: **a medição reprovou provando outra coisa.**
+
+A regra que sai daí, e que vale para toda auditoria de tela: **meça com o dado
+que a tela usa.** Se a comparação é entre motor e superfície, as duas pontas têm
+de receber a MESMA entrada — senão o que se mede é a diferença das entradas, não
+a do cálculo.
+
+⚠️ **Fica escrito porque achado refutado que não é escrito volta** (mesma razão
+do A4P-028). Sem esta nota, a próxima auditoria reabre "36,3% é muito", alguém
+"corrige" o motor que está certo, e o produto passa a subestimar desconto de
+folha para todo cliente que cadastra benefício.
+
+**Também refutado no mesmo item: "fator de custo idêntico para salários
+diferentes é matematicamente impossível".** É o contrário — é inevitável.
+`custoTotal` é bruto + FGTS + patronal + provisões, e todas essas parcelas são
+proporcionais ao bruto; INSS e IRRF do empregado são DESCONTO e não entram no
+custo do empregador. Há asserção no `engine-audit` para impedir que alguém
+"conserte" isso.
+
+**O que era real no relatório:** a hierarquia do cartão. O número em destaque era
+o CUSTO com o rótulo "bruto" logo abaixo — corrigido, bruto em destaque e custo
+como métrica secundária rotulada.
+
 ### ⚠️ TODA FIXTURE PROVA QUE O CAMINHO TESTADO RECEBEU VALOR
 
 **Asserte que o número MUDOU, não apenas que nada quebrou.** Um teste verde só

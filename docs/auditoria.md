@@ -375,3 +375,39 @@ bruto; ou o dado semeado não é internamente consistente.
 ⚠️ **E um achado independente da alíquota:** INSS e FGTS **param em junho/2026**,
 enquanto a folha segue até agosto. Dois meses de folha sem encargo nenhum — isso
 sozinho impede qualquer reconciliação de fechar, e nenhuma calculadora conserta.
+
+
+---
+
+## ACHADO DE NEGÓCIO — encargos de folha · **REQUER CONTADOR**
+
+⚠️ **Não é defeito de cálculo, e não deve ser "corrigido" no código.** A
+calculadora foi verificada valor a valor contra as tabelas legais; o que não
+fecha é o DADO.
+
+Org `835278a9`, out/2025 a jun/2026 (os 9 meses em que as três categorias
+coexistem):
+
+| | Pago | % da folha paga | A lei manda |
+| --- | --- | --- | --- |
+| Folha de pagamento | R$ 734.970,10 | — | — |
+| FGTS | R$ 44.639,24 | **6,1%** | 8% |
+| INSS patronal (GPS) | R$ 81.286,03 | **11,1%** | 27,8% |
+
+E as duas pontas **não concordam entre si**, o que descarta explicação única:
+
+- base implícita pelo FGTS (÷ 8%) → **R$ 557.990,50**
+- base implícita pelo INSS (÷ 27,8%) → **R$ 292.395,79**
+- folha efetivamente paga → **R$ 734.970,10**
+
+⚠️ **A lacuna de dois meses:** INSS e FGTS **param em junho/2026** enquanto a
+folha segue até **agosto**. Dois meses de folha sem encargo nenhum — isso sozinho
+impede qualquer reconciliação de fechar, e nenhuma calculadora conserta.
+
+**O que o sistema passou a fazer:** a tela da folha avisa quando os encargos
+lançados divergem mais de **20%** do projetado, dizendo os dois números e as
+causas possíveis. O sistema saber e não avisar já foi achado (A4P-072).
+
+**O que fica para o contador:** dizer se a divergência é quadro de pessoal
+diferente do cadastrado, regime diferente do declarado, guia não lançada, ou
+mistura de CLT com PJ/pró-labore na mesma categoria "Folha de pagamento".

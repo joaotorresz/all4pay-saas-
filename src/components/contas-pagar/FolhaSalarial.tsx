@@ -22,9 +22,10 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
+import { conferirEncargos, CATEGORIAS_ENCARGO } from "@/core/folha";
 import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts } from "@/components/visao-geral/hooks";
+import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
 import { criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
@@ -136,6 +137,22 @@ export function FolhaSalarial() {
     [colaboradores, mes, fiscal, tabelas],
   );
 
+  /*
+   * ⚠️ O que foi EFETIVAMENTE lançado de encargo na competência, pelas
+   * categorias com linha declarada no plano de contas. Comparado ao projetado,
+   * é o que transforma "o sistema sabia" em "o sistema avisou".
+   */
+  const { data: risco } = useRiscoInput();
+  const conf = React.useMemo(() => {
+    const projetado = painel ? painel.custoTotal - painel.totalBruto : 0;
+    const lancado = (risco?.movements ?? [])
+      .filter((m) => m.type === "saida" && m.status !== "cancelado"
+        && (m.due_date ?? "").slice(0, 7) === mes
+        && (CATEGORIAS_ENCARGO as readonly string[]).includes((m.category ?? "").trim()))
+      .reduce((soma, m) => soma + Math.abs(m.amount), 0);
+    return conferirEncargos(projetado, lancado);
+  }, [painel, risco, mes]);
+
   if (!painel) {
     return (
       <div className="flex flex-col gap-4">
@@ -239,6 +256,29 @@ export function FolhaSalarial() {
               <Numero rotulo="Custo total da empresa" valor={painel.custoTotal}
                 detalhe={`${painel.multiplicador.toFixed(2)}× o bruto — bruto + FGTS, patronal e provisões`} />
             </div>
+            {/*
+              * ⚠️ **O SISTEMA SABIA E NÃO AVISAVA** — a família do A4P-072. A
+              * calculadora projeta o encargo pela lei e o extrato diz o que a
+              * empresa recolheu; quando os dois discordam muito, uma das duas
+              * está errada, e as duas são caras: recolher a menos gera passivo
+              * com multa e juros; projetar errado faz planejar caixa sobre um
+              * número que não vai acontecer.
+              *
+              * O aviso não acusa quem ainda não importou o extrato do mês (sem
+              * lançamento não há o que comparar) nem grita por arredondamento —
+              * ver o limiar de 20% em `conferirEncargos`.
+              */}
+            {conf.divergente && (
+              <p className="m-0 mt-4 text-caption rounded-md px-3 py-2"
+                 style={{ background: "color-mix(in srgb, var(--color-warning) 12%, transparent)" }}>
+                <b className="text-ink font-medium">Encargos lançados divergem do projetado.</b>{" "}
+                A calculadora projeta <b className="text-ink">{formatBRL(conf.projetado)}</b> de FGTS e INSS
+                patronal nesta competência; o extrato traz <b className="text-ink">{formatBRL(conf.lancado)}</b>
+                {" "}({conf.desvio > 0 ? "+" : ""}{Math.round(conf.desvio * 100)}%). Pode ser quadro de pessoal
+                diferente do cadastrado, regime diferente do declarado, ou guia que não foi lançada —
+                vale conferir com o contador.
+              </p>
+            )}
             <p className="m-0 mt-4 text-caption text-muted">
               Regime <b className="text-ink">{ROTULO_REGIME[painel.regime]}</b>
               {painel.anexo ? ` · Anexo ${painel.anexo}` : ""} — {painel.encargos.porque}
