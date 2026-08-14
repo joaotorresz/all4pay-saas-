@@ -26,6 +26,9 @@ import {
   classificarDespesa, classificarReceita, LABEL_DESPESA, LABEL_RECEITA,
   type LinhaDespesa, type LinhaReceita,
 } from "@/core/indicadores/classificacao";
+// ⚠️ A cascata é a fonte única de linha de resultado. `dreGerencial` entra como
+// TRADUTOR dela, não como uma segunda implementação — ver `docs/auditoria.md`.
+import { cascataDRE, type LinhaCascata } from "@/core/relatorios/cascata";
 
 /* ---- Classificação ---- */
 // ⚠️ MUDOU DE CASA, não de conteúdo. Ela vive em `core/indicadores/classificacao`
@@ -95,46 +98,110 @@ function agregar(movs: RiskMovement[]): Agg {
   return { receita, receitaPorLinha, despesaPorLinha };
 }
 
-/* ---- DRE Gerencial ---- */
-export function dreGerencial(movs: RiskMovement[]): DREGerencial {
-  const a = agregar(movs);
-  const receitaBruta = a.receita;
-  const impostos = a.despesaPorLinha.impostos;
-  const receitaLiquida = receitaBruta - impostos;
-  const cmv = a.despesaPorLinha.cmv;
-  const lucroBruto = receitaLiquida - cmv;
-  const opex = a.despesaPorLinha.opex + a.despesaPorLinha.folha;
-  const ebitda = lucroBruto - opex;
-  const depreciacao = 0; // não informado no fluxo de movimentos
-  const ebit = ebitda - depreciacao;
-  // ⚠️ O resultado financeiro tem DOIS lados. Ele era só a despesa, então a
-  // receita financeira não tinha para onde ir — e acabava dentro da receita
-  // bruta, que é o defeito de cima. `financeiro` aqui é o LÍQUIDO: positivo
-  // quando a empresa ganhou mais do que pagou de juros.
-  const financeiro = a.despesaPorLinha.financeiro - a.receitaPorLinha.juros;
-  const lair = ebit - financeiro;
-  const ir = 0; // sem linha de IR dedicada nos dados
-  const lucroLiquido = lair - ir;
-  const base = receitaLiquida > 0 ? receitaLiquida : 1; // evita margens de sinal invertido quando líquida < 0
-  const pct = (v: number) => v / base;
+/* ---- DRE Gerencial — FACHADA FINA sobre a cascata ---- */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ ESTA FUNÇÃO NÃO AGREGA NADA. Ela TRADUZ.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Era a **segunda** das cinco agregações independentes de resultado do sistema
+ * (`docs/auditoria.md`): classificava por conta própria, somava por conta
+ * própria e servia três superfícies — `/dre`, o cockpit e o painel de Vendas.
+ * Enquanto ela existisse, "o EBITDA do cockpit" e "o EBITDA do relatório" eram
+ * dois números que ninguém obrigava a concordar.
+ *
+ * Agora ela chama `cascataDRE` e mapeia o resultado para o formato que os
+ * consumidores já esperam. Zero agregação própria, zero classificação própria.
+ *
+ * ⚠️ **A ENTRADA É TRADUZIDA, NÃO REFILTRADA.** Os chamadores passam um array
+ * JÁ recortado por período (via `movimentosNoPeriodo` ou `naJanela`). O
+ * intervalo montado aqui cobre TODOS os movimentos recebidos, de propósito: a
+ * cascata classifica o que veio e não recorta de novo. Recortar duas vezes
+ * mudaria o conjunto sem ninguém pedir — e é assim que dois caminhos que
+ * "usam a mesma função" voltam a divergir.
+ *
+ * ⚠️ **`regime` é obrigatório e sem padrão.** Ver `FiltroCascata`.
+ */
+export function dreGerencial(movs: RiskMovement[], regime: Regime): DREGerencial {
+  const datas = movs.map((m) => (refDate(m, regime) || "").slice(0, 10)).filter(Boolean).sort();
+  const intervalo = datas.length
+    ? { de: datas[0], ate: datas[datas.length - 1] }
+    // Sem movimento não há data para delimitar. A janela larga mantém `de <= ate`
+    // (senão a cascata acusaria "janela inválida", que seria mentira: o período
+    // é válido, o que falta é lançamento) e deixa a cascata dizer o que é
+    // verdade — `sem_lancamentos`.
+    : { de: "1970-01-01", ate: "9999-12-31" };
 
-  const compReceita = (Object.keys(a.receitaPorLinha) as LinhaReceita[])
-    .filter((k) => a.receitaPorLinha[k] > 0)
-    .map((k) => ({ label: LABEL_RECEITA[k], valor: a.receitaPorLinha[k] }));
+  const entrada = { hoje: datas[datas.length - 1] ?? "1970-01-01", saldoAtual: 0, movements: movs, partyNames: {} } as RiskInput;
+  const c = cascataDRE(entrada, { intervalo, regime });
+
+  const v = (id: LinhaCascata) => c.linhas[id].valor;
+  const receitaBruta = v("receita_bruta");
+  const receitaLiquida = v("receita_liquida");
+  const lucroBruto = v("lucro_bruto");
+  const ebitda = v("ebitda");
+  const ebit = v("ebit");
+  const lucroLiquido = v("resultado_liquido");
+  // LAIR = lucro ANTES do imposto sobre o lucro. Na cascata o resultado líquido
+  // já vem depois dele, então a volta é somá-lo.
+  //
+  // ⚠️ **Diferença latente, travada em teste.** O caminho antigo fazia `ir = 0`
+  // sempre e `lucroLiquido = lair`; a cascata SUBTRAI `impostos_lucro`. Hoje o
+  // valor não muda porque o sistema ainda não provisiona IRPJ/CSLL e a linha é
+  // zero em todos os meses. No dia em que a provisão existir, o lucro líquido
+  // destas telas cai — e sem o teste isso pareceria regressão em vez de
+  // correção. Ver `contrato-resultado.mts`, caso "IR não-zero".
+  const lair = lucroLiquido + v("impostos_lucro");
+
+  /* As linhas do desenho, tiradas do relatório — inclusive o drill-down por
+   * categoria (`filhos`), que antes era remontado à mão a partir da
+   * classificação própria. */
+  const rel = new Map(c.relatorio.linhas.map((l) => [l.id, l]));
+  const linha = (id: LinhaCascata, papel: DRELinha["papel"]): DRELinha => {
+    const l = rel.get(id);
+    /*
+     * ⚠️ **O SINAL DA LINHA É PARTE DO CONTRATO DE `DRELinha`.** No relatório,
+     * a dedução é guardada como MAGNITUDE positiva e a direção vive em `sinal`
+     * ("-"); em `DRELinha` ela sempre foi um número NEGATIVO, e é isso que
+     * permite somar a cascata de cima para baixo e conferir cada subtotal.
+     *
+     * Traduzir sem o sinal fazia as deduções SOMAREM: medido, "EBITDA fecha com
+     * as linhas acima" passou a acusar 38.000 × 115.800 na fixture. A guarda de
+     * coerência pegou — ela confere as LINHAS, não os campos do objeto, que
+     * seria tautologia.
+     *
+     * Linhas "+/-" (resultado financeiro, não operacional) entram com o próprio
+     * sinal: elas já são o líquido.
+     */
+    const bruto = l?.total.valor ?? 0;
+    return {
+      id: uid("l"),
+      label: l?.label ?? id,
+      valor: l?.sinal === "-" ? -bruto : bruto,
+      pctReceita: l?.total.av ?? 0,
+      papel,
+      componentes: l?.filhos.length
+        ? l.filhos.map((f) => ({ label: f.label, valor: f.total.valor }))
+        : undefined,
+    };
+  };
 
   const linhas: DRELinha[] = [
-    { id: uid("l"), label: "Receita bruta", valor: receitaBruta, pctReceita: receitaBruta / base, papel: "receita", componentes: compReceita },
-    { id: uid("l"), label: "(-) Impostos sobre receita", valor: -impostos, pctReceita: -pct(impostos), papel: "deducao" },
-    { id: uid("l"), label: "= Receita líquida", valor: receitaLiquida, pctReceita: 1, papel: "subtotal" },
-    { id: uid("l"), label: "(-) CMV / Fornecedores", valor: -cmv, pctReceita: -pct(cmv), papel: "deducao" },
-    { id: uid("l"), label: "= Lucro bruto", valor: lucroBruto, pctReceita: pct(lucroBruto), papel: "subtotal" },
-    { id: uid("l"), label: "(-) Despesas operacionais", valor: -opex, pctReceita: -pct(opex), papel: "deducao", componentes: [
-      { label: LABEL_DESPESA.folha, valor: a.despesaPorLinha.folha },
-      { label: LABEL_DESPESA.opex, valor: a.despesaPorLinha.opex },
-    ] },
-    { id: uid("l"), label: "= EBITDA", valor: ebitda, pctReceita: pct(ebitda), papel: "subtotal" },
-    { id: uid("l"), label: "(-) Resultado financeiro", valor: -financeiro, pctReceita: -pct(financeiro), papel: "deducao" },
-    { id: uid("l"), label: "= Lucro líquido", valor: lucroLiquido, pctReceita: pct(lucroLiquido), papel: "resultado" },
+    linha("receita_bruta", "receita"),
+    linha("deducoes", "deducao"),
+    linha("receita_liquida", "subtotal"),
+    linha("custos_variaveis", "deducao"),
+    linha("lucro_bruto", "subtotal"),
+    linha("despesas_variaveis", "deducao"),
+    linha("margem_contribuicao", "subtotal"),
+    linha("despesas_operacionais", "deducao"),
+    linha("ebitda", "subtotal"),
+    linha("depreciacao_amortizacao", "deducao"),
+    linha("ebit", "subtotal"),
+    linha("resultado_financeiro", "deducao"),
+    linha("impostos_lucro", "deducao"),
+    linha("nao_operacional", "deducao"),
+    linha("resultado_liquido", "resultado"),
   ];
 
   return {
@@ -146,9 +213,10 @@ export function dreGerencial(movs: RiskMovement[]): DREGerencial {
     ebit,
     lair,
     lucroLiquido,
-    margemBruta: pct(lucroBruto),
-    margemEbitda: pct(ebitda),
-    margemLiquida: pct(lucroLiquido),
+    margemBruta: c.margemBruta,
+    margemEbitda: c.margemEbitda,
+    margemLiquida: c.margemLiquida,
+    regime,
   };
 }
 

@@ -56,6 +56,8 @@ export function useCockpitCtx(): CockpitCtx {
   };
 }
 
+import { valorOuNulo, type Indicador } from "@/core/indicadores";
+
 const POS = "var(--color-positive)";
 const NEG = "var(--color-negative)";
 const WARN = "var(--color-warning)";
@@ -166,6 +168,15 @@ export interface CatalogWidget {
 
 const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1));
 const pctTxt = (n: number) => `${Math.round(n * 100)}%`;
+/*
+ * ⚠️ **Margem é `Indicador`, e pode NÃO EXISTIR.** Sem receita líquida no
+ * período não há margem: o traço é a resposta certa, e "0%" seria uma
+ * afirmação — lê como *vendeu e não sobrou nada* quando a verdade é *não
+ * vendeu*, e as duas mandam fazer coisas opostas. Estes dois auxiliares
+ * existem para que nenhuma tela precise decidir isso de novo.
+ */
+const mPct = (i: Indicador) => (i.indisponivel ? "—" : pctTxt(i.valor));
+const mNum = (i: Indicador): number | null => valorOuNulo(i);
 const scoreTone = (s: number) => (s >= 75 ? POS : s >= 50 ? WARN : NEG);
 
 /** Custos FIXOS mensais: saídas que se repetem mês após mês (≥3 meses da mesma
@@ -1243,7 +1254,9 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         <MetricCard href="/dre" hrefLabel="Ver DRE" icon="activity" label="EBITDA do mês"
           tone={g.ebitda >= 0 ? POS : NEG}
           value={<BRL value={g.ebitda} />}
-          answer={`Resultado operacional do mês (antes de juros/impostos): ${pctTxt(g.margemEbitda)} da receita bruta.`}
+          answer={g.margemEbitda.indisponivel
+            ? `Resultado operacional do mês (antes de juros/impostos). Sem receita no período, não há margem a calcular.`
+            : `Resultado operacional do mês (antes de juros/impostos): ${mPct(g.margemEbitda)} da receita líquida.`}
           info={{ titulo: "EBITDA do mês", oQue: "O quanto a operação gera de resultado no mês, antes de juros, impostos e depreciação.", comoCalcula: "Receita líquida − CMV − despesas operacionais, pela competência (vencimento) do mês corrente. Margem = EBITDA ÷ receita bruta." }} />
       );
     },
@@ -1258,7 +1271,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
           tone={g.lucroLiquido >= 0 ? POS : NEG}
           value={<BRL value={g.lucroLiquido} />}
           answer={g.lucroLiquido >= 0
-            ? `No azul: sobrou ${formatBRL(g.lucroLiquido)} depois de tudo (${pctTxt(g.margemLiquida)} de margem).`
+            ? `No azul: sobrou ${formatBRL(g.lucroLiquido)} depois de tudo${g.margemLiquida.indisponivel ? "" : ` (${mPct(g.margemLiquida)} de margem)`}.`
             : `No vermelho: faltou ${formatBRL(-g.lucroLiquido)} no resultado do mês.`}
           info={{ titulo: "Lucro líquido do mês", oQue: "O que de fato sobra no mês depois de todos os custos, despesas e financeiro.", comoCalcula: "Cascata do DRE gerencial (competência): receita bruta → impostos → CMV → despesas → financeiro → lucro líquido. Margem = lucro ÷ receita bruta." }} />
       );
@@ -1271,9 +1284,11 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard icon="trending-up" label="Margem bruta"
-          tone={g.margemBruta >= 0.4 ? POS : g.margemBruta >= 0.2 ? WARN : NEG}
-          value={pctTxt(g.margemBruta)}
-          answer={`Depois do custo direto (CMV), sobra ${pctTxt(g.margemBruta)} da receita — teto da sua lucratividade.`}
+          tone={mNum(g.margemBruta) === null ? WARN : mNum(g.margemBruta)! >= 0.4 ? POS : mNum(g.margemBruta)! >= 0.2 ? WARN : NEG}
+          value={mPct(g.margemBruta)}
+          answer={g.margemBruta.indisponivel
+            ? `Não houve receita líquida no período — sem receita não existe margem.`
+            : `Depois do custo direto (CMV), sobra ${mPct(g.margemBruta)} da receita — teto da sua lucratividade.`}
           info={{ titulo: "Margem bruta", oQue: "Quanto sobra de cada venda depois do custo direto do que foi vendido.", comoCalcula: "(Receita líquida − CMV) ÷ receita líquida, no mês pela competência." }} />
       );
     },
@@ -1285,9 +1300,11 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard icon="gauge" label="Margem líquida"
-          tone={g.margemLiquida >= 0.15 ? POS : g.margemLiquida >= 0 ? WARN : NEG}
-          value={pctTxt(g.margemLiquida)}
-          answer={`De cada R$100 faturados, ${g.margemLiquida >= 0 ? `sobram R$${Math.round(g.margemLiquida * 100)}` : `faltam R$${Math.round(-g.margemLiquida * 100)}`} no fim.`}
+          tone={mNum(g.margemLiquida) === null ? WARN : mNum(g.margemLiquida)! >= 0.15 ? POS : mNum(g.margemLiquida)! >= 0 ? WARN : NEG}
+          value={mPct(g.margemLiquida)}
+          answer={mNum(g.margemLiquida) === null
+            ? `Não houve receita líquida no período — sem receita não existe margem.`
+            : `De cada R$100 faturados, ${mNum(g.margemLiquida)! >= 0 ? `sobram R$${Math.round(mNum(g.margemLiquida)! * 100)}` : `faltam R$${Math.round(-mNum(g.margemLiquida)! * 100)}`} no fim.`}
           info={{ titulo: "Margem líquida", oQue: "A rentabilidade final do mês, depois de absolutamente tudo.", comoCalcula: "Lucro líquido ÷ receita bruta, no mês pela competência." }} />
       );
     },
@@ -1315,7 +1332,9 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         <MetricCard icon="trending-up" label="Lucro bruto do mês"
           tone={g.lucroBruto >= 0 ? POS : NEG}
           value={<BRL value={g.lucroBruto} />}
-          answer={`Sobra depois do custo direto (CMV) — ${pctTxt(g.margemBruta)} da receita líquida.`}
+          answer={g.margemBruta.indisponivel
+            ? `Sobra depois do custo direto (CMV). Sem receita no período, não há margem a calcular.`
+            : `Sobra depois do custo direto (CMV) — ${mPct(g.margemBruta)} da receita líquida.`}
           info={{ titulo: "Lucro bruto do mês", oQue: "O que sobra da receita líquida depois do custo direto do que foi vendido.", comoCalcula: "Receita líquida − CMV, no mês pela competência." }} />
       );
     },

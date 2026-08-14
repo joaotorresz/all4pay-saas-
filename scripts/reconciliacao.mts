@@ -23,6 +23,7 @@
  * Determinístico: a fixture compartilhada, sem relógio e sem rede.
  */
 import { INPUT, INPUT_QUEIMANDO, DATASET, HOJE } from "./fixture.mts";
+import { ehReceitaOperacional } from "@/core/relatorios";
 import type { Movement } from "@/lib/types";
 import {
   saldo, saldoEm, entradas, saidas, resultado, burn, runway, runwayMeses,
@@ -152,15 +153,17 @@ const MATRIZ: Linha[] = [
     porque: "TRÊS motores apuram a mesma cascata. Nada além desta linha os obriga a concordar, e foi por isso que dois deles somaram receita financeira dentro da receita bruta por meses.",
     caminhos: [
       /**
-       * ⚠️ **`core/relatorios` está DECLARADAMENTE fora desta linha, e o motivo
-       * é um defeito ainda ABERTO — não um desacordo tolerado.**
+       * ✅ **O PRIMEIRO DEFEITO DESTA NOTA FOI FECHADO.** Ele dizia que
+       * `core/relatorios` media R$ 58.500 onde os outros mediam R$ 73.500, e
+       * que a diferença de R$ 15.000 era um **"Empréstimo bancário"** tratado
+       * como financeiro por um lado (certo: dinheiro emprestado não é
+       * faturamento) e como receita operacional pelo outro.
        *
-       * Ele usa um classificador PRÓPRIO, mais largo, e por isso mede
-       * R$ 58.500 onde os três daqui medem R$ 73.500. A diferença de
-       * R$ 15.000 é um **"Empréstimo bancário"** que `core/relatorios` trata
-       * como financeiro (certo: dinheiro emprestado não é faturamento) e o
-       * classificador canônico devolve como `outras`, ou seja, receita
-       * operacional.
+       * Agora existe UM predicado — `ehReceitaOperacional`, exportado de
+       * `core/relatorios` — e os três caminhos o compartilham. Os quatro medem
+       * R$ 58.500. Esta nota fica como registro de que a divergência era
+       * conhecida, tinha valor e causa escritos, e foi fechada quando
+       * `dreGerencial` virou fachada da cascata.
        *
        * ⚠️ E há um segundo, PIOR, em que os quatro caminhos concordam e todos
        * erram: **R$ 20.000 de "Transferência entre contas" contam como receita
@@ -169,18 +172,18 @@ const MATRIZ: Linha[] = [
        * exatamente esse conjunto — transferência, resgate, empréstimo, aporte,
        * juros — e a cascata do DRE nunca o consultou.
        *
-       * Corrigir isso muda a taxonomia `LinhaReceita`, que é a espinha do
-       * drill-down do DRE inteiro, então fica DECLARADO com número em vez de
-       * corrigido de passagem. Enquanto não for decidido, esta linha guarda os
-       * três que compartilham o classificador; incluir o quarto faria a matriz
-       * reprovar todo dia sem ninguém poder consertá-la, e guarda que reprova
-       * sem saída é guarda que se aprende a ignorar.
+       * Corrigir o SEGUNDO muda a taxonomia `LinhaReceita`, que é a espinha do
+       * drill-down do DRE inteiro, então segue DECLARADO com número em vez de
+       * corrigido de passagem — e agora é o único que sobra desta nota.
        */
       { via: "DRE receita bruta", valor: dre.receitaBruta },
       { via: "canônico painelResultado", valor: painelResultado(INPUT, AGOSTO, "competencia").receitaBruta.valor },
-      { via: "entradas − receita financeira", valor:
+      // ⚠️ O terceiro caminho subtraía só os JUROS — a definição que deixava o
+      // empréstimo dentro da receita. Agora subtrai TODA entrada que não é
+      // faturamento, pelo mesmo predicado que monta a linha de Receita Bruta.
+      { via: "entradas − entradas não operacionais", valor:
         rowsComp.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0)
-        - rowsComp.filter((m) => m.type === "entrada" && classificarReceita(m.category) === "juros")
+        - rowsComp.filter((m) => m.type === "entrada" && !ehReceitaOperacional(m))
                   .reduce((s, m) => s + Math.abs(m.amount), 0) },
     ],
   },

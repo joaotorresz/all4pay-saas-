@@ -32,8 +32,11 @@
  */
 import type { RiskInput } from "@/core/risk-engine/types";
 import type { Intervalo } from "@/core/relatorios";
+import type { Regime } from "@/core/dre/types";
 import { cascataDRE, LINHAS_CASCATA, type LinhaCascata } from "@/core/relatorios/cascata";
 import { responderLocal } from "@/core/assistant/engine";
+import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
+import { valorOuNulo, type Indicador } from "@/core/indicadores";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
@@ -77,15 +80,53 @@ const INPUT_SINAL: RiskInput = {
   partyNames: { A: "Alpha", F: "Forn" },
 } as RiskInput;
 
+/**
+ * ⚠️ **IMPOSTO SOBRE O LUCRO DIFERENTE DE ZERO — a diferença travada ANTES de
+ * ela aparecer.**
+ *
+ * O caminho antigo do `dreGerencial` fazia `ir = 0` sempre, e o lucro líquido
+ * era igual ao LAIR. A cascata SUBTRAI `impostos_lucro`. Hoje os dois dão o
+ * mesmo número em produção — porque o sistema ainda não provisiona IRPJ/CSLL e
+ * a linha é zero em todos os meses.
+ *
+ * No dia em que a provisão existir, o lucro líquido destas telas CAI. Sem este
+ * caso, a queda pareceria regressão e alguém "consertaria" devolvendo o
+ * `ir = 0`. Com ele, a diferença tem nome, valor e data.
+ */
+const INPUT_IR: RiskInput = {
+  hoje: "2026-08-15",
+  saldoAtual: 100_000,
+  movements: [
+    mv("ir_v", "entrada", "pago", 100_000, "2026-08-05", "2026-08-05", "Vendas", "A"),
+    mv("ir_f", "saida", "pago", 40_000, "2026-08-10", "2026-08-10", "Folha", "F"),
+    // IRPJ e CSLL: a linha `impostos_lucro`, que o caminho antigo ignorava.
+    mv("ir_1", "saida", "pago", 9_000, "2026-08-20", "2026-08-20", "IRPJ", "G"),
+    mv("ir_2", "saida", "pago", 3_000, "2026-08-20", "2026-08-20", "CSLL", "G"),
+  ],
+  partyNames: { A: "Alpha", F: "Forn", G: "Fisco" },
+} as RiskInput;
+
 const AGOSTO: Intervalo = { de: "2026-08-01", ate: "2026-08-31" };
 /** Janela sem um único lançamento — o caso em que não há o que afirmar. */
 const JANEIRO: Intervalo = { de: "2026-01-01", ate: "2026-01-31" };
 
-const CASOS: { nome: string; input: RiskInput; intervalo: Intervalo; pergunta: string }[] = [
+const BASES: { nome: string; input: RiskInput; intervalo: Intervalo; pergunta: string }[] = [
   { nome: "fixture compartilhada · agosto", input: FIXTURE.INPUT, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
   { nome: "empresa que queima · agosto", input: FIXTURE.INPUT_QUEIMANDO, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
   { nome: "financeiro inverte o sinal · agosto", input: INPUT_SINAL, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
+  { nome: "imposto sobre o lucro ≠ 0 · agosto", input: INPUT_IR, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
 ];
+
+/**
+ * ⚠️ **OS DOIS REGIMES, para TODA superfície.**
+ *
+ * A cascata passou a aceitar `regime`. Se o contrato cobrisse um só, a
+ * superfície da função canônica teria dobrado e a cobertura teria caído pela
+ * metade — e o regime não coberto é justamente aquele em que ninguém olha.
+ */
+const REGIMES: Regime[] = ["competencia", "caixa"];
+
+const CASOS = BASES.flatMap((b) => REGIMES.map((regime) => ({ ...b, regime, nome: `${b.nome} · ${regime}` })));
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* AS SUPERFÍCIES                                                             */
@@ -99,15 +140,29 @@ const CASOS: { nome: string; input: RiskInput; intervalo: Intervalo; pergunta: s
  * a cascata" em "as N superfícies não têm como discordar". Acrescentar uma
  * entrada é o passo final de cada migração — não um item para depois.
  */
+interface Caso { nome: string; input: RiskInput; intervalo: Intervalo; pergunta: string; regime: Regime }
+
 interface Superficie {
   nome: string;
-  /** O que a superfície mostra, por linha da cascata. */
-  exibe: (input: RiskInput, intervalo: Intervalo, pergunta: string) => Partial<Record<LinhaCascata, string | null>>;
   /**
-   * O texto integral que a pessoa lê — usado para cobrar a procedência
-   * (período + regime) e para provar que um número indisponível não vira zero.
+   * Em que regimes esta superfície fala. Uma superfície que só existe em
+   * competência (a IA responde sobre o DRE) declara isso em vez de ser
+   * comparada contra um número que ela nunca exibe.
    */
-  texto: (input: RiskInput, intervalo: Intervalo, pergunta: string) => string;
+  regimes: Regime[];
+  /** O que a superfície mostra, por linha da cascata — já formatado. */
+  exibe: (c: Caso) => Partial<Record<LinhaCascata, string | null>>;
+  /** As margens que a superfície publica, para a regra "nunca 0%". */
+  margens?: (c: Caso) => { nome: string; obtido: string; canonico: Indicador }[];
+  /**
+   * ⚠️ **Declarado, não inferido.** Cockpit e painel publicam VALOR em cartão,
+   * não frase; exigir procedência de quem não escreve prosa reprovaria o
+   * correto — e guarda que reprova o certo é desligada na primeira semana.
+   * Quem tem prosa (a IA) declara `prosa: true` e é cobrado.
+   */
+  prosa: boolean;
+  /** O texto integral que a pessoa lê. Vazio quando `prosa` é falso. */
+  texto: (c: Caso) => string;
 }
 
 const numeroDaIA = (input: RiskInput, pergunta: string, label: string): string | null => {
@@ -116,16 +171,65 @@ const numeroDaIA = (input: RiskInput, pergunta: string, label: string): string |
   return r.numeros.find((n) => n.label === label)?.valor ?? null;
 };
 
+/** Como cada superfície apresenta uma margem: percentual, ou traço se não há. */
+const pctOuTraco = (i: Indicador) => (i.indisponivel ? "—" : `${Math.round(i.valor * 100)}%`);
+
+/** O `dreGerencial` já migrado — a fonte de #4 (cockpit) e #5 (painel Vendas). */
+const gerencialDoCaso = (c: Caso) =>
+  dreGerencial(movimentosNoPeriodo(c.input, c.regime, c.intervalo.de, c.intervalo.ate), c.regime);
+
 const SUPERFICIES: Superficie[] = [
   {
-    nome: "IA · motor nativo (assistant/engine)",
-    exibe: (input, _i, pergunta) => ({
-      ebitda: numeroDaIA(input, pergunta, "EBITDA"),
-      receita_liquida: numeroDaIA(input, pergunta, "Receita líquida"),
+    nome: "#7 IA · motor nativo (assistant/engine)",
+    prosa: true,
+    // ⚠️ A IA responde sobre o DRE, que é competência. Ela não tem uma leitura
+    // de caixa a oferecer, e forçá-la a ter para "cobrir os dois regimes" seria
+    // inventar superfície para satisfazer o teste.
+    regimes: ["competencia"],
+    exibe: (c) => ({
+      ebitda: numeroDaIA(c.input, c.pergunta, "EBITDA"),
+      receita_liquida: numeroDaIA(c.input, c.pergunta, "Receita líquida"),
     }),
-    texto: (input, _i, pergunta) => responderLocal(pergunta, input)?.resposta ?? "",
+    texto: (c) => responderLocal(c.pergunta, c.input)?.resposta ?? "",
   },
-  // ⬅️ As próximas superfícies migradas entram AQUI, no mesmo formato.
+  {
+    nome: "#4 Cockpit · c.dre.gerencial",
+    prosa: false,
+    regimes: ["competencia", "caixa"],
+    exibe: (c) => {
+      const g = gerencialDoCaso(c);
+      return {
+        ebitda: fmt(g.ebitda),
+        receita_liquida: fmt(g.receitaLiquida),
+        lucro_bruto: fmt(g.lucroBruto),
+        ebit: fmt(g.ebit),
+        resultado_liquido: fmt(g.lucroLiquido),
+      };
+    },
+    margens: (c) => {
+      const g = gerencialDoCaso(c);
+      const can = cascataDRE(c.input, { intervalo: c.intervalo, regime: c.regime });
+      return [
+        { nome: "margem EBITDA", obtido: pctOuTraco(g.margemEbitda), canonico: can.margemEbitda },
+        { nome: "margem bruta", obtido: pctOuTraco(g.margemBruta), canonico: can.margemBruta },
+        { nome: "margem líquida", obtido: pctOuTraco(g.margemLiquida), canonico: can.margemLiquida },
+      ];
+    },
+    texto: () => "",
+  },
+  {
+    nome: "#5 core/paineis · painel de Vendas",
+    prosa: false,
+    regimes: ["competencia", "caixa"],
+    // O painel lê o MESMO `dreGerencial`; o que ele publica é o EBITDA e a
+    // receita. Entra pelo mesmo caminho para que a migração de um não deixe o
+    // outro para trás.
+    exibe: (c) => {
+      const g = gerencialDoCaso(c);
+      return { ebitda: fmt(g.ebitda), receita_bruta: fmt(g.receitaBruta) };
+    },
+    texto: () => "",
+  },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -135,9 +239,23 @@ const SUPERFICIES: Superficie[] = [
 console.log("\nCONTRATO DA LINHA DE RESULTADO — a cascata é a única fonte\n");
 
 for (const caso of CASOS) {
-  const c = cascataDRE(caso.input, { intervalo: caso.intervalo });
+  const c = cascataDRE(caso.input, { intervalo: caso.intervalo, regime: caso.regime });
   for (const s of SUPERFICIES) {
-    const exibido = s.exibe(caso.input, caso.intervalo, caso.pergunta);
+    if (!s.regimes.includes(caso.regime)) continue;
+    const exibido = s.exibe(caso);
+
+    /* As margens: nunca 0% onde não há margem. */
+    for (const m of s.margens?.(caso) ?? []) {
+      const esperado = m.canonico.indisponivel ? "—" : `${Math.round(m.canonico.valor * 100)}%`;
+      if (m.obtido !== esperado) {
+        erro(`${s.nome} · ${caso.nome} · ${m.nome}`, `exibiu "${m.obtido}", a cascata diz "${esperado}"`);
+      } else if (m.canonico.indisponivel && /\d/.test(m.obtido)) {
+        erro(`${s.nome} · ${caso.nome} · ${m.nome}`, `publicou um número onde não há margem: "${m.obtido}"`);
+      } else {
+        ok(`${s.nome} · ${caso.nome} · ${m.nome}`, esperado);
+      }
+    }
+
     for (const linha of LINHAS_CASCATA) {
       const obtido = exibido[linha];
       if (obtido === undefined || obtido === null) continue; // a superfície não reporta esta linha
@@ -162,7 +280,7 @@ for (const caso of CASOS) {
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 {
-  const c = cascataDRE(INPUT_SINAL, { intervalo: AGOSTO });
+  const c = cascataDRE(INPUT_SINAL, { intervalo: AGOSTO, regime: "competencia" });
   const ebitda = c.linhas.ebitda.valor;
 
   // A conta INGÊNUA, reproduzida aqui de propósito: é exatamente o que a IA
@@ -195,12 +313,62 @@ for (const caso of CASOS) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
+/* 2b. O IMPOSTO SOBRE O LUCRO — a diferença de `lair`, travada antes de doer */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+{
+  const c = cascataDRE(INPUT_IR, { intervalo: AGOSTO, regime: "competencia" });
+  const il = c.linhas.impostos_lucro.valor;
+  const g = dreGerencial(movimentosNoPeriodo(INPUT_IR, "competencia", AGOSTO.de, AGOSTO.ate), "competencia");
+
+  /*
+   * ⚠️ **A primeira versão desta fixture não testava nada** — e passou. IRPJ e
+   * CSLL caíam na linha de DEDUÇÃO da receita, porque `ehImpostoVenda` é um
+   * superconjunto de `ehImpostoLucro` e `deducoes` vem antes na estrutura: a
+   * linha `impostos_lucro` era inalcançável, ficava zerada, e a diferença que
+   * este caso existe para travar não podia acontecer. Esta asserção é o que
+   * impede a fixture de voltar a passar por vacuidade.
+   */
+  if (Math.abs(il - 12_000) > 0.01) {
+    erro("IR · a linha recebe o imposto sobre o lucro",
+      `impostos_lucro deu ${fmt(il)}, esperado ${fmt(12_000)} (IRPJ 9k + CSLL 3k). Se deu zero, a linha voltou a ser inalcançável e o caso não testa nada`);
+  } else {
+    ok("IR · a linha recebe o imposto sobre o lucro", fmt(il));
+  }
+
+  // EBITDA é OPERACIONAL: imposto sobre o lucro está, por definição, fora dele.
+  if (Math.abs(g.ebitda - 60_000) > 0.01) {
+    erro("IR · o imposto sobre o lucro NÃO entra no EBITDA",
+      `EBITDA deu ${fmt(g.ebitda)}, esperado ${fmt(60_000)} (100k − 40k de folha). Se deu ${fmt(48_000)}, o IR voltou a ser tratado como dedução da receita`);
+  } else {
+    ok("IR · o imposto sobre o lucro NÃO entra no EBITDA", fmt(g.ebitda));
+  }
+
+  /*
+   * ⚠️ **A DIFERENÇA QUE HOJE NÃO APARECE.** O caminho antigo fazia `ir = 0`
+   * sempre, então `lucroLiquido === lair`. A cascata subtrai. Enquanto o sistema
+   * não provisionar IRPJ/CSLL a linha é zero em produção e os dois coincidem —
+   * e é justamente por isso que a diferença precisa estar travada AGORA: no dia
+   * da provisão, o lucro líquido destas telas cai, e sem este caso a queda
+   * pareceria regressão em vez de correção.
+   */
+  if (Math.abs((g.lair - g.lucroLiquido) - il) > 0.01) {
+    erro("IR · lucro líquido é DEPOIS do imposto sobre o lucro",
+      `lair ${fmt(g.lair)} − lucroLíquido ${fmt(g.lucroLiquido)} = ${fmt(g.lair - g.lucroLiquido)}, esperado ${fmt(il)}`);
+  } else {
+    ok("IR · lucro líquido é DEPOIS do imposto sobre o lucro",
+      `lair ${fmt(g.lair)} → líquido ${fmt(g.lucroLiquido)} (−${fmt(il)})`);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
 /* 3. QUEM CITA NÚMERO DE RESULTADO DIZ DE QUE PERÍODO E REGIME ELE SAIU      */
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 for (const caso of CASOS) {
   for (const s of SUPERFICIES) {
-    const txt = s.texto(caso.input, caso.intervalo, caso.pergunta);
+    if (!s.regimes.includes(caso.regime) || !s.prosa) continue;
+    const txt = s.texto(caso);
     if (!txt) { erro(`${s.nome} · ${caso.nome} · procedência`, "não devolveu texto"); continue; }
     if (!/R\$/.test(txt)) continue; // não citou número: nada a exigir
 
@@ -220,12 +388,13 @@ for (const caso of CASOS) {
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 {
-  const c = cascataDRE(FIXTURE.INPUT, { intervalo: JANEIRO });
+  const c = cascataDRE(FIXTURE.INPUT, { intervalo: JANEIRO, regime: "competencia" });
   if (!c.linhas.ebitda.indisponivel) {
     erro("indisponível · o caso é válido", "janeiro deveria estar sem lançamentos na fixture; o dataset mudou");
   } else {
     for (const s of SUPERFICIES) {
-      const txt = s.texto(FIXTURE.INPUT, JANEIRO, "qual o ebitda em janeiro");
+      if (!s.prosa) continue;
+      const txt = s.texto({ nome: "janeiro", input: FIXTURE.INPUT, intervalo: JANEIRO, pergunta: "qual o ebitda em janeiro", regime: "competencia" });
       if (/R\$/.test(txt)) {
         erro(`${s.nome} · indisponível`, `afirmou um valor onde a cascata não tem resposta: "${txt.slice(0, 160)}"`);
       } else if (!txt.trim()) {

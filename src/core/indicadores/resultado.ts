@@ -29,6 +29,7 @@ import {
   magnitude, liquidado, previsto, cancelado, dataDe, type Regime,
 } from "./convencoes";
 import { type Janela, dentro, janelaDoMesDe } from "./janela";
+import { ehReceitaOperacional } from "@/core/relatorios";
 import {
   classificarDespesa, classificarReceita,
   type LinhaDespesa, type LinhaReceita,
@@ -71,6 +72,8 @@ interface Base {
   receita: number;
   receitaPorLinha: Record<LinhaReceita, number>;
   despesaPorLinha: Record<LinhaDespesa, number>;
+  /** Toda entrada que NÃO é faturamento (juros, rendimento, empréstimo, aporte). */
+  entradaNaoOperacional: number;
   /** Alguma linha contada ainda não foi liquidada? Então o número é projeção. */
   natureza: Natureza;
 }
@@ -99,13 +102,37 @@ function base(input: RiskInput, j: Janela, regime: Regime): Base {
       // tinha; `core/relatorios` sempre esteve certo e é a referência.
       const linhaR = classificarReceita(m.category);
       receitaPorLinha[linhaR] += magnitude(m);
-      if (linhaR !== "juros") receita += magnitude(m);
+      /*
+       * ⚠️ **O teste era `linhaR !== "juros"`, e ele deixava o EMPRÉSTIMO
+       * passar.** O comentário acima já dizia a regra certa — "receita é a
+       * OPERACIONAL" — mas a implementação só reconhecia a receita financeira.
+       * Empréstimo bancário e aporte de sócio entram no caixa, não são
+       * faturamento, e entravam aqui: medido na fixture compartilhada, R$ 15.000
+       * de empréstimo inflavam receita bruta, receita líquida, lucro bruto e
+       * EBITDA deste painel — e só deste, o que fazia as duas cascatas do
+       * sistema divergirem por esse valor exato.
+       *
+       * Agora a pergunta tem UMA resposta: `ehReceitaOperacional`, a mesma que
+       * `core/relatorios` usa para montar a linha de Receita Bruta.
+       */
+      if (ehReceitaOperacional(m)) receita += magnitude(m);
     } else {
       despesaPorLinha[classificarDespesa(m.category)] += magnitude(m);
     }
   }
+  /*
+   * ⚠️ **A perna financeira tem de recolher TUDO que a receita operacional
+   * deixou de fora.** Era `receitaPorLinha.juros`, e o empréstimo não é juros:
+   * ao sair da receita (certo), ele sumia do resultado — o lucro líquido caía
+   * pelo valor exato do empréstimo. Tirar de um lado sem devolver do outro não
+   * é corrigir, é trocar um erro por outro de sinal contrário.
+   */
+  const entradaNaoOperacional = rows
+    .filter((m) => m.type === "entrada" && !ehReceitaOperacional(m))
+    .reduce((acc, m) => acc + magnitude(m), 0);
+
   return {
-    rows, receita, receitaPorLinha, despesaPorLinha,
+    rows, receita, receitaPorLinha, despesaPorLinha, entradaNaoOperacional,
     natureza: rows.some((m) => !liquidado(m)) ? "projecao" : "fato",
   };
 }
@@ -200,7 +227,7 @@ export const lucroLiquido = (
     // para onde ir — acabava dentro da receita bruta.
     (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
       - b.despesaPorLinha.opex - b.despesaPorLinha.folha
-      - b.despesaPorLinha.financeiro + b.receitaPorLinha.juros);
+      - b.despesaPorLinha.financeiro + b.entradaNaoOperacional);
 
 /* -------------------------------------------------------------------------- */
 /* 18. AS MARGENS — o caso perigoso                                            */
@@ -214,7 +241,7 @@ const NUMERADOR: Record<LinhaDaMargem, (b: Base) => number> = {
     - b.despesaPorLinha.opex - b.despesaPorLinha.folha,
   liquida: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
     - b.despesaPorLinha.opex - b.despesaPorLinha.folha
-    - b.despesaPorLinha.financeiro + b.receitaPorLinha.juros,
+    - b.despesaPorLinha.financeiro + b.entradaNaoOperacional,
 };
 
 /**

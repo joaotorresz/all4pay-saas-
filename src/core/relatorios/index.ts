@@ -118,6 +118,23 @@ const ehCustoVariavel = (m: RiskMovement) => /cmv|mercadoria|insumo|fornecedor|f
 const ehDespesaVariavel = (m: RiskMovement) => /comiss|taxa|gateway|adquiren|plataforma|antecipa|marketing|an[úu]ncio|ads|tr[áa]fego/.test(cat(m));
 const ehFinanceiro = (m: RiskMovement) => /juros|tarifa|banc|iof|financ|empr[ée]stim|rendiment|aplica/.test(cat(m));
 const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o lucro/.test(cat(m));
+
+/**
+ * ⚠️ **A pergunta "esta entrada é FATURAMENTO?" tem UMA resposta no sistema.**
+ *
+ * Exportada porque `core/indicadores/resultado` precisava dela e tinha a sua
+ * própria versão — que reconhecia os juros e NÃO reconhecia o empréstimo. O
+ * resultado, medido na fixture compartilhada: R$ 15.000 de empréstimo bancário
+ * entravam como receita bruta lá e não aqui, e as duas cascatas divergiam
+ * exatamente nesse valor em receita, receita líquida, lucro bruto e EBITDA.
+ *
+ * Empréstimo, aporte e rendimento de aplicação são dinheiro que ENTRA e não são
+ * dinheiro que a operação GANHOU. Quem trata as duas coisas como a mesma
+ * apresenta um faturamento que não houve — e é sobre esse número que se decide
+ * contratar.
+ */
+export const ehReceitaOperacional = (m: RiskMovement) =>
+  entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m);
 const ehNaoOperacional = (m: RiskMovement) => /n[ãa]o operacional|venda de ativo|imobilizado|indeniza|multa contratual/.test(cat(m));
 /**
  * ⚠️ **DEPRECIAÇÃO E AMORTIZAÇÃO — a linha que faltava, e que tornava o rótulo
@@ -151,7 +168,27 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "deducoes", label: "Dedução sobre Produtos e Serviços", tipo: "soma", sinal: "-", nivel: 1,
-    casa: (m) => saida(m) && (ehImpostoVenda(m) || ehDevolucao(m)),
+    /*
+     * ⚠️ **`!ehImpostoLucro` — sem ele a linha `impostos_lucro` era INALCANÇÁVEL.**
+     *
+     * A atribuição é `estrutura.find(l => l.casa?.(m))`: a PRIMEIRA linha que
+     * casa leva o movimento. E `ehImpostoVenda` (`/imposto|tribut|…|irpj|csll/`)
+     * é um SUPERCONJUNTO de `ehImpostoLucro` (`/irpj|csll|imposto sobre o lucro/`):
+     * toda categoria que o segundo reconhece o primeiro também reconhece. Como
+     * `deducoes` vem antes de `impostos_lucro` na estrutura, IRPJ e CSLL caíam
+     * como DEDUÇÃO DA RECEITA e a linha de imposto sobre o lucro ficava zerada
+     * para sempre.
+     *
+     * O estrago não é de rótulo: imposto sobre o LUCRO entrando ACIMA do EBITDA
+     * derruba receita líquida, lucro bruto e EBITDA pelo valor do IRPJ+CSLL — a
+     * DRE afirma que a OPERAÇÃO vai pior do que vai, e o defeito só aparece em
+     * quem provisiona IR. Medido na fixture: 100k de venda, 40k de folha, 12k de
+     * IRPJ/CSLL davam EBITDA de R$ 48.000 em vez de R$ 60.000.
+     *
+     * Descoberto ao escrever a fixture que deveria travar a diferença de `lair`:
+     * ela passava sem exercitar nada, porque a linha nunca recebia um centavo.
+     */
+    casa: (m) => saida(m) && !ehImpostoLucro(m) && (ehImpostoVenda(m) || ehDevolucao(m)),
   },
   {
     id: "receita_liquida", label: "Receita Líquida", tipo: "total", sinal: "=", nivel: 1,

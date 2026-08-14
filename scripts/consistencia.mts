@@ -19,6 +19,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import * as FIXTURE from "./fixture.mts";
+import { ehReceitaOperacional } from "@/core/relatorios";
 import {
   saldo, saldoInicial, entradas, saidas, resultado, burn, runway, runwayMeses,
   runwayDeFluxo,
@@ -503,7 +504,7 @@ const AGOSTO = janelaMes(2026, 7);
   const dreEnt = rows.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
   eq("cruzado: DRE competência == entradas canônicas (competência)", dreEnt, compE);
 
-  const dre = dreGerencial(rows);
+  const dre = dreGerencial(rows, "competencia");
   /**
    * ⚠️ **ESTA ASSERÇÃO EXIGIA O DEFEITO, e por isso ele sobreviveu.**
    *
@@ -520,13 +521,28 @@ const AGOSTO = janelaMes(2026, 7);
    * A identidade correta não perde nada: as duas partes somadas têm de dar as
    * entradas. Nada some, nada é contado duas vezes.
    */
-  const receitaFin = rows
-    .filter((m) => m.type === "entrada" && classificarReceita(m.category) === "juros")
+  /*
+   * ⚠️ **A PARTIÇÃO CRESCEU, e a asserção acompanhou em vez de ser afrouxada.**
+   *
+   * Ela dizia `receita bruta + receita FINANCEIRA == entradas`, e isso valia
+   * enquanto a única entrada não-operacional reconhecida eram os juros. A
+   * fixture também tem R$ 20.000 de transferência e R$ 15.000 de EMPRÉSTIMO
+   * BANCÁRIO — dinheiro que entra e não é faturamento. Com `dreGerencial` lendo
+   * a cascata, o empréstimo saiu da receita bruta (certo) e a identidade
+   * quebrou por R$ 15.000 (Δ exato do empréstimo).
+   *
+   * A identidade certa é a PARTIÇÃO: toda entrada é operacional ou não é, e as
+   * duas partes somadas dão as entradas do período. Nada some, nada conta duas
+   * vezes. E o predicado é o MESMO que monta a linha de Receita Bruta — se
+   * fosse um regex copiado aqui, a guarda passaria a proteger a cópia.
+   */
+  const naoOperacional = rows
+    .filter((m) => m.type === "entrada" && !ehReceitaOperacional(m))
     .reduce((s, m) => s + Math.abs(m.amount), 0);
-  ok("cruzado: a fixture TEM receita financeira (senão esta linha não prova nada)",
-     receitaFin > 0, `receitaFinanceira=${receitaFin}`);
-  eq("cruzado: receita bruta do DRE + receita financeira == entradas canônicas",
-     dre.receitaBruta + receitaFin, compE);
+  ok("cruzado: a fixture TEM entrada não operacional (senão esta linha não prova nada)",
+     naoOperacional > 0, `naoOperacional=${naoOperacional}`);
+  eq("cruzado: receita bruta do DRE + entradas não operacionais == entradas canônicas",
+     dre.receitaBruta + naoOperacional, compE);
 
   const compS = saidas(INPUT, AGOSTO, "competencia").valor;
   const dreDesp = rows.filter((m) => m.type === "saida").reduce((s, m) => s + Math.abs(m.amount), 0);
@@ -2907,7 +2923,7 @@ const AGOSTO = janelaMes(2026, 7);
   const rowsDRE = INPUT.movements.filter(
     (m) => m.status !== "cancelado" && (m.due_date ?? "") >= J.de && (m.due_date ?? "") <= J.ate,
   );
-  const g = dreGerencial(rowsDRE);
+  const g = dreGerencial(rowsDRE, "competencia");
   const p = painelResultado(INPUT, J, "competencia");
 
   const par = (nome: string, canonico: typeof p.ebitda, doDRE: number) => {
@@ -2976,8 +2992,21 @@ const AGOSTO = janelaMes(2026, 7);
     eq("financeira: o resultado financeiro tem os DOIS lados (+28.000)",
        cas.linhas.resultado_financeiro.valor, 28_000);
   }
-  par("margem EBITDA", p.margemEbitda, g.margemEbitda);
-  par("margem bruta", p.margemBruta, g.margemBruta);
+  /*
+   * ⚠️ As margens do `dreGerencial` viraram `Indicador` — sem receita líquida
+   * não existe margem, e o tipo passou a poder dizer isso. A comparação
+   * continua a mesma, agora nos dois lados: os DOIS caminhos têm de concordar
+   * inclusive sobre EXISTIR.
+   */
+  const parMargem = (nome: string, canonico: typeof p.ebitda, doDRE: typeof g.margemEbitda) => {
+    ok(`onda4: ${nome} concorda sobre EXISTIR nos dois caminhos`,
+       !!canonico.indisponivel === !!doDRE.indisponivel,
+       `canônico=${canonico.indisponivel?.codigo ?? "tem"} dre=${doDRE.indisponivel?.codigo ?? "tem"}`);
+    if (canonico.indisponivel || doDRE.indisponivel) return;
+    eq(`cruzado: ${nome} canônico == ${nome} do dreGerencial`, canonico.valor, doDRE.valor);
+  };
+  parMargem("margem EBITDA", p.margemEbitda, g.margemEbitda);
+  parMargem("margem bruta", p.margemBruta, g.margemBruta);
 
   // E a cascata canônica fecha sobre si mesma — as identidades por escrito.
   eq("onda4: receita líquida == bruta − deduções",

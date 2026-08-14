@@ -67,9 +67,9 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 | --- | --- | --- | --- |
 | **#1** | `/dashboard/reports/dre` — tabela | `cascataDRE` → `montarDRE` | ✅ **OK** |
 | **#2** | `/dashboard/reports/dre` — cartões | `cascataDRE` | ✅ **OK** (4 cartões batem com a tabela, diferença zero, medido em produção) |
-| **#3** | `/dre` (`DREView`) — Intelligence Center | `dreGerencial` | ⏳ waterfall, drill-down, por cliente/linha |
-| **#4** | Cockpit — `receita-liquida-mes` + widgets | `dreGerencial` via `c.dre.gerencial` | ⏳ |
-| **#5** | `core/paineis` — painel de Vendas | `dreGerencial` (`paineis/index.ts:233`) | ⏳ |
+| ~~**#3**~~ | ~~`/dre` (`DREView`)~~ | — | 🗑️ **CÓDIGO MORTO, REMOVIDO.** Nenhuma rota o renderizava: `src/app/dre/` não existe, `/dre` é alias 308 para `/dashboard/reports/dre`, e **zero arquivos** importavam `DREView`. Superfície sem entrada é candidata a remoção, não a migração |
+| **#4** | Cockpit — `receita-liquida-mes` + widgets | `cascataDRE` via a fachada | ✅ **FEITO** |
+| **#5** | `core/paineis` — painel de Vendas | `cascataDRE` via a fachada | ✅ **FEITO** |
 | **#6** | `core/indicadores/resultado` — `painelResultado` | **agregação PRÓPRIA** (`base()`) | ⏳ |
 | **#7** | IA — `assistant/engine.ts` | `cascataDRE` | ✅ **FEITO** (PR #44) |
 | **#8** | `core/quant/indicators` → `/inteligencia` | deriva de `calcularBurnRate` | 🔤 **NÃO migra — RENOMEIA** |
@@ -83,7 +83,7 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 ### São CINCO agregações independentes, não duas
 
 1. **`core/relatorios`** — a referência (`ESTRUTURA_DRE` + `montarDRE`);
-2. **`dreGerencial`** (`core/dre/engine.ts`) — #3, #4, #5;
+2. ~~**`dreGerencial`**~~ — **curada**: virou FACHADA FINA da cascata (#4, #5). Zero agregação própria;
 3. **`painelResultado`** (`core/indicadores/resultado.ts`) — #6;
 4. ~~a inline da IA~~ — **curada** no PR #44;
 5. **`quant`/burn** (`core/quant/indicators`) — #8, e por tabela #9.
@@ -99,7 +99,7 @@ Um PR por vez, **verde antes do próximo**.
 | Ordem | Item | O que decide |
 | --- | --- | --- |
 | ✅ 1º | **#7** IA | Feito no PR #44, com o contrato nascendo junto |
-| 🔜 2º | **#3 · #4 · #5** | `dreGerencial` vira **fachada fina** sobre `cascataDRE`: mesma assinatura, mesmo formato de retorno, zero agregação própria por dentro. Nenhuma das três superfícies muda de chamada |
+| ✅ 2º | **#3 · #4 · #5** | #3 removido (morto). `dreGerencial` virou **fachada fina** sobre `cascataDRE`, com `regime` obrigatório. Contrato estendido aos **dois regimes** |
 | 3º | **#6** `painelResultado` | Mantém o contrato da ONDA 4 (`Indicador` com `indisponivel`), mas passa a **ler** a cascata |
 | 4º | **#10** `VendasDashboardView` | Soma crua de `movements`, sem classificador |
 | 5º | **#14** `core/fdip` | ⚠️ **Verificar ANTES se ele CONSEGUE consumir a cascata.** Roda no onboarding, sobre dado **ainda não classificado**. Se não conseguir, a correção **não é migrar**: é parar de chamar aquilo de *receita* e *EBITDA* e rotular como **estimativa da importação** |
@@ -123,6 +123,53 @@ E `REGRAS_CASCATA` traz as identidades que a cascata tem de respeitar, **em
 código e não só no teste** — uma regra que só existe no teste é uma regra que
 ninguém lê ao escrever a próxima tela.
 
-⚠️ **A cascata é sempre COMPETÊNCIA.** `montarDRE` é
-`Omit<FiltroRelatorio, "regime">`: a DRE é competência por definição, e é essa
-a razão de a migração trocar o regime de algumas superfícies.
+## O REGIME NA CASCATA — a decisão, e as três condições que a tornam segura
+
+`cascataDRE` **aceita** `regime`, e ele é **parâmetro obrigatório sem valor
+padrão**. Com padrão, alguém chama sem pensar e recebe o regime errado em
+silêncio — a mesma classe do `is_sample`, resolvida fazendo o filtro excluir por
+omissão: a decisão tem de ser explícita no ponto da chamada.
+
+As três condições que acompanham a decisão:
+
+1. **`regime` obrigatório, sem default.** ✅
+2. **O contrato roda OS DOIS REGIMES para toda superfície.** ✅ Aceitar regime e
+   testar um só dobraria a superfície da função canônica e cortaria a cobertura
+   pela metade — e o regime não coberto é justamente aquele em que ninguém olha.
+   Superfície que só existe em competência (a IA responde sobre o DRE) **declara**
+   isso em vez de ganhar uma leitura de caixa inventada para satisfazer o teste.
+3. **O TÍTULO MUDA COM O REGIME.** ✅ Um DRE é, por definição, competência.
+   Em caixa a tela passa a dizer **"Resultado — regime de caixa"**. Aplicado no
+   waterfall do `/fluxo-caixa`, que é hoje a única superfície viva que renderiza
+   a cascata em caixa (`core/cashflow` → `financialDRE`).
+
+## AS MARGENS SÃO `Indicador`, NUNCA `number`
+
+`margemBruta`, `margemEbitda` e `margemLiquida` podem **não existir**. O caminho
+antigo dividia por `receitaLiquida > 0 ? receitaLiquida : 1` — e dividir por 1
+não aproxima nada: apresenta o valor ABSOLUTO em reais com um "%" ao lado (um
+EBITDA de −R$ 30.000 vira "−3.000.000%").
+
+Sem receita líquida não existe margem. As telas exibem o motivo ou um traço;
+**nunca 0%, nunca número**. Não é caso hipotético: a organização auditada tem
+Custos Variáveis zerados e meses sem movimento.
+
+## DOIS DEFEITOS QUE A MIGRAÇÃO DESENTERROU
+
+**A linha `impostos_lucro` era INALCANÇÁVEL.** A atribuição é "a primeira linha
+que casa leva o movimento", e `ehImpostoVenda` (`/imposto|tribut|…|irpj|csll/`) é
+um superconjunto de `ehImpostoLucro`. Como `deducoes` vem antes na estrutura,
+IRPJ e CSLL caíam como **dedução da receita** — acima do EBITDA. Efeito: receita
+líquida, lucro bruto e EBITDA menores pelo valor do IR, ou seja, a DRE afirmando
+que a OPERAÇÃO vai pior do que vai. Descoberto ao escrever a fixture que deveria
+travar a diferença de `lair`: ela passava sem exercitar nada.
+
+**`painelResultado` (#6) contava EMPRÉSTIMO como receita.** A matriz de
+reconciliação já trazia essa divergência DECLARADA, com valor (R$ 15.000) e
+causa. Agora existe **um** predicado — `ehReceitaOperacional`, exportado de
+`core/relatorios` — e os quatro caminhos o compartilham. Segue aberto, na mesma
+nota, o defeito em que os quatro concordam e todos erram: **R$ 20.000 de
+"Transferência entre contas" contam como receita bruta**.
+
+⚠️ Corrigir esse último muda a taxonomia `LinhaReceita`, espinha do drill-down do
+DRE inteiro — fica declarado com número, não corrigido de passagem.

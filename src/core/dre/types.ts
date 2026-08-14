@@ -10,6 +10,8 @@
  * (produto/unidade) · Comparativo · Projetado · Executivo (+ comentário).
  */
 
+import type { Indicador } from "@/core/indicadores";
+
 export type Regime = "competencia" | "caixa";
 
 /** Uma linha do DRE gerencial (com drill-down opcional por categoria). */
@@ -31,9 +33,26 @@ export interface DREGerencial {
   ebit: number;
   lair: number;
   lucroLiquido: number;
-  margemBruta: number;
-  margemEbitda: number;
-  margemLiquida: number;
+  /**
+   * ⚠️ **As margens são `Indicador`, não `number`, e isso é o contrato.**
+   *
+   * O caminho antigo dividia por `receitaLiquida > 0 ? receitaLiquida : 1`.
+   * Dividir por 1 não aproxima nada: apresenta o valor ABSOLUTO em reais com um
+   * símbolo de porcentagem ao lado — um EBITDA de −R$ 30.000 virava
+   * "−3.000.000%". É publicar uma mentira sabendo que é mentira, e mata a regra
+   * "sem número, sem afirmação" justamente nas telas onde ela mais importa.
+   *
+   * Sem receita líquida não existe margem. `indisponivel` preenchido ⇒ a tela
+   * mostra o motivo ou um traço; **nunca 0%, nunca número**.
+   *
+   * ⚠️ Não é caso hipotético: a organização auditada tem Custos Variáveis
+   * zerados e meses sem movimento.
+   */
+  margemBruta: Indicador;
+  margemEbitda: Indicador;
+  margemLiquida: Indicador;
+  /** O regime sob o qual ESTES números foram apurados. */
+  regime: Regime;
 }
 
 export interface DREFinanceiro {
@@ -97,7 +116,11 @@ export interface DREProjecao {
 export interface DREExecutivo {
   receita: number;
   ebitda: number;
-  margemEbitda: number;
+  /**
+   * ⚠️ `null` quando não houve receita líquida no período. Não é 0: "margem de
+   * 0%" lê como *vendeu e não sobrou nada*, e a verdade é *não vendeu*.
+   */
+  margemEbitda: number | null;
   lucroLiquido: number;
   burnMensal: number;
   runwayMeses: number;

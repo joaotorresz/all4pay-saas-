@@ -273,7 +273,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
    * deixar de acontecer.
    */
   const m = React.useMemo(() => {
-    const c = cascataDRE(input, { intervalo });
+    const c = cascataDRE(input, { intervalo, regime: "competencia" });
     return {
       receitaLiquida: c.linhas.receita_liquida,
       ebitda: c.linhas.ebitda,
