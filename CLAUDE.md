@@ -1300,6 +1300,33 @@ exceção. Quando o caso existe para separar duas contas, asserte também que as
 duas dão respostas DIFERENTES sobre ele: um caso que não discrimina é um caso
 que não testa.
 
+### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
+
+Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não
+é. Log que ninguém lê, campo que ninguém exibe, contagem que nenhuma tela mostra:
+os três passam em typecheck, entram no diff com ar de conclusão, e a pergunta que
+motivou a medição continua sem resposta para quem opera.
+
+A regra: **toda instrumentação entrega junto o consumidor que age sobre ela.**
+Se o número entrou no motor, alguma superfície o lê; se o evento entrou na
+trilha, alguém sabe onde procurá-lo.
+
+Três casos deste lote, todos do mesmo lote de correções:
+
+- A projeção passou a incluir o vencido em aberto — o valor SOBE, e sem
+  `regraDoVencido` na tela nada explicaria por quê. Um cartão que muda de valor
+  sem dizer o motivo é lido como defeito.
+- `canceladosNaJanela` sozinho seria um cálculo que ninguém vê; o rodapé
+  (`NotaCancelados`) é a metade que resolve o problema.
+- A purga passou a apagar só `onboarding_demo`, e a contagem do banner teve de
+  ser separada no MESMO gesto — restringir a purga sem contar separado deixaria
+  a tela prometendo 147 ao lado de um botão que apaga 146, que é um defeito novo
+  no lugar do velho.
+
+⚠️ O corolário para a guarda: quando a correção tem duas metades, a fixture
+cobra as DUAS. Uma guarda que aprova só o motor deixa o conserto pela metade
+passar como completo — e é a metade da tela que a pessoa vê.
+
 ### ⚠️ TEXTO DE TELA NÃO FALA DE IMPLEMENTAÇÃO
 
 Varredura por prosa de interface que vaza o código: identificador entre crases,
