@@ -37,7 +37,8 @@ export interface InvestorUpdate {
     receitaMes: number;
     crescimentoMoM: number; // -1..+
     mrrEstimado: number;
-    margemLiquida: number; // 0..1
+    /** `null` quando não houve receita líquida — sem receita não existe margem. */
+    margemLiquida: number | null; // 0..1
     inadimplencia: number; // 0..1
     concentracao: number; // 0..1
     score: number;
@@ -56,6 +57,8 @@ const brl = (v: number) =>
 const pct = (v: number, casas = 0) =>
   `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`;
 
+import { cascataDRE } from "@/core/relatorios/cascata";
+
 export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const q = analisarQuantitativo(input);
   const ind = q.indicadores;
@@ -64,7 +67,24 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const [anoS, mesS] = input.hoje.slice(0, 10).split("-");
   const mesReferencia = `${MESES[Math.max(0, Number(mesS) - 1)]} de ${anoS}`;
 
-  const receitaMes = q.serie.length ? q.serie[q.serie.length - 1].receita : ind.receitaMensal;
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * ⚠️ RECEITA DO MÊS E MARGEM LÍQUIDA VÊM DA CASCATA — regime de COMPETÊNCIA.
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Saíam de `q.serie` / `q.indicadores`, que derivam do burn de 90 dias, ou
+   * seja, de CAIXA. Investidor que lê "margem líquida" espera competência: é
+   * assim que ele compara a empresa com qualquer outra, e é assim que o número
+   * vai aparecer na diligência. Um número de caixa sob rótulo de competência
+   * não é uma imprecisão — é o tipo de coisa que aparece CONTRA a empresa
+   * quando alguém confere.
+   *
+   * O mês de referência é o mês corrente pela competência (vencimento).
+   */
+  const primeiroDia = `${anoS}-${mesS}-01`;
+  const ultimoDia = `${anoS}-${mesS}-${String(new Date(Number(anoS), Number(mesS), 0).getDate()).padStart(2, "0")}`;
+  const casc = cascataDRE(input, { intervalo: { de: primeiroDia, ate: ultimoDia }, regime: "competencia" });
+  const receitaMes = casc.linhas.receita_bruta.valor;
   // ⚠️ MRR pelo indicador canônico. A conta anterior era
   // `receitaRecorrente × receitaMensal` — um SHARE (0..1) multiplicado por um
   // valor, que é uma definição diferente das outras três do sistema. O número
@@ -79,7 +99,9 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
     receitaMes,
     crescimentoMoM: ind.crescimentoMensal,
     mrrEstimado,
-    margemLiquida: ind.margemLiquida,
+    // ⚠️ `null` quando não houve receita líquida: sem receita não existe margem,
+    // e "0%" diria ao investidor que a empresa vendeu e não sobrou nada.
+    margemLiquida: casc.margemLiquida.indisponivel ? null : casc.margemLiquida.valor,
     inadimplencia: ind.inadimplencia,
     concentracao: ind.concentracaoReceita,
     score: q.score.score,
@@ -90,11 +112,16 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
     { id: "caixa", label: "Caixa", valor: raw.caixa, moeda: true, hint: "saldo consolidado das contas" },
     { id: "burn", label: "Burn mensal", valor: raw.burn, moeda: true, hint: "consumo líquido de caixa/mês (0 = gera caixa)" },
     { id: "runway", label: "Runway", valor: runway >= 120 ? "10+ anos" : `${runway.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses`, hint: "caixa ÷ burn" },
-    { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true },
+    { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true,
+      hint: "receita bruta operacional do mês, competência (cascata do DRE)" },
     { id: "mom", label: "Crescimento MoM", valor: `${raw.crescimentoMoM >= 0 ? "+" : ""}${pct(raw.crescimentoMoM, 1)}`, hint: "receita vs. mês anterior" },
     { id: "mrr", label: "MRR estimado", valor: mrrEstimado, moeda: true, hint: "receita das contrapartes recorrentes, mensalizada" },
     { id: "arr", label: "ARR estimado", valor: mrrEstimado * 12, moeda: true, hint: "MRR × 12" },
-    { id: "margem", label: "Margem líquida", valor: pct(raw.margemLiquida, 1) },
+    { id: "margem", label: "Margem líquida",
+      valor: raw.margemLiquida === null ? "—" : pct(raw.margemLiquida, 1),
+      hint: raw.margemLiquida === null
+        ? "sem receita líquida no mês — sem receita não existe margem"
+        : "resultado líquido ÷ receita líquida, competência (cascata do DRE)" },
     { id: "score", label: "Score de saúde", valor: `${raw.score}/100 · ${raw.classificacao}`, hint: "motor quantitativo (8 pilares)" },
   ];
 

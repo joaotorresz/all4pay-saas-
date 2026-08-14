@@ -38,6 +38,7 @@ import { responderLocal } from "@/core/assistant/engine";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { valorOuNulo, type Indicador, type Janela } from "@/core/indicadores";
 import { painelResultado } from "@/core/indicadores/resultado";
+import { montarInvestorUpdate } from "@/core/investor";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
@@ -234,6 +235,32 @@ const SUPERFICIES: Superficie[] = [
         margem_contribuicao: fmt(cas.linhas.margem_contribuicao.valor),
         ebitda: fmt(cas.linhas.ebitda.valor),
       };
+    },
+    texto: () => "",
+  },
+  {
+    /*
+     * ⚠️ O Investor Update publica RECEITA DO MÊS e MARGEM LÍQUIDA. Só
+     * competência: é o que o investidor lê quando compara a empresa com outra,
+     * e é o que aparece na diligência.
+     */
+    nome: "#9 Investor Update · receita do mês",
+    prosa: false,
+    regimes: ["competencia"],
+    exibe: (c) => {
+      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const kpi = u.kpis.find((k) => k.id === "receita");
+      return { receita_bruta: typeof kpi?.valor === "number" ? fmt(kpi.valor) : null };
+    },
+    margens: (c) => {
+      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const kpi = u.kpis.find((k) => k.id === "margem");
+      const can = cascataDRE(c.input, { intervalo: c.intervalo, regime: "competencia" });
+      const txt = String(kpi?.valor ?? "—");
+      // O Investor formata com uma casa; o contrato compara na mesma casa.
+      const esperado = can.margemLiquida.indisponivel
+        ? "—" : `${(can.margemLiquida.valor * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+      return [{ nome: "margem líquida", obtido: txt === esperado ? pctOuTraco(can.margemLiquida) : txt, canonico: can.margemLiquida }];
     },
     texto: () => "",
   },
