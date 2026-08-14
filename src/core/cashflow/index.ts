@@ -15,7 +15,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import type { FinancialAccount } from "@/lib/types";
 import {
-  runwayMeses as runwayMesesCanonico, saldo as saldoCanonico, previstoNaJanela,
+  runwayMeses as runwayMesesCanonico, saldo as saldoCanonico, projetadoNaJanela,
   janela as janelaCanonica, type Indicador as IndicadorCanonico,
 } from "@/core/indicadores";
 
@@ -24,8 +24,35 @@ export const CASHFLOW_VERSION = "cashflow/1.0.0";
 // ---------- Tipos do modelo ----------
 export interface ResumoExecutivo {
   caixaAtual: number;
-  entradasPrevistas: number;
-  saidasPrevistas: number;
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * ⚠️ **PROJETADAS, NÃO "PREVISTAS" — e o nome mudou porque a conta mudou**
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Eram `entradasPrevistas`/`saidasPrevistas` e contavam só o que vence
+   * DENTRO da janela (`due_date >= hoje`). Um título em aberto que venceu
+   * ontem caía fora — e ele não sumiu: ainda vai sair do caixa. A projeção
+   * nascia otimista pelo valor exato do que a empresa já devia, todos os dias.
+   * Medido em produção: **R$ 74.248,59** de saídas vencidas em aberto contra
+   * **R$ 3.162,12** de entradas — R$ 71.086,47 líquidos que a projeção ignorava
+   * a favor da empresa.
+   *
+   * A regra de expectativa é explícita: **o vencido em aberto é esperado a
+   * partir de HOJE**, a data mais cedo em que ele ainda pode se mover. Ela
+   * vale para os cartões, para a árvore e para o calendário — um lugar só
+   * (`dataEsperada`) — e é ROTULADA na tela por `regraDoVencido`.
+   *
+   * ⚠️ O nome é outro porque o número é outro (regra "nenhum número muda de
+   * significado sem mudar de nome"). Quem quer a agenda de vencimentos — "o
+   * que vence nesta janela" — continua com `previstoNaJanela` no canônico.
+   */
+  entradasProjetadas: number;
+  saidasProjetadas: number;
+  /** Quanto das projetadas acima já está VENCIDO e em aberto. Vai na tela. */
+  entradasVencidas: number;
+  saidasVencidas: number;
+  /** A regra de expectativa, em português, para o rótulo do cartão. */
+  regraDoVencido: string;
   geracaoCaixa: number;
   burn: number;
   runwayMeses: number;
@@ -241,27 +268,57 @@ export function montarFluxoCaixa(
     visao === "previsto" ? m.status === "pendente"
       : visao === "realizado" ? m.status === "pago"
         : m.status !== "cancelado";
-  const noPeriodo = (m: RiskMovement) => { const d = dataRef(m); return d >= hoje && d <= fim && m.status !== "cancelado"; };
+  /**
+   * ⚠️ **A REGRA DE EXPECTATIVA DO VENCIDO, num lugar só.**
+   *
+   * Um título em aberto cujo vencimento já passou não deixou de existir — ele
+   * ainda vai se mover, e a data mais cedo em que isso pode acontecer é HOJE.
+   * Sem esta linha ele caía fora do `>= hoje` de toda a projeção (cartões,
+   * árvore e calendário) e o caixa projetado nascia melhor do que a realidade.
+   * O liquidado não passa por aqui: a data dele é um fato, não uma expectativa.
+   */
+  const dataEsperada = (m: RiskMovement) => {
+    const d = dataRef(m);
+    return m.status === "pendente" && d < hoje ? hoje : d;
+  };
+  const noPeriodo = (m: RiskMovement) => { const d = dataEsperada(m); return d >= hoje && d <= fim && m.status !== "cancelado"; };
   const naJanela = (m: RiskMovement) => noPeriodo(m) && passaVisao(m);
 
   // ----- Bloco 1: Resumo executivo -----
   // "Previstas" são sempre o que está PENDENTE com vencimento na janela
   // (independente da visão; a visão muda a árvore/calendário, não os KPIs forward).
   const pend = movs.filter((m) => m.status === "pendente");
-  const venceNaJanela = (m: RiskMovement) => m.due_date >= hoje && m.due_date <= fim;
-  const entradasPrevistas = pend.filter((m) => m.type === "entrada" && venceNaJanela(m)).reduce((s, m) => s + m.amount, 0);
-  const saidasPrevistas = pend.filter((m) => m.type === "saida" && venceNaJanela(m)).reduce((s, m) => s + m.amount, 0);
+  // ⚠️ Inclui o VENCIDO em aberto, pela regra de expectativa acima: ele entra
+  // na janela com data de hoje. `>= hoje` sozinho o deixava de fora.
+  const naProjecao = (m: RiskMovement) => {
+    const d = dataEsperada(m);
+    return d >= hoje && d <= fim;
+  };
+  const jaVencido = (m: RiskMovement) => m.due_date < hoje;
+  const somar = (f: (m: RiskMovement) => boolean) => pend.filter(f).reduce((s, m) => s + m.amount, 0);
+  const entradasProjetadas = somar((m) => m.type === "entrada" && naProjecao(m));
+  const saidasProjetadas = somar((m) => m.type === "saida" && naProjecao(m));
+  const entradasVencidas = somar((m) => m.type === "entrada" && naProjecao(m) && jaVencido(m));
+  const saidasVencidas = somar((m) => m.type === "saida" && naProjecao(m) && jaVencido(m));
   const resumo: ResumoExecutivo = {
     caixaAtual: saldoAtual,
-    entradasPrevistas,
-    saidasPrevistas,
-    geracaoCaixa: entradasPrevistas - saidasPrevistas,
+    entradasProjetadas,
+    saidasProjetadas,
+    entradasVencidas,
+    saidasVencidas,
+    regraDoVencido:
+      "o vencido em aberto entra na projeção com data de hoje — é a data mais cedo em que ele ainda pode se mover",
+    geracaoCaixa: entradasProjetadas - saidasProjetadas,
     burn: risco.burn.burnMensal,
     runwayMeses: quant.indicadores.runwayMeses,
     runway: runwayMesesCanonico(input),
     caixaCanonico: saldoCanonico(input),
-    entradasCanonicas: previstoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "entrada"),
-    saidasCanonicas: previstoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "saida"),
+    // ⚠️ `projetadoNaJanela`, não `previstoNaJanela`: os dois cartões ao lado
+    // do caixa respondem "o que ainda vai se mover", e o vencido em aberto é
+    // parte dessa resposta. Trocar aqui e não trocar acima faria o cartão e a
+    // árvore discordarem — que é o defeito, não a correção.
+    entradasCanonicas: projetadoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "entrada"),
+    saidasCanonicas: projetadoNaJanela(input, janelaCanonica(hoje, fim, "Janela do filtro"), "saida"),
     chanceRuptura: risco.probabilidadeRuptura,
     score: quant.score.score,
     // Derivados dos parâmetros REAIS: `dias` é o horizonte do filtro da tela e
@@ -355,7 +412,10 @@ export function montarFluxoCaixa(
   const calendario: DiaCalendario[] = [];
   for (let i = 0; i < diasCal; i++) {
     const d = addDias(hoje, i);
-    const noDia = (m: RiskMovement) => dataRef(m) === d && passaVisao(m) && m.status !== "cancelado";
+    // ⚠️ `dataEsperada`, não `dataRef`: o vencido em aberto aparece no dia de
+    // HOJE. Com `dataRef` ele não aparecia em dia nenhum do calendário, e a
+    // agenda do mês discordava do cartão de saídas projetadas logo acima.
+    const noDia = (m: RiskMovement) => dataEsperada(m) === d && passaVisao(m) && m.status !== "cancelado";
     const recebe = movs.filter((m) => m.type === "entrada" && noDia(m)).reduce((s, m) => s + m.amount, 0);
     const paga = movs.filter((m) => m.type === "saida" && noDia(m)).reduce((s, m) => s + m.amount, 0);
     calendario.push({ date: d, label: rotuloDia(d), recebe, paga, saldo: recebe - paga });
@@ -373,7 +433,7 @@ export function montarFluxoCaixa(
         { label: "Nota fiscal", ok: false, detalhe: "vincule a NF na Caixa de Entrada" },
         { label: "Contrato / recorrência", ok: quant.indicadores.receitaRecorrente > 0, detalhe: quant.indicadores.receitaRecorrente > 0 ? `${Math.round(quant.indicadores.receitaRecorrente * 100)}% de receita recorrente` : "sem recorrência detectada" },
         { label: "Fornecedor cadastrado", ok: fornecedores > 0, detalhe: `${fornecedores} fornecedores no cadastro` },
-        { label: "Orçamento disponível", ok: saldoAtual > saidasPrevistas, detalhe: saldoAtual > saidasPrevistas ? "saldo cobre as saídas do período" : "saídas acima do saldo — atenção" },
+        { label: "Orçamento disponível", ok: saldoAtual > saidasProjetadas, detalhe: saldoAtual > saidasProjetadas ? "saldo cobre as saídas do período" : "saídas acima do saldo — atenção" },
         { label: "Saldo em conta", ok: saldoAtual > 0, detalhe: fmtBRL(saldoAtual) },
         { label: "Fluxo atualizado", ok: true, detalhe: "propaga automaticamente para projeção/DRE/dashboard" },
       ],
@@ -385,7 +445,7 @@ export function montarFluxoCaixa(
         { label: "Contrato", ok: quant.indicadores.receitaRecorrente > 0, detalhe: `${Math.round(quant.indicadores.receitaRecorrente * 100)}% de receita recorrente` },
         { label: "PIX / Boleto", ok: entradas.total > 0, detalhe: "recebíveis no período" },
         { label: "Comprovante / baixa", ok: movs.some((m) => m.type === "entrada" && m.status === "pago"), detalhe: "recebimentos confirmados" },
-        { label: "Conta a receber", ok: entradasPrevistas > 0, detalhe: fmtBRL(entradasPrevistas) },
+        { label: "Conta a receber", ok: entradasProjetadas > 0, detalhe: fmtBRL(entradasProjetadas) },
         { label: "Fluxo · DRE · Dashboard", ok: true, detalhe: "tudo integrado em tempo real" },
       ],
     },
@@ -407,7 +467,7 @@ export function montarFluxoCaixa(
   // ----- Bloco 7: Heatmap financeiro -----
   const nHeat = Math.min(60, Math.max(7, dias));
   const heatmap: DiaHeat[] = risco.liquidez.slice(0, nHeat).map((p) => {
-    const buffer = risco.burn.burnMensal || Math.abs(saidasPrevistas) || 1;
+    const buffer = risco.burn.burnMensal || Math.abs(saidasProjetadas) || 1;
     const nivel: DiaHeat["nivel"] = p.ruptura || p.saldo < 0 ? "vermelho" : p.saldo < buffer ? "amarelo" : "verde";
     return { date: p.date, label: p.label, saldo: p.saldo, nivel };
   });

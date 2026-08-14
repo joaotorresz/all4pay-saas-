@@ -15,7 +15,10 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
-import { valorOuNulo } from "@/core/indicadores";
+import {
+  valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto,
+  janela as janelaCanonica,
+} from "@/core/indicadores";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -4185,6 +4188,109 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      semNada.distribuicao.every((d) => d.fracao === 0)
      && semNada.concentracaoMaiorCliente === 0
      && semNada.envelhecimento.every((e) => e.fracao === 0));
+}
+
+/* ── O VENCIDO EM ABERTO ENTRA NA PROJEÇÃO ──────────────────────────────────
+ *
+ * ⚠️ A projeção de caixa recortava por `due_date >= hoje`. Um título em aberto
+ * que venceu ontem caía fora — e ele não sumiu: ainda vai sair da conta. O
+ * caixa projetado nascia melhor do que a realidade pelo valor exato do que a
+ * empresa já devia, todos os dias. Medido em produção (org 835278a9, 14/08/26):
+ * **R$ 74.248,59** de saídas vencidas em aberto contra **R$ 3.162,12** de
+ * entradas — R$ 71.086,47 líquidos ignorados a favor da empresa.
+ *
+ * A regra é EXPLÍCITA e tem nome: o vencido é esperado a partir de HOJE, a
+ * data mais cedo em que ele ainda pode se mover. `previstoNaJanela` (a agenda
+ * de vencimentos) NÃO muda; quem projeta usa `projetadoNaJanela` — número
+ * diferente, nome diferente.
+ *
+ * Provada quebrando: com a fixture sem o vencido, os dois números coincidem e
+ * o caso deixa de discriminar — por isso cada asserção afirma sobre o VALOR
+ * que o caminho produziu, e não só sobre a ausência de exceção.
+ */
+{
+  const HOJE = "2026-08-14";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "saida", amount: 1000,
+       due_date: HOJE, paid_date: null, status: "pendente", category: "Fornecedores",
+       party_id: null, ...o }) as RiskMovement;
+  const inp = (movements: RiskMovement[]): RiskInput =>
+    ({ hoje: HOJE, saldoAtual: 100_000, partyNames: {}, movements } as RiskInput);
+
+  const VENCIDA = mv({ amount: 74_248.59, due_date: "2026-06-10" });
+  const A_VENCER = mv({ amount: 30_000, due_date: "2026-08-25" });
+  const RECEBER_VENCIDO = mv({ type: "entrada", amount: 3_162.12, due_date: "2026-07-02", category: "Vendas" });
+  const CANCELADO_VENCIDO = mv({ amount: 999_999, due_date: "2026-05-01", status: "cancelado" });
+  const COM = inp([VENCIDA, A_VENCER, RECEBER_VENCIDO, CANCELADO_VENCIDO]);
+  const SEM = inp([A_VENCER]);
+
+  const J = janelaCanonica(HOJE, "2026-09-12", "Janela do filtro");
+
+  /* ---- A agenda de vencimentos NÃO muda de significado ------------------- */
+  const agenda = previstoNaJanela(COM, J, "saida");
+  ok("vencido: a agenda de vencimentos conta só o que vence na janela (30.000)",
+     Math.abs(agenda.valor - 30_000) < 1e-6, String(agenda.valor));
+
+  /* ---- A projeção soma o vencido, e o número MUDA ------------------------ */
+  const proj = projetadoNaJanela(COM, J, "saida");
+  ok("vencido: a projeção inclui o vencido em aberto (104.248,59)",
+     Math.abs(proj.valor - 104_248.59) < 1e-6, String(proj.valor));
+  // ⚠️ A asserção que dá sentido ao caso: os dois têm de DISCORDAR, e a
+  // diferença tem de ser exatamente o vencido. Um caso que não discrimina é um
+  // caso que não testa.
+  ok("vencido: a diferença entre agenda e projeção é exatamente o vencido",
+     Math.abs((proj.valor - agenda.valor) - 74_248.59) < 1e-6,
+     String(proj.valor - agenda.valor));
+  ok("vencido: sem título vencido, agenda e projeção coincidem",
+     Math.abs(projetadoNaJanela(SEM, J, "saida").valor - previstoNaJanela(SEM, J, "saida").valor) < 1e-6);
+
+  /* ---- O cancelado não volta pela porta do vencido ----------------------- */
+  ok("vencido: título cancelado e vencido fica de fora",
+     Math.abs(vencidoEmAberto(COM, "saida").valor - 74_248.59) < 1e-6,
+     String(vencidoEmAberto(COM, "saida").valor));
+  ok("vencido: o lado de entrada é medido à parte",
+     Math.abs(vencidoEmAberto(COM, "entrada").valor - 3_162.12) < 1e-6,
+     String(vencidoEmAberto(COM, "entrada").valor));
+
+  /* ---- Janela que começa ANTES de hoje não conta duas vezes -------------- */
+  // ⚠️ União, não soma: o vencido já está DENTRO de uma janela retroativa, e
+  // somar os dois blocos duplicaria esses títulos.
+  const retro = projetadoNaJanela(COM, janelaCanonica("2026-06-01", "2026-09-12", "Retroativa"), "saida");
+  ok("vencido: janela retroativa não conta o vencido duas vezes",
+     Math.abs(retro.valor - 104_248.59) < 1e-6, String(retro.valor));
+
+  /* ---- A natureza continua projeção, e a agenda é fato ------------------- */
+  ok("vencido: o vencido em aberto é FATO (o título existe e a data passou)",
+     vencidoEmAberto(COM, "saida").procedencia.natureza === "fato");
+  ok("vencido: a projeção continua marcada como projeção",
+     proj.procedencia.natureza === "projecao");
+
+  /* ---- A TELA: o resumo executivo do fluxo de caixa ---------------------- */
+  const comFluxo = montarFluxoCaixa(COM, [], { dias: 30, visao: "previsto" });
+  const semFluxo = montarFluxoCaixa(SEM, [], { dias: 30, visao: "previsto" });
+  ok("vencido: as saídas projetadas do resumo incluem o vencido",
+     Math.abs(comFluxo.resumo.saidasProjetadas - 104_248.59) < 1e-6,
+     String(comFluxo.resumo.saidasProjetadas));
+  ok("vencido: o resumo separa quanto das projetadas é atraso",
+     Math.abs(comFluxo.resumo.saidasVencidas - 74_248.59) < 1e-6,
+     String(comFluxo.resumo.saidasVencidas));
+  ok("vencido: sem o título vencido o número CAI exatamente esse valor",
+     Math.abs((comFluxo.resumo.saidasProjetadas - semFluxo.resumo.saidasProjetadas) - 74_248.59) < 1e-6,
+     `${comFluxo.resumo.saidasProjetadas} - ${semFluxo.resumo.saidasProjetadas}`);
+  ok("vencido: o cartão e o canônico contam a MESMA coisa",
+     Math.abs(comFluxo.resumo.saidasCanonicas.valor - comFluxo.resumo.saidasProjetadas) < 1e-6,
+     `${comFluxo.resumo.saidasCanonicas.valor} x ${comFluxo.resumo.saidasProjetadas}`);
+  // ⚠️ A regra tem de estar DITA — a projeção subiu de valor e nada na tela
+  // explicaria por quê. Instrumentação sem consumidor não conta como feito.
+  ok("vencido: a regra de expectativa é declarada em português",
+     /vencido/.test(comFluxo.resumo.regraDoVencido) && /hoje/.test(comFluxo.resumo.regraDoVencido),
+     comFluxo.resumo.regraDoVencido);
+  // ⚠️ E o CALENDÁRIO tem de concordar com o cartão: o vencido aparece no dia
+  // de hoje. Se ele sumir daqui, a árvore e o cartão voltam a discordar.
+  const hojeNoCalendario = comFluxo.calendario.find((d) => d.date === HOJE);
+  ok("vencido: o calendário mostra o vencido no dia de hoje",
+     !!hojeNoCalendario && Math.abs(hojeNoCalendario.paga - 74_248.59) < 1e-6,
+     String(hojeNoCalendario?.paga));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

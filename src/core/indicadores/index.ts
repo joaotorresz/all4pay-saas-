@@ -1002,6 +1002,70 @@ export function previstoNaJanela(
   };
 }
 
+/**
+ * O que já VENCEU e continua em aberto — a dívida (ou o crédito) atrasada.
+ *
+ * ⚠️ É POSIÇÃO e é FATO: o título existe e a data passou. Não tem janela — um
+ * título vencido em maio continua vencido em agosto, e recortá-lo por período
+ * é o mesmo defeito que a tela de contas a receber já corrigiu (envelhecimento
+ * é carteira inteira, não janela).
+ */
+export function vencidoEmAberto(
+  input: RiskInput, tipo: "entrada" | "saida" = "saida",
+): Indicador {
+  const hoje = input.hoje.slice(0, 10);
+  const formula = `títulos de ${tipo === "entrada" ? "entrada" : "saída"} em aberto com vencimento anterior a hoje`;
+  const rows = input.movements.filter(
+    (m) => m.type === tipo && previsto(m) && !cancelado(m) && (m.due_date?.slice(0, 10) ?? "") < hoje,
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: janelaHoje(input.hoje),
+      formula, natureza: "fato",
+    },
+  };
+}
+
+/**
+ * O que ainda VAI se mover na janela — o previsto dela MAIS o vencido em aberto.
+ *
+ * ⚠️ **A REGRA DE EXPECTATIVA DO VENCIDO, declarada aqui e rotulada na tela.**
+ * Um título em aberto cujo vencimento já passou não deixou de existir: ele
+ * ainda vai sair (ou entrar) do caixa, e a data mais cedo em que isso pode
+ * acontecer é HOJE. `previstoNaJanela` responde "o que vence aqui" e por isso
+ * o deixa de fora — correto para quem monta a agenda de cobrança, e otimista
+ * para quem projeta caixa: a projeção nascia melhor do que a realidade pelo
+ * valor exato do que a empresa já devia. Medido em produção: R$ 74.248,59 de
+ * saídas vencidas fora da projeção de fluxo, contra R$ 3.162,12 de entradas.
+ *
+ * ⚠️ O nome é OUTRO de propósito (regra "nenhum número muda de significado sem
+ * mudar de nome"). São duas perguntas diferentes e as duas continuam
+ * respondíveis: quem quer a agenda usa `previstoNaJanela`, quem quer a
+ * projeção usa esta.
+ */
+export function projetadoNaJanela(
+  input: RiskInput, j: Janela, tipo: "entrada" | "saida" = "entrada",
+): Indicador {
+  const lado = tipo === "entrada" ? "entrada" : "saída";
+  const formula =
+    `títulos de ${lado} em aberto com vencimento na janela + o vencido não pago, esperado a partir de hoje`;
+  if (j.vazia) return vazio(j, formula, "competencia", "projecao");
+  const hoje = input.hoje.slice(0, 10);
+  // ⚠️ União, não soma: uma janela que começa ANTES de hoje já contém parte do
+  // vencido, e somar os dois blocos contaria esses títulos duas vezes.
+  const rows = input.movements.filter(
+    (m) => m.type === tipo && previsto(m) && !cancelado(m)
+      && (dentro(j, m.due_date) || (m.due_date?.slice(0, 10) ?? "") < hoje),
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "projecao",
+    },
+  };
+}
+
 /** O previsto em aberto de UMA conta — o que a conciliação precisa por conta. */
 export function previstoDaConta(input: RiskInput, accountId: string): Indicador {
   const j = janelaHoje(input.hoje);

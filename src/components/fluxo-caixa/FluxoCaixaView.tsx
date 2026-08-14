@@ -20,6 +20,7 @@ import type {
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
 import { janela as fazJanela } from "@/core/indicadores";
+import { formatBRL as fmtBRL } from "@/lib/format";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -226,8 +227,22 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
     // "R$ 0 de entradas previstas" e "nenhum título vence nesta janela" são
     // frases diferentes, e é a segunda que diz o que fazer.
     { label: "Caixa atual", node: <ValorIndicador indicador={r.caixaCanonico} titulo="Caixa atual" />, tone: "ink" },
-    { label: "Entradas previstas", node: <ValorIndicador indicador={r.entradasCanonicas} titulo="Entradas previstas" />, tone: "positive" },
-    { label: "Saídas previstas", node: <ValorIndicador indicador={r.saidasCanonicas} titulo="Saídas previstas" />, tone: "ink" },
+    // ⚠️ "Projetadas", não "previstas": o número passou a incluir o VENCIDO em
+    // aberto — dinheiro que ainda vai se mover, e que o `>= hoje` deixava de
+    // fora. O rótulo de baixo DIZ a regra e quanto dela é atraso; sem isso o
+    // cartão sobe de valor sem nada na tela explicando por quê.
+    {
+      label: "Entradas projetadas",
+      janela: r.entradasVencidas > 0 ? `inclui ${fmtBRL(r.entradasVencidas)} vencido — ${r.regraDoVencido}` : undefined,
+      node: <ValorIndicador indicador={r.entradasCanonicas} titulo="Entradas projetadas" />,
+      tone: "positive",
+    },
+    {
+      label: "Saídas projetadas",
+      janela: r.saidasVencidas > 0 ? `inclui ${fmtBRL(r.saidasVencidas)} vencido — ${r.regraDoVencido}` : undefined,
+      node: <ValorIndicador indicador={r.saidasCanonicas} titulo="Saídas projetadas" />,
+      tone: "ink",
+    },
     // ⚠️ A4P-005: estes dois olham para lados OPOSTOS do tempo e ficam lado a
     // lado. A janela de cada um vai NO CARTÃO — sem ela, a leitura natural é
     // subtrair um do outro, e a conta não significa nada.
