@@ -4362,5 +4362,99 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      Math.abs(cascata.linhas.resultado_liquido.valor - 15_000) < 1e-6, String(cascata.linhas.resultado_liquido.valor));
 }
 
+/* ── A DECOMPOSIÇÃO DO CAIXA FECHA AO CENTAVO ───────────────────────────────
+ *
+ * ⚠️ **O achado que quase virou "não existe", e o erro de método que causou isso.**
+ *
+ * Relatado: o extrato não fecha, com gap de R$ 1.293,65 "exatamente igual ao
+ * Resultado Financeiro do período". Eu medi `fluxo_financiamento` juntando
+ * `movements` a `categories` por `category_id` — e as 36 linhas de tarifa desta
+ * organização têm `category_id` NULO, com o nome no campo TEXTO `movements.
+ * category`, que é justamente o que a classificação lê. Todas caíram em "(sem
+ * categoria)", o financeiro deu zero e eu concluí que o defeito não existia.
+ * **Medi uma superfície e concluí sobre outra** — a mesma família do erro que
+ * refutou o A4P-036 pelo avesso.
+ *
+ * O defeito é REAL e mora no RELATÓRIO, não no extrato: `Saídas Operacionais`
+ * exclui o financeiro (corretamente — ela se chama operacionais e o financeiro
+ * sai em `Fluxo de Financiamentos`), mas quem lê os três números mais salientes
+ * e faz a conta de cabeça erra por exatamente o Resultado Financeiro.
+ *
+ * Medido: 680.884,72 + 519.976,29 − 1.230.567,52 = −29.706,51 contra um saldo
+ * real de −31.000,16. As 26 Tarifas bancárias e as 10 de adquirência valem
+ * R$ 1.293,65 na janela.
+ *
+ * Esta guarda fixa as DUAS metades: a decomposição TOTAL fecha sem resíduo, e o
+ * par ingênuo NÃO fecha — e sobra exatamente o financeiro. A segunda existe para
+ * o próximo auditor encontrar a explicação em vez de perseguir o fantasma.
+ */
+{
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+       due_date: "2026-03-10", paid_date: "2026-03-10", status: "pago",
+       category: "Vendas", party_id: null, ...o }) as RiskMovement;
+
+  // Fecha em −31.000,16 com abertura de 680.884,72, como na org auditada.
+  const ENTRADAS = 519_976.29, SAIDAS_OP = 1_230_567.52, TARIFAS = 1_293.65;
+  const SALDO_HOJE = ENTRADAS - SAIDAS_OP - TARIFAS + 680_884.72;
+  const INPUT: RiskInput = {
+    hoje: "2026-08-31", saldoAtual: SALDO_HOJE, partyNames: {},
+    movements: [
+      mv({ amount: ENTRADAS }),
+      mv({ type: "saida", amount: SAIDAS_OP, category: "Fornecedores" }),
+      mv({ type: "saida", amount: TARIFAS, category: "Tarifas bancárias" }),
+    ],
+  } as RiskInput;
+
+  const dfc = montarDFC(INPUT, { intervalo: { de: "2025-09-01", ate: "2026-08-31" }, tipo: "dfc" });
+  const val = (id: string) => {
+    const l = dfc.linhas.find((x) => x.id === id);
+    if (!l) return NaN;
+    return id === "saldo_inicial" ? l.celulas[0].valor
+      : id === "saldo_final" ? l.celulas[l.celulas.length - 1].valor
+      : l.total.valor;
+  };
+  const cent = (n: number) => Math.round(n * 100) / 100;
+
+  const abertura = val("saldo_inicial");
+  const fechamento = val("saldo_final");
+  const financeiro = val("fluxo_financiamento");
+  const investimento = val("fluxo_investimento");
+  const entradasTotais = val("entradas_operacionais")
+    + Math.max(0, investimento) + Math.max(0, financeiro);
+  const saidasTotais = val("saidas_operacionais")
+    - Math.min(0, investimento) - Math.min(0, financeiro);
+
+  /* ---- R2: o caminho testado RECEBEU valor -------------------------------- */
+  // Sem esta asserção, tudo abaixo passaria com o financeiro em zero — que é
+  // exatamente o estado em que a medição errada me convenceu de que não havia
+  // defeito. Fixture sobre o vazio é pior que fixture nenhuma.
+  ok("caixa: a fixture tem resultado financeiro de verdade (−1.293,65)",
+     cent(financeiro) === -TARIFAS, String(financeiro));
+  ok("caixa: a abertura é reconstruída do saldo de hoje (680.884,72)",
+     cent(abertura) === 680_884.72, String(abertura));
+
+  /* ---- A decomposição TOTAL fecha, sem resíduo ---------------------------- */
+  const residuo = cent(abertura + entradasTotais - saidasTotais - fechamento);
+  ok("caixa: abertura + entradas totais − saídas totais = fechamento, ao centavo",
+     residuo === 0, `resíduo = ${residuo}`);
+  ok("caixa: as saídas totais incluem o financeiro (1.231.861,17)",
+     cent(saidasTotais) === cent(SAIDAS_OP + TARIFAS), String(saidasTotais));
+
+  /* ---- E o par INGÊNUO não fecha — e sobra o financeiro ------------------- */
+  // ⚠️ Esta é a asserção que documenta o fantasma. Ela tem de FALHAR de fechar:
+  // se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
+  // `saidas_operacionais` e a linha passou a contar duas vezes (ela já sai em
+  // `fluxo_financiamento`). O nome da linha é "operacionais" — ela não pode.
+  const residuoIngenuo = cent(
+    abertura + val("entradas_operacionais") - val("saidas_operacionais") - fechamento,
+  );
+  ok("caixa: o par ingênuo NÃO fecha, e o que sobra é exatamente o financeiro",
+     residuoIngenuo === TARIFAS, String(residuoIngenuo));
+  ok("caixa: o financeiro não é contado duas vezes no fluxo líquido",
+     cent(val("fluxo_liquido")) === cent(ENTRADAS - SAIDAS_OP - TARIFAS),
+     String(val("fluxo_liquido")));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

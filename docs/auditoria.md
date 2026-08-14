@@ -420,38 +420,94 @@ Medidos de novo antes de qualquer correção, contra a organização
 `835278a9-2e4f-447f-b2e2-2aedb6daa9c6` e, onde a pergunta era global, contra as
 seis organizações do banco. Um PR por item, verde antes do próximo.
 
-## ❌ 1. "O extrato não fecha na decomposição" — **NÃO REPRODUZ**
+## ⚠️ 1. "O extrato não fecha" — **DIAGNÓSTICO TROCADO**, não refutado
 
-**Relatado:** abertura + entradas − saídas ≠ fechamento, com um gap de
-**R$ 1.293,65**, "exatamente o Resultado Financeiro do período". Duas hipóteses:
-rótulos trocados, ou tarifas e resultado financeiro fora do agregado de saídas.
+O achado é **REAL**. Ele não estava onde foi procurado, e não estava onde eu o
+procurei — são erros diferentes, e cada um custou uma rodada.
 
-**Medido — gap de R$ 0,00, e o Resultado Financeiro do período é R$ 0,00.**
+**Onde o defeito NÃO está:** no extrato do produto. `extratoDaConta` e
+`fluxoCaixaMensal` acumulam o fechamento a partir da abertura sobre as MESMAS
+linhas que somam nos agregados; a identidade vale por construção e não há como
+divergirem.
 
-| O que | Valor medido |
-| --- | --- |
-| Entradas operacionais (caixa, 01/09/25–31/08/26, fora amostra) | R$ 519.976,29 |
-| Saídas operacionais | R$ 1.231.861,17 |
-| Fluxo de financiamentos (o que `ehFinanceiro` reconhece) | **R$ 0,00** — nenhuma linha |
-| Fluxo de investimentos | **R$ 0,00** — nenhuma linha |
-| Fluxo líquido | −R$ 711.884,88 = 519.976,29 − 1.231.861,17 ✔ |
+**Onde ele ESTÁ:** no relatório de linha de base (`scratchpad/linha-base.mts`).
+Ele emite o DFC — que está certo — e o DFC, corretamente, **exclui o financeiro
+das Saídas Operacionais**, porque essa linha se chama *operacionais* e o
+financeiro sai na sua própria (`Fluxo de Financiamentos`). Quem lê os três
+números mais salientes e faz a conta de cabeça não chega ao Saldo Final:
 
-A decomposição fecha **por construção**, e isso vale para os dois lugares que a
-exibem: `extratoDaConta` e `fluxoCaixaMensal` acumulam o fechamento a partir da
-abertura sobre as MESMAS linhas que somam nos agregados — não há como divergirem.
+```
+680.884,72 + 519.976,29 − 1.230.567,52 = −29.706,51
+saldo real                             = −31.000,16
+resíduo                                =   1.293,65   ← o Resultado Financeiro
+```
 
-⚠️ **E o número relatado não tem contrapartida no dado.** Varrendo as seis
-organizações do banco, existe **exatamente UM** lançamento que a classificação
-do DRE/DFC trata como financeiro: os R$ 500.000,00 de "Juros recebidos",
-marcados como amostra. Fora dele, `resultado_financeiro` é R$ 0,00 em toda
-organização, em toda janela. Um gap "igual ao Resultado Financeiro do período"
-de R$ 1.293,65 não pode ter saído desta base.
+E o relatório **piorava a armadilha**: emitia duas "Saídas" diferentes para a
+mesma janela de caixa, trinta linhas apart, sem dizer que diferiam — `Saídas
+Operacionais` (R$ 1.230.567,52, sem financeiro) e `Saídas liquidadas`
+(R$ 1.231.861,17, com tudo). Dois números com o mesmo rótulo curto na mesma
+página é como uma leitura vira a outra sem ninguém perceber.
 
-**Não foi corrigido nada**, por decisão: mexer numa decomposição que fecha para
-perseguir um número que não aparece é a forma mais provável de introduzir o
-defeito que se foi procurar. Se o valor voltar a aparecer, o que falta saber é a
-**tela e a organização** em que foi medido — as duas contas acima são
-reproduzíveis em um comando.
+**A origem do R$ 1.293,65, conferida no banco** (org 835278a9, sem amostra):
+
+| Categoria | Lanç. (carteira) | Valor (carteira) | Na janela 09/25–08/26 |
+| --- | --- | --- | --- |
+| Tarifas bancárias | 26 | R$ 1.881,99 | R$ 1.254,25 |
+| Tarifas de adquirência | 10 | R$ 39,40 | R$ 39,40 |
+| **Resultado Financeiro** | | | **−R$ 1.293,65** |
+
+**A correção:** o relatório ganhou o bloco `DECOMPOSIÇÃO DO CAIXA`, com os
+agregados TOTAIS (nome que diz que são totais), o resíduo **impresso**, e a
+diferença para as Saídas Operacionais **nomeada** como Resultado Financeiro. O
+resíduo não é só exibido: ele **derruba** o relatório (`exit 1`) — linha de base
+que sai com resíduo é pior que nenhuma, porque quem a lê a toma por conferida.
+
+Guarda no `engine-audit` (bloco `caixa:`), com as duas metades:
+
+- a decomposição TOTAL fecha ao centavo, resíduo zero;
+- o par ingênuo (só operacionais) **não** fecha, e o que sobra é exatamente o
+  financeiro. ⚠️ Esta segunda existe para o próximo auditor encontrar a
+  explicação em vez de perseguir o fantasma — **e** para impedir o conserto
+  errado: se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
+  `saidas_operacionais`, e ele passou a contar duas vezes porque já sai em
+  `fluxo_financiamento`. Provada quebrando os dois lados.
+
+### ⚠️ POR QUE ISTO NÃO É "REFUTADO" — e por que o nome importa
+
+Achado mal nomeado custa **duas rodadas**: uma para persegui-lo no lugar errado
+e outra para reencontrá-lo. "Refutado" é veredito terminal — autoriza fechar o
+item e diz ao próximo auditor para não voltar. Aplicado a um defeito que existe,
+não conserta nada e ainda apaga o rastro que levaria à causa. "Diagnóstico
+trocado" mantém o achado vivo e move só o endereço.
+
+⚠️ É o oposto do A4P-028 e do A4P-036, e por isso os três ficam escritos juntos:
+lá o veredito terminal estava certo e escrevê-lo impede o achado de voltar; aqui
+ele estaria errado e escrevê-lo faria o defeito sumir do mapa. **O que decide
+não é a força da medição, é se ela mediu o que a conclusão afirma.**
+
+### ⚠️ O MEU ERRO DE MÉTODO — a regra R1 aplicada a mim mesmo
+
+**Medi uma superfície e concluí sobre outra.** Consultei o banco juntando
+`movements` a `categories` por `category_id`, e as 36 linhas de tarifa desta
+organização têm **`category_id` NULO**, com o nome no campo TEXTO
+`movements.category` — que é exatamente o que a classificação lê (`cat(m) =
+m.category`). Todas caíram em `(sem categoria)`, `ehFinanceiro` não casou com
+nada, e eu li um zero produzido pelo meu JOIN como se fosse um zero do negócio.
+
+Sobre esse zero afirmei que o Resultado Financeiro era R$ 0,00 **em toda
+organização e toda janela** — afirmação forte que a medição não sustentava, e a
+distância entre as duas é o defeito.
+
+É a **mesma família** do erro do A4P-036, pelo avesso: lá o motor foi alimentado
+com colaboradores sem benefício e comparado com a tela alimentada pelo cadastro
+real, e a conclusão foi divergência onde havia duas entradas diferentes. Aqui a
+medição usou um caminho que a aplicação não percorre, e a conclusão foi ausência
+onde havia junção errada.
+
+**A regra, agora com dois casos:** *meça com o dado que a superfície usa* — e o
+teste de que ela foi respeitada é conseguir dizer, ANTES de concluir, por qual
+campo a superfície classifica. Se a resposta for "presumi", a medição ainda não
+começou.
 
 ## ✅ 2. A projeção ignorava o vencido — **REPRODUZ**, corrigido
 
@@ -507,7 +563,11 @@ junto o lançamento de R$ 500.000,00 marcado à mão pelo id. Agora a purga exig
 
 ## Defeito novo encontrado no caminho
 
-**Nenhum defeito novo de valor.** O que apareceu foi um ponto de fiação: o
+**Um, e foi meu:** a conclusão do item 1 assentada numa medição que não media o
+que eu disse que media (acima). Corrigida na mesma rodada, com o relatório de
+linha de base fechando ao centavo e a guarda que impede o fantasma de voltar.
+
+Fora isso, um ponto de fiação: o
 calendário do fluxo de caixa recortava por `dataRef` enquanto os cartões
 passariam a recortar por `dataEsperada` — com a correção do item 2 aplicada só
 aos cartões, a agenda do mês passaria a discordar do KPI logo acima. Pego pela

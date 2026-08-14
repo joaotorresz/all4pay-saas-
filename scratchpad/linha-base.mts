@@ -91,11 +91,73 @@ for (const l of dre.linhas.filter((x) => x.nivel === 1)) {
 const dfc = montarDFC(input, { intervalo, tipo: "dfc" });
 console.log("\n== EXTRATO / DFC · REGIME DE CAIXA (por pagamento) ==");
 console.log("linha|total 12m");
-for (const l of dfc.linhas.filter((x) => x.nivel === 1)) {
-  const v = l.id === "saldo_inicial" ? l.celulas[0].valor
-    : l.id === "saldo_final" ? l.celulas[l.celulas.length - 1].valor
+const valorDaLinha = (id: string) => {
+  const l = dfc.linhas.find((x) => x.id === id);
+  if (!l) return 0;
+  return id === "saldo_inicial" ? l.celulas[0].valor
+    : id === "saldo_final" ? l.celulas[l.celulas.length - 1].valor
     : l.total.valor;
-  console.log(`${l.label}|${brl(v)}`);
+};
+for (const l of dfc.linhas.filter((x) => x.nivel === 1)) {
+  console.log(`${l.label}|${brl(valorDaLinha(l.id))}`);
+}
+
+/* ── 2b. A DECOMPOSIÇÃO QUE FECHA ─────────────────────────────────────────── */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **O DEFEITO ESTAVA AQUI, NO RELATÓRIO — não no extrato do produto.**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * O bloco acima é o DFC, e ele está CERTO: `Saídas Operacionais` se chama
+ * operacionais e exclui o financeiro de propósito, que sai na sua própria linha
+ * (`Fluxo de Financiamentos`). O problema é de LEITURA, e o relatório o
+ * provocava: quem pega os três números mais salientes — Saldo Inicial, Entradas
+ * Operacionais, Saídas Operacionais — e faz a conta de cabeça não chega ao Saldo
+ * Final, e erra por **exatamente o Resultado Financeiro do período**.
+ *
+ * Medido nesta organização: 680.884,72 + 519.976,29 − 1.230.567,52 = −29.706,51,
+ * contra um saldo real de −31.000,16. **Resíduo de R$ 1.293,65** — que são as 26
+ * Tarifas bancárias (R$ 1.881,99 na carteira, R$ 1.254,25 nesta janela) mais as
+ * 10 Tarifas de adquirência (R$ 39,40).
+ *
+ * ⚠️ E o relatório piorava a armadilha emitindo **duas "Saídas" diferentes para
+ * a mesma janela de caixa, trinta linhas apart e sem dizer que diferem**:
+ * `Saídas Operacionais` (1.230.567,52, sem financeiro) aqui, e `Saídas
+ * liquidadas` (1.231.861,17, com tudo) no bloco de geração de caixa. Dois
+ * números com o mesmo rótulo curto é como uma leitura vira a outra sem ninguém
+ * perceber.
+ *
+ * A correção é este bloco: os agregados de CAIXA TOTAL, com nome que diz que
+ * são totais, e o resíduo IMPRESSO. Resíduo impresso é o que impede o próximo
+ * auditor de fazer a subtração à mão com o par errado — e a fixture do
+ * `engine-audit` (bloco `caixa:`) reprova se ele deixar de ser zero.
+ */
+const abertura = valorDaLinha("saldo_inicial");
+const fechamento = valorDaLinha("saldo_final");
+const entradasTotais = valorDaLinha("entradas_operacionais")
+  + Math.max(0, valorDaLinha("fluxo_investimento")) + Math.max(0, valorDaLinha("fluxo_financiamento"));
+const saidasTotais = valorDaLinha("saidas_operacionais")
+  - Math.min(0, valorDaLinha("fluxo_investimento")) - Math.min(0, valorDaLinha("fluxo_financiamento"));
+const residuo = Math.round((abertura + entradasTotais - saidasTotais - fechamento) * 100) / 100;
+
+console.log("\n== DECOMPOSIÇÃO DO CAIXA (todas as entradas e saídas, inclui o financeiro) ==");
+console.log("recorte|valor");
+console.log(`Saldo de abertura|${brl(abertura)}`);
+console.log(`Entradas de caixa (TOTAIS)|${brl(entradasTotais)}`);
+console.log(`Saídas de caixa (TOTAIS, com tarifas e juros)|${brl(saidasTotais)}`);
+console.log(`Saldo de fechamento|${brl(fechamento)}`);
+console.log(`RESÍDUO (tem de ser 0,00)|${brl(residuo)}`);
+console.log(
+  `  · a diferença para as Saídas Operacionais acima é o Resultado Financeiro: `
+  + `${brl(saidasTotais - valorDaLinha("saidas_operacionais"))}`,
+);
+// ⚠️ O resíduo não é só impresso: ele DERRUBA o relatório. Um número que a tela
+// mostra e ninguém confere é a mesma instrumentação sem consumidor que já custou
+// caro aqui — e uma linha de base que sai com resíduo é pior que nenhuma,
+// porque quem a lê a toma por conferida.
+if (residuo !== 0) {
+  console.error(`\n✗ A DECOMPOSIÇÃO NÃO FECHA — resíduo de ${brl(residuo)}.`);
+  process.exit(1);
 }
 
 /* ── 3. Previsto (pendentes) e a receber / a pagar por status ─────────────── */
@@ -119,8 +181,12 @@ const naJanelaCaixa = (m: RiskMovement) => m.status === "pago" && !!m.paid_date 
 const ent = soma((m) => naJanelaCaixa(m) && m.type === "entrada");
 const sai = soma((m) => naJanelaCaixa(m) && m.type === "saida");
 console.log("recorte|valor");
-console.log(`Entradas liquidadas|${brl(ent)}`);
-console.log(`Saídas liquidadas|${brl(sai)}`);
+// ⚠️ Os rótulos dizem TOTAIS: eram "Entradas/Saídas liquidadas", indistinguíveis
+// de relance das "Entradas/Saídas Operacionais" do DFC — e as saídas diferem
+// pelo financeiro. Dois números com o mesmo rótulo curto, na mesma página, é
+// como uma leitura vira a outra sem ninguém perceber.
+console.log(`Entradas de caixa (TOTAIS)|${brl(ent)}`);
+console.log(`Saídas de caixa (TOTAIS, com tarifas e juros)|${brl(sai)}`);
 console.log(`Geração de caixa|${brl(ent - sai)}`);
 
 console.log("\n== TÍTULOS EM ABERTO, POR SITUAÇÃO (carteira inteira, sem recorte) ==");

@@ -1300,6 +1300,41 @@ exceção. Quando o caso existe para separar duas contas, asserte também que as
 duas dão respostas DIFERENTES sobre ele: um caso que não discrimina é um caso
 que não testa.
 
+### ⚠️ MEÇA COM O DADO QUE A SUPERFÍCIE USA — e diga por qual campo ela classifica
+
+Dois casos, e o segundo é o que fecha a regra.
+
+**A4P-036 (a folha):** o motor foi alimentado com colaboradores SEM benefício e
+comparado com a tela alimentada pelo cadastro real. Duas entradas diferentes,
+uma conclusão de divergência — a medição reprovou provando outra coisa.
+
+**Item 1 do lote P-06B (o Resultado Financeiro):** a consulta juntou `movements`
+a `categories` por `category_id`, e as 36 linhas de tarifa da organização
+auditada têm **`category_id` NULO**, com o nome no campo TEXTO
+`movements.category` — que é exatamente o que a classificação lê
+(`cat(m) = m.category` em `core/relatorios`). Todas caíram em "(sem categoria)",
+`ehFinanceiro` não casou com nada, e o zero produzido pelo JOIN foi lido como
+zero do negócio. Sobre ele saiu a afirmação de que o Resultado Financeiro era
+R$ 0,00 em TODA organização — e o valor real era R$ 1.293,65, exatamente o gap
+que estava sendo investigado.
+
+⚠️ **O teste de que a regra foi respeitada:** conseguir dizer, ANTES de
+concluir, **por qual campo a superfície classifica**. Se a resposta for
+"presumi", a medição ainda não começou. `movements` carrega a categoria em DOIS
+lugares — o texto `category` e a chave `category_id` — e a aplicação lê o
+primeiro com o segundo resolvido por cima; consultar só a chave mede uma
+superfície que ninguém renderiza.
+
+⚠️ **E o veredito tem de caber na medição.** "Refutado" é terminal: autoriza
+fechar o item e diz ao próximo auditor para não voltar. Aplicado a um defeito
+que existe, ele apaga o rastro que levaria à causa — achado mal nomeado custa
+DUAS rodadas, uma para persegui-lo no lugar errado e outra para reencontrá-lo.
+Quando o defeito é real e o endereço é que estava errado, o nome é **diagnóstico
+trocado**, não refutado. O A4P-028 e o A4P-036 são o caso oposto (o terminal
+estava certo, e escrevê-lo impede o achado de voltar) — os três ficam registrados
+juntos de propósito, porque **o que decide não é a força da medição, é se ela
+mediu o que a conclusão afirma.**
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não
