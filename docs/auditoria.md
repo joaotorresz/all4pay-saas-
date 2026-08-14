@@ -411,3 +411,105 @@ causas possíveis. O sistema saber e não avisar já foi achado (A4P-072).
 **O que fica para o contador:** dizer se a divergência é quadro de pessoal
 diferente do cadastrado, regime diferente do declarado, guia não lançada, ou
 mistura de CLT com PJ/pró-labore na mesma categoria "Folha de pagamento".
+
+---
+
+# LOTE P-06B — os quatro defeitos remanescentes (14/08/2026)
+
+Medidos de novo antes de qualquer correção, contra a organização
+`835278a9-2e4f-447f-b2e2-2aedb6daa9c6` e, onde a pergunta era global, contra as
+seis organizações do banco. Um PR por item, verde antes do próximo.
+
+## ❌ 1. "O extrato não fecha na decomposição" — **NÃO REPRODUZ**
+
+**Relatado:** abertura + entradas − saídas ≠ fechamento, com um gap de
+**R$ 1.293,65**, "exatamente o Resultado Financeiro do período". Duas hipóteses:
+rótulos trocados, ou tarifas e resultado financeiro fora do agregado de saídas.
+
+**Medido — gap de R$ 0,00, e o Resultado Financeiro do período é R$ 0,00.**
+
+| O que | Valor medido |
+| --- | --- |
+| Entradas operacionais (caixa, 01/09/25–31/08/26, fora amostra) | R$ 519.976,29 |
+| Saídas operacionais | R$ 1.231.861,17 |
+| Fluxo de financiamentos (o que `ehFinanceiro` reconhece) | **R$ 0,00** — nenhuma linha |
+| Fluxo de investimentos | **R$ 0,00** — nenhuma linha |
+| Fluxo líquido | −R$ 711.884,88 = 519.976,29 − 1.231.861,17 ✔ |
+
+A decomposição fecha **por construção**, e isso vale para os dois lugares que a
+exibem: `extratoDaConta` e `fluxoCaixaMensal` acumulam o fechamento a partir da
+abertura sobre as MESMAS linhas que somam nos agregados — não há como divergirem.
+
+⚠️ **E o número relatado não tem contrapartida no dado.** Varrendo as seis
+organizações do banco, existe **exatamente UM** lançamento que a classificação
+do DRE/DFC trata como financeiro: os R$ 500.000,00 de "Juros recebidos",
+marcados como amostra. Fora dele, `resultado_financeiro` é R$ 0,00 em toda
+organização, em toda janela. Um gap "igual ao Resultado Financeiro do período"
+de R$ 1.293,65 não pode ter saído desta base.
+
+**Não foi corrigido nada**, por decisão: mexer numa decomposição que fecha para
+perseguir um número que não aparece é a forma mais provável de introduzir o
+defeito que se foi procurar. Se o valor voltar a aparecer, o que falta saber é a
+**tela e a organização** em que foi medido — as duas contas acima são
+reproduzíveis em um comando.
+
+## ✅ 2. A projeção ignorava o vencido — **REPRODUZ**, corrigido
+
+| Pendente, fora amostra, em 14/08/26 | Nº | Valor |
+| --- | --- | --- |
+| Saídas **vencidas** (mais antiga: 05/05/2023) | 5 | **R$ 74.248,59** |
+| Saídas a vencer | 121 | R$ 332.754,37 |
+| Entradas **vencidas** | 14 | **R$ 3.162,12** |
+| Entradas a vencer | 31 | R$ 4.162,81 |
+
+O recorte era `due_date >= hoje`, então **R$ 71.086,47 líquidos** ficavam fora da
+projeção de caixa, sempre a favor da empresa.
+
+**Regra de expectativa, explícita e rotulada:** o vencido em aberto é esperado a
+partir de HOJE — a data mais cedo em que ainda pode se mover. Vale num lugar só
+(`dataEsperada`), para cartões, árvore e calendário. O número mudou, então o nome
+mudou: `entradasProjetadas`/`saidasProjetadas`, e `projetadoNaJanela` ao lado de
+`previstoNaJanela` (a agenda de vencimentos continua respondível).
+
+## ✅ 3. Cancelados invisíveis — **REPRODUZ**, e é PREEXISTENTE
+
+| Cancelados, fora amostra | Nº | Valor |
+| --- | --- | --- |
+| Carteira inteira — entrada | 59 | R$ 189.960,40 |
+| Carteira inteira — saída | 60 | R$ 389.401,01 |
+| **Total** | **119** | **R$ 579.361,41** |
+| No período do relatório (venc. 09/25–08/26) | 62 | R$ 395.722,13 |
+
+⚠️ **Não é deriva recente.** Antes de escrever uma linha: **nenhum** evento da
+trilha alterou `status` em momento algum — os únicos eventos que carregam esse
+campo são os 123 `movements.criar` de 11/08, todos nascidos `pendente` (122) ou
+`pago` (1). Os 342 `movements.alterar` de 13–14/08 são a reclassificação de
+categoria do PR #100 (`antes: {category: "Impostos"}` → `depois: {category:
+"Simples Nacional"}`), sem tocar em status. Os cancelamentos datam de junho/26 e
+antecedem a trilha. **Documenta-se, não se desfaz.**
+
+Excluir o cancelado do resultado está certo; o defeito era o silêncio. Virou
+**rodapé** (`NotaCancelados`) no DRE, no DFC e no painel de títulos — nunca linha,
+porque somá-lo devolveria ao resultado dinheiro que ninguém deve nem receberá.
+
+## ✅ 4. A purga apagava o que não anuncia — **REPRODUZ**, corrigido
+
+| `sample_reason` | Organização | Nº | Valor |
+| --- | --- | --- | --- |
+| `onboarding_demo` | 835278a9 | 146 | R$ 1.933.289,21 |
+| `lancamento_teste` | 835278a9 | **1** | **R$ 500.000,00** |
+| `onboarding_demo` | 17d99b37 | 168 | R$ 2.318.136,00 |
+| `onboarding_demo` | b82aa9c5 | 144 | R$ 1.933.266,99 |
+
+O botão anunciava "dados de demonstração" e apagava `is_sample = true` — levando
+junto o lançamento de R$ 500.000,00 marcado à mão pelo id. Agora a purga exige
+`sample_reason = 'onboarding_demo'`, e o banner diz quantos saem e quantos ficam.
+
+## Defeito novo encontrado no caminho
+
+**Nenhum defeito novo de valor.** O que apareceu foi um ponto de fiação: o
+calendário do fluxo de caixa recortava por `dataRef` enquanto os cartões
+passariam a recortar por `dataEsperada` — com a correção do item 2 aplicada só
+aos cartões, a agenda do mês passaria a discordar do KPI logo acima. Pego pela
+própria fixture, antes de sair do galho, e corrigido no mesmo PR: a regra de
+expectativa mora num lugar só.
