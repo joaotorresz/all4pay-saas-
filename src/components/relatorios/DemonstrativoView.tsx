@@ -24,6 +24,7 @@ import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/co
 import { listarOrcamentos } from "@/lib/orcamentos";
 import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
+import { getLinhasDeCategoria } from "@/lib/data";
 import { runwayMeses, saldo } from "@/core/indicadores";
 import { cascataDRE } from "@/core/relatorios/cascata";
 import type { RiskInput } from "@/core/risk-engine/types";
@@ -63,7 +64,21 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   // (não no render) porque a fonte é o cache local, e ler no render quebra a
   // hidratação.
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
-  React.useEffect(() => { setLinhaPorCategoria(linhasDeCategoria()); }, []);
+  /*
+   * ⚠️ **Duas fontes, e o BANCO complementa o local.** `linhasDeCategoria()` lê
+   * o plano de contas da tela de Cadastros; `getLinhasDeCategoria()` lê
+   * `categories.dre_linha`, a tabela que os LANÇAMENTOS referenciam. Quem nunca
+   * abriu a tela de Cadastros não tinha linha declarada nenhuma, e o motor caía
+   * no palpite por palavra-chave sem nada dizer — foi por aí que INSS e FGTS
+   * entraram como dedução da receita.
+   */
+  React.useEffect(() => {
+    const local = linhasDeCategoria();
+    setLinhaPorCategoria(local);
+    getLinhasDeCategoria()
+      .then((doBanco) => setLinhaPorCategoria({ ...doBanco, ...local }))
+      .catch(() => { /* sem banco, o local basta — e o motor cai no palpite */ });
+  }, []);
 
   const relatorio: Relatorio | null = React.useMemo(() => {
     if (!input) return null;
@@ -273,7 +288,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
    * deixar de acontecer.
    */
   const m = React.useMemo(() => {
-    const c = cascataDRE(input, { intervalo });
+    const c = cascataDRE(input, { intervalo, regime: "competencia" });
     return {
       receitaLiquida: c.linhas.receita_liquida,
       ebitda: c.linhas.ebitda,

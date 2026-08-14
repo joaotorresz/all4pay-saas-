@@ -1146,7 +1146,7 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
    */
   if (/\bebitda\b|\blajida\b|gera[çc][ãa]o operacional de caixa/.test(p)) {
     const w = janela(p, hoje);
-    const c = cascataDRE(input, { intervalo: { de: w.from, ate: w.to } });
+    const c = cascataDRE(input, { intervalo: { de: w.from, ate: w.to }, regime: "competencia" });
     const eb = c.linhas.ebitda;
 
     /*

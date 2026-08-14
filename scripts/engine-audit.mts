@@ -15,6 +15,7 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
+import { valorOuNulo } from "@/core/indicadores";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -380,15 +381,28 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     dm({ type: "saida", amount: 1500, category: "Folha" }),
     dm({ type: "saida", amount: 500, category: "Marketing" }), // OPEX
     dm({ type: "saida", amount: 300, category: "Tarifa bancária" }), // financeiro
-  ]);
+  ], "competencia");
   ok("DRE: receita líquida = bruta − impostos (9000)", g.receitaLiquida === 9000, `${g.receitaLiquida}`);
   ok("DRE: lucro bruto = líquida − CMV (7000)", g.lucroBruto === 7000, `${g.lucroBruto}`);
   ok("DRE: EBITDA = bruto − (folha+opex) (5000)", g.ebitda === 5000, `${g.ebitda}`);
   ok("DRE: lucro líquido = EBITDA − financeiro (4700)", g.lucroLiquido === 4700, `${g.lucroLiquido}`);
   // convenção das margens: base é a RECEITA LÍQUIDA (padrão DRE br), não a bruta.
   // margem bruta = 7000/9000 = 77.8% (não 70%); margem líquida = 4700/9000 = 52.2% (não 47%).
-  ok("DRE: margem bruta sobre receita LÍQUIDA (7000/9000 = 77.8%, não /bruta)", Math.abs(g.margemBruta - 7000 / 9000) < 1e-6, `${g.margemBruta}`);
-  ok("DRE: margem líquida sobre receita LÍQUIDA (4700/9000 = 52.2%)", Math.abs(g.margemLiquida - 4700 / 9000) < 1e-6, `${g.margemLiquida}`);
+  /*
+   * ⚠️ **As margens viraram `Indicador`, e a asserção não foi apagada — foi
+   * desembrulhada.** O que ela cobra segue igual: a base é a receita LÍQUIDA,
+   * não a bruta. O que mudou é que a margem agora pode NÃO EXISTIR (sem receita
+   * líquida não há margem), e o tipo passou a carregar essa possibilidade em vez
+   * de dividir por 1 e publicar o valor em reais com um "%" ao lado.
+   */
+  const mb = valorOuNulo(g.margemBruta), ml = valorOuNulo(g.margemLiquida);
+  ok("DRE: margem bruta sobre receita LÍQUIDA (7000/9000 = 77.8%, não /bruta)", mb !== null && Math.abs(mb - 7000 / 9000) < 1e-6, `${mb}`);
+  ok("DRE: margem líquida sobre receita LÍQUIDA (4700/9000 = 52.2%)", ml !== null && Math.abs(ml - 4700 / 9000) < 1e-6, `${ml}`);
+  // E o caso que o tipo novo existe para cobrir: sem receita, sem margem.
+  const vazio = dreGerencial([], "competencia");
+  ok("DRE: sem receita líquida a margem é INDISPONÍVEL, nunca 0%",
+    !!vazio.margemEbitda.indisponivel && !!vazio.margemBruta.indisponivel && !!vazio.margemLiquida.indisponivel,
+    vazio.margemEbitda.indisponivel?.codigo);
 }
 
 // ── quant/score: invariante direcional (empresa saudável > empresa crítica) ──

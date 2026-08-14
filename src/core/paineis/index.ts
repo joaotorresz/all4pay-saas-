@@ -229,9 +229,17 @@ export function painelVendas(input: RiskInput, mes: string, f: FiltroPainel = {}
   const l1 = ltvDaJanela(todos, jMes), l3 = ltvDaJanela(todos, jTri), l12 = ltvDaJanela(todos, jAno);
   const razao = (l: number, c: number) => (c > 0 ? Math.round((l / c) * 100) / 100 : 0);
 
-  // EBITDA vem do MESMO motor do DRE — não de uma conta paralela.
-  const dreMes = dreGerencial(naJanela(todos, jMes));
-  const dreAno = dreGerencial(naJanela(todos, jAno));
+  /*
+   * EBITDA vem do MESMO motor do DRE — não de uma conta paralela.
+   *
+   * ⚠️ **Competência, declarado.** `naJanela` recorta pelo mês de
+   * `paid_date || due_date` e NÃO descarta o pendente; passar "caixa" aqui
+   * mandaria a cascata jogar fora o que este painel escolheu incluir, mudando o
+   * conjunto sem ninguém pedir. O regime é obrigatório justamente para que essa
+   * escolha apareça no ponto da chamada em vez de ficar num padrão.
+   */
+  const dreMes = dreGerencial(naJanela(todos, jMes), "competencia");
+  const dreAno = dreGerencial(naJanela(todos, jAno), "competencia");
   const receitaMes = dreMes.receitaBruta;
 
   const somaSe = (ms: RiskMovement[], meses: string[], fn: (m: RiskMovement) => boolean) =>

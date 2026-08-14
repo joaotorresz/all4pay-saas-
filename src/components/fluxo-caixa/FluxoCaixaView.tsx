@@ -131,12 +131,30 @@ function Inner() {
                 comoCalcula: "Classifica o saldo projetado de cada dia em faixas: confortável, atenção ou risco.",
               }}
             ><HeatmapView dias={data.heatmap} /></Bloco>
+            {/*
+              * ⚠️ **O TÍTULO MUDA COM O REGIME, e essa é a regra — não um
+              * detalhe de rótulo.** Esta cascata sai de `financialDRE`, que
+              * recebe o regime do seletor acima. Em COMPETÊNCIA ela é um DRE.
+              * Em CAIXA ela não é: um DRE é por definição competência, e chamar
+              * de DRE uma apuração por data de pagamento entrega ao contador (e
+              * ao investidor) um documento com o nome errado.
+              *
+              * A visão de caixa é legítima e por isso merece o nome dela.
+              * Nenhum número muda de significado sem mudar de nome — a mesma
+              * regra que vale para `quant`/burn.
+              */}
             <Bloco
-              titulo="Waterfall — da receita ao fluxo livre"
+              titulo={filtros.regime === "caixa"
+                ? "Resultado — regime de caixa (da receita ao fluxo livre)"
+                : "DRE — da receita ao fluxo livre"}
               icon="building"
               info={{
-                oQue: "Mostra em cascata como a receita vira fluxo livre, passando pelas deduções pelo caminho.",
-                comoCalcula: "Parte da receita e empilha as deduções uma a uma (estilo waterfall do DRE) até chegar ao resultado.",
+                oQue: filtros.regime === "caixa"
+                  ? "Mostra em cascata como o dinheiro que ENTROU vira fluxo livre, passando pelas saídas pelo caminho. É a leitura de caixa, pela data de pagamento — não é um DRE."
+                  : "Mostra em cascata como a receita vira fluxo livre, passando pelas deduções pelo caminho.",
+                comoCalcula: filtros.regime === "caixa"
+                  ? "Mesma cascata do DRE, apurada pela data de PAGAMENTO (regime de caixa): só o que foi liquidado entra."
+                  : "Mesma cascata do DRE (competência, pela data de vencimento): empilha as deduções uma a uma até o resultado.",
               }}
             ><WaterfallView passos={data.waterfall} /></Bloco>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">

@@ -1204,6 +1204,33 @@ Eles seguem nas listas depois da purga. Ficaram fora porque cadastro não é
 lançamento e porque um contato pode ter sido editado e virado cadastro de
 verdade — pendência VISÍVEL na migration, não esquecimento.
 
+### ⚠️ TODA FIXTURE PROVA QUE O CAMINHO TESTADO RECEBEU VALOR
+
+**Asserte que o número MUDOU, não apenas que nada quebrou.** Um teste verde só
+vale se o caminho que ele exercita tiver recebido dado; verde sobre o vazio é
+pior que vermelho, porque produz confiança.
+
+Três vezes num único dia um teste ficou verde provando o nada:
+
+1. **O `perl` interpolou `${origem}`** e a substituição nunca aconteceu — a
+   guarda "passou" sem que o defeito tivesse sido plantado. Conserto: `assert`
+   no padrão ANTES de editar.
+2. **A procedência tratou ausência de prosa como sucesso** — superfícies que não
+   escrevem frase (cartão de cockpit) passavam na regra que cobra período e
+   regime. Conserto: a superfície DECLARA `prosa: boolean`; "sem texto" deixou
+   de ser inferido.
+3. **A fixture de IRPJ/CSLL passou porque a linha nunca recebia um centavo** —
+   `impostos_lucro` era inalcançável por ordem de regex, e o caso que deveria
+   travar a diferença de `lair` não exercitava nada. Conserto: asserção direta
+   de que a linha vale R$ 12.000, e não zero.
+
+Nos três, **o defeito só apareceu porque alguém olhou o número**. Daí a regra: a
+fixture tem de afirmar sobre o VALOR que o caminho produziu — a existência da
+linha, a quantidade de lançamentos, o sinal — e não só sobre a ausência de
+exceção. Quando o caso existe para separar duas contas, asserte também que as
+duas dão respostas DIFERENTES sobre ele: um caso que não discrimina é um caso
+que não testa.
+
 ### ⚠️ TEXTO DE TELA NÃO FALA DE IMPLEMENTAÇÃO
 
 Varredura por prosa de interface que vaza o código: identificador entre crases,

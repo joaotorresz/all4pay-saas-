@@ -42,7 +42,7 @@
  * leem daqui; a tabela É isto. Elas não têm como divergir porque não há duas
  * contas: há uma conta e dois desenhos.
  */
-import { montarDRE, type FiltroRelatorio, type Relatorio } from "./index";
+import { montarRelatorio, ESTRUTURA_DRE, type FiltroRelatorio, type Relatorio } from "./index";
 import { liquidado } from "@/core/indicadores/convencoes";
 import type { RiskInput } from "@/core/risk-engine/types";
 import type {
@@ -55,6 +55,12 @@ export const LINHAS_CASCATA = [
   "custos_variaveis", "lucro_bruto",
   "despesas_variaveis", "margem_contribuicao",
   "despesas_operacionais", "ebitda",
+  // ⚠️ D&A e EBIT já eram CALCULADOS pela `ESTRUTURA_DRE` e não eram
+  // PUBLICADOS aqui — a lista parava no EBITDA. Expor não é inventar campo, é
+  // devolver o que a estrutura já produz. Sem eles, quem consome a cascata
+  // precisava reconstruir o EBIT por fora, que é a porta pela qual a próxima
+  // agregação paralela entra.
+  "depreciacao_amortizacao", "ebit",
   "resultado_financeiro", "impostos_lucro", "nao_operacional",
   "resultado_liquido",
 ] as const;
@@ -74,15 +80,28 @@ export interface CascataDRE {
    * zero da ausência e o zero do desastre são graficamente idênticos.
    */
   margemEbitda: Indicador;
+  /** Lucro Bruto ÷ Receita Líquida — mesma guarda de denominador. */
+  margemBruta: Indicador;
+  /** Resultado Líquido ÷ Receita Líquida — mesma guarda de denominador. */
+  margemLiquida: Indicador;
+  /** O regime sob o qual ESTES números foram apurados. */
+  regime: Regime;
   /** O relatório inteiro, para quem precisa das colunas e do drill-down. */
   relatorio: Relatorio;
 }
 
 /**
- * O filtro da cascata — o MESMO do relatório, sem o regime (a DRE é sempre
- * competência). `tipo` é a análise (vertical/horizontal) e não muda os valores.
+ * O filtro da cascata — o MESMO do relatório. `tipo` é a análise
+ * (vertical/horizontal) e não muda os valores.
+ *
+ * ⚠️ **`regime` é OBRIGATÓRIO e não tem padrão.** A cascata passou a servir as
+ * duas leituras (competência para o DRE, caixa para a visão gerencial), e uma
+ * função canônica com duas personalidades é onde nasce o próximo defeito. Com
+ * valor padrão, alguém chama sem pensar e recebe o regime errado em silêncio —
+ * a mesma classe do `is_sample`, que se resolveu fazendo o filtro EXCLUIR por
+ * omissão. A decisão tem de ser explícita no ponto da chamada.
  */
-export type FiltroCascata = Omit<FiltroRelatorio, "regime" | "tipo">
+export type FiltroCascata = Omit<FiltroRelatorio, "tipo">
   & Partial<Pick<FiltroRelatorio, "tipo">>;
 
 const jan = (f: FiltroCascata): Janela => ({
@@ -94,27 +113,26 @@ const jan = (f: FiltroCascata): Janela => ({
   contemHoje: false,
 } as Janela);
 
-const REGIME: Regime = "competencia";
-
 function indicador(
   valor: number, j: Janela, formula: string,
   lancamentos: number, movimentos: readonly string[], natureza: Natureza,
+  regime: Regime,
 ): Indicador {
   return {
     valor,
-    procedencia: { lancamentos, regime: REGIME, janela: j, formula, natureza, movimentos },
+    procedencia: { lancamentos, regime, janela: j, formula, natureza, movimentos },
   };
 }
 
 function ausente(
   j: Janela, formula: string,
   codigo: MotivoIndisponivel,
-  motivo: string, comoResolver?: string,
+  motivo: string, regime: Regime, comoResolver?: string,
 ): Indicador {
   return {
     valor: 0,
     indisponivel: { codigo, motivo, comoResolver },
-    procedencia: { lancamentos: 0, regime: REGIME, janela: j, formula, natureza: "fato" },
+    procedencia: { lancamentos: 0, regime, janela: j, formula, natureza: "fato" },
   };
 }
 
@@ -130,9 +148,12 @@ function ausente(
  */
 export function cascataDRE(input: RiskInput, filtro: FiltroCascata): CascataDRE {
   const j = jan(filtro);
-  // ⚠️ `montarDRE` é EXATAMENTE a chamada que desenha a tabela desta tela
-  // (`DemonstrativoView`). Não é "a mesma aritmética"; é a mesma função.
-  const relatorio = montarDRE(input, { tipo: "vertical", ...filtro });
+  const regime = filtro.regime;
+  // ⚠️ `montarRelatorio` sobre a `ESTRUTURA_DRE` é EXATAMENTE a chamada que
+  // desenha a tabela do relatório. Não é "a mesma aritmética"; é a mesma
+  // função. (Era `montarDRE`, que fixava competência; com o regime virando
+  // parâmetro, ele deixou de servir — mas a estrutura é a mesma.)
+  const relatorio = montarRelatorio(input, ESTRUTURA_DRE, { tipo: "vertical", ...filtro });
 
   // A natureza sai dos próprios lançamentos contados: se algum ainda não foi
   // liquidado, o número fala de expectativa, não de fato.
@@ -150,40 +171,58 @@ export function cascataDRE(input: RiskInput, filtro: FiltroCascata): CascataDRE 
     const rotulo = l?.label ?? id;
     if (j.vazia) {
       linhas[id] = ausente(j, rotulo, "janela_invalida",
-        j.motivo ?? "o período pedido não existe",
+        j.motivo ?? "o período pedido não existe", regime,
         "Corrija as datas: a data inicial está depois da final.");
       continue;
     }
     if (!l) {
       // Não deve acontecer — mas devolver 0 calado seria afirmar que a linha
       // vale zero, quando a verdade é que ela não foi encontrada.
-      linhas[id] = ausente(j, rotulo, "sem_base", "linha ausente na estrutura do relatório");
+      linhas[id] = ausente(j, rotulo, "sem_base", "linha ausente na estrutura do relatório", regime);
       continue;
     }
     if (semLancamento) {
-      linhas[id] = ausente(j, rotulo, "sem_lancamentos", "nenhum lançamento no período",
+      linhas[id] = ausente(j, rotulo, "sem_lancamentos", "nenhum lançamento no período", regime,
         "Escolha outro período, ou importe o extrato se o movimento existiu e não entrou.");
       continue;
     }
     const movs = l.total.movimentos ?? [];
-    linhas[id] = indicador(l.total.valor, j, rotulo, movs.length, movs, natureza(movs));
+    linhas[id] = indicador(l.total.valor, j, rotulo, movs.length, movs, natureza(movs), regime);
   }
 
-  /* ── A margem, com a guarda de denominador ────────────────────────────── */
-  const rl = linhas.receita_liquida, eb = linhas.ebitda;
-  const formulaMargem = "EBITDA ÷ receita líquida";
-  const margemEbitda: Indicador =
+  /* ── As margens, com a guarda de denominador ──────────────────────────── */
+  /*
+   * ⚠️ **Nenhuma margem cai num denominador falso.** O caminho antigo do
+   * `dreGerencial` usava `base = receitaLiquida > 0 ? receitaLiquida : 1` — e
+   * dividir por 1 não é "aproximar": é apresentar o valor ABSOLUTO em reais com
+   * um símbolo de porcentagem ao lado. Um EBITDA de −R$ 30.000 virava "−3.000.000%".
+   * Sem receita não existe margem, e é isso que o indicador passa a dizer.
+   */
+  const rl = linhas.receita_liquida;
+  const razao = (num: Indicador, formula: string): Indicador =>
     rl.indisponivel
-      ? ausente(j, formulaMargem, rl.indisponivel.codigo, rl.indisponivel.motivo, rl.indisponivel.comoResolver)
+      ? ausente(j, formula, rl.indisponivel.codigo, rl.indisponivel.motivo, regime, rl.indisponivel.comoResolver)
       : rl.valor === 0
-        ? ausente(j, formulaMargem, "sem_base",
-            "não houve receita líquida no período",
-            "Sem receita não existe margem — o percentual só passa a existir quando houver faturamento.")
-        : indicador(eb.valor / rl.valor, j, formulaMargem,
+        /*
+         * ⚠️ O texto é parte da correção, não decoração. Ele precisa afastar
+         * a leitura de "margem negativa": ter despesa e nenhuma receita é
+         * PREJUÍZO, e prejuízo não tem margem — margem é uma razão SOBRE a
+         * receita. Esta frase vinha de `core/indicadores/resultado`; ao migrar
+         * aquele módulo para cá, ela veio junto, senão a migração teria trocado
+         * uma explicação boa por uma curta.
+         */
+        ? ausente(j, formula, "sem_base",
+            "não houve receita no período — margem é uma razão sobre a receita, e sem ela não existe", regime,
+            "Escolha um período com faturamento. Ter despesa e nenhuma receita é prejuízo, não margem negativa.")
+        : indicador(num.valor / rl.valor, j, formula,
             rl.procedencia.lancamentos, rl.procedencia.movimentos ?? [],
-            eb.procedencia.natureza);
+            num.procedencia.natureza, regime);
 
-  return { linhas, margemEbitda, relatorio };
+  const margemEbitda = razao(linhas.ebitda, "EBITDA ÷ receita líquida");
+  const margemBruta = razao(linhas.lucro_bruto, "lucro bruto ÷ receita líquida");
+  const margemLiquida = razao(linhas.resultado_liquido, "resultado líquido ÷ receita líquida");
+
+  return { linhas, margemEbitda, margemBruta, margemLiquida, regime, relatorio };
 }
 
 /* ========================================================================== */
