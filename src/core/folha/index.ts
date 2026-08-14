@@ -586,6 +586,25 @@ export const CATEGORIAS_ENCARGO = ["FGTS", "INSS patronal (GPS)"] as const;
  * desvio seria −100% e o aviso apareceria para toda empresa que ainda não
  * importou o extrato do mês — que é ruído, não achado.
  */
+/**
+ * O encargo EFETIVAMENTE lançado na competência.
+ *
+ * ⚠️ **Vive aqui, e não na tela, porque a guarda da ONDA 10 tem razão**: tela
+ * que soma lançamento por conta própria é como nasce a próxima agregação
+ * paralela. Ela pegou esta função quando o `reduce` ainda estava no componente.
+ */
+export function encargosLancados(
+  movimentos: readonly { type: string; status: string; category?: string | null; due_date?: string | null; amount: number }[],
+  competencia: string,
+): number {
+  const alvo = new Set<string>(CATEGORIAS_ENCARGO);
+  return round2(movimentos
+    .filter((m) => m.type === "saida" && m.status !== "cancelado"
+      && (m.due_date ?? "").slice(0, 7) === competencia
+      && alvo.has((m.category ?? "").trim()))
+    .reduce((soma, m) => soma + Math.abs(m.amount), 0));
+}
+
 export function conferirEncargos(projetado: number, lancado: number): ConferenciaEncargos {
   const comparavel = projetado > 0 && lancado > 0;
   const desvio = comparavel ? lancado / projetado - 1 : 0;

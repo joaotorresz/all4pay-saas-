@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
-import { conferirEncargos, CATEGORIAS_ENCARGO } from "@/core/folha";
+import { conferirEncargos, encargosLancados } from "@/core/folha";
 import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
@@ -145,12 +145,7 @@ export function FolhaSalarial() {
   const { data: risco } = useRiscoInput();
   const conf = React.useMemo(() => {
     const projetado = painel ? painel.custoTotal - painel.totalBruto : 0;
-    const lancado = (risco?.movements ?? [])
-      .filter((m) => m.type === "saida" && m.status !== "cancelado"
-        && (m.due_date ?? "").slice(0, 7) === mes
-        && (CATEGORIAS_ENCARGO as readonly string[]).includes((m.category ?? "").trim()))
-      .reduce((soma, m) => soma + Math.abs(m.amount), 0);
-    return conferirEncargos(projetado, lancado);
+    return conferirEncargos(projetado, encargosLancados(risco?.movements ?? [], mes));
   }, [painel, risco, mes]);
 
   if (!painel) {
