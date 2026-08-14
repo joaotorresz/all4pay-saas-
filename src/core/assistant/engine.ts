@@ -22,7 +22,11 @@ import { valorFuturo, payback, tempoParaMeta } from "@/core/investment";
 import { provisaoTrabalhista } from "@/core/payroll";
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
 import { calcularMora } from "@/core/late-fee";
-import { comVoz } from "@/core/glossario";
+import { comVoz, textoDeOrigem } from "@/core/glossario";
+// ⚠️ A cascata do DRE é a ÚNICA fonte de linha de resultado no produto. A IA
+// entra aqui como consumidora, não como uma segunda implementação — ver o
+// bloco do EBITDA e `scripts/contrato-resultado.mts`.
+import { cascataDRE } from "@/core/relatorios/cascata";
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -1120,24 +1124,71 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
       ["carga tributária"]);
   }
 
-  // ——— EBITDA (geração operacional, exclui financeiro/D&A/imposto s/ lucro) ———
-  // EBITDA = receita − todas as saídas operacionais (tudo menos o resultado
-  // financeiro) — casa a cascata do DRE gerencial, calculado inline.
+  // ——— EBITDA (a cascata do DRE, não uma conta própria) ———
+  /*
+   * ⚠️ **Aqui morava a agregação mais perigosa do sistema**, e o perigo não era
+   * o tamanho do erro: era o FORMATO. Este bloco somava os lançamentos por
+   * conta própria — com uma cópia dos regex de "financeiro" e "imposto" — e
+   * devolvia *"O EBITDA em agosto é R$ X (Y% da receita líquida)"* em prosa.
+   * Número em texto é a apresentação com mais autoridade e menos
+   * rastreabilidade que existe no produto: ninguém abre o DRE para conferir o
+   * que a IA afirmou, e a frase não tem coluna, drill-down nem procedência.
+   *
+   * ⚠️ E a conta estava errada do mesmo jeito que os cartões do DRE estavam
+   * antes da `cascataDRE`: `receita` somava TODA entrada, inclusive a receita
+   * FINANCEIRA. Num período com juros relevantes o EBITDA saía inflado pelo
+   * valor exato desses juros — e podia SAIR COM O SINAL TROCADO, afirmando
+   * geração operacional onde havia queima. É o caso que a guarda de contrato
+   * fixa (`scripts/contrato-resultado.mts`).
+   *
+   * Agora a IA não calcula: ela LÊ a mesma `cascataDRE` que desenha a tabela do
+   * relatório. Zero agregação própria, zero regex duplicado.
+   */
   if (/\bebitda\b|\blajida\b|gera[çc][ãa]o operacional de caixa/.test(p)) {
     const w = janela(p, hoje);
-    const jm = movs.filter((m) => m.status === "pago" && within(cashDate(m), w));
-    const receita = jm.filter((m) => m.type === "entrada").reduce((s, m) => s + Math.abs(m.amount), 0);
-    const ehFinanceiro = (c: string) => /tarifa|juros|banc|financ|\biof\b/.test(c);
-    const ehImposto = (c: string) => /imposto|tribut|\bdas\b|irpj|csll|\biss\b|icms|\bpis\b|cofins|simples nacional/.test(c);
-    const opex = jm.filter((m) => m.type === "saida" && !ehFinanceiro((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const impostos = jm.filter((m) => m.type === "saida" && ehImposto((m.category || "").toLowerCase())).reduce((s, m) => s + Math.abs(m.amount), 0);
-    const ebitda = receita - opex;
-    const recLiq = receita - impostos;
-    if (receita <= 0) return R(`Não houve receita paga ${w.label} para calcular o EBITDA.`, [], ["DRE gerencial"]);
-    const margem = recLiq > 0 ? Math.round((ebitda / recLiq) * 100) : 0;
+    const c = cascataDRE(input, { intervalo: { de: w.from, ate: w.to } });
+    const eb = c.linhas.ebitda;
+
+    /*
+     * ⚠️ A janela da cascata nasce rotulada "Período do relatório" — verdadeiro
+     * e inútil numa conversa. O intervalo é o MESMO; só o nome humano vem de
+     * quem entendeu a pergunta. Trocar o rótulo não troca o número: `de`/`ate`
+     * seguem intactos, e é sobre eles que a origem afirma o regime.
+     */
+    const origem = textoDeOrigem({
+      ...eb.procedencia,
+      janela: { ...eb.procedencia.janela, label: w.label },
+    });
+
+    /*
+     * ⚠️ **Sem número, sem afirmação.** Se a cascata não tem resposta, a IA diz
+     * POR QUE não tem — e não devolve zero. Um "R$ 0" de EBITDA lê como
+     * "operou e não sobrou nada"; a verdade costuma ser "não houve lançamento
+     * no período", que manda fazer o oposto.
+     */
+    if (eb.indisponivel) {
+      const saida = eb.indisponivel.comoResolver ? ` ${eb.indisponivel.comoResolver}` : "";
+      return R(
+        `Não é possível afirmar o EBITDA ${w.label}: ${eb.indisponivel.motivo}.${saida}`,
+        [], ["DRE gerencial"]);
+    }
+
+    const m = c.margemEbitda;
+    // Uma casa decimal, pela regra de formato da ONDA 11: zero apaga a
+    // diferença entre 12,4% e 12,9%, duas fingem precisão que o período não
+    // tem. (Formatado aqui porque `core/` não importa de `lib/`.)
+    const margemTxt = m.indisponivel
+      ? `sem margem a calcular — ${m.indisponivel.motivo}`
+      : `${(m.valor * 100).toFixed(1).replace(".", ",")}% da receita líquida`;
+
     return R(
-      `O EBITDA ${w.label} é ${fmt(ebitda)} (${margem}% da receita líquida): a geração operacional antes de juros, impostos sobre o lucro e depreciação.`,
-      [{ label: "EBITDA", valor: fmt(ebitda) }, { label: "Margem EBITDA", valor: `${margem}%` }, { label: "Receita", valor: fmt(receita) }],
+      `O EBITDA ${w.label} é ${fmt(eb.valor)} (${margemTxt}): a geração operacional, `
+      + `antes de juros, impostos sobre o lucro e depreciação. ${origem}`,
+      [
+        { label: "EBITDA", valor: fmt(eb.valor) },
+        { label: "Margem EBITDA", valor: m.indisponivel ? "—" : `${(m.valor * 100).toFixed(1).replace(".", ",")}%` },
+        { label: "Receita líquida", valor: fmt(c.linhas.receita_liquida.valor) },
+      ],
       ["EBITDA", "DRE gerencial"]);
   }
 

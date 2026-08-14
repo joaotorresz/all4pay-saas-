@@ -493,7 +493,26 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const eb = responderLocal("qual meu EBITDA?", inpS);
   const cg = responderLocal("qual minha carga tributária?", inpS);
-  ok("EBITDA conta só pago (6000, ignora pendente/cancelado)", !!eb && /EBITDA.*R\$.?6\.000/.test(eb.resposta), eb?.resposta?.slice(0, 50));
+  /*
+   * ⚠️ **MUDANÇA DE REGIME, DECLARADA.** Este caso esperava 6.000 — receita e
+   * despesas apenas do que foi PAGO. Era o retrato fiel da agregação inline que
+   * a IA tinha: um EBITDA de CAIXA apresentado sem dizer que era de caixa.
+   *
+   * Com a IA lendo a `cascataDRE`, o número passa a 9.000, porque o DRE é
+   * **competência**: a venda de 5.000 com vencimento em julho é receita de
+   * julho ainda que o cliente não tenha pago, e a folha de 2.000 vencendo em
+   * julho é despesa de julho. Não é o EBITDA que mudou de valor; é o rótulo
+   * que passou a corresponder ao que o número sempre deveria ter medido — e a
+   * resposta agora DIZ o regime, que é o que faltava para os dois serem
+   * distinguíveis.
+   *
+   * O que este caso continua cobrando, e é o essencial dele: **cancelado nunca
+   * entra**. Se os 9.999 cancelados voltassem à base, o EBITDA seria 18.999.
+   */
+  ok("EBITDA em competência (9000: pendente do mês entra, cancelado nunca)",
+    !!eb && /EBITDA.*R\$.?9\.000/.test(eb.resposta) && !/18\.999/.test(eb.resposta),
+    eb?.resposta?.slice(0, 50));
+  ok("EBITDA declara o regime de que saiu", !!eb && /regime de compet[êe]ncia/.test(eb.resposta), eb?.resposta?.slice(-70));
   ok("carga tributária conta só pago (10%)", !!cg && /\b10%/.test(cg.resposta), cg?.resposta?.slice(0, 50));
 }
 
