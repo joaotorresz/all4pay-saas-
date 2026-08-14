@@ -30,6 +30,7 @@ import {
 } from "./convencoes";
 import { type Janela, dentro, janelaDoMesDe } from "./janela";
 import { ehReceitaOperacional } from "@/core/relatorios";
+import { cascataDRE, type LinhaCascata } from "@/core/relatorios/cascata";
 import {
   classificarDespesa, classificarReceita,
   type LinhaDespesa, type LinhaReceita,
@@ -137,23 +138,44 @@ function base(input: RiskInput, j: Janela, regime: Regime): Base {
   };
 }
 
-/** Fábrica das linhas de VALOR da cascata — todas têm a mesma forma de ausência. */
-function linha(
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ A FÁBRICA NÃO CALCULA MAIS. Ela LÊ a cascata e veste o contrato.
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Este módulo era a **terceira** agregação independente de resultado do sistema
+ * (`docs/auditoria.md`). O que ele acrescenta — e continua acrescentando — é o
+ * CONTRATO da ONDA 4: dizer quando NÃO sabe, com código, motivo e saída. O que
+ * ele não precisa mais fazer é somar: `cascataDRE` já devolve `Indicador` por
+ * linha, com a mesma ausência e a mesma procedência.
+ *
+ * ⚠️ Enquanto ele somava por conta própria, a diferença aparecia no dado real:
+ * ele contava **empréstimo bancário como receita** e a cascata não — R$ 15.000
+ * de divergência declarados na matriz de reconciliação. Duas implementações só
+ * divergem no dado que as separa, e o dado sempre chega depois do teste.
+ *
+ * A `formula` continua vindo daqui: ela é o texto que a tela mostra na origem do
+ * número, e é escrita no vocabulário do produto, não no da estrutura contábil.
+ */
+function daCascata(
   input: RiskInput, j: Janela, regime: Regime,
-  formula: string, calcular: (b: Base) => number,
+  formula: string, id: LinhaCascata,
 ): Indicador {
   if (j.vazia) {
     return ausente(j, regime, formula, "janela_invalida",
       j.motivo ?? "o período pedido não existe",
       "Corrija as datas: a data inicial está depois da final.");
   }
-  const b = base(input, j, regime);
-  if (b.rows.length === 0) {
-    return ausente(j, regime, formula, "sem_lancamentos",
-      "nenhum lançamento no período",
-      "Escolha outro período, ou importe o extrato se o movimento existiu e não entrou.");
+  const ind = cascataDRE(input, { intervalo: { de: j.de, ate: j.ate }, regime }).linhas[id];
+  if (ind.indisponivel) {
+    return ausente(j, regime, formula, ind.indisponivel.codigo,
+      ind.indisponivel.motivo, ind.indisponivel.comoResolver,
+      ind.procedencia.natureza, ind.procedencia.lancamentos);
   }
-  return presente(calcular(b), j, regime, formula, b.rows, b.natureza);
+  return {
+    valor: ind.valor,
+    procedencia: { ...ind.procedencia, janela: j, regime, formula },
+  };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -166,7 +188,7 @@ const DEFAULT_REGIME: Regime = "competencia";
 export const receitaBruta = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "soma das entradas do período", (b) => b.receita);
+  daCascata(input, j, regime, "soma das entradas operacionais do período", "receita_bruta");
 
 /**
  * **Deduções** — impostos sobre a receita. Sai em MAGNITUDE (positivo).
@@ -178,71 +200,49 @@ export const receitaBruta = (
 export const deducoes = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "impostos sobre receita no período",
-    (b) => b.despesaPorLinha.impostos);
+  daCascata(input, j, regime, "impostos sobre receita no período", "deducoes");
 
 /** **Receita líquida** = bruta − deduções. */
 export const receitaLiquida = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "receita bruta − impostos sobre receita",
-    (b) => b.receita - b.despesaPorLinha.impostos);
+  daCascata(input, j, regime, "receita bruta − impostos sobre receita", "receita_liquida");
 
 /** **Custo** — CMV / fornecedores. Magnitude. */
 export const custo = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "custo das mercadorias e fornecedores no período",
-    (b) => b.despesaPorLinha.cmv);
+  daCascata(input, j, regime, "custo das mercadorias e fornecedores no período", "custos_variaveis");
 
 /** **Lucro bruto** = receita líquida − custo. */
 export const lucroBruto = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "receita líquida − custo",
-    (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv);
+  daCascata(input, j, regime, "receita líquida − custo", "lucro_bruto");
 
 /** **Despesa operacional** = OPEX + folha. Magnitude. */
 export const despesaOperacional = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "despesas operacionais + folha no período",
-    (b) => b.despesaPorLinha.opex + b.despesaPorLinha.folha);
+  daCascata(input, j, regime, "despesas operacionais no período", "despesas_operacionais");
 
 /** **EBITDA** = lucro bruto − despesa operacional. */
 export const ebitda = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "lucro bruto − despesas operacionais",
-    (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-      - b.despesaPorLinha.opex - b.despesaPorLinha.folha);
+  daCascata(input, j, regime, "margem de contribuição − despesas operacionais", "ebitda");
 
 /** **Lucro líquido** = EBITDA + resultado financeiro. */
 export const lucroLiquido = (
   input: RiskInput, j: Janela = janelaDoMesDe(input.hoje), regime: Regime = DEFAULT_REGIME,
 ): Indicador =>
-  linha(input, j, regime, "EBITDA − resultado financeiro",
-    // ⚠️ O resultado financeiro tem DOIS lados: a receita financeira soma, a
-    // despesa subtrai. Era só a despesa, e por isso o juros recebido não tinha
-    // para onde ir — acabava dentro da receita bruta.
-    (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-      - b.despesaPorLinha.opex - b.despesaPorLinha.folha
-      - b.despesaPorLinha.financeiro + b.entradaNaoOperacional);
+  daCascata(input, j, regime, "EBIT + resultado financeiro − impostos sobre o lucro", "resultado_liquido");
 
 /* -------------------------------------------------------------------------- */
 /* 18. AS MARGENS — o caso perigoso                                            */
 /* -------------------------------------------------------------------------- */
 
 type LinhaDaMargem = "bruta" | "ebitda" | "liquida";
-
-const NUMERADOR: Record<LinhaDaMargem, (b: Base) => number> = {
-  bruta: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv,
-  ebitda: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-    - b.despesaPorLinha.opex - b.despesaPorLinha.folha,
-  liquida: (b) => b.receita - b.despesaPorLinha.impostos - b.despesaPorLinha.cmv
-    - b.despesaPorLinha.opex - b.despesaPorLinha.folha
-    - b.despesaPorLinha.financeiro + b.entradaNaoOperacional,
-};
 
 /**
  * A margem (0..1) sobre a **receita líquida**.
@@ -271,20 +271,19 @@ export function margem(
       j.motivo ?? "o período pedido não existe",
       "Corrija as datas: a data inicial está depois da final.");
   }
-  const b = base(input, j, regime);
-  if (b.rows.length === 0) {
-    return ausente(j, regime, formula, "sem_lancamentos",
-      "nenhum lançamento no período",
-      "Escolha outro período, ou importe o extrato se o movimento existiu e não entrou.");
+  /*
+   * ⚠️ A guarda de denominador vive na cascata, e é uma só. Repeti-la aqui
+   * criaria dois lugares onde "sem receita não existe margem" pode ser
+   * afrouxado — e basta um para a regra deixar de valer.
+   */
+  const c = cascataDRE(input, { intervalo: { de: j.de, ate: j.ate }, regime });
+  const ind = qual === "bruta" ? c.margemBruta : qual === "ebitda" ? c.margemEbitda : c.margemLiquida;
+  if (ind.indisponivel) {
+    return ausente(j, regime, formula, ind.indisponivel.codigo,
+      ind.indisponivel.motivo, ind.indisponivel.comoResolver,
+      ind.procedencia.natureza, ind.procedencia.lancamentos);
   }
-  const liquida = b.receita - b.despesaPorLinha.impostos;
-  if (liquida <= 0) {
-    return ausente(j, regime, formula, "sem_base",
-      "não houve receita no período — margem é uma razão sobre a receita, e sem ela não existe",
-      "Escolha um período com faturamento. Ter despesa e nenhuma receita é prejuízo, não margem negativa.",
-      b.natureza, b.rows.length);
-  }
-  return presente(NUMERADOR[qual](b) / liquida, j, regime, formula, b.rows, b.natureza);
+  return { valor: ind.valor, procedencia: { ...ind.procedencia, janela: j, regime, formula } };
 }
 
 /* -------------------------------------------------------------------------- */

@@ -36,7 +36,8 @@ import type { Regime } from "@/core/dre/types";
 import { cascataDRE, LINHAS_CASCATA, type LinhaCascata } from "@/core/relatorios/cascata";
 import { responderLocal } from "@/core/assistant/engine";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
-import { valorOuNulo, type Indicador } from "@/core/indicadores";
+import { valorOuNulo, type Indicador, type Janela } from "@/core/indicadores";
+import { painelResultado } from "@/core/indicadores/resultado";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
@@ -213,6 +214,37 @@ const SUPERFICIES: Superficie[] = [
         { nome: "margem EBITDA", obtido: pctOuTraco(g.margemEbitda), canonico: can.margemEbitda },
         { nome: "margem bruta", obtido: pctOuTraco(g.margemBruta), canonico: can.margemBruta },
         { nome: "margem líquida", obtido: pctOuTraco(g.margemLiquida), canonico: can.margemLiquida },
+      ];
+    },
+    texto: () => "",
+  },
+  {
+    nome: "#6 core/indicadores · painelResultado",
+    prosa: false,
+    regimes: ["competencia", "caixa"],
+    exibe: (c) => {
+      const j: Janela = { de: c.intervalo.de, ate: c.intervalo.ate, label: "período", vazia: false, contemHoje: false } as Janela;
+      const p = painelResultado(c.input, j, c.regime);
+      const val = (i: { valor: number; indisponivel?: unknown }) => (i.indisponivel ? null : fmt(i.valor));
+      return {
+        receita_bruta: val(p.receitaBruta),
+        deducoes: val(p.deducoes),
+        receita_liquida: val(p.receitaLiquida),
+        custos_variaveis: val(p.custo),
+        lucro_bruto: val(p.lucroBruto),
+        despesas_operacionais: val(p.despesaOperacional),
+        ebitda: val(p.ebitda),
+        resultado_liquido: val(p.lucroLiquido),
+      };
+    },
+    margens: (c) => {
+      const j: Janela = { de: c.intervalo.de, ate: c.intervalo.ate, label: "período", vazia: false, contemHoje: false } as Janela;
+      const p = painelResultado(c.input, j, c.regime);
+      const can = cascataDRE(c.input, { intervalo: c.intervalo, regime: c.regime });
+      return [
+        { nome: "margem EBITDA", obtido: pctOuTraco(p.margemEbitda), canonico: can.margemEbitda },
+        { nome: "margem bruta", obtido: pctOuTraco(p.margemBruta), canonico: can.margemBruta },
+        { nome: "margem líquida", obtido: pctOuTraco(p.margemLiquida), canonico: can.margemLiquida },
       ];
     },
     texto: () => "",

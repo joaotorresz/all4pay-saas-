@@ -70,7 +70,7 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 | ~~**#3**~~ | ~~`/dre` (`DREView`)~~ | — | 🗑️ **CÓDIGO MORTO, REMOVIDO.** Nenhuma rota o renderizava: `src/app/dre/` não existe, `/dre` é alias 308 para `/dashboard/reports/dre`, e **zero arquivos** importavam `DREView`. Superfície sem entrada é candidata a remoção, não a migração |
 | **#4** | Cockpit — `receita-liquida-mes` + widgets | `cascataDRE` via a fachada | ✅ **FEITO** |
 | **#5** | `core/paineis` — painel de Vendas | `cascataDRE` via a fachada | ✅ **FEITO** |
-| **#6** | `core/indicadores/resultado` — `painelResultado` | **agregação PRÓPRIA** (`base()`) | ⏳ |
+| **#6** | `core/indicadores/resultado` — `painelResultado` | `cascataDRE` (mantendo o contrato ONDA 4) | ✅ **FEITO** |
 | **#7** | IA — `assistant/engine.ts` | `cascataDRE` | ✅ **FEITO** (PR #44) |
 | **#8** | `core/quant/indicators` → `/inteligencia` | deriva de `calcularBurnRate` | 🔤 **NÃO migra — RENOMEIA** |
 | **#9** | Investor Update (`core/investor`) | consome `quant.indicadores` | ⏳ migra |
@@ -84,7 +84,7 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 
 1. **`core/relatorios`** — a referência (`ESTRUTURA_DRE` + `montarDRE`);
 2. ~~**`dreGerencial`**~~ — **curada**: virou FACHADA FINA da cascata (#4, #5). Zero agregação própria;
-3. **`painelResultado`** (`core/indicadores/resultado.ts`) — #6;
+3. ~~**`painelResultado`**~~ — **curada**: lê a cascata e veste o contrato da ONDA 4 (dizer quando não sabe). Zero agregação própria;
 4. ~~a inline da IA~~ — **curada** no PR #44;
 5. **`quant`/burn** (`core/quant/indicators`) — #8, e por tabela #9.
 
@@ -100,7 +100,7 @@ Um PR por vez, **verde antes do próximo**.
 | --- | --- | --- |
 | ✅ 1º | **#7** IA | Feito no PR #44, com o contrato nascendo junto |
 | ✅ 2º | **#3 · #4 · #5** | #3 removido (morto). `dreGerencial` virou **fachada fina** sobre `cascataDRE`, com `regime` obrigatório. Contrato estendido aos **dois regimes** |
-| 3º | **#6** `painelResultado` | Mantém o contrato da ONDA 4 (`Indicador` com `indisponivel`), mas passa a **ler** a cascata |
+| ✅ 3º | **#6** `painelResultado` | Lê a cascata mantendo o contrato da ONDA 4. `ehReceitaOperacional` é a única definição de receita operacional no código |
 | 4º | **#10** `VendasDashboardView` | Soma crua de `movements`, sem classificador |
 | 5º | **#14** `core/fdip` | ⚠️ **Verificar ANTES se ele CONSEGUE consumir a cascata.** Roda no onboarding, sobre dado **ainda não classificado**. Se não conseguir, a correção **não é migrar**: é parar de chamar aquilo de *receita* e *EBITDA* e rotular como **estimativa da importação** |
 | 6º | **#9** Investor Update | **Migra.** Investidor que lê "margem líquida" espera competência; número derivado de caixa sob esse rótulo aparece contra você numa diligência |
@@ -173,3 +173,42 @@ nota, o defeito em que os quatro concordam e todos erram: **R$ 20.000 de
 
 ⚠️ Corrigir esse último muda a taxonomia `LinhaReceita`, espinha do drill-down do
 DRE inteiro — fica declarado com número, não corrigido de passagem.
+
+
+---
+
+## MEDIÇÃO: as deduções de 47,54% NÃO eram defeito de código
+
+Organização `835278a9…`, 01/09/2025 a 31/08/2026, com o filtro de amostra ativo,
+261 lançamentos. Deduções ÷ Receita Bruta, **antes e depois** da correção da
+ordem de regex (`deducoes` deixando de engolir `impostos_lucro`):
+
+| | Receita Bruta | Deduções | % | Impostos s/ Lucro |
+| --- | --- | --- | --- | --- |
+| **antes** | R$ 523.147,94 | R$ 248.707,93 | **47,54%** | R$ 0,00 |
+| **depois** | R$ 523.147,94 | R$ 248.707,93 | **47,54%** | R$ 0,00 |
+
+**Idêntico.** A correção é real e não alcança este dado: ela separa por
+CATEGORIA, e aqui nenhuma categoria se chama IRPJ ou CSLL.
+
+As 36 saídas que formam a dedução estão todas numa categoria genérica
+**"Impostos"**, e são quatro coisas diferentes:
+
+| Descrição | n | Total | O que é |
+| --- | --- | --- | --- |
+| INSS GPS GUIA PREVIDÊNCIA | 9 | R$ 81.286,03 | encargo de **folha** |
+| DARF **IRPJ** | 9 | R$ 75.982,66 | imposto sobre o **lucro** |
+| SIMPLES NACIONAL | 9 | R$ 46.800,00 | **dedução da receita** ✔ |
+| FGTS CONECTIVIDADE SOCIAL | 9 | R$ 44.639,24 | encargo de **folha** |
+
+Só o Simples é dedução: **R$ 46.800 ÷ R$ 523.147,94 = 8,94%**, plausível. Os
+outros três quartos estão na linha errada — INSS e FGTS deveriam engrossar a
+folha (abaixo do lucro bruto), e o IRPJ deveria ir para `impostos_lucro`
+(abaixo do EBITDA).
+
+⚠️ **O conserto é de DADO, não de mais regex.** O classificador olha o nome da
+CATEGORIA, e "IRPJ" aqui está só na descrição. O caminho desenhado para isto já
+existe: `linhaPorCategoria` — a linha DECLARADA de cada categoria, que **vence**
+o palpite por palavra-chave. Quem cadastrou a categoria sabe em que linha ela
+entra; o regex, não. Separar "Impostos" em Simples · INSS · FGTS · IRPJ resolve
+os quatro de uma vez.

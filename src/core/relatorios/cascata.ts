@@ -203,9 +203,17 @@ export function cascataDRE(input: RiskInput, filtro: FiltroCascata): CascataDRE 
     rl.indisponivel
       ? ausente(j, formula, rl.indisponivel.codigo, rl.indisponivel.motivo, regime, rl.indisponivel.comoResolver)
       : rl.valor === 0
+        /*
+         * ⚠️ O texto é parte da correção, não decoração. Ele precisa afastar
+         * a leitura de "margem negativa": ter despesa e nenhuma receita é
+         * PREJUÍZO, e prejuízo não tem margem — margem é uma razão SOBRE a
+         * receita. Esta frase vinha de `core/indicadores/resultado`; ao migrar
+         * aquele módulo para cá, ela veio junto, senão a migração teria trocado
+         * uma explicação boa por uma curta.
+         */
         ? ausente(j, formula, "sem_base",
-            "não houve receita líquida no período", regime,
-            "Sem receita não existe margem — o percentual só passa a existir quando houver faturamento.")
+            "não houve receita no período — margem é uma razão sobre a receita, e sem ela não existe", regime,
+            "Escolha um período com faturamento. Ter despesa e nenhuma receita é prejuízo, não margem negativa.")
         : indicador(num.valor / rl.valor, j, formula,
             rl.procedencia.lancamentos, rl.procedencia.movimentos ?? [],
             num.procedencia.natureza, regime);
