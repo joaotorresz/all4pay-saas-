@@ -25,6 +25,12 @@ name: CI
 # push; ele passa a rodar no instante em que o PR abre, e branch sem PR não vai
 # a lugar nenhum.
 on:
+  # ⚠️ A4P-075: a guarda de "no ar" precisa rodar QUANDO NINGUÉM ESTÁ OLHANDO.
+  # A regressão que a motivou apareceu DEPOIS do merge — um build atrasado
+  # pousou por cima de um mais novo — e o pipeline já tinha terminado verde.
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
   push:
     branches: [main, claude/epic-fermi-i423xk]
   pull_request:
@@ -153,3 +159,30 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # A4P-075 — "NO AR" É ESTADO CONTÍNUO, NÃO EVENTO
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Em 17/08 o deploy atrasado do PR #103 pousou DEPOIS do #104 e o
+  # sobrescreveu: `/api/versao` voltou de 4132318 para 998d800 e o conserto do
+  # A4P-073 saiu do ar sozinho. Uma leitura única de `/api/versao` prova o
+  # MOMENTO; ela não prova o ESTADO.
+  #
+  # ⚠️ Só roda no `main` e no schedule: num PR, produção legitimamente não tem o
+  # commit do PR, e reprovar ali ensinaria a ignorar a reprovação.
+  no-ar:
+    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ `merge-base --is-ancestor` precisa do histórico: com o checkout
+          # raso o diagnóstico "build antigo × commit desconhecido" não sai.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Produção serve o HEAD de main?
+        run: node scripts/no-ar.mjs --tolerancia 12

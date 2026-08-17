@@ -1391,6 +1391,37 @@ coluna de competência**. É por aí que entram 77%.
 O fallback para o vencimento continua, e a tela do DRE DIZ quantos lançamentos
 do período caíram nele (`coberturaCompetencia`) — instrumentação com consumidor.
 
+### ⚠️ "NO AR" É UM ESTADO CONTÍNUO, NÃO UM EVENTO
+
+**Um item só fecha quando existe guarda que reprova se ele SAIR do ar.** Uma
+leitura de `/api/versao` prova o MOMENTO; ela não prova o ESTADO — e entre a
+leitura e a hora seguinte, qualquer build concorrente desfaz o que ela afirmou,
+com a afirmação já registrada como fechada.
+
+O caso que fixou a regra (A4P-075, 17/08/2026): o deploy do PR #103 demorou; o
+#104 foi mergeado e publicado depois dele; e então **o build atrasado do #103
+pousou e sobrescreveu o novo**. `/api/versao` voltou de `4132318` para
+`998d800`, o conserto do A4P-073 saiu do ar sem ninguém tocar em nada, e a tela
+do Razão voltou a dizer "nada absorvido" sobre R$ 1.080.562,75.
+
+⚠️ **E o sinal estava na minha frente.** Um esperador de background resolveu
+tarde apontando para o commit antigo, e eu li aquilo como "resolvido tarde, sem
+ação necessária". Não era ruído: era a regressão chegando. Evento fora de ordem
+num pipeline de deploy é dado, não barulho.
+
+A guarda é `npm run no-ar` (`scripts/no-ar.mjs`), e ela roda **em schedule a
+cada 15 minutos**, não só no CI — a divergência aparece DEPOIS do merge, quando
+o pipeline já terminou verde e ninguém está olhando. Ela distingue as duas
+formas de estar fora:
+
+- o commit servido é **ancestral** do HEAD → build antigo sobrescreveu um novo,
+  que é regressão, não lentidão;
+- não é ancestral → outro branch publicando, ou HEAD local desatualizado.
+
+⚠️ A tolerância (12 min) existe porque deploy leva tempo, e guarda que reprova
+durante a janela normal de publicação é desligada na primeira semana. Ela não é
+indulgência: passado o prazo, a divergência sai com os dois SHAs à vista.
+
 ### ⚠️ TODA GUARDA SÓ CONTA COMO GUARDA DEPOIS DE REPROVAR
 
 **Plante o defeito que ela deveria pegar, veja reprovar, e guarde esse teste
