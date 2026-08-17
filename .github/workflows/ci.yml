@@ -172,14 +172,16 @@ jobs:
       # reprova por falta de insumo treina quem a lê a ignorar a reprovação.
       # Ligar com um `if exists` seria pior: verde sem medir nada.
       #
-      # PARA LIGAR (uma linha, quem tem a credencial):
-      #   SUPABASE_DB_URL=… npm run objetos:sync && git add supabase/objetos-producao.json
-      # e então descomentar o passo abaixo.
-      #
-      # - name: Guarda de objetos (migrations × retrato de produção)
-      #   env:
-      #     SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-      #   run: npm run objetos
+      # ⚠️ Ligado. O retrato (supabase/objetos-producao.json) foi gerado com a
+      # visão do papel só-leitura (via `set role anon`, equivalente ao ci_leitor:
+      # catálogo + ddl_log, zero SELECT em tabela de cliente). Os grants saem de
+      # `aclexplode(pg_class.relacl)` — catálogo puro — e não de
+      # `information_schema.role_table_grants`, que é filtrada por privilégio e
+      # voltaria vazia para o ci_leitor.
+      - name: Guarda de objetos (migrations × retrato de produção)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run objetos
 
       # ⚠️ A GUARDA DO EVENTO, par da de cima. `npm run objetos` mede ESTADO e
       # não vê objeto criado-e-dropado; esta lê o `ddl_log` de produção e pega o
@@ -187,10 +189,10 @@ jobs:
       # isso ambas ficam comentadas até o secret existir. Não roda contra o banco
       # efêmero: o ddl_log de produção é o alvo.
       #
-      # - name: Guarda de DDL sem migration (ddl_log × repositório)
-      #   env:
-      #     SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      #   run: npm run ddl
+      - name: Guarda de DDL sem migration (ddl_log × repositório)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run ddl
       - name: Guarda da matriz de permissão (banco × cliente)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

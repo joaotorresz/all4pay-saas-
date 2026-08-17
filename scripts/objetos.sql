@@ -50,11 +50,26 @@ with tabelas as (
   join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'public'
 ), grants as (
-  select 'grant:' || table_name || '.' || grantee as obj,
-         md5(string_agg(privilege_type, ',' order by privilege_type)) as sig
-  from information_schema.role_table_grants
-  where table_schema = 'public' and grantee in ('anon','authenticated','service_role')
-  group by table_name, grantee
+  -- ⚠️ **LÊ O ACL DO CATÁLOGO, não `information_schema.role_table_grants`.**
+  --
+  -- Aquela view é FILTRADA por privilégio: só mostra grants onde o papel
+  -- corrente é grantor, grantee ou membro. Medido em 17/08: como `anon` (sem
+  -- SELECT em tabela de cliente, o mesmo perfil do `ci_leitor` do CI), ela volta
+  -- ZERO linhas — e a guarda acusaria os 146 grants todos como ausentes.
+  --
+  -- `aclexplode(relacl)` sobre `pg_class` é catálogo puro: qualquer papel que
+  -- enxerga `pg_class` lê o ACL inteiro. Testado como `anon`: os 605 grants de
+  -- service_role e 283 de authenticated aparecem, idênticos ao que `postgres`
+  -- vê. É o que torna o retrato gerado como admin igual ao que o `ci_leitor`
+  -- produz — sem dar a ele SELECT em dado de cliente.
+  select 'grant:' || c.relname || '.' || acl.grantee::regrole::text as obj,
+         md5(string_agg(acl.privilege_type, ',' order by acl.privilege_type)) as sig
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+  cross join lateral aclexplode(c.relacl) acl
+  where c.relkind in ('r','v','m','p')
+    and acl.grantee::regrole::text in ('anon','authenticated','service_role')
+  group by c.relname, acl.grantee::regrole::text
 )
 select obj || '|' || sig
 from (select * from tabelas union all select * from funcoes
