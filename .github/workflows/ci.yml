@@ -140,6 +140,15 @@ jobs:
       # banco construído do zero pelas migrations. Um gatilho aplicado à mão no
       # remoto some no primeiro `db reset` e ninguém descobre até a primeira
       # despesa entrar dentro de uma receita.
+      # ⚠️ Quarta guarda no MESMO job, pela mesma razão das três acima: ela
+      # precisa do banco construído do zero pelas migrations. E precisa existir
+      # porque "a matriz mora no servidor e a interface pergunta" só funciona se
+      # as duas disserem a mesma coisa — o `contador_externo` ficou um mês no
+      # banco sem o cliente saber nomeá-lo.
+      - name: Guarda da matriz de permissão (banco × cliente)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/matriz-permissao.sql
       - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

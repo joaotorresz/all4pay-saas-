@@ -878,3 +878,121 @@ DITA, e a chamada que omitia o regime foi corrigida.
 Uma compra com competência em **março** e vencimento/pagamento em **abril** cai
 em março no DRE e em abril no DFC — e a guarda exige que os dois **discordem**
 sobre ela. Era esse caso que não existia no sistema.
+
+
+---
+
+# ETAPA C — MULTI-TENANT (17/08/2026)
+
+## 9. Isolamento por organização
+
+**O que já existe e roda:** o job `isolamento` do CI sobe um Postgres do zero
+pelas migrations, cria **duas organizações e dois usuários pelo gatilho de
+signup** (não por INSERT à mão, que testaria um caminho que nenhum cliente
+percorre), tenta o cruzamento nos dois sentidos em **ler, agregar, inserir,
+atualizar e apagar**, e termina em ROLLBACK. Verde em todo push.
+
+Foto estática de produção, medida em 17/08: **55 tabelas com `org_id`, todas com
+RLS ligada, `anon` sem SELECT em nenhuma.** A única sem política é
+`subscriptions`, de propósito — é só-DEFINER desde a migration 0014.
+
+### ⚠️ GAP ABERTO — pendência do DONO DO REPOSITÓRIO, não da sessão
+
+> **O teste roda contra um banco EFÊMERO. Rodar contra PRODUÇÃO com dois
+> usuários reais, cada um com o próprio papel, segue ABERTO.**
+
+Por que importa: `teste_isolamento_completo()` é `SECURITY INVOKER` de propósito
+— ela roda com os privilégios de QUEM CHAMA, contra as políticas de verdade.
+Chamá-la por uma conexão privilegiada responde sempre "está tudo bem", porque o
+dono enxerga tudo: **testaria a si mesma**. Foi exatamente esse o defeito da
+ONDA 9, cujo placar de "44 tabelas, 0 vazamentos" foi medido com papel
+privilegiado.
+
+Fechar o gap exige credenciais de dois usuários reais de organizações
+diferentes. Uma sessão de agente **não deve inventá-las nem criá-las**, e por
+isso o item fica registrado aqui em vez de ser declarado feito.
+
+## 10. Matriz de permissão
+
+**A matriz VIGENTE, medida em `role_permissions` em 17/08:**
+
+| Papel | ler | exportar | lançar | baixar | aprovar | fechar | administrar | cobrança |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| **owner** (Titular) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| **admin** (Administrador) | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ | |
+| **fechador** (Contador) | ✔ | ✔ | ✔ | ✔ | | ✔ | | |
+| **aprovador** | ✔ | ✔ | ✔ | ✔ | ✔ | | | |
+| **lancador** (Lançador) | ✔ | ✔ | ✔ | ✔ | | | | |
+| **member** (legado ≡ lançador) | ✔ | ✔ | ✔ | ✔ | | | | |
+| **contador_externo** | ✔ | ✔ | | | | ✔ | | |
+| **leitor** | ✔ | | | | | | | |
+
+⚠️ **São OITO papéis, não os quatro do enunciado** (Leitura, Operacional,
+Financeiro, Admin). Não remapeei: reduzir oito para quatro é decisão de produto
+com migration de dados atrás — `owner`, `admin` e `member` estão em uso hoje
+(15, 1 e 1 vínculos). O mapa natural seria Leitura←`leitor`,
+Operacional←`lancador`/`member`, Financeiro←`aprovador`+`fechador`,
+Admin←`admin`/`owner` — e ele **perde** o `contador_externo`, que é o único
+papel desenhado para um terceiro fora da empresa.
+
+### ⚠️ ACHADO — o banco tinha oito papéis e o cliente conhecia sete
+
+`role_permissions` tem `contador_externo` (ler, exportar, fechar) desde a ONDA
+13. O tipo `Papel` em `src/core/seguranca` tinha **sete** valores e não o
+incluía. Consequência: a tela de usuários não conseguia oferecê-lo, e um usuário
+que o recebesse por SQL apareceria com a **string crua**, porque `nomeDoPapel`
+não o encontrava.
+
+A decisão da ONDA 9 — "a matriz mora no servidor e a interface PERGUNTA" —
+continua certa. O que faltava é a outra metade: **perguntar só funciona se o
+cliente souber nomear a resposta.**
+
+Corrigido, com guarda dos dois lados: `scripts/matriz-permissao.sql` cobra o
+banco (no job `isolamento`) e o bloco `permissao:` do `engine-audit` cobra o
+cliente. Ambas provadas quebrando.
+
+## 11. A4P-070 — o grant residual
+
+⚠️ **Minha ampliação do escopo estava errada, e aplicá-la teria quebrado a
+aplicação da maquininha.** Medi 10 tabelas `maq_*` com os quatro verbos
+concedidos a `authenticated` e propus revogar em todas. **Sete delas** têm a
+política `maq_admin_all` (`FOR ALL ... USING maq_is_admin()`) aplicada ao papel
+`authenticated` — ou seja, `authenticated` é o papel por onde o administrador da
+maquininha opera, e o grant ali **serve** a política.
+
+O alvo certo são as **três** do enunciado original — as que têm RLS ligada e
+**zero políticas**, onde o grant não serve a nada e só engana quem audita:
+`maq_cnpj_cache`, `maq_leads`, `maq_whatsapp_log`.
+
+## A4P-074 — as 19 tabelas que este repositório não lê
+
+**O que consigo provar:**
+
+- **As 19 têm migration NESTE repositório.** Não são schema órfão:
+  `maq_pricing_engine_schema`, `maq_grants_authenticated`,
+  `create_maq_leads_and_whatsapp_log`, `own_integracao_adquirencia` e
+  `trilha_alcanca_as_tabelas_de_adquirencia`.
+- **Nenhuma tem `org_id`** — não aparecem nas 55 tabelas do modelo multiempresa,
+  então estão fora do escopo da RLS por organização por construção.
+- **As 9 `own_*` estão TODAS VAZIAS.** Schema preparado para uma integração que
+  não foi ligada.
+- **8 das 10 `maq_*` têm dados**, e uma delas prova escrita ativa:
+  `maq_cnpj_cache` tem 25 linhas gravadas em **11 dias distintos**, entre
+  14/07 e 13/08. Um seed cai numa transação, num dia. **Isto é uso.**
+- **Este repositório não lê nenhuma delas** (`grep -rn "maq_\|own_" src/`
+  devolve só um comentário).
+
+**Conclusão que o dado sustenta:** existe código FORA deste repositório
+escrevendo em `maq_cnpj_cache`. E ele **não usa `authenticated`** — a tabela tem
+RLS ligada com zero políticas, o que já nega esse papel; logo o escritor é
+`service_role` ou o dono do banco.
+
+**O que NÃO consigo provar daqui:** qual é esse código, onde ele roda, e se ele
+também lê as sete `maq_*` com política. Isso exige acesso ao outro repositório
+ou aos logs de conexão, e eu não os tenho — não vou adivinhar.
+
+**Consequência para a Etapa C, honesta:** o teste de isolamento **não** está
+medindo metade do sistema em termos de risco de vazamento entre organizações,
+porque as 19 tabelas não têm `org_id` e não participam do modelo. Mas ele
+também não diz nada sobre elas — e se a maquininha vier a guardar dado de
+cliente, elas entram no modelo e o teste precisa alcançá-las.

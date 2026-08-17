@@ -29,7 +29,8 @@ export const SEGURANCA_VERSION = "seguranca/1.0.0";
  * é membro — o oposto do que a segregação existe para fazer.
  */
 export type Papel =
-  | "owner" | "admin" | "fechador" | "aprovador" | "lancador" | "leitor" | "member";
+  | "owner" | "admin" | "fechador" | "aprovador" | "lancador" | "leitor" | "member"
+  | "contador_externo";
 
 export type Acao =
   | "ler" | "exportar" | "lancar" | "baixar" | "aprovar" | "fechar"
@@ -43,6 +44,21 @@ export const PAPEIS: { id: Papel; nome: string; oQue: string; legado?: boolean }
   { id: "lancador",  nome: "Lançador",      oQue: "Registra e dá baixa no dia a dia; não aprova e não fecha." },
   { id: "leitor",    nome: "Leitor",        oQue: "Só consulta. Não escreve e não exporta a base." },
   { id: "member",    nome: "Membro (antigo)", oQue: "Papel anterior à separação; equivale ao Lançador.", legado: true },
+  /**
+   * ⚠️ **ESTAVA NO BANCO E NÃO ESTAVA AQUI** — achado da Etapa C (17/08).
+   *
+   * `role_permissions` tem oito papéis; o tipo `Papel` tinha sete. O
+   * `contador_externo` entrou pela ONDA 13 no servidor e nunca chegou ao
+   * cliente: a tela de usuários não conseguia oferecê-lo, e um usuário que o
+   * recebesse por SQL apareceria com a string crua, porque `nomeDoPapel` não o
+   * encontrava.
+   *
+   * É a assimetria que a ONDA 9 diz não poder existir — "a matriz mora no
+   * servidor e a interface PERGUNTA" só funciona se a interface souber nomear o
+   * que o servidor responde.
+   */
+  { id: "contador_externo", nome: "Contador externo",
+    oQue: "Lê, exporta e FECHA o período. Não lança e não aprova — responde pelo resultado do mês, não pelos lançamentos que o formam." },
 ];
 
 export const ACOES: { id: Acao; nome: string; oQue: string }[] = [
@@ -74,6 +90,11 @@ export const MATRIZ_DEMO: Record<Papel, Acao[]> = {
   lancador:  ["ler", "exportar", "lancar", "baixar"],
   member:    ["ler", "exportar", "lancar", "baixar"],
   leitor:    ["ler"],
+  // ⚠️ `fechar` SEM `lancar` é o que define a função: ele responde pelo
+  // resultado do mês, não pelos lançamentos que o formam. Dar-lhe o papel de
+  // admin "porque é mais fácil" põe um terceiro, fora da empresa, com poder de
+  // mover dinheiro.
+  contador_externo: ["ler", "exportar", "fechar"],
 };
 
 /* ========================================================================== */
