@@ -58,9 +58,14 @@ function inventario() {
     encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
   });
   const mapa = {};
+  // ⚠️ Só linhas que SÃO objeto entram. O `psql -f` ecoa as confirmações dos
+  // `\pset` ("Field separator is "|".") na saída, e elas contêm `|` — sem este
+  // filtro viravam um objeto fantasma `Field separator is` acusado como
+  // "ausente". Todo objeto começa por um dos quatro prefixos conhecidos.
+  const PREFIXO = /^(tabela|funcao|policy|grant):/;
   for (const linha of saida.split("\n")) {
     const t = linha.trim();
-    if (!t || !t.includes("|")) continue;
+    if (!PREFIXO.test(t) || !t.includes("|")) continue;
     const i = t.lastIndexOf("|");
     mapa[t.slice(0, i)] = t.slice(i + 1);
   }

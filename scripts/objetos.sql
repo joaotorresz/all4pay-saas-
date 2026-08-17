@@ -55,20 +55,31 @@ with tabelas as (
   -- Aquela view é FILTRADA por privilégio: só mostra grants onde o papel
   -- corrente é grantor, grantee ou membro. Medido em 17/08: como `anon` (sem
   -- SELECT em tabela de cliente, o mesmo perfil do `ci_leitor` do CI), ela volta
-  -- ZERO linhas — e a guarda acusaria os 146 grants todos como ausentes.
+  -- ZERO linhas — e a guarda acusaria todos os grants como ausentes.
   --
   -- `aclexplode(relacl)` sobre `pg_class` é catálogo puro: qualquer papel que
-  -- enxerga `pg_class` lê o ACL inteiro. Testado como `anon`: os 605 grants de
-  -- service_role e 283 de authenticated aparecem, idênticos ao que `postgres`
-  -- vê. É o que torna o retrato gerado como admin igual ao que o `ci_leitor`
-  -- produz — sem dar a ele SELECT em dado de cliente.
+  -- enxerga `pg_class` lê o ACL inteiro. Testado como `anon`: os grants de
+  -- `authenticated` aparecem idênticos ao que `postgres` vê. É o que torna o
+  -- retrato gerado como admin igual ao que o `ci_leitor` produz — sem dar a ele
+  -- SELECT em dado de cliente.
+  --
+  -- ⚠️ **`service_role` FICA DE FORA, e a razão é uma medição.** Nenhuma
+  -- migration deste repositório concede a `service_role` (`grep` devolve ZERO):
+  -- todo grant a esse papel é aplicado pela PLATAFORMA do Supabase. Como esta
+  -- guarda compara o banco EFÊMERO (supabase local, as migrations) com o retrato
+  -- de PRODUÇÃO, e os defaults de `service_role` do local divergem dos do
+  -- hospedado, incluí-lo despejava ~65 DERIVA de plataforma — ruído que a
+  -- guarda não cria nem controla, e que soterrava o sinal real (os órfãos
+  -- `own_*`, o `org_balances` STABLE). Sobram `anon` e `authenticated`: os
+  -- papéis que CHEGAM PELO NAVEGADOR e que as migrations de fato gerenciam por
+  -- revoke — a superfície que o objetos.sql já dizia importar.
   select 'grant:' || c.relname || '.' || acl.grantee::regrole::text as obj,
          md5(string_agg(acl.privilege_type, ',' order by acl.privilege_type)) as sig
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
   cross join lateral aclexplode(c.relacl) acl
   where c.relkind in ('r','v','m','p')
-    and acl.grantee::regrole::text in ('anon','authenticated','service_role')
+    and acl.grantee::regrole::text in ('anon','authenticated')
   group by c.relname, acl.grantee::regrole::text
 )
 select obj || '|' || sig
