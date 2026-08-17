@@ -1391,6 +1391,41 @@ coluna de competência**. É por aí que entram 77%.
 O fallback para o vencimento continua, e a tela do DRE DIZ quantos lançamentos
 do período caíram nele (`coberturaCompetencia`) — instrumentação com consumidor.
 
+### ⚠️ TODA GUARDA SÓ CONTA COMO GUARDA DEPOIS DE REPROVAR
+
+**Plante o defeito que ela deveria pegar, veja reprovar, e guarde esse teste
+negativo junto com o positivo.** Guarda que nunca reprovou é decoração — e
+decoração custa mais que ausência, porque fabrica confiança.
+
+O caso que fixou a regra (A4P-073): a asserção `reconciliação: fecha depois de
+explicada` cobrava `rec.fecha`, e `fecha` saía de
+
+```
+aberturaHistorica = extrato − liquidadoTotal
+residuo           = extrato − (liquidadoTotal + aberturaHistorica)   ≡ 0
+```
+
+Isto é `x − x`. Medido com saldo 600, 0, −999.999, 123.456,78 e um bilhão:
+resíduo **0,00** e `fecha: true` nos cinco. Plantar **+R$ 12.345,67** no saldo,
+sem lançamento nenhum correspondente, **passava sem uma reprovação**. A guarda
+existia, rodava em todo push, e não podia falhar.
+
+⚠️ **E ela ficava verde por dois motivos diferentes, o que a tornava pior:**
+contra defeito de MOTOR ela reprovava de verdade (plantar um erro em `saldoEm`
+derrubou 6 asserções), então havia evidência de que "funcionava". Só contra
+defeito de DADO — o caso que o nome dela promete — é que era cega.
+
+⚠️ **CONSERTO QUE RENOMEIA PARCELA SEM MUDAR COMO ELA É CALCULADA NÃO É
+CONSERTO. É a segunda vez neste repositório.** A ONDA 4 declarou ter resolvido o
+resíduo absorvido (os R$ 437.983,17 rotulados "conciliado") e o que fez foi dar
+NOME às parcelas — a de fechamento continuou sendo calculada por diferença, ou
+seja, continuou existindo para fazer a conta fechar. O texto melhorou, a
+propriedade não mudou, e a auditoria seguinte reencontrou o mesmo defeito com
+outro rótulo.
+
+O teste de que houve conserto de verdade: **a asserção passa a poder falhar.**
+Se depois da correção nenhuma entrada plausível reprova, nada foi consertado.
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não

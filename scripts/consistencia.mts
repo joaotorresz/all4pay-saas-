@@ -759,8 +759,33 @@ const AGOSTO = janelaMes(2026, 7);
 {
   const rec = reconciliarSaldo(INPUT);
   eq("reconciliação: o extrato é a autoridade", rec.extrato, SALDO);
-  ok("reconciliação: fecha depois de explicada", rec.fecha,
-     `extrato ${rec.extrato} vs derivado ${rec.derivado}`);
+  /**
+   * ⚠️ **ERA TAUTOLÓGICA — A4P-073.** Cobrava `rec.fecha`, e `fecha` saía de um
+   * resíduo calculado como `x − x`: zero para qualquer saldo. Plantar
+   * +R$ 12.345,67 no saldo, sem lançamento correspondente, passava.
+   *
+   * Agora ela cobra as duas metades do contrato: sem fonte independente para a
+   * abertura NADA fecha, e com fonte `fecha` é uma medição.
+   */
+  ok("reconciliação: sem fonte independente, NÃO afirma que fecha",
+     !rec.aberturaVerificada && !rec.fecha,
+     `aberturaVerificada=${rec.aberturaVerificada} fecha=${rec.fecha}`);
+  const aberturaOk = { valor: 0, data: "2000-01-01", fonte: "informada" as const };
+  const liquidoTotal = INPUT.movements
+    .filter((m) => m.status === "pago")
+    .reduce((t, m) => t + (m.type === "entrada" ? m.amount : -m.amount), 0);
+  const conferido = reconciliarSaldo({
+    ...INPUT, saldoAtual: liquidoTotal, aberturaVerificada: aberturaOk,
+  });
+  ok("reconciliação: com fonte e saldo coerente, fecha com resíduo zero",
+     conferido.fecha && conferido.residuo === 0, `residuo ${conferido.residuo}`);
+  // O teste NEGATIVO, guardado junto: o saldo movido sem o lançamento.
+  const torto = reconciliarSaldo({
+    ...INPUT, saldoAtual: liquidoTotal + 12_345.67, aberturaVerificada: aberturaOk,
+  });
+  ok("reconciliação: saldo movido sem lançamento é ACUSADO (12.345,67)",
+     Math.abs(torto.residuo - 12_345.67) < 0.01 && !torto.fecha,
+     `residuo ${torto.residuo} fecha=${torto.fecha}`);
   ok("reconciliação: lista as parcelas que explicam a diferença", rec.parcelas.length === 3);
   // A soma das parcelas explicativas tem de cobrir a diferença inteira — uma
   // reconciliação com "resto" não reconciliou nada.

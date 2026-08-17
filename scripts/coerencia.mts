@@ -219,15 +219,50 @@ function condicao1(nome: string, input: RiskInput) {
 
   // E a reconciliação nomeia o resto: uma diferença ABSORVIDA é a que ninguém
   // descobre. Se `fecha` é falso, existe resíduo sem explicação.
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   * ⚠️ **ESTA ASSERÇÃO ERA TAUTOLÓGICA — A4P-073**
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   * Ela cobrava `rec.fecha`, e `fecha` era `residuo === 0` com o resíduo
+   * calculado como `extrato − (liquidadoTotal + (extrato − liquidadoTotal))`.
+   * Isto é `x − x`: zero para QUALQUER saldo. Medido com 600, 0, −999.999,
+   * 123.456,78 e um bilhão — resíduo 0,00 e `fecha: true` nos cinco.
+   *
+   * Provado plantando o defeito que ela deveria pegar: **+R$ 12.345,67 no
+   * saldo, sem nenhum lançamento correspondente, passava sem uma reprovação.**
+   *
+   * O que ela cobra agora é o CONTRATO, e ele tem duas metades:
+   *  · sem fonte independente para a abertura, nada fecha — a tela tem de dizer
+   *    "não conferido" em vez de afirmar que fecha;
+   *  · com fonte, `fecha` é uma MEDIÇÃO: verdadeiro se e somente se o resíduo
+   *    for zero.
+   */
   const rec = reconciliarSaldo(input);
-  exigir(nome, "a reconciliação explica a diferença inteira", rec.fecha,
-    `extrato ${rec.extrato.toFixed(2)} × derivado ${rec.derivado.toFixed(2)}`);
-  // ⚠️ E o resíduo é NOMEADO, não absorvido: `fecha` verdadeiro exige resíduo
-  // zero em reais. Era a terceira contradição da auditoria — R$ 437.983,17
-  // rotulados "conciliado", com a conta certa e o resto do resto sem nome.
-  exigir(nome, "fechou == resíduo zero, em reais",
-    rec.fecha === (Math.abs(rec.residuo) < CENTAVO),
-    `fecha=${rec.fecha} e resíduo ${rec.residuo.toFixed(2)}`);
+  exigir(nome, "sem fonte independente, a reconciliação NÃO afirma que fecha",
+    rec.aberturaVerificada || !rec.fecha,
+    `aberturaVerificada=${rec.aberturaVerificada} fecha=${rec.fecha}`);
+  exigir(nome, "com fonte independente, fechar é o resíduo ser zero",
+    !rec.aberturaVerificada || rec.fecha === (rec.residuo === 0),
+    `residuo ${rec.residuo.toFixed(2)} fecha=${rec.fecha}`);
+
+  /* ---- O TESTE NEGATIVO, guardado junto com o positivo ------------------- */
+  // ⚠️ Guarda só conta como guarda depois de reprovar. Estes dois casos são o
+  // defeito plantado — o saldo se movendo sem o liquidado correspondente — e
+  // ficam no arquivo para que a próxima sessão não precise plantá-lo de novo.
+  const abertura = { valor: 0, data: "2000-01-01", fonte: "informada" as const };
+  const liquido = input.movements
+    .filter((m) => m.status === "pago")
+    .reduce((t, m) => t + (m.type === "entrada" ? m.amount : -m.amount), 0);
+  const coerente = reconciliarSaldo({ ...input, saldoAtual: liquido, aberturaVerificada: abertura });
+  exigir(nome, "abertura conferida e saldo coerente → resíduo zero",
+    coerente.residuo === 0 && coerente.fecha, `residuo ${coerente.residuo.toFixed(2)}`);
+  const torto = reconciliarSaldo({
+    ...input, saldoAtual: liquido + 12_345.67, aberturaVerificada: abertura,
+  });
+  exigir(nome, "saldo movido sem lançamento → a guarda ACUSA os R$ 12.345,67",
+    Math.abs(torto.residuo - 12_345.67) < CENTAVO && !torto.fecha,
+    `residuo ${torto.residuo.toFixed(2)} fecha=${torto.fecha}`);
 }
 
 /* ========================================================================== */

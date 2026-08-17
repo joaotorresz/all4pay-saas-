@@ -85,6 +85,36 @@ export interface RiskMovement {
 }
 
 export interface RiskInput {
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * ⚠️ **O SALDO DE ABERTURA VERIFICADO — fonte INDEPENDENTE, nunca derivada**
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * `reconciliarSaldo` calculava a abertura como `extrato − liquidadoTotal` e
+   * chamava o resultado de parcela que EXPLICA a diferença. Isso é `x − x`: o
+   * resíduo dava zero para QUALQUER saldo — medido com 600, 0, −999.999,
+   * 123.456,78 e um bilhão, todos com resíduo 0,00 e `fecha: true`.
+   *
+   * A guarda de coerência cobrava esse `fecha`, então ela era tautológica:
+   * plantar +R$ 12.345,67 no saldo, sem lançamento nenhum correspondente,
+   * passava sem uma reprovação.
+   *
+   * ⚠️ **É a segunda vez que este defeito é "consertado" por renomeação.** A
+   * ONDA 4 declarou ter resolvido o resíduo absorvido (os R$ 437.983,17
+   * rotulados "conciliado") — e o que fez foi dar NOME às parcelas, deixando a
+   * de fechamento calculada por diferença. Nomear não conserta: a parcela
+   * continuou existindo para fazer a conta fechar.
+   *
+   * Agora a abertura entra por aqui, de fora: informada pelo usuário ou
+   * importada do extrato, com a data a que se refere. Ausente, o sistema DIZ
+   * que não tem como verificar — não finge que fecha.
+   */
+  aberturaVerificada?: {
+    valor: number;
+    /** A data a que o saldo se refere (o dia do primeiro lançamento conhecido). */
+    data: string;
+    fonte: "informada" | "importada";
+  } | null;
   hoje: string; // ISO
   saldoAtual: number;
   movements: RiskMovement[];

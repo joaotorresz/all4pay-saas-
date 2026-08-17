@@ -258,16 +258,30 @@ function ConciliacaoCaixa() {
             </div>
           ))}
         </div>
-        {/* ⚠️ "Conciliado", sozinho, lê como "não há diferença" — e a auditoria
-            leu exatamente assim, sobre R$ 437.983,17. Havia diferença, ela
-            estava explicada, e as duas frases mandam a pessoa fazer coisas
-            diferentes. Agora o selo diz o VALOR da diferença e o que foi feito
-            com ele; e quando não fecha, diz quanto sobrou — "resta uma
-            diferença" sem número não dá para investigar nem para ignorar. */}
+{/* ═══════════════════════════════════════════════════════════════════
+            ⚠️ **A PALAVRA "CONCILIADO" SAIU ENQUANTO A CONTA NÃO FECHAR DE VERDADE.**
+
+            A ONDA 4 já tinha corrigido este selo uma vez: ele dizia
+            "conciliado" sobre R$ 437.983,17 de resíduo, e passou a nomear as
+            parcelas. Só que a parcela de fechamento continuou sendo calculada
+            por DIFERENÇA (`extrato − liquidadoTotal`), então o resíduo era
+            `x − x` — zero para qualquer saldo. Medido: 600, 0, −999.999,
+            123.456,78 e um bilhão, todos com resíduo 0,00 e `fecha: true`.
+
+            ⚠️ Conserto que RENOMEIA a parcela sem mudar como ela é calculada
+            não é conserto — e esta é a segunda vez que isso acontece aqui.
+
+            Agora: sem fonte independente para a abertura, o selo diz NÃO
+            CONFERIDO e mostra quanto foi absorvido. "Conciliado" é literalmente
+            o que este produto vende; dizê-lo sobre uma conta que ninguém fechou
+            fabrica confiança falsa, que é pior que não ter conferência nenhuma.
+        ═══════════════════════════════════════════════════════════════════ */}
         <StatusBadge tone={rec.fecha ? "positive" : "warning"}>
-          {rec.fecha
-            ? `Diferença de ${formatBRL(Math.abs(rec.diferenca))} explicada pelas parcelas acima — nada absorvido`
-            : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação`}
+          {!rec.aberturaVerificada
+            ? `NÃO CONFERIDO — ${formatBRL(Math.abs(rec.diferenca))} de diferença absorvida em saldo anterior não verificado`
+            : rec.fecha
+              ? `Conferido: a diferença de ${formatBRL(Math.abs(rec.diferenca))} fecha contra o saldo de abertura informado`
+              : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação`}
         </StatusBadge>
       </div>
     </Card>
