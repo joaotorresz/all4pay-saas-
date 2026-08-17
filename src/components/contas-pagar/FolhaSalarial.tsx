@@ -22,9 +22,10 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/ui";
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
+import { conferirEncargos, encargosLancados } from "@/core/folha";
 import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAccounts } from "@/components/visao-geral/hooks";
+import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
 import { criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
@@ -136,6 +137,17 @@ export function FolhaSalarial() {
     [colaboradores, mes, fiscal, tabelas],
   );
 
+  /*
+   * ⚠️ O que foi EFETIVAMENTE lançado de encargo na competência, pelas
+   * categorias com linha declarada no plano de contas. Comparado ao projetado,
+   * é o que transforma "o sistema sabia" em "o sistema avisou".
+   */
+  const { data: risco } = useRiscoInput();
+  const conf = React.useMemo(() => {
+    const projetado = painel ? painel.custoTotal - painel.totalBruto : 0;
+    return conferirEncargos(projetado, encargosLancados(risco?.movements ?? [], mes));
+  }, [painel, risco, mes]);
+
   if (!painel) {
     return (
       <div className="flex flex-col gap-4">
@@ -227,7 +239,7 @@ export function FolhaSalarial() {
         ) : (
           <>
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Numero rotulo="Salários e notas" valor={painel.totalBruto}
+              <Numero rotulo="Salários e notas (bruto)" valor={painel.totalBruto} forte
                 detalhe={`${painel.quantosCLT} CLT · ${painel.quantosPJ} PJ`} />
               <Numero rotulo="A equipe recebe" valor={painel.totalLiquido}
                 detalhe="líquido, depois dos descontos" />
@@ -236,9 +248,32 @@ export function FolhaSalarial() {
               {/* ⚠️ O CUSTO em destaque, com o multiplicador ao lado: é o número
                   que muda a decisão de contratar, e o único que não aparece em
                   nenhum contracheque. */}
-              <Numero rotulo="A empresa gasta" valor={painel.custoTotal} forte
-                detalhe={`${painel.multiplicador.toFixed(2)}× o bruto`} />
+              <Numero rotulo="Custo total da empresa" valor={painel.custoTotal}
+                detalhe={`${painel.multiplicador.toFixed(2)}× o bruto — bruto + FGTS, patronal e provisões`} />
             </div>
+            {/*
+              * ⚠️ **O SISTEMA SABIA E NÃO AVISAVA** — a família do A4P-072. A
+              * calculadora projeta o encargo pela lei e o extrato diz o que a
+              * empresa recolheu; quando os dois discordam muito, uma das duas
+              * está errada, e as duas são caras: recolher a menos gera passivo
+              * com multa e juros; projetar errado faz planejar caixa sobre um
+              * número que não vai acontecer.
+              *
+              * O aviso não acusa quem ainda não importou o extrato do mês (sem
+              * lançamento não há o que comparar) nem grita por arredondamento —
+              * ver o limiar de 20% em `conferirEncargos`.
+              */}
+            {conf.divergente && (
+              <p className="m-0 mt-4 text-caption rounded-md px-3 py-2"
+                 style={{ background: "color-mix(in srgb, var(--color-warning) 12%, transparent)" }}>
+                <b className="text-ink font-medium">Encargos lançados divergem do projetado.</b>{" "}
+                A calculadora projeta <b className="text-ink">{formatBRL(conf.projetado)}</b> de FGTS e INSS
+                patronal nesta competência; o extrato traz <b className="text-ink">{formatBRL(conf.lancado)}</b>
+                {" "}({conf.desvio > 0 ? "+" : ""}{Math.round(conf.desvio * 100)}%). Pode ser quadro de pessoal
+                diferente do cadastrado, regime diferente do declarado, ou guia que não foi lançada —
+                vale conferir com o contador.
+              </p>
+            )}
             <p className="m-0 mt-4 text-caption text-muted">
               Regime <b className="text-ink">{ROTULO_REGIME[painel.regime]}</b>
               {painel.anexo ? ` · Anexo ${painel.anexo}` : ""} — {painel.encargos.porque}
@@ -400,10 +435,18 @@ function LinhaColaborador({
             {ROTULO_VINCULO[c.vinculo]}{c.cargo ? ` · ${c.cargo}` : ""}
           </span>
         </span>
+        {/*
+          * ⚠️ **O NÚMERO GRANDE ERA O CUSTO, e o rótulo embaixo dizia "bruto".**
+          * Quem passa o olho lê o valor em destaque e o rótulo mais próximo — e
+          * concluía que o salário do colaborador é R$ 16.244,44 quando ele é
+          * R$ 10.000,00. O custo é a informação certa para decidir contratar, e
+          * continua na linha; o que estava errado era a HIERARQUIA, que
+          * apresentava um número sob o nome de outro.
+          */}
         <span className="text-right shrink-0">
-          <span className="a4p-num block text-label text-ink"><BRL value={linha.custoTotal} /></span>
+          <span className="a4p-num block text-label text-ink"><BRL value={c.valor} /></span>
           <span className="block text-caption text-faint">
-            bruto <BRL value={c.valor} showDecimals={false} />
+            custo <BRL value={linha.custoTotal} showDecimals={false} />
             {linha.clt && ` · ${linha.clt.multiplicador.toFixed(2)}×`}
           </span>
         </span>

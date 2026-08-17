@@ -26,8 +26,14 @@ export interface IndicadoresFinanceiros {
   runwayMeses: number;
   burnRate: number; // R$/mês consumido (0 se gera caixa)
   burnMultiple: number; // queima / nova receita
-  margemOperacional: number; // 0..1
-  margemLiquida: number; // 0..1
+  /**
+   * ⚠️ **Margem de CAIXA (90 dias)** — entradas menos saídas LIQUIDADAS sobre a
+   * receita do mesmo ritmo. Não é a margem operacional do DRE (competência).
+   * Ver `docs/auditoria.md`, #8: este módulo não migra, ele se nomeia.
+   */
+  margemCaixa90d: number; // 0..1
+  /** ⚠️ Margem de caixa já descontada a perda esperada por inadimplência. */
+  eficienciaDeCaixa: number; // 0..1
   receitaRecorrente: number; // 0..1 (share recorrente)
   crescimentoMensal: number; // -1..+ (MoM)
   eficienciaOperacional: number; // 0..10

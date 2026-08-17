@@ -421,6 +421,20 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="sparkles" size={14} color="var(--color-on-lime)" /></span>
         <span className="text-label font-medium text-muted">Análise da IA · DNA financeiro</span>
       </div>
+      {/*
+        * ⚠️ **O AVISO NÃO É DECORAÇÃO.** Estes números saem do extrato
+        * importado, sobre classificação que o próprio motor declara com
+        * confiança — não da cascata do DRE. Sem o aviso, o cliente novo lê uma
+        * estimativa de importação com a mesma cara de uma demonstração
+        * contábil, e é essa indistinguibilidade que faz o número errado
+        * atravessar. Ver `docs/auditoria.md`, #14.
+        */}
+      <p className="m-0 text-caption text-muted rounded-md bg-surface-2 px-3 py-2">
+        <b className="text-ink font-medium">Estimativa da importação.</b>{" "}
+        Estes números vêm do extrato que você enviou e da classificação automática —
+        não são o resultado contábil. O DRE passa a existir depois que as categorias
+        forem confirmadas.
+      </p>
       {/* DNA */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-3">
         {dna.map((l) => (

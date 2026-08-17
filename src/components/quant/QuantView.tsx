@@ -155,8 +155,8 @@ export function QuantView() {
           <Kpi label="Runway" value={`${i.runwayMeses}m`} />
           <Kpi label="Burn / mês" value={i.burnRate > 0 ? <BRL value={i.burnRate} /> : "—"} />
           <Kpi label="Burn multiple" value={i.burnRate > 0 ? `${i.burnMultiple}x` : "—"} />
-          <Kpi label="Margem operacional" value={pct(i.margemOperacional)} />
-          <Kpi label="Margem líquida" value={pct(i.margemLiquida)} />
+          <Kpi label="Margem de caixa (90d)" value={pct(i.margemCaixa90d)} />
+          <Kpi label="Eficiência de caixa" value={pct(i.eficienciaDeCaixa)} />
           <Kpi label="Eficiência op." value={`${i.eficienciaOperacional.toFixed(1)}/10`} />
           <Kpi label="ROIC (proxy)" value={pct(i.roic)} />
           <Kpi label="Crescimento MoM" value={pct(i.crescimentoMensal)} tone={i.crescimentoMensal < 0 ? "var(--color-negative)" : undefined} />

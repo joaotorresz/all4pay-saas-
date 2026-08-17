@@ -114,12 +114,12 @@ export function copilotoFinanceiro(
   if (/(despesa|custo|gasto).*(cresc|aument|subi|maior)|onde.*gast/.test(p)) {
     return {
       resposta:
-        `A despesa mensal está em ${fmt(ctx.despesaMensal)} (margem operacional de ${Math.round(ctx.margemOperacional * 100)}%). ` +
+        `A despesa mensal está em ${fmt(ctx.despesaMensal)} (margem de caixa de ${Math.round(ctx.margemCaixa90d * 100)}%). ` +
         "Veja o detector de anomalias para as categorias que fugiram do padrão histórico — ele aponta os aumentos relevantes por z-score.",
       numeros: [
         num("Despesa mensal", fmt(ctx.despesaMensal)),
         num("Receita mensal", fmt(ctx.receitaMensal)),
-        num("Margem operacional", `${Math.round(ctx.margemOperacional * 100)}%`),
+        num("Margem operacional", `${Math.round(ctx.margemCaixa90d * 100)}%`),
       ],
       confianca: 0.6,
       fontes: ["motor quantitativo", "detector de anomalias"],

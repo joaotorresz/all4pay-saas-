@@ -419,24 +419,37 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     ),
   },
   /* ---- Receita ---- */
+  /*
+   * ⚠️ **DOIS REGIMES, DOIS NOMES.** Estes dois cartões saem do `quant`, que
+   * mede CAIXA (burn de 90 dias). Eles se chamavam "Margem líquida" e "Margem
+   * operacional" — os mesmos nomes que o DRE usa para números de COMPETÊNCIA,
+   * em outros cartões da mesma Home. Duas coisas diferentes com o mesmo nome
+   * são indistinguíveis para quem lê, e a pessoa conclui que o sistema se
+   * contradiz.
+   *
+   * O `quant` NÃO migra para a cascata (`docs/auditoria.md`, #8): o score de
+   * saúde pergunta "o caixa aguenta?", e caixa é a resposta certa para essa
+   * pergunta. O que mudou foi o nome — e o regime passou a ser dito na tela.
+   * As margens de competência continuam disponíveis nos cartões que leem o DRE.
+   */
   {
-    id: "margem-liquida", label: "Margem líquida", categoria: "Receita",
+    id: "margem-caixa-90d", label: "Margem de caixa (90d)", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="gauge" label="Margem líquida"
-        tone={c.quant.indicadores.margemLiquida > 0.1 ? POS : c.quant.indicadores.margemLiquida > 0 ? WARN : NEG}
-        value={`${c.quant.indicadores.margemLiquida >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemLiquida)}`}
-        answer="Quanto sobra de cada real de receita depois de todos os custos e perdas."
-        info={{ titulo: "Margem líquida", oQue: "A fatia da receita que vira lucro depois de custos, despesas e inadimplência.", comoCalcula: "Resultado líquido mensal, já descontada a perda por inadimplência, sobre a receita mensal." }} />
+      <MetricCard icon="gauge" label="Margem de caixa (90d)"
+        tone={c.quant.indicadores.margemCaixa90d > 0.15 ? POS : c.quant.indicadores.margemCaixa90d > 0 ? WARN : NEG}
+        value={`${c.quant.indicadores.margemCaixa90d >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemCaixa90d)}`}
+        answer="De cada real que ENTROU no caixa nos últimos 90 dias, quanto sobrou depois do que saiu."
+        info={{ titulo: "Margem de caixa (90 dias)", oQue: "Quanto sobra do dinheiro que efetivamente entrou, no ritmo dos últimos 90 dias.", comoCalcula: "Entradas menos saídas LIQUIDADAS ÷ entradas, pela data de pagamento (regime de CAIXA). ⚠️ Não é a margem do DRE, que é competência e passa por deduções, custo e resultado financeiro — essa está nos cartões de EBITDA e lucro." }} />
     ),
   },
   {
-    id: "margem-operacional", label: "Margem operacional", categoria: "Receita",
+    id: "eficiencia-de-caixa", label: "Eficiência de caixa", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="gauge" label="Margem operacional"
-        tone={c.quant.indicadores.margemOperacional > 0.15 ? POS : c.quant.indicadores.margemOperacional > 0 ? WARN : NEG}
-        value={`${c.quant.indicadores.margemOperacional >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemOperacional)}`}
-        answer="Quanto a operação gera de resultado antes de perdas por inadimplência."
-        info={{ titulo: "Margem operacional", oQue: "O resultado da operação como fatia da receita, antes de perdas de crédito.", comoCalcula: "Resultado operacional mensal (entradas menos saídas operacionais) sobre a receita mensal." }} />
+      <MetricCard icon="gauge" label="Eficiência de caixa"
+        tone={c.quant.indicadores.eficienciaDeCaixa > 0.1 ? POS : c.quant.indicadores.eficienciaDeCaixa > 0 ? WARN : NEG}
+        value={`${c.quant.indicadores.eficienciaDeCaixa >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.eficienciaDeCaixa)}`}
+        answer="A margem de caixa depois de descontar a perda esperada com quem não paga."
+        info={{ titulo: "Eficiência de caixa", oQue: "A sobra do caixa já descontando a inadimplência esperada da carteira.", comoCalcula: "Margem de caixa (90d) menos a perda esperada por inadimplência, sobre as entradas. ⚠️ Regime de CAIXA — não é a margem líquida do DRE." }} />
     ),
   },
   {
@@ -862,18 +875,18 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "benchmark-margem", label: "Margem vs setor", categoria: "Radares all4pay",
     render: (c) => {
       if (!c.quant) return <Loading />;
-      const linha = c.quant.benchmark.find((b) => b.metrica === "Margem operacional");
+      const linha = c.quant.benchmark.find((b) => b.metrica === "Margem de caixa (90d)");
       if (!linha) return (
         <MetricCard icon="gauge" label="Margem vs setor" value="—"
           answer="Sem referência setorial de margem no momento."
-          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem operacional se compara à mediana do setor.", comoCalcula: "Compara a margem operacional da empresa com a mediana de referência do setor." }} />
+          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem de CAIXA (90d) se compara à mediana do setor.", comoCalcula: "Compara a margem de caixa da empresa (entradas − saídas liquidadas ÷ entradas) com a mediana de referência do setor. ⚠️ Regime de caixa, não a margem do DRE." }} />
       );
       return (
         <MetricCard icon="gauge" label="Margem vs setor"
           tone={linha.acima ? POS : NEG}
           value={`${linha.empresa >= 0 ? "+" : ""}${pctTxt(linha.empresa)}`}
           answer={`Sua margem ${linha.acima ? "supera" : "está abaixo"} da mediana do setor (${pctTxt(linha.setor)}).`}
-          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem operacional se compara à mediana do setor.", comoCalcula: "Compara a margem operacional da empresa com a mediana de referência do setor e indica se está acima." }} />
+          info={{ titulo: "Margem vs setor", oQue: "Como a sua margem de CAIXA (90d) se compara à mediana do setor.", comoCalcula: "Compara a margem de caixa da empresa com a mediana de referência do setor e indica se está acima. ⚠️ Regime de caixa, não a margem do DRE." }} />
       );
     },
   },

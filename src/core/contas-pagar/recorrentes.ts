@@ -27,6 +27,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { magnitude, cancelado } from "@/core/indicadores/convencoes";
+import { nucleoContraparte } from "@/core/regras";
 
 export const RECORRENTES_VERSION = "contas-recorrentes/1.0.0";
 
@@ -93,9 +94,38 @@ const ehContaAPagar = (m: RiskMovement) => m.type === "saida" && !cancelado(m);
  * categoria também não: "Serviços" cobre dez fornecedores diferentes, e a
  * soma deles oscilaria demais para qualquer um ser fixo.
  */
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **A CONTRAPARTE NUNCA É A CATEGORIA** — um campo não ocupa o lugar de outro
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Era `nomes[party_id] ?? ultimo.category ?? "Sem contraparte"`. Sem cadastro
+ * de contraparte, a CATEGORIA virava o nome dela — e o efeito medido é grande:
+ * os 24 lançamentos de **GOOGLE ADS CAMPANHA** e **META ADS FACEBOOK
+ * INSTAGRAM** (R$ 71.043,14 no período) têm `party_id` nulo e o nome do
+ * fornecedor na DESCRIÇÃO. Colapsavam numa única linha chamada "Marketing",
+ * fundindo dois fornecedores distintos e escondendo o nome que estava ali.
+ *
+ * ⚠️ A ordem é: cadastro → descrição → "Sem contraparte". A categoria não entra
+ * em nenhum degrau. Um rótulo errado aqui não é cosmético: a CHAVE do
+ * agrupamento sai daqui, então dois fornecedores viravam um compromisso só, com
+ * as médias somadas.
+ *
+ * ⚠️ E a descrição é NORMALIZADA (`nucleoContraparte`), não crua: "GOOGLE ADS
+ * CAMPANHA 03/26" e "GOOGLE ADS CAMPANHA 04/26" são o mesmo fornecedor, e sem
+ * tirar o número eles virariam dois compromissos avulsos em vez de um
+ * recorrente — o oposto do que este painel existe para achar.
+ */
+function contraparteDe(m: RiskMovement, nomes: Record<string, string>): string {
+  const cadastrada = m.party_id ? nomes[m.party_id] : null;
+  if (cadastrada?.trim()) return cadastrada.trim();
+  const daDescricao = nucleoContraparte(m.descricao ?? "");
+  if (daDescricao) return daDescricao;
+  return "Sem contraparte";
+}
+
 function chave(m: RiskMovement, nomes: Record<string, string>): string {
-  const parte = (m.party_id ? nomes[m.party_id] : null) ?? m.party_id ?? "—";
-  return `${parte.trim().toLowerCase()}·${(m.category ?? "—").trim().toLowerCase()}`;
+  return `${contraparteDe(m, nomes).toLowerCase()}·${(m.category ?? "—").trim().toLowerCase()}`;
 }
 
 /* ========================================================================== */
@@ -226,7 +256,7 @@ export function montarPainelRecorrentes(input: RiskInput, mesRef?: string): Pain
 
     grupos.push({
       chave: k,
-      contraparte: (ultimo.party_id ? nomes[ultimo.party_id] : null) ?? ultimo.category ?? "Sem contraparte",
+      contraparte: contraparteDe(ultimo, nomes),
       categoria: ultimo.category ?? "Sem categoria",
       especie,
       meses: mesesDistintos.size,

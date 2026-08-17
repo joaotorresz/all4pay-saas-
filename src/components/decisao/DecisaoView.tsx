@@ -142,7 +142,7 @@ export function DecisaoView() {
           <Feat label="Conc. receita" value={`${Math.round(features.atual.concentracaoReceita * 100)}%`} />
           <Feat label="Conc. fornecedor" value={`${Math.round(features.atual.concentracaoFornecedor * 100)}%`} />
           <Feat label="Ticket médio" value={<BRL value={features.atual.ticketMedio} />} />
-          <Feat label="Margem op." value={`${Math.round(features.atual.margemOperacional * 100)}%`} />
+          <Feat label="Margem de caixa (90d)" value={`${Math.round(features.atual.margemCaixa90d * 100)}%`} />
           <Feat label="Crescimento" value={`${Math.round(features.atual.crescimentoMensal * 100)}%`} />
           <Feat label="Sazonalidade" value={`${Math.round(features.atual.sazonalidade * 100)}%`} />
           <Feat label="Score saúde" value={`${features.atual.scoreSaude}/100`} />

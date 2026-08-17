@@ -20,6 +20,37 @@ export interface RiskMovement {
   paid_date?: string | null;
   party_id?: string | null;
   category?: string | null;
+  /**
+   * ⚠️ **A COMPETÊNCIA — quando o fato aconteceu.**
+   *
+   * O campo existia no banco e o motor NUNCA o lia: `dataDe(m,"competencia")`
+   * devolvia `due_date` e `RiskMovement` sequer o declarava. Não era fallback
+   * silencioso — era coluna inerte, e "DRE por competência" era DRE por
+   * vencimento por definição escrita.
+   *
+   * O custo não era o número (medido: 23,2% preenchido, e as duas divergências
+   * caem no mesmo mês, então o DRE não muda um centavo). Era o formulário
+   * exigir "Data de competência" e dizer, no texto de ajuda, *"quando o fato
+   * aconteceu — é o que o DRE lê"*. O sistema afirmava algo falso à pessoa no
+   * instante exato em que ela digitava o dado.
+   *
+   * E a consequência é de produto: se o DRE apura por vencimento, ele não é
+   * competência nem caixa — é um terceiro regime sem nome contábil, e os dois
+   * relatórios passam a diferir só por pago-versus-não-pago.
+   *
+   * Ausente, o vencimento continua valendo — mas DECLARADO, nunca calado: a
+   * tela diz quantos lançamentos do período estão sem competência.
+   */
+  competence_date?: string | null;
+  /**
+   * A descrição do lançamento.
+   *
+   * ⚠️ Ela entrou porque a ausência dela produzia um defeito: sem descrição e
+   * sem contraparte, o painel de recorrentes usava a CATEGORIA como nome da
+   * contraparte, e 24 lançamentos de Google e Meta colapsavam numa linha
+   * chamada "Marketing". Um campo não ocupa o lugar de outro.
+   */
+  descricao?: string | null;
   /** Conta financeira de origem (quando houver) — escopa filtros por conta. */
   accountId?: string | null;
   /** Nome do centro de custo (resolvido do cadastro), quando houver. */

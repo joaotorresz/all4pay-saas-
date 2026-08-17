@@ -38,6 +38,8 @@ import { responderLocal } from "@/core/assistant/engine";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { valorOuNulo, type Indicador, type Janela } from "@/core/indicadores";
 import { painelResultado } from "@/core/indicadores/resultado";
+import { montarInvestorUpdate } from "@/core/investor";
+import { analisarQuantitativo } from "@/core/quant";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
@@ -215,6 +217,51 @@ const SUPERFICIES: Superficie[] = [
         { nome: "margem bruta", obtido: pctOuTraco(g.margemBruta), canonico: can.margemBruta },
         { nome: "margem líquida", obtido: pctOuTraco(g.margemLiquida), canonico: can.margemLiquida },
       ];
+    },
+    texto: () => "",
+  },
+  {
+    /*
+     * ⚠️ O painel de Vendas mostra RECEITA, MARGEM DE CONTRIBUIÇÃO e EBITDA por
+     * mês. Entra pelas mesmas linhas da cascata que a tela lê — se alguém
+     * reintroduzir a soma inline, a diferença aparece aqui.
+     */
+    nome: "#10 VendasDashboardView · receita/MC/EBITDA",
+    prosa: false,
+    regimes: ["competencia"],
+    exibe: (c) => {
+      const cas = cascataDRE(c.input, { intervalo: c.intervalo, regime: "competencia" });
+      return {
+        receita_bruta: fmt(cas.linhas.receita_bruta.valor),
+        margem_contribuicao: fmt(cas.linhas.margem_contribuicao.valor),
+        ebitda: fmt(cas.linhas.ebitda.valor),
+      };
+    },
+    texto: () => "",
+  },
+  {
+    /*
+     * ⚠️ O Investor Update publica RECEITA DO MÊS e MARGEM LÍQUIDA. Só
+     * competência: é o que o investidor lê quando compara a empresa com outra,
+     * e é o que aparece na diligência.
+     */
+    nome: "#9 Investor Update · receita do mês",
+    prosa: false,
+    regimes: ["competencia"],
+    exibe: (c) => {
+      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const kpi = u.kpis.find((k) => k.id === "receita");
+      return { receita_bruta: typeof kpi?.valor === "number" ? fmt(kpi.valor) : null };
+    },
+    margens: (c) => {
+      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const kpi = u.kpis.find((k) => k.id === "margem");
+      const can = cascataDRE(c.input, { intervalo: c.intervalo, regime: "competencia" });
+      const txt = String(kpi?.valor ?? "—");
+      // O Investor formata com uma casa; o contrato compara na mesma casa.
+      const esperado = can.margemLiquida.indisponivel
+        ? "—" : `${(can.margemLiquida.valor * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+      return [{ nome: "margem líquida", obtido: txt === esperado ? pctOuTraco(can.margemLiquida) : txt, canonico: can.margemLiquida }];
     },
     texto: () => "",
   },
@@ -474,13 +521,66 @@ for (const caso of CASOS) {
   conferir("depois · IRPJ vira imposto sobre o lucro", depois.linhas.impostos_lucro.valor, 7_000);
   conferir("depois · EBITDA sobe pelo que saiu da dedução", depois.linhas.ebitda.valor, 78_000);
 
-  // ⚠️ O FUNDO NÃO SE MEXE. É a asserção que separa reclassificar de alterar.
-  const d = depois.linhas.resultado_liquido.valor - antes.linhas.resultado_liquido.valor;
-  if (Math.abs(d) > 0.01) {
-    erro("reclassificação · o RESULTADO LÍQUIDO não pode mudar",
-      `mexeu ${fmt(d)}: antes ${fmt(antes.linhas.resultado_liquido.valor)}, depois ${fmt(depois.linhas.resultado_liquido.valor)} — isto deixou de ser reclassificação`);
+  /*
+   * ═════════════════════════════════════════════════════════════════════════
+   * ⚠️ A INVARIANTE DO FUNDO — na forma GERAL, não na forma "não muda"
+   * ═════════════════════════════════════════════════════════════════════════
+   *
+   *     Δ Resultado Líquido = −(total do que SAIU do DRE)
+   *
+   * e portanto **zero quando nada sai**. Reclassificar DENTRO do DRE é neutro
+   * no fundo: a linha muda, a cascata reordena, o resultado não se move.
+   * REMOVER não é reclassificar, e move o fundo pelo valor exato do removido.
+   *
+   * ⚠️ **A forma antiga ("o resultado líquido não pode mudar") reprovaria toda
+   * correção legítima que tire algo do DRE.** Foi o que aconteceu ao declarar
+   * `transferencia`: o resultado subiu R$ 267,70 — fatura de cartão R$ 167,70 e
+   * boleto de transferência R$ 100,00 —, e isso é a correção funcionando. Uma
+   * transferência nunca foi despesa; enquanto ela estava lá, o custo da empresa
+   * carregava dinheiro que só mudou de bolso. Guarda que reprova o certo é
+   * desligada na primeira semana, ou "consertada" com o número novo — e aí ela
+   * deixou de medir a regra e passou a memorizar um dataset.
+   *
+   * O sinal: uma SAÍDA removida melhora o resultado (+), uma ENTRADA removida
+   * o piora (−).
+   */
+  const deltaEsperado = (removidos: readonly RiskMovement[]) =>
+    removidos.reduce((t, m) => t + (m.type === "saida" ? m.amount : -m.amount), 0);
+
+  const conferirFundo = (
+    nome: string, a: typeof antes, b: typeof depois, removidos: readonly RiskMovement[],
+  ) => {
+    const d = b.linhas.resultado_liquido.valor - a.linhas.resultado_liquido.valor;
+    const esperado = deltaEsperado(removidos);
+    if (Math.abs(d - esperado) > 0.01) {
+      erro(`fundo · ${nome}`,
+        `Δ deu ${fmt(d)}, esperado ${fmt(esperado)} (o que saiu do DRE) — `
+        + `antes ${fmt(a.linhas.resultado_liquido.valor)}, depois ${fmt(b.linhas.resultado_liquido.valor)}`);
+    } else {
+      ok(`fundo · ${nome}`, `Δ ${fmt(d)} = −(saiu ${fmt(-esperado)})`);
+    }
+  };
+
+  // Reclassificação pura: nada saiu, então o fundo não se mexe.
+  conferirFundo("reclassificar dentro do DRE é neutro (Δ = 0)", antes, depois, []);
+
+  /* ---- E o caso que a forma antiga reprovaria: algo SAI do DRE ----------- */
+  const fatura = mv("g_t", "saida", "pago", 267.70, "2026-08-15", "2026-08-15", "Credit card payment", "T");
+  const comFatura: RiskInput = { ...separado, movements: [...separado.movements, fatura] } as RiskInput;
+  const dentro = cascataDRE(comFatura, {
+    intervalo: AGOSTO, regime: "competencia", linhaPorCategoria: LINHA_POR_CATEGORIA,
+  });
+  const fora = cascataDRE(comFatura, {
+    intervalo: AGOSTO, regime: "competencia",
+    linhaPorCategoria: { ...LINHA_POR_CATEGORIA, "credit card payment": "transferencia" },
+  });
+  conferirFundo("remover do DRE move o fundo pelo valor exato", dentro, fora, [fatura]);
+  // ⚠️ E o caso tem de DISCRIMINAR: se os dois fechassem igual, a declaração de
+  // transferência não estaria fazendo nada e o teste aprovaria o vazio.
+  if (Math.abs(fora.linhas.resultado_liquido.valor - dentro.linhas.resultado_liquido.valor) < 0.01) {
+    erro("fundo · o caso da transferência não discrimina", "os dois cenários deram o mesmo resultado");
   } else {
-    ok("reclassificação · o RESULTADO LÍQUIDO não muda", `${fmt(depois.linhas.resultado_liquido.valor)} nos dois`);
+    ok("fundo · o caso da transferência discrimina", fmt(fora.linhas.resultado_liquido.valor - dentro.linhas.resultado_liquido.valor));
   }
 
   // ⚠️ Sem a linha declarada, o INSS volta para a dedução — é o que prova que o
@@ -491,6 +591,39 @@ for (const caso of CASOS) {
       `sem linhaPorCategoria a dedução deu ${fmt(semDeclaracao.linhas.deducoes.valor)} — se já está certa, o caso não prova que a declaração é necessária`);
   } else {
     ok("reclassificação · sem a linha declarada o INSS volta para a dedução", fmt(semDeclaracao.linhas.deducoes.valor));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* 2d. #8 NÃO MIGRA — mas nenhum número dele usa nome de linha do DRE        */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+{
+  /*
+   * ⚠️ **A guarda do caso que NÃO migrou.** `core/quant` mede CAIXA (burn de 90
+   * dias) e continua medindo — o score pergunta "o caixa aguenta?", e caixa é a
+   * resposta certa. O risco dele nunca foi a fonte: era o NOME. Enquanto se
+   * chamava "margem líquida" e "margem operacional", a Home mostrava dois
+   * números diferentes com o mesmo rótulo — um de caixa, outro de competência —
+   * e quem lia concluía que o sistema se contradiz.
+   *
+   * Esta asserção é sobre o VOCABULÁRIO, e é o que impede o nome de voltar.
+   */
+  const proibidos = ["margemLiquida", "margemOperacional"] as const;
+  const chaves = Object.keys(analisarQuantitativo(FIXTURE.INPUT).indicadores);
+  const reincidentes = proibidos.filter((k) => chaves.includes(k));
+  if (reincidentes.length > 0) {
+    erro("#8 · nenhum número de caixa usa nome de linha do DRE",
+      `${reincidentes.join(", ")} voltou a existir em quant/indicadores. Dois regimes, dois nomes: use margemCaixa90d / eficienciaDeCaixa`);
+  } else {
+    ok("#8 · nenhum número de caixa usa nome de linha do DRE", "margemCaixa90d · eficienciaDeCaixa");
+  }
+  // E o número segue existindo — renomear não pode ter apagado a leitura.
+  const i = analisarQuantitativo(FIXTURE.INPUT_QUEIMANDO).indicadores;
+  if (typeof i.margemCaixa90d !== "number" || Number.isNaN(i.margemCaixa90d)) {
+    erro("#8 · a leitura de caixa continua existindo", `margemCaixa90d = ${i.margemCaixa90d}`);
+  } else {
+    ok("#8 · a leitura de caixa continua existindo", `${(i.margemCaixa90d * 100).toFixed(1)}%`);
   }
 }
 

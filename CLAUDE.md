@@ -1235,6 +1235,44 @@ tela que está classificando por palpite** até alguém declarar. Enquanto nenhu
 das duas existir, o sistema entrega um DRE adivinhado com a mesma cara de um
 DRE conferido — e é essa indistinguibilidade que faz o defeito atravessar.
 
+### ⚠️ A4P-036 — REFUTADO: a folha estava certa, quem mediu errado fui eu
+
+**"A tela mostra líquido de R$ 7.966 sobre bruto de R$ 12.500 (36,3% de
+desconto); o correto seria ~21%." — CANCELADO. O defeito não existe.**
+
+Consultado o cadastro real (`org_state.a4p_colaboradores`): o colaborador de
+R$ 10.000 tem **R$ 1.000 de vale-refeição e R$ 800 de vale-transporte**. São
+descontos legítimos de contracheque, e entram em `outros`. Rodando
+`montarPainelFolha` sobre o cadastro REAL: líquido **R$ 7.966,57**, descontos
+**R$ 4.533,43 (36,3%)** — a tela ao centavo.
+
+⚠️ **O erro de método foi meu, e é exatamente o que este arquivo persegue.** Eu
+medi `calcularCLT` com colaboradores "nus" — sem VR, sem VT — e comparei o
+resultado com a tela, que usava o cadastro real. Duas entradas diferentes, uma
+conclusão de divergência. É a mesma família de "o teste passou provando o
+vazio", pelo avesso: **a medição reprovou provando outra coisa.**
+
+A regra que sai daí, e que vale para toda auditoria de tela: **meça com o dado
+que a tela usa.** Se a comparação é entre motor e superfície, as duas pontas têm
+de receber a MESMA entrada — senão o que se mede é a diferença das entradas, não
+a do cálculo.
+
+⚠️ **Fica escrito porque achado refutado que não é escrito volta** (mesma razão
+do A4P-028). Sem esta nota, a próxima auditoria reabre "36,3% é muito", alguém
+"corrige" o motor que está certo, e o produto passa a subestimar desconto de
+folha para todo cliente que cadastra benefício.
+
+**Também refutado no mesmo item: "fator de custo idêntico para salários
+diferentes é matematicamente impossível".** É o contrário — é inevitável.
+`custoTotal` é bruto + FGTS + patronal + provisões, e todas essas parcelas são
+proporcionais ao bruto; INSS e IRRF do empregado são DESCONTO e não entram no
+custo do empregador. Há asserção no `engine-audit` para impedir que alguém
+"conserte" isso.
+
+**O que era real no relatório:** a hierarquia do cartão. O número em destaque era
+o CUSTO com o rótulo "bruto" logo abaixo — corrigido, bruto em destaque e custo
+como métrica secundária rotulada.
+
 ### ⚠️ TODA FIXTURE PROVA QUE O CAMINHO TESTADO RECEBEU VALOR
 
 **Asserte que o número MUDOU, não apenas que nada quebrou.** Um teste verde só
@@ -1261,6 +1299,124 @@ linha, a quantidade de lançamentos, o sinal — e não só sobre a ausência de
 exceção. Quando o caso existe para separar duas contas, asserte também que as
 duas dão respostas DIFERENTES sobre ele: um caso que não discrimina é um caso
 que não testa.
+
+### ⚠️ MEÇA COM O DADO QUE A SUPERFÍCIE USA — e diga por qual campo ela classifica
+
+Dois casos, e o segundo é o que fecha a regra.
+
+**A4P-036 (a folha):** o motor foi alimentado com colaboradores SEM benefício e
+comparado com a tela alimentada pelo cadastro real. Duas entradas diferentes,
+uma conclusão de divergência — a medição reprovou provando outra coisa.
+
+**Item 1 do lote P-06B (o Resultado Financeiro):** a consulta juntou `movements`
+a `categories` por `category_id`, e as 36 linhas de tarifa da organização
+auditada têm **`category_id` NULO**, com o nome no campo TEXTO
+`movements.category` — que é exatamente o que a classificação lê
+(`cat(m) = m.category` em `core/relatorios`). Todas caíram em "(sem categoria)",
+`ehFinanceiro` não casou com nada, e o zero produzido pelo JOIN foi lido como
+zero do negócio. Sobre ele saiu a afirmação de que o Resultado Financeiro era
+R$ 0,00 em TODA organização — e o valor real era R$ 1.293,65, exatamente o gap
+que estava sendo investigado.
+
+⚠️ **O teste de que a regra foi respeitada:** conseguir dizer, ANTES de
+concluir, **por qual campo a superfície classifica**. Se a resposta for
+"presumi", a medição ainda não começou. `movements` carrega a categoria em DOIS
+lugares — o texto `category` e a chave `category_id` — e a aplicação lê o
+primeiro com o segundo resolvido por cima; consultar só a chave mede uma
+superfície que ninguém renderiza.
+
+⚠️ **E o veredito tem de caber na medição.** "Refutado" é terminal: autoriza
+fechar o item e diz ao próximo auditor para não voltar. Aplicado a um defeito
+que existe, ele apaga o rastro que levaria à causa — achado mal nomeado custa
+DUAS rodadas, uma para persegui-lo no lugar errado e outra para reencontrá-lo.
+Quando o defeito é real e o endereço é que estava errado, o nome é **diagnóstico
+trocado**, não refutado. O A4P-028 e o A4P-036 são o caso oposto (o terminal
+estava certo, e escrevê-lo impede o achado de voltar) — os três ficam registrados
+juntos de propósito, porque **o que decide não é a força da medição, é se ela
+mediu o que a conclusão afirma.**
+
+### ⚠️ A INVARIANTE DO FUNDO — na forma GERAL, não em "não pode mudar"
+
+> **Δ Resultado Líquido = −(total do que SAIU do DRE)**, e zero quando nada sai.
+
+Reclassificar DENTRO do DRE é neutro no fundo: a linha muda, a cascata reordena,
+o resultado não se move. **Remover não é reclassificar**, e move o fundo pelo
+valor exato do removido — uma SAÍDA removida melhora o resultado, uma ENTRADA
+removida o piora.
+
+⚠️ **A forma antiga ("o resultado líquido não pode mudar") reprovaria toda
+correção legítima que tire algo do DRE.** Foi o que aconteceu ao declarar
+`transferencia`: o resultado subiu **R$ 267,70** (fatura de cartão R$ 167,70 +
+boleto de transferência R$ 100,00), e isso é a correção funcionando — uma
+transferência nunca foi despesa, e enquanto ela estava lá o custo da empresa
+carregava dinheiro que só mudou de bolso.
+
+Uma guarda que reprova o certo é desligada na primeira semana, ou "consertada"
+com o número novo — e aí ela deixou de medir a regra e passou a memorizar um
+dataset. A asserção do contrato (`scripts/contrato-resultado.mts`) cobra a forma
+geral, com o caso de remoção ao lado do de reclassificação pura.
+
+### ⚠️ A COMPETÊNCIA É LIDA — e o fallback é DECLARADO
+
+`competence_date` existia no banco e o motor **nunca a lia**: `dataDe(m,
+"competencia")` devolvia `due_date` e `RiskMovement` sequer declarava o campo.
+Não era fallback silencioso — era **coluna inerte**, e "DRE por competência" era
+DRE por vencimento por definição escrita.
+
+⚠️ **O custo não era o número.** Medido: 23,2% preenchido (123 de 530), e as duas
+únicas divergências caem no mesmo mês — o DRE não muda um centavo. O custo era o
+formulário exigir "Data de competência" e dizer, no texto de ajuda, *"quando o
+fato aconteceu — é o que o DRE lê"*. O sistema afirmava algo falso a quem digita,
+no instante em que digita. E a consequência é de produto: um DRE que apura por
+vencimento não é competência nem caixa, e os dois relatórios passam a diferir só
+por pago-versus-não-pago.
+
+⚠️ **A correção descobriu uma SEGUNDA implementação da regra de data.**
+`core/relatorios.dataDoRegime` repetia `regime === "caixa" ? paid_date :
+due_date` por conta própria — por isso ligar a competência em `dataDe` não mudou
+nada no DRE: o relatório nunca a chamava. Agora ela delega.
+
+⚠️ **E a delegação trocou o regime em silêncio, num caso.** Com `regime`
+indefinido (o spread de um filtro genérico atravessa o tipo), a expressão antiga
+caía em COMPETÊNCIA por acidente do ternário e a delegação caía em CAIXA pelo
+acidente inverso — R$ 5.000 de diferença entre o cartão e a tabela, pego pela
+guarda. A normalização agora é DITA. Nenhum dos dois padrões se defende sozinho;
+o que não pode é a escolha depender de qual operador veio primeiro.
+
+**Quem preenche:** 121 de 121 lançamentos de `origem = 'manual'` têm competência
+— o formulário exige e cumpre. Os 405 sem vêm da IMPORTAÇÃO (`origem` nula, o
+extrato/onboarding), e o modelo de planilha em lote (`ImportacaoView`) **não tem
+coluna de competência**. É por aí que entram 77%.
+
+O fallback para o vencimento continua, e a tela do DRE DIZ quantos lançamentos
+do período caíram nele (`coberturaCompetencia`) — instrumentação com consumidor.
+
+### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
+
+Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não
+é. Log que ninguém lê, campo que ninguém exibe, contagem que nenhuma tela mostra:
+os três passam em typecheck, entram no diff com ar de conclusão, e a pergunta que
+motivou a medição continua sem resposta para quem opera.
+
+A regra: **toda instrumentação entrega junto o consumidor que age sobre ela.**
+Se o número entrou no motor, alguma superfície o lê; se o evento entrou na
+trilha, alguém sabe onde procurá-lo.
+
+Três casos deste lote, todos do mesmo lote de correções:
+
+- A projeção passou a incluir o vencido em aberto — o valor SOBE, e sem
+  `regraDoVencido` na tela nada explicaria por quê. Um cartão que muda de valor
+  sem dizer o motivo é lido como defeito.
+- `canceladosNaJanela` sozinho seria um cálculo que ninguém vê; o rodapé
+  (`NotaCancelados`) é a metade que resolve o problema.
+- A purga passou a apagar só `onboarding_demo`, e a contagem do banner teve de
+  ser separada no MESMO gesto — restringir a purga sem contar separado deixaria
+  a tela prometendo 147 ao lado de um botão que apaga 146, que é um defeito novo
+  no lugar do velho.
+
+⚠️ O corolário para a guarda: quando a correção tem duas metades, a fixture
+cobra as DUAS. Uma guarda que aprova só o motor deixa o conserto pela metade
+passar como completo — e é a metade da tela que a pessoa vê.
 
 ### ⚠️ TEXTO DE TELA NÃO FALA DE IMPLEMENTAÇÃO
 

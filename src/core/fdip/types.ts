@@ -103,11 +103,35 @@ export interface SetupPlan {
   categorias: string[];
   centrosCusto: string[];
   recorrencias: number;
+  /**
+   * ⚠️ **ESTIMATIVA DA IMPORTAÇÃO — não é o resultado contábil.**
+   *
+   * Verificado antes de decidir (`docs/auditoria.md`, #14): este motor **não
+   * consegue** consumir a `cascataDRE`, e a razão não é de encanamento. Ele roda
+   * no ONBOARDING, sobre dado que ainda não foi classificado:
+   *
+   * - `FinancialRecord` não tem categoria — a empresa ainda não existe, e o
+   *   plano de contas dela também não;
+   * - a classificação é um PALPITE do próprio FDIP, com confiança declarada
+   *   (0.4 no desconhecido), numa taxonomia que não é a `ESTRUTURA_DRE`;
+   * - o extrato é caixa bruto, sem conciliação e sem competência.
+   *
+   * Forçar a cascata aqui produziria um "DRE" montado sobre confiança 0.4 e o
+   * apresentaria com a mesma cara do DRE conferido — que é exatamente a
+   * indistinguibilidade que este repositório persegue.
+   *
+   * Então a correção não foi migrar: foi **parar de chamar isto de receita e
+   * EBITDA**. Nenhum número muda de significado sem mudar de nome.
+   */
   estimativas: {
-    receitaMensal: number;
-    despesaMensal: number;
-    ebitda: number;
-    margemEbitda: number;
+    /** Entradas ÷ meses observados. NÃO é receita: inclui aporte, empréstimo e transferência. */
+    entradaMensalEstimada: number;
+    /** Saídas ÷ meses observados. */
+    saidaMensalEstimada: number;
+    /** Entradas − saídas. NÃO é EBITDA: não há dedução, custo nem linha financeira. */
+    resultadoMensalEstimado: number;
+    /** Resultado ÷ entradas. NÃO é margem EBITDA. */
+    margemEstimada: number;
     burnMensal: number;
     receitaRecorrentePct: number;
   };

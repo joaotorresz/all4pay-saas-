@@ -13,7 +13,7 @@ import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon, ValorIndicador, type FormatoValor } from "@/components/ui";
+import { Card, Skeleton, Select, Icon, ValorIndicador, NotaCancelados, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -25,7 +25,9 @@ import { listarOrcamentos } from "@/lib/orcamentos";
 import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
 import { getLinhasDeCategoria } from "@/lib/data";
-import { runwayMeses, saldo } from "@/core/indicadores";
+import {
+  runwayMeses, saldo, canceladosNaJanela, coberturaCompetencia, janela as fazJanela,
+} from "@/core/indicadores";
 import { cascataDRE } from "@/core/relatorios/cascata";
 import type { RiskInput } from "@/core/risk-engine/types";
 import {
@@ -112,6 +114,18 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
 
   const cob = relatorio && escolhido ? cobertura(escolhido, relatorio.colunas) : null;
 
+  // Recortado por VENCIMENTO nos dois relatórios: um título cancelado nunca
+  // ganhou data de pagamento, então não há data de caixa para recortá-lo.
+  const competencia = React.useMemo(
+    () => (input ? coberturaCompetencia(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
+    [input, aplicados.intervalo.de, aplicados.intervalo.ate],
+  );
+
+  const cancelados = React.useMemo(
+    () => (input ? canceladosNaJanela(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
+    [input, aplicados.intervalo.de, aplicados.intervalo.ate],
+  );
+
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -195,6 +209,29 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         <>
           {layout.mostrarGrafico && <GraficoResultado relatorio={relatorio} tipo={tipo} tema={layout.tema} />}
           <TabelaRelatorio relatorio={relatorio} layout={layout} onCelula={setCelula} orcamento={comparacao} />
+          {/* ⚠️ RODAPÉ, não linha: o cancelado fica FORA dos números acima (e
+              deve mesmo ficar — não é receita, não é despesa, não vai ao
+              caixa), mas até aqui ele saía calado. Um relatório sobre uma base
+              com centenas de cancelados tinha a mesma cara de um sobre base
+              limpa, e a diferença só aparecia para quem conferia o total
+              contra o extrato. */}
+          {cancelados && <NotaCancelados dados={cancelados} />}
+          {/* ⚠️ O FALLBACK DA COMPETÊNCIA, DITO. O motor lê `competence_date`;
+              faltando, usa o vencimento — e um DRE montado metade por uma data
+              e metade por outra tem a mesma cara de um conferido. Só aparece no
+              DRE: no DFC a data é a do pagamento, e a competência não entra. */}
+          {tipo === "dre" && competencia && competencia.semCompetencia > 0 && (
+            <div className="flex items-start gap-2 px-1 pt-1" role="note">
+              <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
+              <p className="m-0 text-caption text-muted leading-snug">
+                <b className="text-ink tabular-nums">{competencia.semCompetencia}</b> de{" "}
+                <b className="text-ink tabular-nums">{competencia.total}</b> lançamentos do período
+                não têm data de competência informada — esses entram pelo{" "}
+                <b className="text-ink">vencimento</b>. Enquanto houver lançamento sem competência,
+                o resultado mistura as duas datas.
+              </p>
+            </div>
+          )}
         </>
       )}
 

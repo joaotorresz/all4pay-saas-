@@ -35,7 +35,7 @@ function saude(i: IndicadoresFinanceiros): Health {
     liquidez: normalizar(i.liquidezCorrente, 0.7, 2.0),
     runway: normalizar(i.runwayMeses, 3, 18),
     inadimplencia: 1 - clamp01(i.inadimplencia),
-    margem: normalizar(i.margemOperacional, 0, 0.35),
+    margem: normalizar(i.margemCaixa90d, 0, 0.35),
     volatilidade: 1 - clamp01(i.volatilidadeFluxo),
     concentracao: 1 - clamp01(i.concentracaoReceita),
     crescimento: normalizar(i.crescimentoMensal, -0.1, 0.15),
@@ -175,7 +175,7 @@ export function cenariosPreditivos(
     const runwayMeses = mesesDeRunway(runwayDias);
     const h = saude({
       ...i,
-      margemOperacional: margem,
+      margemCaixa90d: margem,
       runwayMeses,
       inadimplencia: inad,
     });

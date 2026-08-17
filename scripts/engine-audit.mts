@@ -15,7 +15,13 @@ import { parseTexto } from "@/core/fdip/engine";
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
-import { valorOuNulo } from "@/core/indicadores";
+import { montarFilaRevisao, descritivoIlegivel, type ItemRevisao } from "@/core/revisao";
+import { cascataDRE } from "@/core/relatorios/cascata";
+import {
+  valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
+  coberturaCompetencia,
+  janela as janelaCanonica,
+} from "@/core/indicadores";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -91,11 +97,7 @@ import {
 } from "@/core/registros";
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
-import {
-  montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento,
-  mesesDoIntervalo, intervaloDoPreset, compararOrcamento,
-  ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS,
-} from "@/core/relatorios";
+import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -114,6 +116,7 @@ import {
   calcularFerias, diasPorFaltas, maximoAbono,
   calcularRescisao, diasAviso, estimarFGTS, REGRAS,
   type Colaborador,
+  conferirEncargos,
 } from "@/core/folha";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
@@ -3483,6 +3486,89 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("recor: janeiro − 1 = dezembro do ano anterior", deslocarMesCP("2026-01", -1) === "2025-12");
 }
 
+// ── folha: CINCO SALÁRIOS, uma por faixa, conferidos À MÃO ────────────────
+/*
+ * ⚠️ **Cada caso prova que o caminho RECEBEU VALOR** (regra do CLAUDE.md): não
+ * basta o cálculo não explodir — o número tem de ser o esperado, e os casos têm
+ * de DISCRIMINAR entre si. Um conjunto de salários que produzisse o mesmo
+ * líquido não testaria a progressividade que ele existe para fixar.
+ *
+ * Tabela de 2025 (junho), sem dependentes, regime Lucro Presumido.
+ */
+{
+  const CASOS = [
+    // 1.518 — PISO. Só a 1ª faixa: 1518 × 7,5% = 113,85. IRRF zero (base abaixo
+    // da 1ª faixa mesmo pelo critério legal).
+    { bruto: 1518, inss: 113.85, irrf: 0, liquido: 1404.15, custo: 2465.91 },
+    // 2.500 — 2ª faixa. 1518×7,5% = 113,85 · (2500−1518)×9% = 88,38 → 202,23.
+    { bruto: 2500, inss: 202.23, irrf: 0, liquido: 2297.77, custo: 4061.11 },
+    // 5.000 — 4ª faixa. 113,85 + 114,83 + 167,63 + (5000−4190,83)×14% = 113,28
+    // → 509,60. IRRF pelo SIMPLIFICADO: 312,89 (menor que o legal).
+    { bruto: 5000, inss: 509.60, irrf: 312.89, liquido: 4177.51, custo: 8122.23 },
+    // 10.000 — ACIMA DO TETO do INSS: 951,63 e não cresce mais.
+    { bruto: 10000, inss: 951.63, irrf: 1579.57, liquido: 7468.80, custo: 16244.44 },
+    // 30.000 — bem acima do teto: INSS idêntico ao de 10.000; só o IRRF cresce.
+    { bruto: 30000, inss: 951.63, irrf: 7079.57, liquido: 21968.80, custo: 48733.33 },
+  ];
+  for (const k of CASOS) {
+    const c = calcularCLT({ id: "f", nome: "f", tipo: "clt", valor: k.bruto, dependentes: 0 } as never,
+      "2025-06", "presumido" as never, null);
+    ok(`folha: ${k.bruto} → INSS ${k.inss}`, c.inss === k.inss, String(c.inss));
+    ok(`folha: ${k.bruto} → IRRF ${k.irrf}`, c.irrf === k.irrf, String(c.irrf));
+    ok(`folha: ${k.bruto} → líquido ${k.liquido}`, c.liquido === k.liquido, String(c.liquido));
+    ok(`folha: ${k.bruto} → custo ${k.custo}`, c.custoTotal === k.custo, String(c.custoTotal));
+  }
+
+  /*
+   * ⚠️ **OS CASOS DISCRIMINAM** — cinco líquidos DIFERENTES. Sem isto, uma
+   * implementação que devolvesse sempre o mesmo número passaria nas asserções
+   * acima se por acaso acertasse uma delas.
+   */
+  const liquidos = new Set(CASOS.map((k) => k.liquido));
+  ok("folha: os cinco casos produzem líquidos DIFERENTES", liquidos.size === 5, `${liquidos.size} distintos`);
+
+  /*
+   * ⚠️ **E O MULTIPLICADOR É CONSTANTE — de propósito, e isto NÃO é defeito.**
+   *
+   * Foi reportado como erro ("dois salários com o mesmo 1,62× é matematicamente
+   * impossível"). É o contrário: `custoTotal` é bruto + FGTS + patronal +
+   * provisões, e TODAS essas parcelas são proporcionais ao bruto. O INSS e o
+   * IRRF do empregado são DESCONTO — saem do bolso dele, não entram no custo do
+   * empregador. Então o fator de custo é o mesmo para qualquer salário, e o que
+   * a progressividade muda é o LÍQUIDO, asserido acima.
+   *
+   * Esta asserção existe para impedir que alguém "conserte" o que está certo.
+   */
+  const fatores = new Set(CASOS.map((k) => Math.round((k.custo / k.bruto) * 1000)));
+  ok("folha: o multiplicador de CUSTO é o mesmo para todo salário (encargo é proporcional)",
+     fatores.size === 1, `${[...fatores].map((f) => (f / 1000).toFixed(3)).join(", ")}`);
+}
+
+// ── folha: o aviso de encargo divergente ──────────────────────────────────
+{
+  /*
+   * ⚠️ Os quatro casos que decidem se o aviso PRESTA. Um aviso que aparece
+   * sempre é um aviso que se aprende a ignorar — e aí ele não existe quando
+   * importa.
+   */
+  ok("folha: encargo dentro da faixa NÃO avisa (10% de desvio)",
+     conferirEncargos(10_000, 11_000).divergente === false, "10%");
+  ok("folha: encargo 25% ABAIXO avisa", conferirEncargos(10_000, 7_500).divergente === true, "-25%");
+  ok("folha: encargo 30% ACIMA avisa", conferirEncargos(10_000, 13_000).divergente === true, "+30%");
+  /*
+   * ⚠️ **Sem lançamento não é divergência, é ausência.** Sem esta linha o aviso
+   * apareceria para toda empresa que ainda não importou o extrato do mês, com
+   * desvio de −100% — ruído, não achado.
+   */
+  ok("folha: sem lançamento na competência NÃO avisa",
+     conferirEncargos(10_000, 0).divergente === false && conferirEncargos(10_000, 0).comparavel === false);
+  // E o caso REAL medido na organização auditada: FGTS a 6,1% e INSS a 11,1%
+  // contra 8% e 27,8% — ~57% abaixo do projetado. Tem de avisar.
+  ok("folha: o caso real da organização auditada avisa",
+     conferirEncargos(263_119.71, 125_925.27).divergente === true,
+     `${Math.round(conferirEncargos(263_119.71, 125_925.27).desvio * 100)}%`);
+}
+
 // ── folha: as tabelas legais, os encargos por regime e as quatro datas ────
 {
   const ti = inssDe("2025-06").tabela;
@@ -4101,6 +4187,542 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      semNada.distribuicao.every((d) => d.fracao === 0)
      && semNada.concentracaoMaiorCliente === 0
      && semNada.envelhecimento.every((e) => e.fracao === 0));
+}
+
+/* ── O VENCIDO EM ABERTO ENTRA NA PROJEÇÃO ──────────────────────────────────
+ *
+ * ⚠️ A projeção de caixa recortava por `due_date >= hoje`. Um título em aberto
+ * que venceu ontem caía fora — e ele não sumiu: ainda vai sair da conta. O
+ * caixa projetado nascia melhor do que a realidade pelo valor exato do que a
+ * empresa já devia, todos os dias. Medido em produção (org 835278a9, 14/08/26):
+ * **R$ 74.248,59** de saídas vencidas em aberto contra **R$ 3.162,12** de
+ * entradas — R$ 71.086,47 líquidos ignorados a favor da empresa.
+ *
+ * A regra é EXPLÍCITA e tem nome: o vencido é esperado a partir de HOJE, a
+ * data mais cedo em que ele ainda pode se mover. `previstoNaJanela` (a agenda
+ * de vencimentos) NÃO muda; quem projeta usa `projetadoNaJanela` — número
+ * diferente, nome diferente.
+ *
+ * Provada quebrando: com a fixture sem o vencido, os dois números coincidem e
+ * o caso deixa de discriminar — por isso cada asserção afirma sobre o VALOR
+ * que o caminho produziu, e não só sobre a ausência de exceção.
+ */
+{
+  const HOJE = "2026-08-14";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "saida", amount: 1000,
+       due_date: HOJE, paid_date: null, status: "pendente", category: "Fornecedores",
+       party_id: null, ...o }) as RiskMovement;
+  const inp = (movements: RiskMovement[]): RiskInput =>
+    ({ hoje: HOJE, saldoAtual: 100_000, partyNames: {}, movements } as RiskInput);
+
+  const VENCIDA = mv({ amount: 74_248.59, due_date: "2026-06-10" });
+  const A_VENCER = mv({ amount: 30_000, due_date: "2026-08-25" });
+  const RECEBER_VENCIDO = mv({ type: "entrada", amount: 3_162.12, due_date: "2026-07-02", category: "Vendas" });
+  const CANCELADO_VENCIDO = mv({ amount: 999_999, due_date: "2026-05-01", status: "cancelado" });
+  const COM = inp([VENCIDA, A_VENCER, RECEBER_VENCIDO, CANCELADO_VENCIDO]);
+  const SEM = inp([A_VENCER]);
+
+  const J = janelaCanonica(HOJE, "2026-09-12", "Janela do filtro");
+
+  /* ---- A agenda de vencimentos NÃO muda de significado ------------------- */
+  const agenda = previstoNaJanela(COM, J, "saida");
+  ok("vencido: a agenda de vencimentos conta só o que vence na janela (30.000)",
+     Math.abs(agenda.valor - 30_000) < 1e-6, String(agenda.valor));
+
+  /* ---- A projeção soma o vencido, e o número MUDA ------------------------ */
+  const proj = projetadoNaJanela(COM, J, "saida");
+  ok("vencido: a projeção inclui o vencido em aberto (104.248,59)",
+     Math.abs(proj.valor - 104_248.59) < 1e-6, String(proj.valor));
+  // ⚠️ A asserção que dá sentido ao caso: os dois têm de DISCORDAR, e a
+  // diferença tem de ser exatamente o vencido. Um caso que não discrimina é um
+  // caso que não testa.
+  ok("vencido: a diferença entre agenda e projeção é exatamente o vencido",
+     Math.abs((proj.valor - agenda.valor) - 74_248.59) < 1e-6,
+     String(proj.valor - agenda.valor));
+  ok("vencido: sem título vencido, agenda e projeção coincidem",
+     Math.abs(projetadoNaJanela(SEM, J, "saida").valor - previstoNaJanela(SEM, J, "saida").valor) < 1e-6);
+
+  /* ---- O cancelado não volta pela porta do vencido ----------------------- */
+  ok("vencido: título cancelado e vencido fica de fora",
+     Math.abs(vencidoEmAberto(COM, "saida").valor - 74_248.59) < 1e-6,
+     String(vencidoEmAberto(COM, "saida").valor));
+  ok("vencido: o lado de entrada é medido à parte",
+     Math.abs(vencidoEmAberto(COM, "entrada").valor - 3_162.12) < 1e-6,
+     String(vencidoEmAberto(COM, "entrada").valor));
+
+  /* ---- Janela que começa ANTES de hoje não conta duas vezes -------------- */
+  // ⚠️ União, não soma: o vencido já está DENTRO de uma janela retroativa, e
+  // somar os dois blocos duplicaria esses títulos.
+  const retro = projetadoNaJanela(COM, janelaCanonica("2026-06-01", "2026-09-12", "Retroativa"), "saida");
+  ok("vencido: janela retroativa não conta o vencido duas vezes",
+     Math.abs(retro.valor - 104_248.59) < 1e-6, String(retro.valor));
+
+  /* ---- A natureza continua projeção, e a agenda é fato ------------------- */
+  ok("vencido: o vencido em aberto é FATO (o título existe e a data passou)",
+     vencidoEmAberto(COM, "saida").procedencia.natureza === "fato");
+  ok("vencido: a projeção continua marcada como projeção",
+     proj.procedencia.natureza === "projecao");
+
+  /* ---- A TELA: o resumo executivo do fluxo de caixa ---------------------- */
+  const comFluxo = montarFluxoCaixa(COM, [], { dias: 30, visao: "previsto" });
+  const semFluxo = montarFluxoCaixa(SEM, [], { dias: 30, visao: "previsto" });
+  ok("vencido: as saídas projetadas do resumo incluem o vencido",
+     Math.abs(comFluxo.resumo.saidasProjetadas - 104_248.59) < 1e-6,
+     String(comFluxo.resumo.saidasProjetadas));
+  ok("vencido: o resumo separa quanto das projetadas é atraso",
+     Math.abs(comFluxo.resumo.saidasVencidas - 74_248.59) < 1e-6,
+     String(comFluxo.resumo.saidasVencidas));
+  ok("vencido: sem o título vencido o número CAI exatamente esse valor",
+     Math.abs((comFluxo.resumo.saidasProjetadas - semFluxo.resumo.saidasProjetadas) - 74_248.59) < 1e-6,
+     `${comFluxo.resumo.saidasProjetadas} - ${semFluxo.resumo.saidasProjetadas}`);
+  ok("vencido: o cartão e o canônico contam a MESMA coisa",
+     Math.abs(comFluxo.resumo.saidasCanonicas.valor - comFluxo.resumo.saidasProjetadas) < 1e-6,
+     `${comFluxo.resumo.saidasCanonicas.valor} x ${comFluxo.resumo.saidasProjetadas}`);
+  // ⚠️ A regra tem de estar DITA — a projeção subiu de valor e nada na tela
+  // explicaria por quê. Instrumentação sem consumidor não conta como feito.
+  ok("vencido: a regra de expectativa é declarada em português",
+     /vencido/.test(comFluxo.resumo.regraDoVencido) && /hoje/.test(comFluxo.resumo.regraDoVencido),
+     comFluxo.resumo.regraDoVencido);
+  // ⚠️ E o CALENDÁRIO tem de concordar com o cartão: o vencido aparece no dia
+  // de hoje. Se ele sumir daqui, a árvore e o cartão voltam a discordar.
+  const hojeNoCalendario = comFluxo.calendario.find((d) => d.date === HOJE);
+  ok("vencido: o calendário mostra o vencido no dia de hoje",
+     !!hojeNoCalendario && Math.abs(hojeNoCalendario.paga - 74_248.59) < 1e-6,
+     String(hojeNoCalendario?.paga));
+}
+
+/* ── O CANCELADO É INVISÍVEL, E CALADO ──────────────────────────────────────
+ *
+ * ⚠️ Excluir o cancelado do resultado está CERTO: ele não é receita, não é
+ * despesa e não vai ao caixa. O defeito era o silêncio — um DRE sobre uma base
+ * com centenas de cancelados tem a mesma cara de um DRE sobre base limpa, e a
+ * diferença só aparece para quem confere o total contra o extrato.
+ *
+ * Medido na organização auditada (14/08/26, fora a amostra): **119 títulos
+ * cancelados, R$ 579.361,41** — R$ 189.960,40 de entrada e R$ 389.401,01 de
+ * saída. No período de 12 meses do relatório: 62 títulos, R$ 395.722,13.
+ * Conferido na trilha de auditoria: nenhum evento alterou `status` em momento
+ * algum, e os 123 `movements.criar` registrados nasceram pendentes ou pagos —
+ * os cancelamentos são ANTERIORES à trilha (junho/26). Não é deriva recente de
+ * semântica: é estado preexistente, e por isso se documenta em vez de desfazer.
+ *
+ * ⚠️ A asserção que dá sentido ao caso: o cancelado continua FORA de toda soma.
+ * Um rodapé que virasse linha devolveria ao resultado dinheiro que ninguém deve
+ * nem receberá — defeito bem pior do que o silêncio que ele conserta.
+ */
+{
+  const HOJE = "2026-08-14";
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+       due_date: "2026-08-10", paid_date: "2026-08-10", status: "pago",
+       category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const AGOSTO = janelaCanonica("2026-08-01", "2026-08-31", "Agosto/26");
+
+  const INPUT: RiskInput = {
+    hoje: HOJE, saldoAtual: 10_000, partyNames: {},
+    movements: [
+      mv({ amount: 20_000 }),
+      mv({ type: "saida", amount: 5_000, category: "Fornecedores" }),
+      mv({ amount: 133_851.63, status: "cancelado", paid_date: null }),
+      mv({ type: "saida", amount: 261_870.50, status: "cancelado", paid_date: null, category: "Fornecedores" }),
+      // Cancelado FORA da janela — não pode entrar no rodapé do período.
+      mv({ amount: 999_999, due_date: "2026-03-02", status: "cancelado", paid_date: null }),
+    ],
+  } as RiskInput;
+
+  const c = canceladosNaJanela(INPUT, AGOSTO);
+  ok("cancelado: o rodapé conta os títulos cancelados da janela", c.quantidade === 2,
+     String(c.quantidade));
+  ok("cancelado: entrada e saída ficam separadas",
+     Math.abs(c.entradas - 133_851.63) < 1e-6 && Math.abs(c.saidas - 261_870.50) < 1e-6,
+     `${c.entradas} / ${c.saidas}`);
+  ok("cancelado: o total é a soma das magnitudes (395.722,13)",
+     Math.abs(c.total - 395_722.13) < 1e-6, String(c.total));
+  ok("cancelado: cancelado fora da janela não entra no rodapé",
+     Math.abs(c.total - 395_722.13) < 1e-6 && c.quantidade === 2);
+  ok("cancelado: o painel de pagar rodapeia só o lado dele",
+     canceladosNaJanela(INPUT, AGOSTO, "saida").quantidade === 1
+     && Math.abs(canceladosNaJanela(INPUT, AGOSTO, "saida").total - 261_870.50) < 1e-6);
+  // ⚠️ Sem cancelado o rodapé SOME. Rodapé permanente de "0 cancelados" é ruído
+  // em toda tela, e ruído treina a pessoa a não ler o rodapé no dia em que ele
+  // tem algo a dizer.
+  ok("cancelado: base limpa não produz rodapé",
+     canceladosNaJanela({ ...INPUT, movements: INPUT.movements.filter((m) => m.status !== "cancelado") }, AGOSTO)
+       .quantidade === 0);
+
+  /* ---- E O NÚMERO CONTINUA FORA DAS SOMAS ------------------------------- */
+  // Esta é a asserção que impede o "conserto" errado: alguém somar o rodapé.
+  const cascata = cascataDRE(INPUT, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, regime: "competencia" });
+  ok("cancelado: a receita bruta ignora o cancelado (20.000, não 153.851,63)",
+     Math.abs(cascata.linhas.receita_bruta.valor - 20_000) < 1e-6, String(cascata.linhas.receita_bruta.valor));
+  ok("cancelado: o resultado líquido ignora o cancelado (15.000)",
+     Math.abs(cascata.linhas.resultado_liquido.valor - 15_000) < 1e-6, String(cascata.linhas.resultado_liquido.valor));
+}
+
+/* ── A DECOMPOSIÇÃO DO CAIXA FECHA AO CENTAVO ───────────────────────────────
+ *
+ * ⚠️ **O achado que quase virou "não existe", e o erro de método que causou isso.**
+ *
+ * Relatado: o extrato não fecha, com gap de R$ 1.293,65 "exatamente igual ao
+ * Resultado Financeiro do período". Eu medi `fluxo_financiamento` juntando
+ * `movements` a `categories` por `category_id` — e as 36 linhas de tarifa desta
+ * organização têm `category_id` NULO, com o nome no campo TEXTO `movements.
+ * category`, que é justamente o que a classificação lê. Todas caíram em "(sem
+ * categoria)", o financeiro deu zero e eu concluí que o defeito não existia.
+ * **Medi uma superfície e concluí sobre outra** — a mesma família do erro que
+ * refutou o A4P-036 pelo avesso.
+ *
+ * O defeito é REAL e mora no RELATÓRIO, não no extrato: `Saídas Operacionais`
+ * exclui o financeiro (corretamente — ela se chama operacionais e o financeiro
+ * sai em `Fluxo de Financiamentos`), mas quem lê os três números mais salientes
+ * e faz a conta de cabeça erra por exatamente o Resultado Financeiro.
+ *
+ * Medido: 680.884,72 + 519.976,29 − 1.230.567,52 = −29.706,51 contra um saldo
+ * real de −31.000,16. As 26 Tarifas bancárias e as 10 de adquirência valem
+ * R$ 1.293,65 na janela.
+ *
+ * Esta guarda fixa as DUAS metades: a decomposição TOTAL fecha sem resíduo, e o
+ * par ingênuo NÃO fecha — e sobra exatamente o financeiro. A segunda existe para
+ * o próximo auditor encontrar a explicação em vez de perseguir o fantasma.
+ */
+{
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "entrada", amount: 1000,
+       due_date: "2026-03-10", paid_date: "2026-03-10", status: "pago",
+       category: "Vendas", party_id: null, ...o }) as RiskMovement;
+
+  // Fecha em −31.000,16 com abertura de 680.884,72, como na org auditada.
+  const ENTRADAS = 519_976.29, SAIDAS_OP = 1_230_567.52, TARIFAS = 1_293.65;
+  const SALDO_HOJE = ENTRADAS - SAIDAS_OP - TARIFAS + 680_884.72;
+  const INPUT: RiskInput = {
+    hoje: "2026-08-31", saldoAtual: SALDO_HOJE, partyNames: {},
+    movements: [
+      mv({ amount: ENTRADAS }),
+      mv({ type: "saida", amount: SAIDAS_OP, category: "Fornecedores" }),
+      mv({ type: "saida", amount: TARIFAS, category: "Tarifas bancárias" }),
+    ],
+  } as RiskInput;
+
+  const dfc = montarDFC(INPUT, { intervalo: { de: "2025-09-01", ate: "2026-08-31" }, tipo: "dfc" });
+  const val = (id: string) => {
+    const l = dfc.linhas.find((x) => x.id === id);
+    if (!l) return NaN;
+    return id === "saldo_inicial" ? l.celulas[0].valor
+      : id === "saldo_final" ? l.celulas[l.celulas.length - 1].valor
+      : l.total.valor;
+  };
+  const cent = (n: number) => Math.round(n * 100) / 100;
+
+  const abertura = val("saldo_inicial");
+  const fechamento = val("saldo_final");
+  const financeiro = val("fluxo_financiamento");
+  const investimento = val("fluxo_investimento");
+  const entradasTotais = val("entradas_operacionais")
+    + Math.max(0, investimento) + Math.max(0, financeiro);
+  const saidasTotais = val("saidas_operacionais")
+    - Math.min(0, investimento) - Math.min(0, financeiro);
+
+  /* ---- R2: o caminho testado RECEBEU valor -------------------------------- */
+  // Sem esta asserção, tudo abaixo passaria com o financeiro em zero — que é
+  // exatamente o estado em que a medição errada me convenceu de que não havia
+  // defeito. Fixture sobre o vazio é pior que fixture nenhuma.
+  ok("caixa: a fixture tem resultado financeiro de verdade, não zero",
+     cent(financeiro) === -TARIFAS && financeiro !== 0, String(financeiro));
+  ok("caixa: a abertura é reconstruída do saldo de hoje",
+     cent(abertura) === cent(SALDO_HOJE - (ENTRADAS - SAIDAS_OP - TARIFAS)), String(abertura));
+
+  /* ---- A decomposição TOTAL fecha, sem resíduo ---------------------------- */
+  const residuo = cent(abertura + entradasTotais - saidasTotais - fechamento);
+  ok("caixa: abertura + entradas totais − saídas totais = fechamento, ao centavo",
+     residuo === 0, `resíduo = ${residuo}`);
+  // Derivado das linhas, não de um literal: as saídas totais são as
+  // operacionais mais o que o financeiro tirou do caixa.
+  ok("caixa: as saídas totais incluem o financeiro apurado pela cascata",
+     cent(saidasTotais) === cent(val("saidas_operacionais") - Math.min(0, financeiro)),
+     String(saidasTotais));
+
+  /* ---- E o par INGÊNUO não fecha — e sobra o financeiro ------------------- */
+  /**
+   * ⚠️ Esta é a asserção que documenta o fantasma. Ela tem de FALHAR de fechar:
+   * se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
+   * `saidas_operacionais` e a linha passou a contar duas vezes (ela já sai em
+   * `fluxo_financiamento`). O nome da linha é "operacionais" — ela não pode.
+   *
+   * ⚠️ **E ela NÃO fixa um número.** A primeira versão cobrava R$ 1.293,65, o
+   * valor medido em produção. Basta uma reclassificação legítima — mover
+   * "Tarifas de adquirência" de resultado financeiro para despesa variável,
+   * que é o que ela é (MDR é custo de vender) — para o valor mudar e a guarda
+   * reprovar código correto. Guarda que reprova o certo é desligada na primeira
+   * semana, ou "consertada" com o número novo, e aí ela deixou de medir a
+   * regra e passou a memorizar um dataset.
+   *
+   * O que a regra diz é uma IDENTIDADE: o resíduo do par ingênuo é, sempre, o
+   * resultado financeiro que a própria cascata apurou — seja ele qual for.
+   */
+  const residuoIngenuo = cent(
+    abertura + val("entradas_operacionais") - val("saidas_operacionais") - fechamento,
+  );
+  ok("caixa: o par ingênuo NÃO fecha, e o que sobra é o financeiro da cascata",
+     residuoIngenuo === cent(-financeiro) && residuoIngenuo !== 0,
+     `resíduo ${residuoIngenuo} × financeiro ${cent(-financeiro)}`);
+  ok("caixa: o financeiro não é contado duas vezes no fluxo líquido",
+     cent(val("fluxo_liquido")) === cent(ENTRADAS - SAIDAS_OP - TARIFAS),
+     String(val("fluxo_liquido")));
+}
+
+/* ── A FILA DE REVISÃO — separa, não classifica ─────────────────────────────
+ *
+ * Os casos são os MEDIDOS na org 835278a9 em 14/08, um a um. A fixture usa os
+ * valores e textos reais porque o que ela protege é o CRITÉRIO: uma regra que
+ * deixe de pegar o lixo de OCR, ou que passe a acusar "NF-e 123/45", perde a
+ * fila do mesmo jeito — por omissão ou por ruído.
+ *
+ * ⚠️ A regra recorrente entra na fila junto com os títulos que ela gera.
+ * Medido: os quatro "Salário" de R$ 35.000 são filhos FIÉIS da regra
+ * `d9439421` (descrição *Salário*, contraparte *GOOGLE ADS CAMPANHA*,
+ * categoria *Assinaturas / software*). Corrigir os filhos e deixar a regra viva
+ * a faz materializar o mesmo defeito no mês seguinte.
+ */
+{
+  const it = (o: Partial<ItemRevisao>): ItemRevisao =>
+    ({ id: "x", origem: "lancamento", descricao: null, valor: 100, data: "2026-06-10",
+       tipo: "saida", categoriaTexto: "Aluguel", categoriaChave: null, contraparte: null, ...o });
+
+  const FILA = montarFilaRevisao([
+    // Os cinco de R$ 35.000 com a chave contradizendo a descrição.
+    it({ id: "a", descricao: "Salário", valor: 35_000, categoriaTexto: null, categoriaChave: "Assinaturas / software" }),
+    it({ id: "b", descricao: "123", valor: 35_000, categoriaTexto: null, categoriaChave: "Aluguel" }),
+    // As duas ENTRADAS com nome de salário.
+    it({ id: "c", descricao: "Salary", valor: 8_500, tipo: "entrada", categoriaTexto: "Salary" }),
+    // O lixo de leitura ótica, vencido desde 2023 e em aberto.
+    it({ id: "d", descricao: "! [=]E?s rica NE Bro,", valor: 32, data: "2023-05-05" }),
+    // Valor zero.
+    it({ id: "e", descricao: "Estorno", valor: 0, tipo: "entrada", categoriaTexto: "Tarifas bancárias" }),
+    // A regra recorrente contraditória.
+    it({ id: "f", origem: "recorrencia", descricao: "Salário", valor: 35_000,
+         categoriaTexto: null, categoriaChave: "Assinaturas / software", contraparte: "GOOGLE ADS CAMPANHA" }),
+    /* ---- E o que NÃO pode entrar: a fila só serve se não gritar lobo ------ */
+    it({ id: "ok1", descricao: "NF-e 123/45", valor: 1_200, categoriaTexto: "Fornecedores" }),
+    it({ id: "ok2", descricao: "PIX — João", valor: 300, categoriaTexto: "Utilidades" }),
+    it({ id: "ok3", descricao: "Folha de pagamento", valor: 20_000, categoriaTexto: "Folha de pagamento" }),
+    // Recorrência COERENTE: descrição de folha com categoria de folha.
+    it({ id: "ok4", origem: "recorrencia", descricao: "Salário", valor: 9_000,
+         categoriaChave: "Folha de pagamento", contraparte: "Equipe" }),
+  ]);
+  const por = (m: string) => FILA.achados.filter((a) => a.motivo === m).map((a) => a.id);
+
+  ok("revisao: a chave que contradiz a descrição entra na fila",
+     por("categoria_nao_propagada").join(",") === "a,b", por("categoria_nao_propagada").join(","));
+  ok("revisao: entrada com nome de salário entra", por("entrada_com_cara_de_folha").join(",") === "c");
+  ok("revisao: lixo de leitura ótica entra", por("descritivo_ilegivel").join(",") === "d");
+  ok("revisao: valor zero entra", por("valor_zero").join(",") === "e");
+  ok("revisao: a REGRA recorrente entra, não só os títulos dela",
+     por("regra_inconsistente").join(",") === "f", por("regra_inconsistente").join(","));
+  /**
+   * ⚠️ A asserção que decide se a fila presta: ela NÃO grita lobo. Um detector
+   * que acusa nota fiscal, PIX e folha coerente treina a pessoa a fechar a aba,
+   * e aí ele deixou de existir. Mesma regra do detector de segredos.
+   */
+  ok("revisao: nada legítimo entra na fila",
+     !FILA.achados.some((a) => a.id.startsWith("ok")),
+     FILA.achados.filter((a) => a.id.startsWith("ok")).map((a) => `${a.id}:${a.motivo}`).join(" | "));
+  ok("revisao: são exatamente os 6 achados medidos", FILA.achados.length === 6, String(FILA.achados.length));
+  // O maior primeiro: a fila é trabalho humano, e trabalho humano se prioriza
+  // por consequência.
+  ok("revisao: o maior valor vem primeiro", Math.abs(FILA.achados[0].valor) === 35_000);
+  ok("revisao: o total é a soma das MAGNITUDES, não um saldo",
+     Math.abs(FILA.total - (35_000 * 3 + 8_500 + 32)) < 1e-6, String(FILA.total));
+  // ⚠️ Cada achado sai com a PERGUNTA — sem ela a fila é uma lista de acusações
+  // sem o que fazer, e quem abre fecha.
+  ok("revisao: todo achado diz o que perguntar",
+     FILA.achados.every((a) => a.pergunta.length > 10 && a.explicacao.length > 10));
+
+  /* ---- O detector de ilegível, nos dois sentidos ------------------------- */
+  ok("revisao: ilegível pega o que é ilegível", descritivoIlegivel("! [=]E?s rica NE Bro,") === true);
+  ok("revisao: e NÃO pega o que um financeiro escreve o dia inteiro",
+     ["NF-e 123/45", "PIX — João", "Boleto Condomínio", "DARF 0561", "R$ 1.234,56 — taxa"]
+       .every((t) => !descritivoIlegivel(t)));
+}
+
+/* ── TRANSFERÊNCIA FORA, ESTORNO NEGATIVO ──────────────────────────────────
+ *
+ * Duas regras que a Etapa 4 do de-para exigiu, e as duas mexem no resultado.
+ *
+ * ⚠️ **`transferencia` não é linha, é a ausência de linha DITA.** Antes, a
+ * única forma de tirar um pagamento de fatura de cartão do resultado era não
+ * declará-lo — e aí o palpite por palavra-chave o punha em despesa operacional,
+ * inflando o custo com dinheiro que só mudou de bolso. Medido: R$ 267,70 nesta
+ * organização (fatura de cartão R$ 167,70 + boleto de transferência R$ 100,00).
+ *
+ * ⚠️ **ENTRADA numa linha de sinal "-" é ESTORNO, e entra negativa.** Uma
+ * restituição de imposto é a dedução voltando; em magnitude ela AUMENTARIA a
+ * dedução — o contribuinte recebe dinheiro de volta e o DRE registra que ele
+ * pagou mais imposto. Sem esta regra, a única saída seria classificar a
+ * restituição como receita, e aí ela infla o faturamento (era o estado medido:
+ * R$ 655,30 dentro da receita bruta).
+ */
+{
+  const mv = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: Math.random().toString(36).slice(2), type: "saida", amount: 1000,
+       due_date: "2026-03-10", paid_date: "2026-03-10", status: "pago",
+       category: "Aluguel", party_id: null, ...o }) as RiskMovement;
+  const INPUT: RiskInput = {
+    hoje: "2026-08-31", saldoAtual: 0, partyNames: {},
+    movements: [
+      mv({ type: "entrada", amount: 100_000, category: "Vendas" }),
+      mv({ amount: 10_000, category: "Simples Nacional" }),
+      mv({ type: "entrada", amount: 655.30, category: "Restituição de impostos" }),
+      mv({ amount: 267.70, category: "Credit card payment" }),
+    ],
+  } as RiskInput;
+  const DECL: Record<string, string> = {
+    "vendas": "receita_bruta", "simples nacional": "deducoes",
+    "restituição de impostos": "deducoes", "credit card payment": LINHA_TRANSFERENCIA,
+  };
+  const rodar = (decl: Record<string, string>) => montarRelatorio(INPUT, ESTRUTURA_DRE, {
+    intervalo: { de: "2026-03-01", ate: "2026-03-31" }, tipo: "dre",
+    regime: "competencia", linhaPorCategoria: decl,
+  });
+  const val = (r: ReturnType<typeof rodar>, id: string) =>
+    Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? NaN) * 100) / 100;
+
+  const r = rodar(DECL);
+  /* ---- A transferência não entra em NENHUMA linha ------------------------ */
+  // Sem a saída declarada ela cairia em despesa operacional — é o "antes".
+  const semSaida = rodar({ ...DECL, "credit card payment": "despesas_operacionais" });
+  ok("transferencia: declarada, não entra em linha nenhuma",
+     val(r, "despesas_operacionais") === 0, String(val(r, "despesas_operacionais")));
+  ok("transferencia: e o controle prova que o caminho recebia valor",
+     val(semSaida, "despesas_operacionais") === 267.70, String(val(semSaida, "despesas_operacionais")));
+  // ⚠️ O resultado MUDA pelo valor exato da transferência — e é isso que se
+  // quer: ela nunca foi despesa. Somar zeros não provaria nada.
+  ok("transferencia: o resultado melhora exatamente o valor dela",
+     Math.round((val(r, "resultado_liquido") - val(semSaida, "resultado_liquido")) * 100) / 100 === 267.70,
+     `${val(r, "resultado_liquido")} × ${val(semSaida, "resultado_liquido")}`);
+
+  /* ---- O estorno REDUZ a dedução, não aumenta --------------------------- */
+  ok("estorno: a restituição REDUZ a dedução (10.000 − 655,30)",
+     val(r, "deducoes") === 9_344.70, String(val(r, "deducoes")));
+  // ⚠️ A asserção que fixa o defeito: em magnitude daria 10.655,30 — a
+  // devolução aumentando o imposto pago.
+  ok("estorno: em magnitude daria 10.655,30, e não dá", val(r, "deducoes") !== 10_655.30);
+  ok("estorno: e a restituição NÃO está na receita bruta",
+     val(r, "receita_bruta") === 100_000, String(val(r, "receita_bruta")));
+}
+
+/* ── COMPETÊNCIA ≠ VENCIMENTO ≠ CAIXA ──────────────────────────────────────
+ *
+ * ⚠️ **O caso que sozinho separa os dois regimes, e que o sistema não tinha.**
+ * Uma compra com competência em MARÇO e vencimento em ABRIL tem de cair em
+ * março no DRE e em abril no DFC. Antes caía em abril nos dois: `dataDe(m,
+ * "competencia")` devolvia `due_date` e `RiskMovement` sequer declarava
+ * `competence_date` — não era fallback silencioso, era coluna inerte.
+ *
+ * A consequência não era o número (medido: 23,2% preenchido, e as duas
+ * divergências caem no mesmo mês, então o DRE não muda um centavo). Era o
+ * formulário exigir "Data de competência" e dizer *"quando o fato aconteceu — é
+ * o que o DRE lê"*. E era de produto: um DRE que apura por vencimento não é
+ * competência nem caixa, e os dois relatórios passavam a diferir só por
+ * pago-versus-não-pago.
+ */
+{
+  const COMP = "2026-03-15", VENC = "2026-04-10", PAGO = "2026-04-10";
+  const compra: RiskMovement = {
+    id: "c1", type: "saida", status: "pago", amount: 12_000,
+    due_date: VENC, paid_date: PAGO, competence_date: COMP,
+    category: "Fornecedores / insumos", party_id: null,
+  } as RiskMovement;
+  const INPUT: RiskInput = { hoje: "2026-08-31", saldoAtual: 0, partyNames: {}, movements: [compra] } as RiskInput;
+  const MARCO = { de: "2026-03-01", ate: "2026-03-31" };
+  const ABRIL = { de: "2026-04-01", ate: "2026-04-30" };
+
+  const dre = (i: { de: string; ate: string }) =>
+    montarRelatorio(INPUT, ESTRUTURA_DRE, { intervalo: i, tipo: "dre", regime: "competencia" })
+      .linhas.find((l) => l.id === "custos_variaveis")!.total.valor;
+  const dfc = (i: { de: string; ate: string }) =>
+    montarRelatorio(INPUT, ESTRUTURA_DFC, { intervalo: i, tipo: "dfc", regime: "caixa" })
+      .linhas.find((l) => l.id === "saidas_operacionais")!.total.valor;
+
+  ok("competencia: o DRE põe a compra em MARÇO (a competência)", dre(MARCO) === 12_000, String(dre(MARCO)));
+  ok("competencia: e NÃO em abril", dre(ABRIL) === 0, String(dre(ABRIL)));
+  ok("competencia: o DFC põe a mesma compra em ABRIL (o caixa)", dfc(ABRIL) === 12_000, String(dfc(ABRIL)));
+  ok("competencia: e NÃO em março", dfc(MARCO) === 0, String(dfc(MARCO)));
+  /**
+   * ⚠️ A asserção que dá sentido ao caso: os dois regimes têm de DISCORDAR
+   * sobre este lançamento. Se um dia concordarem, a competência voltou a ser o
+   * vencimento e o sistema tem de novo um regime só com dois nomes.
+   */
+  ok("competencia: os dois regimes discordam sobre o mesmo lançamento",
+     dre(MARCO) !== dfc(MARCO) && dre(ABRIL) !== dfc(ABRIL));
+
+  /* ---- Sem competência, o vencimento vale — e a tela DIZ quantos ---------- */
+  const semComp: RiskMovement = { ...compra, id: "c2", competence_date: null } as RiskMovement;
+  const MISTO: RiskInput = { ...INPUT, movements: [compra, semComp] } as RiskInput;
+  ok("competencia: sem o campo, o vencimento continua valendo",
+     montarRelatorio(MISTO, ESTRUTURA_DRE, { intervalo: ABRIL, tipo: "dre", regime: "competencia" })
+       .linhas.find((l) => l.id === "custos_variaveis")!.total.valor === 12_000);
+  // ⚠️ Instrumentação com consumidor (R4): o fallback é DECLARADO. Sem este
+  // número na tela, um DRE metade por competência e metade por vencimento tem a
+  // mesma cara de um conferido.
+  const cob = coberturaCompetencia(MISTO, janelaCanonica("2026-03-01", "2026-04-30", "Mar–Abr"));
+  ok("competencia: a cobertura conta quantos caíram no vencimento",
+     cob.total === 2 && cob.comCompetencia === 1 && cob.semCompetencia === 1
+     && Math.abs((cob.cobertura ?? 0) - 0.5) < 1e-9,
+     `${cob.comCompetencia}/${cob.total}`);
+}
+
+/* ── A CONTRAPARTE NUNCA É A CATEGORIA ─────────────────────────────────────
+ *
+ * ⚠️ Era `nomes[party_id] ?? ultimo.category ?? "Sem contraparte"`. Sem cadastro
+ * de contraparte, a CATEGORIA virava o nome dela — e como a CHAVE do
+ * agrupamento sai daí, fornecedores distintos viravam um compromisso só.
+ *
+ * Medido na organização auditada: 12 lançamentos "GOOGLE ADS CAMPANHA" e 12
+ * "META ADS FACEBOOK INSTAGRAM", R$ 71.043,14 no período, todos com `party_id`
+ * NULO e o nome do fornecedor na DESCRIÇÃO. Colapsavam numa linha chamada
+ * "Marketing".
+ *
+ * ⚠️ E o achado nasceu de uma acusação REFUTADA: a linha "GOOGLE ADS CAMPANHA ·
+ * Assinaturas / software · R$ 35.000/mês" NÃO era fabricada — os 4 lançamentos
+ * de R$ 35.000 têm `party_id` de verdade apontando para essa contraparte, e a
+ * média sai deles. O defeito estava ao lado, no fallback.
+ */
+{
+  const mv = (desc: string, valor: number, mes: string): RiskMovement =>
+    ({ id: `${desc}-${mes}`, type: "saida", status: "pago", amount: valor,
+       due_date: `${mes}-10`, paid_date: `${mes}-10`, category: "Marketing",
+       party_id: null, descricao: desc } as RiskMovement);
+  const MESES = ["2026-03", "2026-04", "2026-05", "2026-06"];
+  const INPUT: RiskInput = {
+    hoje: "2026-06-30", saldoAtual: 0, partyNames: { "p-goog": "GOOGLE ADS CAMPANHA" },
+    movements: [
+      ...MESES.map((m) => mv("GOOGLE ADS CAMPANHA", 3_000, m)),
+      ...MESES.map((m) => mv("META ADS FACEBOOK INSTAGRAM", 2_000, m)),
+      // O caso com contraparte CADASTRADA continua vencendo a descrição.
+      ...MESES.map((m) => ({ ...mv("qualquer texto", 35_000, m), party_id: "p-goog",
+        category: "Assinaturas / software" } as RiskMovement)),
+    ],
+  } as RiskInput;
+
+  const painel = montarPainelRecorrentes(INPUT, "2026-06");
+  const nomes = painel.grupos.map((g) => g.contraparte);
+
+  ok("contraparte: a categoria NUNCA vira o nome da contraparte",
+     !nomes.includes("Marketing"), nomes.join(" | "));
+  ok("contraparte: Google e Meta ficam SEPARADOS",
+     nomes.filter((n) => /google/i.test(n)).length >= 1 && nomes.some((n) => /meta/i.test(n)),
+     nomes.join(" | "));
+  // ⚠️ A asserção que fixa o defeito: eram DOIS fornecedores num grupo só.
+  const semParty = painel.grupos.filter((g) => !/^GOOGLE ADS CAMPANHA$/.test(g.contraparte));
+  ok("contraparte: os dois sem cadastro viram DOIS compromissos, não um",
+     semParty.length === 2, `${semParty.length}: ${semParty.map((g) => g.contraparte).join(" | ")}`);
+  ok("contraparte: a cadastrada vence a descrição",
+     nomes.includes("GOOGLE ADS CAMPANHA"), nomes.join(" | "));
+  // E a média de cada um sai do próprio grupo, não da soma dos dois.
+  const google = painel.grupos.find((g) => /google/i.test(g.contraparte) && g.categoria === "Marketing");
+  ok("contraparte: a média é do fornecedor, não da soma",
+     Math.abs((google?.mediaMensal ?? 0) - 3_000) < 1e-6, String(google?.mediaMensal));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

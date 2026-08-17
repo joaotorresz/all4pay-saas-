@@ -75,13 +75,13 @@ export function gerarInsights(
   }
 
   // Margem
-  if (ctx.margemOperacional < 0.1) {
+  if (ctx.margemCaixa90d < 0.1) {
     out.push({
       id: uid("ins"),
       tipo: "margem",
-      severidade: ctx.margemOperacional < 0 ? "critica" : "media",
+      severidade: ctx.margemCaixa90d < 0 ? "critica" : "media",
       titulo: "Margem operacional comprimida",
-      descricao: `Margem operacional em ${Math.round(ctx.margemOperacional * 100)}% — estrutura de custos pesada.`,
+      descricao: `Margem de caixa (90d) em ${Math.round(ctx.margemCaixa90d * 100)}% — estrutura de custos pesada para o ritmo do caixa.`,
       impactoCentavos: C(ctx.despesaMensal * 0.1),
       confianca: 0.7,
       recomendacoes: ["Revisar maiores centros de custo", "Renegociar fornecedores recorrentes"],

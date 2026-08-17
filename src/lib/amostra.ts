@@ -22,17 +22,44 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { TABELAS_COM_AMOSTRA } from "@/lib/supabase/consulta";
+import { TABELAS_COM_AMOSTRA, type MotivoAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+
+/**
+ * ⚠️ **O MOTIVO QUE A PURGA APAGA — e é só ele.**
+ *
+ * `is_sample` marca duas coisas com destinos opostos, e o vocabulário já dizia
+ * isso desde que nasceu (`MotivoAmostra`): `onboarding_demo` não é dado de
+ * ninguém e purga em lote; `lancamento_teste` é um registro que EXISTIU na
+ * operação de uma empresa, marcado à mão pelo id, e o desfecho correto dele é
+ * ser cancelado com trilha, não sumir junto num clique.
+ *
+ * A purga apagava os dois — `.eq("is_sample", true)`. Medido em produção
+ * (14/08/26): o botão levaria junto **1 lançamento de R$ 500.000,00**, com
+ * descrição "Teste", debaixo de um aviso que anuncia "dados de demonstração".
+ * O que o botão apaga tem de ser o que o botão diz.
+ */
+export const MOTIVO_PURGAVEL: MotivoAmostra = "onboarding_demo";
 
 export interface ContagemAmostra {
   /** Quantas linhas de demonstração existem, somando as cinco tabelas. */
   total: number;
   /** Quebrado por tabela — o que a tela mostra antes de deixar apagar. */
   porTabela: Record<string, number>;
+  /**
+   * Quebrado por MOTIVO. É o que separa o que o botão remove do que ele
+   * deixa — sem isso o banner conta uma coisa e a purga faz outra.
+   */
+  porMotivo: Record<string, number>;
+  /** Quantas linhas o botão de purga realmente removeria. */
+  purgaveis: number;
+  /** Quantas ficam, por não serem amostra de onboarding. */
+  preservadas: number;
 }
 
-const VAZIO: ContagemAmostra = { total: 0, porTabela: {} };
+const VAZIO: ContagemAmostra = {
+  total: 0, porTabela: {}, porMotivo: {}, purgaveis: 0, preservadas: 0,
+};
 
 /**
  * Conta o que está marcado como demonstração na organização ATIVA.
@@ -51,7 +78,9 @@ export async function contarAmostra(): Promise<ContagemAmostra> {
   if (isDemo) return VAZIO;
   const supabase = createClient();
   const porTabela: Record<string, number> = {};
+  const porMotivo: Record<string, number> = {};
   let total = 0;
+  let purgaveis = 0;
   for (const tabela of TABELAS_COM_AMOSTRA) {
     // `head: true` + `count: exact` traz só o número — trazer as linhas para
     // contá-las no navegador puxaria as 458 a cada troca de tela.
@@ -59,6 +88,22 @@ export async function contarAmostra(): Promise<ContagemAmostra> {
       .from(tabela)
       .select("id", { count: "exact", head: true })
       .eq("is_sample", true);
+    // ⚠️ A contagem do PURGÁVEL é uma consulta à parte, e não uma subtração
+    // esperta sobre a primeira: é ela que o botão promete apagar, e ela tem de
+    // sair do MESMO predicado que a purga usa. Duas contas para a mesma
+    // pergunta é como o banner e o botão passaram a discordar.
+    const { count: nPurgavel } = await supabase
+      .from(tabela)
+      .select("id", { count: "exact", head: true })
+      .eq("is_sample", true)
+      .eq("sample_reason", MOTIVO_PURGAVEL);
+    if (nPurgavel) {
+      purgaveis += nPurgavel;
+      porMotivo[MOTIVO_PURGAVEL] = (porMotivo[MOTIVO_PURGAVEL] ?? 0) + nPurgavel;
+    }
+    if (count && nPurgavel !== null && nPurgavel !== undefined && count - nPurgavel > 0) {
+      porMotivo.outros = (porMotivo.outros ?? 0) + (count - nPurgavel);
+    }
     if (error) {
       // ⚠️ Não derruba a tela: o banner é um AVISO, e um aviso que quebra o app
       // quando falha é pior que a ausência dele. Mas também não some calado —
@@ -72,7 +117,7 @@ export async function contarAmostra(): Promise<ContagemAmostra> {
     }
     if (count) { porTabela[tabela] = count; total += count; }
   }
-  return { total, porTabela };
+  return { total, porTabela, porMotivo, purgaveis, preservadas: total - purgaveis };
 }
 
 /**
@@ -96,7 +141,14 @@ export async function purgarAmostra(): Promise<number> {
   let apagadas = 0;
   for (const tabela of ordem) {
     const { data, error } = await supabase
-      .from(tabela).delete().eq("is_sample", true).select("id");
+      .from(tabela).delete()
+      .eq("is_sample", true)
+      // ⚠️ **SÓ O MOTIVO PURGÁVEL.** Sem esta linha o botão levava junto o
+      // `lancamento_teste` — um registro que existiu na operação da empresa,
+      // marcado à mão pelo id. Ele sai por decisão explícita, nomeada, com
+      // trilha; nunca de carona num clique que anuncia outra coisa.
+      .eq("sample_reason", MOTIVO_PURGAVEL)
+      .select("id");
     // ⚠️ A falha SOBE. Uma purga que apaga metade e diz que deu certo deixa a
     // base num estado que ninguém consegue descrever — e o usuário acabou de
     // ser informado de que estava limpa.

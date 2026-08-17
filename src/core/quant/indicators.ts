@@ -33,10 +33,29 @@ export function calcularIndicadores(input: RiskInput): IndicadoresFinanceiros {
   const ativoCirculante = input.saldoAtual + aReceberAberto;
   const liquidezCorrente = aPagarAberto > 0 ? ativoCirculante / aPagarAberto : ativoCirculante > 0 ? 3 : 0;
 
-  // Margens (proxy sobre o realizado mensal).
-  const margemOperacional = burn.receitaMensal > 0 ? burn.liquidoMensal / burn.receitaMensal : 0;
+  /*
+   * ═══════════════════════════════════════════════════════════════════════
+   * ⚠️ ESTAS SÃO MARGENS DE CAIXA, E O NOME PASSOU A DIZER ISSO.
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * Elas saem do `burn` de 90 dias — entradas e saídas LIQUIDADAS, pela data de
+   * pagamento. Não são a margem operacional nem a margem líquida do DRE, que
+   * são competência e passam por deduções, custo e resultado financeiro.
+   *
+   * ⚠️ **Este módulo NÃO migra para a cascata, de propósito** (`docs/auditoria.md`,
+   * #8). O score de saúde pergunta "o caixa aguenta?", e para essa pergunta o
+   * regime de caixa é a resposta CERTA — trocá-lo por competência tornaria o
+   * score cego para o mês em que a receita existe e o dinheiro não entrou.
+   *
+   * O que estava errado não era a fonte: era o NOME. Duas coisas diferentes
+   * chamadas "margem líquida" em telas diferentes é a mesma doença que a
+   * cascata veio curar, só que pela via do rótulo. **Nenhum número muda de
+   * significado sem mudar de nome** — então eles mudaram de nome, e a tela diz
+   * o regime ao lado.
+   */
+  const margemCaixa90d = burn.receitaMensal > 0 ? burn.liquidoMensal / burn.receitaMensal : 0;
   const perdaInadimplencia = burn.receitaMensal * inad.overdueRatio;
-  const margemLiquida =
+  const eficienciaDeCaixa =
     burn.receitaMensal > 0 ? (burn.liquidoMensal - perdaInadimplencia) / burn.receitaMensal : 0;
 
   // Crescimento MoM (últimos dois meses com receita).
@@ -97,8 +116,8 @@ export function calcularIndicadores(input: RiskInput): IndicadoresFinanceiros {
     runwayMeses: runwayMesesCanonico(input).valor,
     burnRate: burn.burnMensal,
     burnMultiple: Math.round(burnMultiple * 100) / 100,
-    margemOperacional,
-    margemLiquida,
+    margemCaixa90d,
+    eficienciaDeCaixa,
     receitaRecorrente: receitaRecorrentePct,
     crescimentoMensal,
     eficienciaOperacional,

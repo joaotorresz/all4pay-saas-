@@ -13,7 +13,8 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, DateField, Checkbox, BRL, Skeleton, NotaCancelados } from "@/components/ui";
+import { canceladosNaJanela, janela as fazJanela } from "@/core/indicadores";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -170,6 +171,19 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
       ? filtrarTitulos(input, direcao, { ...filtro, de: janela.de, ate: janela.ate, status: "todos", busca })
       : []),
     [input, direcao, filtro, janela, busca],
+  );
+
+  // ⚠️ Mesmo recorte dos cards (vencimento na janela), mesmo LADO da tela: um
+  // painel de contas a pagar não deve rodapear cancelamento de recebível.
+  const cancelados = React.useMemo(
+    () => (input
+      ? canceladosNaJanela(
+          input,
+          fazJanela(janela.de || "0000-01-01", janela.ate || "9999-12-31"),
+          direcao === "pagar" ? "saida" : "entrada",
+        )
+      : null),
+    [input, janela.de, janela.ate, direcao],
   );
   const cards = React.useMemo(
     () => (input ? resumoTitulos(baseDosCards, direcao, input.hoje) : []),
@@ -388,6 +402,13 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           </button>
         </p>
       )}
+
+      {/* ⚠️ O CANCELADO, DITO. Ele fica fora dos quatro cards — e deve mesmo,
+          porque não é dívida nem crédito de ninguém. Mas até aqui saía calado,
+          e um painel sobre uma base com dezenas de cancelados tinha a mesma
+          cara de um sobre base limpa. É rodapé, nunca card: virar o quinto
+          card o convidaria para dentro da soma. */}
+      {cancelados && <NotaCancelados dados={cancelados} />}
 
       {/* ------------------------------ barra de ações ------------------------------ */}
       <Card>

@@ -72,13 +72,13 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 | **#5** | `core/paineis` — painel de Vendas | `cascataDRE` via a fachada | ✅ **FEITO** |
 | **#6** | `core/indicadores/resultado` — `painelResultado` | `cascataDRE` (mantendo o contrato ONDA 4) | ✅ **FEITO** |
 | **#7** | IA — `assistant/engine.ts` | `cascataDRE` | ✅ **FEITO** (PR #44) |
-| **#8** | `core/quant/indicators` → `/inteligencia` | deriva de `calcularBurnRate` | 🔤 **NÃO migra — RENOMEIA** |
-| **#9** | Investor Update (`core/investor`) | consome `quant.indicadores` | ⏳ migra |
-| **#10** | `/dashboard/dashboards/sales` | **soma crua** de `movements` | ⏳ |
+| **#8** | `core/quant/indicators` → `/inteligencia` | `calcularBurnRate` (CAIXA) | 🔤 **NÃO MIGROU — RENOMEADO.** `margemOperacional`→`margemCaixa90d`, `margemLiquida`→`eficienciaDeCaixa`. O regime é dito na tela. Guarda de vocabulário no contrato |
+| **#9** | Investor Update (`core/investor`) | `cascataDRE` (receita do mês, margem líquida) | ✅ **FEITO** |
+| **#10** | `/dashboard/dashboards/sales` | `cascataDRE` (receita, MC, EBITDA) | ✅ **FEITO** |
 | **#11** | `core/budget` / Orçamento | `core/relatorios` | ✅ **OK** |
 | **#12** | `core/fiscal/apuracao` + `/impostos` | `receitaTributavel` | ✅ **OK** |
 | **#13** | Exportações XLSX/DOCX/PDF | `linhasParaPlanilha` | ✅ **OK** |
-| **#14** | `core/onboarding` (DNA/maturidade) | `core/fdip` | ⏳ **verificar antes de migrar** |
+| **#14** | `core/onboarding` (DNA/maturidade) | `core/fdip` | 🔤 **NÃO MIGROU — RENOMEADO.** Verificado: não CONSEGUE consumir a cascata (sem categoria, classificação de confiança 0.4, extrato sem competência). Virou *estimativa da importação*, com aviso na tela |
 
 ### São CINCO agregações independentes, não duas
 
@@ -86,9 +86,9 @@ ou a superfície declara o regime na própria tela. É a regra que resolve o cas
 2. ~~**`dreGerencial`**~~ — **curada**: virou FACHADA FINA da cascata (#4, #5). Zero agregação própria;
 3. ~~**`painelResultado`**~~ — **curada**: lê a cascata e veste o contrato da ONDA 4 (dizer quando não sabe). Zero agregação própria;
 4. ~~a inline da IA~~ — **curada** no PR #44;
-5. **`quant`/burn** (`core/quant/indicators`) — #8, e por tabela #9.
+5. **`quant`/burn** (`core/quant/indicators`) — #8. **Permanece, por desenho**: mede CAIXA, e o score de saúde pergunta "o caixa aguenta?". O que mudou foi o NOME.
 
-Mais **duas somas cruas** sem classificador nenhum: **#10** e **#14**.
+As duas somas cruas foram fechadas: **#10** migrou; **#14** foi renomeado (não consegue migrar).
 
 ---
 
@@ -101,10 +101,10 @@ Um PR por vez, **verde antes do próximo**.
 | ✅ 1º | **#7** IA | Feito no PR #44, com o contrato nascendo junto |
 | ✅ 2º | **#3 · #4 · #5** | #3 removido (morto). `dreGerencial` virou **fachada fina** sobre `cascataDRE`, com `regime` obrigatório. Contrato estendido aos **dois regimes** |
 | ✅ 3º | **#6** `painelResultado` | Lê a cascata mantendo o contrato da ONDA 4. `ehReceitaOperacional` é a única definição de receita operacional no código |
-| 4º | **#10** `VendasDashboardView` | Soma crua de `movements`, sem classificador |
-| 5º | **#14** `core/fdip` | ⚠️ **Verificar ANTES se ele CONSEGUE consumir a cascata.** Roda no onboarding, sobre dado **ainda não classificado**. Se não conseguir, a correção **não é migrar**: é parar de chamar aquilo de *receita* e *EBITDA* e rotular como **estimativa da importação** |
-| 6º | **#9** Investor Update | **Migra.** Investidor que lê "margem líquida" espera competência; número derivado de caixa sob esse rótulo aparece contra você numa diligência |
-| 7º | **#8** `quant`/score | ⚠️ **NÃO migra.** Mantém o burn como fonte e **RENOMEIA** — *"margem de caixa 90d"*, *"eficiência de caixa"* — ganhando ao lado as métricas de competência vindas da cascata. **Dois regimes, dois nomes** |
+| ✅ 4º | **#10** `VendasDashboardView` | Receita, MC e EBITDA da cascata. `RE.variavel` e `RE.foraEbitda` removidos; `RE.marketing` fica (CAC não é linha do DRE) |
+| ✅ 5º | **#14** `core/fdip` | **Não consegue** — verificado. Renomeado para *estimativa da importação*, com aviso na tela |
+| ✅ 6º | **#9** Investor Update | Migrado. Receita do mês e margem líquida em competência; a margem é `null` sem receita |
+| ✅ 7º | **#8** `quant`/score | **Não migrou, renomeou.** `margemCaixa90d` e `eficienciaDeCaixa`, com o regime dito em cada cartão. Guarda de vocabulário no contrato impede o nome de voltar |
 
 ---
 
@@ -301,3 +301,580 @@ categorias presas caíram em linhas que se anulam na cascata. Numa separação e
 que o regex soltasse duas das quatro, o fundo teria mudado. A regra está no
 `CONTRIBUTING.md`: **reclassificação de dado é expand/contract — o código que
 interpreta vai antes.**
+
+
+---
+
+## FOLHA — o que se reproduziu do relatório de 13/08, e o que não
+
+Medido chamando `calcularCLT` direto, dois CLT de R$ 10.000 e R$ 2.500, sem
+dependentes e sem outros descontos:
+
+| | INSS | IRRF | Líquido | Custo | Fator |
+| --- | --- | --- | --- | --- | --- |
+| R$ 10.000 | 951,63 *(teto)* | 1.579,57 | **7.468,80** | 16.244,44 | 1,62× |
+| R$ 2.500 | 202,23 | 0,00 | **2.297,77** | 4.061,11 | 1,62× |
+| **total** | | | **R$ 9.766,57** | R$ 20.305,55 | |
+
+**Desconto de 21,9%** — a faixa esperada. Não reproduzi os R$ 7.966 (36,3%).
+
+### ❌ "Fator idêntico é matematicamente impossível" — não é. É correto.
+
+`custoTotal` = bruto + FGTS + patronal + provisões, e **todas** essas parcelas
+são proporcionais ao bruto. INSS e IRRF do empregado são **desconto** — saem do
+bolso dele e não entram no custo do empregador. Logo o fator de custo é o mesmo
+para qualquer salário; o que a progressividade muda é o **líquido**, e ele muda:
+R$ 7.468,80 × R$ 2.297,77.
+
+Há uma asserção no `engine-audit` para impedir que alguém "conserte" isso.
+
+### ❌ "36,3% de desconto" — não reproduz
+
+O motor dá 21,9%. Um líquido menor exigiria `valeTransporte`, `planoSaude`,
+pensão ou `outrosDescontos` no cadastro — que entram em `outros` legitimamente.
+
+### ✅ "O número grande é o custo, com rótulo de bruto" — real, corrigido
+
+O cartão exibia `custoTotal` em destaque e "bruto R$ 10.000" abaixo. Invertido:
+**bruto em destaque, custo como métrica secundária rotulada como custo.**
+
+### ✅ Anexo IV é tratado
+
+`encargosPatronais`: `noDAS = simples && anexo !== null && anexo !== "IV"`. No
+Anexo IV o patronal é recolhido **fora** do DAS (1,62×); no Anexo III entra no
+DAS (1,29×). Medido nos três regimes.
+
+---
+
+## RECONCILIAÇÃO: o projetado × o efetivamente pago
+
+Só ficou possível depois da separação de categorias. Org `835278a9`,
+out/2025 a jun/2026 (os 9 meses em que as três categorias coexistem):
+
+| | Pago | % da folha paga | A lei manda |
+| --- | --- | --- | --- |
+| Folha de pagamento | R$ 734.970,10 | — | — |
+| FGTS | R$ 44.639,24 | **6,1%** | 8% |
+| INSS patronal (GPS) | R$ 81.286,03 | **11,1%** | 27,8% (CPP 20 + RAT 2 + terceiros 5,8) |
+
+**Não fecha, e a divergência é grande:** o FGTS pago é R$ 14.158,37 **menor** que
+8% da folha; o INSS pago é R$ 123.035,66 menor que 27,8%.
+
+E as duas pontas **também não concordam entre si**, o que descarta uma explicação
+única:
+
+- base implícita pelo FGTS (÷ 8%) → **R$ 557.990,50**
+- base implícita pelo INSS (÷ 27,8%) → **R$ 292.395,79**
+- folha efetivamente paga → **R$ 734.970,10**
+
+Três bases diferentes para os mesmos meses. Não atribuo a causa — as
+possibilidades que os números admitem: "Folha de pagamento" mistura CLT com PJ e
+pró-labore (que não geram FGTS nem CPP); parte do valor é líquido e parte é
+bruto; ou o dado semeado não é internamente consistente.
+
+⚠️ **E um achado independente da alíquota:** INSS e FGTS **param em junho/2026**,
+enquanto a folha segue até agosto. Dois meses de folha sem encargo nenhum — isso
+sozinho impede qualquer reconciliação de fechar, e nenhuma calculadora conserta.
+
+
+---
+
+## ACHADO DE NEGÓCIO — encargos de folha · **REQUER CONTADOR**
+
+⚠️ **Não é defeito de cálculo, e não deve ser "corrigido" no código.** A
+calculadora foi verificada valor a valor contra as tabelas legais; o que não
+fecha é o DADO.
+
+Org `835278a9`, out/2025 a jun/2026 (os 9 meses em que as três categorias
+coexistem):
+
+| | Pago | % da folha paga | A lei manda |
+| --- | --- | --- | --- |
+| Folha de pagamento | R$ 734.970,10 | — | — |
+| FGTS | R$ 44.639,24 | **6,1%** | 8% |
+| INSS patronal (GPS) | R$ 81.286,03 | **11,1%** | 27,8% |
+
+E as duas pontas **não concordam entre si**, o que descarta explicação única:
+
+- base implícita pelo FGTS (÷ 8%) → **R$ 557.990,50**
+- base implícita pelo INSS (÷ 27,8%) → **R$ 292.395,79**
+- folha efetivamente paga → **R$ 734.970,10**
+
+⚠️ **A lacuna de dois meses:** INSS e FGTS **param em junho/2026** enquanto a
+folha segue até **agosto**. Dois meses de folha sem encargo nenhum — isso sozinho
+impede qualquer reconciliação de fechar, e nenhuma calculadora conserta.
+
+**O que o sistema passou a fazer:** a tela da folha avisa quando os encargos
+lançados divergem mais de **20%** do projetado, dizendo os dois números e as
+causas possíveis. O sistema saber e não avisar já foi achado (A4P-072).
+
+**O que fica para o contador:** dizer se a divergência é quadro de pessoal
+diferente do cadastrado, regime diferente do declarado, guia não lançada, ou
+mistura de CLT com PJ/pró-labore na mesma categoria "Folha de pagamento".
+
+---
+
+# LOTE P-06B — os quatro defeitos remanescentes (14/08/2026)
+
+Medidos de novo antes de qualquer correção, contra a organização
+`835278a9-2e4f-447f-b2e2-2aedb6daa9c6` e, onde a pergunta era global, contra as
+seis organizações do banco. Um PR por item, verde antes do próximo.
+
+## ⚠️ 1. "O extrato não fecha" — **DIAGNÓSTICO TROCADO**, não refutado
+
+O achado é **REAL**. Ele não estava onde foi procurado, e não estava onde eu o
+procurei — são erros diferentes, e cada um custou uma rodada.
+
+**Onde o defeito NÃO está:** no extrato do produto. `extratoDaConta` e
+`fluxoCaixaMensal` acumulam o fechamento a partir da abertura sobre as MESMAS
+linhas que somam nos agregados; a identidade vale por construção e não há como
+divergirem.
+
+**Onde ele ESTÁ:** no relatório de linha de base (`scratchpad/linha-base.mts`).
+Ele emite o DFC — que está certo — e o DFC, corretamente, **exclui o financeiro
+das Saídas Operacionais**, porque essa linha se chama *operacionais* e o
+financeiro sai na sua própria (`Fluxo de Financiamentos`). Quem lê os três
+números mais salientes e faz a conta de cabeça não chega ao Saldo Final:
+
+```
+680.884,72 + 519.976,29 − 1.230.567,52 = −29.706,51
+saldo real                             = −31.000,16
+resíduo                                =   1.293,65   ← o Resultado Financeiro
+```
+
+E o relatório **piorava a armadilha**: emitia duas "Saídas" diferentes para a
+mesma janela de caixa, trinta linhas apart, sem dizer que diferiam — `Saídas
+Operacionais` (R$ 1.230.567,52, sem financeiro) e `Saídas liquidadas`
+(R$ 1.231.861,17, com tudo). Dois números com o mesmo rótulo curto na mesma
+página é como uma leitura vira a outra sem ninguém perceber.
+
+**A origem do R$ 1.293,65, conferida no banco** (org 835278a9, sem amostra):
+
+| Categoria | Lanç. (carteira) | Valor (carteira) | Na janela 09/25–08/26 |
+| --- | --- | --- | --- |
+| Tarifas bancárias | 26 | R$ 1.881,99 | R$ 1.254,25 |
+| Tarifas de adquirência | 10 | R$ 39,40 | R$ 39,40 |
+| **Resultado Financeiro** | | | **−R$ 1.293,65** |
+
+**A correção:** o relatório ganhou o bloco `DECOMPOSIÇÃO DO CAIXA`, com os
+agregados TOTAIS (nome que diz que são totais), o resíduo **impresso**, e a
+diferença para as Saídas Operacionais **nomeada** como Resultado Financeiro. O
+resíduo não é só exibido: ele **derruba** o relatório (`exit 1`) — linha de base
+que sai com resíduo é pior que nenhuma, porque quem a lê a toma por conferida.
+
+Guarda no `engine-audit` (bloco `caixa:`), com as duas metades:
+
+- a decomposição TOTAL fecha ao centavo, resíduo zero;
+- o par ingênuo (só operacionais) **não** fecha, e o que sobra é exatamente o
+  financeiro. ⚠️ Esta segunda existe para o próximo auditor encontrar a
+  explicação em vez de perseguir o fantasma — **e** para impedir o conserto
+  errado: se um dia o par ingênuo fechar, alguém somou o financeiro dentro de
+  `saidas_operacionais`, e ele passou a contar duas vezes porque já sai em
+  `fluxo_financiamento`. Provada quebrando os dois lados.
+
+### ⚠️ POR QUE ISTO NÃO É "REFUTADO" — e por que o nome importa
+
+Achado mal nomeado custa **duas rodadas**: uma para persegui-lo no lugar errado
+e outra para reencontrá-lo. "Refutado" é veredito terminal — autoriza fechar o
+item e diz ao próximo auditor para não voltar. Aplicado a um defeito que existe,
+não conserta nada e ainda apaga o rastro que levaria à causa. "Diagnóstico
+trocado" mantém o achado vivo e move só o endereço.
+
+⚠️ É o oposto do A4P-028 e do A4P-036, e por isso os três ficam escritos juntos:
+lá o veredito terminal estava certo e escrevê-lo impede o achado de voltar; aqui
+ele estaria errado e escrevê-lo faria o defeito sumir do mapa. **O que decide
+não é a força da medição, é se ela mediu o que a conclusão afirma.**
+
+### ⚠️ O MEU ERRO DE MÉTODO — a regra R1 aplicada a mim mesmo
+
+**Medi uma superfície e concluí sobre outra.** Consultei o banco juntando
+`movements` a `categories` por `category_id`, e as 36 linhas de tarifa desta
+organização têm **`category_id` NULO**, com o nome no campo TEXTO
+`movements.category` — que é exatamente o que a classificação lê (`cat(m) =
+m.category`). Todas caíram em `(sem categoria)`, `ehFinanceiro` não casou com
+nada, e eu li um zero produzido pelo meu JOIN como se fosse um zero do negócio.
+
+Sobre esse zero afirmei que o Resultado Financeiro era R$ 0,00 **em toda
+organização e toda janela** — afirmação forte que a medição não sustentava, e a
+distância entre as duas é o defeito.
+
+É a **mesma família** do erro do A4P-036, pelo avesso: lá o motor foi alimentado
+com colaboradores sem benefício e comparado com a tela alimentada pelo cadastro
+real, e a conclusão foi divergência onde havia duas entradas diferentes. Aqui a
+medição usou um caminho que a aplicação não percorre, e a conclusão foi ausência
+onde havia junção errada.
+
+**A regra, agora com dois casos:** *meça com o dado que a superfície usa* — e o
+teste de que ela foi respeitada é conseguir dizer, ANTES de concluir, por qual
+campo a superfície classifica. Se a resposta for "presumi", a medição ainda não
+começou.
+
+## ✅ 2. A projeção ignorava o vencido — **REPRODUZ**, corrigido
+
+| Pendente, fora amostra, em 14/08/26 | Nº | Valor |
+| --- | --- | --- |
+| Saídas **vencidas** (mais antiga: 05/05/2023) | 5 | **R$ 74.248,59** |
+| Saídas a vencer | 121 | R$ 332.754,37 |
+| Entradas **vencidas** | 14 | **R$ 3.162,12** |
+| Entradas a vencer | 31 | R$ 4.162,81 |
+
+O recorte era `due_date >= hoje`, então **R$ 71.086,47 líquidos** ficavam fora da
+projeção de caixa, sempre a favor da empresa.
+
+**Regra de expectativa, explícita e rotulada:** o vencido em aberto é esperado a
+partir de HOJE — a data mais cedo em que ainda pode se mover. Vale num lugar só
+(`dataEsperada`), para cartões, árvore e calendário. O número mudou, então o nome
+mudou: `entradasProjetadas`/`saidasProjetadas`, e `projetadoNaJanela` ao lado de
+`previstoNaJanela` (a agenda de vencimentos continua respondível).
+
+## ✅ 3. Cancelados invisíveis — **REPRODUZ**, e é PREEXISTENTE
+
+| Cancelados, fora amostra | Nº | Valor |
+| --- | --- | --- |
+| Carteira inteira — entrada | 59 | R$ 189.960,40 |
+| Carteira inteira — saída | 60 | R$ 389.401,01 |
+| **Total** | **119** | **R$ 579.361,41** |
+| No período do relatório (venc. 09/25–08/26) | 62 | R$ 395.722,13 |
+
+⚠️ **Não é deriva recente.** Antes de escrever uma linha: **nenhum** evento da
+trilha alterou `status` em momento algum — os únicos eventos que carregam esse
+campo são os 123 `movements.criar` de 11/08, todos nascidos `pendente` (122) ou
+`pago` (1). Os 342 `movements.alterar` de 13–14/08 são a reclassificação de
+categoria do PR #100 (`antes: {category: "Impostos"}` → `depois: {category:
+"Simples Nacional"}`), sem tocar em status. Os cancelamentos datam de junho/26 e
+antecedem a trilha. **Documenta-se, não se desfaz.**
+
+Excluir o cancelado do resultado está certo; o defeito era o silêncio. Virou
+**rodapé** (`NotaCancelados`) no DRE, no DFC e no painel de títulos — nunca linha,
+porque somá-lo devolveria ao resultado dinheiro que ninguém deve nem receberá.
+
+## ✅ 4. A purga apagava o que não anuncia — **REPRODUZ**, corrigido
+
+| `sample_reason` | Organização | Nº | Valor |
+| --- | --- | --- | --- |
+| `onboarding_demo` | 835278a9 | 146 | R$ 1.933.289,21 |
+| `lancamento_teste` | 835278a9 | **1** | **R$ 500.000,00** |
+| `onboarding_demo` | 17d99b37 | 168 | R$ 2.318.136,00 |
+| `onboarding_demo` | b82aa9c5 | 144 | R$ 1.933.266,99 |
+
+O botão anunciava "dados de demonstração" e apagava `is_sample = true` — levando
+junto o lançamento de R$ 500.000,00 marcado à mão pelo id. Agora a purga exige
+`sample_reason = 'onboarding_demo'`, e o banner diz quantos saem e quantos ficam.
+
+## Defeito novo encontrado no caminho
+
+**Um, e foi meu:** a conclusão do item 1 assentada numa medição que não media o
+que eu disse que media (acima). Corrigida na mesma rodada, com o relatório de
+linha de base fechando ao centavo e a guarda que impede o fantasma de voltar.
+
+Fora isso, um ponto de fiação: o
+calendário do fluxo de caixa recortava por `dataRef` enquanto os cartões
+passariam a recortar por `dataEsperada` — com a correção do item 2 aplicada só
+aos cartões, a agenda do mês passaria a discordar do KPI logo acima. Pego pela
+própria fixture, antes de sair do galho, e corrigido no mesmo PR: a regra de
+expectativa mora num lugar só.
+
+
+---
+
+# LOTE P-07 — de-para das categorias · ETAPAS 1 a 3 (14/08/2026)
+
+Org `835278a9`, sem amostra. **A Etapa 4 (aplicar o de-para) não foi executada.**
+
+## ETAPA 1 — `categories` deduplicada: 29 → 18 linhas
+
+Antes de escrever, duas medições:
+
+1. **Toda linha removida tem ZERO referências** — movimentos, rateios,
+   recorrências, produtos, serviços, filhos e texto órfão, todos zero nas 11.
+   Não houve repontamento a fazer: a consolidação é um no-op de relacionamento.
+2. **Declarar `dre_linha` nos sobreviventes não move nenhuma linha do DRE.**
+   Rodado com o motor real, comparando o estado de produção (só as quatro já
+   declaradas) contra o proposto: as 15 linhas de nível 1 saem idênticas ao
+   centavo. É o que separa deduplicação de de-para — se uma linha se mexesse, a
+   declaração seria Etapa 4 e entraria sob outra aprovação.
+
+**Removidas (11):** 7 duplicatas de nome exato — Aluguel, Folha de pagamento,
+Marketing, Outras despesas, Tarifas bancárias ×2, Vendas ×2 — e **4 variantes**,
+que eram o risco real que você apontou: `Utilidades (água, luz, internet)`,
+`Fornecedores`, `Impostos e taxas`. Sobreviventes escolhidos pela referência:
+`Vendas` ficou com a que tem 5 produtos e 1 serviço; `Aluguel`, com a que tem o
+lançamento.
+
+**Declaradas (12 novas + 4 que já eram):** todas as que hoje o palpite já
+acertava. **`Marketing` e `Impostos` ficaram SEM declaração de propósito** — são
+exatamente as duas que a Etapa 4 move de linha, e declará-las agora seria
+aplicar o de-para fora de ordem.
+
+## ETAPA 2 — as cinco alterações
+
+- **(a)** `Housing` não funde com `Aluguel`. Acatado.
+- **(b)** Categoria **"A classificar — possível pessoal"** criada, natureza
+  `nao_operacional`. Nenhum lançamento movido (isso é Etapa 4).
+- **(c)** `Tarifas de adquirência` → `despesa_variavel`: aprovado, **e a fixture
+  do item 1 foi trocada antes**. Ela não fixa mais R$ 1.293,65 — asserta a
+  IDENTIDADE: *o resíduo do par ingênuo é o resultado financeiro que a cascata
+  apurou, seja ele qual for*. Provada nos dois sentidos: trocando o valor do
+  financeiro na fixture ela continua passando; removendo o financeiro ela
+  reprova (R2).
+- **(d)** `Mensalidade` aprovada como `receita_bruta`, marcada para o **P-13**.
+- **(e)** Os dois de R$ 0,00 saíram do de-para e viraram achado próprio, abaixo.
+
+### ⚠️ ACHADO NOVO — o sistema aceitava lançamento de valor zero
+
+Não é classificação, é **validação**. Medido: duas entradas de "Tarifas
+bancárias" e um "Planilha" de saída, todos R$ 0,00.
+
+O custo não é o zero — ele não move caixa nem resultado. É que ele **ocupa linha
+em toda contagem**: "26 lançamentos de tarifa" vira 28, a média por lançamento e
+o ticket médio caem, e a lista de títulos mostra uma obrigação a conferir que não
+existe. Um número que ninguém consegue explicar faz duvidar dos vizinhos.
+
+`exigirValor` recusa zero **e negativo** — o negativo por outra razão: `amount` é
+MAGNITUDE nesta base, a direção mora em `type`, e um valor negativo inverteria o
+sinal duas vezes em todo motor que usa `assinado()`. A trava está nos **dois**
+escritores (`buildMovementRows` e `criarTitulos`); validar só um deixa aberta a
+porta menos olhada, que é por onde entra a folha. Guardas provadas quebrando
+cada um dos dois.
+
+**Fica declarado como não feito:** os três lançamentos de valor zero JÁ gravados
+continuam na base. Eles aparecem na fila de revisão (motivo `valor_zero`), para
+saírem por decisão, não por varredura.
+
+## ETAPA 3 — a fila de revisão, como tela
+
+`core/revisao` (`revisao/1.0.0`) + `/upload?aba=revisao`. **Nada aqui é
+classificado — a fila SEPARA** e mostra as três fontes lado a lado (descrição ·
+categoria que o relatório lê · categoria que a chave diz), porque é a
+discordância entre elas que exige gente.
+
+Seis motivos: classificação não propagada · sem categoria · entrada com nome de
+salário · descrição ilegível · valor zero · **regra recorrente contraditória**.
+
+⚠️ **A regra recorrente entra na fila, não só os títulos que ela gera** — ver a
+resposta à pergunta do A4P-018 abaixo. Corrigir os filhos e deixar a regra viva
+a faz materializar o mesmo defeito no mês seguinte, e quem corrigiu conclui que
+o sistema desfez o trabalho dela.
+
+⚠️ **O detector de "descrição ilegível" nasceu errado nos DOIS sentidos, e a
+fixture pegou.** Ele media proporção de letras: `! [=]E?s rica NE Bro,` tem 65%
+e passava; `NF-e 123/45` tem 30% e era acusado. Deixava passar exatamente o caso
+medido e acusava o que um financeiro escreve o dia inteiro. O critério agora é
+marca de leitura ótica (colchete, chave, igual — duas ou mais) ou pontuação
+dentro de palavra (`E?s`). A guarda cobra os dois lados: o que tem de ser pego,
+e o que não pode ser.
+
+## ⚠️ A4P-018 FECHA — mas com causa diferente da hipótese
+
+**São os mesmos lançamentos.** `party_id` idêntico (`31b10574`) nos quatro de
+R$ 35.000: contraparte **GOOGLE ADS CAMPANHA**, categoria **Assinaturas /
+software**, descrição **"Salário"**.
+
+**Mas a tela NÃO estava lendo a contraparte como descrição.** Ela agrupa por
+contraparte + categoria por desenho, e foi isso que exibiu. Dado o dado, ela
+estava certa.
+
+A causa é o **cadastro da recorrência `d9439421`**, que já nasce contraditório:
+`description = "Salário"`, `party_id → GOOGLE ADS CAMPANHA`, `category_id →
+Assinaturas / software`, R$ 35.000/mês, mensal, **ativa e sem data de fim**. Os
+quatro títulos são filhos fiéis dela — três carregam `reference_code`
+`rec:d9439421:…`. Não há defeito de código na tela de recorrentes.
+
+⚠️ **E ela continua projetando.** Sendo ativa e sem fim, esse único cadastro
+responde por R$ 35.000/mês da projeção de compromisso recorrente — a maior
+parcela dos R$ 40.802,55 de outubro/26 já registrados neste arquivo. Por isso
+ela está na fila com a ação "Desativar a regra", e não só os títulos dela.
+
+**Hipótese que caiu:** "a tela lia a contraparte como descrição". Como no item 1
+do lote anterior, o achado é real e o endereço estava errado — **diagnóstico
+trocado**, não refutado.
+
+
+---
+
+# ETAPA 4 APLICADA (14/08/2026) — e a invariante SE MOVEU
+
+**81 lançamentos reclassificados.** `venda`→`Vendas` (64) · `Internet / telecom`,
+`Electricity`, `Telecommunications`→`Utilidades` (7) · `Housing`, `Gyms`,
+`Video streaming`, `Music streaming`→**A classificar — possível pessoal** (8) ·
+`Impostos` (entrada)→**Restituição de impostos** (2). Mais 10 categorias criadas
+com linha declarada e `Marketing`→`despesas_operacionais`.
+
+## ⚠️ O RESULTADO LÍQUIDO MUDOU — +R$ 267,70, e a causa é uma só
+
+| | Valor |
+| --- | ---: |
+| Antes | −R$ 784.743,23 |
+| Depois | **−R$ 784.475,53** |
+| Diferença | **+R$ 267,70** |
+
+**Isolado, não deduzido.** Rodando a MESMA apuração com um único parâmetro
+trocado — a transferência voltando a contar como despesa operacional — o
+resultado dá **exatamente −R$ 784.743,23**. Ou seja: *toda* a Etapa 4 é neutra
+no fundo, **exceto** tirar as transferências do DRE, e essa parte move o
+resultado pelo valor exato delas (fatura de cartão R$ 167,70 + boleto de
+transferência R$ 100,00).
+
+Não é defeito: é a correção fazendo efeito. Uma transferência nunca foi despesa,
+e enquanto ela estava lá o custo da empresa carregava dinheiro que só mudou de
+bolso. Mas **fica declarado**, porque a regra é parar e dizer quando o fundo se
+mexe — e porque a invariante "o resultado líquido não muda" foi formulada para
+reclassificação PURA, e esta operação não é só isso.
+
+## Os sete valores, medidos (12 meses, competência, sem amostra)
+
+| Linha | Antes | Depois |
+| --- | ---: | ---: |
+| Receita Bruta Operacional | 523.147,94 | **522.492,64** |
+| Deduções | 248.707,93 | **46.144,70** |
+| Despesas Variáveis | 54.417,61 | **39,40** |
+| **Margem de Contribuição** | 220.022,40 | **476.308,54** |
+| Despesas Operacionais | 1.003.471,98 | **1.181.611,76** |
+| EBITDA | −783.449,58 | **−705.303,22** |
+| **Resultado Financeiro** | −1.293,65 | **−1.254,25** |
+| Impostos sobre o Lucro | 0,00 | **75.982,66** |
+| Resultado não Operacional | 0,00 | **−1.935,40** |
+| **Resultado Líquido** | −784.743,23 | **−784.475,53** |
+
+⚠️ A Margem de Contribuição sobe **R$ 256.286,14**, não os R$ 71.043,14 do
+Marketing: a dedução caiu R$ 202.563,23 junto, porque INSS patronal e IRPJ/CSLL
+saíram dela na Etapa 1 e a restituição passou a reduzi-la. Os R$ 71.043,14 são
+só a parcela do Marketing.
+
+## Duas regras novas no motor, e as duas mexem no resultado
+
+- **`LINHA_TRANSFERENCIA`** — `transferencia` não é linha, é a ausência de linha
+  DITA. Antes, a única forma de tirar um pagamento de fatura do resultado era
+  não declará-lo, e aí o palpite o punha em despesa operacional. Declaração
+  desconhecida cai no palpite **em silêncio** — era esse o risco.
+- **ENTRADA em linha de sinal "-" é ESTORNO** e entra negativa. Em magnitude, a
+  restituição AUMENTARIA a dedução: o contribuinte recebe de volta e o DRE
+  registra que pagou mais imposto.
+
+Guardas no `engine-audit`, provadas quebrando as duas.
+
+## ⚠️ A4P-018 — REESCRITO: a linha NÃO é fabricada
+
+**Refutada a hipótese de linha fabricada.** Medido: existem **4** lançamentos com
+`party_id` → GOOGLE ADS CAMPANHA, todos R$ 35.000, todos com a chave apontando
+para *Assinaturas / software*, em 4 meses distintos. O widget agrupa por
+contraparte + categoria e a média sai de 140.000 ÷ 4 = R$ 35.000/mês. **Todos os
+campos da linha vêm do MESMO conjunto coerente.**
+
+⚠️ **O que explica a sua medição:** os 12 "GOOGLE ADS CAMPANHA" e 12 "META ADS"
+de R$ 1.763,92–5.089,43 têm o nome do fornecedor na **descrição** e
+`party_id` **NULO**. São população diferente. E `getRiscoInput` resolve
+`category` pela CHAVE antes do texto (`embedName(m.categoria) ?? m.category`),
+então o app enxerga "Assinaturas / software" onde o texto está vazio.
+
+### ⚠️ Mas há um defeito real ao lado, e ele é novo
+
+`contraparte: nomes[party_id] ?? ultimo.category ?? "Sem contraparte"` — **quando
+não há contraparte, o widget usa a CATEGORIA como nome dela**. Os 24 lançamentos
+de Google e Meta (R$ 71.043,14) não têm `party_id`, então aparecem numa única
+linha chamada **"Marketing"**, fundindo dois fornecedores distintos e ignorando
+o nome que está na descrição. Um campo ocupando o lugar de outro — a mesma
+família que a hipótese suspeitava, no fallback e não no agrupamento.
+
+**Não corrigido nesta rodada.** Fica na fila.
+
+## ⚠️ `competence_date` — MEDIDO, e é pior que fallback silencioso
+
+| | |
+| --- | --- |
+| Lançamentos reais | 530 |
+| Com `competence_date` | **123 (23,2%)** |
+| Desses, iguais ao vencimento | 121 |
+| Desses, diferentes | **2** |
+
+⚠️ **Não há fallback: o motor NUNCA lê `competence_date`.**
+`dataDe(m, "competencia")` devolve `m.due_date`, ponto
+(`core/indicadores/convencoes.ts`), e `RiskMovement` sequer declara o campo —
+`getRiscoInput` não o seleciona. **A coluna é inerte.** "DRE por competência" é
+DRE por vencimento, por definição escrita, não por acidente.
+
+**Exposição hoje: zero.** Os 2 lançamentos em que competência ≠ vencimento
+diferem por dias DENTRO do mesmo mês (11→12/06 e 10→15/06), e a apuração é
+mensal. O risco é estrutural: no dia em que alguém lançar uma compra de março
+para vencer em abril, o DRE a põe em abril e não avisa.
+
+**Não corrigido, como instruído.** É decisão de produto: ou a competência passa a
+ser lida (e aí `RiskMovement` ganha o campo, com `?? due_date` explícito), ou o
+sistema para de chamar de competência o que apura por vencimento.
+
+
+---
+
+# CORREÇÕES DE 14/08 (noite) — invariante, contraparte, competência
+
+## 1. A invariante do fundo, na forma geral
+
+`Δ Resultado Líquido = −(total do que SAIU do DRE)`, zero quando nada sai. A
+asserção do contrato foi trocada: antes cobrava "não pode mudar", o que
+reprovaria toda remoção legítima. Agora há dois casos lado a lado —
+reclassificação pura (Δ = 0) e remoção (Δ = valor do removido) — e o segundo
+tem asserção de que os dois cenários DISCORDAM, senão o caso não testa nada.
+
+## 2. A4P-018 — REFUTADA a acusação de linha fabricada
+
+Os 4 lançamentos de R$ 35.000 têm `party_id` → GOOGLE ADS CAMPANHA **de
+verdade**, todos com a chave apontando para *Assinaturas / software*, em 4 meses
+distintos. A média de R$ 35.000/mês sai deles. Todos os campos da linha vêm do
+mesmo conjunto coerente. **A linha não é fabricada.**
+
+O que explicava a leitura contrária: os 12 "GOOGLE ADS CAMPANHA" e 12 "META ADS"
+de R$ 1.763,92–5.089,43 têm o nome na **descrição** e `party_id` NULO — população
+diferente, medida por um caminho que a tela não usa.
+
+### O defeito real, corrigido
+
+`nomes[party_id] ?? ultimo.category ?? "Sem contraparte"` — sem cadastro, a
+CATEGORIA virava o nome da contraparte. E como a **chave do agrupamento** sai
+daí, os 24 lançamentos de Google e Meta (R$ 71.043,14) colapsavam num único
+compromisso chamado "Marketing", com as médias somadas.
+
+Agora: cadastro → descrição normalizada (`nucleoContraparte`) → "Sem
+contraparte". **A categoria não entra em nenhum degrau.** Guarda provada
+quebrando: com a categoria de volta, os dois fornecedores viram um grupo só.
+
+## 3. `competence_date` — o motor passou a ler
+
+**Medido ANTES de aplicar, como instruído:** zero diferença nas sete linhas do
+DRE entre apurar por vencimento e por competência. Confirmado o esperado.
+
+| | |
+| --- | --- |
+| Lançamentos reais | 530 |
+| Com competência | 123 (23,2%) |
+| Diferentes do vencimento | 2 — e no mesmo mês |
+
+**Quem preenche, medido por origem:**
+
+| `origem` | total | com competência |
+| --- | ---: | ---: |
+| `manual` (o formulário) | 121 | **121 — 100%** |
+| nula (importação / onboarding) | 407 | **2** |
+| `venda` | 2 | 0 |
+
+⚠️ **Não é o formulário: é a importação.** O modelo de planilha em lote
+(`ImportacaoView`) **não tem coluna de competência** — não é que ela não seja
+exigida, ela não existe. E o extrato/onboarding grava sem. É por aí que entram
+os 77%.
+
+### ⚠️ A correção desenterrou uma SEGUNDA implementação da regra de data
+
+`core/relatorios.dataDoRegime` repetia a regra por conta própria. Foi por isso
+que ligar a competência em `dataDe` não mudou nada no DRE na primeira tentativa:
+**o relatório nunca chamava a função canônica.** Agora delega.
+
+⚠️ **E a delegação trocou o regime em silêncio, num caso que a guarda pegou.**
+Com `regime` indefinido, a expressão antiga caía em competência por acidente do
+ternário e a delegação caía em caixa pelo acidente inverso — R$ 5.000 de
+diferença entre o cartão e a tabela na fixture. A normalização passou a ser
+DITA, e a chamada que omitia o regime foi corrigida.
+
+### A fixture que separa os dois regimes
+
+Uma compra com competência em **março** e vencimento/pagamento em **abril** cai
+em março no DRE e em abril no DFC — e a guarda exige que os dois **discordem**
+sobre ela. Era esse caso que não existia no sistema.

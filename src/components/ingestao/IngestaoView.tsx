@@ -18,8 +18,9 @@ import { UploadWizard } from "@/components/upload/UploadWizard";
 import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
 import { RegrasView } from "./RegrasView";
 import { LimpezaDuplicatas } from "@/components/upload/LimpezaDuplicatas";
+import { FilaRevisaoView } from "@/components/revisao/FilaRevisaoView";
 
-type Aba = "conectar" | "enviar" | "conciliar" | "regras" | "limpeza";
+type Aba = "conectar" | "enviar" | "conciliar" | "regras" | "limpeza" | "revisao";
 const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
   { id: "enviar", label: "Enviar", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
@@ -28,9 +29,14 @@ const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   // A idempotência resolve daqui para a frente; esta aba resolve o passado —
   // as cópias que entraram antes de a chave existir.
   { id: "limpeza", label: "Duplicatas", icon: "scan-line", desc: "Encontra e remove as cópias já gravadas na base" },
+  // ⚠️ A fila do que o sistema NÃO classifica sozinho. Mora aqui, e não numa
+  // entrada de menu própria, porque é conferência do dado que ENTROU — a mesma
+  // esteira. E a aba fica por último de propósito: ela é exceção, não o fluxo.
+  { id: "revisao", label: "Revisão", icon: "list-checks", desc: "O que discorda entre si e precisa de uma pessoa" },
 ];
 const isAba = (s: string | null): s is Aba =>
-  s === "conectar" || s === "enviar" || s === "conciliar" || s === "regras" || s === "limpeza";
+  s === "conectar" || s === "enviar" || s === "conciliar" || s === "regras" || s === "limpeza"
+  || s === "revisao";
 
 export function IngestaoView() {
   const router = useRouter();
@@ -74,6 +80,7 @@ export function IngestaoView() {
       {aba === "conciliar" && <ConciliacaoView />}
       {aba === "regras" && <RegrasView />}
       {aba === "limpeza" && <LimpezaDuplicatas />}
+      {aba === "revisao" && <FilaRevisaoView />}
 
       {/* Botão fixo "Upload de dados" — o mesmo que existia na Home, agora na
           casa dele. Não navega: dispara `a4p:open-upload` e o wizard de 3

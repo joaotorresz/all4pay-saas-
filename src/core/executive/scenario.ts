@@ -30,7 +30,7 @@ export function simularCenario(
     ...indic,
     receitaMensal: receita,
     despesaMensal: despesa,
-    margemOperacional: margem,
+    margemCaixa90d: margem,
     runwayMeses,
     inadimplencia: inad,
   });

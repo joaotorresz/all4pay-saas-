@@ -1002,6 +1002,160 @@ export function previstoNaJanela(
   };
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **O CANCELADO É INVISÍVEL, E ISSO É CERTO — CALADO É QUE NÃO É**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `liquidado`/`previsto` descartam o cancelado, e devem mesmo: um título
+ * cancelado não é receita, não é despesa e não vai ao caixa. O defeito não é a
+ * exclusão, é o SILÊNCIO — nenhum relatório diz que ela aconteceu, então um
+ * DRE montado sobre uma base com centenas de títulos cancelados tem exatamente
+ * a mesma cara de um DRE montado sobre uma base limpa.
+ *
+ * Medido na organização auditada (14/08/26, fora a amostra): **119 títulos
+ * cancelados somando R$ 579.361,41** — R$ 189.960,40 de entrada e
+ * R$ 389.401,01 de saída. No período de 12 meses do relatório, 62 títulos e
+ * R$ 395.722,13. Quem confere o faturamento contra o extrato do banco encontra
+ * essa diferença e não tem por onde começar a explicá-la.
+ *
+ * ⚠️ Isto NÃO vira linha da cascata e NÃO entra em soma nenhuma — vira RODAPÉ.
+ * Somá-lo devolveria ao resultado dinheiro que ninguém deve nem receberá, que
+ * é um defeito muito pior do que o silêncio que ele conserta.
+ */
+export interface Cancelados {
+  quantidade: number;
+  /** Magnitudes, sempre positivas — não se somam entre si (lados opostos). */
+  entradas: number;
+  saidas: number;
+  /** A soma das magnitudes: "quanto de título foi cancelado", sem direção. */
+  total: number;
+  janela: Janela;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **QUANTOS LANÇAMENTOS DA JANELA NÃO TÊM COMPETÊNCIA** — o fallback, dito
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * O motor passou a ler `competence_date`; quando ela falta, o vencimento
+ * continua valendo. **Esse fallback não pode ser silencioso**: um DRE montado
+ * metade por competência e metade por vencimento tem a mesma cara de um DRE
+ * conferido, e a diferença só aparece quando alguém lança uma compra de março
+ * para vencer em abril.
+ *
+ * Medido na organização auditada: 123 de 530 lançamentos (23,2%) têm
+ * competência, e as duas únicas divergências caem no mesmo mês — o DRE não muda
+ * um centavo hoje. O risco é estrutural, não realizado, e é exatamente por isso
+ * que ele precisa estar escrito na tela em vez de esperado da memória de
+ * alguém.
+ *
+ * Instrumentação com consumidor, pela regra R4: quem chama isto MOSTRA.
+ */
+export interface CoberturaCompetencia {
+  /** Lançamentos considerados na janela (não cancelados). */
+  total: number;
+  /** Quantos declararam a competência. */
+  comCompetencia: number;
+  /** Quantos caíram no vencimento por falta dela. */
+  semCompetencia: number;
+  /** 0..1 — `null` quando não há lançamento para medir. */
+  cobertura: number | null;
+}
+
+export function coberturaCompetencia(input: RiskInput, j: Janela): CoberturaCompetencia {
+  const rows = j.vazia
+    ? []
+    : input.movements.filter((m) => !cancelado(m) && dentro(j, dataDe(m, "competencia")));
+  const com = rows.filter((m) => !!m.competence_date).length;
+  return {
+    total: rows.length,
+    comCompetencia: com,
+    semCompetencia: rows.length - com,
+    cobertura: rows.length === 0 ? null : com / rows.length,
+  };
+}
+
+/** Os títulos cancelados com vencimento na janela. Rodapé, nunca linha. */
+export function canceladosNaJanela(
+  input: RiskInput, j: Janela, tipo?: "entrada" | "saida",
+): Cancelados {
+  const rows = j.vazia
+    ? []
+    : input.movements.filter(
+        (m) => cancelado(m) && dentro(j, m.due_date) && (!tipo || m.type === tipo),
+      );
+  const soma = (tipo: "entrada" | "saida") =>
+    rows.filter((m) => m.type === tipo).reduce((s, m) => s + magnitude(m), 0);
+  const entradas = soma("entrada");
+  const saidas = soma("saida");
+  return { quantidade: rows.length, entradas, saidas, total: entradas + saidas, janela: j };
+}
+
+/**
+ * O que já VENCEU e continua em aberto — a dívida (ou o crédito) atrasada.
+ *
+ * ⚠️ É POSIÇÃO e é FATO: o título existe e a data passou. Não tem janela — um
+ * título vencido em maio continua vencido em agosto, e recortá-lo por período
+ * é o mesmo defeito que a tela de contas a receber já corrigiu (envelhecimento
+ * é carteira inteira, não janela).
+ */
+export function vencidoEmAberto(
+  input: RiskInput, tipo: "entrada" | "saida" = "saida",
+): Indicador {
+  const hoje = input.hoje.slice(0, 10);
+  const formula = `títulos de ${tipo === "entrada" ? "entrada" : "saída"} em aberto com vencimento anterior a hoje`;
+  const rows = input.movements.filter(
+    (m) => m.type === tipo && previsto(m) && !cancelado(m) && (m.due_date?.slice(0, 10) ?? "") < hoje,
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: janelaHoje(input.hoje),
+      formula, natureza: "fato",
+    },
+  };
+}
+
+/**
+ * O que ainda VAI se mover na janela — o previsto dela MAIS o vencido em aberto.
+ *
+ * ⚠️ **A REGRA DE EXPECTATIVA DO VENCIDO, declarada aqui e rotulada na tela.**
+ * Um título em aberto cujo vencimento já passou não deixou de existir: ele
+ * ainda vai sair (ou entrar) do caixa, e a data mais cedo em que isso pode
+ * acontecer é HOJE. `previstoNaJanela` responde "o que vence aqui" e por isso
+ * o deixa de fora — correto para quem monta a agenda de cobrança, e otimista
+ * para quem projeta caixa: a projeção nascia melhor do que a realidade pelo
+ * valor exato do que a empresa já devia. Medido em produção: R$ 74.248,59 de
+ * saídas vencidas fora da projeção de fluxo, contra R$ 3.162,12 de entradas.
+ *
+ * ⚠️ O nome é OUTRO de propósito (regra "nenhum número muda de significado sem
+ * mudar de nome"). São duas perguntas diferentes e as duas continuam
+ * respondíveis: quem quer a agenda usa `previstoNaJanela`, quem quer a
+ * projeção usa esta.
+ */
+export function projetadoNaJanela(
+  input: RiskInput, j: Janela, tipo: "entrada" | "saida" = "entrada",
+): Indicador {
+  const lado = tipo === "entrada" ? "entrada" : "saída";
+  const formula =
+    `títulos de ${lado} em aberto com vencimento na janela + o vencido não pago, esperado a partir de hoje`;
+  if (j.vazia) return vazio(j, formula, "competencia", "projecao");
+  const hoje = input.hoje.slice(0, 10);
+  // ⚠️ União, não soma: uma janela que começa ANTES de hoje já contém parte do
+  // vencido, e somar os dois blocos contaria esses títulos duas vezes.
+  const rows = input.movements.filter(
+    (m) => m.type === tipo && previsto(m) && !cancelado(m)
+      && (dentro(j, m.due_date) || (m.due_date?.slice(0, 10) ?? "") < hoje),
+  );
+  return {
+    valor: rows.reduce((s, m) => s + magnitude(m), 0),
+    procedencia: {
+      lancamentos: rows.length, regime: "competencia", janela: j, formula, natureza: "projecao",
+    },
+  };
+}
+
 /** O previsto em aberto de UMA conta — o que a conciliação precisa por conta. */
 export function previstoDaConta(input: RiskInput, accountId: string): Indicador {
   const j = janelaHoje(input.hoje);
