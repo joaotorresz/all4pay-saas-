@@ -63,23 +63,36 @@ with tabelas as (
   -- retrato gerado como admin igual ao que o `ci_leitor` produz — sem dar a ele
   -- SELECT em dado de cliente.
   --
-  -- ⚠️ **`service_role` FICA DE FORA, e a razão é uma medição.** Nenhuma
-  -- migration deste repositório concede a `service_role` (`grep` devolve ZERO):
-  -- todo grant a esse papel é aplicado pela PLATAFORMA do Supabase. Como esta
-  -- guarda compara o banco EFÊMERO (supabase local, as migrations) com o retrato
-  -- de PRODUÇÃO, e os defaults de `service_role` do local divergem dos do
-  -- hospedado, incluí-lo despejava ~65 DERIVA de plataforma — ruído que a
-  -- guarda não cria nem controla, e que soterrava o sinal real (os órfãos
-  -- `own_*`, o `org_balances` STABLE). Sobram `anon` e `authenticated`: os
-  -- papéis que CHEGAM PELO NAVEGADOR e que as migrations de fato gerenciam por
-  -- revoke — a superfície que o objetos.sql já dizia importar.
+  -- ⚠️ **`service_role` ENTRA, e tirá-lo foi um erro que ficou registrado.**
+  --
+  -- Ele chegou a sair daqui por um raciocínio correto com efeito errado:
+  -- nenhuma migration deste repositório concede a `service_role` (`grep`
+  -- devolve ZERO — todo grant a ele é da PLATAFORMA), e como esta consulta
+  -- alimenta uma comparação com o banco EFÊMERO, cujos defaults de plataforma
+  -- divergem do hospedado, os 77 grants apareciam como DERIVA e soterravam o
+  -- sinal real. A conclusão de tirá-los estava errada: `service_role` é **a
+  -- chave que passa POR FORA do RLS**, e é o que sobrou aberto do A4P-077.
+  -- Tirá-lo da guarda faz mudança nesses grants virar INVISÍVEL — e a próxima
+  -- porta aberta seria exatamente ali.
+  --
+  -- ⚠️ Medido em 17/08, e é isto que dá conteúdo à linha de base: os 77 têm
+  -- **duas** assinaturas, não uma. `audit_log`, `admin_audit` e `admin_acessos`
+  -- não têm **TRUNCATE** (a revogação da ONDA 9); as outras 74 têm. Ou seja: o
+  -- dia em que `audit_log.service_role` recuperar TRUNCATE, a trilha de
+  -- auditoria vira apagável pela chave que ignora RLS — e é precisamente essa
+  -- mudança que o filtro teria escondido.
+  --
+  -- O ruído vira LINHA DE BASE, não cegueira: o comparador não confronta estes
+  -- grants com o efêmero (ali eles são default de plataforma, e a comparação não
+  -- diz nada); confronta com a lista DECLARADA em `grants_service_role` do
+  -- retrato, e reprova quando um aparece, some ou muda de privilégio.
   select 'grant:' || c.relname || '.' || acl.grantee::regrole::text as obj,
          md5(string_agg(acl.privilege_type, ',' order by acl.privilege_type)) as sig
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
   cross join lateral aclexplode(c.relacl) acl
   where c.relkind in ('r','v','m','p')
-    and acl.grantee::regrole::text in ('anon','authenticated')
+    and acl.grantee::regrole::text in ('anon','authenticated','service_role')
   group by c.relname, acl.grantee::regrole::text
 )
 select obj || '|' || sig

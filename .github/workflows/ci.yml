@@ -210,6 +210,16 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run objetos
+      # ⚠️ A VIGIA DA CHAVE QUE PASSA POR FORA DO RLS. `service_role` não é
+      # comparado com o efêmero (ali é default de plataforma, e o supabase local
+      # difere do hospedado): é confrontado com a LINHA DE BASE declarada em
+      # `grants_service_role`. Um grant novo aqui é uma tabela inteira exposta
+      # sem política — foi o que sobrou aberto do A4P-077. Lê PRODUÇÃO, então usa
+      # o secret.
+      - name: Guarda dos grants de service_role (produção × linha de base)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run objetos:service-role
       # ⚠️ `ddl` SIM usa o secret: o `ddl_log` é uma tabela de PRODUÇÃO (registra
       # o DDL de produção), e o banco efêmero nasce com ela vazia. É a única das
       # duas que precisa do papel só-leitura ci_leitor.

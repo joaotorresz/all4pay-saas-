@@ -151,9 +151,9 @@
     "aplicada_em": null
    },
    {
-    "nome": "20260817193000_org_balances_stable_alinha_producao",
-    "motivo": "A4P-076: producao tem org_balances() como STABLE; a migration 0020 a define sem palavra de volatilidade (default VOLATILE). Alguem a tornou STABLE em producao fora de migration. Esta migration alinha o repositorio a producao (recria identica, com STABLE). O arquivo nasce no PR e o banco so o recebe no merge — a divergencia existe durante a revisao, por desenho.",
-    "impacto": "Enquanto nao aplicada, o banco efemero produz org_balances VOLATILE e a guarda de objetos acusa DERIVA contra o retrato de producao (STABLE). Em producao a aplicacao e no-op (ja e STABLE). Nenhum objeto novo — so a volatilidade muda.",
+    "nome": "20260817193000_funcoes_definer_stable_alinha_producao",
+    "motivo": "A4P-076: producao tem org_balances() E org_movements() como STABLE; a migration 0020 as define sem palavra de volatilidade (default VOLATILE). Alguem as tornou STABLE em producao fora de migration. Esta migration alinha o repositorio a producao (recria as duas identicas, com STABLE). A segunda so apareceu depois: eu havia concluido 'so org_balances' lendo uma lista TRUNCADA em 25 itens da propria guarda. O arquivo nasce no PR e o banco so o recebe no merge — a divergencia existe durante a revisao, por desenho.",
+    "impacto": "Enquanto nao aplicada, o banco efemero produz as duas VOLATILE e a guarda de objetos acusa DERIVA contra o retrato de producao (STABLE). Em producao a aplicacao e no-op (ja sao STABLE). Nenhum objeto novo — so a volatilidade muda.",
     "objetos_ausentes": [],
     "resolver_ate": "2026-09-17",
     "origem": "sessao de agente, correcao da guarda esquema-prod (17/08/2026)",
