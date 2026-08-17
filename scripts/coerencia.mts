@@ -67,9 +67,37 @@ function exigir(conjunto: string, condicao: string, ok: boolean, detalhe = "") {
 const { mv, INPUT, INPUT_QUEIMANDO } = FIXTURE;
 const HOJE = INPUT.hoje;
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ **DUAS FONTES DE "HOJE" — o defeito que derrubou o `main` em 17/08**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * O seed da demonstração gera as datas a partir de `new Date()`
+ * (`src/lib/demo/seed.ts:56`), então ele ANDA com o calendário. Este conjunto
+ * usava `HOJE` da fixture compartilhada, que é uma string CONGELADA
+ * (`2026-08-15`). As duas concordaram enquanto o relógio esteve perto da data
+ * congelada e divergiram assim que passou dela.
+ *
+ * Medido em 17/08: os lançamentos que o seed liquidou em 16 e 17/08 já estavam
+ * dentro de `saldoAtual` (que sai do `balance` das contas, também gerado
+ * relativo a hoje) e ficavam FORA da janela do resultado, que parava em 15/08.
+ * Diferença: **R$ 73.448,81**, idêntica nas duas janelas — a assinatura de um
+ * corte de data, não de um erro de fórmula.
+ *
+ * ⚠️ **A guarda estava medindo a diferença entre dois calendários e chamando
+ * isso de incoerência do produto.** É a mesma família de "meça com o dado que a
+ * superfície usa": o conjunto tem de usar o `hoje` da FONTE que o gerou.
+ *
+ * ⚠️ E por isso este é o único conjunto com data viva. Os demais saem de
+ * `fixture.mts` e continuam congelados de propósito — uma guarda cujo veredito
+ * depende do dia em que roda não é guarda. Aqui a data viva não é escolha: é o
+ * que o dado exige, porque o seed é o produto que o cliente abre HOJE.
+ */
+const HOJE_DEMO = new Date().toISOString().slice(0, 10);
+
 /** O seed da demonstração — o que o cliente vê ao abrir o produto pela 1ª vez. */
 const demo: RiskInput = {
-  hoje: HOJE,
+  hoje: HOJE_DEMO,
   saldoAtual: DEMO_ACCOUNTS.reduce((s, a) => s + (a.balance ?? 0), 0),
   movements: DEMO_MOVEMENTS.map((m) => ({
     id: m.id,
