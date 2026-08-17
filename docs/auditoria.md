@@ -1255,3 +1255,50 @@ motivo é o mesmo: os dois precisam do `SUPABASE_DB_URL` de produção. Ambos fi
 comentados no workflow, com a linha exata para ligar. Corrigindo o que se disse
 antes: o secret `SUPABASE_DDL_URL` nunca existiu — foi invenção. O secret certo
 é `SUPABASE_DB_URL`, um só, que liga as duas guardas.
+
+## ⚠️ A4P-076 LIGADO — o que o esquema-prod achou, medido (17/08 tarde)
+
+O job `esquema-prod` (schedule, papel `ci_leitor`) rodou e reprovou. O sinal
+bruto: **77 DERIVA + 1 ausente**. A leitura, medida — não deduzida:
+
+- **Mascaramento de privilégio: DESCARTADO.** `aclexplode`, `pg_get_expr` e as
+  colunas de catálogo (`prosecdef`/`proconfig`/`provolatile`) são independentes
+  de papel. Reli produção pela leitura privilegiada e bate com o que o `anon`
+  vê. O retrato é fiel.
+
+- **~65 `grant:*.service_role` eram RUÍDO, não deriva.** `grep` nas migrations:
+  **ZERO** concedem a `service_role` — todo grant a esse papel é da PLATAFORMA
+  do Supabase. Como a guarda compara o banco EFÊMERO (supabase local) com o
+  retrato de PRODUÇÃO, e os defaults de `service_role` do local divergem do
+  hospedado, incluí-lo despejava deriva de plataforma que a guarda não cria nem
+  controla — soterrando o sinal real. `objetos.sql` passou a olhar só `anon` e
+  `authenticated`, os papéis que chegam pelo navegador e que as migrations
+  gerenciam.
+
+- **`org_balances()` era DERIVA REAL.** Medido no catálogo de produção:
+  `provolatile='s'` (STABLE); a migration 0020 a define num `language sql` SEM
+  palavra de volatilidade → default VOLATILE. Alguém a tornou STABLE em produção
+  fora de migration — a classe exata que o A4P-076 existe para pegar. STABLE é o
+  certo para um `security definer` que só lê. Migration nova
+  (`20260817193000_org_balances_stable_alinha_producao`) alinha o repositório;
+  em produção é no-op. Declarada como sem-aplicação no manifesto do esquema.
+
+- **O "1 ausente" era o eco dos `\pset` do `psql`** (`Field separator is "|".`)
+  entrando no inventário porque contém `|`. O leitor de `esquema-objetos.mjs`
+  agora aceita só linhas com os quatro prefixos (`tabela|funcao|policy|grant`).
+
+- **Os órfãos REAIS ficam DECLARADOS (9):** as tabelas `own_token_cache`,
+  `own_extrato_lojista`, `maq_cnpj_cache`; as funções `own_saude`,
+  `own_token_pegar/gravar/bloquear`; e os dois grants `authenticated` que as
+  acompanham. É o subsistema de adquirência/maquininha que as Edge Functions
+  criam fora do repositório (A4P-074). `grep` confirmou que o resto do
+  `own_*`/`maq_*` (18 tabelas, `own_touch`, `maq_is_admin`) É criado por
+  migration — não são órfãos. Retrato regerado do catálogo (351 objetos),
+  byte-idêntico ao que o `ci_leitor` produz; o `esquema-prod` revalida a
+  paridade contra o efêmero.
+
+⚠️ **A fiação anterior estava errada em dois pontos, corrigidos:** `objetos`
+apontava para o secret de produção (devia comparar o EFÊMERO com o retrato), e
+as duas guardas moravam no job de PR (guarda de comparação-com-produção no gate
+de PR trava o próprio merge que a conserta). Agora vivem no job `esquema-prod`,
+event-gated: só `main`-push, schedule e dispatch, nunca PR.
