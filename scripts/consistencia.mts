@@ -334,6 +334,68 @@ function credenciaisEmTela(): string[] {
 }
 
 /**
+ * TEXTO DE DESENVOLVEDOR VAZANDO PARA A TELA — A4P-013.
+ *
+ * O produto explica os próprios defeitos citando o código que os causou, e essa
+ * prosa às vezes escorrega da documentação para a interface. Quem opera o caixa
+ * não tem o que fazer com `selector`, `hook` ou o nome de uma função: são
+ * palavras que só significam algo para quem tem o repositório aberto.
+ *
+ * ⚠️ **COMENTÁRIOS FORA**, pela mesma lição da guarda de credenciais: este
+ * repositório documenta cada regra citando o identificador que a implementa, e
+ * uma guarda que reprova a própria documentação da correção treina quem a lê a
+ * ignorá-la. O alvo é o que o usuário LÊ.
+ *
+ * ⚠️ E o alvo é a REFERÊNCIA A CÓDIGO, não a palavra solta. "Função de
+ * tesouraria" é português correto (papel, não `function`); "a mesma função de
+ * saldo" fala do módulo que soma — por isso o padrão exige o contexto que
+ * transforma a palavra em referência técnica.
+ */
+function textoDeDevEmTela(): string[] {
+  const out: string[] = [];
+  const padroes: { re: RegExp; oQue: string }[] = [
+    // Identificador entre crases dentro de prosa: `montarRelatorio`, `useDRE`.
+    { re: /`[A-Za-z_$][A-Za-z0-9_$]*(\(\)|[A-Z][A-Za-z0-9_$]*)`/, oQue: "identificador entre crases" },
+    { re: /\bselectors?\b/i, oQue: "selector" },
+    { re: /\bhooks?\b/i, oQue: "hook" },
+    { re: /\bendpoints?\b/i, oQue: "endpoint" },
+    // A frase medida no A4P-013: fala da FUNÇÃO do código, não do papel.
+    { re: /mesma fun[çc][ãa]o de saldo/i, oQue: "cita a função de saldo do código" },
+    { re: /\bcore\/[a-z-]+/i, oQue: "caminho de módulo" },
+  ];
+  varrerTelas((caminho, txt) => {
+    const limpo = txt
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|\s)\/\/[^\n]*/g, " ");
+    // Só o que sai renderizado: texto entre tags e strings de prosa longa.
+    const candidatos: string[] = [];
+    /*
+     * ⚠️ A quebra de linha É PERMITIDA no texto capturado, e essa foi a
+     * diferença entre guarda e decoração. A primeira versão usava
+     * `[^<>{}\n]`, e quase todo texto de JSX fica na PRÓPRIA linha entre as
+     * tags — então ela varria o produto inteiro e não achava nada, inclusive o
+     * vazamento medido em `BaseDoSaldo`. Passou verde com o defeito na tela.
+     */
+    for (const m of limpo.matchAll(/>\s*([^<>{}]{8,300})</g)) {
+      candidatos.push(m[1].replace(/\s+/g, " ").trim());
+    }
+    for (const m of limpo.matchAll(/"([^"\n]{16,200})"/g)) {
+      // Prosa tem espaço e acento/pontuação de frase; `className` e chaves não.
+      if (/\s/.test(m[1]) && /[a-zà-ú]{3}\s+[a-zà-ú]{3}/i.test(m[1])) candidatos.push(m[1]);
+    }
+    for (const frase of candidatos) {
+      for (const { re, oQue } of padroes) {
+        if (re.test(frase)) {
+          out.push(`${caminho}: ${oQue} — "${frase.trim().slice(0, 60)}"`);
+          break;
+        }
+      }
+    }
+  });
+  return out;
+}
+
+/**
  * As rotas que o Next REALMENTE publica: todo diretório com `page.tsx` sob
  * `src/app`. É a lista contra a qual o inventário é conferido — declarar é
  * fácil, o difícil é declarar tudo, e só a varredura sabe o que existe.
@@ -1835,6 +1897,16 @@ const AGOSTO = janelaMes(2026, 7);
   const vazamentos = credenciaisEmTela();
   ok("onda14: nenhuma chave de provedor citada ao usuário", vazamentos.length === 0,
      vazamentos.slice(0, 3).join(" · "));
+
+  /*
+   * A4P-013 — texto de DESENVOLVEDOR na tela. Mesma família do de cima: o que
+   * o usuário lê tem de ser acionável por ele. `selector`, `hook`, um caminho
+   * de módulo ou um identificador entre crases só significam algo para quem
+   * tem o repositório aberto.
+   */
+  const dev = textoDeDevEmTela();
+  ok("a4p013: nenhum texto de desenvolvedor renderizado ao usuário",
+     dev.length === 0, dev.slice(0, 4).join(" · "));
 }
 
 /* ========================================================================== */
