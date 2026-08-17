@@ -137,7 +137,20 @@
     "origem": "outro escritor (sessao de agente da integracao OWN) — NAO foi criada nesta sessao. Ver CONTRIBUTING.md: e o caso que motivou a regra."
    }
   ],
-  "arquivo_sem_aplicacao": [],
+  "arquivo_sem_aplicacao": [
+   {
+    "nome": "20260817151634_maq_revoga_grant_residual_sem_politica",
+    "motivo": "A4P-070: revoga o grant residual de authenticated/anon nas tres tabelas maq_* que tem RLS ligada e ZERO politicas. O arquivo nasce no PR e o banco so o recebe no merge — e por isso a divergencia existe durante a revisao, por desenho.",
+    "impacto": "Enquanto nao aplicada, maq_leads e maq_whatsapp_log seguem com SELECT/INSERT/UPDATE/DELETE concedidos a authenticated. A RLS ja nega o acesso, entao NAO ha vazamento — o que ha e uma lista de privilegios que diz o contrario do que acontece. E maq_cnpj_cache fica de fora por ser SCHEMA ORFAO: nenhuma migration a cria, so existe em producao (A4P-076).",
+    "objetos_ausentes": [
+     "grant residual em maq_leads",
+     "grant residual em maq_whatsapp_log"
+    ],
+    "resolver_ate": "2026-09-17",
+    "origem": "sessao de agente, Etapa C do P-18 (17/08/2026)",
+    "aplicada_em": null
+   }
+  ],
   "objetos_sem_migration": [
    {
     "nome": "maq_cnpj_cache",

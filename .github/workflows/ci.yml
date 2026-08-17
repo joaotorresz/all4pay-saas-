@@ -25,6 +25,12 @@ name: CI
 # push; ele passa a rodar no instante em que o PR abre, e branch sem PR não vai
 # a lugar nenhum.
 on:
+  # ⚠️ A4P-075: a guarda de "no ar" precisa rodar QUANDO NINGUÉM ESTÁ OLHANDO.
+  # A regressão que a motivou apareceu DEPOIS do merge — um build atrasado
+  # pousou por cima de um mais novo — e o pipeline já tinha terminado verde.
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
   push:
     branches: [main, claude/epic-fermi-i423xk]
   pull_request:
@@ -116,11 +122,22 @@ jobs:
       # ocasional de rede por uma dívida silenciosa, com a CLI congelando numa
       # versão que ninguém revisita até o dia em que ela para de subir o
       # Postgres. O `GITHUB_TOKEN` é automático em qualquer repositório.
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # ⚠️ A CLI vem do REGISTRO NPM, não da action `supabase/setup-cli`.
+      #
+      # A action é baixada de `codeload.github.com` pelo runner ANTES de o passo
+      # rodar — ou seja, antes de qualquer `env` que possamos passar. O
+      # `GITHUB_TOKEN` que estava aqui autenticava as chamadas de API que a
+      # action faz por dentro (resolver a release), e não o download dela
+      # própria. Em 17/08 isso reprovou o job três vezes seguidas com
+      # `429 Too Many Requests`, sem nada de errado no código — e guarda que
+      # reprova por infraestrutura treina quem a lê a ignorar a reprovação.
+      #
+      # O registro npm não compartilha esse limite por IP de runner. `@latest`
+      # fica pelo mesmo motivo que a action usava: fixar versão aqui trocaria
+      # uma falha ocasional de rede por uma CLI congelada que ninguém revisita
+      # até o dia em que ela para de subir o Postgres.
+      - name: Instalar a CLI do Supabase (via npm, não via action)
+        run: npm install -g supabase@latest
       # Só o banco: os demais serviços (studio, realtime, storage, edge) não
       # participam de nada aqui e cada um é uma imagem para baixar.
       - name: Subir o Postgres com as migrations aplicadas
@@ -140,7 +157,58 @@ jobs:
       # banco construído do zero pelas migrations. Um gatilho aplicado à mão no
       # remoto some no primeiro `db reset` e ninguém descobre até a primeira
       # despesa entrar dentro de uma receita.
+      # ⚠️ Quarta guarda no MESMO job, pela mesma razão das três acima: ela
+      # precisa do banco construído do zero pelas migrations. E precisa existir
+      # porque "a matriz mora no servidor e a interface pergunta" só funciona se
+      # as duas disserem a mesma coisa — o `contador_externo` ficou um mês no
+      # banco sem o cliente saber nomeá-lo.
+      - name: Guarda da matriz de permissão (banco × cliente)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/matriz-permissao.sql
       - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # A4P-075 — "NO AR" É ESTADO CONTÍNUO, NÃO EVENTO
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # Em 17/08 o deploy atrasado do PR #103 pousou DEPOIS do #104 e o
+  # sobrescreveu: `/api/versao` voltou de 4132318 para 998d800 e o conserto do
+  # A4P-073 saiu do ar sozinho. Uma leitura única de `/api/versao` prova o
+  # MOMENTO; ela não prova o ESTADO.
+  #
+  # ⚠️ Só roda no `main` e no schedule: num PR, produção legitimamente não tem o
+  # commit do PR, e reprovar ali ensinaria a ignorar a reprovação.
+  no-ar:
+    # ⚠️ Condição ANCORADA NO EVENTO, não só no ref.
+    #
+    # A versão anterior olhava só `github.ref`, e o job reprovou dentro do PR
+    # #105 — onde produção legitimamente NÃO tem o commit do galho. Guarda que
+    # reprova por contexto treina quem a lê a ignorar a reprovação, que é o
+    # começo de ignorar as verdadeiras.
+    #
+    # ⚠️ E há um segundo motivo, mais sério: quando produção ESTÁ errada, a
+    # correção vem num PR — e exigir esta guarda verde para mergear travaria
+    # exatamente o merge que a conserta. Uma guarda de estado contínuo não pode
+    # bloquear o conserto do estado. Ela vigia `main` e o relógio; o PR é
+    # julgado pelas outras.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ⚠️ `merge-base --is-ancestor` precisa do histórico: com o checkout
+          # raso o diagnóstico "build antigo × commit desconhecido" não sai.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Produção serve o HEAD de main?
+        run: node scripts/no-ar.mjs --tolerancia 12

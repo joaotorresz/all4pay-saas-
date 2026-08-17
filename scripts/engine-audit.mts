@@ -16,6 +16,7 @@ import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
 import { dreProjetado, dreGerencial } from "@/core/dre/engine";
 import { montarFilaRevisao, descritivoIlegivel, type ItemRevisao } from "@/core/revisao";
+import { MATRIZ_DEMO } from "@/core/seguranca";
 import { cascataDRE } from "@/core/relatorios/cascata";
 import {
   valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
@@ -4723,6 +4724,62 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const google = painel.grupos.find((g) => /google/i.test(g.contraparte) && g.categoria === "Marketing");
   ok("contraparte: a média é do fornecedor, não da soma",
      Math.abs((google?.mediaMensal ?? 0) - 3_000) < 1e-6, String(google?.mediaMensal));
+}
+
+/* ── A MATRIZ DE PERMISSÃO, do lado do cliente ─────────────────────────────
+ *
+ * ⚠️ O achado que a motivou: em 17/08 o banco tinha OITO papéis em
+ * `role_permissions` e o tipo `Papel` do cliente tinha SETE. O
+ * `contador_externo` entrou pela ONDA 13 no servidor e nunca chegou aqui — a
+ * tela de usuários não conseguia oferecê-lo, e quem o recebesse por SQL
+ * apareceria com a string crua, porque `nomeDoPapel` não o encontrava.
+ *
+ * A decisão da ONDA 9 ("a matriz mora no servidor e a interface PERGUNTA")
+ * continua certa; o que faltava era a outra metade: **perguntar só funciona se
+ * o cliente souber nomear a resposta.**
+ *
+ * O par desta guarda é `scripts/matriz-permissao.sql`, que cobra a MESMA lista
+ * contra o banco. As duas juntas fecham os dois sentidos — e a lista literal
+ * aparece nos dois lugares de propósito: mudar permissão passa a exigir escrever
+ * a mudança duas vezes, que é o momento em que a decisão fica registrada.
+ */
+{
+  const ESPERADO: Record<string, string> = {
+    owner: "administrar,aprovar,baixar,cobranca,exportar,fechar,lancar,ler",
+    admin: "administrar,aprovar,baixar,exportar,fechar,lancar,ler",
+    aprovador: "aprovar,baixar,exportar,lancar,ler",
+    fechador: "baixar,exportar,fechar,lancar,ler",
+    lancador: "baixar,exportar,lancar,ler",
+    member: "baixar,exportar,lancar,ler",
+    contador_externo: "exportar,fechar,ler",
+    leitor: "ler",
+  };
+  const obtido = Object.fromEntries(
+    Object.entries(MATRIZ_DEMO).map(([p, as]) => [p, [...as].sort().join(",")]),
+  );
+  for (const [papel, acoes] of Object.entries(ESPERADO)) {
+    ok(`permissao: ${papel} tem exatamente as ações declaradas`,
+       obtido[papel] === acoes, `${obtido[papel] ?? "(papel ausente)"} ≠ ${acoes}`);
+  }
+  // ⚠️ O outro sentido: papel no cliente que a matriz declarada não conhece.
+  ok("permissao: nenhum papel a mais no cliente",
+     Object.keys(obtido).length === Object.keys(ESPERADO).length,
+     Object.keys(obtido).filter((p) => !(p in ESPERADO)).join(", "));
+  // ⚠️ E a invariante que não envelhece: quem só lê não escreve. Ela fica fora
+  // da lista literal de propósito — a lista é um retrato do produto de hoje,
+  // esta é uma regra sobre o que o papel SIGNIFICA.
+  const ESCRITA = ["lancar", "baixar", "aprovar", "administrar", "cobranca"];
+  for (const papel of ["leitor", "contador_externo"] as const) {
+    ok(`permissao: ${papel} não escreve`,
+       !MATRIZ_DEMO[papel].some((a) => ESCRITA.includes(a)),
+       MATRIZ_DEMO[papel].join(", "));
+  }
+  // ⚠️ E a que separa o contador do administrador: FECHAR sem LANÇAR é o que
+  // define a função. Dar-lhe admin "porque é mais fácil" põe um terceiro, fora
+  // da empresa, com poder de mover dinheiro.
+  ok("permissao: o contador externo FECHA sem LANÇAR",
+     MATRIZ_DEMO.contador_externo.includes("fechar")
+     && !MATRIZ_DEMO.contador_externo.includes("lancar"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
