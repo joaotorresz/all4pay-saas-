@@ -1050,3 +1050,106 @@ dela vier para o repositório.
 **Fica ABERTO:** trazer o CREATE de `maq_cnpj_cache` e as 5 Edge Functions para o
 repositório, e estender `npm run esquema` para comparar OBJETOS, não só nomes de
 migration.
+
+
+---
+
+# A4P-076 — A GUARDA DE OBJETOS (17/08/2026)
+
+## O que `npm run esquema` não alcança
+
+Ele confronta a **lista de migrations aplicadas** com os arquivos do
+repositório. Isso pega migration aplicada sem arquivo — e deixa passar o defeito
+que o nome não alcança: **um objeto criado à mão em produção**. `maq_cnpj_cache`
+viveu meses assim, com a guarda verde o tempo todo.
+
+## A ferramenta
+
+`npm run objetos` compara dois inventários de **430 objetos** (medidos em
+produção em 17/08): 77 tabelas, 95 funções, 112 policies e 146 grants.
+
+- **o que as MIGRATIONS produzem** — extraído do banco efêmero do job
+  `isolamento`, que nasce do zero das migrations;
+- **o que PRODUÇÃO tem** — o retrato em `supabase/objetos-producao.json`,
+  gerado por `npm run objetos:sync`.
+
+Três classes de divergência, todas reprovando:
+
+| Classe | Significa |
+| --- | --- |
+| **ÓRFÃO** | existe em produção, nenhuma migration o cria — é o A4P-076 |
+| **ausente** | está nas migrations e não em produção |
+| **DERIVA** | existe nos dois com definição diferente — o mais silencioso |
+
+A assinatura é um md5 do que **define** o objeto (colunas/tipos/nulidade;
+`SECURITY DEFINER`/`search_path`/volatilidade; comando + `USING` + `WITH CHECK`;
+privilégios), não do texto — reformatação não vira divergência, mudança de
+comportamento vira.
+
+**Provada quebrando** com um par sintético de inventários: um órfão, um ausente
+e uma deriva, cada um acusado com o nome.
+
+### ⚠️ NÃO ESTÁ LIGADA NO CI, e o motivo é declarado
+
+O retrato precisa ser gerado com o `SUPABASE_DB_URL` de **produção**, que uma
+sessão de agente não tem e não deve inventar. Ligar sem o retrato deixaria o job
+vermelho em todo merge; ligar com `if exists` seria pior — verde sem medir nada.
+
+**Para ligar, uma linha por quem tem a credencial:**
+
+```
+SUPABASE_DB_URL=… npm run objetos:sync && git add supabase/objetos-producao.json
+```
+
+e descomentar o passo já escrito em `.github/workflows/ci.yml`.
+
+---
+
+# ⚠️ OS CAMINHOS DE ESCRITA NO BANCO QUE NÃO PASSAM POR ESTE REPOSITÓRIO
+
+> **Enquanto esta lista não estiver vazia ou inteiramente justificada, o produto
+> não está pronto para auditoria de cliente.** Um auditor pergunta "quem pode
+> escrever aqui?", e a resposta hoje inclui coisas que este repositório não vê.
+
+| # | Caminho | O que se sabe | O que NÃO se sabe |
+| --- | --- | --- | --- |
+| 1 | **Edge Function `get-rate`** | Ativa, versão 5, `verify_jwt: true`. Escreve em `maq_cnpj_cache` — a ligação está escrita numa migration deste repo desde 15/07 ("o mesmo padrao ja usado no dbWrite() do get-rate"). 25 linhas em 11 dias distintos. | Onde mora o código, quem faz deploy, que outras tabelas toca, se usa `service_role` |
+| 2 | **Edge Function `submit-cadastro`** | Ativa, versão 2, `verify_jwt: true`. Família `maq_leads` (hoje vazia). | Código, dono, escopo |
+| 3 | **Edge Function `send-lead-email`** | Ativa, versão 2, `verify_jwt: true`. Família de leads. | Código, dono, se escreve ou só lê |
+| 4 | **Edge Function `own-webhook`** | Ativa, versão 1, **`verify_jwt: false`** — aceita chamada sem autenticação. Família `own_*` (todas vazias). | Código, dono, como valida o remetente |
+| 5 | **Edge Function `own-sync`** | Ativa, versão 1, **`verify_jwt: false`**. | Idem |
+| 6 | **`service_role`** | 73 tabelas com grant. É a chave que ignora RLS. | Quem a possui fora da Vercel; não há inventário de portadores |
+| 7 | **Acesso direto ao banco** | O painel do Supabase permite DDL e DML sem passar por PR — foi assim que `own_integracao_adquirencia` entrou em 13/08 e como `maq_cnpj_cache` nasceu. | Quem tem acesso hoje |
+| 8 | **`pg_cron`** | Há policies `job` e `job_run_details` no inventário. | Que jobs existem e o que escrevem |
+
+⚠️ **Três das cinco funções estão no repositório** (`pluggy-connect-token`,
+`pluggy-webhook`, `pluggy-sync-item`); **cinco não estão**. E duas delas
+(`own-webhook`, `own-sync`) rodam com `verify_jwt: false`.
+
+⚠️ **Achado adicional do inventário:** existem **11** tabelas `own_*`, não 9 —
+`own_token_cache` e `own_extrato_lojista` não apareceram na contagem anterior,
+que partiu da lista de tabelas com `org_id`. Essas duas não têm `org_id`.
+
+⚠️ **E há uma guarda de DDL no banco que o repositório não usa:** o inventário
+tem `tabela:ddl_log`, `funcao:registrar_ddl()` e `funcao:ddl_recentes(p_dias)`.
+Ou seja, o registro de DDL **existe** — o que falta é alguém lê-lo. Isso muda o
+item 14 do P-18: não é "criar o secret", nem "escrever o workflow do zero", é
+**ligar um consumidor ao que já grava**.
+
+## O que NÃO consigo fazer, e por quê
+
+**Trazer as 5 Edge Functions para o repositório: não consigo.** O MCP do Supabase
+expõe `list_edge_functions` e `get_edge_function`, mas o `entrypoint_path` aponta
+para um caminho efêmero do runtime (`/tmp/user_fn_…`), não para o fonte. Baixar o
+código exige a CLI autenticada (`supabase functions download`) com um token de
+acesso que esta sessão não tem.
+
+**Quem é o dono:** não sei, e não vou supor. As três `pluggy-*` estão no
+repositório, o que sugere um caminho de deploy conhecido; as cinco restantes
+foram publicadas por fora dele. Descobrir quem as publicou exige o painel do
+Supabase (Logs → Edge Functions → deployments).
+
+**`maq_cnpj_cache`:** consigo reconstruir o CREATE a partir do catálogo do banco,
+mas isso é o mesmo padrão do PR #91 (recuperação verbatim) e merece o mesmo
+cuidado — o SQL literal, não a minha transcrição. Fica declarado como próximo
+passo, não como feito.

@@ -162,6 +162,24 @@ jobs:
       # porque "a matriz mora no servidor e a interface pergunta" só funciona se
       # as duas disserem a mesma coisa — o `contador_externo` ficou um mês no
       # banco sem o cliente saber nomeá-lo.
+      # ⚠️ A4P-076 — A GUARDA DE OBJETOS NÃO ESTÁ LIGADA AINDA, E O MOTIVO É
+      # DECLARADO: ela compara o banco efêmero (o que as migrations produzem)
+      # contra `supabase/objetos-producao.json`, e esse retrato precisa ser
+      # gerado com o SUPABASE_DB_URL de PRODUÇÃO — que uma sessão de agente não
+      # tem e não deve inventar.
+      #
+      # Ligar sem o retrato deixaria o job vermelho em todo merge, e guarda que
+      # reprova por falta de insumo treina quem a lê a ignorar a reprovação.
+      # Ligar com um `if exists` seria pior: verde sem medir nada.
+      #
+      # PARA LIGAR (uma linha, quem tem a credencial):
+      #   SUPABASE_DB_URL=… npm run objetos:sync && git add supabase/objetos-producao.json
+      # e então descomentar o passo abaixo.
+      #
+      # - name: Guarda de objetos (migrations × retrato de produção)
+      #   env:
+      #     SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      #   run: npm run objetos
       - name: Guarda da matriz de permissão (banco × cliente)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
