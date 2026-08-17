@@ -4948,5 +4948,65 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-031 — a base da Análise Vertical, e o CONSUMIDOR dela
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠️ Medido: o motor aceita `baseVertical` (padrão Receita Líquida) e corta a
+// base insignificante desde o #99 — mas NENHUMA tela passava o parâmetro. A
+// escolha existia no motor e não existia para quem lê o relatório: parâmetro
+// sem consumidor, que é trabalho com cara de pronto.
+//
+// A metade do VALOR (o corte da base) e a metade da TELA (o seletor) são
+// cobradas juntas, pela regra das duas metades.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string, category: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category });
+
+  // Janela de 2 meses: um normal, outro com a receita desabada — o caso que
+  // produzia "Assinaturas / software 3451,4%".
+  const movs: RiskMovement[] = [
+    M("r1", "entrada", 100_000, "2026-01-15", "Vendas"),
+    M("d1", "saida", 10_000, "2026-01-20", "ISS"),
+    M("s1", "saida", 20_000, "2026-01-25", "Assinaturas / software"),
+    M("r2", "entrada", 100, "2026-02-15", "Vendas"),          // base desaba
+    M("s2", "saida", 20_000, "2026-02-25", "Assinaturas / software"),
+  ];
+  const inputAV: RiskInput = { hoje: "2026-03-01", saldoAtual: 0, movements: movs, horizonDias: 60 };
+  const janela = { de: "2026-01-01", ate: "2026-02-28" };
+  const linhaDe = (rel: { linhas: { id: string; filhos?: unknown[]; celulas: { av: number | null }[] }[] }, id: string) =>
+    rel.linhas.find((l) => l.id === id);
+
+  const relLiq = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia" });
+  const relBruta = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia", baseVertical: "receita_bruta" });
+
+  // 1) O PADRÃO é receita líquida — e a escolha MUDA o número, senão o seletor
+  //    seria decorativo. Líquida = 90.000 (100k − 10k de ISS); bruta = 100.000.
+  const avLiq = linhaDe(relLiq, "despesas_operacionais")?.celulas[0].av ?? null;
+  const avBruta = linhaDe(relBruta, "despesas_operacionais")?.celulas[0].av ?? null;
+  ok("a4p031: base padrão é RECEITA LÍQUIDA (20k/90k = 22,2%)",
+     avLiq !== null && Math.abs(avLiq - 22.22) < 0.05, `av ${avLiq}`);
+  ok("a4p031: escolher Receita Bruta MUDA a base (20k/100k = 20,0%)",
+     avBruta !== null && Math.abs(avBruta - 20) < 0.05, `av ${avBruta}`);
+
+  // 2) A base insignificante vira "—" (null), NUNCA um percentual de 3 dígitos.
+  const avFeb = linhaDe(relLiq, "despesas_operacionais")?.celulas[1].av ?? null;
+  ok("a4p031: mês com base insignificante devolve null (a tela mostra —), não 3451%",
+     avFeb === null, `av ${avFeb}`);
+
+  // 3) A METADE DA TELA: o filtro declara a base e o relatório a recebe. Sem
+  //    isto o parâmetro volta a existir só no motor.
+  const kit = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  const view = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("a4p031: o filtro tem o campo e o padrão é receita_liquida",
+     /baseVertical: BaseVertical/.test(kit) && /baseVertical: "receita_liquida"/.test(kit));
+  ok("a4p031: a tela OFERECE a escolha (seletor de base)",
+     /Base da an[áa]lise vertical/.test(kit));
+  ok("a4p031: e o relatório RECEBE a escolha (parâmetro com consumidor)",
+     /baseVertical: aplicados\.baseVertical/.test(view));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
