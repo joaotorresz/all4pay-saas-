@@ -29,7 +29,11 @@
     "esquema:sync": "node ./scripts/esquema-sync.mjs",
     "taxonomia": "node scripts/taxonomia.mjs",
     "isolamento": "node ./scripts/isolamento.mjs",
-    "no-ar": "node scripts/no-ar.mjs"
+    "no-ar": "node scripts/no-ar.mjs",
+    "objetos": "node scripts/esquema-objetos.mjs",
+    "objetos:sync": "node scripts/esquema-objetos.mjs --sync",
+    "ddl": "node scripts/ddl-sem-migration.mjs",
+    "portas": "node scripts/portas-fechadas.mjs"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",
