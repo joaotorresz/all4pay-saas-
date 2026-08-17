@@ -183,7 +183,22 @@ jobs:
   # ⚠️ Só roda no `main` e no schedule: num PR, produção legitimamente não tem o
   # commit do PR, e reprovar ali ensinaria a ignorar a reprovação.
   no-ar:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # ⚠️ Condição ANCORADA NO EVENTO, não só no ref.
+    #
+    # A versão anterior olhava só `github.ref`, e o job reprovou dentro do PR
+    # #105 — onde produção legitimamente NÃO tem o commit do galho. Guarda que
+    # reprova por contexto treina quem a lê a ignorar a reprovação, que é o
+    # começo de ignorar as verdadeiras.
+    #
+    # ⚠️ E há um segundo motivo, mais sério: quando produção ESTÁ errada, a
+    # correção vem num PR — e exigir esta guarda verde para mergear travaria
+    # exatamente o merge que a conserta. Uma guarda de estado contínuo não pode
+    # bloquear o conserto do estado. Ela vigia `main` e o relógio; o PR é
+    # julgado pelas outras.
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

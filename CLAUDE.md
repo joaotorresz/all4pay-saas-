@@ -1409,6 +1409,12 @@ tarde apontando para o commit antigo, e eu li aquilo como "resolvido tarde, sem
 ação necessária". Não era ruído: era a regressão chegando. Evento fora de ordem
 num pipeline de deploy é dado, não barulho.
 
+⚠️ **E ela NÃO pode ser exigida no PR.** Quando produção está errada, a correção
+vem num PR — e exigir a guarda verde para mergear travaria exatamente o merge
+que conserta o estado. A primeira versão dela reprovou dentro do próprio PR que
+a introduzia, onde produção legitimamente não tem o commit do galho. Uma guarda
+de estado contínuo vigia o `main` e o relógio; o PR é julgado pelas outras.
+
 A guarda é `npm run no-ar` (`scripts/no-ar.mjs`), e ela roda **em schedule a
 cada 15 minutos**, não só no CI — a divergência aparece DEPOIS do merge, quando
 o pipeline já terminou verde e ninguém está olhando. Ela distingue as duas
