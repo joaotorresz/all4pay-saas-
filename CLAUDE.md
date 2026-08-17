@@ -1463,6 +1463,27 @@ outro rótulo.
 O teste de que houve conserto de verdade: **a asserção passa a poder falhar.**
 Se depois da correção nenhuma entrada plausível reprova, nada foi consertado.
 
+⚠️ **O EXEMPLO A COPIAR — a asserção que prova o que a regra PROÍBE.** A melhor
+guarda da abertura conferida não é a que confere o número; é esta, do bloco
+`abertura:` no `engine-audit`:
+
+```ts
+ok("abertura: 4300 NÃO é o valor de nenhuma transação (não veio da 1ª linha)",
+   !rep.records.some((r) => Math.abs(r.valor - (ds.abertura?.valor ?? 0)) < 0.005));
+```
+
+A regra é *"nunca derive a abertura da primeira linha do extrato"* — e o jeito
+óbvio de "testá-la" seria conferir que a abertura vale 4300, o que passaria
+igualzinho se alguém a derivasse de uma transação que por acaso valesse 4300.
+Esta asserção faz o contrário: **afirma sobre o defeito proibido**, varrendo
+todas as transações e exigindo que o número da abertura não seja o de nenhuma
+delas. É a diferença entre confirmar o resultado certo e **excluir o caminho
+errado** — e é ela que continua reprovando no dia em que alguém "simplificar" a
+reconstrução `declarado − líquido` para um `records[0].valor`.
+
+Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
+ela prova que X ≠ Y para todo Y possível.
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não

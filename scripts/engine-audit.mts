@@ -38,6 +38,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
+import { readFileSync } from "node:fs";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
@@ -4875,6 +4876,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("abertura: importedAbertura devolve a abertura gravada",
      importedAbertura()?.valor === 4300 && importedAbertura()?.fonte === "importada");
   clearImported();
+
+  // 7) ⚠️ A METADE DA TELA. Em produção o saldo declarado pelo banco NÃO tem
+  //    onde ser guardado (`financial_accounts` não tem coluna), então a tela tem
+  //    de DIZER isso — senão ela mostra o banco confirmando um saldo e a pessoa
+  //    conclui que a conta ficou conferida. Guarda de valor sozinha aprovaria o
+  //    conserto pela metade, e é a metade da tela que a pessoa vê.
+  const revisao = readFileSync("src/components/upload/RevisaoImportacao.tsx", "utf8");
+  ok("abertura: a revisão da importação mostra o saldo declarado pelo banco",
+     revisao.includes("report.saldoDeclarado"));
+  ok("abertura: e DIZ, fora da demonstração, que o valor não é salvo",
+     /NÃO é salvo/.test(revisao) && revisao.includes("isDemo"));
+  ok("abertura: e aponta o caminho que funciona (declarar no cadastro da conta)",
+     /Contas banc[áa]rias/.test(revisao));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
