@@ -1153,3 +1153,105 @@ Supabase (Logs → Edge Functions → deployments).
 mas isso é o mesmo padrão do PR #91 (recuperação verbatim) e merece o mesmo
 cuidado — o SQL literal, não a minha transcrição. Fica declarado como próximo
 passo, não como feito.
+
+
+---
+
+# A4P-077 — REBAIXADO PARA P2, com a evidência que o rebaixou
+
+## O que a medição mostrou (17/08, base das 11 tabelas `own_*` zerada antes e depois)
+
+| Sonda, SEM token | own-webhook | own-sync |
+| --- | --- | --- |
+| `GET` | 405 `{"erro":"somente POST"}` | 401 `{"erro":"nao autorizado"}` |
+| `POST` | **401 `{"erro":"nao autorizado"}`** | **401 `{"erro":"nao autorizado"}`** |
+| `POST` Bearer inválido | 401 | — |
+| Efeito no banco | **nenhum** | **nenhum** |
+
+⚠️ **`verify_jwt: false` = gateway de JWT desligado, NÃO ausência de verificação.**
+As duas funções executam (`x-served-by: supabase-edge-runtime`) e recusam com
+uma mensagem do próprio handler, em português — não o 401 padrão do gateway.
+
+⚠️ **Registro exato, como pedido:** *own-webhook recusa chamada sem credencial
+(medido). O mecanismo da verificação é desconhecido porque o fonte não está no
+repositório.* Não se escreve "seguro" em lugar nenhum — o 401 prova que há
+fechadura, não que ela não seja um segredo estático já vazado nem que resista a
+replay.
+
+## A guarda (`npm run portas`, no SCHEDULE)
+
+Roda no job `no-ar` (schedule 15 min + após cada deploy no main), não no
+`npm test`: depende de rede, e o que mede é estado contínuo de produção. Caso
+negativo (recusa sem credencial → 401) e positivo (a função está no ar e aplica
+a própria regra → 405 no GET) juntos, pela regra. **Medido verde agora.**
+
+## O QUE SOBRA DE VERDADE: o `service_role`
+
+Inventário medido: **76 tabelas** com grant a `service_role` (não 73 — minha
+contagem anterior estava baixa). Dessas, **8 só-service_role** (nenhum acesso
+por `authenticated`): `admin_acessos`, `admin_audit`, `own_token_cache`,
+`plans`, `platform_admin_permitidos`, `platform_admins`, `rota_alias_acessos`,
+`subscriptions`.
+
+### Processos que usam a chave — o que consigo provar
+
+| Consumidor | Onde a chave está | No repo? |
+| --- | --- | --- |
+| `src/lib/supabase/admin.ts` (`createAdmin`) | `process.env.SUPABASE_SERVICE_ROLE_KEY` (Vercel) | ✔ |
+| `/api/admin/impersonate` | idem | ✔ |
+| `/api/recorrencias/run` | idem | ✔ |
+| Edge `pluggy-webhook`, `pluggy-sync-item` | secret da função (Supabase) | ✔ |
+| Edge `get-rate`, `submit-cadastro`, `send-lead-email`, `own-webhook`, `own-sync` | secret da função | **✗** |
+
+### ⚠️ POR QUE NÃO REDUZI O GRANT, e é o ponto inteiro
+
+**Reduzir de 76 tabelas para o mínimo por consumidor exige saber que tabelas
+cada consumidor toca — e 5 dos consumidores não estão no repositório.** Cortar
+o grant de uma tabela que `own-sync` escreve, sem ver o fonte de `own-sync`,
+quebra a integração em produção sem aviso. É exatamente o recorte cego que esta
+auditoria vem punindo.
+
+Então, honestamente:
+
+- **A redução está BLOQUEADA no A4P-076** (trazer as 5 funções para o
+  repositório). Antes disso, qualquer corte é aposta.
+- **NÃO SEI** quem, fora da Vercel e do Supabase, possui a `SUPABASE_SERVICE_ROLE_KEY`.
+  Não há inventário de portadores, e não há como derivá-lo do banco — a chave
+  não deixa rastro de "de onde veio", só de "o que fez". Se ela vazou, o
+  `service_role` ignora toda a RLS que fechamos hoje.
+- **O que dá para fazer agora, e não fiz por ser mudança de acesso sem o dono
+  presente:** as 5 funções fora do repo sugerem que o corte seguro começa pelas
+  8 tabelas só-service_role — nenhuma delas é tocada por `own-*` (são de
+  plataforma e admin). Mas "sugere" não é "provei", e mexer em grant de
+  produção é a operação que mais pede o dono na sala.
+
+---
+
+# ITEM 14 DO P-18 — o consumidor do `ddl_log` (`npm run ddl`)
+
+O registro de DDL **já existe e grava**: `ddl_log`, o gatilho `registrar_ddl()`
+e `ddl_recentes()`. Faltava quem lê e reprova. `npm run ddl` é isso.
+
+⚠️ **É o PAR do `npm run objetos`, não o substituto — um mede estado, o outro
+mede evento.** `npm run objetos` não vê objeto criado-e-dropado; some do estado.
+Medido: o `ddl_log` guardou `CREATE TABLE own_probe2`, `own_q`, `own_prod`,
+`own_d` — quatro tabelas de sondagem criadas à mão em 13/08 e já removidas. O
+estado não tem rastro; o log tem.
+
+⚠️ **O campo `contexto` NÃO separa migration de DDL manual.** Medido: os 305
+eventos são TODOS `mgmt-api`, porque neste projeto as migrations são aplicadas
+pelo management API (via MCP), o mesmo canal do editor de SQL. O sinal honesto é
+o NOME do objeto: se migration nenhuma o menciona, é DDL sem procedência.
+Provado: `own_probe2`/`own_q`/`own_prod`/`own_d` têm 0 migrations; `movements`
+tem 34, `own_lojistas` e `own_integracao` têm 1 cada.
+
+**Limite declarado:** o casamento é por nome, então uma coluna nova numa tabela
+conhecida passa (o nome da tabela aparece em alguma migration). É deliberado — o
+alvo é o objeto ÓRFÃO; a deriva fina de coluna é território do `npm run objetos`
+pela assinatura.
+
+⚠️ **Nem `npm run objetos` nem `npm run ddl` estão ligados no CI ainda**, e o
+motivo é o mesmo: os dois precisam do `SUPABASE_DB_URL` de produção. Ambos ficam
+comentados no workflow, com a linha exata para ligar. Corrigindo o que se disse
+antes: o secret `SUPABASE_DDL_URL` nunca existiu — foi invenção. O secret certo
+é `SUPABASE_DB_URL`, um só, que liga as duas guardas.

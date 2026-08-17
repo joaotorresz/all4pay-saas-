@@ -180,6 +180,17 @@ jobs:
       #   env:
       #     SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       #   run: npm run objetos
+
+      # ⚠️ A GUARDA DO EVENTO, par da de cima. `npm run objetos` mede ESTADO e
+      # não vê objeto criado-e-dropado; esta lê o `ddl_log` de produção e pega o
+      # transiente. As duas precisam do MESMO SUPABASE_DB_URL de produção — e por
+      # isso ambas ficam comentadas até o secret existir. Não roda contra o banco
+      # efêmero: o ddl_log de produção é o alvo.
+      #
+      # - name: Guarda de DDL sem migration (ddl_log × repositório)
+      #   env:
+      #     SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      #   run: npm run ddl
       - name: Guarda da matriz de permissão (banco × cliente)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -230,3 +241,9 @@ jobs:
           node-version: "22"
       - name: Produção serve o HEAD de main?
         run: node scripts/no-ar.mjs --tolerancia 12
+      # ⚠️ A4P-077: as Edge Functions recusam chamada sem credencial? Mesma
+      # classe de estado contínuo, mesma cadência. Prova a fechadura pelo
+      # comportamento — NÃO prova que o mecanismo é forte (o fonte não está no
+      # repositório), e por isso o job não escreve "seguro".
+      - name: Portas fechadas (Edge Functions sem credencial → 401)
+        run: node scripts/portas-fechadas.mjs
