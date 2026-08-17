@@ -1484,6 +1484,42 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ TESTE DE CONTRATO NÃO IMPORTA A FUNÇÃO QUE ELE AUDITA
+
+**Um teste que compara "a string que a pessoa lê" usando o MESMO formatador do
+código auditado não pode discordar dele.** Se a função ganhar um defeito, os
+dois lados erram juntos e o contrato passa verde — ele deixou de medir e passou
+a concordar por construção.
+
+É a mesma família do `resíduo = x − x`, e foi a terceira vez que esta forma
+apareceu neste repositório em um único dia. O sintoma é sempre o mesmo: uma
+igualdade que não pode falhar.
+
+O caso que fixou a regra: ao migrar o produto para o formatador único
+(`formatBRL`), o `scripts/contrato-resultado.mts` passou a discordar da IA por
+GRAFIA — 8 violações que não eram de cálculo. O conserto óbvio era apontar o
+contrato para `formatBRL`; e o óbvio estava errado, porque destruía a
+independência que dá valor ao contrato.
+
+**O conserto certo tem duas partes:**
+
+1. **A grafia é reimplementada no contrato, à mão** — duas implementações
+   independentes do mesmo formato. Se elas divergirem, alguém mexeu num dos
+   lados sem querer, e é exatamente esse o achado que se quer.
+2. **As strings esperadas são LITERAIS** (`ANCORAS`, com `"R$3.988,80"`,
+   `"-R$1.000,00"`, `"R$0,50"`), escritas à mão e não geradas por função
+   nenhuma. Sem elas as duas implementações podem derivar JUNTAS — alguém
+   "arruma" as duas no mesmo gesto e o contrato volta a concordar sozinho.
+
+⚠️ **E a grafia se MEDE, não se supõe.** A primeira versão da implementação
+independente usou `−` (U+2212) no negativo, por analogia com a regra de
+percentual; a grafia real do produto é `-R$1.000,00`, com hífen ASCII **antes**
+do `R$`. Medido rodando a função, não deduzido — e a medição virou âncora.
+
+**Prova de que a regra está viva:** trocar o `formatBRL` para uma casa decimal
+**reprova** o contrato. Se essa mudança passar verde, o contrato voltou a ser
+tautologia.
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não
