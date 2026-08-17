@@ -845,7 +845,14 @@ export interface Reconciliacao {
   diferenca: number;
   /** As parcelas que explicam a diferença, cada uma com seu valor. */
   parcelas: { rotulo: string; valor: number; explicacao: string }[];
+  /**
+   * ⚠️ `true` SÓ quando há fonte independente para a abertura E o resíduo é
+   * zero. Sem fonte, nada foi conferido — e "conciliado" seria uma afirmação
+   * sobre uma conta que ninguém fechou.
+   */
   fecha: boolean;
+  /** Houve fonte INDEPENDENTE para o saldo de abertura? */
+  aberturaVerificada: boolean;
   /**
    * ⚠️ O que SOBRA depois das parcelas — o resíduo NOMEADO, em reais.
    *
@@ -896,12 +903,27 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
   // O derivado "ingênuo" — o que o Razão fazia: tudo que não foi cancelado,
   // realizado ou não, tratado como se tivesse passado pelo caixa.
   const derivado = liquidadoTotal + previstoTotal;
-  const aberturaHistorica = extrato - liquidadoTotal;
-  // Em centavos inteiros: `extrato - (liquidado + abertura)` em ponto flutuante
-  // devolve resíduos de 1e-10 que não são diferença nenhuma.
-  const residuo = semZeroNegativo(
-    Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) / 100,
-  );
+
+  /**
+   * ⚠️ **A ABERTURA VEM DE FORA, ou não vem.**
+   *
+   * Era `extrato − liquidadoTotal`, e o resíduo logo abaixo era
+   * `extrato − (liquidadoTotal + abertura)` — ou seja, `x − x`. Zero por
+   * álgebra, para QUALQUER saldo. Medido com 600, 0, −999.999, 123.456,78 e um
+   * bilhão: resíduo 0,00 e `fecha: true` nos cinco.
+   *
+   * Com fonte independente o resíduo passa a poder ser diferente de zero — que
+   * é o ponto inteiro de reconciliar. Sem ela, o derivado continua servindo
+   * para MOSTRAR a ordem de grandeza, mas não fecha nada, e o nome da parcela
+   * diz isso.
+   */
+  const verificada = input.aberturaVerificada;
+  const aberturaHistorica = verificada ? verificada.valor : extrato - liquidadoTotal;
+  // Em centavos inteiros: em ponto flutuante isto devolve resíduos de 1e-10 que
+  // não são diferença nenhuma.
+  const residuo = verificada
+    ? Math.round((extrato - (liquidadoTotal + aberturaHistorica)) * 100) / 100
+    : 0;
 
   return {
     extrato,
@@ -915,10 +937,13 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           "Contas a receber e a pagar ainda não liquidadas. Existem no resultado por competência e NÃO existem no caixa — postá-las no Razão é o que fazia o saldo contábil descolar do extrato.",
       },
       {
-        rotulo: "Saldo anterior ao histórico importado",
+        rotulo: verificada
+          ? `Saldo anterior ao histórico (${verificada.fonte === "informada" ? "informado" : "importado"} em ${verificada.data})`
+          : "Saldo anterior ao histórico — NÃO VERIFICADO",
         valor: semZeroNegativo(aberturaHistorica),
-        explicacao:
-          "O que já havia em conta antes do primeiro lançamento conhecido. Somar os movimentos desde o início do arquivo mede a variação, não a posição — o ponto de partida vem do extrato.",
+        explicacao: verificada
+          ? "O que havia em conta antes do primeiro lançamento conhecido, vindo de fonte independente. É contra ele que o resíduo é medido."
+          : "Nenhuma fonte independente informou o saldo anterior ao primeiro lançamento conhecido, então este valor é o que SOBRA da conta — ele fecha por construção e não confere nada. Informe o saldo de abertura para que a diferença possa ser medida de verdade.",
       },
       {
         rotulo: "Liquidados sem data",
@@ -927,8 +952,11 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           "Lançamentos marcados como pagos sem data de pagamento nem vencimento. Entram no total e ficam fora de qualquer linha do tempo.",
       },
     ],
-    fecha: residuo === 0,
-    residuo,
+    // ⚠️ Sem fonte independente NADA fecha: `fecha` deixaria de ser uma medição
+    // e voltaria a ser a tautologia que esta correção existe para matar.
+    fecha: !!verificada && residuo === 0,
+    aberturaVerificada: !!verificada,
+    residuo: semZeroNegativo(residuo),
   };
 }
 
