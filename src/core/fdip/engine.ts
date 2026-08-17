@@ -38,6 +38,14 @@ export interface ParseResult {
   records: FinancialRecord[];
   totalLinhas: number;
   ignoradas: number;
+  /**
+   * ⚠️ O saldo que o BANCO declara no arquivo (`<LEDGERBAL>` do OFX): o
+   * fechamento em `<DTASOF>`. É um campo de saldo dedicado, escrito pelo banco —
+   * a autoridade do arquivo, e a fonte "importada" da abertura conferida. NUNCA
+   * é o valor de uma linha de transação. Ausente quando o arquivo não o declara
+   * (todo CSV, e OFX sem o bloco).
+   */
+  saldoDeclarado?: { valor: number; data: string };
 }
 
 function parseData(s: string): string | null {
@@ -100,7 +108,22 @@ function parseOFX(text: string): ParseResult {
     }
     records.push(mkRecord(data, amt, memo || "Lançamento", doc || undefined));
   }
-  return { records, totalLinhas: blocks.length, ignoradas: ign };
+
+  // ⚠️ O saldo DECLARADO pelo banco: `<LEDGERBAL><BALAMT><DTASOF>`. Lido de FORA
+  // da lista de transações — é um campo próprio do OFX, não uma linha de
+  // movimento. É a fonte "importada" da abertura conferida. `BALAMT` pode ser
+  // negativo (cheque especial), então preserva o sinal, ao contrário do
+  // `parseValor` das transações, que devolve magnitude.
+  let saldoDeclarado: ParseResult["saldoDeclarado"];
+  const balBlock = /<LEDGERBAL>([\s\S]*?)<\/LEDGERBAL>/i.exec(text)?.[1] ?? text;
+  const balRaw = /<BALAMT>([^<\r\n]+)/i.exec(balBlock)?.[1];
+  const balData = parseData(/<DTASOF>([^<\r\n]+)/i.exec(balBlock)?.[1] ?? "");
+  if (balRaw != null && balData) {
+    const p = parseValor(balRaw);
+    if (p) saldoDeclarado = { valor: p.valor * p.sign, data: balData };
+  }
+
+  return { records, totalLinhas: blocks.length, ignoradas: ign, saldoDeclarado };
 }
 
 function parseCSV(text: string): ParseResult {

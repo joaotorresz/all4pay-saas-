@@ -46,6 +46,7 @@ export function analisarImportacao(texto: string): FDIPReport {
     plano,
     periodoMeses: Math.round(periodoMeses),
     versaoModelo: VERSAO_FDIP,
+    saldoDeclarado: parse.saldoDeclarado,
   };
 }
 
