@@ -5008,5 +5008,56 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /baseVertical: aplicados\.baseVertical/.test(view));
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-027 — a coluna anterior ao primeiro lançamento é NOMEADA, não escondida
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: `Minha empresa` tem o primeiro lançamento em 05/10/2025 e
+// ZERO em 09/2025; `joaov.yoshimi` tem histórico desde 2023 e também nenhum
+// lançamento em 09/2025. Com o preset de 12 meses contando para trás, a coluna
+// sai inteira em zero e a AV inteira em "—" — e quem lê não distingue "não
+// houve movimento" de "não deu para calcular".
+//
+// ⚠️ A janela NÃO é estreitada: entregar 11 colunas sob um filtro que diz
+// "12 meses" trocaria o período que a pessoa pediu, em silêncio.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category: "Vendas" });
+
+  const rel = montarRelatorio(
+    { hoje: "2026-03-31", saldoAtual: 0, horizonDias: 60,
+      movements: [
+        // 01/2026 vazio de propósito (nada aqui)
+        M("a", "entrada", 5_000, "2026-02-10"),
+        // ⚠️ 03/2026 tem SÓ despesa: existe lançamento e a BASE da AV é zero.
+        // É este o caso que separa as duas implementações — escrever "sem dado"
+        // como `base === 0` acusaria este mês, que tem movimento. Com um mês de
+        // +1.000/−1.000 (a versão anterior desta fixture) as duas davam a MESMA
+        // resposta, e o teste negativo passava sem reprovar nada.
+        M("c", "saida", 1_000, "2026-03-20"),
+      ] },
+    ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: { de: "2026-01-01", ate: "2026-03-31" }, regime: "competencia" },
+  );
+
+  ok("a4p027: a janela pedida é PRESERVADA (3 colunas, nenhuma sumiu)",
+     rel.colunas.length === 3, rel.colunas.join(","));
+  ok("a4p027: o mês sem nenhum lançamento é NOMEADO",
+     rel.colunasSemDado.length === 1 && rel.colunasSemDado[0] === "2026-01",
+     rel.colunasSemDado.join(","));
+  // ⚠️ A distinção que dá sentido ao campo: soma zero NÃO é ausência de dado.
+  // Um mês com +1.000 e −1.000 tem movimento e resultado zero; chamá-lo de
+  // vazio seria falso, e é o erro fácil de escrever (`total === 0`).
+  ok("a4p027: mês só com despesa (base ZERO) NÃO é 'sem dado' — há lançamento",
+     !rel.colunasSemDado.includes("2026-03"), rel.colunasSemDado.join(","));
+  ok("a4p027: mês com movimento não entra na lista",
+     !rel.colunasSemDado.includes("2026-02"));
+
+  // A METADE DA TELA: o cabeçalho marca a coluna.
+  const kitTxt = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  ok("a4p027: o cabeçalho da tabela marca a coluna sem lançamento",
+     /colunasSemDado/.test(kitTxt) && /sem lan[çc]amento/.test(kitTxt));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
