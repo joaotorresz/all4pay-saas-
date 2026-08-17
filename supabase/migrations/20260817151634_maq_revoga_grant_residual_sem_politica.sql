@@ -19,9 +19,9 @@
 --
 -- O alvo certo é só onde o grant não serve a política nenhuma:
 --
---   · maq_cnpj_cache    (RLS ligada, 0 políticas)
---   · maq_leads         (RLS ligada, 0 políticas)
---   · maq_whatsapp_log  (RLS ligada, 0 políticas)
+--   · maq_leads         (RLS ligada, 0 políticas)  ← revogada aqui
+--   · maq_whatsapp_log  (RLS ligada, 0 políticas)  ← revogada aqui
+--   · maq_cnpj_cache    (RLS ligada, 0 políticas)  ← FICA: schema órfão, ver abaixo
 --
 -- ⚠️ **Nenhuma delas é lida por este repositório** (`grep -rn "maq_" src/`
 -- devolve só um comentário), e a escrita que existe não passa por
@@ -33,12 +33,30 @@
 -- qualquer outro verbo — é a mesma família do achado da ONDA 9, em que `anon`
 -- podia dar TRUNCATE em 57 tabelas sem violar política nenhuma.
 
-revoke all on public.maq_cnpj_cache   from authenticated, anon;
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ⚠️ `maq_cnpj_cache` FICA DE FORA, e a razão é um achado: ela é SCHEMA ÓRFÃO
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- A primeira versão desta migration a incluía e o CI reprovou com
+-- `relation "public.maq_cnpj_cache" does not exist (SQLSTATE 42P01)` — num banco
+-- construído do ZERO pelas migrations deste repositório, a tabela **não existe**.
+-- Ela existe só em produção: nenhuma migration a cria. As duas ocorrências do
+-- nome no repositório são COMENTÁRIOS, um deles dizendo "o mesmo padrão já usado
+-- no dbWrite() do get-rate" — ou seja, alguém já sabia e não trouxe o schema.
+--
+-- ⚠️ **Revogar com `if exists` seria pior que não revogar.** A migration ficaria
+-- verde no CI sem fazer nada (a tabela não está lá) e faria efeito só em
+-- produção — um comportamento que diverge entre ambientes é exatamente o que a
+-- guarda de esquema existe para impedir, e esconderia o órfão em vez de
+-- denunciá-lo.
+--
+-- `maq_cnpj_cache` entra quando seu CREATE vier para o repositório — mesma
+-- classe do PR #91. Enquanto isso o grant residual dela segue registrado como
+-- dívida em `docs/auditoria.md`.
+
 revoke all on public.maq_leads        from authenticated, anon;
 revoke all on public.maq_whatsapp_log from authenticated, anon;
 
-comment on table public.maq_cnpj_cache is
-  'Cache de consulta de CNPJ da maquininha. Sem politica de RLS: so o dono e service_role alcancam. Grant de authenticated/anon revogado em 17/08/2026 (A4P-070) porque privilegio concedido sobre tabela fechada engana quem audita.';
 comment on table public.maq_leads is
   'Leads da maquininha. Sem politica de RLS: so o dono e service_role alcancam. Grant de authenticated/anon revogado em 17/08/2026 (A4P-070).';
 comment on table public.maq_whatsapp_log is

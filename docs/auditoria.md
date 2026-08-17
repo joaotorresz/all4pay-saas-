@@ -996,3 +996,57 @@ medindo metade do sistema em termos de risco de vazamento entre organizações,
 porque as 19 tabelas não têm `org_id` e não participam do modelo. Mas ele
 também não diz nada sobre elas — e se a maquininha vier a guardar dado de
 cliente, elas entram no modelo e o teste precisa alcançá-las.
+
+
+---
+
+# A4P-074 RESPONDIDO — e A4P-076, um achado que a falha do CI revelou
+
+## A pergunta: há código lendo essas tabelas fora deste repositório?
+
+**Sim, e é provável.** O projeto Supabase tem **8 Edge Functions ATIVAS**, e
+**5 delas não existem neste repositório**:
+
+| Função | Está no repo? | Família |
+| --- | --- | --- |
+| `pluggy-connect-token` | ✔ | Open Finance |
+| `pluggy-webhook` | ✔ | Open Finance |
+| `pluggy-sync-item` | ✔ | Open Finance |
+| **`get-rate`** | ✗ | maquininha |
+| **`submit-cadastro`** | ✗ | maquininha (leads) |
+| **`send-lead-email`** | ✗ | maquininha (leads) |
+| **`own-webhook`** | ✗ | adquirência |
+| **`own-sync`** | ✗ | adquirência |
+
+⚠️ E a ligação com `maq_cnpj_cache` está **escrita numa migration deste
+repositório** desde 15/07: *"Isso segue o mesmo padrao ja usado no dbWrite() do
+get-rate para maq_cnpj_cache"*. Ou seja: `get-rate` é o escritor das 25 linhas
+em 11 dias distintos, e alguém já sabia disso ao escrever a migration.
+
+**Consequência para o teste de isolamento:** as 19 tabelas não têm `org_id` e
+não participam do modelo multiempresa, então não são um vazamento entre
+organizações hoje. Mas **cinco funções escrevem no mesmo banco sem passar por
+nada que este repositório teste** — nem a RLS por organização, nem as guardas,
+nem o CI. Quando a maquininha guardar dado de cliente, isso deixa de ser
+inofensivo.
+
+## ⚠️ A4P-076 — `maq_cnpj_cache` é SCHEMA ÓRFÃO
+
+Descoberto pelo CI ao reprovar a migration do A4P-070 com
+`relation "public.maq_cnpj_cache" does not exist (SQLSTATE 42P01)`: num banco
+construído do ZERO pelas migrations, **a tabela não existe**. Ela existe só em
+produção. As duas ocorrências do nome no repositório são comentários.
+
+É a mesma classe do PR #91, e mostra o limite da guarda `npm run esquema`: ela
+compara **nomes de migration**, não **objetos**. Uma tabela criada à mão em
+produção passa despercebida enquanto ninguém tentar tocá-la por migration.
+
+⚠️ **Não usei `if exists` para contornar.** A migration ficaria verde no CI sem
+fazer nada e faria efeito só em produção — comportamento divergente entre
+ambientes é exatamente o que a guarda de esquema existe para impedir, e
+esconderia o órfão em vez de denunciá-lo. `maq_cnpj_cache` entra quando o CREATE
+dela vier para o repositório.
+
+**Fica ABERTO:** trazer o CREATE de `maq_cnpj_cache` e as 5 Edge Functions para o
+repositório, e estender `npm run esquema` para comparar OBJETOS, não só nomes de
+migration.
