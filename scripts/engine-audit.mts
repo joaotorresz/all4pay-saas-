@@ -39,6 +39,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
@@ -4889,6 +4890,62 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /NÃO é salvo/.test(revisao) && revisao.includes("isDemo"));
   ok("abertura: e aponta o caminho que funciona (declarar no cadastro da conta)",
      /Contas banc[áa]rias/.test(revisao));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-078 — Simples + IRPJ/CSLL no mesmo mês: ALERTA, nunca provisão
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: a org tem `Simples Nacional` R$5.200/mês e `IRPJ / CSLL`
+// (R$75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
+// estão dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal.
+//
+// ⚠️ A asserção que carrega a decisão é a ÚLTIMA: `provisaoEstimada === 0`
+// SEMPRE. O enunciado original deste item pedia provisão parametrizada por
+// regime numa linha que, medida, já tinha lançamento real — provisionar teria
+// contado o imposto uma terceira vez.
+{
+  const LANC = [
+    { id: "d0e18291", competencia: "2025-10-20", valor: 7622.41 },
+    { id: "c5f4f355", competencia: "2025-11-20", valor: 9103.93 },
+    { id: "ee5e8f4d", competencia: "2025-12-20", valor: 7626.51 },
+  ];
+
+  // 1) Regime NÃO configurado é `null` — nunca um padrão que finge configuração.
+  ok("a4p078: sem cadastro, regime é null (vazio é vazio)",
+     regimeConfigurado({}).regime === null && regimeConfigurado(undefined).regime === null);
+  ok("a4p078: 'Simples Nacional' no cadastro vira simples, com o anexo",
+     regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).regime === "simples"
+     && regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).anexo === "IV");
+  // ⚠️ O anexo só existe DENTRO do Simples: guardá-lo num Presumido faria a tela
+  // dizer "Anexo IV" para quem não está no Simples.
+  ok("a4p078: anexo é descartado fora do Simples",
+     regimeConfigurado({ regimeTributario: "presumido", anexoSimples: "IV" }).anexo === null);
+
+  // 2) O alerta exige AS DUAS condições.
+  const simplesIV = regimeConfigurado({ regimeTributario: "simples", anexoSimples: "IV" });
+  const comAmbos = alertaDuplicidadeImpostoLucro(simplesIV, LANC);
+  ok("a4p078: Simples + lançamento no lucro → ACUSA duplicidade",
+     comAmbos.duplicidade && comAmbos.quantidade === 3
+     && Math.abs(comAmbos.total - 24352.85) < 0.005, `total ${comAmbos.total}`);
+  ok("a4p078: o aviso nomeia o DAS e manda conferir com a contabilidade",
+     /DAS/.test(comAmbos.aviso) && /contabilidade/i.test(comAmbos.aviso)
+     && /Anexo IV/.test(comAmbos.aviso));
+  ok("a4p078: Presumido com o MESMO lançamento NÃO acusa (lá o DARF é devido)",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({ regime: "presumido" }), LANC).duplicidade);
+  ok("a4p078: Simples SEM lançamento no lucro não acusa nada",
+     !alertaDuplicidadeImpostoLucro(simplesIV, []).duplicidade);
+  // ⚠️ Sem regime configurado NÃO se acusa duplicidade — acusar quem não
+  // declarou nada é o mesmo defeito do padrão que finge configuração, ao avesso.
+  ok("a4p078: sem regime configurado, não acusa",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({}), LANC).duplicidade);
+
+  // 3) A REGRA CENTRAL: nunca provisão sobre lançamento real.
+  for (const [nome, cfg] of [["simples", simplesIV], ["presumido", regimeConfigurado({ regime: "presumido" })],
+                             ["vazio", regimeConfigurado({})]] as const) {
+    ok(`a4p078: provisão estimada é ZERO (${nome}) — nunca soma sobre lançamento real`,
+       alertaDuplicidadeImpostoLucro(cfg, LANC).provisaoEstimada === 0);
+  }
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
