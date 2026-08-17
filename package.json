@@ -32,6 +32,8 @@
     "no-ar": "node scripts/no-ar.mjs",
     "objetos": "node scripts/esquema-objetos.mjs",
     "objetos:sync": "node scripts/esquema-objetos.mjs --sync",
+    "objetos:service-role": "node scripts/esquema-objetos.mjs --service-role",
+    "objetos:sync-service-role": "node scripts/esquema-objetos.mjs --sync-service-role",
     "ddl": "node scripts/ddl-sem-migration.mjs",
     "portas": "node scripts/portas-fechadas.mjs"
   },

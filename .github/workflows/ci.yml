@@ -162,35 +162,6 @@ jobs:
       # porque "a matriz mora no servidor e a interface pergunta" só funciona se
       # as duas disserem a mesma coisa — o `contador_externo` ficou um mês no
       # banco sem o cliente saber nomeá-lo.
-      # ⚠️ A4P-076 — A GUARDA DE OBJETOS NÃO ESTÁ LIGADA AINDA, E O MOTIVO É
-      # DECLARADO: ela compara o banco efêmero (o que as migrations produzem)
-      # contra `supabase/objetos-producao.json`, e esse retrato precisa ser
-      # gerado com o SUPABASE_DB_URL de PRODUÇÃO — que uma sessão de agente não
-      # tem e não deve inventar.
-      #
-      # Ligar sem o retrato deixaria o job vermelho em todo merge, e guarda que
-      # reprova por falta de insumo treina quem a lê a ignorar a reprovação.
-      # Ligar com um `if exists` seria pior: verde sem medir nada.
-      #
-      # PARA LIGAR (uma linha, quem tem a credencial):
-      #   SUPABASE_DB_URL=… npm run objetos:sync && git add supabase/objetos-producao.json
-      # e então descomentar o passo abaixo.
-      #
-      # - name: Guarda de objetos (migrations × retrato de produção)
-      #   env:
-      #     SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-      #   run: npm run objetos
-
-      # ⚠️ A GUARDA DO EVENTO, par da de cima. `npm run objetos` mede ESTADO e
-      # não vê objeto criado-e-dropado; esta lê o `ddl_log` de produção e pega o
-      # transiente. As duas precisam do MESMO SUPABASE_DB_URL de produção — e por
-      # isso ambas ficam comentadas até o secret existir. Não roda contra o banco
-      # efêmero: o ddl_log de produção é o alvo.
-      #
-      # - name: Guarda de DDL sem migration (ddl_log × repositório)
-      #   env:
-      #     SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      #   run: npm run ddl
       - name: Guarda da matriz de permissão (banco × cliente)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -199,6 +170,63 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **FORA do job `isolamento`, e de propósito.** As duas comparam com
+  # PRODUÇÃO, e num PR produção legitimamente diverge: um PR que adiciona uma
+  # migration cria um objeto que produção ainda não tem, e `objetos` acusaria
+  # "ausente"; `ddl` lê a produção via secret e travaria o merge se o papel ou o
+  # secret não estivessem prontos. Guarda de comparação-com-produção no gate de
+  # PR trava o próprio merge que a conserta — a mesma lição do `no-ar`.
+  #
+  # Por isso: só `main` (push), schedule e dispatch. Nunca PR.
+  esquema-prod:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI do Supabase (via npm, não via action)
+        run: npm install -g supabase@latest
+      # ⚠️ `objetos` NÃO usa o secret: ele compara o banco EFÊMERO (o que as
+      # migrations produzem) contra o retrato de produção COMMITADO. Ler produção
+      # aqui compararia produção consigo mesma. O retrato foi gerado com a visão
+      # do papel só-leitura, então bate com o efêmero módulo o que produção tem a
+      # mais (órfão) ou a menos (migration não aplicada).
+      - name: Subir o Postgres com as migrations aplicadas
+        run: supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      - name: Guarda de objetos (migrations × retrato de produção)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run objetos
+      # ⚠️ A VIGIA DA CHAVE QUE PASSA POR FORA DO RLS. `service_role` não é
+      # comparado com o efêmero (ali é default de plataforma, e o supabase local
+      # difere do hospedado): é confrontado com a LINHA DE BASE declarada em
+      # `grants_service_role`. Um grant novo aqui é uma tabela inteira exposta
+      # sem política — foi o que sobrou aberto do A4P-077. Lê PRODUÇÃO, então usa
+      # o secret.
+      - name: Guarda dos grants de service_role (produção × linha de base)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run objetos:service-role
+      # ⚠️ `ddl` SIM usa o secret: o `ddl_log` é uma tabela de PRODUÇÃO (registra
+      # o DDL de produção), e o banco efêmero nasce com ela vazia. É a única das
+      # duas que precisa do papel só-leitura ci_leitor.
+      - name: Guarda de DDL sem migration (ddl_log de produção × repositório)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run ddl
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-075 — "NO AR" É ESTADO CONTÍNUO, NÃO EVENTO
