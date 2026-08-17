@@ -202,6 +202,23 @@ function FormularioConta({
         </Campo>
       </div>
 
+      {/* ⚠️ A CONFIRMAÇÃO é o que separa uma abertura REAL do preenchimento
+          padrão. Só marcada, esta conta vira a fonte "informada" da abertura
+          conferida e a reconciliação do Razão pode fechar. Sem ela, o `0` de
+          fábrica fingiria um saldo que ninguém declarou. */}
+      <BlocoForm titulo="Conferência do saldo de abertura">
+        <SwitchAtivo
+          checked={!!f.saldoInicialConferido}
+          onChange={(v) => set("saldoInicialConferido", v)}
+          label="Confirmo que este é o saldo real da conta na data acima"
+        />
+        <p className="text-caption text-faint mt-1 max-w-[60ch]">
+          Marque só quando o valor e a data forem o saldo de abertura de verdade.
+          É o que permite ao Razão conferir o caixa contra o extrato; sem a
+          confirmação, a conta aparece como <strong>não conferida</strong>.
+        </p>
+      </BlocoForm>
+
       <Campo
         label="Código contábil (Domínio)"
         ajuda="Código da conta no Domínio. Usado na geração do TXT contábil. Aplica-se a contas correntes, cartões e aplicações."

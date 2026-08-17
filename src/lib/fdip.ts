@@ -14,6 +14,7 @@ import { setImported, clearImported } from "@/lib/imported";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { aberturaDoExtrato, type AberturaVerificada } from "@/core/indicadores/abertura";
 
 export { clearImported } from "@/lib/imported";
 
@@ -30,7 +31,12 @@ const RECEITA = /venda|servic|juros|receita/i;
 const ACC_ID = "acc-import";
 
 /** Converte o relatório FDIP em um dataset (movimentos + contas + entidades). */
-export function montarDataset(report: FDIPReport): { movements: Movement[]; accounts: FinancialAccount[]; parties: Party[] } {
+export function montarDataset(report: FDIPReport): {
+  movements: Movement[];
+  accounts: FinancialAccount[];
+  parties: Party[];
+  abertura: AberturaVerificada | null;
+} {
   const hoje = isoDay(new Date());
   const cls = new Map(report.classificacoes.map((c) => [c.recordId, c]));
 
@@ -63,11 +69,24 @@ export function montarDataset(report: FDIPReport): { movements: Movement[]; acco
       } as Movement;
     });
 
-  const saldo = movements
+  // O movimento líquido já liquidado (entradas − saídas) — o que a conta ANDOU.
+  const netLiquidado = movements
     .filter((m) => m.status === "pago")
     .reduce((s, m) => s + (m.type === "entrada" ? m.amount : -m.amount), 0);
+
+  // ⚠️ **Se o banco DECLAROU o saldo (`<LEDGERBAL>`), ele manda.** O saldo da
+  // conta passa a ser o do banco — número independente —, e a ABERTURA é
+  // reconstruída dele: fechamento − movimento líquido. Sem declaração, o saldo
+  // continua derivado dos lançamentos (abertura implícita zero) e a conta fica
+  // NÃO CONFERIDA na tela — que é a verdade, não um zero fingido.
+  const declarado = report.saldoDeclarado;
+  const saldoConta = declarado ? declarado.valor : Math.round(netLiquidado * 100) / 100;
+  const abertura: AberturaVerificada | null = declarado
+    ? { ...aberturaDoExtrato(declarado.valor, netLiquidado, declarado.data), fonte: "importada" }
+    : null;
+
   const accounts: FinancialAccount[] = [
-    { id: ACC_ID, name: "Conta consolidada (importada)", bank: "inter", balance: Math.round(saldo * 100) / 100 },
+    { id: ACC_ID, name: "Conta consolidada (importada)", bank: "inter", balance: Math.round(saldoConta * 100) / 100 },
   ];
 
   // ⚠️ Só quem é PESSOA vira cadastro. Um CPF solto, uma descrição de cobrança
@@ -85,7 +104,7 @@ export function montarDataset(report: FDIPReport): { movements: Movement[]; acco
       is_supplier: e.tipo === "fornecedor",
     })) as Party[];
 
-  return { movements, accounts, parties };
+  return { movements, accounts, parties, abertura };
 }
 
 export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOnboarding> {

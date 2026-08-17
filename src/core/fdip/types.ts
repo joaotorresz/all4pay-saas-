@@ -163,6 +163,12 @@ export interface FDIPReport {
   plano: SetupPlan;
   periodoMeses: number;
   versaoModelo: string;
+  /**
+   * O saldo declarado pelo banco no arquivo (`<LEDGERBAL>` do OFX), quando
+   * existe — a fonte "importada" da abertura conferida. Ausente em CSV e em OFX
+   * sem o bloco de saldo.
+   */
+  saldoDeclarado?: { valor: number; data: string };
 }
 
 /** Plano enxuto para persistir (auto company setup). */

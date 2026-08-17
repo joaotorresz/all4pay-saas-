@@ -47,6 +47,7 @@ import type { RiskInput } from "@/core/risk-engine/types";
 import type { RegraRecorrente } from "@/core/contas-pagar/projecao";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { resolverAberturaVerificada } from "@/lib/abertura";
 
 /**
  * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
@@ -888,7 +889,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
     movements.forEach((m) => {
       if (m.party_id && !partyNames[m.party_id]) partyNames[m.party_id] = m.party_id;
     });
-    return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
+    return {
+      hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+      aberturaVerificada: resolverAberturaVerificada(true),
+    };
   }
 
   const supabase = createClient();
@@ -980,7 +984,12 @@ export async function getRiscoInput(): Promise<RiskInput> {
     const row = p as { id: string; name: string };
     partyNames[row.id] = row.name;
   });
-  return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
+  return {
+    hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+    // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
+    // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
+    aberturaVerificada: resolverAberturaVerificada(false),
+  };
 }
 
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {

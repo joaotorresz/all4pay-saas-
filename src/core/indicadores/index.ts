@@ -854,6 +854,12 @@ export interface Reconciliacao {
   /** Houve fonte INDEPENDENTE para o saldo de abertura? */
   aberturaVerificada: boolean;
   /**
+   * A frase de origem da abertura ("informado pelo banco em DD/MM" · "informado
+   * por FULANO em DD/MM"), para a tela dizer de ONDE o saldo veio. `undefined`
+   * quando não há fonte (NÃO CONFERIDO).
+   */
+  aberturaOrigem?: string;
+  /**
    * ⚠️ O que SOBRA depois das parcelas — o resíduo NOMEADO, em reais.
    *
    * A auditoria achou R$ 437.983,17 rotulados como "conciliado". A conta
@@ -884,6 +890,19 @@ export interface Reconciliacao {
  *
  * Somadas ao derivado, elas fecham no extrato. `fecha` diz se fechou.
  */
+/**
+ * A frase de ORIGEM da abertura, para a tela dizer de onde o número veio.
+ * `importada` = o banco declarou no arquivo; `informada` = alguém confirmou no
+ * cadastro (com nome quando há). Data fatiada da string (nunca `new Date`, que
+ * em UTC−3 joga o dia 1º para o mês anterior).
+ */
+function origemDaAbertura(v: { fonte: "informada" | "importada"; data: string; por?: string }): string {
+  const [a, m, d] = v.data.split("-");
+  const dm = d && m ? `${d}/${m}${a ? `/${a}` : ""}` : v.data;
+  if (v.fonte === "importada") return `informado pelo banco em ${dm}`;
+  return v.por ? `informado por ${v.por} em ${dm}` : `informado no cadastro em ${dm}`;
+}
+
 export function reconciliarSaldo(input: RiskInput): Reconciliacao {
   const extrato = input.saldoAtual;
 
@@ -938,7 +957,7 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
       },
       {
         rotulo: verificada
-          ? `Saldo anterior ao histórico (${verificada.fonte === "informada" ? "informado" : "importado"} em ${verificada.data})`
+          ? `Saldo anterior ao histórico (${origemDaAbertura(verificada)})`
           : "Saldo anterior ao histórico — NÃO VERIFICADO",
         valor: semZeroNegativo(aberturaHistorica),
         explicacao: verificada
@@ -956,6 +975,7 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
     // e voltaria a ser a tautologia que esta correção existe para matar.
     fecha: !!verificada && residuo === 0,
     aberturaVerificada: !!verificada,
+    aberturaOrigem: verificada ? origemDaAbertura(verificada) : undefined,
     residuo: semZeroNegativo(residuo),
   };
 }
@@ -1198,3 +1218,12 @@ export function previstoDaConta(input: RiskInput, accountId: string): Indicador 
     },
   };
 }
+
+// A cascata da abertura conferida (arquivo importado > cadastro > NÃO CONFERIDO)
+// vive em ./abertura, ao lado de `reconciliarSaldo`, que a consome.
+export {
+  escolherAbertura,
+  aberturaDoExtrato,
+  type AberturaVerificada,
+  type FonteAbertura,
+} from "./abertura";

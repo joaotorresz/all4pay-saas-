@@ -114,6 +114,8 @@ export interface RiskInput {
     /** A data a que o saldo se refere (o dia do primeiro lançamento conhecido). */
     data: string;
     fonte: "informada" | "importada";
+    /** Quem confirmou (só na fonte "informada"; o banco não tem nome de pessoa). */
+    por?: string;
   } | null;
   hoje: string; // ISO
   saldoAtual: number;

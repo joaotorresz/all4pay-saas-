@@ -22,7 +22,12 @@ import {
   valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
   coberturaCompetencia,
   janela as janelaCanonica,
+  reconciliarSaldo, escolherAbertura, aberturaDoExtrato,
 } from "@/core/indicadores";
+import { montarDataset } from "@/lib/fdip";
+import { analisarImportacao } from "@/core/fdip";
+import { importedAbertura } from "@/lib/imported";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -33,6 +38,7 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
+import { readFileSync } from "node:fs";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
@@ -4780,6 +4786,109 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("permissao: o contador externo FECHA sem LANÇAR",
      MATRIZ_DEMO.contador_externo.includes("fechar")
      && !MATRIZ_DEMO.contador_externo.includes("lancar"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ABERTURA CONFERIDA — a cascata, e a regra "NUNCA a primeira linha do extrato"
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `reconciliarSaldo` só fecha com fonte INDEPENDENTE da abertura. Esta guarda
+// prova a CASCATA (arquivo > cadastro > nada) e a reconstrução do saldo a partir
+// do `<LEDGERBAL>` do banco — não da primeira transação. Provada quebrando:
+// trocar `escolherAbertura` para preferir a informada, ou `aberturaDoExtrato`
+// para somar em vez de subtrair o líquido, reprova aqui.
+{
+  // 1) A CASCATA, pura. Importada vence informada; informada vence o nada.
+  const imp = { valor: 4300, data: "2024-01-31" };
+  const inf = { valor: 999, data: "2024-02-02", por: "Ana" };
+  ok("abertura: importada VENCE informada",
+     escolherAbertura({ importada: imp, informada: inf })?.fonte === "importada");
+  ok("abertura: só informada → informada (com o nome de quem confirmou)",
+     escolherAbertura({ informada: inf })?.fonte === "informada"
+     && escolherAbertura({ informada: inf })?.por === "Ana");
+  ok("abertura: nenhuma fonte → null (NÃO CONFERIDO)",
+     escolherAbertura({}) === null && escolherAbertura({ importada: null, informada: null }) === null);
+
+  // 2) O saldo de abertura é o DECLARADO menos o líquido — não uma linha.
+  ok("abertura: aberturaDoExtrato = declarado − líquido",
+     aberturaDoExtrato(5000, 700, "2024-01-31").valor === 4300);
+  ok("abertura: líquido negativo eleva a abertura (5000 − (−300) = 5300)",
+     aberturaDoExtrato(5000, -300, "2024-01-31").valor === 5300);
+
+  // 3) O PARSER lê o <LEDGERBAL> (campo de saldo), com sinal, e NÃO uma transação.
+  const OFX = [
+    "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>",
+    "<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20240110<TRNAMT>1000.00<FITID>a1<MEMO>Venda Alpha</STMTTRN>",
+    "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20240120<TRNAMT>-300.00<FITID>a2<MEMO>Fornecedor Beta</STMTTRN>",
+    "</BANKTRANLIST><LEDGERBAL><BALAMT>5000.00<DTASOF>20240131</LEDGERBAL>",
+    "</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>",
+  ].join("\n");
+  const parsed = parseTexto(OFX);
+  ok("abertura: parser captura o saldo declarado do banco",
+     parsed.saldoDeclarado?.valor === 5000 && parsed.saldoDeclarado?.data === "2024-01-31");
+  ok("abertura: BALAMT negativo preserva o sinal (cheque especial)",
+     parseTexto(OFX.replace("<BALAMT>5000.00", "<BALAMT>-1500.00")).saldoDeclarado?.valor === -1500);
+
+  // 4) INTEGRAÇÃO: montarDataset usa o LEDGERBAL como saldo da conta e reconstrói
+  //    a abertura; a reconciliação FECHA. ⚠️ A abertura (4300) NÃO é o valor da
+  //    primeira transação (1000) — é o que prova a regra "nunca a primeira linha".
+  const rep = analisarImportacao(OFX);
+  const ds = montarDataset(rep);
+  ok("abertura: montarDataset — saldo da conta = LEDGERBAL",
+     ds.accounts[0]?.balance === 5000);
+  ok("abertura: montarDataset — abertura reconstruída = 4300, fonte importada",
+     ds.abertura?.valor === 4300 && ds.abertura?.fonte === "importada");
+  ok("abertura: 4300 NÃO é o valor de nenhuma transação (não veio da 1ª linha)",
+     !rep.records.some((r) => Math.abs(r.valor - (ds.abertura?.valor ?? 0)) < 0.005));
+
+  const movs: RiskMovement[] = ds.movements.map((m) => ({
+    id: m.id, type: m.type, status: m.status, amount: m.amount,
+    due_date: m.due_date, paid_date: m.paid_date ?? null, party_id: m.party_id ?? null,
+  }));
+  const inputConf: RiskInput = {
+    hoje: "2026-08-17", saldoAtual: ds.accounts[0].balance, movements: movs,
+    horizonDias: 60, aberturaVerificada: ds.abertura,
+  };
+  const recConf = reconciliarSaldo(inputConf);
+  ok("abertura: com LEDGERBAL a reconciliação FECHA (resíduo zero)",
+     recConf.fecha && recConf.residuo === 0, `residuo ${recConf.residuo} fecha ${recConf.fecha}`);
+  ok("abertura: a origem nomeia o banco e a data",
+     recConf.aberturaOrigem === "informado pelo banco em 31/01/2024", recConf.aberturaOrigem);
+
+  // 5) SEM declaração (CSV / OFX sem LEDGERBAL): abertura null, NÃO CONFERIDO.
+  const semBal = OFX.replace(/<LEDGERBAL>[\s\S]*?<\/LEDGERBAL>/i, "");
+  const dsSem = montarDataset(analisarImportacao(semBal));
+  ok("abertura: sem LEDGERBAL, abertura null e saldo derivado dos lançamentos",
+     dsSem.abertura === null && dsSem.accounts[0].balance === 700);
+  const recSem = reconciliarSaldo({
+    hoje: "2026-08-17", saldoAtual: dsSem.accounts[0].balance,
+    movements: dsSem.movements.map((m) => ({
+      id: m.id, type: m.type, status: m.status, amount: m.amount,
+      due_date: m.due_date, paid_date: m.paid_date ?? null, party_id: m.party_id ?? null,
+    })),
+    horizonDias: 60,
+  });
+  ok("abertura: sem fonte, NÃO CONFERIDO (não afirma que fecha)",
+     !recSem.aberturaVerificada && !recSem.fecha && recSem.aberturaOrigem === undefined);
+
+  // 6) A abertura importada persiste no dataset e volta pelo leitor.
+  setImported({ ...ds, criadoEm: new Date().toISOString() });
+  ok("abertura: importedAbertura devolve a abertura gravada",
+     importedAbertura()?.valor === 4300 && importedAbertura()?.fonte === "importada");
+  clearImported();
+
+  // 7) ⚠️ A METADE DA TELA. Em produção o saldo declarado pelo banco NÃO tem
+  //    onde ser guardado (`financial_accounts` não tem coluna), então a tela tem
+  //    de DIZER isso — senão ela mostra o banco confirmando um saldo e a pessoa
+  //    conclui que a conta ficou conferida. Guarda de valor sozinha aprovaria o
+  //    conserto pela metade, e é a metade da tela que a pessoa vê.
+  const revisao = readFileSync("src/components/upload/RevisaoImportacao.tsx", "utf8");
+  ok("abertura: a revisão da importação mostra o saldo declarado pelo banco",
+     revisao.includes("report.saldoDeclarado"));
+  ok("abertura: e DIZ, fora da demonstração, que o valor não é salvo",
+     /NÃO é salvo/.test(revisao) && revisao.includes("isDemo"));
+  ok("abertura: e aponta o caminho que funciona (declarar no cadastro da conta)",
+     /Contas banc[áa]rias/.test(revisao));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

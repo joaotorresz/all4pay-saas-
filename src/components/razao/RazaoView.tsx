@@ -280,8 +280,8 @@ function ConciliacaoCaixa() {
           {!rec.aberturaVerificada
             ? `NÃO CONFERIDO — ${formatBRL(Math.abs(rec.diferenca))} de diferença absorvida em saldo anterior não verificado`
             : rec.fecha
-              ? `Conferido: a diferença de ${formatBRL(Math.abs(rec.diferenca))} fecha contra o saldo de abertura informado`
-              : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação`}
+              ? `Conferido: fecha contra o saldo de abertura (${rec.aberturaOrigem})`
+              : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação, mesmo com o saldo de abertura (${rec.aberturaOrigem})`}
         </StatusBadge>
       </div>
     </Card>
