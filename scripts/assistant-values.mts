@@ -60,7 +60,7 @@ const CASES: [string, RegExp, string][] = [
   // crescimento: jul rec 10000 vs jun rec 20000 → -50%
   ["estou crescendo?", /-50%/, "(10000-20000)/20000"],
   // burn diário: últimos 30 dias (16/06–15/07) só 07-08 Marketing 6000 → 6000/30 = 200/dia
-  ["quanto gasto por dia?", /R\$.?200 por dia/, "6000 / 30"],
+  ["quanto gasto por dia?", /R\$.?200,00 por dia/, "6000 / 30 — com centavos, pelo formatador único"],
   // gasto categoria: Marketing jul = 6000
   ["quanto gastei com marketing?", /6\.000/, "Marketing julho"],
   // receita por fonte: Servicos jul = 4000
@@ -100,11 +100,11 @@ const CASES: [string, RegExp, string][] = [
   // semestre TRAILING (fev–jul = todo o dataset): entraram 60000
   ["como foi meu semestre?", /No semestre entraram R\$.?60\.000/, "trailing 6m entradas = 60000"],
   // produto vs serviço no mês (jul): produtos (Vendas A) 6000 vs serviços (B) 4000
-  ["recebo mais de produto ou serviço?", /R\$.?6\.000 de produtos e R\$.?4\.000 de serviços/, "jul: Vendas 6000 x Servicos 4000"],
+  ["recebo mais de produto ou serviço?", /R\$.?6\.000,00 de produtos e R\$.?4\.000,00 de serviços/, "jul: Vendas 6000 x Servicos 4000"],
   // Simples Nacional Anexo III 500k RBT12 (faixa 3): efetiva (500000·0.135−17640)/500000 = 9.972% ≈ 10%
   ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /EFETIVA é 10%/, "(500000·0.135−17640)/500000 = 9.972%"],
   // DAS = 40000 · 0.09972 = 3988.80 ≈ R$ 3.989
-  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /DAS fica em R\$.?3\.989/, "40000 · 9.972% = 3988.80"],
+  ["quanto pago de Simples no Anexo III com faturamento de 500 mil por ano e 40 mil no mês?", /DAS fica em R\$.?3\.988,80/, "40000 · 9.972% = 3988,80 — o formatador de 0 casas dizia R$3.989 e sumia com 20 centavos de imposto"],
   // Anexo I faixa 1 (≤180k): efetiva = nominal 4%
   ["qual meu DAS no anexo I com faturamento de 100 mil anual e 15 mil no mês?", /EFETIVA é 4%/, "faixa 1 → nominal = efetiva 4%"],
   // teto: 5 milhões estoura 4,8M

@@ -47,7 +47,7 @@ import {
  * não cabe — e o tooltip mostra o valor cheio.
  */
 const brl0 = (n: number) => formatBRL(n);
-const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();

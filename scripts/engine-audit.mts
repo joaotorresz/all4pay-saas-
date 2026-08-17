@@ -334,7 +334,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rm({ type: "saida", amount: 2000, paid_date: "2026-07-08", category: "Comissão" }), // NÃO é imposto (iss ⊂ comissão)
   ] } as RiskInput;
   const r = responderLocal("qual minha receita líquida?", inp);
-  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
+  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000,00 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
   const rc = responderLocal("qual minha carga tributária?", inp);
   ok("carga tributária = impostos ÷ receita (30%), sem comissão", !!rc && /\b30%/.test(rc.resposta), rc?.resposta?.slice(0, 60));
   // EBITDA exclui o resultado financeiro: receita 10000 − Fornecedores 3000 − Comissão 2000 = 5000; Impostos 3000 é despesa operacional → entra
@@ -553,7 +553,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const gm = responderLocal("quanto gastei com mercado?", inpPF);
   const so = responderLocal("quanto sobrou esse mês?", inpPF);
-  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
+  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500,00 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
   ok("PF: resultado do mês (6000 − 2700 = 3300 sobrou)", !!so && /sobrou R\$.?3\.300/.test(so.resposta), so?.resposta?.slice(0, 50));
 }
 

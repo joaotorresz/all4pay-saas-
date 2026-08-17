@@ -1907,6 +1907,38 @@ const AGOSTO = janelaMes(2026, 7);
   const dev = textoDeDevEmTela();
   ok("a4p013: nenhum texto de desenvolvedor renderizado ao usuário",
      dev.length === 0, dev.slice(0, 4).join(" · "));
+
+  /*
+   * A4P-019 — TETO ZERO: um formatador de BRL só, o de `lib/format`.
+   *
+   * ⚠️ Medido: havia 36 formatadores avulsos em 32 arquivos, 18 deles com
+   * `maximumFractionDigits: 0`. Eles divergiam em DUAS coisas ao mesmo tempo —
+   * as casas decimais (o DAS de R$3.988,80 saía "R$3.989", sumindo com 20
+   * centavos de imposto) e o espaço não separável que o `Intl` põe depois do
+   * "R$", que `formatBRL` remove. O mesmo dinheiro saía com duas grafias
+   * conforme o caminho.
+   *
+   * O `scripts/` entra na varredura porque o contrato de resultado compara
+   * STRINGS: um `fmt` próprio ali já fez a guarda discordar da IA por grafia,
+   * não por valor.
+   */
+  const avulsos: string[] = [];
+  const varrerBRL = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrerBRL(caminho); continue; }
+      if (!/\.(ts|tsx|mts)$/.test(nome)) continue;
+      if (caminho === join("src", "lib", "format.ts")) continue;   // a fonte única
+      const txt = readFileSync(caminho, "utf8");
+      for (const m of txt.matchAll(/style:\s*"currency"[^}]*currency:\s*"BRL"/g)) {
+        avulsos.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
+      }
+    }
+  };
+  varrerBRL("src");
+  varrerBRL("scripts");
+  ok("a4p019: um formatador de BRL só — nenhum avulso fora de lib/format",
+     avulsos.length === 0, avulsos.slice(0, 5).join(" · "));
 }
 
 /* ========================================================================== */

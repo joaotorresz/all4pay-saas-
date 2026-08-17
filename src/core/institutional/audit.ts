@@ -18,6 +18,7 @@ import type {
 import { uid } from "./types";
 import { sha256 } from "./sha256";
 
+import { formatBRL } from "@/lib/format";
 const GENESIS = "0".repeat(64);
 
 /** Payload canônico e estável (ordena chaves) para o hash. */
@@ -100,10 +101,7 @@ export function analisarMudanca(
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(v);
+  return formatBRL(v);
 }
 
 /**

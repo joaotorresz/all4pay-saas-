@@ -18,6 +18,7 @@ import type {
 import { uid } from "./types";
 import { sha256 } from "./sha256";
 
+import { formatBRL } from "@/lib/format";
 /** Regras padrão (configuráveis por empresa) — replica banco/tesouraria. */
 export const REGRAS_PADRAO: ApprovalRule[] = [
   { ateValor: 5000, auto: true, passos: [] },
@@ -173,7 +174,7 @@ export function slaPorEtapa(requests: ApprovalRequest[]): SLAInfo[] {
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  return formatBRL(v);
 }
 
 export type { Role };

@@ -38,6 +38,7 @@ import {
   contraparteSuspeita, contraparteNoLadoErrado, mesmoDocumento, soDigitos,
 } from "@/core/dominio/contraparte";
 
+import { formatBRL } from "@/lib/format";
 export const QUALIDADE_VERSION = "qualidade/1.0.0";
 
 /* ========================================================================== */
@@ -178,7 +179,7 @@ function cnpjProprio(b: BaseParaAuditar): Achado | null {
     .filter((l) => l.contraparteId && proprias.has(l.contraparteId))
     .map((l) => ({
       id: l.id,
-      rotulo: `${l.categoria ?? "sem categoria"} · ${l.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
+      rotulo: `${l.categoria ?? "sem categoria"} · ${formatBRL(l.valor)}`,
       sugestao: "Reclassificar como movimentação interna",
     }));
   return achado(
@@ -398,8 +399,8 @@ function foraDeFaixa(b: BaseParaAuditar): Achado | null {
     .filter((l) => Math.abs(l.valor) > teto)
     .map((l) => ({
       id: l.id,
-      rotulo: `${l.categoria ?? "sem categoria"} · ${l.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`,
-      sugestao: `Mais de 100× a mediana da empresa (${mediana.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`,
+      rotulo: `${l.categoria ?? "sem categoria"} · ${formatBRL(l.valor)}`,
+      sugestao: `Mais de 100× a mediana da empresa (${formatBRL(mediana)})`,
     }));
   return achado(
     "valor_fora_de_faixa", "atencao",

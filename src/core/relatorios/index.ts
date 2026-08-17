@@ -20,6 +20,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe } from "@/core/indicadores/convencoes";
 
+import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
 
 /* ================================= período ================================= */
@@ -915,7 +916,7 @@ export function montarFechamento(
   };
 }
 
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) => formatBRL(n);
 
 /* ================================ orçamento ================================ */
 

@@ -43,13 +43,21 @@ import { analisarQuantitativo } from "@/core/quant";
 import * as FIXTURE from "./fixture.mts";
 import { mv } from "./fixture.mts";
 
+import { formatBRL } from "@/lib/format";
 let falhas = 0;
 const ok = (nome: string, detalhe = "") => console.log(`✓ ${nome}${detalhe ? ` — ${detalhe}` : ""}`);
 const erro = (nome: string, detalhe: string) => { falhas++; console.log(`✗ ${nome}\n    ${detalhe}`); };
 
 /** O MESMO formatador que a IA usa para escrever o valor na frase. */
-const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+/*
+ * ⚠️ O MESMO formatador do produto, e não um daqui. Este contrato compara
+ * STRINGS — é essa comparação que prova que o que a pessoa LÊ é o que a
+ * cascata diz. Com um `fmt` próprio de 0 casas, ele passou a discordar da IA
+ * no instante em que ela adotou o formatador único: 8 violações que não eram
+ * de valor, eram de grafia. Duas implementações do mesmo formato divergem na
+ * primeira mudança, exatamente como duas implementações de uma regra.
+ */
+const fmt = (v: number) => formatBRL(v);
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* OS DATASETS                                                                */
