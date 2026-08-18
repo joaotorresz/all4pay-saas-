@@ -78,6 +78,21 @@ const corpusMigrations = readdirSync("supabase/migrations")
   .map((f) => readFileSync(`supabase/migrations/${f}`, "utf8").toLowerCase())
   .join("\n");
 
+/*
+ * ⚠️ **AS DECLARAÇÕES SÃO NOMINAIS, NÃO POR JANELA.** `--dias` existe e NÃO é o
+ * instrumento certo para silenciar: janela silencia por IDADE e deixaria a
+ * guarda cega para a PRÓXIMA sondagem, que é exatamente o que ela existe para
+ * pegar. Declaração silencia por NOME — qualquer DDL novo continua reprovando.
+ *
+ * Dois blocos, de propósito, porque pedem coisas diferentes:
+ *   · `sondagens_declaradas` — história. Objetos criados e já removidos.
+ *   · `dividas_declaradas`   — dívida ABERTA, com dono e prazo. Prazo vencido
+ *                              REPROVA: dívida sem prazo que vence vira paisagem.
+ */
+const decl = JSON.parse(readFileSync("supabase/ddl-declarado.json", "utf8"));
+const sondagens = new Set(decl.sondagens_declaradas?.nucleos ?? []);
+const dividas = new Map((decl.dividas_declaradas?.itens ?? []).map((d) => [d.nucleo, d]));
+
 const semMigration = [];
 const vistos = new Set();
 for (const id of objetos) {
@@ -86,11 +101,33 @@ for (const id of objetos) {
   vistos.add(nucleo);
   // \b para não casar `own_q` dentro de `own_qualquer`.
   const re = new RegExp(`\\b${nucleo}\\b`);
-  if (!re.test(corpusMigrations)) semMigration.push({ id, nucleo });
+  if (re.test(corpusMigrations)) continue;
+  if (sondagens.has(nucleo) || dividas.has(nucleo)) continue;
+  semMigration.push({ id, nucleo });
+}
+
+/*
+ * A dívida tem de doer: sem dono e sem prazo ela é só um nome numa lista, e um
+ * prazo que passou sem ninguém renovar deixou de ser dívida e virou estado
+ * permanente — foi assim que as 29 divergências de esquema chegaram até aqui.
+ */
+const hoje = new Date().toISOString().slice(0, 10);
+const dividaRuim = [];
+for (const d of dividas.values()) {
+  if (!d.responsavel || !d.prazo) dividaRuim.push(`${d.nucleo}: sem dono ou sem prazo`);
+  else if (d.prazo < hoje) dividaRuim.push(`${d.nucleo}: prazo VENCIDO em ${d.prazo}`);
 }
 
 console.log(`ddl_log: ${objetos.length} objeto(s) tocado(s) nos últimos ${DIAS} dias · `
-  + `${vistos.size} núcleo(s) distinto(s) · ${semMigration.length} sem migration`);
+  + `${vistos.size} núcleo(s) distinto(s) · ${sondagens.size} sondagem(ns) declarada(s) · `
+  + `${dividas.size} dívida(s) declarada(s) · ${semMigration.length} sem migration`);
+
+if (dividaRuim.length > 0) {
+  console.error("\n✗ DÍVIDA DECLARADA SEM DONO, SEM PRAZO OU COM PRAZO VENCIDO:");
+  for (const m of dividaRuim) console.error(`   · ${m}`);
+  console.error("\nDívida sem dono vira paisagem. Renove com justificativa, ou resolva.");
+  process.exit(1);
+}
 
 if (semMigration.length > 0) {
   console.error("\n✗ DDL EM PRODUÇÃO SEM MIGRATION NO REPOSITÓRIO:");

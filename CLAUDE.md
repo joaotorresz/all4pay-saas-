@@ -1484,6 +1484,39 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ ESTADO E EVENTO SÃO DUAS GUARDAS, E A PRIMEIRA MEDIÇÃO PROVOU ISSO
+
+**O `ddl` reprovando na primeira medição real é o melhor resultado possível: ele
+pegou o que o `objetos` estruturalmente NÃO VÊ.** `npm run objetos` compara
+ESTADO — o que produção tem hoje contra o que as migrations produzem —, e por
+isso não enxerga objeto que nasceu e morreu: quem foi criado à mão e depois
+removido não deixa rastro nenhum no estado. `npm run ddl` lê o `ddl_log`, que é
+EVENTO, e guarda o transiente.
+
+Medido em 18/08, na primeira execução com credencial de verdade: `service_role`
+fechou verde (77 = 77, nenhum grant novo, sumido ou alterado) e o `ddl` acusou
+**17 objetos** — 13 de sondagem, todos já removidos e portanto invisíveis para o
+`objetos`, e 4 do subsistema `own_token_*` que as Edge Functions criam fora do
+repositório. Uma guarda só teria mostrado metade.
+
+⚠️ **A DECLARAÇÃO É NOMINAL, NUNCA POR JANELA.** A guarda aceita `--dias`, e
+usá-lo para silenciar a sondagem já registrada deixaria a guarda cega para a
+PRÓXIMA — que é exatamente o que ela existe para pegar. Janela silencia por
+IDADE; declaração silencia por NOME. Provado quebrando: com os 13 declarados,
+uma sondagem nova (`own_probe3`) continua reprovando.
+
+⚠️ **E A REGRA QUE SAI DAÍ, para toda sessão futura: SONDAGEM VAI NO BANCO
+EFÊMERO, NUNCA EM PRODUÇÃO.** Se uma sondagem precisar mesmo rodar em produção,
+ela é **declarada ANTES**, não depois — declarar depois é pedir perdão, e
+transforma a guarda num registro do que já aconteceu em vez de um portão.
+
+⚠️ **Dívida declarada tem DONO e PRAZO, e prazo vencido REPROVA.** Os quatro
+`own_token_*` (mais `own_saude` e `own_extrato_lojista`) entram em
+`dividas_declaradas`, não em "aceito": *o CREATE mora nas Edge Functions, fora do
+repositório — dívida aberta, não exceção permanente*. Sem dono e sem prazo que
+vença, a dívida vira paisagem, que é como as 29 divergências de esquema
+chegaram até aqui.
+
 ### ⚠️ TESTE DE CONTRATO NÃO IMPORTA A FUNÇÃO QUE ELE AUDITA
 
 **Um teste que compara "a string que a pessoa lê" usando o MESMO formatador do
