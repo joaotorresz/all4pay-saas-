@@ -46,38 +46,8 @@
     ]
   },
   "dividas_declaradas": {
-    "_motivo_comum": "A4P-076 — o CREATE mora nas Edge Functions, fora do repositório. Dívida aberta, não exceção permanente.",
+    "_motivo_comum": "A4P-076: o que AINDA mora so nas Edge Functions, fora do repositorio. own_token_* e own_saude SAIRAM daqui na P-19 Bloco 1 — a migration 20260818200000 agora os cria verbatim. Divida aberta, nao excecao.",
     "itens": [
-      {
-        "nucleo": "own_token_cache",
-        "o_que_e": "Cache do token OAuth da adquirência, com as colunas de lease/bloqueio. RLS ligada sem política: só o dono e o service_role alcançam.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      },
-      {
-        "nucleo": "own_token_pegar",
-        "o_que_e": "Leitura do cache de token OAuth. Companheira de own_token_cache.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      },
-      {
-        "nucleo": "own_token_gravar",
-        "o_que_e": "Gravação do cache de token OAuth.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      },
-      {
-        "nucleo": "own_token_bloquear",
-        "o_que_e": "Bloqueio/backoff do cache de token OAuth.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      },
-      {
-        "nucleo": "own_saude",
-        "o_que_e": "Healthcheck da adquirência, criado por Edge Function.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      },
       {
         "nucleo": "own_extrato_lojista",
         "o_que_e": "Extrato do lojista (adquirência). Só mencionada em comentário/índice nas migrations; o CREATE mora fora.",
