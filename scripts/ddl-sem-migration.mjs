@@ -72,6 +72,41 @@ function nucleoDoObjeto(id) {
   return s.replace(/[^a-z0-9_]/gi, "").toLowerCase();
 }
 
+/*
+ * ⚠️ **NOME DERIVADO NÃO É NOME ÓRFÃO — e ignorar isso fazia a guarda acusar 52
+ * objetos legítimos.** Medido contra a lista real do `ddl_log`: 39 índices
+ * `*_lixeira_idx` e 13 `*_pkey`/`*_key`. Nenhum deles aparece por escrito em
+ * migration nenhuma, e não por descuido:
+ *
+ *   · os `_lixeira_idx` nascem de um laço que COMPÕE o nome em tempo de
+ *     execução — `execute format('create index %I …', r.t || '_lixeira_idx')`;
+ *   · os `_pkey`/`_key` são batizados pelo PRÓPRIO Postgres a partir de um
+ *     `primary key` / `unique` declarado no `create table`.
+ *
+ * Casar por nome literal não tem como enxergar nenhum dos dois. Uma guarda que
+ * acusa 52 objetos corretos é desligada na primeira semana — e aí ela não
+ * serve para o 53º, que é o que ela existe para pegar.
+ *
+ * A saída é perguntar pelo PAI: para um nome com forma de índice/constraint,
+ * vale a maior raiz que alguma migration mencione. `movements_lixeira_idx` →
+ * `movements_lixeira` (ninguém) → `movements` (sim) ⇒ tem procedência.
+ *
+ * ⚠️ **O custo, declarado:** um índice criado à mão SOBRE uma tabela conhecida
+ * (`movements_gambiarra_idx`) passa por aqui. Ele não fica descoberto — é
+ * exatamente o território do `npm run objetos`, que compara ESTADO e vê objeto
+ * a mais. Esta guarda mira o ÓRFÃO: o objeto de uma família que repositório
+ * nenhum conhece. `xpto_lixeira_idx` continua reprovando, porque `xpto` também
+ * não existe em lugar nenhum.
+ */
+const FORMA_DERIVADA = /_(idx|pkey|key|unico|unica|uniq)$/;
+function raizesDoNome(nucleo) {
+  if (!FORMA_DERIVADA.test(nucleo)) return [];
+  const partes = nucleo.split("_");
+  const raizes = [];
+  for (let i = partes.length - 1; i >= 1; i--) raizes.push(partes.slice(0, i).join("_"));
+  return raizes;
+}
+
 /** O texto de todas as migrations, uma vez. */
 const corpusMigrations = readdirSync("supabase/migrations")
   .filter((f) => f.endsWith(".sql"))
@@ -100,9 +135,12 @@ for (const id of objetos) {
   if (!nucleo || vistos.has(nucleo)) continue;
   vistos.add(nucleo);
   // \b para não casar `own_q` dentro de `own_qualquer`.
-  const re = new RegExp(`\\b${nucleo}\\b`);
-  if (re.test(corpusMigrations)) continue;
+  const mencionado = (n) => new RegExp(`\\b${n}\\b`).test(corpusMigrations);
+  if (mencionado(nucleo)) continue;
   if (sondagens.has(nucleo) || dividas.has(nucleo)) continue;
+  // Nome derivado (índice/constraint): vale a procedência do PAI.
+  const raizes = raizesDoNome(nucleo);
+  if (raizes.some((r) => mencionado(r) || sondagens.has(r) || dividas.has(r))) continue;
   semMigration.push({ id, nucleo });
 }
 

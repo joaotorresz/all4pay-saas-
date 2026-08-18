@@ -16,7 +16,15 @@
     "⚠️ Não há verificação de declaração-fantasma aqui, e é deliberado: o ddl_log",
     "é uma janela rolante (30 dias por padrão), então toda entrada some sozinha",
     "com o tempo. Cobrar que a declaração continue casando reprovaria pelo motivo",
-    "errado."
+    "errado.",
+    "",
+    "⚠️ NOME DERIVADO NÃO SE DECLARA — ele se resolve pelo PAI. `own_token_cache_pkey`",
+    "estava aqui como sondagem, e não era: é o índice implícito da tabela do bloco de",
+    "dívida logo abaixo. Ele só apareceu na lista porque a guarda casava nome literal e",
+    "não enxerga nome composto em tempo de execução (o laço dos `*_lixeira_idx`) nem",
+    "nome batizado pelo Postgres (`*_pkey`/`*_key`). Declarar o sintoma teria enterrado",
+    "o defeito: medido com a lista INTEIRA do ddl_log, eram 52 objetos legítimos",
+    "acusados. Saiu daqui; quem responde por ele é `own_token_cache`."
   ],
   "sondagens_declaradas": {
     "_motivo_comum": "Sondagem da auditoria de 17–18/08/2026: objetos criados à mão em produção para MEDIR comportamento (isolamento por papel, privilégio de anon, gatilho de DDL, autenticação das Edge Functions). Todos já removidos — não existem no estado atual, e é por isso que o `npm run objetos` não os enxerga: ele mede ESTADO, e o que nasceu e morreu não deixa rastro no estado.",
@@ -34,7 +42,6 @@
       "own_smoke",
       "own_sweep_resultado",
       "own_sweep_tmp",
-      "own_token_cache_pkey",
       "sample_reason"
     ]
   },
