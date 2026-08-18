@@ -20,6 +20,7 @@ import { reconciliarAutomaticamente } from "@/core/financial-os/reconciliation.e
 import type { FinancialTransaction } from "@/core/financial-os/types";
 import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
+import { csvDeLinhas } from "@/core/fdip";
 // (parseTexto reusado abaixo para os guards de parsing pt-BR/OFX)
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
@@ -5489,6 +5490,40 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("blocoD abertura: NENHUMA abertura com valor sai sem origem",
      [escolha, abInf].every((a) => !a || (a.valor !== undefined && !!a.origem)));
   void netLiquidado;
+}
+
+/* ── Fatia 2: xlsx entra no MESMO pipeline (mesma contagem, categorias, chave) ── */
+{
+  const linhas = [
+    ["Data", "Histórico", "Valor"],
+    ["16/01/2024", "PIX RECEBIDO ALPHA", "1.000,00"],
+    ["17/01/2024", "TARIFA MENSAL", "-50,00"],
+    ["18/01/2024", "PAGAMENTO FORNECEDOR BETA", "-300,00"],
+    ["", "", ""],  // linha vazia do fim da aba do Excel — some
+  ];
+  const csvManual =
+    "Data;Histórico;Valor\n16/01/2024;PIX RECEBIDO ALPHA;1.000,00\n17/01/2024;TARIFA MENSAL;-50,00\n18/01/2024;PAGAMENTO FORNECEDOR BETA;-300,00";
+
+  const viaPlanilha = analisarImportacao(csvDeLinhas(linhas));
+  const viaCsv = analisarImportacao(csvManual);
+
+  ok("blocoD xlsx: planilha e CSV dão a MESMA contagem de lançamentos",
+     viaPlanilha.records.length === viaCsv.records.length && viaPlanilha.records.length === 3,
+     `${viaPlanilha.records.length} × ${viaCsv.records.length}`);
+
+  const cats = (r: typeof viaCsv) => r.classificacoes.map((x) => x.categoria).sort().join("|");
+  ok("blocoD xlsx: planilha e CSV sugerem as MESMAS categorias",
+     cats(viaPlanilha) === cats(viaCsv), `${cats(viaPlanilha)} × ${cats(viaCsv)}`);
+
+  const chaves = (r: typeof viaCsv) => r.records.map((x) => x.fingerprint).sort().join("|");
+  ok("blocoD xlsx: planilha e CSV geram a MESMA chave de idempotência",
+     chaves(viaPlanilha) === chaves(viaCsv));
+
+  // ⚠️ A citação importa: uma descrição com ';' não pode partir a linha em duas.
+  const comPontoVirgula = [["Data", "Histórico", "Valor"], ["20/01/2024", "COMPRA A; PARCELA 1", "-99,90"]];
+  const rep = analisarImportacao(csvDeLinhas(comPontoVirgula));
+  ok("blocoD xlsx: descrição com ';' NÃO parte a linha (1 lançamento, não 2)",
+     rep.records.length === 1, String(rep.records.length));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

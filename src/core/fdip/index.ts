@@ -16,6 +16,29 @@ import {
   centralConfianca,
 } from "./engine";
 
+/**
+ * ⚠️ **PLANILHA É SÓ MAIS UM FORMATO, NÃO UMA TELA NOVA.** O `.xlsx` do
+ * `/dashboard/financial/import` (modelo fixo) e o extrato do `/upload` viravam
+ * dois pipelines incompatíveis (A4P-040). Aqui a planilha entra no MESMO
+ * pipeline: as linhas viram texto tabulado e seguem por `analisarImportacao` —
+ * mesma detecção de coluna, mesma classificação, mesma chave de idempotência.
+ *
+ * ⚠️ **O separador é TAB, não `;`, e é decisão medida.** O `parseCSV` do FDIP
+ * NÃO respeita aspas — ele quebra a linha em todo separador, mesmo dentro de
+ * `"..."`. Uma descrição com `;` ("COMPRA A; PARCELA 1") partiria a linha em
+ * duas e o lançamento sumiria. TAB quase nunca aparece numa célula de extrato,
+ * então tabular é o separador seguro com este parser. (Corrigir o parser para
+ * ser ciente de aspas é melhoria à parte, fora do escopo mecânico da Fatia 2 —
+ * fica anotado.) Quebra de linha na célula vira espaço; linhas vazias saem.
+ */
+export function csvDeLinhas(rows: string[][]): string {
+  const limpa = (c: string) => (c ?? "").replace(/[\t\r\n]+/g, " ").trim();
+  return rows
+    .filter((r) => r.some((c) => (c ?? "").trim() !== ""))
+    .map((r) => r.map(limpa).join("\t"))
+    .join("\n");
+}
+
 export function analisarImportacao(texto: string): FDIPReport {
   const parse = parseTexto(texto);
   const records = parse.records;
