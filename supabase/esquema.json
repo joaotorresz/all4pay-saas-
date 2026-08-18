@@ -175,6 +175,32 @@
         "resolver_ate": "2026-09-18",
         "origem": "sessao de agente, Etapa D do P-18 (18/08/2026)",
         "aplicada_em": null
+      },
+      {
+        "nome": "20260818200000_own_maq_esquema_verbatim",
+        "motivo": "A4P-076: traz para o repositorio o CREATE verbatim dos objetos que viviam so em producao (criados por Edge Function). Producao JA os tem; o efemero do CI passa a cria-los. Enquanto nao aplicada ao remoto, o retrato de producao e as migrations divergem por desenho — e some quando aplicar, porque os objetos ja existem la (create if not exists / or replace, idempotente).",
+        "impacto": "A4P-076: traz para o repositorio o CREATE verbatim dos objetos que viviam so em producao (criados por Edge Function). Producao JA os tem; o efemero do CI passa a cria-los. Enquanto nao aplicada ao remoto, o retrato de producao e as migrations divergem por desenho — e some quando aplicar, porque os objetos ja existem la (create if not exists / or replace, idempotente).",
+        "objetos_ausentes": [
+          "own_token_cache",
+          "maq_cnpj_cache",
+          "own_extrato_lojista",
+          "own_token_pegar/gravar/bloquear/saude"
+        ],
+        "resolver_ate": "2026-09-18",
+        "origem": "sessao de agente, P-19 Bloco 1 (18/08/2026)",
+        "aplicada_em": null
+      },
+      {
+        "nome": "20260818200100_service_role_grants_minimos",
+        "motivo": "A4P-076 item 4: reduz a superficie da service key aos consumidores conhecidos (2 rotas Next + 8 Edge Functions, todas lidas) e FECHA o P0 do own_token_pegar com EXECUTE a PUBLIC. Enquanto nao aplicada, producao segue com os 77 grants e o EXECUTE aberto — por isso a linha de base de service_role em objetos-producao.json NAO muda ate a aplicacao.",
+        "impacto": "A4P-076 item 4: reduz a superficie da service key aos consumidores conhecidos (2 rotas Next + 8 Edge Functions, todas lidas) e FECHA o P0 do own_token_pegar com EXECUTE a PUBLIC. Enquanto nao aplicada, producao segue com os 77 grants e o EXECUTE aberto — por isso a linha de base de service_role em objetos-producao.json NAO muda ate a aplicacao.",
+        "objetos_ausentes": [
+          "revoke de service_role em ~48 tabelas sem consumidor",
+          "revoke de EXECUTE a PUBLIC em own_token_pegar/gravar/bloquear (P0)"
+        ],
+        "resolver_ate": "2026-09-18",
+        "origem": "sessao de agente, P-19 Bloco 1 (18/08/2026)",
+        "aplicada_em": null
       }
     ],
     "objetos_sem_migration": [
