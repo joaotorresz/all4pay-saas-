@@ -11,8 +11,15 @@
 --   3. confirmação acima da alçada REPROVA;
 --   4. a transição válida PASSA e vai para a trilha.
 --
--- Tudo em transação que termina em ROLLBACK — roda seguro contra qualquer
--- banco. Falha com EXCEÇÃO (ON_ERROR_STOP), nunca com um relatório verde.
+-- ⚠️ **"PERMITIDO" é medido pela SITUAÇÃO REAL, não pela ausência de exceção.**
+-- Uma versão anterior lia "não deu erro" como "permitido" — e um UPDATE que a
+-- RLS filtra para 0 linhas NÃO dá erro. O `bia` é criado por signup e nasce com
+-- a PRÓPRIA organização como ativa; sem apontar a org ativa dele para a do
+-- título, `auth_org_id(bia)` não era a org do título, o UPDATE casava 0 linhas
+-- em silêncio, e a guarda lia "baixa direta permitida" onde nada acontecera.
+-- Agora a org ativa é fixada, e "permitido" = a situação MUDOU de verdade.
+--
+-- Tudo em transação que termina em ROLLBACK. Falha com EXCEÇÃO (ON_ERROR_STOP).
 -- ═══════════════════════════════════════════════════════════════════════════
 
 \set ON_ERROR_STOP on
@@ -24,7 +31,7 @@ declare
   ana uuid := gen_random_uuid();
   bia uuid := gen_random_uuid();
   o uuid; c uuid; t uuid;
-  passou boolean;
+  sit text;
   falhas text[] := '{}';
 begin
   ---------------------------------------------------------------- montagem ---
@@ -35,10 +42,13 @@ begin
   select org_id into o from public.organization_members where user_id = ana limit 1;
   if o is null then raise exception 'GUARDA INVÁLIDA: provisionamento não criou empresa'; end if;
 
-  -- bia entra na MESMA org da ana, como aprovadora (para poder confirmar).
+  -- bia entra na MESMA org da ana, como aprovadora, e passa a tê-la como ATIVA.
   insert into public.organization_members (org_id, user_id, role)
   values (o, bia, 'aprovador')
   on conflict (org_id, user_id) do update set role = 'aprovador';
+  insert into public.user_active_org (user_id, org_id)
+  values (bia, o)
+  on conflict (user_id) do update set org_id = excluded.org_id;
 
   select id into c from public.financial_accounts where org_id = o limit 1;
 
@@ -50,38 +60,29 @@ begin
   -------------------------------------------- 1. BAIXA DIRETA reprova --------
   perform set_config('request.jwt.claims', json_build_object('sub', bia, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  begin
-    update public.movements set situacao = 'baixado' where id = t;
-    passou := true;
-  exception when others then passou := false;
-  end;
+  begin update public.movements set situacao = 'baixado' where id = t; exception when others then end;
   reset role;
-  if passou then falhas := falhas || 'baixa DIRETA (previsto→baixado) foi permitida — pulou a confirmação'; end if;
+  select situacao into sit from public.movements where id = t;
+  if sit = 'baixado' then falhas := array_append(falhas, 'baixa direta (previsto->baixado) foi permitida - pulou a confirmacao'); end if;
 
   --------------------------------------------- 2. AUTO-CONFIRMAÇÃO reprova ---
-  -- A própria ANA (que lançou) tenta confirmar.
+  -- A própria ANA (que lançou) tenta confirmar. A org ativa da ana é a dela.
   perform set_config('request.jwt.claims', json_build_object('sub', ana, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  begin
-    update public.movements set situacao = 'confirmado' where id = t;
-    passou := true;
-  exception when others then passou := false;
-  end;
+  begin update public.movements set situacao = 'confirmado' where id = t; exception when others then end;
   reset role;
-  if passou then falhas := falhas || 'quem LANÇOU confirmou o próprio título (R1 quebrada)'; end if;
+  select situacao into sit from public.movements where id = t;
+  if sit = 'confirmado' then falhas := array_append(falhas, 'quem lancou confirmou o proprio titulo (R1 quebrada)'); end if;
 
   ------------------------------------------- 3. ACIMA DA ALÇADA reprova ------
   -- Sobe o título para R$ 40.000; a bia é 'aprovador' (teto 5.000).
   update public.movements set amount = 40000 where id = t;
   perform set_config('request.jwt.claims', json_build_object('sub', bia, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  begin
-    update public.movements set situacao = 'confirmado' where id = t;
-    passou := true;
-  exception when others then passou := false;
-  end;
+  begin update public.movements set situacao = 'confirmado' where id = t; exception when others then end;
   reset role;
-  if passou then falhas := falhas || 'confirmação ACIMA da alçada (40.000 por aprovador de 5.000) foi permitida'; end if;
+  select situacao into sit from public.movements where id = t;
+  if sit = 'confirmado' then falhas := array_append(falhas, 'confirmacao acima da alcada (40.000 por aprovador de 5.000) foi permitida'); end if;
 
   ------------------------------------------- 4. O CAMINHO VÁLIDO passa -------
   -- Volta a R$ 1.000; a bia (aprovadora, ≠ quem lançou) confirma. Deve PASSAR.
@@ -90,32 +91,30 @@ begin
   set local role authenticated;
   begin
     update public.movements set situacao = 'confirmado' where id = t;
-    passou := true;
   exception when others then
-    passou := false;
-    falhas := falhas || format('a confirmação LEGÍTIMA foi recusada: %s', sqlerrm);
+    falhas := array_append(falhas, format('a confirmacao legitima foi recusada: %s', sqlerrm));
   end;
   reset role;
-  if not passou then falhas := falhas || 'a confirmação legítima (aprovador ≠ lançador, dentro da alçada) não passou'; end if;
+  select situacao into sit from public.movements where id = t;
+  if sit <> 'confirmado' then falhas := array_append(falhas, 'a confirmacao legitima (aprovador != lancador, dentro da alcada) nao passou'); end if;
 
   -- E a transição foi para a trilha, com quem confirmou.
   if not exists (
     select 1 from public.central_transicoes
     where movement_id = t and de = 'previsto' and para = 'confirmado' and por = bia
   ) then
-    falhas := falhas || 'a transição confirmada NÃO foi registrada em central_transicoes';
+    falhas := array_append(falhas, 'a transicao confirmada NAO foi registrada em central_transicoes');
   end if;
 
-  -- E o carimbo de confirmado_por.
   if not exists (select 1 from public.movements where id = t and confirmado_por = bia) then
-    falhas := falhas || 'confirmado_por não foi carimbado com quem confirmou';
+    falhas := array_append(falhas, 'confirmado_por nao foi carimbado com quem confirmou');
   end if;
 
   ------------------------------------------------------------------ fim -----
   if array_length(falhas, 1) is not null then
-    raise exception E'MÁQUINA DE ESTADOS DA CENTRAL QUEBRADA:\n  · %', array_to_string(falhas, E'\n  · ');
+    raise exception E'MAQUINA DE ESTADOS DA CENTRAL QUEBRADA:\n  · %', array_to_string(falhas, E'\n  · ');
   end if;
-  raise notice '✓ central — baixa direta reprova · auto-confirmação reprova · acima da alçada reprova · confirmação legítima passa e vai para a trilha';
+  raise notice '✓ central — baixa direta reprova · auto-confirmacao reprova · acima da alcada reprova · confirmacao legitima passa e vai para a trilha';
 end
 $guarda$;
 
