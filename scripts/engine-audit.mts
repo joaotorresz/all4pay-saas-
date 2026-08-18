@@ -39,6 +39,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { rotuloSituacao } from "@/core/movimentacoes";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
@@ -5057,6 +5058,59 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const kitTxt = readFileSync("src/components/relatorios/kit.tsx", "utf8");
   ok("a4p027: o cabeçalho da tabela marca a coluna sem lançamento",
      /colunasSemDado/.test(kitTxt) && /sem lan[çc]amento/.test(kitTxt));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-045 — o ID inteiro e a SITUAÇÃO em palavra, nas duas direções
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido no código: a tabela de títulos renderizava `m.id.slice(0, 10)` — dez
+// caracteres de um UUID ("16ab4f3c-4"), que não identificam nada para quem lê
+// nem servem para procurar o título no suporte. E a situação existia SÓ como
+// ponto colorido com `title`: cor sozinha não é informação para quem não
+// distingue as cores, e `title` não aparece no toque.
+{
+  // A palavra muda com a direção — é a que a pessoa usa ao falar com o outro
+  // lado. Um título a receber liquidado foi RECEBIDO, não "pago".
+  ok("a4p045: liquidado → Pago (pagar) e Recebido (receber)",
+     rotuloSituacao("liquidado", "pagar") === "Pago"
+     && rotuloSituacao("liquidado", "receber") === "Recebido");
+  ok("a4p045: atrasado → Vencido (pagar) e Em atraso (receber)",
+     rotuloSituacao("atrasado", "pagar") === "Vencido"
+     && rotuloSituacao("atrasado", "receber") === "Em atraso");
+  ok("a4p045: aberto → A vencer nos dois lados",
+     rotuloSituacao("aberto", "pagar") === "A vencer"
+     && rotuloSituacao("aberto", "receber") === "A vencer");
+
+  /*
+   * ⚠️ COMENTÁRIOS FORA — e esta guarda reprovou por causa disso na primeira
+   * execução: o comentário que documenta a correção CITA `m.id.slice(0, 10)`
+   * para explicar o que saiu, e a varredura o leu como se o defeito estivesse
+   * de volta. É a terceira vez que esta armadilha aparece no repositório
+   * (guarda de credenciais, varredura da ONDA 14, agora esta). Guarda que
+   * reprova a documentação da própria correção treina quem a lê a ignorá-la.
+   */
+  const tv = readFileSync("src/components/movimentacoes/TitulosView.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  // ⚠️ A asserção afirma sobre o DEFEITO PROIBIDO, não sobre o resultado certo:
+  // conferir que existe um IdCopiavel passaria mesmo se o slice continuasse ao
+  // lado. O que não pode voltar é o corte.
+  ok("a4p045: o UUID cortado NÃO volta (nenhum m.id.slice na tabela)",
+     !/m\.id\.slice\(/.test(tv));
+  ok("a4p045: o id sai inteiro, pelo componente compartilhado",
+     /<IdCopiavel id=\{m\.id\}/.test(tv));
+  ok("a4p045: a tabela tem coluna Situação, com a palavra",
+     /<Th>Situação<\/Th>/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
+  // A planilha do contador tem de dizer a MESMA palavra da tela.
+  ok("a4p045: a exportação usa o mesmo rótulo da tela",
+     /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
+  // ⚠️ Simetria: é o MESMO componente nos dois lados — se algum dia virar dois,
+  // as duas listas de dinheiro divergem no primeiro ajuste.
+  const pagar = readFileSync("src/app/contas-a-pagar/titulos/page.tsx", "utf8");
+  const receber = readFileSync("src/app/contas-a-receber/titulos/page.tsx", "utf8");
+  ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
+     /TitulosView/.test(pagar) && /TitulosView/.test(receber));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
