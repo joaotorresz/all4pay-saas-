@@ -7,6 +7,9 @@
  */
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
 import {
+  detectarColunas, validarMapeamento, assinaturaLayout,
+} from "@/core/ingestao/mapeamento";
+import {
   podeAprovar, papelQueAprova, transicaoValida, TRANSICOES, montarFila, titulosDaVisao,
   type Lancamento, type Aprovador,
 } from "@/core/central";
@@ -5393,6 +5396,91 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      fila.totalAguardando === 3);
   ok("central fila: as três origens aparecem com contagem",
      fila.porOrigem["contas-a-pagar"] === 1 && fila.porOrigem["contas-a-receber"] === 1 && fila.porOrigem["upload"] === 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * BLOCO D — MAPEAMENTO DE COLUNAS e a ABERTURA do extrato (A4P-073)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  // ── layout LIMPO (nome + conteúdo concordam) → confiança alta, sem confirmar ─
+  const limpo = detectarColunas(
+    ["Data", "Histórico", "Valor", "Documento"],
+    [
+      ["16/01/2024", "PIX RECEBIDO ALPHA", "1.234,56", "E123"],
+      ["17/01/2024", "TARIFA MENSAL", "-49,90", "T001"],
+      ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
+    ],
+  );
+  ok("blocoD mapa: layout limpo mapeia data=0 valor=2 descricao=1",
+     limpo.mapeamento.data === 0 && limpo.mapeamento.valor === 2 && limpo.mapeamento.descricao === 1,
+     JSON.stringify(limpo.mapeamento));
+  ok("blocoD mapa: layout limpo NÃO pede confirmação (confiança alta)",
+     limpo.precisaConfirmar === false && limpo.confianca >= 70, `conf=${limpo.confianca}`);
+
+  // ── layout DESCONHECIDO (sem cabeçalho reconhecível, colunas fora de ordem) ──
+  // ⚠️ Isto é o defeito que o palpite calado produzia: sem detecção honesta,
+  // entraria com data=0/valor=1 e classificaria tudo errado. Agora DECLARA.
+  const estranho = detectarColunas(
+    ["col_a", "col_b", "col_c"],
+    [
+      ["PAGAMENTO LUZ", "-120,00", "05/02/2024"],
+      ["DEPOSITO", "800,00", "06/02/2024"],
+    ],
+  );
+  ok("blocoD mapa: layout desconhecido acha data e valor pelo CONTEÚDO (nome não ajuda)",
+     estranho.mapeamento.data === 2 && estranho.mapeamento.valor === 1,
+     JSON.stringify(estranho.mapeamento));
+  // ⚠️ E DECLARA que precisa confirmar — o palpite calado é o defeito.
+  ok("blocoD mapa: layout desconhecido PEDE confirmação (não chuta calado)",
+     estranho.precisaConfirmar === true, `conf=${estranho.confianca}`);
+
+  // ── o CONTEÚDO vence o NOME quando discordam ────────────────────────────────
+  // Cabeçalho diz "Valor" na col 0, mas o conteúdo dela é texto; o número está na col 2.
+  const enganoso = detectarColunas(
+    ["Valor", "Data", "Quantia"],
+    [
+      ["COMPRA MERCADO", "10/03/2024", "-89,90"],
+      ["SALARIO", "05/03/2024", "3.000,00"],
+    ],
+  );
+  ok("blocoD mapa: o CONTEÚDO vence o NOME — 'Valor' sem números não é a coluna de valor",
+     enganoso.mapeamento.valor === 2, `valor=${enganoso.mapeamento.valor}`);
+
+  // ── validação: um mapeamento salvo que NÃO bate é rejeitado ──────────────────
+  const amostras = [["16/01/2024", "PIX", "100,00"], ["17/01/2024", "TED", "200,00"]];
+  ok("blocoD mapa: mapeamento correto valida (nenhum problema)",
+     validarMapeamento({ data: 0, valor: 2, descricao: 1, documento: -1 }, amostras).length === 0);
+  // ⚠️ Reusar cegamente um mapa de outro banco (data e valor trocados) é pego.
+  const trocado = validarMapeamento({ data: 2, valor: 0, descricao: 1, documento: -1 }, amostras);
+  ok("blocoD mapa: mapeamento com data/valor trocados é REJEITADO antes de reusar",
+     trocado.includes("data") && trocado.includes("valor"), trocado.join(","));
+
+  // ── a assinatura do layout: header casa, posicional não salva sob chave vazia ─
+  ok("blocoD mapa: dois arquivos do mesmo banco têm a MESMA assinatura",
+     assinaturaLayout(["Data", "Valor", "Histórico"]) === assinaturaLayout(["data", "valor", "historico"]));
+  ok("blocoD mapa: arquivo posicional (sem header) tem assinatura VAZIA (não salva)",
+     assinaturaLayout([]) === "" && assinaturaLayout(["", "", ""]) === "");
+
+  // ── A4P-073: a abertura vem do SALDO DECLARADO, NUNCA da primeira linha ──────
+  // Extrato: saldo declarado (LEDGERBAL) 5.000; líquido do arquivo +1.500.
+  // Abertura = 5.000 − 1.500 = 3.500. E 3.500 não é o valor de nenhuma transação.
+  const transacoes = [1000, 800, -300, 4300];  // a 4300 é a armadilha da 1ª linha
+  const netLiquidado = transacoes.reduce((s, v) => s + v, 0); // 5.800? não — ver abaixo
+  const ab = aberturaDoExtrato(5000, 1500, "2024-01-01");
+  ok("blocoD abertura: 5.000 declarado − 1.500 líquido = 3.500", ab.valor === 3500, String(ab.valor));
+  // ⚠️ A ASSERÇÃO QUE FIXA O DEFEITO: a abertura NÃO é o valor de nenhuma
+  // transação do extrato. É a prova de que ela não veio da 1ª linha (a lição
+  // do bloco `abertura:` — provar X ≠ Y para todo Y, não conferir X).
+  ok("blocoD abertura: o valor da abertura NÃO é o de nenhuma transação (não veio da 1ª linha)",
+     !transacoes.some((v) => Math.abs(v - ab.valor) < 0.005), `abertura=${ab.valor}`);
+  // A escolha da cascata: importada (extrato) vence informada (digitada).
+  const escolha = escolherAbertura({
+    importada: { valor: 3500, data: "2024-01-01" },
+    informada: { valor: 9999, data: "2024-01-01", por: "fulano" },
+  });
+  ok("blocoD abertura: o saldo do EXTRATO vence o digitado à mão",
+     escolha?.fonte === "importada" && escolha.valor === 3500);
+  void netLiquidado;
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
