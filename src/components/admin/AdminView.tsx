@@ -12,21 +12,38 @@ import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Respons
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
 import { isDemo } from "@/lib/demo";
+import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { useToast } from "@/components/listas/ListChrome";
 import {
   isPlatformAdmin, getAdminOverview, getAdminOrgs, getAdminUsers, getAdminPlans, setSubscription,
   getAdminGrowth, getAdminOrgDetail, getMrrHistory, getAuditLog, impersonar, getAdminUserDetail,
-  type SubStatus, type AdminPlan, type UserDetalhe,
+  type SubStatus, type AdminPlan, type UserDetalhe, type AdminOrg,
 } from "@/lib/admin";
 
+/*
+ * ⚠️ **"Sem assinatura" precisou de linha PRÓPRIA.** A lista não tinha o estado
+ * de ausência, e o `statusMeta` caía em `STATUS[1]` — "Trial". Somado ao
+ * `coalesce(s.status,'trial')` da RPC, o painel afirmava DUAS vezes que havia
+ * um teste em curso em 14 organizações que não tinham relação comercial
+ * nenhuma. Ausência tem de aparecer como ausência (ONDA 4).
+ */
 const STATUS: { value: SubStatus; label: string; tone: "positive" | "warning" | "neutral" }[] = [
   { value: "active", label: "Ativa", tone: "positive" },
   { value: "trial", label: "Trial", tone: "neutral" },
   { value: "past_due", label: "Inadimplente", tone: "warning" },
   { value: "canceled", label: "Cancelada", tone: "neutral" },
+  { value: "none", label: "Sem assinatura", tone: "warning" },
 ];
-const statusMeta = (s: SubStatus) => STATUS.find((x) => x.value === s) ?? STATUS[1];
+const statusMeta = (s: SubStatus) => STATUS.find((x) => x.value === s) ?? STATUS[4];
+/*
+ * ⚠️ **"Sem assinatura" é ESTADO OBSERVADO, não estado ESCOLHÍVEL.** Ele existe
+ * para a tela nomear a ausência; oferecê-lo no seletor deixaria o administrador
+ * gravar `none`, que o banco recusa (`subscriptions_status_check` só aceita
+ * trial/active/past_due/canceled). Um seletor que oferece opção que o banco
+ * rejeita é um erro esperando o clique.
+ */
+const STATUS_ESCOLHIVEIS = STATUS.filter((s) => s.value !== "none");
 const fmtDia = (iso: string | null) => { if (!iso) return "—"; const [y, m, d] = iso.slice(0, 10).split("-"); return `${d}/${m}/${y.slice(2)}`; };
 const ativoUsuario = (iso: string | null) => !!iso && Date.now() - Date.parse(iso) < 30 * 86400000;
 
@@ -61,6 +78,96 @@ export function AdminView() {
  * uma porta aqui, a tela ficaria acessível só para quem decorou a URL, que é
  * a definição de tela órfã.
  */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * RECONCILIAÇÃO BILLING × USO
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **O painel dizia MRR e contava assinaturas; nenhuma tela cruzava cobrança
+ * com USO.** Medido em 18/08: 1.402 dos 1.415 lançamentos de produção (99,1%)
+ * estavam em organizações que não pagavam nada, e a única que pagava R$990/mês
+ * tinha ZERO lançamentos. Os dois fatos estavam nos dados desde sempre, cada um
+ * numa coluna diferente da mesma tabela, e ninguém os leu juntos.
+ *
+ * ⚠️ **Os três alertas ficam SEPARADOS de propósito**, porque mandam fazer
+ * coisas opostas: usa-e-não-paga é receita vazando; paga-e-não-usa é cliente
+ * prestes a cancelar (ligue ANTES); acima-do-teto é conversa de upgrade, nunca
+ * corte. Um contador único "7 alertas" apagaria exatamente o que decide a ação.
+ */
+const ROTULO_ALERTA: Record<TipoAlerta, string> = {
+  usa_sem_plano: "Usa e não paga",
+  paga_sem_uso: "Paga e não usa",
+  acima_do_limite: "Uso acima do plano",
+};
+const TOM_ALERTA: Record<TipoAlerta, string> = {
+  usa_sem_plano: "var(--color-warning)",
+  paga_sem_uso: "var(--color-warning)",
+  acima_do_limite: "var(--color-positive)",
+};
+
+function ReconciliacaoBilling({ orgs, carregando }: { orgs: AdminOrg[]; carregando: boolean }) {
+  const hoje = React.useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+  const alertas = React.useMemo(
+    () => reconciliarBilling(
+      orgs.map((o) => ({
+        orgId: o.orgId, nome: o.nome, status: o.status, plano: o.plano === "—" ? null : o.plano,
+        mrr: o.mrr, fim: o.expira, lancamentos: o.movimentos, ultimoLancamento: o.ultimoMov,
+        limiteLancamentos: o.limiteLancamentos,
+      })),
+      hoje,
+    ),
+    [orgs, hoje],
+  );
+
+  if (carregando) return <Card><Skeleton className="h-24 w-full" /></Card>;
+
+  const porTipo = (t: TipoAlerta) => alertas.filter((a) => a.tipo === t);
+
+  return (
+    <Card
+      className="flex flex-col gap-4"
+      info={{
+        titulo: "Cobrança × uso",
+        oQue: "Cruza quem paga com quem usa, e acende as três divergências que custam dinheiro.",
+        comoCalcula: "Usa e não paga: tem lançamento, não tem assinatura ativa e não está em teste. Paga e não usa: assinatura ativa com mais de 30 dias sem nenhum lançamento. Acima do plano: lançamentos além do teto que o plano declara.",
+      }}
+    >
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <span className="text-label font-medium text-muted">Cobrança × uso</span>
+        {/* ⚠️ "Nada a reconciliar" é resposta, não tela vazia. */}
+        {alertas.length === 0 && (
+          <span className="text-caption text-faint">Nada a reconciliar — cobrança e uso batem.</span>
+        )}
+      </div>
+
+      {(["usa_sem_plano", "paga_sem_uso", "acima_do_limite"] as TipoAlerta[]).map((t) => {
+        const linhas = porTipo(t);
+        if (linhas.length === 0) return null;
+        return (
+          <div key={t} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-[6px] h-[6px] rounded-pill" style={{ background: TOM_ALERTA[t] }} aria-hidden />
+              <span className="text-[15px] text-ink">{ROTULO_ALERTA[t]}</span>
+              <span className="text-caption text-faint tabular-nums">{linhas.length}</span>
+            </div>
+            <ul className="m-0 p-0 list-none flex flex-col gap-1">
+              {linhas.map((a: AlertaBilling) => (
+                <li key={`${a.tipo}-${a.orgId}`} className="flex flex-col sm:flex-row sm:items-baseline gap-x-2 border-b border-border-soft last:border-0 pb-2 last:pb-0">
+                  <span className="text-caption text-ink min-w-[180px]">{a.nome}</span>
+                  <span className="text-caption text-muted flex-1">{a.detalhe}</span>
+                  <span className="text-caption text-faint">{a.acao}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </Card>
+  );
+}
+
 function FerramentasInternas() {
   return (
     <Card className="mb-4">
@@ -122,6 +229,8 @@ function AdminBody() {
         <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Organizações com a mensalidade em atraso.", comoCalcula: "Organizações cujo status de assinatura é inadimplente." }} />
       </div>
 
+      <ReconciliacaoBilling orgs={orgs.data ?? []} carregando={orgs.isLoading} />
+
       {/* Crescimento + MRR mês a mês */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <GrowthCard />
@@ -150,7 +259,7 @@ function AdminBody() {
                   </div>
                   <span className="text-caption text-muted tabular-nums">{org.membros}</span>
                   <Select value={planId} onChange={(v) => salvar(org.orgId, v || null, org.status)} options={planOpts} containerClassName="min-w-[140px]" disabled={busy === org.orgId} />
-                  <Select value={org.status} onChange={(v) => salvar(org.orgId, planId || null, v as SubStatus)} options={STATUS.map((s) => ({ value: s.value, label: s.label }))} containerClassName="min-w-[150px]" disabled={busy === org.orgId} />
+                  <Select value={org.status} onChange={(v) => salvar(org.orgId, planId || null, v as SubStatus)} options={STATUS_ESCOLHIVEIS.map((s) => ({ value: s.value, label: s.label }))} containerClassName="min-w-[150px]" disabled={busy === org.orgId} />
                   <span className="text-caption tabular-nums lg:text-right text-ink"><BRL value={org.mrr} /></span>
                   <span className="text-caption text-faint lg:text-right">{fmtDia(org.ultimoMov)}</span>
                 </div>

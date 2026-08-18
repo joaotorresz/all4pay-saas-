@@ -5,6 +5,8 @@
  *
  *   npm run audit   (também roda dentro de npm test)
  */
+import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
+import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
 import { reconciliarAutomaticamente } from "@/core/financial-os/reconciliation.engine";
@@ -5152,6 +5154,155 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
   ok("a4p034: secundário reduz o corpo, não remove o valor",
      /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * BILLING — o relógio, o bloqueio suave e a reconciliação (Etapa D)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  const HOJE = "2026-08-18";
+
+  // ── (a) organização que USA e não paga tem de reprovar ───────────────────
+  const usaSemPlano = reconciliarBilling([{
+    orgId: "o1", nome: "Usa e não paga", status: "none", plano: null, mrr: 0,
+    fim: null, lancamentos: 677, ultimoLancamento: "2026-08-11",
+  }], HOJE);
+  ok("billing: organização com lançamento e sem cobrança ativa acende o alerta",
+     usaSemPlano.length === 1 && usaSemPlano[0].tipo === "usa_sem_plano",
+     JSON.stringify(usaSemPlano.map((a) => a.tipo)));
+  /*
+   * ⚠️ E o alerta cita o NÚMERO que o justifica. "Organização sem plano" é uma
+   * frase; "677 lançamentos e nenhuma cobrança" é uma decisão. Alerta sem o
+   * número vira paisagem — foi assim que 14 organizações operaram dois meses.
+   */
+  ok("billing: o alerta carrega o número que o justifica",
+     usaSemPlano[0]?.detalhe.includes("677"), usaSemPlano[0]?.detalhe);
+
+  // ⚠️ O NEGATIVO da mesma regra: organização vazia NÃO é vazamento de receita.
+  // Sem esta, a guarda aprovaria uma versão que acende alerta para toda conta
+  // recém-criada — 14 falsos alertas, e a tela deixaria de ser lida.
+  ok("billing: organização SEM lançamento nenhum não acende alerta de uso",
+     reconciliarBilling([{
+       orgId: "o2", nome: "Vazia", status: "none", plano: null, mrr: 0,
+       fim: null, lancamentos: 0, ultimoLancamento: null,
+     }], HOJE).length === 0);
+
+  // ⚠️ E quem está EM TESTE dentro do prazo também não: o teste existe
+  // justamente para ser usado sem pagar.
+  ok("billing: quem está em teste dentro do prazo não acende alerta",
+     reconciliarBilling([{
+       orgId: "o3", nome: "Em teste", status: "trial", plano: null, mrr: 0,
+       fim: "2026-09-01", lancamentos: 318, ultimoLancamento: "2026-08-17",
+     }], HOJE).length === 0);
+
+  // ── paga e não usa · acima do teto ───────────────────────────────────────
+  const pagaSemUso = reconciliarBilling([{
+    orgId: "o4", nome: "Paga e não usa", status: "active", plano: "Enterprise", mrr: 990,
+    fim: null, lancamentos: 0, ultimoLancamento: null,
+  }], HOJE);
+  ok("billing: plano ativo sem nenhum lançamento acende 'paga e não usa'",
+     pagaSemUso.length === 1 && pagaSemUso[0].tipo === "paga_sem_uso");
+
+  const acima = reconciliarBilling([{
+    orgId: "o5", nome: "Acima do teto", status: "active", plano: "Starter", mrr: 149,
+    fim: null, lancamentos: 642, ultimoLancamento: "2026-08-17", limiteLancamentos: 500,
+  }], HOJE);
+  ok("billing: uso acima do teto do plano acende — e é conversa de upgrade, não corte",
+     acima.length === 1 && acima[0].tipo === "acima_do_limite" && /upgrade/i.test(acima[0].acao));
+
+  // ── (b) o vencimento BLOQUEIA a escrita, e só a escrita ──────────────────
+  const vencido = estadoDaAssinatura(
+    { orgId: "o6", status: "trial", mrr: 0, inicio: "2026-07-01", fim: "2026-08-17" }, HOJE);
+  ok("billing: teste vencido ONTEM bloqueia a escrita",
+     vencido.bloqueado && vencido.diasRestantes === -1, String(vencido.diasRestantes));
+  /*
+   * ⚠️ A borda que decide: vencer é `fim < hoje`, não `fim <= hoje`. Com `<=` o
+   * cliente perde a escrita no ÚLTIMO dia do teste — o dia que ele foi
+   * prometido. Um teste de 14 dias que dura 13 é um defeito que ninguém
+   * reporta, porque parece só um dia.
+   */
+  const ultimoDia = estadoDaAssinatura(
+    { orgId: "o7", status: "trial", mrr: 0, inicio: "2026-08-04", fim: HOJE }, HOJE);
+  ok("billing: no ÚLTIMO dia do teste ainda dá para escrever",
+     !ultimoDia.bloqueado && ultimoDia.diasRestantes === 0);
+  /*
+   * ⚠️ O aviso tem de PROMETER acesso e nunca AMEAÇAR perda — é o bloqueio
+   * suave por escrito, e o que a pessoa precisa saber primeiro não é que
+   * atrasou, é se perdeu o arquivo.
+   *
+   * ⚠️ A primeira versão desta asserção proibia a palavra "apagado" e REPROVOU
+   * a frase certa: *"Nada foi apagado"*. Guarda que casa palavra em vez de
+   * AFIRMAÇÃO reprova o texto que ela existe para exigir — mesma lição da
+   * varredura que acusou o próprio comentário que documentava a regra.
+   */
+  ok("billing: a mensagem de vencido promete que o dado continua acessível",
+     /vendo|export|consult/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: a mensagem de vencido não AMEAÇA perda de dado",
+     !/(ser[ãa]o|foram|vamos)\s+(apagad|exclu|remov)/i.test(vencido.aviso ?? "")
+     && !/perder[áa]/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: a mensagem diz COMO resolver, não só o que aconteceu",
+     /plano/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: assinatura ativa sem data de fim NÃO bloqueia",
+     !estadoDaAssinatura({ orgId: "o8", status: "active", mrr: 990, fim: null }, HOJE).bloqueado);
+
+  // ── (c) o MRR do painel é a soma das assinaturas ATIVAS ──────────────────
+  const assinaturas = [
+    { orgId: "a", status: "active" as const, mrr: 990 },
+    { orgId: "b", status: "trial" as const, mrr: 0 },
+    { orgId: "c", status: "past_due" as const, mrr: 349 },
+    { orgId: "d", status: "canceled" as const, mrr: 149 },
+  ];
+  ok("billing: o MRR soma só o ATIVO — inadimplente e cancelado ficam de fora",
+     mrrDeAssinaturas(assinaturas) === 990, String(mrrDeAssinaturas(assinaturas)));
+  /*
+   * ⚠️ A asserção que fixa o defeito: somar `past_due` daria 1.488 e o painel
+   * anunciaria receita que o extrato não tem. É a forma de erro de MRR que
+   * chega a um investidor.
+   */
+  ok("billing: a soma ingênua (com inadimplente e cancelado) é OUTRO número",
+     assinaturas.reduce((s, a) => s + a.mrr, 0) === 1488);
+
+  // ── a metodologia publicada (A4P-032) ────────────────────────────────────
+  for (const m of METODOLOGIAS) {
+    const soma = m.componentes.reduce((s, c) => s + c.peso, 0);
+    ok(`metodologia: os pesos de "${m.indicador}" somam 1`, Math.abs(soma - 1) < 1e-9, soma.toFixed(4));
+    ok(`metodologia: "${m.indicador}" declara o que NÃO enxerga`, m.limitacoes.length > 0);
+    ok(`metodologia: "${m.indicador}" nomeia o motor e a versão`, /\/\d+\.\d+\.\d+/.test(m.motor), m.motor);
+  }
+  /*
+   * ⚠️ **O TETO TEM DE SE DECLARAR TETO.** `Math.min(0.97, …)` no motor de
+   * risco: com ruptura projetada para hoje o valor sai 0,97 SEMPRE, e "97% de
+   * chance" lido como medida é o mesmo defeito do "33 meses de fôlego" da
+   * ONDA 4. A guarda exige a frase no valor saturado E o silêncio fora dele —
+   * marcar sempre é não marcar nunca.
+   */
+  ok("metodologia: 97% é declarado como TETO, não como medida",
+     (avisoDeSaturacao("chance-ruptura", 0.97) ?? "").includes("TETO"));
+  ok("metodologia: 2% é declarado como PISO",
+     (avisoDeSaturacao("chance-ruptura", 0.02) ?? "").includes("PISO"));
+  ok("metodologia: valor no meio da escala não ganha aviso de saturação",
+     avisoDeSaturacao("chance-ruptura", 0.41) === null);
+  /*
+   * ⚠️ As DUAS probabilidades de ruptura têm de estar declaradas separadas. O
+   * produto exibe uma de 60 dias (motor de risco) e outra de 90 (quant), com
+   * rótulos quase idênticos; declarar só uma faria a página de metodologia
+   * explicar um número e legitimar o outro por tabela.
+   */
+  ok("metodologia: as duas probabilidades de ruptura estão declaradas, com horizontes distintos",
+     !!metodologiaDe("chance-ruptura") && !!metodologiaDe("chance-ruptura-90d")
+     && metodologiaDe("chance-ruptura")!.janela !== metodologiaDe("chance-ruptura-90d")!.janela);
+
+  /*
+   * ⚠️ Metodologia é INSTRUMENTAÇÃO, e instrumentação sem consumidor não conta
+   * como feita: a tela tem de LER daqui, não repetir o texto à mão — texto à
+   * mão envelhece na primeira mudança de fórmula e passa a descrever um
+   * cálculo que não existe.
+   */
+  const fluxo = readFileSync("src/components/fluxo-caixa/FluxoCaixaView.tsx", "utf8");
+  ok("metodologia: o cartão de ruptura consome a declaração (não texto à mão)",
+     /infoDaMetodologia\("chance-ruptura"\)/.test(fluxo) && /avisoDeSaturacao\("chance-ruptura"/.test(fluxo));
+  ok("metodologia: o cartão de score consome a declaração",
+     /infoDaMetodologia\("score-saude"\)/.test(fluxo));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

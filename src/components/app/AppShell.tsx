@@ -8,6 +8,7 @@ import { NovaTransacao } from "@/components/lancamentos/NovaTransacao";
 import { TituloDaAba } from "@/components/app/TituloDaAba";
 import { SincronizacaoOrg } from "@/components/app/SincronizacaoOrg";
 import { BannerAmostra } from "@/components/app/BannerAmostra";
+import { BannerAssinatura } from "@/components/app/BannerAssinatura";
 import { RouteTracker } from "@/components/app/RouteTracker";
 import { DesignLab, DesignLabStyle } from "@/components/app/DesignLab";
 import { Sidebar } from "@/components/dashboard/Sidebar";
@@ -111,6 +112,9 @@ export function AppShell({
             aparece. Não fecha e não tem "x": some quando a amostra for
             removida, e só então. */}
         <BannerAmostra />
+        {/* ⚠️ Abaixo do de amostra e acima do cabeçalho, fora da área que rola:
+            os dois falam do ESTADO da conta, não do conteúdo da tela. */}
+        <BannerAssinatura />
         {stickyHeader && header}
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}

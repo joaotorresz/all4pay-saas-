@@ -32,13 +32,15 @@ import {
   responderComoFazer, novoIdAjuda,
 } from "@/lib/ajuda-store";
 import { glossarioPublicado, REGRAS_DE_FORMATO } from "@/core/glossario";
+import { METODOLOGIAS, METODOLOGIA_VERSION } from "@/core/metodologia";
+import { pctDeInteiro } from "@/lib/format";
 import { JornadaView } from "@/components/comece/Jornada";
 
 const agora = () => new Date().toISOString();
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-type Aba = "chat" | "tours" | "anuncios" | "glossario" | "passos";
+type Aba = "chat" | "tours" | "anuncios" | "glossario" | "metodologia" | "passos";
 
 export function AjudaView() {
   const params = useSearchParams();
@@ -61,6 +63,11 @@ export function AjudaView() {
           ["tours", "Tours guiados", "layers"],
           ["anuncios", "Anúncios", "mail"],
           ["glossario", "Glossário", "file-text"],
+          // ⚠️ A4P-032: "Chance de ruptura 97%" e "Financial Score 28/100"
+          // saíam na tela sem componente, peso, janela nem versão de modelo —
+          // e o 97% é o TETO da fórmula, não uma medida. Número de modelo sem
+          // metodologia escrita não pode ir a material de investidor.
+          ["metodologia", "Metodologia", "gauge"],
           // ⚠️ "Primeiros passos" precisa de uma porta AQUI. A jornada tinha
           // duas moradas declaradas — o menu ⋮ e um cartão na Home —, e o
           // cartão deixou de existir quando a Home virou quatro cards: o
@@ -90,6 +97,7 @@ export function AjudaView() {
       {aba === "tours" && <ToursGuiados />}
       {aba === "anuncios" && <Anuncios lista={anuncios} setLista={setAnuncios} />}
       {aba === "glossario" && <Glossario />}
+      {aba === "metodologia" && <MetodologiaDosNumeros />}
       {/* A jornada inteira, aninhada: o `ShellGate` corta o chrome duplicado. */}
       {aba === "passos" && <JornadaView />}
     </div>
@@ -607,6 +615,90 @@ function Glossario() {
           </div>
         ))}
       </Card>
+    </div>
+  );
+}
+
+/* ============================== metodologia ============================== */
+
+/**
+ * ⚠️ **Por que uma PÁGINA e não só o "i".** O popover cabe numa frase e some ao
+ * clicar fora — serve para quem está no meio de uma decisão. A página é para a
+ * outra pergunta, a que aparece quando alguém leva o número para fora: um
+ * contador conferindo, um investidor lendo o deck, um sócio querendo saber por
+ * que o score caiu. Sem ela, "score 28/100" é um número com autoridade
+ * emprestada e nenhuma forma de conferir.
+ *
+ * ⚠️ **As LIMITAÇÕES ficam no mesmo cartão, não num rodapé.** Metodologia que
+ * só lista o que o modelo enxerga é propaganda; o que dá confiança é dizer o
+ * que ele NÃO enxerga, junto e com o mesmo peso.
+ */
+function MetodologiaDosNumeros() {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 text-label text-muted max-w-[80ch]">
+        Score e probabilidade são saídas de MODELO, não medições. Aqui está o que entra
+        em cada um, com que peso, sobre qual janela — e o que cada um deixa de fora.
+      </p>
+
+      {METODOLOGIAS.map((m) => (
+        <Card key={m.id} className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <span className="text-h3 text-ink">{m.indicador}</span>
+            <span className="text-caption text-faint">{m.motor}</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <div className="text-caption text-faint">Escala</div>
+              <div className="text-caption text-ink">{m.escala}</div>
+            </div>
+            <div>
+              <div className="text-caption text-faint">Janela</div>
+              <div className="text-caption text-ink">{m.janela}</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-caption text-faint">Como é calculado</div>
+            <p className="m-0 text-caption text-ink max-w-[80ch]">{m.formula}</p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="text-caption text-faint">Componentes e pesos</div>
+            {m.componentes.map((c) => (
+              <div key={c.label} className="flex flex-col sm:flex-row sm:items-baseline gap-x-3 border-b border-border-soft last:border-0 py-1">
+                <span className="text-caption text-ink min-w-[190px]">{c.label}</span>
+                <span className="text-caption text-ink tabular-nums min-w-[46px]">{pctDeInteiro(c.peso * 100)}</span>
+                <span className="text-caption text-muted flex-1">{c.comoMede}</span>
+              </div>
+            ))}
+          </div>
+
+          {m.saturacao && (
+            <div
+              className="flex flex-col gap-1 rounded-md px-3 py-2"
+              style={{ background: "color-mix(in srgb, var(--color-warning) 10%, var(--color-white))" }}
+            >
+              <span className="text-caption font-medium text-ink">
+                O valor satura em {pctDeInteiro(m.saturacao.teto * 100)} e em {pctDeInteiro(m.saturacao.piso * 100)}
+              </span>
+              <span className="text-caption text-muted max-w-[80ch]">{m.saturacao.oQueOTetoSignifica}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1">
+            <div className="text-caption text-faint">O que este número NÃO enxerga</div>
+            <ul className="m-0 pl-4 flex flex-col gap-1">
+              {m.limitacoes.map((l) => (
+                <li key={l} className="text-caption text-muted max-w-[80ch]">{l}</li>
+              ))}
+            </ul>
+          </div>
+        </Card>
+      ))}
+
+      <p className="m-0 text-caption text-faint">{METODOLOGIA_VERSION}</p>
     </div>
   );
 }

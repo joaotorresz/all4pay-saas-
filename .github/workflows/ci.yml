@@ -180,6 +180,14 @@ jobs:
       # produção o objeto some do estado quando se apaga, mas o evento fica no
       # `ddl_log` para sempre — foi assim que 13 sondagens da auditoria de 18/08
       # tiveram de ser declaradas nominalmente depois do fato.
+      # ⚠️ O bloqueio suave é comportamento de BANCO (política restritiva), e a
+      # guarda pura do `engine-audit` não alcança isso: ela prova a decisão,
+      # não a fechadura. Aqui as duas metades são exercitadas na mesma
+      # organização — vencida não escreve E continua lendo.
+      - name: Guarda do bloqueio suave (vencido para de escrever, continua lendo)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/assinatura-bloqueio.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
