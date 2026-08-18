@@ -352,7 +352,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>
-          <Button variant="outline" onClick={() => router.push(`/dashboard/financial/import?tipo=${direcao}`)}>
+          <Button variant="outline" onClick={() => router.push("/upload")}>
             <Icon name="upload" size={15} color="currentColor" />
             Importar
           </Button>

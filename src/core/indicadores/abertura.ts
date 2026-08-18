@@ -13,10 +13,10 @@
  * Este arquivo é a CASCATA que decide de onde a abertura vem. Três degraus, do
  * mais forte ao mais fraco:
  *
- *   1. **Arquivo importado** (`fonte: "importada"`) — o banco DECLARA o saldo.
+ *   1. **Arquivo importado** (`origem: "extrato_bancario"`) — o banco DECLARA o saldo.
  *      No OFX é o campo `<LEDGERBAL>`, um campo de saldo dedicado, escrito pelo
  *      próprio banco. É a autoridade máxima do arquivo.
- *   2. **Cadastro da conta** (`fonte: "informada"`) — o operador confirma, com
+ *   2. **Cadastro da conta** (`origem: "cadastro_manual"`) — o operador confirma, com
  *      data de referência, o saldo de abertura da conta. Ato deliberado, não o
  *      preenchimento padrão de um campo.
  *   3. **Nada** — a abertura fica INDISPONÍVEL, e a tela diz NÃO CONFERIDO.
@@ -35,8 +35,15 @@ export interface AberturaVerificada {
   valor: number;
   /** A data a que o saldo se refere. */
   data: string;
-  fonte: "importada" | "informada";
-  /** Quem confirmou (só na fonte "informada"; o banco não tem nome de pessoa). */
+  /**
+   * ⚠️ **A ORIGEM da âncora, e ela NÃO é cosmética** (A4P-073). A tela do Razão
+   * mostra ao usuário de onde veio o saldo de abertura: "informado pelo banco"
+   * pesa diferente de "informado no cadastro". `extrato_bancario` = o banco
+   * declarou no arquivo (`<LEDGERBAL>`); `cadastro_manual` = alguém digitou.
+   * Uma abertura preenchida SEM origem é anônima — a guarda reprova.
+   */
+  origem: "extrato_bancario" | "cadastro_manual";
+  /** Quem confirmou (só na origem cadastro_manual; o banco não tem nome). */
   por?: string;
 }
 
@@ -62,13 +69,13 @@ export function escolherAbertura(fontes: {
   informada?: FonteAbertura | null;
 }): AberturaVerificada | null {
   if (fontes.importada) {
-    return { valor: fontes.importada.valor, data: fontes.importada.data, fonte: "importada" };
+    return { valor: fontes.importada.valor, data: fontes.importada.data, origem: "extrato_bancario" };
   }
   if (fontes.informada) {
     return {
       valor: fontes.informada.valor,
       data: fontes.informada.data,
-      fonte: "informada",
+      origem: "cadastro_manual",
       por: fontes.informada.por,
     };
   }

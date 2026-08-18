@@ -892,14 +892,14 @@ export interface Reconciliacao {
  */
 /**
  * A frase de ORIGEM da abertura, para a tela dizer de onde o número veio.
- * `importada` = o banco declarou no arquivo; `informada` = alguém confirmou no
+ * `extrato_bancario` = o banco declarou no arquivo; `cadastro_manual` = alguém confirmou no
  * cadastro (com nome quando há). Data fatiada da string (nunca `new Date`, que
  * em UTC−3 joga o dia 1º para o mês anterior).
  */
-function origemDaAbertura(v: { fonte: "informada" | "importada"; data: string; por?: string }): string {
+function origemDaAbertura(v: { origem: "extrato_bancario" | "cadastro_manual"; data: string; por?: string }): string {
   const [a, m, d] = v.data.split("-");
   const dm = d && m ? `${d}/${m}${a ? `/${a}` : ""}` : v.data;
-  if (v.fonte === "importada") return `informado pelo banco em ${dm}`;
+  if (v.origem === "extrato_bancario") return `informado pelo banco em ${dm}`;
   return v.por ? `informado por ${v.por} em ${dm}` : `informado no cadastro em ${dm}`;
 }
 

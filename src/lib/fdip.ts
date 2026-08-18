@@ -82,7 +82,7 @@ export function montarDataset(report: FDIPReport): {
   const declarado = report.saldoDeclarado;
   const saldoConta = declarado ? declarado.valor : Math.round(netLiquidado * 100) / 100;
   const abertura: AberturaVerificada | null = declarado
-    ? { ...aberturaDoExtrato(declarado.valor, netLiquidado, declarado.data), fonte: "importada" }
+    ? { ...aberturaDoExtrato(declarado.valor, netLiquidado, declarado.data), origem: "extrato_bancario" }
     : null;
 
   const accounts: FinancialAccount[] = [

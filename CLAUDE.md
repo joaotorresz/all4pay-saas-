@@ -1484,6 +1484,38 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ A SEXTA REGRA — QUANDO UMA GUARDA EXPÕE DEFEITO, O DEFEITO É O TRABALHO
+
+**Contornar guarda que encontrou defeito real é proibido.** A guarda não é o
+obstáculo entre você e o commit; ela é o dedo apontando o trabalho. Fazê-la
+ficar verde por outro caminho — mudar a entrada para o caso que não dispara,
+afrouxar a asserção, trocar o separador — conserta a COR do CI e deixa o defeito
+exatamente onde estava, agora com um teste verde por cima dizendo que não há
+defeito. É a família do `resíduo = x − x`: uma igualdade que não pode falhar,
+vestida de verificação.
+
+**O caso que fixou a regra (P-19 Bloco D, 18/08/2026).** A guarda da importação
+tinha um caso — descrição com `;` — e ele reprovava. A causa era real: o
+`parseCSV` do FDIP quebrava a linha em TODO `;`, mesmo dentro de aspas, e
+**perdia o lançamento** (medido: extrato de 3 linhas virava 2, o de R$ 99,90
+sumia inteiro). O contorno aplicado foi trocar o separador da serialização para
+TAB — o `;` deixava de aparecer na célula, a guarda ficava verde, e o parser
+continuava perdendo dado no arquivo REAL, que é `;`-separado e tem `;` no
+histórico o tempo todo. **Verde no caso que não acontece, cega no que
+acontece.** O conserto certo não foi o contorno: foi o parser ciente de aspas
+(`tokenizarCSV` em `core/fdip/engine.ts` — respeita aspas, `""` escapado, quebra
+de linha entre aspas, BOM, CRLF, e DETECTA o separador), a serialização de volta
+ao `;` com citação de verdade (`csvDeLinhas`), e a guarda refeita com o caso
+REAL como principal (`;` citado), TAB só como caso adicional — nunca o padrão.
+
+⚠️ **O teste de que você contornou em vez de consertar:** a guarda volta a
+passar sem que o comportamento que ela mede tenha mudado. Se plantar o defeito
+que ela existe para pegar não a faz falhar, ela não guarda nada — e foi
+justamente por isso que o contorno se descobriu, provando por quebra: com o
+parser ingênuo restaurado, a guarda tem de REPROVAR (mediu-se: 15 asserções
+reprovam, do parser à fixture de banco à equivalência do xlsx). Uma guarda que
+não reprova o defeito plantado é a aparência de uma.
+
 ### ⚠️ A GUARDA DE BANCO QUE REPROVOU ACHANDO DEFEITO DE PRODUTO, NÃO DE TESTE
 
 **O caso exemplar (P-19 Bloco 3, 18/08/2026).** A guarda `scripts/central-maquina.sql`
@@ -4331,6 +4363,17 @@ automático** da empresa. Puro, demo-safe. Versão `fdip/1.0.0`.
   datas dd/mm/aaaa, ISO, aaaammdd) → `FinancialRecord` normalizado (reusa
   `limparContraparte`/`fingerprint`). Conectores (Open Finance, API bancária,
   ERP, OCR PDF/imagem, e-mail/WhatsApp) entram na mesma normalização.
+  - ⚠️ **O CSV É PARSEADO COM ASPAS, não por `split` cru** (`tokenizarCSV`).
+    Extrato de banco brasileiro tem `;` no histórico o tempo todo, e o separador
+    do arquivo TAMBÉM é `;` — quebrar em todo `;` PARTE o lançamento citado e ele
+    SOME (medido: 3 linhas → 2, o de R$ 99,90 desaparecia). O tokenizador
+    respeita campo entre aspas, `""` escapado (uma aspa literal), quebra de linha
+    DENTRO de aspas, BOM no início e CRLF. O **separador é detectado**
+    (`detectarDelim`: conta `;`/`,`/TAB fora de aspas na 1ª linha; empate fica com
+    `;`, **TAB nunca é o principal**) — Nubank exporta com `,`, e o `,` decimal
+    não pode virar coluna. Fixtures de banco real (Itaú/Bradesco/Nubank/Inter/BB,
+    com bytes de verdade) em `scripts/fixtures/extratos/`; guarda no
+    `engine-audit` (bloco `blocoD parser`/`fixture`), provada quebrando.
 - **Classificação** (`classificarRecord`): destino + categoria + **confiança**
   por keyword (combustível, folha, aluguel, utilidades, impostos, tarifas,
   assinaturas, marketing, fornecedores) + detecção de transferência; **self-

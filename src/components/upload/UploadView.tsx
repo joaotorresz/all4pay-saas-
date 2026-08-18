@@ -10,7 +10,8 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
-import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@/core/fdip";
+import { analisarImportacao, amostraExtrato, aprender, csvDeLinhas, type FDIPReport } from "@/core/fdip";
+import { lerXLSX } from "@/lib/xlsx";
 import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
 import { listarRegras } from "@/lib/regras";
 import { aplicarRegrasNoRelatorio } from "@/lib/regras-aplicar";
@@ -28,6 +29,9 @@ import { prepararIngestao, type LinhaBruta, type LinhaExistente } from "@/core/i
 import { importedMovements } from "@/lib/imported";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
+// ⚠️ .xlsx entra no MESMO pipeline: lerXLSX → csvDeLinhas → analisarImportacao.
+const isXlsx = (f: File) => /\.xlsx$/i.test(f.name)
+  || f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 /** Documento (boleto/nota/comprovante) → 1 linha de extrato para o FDIP. */
@@ -177,6 +181,11 @@ export function UploadView() {
       for (const f of Array.from(files)) {
         if (isText(f)) {
           linhas.push((await f.text()).trim());
+        } else if (isXlsx(f)) {
+          // Planilha vira CSV e segue pelo mesmo pipeline — não é tela nova.
+          const rows = await lerXLSX(f);
+          const csv = csvDeLinhas(rows);
+          if (csv.trim()) linhas.push(csv); else setErro("A planilha não tinha linhas com dado.");
         } else {
           const r = await lerDocumento(f, true); // imagem/PDF → OCR (IA ou local)
           if (r.kind === "doc") {
@@ -278,7 +287,7 @@ export function UploadView() {
           <div className="flex items-center justify-center gap-2 flex-wrap mt-3">
             <label className="inline-block text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
               {lendo ? "Lendo…" : "Escolher arquivos"}
-              <input type="file" multiple accept=".csv,.ofx,.txt,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
+              <input type="file" multiple accept=".csv,.ofx,.txt,.xlsx,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
             </label>
 
             {/*

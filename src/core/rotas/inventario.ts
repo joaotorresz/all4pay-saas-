@@ -128,7 +128,6 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/financial/overdue", nome: "Inadimplência e cobrança", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/reimbursements", nome: "Reembolsos", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/credit-card-invoices", nome: "Fatura do cartão", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
-  { rota: "/dashboard/financial/import", nome: "Importação em lote", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/payables/new", nome: "Nova conta a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/receivables/new", nome: "Nova conta a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/reconciliation", nome: "Conciliação bancária", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },

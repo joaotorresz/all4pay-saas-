@@ -42,6 +42,7 @@ export const ALIASES: Alias[] = [
   { de: "/recebiveis", para: "/contas-a-receber/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/pagaveis", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
+  { de: "/dashboard/financial/import", para: "/upload", motivo: "A4P-040: a importação de planilha virou mais um formato do /upload (Bloco D); um pipeline, uma porta" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
   { de: "/assistente", para: "/all4pay-ai", motivo: "assistente virou o copiloto" },
 
