@@ -1302,3 +1302,35 @@ apontava para o secret de produção (devia comparar o EFÊMERO com o retrato), 
 as duas guardas moravam no job de PR (guarda de comparação-com-produção no gate
 de PR trava o próprio merge que a conserta). Agora vivem no job `esquema-prod`,
 event-gated: só `main`-push, schedule e dispatch, nunca PR.
+
+---
+
+# ⚠️ APLICAÇÃO DE MIGRATION EM PRODUÇÃO — MANUAL, com dono (P-19, 18/08/2026)
+
+**Enquanto o portão de CI do Bloco A não existir, produção recebe migration por
+COLAGEM MANUAL, e isso é dívida declarada — não paisagem.**
+
+- **Responsável:** joão (dono do repositório). Cola o arquivo do repositório
+  **verbatim** no SQL Editor do Supabase, na ordem cronológica dos nomes.
+- **Validação:** depois da colagem, a sessão relê o catálogo de produção via MCP
+  objeto a objeto, re-sincroniza os três retratos (`objetos-producao.json`, a
+  linha de base de `service_role`, os `orfaos_declarados`) e remove o aplicado
+  das `pendentes` em `supabase/esquema.json`. É o `npm run objetos` (deriva
+  ZERO) que valida a colagem, não a atenção de quem colou.
+- **O que impede o esquecimento:** as `arquivo_sem_aplicacao` em
+  `supabase/esquema.json` são a lista viva do que falta aplicar, com `resolver_ate`.
+  Uma migration que fica pendente além do prazo aparece no diff da próxima
+  sessão.
+
+⚠️ **A dívida tem PRAZO: o portão automático (Bloco A do P-19).** Um job de CI
+que aplica as pendentes em push no `main`, transacional (meia-migration é pior
+que nenhuma), com credencial de ESCRITA separada do `ci_leitor`, e rodando
+`objetos`+`ddl` depois. O desenho está na conversa do P-19, aguardando três
+decisões do dono (papel dedicado × Management API; transação por-migration ×
+lote-único; quem guarda o segredo). Até ele existir, o parágrafo acima é o
+processo, e este registro é o dono.
+
+**Pendentes na data (6):** `maq_revoga_grant_residual_sem_politica` ·
+`funcoes_definer_stable_alinha_producao` · `trial_com_prazo_e_bloqueio_suave` ·
+`own_maq_esquema_verbatim` · `service_role_grants_minimos` ·
+`central_maquina_de_estados`.
