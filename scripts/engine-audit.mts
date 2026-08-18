@@ -4941,6 +4941,20 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("a4p078: sem regime configurado, não acusa",
      !alertaDuplicidadeImpostoLucro(regimeConfigurado({}), LANC).duplicidade);
 
+  // 2b) A METADE DA TELA — sem ela o alerta existe no motor e não existe para
+  //     quem lê o DRE, que é onde a duplicidade aparece.
+  {
+    const limpar = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/[^\n]*/g, " ");
+    const dre = limpar(readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8"));
+    const cad = limpar(readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
+    ok("a4p078: o DRE mostra o aviso de duplicidade",
+       /AvisoDuplicidadeImposto/.test(dre) && /alertaDuplicidadeImpostoLucro/.test(dre));
+    ok("a4p078: o cadastro NÃO nasce com regime presumido (vazio é vazio)",
+       /regime: ""/.test(cad) && !/regime: "presumido"/.test(cad));
+    ok("a4p078: o cadastro oferece o anexo, e só dentro do Simples",
+       /ANEXOS_SIMPLES/.test(cad) && /simples && \(/.test(cad));
+  }
+
   // 3) A REGRA CENTRAL: nunca provisão sobre lançamento real.
   for (const [nome, cfg] of [["simples", simplesIV], ["presumido", regimeConfigurado({ regime: "presumido" })],
                              ["vazio", regimeConfigurado({})]] as const) {
@@ -5111,6 +5125,33 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const receber = readFileSync("src/app/contas-a-receber/titulos/page.tsx", "utf8");
   ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
      /TitulosView/.test(pagar) && /TitulosView/.test(receber));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-034 — hierarquia por métrica ACIONÁVEL no painel de contas a pagar
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido: os três cards tinham o mesmo peso e "Total geral pago no período" era
+// o PRIMEIRO — na ordem de leitura, o destaque. Com R$1,54 pago ao lado de
+// R$38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
+// O que já saiu não muda nada; vencidas e a vencer mudam.
+{
+  const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  const ordem = Array.from(dash.matchAll(/titulo="(Contas atrasadas|Contas a vencer|Total geral pago no período)"/g))
+    .map((m) => m[1]);
+  ok("a4p034: o acionável vem primeiro — atrasadas, depois a vencer, e o pago por último",
+     ordem.join(" · ") === "Contas atrasadas · Contas a vencer · Total geral pago no período",
+     ordem.join(" · "));
+  // ⚠️ Ordem sozinha não basta: com o mesmo corpo, os três seguem competindo.
+  ok("a4p034: o card de PAGO é secundário (corpo menor), não apenas o último",
+     /rotuloData="Pago em"\s*\n\s*secundario/.test(dash));
+  // ⚠️ E secundário NÃO é escondido: trocar hierarquia por ausência é outro
+  // defeito. O valor continua na tela.
+  const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
+  ok("a4p034: secundário reduz o corpo, não remove o valor",
+     /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

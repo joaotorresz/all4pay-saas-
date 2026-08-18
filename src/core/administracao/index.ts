@@ -1,3 +1,4 @@
+import type { AnexoSimplesCadastro } from "@/core/tax/duplicidade";
 /**
  * ADMINISTRAÇÃO — assinatura, cadastro da empresa, usuários, logs, integrações
  * e a fila de exportações.
@@ -133,7 +134,16 @@ export interface DadosEmpresa {
   inscricaoEstadual: string;
   inscricaoMunicipal: string;
   contribuinteICMS: boolean;
-  regime: RegimeTributario;
+  /**
+   * ⚠️ **`""` É UM VALOR — A4P-078.** O regime nascia `"presumido"` por padrão,
+   * e um padrão que finge configuração é pior que campo vazio: a empresa do
+   * Simples aparecia como Presumido sem ninguém ter escolhido, e o alerta de
+   * duplicidade de IRPJ/CSLL (que só dispara no Simples) nunca aparecia
+   * justamente para quem não configurou nada. Vazio é vazio.
+   */
+  regime: RegimeTributario | "";
+  /** O anexo, só quando o regime é Simples. Vazio enquanto não escolhido. */
+  anexoSimples?: AnexoSimplesCadastro | "";
   regimeEspecialNFSe: string;
   pais: string;
   cep: string;
