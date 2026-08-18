@@ -2610,9 +2610,17 @@ const AGOSTO = janelaMes(2026, 7);
    * grupos guardaria uma folga que ninguém pediu, e a folga é exatamente por
    * onde o menu volta a crescer.
    */
+  /**
+   * ⚠️ +1 destino: "Central financeira" (P-10), no grupo Caixa e bancos. A
+   * justificativa que o teto exige: nenhum dos destinos existentes CONFIRMA um
+   * título. Contas a Pagar/Receber e Upload ENTRAM dados; a confirmação e a
+   * baixa — com alçada e segregação de funções — acontecem num lugar só, e é
+   * esse lugar que faltava. Não é arrumação de menu: é a porta que impede a
+   * baixa direta (A4P-052) e onde o previsto vira confirmado.
+   */
   const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Contas a receber · Pagar · Contas a pagar · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 69;      // a soma de hoje, incluindo o rodapé
+  const TETO_ITENS_TOTAL = 70;      // +1: Central financeira (P-10)
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,

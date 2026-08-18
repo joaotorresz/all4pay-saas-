@@ -15,6 +15,15 @@ export interface RiskMovement {
   id: string;
   type: "entrada" | "saida";
   status: "pendente" | "pago" | "cancelado";
+  /**
+   * A SITUAÇÃO no ciclo de controle da Central (P-10) — ORTOGONAL ao `status`,
+   * que é caixa. `status` diz se foi PAGO; `situacao` diz se foi CONFIRMADO por
+   * alguém com alçada. Um título pode ser `status: "pendente"` e
+   * `situacao: "confirmado"` (autorizado, ainda não pago). Opcional e derivado
+   * do status quando ausente (`situacaoDe`), porque a coluna só existe depois da
+   * migration da Central — coluna nova nasce lida com queda, nunca inerte.
+   */
+  situacao?: "previsto" | "confirmado" | "baixado" | "conciliado" | "cancelado" | "estornado";
   amount: number;
   due_date: string; // ISO
   paid_date?: string | null;

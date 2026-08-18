@@ -188,6 +188,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/assinatura-bloqueio.sql
+      # ⚠️ A máquina de estados da Central é de BANCO (gatilho): a baixa direta,
+      # a auto-confirmação e a confirmação acima da alçada têm de reprovar no
+      # Postgres, não só na tela. A guarda pura prova a decisão; esta prova a
+      # fechadura.
+      - name: Guarda da Central (máquina de estados, R1 e alçada no banco)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-maquina.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

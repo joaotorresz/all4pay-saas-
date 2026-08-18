@@ -175,6 +175,22 @@
         "resolver_ate": "2026-09-18",
         "origem": "sessao de agente, Etapa D do P-18 (18/08/2026)",
         "aplicada_em": null
+      },
+      {
+        "nome": "20260818210000_central_maquina_de_estados",
+        "motivo": "P-10 (Central Financeira): a maquina de estados do titulo no banco — coluna situacao, alcada por papel (central_alcada), trilha de transicoes (central_transicoes) e o gatilho central_maquina que proibe transicao fora da maquina + exige alcada e segregacao R1 ao confirmar.",
+        "impacto": "Enquanto nao aplicada, os movements nao tem coluna situacao, a baixa direta continua possivel e a Central nao tem o que confirmar. Nenhum dado e perdido pela aplicacao (backfill: pago->baixado, cancelado->cancelado, resto->previsto).",
+        "objetos_ausentes": [
+          "movements.situacao/lancado_por/confirmado_por/baixado_por",
+          "central_alcada",
+          "central_transicoes",
+          "central_teto()",
+          "central_transicao_valida()",
+          "central_maquina() + gatilho"
+        ],
+        "resolver_ate": "2026-09-18",
+        "origem": "sessao de agente, P-19 Bloco 3 (18/08/2026)",
+        "aplicada_em": null
       }
     ],
     "objetos_sem_migration": [
