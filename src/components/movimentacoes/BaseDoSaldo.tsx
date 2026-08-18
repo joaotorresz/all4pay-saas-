@@ -150,7 +150,7 @@ export function BaseDoSaldo({ base, janela }: { base: BaseSaldo; janela: Janela 
 
       <span className="text-caption text-faint max-w-[38ch] flex items-start gap-1">
         <Icon name="info" size={12} color="var(--color-text-tertiary)" />
-        Os três saem da mesma função de saldo; o que muda é o recorte.
+        Os três medem o mesmo saldo; o que muda é o recorte.
       </span>
     </div>
   );

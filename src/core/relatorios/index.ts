@@ -386,6 +386,21 @@ export interface Relatorio {
   linhas: LinhaRelatorio[];
   /** Base da análise vertical, por coluna (receita bruta / entradas). */
   base: number[];
+  /**
+   * ⚠️ **AS COLUNAS SEM UM ÚNICO LANÇAMENTO — A4P-027.**
+   *
+   * O preset de 12 meses conta para trás a partir do mês corrente, então ele
+   * inclui meses anteriores ao primeiro lançamento da empresa. A coluna sai
+   * inteira em zero e a AV inteira em "—", e quem lê não distingue *"não houve
+   * movimento"* de *"o relatório não conseguiu calcular"* — as duas viram o
+   * mesmo travessão.
+   *
+   * ⚠️ A janela NÃO é estreitada em silêncio. Começar no primeiro mês com
+   * movimento entregaria 11 colunas sob um filtro que diz "12 meses" — trocar
+   * o período que a pessoa pediu sem avisar é outra forma da mesma mentira.
+   * Aqui a coluna FICA e é NOMEADA; a tela a marca.
+   */
+  colunasSemDado: string[];
 }
 
 /**
@@ -606,7 +621,19 @@ export function montarRelatorio(
     return { id: l.id, label: l.label, nivel: 1, sinal: l.sinal, tipo: l.tipo, ...c, filhos };
   });
 
-  return { colunas, linhas, base };
+  /**
+   * Uma coluna é "sem dado" quando NENHUM lançamento do recorte caiu nela — não
+   * quando a soma dá zero. Um mês com +1.000 e −1.000 tem dado e resultado
+   * zero, e dizer que ele está vazio seria falso.
+   */
+  const comLancamento = new Set<number>();
+  for (const m of movs) {
+    const k = indice.get(mesDe(dataDoRegime(m, f.regime)));
+    if (k !== undefined) comLancamento.add(k);
+  }
+  const colunasSemDado = colunas.filter((_, k) => !comLancamento.has(k));
+
+  return { colunas, linhas, base, colunasSemDado };
 }
 
 export const montarDRE = (input: RiskInput, f: Omit<FiltroRelatorio, "regime">): Relatorio =>

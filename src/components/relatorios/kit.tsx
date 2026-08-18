@@ -16,7 +16,7 @@ import { baixarXLSX } from "@/lib/xlsx";
 import {
   intervaloDoPreset, rotuloColuna,
   type Intervalo, type PresetPeriodo, type TipoAnalise, type Relatorio, type LinhaRelatorio,
-  type CelulaOrcamento, type SinalLinha,
+  type CelulaOrcamento, type SinalLinha, type BaseVertical,
 } from "@/core/relatorios";
 import { pctDeInteiro } from "@/lib/format";
 import { problemaDoIntervalo } from "@/core/indicadores";
@@ -140,6 +140,14 @@ export interface FiltrosRelatorioValor {
   conta: string | null;
   projeto: string | null;
   centro: string | null;
+  /**
+   * A base da Análise Vertical. ⚠️ Padrão **Receita Líquida**: a AV mede
+   * composição, e sobre a receita BRUTA as linhas abaixo das deduções somam
+   * mais que a base — o percentual deixa de fechar com a leitura de quem
+   * confere. O motor aceita a escolha desde o #99; o que faltava era a tela
+   * oferecê-la.
+   */
+  baseVertical: BaseVertical;
 }
 
 const hoje = () => new Date();
@@ -152,6 +160,7 @@ export const filtroPadrao = (): FiltrosRelatorioValor => {
     preset: "doze_meses",
     intervalo: intervaloDoPreset("doze_meses", mes),
     tipo: "vertical", conta: null, projeto: null, centro: null,
+    baseVertical: "receita_liquida",
   };
 };
 
@@ -254,6 +263,28 @@ export function FiltrosRelatorio({
             ]}
           />
         </div>
+        {/* ⚠️ Só aparece na ANÁLISE VERTICAL, porque só ela tem base. Um seletor
+            de base visível durante a horizontal ofereceria uma escolha que não
+            muda nada — controle que não faz o que promete. */}
+        {valor.tipo === "vertical" && (
+          <div className="flex flex-col gap-[6px]">
+            <Select
+              label="Base da análise vertical"
+              value={valor.baseVertical}
+              onChange={(v) => onChange({ ...valor, baseVertical: v as BaseVertical })}
+              options={[
+                { value: "receita_liquida", label: "Receita Líquida (padrão)" },
+                { value: "receita_bruta", label: "Receita Bruta" },
+              ]}
+            />
+            <span className="text-caption text-faint max-w-[46ch]">
+              Sobre qual linha cada percentual é calculado. Mês com base
+              insignificante (abaixo de 1% da média do período) aparece como
+              “—”, em vez de um percentual de três dígitos que só mede o quanto
+              a base encolheu.
+            </span>
+          </div>
+        )}
         <div className="flex flex-col gap-[6px]">
           <Select
             label="Contas bancárias"
@@ -352,11 +383,23 @@ export function TabelaRelatorio({
               <th className="px-4 py-3 text-left text-[11px] font-semibold tracking-[0.08em] sticky left-0 z-[1] min-w-[260px]" style={{ background: t.base }}>
                 Categoria
               </th>
-              {relatorio.colunas.map((c) => (
-                <th key={c} colSpan={colsPorPeriodo} className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">
-                  {rotuloColuna(c)}{comOrc && <span className="font-normal opacity-70"> · realizado / orçado / dif. / %</span>}
-                </th>
-              ))}
+              {relatorio.colunas.map((c) => {
+                /* ⚠️ A4P-027 — a coluna ANTERIOR ao primeiro lançamento sai
+                   inteira em zero e a AV inteira em "—", e quem lê não
+                   distingue "não houve movimento" de "não deu para calcular".
+                   Marcá-la separa as duas leituras sem estreitar a janela que a
+                   pessoa pediu. */
+                const semDado = relatorio.colunasSemDado.includes(c);
+                return (
+                  <th key={c} colSpan={colsPorPeriodo}
+                      title={semDado ? "Nenhum lançamento neste mês — as células vazias são ausência de movimento, não falha de cálculo." : undefined}
+                      className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">
+                    {rotuloColuna(c)}
+                    {semDado && <span className="font-normal opacity-70"> · sem lançamento</span>}
+                    {comOrc && <span className="font-normal opacity-70"> · realizado / orçado / dif. / %</span>}
+                  </th>
+                );
+              })}
               <th colSpan={mostrarPct ? 2 : 1} className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">Total</th>
               <th className="px-4 py-3 text-center text-[11px] font-semibold tracking-[0.08em]">Média</th>
             </tr>

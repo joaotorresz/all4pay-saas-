@@ -87,6 +87,12 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
     const f = {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
+      // ⚠️ A base da AV era PARÂMETRO SEM CONSUMIDOR: `montarRelatorio` aceita
+      // `baseVertical` desde o #99 e nenhuma tela a passava, então a escolha
+      // existia no motor e não existia para quem lê o relatório. Medir uma coisa
+      // e não dar a ninguém o que fazer com a medida é trabalho que parece
+      // pronto e não é.
+      baseVertical: aplicados.baseVertical,
       linhaPorCategoria,
     };
     return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);

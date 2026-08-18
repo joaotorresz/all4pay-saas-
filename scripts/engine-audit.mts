@@ -39,6 +39,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
@@ -4889,6 +4890,173 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /NÃO é salvo/.test(revisao) && revisao.includes("isDemo"));
   ok("abertura: e aponta o caminho que funciona (declarar no cadastro da conta)",
      /Contas banc[áa]rias/.test(revisao));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-078 — Simples + IRPJ/CSLL no mesmo mês: ALERTA, nunca provisão
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: a org tem `Simples Nacional` R$5.200/mês e `IRPJ / CSLL`
+// (R$75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
+// estão dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal.
+//
+// ⚠️ A asserção que carrega a decisão é a ÚLTIMA: `provisaoEstimada === 0`
+// SEMPRE. O enunciado original deste item pedia provisão parametrizada por
+// regime numa linha que, medida, já tinha lançamento real — provisionar teria
+// contado o imposto uma terceira vez.
+{
+  const LANC = [
+    { id: "d0e18291", competencia: "2025-10-20", valor: 7622.41 },
+    { id: "c5f4f355", competencia: "2025-11-20", valor: 9103.93 },
+    { id: "ee5e8f4d", competencia: "2025-12-20", valor: 7626.51 },
+  ];
+
+  // 1) Regime NÃO configurado é `null` — nunca um padrão que finge configuração.
+  ok("a4p078: sem cadastro, regime é null (vazio é vazio)",
+     regimeConfigurado({}).regime === null && regimeConfigurado(undefined).regime === null);
+  ok("a4p078: 'Simples Nacional' no cadastro vira simples, com o anexo",
+     regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).regime === "simples"
+     && regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).anexo === "IV");
+  // ⚠️ O anexo só existe DENTRO do Simples: guardá-lo num Presumido faria a tela
+  // dizer "Anexo IV" para quem não está no Simples.
+  ok("a4p078: anexo é descartado fora do Simples",
+     regimeConfigurado({ regimeTributario: "presumido", anexoSimples: "IV" }).anexo === null);
+
+  // 2) O alerta exige AS DUAS condições.
+  const simplesIV = regimeConfigurado({ regimeTributario: "simples", anexoSimples: "IV" });
+  const comAmbos = alertaDuplicidadeImpostoLucro(simplesIV, LANC);
+  ok("a4p078: Simples + lançamento no lucro → ACUSA duplicidade",
+     comAmbos.duplicidade && comAmbos.quantidade === 3
+     && Math.abs(comAmbos.total - 24352.85) < 0.005, `total ${comAmbos.total}`);
+  ok("a4p078: o aviso nomeia o DAS e manda conferir com a contabilidade",
+     /DAS/.test(comAmbos.aviso) && /contabilidade/i.test(comAmbos.aviso)
+     && /Anexo IV/.test(comAmbos.aviso));
+  ok("a4p078: Presumido com o MESMO lançamento NÃO acusa (lá o DARF é devido)",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({ regime: "presumido" }), LANC).duplicidade);
+  ok("a4p078: Simples SEM lançamento no lucro não acusa nada",
+     !alertaDuplicidadeImpostoLucro(simplesIV, []).duplicidade);
+  // ⚠️ Sem regime configurado NÃO se acusa duplicidade — acusar quem não
+  // declarou nada é o mesmo defeito do padrão que finge configuração, ao avesso.
+  ok("a4p078: sem regime configurado, não acusa",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({}), LANC).duplicidade);
+
+  // 3) A REGRA CENTRAL: nunca provisão sobre lançamento real.
+  for (const [nome, cfg] of [["simples", simplesIV], ["presumido", regimeConfigurado({ regime: "presumido" })],
+                             ["vazio", regimeConfigurado({})]] as const) {
+    ok(`a4p078: provisão estimada é ZERO (${nome}) — nunca soma sobre lançamento real`,
+       alertaDuplicidadeImpostoLucro(cfg, LANC).provisaoEstimada === 0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-031 — a base da Análise Vertical, e o CONSUMIDOR dela
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠️ Medido: o motor aceita `baseVertical` (padrão Receita Líquida) e corta a
+// base insignificante desde o #99 — mas NENHUMA tela passava o parâmetro. A
+// escolha existia no motor e não existia para quem lê o relatório: parâmetro
+// sem consumidor, que é trabalho com cara de pronto.
+//
+// A metade do VALOR (o corte da base) e a metade da TELA (o seletor) são
+// cobradas juntas, pela regra das duas metades.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string, category: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category });
+
+  // Janela de 2 meses: um normal, outro com a receita desabada — o caso que
+  // produzia "Assinaturas / software 3451,4%".
+  const movs: RiskMovement[] = [
+    M("r1", "entrada", 100_000, "2026-01-15", "Vendas"),
+    M("d1", "saida", 10_000, "2026-01-20", "ISS"),
+    M("s1", "saida", 20_000, "2026-01-25", "Assinaturas / software"),
+    M("r2", "entrada", 100, "2026-02-15", "Vendas"),          // base desaba
+    M("s2", "saida", 20_000, "2026-02-25", "Assinaturas / software"),
+  ];
+  const inputAV: RiskInput = { hoje: "2026-03-01", saldoAtual: 0, movements: movs, horizonDias: 60 };
+  const janela = { de: "2026-01-01", ate: "2026-02-28" };
+  const linhaDe = (rel: { linhas: { id: string; filhos?: unknown[]; celulas: { av: number | null }[] }[] }, id: string) =>
+    rel.linhas.find((l) => l.id === id);
+
+  const relLiq = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia" });
+  const relBruta = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia", baseVertical: "receita_bruta" });
+
+  // 1) O PADRÃO é receita líquida — e a escolha MUDA o número, senão o seletor
+  //    seria decorativo. Líquida = 90.000 (100k − 10k de ISS); bruta = 100.000.
+  const avLiq = linhaDe(relLiq, "despesas_operacionais")?.celulas[0].av ?? null;
+  const avBruta = linhaDe(relBruta, "despesas_operacionais")?.celulas[0].av ?? null;
+  ok("a4p031: base padrão é RECEITA LÍQUIDA (20k/90k = 22,2%)",
+     avLiq !== null && Math.abs(avLiq - 22.22) < 0.05, `av ${avLiq}`);
+  ok("a4p031: escolher Receita Bruta MUDA a base (20k/100k = 20,0%)",
+     avBruta !== null && Math.abs(avBruta - 20) < 0.05, `av ${avBruta}`);
+
+  // 2) A base insignificante vira "—" (null), NUNCA um percentual de 3 dígitos.
+  const avFeb = linhaDe(relLiq, "despesas_operacionais")?.celulas[1].av ?? null;
+  ok("a4p031: mês com base insignificante devolve null (a tela mostra —), não 3451%",
+     avFeb === null, `av ${avFeb}`);
+
+  // 3) A METADE DA TELA: o filtro declara a base e o relatório a recebe. Sem
+  //    isto o parâmetro volta a existir só no motor.
+  const kit = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  const view = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("a4p031: o filtro tem o campo e o padrão é receita_liquida",
+     /baseVertical: BaseVertical/.test(kit) && /baseVertical: "receita_liquida"/.test(kit));
+  ok("a4p031: a tela OFERECE a escolha (seletor de base)",
+     /Base da an[áa]lise vertical/.test(kit));
+  ok("a4p031: e o relatório RECEBE a escolha (parâmetro com consumidor)",
+     /baseVertical: aplicados\.baseVertical/.test(view));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-027 — a coluna anterior ao primeiro lançamento é NOMEADA, não escondida
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: `Minha empresa` tem o primeiro lançamento em 05/10/2025 e
+// ZERO em 09/2025; `joaov.yoshimi` tem histórico desde 2023 e também nenhum
+// lançamento em 09/2025. Com o preset de 12 meses contando para trás, a coluna
+// sai inteira em zero e a AV inteira em "—" — e quem lê não distingue "não
+// houve movimento" de "não deu para calcular".
+//
+// ⚠️ A janela NÃO é estreitada: entregar 11 colunas sob um filtro que diz
+// "12 meses" trocaria o período que a pessoa pediu, em silêncio.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category: "Vendas" });
+
+  const rel = montarRelatorio(
+    { hoje: "2026-03-31", saldoAtual: 0, horizonDias: 60,
+      movements: [
+        // 01/2026 vazio de propósito (nada aqui)
+        M("a", "entrada", 5_000, "2026-02-10"),
+        // ⚠️ 03/2026 tem SÓ despesa: existe lançamento e a BASE da AV é zero.
+        // É este o caso que separa as duas implementações — escrever "sem dado"
+        // como `base === 0` acusaria este mês, que tem movimento. Com um mês de
+        // +1.000/−1.000 (a versão anterior desta fixture) as duas davam a MESMA
+        // resposta, e o teste negativo passava sem reprovar nada.
+        M("c", "saida", 1_000, "2026-03-20"),
+      ] },
+    ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: { de: "2026-01-01", ate: "2026-03-31" }, regime: "competencia" },
+  );
+
+  ok("a4p027: a janela pedida é PRESERVADA (3 colunas, nenhuma sumiu)",
+     rel.colunas.length === 3, rel.colunas.join(","));
+  ok("a4p027: o mês sem nenhum lançamento é NOMEADO",
+     rel.colunasSemDado.length === 1 && rel.colunasSemDado[0] === "2026-01",
+     rel.colunasSemDado.join(","));
+  // ⚠️ A distinção que dá sentido ao campo: soma zero NÃO é ausência de dado.
+  // Um mês com +1.000 e −1.000 tem movimento e resultado zero; chamá-lo de
+  // vazio seria falso, e é o erro fácil de escrever (`total === 0`).
+  ok("a4p027: mês só com despesa (base ZERO) NÃO é 'sem dado' — há lançamento",
+     !rel.colunasSemDado.includes("2026-03"), rel.colunasSemDado.join(","));
+  ok("a4p027: mês com movimento não entra na lista",
+     !rel.colunasSemDado.includes("2026-02"));
+
+  // A METADE DA TELA: o cabeçalho marca a coluna.
+  const kitTxt = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  ok("a4p027: o cabeçalho da tabela marca a coluna sem lançamento",
+     /colunasSemDado/.test(kitTxt) && /sem lan[çc]amento/.test(kitTxt));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
