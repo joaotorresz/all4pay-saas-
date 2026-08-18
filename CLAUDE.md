@@ -1484,6 +1484,52 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ A GUARDA DE BANCO QUE REPROVOU ACHANDO DEFEITO DE PRODUTO, NÃO DE TESTE
+
+**O caso exemplar (P-19 Bloco 3, 18/08/2026).** A guarda `scripts/central-maquina.sql`
+foi escrita para provar a máquina de estados da Central — que a baixa direta
+reprova, que a auto-confirmação reprova, que acima da alçada reprova. Ao ficar
+verde no caminho legítimo, ela reprovou: *"valor 1000 acima da alçada do papel
+aprovador (teto 0)"*.
+
+⚠️ **O teto era 0 porque a organização criada no teste não tinha alçada
+nenhuma.** E aí estava o defeito — não do teste, do PRODUTO: o seed de
+`central_alcada` cobria só as organizações que existiam no dia da migration.
+**Todo cliente NOVO nasceria com teto 0 em todos os papéis — nada aprovável — e
+não conseguiria confirmar um único título no primeiro dia de uso.** É o pior
+tipo de defeito: o que só aparece com o cliente na frente, porque nenhum dado
+existente o exibe.
+
+E foi a guarda que a própria sessão escreveu e consertou que o pegou. Guarda de
+banco que reprova achando defeito de produto não é falso positivo — é a guarda
+fazendo exatamente o que se pede dela: exercitar o caminho REAL (criar a org,
+criar o título, tentar a transição) em vez de afirmar sobre um estado montado à
+mão. Um teste que montasse a alçada direto na fixture teria passado e enterrado
+o defeito.
+
+### ⚠️ TODO DEFAULT DE CONFIGURAÇÃO NASCE POR SEED **E** POR GATILHO (a 5ª regra)
+
+**Seed cobre o passado; gatilho cobre o futuro. Um sem o outro é meio conserto.**
+
+Um `insert ... select from organizations` numa migration semeia o default nas
+organizações que EXISTEM naquele instante. As criadas depois nascem sem ele — e
+"depois" inclui todo cliente que ainda vai entrar. Se o default importa (alçada,
+trial, categorias, conta inicial), ele tem de chegar também por um gatilho
+`after insert on organizations` (ou no handler de signup), como
+`assinatura_inicial` (Etapa D) e `central_alcada_inicial` (P-10) fazem.
+
+⚠️ **A regra vale para você, para mim e para qualquer sessão futura:** ao criar
+qualquer default de configuração por org, escreva as DUAS metades no mesmo
+commit. A guarda de isolamento (que cria uma org do zero) é quem pega a metade
+que falta — foi assim que o buraco da alçada apareceu.
+
+**Varredura feita (18/08), e o resultado:** dos seeds por organização no schema,
+só `central_alcada` tinha o gatilho faltando. Os demais já estão cobertos —
+`seed_org` semeia categorias, centros, unidades e conta inicial no signup;
+`assinatura_inicial` semeia o trial; `plans` e `role_permissions` são globais
+(não por org, então não têm essa classe de defeito). Nenhum outro default só-seed
+sem gatilho ficou de pé.
+
 ### ⚠️ ESTADO E EVENTO SÃO DUAS GUARDAS, E A PRIMEIRA MEDIÇÃO PROVOU ISSO
 
 **O `ddl` reprovando na primeira medição real é o melhor resultado possível: ele
