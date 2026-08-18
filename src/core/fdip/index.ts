@@ -23,19 +23,24 @@ import {
  * pipeline: as linhas viram texto tabulado e seguem por `analisarImportacao` —
  * mesma detecção de coluna, mesma classificação, mesma chave de idempotência.
  *
- * ⚠️ **O separador é TAB, não `;`, e é decisão medida.** O `parseCSV` do FDIP
- * NÃO respeita aspas — ele quebra a linha em todo separador, mesmo dentro de
- * `"..."`. Uma descrição com `;` ("COMPRA A; PARCELA 1") partiria a linha em
- * duas e o lançamento sumiria. TAB quase nunca aparece numa célula de extrato,
- * então tabular é o separador seguro com este parser. (Corrigir o parser para
- * ser ciente de aspas é melhoria à parte, fora do escopo mecânico da Fatia 2 —
- * fica anotado.) Quebra de linha na célula vira espaço; linhas vazias saem.
+ * ⚠️ **O separador é `;` — com CITAÇÃO de verdade.** A primeira versão desta
+ * função usou TAB porque o `parseCSV` do FDIP não respeitava aspas: uma
+ * descrição com `;` ("COMPRA A; PARCELA 1") partiria a linha e o lançamento
+ * sumiria. Isso não era "melhoria à parte" — era PERDA DE DADO no caminho de
+ * importação, contornada deixando a guarda verde num caso que não acontece
+ * (TAB na célula) e cega no que acontece (`;` na célula). O parser agora é
+ * ciente de aspas (`parseCSV` em `engine.ts`), então aqui voltamos ao `;` e
+ * CITAMOS qualquer célula que contenha `;`, aspa ou quebra de linha — aspa vira
+ * `""`. É a citação que o tokenizador desfaz do outro lado, sem perder nada.
  */
 export function csvDeLinhas(rows: string[][]): string {
-  const limpa = (c: string) => (c ?? "").replace(/[\t\r\n]+/g, " ").trim();
+  const citar = (c: string) => {
+    const v = (c ?? "").replace(/\r\n?/g, "\n"); // normaliza CR solto/CRLF → \n
+    return /[";\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
   return rows
     .filter((r) => r.some((c) => (c ?? "").trim() !== ""))
-    .map((r) => r.map(limpa).join("\t"))
+    .map((r) => r.map(citar).join(";"))
     .join("\n");
 }
 

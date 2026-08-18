@@ -5492,6 +5492,111 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   void netLiquidado;
 }
 
+/* ── BLOCO 1: o parser CIENTE DE ASPAS (o caso REAL, não o contornado) ────────
+ *
+ * ⚠️ O CASO PRINCIPAL é o que ACONTECE: separador `;` e descrição contendo `;`
+ * entre aspas. A guarda anterior media TAB — um caso que quase nunca aparece
+ * numa célula de extrato — e ficava verde enquanto o parser PERDIA o lançamento
+ * de descrição citada. Verde no caso que não acontece, cega no que acontece: a
+ * família do `resíduo = x − x`. Aqui o caso real vem PRIMEIRO; TAB é adicional.
+ */
+{
+  // 1. O CASO REAL, direto no parser (sem passar por csvDeLinhas): `;` separador,
+  //    `;` DENTRO de aspas na descrição do meio. Provado quebrando: o parser
+  //    ingênuo (split cru) devolvia 2 — o de R$ 99,90 SUMIA.
+  const real =
+    "Data;Histórico;Valor\r\n" +
+    "16/01/2024;PIX RECEBIDO ALPHA;1.000,00\r\n" +
+    '17/01/2024;"COMPRA CARTAO; PARCELA 1/3";-99,90\r\n' +
+    "18/01/2024;PAGAMENTO FORNECEDOR BETA;-300,00\r\n";
+  const pr = parseTexto(real);
+  ok("blocoD parser: descrição com ';' entre aspas NÃO parte a linha (3, não 2)",
+     pr.records.length === 3, String(pr.records.length));
+  // ⚠️ `?.` de propósito: com o parser quebrado o array encurta, e a guarda tem
+  // de REPROVAR com um FAIL limpo — não estourar antes das próximas asserções.
+  ok("blocoD parser: o ';' fica DENTRO da descrição, intacto",
+     pr.records[1]?.descricao === "COMPRA CARTAO; PARCELA 1/3", pr.records[1]?.descricao);
+  ok("blocoD parser: o valor do lançamento citado é lido (−99,90)",
+     pr.records[1]?.tipo === "saida" && pr.records[1]?.valor === 99.9, String(pr.records[1]?.valor));
+
+  // 2. Aspas ESCAPADAS ("" = uma aspa literal) — o BB põe aspas no histórico.
+  const escapada = 'Data;Histórico;Valor\n01/02/2024;"PAGTO ""XPTO"" LTDA";-10,00\n';
+  const pe = parseTexto(escapada);
+  ok("blocoD parser: \"\" vira UMA aspa literal na descrição",
+     pe.records.length === 1 && pe.records[0].descricao === 'PAGTO "XPTO" LTDA', pe.records[0]?.descricao);
+
+  // 3. QUEBRA DE LINHA dentro de campo entre aspas — memo de duas linhas do Inter
+  //    é UM lançamento, não dois nem uma linha perdida.
+  const multilinha = 'Data;Histórico;Valor\n02/02/2024;"MEMO LINHA 1\nMEMO LINHA 2";-20,00\n';
+  const pm = parseTexto(multilinha);
+  ok("blocoD parser: quebra de linha entre aspas é UM lançamento, não dois",
+     pm.records.length === 1, String(pm.records.length));
+
+  // 4. BOM no início não gruda na primeira célula do cabeçalho (a coluna Data
+  //    ainda é reconhecida — sem isto, '﻿Data' não casa /data/ e o header some).
+  const comBom = "﻿Data;Histórico;Valor\n03/02/2024;PIX RECEBIDO;1.000,00\n";
+  const pb = parseTexto(comBom);
+  ok("blocoD parser: BOM no início não quebra o reconhecimento do cabeçalho",
+     pb.records.length === 1 && pb.records[0]?.tipo === "entrada" && pb.records[0]?.valor === 1000);
+
+  // 5. SEPARADOR DETECTADO, não assumido: um arquivo com `,` (Nubank) e vírgula
+  //    de descrição entre aspas parseia igual, e o `,` decimal não vira coluna.
+  const virgula = 'Data,Descrição,Valor\n2024-02-04,"Boleto, energia",-230.50\n2024-02-05,Compra,1500.00\n';
+  const pv = parseTexto(virgula);
+  ok("blocoD parser: separador ',' detectado; ',' de descrição citada não parte",
+     pv.records.length === 2 && pv.records[0]?.descricao === "Boleto, energia", pv.records[0]?.descricao);
+  ok("blocoD parser: com separador ',', o ',' decimal NÃO é lido como coluna",
+     pv.records[1]?.valor === 1500, String(pv.records[1]?.valor));
+
+  // 6. TAB como caso ADICIONAL (nunca o principal): um arquivo tabulado parseia,
+  //    mas não é o separador padrão — só vence quando DOMINA a primeira linha.
+  const tab = "Data\tHistórico\tValor\n06/02/2024\tPIX\t1.000,00\n";
+  const pt = parseTexto(tab);
+  ok("blocoD parser: TAB é reconhecido quando domina (caso adicional, não padrão)",
+     pt.records.length === 1 && pt.records[0]?.valor === 1000);
+}
+
+/* ── BLOCO 1: FIXTURES de banco brasileiro real (bytes de verdade em disco) ───
+ * Guardadas em scripts/fixtures/extratos/*.csv — cada uma com um defeito de
+ * mundo real: BOM+CRLF (Itaú), sufixo C/D (Bradesco), separador vírgula +
+ * data ISO (Nubank), quebra de linha citada (Inter), aspas escapadas (BB).
+ */
+{
+  const ler = (banco: string) =>
+    parseTexto(readFileSync(new URL(`./fixtures/extratos/${banco}.csv`, import.meta.url), "utf8"));
+
+  const itau = ler("itau");
+  ok("blocoD fixture Itaú: BOM+CRLF+';' citado → 3 lançamentos",
+     itau.records.length === 3, String(itau.records.length));
+  ok("blocoD fixture Itaú: a compra parcelada com ';' sobrevive inteira",
+     itau.records.some((r) => r.descricao === "COMPRA CARTAO 1234; PARCELA 01/03"));
+
+  const bradesco = ler("bradesco");
+  ok("blocoD fixture Bradesco: sufixo C/D vira sinal → 3 lançamentos",
+     bradesco.records.length === 3, String(bradesco.records.length));
+  ok("blocoD fixture Bradesco: '2.000,00 C' é entrada; '500,00 D' é saída",
+     bradesco.records[0]?.tipo === "entrada" && bradesco.records[0]?.valor === 2000 &&
+     bradesco.records[1]?.tipo === "saida" && bradesco.records[1]?.valor === 500);
+  ok("blocoD fixture Bradesco: coluna de documento é lida",
+     bradesco.records[0]?.documento === "000123");
+
+  const nubank = ler("nubank");
+  ok("blocoD fixture Nubank: separador ',' + data ISO → 3 lançamentos",
+     nubank.records.length === 3, String(nubank.records.length));
+  ok("blocoD fixture Nubank: descrição com vírgula citada fica inteira",
+     nubank.records.some((r) => r.descricao === "Pagamento boleto, energia elétrica"));
+
+  const inter = ler("inter");
+  ok("blocoD fixture Inter: memo de DUAS linhas é UM lançamento → 3 no total",
+     inter.records.length === 3, String(inter.records.length));
+
+  const bb = ler("bb");
+  ok("blocoD fixture BB: aspas escapadas viram aspa literal → 3 lançamentos",
+     bb.records.length === 3, String(bb.records.length));
+  ok("blocoD fixture BB: a aspa literal do histórico é preservada",
+     bb.records.some((r) => r.descricao === 'PAGTO "FORNECEDOR PREMIUM" LTDA'));
+}
+
 /* ── Fatia 2: xlsx entra no MESMO pipeline (mesma contagem, categorias, chave) ── */
 {
   const linhas = [
@@ -5519,11 +5624,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("blocoD xlsx: planilha e CSV geram a MESMA chave de idempotência",
      chaves(viaPlanilha) === chaves(viaCsv));
 
-  // ⚠️ A citação importa: uma descrição com ';' não pode partir a linha em duas.
+  // ⚠️ Agora via csvDeLinhas com separador `;` DE VERDADE: a descrição com `;`
+  // é CITADA na serialização e o parser ciente de aspas a desfaz — 1 lançamento,
+  // não 2, e o `;` fica na descrição. (Antes csvDeLinhas usava TAB p/ esconder
+  // o defeito; agora o defeito está corrigido na origem.)
   const comPontoVirgula = [["Data", "Histórico", "Valor"], ["20/01/2024", "COMPRA A; PARCELA 1", "-99,90"]];
   const rep = analisarImportacao(csvDeLinhas(comPontoVirgula));
   ok("blocoD xlsx: descrição com ';' NÃO parte a linha (1 lançamento, não 2)",
      rep.records.length === 1, String(rep.records.length));
+  ok("blocoD xlsx: e o ';' continua DENTRO da descrição serializada com ';'",
+     rep.records[0]?.descricao === "COMPRA A; PARCELA 1", rep.records[0]?.descricao);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
