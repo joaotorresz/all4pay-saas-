@@ -209,9 +209,16 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-      - name: Install deps (com o Chromium do Playwright)
-        # ⚠️ Aqui o navegador É usado — ao contrário do `verify`, que o pula.
+      - name: Install deps
         run: npm ci
+      # ⚠️ O download do navegador é um passo EXPLÍCITO, não o postinstall.
+      # Medido na primeira execução: o `npm ci` sozinho deixou o runner sem o
+      # headless shell e o job caiu com "Executable doesn't exist" — reprovando
+      # por infraestrutura, que é o começo de ignorar as reprovações reais.
+      # `--with-deps` traz as bibliotecas de sistema que o Chromium exige no
+      # runner limpo.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
       - name: Build (modo demonstração)
         env:
           NEXT_PUBLIC_ALL4PAY_DEMO: "true"
