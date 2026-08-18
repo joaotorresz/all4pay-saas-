@@ -55,6 +55,10 @@ alter table public.movements
 -- ⚠️ SEM alçada configurada, NADA é aprovável — a função devolve 0 para papel
 -- não declarado, nunca infinito. É a direção segura.
 create table if not exists public.central_alcada (
+  -- ⚠️ `id` existe para a TRILHA genérica (auditar_escrita lê `->> 'id'`):
+  -- mudar quem pode aprovar quanto é exatamente o que uma auditoria pergunta,
+  -- então a alçada é uma tabela auditada, não config solta.
+  id uuid not null default gen_random_uuid(),
   org_id uuid not null default public.auth_org_id(),
   papel text not null,
   teto_valor numeric not null default 0,
@@ -62,6 +66,12 @@ create table if not exists public.central_alcada (
   primary key (org_id, papel)
 );
 alter table public.central_alcada enable row level security;
+
+-- A trilha da alçada — quem mudou o teto de aprovação de qual papel, e quando.
+drop trigger if exists zz_auditar_central_alcada on public.central_alcada;
+create trigger zz_auditar_central_alcada
+  after insert or update or delete on public.central_alcada
+  for each row execute function public.auditar_escrita();
 
 drop policy if exists central_alcada_org on public.central_alcada;
 create policy central_alcada_org on public.central_alcada
@@ -115,6 +125,9 @@ create table if not exists public.central_transicoes (
 );
 alter table public.central_transicoes enable row level security;
 create index if not exists central_transicoes_mov_idx on public.central_transicoes(org_id, movement_id, quando);
+-- ⚠️ `central_transicoes` NÃO recebe a trilha de escrita: ela JÁ é uma trilha
+-- (registra quem/quando/de/para de cada transição), como own_sync_execucoes e
+-- raw_events. Auditar a auditoria é circular. Isenta em scripts/trilha-completa.sql.
 
 drop policy if exists central_transicoes_org on public.central_transicoes;
 create policy central_transicoes_org on public.central_transicoes
