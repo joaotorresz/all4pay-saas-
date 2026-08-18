@@ -99,6 +99,30 @@ cross join (values
 ) as v(papel, teto)
 on conflict (org_id, papel) do nothing;
 
+-- ⚠️ **ORG NOVA HERDA O PADRÃO — por gatilho, não só pelo seed.** O seed acima
+-- cobre as organizações que existiam no dia da migration; uma org criada DEPOIS
+-- nasceria sem nenhuma linha de alçada e, pela regra "sem alçada nada é
+-- aprovável", ficaria com NADA aprovável até alguém configurar à mão. O padrão
+-- editável tem de chegar sozinho — como a assinatura de teste (Etapa D).
+create or replace function public.central_alcada_inicial()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.central_alcada (org_id, papel, teto_valor)
+  values
+    (new.id, 'leitor', 0), (new.id, 'lancador', 0),
+    (new.id, 'aprovador', 5000), (new.id, 'fechador', 50000),
+    (new.id, 'admin', 999999999), (new.id, 'titular', 999999999)
+  on conflict (org_id, papel) do nothing;
+  return new;
+end $$;
+revoke all on function public.central_alcada_inicial() from public, anon, authenticated;
+
+drop trigger if exists organizations_central_alcada on public.organizations;
+create trigger organizations_central_alcada
+  after insert on public.organizations
+  for each row execute function public.central_alcada_inicial();
+
 create or replace function public.central_teto(p_papel text)
 returns numeric
 language sql stable security definer set search_path = public as $$

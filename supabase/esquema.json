@@ -186,7 +186,8 @@
           "central_transicoes",
           "central_teto()",
           "central_transicao_valida()",
-          "central_maquina() + gatilho"
+          "central_maquina() + gatilho",
+          "central_alcada_inicial() + gatilho em organizations"
         ],
         "resolver_ate": "2026-09-18",
         "origem": "sessao de agente, P-19 Bloco 3 (18/08/2026)",
