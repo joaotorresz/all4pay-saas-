@@ -91,6 +91,37 @@ O corte é entre **forma** e **conteúdo**: mudar a forma (tabela, coluna,
 política, função, gatilho) é migration; corrigir conteúdo (marcar uma linha,
 apagar duplicata) é operação, e a trilha de auditoria a registra.
 
+### ⚠️ SONDAGEM VAI NO BANCO EFÊMERO, NUNCA EM PRODUÇÃO
+
+Sondar é criar um objeto descartável só para MEDIR o comportamento do banco —
+uma tabela para provar que a política de linha filtra, uma função para ver se o
+gatilho de DDL dispara. É trabalho legítimo, e o lugar dele é o banco que
+`supabase start` levanta do zero: lá o objeto morre com o contêiner e não deixa
+rastro em lugar nenhum.
+
+Em produção ele deixa. E deixa no pior formato possível: **o objeto some do
+estado quando você o remove, mas o EVENTO fica no `ddl_log` para sempre.** Foi
+exatamente isso que a auditoria de 17–18/08 produziu — 13 sondagens já
+apagadas, invisíveis para o `npm run objetos` (que compara ESTADO) e acusadas
+pelo `npm run ddl` (que lê EVENTO). Cada uma teve de ser declarada NOMINALMENTE
+depois do fato, em `supabase/ddl-declarado.json`.
+
+⚠️ **Se uma sondagem precisar mesmo rodar em produção, ela é declarada ANTES,
+não depois.** Declarar depois é pedir perdão, e transforma a guarda num registro
+do que já aconteceu em vez de um portão. Vale para agente, para humano e para
+qualquer sessão futura.
+
+⚠️ **E NUNCA silencie por `--dias`.** A guarda aceita a janela, e usá-la para
+esconder uma sondagem registrada a deixa cega para a PRÓXIMA — que é o que ela
+existe para pegar. Janela silencia por IDADE; declaração silencia por NOME.
+
+**Dívida é outro bloco, com DONO e PRAZO** (`dividas_declaradas`): objeto real,
+em uso, cujo `CREATE` mora fora do repositório — hoje o subsistema `own_token_*`
+das Edge Functions (A4P-076). *O CREATE mora nas Edge Functions, fora do
+repositório: dívida aberta, não exceção permanente.* Prazo vencido **reprova** —
+dívida sem prazo que vence vira paisagem, que é como as 29 divergências de
+esquema chegaram até aqui.
+
 ### ⚠️ RECLASSIFICAR DADO É EXPAND/CONTRACT — o código que INTERPRETA vai antes
 
 A regra do expand/contract vale para **dado**, não só para schema:

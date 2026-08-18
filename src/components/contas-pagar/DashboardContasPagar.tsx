@@ -143,14 +143,14 @@ export function DashboardContasPagar() {
               brancos vazios do tamanho da lista aberta. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
             <CardExpansivel
-              titulo="Total geral pago no período"
-              dado={paraKit(painel.pagoNoPeriodo)}
-              cor={TOKEN_SITUACAO.pago}
-              rotuloData="Pago em"
+              titulo="Contas atrasadas"
+              dado={paraKit(painel.atrasadas)}
+              cor={TOKEN_SITUACAO.atrasado}
+              rotuloData="Venceu em"
               info={{
-                oQue: "O que já saiu da conta dentro do período escolhido.",
+                oQue: "O que já venceu e continua em aberto dentro do período escolhido.",
                 comoCalcula:
-                  "Soma das saídas com situação 'pago' cuja DATA DE PAGAMENTO cai no período. Canceladas ficam de fora.",
+                  "Soma das saídas em aberto com VENCIMENTO dentro do período e anterior a hoje.",
               }}
             />
             <CardExpansivel
@@ -165,14 +165,15 @@ export function DashboardContasPagar() {
               }}
             />
             <CardExpansivel
-              titulo="Contas atrasadas"
-              dado={paraKit(painel.atrasadas)}
-              cor={TOKEN_SITUACAO.atrasado}
-              rotuloData="Venceu em"
+              titulo="Total geral pago no período"
+              dado={paraKit(painel.pagoNoPeriodo)}
+              cor={TOKEN_SITUACAO.pago}
+              rotuloData="Pago em"
+              secundario
               info={{
-                oQue: "O que já venceu e continua em aberto dentro do período escolhido.",
+                oQue: "O que já saiu da conta dentro do período escolhido.",
                 comoCalcula:
-                  "Soma das saídas em aberto com VENCIMENTO dentro do período e anterior a hoje.",
+                  "Soma das saídas com situação 'pago' cuja DATA DE PAGAMENTO cai no período. Canceladas ficam de fora.",
               }}
             />
           </div>

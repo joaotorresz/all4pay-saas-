@@ -7,6 +7,7 @@
  */
 import type { FDIPReport } from "@/core/fdip/types";
 
+import { formatBRL } from "@/lib/format";
 export interface PerfilEmpresa {
   setor: string;
   modelo: string;
@@ -124,7 +125,7 @@ export function montarDNA(
   dadosBasicos: { fantasia: string; razaoSocial: string; porte: string },
   report: FDIPReport | null,
 ): DnaLinha[] {
-  const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  const fmt = (v: number) => formatBRL(v);
   const top = report?.grafo.topCliente?.share ?? 0;
   const saz = report?.padroes.sazonalidade ?? [];
   const amp = saz.length ? Math.max(...saz.map((s) => s.indice)) - Math.min(...saz.map((s) => s.indice)) : 0;

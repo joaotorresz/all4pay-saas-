@@ -11,6 +11,7 @@ import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
 import type { Movement, Party } from "@/lib/types";
 
+import { formatBRL } from "@/lib/format";
 /** Campos normalizados que vêm do OCR (Claude ou local) ou de entrada manual. */
 export interface DocFields {
   tipo: string;
@@ -177,7 +178,7 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
 }
 
 function formatBRLsafe(n: number): string {
-  try { return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+  try { return formatBRL(n); }
   catch { return `R$${n.toFixed(2)}`; }
 }
 

@@ -23,6 +23,7 @@
     "reconciliacao": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/reconciliacao.mts",
     "mobile": "node ./scripts/mobile.mjs",
     "fluxos": "node ./scripts/fluxos-telefone.mjs",
+    "nav-larguras": "node scripts/nav-larguras.mjs",
     "ia-eval": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/ia-eval.mts",
     "esquema": "node --experimental-strip-types ./scripts/esquema.mts",
     "paleta": "node --experimental-strip-types ./scripts/paleta.mts",
@@ -35,7 +36,8 @@
     "objetos:service-role": "node scripts/esquema-objetos.mjs --service-role",
     "objetos:sync-service-role": "node scripts/esquema-objetos.mjs --sync-service-role",
     "ddl": "node scripts/ddl-sem-migration.mjs",
-    "portas": "node scripts/portas-fechadas.mjs"
+    "portas": "node scripts/portas-fechadas.mjs",
+    "ddl:prova": "bash scripts/ddl-prova.sh"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",

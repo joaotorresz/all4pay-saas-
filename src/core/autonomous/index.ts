@@ -23,6 +23,7 @@ import { POLITICAS, type DecisionContext, type DecisionDraft } from "./policies"
 import { planoDeCobranca } from "./collections";
 import { rotearPagamentos } from "./payment-routing";
 
+import { formatBRL } from "@/lib/format";
 const LIMITE_AUTOMATICO = 2000; // R$ até onde a IA executa sozinha (move dinheiro)
 const CONFIANCA_MINIMA = 0.7;
 
@@ -148,7 +149,7 @@ export function operacaoAutonoma(input: RiskInput, accounts: FinancialAccount[])
 }
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 
 export type { AutonomousOpsReport } from "./types";
 export { operacaoAutonoma as default };

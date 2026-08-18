@@ -39,6 +39,7 @@ import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
 import { readFileSync } from "node:fs";
+import { rotuloSituacao } from "@/core/movimentacoes";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
@@ -334,7 +335,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rm({ type: "saida", amount: 2000, paid_date: "2026-07-08", category: "Comissão" }), // NÃO é imposto (iss ⊂ comissão)
   ] } as RiskInput;
   const r = responderLocal("qual minha receita líquida?", inp);
-  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
+  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000,00 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
   const rc = responderLocal("qual minha carga tributária?", inp);
   ok("carga tributária = impostos ÷ receita (30%), sem comissão", !!rc && /\b30%/.test(rc.resposta), rc?.resposta?.slice(0, 60));
   // EBITDA exclui o resultado financeiro: receita 10000 − Fornecedores 3000 − Comissão 2000 = 5000; Impostos 3000 é despesa operacional → entra
@@ -553,7 +554,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const gm = responderLocal("quanto gastei com mercado?", inpPF);
   const so = responderLocal("quanto sobrou esse mês?", inpPF);
-  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
+  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500,00 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
   ok("PF: resultado do mês (6000 − 2700 = 3300 sobrou)", !!so && /sobrou R\$.?3\.300/.test(so.resposta), so?.resposta?.slice(0, 50));
 }
 
@@ -4940,6 +4941,20 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("a4p078: sem regime configurado, não acusa",
      !alertaDuplicidadeImpostoLucro(regimeConfigurado({}), LANC).duplicidade);
 
+  // 2b) A METADE DA TELA — sem ela o alerta existe no motor e não existe para
+  //     quem lê o DRE, que é onde a duplicidade aparece.
+  {
+    const limpar = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/[^\n]*/g, " ");
+    const dre = limpar(readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8"));
+    const cad = limpar(readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
+    ok("a4p078: o DRE mostra o aviso de duplicidade",
+       /AvisoDuplicidadeImposto/.test(dre) && /alertaDuplicidadeImpostoLucro/.test(dre));
+    ok("a4p078: o cadastro NÃO nasce com regime presumido (vazio é vazio)",
+       /regime: ""/.test(cad) && !/regime: "presumido"/.test(cad));
+    ok("a4p078: o cadastro oferece o anexo, e só dentro do Simples",
+       /ANEXOS_SIMPLES/.test(cad) && /simples && \(/.test(cad));
+  }
+
   // 3) A REGRA CENTRAL: nunca provisão sobre lançamento real.
   for (const [nome, cfg] of [["simples", simplesIV], ["presumido", regimeConfigurado({ regime: "presumido" })],
                              ["vazio", regimeConfigurado({})]] as const) {
@@ -5057,6 +5072,86 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const kitTxt = readFileSync("src/components/relatorios/kit.tsx", "utf8");
   ok("a4p027: o cabeçalho da tabela marca a coluna sem lançamento",
      /colunasSemDado/.test(kitTxt) && /sem lan[çc]amento/.test(kitTxt));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-045 — o ID inteiro e a SITUAÇÃO em palavra, nas duas direções
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido no código: a tabela de títulos renderizava `m.id.slice(0, 10)` — dez
+// caracteres de um UUID ("16ab4f3c-4"), que não identificam nada para quem lê
+// nem servem para procurar o título no suporte. E a situação existia SÓ como
+// ponto colorido com `title`: cor sozinha não é informação para quem não
+// distingue as cores, e `title` não aparece no toque.
+{
+  // A palavra muda com a direção — é a que a pessoa usa ao falar com o outro
+  // lado. Um título a receber liquidado foi RECEBIDO, não "pago".
+  ok("a4p045: liquidado → Pago (pagar) e Recebido (receber)",
+     rotuloSituacao("liquidado", "pagar") === "Pago"
+     && rotuloSituacao("liquidado", "receber") === "Recebido");
+  ok("a4p045: atrasado → Vencido (pagar) e Em atraso (receber)",
+     rotuloSituacao("atrasado", "pagar") === "Vencido"
+     && rotuloSituacao("atrasado", "receber") === "Em atraso");
+  ok("a4p045: aberto → A vencer nos dois lados",
+     rotuloSituacao("aberto", "pagar") === "A vencer"
+     && rotuloSituacao("aberto", "receber") === "A vencer");
+
+  /*
+   * ⚠️ COMENTÁRIOS FORA — e esta guarda reprovou por causa disso na primeira
+   * execução: o comentário que documenta a correção CITA `m.id.slice(0, 10)`
+   * para explicar o que saiu, e a varredura o leu como se o defeito estivesse
+   * de volta. É a terceira vez que esta armadilha aparece no repositório
+   * (guarda de credenciais, varredura da ONDA 14, agora esta). Guarda que
+   * reprova a documentação da própria correção treina quem a lê a ignorá-la.
+   */
+  const tv = readFileSync("src/components/movimentacoes/TitulosView.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  // ⚠️ A asserção afirma sobre o DEFEITO PROIBIDO, não sobre o resultado certo:
+  // conferir que existe um IdCopiavel passaria mesmo se o slice continuasse ao
+  // lado. O que não pode voltar é o corte.
+  ok("a4p045: o UUID cortado NÃO volta (nenhum m.id.slice na tabela)",
+     !/m\.id\.slice\(/.test(tv));
+  ok("a4p045: o id sai inteiro, pelo componente compartilhado",
+     /<IdCopiavel id=\{m\.id\}/.test(tv));
+  ok("a4p045: a tabela tem coluna Situação, com a palavra",
+     /<Th>Situação<\/Th>/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
+  // A planilha do contador tem de dizer a MESMA palavra da tela.
+  ok("a4p045: a exportação usa o mesmo rótulo da tela",
+     /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
+  // ⚠️ Simetria: é o MESMO componente nos dois lados — se algum dia virar dois,
+  // as duas listas de dinheiro divergem no primeiro ajuste.
+  const pagar = readFileSync("src/app/contas-a-pagar/titulos/page.tsx", "utf8");
+  const receber = readFileSync("src/app/contas-a-receber/titulos/page.tsx", "utf8");
+  ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
+     /TitulosView/.test(pagar) && /TitulosView/.test(receber));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-034 — hierarquia por métrica ACIONÁVEL no painel de contas a pagar
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido: os três cards tinham o mesmo peso e "Total geral pago no período" era
+// o PRIMEIRO — na ordem de leitura, o destaque. Com R$1,54 pago ao lado de
+// R$38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
+// O que já saiu não muda nada; vencidas e a vencer mudam.
+{
+  const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  const ordem = Array.from(dash.matchAll(/titulo="(Contas atrasadas|Contas a vencer|Total geral pago no período)"/g))
+    .map((m) => m[1]);
+  ok("a4p034: o acionável vem primeiro — atrasadas, depois a vencer, e o pago por último",
+     ordem.join(" · ") === "Contas atrasadas · Contas a vencer · Total geral pago no período",
+     ordem.join(" · "));
+  // ⚠️ Ordem sozinha não basta: com o mesmo corpo, os três seguem competindo.
+  ok("a4p034: o card de PAGO é secundário (corpo menor), não apenas o último",
+     /rotuloData="Pago em"\s*\n\s*secundario/.test(dash));
+  // ⚠️ E secundário NÃO é escondido: trocar hierarquia por ausência é outro
+  // defeito. O valor continua na tela.
+  const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
+  ok("a4p034: secundário reduz o corpo, não remove o valor",
+     /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

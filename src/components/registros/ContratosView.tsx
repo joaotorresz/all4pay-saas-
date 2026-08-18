@@ -32,6 +32,7 @@ import {
   CabecalhoRegistro, FiltrosRegistro, TabelaRegistro, VazioRegistro, AcaoLinha, Campo, BlocoForm,
 } from "./kit";
 
+import { formatBRL } from "@/lib/format";
 const fmtDia = (iso: string) => (iso ? iso.split("-").reverse().join("/") : "—");
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -482,7 +483,7 @@ function BlocoVendas({
               <span className="text-label font-medium text-ink">Vendas a criar</span>
               <span className="text-caption text-faint tabular-nums">
                 {previstas.length} {previstas.length === 1 ? "venda" : "vendas"} ·{" "}
-                {previstas.reduce((s, v) => s + v.valor, 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                {previstas.reduce((s, v) => s + v.valor, formatBRL(0))}
               </span>
             </div>
             {previstas.length === 0 ? (

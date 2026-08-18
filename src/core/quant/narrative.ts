@@ -5,6 +5,7 @@
 import type { IndicadoresFinanceiros, ScoreFinanceiro, CenarioPreditivo } from "./types";
 import { CLASSIF_SAUDE_LABEL } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export function narrativaExecutiva(
@@ -77,5 +78,5 @@ export function narrativaExecutiva(
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return formatBRL(v);
 }

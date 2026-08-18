@@ -30,7 +30,8 @@ import {
 } from "./kit";
 import type { Product } from "@/lib/types";
 
-const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/lib/format";
+const fmtBRL = (n: number) => formatBRL(n);
 const rotuloTipo = (t: TipoProduto) => TIPOS_PRODUTO.find((x) => x.id === t)?.label ?? "—";
 
 /** Produto e serviço são o MESMO cadastro para quem opera — muda o que sai na nota. */

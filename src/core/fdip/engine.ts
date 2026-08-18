@@ -19,6 +19,7 @@ import type {
 } from "./types";
 import { uid } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
 
 /** Normaliza o nome da contraparte: remove prefixos de transação, sufixos
@@ -413,5 +414,5 @@ export function centralConfianca(parse: ParseResult, cls: Classificacao[], recor
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return formatBRL(v);
 }

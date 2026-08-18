@@ -26,7 +26,7 @@ import { ModalBaixa } from "./ModalBaixa";
 import type { RiskMovement } from "@/core/risk-engine/types";
 import { receberLote } from "@/lib/recebimentos";
 import {
-  filtrarTitulos, resumoTitulos, statusDoTitulo,
+  filtrarTitulos, resumoTitulos, statusDoTitulo, rotuloSituacao,
   type Direcao, type FiltroTitulos, type StatusTitulo, type CardResumo,
 } from "@/core/movimentacoes";
 import {
@@ -34,6 +34,7 @@ import {
 } from "./CarrosselSazonalidade";
 import { pctDeInteiro } from "@/lib/format";
 
+import { IdCopiavel } from "@/components/registros/kit";
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000, 5000];
 
@@ -273,11 +274,13 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
     ["ID", "Vencimento", "Data de " + liquidado.toLowerCase(), "Status", "Categoria", parte, "Valor", liquidado],
     ...titulos.map((m) => [
       m.id, m.due_date?.slice(0, 10) ?? "", m.paid_date?.slice(0, 10) ?? "",
-      input ? statusDoTitulo(m, input.hoje) : "",
+      // A MESMA palavra da tela: a planilha que o contador abre não pode dizer
+      // "liquidado" onde a tela diz "Pago".
+      input ? rotuloSituacao(statusDoTitulo(m, input.hoje), direcao) : "",
       m.category ?? "", (m.party_id && nomes[m.party_id]) || "",
       Math.abs(m.amount), m.status === "pago" ? Math.abs(m.amount) : 0,
     ]),
-  ], [titulos, input, nomes, parte, liquidado]);
+  ], [titulos, input, nomes, parte, liquidado, direcao]);
 
   const rotaNovo = direcao === "receber"
     ? "/dashboard/financial/receivables/new"
@@ -520,6 +523,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                     />
                   </Th>
                   <Th>ID</Th>
+                  <Th>Situação</Th>
                   <Th>Vencimento / {liquidado.toLowerCase()}</Th>
                   <Th>Conta</Th>
                   <Th>Categoria</Th>
@@ -536,10 +540,22 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3">
                         <span onClick={(e) => e.stopPropagation()}><Checkbox checked={marcados.has(m.id)} onChange={() => alternar(m.id)} /></span>
                       </td>
+                      {/* ⚠️ A4P-045 — o id sai INTEIRO e copiável. `m.id.slice(0, 10)`
+                          mostrava "16ab4f3c-4": dez caracteres de um UUID, que não
+                          identificam nada para quem lê nem servem para procurar o
+                          título no suporte. `IdCopiavel` é o mesmo componente das
+                          outras tabelas do produto — uma leitura só. */}
+                      <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                        <IdCopiavel id={m.id} />
+                      </td>
+                      {/* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
+                          reforço; quem não distingue as cores lê o rótulo, e ele
+                          muda com a direção (Pago × Recebido) porque é a palavra
+                          que a pessoa usa ao falar com o outro lado. */}
                       <td className="px-6 py-3">
                         <span className="inline-flex items-center gap-2">
-                          <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} title={st} />
-                          <span className="text-caption text-faint tabular-nums">{m.id.slice(0, 10)}</span>
+                          <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: COR_STATUS[st] }} aria-hidden />
+                          <span className="text-label text-ink">{rotuloSituacao(st, direcao)}</span>
                         </span>
                       </td>
                       <td className="px-6 py-3">

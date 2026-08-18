@@ -1484,6 +1484,101 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ ESTADO E EVENTO SÃO DUAS GUARDAS, E A PRIMEIRA MEDIÇÃO PROVOU ISSO
+
+**O `ddl` reprovando na primeira medição real é o melhor resultado possível: ele
+pegou o que o `objetos` estruturalmente NÃO VÊ.** `npm run objetos` compara
+ESTADO — o que produção tem hoje contra o que as migrations produzem —, e por
+isso não enxerga objeto que nasceu e morreu: quem foi criado à mão e depois
+removido não deixa rastro nenhum no estado. `npm run ddl` lê o `ddl_log`, que é
+EVENTO, e guarda o transiente.
+
+⚠️ **NENHUMA SUBSTITUI A OUTRA, e a troca não é simétrica.** O `objetos` vê a
+deriva fina (uma coluna com o tipo trocado, um `stable` que virou `volatile`) e
+é cego ao transiente; o `ddl` vê o transiente e é cego à deriva fina, porque
+casa por NOME e não por assinatura. Desligar uma delas não deixa o sistema com
+"uma guarda de esquema": deixa com uma metade que não avisa que é metade.
+
+Medido em 18/08, na primeira execução com credencial de verdade: `service_role`
+fechou verde (77 = 77, nenhum grant novo, sumido ou alterado) e o `ddl` acusou
+objeto que o `objetos` não tem como enxergar — 13 sondagens já removidas e o
+subsistema `own_token_*` que as Edge Functions criam fora do repositório.
+
+⚠️ **A PRIMEIRA CONTAGEM QUE EU REPORTEI (17) SAIU DE UMA LISTA PARCIAL.**
+Reconsultado o `ddl_log` inteiro — **230 objetos, 203 núcleos** — a guarda
+acusava **52**, e 52 dos 52 eram objeto LEGÍTIMO: 39 índices `*_lixeira_idx` e
+13 `*_pkey`/`*_key`. Nenhum aparece por escrito em migration nenhuma, e não por
+descuido — os primeiros nascem de um laço que COMPÕE o nome em tempo de
+execução (`format('%I', r.t || '_lixeira_idx')`) e os segundos são batizados
+pelo próprio Postgres a partir de um `primary key` no `create table`. Casar nome
+literal não tem como ver nenhum dos dois.
+
+⚠️ **NOME DERIVADO NÃO É NOME ÓRFÃO.** Um nome com forma de índice/constraint
+vale pela maior RAIZ que alguma migration mencione (`movements_lixeira_idx` →
+`movements`). O custo fica declarado: índice criado à mão SOBRE tabela conhecida
+passa por essa porta — e é justamente o território do `objetos`, que mede estado
+e vê objeto a mais. É o par funcionando: cada uma cobre o ponto cego da outra.
+
+⚠️ E a lição de método, que é a mesma de sempre: **eu declarei
+`own_token_cache_pkey` como sondagem.** Ele nunca foi sondagem — é o índice
+implícito da tabela que já estava no bloco de dívida. Declarar o SINTOMA teria
+enterrado o defeito: com ele na lista, a guarda ficava verde sobre a lista
+parcial e continuava acusando 52 na lista real.
+
+⚠️ **A DECLARAÇÃO É NOMINAL, NUNCA POR JANELA.** A guarda aceita `--dias`, e
+usá-lo para silenciar a sondagem já registrada deixaria a guarda cega para a
+PRÓXIMA — que é exatamente o que ela existe para pegar. Janela silencia por
+IDADE; declaração silencia por NOME. Provado quebrando: com os 13 declarados,
+uma sondagem nova (`own_probe3`) continua reprovando.
+
+⚠️ **E A REGRA QUE SAI DAÍ, para toda sessão futura: SONDAGEM VAI NO BANCO
+EFÊMERO, NUNCA EM PRODUÇÃO.** Se uma sondagem precisar mesmo rodar em produção,
+ela é **declarada ANTES**, não depois — declarar depois é pedir perdão, e
+transforma a guarda num registro do que já aconteceu em vez de um portão.
+
+⚠️ **Dívida declarada tem DONO e PRAZO, e prazo vencido REPROVA.** Os quatro
+`own_token_*` (mais `own_saude` e `own_extrato_lojista`) entram em
+`dividas_declaradas`, não em "aceito": *o CREATE mora nas Edge Functions, fora do
+repositório — dívida aberta, não exceção permanente*. Sem dono e sem prazo que
+vença, a dívida vira paisagem, que é como as 29 divergências de esquema
+chegaram até aqui.
+
+### ⚠️ TESTE DE CONTRATO NÃO IMPORTA A FUNÇÃO QUE ELE AUDITA
+
+**Um teste que compara "a string que a pessoa lê" usando o MESMO formatador do
+código auditado não pode discordar dele.** Se a função ganhar um defeito, os
+dois lados erram juntos e o contrato passa verde — ele deixou de medir e passou
+a concordar por construção.
+
+É a mesma família do `resíduo = x − x`, e foi a terceira vez que esta forma
+apareceu neste repositório em um único dia. O sintoma é sempre o mesmo: uma
+igualdade que não pode falhar.
+
+O caso que fixou a regra: ao migrar o produto para o formatador único
+(`formatBRL`), o `scripts/contrato-resultado.mts` passou a discordar da IA por
+GRAFIA — 8 violações que não eram de cálculo. O conserto óbvio era apontar o
+contrato para `formatBRL`; e o óbvio estava errado, porque destruía a
+independência que dá valor ao contrato.
+
+**O conserto certo tem duas partes:**
+
+1. **A grafia é reimplementada no contrato, à mão** — duas implementações
+   independentes do mesmo formato. Se elas divergirem, alguém mexeu num dos
+   lados sem querer, e é exatamente esse o achado que se quer.
+2. **As strings esperadas são LITERAIS** (`ANCORAS`, com `"R$3.988,80"`,
+   `"-R$1.000,00"`, `"R$0,50"`), escritas à mão e não geradas por função
+   nenhuma. Sem elas as duas implementações podem derivar JUNTAS — alguém
+   "arruma" as duas no mesmo gesto e o contrato volta a concordar sozinho.
+
+⚠️ **E a grafia se MEDE, não se supõe.** A primeira versão da implementação
+independente usou `−` (U+2212) no negativo, por analogia com a regra de
+percentual; a grafia real do produto é `-R$1.000,00`, com hífen ASCII **antes**
+do `R$`. Medido rodando a função, não deduzido — e a medição virou âncora.
+
+**Prova de que a regra está viva:** trocar o `formatBRL` para uma casa decimal
+**reprova** o contrato. Se essa mudança passar verde, o contrato voltou a ser
+tautologia.
+
 ### ⚠️ INSTRUMENTAÇÃO SEM CONSUMIDOR NÃO CONTA COMO FEITA
 
 Medir uma coisa e não fazer nada com a medida é trabalho que parece pronto e não

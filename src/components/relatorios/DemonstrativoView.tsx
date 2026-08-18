@@ -13,7 +13,7 @@ import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon, ValorIndicador, NotaCancelados, type FormatoValor } from "@/components/ui";
+import { Card, Skeleton, Select, Icon, ValorIndicador, NotaCancelados, StatusBadge, BRL, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -36,6 +36,8 @@ import {
   type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
 } from "./kit";
 
+import { loadCompany } from "@/lib/company";
+import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
@@ -47,7 +49,7 @@ import {
  * não cabe — e o tooltip mostra o valor cheio.
  */
 const brl0 = (n: number) => formatBRL(n);
-const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
@@ -196,6 +198,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           empresa deu lucro?" exige ler a cascata inteira. Os números saem dos
           MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
           paralela. */}
+      {tipo === "dre" && relatorio && <AvisoDuplicidadeImposto relatorio={relatorio} />}
       {tipo === "dre" && input && <CartoesExecutivos input={input} intervalo={aplicados.intervalo} />}
 
       <PainelLayout layout={layout} onChange={setLayout} />
@@ -387,5 +390,48 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
         </Card>
       ))}
     </div>
+  );
+}
+
+
+/**
+ * ⚠️ **A4P-078 — ALERTA, NUNCA PROVISÃO.** No Simples o IRPJ e a CSLL estão
+ * dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal. Uma
+ * empresa cadastrada no Simples com lançamento na linha de imposto sobre o
+ * lucro está, muito provavelmente, contando o mesmo tributo duas vezes.
+ *
+ * Medido em produção: R$5.200,00/mês de "Simples Nacional" convivendo com
+ * "IRPJ / CSLL" (R$75.982,66 em 9 meses), na mesma competência.
+ *
+ * ⚠️ Ele NÃO reclassifica e NÃO soma provisão: qual das duas pernas é a
+ * indevida é decisão do dono com o contador, e o sistema não tem como saber.
+ * Somar uma estimativa aqui contaria o imposto uma TERCEIRA vez.
+ */
+function AvisoDuplicidadeImposto({ relatorio }: { relatorio: Relatorio }) {
+  const [cfg, setCfg] = React.useState<RegimeConfigurado>({ regime: null, anexo: null });
+  React.useEffect(() => { setCfg(regimeConfigurado(loadCompany()?.db)); }, []);
+
+  const linha = relatorio.linhas.find((l) => l.id === "impostos_lucro");
+  const lancamentos = React.useMemo(
+    () => (linha?.celulas ?? []).flatMap((c, k) =>
+      c.movimentos.map((id) => ({ id, competencia: relatorio.colunas[k] ?? "", valor: 0 }))),
+    [linha, relatorio.colunas],
+  );
+  const alerta = alertaDuplicidadeImpostoLucro(cfg, lancamentos);
+  if (!alerta.duplicidade) return null;
+
+  const total = (linha?.celulas ?? []).reduce((s, c) => s + c.valor, 0);
+  return (
+    <Card className="border border-warning/40">
+      <div className="flex flex-col gap-2">
+        <StatusBadge tone="warning">Possível duplicidade de imposto</StatusBadge>
+        <p className="m-0 text-body text-ink max-w-[80ch]">{alerta.aviso}</p>
+        <p className="m-0 text-caption text-muted">
+          Na linha “Impostos sobre o Lucro” do período há {alerta.quantidade}{" "}
+          lançamento(s), somando <BRL value={Math.abs(total)} />. O sistema não
+          reclassifica nada sozinho.
+        </p>
+      </div>
+    </Card>
   );
 }

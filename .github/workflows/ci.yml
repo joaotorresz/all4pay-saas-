@@ -170,6 +170,20 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+      # ⚠️ A PROVA NEGATIVA da guarda de DDL, e ela mora AQUI porque precisa de
+      # um banco de verdade — o gatilho de evento, o `ddl_log` e a leitura da
+      # guarda são três elos, e plantar a linha na lista de objetos só testa o
+      # terceiro. Banco limpo tem de passar; uma tabela criada à mão tem de
+      # reprovar E ser nomeada.
+      #
+      # ⚠️ A sondagem roda no EFÊMERO, nunca em produção (CONTRIBUTING.md): em
+      # produção o objeto some do estado quando se apaga, mas o evento fica no
+      # `ddl_log` para sempre — foi assim que 13 sondagens da auditoria de 18/08
+      # tiveram de ser declaradas nominalmente depois do fato.
+      - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run ddl:prova
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
@@ -191,8 +205,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # ⚠️ **`ref: main`, e isto NÃO é redundante com a condição acima.**
+      #
+      # O `schedule` do GitHub dispara no BRANCH PADRÃO do repositório, que aqui
+      # é `claude/epic-fermi-i423xk` — medido: os runs agendados de 18/08 saíram
+      # todos em `2430a20`, **14 commits atrás do `main`**. As duas guardas deste
+      # job leem SCRIPT e DADO do repositório (`scripts/esquema-objetos.mjs`,
+      # `supabase/objetos-producao.json`, `supabase/ddl-declarado.json`), então
+      # sem isto o agendado compara produção de hoje com um repositório de
+      # ontem: as declarações nominais de DDL nem existem naquele commit, e a
+      # guarda quebraria no `readFileSync` — reprovando por estar velha, não por
+      # ter achado algo. Guarda de estado tem de medir com o estado ATUAL do
+      # repositório, senão ela reporta a diferença entre dois relógios.
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:

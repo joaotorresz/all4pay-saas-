@@ -1,0 +1,89 @@
+{
+  "_comentario": [
+    "DDL EM PRODUÇÃO SEM MIGRATION — as declarações NOMINAIS do npm run ddl.",
+    "",
+    "⚠️ POR QUE NOMINAL E NÃO POR JANELA. A guarda aceita `--dias`, e usá-lo para",
+    "silenciar estes objetos deixaria a guarda cega para a PRÓXIMA sondagem, que é",
+    "justamente o que ela existe para pegar. Janela silencia por IDADE; declaração",
+    "silencia por NOME. Qualquer DDL novo não declarado continua reprovando.",
+    "",
+    "⚠️ A REGRA QUE SAI DAQUI, e vale para toda sessão futura: SONDAGEM VAI NO",
+    "BANCO EFÊMERO, NUNCA EM PRODUÇÃO. Se uma sondagem precisar mesmo rodar em",
+    "produção, ela é DECLARADA ANTES, não depois — declarar depois é pedir",
+    "perdão, e transforma a guarda num registro do que já aconteceu em vez de um",
+    "portão.",
+    "",
+    "⚠️ Não há verificação de declaração-fantasma aqui, e é deliberado: o ddl_log",
+    "é uma janela rolante (30 dias por padrão), então toda entrada some sozinha",
+    "com o tempo. Cobrar que a declaração continue casando reprovaria pelo motivo",
+    "errado.",
+    "",
+    "⚠️ NOME DERIVADO NÃO SE DECLARA — ele se resolve pelo PAI. `own_token_cache_pkey`",
+    "estava aqui como sondagem, e não era: é o índice implícito da tabela do bloco de",
+    "dívida logo abaixo. Ele só apareceu na lista porque a guarda casava nome literal e",
+    "não enxerga nome composto em tempo de execução (o laço dos `*_lixeira_idx`) nem",
+    "nome batizado pelo Postgres (`*_pkey`/`*_key`). Declarar o sintoma teria enterrado",
+    "o defeito: medido com a lista INTEIRA do ddl_log, eram 52 objetos legítimos",
+    "acusados. Saiu daqui; quem responde por ele é `own_token_cache`."
+  ],
+  "sondagens_declaradas": {
+    "_motivo_comum": "Sondagem da auditoria de 17–18/08/2026: objetos criados à mão em produção para MEDIR comportamento (isolamento por papel, privilégio de anon, gatilho de DDL, autenticação das Edge Functions). Todos já removidos — não existem no estado atual, e é por isso que o `npm run objetos` não os enxerga: ele mede ESTADO, e o que nasceu e morreu não deixa rastro no estado.",
+    "declarado_em": "2026-08-18",
+    "declarado_por": "sessão de auditoria (P-18), com o joão",
+    "nucleos": [
+      "_org_movements_furada",
+      "_prova_ddl",
+      "own_auth_probe",
+      "own_d",
+      "own_probe",
+      "own_probe2",
+      "own_prod",
+      "own_q",
+      "own_smoke",
+      "own_sweep_resultado",
+      "own_sweep_tmp",
+      "sample_reason"
+    ]
+  },
+  "dividas_declaradas": {
+    "_motivo_comum": "A4P-076 — o CREATE mora nas Edge Functions, fora do repositório. Dívida aberta, não exceção permanente.",
+    "itens": [
+      {
+        "nucleo": "own_token_cache",
+        "o_que_e": "Cache do token OAuth da adquirência, com as colunas de lease/bloqueio. RLS ligada sem política: só o dono e o service_role alcançam.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      },
+      {
+        "nucleo": "own_token_pegar",
+        "o_que_e": "Leitura do cache de token OAuth. Companheira de own_token_cache.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      },
+      {
+        "nucleo": "own_token_gravar",
+        "o_que_e": "Gravação do cache de token OAuth.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      },
+      {
+        "nucleo": "own_token_bloquear",
+        "o_que_e": "Bloqueio/backoff do cache de token OAuth.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      },
+      {
+        "nucleo": "own_saude",
+        "o_que_e": "Healthcheck da adquirência, criado por Edge Function.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      },
+      {
+        "nucleo": "own_extrato_lojista",
+        "o_que_e": "Extrato do lojista (adquirência). Só mencionada em comentário/índice nas migrations; o CREATE mora fora.",
+        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
+        "prazo": "2026-09-18"
+      }
+    ]
+  }
+}

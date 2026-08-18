@@ -54,6 +54,7 @@ import { createLancamento, criarTitulos } from "@/lib/data";
 import type { Direcao } from "@/core/movimentacoes";
 import type { RecurrenceFreq } from "@/lib/types";
 
+import { formatBRL } from "@/lib/format";
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 // ⚠️ O modo "folha" só existe no lado de PAGAR: não se contrata um
@@ -693,7 +694,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
             <Campo
               label="Desconto / Juros"
               ajuda={f.valor && f.valorRealizado
-                ? `Diferença: ${(f.valorRealizado - f.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+                ? `Diferença: ${formatBRL(f.valorRealizado - f.valor)}`
                 : undefined}
             >
               <CurrencyInput value={f.descontoJuros} onValueChange={(v) => set("descontoJuros", v)} />

@@ -446,7 +446,7 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
             <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="3 3" />
             <Tooltip
               contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }}
-              formatter={(v: number, n: string) => [v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }), n.toUpperCase()]}
+              formatter={(v: number, n: string) => [fmtBRL(v), n.toUpperCase()]}
               labelFormatter={(d) => `Dia ${d}`}
             />
             <Area dataKey="p90" stroke="none" fill="url(#projGlow)" />
@@ -528,7 +528,7 @@ function HeatmapView({ dias }: { dias: DiaHeat[] }) {
     <Card className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-[5px]">
         {dias.map((d) => (
-          <div key={d.date} title={`${d.label}: ${d.saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}`}
+          <div key={d.date} title={`${d.label}: ${fmtBRL(d.saldo)}`}
             className="w-[22px] h-[22px] rounded-sm" style={{ background: HEAT[d.nivel] }} />
         ))}
       </div>
@@ -559,7 +559,7 @@ function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} interval={0} angle={-18} textAnchor="end" height={60} />
             <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={42} />
-            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
+            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => fmtBRL(v)} />
             <Bar dataKey="base" stackId="w" fill="transparent" />
             <Bar dataKey="valor" stackId="w" radius={[3, 3, 0, 0]}>
               {data.map((d, i) => (

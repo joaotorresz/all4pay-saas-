@@ -5,6 +5,7 @@
  */
 import type { FinancialDecision, TipoDecisao } from "./types";
 
+import { formatBRL } from "@/lib/format";
 export interface DecisionContext {
   hoje: string;
   saldoAtual: number;
@@ -32,7 +33,7 @@ export interface PoliticaDef {
 }
 
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 
 export const POLITICAS: PoliticaDef[] = [
   {

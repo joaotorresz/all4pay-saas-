@@ -9,8 +9,9 @@
  */
 import type { ExecutiveContext, RespostaCopiloto } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 
 const SALARIO_MEDIO = 7000; // R$/mês (encargos incluídos no fator 1.4)
 

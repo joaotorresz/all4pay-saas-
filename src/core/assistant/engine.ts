@@ -28,7 +28,8 @@ import { comVoz, textoDeOrigem } from "@/core/glossario";
 // bloco do EBITDA e `scripts/contrato-resultado.mts`.
 import { cascataDRE } from "@/core/relatorios/cascata";
 
-const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+import { formatBRL } from "@/lib/format";
+const fmt = (v: number) => formatBRL(v);
 const pad = (n: number) => String(n).padStart(2, "0");
 const MES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
