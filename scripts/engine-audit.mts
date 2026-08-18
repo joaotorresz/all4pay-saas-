@@ -6,6 +6,10 @@
  *   npm run audit   (também roda dentro de npm test)
  */
 import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
+import {
+  podeAprovar, papelQueAprova, transicaoValida, TRANSICOES, montarFila, titulosDaVisao,
+  type Lancamento, type Aprovador,
+} from "@/core/central";
 import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
@@ -5303,6 +5307,92 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /infoDaMetodologia\("chance-ruptura"\)/.test(fluxo) && /avisoDeSaturacao\("chance-ruptura"/.test(fluxo));
   ok("metodologia: o cartão de score consome a declaração",
      /infoDaMetodologia\("score-saude"\)/.test(fluxo));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * CENTRAL FINANCEIRA — a máquina de estados, a segregação R1 e a alçada
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  // ── R1: quem lançou NUNCA aprova o próprio ────────────────────────────────
+  const meu: Lancamento = { id: "t1", valor: 1000, lancadoPor: "ana", situacao: "previsto" };
+  const euMesmo: Aprovador = { id: "ana", papel: "aprovador" };
+  const colega: Aprovador = { id: "bia", papel: "aprovador" };
+
+  const auto = podeAprovar(meu, euMesmo);
+  ok("central R1: quem lançou NÃO aprova o próprio lançamento",
+     auto.pode === false && auto.motivo === "auto_aprovacao", JSON.stringify(auto));
+  // ⚠️ O positivo ao lado do negativo: se o negativo passasse por a fila estar
+  // vazia, o teste não provaria nada. Um colega COM alçada aprova.
+  ok("central R1: um colega com alçada aprova o mesmo título",
+     podeAprovar(meu, colega).pode === true);
+
+  // ── alçada: acima do teto do papel reprova ────────────────────────────────
+  const caro: Lancamento = { id: "t2", valor: 40_000, lancadoPor: "ana", situacao: "previsto" };
+  const vAprovador = podeAprovar(caro, colega); // aprovador: teto 5.000
+  ok("central alçada: 40.000 acima da alçada do aprovador (5.000) reprova",
+     vAprovador.pode === false && vAprovador.motivo === "acima_da_alcada" && vAprovador.tetoDoPapel === 5000);
+  ok("central alçada: o fechador (teto 50.000) aprova os 40.000",
+     podeAprovar(caro, { id: "cid", papel: "fechador" }).pode === true);
+  // ⚠️ Sem alçada configurada NADA é aprovável — não "tudo é aprovável".
+  ok("central alçada: papel SEM alçada tem teto ZERO, não infinito",
+     podeAprovar(meu, { id: "leo", papel: "leitor" }).motivo === "papel_sem_alcada");
+  // ⚠️ E a asserção que fixa a direção: um mapa de alçada VAZIO recusa tudo,
+  // inclusive o admin — a prova de que a ausência é fechada, não aberta.
+  const alcadaVazia = { leitor: 0, lancador: 0, aprovador: 0, fechador: 0, admin: 0, titular: 0 };
+  ok("central alçada: mapa vazio recusa até o titular (ausência = fechado)",
+     podeAprovar(meu, { id: "x", papel: "titular" }, alcadaVazia).pode === false);
+
+  // "sobe o mínimo necessário", não direto ao titular
+  ok("central alçada: 40.000 sobe ao FECHADOR, não ao titular", papelQueAprova(40_000) === "fechador");
+  ok("central alçada: 3.000 fica no aprovador", papelQueAprova(3_000) === "aprovador");
+
+  // ── a máquina de estados: só as transições declaradas ─────────────────────
+  ok("central máquina: previsto→confirmado é válida", transicaoValida("previsto", "confirmado"));
+  ok("central máquina: confirmado→baixado é válida", transicaoValida("confirmado", "baixado"));
+  ok("central máquina: baixado→conciliado é válida", transicaoValida("baixado", "conciliado"));
+  // ⚠️ O caminho que MORRE: baixa direta pulando a confirmação (A4P-052).
+  ok("central máquina: previsto→baixado é PROIBIDA (não pula a confirmação)",
+     transicaoValida("previsto", "baixado") === false);
+  ok("central máquina: conciliado→previsto é proibida (não volta no tempo)",
+     transicaoValida("conciliado", "previsto") === false);
+  ok("central máquina: cancelado é terminal", TRANSICOES.cancelado.length === 0);
+
+  // baixar exige situação certa
+  const jaBaixado: Lancamento = { id: "t3", valor: 100, lancadoPor: "ana", situacao: "baixado" };
+  ok("central: não se confirma o que já foi baixado",
+     podeAprovar(jaBaixado, colega).motivo === "situacao_nao_permite");
+
+  // ── o efeito no relatório: confirmado × previsto ──────────────────────────
+  const carteira = [
+    { id: "a", situacao: "previsto" as const, valor: 100 },
+    { id: "b", situacao: "confirmado" as const, valor: 200 },
+    { id: "c", situacao: "baixado" as const, valor: 300 },
+    { id: "d", situacao: "cancelado" as const, valor: 999 },
+    { id: "e", situacao: "estornado" as const, valor: 888 },
+  ];
+  const soConfirmado = titulosDaVisao(carteira, "confirmado");
+  ok("central relatório: visão CONFIRMADO exclui o previsto (e o cancelado/estornado)",
+     soConfirmado.length === 2 && soConfirmado.every((t) => t.situacao !== "previsto"));
+  const somaConf = soConfirmado.reduce((s, t) => s + t.valor, 0);
+  ok("central relatório: a soma dos confirmados é 500 (200 + 300), não 600", somaConf === 500);
+  const comPrevisto = titulosDaVisao(carteira, "com-previsto");
+  ok("central relatório: visão COM-PREVISTO soma 600 (inclui o previsto)",
+     comPrevisto.reduce((s, t) => s + t.valor, 0) === 600);
+  // ⚠️ O cancelado e o estornado NUNCA entram, em nenhuma visão.
+  ok("central relatório: cancelado e estornado ficam fora das DUAS visões",
+     !comPrevisto.some((t) => t.situacao === "cancelado" || t.situacao === "estornado"));
+
+  // ── a fila única, com origem visível ──────────────────────────────────────
+  const fila = montarFila([
+    { id: "f1", descricao: "Fornecedor A", contraparte: "A", valor: 100, direcao: "saida", vencimento: "2026-09-01", situacao: "previsto", origem: "contas-a-pagar", lancadoPor: "ana" },
+    { id: "f2", descricao: "Cliente B", contraparte: "B", valor: 200, direcao: "entrada", vencimento: "2026-09-02", situacao: "previsto", origem: "contas-a-receber", lancadoPor: "ana" },
+    { id: "f3", descricao: "Extrato", contraparte: "C", valor: 300, direcao: "saida", vencimento: "2026-09-03", situacao: "previsto", origem: "upload", lancadoPor: "bia" },
+    { id: "f4", descricao: "Já confirmado", contraparte: "D", valor: 400, direcao: "saida", vencimento: "2026-09-04", situacao: "confirmado", origem: "contas-a-pagar", lancadoPor: "ana" },
+  ]);
+  ok("central fila: só os PREVISTOS aguardam confirmação (o confirmado não volta)",
+     fila.totalAguardando === 3);
+  ok("central fila: as três origens aparecem com contagem",
+     fila.porOrigem["contas-a-pagar"] === 1 && fila.porOrigem["contas-a-receber"] === 1 && fila.porOrigem["upload"] === 1);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

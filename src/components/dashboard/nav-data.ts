@@ -133,6 +133,10 @@ export const SECTIONS: Section[] = [
       // Upload, OCR, Open Finance, regras e duplicatas são ABAS desta tela —
       // uma porta só para tudo que ENTRA no sistema.
       { label: "Entrada de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
+      // ⚠️ A Central é onde tudo que ENTROU (pagar, receber, upload) se
+      // CONFIRMA — com alçada e segregação. Fica no grupo de caixa porque é a
+      // porta da confirmação e da baixa, o passo antes de o dinheiro se mover.
+      { label: "Central financeira", desc: "Confirmar e baixar, com alçada", href: "/central", icon: "shield-check" },
     ],
   },
   {
