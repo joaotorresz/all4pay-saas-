@@ -1334,3 +1334,45 @@ processo, e este registro é o dono.
 `funcoes_definer_stable_alinha_producao` · `trial_com_prazo_e_bloqueio_suave` ·
 `own_maq_esquema_verbatim` · `service_role_grants_minimos` ·
 `central_maquina_de_estados`.
+
+---
+
+# ⚠️ COBERTURA DE MOTOR NÃO É COBERTURA DE PRODUTO (P-19 Bloco D, 18/08/2026)
+
+**O Bloco D nasceu como "refactor de duas portas de importação". A medição
+mostrou outra coisa: o BACKEND estava ~80% pronto e a UI, 0% — e ninguém sabia,
+porque todo o inventário deste repositório mede CÓDIGO, não o CAMINHO do
+usuário.**
+
+O que a medição achou, item a item:
+
+| Item do Bloco D | Estado real |
+| --- | --- |
+| dedup (conta+data+valor+hash) | pronto — `core/ingestao/chaveIdempotencia` |
+| ler `<LEDGERBAL>` do OFX → abertura | pronto — `core/fdip` + `aberturaDoExtrato` |
+| classificação camadas 1–2 (regra + histórico) | pronto — `taxonomia` + `regras` + aprendizado |
+| correção → regra da organização | pronto — `sugerirRegra` |
+| is_sample | pronto |
+| **a UI que junta tudo num fluxo usável** | **não existia** |
+
+⚠️ **O diagnóstico "produto sem porta de entrada" era de UX, não de engine.** A
+prova está na produção: nos últimos 90 dias, **ZERO lançamentos por extrato/OCR**
+(os 833 "sem origem" são legado de jun–jul). O motor de ingestão existe há
+meses e não gerou um único lançamento — porque o caminho do usuário até ele é
+dois pipelines incompatíveis e uma fila que ninguém desenhou para 500 linhas.
+
+⚠️ **A lição de método, e ela vale para toda auditoria futura deste repositório:**
+o `npm run smoke`, o `engine-audit`, o `reconciliacao` — todos medem se o MOTOR
+está certo. Nenhum mede se o usuário CONSEGUE chegar até ele. Um sistema pode ter
+100% dos motores verdes e 0% de uso, e as guardas ficam todas verdes. A cobertura
+de produto é outra coisa: quantos toques até a tarefa terminar, quanto tempo
+para 500 linhas, o que acontece quando a pessoa abandona no meio. Isso não sai de
+uma guarda pura — sai de dirigir o fluxo (`npm run fluxos`, a ONDA 12) e de
+cronometrar. O Bloco D só fecha quando a fila 1-a-1 for medida a 500 linhas em
+menos de 10 minutos, não quando o motor passar no teste.
+
+**O que a Fatia 2 fez (mecânica, sem UX):** unificou os dois formatos —
+`.xlsx` entra pelo mesmo pipeline do extrato, o `/dashboard/financial/import`
+depreciou com redirect permanente (A4P-040 fechado). **A fila 1-a-1 (a UX que
+importa) fica para uma leva própria, com briefing de UX antes** — construída às
+cegas no fim de uma sessão longa, passaria no teste e continuaria ruim de usar.
