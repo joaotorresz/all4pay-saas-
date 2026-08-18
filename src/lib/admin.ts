@@ -12,10 +12,22 @@ export interface AdminOverview {
   orgs: number; orgs_ativas: number; trials: number; inadimplentes: number;
   usuarios: number; usuarios_ativos: number; mrr: number; arr: number;
 }
-export type SubStatus = "trial" | "active" | "past_due" | "canceled";
+/**
+ * ⚠️ `"none"` entrou, e não é detalhe de tipagem. A RPC devolvia
+ * `coalesce(s.status, 'trial')`: 14 das 16 organizações sem NENHUMA linha de
+ * assinatura apareciam no painel como teste em curso. Ausência de relação
+ * comercial não é teste — é a mesma doença do zero que ocupa o lugar da
+ * ausência (ONDA 4), e aqui ela escondia exatamente o alerta que a Etapa D
+ * existe para acender.
+ */
+export type SubStatus = "trial" | "active" | "past_due" | "canceled" | "none";
 export interface AdminOrg {
   orgId: string; nome: string; criado: string; membros: number;
   plano: string; status: SubStatus; mrr: number; ultimoMov: string | null; movimentos: number;
+  /** `YYYY-MM-DD` do fim do período corrente. Nulo = sem prazo. */
+  expira: string | null;
+  /** Teto de lançamentos declarado pelo plano; nulo quando o plano não declara. */
+  limiteLancamentos: number | null;
 }
 export interface AdminUser { userId: string; email: string; criado: string; ultimoAcesso: string | null; orgs: number }
 export interface AdminPlan { id: string; name: string; priceMonth: number; active: boolean; assinantes: number }
@@ -27,11 +39,11 @@ const DEMO_PLANS: AdminPlan[] = [
   { id: "pl-ent", name: "Enterprise", priceMonth: 990, active: true, assinantes: 3 },
 ];
 const DEMO_ORGS: AdminOrg[] = [
-  { orgId: "o1", nome: "Açaí do Porto Ltda", criado: "2026-02-11", membros: 4, plano: "Pro", status: "active", mrr: 349, ultimoMov: "2026-06-22", movimentos: 1280 },
-  { orgId: "o2", nome: "Studio Marcenaria", criado: "2026-03-02", membros: 2, plano: "Starter", status: "active", mrr: 149, ultimoMov: "2026-06-20", movimentos: 642 },
-  { orgId: "o3", nome: "Clínica Vida", criado: "2026-04-18", membros: 6, plano: "Enterprise", status: "active", mrr: 990, ultimoMov: "2026-06-23", movimentos: 3104 },
-  { orgId: "o4", nome: "Bistrô da Praça", criado: "2026-05-09", membros: 3, plano: "Pro", status: "past_due", mrr: 349, ultimoMov: "2026-06-01", movimentos: 410 },
-  { orgId: "o5", nome: "TechParts Imports", criado: "2026-06-15", membros: 1, plano: "—", status: "trial", mrr: 0, ultimoMov: "2026-06-23", movimentos: 88 },
+  { orgId: "o1", nome: "Açaí do Porto Ltda", criado: "2026-02-11", membros: 4, plano: "Pro", status: "active", mrr: 349, ultimoMov: "2026-06-22", movimentos: 1280, expira: null, limiteLancamentos: 5000 },
+  { orgId: "o2", nome: "Studio Marcenaria", criado: "2026-03-02", membros: 2, plano: "Starter", status: "active", mrr: 149, ultimoMov: "2026-06-20", movimentos: 642, expira: null, limiteLancamentos: 500 },
+  { orgId: "o3", nome: "Clínica Vida", criado: "2026-04-18", membros: 6, plano: "Enterprise", status: "active", mrr: 990, ultimoMov: "2026-06-23", movimentos: 3104, expira: null, limiteLancamentos: null },
+  { orgId: "o4", nome: "Bistrô da Praça", criado: "2026-05-09", membros: 3, plano: "Pro", status: "past_due", mrr: 349, ultimoMov: "2026-06-01", movimentos: 410, expira: null, limiteLancamentos: null },
+  { orgId: "o5", nome: "TechParts Imports", criado: "2026-06-15", membros: 1, plano: "—", status: "trial", mrr: 0, ultimoMov: "2026-06-23", movimentos: 88, expira: "2026-06-29", limiteLancamentos: null },
 ];
 const DEMO_USERS: AdminUser[] = [
   { userId: "u1", email: "joao@acaidoporto.com", criado: "2026-02-11", ultimoAcesso: "2026-06-23", orgs: 1 },
@@ -72,8 +84,10 @@ export async function getAdminOrgs(): Promise<AdminOrg[]> {
   if (error) throw error;
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
     orgId: String(r.org_id), nome: String(r.nome ?? "—"), criado: String(r.criado ?? ""), membros: Number(r.membros ?? 0),
-    plano: String(r.plano ?? "—"), status: (r.status as SubStatus) ?? "trial", mrr: Number(r.mrr ?? 0),
+    plano: String(r.plano ?? "—"), status: (r.status as SubStatus) ?? "none", mrr: Number(r.mrr ?? 0),
     ultimoMov: r.ultimo_mov ? String(r.ultimo_mov) : null, movimentos: Number(r.movimentos ?? 0),
+    expira: r.expira ? String(r.expira) : null,
+    limiteLancamentos: r.limite_lancamentos == null ? null : Number(r.limite_lancamentos),
   }));
 }
 

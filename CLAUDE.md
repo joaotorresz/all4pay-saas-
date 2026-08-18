@@ -1543,6 +1543,109 @@ repositório — dívida aberta, não exceção permanente*. Sem dono e sem praz
 vença, a dívida vira paisagem, que é como as 29 divergências de esquema
 chegaram até aqui.
 
+### ⚠️ ETAPA D — O PRODUTO NÃO TINHA COBRANÇA, e não era "cobrança fraca"
+
+**Medido em produção, 18/08/2026.** 16 organizações · **2** com assinatura ·
+**14 com NENHUMA linha** em `subscriptions` — nem trial. Não é que o teste delas
+venceu: **nunca houve relógio**. E as duas que existem estavam com
+`current_period_end` NULO, ou seja, sem data de fim também. A coluna existia e
+estava INERTE — a mesma família do `competence_date` que o DRE não lia.
+
+| O que | Medido |
+| --- | --- |
+| Organizações | 16 |
+| Com assinatura | 2 (1 `active` R$990 · 1 `trial` sem prazo) |
+| MRR real | **R$ 990,00** (o número antigo se confirma) |
+| Lançamentos em organização que não paga | **1.402 de 1.415 — 99,1%** |
+| A única que paga | **ZERO lançamentos** desde 10/08 |
+| Planos com teto declarado | 0 de 3 (`features = '{}'`) |
+
+⚠️ **E o painel do administrador AFIRMAVA um teste que não existia.**
+`admin_orgs()` devolvia `coalesce(s.status, 'trial')` e a tela caía em
+`STATUS[1]` — "Trial" — quando o status não casava. As 14 organizações sem
+relação comercial nenhuma apareciam como teste em curso, com conversão
+esperada. Ausência tem de aparecer como ausência (ONDA 4), e aqui ela escondia
+exatamente o alerta que a Etapa D existe para acender. Consertado nas DUAS
+pontas — RPC e tela —, porque consertar uma só deixa a outra mentindo.
+
+⚠️ **O prazo conta de HOJE, não da criação.** Contar 14 dias da data de criação
+deixaria as 16 organizações vencidas no instante do deploy (a mais nova é de
+15/06), inclusive a de 677 lançamentos. Seria punir o cliente por um defeito
+nosso: o relógio não existia, e ninguém pode perder acesso por causa de um prazo
+que só passou a existir agora.
+
+⚠️ **`active` sem data de fim FICA sem data de fim.** Inventar um vencimento
+para quem paga criaria um bloqueio que o sistema não sabe resolver — não há
+integração de pagamento que renove a data, e o cliente seria cortado num dia
+arbitrário por falta de uma engrenagem que não existe. Pendência declarada na
+migration: enquanto não houver cobrança recorrente de verdade, `active` é
+permanente.
+
+**BLOQUEIO SUAVE — a escrita para, a leitura NUNCA.** Vencido é quem parou de
+pagar, não quem parou de existir: consultar, filtrar, imprimir e exportar
+continuam inteiros; só registrar coisa nova para. O dado é da empresa, e
+esconder o arquivo de quem atrasou transforma cobrança em sequestro. Quem
+regulariza volta a escrever no mesmo instante, sem restaurar nada — e a guarda
+cobra isso explicitamente, porque se voltar exigisse migração de dado o bloqueio
+teria destruído estado e "suave" seria só o nome.
+
+- Quem AUTORIZA é o banco (`org_pode_escrever()` + políticas **restritivas** em
+  `movements`, `movement_splits`, `sales_docs`, `recurrences`). A tela apenas
+  APRESENTA — confiar nela para liberar repetiria o Modo Pro cortina.
+- `org_state` fica **de fora** de propósito: ali moram preferência de tela e
+  estado de interface, e travá-lo faria o app parecer QUEBRADO em vez de
+  vencido, que é o oposto de uma mensagem que explica.
+- **A borda que decide:** vencer é `fim < hoje`, nunca `fim <= hoje`. Com `<=`,
+  um teste de 14 dias dura 13 — defeito que ninguém reporta, porque parece só
+  um dia.
+
+**RECONCILIAÇÃO COBRANÇA × USO** (`reconciliarBilling`, no `/admin`). Os três
+alertas ficam SEPARADOS porque mandam fazer coisas opostas: *usa e não paga* é
+receita vazando · *paga e não usa* é cliente prestes a cancelar (ligue ANTES) ·
+*acima do teto* é conversa de upgrade, **nunca corte**. Um contador único
+"7 alertas" apagaria o que decide a ação. ⚠️ E "usa sem plano" é USO sem
+cobrança, não organização sem linha: uma conta recém-criada e vazia não é
+vazamento — sem esse corte, 14 falsos alertas e a tela deixa de ser lida.
+
+⚠️ **O teto do plano precisou existir para o alerta existir.** Medido: os três
+planos tinham `features = '{}'`. Sem teto declarado, "uso acima do limite" é uma
+tela que nunca acende — pior que não ter a tela.
+
+### ⚠️ A4P-032 — "97%" É O TETO DA FÓRMULA, NÃO UMA MEDIDA
+
+**Confirmado por medição**, e o achado é maior que o relatado. O resumo
+executivo do fluxo de caixa publica "Chance de ruptura" e "Financial Score" em
+dois cartões **sem nenhum `info`**, e o `QuantView` inteiro — a casa do score —
+não tinha **um** `InfoHint`.
+
+⚠️ **A última linha de `risk-engine/score.engine.ts` é
+`Math.min(0.97, Math.max(0.02, p))`.** Com ruptura projetada para hoje,
+`p = 1 − 0/60 = 1` e a tela imprime **97%**. É a saturação do cálculo lida como
+se fosse a grandeza — exatamente o `RUNWAY_CAP_DIAS` da ONDA 4, que exibiu "33
+meses de fôlego" ao lado de burn zero. **Um teto que não se declara vira
+medida.**
+
+⚠️ **E há TRÊS números, de dois motores, com rótulos quase iguais.** A chance de
+ruptura do fluxo de caixa e da tela de risco sai do `risk-engine` (8 pilares,
+**60 dias**); a "Prob. ruptura (90d)" do `/inteligencia` sai do `quant`, por
+outra fórmula, sobre **90 dias**; e o Financial Score ao lado da primeira é do
+`quant` (7 pilares). Duas telas respondiam "qual a chance de o caixa quebrar"
+com contas que não têm por que coincidir, e nenhuma dizia qual estava
+respondendo — a família POSIÇÃO × FLUXO da ONDA 1.
+
+**`src/core/metodologia`** (`metodologia/1.0.0`) é a fonte única: por indicador,
+os componentes com PESO, a janela, a escala, a fórmula, o motor **com versão**,
+a saturação e — no mesmo cartão, com o mesmo peso — **o que o número NÃO
+enxerga**. Metodologia que só lista o que o modelo vê é propaganda.
+
+- O `InfoHint` dos cartões e a aba **Metodologia** da Central de Ajuda LEEM
+  daqui. Texto à mão envelhece na primeira mudança de fórmula e passa a
+  descrever um cálculo que não existe — há guarda exigindo o consumo.
+- `avisoDeSaturacao` devolve a frase **só** no valor saturado. Marcar sempre é
+  não marcar nunca (a regra do selo de procedência).
+- O rótulo da tela de risco ganhou o horizonte: **"Prob. de ruptura (60d)"**.
+  Sem ele, os dois números pareciam um indicador discordando de si mesmo.
+
 ### ⚠️ TESTE DE CONTRATO NÃO IMPORTA A FUNÇÃO QUE ELE AUDITA
 
 **Um teste que compara "a string que a pessoa lê" usando o MESMO formatador do

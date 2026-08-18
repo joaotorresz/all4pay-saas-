@@ -21,6 +21,7 @@ import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
 import { janela as fazJanela } from "@/core/indicadores";
 import { formatBRL as fmtBRL } from "@/lib/format";
+import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -259,8 +260,31 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
         : <span>{r.runway.valor.toFixed(0)} <span className="text-caption text-faint">meses</span></span>,
       tone: "ink",
     },
-    { label: "Chance de ruptura", node: <span>{pct(r.chanceRuptura)}</span>, tone: r.chanceRuptura > 0.2 ? "negative" : r.chanceRuptura > 0.08 ? "warning" : "positive" },
-    { label: "Financial Score", node: <span>{Math.round(r.score)}<span className="text-caption text-faint">/100</span></span>, tone: "ink" },
+    /*
+     * ⚠️ **A4P-032 — os dois cartões abaixo publicavam número de MODELO sem
+     * metodologia nenhuma**, um ao lado do outro, com cara de rating. E vêm de
+     * MOTORES DIFERENTES: a chance de ruptura é do `risk-engine` (8 pilares,
+     * horizonte de 60 dias) e o score é do `quant` (7 pilares). Quem lê a tela
+     * não tinha como saber, e a leitura intuitiva — "duas faces da mesma
+     * conta" — está errada. O `info` sai de `core/metodologia`, com peso,
+     * janela e versão de modelo.
+     */
+    {
+      label: "Chance de ruptura",
+      node: <span>{pct(r.chanceRuptura)}</span>,
+      tone: r.chanceRuptura > 0.2 ? "negative" : r.chanceRuptura > 0.08 ? "warning" : "positive",
+      info: infoDaMetodologia("chance-ruptura"),
+      // ⚠️ O teto DECLARA que é teto. `Math.min(0.97, …)` no motor: quando a
+      // ruptura está projetada para hoje, sai 0,97 — e "97% de chance" lido
+      // como medida é o mesmo defeito do "33 meses de fôlego" da ONDA 4.
+      nota: avisoDeSaturacao("chance-ruptura", r.chanceRuptura),
+    },
+    {
+      label: "Financial Score",
+      node: <span>{Math.round(r.score)}<span className="text-caption text-faint">/100</span></span>,
+      tone: "ink",
+      info: infoDaMetodologia("score-saude"),
+    },
   ];
   const cor: Record<string, string> = {
     ink: "var(--color-ink)", positive: "var(--color-positive)", negative: "var(--color-negative)", warning: "var(--color-warning)",
@@ -268,13 +292,18 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((c) => (
-        <Card key={c.label} className="flex flex-col gap-1">
+        <Card key={c.label} className="flex flex-col gap-1" info={"info" in c ? c.info : undefined}>
           <span className="text-caption text-faint">{c.label}</span>
           <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: cor[c.tone] }}>{c.node}</span>
           {/* A janela só aparece onde ela DISTINGUE: marcar todos os cartões
               seria não marcar nenhum, a mesma regra do selo de procedência. */}
           {"janela" in c && c.janela ? (
             <span className="text-[11px] leading-tight text-faint">{c.janela}</span>
+          ) : null}
+          {/* ⚠️ A nota do TETO fica no cartão, não escondida no "i": quem só
+              passa o olho é justamente quem levaria o 97% como medida. */}
+          {"nota" in c && c.nota ? (
+            <span className="text-[11px] leading-tight text-warning">{c.nota}</span>
           ) : null}
         </Card>
       ))}
