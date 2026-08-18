@@ -4813,9 +4813,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const imp = { valor: 4300, data: "2024-01-31" };
   const inf = { valor: 999, data: "2024-02-02", por: "Ana" };
   ok("abertura: importada VENCE informada",
-     escolherAbertura({ importada: imp, informada: inf })?.fonte === "importada");
+     escolherAbertura({ importada: imp, informada: inf })?.origem === "extrato_bancario");
   ok("abertura: só informada → informada (com o nome de quem confirmou)",
-     escolherAbertura({ informada: inf })?.fonte === "informada"
+     escolherAbertura({ informada: inf })?.origem === "cadastro_manual"
      && escolherAbertura({ informada: inf })?.por === "Ana");
   ok("abertura: nenhuma fonte → null (NÃO CONFERIDO)",
      escolherAbertura({}) === null && escolherAbertura({ importada: null, informada: null }) === null);
@@ -4848,7 +4848,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("abertura: montarDataset — saldo da conta = LEDGERBAL",
      ds.accounts[0]?.balance === 5000);
   ok("abertura: montarDataset — abertura reconstruída = 4300, fonte importada",
-     ds.abertura?.valor === 4300 && ds.abertura?.fonte === "importada");
+     ds.abertura?.valor === 4300 && ds.abertura?.origem === "extrato_bancario");
   ok("abertura: 4300 NÃO é o valor de nenhuma transação (não veio da 1ª linha)",
      !rep.records.some((r) => Math.abs(r.valor - (ds.abertura?.valor ?? 0)) < 0.005));
 
@@ -4885,7 +4885,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // 6) A abertura importada persiste no dataset e volta pelo leitor.
   setImported({ ...ds, criadoEm: new Date().toISOString() });
   ok("abertura: importedAbertura devolve a abertura gravada",
-     importedAbertura()?.valor === 4300 && importedAbertura()?.fonte === "importada");
+     importedAbertura()?.valor === 4300 && importedAbertura()?.origem === "extrato_bancario");
   clearImported();
 
   // 7) ⚠️ A METADE DA TELA. Em produção o saldo declarado pelo banco NÃO tem
@@ -5479,7 +5479,15 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     informada: { valor: 9999, data: "2024-01-01", por: "fulano" },
   });
   ok("blocoD abertura: o saldo do EXTRATO vence o digitado à mão",
-     escolha?.fonte === "importada" && escolha.valor === 3500);
+     escolha?.origem === "extrato_bancario" && escolha.valor === 3500);
+  // ⚠️ A ORIGEM NÃO É COSMÉTICA (A4P-073): uma abertura preenchida SEM origem
+  // é uma âncora anônima — a tela do Razão não pode dizer de onde veio o saldo.
+  // Toda abertura que a cascata devolve carrega origem; a guarda prova.
+  const abInf = escolherAbertura({ informada: { valor: 100, data: "2024-01-01", por: "Ana" } });
+  ok("blocoD abertura: a informada carrega origem 'cadastro_manual'",
+     abInf?.origem === "cadastro_manual");
+  ok("blocoD abertura: NENHUMA abertura com valor sai sem origem",
+     [escolha, abInf].every((a) => !a || (a.valor !== undefined && !!a.origem)));
   void netLiquidado;
 }
 

@@ -122,8 +122,9 @@ export interface RiskInput {
     valor: number;
     /** A data a que o saldo se refere (o dia do primeiro lançamento conhecido). */
     data: string;
-    fonte: "informada" | "importada";
-    /** Quem confirmou (só na fonte "informada"; o banco não tem nome de pessoa). */
+    /** A origem da âncora (A4P-073): banco declarou × alguém digitou. NÃO cosmético. */
+    origem: "extrato_bancario" | "cadastro_manual";
+    /** Quem confirmou (só na origem cadastro_manual; o banco não tem nome). */
     por?: string;
   } | null;
   hoje: string; // ISO
