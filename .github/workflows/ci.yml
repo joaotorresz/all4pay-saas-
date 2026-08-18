@@ -170,6 +170,20 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+      # ⚠️ A PROVA NEGATIVA da guarda de DDL, e ela mora AQUI porque precisa de
+      # um banco de verdade — o gatilho de evento, o `ddl_log` e a leitura da
+      # guarda são três elos, e plantar a linha na lista de objetos só testa o
+      # terceiro. Banco limpo tem de passar; uma tabela criada à mão tem de
+      # reprovar E ser nomeada.
+      #
+      # ⚠️ A sondagem roda no EFÊMERO, nunca em produção (CONTRIBUTING.md): em
+      # produção o objeto some do estado quando se apaga, mas o evento fica no
+      # `ddl_log` para sempre — foi assim que 13 sondagens da auditoria de 18/08
+      # tiveram de ser declaradas nominalmente depois do fato.
+      - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run ddl:prova
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)

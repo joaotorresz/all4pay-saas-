@@ -1493,11 +1493,37 @@ isso não enxerga objeto que nasceu e morreu: quem foi criado à mão e depois
 removido não deixa rastro nenhum no estado. `npm run ddl` lê o `ddl_log`, que é
 EVENTO, e guarda o transiente.
 
+⚠️ **NENHUMA SUBSTITUI A OUTRA, e a troca não é simétrica.** O `objetos` vê a
+deriva fina (uma coluna com o tipo trocado, um `stable` que virou `volatile`) e
+é cego ao transiente; o `ddl` vê o transiente e é cego à deriva fina, porque
+casa por NOME e não por assinatura. Desligar uma delas não deixa o sistema com
+"uma guarda de esquema": deixa com uma metade que não avisa que é metade.
+
 Medido em 18/08, na primeira execução com credencial de verdade: `service_role`
 fechou verde (77 = 77, nenhum grant novo, sumido ou alterado) e o `ddl` acusou
-**17 objetos** — 13 de sondagem, todos já removidos e portanto invisíveis para o
-`objetos`, e 4 do subsistema `own_token_*` que as Edge Functions criam fora do
-repositório. Uma guarda só teria mostrado metade.
+objeto que o `objetos` não tem como enxergar — 13 sondagens já removidas e o
+subsistema `own_token_*` que as Edge Functions criam fora do repositório.
+
+⚠️ **A PRIMEIRA CONTAGEM QUE EU REPORTEI (17) SAIU DE UMA LISTA PARCIAL.**
+Reconsultado o `ddl_log` inteiro — **230 objetos, 203 núcleos** — a guarda
+acusava **52**, e 52 dos 52 eram objeto LEGÍTIMO: 39 índices `*_lixeira_idx` e
+13 `*_pkey`/`*_key`. Nenhum aparece por escrito em migration nenhuma, e não por
+descuido — os primeiros nascem de um laço que COMPÕE o nome em tempo de
+execução (`format('%I', r.t || '_lixeira_idx')`) e os segundos são batizados
+pelo próprio Postgres a partir de um `primary key` no `create table`. Casar nome
+literal não tem como ver nenhum dos dois.
+
+⚠️ **NOME DERIVADO NÃO É NOME ÓRFÃO.** Um nome com forma de índice/constraint
+vale pela maior RAIZ que alguma migration mencione (`movements_lixeira_idx` →
+`movements`). O custo fica declarado: índice criado à mão SOBRE tabela conhecida
+passa por essa porta — e é justamente o território do `objetos`, que mede estado
+e vê objeto a mais. É o par funcionando: cada uma cobre o ponto cego da outra.
+
+⚠️ E a lição de método, que é a mesma de sempre: **eu declarei
+`own_token_cache_pkey` como sondagem.** Ele nunca foi sondagem — é o índice
+implícito da tabela que já estava no bloco de dívida. Declarar o SINTOMA teria
+enterrado o defeito: com ele na lista, a guarda ficava verde sobre a lista
+parcial e continuava acusando 52 na lista real.
 
 ⚠️ **A DECLARAÇÃO É NOMINAL, NUNCA POR JANELA.** A guarda aceita `--dias`, e
 usá-lo para silenciar a sondagem já registrada deixaria a guarda cega para a
