@@ -136,6 +136,18 @@ export interface DREFiltro {
   de: string; // ISO
   ate: string; // ISO
   periodoLabel: string;
+  /**
+   * A linha DECLARADA de cada categoria (chave em minúsculas), vinda do plano
+   * de contas.
+   *
+   * ⚠️ Existe aqui pelo mesmo motivo que existe em `FiltroRelatorio`: sem ela o
+   * CARTÃO executivo e a TABELA do relatório davam números diferentes para a
+   * mesma empresa. Medido na matriz cartão × tabela: R$ 25.000,00 de diferença
+   * — o valor exato de uma transferência declarada que só uma das duas cascatas
+   * reconhecia. O cartão publicava faturamento inflado por dinheiro que apenas
+   * trocou de bolso.
+   */
+  linhaPorCategoria?: Record<string, string>;
 }
 
 export interface DREReport {

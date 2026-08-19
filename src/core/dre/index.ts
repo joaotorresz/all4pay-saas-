@@ -104,7 +104,7 @@ export function financialDRE(input: RiskInput, filtro?: DREFiltro): DREReport {
   const f = filtro ?? periodoPreset(input.hoje, "12m");
   const movs = movimentosNoPeriodo(input, f.regime, f.de, f.ate);
 
-  const gerencial = dreGerencial(movs, f.regime);
+  const gerencial = dreGerencial(movs, f.regime, f.linhaPorCategoria);
   const financeiro = dreFinanceiro(input, f.de, f.ate);
   const comparativo = dreComparativo(input, f.regime);
   const porCliente = drePorCliente(input, movs);

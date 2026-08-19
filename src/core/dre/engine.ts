@@ -5,6 +5,11 @@
  * cliente, por linha, comparativo, projetado).
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+// ⚠️ Só a CONSTANTE, e é de propósito: a declaração de transferência tem de
+// ter um dono só. Duas cópias da mesma palavra divergem no primeiro ajuste, e
+// aí uma cascata tira o movimento e a outra não — que é o defeito que este
+// import corrige.
+import { LINHA_TRANSFERENCIA } from "@/core/relatorios";
 import { calcularBurnRate } from "@/core/risk-engine/burn.engine";
 import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
 import { motorPreditivo } from "@/core/executive/forecast";
@@ -122,7 +127,30 @@ function agregar(movs: RiskMovement[]): Agg {
  *
  * ⚠️ **`regime` é obrigatório e sem padrão.** Ver `FiltroCascata`.
  */
-export function dreGerencial(movs: RiskMovement[], regime: Regime): DREGerencial {
+/**
+ * ⚠️ **`linhaPorCategoria` NÃO é enfeite: sem ele o cartão executivo discordava
+ * da tabela logo abaixo, em R$ 25.000,00 na fixture.**
+ *
+ * `core/relatorios` reconhece a declaração `transferencia` — a AUSÊNCIA de
+ * linha, dita — e tira o movimento do relatório inteiro. Esta cascata não a
+ * conhecia, então a mesma transferência entrava como RECEITA BRUTA na entrada e
+ * como DESPESA OPERACIONAL na saída. O cartão publicava um faturamento inflado
+ * por dinheiro que só trocou de bolso, exatamente acima de uma tabela que
+ * mostrava o número certo.
+ *
+ * Medido com a matriz cartão × tabela (`npm run travar`): tabela R$ 170.000,50
+ * · cartão R$ 195.000,50 · diferença R$ 25.000,00 — o valor exato da
+ * transferência declarada.
+ */
+export function dreGerencial(
+  movs: RiskMovement[], regime: Regime,
+  linhaPorCategoria?: Record<string, string>,
+): DREGerencial {
+  if (linhaPorCategoria) {
+    movs = movs.filter(
+      (m) => linhaPorCategoria[(m.category ?? "").trim().toLowerCase()] !== LINHA_TRANSFERENCIA,
+    );
+  }
   const datas = movs.map((m) => (refDate(m, regime) || "").slice(0, 10)).filter(Boolean).sort();
   const intervalo = datas.length
     ? { de: datas[0], ate: datas[datas.length - 1] }

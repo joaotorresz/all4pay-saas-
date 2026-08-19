@@ -202,6 +202,52 @@ jobs:
         run: npm run ddl:prova
 
   # ═══════════════════════════════════════════════════════════════════════════
+  # ETAPA F — O SMOKE AUTENTICADO: a tela ABRE, e abre sem vazar implementação
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ Todas as outras guardas do `verify` medem NÚMERO; nenhuma monta um
+  # componente. Um motor perfeito e uma página que quebra no primeiro render
+  # passam por todas — e é o que o cliente vê primeiro. Este job serve o build
+  # de produção em modo demonstração e visita TODAS as rotas publicadas: erro
+  # de runtime, tela em branco e `undefined`/`NaN`/`[object Object]` na prosa
+  # reprovam, com a rota nomeada.
+  #
+  # ⚠️ Job separado do `verify` porque precisa do app SERVIDO (build + start +
+  # Chromium); pendurado lá, a suíte de cada commit dobraria de custo, e guarda
+  # cara é guarda que alguém desliga. Roda no gate de PR — e o deploy sai do
+  # `main`, então bloquear o merge É bloquear o deploy.
+  smoke-rotas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install deps
+        run: npm ci
+      # ⚠️ O download do navegador é um passo EXPLÍCITO, não o postinstall.
+      # Medido na primeira execução: o `npm ci` sozinho deixou o runner sem o
+      # headless shell e o job caiu com "Executable doesn't exist" — reprovando
+      # por infraestrutura, que é o começo de ignorar as reprovações reais.
+      # `--with-deps` traz as bibliotecas de sistema que o Chromium exige no
+      # runner limpo.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Build (modo demonstração)
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: npm run build
+      - name: Servir e varrer as rotas
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: |
+          npx next start -p 3100 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:3100/login && break; sleep 2; done
+          ALVO=http://127.0.0.1:3100 node scripts/smoke-rotas.mjs
+
+  # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
   # ═══════════════════════════════════════════════════════════════════════════
   #
