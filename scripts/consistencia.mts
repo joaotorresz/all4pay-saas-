@@ -3525,6 +3525,46 @@ const AGOSTO = janelaMes(2026, 7);
        !!rows && /\borigem\s*:/.test(rows[0]));
   }
 
+  /* ---- A4P-077: o webhook da OWN, endurecido no que não depende dela ------ */
+  {
+    const wh = ler("supabase/functions/own-webhook/index.ts");
+    // ⚠️ Comentários fora ANTES da busca: este arquivo EXPLICA o defeito citando
+    // o nome da variável que o causou, e uma guarda que reprova a documentação
+    // da correção treina quem a lê a ignorá-la.
+    const codigo = wh.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+    ok("a4p077: o webhook não lê segredo da query string",
+       !/searchParams\.get\(\s*["']secret["']\s*\)/.test(codigo) &&
+       !/OWN_WEBHOOK_SECRET/.test(codigo),
+       "o ?secret= voltou — query string vaza em log, proxy e Referer");
+
+    ok("a4p077: o segredo é comparado em tempo constante",
+       /igualEmTempoConstante\(/.test(codigo) && !/atob\(h\.slice\(6\)\)\s*===/.test(codigo));
+
+    // ⚠️ **A POSIÇÃO É MEDIDA DENTRO DO HANDLER, não no arquivo.** A primeira
+    // versão comparava `indexOf("origemBloqueada(")` no arquivo inteiro — e o
+    // nome aparece antes de tudo, na DEFINIÇÃO da função. A asserção passava
+    // com a chamada em qualquer lugar: media a definição, não o call site.
+    // Descoberto plantando o defeito e vendo a guarda NÃO falhar.
+    const handler = codigo.slice(codigo.indexOf("Deno.serve("));
+    const iLimite = handler.indexOf("origemBloqueada(origem)");
+    const iCorpo = handler.indexOf("await req.text()");
+    ok("a4p077: o limite por origem é cobrado ANTES de ler o corpo",
+       iLimite >= 0 && iCorpo >= 0 && iLimite < iCorpo,
+       `limite=${iLimite} corpo=${iCorpo}`);
+    ok("a4p077: só a tentativa que FALHA é contada (tráfego legítimo não paga)",
+       /registrarFalha\(/.test(codigo));
+
+    ok("a4p077: o caminho HMAC existe e assina corpo + timestamp",
+       /crypto\.subtle\.sign\("HMAC"/.test(codigo) && /x-own-timestamp/.test(codigo));
+    ok("a4p077: o HMAC desliga por AUSÊNCIA de segredo (não por flag solta)",
+       /OWN_WEBHOOK_HMAC_SECRET/.test(codigo) && /if \(!segredo\) return null/.test(codigo));
+    ok("a4p077: a assinatura tem janela de replay (não vale para sempre)",
+       /5 \* 60_000|300_000/.test(codigo));
+    ok("a4p077: o HMAC assina os BYTES recebidos, não um objeto reserializado",
+       /await req\.text\(\)/.test(codigo));
+  }
+
   /* ---- O ESCRITOR MORTO: gravar onde, em produção, ninguém lê ------------- */
   {
     /**
