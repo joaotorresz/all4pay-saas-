@@ -15,6 +15,14 @@ import {
 } from "@/core/central";
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
 import { refinarDocumento, podeVincularContraparte } from "@/core/compras/refino";
+import {
+  conciliar as conciliarExtrato, saude as saudeConcil, fila as filaConcil, TOLERANCIA_EXATA,
+} from "@/core/conciliacao";
+import {
+  montarFila as montarFilaIngestao, estadoVazio, loteDe, corrigir as corrigirFila,
+  decidir as decidirFila, aplicarLote, progresso as progressoFila, corrigirIguais,
+  proximoPendente, anterior as anteriorFila, paraGravar,
+} from "@/core/ingestao/fila";
 import { extrairCampos } from "@/lib/ocr-local";
 import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
@@ -5415,6 +5423,223 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
     ],
   );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 3 · CONCILIAÇÃO — nada casa duas vezes, e a tolerância é declarada
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    const E = (id: string, data: string, valor: number) => ({ id, data, valor, descricao: id });
+    const T = (id: string, data: string, valor: number, tipo: "entrada" | "saida" = "saida") =>
+      ({ id, data, valor, tipo, descricao: id });
+
+    // ⚠️ A INVARIANTE PRIMEIRA: nenhum id em dois matches. Casar o mesmo
+    // lançamento com dois títulos dobra a baixa — dois títulos quitados por um
+    // dinheiro só, e o saldo descola do banco pelo valor do segundo.
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão tinha UMA linha de
+    // extrato e dois títulos — e o laço cria no máximo um match por linha,
+    // então a proteção de reuso nem era exercitada: desligá-la não fazia a
+    // asserção falhar. Aqui são DUAS linhas iguais disputando UM título: sem a
+    // trava, as duas o consomem e o título fica quitado duas vezes.
+    const r1 = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100)],
+    );
+    const idsT = r1.matches.flatMap((m) => m.tituloIds);
+    const idsE = r1.matches.flatMap((m) => m.extratoIds);
+    ok("concil: duas linhas iguais — o título NÃO é consumido duas vezes",
+       idsT.length === new Set(idsT).size && idsT.length === 1, JSON.stringify(idsT));
+    ok("concil: e a linha do extrato também não se repete",
+       idsE.length === new Set(idsE).size);
+    ok("concil: a linha de extrato que sobrou é DITA, não some", r1.extratoSobrando.length === 1);
+
+    const exato = conciliarExtrato([E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], TOLERANCIA_EXATA);
+    ok("concil: com tolerância ZERO, valores diferentes NÃO casam",
+       exato.matches.length === 0, JSON.stringify(exato.matches));
+    const tolerante = conciliarExtrato(
+      [E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], { dias: 3, centavos: 20 });
+    ok("concil: com tolerância declarada, casa E devolve a diferença",
+       tolerante.matches.length === 1 && Math.abs(tolerante.matches[0].diferenca) === 13,
+       JSON.stringify(tolerante.matches[0]));
+    ok("concil: a tolerância USADA viaja no resultado (a tela mostra)",
+       tolerante.matches[0].tolerancia.centavos === 20 && tolerante.matches[0].tipo === "aproximado");
+
+    const sinal = conciliarExtrato(
+      [E("e1", "2026-08-10", 100)], [T("t1", "2026-08-10", 100, "saida")], { dias: 5, centavos: 500 });
+    ok("concil: sinal oposto não casa nem dentro da tolerância", sinal.matches.length === 0);
+
+    const lote = conciliarExtrato(
+      [E("e1", "2026-08-10", -300)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: um pagamento em lote casa com os DOIS títulos que o somam",
+       lote.matches.length === 1 && lote.matches[0].tipo === "multiplo" &&
+       lote.matches[0].tituloIds.length === 2, JSON.stringify(lote.matches));
+    const partido = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-11", -200)],
+      [T("t1", "2026-08-10", 300)],
+    );
+    ok("concil: um título pago em duas transferências também casa",
+       partido.matches.length === 1 && partido.matches[0].extratoIds.length === 2,
+       JSON.stringify(partido.matches));
+    const naoFecha = conciliarExtrato(
+      [E("e1", "2026-08-10", -305)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: soma que não fecha NÃO vira múltiplo", naoFecha.matches.length === 0);
+
+    // ⚠️ O exato vem ANTES do múltiplo: senão uma soma consumiria o título que
+    // casaria sozinho e certo com outra linha.
+    const ordem = conciliarExtrato(
+      [E("e1", "2026-08-10", -300), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    const exatoDoT1 = ordem.matches.find((m) => m.tituloIds.includes("t1"));
+    ok("concil: o EXATO ganha do múltiplo (t1 casa com e2, não vira soma)",
+       !!exatoDoT1 && exatoDoT1.tipo === "exato" && exatoDoT1.extratoIds[0] === "e2",
+       JSON.stringify(ordem.matches));
+
+    const ts = [T("a", "2025-07-03", 10), T("b", "2026-08-01", 500), T("c", "2026-08-02", 40)];
+    const sd = saudeConcil(ts, new Set(["b"]), "2026-08-19");
+    ok("concil: a fração sai da contagem real (1 de 3)",
+       Math.abs(sd.fracao - 1 / 3) < 1e-9 && sd.conciliados === 1, JSON.stringify(sd));
+    ok("concil: o valor em aberto soma só os NÃO conciliados", sd.valorEmAberto === 50, String(sd.valorEmAberto));
+    ok("concil: o mais antigo pendente é nomeado, com a idade",
+       sd.maisAntigo === "2025-07-03" && sd.diasDoMaisAntigo === 412,
+       `${sd.maisAntigo} ${sd.diasDoMaisAntigo}`);
+
+    const f = filaConcil(ts, new Set<string>());
+    ok("concil: a fila prioriza por VALOR, não por data",
+       f[0].id === "b" && f[2].id === "a", f.map((x) => x.id).join(","));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 2 · a FILA um-a-um (teclado, lote seguro, progresso, retomada)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    const mv = (chave: string, contraparte: string | null, categoria: string, confianca: number,
+                situacao: "nova" | "revisar" | "duplicata_base" = "nova") => ({
+      chave, contaId: null, data: "2026-08-10", valor: 100, tipo: "saida" as const,
+      descritivoBruto: "PIX ENV " + chave, descritivoNormalizado: chave,
+      contraparte, documento: null, origem: "extrato" as const,
+      classificacao: { categoria, natureza: "despesa" as const, confianca, motivo: "teste" },
+      situacao,
+    });
+    const plano = {
+      versao: "x", linhas: [
+        mv("a", "POSTO IPIRANGA", "Combustível", 0.95),
+        mv("b", "POSTO IPIRANGA", "Combustível", 0.95),
+        mv("c", "POSTO IPIRANGA", "Manutenção", 0.95),   // categoria DIVERGE
+        mv("d", "MERCADO LIVRE", "Compras", 0.95),        // contraparte diverge
+        mv("e", "POSTO IPIRANGA", "Combustível", 0.5),    // confiança baixa
+        mv("z", "X", "Y", 0.99, "duplicata_base"),        // não pede decisão
+      ],
+      resumo: {} as never, porCategoria: [], contrapartesNovas: [],
+    } as unknown as Parameters<typeof montarFilaIngestao>[0];
+
+    const fila = montarFilaIngestao(plano);
+    ok("fila: duplicata de base NÃO pede decisão (atenção não se gasta no que não muda nada)",
+       fila.length === 5 && !fila.some((l) => l.chave === "z"), String(fila.length));
+
+    let est = estadoVazio();
+
+    // ⚠️ O caso que a fila existe para impedir: massa atravessando categoria.
+    const lote = loteDe(fila, fila[0], est);
+    ok("fila: o lote pega SÓ mesma contraparte E mesma categoria E confiança alta",
+       lote.chaves.length === 2 && lote.chaves.includes("a") && lote.chaves.includes("b"),
+       JSON.stringify(lote.chaves));
+    ok("fila: a linha de categoria DIVERGENTE fica de fora do lote",
+       !lote.chaves.includes("c"), JSON.stringify(lote.chaves));
+    ok("fila: a de outra contraparte fica de fora", !lote.chaves.includes("d"));
+    ok("fila: a de confiança baixa fica de fora", !lote.chaves.includes("e"));
+
+    // ⚠️ A ÂNCORA duvidosa não arrasta ninguém — dúvida não se propaga com
+    // cara de decisão.
+    const loteFraco = loteDe(fila, fila[4], est);
+    ok("fila: âncora de confiança baixa não forma lote, e DIZ por quê",
+       loteFraco.chaves.length === 0 && !!loteFraco.motivo, JSON.stringify(loteFraco));
+
+    // Correção humana vale confiança total e MUDA quem cabe no lote.
+    est = corrigirFila(est, "e", "Combustível");
+    const lote2 = loteDe(fila, fila[0], est);
+    ok("fila: corrigida à mão, a linha passa a caber no lote (correção vale 1)",
+       lote2.chaves.includes("e"), JSON.stringify(lote2.chaves));
+
+    // ⚠️ A correção alcança as PENDENTES da mesma contraparte — foi ela que
+    // levou 500 linhas de 10,3 min para 3,6 min, medido. Sem ela, 71 das 500
+    // eram a MESMA correção repetida.
+    {
+      let ec = estadoVazio();
+      ec = decidirFila(ec, "b", "confirmada", 1);   // já decidida: não pode mudar
+      ec = corrigirIguais(ec, fila, fila[0], "Frota");
+      ok("fila: a correção alcança as pendentes da MESMA contraparte",
+         ec.correcoes["a"] === "Frota" && ec.correcoes["e"] === "Frota",
+         JSON.stringify(ec.correcoes));
+      ok("fila: NÃO mexe no que já foi decidido (não desfaz decisão da pessoa)",
+         ec.correcoes["b"] === undefined, JSON.stringify(ec.correcoes));
+      ok("fila: NÃO atravessa contraparte (a regra da categoria não se atravessa)",
+         ec.correcoes["d"] === undefined, JSON.stringify(ec.correcoes));
+      // ⚠️ 'c' é da MESMA contraparte e categoria diferente: a correção manual
+      // vale porque a pessoa DISSE qual é — é o oposto da massa automática.
+      ok("fila: alcança a de categoria divergente da mesma contraparte (a pessoa disse)",
+         ec.correcoes["c"] === "Frota");
+    }
+
+    // Progresso: sem base, a estimativa é AUSENTE — não um número inventado.
+    const p0 = progressoFila(fila, est);
+    ok("fila: sem ritmo medido a estimativa é ausente, não um palpite",
+       p0.restanteMs === null && p0.ritmoMs === null, JSON.stringify(p0));
+    ok("fila: progresso conta o total certo", p0.total === 5 && p0.restantes === 5);
+
+    // Com ritmo, a estimativa aparece. Mediana, não média: uma pausa longa não
+    // pode multiplicar a estimativa do resto do lote.
+    let e2 = estadoVazio();
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão tinha UM intervalo
+    // absurdo entre cinco normais — e a MEDIANA já resiste a um outlier
+    // sozinho, então desligar o filtro não mudava nada e a asserção passava
+    // dos dois jeitos. Descoberto plantando o defeito e vendo passar. Aqui são
+    // três pausas contra três decisões: com o filtro a mediana é 1s, sem ele
+    // salta para 600s — e a barra passaria a prometer horas.
+    e2 = { ...e2, marcas: [0, 1000, 2000, 3000, 603_000, 1_203_000, 1_803_000] };
+    const p1 = progressoFila(fila, e2);
+    ok("fila: o intervalo absurdo (pausa) é descartado do ritmo",
+       p1.ritmoMs === 1000, String(p1.ritmoMs));
+    ok("fila: a estimativa é ritmo × restantes",
+       p1.restanteMs === 1000 * p1.restantes, String(p1.restanteMs));
+
+    // Retomada: decidir não perde nada e o próximo pendente é achado.
+    let e3 = estadoVazio();
+    e3 = decidirFila(e3, "a", "confirmada", 10);
+    e3 = decidirFila(e3, "b", "ignorada", 20);
+    ok("fila: o próximo pendente pula o que já foi decidido",
+       fila[proximoPendente(fila, e3, 0)].chave === "c",
+       fila[proximoPendente(fila, e3, 0)]?.chave);
+    ok("fila: voltar nunca passa de zero", anteriorFila(0) === 0 && anteriorFila(3) === 2);
+
+    // ⚠️ Só o CONFIRMADO é gravado — o ignorado não entra, e a correção vai junto.
+    let e4 = estadoVazio();
+    e4 = decidirFila(e4, "a", "confirmada", 1);
+    e4 = decidirFila(e4, "c", "ignorada", 2);
+    e4 = corrigirFila(e4, "a", "Frota");
+    const grava = paraGravar(fila, e4);
+    ok("fila: grava só o confirmado (o ignorado não entra)",
+       grava.length === 1 && grava[0].chave === "a", String(grava.length));
+    ok("fila: a correção acompanha o que vai ser gravado",
+       grava[0].classificacao.categoria === "Frota" && grava[0].classificacao.confianca === 1,
+       JSON.stringify(grava[0].classificacao));
+
+    // Fim de fila devolve -1: voltar ao zero daria trabalho infinito.
+    let e5 = estadoVazio();
+    for (const l of fila) e5 = decidirFila(e5, l.chave, "confirmada", 1);
+    ok("fila: com tudo decidido, não há próximo (-1), e o lote fecha",
+       proximoPendente(fila, e5, 0) === -1);
+    ok("fila: e o progresso fecha em 1", progressoFila(fila, e5).fracao === 1);
+
+    // Aplicar o lote decide TODAS as chaves de uma vez.
+    let e6 = estadoVazio();
+    e6 = aplicarLote(e6, loteDe(fila, fila[0], e6), 1);
+    ok("fila: aplicar o lote confirma as duas de uma vez",
+       progressoFila(fila, e6).feitas === 2, String(progressoFila(fila, e6).feitas));
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // BLOCO 3 · o documento REFINADO — calculado vence adivinhado
   // ─────────────────────────────────────────────────────────────────────────
