@@ -7,6 +7,7 @@ import { Card, Input, Button, Icon, Badge, InfoHint } from "@/components/ui";
 import { loadCompany, fetchCompany, persistCompany, getOrganizationName, type StoredCompany } from "@/lib/company";
 import { listMembers, saveMember, removeMember, type GovMember } from "@/lib/governance";
 import { QualidadeDeDados } from "./QualidadeDeDados";
+import { AlcadaCard } from "./AlcadaCard";
 import { ParticipanteModal, PAPEIS } from "./ParticipanteModal";
 import { isDemo } from "@/lib/demo";
 import { ErroWidget } from "@/components/visao-geral/shared";
@@ -204,6 +205,11 @@ export function ConfiguracoesView({ onToast }: { onToast: (m: string) => void })
               <Chips label="Principais despesas" items={perfil.despesas} />
             </Card>
           )}
+
+          {/* ⚠️ A alçada fica ao LADO da governança de propósito: "quem aprova"
+              e "até quanto" são a mesma decisão partida em duas, e foi tê-las
+              em telas diferentes que deixou o teto virar três moradas. */}
+          <AlcadaCard onToast={onToast} />
 
           {/* Governança · usuários (papel + permissões) */}
           <Card className="flex flex-col gap-3">

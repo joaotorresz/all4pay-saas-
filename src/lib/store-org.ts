@@ -58,6 +58,7 @@ export const CHAVES_ORG = {
   comprovantes: "a4p_comprovantes",
   closeTasks: "a4p_close_tasks",
   posTaxas: "a4p_pos_taxas",
+  centralAlcada: "a4p_central_alcada",
   company: "a4p_company",
   planoContas: "a4p_plano_contas",
   contasBancarias: "a4p_contas_bancarias",
@@ -208,6 +209,7 @@ export const CACHES_LOCAIS: CacheLocal[] = [
 export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_colaboradores: "Colaboradores (folha salarial)",
   a4p_folha_tabelas: "Tabelas legais de INSS e IRRF",
+  a4p_central_alcada: "Alçada de aprovação por papel",
   a4p_orcamentos: "Orçamentos",
   a4p_aprovacoes: "Solicitações e aprovações",
   a4p_reembolsos: "Reembolsos",

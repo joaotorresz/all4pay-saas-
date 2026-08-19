@@ -30,12 +30,6 @@ function permsJson(m: Participante) {
     permissoes: m.permissoes ?? PERM_PADRAO,
   };
 }
-function parseLimite(s?: string): number | null {
-  if (!s) return null;
-  const n = Number(String(s).replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(n) ? n : null;
-}
-
 export async function listMembers(): Promise<GovMember[]> {
   if (isDemo) {
     const c = loadCompany() ?? {};
@@ -59,7 +53,7 @@ export async function listMembers(): Promise<GovMember[]> {
       email: String(r.email ?? ""),
       funcao: String(perms.funcao ?? ""),
       aprovaPagamentos: !!perms.aprovaPagamentos,
-      limite: r.approval_limit != null ? String(r.approval_limit) : "",
+      limite: "", // DEPRECADO: ver central_alcada (alçada por papel)
       papel,
       permissoes: (perms.permissoes as PermissoesUsuario) ?? PERM_PADRAO,
     };
@@ -93,7 +87,13 @@ export async function saveMember(m: GovMember): Promise<void> {
     p_display_name: m.nome || null,
     p_email: m.email || null,
     p_permissions: permsJson(m),
-    p_approval_limit: parseLimite(m.limite),
+    // ⚠️ **DEPRECADA.** `organization_members.approval_limit` nunca teve leitor
+    // e era escrita errada (parseLimite fazia "R$50 mil" virar 50 e "Sem limite"
+    // virar 0). A alçada mora em `central_alcada`, por PAPEL. Mandamos `null` e
+    // o SERVIDOR ignora o parâmetro — a migration
+    // 20260819140000_alcada_morada_unica tirou a gravação de dentro da RPC, que
+    // é o que impede o próximo formulário de reabrir a porta.
+    p_approval_limit: null,
     p_can_cancel: !!m.permissoes?.autonomia,
   });
   if (error) throw new Error(error.message);
