@@ -45,54 +45,29 @@ begin
     return;
   end if;
 
-  -- 1. O SEGREDO — ⚠️ O DONO PRECISA COLAR O VALOR (ver o aviso no topo do lote)
+  -- ⚠️ **O SEGREDO NÃO ENTRA NESTE ARQUIVO — ele é PRÉ-REQUISITO.**
   --
-  -- Tem de ser **o mesmo valor** do `CRON_SECRET` da Vercel: a rota compara
-  -- `Authorization: Bearer <CRON_SECRET>` e devolve 401 quando não bate. Com o
-  -- valor errado o cron roda, toma 401 e **não sincroniza nada** — em silêncio,
-  -- a mesma família que deixou o extrato dois meses parado.
+  -- A versão anterior trazia um placeholder para o dono substituir à mão. Duas
+  -- coisas estavam erradas nisso, e a segunda é a que importa:
+  --   1. exigia lembrar de uma edição, e esquecer era o estado natural — o lote
+  --      foi colado duas vezes sem a troca;
+  --   2. fazia um segredo REAL trafegar por um arquivo de texto, colado num
+  --      editor de SQL. Segredo não anda em arquivo.
   --
-  -- Se o segredo já existir com este nome, nada é sobrescrito.
+  -- Agora ele é criado UMA vez pelo painel (Dashboard → Project Settings →
+  -- Vault → New secret), com o nome exato `cron_secret`, e esta migration
+  -- apenas EXIGE que exista. Sem ele, para aqui com instrução — não agenda nada
+  -- pela metade.
   if not exists (select 1 from vault.secrets where name = 'cron_secret') then
-    execute $sql$
-      select vault.create_secret(
-        'COLE_AQUI_O_MESMO_VALOR_DO_CRON_SECRET_DA_VERCEL',
-        'cron_secret',
-        'Bearer usado pelo pg_cron ao chamar /api/openfinance/sync')
-    $sql$;
-  end if;
-
-  -- ⚠️ **TRAVA ANTI-PLACEHOLDER — o lote INTEIRO reverte se ele não foi trocado.**
-  --
-  -- Sem isto, colar o lote sem a edição obrigatória NÃO dá erro: o segredo entra
-  -- com o texto do placeholder, os jobs são agendados, e só na primeira execução
-  -- a rota compara `Authorization: Bearer <CRON_SECRET>`, não bate, devolve 401
-  -- — e o cron passa a falhar TODO DIA, em silêncio. É a mesma família que
-  -- deixou o extrato dois meses parado: o caminho "funciona" e não produz nada.
-  --
-  -- Erro na hora é sempre melhor que produção errada. Como o lote é um único
-  -- `begin/commit`, esta exceção desfaz TUDO — nada fica pela metade.
-  --
-  -- ⚠️ O token é MONTADO em pedaços (`'COLE_' || 'AQUI'`) de propósito: escrito
-  -- inteiro, ele apareceria DUAS vezes no arquivo e a busca de quem for editar
-  -- acharia a trava junto com o placeholder de verdade. O defeito de "o aviso
-  -- contém o que manda procurar" já aconteceu duas vezes nesta rodada.
-  if exists (
-    select 1 from vault.decrypted_secrets
-     where name = 'cron_secret'
-       and decrypted_secret like ('COLE_' || 'AQUI' || '%')
-  ) then
     raise exception using
       errcode = 'A4P19',
-      message = 'O CRON_SECRET nao foi substituido — o lote foi colado sem a edicao obrigatoria.',
-      hint = 'Abra a ultima migration do lote, ache a string em CAIXA ALTA dentro do bloco que cria o segredo no cofre, e troque pelo valor real do CRON_SECRET (Vercel > projeto all4pay-saas > Settings > Environment Variables). Sem isso o cron roda, toma 401 e nao sincroniza nada, em silencio. Nada foi gravado: a transacao inteira foi desfeita.';
+      message = 'O segredo cron_secret nao existe no cofre.',
+      hint = 'Crie antes de colar o lote: Supabase Dashboard > Project Settings > Vault > New secret, com o NOME exato cron_secret e, como valor, o mesmo CRON_SECRET configurado na Vercel. Sem ele o agendamento nao e criado. Nada foi gravado: a transacao inteira foi desfeita.';
   end if;
 
-  -- 2. OS DOIS HORÁRIOS — 09:00 e 21:00 UTC
-  --
   -- ⚠️ `unschedule` antes de agendar: sem isso, reaplicar criaria um segundo job
   -- com o mesmo propósito — inofensivo pela idempotência do ETL, mas ilegível
-  -- para quem for auditar o agendador. Em bloco porque `cron.unschedule` LANÇA
+  -- para quem auditar o agendador. Em bloco porque `cron.unschedule` LANÇA
   -- quando o job não existe.
   begin execute $sql$ select cron.unschedule('openfinance-sync-manha') $sql$; exception when others then null; end;
   begin execute $sql$ select cron.unschedule('openfinance-sync-noite') $sql$; exception when others then null; end;

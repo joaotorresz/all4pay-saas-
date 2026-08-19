@@ -3707,6 +3707,37 @@ const AGOSTO = janelaMes(2026, 7);
        /org_member_update/.test(mig) && !/set[\s\S]{0,400}approval_limit\s*=/.test(mig));
   }
 
+  /* ---- A4P-078: rota de cron FALHA FECHADA, e a regra é UMA -------------- */
+  {
+    // ⚠️ **A porta que se abre pela ausência.** As quatro rotas de cron traziam
+    // cada uma a sua cópia de `if (secret) { …exige Bearer… }` — sem a variável,
+    // sem exigência. Medido em 19/08: `CRON_SECRET` NÃO existia na Vercel, e as
+    // rotas respondiam a qualquer chamada; a mais antiga desde 09/06.
+    //
+    // ⚠️ Quatro cópias da mesma regra é a razão de o defeito ser quádruplo: quem
+    // escreve a quinta rota copia a vizinha. Teto ZERO — nenhuma rota lê
+    // `CRON_SECRET` por conta própria.
+    const rotas = [
+      "src/app/api/financial-os/run/route.ts",
+      "src/app/api/recorrencias/run/route.ts",
+      "src/app/api/openfinance/sync/route.ts",
+      "src/app/api/notificacoes/teste/route.ts",
+    ];
+    const proprias: string[] = [];
+    for (const r of rotas) {
+      const txt = ler(r).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      if (/process\.env\.CRON_SECRET/.test(txt)) proprias.push(r);
+      if (!/recusaDeCron\(/.test(txt)) proprias.push(`${r} (não usa recusaDeCron)`);
+    }
+    ok("a4p078: teto ZERO — nenhuma rota de cron implementa a própria credencial",
+       proprias.length === 0, proprias.join(" | "));
+
+    const auth = ler("src/lib/cron-auth.ts").replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("a4p078: sem CRON_SECRET a regra RECUSA (503), nunca libera",
+       /if \(!segredo\)/.test(auth) && /status: 503/.test(auth) && !/if \(!segredo\) return null/.test(auth),
+       "a rota voltaria a abrir pela ausência de configuração");
+  }
+
   /* ---- O EXTRATO PRECISA ENTRAR: todo conector tem AGENDAMENTO ----------- */
   {
     // ⚠️ **O achado que motivou esta guarda.** Medido em 19/08: 3 pluggy_items
@@ -3785,8 +3816,12 @@ const AGOSTO = janelaMes(2026, 7);
        /falhas/.test(rota) && /audit_log/.test(rota) &&
        /resultados\.push\(\{ item: id, ok: false/.test(rota),
        "o sync voltou a engolir falha");
-    ok("extrato: o cron é protegido por CRON_SECRET quando definido",
-       /CRON_SECRET/.test(rota) && /Bearer \$\{secret\}/.test(rota));
+    // ⚠️ A asserção antiga cobrava "protegido por CRON_SECRET QUANDO DEFINIDO" —
+    // e o "quando definido" ERA o defeito (A4P-078). A credencial agora vem de
+    // `lib/cron-auth`, que falha fechada, e é o bloco a4p078 que a cobra.
+    ok("extrato: o cron usa a credencial única, que falha fechada",
+       /recusaDeCron\(/.test(rota) && !/process\.env\.CRON_SECRET/.test(rota),
+       "a rota voltou a implementar a própria credencial");
   }
 
   /* ---- O CONTADOR EXTERNO: lê e exporta, não escreve e não vê cobrança ---- */

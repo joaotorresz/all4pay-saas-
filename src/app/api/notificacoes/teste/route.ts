@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recusaDeCron } from "@/lib/cron-auth";
 import { testarWhatsapp, statusNotificacoes } from "@/core/financial-os/notifications.server";
 
 /**
@@ -16,14 +17,21 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function autorizado(req: Request): boolean {
-  const segredo = process.env.CRON_SECRET;
-  if (!segredo) return true; // sem segredo: liberado, mas trava o destino (ver abaixo)
-  return req.headers.get("authorization") === `Bearer ${segredo}`;
+  // ⚠️ A4P-078: a mesma regra das outras rotas de cron, da MESMA fonte. A
+  // versão anterior devolvia `true` sem segredo e se apoiava no anti-relay (o
+  // destino travado em ALERTS_WHATSAPP_TO) como única defesa — mas isso não
+  // impede terceiro nenhum de DISPARAR mensagem e queimar quota. Ausência de
+  // configuração não pode virar permissão.
+  return recusaDeCron(req) === null;
 }
 
 async function executar(to?: string, mensagem?: string) {
-  // Sem CRON_SECRET, força o destino padrão (não aceita número arbitrário).
-  const destino = process.env.CRON_SECRET ? to : undefined;
+  // ⚠️ O anti-relay daqui virou INALCANÇÁVEL com o A4P-078 consertado: sem
+  // `CRON_SECRET` a rota recusa antes de chegar neste ponto, então quem chega
+  // aqui já provou a credencial. Manter o ternário deixaria um ramo morto que a
+  // próxima leitura interpretaria como defesa ainda ativa — e defesa que não
+  // roda é pior que defesa nenhuma, porque conta como uma.
+  const destino = to;
   const resultado = await testarWhatsapp(destino, mensagem);
   return NextResponse.json({ ok: resultado.ok, provedores: statusNotificacoes(), resultado });
 }

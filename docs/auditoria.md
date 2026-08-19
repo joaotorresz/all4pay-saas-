@@ -1757,3 +1757,86 @@ cabeçalho `Authorization` e **não** na query string.
 **A regra:** migration que usa extensão de plataforma (`cron`, `net`, `vault`,
 `http`) é executada contra um banco de verdade em `begin … rollback` ANTES do
 push — e é escrita para pular COM AVISO onde a extensão não existe.
+
+---
+
+## ⚠️ A4P-078 — QUATRO ROTAS DE CRON ABERTAS, pela ausência de uma variável
+
+**Achado do dono, 19/08/2026**, ao criar o `CRON_SECRET`: a busca por "cron" nas
+Environment Variables do projeto `all4pay-saas` devolveu **No Results Found** —
+a variável **nunca existiu**.
+
+**Por que isso abre a porta:** as rotas traziam, cada uma, a sua cópia de
+
+```ts
+const secret = process.env.CRON_SECRET;
+if (secret) { …exige Authorization: Bearer… }
+```
+
+Ou seja: **sem a variável, sem exigência.** Uma rota que só pede credencial
+QUANDO a configuração existe é uma porta que se abre sozinha por esquecimento —
+e o esquecimento é o estado natural de uma variável que ninguém criou.
+
+⚠️ **Não era uma rota: eram QUATRO**, e a mais antiga está aberta desde junho.
+
+| rota | aberta desde | o que responde sem credencial |
+| --- | --- | --- |
+| `/api/financial-os/run` | **09/06/2026** | roda as regras e dispara alertas |
+| `/api/notificacoes/teste` | **10/06/2026** | **envia WhatsApp** (queima quota) |
+| `/api/recorrencias/run` | **01/07/2026** | **cria títulos** no banco |
+| `/api/openfinance/sync` | 19/08/2026 | sincroniza extrato |
+
+⚠️ **QUATRO CÓPIAS DA MESMA REGRA É A RAZÃO DE O DEFEITO SER QUÁDRUPLO.**
+Consertar as quatro à mão deixaria a quinta rota nascer errada, porque quem a
+escreve copia a vizinha. A regra passou a viver em `src/lib/cron-auth.ts`, uma
+só, e há varredura de **teto ZERO**: nenhuma rota lê `CRON_SECRET` por conta
+própria.
+
+**O conserto — falhar FECHADO:** sem a variável, a rota devolve **503**, nunca
+200. E 503 (não 401) porque o problema é de CONFIGURAÇÃO do servidor, não da
+credencial de quem chamou — "não autorizado" mandaria o operador procurar o erro
+no lugar errado.
+
+**Provado quebrando** (`npm run cron-auth`, dentro do `npm test`): os quatro
+casos travados por valor — sem variável **503** · sem bearer **401** · bearer
+errado **401** · bearer certo **200**. Com o defeito antigo restaurado, o
+primeiro devolve **200** e a prova reprova.
+
+**O dono criou a variável e redeployou.** As rotas antigas ficam com a janela de
+exposição registrada acima; não há trilha que permita saber se alguém as chamou.
+
+⚠️ **A regra geral, que vale para toda configuração de segurança:** *ausência de
+configuração nunca pode virar permissão.* O padrão certo é o inverso do que
+estava: sem a variável, recusa tudo — e o erro aparece no primeiro deploy, que é
+quando custa barato.
+
+---
+
+## ⚠️ CLASSE: TEXTO COM CAMPO PARA PREENCHER SEGUE ADIANTE PARECENDO COMPLETO
+
+Duas ocorrências no mesmo dia, uma de cada lado da mesa — e é por isso que vale
+como classe, não como descuido:
+
+1. **O meu placeholder.** O lote trazia
+   `COLE_AQUI_O_MESMO_VALOR_DO_CRON_SECRET_DA_VERCEL` para o dono substituir.
+   Foi colado **duas vezes** sem a troca. Tinha trava (`A4P19`), então o
+   resultado foi um erro e nada gravado.
+2. **O template do dono.** A mensagem que pedia o relatório veio com
+   `Resultado: [cole a mensagem]` e `O CRON_SECRET [ja existia / eu criei
+   agora]` por preencher. Não tinha trava — e, sem medir o banco, eu teria
+   escrito um relatório inteiro sobre um estado que não existia.
+
+⚠️ **O que separa as duas é só a trava.** Um texto que depende de alguém lembrar
+de substituir vai seguir adiante com a lacuna, cedo ou tarde, e ele parece
+completo enquanto segue — que é o que o torna caro.
+
+**As duas saídas, nesta ordem de preferência:**
+1. **Eliminar o campo.** Foi o que o redesenho do vault fez: o segredo deixou de
+   existir no arquivo e virou pré-requisito criado no painel. Sem campo, sem
+   lacuna — e de quebra o segredo parou de trafegar por um arquivo de texto.
+2. **Se o campo tem de existir, ele TRAVA** — falha alto e reverte tudo, nunca
+   segue com o valor de exemplo.
+
+E a regra de leitura que fica para mim: **campo não preenchido é ausência de
+informação, não confirmação.** Diante de um, medir — nunca completar com o que
+parecia provável.
