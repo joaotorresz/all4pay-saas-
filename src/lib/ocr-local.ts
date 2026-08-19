@@ -12,6 +12,7 @@
  */
 
 import type { ItemPdf } from "@/core/fdip/pdf-tabela";
+import { lerChaveNFe } from "@/core/compras/nfe";
 
 export interface CampoConf { campo: string; confianca: number }
 export interface DocExtraido {
@@ -24,6 +25,8 @@ export interface DocExtraido {
   cnpj: string | null;
   cpf: string | null;
   linhaDigitavel: string | null;
+  /** Chave de acesso da NF-e (44 dígitos), só quando o DV confere. */
+  chaveNFe: string | null;
   codigoBarras: string | null;
   chavePix: string | null;
   banco: string | null;
@@ -127,6 +130,25 @@ export function extrairCampos(texto: string, confOcr: number): DocExtraido {
   }
   if (linhaDigitavel) campos.push({ campo: "Linha digitável", confianca: 0.8 });
 
+  // --- Chave de acesso da NF-e: 44 dígitos, distinguida do código de barras ---
+  // ⚠️ **44 dígitos não bastam para dizer que é uma nota**: o código de barras
+  // de um boleto também tem 44. O que separa os dois é o DÍGITO VERIFICADOR da
+  // chave (`lerChaveNFe` só devolve `valido` quando ele fecha) — a mesma lição
+  // do "boleto que não vira CNPJ". Sem esta conferência, o código de barras de
+  // um boleto seria lido como nota e o CNPJ do "emitente" sairia de bytes que
+  // significam outra coisa.
+  let chaveNFe: string | null = null;
+  for (const l of linhas) {
+    for (const m of Array.from(l.matchAll(/\d[\d.\s]{42,}\d/g))) {
+      const so = m[0].replace(/\D/g, "");
+      if (so.length !== 44) continue;
+      const lida = lerChaveNFe(so);
+      if (lida && lida.valido) { chaveNFe = so; break; }
+    }
+    if (chaveNFe) break;
+  }
+  if (chaveNFe) campos.push({ campo: "Chave da NF-e", confianca: 1 });
+
   // --- Chave PIX (heurística: e-mail, ou rótulo "chave") ---
   let chavePix: string | null = null;
   const pixLinha = linhas.find((l) => /chave\s*pix|chave[:\s]/i.test(l));
@@ -157,7 +179,7 @@ export function extrairCampos(texto: string, confOcr: number): DocExtraido {
 
   return {
     tipo, beneficiario, pagador: null, valor, data, vencimento, cnpj, cpf,
-    linhaDigitavel, codigoBarras: null, chavePix, banco, acaoTipo,
+    linhaDigitavel, chaveNFe, codigoBarras: null, chavePix, banco, acaoTipo,
     acao: acaoTipo === "imposto" ? "Agendar pagamento de imposto" : acaoTipo === "entrada" ? "Confirmar recebimento" : "Revisar e classificar",
     categoria: null, confianca, campos,
   };

@@ -7,6 +7,7 @@
  */
 import { analisarImportacao, csvDeLinhas } from "@/core/fdip";
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
+import { refinarDocumento } from "@/core/compras/refino";
 import { ocrLocalImagem, ocrLocalPdf, itensDoPdf, type DocExtraido } from "@/lib/ocr-local";
 import type { DocFields } from "@/lib/upload-doc";
 import type { FDIPReport } from "@/core/fdip/types";
@@ -27,19 +28,39 @@ export async function ocrConfigurado(): Promise<boolean> {
 }
 
 function fieldsFrom(ex: Partial<DocExtraido> & Record<string, unknown>, confDefault = 0.8): DocFields {
+  // ⚠️ **O CALCULADO VENCE O ADIVINHADO.** O OCR já capturava a linha digitável
+  // e a entregava como texto; `lerBoleto` sabia tirar dela valor, vencimento e
+  // banco com os dígitos verificadores conferidos — e não era chamado de lugar
+  // nenhum. O mesmo com a chave da NF-e e o CNPJ do emitente. Aqui os dois
+  // parsers exatos entram no caminho, e um DV que não confere NÃO substitui
+  // nada: um dígito lido errado produz um valor plausível e falso, que é pior
+  // que o palpite honesto do OCR (medido na guarda: 1.234,57 no lugar de
+  // 1.234,56, com confiança 1).
+  const refinado = refinarDocumento({
+    valor: ex.valor != null ? Number(ex.valor) : null,
+    vencimento: (ex.vencimento as string) ?? null,
+    cnpj: (ex.cnpj as string) ?? null,
+    linhaDigitavel: (ex.linhaDigitavel as string) ?? null,
+    chaveNFe: (ex.chaveNFe as string) ?? null,
+    confianca: typeof ex.confianca === "number" ? ex.confianca : confDefault,
+  });
   return {
     tipo: (ex.tipo as string) || "Documento",
     beneficiario: (ex.beneficiario as string) ?? null,
     pagador: (ex.pagador as string) ?? null,
-    valor: ex.valor != null ? Number(ex.valor) : null,
+    valor: refinado.valor.valor,
     data: (ex.data as string) ?? null,
-    vencimento: (ex.vencimento as string) ?? null,
-    cnpj: (ex.cnpj as string) ?? null,
+    vencimento: refinado.vencimento.valor ?? ((ex.vencimento as string) ?? null),
+    cnpj: refinado.cnpj.valor,
     cpf: (ex.cpf as string) ?? null,
     acaoTipo: (ex.acaoTipo as DocFields["acaoTipo"]) ?? null,
     acao: (ex.acao as string) ?? null,
     categoria: (ex.categoria as string) ?? null,
-    confianca: typeof ex.confianca === "number" ? ex.confianca : confDefault,
+    // ⚠️ A confiança do CONJUNTO é a do campo mais fraco, não a média: média
+    // esconde um campo ruim atrás de três bons, e é o ruim que vira lançamento.
+    confianca: refinado.confiancaGeral > 0
+      ? refinado.confiancaGeral
+      : (typeof ex.confianca === "number" ? ex.confianca : confDefault),
   };
 }
 
