@@ -62,6 +62,32 @@ begin
     $sql$;
   end if;
 
+  -- ⚠️ **TRAVA ANTI-PLACEHOLDER — o lote INTEIRO reverte se ele não foi trocado.**
+  --
+  -- Sem isto, colar o lote sem a edição obrigatória NÃO dá erro: o segredo entra
+  -- com o texto do placeholder, os jobs são agendados, e só na primeira execução
+  -- a rota compara `Authorization: Bearer <CRON_SECRET>`, não bate, devolve 401
+  -- — e o cron passa a falhar TODO DIA, em silêncio. É a mesma família que
+  -- deixou o extrato dois meses parado: o caminho "funciona" e não produz nada.
+  --
+  -- Erro na hora é sempre melhor que produção errada. Como o lote é um único
+  -- `begin/commit`, esta exceção desfaz TUDO — nada fica pela metade.
+  --
+  -- ⚠️ O token é MONTADO em pedaços (`'COLE_' || 'AQUI'`) de propósito: escrito
+  -- inteiro, ele apareceria DUAS vezes no arquivo e a busca de quem for editar
+  -- acharia a trava junto com o placeholder de verdade. O defeito de "o aviso
+  -- contém o que manda procurar" já aconteceu duas vezes nesta rodada.
+  if exists (
+    select 1 from vault.decrypted_secrets
+     where name = 'cron_secret'
+       and decrypted_secret like ('COLE_' || 'AQUI' || '%')
+  ) then
+    raise exception using
+      errcode = 'A4P19',
+      message = 'O CRON_SECRET nao foi substituido — o lote foi colado sem a edicao obrigatoria.',
+      hint = 'Abra a ultima migration do lote, ache a string em CAIXA ALTA dentro do bloco que cria o segredo no cofre, e troque pelo valor real do CRON_SECRET (Vercel > projeto all4pay-saas > Settings > Environment Variables). Sem isso o cron roda, toma 401 e nao sincroniza nada, em silencio. Nada foi gravado: a transacao inteira foi desfeita.';
+  end if;
+
   -- 2. OS DOIS HORÁRIOS — 09:00 e 21:00 UTC
   --
   -- ⚠️ `unschedule` antes de agendar: sem isso, reaplicar criaria um segundo job
