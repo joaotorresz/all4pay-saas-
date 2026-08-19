@@ -9,6 +9,7 @@
  * o sistema já assina por SHA-256.
  */
 import * as React from "react";
+import { usePermissoes } from "@/components/app/usePermissoes";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Card, Button, Icon, Input, Select, BRL } from "@/components/ui";
@@ -89,7 +90,20 @@ function diasAtras(n: number): string {
 
 /* ================================ assinatura ================================ */
 
+/**
+ * ⚠️ **COBRANÇA NÃO É PARA TODO MUNDO DENTRO DA EMPRESA.** Medido em 19/08: a
+ * tela de assinatura não perguntava permissão nenhuma, então o `contador_externo`
+ * — um TERCEIRO, de fora da empresa — via plano, valor e vencimento. Ele
+ * responde pelo resultado do mês, não pela relação comercial da empresa com a
+ * gente. A ação `cobranca` existe na matriz e só o `owner` a tem; faltava
+ * alguém PERGUNTAR.
+ *
+ * ⚠️ Isto é APRESENTAÇÃO, não autorização: quem protege o dado é a RLS. Uma
+ * tela escondida é cortina — a mesma lição do Modo Pro. O que ela evita é o
+ * terceiro ver o que não lhe diz respeito ao navegar normalmente.
+ */
 export function AssinaturaView() {
+  const { pode } = usePermissoes();
   const router = useRouter();
   const contas = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const membros = useQuery({ queryKey: ["gov-members"], queryFn: listMembers });
@@ -103,6 +117,23 @@ export function AssinaturaView() {
     setLocal(lerAssinatura());
     setIntegracoes(lerIntegracoes());
   }, []);
+
+  // ⚠️ O gate vem DEPOIS de todos os hooks. A primeira versão retornava cedo,
+  // e um `return` antes de `useRouter`/`useQuery`/`useState` torna os hooks
+  // CONDICIONAIS — o React exige a mesma ordem em todo render. O `next lint`
+  // passou e o BUILD reprovou: são configurações diferentes, e é o build que
+  // vale.
+  if (!pode("cobranca")) {
+    return (
+      <Card className="flex flex-col items-start gap-2">
+        <h2 className="text-h2 m-0">Assinatura</h2>
+        <p className="m-0 text-body text-muted">
+          Plano e cobrança são do titular da empresa. Peça a ele se precisar
+          destes dados.
+        </p>
+      </Card>
+    );
+  }
 
   const usuarios = usuariosDaEmpresa(membros.data ?? [], empresa.data);
 
