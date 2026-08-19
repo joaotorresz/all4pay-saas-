@@ -14,6 +14,8 @@ import {
   type Lancamento, type Aprovador,
 } from "@/core/central";
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
+import { refinarDocumento, podeVincularContraparte } from "@/core/compras/refino";
+import { extrairCampos } from "@/lib/ocr-local";
 import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
@@ -5413,6 +5415,113 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
     ],
   );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 3 · o documento REFINADO — calculado vence adivinhado
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    // Um boleto REAL: linha digitável válida (DV conferido), com valor e
+    // vencimento embutidos. O OCR "leu" um valor DIFERENTE — é o caso que
+    // decide quem vence.
+    // ⚠️ A linha é MONTADA com os DVs corretos, não digitada à mão: um número
+    // inventado tem DV geral inválido, e a primeira asserção abaixo existe
+    // justamente para o caso não passar testando o nada. (Foi ela que pegou a
+    // primeira versão desta fixture.)
+    const fatorB3 = fatorDaData("2026-08-20");
+    const semDVB3 = "3419" + String(fatorB3).padStart(4, "0") + "0000123456" + "1234567890123456789012345";
+    const barrasB3 = semDVB3.slice(0, 4) + dvModulo11(semDVB3.slice(0, 4) + semDVB3.slice(4)) + semDVB3.slice(4);
+    const linha = linhaDeCodigoDeBarras(barrasB3);
+    const b = lerBoleto(linha);
+    ok("bloco3: a linha digitável de teste é válida (senão o caso não testa nada)",
+       !!b && b.valido, b ? b.problemas.join(",") : "não parseou");
+
+    const r = refinarDocumento({ linhaDigitavel: linha, valor: 999.99, confianca: 0.7 });
+    ok("bloco3: o valor do CÓDIGO DE BARRAS vence o do OCR",
+       r.valor.procedencia === "codigo_de_barras" && r.valor.valor === b?.valor,
+       `${r.valor.procedencia} ${r.valor.valor}`);
+    ok("bloco3: e a divergência é RELATADA, não resolvida em silêncio",
+       r.divergencias.some((d) => d.campo === "valor"), JSON.stringify(r.divergencias));
+    ok("bloco3: campo calculado tem confiança 1; o do OCR, menos",
+       r.valor.confianca === 1);
+
+    // ⚠️ DV QUE NÃO CONFERE NÃO É USADO. Um dígito lido errado produz uma linha
+    // PLAUSÍVEL, e dela sai um valor plausível e errado — trocar um palpite
+    // honesto por um número falso com confiança 1 é o pior resultado possível.
+    const quebrada = linha.replace(/\d$/, (d) => String((Number(d) + 1) % 10));
+    const rq = refinarDocumento({ linhaDigitavel: quebrada, valor: 999.99, confianca: 0.7 });
+    ok("bloco3: linha com DV quebrado NÃO substitui o valor do OCR",
+       rq.valor.procedencia === "ocr" && rq.valor.valor === 999.99,
+       `${rq.valor.procedencia} ${rq.valor.valor}`);
+    ok("bloco3: e o boleto não é dado como reconhecido",
+       rq.reconhecido.boleto === false);
+
+    // ⚠️ CNPJ INVÁLIDO (dígito verificador) NÃO amarra contraparte — ligar o
+    // fornecedor errado é defeito que só aparece no fechamento.
+    const ruim = refinarDocumento({ cnpj: "11111111111111", valor: 10 });
+    ok("bloco3: CNPJ com DV inválido perde a confiança",
+       ruim.cnpj.confianca === 0, String(ruim.cnpj.confianca));
+    ok("bloco3: e NÃO pode vincular contraparte",
+       podeVincularContraparte(ruim) === false);
+
+    const bom = refinarDocumento({ cnpj: "11.222.333/0001-81", valor: 10 });
+    ok("bloco3: CNPJ válido por OCR pode vincular",
+       podeVincularContraparte(bom) === true, JSON.stringify(bom.cnpj));
+
+    // ⚠️ A confiança do conjunto é a do campo MAIS FRACO, não a média — média
+    // esconde um campo ruim atrás de três bons, e é o ruim que vira lançamento.
+    //
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão usava um boleto que
+    // dava valor E vencimento com confiança 1: mínimo e média davam o MESMO
+    // número, e trocar um pelo outro no motor não fazia a asserção falhar —
+    // descoberto plantando a média e vendo passar. Aqui o boleto tem fator
+    // 0000 (sem vencimento), então o valor vem do código de barras (1) e o
+    // vencimento do OCR (0,4): mínimo 0,4 × média 0,7.
+    const semVenc = "3419" + "0000" + "0000123456" + "1234567890123456789012345";
+    const barrasSV = semVenc.slice(0, 4) + dvModulo11(semVenc.slice(0, 4) + semVenc.slice(4)) + semVenc.slice(4);
+    const misto = refinarDocumento({
+      linhaDigitavel: linhaDeCodigoDeBarras(barrasSV),
+      vencimento: "2026-09-10", valor: null, confianca: 0.4,
+    });
+    ok("bloco3: o caso discrimina (valor calculado 1 × vencimento do OCR 0,4)",
+       misto.valor.confianca === 1 && misto.vencimento.confianca === 0.4,
+       `${misto.valor.confianca}/${misto.vencimento.confianca}`);
+    ok("bloco3: confiança do conjunto é o MÍNIMO (0,4), não a média (0,7)",
+       misto.confiancaGeral === 0.4, String(misto.confiancaGeral));
+
+    // ⚠️ **O RAMO DA NF-e NÃO PODE SER INSTRUMENTAÇÃO INERTE.** O refino só
+    // recebe `chaveNFe` se o OCR extrair a chave — e ele não extraía. Estas
+    // asserções cobram as DUAS metades: o extrator acha a chave, e o refino a
+    // usa. Sem a primeira, o ramo inteiro seria código que nunca roda.
+    // ⚠️ O DV é CALCULADO, não digitado: a primeira versão desta fixture tinha
+    // o último dígito errado e a asserção "senão o caso não testa nada" a pegou.
+    const base43 = "3524061122233300018155001000000001100000001";
+    const chaveBoa = base43 + dvDaChave(base43);
+    const nfe = lerChaveNFe(chaveBoa);
+    ok("bloco3: a chave de teste é válida (senão o caso não testa nada)",
+       !!nfe && nfe.valido, JSON.stringify(nfe));
+    const ex = extrairCampos(`NOTA FISCAL ELETRONICA\nCHAVE DE ACESSO\n${chaveBoa}\nVALOR 100,00`, 0.9);
+    ok("bloco3: o OCR EXTRAI a chave da NF-e (o ramo não é inerte)",
+       ex.chaveNFe === chaveBoa, String(ex.chaveNFe));
+
+    // ⚠️ 44 dígitos NÃO bastam: o código de barras de um boleto também tem 44.
+    // Sem conferir o DV da chave, o boleto viraria "nota" e o CNPJ do
+    // "emitente" sairia de bytes que significam outra coisa.
+    const exBoleto = extrairCampos(`BOLETO\n${barrasB3}\n`, 0.9);
+    ok("bloco3: código de barras de BOLETO não é lido como chave de NF-e",
+       exBoleto.chaveNFe === null, String(exBoleto.chaveNFe));
+
+    const rn = refinarDocumento({ chaveNFe: chaveBoa, cnpj: "99.999.999/0001-99", valor: 100 });
+    ok("bloco3: o CNPJ da CHAVE vence o do OCR (tem dígito verificador)",
+       rn.cnpj.procedencia === "chave_de_acesso" && rn.cnpj.confianca === 1,
+       `${rn.cnpj.procedencia} ${rn.cnpj.valor}`);
+    ok("bloco3: e a divergência de CNPJ é relatada",
+       rn.divergencias.some((d) => d.campo === "cnpj"));
+
+    // Documento sem nada exato continua funcionando (não regride o caminho atual).
+    const cru = refinarDocumento({ valor: 50, vencimento: "2026-09-01", confianca: 0.65 });
+    ok("bloco3: sem boleto nem chave, o OCR segue valendo (sem regressão)",
+       cru.valor.valor === 50 && cru.valor.procedencia === "ocr" && cru.confiancaGeral === 0.65);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // BLOCO D · a TABELA dentro do PDF (camada de texto)
   // ⚠️ O defeito medido: todo PDF virava UM lançamento (kind:"doc"). Um extrato
