@@ -1484,6 +1484,30 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ PR VERDE É AUTORIZADO — EXCETO QUANDO MUDA QUEM PODE CHAMAR O QUE
+
+A autorização permanente do dono ("verde é autorização, não pedido") tem **uma
+exceção, e ela é dele**: quando o PR muda **quem pode chamar o quê**, a sessão
+para e chama.
+
+⚠️ **Por que esta e não outras.** Um PR verde que muda cálculo, tela ou motor
+tem guarda cobrando o resultado — se estiver errado, algo reprova. Um PR que
+muda AUTORIZAÇÃO altera o comportamento de quem está fora do repositório: o
+cron de um ambiente sem a variável, a integração de um terceiro, o papel que
+perdeu acesso. Nada disso aparece no CI, porque o CI não tem os ambientes de
+verdade.
+
+O caso que fixou a exceção (A4P-078, 19/08/2026): o PR fazia quatro rotas de
+cron passarem a devolver **503** sem `CRON_SECRET`. Correto — e capaz de parar
+o cron de qualquer ambiente onde a variável não existisse. A sessão parou,
+nomeou o efeito e esperou. O dono confirmou que só marcou Production e que
+preview devolvendo 503 é o comportamento desejado, porque **preview não deveria
+sincronizar banco de cliente nenhum**.
+
+**O teste, em uma pergunta:** *depois deste merge, alguém que hoje consegue
+chamar passa a não conseguir — ou o contrário?* Se sim, pare e chame. Se não,
+a autorização permanente vale.
+
 ### ⚠️ A OITAVA REGRA — TODA MIGRATION PASSA POR `begin; … rollback;` ANTES DO PUSH
 
 **Não é opcional e não custa nada.** Há um Postgres real disponível o tempo
