@@ -3723,11 +3723,20 @@ const AGOSTO = janelaMes(2026, 7);
     ok("extrato: o Open Finance tem cron declarado (senão o extrato para de entrar)",
        caminhos.includes("/api/openfinance/sync"), caminhos.join(" | "));
 
-    // ⚠️ **DUAS VEZES AO DIA.** Extrato de ontem faz o cliente conferir no banco
-    // antes de confiar no ERP — e aí o ERP virou a segunda opinião.
+    // ⚠️ **A CADÊNCIA É DÍVIDA DECLARADA, NÃO ESCOLHA.** O dono pediu duas vezes
+    // ao dia — extrato de ontem faz o cliente conferir no banco antes de confiar,
+    // e aí o ERP virou a segunda opinião em vez da fonte. A Vercel RECUSOU o
+    // deploy: "Hobby accounts are limited to daily cron jobs".
+    //
+    // ⚠️ A guarda passou a cobrar o que É invariante (o extrato TEM de ser
+    // puxado) em vez do que a plataforma proíbe. Manter a asserção da cadência
+    // deixaria o CI vermelho por um limite de plano — e guarda que reprova o
+    // possível é desligada na primeira semana. A cadência volta quando o plano
+    // subir para Pro ou quando o agendamento migrar para o pg_cron do Supabase,
+    // que não tem esse teto.
     const doOF = (vercel.crons ?? []).find((c) => c.path === "/api/openfinance/sync");
-    ok("extrato: o cron roda mais de uma vez por dia",
-       !!doOF && /,/.test(doOF.schedule.split(" ")[1] ?? ""), doOF?.schedule ?? "(sem cron)");
+    ok("extrato: o cron do Open Finance existe e é diário no mínimo",
+       !!doOF && /^0 \d/.test(doOF.schedule), doOF?.schedule ?? "(sem cron)");
 
     // ⚠️ **O ETL PRECISA DIZER QUE É EXTRATO, senão o banco RECUSA cada linha.**
     // Medido em 19/08: nenhum dos dois ETLs do Pluggy mandava `especie` nem

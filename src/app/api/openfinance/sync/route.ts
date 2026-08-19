@@ -21,9 +21,13 @@
  * extrato PAROU DE ENTRAR. Melhorar o algoritmo sem consertar isto é otimizar a
  * ponta errada.
  *
- * ⚠️ **DUAS VEZES AO DIA (08:00 e 20:00 UTC), não uma.** Um ERP financeiro que
+ * ⚠️ **A CADÊNCIA DESEJADA É DUAS VEZES AO DIA, e ela é DÍVIDA.** Um ERP que
  * mostra o extrato de ontem é um ERP que o cliente confere no banco antes de
- * confiar — e aí ele deixou de ser a fonte e virou a segunda opinião.
+ * confiar — e aí ele deixou de ser a fonte e virou a segunda opinião. Mas a
+ * Vercel recusou o deploy: *"Hobby accounts are limited to daily cron jobs"*.
+ * Roda uma vez (08:00 UTC) até o plano subir para Pro ou o agendamento migrar
+ * para o `pg_cron` do Supabase, que não tem esse teto. Não é escolha de
+ * desenho — é limite de plataforma, e está declarado para não virar paisagem.
  *
  * ⚠️ Este arquivo **não reimplementa o ETL**. Ele chama a MESMA Edge Function
  * que o widget chama (`pluggy-sync-item`), que é idempotente e já convive com o

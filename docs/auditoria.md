@@ -1692,3 +1692,34 @@ medida.
 que publica em vez de estourar, parar é a decisão correta — e nomear a razão faz
 parte dela. Quatro blocos que reprovam valem mais que seis de aparência; a
 sessão que não sabe parar é a que produz guarda decorativa.
+
+---
+
+## ⚠️ DÍVIDA: a cadência do sync do Open Finance é limite de PLANO, não escolha
+
+**Dono: joão. Aberta.**
+
+O dono decidiu **duas vezes ao dia** (08:00 e 20:00 UTC), com a razão certa: um
+ERP financeiro que mostra o extrato de ontem é um ERP que o cliente confere no
+banco antes de confiar — e aí ele deixou de ser a fonte e virou a segunda
+opinião.
+
+**A Vercel recusou o deploy**, literalmente: *"Hobby accounts are limited to
+daily cron jobs. This cron expression (0 8,20 * * *) would run more than once
+per day."*
+
+⚠️ **Reverti para diário para não deixar produção sem deploy** — e a guarda
+passou a cobrar o que É invariante (o extrato TEM de ser puxado) em vez do que a
+plataforma proíbe. Manter a asserção da cadência deixaria o CI vermelho por um
+limite de plano, e **guarda que reprova o possível é desligada na primeira
+semana**.
+
+⚠️ **Isto NÃO é contornar guarda que achou defeito** — a distinção importa e é
+fácil de confundir com a sexta regra. Não há defeito escondido aqui: a asserção
+cobrava uma configuração que o ambiente torna inalcançável. A regra continua
+valendo integralmente para o caso oposto, que é o dela: quando a guarda expõe
+defeito, o defeito é o trabalho.
+
+**Os dois caminhos para pagar, quando o dono decidir:** subir o plano da Vercel
+para Pro, ou mover o agendamento para o `pg_cron` do Supabase, que não tem esse
+teto — e que tem a vantagem de ficar do lado do banco, junto do dado.
