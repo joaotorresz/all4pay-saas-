@@ -1,3 +1,23 @@
+> ## ⚠️ A LIÇÃO DA AUDITORIA INTEIRA
+>
+> **"Escrevi a rota com o mesmo padrão das três que já existiam, sem questionar o
+> padrão — ausência de configuração virando permissão, e ninguém olhando porque
+> é assim que as outras fazem."**
+>
+> Dito ao fim do A4P-078 (19/08/2026), quando o dono descobriu que `CRON_SECRET`
+> nunca existira e as quatro rotas de cron respondiam a qualquer chamada — a
+> mais antiga desde 09/06.
+>
+> ⚠️ **O defeito não foi escrever errado: foi COPIAR sem perguntar.** A rota nova
+> nasceu com o padrão das vizinhas, e o padrão era a porta aberta. É assim que
+> um defeito deixa de ser um caso e vira o jeito da casa — e é por isso que a
+> pergunta *"por que assim?"* vale mais, numa base madura, do que a pergunta
+> *"está igual às outras?"*.
+>
+> Vale para toda sessão futura: **consistência com o código existente não é
+> evidência de correção.** Quando o padrão decide segurança, ele se justifica ou
+> se troca.
+
 # Auditoria — o mapa das superfícies de resultado
 
 > **Por que este arquivo existe.** Este repositório é trabalhado por várias
@@ -1809,6 +1829,145 @@ exposição registrada acima; não há trilha que permita saber se alguém as ch
 configuração nunca pode virar permissão.* O padrão certo é o inverso do que
 estava: sem a variável, recusa tudo — e o erro aparece no primeiro deploy, que é
 quando custa barato.
+
+---
+
+## ⚠️ A4P-078 (parte 2) — EXPOSTO × EXPLORADO: o que dá para provar, e o que é JANELA CEGA
+
+**A pergunta do dono, e ela é a certa:** *"exposto é diferente de explorado, e só
+o log separa os dois. Preciso poder dizer a um cliente 'exposto por 71 dias, zero
+chamada externa registrada' — ou saber que não posso."*
+
+**A resposta curta: NÃO PODE DIZER ISSO.** O que dá para dizer é mais estreito e
+é verdadeiro — está no fim desta seção. O caminho até lá vale mais que a frase.
+
+### O que eu NÃO consigo fazer, e por quê
+
+⚠️ **Não tenho acesso aos logs da Vercel nesta sessão.** Não há credencial da
+Vercel no ambiente; a metade "log de plataforma" da pergunta não é respondida por
+mim, e escrever qualquer coisa sobre ela seria inventar. Fica declarado assim, e
+não como "não encontrei nada".
+
+E há um limite que nem o acesso resolveria: **no plano Hobby a retenção de
+Runtime Logs é de cerca de UMA HORA.** Junho não existe mais em lugar nenhum da
+Vercel — não é uma busca que eu deixei de fazer, é um dado que já foi
+descartado. Só um Log Drain (Pro+) ligado ANTES teria guardado, e não havia.
+
+**Fica registrado como janela cega nº 1: 09/06 → 19/08, plataforma. Irrecuperável.**
+
+### O que o BANCO sabe — e ele sabe a parte que decide
+
+⚠️ **A pergunta que importa não é "alguém chamou?", é "alguma coisa ACONTECEU?"**
+— e essa o dado responde sozinho, sem depender de log nenhum, porque um título
+criado fica no banco para sempre.
+
+**`/api/recorrencias/run` (aberta 01/07 → 19/08, 49 dias) — ZERO títulos criados.**
+
+| medida | valor |
+| --- | --- |
+| movimentos com `reference_code like 'rec:%'` (só o materializador cria) | **9** |
+| criados em | **16/06 a 19/06** — antes de a rota existir |
+| criados desde 01/07 | **0** |
+| `origem` desses 9 | **NULL** nos 9 — a rota grava `origem: 'contrato'` |
+| eventos `materializar_recorrencias` na trilha | **0**, em toda a base |
+| recorrências ativas hoje | **8** |
+
+Os 9 são assinatura de `ativarRecorrencia` (a tela), não do cron: são anteriores
+à rota e não têm a procedência que a rota grava. E a rota escreve **um evento de
+trilha por organização em toda execução** que encontre recorrência — com 8
+ativas, uma execução bem-sucedida teria deixado rastro. Não deixou nenhum.
+
+⚠️ **Isto não prova "ninguém chamou".** Prova algo melhor para o cliente: **nada
+foi criado.** Uma chamada que tenha caído no 503 por falta de
+`SUPABASE_SERVICE_ROLE_KEY` é indistinguível de nenhuma chamada — e as duas dão
+o mesmo resultado no que se pergunta a um fornecedor de software.
+
+### ⚠️ JANELA CEGA Nº 2 — a auditoria do `financial-os` é um NO-OP
+
+Eu ia escrever que as 80 linhas de `rule_executions` provavam que o cron nunca
+disparou, porque nenhuma cai no minuto do agendamento (`0 12 * * *`; as mais
+próximas são 12:49 e 12:51). **Fui medir a superfície antes de concluir, e a
+conclusão caiu.**
+
+`logExecucoes` grava com o **cliente do NAVEGADOR** (`createClient`, chave anon)
+numa tabela cujo `org_id` tem `default auth_org_id()` e cuja política exige
+`org_id = auth_org_id()`. Chamada de dentro de uma rota de servidor não há
+sessão: `auth_org_id()` volta nulo, o insert viola o `not null`, e o erro é
+engolido (`try/catch` na rota, `.catch(() => {})` na tela).
+
+**Ou seja: `rule_executions` NÃO CONSEGUE registrar execução da rota.** As 80
+linhas (10/06 a 03/08, 18 dias, todas em horário humano) vêm da tela
+`/automacoes` aberta no navegador. Como evidência sobre a rota, a tabela é
+**cega** — ausência ali não é ausência de chamada.
+
+⚠️ **E isso é um defeito por si só, não só um limite de medição:** a única
+auditoria que a rota de cron tem nunca escreveu uma linha. Entra na fila com
+nome — o registro do cron precisa do cliente admin com `org_id` explícito, como
+`/api/recorrencias/run` já faz.
+
+### ⚠️ JANELA CEGA Nº 3 — envio de WhatsApp não deixa rastro NENHUM no banco
+
+`notifications.server.ts` não tem uma escrita sequer: nem tabela, nem trilha. A
+`maq_whatsapp_log` está **zerada** e é de outro subsistema (o fluxo de leads da
+maquininha), não do `/api/notificacoes/teste`.
+
+**Então o banco não pode responder se alguém disparou mensagem.** Quem pode é o
+**Twilio**: o console guarda o log de mensagens (retenção da ordem de meses, bem
+além de junho) com data, destino e custo. É lá, e só lá, que a pergunta *"saiu
+WhatsApp que eu não pedi?"* se responde — filtrando por período e comparando os
+destinos com o `ALERTS_WHATSAPP_TO`. Fica como verificação do dono, porque a
+credencial é dele.
+
+⚠️ Vale notar o que reduz o dano: mesmo aberta, a rota só enviava para o destino
+travado em `ALERTS_WHATSAPP_TO` (o anti-relay). Um terceiro conseguia **queimar
+quota e encher o telefone do dono**, não usar o sistema como relay para números
+próprios.
+
+### ⚠️ JANELA CEGA Nº 4 — `origem`/`ip` na trilha cobrem 18 HORAS, não o período
+
+| medida | valor |
+| --- | --- |
+| `audit_log` total | 1.281 |
+| com `ip` preenchido | **132** |
+| janela coberta | **11/08 20:24 → 12/08 14:26 UTC** (≈18 h) |
+| IPs distintos | **1** — `201.6.226.70` (uso humano) |
+| eventos com `usuario like 'cron:%'` | **0** |
+
+A instrumentação de procedência entrou em agosto e não retroage. Dentro das 18
+horas em que ela existe, tudo veio de um IP só e é uso do dono.
+
+### A frase que DÁ para dizer a um cliente
+
+Não esta: *"exposto por 71 dias, zero chamada externa registrada"* — ela afirma
+sobre um registro que não existe.
+
+Esta:
+
+> **"Quatro rotas de automação ficaram acessíveis sem credencial entre 09/06 e
+> 19/08 (a mais antiga, 71 dias). Nenhum lançamento foi criado por elas no
+> período — verificado no próprio dado, não em log: os únicos títulos de
+> recorrência da base são de junho, anteriores à rota, e a trilha não tem uma
+> execução do materializador. O log de plataforma que diria se houve chamada não
+> existe mais (retenção de ~1 h no plano), e o envio de mensagem não era
+> registrado em banco; essas duas verificações ficam declaradas como não
+> cobertas. A falha foi corrigida em 19/08: sem credencial configurada a rota
+> recusa (503), com guarda que reprova o comportamento antigo."**
+
+⚠️ **A diferença entre as duas frases é a diferença entre auditoria e marketing.**
+A primeira soa melhor e cai no primeiro pedido de evidência; a segunda entrega o
+que tem, nomeia o que falta, e é a única que sobrevive a alguém conferir.
+
+### A lição de instrumentação, que é a mesma três vezes
+
+Nas três janelas cegas o padrão é idêntico: **existia um lugar com cara de
+registro, e ele não registrava.** `rule_executions` grava com o cliente errado;
+`notifications.server` não grava; `origem`/`ip` chegaram tarde. Nenhuma das três
+apareceu como problema até alguém precisar responder uma pergunta com elas.
+
+É a regra de "instrumentação sem consumidor não conta como feita" pelo avesso:
+**registro que nunca foi LIDO não conta como registro** — ninguém descobre que
+ele está vazio enquanto ninguém o abre, e quem o abre é sempre a auditoria, que
+é a hora mais cara para descobrir.
 
 ---
 
