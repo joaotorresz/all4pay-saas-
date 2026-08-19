@@ -3707,6 +3707,38 @@ const AGOSTO = janelaMes(2026, 7);
        /org_member_update/.test(mig) && !/set[\s\S]{0,400}approval_limit\s*=/.test(mig));
   }
 
+  /* ---- O EXTRATO PRECISA ENTRAR: todo conector tem AGENDAMENTO ----------- */
+  {
+    // ⚠️ **O achado que motivou esta guarda.** Medido em 19/08: 3 pluggy_items
+    // com status UPDATED (saudável), última sincronização em 23/06 — quase dois
+    // meses parada — e as 52 bank_transactions são exatamente a janela de UMA
+    // sincronização, a do dia da conexão. A integração não estava quebrada:
+    // **rodou uma vez e nunca mais**, porque o caminho ativo só é invocado no
+    // `onSuccess` do widget e não havia cron nenhum para o Open Finance.
+    //
+    // ⚠️ E é isso que explica a conciliação em 5,5%: 889 lançamentos
+    // liquidados contra 52 transações. O casador não tem com o que casar.
+    const vercel = JSON.parse(ler("vercel.json")) as { crons?: { path: string; schedule: string }[] };
+    const caminhos = (vercel.crons ?? []).map((c) => c.path);
+    ok("extrato: o Open Finance tem cron declarado (senão o extrato para de entrar)",
+       caminhos.includes("/api/openfinance/sync"), caminhos.join(" | "));
+
+    const rota = ler("src/app/api/openfinance/sync/route.ts");
+    // ⚠️ Não reimplementa o ETL: chama a MESMA Edge Function que o widget usa.
+    // Um segundo ETL divergiria no dia em que o Pluggy mudasse um campo, e o
+    // extrato entraria diferente conforme a hora do dia.
+    ok("extrato: o cron reusa o ETL do widget, não reimplementa",
+       /functions\.invoke\(\s*["']pluggy-sync-item["']/.test(rota));
+    // ⚠️ Falha silenciosa foi o que deixou dois meses passarem sem ninguém
+    // notar — a mesma família do materializador parado por oito dias.
+    ok("extrato: a falha por item é RELATADA, não engolida",
+       /falhas/.test(rota) && /audit_log/.test(rota) &&
+       /resultados\.push\(\{ item: id, ok: false/.test(rota),
+       "o sync voltou a engolir falha");
+    ok("extrato: o cron é protegido por CRON_SECRET quando definido",
+       /CRON_SECRET/.test(rota) && /Bearer \$\{secret\}/.test(rota));
+  }
+
   /* ---- O CONTADOR EXTERNO: lê e exporta, não escreve e não vê cobrança ---- */
   {
     // ⚠️ Metade deste item JÁ ESTAVA FEITA e foi refutada em vez de refeita: a

@@ -7,6 +7,10 @@
     {
       "path": "/api/recorrencias/run",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/openfinance/sync",
+      "schedule": "0 8 * * *"
     }
   ]
 }

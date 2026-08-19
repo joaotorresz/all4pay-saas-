@@ -233,6 +233,15 @@
         "resolver_ate": "2026-09-19",
         "origem": "sessao de agente, P-19 (19/08/2026)",
         "aplicada_em": null
+      },
+      {
+        "nome": "20260819160000_alcada_descarta_valor_corrompido",
+        "motivo": "Decisao do dono (19/08/2026): descartar o unico approval_limit nao-nulo. Medido: 1 linha, valor 5, papel member, joaotripodo@all4pay.com.br, org joaov.yoshimi. Nao veio de decisao de negocio — veio do parseLimite defeituoso, que tirava as letras da faixa antes de converter ('R$50 mil' -> 50, 'Sem limite' -> 0). Nenhuma faixa da tela produz 5.",
+        "impacto": "Zera 1 linha. O valor ja era INERTE: o papel 'member' nao tem a acao 'aprovar' em role_permissions, entao com a Blindagem B ele nunca autorizaria nada. Zerar evita que a proxima sessao tente 'resgatar o dado historico' de um residuo de bug.",
+        "objetos_ausentes": [],
+        "resolver_ate": "2026-09-19",
+        "origem": "decisao do dono, P-19 (19/08/2026)",
+        "aplicada_em": null
       }
     ],
     "objetos_sem_migration": [
