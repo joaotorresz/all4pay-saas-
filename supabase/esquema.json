@@ -204,13 +204,15 @@
       },
       {
         "nome": "20260818210000_central_maquina_de_estados",
-        "motivo": "P-10 (Central Financeira): a maquina de estados do titulo no banco — coluna situacao, alcada por papel (central_alcada), trilha de transicoes (central_transicoes) e o gatilho central_maquina que proibe transicao fora da maquina + exige alcada e segregacao R1 ao confirmar.",
-        "impacto": "Enquanto nao aplicada, os movements nao tem coluna situacao, a baixa direta continua possivel e a Central nao tem o que confirmar. Nenhum dado e perdido pela aplicacao (backfill: pago->baixado, cancelado->cancelado, resto->previsto).",
+        "motivo": "P-10 (Central Financeira): a maquina de estados do titulo no banco — coluna situacao, alcada por papel (central_alcada, SEMEADA A PARTIR DE role_permissions), trilha de transicoes (central_transicoes) e o gatilho central_maquina, que proibe transicao fora da maquina e exige, ao confirmar: segregacao R1, a acao 'aprovar' em role_permissions (BLINDAGEM B) e alcada de valor. As duas recusas tem codigo e mensagem proprios (A4P-CENTRAL-PERMISSAO x A4P-CENTRAL-ALCADA).",
+        "impacto": "Enquanto nao aplicada, os movements nao tem coluna situacao, a baixa direta continua possivel e a Central nao tem o que confirmar. Nenhum dado e perdido (backfill: pago->baixado, cancelado->cancelado, resto->previsto). ⚠️ A PRIMEIRA VERSAO desta migration semeava a alcada com papeis inventados (leitor/lancador/aprovador/fechador/admin/titular) enquanto o gatilho le organization_members.role (owner/admin/member): medido em producao, 16 dos 17 vinculos nao confirmariam NADA. A seed agora deriva de role_permissions e ha guarda de taxonomia que reprova o furo.",
         "objetos_ausentes": [
           "movements.situacao/lancado_por/confirmado_por/baixado_por",
-          "central_alcada",
+          "central_alcada (teto_valor NULL = sem teto)",
           "central_transicoes",
-          "central_teto()",
+          "central_alcada_padrao()",
+          "central_teto(text,uuid)",
+          "central_cabe_na_alcada(text,numeric,uuid)",
           "central_transicao_valida()",
           "central_maquina() + gatilho",
           "central_alcada_inicial() + gatilho em organizations"

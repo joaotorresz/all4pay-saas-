@@ -52,8 +52,18 @@ alter table public.movements
 -- ───────────────────────────────────────────────────────────────────────────
 -- 2. A alçada por papel, configurável por organização
 -- ───────────────────────────────────────────────────────────────────────────
--- ⚠️ SEM alçada configurada, NADA é aprovável — a função devolve 0 para papel
--- não declarado, nunca infinito. É a direção segura.
+-- ⚠️ **A SEED DERIVA DE `role_permissions` — NUNCA de uma lista digitada.**
+-- A primeira versão desta migration semeava seis nomes escritos à mão
+-- (leitor/lancador/aprovador/fechador/admin/titular) enquanto o gatilho lê
+-- `organization_members.role`, que na base real vale owner/admin/member.
+-- Resultado medido em produção: `central_teto('owner')` = 0 e **16 dos 17
+-- vínculos não confirmavam nada** — inclusive o dono. Só 'admin' funcionava,
+-- por coincidência de nome. E `titular` era papel inventado, que não existe
+-- nem em `role_permissions` nem no tipo `Papel` do cliente.
+--
+-- Derivar da tabela canônica mata a classe inteira: papel novo em
+-- `role_permissions` nasce com linha de alçada (em 0, que é a direção segura),
+-- e seed e gatilho não podem divergir um do outro porque leem a MESMA fonte.
 create table if not exists public.central_alcada (
   -- ⚠️ `id` existe para a TRILHA genérica (auditar_escrita lê `->> 'id'`):
   -- mudar quem pode aprovar quanto é exatamente o que uma auditoria pergunta,
@@ -61,11 +71,19 @@ create table if not exists public.central_alcada (
   id uuid not null default gen_random_uuid(),
   org_id uuid not null default public.auth_org_id(),
   papel text not null,
-  teto_valor numeric not null default 0,
+  -- ⚠️ **NULL = SEM TETO**, e é diferente de 0 (= nada passa). Um sentinela
+  -- tipo 999999999 viraria MEDIDA na primeira tela que o exibisse — a lição do
+  -- RUNWAY_CAP (A4P-032): "um teto que não se declara vira medida".
+  teto_valor numeric,
   atualizado_em timestamptz not null default now(),
   primary key (org_id, papel)
 );
+-- Converge a forma antiga (teto_valor era `not null default 0`) sem perder dado.
+alter table public.central_alcada alter column teto_valor drop not null;
 alter table public.central_alcada enable row level security;
+
+comment on column public.central_alcada.teto_valor is
+  'Valor máximo que este papel confirma sozinho. NULL = sem teto (owner/admin). 0 = não confirma nada. Editável por organização.';
 
 -- A trilha da alçada — quem mudou o teto de aprovação de qual papel, e quando.
 drop trigger if exists zz_auditar_central_alcada on public.central_alcada;
@@ -87,16 +105,23 @@ create policy central_alcada_escrita_admin on public.central_alcada
   using (true)
   with check (public.tem_permissao('administrar'));
 
--- Os PADRÕES editáveis (o joão pediu "padrão + você ajusta"). Semeados por
--- organização; a tela sobrescreve.
+-- O PADRÃO de cada papel, num lugar só — consumido pela seed E pelo gatilho.
+-- ⚠️ Papel desconhecido cai em 0: papel novo não nasce podendo aprovar.
+create or replace function public.central_alcada_padrao(p_papel text)
+returns numeric
+language sql immutable set search_path = public as $$
+  select case p_papel
+    when 'owner'     then null::numeric   -- responde pela empresa: sem teto
+    when 'admin'     then null::numeric   -- administra e aprova: sem teto
+    when 'aprovador' then 10000::numeric  -- o aprovador dedicado (editável por org)
+    else 0::numeric                       -- o resto não aprova (role_permissions manda)
+  end;
+$$;
+
 insert into public.central_alcada (org_id, papel, teto_valor)
-select o.id, v.papel, v.teto
+select o.id, rp.papel, public.central_alcada_padrao(rp.papel)
 from public.organizations o
-cross join (values
-  ('leitor', 0), ('lancador', 0),
-  ('aprovador', 5000), ('fechador', 50000),
-  ('admin', 999999999), ('titular', 999999999)
-) as v(papel, teto)
+cross join (select distinct papel from public.role_permissions) rp
 on conflict (org_id, papel) do nothing;
 
 -- ⚠️ **ORG NOVA HERDA O PADRÃO — por gatilho, não só pelo seed.** O seed acima
@@ -109,10 +134,8 @@ returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   insert into public.central_alcada (org_id, papel, teto_valor)
-  values
-    (new.id, 'leitor', 0), (new.id, 'lancador', 0),
-    (new.id, 'aprovador', 5000), (new.id, 'fechador', 50000),
-    (new.id, 'admin', 999999999), (new.id, 'titular', 999999999)
+  select new.id, rp.papel, public.central_alcada_padrao(rp.papel)
+  from (select distinct papel from public.role_permissions) rp
   on conflict (org_id, papel) do nothing;
   return new;
 end $$;
@@ -123,16 +146,37 @@ create trigger organizations_central_alcada
   after insert on public.organizations
   for each row execute function public.central_alcada_inicial();
 
-create or replace function public.central_teto(p_papel text)
+-- O teto para EXIBIR (mensagem de erro, tela de configuração).
+-- ⚠️ Devolve NULL quando o papel não tem teto e 0 quando o papel não tem linha.
+-- Quem DECIDE é `central_cabe_na_alcada` — um `coalesce(central_teto(...), 0)`
+-- distraído transformaria "sem teto" em "fechado".
+create or replace function public.central_teto(p_papel text, p_org uuid default null)
 returns numeric
 language sql stable security definer set search_path = public as $$
-  -- Papel não declarado ⇒ 0. Ausência é fechada.
-  select coalesce(
-    (select teto_valor from public.central_alcada
-      where org_id = public.auth_org_id() and papel = p_papel), 0);
+  select case
+    when exists (select 1 from public.central_alcada
+                  where org_id = coalesce(p_org, public.auth_org_id()) and papel = p_papel)
+      then (select teto_valor from public.central_alcada
+             where org_id = coalesce(p_org, public.auth_org_id()) and papel = p_papel)
+    else 0::numeric
+  end;
 $$;
-revoke all on function public.central_teto(text) from public, anon;
-grant execute on function public.central_teto(text) to authenticated;
+revoke all on function public.central_teto(text, uuid) from public, anon;
+grant execute on function public.central_teto(text, uuid) to authenticated;
+
+-- A DECISÃO de alçada, encapsulada — sem linha ⇒ false; teto NULL ⇒ true.
+create or replace function public.central_cabe_na_alcada(p_papel text, p_valor numeric, p_org uuid default null)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.central_alcada
+     where org_id = coalesce(p_org, public.auth_org_id())
+       and papel = p_papel
+       and (teto_valor is null or abs(p_valor) <= teto_valor)
+  );
+$$;
+revoke all on function public.central_cabe_na_alcada(text, numeric, uuid) from public, anon;
+grant execute on function public.central_cabe_na_alcada(text, numeric, uuid) to authenticated;
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- 3. A trilha de transições — quem, quando e por quê, por transição
@@ -194,22 +238,36 @@ begin
       using hint = 'Um título previsto precisa ser CONFIRMADO antes de ser baixado.';
   end if;
 
-  -- ⚠️ 2. CONFIRMAR (previsto→confirmado) exige alçada E segregação.
+  -- ⚠️ 2. CONFIRMAR (previsto→confirmado) exige segregação, PERMISSÃO e alçada.
   if old.situacao = 'previsto' and new.situacao = 'confirmado' then
     -- R1: quem lançou não confirma o próprio. `lancado_por` é quem inseriu.
     if new.lancado_por is not null and new.lancado_por = auth.uid() then
-      raise exception 'A4P-CENTRAL: quem lançou não pode confirmar o próprio título (segregação de funções)'
+      raise exception 'A4P-CENTRAL-SEGREGACAO: quem lançou não pode confirmar o próprio título'
         using hint = 'Outra pessoa precisa confirmar este lançamento.';
     end if;
-    -- Alçada: o valor tem de caber no teto do papel de quem confirma.
+
     select role into v_papel from public.organization_members
       where user_id = auth.uid() and org_id = new.org_id limit 1;
-    v_teto := public.central_teto(coalesce(v_papel, 'leitor'));
-    if abs(new.amount) > v_teto then
-      raise exception 'A4P-CENTRAL: valor % acima da alçada do papel % (teto %)',
-        new.amount, coalesce(v_papel, 'leitor'), v_teto
-        using hint = 'Este título sobe para um papel com alçada maior.';
+
+    -- ⚠️ **QUEM APROVA sai de `role_permissions`, não da alçada.** Uma fonte só,
+    -- e ela é completa por construção (é a matriz que `tem_permissao` lê). A
+    -- alçada responde outra pergunta: QUANTO. Misturar as duas foi o que deixou
+    -- o `fechador` com teto de 50.000 sem ter a ação `aprovar`.
+    if not public.tem_permissao('aprovar', new.org_id) then
+      raise exception 'A4P-CENTRAL-PERMISSAO: o papel % não pode confirmar títulos', coalesce(v_papel, 'sem papel')
+        using hint = 'Peça a um Aprovador, Administrador ou Titular. Isto se resolve mudando o PAPEL, não a alçada.';
     end if;
+
+    -- ⚠️ As duas recusas têm mensagem DIFERENTE de propósito: "você não pode
+    -- aprovar" e "o valor não cabe na sua alçada" se resolvem de jeitos
+    -- opostos, e uma mensagem genérica vira chamado de suporte.
+    if not public.central_cabe_na_alcada(coalesce(v_papel, 'leitor'), new.amount, new.org_id) then
+      v_teto := public.central_teto(coalesce(v_papel, 'leitor'), new.org_id);
+      raise exception 'A4P-CENTRAL-ALCADA: valor % acima da alçada do papel % (teto %)',
+        new.amount, coalesce(v_papel, 'sem papel'), v_teto
+        using hint = 'Um papel com alçada maior precisa confirmar, ou a alçada deste papel pode ser aumentada nas configurações.';
+    end if;
+
     new.confirmado_por := auth.uid();
     new.confirmado_em := now();
   end if;
@@ -233,4 +291,4 @@ create trigger central_maquina_trg
   for each row execute function public.central_maquina();
 
 comment on function public.central_maquina() is
-  'A máquina de estados do título (P-10). Nenhuma transição de situacao acontece fora dela; confirmar exige alçada e segregação (R1); cada transição vai para central_transicoes.';
+  'A máquina de estados do título (P-10). Nenhuma transição de situacao acontece fora dela; confirmar exige segregação (R1), a ação aprovar em role_permissions e alçada de valor; cada transição vai para central_transicoes.';
