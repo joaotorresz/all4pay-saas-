@@ -3707,6 +3707,41 @@ const AGOSTO = janelaMes(2026, 7);
        /org_member_update/.test(mig) && !/set[\s\S]{0,400}approval_limit\s*=/.test(mig));
   }
 
+  /* ---- O CONTADOR EXTERNO: lê e exporta, não escreve e não vê cobrança ---- */
+  {
+    // ⚠️ Metade deste item JÁ ESTAVA FEITA e foi refutada em vez de refeita: a
+    // guarda de banco `matriz-permissao.sql` (no CI) já cobra
+    // `contador_externo = exportar,fechar,ler` nos DOIS sentidos — sem
+    // `lancar`, sem `aprovar`, sem `cobranca`. Escrever é barrado pelas
+    // políticas restritivas da ONDA 9, que leem essa mesma matriz.
+    const matriz = ler("scripts/matriz-permissao.sql");
+    ok("contador: a matriz de banco fixa exportar/fechar/ler — e nada mais",
+       /\['contador_externo',\s*'exportar,fechar,ler'\]/.test(matriz),
+       "a linha do contador saiu da matriz de banco");
+
+    // ⚠️ O que FALTAVA: a tela de cobrança não perguntava permissão nenhuma, e
+    // o contador — um TERCEIRO, de fora da empresa — via plano, valor e
+    // vencimento. A ação `cobranca` existe na matriz e só o titular a tem;
+    // faltava alguém PERGUNTAR.
+    const adm = ler("src/components/administracao/AdministracaoViews.tsx");
+    const corpo = adm.slice(adm.indexOf("export function AssinaturaView"));
+    ok("contador: a tela de assinatura pergunta pela ação 'cobranca'",
+       /pode\(\s*["']cobranca["']\s*\)/.test(corpo.slice(0, 1200)),
+       "a tela de cobrança voltou a abrir para qualquer papel");
+
+    // ⚠️ **O TOTAL DO ARQUIVO NÃO PODE DIVERGIR DA TELA**, e o jeito de
+    // garantir isso não é comparar dois números: é o arquivo sair do MESMO
+    // objeto que a tela renderiza. Uma segunda consulta para exportar é como
+    // as duas respostas passam a diferir.
+    const kit = ler("src/components/relatorios/kit.tsx");
+    ok("contador: a planilha sai do MESMO Relatorio que a tela renderiza",
+       /function linhasParaPlanilha\(r: Relatorio/.test(kit),
+       "o export deixou de receber o relatório pronto");
+    ok("contador: e o botão passa o relatório renderizado, não refaz a consulta",
+       /linhasParaPlanilha\(relatorio,/.test(kit),
+       "o botão de exportar passou a montar os dados por conta própria");
+  }
+
   /* ---- O ESCRITOR MORTO: gravar onde, em produção, ninguém lê ------------- */
   {
     /**
