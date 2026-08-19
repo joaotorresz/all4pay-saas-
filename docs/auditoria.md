@@ -1376,3 +1376,74 @@ menos de 10 minutos, não quando o motor passar no teste.
 depreciou com redirect permanente (A4P-040 fechado). **A fila 1-a-1 (a UX que
 importa) fica para uma leva própria, com briefing de UX antes** — construída às
 cegas no fim de uma sessão longa, passaria no teste e continuaria ruim de usar.
+
+---
+
+## ⚠️ A4P-077 — P0: o webhook da OWN autentica por SEGREDO ESTÁTICO, sem HMAC nem janela de replay
+
+**Medido no fonte** (`supabase/functions/own-webhook/index.ts`, 19/08/2026),
+não deduzido. A função `autenticado(req)` aceita **duas** formas, as duas
+estáticas:
+
+- **Basic Auth** — `OWN_WEBHOOK_BASIC` = `"usuario:senha"`, comparado com
+  `atob(header.slice(6)) === basic`;
+- **segredo na URL** — `?secret=<OWN_WEBHOOK_SECRET>`.
+
+Não há **assinatura do corpo** (HMAC), não há **timestamp**, não há **janela de
+replay**. A varredura por `hmac|signature|assinat|x-hub|timestamp|replay|nonce`
+no arquivo devolve **zero** ocorrências fora do comentário de cabeçalho.
+
+**O que isso significa, em ordem de gravidade:**
+
+1. **Quem tiver o segredo forja QUALQUER evento.** Sem HMAC, o corpo não é
+   verificado contra nada: dá para inventar uma transação, uma liquidação ou um
+   cadastro e o sistema grava como se a OWN tivesse mandado. É dinheiro
+   entrando no ERP do lojista por uma porta que só confere uma senha.
+2. **O segredo na URL vaza por caminhos que ninguém audita.** Query string
+   aparece em log de acesso, em proxy, em histórico e em `Referer`. O Basic
+   Auth (header) é menos ruim; a variante `?secret=` é a pior das duas e as
+   duas estão ligadas ao mesmo tempo.
+3. **Rotacionar exige a OWN.** O segredo é compartilhado: trocá-lo do nosso
+   lado sozinho derruba a entrega.
+4. **A comparação não é de tempo constante** (`===` sobre string). É o menor
+   dos problemas aqui, mas some junto no conserto.
+
+⚠️ **O que JÁ protege, e é preciso dizer para não exagerar o achado:** o replay
+de um payload **idêntico** é barrado por `chaveIdempotencia` (SHA-256 sobre os
+campos que identificam o fato) com **índice único** — o insert devolve `23505`
+e a função conta como duplicado. Ou seja: **reenviar o mesmo evento não
+duplica**. O que não existe é defesa contra um evento **novo e forjado**, que é
+o caso que importa.
+
+**Conserto (não feito nesta leva — é decisão do dono):** HMAC-SHA256 do corpo
+com segredo dedicado + header de timestamp + janela de ±5 min, comparação por
+`crypto.subtle.timingSafeEqual`. **Depende da OWN suportar assinatura**: se
+ela não assinar, a mitigação possível é tirar o `?secret=` (ficar só no Basic
+sobre TLS), restringir por IP de origem se a OWN publicar a faixa, e rotacionar.
+
+⚠️ **A lição de método, que é a que fica:** este achado só apareceu porque o
+fonte foi LIDO. Ele esteve declarado como "NÃO SEI" por uma sessão inteira com
+base na suposição de que as Edge Functions viviam fora do repositório — e
+`own-sync` e `own-webhook` estavam versionadas o tempo todo. **"Não tenho o
+fonte" é uma afirmação que se verifica com `ls`, não se assume.**
+
+---
+
+## Erro #17 — supor a ausência do fonte em vez de conferir
+
+**Do joão, registrado a pedido dele:** ao cobrar a prova do revoke de
+`service_role`, a instrução dizia *"você não tem o fonte dessas funções para
+conferir"*. As oito Edge Functions — inclusive `own-sync` e `own-webhook` —
+estão em `supabase/functions/`, versionadas.
+
+O custo não foi o engano em si: foi que a suposição **quase virou decisão**. A
+regra "o que você não conseguir atribuir a um consumidor, MANTENHA e declare
+como NÃO SEI" é boa, e teria mandado manter `own_token_cache` na superfície da
+service key **para sempre**, por falta de uma leitura de trinta segundos. Com o
+fonte na mão a resposta é definitiva: `own-sync` fala com o token **só** por
+RPC `SECURITY DEFINER` (`own_token_pegar`/`gravar`/`bloquear`), nunca por
+`.from("own_token_cache")` — e o revoke é seguro.
+
+⚠️ **A regra que sai daí:** *"NÃO SEI" é um estado que se declara depois de
+procurar, não antes.* Declarado cedo demais, ele congela a dívida com aparência
+de prudência — e a prudência de verdade era abrir o arquivo.
