@@ -3720,23 +3720,42 @@ const AGOSTO = janelaMes(2026, 7);
     // liquidados contra 52 transações. O casador não tem com o que casar.
     const vercel = JSON.parse(ler("vercel.json")) as { crons?: { path: string; schedule: string }[] };
     const caminhos = (vercel.crons ?? []).map((c) => c.path);
-    ok("extrato: o Open Finance tem cron declarado (senão o extrato para de entrar)",
-       caminhos.includes("/api/openfinance/sync"), caminhos.join(" | "));
+    // ⚠️ O agendamento saiu da Vercel para o pg_cron (decisão do dono, 19/08).
+    // O invariante continua o mesmo — o extrato TEM de ser puxado —, mas quem o
+    // cumpre mudou de casa, e a asserção acompanhou. Ela está logo abaixo.
+    void caminhos;
 
-    // ⚠️ **A CADÊNCIA É DÍVIDA DECLARADA, NÃO ESCOLHA.** O dono pediu duas vezes
-    // ao dia — extrato de ontem faz o cliente conferir no banco antes de confiar,
-    // e aí o ERP virou a segunda opinião em vez da fonte. A Vercel RECUSOU o
-    // deploy: "Hobby accounts are limited to daily cron jobs".
+    // ⚠️ **O AGENDAMENTO MUDOU DE CASA — e a guarda mudou junto.** O Vercel
+    // Hobby recusou duas execuções diárias ("Hobby accounts are limited to
+    // daily cron jobs"), e a cadência não é capricho: extrato de ontem faz o
+    // cliente conferir no banco antes de confiar, e aí o ERP virou a segunda
+    // opinião. O dono decidiu `pg_cron` — existe no Free, não tem esse teto, e
+    // fica do lado do banco, junto do dado.
     //
-    // ⚠️ A guarda passou a cobrar o que É invariante (o extrato TEM de ser
-    // puxado) em vez do que a plataforma proíbe. Manter a asserção da cadência
-    // deixaria o CI vermelho por um limite de plano — e guarda que reprova o
-    // possível é desligada na primeira semana. A cadência volta quando o plano
-    // subir para Pro ou quando o agendamento migrar para o pg_cron do Supabase,
-    // que não tem esse teto.
-    const doOF = (vercel.crons ?? []).find((c) => c.path === "/api/openfinance/sync");
-    ok("extrato: o cron do Open Finance existe e é diário no mínimo",
-       !!doOF && /^0 \d/.test(doOF.schedule), doOF?.schedule ?? "(sem cron)");
+    // ⚠️ A guarda cobra o MECANISMO VIGENTE (a migration do pg_cron) e exige que
+    // o Open Finance NÃO esteja também na Vercel: dois agendadores para a mesma
+    // coisa é o começo de "roda duas vezes e ninguém sabe por quê".
+    ok("extrato: o Open Finance NÃO é mais agendado pela Vercel",
+       !(vercel.crons ?? []).some((c) => c.path === "/api/openfinance/sync"),
+       "voltou a ter dois agendadores para o mesmo sync");
+    const pgcronBruto = ler("supabase/migrations/20260819180000_openfinance_pg_cron.sql");
+    // ⚠️ **COMENTÁRIO FORA ANTES DA BUSCA.** A primeira versão reprovou o
+    // PRÓPRIO comentário que explica a regra — o arquivo cita `?secret=` para
+    // dizer o que NÃO se copia do job `own-sync`. É a terceira vez que este
+    // defeito aparece no repositório (guarda de exclusão física, varredura da
+    // ONDA 14), e uma guarda que reprova a documentação da regra treina quem a
+    // lê a ignorá-la.
+    const pgcron = pgcronBruto.replace(/^\s*--.*$/gm, "");
+    ok("extrato: o pg_cron agenda as DUAS execuções (09:00 e 21:00 UTC)",
+       /'openfinance-sync-manha',\s*'0 9 \* \* \*'/.test(pgcron) &&
+       /'openfinance-sync-noite',\s*'0 21 \* \* \*'/.test(pgcron),
+       "a cadência de duas vezes ao dia saiu do agendamento");
+    // ⚠️ O segredo vai no CABEÇALHO, nunca na URL — a lição do A4P-077. O job
+    // `own-sync`, que já existia neste projeto, usa `?secret=`: é o padrão da
+    // casa que NÃO se copia.
+    ok("extrato: o segredo do cron viaja no cabeçalho, nunca na query string",
+       /'Authorization', 'Bearer '/.test(pgcron) && !/\?secret=/.test(pgcron),
+       "o segredo voltou para a URL (vaza em log, proxy e Referer)");
 
     // ⚠️ **O ETL PRECISA DIZER QUE É EXTRATO, senão o banco RECUSA cada linha.**
     // Medido em 19/08: nenhum dos dois ETLs do Pluggy mandava `especie` nem

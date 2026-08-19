@@ -1484,6 +1484,48 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ A SÉTIMA REGRA — PROVE QUE AGUENTA ANTES DE LIGAR, NUNCA DEPOIS
+
+**Todo caminho automático que ainda não rodou em produção precisa de uma PROVA
+DE CARGA antes do primeiro disparo.** Duas perguntas, as duas respondidas com
+número: **quantas linhas ele criaria** na primeira execução, e **rodar duas
+vezes duplica?**
+
+⚠️ **O caso que fixou a regra (19/08/2026).** O cron do Open Finance já estava
+mergeado quando o dono pediu a prova de deduplicação — "antes de ele rodar,
+confirme que a dedup aguenta o volume". A dedup passou (52 → 52, zero novas nos
+dois lados, medido em transação desfeita). **O defeito estava no caminho até a
+prova:** nenhum dos dois ETLs do Pluggy mandava `especie` nem `origem`, e
+`titulo_exige_origem()` recusa com A4P05 todo lançamento sem procedência. Se o
+cron tivesse disparado assim, as transações chegariam a `bank_transactions` e
+**nenhuma viraria lançamento** — e o placar da conciliação PIORARIA, porque o
+denominador cresce e o numerador não.
+
+⚠️ **A pergunta era sobre duplicação e a resposta foi sobre AUSÊNCIA.** É essa a
+razão de a regra existir: a prova de carga não verifica só o que se teme, ela
+força a percorrer o caminho inteiro — e o que aparece costuma ser outra coisa.
+Um caminho que nunca rodou não tem evidência nenhuma a favor; ligá-lo é publicar
+uma suposição em produção.
+
+**A prova tem forma fixa, e ela é barata:**
+1. **Volume** — quantas linhas o primeiro disparo criaria? (Um cron parado
+   acumula: o materializador tem horizonte de 90 dias.)
+2. **Idempotência** — reexecutar o caminho de escrita REAL contra o que já
+   existe, em transação desfeita, e provar **zero linhas novas**. Não basta
+   apontar o índice único: o índice pode existir e o insert cair antes dele,
+   por outra trava.
+3. **O que muda na tela** — números já exibidos se movem? (Ligar o
+   materializador move runway e score sem nada ter acontecido no negócio.)
+
+⚠️ **"Tem índice único" não é a prova.** Foi exatamente essa a diferença aqui: os
+dois índices existiam e estavam corretos, e o insert nem chegava neles. A prova
+é EXECUTAR o caminho, não inspecionar a defesa.
+
+**Os dois caminhos que ainda devem esta prova**, e são a primeira coisa da
+próxima rodada, antes de qualquer item de fila: **o materializador de
+recorrências** (`/api/recorrencias/run`, que nunca completou uma execução) e o
+**`financial-os`** (`/api/financial-os/run`, sem rastro diário na trilha).
+
 ### ⚠️ A SEXTA REGRA — QUANDO UMA GUARDA EXPÕE DEFEITO, O DEFEITO É O TRABALHO
 
 **Contornar guarda que encontrou defeito real é proibido.** A guarda não é o
