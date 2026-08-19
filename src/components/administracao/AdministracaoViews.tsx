@@ -104,17 +104,6 @@ function diasAtras(n: number): string {
  */
 export function AssinaturaView() {
   const { pode } = usePermissoes();
-  if (!pode("cobranca")) {
-    return (
-      <Card className="flex flex-col items-start gap-2">
-        <h2 className="text-h2 m-0">Assinatura</h2>
-        <p className="m-0 text-body text-muted">
-          Plano e cobrança são do titular da empresa. Peça a ele se precisar
-          destes dados.
-        </p>
-      </Card>
-    );
-  }
   const router = useRouter();
   const contas = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
   const membros = useQuery({ queryKey: ["gov-members"], queryFn: listMembers });
@@ -128,6 +117,23 @@ export function AssinaturaView() {
     setLocal(lerAssinatura());
     setIntegracoes(lerIntegracoes());
   }, []);
+
+  // ⚠️ O gate vem DEPOIS de todos os hooks. A primeira versão retornava cedo,
+  // e um `return` antes de `useRouter`/`useQuery`/`useState` torna os hooks
+  // CONDICIONAIS — o React exige a mesma ordem em todo render. O `next lint`
+  // passou e o BUILD reprovou: são configurações diferentes, e é o build que
+  // vale.
+  if (!pode("cobranca")) {
+    return (
+      <Card className="flex flex-col items-start gap-2">
+        <h2 className="text-h2 m-0">Assinatura</h2>
+        <p className="m-0 text-body text-muted">
+          Plano e cobrança são do titular da empresa. Peça a ele se precisar
+          destes dados.
+        </p>
+      </Card>
+    );
+  }
 
   const usuarios = usuariosDaEmpresa(membros.data ?? [], empresa.data);
 

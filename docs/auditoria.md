@@ -1579,3 +1579,25 @@ fase reabrir; **não é trabalho para agora.**
 escrito, ela vira paisagem — foi assim que 29 divergências de esquema chegaram
 até aqui. O motivo aqui não é técnico, é de PRIORIDADE, e isso é decisão do
 dono, não da sessão.
+
+---
+
+## ⚠️ `next lint` PASSA onde o BUILD reprova — e é o build que vale (19/08/2026)
+
+Ao gatear a tela de assinatura por `tem_permissao('cobranca')`, o `return`
+antecipado ficou ANTES de `useRouter`, dos três `useQuery`, de dois `useState` e
+de um `useEffect`. Isso torna os hooks **condicionais**, e o React exige a mesma
+ordem em todo render — é defeito real, não estilo.
+
+⚠️ **`npm run lint` (next lint) passou limpo. `npm run build` reprovou com sete
+erros `react-hooks/rules-of-hooks`.** São configurações diferentes de ESLint, e
+o build é o que decide se o produto sobe. Rodar só o `lint` e concluir "está
+limpo" é o mesmo engano de rodar `typecheck` e concluir que o comportamento está
+certo.
+
+**A regra prática:** para mudança em COMPONENTE, `npm run build` faz parte da
+conferência — não só `typecheck` e `lint`. Foi o preview da Vercel que reprovou
+primeiro, e ele só existe porque o PR sobe antes de mergear.
+
+**E o conserto certo do gate:** todos os hooks primeiro, o `return` condicional
+depois. O gate continua valendo — o que muda é o LUGAR.
