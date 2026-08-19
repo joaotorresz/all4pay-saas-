@@ -10,6 +10,8 @@ import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { persistCompany, saveCompany } from "@/lib/company";
+import { alcadaDoOnboarding, FAIXAS_ALCADA } from "@/core/seguranca/alcada";
+import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
 import { useTipoConta } from "@/components/app/useTipoConta";
@@ -30,7 +32,11 @@ const DESPESAS = ["Folha", "Impostos", "Aluguel", "Marketing", "Combustível", "
 const PORTES = ["MEI", "ME", "EPP", "LTDA", "SA", "Holding", "SPE", "Outro"];
 const REGIMES = ["Simples Nacional", "Lucro Presumido", "Lucro Real", "Outro"];
 const FUNCOES = ["Administrador", "CEO", "CFO", "Financeiro", "Tesouraria", "Controller", "Contador", "Jurídico", "Operador", "Auditor", "Conselheiro", "Investidor"];
-const LIMITES = ["R$10 mil", "R$50 mil", "R$500 mil", "Sem limite"];
+// ⚠️ As faixas vêm de `core/seguranca/alcada` — a MESMA lista que o conversor
+// usa. Um array local aqui divergiria do conversor no primeiro ajuste, e foi
+// exatamente isso que fez "R$50 mil" virar 50: o rótulo mudava, a limpeza de
+// string não sabia.
+const LIMITES = FAIXAS_ALCADA.map((f) => f.rotulo);
 const CENTROS = ["Comercial", "Operações", "Administrativo", "Financeiro", "Marketing", "Logística"];
 const UNIDADES = ["Matriz", "Filial", "Projeto", "Online", "Operação"];
 const DRE_OPTS = ["Gerencial", "Financeiro", "Por centro de custo", "Por produto", "Por cliente", "Consolidado (holding)"];
@@ -140,8 +146,21 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
           }
         }
       }
+      // ⚠️ **A ALÇADA VAI PARA `central_alcada`, NÃO PARA O PERFIL.** O mesmo
+      // número morava em três lugares e só um decidia; `participantes[].limite`
+      // era uma das moradas mortas — a pessoa respondia e a resposta não
+      // chegava a mecanismo nenhum. Agora "Pode aprovar" define o PAPEL e
+      // "Limite de aprovação" define o TETO daquele papel, que é o que o
+      // gatilho da Central lê.
+      try { await aplicarAlcadaDoOnboarding(alcadaDoOnboarding(participantes)); } catch { /* segue */ }
       // Perfil: cache local + (live) company_profiles. Best-effort.
-      try { await persistCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
+      // ⚠️ `limite` é REMOVIDO aqui: guardá-lo no perfil recriaria a morada
+      // morta que acabamos de fechar, e a próxima tela leria dela achando que
+      // decide algo. Há guarda com teto ZERO contra isso.
+      try {
+        const semLimite = participantes.map(({ limite: _limite, ...resto }) => resto);
+        await persistCompany({ db, perfil, participantes: semLimite, estrutura });
+      } catch { /* segue */ }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
       // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
       if (configured) {
@@ -358,7 +377,11 @@ function PassoGovernanca({ participantes, setParticipantes }: { participantes: P
             <Input label="Nome" value={p.nome} onChange={(e) => upd(i, "nome", e.target.value)} />
             <Select label="Função" value={p.funcao} onChange={(v) => upd(i, "funcao", v)} options={opt(FUNCOES)} />
             <Input label="E-mail" value={p.email} onChange={(e) => upd(i, "email", e.target.value)} />
-            <Select label="Limite de aprovação" value={p.limite} onChange={(v) => upd(i, "limite", v)} options={opt(LIMITES)} />
+            {/* ⚠️ Só quem aprova tem teto: `alcadaDoOnboarding` ignora o limite de
+                quem não aprova, e um campo editável que o motor descarta é a
+                semente de mais uma morada morta. */}
+            <Select label="Limite de aprovação" value={p.limite ?? ""} disabled={!p.aprovaPagamentos}
+              onChange={(v) => upd(i, "limite", v)} options={opt(LIMITES)} />
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2"><Switch checked={p.aprovaPagamentos} onChange={(v) => upd(i, "aprovaPagamentos", v)} /><span className="text-label text-muted">Pode aprovar pagamentos</span></div>
