@@ -26,7 +26,17 @@ export interface Participante {
   funcao: string;
   email: string;
   aprovaPagamentos: boolean;
-  limite: string;
+  /**
+   * @deprecated Desde 19/08/2026 (P-19). A alçada mora em `central_alcada`, por
+   * PAPEL, e é lida pelo gatilho da Central. Este campo era uma das TRÊS
+   * moradas do mesmo número e a única que ninguém lia: a pessoa respondia no
+   * onboarding e a resposta não chegava a mecanismo nenhum. O onboarding
+   * continua PERGUNTANDO (é uma boa pergunta), mas a resposta agora vai para
+   * `central_alcada` — e é removida antes de persistir o perfil. Fica opcional
+   * só para o estado já gravado continuar carregando. NÃO voltar a escrever:
+   * há guarda com teto ZERO.
+   */
+  limite?: string;
   /** Hierarquia + o que o usuário pode fazer (governança). Opcionais p/ não
    *  quebrar o onboarding antigo — default tratado na UI de Configurações. */
   papel?: PapelUsuario;
@@ -83,7 +93,10 @@ export function calcularMaturidade(
   const aprovadores = participantesReais.filter((p) => p.aprovaPagamentos);
 
   const pilares: Pilar[] = [
-    { nome: "Governança", valor: aprovadores.some((p) => p.limite) ? 1 : participantesReais.length > 0 ? 0.5 : 0.15 },
+    // ⚠️ Media QUEM APROVA, não o campo `limite` (deprecado): o teto agora vive
+    // em `central_alcada` e não chega aqui. Ter aprovador declarado é o sinal
+    // de governança que este pilar sempre quis medir.
+    { nome: "Governança", valor: aprovadores.length > 0 ? 1 : participantesReais.length > 0 ? 0.5 : 0.15 },
     { nome: "Diversificação de receita", valor: clamp01(perfil.meiosRecebimento.length / 4) },
     { nome: "Concentração de clientes", valor: clamp01(1 - topShare) },
     { nome: "Organização financeira", valor: (estrutura.contas.length > 0 ? 0.5 : 0) + (estrutura.centrosCusto.length > 0 || report ? 0.5 : 0) },

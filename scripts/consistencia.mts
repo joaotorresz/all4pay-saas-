@@ -100,6 +100,7 @@ import {
   expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
 } from "@/lib/store-org";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { tetoDaFaixa, papelDoParticipante, alcadaDoOnboarding } from "@/core/seguranca/alcada";
 import { join } from "node:path";
 import { balancete } from "@/lib/ledger";
 import { CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta } from "@/core/ledger/chart";
@@ -131,6 +132,61 @@ function chavesUsadasNoCodigo(): string[] {
 
 
 /**
+ * ⚠️ **A QUARTA GUARDA DA FAMÍLIA DA DUPLA MORADA.** O mesmo número — "quanto
+ * fulano pode aprovar" — morava em TRÊS lugares e só um decidia:
+ *
+ *   central_alcada.teto_valor            por PAPEL    ← o gatilho da Central lê
+ *   organization_members.approval_limit  por PESSOA      ninguém lia
+ *   a4p_company.participantes[].limite   por PESSOA      ninguém lia
+ *
+ * As duas mortas nasceram do mesmo jeito: uma tela escreve, ninguém lê. Esta
+ * varredura existe para a quarta não nascer — e ela vale mais que o conserto,
+ * porque o conserto é de hoje e a porta fica aberta para sempre.
+ *
+ * Devolve os pontos do código que ESCREVEM alçada fora de `central_alcada`.
+ */
+function escritasDeAlcadaForaDaMorada(): string[] {
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      const st = statSync(caminho);
+      if (st.isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      const txt = readFileSync(caminho, "utf8");
+      const linhas = txt.split("\n");
+      linhas.forEach((linha, i) => {
+        // ⚠️ Comentário fora ANTES da busca: este repositório documenta cada
+        // defeito citando o identificador que o causou, e uma guarda que
+        // reprova a própria documentação da regra treina quem a lê a ignorá-la
+        // (a lição da guarda de exclusão física e da varredura da ONDA 14).
+        const semComentario = linha.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "");
+        if (/^\s*\*/.test(linha)) return;
+
+        // (a) approval_limit recebendo QUALQUER valor que não seja null literal.
+        const mAppr = semComentario.match(/p_approval_limit\s*:\s*(.+?)[,)]/);
+        if (mAppr && mAppr[1].trim() !== "null") {
+          achados.push(`${caminho}:${i + 1} grava p_approval_limit (${mAppr[1].trim()})`);
+        }
+        if (/\bapproval_limit\s*:/.test(semComentario) && !/approval_limit\s*:\s*null/.test(semComentario)) {
+          achados.push(`${caminho}:${i + 1} grava approval_limit`);
+        }
+
+        // ⚠️ **NÃO acusar estado de UI.** A primeira versão desta varredura
+        // reprovou `limite: ""` e `limite: "R$50 mil"` nos DEFAULTS das telas —
+        // que é a PERGUNTA sendo feita, não a resposta sendo persistida. Uma
+        // guarda que reprova o código certo é desligada na primeira semana, ou
+        // "consertada" arrancando o campo da tela. O risco real é a resposta
+        // voltar a ser GRAVADA no perfil; isso é cobrado por asserção positiva
+        // (o strip antes de `persistCompany`), logo abaixo.
+      });
+    }
+  };
+  varrer("src");
+  return achados;
+}
+
+/**
  * Consultas ao banco SEM teto de linhas.
  *
  * ⚠️ Varre a cadeia inteira (`.from("x") … ;`) e cobra `.limit`, `.range` ou
@@ -150,6 +206,16 @@ function consultasSemTeto(): string[] {
         const cadeia = m[2];
         if (!/\.select\(/.test(cadeia)) continue;             // insert/update
         if (/\.limit\(|\.single\(\)|\.maybeSingle\(\)|\.range\(/.test(cadeia)) continue;
+        // ⚠️ **OLHAR PARA TRÁS.** `comTeto(q)` é o helper SANCIONADO e aplica
+        // `.limit()` — mas ele envolve a consulta, então fica ANTES do
+        // `.from(` e uma varredura que só olha para a frente não o vê. É o
+        // mesmo defeito de direção da guarda de `origem` (ONDA 5) e do teto de
+        // cálculo em tela (ONDA 10): a terceira vez que ele aparece aqui.
+        // Sem isto a guarda reprovava justamente quem usou o helper certo —
+        // e `comTeto` não tinha um único consumidor, o que explica o ponto
+        // cego ter sobrevivido.
+        const antes = txt.slice(Math.max(0, (m.index ?? 0) - 200), m.index);
+        if (/comTeto\(\s*$|comTeto\([\s\S]*$/.test(antes) && /comTeto\(/.test(antes)) continue;
         out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length} (${m[1]})`);
       }
     }
@@ -3523,6 +3589,122 @@ const AGOSTO = janelaMes(2026, 7);
        semOrigem.length === 0, semOrigem.join(" | "));
     ok("onda5: buildMovementRows carrega a origem",
        !!rows && /\borigem\s*:/.test(rows[0]));
+  }
+
+  /* ---- A4P-077: o webhook da OWN, endurecido no que não depende dela ------ */
+  {
+    const wh = ler("supabase/functions/own-webhook/index.ts");
+    // ⚠️ Comentários fora ANTES da busca: este arquivo EXPLICA o defeito citando
+    // o nome da variável que o causou, e uma guarda que reprova a documentação
+    // da correção treina quem a lê a ignorá-la.
+    const codigo = wh.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+    ok("a4p077: o webhook não lê segredo da query string",
+       !/searchParams\.get\(\s*["']secret["']\s*\)/.test(codigo) &&
+       !/OWN_WEBHOOK_SECRET/.test(codigo),
+       "o ?secret= voltou — query string vaza em log, proxy e Referer");
+
+    ok("a4p077: o segredo é comparado em tempo constante",
+       /igualEmTempoConstante\(/.test(codigo) && !/atob\(h\.slice\(6\)\)\s*===/.test(codigo));
+
+    // ⚠️ **A POSIÇÃO É MEDIDA DENTRO DO HANDLER, não no arquivo.** A primeira
+    // versão comparava `indexOf("origemBloqueada(")` no arquivo inteiro — e o
+    // nome aparece antes de tudo, na DEFINIÇÃO da função. A asserção passava
+    // com a chamada em qualquer lugar: media a definição, não o call site.
+    // Descoberto plantando o defeito e vendo a guarda NÃO falhar.
+    const handler = codigo.slice(codigo.indexOf("Deno.serve("));
+    const iLimite = handler.indexOf("origemBloqueada(origem)");
+    const iCorpo = handler.indexOf("await req.text()");
+    ok("a4p077: o limite por origem é cobrado ANTES de ler o corpo",
+       iLimite >= 0 && iCorpo >= 0 && iLimite < iCorpo,
+       `limite=${iLimite} corpo=${iCorpo}`);
+    ok("a4p077: só a tentativa que FALHA é contada (tráfego legítimo não paga)",
+       /registrarFalha\(/.test(codigo));
+
+    ok("a4p077: o caminho HMAC existe e assina corpo + timestamp",
+       /crypto\.subtle\.sign\("HMAC"/.test(codigo) && /x-own-timestamp/.test(codigo));
+    ok("a4p077: o HMAC desliga por AUSÊNCIA de segredo (não por flag solta)",
+       /OWN_WEBHOOK_HMAC_SECRET/.test(codigo) && /if \(!segredo\) return null/.test(codigo));
+    ok("a4p077: a assinatura tem janela de replay (não vale para sempre)",
+       /5 \* 60_000|300_000/.test(codigo));
+    ok("a4p077: o HMAC assina os BYTES recebidos, não um objeto reserializado",
+       /await req\.text\(\)/.test(codigo));
+  }
+
+  /* ---- UMA MORADA SÓ PARA A ALÇADA (a 4ª guarda da dupla morada) --------- */
+  {
+    const fora = escritasDeAlcadaForaDaMorada();
+    ok("alcada: teto ZERO — ninguém escreve alçada fora de central_alcada",
+       fora.length === 0, fora.join(" | "));
+
+    // A conversão de faixa que estava errada, fixada por VALOR — era ela que
+    // fazia "R$50 mil" virar 50 e "Sem limite" virar 0 (a inversão exata).
+    ok("alcada: R$50 mil vale 50.000, não 50", tetoDaFaixa("R$50 mil") === 50_000,
+       String(tetoDaFaixa("R$50 mil")));
+    ok("alcada: R$10 mil vale 10.000", tetoDaFaixa("R$10 mil") === 10_000);
+    ok("alcada: R$500 mil vale 500.000", tetoDaFaixa("R$500 mil") === 500_000);
+    ok("alcada: 'Sem limite' é NULL (sem teto), nunca 0",
+       tetoDaFaixa("Sem limite") === null, String(tetoDaFaixa("Sem limite")));
+    // ⚠️ A ausência é FECHADA: rótulo desconhecido não pode virar "sem teto".
+    ok("alcada: rótulo desconhecido fecha (0), não abre",
+       tetoDaFaixa("qualquer coisa") === 0 && tetoDaFaixa(undefined) === 0);
+
+    // "Pode aprovar" define o PAPEL — com a Blindagem B é ele que decide QUEM.
+    ok("alcada: quem aprova vira 'aprovador'; quem não, 'lancador'",
+       papelDoParticipante({ aprovaPagamentos: true }) === "aprovador" &&
+       papelDoParticipante({ aprovaPagamentos: false }) === "lancador");
+
+    // O onboarding só define teto para QUEM APROVA.
+    const so = alcadaDoOnboarding([
+      { aprovaPagamentos: false, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "R$10 mil" },
+    ]);
+    ok("alcada: limite de quem NÃO aprova é ignorado (não vira morada nova)",
+       so.tetos.length === 1 && so.tetos[0].papel === "aprovador" && so.tetos[0].teto === 10_000,
+       JSON.stringify(so.tetos));
+
+    // ⚠️ Dois aprovadores com limites diferentes não cabem numa alçada por
+    // papel: fica o MAIOR (o menor bloquearia quem o dono quis liberar) e o
+    // conflito é DEVOLVIDO — escolha silenciosa é a pessoa descobrindo o teto
+    // no dia em que precisa aprovar.
+    const dois = alcadaDoOnboarding([
+      { aprovaPagamentos: true, limite: "R$10 mil" },
+      { aprovaPagamentos: true, limite: "R$500 mil" },
+    ]);
+    ok("alcada: dois aprovadores → fica o MAIOR teto",
+       dois.tetos[0]?.teto === 500_000, JSON.stringify(dois.tetos));
+    ok("alcada: e o conflito é DEVOLVIDO, não resolvido em silêncio",
+       dois.conflitos.length === 1 && dois.conflitos[0].ignorados.length === 1,
+       JSON.stringify(dois.conflitos));
+    const semTeto = alcadaDoOnboarding([
+      { aprovaPagamentos: true, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "Sem limite" },
+    ]);
+    ok("alcada: 'Sem limite' vence qualquer número",
+       semTeto.tetos[0]?.teto === null, JSON.stringify(semTeto.tetos));
+
+    // ⚠️ A asserção que substitui a varredura larga: a resposta do onboarding
+    // NÃO pode voltar ao perfil. Cobra o strip no ponto exato onde ele importa.
+    const wiz = ler("src/components/onboarding/OnboardingWizard.tsx");
+    ok("alcada: o onboarding REMOVE limite antes de persistir o perfil",
+       /limite:\s*_limite,\s*\.\.\.resto/.test(wiz) && /persistCompany\(\{[^}]*participantes:\s*semLimite/.test(wiz),
+       "o strip antes de persistCompany sumiu");
+    ok("alcada: o onboarding grava a alçada em central_alcada",
+       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(participantes\)\)/.test(wiz));
+    const tipo = ler("src/core/onboarding/index.ts");
+    ok("alcada: Participante.limite está deprecado e opcional",
+       /@deprecated/.test(tipo) && /limite\?:\s*string/.test(tipo));
+    const gov = ler("src/lib/governance.ts");
+    ok("alcada: a tela de Usuários não converte mais faixa para approval_limit",
+       !/parseLimite/.test(gov.replace(/\/\/.*$/gm, "")));
+
+    // A coluna aposentada tem de estar DECLARADA como tal no banco.
+    const mig = ler("supabase/migrations/20260819140000_alcada_morada_unica.sql");
+    ok("alcada: approval_limit está marcada como deprecada na migration",
+       /comment on column public\.organization_members\.approval_limit/.test(mig) &&
+       /DEPRECADA/.test(mig));
+    ok("alcada: a RPC org_member_update NÃO grava mais approval_limit",
+       /org_member_update/.test(mig) && !/set[\s\S]{0,400}approval_limit\s*=/.test(mig));
   }
 
   /* ---- O ESCRITOR MORTO: gravar onde, em produção, ninguém lê ------------- */

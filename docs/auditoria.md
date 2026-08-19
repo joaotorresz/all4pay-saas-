@@ -1447,3 +1447,135 @@ RPC `SECURITY DEFINER` (`own_token_pegar`/`gravar`/`bloquear`), nunca por
 ⚠️ **A regra que sai daí:** *"NÃO SEI" é um estado que se declara depois de
 procurar, não antes.* Declarado cedo demais, ele congela a dívida com aparência
 de prudência — e a prudência de verdade era abrir o arquivo.
+
+---
+
+## ⚠️ A4P-077 (parte 2) — o que dá para endurecer SEM a OWN, e duas guardas que nasceram cegas
+
+Feito em 19/08/2026, enquanto a pergunta sobre assinatura seguia com a OWN:
+
+1. **O `?secret=` saiu.** Query string entra em log de acesso, proxy e `Referer`
+   — o segredo vazava para lugares que ninguém audita, e bastava um print de
+   URL. `OWN_WEBHOOK_SECRET` deixou de ser lido; quem o usava migra para o Basic
+   (mesmo segredo, no cabeçalho).
+2. **Comparação em tempo constante.** `===` de string curto-circuita no primeiro
+   byte diferente e vaza o prefixo correto por tempo.
+3. **Limite de tentativas por origem, cobrado só de quem FALHA.** O tráfego
+   legítimo nunca toca o contador. ⚠️ É por *isolate* e isso está DITO no
+   código: quem distribuir a força bruta contorna. Não é a defesa final — é o
+   que encarece o ataque de uma origem sem custar nada a quem está certo.
+4. **O caminho HMAC pronto e DESLIGADO**, com janela de replay de ±5 min. ⚠️ Ele
+   desliga por **ausência de segredo**, não por um booleano: um flag separado
+   poderia ser ligado sem o segredo existir, e aí toda entrega seria recusada em
+   produção.
+
+⚠️ **O corpo passou a ser lido como TEXTO** (`req.text()`), porque o HMAC assina
+os BYTES. Reserializar um objeto já parseado muda espaço e ordem de chaves, e a
+assinatura falha por um motivo que ninguém encontra olhando o payload.
+
+**O P0 continua de pé:** sem assinatura, quem tem o segredo forja qualquer
+evento. Estes quatro reduzem superfície; não substituem o HMAC.
+
+### As duas guardas que nasceram cegas — e o que as denunciou
+
+⚠️ **A primeira nem existia.** O bloco foi inserido por um `str.replace` cuja
+âncora estava em OUTRA branch: sem match, o replace devolve o texto intacto e
+**não dá erro**. A guarda "passou" nas quatro plantas porque não estava lá. É
+exatamente o defeito do `perl` que interpolou `${origem}` — já registrado neste
+arquivo — cometido de novo, três seções abaixo de onde ele está descrito.
+**Conserto: `assert` na âncora ANTES de editar, sempre.**
+
+⚠️ **A segunda estava lá e não podia falhar.** A asserção "o limite é cobrado
+antes de ler o corpo" comparava `indexOf("origemBloqueada(")` no arquivo
+inteiro — e o nome aparece antes de tudo, na **definição da função**. Ela media
+a definição, não o call site, e passava com a chamada em qualquer lugar. Só
+apareceu porque plantar o defeito **não** a fez falhar. Conserto: medir a
+posição DENTRO do handler (`Deno.serve(` em diante) e casar a chamada com o
+argumento (`origemBloqueada(origem)`).
+
+⚠️ **A lição de método, que vale mais que as duas correções:** *plantar o
+defeito é o único jeito de saber se a guarda existe.* Uma passou por ausência,
+a outra por tautologia — e as duas ficariam verdes para sempre, dando a
+aparência de cobertura sobre um webhook que recebe dinheiro.
+## ⚠️ CASO EXEMPLAR — INSTRUÇÃO DO DONO RECUSADA COM RAZÃO (19/08/2026)
+
+**A instrução:** *"O teto é editável por organização. No onboarding, pergunte na
+etapa fiscal em vez de assumir — é uma pergunta que o cliente entende."*
+
+**A recusa:** a pergunta **já era feita**, na etapa de Governança do onboarding
+("Pode aprovar pagamentos" + "Limite de aprovação", faixas de 10k/50k/500k/sem
+limite). Não havia lacuna de UX. O defeito era o **destino da resposta**.
+
+**Medido antes de recusar:**
+
+| onde o número mora | granularidade | quem escreve | quem LÊ para decidir |
+| --- | --- | --- | --- |
+| `central_alcada.teto_valor` | por PAPEL | a migration | **o gatilho da Central** |
+| `organization_members.approval_limit` | por PESSOA | tela de Usuários | **ninguém** (1 de 17 preenchido) |
+| `a4p_company.participantes[].limite` | por PESSOA | onboarding | **ninguém** |
+
+`aplicarEstrutura` não toca `organization_members` (varredura vazia), e
+`finalizar()` manda `participantes` inteiro para `persistCompany` — perfil, não
+regra. Ou seja: **a pessoa respondia e a resposta não chegava a mecanismo
+nenhum.**
+
+⚠️ **Cumprir a instrução ao pé da letra criaria a QUARTA morada do mesmo
+número** — e a mais nova costuma parecer a certa para quem chega depois.
+Passaríamos a perguntar em dois lugares e a continuar decidindo por um terceiro,
+que é uma piora do defeito que a instrução queria evitar (assumir em vez de
+perguntar).
+
+**O que foi feito no lugar:** uma morada só (`central_alcada`). A pergunta ficou
+onde já estava — ao lado do switch que a torna relevante, e com a Blindagem B as
+duas viraram irmãs: *quem* aprova (papel, de `role_permissions`) e *quanto*
+(teto, de `central_alcada`).
+
+⚠️ **E a recusa achou um defeito que ninguém procurava.** Ao conferir a
+conversão, `parseLimite` tirava as LETRAS da faixa antes de converter:
+**"R$50 mil" virava 50** (mil vezes menor) e **"Sem limite" virava 0** — a
+inversão exata do que a pessoa escolheu. A coluna nunca teve leitor, então nunca
+doeu; a conversão viajava pronta para o dia em que alguém a ligasse.
+
+⚠️ **A regra que sai daí, e vale para toda sessão futura:** *quando a instrução
+manda ACRESCENTAR uma pergunta, meça primeiro se ela já é feita — e siga a
+resposta até o mecanismo que decide.* Pergunta duplicada não é redundância
+inofensiva: ela cria uma segunda fonte para o mesmo número, e a segunda fonte é
+como as duas moradas mortas nasceram. **Um campo que uma tela escreve e ninguém
+lê é uma morada esperando alguém acreditar nela.**
+
+O dono confirmou a recusa e escolheu a opção A (uma morada só, por papel).
+
+---
+
+## ⚠️ A4P-077 — DÍVIDA DECLARADA, com dono e motivo (19/08/2026)
+
+**Dono: joão.** **Estado: aberta, congelada por decisão de fase.**
+
+A adquirência (OWN/Agilli) foi ARQUIVADA nesta fase do produto — "zero tempo em
+adquirência daqui pra frente". O P0 do webhook fica registrado aqui, não
+resolvido, e **não deve consumir sessão** até o dono reabrir.
+
+**O que continua verdadeiro:** o `own-webhook` autentica por **segredo estático**
+(Basic Auth). Não há assinatura do corpo, então **quem tiver o segredo forja
+qualquer evento** — transação, liquidação ou cadastro entram como se a OWN os
+tivesse mandado. O `chaveIdempotencia` barra o replay de um payload IDÊNTICO
+(índice único → 23505), mas não um evento novo e inventado.
+
+**O que já foi feito e está no ar** (reduz superfície, não fecha o buraco):
+o `?secret=` saiu da URL · comparação em tempo constante · limite de tentativas
+por origem cobrado só de quem falha · e o caminho HMAC **pronto e desligado**
+(`OWN_WEBHOOK_HMAC_SECRET`), com janela de replay de ±5 min.
+
+**O que falta, e por que não dá para fazer sozinho:** ligar o HMAC exige que a
+OWN ASSINE o corpo. A pergunta foi enviada a eles pelo dono; sem a resposta, o
+caminho fica desligado — ligá-lo unilateralmente recusaria toda entrega em
+produção.
+
+⚠️ **Se a OWN não suportar assinatura**, a mitigação possível (também dependente
+deles) é restringir por faixa de IP de origem. Fica anotado para a hora em que a
+fase reabrir; **não é trabalho para agora.**
+
+⚠️ **Por que uma dívida com DONO e não um "aceito":** sem dono e sem motivo
+escrito, ela vira paisagem — foi assim que 29 divergências de esquema chegaram
+até aqui. O motivo aqui não é técnico, é de PRIORIDADE, e isso é decisão do
+dono, não da sessão.
