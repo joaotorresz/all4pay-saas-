@@ -242,6 +242,19 @@
         "resolver_ate": "2026-09-19",
         "origem": "decisao do dono, P-19 (19/08/2026)",
         "aplicada_em": null
+      },
+      {
+        "nome": "20260819180000_openfinance_pg_cron",
+        "motivo": "Decisao do dono (19/08/2026): o sync do Open Finance sai do Vercel Cron e vai para o pg_cron, duas vezes ao dia (09:00 e 21:00 UTC). O Vercel Hobby so permite uma execucao diaria; pg_cron existe no plano Free e nao tem esse teto. Medido: pg_cron 1.6.4, pg_net 0.20.3 e supabase_vault 0.3.1 JA instalados, e ja ha um job (own-sync) com este mesmo desenho — a migration segue o padrao da casa. ⚠️ Com UMA diferenca deliberada: o segredo vai no cabecalho Authorization, nao na query string como o own-sync faz (licao do A4P-077).",
+        "impacto": "Enquanto nao aplicada, o Open Finance NAO tem agendamento nenhum: o cron da Vercel foi removido neste mesmo PR e o do banco ainda nao existe. O extrato so entra por conexao manual no widget. ⚠️ E a migration exige UMA ACAO DO DONO: colar o valor do CRON_SECRET da Vercel na linha marcada — com o valor errado o cron roda, toma 401 e nao sincroniza nada, em silencio.",
+        "objetos_ausentes": [
+          "vault secret 'cron_secret'",
+          "cron.job 'openfinance-sync-manha' (0 9 * * *)",
+          "cron.job 'openfinance-sync-noite' (0 21 * * *)"
+        ],
+        "resolver_ate": "2026-09-19",
+        "origem": "decisao do dono, P-19 (19/08/2026)",
+        "aplicada_em": null
       }
     ],
     "objetos_sem_migration": [

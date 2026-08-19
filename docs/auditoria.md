@@ -1723,3 +1723,37 @@ defeito, o defeito é o trabalho.
 **Os dois caminhos para pagar, quando o dono decidir:** subir o plano da Vercel
 para Pro, ou mover o agendamento para o `pg_cron` do Supabase, que não tem esse
 teto — e que tem a vantagem de ficar do lado do banco, junto do dado.
+
+---
+
+## ⚠️ SQL NOVO SE PARSEIA ANTES DE EMPURRAR — e o CI não é o lugar de descobrir
+
+19/08/2026. A primeira versão da migration do `pg_cron` derrubou o job
+`isolamento` com `ERROR: schema "cron" does not exist (SQLSTATE 3F000)`.
+
+**A causa é de ambiente, não de sintaxe:** `pg_cron`, `pg_net` e `vault` são
+extensões do Supabase hospedado; o Postgres de contêiner que a guarda de
+isolamento sobe não as tem. O SQL estava certo — e inaplicável ali.
+
+⚠️ **O erro de método foi meu:** escrevi uma migration que fala com extensões de
+plataforma e a empurrei sem executá-la em lugar nenhum. Havia um Postgres real
+disponível o tempo todo, e bastava `begin … rollback` para saber.
+
+**O conserto tem duas metades, e a segunda é a que importa:**
+
+1. O agendamento vai por `execute` dentro de um `do` guardado por
+   `to_regnamespace('cron')` — o plpgsql resolve SQL de dentro de `execute` só
+   na hora de rodar, então o ramo não tomado nunca tenta resolver `cron.`.
+2. ⚠️ **O pulo AVISA** (`raise notice`). Um `return` mudo faria a migration
+   "passar" em produção caso a extensão sumisse, e o agendamento desapareceria
+   sem ninguém saber — trocaria um CI vermelho por um cron inexistente, que é
+   pior. E a guarda do CI continua cobrando os dois horários **no arquivo**: o
+   texto do agendamento é verificado mesmo onde ele não pode rodar.
+
+**Validado depois do conserto**, contra o Postgres real em transação desfeita:
+os dois jobs entram com `0 9 * * *` e `0 21 * * *`, ativos, com o segredo no
+cabeçalho `Authorization` e **não** na query string.
+
+**A regra:** migration que usa extensão de plataforma (`cron`, `net`, `vault`,
+`http`) é executada contra um banco de verdade em `begin … rollback` ANTES do
+push — e é escrita para pular COM AVISO onde a extensão não existe.

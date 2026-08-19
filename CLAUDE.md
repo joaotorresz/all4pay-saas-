@@ -1484,6 +1484,96 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ A OITAVA REGRA — TODA MIGRATION PASSA POR `begin; … rollback;` ANTES DO PUSH
+
+**Não é opcional e não custa nada.** Há um Postgres real disponível o tempo
+todo; rodar a migration dentro de uma transação desfeita custa segundos e
+responde a única pergunta que importa: *ela executa?*
+
+⚠️ **O caso que fixou a regra (19/08/2026).** A migration do `pg_cron` foi
+empurrada sem ser executada em lugar nenhum e derrubou o CI com
+`ERROR: schema "cron" does not exist`. `pg_cron`, `pg_net` e `vault` são
+extensões do Supabase hospedado, e o Postgres de contêiner da guarda de
+isolamento não as tem. O SQL estava sintaticamente certo — e inaplicável ali.
+Um `begin … rollback` teria dito isso antes do push.
+
+⚠️ **Typecheck e lint não alcançam SQL.** Um arquivo `.sql` atravessa o
+repositório inteiro sem nada olhar para ele até o CI aplicar — e o CI é o lugar
+mais caro e mais tarde para descobrir. Vale em dobro para migration que fala com
+**extensão de plataforma** (`cron`, `net`, `vault`, `http`), porque aí o
+ambiente é parte do contrato.
+
+**A prova tem duas metades:** executa no banco real (desfeito), **e** o
+resultado é conferido por SELECT — não por `raise notice`, que muitos clientes
+não devolvem. Ler "não deu erro" não é ler o que aconteceu.
+
+E o que se escreve depois de descobrir a diferença de ambiente: a migration
+**pula com AVISO** onde a extensão não existe, nunca em silêncio — ver a classe
+logo abaixo.
+
+### ⚠️ PULAR EM SILÊNCIO TROCA CI VERMELHO POR PRODUÇÃO ERRADA
+
+Uma classe própria, porque a tentação aparece toda vez que um ambiente difere do
+outro: a migration falha no CI, alguém põe `if not exists then return`, o CI
+fica verde e **ninguém percebe o dia em que ela também pula em produção**.
+
+⚠️ **Guarda que se desliga sozinha quando o ambiente muda é da mesma família do
+`resíduo = x − x`:** ela não pode falhar, então não mede nada. A diferença é que
+esta se disfarça de compatibilidade.
+
+**A forma correta tem três partes:**
+1. O pulo **avisa** (`raise notice`), e o texto diz o que NÃO foi criado e o que
+   significa encontrar aquele aviso em produção.
+2. A guarda do CI continua cobrando o conteúdo **no arquivo** — o texto do
+   agendamento é verificado mesmo onde ele não pode rodar.
+3. O que depende de uma edição humana **reprova de vez**, não avisa: um
+   placeholder não substituído lança e **desfaz a transação inteira**. Erro na
+   hora é sempre melhor que um cron que dispara todo dia, toma 401 e não produz
+   nada — o caminho "funciona" e não faz efeito, que é o defeito mais caro de
+   achar.
+
+### ⚠️ A SÉTIMA REGRA — PROVE QUE AGUENTA ANTES DE LIGAR, NUNCA DEPOIS
+
+**Todo caminho automático que ainda não rodou em produção precisa de uma PROVA
+DE CARGA antes do primeiro disparo.** Duas perguntas, as duas respondidas com
+número: **quantas linhas ele criaria** na primeira execução, e **rodar duas
+vezes duplica?**
+
+⚠️ **O caso que fixou a regra (19/08/2026).** O cron do Open Finance já estava
+mergeado quando o dono pediu a prova de deduplicação — "antes de ele rodar,
+confirme que a dedup aguenta o volume". A dedup passou (52 → 52, zero novas nos
+dois lados, medido em transação desfeita). **O defeito estava no caminho até a
+prova:** nenhum dos dois ETLs do Pluggy mandava `especie` nem `origem`, e
+`titulo_exige_origem()` recusa com A4P05 todo lançamento sem procedência. Se o
+cron tivesse disparado assim, as transações chegariam a `bank_transactions` e
+**nenhuma viraria lançamento** — e o placar da conciliação PIORARIA, porque o
+denominador cresce e o numerador não.
+
+⚠️ **A pergunta era sobre duplicação e a resposta foi sobre AUSÊNCIA.** É essa a
+razão de a regra existir: a prova de carga não verifica só o que se teme, ela
+força a percorrer o caminho inteiro — e o que aparece costuma ser outra coisa.
+Um caminho que nunca rodou não tem evidência nenhuma a favor; ligá-lo é publicar
+uma suposição em produção.
+
+**A prova tem forma fixa, e ela é barata:**
+1. **Volume** — quantas linhas o primeiro disparo criaria? (Um cron parado
+   acumula: o materializador tem horizonte de 90 dias.)
+2. **Idempotência** — reexecutar o caminho de escrita REAL contra o que já
+   existe, em transação desfeita, e provar **zero linhas novas**. Não basta
+   apontar o índice único: o índice pode existir e o insert cair antes dele,
+   por outra trava.
+3. **O que muda na tela** — números já exibidos se movem? (Ligar o
+   materializador move runway e score sem nada ter acontecido no negócio.)
+
+⚠️ **"Tem índice único" não é a prova.** Foi exatamente essa a diferença aqui: os
+dois índices existiam e estavam corretos, e o insert nem chegava neles. A prova
+é EXECUTAR o caminho, não inspecionar a defesa.
+
+**Os dois caminhos que ainda devem esta prova**, e são a primeira coisa da
+próxima rodada, antes de qualquer item de fila: **o materializador de
+recorrências** (`/api/recorrencias/run`, que nunca completou uma execução) e o
+**`financial-os`** (`/api/financial-os/run`, sem rastro diário na trilha).
+
 ### ⚠️ A SEXTA REGRA — QUANDO UMA GUARDA EXPÕE DEFEITO, O DEFEITO É O TRABALHO
 
 **Contornar guarda que encontrou defeito real é proibido.** A guarda não é o
