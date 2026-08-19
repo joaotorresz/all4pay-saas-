@@ -13,6 +13,7 @@ import {
   podeAprovar, papelQueAprova, transicaoValida, TRANSICOES, montarFila, titulosDaVisao,
   type Lancamento, type Aprovador,
 } from "@/core/central";
+import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
 import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
@@ -5412,6 +5413,114 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
     ],
   );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO D · a TABELA dentro do PDF (camada de texto)
+  // ⚠️ O defeito medido: todo PDF virava UM lançamento (kind:"doc"). Um extrato
+  // de 200 transações entrava como uma linha só. Estas asserções fixam a
+  // reconstrução da tabela — a parte que decide o que é linha e o que é coluna.
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    // Um extrato de 3 lançamentos, como o pdf.js entrega: pedaços com
+    // coordenadas, y CRESCENDO PARA CIMA (a 1ª linha do extrato tem o maior y).
+    // A descrição vem PARTIDA em dois pedaços colados — é o que o pdf.js faz
+    // ao mudar de kerning no meio da palavra.
+    const pag: ItemPdf[] = [
+      { texto: "Data",      x:  50, y: 700, largura: 22, altura: 9 },
+      { texto: "Histórico", x: 110, y: 700, largura: 45, altura: 9 },
+      { texto: "Valor",     x: 320, y: 700, largura: 25, altura: 9 },
+      // linha 1
+      { texto: "01/08/2026", x: 50, y: 680, largura: 46, altura: 9 },
+      { texto: "MERCADO",    x:110, y: 680, largura: 42, altura: 9 },
+      { texto: "LIVRE",      x:157, y: 680, largura: 24, altura: 9 },
+      { texto: "-1.234,56",  x:320, y: 680, largura: 40, altura: 9 },
+      // linha 2 — descrição COM ponto e vírgula (o caso do parser)
+      { texto: "02/08/2026", x: 50, y: 665, largura: 46, altura: 9 },
+      { texto: "PIX; TARIFA",x:110, y: 665, largura: 52, altura: 9 },
+      { texto: "-99,90",     x:320, y: 665, largura: 30, altura: 9 },
+      // linha 3
+      { texto: "03/08/2026", x: 50, y: 650, largura: 46, altura: 9 },
+      { texto: "SALARIO",    x:110, y: 650, largura: 38, altura: 9 },
+      { texto: "5.000,00",   x:320, y: 650, largura: 36, altura: 9 },
+    ];
+    const linhas = agruparEmLinhas(pag);
+
+    ok("blocoD pdf: 3 lançamentos + cabeçalho viram 4 linhas (não 1)",
+      linhas.length === 4, `linhas=${linhas.length}`);
+
+    // ⚠️ A ORDEM é o achado que a asserção protege: no PDF o y cresce para CIMA,
+    // então ordenar por y crescente devolve o extrato DE TRÁS PARA A FRENTE — e
+    // um extrato invertido não parece quebrado, parece um extrato.
+    ok("blocoD pdf: a ordem de leitura é do topo para baixo (y decrescente)",
+      linhas[1]?.[0] === "01/08/2026" && linhas[3]?.[0] === "03/08/2026",
+      `1a=${linhas[1]?.[0]} · 3a=${linhas[3]?.[0]}`);
+
+    // A descrição partida pelo pdf.js volta a ser UMA célula.
+    ok("blocoD pdf: pedaços colados viram UMA célula ('MERCADO LIVRE', não duas)",
+      linhas[1]?.[1] === "MERCADO LIVRE" && linhas[1]?.length === 3,
+      JSON.stringify(linhas[1]));
+
+    // ⚠️ O ';' dentro da descrição sobrevive à reconstrução — é ele que o
+    // parser ciente de aspas tem de receber inteiro (a lição do Bloco 1).
+    ok("blocoD pdf: ';' na descrição não parte a célula",
+      linhas[2]?.[1] === "PIX; TARIFA" && linhas[2]?.length === 3,
+      JSON.stringify(linhas[2]));
+
+    // Colunas separadas por vão largo continuam separadas.
+    ok("blocoD pdf: valor fica em célula PRÓPRIA (o vão de coluna separa)",
+      linhas[1]?.[2] === "-1.234,56" && linhas[3]?.[2] === "5.000,00",
+      `${linhas[1]?.[2]} / ${linhas[3]?.[2]}`);
+
+    // ⚠️ ESCANEADO vai para o OCR, não para o parser de tabela. Um PDF de scan
+    // quase sempre traz ALGUM texto (número de página, marca d'água do
+    // software de digitalização); tratar "tem algum texto" como "tem camada de
+    // texto" mandaria o extrato escaneado ao parser, que devolveria duas linhas
+    // de lixo em silêncio — o import "funciona" e traz quase nada.
+    const escaneado: ItemPdf[] = [
+      { texto: "1", x: 300, y: 40, largura: 5, altura: 8 },
+      { texto: "Digitalizado por ScanApp", x: 50, y: 20, largura: 120, altura: 6 },
+    ];
+    ok("blocoD pdf: escaneado (poucos itens) NÃO é camada de texto — vai ao OCR",
+      temCamadaDeTexto(escaneado) === false, `itens=${escaneado.length}`);
+    ok("blocoD pdf: extrato com texto de verdade É camada de texto",
+      temCamadaDeTexto([...pag, ...pag, ...pag, ...pag]) === true);
+    ok("blocoD pdf: página vazia não quebra nem inventa linha",
+      agruparEmLinhas([]).length === 0);
+
+    // ⚠️ O caso do MEIO, que é o que se erra. Três vãos, três respostas — e um
+    // limiar só para os três produziria ou "MERCA DO" (partindo palavra) ou
+    // "MERCADO LIVRE" grudado numa coluna com o valor.
+    const kern: ItemPdf[] = [
+      { texto: "MERCA", x: 110, y: 500, largura: 30, altura: 9 },  // termina 140
+      { texto: "DO",    x: 140, y: 500, largura: 12, altura: 9 },  // vão 0  → mesma palavra
+      { texto: "LIVRE", x: 157, y: 500, largura: 24, altura: 9 },  // vão 5  → espaço
+      { texto: "10,00", x: 320, y: 500, largura: 30, altura: 9 },  // vão 139 → coluna nova
+    ];
+    const lk = agruparEmLinhas(kern)[0] ?? [];
+    ok("blocoD pdf: vão ZERO é a MESMA palavra (kerning) — não inventa espaço",
+      lk[0] === "MERCADO LIVRE", JSON.stringify(lk));
+    ok("blocoD pdf: vão largo é COLUNA nova — o valor não gruda na descrição",
+      lk.length === 2 && lk[1] === "10,00", JSON.stringify(lk));
+
+    // ⚠️ **A CADEIA INTEIRA, não só o agrupamento.** Uma fixture que prova que
+    // as linhas saem bonitas e não prova que viram LANÇAMENTO é verde sobre o
+    // vazio: era exatamente assim que o PDF "funcionava" antes — lia, não
+    // reclamava, e trazia um lançamento só.
+    const csvPdf = csvDeLinhas(agruparEmLinhas(pag));
+    const repPdf = analisarImportacao(csvPdf);
+    ok("blocoD pdf: a cadeia (tabela → csv → FDIP) devolve os 3 lançamentos",
+      repPdf.records.length === 3, `records=${repPdf.records.length}`);
+    ok("blocoD pdf: o ';' da descrição sobrevive até o lançamento",
+      repPdf.records.some((r) => (r.contraparte ?? "").includes("TARIFA")),
+      JSON.stringify(repPdf.records.map((r) => r.contraparte)));
+    // ⚠️ Duas páginas não podem virar uma linha só na emenda: o y de cada
+    // página recomeça do zero, e sem deslocar por página o último lançamento
+    // de uma e o primeiro da outra teriam y parecidos e seriam fundidos.
+    const pag2 = pag.map((i) => ({ ...i, y: i.y - 100000 }));
+    const duasPaginas = agruparEmLinhas([...pag, ...pag2]);
+    ok("blocoD pdf: duas páginas não fundem linha na emenda",
+      duasPaginas.length === 8, `linhas=${duasPaginas.length}`);
+  }
+
   ok("blocoD mapa: layout limpo mapeia data=0 valor=2 descricao=1",
      limpo.mapeamento.data === 0 && limpo.mapeamento.valor === 2 && limpo.mapeamento.descricao === 1,
      JSON.stringify(limpo.mapeamento));
