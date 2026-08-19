@@ -1633,3 +1633,62 @@ localizado em uma tentativa, contra três no primeiro.
 ⚠️ E a lição de fundo é a de sempre: **a concatenação silenciosa é da mesma
 família do `replace` sem match.** As duas "funcionam" (não dão erro), as duas
 produzem um arquivo plausível, e as duas só se denunciam quando algo executa.
+
+---
+
+## ⚠️ O ETL DO OPEN FINANCE ERA RECUSADO PELO BANCO — em silêncio (19/08/2026)
+
+Achado ao provar a deduplicação **antes** do primeiro disparo do cron, a pedido
+do dono. A prova de dedup passou; o caminho até ela é que revelou o defeito.
+
+**Nenhum dos dois ETLs do Pluggy** (`pluggy-sync-item`, `pluggy-webhook`)
+mandava `especie` ou `origem` no insert de `movements`. E
+`titulo_exige_origem()` (ONDA 5) recusa com **A4P05** todo lançamento sem
+procedência — a menos que `especie = 'extrato'`, caso em que a própria trava
+carimba `origem` e libera.
+
+**Medido contra o banco real:** os 52 movements do Pluggy têm `origem` **NULA**
+porque nasceram em **23/06**, ANTES da trava. Desde então, **nenhum lançamento
+novo do Open Finance conseguia entrar**.
+
+⚠️ **E a falha era silenciosa por DOIS motivos somados**, que é o que a fez
+sobreviver: (1) o `catch` do ETL trata só `23505` (duplicata) — o A4P05 caía num
+`console.error` dentro de uma Edge Function que ninguém abre; e (2) o sync em si
+não rodava desde junho, então nem o log existia. Dois silêncios em série: o
+primeiro esconderia o defeito, o segundo escondeu que havia o que esconder.
+
+⚠️ **A ordem dos consertos importava, e por pouco.** O cron do Open Finance foi
+mergeado ANTES desta descoberta. Se ele tivesse disparado assim, as transações
+chegariam a `bank_transactions` e **nenhuma viraria lançamento** — e o placar da
+conciliação pioraria, porque o denominador cresce e o numerador não. O pedido do
+dono ("prove a dedup antes do primeiro disparo") é o que abriu o caminho até
+aqui: a pergunta era sobre duplicação e a resposta foi sobre ausência.
+
+⚠️ **A Edge Function não sobe pelo deploy da Vercel.** O conserto está no
+repositório; produção só o recebe quando alguém publicar a função pelo painel do
+Supabase. **Enquanto isso não acontecer, o cron roda e não cria lançamento
+nenhum** — fica declarado, não presumido.
+
+---
+
+## ⚠️ PARAR POR TAXA DE ERRO SUBINDO É UMA MEDIÇÃO, NÃO UMA DESCULPA
+
+Registro a pedido do dono, 19/08/2026.
+
+Ao fim de dois dias de rodada, **três medições minhas nasceram erradas em poucas
+horas**: a fixture do aging datada dentro da janela do DRE; o filtro de estados
+vazios que devolveu 56 incluindo modal, chat e cabeçalho; e o verificador que
+leu `AppShell` achando que lia a tela. As três foram pegas — duas por guarda,
+uma por conferência à mão — mas a **taxa** estava subindo.
+
+⚠️ **O que decidiu a parada não foi o cansaço: foi a NATUREZA do que sobrava.**
+Os itens restantes (cronômetro de onboarding, página de metodologia, varredura
+de copy, estados vazios) são de TEXTO e de VARREDURA — neles o erro não estoura,
+ele é **publicado**. Um número errado num relatório de auditoria e uma frase
+errada numa página pública não falham no CI: saem para o cliente com cara de
+medida.
+
+**A regra que fica:** quando a taxa de erro sobe E o trabalho restante é do tipo
+que publica em vez de estourar, parar é a decisão correta — e nomear a razão faz
+parte dela. Quatro blocos que reprovam valem mais que seis de aparência; a
+sessão que não sabe parar é a que produz guarda decorativa.

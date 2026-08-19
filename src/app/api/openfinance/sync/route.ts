@@ -21,6 +21,10 @@
  * extrato PAROU DE ENTRAR. Melhorar o algoritmo sem consertar isto é otimizar a
  * ponta errada.
  *
+ * ⚠️ **DUAS VEZES AO DIA (08:00 e 20:00 UTC), não uma.** Um ERP financeiro que
+ * mostra o extrato de ontem é um ERP que o cliente confere no banco antes de
+ * confiar — e aí ele deixou de ser a fonte e virou a segunda opinião.
+ *
  * ⚠️ Este arquivo **não reimplementa o ETL**. Ele chama a MESMA Edge Function
  * que o widget chama (`pluggy-sync-item`), que é idempotente e já convive com o
  * webhook. Um segundo ETL divergiria do primeiro no dia em que o Pluggy mudasse
