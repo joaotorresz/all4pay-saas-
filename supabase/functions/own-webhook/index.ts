@@ -16,17 +16,109 @@ import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supa
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A4P-077 — a autenticação do webhook, endurecida no que NÃO depende da OWN
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **O que continua sendo verdade, e é o P0:** sem assinatura do corpo, quem
+ * tiver o segredo FORJA qualquer evento — uma transação, uma liquidação, um
+ * cadastro. O `chaveIdempotencia` barra o replay de um payload IDÊNTICO (índice
+ * único → 23505), mas não um evento novo e inventado. O conserto de verdade é
+ * HMAC, e ele depende de a OWN assinar. Enquanto a resposta não vem, o caminho
+ * está PRONTO e DESLIGADO abaixo (`OWN_WEBHOOK_HMAC_SECRET`).
+ *
+ * O que dá para fazer sem a OWN, e está feito:
+ *   1. o segredo saiu da URL (query string vaza em log de acesso, proxy e
+ *      Referer — é a pior das duas portas, e era a única sem cabeçalho);
+ *   2. comparação em TEMPO CONSTANTE (a comparação de string curto-circuita no
+ *      primeiro byte diferente, o que vaza o prefixo correto por tempo);
+ *   3. limite de tentativas por origem, cobrado só de quem FALHA;
+ *   4. o caminho HMAC pronto atrás de flag.
+ */
+
+/** Compara em tempo constante — o `===` de string vaza o prefixo por tempo. */
+function igualEmTempoConstante(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a);
+  const eb = new TextEncoder().encode(b);
+  // ⚠️ O tamanho vaza de qualquer jeito (não dá para esconder sem padding), mas
+  // o CONTEÚDO não pode: percorre o maior dos dois sempre, sem sair no meio.
+  const n = Math.max(ea.length, eb.length);
+  let dif = ea.length ^ eb.length;
+  for (let i = 0; i < n; i++) dif |= (ea[i] ?? 0) ^ (eb[i] ?? 0);
+  return dif === 0;
+}
+
+/**
+ * Tentativas FALHAS por origem, numa janela curta.
+ *
+ * ⚠️ **É por isolate, e isso está dito de propósito.** Deno Deploy roda vários
+ * isolates, então quem distribuir a força bruta entre eles contorna. Não é a
+ * defesa final — é o que encarece o ataque de UMA origem sem custar nada ao
+ * tráfego legítimo, porque **só quem FALHA é contado**. A OWN autenticada nunca
+ * toca neste mapa. A defesa final é o HMAC.
+ */
+const JANELA_MS = 60_000;
+const MAX_FALHAS = 10;
+const falhas = new Map<string, number[]>();
+
+function origemBloqueada(ip: string): boolean {
+  const agora = Date.now();
+  const recentes = (falhas.get(ip) ?? []).filter((t) => agora - t < JANELA_MS);
+  falhas.set(ip, recentes);
+  return recentes.length >= MAX_FALHAS;
+}
+
+function registrarFalha(ip: string): void {
+  const agora = Date.now();
+  const recentes = (falhas.get(ip) ?? []).filter((t) => agora - t < JANELA_MS);
+  recentes.push(agora);
+  falhas.set(ip, recentes);
+  // ⚠️ Sem teto, o mapa vira vazamento de memória sob ataque distribuído — o
+  // remédio virando doença. 5.000 origens é folga larga para tráfego real.
+  if (falhas.size > 5_000) falhas.clear();
+}
+
+/**
+ * O caminho HMAC — PRONTO e DESLIGADO até a OWN confirmar que assina.
+ *
+ * ⚠️ Ele fica desligado por AUSÊNCIA de segredo, não por um booleano: um flag
+ * separado poderia ser ligado sem que o segredo existisse, e aí toda entrega
+ * seria recusada em produção. Sem `OWN_WEBHOOK_HMAC_SECRET` o corpo não é
+ * verificado e a autenticação cai no Basic — o comportamento de hoje.
+ */
+async function assinaturaConfere(req: Request, corpo: string): Promise<boolean | null> {
+  const segredo = Deno.env.get("OWN_WEBHOOK_HMAC_SECRET");
+  if (!segredo) return null; // desligado: não opina
+  const enviada = req.headers.get("x-own-signature") ?? "";
+  const ts = req.headers.get("x-own-timestamp") ?? "";
+  if (!enviada || !ts) return false;
+  // ⚠️ Janela de replay: uma assinatura válida capturada não pode valer para
+  // sempre. ±5 min cobre relógio dessincronizado sem virar eternidade.
+  const idade = Math.abs(Date.now() - Number(ts) * 1000);
+  if (!Number.isFinite(idade) || idade > 5 * 60_000) return false;
+  const chave = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(segredo),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const mac = await crypto.subtle.sign("HMAC", chave, new TextEncoder().encode(`${ts}.${corpo}`));
+  const hex = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return igualEmTempoConstante(hex, enviada.replace(/^sha256=/, ""));
+}
+
 function autenticado(req: Request): boolean {
   const basic = Deno.env.get("OWN_WEBHOOK_BASIC"); // "usuario:senha"
-  const segredo = Deno.env.get("OWN_WEBHOOK_SECRET");
   if (basic) {
     const h = req.headers.get("authorization") ?? "";
     if (h.startsWith("Basic ")) {
-      try { if (atob(h.slice(6)) === basic) return true; } catch { /* header malformado */ }
+      try { if (igualEmTempoConstante(atob(h.slice(6)), basic)) return true; } catch { /* header malformado */ }
     }
   }
-  if (segredo && new URL(req.url).searchParams.get("secret") === segredo) return true;
-  // Sem nenhum dos dois configurados a função recusa tudo — de propósito.
+  // ⚠️ **O `?secret=` FOI REMOVIDO (A4P-077).** Query string entra em log de
+  // acesso, em proxy e em `Referer` — o segredo vazava para lugares que ninguém
+  // audita, e bastava um print de URL. `OWN_WEBHOOK_SECRET` deixou de ser lido;
+  // quem ainda o usa tem de migrar para o Basic (mesmo segredo, no cabeçalho).
+  // Sem Basic configurado a função recusa tudo — de propósito.
   return false;
 }
 
@@ -144,17 +236,36 @@ async function gravarLiquidacao(db: SupabaseClient, p: Record<string, unknown>) 
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json(405, { erro: "somente POST" });
-  if (!autenticado(req)) return json(401, { erro: "nao autorizado" });
+
+  const origem = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "sem-ip";
+  // ⚠️ O limite é cobrado ANTES de qualquer trabalho — inclusive antes de ler o
+  // corpo. Um limite que só age depois de processar não protege de nada.
+  if (origemBloqueada(origem)) return json(429, { erro: "muitas tentativas" });
+
+  // ⚠️ O corpo é lido como TEXTO porque o HMAC assina os BYTES. Reserializar um
+  // objeto já parseado muda espaços e ordem de chaves, e a assinatura passa a
+  // não bater por um motivo que ninguém encontra olhando o payload.
+  let bruto: string;
+  try { bruto = await req.text(); } catch { return json(400, { erro: "corpo ilegivel" }); }
+
+  // O HMAC, quando LIGADO, é a autoridade — ele prova que o corpo veio da OWN,
+  // que é o que o Basic (segredo compartilhado) não consegue provar.
+  const assinado = await assinaturaConfere(req, bruto);
+  const passou = assinado === null ? autenticado(req) : assinado;
+  if (!passou) {
+    registrarFalha(origem);
+    return json(401, { erro: "nao autorizado" });
+  }
 
   let corpo: unknown;
-  try { corpo = await req.json(); } catch { return json(400, { erro: "corpo nao e JSON" }); }
+  try { corpo = JSON.parse(bruto); } catch { return json(400, { erro: "corpo nao e JSON" }); }
 
   // O webhook de liquidações entrega um ARRAY. O de transação, um objeto.
   const eventos: Record<string, unknown>[] = Array.isArray(corpo)
     ? (corpo as Record<string, unknown>[]) : [corpo as Record<string, unknown>];
 
   const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = origem === "sem-ip" ? null : origem;
 
   let gravados = 0, duplicados = 0;
 
