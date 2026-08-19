@@ -1447,3 +1447,53 @@ RPC `SECURITY DEFINER` (`own_token_pegar`/`gravar`/`bloquear`), nunca por
 ⚠️ **A regra que sai daí:** *"NÃO SEI" é um estado que se declara depois de
 procurar, não antes.* Declarado cedo demais, ele congela a dívida com aparência
 de prudência — e a prudência de verdade era abrir o arquivo.
+
+---
+
+## ⚠️ CASO EXEMPLAR — INSTRUÇÃO DO DONO RECUSADA COM RAZÃO (19/08/2026)
+
+**A instrução:** *"O teto é editável por organização. No onboarding, pergunte na
+etapa fiscal em vez de assumir — é uma pergunta que o cliente entende."*
+
+**A recusa:** a pergunta **já era feita**, na etapa de Governança do onboarding
+("Pode aprovar pagamentos" + "Limite de aprovação", faixas de 10k/50k/500k/sem
+limite). Não havia lacuna de UX. O defeito era o **destino da resposta**.
+
+**Medido antes de recusar:**
+
+| onde o número mora | granularidade | quem escreve | quem LÊ para decidir |
+| --- | --- | --- | --- |
+| `central_alcada.teto_valor` | por PAPEL | a migration | **o gatilho da Central** |
+| `organization_members.approval_limit` | por PESSOA | tela de Usuários | **ninguém** (1 de 17 preenchido) |
+| `a4p_company.participantes[].limite` | por PESSOA | onboarding | **ninguém** |
+
+`aplicarEstrutura` não toca `organization_members` (varredura vazia), e
+`finalizar()` manda `participantes` inteiro para `persistCompany` — perfil, não
+regra. Ou seja: **a pessoa respondia e a resposta não chegava a mecanismo
+nenhum.**
+
+⚠️ **Cumprir a instrução ao pé da letra criaria a QUARTA morada do mesmo
+número** — e a mais nova costuma parecer a certa para quem chega depois.
+Passaríamos a perguntar em dois lugares e a continuar decidindo por um terceiro,
+que é uma piora do defeito que a instrução queria evitar (assumir em vez de
+perguntar).
+
+**O que foi feito no lugar:** uma morada só (`central_alcada`). A pergunta ficou
+onde já estava — ao lado do switch que a torna relevante, e com a Blindagem B as
+duas viraram irmãs: *quem* aprova (papel, de `role_permissions`) e *quanto*
+(teto, de `central_alcada`).
+
+⚠️ **E a recusa achou um defeito que ninguém procurava.** Ao conferir a
+conversão, `parseLimite` tirava as LETRAS da faixa antes de converter:
+**"R$50 mil" virava 50** (mil vezes menor) e **"Sem limite" virava 0** — a
+inversão exata do que a pessoa escolheu. A coluna nunca teve leitor, então nunca
+doeu; a conversão viajava pronta para o dia em que alguém a ligasse.
+
+⚠️ **A regra que sai daí, e vale para toda sessão futura:** *quando a instrução
+manda ACRESCENTAR uma pergunta, meça primeiro se ela já é feita — e siga a
+resposta até o mecanismo que decide.* Pergunta duplicada não é redundância
+inofensiva: ela cria uma segunda fonte para o mesmo número, e a segunda fonte é
+como as duas moradas mortas nasceram. **Um campo que uma tela escreve e ninguém
+lê é uma morada esperando alguém acreditar nela.**
+
+O dono confirmou a recusa e escolheu a opção A (uma morada só, por papel).

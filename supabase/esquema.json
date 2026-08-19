@@ -220,6 +220,19 @@
         "resolver_ate": "2026-09-18",
         "origem": "sessao de agente, P-19 Bloco 3 (18/08/2026)",
         "aplicada_em": null
+      },
+      {
+        "nome": "20260819140000_alcada_morada_unica",
+        "motivo": "P-19: aposenta organization_members.approval_limit NO SERVIDOR. O mesmo numero — quanto fulano pode aprovar — morava em TRES lugares e so um decidia: central_alcada.teto_valor (por papel, lido pelo gatilho da Central), approval_limit (por pessoa, sem leitor) e a4p_company.participantes[].limite (por pessoa, sem leitor). org_member_update passa a IGNORAR o parametro p_approval_limit (mantido na assinatura para nao quebrar o cliente publicado) e as duas colunas ganham comentario declarando a morada.",
+        "impacto": "Enquanto nao aplicada, a RPC continua podendo gravar approval_limit se algum cliente antigo mandar valor — o cliente novo ja manda null. Nenhum dado e perdido: a migration nao apaga valor nenhum, so para de aceitar valor novo. ⚠️ MEDIDO: a conversao de faixa estava errada (parseLimite fazia 'R$50 mil' virar 50 e 'Sem limite' virar 0, a inversao exata); a coluna nunca teve leitor, entao nunca doeu. DIVIDA DECLARADA: 1 linha nao-nula em producao — papel 'member', valor 5, usuario joaotripodo@all4pay.com.br na org 'joaov.yoshimi' (677 lancamentos). Aguarda decisao do dono: vira teto de papel ou some.",
+        "objetos_ausentes": [
+          "org_member_update() sem a gravacao de approval_limit",
+          "comment on column organization_members.approval_limit (DEPRECADA)",
+          "comment on column central_alcada.teto_valor (a unica morada)"
+        ],
+        "resolver_ate": "2026-09-19",
+        "origem": "sessao de agente, P-19 (19/08/2026)",
+        "aplicada_em": null
       }
     ],
     "objetos_sem_migration": [
