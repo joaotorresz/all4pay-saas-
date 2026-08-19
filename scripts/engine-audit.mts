@@ -16,6 +16,9 @@ import {
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
 import { refinarDocumento, podeVincularContraparte } from "@/core/compras/refino";
 import {
+  conciliar as conciliarExtrato, saude as saudeConcil, fila as filaConcil, TOLERANCIA_EXATA,
+} from "@/core/conciliacao";
+import {
   montarFila as montarFilaIngestao, estadoVazio, loteDe, corrigir as corrigirFila,
   decidir as decidirFila, aplicarLote, progresso as progressoFila, corrigirIguais,
   proximoPendente, anterior as anteriorFila, paraGravar,
@@ -5420,6 +5423,94 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
     ],
   );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 3 · CONCILIAÇÃO — nada casa duas vezes, e a tolerância é declarada
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    const E = (id: string, data: string, valor: number) => ({ id, data, valor, descricao: id });
+    const T = (id: string, data: string, valor: number, tipo: "entrada" | "saida" = "saida") =>
+      ({ id, data, valor, tipo, descricao: id });
+
+    // ⚠️ A INVARIANTE PRIMEIRA: nenhum id em dois matches. Casar o mesmo
+    // lançamento com dois títulos dobra a baixa — dois títulos quitados por um
+    // dinheiro só, e o saldo descola do banco pelo valor do segundo.
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão tinha UMA linha de
+    // extrato e dois títulos — e o laço cria no máximo um match por linha,
+    // então a proteção de reuso nem era exercitada: desligá-la não fazia a
+    // asserção falhar. Aqui são DUAS linhas iguais disputando UM título: sem a
+    // trava, as duas o consomem e o título fica quitado duas vezes.
+    const r1 = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100)],
+    );
+    const idsT = r1.matches.flatMap((m) => m.tituloIds);
+    const idsE = r1.matches.flatMap((m) => m.extratoIds);
+    ok("concil: duas linhas iguais — o título NÃO é consumido duas vezes",
+       idsT.length === new Set(idsT).size && idsT.length === 1, JSON.stringify(idsT));
+    ok("concil: e a linha do extrato também não se repete",
+       idsE.length === new Set(idsE).size);
+    ok("concil: a linha de extrato que sobrou é DITA, não some", r1.extratoSobrando.length === 1);
+
+    const exato = conciliarExtrato([E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], TOLERANCIA_EXATA);
+    ok("concil: com tolerância ZERO, valores diferentes NÃO casam",
+       exato.matches.length === 0, JSON.stringify(exato.matches));
+    const tolerante = conciliarExtrato(
+      [E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], { dias: 3, centavos: 20 });
+    ok("concil: com tolerância declarada, casa E devolve a diferença",
+       tolerante.matches.length === 1 && Math.abs(tolerante.matches[0].diferenca) === 13,
+       JSON.stringify(tolerante.matches[0]));
+    ok("concil: a tolerância USADA viaja no resultado (a tela mostra)",
+       tolerante.matches[0].tolerancia.centavos === 20 && tolerante.matches[0].tipo === "aproximado");
+
+    const sinal = conciliarExtrato(
+      [E("e1", "2026-08-10", 100)], [T("t1", "2026-08-10", 100, "saida")], { dias: 5, centavos: 500 });
+    ok("concil: sinal oposto não casa nem dentro da tolerância", sinal.matches.length === 0);
+
+    const lote = conciliarExtrato(
+      [E("e1", "2026-08-10", -300)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: um pagamento em lote casa com os DOIS títulos que o somam",
+       lote.matches.length === 1 && lote.matches[0].tipo === "multiplo" &&
+       lote.matches[0].tituloIds.length === 2, JSON.stringify(lote.matches));
+    const partido = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-11", -200)],
+      [T("t1", "2026-08-10", 300)],
+    );
+    ok("concil: um título pago em duas transferências também casa",
+       partido.matches.length === 1 && partido.matches[0].extratoIds.length === 2,
+       JSON.stringify(partido.matches));
+    const naoFecha = conciliarExtrato(
+      [E("e1", "2026-08-10", -305)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: soma que não fecha NÃO vira múltiplo", naoFecha.matches.length === 0);
+
+    // ⚠️ O exato vem ANTES do múltiplo: senão uma soma consumiria o título que
+    // casaria sozinho e certo com outra linha.
+    const ordem = conciliarExtrato(
+      [E("e1", "2026-08-10", -300), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    const exatoDoT1 = ordem.matches.find((m) => m.tituloIds.includes("t1"));
+    ok("concil: o EXATO ganha do múltiplo (t1 casa com e2, não vira soma)",
+       !!exatoDoT1 && exatoDoT1.tipo === "exato" && exatoDoT1.extratoIds[0] === "e2",
+       JSON.stringify(ordem.matches));
+
+    const ts = [T("a", "2025-07-03", 10), T("b", "2026-08-01", 500), T("c", "2026-08-02", 40)];
+    const sd = saudeConcil(ts, new Set(["b"]), "2026-08-19");
+    ok("concil: a fração sai da contagem real (1 de 3)",
+       Math.abs(sd.fracao - 1 / 3) < 1e-9 && sd.conciliados === 1, JSON.stringify(sd));
+    ok("concil: o valor em aberto soma só os NÃO conciliados", sd.valorEmAberto === 50, String(sd.valorEmAberto));
+    ok("concil: o mais antigo pendente é nomeado, com a idade",
+       sd.maisAntigo === "2025-07-03" && sd.diasDoMaisAntigo === 412,
+       `${sd.maisAntigo} ${sd.diasDoMaisAntigo}`);
+
+    const f = filaConcil(ts, new Set<string>());
+    ok("concil: a fila prioriza por VALOR, não por data",
+       f[0].id === "b" && f[2].id === "a", f.map((x) => x.id).join(","));
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // BLOCO 2 · a FILA um-a-um (teclado, lote seguro, progresso, retomada)
   // ─────────────────────────────────────────────────────────────────────────

@@ -1579,3 +1579,38 @@ fase reabrir; **não é trabalho para agora.**
 escrito, ela vira paisagem — foi assim que 29 divergências de esquema chegaram
 até aqui. O motivo aqui não é técnico, é de PRIORIDADE, e isso é decisão do
 dono, não da sessão.
+
+---
+
+## ⚠️ RESOLVER CONFLITO CONCATENANDO OS DOIS LADOS QUEBRA SINTAXE — duas vezes (19/08)
+
+Dois blocos ADITIVOS no mesmo ponto do arquivo parecem o caso fácil do merge:
+fica-se com os dois. Mas o marcador `=======` cai **no meio da estrutura**, e a
+concatenação crua come a linha que fecha um bloco ou abre o outro. Aconteceu
+**duas vezes no mesmo dia**, no mesmo arquivo:
+
+1. `scripts/consistencia.mts` — sumiu o `}` que fechava o bloco do `a4p077`;
+2. `scripts/engine-audit.mts` — sumiu o `import {` que abria o bloco da fila,
+   **e** o `}` que fechava o bloco da conciliação.
+
+⚠️ **O typecheck não pega, o `npm test` pega tarde.** Nos dois casos o erro
+apareceu como `Expected '}' got '<eof>'` na execução — a centenas de linhas de
+onde o dano estava, porque um bloco não fechado só falha no fim do arquivo.
+
+**O método que funciona, e custa trinta segundos:** depois de resolver
+conflito por concatenação, **conte as chaves** antes de rodar qualquer coisa:
+
+```
+node -e 'const l=require("fs").readFileSync(ARQ,"utf8").split("\n");let b=0;
+l.forEach((x,i)=>{const s=x.replace(/"[^"]*"/g,"").replace(/`[^`]*`/g,"").replace(/\/\/.*$/,"");
+for(const c of s){if(c==="{")b++;else if(c==="}")b--;} if(MARCADOR.test(x))console.log(i+1,b);});
+console.log("final",b)'
+```
+
+O balanço final tem de ser 0, e imprimir o balanço nos cabeçalhos de seção
+mostra **em qual** seção ele desandou — foi assim que o segundo caso foi
+localizado em uma tentativa, contra três no primeiro.
+
+⚠️ E a lição de fundo é a de sempre: **a concatenação silenciosa é da mesma
+família do `replace` sem match.** As duas "funcionam" (não dão erro), as duas
+produzem um arquivo plausível, e as duas só se denunciam quando algo executa.
