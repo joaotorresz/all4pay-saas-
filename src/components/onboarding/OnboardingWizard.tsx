@@ -6,6 +6,7 @@ import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { formatBRL } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { criarContaEEntrar } from "@/lib/entrada";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
@@ -122,27 +123,28 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
-            if (error) throw new Error(error.message);
-            // ⚠️ signUp SÓ devolve sessão quando o e-mail é autoconfirmado no
-            // projeto. Com confirmação ligada, `session` é null: o usuário
-            // existe mas não está logado. Seguir daqui grava perfil/estrutura
-            // ÓRFÃOS (sem sessão, a RLS recusa ou o dado fica sem dono) e depois
-            // joga a pessoa numa rota que a rejeita. A saída certa é parar e
-            // pedir a confirmação — o resto acontece no primeiro login.
-            if (!data.session) {
-              // Salva o perfil no NAVEGADOR antes de parar — é a metade que não
-              // exige sessão. Assim a frase da tela de confirmação é verdadeira:
-              // ao entrar, o perfil já está preenchido. A estrutura e o import
-              // dependem de sessão e entram no primeiro login.
+            // ⚠️ MESMA implementação do cadastro de três campos (`lib/entrada`).
+            // Enquanto eram duas, o mesmo defeito vivia nas duas e consertar
+            // uma deixava a outra — foi assim que o "Entrando…" travado
+            // atravessou dois meses.
+            const r = await criarContaEEntrar(email, senha);
+            if (!r.ok && r.confirmarEmail) {
               try { saveCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
               setConfirmeEmail(true);
               setAplicando(false);
               return;
             }
+            if (!r.ok) throw new Error(r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo);
+            // Daqui para baixo existe sessão: `criarContaEEntrar` só devolve
+            // `ok` quando há uma. "Usuário criado" sem sessão não serve — a
+            // próxima rota o rejeita —, e esse caso já saiu acima pelo ramo da
+            // confirmação de e-mail, guardando o perfil no navegador antes.
           } else {
-            const { error } = await supabase.auth.signInAnonymously();
-            if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
+            // ⚠️ Sem e-mail e senha não há caminho: o acesso anônimo está
+            // DESLIGADO no projeto (medido: `anonymous_provider_disabled`), e a
+            // tela convidava a deixar em branco. Agora ela diz o que fazer em
+            // vez de girar para sempre.
+            throw new Error("Informe um e-mail e uma senha para criar a sua conta.");
           }
         }
       }
@@ -171,6 +173,12 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
       router.refresh();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível concluir.");
+    } finally {
+      // ⚠️ **SEMPRE, e é a metade que faltava.** O `setAplicando(false)` só
+      // existia dentro do `catch`; qualquer caminho que não lançasse — uma
+      // promessa pendurada, um retorno antecipado — deixava o botão em
+      // "Entrando…" para sempre. Botão que gira sem fim é indistinguível de
+      // sistema quebrado, e é o que a pessoa vê por último.
       setAplicando(false);
     }
   };
