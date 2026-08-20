@@ -25,6 +25,19 @@ export interface ResultadoOnboarding {
   centrosCusto: number;
   movimentos: number;
   simulado: boolean;
+  /**
+   * ⚠️ **A METADE QUE FALTAVA, e ela custou a importação inteira.** O laço de
+   * gravação fazia `if (!error) out.movimentos += …` — quando o banco recusava,
+   * o contador simplesmente não subia e NINGUÉM ficava sabendo. A tela anunciava
+   * "411 lançamentos serão aplicados", criava os 38 contatos, e o DRE abria
+   * vazio. Medido em produção: 38 contatos, 23 categorias, 1 conta, **zero
+   * lançamentos**.
+   *
+   * Um importador que engole a recusa é indistinguível de um que funciona — até
+   * alguém abrir o relatório. Agora a falha volta com a mensagem do banco e a
+   * tela tem o que dizer.
+   */
+  falha?: { mensagem: string; naoGravados: number };
 }
 
 const RECEITA = /venda|servic|juros|receita/i;
@@ -130,22 +143,68 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
   const nomeParaId = new Map<string, string>();
   const parties = dataset.parties.map((p) => ({ type: "pj", name: p.name, is_customer: p.is_customer, is_supplier: p.is_supplier }));
   if (parties.length) {
-    const { data: criadas, error } = await supabase.from("parties").insert(parties).select("id,name").limit(TETO_LINHAS);
-    if (!error) {
-      out.clientes = clientes;
-      out.fornecedores = fornecedores;
-      for (const row of (criadas ?? []) as { id: string; name: string }[]) nomeParaId.set(row.name, row.id);
+    /**
+     * ⚠️ **REIMPORTAR O MESMO EXTRATO TRIPLICAVA A LISTA DE CONTATOS.** Medido:
+     * três importações do mesmo arquivo levaram `parties` de 38 para 114, com
+     * os lançamentos parados em 408 — ou seja, a idempotência existia para o
+     * dinheiro e não para o cadastro. E é o cadastro que a pessoa abre para
+     * cobrar: uma lista com o mesmo cliente três vezes destrói a confiança na
+     * tela mais rápido que um número errado, porque o erro é auto-evidente.
+     *
+     * Mesma técnica da gravação de lançamentos: consultar quem JÁ existe e
+     * inserir só o resto. O nome é comparado sem diferenciar maiúsculas — o
+     * normalizador do extrato às vezes devolve "ATLAS CLOUD LTDA" e às vezes
+     * "Atlas Cloud Ltda" para a mesma contraparte.
+     */
+    const { data: existentes } = await supabase
+      .from("parties").select("id,name").limit(TETO_LINHAS);
+    const porNome = new Map<string, string>();
+    for (const r of (existentes as { id: string; name: string }[] | null) ?? []) {
+      porNome.set(r.name.trim().toLowerCase(), r.id);
+      nomeParaId.set(r.name, r.id);
     }
+    const novos = parties.filter((p) => !porNome.has(p.name.trim().toLowerCase()));
+    if (novos.length) {
+      const { data: criadas, error } = await supabase.from("parties").insert(novos).select("id,name").limit(TETO_LINHAS);
+      if (!error) for (const row of (criadas ?? []) as { id: string; name: string }[]) nomeParaId.set(row.name, row.id);
+    }
+    // ⚠️ O contador reporta o que a IMPORTAÇÃO trouxe, não quantas linhas foram
+    // inseridas agora: na segunda importação nada é criado e "0 clientes"
+    // faria a tela parecer que o arquivo veio vazio.
+    out.clientes = clientes;
+    out.fornecedores = fornecedores;
   }
 
   // 2) Categorias + centros de custo
+  /**
+   * ⚠️ **Mesma doença das outras duas tabelas, e ela veio da mesma medição.**
+   * Reimportar o mesmo extrato levou `categories` de 23 para 67 — o plano de
+   * contas nasce com "Folha", "Folha" e "Folha", e o drill-down do DRE por
+   * categoria passa a listar a mesma linha três vezes. As três gravações do
+   * import (lançamento, contato, categoria) apostavam em não repetir; só a dos
+   * lançamentos tinha chave, e nem essa funcionava.
+   *
+   * A regra que fica: **toda gravação de importação consulta o que já existe
+   * antes de inserir.** Importar é um ato que a pessoa repete — por engano, por
+   * teimosia, ou porque o arquivo do mês seguinte contém o mês anterior.
+   */
+  const jaTem = async (tabela: string) => {
+    const { data } = await supabase.from(tabela).select("name").limit(TETO_LINHAS);
+    return new Set(((data as { name: string }[] | null) ?? []).map((r) => r.name.trim().toLowerCase()));
+  };
   if (categorias.length) {
-    const { error } = await supabase.from("categories").insert(categorias.map((name) => ({ kind: RECEITA.test(name) ? "receita" : "despesa", name })));
-    if (!error) out.categorias = categorias.length;
+    const existentes = await jaTem("categories");
+    const novas = categorias.filter((n) => !existentes.has(n.trim().toLowerCase()));
+    if (novas.length) {
+      await supabase.from("categories").insert(novas.map((name) => ({ kind: RECEITA.test(name) ? "receita" : "despesa", name })));
+    }
+    out.categorias = categorias.length;
   }
   if (centros.length) {
-    const { error } = await supabase.from("cost_centers").insert(centros.map((name) => ({ name })));
-    if (!error) out.centrosCusto = centros.length;
+    const existentes = await jaTem("cost_centers");
+    const novos = centros.filter((n) => !existentes.has(n.trim().toLowerCase()));
+    if (novos.length) await supabase.from("cost_centers").insert(novos.map((name) => ({ name })));
+    out.centrosCusto = centros.length;
   }
 
   // 3) Movimentos (precisa de uma conta) — é o que correlaciona com dashboard/DRE
@@ -200,20 +259,74 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
         especie: "extrato",
       };
     });
-    // Insere em lotes para extratos grandes.
-    //
-    // ⚠️ `upsert` com `ignoreDuplicates` sobre o índice único (org_id, chave):
-    // a linha que já existe é IGNORADA em vez de derrubar o lote inteiro. Um
-    // `insert` puro devolveria erro de violação de unicidade e as 499 linhas
-    // boas do lote se perderiam junto com a repetida.
-    for (let i = 0; i < rows.length; i += 500) {
-      const lote = rows.slice(i, i + 500);
-      const { data: inseridas, error } = await supabase
+    /**
+     * ═══════════════════════════════════════════════════════════════════════
+     * ⚠️ **A GRAVAÇÃO NÃO USA `on_conflict` — e a razão é medida.**
+     * ═══════════════════════════════════════════════════════════════════════
+     *
+     * A versão anterior fazia `upsert(lote, { onConflict: "org_id,chave" })`,
+     * apostando no índice único para ignorar a linha repetida. O índice existe,
+     * mas é **PARCIAL**:
+     *
+     *   create unique index movements_org_chave_unique
+     *     on movements (org_id, chave) where (chave is not null)
+     *
+     * e o PostgREST não tem como mirar um índice parcial — a cláusula `ON
+     * CONFLICT` precisaria repetir o mesmo predicado `WHERE`, e não há como
+     * expressá-lo pela API. O banco responde, sempre:
+     *
+     *   42P10 — there is no unique or exclusion constraint matching the
+     *           ON CONFLICT specification
+     *
+     * Reproduzido contra produção com sessão real. Com o erro engolido pelo
+     * `if (!error)`, TODA importação gravava zero lançamentos em silêncio.
+     *
+     * ⚠️ **A idempotência não foi abandonada — ela mudou de lugar.** Antes de
+     * gravar, as chaves que JÁ existem na organização são consultadas e as
+     * linhas correspondentes saem do lote. O índice parcial continua no banco
+     * como a última trava; o que deixou de existir é a dependência de um
+     * recurso que a API não alcança.
+     */
+    const chaves = rows.map((r) => r.chave).filter(Boolean) as string[];
+    const jaExistem = new Set<string>();
+    for (let i = 0; i < chaves.length; i += 200) {
+      const { data } = await supabase
         .from("movements")
-        .upsert(lote, { onConflict: "org_id,chave", ignoreDuplicates: true })
-        .select("id").limit(TETO_LINHAS);
-      if (!error) out.movimentos += (inseridas as unknown[] | null)?.length ?? 0;
+        .select("chave")
+        .in("chave", chaves.slice(i, i + 200))
+        .limit(TETO_LINHAS);
+      for (const r of (data as { chave: string | null }[] | null) ?? []) if (r.chave) jaExistem.add(r.chave);
     }
+    // ⚠️ E dentro do PRÓPRIO lote também: um extrato pode repetir a mesma linha
+    // (mesmo dia, mesmo valor, mesmo histórico), e aí as duas colidiriam entre
+    // si — o `in` acima só enxerga o que já está gravado.
+    const vistas = new Set<string>();
+    const novas = rows.filter((r) => {
+      const k = r.chave as string;
+      if (!k || jaExistem.has(k) || vistas.has(k)) return false;
+      vistas.add(k); return true;
+    });
+
+    let ultimaFalha = "";
+    let naoGravados = 0;
+    for (let i = 0; i < novas.length; i += 500) {
+      const lote = novas.slice(i, i + 500);
+      const { data: inseridas, error } = await supabase
+        .from("movements").insert(lote).select("id").limit(TETO_LINHAS);
+      if (!error) { out.movimentos += (inseridas as unknown[] | null)?.length ?? 0; continue; }
+      /**
+       * ⚠️ **UMA LINHA RUIM NÃO PODE LEVAR AS OUTRAS 499.** Era esse o motivo
+       * original de usar `upsert`, e ele continua válido — a saída é reprocessar
+       * o lote linha a linha em vez de desistir dele. Custa uma rodada a mais
+       * só no lote que falhou, e é a diferença entre importar 410 de 411 e
+       * importar zero.
+       */
+      for (const linha of lote) {
+        const { error: e1 } = await supabase.from("movements").insert(linha);
+        if (e1) { naoGravados++; ultimaFalha = e1.message; } else out.movimentos++;
+      }
+    }
+    if (naoGravados > 0) out.falha = { mensagem: ultimaFalha, naoGravados };
   }
 
   return out;
