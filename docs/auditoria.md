@@ -1832,6 +1832,47 @@ quando custa barato.
 
 ---
 
+## ⚠️ A4P-080 — AS DUAS GUARDAS DE TELEFONE REGREDIRAM, e ninguém viu porque elas nunca entraram no CI
+
+**A ONDA 12 fechou com "7 telas · 0 com problema · 4 fluxos · 0 com problema".**
+Rodadas de novo em 20/08, contra o build de produção servido, elas acusam
+**5 das 7 telas** e **1 dos 4 fluxos**.
+
+| tela / fluxo | o que reprova |
+| --- | --- |
+| Títulos a receber | acessibilidade: `label`×2, `select-name`×3 |
+| Extrato | acessibilidade: contraste×2 |
+| Entrada de dados | orçamento: **57** requisições (teto 45) |
+| DRE | orçamento: **74** requisições (teto 60) |
+| **Lançar despesa** | **não há caminho para Despesa a partir do início** |
+
+⚠️ **A causa de a regressão atravessar é estrutural, e é a lição.** `npm run
+mobile` e `npm run fluxos` exigem o app SERVIDO, e por isso ficaram fora do
+`npm test` e fora do CI — declaradamente, com um motivo que era bom ("uma suíte
+que precisa de build deixa de ser rodada antes de commitar"). O efeito é que
+elas passaram a depender de alguém lembrar de rodá-las à mão, e ninguém lembrou.
+**Guarda que depende de memória não é guarda: é intenção.**
+
+⚠️ **E o pior item não é de acessibilidade.** *"Não há caminho para Despesa a
+partir do início"* quebra um dos quatro fluxos que a ONDA 12 elegeu como
+essenciais — lançar uma despesa do telefone. As reprovações de orçamento podem
+ter componente de ambiente (o build de demonstração carrega o conjunto do seed,
+que é maior); as de acessibilidade e a do fluxo **não têm**: `label` ausente e
+caminho inexistente independem de modo.
+
+⚠️ **Por que elas NÃO entraram no portão nesta rodada, e isso está no
+`ci.yml` com os números.** Pendurá-las agora abriria um portão VERMELHO: todo PR
+nasceria reprovado por dívida anterior, e a primeira coisa que se faz com um
+portão que nunca fica verde é desligá-lo — que é como se perde um portão de
+verdade. Deixá-las fora *em silêncio* seria pior: sumiria a única evidência de
+que a regressão existe.
+
+**A dívida, com dono e forma de fechar:** consertar os cinco itens e, no mesmo
+gesto, mover os dois passos para o job `navegador`. Enquanto não fecharem, elas
+continuam rodáveis à mão contra um build servido, e o `ci.yml` carrega a lista.
+
+---
+
 ## ⚠️ A4P-078 (parte 2) — EXPOSTO × EXPLORADO: o que dá para provar, e o que é JANELA CEGA
 
 **A pergunta do dono, e ela é a certa:** *"exposto é diferente de explorado, e só

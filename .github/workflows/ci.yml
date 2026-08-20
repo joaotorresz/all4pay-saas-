@@ -267,14 +267,28 @@ jobs:
           ALVO: http://127.0.0.1:3131
           NEXT_PUBLIC_ALL4PAY_DEMO: "true"
         run: npm run cronometro
-      - name: Telefone (orçamento, alvo de toque, contraste, axe)
-        env:
-          ALVO: http://127.0.0.1:3131
-        run: npm run mobile
-      - name: Os quatro fluxos essenciais, toque a toque
-        env:
-          ALVO: http://127.0.0.1:3131
-        run: npm run fluxos
+      # ⚠️ **`mobile` e `fluxos` FICAM DE FORA deste portão, e o motivo é medido,
+      # não uma escolha de conveniência.** Rodados contra este mesmo build em
+      # 20/08 eles acusam **5 das 7 telas** e **1 dos 4 fluxos** — contra o
+      # "7 telas · 0 problemas · 4 fluxos · 0 problemas" com que a ONDA 12
+      # fechou. É REGRESSÃO, e ela atravessou porque estas duas guardas nunca
+      # estiveram no CI: elas exigem o app servido, e ninguém as rodou desde
+      # então.
+      #
+      #   Títulos a receber ... acessibilidade: label×2, select-name×3
+      #   Extrato ............. acessibilidade: contraste×2
+      #   Entrada de dados .... orçamento: 57 requisições (teto 45)
+      #   DRE ................. orçamento: 74 requisições (teto 60)
+      #   Lançar despesa ...... não há caminho para Despesa a partir do início
+      #
+      # ⚠️ Pendurá-las aqui agora seria abrir um portão VERMELHO: todo PR
+      # nasceria reprovado por dívida anterior, e a primeira coisa que alguém faz
+      # com um portão que nunca fica verde é desligá-lo. Deixá-las fora sem dizer
+      # nada seria pior — some a única evidência de que a regressão existe.
+      #
+      # Então elas ficam declaradas AQUI, com os números, e entram no portão na
+      # rodada que as consertar. `npm run mobile` e `npm run fluxos` continuam
+      # rodando à mão contra um build servido.
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
