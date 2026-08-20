@@ -381,6 +381,28 @@ export function UploadView() {
           catMsg={[regraMsg, cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />
       )}
+      {/* ⚠️ **A RECUSA DO BANCO PRECISA APARECER.** A importação gravava zero
+          lançamentos em silêncio — a tela dizia "pronto", criava os contatos, e
+          o DRE abria vazio. Agora, se alguma linha não entrou, a tela diz
+          QUANTAS e o que o banco respondeu. Um importador que engole a recusa é
+          indistinguível de um que funciona, até alguém abrir o relatório. */}
+      {resultado?.falha && (
+        <div
+          className="rounded-md p-4 flex flex-col gap-1"
+          role="alert"
+          style={{ background: "var(--color-surface-2)", borderLeft: "3px solid var(--color-negative)" }}
+        >
+          <span className="text-label font-medium text-ink">
+            {resultado.falha.naoGravados} de {resultado.falha.naoGravados + resultado.movimentos} lançamentos não foram salvos
+          </span>
+          <span className="text-caption text-muted">
+            Os demais entraram normalmente. Resposta do banco: {resultado.falha.mensagem}
+          </span>
+          <span className="text-caption text-faint">
+            Reenviar o mesmo arquivo é seguro — o que já entrou não duplica.
+          </span>
+        </div>
+      )}
       {report && (resultado || importado) && (
         <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline self-start">Limpar e recomeçar</button>
       )}
