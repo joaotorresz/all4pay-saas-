@@ -6079,5 +6079,86 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      rep.records[0]?.descricao === "COMPRA A; PARCELA 1", rep.records[0]?.descricao);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// A4P-079 — A TELA DE GOVERNANÇA NÃO AFIRMA INTEGRIDADE QUE NÃO PODE CONFERIR
+//
+// ⚠️ Esta guarda existe porque a verificação de integridade, em produção, era
+// `x − x`: `getAuditTrail` MONTA a cadeia no navegador a partir das linhas de
+// `audit_log` (que não guarda hash) e então verifica essa cadeia contra ela
+// mesma. Medido pelo MESMO caminho da produção: adulterar o `depois` de uma
+// linha, apagar a linha do meio e a cadeia vazia — os três devolviam
+// `intacta: true`, e a tela estampava a pílula verde "Cadeia íntegra".
+//
+// ⚠️ **A guarda NÃO mede a integridade** — medir isso seria repetir a
+// tautologia. Ela mede o que a tela AFIRMA: com a cadeia reconstruída, nenhum
+// caminho pode produzir o rótulo positivo nem oferecer o teste de adulteração.
+// É a forma "X nunca pode vir de Y" da doutrina: prova-se excluindo o caminho
+// errado, não confirmando o resultado certo.
+{
+  const { veredictoDaCadeia } = await import("@/core/institutional/cadeia");
+  const { TrilhaAuditoria } = await import("@/core/institutional/audit");
+
+  // 1) O defeito original, reproduzido: a cadeia reconstruída NÃO detecta.
+  type L = { id: string; depois: Record<string, unknown> };
+  const montar = (linhas: L[]) => {
+    const t = new TrilhaAuditoria();
+    for (const r of linhas)
+      t.registrar({
+        entityType: "movement", entityId: r.id, action: "update",
+        before: null, after: r.depois,
+        ctx: { userId: "u", userName: "u", companyId: "—", ip: "—", device: "—", browser: "—", os: "—" },
+        timestamp: `2026-08-0${r.id}T10:00:00Z`,
+      });
+    return t.verificarIntegridade();
+  };
+  const LINHAS: L[] = [
+    { id: "1", depois: { valor: 1000 } },
+    { id: "2", depois: { valor: 2000 } },
+    { id: "3", depois: { valor: 3000 } },
+  ];
+  const adulterada = montar(LINHAS.map((l) => (l.id === "2" ? { ...l, depois: { valor: 999999 } } : l)));
+  const semMeio = montar(LINHAS.filter((l) => l.id !== "2"));
+  ok("A4P-079: reconstruir a cadeia NÃO detecta adulteração (o defeito é real)",
+     adulterada.intacta && semMeio.intacta,
+     `adulterada=${adulterada.intacta} · apagada=${semMeio.intacta}`);
+
+  // 2) …e por isso o veredicto de uma cadeia reconstruída nunca é positivo.
+  const recon = veredictoDaCadeia({ origem: "reconstruida", total: 3, intacta: true });
+  ok("A4P-079: cadeia reconstruída NUNCA diz 'Cadeia íntegra'",
+     !recon.verificavel && recon.rotulo !== "Cadeia íntegra" && recon.tom !== "positivo", recon.rotulo);
+  ok("A4P-079: e NUNCA oferece o teste de adulteração (proteção que o dado não tem)",
+     recon.podeTestarAdulteracao === false);
+  ok("A4P-079: o motivo ocupa o lugar da afirmação, e nomeia a causa",
+     recon.explicacao.includes("calculado na hora da leitura") && recon.explicacao.length > 80);
+
+  // 3) O vazio: 0 eventos passa em verificarIntegridade por VACUIDADE.
+  const vazioCru = new TrilhaAuditoria([]).verificarIntegridade();
+  ok("A4P-079: 0 eventos passa na verificação crua (é por isso que a tela mentia)",
+     vazioCru.intacta && vazioCru.total === 0);
+  const vazio = veredictoDaCadeia({ origem: "armazenada", total: 0, intacta: true });
+  ok("A4P-079: mas o veredicto do VAZIO não é positivo, mesmo com cadeia armazenada",
+     !vazio.verificavel && vazio.tom === "neutro" && !vazio.podeTestarAdulteracao, vazio.rotulo);
+  ok("A4P-079: e o vazio DIZ que ausência de registro não é registro em ordem",
+     vazio.explicacao.toLowerCase().includes("não é o mesmo"));
+
+  // 4) O caso legítimo continua funcionando — senão a guarda proibiria o certo.
+  const boa = veredictoDaCadeia({ origem: "armazenada", total: 3, intacta: true });
+  const ruim = veredictoDaCadeia({ origem: "armazenada", total: 3, intacta: false });
+  ok("A4P-079: cadeia ARMAZENADA e íntegra continua podendo afirmar",
+     boa.verificavel && boa.rotulo === "Cadeia íntegra" && boa.podeTestarAdulteracao);
+  ok("A4P-079: cadeia ARMAZENADA adulterada acusa (o caso discrimina)",
+     ruim.verificavel && ruim.tom === "alerta" && ruim.rotulo !== boa.rotulo);
+
+  // 5) TETO ZERO na tela: nenhum caminho estampa o rótulo positivo por conta
+  //    própria. Era um ternário inline sobre `integridade.intacta`, e foi ele
+  //    que atravessou meses sem ninguém ver.
+  const fs = await import("node:fs");
+  const tela = fs.readFileSync("src/components/institucional/InstitutionalView.tsx", "utf8");
+  ok("A4P-079: a tela não escreve 'Cadeia íntegra' à mão — sai do veredicto",
+     !tela.includes('"Cadeia íntegra"') && tela.includes("veredictoDaCadeia"));
+  ok("A4P-079: o teste de adulteração é gateado pelo veredicto, não por eventos.length",
+     tela.includes("veredicto.podeTestarAdulteracao"));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
