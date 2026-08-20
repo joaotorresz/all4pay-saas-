@@ -16,6 +16,7 @@
     "kb": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/assistant-kb-coverage.mts",
     "tz": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tz-boundary.mts",
     "audit": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-audit.mts",
+    "cronometro": "node ./scripts/onboarding-cronometro.mjs",
     "promessas": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/promessas.mts",
     "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb && npm run tz && npm run audit && npm run consistencia && npm run reconciliacao && npm run contrato && npm run coerencia && npm run ia-eval && npm run esquema && npm run paleta && npm run fila-500 && npm run travar && npm run cron-auth && npm run promessas",
     "coerencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/coerencia.mts",

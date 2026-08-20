@@ -65,6 +65,35 @@ const DECLARADAS: { arquivo: string; trecho: string; motivo: string }[] = [
     motivo: "recorte factual da lista de Open Finance, e o limite está DITO na linha seguinte ('conta em banco fora da lista continua entrando por importação')" },
 ];
 
+/**
+ * ⚠️ **NEGAÇÃO NÃO É PROMESSA — e esta guarda reprovou a MINHA página de
+ * limites para provar isso.** "Não garante que a DRE está classificada do seu
+ * jeito" é a declaração mais honesta do produto, e o padrão `\bgarante\b` a
+ * acusava. Uma guarda que reprova o desmentido ensina a apagar o desmentido:
+ * ela pressionaria exatamente na direção contrária à que existe para pressionar,
+ * e a página de limites — a que mais vale — seria a primeira a ser esvaziada.
+ *
+ * Então a frase é lida com a NEGAÇÃO na frente: `não`, `nunca`, `jamais`, `sem`
+ * ou `nem` em qualquer ponto da MESMA FRASE, antes do termo, desarmam a
+ * acusação. É o mesmo julgamento da varredura de implementação (ONDA 11) — o
+ * que separa vazamento de uso legítimo é o sentido, não a palavra.
+ *
+ * ⚠️ **A janela é a frase, não um punhado de palavras.** A primeira versão
+ * olhava três palavras para trás e continuava acusando "Não é uma trilha de
+ * auditoria à prova de adulteração" — seis palavras entre a negação e o termo.
+ * Contar palavras é arbitrário; a frase é a unidade em que a negação vale, e o
+ * ponto final é o que a encerra. Assim "Não fazemos X. Garantimos Y." continua
+ * sendo pego pelo segundo período, que é o correto.
+ */
+const NEGACAO = /\b(n[ãa]o|nunca|jamais|sem|nem)\b/i;
+
+/** A ocorrência está negada no texto que a antecede? */
+export function estaNegada(texto: string, indice: number): boolean {
+  const antes = texto.slice(0, indice);
+  const inicioDaFrase = Math.max(antes.lastIndexOf("."), antes.lastIndexOf(";"), antes.lastIndexOf("!"), antes.lastIndexOf("?"));
+  return NEGACAO.test(antes.slice(inicioDaFrase + 1));
+}
+
 const CHAVES = "(?:title|titulo|hint|sub|label|oQue|comoCalcula|placeholder|description|descricao|texto|mensagem|resumo|motivo|frase|nota|aviso)";
 const reProp = new RegExp(CHAVES + "\\s*[=:]\\s*[\"'`]([^\"'`]{4,})", "g");
 const reJsx = />\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇa-záéíóúâêôãõç][^<>{}\n]{8,})\s*</g;
@@ -97,7 +126,9 @@ export function varrer(): { arquivo: string; linha: number; familia: string; tex
       for (const m of l.matchAll(reJsx)) alvos.push(m[1]);
       for (const a of alvos) {
         for (const p of PADROES) {
-          if (!p.re.test(a)) continue;
+          const m = a.match(p.re);
+          if (!m || m.index === undefined) continue;
+          if (estaNegada(a, m.index)) continue;
           const isento = DECLARADAS.some((d) => rel === d.arquivo && a.includes(d.trecho));
           if (isento) continue;
           achados.push({ arquivo: rel, linha: i + 1, familia: p.nome, texto: a.trim().slice(0, 140) });
@@ -110,6 +141,31 @@ export function varrer(): { arquivo: string; linha: number; familia: string; tex
 
 const direto = process.argv[1]?.endsWith("promessas.mts");
 if (direto) {
+  /**
+   * ⚠️ **O CASO QUE DISCRIMINA, e sem ele a negação seria um buraco.** Afrouxar
+   * a varredura para não acusar "não garante" pode, sem ninguém ver, fazê-la
+   * parar de acusar "garante" — e aí a guarda vira decoração de uma linha só.
+   * Estas quatro asserções fixam os DOIS lados, e rodam a cada execução.
+   */
+  const casos: [string, boolean][] = [
+    ["Garantimos que o balanço fecha.", true],            // promessa → acusa
+    ["Não garante que a DRE está classificada.", false],  // desmentido → passa
+    ["Não é uma trilha à prova de adulteração.", false],  // negação distante → passa
+    ["Não fazemos isso. Garantimos aquilo.", true],       // frase nova → acusa
+  ];
+  let falhouAuto = 0;
+  for (const [frase, deveAcusar] of casos) {
+    let acusou = false;
+    for (const pd of PADROES) {
+      const m = frase.match(pd.re);
+      if (m && m.index !== undefined && !estaNegada(frase, m.index)) acusou = true;
+    }
+    if (acusou !== deveAcusar) {
+      falhouAuto++;
+      console.log(`✗ FAIL autoteste da negação: "${frase}" — esperado ${deveAcusar ? "acusar" : "passar"}, deu ${acusou ? "acusar" : "passar"}`);
+    }
+  }
+
   const achados = varrer();
   // ⚠️ Exceção que aponta para arquivo inexistente é exceção que sobreviveu ao
   // arquivo — silenciaria uma família inteira sem ninguém perceber.
@@ -118,7 +174,7 @@ if (direto) {
   });
   for (const o of orfas) console.log(`✗ FAIL exceção órfã: ${o.arquivo} não contém "${o.trecho}"`);
   for (const a of achados) console.log(`✗ FAIL ${a.arquivo}:${a.linha} [${a.familia}] ${a.texto}`);
-  const total = achados.length + orfas.length;
+  const total = achados.length + orfas.length + falhouAuto;
   console.log(
     total === 0
       ? `✓ promessas — 0 afirmações a mais em ${arquivos(RAIZ).length} arquivos (${DECLARADAS.length} exceções declaradas com motivo)`

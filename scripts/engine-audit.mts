@@ -6160,5 +6160,67 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      tela.includes("veredicto.podeTestarAdulteracao"));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// METODOLOGIA PÚBLICA (item 12) — a página descreve o cálculo que o produto
+// EXECUTA, não um cálculo que alguém digitou uma vez.
+//
+// ⚠️ Uma página pública de metodologia com texto à mão é pior que nenhuma: ela
+// envelhece na primeira mudança de fórmula e passa a afirmar, para quem ainda
+// não é cliente, um cálculo que não existe mais. Por isso a guarda cobra o
+// CONSUMO das fontes, e cobra que toda linha de soma tenha explicação — senão a
+// próxima linha nova entra na cascata muda.
+{
+  const fs = await import("node:fs");
+  const { ESTRUTURA_DRE, ESTRUTURA_DFC } = await import("@/core/relatorios");
+  const { METODOLOGIAS } = await import("@/core/metodologia");
+  const { LIMITES } = await import("@/core/metodologia/limites");
+
+  const somas = [...ESTRUTURA_DRE, ...ESTRUTURA_DFC].filter((l) => l.tipo === "soma");
+  const semEntra = somas.filter((l) => !l.entra || l.entra.length < 40);
+  ok("metodologia: TODA linha de soma diz em português o que cai nela",
+     semEntra.length === 0, semEntra.map((l) => l.id).join(", "));
+
+  // ⚠️ O caso que DISCRIMINA: a explicação da dedução tem de dizer que IRPJ e
+  // CSLL NÃO entram ali. Foi exatamente essa confusão que levou a dedução a
+  // 47,54% da receita numa organização real, e uma explicação que a omitisse
+  // publicaria a versão errada da regra.
+  const ded = ESTRUTURA_DRE.find((l) => l.id === "deducoes");
+  ok("metodologia: a linha de deduções DIZ que IRPJ/CSLL ficam de fora",
+     /irpj/i.test(ded?.entra ?? "") && /csll/i.test(ded?.entra ?? ""));
+
+  const totais = ESTRUTURA_DRE.filter((l) => l.tipo === "total" && l.id !== "saldo_inicial");
+  ok("metodologia: toda linha de total tem fórmula (nenhuma soma lançamento)",
+     totais.every((l) => (l.formula?.length ?? 0) > 0 && !l.casa),
+     totais.filter((l) => !l.formula?.length || l.casa).map((l) => l.id).join(", "));
+
+  // ⚠️ TETO ZERO: a página LÊ das fontes. Se ela deixar de importar qualquer
+  // uma, virou texto à mão — e é aí que a divergência começa, em silêncio.
+  const pag = fs.readFileSync("src/components/metodologia/MetodologiaView.tsx", "utf8");
+  for (const fonte of ["ESTRUTURA_DRE", "ESTRUTURA_DFC", "METODOLOGIAS", "LIMITES"])
+    ok(`metodologia: a página consome ${fonte} em vez de repetir o texto`,
+       new RegExp(`import[^;]*${fonte}`).test(pag));
+
+  ok("metodologia: a página tem a seção do que o sistema NÃO faz",
+     pag.includes("O que o sistema não faz"));
+  ok("metodologia: cada limite traz o que fazer no lugar (limite sem saída lê como defeito)",
+     LIMITES.length >= 5 && LIMITES.every((l) => l.emVezDisso.length > 30 && l.porque.length > 30));
+  // ⚠️ Discrimina: a lista tem de conter os limites que DOEM, não só os fáceis.
+  const titulos = LIMITES.map((l) => l.titulo.toLowerCase()).join(" | ");
+  ok("metodologia: os limites que doem estão declarados (contador · dinheiro · previsão)",
+     /contador/.test(titulos) && /move dinheiro/.test(titulos) && /prev[êe]/.test(titulos), titulos);
+
+  ok("metodologia: todo indicador declara o que NÃO enxerga",
+     METODOLOGIAS.length > 0 && METODOLOGIAS.every((m) => m.limitacoes.length > 0));
+  ok("metodologia: os pesos de cada indicador somam 1",
+     METODOLOGIAS.every((m) => Math.abs(m.componentes.reduce((a, c) => a + c.peso, 0) - 1) < 0.001),
+     METODOLOGIAS.map((m) => `${m.id}=${m.componentes.reduce((a, c) => a + c.peso, 0).toFixed(3)}`).join(" "));
+
+  // ⚠️ Pública de verdade: sem esta linha no middleware a página existe e pede
+  // login — e uma metodologia que só quem já comprou consegue ler não cumpre a
+  // função de ajudar a decidir a compra.
+  const mw = fs.readFileSync("src/middleware.ts", "utf8").replace(/\/\/.*$/gm, "");
+  ok("metodologia: a rota é pública no middleware", mw.includes('pathname.startsWith("/metodologia")'));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
