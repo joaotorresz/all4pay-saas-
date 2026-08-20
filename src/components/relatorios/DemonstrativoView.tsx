@@ -9,11 +9,12 @@
  * `tipo`. Duplicar daria duas telas que divergem na primeira regra nova.
  */
 import * as React from "react";
+import Link from "next/link";
 import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon, ValorIndicador, NotaCancelados, StatusBadge, BRL, type FormatoValor } from "@/components/ui";
+import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -129,6 +130,14 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
     [input, aplicados.intervalo.de, aplicados.intervalo.ate],
   );
 
+  /**
+   * ⚠️ Sem NENHUM lançamento na organização — não "sem lançamento no período".
+   * A distinção importa: um mês vazio dentro de uma base cheia é uma resposta
+   * legítima (não houve movimento em junho), e trocá-la por um convite a
+   * importar esconderia a informação. O convite é para quem ainda não tem base.
+   */
+  const semLancamento = !isLoading && !!input && input.movements.length === 0;
+
   const cancelados = React.useMemo(
     () => (input ? canceladosNaJanela(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
     [input, aplicados.intervalo.de, aplicados.intervalo.ate],
@@ -144,6 +153,36 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
         </p>
         {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
       </div>
+
+      {/* ⚠️ **ORGANIZAÇÃO SEM UM LANÇAMENTO: a cascata inteira em R$ 0,00 é
+          pior que uma tela vazia.** Ela tem a MESMA aparência de um relatório
+          conferido — quinze linhas, colunas de mês, totais — e afirma que a
+          empresa não faturou e não gastou nada. Quem abre não distingue "não há
+          dado" de "o resultado é zero", e as duas mandam fazer coisas opostas.
+          É a doutrina da ONDA 4 aplicada à primeira tela que uma conta nova
+          mostra: o motivo ocupa o lugar do número, e traz o botão que o
+          preenche. */}
+      {semLancamento && (
+        <Card className="flex flex-col gap-3">
+          <span className="text-h3 text-ink">
+            {tipo === "dre" ? "Ainda não há resultado para demonstrar" : "Ainda não há caixa para demonstrar"}
+          </span>
+          <p className="m-0 text-body text-muted max-w-[68ch]">
+            {tipo === "dre"
+              ? "O DRE mostra quanto a empresa GANHOU e GASTOU em cada mês, linha a linha — receita, deduções, custos, despesas e o resultado no fim. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."
+              : "O fluxo de caixa mostra quando o dinheiro ENTROU e SAIU da conta, mês a mês. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."}
+          </p>
+          <p className="m-0 text-caption text-faint max-w-[68ch]">
+            {tipo === "dre"
+              ? "Importe um extrato e as linhas se preenchem: o sistema classifica cada lançamento na linha certa da demonstração."
+              : "Importe um extrato e os meses se preenchem pela data em que o dinheiro se moveu."}
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
+            <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
         <FiltrosRelatorio
