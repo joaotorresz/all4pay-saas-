@@ -7,7 +7,7 @@ import { InstitutionalView } from "@/components/institucional/InstitutionalView"
 export const metadata: Metadata = {
   title: "Governança e aprovações · all4pay",
   description:
-    "Camada institucional: trilha de auditoria imutável (hash-chain), permissões granulares (RBAC + policy engine) e fluxo de aprovação.",
+    "Camada institucional: trilha de auditoria, permissões por papel e fluxo de aprovação por faixa de valor.",
 };
 
 export default function GovernancaPage() {

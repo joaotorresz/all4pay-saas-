@@ -8,6 +8,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TrilhaAuditoria } from "@/core/institutional/audit";
+import type { OrigemDaCadeia } from "@/core/institutional/cadeia";
 import { trilhaDemo } from "@/core/institutional/demo";
 import type { AuditAction, AuditEvent, EntityType } from "@/core/institutional/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
@@ -70,10 +71,20 @@ function entidadeDoEvento(
 export async function getAuditTrail(): Promise<{
   eventos: AuditEvent[];
   integridade: ReturnType<TrilhaAuditoria["verificarIntegridade"]>;
+  /**
+   * ⚠️ **De onde vem o encadeamento — e é isto que decide o que a tela pode
+   * afirmar (A4P-079).** Em demonstração a trilha é montada e SELADA uma vez,
+   * com o hash viajando junto do evento; em produção ela é RECONSTRUÍDA a cada
+   * leitura a partir de `audit_log`, que não guarda hash nenhum. Verificar a
+   * segunda é comparar o cálculo com ele mesmo. Sem este campo a tela não tem
+   * como saber a diferença — e foi por isso que ela afirmou integridade por
+   * meses sobre uma cadeia que não existia.
+   */
+  origem: OrigemDaCadeia;
 }> {
   if (isDemo) {
     const t = trilhaDemo();
-    return { eventos: t.todos(), integridade: t.verificarIntegridade() };
+    return { eventos: t.todos(), integridade: t.verificarIntegridade(), origem: "armazenada" };
   }
 
   const supabase = createClient();
@@ -112,5 +123,5 @@ export async function getAuditTrail(): Promise<{
       timestamp: r.created_at,
     });
   }
-  return { eventos: t.todos(), integridade: t.verificarIntegridade() };
+  return { eventos: t.todos(), integridade: t.verificarIntegridade(), origem: "reconstruida" };
 }
