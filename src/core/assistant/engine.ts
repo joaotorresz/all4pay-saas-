@@ -14,6 +14,7 @@
  * Determinístico, puro, demo/live idêntico (roda sobre o RiskInput).
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { classificarDespesa } from "@/core/indicadores/classificacao";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { simularAquisicao, situacaoDe, presetPor, VEREDITO_LABEL, type TipoDecisao } from "@/core/aquisicao";
@@ -931,9 +932,28 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— TOP FORNECEDORES ———
+  /**
+   * ⚠️ **FOLHA E PRÓ-LABORE NÃO SÃO FORNECEDOR, e responder que são derruba a
+   * confiança no resto.** Medido numa organização real: "qual meu maior
+   * fornecedor" respondia *"Folha Funcionarios (R$65.441,24), Pro Labore Socios
+   * (R$18.000,00)"* — as duas maiores contrapartes de SAÍDA. Não é falso (o
+   * dinheiro sai mesmo para elas), mas para um dono de empresa "fornecedor" é
+   * quem lhe VENDE, não quem trabalha nele. Uma resposta que soa errada
+   * contamina as nove certas ao lado.
+   *
+   * ⚠️ Quem decide o que é folha é o classificador CANÔNICO — o mesmo que o DRE
+   * usa para montar a linha. Um regex próprio aqui criaria a segunda definição
+   * de folha do produto, e no dia em que uma mudasse a IA e o DRE passariam a
+   * discordar sobre a mesma despesa.
+   *
+   * A pergunta sobre folha continua com resposta: quem pergunta de folha cai no
+   * bloco de despesa por categoria, que a soma inteira.
+   */
   if (/(maior(es)?|principa|top|para quem|pra quem).*(fornecedor|fornec)|(fornecedor|fornec)\w*.*(cust|cobra|mais car|sai\w* mais|mais caro|gasto)|quem mais (recebo de mim|me cobra|eu pago)|p(a|ra) quem (eu )?(mais )?pago|quem eu mais pago/.test(p)) {
     const w = janela(p, hoje);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const sai = movs.filter((m) =>
+      m.type === "saida" && m.status === "pago" && within(cashDate(m), w)
+      && classificarDespesa(m.category) !== "folha");
     const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return {
