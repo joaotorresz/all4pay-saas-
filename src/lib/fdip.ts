@@ -13,7 +13,7 @@ import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/
 import { setImported, clearImported } from "@/lib/imported";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { aberturaDoExtrato, type AberturaVerificada } from "@/core/indicadores/abertura";
 
 export { clearImported } from "@/lib/imported";
@@ -290,11 +290,13 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
     const chaves = rows.map((r) => r.chave).filter(Boolean) as string[];
     const jaExistem = new Set<string>();
     for (let i = 0; i < chaves.length; i += 200) {
-      const { data } = await supabase
-        .from("movements")
-        .select("chave")
-        .in("chave", chaves.slice(i, i + 200))
-        .limit(TETO_LINHAS);
+      // ⚠️ `semAmostra` é obrigatório: toda leitura de dinheiro passa pelo
+      // filtro de demonstração, e a guarda tem teto ZERO. Aqui ele também é
+      // CORRETO no mérito — uma chave que só existe numa linha de amostra não
+      // pode impedir a gravação da linha real do cliente.
+      const { data } = await semAmostra(
+        supabase.from("movements").select("chave").in("chave", chaves.slice(i, i + 200)),
+      ).limit(TETO_LINHAS);
       for (const r of (data as { chave: string | null }[] | null) ?? []) if (r.chave) jaExistem.add(r.chave);
     }
     // ⚠️ E dentro do PRÓPRIO lote também: um extrato pode repetir a mesma linha
@@ -327,6 +329,37 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
       }
     }
     if (naoGravados > 0) out.falha = { mensagem: ultimaFalha, naoGravados };
+
+    /**
+     * ⚠️ **O SALDO DA CONTA — a linha que faltava, e ela deixava a Home em
+     * R$ 0,00 depois de uma importação bem-sucedida.**
+     *
+     * Medido: 408 lançamentos gravados e `financial_accounts.balance` = 0. A
+     * conta nasce com zero (aqui e no `seed_org`) e nada a atualizava em live —
+     * o `montarDataset` calcula o saldo e só o caminho de DEMONSTRAÇÃO o usava.
+     *
+     * E o estrago não é cosmético: toda a camada canônica tira o NÍVEL do
+     * `balance` das contas ("o banco é a autoridade; os lançamentos explicam a
+     * VARIAÇÃO, não o nível"). Com zero, o saldo é zero, o runway sai
+     * `caixa_negativo` e a projeção parte do lugar errado — com 408 lançamentos
+     * na tela ao lado.
+     *
+     * ⚠️ **A regra de quando gravar:** se o extrato DECLAROU o saldo de
+     * fechamento (o `<LEDGERBAL>` do OFX), ele manda — é número do banco. Sem
+     * declaração, o saldo é derivado dos liquidados, e aí só sobrescreve uma
+     * conta que ainda está zerada: uma conta com saldo já informado por outra
+     * via não pode ser atropelada por uma estimativa.
+     */
+    const saldoDoExtrato = dataset.accounts[0]?.balance ?? 0;
+    if (saldoDoExtrato !== 0) {
+      const { data: contaAtual } = await supabase
+        .from("financial_accounts").select("balance").eq("id", accId).maybeSingle();
+      const atual = Number((contaAtual as { balance: number } | null)?.balance ?? 0);
+      const declarado = Boolean(dataset.abertura);
+      if (declarado || atual === 0) {
+        await supabase.from("financial_accounts").update({ balance: saldoDoExtrato }).eq("id", accId);
+      }
+    }
   }
 
   return out;

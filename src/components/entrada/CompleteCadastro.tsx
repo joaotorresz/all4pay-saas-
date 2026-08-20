@@ -20,6 +20,7 @@ import Link from "next/link";
 import { Card, Button, Icon, Select } from "@/components/ui";
 import { loadCompany, saveCompany, persistCompany, type StoredCompany } from "@/lib/company";
 import { isDemo } from "@/lib/demo";
+import { regimeDaEmpresa } from "@/core/tax/regime";
 
 const REGIMES = [
   { value: "Simples Nacional", label: "Simples Nacional" },
@@ -36,7 +37,17 @@ function pendencias(c: StoredCompany | null): Pendencia[] {
   const vazio = (k: string) => !String(db[k] ?? "").trim();
   const fora: Pendencia[] = [];
   // 1º, sempre: é o único que muda número.
-  if (!String(db.regimeTributario ?? db.regime ?? "").trim()) {
+  //
+  // ⚠️ **Quem lê as duas chaves é `regimeDaEmpresa`, nunca esta tela.** A guarda
+  // da ONDA 13 pegou exatamente isso na primeira versão deste arquivo: o regime
+  // já morou em três lugares, e cada tela que reescreve a precedência cria a
+  // quarta morada.
+  //
+  // O resolvedor sempre devolve um dos quatro regimes — não existe "não
+  // declarado" no tipo. Então a pergunta "existe regime?" se faz PERGUNTANDO
+  // DUAS VEZES, com padrões diferentes: se a resposta muda, foi o padrão que
+  // respondeu, e portanto não há nada declarado. Nenhuma chave é lida aqui.
+  if (regimeDaEmpresa(db, "simples") !== regimeDaEmpresa(db, "presumido")) {
     fora.push({
       chave: "regime",
       titulo: "Regime tributário",
