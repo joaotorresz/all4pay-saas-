@@ -24,10 +24,17 @@
  * mora aqui e não dentro da conta.
  */
 import { chromium } from "playwright";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const BASE = process.env.ALVO ?? "http://127.0.0.1:3117";
-const CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+/**
+ * ⚠️ O caminho do navegador é o do contêiner de desenvolvimento; no runner do CI
+ * o Playwright resolve o dele sozinho. Cravar `executablePath` num ambiente onde
+ * o arquivo não existe faz a guarda reprovar por INFRAESTRUTURA — e guarda que
+ * reprova por infraestrutura treina quem a lê a ignorar a reprovação.
+ */
+const CAMINHO_CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const OPCOES_NAVEGADOR = existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {};
 const META_S = 600; // 10 minutos
 
 /**
@@ -45,7 +52,7 @@ const RITMO = {
   revisao: 30,       // conferir a prévia da importação antes de confirmar
 };
 
-const b = await chromium.launch({ executablePath: CHROME });
+const b = await chromium.launch(OPCOES_NAVEGADOR);
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 

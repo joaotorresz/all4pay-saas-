@@ -9,6 +9,14 @@ name: CI
 # razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
 # diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
 #
+# ⚠️ E inclui, desde o P-19 Bloco 4, o CONTRATO CARD × TABELA
+# (`npm run card-tabela`) e a VARREDURA DE PROMESSA (`npm run promessas`). O
+# primeiro varre o produto cartesiano de período × filtros e exige que o card e
+# a tabela da mesma tela concordem — os três piores defeitos desta auditoria
+# eram todos dessa família, e nenhum deles é erro de aritmética: cada número,
+# sozinho, está certo. O segundo cobra que nenhum texto de tela prometa o que o
+# sistema não faz.
+#
 # ⚠️ E inclui o TESTE DE COERÊNCIA (`npm run coerencia`), que pergunta outra
 # coisa: se a tela pode exibir uma COMBINAÇÃO de números que não pode ser
 # verdade ao mesmo tempo — saldo que não bate com os lançamentos, resultado
@@ -200,6 +208,73 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run ddl:prova
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NAVEGADOR — o que só se descobre ABRINDO a tela
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **Job separado porque estas guardas exigem o app SERVIDO**, e o `verify`
+  # não serve nada. Pendurá-las lá faria a suíte de cada commit ter de esperar um
+  # build de produção mais um servidor de pé — e guarda cara é guarda que alguém
+  # desliga. Aqui os dois correm em paralelo e o PR só fica verde com os dois.
+  #
+  # ⚠️ **E o que elas cobrem NENHUMA outra cobre.** Typecheck prova que compila,
+  # as guardas puras provam que o motor calcula, a varredura lê o FONTE. Nenhuma
+  # abre a tela: um erro de hidratação, um `undefined` num `.map`, uma tela que
+  # monta a moldura e não renderiza conteúdo — tudo isso passa por todas elas e
+  # chega ao usuário como página em branco.
+  #
+  # ⚠️ **Roda em MODO DEMONSTRAÇÃO, e o motivo é declarado.** Sem fonte de dado
+  # as telas abrem vazias e as guardas reportariam defeito de produto onde há
+  # falta de ambiente — foi o que aconteceu duas vezes ao desenvolvê-las. O que
+  # se perde fica dito: este job não exercita sessão nem política de acesso;
+  # quem faz isso é o job `isolamento`, contra um banco de verdade.
+  navegador:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install deps
+        run: npm ci
+      # ⚠️ Aqui o navegador é BAIXADO de propósito — ao contrário do `verify`,
+      # que o pula porque não abre tela nenhuma.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Build (modo demonstração)
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: npm run build
+      - name: Servir o build
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: |
+          npx next start -p 3131 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3131/login && break
+            sleep 2
+          done
+          curl -sf -o /dev/null http://127.0.0.1:3131/login
+      - name: Smoke das rotas canônicas (abre · tem conteúdo · não vaza código)
+        env:
+          ALVO: http://127.0.0.1:3131
+        run: npm run smoke-rotas
+      - name: Cronômetro do onboarding (do zero ao DRE, meta de 10 min)
+        env:
+          ALVO: http://127.0.0.1:3131
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: npm run cronometro
+      - name: Telefone (orçamento, alvo de toque, contraste, axe)
+        env:
+          ALVO: http://127.0.0.1:3131
+        run: npm run mobile
+      - name: Os quatro fluxos essenciais, toque a toque
+        env:
+          ALVO: http://127.0.0.1:3131
+        run: npm run fluxos
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
