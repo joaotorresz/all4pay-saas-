@@ -20,6 +20,7 @@ import Link from "next/link";
 import { Card, Button, Icon, Select } from "@/components/ui";
 import { loadCompany, saveCompany, persistCompany, type StoredCompany } from "@/lib/company";
 import { isDemo } from "@/lib/demo";
+import { useFirstRun } from "@/components/visao-geral/hooks";
 import { regimeDaEmpresa } from "@/core/tax/regime";
 
 const REGIMES = [
@@ -68,9 +69,22 @@ export function CompleteCadastro() {
   // ⚠️ Ler o armazenamento local DURANTE o render quebra a hidratação — a
   // mesma armadilha que o painel de integrações já documenta.
   React.useEffect(() => { setC(loadCompany()); setMontado(true); }, []);
+  const { vazio } = useFirstRun();
 
   const faltando = React.useMemo(() => pendencias(c), [c]);
-  if (!montado || faltando.length === 0) return null;
+  /**
+   * ⚠️ **ORGANIZAÇÃO SEM LANÇAMENTO NÃO VÊ ESTE CARTÃO — e a razão é
+   * sequenciamento, não estética.** Numa organização recém-criada o
+   * `FirstRunCard` já ocupa a tela pedindo a importação do extrato, que é o que
+   * faz o produto mostrar QUALQUER coisa. Dois cartões pedindo cadastro ao
+   * mesmo tempo dividem a atenção e nenhum é feito.
+   *
+   * E há uma razão de mérito: o regime tributário decide o CÁLCULO, e antes do
+   * primeiro lançamento não há cálculo nenhum para decidir. Ele passa a
+   * importar no instante em que os números existem — que é exatamente quando
+   * este cartão aparece.
+   */
+  if (!montado || vazio || faltando.length === 0) return null;
 
   const primeira = faltando[0];
   const ehRegime = primeira.chave === "regime";

@@ -277,7 +277,13 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             </Button>
           )}
         </div>
-        <p className="text-center text-caption text-faint">MVP em teste — você pode avançar com campos em branco.</p>
+        {/* ⚠️ Dizia "MVP em teste — você pode avançar com campos em branco". Duas
+            coisas erradas: falava de estágio de desenvolvimento a quem está
+            cadastrando a empresa, e prometia algo que deixou de ser verdade —
+            sem e-mail e senha não há como entrar, porque o acesso anônimo está
+            desligado. Texto de tela não fala de MVP, e não promete o que o
+            sistema recusa. */}
+        <p className="text-center text-caption text-faint">Os campos opcionais podem ficar em branco e ser preenchidos depois, em Configurações.</p>
       </div>
       </div>
     </MolduraPublica>
@@ -426,7 +432,7 @@ function PassoImport({ texto, setTexto, report, analisar, carregarAmostra }: any
   };
   return (
     <>
-      <p className="m-0 text-caption text-muted">Faça upload de extratos (CSV/OFX) e a IA descobre clientes, fornecedores, recorrências e categorias. Opcional no MVP.</p>
+      <p className="m-0 text-caption text-muted">Envie o extrato (CSV ou OFX) e o sistema descobre clientes, fornecedores, recorrências e categorias. Você pode pular e importar depois.</p>
       <textarea value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole um extrato (data;descrição;valor) ou carregue um arquivo / a amostra." className="w-full h-24 rounded-md border border-border bg-white p-3 text-caption text-ink font-mono outline-none focus:border-faint resize-y" />
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
@@ -515,7 +521,7 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       {configured && (
         <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <span className="text-caption font-medium text-faint tracking-wide">Criar acesso</span>
-          <p className="m-0 text-caption text-muted">Defina e-mail e senha para acessar depois. (No MVP você pode deixar em branco e entrar agora.)</p>
+          <p className="m-0 text-caption text-muted">Defina o e-mail e a senha com que você vai entrar. Os dois são obrigatórios.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />
             <Input label="Senha" type="password" value={senha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSenha(e.target.value)} placeholder="••••••••" />

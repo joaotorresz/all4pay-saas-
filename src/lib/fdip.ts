@@ -26,6 +26,23 @@ export interface ResultadoOnboarding {
   movimentos: number;
   simulado: boolean;
   /**
+   * ⚠️ **A gravação dos CONTATOS falhou, e por isso os lançamentos ficaram sem
+   * contraparte.** Medido: 408 lançamentos com `party_id` NULO em 408 — a IA
+   * respondendo "não há fornecedor identificado", o DRE por cliente vazio e a
+   * cobrança sem a quem cobrar.
+   *
+   * Mesma família do resto deste arquivo: `if (!error)` engolindo a recusa.
+   * Quando o mapa nome→id não se preenche, TODO lançamento sai com contraparte
+   * nula — e nada na tela diz que a metade que liga o dinheiro a quem pagou não
+   * aconteceu.
+   *
+   * ⚠️ E o mapa passou a ser preenchido a partir dos contatos que JÁ EXISTEM,
+   * não só dos criados agora. O código antigo só conhecia o retorno do
+   * `insert`: numa reimportação, em que nada é criado, ele ficava vazio e
+   * TODOS os lançamentos perdiam a contraparte.
+   */
+  falhaContatos?: string;
+  /**
    * ⚠️ **A METADE QUE FALTAVA, e ela custou a importação inteira.** O laço de
    * gravação fazia `if (!error) out.movimentos += …` — quando o banco recusava,
    * o contador simplesmente não subia e NINGUÉM ficava sabendo. A tela anunciava

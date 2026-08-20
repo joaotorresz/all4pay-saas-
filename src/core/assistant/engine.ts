@@ -14,6 +14,7 @@
  * Determinístico, puro, demo/live idêntico (roda sobre o RiskInput).
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { classificarDespesa } from "@/core/indicadores/classificacao";
 import type { ExecutiveContext, RespostaCopiloto } from "@/core/executive/types";
 import { simularFinanciamento, antecipar, equivalenteAnual, equivalenteMensal } from "@/core/financing";
 import { simularAquisicao, situacaoDe, presetPor, VEREDITO_LABEL, type TipoDecisao } from "@/core/aquisicao";
@@ -607,6 +608,30 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
     const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+    /**
+     * ⚠️ **QUEM PERGUNTA POR "VENCIDO" TEM DE OUVIR O VENCIDO PRIMEIRO — e
+     * ouvir ZERO quando é zero.**
+     *
+     * Medido sobre 408 lançamentos reais: a pergunta "quanto tenho a receber
+     * vencido" era respondida com *"Há R$237.161,67 a receber em 10 títulos. O
+     * próximo vence em 21/08"*. O número não estava errado — não havia nada
+     * vencido, e o R$ 0,00 aparecia num campo lateral. Errada estava a FORMA:
+     * a pergunta é sobre atraso e a resposta lidera com a carteira inteira e
+     * termina falando de FUTURO. Quem lê rápido guarda duzentos e trinta e sete
+     * mil como se fosse dívida vencida.
+     *
+     * É a doutrina da ONDA 4 aplicada à prosa: zero é RESPOSTA, e a resposta
+     * tem de responder a pergunta feita.
+     */
+    const perguntouVencido = /vencid|atrasad|em atraso|venceu|no vermelho com|inadimpl/.test(p);
+    if (perguntouVencido) {
+      return R(
+        totVenc > 0
+          ? `Há ${fmt(totVenc)} vencidos, em ${vencidos.length} título(s). O total a receber, incluindo o que ainda não venceu, é ${fmt(total)}.`
+          : `Não há nada vencido a receber. O total em aberto é ${fmt(total)} em ${ab.length} título(s), todos ainda no prazo.`,
+        [{ label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos vencidos", valor: String(vencidos.length) }, { label: "Total a receber", valor: fmt(total) }],
+        ["recebíveis vencidos"]);
+    }
     return R(
       `Há ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
       [{ label: "Total a receber", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
@@ -907,9 +932,28 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
   }
 
   // ——— TOP FORNECEDORES ———
+  /**
+   * ⚠️ **FOLHA E PRÓ-LABORE NÃO SÃO FORNECEDOR, e responder que são derruba a
+   * confiança no resto.** Medido numa organização real: "qual meu maior
+   * fornecedor" respondia *"Folha Funcionarios (R$65.441,24), Pro Labore Socios
+   * (R$18.000,00)"* — as duas maiores contrapartes de SAÍDA. Não é falso (o
+   * dinheiro sai mesmo para elas), mas para um dono de empresa "fornecedor" é
+   * quem lhe VENDE, não quem trabalha nele. Uma resposta que soa errada
+   * contamina as nove certas ao lado.
+   *
+   * ⚠️ Quem decide o que é folha é o classificador CANÔNICO — o mesmo que o DRE
+   * usa para montar a linha. Um regex próprio aqui criaria a segunda definição
+   * de folha do produto, e no dia em que uma mudasse a IA e o DRE passariam a
+   * discordar sobre a mesma despesa.
+   *
+   * A pergunta sobre folha continua com resposta: quem pergunta de folha cai no
+   * bloco de despesa por categoria, que a soma inteira.
+   */
   if (/(maior(es)?|principa|top|para quem|pra quem).*(fornecedor|fornec)|(fornecedor|fornec)\w*.*(cust|cobra|mais car|sai\w* mais|mais caro|gasto)|quem mais (recebo de mim|me cobra|eu pago)|p(a|ra) quem (eu )?(mais )?pago|quem eu mais pago/.test(p)) {
     const w = janela(p, hoje);
-    const sai = movs.filter((m) => m.type === "saida" && m.status === "pago" && within(cashDate(m), w));
+    const sai = movs.filter((m) =>
+      m.type === "saida" && m.status === "pago" && within(cashDate(m), w)
+      && classificarDespesa(m.category) !== "folha");
     const top = topClientes(sai, nomes, 4).filter((c) => c.valor > 0 && c.nome !== "Sem cliente").slice(0, 3);
     if (!top.length) return R(`Não há pagamentos a fornecedor identificado ${w.label}.`, [], ["pagamentos por fornecedor"]);
     return {
