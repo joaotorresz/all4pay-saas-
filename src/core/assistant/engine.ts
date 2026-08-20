@@ -607,6 +607,30 @@ export function responderLocal(pergunta: string, input: RiskInput, ctx?: Executi
     const vencidos = ab.filter((m) => m.due_date.slice(0, 10) < hoje);
     const totVenc = vencidos.reduce((s, m) => s + Math.abs(m.amount), 0);
     const prox = ab.filter((m) => m.due_date.slice(0, 10) >= hoje).sort((a, b) => a.due_date.localeCompare(b.due_date))[0];
+    /**
+     * ⚠️ **QUEM PERGUNTA POR "VENCIDO" TEM DE OUVIR O VENCIDO PRIMEIRO — e
+     * ouvir ZERO quando é zero.**
+     *
+     * Medido sobre 408 lançamentos reais: a pergunta "quanto tenho a receber
+     * vencido" era respondida com *"Há R$237.161,67 a receber em 10 títulos. O
+     * próximo vence em 21/08"*. O número não estava errado — não havia nada
+     * vencido, e o R$ 0,00 aparecia num campo lateral. Errada estava a FORMA:
+     * a pergunta é sobre atraso e a resposta lidera com a carteira inteira e
+     * termina falando de FUTURO. Quem lê rápido guarda duzentos e trinta e sete
+     * mil como se fosse dívida vencida.
+     *
+     * É a doutrina da ONDA 4 aplicada à prosa: zero é RESPOSTA, e a resposta
+     * tem de responder a pergunta feita.
+     */
+    const perguntouVencido = /vencid|atrasad|em atraso|venceu|no vermelho com|inadimpl/.test(p);
+    if (perguntouVencido) {
+      return R(
+        totVenc > 0
+          ? `Há ${fmt(totVenc)} vencidos, em ${vencidos.length} título(s). O total a receber, incluindo o que ainda não venceu, é ${fmt(total)}.`
+          : `Não há nada vencido a receber. O total em aberto é ${fmt(total)} em ${ab.length} título(s), todos ainda no prazo.`,
+        [{ label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos vencidos", valor: String(vencidos.length) }, { label: "Total a receber", valor: fmt(total) }],
+        ["recebíveis vencidos"]);
+    }
     return R(
       `Há ${fmt(total)} a receber em ${ab.length} título(s)${totVenc > 0 ? `, dos quais ${fmt(totVenc)} já estão vencidos (${vencidos.length})` : ""}.${prox ? ` O próximo vence em ${dia(prox.due_date)} (${fmt(Math.abs(prox.amount))}).` : ""}`,
       [{ label: "Total a receber", valor: fmt(total) }, { label: "Vencido", valor: fmt(totVenc) }, { label: "Títulos", valor: String(ab.length) }],
