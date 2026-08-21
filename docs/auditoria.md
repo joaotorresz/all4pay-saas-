@@ -1832,6 +1832,50 @@ quando custa barato.
 
 ---
 
+## ⚠️ A4P-081 — PR COM CONFLITO NÃO GERA EXECUÇÃO DE CI, e o silêncio é o defeito
+
+**Diagnosticado em 21/08/2026, e ele derruba a hipótese que eu mesmo sustentei
+por duas rodadas.**
+
+O GitHub executa `pull_request` contra o **merge ref** (`refs/pull/N/merge`) — a
+fusão hipotética do galho com a base. Quando o PR tem conflito esse ref **não
+existe**, e o GitHub **não cria execução nenhuma**. Não há falha, não há
+"pendente", não há aviso no PR: há a AUSÊNCIA da verificação, indistinguível de
+"o CI ainda não começou".
+
+| PR | estado | execuções |
+| --- | --- | --- |
+| #133 | conflitou às ~13:58, quando o #132 foi mergeado ESMAGADO | pushes das 14:06 às 21:37 → **nenhuma** |
+| #133 | 22:06 — trouxe o `main` para dentro e resolvi os conflitos | **execução criada no mesmo segundo, e passou** |
+| #131 | `mergeable_state: "dirty"` desde que nasceu | **nunca executou** |
+
+⚠️ **A causa do conflito é o merge ESMAGADO.** Um `squash merge` reescreve a
+história: os commits do galho deixam de existir na base com aquela identidade, e
+todo galho irmão que os continha passa a conflitar. Nada disso aparece para quem
+só observa "o CI não rodou".
+
+⚠️ **O meu erro de método é a parte que fica.** Observei que o #131 tocava
+`.github/workflows/ci.yml`, vi que PRs abertos pelo app não rodavam, e conclui
+*"falta a permissão `workflows` ao app"* — plausível, coerente com o que eu via,
+e **errada**. Cheguei a recomendar ao dono que mudasse uma permissão no painel.
+
+O dado que refutava estava a uma chamada de distância o tempo todo: o campo
+`mergeable_state` do próprio PR. Duas rodadas defendendo uma hipótese sem
+consultar o campo que a decidia — a mesma família de "meça com o dado que a
+superfície usa", agora aplicada à infraestrutura em vez de a uma tela.
+
+**A regra prática:** quando um PR não tiver CI, antes de qualquer teoria sobre
+permissão, cota ou incidente, **leia `mergeable_state`**. `dirty` explica o
+silêncio inteiro, e o conserto é trazer a base para dentro do galho.
+
+⚠️ **E isto corrige o meu próprio relatório do merge do #133:** ele NÃO foi um
+merge sem CI. A execução do commit `f712422` foi criada às 22:06:38 e PASSOU —
+no mesmo instante do merge, e por isso não apareceu quando consultei as
+verificações. "O CI nunca executou" era verdade até 21:37 e deixou de ser às
+22:06.
+
+---
+
 ## ⚠️ A4P-078 (parte 2) — EXPOSTO × EXPLORADO: o que dá para provar, e o que é JANELA CEGA
 
 **A pergunta do dono, e ela é a certa:** *"exposto é diferente de explorado, e só
