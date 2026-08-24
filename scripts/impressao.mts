@@ -141,6 +141,32 @@ ok("impressao: o cabeçalho recebe o regime que a tela apura",
 ok("impressao: o cabeçalho do documento não aparece na tela",
    /\[data-imprimir-cabecalho\]\s*\{\s*display:\s*none/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")));
 
+/* ─────────────────────────────────────────────────────────────────────────
+   O RAZÃO — o documento que o contador pede PRIMEIRO.
+   ⚠️ Ele não tinha exportação nenhuma: nem planilha, nem papel.
+   ───────────────────────────────────────────────────────────────────────── */
+const razao = readFileSync("src/components/razao/RazaoView.tsx", "utf8");
+ok("impressao: o razão exporta em papel e em planilha",
+   /imprimirRelatorio/.test(razao) && /baixarXLSX/.test(razao));
+ok("impressao: o razão monta o cabeçalho do documento", /<CabecalhoImpressao/.test(razao));
+
+/* ⚠️ A asserção que DISCRIMINA no razão: as linhas de débito e crédito só
+   existem no DOM quando o lançamento está aberto, e são elas que fazem do
+   razão um razão. Sem abrir tudo antes, o papel sai com uma lista de
+   descrições — um extrato, não a partida dobrada. CSS não resolve: ele não
+   revela o que não foi renderizado. */
+ok("impressao: o razão ABRE os lançamentos antes de imprimir",
+   /addEventListener\(\s*["']beforeprint["']/.test(razao),
+   "imprimir com tudo fechado entrega descrições sem débito nem crédito");
+
+/* ⚠️ E o corte da tela não pode virar corte do documento. */
+ok("impressao: a exportação do razão leva TODOS, não os da tela",
+   /for \(const e of entries \?\? \[\]\)/.test(razao),
+   "exportar o recorte da tela entrega um razão incompleto com cara de completo");
+ok("impressao: a tela DIZ que está mostrando só os primeiros",
+   /mostrando os \{TETO_TELA\} primeiros/.test(razao),
+   "um razão a que faltam linhas não parece quebrado — parece um razão");
+
 console.log(
   falhas === 0
     ? `\n✓ TODOS — a folha de impressão desfaz o recorte, repete o cabeçalho e identifica o documento\n`
