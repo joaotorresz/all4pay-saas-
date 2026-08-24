@@ -2243,3 +2243,58 @@ razão do A4P-028 e do A4P-036. O sintoma (76 de 81 em `/login`) é REAL e
 reaparece em qualquer máquina com `.env.local`: sem esta nota, a próxima
 sessão o reencontra e conclui a mesma coisa errada.
 
+---
+
+## ⚠️ A4P-084 — o `esquema-prod` reprovou no `main`, e é RETRATO VELHO, não deriva
+
+**Medido em 24/08/2026.** Com o `ci_leitor` finalmente conectando, o job
+`esquema-prod` rodou pela primeira vez com credencial de verdade — e o
+`npm run objetos` REPROVOU no push do `main` (`a39a8fa`):
+
+```
+objetos: 373 nas migrations · 351 no retrato de produção (2026-08-17)
+✗ 24 objeto(s) nas migrations e ausentes de produção
+✗  2 objeto(s) com DERIVA — tabela:movements · funcao:admin_orgs()
+```
+
+⚠️ **Os 24 "ausentes" existem em produção.** Consultado o catálogo pelo MCP,
+sete a sete: `central_alcada`, `central_transicoes`, `movements.situacao`,
+`central_maquina()`, `org_pode_escrever()`, `assinatura_da_org()` e a política
+`movements_escrita_exige_assinatura` — **todos presentes**. E as duas "derivas"
+são as mesmas mudanças: `movements` ganhou a coluna `situacao`, e `admin_orgs()`
+foi reescrita quando o trial passou a ser visível.
+
+**A causa é a data do retrato: 2026-08-17.** O lote de nove migrations foi
+aplicado DEPOIS dele. Produção tem **403** objetos; o retrato guarda 351. O
+`esquema.json` foi sincronizado em 21/08, mas o `objetos-producao.json` é um
+arquivo DIFERENTE e ficou para trás — e é ele que o `npm run objetos` lê.
+
+⚠️ **A verificação foi por MEDIÇÃO, não pela palavra de quem aplicou.** O dono
+relatou ter conferido as tabelas no banco, e estava certo; ainda assim o
+caminho honesto é consultar o catálogo — é a diferença entre "foi aplicado" e
+"está lá agora", e são elas que a guarda de estado existe para separar.
+
+⚠️ **E o conserto NÃO foi feito por transcrição à mão, de propósito.** O
+retrato guarda um md5 por objeto; eu tinha os 403 na tela e não tenho
+`SUPABASE_DB_URL` aqui. Copiar 403 hashes à mão para deixar o CI verde é
+fabricar o artefato que a guarda usa para julgar — um único caractere trocado
+faz a guarda ou acusar deriva que não existe, ou deixar de acusar a que existe,
+e nos dois casos ela passa a MENTIR com a autoridade de uma medição. É a mesma
+família do `resíduo = x − x`: o número existe, ninguém confere, e a confiança
+vem do formato.
+
+**O conserto é um comando, para quem tem a credencial:**
+`SUPABASE_DB_URL=<a do ci_leitor> npm run objetos:sync` e commitar o
+`supabase/objetos-producao.json`.
+
+⚠️ **Sincronizar só pode REVELAR, nunca esconder** — e é isso que torna o
+comando seguro: o retrato novo traz os objetos que produção tem de verdade,
+então qualquer um deles sem migration correspondente passa a REPROVAR como
+órfão. A direção do conserto acrescenta vigilância.
+
+⚠️ **`--sync` e `--sync-service-role` são comandos SEPARADOS, e só o primeiro
+deve ser usado aqui.** A linha de base de `grants_service_role` vigia a chave
+que passa por fora do RLS; re-sincronizá-la junto carimbaria como "normal" um
+grant que apareceu sem ninguém declarar — inclusive um `TRUNCATE` de volta em
+`audit_log`, que é exatamente o que aquela base existe para reprovar.
+
