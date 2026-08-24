@@ -40,6 +40,7 @@ import {
 
 import { loadCompany } from "@/lib/company";
 import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
+import { CabecalhoImpressao } from "./CabecalhoImpressao";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
@@ -166,7 +167,17 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      {/* ⚠️ SÓ NO PAPEL. Na tela, empresa/período/regime já estão na interface;
+          no PDF nada disso atravessa, e uma folha de números sem identificação
+          obriga quem recebe a perguntar de que empresa e de que mês ela é. */}
+      <CabecalhoImpressao
+        titulo={tipo === "dre" ? "Demonstração do Resultado do Exercício" : "Demonstração do Fluxo de Caixa"}
+        de={aplicados.intervalo.de}
+        ate={aplicados.intervalo.ate}
+        regime={tipo === "dre" ? "competencia" : "caixa"}
+        recorte={visao === "com-previsto" ? "Confirmado e previsto" : "Só o confirmado"}
+      />
+      <div className="flex items-start justify-between gap-4 flex-wrap" data-nao-imprime>
         <p className="m-0 text-label text-muted">
           {tipo === "dre"
             ? "Demonstração do Resultado do Exercício. Clique em qualquer célula para ver as transações."

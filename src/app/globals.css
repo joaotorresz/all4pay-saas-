@@ -1370,3 +1370,91 @@ html.dark .a4p-canvas {
    Não reintroduzir. O que se quer ajustar tem nome: `.a4p-num` (valor),
    `h1`/`.text-h1` (título de destaque), `[data-card="1"] h2` (título de
    card), `.a4p-label` (rótulo). ══════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   A FOLHA DE IMPRESSÃO — o que separa um PDF de uma fotografia da tela
+
+   ⚠️ MEDIDO: até aqui o projeto não tinha UMA regra `@media print`, e o botão
+   "Exportar PDF" chamava `window.print()` sobre um app cuja raiz é
+   `position: fixed; overflow: hidden`. Isso não imprime um documento de N
+   páginas — imprime UMA página com o que coubesse na tela. Um DRE de 12 meses
+   saía truncado, com menu lateral e moldura escura em volta, e SEM AVISO
+   NENHUM: o PDF abre, os números que aparecem estão certos, e o contador não
+   tem como saber que faltam linhas.
+
+   As quatro coisas que esta folha resolve, em ordem de gravidade:
+   1. o recorte (a raiz fixa e a área rolável viram fluxo normal);
+   2. o cabeçalho da tabela REPETIDO em toda página (`table-header-group`) —
+      sem ele, a página 3 do DRE é uma grade de números sem dizer de que mês
+      é cada coluna, que é um documento inútil para conferir;
+   3. a moldura do app fora do papel;
+   4. o corte no meio de uma linha de valor.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  /* ── 1. O RECORTE ─────────────────────────────────────────────────────
+     `.a4p-canvas` é `fixed inset-0 overflow-hidden` e a área de conteúdo é
+     `overflow-y-auto`. Em papel, os dois juntos são uma tesoura. */
+  html, body { height: auto !important; overflow: visible !important; background: none !important; }
+  .a4p-canvas {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+    background: none !important;
+  }
+  .a4p-app-card {
+    display: block !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    background: none !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+  .ds-visor, .a4p-app-card > main { display: block !important; min-height: 0 !important; }
+  /* A área que rola: sem isto ela imprime só a primeira dobra. O seletor pega
+     qualquer contêiner de rolagem dentro do cartão do app — a regra é sobre a
+     PROPRIEDADE, não sobre uma coordenada de DOM. */
+  .a4p-app-card [class*="overflow-y-auto"],
+  .a4p-app-card [class*="overflow-auto"],
+  .a4p-app-card [class*="overflow-x-auto"] {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* ── 2. O CABEÇALHO QUE SE REPETE ────────────────────────────────────
+     `position: sticky` resolve a tela e ATRAPALHA o papel: o navegador ou o
+     ignora ou o desenha uma vez só. `table-header-group` é o mecanismo que a
+     impressão tem para repetir o cabeçalho em cada folha. */
+  .ds-visor thead { position: static !important; display: table-header-group !important; }
+  .ds-visor tfoot { display: table-footer-group !important; }
+  /* A primeira coluna é `sticky left-0` para a tabela rolar na horizontal.
+     No papel não há rolagem, e a célula grudada sai deslocada. */
+  .ds-visor td[class*="sticky"], .ds-visor th[class*="sticky"] { position: static !important; }
+
+  /* ── 3. A MOLDURA FORA DO PAPEL ──────────────────────────────────────
+     Cada um destes é navegação ou ação: nada aqui é conteúdo do relatório, e
+     um menu impresso ocupa um terço da folha dizendo nada. */
+  .a4p-topbar,
+  nav[aria-label="Seções do sistema"],
+  .a4p-sidebar,
+  .a4p-ia-fab,
+  .a4p-ia,
+  [data-nao-imprime] { display: none !important; }
+
+  /* ── 4. O CORTE ──────────────────────────────────────────────────────
+     Uma linha de valor partida entre duas folhas é a linha que se soma
+     errado — metade do número numa página, metade na outra. */
+  tr, [data-card="1"] { break-inside: avoid; page-break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; page-break-after: avoid; }
+
+  /* O cabeçalho do documento só existe no papel: na tela ele repetiria o
+     título e o período que a própria interface já mostra. */
+  [data-imprimir-cabecalho] { display: block !important; }
+
+  @page { margin: 14mm 12mm; }
+}
+
+/* Fora da impressão, o cabeçalho do documento não existe. */
+[data-imprimir-cabecalho] { display: none; }

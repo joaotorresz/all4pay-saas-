@@ -2145,3 +2145,101 @@ completo enquanto segue — que é o que o torna caro.
 E a regra de leitura que fica para mim: **campo não preenchido é ausência de
 informação, não confirmação.** Diante de um, medir — nunca completar com o que
 parecia provável.
+
+---
+
+## ⚠️ A4P-082 — "Exportar PDF" entregava UMA página de um relatório de três
+
+**Medido em 24/08/2026, no navegador, contra o build servido.** O projeto
+inteiro não tinha **uma** regra `@media print`, e o botão "Exportar PDF"
+chamava `window.print()` cru sobre um app cuja raiz é
+`.a4p-canvas { position: fixed; inset: 0; overflow: hidden }`, com a área de
+conteúdo em `overflow-y-auto`.
+
+| medida (mesma página, mesmo navegador, só o bloco `@media print` ligado/desligado) | altura do documento em mídia `print` |
+| --- | --- |
+| **antes** (sem folha de impressão) | **800 px** — 0,8 página A4 |
+| **depois** | **2.314 px** — 2,2 páginas A4 |
+
+⚠️ **É a pior forma de defeito de saída, e é isso que o torna caro: o arquivo
+ABRE.** Não há erro, não há aviso, e os números que aparecem estão CERTOS. O
+contador recebe um PDF plausível ao qual faltam linhas — inclusive o total do
+rodapé — e a única forma de perceber é comparar com o XLSX, que sempre esteve
+correto e que ninguém compara. Um DRE de doze meses saía truncado na primeira
+dobra, com o menu lateral e a moldura escura impressos em volta.
+
+**O que a folha resolve, em ordem de gravidade:** o recorte (a raiz fixa e a
+área rolável viram fluxo normal) · o cabeçalho da tabela REPETIDO em cada
+página (`table-header-group` — sem ele a página 3 é uma grade de números sem
+dizer de que mês é cada coluna) · a moldura do app fora do papel · a linha de
+valor partida entre duas folhas.
+
+⚠️ **O modo escuro foi tratado em JS, não em CSS, e por uma razão de tinta.**
+A impressão descarta FUNDO por padrão e mantém a COR DO TEXTO: no tema escuro
+o fundo preto some, a letra quase branca fica, e a folha sai **em branco**.
+Consertar por `@media print` exigiria reescrever a paleta dentro do bloco —
+que é exatamente o que a guarda da paleta proíbe. Então `imprimirRelatorio`
+força o tema claro e o devolve no **`afterprint`**, nunca na linha seguinte:
+`window.print()` retorna antes de a pessoa decidir, e restaurar cedo escurece
+a pré-visualização enquanto ela escolhe a impressora.
+
+⚠️ **A guarda achou DUAS portas que eu não conhecia.** A asserção que carrega
+o valor não é "existe `@media print`" — essa passaria com o bloco vazio. É a
+que prova o PROIBIDO: *nenhuma tela chama `window.print()` por fora do
+ajudante*. Ela reprovou na primeira execução acusando `TitulosView` e
+`VendasView`, dois botões de impressão que eu não sabia que existiam. Mesma
+família do escritor desconhecido que a guarda da baixa encontrou.
+
+**Provada quebrando cinco defeitos**, todos reprovando: a raiz volta a ser
+fixa · o cabeçalho da tabela deixa de repetir · o ajudante "simplificado" para
+um `print()` de uma linha · uma tela nova chamando `window.print()` direto ·
+o cabeçalho do documento existindo sem ninguém o montar.
+
+---
+
+## ⚠️ A4P-083 — REFUTADO: o smoke das rotas não é cego. Quem mediu errado fui eu
+
+**"`npm run smoke-rotas` reporta 81 rotas verdes enquanto 76 delas terminam em
+`/login` — a guarda mede a tela de login e chama isso de conteúdo." —
+CANCELADO. O defeito não existe.**
+
+Eu medi contra um servidor local que carrega **`.env.local` com Supabase de
+verdade**. Ali `configured` é `true` e não há sessão, então o portão manda
+para `/login` — e o censo deu 76 de 81. Plantei a tela de governança
+renderizando NADA, a guarda ficou verde, e eu já tinha o veredito escrito.
+
+⚠️ **A linha 52 do `middleware.ts` é `if (!configured) return response;`.** O
+job `navegador` do CI **não tem segredo de Supabase** — conferido, não
+suposto: nenhuma ocorrência de `SUPABASE` no job, e nenhum `env` de nível
+global no workflow. Lá `configured` é `false` e **o app fica aberto**, que é o
+que o comentário do arquivo sempre disse.
+
+Refeito na condição do CI (sem `.env.local`, build e servidor), com o MESMO
+defeito plantado:
+
+```
+redirect de /governanca: ''            ← vazio: o app está aberto
+✗ /governanca   tela em branco (36 caracteres na área de conteúdo)
+✗ 1 de 81 rota(s) com problema (80 limpas)
+```
+
+A guarda reprova exatamente o defeito que ela existe para pegar.
+
+⚠️ **A lição é a terceira aparição da mesma regra, e agora contra mim numa
+guarda que eu mesmo escrevi: MEÇA COM O DADO QUE A SUPERFÍCIE USA.** No A4P-036
+foi a folha alimentada sem benefício; no lote P-06B foi o JOIN por
+`category_id` numa base que classifica pelo texto `category`; aqui foi um
+`.env.local` que a superfície medida não tem. Nos três, a medição foi
+competente e mediu **outra coisa**.
+
+⚠️ **E o veredito coube na medição.** "Refutado" é terminal e autoriza fechar
+o item — só cabe porque a guarda REPROVA no ambiente dela, provado por
+plantio. Se eu tivesse escrito "guarda cega", o próximo auditor gastaria uma
+rodada consertando o que funciona, e o item 16 ("smoke autenticado nas rotas
+canônicas") seria reaberto sem ter defeito.
+
+⚠️ **Fica escrito porque achado refutado que não é escrito volta** — a mesma
+razão do A4P-028 e do A4P-036. O sintoma (76 de 81 em `/login`) é REAL e
+reaparece em qualquer máquina com `.env.local`: sem esta nota, a próxima
+sessão o reencontra e conclui a mesma coisa errada.
+

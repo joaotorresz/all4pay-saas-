@@ -1302,6 +1302,22 @@ que não testa.
 
 ### ⚠️ MEÇA COM O DADO QUE A SUPERFÍCIE USA — e diga por qual campo ela classifica
 
+**Terceira aparição (A4P-083, 24/08/2026), e a primeira contra uma guarda:**
+`npm run smoke-rotas` foi medido contra um servidor local que carrega
+`.env.local` com Supabase de verdade. Ali `configured` é `true`, não há sessão,
+e o portão manda 76 de 81 rotas para `/login` — a guarda parecia estar medindo
+a tela de login oitenta vezes. Ela não está: o job do CI **não tem segredo de
+Supabase**, a linha 52 do `middleware.ts` é `if (!configured) return response;`,
+e lá o app fica aberto. Refeito sem `.env.local`, com o defeito plantado, a
+guarda reprova: `✗ 1 de 81 rota(s) com problema`.
+
+⚠️ **Para o ambiente, a pergunta é a mesma que para o campo:** antes de
+concluir, saber dizer **em que ambiente a superfície roda** — quais variáveis
+ela tem e quais não tem. Um `.env.local` que só existe na sua máquina é um dado
+que a superfície medida não usa, e medir com ele mede outra coisa. Se a
+resposta for "presumi que era igual", a medição ainda não começou.
+
+
 Dois casos, e o segundo é o que fecha a regra.
 
 **A4P-036 (a folha):** o motor foi alimentado com colaboradores SEM benefício e
