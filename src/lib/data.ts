@@ -927,7 +927,21 @@ export async function getRiscoInput(): Promise<RiskInput> {
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+    /**
+   * ⚠️ **`situacao` ENTRA AQUI, e é uma mudança de comportamento declarada.**
+   * `core/central.situacaoDe` PREFERE esta coluna quando ela vem — antes ela
+   * nunca vinha, e a função sempre derivava do `status`. Ligá-la faz a Central
+   * passar a ler a máquina de estados de verdade, que é o ponto.
+   *
+   * É seguro HOJE porque a coluna e a derivação concordam: medido em 24/08,
+   * 2.230 de 2.230 lançamentos batem. E continua seguro amanhã porque
+   * `npm run situacao` (no CI) reprova no primeiro título em que uma situação
+   * DERIVÁVEL discordar do `status` — a divergência aparece antes do usuário.
+   *
+   * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
+   * o relatório continuaria misturando os dois sem dizer qual é qual.
+   */
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
