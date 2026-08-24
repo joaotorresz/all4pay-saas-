@@ -56,14 +56,36 @@ begin
   raise notice 'situacao: nenhuma incoerência entre a coluna e o status derivável';
 end $$;
 
--- ⚠️ E o outro lado, que a contagem sozinha não prova: a guarda tem de estar
--- OLHANDO alguma coisa. Uma tabela vazia passaria calada.
+-- ⚠️ **O OUTRO LADO: a guarda tem de estar OLHANDO alguma coisa** — uma
+-- verificação que roda sobre o vazio fica verde provando nada.
+--
+-- ⚠️ **Mas "vazio" tem DOIS significados, e a primeira versão desta asserção
+-- confundiu os dois — reprovando o certo no primeiro CI.** Ela exigia que
+-- houvesse linha com `situacao` preenchida, e o job `isolamento` roda contra um
+-- Supabase EFÊMERO montado do zero pelas migrations, onde `movements` está
+-- legitimamente vazia. Reprovar ali é reprovar um banco recém-criado por estar
+-- recém-criado, e guarda que reprova o correto é desligada na primeira semana.
+--
+-- A distinção que importa:
+--   • `movements` VAZIA           → banco novo. Não há incoerência possível.
+--   • linhas SEM `situacao`       → cegueira REAL: a coluna sumiu ou o backfill
+--                                   não rodou, e a verificação acima passou por
+--                                   não ter o que comparar.
 do $$
-declare n bigint;
+declare n_total bigint; n_com bigint;
 begin
-  select count(*) into n from public.movements where situacao is not null;
-  if n = 0 then
-    raise exception 'situacao: nenhuma linha com situação preenchida — a guarda não mediu nada';
+  select count(*), count(situacao) into n_total, n_com from public.movements;
+
+  if n_total = 0 then
+    raise notice 'situacao: base sem lançamentos (banco novo) — nada a conferir, e isso é legítimo';
+    return;
   end if;
-  raise notice 'situacao: % lançamento(s) conferidos', n;
+
+  if n_com = 0 then
+    raise exception
+      'situacao: % lançamento(s) e NENHUM com situação — a coluna sumiu ou o backfill não rodou', n_total
+      using hint = 'A verificação de coerência acima passou por não ter o que comparar. Isto é cegueira, não aprovação.';
+  end if;
+
+  raise notice 'situacao: % de % lançamento(s) conferidos', n_com, n_total;
 end $$;
