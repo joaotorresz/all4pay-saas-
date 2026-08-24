@@ -22,6 +22,7 @@ import {
   type ItemFila, type Origem, type Situacao,
 } from "@/core/central";
 import type { RiskMovement } from "@/core/risk-engine/types";
+import { moverTitulo, getTransicoes, type RecusaCentral, type Transicao } from "@/lib/central";
 
 const ROTULO_ORIGEM: Record<Origem, string> = {
   "contas-a-pagar": "Contas a pagar",
@@ -41,8 +42,44 @@ function origemDe(m: RiskMovement): Origem {
 
 export function CentralView() {
   const { data: input, isLoading } = useRiscoInput();
-  // Confirmações otimistas desta sessão (demo): id → nova situação.
+  // Confirmações desta sessão: id → nova situação. Em live só entram aqui
+  // DEPOIS de o banco aceitar — a tela não antecipa o que a máquina pode negar.
   const [confirmadosLocal, setConfirmadosLocal] = React.useState<Record<string, Situacao>>({});
+  const [recusas, setRecusas] = React.useState<Record<string, RecusaCentral>>({});
+  const [ocupado, setOcupado] = React.useState<string | null>(null);
+  const [aberto, setAberto] = React.useState<string | null>(null);
+  const [trilhas, setTrilhas] = React.useState<Record<string, Transicao[]>>({});
+
+  /**
+   * ⚠️ **Quem autoriza é o BANCO.** Esta função pede e traduz a resposta; ela
+   * não repete a regra de alçada nem a de segregação. Repeti-las aqui criaria a
+   * segunda morada da mesma decisão — e no dia em que uma mudasse, a tela
+   * liberaria o que o banco recusa (ou o contrário), que é pior que as duas
+   * versões erradas.
+   */
+  const confirmar = React.useCallback(async (id: string) => {
+    setOcupado(id);
+    setRecusas((r) => { const { [id]: _fora, ...resto } = r; return resto; });
+    try {
+      const r = await moverTitulo(id, "confirmado");
+      if (r.ok) setConfirmadosLocal((c) => ({ ...c, [id]: "confirmado" }));
+      else setRecusas((x) => ({ ...x, [id]: r.recusa }));
+    } finally {
+      setOcupado(null);
+    }
+  }, []);
+
+  // A trilha é carregada sob demanda — 100 títulos × uma consulta cada seria
+  // uma tela que demora para abrir por causa de um detalhe que quase ninguém
+  // expande.
+  React.useEffect(() => {
+    if (!aberto || trilhas[aberto]) return;
+    let vivo = true;
+    getTransicoes(aberto)
+      .then((t) => { if (vivo) setTrilhas((x) => ({ ...x, [aberto]: t })); })
+      .catch(() => { if (vivo) setTrilhas((x) => ({ ...x, [aberto]: [] })); });
+    return () => { vivo = false; };
+  }, [aberto, trilhas]);
 
   const { fila, totais } = React.useMemo(() => {
     const movs = input?.movements ?? [];
@@ -131,7 +168,7 @@ export function CentralView() {
             {fila.aguardando.slice(0, 100).map((i) => (
               <li
                 key={i.id}
-                className="flex items-center gap-3 px-5 py-3 border-b border-border-soft last:border-0"
+                className="flex items-center gap-3 px-5 py-3 border-b border-border-soft last:border-0 flex-wrap"
               >
                 <span
                   className="inline-flex items-center justify-center w-7 h-7 rounded-[10px] shrink-0"
@@ -148,11 +185,50 @@ export function CentralView() {
                 <StatusBadge tone="warning">{rotuloSituacao(i.situacao)}</StatusBadge>
                 <button
                   type="button"
-                  onClick={() => setConfirmadosLocal((c) => ({ ...c, [i.id]: "confirmado" }))}
-                  className="shrink-0 text-caption font-medium text-ink px-3 h-8 rounded-md bg-surface-2 hover:bg-surface-3 transition-colors"
+                  disabled={ocupado === i.id}
+                  onClick={() => confirmar(i.id)}
+                  className="shrink-0 text-caption font-medium text-ink px-3 h-8 rounded-md bg-surface-2 hover:bg-surface-3 transition-colors disabled:opacity-50"
                 >
-                  Confirmar
+                  {ocupado === i.id ? "Confirmando…" : "Confirmar"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAberto(aberto === i.id ? null : i.id)}
+                  aria-expanded={aberto === i.id}
+                  className="shrink-0 text-caption font-medium text-muted px-2 h-8 rounded-md hover:text-ink transition-colors"
+                >
+                  Trilha
+                </button>
+                {recusas[i.id] && (
+                  <div
+                    role="alert"
+                    className="basis-full mt-2 rounded-md p-3 flex flex-col gap-[2px]"
+                    style={{ background: "var(--color-surface-2)", borderLeft: "3px solid var(--color-negative)" }}
+                  >
+                    <span className="text-label font-medium text-ink">{recusas[i.id].motivo}</span>
+                    <span className="text-caption text-muted">{recusas[i.id].comoResolver}</span>
+                  </div>
+                )}
+                {aberto === i.id && (
+                  <div className="basis-full mt-2 rounded-md p-3" style={{ background: "var(--color-surface-2)" }}>
+                    {(trilhas[i.id] ?? []).length === 0 ? (
+                      <span className="text-caption text-faint">
+                        Nenhuma transição ainda — este título entrou como previsto e não se moveu.
+                      </span>
+                    ) : (
+                      <ul className="m-0 p-0 list-none flex flex-col gap-1">
+                        {(trilhas[i.id] ?? []).map((t) => (
+                          <li key={t.id} className="text-caption text-muted">
+                            <span className="text-ink">{rotuloSituacao(t.de as Situacao)} → {rotuloSituacao(t.para as Situacao)}</span>
+                            {" · "}{new Date(t.quando).toLocaleString("pt-BR")}
+                            {t.por ? ` · por ${t.por.slice(0, 8)}` : ""}
+                            {t.motivo ? ` · ${t.motivo}` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -161,8 +237,9 @@ export function CentralView() {
 
       <p className="m-0 text-caption text-faint max-w-[80ch]">
         A confirmação exige alçada e segregação de funções — quem lançou não confirma o próprio
-        título. Em produção, a regra é aplicada pelo banco; aqui na demonstração a fila é derivada
-        dos lançamentos e a confirmação é local.
+        título. Quem autoriza é o banco de dados: esta tela pede e mostra a resposta, e as
+        recusas de PAPEL e de ALÇADA aparecem separadas porque se resolvem de maneiras
+        diferentes. Em demonstração a fila é derivada dos lançamentos.
       </p>
     </div>
   );

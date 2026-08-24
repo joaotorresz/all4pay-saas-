@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
 import {
   montarDRE, montarDFC, rotuloColuna, compararOrcamento,
@@ -85,8 +86,28 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       .catch(() => { /* sem banco, o local basta — e o motor cai no palpite */ });
   }, []);
 
+  /**
+   * ⚠️ **CONFIRMADO × PREVISTO — e o padrão preserva o comportamento de hoje,
+   * de propósito.** A Central criou a distinção: um título `previsto` ainda não
+   * foi autorizado por ninguém com alçada, e um `confirmado` é compromisso
+   * firme. Misturá-los sem dizer qual é qual é o defeito que o Bloco 3 fecha.
+   *
+   * Mas o PADRÃO é "com previsto", que é exatamente o que o relatório sempre
+   * mostrou. Abrir em "só confirmado" derrubaria todo número de todo cliente da
+   * noite para o dia — a maioria dos títulos está em `previsto` —, e um número
+   * que muda sozinho é lido como defeito, não como recurso. Quem quiser o
+   * recorte firme escolhe, e a tela diz o que está vendo.
+   */
+  const [visao, setVisao] = React.useState<VisaoRelatorio>("com-previsto");
+  const inputDaVisao = React.useMemo(() => {
+    if (!input) return input;
+    if (visao === "com-previsto") return input;
+    const movs = input.movements.filter((m) => ehConfirmado(situacaoDe(m as never)));
+    return { ...input, movements: movs };
+  }, [input, visao]);
+
   const relatorio: Relatorio | null = React.useMemo(() => {
-    if (!input) return null;
+    if (!inputDaVisao) return null;
     const f = {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
@@ -98,8 +119,8 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       baseVertical: aplicados.baseVertical,
       linhaPorCategoria,
     };
-    return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);
-  }, [input, aplicados, tipo, linhaPorCategoria]);
+    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f);
+  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria]);
 
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
 
@@ -151,8 +172,35 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
             ? "Demonstração do Resultado do Exercício. Clique em qualquer célula para ver as transações."
             : "Demonstração do Fluxo de Caixa. Clique em qualquer célula para ver as transações."}
         </p>
-        {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="O que entra no relatório">
+            {([["com-previsto", "Com previsto"], ["confirmado", "Só confirmado"]] as const).map(([v, r]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVisao(v)}
+                aria-pressed={visao === v}
+                className={`text-caption font-medium px-3 h-7 rounded-pill transition-colors ${
+                  visao === v ? "bg-white text-ink" : "text-muted hover:text-ink"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
+        </div>
       </div>
+
+      {/* ⚠️ O recorte é DITO, sempre. "Nunca misture sem dizer qual é qual" é a
+          regra inteira desta distinção: um relatório que soma previsto e
+          confirmado sem avisar afirma como firme um dinheiro que ninguém
+          autorizou. */}
+      <p className="m-0 text-caption text-faint max-w-[76ch]">
+        {visao === "com-previsto"
+          ? "Mostrando o confirmado E o previsto. O previsto ainda não foi autorizado por alguém com alçada — pode não acontecer."
+          : "Mostrando só o CONFIRMADO: títulos autorizados na Central. O previsto ficou de fora, então os totais são menores que os do relatório completo."}
+      </p>
 
       {/* ⚠️ **ORGANIZAÇÃO SEM UM LANÇAMENTO: a cascata inteira em R$ 0,00 é
           pior que uma tela vazia.** Ela tem a MESMA aparência de um relatório
@@ -238,7 +286,7 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
           paralela. */}
       {tipo === "dre" && relatorio && <AvisoDuplicidadeImposto relatorio={relatorio} />}
-      {tipo === "dre" && input && <CartoesExecutivos input={input} intervalo={aplicados.intervalo} />}
+      {tipo === "dre" && input && <CartoesExecutivos input={inputDaVisao!} intervalo={aplicados.intervalo} />}
 
       <PainelLayout layout={layout} onChange={setLayout} />
 

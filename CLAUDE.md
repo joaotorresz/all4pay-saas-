@@ -1520,6 +1520,32 @@ configurar o SMTP, provar que o e-mail chega, e só então religar.
 É aceitável numa demonstração e **não** é aceitável com cliente pagante — daí o
 gatilho ser o primeiro pagamento, não uma data.
 
+### ⚠️ QUANDO O CI NÃO EXECUTA — a verificação local SUBSTITUI, com critério
+
+**Exceção do dono, 20/08/2026.** O CI é o portão; mas há um caso em que ele não
+responde — o GitHub simplesmente não CRIA a execução para aquele PR. Esperar
+indefinidamente por um portão que não abre trava o trabalho sem proteger nada.
+
+⚠️ **A substituição só vale com as TRÊS metades, e a terceira é a que quase
+sempre falta:**
+
+1. **`npm test`** — a suíte inteira, verde.
+2. **`npm run build`** — o build de produção, verde. (Lembrete: `next lint`
+   passa onde o build reprova — regra de hooks, por exemplo.)
+3. **Conferência de conflito**, quando houve merge: nenhum marcador
+   (`<<<<<<<`) sobrando, **chaves balanceadas** arquivo a arquivo, e typecheck
+   depois. Resolver conflito concatenando os dois lados já quebrou sintaxe
+   **duas vezes** neste repositório, e nas duas o erro passou pelo olho.
+
+E a quarta parte, que não é técnica: **o relatório DIZ, com todas as letras, que
+o CI não rodou.** Um merge assim relatado como "verde" é indistinguível de um
+merge com CI verde — e é essa indistinguibilidade, não o merge, que corrompe o
+registro. Quem ler depois precisa saber qual portão foi usado.
+
+⚠️ **Isto não é permissão para pular o CI quando ele está funcionando.** A
+exceção existe para o CI AUSENTE, não para o CI inconveniente: se ele executa e
+reprova, vale a sexta regra — o defeito é o trabalho, não o obstáculo.
+
 ### ⚠️ PR VERDE É AUTORIZADO — EXCETO QUANDO MUDA QUEM PODE CHAMAR O QUE
 
 A autorização permanente do dono ("verde é autorização, não pedido") tem **uma

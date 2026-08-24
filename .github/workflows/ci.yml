@@ -166,6 +166,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/matriz-permissao.sql
+      # ⚠️ O LEITOR DORMENTE: `situacaoDe` prefere a coluna `situacao` quando ela
+      # vem, e hoje `getRiscoInput` não a seleciona. No dia em que alguém a
+      # ligar, a Central muda de comportamento em silêncio — esta guarda faz a
+      # incoerência aparecer antes do usuário.
+      - name: Guarda da situação (coluna coerente com o status derivável)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run situacao
       - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

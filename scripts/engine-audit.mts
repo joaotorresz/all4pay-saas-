@@ -6260,5 +6260,61 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("mvp: o fornecedor de verdade continua na resposta", /Distribuidora Sul/i.test(txt), txt.slice(0, 110));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 16 — CONFIRMADO × PREVISTO no relatório
+//
+// ⚠️ Duas coisas precisam ser verdade ao mesmo tempo, e uma sem a outra é
+// inútil: a distinção tem de MUDAR o número (senão não distingue nada), e o
+// PADRÃO tem de preservar o comportamento de hoje (senão todo cliente vê os
+// números caírem da noite para o dia, e número que muda sozinho é lido como
+// defeito, não como recurso).
+{
+  const { titulosDaVisao, ehConfirmado, situacaoDe } = await import("@/core/central");
+  const t = (id: string, situacao: string) => ({ id, situacao } as never);
+  const carteira = [
+    t("a", "previsto"), t("b", "confirmado"), t("c", "baixado"),
+    t("d", "conciliado"), t("e", "cancelado"), t("f", "estornado"),
+  ];
+
+  const comPrevisto = titulosDaVisao(carteira, "com-previsto");
+  const soConfirmado = titulosDaVisao(carteira, "confirmado");
+
+  ok("item16: a visão CONFIRMADO é menor que a com previsto (a distinção distingue)",
+     soConfirmado.length < comPrevisto.length, `${soConfirmado.length} × ${comPrevisto.length}`);
+  ok("item16: com previsto inclui o previsto", comPrevisto.some((x) => (x as { id: string }).id === "a"));
+  ok("item16: só confirmado NÃO inclui o previsto", !soConfirmado.some((x) => (x as { id: string }).id === "a"));
+
+  // ⚠️ Cancelado e estornado saem das DUAS: eles não são "previsto que talvez
+  // aconteça", são dinheiro que saiu do resultado por definição. Se entrassem na
+  // visão com previsto, o relatório completo somaria o que foi desfeito.
+  for (const v of ["com-previsto", "confirmado"] as const) {
+    const r = titulosDaVisao(carteira, v);
+    ok(`item16: cancelado fica fora da visão "${v}"`, !r.some((x) => (x as { id: string }).id === "e"));
+    ok(`item16: estornado fica fora da visão "${v}"`, !r.some((x) => (x as { id: string }).id === "f"));
+  }
+
+  // Os três estados firmes contam como confirmado.
+  for (const s2 of ["confirmado", "baixado", "conciliado"] as const)
+    ok(`item16: "${s2}" conta como firme`, ehConfirmado(s2));
+  for (const s2 of ["previsto", "cancelado", "estornado"] as const)
+    ok(`item16: "${s2}" NÃO conta como firme`, !ehConfirmado(s2));
+
+  // ⚠️ E a ponte com a coluna nova: `situacaoDe` prefere o gravado. Este caso
+  // fixa o comportamento que ligar a coluna no select produz.
+  ok("item16: situacaoDe prefere a coluna quando ela vem",
+     situacaoDe({ status: "pendente", situacao: "confirmado" } as never) === "confirmado");
+  ok("item16: e deriva do status quando ela não vem",
+     situacaoDe({ status: "pago" } as never) === "baixado");
+
+  // ⚠️ TETO ZERO na tela: o padrão é "com-previsto". Abrir em "confirmado"
+  // derrubaria todo número de todo cliente sem ninguém ter pedido.
+  const fs = await import("node:fs");
+  const tela = fs.readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("item16: o relatório ABRE com previsto (não muda número de ninguém sozinho)",
+     /useState<VisaoRelatorio>\("com-previsto"\)/.test(tela));
+  ok("item16: e o recorte é DITO na tela, nas duas visões",
+     tela.includes("Mostrando o confirmado E o previsto") && tela.includes("Mostrando só o CONFIRMADO"));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
