@@ -208,6 +208,15 @@ jobs:
       # a auto-confirmação e a confirmação acima da alçada têm de reprovar no
       # Postgres, não só na tela. A guarda pura prova a decisão; esta prova a
       # fechadura.
+      # ⚠️ A4P-085: o nome digitado no cadastro tem de chegar a
+      # `organizations.name` LITERAL. Quem escreve é o gatilho de `auth.users`,
+      # então a guarda cria o usuário pelo caminho real — e carrega o teste
+      # negativo junto: ela reintroduz a derivação do e-mail e exige que a
+      # própria asserção reprove.
+      - name: Guarda do nome da empresa (do campo até o gatilho)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-nome.sql
       - name: Guarda da Central (máquina de estados, R1 e alçada no banco)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

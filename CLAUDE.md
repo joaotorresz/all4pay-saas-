@@ -1103,6 +1103,50 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ O QUARTO DEFEITO DE GRAVAÇÃO: o campo digitado que ninguém ENVIA (A4P-085)
+
+**O nome da empresa do cadastro de três campos não chegava ao banco.** Medido
+em produção: duas contas criadas com "Teste Isolamento A" e "Teste Isolamento B"
+nasceram com `organizations.name` = `joao+teste1` e `joao+teste2` — o local-part
+do e-mail. Na PRIMEIRA tela que o cliente vê.
+
+⚠️ **O escritor é o gatilho `handle_new_user` (em `auth.users`), nunca a app.**
+E ele já lia `raw_user_meta_data->>'company'` desde a migration 0005: **o
+caminho certo existia e ninguém o alimentava.** `auth.signUp` só preenche esse
+campo por `options.data`; as portas de cadastro chamavam `signUp` sem ele, e o
+`coalesce` caía no ramo do e-mail.
+
+⚠️ **É a família dos outros três defeitos de gravação, com uma diferença que a
+torna pior:** lá o banco RECUSAVA (`A4P05`, `22P02`) ou a escrita ia para o
+dataset de demonstração; aqui a escrita **acontece e dá certo** — só que com
+outro valor. Não há erro para esconder. Um fallback que produz algo com CARA de
+dado é pior que a ausência: ninguém abre chamado por um nome de empresa
+estranho, apenas conclui que o sistema é assim.
+
+⚠️ **O ramo do e-mail SAI; o último recurso FICA.** Um gatilho em `auth.users`
+que levanta exceção derruba o cadastro inteiro, inclusive por caminhos fora
+deste repositório (convite, painel do Supabase, provedor externo) — trocar "o
+nome vem errado" por "ninguém cria conta" é pior. O recurso é `'Minha empresa'`,
+que se ANUNCIA como provisório. **A recusa do vazio mora na TELA**, onde há
+alguém para responder.
+
+⚠️ **O PARÂMETRO É OBRIGATÓRIO, e é isso que impede a volta.** Com
+`empresa?: string`, a próxima porta de cadastro compila sem passar o nome e o
+defeito reaparece calado. Obrigatório, ela não compila sem responder "que nome
+vai para a organização?".
+
+⚠️ **E o tipo NÃO alcança quem desvia do ajudante.** Ao tornar o parâmetro
+obrigatório, o typecheck nomeou duas portas; a terceira (`OnboardingPessoal`)
+ficou invisível porque chamava `supabase.auth.signUp` direto. Daí a guarda ter
+**teto ZERO** sobre `auth.signUp` fora de `lib/entrada` — é a asserção que pega
+a porta que o compilador não vê.
+
+**Guardas em DUAS metades** (uma sozinha deixa metade do caminho descoberta):
+`scripts/cadastro-nome.sql` no job de isolamento (usuário criado por
+`auth.users`, nunca por INSERT em `organizations`, com o **teste negativo dentro
+do arquivo**: reintroduz a derivação do e-mail e exige que a asserção reprove) e
+`scripts/cadastro-nome.mts` no `npm test`. **Provadas quebrando nove defeitos.**
+
 ### ⚠️ O TERCEIRO DEFEITO DE GRAVAÇÃO: a DUPLA MORADA do cadastro (auditado)
 
 **Salvar uma conta a pagar falhava sempre que uma categoria era escolhida.**

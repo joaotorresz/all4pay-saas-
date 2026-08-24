@@ -39,20 +39,36 @@ export function CriarContaView() {
   const [enviando, setEnviando] = React.useState(false);
   const [erro, setErro] = React.useState<{ motivo: string; comoResolver?: string } | null>(null);
   const [confirme, setConfirme] = React.useState(false);
+  /*
+   * ⚠️ **O NOME VAZIO É RECUSADO NO CAMPO, não resolvido em silêncio.** O
+   * gatilho tem um último recurso ("Minha empresa") para o caso de uma porta
+   * de cadastro que não mande nada; ele existe para não derrubar o signup,
+   * NÃO para ser o caminho normal. Se a pessoa está olhando o campo, quem
+   * responde "qual é o nome" é ela — cair no recurso aqui seria escolher um
+   * nome por ela e não contar.
+   */
+  const [erroEmpresa, setErroEmpresa] = React.useState<string | null>(null);
 
   const podeEnviar = email.trim().length > 3 && senha.length >= 6 && empresa.trim().length > 0;
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!podeEnviar || enviando) return;
+    if (enviando) return;
+    const nomeEmpresa = empresa.trim();
+    if (!nomeEmpresa) {
+      setErroEmpresa("Informe o nome da empresa.");
+      return;
+    }
+    setErroEmpresa(null);
+    if (!podeEnviar) return;
     setEnviando(true);
     setErro(null);
     try {
       // ⚠️ O nome da empresa é guardado ANTES de criar a conta. Se a criação
       // parar na confirmação de e-mail, o nome já está aqui e a pessoa não
       // digita de novo ao voltar — é a metade que não depende de sessão.
-      saveCompany({ ...(loadCompany() ?? {}), db: { ...(loadCompany()?.db ?? {}), razaoSocial: empresa.trim(), tipoConta: "empresa" } });
-      const r = await criarContaEEntrar(email, senha);
+      saveCompany({ ...(loadCompany() ?? {}), db: { ...(loadCompany()?.db ?? {}), razaoSocial: nomeEmpresa, tipoConta: "empresa" } });
+      const r = await criarContaEEntrar(email, senha, nomeEmpresa);
       if (r.ok) { router.push("/"); router.refresh(); return; }
       if (r.confirmarEmail) { setConfirme(true); return; }
       setErro({ motivo: r.motivo, comoResolver: r.comoResolver });
@@ -109,9 +125,17 @@ export function CriarContaView() {
             />
             <Input
               label="Nome da empresa" required
-              value={empresa} onChange={(e) => setEmpresa(e.target.value)}
+              value={empresa}
+              onChange={(e) => { setEmpresa(e.target.value); if (erroEmpresa) setErroEmpresa(null); }}
               placeholder="Como você chama o seu negócio"
+              aria-invalid={erroEmpresa ? true : undefined}
+              aria-describedby={erroEmpresa ? "erro-empresa" : undefined}
             />
+            {erroEmpresa && (
+              <span id="erro-empresa" role="alert" className="-mt-2 text-caption" style={{ color: "var(--color-negative)" }}>
+                {erroEmpresa}
+              </span>
+            )}
 
             {erro && (
               <div

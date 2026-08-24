@@ -2298,3 +2298,158 @@ que passa por fora do RLS; re-sincronizá-la junto carimbaria como "normal" um
 grant que apareceu sem ninguém declarar — inclusive um `TRUNCATE` de volta em
 `audit_log`, que é exatamente o que aquela base existe para reprovar.
 
+---
+
+## ⚠️ A4P-085 — P0: o nome digitado no cadastro não chegava ao banco
+
+**Medido em produção (24/08/2026), em dado real.** Duas contas criadas às 21:53
+e 21:54, com "Teste Isolamento A" e "Teste Isolamento B" digitados no campo
+"Nome da empresa":
+
+```
+c20873ac-005b-4b39-ac92-1452bfa74e7f | joao+teste1 | joao+teste1@all4pay.com.br
+5350fc34-88e1-4c32-b0b2-39dd6e45b6a3 | joao+teste2 | joao+teste2@all4pay.com.br
+```
+
+`organizations.name` guardou o **local-part do e-mail**, caractere por
+caractere. Na PRIMEIRA tela que o cliente vê.
+
+### O escritor real: o gatilho, e ele já estava certo
+
+| candidato | veredito |
+| --- | --- |
+| `CriarContaView.tsx:54` | grava o nome no **localStorage** e não o envia |
+| `lib/entrada.ts:87` | chamava `signUp({email, password})` — **sem metadados** |
+| **`handle_new_user()`** (gatilho em `auth.users`) | **o único escritor** |
+
+```sql
+v_name := coalesce(
+  nullif(new.raw_user_meta_data->>'company', ''),        -- ① o caminho certo
+  nullif(split_part(coalesce(new.email,''),'@',1), ''),  -- ② gravou joao+teste1
+  'Minha empresa');
+```
+
+⚠️ **O caminho certo existia desde a migration 0005 e ninguém o alimentava.**
+`auth.signUp` só preenche `raw_user_meta_data` por `options.data`, e as quatro
+portas de cadastro chamavam `signUp` sem ele. Consertar só o front faria o nome
+chegar HOJE e o defeito voltar na primeira porta nova que esquecesse — o ramo
+② continuaria ali, gravando um nome plausível em silêncio.
+
+⚠️ **A medição achou DOIS defeitos a mais que o relato não citava.** Rodando os
+dois `coalesce` lado a lado sobre os mesmos casos:
+
+| caso | novo | antigo |
+| --- | --- | --- |
+| acento, espaço, caixa | `Açaí do João LTDA` | `Açaí do João LTDA` |
+| bordas com espaço | `Açaí do João LTDA` | `␣␣␣Açaí do João LTDA␣␣␣` |
+| `company` vazio | `Minha empresa` | **`joao+teste1`** |
+| `company` só espaço | `Minha empresa` | `␣␣␣` |
+| sem `company` | `Minha empresa` | **`joao+teste1`** |
+
+O antigo **não aparava as bordas** e aceitava um nome só de espaços.
+
+### A quarta porta, e por que o compilador não a viu
+
+Tornar `empresa` um parâmetro **obrigatório** de `criarContaEEntrar` fez o
+typecheck nomear duas portas. A terceira — `OnboardingPessoal` — **não
+apareceu**, porque chamava `supabase.auth.signUp` direto, por fora do ajudante.
+⚠️ **Um tipo só alcança quem passa pelo ajudante; quem desvia dele fica
+invisível.** É o defeito que o comentário do wizard já advertia: enquanto forem
+duas implementações, o conserto chega numa e não na outra. Daí a guarda ter uma
+asserção de **teto zero** sobre `auth.signUp` fora de `lib/entrada`.
+
+### Por que o último recurso FICA
+
+`handle_new_user` dispara em `auth.users`: se levantar exceção, **o cadastro
+inteiro falha** — inclusive por caminhos que este repositório não controla
+(convite, painel do Supabase, provedor externo). Trocar "o nome vem errado" por
+"ninguém cria conta" é infinitamente pior. O recurso é `'Minha empresa'`: um
+rótulo que se ANUNCIA como provisório, ao contrário de `joao+teste1`, que se
+disfarça de escolha. **A recusa do vazio mora na tela**, onde há alguém para
+responder.
+
+### As duas metades da guarda
+
+Uma sozinha deixa metade do caminho descoberta — a lição de "instrumentação sem
+consumidor":
+
+- **`scripts/cadastro-nome.sql`** (job `isolamento`, Postgres real, termina em
+  `rollback`): cria o usuário por `auth.users` — **nunca** por INSERT em
+  `organizations`, que testaria um caminho que ninguém percorre. Quatro casos +
+  a conferência anti-teatro (se o provisionamento parar, `nome` é NULL e a
+  guarda ACUSA em vez de aprovar o vazio). **O teste negativo mora dentro do
+  arquivo:** ele reintroduz a derivação do e-mail e exige que a própria
+  asserção reprove — se passar, levanta `GUARDA CEGA`.
+- **`scripts/cadastro-nome.mts`** (no `npm test`): teto zero de `auth.signUp`
+  fora do ajudante, `empresa` obrigatório e não opcional, as três portas
+  passando um nome de verdade, o vazio recusado no campo, e a migration sem o
+  ramo do e-mail. **Provada quebrando cinco defeitos.**
+
+⚠️ **Regra 8, declarada e não cumprida na forma canônica:** não há Docker neste
+ambiente (medido: `docker info` falha), então o Postgres efêmero não subiu e a
+migration **não** passou por um `begin; … rollback;` local antes do push. O que
+foi feito no lugar, dito com todas as letras: a semântica do `coalesce` foi
+medida em produção por SELECT puro (não cria objeto), e a EXECUÇÃO da migration
+é provada pelo job `isolamento`, que aplica todas as migrations a um Postgres
+novo antes do merge. É mais fraco que o begin/rollback local e não é a mesma
+coisa — fica registrado como tal, não como equivalente.
+
+---
+
+## Varredura da classe "a tela escreve, ninguém lê" (A4P-085, etapa 4)
+
+**Método:** as 22 chaves do estado `db` do passo 1 do wizard extraídas do
+próprio código; para cada uma, leitores fora de `components/onboarding/` e
+`components/entrada/`, por **acesso de propriedade** (`\.campo\b`) E por
+**chave em string** (`"campo"`), porque telas genéricas leem por string.
+
+⚠️ A primeira passada usou substring e foi descartada: `ie` e `im` casam dentro
+de palavras e `porte` casa em "transporte" — a mesma lição do `\b` que já
+custou caro aqui.
+
+| tela | campo | escrito em | lido por | veredito |
+| --- | --- | --- | --- | --- |
+| Onboarding p1 | `ie` (inscr. estadual) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — e ele é exigido em NF-e/NFS-e |
+| Onboarding p1 | `im` (inscr. municipal) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — idem, para serviço |
+| Onboarding p1 | `repCargo` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `exportadora` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `repCpf` | `a4p_company.db` | só `/admin` | lido, mas só no backoffice |
+| Onboarding p1 | `repEmail` · `repTelefone` | `a4p_company.db` | `/admin` + Configurações | OK |
+| Onboarding p1 | os 15 restantes | `a4p_company.db` | 1 a 23 leitores | OK |
+
+**Sobrescrita depois de gravado: nada encontrado.** Os 15 pontos de
+`saveCompany`/`persistCompany` foram conferidos com 8 linhas de contexto — os
+quatro que a heurística de uma linha acusou (`ConfiguracoesView`, duas no
+wizard, uma no PF) são legítimos: preservam por spread ou são donos do objeto
+inteiro. ⚠️ Publicar aqueles quatro como achado teria sido o falso positivo que
+ensina a ignorar a lista.
+
+**Não consertados** — a etapa pedia listar, e cada um exige decisão de produto:
+`ie`/`im` só valem com a tela fiscal que os consuma; `repCargo` e `exportadora`
+podem simplesmente sair do formulário, que é o conserto mais honesto para um
+campo que ninguém lê.
+
+---
+
+## ✓ A REGRA 5 PAGANDO — org nova nasce com alçada e com trial
+
+**Fechado, provado FORA de fixture.** As duas organizações criadas em produção
+em 24/08 (as mesmas do A4P-085) nasceram com:
+
+| org | alçadas | assinaturas | status | categorias do seed |
+| --- | --- | --- | --- | --- |
+| `c20873ac…` | **8** | 1 | `trial` | 12 |
+| `5350fc34…` | **8** | 1 | `trial` | 12 |
+
+O defeito "**org nova nasce com teto 0 em todos os papéis — nada aprovável — e
+não consegue confirmar um único título no primeiro dia**" (P-19 Bloco 3, achado
+pela guarda de banco que a própria sessão escreveu) **não existe mais**, e a
+prova é dado real, não fixture montada.
+
+⚠️ **Vale nota porque foi a QUINTA REGRA pagando:** *todo default de
+configuração nasce por seed E por gatilho*. O seed cobriu as organizações que
+existiam no dia da migration; o gatilho `organizations_central_alcada` é o que
+cobre estas duas, criadas semanas depois. Com só a metade do seed, elas teriam
+nascido exatamente com o defeito original — e ninguém veria, porque nenhum dado
+existente o exibia.
+
