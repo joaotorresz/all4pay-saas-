@@ -48,6 +48,21 @@ const PADROES: { nome: string; re: RegExp; porque: string }[] = [
     porque: "o dado trafega em TLS e repousa no Postgres do provedor; não há cifra fim a fim nossa" },
   { nome: "selo", re: /homologad[oa] pel|certificad[oa] pel|auditad[oa] por/i,
     porque: "nenhum órgão certificou este produto; dizer que sim é afirmação sobre terceiro" },
+  /**
+   * ⚠️ **ESTÁGIO DE DESENVOLVIMENTO NÃO É ASSUNTO DE QUEM USA.** Achado ao varrer
+   * o caminho ouro: o cadastro dizia *"MVP em teste — você pode avançar com
+   * campos em branco"*, *"(No MVP você pode deixar em branco e entrar agora)"* e
+   * *"Opcional no MVP"*.
+   *
+   * Duas coisas erradas na mesma frase. A primeira é vocabulário: quem está
+   * cadastrando a empresa não sabe nem precisa saber o que é MVP — é a mesma
+   * família do "configure a ANTHROPIC_API_KEY" que a ONDA 14 tirou. A segunda é
+   * pior: as duas primeiras prometiam algo que o sistema RECUSA, porque o acesso
+   * sem cadastro está desligado. Texto que fala de estágio costuma estar
+   * desatualizado justamente porque ninguém o relê.
+   */
+  { nome: "estágio de desenvolvimento", re: /\bMVP\b|\bWIP\b|em desenvolvimento|vers[ãa]o de teste|ainda em constru[çc]/i,
+    porque: "estágio do produto não é assunto de quem usa, e a frase envelhece sem ninguém reler" },
 ];
 
 /**

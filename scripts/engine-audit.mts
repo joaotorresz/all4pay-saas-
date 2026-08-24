@@ -6222,5 +6222,43 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("metodologia: a rota é pública no middleware", mw.includes('pathname.startsWith("/metodologia")'));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MVP · A IA NÃO CHAMA FOLHA DE FORNECEDOR
+//
+// ⚠️ Medido numa organização real: "qual meu maior fornecedor" respondia
+// "Folha Funcionarios (R$65.441,24), Pro Labore Socios (R$18.000,00)". Não é
+// falso — o dinheiro sai mesmo para eles — mas para um dono de empresa
+// fornecedor é quem lhe VENDE, não quem trabalha nele. Uma resposta que soa
+// errada contamina as certas ao lado, e numa demo isso custa a reunião.
+{
+  const { responderLocal } = await import("@/core/assistant/engine");
+  const mk = (cat: string, valor: number, party: string) => ({
+    id: `f-${party}-${valor}`, type: "saida", status: "pago", amount: valor,
+    due_date: "2026-08-10", paid_date: "2026-08-10", competence_date: "2026-08-10",
+    category: cat, description: cat, party_id: party, accountId: "c1",
+  });
+  const inputIA = {
+    hoje: "2026-08-20", saldoAtual: 50_000,
+    // A folha é a MAIOR saída de propósito: se ela não fosse a maior, o caso
+    // passaria sem discriminar nada.
+    movements: [
+      mk("Folha de pagamento", 90_000, "p-folha"),
+      mk("Pró-labore", 30_000, "p-prolabore"),
+      mk("Fornecedores / insumos", 12_000, "p-distribuidora"),
+    ],
+    accounts: [{ id: "c1", name: "Conta", balance: 50_000 }],
+    parties: [],
+    partyNames: { "p-folha": "Folha Funcionarios", "p-prolabore": "Pro Labore Socios", "p-distribuidora": "Distribuidora Sul" },
+  } as never;
+  const r = responderLocal("qual meu maior fornecedor", inputIA) as { resposta?: string } | null;
+  const txt = r?.resposta ?? "";
+  ok("mvp: a IA responde a pergunta de fornecedor", txt.length > 10, txt.slice(0, 80));
+  ok("mvp: folha NÃO aparece como fornecedor", !/Folha Funcionarios/i.test(txt), txt.slice(0, 110));
+  ok("mvp: pró-labore NÃO aparece como fornecedor", !/Pro Labore/i.test(txt), txt.slice(0, 110));
+  // ⚠️ O caso DISCRIMINA: o fornecedor de verdade tem de sobrar na resposta.
+  // Sem esta linha, esconder tudo passaria nas duas asserções acima.
+  ok("mvp: o fornecedor de verdade continua na resposta", /Distribuidora Sul/i.test(txt), txt.slice(0, 110));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

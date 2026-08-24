@@ -54,6 +54,8 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/comecar") ||
+    // O cadastro de três campos é a porta de entrada — pública, como o login.
+    pathname.startsWith("/criar-conta") ||
     // A política de privacidade precisa ser legível ANTES do cadastro — uma
     // política atrás de login é uma política que ninguém pôde ler antes de
     // aceitar, o que derrota a razão de ela existir.

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
@@ -50,6 +51,13 @@ function Inner() {
   const { data, isLoading } = useFluxoCaixa(filtros);
   const comp = useComparativo(filtros);
   const { pro } = useModo();
+  /**
+   * ⚠️ Sem NENHUM lançamento na organização — não "sem lançamento na janela".
+   * Uma janela vazia dentro de uma base cheia é resposta legítima e continua
+   * desenhando os blocos; o convite é só para quem ainda não tem base.
+   */
+  const semLancamento = !isLoading && !!data && (data.eventos?.length ?? 0) === 0
+    && (comp.data?.resultado?.total ?? 0) === 0 && !comp.isLoading;
 
   return (
     <div className="flex flex-col gap-7 pb-6">
@@ -63,6 +71,30 @@ function Inner() {
           números diferentes e nenhuma dizia qual recorte usava. */}
       <BaseDoSaldo base="projetado_fim" janela={janelaDoFiltro} />
 
+      {/* ⚠️ **SEM UM LANÇAMENTO, esta tela desenha catorze blocos de zeros** —
+          projeção, cenários, mapa de calor, gêmeo digital — e cada um com a
+          aparência de um número apurado. Quem abre não distingue "não há dado"
+          de "o caixa é zero". O motivo ocupa o lugar dos blocos, e traz o botão
+          que os preenche (doutrina da ONDA 4). */}
+      {semLancamento ? (
+        <Card className="flex flex-col gap-3">
+          <span className="text-h3 text-ink">Seu caixa ainda não tem movimento</span>
+          <p className="m-0 text-body text-muted max-w-[68ch]">
+            Esta tela mostra quando o dinheiro entra e sai, o que já está agendado, e para
+            onde o saldo caminha nas próximas semanas. Ela se monta a partir dos seus
+            lançamentos — hoje não há nenhum.
+          </p>
+          <p className="m-0 text-caption text-faint max-w-[68ch]">
+            Importe um extrato e o caixa se desenha sozinho: o que já caiu vira realizado, o
+            que tem vencimento vira previsto.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
+            <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
+          </div>
+        </Card>
+      ) : (
+        <>
       {/* Comparativos período × período anterior — a leitura de topo da página. */}
       <Comparativos c={comp.data} isLoading={comp.isLoading} />
 
@@ -199,6 +231,8 @@ function Inner() {
           {!pro && (
             <p className="text-caption text-faint text-center">Projeção ML, cenários, heat map, waterfall e digital twin no <b className="text-muted font-medium">Modo Pro</b> (alterna na barra lateral).</p>
           )}
+        </>
+      )}
         </>
       )}
     </div>

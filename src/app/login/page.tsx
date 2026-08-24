@@ -173,8 +173,12 @@ export default function LoginPage() {
               <div className="flex items-center gap-2 text-caption text-faint">
                 <span className="flex-1 h-px bg-border-soft" /> ou <span className="flex-1 h-px bg-border-soft" />
               </div>
-              <Button variant="secondary" fullWidth onClick={() => router.push("/comecar")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
-                {pessoal ? "Criar conta pessoal" : "Criar conta empresarial"}
+              {/* ⚠️ Aponta para o cadastro de TRÊS CAMPOS, não para o wizard de
+                  sete etapas. Quem chega ao login sem conta quer entrar, não
+                  preencher inscrição municipal — o cadastro completo continua a
+                  um clique dentro da própria tela de criar conta. */}
+              <Button variant="secondary" fullWidth onClick={() => router.push(pessoal ? "/comecar" : "/criar-conta")} leftIcon={<Icon name="arrow-up-right" size={15} />}>
+                {pessoal ? "Criar conta pessoal" : "Criar conta"}
               </Button>
             </div>
           )}

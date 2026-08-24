@@ -1484,6 +1484,42 @@ reconstrução `declarado − líquido` para um `records[0].valor`.
 Quando a regra tem a forma "X nunca pode vir de Y", a fixture boa não mede X:
 ela prova que X ≠ Y para todo Y possível.
 
+### ⚠️ MVP · O CAMINHO OURO TEM 7 PASSOS — a fila de confirmação foi CORTADA
+
+**Decisão do dono, 20/08/2026, com o motivo escrito porque ele é reutilizável:**
+a importação **já confirma linha a linha** na `RevisaoImportacao` — a pessoa vê
+as linhas classificadas, corrige categoria e confirma antes de gravar. Uma fila
+separada de `review_status = 'pendente'` é uma **segunda porta para o mesmo
+ato**, e duas moradas para o mesmo ato é o defeito que este repositório passou
+dois dias matando (o regime em três chaves, a alçada em três lugares, a
+categoria em duas tabelas).
+
+⚠️ **A fila NÃO morre, e a distinção é de VOLUME.** Ela existe para quem
+importa 500 linhas por Open Finance sem olhar uma a uma; não para quem importa
+20 e acabou de revisá-las na tela anterior. O que foi cortado é o passo do
+caminho de demonstração, não o recurso.
+
+**O caminho ouro passa a ser:** criar conta → onboarding → importar extrato →
+DRE → fluxo de caixa → perguntar à IA → exportar.
+
+### ⚠️ DÍVIDA COM DONO E GATILHO — a confirmação de e-mail está DESLIGADA
+
+**Dono: o titular do projeto. Gatilho de revisão: ANTES do primeiro cliente
+pagante.**
+
+Para a demonstração, desligar é o certo — com ela ligada o cadastro termina numa
+caixa de entrada e ninguém entra. Medido: `signUp` devolvia usuário e nenhuma
+sessão, com `confirmation_sent_at`.
+
+⚠️ **Religar exige SMTP PRÓPRIO configurado antes.** O SMTP padrão do Supabase é
+limitado e não entrega de forma confiável — religar a confirmação sem trocar o
+remetente troca "todo mundo entra" por "ninguém entra", que é pior. A ordem é:
+configurar o SMTP, provar que o e-mail chega, e só então religar.
+
+⚠️ Enquanto estiver desligada, qualquer endereço cria conta sem provar posse.
+É aceitável numa demonstração e **não** é aceitável com cliente pagante — daí o
+gatilho ser o primeiro pagamento, não uma data.
+
 ### ⚠️ PR VERDE É AUTORIZADO — EXCETO QUANDO MUDA QUEM PODE CHAMAR O QUE
 
 A autorização permanente do dono ("verde é autorização, não pedido") tem **uma

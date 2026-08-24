@@ -36,8 +36,15 @@ export function FirstRunCard() {
         <Button variant="primary" leftIcon={<Icon name="upload" size={15} />} onClick={() => router.push("/upload")}>
           Upload de dados
         </Button>
+        {/* ⚠️ O rótulo era "Configurar empresa" e levava ao wizard de sete
+            etapas — que deixou de ser a porta de entrada. Quem chega aqui já
+            criou a conta e o nome da empresa; o que resta é o cadastro
+            COMPLETO, e o nome do botão passou a dizer isso. Um botão que
+            promete "configurar" e abre sete etapas de inscrição municipal faz a
+            pessoa desistir no meio — foi assim que o defeito do passo 7 ficou
+            dois meses sem ser visto. */}
         <Button variant="secondary" onClick={() => router.push("/comecar")}>
-          Configurar empresa
+          Cadastrar a empresa inteira
         </Button>
         <span className="text-caption text-faint">
           ou use <b className="font-medium text-muted">Novo lançamento</b> no topo para registrar à mão.

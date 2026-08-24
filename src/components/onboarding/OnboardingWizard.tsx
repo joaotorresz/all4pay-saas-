@@ -6,6 +6,7 @@ import { Card, Input, Select, Switch, Button, Icon } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { formatBRL } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { criarContaEEntrar } from "@/lib/entrada";
 import { analisarImportacao, amostraExtrato } from "@/core/fdip";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { aplicarEstrutura } from "@/lib/onboarding";
@@ -122,27 +123,28 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
-            if (error) throw new Error(error.message);
-            // ⚠️ signUp SÓ devolve sessão quando o e-mail é autoconfirmado no
-            // projeto. Com confirmação ligada, `session` é null: o usuário
-            // existe mas não está logado. Seguir daqui grava perfil/estrutura
-            // ÓRFÃOS (sem sessão, a RLS recusa ou o dado fica sem dono) e depois
-            // joga a pessoa numa rota que a rejeita. A saída certa é parar e
-            // pedir a confirmação — o resto acontece no primeiro login.
-            if (!data.session) {
-              // Salva o perfil no NAVEGADOR antes de parar — é a metade que não
-              // exige sessão. Assim a frase da tela de confirmação é verdadeira:
-              // ao entrar, o perfil já está preenchido. A estrutura e o import
-              // dependem de sessão e entram no primeiro login.
+            // ⚠️ MESMA implementação do cadastro de três campos (`lib/entrada`).
+            // Enquanto eram duas, o mesmo defeito vivia nas duas e consertar
+            // uma deixava a outra — foi assim que o "Entrando…" travado
+            // atravessou dois meses.
+            const r = await criarContaEEntrar(email, senha);
+            if (!r.ok && r.confirmarEmail) {
               try { saveCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
               setConfirmeEmail(true);
               setAplicando(false);
               return;
             }
+            if (!r.ok) throw new Error(r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo);
+            // Daqui para baixo existe sessão: `criarContaEEntrar` só devolve
+            // `ok` quando há uma. "Usuário criado" sem sessão não serve — a
+            // próxima rota o rejeita —, e esse caso já saiu acima pelo ramo da
+            // confirmação de e-mail, guardando o perfil no navegador antes.
           } else {
-            const { error } = await supabase.auth.signInAnonymously();
-            if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");
+            // ⚠️ Sem e-mail e senha não há caminho: o acesso anônimo está
+            // DESLIGADO no projeto (medido: `anonymous_provider_disabled`), e a
+            // tela convidava a deixar em branco. Agora ela diz o que fazer em
+            // vez de girar para sempre.
+            throw new Error("Informe um e-mail e uma senha para criar a sua conta.");
           }
         }
       }
@@ -171,6 +173,12 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
       router.refresh();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível concluir.");
+    } finally {
+      // ⚠️ **SEMPRE, e é a metade que faltava.** O `setAplicando(false)` só
+      // existia dentro do `catch`; qualquer caminho que não lançasse — uma
+      // promessa pendurada, um retorno antecipado — deixava o botão em
+      // "Entrando…" para sempre. Botão que gira sem fim é indistinguível de
+      // sistema quebrado, e é o que a pessoa vê por último.
       setAplicando(false);
     }
   };
@@ -269,7 +277,13 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             </Button>
           )}
         </div>
-        <p className="text-center text-caption text-faint">MVP em teste — você pode avançar com campos em branco.</p>
+        {/* ⚠️ Dizia "MVP em teste — você pode avançar com campos em branco". Duas
+            coisas erradas: falava de estágio de desenvolvimento a quem está
+            cadastrando a empresa, e prometia algo que deixou de ser verdade —
+            sem e-mail e senha não há como entrar, porque o acesso anônimo está
+            desligado. Texto de tela não fala de MVP, e não promete o que o
+            sistema recusa. */}
+        <p className="text-center text-caption text-faint">Os campos opcionais podem ficar em branco e ser preenchidos depois, em Configurações.</p>
       </div>
       </div>
     </MolduraPublica>
@@ -418,7 +432,7 @@ function PassoImport({ texto, setTexto, report, analisar, carregarAmostra }: any
   };
   return (
     <>
-      <p className="m-0 text-caption text-muted">Faça upload de extratos (CSV/OFX) e a IA descobre clientes, fornecedores, recorrências e categorias. Opcional no MVP.</p>
+      <p className="m-0 text-caption text-muted">Envie o extrato (CSV ou OFX) e o sistema descobre clientes, fornecedores, recorrências e categorias. Você pode pular e importar depois.</p>
       <textarea value={texto} onChange={(e) => setTexto(e.target.value)} placeholder="Cole um extrato (data;descrição;valor) ou carregue um arquivo / a amostra." className="w-full h-24 rounded-md border border-border bg-white p-3 text-caption text-ink font-mono outline-none focus:border-faint resize-y" />
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
@@ -507,7 +521,7 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       {configured && (
         <div className="rounded-md border border-border-soft p-3 flex flex-col gap-3">
           <span className="text-caption font-medium text-faint tracking-wide">Criar acesso</span>
-          <p className="m-0 text-caption text-muted">Defina e-mail e senha para acessar depois. (No MVP você pode deixar em branco e entrar agora.)</p>
+          <p className="m-0 text-caption text-muted">Defina o e-mail e a senha com que você vai entrar. Os dois são obrigatórios.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="E-mail" type="email" value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="voce@empresa.com" />
             <Input label="Senha" type="password" value={senha} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSenha(e.target.value)} placeholder="••••••••" />
