@@ -29,6 +29,7 @@
     "ia-eval": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/ia-eval.mts",
     "esquema": "node --experimental-strip-types ./scripts/esquema.mts",
     "paleta": "node --experimental-strip-types ./scripts/paleta.mts",
+    "situacao": "psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f scripts/situacao-coerente.sql",
     "esquema:sync": "node ./scripts/esquema-sync.mjs",
     "taxonomia": "node scripts/taxonomia.mjs",
     "isolamento": "node ./scripts/isolamento.mjs",

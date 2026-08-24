@@ -853,6 +853,36 @@ export async function getRegrasRecorrentes(): Promise<RegraRecorrente[]> {
   }));
 }
 
+/**
+ * ⚠️ **QUEM MONTAR UM `RiskInput` À MÃO PRECISA LER ISTO — é a regra mais cara
+ * desta auditoria, e ela produz um número que PARECE regressão.**
+ *
+ * Este `RiskInput` é só metade do que a tela usa. A outra metade é o
+ * **`linhaPorCategoria`** do filtro do relatório — a linha DECLARADA de cada
+ * categoria, que vem de `categories.dre_linha` (banco) mesclada com o plano de
+ * contas local. É por ela que `montarRelatorio` reconhece a saída
+ * `LINHA_TRANSFERENCIA` e PULA o lançamento.
+ *
+ * Sem ela, uma categoria declarada como transferência — pagamento de fatura de
+ * cartão, boleto entre contas próprias — cai no palpite por palavra-chave e
+ * entra como DESPESA OPERACIONAL. O resultado sai menor, por dinheiro que só
+ * mudou de bolso.
+ *
+ * ⚠️ **Medido em 21/08/2026, numa conferência de rotina:** a mesma organização
+ * deu −R$ 784.743,23 sem a declaração contra −R$ 784.475,53 com ela. Os
+ * R$ 267,70 de diferença são a fatura de cartão (167,70) e o boleto de
+ * transferência (100,00) — e como a medição acontecia logo depois de um
+ * backfill que tocou toda a tabela `movements`, o número errado se disfarçou de
+ * REGRESSÃO. Quase virou um pedido para parar a rodada atrás de um defeito que
+ * não existia.
+ *
+ * Ou seja: o erro daqui não produz um zero óbvio. Produz um valor plausível,
+ * próximo do certo e do lado errado — que é o tipo que atravessa a revisão.
+ *
+ * **Ao reproduzir um número de tela fora da aplicação, passe
+ * `linhaPorCategoria` (ver `getLinhasDeCategoria`) — ou aceite que
+ * transferência virou despesa.**
+ */
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {

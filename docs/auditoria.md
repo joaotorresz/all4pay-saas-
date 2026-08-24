@@ -1832,6 +1832,67 @@ quando custa barato.
 
 ---
 
+## ⚠️ A REGRA MAIS CARA DA AUDITORIA — montar `RiskInput` à mão SEM `linhaPorCategoria`
+
+**Terceira vez que "meça com o dado que a superfície usa" pega esta sessão, e
+esta é a mais cara porque o número errado PARECE REGRESSÃO.**
+
+Ao conferir se o backfill de `situacao` tinha mexido no resultado, montei o
+`RiskInput` da organização real e recalculei a cascata. Deu **−R$ 784.743,23**
+contra os **−R$ 784.475,53** que o dono via na tela: **R$ 267,70** de
+diferença, com o backfill acabando de tocar toda a tabela. Eu ia reportar isso
+como divergência e mandar parar a rodada.
+
+⚠️ **A causa era minha: passei o filtro sem `linhaPorCategoria`.** É por esse
+campo — a linha DECLARADA de cada categoria — que `montarRelatorio` reconhece a
+saída `LINHA_TRANSFERENCIA` e **pula** o lançamento. Sem ele, as categorias
+declaradas como transferência (`credit card payment`, `transfer - bank slip`,
+`planilha`) caem no palpite por palavra-chave e entram como **despesa
+operacional** — inflando o custo com dinheiro que só mudou de bolso.
+
+Os R$ 267,70 são exatamente a correção de transferência já registrada neste
+arquivo: fatura de cartão R$ 167,70 + boleto de transferência R$ 100,00.
+
+⚠️ **Por que é a mais cara das três:** as outras duas produziam um número
+obviamente ausente (zero, vazio). Esta produz um número **plausível, próximo do
+certo, e do lado errado** — e num sistema que acabou de sofrer um backfill, ela
+se disfarça de regressão. O custo não seria só o meu tempo: seria o dono parar
+uma rodada inteira atrás de um defeito que não existe.
+
+**A regra:** quem monta `RiskInput` fora da aplicação passa `linhaPorCategoria`,
+ou aceita que transferência vira despesa. O aviso está no próprio
+`getRiscoInput`, no código — quem monta à mão não lê o `docs/`.
+
+---
+
+## ⚠️ SUPAVISOR — usuário sem o sufixo do projeto acusa SENHA quando o problema é IDENTIDADE
+
+**O erro que mais engana no Supabase.** Medido no CI em 21/08/2026:
+
+```
+psql: error: connection to server at "aws-1-sa-east-1.pooler.supabase.com", port 5432
+FATAL:  password authentication failed for user "postgres"
+```
+
+A mensagem diz **senha**. A causa era **identidade de tenant**: o pooler
+(Supavisor) resolve o projeto pelo SUFIXO do usuário — `postgres.<referencia>`,
+aqui `ci_leitor.dzszmbowhzopocqydnxu`. Sem o sufixo ele não sabe de que projeto
+se trata e recusa com a mensagem de credencial, **mesmo com a senha correta**.
+
+⚠️ **Custo real:** duas guardas de segurança de esquema (`service_role` e DDL
+sem migration) ficaram DESLIGADAS por dias, com o CI vermelho o tempo todo — e
+como o vermelho era constante, virou paisagem. A mensagem enganosa é o que fez
+o diagnóstico apontar para senha em vez de para a string de conexão.
+
+**O teste que separa as hipóteses, e é um campo só:** ponha o sufixo. Se
+autenticar, era identidade; se continuar falhando, aí sim é a senha.
+
+⚠️ E o achado de brinde: o segredo usava `postgres`, não `ci_leitor` — o papel
+só-leitura existia no banco e não estava sendo usado. Duas coisas erradas na
+mesma string, e a primeira escondia a segunda.
+
+---
+
 ## ⚠️ A4P-081 — PR COM CONFLITO NÃO GERA EXECUÇÃO DE CI, e o silêncio é o defeito
 
 **Diagnosticado em 21/08/2026, e ele derruba a hipótese que eu mesmo sustentei
