@@ -116,13 +116,19 @@ begin
   end;
   $antigo$;
 
+  -- ⚠️ E-mail PRÓPRIO. Os dois blocos `do` correm na MESMA transação (o
+  -- `begin` está no topo do arquivo), então a linha do caso 3 ainda existe
+  -- aqui e reusar o endereço dele bate em `users_email_partial_key`. Foi
+  -- assim que esta guarda reprovou na primeira execução — por defeito dela,
+  -- não do produto, e o log distinguiu os dois: os 4 casos positivos
+  -- passaram ANTES de o bloco negativo estourar.
   insert into auth.users (id, email, aud, role, raw_user_meta_data)
-  values (u, 'joao+teste1@all4pay.com.br', 'authenticated', 'authenticated', '{}'::jsonb);
+  values (u, 'joao+negativo@all4pay.com.br', 'authenticated', 'authenticated', '{}'::jsonb);
   select o.name into nome from public.organizations o
   join public.organization_members m on m.org_id = o.id where m.user_id = u;
 
   -- A MESMA condição do caso 3, aplicada ao defeito plantado.
-  if nome = split_part('joao+teste1@all4pay.com.br', '@', 1) or nome like '%joao%' then
+  if nome = split_part('joao+negativo@all4pay.com.br', '@', 1) or nome like '%joao%' then
     reprovou := true;
   end if;
 
