@@ -853,6 +853,36 @@ export async function getRegrasRecorrentes(): Promise<RegraRecorrente[]> {
   }));
 }
 
+/**
+ * ⚠️ **QUEM MONTAR UM `RiskInput` À MÃO PRECISA LER ISTO — é a regra mais cara
+ * desta auditoria, e ela produz um número que PARECE regressão.**
+ *
+ * Este `RiskInput` é só metade do que a tela usa. A outra metade é o
+ * **`linhaPorCategoria`** do filtro do relatório — a linha DECLARADA de cada
+ * categoria, que vem de `categories.dre_linha` (banco) mesclada com o plano de
+ * contas local. É por ela que `montarRelatorio` reconhece a saída
+ * `LINHA_TRANSFERENCIA` e PULA o lançamento.
+ *
+ * Sem ela, uma categoria declarada como transferência — pagamento de fatura de
+ * cartão, boleto entre contas próprias — cai no palpite por palavra-chave e
+ * entra como DESPESA OPERACIONAL. O resultado sai menor, por dinheiro que só
+ * mudou de bolso.
+ *
+ * ⚠️ **Medido em 21/08/2026, numa conferência de rotina:** a mesma organização
+ * deu −R$ 784.743,23 sem a declaração contra −R$ 784.475,53 com ela. Os
+ * R$ 267,70 de diferença são a fatura de cartão (167,70) e o boleto de
+ * transferência (100,00) — e como a medição acontecia logo depois de um
+ * backfill que tocou toda a tabela `movements`, o número errado se disfarçou de
+ * REGRESSÃO. Quase virou um pedido para parar a rodada atrás de um defeito que
+ * não existia.
+ *
+ * Ou seja: o erro daqui não produz um zero óbvio. Produz um valor plausível,
+ * próximo do certo e do lado errado — que é o tipo que atravessa a revisão.
+ *
+ * **Ao reproduzir um número de tela fora da aplicação, passe
+ * `linhaPorCategoria` (ver `getLinhasDeCategoria`) — ou aceite que
+ * transferência virou despesa.**
+ */
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -897,7 +927,21 @@ export async function getRiscoInput(): Promise<RiskInput> {
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+    /**
+   * ⚠️ **`situacao` ENTRA AQUI, e é uma mudança de comportamento declarada.**
+   * `core/central.situacaoDe` PREFERE esta coluna quando ela vem — antes ela
+   * nunca vinha, e a função sempre derivava do `status`. Ligá-la faz a Central
+   * passar a ler a máquina de estados de verdade, que é o ponto.
+   *
+   * É seguro HOJE porque a coluna e a derivação concordam: medido em 24/08,
+   * 2.230 de 2.230 lançamentos batem. E continua seguro amanhã porque
+   * `npm run situacao` (no CI) reprova no primeiro título em que uma situação
+   * DERIVÁVEL discordar do `status` — a divergência aparece antes do usuário.
+   *
+   * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
+   * o relatório continuaria misturando os dois sem dizer qual é qual.
+   */
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
