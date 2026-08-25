@@ -1,0 +1,171 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# RETRATO DE PRODUÇÃO — refrescar a linha de base da guarda de objetos
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# `supabase/objetos-producao.json` é a LINHA DE BASE do `npm run objetos`: o
+# job `esquema-prod` monta um Postgres do zero com as migrations e compara o
+# que elas produzem contra este arquivo. Quando produção anda e o arquivo não,
+# a guarda acusa deriva — foi o A4P-084, e é o que a mantém vermelha desde 17/08.
+#
+# ⚠️ **SÓ POR CLIQUE. NUNCA em `push`, NUNCA em `schedule`.**
+#
+# Este arquivo é o retrato do que produção TEM. Refrescá-lo automaticamente o
+# transformaria no seu próprio gabarito: um objeto criado à mão hoje entraria no
+# "esperado" de amanhã sem ninguém decidir nada, e a guarda passaria a
+# ESCONDER mudança em vez de denunciá-la. É a mesma família do
+# `resíduo = x − x` — uma verificação que não pode falhar.
+#
+# ⚠️ **E NUNCA `--sync-service-role`.** Aquele bloco é a vigia da chave que
+# passa POR FORA do RLS (o que sobrou aberto do A4P-077). Ele se refresca em
+# ato próprio, com revisão própria. `scripts/retrato-diff.mjs` REPROVA se ele
+# se mover aqui — a asserção pega o efeito, não a intenção, então ela vale
+# mesmo que alguém troque o comando.
+#
+# ⚠️ **Abre PR, nunca commita no `main`.** O arquivo não é a informação; o DIFF
+# é. "351 → 403 objetos" não permite decidir nada: 52 a mais pode ser migration
+# aplicada (esperado) ou 52 objetos criados à mão (o defeito). Quem revisa lê os
+# NOMES, e é para isso que o corpo do PR os lista um a um.
+name: Retrato de produção (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      motivo:
+        description: "Por que refrescar agora (vai no corpo do PR — refresco sem motivo escrito é como linha de base vira paisagem)"
+        required: true
+        default: "A4P-084: o retrato ficou para trás das migrations aplicadas."
+
+# O job empurra um galho e abre PR. Nada além disso.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: retrato-producao
+  cancel-in-progress: false
+
+jobs:
+  retrato:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # `ref: main` explícito: `workflow_dispatch` dispara no branch PADRÃO do
+      # repositório, que aqui NÃO é `main` — a mesma armadilha que o
+      # `esquema-prod` já documenta. Um retrato tirado a partir de outro galho
+      # compararia produção de hoje com um repositório de ontem.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI do Supabase (via npm, não via action)
+        run: npm install -g supabase@latest
+      - name: Install deps
+        run: npm ci
+
+      # ⚠️ **A CREDENCIAL É A MESMA DO `migrar`, por decisão do dono (25/08).**
+      # O `--sync` só LÊ (o inventário é `select` sobre catálogo), então o papel
+      # só-leitura bastaria e seria o de menor privilégio. Ficou o de migração
+      # porque ele acabou de ser PROVADO no `main` e a alternativa era pedir ao
+      # dono que rodasse a string de produção na máquina dele — que é a coisa
+      # que este job existe para não exigir. O custo fica declarado: um segredo
+      # com escrita num job que abre PR. O que o limita é o escopo do passo —
+      # `psql -f scripts/objetos.sql`, e nada mais.
+      - name: Guardar o retrato ANTES (o diff é a informação)
+        run: cp supabase/objetos-producao.json /tmp/retrato-antes.json
+
+      - name: Refrescar o retrato (--sync, LEITURA de produção)
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        run: npm run objetos:sync
+
+      # ⚠️ Reprova se `grants_service_role` se moveu ou se o retrato saiu vazio.
+      # Provada quebrando: com o bloco de service_role alterado sai 1; com
+      # `objetos` vazio sai 1; com entrou/saiu/mudou plantados sai 0 e nomeia os três.
+      - name: Diff do retrato (e as duas reprovações)
+        run: node scripts/retrato-diff.mjs /tmp/retrato-antes.json supabase/objetos-producao.json /tmp/diff.md
+
+      - name: O retrato mudou?
+        id: mudou
+        run: |
+          if git diff --quiet -- supabase/objetos-producao.json; then
+            echo "houve=nao" >> "$GITHUB_OUTPUT"
+            echo "· o retrato já estava em dia — nada a propor."
+          else
+            echo "houve=sim" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ⚠️ **A VERIFICAÇÃO QUE O PR NÃO VAI TER.** Um PR aberto com o
+      # `GITHUB_TOKEN` não dispara workflow (limitação do GitHub), então o CI
+      # NÃO roda nele. Em vez de mergear às cegas, a prova é feita AQUI: sobe o
+      # Postgres do zero com as migrations e roda a MESMA guarda que
+      # `esquema-prod` roda, agora contra o retrato novo. O veredito vai para o
+      # corpo do PR — inclusive quando reprova, porque reprovar aqui é
+      # informação: significa que produção tem objeto que migration nenhuma
+      # produz, e é exatamente o que o retrato NÃO deve absorver calado.
+      - name: Subir o Postgres com as migrations aplicadas
+        if: steps.mudou.outputs.houve == 'sim'
+        run: supabase start -x studio,realtime,storage-api,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+
+      - name: Provar que o retrato novo deixa a guarda VERDE
+        if: steps.mudou.outputs.houve == 'sim'
+        id: guarda
+        continue-on-error: true
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run objetos 2>&1 | tee /tmp/guarda.txt
+
+      - name: Abrir o PR com o diff
+        if: steps.mudou.outputs.houve == 'sim'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MOTIVO: ${{ github.event.inputs.motivo }}
+          VEREDITO: ${{ steps.guarda.outcome }}
+        run: |
+          set -euo pipefail
+          BR="retrato/$(date -u +%Y%m%d-%H%M)-run${{ github.run_number }}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BR"
+          git add supabase/objetos-producao.json
+          git commit -m "Retrato de produção refrescado (run ${{ github.run_number }})
+
+          $MOTIVO"
+          git push -u origin "$BR"
+
+          {
+            if [ "$VEREDITO" != "success" ]; then
+              echo "> ⚠️ **A guarda REPROVOU com o retrato novo.** Isso não é motivo para"
+              echo "> descartar o PR — é a informação. Produção tem objeto que migration"
+              echo "> nenhuma produz, ou o inverso, e o retrato não deve absorver isso"
+              echo "> calado. Leia a saída no fim deste corpo antes de mergear."
+              echo
+            fi
+            echo "## Por que"
+            echo
+            echo "$MOTIVO"
+            echo
+            echo "## O que mudou"
+            echo
+            cat /tmp/diff.md
+            echo
+            echo "## Verificação feita AQUI, porque o CI não roda neste PR"
+            echo
+            echo "PR aberto com \`GITHUB_TOKEN\` não dispara workflow — limitação do GitHub."
+            echo "Então o job subiu um Postgres do zero com as migrations e rodou a MESMA"
+            echo "guarda do \`esquema-prod\` contra o retrato novo. Resultado: **$VEREDITO**."
+            echo
+            echo '```'
+            tail -60 /tmp/guarda.txt || echo "(sem saída)"
+            echo '```'
+            echo
+            echo "---"
+            echo "Gerado por \`.github/workflows/retrato.yml\` · run [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > /tmp/corpo.md
+
+          gh pr create \
+            --base main --head "$BR" \
+            --title "Retrato de produção refrescado (run ${{ github.run_number }})" \
+            --body-file /tmp/corpo.md
