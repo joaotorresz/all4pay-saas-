@@ -238,62 +238,67 @@ $taxonomia$;
 -- DÍVIDA DECLARADA — confirmar exige `lancar` pela RLS, não `aprovar`
 -- ═══════════════════════════════════════════════════════════════════════════
 --
--- ⚠️ **Este bloco NÃO conserta nada: ele DOCUMENTA o comportamento de hoje,
--- para que no dia em que alguém criar um papel "aprova e não lança" a falha
--- tenha nome.** A política restritiva `movements_escrita_exige_papel` cobra
--- `tem_permissao('lancar')` em **ALL** — inclusive no UPDATE que confirma. Um
--- papel desenhado para aprovar sem lançar é barrado pela RLS **antes** de a
--- máquina de estados rodar.
+-- ⚠️ **Este bloco NÃO conserta nada: ele DOCUMENTA o comportamento de hoje**,
+-- para que no dia em que existir um papel "aprova e não lança" a falha tenha
+-- nome. A política restritiva `movements_escrita_exige_papel` cobra
+-- `tem_permissao('lancar')` em **ALL** — inclusive no UPDATE que confirma.
 --
--- ⚠️ **E a recusa não fala a língua do produto.** Medido: SQLSTATE **42501**,
--- mensagem `new row violates row-level security policy
--- "movements_escrita_exige_papel"`. O tratamento da tela lê o prefixo
--- `A4P-CENTRAL-*` sobre `P0001` — **este caso não é alcançado por ele** e cai
--- no texto genérico, citando o nome de uma política interna a quem só queria
--- aprovar um título.
+-- ⚠️ **A LISTA DE PAPÉIS É FECHADA POR CHECK** (`organization_members_role_check`:
+-- owner · admin · member · leitor · lancador · aprovador · fechador ·
+-- contador_externo). A primeira versão deste teste inventava um papel
+-- `so_aprovador` e reprovou no CI com `violates check constraint` — defeito do
+-- teste, não do produto, e a mesma lição de sempre: o arreio local não tinha a
+-- restrição que produção tem.
 --
--- Hoje não trava ninguém: os papéis que têm `aprovar` (owner, admin,
--- aprovador) também têm `lancar`. A dívida é latente, e é por isso que ela
--- vira teste em vez de conserto — o conserto muda QUEM PODE CHAMAR O QUÊ.
+-- Então o cenário é montado pelo caminho que EXISTE: tira-se `lancar` do
+-- `aprovador` dentro da transação. É exatamente a configuração que a dívida
+-- descreve, sem inventar papel que o banco recusa.
 do $divida$
 declare
-  org uuid := gen_random_uuid();
+  org uuid;
   u_lanc uuid := gen_random_uuid();
   u_apr  uuid := gen_random_uuid();
-  mov uuid;
+  mov uuid; conta uuid;
   msg text; estado text;
 begin
-  -- Papel que aprova e NÃO lança: hoje ele não existe no produto; é o do dia
-  -- em que alguém o criar.
-  insert into public.role_permissions (papel, acao)
-    values ('so_aprovador','aprovar'), ('so_aprovador','ler')
-    on conflict do nothing;
-
   insert into auth.users (id, email, aud, role) values
     (u_lanc, 'divida-lanca@guarda.local', 'authenticated', 'authenticated'),
     (u_apr,  'divida-aprova@guarda.local', 'authenticated', 'authenticated');
   select om.org_id into org from public.organization_members om where om.user_id = u_lanc limit 1;
-  insert into public.organization_members (org_id, user_id, role) values (org, u_apr, 'so_aprovador');
-  insert into public.central_alcada (org_id, papel, teto_valor)
-    values (org, 'so_aprovador', null) on conflict do nothing;
+  insert into public.organization_members (org_id, user_id, role) values (org, u_apr, 'aprovador')
+    on conflict (org_id, user_id) do update set role = 'aprovador';
 
-  insert into public.movements (org_id, amount, type, status, due_date, origem, lancado_por)
-    values (org, 100, 'saida', 'pendente', current_date, 'manual', u_lanc)
+  -- ⚠️ **`user_active_org` NÃO é detalhe.** O gatilho de signup cria uma org
+  -- PRÓPRIA para cada `auth.users` novo; sem fixar a org ativa, `auth_org_id()`
+  -- devolveria a org do próprio u_apr e a recusa viria da política de
+  -- ISOLAMENTO, não da de papel — a guarda ficaria vermelha pelo motivo errado,
+  -- que é justamente o defeito que este arquivo existe para não cometer.
+  insert into public.user_active_org (user_id, org_id) values (u_apr, org)
+    on conflict (user_id) do update set org_id = excluded.org_id;
+
+  select id into conta from public.financial_accounts where org_id = org limit 1;
+
+  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem, situacao, lancado_por)
+    values (org, conta, 'saida', 100, 'título da dívida', 'pendente', current_date, 'manual', 'previsto', u_lanc)
     returning id into mov;
+
+  -- O papel que aprova e NÃO lança — a configuração da dívida.
+  delete from public.role_permissions where papel = 'aprovador' and acao = 'lancar';
 
   perform set_config('request.jwt.claims', json_build_object('sub', u_apr, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
     update public.movements set situacao = 'confirmado' where id = mov;
     reset role;
-    raise exception 'DÍVIDA MUDOU DE COMPORTAMENTO: o papel que aprova sem lançar PASSOU pela RLS. Se isto foi intencional, atualize esta dívida em docs/auditoria.md; se não, o acoplamento se soltou sozinho.';
+    raise exception 'DÍVIDA MUDOU DE COMPORTAMENTO: quem aprova sem lançar PASSOU pela RLS. Se foi intencional, atualize a dívida em docs/auditoria.md; se não, o acoplamento se soltou sozinho.';
   exception when insufficient_privilege then
     msg := SQLERRM; estado := SQLSTATE;
   end;
   reset role;
 
   -- ⚠️ A asserção afirma sobre o QUE ESTÁ ERRADO HOJE, não sobre o certo: a
-  -- recusa vem da RLS (42501), citando a política, e NÃO da máquina.
+  -- recusa vem da RLS (42501) citando a política, e NÃO da máquina — então o
+  -- tratamento por prefixo `A4P-CENTRAL-*` sobre P0001 não a alcança.
   if estado <> '42501' or msg not like '%movements_escrita_exige_papel%' then
     raise exception 'DÍVIDA NÃO REPRODUZIDA: esperado 42501 pela política movements_escrita_exige_papel, veio % / %', estado, msg;
   end if;
