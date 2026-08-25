@@ -1103,6 +1103,53 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ CONTROLE QUE O QUADRO DE MEMBROS LIGA E DESLIGA NÃO É CONTROLE
+
+**Decisão do dono sobre R1 (segregação de funções), 25/08/2026.** A regra "quem
+lançou não confirma" fechava o caminho ouro para o cliente TÍPICO deste
+produto: medido, a organização de teste tem **um membro**, e o `CLAUDE.md` já
+dizia que a maioria dos clientes é o dono sozinho. Com uma pessoa só, ninguém
+confirma nada — a Central vira um beco sem saída para quem mais a usaria.
+
+**A saída NÃO foi dispensar R1 para organizações pequenas**, e o motivo é a
+regra: um controle que liga e desliga conforme o quadro de membros **some sem
+gerar evento**, e um fraudador o desativa por uma ação que nada tem a ver com
+aprovar — remover um colega. O teto honesto para a empresa de uma pessoa é
+**REGISTRO, não bloqueio**.
+
+  · existe OUTRO membro habilitado a aprovar → autoaprovação **RECUSADA**
+  · não existe nenhum                        → **PERMITIDA e CARIMBADA**
+
+⚠️ **O carimbo não é metadado escondido: é a linha que o auditor lê.**
+`central_transicoes.autoaprovacao` + o motivo por extenso, na tela do movimento
+e em toda exportação. Autoaprovação silenciosa seria pior que a recusa — o
+registro existiria e ninguém saberia procurá-lo.
+
+⚠️ **"Habilitado a aprovar" sai de `role_permissions`, nunca da alçada.** A
+alçada responde QUANTO; perguntar a ela QUEM faria um `fechador` com teto
+herdado contar como aprovador, e a autoaprovação seria recusada por causa de
+alguém que não pode aprovar coisa nenhuma.
+
+### ⚠️ DOIS CAMPOS QUE GUARDAM O MESMO FATO NÃO ESTÃO COERENTES — ESTÃO PARADOS
+
+`movements.status` (`pendente/pago/cancelado`) e `movements.situacao`
+(`previsto/confirmado/baixado/conciliado/cancelado/estornado`) são **o mesmo
+fato em dois lugares**, com escritores independentes e nenhum árbitro entre
+eles. Medido: **2230 de 2230 coerentes** — e isso não é saúde, é imobilidade.
+Nenhum dos caminhos que escrevem `status` rodou desde o backfill; **a
+divergência nasce no primeiro dia em que os dois escritores rodarem.**
+
+⚠️ **Coerência medida num acervo parado não prova invariante nenhuma.** Ela
+prova que ninguém escreveu. A pergunta que separa as duas coisas é: *quantos
+escritores independentes existem, e o que impede o segundo de discordar do
+primeiro?* Se a resposta for "nada, mas ninguém rodou", o sistema está com um
+defeito agendado, não resolvido.
+
+O mesmo vale para qualquer par derivado: um totalizador guardado ao lado das
+parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
+máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
+tráfego.
+
 ### ⚠️ DUAS REGRAS SOBRE GUARDA, aprendidas errando as duas no mesmo dia
 
 **1. Caso de teste que depende de outro caso não ter rodado não é caso isolado

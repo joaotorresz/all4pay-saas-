@@ -278,6 +278,18 @@
     "resolver_ate": "2026-09-24",
     "origem": "sessao de agente, A4P-085 (24/08/2026)",
     "aplicada_em": null
+   },
+   {
+    "nome": "20260825140000_central_autoaprovacao_carimbada",
+    "motivo": "Bloco 3: R1 passa a PERMITIR autoaprovacao quando a org nao tem outro membro habilitado a aprovar, e CARIMBA a transicao (central_transicoes.autoaprovacao + motivo). Decisao do dono: controle que o quadro de membros liga e desliga nao e controle; o teto honesto para empresa de uma pessoa e registro.",
+    "impacto": "Enquanto nao aplicada, a organizacao de UM membro nao consegue confirmar titulo nenhum — quem lanca e o unico que poderia confirmar, e R1 recusa. O caminho ouro lancar → confirmar → baixar fica fechado para o cliente tipico. Nada regride: a migration so acrescenta uma coluna com default false e afrouxa R1 no caso em que ele hoje trava a operacao inteira.",
+    "objetos_ausentes": [
+     "central_transicoes.autoaprovacao",
+     "central_maquina() com a regra do unico aprovador"
+    ],
+    "resolver_ate": "2026-09-25",
+    "origem": "sessao de agente, Bloco 3 da Central (25/08/2026)",
+    "aplicada_em": null
    }
   ],
   "objetos_sem_migration": [

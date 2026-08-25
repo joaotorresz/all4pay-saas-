@@ -2496,3 +2496,112 @@ cobre estas duas, criadas semanas depois. Com só a metade do seed, elas teriam
 nascido exatamente com o defeito original — e ninguém veria, porque nenhum dado
 existente o exibia.
 
+---
+
+## ⚠️ BLOCO 3 — o inventário da Central, e três coisas que o contexto não dizia
+
+**Medido em 25/08/2026, antes de escrever uma linha de tela.**
+
+| dado | esperado | medido |
+| --- | --- | --- |
+| `central_alcada` | 160 (8×20) | **176** (8 papéis × **22** orgs) — o gatilho segue criando |
+| `central_transicoes` | histórico | **0 linhas.** Nada jamais transitou |
+| situações em uso | a máquina completa | só `previsto`, `baixado`, `cancelado` em 2230 movimentos |
+| `lancado_por` | quem lançou | **NULL em 2230 de 2230** |
+| `confirmado_por` | quem confirmou | **0** |
+
+⚠️ **A máquina nunca rodou em produção.** `central_transicoes` vazia e zero
+`confirmado` não são "pouco uso": são a máquina inteira nunca exercitada. Tudo
+que existe hoje foi posto pelo backfill.
+
+### `central_maquina()` é GATILHO, não função chamável
+
+`BEFORE UPDATE` em `movements`, e **só age quando `situacao` muda**. "Todo
+escritor chama `central_maquina()`" é impossível de implementar — a tela faz
+`UPDATE movements SET situacao=…` e o gatilho intercepta.
+
+⚠️ **As recusas não têm errcode próprio.** São `raise exception` sem `using
+errcode`, portanto **SQLSTATE `P0001`**; `A4P-CENTRAL`, `-SEGREGACAO`,
+`-PERMISSAO` e `-ALCADA` são **prefixo de MENSAGEM**. A tela escolhe o texto em
+português lendo esse prefixo — acoplamento a texto, registrado como dívida.
+Errcode por recusa é o certo e não é agora.
+
+### Os escritores não eram quatro — três estão no BANCO
+
+A varredura de código achava 4 caminhos gravando `status`. O catálogo mostra
+mais três, invisíveis a qualquer `grep` em `src/`: **`conciliar_movimentos`**
+(escreve `status='cancelado'`), **`estornar_conciliacao`** (escreve `status`) e
+**`estornar_lancamento`** (INSERE com `status`). Mais os leitores
+`org_movements`, `org_consolidado`, `admin_org_detail`, `estornar_baixa` e —
+o mais sensível — **`digest_do_periodo`, que assina o hash do fechamento com o
+`status`**.
+
+⚠️ É a terceira vez que "o escritor real está no banco" muda um diagnóstico
+(A4P-085, a varredura da classe, agora esta). O `grep` no front responde por
+metade do sistema.
+
+### `status` × `situacao`: a derivação reproduz o acervo, exatamente
+
+`status` é o enum `movement_status` (3 valores) e é **estritamente mais grosso**
+que `situacao` (6). A derivação `baixado|conciliado→pago`,
+`previsto|confirmado→pendente`, `cancelado|estornado→cancelado` foi conferida
+linha a linha: **2230 de 2230 batem, zero divergência** — então as assinaturas
+de `digest_do_periodo` não mudam. Nenhum leitor precisa de granularidade que
+`situacao` não tenha; o par `previsto`/`confirmado` que hoje é indistinguível é
+justamente o que a Central acrescenta.
+
+**Recomendação registrada:** derivar `status` de `situacao` **por gatilho
+agora**, `GENERATED` depois. Remover `status` custaria migrar **264 leituras em
+51 módulos** — a maioria comparação crua em vez do `liquidado()` canônico, ou
+seja, a ONDA 1 inacabada. E `GENERATED STORED` recusa escrita, o que obrigaria
+a converter as três RPCs do banco na mesma migration: big-bang no meio do
+bloco.
+
+---
+
+## ⚠️ DÍVIDA DECLARADA — confirmar exige `lancar` pela RLS, não `aprovar`
+
+A política **restritiva** `movements_escrita_exige_papel` cobra
+`tem_permissao('lancar')` em **ALL** — inclusive no UPDATE que confirma. Um
+papel desenhado para **aprovar sem lançar** é barrado pela RLS **antes** de a
+máquina rodar.
+
+**Medido**, com o papel plantado num Postgres real:
+
+```
+SQLSTATE 42501 | new row violates row-level security policy
+                 "movements_escrita_exige_papel" for table "movements"
+```
+
+⚠️ **E a recusa não fala a língua do produto.** A tela lê o prefixo
+`A4P-CENTRAL-*` sobre `P0001`; **este caso é `42501` e não é alcançado por
+esse tratamento** — cai no texto genérico, citando o nome de uma política
+interna a quem só queria aprovar um título.
+
+Hoje não trava ninguém: `owner`, `admin` e `aprovador` têm `lancar`. **Não foi
+consertado de propósito** — o conserto muda QUEM PODE CHAMAR O QUÊ. Virou
+teste em `scripts/central-maquina.sql`, que afirma sobre o que está ERRADO
+hoje: se o acoplamento se soltar sozinho, a guarda acusa e manda atualizar esta
+dívida.
+
+---
+
+## ✓ R1 para a empresa de uma pessoa — permitida e CARIMBADA
+
+Decisão do dono. `central_transicoes` ganhou `autoaprovacao boolean`, e a
+máquina passou a perguntar se existe **outro membro habilitado a aprovar**
+(por `role_permissions`, nunca pela alçada).
+
+**Provado nas duas metades, num Postgres real:**
+
+```
+ORG COM DOIS  → RECUSADO: A4P-CENTRAL-SEGREGACAO: quem lançou não pode
+                confirmar o próprio título
+ORG SOZINHA   → ACEITO · autoaprovacao=t · motivo=org com um único membro
+                habilitado a aprovar
+```
+
+⚠️ **R1 nunca fica desligado e não há interruptor por organização** — ver a
+regra no `CLAUDE.md`: controle que o quadro de membros liga e desliga some sem
+evento, e um fraudador o desativa removendo um colega.
+
