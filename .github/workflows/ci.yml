@@ -174,14 +174,21 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/matriz-permissao.sql
-      # ⚠️ O LEITOR DORMENTE: `situacaoDe` prefere a coluna `situacao` quando ela
-      # vem, e hoje `getRiscoInput` não a seleciona. No dia em que alguém a
-      # ligar, a Central muda de comportamento em silêncio — esta guarda faz a
-      # incoerência aparecer antes do usuário.
-      - name: Guarda da situação (coluna coerente com o status derivável)
+      # ⚠️ SUBSTITUI a antiga "guarda da situação". Ela comparava `situacao` com
+      # `status` e cobrava que os dois concordassem — e no dia em que `status`
+      # virou `generated always as (…) stored` derivada de `situacao`, aquela
+      # comparação passou a ser `x — x`: uma igualdade que NÃO PODE FALHAR, a
+      # mesma família do resíduo tautológico da ONDA 4. Guarda que não pode
+      # reprovar é decoração, e decoração custa mais que ausência porque fabrica
+      # confiança.
+      #
+      # O que se prova agora é outra coisa: que a TRAVA continua no banco. Sem
+      # grep — quando a trava passa para o Postgres, a varredura de texto sai,
+      # senão alguém a reforça achando que reforça o controle.
+      - name: Guarda do estado único (status é gerada, e o Postgres recusa escrevê-la)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-        run: npm run situacao
+        run: npm run estado-unico
       - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       // Idempotência GARANTIDA pelo banco (índice parcial em rec:%). Insere direto;
       // 23505 = já existe → ignora. Mesma chave para entrada e saída.
       const { error: insErr } = await admin.from("movements").insert({
-        org_id: orgId, account_id: accId, type: tipo, status: "pendente",
+        org_id: orgId, account_id: accId, type: tipo,
         amount: r.amount, due_date: d, party_id: r.party_id, category_id: r.category_id,
         cost_center_id: r.cost_center_id, reconciled: false,
         description: r.description ?? (tipo === "saida" ? "Despesa recorrente" : "Fatura recorrente"),

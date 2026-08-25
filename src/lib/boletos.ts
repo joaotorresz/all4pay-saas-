@@ -57,7 +57,7 @@ export async function marcarPagoBoleto(mov: Movement): Promise<void> {
     return;
   }
   const s = createClient();
-  await s.from("movements").update({ boleto, status: "pago", paid_date: hoje, reconciled: true }).eq("id", mov.id);
+  await s.from("movements").update({ boleto, situacao: "baixado", paid_date: hoje, reconciled: true }).eq("id", mov.id);
   // saldo sobe na conta de recebimento (entrada liquidada)
   const accId = boleto.conta_recebimento ?? mov.account_id;
   if (accId) {

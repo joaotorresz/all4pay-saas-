@@ -64,8 +64,8 @@ begin
   select id into c from public.financial_accounts where org_id = o limit 1;
 
   -- Título PREVISTO, lançado pela ANA, de R$ 1.000.
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 1000, 'título da central', 'pendente', current_date, 'manual', 'previsto', ana)
+  insert into public.movements (org_id, account_id, type, amount, description, due_date, origem, situacao, lancado_por)
+  values (o, c, 'saida', 1000, 'título da central', current_date, 'manual', 'previsto', ana)
   returning id into t;
 
   -------------------------------------------- 1. BAIXA DIRETA reprova --------
@@ -278,8 +278,8 @@ begin
 
   select id into conta from public.financial_accounts where org_id = org limit 1;
 
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem, situacao, lancado_por)
-    values (org, conta, 'saida', 100, 'título da dívida', 'pendente', current_date, 'manual', 'previsto', u_lanc)
+  insert into public.movements (org_id, account_id, type, amount, description, due_date, origem, situacao, lancado_por)
+    values (org, conta, 'saida', 100, 'título da dívida', current_date, 'manual', 'previsto', u_lanc)
     returning id into mov;
 
   -- O papel que aprova e NÃO lança — a configuração da dívida.
