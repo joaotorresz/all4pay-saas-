@@ -24,10 +24,11 @@
  */
 import * as React from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, BRL, Icon, Skeleton } from "@/components/ui";
+import { Button, Card, BRL, Icon, Skeleton, Input, Select, CurrencyInput, DateField } from "@/components/ui";
+import { moverTituloAction, lancarTituloAction } from "@/app/central/acoes";
 import { isDemo } from "@/lib/demo";
 import {
-  getFilaCentral, getContextoCentral, getTransicoes, moverTitulo, porQueNaoConfirma,
+  getFilaCentral, getContextoCentral, getTransicoes, porQueNaoConfirma,
   type TituloDaFila, type ContextoCentral, type Transicao, type RecusaCentral,
 } from "@/lib/central";
 import type { Situacao } from "@/core/central";
@@ -98,11 +99,84 @@ function Trilha({ id }: { id: string }) {
   );
 }
 
+
+/**
+ * LANÇAR — o começo da esteira.
+ *
+ * ⚠️ **Sem ele a Central é uma tela de leitura.** O caminho ouro é lançar →
+ * confirmar → baixar; sem a primeira ação, a organização nova abre a Central,
+ * vê "nada aguardando" e não tem como fazer nada aparecer.
+ *
+ * Mínimo de propósito: descrição, valor, vencimento, categoria e tipo. Tudo o
+ * mais que um título pode ter (rateio, centro, projeto, parcelas) já tem tela
+ * própria — repetir aqui criaria um segundo formulário de lançamento, e dois
+ * caminhos de criação divergem no dia em que um campo mudar.
+ */
+function FormLancar({ onPronto, onCancelar }: { onPronto: () => void; onCancelar: () => void }) {
+  const [descricao, setDescricao] = React.useState("");
+  const [valor, setValor] = React.useState(0);
+  const [vencimento, setVencimento] = React.useState(new Date().toISOString().slice(0, 10));
+  const [categoria, setCategoria] = React.useState("");
+  const [tipo, setTipo] = React.useState<"entrada" | "saida">("saida");
+  const [enviando, setEnviando] = React.useState(false);
+  const [erro, setErro] = React.useState<RecusaCentral | null>(null);
+
+  const podeEnviar = descricao.trim().length > 0 && valor > 0 && !!vencimento;
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!podeEnviar || enviando) return;
+    setEnviando(true); setErro(null);
+    try {
+      const r = await lancarTituloAction({ descricao, valor, vencimento, categoria, tipo });
+      if (!r.ok) { setErro(r.recusa); return; }
+      onPronto();
+    } finally { setEnviando(false); }
+  };
+
+  return (
+    <Card className="flex flex-col gap-4">
+      <span className="text-h3 text-ink">Novo título</span>
+      <form onSubmit={enviar} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input label="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)}
+          placeholder="O que é este título" containerClassName="sm:col-span-2" required />
+        <CurrencyInput label="Valor" value={valor} onValueChange={setValor} />
+        <DateField label="Vencimento" value={vencimento} onChange={setVencimento} />
+        <Input label="Categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}
+          placeholder="Opcional" />
+        <Select label="Tipo" value={tipo} onChange={(v) => setTipo(v as "entrada" | "saida")}
+          options={[{ value: "saida", label: "Saída (a pagar)" }, { value: "entrada", label: "Entrada (a receber)" }]} />
+        {erro && (
+          <div role="alert" className="sm:col-span-2 rounded-md p-3 flex flex-col gap-[2px]"
+            style={{ background: "var(--color-surface-2)", borderLeft: "3px solid var(--color-negative)" }}>
+            <span className="text-caption font-medium text-ink">{erro.motivo}</span>
+            <span className="text-caption text-muted">{erro.comoResolver}</span>
+          </div>
+        )}
+        <div className="sm:col-span-2 flex items-center gap-2">
+          <Button type="submit" variant="primary" disabled={!podeEnviar || enviando}>
+            {enviando ? "Lançando…" : "Lançar como previsto"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onCancelar}>Cancelar</Button>
+          {/* ⚠️ Dizer o que vai acontecer ANTES: o título nasce previsto e
+              precisa de confirmação — é o passo seguinte da esteira. */}
+          <span className="text-caption text-faint">Nasce como <b className="text-muted font-medium">previsto</b> e entra na fila de confirmação.</span>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
 export function CentralView() {
   const qc = useQueryClient();
   const [aberto, setAberto] = React.useState<string | null>(null);
   const [recusa, setRecusa] = React.useState<{ id: string; r: RecusaCentral } | null>(null);
   const [ocupado, setOcupado] = React.useState<string | null>(null);
+  const [filtro, setFiltro] = React.useState<"todos" | Situacao>("todos");
+  const [lancando, setLancando] = React.useState(false);
+  /* ⚠️ Sem paginação sofisticada: 100 linhas e um "carregar mais". Teto que
+     se explica é melhor que rolagem infinita que esconde o corte. */
+  const [teto, setTeto] = React.useState(100);
 
   const fila = useQuery({ queryKey: ["central", "fila"], queryFn: getFilaCentral });
   const ctxQ = useQuery({ queryKey: ["central", "contexto"], queryFn: getContextoCentral });
@@ -110,7 +184,8 @@ export function CentralView() {
   const mover = async (t: TituloDaFila, para: Situacao) => {
     setOcupado(t.id); setRecusa(null);
     try {
-      const r = await moverTitulo(t.id, para);
+      /* ⚠️ Server action: quem fala com a máquina é o servidor. */
+      const r = await moverTituloAction(t.id, para);
       if (!r.ok) { setRecusa({ id: t.id, r: r.recusa }); return; }
       await qc.invalidateQueries({ queryKey: ["central"] });
     } finally { setOcupado(null); }
@@ -122,6 +197,8 @@ export function CentralView() {
     usuarioId: null, papel: null, teto: 0, podeAprovar: false, podeBaixar: false, temOutroAprovador: false,
   }) as ContextoCentral;
   const itens = (fila.data ?? []) as TituloDaFila[];
+  const filtrados = filtro === "todos" ? itens : itens.filter((t) => t.situacao === filtro);
+  const visiveis = filtrados.slice(0, teto);
 
   /* ⚠️ Vazio com CONTEXTO: uma tabela vazia sem explicação faz a organização
      nova concluir que o sistema não funciona. O vazio aqui é uma resposta —
@@ -140,6 +217,13 @@ export function CentralView() {
             ? "Na demonstração a fila não é ligada ao banco — a máquina de estados roda em produção."
             : "Assim que o primeiro título for lançado, ele aparece aqui como Previsto."}
         </p>
+        {/* ⚠️ Vazio que OFERECE O BOTÃO que o preenche. Um vazio que só explica
+            deixa a pessoa sem o próximo passo — e é o próximo passo que falta
+            numa organização nova. */}
+        {lancando
+          ? <FormLancar onPronto={() => { setLancando(false); void qc.invalidateQueries({ queryKey: ["central"] }); }}
+                        onCancelar={() => setLancando(false)} />
+          : <div><Button variant="primary" onClick={() => setLancando(true)}>Lançar o primeiro título</Button></div>}
       </Card>
     );
   }
@@ -153,9 +237,31 @@ export function CentralView() {
         {ctx.papel ? ` (papel ${ctx.papel}${ctx.teto === null ? ", sem teto" : `, teto ${formatBRL(ctx.teto)}`})` : ""}.
       </p>
 
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="Filtrar por situação">
+          {([["todos", "Todos"], ["previsto", "Previsto"], ["confirmado", "Confirmado"]] as const).map(([v, r]) => (
+            <button key={v} type="button" onClick={() => setFiltro(v as "todos" | Situacao)}
+              aria-pressed={filtro === v}
+              className={`text-caption font-medium px-3 h-7 rounded-pill transition-colors ${
+                filtro === v ? "bg-white text-ink" : "text-muted hover:text-ink"}`}>
+              {r}
+            </button>
+          ))}
+        </div>
+        <span className="text-caption text-faint">{visiveis.length} de {itens.length}</span>
+        <div className="ml-auto">
+          {!lancando && <Button variant="primary" onClick={() => setLancando(true)}>Lançar título</Button>}
+        </div>
+      </div>
+
+      {lancando && (
+        <FormLancar onPronto={() => { setLancando(false); void qc.invalidateQueries({ queryKey: ["central"] }); }}
+                    onCancelar={() => setLancando(false)} />
+      )}
+
       <Card padded={false}>
         <ul className="m-0 p-0 list-none">
-          {itens.map((t) => {
+          {visiveis.map((t) => {
             const impedimento = t.situacao === "previsto" ? porQueNaoConfirma(t, ctx) : null;
             const podeBaixar = t.situacao === "confirmado" && ctx.podeBaixar;
             const estaAberto = aberto === t.id;
@@ -219,6 +325,17 @@ export function CentralView() {
           })}
         </ul>
       </Card>
+
+      {/* ⚠️ O corte é DITO. Uma lista que para em 100 sem avisar faz quem
+          procura um título concluir que ele sumiu. */}
+      {filtrados.length > visiveis.length && (
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={() => setTeto((n) => n + 100)}>Carregar mais</Button>
+          <span className="text-caption text-faint">
+            mostrando {visiveis.length} de {filtrados.length}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
