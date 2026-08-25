@@ -2684,9 +2684,32 @@ const AGOSTO = janelaMes(2026, 7);
    * esse lugar que faltava. Não é arrumação de menu: é a porta que impede a
    * baixa direta (A4P-052) e onde o previsto vira confirmado.
    */
+  /**
+   * ⚠️ **+1 destino: "Exportar para o contador"**, no grupo Contábil e fiscal —
+   * e é o único item deste repositório que sobe DOIS tetos ao mesmo tempo, o do
+   * grupo e o total. Um teto que sobe sem justificativa escrita é uma folga, e
+   * a folga é por onde o menu volta a crescer. Então a justificativa:
+   *
+   * O grupo já tinha dois destinos que entregam coisa ao contador, e **nenhum
+   * dos dois entrega ESTA**. "Envio das NFs" manda XMLs de nota — documento
+   * fiscal, não resultado. "Gerar TXT contábil" manda partidas simples no
+   * layout do sistema Domínio — um formato de importação de um software
+   * específico, que não se abre no Excel e não mostra em que linha do DRE cada
+   * lançamento caiu. O que o contador pede antes dos dois é o par razão + DRE
+   * do período, em planilha: um lançamento por linha, com as duas datas, e o
+   * consolidado que aquelas linhas somam.
+   *
+   * ⚠️ E a razão de ela ser destino PRÓPRIO em vez de mais um botão dentro do
+   * relatório: os botões de exportar do DRE tiram a TABELA da tela. Este
+   * destino existe para produzir o arquivo que FECHA — ele confere que o razão
+   * somado por linha reproduz o consolidado e recusa o download quando não
+   * fecha (`npm run exportacao`). É uma garantia, não um formato, e garantia
+   * escondida atrás de um ícone no canto de outra tela é garantia que ninguém
+   * encontra no dia em que precisa dela.
+   */
   const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Contas a receber · Pagar · Contas a pagar · Contábil e fiscal · Análise e relatórios · Inteligência
-  const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 70;      // +1: Central financeira (P-10)
+  const TETO_ITENS_POR_GRUPO = 13;  // Contábil e fiscal, o maior — +1: Exportar para o contador
+  const TETO_ITENS_TOTAL = 71;      // +1: Central financeira (P-10) · +1: Exportar para o contador
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,
