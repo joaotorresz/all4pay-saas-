@@ -56,6 +56,17 @@ export async function getAssinatura(): Promise<EstadoDaAssinatura | null> {
     mrr: Number(linha.mrr ?? 0),
     inicio: linha.inicio ?? null,
     fim: linha.fim ?? null,
+    /*
+     * ⚠️ **A RPC JÁ CONTAVA e ninguém lia.** `assinatura_da_org` devolve
+     * `dias_restantes` como `current_period_end - current_date` — contado pelo
+     * SERVIDOR — e esta função recalculava a partir do relógio do navegador.
+     * Instrumentação sem consumidor, a mesma família do `competence_date` que
+     * o DRE ignorava por meses. O número do prazo de um contrato não pode
+     * depender de quem tem o computador adiantado.
+     */
+    diasDoServidor: linha.dias_restantes === null || linha.dias_restantes === undefined
+      ? null
+      : Number(linha.dias_restantes),
   };
   return estadoDaAssinatura(a, hojeISO());
 }
