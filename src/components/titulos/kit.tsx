@@ -177,13 +177,24 @@ export function FiltrosPeriodo({
 /* ========================================================================== */
 
 export function CardExpansivel({
-  titulo, dado, cor, rotuloData, info,
+  titulo, dado, cor, rotuloData, info, secundario,
 }: {
   titulo: string;
   dado: CardDeTitulos;
   cor: string;
   rotuloData: string;
   info: { oQue: string; comoCalcula: string };
+  /**
+   * ⚠️ **HIERARQUIA POR MÉTRICA ACIONÁVEL — A4P-034.** Os três cards tinham o
+   * mesmo peso e "Total geral pago no período" vinha PRIMEIRO, que na ordem de
+   * leitura é o destaque. O que já foi pago não pede ação nenhuma; vencidas e a
+   * vencer pedem. Com R$1,54 pago e R$38.626,59 vencidos, a tela dava o lugar
+   * nobre ao número que não muda nada.
+   *
+   * `secundario` não esconde: reduz o corpo do valor. Esconder trocaria um
+   * defeito de hierarquia por um de ausência.
+   */
+  secundario?: boolean;
 }) {
   const [aberto, setAberto] = React.useState(false);
   const idLista = React.useId();
@@ -198,7 +209,7 @@ export function CardExpansivel({
 
       <div className="flex items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="a4p-num text-[28px] leading-none text-ink">
+          <span className={`a4p-num leading-none ${secundario ? "text-[20px] text-muted" : "text-[28px] text-ink"}`}>
             <BRL value={dado.total} />
           </span>
           <span className="text-caption text-muted">

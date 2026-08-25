@@ -13,8 +13,9 @@ import { preverCaixa } from "./prediction";
 import { gerarRecomendacoes } from "./recommendations";
 import { planoAutonomo } from "./autonomous";
 
+import { formatBRL } from "@/lib/format";
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 
 export function decidir(input: RiskInput): DecisionBrief {
   const features = construirFeatures(input);

@@ -9,6 +9,14 @@ name: CI
 # razão, painéis, motores. É ela que impede a volta do "mesmo número, telas
 # diferentes"; sem ela rodando a cada deploy, os defeitos reaparecem sozinhos.
 #
+# ⚠️ E inclui, desde o P-19 Bloco 4, o CONTRATO CARD × TABELA
+# (`npm run card-tabela`) e a VARREDURA DE PROMESSA (`npm run promessas`). O
+# primeiro varre o produto cartesiano de período × filtros e exige que o card e
+# a tabela da mesma tela concordem — os três piores defeitos desta auditoria
+# eram todos dessa família, e nenhum deles é erro de aritmética: cada número,
+# sozinho, está certo. O segundo cobra que nenhum texto de tela prometa o que o
+# sistema não faz.
+#
 # ⚠️ E inclui o TESTE DE COERÊNCIA (`npm run coerencia`), que pergunta outra
 # coisa: se a tela pode exibir uma COMBINAÇÃO de números que não pode ser
 # verdade ao mesmo tempo — saldo que não bate com os lançamentos, resultado
@@ -166,10 +174,152 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/matriz-permissao.sql
+      # ⚠️ SUBSTITUI a antiga "guarda da situação". Ela comparava `situacao` com
+      # `status` e cobrava que os dois concordassem — e no dia em que `status`
+      # virou `generated always as (…) stored` derivada de `situacao`, aquela
+      # comparação passou a ser `x — x`: uma igualdade que NÃO PODE FALHAR, a
+      # mesma família do resíduo tautológico da ONDA 4. Guarda que não pode
+      # reprovar é decoração, e decoração custa mais que ausência porque fabrica
+      # confiança.
+      #
+      # O que se prova agora é outra coisa: que a TRAVA continua no banco. Sem
+      # grep — quando a trava passa para o Postgres, a varredura de texto sai,
+      # senão alguém a reforça achando que reforça o controle.
+      - name: Guarda do estado único (status é gerada, e o Postgres recusa escrevê-la)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run estado-unico
       - name: Guarda de taxonomia (árvore do plano, código único, origem do título)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+      # ⚠️ A PROVA NEGATIVA da guarda de DDL, e ela mora AQUI porque precisa de
+      # um banco de verdade — o gatilho de evento, o `ddl_log` e a leitura da
+      # guarda são três elos, e plantar a linha na lista de objetos só testa o
+      # terceiro. Banco limpo tem de passar; uma tabela criada à mão tem de
+      # reprovar E ser nomeada.
+      #
+      # ⚠️ A sondagem roda no EFÊMERO, nunca em produção (CONTRIBUTING.md): em
+      # produção o objeto some do estado quando se apaga, mas o evento fica no
+      # `ddl_log` para sempre — foi assim que 13 sondagens da auditoria de 18/08
+      # tiveram de ser declaradas nominalmente depois do fato.
+      # ⚠️ O bloqueio suave é comportamento de BANCO (política restritiva), e a
+      # guarda pura do `engine-audit` não alcança isso: ela prova a decisão,
+      # não a fechadura. Aqui as duas metades são exercitadas na mesma
+      # organização — vencida não escreve E continua lendo.
+      - name: Guarda do bloqueio suave (vencido para de escrever, continua lendo)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/assinatura-bloqueio.sql
+      # ⚠️ A máquina de estados da Central é de BANCO (gatilho): a baixa direta,
+      # a auto-confirmação e a confirmação acima da alçada têm de reprovar no
+      # Postgres, não só na tela. A guarda pura prova a decisão; esta prova a
+      # fechadura.
+      # ⚠️ A4P-085: o nome digitado no cadastro tem de chegar a
+      # `organizations.name` LITERAL. Quem escreve é o gatilho de `auth.users`,
+      # então a guarda cria o usuário pelo caminho real — e carrega o teste
+      # negativo junto: ela reintroduz a derivação do e-mail e exige que a
+      # própria asserção reprove.
+      - name: Guarda do nome da empresa (do campo até o gatilho)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-nome.sql
+      # ⚠️ Os SEIS casos de autorização da Central, cada um em savepoint
+      # próprio. O caso 6 tem gabarito de PRODUÇÃO (a org de um membro que
+      # autoaprovou e carimbou em 25/08) e cobra o CARIMBO, não só o sucesso.
+      - name: Guarda de autorização da Central (R1, alçada, transição, isolamento, carimbo)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-autorizacao.sql
+      - name: Guarda da Central (máquina de estados, R1 e alçada no banco)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-maquina.sql
+      - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run ddl:prova
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NAVEGADOR — o que só se descobre ABRINDO a tela
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **Job separado porque estas guardas exigem o app SERVIDO**, e o `verify`
+  # não serve nada. Pendurá-las lá faria a suíte de cada commit ter de esperar um
+  # build de produção mais um servidor de pé — e guarda cara é guarda que alguém
+  # desliga. Aqui os dois correm em paralelo e o PR só fica verde com os dois.
+  #
+  # ⚠️ **E o que elas cobrem NENHUMA outra cobre.** Typecheck prova que compila,
+  # as guardas puras provam que o motor calcula, a varredura lê o FONTE. Nenhuma
+  # abre a tela: um erro de hidratação, um `undefined` num `.map`, uma tela que
+  # monta a moldura e não renderiza conteúdo — tudo isso passa por todas elas e
+  # chega ao usuário como página em branco.
+  #
+  # ⚠️ **Roda em MODO DEMONSTRAÇÃO, e o motivo é declarado.** Sem fonte de dado
+  # as telas abrem vazias e as guardas reportariam defeito de produto onde há
+  # falta de ambiente — foi o que aconteceu duas vezes ao desenvolvê-las. O que
+  # se perde fica dito: este job não exercita sessão nem política de acesso;
+  # quem faz isso é o job `isolamento`, contra um banco de verdade.
+  navegador:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install deps
+        run: npm ci
+      # ⚠️ Aqui o navegador é BAIXADO de propósito — ao contrário do `verify`,
+      # que o pula porque não abre tela nenhuma.
+      - name: Instalar o Chromium do Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Build (modo demonstração)
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: npm run build
+      - name: Servir o build
+        env:
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: |
+          npx next start -p 3131 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3131/login && break
+            sleep 2
+          done
+          curl -sf -o /dev/null http://127.0.0.1:3131/login
+      - name: Smoke das rotas canônicas (abre · tem conteúdo · não vaza código)
+        env:
+          ALVO: http://127.0.0.1:3131
+        run: npm run smoke-rotas
+      - name: Cronômetro do onboarding (do zero ao DRE, meta de 10 min)
+        env:
+          ALVO: http://127.0.0.1:3131
+          NEXT_PUBLIC_ALL4PAY_DEMO: "true"
+        run: npm run cronometro
+      # ⚠️ **`mobile` e `fluxos` FICAM DE FORA deste portão, e o motivo é medido,
+      # não uma escolha de conveniência.** Rodados contra este mesmo build em
+      # 20/08 eles acusam **5 das 7 telas** e **1 dos 4 fluxos** — contra o
+      # "7 telas · 0 problemas · 4 fluxos · 0 problemas" com que a ONDA 12
+      # fechou. É REGRESSÃO, e ela atravessou porque estas duas guardas nunca
+      # estiveram no CI: elas exigem o app servido, e ninguém as rodou desde
+      # então.
+      #
+      #   Títulos a receber ... acessibilidade: label×2, select-name×3
+      #   Extrato ............. acessibilidade: contraste×2
+      #   Entrada de dados .... orçamento: 57 requisições (teto 45)
+      #   DRE ................. orçamento: 74 requisições (teto 60)
+      #   Lançar despesa ...... não há caminho para Despesa a partir do início
+      #
+      # ⚠️ Pendurá-las aqui agora seria abrir um portão VERMELHO: todo PR
+      # nasceria reprovado por dívida anterior, e a primeira coisa que alguém faz
+      # com um portão que nunca fica verde é desligá-lo. Deixá-las fora sem dizer
+      # nada seria pior — some a única evidência de que a regressão existe.
+      #
+      # Então elas ficam declaradas AQUI, com os números, e entram no portão na
+      # rodada que as consertar. `npm run mobile` e `npm run fluxos` continuam
+      # rodando à mão contra um build servido.
 
   # ═══════════════════════════════════════════════════════════════════════════
   # A4P-076 — O ESQUEMA DE PRODUÇÃO: objetos (estado) e ddl (evento)
@@ -183,6 +333,81 @@ jobs:
   # PR trava o próprio merge que a conserta — a mesma lição do `no-ar`.
   #
   # Por isso: só `main` (push), schedule e dispatch. Nunca PR.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MIGRAR — o passo que NÃO EXISTIA, e por isso o banco ficava para trás
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **Medido em 25/08 (A4P-086): `schema_migrations` parada em
+  # 20260819180000 havia seis dias**, enquanto o `main` seguia publicando. Não
+  # havia passo manual não documentado — **não havia passo**: o `ci.yml` nunca
+  # teve `db push`, e a Vercel publica o front sem tocar no banco. O efeito é
+  # `main` verde servindo código que não conhece as colunas que ele espera.
+  #
+  # ⚠️ **FALHA FECHADA, inclusive sem o segredo.** Um job que "pula quando não
+  # tem credencial" é um job que não roda — foi exatamente o defeito que a
+  # ONDA 2 encontrou no teste de isolamento, verde por nunca ter sido
+  # executado. Sem `SUPABASE_DB_URL_MIGRACAO` este job REPROVA e diz o que
+  # falta.
+  #
+  # ⚠️ **A credencial NÃO é o `ci_leitor`.** Ele é somente leitura, de
+  # propósito: é o que permite deixá-lo no CI sem dar poder de escrita a todo
+  # PR. Migrar exige um papel próprio, e ele só existe no job do `main`.
+  #
+  # ⚠️ **ORDENAÇÃO — o que este job NÃO garante, e é preciso dizer.** A Vercel
+  # publica pelo GIT, no mesmo push, em paralelo com o CI: não há `needs:` que
+  # alcance um deploy que o GitHub não dispara. Então este job aplica o esquema
+  # o quanto antes, mas **não impede** um deploy de pousar primeiro — que é o
+  # A4P-075 de novo. Fechar isso exige desligar a integração Git da Vercel e
+  # publicar a partir daqui (`vercel deploy --prebuilt`) depois deste job, ou
+  # usar o Ignored Build Step para segurar o build. É decisão de plataforma,
+  # não de arquivo.
+  migrar:
+    # Só no `main`: um PR não aplica esquema. E depois do `verify`, para o
+    # banco nunca receber uma migration de um commit que a suíte reprovou.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI do Supabase (via npm, não via action)
+        run: npm i -g supabase@latest
+      - name: A credencial de migração existe?
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        run: |
+          if [ -z "$DB" ]; then
+            echo "✗ SUPABASE_DB_URL_MIGRACAO ausente — este job NÃO aplicou migration nenhuma."
+            echo "  Não é o ci_leitor: ele é somente leitura. Crie um papel com permissão de"
+            echo "  migração e registre o segredo. Enquanto isso, o banco fica para trás do"
+            echo "  código publicado, que foi o A4P-086."
+            exit 1
+          fi
+      - name: Aplicar as migrations pendentes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        # ⚠️ `--include-all` porque uma migration com version anterior à última
+        # aplicada (dois galhos abertos ao mesmo tempo) seria PULADA em silêncio
+        # sem ele — e pular em silêncio é a família de defeito que este
+        # repositório já registrou duas vezes.
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all
+      - name: Conferir que o banco alcançou o repositório
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        # ⚠️ Ler "não deu erro" não é ler o que aconteceu: conta os arquivos e
+        # confronta com o que o banco registrou.
+        run: |
+          ARQ=$(ls supabase/migrations/*.sql | wc -l)
+          APL=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from supabase_migrations.schema_migrations")
+          echo "arquivos: $ARQ · aplicadas: $APL"
+          if [ "$APL" -lt "$ARQ" ]; then
+            echo "✗ o banco continua atrás do repositório depois do push."
+            exit 1
+          fi
+
   esquema-prod:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -191,8 +416,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # ⚠️ **`ref: main`, e isto NÃO é redundante com a condição acima.**
+      #
+      # O `schedule` do GitHub dispara no BRANCH PADRÃO do repositório, que aqui
+      # é `claude/epic-fermi-i423xk` — medido: os runs agendados de 18/08 saíram
+      # todos em `2430a20`, **14 commits atrás do `main`**. As duas guardas deste
+      # job leem SCRIPT e DADO do repositório (`scripts/esquema-objetos.mjs`,
+      # `supabase/objetos-producao.json`, `supabase/ddl-declarado.json`), então
+      # sem isto o agendado compara produção de hoje com um repositório de
+      # ontem: as declarações nominais de DDL nem existem naquele commit, e a
+      # guarda quebraria no `readFileSync` — reprovando por estar velha, não por
+      # ter achado algo. Guarda de estado tem de medir com o estado ATUAL do
+      # repositório, senão ela reporta a diferença entre dois relógios.
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:

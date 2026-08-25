@@ -48,8 +48,45 @@ const ok = (nome: string, detalhe = "") => console.log(`✓ ${nome}${detalhe ? `
 const erro = (nome: string, detalhe: string) => { falhas++; console.log(`✗ ${nome}\n    ${detalhe}`); };
 
 /** O MESMO formatador que a IA usa para escrever o valor na frase. */
-const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+/*
+ * ⚠️ **O CONTRATO NÃO IMPORTA A FUNÇÃO QUE ELE AUDITA.**
+ *
+ * Este `fmt` já foi `formatBRL` por algumas horas, e estava errado: um teste
+ * que compara "a string que a pessoa lê" usando o MESMO formatador do código
+ * auditado não pode discordar dele. Se o `formatBRL` ganhar um defeito, os dois
+ * lados erram juntos e o contrato passa verde — a mesma tautologia do
+ * `resíduo = x − x`, que este repositório já matou duas vezes.
+ *
+ * Então a grafia é reimplementada AQUI, à mão, e ancorada em strings LITERAIS
+ * (ver `ANCORAS`). Duas implementações independentes do mesmo formato é
+ * exatamente o que se quer num contrato: se elas divergirem, alguém mexeu num
+ * dos lados sem querer — que é o achado.
+ */
+const fmt = (v: number): string => {
+  const neg = v < 0;
+  const cents = Math.round(Math.abs(v) * 100);
+  const inteiro = String(Math.trunc(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const dec = String(cents % 100).padStart(2, "0");
+  // O sinal vem ANTES do "R$" e é o hífen ASCII — medido na grafia do produto
+  // (`-R$1.000,00`), não suposto. O "−" tipográfico é regra de PERCENTUAL, e
+  // trocar um pelo outro aqui produziria uma divergência que não existe.
+  return `${neg ? "-" : ""}R$${inteiro},${dec}`;
+};
+
+/**
+ * ⚠️ **AS ÂNCORAS SÃO LITERAIS, ESCRITAS À MÃO.** É o que impede as duas
+ * implementações de derivarem juntas: se alguém "consertar" as duas para 1 casa
+ * decimal, estas linhas continuam cobrando dois dígitos.
+ */
+const ANCORAS: [number, string][] = [
+  [3988.8, "R$3.988,80"],   // o DAS que o formatador de 0 casas dizia ser R$3.989
+  [1000, "R$1.000,00"],
+  [7000, "R$7.000,00"],
+  [0.5, "R$0,50"],
+  [1234567.89, "R$1.234.567,89"],
+  [-1000, "-R$1.000,00"],      // o sinal fica ANTES do R$, com hífen ASCII
+  [-0.5, "-R$0,50"],
+];
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 /* OS DATASETS                                                                */
@@ -673,6 +710,20 @@ for (const caso of CASOS) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
+/* AS ÂNCORAS — o contrato confere a PRÓPRIA grafia contra strings literais    */
+/* ══════════════════════════════════════════════════════════════════════════ */
+/*
+ * ⚠️ Sem isto, as duas implementações poderiam derivar juntas: alguém "arruma"
+ * o formatador do produto e o daqui no mesmo gesto, e o contrato volta a
+ * concordar por construção. As strings abaixo são escritas à mão e não saem de
+ * função nenhuma — é o único ponto do arquivo que não pode ser gerado.
+ */
+for (const [valor, esperado] of ANCORAS) {
+  if (fmt(valor) !== esperado) {
+    falhas++;
+    console.log(`✗ âncora de grafia: fmt(${valor}) deu "${fmt(valor)}", esperado "${esperado}"`);
+  }
+}
 
 console.log(
   falhas === 0

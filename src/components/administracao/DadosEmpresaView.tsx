@@ -23,6 +23,7 @@ import {
   type StatusEmpresa, type RegimeTributario,
 } from "@/core/administracao";
 
+import { ANEXOS_SIMPLES, type AnexoSimplesCadastro } from "@/core/tax/duplicidade";
 const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
@@ -32,7 +33,7 @@ const VAZIO: DadosEmpresa = {
   tipoPessoa: "juridica", documento: "", razaoSocial: "", nomeFantasia: "",
   dataFundacao: "", segmento: "Serviços", faturamentoMensal: 0,
   identificadorEstrangeiro: "", status: "ativa", inscricaoEstadual: "",
-  inscricaoMunicipal: "", contribuinteICMS: false, regime: "presumido",
+  inscricaoMunicipal: "", contribuinteICMS: false, regime: "", anexoSimples: "",
   regimeEspecialNFSe: "0", pais: "Brasil", cep: "", rua: "", numero: "",
   complemento: "", bairro: "", estado: "SP", cidade: "", email: "", site: "",
   ddi: "+55", telefone: "", notificacoesEmail: true, observacaoInterna: "",
@@ -140,7 +141,7 @@ export function DadosEmpresaView() {
     toast("Alterações descartadas.");
   }
 
-  const simples = optantePeloSimples(d.regime);
+  const simples = d.regime !== "" && optantePeloSimples(d.regime);
 
   return (
     <div className="flex flex-col gap-6">
@@ -250,9 +251,28 @@ export function DadosEmpresaView() {
                     ? "Define automaticamente optante pelo Simples Nacional."
                     : "Fora do Simples — o imposto sai por alíquota, não por faixa de RBT12."}
                 >
-                  <Select value={d.regime} onChange={(v) => set("regime", v as RegimeTributario)}
-                    options={REGIMES.map((r) => ({ value: r.id, label: r.label }))} />
+                  <Select value={d.regime} onChange={(v) => set("regime", v as RegimeTributario | "")}
+                    options={[
+                      /* ⚠️ A opção vazia é o estado inicial de verdade: sem ela
+                         o formulário afirma um regime que ninguém escolheu. */
+                      { value: "", label: "Selecione o regime…" },
+                      ...REGIMES.map((r) => ({ value: r.id, label: r.label })),
+                    ]} />
                 </Campo>
+                {/* ⚠️ O ANEXO só existe DENTRO do Simples — e é ele que decide
+                    coisas que mudam dinheiro: no Anexo IV a CPP patronal é
+                    recolhida por FORA do DAS, nos demais está dentro. Oferecê-lo
+                    fora do Simples faria a tela perguntar algo que não se
+                    aplica. */}
+                {simples && (
+                  <Campo label="Anexo do Simples" ajuda="Decide o que está dentro do DAS. No Anexo IV a contribuição patronal é recolhida por fora; nos demais, não.">
+                    <Select value={d.anexoSimples ?? ""} onChange={(v) => set("anexoSimples", v as AnexoSimplesCadastro | "")}
+                      options={[
+                        { value: "", label: "Selecione o anexo…" },
+                        ...ANEXOS_SIMPLES.map((a2) => ({ value: a2.id, label: a2.label })),
+                      ]} />
+                  </Campo>
+                )}
                 <Campo label="Regime especial de tributação (NFS-e)" ajuda="Código do município; 0 quando não há regime especial.">
                   <Input value={d.regimeEspecialNFSe} onChange={(e) => set("regimeEspecialNFSe", e.target.value)} />
                 </Campo>

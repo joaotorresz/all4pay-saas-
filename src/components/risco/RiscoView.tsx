@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 import {
   AreaChart,
   Area,
@@ -84,7 +85,15 @@ export function RiscoView() {
           <div className="h-full rounded-pill" style={{ width: `${data.score}%`, background: NIVEL_COLOR[data.nivel] }} />
         </div>
         <div className="flex gap-6 pt-1">
-          <Metric label="Prob. de ruptura" value={`${pctDeInteiro((data.probabilidadeRuptura * 100))}`} />
+          {/* ⚠️ Rótulo com o HORIZONTE. Sem ele, este número e o "Prob.
+              ruptura (90d)" do `/inteligencia` pareciam o mesmo indicador
+              discordando de si mesmo — são dois motores, dois horizontes. */}
+          <Metric
+            label="Prob. de ruptura (60d)"
+            value={`${pctDeInteiro((data.probabilidadeRuptura * 100))}`}
+            info={infoDaMetodologia("chance-ruptura")}
+            nota={avisoDeSaturacao("chance-ruptura", data.probabilidadeRuptura)}
+          />
           <Metric label="Runway (base)" value={meses(data.runway.base)} />
         </div>
       </Card>
@@ -242,11 +251,21 @@ export function RiscoView() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value, info, nota }: {
+  label: string; value: string;
+  info?: { titulo: string; oQue: string; comoCalcula: string };
+  /** A frase do TETO, quando o valor está saturado. `null` quando não está —
+   *  marcar sempre é não marcar nunca. */
+  nota?: string | null;
+}) {
   return (
     <div>
-      <div className="text-caption text-faint">{label}</div>
+      <div className="flex items-center gap-1">
+        <span className="text-caption text-faint">{label}</span>
+        {info && <InfoHint align="left" {...info} />}
+      </div>
       <div className="text-h3 font-medium text-ink tabular-nums">{value}</div>
+      {nota && <div className="text-[11px] leading-tight text-warning max-w-[34ch] pt-[2px]">{nota}</div>}
     </div>
   );
 }

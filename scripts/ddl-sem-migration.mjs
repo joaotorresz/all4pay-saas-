@@ -40,6 +40,41 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
 const URL = process.env.SUPABASE_DB_URL;
+
+/**
+ * ⚠️ **FALHA DE CONEXÃO NÃO É DIVERGÊNCIA DE ESQUEMA, e confundir as duas
+ * apagou duas guardas de segurança por horas sem ninguém ver.**
+ *
+ * Medido em 20/08: o job agendado reprovava a cada 15 minutos com
+ * `FATAL: password authentication failed for user "postgres"`. No painel isso
+ * aparece como "esquema-prod ✗", exatamente igual a "achei um objeto órfão" —
+ * e como ele reprovava desde a véspera, a reprovação virou paisagem. Enquanto
+ * isso, a vigia dos grants de `service_role` (a chave que passa por fora do
+ * RLS) e a de DDL sem migration estavam simplesmente DESLIGADAS.
+ *
+ * É a doutrina da ONDA 4 aplicada à integração contínua: **ausência de medição
+ * não pode ter a mesma cara de medição reprovada.** A guarda continua saindo
+ * com erro — ela não mediu, e fingir sucesso seria pior —, mas a primeira linha
+ * do log diz o que fazer, e diz que NADA foi verificado.
+ *
+ * A causa mais provável quando o usuário aparece como `postgres` puro: o pooler
+ * do Supabase exige o usuário no formato `postgres.<referencia-do-projeto>`.
+ */
+function abortarSeCredencial(erro, ondeEstou) {
+  const txt = String(erro?.stderr ?? erro?.message ?? erro);
+  const credencial = /password authentication failed|no pg_hba\.conf entry|role .* does not exist|SASL|authentication/i.test(txt);
+  const rede = /could not connect|Connection refused|timeout expired|could not translate host/i.test(txt);
+  if (!credencial && !rede) return;
+  console.error(`\n✗ ${ondeEstou}: A GUARDA NÃO RODOU — ${credencial ? "credencial recusada" : "banco inalcançável"}.`);
+  console.error("  NADA foi verificado. Isto não é divergência de esquema: é a guarda cega.");
+  console.error(`  ${txt.split("\n")[0].slice(0, 200)}`);
+  if (credencial) {
+    console.error("  Confira o segredo SUPABASE_DB_URL do repositório. No pooler do Supabase o");
+    console.error("  usuário tem de ser `postgres.<referencia-do-projeto>`, não `postgres` puro.");
+  }
+  process.exit(2);
+}
+
 if (!URL) {
   // Falha, não pula: guarda que pula sem credencial é guarda que não roda.
   console.error("✗ SUPABASE_DB_URL ausente. Esta guarda lê o ddl_log de produção; sem ele não mede nada.");
@@ -61,7 +96,13 @@ const SQL = `
   where quando >= now() - make_interval(days => ${Math.max(1, DIAS)})
     and objeto is not null
 `;
-const bruto = execFileSync("psql", [URL, "-tAX", "-c", SQL], { encoding: "utf8" }).trim();
+let bruto;
+try {
+  bruto = execFileSync("psql", [URL, "-tAX", "-c", SQL], { encoding: "utf8" }).trim();
+} catch (e) {
+  abortarSeCredencial(e, "guarda de DDL");
+  throw e;
+}
 const objetos = bruto ? bruto.split("\n").map((s) => s.trim()).filter(Boolean) : [];
 
 /** `public.own_probe2` → `own_probe2` · `public.movements.col` → `movements` · `public.f()` → `f` */
@@ -72,11 +113,61 @@ function nucleoDoObjeto(id) {
   return s.replace(/[^a-z0-9_]/gi, "").toLowerCase();
 }
 
+/*
+ * ⚠️ **NOME DERIVADO NÃO É NOME ÓRFÃO — e ignorar isso fazia a guarda acusar 52
+ * objetos legítimos.** Medido contra a lista real do `ddl_log`: 39 índices
+ * `*_lixeira_idx` e 13 `*_pkey`/`*_key`. Nenhum deles aparece por escrito em
+ * migration nenhuma, e não por descuido:
+ *
+ *   · os `_lixeira_idx` nascem de um laço que COMPÕE o nome em tempo de
+ *     execução — `execute format('create index %I …', r.t || '_lixeira_idx')`;
+ *   · os `_pkey`/`_key` são batizados pelo PRÓPRIO Postgres a partir de um
+ *     `primary key` / `unique` declarado no `create table`.
+ *
+ * Casar por nome literal não tem como enxergar nenhum dos dois. Uma guarda que
+ * acusa 52 objetos corretos é desligada na primeira semana — e aí ela não
+ * serve para o 53º, que é o que ela existe para pegar.
+ *
+ * A saída é perguntar pelo PAI: para um nome com forma de índice/constraint,
+ * vale a maior raiz que alguma migration mencione. `movements_lixeira_idx` →
+ * `movements_lixeira` (ninguém) → `movements` (sim) ⇒ tem procedência.
+ *
+ * ⚠️ **O custo, declarado:** um índice criado à mão SOBRE uma tabela conhecida
+ * (`movements_gambiarra_idx`) passa por aqui. Ele não fica descoberto — é
+ * exatamente o território do `npm run objetos`, que compara ESTADO e vê objeto
+ * a mais. Esta guarda mira o ÓRFÃO: o objeto de uma família que repositório
+ * nenhum conhece. `xpto_lixeira_idx` continua reprovando, porque `xpto` também
+ * não existe em lugar nenhum.
+ */
+const FORMA_DERIVADA = /_(idx|pkey|key|unico|unica|uniq)$/;
+function raizesDoNome(nucleo) {
+  if (!FORMA_DERIVADA.test(nucleo)) return [];
+  const partes = nucleo.split("_");
+  const raizes = [];
+  for (let i = partes.length - 1; i >= 1; i--) raizes.push(partes.slice(0, i).join("_"));
+  return raizes;
+}
+
 /** O texto de todas as migrations, uma vez. */
 const corpusMigrations = readdirSync("supabase/migrations")
   .filter((f) => f.endsWith(".sql"))
   .map((f) => readFileSync(`supabase/migrations/${f}`, "utf8").toLowerCase())
   .join("\n");
+
+/*
+ * ⚠️ **AS DECLARAÇÕES SÃO NOMINAIS, NÃO POR JANELA.** `--dias` existe e NÃO é o
+ * instrumento certo para silenciar: janela silencia por IDADE e deixaria a
+ * guarda cega para a PRÓXIMA sondagem, que é exatamente o que ela existe para
+ * pegar. Declaração silencia por NOME — qualquer DDL novo continua reprovando.
+ *
+ * Dois blocos, de propósito, porque pedem coisas diferentes:
+ *   · `sondagens_declaradas` — história. Objetos criados e já removidos.
+ *   · `dividas_declaradas`   — dívida ABERTA, com dono e prazo. Prazo vencido
+ *                              REPROVA: dívida sem prazo que vence vira paisagem.
+ */
+const decl = JSON.parse(readFileSync("supabase/ddl-declarado.json", "utf8"));
+const sondagens = new Set(decl.sondagens_declaradas?.nucleos ?? []);
+const dividas = new Map((decl.dividas_declaradas?.itens ?? []).map((d) => [d.nucleo, d]));
 
 const semMigration = [];
 const vistos = new Set();
@@ -85,12 +176,37 @@ for (const id of objetos) {
   if (!nucleo || vistos.has(nucleo)) continue;
   vistos.add(nucleo);
   // \b para não casar `own_q` dentro de `own_qualquer`.
-  const re = new RegExp(`\\b${nucleo}\\b`);
-  if (!re.test(corpusMigrations)) semMigration.push({ id, nucleo });
+  const mencionado = (n) => new RegExp(`\\b${n}\\b`).test(corpusMigrations);
+  if (mencionado(nucleo)) continue;
+  if (sondagens.has(nucleo) || dividas.has(nucleo)) continue;
+  // Nome derivado (índice/constraint): vale a procedência do PAI.
+  const raizes = raizesDoNome(nucleo);
+  if (raizes.some((r) => mencionado(r) || sondagens.has(r) || dividas.has(r))) continue;
+  semMigration.push({ id, nucleo });
+}
+
+/*
+ * A dívida tem de doer: sem dono e sem prazo ela é só um nome numa lista, e um
+ * prazo que passou sem ninguém renovar deixou de ser dívida e virou estado
+ * permanente — foi assim que as 29 divergências de esquema chegaram até aqui.
+ */
+const hoje = new Date().toISOString().slice(0, 10);
+const dividaRuim = [];
+for (const d of dividas.values()) {
+  if (!d.responsavel || !d.prazo) dividaRuim.push(`${d.nucleo}: sem dono ou sem prazo`);
+  else if (d.prazo < hoje) dividaRuim.push(`${d.nucleo}: prazo VENCIDO em ${d.prazo}`);
 }
 
 console.log(`ddl_log: ${objetos.length} objeto(s) tocado(s) nos últimos ${DIAS} dias · `
-  + `${vistos.size} núcleo(s) distinto(s) · ${semMigration.length} sem migration`);
+  + `${vistos.size} núcleo(s) distinto(s) · ${sondagens.size} sondagem(ns) declarada(s) · `
+  + `${dividas.size} dívida(s) declarada(s) · ${semMigration.length} sem migration`);
+
+if (dividaRuim.length > 0) {
+  console.error("\n✗ DÍVIDA DECLARADA SEM DONO, SEM PRAZO OU COM PRAZO VENCIDO:");
+  for (const m of dividaRuim) console.error(`   · ${m}`);
+  console.error("\nDívida sem dono vira paisagem. Renove com justificativa, ou resolva.");
+  process.exit(1);
+}
 
 if (semMigration.length > 0) {
   console.error("\n✗ DDL EM PRODUÇÃO SEM MIGRATION NO REPOSITÓRIO:");

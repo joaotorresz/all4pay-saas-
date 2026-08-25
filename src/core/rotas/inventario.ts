@@ -97,6 +97,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/admin", nome: "Administração da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/all4pay-ai", nome: "All 4 Pay AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/aprovacoes", nome: "Aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
+  { rota: "/central", nome: "Central financeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/comecar", nome: "Criar empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/comece", nome: "Primeiros passos", dono: "adocao", status: "canonica", criterio: "diferencial" },
   { rota: "/configuracoes", nome: "Configurações da empresa", dono: "plataforma", status: "canonica", criterio: "nucleo" },
@@ -127,7 +128,6 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/financial/overdue", nome: "Inadimplência e cobrança", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/reimbursements", nome: "Reembolsos", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/credit-card-invoices", nome: "Fatura do cartão", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
-  { rota: "/dashboard/financial/import", nome: "Importação em lote", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/payables/new", nome: "Nova conta a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/receivables/new", nome: "Nova conta a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/reconciliation", nome: "Conciliação bancária", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
@@ -169,6 +169,11 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/planos", nome: "Planos", dono: "acesso", status: "canonica", criterio: "nucleo" },
   // Pública por natureza: quem lê política de privacidade ainda não tem conta.
   { rota: "/privacidade", nome: "Privacidade", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  // Pública pela mesma razão: metodologia lida só depois da compra não ajuda a
+  // decidir a compra.
+  { rota: "/metodologia", nome: "Metodologia", dono: "acesso", status: "canonica", criterio: "nucleo" },
+  // A porta de entrada: três campos, uma tela.
+  { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },

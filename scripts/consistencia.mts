@@ -100,6 +100,7 @@ import {
   expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
 } from "@/lib/store-org";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { tetoDaFaixa, papelDoParticipante, alcadaDoOnboarding } from "@/core/seguranca/alcada";
 import { join } from "node:path";
 import { balancete } from "@/lib/ledger";
 import { CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta } from "@/core/ledger/chart";
@@ -131,6 +132,61 @@ function chavesUsadasNoCodigo(): string[] {
 
 
 /**
+ * ⚠️ **A QUARTA GUARDA DA FAMÍLIA DA DUPLA MORADA.** O mesmo número — "quanto
+ * fulano pode aprovar" — morava em TRÊS lugares e só um decidia:
+ *
+ *   central_alcada.teto_valor            por PAPEL    ← o gatilho da Central lê
+ *   organization_members.approval_limit  por PESSOA      ninguém lia
+ *   a4p_company.participantes[].limite   por PESSOA      ninguém lia
+ *
+ * As duas mortas nasceram do mesmo jeito: uma tela escreve, ninguém lê. Esta
+ * varredura existe para a quarta não nascer — e ela vale mais que o conserto,
+ * porque o conserto é de hoje e a porta fica aberta para sempre.
+ *
+ * Devolve os pontos do código que ESCREVEM alçada fora de `central_alcada`.
+ */
+function escritasDeAlcadaForaDaMorada(): string[] {
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      const st = statSync(caminho);
+      if (st.isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      const txt = readFileSync(caminho, "utf8");
+      const linhas = txt.split("\n");
+      linhas.forEach((linha, i) => {
+        // ⚠️ Comentário fora ANTES da busca: este repositório documenta cada
+        // defeito citando o identificador que o causou, e uma guarda que
+        // reprova a própria documentação da regra treina quem a lê a ignorá-la
+        // (a lição da guarda de exclusão física e da varredura da ONDA 14).
+        const semComentario = linha.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "");
+        if (/^\s*\*/.test(linha)) return;
+
+        // (a) approval_limit recebendo QUALQUER valor que não seja null literal.
+        const mAppr = semComentario.match(/p_approval_limit\s*:\s*(.+?)[,)]/);
+        if (mAppr && mAppr[1].trim() !== "null") {
+          achados.push(`${caminho}:${i + 1} grava p_approval_limit (${mAppr[1].trim()})`);
+        }
+        if (/\bapproval_limit\s*:/.test(semComentario) && !/approval_limit\s*:\s*null/.test(semComentario)) {
+          achados.push(`${caminho}:${i + 1} grava approval_limit`);
+        }
+
+        // ⚠️ **NÃO acusar estado de UI.** A primeira versão desta varredura
+        // reprovou `limite: ""` e `limite: "R$50 mil"` nos DEFAULTS das telas —
+        // que é a PERGUNTA sendo feita, não a resposta sendo persistida. Uma
+        // guarda que reprova o código certo é desligada na primeira semana, ou
+        // "consertada" arrancando o campo da tela. O risco real é a resposta
+        // voltar a ser GRAVADA no perfil; isso é cobrado por asserção positiva
+        // (o strip antes de `persistCompany`), logo abaixo.
+      });
+    }
+  };
+  varrer("src");
+  return achados;
+}
+
+/**
  * Consultas ao banco SEM teto de linhas.
  *
  * ⚠️ Varre a cadeia inteira (`.from("x") … ;`) e cobra `.limit`, `.range` ou
@@ -150,6 +206,16 @@ function consultasSemTeto(): string[] {
         const cadeia = m[2];
         if (!/\.select\(/.test(cadeia)) continue;             // insert/update
         if (/\.limit\(|\.single\(\)|\.maybeSingle\(\)|\.range\(/.test(cadeia)) continue;
+        // ⚠️ **OLHAR PARA TRÁS.** `comTeto(q)` é o helper SANCIONADO e aplica
+        // `.limit()` — mas ele envolve a consulta, então fica ANTES do
+        // `.from(` e uma varredura que só olha para a frente não o vê. É o
+        // mesmo defeito de direção da guarda de `origem` (ONDA 5) e do teto de
+        // cálculo em tela (ONDA 10): a terceira vez que ele aparece aqui.
+        // Sem isto a guarda reprovava justamente quem usou o helper certo —
+        // e `comTeto` não tinha um único consumidor, o que explica o ponto
+        // cego ter sobrevivido.
+        const antes = txt.slice(Math.max(0, (m.index ?? 0) - 200), m.index);
+        if (/comTeto\(\s*$|comTeto\([\s\S]*$/.test(antes) && /comTeto\(/.test(antes)) continue;
         out.push(`${caminho}:${txt.slice(0, m.index).split("\n").length} (${m[1]})`);
       }
     }
@@ -330,6 +396,68 @@ function credenciaisEmTela(): string[] {
   };
   varrer("src/components");
   varrer("src/app");
+  return out;
+}
+
+/**
+ * TEXTO DE DESENVOLVEDOR VAZANDO PARA A TELA — A4P-013.
+ *
+ * O produto explica os próprios defeitos citando o código que os causou, e essa
+ * prosa às vezes escorrega da documentação para a interface. Quem opera o caixa
+ * não tem o que fazer com `selector`, `hook` ou o nome de uma função: são
+ * palavras que só significam algo para quem tem o repositório aberto.
+ *
+ * ⚠️ **COMENTÁRIOS FORA**, pela mesma lição da guarda de credenciais: este
+ * repositório documenta cada regra citando o identificador que a implementa, e
+ * uma guarda que reprova a própria documentação da correção treina quem a lê a
+ * ignorá-la. O alvo é o que o usuário LÊ.
+ *
+ * ⚠️ E o alvo é a REFERÊNCIA A CÓDIGO, não a palavra solta. "Função de
+ * tesouraria" é português correto (papel, não `function`); "a mesma função de
+ * saldo" fala do módulo que soma — por isso o padrão exige o contexto que
+ * transforma a palavra em referência técnica.
+ */
+function textoDeDevEmTela(): string[] {
+  const out: string[] = [];
+  const padroes: { re: RegExp; oQue: string }[] = [
+    // Identificador entre crases dentro de prosa: `montarRelatorio`, `useDRE`.
+    { re: /`[A-Za-z_$][A-Za-z0-9_$]*(\(\)|[A-Z][A-Za-z0-9_$]*)`/, oQue: "identificador entre crases" },
+    { re: /\bselectors?\b/i, oQue: "selector" },
+    { re: /\bhooks?\b/i, oQue: "hook" },
+    { re: /\bendpoints?\b/i, oQue: "endpoint" },
+    // A frase medida no A4P-013: fala da FUNÇÃO do código, não do papel.
+    { re: /mesma fun[çc][ãa]o de saldo/i, oQue: "cita a função de saldo do código" },
+    { re: /\bcore\/[a-z-]+/i, oQue: "caminho de módulo" },
+  ];
+  varrerTelas((caminho, txt) => {
+    const limpo = txt
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|\s)\/\/[^\n]*/g, " ");
+    // Só o que sai renderizado: texto entre tags e strings de prosa longa.
+    const candidatos: string[] = [];
+    /*
+     * ⚠️ A quebra de linha É PERMITIDA no texto capturado, e essa foi a
+     * diferença entre guarda e decoração. A primeira versão usava
+     * `[^<>{}\n]`, e quase todo texto de JSX fica na PRÓPRIA linha entre as
+     * tags — então ela varria o produto inteiro e não achava nada, inclusive o
+     * vazamento medido em `BaseDoSaldo`. Passou verde com o defeito na tela.
+     */
+    for (const m of limpo.matchAll(/>\s*([^<>{}]{8,300})</g)) {
+      candidatos.push(m[1].replace(/\s+/g, " ").trim());
+    }
+    for (const m of limpo.matchAll(/"([^"\n]{16,200})"/g)) {
+      // Prosa tem espaço e acento/pontuação de frase; `className` e chaves não.
+      if (/\s/.test(m[1]) && /[a-zà-ú]{3}\s+[a-zà-ú]{3}/i.test(m[1])) candidatos.push(m[1]);
+    }
+    for (const frase of candidatos) {
+      for (const { re, oQue } of padroes) {
+        if (re.test(frase)) {
+          out.push(`${caminho}: ${oQue} — "${frase.trim().slice(0, 60)}"`);
+          break;
+        }
+      }
+    }
+  });
   return out;
 }
 
@@ -1835,6 +1963,48 @@ const AGOSTO = janelaMes(2026, 7);
   const vazamentos = credenciaisEmTela();
   ok("onda14: nenhuma chave de provedor citada ao usuário", vazamentos.length === 0,
      vazamentos.slice(0, 3).join(" · "));
+
+  /*
+   * A4P-013 — texto de DESENVOLVEDOR na tela. Mesma família do de cima: o que
+   * o usuário lê tem de ser acionável por ele. `selector`, `hook`, um caminho
+   * de módulo ou um identificador entre crases só significam algo para quem
+   * tem o repositório aberto.
+   */
+  const dev = textoDeDevEmTela();
+  ok("a4p013: nenhum texto de desenvolvedor renderizado ao usuário",
+     dev.length === 0, dev.slice(0, 4).join(" · "));
+
+  /*
+   * A4P-019 — TETO ZERO: um formatador de BRL só, o de `lib/format`.
+   *
+   * ⚠️ Medido: havia 36 formatadores avulsos em 32 arquivos, 18 deles com
+   * `maximumFractionDigits: 0`. Eles divergiam em DUAS coisas ao mesmo tempo —
+   * as casas decimais (o DAS de R$3.988,80 saía "R$3.989", sumindo com 20
+   * centavos de imposto) e o espaço não separável que o `Intl` põe depois do
+   * "R$", que `formatBRL` remove. O mesmo dinheiro saía com duas grafias
+   * conforme o caminho.
+   *
+   * O `scripts/` entra na varredura porque o contrato de resultado compara
+   * STRINGS: um `fmt` próprio ali já fez a guarda discordar da IA por grafia,
+   * não por valor.
+   */
+  const avulsos: string[] = [];
+  const varrerBRL = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrerBRL(caminho); continue; }
+      if (!/\.(ts|tsx|mts)$/.test(nome)) continue;
+      if (caminho === join("src", "lib", "format.ts")) continue;   // a fonte única
+      const txt = readFileSync(caminho, "utf8");
+      for (const m of txt.matchAll(/style:\s*"currency"[^}]*currency:\s*"BRL"/g)) {
+        avulsos.push(`${caminho}:${txt.slice(0, m.index).split("\n").length}`);
+      }
+    }
+  };
+  varrerBRL("src");
+  varrerBRL("scripts");
+  ok("a4p019: um formatador de BRL só — nenhum avulso fora de lib/format",
+     avulsos.length === 0, avulsos.slice(0, 5).join(" · "));
 }
 
 /* ========================================================================== */
@@ -2506,9 +2676,17 @@ const AGOSTO = janelaMes(2026, 7);
    * grupos guardaria uma folga que ninguém pediu, e a folga é exatamente por
    * onde o menu volta a crescer.
    */
+  /**
+   * ⚠️ +1 destino: "Central financeira" (P-10), no grupo Caixa e bancos. A
+   * justificativa que o teto exige: nenhum dos destinos existentes CONFIRMA um
+   * título. Contas a Pagar/Receber e Upload ENTRAM dados; a confirmação e a
+   * baixa — com alçada e segregação de funções — acontecem num lugar só, e é
+   * esse lugar que faltava. Não é arrumação de menu: é a porta que impede a
+   * baixa direta (A4P-052) e onde o previsto vira confirmado.
+   */
   const TETO_GRUPOS = 8;            // Visão geral · Caixa e bancos · Contas a receber · Pagar · Contas a pagar · Contábil e fiscal · Análise e relatórios · Inteligência
   const TETO_ITENS_POR_GRUPO = 12;  // Contábil e fiscal e o rodapé de Configurações, os maiores
-  const TETO_ITENS_TOTAL = 69;      // a soma de hoje, incluindo o rodapé
+  const TETO_ITENS_TOTAL = 70;      // +1: Central financeira (P-10)
 
   ok(`nav: no máximo ${TETO_GRUPOS} grupos de primeiro nível`,
      SECTIONS.length <= TETO_GRUPOS,
@@ -3411,6 +3589,274 @@ const AGOSTO = janelaMes(2026, 7);
        semOrigem.length === 0, semOrigem.join(" | "));
     ok("onda5: buildMovementRows carrega a origem",
        !!rows && /\borigem\s*:/.test(rows[0]));
+  }
+
+  /* ---- A4P-077: o webhook da OWN, endurecido no que não depende dela ------ */
+  {
+    const wh = ler("supabase/functions/own-webhook/index.ts");
+    // ⚠️ Comentários fora ANTES da busca: este arquivo EXPLICA o defeito citando
+    // o nome da variável que o causou, e uma guarda que reprova a documentação
+    // da correção treina quem a lê a ignorá-la.
+    const codigo = wh.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+    ok("a4p077: o webhook não lê segredo da query string",
+       !/searchParams\.get\(\s*["']secret["']\s*\)/.test(codigo) &&
+       !/OWN_WEBHOOK_SECRET/.test(codigo),
+       "o ?secret= voltou — query string vaza em log, proxy e Referer");
+
+    ok("a4p077: o segredo é comparado em tempo constante",
+       /igualEmTempoConstante\(/.test(codigo) && !/atob\(h\.slice\(6\)\)\s*===/.test(codigo));
+
+    // ⚠️ **A POSIÇÃO É MEDIDA DENTRO DO HANDLER, não no arquivo.** A primeira
+    // versão comparava `indexOf("origemBloqueada(")` no arquivo inteiro — e o
+    // nome aparece antes de tudo, na DEFINIÇÃO da função. A asserção passava
+    // com a chamada em qualquer lugar: media a definição, não o call site.
+    // Descoberto plantando o defeito e vendo a guarda NÃO falhar.
+    const handler = codigo.slice(codigo.indexOf("Deno.serve("));
+    const iLimite = handler.indexOf("origemBloqueada(origem)");
+    const iCorpo = handler.indexOf("await req.text()");
+    ok("a4p077: o limite por origem é cobrado ANTES de ler o corpo",
+       iLimite >= 0 && iCorpo >= 0 && iLimite < iCorpo,
+       `limite=${iLimite} corpo=${iCorpo}`);
+    ok("a4p077: só a tentativa que FALHA é contada (tráfego legítimo não paga)",
+       /registrarFalha\(/.test(codigo));
+
+    ok("a4p077: o caminho HMAC existe e assina corpo + timestamp",
+       /crypto\.subtle\.sign\("HMAC"/.test(codigo) && /x-own-timestamp/.test(codigo));
+    ok("a4p077: o HMAC desliga por AUSÊNCIA de segredo (não por flag solta)",
+       /OWN_WEBHOOK_HMAC_SECRET/.test(codigo) && /if \(!segredo\) return null/.test(codigo));
+    ok("a4p077: a assinatura tem janela de replay (não vale para sempre)",
+       /5 \* 60_000|300_000/.test(codigo));
+    ok("a4p077: o HMAC assina os BYTES recebidos, não um objeto reserializado",
+       /await req\.text\(\)/.test(codigo));
+  }
+
+  /* ---- UMA MORADA SÓ PARA A ALÇADA (a 4ª guarda da dupla morada) --------- */
+  {
+    const fora = escritasDeAlcadaForaDaMorada();
+    ok("alcada: teto ZERO — ninguém escreve alçada fora de central_alcada",
+       fora.length === 0, fora.join(" | "));
+
+    // A conversão de faixa que estava errada, fixada por VALOR — era ela que
+    // fazia "R$50 mil" virar 50 e "Sem limite" virar 0 (a inversão exata).
+    ok("alcada: R$50 mil vale 50.000, não 50", tetoDaFaixa("R$50 mil") === 50_000,
+       String(tetoDaFaixa("R$50 mil")));
+    ok("alcada: R$10 mil vale 10.000", tetoDaFaixa("R$10 mil") === 10_000);
+    ok("alcada: R$500 mil vale 500.000", tetoDaFaixa("R$500 mil") === 500_000);
+    ok("alcada: 'Sem limite' é NULL (sem teto), nunca 0",
+       tetoDaFaixa("Sem limite") === null, String(tetoDaFaixa("Sem limite")));
+    // ⚠️ A ausência é FECHADA: rótulo desconhecido não pode virar "sem teto".
+    ok("alcada: rótulo desconhecido fecha (0), não abre",
+       tetoDaFaixa("qualquer coisa") === 0 && tetoDaFaixa(undefined) === 0);
+
+    // "Pode aprovar" define o PAPEL — com a Blindagem B é ele que decide QUEM.
+    ok("alcada: quem aprova vira 'aprovador'; quem não, 'lancador'",
+       papelDoParticipante({ aprovaPagamentos: true }) === "aprovador" &&
+       papelDoParticipante({ aprovaPagamentos: false }) === "lancador");
+
+    // O onboarding só define teto para QUEM APROVA.
+    const so = alcadaDoOnboarding([
+      { aprovaPagamentos: false, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "R$10 mil" },
+    ]);
+    ok("alcada: limite de quem NÃO aprova é ignorado (não vira morada nova)",
+       so.tetos.length === 1 && so.tetos[0].papel === "aprovador" && so.tetos[0].teto === 10_000,
+       JSON.stringify(so.tetos));
+
+    // ⚠️ Dois aprovadores com limites diferentes não cabem numa alçada por
+    // papel: fica o MAIOR (o menor bloquearia quem o dono quis liberar) e o
+    // conflito é DEVOLVIDO — escolha silenciosa é a pessoa descobrindo o teto
+    // no dia em que precisa aprovar.
+    const dois = alcadaDoOnboarding([
+      { aprovaPagamentos: true, limite: "R$10 mil" },
+      { aprovaPagamentos: true, limite: "R$500 mil" },
+    ]);
+    ok("alcada: dois aprovadores → fica o MAIOR teto",
+       dois.tetos[0]?.teto === 500_000, JSON.stringify(dois.tetos));
+    ok("alcada: e o conflito é DEVOLVIDO, não resolvido em silêncio",
+       dois.conflitos.length === 1 && dois.conflitos[0].ignorados.length === 1,
+       JSON.stringify(dois.conflitos));
+    const semTeto = alcadaDoOnboarding([
+      { aprovaPagamentos: true, limite: "R$500 mil" },
+      { aprovaPagamentos: true, limite: "Sem limite" },
+    ]);
+    ok("alcada: 'Sem limite' vence qualquer número",
+       semTeto.tetos[0]?.teto === null, JSON.stringify(semTeto.tetos));
+
+    // ⚠️ A asserção que substitui a varredura larga: a resposta do onboarding
+    // NÃO pode voltar ao perfil. Cobra o strip no ponto exato onde ele importa.
+    const wiz = ler("src/components/onboarding/OnboardingWizard.tsx");
+    ok("alcada: o onboarding REMOVE limite antes de persistir o perfil",
+       /limite:\s*_limite,\s*\.\.\.resto/.test(wiz) && /persistCompany\(\{[^}]*participantes:\s*semLimite/.test(wiz),
+       "o strip antes de persistCompany sumiu");
+    ok("alcada: o onboarding grava a alçada em central_alcada",
+       /aplicarAlcadaDoOnboarding\(alcadaDoOnboarding\(participantes\)\)/.test(wiz));
+    const tipo = ler("src/core/onboarding/index.ts");
+    ok("alcada: Participante.limite está deprecado e opcional",
+       /@deprecated/.test(tipo) && /limite\?:\s*string/.test(tipo));
+    const gov = ler("src/lib/governance.ts");
+    ok("alcada: a tela de Usuários não converte mais faixa para approval_limit",
+       !/parseLimite/.test(gov.replace(/\/\/.*$/gm, "")));
+
+    // A coluna aposentada tem de estar DECLARADA como tal no banco.
+    const mig = ler("supabase/migrations/20260819140000_alcada_morada_unica.sql");
+    ok("alcada: approval_limit está marcada como deprecada na migration",
+       /comment on column public\.organization_members\.approval_limit/.test(mig) &&
+       /DEPRECADA/.test(mig));
+    ok("alcada: a RPC org_member_update NÃO grava mais approval_limit",
+       /org_member_update/.test(mig) && !/set[\s\S]{0,400}approval_limit\s*=/.test(mig));
+  }
+
+  /* ---- A4P-078: rota de cron FALHA FECHADA, e a regra é UMA -------------- */
+  {
+    // ⚠️ **A porta que se abre pela ausência.** As quatro rotas de cron traziam
+    // cada uma a sua cópia de `if (secret) { …exige Bearer… }` — sem a variável,
+    // sem exigência. Medido em 19/08: `CRON_SECRET` NÃO existia na Vercel, e as
+    // rotas respondiam a qualquer chamada; a mais antiga desde 09/06.
+    //
+    // ⚠️ Quatro cópias da mesma regra é a razão de o defeito ser quádruplo: quem
+    // escreve a quinta rota copia a vizinha. Teto ZERO — nenhuma rota lê
+    // `CRON_SECRET` por conta própria.
+    const rotas = [
+      "src/app/api/financial-os/run/route.ts",
+      "src/app/api/recorrencias/run/route.ts",
+      "src/app/api/openfinance/sync/route.ts",
+      "src/app/api/notificacoes/teste/route.ts",
+    ];
+    const proprias: string[] = [];
+    for (const r of rotas) {
+      const txt = ler(r).replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      if (/process\.env\.CRON_SECRET/.test(txt)) proprias.push(r);
+      if (!/recusaDeCron\(/.test(txt)) proprias.push(`${r} (não usa recusaDeCron)`);
+    }
+    ok("a4p078: teto ZERO — nenhuma rota de cron implementa a própria credencial",
+       proprias.length === 0, proprias.join(" | "));
+
+    const auth = ler("src/lib/cron-auth.ts").replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+    ok("a4p078: sem CRON_SECRET a regra RECUSA (503), nunca libera",
+       /if \(!segredo\)/.test(auth) && /status: 503/.test(auth) && !/if \(!segredo\) return null/.test(auth),
+       "a rota voltaria a abrir pela ausência de configuração");
+  }
+
+  /* ---- O EXTRATO PRECISA ENTRAR: todo conector tem AGENDAMENTO ----------- */
+  {
+    // ⚠️ **O achado que motivou esta guarda.** Medido em 19/08: 3 pluggy_items
+    // com status UPDATED (saudável), última sincronização em 23/06 — quase dois
+    // meses parada — e as 52 bank_transactions são exatamente a janela de UMA
+    // sincronização, a do dia da conexão. A integração não estava quebrada:
+    // **rodou uma vez e nunca mais**, porque o caminho ativo só é invocado no
+    // `onSuccess` do widget e não havia cron nenhum para o Open Finance.
+    //
+    // ⚠️ E é isso que explica a conciliação em 5,5%: 889 lançamentos
+    // liquidados contra 52 transações. O casador não tem com o que casar.
+    const vercel = JSON.parse(ler("vercel.json")) as { crons?: { path: string; schedule: string }[] };
+    const caminhos = (vercel.crons ?? []).map((c) => c.path);
+    // ⚠️ O agendamento saiu da Vercel para o pg_cron (decisão do dono, 19/08).
+    // O invariante continua o mesmo — o extrato TEM de ser puxado —, mas quem o
+    // cumpre mudou de casa, e a asserção acompanhou. Ela está logo abaixo.
+    void caminhos;
+
+    // ⚠️ **O AGENDAMENTO MUDOU DE CASA — e a guarda mudou junto.** O Vercel
+    // Hobby recusou duas execuções diárias ("Hobby accounts are limited to
+    // daily cron jobs"), e a cadência não é capricho: extrato de ontem faz o
+    // cliente conferir no banco antes de confiar, e aí o ERP virou a segunda
+    // opinião. O dono decidiu `pg_cron` — existe no Free, não tem esse teto, e
+    // fica do lado do banco, junto do dado.
+    //
+    // ⚠️ A guarda cobra o MECANISMO VIGENTE (a migration do pg_cron) e exige que
+    // o Open Finance NÃO esteja também na Vercel: dois agendadores para a mesma
+    // coisa é o começo de "roda duas vezes e ninguém sabe por quê".
+    ok("extrato: o Open Finance NÃO é mais agendado pela Vercel",
+       !(vercel.crons ?? []).some((c) => c.path === "/api/openfinance/sync"),
+       "voltou a ter dois agendadores para o mesmo sync");
+    const pgcronBruto = ler("supabase/migrations/20260819180000_openfinance_pg_cron.sql");
+    // ⚠️ **COMENTÁRIO FORA ANTES DA BUSCA.** A primeira versão reprovou o
+    // PRÓPRIO comentário que explica a regra — o arquivo cita `?secret=` para
+    // dizer o que NÃO se copia do job `own-sync`. É a terceira vez que este
+    // defeito aparece no repositório (guarda de exclusão física, varredura da
+    // ONDA 14), e uma guarda que reprova a documentação da regra treina quem a
+    // lê a ignorá-la.
+    const pgcron = pgcronBruto.replace(/^\s*--.*$/gm, "");
+    ok("extrato: o pg_cron agenda as DUAS execuções (09:00 e 21:00 UTC)",
+       /'openfinance-sync-manha',\s*'0 9 \* \* \*'/.test(pgcron) &&
+       /'openfinance-sync-noite',\s*'0 21 \* \* \*'/.test(pgcron),
+       "a cadência de duas vezes ao dia saiu do agendamento");
+    // ⚠️ O segredo vai no CABEÇALHO, nunca na URL — a lição do A4P-077. O job
+    // `own-sync`, que já existia neste projeto, usa `?secret=`: é o padrão da
+    // casa que NÃO se copia.
+    ok("extrato: o segredo do cron viaja no cabeçalho, nunca na query string",
+       /'Authorization', 'Bearer '/.test(pgcron) && !/\?secret=/.test(pgcron),
+       "o segredo voltou para a URL (vaza em log, proxy e Referer)");
+
+    // ⚠️ **O ETL PRECISA DIZER QUE É EXTRATO, senão o banco RECUSA cada linha.**
+    // Medido em 19/08: nenhum dos dois ETLs do Pluggy mandava `especie` nem
+    // `origem`, e `titulo_exige_origem()` (ONDA 5) recusa com A4P05 todo
+    // lançamento sem procedência. Os 52 movements que existem nasceram em 23/06,
+    // ANTES da trava — e desde então nenhum lançamento novo do Open Finance
+    // conseguia entrar. Pior: o `catch` do ETL só trata 23505, então o A4P05
+    // caía num console.error dentro de uma Edge Function que ninguém abre.
+    for (const f of ["supabase/functions/pluggy-sync-item/index.ts",
+                     "supabase/functions/pluggy-webhook/index.ts"]) {
+      const etl = ler(f);
+      const insert = etl.slice(etl.indexOf('from("movements").insert'));
+      ok(`extrato: ${f.split("/")[2]} declara especie=extrato no insert`,
+         /especie:\s*["']extrato["']/.test(insert.slice(0, 1500)),
+         "o ETL voltaria a ser recusado pela trava de procedência");
+    }
+
+    const rota = ler("src/app/api/openfinance/sync/route.ts");
+    // ⚠️ Não reimplementa o ETL: chama a MESMA Edge Function que o widget usa.
+    // Um segundo ETL divergiria no dia em que o Pluggy mudasse um campo, e o
+    // extrato entraria diferente conforme a hora do dia.
+    ok("extrato: o cron reusa o ETL do widget, não reimplementa",
+       /functions\.invoke\(\s*["']pluggy-sync-item["']/.test(rota));
+    // ⚠️ Falha silenciosa foi o que deixou dois meses passarem sem ninguém
+    // notar — a mesma família do materializador parado por oito dias.
+    ok("extrato: a falha por item é RELATADA, não engolida",
+       /falhas/.test(rota) && /audit_log/.test(rota) &&
+       /resultados\.push\(\{ item: id, ok: false/.test(rota),
+       "o sync voltou a engolir falha");
+    // ⚠️ A asserção antiga cobrava "protegido por CRON_SECRET QUANDO DEFINIDO" —
+    // e o "quando definido" ERA o defeito (A4P-078). A credencial agora vem de
+    // `lib/cron-auth`, que falha fechada, e é o bloco a4p078 que a cobra.
+    ok("extrato: o cron usa a credencial única, que falha fechada",
+       /recusaDeCron\(/.test(rota) && !/process\.env\.CRON_SECRET/.test(rota),
+       "a rota voltou a implementar a própria credencial");
+  }
+
+  /* ---- O CONTADOR EXTERNO: lê e exporta, não escreve e não vê cobrança ---- */
+  {
+    // ⚠️ Metade deste item JÁ ESTAVA FEITA e foi refutada em vez de refeita: a
+    // guarda de banco `matriz-permissao.sql` (no CI) já cobra
+    // `contador_externo = exportar,fechar,ler` nos DOIS sentidos — sem
+    // `lancar`, sem `aprovar`, sem `cobranca`. Escrever é barrado pelas
+    // políticas restritivas da ONDA 9, que leem essa mesma matriz.
+    const matriz = ler("scripts/matriz-permissao.sql");
+    ok("contador: a matriz de banco fixa exportar/fechar/ler — e nada mais",
+       /\['contador_externo',\s*'exportar,fechar,ler'\]/.test(matriz),
+       "a linha do contador saiu da matriz de banco");
+
+    // ⚠️ O que FALTAVA: a tela de cobrança não perguntava permissão nenhuma, e
+    // o contador — um TERCEIRO, de fora da empresa — via plano, valor e
+    // vencimento. A ação `cobranca` existe na matriz e só o titular a tem;
+    // faltava alguém PERGUNTAR.
+    const adm = ler("src/components/administracao/AdministracaoViews.tsx");
+    const corpo = adm.slice(adm.indexOf("export function AssinaturaView"));
+    ok("contador: a tela de assinatura pergunta pela ação 'cobranca'",
+       /pode\(\s*["']cobranca["']\s*\)/.test(corpo.slice(0, 1200)),
+       "a tela de cobrança voltou a abrir para qualquer papel");
+
+    // ⚠️ **O TOTAL DO ARQUIVO NÃO PODE DIVERGIR DA TELA**, e o jeito de
+    // garantir isso não é comparar dois números: é o arquivo sair do MESMO
+    // objeto que a tela renderiza. Uma segunda consulta para exportar é como
+    // as duas respostas passam a diferir.
+    const kit = ler("src/components/relatorios/kit.tsx");
+    ok("contador: a planilha sai do MESMO Relatorio que a tela renderiza",
+       /function linhasParaPlanilha\(r: Relatorio/.test(kit),
+       "o export deixou de receber o relatório pronto");
+    ok("contador: e o botão passa o relatório renderizado, não refaz a consulta",
+       /linhasParaPlanilha\(relatorio,/.test(kit),
+       "o botão de exportar passou a montar os dados por conta própria");
   }
 
   /* ---- O ESCRITOR MORTO: gravar onde, em produção, ninguém lê ------------- */

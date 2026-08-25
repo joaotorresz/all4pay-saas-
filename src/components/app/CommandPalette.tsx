@@ -38,7 +38,7 @@ const ROUTES: RouteItem[] = [
   { label: "Extrato da conta", href: "/dashboard/financial/statement", icon: "receipt", kw: "extrato conta bancaria saldo corrente periodo movimentacoes" },
   { label: "Fatura do cartão", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card", kw: "fatura cartao de credito ciclo fechamento vencimento aberta paga parcial" },
   { label: "Fluxo de caixa do mês", href: "/dashboard/reports/cash-flow", icon: "trending-up", kw: "fluxo de caixa mensal saldo inicial final entradas saidas transferencia contas" },
-  { label: "Importar em lote (planilha)", href: "/dashboard/financial/import", icon: "upload", kw: "importar lote planilha xlsx modelo contas a receber pagar transferencias" },
+  { label: "Importar em lote (planilha)", href: "/upload", icon: "upload", kw: "importar lote planilha xlsx csv ofx extrato modelo contas a receber pagar" },
   // Duas portas para a MESMA IA: o painel flutuante (rápido, sobre a tela atual)
   // e a tela cheia com histórico de conversas.
   { label: "Perguntar à All 4 Pay AI", href: "/", event: "a4p:open-ia", icon: "sparkles", kw: "ia copiloto assistente perguntas claude conversacional chat all4pay perguntar abrir painel" },

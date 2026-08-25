@@ -21,14 +21,14 @@ import { baixarDOCX, type BlocoDocx } from "@/lib/docx";
 import { montarFechamento, rotuloColuna, type Fechamento } from "@/core/relatorios";
 import { listarFechamentos, salvarFechamento, removerFechamento } from "@/lib/fechamentos";
 import { loadCompany } from "@/lib/company";
-import { pctDeInteiro } from "@/lib/format";
+import { pctDeInteiro, formatBRL } from "@/lib/format";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 const ANOS = [2024, 2025, 2026, 2027];
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) => formatBRL(n);
 
 export function FechamentoView() {
   const { data: input } = useRiscoInput();

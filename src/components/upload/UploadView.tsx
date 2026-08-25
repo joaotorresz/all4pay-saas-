@@ -10,7 +10,8 @@
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, Button, Icon, InfoHint } from "@/components/ui";
-import { analisarImportacao, amostraExtrato, aprender, type FDIPReport } from "@/core/fdip";
+import { analisarImportacao, amostraExtrato, aprender, csvDeLinhas, type FDIPReport } from "@/core/fdip";
+import { lerXLSX } from "@/lib/xlsx";
 import { enriquecerPorCNPJ } from "@/lib/cnae-enrich";
 import { listarRegras } from "@/lib/regras";
 import { aplicarRegrasNoRelatorio } from "@/lib/regras-aplicar";
@@ -28,6 +29,9 @@ import { prepararIngestao, type LinhaBruta, type LinhaExistente } from "@/core/i
 import { importedMovements } from "@/lib/imported";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
+// ⚠️ .xlsx entra no MESMO pipeline: lerXLSX → csvDeLinhas → analisarImportacao.
+const isXlsx = (f: File) => /\.xlsx$/i.test(f.name)
+  || f.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const hoje = () => new Date().toISOString().slice(0, 10);
 
 /** Documento (boleto/nota/comprovante) → 1 linha de extrato para o FDIP. */
@@ -177,6 +181,11 @@ export function UploadView() {
       for (const f of Array.from(files)) {
         if (isText(f)) {
           linhas.push((await f.text()).trim());
+        } else if (isXlsx(f)) {
+          // Planilha vira CSV e segue pelo mesmo pipeline — não é tela nova.
+          const rows = await lerXLSX(f);
+          const csv = csvDeLinhas(rows);
+          if (csv.trim()) linhas.push(csv); else setErro("A planilha não tinha linhas com dado.");
         } else {
           const r = await lerDocumento(f, true); // imagem/PDF → OCR (IA ou local)
           if (r.kind === "doc") {
@@ -278,7 +287,7 @@ export function UploadView() {
           <div className="flex items-center justify-center gap-2 flex-wrap mt-3">
             <label className="inline-block text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2 bg-white">
               {lendo ? "Lendo…" : "Escolher arquivos"}
-              <input type="file" multiple accept=".csv,.ofx,.txt,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
+              <input type="file" multiple accept=".csv,.ofx,.txt,.xlsx,text/*,image/*,application/pdf" onChange={onFile} className="hidden" />
             </label>
 
             {/*
@@ -371,6 +380,28 @@ export function UploadView() {
           onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}
           catMsg={[regraMsg, cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />
+      )}
+      {/* ⚠️ **A RECUSA DO BANCO PRECISA APARECER.** A importação gravava zero
+          lançamentos em silêncio — a tela dizia "pronto", criava os contatos, e
+          o DRE abria vazio. Agora, se alguma linha não entrou, a tela diz
+          QUANTAS e o que o banco respondeu. Um importador que engole a recusa é
+          indistinguível de um que funciona, até alguém abrir o relatório. */}
+      {resultado?.falha && (
+        <div
+          className="rounded-md p-4 flex flex-col gap-1"
+          role="alert"
+          style={{ background: "var(--color-surface-2)", borderLeft: "3px solid var(--color-negative)" }}
+        >
+          <span className="text-label font-medium text-ink">
+            {resultado.falha.naoGravados} de {resultado.falha.naoGravados + resultado.movimentos} lançamentos não foram salvos
+          </span>
+          <span className="text-caption text-muted">
+            Os demais entraram normalmente. Resposta do banco: {resultado.falha.mensagem}
+          </span>
+          <span className="text-caption text-faint">
+            Reenviar o mesmo arquivo é seguro — o que já entrou não duplica.
+          </span>
+        </div>
       )}
       {report && (resultado || importado) && (
         <button onClick={limpar} className="text-caption font-medium text-muted hover:text-ink underline self-start">Limpar e recomeçar</button>

@@ -8,6 +8,7 @@ import { calcularSazonalidade } from "@/core/risk-engine/sazonalidade.engine";
 import { serieMensal } from "@/core/quant/series";
 import type { Forecast, ForecastPonto } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 export function motorPreditivo(input: RiskInput, horizonteMeses = 3): Forecast {
@@ -64,5 +65,5 @@ export function motorPreditivo(input: RiskInput, horizonteMeses = 3): Forecast {
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return formatBRL(v);
 }

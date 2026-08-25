@@ -53,12 +53,13 @@ const MESES = [
 ];
 
 const brl = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  formatBRL(v);
 const pct = (v: number, casas = 0) =>
   `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: casas })}%`;
 
 import { cascataDRE } from "@/core/relatorios/cascata";
 
+import { formatBRL } from "@/lib/format";
 export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const q = analisarQuantitativo(input);
   const ind = q.indicadores;

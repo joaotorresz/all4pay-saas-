@@ -8,6 +8,7 @@
 import type { RiskInput } from "@/core/risk-engine/types";
 import { contaDeMovimento } from "@/core/ledger/chart";
 
+import { formatBRL } from "@/lib/format";
 export interface AccrualSugerido {
   categoria: string;
   valor: number;        // média mensal (provisão sugerida)
@@ -54,7 +55,7 @@ export function sugerirAccruals(input: RiskInput, janela = 4): AccrualSugerido[]
       categoria, valor: media,
       conta: contaDeMovimento({ type: "saida", category: categoria }),
       mesesPresentes: presentes,
-      motivo: `Recorrente em ${presentes} dos últimos ${janela} meses (média ${media.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}); sem lançamento em ${mesAtual}.`,
+      motivo: `Recorrente em ${presentes} dos últimos ${janela} meses (média ${formatBRL(media)}); sem lançamento em ${mesAtual}.`,
     });
   }
   return out.sort((a, b) => b.valor - a.valor);

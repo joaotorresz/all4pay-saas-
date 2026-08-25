@@ -10,8 +10,9 @@ import type {
   Briefing,
 } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 
 const dataExtenso = (iso: string) => {
   const d = new Date(iso + "T00:00:00");

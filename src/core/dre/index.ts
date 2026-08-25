@@ -19,8 +19,9 @@ import {
   dreProjetado,
 } from "./engine";
 
+import { formatBRL } from "@/lib/format";
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** Presets de período a partir de "hoje". */

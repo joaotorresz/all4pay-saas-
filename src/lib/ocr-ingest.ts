@@ -1,11 +1,14 @@
 /**
  * Leitor de documento único para o fluxo de upload (home + página).
- * Roteia o arquivo: imagem/PDF → OCR (visão do Claude se houver chave, senão
- * Tesseract/pdf.js local); OFX/CSV/TXT → FDIP (lote). Devolve campos normalizados
- * (`DocFields`) para a leitura inteligente, ou um relatório FDIP para o lote.
+ * Roteia o arquivo: OFX/CSV/TXT → FDIP (lote); PDF COM CAMADA DE TEXTO → tabela
+ * reconstruída → o MESMO pipeline de lote; imagem e PDF escaneado → OCR (visão
+ * do Claude se houver chave, senão Tesseract/pdf.js local). Devolve campos
+ * normalizados (`DocFields`) para um documento, ou um relatório FDIP para o lote.
  */
-import { analisarImportacao } from "@/core/fdip";
-import { ocrLocalImagem, ocrLocalPdf, type DocExtraido } from "@/lib/ocr-local";
+import { analisarImportacao, csvDeLinhas } from "@/core/fdip";
+import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
+import { refinarDocumento } from "@/core/compras/refino";
+import { ocrLocalImagem, ocrLocalPdf, itensDoPdf, type DocExtraido } from "@/lib/ocr-local";
 import type { DocFields } from "@/lib/upload-doc";
 import type { FDIPReport } from "@/core/fdip/types";
 
@@ -25,19 +28,39 @@ export async function ocrConfigurado(): Promise<boolean> {
 }
 
 function fieldsFrom(ex: Partial<DocExtraido> & Record<string, unknown>, confDefault = 0.8): DocFields {
+  // ⚠️ **O CALCULADO VENCE O ADIVINHADO.** O OCR já capturava a linha digitável
+  // e a entregava como texto; `lerBoleto` sabia tirar dela valor, vencimento e
+  // banco com os dígitos verificadores conferidos — e não era chamado de lugar
+  // nenhum. O mesmo com a chave da NF-e e o CNPJ do emitente. Aqui os dois
+  // parsers exatos entram no caminho, e um DV que não confere NÃO substitui
+  // nada: um dígito lido errado produz um valor plausível e falso, que é pior
+  // que o palpite honesto do OCR (medido na guarda: 1.234,57 no lugar de
+  // 1.234,56, com confiança 1).
+  const refinado = refinarDocumento({
+    valor: ex.valor != null ? Number(ex.valor) : null,
+    vencimento: (ex.vencimento as string) ?? null,
+    cnpj: (ex.cnpj as string) ?? null,
+    linhaDigitavel: (ex.linhaDigitavel as string) ?? null,
+    chaveNFe: (ex.chaveNFe as string) ?? null,
+    confianca: typeof ex.confianca === "number" ? ex.confianca : confDefault,
+  });
   return {
     tipo: (ex.tipo as string) || "Documento",
     beneficiario: (ex.beneficiario as string) ?? null,
     pagador: (ex.pagador as string) ?? null,
-    valor: ex.valor != null ? Number(ex.valor) : null,
+    valor: refinado.valor.valor,
     data: (ex.data as string) ?? null,
-    vencimento: (ex.vencimento as string) ?? null,
-    cnpj: (ex.cnpj as string) ?? null,
+    vencimento: refinado.vencimento.valor ?? ((ex.vencimento as string) ?? null),
+    cnpj: refinado.cnpj.valor,
     cpf: (ex.cpf as string) ?? null,
     acaoTipo: (ex.acaoTipo as DocFields["acaoTipo"]) ?? null,
     acao: (ex.acao as string) ?? null,
     categoria: (ex.categoria as string) ?? null,
-    confianca: typeof ex.confianca === "number" ? ex.confianca : confDefault,
+    // ⚠️ A confiança do CONJUNTO é a do campo mais fraco, não a média: média
+    // esconde um campo ruim atrás de três bons, e é o ruim que vira lançamento.
+    confianca: refinado.confiancaGeral > 0
+      ? refinado.confiancaGeral
+      : (typeof ex.confianca === "number" ? ex.confianca : confDefault),
   };
 }
 
@@ -73,6 +96,27 @@ export async function lerDocumento(file: File, ocrOn: boolean): Promise<LeituraD
     if (isText) {
       const report = analisarImportacao(await file.text());
       return { kind: "bulk", report };
+    }
+    // ⚠️ **PDF COM CAMADA DE TEXTO É LOTE, NÃO DOCUMENTO.** Antes, TODO PDF caía
+    // no OCR e virava UM lançamento: um extrato de 200 transações entrava como
+    // uma linha só, e o `ocrLocalPdf` ainda por cima lê apenas a 1ª página.
+    // Aqui a tabela é reconstruída da camada de texto e segue pelo pipeline que
+    // já existe (o mesmo do .xlsx) — sem caminho próprio que divirja depois.
+    if (isPdf) {
+      // ⚠️ Falha de leitura NÃO derruba o upload: cai no OCR, que é o caminho
+      // que já existia. Um PDF protegido ou corrompido continua tendo chance.
+      const itens: ItemPdf[] = await itensDoPdf(file).catch(() => []);
+      if (temCamadaDeTexto(itens)) {
+        const csv = csvDeLinhas(agruparEmLinhas(itens));
+        if (csv.trim()) {
+          const report = analisarImportacao(csv);
+          // ⚠️ **Ter texto não é ser extrato.** Um boleto em PDF tem camada de
+          // texto e nenhuma tabela de lançamentos: o parser devolve zero linhas
+          // e o arquivo segue para o OCR, que é quem sabe ler um documento.
+          // Sem esta condição, o boleto viraria um lote vazio "bem-sucedido".
+          if (report.records.length > 0) return { kind: "bulk", report };
+        }
+      }
     }
     if ((isImg || isPdf) && ocrOn) {
       // OCR por IA (visão do Claude).

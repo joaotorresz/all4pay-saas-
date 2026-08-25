@@ -28,10 +28,11 @@ import { inssDe, irrfDe, inssEmpregado, irrfEmpregado, TABELAS_PADRAO, type Tabe
 import { anteciparParaDiaUtil } from "./calendario";
 import { encargosPatronais, FGTS, type LinhaMemoria, type Colaborador } from "./index";
 
+import { formatBRL } from "@/lib/format";
 export const FERIAS_VERSION = "folha-ferias/1.0.0";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) => formatBRL(n);
 
 /* ========================================================================== */
 /* Direito                                                                     */

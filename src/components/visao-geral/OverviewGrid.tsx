@@ -6,6 +6,7 @@ import { PayablesCard } from "./PayablesCard";
 import { DailyCashflowChart } from "./DailyCashflowChart";
 import { TransactionsCalendar } from "./TransactionsCalendar";
 import { FirstRunCard } from "./FirstRunCard";
+import { CompleteCadastro } from "@/components/entrada/CompleteCadastro";
 import { HomeCustomizeDrawer, HOME_WIDGETS, HOME_WIDGET_IDS, DEFAULT_WIDGET_IDS } from "./HomeCustomizeDrawer";
 import { useHomeContext } from "./homeContext";
 import { Icon } from "@/components/ui";
@@ -80,6 +81,11 @@ export function OverviewGrid() {
 
   return (
     <div className="flex flex-col gap-9">
+      {/* ⚠️ ANTES do FirstRun e da Jornada: o cadastro de três campos deixa o
+          regime tributário em aberto, e ele é o único item que muda CÁLCULO.
+          Enquanto faltar, todo número de imposto e de folha sai pelo cenário
+          mais caro — e o cartão some sozinho quando não há mais o que pedir. */}
+      <CompleteCadastro />
       <FirstRunCard />
       <JornadaCard />
 

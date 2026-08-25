@@ -8,6 +8,7 @@ import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
 import { chaveDeMovimento } from "@/core/ingestao";
+import type { AberturaVerificada } from "@/core/indicadores/abertura";
 
 const KEY = "a4p_imported_dataset";
 
@@ -16,6 +17,13 @@ export interface ImportedDataset {
   accounts: FinancialAccount[];
   parties: Party[];
   criadoEm: string;
+  /**
+   * A abertura conferida quando o arquivo importado DECLARA o saldo
+   * (`<LEDGERBAL>` do OFX). É a fonte "importada" da cascata: com ela, o saldo
+   * da conta é o do banco e a reconciliação do Razão fecha de verdade. Ausente
+   * quando o arquivo não declara saldo — a conta fica NÃO CONFERIDA.
+   */
+  abertura?: AberturaVerificada | null;
 }
 
 let cache: ImportedDataset | null | undefined;
@@ -81,6 +89,10 @@ export function importedAccounts(): FinancialAccount[] | null {
 }
 export function importedParties(): Party[] | null {
   return load()?.parties ?? null;
+}
+/** A abertura conferida do arquivo importado, quando o banco declarou o saldo. */
+export function importedAbertura(): AberturaVerificada | null {
+  return load()?.abertura ?? null;
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");

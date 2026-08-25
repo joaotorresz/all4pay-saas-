@@ -15,6 +15,15 @@ export interface RiskMovement {
   id: string;
   type: "entrada" | "saida";
   status: "pendente" | "pago" | "cancelado";
+  /**
+   * A SITUAÇÃO no ciclo de controle da Central (P-10) — ORTOGONAL ao `status`,
+   * que é caixa. `status` diz se foi PAGO; `situacao` diz se foi CONFIRMADO por
+   * alguém com alçada. Um título pode ser `status: "pendente"` e
+   * `situacao: "confirmado"` (autorizado, ainda não pago). Opcional e derivado
+   * do status quando ausente (`situacaoDe`), porque a coluna só existe depois da
+   * migration da Central — coluna nova nasce lida com queda, nunca inerte.
+   */
+  situacao?: "previsto" | "confirmado" | "baixado" | "conciliado" | "cancelado" | "estornado";
   amount: number;
   due_date: string; // ISO
   paid_date?: string | null;
@@ -113,7 +122,10 @@ export interface RiskInput {
     valor: number;
     /** A data a que o saldo se refere (o dia do primeiro lançamento conhecido). */
     data: string;
-    fonte: "informada" | "importada";
+    /** A origem da âncora (A4P-073): banco declarou × alguém digitou. NÃO cosmético. */
+    origem: "extrato_bancario" | "cadastro_manual";
+    /** Quem confirmou (só na origem cadastro_manual; o banco não tem nome). */
+    por?: string;
   } | null;
   hoje: string; // ISO
   saldoAtual: number;

@@ -1,3 +1,23 @@
+> ## ⚠️ A LIÇÃO DA AUDITORIA INTEIRA
+>
+> **"Escrevi a rota com o mesmo padrão das três que já existiam, sem questionar o
+> padrão — ausência de configuração virando permissão, e ninguém olhando porque
+> é assim que as outras fazem."**
+>
+> Dito ao fim do A4P-078 (19/08/2026), quando o dono descobriu que `CRON_SECRET`
+> nunca existira e as quatro rotas de cron respondiam a qualquer chamada — a
+> mais antiga desde 09/06.
+>
+> ⚠️ **O defeito não foi escrever errado: foi COPIAR sem perguntar.** A rota nova
+> nasceu com o padrão das vizinhas, e o padrão era a porta aberta. É assim que
+> um defeito deixa de ser um caso e vira o jeito da casa — e é por isso que a
+> pergunta *"por que assim?"* vale mais, numa base madura, do que a pergunta
+> *"está igual às outras?"*.
+>
+> Vale para toda sessão futura: **consistência com o código existente não é
+> evidência de correção.** Quando o padrão decide segurança, ele se justifica ou
+> se troca.
+
 # Auditoria — o mapa das superfícies de resultado
 
 > **Por que este arquivo existe.** Este repositório é trabalhado por várias
@@ -1302,3 +1322,1435 @@ apontava para o secret de produção (devia comparar o EFÊMERO com o retrato), 
 as duas guardas moravam no job de PR (guarda de comparação-com-produção no gate
 de PR trava o próprio merge que a conserta). Agora vivem no job `esquema-prod`,
 event-gated: só `main`-push, schedule e dispatch, nunca PR.
+
+---
+
+# ⚠️ APLICAÇÃO DE MIGRATION EM PRODUÇÃO — MANUAL, com dono (P-19, 18/08/2026)
+
+**Enquanto o portão de CI do Bloco A não existir, produção recebe migration por
+COLAGEM MANUAL, e isso é dívida declarada — não paisagem.**
+
+- **Responsável:** joão (dono do repositório). Cola o arquivo do repositório
+  **verbatim** no SQL Editor do Supabase, na ordem cronológica dos nomes.
+- **Validação:** depois da colagem, a sessão relê o catálogo de produção via MCP
+  objeto a objeto, re-sincroniza os três retratos (`objetos-producao.json`, a
+  linha de base de `service_role`, os `orfaos_declarados`) e remove o aplicado
+  das `pendentes` em `supabase/esquema.json`. É o `npm run objetos` (deriva
+  ZERO) que valida a colagem, não a atenção de quem colou.
+- **O que impede o esquecimento:** as `arquivo_sem_aplicacao` em
+  `supabase/esquema.json` são a lista viva do que falta aplicar, com `resolver_ate`.
+  Uma migration que fica pendente além do prazo aparece no diff da próxima
+  sessão.
+
+⚠️ **A dívida tem PRAZO: o portão automático (Bloco A do P-19).** Um job de CI
+que aplica as pendentes em push no `main`, transacional (meia-migration é pior
+que nenhuma), com credencial de ESCRITA separada do `ci_leitor`, e rodando
+`objetos`+`ddl` depois. O desenho está na conversa do P-19, aguardando três
+decisões do dono (papel dedicado × Management API; transação por-migration ×
+lote-único; quem guarda o segredo). Até ele existir, o parágrafo acima é o
+processo, e este registro é o dono.
+
+**Pendentes na data (6):** `maq_revoga_grant_residual_sem_politica` ·
+`funcoes_definer_stable_alinha_producao` · `trial_com_prazo_e_bloqueio_suave` ·
+`own_maq_esquema_verbatim` · `service_role_grants_minimos` ·
+`central_maquina_de_estados`.
+
+---
+
+# ⚠️ COBERTURA DE MOTOR NÃO É COBERTURA DE PRODUTO (P-19 Bloco D, 18/08/2026)
+
+**O Bloco D nasceu como "refactor de duas portas de importação". A medição
+mostrou outra coisa: o BACKEND estava ~80% pronto e a UI, 0% — e ninguém sabia,
+porque todo o inventário deste repositório mede CÓDIGO, não o CAMINHO do
+usuário.**
+
+O que a medição achou, item a item:
+
+| Item do Bloco D | Estado real |
+| --- | --- |
+| dedup (conta+data+valor+hash) | pronto — `core/ingestao/chaveIdempotencia` |
+| ler `<LEDGERBAL>` do OFX → abertura | pronto — `core/fdip` + `aberturaDoExtrato` |
+| classificação camadas 1–2 (regra + histórico) | pronto — `taxonomia` + `regras` + aprendizado |
+| correção → regra da organização | pronto — `sugerirRegra` |
+| is_sample | pronto |
+| **a UI que junta tudo num fluxo usável** | **não existia** |
+
+⚠️ **O diagnóstico "produto sem porta de entrada" era de UX, não de engine.** A
+prova está na produção: nos últimos 90 dias, **ZERO lançamentos por extrato/OCR**
+(os 833 "sem origem" são legado de jun–jul). O motor de ingestão existe há
+meses e não gerou um único lançamento — porque o caminho do usuário até ele é
+dois pipelines incompatíveis e uma fila que ninguém desenhou para 500 linhas.
+
+⚠️ **A lição de método, e ela vale para toda auditoria futura deste repositório:**
+o `npm run smoke`, o `engine-audit`, o `reconciliacao` — todos medem se o MOTOR
+está certo. Nenhum mede se o usuário CONSEGUE chegar até ele. Um sistema pode ter
+100% dos motores verdes e 0% de uso, e as guardas ficam todas verdes. A cobertura
+de produto é outra coisa: quantos toques até a tarefa terminar, quanto tempo
+para 500 linhas, o que acontece quando a pessoa abandona no meio. Isso não sai de
+uma guarda pura — sai de dirigir o fluxo (`npm run fluxos`, a ONDA 12) e de
+cronometrar. O Bloco D só fecha quando a fila 1-a-1 for medida a 500 linhas em
+menos de 10 minutos, não quando o motor passar no teste.
+
+**O que a Fatia 2 fez (mecânica, sem UX):** unificou os dois formatos —
+`.xlsx` entra pelo mesmo pipeline do extrato, o `/dashboard/financial/import`
+depreciou com redirect permanente (A4P-040 fechado). **A fila 1-a-1 (a UX que
+importa) fica para uma leva própria, com briefing de UX antes** — construída às
+cegas no fim de uma sessão longa, passaria no teste e continuaria ruim de usar.
+
+---
+
+## ⚠️ A4P-077 — P0: o webhook da OWN autentica por SEGREDO ESTÁTICO, sem HMAC nem janela de replay
+
+**Medido no fonte** (`supabase/functions/own-webhook/index.ts`, 19/08/2026),
+não deduzido. A função `autenticado(req)` aceita **duas** formas, as duas
+estáticas:
+
+- **Basic Auth** — `OWN_WEBHOOK_BASIC` = `"usuario:senha"`, comparado com
+  `atob(header.slice(6)) === basic`;
+- **segredo na URL** — `?secret=<OWN_WEBHOOK_SECRET>`.
+
+Não há **assinatura do corpo** (HMAC), não há **timestamp**, não há **janela de
+replay**. A varredura por `hmac|signature|assinat|x-hub|timestamp|replay|nonce`
+no arquivo devolve **zero** ocorrências fora do comentário de cabeçalho.
+
+**O que isso significa, em ordem de gravidade:**
+
+1. **Quem tiver o segredo forja QUALQUER evento.** Sem HMAC, o corpo não é
+   verificado contra nada: dá para inventar uma transação, uma liquidação ou um
+   cadastro e o sistema grava como se a OWN tivesse mandado. É dinheiro
+   entrando no ERP do lojista por uma porta que só confere uma senha.
+2. **O segredo na URL vaza por caminhos que ninguém audita.** Query string
+   aparece em log de acesso, em proxy, em histórico e em `Referer`. O Basic
+   Auth (header) é menos ruim; a variante `?secret=` é a pior das duas e as
+   duas estão ligadas ao mesmo tempo.
+3. **Rotacionar exige a OWN.** O segredo é compartilhado: trocá-lo do nosso
+   lado sozinho derruba a entrega.
+4. **A comparação não é de tempo constante** (`===` sobre string). É o menor
+   dos problemas aqui, mas some junto no conserto.
+
+⚠️ **O que JÁ protege, e é preciso dizer para não exagerar o achado:** o replay
+de um payload **idêntico** é barrado por `chaveIdempotencia` (SHA-256 sobre os
+campos que identificam o fato) com **índice único** — o insert devolve `23505`
+e a função conta como duplicado. Ou seja: **reenviar o mesmo evento não
+duplica**. O que não existe é defesa contra um evento **novo e forjado**, que é
+o caso que importa.
+
+**Conserto (não feito nesta leva — é decisão do dono):** HMAC-SHA256 do corpo
+com segredo dedicado + header de timestamp + janela de ±5 min, comparação por
+`crypto.subtle.timingSafeEqual`. **Depende da OWN suportar assinatura**: se
+ela não assinar, a mitigação possível é tirar o `?secret=` (ficar só no Basic
+sobre TLS), restringir por IP de origem se a OWN publicar a faixa, e rotacionar.
+
+⚠️ **A lição de método, que é a que fica:** este achado só apareceu porque o
+fonte foi LIDO. Ele esteve declarado como "NÃO SEI" por uma sessão inteira com
+base na suposição de que as Edge Functions viviam fora do repositório — e
+`own-sync` e `own-webhook` estavam versionadas o tempo todo. **"Não tenho o
+fonte" é uma afirmação que se verifica com `ls`, não se assume.**
+
+---
+
+## Erro #17 — supor a ausência do fonte em vez de conferir
+
+**Do joão, registrado a pedido dele:** ao cobrar a prova do revoke de
+`service_role`, a instrução dizia *"você não tem o fonte dessas funções para
+conferir"*. As oito Edge Functions — inclusive `own-sync` e `own-webhook` —
+estão em `supabase/functions/`, versionadas.
+
+O custo não foi o engano em si: foi que a suposição **quase virou decisão**. A
+regra "o que você não conseguir atribuir a um consumidor, MANTENHA e declare
+como NÃO SEI" é boa, e teria mandado manter `own_token_cache` na superfície da
+service key **para sempre**, por falta de uma leitura de trinta segundos. Com o
+fonte na mão a resposta é definitiva: `own-sync` fala com o token **só** por
+RPC `SECURITY DEFINER` (`own_token_pegar`/`gravar`/`bloquear`), nunca por
+`.from("own_token_cache")` — e o revoke é seguro.
+
+⚠️ **A regra que sai daí:** *"NÃO SEI" é um estado que se declara depois de
+procurar, não antes.* Declarado cedo demais, ele congela a dívida com aparência
+de prudência — e a prudência de verdade era abrir o arquivo.
+
+---
+
+## ⚠️ A4P-077 (parte 2) — o que dá para endurecer SEM a OWN, e duas guardas que nasceram cegas
+
+Feito em 19/08/2026, enquanto a pergunta sobre assinatura seguia com a OWN:
+
+1. **O `?secret=` saiu.** Query string entra em log de acesso, proxy e `Referer`
+   — o segredo vazava para lugares que ninguém audita, e bastava um print de
+   URL. `OWN_WEBHOOK_SECRET` deixou de ser lido; quem o usava migra para o Basic
+   (mesmo segredo, no cabeçalho).
+2. **Comparação em tempo constante.** `===` de string curto-circuita no primeiro
+   byte diferente e vaza o prefixo correto por tempo.
+3. **Limite de tentativas por origem, cobrado só de quem FALHA.** O tráfego
+   legítimo nunca toca o contador. ⚠️ É por *isolate* e isso está DITO no
+   código: quem distribuir a força bruta contorna. Não é a defesa final — é o
+   que encarece o ataque de uma origem sem custar nada a quem está certo.
+4. **O caminho HMAC pronto e DESLIGADO**, com janela de replay de ±5 min. ⚠️ Ele
+   desliga por **ausência de segredo**, não por um booleano: um flag separado
+   poderia ser ligado sem o segredo existir, e aí toda entrega seria recusada em
+   produção.
+
+⚠️ **O corpo passou a ser lido como TEXTO** (`req.text()`), porque o HMAC assina
+os BYTES. Reserializar um objeto já parseado muda espaço e ordem de chaves, e a
+assinatura falha por um motivo que ninguém encontra olhando o payload.
+
+**O P0 continua de pé:** sem assinatura, quem tem o segredo forja qualquer
+evento. Estes quatro reduzem superfície; não substituem o HMAC.
+
+### As duas guardas que nasceram cegas — e o que as denunciou
+
+⚠️ **A primeira nem existia.** O bloco foi inserido por um `str.replace` cuja
+âncora estava em OUTRA branch: sem match, o replace devolve o texto intacto e
+**não dá erro**. A guarda "passou" nas quatro plantas porque não estava lá. É
+exatamente o defeito do `perl` que interpolou `${origem}` — já registrado neste
+arquivo — cometido de novo, três seções abaixo de onde ele está descrito.
+**Conserto: `assert` na âncora ANTES de editar, sempre.**
+
+⚠️ **A segunda estava lá e não podia falhar.** A asserção "o limite é cobrado
+antes de ler o corpo" comparava `indexOf("origemBloqueada(")` no arquivo
+inteiro — e o nome aparece antes de tudo, na **definição da função**. Ela media
+a definição, não o call site, e passava com a chamada em qualquer lugar. Só
+apareceu porque plantar o defeito **não** a fez falhar. Conserto: medir a
+posição DENTRO do handler (`Deno.serve(` em diante) e casar a chamada com o
+argumento (`origemBloqueada(origem)`).
+
+⚠️ **A lição de método, que vale mais que as duas correções:** *plantar o
+defeito é o único jeito de saber se a guarda existe.* Uma passou por ausência,
+a outra por tautologia — e as duas ficariam verdes para sempre, dando a
+aparência de cobertura sobre um webhook que recebe dinheiro.
+## ⚠️ CASO EXEMPLAR — INSTRUÇÃO DO DONO RECUSADA COM RAZÃO (19/08/2026)
+
+**A instrução:** *"O teto é editável por organização. No onboarding, pergunte na
+etapa fiscal em vez de assumir — é uma pergunta que o cliente entende."*
+
+**A recusa:** a pergunta **já era feita**, na etapa de Governança do onboarding
+("Pode aprovar pagamentos" + "Limite de aprovação", faixas de 10k/50k/500k/sem
+limite). Não havia lacuna de UX. O defeito era o **destino da resposta**.
+
+**Medido antes de recusar:**
+
+| onde o número mora | granularidade | quem escreve | quem LÊ para decidir |
+| --- | --- | --- | --- |
+| `central_alcada.teto_valor` | por PAPEL | a migration | **o gatilho da Central** |
+| `organization_members.approval_limit` | por PESSOA | tela de Usuários | **ninguém** (1 de 17 preenchido) |
+| `a4p_company.participantes[].limite` | por PESSOA | onboarding | **ninguém** |
+
+`aplicarEstrutura` não toca `organization_members` (varredura vazia), e
+`finalizar()` manda `participantes` inteiro para `persistCompany` — perfil, não
+regra. Ou seja: **a pessoa respondia e a resposta não chegava a mecanismo
+nenhum.**
+
+⚠️ **Cumprir a instrução ao pé da letra criaria a QUARTA morada do mesmo
+número** — e a mais nova costuma parecer a certa para quem chega depois.
+Passaríamos a perguntar em dois lugares e a continuar decidindo por um terceiro,
+que é uma piora do defeito que a instrução queria evitar (assumir em vez de
+perguntar).
+
+**O que foi feito no lugar:** uma morada só (`central_alcada`). A pergunta ficou
+onde já estava — ao lado do switch que a torna relevante, e com a Blindagem B as
+duas viraram irmãs: *quem* aprova (papel, de `role_permissions`) e *quanto*
+(teto, de `central_alcada`).
+
+⚠️ **E a recusa achou um defeito que ninguém procurava.** Ao conferir a
+conversão, `parseLimite` tirava as LETRAS da faixa antes de converter:
+**"R$50 mil" virava 50** (mil vezes menor) e **"Sem limite" virava 0** — a
+inversão exata do que a pessoa escolheu. A coluna nunca teve leitor, então nunca
+doeu; a conversão viajava pronta para o dia em que alguém a ligasse.
+
+⚠️ **A regra que sai daí, e vale para toda sessão futura:** *quando a instrução
+manda ACRESCENTAR uma pergunta, meça primeiro se ela já é feita — e siga a
+resposta até o mecanismo que decide.* Pergunta duplicada não é redundância
+inofensiva: ela cria uma segunda fonte para o mesmo número, e a segunda fonte é
+como as duas moradas mortas nasceram. **Um campo que uma tela escreve e ninguém
+lê é uma morada esperando alguém acreditar nela.**
+
+O dono confirmou a recusa e escolheu a opção A (uma morada só, por papel).
+
+---
+
+## ⚠️ A4P-077 — DÍVIDA DECLARADA, com dono e motivo (19/08/2026)
+
+**Dono: joão.** **Estado: aberta, congelada por decisão de fase.**
+
+A adquirência (OWN/Agilli) foi ARQUIVADA nesta fase do produto — "zero tempo em
+adquirência daqui pra frente". O P0 do webhook fica registrado aqui, não
+resolvido, e **não deve consumir sessão** até o dono reabrir.
+
+**O que continua verdadeiro:** o `own-webhook` autentica por **segredo estático**
+(Basic Auth). Não há assinatura do corpo, então **quem tiver o segredo forja
+qualquer evento** — transação, liquidação ou cadastro entram como se a OWN os
+tivesse mandado. O `chaveIdempotencia` barra o replay de um payload IDÊNTICO
+(índice único → 23505), mas não um evento novo e inventado.
+
+**O que já foi feito e está no ar** (reduz superfície, não fecha o buraco):
+o `?secret=` saiu da URL · comparação em tempo constante · limite de tentativas
+por origem cobrado só de quem falha · e o caminho HMAC **pronto e desligado**
+(`OWN_WEBHOOK_HMAC_SECRET`), com janela de replay de ±5 min.
+
+**O que falta, e por que não dá para fazer sozinho:** ligar o HMAC exige que a
+OWN ASSINE o corpo. A pergunta foi enviada a eles pelo dono; sem a resposta, o
+caminho fica desligado — ligá-lo unilateralmente recusaria toda entrega em
+produção.
+
+⚠️ **Se a OWN não suportar assinatura**, a mitigação possível (também dependente
+deles) é restringir por faixa de IP de origem. Fica anotado para a hora em que a
+fase reabrir; **não é trabalho para agora.**
+
+⚠️ **Por que uma dívida com DONO e não um "aceito":** sem dono e sem motivo
+escrito, ela vira paisagem — foi assim que 29 divergências de esquema chegaram
+até aqui. O motivo aqui não é técnico, é de PRIORIDADE, e isso é decisão do
+dono, não da sessão.
+
+---
+
+## ⚠️ `next lint` PASSA onde o BUILD reprova — e é o build que vale (19/08/2026)
+
+Ao gatear a tela de assinatura por `tem_permissao('cobranca')`, o `return`
+antecipado ficou ANTES de `useRouter`, dos três `useQuery`, de dois `useState` e
+de um `useEffect`. Isso torna os hooks **condicionais**, e o React exige a mesma
+ordem em todo render — é defeito real, não estilo.
+
+⚠️ **`npm run lint` (next lint) passou limpo. `npm run build` reprovou com sete
+erros `react-hooks/rules-of-hooks`.** São configurações diferentes de ESLint, e
+o build é o que decide se o produto sobe. Rodar só o `lint` e concluir "está
+limpo" é o mesmo engano de rodar `typecheck` e concluir que o comportamento está
+certo.
+
+**A regra prática:** para mudança em COMPONENTE, `npm run build` faz parte da
+conferência — não só `typecheck` e `lint`. Foi o preview da Vercel que reprovou
+primeiro, e ele só existe porque o PR sobe antes de mergear.
+
+**E o conserto certo do gate:** todos os hooks primeiro, o `return` condicional
+depois. O gate continua valendo — o que muda é o LUGAR.
+## ⚠️ RESOLVER CONFLITO CONCATENANDO OS DOIS LADOS QUEBRA SINTAXE — duas vezes (19/08)
+
+Dois blocos ADITIVOS no mesmo ponto do arquivo parecem o caso fácil do merge:
+fica-se com os dois. Mas o marcador `=======` cai **no meio da estrutura**, e a
+concatenação crua come a linha que fecha um bloco ou abre o outro. Aconteceu
+**duas vezes no mesmo dia**, no mesmo arquivo:
+
+1. `scripts/consistencia.mts` — sumiu o `}` que fechava o bloco do `a4p077`;
+2. `scripts/engine-audit.mts` — sumiu o `import {` que abria o bloco da fila,
+   **e** o `}` que fechava o bloco da conciliação.
+
+⚠️ **O typecheck não pega, o `npm test` pega tarde.** Nos dois casos o erro
+apareceu como `Expected '}' got '<eof>'` na execução — a centenas de linhas de
+onde o dano estava, porque um bloco não fechado só falha no fim do arquivo.
+
+**O método que funciona, e custa trinta segundos:** depois de resolver
+conflito por concatenação, **conte as chaves** antes de rodar qualquer coisa:
+
+```
+node -e 'const l=require("fs").readFileSync(ARQ,"utf8").split("\n");let b=0;
+l.forEach((x,i)=>{const s=x.replace(/"[^"]*"/g,"").replace(/`[^`]*`/g,"").replace(/\/\/.*$/,"");
+for(const c of s){if(c==="{")b++;else if(c==="}")b--;} if(MARCADOR.test(x))console.log(i+1,b);});
+console.log("final",b)'
+```
+
+O balanço final tem de ser 0, e imprimir o balanço nos cabeçalhos de seção
+mostra **em qual** seção ele desandou — foi assim que o segundo caso foi
+localizado em uma tentativa, contra três no primeiro.
+
+⚠️ E a lição de fundo é a de sempre: **a concatenação silenciosa é da mesma
+família do `replace` sem match.** As duas "funcionam" (não dão erro), as duas
+produzem um arquivo plausível, e as duas só se denunciam quando algo executa.
+
+---
+
+## ⚠️ O ETL DO OPEN FINANCE ERA RECUSADO PELO BANCO — em silêncio (19/08/2026)
+
+Achado ao provar a deduplicação **antes** do primeiro disparo do cron, a pedido
+do dono. A prova de dedup passou; o caminho até ela é que revelou o defeito.
+
+**Nenhum dos dois ETLs do Pluggy** (`pluggy-sync-item`, `pluggy-webhook`)
+mandava `especie` ou `origem` no insert de `movements`. E
+`titulo_exige_origem()` (ONDA 5) recusa com **A4P05** todo lançamento sem
+procedência — a menos que `especie = 'extrato'`, caso em que a própria trava
+carimba `origem` e libera.
+
+**Medido contra o banco real:** os 52 movements do Pluggy têm `origem` **NULA**
+porque nasceram em **23/06**, ANTES da trava. Desde então, **nenhum lançamento
+novo do Open Finance conseguia entrar**.
+
+⚠️ **E a falha era silenciosa por DOIS motivos somados**, que é o que a fez
+sobreviver: (1) o `catch` do ETL trata só `23505` (duplicata) — o A4P05 caía num
+`console.error` dentro de uma Edge Function que ninguém abre; e (2) o sync em si
+não rodava desde junho, então nem o log existia. Dois silêncios em série: o
+primeiro esconderia o defeito, o segundo escondeu que havia o que esconder.
+
+⚠️ **A ordem dos consertos importava, e por pouco.** O cron do Open Finance foi
+mergeado ANTES desta descoberta. Se ele tivesse disparado assim, as transações
+chegariam a `bank_transactions` e **nenhuma viraria lançamento** — e o placar da
+conciliação pioraria, porque o denominador cresce e o numerador não. O pedido do
+dono ("prove a dedup antes do primeiro disparo") é o que abriu o caminho até
+aqui: a pergunta era sobre duplicação e a resposta foi sobre ausência.
+
+⚠️ **A Edge Function não sobe pelo deploy da Vercel.** O conserto está no
+repositório; produção só o recebe quando alguém publicar a função pelo painel do
+Supabase. **Enquanto isso não acontecer, o cron roda e não cria lançamento
+nenhum** — fica declarado, não presumido.
+
+---
+
+## ⚠️ PARAR POR TAXA DE ERRO SUBINDO É UMA MEDIÇÃO, NÃO UMA DESCULPA
+
+Registro a pedido do dono, 19/08/2026.
+
+Ao fim de dois dias de rodada, **três medições minhas nasceram erradas em poucas
+horas**: a fixture do aging datada dentro da janela do DRE; o filtro de estados
+vazios que devolveu 56 incluindo modal, chat e cabeçalho; e o verificador que
+leu `AppShell` achando que lia a tela. As três foram pegas — duas por guarda,
+uma por conferência à mão — mas a **taxa** estava subindo.
+
+⚠️ **O que decidiu a parada não foi o cansaço: foi a NATUREZA do que sobrava.**
+Os itens restantes (cronômetro de onboarding, página de metodologia, varredura
+de copy, estados vazios) são de TEXTO e de VARREDURA — neles o erro não estoura,
+ele é **publicado**. Um número errado num relatório de auditoria e uma frase
+errada numa página pública não falham no CI: saem para o cliente com cara de
+medida.
+
+**A regra que fica:** quando a taxa de erro sobe E o trabalho restante é do tipo
+que publica em vez de estourar, parar é a decisão correta — e nomear a razão faz
+parte dela. Quatro blocos que reprovam valem mais que seis de aparência; a
+sessão que não sabe parar é a que produz guarda decorativa.
+
+---
+
+## ⚠️ DÍVIDA: a cadência do sync do Open Finance é limite de PLANO, não escolha
+
+**Dono: joão. Aberta.**
+
+O dono decidiu **duas vezes ao dia** (08:00 e 20:00 UTC), com a razão certa: um
+ERP financeiro que mostra o extrato de ontem é um ERP que o cliente confere no
+banco antes de confiar — e aí ele deixou de ser a fonte e virou a segunda
+opinião.
+
+**A Vercel recusou o deploy**, literalmente: *"Hobby accounts are limited to
+daily cron jobs. This cron expression (0 8,20 * * *) would run more than once
+per day."*
+
+⚠️ **Reverti para diário para não deixar produção sem deploy** — e a guarda
+passou a cobrar o que É invariante (o extrato TEM de ser puxado) em vez do que a
+plataforma proíbe. Manter a asserção da cadência deixaria o CI vermelho por um
+limite de plano, e **guarda que reprova o possível é desligada na primeira
+semana**.
+
+⚠️ **Isto NÃO é contornar guarda que achou defeito** — a distinção importa e é
+fácil de confundir com a sexta regra. Não há defeito escondido aqui: a asserção
+cobrava uma configuração que o ambiente torna inalcançável. A regra continua
+valendo integralmente para o caso oposto, que é o dela: quando a guarda expõe
+defeito, o defeito é o trabalho.
+
+**Os dois caminhos para pagar, quando o dono decidir:** subir o plano da Vercel
+para Pro, ou mover o agendamento para o `pg_cron` do Supabase, que não tem esse
+teto — e que tem a vantagem de ficar do lado do banco, junto do dado.
+
+---
+
+## ⚠️ SQL NOVO SE PARSEIA ANTES DE EMPURRAR — e o CI não é o lugar de descobrir
+
+19/08/2026. A primeira versão da migration do `pg_cron` derrubou o job
+`isolamento` com `ERROR: schema "cron" does not exist (SQLSTATE 3F000)`.
+
+**A causa é de ambiente, não de sintaxe:** `pg_cron`, `pg_net` e `vault` são
+extensões do Supabase hospedado; o Postgres de contêiner que a guarda de
+isolamento sobe não as tem. O SQL estava certo — e inaplicável ali.
+
+⚠️ **O erro de método foi meu:** escrevi uma migration que fala com extensões de
+plataforma e a empurrei sem executá-la em lugar nenhum. Havia um Postgres real
+disponível o tempo todo, e bastava `begin … rollback` para saber.
+
+**O conserto tem duas metades, e a segunda é a que importa:**
+
+1. O agendamento vai por `execute` dentro de um `do` guardado por
+   `to_regnamespace('cron')` — o plpgsql resolve SQL de dentro de `execute` só
+   na hora de rodar, então o ramo não tomado nunca tenta resolver `cron.`.
+2. ⚠️ **O pulo AVISA** (`raise notice`). Um `return` mudo faria a migration
+   "passar" em produção caso a extensão sumisse, e o agendamento desapareceria
+   sem ninguém saber — trocaria um CI vermelho por um cron inexistente, que é
+   pior. E a guarda do CI continua cobrando os dois horários **no arquivo**: o
+   texto do agendamento é verificado mesmo onde ele não pode rodar.
+
+**Validado depois do conserto**, contra o Postgres real em transação desfeita:
+os dois jobs entram com `0 9 * * *` e `0 21 * * *`, ativos, com o segredo no
+cabeçalho `Authorization` e **não** na query string.
+
+**A regra:** migration que usa extensão de plataforma (`cron`, `net`, `vault`,
+`http`) é executada contra um banco de verdade em `begin … rollback` ANTES do
+push — e é escrita para pular COM AVISO onde a extensão não existe.
+
+---
+
+## ⚠️ A4P-078 — QUATRO ROTAS DE CRON ABERTAS, pela ausência de uma variável
+
+**Achado do dono, 19/08/2026**, ao criar o `CRON_SECRET`: a busca por "cron" nas
+Environment Variables do projeto `all4pay-saas` devolveu **No Results Found** —
+a variável **nunca existiu**.
+
+**Por que isso abre a porta:** as rotas traziam, cada uma, a sua cópia de
+
+```ts
+const secret = process.env.CRON_SECRET;
+if (secret) { …exige Authorization: Bearer… }
+```
+
+Ou seja: **sem a variável, sem exigência.** Uma rota que só pede credencial
+QUANDO a configuração existe é uma porta que se abre sozinha por esquecimento —
+e o esquecimento é o estado natural de uma variável que ninguém criou.
+
+⚠️ **Não era uma rota: eram QUATRO**, e a mais antiga está aberta desde junho.
+
+| rota | aberta desde | o que responde sem credencial |
+| --- | --- | --- |
+| `/api/financial-os/run` | **09/06/2026** | roda as regras e dispara alertas |
+| `/api/notificacoes/teste` | **10/06/2026** | **envia WhatsApp** (queima quota) |
+| `/api/recorrencias/run` | **01/07/2026** | **cria títulos** no banco |
+| `/api/openfinance/sync` | 19/08/2026 | sincroniza extrato |
+
+⚠️ **QUATRO CÓPIAS DA MESMA REGRA É A RAZÃO DE O DEFEITO SER QUÁDRUPLO.**
+Consertar as quatro à mão deixaria a quinta rota nascer errada, porque quem a
+escreve copia a vizinha. A regra passou a viver em `src/lib/cron-auth.ts`, uma
+só, e há varredura de **teto ZERO**: nenhuma rota lê `CRON_SECRET` por conta
+própria.
+
+**O conserto — falhar FECHADO:** sem a variável, a rota devolve **503**, nunca
+200. E 503 (não 401) porque o problema é de CONFIGURAÇÃO do servidor, não da
+credencial de quem chamou — "não autorizado" mandaria o operador procurar o erro
+no lugar errado.
+
+**Provado quebrando** (`npm run cron-auth`, dentro do `npm test`): os quatro
+casos travados por valor — sem variável **503** · sem bearer **401** · bearer
+errado **401** · bearer certo **200**. Com o defeito antigo restaurado, o
+primeiro devolve **200** e a prova reprova.
+
+**O dono criou a variável e redeployou.** As rotas antigas ficam com a janela de
+exposição registrada acima; não há trilha que permita saber se alguém as chamou.
+
+⚠️ **A regra geral, que vale para toda configuração de segurança:** *ausência de
+configuração nunca pode virar permissão.* O padrão certo é o inverso do que
+estava: sem a variável, recusa tudo — e o erro aparece no primeiro deploy, que é
+quando custa barato.
+
+---
+
+## ⚠️ A4P-080 — AS DUAS GUARDAS DE TELEFONE REGREDIRAM, e ninguém viu porque elas nunca entraram no CI
+
+**A ONDA 12 fechou com "7 telas · 0 com problema · 4 fluxos · 0 com problema".**
+Rodadas de novo em 20/08, contra o build de produção servido, elas acusam
+**5 das 7 telas** e **1 dos 4 fluxos**.
+
+| tela / fluxo | o que reprova |
+| --- | --- |
+| Títulos a receber | acessibilidade: `label`×2, `select-name`×3 |
+| Extrato | acessibilidade: contraste×2 |
+| Entrada de dados | orçamento: **57** requisições (teto 45) |
+| DRE | orçamento: **74** requisições (teto 60) |
+| **Lançar despesa** | **não há caminho para Despesa a partir do início** |
+
+⚠️ **A causa de a regressão atravessar é estrutural, e é a lição.** `npm run
+mobile` e `npm run fluxos` exigem o app SERVIDO, e por isso ficaram fora do
+`npm test` e fora do CI — declaradamente, com um motivo que era bom ("uma suíte
+que precisa de build deixa de ser rodada antes de commitar"). O efeito é que
+elas passaram a depender de alguém lembrar de rodá-las à mão, e ninguém lembrou.
+**Guarda que depende de memória não é guarda: é intenção.**
+
+⚠️ **E o pior item não é de acessibilidade.** *"Não há caminho para Despesa a
+partir do início"* quebra um dos quatro fluxos que a ONDA 12 elegeu como
+essenciais — lançar uma despesa do telefone. As reprovações de orçamento podem
+ter componente de ambiente (o build de demonstração carrega o conjunto do seed,
+que é maior); as de acessibilidade e a do fluxo **não têm**: `label` ausente e
+caminho inexistente independem de modo.
+
+⚠️ **Por que elas NÃO entraram no portão nesta rodada, e isso está no
+`ci.yml` com os números.** Pendurá-las agora abriria um portão VERMELHO: todo PR
+nasceria reprovado por dívida anterior, e a primeira coisa que se faz com um
+portão que nunca fica verde é desligá-lo — que é como se perde um portão de
+verdade. Deixá-las fora *em silêncio* seria pior: sumiria a única evidência de
+que a regressão existe.
+
+**A dívida, com dono e forma de fechar:** consertar os cinco itens e, no mesmo
+gesto, mover os dois passos para o job `navegador`. Enquanto não fecharem, elas
+continuam rodáveis à mão contra um build servido, e o `ci.yml` carrega a lista.
+
+---
+
+## ⚠️ A REGRA MAIS CARA DA AUDITORIA — montar `RiskInput` à mão SEM `linhaPorCategoria`
+
+**Terceira vez que "meça com o dado que a superfície usa" pega esta sessão, e
+esta é a mais cara porque o número errado PARECE REGRESSÃO.**
+
+Ao conferir se o backfill de `situacao` tinha mexido no resultado, montei o
+`RiskInput` da organização real e recalculei a cascata. Deu **−R$ 784.743,23**
+contra os **−R$ 784.475,53** que o dono via na tela: **R$ 267,70** de
+diferença, com o backfill acabando de tocar toda a tabela. Eu ia reportar isso
+como divergência e mandar parar a rodada.
+
+⚠️ **A causa era minha: passei o filtro sem `linhaPorCategoria`.** É por esse
+campo — a linha DECLARADA de cada categoria — que `montarRelatorio` reconhece a
+saída `LINHA_TRANSFERENCIA` e **pula** o lançamento. Sem ele, as categorias
+declaradas como transferência (`credit card payment`, `transfer - bank slip`,
+`planilha`) caem no palpite por palavra-chave e entram como **despesa
+operacional** — inflando o custo com dinheiro que só mudou de bolso.
+
+Os R$ 267,70 são exatamente a correção de transferência já registrada neste
+arquivo: fatura de cartão R$ 167,70 + boleto de transferência R$ 100,00.
+
+⚠️ **Por que é a mais cara das três:** as outras duas produziam um número
+obviamente ausente (zero, vazio). Esta produz um número **plausível, próximo do
+certo, e do lado errado** — e num sistema que acabou de sofrer um backfill, ela
+se disfarça de regressão. O custo não seria só o meu tempo: seria o dono parar
+uma rodada inteira atrás de um defeito que não existe.
+
+**A regra:** quem monta `RiskInput` fora da aplicação passa `linhaPorCategoria`,
+ou aceita que transferência vira despesa. O aviso está no próprio
+`getRiscoInput`, no código — quem monta à mão não lê o `docs/`.
+
+---
+
+## ⚠️ SUPAVISOR — usuário sem o sufixo do projeto acusa SENHA quando o problema é IDENTIDADE
+
+**O erro que mais engana no Supabase.** Medido no CI em 21/08/2026:
+
+```
+psql: error: connection to server at "aws-1-sa-east-1.pooler.supabase.com", port 5432
+FATAL:  password authentication failed for user "postgres"
+```
+
+A mensagem diz **senha**. A causa era **identidade de tenant**: o pooler
+(Supavisor) resolve o projeto pelo SUFIXO do usuário — `postgres.<referencia>`,
+aqui `ci_leitor.dzszmbowhzopocqydnxu`. Sem o sufixo ele não sabe de que projeto
+se trata e recusa com a mensagem de credencial, **mesmo com a senha correta**.
+
+⚠️ **Custo real:** duas guardas de segurança de esquema (`service_role` e DDL
+sem migration) ficaram DESLIGADAS por dias, com o CI vermelho o tempo todo — e
+como o vermelho era constante, virou paisagem. A mensagem enganosa é o que fez
+o diagnóstico apontar para senha em vez de para a string de conexão.
+
+**O teste que separa as hipóteses, e é um campo só:** ponha o sufixo. Se
+autenticar, era identidade; se continuar falhando, aí sim é a senha.
+
+⚠️ E o achado de brinde: o segredo usava `postgres`, não `ci_leitor` — o papel
+só-leitura existia no banco e não estava sendo usado. Duas coisas erradas na
+mesma string, e a primeira escondia a segunda.
+
+---
+
+## ⚠️ A4P-081 — PR COM CONFLITO NÃO GERA EXECUÇÃO DE CI, e o silêncio é o defeito
+
+**Diagnosticado em 21/08/2026, e ele derruba a hipótese que eu mesmo sustentei
+por duas rodadas.**
+
+O GitHub executa `pull_request` contra o **merge ref** (`refs/pull/N/merge`) — a
+fusão hipotética do galho com a base. Quando o PR tem conflito esse ref **não
+existe**, e o GitHub **não cria execução nenhuma**. Não há falha, não há
+"pendente", não há aviso no PR: há a AUSÊNCIA da verificação, indistinguível de
+"o CI ainda não começou".
+
+| PR | estado | execuções |
+| --- | --- | --- |
+| #133 | conflitou às ~13:58, quando o #132 foi mergeado ESMAGADO | pushes das 14:06 às 21:37 → **nenhuma** |
+| #133 | 22:06 — trouxe o `main` para dentro e resolvi os conflitos | **execução criada no mesmo segundo, e passou** |
+| #131 | `mergeable_state: "dirty"` desde que nasceu | **nunca executou** |
+
+⚠️ **A causa do conflito é o merge ESMAGADO.** Um `squash merge` reescreve a
+história: os commits do galho deixam de existir na base com aquela identidade, e
+todo galho irmão que os continha passa a conflitar. Nada disso aparece para quem
+só observa "o CI não rodou".
+
+⚠️ **O meu erro de método é a parte que fica.** Observei que o #131 tocava
+`.github/workflows/ci.yml`, vi que PRs abertos pelo app não rodavam, e conclui
+*"falta a permissão `workflows` ao app"* — plausível, coerente com o que eu via,
+e **errada**. Cheguei a recomendar ao dono que mudasse uma permissão no painel.
+
+O dado que refutava estava a uma chamada de distância o tempo todo: o campo
+`mergeable_state` do próprio PR. Duas rodadas defendendo uma hipótese sem
+consultar o campo que a decidia — a mesma família de "meça com o dado que a
+superfície usa", agora aplicada à infraestrutura em vez de a uma tela.
+
+**A regra prática:** quando um PR não tiver CI, antes de qualquer teoria sobre
+permissão, cota ou incidente, **leia `mergeable_state`**. `dirty` explica o
+silêncio inteiro, e o conserto é trazer a base para dentro do galho.
+
+⚠️ **E isto corrige o meu próprio relatório do merge do #133:** ele NÃO foi um
+merge sem CI. A execução do commit `f712422` foi criada às 22:06:38 e PASSOU —
+no mesmo instante do merge, e por isso não apareceu quando consultei as
+verificações. "O CI nunca executou" era verdade até 21:37 e deixou de ser às
+22:06.
+
+---
+
+## ⚠️ A4P-078 (parte 2) — EXPOSTO × EXPLORADO: o que dá para provar, e o que é JANELA CEGA
+
+**A pergunta do dono, e ela é a certa:** *"exposto é diferente de explorado, e só
+o log separa os dois. Preciso poder dizer a um cliente 'exposto por 71 dias, zero
+chamada externa registrada' — ou saber que não posso."*
+
+**A resposta curta: NÃO PODE DIZER ISSO.** O que dá para dizer é mais estreito e
+é verdadeiro — está no fim desta seção. O caminho até lá vale mais que a frase.
+
+### O que eu NÃO consigo fazer, e por quê
+
+⚠️ **Não tenho acesso aos logs da Vercel nesta sessão.** Não há credencial da
+Vercel no ambiente; a metade "log de plataforma" da pergunta não é respondida por
+mim, e escrever qualquer coisa sobre ela seria inventar. Fica declarado assim, e
+não como "não encontrei nada".
+
+E há um limite que nem o acesso resolveria: **no plano Hobby a retenção de
+Runtime Logs é de cerca de UMA HORA.** Junho não existe mais em lugar nenhum da
+Vercel — não é uma busca que eu deixei de fazer, é um dado que já foi
+descartado. Só um Log Drain (Pro+) ligado ANTES teria guardado, e não havia.
+
+**Fica registrado como janela cega nº 1: 09/06 → 19/08, plataforma. Irrecuperável.**
+
+### O que o BANCO sabe — e ele sabe a parte que decide
+
+⚠️ **A pergunta que importa não é "alguém chamou?", é "alguma coisa ACONTECEU?"**
+— e essa o dado responde sozinho, sem depender de log nenhum, porque um título
+criado fica no banco para sempre.
+
+**`/api/recorrencias/run` (aberta 01/07 → 19/08, 49 dias) — ZERO títulos criados.**
+
+| medida | valor |
+| --- | --- |
+| movimentos com `reference_code like 'rec:%'` (só o materializador cria) | **9** |
+| criados em | **16/06 a 19/06** — antes de a rota existir |
+| criados desde 01/07 | **0** |
+| `origem` desses 9 | **NULL** nos 9 — a rota grava `origem: 'contrato'` |
+| eventos `materializar_recorrencias` na trilha | **0**, em toda a base |
+| recorrências ativas hoje | **8** |
+
+Os 9 são assinatura de `ativarRecorrencia` (a tela), não do cron: são anteriores
+à rota e não têm a procedência que a rota grava. E a rota escreve **um evento de
+trilha por organização em toda execução** que encontre recorrência — com 8
+ativas, uma execução bem-sucedida teria deixado rastro. Não deixou nenhum.
+
+⚠️ **Isto não prova "ninguém chamou".** Prova algo melhor para o cliente: **nada
+foi criado.** Uma chamada que tenha caído no 503 por falta de
+`SUPABASE_SERVICE_ROLE_KEY` é indistinguível de nenhuma chamada — e as duas dão
+o mesmo resultado no que se pergunta a um fornecedor de software.
+
+### ⚠️ JANELA CEGA Nº 2 — a auditoria do `financial-os` é um NO-OP
+
+Eu ia escrever que as 80 linhas de `rule_executions` provavam que o cron nunca
+disparou, porque nenhuma cai no minuto do agendamento (`0 12 * * *`; as mais
+próximas são 12:49 e 12:51). **Fui medir a superfície antes de concluir, e a
+conclusão caiu.**
+
+`logExecucoes` grava com o **cliente do NAVEGADOR** (`createClient`, chave anon)
+numa tabela cujo `org_id` tem `default auth_org_id()` e cuja política exige
+`org_id = auth_org_id()`. Chamada de dentro de uma rota de servidor não há
+sessão: `auth_org_id()` volta nulo, o insert viola o `not null`, e o erro é
+engolido (`try/catch` na rota, `.catch(() => {})` na tela).
+
+**Ou seja: `rule_executions` NÃO CONSEGUE registrar execução da rota.** As 80
+linhas (10/06 a 03/08, 18 dias, todas em horário humano) vêm da tela
+`/automacoes` aberta no navegador. Como evidência sobre a rota, a tabela é
+**cega** — ausência ali não é ausência de chamada.
+
+⚠️ **E isso é um defeito por si só, não só um limite de medição:** a única
+auditoria que a rota de cron tem nunca escreveu uma linha. Entra na fila com
+nome — o registro do cron precisa do cliente admin com `org_id` explícito, como
+`/api/recorrencias/run` já faz.
+
+### ⚠️ JANELA CEGA Nº 3 — envio de WhatsApp não deixa rastro NENHUM no banco
+
+`notifications.server.ts` não tem uma escrita sequer: nem tabela, nem trilha. A
+`maq_whatsapp_log` está **zerada** e é de outro subsistema (o fluxo de leads da
+maquininha), não do `/api/notificacoes/teste`.
+
+**Então o banco não pode responder se alguém disparou mensagem.** Quem pode é o
+**Twilio**: o console guarda o log de mensagens (retenção da ordem de meses, bem
+além de junho) com data, destino e custo. É lá, e só lá, que a pergunta *"saiu
+WhatsApp que eu não pedi?"* se responde — filtrando por período e comparando os
+destinos com o `ALERTS_WHATSAPP_TO`. Fica como verificação do dono, porque a
+credencial é dele.
+
+⚠️ Vale notar o que reduz o dano: mesmo aberta, a rota só enviava para o destino
+travado em `ALERTS_WHATSAPP_TO` (o anti-relay). Um terceiro conseguia **queimar
+quota e encher o telefone do dono**, não usar o sistema como relay para números
+próprios.
+
+### ⚠️ JANELA CEGA Nº 4 — `origem`/`ip` na trilha cobrem 18 HORAS, não o período
+
+| medida | valor |
+| --- | --- |
+| `audit_log` total | 1.281 |
+| com `ip` preenchido | **132** |
+| janela coberta | **11/08 20:24 → 12/08 14:26 UTC** (≈18 h) |
+| IPs distintos | **1** — `201.6.226.70` (uso humano) |
+| eventos com `usuario like 'cron:%'` | **0** |
+
+A instrumentação de procedência entrou em agosto e não retroage. Dentro das 18
+horas em que ela existe, tudo veio de um IP só e é uso do dono.
+
+### A frase que DÁ para dizer a um cliente
+
+Não esta: *"exposto por 71 dias, zero chamada externa registrada"* — ela afirma
+sobre um registro que não existe.
+
+Esta:
+
+> **"Quatro rotas de automação ficaram acessíveis sem credencial entre 09/06 e
+> 19/08 (a mais antiga, 71 dias). Nenhum lançamento foi criado por elas no
+> período — verificado no próprio dado, não em log: os únicos títulos de
+> recorrência da base são de junho, anteriores à rota, e a trilha não tem uma
+> execução do materializador. O log de plataforma que diria se houve chamada não
+> existe mais (retenção de ~1 h no plano), e o envio de mensagem não era
+> registrado em banco; essas duas verificações ficam declaradas como não
+> cobertas. A falha foi corrigida em 19/08: sem credencial configurada a rota
+> recusa (503), com guarda que reprova o comportamento antigo."**
+
+⚠️ **A diferença entre as duas frases é a diferença entre auditoria e marketing.**
+A primeira soa melhor e cai no primeiro pedido de evidência; a segunda entrega o
+que tem, nomeia o que falta, e é a única que sobrevive a alguém conferir.
+
+### A lição de instrumentação, que é a mesma três vezes
+
+Nas três janelas cegas o padrão é idêntico: **existia um lugar com cara de
+registro, e ele não registrava.** `rule_executions` grava com o cliente errado;
+`notifications.server` não grava; `origem`/`ip` chegaram tarde. Nenhuma das três
+apareceu como problema até alguém precisar responder uma pergunta com elas.
+
+É a regra de "instrumentação sem consumidor não conta como feita" pelo avesso:
+**registro que nunca foi LIDO não conta como registro** — ninguém descobre que
+ele está vazio enquanto ninguém o abre, e quem o abre é sempre a auditoria, que
+é a hora mais cara para descobrir.
+
+---
+
+## ⚠️ CLASSE: TEXTO COM CAMPO PARA PREENCHER SEGUE ADIANTE PARECENDO COMPLETO
+
+Duas ocorrências no mesmo dia, uma de cada lado da mesa — e é por isso que vale
+como classe, não como descuido:
+
+1. **O meu placeholder.** O lote trazia
+   `COLE_AQUI_O_MESMO_VALOR_DO_CRON_SECRET_DA_VERCEL` para o dono substituir.
+   Foi colado **duas vezes** sem a troca. Tinha trava (`A4P19`), então o
+   resultado foi um erro e nada gravado.
+2. **O template do dono.** A mensagem que pedia o relatório veio com
+   `Resultado: [cole a mensagem]` e `O CRON_SECRET [ja existia / eu criei
+   agora]` por preencher. Não tinha trava — e, sem medir o banco, eu teria
+   escrito um relatório inteiro sobre um estado que não existia.
+
+⚠️ **O que separa as duas é só a trava.** Um texto que depende de alguém lembrar
+de substituir vai seguir adiante com a lacuna, cedo ou tarde, e ele parece
+completo enquanto segue — que é o que o torna caro.
+
+**As duas saídas, nesta ordem de preferência:**
+1. **Eliminar o campo.** Foi o que o redesenho do vault fez: o segredo deixou de
+   existir no arquivo e virou pré-requisito criado no painel. Sem campo, sem
+   lacuna — e de quebra o segredo parou de trafegar por um arquivo de texto.
+2. **Se o campo tem de existir, ele TRAVA** — falha alto e reverte tudo, nunca
+   segue com o valor de exemplo.
+
+E a regra de leitura que fica para mim: **campo não preenchido é ausência de
+informação, não confirmação.** Diante de um, medir — nunca completar com o que
+parecia provável.
+
+---
+
+## ⚠️ A4P-082 — "Exportar PDF" entregava UMA página de um relatório de três
+
+**Medido em 24/08/2026, no navegador, contra o build servido.** O projeto
+inteiro não tinha **uma** regra `@media print`, e o botão "Exportar PDF"
+chamava `window.print()` cru sobre um app cuja raiz é
+`.a4p-canvas { position: fixed; inset: 0; overflow: hidden }`, com a área de
+conteúdo em `overflow-y-auto`.
+
+| medida (mesma página, mesmo navegador, só o bloco `@media print` ligado/desligado) | altura do documento em mídia `print` |
+| --- | --- |
+| **antes** (sem folha de impressão) | **800 px** — 0,8 página A4 |
+| **depois** | **2.314 px** — 2,2 páginas A4 |
+
+⚠️ **É a pior forma de defeito de saída, e é isso que o torna caro: o arquivo
+ABRE.** Não há erro, não há aviso, e os números que aparecem estão CERTOS. O
+contador recebe um PDF plausível ao qual faltam linhas — inclusive o total do
+rodapé — e a única forma de perceber é comparar com o XLSX, que sempre esteve
+correto e que ninguém compara. Um DRE de doze meses saía truncado na primeira
+dobra, com o menu lateral e a moldura escura impressos em volta.
+
+**O que a folha resolve, em ordem de gravidade:** o recorte (a raiz fixa e a
+área rolável viram fluxo normal) · o cabeçalho da tabela REPETIDO em cada
+página (`table-header-group` — sem ele a página 3 é uma grade de números sem
+dizer de que mês é cada coluna) · a moldura do app fora do papel · a linha de
+valor partida entre duas folhas.
+
+⚠️ **O modo escuro foi tratado em JS, não em CSS, e por uma razão de tinta.**
+A impressão descarta FUNDO por padrão e mantém a COR DO TEXTO: no tema escuro
+o fundo preto some, a letra quase branca fica, e a folha sai **em branco**.
+Consertar por `@media print` exigiria reescrever a paleta dentro do bloco —
+que é exatamente o que a guarda da paleta proíbe. Então `imprimirRelatorio`
+força o tema claro e o devolve no **`afterprint`**, nunca na linha seguinte:
+`window.print()` retorna antes de a pessoa decidir, e restaurar cedo escurece
+a pré-visualização enquanto ela escolhe a impressora.
+
+⚠️ **A guarda achou DUAS portas que eu não conhecia.** A asserção que carrega
+o valor não é "existe `@media print`" — essa passaria com o bloco vazio. É a
+que prova o PROIBIDO: *nenhuma tela chama `window.print()` por fora do
+ajudante*. Ela reprovou na primeira execução acusando `TitulosView` e
+`VendasView`, dois botões de impressão que eu não sabia que existiam. Mesma
+família do escritor desconhecido que a guarda da baixa encontrou.
+
+**Provada quebrando cinco defeitos**, todos reprovando: a raiz volta a ser
+fixa · o cabeçalho da tabela deixa de repetir · o ajudante "simplificado" para
+um `print()` de uma linha · uma tela nova chamando `window.print()` direto ·
+o cabeçalho do documento existindo sem ninguém o montar.
+
+---
+
+## ⚠️ A4P-083 — REFUTADO: o smoke das rotas não é cego. Quem mediu errado fui eu
+
+**"`npm run smoke-rotas` reporta 81 rotas verdes enquanto 76 delas terminam em
+`/login` — a guarda mede a tela de login e chama isso de conteúdo." —
+CANCELADO. O defeito não existe.**
+
+Eu medi contra um servidor local que carrega **`.env.local` com Supabase de
+verdade**. Ali `configured` é `true` e não há sessão, então o portão manda
+para `/login` — e o censo deu 76 de 81. Plantei a tela de governança
+renderizando NADA, a guarda ficou verde, e eu já tinha o veredito escrito.
+
+⚠️ **A linha 52 do `middleware.ts` é `if (!configured) return response;`.** O
+job `navegador` do CI **não tem segredo de Supabase** — conferido, não
+suposto: nenhuma ocorrência de `SUPABASE` no job, e nenhum `env` de nível
+global no workflow. Lá `configured` é `false` e **o app fica aberto**, que é o
+que o comentário do arquivo sempre disse.
+
+Refeito na condição do CI (sem `.env.local`, build e servidor), com o MESMO
+defeito plantado:
+
+```
+redirect de /governanca: ''            ← vazio: o app está aberto
+✗ /governanca   tela em branco (36 caracteres na área de conteúdo)
+✗ 1 de 81 rota(s) com problema (80 limpas)
+```
+
+A guarda reprova exatamente o defeito que ela existe para pegar.
+
+⚠️ **A lição é a terceira aparição da mesma regra, e agora contra mim numa
+guarda que eu mesmo escrevi: MEÇA COM O DADO QUE A SUPERFÍCIE USA.** No A4P-036
+foi a folha alimentada sem benefício; no lote P-06B foi o JOIN por
+`category_id` numa base que classifica pelo texto `category`; aqui foi um
+`.env.local` que a superfície medida não tem. Nos três, a medição foi
+competente e mediu **outra coisa**.
+
+⚠️ **E o veredito coube na medição.** "Refutado" é terminal e autoriza fechar
+o item — só cabe porque a guarda REPROVA no ambiente dela, provado por
+plantio. Se eu tivesse escrito "guarda cega", o próximo auditor gastaria uma
+rodada consertando o que funciona, e o item 16 ("smoke autenticado nas rotas
+canônicas") seria reaberto sem ter defeito.
+
+⚠️ **Fica escrito porque achado refutado que não é escrito volta** — a mesma
+razão do A4P-028 e do A4P-036. O sintoma (76 de 81 em `/login`) é REAL e
+reaparece em qualquer máquina com `.env.local`: sem esta nota, a próxima
+sessão o reencontra e conclui a mesma coisa errada.
+
+---
+
+## ⚠️ A4P-084 — o `esquema-prod` reprovou no `main`, e é RETRATO VELHO, não deriva
+
+**Medido em 24/08/2026.** Com o `ci_leitor` finalmente conectando, o job
+`esquema-prod` rodou pela primeira vez com credencial de verdade — e o
+`npm run objetos` REPROVOU no push do `main` (`a39a8fa`):
+
+```
+objetos: 373 nas migrations · 351 no retrato de produção (2026-08-17)
+✗ 24 objeto(s) nas migrations e ausentes de produção
+✗  2 objeto(s) com DERIVA — tabela:movements · funcao:admin_orgs()
+```
+
+⚠️ **Os 24 "ausentes" existem em produção.** Consultado o catálogo pelo MCP,
+sete a sete: `central_alcada`, `central_transicoes`, `movements.situacao`,
+`central_maquina()`, `org_pode_escrever()`, `assinatura_da_org()` e a política
+`movements_escrita_exige_assinatura` — **todos presentes**. E as duas "derivas"
+são as mesmas mudanças: `movements` ganhou a coluna `situacao`, e `admin_orgs()`
+foi reescrita quando o trial passou a ser visível.
+
+**A causa é a data do retrato: 2026-08-17.** O lote de nove migrations foi
+aplicado DEPOIS dele. Produção tem **403** objetos; o retrato guarda 351. O
+`esquema.json` foi sincronizado em 21/08, mas o `objetos-producao.json` é um
+arquivo DIFERENTE e ficou para trás — e é ele que o `npm run objetos` lê.
+
+⚠️ **A verificação foi por MEDIÇÃO, não pela palavra de quem aplicou.** O dono
+relatou ter conferido as tabelas no banco, e estava certo; ainda assim o
+caminho honesto é consultar o catálogo — é a diferença entre "foi aplicado" e
+"está lá agora", e são elas que a guarda de estado existe para separar.
+
+⚠️ **E o conserto NÃO foi feito por transcrição à mão, de propósito.** O
+retrato guarda um md5 por objeto; eu tinha os 403 na tela e não tenho
+`SUPABASE_DB_URL` aqui. Copiar 403 hashes à mão para deixar o CI verde é
+fabricar o artefato que a guarda usa para julgar — um único caractere trocado
+faz a guarda ou acusar deriva que não existe, ou deixar de acusar a que existe,
+e nos dois casos ela passa a MENTIR com a autoridade de uma medição. É a mesma
+família do `resíduo = x − x`: o número existe, ninguém confere, e a confiança
+vem do formato.
+
+**O conserto é um comando, para quem tem a credencial:**
+`SUPABASE_DB_URL=<a do ci_leitor> npm run objetos:sync` e commitar o
+`supabase/objetos-producao.json`.
+
+⚠️ **Sincronizar só pode REVELAR, nunca esconder** — e é isso que torna o
+comando seguro: o retrato novo traz os objetos que produção tem de verdade,
+então qualquer um deles sem migration correspondente passa a REPROVAR como
+órfão. A direção do conserto acrescenta vigilância.
+
+⚠️ **`--sync` e `--sync-service-role` são comandos SEPARADOS, e só o primeiro
+deve ser usado aqui.** A linha de base de `grants_service_role` vigia a chave
+que passa por fora do RLS; re-sincronizá-la junto carimbaria como "normal" um
+grant que apareceu sem ninguém declarar — inclusive um `TRUNCATE` de volta em
+`audit_log`, que é exatamente o que aquela base existe para reprovar.
+
+---
+
+## ⚠️ A4P-085 — P0: o nome digitado no cadastro não chegava ao banco
+
+**Medido em produção (24/08/2026), em dado real.** Duas contas criadas às 21:53
+e 21:54, com "Teste Isolamento A" e "Teste Isolamento B" digitados no campo
+"Nome da empresa":
+
+```
+c20873ac-005b-4b39-ac92-1452bfa74e7f | joao+teste1 | joao+teste1@all4pay.com.br
+5350fc34-88e1-4c32-b0b2-39dd6e45b6a3 | joao+teste2 | joao+teste2@all4pay.com.br
+```
+
+`organizations.name` guardou o **local-part do e-mail**, caractere por
+caractere. Na PRIMEIRA tela que o cliente vê.
+
+### O escritor real: o gatilho, e ele já estava certo
+
+| candidato | veredito |
+| --- | --- |
+| `CriarContaView.tsx:54` | grava o nome no **localStorage** e não o envia |
+| `lib/entrada.ts:87` | chamava `signUp({email, password})` — **sem metadados** |
+| **`handle_new_user()`** (gatilho em `auth.users`) | **o único escritor** |
+
+```sql
+v_name := coalesce(
+  nullif(new.raw_user_meta_data->>'company', ''),        -- ① o caminho certo
+  nullif(split_part(coalesce(new.email,''),'@',1), ''),  -- ② gravou joao+teste1
+  'Minha empresa');
+```
+
+⚠️ **O caminho certo existia desde a migration 0005 e ninguém o alimentava.**
+`auth.signUp` só preenche `raw_user_meta_data` por `options.data`, e as quatro
+portas de cadastro chamavam `signUp` sem ele. Consertar só o front faria o nome
+chegar HOJE e o defeito voltar na primeira porta nova que esquecesse — o ramo
+② continuaria ali, gravando um nome plausível em silêncio.
+
+⚠️ **A medição achou DOIS defeitos a mais que o relato não citava.** Rodando os
+dois `coalesce` lado a lado sobre os mesmos casos:
+
+| caso | novo | antigo |
+| --- | --- | --- |
+| acento, espaço, caixa | `Açaí do João LTDA` | `Açaí do João LTDA` |
+| bordas com espaço | `Açaí do João LTDA` | `␣␣␣Açaí do João LTDA␣␣␣` |
+| `company` vazio | `Minha empresa` | **`joao+teste1`** |
+| `company` só espaço | `Minha empresa` | `␣␣␣` |
+| sem `company` | `Minha empresa` | **`joao+teste1`** |
+
+O antigo **não aparava as bordas** e aceitava um nome só de espaços.
+
+### A quarta porta, e por que o compilador não a viu
+
+Tornar `empresa` um parâmetro **obrigatório** de `criarContaEEntrar` fez o
+typecheck nomear duas portas. A terceira — `OnboardingPessoal` — **não
+apareceu**, porque chamava `supabase.auth.signUp` direto, por fora do ajudante.
+⚠️ **Um tipo só alcança quem passa pelo ajudante; quem desvia dele fica
+invisível.** É o defeito que o comentário do wizard já advertia: enquanto forem
+duas implementações, o conserto chega numa e não na outra. Daí a guarda ter uma
+asserção de **teto zero** sobre `auth.signUp` fora de `lib/entrada`.
+
+### Por que o último recurso FICA
+
+`handle_new_user` dispara em `auth.users`: se levantar exceção, **o cadastro
+inteiro falha** — inclusive por caminhos que este repositório não controla
+(convite, painel do Supabase, provedor externo). Trocar "o nome vem errado" por
+"ninguém cria conta" é infinitamente pior. O recurso é `'Minha empresa'`: um
+rótulo que se ANUNCIA como provisório, ao contrário de `joao+teste1`, que se
+disfarça de escolha. **A recusa do vazio mora na tela**, onde há alguém para
+responder.
+
+### As duas metades da guarda
+
+Uma sozinha deixa metade do caminho descoberta — a lição de "instrumentação sem
+consumidor":
+
+- **`scripts/cadastro-nome.sql`** (job `isolamento` + rodável em qualquer
+  Postgres): cria o usuário por `auth.users` — **nunca** por INSERT em
+  `organizations`, que testaria um caminho que ninguém percorre. **Cada caso em
+  savepoint próprio**, e todos usando DE PROPÓSITO o mesmo e-mail: reusar o
+  valor único é o que torna o isolamento auto-verificável.
+- **`scripts/cadastro-nome.mts`** (no `npm test`): teto zero de `auth.signUp`
+  fora do ajudante, `empresa` obrigatório, as três portas passando um nome de
+  verdade, o vazio recusado no campo, e a migration sem o ramo do e-mail.
+  **Provada quebrando cinco defeitos.**
+
+⚠️ **E o teste negativo cobra que o VERMELHO NOMEIE o defeito.** Na primeira
+execução a guarda ficou vermelha por `duplicate key` — a asserção auditada nem
+chegou a rodar. Agora ela captura o `SQLERRM` e reprova se o texto não for o da
+asserção do nome. Medido, com a derivação reintroduzida no gatilho:
+
+```
+NOTICE:  caso 1 OK — acento, espaço e caixa chegam literais: "Açaí do João LTDA"
+NOTICE:  caso 2 OK — bordas aparadas, miolo intacto: "Açaí do João LTDA"
+ERROR:   A4P-085 NOME DERIVADO DO E-MAIL: esperado um nome que não venha do
+         e-mail, recebido "joao+teste1" (o local-part de joao+teste1@all4pay.com.br)
+exit: 3
+```
+
+E o verde, com a migration restaurada — os quatro casos mais o negativo
+confirmando que a asserção dispara:
+
+```
+NOTICE:  caso 3 OK — sem `company`, o nome não veio do e-mail: "Minha empresa"
+NOTICE:  caso 4 OK — `company` em branco cai no recurso declarado: "Minha empresa"
+NOTICE:  teste negativo OK — o vermelho nomeia o defeito: A4P-085 NOME DERIVADO DO E-MAIL: …
+exit: 0
+```
+
+---
+
+## Varredura da classe "a tela escreve, ninguém lê" (A4P-085, etapa 4)
+
+**Método:** as 22 chaves do estado `db` do passo 1 do wizard extraídas do
+próprio código; para cada uma, leitores fora de `components/onboarding/` e
+`components/entrada/`, por **acesso de propriedade** (`\.campo\b`) E por
+**chave em string** (`"campo"`), porque telas genéricas leem por string.
+
+⚠️ A primeira passada usou substring e foi descartada: `ie` e `im` casam dentro
+de palavras e `porte` casa em "transporte" — a mesma lição do `\b` que já
+custou caro aqui.
+
+| tela | campo | escrito em | lido por | veredito |
+| --- | --- | --- | --- | --- |
+| Onboarding p1 | `ie` (inscr. estadual) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — e ele é exigido em NF-e/NFS-e |
+| Onboarding p1 | `im` (inscr. municipal) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — idem, para serviço |
+| Onboarding p1 | `repCargo` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `exportadora` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `repCpf` | `a4p_company.db` | só `/admin` | lido, mas só no backoffice |
+| Onboarding p1 | `repEmail` · `repTelefone` | `a4p_company.db` | `/admin` + Configurações | OK |
+| Onboarding p1 | os 15 restantes | `a4p_company.db` | 1 a 23 leitores | OK |
+
+### A metade que faltava: o lado do BANCO
+
+⚠️ **A primeira varredura foi só do front, e por isso não teria achado o
+próprio A4P-085.** O defeito morava num gatilho: a tela gravava e o `coalesce`
+do servidor decidia. Nenhum `grep` em `src/` alcança isso — a classe "a tela
+coleta e ninguém lê" tem uma irmã, "a tela manda e o banco troca", e ela é
+invisível de onde eu estava olhando.
+
+**Método (SQL sobre o catálogo de produção, não sobre o repositório):**
+
+1. todo gatilho não interno em tabela de `public` — **78**;
+2. o corpo de cada função de gatilho varrido por `new\.<coluna> :=`, que é a
+   forma exata de "o servidor decide por cima do que a app mandou" — **15
+   atribuições**;
+3. cada uma confrontada com o que a app escreve naquele campo.
+
+| tabela | gatilho | coluna sobrescrita | veredito |
+| --- | --- | --- | --- |
+| `approvals` | `approvals_segregacao` | `approver_id` · `decided_at` | **carimbo deliberado** — sem ele o cliente informa quem aprovou |
+| `approvals` | `approvals_solicitante` | `requester_id` | idem |
+| `movements` | `central_maquina` | `confirmado_em/por` · `baixado_em/por` | carimbo da máquina de estados |
+| `movements` | `titulo_exige_origem` | `origem` | **só `coalesce`** — nunca sobrescreve valor informado, e RECUSA quando falta |
+| `own_*` (5 tabelas) | `own_touch` | `atualizado_em` | carimbo de tempo |
+| `subscriptions` | `subscriptions_mrr_derivado` | `mrr` · `updated_at` | **derivado por desenho** — a app só EXIBE o MRR, e `admin_set_subscription` nem aceita o parâmetro |
+
+**Nenhum defeito novo desta classe.** O que separa `handle_new_user` de todos
+estes é que ele **inventava** um valor a partir de outro campo, com cara de
+escolha do usuário; os quinze acima ou carimbam autoria/tempo (que o cliente
+não pode declarar), ou derivam de dado que já está na linha, ou apenas
+completam um vazio recusando o resto.
+
+**Sobrescrita depois de gravado: nada encontrado.** Os 15 pontos de
+`saveCompany`/`persistCompany` foram conferidos com 8 linhas de contexto — os
+quatro que a heurística de uma linha acusou (`ConfiguracoesView`, duas no
+wizard, uma no PF) são legítimos: preservam por spread ou são donos do objeto
+inteiro. ⚠️ Publicar aqueles quatro como achado teria sido o falso positivo que
+ensina a ignorar a lista.
+
+**Não consertados** — a etapa pedia listar, e cada um exige decisão de produto:
+`ie`/`im` só valem com a tela fiscal que os consuma; `repCargo` e `exportadora`
+podem simplesmente sair do formulário, que é o conserto mais honesto para um
+campo que ninguém lê.
+
+---
+
+## ✓ A REGRA 5 PAGANDO — org nova nasce com alçada e com trial
+
+**Fechado, provado FORA de fixture.** As duas organizações criadas em produção
+em 24/08 (as mesmas do A4P-085) nasceram com:
+
+| org | alçadas | assinaturas | status | categorias do seed |
+| --- | --- | --- | --- | --- |
+| `c20873ac…` | **8** | 1 | `trial` | 12 |
+| `5350fc34…` | **8** | 1 | `trial` | 12 |
+
+O defeito "**org nova nasce com teto 0 em todos os papéis — nada aprovável — e
+não consegue confirmar um único título no primeiro dia**" (P-19 Bloco 3, achado
+pela guarda de banco que a própria sessão escreveu) **não existe mais**, e a
+prova é dado real, não fixture montada.
+
+⚠️ **Vale nota porque foi a QUINTA REGRA pagando:** *todo default de
+configuração nasce por seed E por gatilho*. O seed cobriu as organizações que
+existiam no dia da migration; o gatilho `organizations_central_alcada` é o que
+cobre estas duas, criadas semanas depois. Com só a metade do seed, elas teriam
+nascido exatamente com o defeito original — e ninguém veria, porque nenhum dado
+existente o exibia.
+
+---
+
+## ⚠️ BLOCO 3 — o inventário da Central, e três coisas que o contexto não dizia
+
+**Medido em 25/08/2026, antes de escrever uma linha de tela.**
+
+| dado | esperado | medido |
+| --- | --- | --- |
+| `central_alcada` | 160 (8×20) | **176** (8 papéis × **22** orgs) — o gatilho segue criando |
+| `central_transicoes` | histórico | **0 linhas.** Nada jamais transitou |
+| situações em uso | a máquina completa | só `previsto`, `baixado`, `cancelado` em 2230 movimentos |
+| `lancado_por` | quem lançou | **NULL em 2230 de 2230** |
+| `confirmado_por` | quem confirmou | **0** |
+
+⚠️ **A máquina nunca rodou em produção.** `central_transicoes` vazia e zero
+`confirmado` não são "pouco uso": são a máquina inteira nunca exercitada. Tudo
+que existe hoje foi posto pelo backfill.
+
+### `central_maquina()` é GATILHO, não função chamável
+
+`BEFORE UPDATE` em `movements`, e **só age quando `situacao` muda**. "Todo
+escritor chama `central_maquina()`" é impossível de implementar — a tela faz
+`UPDATE movements SET situacao=…` e o gatilho intercepta.
+
+⚠️ **As recusas não têm errcode próprio.** São `raise exception` sem `using
+errcode`, portanto **SQLSTATE `P0001`**; `A4P-CENTRAL`, `-SEGREGACAO`,
+`-PERMISSAO` e `-ALCADA` são **prefixo de MENSAGEM**. A tela escolhe o texto em
+português lendo esse prefixo — acoplamento a texto, registrado como dívida.
+Errcode por recusa é o certo e não é agora.
+
+### Os escritores não eram quatro — três estão no BANCO
+
+A varredura de código achava 4 caminhos gravando `status`. O catálogo mostra
+mais três, invisíveis a qualquer `grep` em `src/`: **`conciliar_movimentos`**
+(escreve `status='cancelado'`), **`estornar_conciliacao`** (escreve `status`) e
+**`estornar_lancamento`** (INSERE com `status`). Mais os leitores
+`org_movements`, `org_consolidado`, `admin_org_detail`, `estornar_baixa` e —
+o mais sensível — **`digest_do_periodo`, que assina o hash do fechamento com o
+`status`**.
+
+⚠️ É a terceira vez que "o escritor real está no banco" muda um diagnóstico
+(A4P-085, a varredura da classe, agora esta). O `grep` no front responde por
+metade do sistema.
+
+### `status` × `situacao`: a derivação reproduz o acervo, exatamente
+
+`status` é o enum `movement_status` (3 valores) e é **estritamente mais grosso**
+que `situacao` (6). A derivação `baixado|conciliado→pago`,
+`previsto|confirmado→pendente`, `cancelado|estornado→cancelado` foi conferida
+linha a linha: **2230 de 2230 batem, zero divergência** — então as assinaturas
+de `digest_do_periodo` não mudam. Nenhum leitor precisa de granularidade que
+`situacao` não tenha; o par `previsto`/`confirmado` que hoje é indistinguível é
+justamente o que a Central acrescenta.
+
+**Recomendação registrada:** derivar `status` de `situacao` **por gatilho
+agora**, `GENERATED` depois. Remover `status` custaria migrar **264 leituras em
+51 módulos** — a maioria comparação crua em vez do `liquidado()` canônico, ou
+seja, a ONDA 1 inacabada. E `GENERATED STORED` recusa escrita, o que obrigaria
+a converter as três RPCs do banco na mesma migration: big-bang no meio do
+bloco.
+
+---
+
+## ⚠️ DÍVIDA DECLARADA — confirmar exige `lancar` pela RLS, não `aprovar`
+
+A política **restritiva** `movements_escrita_exige_papel` cobra
+`tem_permissao('lancar')` em **ALL** — inclusive no UPDATE que confirma. Um
+papel desenhado para **aprovar sem lançar** é barrado pela RLS **antes** de a
+máquina rodar.
+
+**Medido**, com o papel plantado num Postgres real:
+
+```
+SQLSTATE 42501 | new row violates row-level security policy
+                 "movements_escrita_exige_papel" for table "movements"
+```
+
+⚠️ **E a recusa não fala a língua do produto.** A tela lê o prefixo
+`A4P-CENTRAL-*` sobre `P0001`; **este caso é `42501` e não é alcançado por
+esse tratamento** — cai no texto genérico, citando o nome de uma política
+interna a quem só queria aprovar um título.
+
+Hoje não trava ninguém: `owner`, `admin` e `aprovador` têm `lancar`. **Não foi
+consertado de propósito** — o conserto muda QUEM PODE CHAMAR O QUÊ. Virou
+teste em `scripts/central-maquina.sql`, que afirma sobre o que está ERRADO
+hoje: se o acoplamento se soltar sozinho, a guarda acusa e manda atualizar esta
+dívida.
+
+---
+
+## ✓ R1 para a empresa de uma pessoa — permitida e CARIMBADA
+
+Decisão do dono. `central_transicoes` ganhou `autoaprovacao boolean`, e a
+máquina passou a perguntar se existe **outro membro habilitado a aprovar**
+(por `role_permissions`, nunca pela alçada).
+
+**Provado nas duas metades, num Postgres real:**
+
+```
+ORG COM DOIS  → RECUSADO: A4P-CENTRAL-SEGREGACAO: quem lançou não pode
+                confirmar o próprio título
+ORG SOZINHA   → ACEITO · autoaprovacao=t · motivo=org com um único membro
+                habilitado a aprovar
+```
+
+⚠️ **R1 nunca fica desligado e não há interruptor por organização** — ver a
+regra no `CLAUDE.md`: controle que o quadro de membros liga e desliga some sem
+evento, e um fraudador o desativa removendo um colega.
+
+---
+
+## ⚠️ A4P-086 — PRODUÇÃO NÃO RECEBIA MIGRATION HÁ SEIS DIAS, e o defeito é o PIPELINE
+
+**Medido em 25/08/2026:** `supabase_migrations.schema_migrations` parada em
+**20260819180000**, total **90**, contra **91 arquivos** no repositório.
+
+⚠️ **E o backlog era exatamente DUAS migrations**, não um acúmulo — as duas
+escritas nos dois dias anteriores. Nada mais antigo estava faltando; a única
+aplicada sem arquivo é a dívida já declarada (`own_token_cache`, criada pelas
+Edge Functions fora do repositório). A impressão de "o caminho inteiro parou"
+era verdadeira sobre o PIPELINE e falsa sobre o VOLUME — e a diferença importa,
+porque um backlog de duas se aplica em minutos e um de trinta é outra conversa.
+
+### O ensaio antes de aplicar (oitava regra), e o que ele provou
+
+Cada migration passou por `begin; … rollback;` contra produção, **e o rollback
+foi CONFERIDO por SELECT depois** — não bastou "não deu erro":
+
+| migration | ensaio | conferência do rollback |
+| --- | --- | --- |
+| `20260824220000_nome_da_empresa_do_cadastro` | passou | `handle_new_user` voltou a ter o ramo do e-mail ✓ |
+| `20260825140000_central_autoaprovacao_carimbada` | passou | coluna e função não persistiram ✓ |
+
+Nenhuma toca DML sobre os 2230 movimentos: são DDL e definição de função. O
+único `insert` está DENTRO do corpo do gatilho — execução, não migração.
+
+### Aplicadas, e a `version` do ARQUIVO
+
+⚠️ **`apply_migration` gera um timestamp NOVO**, e usá-lo descasaria a `version`
+do banco da do arquivo: a guarda do esquema passaria a acusar nos dois sentidos
+("aplicada sem arquivo" + "arquivo sem aplicação"). Aplicadas por
+`execute_sql` em transação própria, registrando em `schema_migrations` com a
+version do próprio nome do arquivo.
+
+**Depois:** última version **20260825170000**, total **93**, movimentos
+**2230 intactos**.
+
+### O caminho ouro passou a existir
+
+Com a autoaprovação no ar, o caminho inteiro foi exercitado em produção, em
+transação desfeita, como o dono da org de teste (um membro, `owner`):
+
+```
+1) LANCOU previsto
+2) CONFIRMOU (autoaprovacao=true, motivo=org com um único membro habilitado a aprovar)
+3) BAIXOU
+trilha = 2 transicoes
+```
+
+`central_transicoes` segue em **0** porque tudo foi desfeito e ninguém clicou —
+**não porque o banco recuse**. A distinção é a métrica inteira deste bloco.
+
+### Por que o merge não aplica: NÃO EXISTE PASSO NENHUM
+
+Não há passo manual não documentado — **não há passo**. O `ci.yml` não tem
+job de `db push`/`migration up`, e a Vercel publica o front sem tocar no banco:
+o `main` verde publica código novo contra um esquema velho, em silêncio.
+
+Para o merge aplicar sozinho seria preciso um job no `main` com credencial de
+migração (não o `ci_leitor`, que é somente leitura) rodando `supabase db push`
+com `--include-all`, **falhando fechado** e rodando DEPOIS do `verify` e ANTES
+do deploy da Vercel — senão volta a acontecer o que o A4P-075 já registrou: o
+código novo pousa antes do esquema que ele espera. Diagnóstico apenas; o
+pipeline não foi construído aqui.
+
+---
+
+## ⚠️ BLOCO 4 — o trial que o cliente JÁ via, e o número que vinha do lugar errado
+
+**Refutado em uma linha, medido antes de construir:** o `BannerAssinatura`
+existe, está montado no `AppShell` e a RPC `assinatura_da_org` devolve dado bom
+— `status=trial`, `fim=2026-09-07`. Das 22 organizações, **21 em trial, todas
+com `current_period_end` preenchido, nenhuma sem linha**. O cliente via, sim.
+
+⚠️ **O defeito real era outro, e é da família "instrumentação sem consumidor":
+a RPC JÁ devolvia `dias_restantes`** — `current_period_end - current_date`,
+contado pelo SERVIDOR — e `lib/assinatura.ts` **ignorava**, recalculando a
+partir do relógio do NAVEGADOR. O prazo de um contrato passava a depender de
+quem tem a máquina adiantada: o mesmo trial dizendo "faltam 8 dias" para um e
+"faltam 6" para outro, e quem está adiantado perde acesso antes.
+
+⚠️ **E o tom não escalava.** Eram duas cores — alarme durante o teste inteiro,
+vermelho depois. Um teste de 14 dias gritava desde o primeiro, e aviso que
+grita todo dia deixa de ser lido na semana em que importa. Agora são três:
+`calmo` enquanto o prazo é longo · `atenção` nos últimos 7 · `parado` quando a
+escrita suspendeu — e o `parado` DIZ o que continua funcionando (consultar,
+imprimir, exportar), porque quem está vencido já sabe que atrasou; o que ele
+não sabe é se perdeu o arquivo.
+
+Sem tela de pagamento: o botão leva a uma conversa. Um "Assinar agora" que abre
+um formulário que não existe é pior que um convite honesto.
+
+---
+
+## A GUARDA DE AUTORIZAÇÃO DA CENTRAL — seis casos, e o gabarito veio de produção
+
+`scripts/central-autorizacao.sql`, no job `isolamento`. Cada caso em **savepoint
+próprio**, todos reusando os mesmos valores únicos de propósito — reusar é o que
+torna o isolamento auto-verificável.
+
+⚠️ **O caso 6 tem gabarito REAL:** em 25/08 a organização de um único membro
+registrou `previsto→confirmado` com `autoaprovacao=true` e motivo *"org com um
+único membro habilitado a aprovar"*. A asserção cobra o CARIMBO — **aceitar sem
+carimbar é a falha**, porque autoaprovação silenciosa é pior que a recusa.
+
+**Seis plantios, seis vermelhos**, cada um nomeando a própria asserção:
+
+```
+[1] CASO 1 FALHOU (R1): quem lançou CONFIRMOU o próprio título existindo outro
+    aprovador na org — a segregação não recusou.
+[2] CASO 2 FALHOU: o aprovador NÃO confirmou R$500 estando abaixo do teto…
+[3] CASO 3 FALHOU (alçada): CONFIRMOU R$50.000 com teto de R$10.000…
+[4] CASO 4 FALHOU (máquina): previsto foi DIRETO a conciliado…
+[5] CASO 5 FALHOU (isolamento): o usuário de OUTRA org ALCANÇOU o título alheio…
+[6] CASO 6 FALHOU: confirmou mas NÃO carimbou autoaprovacao (autoaprovacao=f)
+```
+
+⚠️ **Três deles só ficaram assim depois de um conserto na própria guarda**, e o
+defeito é reutilizável: um `raise exception 'CASO N FALHOU'` DENTRO do bloco
+`begin/exception` é engolido pelo próprio handler, e a guarda passa a reportar
+*"vermelho pelo motivo errado"* sobre a sua própria asserção. O padrão certo é
+**marcar o resultado numa variável e julgar FORA** do bloco protegido.
+
+⚠️ **E dois plantios iniciais não pegaram nada**: os casos 2 e 3 SEMEIAM a
+própria alçada com `on conflict do update`, então plantar pelo DADO é
+sobrescrito pela guarda. Plantar tem de ser no CÓDIGO — nas funções.
+
+---
+
+## ⚠️ O JOB DE MIGRATION EXISTE, E O QUE ELE NÃO GARANTE
+
+`migrar` entra no `ci.yml`: só no `main`, `needs: verify` (o banco nunca recebe
+migration de commit que a suíte reprovou), `supabase db push --include-all`,
+**falha fechada inclusive sem o segredo** — um job que pula sem credencial é um
+job que não roda, que foi o defeito da ONDA 2. E confere o resultado contando
+arquivos contra `schema_migrations`, em vez de ler "não deu erro".
+
+⚠️ **A credencial NÃO é o `ci_leitor`** — ele é somente leitura de propósito, e
+é isso que permite deixá-lo no CI sem dar escrita a todo PR.
+
+⚠️ **ORDENAÇÃO: não dá para garantir que ele rode ANTES do deploy, e isso fica
+dito.** A Vercel publica pelo GIT, no mesmo push, **em paralelo** com o CI —
+não existe `needs:` que alcance um deploy que o GitHub não dispara. O job
+aplica o esquema o quanto antes, mas não impede o código de pousar primeiro,
+que é o A4P-075 outra vez. Fechar exige decisão de plataforma: desligar a
+integração Git da Vercel e publicar a partir do CI (`vercel deploy --prebuilt`)
+depois deste job, ou segurar o build pelo Ignored Build Step.
+

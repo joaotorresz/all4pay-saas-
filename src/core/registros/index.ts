@@ -34,6 +34,15 @@ export interface ContaBancaria {
   numero: string;
   dataSaldoInicial: string;
   saldoInicial: number;
+  /**
+   * ⚠️ **A CONFIRMAÇÃO EXPLÍCITA de que `saldoInicial`/`dataSaldoInicial` são um
+   * saldo de abertura REAL** — não o preenchimento padrão do formulário (que
+   * nasce `0` na data de hoje). Só quando `true` a conta vira a fonte
+   * "informada" da abertura conferida (ver `core/indicadores/abertura`). Sem
+   * isso, um `0` de fábrica fingiria uma abertura que ninguém declarou, e o
+   * Razão diria "conferido" sobre uma conta que ninguém fechou.
+   */
+  saldoInicialConferido?: boolean;
   /** Código da conta no Domínio — sai no TXT contábil. */
   codigoContabil: string;
   /** Só para cartão de crédito (1–31). */

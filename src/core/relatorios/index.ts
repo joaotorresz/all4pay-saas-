@@ -20,6 +20,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { dataDe } from "@/core/indicadores/convencoes";
 
+import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
 
 /* ================================= período ================================= */
@@ -99,6 +100,15 @@ export interface LinhaEstrutura {
   formula?: { id: string; sinal: 1 | -1 }[];
   /** Para `soma`: o classificador que decide se um movimento cai aqui. */
   casa?: (m: RiskMovement) => boolean;
+  /**
+   * ⚠️ **O que cai nesta linha, em português, para quem NÃO lê código.** O
+   * `casa` acima é a verdade executável e é ilegível fora daqui; esta frase é o
+   * que a página pública de metodologia publica. As duas descrevem a MESMA
+   * regra, e há guarda exigindo que toda linha de soma tenha a sua — sem isso a
+   * próxima linha nova nasce sem explicação e a metodologia publicada fica
+   * descrevendo um DRE que já mudou.
+   */
+  entra?: string;
 }
 
 const cat = (m: RiskMovement) => (m.category ?? "").toLowerCase();
@@ -181,10 +191,14 @@ export const LINHA_TRANSFERENCIA = "transferencia";
 export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   {
     id: "receita_bruta", label: "Receita Bruta Operacional", tipo: "soma", sinal: "+", nivel: 1,
+    entra:
+      "Toda ENTRADA de dinheiro que não seja financeira nem não operacional: venda de produto, prestação de serviço, mensalidade, assinatura. Rendimento de aplicação e venda de ativo NÃO entram aqui.",
     casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m),
   },
   {
     id: "deducoes", label: "Dedução sobre Produtos e Serviços", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "SAÍDAS de imposto sobre a venda (ISS, ICMS, PIS, COFINS, IPI, DAS, INSS) e devoluções, descontos concedidos, reembolsos, estornos, chargebacks e vendas canceladas. IRPJ e CSLL ficam de fora: são imposto sobre o LUCRO e entram bem mais abaixo, depois do EBITDA.",
     /*
      * ⚠️ **`!ehImpostoLucro` — sem ele a linha `impostos_lucro` era INALCANÇÁVEL.**
      *
@@ -213,6 +227,8 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "custos_variaveis", label: "Custos Variáveis", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "O custo do que foi vendido: CMV, mercadoria, insumo, compra de fornecedor, frete, embalagem, custo de produção. É o que só existe porque houve venda.",
     casa: (m) => saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && ehCustoVariavel(m),
   },
   {
@@ -221,6 +237,8 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "despesas_variaveis", label: "Despesas Variáveis", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "O que varia com a venda mas não é custo do produto: comissão, taxa de gateway, adquirente e plataforma, antecipação de recebível, marketing, anúncios e tráfego pago.",
     casa: (m) => saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && !ehCustoVariavel(m) && ehDespesaVariavel(m),
   },
   {
@@ -229,6 +247,8 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "despesas_operacionais", label: "Despesas Operacionais", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "A estrutura que existe independentemente de vender: folha, pró-labore, aluguel, contabilidade, software, utilidades. Tudo que sai e não foi classificado nas linhas acima nem é financeiro, imposto sobre o lucro, não operacional ou depreciação.",
     // ⚠️ D&A sai DAQUI e ganha linha própria abaixo do EBITDA. Enquanto ela
     // ficava aqui dentro, o "EBITDA" já vinha líquido de depreciação — era EBIT.
     casa: (m) => saida(m) && !ehImpostoVenda(m) && !ehDevolucao(m) && !ehCustoVariavel(m)
@@ -241,6 +261,8 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "depreciacao_amortizacao", label: "Depreciação e Amortização", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "Depreciação e amortização. Fica FORA do EBITDA de propósito — o E de EBITDA é justamente 'antes' dela; enquanto ela estava misturada nas despesas operacionais, o número chamado EBITDA era na verdade EBIT.",
     casa: (m) => saida(m) && ehDepreciacao(m),
   },
   {
@@ -249,15 +271,21 @@ export const ESTRUTURA_DRE: LinhaEstrutura[] = [
   },
   {
     id: "resultado_financeiro", label: "Resultado Financeiro", tipo: "soma", sinal: "+/-", nivel: 1,
+    entra:
+      "Juros pagos e recebidos, tarifa bancária, IOF, encargos de financiamento e empréstimo, rendimento de aplicação. Entra nos DOIS sentidos, por isso o sinal é +/−.",
     // Entra com o SINAL do movimento: receita financeira soma, despesa subtrai.
     casa: (m) => ehFinanceiro(m) && !ehNaoOperacional(m),
   },
   {
     id: "impostos_lucro", label: "Impostos sobre o Lucro", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "IRPJ e CSLL — o imposto que incide sobre o resultado, não sobre a venda. Entra depois do EBIT porque ele só existe se houve lucro.",
     casa: (m) => saida(m) && ehImpostoLucro(m),
   },
   {
     id: "nao_operacional", label: "Resultado não Operacional", tipo: "soma", sinal: "+/-", nivel: 1,
+    entra:
+      "O que não vem da operação: venda de ativo e imobilizado, indenização, multa contratual. Separado para que um ganho eventual não seja lido como desempenho do negócio.",
     casa: (m) => ehNaoOperacional(m),
   },
   {
@@ -278,10 +306,14 @@ export const ESTRUTURA_DFC: LinhaEstrutura[] = [
   { id: "saldo_inicial", label: "Saldo Inicial", tipo: "total", sinal: "=", nivel: 1, formula: [] },
   {
     id: "entradas_operacionais", label: "Entradas Operacionais", tipo: "soma", sinal: "+", nivel: 1,
+    entra:
+      "Dinheiro que ENTROU na conta pela operação, na data do PAGAMENTO. Diferente da receita bruta do DRE, que olha a competência: uma venda faturada e ainda não recebida existe no resultado e não existe aqui.",
     casa: (m) => entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m),
   },
   {
     id: "saidas_operacionais", label: "Saídas Operacionais", tipo: "soma", sinal: "-", nivel: 1,
+    entra:
+      "Dinheiro que SAIU da conta pela operação, na data do pagamento. Uma conta lançada e ainda não paga aparece no DRE e não aparece aqui.",
     casa: (m) => saida(m) && !ehFinanceiro(m) && !ehNaoOperacional(m),
   },
   {
@@ -290,10 +322,14 @@ export const ESTRUTURA_DFC: LinhaEstrutura[] = [
   },
   {
     id: "fluxo_investimento", label: "Fluxo de Investimentos", tipo: "soma", sinal: "+/-", nivel: 1,
+    entra:
+      "Compra e venda de ativo, imobilizado e aplicação de longo prazo — dinheiro que muda de forma, não que se ganha ou se perde.",
     casa: (m) => ehNaoOperacional(m),
   },
   {
     id: "fluxo_financiamento", label: "Fluxo de Financiamentos", tipo: "soma", sinal: "+/-", nivel: 1,
+    entra:
+      "Empréstimo tomado ou pago, aporte de sócio, distribuição de lucro. É o dinheiro que entra e sai por decisão de capital, não por operação.",
     casa: (m) => ehFinanceiro(m),
   },
   {
@@ -386,6 +422,21 @@ export interface Relatorio {
   linhas: LinhaRelatorio[];
   /** Base da análise vertical, por coluna (receita bruta / entradas). */
   base: number[];
+  /**
+   * ⚠️ **AS COLUNAS SEM UM ÚNICO LANÇAMENTO — A4P-027.**
+   *
+   * O preset de 12 meses conta para trás a partir do mês corrente, então ele
+   * inclui meses anteriores ao primeiro lançamento da empresa. A coluna sai
+   * inteira em zero e a AV inteira em "—", e quem lê não distingue *"não houve
+   * movimento"* de *"o relatório não conseguiu calcular"* — as duas viram o
+   * mesmo travessão.
+   *
+   * ⚠️ A janela NÃO é estreitada em silêncio. Começar no primeiro mês com
+   * movimento entregaria 11 colunas sob um filtro que diz "12 meses" — trocar
+   * o período que a pessoa pediu sem avisar é outra forma da mesma mentira.
+   * Aqui a coluna FICA e é NOMEADA; a tela a marca.
+   */
+  colunasSemDado: string[];
 }
 
 /**
@@ -606,7 +657,19 @@ export function montarRelatorio(
     return { id: l.id, label: l.label, nivel: 1, sinal: l.sinal, tipo: l.tipo, ...c, filhos };
   });
 
-  return { colunas, linhas, base };
+  /**
+   * Uma coluna é "sem dado" quando NENHUM lançamento do recorte caiu nela — não
+   * quando a soma dá zero. Um mês com +1.000 e −1.000 tem dado e resultado
+   * zero, e dizer que ele está vazio seria falso.
+   */
+  const comLancamento = new Set<number>();
+  for (const m of movs) {
+    const k = indice.get(mesDe(dataDoRegime(m, f.regime)));
+    if (k !== undefined) comLancamento.add(k);
+  }
+  const colunasSemDado = colunas.filter((_, k) => !comLancamento.has(k));
+
+  return { colunas, linhas, base, colunasSemDado };
 }
 
 export const montarDRE = (input: RiskInput, f: Omit<FiltroRelatorio, "regime">): Relatorio =>
@@ -888,7 +951,7 @@ export function montarFechamento(
   };
 }
 
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) => formatBRL(n);
 
 /* ================================ orçamento ================================ */
 

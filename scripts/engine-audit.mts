@@ -5,12 +5,33 @@
  *
  *   npm run audit   (também roda dentro de npm test)
  */
+import { reconciliarBilling, estadoDaAssinatura, mrrDeAssinaturas } from "@/core/billing";
+import {
+  detectarColunas, validarMapeamento, assinaturaLayout,
+} from "@/core/ingestao/mapeamento";
+import {
+  podeAprovar, papelQueAprova, transicaoValida, TRANSICOES, montarFila, titulosDaVisao,
+  type Lancamento, type Aprovador,
+} from "@/core/central";
+import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
+import { refinarDocumento, podeVincularContraparte } from "@/core/compras/refino";
+import {
+  conciliar as conciliarExtrato, saude as saudeConcil, fila as filaConcil, TOLERANCIA_EXATA,
+} from "@/core/conciliacao";
+import {
+  montarFila as montarFilaIngestao, estadoVazio, loteDe, corrigir as corrigirFila,
+  decidir as decidirFila, aplicarLote, progresso as progressoFila, corrigirIguais,
+  proximoPendente, anterior as anteriorFila, paraGravar,
+} from "@/core/ingestao/fila";
+import { extrairCampos } from "@/lib/ocr-local";
+import { METODOLOGIAS, metodologiaDe, avisoDeSaturacao } from "@/core/metodologia";
 import { LedgerCore } from "@/core/platform/ledger-core";
 import { FinancialQueue } from "@/core/platform/queue";
 import { reconciliarAutomaticamente } from "@/core/financial-os/reconciliation.engine";
 import type { FinancialTransaction } from "@/core/financial-os/types";
 import { calcularRiskMatrix } from "@/core/decision/risk-matrix";
 import { parseTexto } from "@/core/fdip/engine";
+import { csvDeLinhas } from "@/core/fdip";
 // (parseTexto reusado abaixo para os guards de parsing pt-BR/OFX)
 import { TrilhaAuditoria, analisarMudanca } from "@/core/institutional/audit";
 import { montarFluxoCaixa } from "@/core/cashflow";
@@ -22,7 +43,12 @@ import {
   valorOuNulo, previstoNaJanela, projetadoNaJanela, vencidoEmAberto, canceladosNaJanela,
   coberturaCompetencia,
   janela as janelaCanonica,
+  reconciliarSaldo, escolherAbertura, aberturaDoExtrato,
 } from "@/core/indicadores";
+import { montarDataset } from "@/lib/fdip";
+import { analisarImportacao } from "@/core/fdip";
+import { importedAbertura } from "@/lib/imported";
+import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
 import { analisarInadimplencia } from "@/core/risk";
 import { scoreRiscoCaixa } from "@/core/risk-engine";
@@ -33,6 +59,9 @@ import { validateCPF, validateCNPJ, maskDoc } from "@/lib/validators";
 import { simularAquisicao, situacaoDe, taxaImplicita } from "@/core/aquisicao";
 import { extrairCNPJ, extrairCPF, categoriaPorCNAE, cnpjValido, normalizarCNAE } from "@/core/cnae";
 import { aplicarRegras, regraCasa, nucleoContraparte, sugerirRegra, type RegraCategorizacao, type AlvoRegra } from "@/core/regras";
+import { readFileSync } from "node:fs";
+import { rotuloSituacao } from "@/core/movimentacoes";
+import { regimeConfigurado, alertaDuplicidadeImpostoLucro } from "@/core/tax/duplicidade";
 import { brlParts, formatBRL } from "@/lib/format";
 import { periodosPorVencimento, periodosComValores } from "@/core/movimentacoes/periodos";
 import { linhasDREdaNatureza, linhaDREvalida } from "@/core/registros";
@@ -327,7 +356,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     rm({ type: "saida", amount: 2000, paid_date: "2026-07-08", category: "Comissão" }), // NÃO é imposto (iss ⊂ comissão)
   ] } as RiskInput;
   const r = responderLocal("qual minha receita líquida?", inp);
-  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
+  ok("receita líquida = bruta − impostos, sem contar comissão (7000)", !!r && /R\$.?7\.000/.test(r.resposta) && /menos R\$.?3\.000,00 de impostos/.test(r.resposta), r?.resposta?.slice(0, 60));
   const rc = responderLocal("qual minha carga tributária?", inp);
   ok("carga tributária = impostos ÷ receita (30%), sem comissão", !!rc && /\b30%/.test(rc.resposta), rc?.resposta?.slice(0, 60));
   // EBITDA exclui o resultado financeiro: receita 10000 − Fornecedores 3000 − Comissão 2000 = 5000; Impostos 3000 é despesa operacional → entra
@@ -546,7 +575,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ] } as RiskInput;
   const gm = responderLocal("quanto gastei com mercado?", inpPF);
   const so = responderLocal("quanto sobrou esse mês?", inpPF);
-  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
+  ok("PF: gasto por categoria pessoal (Mercado = 1500)", !!gm && /pagos R\$.?1\.500,00 em Mercado/.test(gm.resposta), gm?.resposta?.slice(0, 50));
   ok("PF: resultado do mês (6000 − 2700 = 3300 sobrou)", !!so && /sobrou R\$.?3\.300/.test(so.resposta), so?.resposta?.slice(0, 50));
 }
 
@@ -4780,6 +4809,1511 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("permissao: o contador externo FECHA sem LANÇAR",
      MATRIZ_DEMO.contador_externo.includes("fechar")
      && !MATRIZ_DEMO.contador_externo.includes("lancar"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ABERTURA CONFERIDA — a cascata, e a regra "NUNCA a primeira linha do extrato"
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// `reconciliarSaldo` só fecha com fonte INDEPENDENTE da abertura. Esta guarda
+// prova a CASCATA (arquivo > cadastro > nada) e a reconstrução do saldo a partir
+// do `<LEDGERBAL>` do banco — não da primeira transação. Provada quebrando:
+// trocar `escolherAbertura` para preferir a informada, ou `aberturaDoExtrato`
+// para somar em vez de subtrair o líquido, reprova aqui.
+{
+  // 1) A CASCATA, pura. Importada vence informada; informada vence o nada.
+  const imp = { valor: 4300, data: "2024-01-31" };
+  const inf = { valor: 999, data: "2024-02-02", por: "Ana" };
+  ok("abertura: importada VENCE informada",
+     escolherAbertura({ importada: imp, informada: inf })?.origem === "extrato_bancario");
+  ok("abertura: só informada → informada (com o nome de quem confirmou)",
+     escolherAbertura({ informada: inf })?.origem === "cadastro_manual"
+     && escolherAbertura({ informada: inf })?.por === "Ana");
+  ok("abertura: nenhuma fonte → null (NÃO CONFERIDO)",
+     escolherAbertura({}) === null && escolherAbertura({ importada: null, informada: null }) === null);
+
+  // 2) O saldo de abertura é o DECLARADO menos o líquido — não uma linha.
+  ok("abertura: aberturaDoExtrato = declarado − líquido",
+     aberturaDoExtrato(5000, 700, "2024-01-31").valor === 4300);
+  ok("abertura: líquido negativo eleva a abertura (5000 − (−300) = 5300)",
+     aberturaDoExtrato(5000, -300, "2024-01-31").valor === 5300);
+
+  // 3) O PARSER lê o <LEDGERBAL> (campo de saldo), com sinal, e NÃO uma transação.
+  const OFX = [
+    "<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKTRANLIST>",
+    "<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20240110<TRNAMT>1000.00<FITID>a1<MEMO>Venda Alpha</STMTTRN>",
+    "<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20240120<TRNAMT>-300.00<FITID>a2<MEMO>Fornecedor Beta</STMTTRN>",
+    "</BANKTRANLIST><LEDGERBAL><BALAMT>5000.00<DTASOF>20240131</LEDGERBAL>",
+    "</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>",
+  ].join("\n");
+  const parsed = parseTexto(OFX);
+  ok("abertura: parser captura o saldo declarado do banco",
+     parsed.saldoDeclarado?.valor === 5000 && parsed.saldoDeclarado?.data === "2024-01-31");
+  ok("abertura: BALAMT negativo preserva o sinal (cheque especial)",
+     parseTexto(OFX.replace("<BALAMT>5000.00", "<BALAMT>-1500.00")).saldoDeclarado?.valor === -1500);
+
+  // 4) INTEGRAÇÃO: montarDataset usa o LEDGERBAL como saldo da conta e reconstrói
+  //    a abertura; a reconciliação FECHA. ⚠️ A abertura (4300) NÃO é o valor da
+  //    primeira transação (1000) — é o que prova a regra "nunca a primeira linha".
+  const rep = analisarImportacao(OFX);
+  const ds = montarDataset(rep);
+  ok("abertura: montarDataset — saldo da conta = LEDGERBAL",
+     ds.accounts[0]?.balance === 5000);
+  ok("abertura: montarDataset — abertura reconstruída = 4300, fonte importada",
+     ds.abertura?.valor === 4300 && ds.abertura?.origem === "extrato_bancario");
+  ok("abertura: 4300 NÃO é o valor de nenhuma transação (não veio da 1ª linha)",
+     !rep.records.some((r) => Math.abs(r.valor - (ds.abertura?.valor ?? 0)) < 0.005));
+
+  const movs: RiskMovement[] = ds.movements.map((m) => ({
+    id: m.id, type: m.type, status: m.status, amount: m.amount,
+    due_date: m.due_date, paid_date: m.paid_date ?? null, party_id: m.party_id ?? null,
+  }));
+  const inputConf: RiskInput = {
+    hoje: "2026-08-17", saldoAtual: ds.accounts[0].balance, movements: movs,
+    horizonDias: 60, aberturaVerificada: ds.abertura,
+  };
+  const recConf = reconciliarSaldo(inputConf);
+  ok("abertura: com LEDGERBAL a reconciliação FECHA (resíduo zero)",
+     recConf.fecha && recConf.residuo === 0, `residuo ${recConf.residuo} fecha ${recConf.fecha}`);
+  ok("abertura: a origem nomeia o banco e a data",
+     recConf.aberturaOrigem === "informado pelo banco em 31/01/2024", recConf.aberturaOrigem);
+
+  // 5) SEM declaração (CSV / OFX sem LEDGERBAL): abertura null, NÃO CONFERIDO.
+  const semBal = OFX.replace(/<LEDGERBAL>[\s\S]*?<\/LEDGERBAL>/i, "");
+  const dsSem = montarDataset(analisarImportacao(semBal));
+  ok("abertura: sem LEDGERBAL, abertura null e saldo derivado dos lançamentos",
+     dsSem.abertura === null && dsSem.accounts[0].balance === 700);
+  const recSem = reconciliarSaldo({
+    hoje: "2026-08-17", saldoAtual: dsSem.accounts[0].balance,
+    movements: dsSem.movements.map((m) => ({
+      id: m.id, type: m.type, status: m.status, amount: m.amount,
+      due_date: m.due_date, paid_date: m.paid_date ?? null, party_id: m.party_id ?? null,
+    })),
+    horizonDias: 60,
+  });
+  ok("abertura: sem fonte, NÃO CONFERIDO (não afirma que fecha)",
+     !recSem.aberturaVerificada && !recSem.fecha && recSem.aberturaOrigem === undefined);
+
+  // 6) A abertura importada persiste no dataset e volta pelo leitor.
+  setImported({ ...ds, criadoEm: new Date().toISOString() });
+  ok("abertura: importedAbertura devolve a abertura gravada",
+     importedAbertura()?.valor === 4300 && importedAbertura()?.origem === "extrato_bancario");
+  clearImported();
+
+  // 7) ⚠️ A METADE DA TELA. Em produção o saldo declarado pelo banco NÃO tem
+  //    onde ser guardado (`financial_accounts` não tem coluna), então a tela tem
+  //    de DIZER isso — senão ela mostra o banco confirmando um saldo e a pessoa
+  //    conclui que a conta ficou conferida. Guarda de valor sozinha aprovaria o
+  //    conserto pela metade, e é a metade da tela que a pessoa vê.
+  const revisao = readFileSync("src/components/upload/RevisaoImportacao.tsx", "utf8");
+  ok("abertura: a revisão da importação mostra o saldo declarado pelo banco",
+     revisao.includes("report.saldoDeclarado"));
+  ok("abertura: e DIZ, fora da demonstração, que o valor não é salvo",
+     /NÃO é salvo/.test(revisao) && revisao.includes("isDemo"));
+  ok("abertura: e aponta o caminho que funciona (declarar no cadastro da conta)",
+     /Contas banc[áa]rias/.test(revisao));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-078 — Simples + IRPJ/CSLL no mesmo mês: ALERTA, nunca provisão
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: a org tem `Simples Nacional` R$5.200/mês e `IRPJ / CSLL`
+// (R$75.982,66 em 9 meses) na MESMA competência. No Simples esses dois tributos
+// estão dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal.
+//
+// ⚠️ A asserção que carrega a decisão é a ÚLTIMA: `provisaoEstimada === 0`
+// SEMPRE. O enunciado original deste item pedia provisão parametrizada por
+// regime numa linha que, medida, já tinha lançamento real — provisionar teria
+// contado o imposto uma terceira vez.
+{
+  const LANC = [
+    { id: "d0e18291", competencia: "2025-10-20", valor: 7622.41 },
+    { id: "c5f4f355", competencia: "2025-11-20", valor: 9103.93 },
+    { id: "ee5e8f4d", competencia: "2025-12-20", valor: 7626.51 },
+  ];
+
+  // 1) Regime NÃO configurado é `null` — nunca um padrão que finge configuração.
+  ok("a4p078: sem cadastro, regime é null (vazio é vazio)",
+     regimeConfigurado({}).regime === null && regimeConfigurado(undefined).regime === null);
+  ok("a4p078: 'Simples Nacional' no cadastro vira simples, com o anexo",
+     regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).regime === "simples"
+     && regimeConfigurado({ regimeTributario: "Simples Nacional", anexoSimples: "IV" }).anexo === "IV");
+  // ⚠️ O anexo só existe DENTRO do Simples: guardá-lo num Presumido faria a tela
+  // dizer "Anexo IV" para quem não está no Simples.
+  ok("a4p078: anexo é descartado fora do Simples",
+     regimeConfigurado({ regimeTributario: "presumido", anexoSimples: "IV" }).anexo === null);
+
+  // 2) O alerta exige AS DUAS condições.
+  const simplesIV = regimeConfigurado({ regimeTributario: "simples", anexoSimples: "IV" });
+  const comAmbos = alertaDuplicidadeImpostoLucro(simplesIV, LANC);
+  ok("a4p078: Simples + lançamento no lucro → ACUSA duplicidade",
+     comAmbos.duplicidade && comAmbos.quantidade === 3
+     && Math.abs(comAmbos.total - 24352.85) < 0.005, `total ${comAmbos.total}`);
+  ok("a4p078: o aviso nomeia o DAS e manda conferir com a contabilidade",
+     /DAS/.test(comAmbos.aviso) && /contabilidade/i.test(comAmbos.aviso)
+     && /Anexo IV/.test(comAmbos.aviso));
+  ok("a4p078: Presumido com o MESMO lançamento NÃO acusa (lá o DARF é devido)",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({ regime: "presumido" }), LANC).duplicidade);
+  ok("a4p078: Simples SEM lançamento no lucro não acusa nada",
+     !alertaDuplicidadeImpostoLucro(simplesIV, []).duplicidade);
+  // ⚠️ Sem regime configurado NÃO se acusa duplicidade — acusar quem não
+  // declarou nada é o mesmo defeito do padrão que finge configuração, ao avesso.
+  ok("a4p078: sem regime configurado, não acusa",
+     !alertaDuplicidadeImpostoLucro(regimeConfigurado({}), LANC).duplicidade);
+
+  // 2b) A METADE DA TELA — sem ela o alerta existe no motor e não existe para
+  //     quem lê o DRE, que é onde a duplicidade aparece.
+  {
+    const limpar = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|\s)\/\/[^\n]*/g, " ");
+    const dre = limpar(readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8"));
+    const cad = limpar(readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
+    ok("a4p078: o DRE mostra o aviso de duplicidade",
+       /AvisoDuplicidadeImposto/.test(dre) && /alertaDuplicidadeImpostoLucro/.test(dre));
+    ok("a4p078: o cadastro NÃO nasce com regime presumido (vazio é vazio)",
+       /regime: ""/.test(cad) && !/regime: "presumido"/.test(cad));
+    ok("a4p078: o cadastro oferece o anexo, e só dentro do Simples",
+       /ANEXOS_SIMPLES/.test(cad) && /simples && \(/.test(cad));
+  }
+
+  // 3) A REGRA CENTRAL: nunca provisão sobre lançamento real.
+  for (const [nome, cfg] of [["simples", simplesIV], ["presumido", regimeConfigurado({ regime: "presumido" })],
+                             ["vazio", regimeConfigurado({})]] as const) {
+    ok(`a4p078: provisão estimada é ZERO (${nome}) — nunca soma sobre lançamento real`,
+       alertaDuplicidadeImpostoLucro(cfg, LANC).provisaoEstimada === 0);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-031 — a base da Análise Vertical, e o CONSUMIDOR dela
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// ⚠️ Medido: o motor aceita `baseVertical` (padrão Receita Líquida) e corta a
+// base insignificante desde o #99 — mas NENHUMA tela passava o parâmetro. A
+// escolha existia no motor e não existia para quem lê o relatório: parâmetro
+// sem consumidor, que é trabalho com cara de pronto.
+//
+// A metade do VALOR (o corte da base) e a metade da TELA (o seletor) são
+// cobradas juntas, pela regra das duas metades.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string, category: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category });
+
+  // Janela de 2 meses: um normal, outro com a receita desabada — o caso que
+  // produzia "Assinaturas / software 3451,4%".
+  const movs: RiskMovement[] = [
+    M("r1", "entrada", 100_000, "2026-01-15", "Vendas"),
+    M("d1", "saida", 10_000, "2026-01-20", "ISS"),
+    M("s1", "saida", 20_000, "2026-01-25", "Assinaturas / software"),
+    M("r2", "entrada", 100, "2026-02-15", "Vendas"),          // base desaba
+    M("s2", "saida", 20_000, "2026-02-25", "Assinaturas / software"),
+  ];
+  const inputAV: RiskInput = { hoje: "2026-03-01", saldoAtual: 0, movements: movs, horizonDias: 60 };
+  const janela = { de: "2026-01-01", ate: "2026-02-28" };
+  const linhaDe = (rel: { linhas: { id: string; filhos?: unknown[]; celulas: { av: number | null }[] }[] }, id: string) =>
+    rel.linhas.find((l) => l.id === id);
+
+  const relLiq = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia" });
+  const relBruta = montarRelatorio(inputAV, ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: janela, regime: "competencia", baseVertical: "receita_bruta" });
+
+  // 1) O PADRÃO é receita líquida — e a escolha MUDA o número, senão o seletor
+  //    seria decorativo. Líquida = 90.000 (100k − 10k de ISS); bruta = 100.000.
+  const avLiq = linhaDe(relLiq, "despesas_operacionais")?.celulas[0].av ?? null;
+  const avBruta = linhaDe(relBruta, "despesas_operacionais")?.celulas[0].av ?? null;
+  ok("a4p031: base padrão é RECEITA LÍQUIDA (20k/90k = 22,2%)",
+     avLiq !== null && Math.abs(avLiq - 22.22) < 0.05, `av ${avLiq}`);
+  ok("a4p031: escolher Receita Bruta MUDA a base (20k/100k = 20,0%)",
+     avBruta !== null && Math.abs(avBruta - 20) < 0.05, `av ${avBruta}`);
+
+  // 2) A base insignificante vira "—" (null), NUNCA um percentual de 3 dígitos.
+  const avFeb = linhaDe(relLiq, "despesas_operacionais")?.celulas[1].av ?? null;
+  ok("a4p031: mês com base insignificante devolve null (a tela mostra —), não 3451%",
+     avFeb === null, `av ${avFeb}`);
+
+  // 3) A METADE DA TELA: o filtro declara a base e o relatório a recebe. Sem
+  //    isto o parâmetro volta a existir só no motor.
+  const kit = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  const view = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("a4p031: o filtro tem o campo e o padrão é receita_liquida",
+     /baseVertical: BaseVertical/.test(kit) && /baseVertical: "receita_liquida"/.test(kit));
+  ok("a4p031: a tela OFERECE a escolha (seletor de base)",
+     /Base da an[áa]lise vertical/.test(kit));
+  ok("a4p031: e o relatório RECEBE a escolha (parâmetro com consumidor)",
+     /baseVertical: aplicados\.baseVertical/.test(view));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-027 — a coluna anterior ao primeiro lançamento é NOMEADA, não escondida
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido em produção: `Minha empresa` tem o primeiro lançamento em 05/10/2025 e
+// ZERO em 09/2025; `joaov.yoshimi` tem histórico desde 2023 e também nenhum
+// lançamento em 09/2025. Com o preset de 12 meses contando para trás, a coluna
+// sai inteira em zero e a AV inteira em "—" — e quem lê não distingue "não
+// houve movimento" de "não deu para calcular".
+//
+// ⚠️ A janela NÃO é estreitada: entregar 11 colunas sob um filtro que diz
+// "12 meses" trocaria o período que a pessoa pediu, em silêncio.
+{
+  const M = (id: string, tipo: "entrada" | "saida", amount: number, data: string): RiskMovement =>
+    ({ id, type: tipo, status: "pago", amount, due_date: data, paid_date: data, party_id: null, category: "Vendas" });
+
+  const rel = montarRelatorio(
+    { hoje: "2026-03-31", saldoAtual: 0, horizonDias: 60,
+      movements: [
+        // 01/2026 vazio de propósito (nada aqui)
+        M("a", "entrada", 5_000, "2026-02-10"),
+        // ⚠️ 03/2026 tem SÓ despesa: existe lançamento e a BASE da AV é zero.
+        // É este o caso que separa as duas implementações — escrever "sem dado"
+        // como `base === 0` acusaria este mês, que tem movimento. Com um mês de
+        // +1.000/−1.000 (a versão anterior desta fixture) as duas davam a MESMA
+        // resposta, e o teste negativo passava sem reprovar nada.
+        M("c", "saida", 1_000, "2026-03-20"),
+      ] },
+    ESTRUTURA_DRE,
+    { tipo: "vertical", intervalo: { de: "2026-01-01", ate: "2026-03-31" }, regime: "competencia" },
+  );
+
+  ok("a4p027: a janela pedida é PRESERVADA (3 colunas, nenhuma sumiu)",
+     rel.colunas.length === 3, rel.colunas.join(","));
+  ok("a4p027: o mês sem nenhum lançamento é NOMEADO",
+     rel.colunasSemDado.length === 1 && rel.colunasSemDado[0] === "2026-01",
+     rel.colunasSemDado.join(","));
+  // ⚠️ A distinção que dá sentido ao campo: soma zero NÃO é ausência de dado.
+  // Um mês com +1.000 e −1.000 tem movimento e resultado zero; chamá-lo de
+  // vazio seria falso, e é o erro fácil de escrever (`total === 0`).
+  ok("a4p027: mês só com despesa (base ZERO) NÃO é 'sem dado' — há lançamento",
+     !rel.colunasSemDado.includes("2026-03"), rel.colunasSemDado.join(","));
+  ok("a4p027: mês com movimento não entra na lista",
+     !rel.colunasSemDado.includes("2026-02"));
+
+  // A METADE DA TELA: o cabeçalho marca a coluna.
+  const kitTxt = readFileSync("src/components/relatorios/kit.tsx", "utf8");
+  ok("a4p027: o cabeçalho da tabela marca a coluna sem lançamento",
+     /colunasSemDado/.test(kitTxt) && /sem lan[çc]amento/.test(kitTxt));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-045 — o ID inteiro e a SITUAÇÃO em palavra, nas duas direções
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido no código: a tabela de títulos renderizava `m.id.slice(0, 10)` — dez
+// caracteres de um UUID ("16ab4f3c-4"), que não identificam nada para quem lê
+// nem servem para procurar o título no suporte. E a situação existia SÓ como
+// ponto colorido com `title`: cor sozinha não é informação para quem não
+// distingue as cores, e `title` não aparece no toque.
+{
+  // A palavra muda com a direção — é a que a pessoa usa ao falar com o outro
+  // lado. Um título a receber liquidado foi RECEBIDO, não "pago".
+  ok("a4p045: liquidado → Pago (pagar) e Recebido (receber)",
+     rotuloSituacao("liquidado", "pagar") === "Pago"
+     && rotuloSituacao("liquidado", "receber") === "Recebido");
+  ok("a4p045: atrasado → Vencido (pagar) e Em atraso (receber)",
+     rotuloSituacao("atrasado", "pagar") === "Vencido"
+     && rotuloSituacao("atrasado", "receber") === "Em atraso");
+  ok("a4p045: aberto → A vencer nos dois lados",
+     rotuloSituacao("aberto", "pagar") === "A vencer"
+     && rotuloSituacao("aberto", "receber") === "A vencer");
+
+  /*
+   * ⚠️ COMENTÁRIOS FORA — e esta guarda reprovou por causa disso na primeira
+   * execução: o comentário que documenta a correção CITA `m.id.slice(0, 10)`
+   * para explicar o que saiu, e a varredura o leu como se o defeito estivesse
+   * de volta. É a terceira vez que esta armadilha aparece no repositório
+   * (guarda de credenciais, varredura da ONDA 14, agora esta). Guarda que
+   * reprova a documentação da própria correção treina quem a lê a ignorá-la.
+   */
+  const tv = readFileSync("src/components/movimentacoes/TitulosView.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  // ⚠️ A asserção afirma sobre o DEFEITO PROIBIDO, não sobre o resultado certo:
+  // conferir que existe um IdCopiavel passaria mesmo se o slice continuasse ao
+  // lado. O que não pode voltar é o corte.
+  ok("a4p045: o UUID cortado NÃO volta (nenhum m.id.slice na tabela)",
+     !/m\.id\.slice\(/.test(tv));
+  ok("a4p045: o id sai inteiro, pelo componente compartilhado",
+     /<IdCopiavel id=\{m\.id\}/.test(tv));
+  ok("a4p045: a tabela tem coluna Situação, com a palavra",
+     /<Th>Situação<\/Th>/.test(tv) && /rotuloSituacao\(st, direcao\)/.test(tv));
+  // A planilha do contador tem de dizer a MESMA palavra da tela.
+  ok("a4p045: a exportação usa o mesmo rótulo da tela",
+     /rotuloSituacao\(statusDoTitulo\(m, input\.hoje\), direcao\)/.test(tv));
+  // ⚠️ Simetria: é o MESMO componente nos dois lados — se algum dia virar dois,
+  // as duas listas de dinheiro divergem no primeiro ajuste.
+  const pagar = readFileSync("src/app/contas-a-pagar/titulos/page.tsx", "utf8");
+  const receber = readFileSync("src/app/contas-a-receber/titulos/page.tsx", "utf8");
+  ok("a4p045: pagar e receber usam a MESMA TitulosView (código compartilhado)",
+     /TitulosView/.test(pagar) && /TitulosView/.test(receber));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// A4P-034 — hierarquia por métrica ACIONÁVEL no painel de contas a pagar
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Medido: os três cards tinham o mesmo peso e "Total geral pago no período" era
+// o PRIMEIRO — na ordem de leitura, o destaque. Com R$1,54 pago ao lado de
+// R$38.626,59 vencidos, a tela dava o lugar nobre ao número que não pede ação.
+// O que já saiu não muda nada; vencidas e a vencer mudam.
+{
+  const dash = readFileSync("src/components/contas-pagar/DashboardContasPagar.tsx", "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|\s)\/\/[^\n]*/g, " ");
+  const ordem = Array.from(dash.matchAll(/titulo="(Contas atrasadas|Contas a vencer|Total geral pago no período)"/g))
+    .map((m) => m[1]);
+  ok("a4p034: o acionável vem primeiro — atrasadas, depois a vencer, e o pago por último",
+     ordem.join(" · ") === "Contas atrasadas · Contas a vencer · Total geral pago no período",
+     ordem.join(" · "));
+  // ⚠️ Ordem sozinha não basta: com o mesmo corpo, os três seguem competindo.
+  ok("a4p034: o card de PAGO é secundário (corpo menor), não apenas o último",
+     /rotuloData="Pago em"\s*\n\s*secundario/.test(dash));
+  // ⚠️ E secundário NÃO é escondido: trocar hierarquia por ausência é outro
+  // defeito. O valor continua na tela.
+  const kitTxt = readFileSync("src/components/titulos/kit.tsx", "utf8");
+  ok("a4p034: secundário reduz o corpo, não remove o valor",
+     /secundario \? "text-\[20px\] text-muted" : "text-\[28px\] text-ink"/.test(kitTxt));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * BILLING — o relógio, o bloqueio suave e a reconciliação (Etapa D)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  const HOJE = "2026-08-18";
+
+  // ── (a) organização que USA e não paga tem de reprovar ───────────────────
+  const usaSemPlano = reconciliarBilling([{
+    orgId: "o1", nome: "Usa e não paga", status: "none", plano: null, mrr: 0,
+    fim: null, lancamentos: 677, ultimoLancamento: "2026-08-11",
+  }], HOJE);
+  ok("billing: organização com lançamento e sem cobrança ativa acende o alerta",
+     usaSemPlano.length === 1 && usaSemPlano[0].tipo === "usa_sem_plano",
+     JSON.stringify(usaSemPlano.map((a) => a.tipo)));
+  /*
+   * ⚠️ E o alerta cita o NÚMERO que o justifica. "Organização sem plano" é uma
+   * frase; "677 lançamentos e nenhuma cobrança" é uma decisão. Alerta sem o
+   * número vira paisagem — foi assim que 14 organizações operaram dois meses.
+   */
+  ok("billing: o alerta carrega o número que o justifica",
+     usaSemPlano[0]?.detalhe.includes("677"), usaSemPlano[0]?.detalhe);
+
+  // ⚠️ O NEGATIVO da mesma regra: organização vazia NÃO é vazamento de receita.
+  // Sem esta, a guarda aprovaria uma versão que acende alerta para toda conta
+  // recém-criada — 14 falsos alertas, e a tela deixaria de ser lida.
+  ok("billing: organização SEM lançamento nenhum não acende alerta de uso",
+     reconciliarBilling([{
+       orgId: "o2", nome: "Vazia", status: "none", plano: null, mrr: 0,
+       fim: null, lancamentos: 0, ultimoLancamento: null,
+     }], HOJE).length === 0);
+
+  // ⚠️ E quem está EM TESTE dentro do prazo também não: o teste existe
+  // justamente para ser usado sem pagar.
+  ok("billing: quem está em teste dentro do prazo não acende alerta",
+     reconciliarBilling([{
+       orgId: "o3", nome: "Em teste", status: "trial", plano: null, mrr: 0,
+       fim: "2026-09-01", lancamentos: 318, ultimoLancamento: "2026-08-17",
+     }], HOJE).length === 0);
+
+  // ── paga e não usa · acima do teto ───────────────────────────────────────
+  const pagaSemUso = reconciliarBilling([{
+    orgId: "o4", nome: "Paga e não usa", status: "active", plano: "Enterprise", mrr: 990,
+    fim: null, lancamentos: 0, ultimoLancamento: null,
+  }], HOJE);
+  ok("billing: plano ativo sem nenhum lançamento acende 'paga e não usa'",
+     pagaSemUso.length === 1 && pagaSemUso[0].tipo === "paga_sem_uso");
+
+  const acima = reconciliarBilling([{
+    orgId: "o5", nome: "Acima do teto", status: "active", plano: "Starter", mrr: 149,
+    fim: null, lancamentos: 642, ultimoLancamento: "2026-08-17", limiteLancamentos: 500,
+  }], HOJE);
+  ok("billing: uso acima do teto do plano acende — e é conversa de upgrade, não corte",
+     acima.length === 1 && acima[0].tipo === "acima_do_limite" && /upgrade/i.test(acima[0].acao));
+
+  // ── (b) o vencimento BLOQUEIA a escrita, e só a escrita ──────────────────
+  const vencido = estadoDaAssinatura(
+    { orgId: "o6", status: "trial", mrr: 0, inicio: "2026-07-01", fim: "2026-08-17" }, HOJE);
+  ok("billing: teste vencido ONTEM bloqueia a escrita",
+     vencido.bloqueado && vencido.diasRestantes === -1, String(vencido.diasRestantes));
+  /*
+   * ⚠️ A borda que decide: vencer é `fim < hoje`, não `fim <= hoje`. Com `<=` o
+   * cliente perde a escrita no ÚLTIMO dia do teste — o dia que ele foi
+   * prometido. Um teste de 14 dias que dura 13 é um defeito que ninguém
+   * reporta, porque parece só um dia.
+   */
+  const ultimoDia = estadoDaAssinatura(
+    { orgId: "o7", status: "trial", mrr: 0, inicio: "2026-08-04", fim: HOJE }, HOJE);
+  ok("billing: no ÚLTIMO dia do teste ainda dá para escrever",
+     !ultimoDia.bloqueado && ultimoDia.diasRestantes === 0);
+  /*
+   * ⚠️ O aviso tem de PROMETER acesso e nunca AMEAÇAR perda — é o bloqueio
+   * suave por escrito, e o que a pessoa precisa saber primeiro não é que
+   * atrasou, é se perdeu o arquivo.
+   *
+   * ⚠️ A primeira versão desta asserção proibia a palavra "apagado" e REPROVOU
+   * a frase certa: *"Nada foi apagado"*. Guarda que casa palavra em vez de
+   * AFIRMAÇÃO reprova o texto que ela existe para exigir — mesma lição da
+   * varredura que acusou o próprio comentário que documentava a regra.
+   */
+  ok("billing: a mensagem de vencido promete que o dado continua acessível",
+     /vendo|export|consult/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: a mensagem de vencido não AMEAÇA perda de dado",
+     !/(ser[ãa]o|foram|vamos)\s+(apagad|exclu|remov)/i.test(vencido.aviso ?? "")
+     && !/perder[áa]/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: a mensagem diz COMO resolver, não só o que aconteceu",
+     /plano/i.test(vencido.aviso ?? ""), vencido.aviso);
+  ok("billing: assinatura ativa sem data de fim NÃO bloqueia",
+     !estadoDaAssinatura({ orgId: "o8", status: "active", mrr: 990, fim: null }, HOJE).bloqueado);
+
+  // ── (c) o MRR do painel é a soma das assinaturas ATIVAS ──────────────────
+  const assinaturas = [
+    { orgId: "a", status: "active" as const, mrr: 990 },
+    { orgId: "b", status: "trial" as const, mrr: 0 },
+    { orgId: "c", status: "past_due" as const, mrr: 349 },
+    { orgId: "d", status: "canceled" as const, mrr: 149 },
+  ];
+  ok("billing: o MRR soma só o ATIVO — inadimplente e cancelado ficam de fora",
+     mrrDeAssinaturas(assinaturas) === 990, String(mrrDeAssinaturas(assinaturas)));
+  /*
+   * ⚠️ A asserção que fixa o defeito: somar `past_due` daria 1.488 e o painel
+   * anunciaria receita que o extrato não tem. É a forma de erro de MRR que
+   * chega a um investidor.
+   */
+  ok("billing: a soma ingênua (com inadimplente e cancelado) é OUTRO número",
+     assinaturas.reduce((s, a) => s + a.mrr, 0) === 1488);
+
+  // ── a metodologia publicada (A4P-032) ────────────────────────────────────
+  for (const m of METODOLOGIAS) {
+    const soma = m.componentes.reduce((s, c) => s + c.peso, 0);
+    ok(`metodologia: os pesos de "${m.indicador}" somam 1`, Math.abs(soma - 1) < 1e-9, soma.toFixed(4));
+    ok(`metodologia: "${m.indicador}" declara o que NÃO enxerga`, m.limitacoes.length > 0);
+    ok(`metodologia: "${m.indicador}" nomeia o motor e a versão`, /\/\d+\.\d+\.\d+/.test(m.motor), m.motor);
+  }
+  /*
+   * ⚠️ **O TETO TEM DE SE DECLARAR TETO.** `Math.min(0.97, …)` no motor de
+   * risco: com ruptura projetada para hoje o valor sai 0,97 SEMPRE, e "97% de
+   * chance" lido como medida é o mesmo defeito do "33 meses de fôlego" da
+   * ONDA 4. A guarda exige a frase no valor saturado E o silêncio fora dele —
+   * marcar sempre é não marcar nunca.
+   */
+  ok("metodologia: 97% é declarado como TETO, não como medida",
+     (avisoDeSaturacao("chance-ruptura", 0.97) ?? "").includes("TETO"));
+  ok("metodologia: 2% é declarado como PISO",
+     (avisoDeSaturacao("chance-ruptura", 0.02) ?? "").includes("PISO"));
+  ok("metodologia: valor no meio da escala não ganha aviso de saturação",
+     avisoDeSaturacao("chance-ruptura", 0.41) === null);
+  /*
+   * ⚠️ As DUAS probabilidades de ruptura têm de estar declaradas separadas. O
+   * produto exibe uma de 60 dias (motor de risco) e outra de 90 (quant), com
+   * rótulos quase idênticos; declarar só uma faria a página de metodologia
+   * explicar um número e legitimar o outro por tabela.
+   */
+  ok("metodologia: as duas probabilidades de ruptura estão declaradas, com horizontes distintos",
+     !!metodologiaDe("chance-ruptura") && !!metodologiaDe("chance-ruptura-90d")
+     && metodologiaDe("chance-ruptura")!.janela !== metodologiaDe("chance-ruptura-90d")!.janela);
+
+  /*
+   * ⚠️ Metodologia é INSTRUMENTAÇÃO, e instrumentação sem consumidor não conta
+   * como feita: a tela tem de LER daqui, não repetir o texto à mão — texto à
+   * mão envelhece na primeira mudança de fórmula e passa a descrever um
+   * cálculo que não existe.
+   */
+  const fluxo = readFileSync("src/components/fluxo-caixa/FluxoCaixaView.tsx", "utf8");
+  ok("metodologia: o cartão de ruptura consome a declaração (não texto à mão)",
+     /infoDaMetodologia\("chance-ruptura"\)/.test(fluxo) && /avisoDeSaturacao\("chance-ruptura"/.test(fluxo));
+  ok("metodologia: o cartão de score consome a declaração",
+     /infoDaMetodologia\("score-saude"\)/.test(fluxo));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * CENTRAL FINANCEIRA — a máquina de estados, a segregação R1 e a alçada
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  // ── R1: quem lançou NUNCA aprova o próprio ────────────────────────────────
+  const meu: Lancamento = { id: "t1", valor: 1000, lancadoPor: "ana", situacao: "previsto" };
+  const euMesmo: Aprovador = { id: "ana", papel: "aprovador" };
+  const colega: Aprovador = { id: "bia", papel: "aprovador" };
+
+  const auto = podeAprovar(meu, euMesmo);
+  ok("central R1: quem lançou NÃO aprova o próprio lançamento",
+     auto.pode === false && auto.motivo === "auto_aprovacao", JSON.stringify(auto));
+  // ⚠️ O positivo ao lado do negativo: se o negativo passasse por a fila estar
+  // vazia, o teste não provaria nada. Um colega COM alçada aprova.
+  ok("central R1: um colega com alçada aprova o mesmo título",
+     podeAprovar(meu, colega).pode === true);
+
+  // ── alçada: acima do teto do papel reprova ────────────────────────────────
+  const caro: Lancamento = { id: "t2", valor: 40_000, lancadoPor: "ana", situacao: "previsto" };
+  const vAprovador = podeAprovar(caro, colega); // aprovador: teto 5.000
+  ok("central alçada: 40.000 acima da alçada do aprovador (5.000) reprova",
+     vAprovador.pode === false && vAprovador.motivo === "acima_da_alcada" && vAprovador.tetoDoPapel === 5000);
+  ok("central alçada: o fechador (teto 50.000) aprova os 40.000",
+     podeAprovar(caro, { id: "cid", papel: "fechador" }).pode === true);
+  // ⚠️ Sem alçada configurada NADA é aprovável — não "tudo é aprovável".
+  ok("central alçada: papel SEM alçada tem teto ZERO, não infinito",
+     podeAprovar(meu, { id: "leo", papel: "leitor" }).motivo === "papel_sem_alcada");
+  // ⚠️ E a asserção que fixa a direção: um mapa de alçada VAZIO recusa tudo,
+  // inclusive o admin — a prova de que a ausência é fechada, não aberta.
+  const alcadaVazia = { leitor: 0, lancador: 0, aprovador: 0, fechador: 0, admin: 0, titular: 0 };
+  ok("central alçada: mapa vazio recusa até o titular (ausência = fechado)",
+     podeAprovar(meu, { id: "x", papel: "titular" }, alcadaVazia).pode === false);
+
+  // "sobe o mínimo necessário", não direto ao titular
+  ok("central alçada: 40.000 sobe ao FECHADOR, não ao titular", papelQueAprova(40_000) === "fechador");
+  ok("central alçada: 3.000 fica no aprovador", papelQueAprova(3_000) === "aprovador");
+
+  // ── a máquina de estados: só as transições declaradas ─────────────────────
+  ok("central máquina: previsto→confirmado é válida", transicaoValida("previsto", "confirmado"));
+  ok("central máquina: confirmado→baixado é válida", transicaoValida("confirmado", "baixado"));
+  ok("central máquina: baixado→conciliado é válida", transicaoValida("baixado", "conciliado"));
+  // ⚠️ O caminho que MORRE: baixa direta pulando a confirmação (A4P-052).
+  ok("central máquina: previsto→baixado é PROIBIDA (não pula a confirmação)",
+     transicaoValida("previsto", "baixado") === false);
+  ok("central máquina: conciliado→previsto é proibida (não volta no tempo)",
+     transicaoValida("conciliado", "previsto") === false);
+  ok("central máquina: cancelado é terminal", TRANSICOES.cancelado.length === 0);
+
+  // baixar exige situação certa
+  const jaBaixado: Lancamento = { id: "t3", valor: 100, lancadoPor: "ana", situacao: "baixado" };
+  ok("central: não se confirma o que já foi baixado",
+     podeAprovar(jaBaixado, colega).motivo === "situacao_nao_permite");
+
+  // ── o efeito no relatório: confirmado × previsto ──────────────────────────
+  const carteira = [
+    { id: "a", situacao: "previsto" as const, valor: 100 },
+    { id: "b", situacao: "confirmado" as const, valor: 200 },
+    { id: "c", situacao: "baixado" as const, valor: 300 },
+    { id: "d", situacao: "cancelado" as const, valor: 999 },
+    { id: "e", situacao: "estornado" as const, valor: 888 },
+  ];
+  const soConfirmado = titulosDaVisao(carteira, "confirmado");
+  ok("central relatório: visão CONFIRMADO exclui o previsto (e o cancelado/estornado)",
+     soConfirmado.length === 2 && soConfirmado.every((t) => t.situacao !== "previsto"));
+  const somaConf = soConfirmado.reduce((s, t) => s + t.valor, 0);
+  ok("central relatório: a soma dos confirmados é 500 (200 + 300), não 600", somaConf === 500);
+  const comPrevisto = titulosDaVisao(carteira, "com-previsto");
+  ok("central relatório: visão COM-PREVISTO soma 600 (inclui o previsto)",
+     comPrevisto.reduce((s, t) => s + t.valor, 0) === 600);
+  // ⚠️ O cancelado e o estornado NUNCA entram, em nenhuma visão.
+  ok("central relatório: cancelado e estornado ficam fora das DUAS visões",
+     !comPrevisto.some((t) => t.situacao === "cancelado" || t.situacao === "estornado"));
+
+  // ── a fila única, com origem visível ──────────────────────────────────────
+  const fila = montarFila([
+    { id: "f1", descricao: "Fornecedor A", contraparte: "A", valor: 100, direcao: "saida", vencimento: "2026-09-01", situacao: "previsto", origem: "contas-a-pagar", lancadoPor: "ana" },
+    { id: "f2", descricao: "Cliente B", contraparte: "B", valor: 200, direcao: "entrada", vencimento: "2026-09-02", situacao: "previsto", origem: "contas-a-receber", lancadoPor: "ana" },
+    { id: "f3", descricao: "Extrato", contraparte: "C", valor: 300, direcao: "saida", vencimento: "2026-09-03", situacao: "previsto", origem: "upload", lancadoPor: "bia" },
+    { id: "f4", descricao: "Já confirmado", contraparte: "D", valor: 400, direcao: "saida", vencimento: "2026-09-04", situacao: "confirmado", origem: "contas-a-pagar", lancadoPor: "ana" },
+  ]);
+  ok("central fila: só os PREVISTOS aguardam confirmação (o confirmado não volta)",
+     fila.totalAguardando === 3);
+  ok("central fila: as três origens aparecem com contagem",
+     fila.porOrigem["contas-a-pagar"] === 1 && fila.porOrigem["contas-a-receber"] === 1 && fila.porOrigem["upload"] === 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * BLOCO D — MAPEAMENTO DE COLUNAS e a ABERTURA do extrato (A4P-073)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+{
+  // ── layout LIMPO (nome + conteúdo concordam) → confiança alta, sem confirmar ─
+  const limpo = detectarColunas(
+    ["Data", "Histórico", "Valor", "Documento"],
+    [
+      ["16/01/2024", "PIX RECEBIDO ALPHA", "1.234,56", "E123"],
+      ["17/01/2024", "TARIFA MENSAL", "-49,90", "T001"],
+      ["18/01/2024", "PAGAMENTO FORNECEDOR", "-500,00", "B999"],
+    ],
+  );
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 3 · CONCILIAÇÃO — nada casa duas vezes, e a tolerância é declarada
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    const E = (id: string, data: string, valor: number) => ({ id, data, valor, descricao: id });
+    const T = (id: string, data: string, valor: number, tipo: "entrada" | "saida" = "saida") =>
+      ({ id, data, valor, tipo, descricao: id });
+
+    // ⚠️ A INVARIANTE PRIMEIRA: nenhum id em dois matches. Casar o mesmo
+    // lançamento com dois títulos dobra a baixa — dois títulos quitados por um
+    // dinheiro só, e o saldo descola do banco pelo valor do segundo.
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão tinha UMA linha de
+    // extrato e dois títulos — e o laço cria no máximo um match por linha,
+    // então a proteção de reuso nem era exercitada: desligá-la não fazia a
+    // asserção falhar. Aqui são DUAS linhas iguais disputando UM título: sem a
+    // trava, as duas o consomem e o título fica quitado duas vezes.
+    const r1 = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100)],
+    );
+    const idsT = r1.matches.flatMap((m) => m.tituloIds);
+    const idsE = r1.matches.flatMap((m) => m.extratoIds);
+    ok("concil: duas linhas iguais — o título NÃO é consumido duas vezes",
+       idsT.length === new Set(idsT).size && idsT.length === 1, JSON.stringify(idsT));
+    ok("concil: e a linha do extrato também não se repete",
+       idsE.length === new Set(idsE).size);
+    ok("concil: a linha de extrato que sobrou é DITA, não some", r1.extratoSobrando.length === 1);
+
+    const exato = conciliarExtrato([E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], TOLERANCIA_EXATA);
+    ok("concil: com tolerância ZERO, valores diferentes NÃO casam",
+       exato.matches.length === 0, JSON.stringify(exato.matches));
+    const tolerante = conciliarExtrato(
+      [E("e1", "2026-08-10", -1000)], [T("t1", "2026-08-10", 987)], { dias: 3, centavos: 20 });
+    ok("concil: com tolerância declarada, casa E devolve a diferença",
+       tolerante.matches.length === 1 && Math.abs(tolerante.matches[0].diferenca) === 13,
+       JSON.stringify(tolerante.matches[0]));
+    ok("concil: a tolerância USADA viaja no resultado (a tela mostra)",
+       tolerante.matches[0].tolerancia.centavos === 20 && tolerante.matches[0].tipo === "aproximado");
+
+    const sinal = conciliarExtrato(
+      [E("e1", "2026-08-10", 100)], [T("t1", "2026-08-10", 100, "saida")], { dias: 5, centavos: 500 });
+    ok("concil: sinal oposto não casa nem dentro da tolerância", sinal.matches.length === 0);
+
+    const lote = conciliarExtrato(
+      [E("e1", "2026-08-10", -300)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: um pagamento em lote casa com os DOIS títulos que o somam",
+       lote.matches.length === 1 && lote.matches[0].tipo === "multiplo" &&
+       lote.matches[0].tituloIds.length === 2, JSON.stringify(lote.matches));
+    const partido = conciliarExtrato(
+      [E("e1", "2026-08-10", -100), E("e2", "2026-08-11", -200)],
+      [T("t1", "2026-08-10", 300)],
+    );
+    ok("concil: um título pago em duas transferências também casa",
+       partido.matches.length === 1 && partido.matches[0].extratoIds.length === 2,
+       JSON.stringify(partido.matches));
+    const naoFecha = conciliarExtrato(
+      [E("e1", "2026-08-10", -305)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    ok("concil: soma que não fecha NÃO vira múltiplo", naoFecha.matches.length === 0);
+
+    // ⚠️ O exato vem ANTES do múltiplo: senão uma soma consumiria o título que
+    // casaria sozinho e certo com outra linha.
+    const ordem = conciliarExtrato(
+      [E("e1", "2026-08-10", -300), E("e2", "2026-08-10", -100)],
+      [T("t1", "2026-08-10", 100), T("t2", "2026-08-10", 200)],
+    );
+    const exatoDoT1 = ordem.matches.find((m) => m.tituloIds.includes("t1"));
+    ok("concil: o EXATO ganha do múltiplo (t1 casa com e2, não vira soma)",
+       !!exatoDoT1 && exatoDoT1.tipo === "exato" && exatoDoT1.extratoIds[0] === "e2",
+       JSON.stringify(ordem.matches));
+
+    const ts = [T("a", "2025-07-03", 10), T("b", "2026-08-01", 500), T("c", "2026-08-02", 40)];
+    const sd = saudeConcil(ts, new Set(["b"]), "2026-08-19");
+    ok("concil: a fração sai da contagem real (1 de 3)",
+       Math.abs(sd.fracao - 1 / 3) < 1e-9 && sd.conciliados === 1, JSON.stringify(sd));
+    ok("concil: o valor em aberto soma só os NÃO conciliados", sd.valorEmAberto === 50, String(sd.valorEmAberto));
+    ok("concil: o mais antigo pendente é nomeado, com a idade",
+       sd.maisAntigo === "2025-07-03" && sd.diasDoMaisAntigo === 412,
+       `${sd.maisAntigo} ${sd.diasDoMaisAntigo}`);
+
+    const f = filaConcil(ts, new Set<string>());
+    ok("concil: a fila prioriza por VALOR, não por data",
+       f[0].id === "b" && f[2].id === "a", f.map((x) => x.id).join(","));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 2 · a FILA um-a-um (teclado, lote seguro, progresso, retomada)
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    const mv = (chave: string, contraparte: string | null, categoria: string, confianca: number,
+                situacao: "nova" | "revisar" | "duplicata_base" = "nova") => ({
+      chave, contaId: null, data: "2026-08-10", valor: 100, tipo: "saida" as const,
+      descritivoBruto: "PIX ENV " + chave, descritivoNormalizado: chave,
+      contraparte, documento: null, origem: "extrato" as const,
+      classificacao: { categoria, natureza: "despesa" as const, confianca, motivo: "teste" },
+      situacao,
+    });
+    const plano = {
+      versao: "x", linhas: [
+        mv("a", "POSTO IPIRANGA", "Combustível", 0.95),
+        mv("b", "POSTO IPIRANGA", "Combustível", 0.95),
+        mv("c", "POSTO IPIRANGA", "Manutenção", 0.95),   // categoria DIVERGE
+        mv("d", "MERCADO LIVRE", "Compras", 0.95),        // contraparte diverge
+        mv("e", "POSTO IPIRANGA", "Combustível", 0.5),    // confiança baixa
+        mv("z", "X", "Y", 0.99, "duplicata_base"),        // não pede decisão
+      ],
+      resumo: {} as never, porCategoria: [], contrapartesNovas: [],
+    } as unknown as Parameters<typeof montarFilaIngestao>[0];
+
+    const fila = montarFilaIngestao(plano);
+    ok("fila: duplicata de base NÃO pede decisão (atenção não se gasta no que não muda nada)",
+       fila.length === 5 && !fila.some((l) => l.chave === "z"), String(fila.length));
+
+    let est = estadoVazio();
+
+    // ⚠️ O caso que a fila existe para impedir: massa atravessando categoria.
+    const lote = loteDe(fila, fila[0], est);
+    ok("fila: o lote pega SÓ mesma contraparte E mesma categoria E confiança alta",
+       lote.chaves.length === 2 && lote.chaves.includes("a") && lote.chaves.includes("b"),
+       JSON.stringify(lote.chaves));
+    ok("fila: a linha de categoria DIVERGENTE fica de fora do lote",
+       !lote.chaves.includes("c"), JSON.stringify(lote.chaves));
+    ok("fila: a de outra contraparte fica de fora", !lote.chaves.includes("d"));
+    ok("fila: a de confiança baixa fica de fora", !lote.chaves.includes("e"));
+
+    // ⚠️ A ÂNCORA duvidosa não arrasta ninguém — dúvida não se propaga com
+    // cara de decisão.
+    const loteFraco = loteDe(fila, fila[4], est);
+    ok("fila: âncora de confiança baixa não forma lote, e DIZ por quê",
+       loteFraco.chaves.length === 0 && !!loteFraco.motivo, JSON.stringify(loteFraco));
+
+    // Correção humana vale confiança total e MUDA quem cabe no lote.
+    est = corrigirFila(est, "e", "Combustível");
+    const lote2 = loteDe(fila, fila[0], est);
+    ok("fila: corrigida à mão, a linha passa a caber no lote (correção vale 1)",
+       lote2.chaves.includes("e"), JSON.stringify(lote2.chaves));
+
+    // ⚠️ A correção alcança as PENDENTES da mesma contraparte — foi ela que
+    // levou 500 linhas de 10,3 min para 3,6 min, medido. Sem ela, 71 das 500
+    // eram a MESMA correção repetida.
+    {
+      let ec = estadoVazio();
+      ec = decidirFila(ec, "b", "confirmada", 1);   // já decidida: não pode mudar
+      ec = corrigirIguais(ec, fila, fila[0], "Frota");
+      ok("fila: a correção alcança as pendentes da MESMA contraparte",
+         ec.correcoes["a"] === "Frota" && ec.correcoes["e"] === "Frota",
+         JSON.stringify(ec.correcoes));
+      ok("fila: NÃO mexe no que já foi decidido (não desfaz decisão da pessoa)",
+         ec.correcoes["b"] === undefined, JSON.stringify(ec.correcoes));
+      ok("fila: NÃO atravessa contraparte (a regra da categoria não se atravessa)",
+         ec.correcoes["d"] === undefined, JSON.stringify(ec.correcoes));
+      // ⚠️ 'c' é da MESMA contraparte e categoria diferente: a correção manual
+      // vale porque a pessoa DISSE qual é — é o oposto da massa automática.
+      ok("fila: alcança a de categoria divergente da mesma contraparte (a pessoa disse)",
+         ec.correcoes["c"] === "Frota");
+    }
+
+    // Progresso: sem base, a estimativa é AUSENTE — não um número inventado.
+    const p0 = progressoFila(fila, est);
+    ok("fila: sem ritmo medido a estimativa é ausente, não um palpite",
+       p0.restanteMs === null && p0.ritmoMs === null, JSON.stringify(p0));
+    ok("fila: progresso conta o total certo", p0.total === 5 && p0.restantes === 5);
+
+    // Com ritmo, a estimativa aparece. Mediana, não média: uma pausa longa não
+    // pode multiplicar a estimativa do resto do lote.
+    let e2 = estadoVazio();
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão tinha UM intervalo
+    // absurdo entre cinco normais — e a MEDIANA já resiste a um outlier
+    // sozinho, então desligar o filtro não mudava nada e a asserção passava
+    // dos dois jeitos. Descoberto plantando o defeito e vendo passar. Aqui são
+    // três pausas contra três decisões: com o filtro a mediana é 1s, sem ele
+    // salta para 600s — e a barra passaria a prometer horas.
+    e2 = { ...e2, marcas: [0, 1000, 2000, 3000, 603_000, 1_203_000, 1_803_000] };
+    const p1 = progressoFila(fila, e2);
+    ok("fila: o intervalo absurdo (pausa) é descartado do ritmo",
+       p1.ritmoMs === 1000, String(p1.ritmoMs));
+    ok("fila: a estimativa é ritmo × restantes",
+       p1.restanteMs === 1000 * p1.restantes, String(p1.restanteMs));
+
+    // Retomada: decidir não perde nada e o próximo pendente é achado.
+    let e3 = estadoVazio();
+    e3 = decidirFila(e3, "a", "confirmada", 10);
+    e3 = decidirFila(e3, "b", "ignorada", 20);
+    ok("fila: o próximo pendente pula o que já foi decidido",
+       fila[proximoPendente(fila, e3, 0)].chave === "c",
+       fila[proximoPendente(fila, e3, 0)]?.chave);
+    ok("fila: voltar nunca passa de zero", anteriorFila(0) === 0 && anteriorFila(3) === 2);
+
+    // ⚠️ Só o CONFIRMADO é gravado — o ignorado não entra, e a correção vai junto.
+    let e4 = estadoVazio();
+    e4 = decidirFila(e4, "a", "confirmada", 1);
+    e4 = decidirFila(e4, "c", "ignorada", 2);
+    e4 = corrigirFila(e4, "a", "Frota");
+    const grava = paraGravar(fila, e4);
+    ok("fila: grava só o confirmado (o ignorado não entra)",
+       grava.length === 1 && grava[0].chave === "a", String(grava.length));
+    ok("fila: a correção acompanha o que vai ser gravado",
+       grava[0].classificacao.categoria === "Frota" && grava[0].classificacao.confianca === 1,
+       JSON.stringify(grava[0].classificacao));
+
+    // Fim de fila devolve -1: voltar ao zero daria trabalho infinito.
+    let e5 = estadoVazio();
+    for (const l of fila) e5 = decidirFila(e5, l.chave, "confirmada", 1);
+    ok("fila: com tudo decidido, não há próximo (-1), e o lote fecha",
+       proximoPendente(fila, e5, 0) === -1);
+    ok("fila: e o progresso fecha em 1", progressoFila(fila, e5).fracao === 1);
+
+    // Aplicar o lote decide TODAS as chaves de uma vez.
+    let e6 = estadoVazio();
+    e6 = aplicarLote(e6, loteDe(fila, fila[0], e6), 1);
+    ok("fila: aplicar o lote confirma as duas de uma vez",
+       progressoFila(fila, e6).feitas === 2, String(progressoFila(fila, e6).feitas));
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO 3 · o documento REFINADO — calculado vence adivinhado
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    // Um boleto REAL: linha digitável válida (DV conferido), com valor e
+    // vencimento embutidos. O OCR "leu" um valor DIFERENTE — é o caso que
+    // decide quem vence.
+    // ⚠️ A linha é MONTADA com os DVs corretos, não digitada à mão: um número
+    // inventado tem DV geral inválido, e a primeira asserção abaixo existe
+    // justamente para o caso não passar testando o nada. (Foi ela que pegou a
+    // primeira versão desta fixture.)
+    const fatorB3 = fatorDaData("2026-08-20");
+    const semDVB3 = "3419" + String(fatorB3).padStart(4, "0") + "0000123456" + "1234567890123456789012345";
+    const barrasB3 = semDVB3.slice(0, 4) + dvModulo11(semDVB3.slice(0, 4) + semDVB3.slice(4)) + semDVB3.slice(4);
+    const linha = linhaDeCodigoDeBarras(barrasB3);
+    const b = lerBoleto(linha);
+    ok("bloco3: a linha digitável de teste é válida (senão o caso não testa nada)",
+       !!b && b.valido, b ? b.problemas.join(",") : "não parseou");
+
+    const r = refinarDocumento({ linhaDigitavel: linha, valor: 999.99, confianca: 0.7 });
+    ok("bloco3: o valor do CÓDIGO DE BARRAS vence o do OCR",
+       r.valor.procedencia === "codigo_de_barras" && r.valor.valor === b?.valor,
+       `${r.valor.procedencia} ${r.valor.valor}`);
+    ok("bloco3: e a divergência é RELATADA, não resolvida em silêncio",
+       r.divergencias.some((d) => d.campo === "valor"), JSON.stringify(r.divergencias));
+    ok("bloco3: campo calculado tem confiança 1; o do OCR, menos",
+       r.valor.confianca === 1);
+
+    // ⚠️ DV QUE NÃO CONFERE NÃO É USADO. Um dígito lido errado produz uma linha
+    // PLAUSÍVEL, e dela sai um valor plausível e errado — trocar um palpite
+    // honesto por um número falso com confiança 1 é o pior resultado possível.
+    const quebrada = linha.replace(/\d$/, (d) => String((Number(d) + 1) % 10));
+    const rq = refinarDocumento({ linhaDigitavel: quebrada, valor: 999.99, confianca: 0.7 });
+    ok("bloco3: linha com DV quebrado NÃO substitui o valor do OCR",
+       rq.valor.procedencia === "ocr" && rq.valor.valor === 999.99,
+       `${rq.valor.procedencia} ${rq.valor.valor}`);
+    ok("bloco3: e o boleto não é dado como reconhecido",
+       rq.reconhecido.boleto === false);
+
+    // ⚠️ CNPJ INVÁLIDO (dígito verificador) NÃO amarra contraparte — ligar o
+    // fornecedor errado é defeito que só aparece no fechamento.
+    const ruim = refinarDocumento({ cnpj: "11111111111111", valor: 10 });
+    ok("bloco3: CNPJ com DV inválido perde a confiança",
+       ruim.cnpj.confianca === 0, String(ruim.cnpj.confianca));
+    ok("bloco3: e NÃO pode vincular contraparte",
+       podeVincularContraparte(ruim) === false);
+
+    const bom = refinarDocumento({ cnpj: "11.222.333/0001-81", valor: 10 });
+    ok("bloco3: CNPJ válido por OCR pode vincular",
+       podeVincularContraparte(bom) === true, JSON.stringify(bom.cnpj));
+
+    // ⚠️ A confiança do conjunto é a do campo MAIS FRACO, não a média — média
+    // esconde um campo ruim atrás de três bons, e é o ruim que vira lançamento.
+    //
+    // ⚠️ **O CASO PRECISA DISCRIMINAR.** A primeira versão usava um boleto que
+    // dava valor E vencimento com confiança 1: mínimo e média davam o MESMO
+    // número, e trocar um pelo outro no motor não fazia a asserção falhar —
+    // descoberto plantando a média e vendo passar. Aqui o boleto tem fator
+    // 0000 (sem vencimento), então o valor vem do código de barras (1) e o
+    // vencimento do OCR (0,4): mínimo 0,4 × média 0,7.
+    const semVenc = "3419" + "0000" + "0000123456" + "1234567890123456789012345";
+    const barrasSV = semVenc.slice(0, 4) + dvModulo11(semVenc.slice(0, 4) + semVenc.slice(4)) + semVenc.slice(4);
+    const misto = refinarDocumento({
+      linhaDigitavel: linhaDeCodigoDeBarras(barrasSV),
+      vencimento: "2026-09-10", valor: null, confianca: 0.4,
+    });
+    ok("bloco3: o caso discrimina (valor calculado 1 × vencimento do OCR 0,4)",
+       misto.valor.confianca === 1 && misto.vencimento.confianca === 0.4,
+       `${misto.valor.confianca}/${misto.vencimento.confianca}`);
+    ok("bloco3: confiança do conjunto é o MÍNIMO (0,4), não a média (0,7)",
+       misto.confiancaGeral === 0.4, String(misto.confiancaGeral));
+
+    // ⚠️ **O RAMO DA NF-e NÃO PODE SER INSTRUMENTAÇÃO INERTE.** O refino só
+    // recebe `chaveNFe` se o OCR extrair a chave — e ele não extraía. Estas
+    // asserções cobram as DUAS metades: o extrator acha a chave, e o refino a
+    // usa. Sem a primeira, o ramo inteiro seria código que nunca roda.
+    // ⚠️ O DV é CALCULADO, não digitado: a primeira versão desta fixture tinha
+    // o último dígito errado e a asserção "senão o caso não testa nada" a pegou.
+    const base43 = "3524061122233300018155001000000001100000001";
+    const chaveBoa = base43 + dvDaChave(base43);
+    const nfe = lerChaveNFe(chaveBoa);
+    ok("bloco3: a chave de teste é válida (senão o caso não testa nada)",
+       !!nfe && nfe.valido, JSON.stringify(nfe));
+    const ex = extrairCampos(`NOTA FISCAL ELETRONICA\nCHAVE DE ACESSO\n${chaveBoa}\nVALOR 100,00`, 0.9);
+    ok("bloco3: o OCR EXTRAI a chave da NF-e (o ramo não é inerte)",
+       ex.chaveNFe === chaveBoa, String(ex.chaveNFe));
+
+    // ⚠️ 44 dígitos NÃO bastam: o código de barras de um boleto também tem 44.
+    // Sem conferir o DV da chave, o boleto viraria "nota" e o CNPJ do
+    // "emitente" sairia de bytes que significam outra coisa.
+    const exBoleto = extrairCampos(`BOLETO\n${barrasB3}\n`, 0.9);
+    ok("bloco3: código de barras de BOLETO não é lido como chave de NF-e",
+       exBoleto.chaveNFe === null, String(exBoleto.chaveNFe));
+
+    const rn = refinarDocumento({ chaveNFe: chaveBoa, cnpj: "99.999.999/0001-99", valor: 100 });
+    ok("bloco3: o CNPJ da CHAVE vence o do OCR (tem dígito verificador)",
+       rn.cnpj.procedencia === "chave_de_acesso" && rn.cnpj.confianca === 1,
+       `${rn.cnpj.procedencia} ${rn.cnpj.valor}`);
+    ok("bloco3: e a divergência de CNPJ é relatada",
+       rn.divergencias.some((d) => d.campo === "cnpj"));
+
+    // Documento sem nada exato continua funcionando (não regride o caminho atual).
+    const cru = refinarDocumento({ valor: 50, vencimento: "2026-09-01", confianca: 0.65 });
+    ok("bloco3: sem boleto nem chave, o OCR segue valendo (sem regressão)",
+       cru.valor.valor === 50 && cru.valor.procedencia === "ocr" && cru.confiancaGeral === 0.65);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOCO D · a TABELA dentro do PDF (camada de texto)
+  // ⚠️ O defeito medido: todo PDF virava UM lançamento (kind:"doc"). Um extrato
+  // de 200 transações entrava como uma linha só. Estas asserções fixam a
+  // reconstrução da tabela — a parte que decide o que é linha e o que é coluna.
+  // ─────────────────────────────────────────────────────────────────────────
+  {
+    // Um extrato de 3 lançamentos, como o pdf.js entrega: pedaços com
+    // coordenadas, y CRESCENDO PARA CIMA (a 1ª linha do extrato tem o maior y).
+    // A descrição vem PARTIDA em dois pedaços colados — é o que o pdf.js faz
+    // ao mudar de kerning no meio da palavra.
+    const pag: ItemPdf[] = [
+      { texto: "Data",      x:  50, y: 700, largura: 22, altura: 9 },
+      { texto: "Histórico", x: 110, y: 700, largura: 45, altura: 9 },
+      { texto: "Valor",     x: 320, y: 700, largura: 25, altura: 9 },
+      // linha 1
+      { texto: "01/08/2026", x: 50, y: 680, largura: 46, altura: 9 },
+      { texto: "MERCADO",    x:110, y: 680, largura: 42, altura: 9 },
+      { texto: "LIVRE",      x:157, y: 680, largura: 24, altura: 9 },
+      { texto: "-1.234,56",  x:320, y: 680, largura: 40, altura: 9 },
+      // linha 2 — descrição COM ponto e vírgula (o caso do parser)
+      { texto: "02/08/2026", x: 50, y: 665, largura: 46, altura: 9 },
+      { texto: "PIX; TARIFA",x:110, y: 665, largura: 52, altura: 9 },
+      { texto: "-99,90",     x:320, y: 665, largura: 30, altura: 9 },
+      // linha 3
+      { texto: "03/08/2026", x: 50, y: 650, largura: 46, altura: 9 },
+      { texto: "SALARIO",    x:110, y: 650, largura: 38, altura: 9 },
+      { texto: "5.000,00",   x:320, y: 650, largura: 36, altura: 9 },
+    ];
+    const linhas = agruparEmLinhas(pag);
+
+    ok("blocoD pdf: 3 lançamentos + cabeçalho viram 4 linhas (não 1)",
+      linhas.length === 4, `linhas=${linhas.length}`);
+
+    // ⚠️ A ORDEM é o achado que a asserção protege: no PDF o y cresce para CIMA,
+    // então ordenar por y crescente devolve o extrato DE TRÁS PARA A FRENTE — e
+    // um extrato invertido não parece quebrado, parece um extrato.
+    ok("blocoD pdf: a ordem de leitura é do topo para baixo (y decrescente)",
+      linhas[1]?.[0] === "01/08/2026" && linhas[3]?.[0] === "03/08/2026",
+      `1a=${linhas[1]?.[0]} · 3a=${linhas[3]?.[0]}`);
+
+    // A descrição partida pelo pdf.js volta a ser UMA célula.
+    ok("blocoD pdf: pedaços colados viram UMA célula ('MERCADO LIVRE', não duas)",
+      linhas[1]?.[1] === "MERCADO LIVRE" && linhas[1]?.length === 3,
+      JSON.stringify(linhas[1]));
+
+    // ⚠️ O ';' dentro da descrição sobrevive à reconstrução — é ele que o
+    // parser ciente de aspas tem de receber inteiro (a lição do Bloco 1).
+    ok("blocoD pdf: ';' na descrição não parte a célula",
+      linhas[2]?.[1] === "PIX; TARIFA" && linhas[2]?.length === 3,
+      JSON.stringify(linhas[2]));
+
+    // Colunas separadas por vão largo continuam separadas.
+    ok("blocoD pdf: valor fica em célula PRÓPRIA (o vão de coluna separa)",
+      linhas[1]?.[2] === "-1.234,56" && linhas[3]?.[2] === "5.000,00",
+      `${linhas[1]?.[2]} / ${linhas[3]?.[2]}`);
+
+    // ⚠️ ESCANEADO vai para o OCR, não para o parser de tabela. Um PDF de scan
+    // quase sempre traz ALGUM texto (número de página, marca d'água do
+    // software de digitalização); tratar "tem algum texto" como "tem camada de
+    // texto" mandaria o extrato escaneado ao parser, que devolveria duas linhas
+    // de lixo em silêncio — o import "funciona" e traz quase nada.
+    const escaneado: ItemPdf[] = [
+      { texto: "1", x: 300, y: 40, largura: 5, altura: 8 },
+      { texto: "Digitalizado por ScanApp", x: 50, y: 20, largura: 120, altura: 6 },
+    ];
+    ok("blocoD pdf: escaneado (poucos itens) NÃO é camada de texto — vai ao OCR",
+      temCamadaDeTexto(escaneado) === false, `itens=${escaneado.length}`);
+    ok("blocoD pdf: extrato com texto de verdade É camada de texto",
+      temCamadaDeTexto([...pag, ...pag, ...pag, ...pag]) === true);
+    ok("blocoD pdf: página vazia não quebra nem inventa linha",
+      agruparEmLinhas([]).length === 0);
+
+    // ⚠️ O caso do MEIO, que é o que se erra. Três vãos, três respostas — e um
+    // limiar só para os três produziria ou "MERCA DO" (partindo palavra) ou
+    // "MERCADO LIVRE" grudado numa coluna com o valor.
+    const kern: ItemPdf[] = [
+      { texto: "MERCA", x: 110, y: 500, largura: 30, altura: 9 },  // termina 140
+      { texto: "DO",    x: 140, y: 500, largura: 12, altura: 9 },  // vão 0  → mesma palavra
+      { texto: "LIVRE", x: 157, y: 500, largura: 24, altura: 9 },  // vão 5  → espaço
+      { texto: "10,00", x: 320, y: 500, largura: 30, altura: 9 },  // vão 139 → coluna nova
+    ];
+    const lk = agruparEmLinhas(kern)[0] ?? [];
+    ok("blocoD pdf: vão ZERO é a MESMA palavra (kerning) — não inventa espaço",
+      lk[0] === "MERCADO LIVRE", JSON.stringify(lk));
+    ok("blocoD pdf: vão largo é COLUNA nova — o valor não gruda na descrição",
+      lk.length === 2 && lk[1] === "10,00", JSON.stringify(lk));
+
+    // ⚠️ **A CADEIA INTEIRA, não só o agrupamento.** Uma fixture que prova que
+    // as linhas saem bonitas e não prova que viram LANÇAMENTO é verde sobre o
+    // vazio: era exatamente assim que o PDF "funcionava" antes — lia, não
+    // reclamava, e trazia um lançamento só.
+    const csvPdf = csvDeLinhas(agruparEmLinhas(pag));
+    const repPdf = analisarImportacao(csvPdf);
+    ok("blocoD pdf: a cadeia (tabela → csv → FDIP) devolve os 3 lançamentos",
+      repPdf.records.length === 3, `records=${repPdf.records.length}`);
+    ok("blocoD pdf: o ';' da descrição sobrevive até o lançamento",
+      repPdf.records.some((r) => (r.contraparte ?? "").includes("TARIFA")),
+      JSON.stringify(repPdf.records.map((r) => r.contraparte)));
+    // ⚠️ Duas páginas não podem virar uma linha só na emenda: o y de cada
+    // página recomeça do zero, e sem deslocar por página o último lançamento
+    // de uma e o primeiro da outra teriam y parecidos e seriam fundidos.
+    const pag2 = pag.map((i) => ({ ...i, y: i.y - 100000 }));
+    const duasPaginas = agruparEmLinhas([...pag, ...pag2]);
+    ok("blocoD pdf: duas páginas não fundem linha na emenda",
+      duasPaginas.length === 8, `linhas=${duasPaginas.length}`);
+  }
+
+  ok("blocoD mapa: layout limpo mapeia data=0 valor=2 descricao=1",
+     limpo.mapeamento.data === 0 && limpo.mapeamento.valor === 2 && limpo.mapeamento.descricao === 1,
+     JSON.stringify(limpo.mapeamento));
+  ok("blocoD mapa: layout limpo NÃO pede confirmação (confiança alta)",
+     limpo.precisaConfirmar === false && limpo.confianca >= 70, `conf=${limpo.confianca}`);
+
+  // ── layout DESCONHECIDO (sem cabeçalho reconhecível, colunas fora de ordem) ──
+  // ⚠️ Isto é o defeito que o palpite calado produzia: sem detecção honesta,
+  // entraria com data=0/valor=1 e classificaria tudo errado. Agora DECLARA.
+  const estranho = detectarColunas(
+    ["col_a", "col_b", "col_c"],
+    [
+      ["PAGAMENTO LUZ", "-120,00", "05/02/2024"],
+      ["DEPOSITO", "800,00", "06/02/2024"],
+    ],
+  );
+  ok("blocoD mapa: layout desconhecido acha data e valor pelo CONTEÚDO (nome não ajuda)",
+     estranho.mapeamento.data === 2 && estranho.mapeamento.valor === 1,
+     JSON.stringify(estranho.mapeamento));
+  // ⚠️ E DECLARA que precisa confirmar — o palpite calado é o defeito.
+  ok("blocoD mapa: layout desconhecido PEDE confirmação (não chuta calado)",
+     estranho.precisaConfirmar === true, `conf=${estranho.confianca}`);
+
+  // ── o CONTEÚDO vence o NOME quando discordam ────────────────────────────────
+  // Cabeçalho diz "Valor" na col 0, mas o conteúdo dela é texto; o número está na col 2.
+  const enganoso = detectarColunas(
+    ["Valor", "Data", "Quantia"],
+    [
+      ["COMPRA MERCADO", "10/03/2024", "-89,90"],
+      ["SALARIO", "05/03/2024", "3.000,00"],
+    ],
+  );
+  ok("blocoD mapa: o CONTEÚDO vence o NOME — 'Valor' sem números não é a coluna de valor",
+     enganoso.mapeamento.valor === 2, `valor=${enganoso.mapeamento.valor}`);
+
+  // ── validação: um mapeamento salvo que NÃO bate é rejeitado ──────────────────
+  const amostras = [["16/01/2024", "PIX", "100,00"], ["17/01/2024", "TED", "200,00"]];
+  ok("blocoD mapa: mapeamento correto valida (nenhum problema)",
+     validarMapeamento({ data: 0, valor: 2, descricao: 1, documento: -1 }, amostras).length === 0);
+  // ⚠️ Reusar cegamente um mapa de outro banco (data e valor trocados) é pego.
+  const trocado = validarMapeamento({ data: 2, valor: 0, descricao: 1, documento: -1 }, amostras);
+  ok("blocoD mapa: mapeamento com data/valor trocados é REJEITADO antes de reusar",
+     trocado.includes("data") && trocado.includes("valor"), trocado.join(","));
+
+  // ── a assinatura do layout: header casa, posicional não salva sob chave vazia ─
+  ok("blocoD mapa: dois arquivos do mesmo banco têm a MESMA assinatura",
+     assinaturaLayout(["Data", "Valor", "Histórico"]) === assinaturaLayout(["data", "valor", "historico"]));
+  ok("blocoD mapa: arquivo posicional (sem header) tem assinatura VAZIA (não salva)",
+     assinaturaLayout([]) === "" && assinaturaLayout(["", "", ""]) === "");
+
+  // ── A4P-073: a abertura vem do SALDO DECLARADO, NUNCA da primeira linha ──────
+  // Extrato: saldo declarado (LEDGERBAL) 5.000; líquido do arquivo +1.500.
+  // Abertura = 5.000 − 1.500 = 3.500. E 3.500 não é o valor de nenhuma transação.
+  const transacoes = [1000, 800, -300, 4300];  // a 4300 é a armadilha da 1ª linha
+  const netLiquidado = transacoes.reduce((s, v) => s + v, 0); // 5.800? não — ver abaixo
+  const ab = aberturaDoExtrato(5000, 1500, "2024-01-01");
+  ok("blocoD abertura: 5.000 declarado − 1.500 líquido = 3.500", ab.valor === 3500, String(ab.valor));
+  // ⚠️ A ASSERÇÃO QUE FIXA O DEFEITO: a abertura NÃO é o valor de nenhuma
+  // transação do extrato. É a prova de que ela não veio da 1ª linha (a lição
+  // do bloco `abertura:` — provar X ≠ Y para todo Y, não conferir X).
+  ok("blocoD abertura: o valor da abertura NÃO é o de nenhuma transação (não veio da 1ª linha)",
+     !transacoes.some((v) => Math.abs(v - ab.valor) < 0.005), `abertura=${ab.valor}`);
+  // A escolha da cascata: importada (extrato) vence informada (digitada).
+  const escolha = escolherAbertura({
+    importada: { valor: 3500, data: "2024-01-01" },
+    informada: { valor: 9999, data: "2024-01-01", por: "fulano" },
+  });
+  ok("blocoD abertura: o saldo do EXTRATO vence o digitado à mão",
+     escolha?.origem === "extrato_bancario" && escolha.valor === 3500);
+  // ⚠️ A ORIGEM NÃO É COSMÉTICA (A4P-073): uma abertura preenchida SEM origem
+  // é uma âncora anônima — a tela do Razão não pode dizer de onde veio o saldo.
+  // Toda abertura que a cascata devolve carrega origem; a guarda prova.
+  const abInf = escolherAbertura({ informada: { valor: 100, data: "2024-01-01", por: "Ana" } });
+  ok("blocoD abertura: a informada carrega origem 'cadastro_manual'",
+     abInf?.origem === "cadastro_manual");
+  ok("blocoD abertura: NENHUMA abertura com valor sai sem origem",
+     [escolha, abInf].every((a) => !a || (a.valor !== undefined && !!a.origem)));
+  void netLiquidado;
+}
+
+/* ── BLOCO 1: o parser CIENTE DE ASPAS (o caso REAL, não o contornado) ────────
+ *
+ * ⚠️ O CASO PRINCIPAL é o que ACONTECE: separador `;` e descrição contendo `;`
+ * entre aspas. A guarda anterior media TAB — um caso que quase nunca aparece
+ * numa célula de extrato — e ficava verde enquanto o parser PERDIA o lançamento
+ * de descrição citada. Verde no caso que não acontece, cega no que acontece: a
+ * família do `resíduo = x − x`. Aqui o caso real vem PRIMEIRO; TAB é adicional.
+ */
+{
+  // 1. O CASO REAL, direto no parser (sem passar por csvDeLinhas): `;` separador,
+  //    `;` DENTRO de aspas na descrição do meio. Provado quebrando: o parser
+  //    ingênuo (split cru) devolvia 2 — o de R$ 99,90 SUMIA.
+  const real =
+    "Data;Histórico;Valor\r\n" +
+    "16/01/2024;PIX RECEBIDO ALPHA;1.000,00\r\n" +
+    '17/01/2024;"COMPRA CARTAO; PARCELA 1/3";-99,90\r\n' +
+    "18/01/2024;PAGAMENTO FORNECEDOR BETA;-300,00\r\n";
+  const pr = parseTexto(real);
+  ok("blocoD parser: descrição com ';' entre aspas NÃO parte a linha (3, não 2)",
+     pr.records.length === 3, String(pr.records.length));
+  // ⚠️ `?.` de propósito: com o parser quebrado o array encurta, e a guarda tem
+  // de REPROVAR com um FAIL limpo — não estourar antes das próximas asserções.
+  ok("blocoD parser: o ';' fica DENTRO da descrição, intacto",
+     pr.records[1]?.descricao === "COMPRA CARTAO; PARCELA 1/3", pr.records[1]?.descricao);
+  ok("blocoD parser: o valor do lançamento citado é lido (−99,90)",
+     pr.records[1]?.tipo === "saida" && pr.records[1]?.valor === 99.9, String(pr.records[1]?.valor));
+
+  // 2. Aspas ESCAPADAS ("" = uma aspa literal) — o BB põe aspas no histórico.
+  const escapada = 'Data;Histórico;Valor\n01/02/2024;"PAGTO ""XPTO"" LTDA";-10,00\n';
+  const pe = parseTexto(escapada);
+  ok("blocoD parser: \"\" vira UMA aspa literal na descrição",
+     pe.records.length === 1 && pe.records[0].descricao === 'PAGTO "XPTO" LTDA', pe.records[0]?.descricao);
+
+  // 3. QUEBRA DE LINHA dentro de campo entre aspas — memo de duas linhas do Inter
+  //    é UM lançamento, não dois nem uma linha perdida.
+  const multilinha = 'Data;Histórico;Valor\n02/02/2024;"MEMO LINHA 1\nMEMO LINHA 2";-20,00\n';
+  const pm = parseTexto(multilinha);
+  ok("blocoD parser: quebra de linha entre aspas é UM lançamento, não dois",
+     pm.records.length === 1, String(pm.records.length));
+
+  // 4. BOM no início não gruda na primeira célula do cabeçalho (a coluna Data
+  //    ainda é reconhecida — sem isto, '﻿Data' não casa /data/ e o header some).
+  const comBom = "﻿Data;Histórico;Valor\n03/02/2024;PIX RECEBIDO;1.000,00\n";
+  const pb = parseTexto(comBom);
+  ok("blocoD parser: BOM no início não quebra o reconhecimento do cabeçalho",
+     pb.records.length === 1 && pb.records[0]?.tipo === "entrada" && pb.records[0]?.valor === 1000);
+
+  // 5. SEPARADOR DETECTADO, não assumido: um arquivo com `,` (Nubank) e vírgula
+  //    de descrição entre aspas parseia igual, e o `,` decimal não vira coluna.
+  const virgula = 'Data,Descrição,Valor\n2024-02-04,"Boleto, energia",-230.50\n2024-02-05,Compra,1500.00\n';
+  const pv = parseTexto(virgula);
+  ok("blocoD parser: separador ',' detectado; ',' de descrição citada não parte",
+     pv.records.length === 2 && pv.records[0]?.descricao === "Boleto, energia", pv.records[0]?.descricao);
+  ok("blocoD parser: com separador ',', o ',' decimal NÃO é lido como coluna",
+     pv.records[1]?.valor === 1500, String(pv.records[1]?.valor));
+
+  // 6. TAB como caso ADICIONAL (nunca o principal): um arquivo tabulado parseia,
+  //    mas não é o separador padrão — só vence quando DOMINA a primeira linha.
+  const tab = "Data\tHistórico\tValor\n06/02/2024\tPIX\t1.000,00\n";
+  const pt = parseTexto(tab);
+  ok("blocoD parser: TAB é reconhecido quando domina (caso adicional, não padrão)",
+     pt.records.length === 1 && pt.records[0]?.valor === 1000);
+}
+
+/* ── BLOCO 1: FIXTURES de banco brasileiro real (bytes de verdade em disco) ───
+ * Guardadas em scripts/fixtures/extratos/*.csv — cada uma com um defeito de
+ * mundo real: BOM+CRLF (Itaú), sufixo C/D (Bradesco), separador vírgula +
+ * data ISO (Nubank), quebra de linha citada (Inter), aspas escapadas (BB).
+ */
+{
+  const ler = (banco: string) =>
+    parseTexto(readFileSync(new URL(`./fixtures/extratos/${banco}.csv`, import.meta.url), "utf8"));
+
+  const itau = ler("itau");
+  ok("blocoD fixture Itaú: BOM+CRLF+';' citado → 3 lançamentos",
+     itau.records.length === 3, String(itau.records.length));
+  ok("blocoD fixture Itaú: a compra parcelada com ';' sobrevive inteira",
+     itau.records.some((r) => r.descricao === "COMPRA CARTAO 1234; PARCELA 01/03"));
+
+  const bradesco = ler("bradesco");
+  ok("blocoD fixture Bradesco: sufixo C/D vira sinal → 3 lançamentos",
+     bradesco.records.length === 3, String(bradesco.records.length));
+  ok("blocoD fixture Bradesco: '2.000,00 C' é entrada; '500,00 D' é saída",
+     bradesco.records[0]?.tipo === "entrada" && bradesco.records[0]?.valor === 2000 &&
+     bradesco.records[1]?.tipo === "saida" && bradesco.records[1]?.valor === 500);
+  ok("blocoD fixture Bradesco: coluna de documento é lida",
+     bradesco.records[0]?.documento === "000123");
+
+  const nubank = ler("nubank");
+  ok("blocoD fixture Nubank: separador ',' + data ISO → 3 lançamentos",
+     nubank.records.length === 3, String(nubank.records.length));
+  ok("blocoD fixture Nubank: descrição com vírgula citada fica inteira",
+     nubank.records.some((r) => r.descricao === "Pagamento boleto, energia elétrica"));
+
+  const inter = ler("inter");
+  ok("blocoD fixture Inter: memo de DUAS linhas é UM lançamento → 3 no total",
+     inter.records.length === 3, String(inter.records.length));
+
+  const bb = ler("bb");
+  ok("blocoD fixture BB: aspas escapadas viram aspa literal → 3 lançamentos",
+     bb.records.length === 3, String(bb.records.length));
+  ok("blocoD fixture BB: a aspa literal do histórico é preservada",
+     bb.records.some((r) => r.descricao === 'PAGTO "FORNECEDOR PREMIUM" LTDA'));
+}
+
+/* ── Fatia 2: xlsx entra no MESMO pipeline (mesma contagem, categorias, chave) ── */
+{
+  const linhas = [
+    ["Data", "Histórico", "Valor"],
+    ["16/01/2024", "PIX RECEBIDO ALPHA", "1.000,00"],
+    ["17/01/2024", "TARIFA MENSAL", "-50,00"],
+    ["18/01/2024", "PAGAMENTO FORNECEDOR BETA", "-300,00"],
+    ["", "", ""],  // linha vazia do fim da aba do Excel — some
+  ];
+  const csvManual =
+    "Data;Histórico;Valor\n16/01/2024;PIX RECEBIDO ALPHA;1.000,00\n17/01/2024;TARIFA MENSAL;-50,00\n18/01/2024;PAGAMENTO FORNECEDOR BETA;-300,00";
+
+  const viaPlanilha = analisarImportacao(csvDeLinhas(linhas));
+  const viaCsv = analisarImportacao(csvManual);
+
+  ok("blocoD xlsx: planilha e CSV dão a MESMA contagem de lançamentos",
+     viaPlanilha.records.length === viaCsv.records.length && viaPlanilha.records.length === 3,
+     `${viaPlanilha.records.length} × ${viaCsv.records.length}`);
+
+  const cats = (r: typeof viaCsv) => r.classificacoes.map((x) => x.categoria).sort().join("|");
+  ok("blocoD xlsx: planilha e CSV sugerem as MESMAS categorias",
+     cats(viaPlanilha) === cats(viaCsv), `${cats(viaPlanilha)} × ${cats(viaCsv)}`);
+
+  const chaves = (r: typeof viaCsv) => r.records.map((x) => x.fingerprint).sort().join("|");
+  ok("blocoD xlsx: planilha e CSV geram a MESMA chave de idempotência",
+     chaves(viaPlanilha) === chaves(viaCsv));
+
+  // ⚠️ Agora via csvDeLinhas com separador `;` DE VERDADE: a descrição com `;`
+  // é CITADA na serialização e o parser ciente de aspas a desfaz — 1 lançamento,
+  // não 2, e o `;` fica na descrição. (Antes csvDeLinhas usava TAB p/ esconder
+  // o defeito; agora o defeito está corrigido na origem.)
+  const comPontoVirgula = [["Data", "Histórico", "Valor"], ["20/01/2024", "COMPRA A; PARCELA 1", "-99,90"]];
+  const rep = analisarImportacao(csvDeLinhas(comPontoVirgula));
+  ok("blocoD xlsx: descrição com ';' NÃO parte a linha (1 lançamento, não 2)",
+     rep.records.length === 1, String(rep.records.length));
+  ok("blocoD xlsx: e o ';' continua DENTRO da descrição serializada com ';'",
+     rep.records[0]?.descricao === "COMPRA A; PARCELA 1", rep.records[0]?.descricao);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A4P-079 — A TELA DE GOVERNANÇA NÃO AFIRMA INTEGRIDADE QUE NÃO PODE CONFERIR
+//
+// ⚠️ Esta guarda existe porque a verificação de integridade, em produção, era
+// `x − x`: `getAuditTrail` MONTA a cadeia no navegador a partir das linhas de
+// `audit_log` (que não guarda hash) e então verifica essa cadeia contra ela
+// mesma. Medido pelo MESMO caminho da produção: adulterar o `depois` de uma
+// linha, apagar a linha do meio e a cadeia vazia — os três devolviam
+// `intacta: true`, e a tela estampava a pílula verde "Cadeia íntegra".
+//
+// ⚠️ **A guarda NÃO mede a integridade** — medir isso seria repetir a
+// tautologia. Ela mede o que a tela AFIRMA: com a cadeia reconstruída, nenhum
+// caminho pode produzir o rótulo positivo nem oferecer o teste de adulteração.
+// É a forma "X nunca pode vir de Y" da doutrina: prova-se excluindo o caminho
+// errado, não confirmando o resultado certo.
+{
+  const { veredictoDaCadeia } = await import("@/core/institutional/cadeia");
+  const { TrilhaAuditoria } = await import("@/core/institutional/audit");
+
+  // 1) O defeito original, reproduzido: a cadeia reconstruída NÃO detecta.
+  type L = { id: string; depois: Record<string, unknown> };
+  const montar = (linhas: L[]) => {
+    const t = new TrilhaAuditoria();
+    for (const r of linhas)
+      t.registrar({
+        entityType: "movement", entityId: r.id, action: "update",
+        before: null, after: r.depois,
+        ctx: { userId: "u", userName: "u", companyId: "—", ip: "—", device: "—", browser: "—", os: "—" },
+        timestamp: `2026-08-0${r.id}T10:00:00Z`,
+      });
+    return t.verificarIntegridade();
+  };
+  const LINHAS: L[] = [
+    { id: "1", depois: { valor: 1000 } },
+    { id: "2", depois: { valor: 2000 } },
+    { id: "3", depois: { valor: 3000 } },
+  ];
+  const adulterada = montar(LINHAS.map((l) => (l.id === "2" ? { ...l, depois: { valor: 999999 } } : l)));
+  const semMeio = montar(LINHAS.filter((l) => l.id !== "2"));
+  ok("A4P-079: reconstruir a cadeia NÃO detecta adulteração (o defeito é real)",
+     adulterada.intacta && semMeio.intacta,
+     `adulterada=${adulterada.intacta} · apagada=${semMeio.intacta}`);
+
+  // 2) …e por isso o veredicto de uma cadeia reconstruída nunca é positivo.
+  const recon = veredictoDaCadeia({ origem: "reconstruida", total: 3, intacta: true });
+  ok("A4P-079: cadeia reconstruída NUNCA diz 'Cadeia íntegra'",
+     !recon.verificavel && recon.rotulo !== "Cadeia íntegra" && recon.tom !== "positivo", recon.rotulo);
+  ok("A4P-079: e NUNCA oferece o teste de adulteração (proteção que o dado não tem)",
+     recon.podeTestarAdulteracao === false);
+  ok("A4P-079: o motivo ocupa o lugar da afirmação, e nomeia a causa",
+     recon.explicacao.includes("calculado na hora da leitura") && recon.explicacao.length > 80);
+
+  // 3) O vazio: 0 eventos passa em verificarIntegridade por VACUIDADE.
+  const vazioCru = new TrilhaAuditoria([]).verificarIntegridade();
+  ok("A4P-079: 0 eventos passa na verificação crua (é por isso que a tela mentia)",
+     vazioCru.intacta && vazioCru.total === 0);
+  const vazio = veredictoDaCadeia({ origem: "armazenada", total: 0, intacta: true });
+  ok("A4P-079: mas o veredicto do VAZIO não é positivo, mesmo com cadeia armazenada",
+     !vazio.verificavel && vazio.tom === "neutro" && !vazio.podeTestarAdulteracao, vazio.rotulo);
+  ok("A4P-079: e o vazio DIZ que ausência de registro não é registro em ordem",
+     vazio.explicacao.toLowerCase().includes("não é o mesmo"));
+
+  // 4) O caso legítimo continua funcionando — senão a guarda proibiria o certo.
+  const boa = veredictoDaCadeia({ origem: "armazenada", total: 3, intacta: true });
+  const ruim = veredictoDaCadeia({ origem: "armazenada", total: 3, intacta: false });
+  ok("A4P-079: cadeia ARMAZENADA e íntegra continua podendo afirmar",
+     boa.verificavel && boa.rotulo === "Cadeia íntegra" && boa.podeTestarAdulteracao);
+  ok("A4P-079: cadeia ARMAZENADA adulterada acusa (o caso discrimina)",
+     ruim.verificavel && ruim.tom === "alerta" && ruim.rotulo !== boa.rotulo);
+
+  // 5) TETO ZERO na tela: nenhum caminho estampa o rótulo positivo por conta
+  //    própria. Era um ternário inline sobre `integridade.intacta`, e foi ele
+  //    que atravessou meses sem ninguém ver.
+  const fs = await import("node:fs");
+  const tela = fs.readFileSync("src/components/institucional/InstitutionalView.tsx", "utf8");
+  ok("A4P-079: a tela não escreve 'Cadeia íntegra' à mão — sai do veredicto",
+     !tela.includes('"Cadeia íntegra"') && tela.includes("veredictoDaCadeia"));
+  ok("A4P-079: o teste de adulteração é gateado pelo veredicto, não por eventos.length",
+     tela.includes("veredicto.podeTestarAdulteracao"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// METODOLOGIA PÚBLICA (item 12) — a página descreve o cálculo que o produto
+// EXECUTA, não um cálculo que alguém digitou uma vez.
+//
+// ⚠️ Uma página pública de metodologia com texto à mão é pior que nenhuma: ela
+// envelhece na primeira mudança de fórmula e passa a afirmar, para quem ainda
+// não é cliente, um cálculo que não existe mais. Por isso a guarda cobra o
+// CONSUMO das fontes, e cobra que toda linha de soma tenha explicação — senão a
+// próxima linha nova entra na cascata muda.
+{
+  const fs = await import("node:fs");
+  const { ESTRUTURA_DRE, ESTRUTURA_DFC } = await import("@/core/relatorios");
+  const { METODOLOGIAS } = await import("@/core/metodologia");
+  const { LIMITES } = await import("@/core/metodologia/limites");
+
+  const somas = [...ESTRUTURA_DRE, ...ESTRUTURA_DFC].filter((l) => l.tipo === "soma");
+  const semEntra = somas.filter((l) => !l.entra || l.entra.length < 40);
+  ok("metodologia: TODA linha de soma diz em português o que cai nela",
+     semEntra.length === 0, semEntra.map((l) => l.id).join(", "));
+
+  // ⚠️ O caso que DISCRIMINA: a explicação da dedução tem de dizer que IRPJ e
+  // CSLL NÃO entram ali. Foi exatamente essa confusão que levou a dedução a
+  // 47,54% da receita numa organização real, e uma explicação que a omitisse
+  // publicaria a versão errada da regra.
+  const ded = ESTRUTURA_DRE.find((l) => l.id === "deducoes");
+  ok("metodologia: a linha de deduções DIZ que IRPJ/CSLL ficam de fora",
+     /irpj/i.test(ded?.entra ?? "") && /csll/i.test(ded?.entra ?? ""));
+
+  const totais = ESTRUTURA_DRE.filter((l) => l.tipo === "total" && l.id !== "saldo_inicial");
+  ok("metodologia: toda linha de total tem fórmula (nenhuma soma lançamento)",
+     totais.every((l) => (l.formula?.length ?? 0) > 0 && !l.casa),
+     totais.filter((l) => !l.formula?.length || l.casa).map((l) => l.id).join(", "));
+
+  // ⚠️ TETO ZERO: a página LÊ das fontes. Se ela deixar de importar qualquer
+  // uma, virou texto à mão — e é aí que a divergência começa, em silêncio.
+  const pag = fs.readFileSync("src/components/metodologia/MetodologiaView.tsx", "utf8");
+  for (const fonte of ["ESTRUTURA_DRE", "ESTRUTURA_DFC", "METODOLOGIAS", "LIMITES"])
+    ok(`metodologia: a página consome ${fonte} em vez de repetir o texto`,
+       new RegExp(`import[^;]*${fonte}`).test(pag));
+
+  ok("metodologia: a página tem a seção do que o sistema NÃO faz",
+     pag.includes("O que o sistema não faz"));
+  ok("metodologia: cada limite traz o que fazer no lugar (limite sem saída lê como defeito)",
+     LIMITES.length >= 5 && LIMITES.every((l) => l.emVezDisso.length > 30 && l.porque.length > 30));
+  // ⚠️ Discrimina: a lista tem de conter os limites que DOEM, não só os fáceis.
+  const titulos = LIMITES.map((l) => l.titulo.toLowerCase()).join(" | ");
+  ok("metodologia: os limites que doem estão declarados (contador · dinheiro · previsão)",
+     /contador/.test(titulos) && /move dinheiro/.test(titulos) && /prev[êe]/.test(titulos), titulos);
+
+  ok("metodologia: todo indicador declara o que NÃO enxerga",
+     METODOLOGIAS.length > 0 && METODOLOGIAS.every((m) => m.limitacoes.length > 0));
+  ok("metodologia: os pesos de cada indicador somam 1",
+     METODOLOGIAS.every((m) => Math.abs(m.componentes.reduce((a, c) => a + c.peso, 0) - 1) < 0.001),
+     METODOLOGIAS.map((m) => `${m.id}=${m.componentes.reduce((a, c) => a + c.peso, 0).toFixed(3)}`).join(" "));
+
+  // ⚠️ Pública de verdade: sem esta linha no middleware a página existe e pede
+  // login — e uma metodologia que só quem já comprou consegue ler não cumpre a
+  // função de ajudar a decidir a compra.
+  const mw = fs.readFileSync("src/middleware.ts", "utf8").replace(/\/\/.*$/gm, "");
+  ok("metodologia: a rota é pública no middleware", mw.includes('pathname.startsWith("/metodologia")'));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MVP · A IA NÃO CHAMA FOLHA DE FORNECEDOR
+//
+// ⚠️ Medido numa organização real: "qual meu maior fornecedor" respondia
+// "Folha Funcionarios (R$65.441,24), Pro Labore Socios (R$18.000,00)". Não é
+// falso — o dinheiro sai mesmo para eles — mas para um dono de empresa
+// fornecedor é quem lhe VENDE, não quem trabalha nele. Uma resposta que soa
+// errada contamina as certas ao lado, e numa demo isso custa a reunião.
+{
+  const { responderLocal } = await import("@/core/assistant/engine");
+  const mk = (cat: string, valor: number, party: string) => ({
+    id: `f-${party}-${valor}`, type: "saida", status: "pago", amount: valor,
+    due_date: "2026-08-10", paid_date: "2026-08-10", competence_date: "2026-08-10",
+    category: cat, description: cat, party_id: party, accountId: "c1",
+  });
+  const inputIA = {
+    hoje: "2026-08-20", saldoAtual: 50_000,
+    // A folha é a MAIOR saída de propósito: se ela não fosse a maior, o caso
+    // passaria sem discriminar nada.
+    movements: [
+      mk("Folha de pagamento", 90_000, "p-folha"),
+      mk("Pró-labore", 30_000, "p-prolabore"),
+      mk("Fornecedores / insumos", 12_000, "p-distribuidora"),
+    ],
+    accounts: [{ id: "c1", name: "Conta", balance: 50_000 }],
+    parties: [],
+    partyNames: { "p-folha": "Folha Funcionarios", "p-prolabore": "Pro Labore Socios", "p-distribuidora": "Distribuidora Sul" },
+  } as never;
+  const r = responderLocal("qual meu maior fornecedor", inputIA) as { resposta?: string } | null;
+  const txt = r?.resposta ?? "";
+  ok("mvp: a IA responde a pergunta de fornecedor", txt.length > 10, txt.slice(0, 80));
+  ok("mvp: folha NÃO aparece como fornecedor", !/Folha Funcionarios/i.test(txt), txt.slice(0, 110));
+  ok("mvp: pró-labore NÃO aparece como fornecedor", !/Pro Labore/i.test(txt), txt.slice(0, 110));
+  // ⚠️ O caso DISCRIMINA: o fornecedor de verdade tem de sobrar na resposta.
+  // Sem esta linha, esconder tudo passaria nas duas asserções acima.
+  ok("mvp: o fornecedor de verdade continua na resposta", /Distribuidora Sul/i.test(txt), txt.slice(0, 110));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ITEM 16 — CONFIRMADO × PREVISTO no relatório
+//
+// ⚠️ Duas coisas precisam ser verdade ao mesmo tempo, e uma sem a outra é
+// inútil: a distinção tem de MUDAR o número (senão não distingue nada), e o
+// PADRÃO tem de preservar o comportamento de hoje (senão todo cliente vê os
+// números caírem da noite para o dia, e número que muda sozinho é lido como
+// defeito, não como recurso).
+{
+  const { titulosDaVisao, ehConfirmado, situacaoDe } = await import("@/core/central");
+  const t = (id: string, situacao: string) => ({ id, situacao } as never);
+  const carteira = [
+    t("a", "previsto"), t("b", "confirmado"), t("c", "baixado"),
+    t("d", "conciliado"), t("e", "cancelado"), t("f", "estornado"),
+  ];
+
+  const comPrevisto = titulosDaVisao(carteira, "com-previsto");
+  const soConfirmado = titulosDaVisao(carteira, "confirmado");
+
+  ok("item16: a visão CONFIRMADO é menor que a com previsto (a distinção distingue)",
+     soConfirmado.length < comPrevisto.length, `${soConfirmado.length} × ${comPrevisto.length}`);
+  ok("item16: com previsto inclui o previsto", comPrevisto.some((x) => (x as { id: string }).id === "a"));
+  ok("item16: só confirmado NÃO inclui o previsto", !soConfirmado.some((x) => (x as { id: string }).id === "a"));
+
+  // ⚠️ Cancelado e estornado saem das DUAS: eles não são "previsto que talvez
+  // aconteça", são dinheiro que saiu do resultado por definição. Se entrassem na
+  // visão com previsto, o relatório completo somaria o que foi desfeito.
+  for (const v of ["com-previsto", "confirmado"] as const) {
+    const r = titulosDaVisao(carteira, v);
+    ok(`item16: cancelado fica fora da visão "${v}"`, !r.some((x) => (x as { id: string }).id === "e"));
+    ok(`item16: estornado fica fora da visão "${v}"`, !r.some((x) => (x as { id: string }).id === "f"));
+  }
+
+  // Os três estados firmes contam como confirmado.
+  for (const s2 of ["confirmado", "baixado", "conciliado"] as const)
+    ok(`item16: "${s2}" conta como firme`, ehConfirmado(s2));
+  for (const s2 of ["previsto", "cancelado", "estornado"] as const)
+    ok(`item16: "${s2}" NÃO conta como firme`, !ehConfirmado(s2));
+
+  // ⚠️ E a ponte com a coluna nova: `situacaoDe` prefere o gravado. Este caso
+  // fixa o comportamento que ligar a coluna no select produz.
+  ok("item16: situacaoDe prefere a coluna quando ela vem",
+     situacaoDe({ status: "pendente", situacao: "confirmado" } as never) === "confirmado");
+  ok("item16: e deriva do status quando ela não vem",
+     situacaoDe({ status: "pago" } as never) === "baixado");
+
+  // ⚠️ TETO ZERO na tela: o padrão é "com-previsto". Abrir em "confirmado"
+  // derrubaria todo número de todo cliente sem ninguém ter pedido.
+  const fs = await import("node:fs");
+  const tela = fs.readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("item16: o relatório ABRE com previsto (não muda número de ninguém sozinho)",
+     /useState<VisaoRelatorio>\("com-previsto"\)/.test(tela));
+  ok("item16: e o recorte é DITO na tela, nas duas visões",
+     tela.includes("Mostrando o confirmado E o previsto") && tela.includes("Mostrando só o CONFIRMADO"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

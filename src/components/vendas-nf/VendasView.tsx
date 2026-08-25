@@ -20,6 +20,7 @@ import {
 } from "@/core/vendas";
 import { listarVendas, removerVenda } from "@/lib/vendas-store";
 import { Painel, CardAnel } from "@/components/paineis/shared";
+import { imprimirRelatorio } from "@/lib/imprimir";
 
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000];
@@ -82,11 +83,11 @@ export function VendasView() {
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
-          <Button variant="outline" disabled={vendas.length === 0} onClick={() => window.print()}>
+          <Button variant="outline" disabled={vendas.length === 0} onClick={imprimirRelatorio}>
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>
-          <Button variant="outline" onClick={() => router.push("/dashboard/financial/import?tipo=receber")}>
+          <Button variant="outline" onClick={() => router.push("/upload")}>
             <Icon name="upload" size={15} color="currentColor" />
             Importar vendas
           </Button>

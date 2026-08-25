@@ -18,9 +18,23 @@ import { ErroWidget } from "@/components/visao-geral/shared";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { reconciliarSaldo, saldo } from "@/core/indicadores";
 import { AppShell } from "@/components/app/AppShell";
+import { baixarXLSX } from "@/lib/xlsx";
+import { imprimirRelatorio } from "@/lib/imprimir";
+import { CabecalhoImpressao } from "@/components/relatorios/CabecalhoImpressao";
 
 const fmtDia = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
 const hojeISO = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * ⚠️ **O TETO É DECLARADO E DITO NA TELA.** A lista mostrava os 200 primeiros
+ * lançamentos e mais nada — sem reticências, sem contagem, sem aviso. Um razão
+ * a que faltam linhas não parece quebrado: parece um razão. É a mesma família
+ * do `conferirTeto` das consultas ("truncar em silêncio é pior que travar"), e
+ * dói mais aqui, porque é o documento que o contador confere linha a linha.
+ * A tela continua limitada — 200 lançamentos abertos são milhares de nós —, mas
+ * agora ela DIZ, e a exportação leva TODOS.
+ */
+const TETO_TELA = 200;
 
 export function RazaoView() {
   const qc = useQueryClient();
@@ -48,6 +62,42 @@ export function RazaoView() {
   React.useEffect(() => { recarregar(); }, [recarregar]);
 
   const bal = React.useMemo(() => (entries ? balancete(entries) : []), [entries]);
+
+  /*
+   * ⚠️ **AS LINHAS DE DÉBITO E CRÉDITO SÓ EXISTEM NO DOM QUANDO ABERTAS**, e é
+   * exatamente ELAS que fazem do razão um razão. Imprimir com tudo fechado
+   * produz uma lista de descrições e um valor — um extrato, não a partida
+   * dobrada que o contador vem conferir. Nenhuma regra de `@media print`
+   * resolve isso: CSS não revela o que não foi renderizado. Então o gesto de
+   * imprimir ABRE tudo antes.
+   */
+  React.useEffect(() => {
+    const abrirTudo = () => {
+      if (!entries) return;
+      setAberto(Object.fromEntries(entries.slice(0, TETO_TELA).map((e) => [e.id, true])));
+    };
+    window.addEventListener("beforeprint", abrirTudo);
+    return () => window.removeEventListener("beforeprint", abrirTudo);
+  }, [entries]);
+
+  /*
+   * ⚠️ **A PLANILHA LEVA TODOS, não os 200 da tela.** O teto existe porque
+   * milhares de nós abertos travam o navegador; ele não é uma opinião sobre
+   * quantos lançamentos o contador precisa. Exportar o recorte da tela
+   * entregaria um razão incompleto com cara de completo — o mesmo defeito que
+   * o A4P-082 achou na impressão do DRE.
+   *
+   * Uma linha por LINHA de lançamento (não por lançamento): é assim que o razão
+   * se lê e é o que permite somar débito e crédito na própria planilha.
+   */
+  const linhasPlanilha = React.useMemo(() => {
+    const fora: (string | number)[][] = [["Data", "Lançamento", "Origem", "Conta", "Nome da conta", "Débito", "Crédito"]];
+    for (const e of entries ?? [])
+      for (const l of e.linhas)
+        fora.push([e.data, e.descricao, e.origem, l.conta, l.nome, l.debito || 0, l.credito || 0]);
+    return fora;
+  }, [entries]);
+
   const totDeb = bal.reduce((s, c) => s + c.debito, 0);
   const totCred = bal.reduce((s, c) => s + c.credito, 0);
   const balanceado = Math.round((totDeb - totCred) * 100) === 0;
@@ -85,10 +135,39 @@ export function RazaoView() {
   return (
     <AppShell title="Razão" crumb="Contabilidade" actions={isDemo ? <DemoBadge /> : null}>
       <div className="flex flex-col gap-5 pb-4">
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* ⚠️ Só no papel: o razão que sai daqui vai para o contador, e uma
+            folha de partidas sem dizer de que empresa e de quando é não se
+            confere. Sem período porque o razão não tem recorte: ele é o
+            histórico inteiro — e é isso que a data de geração carimba. */}
+        <CabecalhoImpressao
+          titulo="Razão"
+          de={entries?.[0]?.data ?? hojeISO()}
+          ate={entries?.[entries.length - 1]?.data ?? hojeISO()}
+          regime="competencia"
+          recorte="Todos os lançamentos"
+        />
+        <div className="flex items-center gap-2 flex-wrap" data-nao-imprime>
           <Button variant="secondary" onClick={() => setForm((f) => !f)} leftIcon={<Icon name="plus" size={15} />}>Novo lançamento</Button>
           <Button variant="secondary" onClick={importarOF} disabled={busy !== null || isDemo} title={isDemo ? "Disponível em live (Open Finance)" : "Importar transações do Open Finance para o razão"} leftIcon={<Icon name="building" size={15} />}>
             {busy === "of" ? "Importando…" : "Importar Open Finance"}
+          </Button>
+          {/* ⚠️ O razão não tinha exportação NENHUMA — nem planilha, nem papel —
+              e é o documento que o contador pede primeiro. */}
+          <Button
+            variant="outline"
+            disabled={!entries || entries.length === 0}
+            onClick={imprimirRelatorio}
+            leftIcon={<Icon name="file-text" size={15} />}
+          >
+            Exportar PDF
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!entries || entries.length === 0}
+            onClick={() => baixarXLSX("razao", [{ nome: "Razão", linhas: linhasPlanilha }])}
+            leftIcon={<Icon name="arrow-down-to-line" size={15} />}
+          >
+            Exportar XLSX
           </Button>
           {isDemo && (
             <button onClick={limpar} className="text-caption text-muted hover:text-ink underline ml-auto">Limpar lançamentos próprios (demo)</button>
@@ -160,8 +239,18 @@ export function RazaoView() {
             {/* Lançamentos */}
             <Card padded={false}
               info={{ titulo: "Lançamentos", oQue: "Cada registro de dupla entrada do razão, com suas linhas de débito e crédito ao abrir.", comoCalcula: "Reúne os lançamentos projetados dos movimentos mais os manuais, cronogramas e provisões." }}>
-              <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Lançamentos · {entries.length}</div>
-              {entries.slice(0, 200).map((e, i) => {
+              <div className="px-5 py-3 border-b border-border-soft flex items-baseline justify-between gap-3 flex-wrap">
+                <span className="text-label font-medium text-muted">Lançamentos · {entries.length}</span>
+                {/* ⚠️ O corte é DITO. Antes a lista parava no 200 sem nada
+                    indicando, e um razão a que faltam linhas não parece
+                    quebrado: parece um razão. */}
+                {entries.length > TETO_TELA && (
+                  <span className="text-caption text-faint">
+                    mostrando os {TETO_TELA} primeiros nesta tela · a exportação leva todos os {entries.length}
+                  </span>
+                )}
+              </div>
+              {entries.slice(0, TETO_TELA).map((e, i) => {
                 const on = aberto[e.id];
                 const t = totais(e.linhas.map((l) => ({ accountId: l.conta, debit: l.debito, credit: l.credito })));
                 return (
@@ -280,8 +369,8 @@ function ConciliacaoCaixa() {
           {!rec.aberturaVerificada
             ? `NÃO CONFERIDO — ${formatBRL(Math.abs(rec.diferenca))} de diferença absorvida em saldo anterior não verificado`
             : rec.fecha
-              ? `Conferido: a diferença de ${formatBRL(Math.abs(rec.diferenca))} fecha contra o saldo de abertura informado`
-              : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação`}
+              ? `Conferido: fecha contra o saldo de abertura (${rec.aberturaOrigem})`
+              : `Sobram ${formatBRL(Math.abs(rec.residuo))} sem explicação, mesmo com o saldo de abertura (${rec.aberturaOrigem})`}
         </StatusBadge>
       </div>
     </Card>

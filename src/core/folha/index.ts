@@ -42,6 +42,7 @@ import {
   vencimentoSalario, vencimentoFGTS, vencimentoDARF, vencimentoDecimo, mesSeguinte,
 } from "./calendario";
 
+import { formatBRL } from "@/lib/format";
 export const FOLHA_VERSION = "folha/1.0.0";
 
 export * from "./tabelas";
@@ -279,7 +280,7 @@ export function calcularCLT(
   };
 }
 
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const brl = (n: number) => formatBRL(n);
 
 /* ========================================================================== */
 /* O cálculo de um PJ                                                          */

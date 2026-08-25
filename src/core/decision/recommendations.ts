@@ -9,6 +9,7 @@ import { scoreRiscoCaixa } from "@/core/risk-engine";
 import type { Recomendacao, AcaoRecomendada } from "./types";
 import { uid } from "./types";
 
+import { formatBRL } from "@/lib/format";
 interface Aval {
   runway: number;
   score: number;
@@ -113,4 +114,4 @@ export function gerarRecomendacoes(input: RiskInput): Recomendacao[] {
 
 const cap = (d: number) => (d >= 999 ? 720 : d); // teto para deltas legíveis (24m)
 const fmt = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  formatBRL(v);

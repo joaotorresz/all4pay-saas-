@@ -9,12 +9,14 @@
  * `tipo`. Duplicar daria duas telas que divergem na primeira regra nova.
  */
 import * as React from "react";
+import Link from "next/link";
 import { formatBRL } from "@/lib/format";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
-import { Card, Skeleton, Select, Icon, ValorIndicador, NotaCancelados, type FormatoValor } from "@/components/ui";
+import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
 import {
   montarDRE, montarDFC, rotuloColuna, compararOrcamento,
@@ -36,6 +38,9 @@ import {
   type FiltrosRelatorioValor, type LayoutTabela, type CelulaClicada,
 } from "./kit";
 
+import { loadCompany } from "@/lib/company";
+import { regimeConfigurado, alertaDuplicidadeImpostoLucro, type RegimeConfigurado } from "@/core/tax/duplicidade";
+import { CabecalhoImpressao } from "./CabecalhoImpressao";
 /**
  * ⚠️ **UM FORMATADOR SÓ, COM CENTAVOS.** Este arredondava para INTEIRO, e por
  * isso a Visão geral escrevia "R$2" onde o extrato e o DRE escreviam "R$1,54".
@@ -47,7 +52,7 @@ import {
  * não cabe — e o tooltip mostra o valor cheio.
  */
 const brl0 = (n: number) => formatBRL(n);
-const fmtBRL = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
@@ -82,15 +87,41 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       .catch(() => { /* sem banco, o local basta — e o motor cai no palpite */ });
   }, []);
 
+  /**
+   * ⚠️ **CONFIRMADO × PREVISTO — e o padrão preserva o comportamento de hoje,
+   * de propósito.** A Central criou a distinção: um título `previsto` ainda não
+   * foi autorizado por ninguém com alçada, e um `confirmado` é compromisso
+   * firme. Misturá-los sem dizer qual é qual é o defeito que o Bloco 3 fecha.
+   *
+   * Mas o PADRÃO é "com previsto", que é exatamente o que o relatório sempre
+   * mostrou. Abrir em "só confirmado" derrubaria todo número de todo cliente da
+   * noite para o dia — a maioria dos títulos está em `previsto` —, e um número
+   * que muda sozinho é lido como defeito, não como recurso. Quem quiser o
+   * recorte firme escolhe, e a tela diz o que está vendo.
+   */
+  const [visao, setVisao] = React.useState<VisaoRelatorio>("com-previsto");
+  const inputDaVisao = React.useMemo(() => {
+    if (!input) return input;
+    if (visao === "com-previsto") return input;
+    const movs = input.movements.filter((m) => ehConfirmado(situacaoDe(m as never)));
+    return { ...input, movements: movs };
+  }, [input, visao]);
+
   const relatorio: Relatorio | null = React.useMemo(() => {
-    if (!input) return null;
+    if (!inputDaVisao) return null;
     const f = {
       intervalo: aplicados.intervalo, tipo: aplicados.tipo,
       conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro,
+      // ⚠️ A base da AV era PARÂMETRO SEM CONSUMIDOR: `montarRelatorio` aceita
+      // `baseVertical` desde o #99 e nenhuma tela a passava, então a escolha
+      // existia no motor e não existia para quem lê o relatório. Medir uma coisa
+      // e não dar a ninguém o que fazer com a medida é trabalho que parece
+      // pronto e não é.
+      baseVertical: aplicados.baseVertical,
       linhaPorCategoria,
     };
-    return tipo === "dre" ? montarDRE(input, f) : montarDFC(input, f);
-  }, [input, aplicados, tipo, linhaPorCategoria]);
+    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f);
+  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria]);
 
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
 
@@ -121,6 +152,14 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
     [input, aplicados.intervalo.de, aplicados.intervalo.ate],
   );
 
+  /**
+   * ⚠️ Sem NENHUM lançamento na organização — não "sem lançamento no período".
+   * A distinção importa: um mês vazio dentro de uma base cheia é uma resposta
+   * legítima (não houve movimento em junho), e trocá-la por um convite a
+   * importar esconderia a informação. O convite é para quem ainda não tem base.
+   */
+  const semLancamento = !isLoading && !!input && input.movements.length === 0;
+
   const cancelados = React.useMemo(
     () => (input ? canceladosNaJanela(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
     [input, aplicados.intervalo.de, aplicados.intervalo.ate],
@@ -128,14 +167,81 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      {/* ⚠️ SÓ NO PAPEL. Na tela, empresa/período/regime já estão na interface;
+          no PDF nada disso atravessa, e uma folha de números sem identificação
+          obriga quem recebe a perguntar de que empresa e de que mês ela é. */}
+      <CabecalhoImpressao
+        titulo={tipo === "dre" ? "Demonstração do Resultado do Exercício" : "Demonstração do Fluxo de Caixa"}
+        de={aplicados.intervalo.de}
+        ate={aplicados.intervalo.ate}
+        regime={tipo === "dre" ? "competencia" : "caixa"}
+        recorte={visao === "com-previsto" ? "Confirmado e previsto" : "Só o confirmado"}
+      />
+      <div className="flex items-start justify-between gap-4 flex-wrap" data-nao-imprime>
         <p className="m-0 text-label text-muted">
           {tipo === "dre"
             ? "Demonstração do Resultado do Exercício. Clique em qualquer célula para ver as transações."
             : "Demonstração do Fluxo de Caixa. Clique em qualquer célula para ver as transações."}
         </p>
-        {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-pill bg-surface-2 p-[3px]" role="group" aria-label="O que entra no relatório">
+            {([["com-previsto", "Com previsto"], ["confirmado", "Só confirmado"]] as const).map(([v, r]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVisao(v)}
+                aria-pressed={visao === v}
+                className={`text-caption font-medium px-3 h-7 rounded-pill transition-colors ${
+                  visao === v ? "bg-white text-ink" : "text-muted hover:text-ink"
+                }`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          {relatorio && <BotoesExportar nome={nomeArquivo} relatorio={relatorio} layout={layout} />}
+        </div>
       </div>
+
+      {/* ⚠️ O recorte é DITO, sempre. "Nunca misture sem dizer qual é qual" é a
+          regra inteira desta distinção: um relatório que soma previsto e
+          confirmado sem avisar afirma como firme um dinheiro que ninguém
+          autorizou. */}
+      <p className="m-0 text-caption text-faint max-w-[76ch]">
+        {visao === "com-previsto"
+          ? "Mostrando o confirmado E o previsto. O previsto ainda não foi autorizado por alguém com alçada — pode não acontecer."
+          : "Mostrando só o CONFIRMADO: títulos autorizados na Central. O previsto ficou de fora, então os totais são menores que os do relatório completo."}
+      </p>
+
+      {/* ⚠️ **ORGANIZAÇÃO SEM UM LANÇAMENTO: a cascata inteira em R$ 0,00 é
+          pior que uma tela vazia.** Ela tem a MESMA aparência de um relatório
+          conferido — quinze linhas, colunas de mês, totais — e afirma que a
+          empresa não faturou e não gastou nada. Quem abre não distingue "não há
+          dado" de "o resultado é zero", e as duas mandam fazer coisas opostas.
+          É a doutrina da ONDA 4 aplicada à primeira tela que uma conta nova
+          mostra: o motivo ocupa o lugar do número, e traz o botão que o
+          preenche. */}
+      {semLancamento && (
+        <Card className="flex flex-col gap-3">
+          <span className="text-h3 text-ink">
+            {tipo === "dre" ? "Ainda não há resultado para demonstrar" : "Ainda não há caixa para demonstrar"}
+          </span>
+          <p className="m-0 text-body text-muted max-w-[68ch]">
+            {tipo === "dre"
+              ? "O DRE mostra quanto a empresa GANHOU e GASTOU em cada mês, linha a linha — receita, deduções, custos, despesas e o resultado no fim. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."
+              : "O fluxo de caixa mostra quando o dinheiro ENTROU e SAIU da conta, mês a mês. Ele se monta sozinho a partir dos seus lançamentos; hoje não há nenhum."}
+          </p>
+          <p className="m-0 text-caption text-faint max-w-[68ch]">
+            {tipo === "dre"
+              ? "Importe um extrato e as linhas se preenchem: o sistema classifica cada lançamento na linha certa da demonstração."
+              : "Importe um extrato e os meses se preenchem pela data em que o dinheiro se moveu."}
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
+            <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-4 items-start">
         <FiltrosRelatorio
@@ -190,7 +296,8 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           empresa deu lucro?" exige ler a cascata inteira. Os números saem dos
           MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
           paralela. */}
-      {tipo === "dre" && input && <CartoesExecutivos input={input} intervalo={aplicados.intervalo} />}
+      {tipo === "dre" && relatorio && <AvisoDuplicidadeImposto relatorio={relatorio} />}
+      {tipo === "dre" && input && <CartoesExecutivos input={inputDaVisao!} intervalo={aplicados.intervalo} />}
 
       <PainelLayout layout={layout} onChange={setLayout} />
 
@@ -381,5 +488,48 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
         </Card>
       ))}
     </div>
+  );
+}
+
+
+/**
+ * ⚠️ **A4P-078 — ALERTA, NUNCA PROVISÃO.** No Simples o IRPJ e a CSLL estão
+ * dentro do DAS — inclusive no Anexo IV, cuja exceção é a CPP patronal. Uma
+ * empresa cadastrada no Simples com lançamento na linha de imposto sobre o
+ * lucro está, muito provavelmente, contando o mesmo tributo duas vezes.
+ *
+ * Medido em produção: R$5.200,00/mês de "Simples Nacional" convivendo com
+ * "IRPJ / CSLL" (R$75.982,66 em 9 meses), na mesma competência.
+ *
+ * ⚠️ Ele NÃO reclassifica e NÃO soma provisão: qual das duas pernas é a
+ * indevida é decisão do dono com o contador, e o sistema não tem como saber.
+ * Somar uma estimativa aqui contaria o imposto uma TERCEIRA vez.
+ */
+function AvisoDuplicidadeImposto({ relatorio }: { relatorio: Relatorio }) {
+  const [cfg, setCfg] = React.useState<RegimeConfigurado>({ regime: null, anexo: null });
+  React.useEffect(() => { setCfg(regimeConfigurado(loadCompany()?.db)); }, []);
+
+  const linha = relatorio.linhas.find((l) => l.id === "impostos_lucro");
+  const lancamentos = React.useMemo(
+    () => (linha?.celulas ?? []).flatMap((c, k) =>
+      c.movimentos.map((id) => ({ id, competencia: relatorio.colunas[k] ?? "", valor: 0 }))),
+    [linha, relatorio.colunas],
+  );
+  const alerta = alertaDuplicidadeImpostoLucro(cfg, lancamentos);
+  if (!alerta.duplicidade) return null;
+
+  const total = (linha?.celulas ?? []).reduce((s, c) => s + c.valor, 0);
+  return (
+    <Card className="border border-warning/40">
+      <div className="flex flex-col gap-2">
+        <StatusBadge tone="warning">Possível duplicidade de imposto</StatusBadge>
+        <p className="m-0 text-body text-ink max-w-[80ch]">{alerta.aviso}</p>
+        <p className="m-0 text-caption text-muted">
+          Na linha “Impostos sobre o Lucro” do período há {alerta.quantidade}{" "}
+          lançamento(s), somando <BRL value={Math.abs(total)} />. O sistema não
+          reclassifica nada sozinho.
+        </p>
+      </div>
+    </Card>
   );
 }

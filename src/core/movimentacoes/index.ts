@@ -43,6 +43,19 @@ export interface FiltroTitulos {
 export const statusDoTitulo = (m: RiskMovement, hoje: string): StatusTitulo =>
   m.status === "pago" ? "liquidado" : dia(m.due_date) < hoje ? "atrasado" : "aberto";
 
+/**
+ * ⚠️ **A SITUAÇÃO EM PALAVRA — A4P-045.** Na tabela de títulos ela existia só
+ * como um ponto colorido com `title`: cor sozinha não é informação para quem
+ * não distingue as cores, e `title` não aparece no toque. O rótulo é por
+ * DIREÇÃO porque a mesma situação tem nome diferente dos dois lados — um
+ * título a receber "liquidado" foi RECEBIDO, um a pagar foi PAGO —, e é essa
+ * palavra que a pessoa usa ao falar com o cliente ou com o fornecedor.
+ */
+export const rotuloSituacao = (s: StatusTitulo, direcao: "pagar" | "receber"): string =>
+  s === "liquidado" ? (direcao === "pagar" ? "Pago" : "Recebido")
+  : s === "atrasado" ? (direcao === "pagar" ? "Vencido" : "Em atraso")
+  : "A vencer";
+
 const semAcento = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 

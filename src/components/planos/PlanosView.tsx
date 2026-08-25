@@ -15,6 +15,9 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/app/AppShell";
+import { useQuery } from "@tanstack/react-query";
+import { getAssinatura } from "@/lib/assinatura";
+import { dataBR } from "@/lib/format";
 import { Card, Button, Icon, StatusBadge } from "@/components/ui";
 import { BENEFICIOS_PRO } from "@/core/planos";
 import { usePlano } from "@/lib/plano";
@@ -46,6 +49,17 @@ export function PlanosView() {
   const router = useRouter();
   const params = useSearchParams();
   const { estado } = usePlano();
+  /*
+   * ⚠️ **`usePlano` responde "o que abre"; a assinatura responde "até quando".**
+   * São perguntas diferentes e a tela precisava das duas: quem chega aqui por
+   * um bloqueio quer saber o que comprar, e quem chega pelo banner quer saber
+   * quantos dias faltam. Mostrar só a primeira deixava o relógio invisível.
+   */
+  const { data: assinatura } = useQuery({
+    queryKey: ["assinatura", "estado"],
+    queryFn: getAssinatura,
+    staleTime: 30 * 60_000,
+  });
   const de = params.get("de");
   const pedido = rotuloDe(de);
 
@@ -83,6 +97,34 @@ export function PlanosView() {
               Em demonstração o gating fica desligado: todas as telas abrem para você
               conhecer o produto inteiro. Em produção, o bloqueio acontece no servidor.
             </p>
+          )}
+          {assinatura && (assinatura.emTeste || assinatura.bloqueado) && (
+            <div className="flex flex-col gap-1 pt-1 border-t border-border-soft">
+              <div className="flex items-baseline gap-2 flex-wrap pt-3">
+                <span className="text-label text-muted">
+                  {assinatura.emTeste ? "Período de teste" : "Situação"}
+                </span>
+                {assinatura.fim && (
+                  <span className="text-caption text-faint tabular-nums">
+                    {assinatura.inicio ? `${dataBR(assinatura.inicio)} → ` : ""}{dataBR(assinatura.fim)}
+                  </span>
+                )}
+              </div>
+              {/* O número em destaque é o que decide: quantos dias sobram. */}
+              {assinatura.diasRestantes !== null && assinatura.diasRestantes >= 0 && (
+                <span className="text-h3 text-ink tabular-nums leading-none">
+                  {assinatura.diasRestantes}
+                  <span className="text-caption text-faint"> {assinatura.diasRestantes === 1 ? "dia" : "dias"}</span>
+                </span>
+              )}
+              <p className="m-0 text-caption text-muted max-w-[62ch]">{assinatura.aviso}</p>
+              {assinatura.bloqueado && (
+                <p className="m-0 text-caption text-faint max-w-[62ch]">
+                  Consultar, filtrar, imprimir e exportar continuam liberados. O que está
+                  suspenso é registrar coisa nova.
+                </p>
+              )}
+            </div>
           )}
         </Card>
 

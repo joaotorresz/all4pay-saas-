@@ -14,6 +14,7 @@ import type {
   DecisaoPolitica,
 } from "./types";
 
+import { formatBRL } from "@/lib/format";
 /** Matriz de permissões por papel (RBAC). */
 const MATRIZ: Record<Role, Permission[]> = {
   admin: [
@@ -135,5 +136,5 @@ export function avaliarPolitica(args: {
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+  return formatBRL(v);
 }

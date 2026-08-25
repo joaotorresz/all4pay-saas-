@@ -75,11 +75,52 @@ if (!URL) {
 /** É grant ao papel que passa por fora do RLS? */
 const ehServiceRole = (obj) => obj.startsWith("grant:") && obj.endsWith(".service_role");
 
+
+/**
+ * ⚠️ **FALHA DE CONEXÃO NÃO É DIVERGÊNCIA DE ESQUEMA, e confundir as duas
+ * apagou duas guardas de segurança por horas sem ninguém ver.**
+ *
+ * Medido em 20/08: o job agendado reprovava a cada 15 minutos com
+ * `FATAL: password authentication failed for user "postgres"`. No painel isso
+ * aparece como "esquema-prod ✗", exatamente igual a "achei um objeto órfão" —
+ * e como ele reprovava desde a véspera, a reprovação virou paisagem. Enquanto
+ * isso, a vigia dos grants de `service_role` (a chave que passa por fora do
+ * RLS) e a de DDL sem migration estavam simplesmente DESLIGADAS.
+ *
+ * É a doutrina da ONDA 4 aplicada à integração contínua: **ausência de medição
+ * não pode ter a mesma cara de medição reprovada.** A guarda continua saindo
+ * com erro — ela não mediu, e fingir sucesso seria pior —, mas a primeira linha
+ * do log diz o que fazer, e diz que NADA foi verificado.
+ *
+ * A causa mais provável quando o usuário aparece como `postgres` puro: o pooler
+ * do Supabase exige o usuário no formato `postgres.<referencia-do-projeto>`.
+ */
+function abortarSeCredencial(erro, ondeEstou) {
+  const txt = String(erro?.stderr ?? erro?.message ?? erro);
+  const credencial = /password authentication failed|no pg_hba\.conf entry|role .* does not exist|SASL|authentication/i.test(txt);
+  const rede = /could not connect|Connection refused|timeout expired|could not translate host/i.test(txt);
+  if (!credencial && !rede) return;
+  console.error(`\n✗ ${ondeEstou}: A GUARDA NÃO RODOU — ${credencial ? "credencial recusada" : "banco inalcançável"}.`);
+  console.error("  NADA foi verificado. Isto não é divergência de esquema: é a guarda cega.");
+  console.error(`  ${txt.split("\n")[0].slice(0, 200)}`);
+  if (credencial) {
+    console.error("  Confira o segredo SUPABASE_DB_URL do repositório. No pooler do Supabase o");
+    console.error("  usuário tem de ser `postgres.<referencia-do-projeto>`, não `postgres` puro.");
+  }
+  process.exit(2);
+}
+
 /** Lê o inventário do banco apontado por SUPABASE_DB_URL. */
 function inventario() {
-  const saida = execFileSync("psql", [URL, "-v", "ON_ERROR_STOP=1", "-f", "scripts/objetos.sql"], {
-    encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
-  });
+  let saida;
+  try {
+    saida = execFileSync("psql", [URL, "-v", "ON_ERROR_STOP=1", "-f", "scripts/objetos.sql"], {
+      encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
+    });
+  } catch (e) {
+    abortarSeCredencial(e, "guarda de objetos");
+    throw e;
+  }
   const mapa = {};
   // ⚠️ Só linhas que SÃO objeto entram. O `psql -f` ecoa as confirmações dos
   // `\pset` ("Field separator is "|".") na saída, e elas contêm `|` — sem este

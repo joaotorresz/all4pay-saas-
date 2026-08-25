@@ -11,6 +11,9 @@
  * Só imagem (PNG/JPG/WebP). PDF precisaria rasterizar — fica para o Claude/manual.
  */
 
+import type { ItemPdf } from "@/core/fdip/pdf-tabela";
+import { lerChaveNFe } from "@/core/compras/nfe";
+
 export interface CampoConf { campo: string; confianca: number }
 export interface DocExtraido {
   tipo: string;
@@ -22,6 +25,8 @@ export interface DocExtraido {
   cnpj: string | null;
   cpf: string | null;
   linhaDigitavel: string | null;
+  /** Chave de acesso da NF-e (44 dígitos), só quando o DV confere. */
+  chaveNFe: string | null;
   codigoBarras: string | null;
   chavePix: string | null;
   banco: string | null;
@@ -125,6 +130,25 @@ export function extrairCampos(texto: string, confOcr: number): DocExtraido {
   }
   if (linhaDigitavel) campos.push({ campo: "Linha digitável", confianca: 0.8 });
 
+  // --- Chave de acesso da NF-e: 44 dígitos, distinguida do código de barras ---
+  // ⚠️ **44 dígitos não bastam para dizer que é uma nota**: o código de barras
+  // de um boleto também tem 44. O que separa os dois é o DÍGITO VERIFICADOR da
+  // chave (`lerChaveNFe` só devolve `valido` quando ele fecha) — a mesma lição
+  // do "boleto que não vira CNPJ". Sem esta conferência, o código de barras de
+  // um boleto seria lido como nota e o CNPJ do "emitente" sairia de bytes que
+  // significam outra coisa.
+  let chaveNFe: string | null = null;
+  for (const l of linhas) {
+    for (const m of Array.from(l.matchAll(/\d[\d.\s]{42,}\d/g))) {
+      const so = m[0].replace(/\D/g, "");
+      if (so.length !== 44) continue;
+      const lida = lerChaveNFe(so);
+      if (lida && lida.valido) { chaveNFe = so; break; }
+    }
+    if (chaveNFe) break;
+  }
+  if (chaveNFe) campos.push({ campo: "Chave da NF-e", confianca: 1 });
+
   // --- Chave PIX (heurística: e-mail, ou rótulo "chave") ---
   let chavePix: string | null = null;
   const pixLinha = linhas.find((l) => /chave\s*pix|chave[:\s]/i.test(l));
@@ -155,7 +179,7 @@ export function extrairCampos(texto: string, confOcr: number): DocExtraido {
 
   return {
     tipo, beneficiario, pagador: null, valor, data, vencimento, cnpj, cpf,
-    linhaDigitavel, codigoBarras: null, chavePix, banco, acaoTipo,
+    linhaDigitavel, chaveNFe, codigoBarras: null, chavePix, banco, acaoTipo,
     acao: acaoTipo === "imposto" ? "Agendar pagamento de imposto" : acaoTipo === "entrada" ? "Confirmar recebimento" : "Revisar e classificar",
     categoria: null, confianca, campos,
   };
@@ -205,4 +229,48 @@ export async function ocrLocalPdf(file: File): Promise<DocExtraido> {
   const { data } = await Tesseract.recognize(canvas, "por");
   const confOcr = Math.max(0.4, Math.min(1, (data.confidence ?? 60) / 100));
   return extrairCampos(data.text || "", confOcr);
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A CAMADA DE TEXTO DO PDF — o extrato inteiro, não a primeira página
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ `rasterizarPdf` (acima) lê **só a página 1** — ele existe para o OCR de um
+ * DOCUMENTO (um boleto, uma nota), onde a página 1 é o documento todo. Aplicar
+ * a mesma regra a um extrato descarta o mês inteiro a partir da página 2, em
+ * silêncio: o import "funciona" e traz um terço dos lançamentos.
+ *
+ * Aqui é o contrário: percorre TODAS as páginas e devolve os pedaços
+ * posicionados, que `agruparEmLinhas` (puro, em core/fdip/pdf-tabela)
+ * transforma na tabela. A decisão do que é linha e do que é coluna NÃO mora
+ * aqui — aqui é só I/O.
+ */
+export async function itensDoPdf(file: File): Promise<ItemPdf[]> {
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjs.getDocument({ data: buf }).promise;
+
+  const itens: ItemPdf[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const conteudo = await page.getTextContent();
+    // ⚠️ O `y` de cada página recomeça do zero. Sem deslocar por página, a
+    // linha de baixo da página 1 e a de cima da página 2 teriam `y` parecidos e
+    // seriam fundidas numa linha só — dois lançamentos virando um.
+    const deslocamento = (p - 1) * 100000;
+    for (const it of conteudo.items) {
+      if (!("str" in it) || typeof it.str !== "string") continue;
+      const m = it.transform as number[];
+      itens.push({
+        texto: it.str,
+        x: m[4] ?? 0,
+        y: (m[5] ?? 0) - deslocamento,
+        largura: it.width ?? 0,
+        altura: it.height ?? 0,
+      });
+    }
+  }
+  return itens;
 }

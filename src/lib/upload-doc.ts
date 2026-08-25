@@ -11,6 +11,7 @@ import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
 import type { Movement, Party } from "@/lib/types";
 
+import { formatBRL } from "@/lib/format";
 /** Campos normalizados que vêm do OCR (Claude ou local) ou de entrada manual. */
 export interface DocFields {
   tipo: string;
@@ -177,7 +178,7 @@ export function analisarDocumento(fields: DocFields, parties: Party[], pendentes
 }
 
 function formatBRLsafe(n: number): string {
-  try { return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }); }
+  try { return formatBRL(n); }
   catch { return `R$${n.toFixed(2)}`; }
 }
 
@@ -283,7 +284,7 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   if (baixaDe) {
     const { error } = await supabase
       .from("movements")
-      .update({ status: "pago", paid_date: f.data ?? hoje, reconciled: true })
+      .update({ situacao: "baixado", paid_date: f.data ?? hoje, reconciled: true })
       .eq("id", baixaDe.id);
     if (!error) { out.baixa = true; return out; }
   }
@@ -306,7 +307,9 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       origem: "importacao" as const,
       account_id: accId,
       type: tipoMov,
-      status: pago ? "pago" : "pendente",
+      // ⚠️ `situacao`, nunca `status`: a coluna é GERADA e o insert que a
+      // mencionar é recusado pelo Postgres (`428C9`).
+      situacao: pago ? "baixado" : "previsto",
       category: categoria,
       amount: valor,
       due_date: venc,

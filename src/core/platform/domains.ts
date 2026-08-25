@@ -11,7 +11,7 @@ export const DOMINIOS: FinancialDomain[] = [
   { id: "treasury", nome: "Treasury", descricao: "Caixa, liquidez, runway, projeção.", status: "ativo", modulo: "/risco · /inteligencia" },
   { id: "collections", nome: "Collections", descricao: "Cobrança adaptativa e recuperação.", status: "ativo", modulo: "/inadimplencia" },
   { id: "risk", nome: "Risk", descricao: "Risco de caixa + inteligência de crédito.", status: "ativo", modulo: "/risco · /inadimplencia" },
-  { id: "compliance", nome: "Compliance", descricao: "Auditoria imutável, RBAC, approval flow.", status: "ativo", modulo: "/governanca" },
+  { id: "compliance", nome: "Compliance", descricao: "Trilha de auditoria, permissões por papel e fluxo de aprovação.", status: "ativo", modulo: "/governanca" },
   { id: "analytics", nome: "Analytics", descricao: "KPIs, score de saúde, benchmark, forecast.", status: "ativo", modulo: "/inteligencia" },
   { id: "identity", nome: "Identity", descricao: "Auth + multi-tenant por organização (RLS).", status: "ativo", modulo: "Supabase" },
   { id: "ai", nome: "AI Intelligence", descricao: "Copiloto, insights, anomalias, decisão.", status: "ativo", modulo: "/copiloto" },

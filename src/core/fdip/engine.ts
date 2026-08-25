@@ -19,6 +19,7 @@ import type {
 } from "./types";
 import { uid } from "./types";
 
+import { formatBRL } from "@/lib/format";
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "");
 
 /** Normaliza o nome da contraparte: remove prefixos de transação, sufixos
@@ -38,6 +39,14 @@ export interface ParseResult {
   records: FinancialRecord[];
   totalLinhas: number;
   ignoradas: number;
+  /**
+   * ⚠️ O saldo que o BANCO declara no arquivo (`<LEDGERBAL>` do OFX): o
+   * fechamento em `<DTASOF>`. É um campo de saldo dedicado, escrito pelo banco —
+   * a autoridade do arquivo, e a fonte "importada" da abertura conferida. NUNCA
+   * é o valor de uma linha de transação. Ausente quando o arquivo não o declara
+   * (todo CSV, e OFX sem o bloco).
+   */
+  saldoDeclarado?: { valor: number; data: string };
 }
 
 function parseData(s: string): string | null {
@@ -100,16 +109,98 @@ function parseOFX(text: string): ParseResult {
     }
     records.push(mkRecord(data, amt, memo || "Lançamento", doc || undefined));
   }
-  return { records, totalLinhas: blocks.length, ignoradas: ign };
+
+  // ⚠️ O saldo DECLARADO pelo banco: `<LEDGERBAL><BALAMT><DTASOF>`. Lido de FORA
+  // da lista de transações — é um campo próprio do OFX, não uma linha de
+  // movimento. É a fonte "importada" da abertura conferida. `BALAMT` pode ser
+  // negativo (cheque especial), então preserva o sinal, ao contrário do
+  // `parseValor` das transações, que devolve magnitude.
+  let saldoDeclarado: ParseResult["saldoDeclarado"];
+  const balBlock = /<LEDGERBAL>([\s\S]*?)<\/LEDGERBAL>/i.exec(text)?.[1] ?? text;
+  const balRaw = /<BALAMT>([^<\r\n]+)/i.exec(balBlock)?.[1];
+  const balData = parseData(/<DTASOF>([^<\r\n]+)/i.exec(balBlock)?.[1] ?? "");
+  if (balRaw != null && balData) {
+    const p = parseValor(balRaw);
+    if (p) saldoDeclarado = { valor: p.valor * p.sign, data: balData };
+  }
+
+  return { records, totalLinhas: blocks.length, ignoradas: ign, saldoDeclarado };
+}
+
+// ⚠️ **O TOKENIZADOR CIENTE DE ASPAS (RFC-4180-ish).** Extrato de banco
+// brasileiro põe `;` em histórico o tempo todo ("COMPRA CARTAO; PARCELA 1/3"),
+// e o separador do arquivo TAMBÉM costuma ser `;`. Quebrar a linha em todo
+// separador — o que o parser fazia — PARTE esse lançamento e ele SOME: medido,
+// um extrato de 3 linhas virava 2 (o de R$ 99,90 desaparecia inteiro). Não é
+// melhoria cosmética, é PERDA DE DADO no caminho de importação. O tokenizador
+// respeita: campo entre aspas, aspas escapadas (`""` = uma aspa literal), quebra
+// de linha DENTRO de campo entre aspas, e devolve as linhas lógicas já
+// separadas em células — sem quebrar onde o separador está protegido.
+function tokenizarCSV(text: string, delim: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let emAspas = false;
+  const n = text.length;
+  for (let i = 0; i < n; i++) {
+    const ch = text[i];
+    if (emAspas) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } // "" → uma aspa literal
+        else emAspas = false;
+      } else field += ch; // \r\n DENTRO de aspas é conteúdo, não fim de linha
+      continue;
+    }
+    if (ch === '"') { emAspas = true; continue; }
+    if (ch === delim) { row.push(field); field = ""; continue; }
+    if (ch === "\n" || ch === "\r") {
+      // CRLF conta como UMA quebra; \r ou \n sozinhos também terminam a linha.
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); rows.push(row); row = []; field = "";
+      continue;
+    }
+    field += ch;
+  }
+  row.push(field);
+  rows.push(row);
+  // linhas totalmente vazias (a última do arquivo, a aba em branco do Excel) saem.
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+
+// ⚠️ **O SEPARADOR É DETECTADO, NÃO ASSUMIDO.** `;` (o comum no Brasil), `,`
+// (Nubank e exportações internacionais) e TAB. Conta os separadores FORA de
+// aspas na primeira linha e escolhe o de MAIOR contagem; empate fica com `;`
+// (a ordem dos candidatos + o `>` estrito), e **TAB só vence se dominar de
+// fato** — nunca é o principal por padrão. Contar dentro de aspas confundiria
+// o `,` decimal ("1.000,00") com separador.
+function detectarDelim(text: string): string {
+  const nl = text.search(/\r?\n/);
+  const primeira = nl === -1 ? text : text.slice(0, nl);
+  const contarFora = (d: string) => {
+    let n = 0, q = false;
+    for (const ch of primeira) {
+      if (ch === '"') q = !q;
+      else if (!q && ch === d) n++;
+    }
+    return n;
+  };
+  let best = ";", melhor = 0;
+  for (const d of [";", ",", "\t"]) {
+    const c = contarFora(d);
+    if (c > melhor) { melhor = c; best = d; }
+  }
+  return best;
 }
 
 function parseCSV(text: string): ParseResult {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length === 0) return { records: [], totalLinhas: 0, ignoradas: 0 };
-  const delim = [";", "\t", ","].sort((a, b) => (lines[0].split(b).length - 1) - (lines[0].split(a).length - 1))[0];
-  const split = (l: string) => l.split(delim).map((c) => c.trim().replace(/^"|"$/g, ""));
+  // BOM no início (UTF-8 com marca — Excel/Sheets exportam assim) fora, senão a
+  // primeira célula do cabeçalho vem com um caractere invisível grudado.
+  text = text.replace(/^﻿/, "");
+  const delim = detectarDelim(text);
+  const linhas = tokenizarCSV(text, delim);
+  if (linhas.length === 0) return { records: [], totalLinhas: 0, ignoradas: 0 };
 
-  const head = split(lines[0]).map((h) => norm(h));
+  const head = linhas[0].map((h) => norm(h.trim()));
   const hasHeader = head.some((h) => /data|valor|descri|hist|lancamento|memo/.test(h));
   let di = 0, vi = 1, si = 2, doci = -1;
   let start = 0;
@@ -124,12 +215,12 @@ function parseCSV(text: string): ParseResult {
     if (vi < 0) vi = 1;
     if (si < 0) si = head.length - 1;
   } else {
-    // posicional: descobre a coluna de data e a de valor
-    const cols = split(lines[0]);
-    di = cols.findIndex((c) => parseData(c));
+    // posicional: descobre a coluna de data e a de valor pelo CONTEÚDO
+    const cols = linhas[0];
+    di = cols.findIndex((c) => parseData(c.trim()));
     // exclui colunas com cara de data: parseValor("16/01/2024") = 16 (parseFloat
     // para no "/"), então sem isto a coluna de valor casaria numa 2ª data.
-    vi = cols.findIndex((c, i) => i !== di && !parseData(c) && parseValor(c));
+    vi = cols.findIndex((c, i) => i !== di && !parseData(c.trim()) && parseValor(c.trim()));
     if (di < 0) di = 0;
     if (vi < 0) vi = cols.length - 1;
     si = cols.findIndex((_, i) => i !== di && i !== vi);
@@ -138,18 +229,18 @@ function parseCSV(text: string): ParseResult {
 
   const records: FinancialRecord[] = [];
   let ign = 0;
-  for (let i = start; i < lines.length; i++) {
-    const cols = split(lines[i]);
-    const data = parseData(cols[di] ?? "");
-    const valor = parseValor(cols[vi] ?? "");
+  for (let i = start; i < linhas.length; i++) {
+    const cols = linhas[i];
+    const data = parseData((cols[di] ?? "").trim());
+    const valor = parseValor((cols[vi] ?? "").trim());
     const desc = (cols[si] ?? "").trim();
     if (!data || !valor || !desc) {
       ign++;
       continue;
     }
-    records.push(mkRecord(data, valor, desc, doci >= 0 ? cols[doci] : undefined));
+    records.push(mkRecord(data, valor, desc, doci >= 0 ? (cols[doci] ?? "").trim() : undefined));
   }
-  return { records, totalLinhas: lines.length - start, ignoradas: ign };
+  return { records, totalLinhas: linhas.length - start, ignoradas: ign };
 }
 
 export function parseTexto(text: string): ParseResult {
@@ -390,5 +481,5 @@ export function centralConfianca(parse: ParseResult, cls: Classificacao[], recor
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return formatBRL(v);
 }

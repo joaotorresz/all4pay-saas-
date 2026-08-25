@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { infoDaMetodologia } from "@/core/metodologia";
 import {
   RadarChart,
   PolarGrid,
@@ -15,7 +16,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import { BRL, Card, Skeleton, Icon } from "@/components/ui";
+import { BRL, Card, Skeleton, Icon, InfoHint} from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useQuantitativo } from "@/components/visao-geral/hooks";
@@ -95,7 +96,14 @@ export function QuantView() {
             {tend.label}
           </span>
           <div className="text-right">
-            <div className="text-caption text-faint">Prob. ruptura (90d)</div>
+            {/* ⚠️ Este é o número de 90 dias, do motor `quant` — NÃO é o da
+                tela de risco (60 dias, motor de risco). Duas telas respondiam
+                "qual a chance de o caixa quebrar" com contas diferentes e o
+                mesmo rótulo. O "i" diz qual é qual. */}
+            <div className="flex items-center justify-end gap-1">
+              <span className="text-caption text-faint">Prob. ruptura (90d)</span>
+              <InfoHint align="left" {...infoDaMetodologia("chance-ruptura-90d")!} />
+            </div>
             <div className="text-h3 font-medium tabular-nums text-ink">{pct(score.probabilidadeRuptura)}</div>
           </div>
         </div>

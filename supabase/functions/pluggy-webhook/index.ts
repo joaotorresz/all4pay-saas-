@@ -61,6 +61,20 @@ async function etlMovements(db: SupabaseClient, orgId: string, txs: PluggyTx[], 
         category: t.category ?? null, amount: Math.abs(t.amount ?? 0), due_date: dia, paid_date: dia,
         reconciled: true, description: t.description ?? "Open Finance", reference_code: ref,
         review_status: "pendente", // novo de origem OF → entra na fila de confirmação
+        // ⚠️ **SEM `especie` O INSERT É RECUSADO.** `titulo_exige_origem()`
+        // (ONDA 5) exige que todo lançamento diga de onde veio; a linha de
+        // extrato é o caso previsto — com `especie = 'extrato'` a própria trava
+        // carimba `origem = 'extrato'` e libera. Sem ela, cai no ramo do título
+        // sem procedência e sai A4P05.
+        //
+        // ⚠️ E a falha era SILENCIOSA: o `catch` abaixo só trata 23505, então o
+        // A4P05 caía num `console.error` dentro de uma Edge Function que
+        // ninguém abre. Medido em 19/08 contra o banco real: os 52 movements do
+        // Pluggy têm `origem` NULA porque nasceram em 23/06, ANTES da trava —
+        // e desde então nenhum lançamento novo do Open Finance conseguiu
+        // entrar. As transações chegariam a `bank_transactions` e nunca
+        // virariam lançamento.
+        especie: "extrato",
       }).select("id").single();
       let movId = ins.data?.id as string | undefined;
       if (ins.error) {

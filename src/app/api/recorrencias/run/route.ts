@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recusaDeCron } from "@/lib/cron-auth";
 import { createAdmin } from "@/lib/supabase/admin";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
@@ -24,11 +25,10 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 interface Tally { entradas: number; saidas: number; falhas: number; recorrencias: number }
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  // ⚠️ A4P-078: a regra vive em `lib/cron-auth` — uma implementação só, que
+  // FALHA FECHADA. Quatro cópias dela foi a razão de o defeito ser quádruplo.
+  const recusa = recusaDeCron(req);
+  if (recusa) return NextResponse.json({ ok: false, reason: recusa.motivo }, { status: recusa.status });
   const admin = createAdmin();
   if (!admin) return NextResponse.json({ ok: false, reason: "sem SUPABASE_SERVICE_ROLE_KEY" }, { status: 503 });
 
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       // Idempotência GARANTIDA pelo banco (índice parcial em rec:%). Insere direto;
       // 23505 = já existe → ignora. Mesma chave para entrada e saída.
       const { error: insErr } = await admin.from("movements").insert({
-        org_id: orgId, account_id: accId, type: tipo, status: "pendente",
+        org_id: orgId, account_id: accId, type: tipo,
         amount: r.amount, due_date: d, party_id: r.party_id, category_id: r.category_id,
         cost_center_id: r.cost_center_id, reconciled: false,
         description: r.description ?? (tipo === "saida" ? "Despesa recorrente" : "Fatura recorrente"),

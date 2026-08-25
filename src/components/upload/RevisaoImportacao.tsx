@@ -12,6 +12,7 @@ import { Card, BRL, StatusBadge, Button, Icon } from "@/components/ui";
 import type { FDIPReport } from "@/core/fdip";
 import type { FinancialRecord } from "@/core/fdip/types";
 import type { ResultadoOnboarding } from "@/lib/fdip";
+import { isDemo } from "@/lib/demo";
 
 const fmtDate = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
 const confTone = (c: number) => (c >= 0.9 ? "positive" : c >= 0.7 ? "warning" : "neutral");
@@ -76,6 +77,53 @@ export function RevisaoImportacao({
         <Resumo label="Fornecedores novos" valor={novosForn} contagem />
         <Resumo label="Recorrentes" valor={recorrentes.length} contagem />
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          ⚠️ O SALDO QUE O BANCO DECLAROU — e se ele foi GUARDADO ou não.
+
+          O arquivo traz um campo de saldo (`<LEDGERBAL>` do OFX) que é a
+          autoridade dele: é a partir daí que sai o saldo de abertura conferido,
+          o único jeito de a reconciliação do Razão fechar de verdade em vez de
+          fechar por construção.
+
+          ⚠️ Só que em PRODUÇÃO ele ainda não tem onde ser guardado —
+          `financial_accounts` não tem coluna de saldo declarado, e o dataset
+          importado não vai ao servidor. Mostrar o número sem dizer isso seria a
+          tela prometendo o que não guarda: a pessoa veria o banco confirmando o
+          saldo e concluiria que a conta ficou conferida. O card diz o que
+          aconteceu com o valor, e aponta o caminho que FUNCIONA (declarar o
+          saldo de abertura no cadastro da conta).
+          ═══════════════════════════════════════════════════════════════════ */}
+      {report.saldoDeclarado && (
+        <Card className="flex flex-col gap-2">
+          <span className="text-label font-medium text-muted inline-flex items-center gap-2">
+            <Icon name="building" size={15} /> Saldo informado pelo banco no arquivo
+          </span>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="text-[26px] leading-none font-semibold text-ink tabular-nums">
+              <BRL value={report.saldoDeclarado.valor} />
+            </span>
+            <span className="text-caption text-faint">em {fmtDate(report.saldoDeclarado.data)}</span>
+          </div>
+          {isDemo ? (
+            <span className="text-caption text-muted max-w-[70ch]">
+              Este valor entra como <strong>saldo de abertura conferido</strong>: é
+              contra ele que o Razão mede a diferença entre o extrato e os lançamentos.
+            </span>
+          ) : (
+            <>
+              <StatusBadge tone="warning">Este valor NÃO é salvo</StatusBadge>
+              <span className="text-caption text-muted max-w-[70ch]">
+                O saldo declarado pelo banco ainda não tem onde ser guardado, então
+                ele se perde ao recarregar e a conferência do caixa continua
+                <strong> indisponível</strong>. Para conferir de verdade, informe o
+                saldo de abertura no cadastro da conta (Cadastros › Contas bancárias)
+                e marque a confirmação — é o que o Razão lê.
+              </span>
+            </>
+          )}
+        </Card>
+      )}
 
       {/* INTELIGÊNCIA: custos recorrentes / mensais detectados */}
       {custos.length > 0 && (

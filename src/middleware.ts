@@ -54,10 +54,16 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/comecar") ||
+    // O cadastro de três campos é a porta de entrada — pública, como o login.
+    pathname.startsWith("/criar-conta") ||
     // A política de privacidade precisa ser legível ANTES do cadastro — uma
     // política atrás de login é uma política que ninguém pôde ler antes de
     // aceitar, o que derrota a razão de ela existir.
     pathname.startsWith("/privacidade") ||
+    // ⚠️ Mesma razão da privacidade, aplicada ao número: uma metodologia atrás
+    // de login só é lida por quem já comprou, e é ANTES de comprar que alguém
+    // precisa saber o que entra em cada linha e onde o sistema para.
+    pathname.startsWith("/metodologia") ||
     pathname.startsWith("/api");
 
   if (!user && !isPublic) {

@@ -19,6 +19,7 @@ import {
   janela as janelaCanonica, type Indicador as IndicadorCanonico,
 } from "@/core/indicadores";
 
+import { formatBRL } from "@/lib/format";
 export const CASHFLOW_VERSION = "cashflow/1.0.0";
 
 // ---------- Tipos do modelo ----------
@@ -184,7 +185,7 @@ export interface FluxoModelo {
 
 // ---------- Helpers ----------
 const fmtBRL = (n: number) => {
-  try { return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }); }
+  try { return formatBRL(n); }
   catch { return `R$${Math.round(n)}`; }
 };
 function addDias(iso: string, d: number): string {

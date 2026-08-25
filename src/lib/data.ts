@@ -47,6 +47,7 @@ import type { RiskInput } from "@/core/risk-engine/types";
 import type { RegraRecorrente } from "@/core/contas-pagar/projecao";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { resolverAberturaVerificada } from "@/lib/abertura";
 
 /**
  * Fonte de dados em demonstração: usa o dataset IMPORTADO (FDIP) quando
@@ -256,7 +257,7 @@ export async function updateMovement(
 export async function cancelMovement(id: string): Promise<void> {
   if (isDemo) { updateImportedMovement(id, { status: "cancelado" }); return; }
   const supabase = createClient();
-  const { error } = await supabase.from("movements").update({ status: "cancelado" }).eq("id", id);
+  const { error } = await supabase.from("movements").update({ situacao: "cancelado" }).eq("id", id);
   if (error) throw error;
 }
 
@@ -278,7 +279,7 @@ export async function getTrashedMovements(): Promise<Movement[]> {
 export async function restoreMovement(id: string): Promise<void> {
   if (isDemo) { updateImportedMovement(id, { status: "pendente" }); return; }
   const supabase = createClient();
-  const { error } = await supabase.from("movements").update({ status: "pendente" }).eq("id", id);
+  const { error } = await supabase.from("movements").update({ situacao: "previsto" }).eq("id", id);
   if (error) throw error;
 }
 
@@ -592,7 +593,10 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
     return {
       account_id: input.account_id,
       type,
-      status: settledNow ? "pago" : "pendente",
+      // ⚠️ `situacao`, nunca `status`: desde 25/08 `movements.status` é
+      // `generated always as (…) stored` e o Postgres RECUSA o insert que a
+      // mencione (`428C9`). O estado tem UMA morada, e é esta.
+      situacao: settledNow ? "baixado" : "previsto",
       category: null,
       category_id: exigirUUID(input.category_id, "categoria"),
       cost_center_id: exigirUUID(input.cost_center_id, "centro de custo"),
@@ -766,7 +770,7 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
     linhas.map((l) => ({
       account_id: l.account_id,
       type: l.type,
-      status: l.status ?? "pendente",
+      situacao: l.status === "pago" ? "baixado" : "previsto",
       amount: l.amount,
       due_date: l.due_date,
       competence_date: l.competence_date ?? l.due_date,
@@ -852,6 +856,36 @@ export async function getRegrasRecorrentes(): Promise<RegraRecorrente[]> {
   }));
 }
 
+/**
+ * ⚠️ **QUEM MONTAR UM `RiskInput` À MÃO PRECISA LER ISTO — é a regra mais cara
+ * desta auditoria, e ela produz um número que PARECE regressão.**
+ *
+ * Este `RiskInput` é só metade do que a tela usa. A outra metade é o
+ * **`linhaPorCategoria`** do filtro do relatório — a linha DECLARADA de cada
+ * categoria, que vem de `categories.dre_linha` (banco) mesclada com o plano de
+ * contas local. É por ela que `montarRelatorio` reconhece a saída
+ * `LINHA_TRANSFERENCIA` e PULA o lançamento.
+ *
+ * Sem ela, uma categoria declarada como transferência — pagamento de fatura de
+ * cartão, boleto entre contas próprias — cai no palpite por palavra-chave e
+ * entra como DESPESA OPERACIONAL. O resultado sai menor, por dinheiro que só
+ * mudou de bolso.
+ *
+ * ⚠️ **Medido em 21/08/2026, numa conferência de rotina:** a mesma organização
+ * deu −R$ 784.743,23 sem a declaração contra −R$ 784.475,53 com ela. Os
+ * R$ 267,70 de diferença são a fatura de cartão (167,70) e o boleto de
+ * transferência (100,00) — e como a medição acontecia logo depois de um
+ * backfill que tocou toda a tabela `movements`, o número errado se disfarçou de
+ * REGRESSÃO. Quase virou um pedido para parar a rodada atrás de um defeito que
+ * não existia.
+ *
+ * Ou seja: o erro daqui não produz um zero óbvio. Produz um valor plausível,
+ * próximo do certo e do lado errado — que é o tipo que atravessa a revisão.
+ *
+ * **Ao reproduzir um número de tela fora da aplicação, passe
+ * `linhaPorCategoria` (ver `getLinhasDeCategoria`) — ou aceite que
+ * transferência virou despesa.**
+ */
 export async function getRiscoInput(): Promise<RiskInput> {
   const hoje = isoDay(new Date());
   if (isDemo) {
@@ -888,12 +922,29 @@ export async function getRiscoInput(): Promise<RiskInput> {
     movements.forEach((m) => {
       if (m.party_id && !partyNames[m.party_id]) partyNames[m.party_id] = m.party_id;
     });
-    return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
+    return {
+      hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+      aberturaVerificada: resolverAberturaVerificada(true),
+    };
   }
 
   const supabase = createClient();
   const COLUNAS_BASE =
-    "id,account_id,type,status,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+    /**
+   * ⚠️ **`situacao` ENTRA AQUI, e é uma mudança de comportamento declarada.**
+   * `core/central.situacaoDe` PREFERE esta coluna quando ela vem — antes ela
+   * nunca vinha, e a função sempre derivava do `status`. Ligá-la faz a Central
+   * passar a ler a máquina de estados de verdade, que é o ponto.
+   *
+   * É seguro HOJE porque a coluna e a derivação concordam: medido em 24/08,
+   * 2.230 de 2.230 lançamentos batem. E continua seguro amanhã porque
+   * `npm run situacao` (no CI) reprova no primeiro título em que uma situação
+   * DERIVÁVEL discordar do `status` — a divergência aparece antes do usuário.
+   *
+   * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
+   * o relatório continuaria misturando os dois sem dizer qual é qual.
+   */
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -980,7 +1031,12 @@ export async function getRiscoInput(): Promise<RiskInput> {
     const row = p as { id: string; name: string };
     partyNames[row.id] = row.name;
   });
-  return { hoje, saldoAtual, movements, partyNames, horizonDias: 60 };
+  return {
+    hoje, saldoAtual, movements, partyNames, horizonDias: 60,
+    // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
+    // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
+    aberturaVerificada: resolverAberturaVerificada(false),
+  };
 }
 
 export async function getSales(months = 12): Promise<MonthlySalesPoint[]> {

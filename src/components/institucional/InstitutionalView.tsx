@@ -6,6 +6,8 @@ import { formatBRL } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useAuditTrail } from "@/components/visao-geral/hooks";
 import { TrilhaAuditoria } from "@/core/institutional/audit";
+import { veredictoDaCadeia, type OrigemDaCadeia, type TomDaCadeia } from "@/core/institutional/cadeia";
+import { EmptyState } from "@/components/visao-geral/shared";
 import {
   avaliarPolitica,
   todosOsPapeis,
@@ -54,7 +56,7 @@ export function InstitutionalView() {
         ) : isError || !data ? (
           <Card><p className="text-muted">Não foi possível carregar a trilha de auditoria.</p></Card>
         ) : (
-          <AuditCard eventos={data.eventos} intacta={data.integridade.intacta} total={data.integridade.total} />
+          <AuditCard eventos={data.eventos} intacta={data.integridade.intacta} total={data.integridade.total} origem={data.origem} />
         )}
       </div>
 
@@ -142,17 +144,28 @@ export function InstitutionalView() {
         {!isDemo && <span className="text-caption text-faint">Ilustrativo até haver histórico de aprovações.</span>}
       </Card>
 
-      {/* Solicitações em aprovação (demo) */}
-      {isDemo && (
-        <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Solicitações de aprovação", oQue: "Acompanha os pagamentos que aguardam aprovação, com a sugestão da IA e a assinatura de cada passo.", comoCalcula: "Cada solicitação segue a faixa de valor; a IA avalia a consistência com o histórico do favorecido e cada aprovador assina eletronicamente." }}>
-          <SectionHead icon="list-checks" title="Solicitações de aprovação" sub="com sugestão de IA e assinatura eletrônica" />
+      {/* ⚠️ Este cartão era `isDemo &&` — em produção ele SUMIA inteiro, e a
+          tela se chama "Governança e APROVAÇÕES". Um cliente abria a tela que
+          leva a palavra no título e não encontrava nada sobre o assunto, sem
+          nada dizendo por quê: ausência lida como funcionalidade que não
+          existe. Agora ele aparece sempre, e o vazio manda para a fila real. */}
+      <Card className="lg:col-span-3 flex flex-col gap-3" info={{ titulo: "Solicitações de aprovação", oQue: "Acompanha os pagamentos que aguardam aprovação, com a sugestão da IA e a assinatura de cada passo.", comoCalcula: "Cada solicitação segue a faixa de valor; a IA avalia a consistência com o histórico do favorecido e cada aprovador assina eletronicamente." }}>
+        <SectionHead icon="list-checks" title="Solicitações de aprovação" sub="com sugestão de IA e assinatura eletrônica" />
+        {isDemo ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {requestsDemo().map((r) => (
               <RequestCard key={r.id} r={r} />
             ))}
           </div>
-        </Card>
-      )}
+        ) : (
+          <EmptyState
+            icon="list-checks"
+            title="Nenhuma solicitação aguardando"
+            hint="Pagamentos acima da alçada entram aqui para aprovação. A fila completa, com o painel de decidir, fica em Aprovações."
+            action={<Button variant="secondary" onClick={() => { window.location.href = "/aprovacoes"; }}>Abrir aprovações</Button>}
+          />
+        )}
+      </Card>
     </div>
   );
 }
@@ -171,7 +184,7 @@ function SectionHead({ icon, title, sub }: { icon: string; title: string; sub?: 
   );
 }
 
-function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta: boolean; total: number }) {
+function AuditCard({ eventos, intacta, total, origem }: { eventos: AuditEvent[]; intacta: boolean; total: number; origem: OrigemDaCadeia }) {
   const [adulterado, setAdulterado] = React.useState(false);
 
   // Demo de adulteração: recomputa a integridade sobre uma cópia alterada.
@@ -184,25 +197,32 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
     return { intacta: r.intacta, problema: r.problema };
   }, [adulterado, eventos, intacta]);
 
+  const veredicto = veredictoDaCadeia({ origem, total, intacta: integridade.intacta });
+
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <span className="inline-flex items-center gap-1">
-          <SectionHead icon="file-text" title="Trilha de auditoria imutável" sub={`${total} eventos · cadeia SHA-256`} />
-          <InfoHint align="left" oQue="Registra cada ação relevante de forma que não dá para apagar nem alterar o passado sem ser notado." comoCalcula="Os eventos são encadeados por hash SHA-256; recomputar a cadeia detecta qualquer adulteração (teste no botão ao lado)." />
+          <SectionHead
+            icon="file-text"
+            title="Trilha de auditoria"
+            sub={total === 0 ? "nenhum evento" : `${total} ${total === 1 ? "evento" : "eventos"}`}
+          />
+          <InfoHint
+            align="left"
+            oQue="Registra cada ação relevante do sistema: quem fez, quando, e o que mudou de antes para depois."
+            comoCalcula={veredicto.explicacao}
+          />
         </span>
         <div className="flex items-center gap-3">
           <span
             className="inline-flex items-center gap-2 rounded-pill px-3 py-1 text-label font-medium"
-            style={{
-              background: "var(--color-surface-2)",
-              color: integridade.intacta ? "var(--color-positive)" : "var(--color-negative)",
-            }}
+            style={{ background: "var(--color-surface-2)", color: corDoTom(veredicto.tom) }}
           >
-            <span className="w-2 h-2 rounded-pill" style={{ background: integridade.intacta ? "var(--color-positive)" : "var(--color-negative)" }} />
-            {integridade.intacta ? "Cadeia íntegra" : "Adulteração detectada"}
+            <span className="w-2 h-2 rounded-pill" style={{ background: corDoTom(veredicto.tom) }} />
+            {veredicto.rotulo}
           </span>
-          {eventos.length > 1 && (
+          {veredicto.podeTestarAdulteracao && eventos.length > 1 && (
             <Button variant="ghost" onClick={() => setAdulterado((v) => !v)}>
               {adulterado ? "Restaurar" : "Testar adulteração"}
             </Button>
@@ -210,12 +230,27 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
         </div>
       </div>
 
+      {/* ⚠️ O motivo ocupa o lugar da afirmação (ONDA 4). Enquanto o
+          encadeamento não for gravado junto do evento, a tela DIZ isso em vez
+          de estampar um selo verde que não pode conferir nada. */}
+      {!veredicto.verificavel && (
+        <p className="m-0 text-caption text-muted max-w-[76ch]">{veredicto.explicacao}</p>
+      )}
+
       {!integridade.intacta && integridade.problema && (
         <div className="rounded-md p-3 text-caption" style={{ background: "var(--color-surface-2)", color: "var(--color-negative)" }}>
           Evento seq {integridade.problema.seq}: {integridade.problema.motivo}. O hash não confere — a manipulação não passa despercebida.
         </div>
       )}
 
+      {eventos.length === 0 ? (
+        <EmptyState
+          icon="file-text"
+          title="Nada registrado ainda"
+          hint="Cada lançamento, aprovação e alteração de configuração aparece aqui assim que acontecer. Comece lançando ou importando um extrato."
+          action={<Button variant="secondary" onClick={() => { window.location.href = "/upload"; }}>Importar dados</Button>}
+        />
+      ) : (
       <div className="flex flex-col">
         {eventos.map((e) => (
           <div key={e.id} className="flex gap-3 py-[10px] border-t border-border-soft first:border-t-0">
@@ -243,9 +278,13 @@ function AuditCard({ eventos, intacta, total }: { eventos: AuditEvent[]; intacta
           </div>
         ))}
       </div>
+      )}
     </Card>
   );
 }
+
+const corDoTom = (t: TomDaCadeia) =>
+  t === "positivo" ? "var(--color-positive)" : t === "alerta" ? "var(--color-warning)" : "var(--color-text-secondary)";
 
 const ACAO_LABEL: Record<string, string> = {
   created: "Criado",
@@ -278,8 +317,17 @@ function PolicyEngineCard() {
   const d = DECISAO[resultado.decisao];
 
   return (
-    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Policy engine", oQue: "Permite testar como a política reage a uma transação: aprovar, exigir MFA, escalar, rejeitar ou bloquear.", comoCalcula: "Avalia usuário, valor, método, limite, país, horário e IP em tempo real e devolve a decisão com os motivos." }}>
-      <SectionHead icon="gauge" title="Policy engine" sub="avaliação em tempo real" />
+    <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Simulador de política", oQue: "Permite ENSAIAR como a política de aprovação reagiria a uma transação: aprovar, exigir segundo fator, escalar, rejeitar ou bloquear.", comoCalcula: "Combina usuário, valor, método, limite da alçada, país, horário e IP, e devolve a decisão com os motivos. É um ensaio: quem recusa de fato uma operação é a regra no banco de dados, pelo papel do usuário na organização." }}>
+      <SectionHead icon="gauge" title="Simulador de política" sub="ensaio, não bloqueio" />
+      {/* ⚠️ Isto é um SIMULADOR e o texto passou a dizer isso. `avaliarPolitica`
+          é chamada de um lugar só no produto inteiro — deste cartão — e não
+          está no caminho de pagamento nenhum. "Policy engine · avaliação em
+          tempo real" lia como proteção ativa; um cliente concluiria que suas
+          transações passam por aqui, e não passam. Quem recusa de verdade são
+          as políticas restritivas do banco (ONDA 9), que continuam valendo. */}
+      <p className="m-0 text-caption text-faint">
+        Ensaie uma transação e veja o que a política decidiria. O bloqueio real acontece no banco de dados, pelo papel de cada pessoa.
+      </p>
       <Select
         label="Usuário"
         value={userId}

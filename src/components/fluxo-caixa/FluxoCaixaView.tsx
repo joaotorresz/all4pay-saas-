@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   ResponsiveContainer, ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Cell, ReferenceLine,
@@ -21,6 +22,7 @@ import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
 import { janela as fazJanela } from "@/core/indicadores";
 import { formatBRL as fmtBRL } from "@/lib/format";
+import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const sign = (n: number) => (n >= 0 ? "+" : "−");
@@ -49,6 +51,13 @@ function Inner() {
   const { data, isLoading } = useFluxoCaixa(filtros);
   const comp = useComparativo(filtros);
   const { pro } = useModo();
+  /**
+   * ⚠️ Sem NENHUM lançamento na organização — não "sem lançamento na janela".
+   * Uma janela vazia dentro de uma base cheia é resposta legítima e continua
+   * desenhando os blocos; o convite é só para quem ainda não tem base.
+   */
+  const semLancamento = !isLoading && !!data && (data.eventos?.length ?? 0) === 0
+    && (comp.data?.resultado?.total ?? 0) === 0 && !comp.isLoading;
 
   return (
     <div className="flex flex-col gap-7 pb-6">
@@ -62,6 +71,30 @@ function Inner() {
           números diferentes e nenhuma dizia qual recorte usava. */}
       <BaseDoSaldo base="projetado_fim" janela={janelaDoFiltro} />
 
+      {/* ⚠️ **SEM UM LANÇAMENTO, esta tela desenha catorze blocos de zeros** —
+          projeção, cenários, mapa de calor, gêmeo digital — e cada um com a
+          aparência de um número apurado. Quem abre não distingue "não há dado"
+          de "o caixa é zero". O motivo ocupa o lugar dos blocos, e traz o botão
+          que os preenche (doutrina da ONDA 4). */}
+      {semLancamento ? (
+        <Card className="flex flex-col gap-3">
+          <span className="text-h3 text-ink">Seu caixa ainda não tem movimento</span>
+          <p className="m-0 text-body text-muted max-w-[68ch]">
+            Esta tela mostra quando o dinheiro entra e sai, o que já está agendado, e para
+            onde o saldo caminha nas próximas semanas. Ela se monta a partir dos seus
+            lançamentos — hoje não há nenhum.
+          </p>
+          <p className="m-0 text-caption text-faint max-w-[68ch]">
+            Importe um extrato e o caixa se desenha sozinho: o que já caiu vira realizado, o
+            que tem vencimento vira previsto.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link href="/upload"><Button variant="primary">Importar extrato</Button></Link>
+            <Link href="/metodologia"><Button variant="secondary">Como é calculado</Button></Link>
+          </div>
+        </Card>
+      ) : (
+        <>
       {/* Comparativos período × período anterior — a leitura de topo da página. */}
       <Comparativos c={comp.data} isLoading={comp.isLoading} />
 
@@ -200,6 +233,8 @@ function Inner() {
           )}
         </>
       )}
+        </>
+      )}
     </div>
   );
 }
@@ -259,8 +294,31 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
         : <span>{r.runway.valor.toFixed(0)} <span className="text-caption text-faint">meses</span></span>,
       tone: "ink",
     },
-    { label: "Chance de ruptura", node: <span>{pct(r.chanceRuptura)}</span>, tone: r.chanceRuptura > 0.2 ? "negative" : r.chanceRuptura > 0.08 ? "warning" : "positive" },
-    { label: "Financial Score", node: <span>{Math.round(r.score)}<span className="text-caption text-faint">/100</span></span>, tone: "ink" },
+    /*
+     * ⚠️ **A4P-032 — os dois cartões abaixo publicavam número de MODELO sem
+     * metodologia nenhuma**, um ao lado do outro, com cara de rating. E vêm de
+     * MOTORES DIFERENTES: a chance de ruptura é do `risk-engine` (8 pilares,
+     * horizonte de 60 dias) e o score é do `quant` (7 pilares). Quem lê a tela
+     * não tinha como saber, e a leitura intuitiva — "duas faces da mesma
+     * conta" — está errada. O `info` sai de `core/metodologia`, com peso,
+     * janela e versão de modelo.
+     */
+    {
+      label: "Chance de ruptura",
+      node: <span>{pct(r.chanceRuptura)}</span>,
+      tone: r.chanceRuptura > 0.2 ? "negative" : r.chanceRuptura > 0.08 ? "warning" : "positive",
+      info: infoDaMetodologia("chance-ruptura"),
+      // ⚠️ O teto DECLARA que é teto. `Math.min(0.97, …)` no motor: quando a
+      // ruptura está projetada para hoje, sai 0,97 — e "97% de chance" lido
+      // como medida é o mesmo defeito do "33 meses de fôlego" da ONDA 4.
+      nota: avisoDeSaturacao("chance-ruptura", r.chanceRuptura),
+    },
+    {
+      label: "Financial Score",
+      node: <span>{Math.round(r.score)}<span className="text-caption text-faint">/100</span></span>,
+      tone: "ink",
+      info: infoDaMetodologia("score-saude"),
+    },
   ];
   const cor: Record<string, string> = {
     ink: "var(--color-ink)", positive: "var(--color-positive)", negative: "var(--color-negative)", warning: "var(--color-warning)",
@@ -268,13 +326,18 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((c) => (
-        <Card key={c.label} className="flex flex-col gap-1">
+        <Card key={c.label} className="flex flex-col gap-1" info={"info" in c ? c.info : undefined}>
           <span className="text-caption text-faint">{c.label}</span>
           <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: cor[c.tone] }}>{c.node}</span>
           {/* A janela só aparece onde ela DISTINGUE: marcar todos os cartões
               seria não marcar nenhum, a mesma regra do selo de procedência. */}
           {"janela" in c && c.janela ? (
             <span className="text-[11px] leading-tight text-faint">{c.janela}</span>
+          ) : null}
+          {/* ⚠️ A nota do TETO fica no cartão, não escondida no "i": quem só
+              passa o olho é justamente quem levaria o 97% como medida. */}
+          {"nota" in c && c.nota ? (
+            <span className="text-[11px] leading-tight text-warning">{c.nota}</span>
           ) : null}
         </Card>
       ))}
@@ -446,7 +509,7 @@ function ProjecaoView({ bandas, projecoes }: { bandas: BandaProj[]; projecoes: P
             <ReferenceLine y={0} stroke="var(--color-negative)" strokeDasharray="3 3" />
             <Tooltip
               contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }}
-              formatter={(v: number, n: string) => [v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }), n.toUpperCase()]}
+              formatter={(v: number, n: string) => [fmtBRL(v), n.toUpperCase()]}
               labelFormatter={(d) => `Dia ${d}`}
             />
             <Area dataKey="p90" stroke="none" fill="url(#projGlow)" />
@@ -528,7 +591,7 @@ function HeatmapView({ dias }: { dias: DiaHeat[] }) {
     <Card className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-[5px]">
         {dias.map((d) => (
-          <div key={d.date} title={`${d.label}: ${d.saldo.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}`}
+          <div key={d.date} title={`${d.label}: ${fmtBRL(d.saldo)}`}
             className="w-[22px] h-[22px] rounded-sm" style={{ background: HEAT[d.nivel] }} />
         ))}
       </div>
@@ -559,7 +622,7 @@ function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-text-tertiary)" }} interval={0} angle={-18} textAnchor="end" height={60} />
             <YAxis tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} tickFormatter={fmtAxis} width={42} />
-            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })} />
+            <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid var(--color-border)", fontSize: 12 }} formatter={(v: number) => fmtBRL(v)} />
             <Bar dataKey="base" stackId="w" fill="transparent" />
             <Bar dataKey="valor" stackId="w" radius={[3, 3, 0, 0]}>
               {data.map((d, i) => (

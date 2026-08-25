@@ -51,7 +51,7 @@ export async function receberLote(
   if (!alvo.length) return { recebidos: 0, total: 0, detalhe: "Nada a receber (já recebidos)." };
   const total = alvo.reduce((s, m) => s + Number(m.amount), 0);
   const { error } = await supabase.from("movements")
-    .update({ status: "pago", paid_date: hoje, reconciled: true })
+    .update({ situacao: "baixado", paid_date: hoje, reconciled: true })
     .in("id", alvo.map((m) => m.id));
   if (error) return { recebidos: 0, total: 0, detalhe: "Falha ao dar baixa." };
   // credita o saldo da conta de destino

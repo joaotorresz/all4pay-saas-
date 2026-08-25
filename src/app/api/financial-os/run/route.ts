@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recusaDeCron } from "@/lib/cron-auth";
 import { runScheduledOS } from "@/lib/financial-os";
 import { dispararNotificacoes, statusNotificacoes } from "@/core/financial-os/notifications.server";
 
@@ -15,13 +16,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-  }
+  // ⚠️ A4P-078: a regra vive em `lib/cron-auth` — uma implementação só, que
+  // FALHA FECHADA. Quatro cópias dela foi a razão de o defeito ser quádruplo.
+  const recusa = recusaDeCron(req);
+  if (recusa) return NextResponse.json({ ok: false, reason: recusa.motivo }, { status: recusa.status });
 
   const trace = await runScheduledOS();
   // Envio REAL (server-side) das ações de WhatsApp/e-mail, quando configurado.

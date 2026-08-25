@@ -26,7 +26,10 @@ declare
   fora text[] := array[
     'audit_log','org_state','admin_acessos','admin_audit',
     'rota_alias_acessos','ddl_log','raw_events',
-    'own_webhook_eventos','own_sync_execucoes'
+    'own_webhook_eventos','own_sync_execucoes',
+    -- central_transicoes é ela mesma uma trilha (quem/quando/de/para de cada
+    -- transição da máquina de estados) — o papel de own_sync_execucoes/raw_events.
+    'central_transicoes'
   ];
   faltando text[];
   n_ok int;

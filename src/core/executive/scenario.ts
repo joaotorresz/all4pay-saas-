@@ -8,6 +8,7 @@ import { scoreDeIndicadores } from "@/core/quant/score";
 import type { ScenarioInput, ScenarioResultado } from "./types";
 import { runwayDeFluxo, mesesDeRunway } from "@/core/indicadores";
 
+import { formatBRL } from "@/lib/format";
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 
 export function simularCenario(
@@ -45,5 +46,5 @@ export function simularCenario(
 }
 
 function fmt(v: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
+  return formatBRL(v);
 }
