@@ -145,7 +145,9 @@ export async function createTransferencia(input: TransferenciaInput): Promise<vo
     // ⚠️ ONDA 5: transferência entre contas é lançamento MANUAL — o banco
     // exige `origem` em todo título novo (gatilho `movements_origem`).
     origem: "manual" as const,
-    status: "pago" as const,
+    // ⚠️ `situacao`, nunca `status`: a coluna virou GERADA e o insert que a
+    // mencionar é recusado. Transferência nasce baixada — o dinheiro já andou.
+    situacao: "baixado" as const,
     category: null,
     amount: input.amount,
     due_date: input.date,
@@ -222,7 +224,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
         origem: "venda" as const,
         account_id: input.account_id,
         type: tipo,
-        status: "pendente",
+        situacao: "previsto",
         amount: i === n - 1 ? Math.round((total - parcela * (n - 1)) * 100) / 100 : parcela,
         due_date: addMonthsISO(baseDue, i),
         paid_date: null,
@@ -243,7 +245,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
         origem: "venda" as const,
         account_id: input.account_id,
         type: tipo,
-        status: settled ? "pago" : "pendente",
+        situacao: settled ? "baixado" : "previsto",
         amount: total,
         due_date: baseDue,
         paid_date: settled ? isoDay(new Date()) : null,

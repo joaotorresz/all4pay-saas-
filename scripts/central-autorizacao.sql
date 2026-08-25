@@ -40,9 +40,9 @@ begin
     on conflict (org_id, papel) do update set teto_valor = 10000;
   select id into c from public.financial_accounts where org_id = o limit 1;
 
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 500, 'caso 1', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 500, 'caso 1', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role','authenticated')::text, true);
@@ -82,9 +82,9 @@ begin
   insert into public.central_alcada (org_id, papel, teto_valor) values (o, 'aprovador', 10000)
     on conflict (org_id, papel) do update set teto_valor = 10000;
   select id into c from public.financial_accounts where org_id = o limit 1;
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 500, 'caso 2', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 500, 'caso 2', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role','authenticated')::text, true);
@@ -122,9 +122,9 @@ begin
   insert into public.central_alcada (org_id, papel, teto_valor) values (o, 'aprovador', 10000)
     on conflict (org_id, papel) do update set teto_valor = 10000;
   select id into c from public.financial_accounts where org_id = o limit 1;
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 50000, 'caso 3', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 50000, 'caso 3', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role','authenticated')::text, true);
@@ -154,9 +154,9 @@ begin
     (ua, 'central-a@guarda.local', 'authenticated', 'authenticated');
   select om.org_id into o from public.organization_members om where om.user_id = ua limit 1;
   select id into c from public.financial_accounts where org_id = o limit 1;
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 100, 'caso 4', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 100, 'caso 4', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role','authenticated')::text, true);
@@ -188,9 +188,9 @@ begin
     (ux, 'central-x@guarda.local', 'authenticated', 'authenticated');
   select om.org_id into o from public.organization_members om where om.user_id = ua limit 1;
   select id into c from public.financial_accounts where org_id = o limit 1;
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 300, 'caso 5', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 300, 'caso 5', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   -- `ux` tem org PRÓPRIA (o gatilho de signup a criou) e nenhum vínculo com `o`.
@@ -230,9 +230,9 @@ begin
     (ua, 'central-a@guarda.local', 'authenticated', 'authenticated');
   select om.org_id into o from public.organization_members om where om.user_id = ua limit 1;
   select id into c from public.financial_accounts where org_id = o limit 1;
-  insert into public.movements (org_id, account_id, type, amount, description, status,
+  insert into public.movements (org_id, account_id, type, amount, description,
                                 due_date, origem, situacao, lancado_por)
-  values (o, c, 'saida', 2000, 'caso 6', 'pendente', current_date, 'manual', 'previsto', ua)
+  values (o, c, 'saida', 2000, 'caso 6', current_date, 'manual', 'previsto', ua)
   returning id into t;
 
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role','authenticated')::text, true);

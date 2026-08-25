@@ -257,7 +257,7 @@ export async function updateMovement(
 export async function cancelMovement(id: string): Promise<void> {
   if (isDemo) { updateImportedMovement(id, { status: "cancelado" }); return; }
   const supabase = createClient();
-  const { error } = await supabase.from("movements").update({ status: "cancelado" }).eq("id", id);
+  const { error } = await supabase.from("movements").update({ situacao: "cancelado" }).eq("id", id);
   if (error) throw error;
 }
 
@@ -279,7 +279,7 @@ export async function getTrashedMovements(): Promise<Movement[]> {
 export async function restoreMovement(id: string): Promise<void> {
   if (isDemo) { updateImportedMovement(id, { status: "pendente" }); return; }
   const supabase = createClient();
-  const { error } = await supabase.from("movements").update({ status: "pendente" }).eq("id", id);
+  const { error } = await supabase.from("movements").update({ situacao: "previsto" }).eq("id", id);
   if (error) throw error;
 }
 
@@ -593,7 +593,10 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
     return {
       account_id: input.account_id,
       type,
-      status: settledNow ? "pago" : "pendente",
+      // ⚠️ `situacao`, nunca `status`: desde 25/08 `movements.status` é
+      // `generated always as (…) stored` e o Postgres RECUSA o insert que a
+      // mencione (`428C9`). O estado tem UMA morada, e é esta.
+      situacao: settledNow ? "baixado" : "previsto",
       category: null,
       category_id: exigirUUID(input.category_id, "categoria"),
       cost_center_id: exigirUUID(input.cost_center_id, "centro de custo"),
@@ -767,7 +770,7 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
     linhas.map((l) => ({
       account_id: l.account_id,
       type: l.type,
-      status: l.status ?? "pendente",
+      situacao: l.status === "pago" ? "baixado" : "previsto",
       amount: l.amount,
       due_date: l.due_date,
       competence_date: l.competence_date ?? l.due_date,

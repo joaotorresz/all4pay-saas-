@@ -245,7 +245,11 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
       return {
         account_id: accId,
         type: m.type,
-        status: m.status,
+        // ⚠️ `status` é COLUNA GERADA desde 25/08 — o Postgres RECUSA o insert
+        // que a mencione (`428C9`). Quem carrega o estado é `situacao`, e o
+        // `status` nasce derivado dela. Sem esta linha a IMPORTAÇÃO INTEIRA
+        // parava em produção, que é o caminho ouro do produto.
+        situacao: m.status === "pago" ? "baixado" : "previsto",
         category: m.category,
         amount: m.amount,
         due_date: m.due_date,

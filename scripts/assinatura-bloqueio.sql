@@ -57,8 +57,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-    values (o, c, 'entrada', 100.00, 'lançamento dentro do teste', 'pago', current_date, 'manual');
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (o, c, 'entrada', 100.00, 'lançamento dentro do teste', 'baixado', current_date, current_date, 'manual');
     passou := true;
   exception when others then
     passou := false;
@@ -74,8 +74,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-    values (o, c, 'saida', 50.00, 'lançamento depois de vencer', 'pago', current_date, 'manual');
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (o, c, 'saida', 50.00, 'lançamento depois de vencer', 'baixado', current_date, current_date, 'manual');
     passou := true;
   exception when others then
     passou := false;
@@ -129,8 +129,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', u, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-    values (o, c, 'entrada', 7.00, 'depois de regularizar', 'pago', current_date, 'manual');
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (o, c, 'entrada', 7.00, 'depois de regularizar', 'baixado', current_date, current_date, 'manual');
     passou := true;
   exception when others then
     passou := false;

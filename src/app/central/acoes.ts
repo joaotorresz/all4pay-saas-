@@ -82,7 +82,6 @@ export async function lancarTituloAction(t: NovoTitulo): Promise<ResultadoAcao &
     category: t.categoria.trim() || null,
     due_date: t.vencimento,
     competence_date: t.vencimento,
-    status: "pendente",
     situacao: "previsto",
     origem: "manual",
     especie: "titulo",

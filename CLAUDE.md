@@ -1150,6 +1150,70 @@ parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
 máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
 tráfego.
 
+### ⚠️ A REGRA GERAL — DUAS FONTES PARA UM FATO É UM DEFEITO AGENDADO
+
+**Sempre que o mesmo fato existe em dois lugares com escritores independentes,
+a divergência não é risco: é data marcada.** Ela não aparece enquanto o segundo
+escritor não roda, e é justamente por isso que ela atravessa revisão — o acervo
+parado parece saudável. Coerência medida sem tráfego prova que ninguém
+escreveu, não que a regra vale.
+
+**Cinco vezes neste repositório, cada uma com uma forma diferente:**
+
+| Onde | As duas fontes | Como apareceu |
+| --- | --- | --- |
+| Alçada de aprovação | `approval_limit` em três lugares | teto diferente por tela |
+| Reconciliação | `residuo = extrato − (liquidado + abertura)`, e `abertura` derivada por diferença | `x − x`: resíduo 0,00 para QUALQUER saldo |
+| Nome da empresa | o campo digitado × o `coalesce` do gatilho | gravou o local-part do e-mail (A4P-085) |
+| Estado do título | `movements.status` × `movements.situacao` | 2230/2230 coerentes — e nenhum escritor tinha rodado |
+| Publicação | a integração Git da Vercel × o job `migrar` do CI | build atrasado sobrescreveu o novo (A4P-075) |
+
+⚠️ **A saída não é "manter as duas em sincronia".** Sincronizar é escrever o
+terceiro escritor, e ele diverge dos outros dois. As saídas que funcionaram
+aqui, em ordem de força:
+
+1. **O banco RECUSA** — `generated always as (…) stored`. Não é meio-termo: é a
+   única que alcança o código que ainda não foi escrito, inclusive RPC, cron e
+   `psql` na mão. Foi o que se fez com `status`.
+2. **Uma função só** — a regra vira `core/*` e as telas a chamam
+   (`core/indicadores`, `regimeDaEmpresa`, `dataDe`).
+3. **Uma morada só** — a segunda fonte é APAGADA, não conciliada (a alçada).
+
+⚠️ **E o corolário para a guarda:** quando a trava passa para o banco, **a
+guarda por varredura de texto SAI**. Manter as duas ensina que o `grep` é a
+proteção, e alguém vai reforçá-lo achando que reforça o controle. O que a
+guarda passa a provar é que **a TRAVA continua existindo** — foi assim que
+`situacao-coerente.sql` (que comparava os dois campos, e depois do GENERATED
+não podia mais falhar) deu lugar a `estado-unico.sql`.
+
+**O teste, em uma pergunta:** *quantos escritores independentes existem, e o
+que impede o segundo de discordar do primeiro?* Se a resposta for "nada, mas
+ninguém rodou", o defeito está agendado, não resolvido.
+
+### ⚠️ DECISÃO TOMADA E NÃO EXECUTADA VOLTA COMO DEFEITO EM PRODUÇÃO
+
+**Regra do dono.** Uma decisão que ficou escrita e não virou código, migration
+ou configuração não é uma pendência: é um defeito com data de estreia. Ela some
+do radar porque *parece* resolvida — está decidida, está registrada, alguém
+lembra de tê-la discutido — e volta pela porta da produção, onde custa mais.
+
+**As três formas em que isso aconteceu aqui:**
+
+- **Decidido e não migrado.** `competence_date` existia no banco e o motor
+  nunca a lia. "DRE por competência" era DRE por vencimento *por definição
+  escrita*, e o formulário afirmava o contrário a quem digitava.
+- **Decidido e não configurado.** O passo de aplicar migration não existia no
+  CI; a decisão "o banco acompanha o código" era intenção. Produção ficou seis
+  dias atrás do `main` publicado (A4P-086).
+- **Decidido e não semeado.** `central_alcada` tinha seed e não tinha gatilho:
+  a decisão valia para as organizações de ontem e nascia ausente para todo
+  cliente novo — teto 0, nada aprovável no primeiro dia.
+
+⚠️ **O que separa decisão de defeito é o EXECUTOR NOMEADO.** Toda decisão sai
+desta casa com as duas metades no mesmo commit: o que muda **e** o que passa a
+reprovar se alguém desfizer. Sem a segunda metade, a decisão depende de memória
+— e memória de equipe é o que este arquivo inteiro existe para substituir.
+
 ### ⚠️ ESTADO TERMINAL QUE UMA FUNÇÃO CONTORNA DEIXOU DE SER TERMINAL
 
 `estornar_conciliacao` fazia `status = case when status='cancelado' then

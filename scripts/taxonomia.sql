@@ -89,8 +89,8 @@ begin
 
   /* -- 6. Título EXIGE origem ------------------------------------------- */
   begin
-    insert into public.movements (org_id, account_id, type, status, amount, due_date)
-      values (v_org, v_conta, 'entrada', 'pendente', 100, current_date);
+    insert into public.movements (org_id, account_id, type, amount, due_date)
+      values (v_org, v_conta, 'entrada', 100, current_date);
     falhas := falhas || 'título sem origem foi aceito';
   exception
     when sqlstate 'A4P05' then null;
@@ -99,8 +99,8 @@ begin
 
   /* -- 7. Extrato NÃO é título ------------------------------------------ */
   begin
-    insert into public.movements (org_id, account_id, type, status, amount, due_date, origem)
-      values (v_org, v_conta, 'entrada', 'pendente', 100, current_date, 'extrato');
+    insert into public.movements (org_id, account_id, type, amount, due_date, origem)
+      values (v_org, v_conta, 'entrada', 100, current_date, 'extrato');
     falhas := falhas || 'um lançamento de extrato foi aceito como título';
   exception
     when sqlstate 'A4P05' then null;
@@ -109,16 +109,16 @@ begin
 
   /* -- 8. Título com origem válida PASSA --------------------------------- */
   begin
-    insert into public.movements (org_id, account_id, type, status, amount, due_date, origem)
-      values (v_org, v_conta, 'entrada', 'pendente', 100, current_date, 'venda');
+    insert into public.movements (org_id, account_id, type, amount, due_date, origem)
+      values (v_org, v_conta, 'entrada', 100, current_date, 'venda');
   exception when others then
     falhas := falhas || ('título com origem legítima foi reprovado: ' || sqlstate);
   end;
 
   /* -- 9. Espécie extrato entra e ganha a própria origem ------------------ */
   begin
-    insert into public.movements (org_id, account_id, type, status, amount, due_date, especie)
-      values (v_org, v_conta, 'saida', 'pago', 50, current_date, 'extrato');
+    insert into public.movements (org_id, account_id, type, situacao, paid_date, amount, due_date, especie)
+      values (v_org, v_conta, 'saida', 'baixado', current_date, 50, current_date, 'extrato');
   exception when others then
     falhas := falhas || ('lançamento de extrato foi reprovado: ' || sqlstate);
   end;

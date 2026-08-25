@@ -284,7 +284,7 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
   if (baixaDe) {
     const { error } = await supabase
       .from("movements")
-      .update({ status: "pago", paid_date: f.data ?? hoje, reconciled: true })
+      .update({ situacao: "baixado", paid_date: f.data ?? hoje, reconciled: true })
       .eq("id", baixaDe.id);
     if (!error) { out.baixa = true; return out; }
   }
@@ -307,7 +307,9 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
       origem: "importacao" as const,
       account_id: accId,
       type: tipoMov,
-      status: pago ? "pago" : "pendente",
+      // ⚠️ `situacao`, nunca `status`: a coluna é GERADA e o insert que a
+      // mencionar é recusado pelo Postgres (`428C9`).
+      situacao: pago ? "baixado" : "previsto",
       category: categoria,
       amount: valor,
       due_date: venc,

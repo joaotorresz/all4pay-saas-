@@ -74,7 +74,7 @@ export async function pagarLote(
       // instâncias serverless) debitaria o saldo de novo — pagamento em dobro.
       const { data: flipped, error } = await supabase
         .from("movements")
-        .update({ status: "pago", paid_date: hoje, reconciled: true })
+        .update({ situacao: "baixado", paid_date: hoje, reconciled: true })
         .in("id", ids)
         .eq("status", "pendente")
         .select("amount").limit(TETO_LINHAS);

@@ -64,10 +64,10 @@ begin
   -- traduziu como "ISOLAMENTO ROMPIDO". A fixture de uma guarda tem de
   -- obedecer às regras do produto: no dia em que ela precisa de uma exceção
   -- para existir, ela deixou de testar o produto.
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-  values (oa, ca, 'entrada', 1111.11, 'segredo da empresa A', 'pago', current_date, 'manual');
-  insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-  values (ob, cb, 'entrada', 2222.22, 'segredo da empresa B', 'pago', current_date, 'manual');
+  insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+  values (oa, ca, 'entrada', 1111.11, 'segredo da empresa A', 'baixado', current_date, current_date, 'manual');
+  insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+  values (ob, cb, 'entrada', 2222.22, 'segredo da empresa B', 'baixado', current_date, current_date, 'manual');
 
   --------------------------------------------------------------- LEITURA ----
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
@@ -97,8 +97,8 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    insert into public.movements (org_id, account_id, type, amount, description, status, due_date, origem)
-    values (ob, cb, 'saida', 9.99, 'invasão', 'pago', current_date, 'manual');
+    insert into public.movements (org_id, account_id, type, amount, description, situacao, paid_date, due_date, origem)
+    values (ob, cb, 'saida', 9.99, 'invasão', 'baixado', current_date, current_date, 'manual');
     passou := true;
   exception when others then
     passou := false;

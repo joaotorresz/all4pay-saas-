@@ -95,7 +95,7 @@ export async function cancelarItemRevisao(id: string, origem: "lancamento" | "re
   const supabase = createClient();
   if (!supabase) return;
   const { error } = origem === "lancamento"
-    ? await supabase.from("movements").update({ status: "cancelado" }).eq("id", id)
+    ? await supabase.from("movements").update({ situacao: "cancelado" }).eq("id", id)
     : await supabase.from("recurrences").update({ active: false }).eq("id", id);
   // Um escritor que engole erro é indistinguível de um que funciona.
   if (error) throw error;
