@@ -2605,3 +2605,69 @@ ORG SOZINHA   → ACEITO · autoaprovacao=t · motivo=org com um único membro
 regra no `CLAUDE.md`: controle que o quadro de membros liga e desliga some sem
 evento, e um fraudador o desativa removendo um colega.
 
+---
+
+## ⚠️ A4P-086 — PRODUÇÃO NÃO RECEBIA MIGRATION HÁ SEIS DIAS, e o defeito é o PIPELINE
+
+**Medido em 25/08/2026:** `supabase_migrations.schema_migrations` parada em
+**20260819180000**, total **90**, contra **91 arquivos** no repositório.
+
+⚠️ **E o backlog era exatamente DUAS migrations**, não um acúmulo — as duas
+escritas nos dois dias anteriores. Nada mais antigo estava faltando; a única
+aplicada sem arquivo é a dívida já declarada (`own_token_cache`, criada pelas
+Edge Functions fora do repositório). A impressão de "o caminho inteiro parou"
+era verdadeira sobre o PIPELINE e falsa sobre o VOLUME — e a diferença importa,
+porque um backlog de duas se aplica em minutos e um de trinta é outra conversa.
+
+### O ensaio antes de aplicar (oitava regra), e o que ele provou
+
+Cada migration passou por `begin; … rollback;` contra produção, **e o rollback
+foi CONFERIDO por SELECT depois** — não bastou "não deu erro":
+
+| migration | ensaio | conferência do rollback |
+| --- | --- | --- |
+| `20260824220000_nome_da_empresa_do_cadastro` | passou | `handle_new_user` voltou a ter o ramo do e-mail ✓ |
+| `20260825140000_central_autoaprovacao_carimbada` | passou | coluna e função não persistiram ✓ |
+
+Nenhuma toca DML sobre os 2230 movimentos: são DDL e definição de função. O
+único `insert` está DENTRO do corpo do gatilho — execução, não migração.
+
+### Aplicadas, e a `version` do ARQUIVO
+
+⚠️ **`apply_migration` gera um timestamp NOVO**, e usá-lo descasaria a `version`
+do banco da do arquivo: a guarda do esquema passaria a acusar nos dois sentidos
+("aplicada sem arquivo" + "arquivo sem aplicação"). Aplicadas por
+`execute_sql` em transação própria, registrando em `schema_migrations` com a
+version do próprio nome do arquivo.
+
+**Depois:** última version **20260825170000**, total **93**, movimentos
+**2230 intactos**.
+
+### O caminho ouro passou a existir
+
+Com a autoaprovação no ar, o caminho inteiro foi exercitado em produção, em
+transação desfeita, como o dono da org de teste (um membro, `owner`):
+
+```
+1) LANCOU previsto
+2) CONFIRMOU (autoaprovacao=true, motivo=org com um único membro habilitado a aprovar)
+3) BAIXOU
+trilha = 2 transicoes
+```
+
+`central_transicoes` segue em **0** porque tudo foi desfeito e ninguém clicou —
+**não porque o banco recuse**. A distinção é a métrica inteira deste bloco.
+
+### Por que o merge não aplica: NÃO EXISTE PASSO NENHUM
+
+Não há passo manual não documentado — **não há passo**. O `ci.yml` não tem
+job de `db push`/`migration up`, e a Vercel publica o front sem tocar no banco:
+o `main` verde publica código novo contra um esquema velho, em silêncio.
+
+Para o merge aplicar sozinho seria preciso um job no `main` com credencial de
+migração (não o `ci_leitor`, que é somente leitura) rodando `supabase db push`
+com `--include-all`, **falhando fechado** e rodando DEPOIS do `verify` e ANTES
+do deploy da Vercel — senão volta a acontecer o que o A4P-075 já registrou: o
+código novo pousa antes do esquema que ele espera. Diagnóstico apenas; o
+pipeline não foi construído aqui.
+

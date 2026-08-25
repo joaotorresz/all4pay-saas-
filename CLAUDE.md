@@ -1150,6 +1150,28 @@ parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
 máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
 tráfego.
 
+### ⚠️ ESTADO TERMINAL QUE UMA FUNÇÃO CONTORNA DEIXOU DE SER TERMINAL
+
+`estornar_conciliacao` fazia `status = case when status='cancelado' then
+'pendente' end` — ou seja, **ressuscitava cancelado**. A máquina declara
+`cancelado` terminal; uma função que o devolve ao início transforma o terminal
+em transitório sem que ninguém tenha decidido isso.
+
+**Decisão do dono: cancelado continua terminal.** Título cancelado não
+ressuscita — em sistema financeiro não se revive documento, lança-se contra.
+
+⚠️ **Ou a transição tem NOME e MOTIVO, ou não existe.** Se um dia ficar provado
+que há caso legítimo de reativação, ela entra como transição própria e nomeada
+(`cancelado → previsto` como *reativação*, com motivo obrigatório), passando
+pela máquina e pela trilha como qualquer outra — **nunca como efeito colateral
+de outra função**. A diferença é que a primeira forma aparece no histórico com
+autor e razão, e a segunda só aparece quando alguém compara dois relatórios.
+
+O conserto acabou revelando um segundo buraco: `conciliado → baixado` — a
+inversa exata de `baixado → conciliado` — **não existia na máquina**, o que
+tornava o estorno de conciliação impossível de expressar em `situacao`. Ela
+entrou nomeada, e a baixa direta (`previsto → baixado`) continua barrada.
+
 ### ⚠️ ARREIO QUE VOCÊ ESCREVE É HIPÓTESE; ARREIO COPIADO É MEDIDA
 
 **Três vezes na mesma sessão o arreio mínimo escondeu algo que produção tem** —

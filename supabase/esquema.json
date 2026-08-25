@@ -21,7 +21,7 @@
   "repositório não tem como saber que ficou para trás — foi assim que 26",
   "migrations chegaram à produção sem ninguém contar."
  ],
- "gerado_em": "2026-08-21",
+ "gerado_em": "2026-08-25",
  "projeto": "dzszmbowhzopocqydnxu",
  "contagens": {
   "tabelas": 78,
@@ -123,7 +123,10 @@
   "20260818210000_central_maquina_de_estados",
   "20260819140000_alcada_morada_unica",
   "20260819160000_alcada_descarta_valor_corrompido",
-  "20260819180000_openfinance_pg_cron"
+  "20260819180000_openfinance_pg_cron",
+  "20260824220000_nome_da_empresa_do_cadastro",
+  "20260825140000_central_autoaprovacao_carimbada",
+  "20260825170000_estorno_de_conciliacao"
  ],
  "divergencias_conhecidas": {
   "_regra": [
@@ -265,30 +268,6 @@
     ],
     "resolver_ate": "2026-09-19",
     "origem": "decisao do dono, P-19 (19/08/2026)",
-    "aplicada_em": null
-   },
-   {
-    "nome": "20260824220000_nome_da_empresa_do_cadastro",
-    "motivo": "A4P-085: tira do `handle_new_user` o ramo que derivava o nome da organizacao do local-part do e-mail, e apara as bordas no servidor. O arquivo nasce no PR e o banco so o recebe quando o dono o aplica a mao — a divergencia existe durante a revisao, por desenho.",
-    "impacto": "Enquanto nao aplicada, TODA conta nova cujo signUp nao mande `company` continua nascendo com o nome derivado do e-mail (medido: joao+teste1). O lado da app ja envia o nome neste mesmo PR, entao as contas criadas pelas quatro portas conhecidas ja saem corretas; o que segue exposto e o caminho que NAO passa por elas — convite, painel do Supabase, provedor externo — e o nome so com espacos, que a versao antiga aceita.",
-    "objetos_ausentes": [
-     "funcao handle_new_user() sem derivacao do e-mail",
-     "btrim/left(200) no nome da organizacao"
-    ],
-    "resolver_ate": "2026-09-24",
-    "origem": "sessao de agente, A4P-085 (24/08/2026)",
-    "aplicada_em": null
-   },
-   {
-    "nome": "20260825140000_central_autoaprovacao_carimbada",
-    "motivo": "Bloco 3: R1 passa a PERMITIR autoaprovacao quando a org nao tem outro membro habilitado a aprovar, e CARIMBA a transicao (central_transicoes.autoaprovacao + motivo). Decisao do dono: controle que o quadro de membros liga e desliga nao e controle; o teto honesto para empresa de uma pessoa e registro.",
-    "impacto": "Enquanto nao aplicada, a organizacao de UM membro nao consegue confirmar titulo nenhum — quem lanca e o unico que poderia confirmar, e R1 recusa. O caminho ouro lancar → confirmar → baixar fica fechado para o cliente tipico. Nada regride: a migration so acrescenta uma coluna com default false e afrouxa R1 no caso em que ele hoje trava a operacao inteira.",
-    "objetos_ausentes": [
-     "central_transicoes.autoaprovacao",
-     "central_maquina() com a regra do unico aprovador"
-    ],
-    "resolver_ate": "2026-09-25",
-    "origem": "sessao de agente, Bloco 3 da Central (25/08/2026)",
     "aplicada_em": null
    }
   ],
