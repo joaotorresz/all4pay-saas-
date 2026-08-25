@@ -35,6 +35,7 @@ import {
 import { pctDeInteiro } from "@/lib/format";
 
 import { IdCopiavel } from "@/components/registros/kit";
+import { imprimirRelatorio } from "@/lib/imprimir";
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 const PAGINAS = [50, 100, 250, 500, 1000, 5000];
 
@@ -348,7 +349,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
             <Icon name="arrow-down-to-line" size={15} color="currentColor" />
             Exportar XLSX
           </Button>
-          <Button variant="outline" disabled={titulos.length === 0} onClick={() => window.print()}>
+          <Button variant="outline" disabled={titulos.length === 0} onClick={imprimirRelatorio}>
             <Icon name="file-text" size={15} color="currentColor" />
             Exportar PDF
           </Button>

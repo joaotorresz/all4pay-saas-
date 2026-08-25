@@ -1832,6 +1832,47 @@ quando custa barato.
 
 ---
 
+## ⚠️ A4P-080 — AS DUAS GUARDAS DE TELEFONE REGREDIRAM, e ninguém viu porque elas nunca entraram no CI
+
+**A ONDA 12 fechou com "7 telas · 0 com problema · 4 fluxos · 0 com problema".**
+Rodadas de novo em 20/08, contra o build de produção servido, elas acusam
+**5 das 7 telas** e **1 dos 4 fluxos**.
+
+| tela / fluxo | o que reprova |
+| --- | --- |
+| Títulos a receber | acessibilidade: `label`×2, `select-name`×3 |
+| Extrato | acessibilidade: contraste×2 |
+| Entrada de dados | orçamento: **57** requisições (teto 45) |
+| DRE | orçamento: **74** requisições (teto 60) |
+| **Lançar despesa** | **não há caminho para Despesa a partir do início** |
+
+⚠️ **A causa de a regressão atravessar é estrutural, e é a lição.** `npm run
+mobile` e `npm run fluxos` exigem o app SERVIDO, e por isso ficaram fora do
+`npm test` e fora do CI — declaradamente, com um motivo que era bom ("uma suíte
+que precisa de build deixa de ser rodada antes de commitar"). O efeito é que
+elas passaram a depender de alguém lembrar de rodá-las à mão, e ninguém lembrou.
+**Guarda que depende de memória não é guarda: é intenção.**
+
+⚠️ **E o pior item não é de acessibilidade.** *"Não há caminho para Despesa a
+partir do início"* quebra um dos quatro fluxos que a ONDA 12 elegeu como
+essenciais — lançar uma despesa do telefone. As reprovações de orçamento podem
+ter componente de ambiente (o build de demonstração carrega o conjunto do seed,
+que é maior); as de acessibilidade e a do fluxo **não têm**: `label` ausente e
+caminho inexistente independem de modo.
+
+⚠️ **Por que elas NÃO entraram no portão nesta rodada, e isso está no
+`ci.yml` com os números.** Pendurá-las agora abriria um portão VERMELHO: todo PR
+nasceria reprovado por dívida anterior, e a primeira coisa que se faz com um
+portão que nunca fica verde é desligá-lo — que é como se perde um portão de
+verdade. Deixá-las fora *em silêncio* seria pior: sumiria a única evidência de
+que a regressão existe.
+
+**A dívida, com dono e forma de fechar:** consertar os cinco itens e, no mesmo
+gesto, mover os dois passos para o job `navegador`. Enquanto não fecharem, elas
+continuam rodáveis à mão contra um build servido, e o `ci.yml` carrega a lista.
+
+---
+
 ## ⚠️ A REGRA MAIS CARA DA AUDITORIA — montar `RiskInput` à mão SEM `linhaPorCategoria`
 
 **Terceira vez que "meça com o dado que a superfície usa" pega esta sessão, e
@@ -2104,3 +2145,529 @@ completo enquanto segue — que é o que o torna caro.
 E a regra de leitura que fica para mim: **campo não preenchido é ausência de
 informação, não confirmação.** Diante de um, medir — nunca completar com o que
 parecia provável.
+
+---
+
+## ⚠️ A4P-082 — "Exportar PDF" entregava UMA página de um relatório de três
+
+**Medido em 24/08/2026, no navegador, contra o build servido.** O projeto
+inteiro não tinha **uma** regra `@media print`, e o botão "Exportar PDF"
+chamava `window.print()` cru sobre um app cuja raiz é
+`.a4p-canvas { position: fixed; inset: 0; overflow: hidden }`, com a área de
+conteúdo em `overflow-y-auto`.
+
+| medida (mesma página, mesmo navegador, só o bloco `@media print` ligado/desligado) | altura do documento em mídia `print` |
+| --- | --- |
+| **antes** (sem folha de impressão) | **800 px** — 0,8 página A4 |
+| **depois** | **2.314 px** — 2,2 páginas A4 |
+
+⚠️ **É a pior forma de defeito de saída, e é isso que o torna caro: o arquivo
+ABRE.** Não há erro, não há aviso, e os números que aparecem estão CERTOS. O
+contador recebe um PDF plausível ao qual faltam linhas — inclusive o total do
+rodapé — e a única forma de perceber é comparar com o XLSX, que sempre esteve
+correto e que ninguém compara. Um DRE de doze meses saía truncado na primeira
+dobra, com o menu lateral e a moldura escura impressos em volta.
+
+**O que a folha resolve, em ordem de gravidade:** o recorte (a raiz fixa e a
+área rolável viram fluxo normal) · o cabeçalho da tabela REPETIDO em cada
+página (`table-header-group` — sem ele a página 3 é uma grade de números sem
+dizer de que mês é cada coluna) · a moldura do app fora do papel · a linha de
+valor partida entre duas folhas.
+
+⚠️ **O modo escuro foi tratado em JS, não em CSS, e por uma razão de tinta.**
+A impressão descarta FUNDO por padrão e mantém a COR DO TEXTO: no tema escuro
+o fundo preto some, a letra quase branca fica, e a folha sai **em branco**.
+Consertar por `@media print` exigiria reescrever a paleta dentro do bloco —
+que é exatamente o que a guarda da paleta proíbe. Então `imprimirRelatorio`
+força o tema claro e o devolve no **`afterprint`**, nunca na linha seguinte:
+`window.print()` retorna antes de a pessoa decidir, e restaurar cedo escurece
+a pré-visualização enquanto ela escolhe a impressora.
+
+⚠️ **A guarda achou DUAS portas que eu não conhecia.** A asserção que carrega
+o valor não é "existe `@media print`" — essa passaria com o bloco vazio. É a
+que prova o PROIBIDO: *nenhuma tela chama `window.print()` por fora do
+ajudante*. Ela reprovou na primeira execução acusando `TitulosView` e
+`VendasView`, dois botões de impressão que eu não sabia que existiam. Mesma
+família do escritor desconhecido que a guarda da baixa encontrou.
+
+**Provada quebrando cinco defeitos**, todos reprovando: a raiz volta a ser
+fixa · o cabeçalho da tabela deixa de repetir · o ajudante "simplificado" para
+um `print()` de uma linha · uma tela nova chamando `window.print()` direto ·
+o cabeçalho do documento existindo sem ninguém o montar.
+
+---
+
+## ⚠️ A4P-083 — REFUTADO: o smoke das rotas não é cego. Quem mediu errado fui eu
+
+**"`npm run smoke-rotas` reporta 81 rotas verdes enquanto 76 delas terminam em
+`/login` — a guarda mede a tela de login e chama isso de conteúdo." —
+CANCELADO. O defeito não existe.**
+
+Eu medi contra um servidor local que carrega **`.env.local` com Supabase de
+verdade**. Ali `configured` é `true` e não há sessão, então o portão manda
+para `/login` — e o censo deu 76 de 81. Plantei a tela de governança
+renderizando NADA, a guarda ficou verde, e eu já tinha o veredito escrito.
+
+⚠️ **A linha 52 do `middleware.ts` é `if (!configured) return response;`.** O
+job `navegador` do CI **não tem segredo de Supabase** — conferido, não
+suposto: nenhuma ocorrência de `SUPABASE` no job, e nenhum `env` de nível
+global no workflow. Lá `configured` é `false` e **o app fica aberto**, que é o
+que o comentário do arquivo sempre disse.
+
+Refeito na condição do CI (sem `.env.local`, build e servidor), com o MESMO
+defeito plantado:
+
+```
+redirect de /governanca: ''            ← vazio: o app está aberto
+✗ /governanca   tela em branco (36 caracteres na área de conteúdo)
+✗ 1 de 81 rota(s) com problema (80 limpas)
+```
+
+A guarda reprova exatamente o defeito que ela existe para pegar.
+
+⚠️ **A lição é a terceira aparição da mesma regra, e agora contra mim numa
+guarda que eu mesmo escrevi: MEÇA COM O DADO QUE A SUPERFÍCIE USA.** No A4P-036
+foi a folha alimentada sem benefício; no lote P-06B foi o JOIN por
+`category_id` numa base que classifica pelo texto `category`; aqui foi um
+`.env.local` que a superfície medida não tem. Nos três, a medição foi
+competente e mediu **outra coisa**.
+
+⚠️ **E o veredito coube na medição.** "Refutado" é terminal e autoriza fechar
+o item — só cabe porque a guarda REPROVA no ambiente dela, provado por
+plantio. Se eu tivesse escrito "guarda cega", o próximo auditor gastaria uma
+rodada consertando o que funciona, e o item 16 ("smoke autenticado nas rotas
+canônicas") seria reaberto sem ter defeito.
+
+⚠️ **Fica escrito porque achado refutado que não é escrito volta** — a mesma
+razão do A4P-028 e do A4P-036. O sintoma (76 de 81 em `/login`) é REAL e
+reaparece em qualquer máquina com `.env.local`: sem esta nota, a próxima
+sessão o reencontra e conclui a mesma coisa errada.
+
+---
+
+## ⚠️ A4P-084 — o `esquema-prod` reprovou no `main`, e é RETRATO VELHO, não deriva
+
+**Medido em 24/08/2026.** Com o `ci_leitor` finalmente conectando, o job
+`esquema-prod` rodou pela primeira vez com credencial de verdade — e o
+`npm run objetos` REPROVOU no push do `main` (`a39a8fa`):
+
+```
+objetos: 373 nas migrations · 351 no retrato de produção (2026-08-17)
+✗ 24 objeto(s) nas migrations e ausentes de produção
+✗  2 objeto(s) com DERIVA — tabela:movements · funcao:admin_orgs()
+```
+
+⚠️ **Os 24 "ausentes" existem em produção.** Consultado o catálogo pelo MCP,
+sete a sete: `central_alcada`, `central_transicoes`, `movements.situacao`,
+`central_maquina()`, `org_pode_escrever()`, `assinatura_da_org()` e a política
+`movements_escrita_exige_assinatura` — **todos presentes**. E as duas "derivas"
+são as mesmas mudanças: `movements` ganhou a coluna `situacao`, e `admin_orgs()`
+foi reescrita quando o trial passou a ser visível.
+
+**A causa é a data do retrato: 2026-08-17.** O lote de nove migrations foi
+aplicado DEPOIS dele. Produção tem **403** objetos; o retrato guarda 351. O
+`esquema.json` foi sincronizado em 21/08, mas o `objetos-producao.json` é um
+arquivo DIFERENTE e ficou para trás — e é ele que o `npm run objetos` lê.
+
+⚠️ **A verificação foi por MEDIÇÃO, não pela palavra de quem aplicou.** O dono
+relatou ter conferido as tabelas no banco, e estava certo; ainda assim o
+caminho honesto é consultar o catálogo — é a diferença entre "foi aplicado" e
+"está lá agora", e são elas que a guarda de estado existe para separar.
+
+⚠️ **E o conserto NÃO foi feito por transcrição à mão, de propósito.** O
+retrato guarda um md5 por objeto; eu tinha os 403 na tela e não tenho
+`SUPABASE_DB_URL` aqui. Copiar 403 hashes à mão para deixar o CI verde é
+fabricar o artefato que a guarda usa para julgar — um único caractere trocado
+faz a guarda ou acusar deriva que não existe, ou deixar de acusar a que existe,
+e nos dois casos ela passa a MENTIR com a autoridade de uma medição. É a mesma
+família do `resíduo = x − x`: o número existe, ninguém confere, e a confiança
+vem do formato.
+
+**O conserto é um comando, para quem tem a credencial:**
+`SUPABASE_DB_URL=<a do ci_leitor> npm run objetos:sync` e commitar o
+`supabase/objetos-producao.json`.
+
+⚠️ **Sincronizar só pode REVELAR, nunca esconder** — e é isso que torna o
+comando seguro: o retrato novo traz os objetos que produção tem de verdade,
+então qualquer um deles sem migration correspondente passa a REPROVAR como
+órfão. A direção do conserto acrescenta vigilância.
+
+⚠️ **`--sync` e `--sync-service-role` são comandos SEPARADOS, e só o primeiro
+deve ser usado aqui.** A linha de base de `grants_service_role` vigia a chave
+que passa por fora do RLS; re-sincronizá-la junto carimbaria como "normal" um
+grant que apareceu sem ninguém declarar — inclusive um `TRUNCATE` de volta em
+`audit_log`, que é exatamente o que aquela base existe para reprovar.
+
+---
+
+## ⚠️ A4P-085 — P0: o nome digitado no cadastro não chegava ao banco
+
+**Medido em produção (24/08/2026), em dado real.** Duas contas criadas às 21:53
+e 21:54, com "Teste Isolamento A" e "Teste Isolamento B" digitados no campo
+"Nome da empresa":
+
+```
+c20873ac-005b-4b39-ac92-1452bfa74e7f | joao+teste1 | joao+teste1@all4pay.com.br
+5350fc34-88e1-4c32-b0b2-39dd6e45b6a3 | joao+teste2 | joao+teste2@all4pay.com.br
+```
+
+`organizations.name` guardou o **local-part do e-mail**, caractere por
+caractere. Na PRIMEIRA tela que o cliente vê.
+
+### O escritor real: o gatilho, e ele já estava certo
+
+| candidato | veredito |
+| --- | --- |
+| `CriarContaView.tsx:54` | grava o nome no **localStorage** e não o envia |
+| `lib/entrada.ts:87` | chamava `signUp({email, password})` — **sem metadados** |
+| **`handle_new_user()`** (gatilho em `auth.users`) | **o único escritor** |
+
+```sql
+v_name := coalesce(
+  nullif(new.raw_user_meta_data->>'company', ''),        -- ① o caminho certo
+  nullif(split_part(coalesce(new.email,''),'@',1), ''),  -- ② gravou joao+teste1
+  'Minha empresa');
+```
+
+⚠️ **O caminho certo existia desde a migration 0005 e ninguém o alimentava.**
+`auth.signUp` só preenche `raw_user_meta_data` por `options.data`, e as quatro
+portas de cadastro chamavam `signUp` sem ele. Consertar só o front faria o nome
+chegar HOJE e o defeito voltar na primeira porta nova que esquecesse — o ramo
+② continuaria ali, gravando um nome plausível em silêncio.
+
+⚠️ **A medição achou DOIS defeitos a mais que o relato não citava.** Rodando os
+dois `coalesce` lado a lado sobre os mesmos casos:
+
+| caso | novo | antigo |
+| --- | --- | --- |
+| acento, espaço, caixa | `Açaí do João LTDA` | `Açaí do João LTDA` |
+| bordas com espaço | `Açaí do João LTDA` | `␣␣␣Açaí do João LTDA␣␣␣` |
+| `company` vazio | `Minha empresa` | **`joao+teste1`** |
+| `company` só espaço | `Minha empresa` | `␣␣␣` |
+| sem `company` | `Minha empresa` | **`joao+teste1`** |
+
+O antigo **não aparava as bordas** e aceitava um nome só de espaços.
+
+### A quarta porta, e por que o compilador não a viu
+
+Tornar `empresa` um parâmetro **obrigatório** de `criarContaEEntrar` fez o
+typecheck nomear duas portas. A terceira — `OnboardingPessoal` — **não
+apareceu**, porque chamava `supabase.auth.signUp` direto, por fora do ajudante.
+⚠️ **Um tipo só alcança quem passa pelo ajudante; quem desvia dele fica
+invisível.** É o defeito que o comentário do wizard já advertia: enquanto forem
+duas implementações, o conserto chega numa e não na outra. Daí a guarda ter uma
+asserção de **teto zero** sobre `auth.signUp` fora de `lib/entrada`.
+
+### Por que o último recurso FICA
+
+`handle_new_user` dispara em `auth.users`: se levantar exceção, **o cadastro
+inteiro falha** — inclusive por caminhos que este repositório não controla
+(convite, painel do Supabase, provedor externo). Trocar "o nome vem errado" por
+"ninguém cria conta" é infinitamente pior. O recurso é `'Minha empresa'`: um
+rótulo que se ANUNCIA como provisório, ao contrário de `joao+teste1`, que se
+disfarça de escolha. **A recusa do vazio mora na tela**, onde há alguém para
+responder.
+
+### As duas metades da guarda
+
+Uma sozinha deixa metade do caminho descoberta — a lição de "instrumentação sem
+consumidor":
+
+- **`scripts/cadastro-nome.sql`** (job `isolamento` + rodável em qualquer
+  Postgres): cria o usuário por `auth.users` — **nunca** por INSERT em
+  `organizations`, que testaria um caminho que ninguém percorre. **Cada caso em
+  savepoint próprio**, e todos usando DE PROPÓSITO o mesmo e-mail: reusar o
+  valor único é o que torna o isolamento auto-verificável.
+- **`scripts/cadastro-nome.mts`** (no `npm test`): teto zero de `auth.signUp`
+  fora do ajudante, `empresa` obrigatório, as três portas passando um nome de
+  verdade, o vazio recusado no campo, e a migration sem o ramo do e-mail.
+  **Provada quebrando cinco defeitos.**
+
+⚠️ **E o teste negativo cobra que o VERMELHO NOMEIE o defeito.** Na primeira
+execução a guarda ficou vermelha por `duplicate key` — a asserção auditada nem
+chegou a rodar. Agora ela captura o `SQLERRM` e reprova se o texto não for o da
+asserção do nome. Medido, com a derivação reintroduzida no gatilho:
+
+```
+NOTICE:  caso 1 OK — acento, espaço e caixa chegam literais: "Açaí do João LTDA"
+NOTICE:  caso 2 OK — bordas aparadas, miolo intacto: "Açaí do João LTDA"
+ERROR:   A4P-085 NOME DERIVADO DO E-MAIL: esperado um nome que não venha do
+         e-mail, recebido "joao+teste1" (o local-part de joao+teste1@all4pay.com.br)
+exit: 3
+```
+
+E o verde, com a migration restaurada — os quatro casos mais o negativo
+confirmando que a asserção dispara:
+
+```
+NOTICE:  caso 3 OK — sem `company`, o nome não veio do e-mail: "Minha empresa"
+NOTICE:  caso 4 OK — `company` em branco cai no recurso declarado: "Minha empresa"
+NOTICE:  teste negativo OK — o vermelho nomeia o defeito: A4P-085 NOME DERIVADO DO E-MAIL: …
+exit: 0
+```
+
+---
+
+## Varredura da classe "a tela escreve, ninguém lê" (A4P-085, etapa 4)
+
+**Método:** as 22 chaves do estado `db` do passo 1 do wizard extraídas do
+próprio código; para cada uma, leitores fora de `components/onboarding/` e
+`components/entrada/`, por **acesso de propriedade** (`\.campo\b`) E por
+**chave em string** (`"campo"`), porque telas genéricas leem por string.
+
+⚠️ A primeira passada usou substring e foi descartada: `ie` e `im` casam dentro
+de palavras e `porte` casa em "transporte" — a mesma lição do `\b` que já
+custou caro aqui.
+
+| tela | campo | escrito em | lido por | veredito |
+| --- | --- | --- | --- | --- |
+| Onboarding p1 | `ie` (inscr. estadual) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — e ele é exigido em NF-e/NFS-e |
+| Onboarding p1 | `im` (inscr. municipal) | `a4p_company.db` | **ninguém** | **ÓRFÃO** — idem, para serviço |
+| Onboarding p1 | `repCargo` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `exportadora` | `a4p_company.db` | **ninguém** | **ÓRFÃO** |
+| Onboarding p1 | `repCpf` | `a4p_company.db` | só `/admin` | lido, mas só no backoffice |
+| Onboarding p1 | `repEmail` · `repTelefone` | `a4p_company.db` | `/admin` + Configurações | OK |
+| Onboarding p1 | os 15 restantes | `a4p_company.db` | 1 a 23 leitores | OK |
+
+### A metade que faltava: o lado do BANCO
+
+⚠️ **A primeira varredura foi só do front, e por isso não teria achado o
+próprio A4P-085.** O defeito morava num gatilho: a tela gravava e o `coalesce`
+do servidor decidia. Nenhum `grep` em `src/` alcança isso — a classe "a tela
+coleta e ninguém lê" tem uma irmã, "a tela manda e o banco troca", e ela é
+invisível de onde eu estava olhando.
+
+**Método (SQL sobre o catálogo de produção, não sobre o repositório):**
+
+1. todo gatilho não interno em tabela de `public` — **78**;
+2. o corpo de cada função de gatilho varrido por `new\.<coluna> :=`, que é a
+   forma exata de "o servidor decide por cima do que a app mandou" — **15
+   atribuições**;
+3. cada uma confrontada com o que a app escreve naquele campo.
+
+| tabela | gatilho | coluna sobrescrita | veredito |
+| --- | --- | --- | --- |
+| `approvals` | `approvals_segregacao` | `approver_id` · `decided_at` | **carimbo deliberado** — sem ele o cliente informa quem aprovou |
+| `approvals` | `approvals_solicitante` | `requester_id` | idem |
+| `movements` | `central_maquina` | `confirmado_em/por` · `baixado_em/por` | carimbo da máquina de estados |
+| `movements` | `titulo_exige_origem` | `origem` | **só `coalesce`** — nunca sobrescreve valor informado, e RECUSA quando falta |
+| `own_*` (5 tabelas) | `own_touch` | `atualizado_em` | carimbo de tempo |
+| `subscriptions` | `subscriptions_mrr_derivado` | `mrr` · `updated_at` | **derivado por desenho** — a app só EXIBE o MRR, e `admin_set_subscription` nem aceita o parâmetro |
+
+**Nenhum defeito novo desta classe.** O que separa `handle_new_user` de todos
+estes é que ele **inventava** um valor a partir de outro campo, com cara de
+escolha do usuário; os quinze acima ou carimbam autoria/tempo (que o cliente
+não pode declarar), ou derivam de dado que já está na linha, ou apenas
+completam um vazio recusando o resto.
+
+**Sobrescrita depois de gravado: nada encontrado.** Os 15 pontos de
+`saveCompany`/`persistCompany` foram conferidos com 8 linhas de contexto — os
+quatro que a heurística de uma linha acusou (`ConfiguracoesView`, duas no
+wizard, uma no PF) são legítimos: preservam por spread ou são donos do objeto
+inteiro. ⚠️ Publicar aqueles quatro como achado teria sido o falso positivo que
+ensina a ignorar a lista.
+
+**Não consertados** — a etapa pedia listar, e cada um exige decisão de produto:
+`ie`/`im` só valem com a tela fiscal que os consuma; `repCargo` e `exportadora`
+podem simplesmente sair do formulário, que é o conserto mais honesto para um
+campo que ninguém lê.
+
+---
+
+## ✓ A REGRA 5 PAGANDO — org nova nasce com alçada e com trial
+
+**Fechado, provado FORA de fixture.** As duas organizações criadas em produção
+em 24/08 (as mesmas do A4P-085) nasceram com:
+
+| org | alçadas | assinaturas | status | categorias do seed |
+| --- | --- | --- | --- | --- |
+| `c20873ac…` | **8** | 1 | `trial` | 12 |
+| `5350fc34…` | **8** | 1 | `trial` | 12 |
+
+O defeito "**org nova nasce com teto 0 em todos os papéis — nada aprovável — e
+não consegue confirmar um único título no primeiro dia**" (P-19 Bloco 3, achado
+pela guarda de banco que a própria sessão escreveu) **não existe mais**, e a
+prova é dado real, não fixture montada.
+
+⚠️ **Vale nota porque foi a QUINTA REGRA pagando:** *todo default de
+configuração nasce por seed E por gatilho*. O seed cobriu as organizações que
+existiam no dia da migration; o gatilho `organizations_central_alcada` é o que
+cobre estas duas, criadas semanas depois. Com só a metade do seed, elas teriam
+nascido exatamente com o defeito original — e ninguém veria, porque nenhum dado
+existente o exibia.
+
+---
+
+## ⚠️ BLOCO 3 — o inventário da Central, e três coisas que o contexto não dizia
+
+**Medido em 25/08/2026, antes de escrever uma linha de tela.**
+
+| dado | esperado | medido |
+| --- | --- | --- |
+| `central_alcada` | 160 (8×20) | **176** (8 papéis × **22** orgs) — o gatilho segue criando |
+| `central_transicoes` | histórico | **0 linhas.** Nada jamais transitou |
+| situações em uso | a máquina completa | só `previsto`, `baixado`, `cancelado` em 2230 movimentos |
+| `lancado_por` | quem lançou | **NULL em 2230 de 2230** |
+| `confirmado_por` | quem confirmou | **0** |
+
+⚠️ **A máquina nunca rodou em produção.** `central_transicoes` vazia e zero
+`confirmado` não são "pouco uso": são a máquina inteira nunca exercitada. Tudo
+que existe hoje foi posto pelo backfill.
+
+### `central_maquina()` é GATILHO, não função chamável
+
+`BEFORE UPDATE` em `movements`, e **só age quando `situacao` muda**. "Todo
+escritor chama `central_maquina()`" é impossível de implementar — a tela faz
+`UPDATE movements SET situacao=…` e o gatilho intercepta.
+
+⚠️ **As recusas não têm errcode próprio.** São `raise exception` sem `using
+errcode`, portanto **SQLSTATE `P0001`**; `A4P-CENTRAL`, `-SEGREGACAO`,
+`-PERMISSAO` e `-ALCADA` são **prefixo de MENSAGEM**. A tela escolhe o texto em
+português lendo esse prefixo — acoplamento a texto, registrado como dívida.
+Errcode por recusa é o certo e não é agora.
+
+### Os escritores não eram quatro — três estão no BANCO
+
+A varredura de código achava 4 caminhos gravando `status`. O catálogo mostra
+mais três, invisíveis a qualquer `grep` em `src/`: **`conciliar_movimentos`**
+(escreve `status='cancelado'`), **`estornar_conciliacao`** (escreve `status`) e
+**`estornar_lancamento`** (INSERE com `status`). Mais os leitores
+`org_movements`, `org_consolidado`, `admin_org_detail`, `estornar_baixa` e —
+o mais sensível — **`digest_do_periodo`, que assina o hash do fechamento com o
+`status`**.
+
+⚠️ É a terceira vez que "o escritor real está no banco" muda um diagnóstico
+(A4P-085, a varredura da classe, agora esta). O `grep` no front responde por
+metade do sistema.
+
+### `status` × `situacao`: a derivação reproduz o acervo, exatamente
+
+`status` é o enum `movement_status` (3 valores) e é **estritamente mais grosso**
+que `situacao` (6). A derivação `baixado|conciliado→pago`,
+`previsto|confirmado→pendente`, `cancelado|estornado→cancelado` foi conferida
+linha a linha: **2230 de 2230 batem, zero divergência** — então as assinaturas
+de `digest_do_periodo` não mudam. Nenhum leitor precisa de granularidade que
+`situacao` não tenha; o par `previsto`/`confirmado` que hoje é indistinguível é
+justamente o que a Central acrescenta.
+
+**Recomendação registrada:** derivar `status` de `situacao` **por gatilho
+agora**, `GENERATED` depois. Remover `status` custaria migrar **264 leituras em
+51 módulos** — a maioria comparação crua em vez do `liquidado()` canônico, ou
+seja, a ONDA 1 inacabada. E `GENERATED STORED` recusa escrita, o que obrigaria
+a converter as três RPCs do banco na mesma migration: big-bang no meio do
+bloco.
+
+---
+
+## ⚠️ DÍVIDA DECLARADA — confirmar exige `lancar` pela RLS, não `aprovar`
+
+A política **restritiva** `movements_escrita_exige_papel` cobra
+`tem_permissao('lancar')` em **ALL** — inclusive no UPDATE que confirma. Um
+papel desenhado para **aprovar sem lançar** é barrado pela RLS **antes** de a
+máquina rodar.
+
+**Medido**, com o papel plantado num Postgres real:
+
+```
+SQLSTATE 42501 | new row violates row-level security policy
+                 "movements_escrita_exige_papel" for table "movements"
+```
+
+⚠️ **E a recusa não fala a língua do produto.** A tela lê o prefixo
+`A4P-CENTRAL-*` sobre `P0001`; **este caso é `42501` e não é alcançado por
+esse tratamento** — cai no texto genérico, citando o nome de uma política
+interna a quem só queria aprovar um título.
+
+Hoje não trava ninguém: `owner`, `admin` e `aprovador` têm `lancar`. **Não foi
+consertado de propósito** — o conserto muda QUEM PODE CHAMAR O QUÊ. Virou
+teste em `scripts/central-maquina.sql`, que afirma sobre o que está ERRADO
+hoje: se o acoplamento se soltar sozinho, a guarda acusa e manda atualizar esta
+dívida.
+
+---
+
+## ✓ R1 para a empresa de uma pessoa — permitida e CARIMBADA
+
+Decisão do dono. `central_transicoes` ganhou `autoaprovacao boolean`, e a
+máquina passou a perguntar se existe **outro membro habilitado a aprovar**
+(por `role_permissions`, nunca pela alçada).
+
+**Provado nas duas metades, num Postgres real:**
+
+```
+ORG COM DOIS  → RECUSADO: A4P-CENTRAL-SEGREGACAO: quem lançou não pode
+                confirmar o próprio título
+ORG SOZINHA   → ACEITO · autoaprovacao=t · motivo=org com um único membro
+                habilitado a aprovar
+```
+
+⚠️ **R1 nunca fica desligado e não há interruptor por organização** — ver a
+regra no `CLAUDE.md`: controle que o quadro de membros liga e desliga some sem
+evento, e um fraudador o desativa removendo um colega.
+
+---
+
+## ⚠️ A4P-086 — PRODUÇÃO NÃO RECEBIA MIGRATION HÁ SEIS DIAS, e o defeito é o PIPELINE
+
+**Medido em 25/08/2026:** `supabase_migrations.schema_migrations` parada em
+**20260819180000**, total **90**, contra **91 arquivos** no repositório.
+
+⚠️ **E o backlog era exatamente DUAS migrations**, não um acúmulo — as duas
+escritas nos dois dias anteriores. Nada mais antigo estava faltando; a única
+aplicada sem arquivo é a dívida já declarada (`own_token_cache`, criada pelas
+Edge Functions fora do repositório). A impressão de "o caminho inteiro parou"
+era verdadeira sobre o PIPELINE e falsa sobre o VOLUME — e a diferença importa,
+porque um backlog de duas se aplica em minutos e um de trinta é outra conversa.
+
+### O ensaio antes de aplicar (oitava regra), e o que ele provou
+
+Cada migration passou por `begin; … rollback;` contra produção, **e o rollback
+foi CONFERIDO por SELECT depois** — não bastou "não deu erro":
+
+| migration | ensaio | conferência do rollback |
+| --- | --- | --- |
+| `20260824220000_nome_da_empresa_do_cadastro` | passou | `handle_new_user` voltou a ter o ramo do e-mail ✓ |
+| `20260825140000_central_autoaprovacao_carimbada` | passou | coluna e função não persistiram ✓ |
+
+Nenhuma toca DML sobre os 2230 movimentos: são DDL e definição de função. O
+único `insert` está DENTRO do corpo do gatilho — execução, não migração.
+
+### Aplicadas, e a `version` do ARQUIVO
+
+⚠️ **`apply_migration` gera um timestamp NOVO**, e usá-lo descasaria a `version`
+do banco da do arquivo: a guarda do esquema passaria a acusar nos dois sentidos
+("aplicada sem arquivo" + "arquivo sem aplicação"). Aplicadas por
+`execute_sql` em transação própria, registrando em `schema_migrations` com a
+version do próprio nome do arquivo.
+
+**Depois:** última version **20260825170000**, total **93**, movimentos
+**2230 intactos**.
+
+### O caminho ouro passou a existir
+
+Com a autoaprovação no ar, o caminho inteiro foi exercitado em produção, em
+transação desfeita, como o dono da org de teste (um membro, `owner`):
+
+```
+1) LANCOU previsto
+2) CONFIRMOU (autoaprovacao=true, motivo=org com um único membro habilitado a aprovar)
+3) BAIXOU
+trilha = 2 transicoes
+```
+
+`central_transicoes` segue em **0** porque tudo foi desfeito e ninguém clicou —
+**não porque o banco recuse**. A distinção é a métrica inteira deste bloco.
+
+### Por que o merge não aplica: NÃO EXISTE PASSO NENHUM
+
+Não há passo manual não documentado — **não há passo**. O `ci.yml` não tem
+job de `db push`/`migration up`, e a Vercel publica o front sem tocar no banco:
+o `main` verde publica código novo contra um esquema velho, em silêncio.
+
+Para o merge aplicar sozinho seria preciso um job no `main` com credencial de
+migração (não o `ci_leitor`, que é somente leitura) rodando `supabase db push`
+com `--include-all`, **falhando fechado** e rodando DEPOIS do `verify` e ANTES
+do deploy da Vercel — senão volta a acontecer o que o A4P-075 já registrou: o
+código novo pousa antes do esquema que ele espera. Diagnóstico apenas; o
+pipeline não foi construído aqui.
+

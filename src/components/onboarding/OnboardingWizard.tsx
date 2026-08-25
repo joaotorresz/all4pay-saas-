@@ -127,7 +127,15 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
             // Enquanto eram duas, o mesmo defeito vivia nas duas e consertar
             // uma deixava a outra — foi assim que o "Entrando…" travado
             // atravessou dois meses.
-            const r = await criarContaEEntrar(email, senha);
+            /*
+             * ⚠️ **A RAZÃO SOCIAL VENCE A FANTASIA, e é ela que vai para a
+             * organização.** É o nome que sai na nota fiscal; um apelido
+             * interno obriga quem recebe um relatório a conferir se é a mesma
+             * empresa. Se as duas estiverem em branco (o wizard é permissivo
+             * de propósito), o gatilho usa o último recurso — nunca o e-mail.
+             */
+            const nomeEmpresa = (db.razaoSocial.trim() || db.fantasia.trim());
+            const r = await criarContaEEntrar(email, senha, nomeEmpresa);
             if (!r.ok && r.confirmarEmail) {
               try { saveCompany({ db, perfil, participantes, estrutura }); } catch { /* segue */ }
               setConfirmeEmail(true);

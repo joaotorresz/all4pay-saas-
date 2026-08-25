@@ -26,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import type { Situacao } from "@/core/central";
+import { formatBRL } from "@/lib/format";
 
 export interface TituloDaFila {
   id: string;
@@ -47,6 +48,26 @@ export interface Transicao {
   por: string | null;
   motivo: string | null;
   quando: string;
+  /**
+   * ⚠️ O CARIMBO DA AUTOAPROVAÇÃO — a linha que o auditor lê.
+   * Confirmação feita por quem lançou, permitida porque a organização não tem
+   * outro membro habilitado a aprovar. Não é metadado escondido: aparece na
+   * tela do movimento e em toda exportação. Autoaprovação silenciosa seria pior
+   * que a recusa — o registro existiria e ninguém saberia procurá-lo.
+   */
+  autoaprovacao: boolean;
+}
+
+/** O que ESTE usuário pode fazer aqui — vindo do servidor, nunca presumido. */
+export interface ContextoCentral {
+  usuarioId: string | null;
+  papel: string | null;
+  /** `null` = sem teto. `0` = não aprova. */
+  teto: number | null;
+  podeAprovar: boolean;
+  podeBaixar: boolean;
+  /** Existe OUTRO membro habilitado a aprovar? Decide a autoaprovação. */
+  temOutroAprovador: boolean;
 }
 
 /** O que a recusa do banco quer dizer para quem opera. */
@@ -106,7 +127,14 @@ export async function getFilaCentral(): Promise<TituloDaFila[]> {
     s.from("movements").select(
       "id,description,category,amount,type,due_date,situacao,origem,lancado_por,party_id,parties(name)",
     ),
-  ).eq("situacao", "previsto").order("due_date", { ascending: true }).limit(TETO_LINHAS);
+  /*
+   * ⚠️ **A fila não é só o `previsto`.** Um título CONFIRMADO ainda espera
+   * ação — a baixa —, e deixá-lo fora faria a esteira sumir no meio: a pessoa
+   * confirma, o título desaparece da tela, e não há onde dar baixa. A Central
+   * mostra os dois estados em que existe algo a fazer.
+   */
+  ).in("situacao", ["previsto", "confirmado"])
+   .order("due_date", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
   return (data ?? []).map((r) => {
     const m = r as Record<string, unknown>;
@@ -160,10 +188,103 @@ export async function getTransicoes(movementId: string): Promise<Transicao[]> {
   const s = createClient();
   const { data, error } = await s
     .from("central_transicoes")
-    .select("id,de,para,por,motivo,quando")
+    .select("id,de,para,por,motivo,quando,autoaprovacao")
     .eq("movement_id", movementId)
     .order("quando", { ascending: true })
     .limit(TETO_LINHAS);
   if (error) throw error;
-  return (data ?? []) as Transicao[];
+  return (data ?? []).map((r) => {
+    const t = r as Record<string, unknown>;
+    return { ...(t as unknown as Transicao), autoaprovacao: t.autoaprovacao === true };
+  });
+}
+
+/**
+ * O contexto de autorização de QUEM ESTÁ OLHANDO — lido do servidor.
+ *
+ * ⚠️ **Isto NÃO autoriza nada.** Quem autoriza é o gatilho, e ele vai recusar
+ * mesmo que a tela mostre o botão. Este contexto existe para a interface poder
+ * EXPLICAR antes do clique em vez de deixar a pessoa descobrir pela recusa —
+ * "acima do seu teto de R$ X" é uma frase que resolve; um botão que some sem
+ * dizer nada é um sistema que parece quebrado.
+ *
+ * ⚠️ **`temOutroAprovador` sai de `role_permissions`, nunca da alçada** — a
+ * mesma fonte que a máquina consulta. A alçada responde QUANTO; perguntar a ela
+ * QUEM faria um `fechador` com teto herdado contar como aprovador.
+ */
+export async function getContextoCentral(): Promise<ContextoCentral> {
+  const vazio: ContextoCentral = {
+    usuarioId: null, papel: null, teto: 0,
+    podeAprovar: false, podeBaixar: false, temOutroAprovador: false,
+  };
+  if (isDemo) return { ...vazio, papel: "owner", teto: null, podeAprovar: true, podeBaixar: true };
+  const s = createClient();
+  const { data: sessao } = await s.auth.getUser();
+  const uid = sessao.user?.id ?? null;
+  if (!uid) return vazio;
+
+  const { data: perms } = await s.rpc("minhas_permissoes");
+  const acoes = new Set(
+    Array.isArray(perms) ? (perms as unknown[]).map((p) => String((p as { acao?: string })?.acao ?? p)) : [],
+  );
+
+  const { data: vinculo } = await s
+    .from("organization_members").select("org_id,role").eq("user_id", uid).limit(1).maybeSingle();
+  const papel = (vinculo as { role?: string } | null)?.role ?? null;
+  const orgId = (vinculo as { org_id?: string } | null)?.org_id ?? null;
+
+  let teto: number | null = 0;
+  if (papel) {
+    const { data: alc } = await s
+      .from("central_alcada").select("teto_valor").eq("papel", papel).limit(1).maybeSingle();
+    // ⚠️ `null` em `teto_valor` é SEM TETO, não "zero". São opostos, e confundir
+    // os dois faria o titular parecer o papel mais restrito do sistema.
+    teto = alc ? ((alc as { teto_valor: number | null }).teto_valor ?? null) : 0;
+  }
+
+  let temOutroAprovador = false;
+  if (orgId) {
+    const { data: outros } = await s
+      .from("organization_members").select("user_id,role").eq("org_id", orgId).limit(TETO_LINHAS);
+    const APROVAM = new Set(["owner", "admin", "aprovador"]);
+    temOutroAprovador = (outros ?? []).some((o) => {
+      const m = o as { user_id: string; role: string };
+      return m.user_id !== uid && APROVAM.has(m.role);
+    });
+  }
+
+  return {
+    usuarioId: uid, papel, teto,
+    podeAprovar: acoes.has("aprovar"),
+    podeBaixar: acoes.has("baixar"),
+    temOutroAprovador,
+  };
+}
+
+/**
+ * A explicação da ação indisponível — ou `null` quando ela está disponível.
+ *
+ * ⚠️ **Botão que o usuário não pode usar não fica desabilitado sem dizer por
+ * quê.** Um controle cinza é indistinguível de um sistema quebrado; a pessoa
+ * tenta, não acontece nada, e conclui que o produto não funciona. Aqui cada
+ * impedimento tem uma frase que aponta o que resolve — e as três se resolvem de
+ * jeitos DIFERENTES: papel, teto, ou outra pessoa.
+ */
+export function porQueNaoConfirma(
+  t: TituloDaFila, ctx: ContextoCentral,
+): string | null {
+  if (!ctx.podeAprovar) return `O papel ${ctx.papel ?? "atual"} não confirma títulos — isto se resolve mudando o papel, não a alçada.`;
+  if (ctx.teto !== null && Math.abs(t.valor) > ctx.teto) {
+    return `Acima do seu teto de ${formatBRL(ctx.teto)} — peça a quem tem alçada maior.`;
+  }
+  /*
+   * ⚠️ R1 depende de `lancado_por`, que é NULL em todo o acervo importado. Onde
+   * não há autor, não há autoaprovação a impedir — e a tela diz "origem:
+   * importação" em vez de deixar o campo em branco, porque branco lê como
+   * defeito e origem declarada é fato.
+   */
+  if (t.lancadoPor && t.lancadoPor === ctx.usuarioId && ctx.temOutroAprovador) {
+    return "Você lançou este título — quem lança não confirma o próprio. Peça a outra pessoa da equipe.";
+  }
+  return null;
 }

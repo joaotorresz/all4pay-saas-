@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { Card, Input, Button, CurrencyInput, Icon } from "@/components/ui";
 import { MolduraPublica } from "@/components/app/MolduraPublica";
 import { createClient } from "@/lib/supabase/client";
+import { criarContaEEntrar } from "@/lib/entrada";
 import { persistCompany, saveCompany, type StoredCompany } from "@/lib/company";
 import { aplicarEstrutura } from "@/lib/onboarding";
 import { setTipoConta } from "@/components/app/useTipoConta";
@@ -73,13 +74,26 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           if (email.trim() && senha.trim()) {
-            const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: senha.trim() });
-            if (error) throw new Error(error.message);
-            // signUp sem sessão (e-mail a confirmar): salva o perfil local e para.
-            if (!data.session) {
+            /*
+             * ⚠️ **A QUARTA PORTA, fechada.** Esta tela chamava `auth.signUp`
+             * direto, por fora de `lib/entrada` — e era por isso que o
+             * compilador NÃO a acusou quando o nome da empresa virou parâmetro
+             * obrigatório. É o defeito que o comentário do wizard já
+             * advertia: enquanto forem duas implementações, o mesmo conserto
+             * chega numa e não na outra.
+             *
+             * ⚠️ **No modo pessoal a "empresa" é a PESSOA.** A organização
+             * existe do mesmo jeito (é ela que a RLS recorta), e o nome dela
+             * tem de ser o nome de quem abriu a conta — não o local-part do
+             * e-mail.
+             */
+            const nomePessoa = nome.trim() || "Minhas finanças";
+            const r = await criarContaEEntrar(email, senha, nomePessoa);
+            if (!r.ok && r.confirmarEmail) {
               try { saveCompany(montarPerfil()); } catch { /* segue */ }
               setConfirmeEmail(true); setAplicando(false); return;
             }
+            if (!r.ok) throw new Error(r.comoResolver ? `${r.motivo} ${r.comoResolver}` : r.motivo);
           } else {
             const { error } = await supabase.auth.signInAnonymously();
             if (error) throw new Error("Para entrar, informe e-mail e senha (ou habilite acesso anônimo no Supabase).");

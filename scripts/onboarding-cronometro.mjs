@@ -24,10 +24,17 @@
  * mora aqui e não dentro da conta.
  */
 import { chromium } from "playwright";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 const BASE = process.env.ALVO ?? "http://127.0.0.1:3117";
-const CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+/**
+ * ⚠️ O caminho do navegador é o do contêiner de desenvolvimento; no runner do CI
+ * o Playwright resolve o dele sozinho. Cravar `executablePath` num ambiente onde
+ * o arquivo não existe faz a guarda reprovar por INFRAESTRUTURA — e guarda que
+ * reprova por infraestrutura treina quem a lê a ignorar a reprovação.
+ */
+const CAMINHO_CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const OPCOES_NAVEGADOR = existsSync(CAMINHO_CHROME) ? { executablePath: CAMINHO_CHROME } : {};
 const META_S = 600; // 10 minutos
 
 /**
@@ -45,7 +52,7 @@ const RITMO = {
   revisao: 30,       // conferir a prévia da importação antes de confirmar
 };
 
-const b = await chromium.launch({ executablePath: CHROME });
+const b = await chromium.launch(OPCOES_NAVEGADOR);
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 
@@ -137,13 +144,57 @@ async function fase(nome, humano, fn) {
   fases.push({ nome, maquina, humano, detalhe });
 }
 
+/* ─── 0. A PORTA DE ENTRADA: O CADASTRO DE TRÊS CAMPOS ─────────────────────
+   ⚠️ **O caminho ouro mudou de porta, e o cronômetro tem de medir a porta
+   nova.** Até aqui ele começava em `/comecar` — o assistente de sete passos,
+   quinze campos — porque era ali que se criava a conta. A entrada agora é
+   `/criar-conta`: e-mail, senha e nome da empresa. Medir a porta velha
+   publicaria um tempo que ninguém mais gasta, e para o lado errado: o número
+   sairia PIOR do que a realidade, e um cronômetro que erra para pior é
+   desligado com a mesma facilidade que um que erra para melhor.
+
+   ⚠️ **TRÊS CAMPOS É A DECISÃO, e por isso é o que se reprova.** Conferir que
+   a tela "abre" não protege nada — ela abriria igual com quinze campos de
+   volta. A asserção é sobre o NÚMERO, que é o que foi decidido e o que se
+   perde por acréscimo: cada campo novo aqui é tempo cobrado de todo mundo que
+   entra, e ninguém percebe um campo entrando um de cada vez.
+
+   ⚠️ **A criação da conta em si NÃO é exercitada, e fica dito.** Ela fala com
+   o Supabase, e o build de demonstração não tem projeto nenhum atrás — é a
+   mesma condição do `smoke-rotas` (`configured: false`). Exercitá-la exigiria
+   um projeto de verdade no CI, criando conta a cada execução. O que o
+   cronômetro mede aqui é o CUSTO HUMANO da porta (ler a tela, digitar três
+   campos, apertar um botão); o que ele não mede está declarado, não suposto. */
+await fase("0. Entrar pelo cadastro de três campos",
+  RITMO.telaNova + RITMO.campoCurto * 3 + RITMO.clique,
+  async () => {
+    await page.goto(`${BASE}/criar-conta`, { waitUntil: "networkidle", timeout: 60000 });
+    await abortarSeAmbienteQuebrou(page, "abrir o cadastro");
+    const campos = await page.evaluate(() => {
+      const dentro = document.querySelector("main") ?? document.body;
+      return [...dentro.querySelectorAll("input")]
+        .filter((i) => !["hidden", "submit", "button"].includes(i.type))
+        .map((i) => i.type);
+    });
+    if (campos.length === 0) { falhas++; return "REPROVA: o cadastro não tem campo nenhum"; }
+    if (campos.length > 3) {
+      falhas++;
+      return `REPROVA: o cadastro voltou a ter ${campos.length} campos — a decisão é TRÊS`;
+    }
+    /* ⚠️ E a senha tem de ser senha: um `type="text"` aqui expõe o que a pessoa
+       digita na frente de quem estiver ao lado, e passa despercebido porque a
+       tela continua funcionando. */
+    if (!campos.includes("password")) { falhas++; return "REPROVA: a senha não é campo de senha"; }
+    return `${campos.length} campos (${campos.join(", ")}) · criação da conta NÃO exercitada: o build de demonstração não tem Supabase`;
+  });
+
 /* ─── 1. CRIAR A EMPRESA + DECLARAR O REGIME ───────────────────────────────
    ⚠️ O regime entra AQUI, e é a decisão mais cara do cadastro: sem ele o
    sistema não sabe se a folha recolhe contribuição patronal por fora nem qual
    tabela de imposto usar. Preencher a etapa e pular o regime "funciona" e
    produz número errado depois — por isso o cronômetro o trata como parada
    obrigatória e reprova se o campo não existir. */
-await fase("1. Criar empresa e declarar regime",
+await fase("1. Completar o cadastro e declarar o regime",
   RITMO.telaNova + RITMO.campoFormatado * 2 + RITMO.campoCurto * 3 + RITMO.escolha * 2 + RITMO.clique,
   async () => {
     await page.goto(`${BASE}/comecar`, { waitUntil: "networkidle", timeout: 60000 });

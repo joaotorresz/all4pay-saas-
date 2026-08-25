@@ -81,10 +81,39 @@ function traduzir(bruto: string): { motivo: string; comoResolver?: string } {
  * de uma falha para dizer "abra o link que te mandamos" em vez de "tente de
  * novo" — o único conselho que não pode funcionar.
  */
-export async function criarContaEEntrar(email: string, senha: string): Promise<ResultadoEntrada> {
+export async function criarContaEEntrar(
+  email: string,
+  senha: string,
+  empresa: string,
+): Promise<ResultadoEntrada> {
   const s = createClient();
+  /*
+   * ⚠️ **O NOME DA EMPRESA VIAJA NO `signUp`, e é a única forma de ele chegar.**
+   * Quem escreve `organizations.name` é o gatilho `handle_new_user` em
+   * `auth.users` — nem a app nem uma RPC. Ele lê
+   * `raw_user_meta_data->>'company'`, e `options.data` é o que preenche esse
+   * campo. Sem isto o gatilho não tem de onde tirar o nome.
+   *
+   * ⚠️ **Medido em produção (24/08/2026, A4P-085):** duas contas criadas com
+   * "Teste Isolamento A" e "Teste Isolamento B" no campo nasceram com
+   * `organizations.name` = `joao+teste1` e `joao+teste2` — o local-part do
+   * e-mail, caractere por caractere. O campo era digitado, guardado no
+   * navegador e descartado; o gatilho caía no fallback do e-mail.
+   *
+   * ⚠️ **O parâmetro é OBRIGATÓRIO, não opcional.** Opcional é como o defeito
+   * volta: a próxima porta de cadastro esquece de passá-lo, o TypeScript não
+   * reclama, e o nome some outra vez. Com ele obrigatório, uma porta nova não
+   * compila sem responder "que nome vai para a organização?".
+   */
   try {
-    const { data, error } = await comPrazo(s.auth.signUp({ email: email.trim(), password: senha }), "signup");
+    const { data, error } = await comPrazo(
+      s.auth.signUp({
+        email: email.trim(),
+        password: senha,
+        options: { data: { company: empresa.trim() } },
+      }),
+      "signup",
+    );
     if (error) {
       // A conta já existe? Então a pessoa quis dizer "entrar".
       if (/already/i.test(error.message)) return entrarComSenha(email, senha);

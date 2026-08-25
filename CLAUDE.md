@@ -1103,6 +1103,188 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ CONTROLE QUE O QUADRO DE MEMBROS LIGA E DESLIGA NÃO É CONTROLE
+
+**Decisão do dono sobre R1 (segregação de funções), 25/08/2026.** A regra "quem
+lançou não confirma" fechava o caminho ouro para o cliente TÍPICO deste
+produto: medido, a organização de teste tem **um membro**, e o `CLAUDE.md` já
+dizia que a maioria dos clientes é o dono sozinho. Com uma pessoa só, ninguém
+confirma nada — a Central vira um beco sem saída para quem mais a usaria.
+
+**A saída NÃO foi dispensar R1 para organizações pequenas**, e o motivo é a
+regra: um controle que liga e desliga conforme o quadro de membros **some sem
+gerar evento**, e um fraudador o desativa por uma ação que nada tem a ver com
+aprovar — remover um colega. O teto honesto para a empresa de uma pessoa é
+**REGISTRO, não bloqueio**.
+
+  · existe OUTRO membro habilitado a aprovar → autoaprovação **RECUSADA**
+  · não existe nenhum                        → **PERMITIDA e CARIMBADA**
+
+⚠️ **O carimbo não é metadado escondido: é a linha que o auditor lê.**
+`central_transicoes.autoaprovacao` + o motivo por extenso, na tela do movimento
+e em toda exportação. Autoaprovação silenciosa seria pior que a recusa — o
+registro existiria e ninguém saberia procurá-lo.
+
+⚠️ **"Habilitado a aprovar" sai de `role_permissions`, nunca da alçada.** A
+alçada responde QUANTO; perguntar a ela QUEM faria um `fechador` com teto
+herdado contar como aprovador, e a autoaprovação seria recusada por causa de
+alguém que não pode aprovar coisa nenhuma.
+
+### ⚠️ DOIS CAMPOS QUE GUARDAM O MESMO FATO NÃO ESTÃO COERENTES — ESTÃO PARADOS
+
+`movements.status` (`pendente/pago/cancelado`) e `movements.situacao`
+(`previsto/confirmado/baixado/conciliado/cancelado/estornado`) são **o mesmo
+fato em dois lugares**, com escritores independentes e nenhum árbitro entre
+eles. Medido: **2230 de 2230 coerentes** — e isso não é saúde, é imobilidade.
+Nenhum dos caminhos que escrevem `status` rodou desde o backfill; **a
+divergência nasce no primeiro dia em que os dois escritores rodarem.**
+
+⚠️ **Coerência medida num acervo parado não prova invariante nenhuma.** Ela
+prova que ninguém escreveu. A pergunta que separa as duas coisas é: *quantos
+escritores independentes existem, e o que impede o segundo de discordar do
+primeiro?* Se a resposta for "nada, mas ninguém rodou", o sistema está com um
+defeito agendado, não resolvido.
+
+O mesmo vale para qualquer par derivado: um totalizador guardado ao lado das
+parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
+máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
+tráfego.
+
+### ⚠️ ESTADO TERMINAL QUE UMA FUNÇÃO CONTORNA DEIXOU DE SER TERMINAL
+
+`estornar_conciliacao` fazia `status = case when status='cancelado' then
+'pendente' end` — ou seja, **ressuscitava cancelado**. A máquina declara
+`cancelado` terminal; uma função que o devolve ao início transforma o terminal
+em transitório sem que ninguém tenha decidido isso.
+
+**Decisão do dono: cancelado continua terminal.** Título cancelado não
+ressuscita — em sistema financeiro não se revive documento, lança-se contra.
+
+⚠️ **Ou a transição tem NOME e MOTIVO, ou não existe.** Se um dia ficar provado
+que há caso legítimo de reativação, ela entra como transição própria e nomeada
+(`cancelado → previsto` como *reativação*, com motivo obrigatório), passando
+pela máquina e pela trilha como qualquer outra — **nunca como efeito colateral
+de outra função**. A diferença é que a primeira forma aparece no histórico com
+autor e razão, e a segunda só aparece quando alguém compara dois relatórios.
+
+O conserto acabou revelando um segundo buraco: `conciliado → baixado` — a
+inversa exata de `baixado → conciliado` — **não existia na máquina**, o que
+tornava o estorno de conciliação impossível de expressar em `situacao`. Ela
+entrou nomeada, e a baixa direta (`previsto → baixado`) continua barrada.
+
+### ⚠️ ARREIO QUE VOCÊ ESCREVE É HIPÓTESE; ARREIO COPIADO É MEDIDA
+
+**Três vezes na mesma sessão o arreio mínimo escondeu algo que produção tem** —
+a unicidade de `auth.users.email`, o CHECK de `organization_members.role`, e a
+org que o gatilho de signup cria sozinho para cada usuário novo. Nas três, o
+teste ficou verde na minha máquina e reprovou no CI, sempre por um detalhe do
+banco real que eu não tinha reproduzido porque não sabia que existia.
+
+O padrão que funcionou: **copiar a forma do bloco que já passa**, em vez de
+escrever o setup do zero. O bloco que já passa carrega, de graça, todas as
+restrições que alguém já descobriu — `account_id` no insert, `user_active_org`
+para fixar a org ativa, o papel que o CHECK aceita.
+
+⚠️ **Escreva setup novo só quando nenhum bloco existente exercitar o caminho —
+e diga isso no PR.** Um arreio novo é uma hipótese sobre como o banco é; um
+arreio copiado é uma medida do que ele aceita. A diferença aparece no CI, uma
+rodada depois, e sempre no pior momento.
+
+### ⚠️ COLUNA GERADA É A TRAVA; GUARDA POR GREP É O QUE VOCÊ LEMBROU DE PROCURAR
+
+Decisão do dono sobre `movements.status`: ela vira
+`generated always as (…) stored` derivada de `situacao`. **Coluna gerada não é
+meio-termo — é a trava mais forte disponível**, porque o Postgres RECUSA a
+escrita. Um `grep` de `UPDATE ... status` pega o código que existe hoje; a
+coluna gerada pega o código que ainda não foi escrito, inclusive o que vier de
+uma RPC, de um cron ou de um `psql` na mão.
+
+Corolário para a guarda: quando a trava passa para o banco, **a guarda por
+varredura de texto sai** — mantê-la ensina que o grep é a proteção, e alguém
+vai reforçá-lo achando que reforça o controle. O que a guarda passa a provar é
+que a TRAVA continua existindo.
+
+### ⚠️ DUAS REGRAS SOBRE GUARDA, aprendidas errando as duas no mesmo dia
+
+**1. Caso de teste que depende de outro caso não ter rodado não é caso isolado
+— é ordem de execução disfarçada de asserção.**
+
+Casos que dividem transação dividem ESTADO. A guarda do A4P-085 nasceu assim e
+reprovou por `duplicate key`: o bloco negativo reusou o e-mail que um caso
+anterior já tinha inserido. Dar outro endereço ao bloco teria consertado o
+SINTOMA — a próxima colisão seria noutra coluna única (documento, código,
+chave natural) e a rodada se pagaria de novo.
+
+O conserto é **savepoint por caso**, desfeito no fim de cada um. E o teste de
+que o isolamento existe de verdade: **reusar de propósito o mesmo valor único
+em todos os casos.** Se um `rollback to savepoint` deixar de acontecer, o caso
+seguinte colide na hora, em vez de passar por acidente de ordenação. Isolamento
+que só funciona porque os dados são diferentes não é isolamento — é sorte com
+nome de teste.
+
+**2. Guarda vermelha só conta se o vermelho NOMEAR o defeito que ela audita.**
+
+Vermelho pelo motivo errado é pior que guarda nenhuma. Quem lê só o código de
+saída registra "o teste negativo funcionou" e arquiva; pior, aprende que
+vermelho daquela guarda é ruído, e a próxima reprovação — a de verdade — é
+fechada sem ler. Foi o que quase aconteceu: o vermelho veio de `duplicate key`
+enquanto a asserção auditada (o nome derivado do e-mail) nem chegou a rodar.
+
+Então o teste negativo **lê a mensagem** e exige que ela cite o defeito. Na
+prática: planta o defeito, captura o `SQLERRM`, e reprova se o texto não for o
+da asserção esperada. É uma linha a mais e ela é a diferença entre uma prova e
+uma coincidência:
+
+```
+if msg not like '%NOME DERIVADO DO E-MAIL%' then
+  raise exception 'VERMELHO PELO MOTIVO ERRADO: a guarda reprovou com "%", que não é a asserção do nome.', msg;
+end if;
+```
+
+### ⚠️ O QUARTO DEFEITO DE GRAVAÇÃO: o campo digitado que ninguém ENVIA (A4P-085)
+
+**O nome da empresa do cadastro de três campos não chegava ao banco.** Medido
+em produção: duas contas criadas com "Teste Isolamento A" e "Teste Isolamento B"
+nasceram com `organizations.name` = `joao+teste1` e `joao+teste2` — o local-part
+do e-mail. Na PRIMEIRA tela que o cliente vê.
+
+⚠️ **O escritor é o gatilho `handle_new_user` (em `auth.users`), nunca a app.**
+E ele já lia `raw_user_meta_data->>'company'` desde a migration 0005: **o
+caminho certo existia e ninguém o alimentava.** `auth.signUp` só preenche esse
+campo por `options.data`; as portas de cadastro chamavam `signUp` sem ele, e o
+`coalesce` caía no ramo do e-mail.
+
+⚠️ **É a família dos outros três defeitos de gravação, com uma diferença que a
+torna pior:** lá o banco RECUSAVA (`A4P05`, `22P02`) ou a escrita ia para o
+dataset de demonstração; aqui a escrita **acontece e dá certo** — só que com
+outro valor. Não há erro para esconder. Um fallback que produz algo com CARA de
+dado é pior que a ausência: ninguém abre chamado por um nome de empresa
+estranho, apenas conclui que o sistema é assim.
+
+⚠️ **O ramo do e-mail SAI; o último recurso FICA.** Um gatilho em `auth.users`
+que levanta exceção derruba o cadastro inteiro, inclusive por caminhos fora
+deste repositório (convite, painel do Supabase, provedor externo) — trocar "o
+nome vem errado" por "ninguém cria conta" é pior. O recurso é `'Minha empresa'`,
+que se ANUNCIA como provisório. **A recusa do vazio mora na TELA**, onde há
+alguém para responder.
+
+⚠️ **O PARÂMETRO É OBRIGATÓRIO, e é isso que impede a volta.** Com
+`empresa?: string`, a próxima porta de cadastro compila sem passar o nome e o
+defeito reaparece calado. Obrigatório, ela não compila sem responder "que nome
+vai para a organização?".
+
+⚠️ **E o tipo NÃO alcança quem desvia do ajudante.** Ao tornar o parâmetro
+obrigatório, o typecheck nomeou duas portas; a terceira (`OnboardingPessoal`)
+ficou invisível porque chamava `supabase.auth.signUp` direto. Daí a guarda ter
+**teto ZERO** sobre `auth.signUp` fora de `lib/entrada` — é a asserção que pega
+a porta que o compilador não vê.
+
+**Guardas em DUAS metades** (uma sozinha deixa metade do caminho descoberta):
+`scripts/cadastro-nome.sql` no job de isolamento (usuário criado por
+`auth.users`, nunca por INSERT em `organizations`, com o **teste negativo dentro
+do arquivo**: reintroduz a derivação do e-mail e exige que a asserção reprove) e
+`scripts/cadastro-nome.mts` no `npm test`. **Provadas quebrando nove defeitos.**
+
 ### ⚠️ O TERCEIRO DEFEITO DE GRAVAÇÃO: a DUPLA MORADA do cadastro (auditado)
 
 **Salvar uma conta a pagar falhava sempre que uma categoria era escolhida.**
@@ -1301,6 +1483,22 @@ duas dão respostas DIFERENTES sobre ele: um caso que não discrimina é um caso
 que não testa.
 
 ### ⚠️ MEÇA COM O DADO QUE A SUPERFÍCIE USA — e diga por qual campo ela classifica
+
+**Terceira aparição (A4P-083, 24/08/2026), e a primeira contra uma guarda:**
+`npm run smoke-rotas` foi medido contra um servidor local que carrega
+`.env.local` com Supabase de verdade. Ali `configured` é `true`, não há sessão,
+e o portão manda 76 de 81 rotas para `/login` — a guarda parecia estar medindo
+a tela de login oitenta vezes. Ela não está: o job do CI **não tem segredo de
+Supabase**, a linha 52 do `middleware.ts` é `if (!configured) return response;`,
+e lá o app fica aberto. Refeito sem `.env.local`, com o defeito plantado, a
+guarda reprova: `✗ 1 de 81 rota(s) com problema`.
+
+⚠️ **Para o ambiente, a pergunta é a mesma que para o campo:** antes de
+concluir, saber dizer **em que ambiente a superfície roda** — quais variáveis
+ela tem e quais não tem. Um `.env.local` que só existe na sua máquina é um dado
+que a superfície medida não usa, e medir com ele mede outra coisa. Se a
+resposta for "presumi que era igual", a medição ainda não começou.
+
 
 Dois casos, e o segundo é o que fecha a regra.
 

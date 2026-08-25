@@ -12,6 +12,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Select, DateField, Checkbox } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
+import { imprimirRelatorio } from "@/lib/imprimir";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
   intervaloDoPreset, rotuloColuna,
@@ -620,13 +621,13 @@ export function BotoesExportar({
   nome, relatorio, layout,
 }: { nome: string; relatorio: Relatorio; layout: LayoutTabela }) {
   return (
-    <div className="flex items-center gap-2 shrink-0">
+    <div className="flex items-center gap-2 shrink-0" data-nao-imprime>
       {/*
         PDF pela impressão do navegador ("Salvar como PDF"): é o gerador de PDF
         que já está na máquina, respeita a fonte e a paginação, e não custa uma
         dependência de renderização no bundle.
       */}
-      <Button variant="outline" onClick={() => window.print()}>
+      <Button variant="outline" onClick={imprimirRelatorio}>
         <Icon name="file-text" size={15} color="currentColor" />
         Exportar PDF
       </Button>
