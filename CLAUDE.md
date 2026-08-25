@@ -5073,11 +5073,29 @@ frase antiga em vez de remedir, inclusive para o usuário.
    mudança. Este é o sinal DIRETO; o hash do CSS é o indireto, e serve de
    segunda opinião (ele não muda quando a mudança não toca em estilo).
 
-⚠️ **`claude/epic-fermi-i423xk` continua existindo e ainda recebe merges do
-`main` nesta rotina.** Ela não publica mais nada, mas carrega commits que o
-`main` não tem e tem MAIS DE UM ESCRITOR — então: merge, nunca force-push.
-Aposentá-la é decisão pendente do dono do repositório; enquanto ela viver,
-mantê-la em dia é o que impede a divergência de crescer calada.
+⚠️ **`claude/epic-fermi-i423xk` continua existindo e é o BRANCH PADRÃO do
+repositório.** Ela não publica mais nada — e mesmo assim manda em três coisas
+que não têm nada a ver com publicar:
+
+- o **`schedule`** do GitHub dispara nela, não no `main` (é por isso que o
+  `esquema-prod` faz `checkout ref: main` explícito);
+- o botão **"Run workflow"** de um `workflow_dispatch` só aparece quando o
+  arquivo do workflow existe NELA — um workflow mergeado só no `main` fica
+  invisível na aba Actions;
+- é o alvo padrão de quem clona.
+
+⚠️ **A frase anterior aqui dizia que ela "carrega commits que o `main` não
+tem". MEDIDO em 25/08: são ZERO.** Ela estava 58 commits ATRÁS do `main` e
+nenhum à frente — ancestral estrito, então acertá-la é fast-forward e não perde
+nada. É o mesmo defeito que esta seção inteira já registra sobre o Production
+Branch: uma medição correta que virou regra escrita e envelheceu ensinando o
+passo errado. Antes de tratá-la como divergente, MEÇA:
+`git rev-list --count origin/main..origin/claude/epic-fermi-i423xk`.
+
+Merge, nunca force-push (ela pode ter mais de um escritor). Aposentá-la é
+decisão pendente do dono; enquanto ela viver, mantê-la em dia é o que impede a
+divergência de crescer calada — e é o que faz um workflow novo aparecer para
+ser clicado.
 
 **Conferir a publicação, na prática:**
 
