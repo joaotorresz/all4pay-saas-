@@ -91,6 +91,28 @@ export interface RiskMovement {
    * transporte.
    */
   referenceCode?: string | null;
+  /**
+   * A PROCEDÊNCIA do lançamento (`movements.origem`) — venda · contrato ·
+   * importacao · manual · conciliacao · extrato.
+   *
+   * ⚠️ Existe aqui pelo mesmo motivo que `referenceCode`: o campo já estava no
+   * banco (é a fechadura da ONDA 5, `titulo_exige_origem`) e não chegava aos
+   * motores. Quem recebe o razão exportado pergunta "de onde veio este
+   * lançamento?" — é a PRIMEIRA pergunta de quem encontra um título estranho —,
+   * e sem transporte a única saída seria a exportação abrir consulta própria.
+   * Faltava o transporte, não o dado.
+   */
+  origem?: string | null;
+  /**
+   * Quem lançou o título (`movements.lancado_por`), quando se sabe.
+   *
+   * ⚠️ **Nulo no acervo histórico, por DECISÃO do dono** — a coluna nasceu com a
+   * Central e ficou sem backfill, de propósito: preencher com um palpite seria
+   * atribuir a alguém um lançamento que essa pessoa pode não ter feito, num
+   * arquivo que vai para o contador. O razão exportado escreve "—" e a coluna
+   * fica honesta; inventar autoria é pior que não ter autoria.
+   */
+  lancadoPor?: string | null;
 }
 
 export interface RiskInput {

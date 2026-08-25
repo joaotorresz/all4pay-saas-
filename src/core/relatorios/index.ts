@@ -437,6 +437,30 @@ export interface Relatorio {
    * Aqui a coluna FICA e é NOMEADA; a tela a marca.
    */
   colunasSemDado: string[];
+  /**
+   * ⚠️ **ONDE CADA MOVIMENTO CAIU, e com que valor — o campo que a EXPORTAÇÃO
+   * pediu e a cascata passou a devolver.**
+   *
+   * Sem ele, quem exporta o razão para o contador teria de responder "em que
+   * linha do DRE este lançamento entrou?" por conta própria — refazendo a
+   * classificação por palavra-chave e a regra de sinal. Seria a SÉTIMA vez que
+   * este repositório cria duas fontes para um fato, e a mais cara: o arquivo
+   * que sai da empresa discordando da tela que o dono conferiu.
+   *
+   * A regra é a do `CLAUDE.md`: quando o formato exige algo que a cascata não
+   * devolve, **a cascata ganha o campo** — não o consumidor ganha consulta.
+   *
+   * O valor é o CONTRIBUÍDO, já com o sinal com que entrou na linha (magnitude,
+   * `+/-` ou estorno). Somar `valor` por `linha` reproduz a linha do DRE ao
+   * centavo, e é isso que `npm run exportacao` cobra.
+   */
+  classificacao: Record<string, { linha: string; valor: number }>;
+  /**
+   * Os movimentos que passaram pelos filtros e NÃO entraram em linha nenhuma,
+   * com o motivo. Um razão que os omite em silêncio esconde lançamento; um que
+   * os soma quebra o fechamento. Eles saem LISTADOS e FORA do total.
+   */
+  foraDoDre: Record<string, "transferencia" | "sem_linha">;
 }
 
 /**
@@ -507,6 +531,9 @@ export function montarRelatorio(
   const soma = new Map<string, number[]>();
   const movsPorLinha = new Map<string, string[][]>();
   const categorias = new Map<string, Map<string, { valores: number[]; movs: string[][] }>>();
+  // Onde cada movimento caiu e com que valor — ver `Relatorio.classificacao`.
+  const classificacao: Record<string, { linha: string; valor: number }> = {};
+  const foraDoDre: Record<string, "transferencia" | "sem_linha"> = {};
   for (const l of estrutura) {
     soma.set(l.id, colunas.map(() => 0));
     movsPorLinha.set(l.id, colunas.map(() => []));
@@ -523,12 +550,12 @@ export function montarRelatorio(
     // Sem esta saída, a única forma de tirá-los do resultado seria não
     // declará-los — e aí o palpite por palavra-chave os põe em despesa
     // operacional, inflando o custo com dinheiro que a empresa não gastou.
-    if (declarada === LINHA_TRANSFERENCIA) continue;
+    if (declarada === LINHA_TRANSFERENCIA) { foraDoDre[m.id] = "transferencia"; continue; }
     const linha = (declarada
       ? estrutura.find((l) => l.id === declarada && l.tipo === "soma")
       : undefined)
       ?? estrutura.find((l) => l.tipo === "soma" && l.casa?.(m));
-    if (!linha) continue;
+    if (!linha) { foraDoDre[m.id] = "sem_linha"; continue; }
     /**
      * Linhas "+/-" carregam o sinal do movimento; as demais são magnitude —
      * o sinal já está na estrutura, e a fórmula do total o aplica.
@@ -549,6 +576,7 @@ export function montarRelatorio(
       : estorno ? -Math.abs(m.amount) : Math.abs(m.amount);
     soma.get(linha.id)![k] += v;
     movsPorLinha.get(linha.id)![k].push(m.id);
+    classificacao[m.id] = { linha: linha.id, valor: v };
 
     const nome = (m.category || "Sem categoria").trim() || "Sem categoria";
     const mapa = categorias.get(linha.id)!;
@@ -669,7 +697,7 @@ export function montarRelatorio(
   }
   const colunasSemDado = colunas.filter((_, k) => !comLancamento.has(k));
 
-  return { colunas, linhas, base, colunasSemDado };
+  return { colunas, linhas, base, colunasSemDado, classificacao, foraDoDre };
 }
 
 export const montarDRE = (input: RiskInput, f: Omit<FiltroRelatorio, "regime">): Relatorio =>

@@ -1150,6 +1150,61 @@ parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
 máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
 tráfego.
 
+### Exportação para o contador (`/exportar`) + `core/exportacao`
+
+Os dois arquivos que o contador pede, do MESMO motor que desenha a tela: o
+**razão** (um lançamento por linha, com competência E caixa, categoria, a
+**linha do DRE** em que ele caiu, valor, tipo, origem, situação e quem lançou) e
+o **DRE consolidado** do período, na mesma ordem e com os mesmos totais. XLSX
+(as duas abas) e CSV (um arquivo por vez). Sem PDF, sem e-mail, sem
+agendamento.
+
+⚠️ **ESTE MÓDULO NÃO CALCULA NADA, e é essa a decisão inteira.** Uma exportação
+é o lugar mais fácil do mundo para cometer a sétima "duas fontes para um fato" —
+basta montar a própria consulta — e a mais cara, porque o arquivo SAI DA
+EMPRESA: quem encontra a divergência é o contador, semanas depois. `montarDRE`
+monta, `montarExportacao` **reescreve em linhas**, e o servidor vira bytes.
+Existe UMA computação dos números no caminho inteiro.
+
+⚠️ **A cascata GANHOU O CAMPO em vez de o consumidor ganhar consulta.**
+`Relatorio.classificacao` (movimento → `{ linha, valor }`) e
+`Relatorio.foraDoDre` (movimento → motivo) nasceram deste pedido. Deduzir a
+linha por palavra-chave na exportação teria reproduzido exatamente o defeito dos
+**R$ 267,70** de transferência dentro da despesa. O `valor` é o CONTRIBUÍDO, com
+o sinal com que entrou (magnitude · `+/-` · estorno) — recalcular o sinal aqui
+seria a mesma doença por outra porta.
+
+⚠️ **`origem` e `lancadoPor` entraram no `RiskMovement`** pelo mesmo motivo que
+`referenceCode`: o dado estava no banco e não chegava aos motores. Faltava o
+transporte, não o dado. `lancado_por` é nulo no acervo (decisão do dono: sem
+backfill) e o arquivo escreve "—" — inventar autoria num documento que vai para
+o contador é pior que não ter autoria.
+
+⚠️ **A tela diz o número ANTES do botão** (quantos lançamentos, quantos no DRE,
+quantos fora, e o resultado). Baixar às cegas é como se descobre, do outro lado,
+que o período exportado era o errado.
+
+⚠️ **Cancelado não some em silêncio.** Fora por padrão (é o que o DRE faz),
+entra por caixa de seleção, e mesmo listado **não soma** — a coluna "No DRE" diz
+"Não" e o motivo vem escrito. Medido na organização auditada, agosto/2026:
+9 lançamentos → 34 com os cancelados, e o resultado NÃO se move
+(−R$ 39.284,99 nos dois).
+
+⚠️ **O download é RECUSADO quando o razão não fecha com o DRE**, e a recusa
+NOMEIA a linha divergente — na tela e na rota (`409`). Somar o razão por linha é
+a primeira conta que o contador faz; ele não pode ser o primeiro a ver a
+diferença. Só as linhas `soma` são conferidas: as linhas `=` saem de FÓRMULA
+sobre as outras, então nenhum movimento pertence a elas, e cobrá-las reprovaria
+o comportamento correto.
+
+**Guarda:** `npm run exportacao` (`scripts/exportacao-bate-com-a-tela.mts`, dentro
+do `npm test`) confronta a exportação com a cascata **linha por linha** sobre
+duas fixtures, exige o fechamento do razão, e carrega o **teste negativo** que é
+o item principal: uma exportação com consulta própria (reclassificando por
+palavra-chave) tem de deixar a guarda VERMELHA **nomeando a linha** — não
+estourando. Medido: ela nomeia `despesas_operacionais`, R$ 20.000,00, que é a
+transferência voltando para a despesa.
+
 ### ⚠️ A REGRA GERAL — DUAS FONTES PARA UM FATO É UM DEFEITO AGENDADO
 
 **Sempre que o mesmo fato existe em dois lugares com escritores independentes,

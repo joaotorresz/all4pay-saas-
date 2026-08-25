@@ -233,6 +233,7 @@ export const SECTIONS: Section[] = [
       { label: "Cronogramas", desc: "Competência distribuída no tempo", href: "/contabilidade?aba=cronogramas", icon: "calendar" },
       { label: "Fechamento mensal", desc: "Fechar e travar o mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
+      { label: "Exportar para o contador", desc: "Razão e DRE do período, em XLSX ou CSV", href: "/exportar", icon: "download" },
       { label: "Envio das NFs ao contador", desc: "O pacote mensal de XMLs", href: "/dashboard/accounting/nfe-export", icon: "mail" },
       { label: "Gerar TXT contábil", desc: "O arquivo para o sistema Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
       { label: "Consolidado", desc: "Posição somada das empresas", href: "/contabilidade?aba=consolidado", icon: "building", pro: true },

@@ -176,6 +176,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/exportar", nome: "Exportar para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },
   { rota: "/vendas", nome: "Vendas e NFs", dono: "vendas", status: "canonica", criterio: "nucleo" },
 ];

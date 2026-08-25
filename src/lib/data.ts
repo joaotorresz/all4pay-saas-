@@ -914,6 +914,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
       parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
       parcela: (m as { installment_no?: number | null }).installment_no ?? null,
       referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
+      origem: (m as { origem?: string | null }).origem ?? null,
+      lancadoPor: (m as { lancado_por?: string | null }).lancado_por ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…
@@ -944,7 +946,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
    * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
    * o relatório continuaria misturando os dois sem dizer qual é qual.
    */
-  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,origem,lancado_por,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -1025,6 +1027,9 @@ export async function getRiscoInput(): Promise<RiskInput> {
     parcela: (m as { installment_no?: number | null }).installment_no ?? null,
     // A chave que liga o título à REGRA de recorrência que o gerou.
     referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
+    // Procedência e autoria — o razão do contador pergunta as duas.
+    origem: (m as { origem?: string | null }).origem ?? null,
+    lancadoPor: (m as { lancado_por?: string | null }).lancado_por ?? null,
   }));
   const partyNames: Record<string, string> = {};
   (partyRes.data ?? []).forEach((p) => {
