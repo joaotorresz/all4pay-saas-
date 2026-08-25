@@ -2373,26 +2373,38 @@ responder.
 Uma sozinha deixa metade do caminho descoberta — a lição de "instrumentação sem
 consumidor":
 
-- **`scripts/cadastro-nome.sql`** (job `isolamento`, Postgres real, termina em
-  `rollback`): cria o usuário por `auth.users` — **nunca** por INSERT em
-  `organizations`, que testaria um caminho que ninguém percorre. Quatro casos +
-  a conferência anti-teatro (se o provisionamento parar, `nome` é NULL e a
-  guarda ACUSA em vez de aprovar o vazio). **O teste negativo mora dentro do
-  arquivo:** ele reintroduz a derivação do e-mail e exige que a própria
-  asserção reprove — se passar, levanta `GUARDA CEGA`.
+- **`scripts/cadastro-nome.sql`** (job `isolamento` + rodável em qualquer
+  Postgres): cria o usuário por `auth.users` — **nunca** por INSERT em
+  `organizations`, que testaria um caminho que ninguém percorre. **Cada caso em
+  savepoint próprio**, e todos usando DE PROPÓSITO o mesmo e-mail: reusar o
+  valor único é o que torna o isolamento auto-verificável.
 - **`scripts/cadastro-nome.mts`** (no `npm test`): teto zero de `auth.signUp`
-  fora do ajudante, `empresa` obrigatório e não opcional, as três portas
-  passando um nome de verdade, o vazio recusado no campo, e a migration sem o
-  ramo do e-mail. **Provada quebrando cinco defeitos.**
+  fora do ajudante, `empresa` obrigatório, as três portas passando um nome de
+  verdade, o vazio recusado no campo, e a migration sem o ramo do e-mail.
+  **Provada quebrando cinco defeitos.**
 
-⚠️ **Regra 8, declarada e não cumprida na forma canônica:** não há Docker neste
-ambiente (medido: `docker info` falha), então o Postgres efêmero não subiu e a
-migration **não** passou por um `begin; … rollback;` local antes do push. O que
-foi feito no lugar, dito com todas as letras: a semântica do `coalesce` foi
-medida em produção por SELECT puro (não cria objeto), e a EXECUÇÃO da migration
-é provada pelo job `isolamento`, que aplica todas as migrations a um Postgres
-novo antes do merge. É mais fraco que o begin/rollback local e não é a mesma
-coisa — fica registrado como tal, não como equivalente.
+⚠️ **E o teste negativo cobra que o VERMELHO NOMEIE o defeito.** Na primeira
+execução a guarda ficou vermelha por `duplicate key` — a asserção auditada nem
+chegou a rodar. Agora ela captura o `SQLERRM` e reprova se o texto não for o da
+asserção do nome. Medido, com a derivação reintroduzida no gatilho:
+
+```
+NOTICE:  caso 1 OK — acento, espaço e caixa chegam literais: "Açaí do João LTDA"
+NOTICE:  caso 2 OK — bordas aparadas, miolo intacto: "Açaí do João LTDA"
+ERROR:   A4P-085 NOME DERIVADO DO E-MAIL: esperado um nome que não venha do
+         e-mail, recebido "joao+teste1" (o local-part de joao+teste1@all4pay.com.br)
+exit: 3
+```
+
+E o verde, com a migration restaurada — os quatro casos mais o negativo
+confirmando que a asserção dispara:
+
+```
+NOTICE:  caso 3 OK — sem `company`, o nome não veio do e-mail: "Minha empresa"
+NOTICE:  caso 4 OK — `company` em branco cai no recurso declarado: "Minha empresa"
+NOTICE:  teste negativo OK — o vermelho nomeia o defeito: A4P-085 NOME DERIVADO DO E-MAIL: …
+exit: 0
+```
 
 ---
 
@@ -2416,6 +2428,37 @@ custou caro aqui.
 | Onboarding p1 | `repCpf` | `a4p_company.db` | só `/admin` | lido, mas só no backoffice |
 | Onboarding p1 | `repEmail` · `repTelefone` | `a4p_company.db` | `/admin` + Configurações | OK |
 | Onboarding p1 | os 15 restantes | `a4p_company.db` | 1 a 23 leitores | OK |
+
+### A metade que faltava: o lado do BANCO
+
+⚠️ **A primeira varredura foi só do front, e por isso não teria achado o
+próprio A4P-085.** O defeito morava num gatilho: a tela gravava e o `coalesce`
+do servidor decidia. Nenhum `grep` em `src/` alcança isso — a classe "a tela
+coleta e ninguém lê" tem uma irmã, "a tela manda e o banco troca", e ela é
+invisível de onde eu estava olhando.
+
+**Método (SQL sobre o catálogo de produção, não sobre o repositório):**
+
+1. todo gatilho não interno em tabela de `public` — **78**;
+2. o corpo de cada função de gatilho varrido por `new\.<coluna> :=`, que é a
+   forma exata de "o servidor decide por cima do que a app mandou" — **15
+   atribuições**;
+3. cada uma confrontada com o que a app escreve naquele campo.
+
+| tabela | gatilho | coluna sobrescrita | veredito |
+| --- | --- | --- | --- |
+| `approvals` | `approvals_segregacao` | `approver_id` · `decided_at` | **carimbo deliberado** — sem ele o cliente informa quem aprovou |
+| `approvals` | `approvals_solicitante` | `requester_id` | idem |
+| `movements` | `central_maquina` | `confirmado_em/por` · `baixado_em/por` | carimbo da máquina de estados |
+| `movements` | `titulo_exige_origem` | `origem` | **só `coalesce`** — nunca sobrescreve valor informado, e RECUSA quando falta |
+| `own_*` (5 tabelas) | `own_touch` | `atualizado_em` | carimbo de tempo |
+| `subscriptions` | `subscriptions_mrr_derivado` | `mrr` · `updated_at` | **derivado por desenho** — a app só EXIBE o MRR, e `admin_set_subscription` nem aceita o parâmetro |
+
+**Nenhum defeito novo desta classe.** O que separa `handle_new_user` de todos
+estes é que ele **inventava** um valor a partir de outro campo, com cara de
+escolha do usuário; os quinze acima ou carimbam autoria/tempo (que o cliente
+não pode declarar), ou derivam de dado que já está na linha, ou apenas
+completam um vazio recusando o resto.
 
 **Sobrescrita depois de gravado: nada encontrado.** Os 15 pontos de
 `saveCompany`/`persistCompany` foram conferidos com 8 linhas de contexto — os

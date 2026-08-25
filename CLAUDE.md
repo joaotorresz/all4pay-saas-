@@ -1103,6 +1103,43 @@ apagando a chamada e o título sumiria sem nem o dataset para guardá-lo.
 Provada quebrando os três casos. Medido contra um PostgREST de mentira: em
 `isDemo: false` o POST chega a `movements` com a linha inteira.
 
+### ⚠️ DUAS REGRAS SOBRE GUARDA, aprendidas errando as duas no mesmo dia
+
+**1. Caso de teste que depende de outro caso não ter rodado não é caso isolado
+— é ordem de execução disfarçada de asserção.**
+
+Casos que dividem transação dividem ESTADO. A guarda do A4P-085 nasceu assim e
+reprovou por `duplicate key`: o bloco negativo reusou o e-mail que um caso
+anterior já tinha inserido. Dar outro endereço ao bloco teria consertado o
+SINTOMA — a próxima colisão seria noutra coluna única (documento, código,
+chave natural) e a rodada se pagaria de novo.
+
+O conserto é **savepoint por caso**, desfeito no fim de cada um. E o teste de
+que o isolamento existe de verdade: **reusar de propósito o mesmo valor único
+em todos os casos.** Se um `rollback to savepoint` deixar de acontecer, o caso
+seguinte colide na hora, em vez de passar por acidente de ordenação. Isolamento
+que só funciona porque os dados são diferentes não é isolamento — é sorte com
+nome de teste.
+
+**2. Guarda vermelha só conta se o vermelho NOMEAR o defeito que ela audita.**
+
+Vermelho pelo motivo errado é pior que guarda nenhuma. Quem lê só o código de
+saída registra "o teste negativo funcionou" e arquiva; pior, aprende que
+vermelho daquela guarda é ruído, e a próxima reprovação — a de verdade — é
+fechada sem ler. Foi o que quase aconteceu: o vermelho veio de `duplicate key`
+enquanto a asserção auditada (o nome derivado do e-mail) nem chegou a rodar.
+
+Então o teste negativo **lê a mensagem** e exige que ela cite o defeito. Na
+prática: planta o defeito, captura o `SQLERRM`, e reprova se o texto não for o
+da asserção esperada. É uma linha a mais e ela é a diferença entre uma prova e
+uma coincidência:
+
+```
+if msg not like '%NOME DERIVADO DO E-MAIL%' then
+  raise exception 'VERMELHO PELO MOTIVO ERRADO: a guarda reprovou com "%", que não é a asserção do nome.', msg;
+end if;
+```
+
 ### ⚠️ O QUARTO DEFEITO DE GRAVAÇÃO: o campo digitado que ninguém ENVIA (A4P-085)
 
 **O nome da empresa do cadastro de três campos não chegava ao banco.** Medido
