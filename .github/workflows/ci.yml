@@ -217,6 +217,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastro-nome.sql
+      # ⚠️ Os SEIS casos de autorização da Central, cada um em savepoint
+      # próprio. O caso 6 tem gabarito de PRODUÇÃO (a org de um membro que
+      # autoaprovou e carimbou em 25/08) e cobra o CARIMBO, não só o sucesso.
+      - name: Guarda de autorização da Central (R1, alçada, transição, isolamento, carimbo)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-autorizacao.sql
       - name: Guarda da Central (máquina de estados, R1 e alçada no banco)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -319,6 +326,81 @@ jobs:
   # PR trava o próprio merge que a conserta — a mesma lição do `no-ar`.
   #
   # Por isso: só `main` (push), schedule e dispatch. Nunca PR.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MIGRAR — o passo que NÃO EXISTIA, e por isso o banco ficava para trás
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **Medido em 25/08 (A4P-086): `schema_migrations` parada em
+  # 20260819180000 havia seis dias**, enquanto o `main` seguia publicando. Não
+  # havia passo manual não documentado — **não havia passo**: o `ci.yml` nunca
+  # teve `db push`, e a Vercel publica o front sem tocar no banco. O efeito é
+  # `main` verde servindo código que não conhece as colunas que ele espera.
+  #
+  # ⚠️ **FALHA FECHADA, inclusive sem o segredo.** Um job que "pula quando não
+  # tem credencial" é um job que não roda — foi exatamente o defeito que a
+  # ONDA 2 encontrou no teste de isolamento, verde por nunca ter sido
+  # executado. Sem `SUPABASE_DB_URL_MIGRACAO` este job REPROVA e diz o que
+  # falta.
+  #
+  # ⚠️ **A credencial NÃO é o `ci_leitor`.** Ele é somente leitura, de
+  # propósito: é o que permite deixá-lo no CI sem dar poder de escrita a todo
+  # PR. Migrar exige um papel próprio, e ele só existe no job do `main`.
+  #
+  # ⚠️ **ORDENAÇÃO — o que este job NÃO garante, e é preciso dizer.** A Vercel
+  # publica pelo GIT, no mesmo push, em paralelo com o CI: não há `needs:` que
+  # alcance um deploy que o GitHub não dispara. Então este job aplica o esquema
+  # o quanto antes, mas **não impede** um deploy de pousar primeiro — que é o
+  # A4P-075 de novo. Fechar isso exige desligar a integração Git da Vercel e
+  # publicar a partir daqui (`vercel deploy --prebuilt`) depois deste job, ou
+  # usar o Ignored Build Step para segurar o build. É decisão de plataforma,
+  # não de arquivo.
+  migrar:
+    # Só no `main`: um PR não aplica esquema. E depois do `verify`, para o
+    # banco nunca receber uma migration de um commit que a suíte reprovou.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI do Supabase (via npm, não via action)
+        run: npm i -g supabase@latest
+      - name: A credencial de migração existe?
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        run: |
+          if [ -z "$DB" ]; then
+            echo "✗ SUPABASE_DB_URL_MIGRACAO ausente — este job NÃO aplicou migration nenhuma."
+            echo "  Não é o ci_leitor: ele é somente leitura. Crie um papel com permissão de"
+            echo "  migração e registre o segredo. Enquanto isso, o banco fica para trás do"
+            echo "  código publicado, que foi o A4P-086."
+            exit 1
+          fi
+      - name: Aplicar as migrations pendentes
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        # ⚠️ `--include-all` porque uma migration com version anterior à última
+        # aplicada (dois galhos abertos ao mesmo tempo) seria PULADA em silêncio
+        # sem ele — e pular em silêncio é a família de defeito que este
+        # repositório já registrou duas vezes.
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --include-all
+      - name: Conferir que o banco alcançou o repositório
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_MIGRACAO }}
+        # ⚠️ Ler "não deu erro" não é ler o que aconteceu: conta os arquivos e
+        # confronta com o que o banco registrou.
+        run: |
+          ARQ=$(ls supabase/migrations/*.sql | wc -l)
+          APL=$(psql "$SUPABASE_DB_URL" -tAc "select count(*) from supabase_migrations.schema_migrations")
+          echo "arquivos: $ARQ · aplicadas: $APL"
+          if [ "$APL" -lt "$ARQ" ]; then
+            echo "✗ o banco continua atrás do repositório depois do push."
+            exit 1
+          fi
+
   esquema-prod:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main')

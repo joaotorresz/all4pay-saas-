@@ -48,6 +48,17 @@ export interface Assinatura {
   inicio?: string | null;
   /** `YYYY-MM-DD` — quando ele termina. NULO é "sem prazo", e é um defeito. */
   fim?: string | null;
+  /**
+   * ⚠️ **DIAS CONTADOS PELO SERVIDOR** (`assinatura_da_org.dias_restantes`,
+   * `current_period_end - current_date`). Quando vem preenchido, ele VENCE a
+   * contagem local — e é essa a fonte certa.
+   *
+   * O relógio do navegador é do cliente: adiantado, atrasado, em outro fuso ou
+   * simplesmente errado. Contar o prazo de um contrato com ele deixa o produto
+   * dizer "faltam 8 dias" para uma pessoa e "faltam 6" para outra sobre a MESMA
+   * assinatura — e quem tem a máquina adiantada perde acesso antes.
+   */
+  diasDoServidor?: number | null;
 }
 
 export interface EstadoDaAssinatura {
@@ -63,7 +74,17 @@ export interface EstadoDaAssinatura {
   emTeste: boolean;
   /** Frase para a tela do CLIENTE — sem termo técnico, sempre com a saída. */
   aviso?: string;
+  /**
+   * O TOM da mensagem. ⚠️ Ele ESCALA, e não é decoração: gastar alarme no
+   * primeiro dia de um teste de 14 o enfraquece justamente no dia em que ele
+   * precisa ser lido. `calmo` enquanto o prazo é longo · `atencao` na última
+   * semana · `parado` quando a escrita já suspendeu.
+   */
+  tom: "calmo" | "atencao" | "parado";
 }
+
+/** A partir de quantos dias restantes o aviso deixa de ser informação. */
+export const DIAS_DE_ATENCAO = 7;
 
 /**
  * ⚠️ **DIAS DE CALENDÁRIO, fatiando a string.** `new Date("2026-08-18")` é
@@ -82,7 +103,11 @@ export function diasEntre(de: string, ate: string): number {
 export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDaAssinatura {
   const status: StatusAssinatura = a?.status ?? "none";
   const fim = a?.fim ?? null;
-  const diasRestantes = fim ? diasEntre(hoje, fim) : null;
+  /*
+   * ⚠️ O SERVIDOR MANDA. A contagem local só entra quando ele não respondeu —
+   * e mesmo assim é aproximação, não autoridade.
+   */
+  const diasRestantes = a?.diasDoServidor ?? (fim ? diasEntre(hoje, fim) : null);
 
   /*
    * ⚠️ **SEM ASSINATURA NÃO É "EM DIA".** A leitura preguiçosa seria tratar a
@@ -95,7 +120,7 @@ export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDa
   if (status === "canceled") {
     return {
       status, plano: a?.plano ?? null, inicio: a?.inicio ?? null, fim,
-      diasRestantes, bloqueado: true, emTeste: false,
+      diasRestantes, bloqueado: true, emTeste: false, tom: "parado",
       aviso: "Sua conta foi encerrada. Você continua vendo e exportando tudo o que já registrou; para voltar a lançar, escolha um plano.",
     };
   }
@@ -103,7 +128,7 @@ export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDa
   if (status === "past_due") {
     return {
       status, plano: a?.plano ?? null, inicio: a?.inicio ?? null, fim,
-      diasRestantes, bloqueado: true, emTeste: false,
+      diasRestantes, bloqueado: true, emTeste: false, tom: "parado",
       aviso: "Não conseguimos confirmar o pagamento deste mês. Seus dados estão todos aqui e você pode consultar e exportar à vontade; novos lançamentos voltam assim que o pagamento entrar.",
     };
   }
@@ -113,13 +138,16 @@ export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDa
     if (venceu) {
       return {
         status, plano: a?.plano ?? null, inicio: a?.inicio ?? null, fim,
-        diasRestantes, bloqueado: true, emTeste: false,
+        diasRestantes, bloqueado: true, emTeste: false, tom: "parado",
         aviso: "Seu período de teste terminou. Nada foi apagado: você continua vendo e exportando tudo. Para voltar a lançar, escolha um plano.",
       };
     }
     return {
       status, plano: a?.plano ?? null, inicio: a?.inicio ?? null, fim,
       diasRestantes, bloqueado: false, emTeste: true,
+      /* ⚠️ Só vira ATENÇÃO na última semana. Antes disso é informação: o
+         cliente precisa saber o prazo, não ser cobrado por ele todo dia. */
+      tom: diasRestantes !== null && diasRestantes <= DIAS_DE_ATENCAO ? "atencao" : "calmo",
       aviso: diasRestantes === null
         ? undefined
         : diasRestantes === 0
@@ -134,6 +162,7 @@ export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDa
     return {
       status, plano: a?.plano ?? null, inicio: a?.inicio ?? null, fim,
       diasRestantes, bloqueado: venceu, emTeste: false,
+      tom: venceu ? "parado" : "calmo",
       aviso: venceu
         ? "A assinatura venceu. Seus dados continuam aqui e podem ser consultados e exportados; para voltar a lançar, renove o plano."
         : undefined,
@@ -142,7 +171,7 @@ export function estadoDaAssinatura(a: Assinatura | null, hoje: string): EstadoDa
 
   return {
     status: "none", plano: null, inicio: null, fim: null,
-    diasRestantes: null, bloqueado: false, emTeste: false,
+    diasRestantes: null, bloqueado: false, emTeste: false, tom: "calmo",
   };
 }
 

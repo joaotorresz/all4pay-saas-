@@ -2671,3 +2671,86 @@ do deploy da Vercel — senão volta a acontecer o que o A4P-075 já registrou: 
 código novo pousa antes do esquema que ele espera. Diagnóstico apenas; o
 pipeline não foi construído aqui.
 
+---
+
+## ⚠️ BLOCO 4 — o trial que o cliente JÁ via, e o número que vinha do lugar errado
+
+**Refutado em uma linha, medido antes de construir:** o `BannerAssinatura`
+existe, está montado no `AppShell` e a RPC `assinatura_da_org` devolve dado bom
+— `status=trial`, `fim=2026-09-07`. Das 22 organizações, **21 em trial, todas
+com `current_period_end` preenchido, nenhuma sem linha**. O cliente via, sim.
+
+⚠️ **O defeito real era outro, e é da família "instrumentação sem consumidor":
+a RPC JÁ devolvia `dias_restantes`** — `current_period_end - current_date`,
+contado pelo SERVIDOR — e `lib/assinatura.ts` **ignorava**, recalculando a
+partir do relógio do NAVEGADOR. O prazo de um contrato passava a depender de
+quem tem a máquina adiantada: o mesmo trial dizendo "faltam 8 dias" para um e
+"faltam 6" para outro, e quem está adiantado perde acesso antes.
+
+⚠️ **E o tom não escalava.** Eram duas cores — alarme durante o teste inteiro,
+vermelho depois. Um teste de 14 dias gritava desde o primeiro, e aviso que
+grita todo dia deixa de ser lido na semana em que importa. Agora são três:
+`calmo` enquanto o prazo é longo · `atenção` nos últimos 7 · `parado` quando a
+escrita suspendeu — e o `parado` DIZ o que continua funcionando (consultar,
+imprimir, exportar), porque quem está vencido já sabe que atrasou; o que ele
+não sabe é se perdeu o arquivo.
+
+Sem tela de pagamento: o botão leva a uma conversa. Um "Assinar agora" que abre
+um formulário que não existe é pior que um convite honesto.
+
+---
+
+## A GUARDA DE AUTORIZAÇÃO DA CENTRAL — seis casos, e o gabarito veio de produção
+
+`scripts/central-autorizacao.sql`, no job `isolamento`. Cada caso em **savepoint
+próprio**, todos reusando os mesmos valores únicos de propósito — reusar é o que
+torna o isolamento auto-verificável.
+
+⚠️ **O caso 6 tem gabarito REAL:** em 25/08 a organização de um único membro
+registrou `previsto→confirmado` com `autoaprovacao=true` e motivo *"org com um
+único membro habilitado a aprovar"*. A asserção cobra o CARIMBO — **aceitar sem
+carimbar é a falha**, porque autoaprovação silenciosa é pior que a recusa.
+
+**Seis plantios, seis vermelhos**, cada um nomeando a própria asserção:
+
+```
+[1] CASO 1 FALHOU (R1): quem lançou CONFIRMOU o próprio título existindo outro
+    aprovador na org — a segregação não recusou.
+[2] CASO 2 FALHOU: o aprovador NÃO confirmou R$500 estando abaixo do teto…
+[3] CASO 3 FALHOU (alçada): CONFIRMOU R$50.000 com teto de R$10.000…
+[4] CASO 4 FALHOU (máquina): previsto foi DIRETO a conciliado…
+[5] CASO 5 FALHOU (isolamento): o usuário de OUTRA org ALCANÇOU o título alheio…
+[6] CASO 6 FALHOU: confirmou mas NÃO carimbou autoaprovacao (autoaprovacao=f)
+```
+
+⚠️ **Três deles só ficaram assim depois de um conserto na própria guarda**, e o
+defeito é reutilizável: um `raise exception 'CASO N FALHOU'` DENTRO do bloco
+`begin/exception` é engolido pelo próprio handler, e a guarda passa a reportar
+*"vermelho pelo motivo errado"* sobre a sua própria asserção. O padrão certo é
+**marcar o resultado numa variável e julgar FORA** do bloco protegido.
+
+⚠️ **E dois plantios iniciais não pegaram nada**: os casos 2 e 3 SEMEIAM a
+própria alçada com `on conflict do update`, então plantar pelo DADO é
+sobrescrito pela guarda. Plantar tem de ser no CÓDIGO — nas funções.
+
+---
+
+## ⚠️ O JOB DE MIGRATION EXISTE, E O QUE ELE NÃO GARANTE
+
+`migrar` entra no `ci.yml`: só no `main`, `needs: verify` (o banco nunca recebe
+migration de commit que a suíte reprovou), `supabase db push --include-all`,
+**falha fechada inclusive sem o segredo** — um job que pula sem credencial é um
+job que não roda, que foi o defeito da ONDA 2. E confere o resultado contando
+arquivos contra `schema_migrations`, em vez de ler "não deu erro".
+
+⚠️ **A credencial NÃO é o `ci_leitor`** — ele é somente leitura de propósito, e
+é isso que permite deixá-lo no CI sem dar escrita a todo PR.
+
+⚠️ **ORDENAÇÃO: não dá para garantir que ele rode ANTES do deploy, e isso fica
+dito.** A Vercel publica pelo GIT, no mesmo push, **em paralelo** com o CI —
+não existe `needs:` que alcance um deploy que o GitHub não dispara. O job
+aplica o esquema o quanto antes, mas não impede o código de pousar primeiro,
+que é o A4P-075 outra vez. Fechar exige decisão de plataforma: desligar a
+integração Git da Vercel e publicar a partir do CI (`vercel deploy --prebuilt`)
+depois deste job, ou segurar o build pelo Ignored Build Step.
+

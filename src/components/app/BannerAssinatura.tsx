@@ -37,35 +37,61 @@ export function BannerAssinatura() {
 
   if (!data || !data.aviso) return null;
 
-  const bloqueado = data.bloqueado;
   /*
-   * ⚠️ O tom ESCALA, e não é decoração: enquanto o teste corre, isto é
-   * informação (`warning`); depois que venceu, é a razão pela qual salvar
-   * parou de funcionar (`negative`). Gastar vermelho no primeiro dia de teste
-   * o enfraquece no dia em que ele precisa ser lido.
+   * ⚠️ **O TOM ESCALA EM TRÊS, não em dois.** Antes eram só duas cores —
+   * `warning` durante o teste inteiro e `negative` depois. O efeito é que um
+   * teste de 14 dias mostrava alarme desde o primeiro, e um aviso que grita
+   * todo dia deixa de ser lido justamente na semana em que ele importa.
+   *
+   *   calmo   → informação: o prazo existe e está longe
+   *   atenção → a última semana; agora é para agir
+   *   parado  → a escrita suspendeu; diz o que AINDA funciona
    */
-  const cor = bloqueado ? "var(--color-negative)" : "var(--color-warning)";
+  const COR = {
+    calmo: "var(--color-muted)",
+    atencao: "var(--color-warning)",
+    parado: "var(--color-negative)",
+  } as const;
+  const cor = COR[data.tom];
+  const parado = data.tom === "parado";
 
   return (
     <div
       role="status"
       className="flex items-center gap-3 flex-wrap px-5 py-3 border-b border-border-soft"
-      style={{ background: `color-mix(in srgb, ${cor} 10%, var(--color-white))` }}
+      style={{ background: `color-mix(in srgb, ${cor} ${parado ? 12 : 8}%, var(--color-white))` }}
     >
-      <Icon name={bloqueado ? "triangle-alert" : "calendar"} size={16} color={cor} />
+      <Icon name={parado ? "triangle-alert" : "calendar"} size={16} color={cor} />
       <span className="text-caption text-ink flex-1 min-w-[240px]">
         <strong className="font-medium">{data.aviso}</strong>
-        {!bloqueado && data.emTeste && (
+        {!parado && data.emTeste && (
+          <span className="text-muted"> Você pode continuar usando tudo até lá.</span>
+        )}
+        {parado && (
+          /*
+           * ⚠️ **O BLOQUEIO É SUAVE, e dizer isso é metade do trabalho.** Quem
+           * está vencido já sabe que atrasou; o que ele NÃO sabe é se perdeu o
+           * arquivo. Ler, filtrar, imprimir e exportar continuam inteiros —
+           * só registrar coisa nova parou. O dado é da empresa, e esconder o
+           * arquivo de quem atrasou transforma cobrança em sequestro.
+           */
           <span className="text-muted">
-            {" "}Você pode continuar usando tudo até lá.
+            {" "}Consultar, imprimir e exportar continuam liberados — só o registro de
+            lançamentos novos está pausado, e ele volta no mesmo instante em que a
+            assinatura for regularizada.
           </span>
         )}
       </span>
+      {/*
+        ⚠️ Não há tela de pagamento, e o botão não finge que há: ele leva a uma
+        conversa. Um "Assinar agora" que abre um formulário quebrado é pior que
+        um convite honesto para falar com alguém.
+      */}
       <Link
-        href="/planos"
+        href="/dashboard/help"
         className="text-caption font-medium text-ink underline underline-offset-2 shrink-0"
       >
-        {bloqueado ? "Escolher um plano" : "Ver planos"}
+        {parado ? "Falar com a gente para reativar" : "Falar sobre planos"}
       </Link>
     </div>
   );
