@@ -1150,6 +1150,38 @@ parcelas, um `saldo` gravado junto dos lançamentos, um `status` ao lado de uma
 máquina de estados. Ou existe UM escritor, ou existe divergência à espera de
 tráfego.
 
+### ⚠️ ARREIO QUE VOCÊ ESCREVE É HIPÓTESE; ARREIO COPIADO É MEDIDA
+
+**Três vezes na mesma sessão o arreio mínimo escondeu algo que produção tem** —
+a unicidade de `auth.users.email`, o CHECK de `organization_members.role`, e a
+org que o gatilho de signup cria sozinho para cada usuário novo. Nas três, o
+teste ficou verde na minha máquina e reprovou no CI, sempre por um detalhe do
+banco real que eu não tinha reproduzido porque não sabia que existia.
+
+O padrão que funcionou: **copiar a forma do bloco que já passa**, em vez de
+escrever o setup do zero. O bloco que já passa carrega, de graça, todas as
+restrições que alguém já descobriu — `account_id` no insert, `user_active_org`
+para fixar a org ativa, o papel que o CHECK aceita.
+
+⚠️ **Escreva setup novo só quando nenhum bloco existente exercitar o caminho —
+e diga isso no PR.** Um arreio novo é uma hipótese sobre como o banco é; um
+arreio copiado é uma medida do que ele aceita. A diferença aparece no CI, uma
+rodada depois, e sempre no pior momento.
+
+### ⚠️ COLUNA GERADA É A TRAVA; GUARDA POR GREP É O QUE VOCÊ LEMBROU DE PROCURAR
+
+Decisão do dono sobre `movements.status`: ela vira
+`generated always as (…) stored` derivada de `situacao`. **Coluna gerada não é
+meio-termo — é a trava mais forte disponível**, porque o Postgres RECUSA a
+escrita. Um `grep` de `UPDATE ... status` pega o código que existe hoje; a
+coluna gerada pega o código que ainda não foi escrito, inclusive o que vier de
+uma RPC, de um cron ou de um `psql` na mão.
+
+Corolário para a guarda: quando a trava passa para o banco, **a guarda por
+varredura de texto sai** — mantê-la ensina que o grep é a proteção, e alguém
+vai reforçá-lo achando que reforça o controle. O que a guarda passa a provar é
+que a TRAVA continua existindo.
+
 ### ⚠️ DUAS REGRAS SOBRE GUARDA, aprendidas errando as duas no mesmo dia
 
 **1. Caso de teste que depende de outro caso não ter rodado não é caso isolado
