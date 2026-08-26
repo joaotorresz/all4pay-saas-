@@ -408,6 +408,121 @@ jobs:
             exit 1
           fi
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PUBLICAR — o CI passou a ser o ÚNICO publicador (a quinta "duas fontes")
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **O defeito que isto fecha é o A4P-075.** A integração Git da Vercel
+  # publicava em PARALELO com o CI, no mesmo push: dois publicadores para um
+  # fato, sem ninguém entre eles. Em 17/08 o build atrasado do PR #103 pousou
+  # DEPOIS do #104 e o sobrescreveu — `/api/versao` voltou de `4132318` para
+  # `998d800`, um conserto saiu do ar sozinho, e a tela do Razão voltou a dizer
+  # "nada absorvido" sobre R$ 1.080.562,75.
+  #
+  # ⚠️ **A ORDEM É O CONSERTO INTEIRO.** `needs: [verify, migrar]`: o esquema
+  # alcança o banco ANTES de o código pousar. Era isso que a integração Git não
+  # tinha como respeitar — ela dispara no push, sem saber que existe um job de
+  # migration. Publicar daqui é o que transforma "aplica o quanto antes" em
+  # "aplica antes".
+  #
+  # ⚠️ **`vercel pull` traz o AMBIENTE da Vercel** (Supabase, ANTHROPIC_API_KEY,
+  # CRON_SECRET…). Duplicar essas variáveis como segredos do GitHub seria criar
+  # a próxima "duas fontes" no gesto de fechar uma: no dia em que uma mudasse na
+  # Vercel, o build do CI seguiria com a antiga.
+  publicar:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [verify, migrar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI da Vercel
+        run: npm i -g vercel@latest
+      # ⚠️ FALHA FECHADA, inclusive sem o segredo. Um job que "pula quando não
+      # tem credencial" é um job que não roda — o defeito que a ONDA 2 achou no
+      # teste de isolamento, verde por nunca ter sido executado.
+      - name: As credenciais existem?
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          faltam=""
+          [ -z "$T" ] && faltam="$faltam VERCEL_TOKEN"
+          [ -z "$VERCEL_ORG_ID" ] && faltam="$faltam VERCEL_ORG_ID"
+          [ -z "$VERCEL_PROJECT_ID" ] && faltam="$faltam VERCEL_PROJECT_ID"
+          if [ -n "$faltam" ]; then
+            echo "✗ faltam os segredos:$faltam — este job NÃO publicou nada."
+            exit 1
+          fi
+      - name: Puxar o ambiente de produção
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      # ⚠️ `GITHUB_SHA` entra no build porque `next.config.mjs` INLINA o commit:
+      # publicando por `--prebuilt`, `VERCEL_GIT_COMMIT_SHA` não chega à lambda e
+      # `/api/versao` responderia "local" — cegando a única prova direta de qual
+      # commit está no ar, e com ela a guarda `no-ar`.
+      - name: Construir
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Publicar em produção
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "publicado: $url"
+      # ⚠️ **Ler "não deu erro" não é ler o que aconteceu.** O `deploy` responde
+      # assim que aceita o build; quem prova a publicação é o commit servido.
+      - name: Conferir que o commit no ar é ESTE
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            servido=$(curl -s --max-time 20 https://all4pay-saas.vercel.app/api/versao | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+            echo "tentativa $i · servido: $servido"
+            [ "$servido" = "$GITHUB_SHA" ] && echo "✓ produção em $GITHUB_SHA" && exit 0
+            sleep 20
+          done
+          echo "✗ produção não alcançou $GITHUB_SHA depois de ~3 min — servido: $servido"
+          exit 1
+
+  # O MESMO desenho para PR, sem `--prod`: o preview passa a sair do CI também.
+  # ⚠️ Sem `needs: migrar` de propósito — aquele job só roda no `main`, e exigi-lo
+  # aqui deixaria todo preview eternamente pendente.
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI da Vercel
+        run: npm i -g vercel@latest
+      - name: As credenciais existem?
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$T" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "✗ segredo da Vercel ausente — este job NÃO publicou preview."
+            exit 1
+          fi
+      - name: Puxar o ambiente de preview
+        run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Construir
+        run: vercel build --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Publicar o preview
+        run: |
+          url=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "preview: $url"
+          echo "### Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
   esquema-prod:
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/main')
