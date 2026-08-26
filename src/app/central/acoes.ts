@@ -84,6 +84,8 @@ export async function lancarTituloAction(t: NovoTitulo): Promise<ResultadoAcao &
     competence_date: t.vencimento,
     situacao: "previsto",
     origem: "manual",
+    // Uma pessoa digitou este título na Central: é afirmação, não palpite.
+    review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
     especie: "titulo",
   }).select("id").maybeSingle();
 

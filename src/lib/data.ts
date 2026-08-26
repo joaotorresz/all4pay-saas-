@@ -597,6 +597,8 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       // `generated always as (…) stored` e o Postgres RECUSA o insert que a
       // mencione (`428C9`). O estado tem UMA morada, e é esta.
       situacao: settledNow ? "baixado" : "previsto",
+      // O formulário é uma pessoa afirmando o lançamento.
+      review_status: "confirmado" as const, // afirmação: uma pessoa ou um documento a gerou
       category: null,
       category_id: exigirUUID(input.category_id, "categoria"),
       cost_center_id: exigirUUID(input.cost_center_id, "centro de custo"),
@@ -771,6 +773,8 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
       account_id: l.account_id,
       type: l.type,
       situacao: l.status === "pago" ? "baixado" : "previsto",
+      // Folha e títulos avulsos: cálculo declarado, não transcrição.
+      review_status: "confirmado" as const, // afirmação: uma pessoa ou um documento a gerou
       amount: l.amount,
       due_date: l.due_date,
       competence_date: l.competence_date ?? l.due_date,

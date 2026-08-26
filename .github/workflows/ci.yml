@@ -185,6 +185,14 @@ jobs:
       # O que se prova agora é outra coisa: que a TRAVA continua no banco. Sem
       # grep — quando a trava passa para o Postgres, a varredura de texto sai,
       # senão alguém a reforça achando que reforça o controle.
+      # ⚠️ A METADE DE BANCO de "transcrição não é fato". A de código
+      # (`npm run transcricao`) prova que nenhum escritor do repositório deixa o
+      # palpite nascer confirmado; esta prova que o BANCO recusa — e alcança o
+      # que ainda não foi escrito: RPC nova, cron, `psql` na mão.
+      - name: Guarda da transcrição (OCR não nasce confirmado, e a fila promove)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: npm run transcricao-sql
       - name: Guarda do estado único (status é gerada, e o Postgres recusa escrevê-la)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

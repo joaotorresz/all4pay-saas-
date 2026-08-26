@@ -183,6 +183,7 @@ async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number
   const rows = r.itens.map((it) => ({
     // ⚠️ ONDA 5: o reembolso é lançado por uma pessoa, não importado.
     origem: "manual" as const,
+    review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
     account_id: accId, type: "saida", situacao: "previsto", category: it.categoria, amount: it.valor,
     party_id: r.colaboradorId || null, due_date: hoje, paid_date: null, reconciled: false,
     description: `Reembolso · ${r.colaborador} · ${it.descricao}`,

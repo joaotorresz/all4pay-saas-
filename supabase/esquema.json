@@ -142,7 +142,21 @@
    "do arquivo com o md5 do que está no banco. Os 26 bateram."
   ],
   "aplicadas_sem_arquivo": [],
-  "arquivo_sem_aplicacao": [],
+  "arquivo_sem_aplicacao": [
+   {
+    "nome": "20260826150000_transcricao_nao_e_fato",
+    "motivo": "Transcricao nao e fato: `movements.review_status` tinha DEFAULT 'confirmado' e o caminho do OCR (lib/upload-doc.ts) gravava sem defini-lo — uma foto ruim virava lancamento CONFIRMADO no DRE de um cliente, sem passar pela fila de revisao. A migration TIRA o default (com not null, o banco passa a RECUSAR quem nao disser) e acrescenta um gatilho `before insert` que recusa origem de adivinhacao (importacao, extrato, conciliacao) com review_status='confirmado'. So no INSERT: a fila promove pendente->confirmado por UPDATE, e e ela que existe para isso. O arquivo nasce no PR e o banco so o recebe no merge — a divergencia existe durante a revisao, por desenho.",
+    "impacto": "Enquanto nao aplicada, o default segue 'confirmado' e o proximo documento enviado por OCR entra como fato confirmado. MEDIDO em producao antes desta migration: 1.772 lancamentos; `origem='importacao'` = ZERO (o caminho do OCR nunca gravou desde que a coluna de procedencia existe), entao o defeito e AGENDADO, nao realizado — dispara na primeira foto. Os 803 sem procedencia nenhuma e confirmados sao de 09/06 a 08/07, a era anterior as colunas, e NAO sao atribuiveis ao OCR: atribui-los seria diagnostico trocado. Nenhum dado existente muda: a migration nao reescreve linha nenhuma.",
+    "objetos_ausentes": [
+     "movements.review_status sem DEFAULT",
+     "funcao transcricao_nao_e_fato()",
+     "trigger movements_transcricao_nao_e_fato (before insert)"
+    ],
+    "resolver_ate": "2026-09-26",
+    "origem": "sessao de agente, P0 do OCR (26/08/2026) — pedido do dono",
+    "aplicada_em": null
+   }
+  ],
   "objetos_sem_migration": [
    {
     "nome": "maq_cnpj_cache",
