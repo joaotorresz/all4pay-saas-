@@ -21,8 +21,8 @@ import type { PlanilhaXLSX, CelulaXLSX } from "@/lib/xlsx";
 
 /** As colunas do razão, na ordem em que o contador as lê. */
 const COLUNAS_RAZAO: { titulo: string; de: (r: LinhaRazao) => CelulaXLSX }[] = [
-  { titulo: "Competência", de: (r) => r.competencia },
-  { titulo: "Caixa", de: (r) => r.caixa },
+  { titulo: "Competência", de: (r) => dataPT(r.competencia) },
+  { titulo: "Caixa", de: (r) => (r.caixa ? dataPT(r.caixa) : "") },
   { titulo: "Descrição", de: (r) => r.descricao },
   { titulo: "Contraparte", de: (r) => r.contraparte },
   { titulo: "Categoria", de: (r) => r.categoria },
@@ -39,6 +39,31 @@ const COLUNAS_RAZAO: { titulo: string; de: (r: LinhaRazao) => CelulaXLSX }[] = [
   { titulo: "Por que ficou de fora", de: (r) => r.motivoFora },
   { titulo: "Id do lançamento", de: (r) => r.movimentoId },
 ];
+
+/**
+ * ⚠️ **DATA EM PORTUGUÊS NO ARQUIVO QUE SAI DA EMPRESA.**
+ *
+ * O cabeçalho escrevia `Período: 2026-08-01 a 2026-08-31` e
+ * `Gerado em: 2026-08-25T19:00:00.000Z` — formato de máquina, com fuso Z, num
+ * documento que o contador abre no Excel. ISO é o formato do FIO (banco, campo
+ * de data, JSON); não é o que se lê.
+ *
+ * ⚠️ Fatia a string, nunca `new Date`: `new Date("2026-08-01")` é meia-noite
+ * UTC e em UTC−3 o dia 1º vira 31/07 — a mesma armadilha que o `lib/format`
+ * documenta. E este módulo é PURO, então não importa `lib/format`: quatro
+ * linhas próprias custam menos que acoplar `core` à camada de tela.
+ */
+const dataPT = (iso: string): string => {
+  const d = String(iso).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return String(iso);
+  return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+};
+
+/** Data e hora de geração, na leitura de quem recebe o arquivo. */
+const carimboPT = (iso: string): string => {
+  const hora = /T(\d{2}):(\d{2})/.exec(String(iso));
+  return hora ? `${dataPT(iso)} às ${hora[1]}:${hora[2]} (UTC)` : dataPT(iso);
+};
 
 const REGIME: Record<string, string> = {
   competencia: "Competência (o mês em que o fato aconteceu)",
@@ -62,8 +87,8 @@ function cabecalhoLinhas(e: Exportacao): CelulaXLSX[][] {
   if (c.regimeTributario) linhas.push(["Regime tributário declarado", c.regimeTributario]);
   linhas.push(
     ["Regime do relatório", REGIME[c.regime] ?? c.regime],
-    ["Período", `${c.periodoDe} a ${c.periodoAte}`],
-    ["Gerado em", c.geradoEm],
+    ["Período", `${dataPT(c.periodoDe)} a ${dataPT(c.periodoAte)}`],
+    ["Gerado em", carimboPT(c.geradoEm)],
     ["Títulos previstos", c.visao === "com-previsto" ? "Incluídos" : "Excluídos (só confirmados)"],
     ["Cancelados", c.incluiCancelados ? "Listados (não somam)" : "Não listados"],
     ["Lançamentos", e.resumo.movimentos],

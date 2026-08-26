@@ -2754,3 +2754,37 @@ que é o A4P-075 outra vez. Fechar exige decisão de plataforma: desligar a
 integração Git da Vercel e publicar a partir do CI (`vercel deploy --prebuilt`)
 depois deste job, ou segurar o build pelo Ignored Build Step.
 
+
+---
+
+## O REPOSITÓRIO É PÚBLICO — o fato, para a decisão ser tomada com ele à vista
+
+**Medido pelo dono em 26/08/2026**, clonando sem credencial nenhuma de uma
+máquina limpa. A varredura por vazamento veio **limpa**: nenhum segredo
+commitado, só `.env.example`; o único JWT no repositório é o token de exemplo do
+`jwt.io` dentro do `engine-audit.mts`; e as URLs `postgres://` são o localhost do
+CI. Não há credencial exposta.
+
+⚠️ **O que fica exposto não é segredo — é DESENHO.** Qualquer pessoa lê, hoje:
+
+- **o modelo de autorização inteiro** — `role_permissions`, a matriz papel ×
+  ação, `tem_permissao`, e quais papéis podem `aprovar`, `lancar`, `fechar`;
+- **as políticas de RLS**, incluindo quais tabelas têm política restritiva e
+  quais têm só a de organização — ou seja, onde a superfície é mais fina;
+- **a máquina de estados da Central**: as transições válidas, as recusas
+  nomeadas (`A4P-CENTRAL-SEGREGACAO`, `A4P-CENTRAL-ALCADA`), a regra R1 e a
+  condição exata em que a autoaprovação é permitida e carimbada;
+- **as guardas** — inclusive as declarações nominais do `ddl-declarado.json` e
+  o que está declarado como dívida aberta.
+
+Segurança por RLS não depende de o código ser secreto: as políticas rodam no
+banco e a chave `anon` já viaja no pacote do navegador. Neste sentido a
+exposição **não abre porta nenhuma**. O que ela muda é o custo do
+reconhecimento: quem quiser procurar a fresta não precisa adivinhar por onde
+começar — a lista de tabelas com política mais frouxa e a fronteira exata de
+cada papel estão escritas, com o motivo de cada decisão ao lado.
+
+⚠️ **A visibilidade é decisão do dono e está registrada aqui só como FATO.**
+Nenhuma sessão deve alterá-la, abrir issue sobre ela ou recomendar um lado — o
+que se pedia era que a decisão não fosse tomada sem o fato à vista, e agora ele
+está.

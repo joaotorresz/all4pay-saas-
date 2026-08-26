@@ -12,6 +12,7 @@
  * (`orcadoPorLinha` faz a ponte da categoria para a linha da cascata).
  */
 import * as React from "react";
+import { dataBR } from "@/lib/format";
 import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, BRL } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
@@ -59,12 +60,12 @@ export function OrcamentosView() {
     const out: (string | number)[][] = [cab];
     for (const o of visiveis) {
       if (o.alocacoes.length === 0) {
-        out.push([o.nome, "(sem alocação)", "", 0, o.regime, o.formato, `${o.periodo.de} → ${o.periodo.ate}`]);
+        out.push([o.nome, "(sem alocação)", "", 0, o.regime, o.formato, `${dataBR(o.periodo.de)} → ${dataBR(o.periodo.ate)}`]);
         continue;
       }
       for (const a of o.alocacoes) {
         out.push([o.nome, a.categoria, a.tipo === "entrada" ? "Receita" : "Despesa",
-          totalAlocacao(a), o.regime, o.formato, `${o.periodo.de} → ${o.periodo.ate}`]);
+          totalAlocacao(a), o.regime, o.formato, `${dataBR(o.periodo.de)} → ${dataBR(o.periodo.ate)}`]);
       }
     }
     return out;

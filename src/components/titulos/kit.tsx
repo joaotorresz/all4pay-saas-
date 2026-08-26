@@ -21,6 +21,7 @@
  * cada lado, e é lá que a convenção mora.
  */
 import * as React from "react";
+import { rotuloSituacao, type Situacao } from "@/core/central";
 import {
   ResponsiveContainer, PieChart, Pie, Sector, Tooltip, Cell,
 } from "recharts";
@@ -525,7 +526,7 @@ export function FaixaDeDias({
                   <span className="block text-label text-ink truncate">{c.contraparte}</span>
                   <span className="block text-caption text-muted truncate">{c.categoria}</span>
                 </span>
-                <span className="text-caption text-muted shrink-0">{c.situacao}</span>
+                <span className="text-caption text-muted shrink-0">{rotuloSituacao(c.situacao as Situacao)}</span>
                 <span className="text-label a4p-valor-texto tabular-nums text-ink shrink-0">
                   <BRL value={c.valor} showDecimals={false} />
                 </span>

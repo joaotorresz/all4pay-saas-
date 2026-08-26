@@ -25,13 +25,28 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Icon, AcaoDestrutiva } from "@/components/ui";
 import { contarAmostra, purgarAmostra } from "@/lib/amostra";
 
-/** Nome legível de cada tabela — o banner não fala `movement_splits`. */
-const NOME: Record<string, string> = {
-  movements: "lançamentos",
-  movement_splits: "rateios",
-  sales_docs: "vendas",
-  sale_items: "itens de venda",
-  recurrences: "contratos recorrentes",
+/**
+ * Nome legível de cada tabela — o banner não fala `movement_splits`.
+ *
+ * ⚠️ **SINGULAR E PLURAL, porque a contagem pode ser 1.** O mapa só tinha o
+ * plural e a frase era montada como `${n} ${NOME[t]}` + "já **estão** fora": com
+ * um registro numa tabela a tela escrevia **"1 lançamentos já estão fora"** —
+ * dois erros de concordância na mesma linha, no aviso que existe para ser levado
+ * a sério. Um aviso que erra português é um aviso que se lê como rascunho.
+ */
+const NOME: Record<string, { um: string; muitos: string }> = {
+  movements: { um: "lançamento", muitos: "lançamentos" },
+  movement_splits: { um: "rateio", muitos: "rateios" },
+  sales_docs: { um: "venda", muitos: "vendas" },
+  sale_items: { um: "item de venda", muitos: "itens de venda" },
+  recurrences: { um: "contrato recorrente", muitos: "contratos recorrentes" },
+};
+
+/** `1 lançamento` · `3 rateios` · e o nome cru quando a tabela é desconhecida. */
+const contado = (tabela: string, n: number): string => {
+  const nome = NOME[tabela];
+  if (!nome) return `${n} ${tabela}`;
+  return `${n} ${n === 1 ? nome.um : nome.muitos}`;
 };
 
 export function BannerAmostra() {
@@ -47,9 +62,14 @@ export function BannerAmostra() {
   const total = data?.total ?? 0;
   if (total === 0) return null;
 
-  const detalhe = Object.entries(data?.porTabela ?? {})
-    .map(([t, n]) => `${n} ${NOME[t] ?? t}`)
-    .join(" · ");
+  const entradas = Object.entries(data?.porTabela ?? {});
+  const detalhe = entradas.map(([t, n]) => contado(t, Number(n))).join(" · ");
+  /*
+   * ⚠️ O VERBO concorda com o que a frase tem na frente: uma tabela com um
+   * registro pede "está", qualquer outra combinação pede "estão". Deixar o
+   * plural fixo era o outro metade do defeito.
+   */
+  const umSo = entradas.length === 1 && Number(entradas[0]?.[1] ?? 0) === 1;
   /**
    * ⚠️ **O QUE O BOTÃO APAGA E O QUE ELE DEIXA, separados.**
    *
@@ -73,14 +93,16 @@ export function BannerAmostra() {
         {/* O número vem antes da explicação: quem já entendeu o aviso quer saber
             o tamanho, e quem não entendeu lê a frase inteira de qualquer forma. */}
         <span className="text-muted">
-          {detalhe} já estão fora dos relatórios, mas seguem gravados.
+          {detalhe} já {umSo ? "está" : "estão"} fora dos relatórios, mas {umSo ? "segue" : "seguem"} gravado{umSo ? "" : "s"}.
           {preservadas > 0 && (
             <>
-              {" "}Destes, <b className="text-ink tabular-nums">{purgaveis}</b> vieram do botão de
-              amostra e o botão ao lado remove;{" "}
-              <b className="text-ink tabular-nums">{preservadas}</b> foram marcados à mão e{" "}
-              <b className="text-ink">ficam</b> — eles existiram na operação e saem por decisão
-              própria, com trilha.
+              {" "}Destes, <b className="text-ink tabular-nums">{purgaveis}</b>{" "}
+              {purgaveis === 1 ? "veio" : "vieram"} do botão de amostra e o botão ao lado remove;{" "}
+              <b className="text-ink tabular-nums">{preservadas}</b>{" "}
+              {preservadas === 1 ? "foi marcado" : "foram marcados"} à mão e{" "}
+              <b className="text-ink">{preservadas === 1 ? "fica" : "ficam"}</b> —{" "}
+              {preservadas === 1 ? "ele existiu" : "eles existiram"} na operação e{" "}
+              {preservadas === 1 ? "sai" : "saem"} por decisão própria, com trilha.
             </>
           )}
         </span>
@@ -89,9 +111,9 @@ export function BannerAmostra() {
         rotulo="Remover dados de demonstração"
         titulo="Remover dados de demonstração"
         descricao={
-          `Serão apagados ${purgaveis} de ${total} registros marcados — só os que vieram do botão de amostra. `
+          `${purgaveis === 1 ? "Será apagado" : "Serão apagados"} ${purgaveis} de ${total} registro${total === 1 ? "" : "s"} marcado${total === 1 ? "" : "s"} — só ${purgaveis === 1 ? "o que veio" : "os que vieram"} do botão de amostra. `
           + (preservadas > 0
-            ? `Os outros ${preservadas} foram marcados à mão e permanecem. `
+            ? `${preservadas === 1 ? `O outro ${preservadas} foi marcado` : `Os outros ${preservadas} foram marcados`} à mão e ${preservadas === 1 ? "permanece" : "permanecem"}. `
             : "")
           + "Os relatórios não mudam — eles já ignoram estes registros. "
           + "Esta ação não pode ser desfeita."

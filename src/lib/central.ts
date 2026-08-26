@@ -25,7 +25,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
-import type { Situacao } from "@/core/central";
+import { ordenarFila, diasParado, type Situacao } from "@/core/central";
 import { formatBRL } from "@/lib/format";
 
 export interface TituloDaFila {
@@ -39,6 +39,12 @@ export interface TituloDaFila {
   /** De onde o título veio — a coluna real, não um palpite pela direção. */
   origem: string | null;
   lancadoPor: string | null;
+  /**
+   * Há quantos dias este título está parado — `0` quando não está.
+   * ⚠️ Ele desce para o fim da fila, mas NÃO some: a tela diz o número, e some
+   * seria trocar um defeito de ordem por um de omissão.
+   */
+  diasParado: number;
 }
 
 export interface Transicao {
@@ -133,10 +139,17 @@ export async function getFilaCentral(): Promise<TituloDaFila[]> {
    * confirma, o título desaparece da tela, e não há onde dar baixa. A Central
    * mostra os dois estados em que existe algo a fazer.
    */
+  /*
+   * ⚠️ A ordem FINAL não é esta. O banco devolve por vencimento crescente
+   * (barato, com índice), e `ordenarFila` — puro, testável, em `core/central` —
+   * empurra para o fim o que está parado há mais de 90 dias. Ordenar no SQL
+   * exigiria repetir a regra dos 90 dias numa segunda morada.
+   */
   ).in("situacao", ["previsto", "confirmado"])
    .order("due_date", { ascending: true }).limit(TETO_LINHAS);
   if (error) throw error;
-  return (data ?? []).map((r) => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  return ordenarFila((data ?? []).map((r) => {
     const m = r as Record<string, unknown>;
     const parte = m.parties as { name?: string } | null;
     return {
@@ -149,8 +162,9 @@ export async function getFilaCentral(): Promise<TituloDaFila[]> {
       situacao: (m.situacao as Situacao) ?? "previsto",
       origem: (m.origem as string) ?? null,
       lancadoPor: (m.lancado_por as string) ?? null,
+      diasParado: diasParado(String(m.due_date), hoje),
     };
-  });
+  }), hoje);
 }
 
 /**

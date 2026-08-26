@@ -11,6 +11,7 @@ import {
 } from "@/core/ingestao/mapeamento";
 import {
   podeAprovar, papelQueAprova, transicaoValida, TRANSICOES, montarFila, titulosDaVisao,
+  ordenarFila, diasParado, diasEntreISO, rotuloSituacao as rotuloSituacaoCentral,
   type Lancamento, type Aprovador,
 } from "@/core/central";
 import { agruparEmLinhas, temCamadaDeTexto, type ItemPdf } from "@/core/fdip/pdf-tabela";
@@ -6314,6 +6315,59 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /useState<VisaoRelatorio>\("com-previsto"\)/.test(tela));
   ok("item16: e o recorte é DITO na tela, nas duas visões",
      tela.includes("Mostrando o confirmado E o previsto") && tela.includes("Mostrando só o CONFIRMADO"));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * A ORDEM DA FILA DA CENTRAL — o topo da tela principal
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ Medido em produção (26/08): o primeiro item da Central era um título de
+ * **05/05/2023** — 1.209 dias parado, R$ 32,00 — porque a fila ordenava por
+ * `due_date` crescente. Idade não é urgência: o vencido de três dias é urgente,
+ * o de três anos está abandonado, e o topo é o lugar mais caro da tela.
+ */
+{
+  const HOJE = "2026-08-26";
+  const f = (id: string, vencimento: string) => ({ id, vencimento });
+  const fila = [
+    f("velho", "2023-05-05"),      // 1.209 dias — o caso real
+    f("hoje", "2026-08-26"),
+    f("vencido3", "2026-08-23"),   // 3 dias — urgente de verdade
+    f("futuro", "2026-09-10"),
+    f("limite", "2026-05-28"),     // 90 dias exatos: NÃO é parado
+  ];
+  const ordem = ordenarFila(fila, HOJE).map((i) => i.id);
+
+  ok("central: o título de 2023 SAI do topo", ordem[0] !== "velho", ordem.join(" · "));
+  ok("central: o vencido recente vem primeiro — é ele que exige decisão hoje",
+     ordem[0] === "limite" && ordem[1] === "vencido3", ordem.join(" · "));
+  ok("central: o parado vai para o FIM, e não some", ordem[ordem.length - 1] === "velho" && ordem.length === 5);
+  ok("central: 90 dias exatos ainda NÃO é parado (a borda é `>`, não `>=`)",
+     diasParado("2026-05-28", HOJE) === 0, `${diasEntreISO("2026-05-28", HOJE)} dias`);
+  ok("central: 91 dias JÁ é parado", diasParado("2026-05-27", HOJE) > 0);
+  ok("central: o número de dias parados é o real, não um rótulo",
+     diasParado("2023-05-05", HOJE) === 1209, `${diasParado("2023-05-05", HOJE)}`);
+  /*
+   * ⚠️ A asserção que prova que a ordem MUDOU alguma coisa: com o critério
+   * antigo (`due_date` crescente puro) o topo seria `velho`. Sem ela, um dia
+   * alguém "simplifica" `ordenarFila` para um sort por data e as cinco de cima
+   * continuam passando — todas falam do resultado, nenhuma exclui o caminho.
+   */
+  const antigo = [...fila].sort((a, b) => (a.vencimento < b.vencimento ? -1 : 1)).map((i) => i.id);
+  ok("central: o critério NOVO discorda do antigo (senão nada foi consertado)",
+     antigo[0] === "velho" && ordem[0] !== antigo[0], `antigo: ${antigo[0]} · novo: ${ordem[0]}`);
+
+  /* Rótulo: era um mapa que devolvia a própria chave. */
+  /*
+   * ⚠️ Alias no import: `rotuloSituacao` existe em DOIS módulos —
+   * `core/central` (a esteira) e `core/movimentacoes` (o título a pagar/receber,
+   * com assinatura diferente). Dois nomes iguais para conceitos vizinhos é a
+   * próxima "duas fontes" esperando alguém importar o errado; fica REGISTRADO
+   * aqui, sem renomear neste lote.
+   */
+  ok("central: a situação sai com rótulo de gente, não o valor da coluna",
+     rotuloSituacaoCentral("previsto") === "Previsto" && rotuloSituacaoCentral("baixado") === "Baixado",
+     `${rotuloSituacaoCentral("previsto")} · ${rotuloSituacaoCentral("baixado")}`);
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

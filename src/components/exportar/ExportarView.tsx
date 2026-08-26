@@ -24,7 +24,7 @@
  */
 import * as React from "react";
 import { Button, Card, Checkbox, Icon, Select, Skeleton, StatusBadge } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, dataBR } from "@/lib/format";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { montarDRE, fimDoMes, deslocarMes, type Relatorio } from "@/core/relatorios";
 import {
@@ -249,8 +249,11 @@ export function ExportarView() {
           />
         </div>
 
+        {/* ⚠️ `dataBR` FATIA a string. `new Date("2026-08-01")` é meia-noite UTC,
+            e em UTC−3 o dia 1º vira o último do mês anterior — a regra de fuso
+            do `lib/format`. */}
         <p className="mt-3 text-caption text-muted">
-          {intervalo.de} a {intervalo.ate}
+          {dataBR(intervalo.de)} a {dataBR(intervalo.ate)}
         </p>
       </Card>
 

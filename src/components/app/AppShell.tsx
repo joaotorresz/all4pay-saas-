@@ -116,7 +116,21 @@ export function AppShell({
             os dois falam do ESTADO da conta, não do conteúdo da tela. */}
         <BannerAssinatura />
         {stickyHeader && header}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-10">
+        {/*
+          ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
+
+          O botão da All 4 Pay AI é `fixed bottom-5` (20px) e mede ~40px de
+          altura: ele ocupa os ~60px de baixo da janela. Este contêiner
+          reservava `pb-10` = 40px. Faltavam ~20px, e a ÚLTIMA LINHA de
+          qualquer tabela longa ficava por baixo da pílula — some justamente
+          o registro que a rolagem foi buscar.
+
+          `pb-24` (96px) deixa a última linha respirando acima do botão em vez
+          de encostar nele. A folga vive AQUI, no contêiner que rola, e não num
+          espaçador dentro de cada tela: com 82 rotas, a próxima tela nasceria
+          sem ele.
+        */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 pb-24">
           {/* Header rola junto com o conteúdo quando stickyHeader=false. */}
           {!stickyHeader && <div className="-mx-4 sm:-mx-6 lg:-mx-8">{header}</div>}
           {children}
