@@ -94,6 +94,7 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
     type: "entrada",
     // ⚠️ ONDA 5: recebível do POS vem da VENDA.
     origem: "venda" as const,
+    review_status: "confirmado" as const, // afirmação: a venda no POS aconteceu
     status: "pendente",
     category: "venda",
     amount: valorDe(i),
@@ -115,6 +116,7 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
       paid_date: hoje,
       reconciled: true,
       description: `${input.descricao} · taxa MDR`,
+      review_status: "confirmado" as const, // afirmação: uma pessoa ou um documento a gerou
       group_id: groupId,
     });
   }

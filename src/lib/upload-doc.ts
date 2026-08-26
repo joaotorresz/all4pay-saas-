@@ -305,6 +305,21 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
     const { error } = await supabase.from("movements").insert({
       // ⚠️ ONDA 5: documento avulso lido por OCR é IMPORTAÇÃO.
       origem: "importacao" as const,
+      /**
+       * ⚠️ **ERA O DEFAULT DO BANCO, E O DEFAULT DIZIA `confirmado`.**
+       *
+       * Este caminho é OCR: a `description` é o beneficiário que a máquina
+       * ACHOU que leu, e a data é a que ela achou que viu. Entrando como
+       * confirmado, uma foto ruim virava lançamento no DRE de um cliente sem
+       * nunca passar por olho humano — medido em produção, foi assim que
+       * "! [=]E?s rica NE Bro," com vencimento de 2023 foi parar no topo da
+       * Central.
+       *
+       * Transcrição não é fato. Ela entra como SUSPEITA e quem a promove é uma
+       * pessoa, na fila de revisão. E é explícito, nunca por default: o banco
+       * agora recusa a linha que não disser (migration 20260826150000).
+       */
+      review_status: "pendente" as const,
       account_id: accId,
       type: tipoMov,
       // ⚠️ `situacao`, nunca `status`: a coluna é GERADA e o insert que a

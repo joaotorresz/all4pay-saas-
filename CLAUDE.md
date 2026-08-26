@@ -1205,6 +1205,68 @@ palavra-chave) tem de deixar a guarda VERMELHA **nomeando a linha** — não
 estourando. Medido: ela nomeia `despesas_operacionais`, R$ 20.000,00, que é a
 transferência voltando para a despesa.
 
+### ⚠️ TRANSCRIÇÃO NÃO É FATO — quem promove suspeita é uma pessoa
+
+**Todo caminho que ADIVINHA — OCR, heurística, casamento aproximado, parser de
+extrato — grava o que produziu como SUSPEITA.** Quem transforma suspeita em
+fato é uma pessoa, por um ato próprio, na fila de revisão.
+
+⚠️ **O caso que fixou a regra (26/08/2026).** `movements.review_status` tinha
+`DEFAULT 'confirmado'` e `lib/upload-doc.ts` — o documento avulso lido por OCR —
+gravava sem defini-lo. Uma foto ruim virava lançamento **confirmado** no DRE de
+um cliente, sem passar pela fila e sem nenhuma marca de baixa confiança. Foi
+assim que `"! [=]E?s rica NE Bro,"`, com vencimento de **05/05/2023**, chegou ao
+topo da Central.
+
+⚠️ **DEFAULT QUE DECIDE CONFIANÇA É DECISÃO ESCONDIDA NUMA COLUNA.** Quem
+escreve a linha sabe se produziu afirmação ou palpite; o default tirava a
+pergunta de quem tinha a resposta e respondia sozinho, sempre pelo lado
+otimista. Agora **não há default**: com `not null`, o Postgres RECUSA a linha
+que não disser, e um escritor esquecido falha alto em vez de herdar
+`confirmado` em silêncio.
+
+A trava é dupla, e as duas metades cobrem coisas diferentes:
+
+1. **O banco recusa** — gatilho `before insert`: origem de adivinhação
+   (`importacao`, `extrato`, `conciliacao`) não nasce `confirmado` (`A4P09`).
+   Só no INSERT: a promoção `pendente → confirmado` é por UPDATE, e é a porta
+   que a regra depende — uma trava que a fechasse mataria a própria regra.
+2. **A varredura** (`npm run transcricao`, teto ZERO) — todo `insert` em
+   `movements` DIZ o `review_status`, e nenhuma origem de palpite se declara
+   confirmada. É a metade barata: pega antes de alguém subir a foto.
+
+⚠️ **Medido antes de mexer, e o número muda o diagnóstico:** 1.772 lançamentos ·
+`origem = 'importacao'` = **ZERO**. O caminho do OCR **nunca gravou** em
+produção desde que a coluna de procedência existe — o defeito era **agendado**,
+não realizado. Os **803** sem procedência nenhuma e confirmados são de 09/06 a
+08/07, a era anterior às colunas; atribuí-los ao OCR seria **diagnóstico
+trocado**. E é a sétima regra funcionando: consertar antes do primeiro disparo.
+
+### ⚠️ LER A SUPERFÍCIE É MEDIR O QUE ELA AFIRMA, NÃO O QUE O BANCO TEM
+
+**Regra do dono, escrita depois de ele mesmo cair nela.** Ao reportar o defeito
+do topo da Central, o relatório dizia *"origem: importação"* — lido da tela, com
+a tela na frente, logado como o dono. **A coluna `origem` daquela linha é
+NULA.** O ternário da tela afirmava `importação` para tudo que não fosse
+`manual`, e a medição da superfície mediu a afirmação, não o dado.
+
+⚠️ **As duas só coincidem quando alguma guarda obriga.** Uma tela é uma
+INTERPRETAÇÃO do banco: ela preenche ausência com padrão, deriva rótulo de
+enum, e às vezes inventa. Medir nela é legítimo — é o que o cliente vê — mas o
+que se mediu foi *o que ela afirma*, e o relatório tem de dizer isso.
+
+**O teste, em uma pergunta:** *este número saiu de uma consulta ou de um
+pixel?* Se saiu do pixel, ele descreve a tela; para descrever o negócio, é
+preciso a consulta ao lado. E quando os dois discordam, **a discordância é o
+achado** — foi ela que entregou o quinto defeito da varredura de superfície,
+que ninguém tinha pedido para procurar.
+
+⚠️ Isto NÃO desqualifica medir a tela. A tela é onde o cliente vive e onde
+mentira dói; a ONDA 12 inteira existe porque ninguém tinha medido o produto num
+telefone. O que a regra proíbe é **chamar de medição do dado o que foi medição
+da superfície** — e nomear a causa pela aparência (aqui: "mojibake", quando a
+base tem zero U+FFFD, zero sequência Latin-1 e zero caractere de controle).
+
 ### ⚠️ A REGRA GERAL — DUAS FONTES PARA UM FATO É UM DEFEITO AGENDADO
 
 **Sempre que o mesmo fato existe em dois lugares com escritores independentes,

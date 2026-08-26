@@ -201,6 +201,7 @@ export async function ativarRecorrencia(id: string): Promise<void> {
       const { error } = await supabase.from("movements").insert({
         // ⚠️ ONDA 5: fatura de recorrência vem de CONTRATO.
         origem: "contrato" as const,
+        review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
         account_id: accId, type: "entrada", situacao: "previsto",
         category: r.classificacao || r.itens[0]?.nome || "Receita recorrente",
         amount: totalFatura(r), party_id: r.clienteId || null, due_date: d, paid_date: null,

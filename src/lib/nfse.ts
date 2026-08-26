@@ -172,6 +172,7 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
   const { data } = await supabase.from("movements").insert({
     // ⚠️ ONDA 5: o título nasce da NOTA, e a origem diz isso.
     origem: "venda" as const,
+    review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
     account_id: accId, type: "entrada", situacao: "previsto", category: "Serviços", amount: nf.valorServico,
     party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false, description: receita.description,
   }).select("id").single();

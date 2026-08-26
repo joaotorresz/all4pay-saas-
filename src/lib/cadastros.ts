@@ -145,6 +145,7 @@ export async function createTransferencia(input: TransferenciaInput): Promise<vo
     // ⚠️ ONDA 5: transferência entre contas é lançamento MANUAL — o banco
     // exige `origem` em todo título novo (gatilho `movements_origem`).
     origem: "manual" as const,
+    review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
     // ⚠️ `situacao`, nunca `status`: a coluna virou GERADA e o insert que a
     // mencionar é recusado. Transferência nasce baixada — o dinheiro já andou.
     situacao: "baixado" as const,
@@ -222,6 +223,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
       const rows = Array.from({ length: n }, (_, i) => ({
         // ⚠️ ONDA 5: parcela de venda/compra nasce do DOCUMENTO de venda.
         origem: "venda" as const,
+        review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
         account_id: input.account_id,
         type: tipo,
         situacao: "previsto",
@@ -243,6 +245,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
       const settled = input.settled;
       const { error: me } = await s.from("movements").insert({
         origem: "venda" as const,
+        review_status: "confirmado", // afirmação: uma pessoa ou um documento a gerou
         account_id: input.account_id,
         type: tipo,
         situacao: settled ? "baixado" : "previsto",
