@@ -459,6 +459,39 @@ jobs:
             echo "✗ faltam os segredos:$faltam — este job NÃO publicou nada."
             exit 1
           fi
+      # ⚠️ **A CREDENCIAL EXISTIR NÃO É A CREDENCIAL RESOLVER.** O passo acima só
+      # prova que os três segredos não estão VAZIOS. Medido em 26/08 no PR #143:
+      # os três existiam e o `vercel pull` morreu com "Could not retrieve Project
+      # Settings" — uma frase que não diz QUAL dos três está errado, e é por isso
+      # que ela custa uma rodada de adivinhação por tentativa. Este passo separa
+      # os três casos ANTES do pull, e nunca imprime valor de segredo: só o
+      # código HTTP e o nome do projeto que o par (token, ORG_ID, PROJECT_ID)
+      # resolve — se ele não for `all4pay-saas`, o PROJECT_ID aponta para outro
+      # lugar, e isso não aparece em erro nenhum da CLI.
+      - name: Qual dos três não resolve? (nomeia a causa, não imprime segredo)
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          u=$(curl -s -o /tmp/u.json -w '%{http_code}' -H "Authorization: Bearer $T" https://api.vercel.com/v2/user)
+          if [ "$u" != "200" ]; then
+            echo "✗ VERCEL_TOKEN: a API respondeu $u a /v2/user — o token é inválido ou expirou."
+            echo "  Não é o ORG_ID nem o PROJECT_ID: sem token válido nenhum dos dois chega a ser lido."
+            exit 1
+          fi
+          echo "✓ VERCEL_TOKEN: aceito pela API."
+          p=$(curl -s -o /tmp/p.json -w '%{http_code}' -H "Authorization: Bearer $T" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+          case "$p" in
+            200) echo "✓ o par resolve o projeto: $(node -e 'console.log(require("/tmp/p.json").name)')" ;;
+            403) echo "✗ VERCEL_ORG_ID: 403 — o token é válido mas NÃO enxerga essa equipe."
+                 echo "  Token pessoal não alcança projeto de equipe: crie o token no escopo da equipe."
+                 exit 1 ;;
+            404) echo "✗ VERCEL_PROJECT_ID: 404 — o token e a equipe existem, o projeto não."
+                 echo "  Ou o PROJECT_ID é de outro projeto, ou ele não pertence a esse ORG_ID."
+                 exit 1 ;;
+            *)   echo "✗ a API respondeu $p ao par (ORG_ID, PROJECT_ID) — nem token, nem 403, nem 404."
+                 exit 1 ;;
+          esac
       - name: Puxar o ambiente de produção
         run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
       # ⚠️ `GITHUB_SHA` entra no build porque `next.config.mjs` INLINA o commit:
@@ -512,6 +545,39 @@ jobs:
             echo "✗ segredo da Vercel ausente — este job NÃO publicou preview."
             exit 1
           fi
+      # ⚠️ **A CREDENCIAL EXISTIR NÃO É A CREDENCIAL RESOLVER.** O passo acima só
+      # prova que os três segredos não estão VAZIOS. Medido em 26/08 no PR #143:
+      # os três existiam e o `vercel pull` morreu com "Could not retrieve Project
+      # Settings" — uma frase que não diz QUAL dos três está errado, e é por isso
+      # que ela custa uma rodada de adivinhação por tentativa. Este passo separa
+      # os três casos ANTES do pull, e nunca imprime valor de segredo: só o
+      # código HTTP e o nome do projeto que o par (token, ORG_ID, PROJECT_ID)
+      # resolve — se ele não for `all4pay-saas`, o PROJECT_ID aponta para outro
+      # lugar, e isso não aparece em erro nenhum da CLI.
+      - name: Qual dos três não resolve? (nomeia a causa, não imprime segredo)
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          u=$(curl -s -o /tmp/u.json -w '%{http_code}' -H "Authorization: Bearer $T" https://api.vercel.com/v2/user)
+          if [ "$u" != "200" ]; then
+            echo "✗ VERCEL_TOKEN: a API respondeu $u a /v2/user — o token é inválido ou expirou."
+            echo "  Não é o ORG_ID nem o PROJECT_ID: sem token válido nenhum dos dois chega a ser lido."
+            exit 1
+          fi
+          echo "✓ VERCEL_TOKEN: aceito pela API."
+          p=$(curl -s -o /tmp/p.json -w '%{http_code}' -H "Authorization: Bearer $T" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+          case "$p" in
+            200) echo "✓ o par resolve o projeto: $(node -e 'console.log(require("/tmp/p.json").name)')" ;;
+            403) echo "✗ VERCEL_ORG_ID: 403 — o token é válido mas NÃO enxerga essa equipe."
+                 echo "  Token pessoal não alcança projeto de equipe: crie o token no escopo da equipe."
+                 exit 1 ;;
+            404) echo "✗ VERCEL_PROJECT_ID: 404 — o token e a equipe existem, o projeto não."
+                 echo "  Ou o PROJECT_ID é de outro projeto, ou ele não pertence a esse ORG_ID."
+                 exit 1 ;;
+            *)   echo "✗ a API respondeu $p ao par (ORG_ID, PROJECT_ID) — nem token, nem 403, nem 404."
+                 exit 1 ;;
+          esac
       - name: Puxar o ambiente de preview
         run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
       - name: Construir
