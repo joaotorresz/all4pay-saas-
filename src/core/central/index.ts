@@ -278,16 +278,85 @@ export function titulosDaVisao<T extends { situacao: Situacao }>(
  * util
  * ═══════════════════════════════════════════════════════════════════════════ */
 
+/**
+ * ⚠️ **ERA UM MAPA QUE DEVOLVIA A PRÓPRIA CHAVE — um rótulo que não rotula.**
+ *
+ * `rotuloSituacao("previsto")` devolvia `"previsto"`, minúsculo, exatamente o
+ * valor da coluna. O helper existia, as telas o chamavam (ou nem isso: três
+ * imprimiam `{m.situacao}` direto), e o que a pessoa lia era a palavra do
+ * BANCO. É a mesma família do "texto de tela não fala de implementação": quem
+ * opera não tem por que saber que existe um enum, nem que ele é minúsculo.
+ *
+ * As palavras não mudaram — elas já eram o vocabulário do produto (a esteira da
+ * Central escreve Previsto · Confirmado · Baixado). O que mudou é que agora sai
+ * daqui, escrito como se escreve para gente, e há UM lugar para mudar.
+ */
 const ROTULO: Record<Situacao, string> = {
-  previsto: "previsto",
-  confirmado: "confirmado",
-  baixado: "baixado",
-  conciliado: "conciliado",
-  cancelado: "cancelado",
-  estornado: "estornado",
+  previsto: "Previsto",
+  confirmado: "Confirmado",
+  baixado: "Baixado",
+  conciliado: "Conciliado",
+  cancelado: "Cancelado",
+  estornado: "Estornado",
 };
 export function rotuloSituacao(s: Situacao): string {
   return ROTULO[s] ?? s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * A ORDEM DA FILA — urgência não é distância, é uma CURVA
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * ⚠️ **O corte dos 90 dias não é arbitrário: é a faixa que o produto JÁ usa.**
+ * `core/contas-receber` envelhece a carteira em até 30 · 31–60 · 61–90 · +90, e
+ * o `+90` é a faixa em que o título deixa de ser cobrança e vira perda provável.
+ * Reusá-lo aqui mantém uma definição só de "parado" no sistema inteiro.
+ */
+export const DIAS_PARADO = 90;
+
+/** Quantos dias separam duas datas ISO. Fatia a string — nunca `new Date`. */
+export function diasEntreISO(de: string, ate: string): number {
+  const n = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
+  return Math.round((n(ate) - n(de)) / 86_400_000);
+}
+
+export interface OrdenavelPorVencimento { vencimento: string }
+
+/**
+ * ⚠️ **A FILA ESTAVA ORDENADA POR `due_date` CRESCENTE, e por isso o topo da
+ * tela principal era um título de 2023.**
+ *
+ * Medido em produção (26/08): o primeiro item da Central era um lançamento com
+ * vencimento em 05/05/2023 — **1.209 dias parado**, R$ 32,00. Ele ficava acima
+ * de tudo, todo dia, para sempre, porque "mais antigo primeiro" trata idade
+ * como urgência. E não é: um título vencido há três dias é urgente; um vencido
+ * há três anos está ABANDONADO, e ocupar o topo com ele empurra para baixo
+ * exatamente o que precisa de decisão hoje.
+ *
+ * O critério, em uma frase que quem opera entende: **primeiro o que vence por
+ * perto — passado recente incluído —, e o que está parado há mais de 90 dias
+ * vai para o fim.** Dentro de cada bloco, vencimento crescente, que é a ordem
+ * que a pessoa já conhecia.
+ *
+ * ⚠️ Nada é escondido: o bloco parado continua na lista, e a tela DIZ que ele
+ * foi para o fim e há quanto tempo cada um está parado. Sumir com o título
+ * seria trocar um defeito de ordem por um de omissão — e é dinheiro que alguém
+ * ainda pode dever.
+ */
+export function ordenarFila<T extends OrdenavelPorVencimento>(itens: T[], hoje: string): T[] {
+  const parado = (i: T) => diasEntreISO(i.vencimento, hoje) > DIAS_PARADO;
+  return [...itens].sort((a, b) => {
+    const pa = parado(a), pb = parado(b);
+    if (pa !== pb) return pa ? 1 : -1;
+    return a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : 0;
+  });
+}
+
+/** Há quantos dias o título está parado — `0` quando não está. */
+export function diasParado(vencimento: string, hoje: string): number {
+  const d = diasEntreISO(vencimento, hoje);
+  return d > DIAS_PARADO ? d : 0;
 }
 
 /**

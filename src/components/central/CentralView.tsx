@@ -31,7 +31,17 @@ import {
   getFilaCentral, getContextoCentral, getTransicoes, porQueNaoConfirma,
   type TituloDaFila, type ContextoCentral, type Transicao, type RecusaCentral,
 } from "@/lib/central";
-import type { Situacao } from "@/core/central";
+import { rotuloSituacao, type Situacao } from "@/core/central";
+
+/** A procedência em português. ⚠️ A ausência tem entrada própria, não um padrão. */
+const ORIGEM: Record<string, string> = {
+  manual: "lançamento manual",
+  importacao: "importação",
+  extrato: "extrato bancário",
+  venda: "venda",
+  contrato: "contrato",
+  conciliacao: "conciliação",
+};
 import { formatBRL } from "@/lib/format";
 
 /** A esteira, na ordem em que o dinheiro anda. */
@@ -82,7 +92,7 @@ function Trilha({ id }: { id: string }) {
       {linhas.map((t) => (
         <li key={t.id} className="text-caption text-muted flex flex-wrap items-baseline gap-x-2">
           <span className="tabular-nums text-faint">{new Date(t.quando).toLocaleString("pt-BR")}</span>
-          <span className="text-ink">{t.de} → {t.para}</span>
+          <span className="text-ink">{rotuloSituacao(t.de as Situacao)} → {rotuloSituacao(t.para as Situacao)}</span>
           {t.autoaprovacao && (
             /* ⚠️ O carimbo é a linha que o auditor lê — nunca escondido. */
             <span
@@ -277,10 +287,28 @@ export function CentralView() {
                     <div className="text-caption text-ink truncate">{t.descricao}</div>
                     <div className="text-[11px] text-faint">
                       {t.contraparte ?? "—"} · vence {t.vencimento.split("-").reverse().join("/")}
-                      {/* ⚠️ Autor em branco é defeito aparente; origem declarada é fato.
-                          `lancado_por` é NULL em todo o acervo importado. */}
+                      {/* ⚠️ **ORIGEM NULA NÃO É "IMPORTAÇÃO".** Este ternário afirmava
+                          `importação` para tudo que não fosse `manual` — inclusive para
+                          o acervo anterior às colunas de procedência, onde `origem` é
+                          NULL. Medido em produção: o título do topo da Central dizia
+                          "origem: importação" e a coluna estava vazia. Inventar
+                          procedência num título é a mesma doença de inventar autoria —
+                          e aqui é pior, porque ninguém abre chamado por uma origem
+                          plausível. Ausência sai como ausência. */}
                       {" · "}
-                      {t.lancadoPor ? "lançado por membro da equipe" : `origem: ${t.origem === "manual" ? "lançamento manual" : "importação"}`}
+                      {t.lancadoPor
+                        ? "lançado por membro da equipe"
+                        : t.origem
+                          ? `origem: ${ORIGEM[t.origem] ?? t.origem}`
+                          : "origem não registrada"}
+                      {t.diasParado > 0 && (
+                        <>
+                          {" · "}
+                          <span className="text-warning">
+                            parado há {t.diasParado} dias — foi para o fim da fila
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <PassoDaEsteira atual={t.situacao} />

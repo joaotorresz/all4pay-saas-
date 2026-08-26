@@ -16,6 +16,14 @@
  *   - o resto → fica registrada na trilha, e nada mais acontece.
  */
 import * as React from "react";
+
+/** ⚠️ O valor da coluna não é o que a pessoa lê — `proposta` é a palavra do
+ *  modelo, não do produto. */
+const ROTULO_ACAO: Record<string, string> = {
+  executada: "Executada",
+  proposta: "Aguardando aprovação",
+  registrada: "Registrada",
+};
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, BRL, Button, Icon, StatusBadge, Skeleton, InfoHint } from "@/components/ui";
 import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
@@ -117,7 +125,7 @@ export function AcoesCopiloto() {
           {trail.slice(0, 6).map((a) => (
             <div key={a.id} className="flex items-center justify-between gap-3 text-caption">
               <span className="text-muted truncate">{a.titulo}</span>
-              <StatusBadge tone={a.status === "executada" ? "positive" : a.status === "proposta" ? "warning" : "neutral"}>{a.status}</StatusBadge>
+              <StatusBadge tone={a.status === "executada" ? "positive" : a.status === "proposta" ? "warning" : "neutral"}>{ROTULO_ACAO[a.status] ?? a.status}</StatusBadge>
             </div>
           ))}
         </div>
