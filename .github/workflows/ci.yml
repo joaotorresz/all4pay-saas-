@@ -63,6 +63,20 @@ concurrency:
 
 jobs:
   verify:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     # ⚠️ O padrão do GitHub é SEIS HORAS. Em 05/08 duas execuções ficaram presas
     # no passo de build — o mesmo commit compilou aqui em ~2 minutos e o deploy
@@ -112,6 +126,20 @@ jobs:
   # guarda também prova que a sequência inteira roda num banco limpo — o que a
   # `esquema` só consegue afirmar a partir de um retrato.
   isolamento:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -261,6 +289,20 @@ jobs:
   # se perde fica dito: este job não exercita sessão nem política de acesso;
   # quem faz isso é o job `isolamento`, contra um banco de verdade.
   navegador:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
