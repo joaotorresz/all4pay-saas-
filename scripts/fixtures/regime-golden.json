@@ -1,0 +1,1026 @@
+{
+  "resolvedor": [
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regime": "simples"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regime": "Simples Nacional"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Presumido"
+      },
+      "regime": "presumido"
+    },
+    {
+      "db": {
+        "regime": "presumido"
+      },
+      "regime": "presumido"
+    },
+    {
+      "db": {
+        "regime": "Lucro Presumido"
+      },
+      "regime": "presumido"
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Real"
+      },
+      "regime": "real"
+    },
+    {
+      "db": {
+        "regime": "real"
+      },
+      "regime": "real"
+    },
+    {
+      "db": {
+        "regimeTributario": "MEI"
+      },
+      "regime": "mei"
+    },
+    {
+      "db": {
+        "regime": "mei"
+      },
+      "regime": "mei"
+    },
+    {
+      "db": {
+        "regimeTributario": "SIMPLES NACIONAL"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regime": "  Lucro Presumido  "
+      },
+      "regime": "presumido"
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "regime": "presumido"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Real",
+        "regime": "simples"
+      },
+      "regime": "real"
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "anexoSimples": "III"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "anexoSimples": "IV"
+      },
+      "regime": "simples"
+    },
+    {
+      "db": {
+        "regime": "presumido",
+        "anexoSimples": "IV"
+      },
+      "regime": "presumido"
+    }
+  ],
+  "regimeConfigurado": [
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "simples"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "Simples Nacional"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Presumido"
+      },
+      "r": {
+        "regime": "presumido",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "presumido"
+      },
+      "r": {
+        "regime": "presumido",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "Lucro Presumido"
+      },
+      "r": {
+        "regime": "presumido",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Real"
+      },
+      "r": {
+        "regime": "real",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "real"
+      },
+      "r": {
+        "regime": "real",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "MEI"
+      },
+      "r": {
+        "regime": "mei",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "mei"
+      },
+      "r": {
+        "regime": "mei",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "SIMPLES NACIONAL"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regime": "  Lucro Presumido  "
+      },
+      "r": {
+        "regime": "presumido",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "regime": "presumido"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Lucro Real",
+        "regime": "simples"
+      },
+      "r": {
+        "regime": "real",
+        "anexo": null
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "anexoSimples": "III"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": "III"
+      }
+    },
+    {
+      "db": {
+        "regimeTributario": "Simples Nacional",
+        "anexoSimples": "IV"
+      },
+      "r": {
+        "regime": "simples",
+        "anexo": "IV"
+      }
+    },
+    {
+      "db": {
+        "regime": "presumido",
+        "anexoSimples": "IV"
+      },
+      "r": {
+        "regime": "presumido",
+        "anexo": null
+      }
+    }
+  ],
+  "perfil": [
+    {
+      "regime": "simples",
+      "rotulo": "Simples Nacional",
+      "tributos": null,
+      "cargaTotal": 0,
+      "observacao": "No Simples a alíquota é EFETIVA por faixa — depende do faturamento dos últimos 12 meses (RBT12) e do anexo. Não existe percentual fixo: o sistema calcula a alíquota do seu mês a partir do seu faturamento."
+    },
+    {
+      "regime": "presumido",
+      "rotulo": "Lucro Presumido",
+      "tributos": [
+        {
+          "nome": "PIS",
+          "aliquota": 0.0065,
+          "origem": "cumulativo, 0,65% sobre a receita"
+        },
+        {
+          "nome": "COFINS",
+          "aliquota": 0.03,
+          "origem": "cumulativo, 3% sobre a receita"
+        },
+        {
+          "nome": "IRPJ",
+          "aliquota": 0.048,
+          "origem": "15% sobre a base presumida de 32%"
+        },
+        {
+          "nome": "CSLL",
+          "aliquota": 0.0288,
+          "origem": "9% sobre a base presumida de 32%"
+        },
+        {
+          "nome": "ISS",
+          "aliquota": 0.05,
+          "origem": "alíquota municipal — varia por cidade, confira a sua"
+        }
+      ],
+      "cargaTotal": 0.1633,
+      "observacao": "Base presumida de 32% (serviços). Comércio usa 8% e produz IRPJ/CSLL menores — confira a presunção da sua atividade. O ISS varia por município."
+    },
+    {
+      "regime": "real",
+      "rotulo": "Lucro Real",
+      "tributos": [
+        {
+          "nome": "PIS",
+          "aliquota": 0.0165,
+          "origem": "não cumulativo, 1,65% (com direito a crédito)"
+        },
+        {
+          "nome": "COFINS",
+          "aliquota": 0.076,
+          "origem": "não cumulativo, 7,6% (com direito a crédito)"
+        },
+        {
+          "nome": "ISS",
+          "aliquota": 0.05,
+          "origem": "alíquota municipal — varia por cidade"
+        }
+      ],
+      "cargaTotal": 0.14250000000000002,
+      "observacao": "⚠️ IRPJ e CSLL do Lucro Real incidem sobre o LUCRO, não sobre a receita — não entram nesta projeção, que é percentual sobre faturamento. PIS/COFINS são não cumulativos e admitem crédito, então a carga real costuma ser menor que a projetada."
+    },
+    {
+      "regime": "mei",
+      "rotulo": "MEI",
+      "tributos": null,
+      "cargaTotal": 0,
+      "observacao": "No MEI o DAS é um valor FIXO mensal (cerca de R$76,90), não um percentual sobre a receita. Projetar percentual aqui daria um número que não existe."
+    }
+  ],
+  "carga": [
+    {
+      "r": "simples",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "simples",
+      "x": 0.01,
+      "v": 0
+    },
+    {
+      "r": "simples",
+      "x": 1000,
+      "v": 0
+    },
+    {
+      "r": "simples",
+      "x": 123456.78,
+      "v": 0
+    },
+    {
+      "r": "simples",
+      "x": 1000000,
+      "v": 0
+    },
+    {
+      "r": "presumido",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "presumido",
+      "x": 0.01,
+      "v": 0.0016330000000000001
+    },
+    {
+      "r": "presumido",
+      "x": 1000,
+      "v": 163.3
+    },
+    {
+      "r": "presumido",
+      "x": 123456.78,
+      "v": 20160.492174
+    },
+    {
+      "r": "presumido",
+      "x": 1000000,
+      "v": 163300
+    },
+    {
+      "r": "real",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "real",
+      "x": 0.01,
+      "v": 0.0014250000000000003
+    },
+    {
+      "r": "real",
+      "x": 1000,
+      "v": 142.50000000000003
+    },
+    {
+      "r": "real",
+      "x": 123456.78,
+      "v": 17592.59115
+    },
+    {
+      "r": "real",
+      "x": 1000000,
+      "v": 142500.00000000003
+    },
+    {
+      "r": "mei",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "mei",
+      "x": 0.01,
+      "v": 0
+    },
+    {
+      "r": "mei",
+      "x": 1000,
+      "v": 0
+    },
+    {
+      "r": "mei",
+      "x": 123456.78,
+      "v": 0
+    },
+    {
+      "r": "mei",
+      "x": 1000000,
+      "v": 0
+    }
+  ],
+  "config": [
+    {
+      "regime": "simples",
+      "aliquotas": {
+        "icms": 0,
+        "pis": 0,
+        "cofins": 0,
+        "ipi": 0,
+        "iss": 0,
+        "csll": 0,
+        "inss": 0,
+        "irpj": 0
+      },
+      "fornecedores": {
+        "municipal": "",
+        "estadual": "",
+        "federal": ""
+      },
+      "categorias": {
+        "icms": "",
+        "pis": "",
+        "cofins": "",
+        "ipi": "",
+        "iss": "",
+        "csll": "",
+        "inss": "",
+        "irpj": ""
+      },
+      "diasVencimento": {
+        "pis": 25,
+        "cofins": 25,
+        "iss": 10,
+        "icms": 20,
+        "irpj": 0,
+        "csll": 0,
+        "ipi": 0,
+        "inss": 20
+      },
+      "contaId": ""
+    },
+    {
+      "regime": "presumido",
+      "aliquotas": {
+        "icms": 0,
+        "pis": 0.65,
+        "cofins": 3,
+        "ipi": 0,
+        "iss": 5,
+        "csll": 2.88,
+        "inss": 0,
+        "irpj": 4.8
+      },
+      "fornecedores": {
+        "municipal": "",
+        "estadual": "",
+        "federal": ""
+      },
+      "categorias": {
+        "icms": "",
+        "pis": "",
+        "cofins": "",
+        "ipi": "",
+        "iss": "",
+        "csll": "",
+        "inss": "",
+        "irpj": ""
+      },
+      "diasVencimento": {
+        "pis": 25,
+        "cofins": 25,
+        "iss": 10,
+        "icms": 20,
+        "irpj": 0,
+        "csll": 0,
+        "ipi": 0,
+        "inss": 20
+      },
+      "contaId": ""
+    },
+    {
+      "regime": "real",
+      "aliquotas": {
+        "icms": 0,
+        "pis": 1.65,
+        "cofins": 7.6,
+        "ipi": 0,
+        "iss": 5,
+        "csll": 9,
+        "inss": 0,
+        "irpj": 15
+      },
+      "fornecedores": {
+        "municipal": "",
+        "estadual": "",
+        "federal": ""
+      },
+      "categorias": {
+        "icms": "",
+        "pis": "",
+        "cofins": "",
+        "ipi": "",
+        "iss": "",
+        "csll": "",
+        "inss": "",
+        "irpj": ""
+      },
+      "diasVencimento": {
+        "pis": 25,
+        "cofins": 25,
+        "iss": 10,
+        "icms": 20,
+        "irpj": 0,
+        "csll": 0,
+        "ipi": 0,
+        "inss": 20
+      },
+      "contaId": ""
+    }
+  ],
+  "provisao": [
+    {
+      "r": "simples",
+      "p": {
+        "linhas": [
+          {
+            "vendaId": "a",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 1000,
+            "valores": {
+              "icms": 0,
+              "pis": 0,
+              "cofins": 0,
+              "ipi": 0,
+              "iss": 0,
+              "csll": 0,
+              "inss": 0,
+              "irpj": 0
+            },
+            "total": 0
+          },
+          {
+            "vendaId": "b",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 500,
+            "valores": {
+              "icms": 0,
+              "pis": 0,
+              "cofins": 0,
+              "ipi": 0,
+              "iss": 0,
+              "csll": 0,
+              "inss": 0,
+              "irpj": 0
+            },
+            "total": 0
+          },
+          {
+            "vendaId": "c",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 300,
+            "valores": {
+              "icms": 0,
+              "pis": 0,
+              "cofins": 0,
+              "ipi": 0,
+              "iss": 0,
+              "csll": 0,
+              "inss": 0,
+              "irpj": 0
+            },
+            "total": 0
+          },
+          {
+            "vendaId": "e",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 12345.67,
+            "valores": {
+              "icms": 0,
+              "pis": 0,
+              "cofins": 0,
+              "ipi": 0,
+              "iss": 0,
+              "csll": 0,
+              "inss": 0,
+              "irpj": 0
+            },
+            "total": 0
+          }
+        ],
+        "porImposto": {
+          "icms": 0,
+          "pis": 0,
+          "cofins": 0,
+          "ipi": 0,
+          "iss": 0,
+          "csll": 0,
+          "inss": 0,
+          "irpj": 0
+        },
+        "faturamento": 14145.67,
+        "total": 0
+      },
+      "contas": []
+    },
+    {
+      "r": "presumido",
+      "p": {
+        "linhas": [
+          {
+            "vendaId": "a",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 1000,
+            "valores": {
+              "icms": 0,
+              "pis": 6.5,
+              "cofins": 30,
+              "ipi": 0,
+              "iss": 50,
+              "csll": 28.8,
+              "inss": 0,
+              "irpj": 48
+            },
+            "total": 163.3
+          },
+          {
+            "vendaId": "b",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 500,
+            "valores": {
+              "icms": 0,
+              "pis": 3.25,
+              "cofins": 15,
+              "ipi": 0,
+              "iss": 25,
+              "csll": 14.4,
+              "inss": 0,
+              "irpj": 24
+            },
+            "total": 81.65
+          },
+          {
+            "vendaId": "c",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 300,
+            "valores": {
+              "icms": 0,
+              "pis": 1.95,
+              "cofins": 9,
+              "ipi": 0,
+              "iss": 15,
+              "csll": 8.64,
+              "inss": 0,
+              "irpj": 14.4
+            },
+            "total": 48.99
+          },
+          {
+            "vendaId": "e",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 12345.67,
+            "valores": {
+              "icms": 0,
+              "pis": 80.25,
+              "cofins": 370.37,
+              "ipi": 0,
+              "iss": 617.28,
+              "csll": 355.56,
+              "inss": 0,
+              "irpj": 592.59
+            },
+            "total": 2016.05
+          }
+        ],
+        "porImposto": {
+          "icms": 0,
+          "pis": 91.95,
+          "cofins": 424.37,
+          "ipi": 0,
+          "iss": 707.28,
+          "csll": 407.4,
+          "inss": 0,
+          "irpj": 678.99
+        },
+        "faturamento": 14145.67,
+        "total": 2309.99
+      },
+      "contas": [
+        {
+          "imposto": "pis",
+          "rotulo": "PIS",
+          "valor": 91.95,
+          "vencimento": "2026-09-25",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "cofins",
+          "rotulo": "COFINS",
+          "valor": 424.37,
+          "vencimento": "2026-09-25",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "iss",
+          "rotulo": "ISS",
+          "valor": 707.28,
+          "vencimento": "2026-09-10",
+          "fornecedorId": "fm",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "csll",
+          "rotulo": "CSLL",
+          "valor": 407.4,
+          "vencimento": "2026-09-30",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "irpj",
+          "rotulo": "IRPJ",
+          "valor": 678.99,
+          "vencimento": "2026-09-30",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        }
+      ]
+    },
+    {
+      "r": "real",
+      "p": {
+        "linhas": [
+          {
+            "vendaId": "a",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 1000,
+            "valores": {
+              "icms": 0,
+              "pis": 16.5,
+              "cofins": 76,
+              "ipi": 0,
+              "iss": 50,
+              "csll": 90,
+              "inss": 0,
+              "irpj": 150
+            },
+            "total": 382.5
+          },
+          {
+            "vendaId": "b",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 500,
+            "valores": {
+              "icms": 0,
+              "pis": 8.25,
+              "cofins": 38,
+              "ipi": 0,
+              "iss": 25,
+              "csll": 45,
+              "inss": 0,
+              "irpj": 75
+            },
+            "total": 191.25
+          },
+          {
+            "vendaId": "c",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 300,
+            "valores": {
+              "icms": 0,
+              "pis": 4.95,
+              "cofins": 22.8,
+              "ipi": 0,
+              "iss": 15,
+              "csll": 27,
+              "inss": 0,
+              "irpj": 45
+            },
+            "total": 114.75
+          },
+          {
+            "vendaId": "e",
+            "numero": "2026-0001",
+            "cliente": "Alpha",
+            "competencia": "2026-08-10",
+            "base": 12345.67,
+            "valores": {
+              "icms": 0,
+              "pis": 203.7,
+              "cofins": 938.27,
+              "ipi": 0,
+              "iss": 617.28,
+              "csll": 1111.11,
+              "inss": 0,
+              "irpj": 1851.85
+            },
+            "total": 4722.21
+          }
+        ],
+        "porImposto": {
+          "icms": 0,
+          "pis": 233.4,
+          "cofins": 1075.07,
+          "ipi": 0,
+          "iss": 707.28,
+          "csll": 1273.11,
+          "inss": 0,
+          "irpj": 2121.85
+        },
+        "faturamento": 14145.67,
+        "total": 5410.71
+      },
+      "contas": [
+        {
+          "imposto": "pis",
+          "rotulo": "PIS",
+          "valor": 233.4,
+          "vencimento": "2026-09-25",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "cofins",
+          "rotulo": "COFINS",
+          "valor": 1075.07,
+          "vencimento": "2026-09-25",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "iss",
+          "rotulo": "ISS",
+          "valor": 707.28,
+          "vencimento": "2026-09-10",
+          "fornecedorId": "fm",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "csll",
+          "rotulo": "CSLL",
+          "valor": 1273.11,
+          "vencimento": "2026-09-30",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        },
+        {
+          "imposto": "irpj",
+          "rotulo": "IRPJ",
+          "valor": 2121.85,
+          "vencimento": "2026-09-30",
+          "fornecedorId": "ff",
+          "categoria": "cat"
+        }
+      ]
+    }
+  ],
+  "novaVenda": [
+    {
+      "r": "simples",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "simples",
+      "x": 0.01,
+      "v": 0.0015379999999999999
+    },
+    {
+      "r": "simples",
+      "x": 1000,
+      "v": 153.79999999999998
+    },
+    {
+      "r": "simples",
+      "x": 123456.78,
+      "v": 18987.652764
+    },
+    {
+      "r": "simples",
+      "x": 1000000,
+      "v": 153800
+    },
+    {
+      "r": "presumido",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "presumido",
+      "x": 0.01,
+      "v": 0.0015379999999999999
+    },
+    {
+      "r": "presumido",
+      "x": 1000,
+      "v": 153.79999999999998
+    },
+    {
+      "r": "presumido",
+      "x": 123456.78,
+      "v": 18987.652764
+    },
+    {
+      "r": "presumido",
+      "x": 1000000,
+      "v": 153800
+    },
+    {
+      "r": "real",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "real",
+      "x": 0.01,
+      "v": 0.0015379999999999999
+    },
+    {
+      "r": "real",
+      "x": 1000,
+      "v": 153.79999999999998
+    },
+    {
+      "r": "real",
+      "x": 123456.78,
+      "v": 18987.652764
+    },
+    {
+      "r": "real",
+      "x": 1000000,
+      "v": 153800
+    },
+    {
+      "r": "mei",
+      "x": 0,
+      "v": 0
+    },
+    {
+      "r": "mei",
+      "x": 0.01,
+      "v": 0.0015379999999999999
+    },
+    {
+      "r": "mei",
+      "x": 1000,
+      "v": 153.79999999999998
+    },
+    {
+      "r": "mei",
+      "x": 123456.78,
+      "v": 18987.652764
+    },
+    {
+      "r": "mei",
+      "x": 1000000,
+      "v": 153800
+    }
+  ]
+}

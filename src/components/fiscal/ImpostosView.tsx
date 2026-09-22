@@ -15,7 +15,9 @@ import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { formatBRL } from "@/lib/format";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
 import { receitaTributavel, janelaMes } from "@/core/indicadores";
-import { perfilTributario, regimeDaEmpresa } from "@/core/tax/regime";
+import { perfilTributario } from "@/core/tax/regime";
+import { regimeDoCadastro, type Regime } from "@/core/fiscal/perfil";
+import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { loadCompany } from "@/lib/company";
 
 /**
@@ -25,16 +27,20 @@ import { loadCompany } from "@/lib/company";
  * módulo de imposto) mostrava, porque aquele lê o regime da empresa. Dois
  * módulos, duas respostas, e nenhuma pergunta ao cadastro.
  *
- * Agora as duas telas saem de `perfilTributario(regimeDaEmpresa(...))` — uma
- * fonte só para "qual é o regime" e uma só para "quanto ele custa".
+ * Agora as duas telas saem de `perfilTributario(regimeDoCadastro(...))` — uma
+ * fonte só para "qual é o regime" e uma só para "quanto ele custa". Sem regime
+ * declarado o perfil não tem tabela, e a tela mostra o aviso no lugar da carga.
  */
 
 export function ImpostosView() {
   const { data, isLoading } = useRiscoInput();
 
   // O regime vem do CADASTRO da empresa, resolvido por uma função só.
-  const regime = React.useMemo(
-    () => regimeDaEmpresa((loadCompany()?.db ?? null) as Record<string, unknown> | null), []);
+  // Lido depois de montar (o cadastro mora no navegador — hidratação).
+  const [regime, setRegime] = React.useState<Regime>("nao_declarado");
+  React.useEffect(() => {
+    setRegime(regimeDoCadastro((loadCompany()?.db ?? null) as Record<string, unknown> | null));
+  }, []);
   const perfil = React.useMemo(() => perfilTributario(regime), [regime]);
 
   const calc = React.useMemo(() => {
@@ -83,7 +89,9 @@ export function ImpostosView() {
           </p>
         </Card>
 
-        {isLoading || !calc ? (
+        {regime === "nao_declarado" ? (
+          <RegimeNaoDeclarado contexto="O provisionamento de impostos não é calculado" />
+        ) : isLoading || !calc ? (
           <Card><Skeleton className="h-64 w-full" /></Card>
         ) : (
           <>

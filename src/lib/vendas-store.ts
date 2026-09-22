@@ -81,8 +81,21 @@ export function proximoNumero(): string {
 
 /* -------------------------- configuração de impostos -------------------------- */
 
+/**
+ * ⚠️ DÍVIDA DECLARADA, não esquecida. Quando a empresa nunca salvou a
+ * configuração de impostos, a tela parte das alíquotas do Lucro Presumido —
+ * inclusive para quem declarou Simples ou Real. Trocar isto pelo regime
+ * declarado MUDA o número de empresa com regime declarado, e o card que tirou o
+ * Presumido por omissão exigiu o contrário (número idêntico para quem
+ * declarou). Fica EXPLÍCITO aqui, com nome, até alguém decidir.
+ *
+ * Quem NÃO declarou regime nunca chega aqui: a tela de provisionamento mostra o
+ * aviso e não monta a configuração.
+ */
+export const REGIME_DA_CONFIG_NUNCA_SALVA = "presumido" as const;
+
 export const lerConfigImpostos = (): ConfigImpostos =>
-  ler<ConfigImpostos>(K_CONFIG, configPadrao());
+  ler<ConfigImpostos>(K_CONFIG, configPadrao(REGIME_DA_CONFIG_NUNCA_SALVA));
 
 export function salvarConfigImpostos(c: ConfigImpostos): ConfigImpostos {
   gravar(K_CONFIG, c);

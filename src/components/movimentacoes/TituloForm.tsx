@@ -45,7 +45,7 @@ import {
 import {
   BlocoFolha, FOLHA_PADRAO, colaboradorDe, titulosDoCadastro, type DadosFolha,
 } from "./BlocoFolha";
-import { regimeDaEmpresa, saveColaborador } from "@/lib/folha";
+import { regimeEAnexoDaEmpresa, saveColaborador } from "@/lib/folha";
 import { appendImported } from "@/lib/imported";
 import { vincularProjeto } from "@/lib/projeto-vinculo";
 import { isDemo } from "@/lib/demo";
@@ -86,7 +86,7 @@ export function TituloForm({ direcao }: { direcao: Direcao }) {
   const mesAtual = hoje().slice(0, 7);
   const [folha, setFolha] = React.useState<DadosFolha>(() => FOLHA_PADRAO(mesAtual));
   // O regime sai da fonte única do perfil fiscal — ver `lib/folha`.
-  const fiscal = React.useMemo(() => regimeDaEmpresa(), []);
+  const fiscal = React.useMemo(() => regimeEAnexoDaEmpresa(), []);
   const [f, setF] = React.useState({
     parteId: "", competencia: hoje(), vencimento: hoje(), valor: 0,
     contaId: "", categoria: "", mostrarDRE: true, descricao: "", documentoFiscal: "",
