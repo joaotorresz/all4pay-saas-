@@ -5305,3 +5305,15 @@ npm run ia-eval    # O CONJUNTO DE AVALIAÇÃO DA IA (scripts/ia-eval.mts): 31 c
                    # no motor da IA / core/* / lib de dados. Também roda no CI
                    # (.github/workflows/ci.yml) em push/PR.
 ```
+
+---
+
+## Agentes deste repositório
+
+- `.claude/agents/` contém três agentes: **`erp-gestor`**, **`erp-dev`** e
+  **`guarda`**.
+- Neste repositório a política é **PR sempre, sem exceção**, e **nenhuma
+  migration é aplicada por agente** — o agente escreve o arquivo; quem aplica é
+  o dono, depois do merge.
+- A fonte de versão desses arquivos é o repositório **`quattro-agency`**. Não
+  editar aqui: mudança nasce lá e é copiada para cá.
