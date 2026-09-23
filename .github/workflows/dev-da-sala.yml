@@ -1,7 +1,7 @@
 name: Dev da Sala
 
 # Pega UMA tarefa aprovada na Sala da Quattro (espelhada no ClickUp num card cujo nome começa com "▶ SALA · ERP ·"),
-# implementa em branch, abre PR e devolve o resultado no card. Nunca faz merge.
+# o Claude implementa e commita numa branch; o próprio workflow envia a branch, abre o PR e devolve o resultado no card. Nunca faz merge.
 on:
   schedule:
     - cron: "40 12-21 * * 1-5"   # de hora em hora, 9h–18h de Brasília, dias úteis
@@ -49,6 +49,8 @@ jobs:
               raise SystemExit(0)
           t = ts[0]
           out.write("has=true\nid=%s\n" % t["id"])
+          titulo = t["name"][len(os.environ["SALA_PREFIX"]):].strip() or t["name"]
+          open(os.path.join(os.environ["RUNNER_TEMP"], "titulo.txt"), "w").write(titulo[:120])
           body = t.get("markdown_description") or t.get("text_content") or ""
           open(os.path.join(os.environ["RUNNER_TEMP"], "tarefa.md"), "w").write("# " + t["name"] + "\n\n" + body + "\n")
           PY
@@ -67,11 +69,14 @@ jobs:
             curl -fsS -X POST -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" -d @- \
             "https://api.clickup.com/api/v2/task/$TASK/comment" > /dev/null
           git rev-parse origin/main > "$RUNNER_TEMP/main_antes.txt"
+          git config user.name "Dev da Sala"
+          git config user.email "dev-da-sala@users.noreply.github.com"
+          git checkout -b "sala-$TASK"
 
       - uses: actions/setup-node@v4
         if: steps.pick.outputs.has == 'true'
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Dependências
@@ -92,16 +97,38 @@ jobs:
             A tarefa aprovada pelo João está em ${{ runner.temp }}/tarefa.md. Leia inteira.
 
             1. Se faltar dado essencial, se a tarefa pedir algo que uma trava proíbe, ou se ela exigir credencial, variável de ambiente, migration aplicada ou acesso ao banco: NÃO programe. Escreva em ${{ runner.temp }}/resultado.md uma linha começando com "BLOQUEIO:" e o motivo em até 5 linhas, e pare.
-            2. Crie a branch: git checkout -b sala-${{ steps.pick.outputs.id }}
-            3. Implemente SÓ o escopo da tarefa. Achou outro problema? Anote no PR, não conserte.
-            4. Rode e guarde a saída: npm run typecheck, npm run build e npm test. Se npm test falhar só no esquema (manifesto velho) ou no ddl:prova (prazo vencido de own_extrato_lojista), registre isso no PR como falha pré-existente e siga; qualquer outra falha precisa ser resolvida ou vira BLOQUEIO. Esta execução não tem acesso ao banco: diga isso no PR em vez de estimar números.
-            5. git add, git commit (mensagem em português), git push -u origin sala-${{ steps.pick.outputs.id }}
-            6. Abra o PR com: gh pr create --base main --head sala-${{ steps.pick.outputs.id }} --title "<título curto>" --body-file <arquivo>. O corpo tem: O QUE MUDOU (3 linhas), VERIFICAÇÃO (saída dos comandos), CONFIGURAR (João) ou "nada", RISCO EM PRODUÇÃO, ACHADOS FORA DO ESCOPO. Última linha: "Tarefa da Sala: ${{ steps.pick.outputs.id }}".
-            7. Nunca dê merge, nunca faça push em main, nunca crie ou altere segredo, variável de ambiente ou configuração.
-            8. Escreva em ${{ runner.temp }}/resultado.md: primeira linha "FEITO: <url do PR>", depois até 3 linhas com o que o João precisa revisar.
+            2. Você já está na branch sala-${{ steps.pick.outputs.id }}, criada pelo workflow. Não troque de branch, não crie outra e não use worktree.
+            3. Implemente SÓ o escopo da tarefa. Achou outro problema? Anote no resultado, não conserte.
+            4. Rode e guarde a saída: npm run typecheck, npm run build e npm test. Se npm test falhar só no esquema (manifesto velho) ou no ddl:prova (prazo vencido de own_extrato_lojista), registre isso como falha pré-existente e siga; qualquer outra falha precisa ser resolvida ou vira BLOQUEIO. Esta execução não tem acesso ao banco: diga isso em vez de estimar números.
+            5. git add e git commit (mensagem em português). NÃO faça push e NÃO abra PR: o workflow faz isso depois, com o seu resultado.md como corpo do PR.
+            6. Nunca dê merge, nunca mexa em main, nunca crie ou altere segredo, variável de ambiente ou configuração.
+            7. Escreva em ${{ runner.temp }}/resultado.md o corpo do PR, nesta ordem: primeira linha "FEITO: <resumo de uma linha>"; depois O QUE MUDOU (3 linhas), VERIFICAÇÃO (saída resumida dos comandos), CONFIGURAR (João) ou "nada", RISCO EM PRODUÇÃO, ACHADOS FORA DO ESCOPO. Última linha: "Tarefa da Sala: ${{ steps.pick.outputs.id }}".
           claude_args: |
             --max-turns 120
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout -b sala-:*),Bash(git add:*),Bash(git commit:*),Bash(git push -u origin sala-:*),Bash(npm run typecheck:*),Bash(npm run build:*),Bash(npm run lint:*),Bash(npm test:*),Bash(gh pr create:*),Bash(gh pr view:*)"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git add:*),Bash(git commit:*),Bash(npm run typecheck:*),Bash(npm run build:*),Bash(npm run lint:*),Bash(npm test:*),Bash(npx tsc:*),Bash(npx vitest:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Bash(node --version),Bash(mkdir:*)"
+
+      - name: Abre o PR
+        id: pr
+        if: always() && steps.pick.outputs.has == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK: ${{ steps.pick.outputs.id }}
+        run: |
+          set -uo pipefail
+          B="sala-$TASK"
+          R="$RUNNER_TEMP/resultado.md"
+          if head -n 1 "$R" 2>/dev/null | grep -q '^BLOQUEIO'; then echo "Bloqueado pelo dev; sem PR."; exit 0; fi
+          if ! head -n 1 "$R" 2>/dev/null | grep -q '^FEITO'; then echo "Sem resultado FEITO; sem PR."; exit 0; fi
+          if [ "$(git rev-parse --abbrev-ref HEAD)" != "$B" ]; then git checkout "$B" || exit 0; fi
+          if [ -n "$(git status --porcelain)" ]; then git add -A && git commit -q -m "Dev da Sala: alterações não commitadas ($TASK)"; fi
+          if [ "$(git rev-list --count origin/main..HEAD)" = "0" ]; then echo "Nada mudou; sem PR."; exit 0; fi
+          if git diff --name-only origin/main..HEAD | grep -q '^\.github/workflows/'; then
+            printf 'BLOQUEIO: a mudança mexe em .github/workflows, o que o Dev da Sala não pode publicar. Branch local descartada.\n' > "$R"; exit 0
+          fi
+          git push -u origin "$B" || { printf 'BLOQUEIO: o push da branch %s falhou. Veja o log.\n' "$B" > "$R"; exit 0; }
+          URL="$(gh pr create --base main --head "$B" --title "$(cat "$RUNNER_TEMP/titulo.txt")" --body-file "$R")" || { printf 'BLOQUEIO: branch %s enviada, mas o PR não abriu. Abra manualmente.\n' "$B" > "$R"; exit 0; }
+          { echo "FEITO: $URL"; tail -n +2 "$R" | head -c 2500; } > "$R.card" && mv "$R.card" "$R"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Devolve o resultado ao card
         if: always() && steps.pick.outputs.has == 'true'
