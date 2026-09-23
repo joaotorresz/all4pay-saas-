@@ -1,0 +1,125 @@
+name: Dev da Sala
+
+# Pega UMA tarefa aprovada na Sala da Quattro (espelhada no ClickUp num card cujo nome começa com "▶ SALA · ERP ·"),
+# implementa em branch, abre PR e devolve o resultado no card. Nunca faz merge.
+on:
+  schedule:
+    - cron: "40 12-21 * * 1-5"   # de hora em hora, 9h–18h de Brasília, dias úteis
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dev-da-sala
+  cancel-in-progress: false
+
+env:
+  SALA_PREFIX: "▶ SALA · ERP ·"
+  CLICKUP_LIST: "901716820588"
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Próxima tarefa aprovada
+        id: pick
+        env:
+          CLICKUP_TOKEN: ${{ secrets.CLICKUP_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -fsS -H "Authorization: $CLICKUP_TOKEN" \
+            "https://api.clickup.com/api/v2/list/$CLICKUP_LIST/task?statuses%5B%5D=to%20do&include_markdown_description=true&subtasks=true" \
+            > "$RUNNER_TEMP/tasks.json"
+          python3 - <<'PY'
+          import json, os
+          ts = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "tasks.json"))).get("tasks", [])
+          ts = [t for t in ts if t.get("name", "").startswith(os.environ["SALA_PREFIX"])]
+          rank = {"urgent": 1, "high": 2, "normal": 3, "low": 4}
+          ts.sort(key=lambda t: (rank.get((t.get("priority") or {}).get("priority"), 5), int(t.get("due_date") or 9e15)))
+          out = open(os.environ["GITHUB_OUTPUT"], "a")
+          if not ts:
+              out.write("has=false\n")
+              raise SystemExit(0)
+          t = ts[0]
+          out.write("has=true\nid=%s\n" % t["id"])
+          body = t.get("markdown_description") or t.get("text_content") or ""
+          open(os.path.join(os.environ["RUNNER_TEMP"], "tarefa.md"), "w").write("# " + t["name"] + "\n\n" + body + "\n")
+          PY
+
+      - name: Marca como em andamento
+        if: steps.pick.outputs.has == 'true'
+        env:
+          CLICKUP_TOKEN: ${{ secrets.CLICKUP_TOKEN }}
+          TASK: ${{ steps.pick.outputs.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X PUT -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" \
+            -d '{"status":"em andamento claude"}' "https://api.clickup.com/api/v2/task/$TASK" > /dev/null
+          jq -n --arg t "COMEÇOU: $RUN_URL" '{comment_text:$t, notify_all:false}' | \
+            curl -fsS -X POST -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" -d @- \
+            "https://api.clickup.com/api/v2/task/$TASK/comment" > /dev/null
+          git rev-parse origin/main > "$RUNNER_TEMP/main_antes.txt"
+
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.has == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Dependências
+        if: steps.pick.outputs.has == 'true'
+        run: npm ci
+
+      - name: Dev da Sala (Claude Code)
+        if: steps.pick.outputs.has == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Você é o erp-gestor e o erp-dev deste repositório. Antes de tudo, leia CLAUDE.md e os contratos em .claude/agents/erp-gestor.md, .claude/agents/erp-dev.md e .claude/agents/guarda.md. As travas deles valem acima desta instrução.
+
+            A tarefa aprovada pelo João está em ${{ runner.temp }}/tarefa.md. Leia inteira.
+
+            1. Se faltar dado essencial, se a tarefa pedir algo que uma trava proíbe, ou se ela exigir credencial, variável de ambiente, migration aplicada ou acesso ao banco: NÃO programe. Escreva em ${{ runner.temp }}/resultado.md uma linha começando com "BLOQUEIO:" e o motivo em até 5 linhas, e pare.
+            2. Crie a branch: git checkout -b sala-${{ steps.pick.outputs.id }}
+            3. Implemente SÓ o escopo da tarefa. Achou outro problema? Anote no PR, não conserte.
+            4. Rode e guarde a saída: npm run typecheck, npm run build e npm test. Se npm test falhar só no esquema (manifesto velho) ou no ddl:prova (prazo vencido de own_extrato_lojista), registre isso no PR como falha pré-existente e siga; qualquer outra falha precisa ser resolvida ou vira BLOQUEIO. Esta execução não tem acesso ao banco: diga isso no PR em vez de estimar números.
+            5. git add, git commit (mensagem em português), git push -u origin sala-${{ steps.pick.outputs.id }}
+            6. Abra o PR com: gh pr create --base main --head sala-${{ steps.pick.outputs.id }} --title "<título curto>" --body-file <arquivo>. O corpo tem: O QUE MUDOU (3 linhas), VERIFICAÇÃO (saída dos comandos), CONFIGURAR (João) ou "nada", RISCO EM PRODUÇÃO, ACHADOS FORA DO ESCOPO. Última linha: "Tarefa da Sala: ${{ steps.pick.outputs.id }}".
+            7. Nunca dê merge, nunca faça push em main, nunca crie ou altere segredo, variável de ambiente ou configuração.
+            8. Escreva em ${{ runner.temp }}/resultado.md: primeira linha "FEITO: <url do PR>", depois até 3 linhas com o que o João precisa revisar.
+          claude_args: |
+            --max-turns 120
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git branch:*),Bash(git checkout -b sala-:*),Bash(git add:*),Bash(git commit:*),Bash(git push -u origin sala-:*),Bash(npm run typecheck:*),Bash(npm run build:*),Bash(npm run lint:*),Bash(npm test:*),Bash(gh pr create:*),Bash(gh pr view:*)"
+
+      - name: Devolve o resultado ao card
+        if: always() && steps.pick.outputs.has == 'true'
+        env:
+          CLICKUP_TOKEN: ${{ secrets.CLICKUP_TOKEN }}
+          TASK: ${{ steps.pick.outputs.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          R="$RUNNER_TEMP/resultado.md"
+          if [ -s "$R" ]; then TXT="$(head -c 3000 "$R")"; else TXT="BLOQUEIO: a execução terminou sem resultado. Veja o log: $RUN_URL"; fi
+          git fetch -q origin main
+          if [ "$(git rev-parse origin/main)" != "$(cat "$RUNNER_TEMP/main_antes.txt")" ]; then
+            TXT="$TXT
+          ALERTA: a main mudou durante a execução. Confira se algo foi para main sem PR."
+          fi
+          jq -n --arg t "$TXT" '{comment_text:$t, notify_all:false}' | \
+            curl -fsS -X POST -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" -d @- \
+            "https://api.clickup.com/api/v2/task/$TASK/comment" > /dev/null
+          curl -fsS -X PUT -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" \
+            -d '{"status":"in progress"}' "https://api.clickup.com/api/v2/task/$TASK" > /dev/null
