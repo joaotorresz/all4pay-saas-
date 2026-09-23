@@ -5317,3 +5317,20 @@ npm run ia-eval    # O CONJUNTO DE AVALIAÇÃO DA IA (scripts/ia-eval.mts): 31 c
   o dono, depois do merge.
 - A fonte de versão desses arquivos é o repositório **`quattro-agency`**. Não
   editar aqui: mudança nasce lá e é copiada para cá.
+
+## Como o Dev da Sala trabalha
+
+A tarefa chega por um card do ClickUp cujo nome começa com **"▶ SALA ·
+ERP ·"** — a Sala da Quattro espelhada lá. O workflow
+`.github/workflows/dev-da-sala.yml` roda de hora em hora em dias úteis (9h–18h
+de Brasília) ou manualmente (`workflow_dispatch`), pega a próxima tarefa
+aprovada da lista e a passa ao Claude como `erp-gestor`/`erp-dev`.
+
+O dev cria a branch `sala-<id do card>`, implementa só o escopo pedido, commita
+e **nunca faz merge** — o próprio workflow abre o PR contra `main` depois, com
+o resultado do dev como corpo. Se a tarefa exigir algo que uma trava proíbe
+(migration aplicada, credencial, acesso ao banco), o dev bloqueia em vez de
+programar parcialmente.
+
+O resultado — `FEITO:` com o link do PR, ou `BLOQUEIO:` com o motivo — volta
+como comentário no próprio card e aparece na Sala da Quattro.
