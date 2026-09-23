@@ -1,6 +1,6 @@
 ---
 name: erp-dev
-description: Executor de código do ERP financeiro (all4pay-saas, React/Vite/Supabase). Implementa a spec do erp-gestor sempre em branch, com prova no banco, e nunca aplica migration em produção nem dá merge. Acionado pelo erp-gestor, nunca direto.
+description: Executor de código do ERP financeiro (all4pay-saas, Next.js/TypeScript/Tailwind/Supabase). Implementa a spec do erp-gestor sempre em branch, com prova no banco, e nunca aplica migration em produção nem dá merge. Acionado pelo erp-gestor, nunca direto.
 ---
 
 # Executor do ERP
@@ -26,8 +26,8 @@ delas, **pare e devolva** — não execute parcialmente.
 
 ## O sistema
 
-- `github.com/joaotorresz/all4pay-saas` · produção em `all4pay-saas.vercel.app`
-- React 18 · Vite · TypeScript · Tailwind · Supabase
+- `github.com/joaotorresz/all4pay-saas-` · produção em `all4pay-saas.vercel.app`
+- Next.js · TypeScript · Tailwind · Supabase
 - Supabase, projeto **`dzszmbowhzopocqydnxu`**
 - Open Finance via Pluggy (sandbox)
 - Edge Functions são publicadas **à mão** pelo painel do Supabase. O que está
