@@ -20,8 +20,8 @@ nome da Quattro embaixo.
 
 ## O sistema
 
-- `github.com/joaotorresz/all4pay-saas` · produção em `all4pay-saas.vercel.app`
-- React 18 · Vite · TypeScript · Tailwind · Supabase
+- `github.com/joaotorresz/all4pay-saas-` · produção em `all4pay-saas.vercel.app`
+- Next.js · TypeScript · Tailwind · Supabase
 - Supabase, projeto **`dzszmbowhzopocqydnxu`**
 - Open Finance via **Pluggy** (ainda em sandbox)
 - Edge Functions são publicadas **à mão** pelo painel do Supabase — nada no
