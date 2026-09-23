@@ -6,14 +6,13 @@ on:
   schedule:
     - cron: "40 12-21 * * 1-5"   # de hora em hora, 9h–18h de Brasília, dias úteis
   workflow_dispatch:
+  pull_request:
+    types: [closed]
 
 permissions:
   contents: write
   pull-requests: write
-
-concurrency:
-  group: dev-da-sala
-  cancel-in-progress: false
+  actions: write
 
 env:
   SALA_PREFIX: "▶ SALA · ERP ·"
@@ -21,8 +20,12 @@ env:
 
 jobs:
   dev:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    concurrency:
+      group: dev-da-sala
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +51,7 @@ jobs:
               out.write("has=false\n")
               raise SystemExit(0)
           t = ts[0]
-          out.write("has=true\nid=%s\n" % t["id"])
+          out.write("has=true\nid=%s\nmore=%s\n" % (t["id"], "true" if len(ts) > 1 else "false"))
           titulo = t["name"][len(os.environ["SALA_PREFIX"]):].strip() or t["name"]
           open(os.path.join(os.environ["RUNNER_TEMP"], "titulo.txt"), "w").write(titulo[:120])
           body = t.get("markdown_description") or t.get("text_content") or ""
@@ -150,3 +153,29 @@ jobs:
             "https://api.clickup.com/api/v2/task/$TASK/comment" > /dev/null
           curl -fsS -X PUT -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" \
             -d '{"status":"in progress"}' "https://api.clickup.com/api/v2/task/$TASK" > /dev/null
+
+      - name: Chama a próxima tarefa da fila
+        if: always() && steps.pick.outputs.more == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run dev-da-sala.yml --ref main -R "$GITHUB_REPOSITORY" || echo "Não consegui chamar a próxima; o agendamento pega."
+
+  merge:
+    # Quando o João dá merge num PR do Dev da Sala, o card vira "complete" e a Sala marca a tarefa como feita.
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'sala-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fecha o card no ClickUp
+        env:
+          CLICKUP_TOKEN: ${{ secrets.CLICKUP_TOKEN }}
+          REF: ${{ github.event.pull_request.head.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          TASK="${REF#sala-}"
+          [[ "$TASK" =~ ^[A-Za-z0-9]+$ ]] || { echo "Branch fora do padrão"; exit 0; }
+          jq -n --arg t "MERGEADO: $PR_URL" '{comment_text:$t, notify_all:false}' | \
+            curl -fsS -X POST -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" -d @- \
+            "https://api.clickup.com/api/v2/task/$TASK/comment" > /dev/null
+          curl -fsS -X PUT -H "Authorization: $CLICKUP_TOKEN" -H "Content-Type: application/json" \
+            -d '{"status":"complete"}' "https://api.clickup.com/api/v2/task/$TASK" > /dev/null
