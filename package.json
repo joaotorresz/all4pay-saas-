@@ -22,7 +22,7 @@
     "card-tabela": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/contrato-card-tabela.mts",
     "cronometro": "node ./scripts/onboarding-cronometro.mjs",
     "promessas": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/promessas.mts",
-    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb && npm run tz && npm run audit && npm run regime-golden && npm run consistencia && npm run reconciliacao && npm run contrato && npm run coerencia && npm run ia-eval && npm run esquema && npm run paleta && npm run fila-500 && npm run travar && npm run cron-auth && npm run baixa && npm run exportacao && npm run datas && npm run promessas && npm run card-tabela && npm run impressao && npm run cadastro-nome",
+    "test": "npm run typecheck && npm run smoke && npm run corpus && npm run values && npm run edge && npm run kb && npm run tz && npm run audit && npm run regime-golden && npm run consistencia && npm run reconciliacao && npm run contrato && npm run coerencia && npm run ia-eval && npm run esquema && npm run paleta && npm run fila-500 && npm run travar && npm run cron-auth && npm run baixa && npm run exportacao && npm run datas && npm run promessas && npm run card-tabela && npm run impressao && npm run cadastro-nome && npm run recorrencias-simulacao",
     "coerencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/coerencia.mts",
     "consistencia": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/consistencia.mts",
     "contrato": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/contrato-resultado.mts",
@@ -51,7 +51,8 @@
     "ddl:prova": "bash scripts/ddl-prova.sh",
     "fila-500": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/fila-500.mts",
     "travar": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/travar-numeros.mts",
-    "cron-auth": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/prova-cron-auth.mts"
+    "cron-auth": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/prova-cron-auth.mts",
+    "recorrencias-simulacao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/recorrencias-simulacao.mts"
   },
   "dependencies": {
     "@fontsource-variable/geist-mono": "^5.2.8",
