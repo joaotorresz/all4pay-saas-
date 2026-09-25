@@ -27,6 +27,7 @@
  * uma terceira vez — o conserto criando o defeito que ia consertar.
  */
 import type { RegimeTributario } from "@/core/administracao";
+import { regimeDoCadastro } from "@/core/fiscal/perfil";
 
 export const TAX_DUPLICIDADE_VERSION = "tax-duplicidade/1.0.0";
 
@@ -49,11 +50,13 @@ export const ANEXOS_SIMPLES: { id: AnexoSimplesCadastro; label: string }[] = [
 /**
  * O regime como ele é no cadastro: **pode não estar configurado**.
  *
- * ⚠️ `null` é um valor de primeira classe aqui, e é o ponto. `regimeDaEmpresa`
- * assume `presumido` quando não há nada gravado — o que é razoável para
- * PROJETAR uma carga, e é mentira para DECIDIR se há duplicidade: uma empresa
- * sem regime configurado seria tratada como Presumido e o alerta do Simples
- * nunca apareceria, justamente para quem não configurou nada.
+ * ⚠️ `null` é um valor de primeira classe aqui, e é o ponto: uma empresa sem
+ * regime configurado tratada como Presumido nunca veria o alerta do Simples,
+ * justamente quem não configurou nada.
+ *
+ * O regime sai do resolvedor ÚNICO (`regimeDoCadastro`); aqui só se traduz o
+ * `nao_declarado` dele para o `null` que este módulo sempre usou. Esta função
+ * era o terceiro resolvedor do mesmo cadastro, com a precedência reescrita.
  */
 export interface RegimeConfigurado {
   regime: RegimeTributario | null;
@@ -62,17 +65,11 @@ export interface RegimeConfigurado {
 
 /** Lê o regime do cadastro SEM inventar padrão. Vazio é vazio. */
 export function regimeConfigurado(db: Record<string, unknown> | null | undefined): RegimeConfigurado {
-  const bruto = String(db?.regimeTributario ?? db?.regime ?? "").toLowerCase().trim();
   const anexoBruto = String(db?.anexoSimples ?? "").toUpperCase().trim();
   const anexo = (["I", "II", "III", "IV", "V"] as const).find((a) => a === anexoBruto) ?? null;
-  if (!bruto) return { regime: null, anexo };
-  const regime: RegimeTributario | null =
-    bruto.includes("simples") ? "simples"
-    : bruto.includes("mei") ? "mei"
-    : bruto.includes("real") ? "real"
-    : bruto.includes("presumido") ? "presumido"
-    : null;
-  return { regime, anexo: regime === "simples" ? anexo : null };
+  const r = regimeDoCadastro(db);
+  if (r === "nao_declarado") return { regime: null, anexo: null };
+  return { regime: r, anexo: r === "simples" ? anexo : null };
 }
 
 /** Um lançamento que caiu na linha de imposto sobre o lucro. */

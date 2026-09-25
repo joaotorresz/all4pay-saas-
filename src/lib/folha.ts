@@ -40,14 +40,17 @@ export function restaurarColaboradores(lista: Colaborador[]): void {
 }
 
 /**
- * O regime e o anexo da empresa, da fonte única.
+ * O regime e o anexo da empresa. O regime sai do resolvedor único
+ * (`regimeDoCadastro`); este nome NÃO é outro resolvedor — até o card do regime
+ * único ele se chamava `regimeDaEmpresa`, o mesmo nome da função que assumia
+ * Presumido, e dois `regimeDaEmpresa` com respostas opostas é o defeito.
  *
  * ⚠️ `nao_declarado` é um valor de primeira classe, não um buraco para
  * preencher com um padrão: assumir "presumido" acrescentaria 28% de encargo
  * patronal ao custo de cada funcionário de uma empresa do Simples, e o número
  * sairia com a mesma cara de certo. A tela avisa e manda declarar.
  */
-export function regimeDaEmpresa(): { regime: Regime; anexo: Anexo | null } {
+export function regimeEAnexoDaEmpresa(): { regime: Regime; anexo: Anexo | null } {
   const empresa = loadCompany();
   const db = (empresa?.db ?? {}) as Record<string, unknown>;
   const regime = regimeDoCadastro(db);

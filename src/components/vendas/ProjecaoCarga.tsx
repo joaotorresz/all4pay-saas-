@@ -18,8 +18,10 @@ import * as React from "react";
 import { Card, BRL, Icon, StatusBadge, Select } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { loadCompany } from "@/lib/company";
-import { perfilTributario, regimeDaEmpresa } from "@/core/tax/regime";
-import { REGIMES, type RegimeTributario } from "@/core/administracao";
+import { perfilTributario } from "@/core/tax/regime";
+import { regimeDoCadastro, type Regime } from "@/core/fiscal/perfil";
+import { REGIMES } from "@/core/administracao";
+import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { receitaTributavel, janelaMes, janelaUltimosDias, parseLocal } from "@/core/indicadores";
 
 const MES_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
@@ -28,20 +30,19 @@ export function ProjecaoCarga() {
   const { data: input } = useRiscoInput();
   // O regime salvo no cadastro da empresa. O select existe para SIMULAR outro
   // regime — não para substituir a configuração, que é onde a decisão mora.
-  const [regime, setRegime] = React.useState<RegimeTributario>("presumido");
-  const [salvo, setSalvo] = React.useState<RegimeTributario | null>(null);
+  //
+  // ⚠️ O estado inicial ERA "presumido": quem não declarou regime abria a tela
+  // vendo a carga de 16,33% do Lucro Presumido, com o selo "Simulando" como
+  // única pista. Agora começa em "não declarado", que não tem tabela — a tela
+  // mostra o aviso no lugar do número. Simular continua possível, mas é uma
+  // escolha de quem clica, nunca um padrão.
+  const [regime, setRegime] = React.useState<Regime>("nao_declarado");
+  const [salvo, setSalvo] = React.useState<Regime | null>(null);
 
   React.useEffect(() => {
-    // localStorage só depois de montar (hidratação).
-    // ⚠️ Pelo RESOLVEDOR, não por `db.regime` cru. Esta tela importava
-    // `regimeDaEmpresa` e mesmo assim lia a chave direto: uma empresa que
-    // preencheu o regime no onboarding (que grava `regimeTributario`) caía no
-    // padrão aqui e via a carga de um regime que não é o dela.
-    const db = loadCompany()?.db as Record<string, unknown> | undefined;
-    if (db && (db.regime || db.regimeTributario)) {
-      const r = regimeDaEmpresa(db);
-      setRegime(r); setSalvo(r);
-    }
+    // localStorage só depois de montar (hidratação). Pelo resolvedor ÚNICO.
+    const r = regimeDoCadastro(loadCompany()?.db as Record<string, unknown> | undefined);
+    if (r !== "nao_declarado") { setRegime(r); setSalvo(r); }
   }, []);
 
   const perfil = perfilTributario(regime);
@@ -85,7 +86,8 @@ export function ProjecaoCarga() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-h3 text-ink">Projeção da carga</span>
         <StatusBadge tone={salvo === regime ? "positive" : "warning"}>
-          {salvo === regime ? `Regime da empresa: ${perfil.rotulo}` : `Simulando ${perfil.rotulo}`}
+          {salvo === regime ? `Regime da empresa: ${perfil.rotulo}`
+            : regime === "nao_declarado" ? perfil.rotulo : `Simulando ${perfil.rotulo}`}
         </StatusBadge>
       </div>
 
@@ -95,8 +97,11 @@ export function ProjecaoCarga() {
         <Select
           label="Regime tributário"
           value={regime}
-          onChange={(v) => setRegime(v as RegimeTributario)}
-          options={REGIMES.map((r) => ({ value: r.id, label: r.label }))}
+          onChange={(v) => setRegime(v as Regime)}
+          options={[
+            ...(salvo ? [] : [{ value: "nao_declarado", label: "Não declarado" }]),
+            ...REGIMES.map((r) => ({ value: r.id, label: r.label })),
+          ]}
           containerClassName="min-w-[220px]"
         />
         {salvo && salvo !== regime && (
@@ -104,10 +109,10 @@ export function ProjecaoCarga() {
             Voltar ao regime da empresa
           </button>
         )}
-        {!salvo && (
+        {!salvo && regime !== "nao_declarado" && (
           <span className="text-caption text-faint pb-2 max-w-[46ch]">
-            A empresa ainda não tem regime salvo — defina em Dados da empresa para a
-            projeção parar de assumir um.
+            Simulação: a empresa não declarou regime. Declare em Configurações para
+            a projeção sair do regime dela.
           </span>
         )}
       </div>
@@ -151,6 +156,8 @@ export function ProjecaoCarga() {
             </div>
           </div>
         </>
+      ) : regime === "nao_declarado" ? (
+        <RegimeNaoDeclarado compacto contexto="A projeção da carga não é calculada" />
       ) : (
         <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-surface-1">
           <Icon name="info" size={15} color="var(--color-text-tertiary)" />

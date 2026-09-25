@@ -15,7 +15,7 @@
  *
  * Puro, tipado, sem I/O. Versão tax-regime/1.0.0.
  */
-import type { RegimeTributario } from "@/core/administracao";
+import type { Regime } from "@/core/fiscal/perfil";
 
 export const TAX_REGIME_VERSION = "tax-regime/1.0.0";
 
@@ -29,7 +29,8 @@ export interface AliquotaTributo {
 }
 
 export interface PerfilTributario {
-  regime: RegimeTributario;
+  /** Inclui `nao_declarado`: a ausência é um valor, não um buraco para preencher. */
+  regime: Regime;
   rotulo: string;
   /** `null` quando o regime exige apuração por faixa (Simples) e não tabela fixa. */
   tributos: AliquotaTributo[] | null;
@@ -64,7 +65,10 @@ const REAL: AliquotaTributo[] = [
 /** MEI: valor FIXO mensal, não percentual — por isso a tabela é vazia. */
 const MEI_DAS_MENSAL = 76.9;
 
-export function perfilTributario(regime: RegimeTributario): PerfilTributario {
+/** O que toda tela mostra no lugar do imposto quando o regime não foi declarado. */
+export const AVISO_REGIME_NAO_DECLARADO = "Regime tributário não declarado. Declare em Configurações.";
+
+export function perfilTributario(regime: Regime): PerfilTributario {
   switch (regime) {
     case "simples":
       return {
@@ -85,75 +89,48 @@ export function perfilTributario(regime: RegimeTributario): PerfilTributario {
         observacao:
           "⚠️ IRPJ e CSLL do Lucro Real incidem sobre o LUCRO, não sobre a receita — não entram nesta projeção, que é percentual sobre faturamento. PIS/COFINS são não cumulativos e admitem crédito, então a carga real costuma ser menor que a projetada.",
       };
-    default:
+    case "presumido":
       return {
-        regime: "presumido", rotulo: "Lucro Presumido", tributos: PRESUMIDO_SERVICOS,
+        regime, rotulo: "Lucro Presumido", tributos: PRESUMIDO_SERVICOS,
         cargaTotal: PRESUMIDO_SERVICOS.reduce((s, t) => s + t.aliquota, 0),
         observacao:
           "Base presumida de 32% (serviços). Comércio usa 8% e produz IRPJ/CSLL menores — confira a presunção da sua atividade. O ISS varia por município.",
+      };
+    default:
+      // ⚠️ O ramo `default` ERA o Lucro Presumido: qualquer regime que não fosse
+      // Simples, MEI ou Real — inclusive "ninguém declarou" — recebia a carga de
+      // 16,33%. Agora a ausência é nomeada e não tem tabela: sem regime, não há
+      // imposto a projetar, e a tela diz o que fazer.
+      return {
+        regime: "nao_declarado", rotulo: "Regime não declarado", tributos: null, cargaTotal: 0,
+        observacao: AVISO_REGIME_NAO_DECLARADO,
       };
   }
 }
 
 /** A carga projetada de um faturamento, no regime da empresa. */
-export function cargaProjetada(receita: number, regime: RegimeTributario): number {
+export function cargaProjetada(receita: number, regime: Regime): number {
   const p = perfilTributario(regime);
   if (!p.tributos) return 0;
   return receita * p.cargaTotal;
 }
 
 /* ========================================================================== */
-/* O REGIME DA EMPRESA — uma configuração, não três                            */
+/* O REGIME DA EMPRESA — uma função só, e ela mora em `core/fiscal/perfil`      */
 /* ========================================================================== */
 
-/**
- * ⚠️ **UMA CHAVE SÓ.** O regime tributário estava gravado em campos diferentes
- * conforme a tela que salvou:
+/*
+ * ⚠️ AQUI MORAVA `regimeDaEmpresa(db, padrao = "presumido")`, e ela foi APAGADA.
  *
- *  - `NovaEmpresaForm` grava **`regimeTributario`**;
- *  - `DadosEmpresaView` grava **`regime`**;
- *  - a projeção de carga lê `regime`; a tela de notas lê `regimeTributario ??
- *    regime`; e a tela de impostos **não lia nenhum dos dois** — tinha as
- *    alíquotas do Lucro Presumido cravadas no arquivo.
+ * Eram três resolvedores do mesmo cadastro: este (que devolvia Lucro Presumido
+ * para o cadastro vazio), `core/fiscal/perfil.regimeDoCadastro` (que devolve
+ * `nao_declarado`) e `core/tax/duplicidade.regimeConfigurado` (que devolvia
+ * `null`). Três respostas para "qual é o regime desta empresa" — e a que
+ * inventava Presumido alimentava a projeção de carga e o provisionamento, que
+ * é onde o padrão vira guia de imposto com valor e vencimento.
  *
- * O resultado é o defeito que o contador encontra em dez minutos: a mesma
- * empresa aparece como Simples numa tela e Presumido na outra, e os dois
- * módulos de imposto respondem números diferentes para a mesma pergunta. Não é
- * divergência de cálculo — é divergência de CADASTRO, que é pior, porque não há
- * fórmula errada para consertar.
- *
- * A precedência é declarada, não acidental: `regimeTributario` (o campo do
- * cadastro jurídico, preenchido no onboarding com o CNPJ na mão) vence `regime`
- * (o campo de edição rápida). Empatados, o mais recente venceria — mas não há
- * carimbo de tempo por campo, e inventar um desempate silencioso é como o
- * problema começou.
+ * A única agora é `regimeDoCadastro` (`@/core/fiscal/perfil`). O desacordo
+ * entre as duas chaves do cadastro é `divergenciaDeRegime`, no mesmo módulo.
+ * Não reintroduzir um padrão aqui: quem precisa de um número sem regime
+ * declarado precisa, na verdade, de o regime ser declarado.
  */
-export function regimeDaEmpresa(
-  db: Record<string, unknown> | null | undefined,
-  padrao: RegimeTributario = "presumido",
-): RegimeTributario {
-  const bruto = String(db?.regimeTributario ?? db?.regime ?? "").toLowerCase().trim();
-  if (!bruto) return padrao;
-  if (bruto.includes("simples")) return "simples";
-  if (bruto.includes("mei")) return "mei";
-  if (bruto.includes("real")) return "real";
-  if (bruto.includes("presumido")) return "presumido";
-  return padrao;
-}
-
-/**
- * As duas chaves estão em desacordo? A tela de dados da empresa avisa.
- *
- * ⚠️ Resolver a precedência em silêncio conserta o número e esconde o defeito
- * de cadastro: alguém preencheu dois campos com respostas diferentes, e só a
- * empresa sabe qual está certa. Corrigir sem avisar é escolher por ela.
- */
-export function regimeEmConflito(
-  db: Record<string, unknown> | null | undefined,
-): { conflito: boolean; cadastro?: string; edicao?: string } {
-  const a = String(db?.regimeTributario ?? "").toLowerCase().trim();
-  const b = String(db?.regime ?? "").toLowerCase().trim();
-  if (!a || !b) return { conflito: false };
-  const norm = (x: string) => regimeDaEmpresa({ regime: x });
-  return norm(a) === norm(b) ? { conflito: false } : { conflito: true, cadastro: a, edicao: b };
-}

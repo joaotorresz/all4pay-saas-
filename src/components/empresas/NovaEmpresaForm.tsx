@@ -16,7 +16,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Select, CurrencyInput, DateField, InfoHint } from "@/components/ui";
-import { regimeDaEmpresa } from "@/core/tax/regime";
+import { regimeDoCadastro } from "@/core/fiscal/perfil";
 import { consultarCNPJ, type DadosCNPJ } from "@/lib/cnpj";
 import { cnpjValido } from "@/core/cnae";
 import { formatarCNAE } from "@/lib/cnae-enrich";
@@ -202,10 +202,11 @@ export function NovaEmpresaForm() {
           // empresa aparecia como Simples numa tela e Presumido na outra, e
           // não havia fórmula errada para consertar, porque o defeito era de
           // CADASTRO. Gravar as duas pelo resolvedor faz o desacordo deixar de
-          // ser possível na origem; `regimeEmConflito` segue existindo para os
+          // ser possível na origem; `divergenciaDeRegime` segue existindo para os
           // cadastros que já nasceram torcidos.
           regimeTributario: f.regime === REGIMES[0] ? "" : f.regime,
-          regime: f.regime === REGIMES[0] ? "" : regimeDaEmpresa({ regimeTributario: f.regime }),
+          regime: f.regime === REGIMES[0] || regimeDoCadastro({ regimeTributario: f.regime }) === "nao_declarado"
+            ? "" : regimeDoCadastro({ regimeTributario: f.regime }),
           optanteSimples: f.regime === "Simples Nacional" || f.regime === "MEI",
           regimeEspecialNfse: f.regimeEspecial,
           email: f.email,

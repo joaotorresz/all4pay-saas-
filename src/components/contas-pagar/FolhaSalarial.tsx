@@ -23,7 +23,7 @@ import { Card, Button, Icon, BRL, Skeleton, AcaoDestrutiva } from "@/components/
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME } from "@/core/fiscal/perfil";
 import { conferirEncargos, encargosLancados } from "@/core/folha";
-import { listColaboradores, regimeDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
+import { listColaboradores, regimeEAnexoDaEmpresa, removeColaborador, restaurarColaboradores, saveColaborador } from "@/lib/folha";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { useToast } from "@/components/listas/ListChrome";
@@ -114,7 +114,7 @@ export function FolhaSalarial() {
   // durante o render quebra a hidratação (a tela remonta do zero).
   React.useEffect(() => { setColaboradores(listColaboradores()); }, []);
 
-  const fiscal = React.useMemo(() => regimeDaEmpresa(), []);
+  const fiscal = React.useMemo(() => regimeEAnexoDaEmpresa(), []);
   /**
    * ⚠️ As tabelas vêm da EMPRESA (as de fábrica + as que o contador entrou) e
    * entram por parâmetro em cada motor. Lidas num memo com `colaboradores` na

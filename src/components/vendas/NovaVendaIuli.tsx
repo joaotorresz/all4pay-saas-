@@ -23,6 +23,10 @@ import { getAccountsList, getCategories, criarTitulos } from "@/lib/data";
 import { reportar } from "@/lib/erros";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
 import { formatBRL } from "@/lib/format";
+import { loadCompany } from "@/lib/company";
+import { regimeDoCadastro, type Regime as RegimeFiscal } from "@/core/fiscal/perfil";
+import { impostoEstimadoDaVenda } from "@/core/vendas";
+import { AVISO_REGIME_NAO_DECLARADO } from "@/core/tax/regime";
 
 const STATUS = ["Iniciada", "Boleto Gerado", "Aguardando pagamento", "Em Análise", "Aprovada", "Completa", "Expirada", "Atrasada", "Cancelada", "Reclamada", "Reembolsada", "Reembolso Manual", "Chargeback"];
 const METODOS = ["Crédito", "Débito", "Boleto", "PIX", "TED/DOC", "Saldo Plataforma Externa", "Perguntar ao Cliente", "Outros"];
@@ -81,7 +85,14 @@ export function NovaVendaIuli() {
   const valorLiquido = valorTotal - totalTaxas;
   const pctProjeto = rProjeto.reduce((s, r) => s + (r.pct || 0), 0);
   const pctCentro = rCentro.reduce((s, r) => s + (r.pct || 0), 0);
-  const impostoEstim = valorTotal * 0.1538; // ~ carga Lucro Presumido serviço
+  // ⚠️ Eram 15,38% cravados para qualquer empresa, inclusive a que nunca disse
+  // o regime. Quem declarou vê o mesmo número; quem não declarou vê o aviso.
+  // O cadastro é lido depois de montar (hidratação); até lá, nada é afirmado.
+  const [regimeFiscal, setRegimeFiscal] = React.useState<RegimeFiscal>("nao_declarado");
+  React.useEffect(() => {
+    setRegimeFiscal(regimeDoCadastro((loadCompany()?.db ?? null) as Record<string, unknown> | null));
+  }, []);
+  const impostoEstim = impostoEstimadoDaVenda(valorTotal, regimeFiscal);
 
   const setItem = (i: number, k: "produtoId" | "qtd" | "preco", v: string | number) => setItens((xs) => xs.map((it, j) => {
     if (j !== i) return it;
@@ -232,7 +243,7 @@ export function NovaVendaIuli() {
           info={{
             titulo: "Resumo da venda",
             oQue: "Mostra o valor da venda e tudo que ela vai disparar no sistema antes de você salvar.",
-            comoCalcula: "Valor total = soma de quantidade × preço dos produtos; Valor líquido = total − taxas; o imposto é estimado em ~15,38% (Lucro Presumido serviço).",
+            comoCalcula: "Valor total = soma de quantidade × preço dos produtos; Valor líquido = total − taxas; o imposto é estimado em ~15,38% da venda quando o regime da empresa está declarado; sem regime declarado, nenhum imposto é estimado.",
           }}
         >
           <span className="text-[16px] font-semibold text-ink">Resumo</span>
@@ -243,7 +254,9 @@ export function NovaVendaIuli() {
             <span className="text-caption font-medium text-muted">Esta venda vai gerar:</span>
             <Prop ok={!!vencimento || !!competencia} txt="Conta a Receber (no vencimento)" />
             <Prop ok txt="NF a Emitir (situação fiscal)" />
-            <Prop ok txt={`Provisionamento de imposto (~${formatBRL(impostoEstim)})`} />
+            {impostoEstim === null
+              ? <Prop ok={false} txt={`Provisionamento de imposto: ${AVISO_REGIME_NAO_DECLARADO}`} />
+              : <Prop ok txt={`Provisionamento de imposto (~${formatBRL(impostoEstim)})`} />}
             <Prop ok txt="Entra na DRE (competência) e na DFC (caixa)" />
           </div>
           {erro && <span className="text-caption text-negative">{erro}</span>}

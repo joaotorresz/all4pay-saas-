@@ -16,12 +16,13 @@ import { usePartiesList, useCreateParty } from "@/components/lancamentos/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
 import { listPlanoContas } from "@/lib/registros";
-import { regimeDaEmpresa } from "@/core/tax/regime";
+import { regimeDoCadastro, type Regime as RegimeFiscal } from "@/core/fiscal/perfil";
+import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { loadCompany } from "@/lib/company";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura } from "@/lib/recorrencias";
 import {
   painelNotasFiscais, provisionarImpostos, contasAPagarDosImpostos, pendenciasConfig,
-  configPadrao, urlDoLink, validarLink,
+  urlDoLink, validarLink,
   IMPOSTOS, ROTULO_IMPOSTO, ESFERA, ROTULO_ESFERA, FORNECEDORES_PROPOSTOS, STATUS_NF,
   type Venda, type ConfigImpostos, type Imposto, type Regime, type LinkPagamento, type Esfera,
 } from "@/core/vendas";
@@ -192,14 +193,41 @@ export function NotasFiscaisView() {
 
 /* ========================= provisionamento de impostos ========================= */
 
+/**
+ * ⚠️ O regime decide SE esta tela calcula alguma coisa. Sem regime declarado ela
+ * mostrava a provisão do Lucro Presumido (o padrão do resolvedor antigo, e da
+ * configuração nunca salva) com a mesma cara de apuração conferida. Agora a
+ * ausência ocupa o lugar do número e nada é provisionado.
+ *
+ * O cadastro mora no navegador: é lido DEPOIS de montar, senão o servidor
+ * renderiza "não declarado" e o cliente outra coisa (hidratação quebrada).
+ */
 export function ImpostosView() {
+  const [regime, setRegime] = React.useState<RegimeFiscal | null>(null);
+  React.useEffect(() => {
+    setRegime(regimeDoCadastro((loadCompany()?.db ?? null) as Record<string, unknown> | null));
+  }, []);
+  if (regime === null) return <Card><Skeleton className="h-[220px]" /></Card>;
+  if (regime === "nao_declarado") {
+    return <RegimeNaoDeclarado contexto="O provisionamento de impostos das vendas não é calculado" />;
+  }
+  // ⚠️ `core/vendas` só conhece três regimes; o MEI cai em Simples, que é a
+  // família dele. Não é exato — o MEI recolhe DAS FIXO, não percentual sobre
+  // a venda —, mas é a aproximação que a tela já fazia, e mudá-la mudaria o
+  // número de quem declarou MEI.
+  return <ProvisionamentoImpostos regimeEmpresa={(regime === "mei" ? "simples" : regime) as Regime} />;
+}
+
+function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
   const { data: contas } = useAccounts();
   const { data: partes } = usePartiesList();
   const criarParte = useCreateParty();
   const { show, node } = useToast();
 
   const [vendas, setVendas] = React.useState<Venda[] | null>(null);
-  const [config, setConfig] = React.useState<ConfigImpostos>(configPadrao());
+  // Só monta no cliente, depois do regime: ler a configuração salva já na
+  // largada evita um primeiro quadro com alíquotas que ninguém escolheu.
+  const [config, setConfig] = React.useState<ConfigImpostos>(lerConfigImpostos);
   const [ano, setAno] = React.useState(String(anoAtual()));
   const [mes, setMes] = React.useState(mesAtual());
   const [produto, setProduto] = React.useState("");
@@ -210,24 +238,6 @@ export function ImpostosView() {
   React.useEffect(() => {
     setVendas(listarVendas());
     setConfig(lerConfigImpostos());
-  }, []);
-
-  // O regime vem do perfil da empresa — não é escolha desta tela.
-  const regimeEmpresa = React.useMemo(() => {
-    const c = loadCompany();
-    // O regime vive no bloco fiscal que o onboarding coleta; quando não há,
-    // Lucro Presumido é o padrão da maioria das PMEs de serviço.
-    // ⚠️ Era a QUARTA cópia da precedência, escrita à mão — e ela esquecia o
-    // MEI, devolvendo "presumido" para quem é MEI. Precedência duplicada não
-    // diverge quando é escrita; diverge quando alguém ajusta UMA delas.
-    const r = regimeDaEmpresa((c?.db ?? null) as Record<string, unknown> | null);
-    // ⚠️ `core/vendas` só conhece três regimes; o MEI cai em Simples, que é a
-    // família dele. Não é exato — o MEI recolhe DAS FIXO, não percentual sobre
-    // a venda —, mas é a aproximação CERTA: antes ele caía em "presumido" e
-    // recebia as alíquotas de um regime que não é nem parente do dele.
-    // Tratar MEI como primeira classe aqui é mexer na configuração de
-    // impostos inteira, e isso não cabe nesta correção.
-    return (r === "mei" ? "simples" : r) as Regime;
   }, []);
 
   const mesCompetencia = `${ano}-${mes}`;

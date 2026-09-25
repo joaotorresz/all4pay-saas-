@@ -75,7 +75,7 @@ import {
 import { avaliarExportacao, rotuloExportado } from "@/core/artefatos";
 import { montarFalha, paraAlertar, DONO_POR_MODULO } from "@/core/erros";
 import { problemaDoIntervalo } from "@/core/indicadores";
-import { regimeDaEmpresa, regimeEmConflito, perfilTributario } from "@/core/tax/regime";
+import { perfilTributario } from "@/core/tax/regime";
 import { eliminacoesIntercompany, montarDRE } from "@/core/relatorios";
 import { cascataDRE, REGRAS_CASCATA } from "@/core/relatorios/cascata";
 import { classificarReceita } from "@/core/indicadores/classificacao";
@@ -1848,21 +1848,25 @@ const AGOSTO = janelaMes(2026, 7);
   // aparecia como Simples numa tela e Presumido na outra — divergência de
   // CADASTRO, que é pior que a de cálculo: não há fórmula errada para consertar.
   ok("onda13: o regime sai de uma função só, das duas chaves",
-     regimeDaEmpresa({ regimeTributario: "Simples Nacional" }) === "simples"
-     && regimeDaEmpresa({ regime: "Lucro Real" }) === "real");
+     regimeDoCadastro({ regimeTributario: "Simples Nacional" }) === "simples"
+     && regimeDoCadastro({ regime: "Lucro Real" }) === "real");
   // A precedência é declarada: o cadastro jurídico vence a edição rápida.
   ok("onda13: o cadastro vence a edição rápida",
-     regimeDaEmpresa({ regimeTributario: "simples", regime: "presumido" }) === "simples");
-  ok("onda13: sem nada, cai no padrão", regimeDaEmpresa({}) === "presumido");
+     regimeDoCadastro({ regimeTributario: "simples", regime: "presumido" }) === "simples");
+  // ⚠️ Estas duas afirmavam o DEFEITO ("sem nada, cai no padrão" = Presumido).
+  // O card do regime único inverteu: a ausência é nomeada, nunca Presumido.
+  ok("onda13: sem nada, é 'não declarado' (nunca Presumido)", regimeDoCadastro({}) === "nao_declarado");
   ok("onda13: texto desconhecido não vira regime inventado",
-     regimeDaEmpresa({ regime: "qualquer coisa" }) === "presumido");
+     regimeDoCadastro({ regime: "qualquer coisa" }) === "nao_declarado");
+  ok("onda13: sem regime, o perfil não tem carga (nem a do Presumido)",
+     perfilTributario("nao_declarado").tributos === null && perfilTributario("nao_declarado").cargaTotal === 0);
   // ⚠️ Resolver em silêncio conserta o número e ESCONDE o defeito de cadastro:
   // alguém preencheu dois campos com respostas diferentes, e só a empresa sabe
   // qual está certa.
   ok("onda13: o conflito entre as duas chaves é DENUNCIADO",
-     regimeEmConflito({ regimeTributario: "simples", regime: "presumido" }).conflito);
+     divergenciaDeRegime({ regimeTributario: "simples", regime: "presumido" }).conflito);
   ok("onda13: sem conflito, não acusa",
-     !regimeEmConflito({ regimeTributario: "simples", regime: "Simples Nacional" }).conflito);
+     !divergenciaDeRegime({ regimeTributario: "simples", regime: "Simples Nacional" }).conflito);
 
   /* ---- A base do imposto -------------------------------------------------- */
   // ⚠️ A tela de impostos somava TODA entrada — transferência entre contas
@@ -2365,7 +2369,7 @@ const AGOSTO = janelaMes(2026, 7);
   // A assinatura da precedência reescrita à mão: as duas chaves na mesma
   // expressão, fora do resolvedor.
   const copias = arquivos.filter((f) => {
-    if (f.endsWith("core/tax/regime.ts")) return false;   // o resolvedor
+    if (f.endsWith("core/fiscal/perfil.ts")) return false;   // o resolvedor ÚNICO
     const txt = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
     return /regimeTributario\s*\?\?\s*[\w.]*\bregime\b/.test(txt);
   });
@@ -2373,14 +2377,27 @@ const AGOSTO = janelaMes(2026, 7);
      copias.join(" | "));
 
   // E o resolvedor conhece os quatro regimes — foi o MEI que a cópia perdeu.
-  ok("regime: MEI é reconhecido", regimeDaEmpresa({ regimeTributario: "MEI" }) === "mei");
-  ok("regime: Simples pelo texto do onboarding", regimeDaEmpresa({ regimeTributario: "Simples Nacional" }) === "simples");
+  ok("regime: MEI é reconhecido", regimeDoCadastro({ regimeTributario: "MEI" }) === "mei");
+  ok("regime: Simples pelo texto do onboarding", regimeDoCadastro({ regimeTributario: "Simples Nacional" }) === "simples");
   ok("regime: o cadastro jurídico vence a edição rápida",
-     regimeDaEmpresa({ regimeTributario: "Simples Nacional", regime: "presumido" }) === "simples");
+     regimeDoCadastro({ regimeTributario: "Simples Nacional", regime: "presumido" }) === "simples");
   ok("regime: desacordo entre as duas chaves é DENUNCIADO",
-     regimeEmConflito({ regimeTributario: "Simples Nacional", regime: "presumido" }).conflito === true);
+     divergenciaDeRegime({ regimeTributario: "Simples Nacional", regime: "presumido" }).conflito === true);
   ok("regime: acordo não vira alarme falso",
-     regimeEmConflito({ regimeTributario: "Simples Nacional", regime: "simples" }).conflito === false);
+     divergenciaDeRegime({ regimeTributario: "Simples Nacional", regime: "simples" }).conflito === false);
+
+  // ⚠️ UM resolvedor. Eram três (`core/tax/regime.regimeDaEmpresa` com padrão
+  // Presumido, `core/fiscal/perfil.regimeDoCadastro` e a precedência reescrita
+  // em `core/tax/duplicidade`). A guarda impede o segundo de voltar: ninguém
+  // exporta `regimeDaEmpresa`, e nenhum código fora do resolvedor tem um
+  // padrão "presumido" escrito num parâmetro.
+  const outrosResolvedores = arquivos.filter((f) => {
+    const txt = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    return /export\s+(function|const)\s+regimeDaEmpresa\b/.test(txt)
+      || /\w+\s*:\s*\w+\s*=\s*["']presumido["']\s*\)/.test(txt);
+  });
+  ok("regime: um resolvedor só, e nenhum padrão 'presumido' em parâmetro", outrosResolvedores.length === 0,
+     outrosResolvedores.join(" | "));
 }
 
 

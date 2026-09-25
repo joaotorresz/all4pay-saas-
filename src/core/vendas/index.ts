@@ -295,7 +295,13 @@ export interface ConfigImpostos {
   contaId: string;
 }
 
-export const configPadrao = (regime: Regime = "presumido"): ConfigImpostos => ({
+/**
+ * ⚠️ O regime é OBRIGATÓRIO. Esta função tinha `regime = "presumido"` como
+ * padrão, e todo chamador que esquecia de dizer o regime recebia as alíquotas
+ * do Lucro Presumido sem ninguém ter decidido isso. Sem padrão, esquecer é erro
+ * de compilação, não imposto inventado.
+ */
+export const configPadrao = (regime: Regime): ConfigImpostos => ({
   regime,
   aliquotas: { ...ALIQUOTAS_PADRAO[regime] },
   fornecedores: { municipal: "", estadual: "", federal: "" },
@@ -303,6 +309,25 @@ export const configPadrao = (regime: Regime = "presumido"): ConfigImpostos => ({
   diasVencimento: { ...DIA_VENCIMENTO_PADRAO },
   contaId: "",
 });
+
+/**
+ * A estimativa de imposto que a Nova venda mostra ANTES de salvar.
+ *
+ * ⚠️ Era `valorTotal * 0.1538` inline na tela, para qualquer empresa. Para quem
+ * DECLAROU o regime o número segue exatamente o mesmo (15,38%, a aproximação de
+ * sempre — trocá-la por regime mudaria o número de empresa declarada, e isso é
+ * outra decisão). Para quem NÃO declarou, devolve `null`: sem regime não há
+ * imposto a estimar, e a tela manda declarar em vez de afirmar um valor.
+ */
+export const ALIQUOTA_ESTIMADA_VENDA = 0.1538;
+
+export function impostoEstimadoDaVenda(
+  valorTotal: number,
+  regime: "nao_declarado" | "mei" | "simples" | "presumido" | "real",
+): number | null {
+  if (regime === "nao_declarado") return null;
+  return valorTotal * ALIQUOTA_ESTIMADA_VENDA;
+}
 
 /**
  * O que falta para poder gerar as contas a pagar.
