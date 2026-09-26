@@ -63,6 +63,20 @@ concurrency:
 
 jobs:
   verify:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     # ⚠️ O padrão do GitHub é SEIS HORAS. Em 05/08 duas execuções ficaram presas
     # no passo de build — o mesmo commit compilou aqui em ~2 minutos e o deploy
@@ -112,6 +126,20 @@ jobs:
   # guarda também prova que a sequência inteira roda num banco limpo — o que a
   # `esquema` só consegue afirmar a partir de um retrato.
   isolamento:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -261,6 +289,20 @@ jobs:
   # se perde fica dito: este job não exercita sessão nem política de acesso;
   # quem faz isso é o job `isolamento`, contra um banco de verdade.
   navegador:
+    # ⚠️ **O RELÓGIO NÃO PRECISA DESTES TRÊS, e pagá-los a cada 15 minutos
+    # STARVA o PR.** O `schedule` existe para `no-ar` e `esquema-prod` — os dois
+    # que medem ESTADO CONTÍNUO (produção pode sair do ar sem ninguém tocar em
+    # nada). Estes três medem CÓDIGO, e o código não muda entre duas execuções
+    # agendadas: rodá-los 96 vezes por dia não acha nada que o PR não ache.
+    #
+    # Medido em 26/08: os três não tinham `if` nenhum, então cada disparo do
+    # `*/15` levantava build, um Postgres em contêiner e um Chromium. Com isso o
+    # pool ficou saturado e a execução 32983950905 (do PR #143) passou ~15
+    # minutos NA FILA e foi cancelada sem executar um passo — o PR não ficou
+    # vermelho por defeito, ficou sem resposta. Um portão que não consegue
+    # responder deixa de ser portão, e a regra "PR verde é autorizado" perde o
+    # sujeito.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -407,6 +449,187 @@ jobs:
             echo "✗ o banco continua atrás do repositório depois do push."
             exit 1
           fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PUBLICAR — o CI passou a ser o ÚNICO publicador (a quinta "duas fontes")
+  # ═══════════════════════════════════════════════════════════════════════════
+  #
+  # ⚠️ **O defeito que isto fecha é o A4P-075.** A integração Git da Vercel
+  # publicava em PARALELO com o CI, no mesmo push: dois publicadores para um
+  # fato, sem ninguém entre eles. Em 17/08 o build atrasado do PR #103 pousou
+  # DEPOIS do #104 e o sobrescreveu — `/api/versao` voltou de `4132318` para
+  # `998d800`, um conserto saiu do ar sozinho, e a tela do Razão voltou a dizer
+  # "nada absorvido" sobre R$ 1.080.562,75.
+  #
+  # ⚠️ **A ORDEM É O CONSERTO INTEIRO.** `needs: [verify, migrar]`: o esquema
+  # alcança o banco ANTES de o código pousar. Era isso que a integração Git não
+  # tinha como respeitar — ela dispara no push, sem saber que existe um job de
+  # migration. Publicar daqui é o que transforma "aplica o quanto antes" em
+  # "aplica antes".
+  #
+  # ⚠️ **`vercel pull` traz o AMBIENTE da Vercel** (Supabase, ANTHROPIC_API_KEY,
+  # CRON_SECRET…). Duplicar essas variáveis como segredos do GitHub seria criar
+  # a próxima "duas fontes" no gesto de fechar uma: no dia em que uma mudasse na
+  # Vercel, o build do CI seguiria com a antiga.
+  publicar:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [verify, migrar]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI da Vercel
+        run: npm i -g vercel@latest
+      # ⚠️ FALHA FECHADA, inclusive sem o segredo. Um job que "pula quando não
+      # tem credencial" é um job que não roda — o defeito que a ONDA 2 achou no
+      # teste de isolamento, verde por nunca ter sido executado.
+      - name: As credenciais existem?
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          faltam=""
+          [ -z "$T" ] && faltam="$faltam VERCEL_TOKEN"
+          [ -z "$VERCEL_ORG_ID" ] && faltam="$faltam VERCEL_ORG_ID"
+          [ -z "$VERCEL_PROJECT_ID" ] && faltam="$faltam VERCEL_PROJECT_ID"
+          if [ -n "$faltam" ]; then
+            echo "✗ faltam os segredos:$faltam — este job NÃO publicou nada."
+            exit 1
+          fi
+      # ⚠️ **A CREDENCIAL EXISTIR NÃO É A CREDENCIAL RESOLVER.** O passo acima só
+      # prova que os três segredos não estão VAZIOS. Medido em 26/08 no PR #143:
+      # os três existiam e o `vercel pull` morreu com "Could not retrieve Project
+      # Settings" — uma frase que não diz QUAL dos três está errado, e é por isso
+      # que ela custa uma rodada de adivinhação por tentativa. Este passo separa
+      # os três casos ANTES do pull, e nunca imprime valor de segredo: só o
+      # código HTTP e o nome do projeto que o par (token, ORG_ID, PROJECT_ID)
+      # resolve — se ele não for `all4pay-saas`, o PROJECT_ID aponta para outro
+      # lugar, e isso não aparece em erro nenhum da CLI.
+      - name: Qual dos três não resolve? (nomeia a causa, não imprime segredo)
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          u=$(curl -s -o /tmp/u.json -w '%{http_code}' -H "Authorization: Bearer $T" https://api.vercel.com/v2/user)
+          if [ "$u" != "200" ]; then
+            echo "✗ VERCEL_TOKEN: a API respondeu $u a /v2/user — o token é inválido ou expirou."
+            echo "  Não é o ORG_ID nem o PROJECT_ID: sem token válido nenhum dos dois chega a ser lido."
+            exit 1
+          fi
+          echo "✓ VERCEL_TOKEN: aceito pela API."
+          p=$(curl -s -o /tmp/p.json -w '%{http_code}' -H "Authorization: Bearer $T" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+          case "$p" in
+            200) echo "✓ o par resolve o projeto: $(node -e 'console.log(require("/tmp/p.json").name)')" ;;
+            403) echo "✗ VERCEL_ORG_ID: 403 — o token é válido mas NÃO enxerga essa equipe."
+                 echo "  Token pessoal não alcança projeto de equipe: crie o token no escopo da equipe."
+                 exit 1 ;;
+            404) echo "✗ VERCEL_PROJECT_ID: 404 — o token e a equipe existem, o projeto não."
+                 echo "  Ou o PROJECT_ID é de outro projeto, ou ele não pertence a esse ORG_ID."
+                 exit 1 ;;
+            *)   echo "✗ a API respondeu $p ao par (ORG_ID, PROJECT_ID) — nem token, nem 403, nem 404."
+                 exit 1 ;;
+          esac
+      - name: Puxar o ambiente de produção
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      # ⚠️ `GITHUB_SHA` entra no build porque `next.config.mjs` INLINA o commit:
+      # publicando por `--prebuilt`, `VERCEL_GIT_COMMIT_SHA` não chega à lambda e
+      # `/api/versao` responderia "local" — cegando a única prova direta de qual
+      # commit está no ar, e com ela a guarda `no-ar`.
+      - name: Construir
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Publicar em produção
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "publicado: $url"
+      # ⚠️ **Ler "não deu erro" não é ler o que aconteceu.** O `deploy` responde
+      # assim que aceita o build; quem prova a publicação é o commit servido.
+      - name: Conferir que o commit no ar é ESTE
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            servido=$(curl -s --max-time 20 https://all4pay-saas.vercel.app/api/versao | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')
+            echo "tentativa $i · servido: $servido"
+            [ "$servido" = "$GITHUB_SHA" ] && echo "✓ produção em $GITHUB_SHA" && exit 0
+            sleep 20
+          done
+          echo "✗ produção não alcançou $GITHUB_SHA depois de ~3 min — servido: $servido"
+          exit 1
+
+  # O MESMO desenho para PR, sem `--prod`: o preview passa a sair do CI também.
+  # ⚠️ Sem `needs: migrar` de propósito — aquele job só roda no `main`, e exigi-lo
+  # aqui deixaria todo preview eternamente pendente.
+  preview:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Instalar a CLI da Vercel
+        run: npm i -g vercel@latest
+      - name: As credenciais existem?
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$T" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "✗ segredo da Vercel ausente — este job NÃO publicou preview."
+            exit 1
+          fi
+      # ⚠️ **A CREDENCIAL EXISTIR NÃO É A CREDENCIAL RESOLVER.** O passo acima só
+      # prova que os três segredos não estão VAZIOS. Medido em 26/08 no PR #143:
+      # os três existiam e o `vercel pull` morreu com "Could not retrieve Project
+      # Settings" — uma frase que não diz QUAL dos três está errado, e é por isso
+      # que ela custa uma rodada de adivinhação por tentativa. Este passo separa
+      # os três casos ANTES do pull, e nunca imprime valor de segredo: só o
+      # código HTTP e o nome do projeto que o par (token, ORG_ID, PROJECT_ID)
+      # resolve — se ele não for `all4pay-saas`, o PROJECT_ID aponta para outro
+      # lugar, e isso não aparece em erro nenhum da CLI.
+      - name: Qual dos três não resolve? (nomeia a causa, não imprime segredo)
+        env:
+          T: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          u=$(curl -s -o /tmp/u.json -w '%{http_code}' -H "Authorization: Bearer $T" https://api.vercel.com/v2/user)
+          if [ "$u" != "200" ]; then
+            echo "✗ VERCEL_TOKEN: a API respondeu $u a /v2/user — o token é inválido ou expirou."
+            echo "  Não é o ORG_ID nem o PROJECT_ID: sem token válido nenhum dos dois chega a ser lido."
+            exit 1
+          fi
+          echo "✓ VERCEL_TOKEN: aceito pela API."
+          p=$(curl -s -o /tmp/p.json -w '%{http_code}' -H "Authorization: Bearer $T" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID")
+          case "$p" in
+            200) echo "✓ o par resolve o projeto: $(node -e 'console.log(require("/tmp/p.json").name)')" ;;
+            403) echo "✗ VERCEL_ORG_ID: 403 — o token é válido mas NÃO enxerga essa equipe."
+                 echo "  Token pessoal não alcança projeto de equipe: crie o token no escopo da equipe."
+                 exit 1 ;;
+            404) echo "✗ VERCEL_PROJECT_ID: 404 — o token e a equipe existem, o projeto não."
+                 echo "  Ou o PROJECT_ID é de outro projeto, ou ele não pertence a esse ORG_ID."
+                 exit 1 ;;
+            *)   echo "✗ a API respondeu $p ao par (ORG_ID, PROJECT_ID) — nem token, nem 403, nem 404."
+                 exit 1 ;;
+          esac
+      - name: Puxar o ambiente de preview
+        run: vercel pull --yes --environment=preview --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Construir
+        run: vercel build --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Publicar o preview
+        run: |
+          url=$(vercel deploy --prebuilt --token="${{ secrets.VERCEL_TOKEN }}")
+          echo "preview: $url"
+          echo "### Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
   esquema-prod:
     if: >-

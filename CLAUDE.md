@@ -1221,7 +1221,7 @@ escreveu, não que a regra vale.
 | Reconciliação | `residuo = extrato − (liquidado + abertura)`, e `abertura` derivada por diferença | `x − x`: resíduo 0,00 para QUALQUER saldo |
 | Nome da empresa | o campo digitado × o `coalesce` do gatilho | gravou o local-part do e-mail (A4P-085) |
 | Estado do título | `movements.status` × `movements.situacao` | 2230/2230 coerentes — e nenhum escritor tinha rodado |
-| Publicação | a integração Git da Vercel × o job `migrar` do CI | build atrasado sobrescreveu o novo (A4P-075) |
+| Publicação | a integração Git da Vercel × o job `migrar` do CI | build atrasado sobrescreveu o novo (A4P-075) — **fechada em 26/08**: o CI virou o único publicador (`publicar`, depois de `verify` e `migrar`), e a integração Git é desligada no painel |
 
 ⚠️ **A saída não é "manter as duas em sincronia".** Sincronizar é escrever o
 terceiro escritor, e ele diverge dos outros dois. As saídas que funcionaram
