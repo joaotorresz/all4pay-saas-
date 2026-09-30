@@ -86,7 +86,7 @@ export default async function folhaRescisao(navegador) {
   await p.waitForTimeout(1500);
 
   const dez = await titulosDoMes(u, "2026-12");
-  v.ok(tem(dez, `Rescisão · ${NOME} · Sem justa causa`), "a rescisão entra em dezembro (dez dias corridos, antecipando o Natal)");
+  v.ok(tem(dez, `Rescisão · ${NOME} · Dispensa sem justa causa`), "a rescisão entra em dezembro (dez dias corridos, antecipando o Natal)");
   v.ok(tem(dez, `FGTS 11/2026 · ${NOME}`, "400,00"), "o FGTS de novembro (vence 18/12) continua agendado");
   v.ok(!tem(dez, `13º 2026 · 2ª parcela · ${NOME}`) && !tem(dez, `INSS do 13º 2026 · ${NOME}`),
     "o 13º que a rescisão paga como proporcional saiu de dezembro");

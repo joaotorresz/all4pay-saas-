@@ -6912,5 +6912,45 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /A solicitação de aprovação não foi gravada/.test(reemb) && /if \(error\) throw error;\s*const saved = fromRow/.test(reemb));
 }
 
+/* ── COMPRAS · CAIXA DE ENTRADA FISCAL ── */
+{
+  const fsR = await import("node:fs");
+  const semComentR = (x: string) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const { boletoJaCapturado, notaJaCapturada } = await import("@/core/compras");
+  const fatorR = fatorDaData("2026-10-20");
+  const semDVR = "2379" + String(fatorR).padStart(4, "0") + "0000084217" + "9876543210987654321098765";
+  const barrasR = semDVR.slice(0, 4) + dvModulo11(semDVR) + semDVR.slice(4);
+  const lidoR = lerBoleto(linhaDeCodigoDeBarras(barrasR), "2026-09-30")!;
+  const lancado: BoletoRecebido = {
+    id: "b1", origem: "manual", beneficiario: "Gráfica Aurora", pagador: "Sua empresa", leitura: lidoR,
+    pago: false, dataPagamento: null, recebidoEm: "2026-09-30", movimentoId: "boleto-x",
+  };
+  ok("recebidos: o boleto já capturado é reconhecido pelo CÓDIGO DE BARRAS",
+     boletoJaCapturado([lancado], lidoR.codigoBarras)?.movimentoId === "boleto-x"
+     && boletoJaCapturado([lancado], lidoR.codigoBarras.replace(/.$/, "0")) === null);
+  const base43R = "31" + "2609" + "11222333000181" + "55" + "002" + "000004321" + "1" + "87654321";
+  const chaveR = base43R + String(dvDaChave(base43R));
+  const nfR = lerChaveNFe(chaveR)!;
+  const aprovada: NFRecebida = {
+    id: "n1", chave: nfR, numero: nfR.numero, tipo: "NFE", fornecedorId: null, fornecedor: "Metalúrgica Serra",
+    cnpj: nfR.cnpj, emissao: "2026-09-01", valor: 1300, categoria: "", status: "processada", avaliacao: "aprovada", origem: "manual",
+  };
+  ok("recebidos: a nota já capturada é reconhecida pela CHAVE", notaJaCapturada([aprovada], chaveR)?.avaliacao === "aprovada");
+  // ⚠️ O defeito, na tela: colar de novo SUBSTITUÍA o registro (a nota aprovada
+  // voltava a pendente; o boleto lançado perdia o vínculo com o título). A tela
+  // tem de perguntar antes de gravar, e a chave com dígito errado não entra.
+  const telaR = semComentR(fsR.readFileSync("src/components/compras/RecebidosViews.tsx", "utf8"));
+  const addBoleto = /function adicionar\(\) \{[\s\S]*?salvarBoleto\(/.exec(telaR)?.[0] ?? "";
+  ok("recebidos: adicionar boleto confere a duplicata ANTES de gravar",
+     /boletoJaCapturado\(listarBoletos\(\)/.test(addBoleto) && /return;/.test(addBoleto.slice(addBoleto.indexOf("boletoJaCapturado"))));
+  const addNota = /function adicionar\(\) \{(?:(?!function adicionar)[\s\S])*?salvarNF\(/.exec(telaR.slice(telaR.indexOf("export function NFsRecebidasView")))?.[0] ?? "";
+  ok("recebidos: adicionar nota confere a duplicata ANTES de gravar",
+     /notaJaCapturada\(listarNFs\(\)/.test(addNota));
+  ok("recebidos: nota com dígito verificador errado não entra (era gravada com status 'erro')",
+     /if \(!leitura \|\| !leitura\.valido\) return;/.test(addNota) && !/leitura\.valido \? "recebida" : "erro"/.test(telaR));
+  ok("recebidos: valor digitado que não é número não vira R$ 0,00 calado",
+     /valorNovo\.trim\(\) && valor == null/.test(addNota));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

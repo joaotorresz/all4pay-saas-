@@ -548,6 +548,23 @@ export function valorDigitado(txt: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * O documento que JÁ está na caixa de entrada — pelo que o identifica de
+ * verdade: o código de barras no boleto, a chave de acesso na nota.
+ *
+ * ⚠️ Colar de novo um documento que já estava lá SUBSTITUÍA o registro: a nota
+ * aprovada voltava para "pendente de avaliação", e o boleto já lançado perdia
+ * o vínculo com o título ("Lançar em contas a pagar" reaparecia) e a marca de
+ * pago. Quem cola duas vezes não está pedindo para desfazer o que fez — a tela
+ * avisa e deixa o registro como estava.
+ */
+export function boletoJaCapturado(lista: readonly BoletoRecebido[], codigoBarras: string): BoletoRecebido | null {
+  return lista.find((b) => b.leitura.codigoBarras === codigoBarras) ?? null;
+}
+export function notaJaCapturada(lista: readonly NFRecebida[], chave: string): NFRecebida | null {
+  return lista.find((n) => n.chave?.chave === chave) ?? null;
+}
+
 export function filtrarNFs(lista: NFRecebida[], f: FiltroNFs = {}): NFRecebida[] {
   const forn = semAcento(f.fornecedor ?? "").trim();
   return lista.filter((n) => {

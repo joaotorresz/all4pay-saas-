@@ -23,7 +23,7 @@ import { getAccountsList, getCategories } from "@/lib/data";
 import {
   lerBoleto, formatarLinha, lerChaveNFe, formatarChave,
   resumoBoletos, filtrarBoletos, statusBoleto,
-  resumoNFs, filtrarNFs, valorDigitado,
+  resumoNFs, filtrarNFs, valorDigitado, boletoJaCapturado, notaJaCapturada,
   STATUS_NF_RECEBIDA, AVALIACOES_NF, TIPOS_NF,
   type BoletoRecebido, type StatusBoleto,
   type NFRecebida, type FiltroNFs, type TipoNF,
@@ -81,6 +81,11 @@ export function BoletosView() {
     // número trocado continua "legível" — banco, valor, vencimento —, e lançá-la
     // seria agendar o pagamento de um código que o banco vai recusar no dia.
     if (!leitura || !leitura.valido) return;
+    const ja = boletoJaCapturado(listarBoletos(), leitura.codigoBarras);
+    if (ja) {
+      toast(`Este boleto já está na caixa de entrada (${ja.beneficiario}${ja.movimentoId ? ", já lançado em contas a pagar" : ""}).`);
+      return;
+    }
     setLista(salvarBoleto({
       id: novoId("boleto"),
       origem: "manual",
@@ -355,8 +360,21 @@ export function NFsRecebidasView() {
   );
 
   function adicionar() {
-    if (!leitura) return;
-    const valor = valorDigitado(valorNovo) ?? 0;
+    // ⚠️ Chave com dígito errado NÃO entra — a mesma regra do boleto. Ela
+    // continua "legível" (UF, CNPJ, número), e guardá-la registraria uma nota
+    // que não existe na SEFAZ com cara de nota recebida.
+    if (!leitura || !leitura.valido) return;
+    const ja = notaJaCapturada(listarNFs(), leitura.chave);
+    if (ja) {
+      toast(`Esta nota já está na lista (nº ${ja.numero} · ${ja.fornecedor}).`);
+      return;
+    }
+    const valor = valorDigitado(valorNovo);
+    // Valor digitado que não é número não vira R$ 0,00 calado.
+    if (valorNovo.trim() && valor == null) {
+      toast("O valor da nota não é um número. Use 1300 ou 1.300,00.");
+      return;
+    }
     setLista(salvarNF({
       id: novoId("nf"),
       chave: leitura,
@@ -367,14 +385,14 @@ export function NFsRecebidasView() {
       fornecedor: fornecedorNovo || `CNPJ ${leitura.cnpj}`,
       cnpj: leitura.cnpj,
       emissao: `${leitura.emissao}-01`,
-      valor,
+      valor: valor ?? 0,
       categoria: "",
-      status: leitura.valido ? "recebida" : "erro",
+      status: "recebida",
       avaliacao: "pendente",
       origem: "manual",
     }));
     setChave(""); setFornecedorNovo(""); setValorNovo("");
-    toast(leitura.valido ? "Nota adicionada." : "Nota adicionada com erro: o dígito da chave não confere.");
+    toast("Nota adicionada.");
   }
 
   function avaliar(n: NFRecebida, a: AvaliacaoNF) {
@@ -482,7 +500,7 @@ export function NFsRecebidasView() {
             <Input value={chave} onChange={(e) => setChave(e.target.value)} placeholder="Chave de acesso (44 dígitos)" />
             <Input value={fornecedorNovo} onChange={(e) => setFornecedorNovo(e.target.value)} placeholder="Fornecedor (opcional)" />
             <Input value={valorNovo} onChange={(e) => setValorNovo(e.target.value)} placeholder="Valor" />
-            <Button variant="primary" onClick={adicionar} disabled={!leitura}>Adicionar</Button>
+            <Button variant="primary" onClick={adicionar} disabled={!leitura || !leitura.valido}>Adicionar</Button>
           </div>
           {leitura && (
             <div className="rounded-md bg-surface-2 px-4 py-3 flex flex-wrap gap-x-8 gap-y-2">

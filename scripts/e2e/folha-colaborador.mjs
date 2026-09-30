@@ -63,9 +63,13 @@ async function previaDoCadastro(u) {
 
 /** A folha abre no mês corrente; anda até a competência pedida. */
 export async function irParaCompetencia(u, comp) {
-  const rotulo = `${comp.slice(5)}/${comp.slice(0, 4)}`;
+  // ⚠️ O mês aberto é o do seletor ("Tabelas legais 09/2026"), não qualquer
+  // "01/2027" da tela: o salário de dezembro vence em 08/01/2027, e procurar a
+  // string solta parava a navegação um mês antes.
+  const aberto = (t) => /Tabelas legais\s*(\d{2})\/(\d{4})/.exec(t);
+  const noMes = (t) => { const a = aberto(t); return !!a && `${a[2]}-${a[1]}` === comp; };
   let t = (await u.texto()).replace(/\n+/g, " ");
-  for (let k = 0; k < 36 && !t.includes(rotulo); k++) {
+  for (let k = 0; k < 36 && !noMes(t); k++) {
     const atual = /(\d{2})\/(\d{4})\s*Próximo|Tabelas legais\s*(\d{2})\/(\d{4})/.exec(t);
     const aqui = atual ? `${atual[2] ?? atual[4]}-${atual[1] ?? atual[3]}` : "";
     await u.page.getByRole("button", { name: comp < aqui ? "Mês anterior" : "Próximo mês" }).click();
