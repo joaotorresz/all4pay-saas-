@@ -3543,6 +3543,32 @@ const AGOSTO = janelaMes(2026, 7);
 }
 
 /* ========================================================================== */
+/* A ROTA DE COBRANÇA NÃO É MEGAFONE (achado de 30/09/2026) — três travas.     */
+/* ========================================================================== */
+/**
+ * `/api/cobranca/whatsapp` aceitava POST sem sessão: com a Twilio ativa,
+ * qualquer um fazia o número da plataforma mandar texto para 200 telefones.
+ * As três travas são cobradas no CÓDIGO da rota, na ordem, porque uma delas
+ * sozinha não basta: sessão sem destino conhecido deixa um usuário legítimo
+ * usar o número como megafone; destino conhecido sem sessão lê `parties` como
+ * anon (que não enxerga nada) e só por acaso recusaria tudo.
+ */
+{
+  const rota = ler("src/app/api/cobranca/whatsapp/route.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const iSessao = rota.indexOf("auth.getUser()");
+  const iPermissao = rota.indexOf('rpc("tem_permissao"');
+  const iDestino = rota.indexOf('from("parties")');
+  const iEnvio = rota.indexOf("dispararCobrancas(alvos)");
+  ok("cobranca-rota: exige sessão, permissão e destino conhecido ANTES de enviar",
+     iSessao > 0 && iPermissao > iSessao && iDestino > iPermissao && iEnvio > iDestino,
+     `sessão ${iSessao} · permissão ${iPermissao} · destino ${iDestino} · envio ${iEnvio}`);
+  ok("cobranca-rota: sem sessão responde 401 (não segue para o envio)",
+     /if \(!auth\?\.user\) return NextResponse\.json\([^)]*\{ status: 401 \}\)/.test(rota));
+  ok("cobranca-rota: em demonstração não chama a Twilio",
+     /if \(isDemo\) \{[\s\S]{0,400}?simulado: true/.test(rota) && rota.indexOf("if (isDemo)") < iEnvio);
+}
+
+/* ========================================================================== */
 /* NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026) — teto ZERO.    */
 /* ========================================================================== */
 /**
