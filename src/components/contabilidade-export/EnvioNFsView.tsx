@@ -23,7 +23,7 @@ import {
   verificarDestinatario, arquivamentoDesde, ultimaExecucao, novoIdDest,
 } from "@/lib/contabilidade-store";
 import { listarNFs } from "@/lib/compras-store";
-import { listarVendas } from "@/lib/vendas-store";
+import { useVendas } from "@/lib/vendas";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
@@ -52,10 +52,13 @@ export function EnvioNFsView() {
       emissao: n.emissao,
       arquivada: n.status !== "cancelada" && n.status !== "erro",
     })));
-    setSaidas(listarVendas()
+  }, []);
+  const { data: vendas } = useVendas();
+  React.useEffect(() => {
+    setSaidas((vendas ?? [])
       .filter((v) => v.statusNF === "emitida")
       .map((v) => ({ emissao: v.competencia, arquivada: true })));
-  }, []);
+  }, [vendas]);
 
   React.useEffect(() => { recarregar(); }, [recarregar]);
 

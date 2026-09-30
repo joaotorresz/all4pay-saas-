@@ -27,9 +27,10 @@ import {
   type Venda, type ConfigImpostos, type Imposto, type Regime, type LinkPagamento, type Esfera,
 } from "@/core/vendas";
 import {
-  listarVendas, lerConfigImpostos, salvarConfigImpostos, criarContasDeImpostos,
+  lerConfigImpostos, salvarConfigImpostos, criarContasDeImpostos,
   listarLinks, salvarLink, removerLink, novoId,
 } from "@/lib/vendas-store";
+import { useVendas } from "@/lib/vendas";
 import { Painel, CardAnel } from "@/components/paineis/shared";
 
 const hoje = () => new Date();
@@ -42,12 +43,11 @@ const MESES = ["01 — Jan", "02 — Fev", "03 — Mar", "04 — Abr", "05 — M
 /* ============================== notas fiscais ============================== */
 
 export function NotasFiscaisView() {
-  const [vendas, setVendas] = React.useState<Venda[] | null>(null);
+  const { data: vendas } = useVendas();
   const [aba, setAba] = React.useState<"lista" | "download">("lista");
   const [marcadas, setMarcadas] = React.useState<Set<string>>(new Set());
   const { show, node } = useToast();
 
-  React.useEffect(() => { setVendas(listarVendas()); }, []);
 
   // Só vendas com nota — as demais não têm o que listar aqui.
   const comNF = React.useMemo(() => (vendas ?? []).filter((v) => v.statusNF !== "a_emitir" || v.numeroNF), [vendas]);
@@ -224,7 +224,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
   const criarParte = useCreateParty();
   const { show, node } = useToast();
 
-  const [vendas, setVendas] = React.useState<Venda[] | null>(null);
+  const { data: vendas } = useVendas();
   // Só monta no cliente, depois do regime: ler a configuração salva já na
   // largada evita um primeiro quadro com alíquotas que ninguém escolheu.
   const [config, setConfig] = React.useState<ConfigImpostos>(lerConfigImpostos);
@@ -236,7 +236,6 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
   const [abrirConfig, setAbrirConfig] = React.useState(false);
 
   React.useEffect(() => {
-    setVendas(listarVendas());
     setConfig(lerConfigImpostos());
   }, []);
 

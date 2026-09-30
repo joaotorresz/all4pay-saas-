@@ -18,7 +18,8 @@ import {
   STATUS_VENDA, STATUS_NF, PLATAFORMAS,
   type Venda, type FiltroVendas, type CardVenda, type StatusVenda, type StatusNF,
 } from "@/core/vendas";
-import { listarVendas, removerVenda } from "@/lib/vendas-store";
+import { useQueryClient } from "@tanstack/react-query";
+import { useVendas, removerVendaDoc, vendasSoNoNavegador, enviarVendasDoNavegador } from "@/lib/vendas";
 import { Painel, CardAnel } from "@/components/paineis/shared";
 import { imprimirRelatorio } from "@/lib/imprimir";
 
@@ -36,7 +37,10 @@ const COR_NF: Record<StatusNF, string> = {
 export function VendasView() {
   const router = useRouter();
   const { show, node } = useToast();
-  const [lista, setLista] = React.useState<Venda[] | null>(null);
+  const qc = useQueryClient();
+  const { data: lista, error: erroLista } = useVendas();
+  const soLocais = React.useMemo(() => (lista ? vendasSoNoNavegador(lista) : []), [lista]);
+  const [enviando, setEnviando] = React.useState(false);
   const [busca, setBusca] = React.useState("");
   const [filtro, setFiltro] = React.useState<FiltroVendas>({ status: "todos", statusNF: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
@@ -44,7 +48,6 @@ export function VendasView() {
   const [porPagina, setPorPagina] = React.useState(50);
   const [pagina, setPagina] = React.useState(1);
 
-  React.useEffect(() => { setLista(listarVendas()); }, []);
 
   const vendas = React.useMemo(
     () => filtrarVendas(lista ?? [], { ...filtro, busca }),
@@ -93,6 +96,43 @@ export function VendasView() {
           </Button>
         </div>
       </div>
+
+      {erroLista && (
+        <Card>
+          <p className="m-0 text-label text-negative">Não foi possível carregar as vendas: {(erroLista as Error).message}</p>
+        </Card>
+      )}
+
+      {soLocais.length > 0 && (
+        <Card>
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex flex-col gap-1 max-w-[640px]">
+              <span className="a4p-label text-warning">Vendas só neste navegador</span>
+              <p className="m-0 text-label text-ink">
+                {soLocais.length === 1 ? "1 venda foi registrada" : `${soLocais.length} vendas foram registradas`} antes
+                de a venda passar a ser gravada no servidor. Elas não estão no contas a receber nem no DRE.
+              </p>
+              <p className="m-0 text-caption text-muted">
+                Enviar grava cada uma no servidor e gera o recebível — o contas a receber e o DRE passam a contá-las.
+              </p>
+            </div>
+            <Button variant="primary" disabled={enviando} onClick={async () => {
+              setEnviando(true);
+              try {
+                const n = await enviarVendasDoNavegador(soLocais, lista ?? []);
+                await qc.invalidateQueries();
+                show(`${n} ${n === 1 ? "venda enviada" : "vendas enviadas"} ao servidor.`);
+              } catch (e) {
+                show(`Envio interrompido: ${(e as Error).message}`);
+              } finally {
+                setEnviando(false);
+              }
+            }}>
+              Enviar {soLocais.length} ao servidor
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Painel titulo="Painel status da venda" cards={cardsVenda}
         onEscolher={(id) => { setFiltro((f) => ({ ...f, status: (id === "total" ? "todos" : id) as StatusVenda | "todos" })); setPagina(1); }} />
@@ -239,10 +279,15 @@ export function VendasView() {
                           <Icon name="edit" size={15} color="currentColor" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (!window.confirm(`Excluir a venda ${v.numero}? O recebível que ela gerou sai junto.`)) return;
-                            setLista(removerVenda(v.id));
-                            show("Venda removida.");
+                          onClick={async () => {
+                            if (!window.confirm(`Excluir a venda ${v.numero}? O recebível previsto que ela gerou vai junto para a lixeira.`)) return;
+                            try {
+                              await removerVendaDoc(v);
+                              await qc.invalidateQueries();
+                              show("Venda e recebível previsto enviados para a lixeira.");
+                            } catch (e) {
+                              show((e as Error).message);
+                            }
                           }}
                           aria-label="Excluir" className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
                         >

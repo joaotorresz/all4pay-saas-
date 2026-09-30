@@ -1,8 +1,13 @@
 "use client";
 
 /**
- * Persistência de vendas, configuração de impostos e links de pagamento
- * (localStorage, demo-safe).
+ * Persistência LOCAL de vendas (só a DEMONSTRAÇÃO), configuração de impostos e
+ * links de pagamento.
+ *
+ * ⚠️ Em produção a venda mora em `sales_docs` e é lida e gravada por
+ * `lib/vendas` — nenhuma tela chama as funções de venda daqui fora da
+ * demonstração. A chave `a4p_vendas_docs` está CONGELADA (store-org): o que
+ * ficou nela antes da morada única aparece na lista como "só neste navegador".
  *
  * A venda é o documento-mãe: ao salvar, ela também gera o RECEBÍVEL no dataset,
  * para que caixa, DRE e cobrança a enxerguem sem ninguém lançar duas vezes.
@@ -11,7 +16,7 @@ import { appendImported, removerImported } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
 import { configPadrao, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
 import type { Movement } from "@/lib/types";
-import { criarTitulos } from "@/lib/data";
+import { proximoNumeroDe } from "@/core/vendas/documento";
 
 const K_VENDAS = "a4p_vendas_docs";
 const K_CONFIG = "a4p_impostos_config";
@@ -66,37 +71,6 @@ export function salvarVenda(v: Venda): Venda[] {
   return lista;
 }
 
-/**
- * O recebível da venda NOVA em produção — pelo escritor único de títulos.
- *
- * ⚠️ `salvarVenda` só gerava o recebível dentro de `if (isDemo)`. Em produção a
- * venda ficava no navegador e o dinheiro que ela promete não entrava no contas a
- * receber, no fluxo nem no DRE — a mesma família do "escritor morto" que
- * `criarTitulos` existe para fechar. A tela dizia "Venda salva" e nada no caixa
- * mudava.
- *
- * Só a venda NOVA: editar uma venda em produção não reescreve o título (ele já
- * pode ter sido baixado ou conciliado, e sobrescrever um título baixado move
- * dinheiro que já se moveu). A edição do título é feita no próprio título.
- * Em demonstração é no-op: `salvarVenda` já cuidou do dataset.
- */
-export async function registrarRecebivelDaVenda(v: Venda, nova: boolean): Promise<void> {
-  if (isDemo || !nova) return;
-  await criarTitulos([{
-    account_id: v.contaId,
-    type: "entrada",
-    amount: v.valorTotalComJuros || v.valorTotal,
-    due_date: v.vencimento,
-    competence_date: v.competencia || v.vencimento,
-    category: v.categoria || "Vendas",
-    description: v.descricao || `Venda ${v.numero}`,
-    party_id: v.clienteId || null,
-    status: v.pago ? "pago" : "pendente",
-    paid_date: v.pago ? v.dataPagamento : null,
-    origem: "manual",
-  }]);
-}
-
 export function removerVenda(id: string): Venda[] {
   const out = listarVendas().filter((v) => v.id !== id);
   gravar(K_VENDAS, out);
@@ -106,9 +80,7 @@ export function removerVenda(id: string): Venda[] {
 
 /** Próximo número sequencial da venda — legível e estável no ano. */
 export function proximoNumero(): string {
-  const ano = new Date().getFullYear();
-  const doAno = listarVendas().filter((v) => v.numero.startsWith(String(ano)));
-  return `${ano}-${String(doAno.length + 1).padStart(4, "0")}`;
+  return proximoNumeroDe(listarVendas().map((v) => v.numero), new Date().getFullYear());
 }
 
 /* -------------------------- configuração de impostos -------------------------- */

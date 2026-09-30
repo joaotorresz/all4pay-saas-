@@ -134,6 +134,8 @@ export const CHAVES_ORG = {
 export const CHAVES_CONGELADAS: readonly string[] = [
   "a4p_aprovacoes",
   "a4p_reembolsos",
+  // A venda mora em `sales_docs` desde 30/09/2026 (lib/vendas).
+  "a4p_vendas_docs",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
