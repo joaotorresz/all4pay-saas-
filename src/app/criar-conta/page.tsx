@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { CriarContaView } from "@/components/entrada/CriarContaView";
 
 export const metadata: Metadata = {
-  title: "Criar conta · all4pay",
-  description: "Crie a sua conta em três campos e comece a usar o all4pay.",
+  title: "Criar conta · Quattro",
+  description: "Crie a sua conta em três campos e comece a usar o quattro.",
 };
 
 export default function CriarContaPage() {

@@ -1,5 +1,5 @@
 /**
- * all4pay — Dimensões & tags customizadas + drill-down universal. Inspirado nas
+ * Quattro — Dimensões & tags customizadas + drill-down universal. Inspirado nas
  * "tags/dimensões ilimitadas + drill-down até a transação" do Campfire: pivota
  * os movimentos por qualquer dimensão (categoria, centro de custo, contraparte
  * ou tag customizada) e permite descer da agregação até cada transação.

@@ -231,6 +231,41 @@ export function balancoDoRazao(entries: RazaoLancamento[], ate: string): Balanco
   };
 }
 
+/**
+ * BALANÇO COMPARATIVO — a mesma foto em duas datas, conta a conta.
+ *
+ * ⚠️ Um balanço sozinho diz ONDE a empresa está; quem decide quer saber o que
+ * MUDOU (o caixa caiu porque o estoque subiu? a dívida cresceu?). A comparação
+ * sai das DUAS execuções do mesmo `balancoDoRazao` — nenhuma soma paralela —, e
+ * a variação é `atual − anterior` linha a linha, com as contas que só existem
+ * de um lado entrando com zero do outro (sumir do balanço é informação, não
+ * ruído). A invariante que a guarda cobra: a soma das variações de um grupo é
+ * a variação do total do grupo.
+ */
+export interface LinhaComparativa { grupo: string; conta: string; nome: string; atual: number; anterior: number; variacao: number }
+export interface BalancoComparativo { atual: BalancoRazao; anterior: BalancoRazao; linhas: LinhaComparativa[] }
+
+export function balancoComparativo(entries: RazaoLancamento[], ate: string, base: string): BalancoComparativo {
+  const atual = balancoDoRazao(entries, ate);
+  const anterior = balancoDoRazao(entries, base);
+  const linhas: LinhaComparativa[] = [];
+  for (const g of atual.grupos) {
+    const ga = anterior.grupos.find((x) => x.titulo === g.titulo);
+    const chaves = new Map<string, { nome: string; atual: number; anterior: number }>();
+    for (const c of g.contas) chaves.set(`${c.conta}|${c.nome}`, { nome: c.nome, atual: c.valor, anterior: 0 });
+    for (const c of ga?.contas ?? []) {
+      const k = `${c.conta}|${c.nome}`;
+      const cur = chaves.get(k) ?? { nome: c.nome, atual: 0, anterior: 0 };
+      cur.anterior = c.valor;
+      chaves.set(k, cur);
+    }
+    for (const [k, v] of Array.from(chaves)) {
+      linhas.push({ grupo: g.titulo, conta: k.split("|")[0], nome: v.nome, atual: v.atual, anterior: v.anterior, variacao: v.atual - v.anterior });
+    }
+  }
+  return { atual, anterior, linhas };
+}
+
 /** Pivot do resultado por dimensão (ex.: contraparte, centro) no período. */
 export function pivotDoRazao(entries: RazaoLancamento[], key: string, de: string, ate: string): PivotRazaoLinha[] {
   const map = new Map<string, { receita: number; despesa: number }>();

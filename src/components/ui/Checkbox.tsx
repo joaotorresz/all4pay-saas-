@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Checkbox
+ * Quattro DS — Checkbox
  * Small 8px-radius box; ink fill + white check when selected.
  * Used for table-row selection and option lists.
  */

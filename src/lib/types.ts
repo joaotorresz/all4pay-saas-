@@ -1,5 +1,5 @@
 /**
- * Domain model for the all4pay financial overview.
+ * Domain model for the Quattro financial overview.
  * Mirrors the Supabase schema in `supabase/migrations/` — keep in sync.
  */
 

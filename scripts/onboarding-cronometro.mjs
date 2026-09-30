@@ -239,7 +239,7 @@ await fase("2. Atravessar perfil, governança e estrutura",
    ⚠️ Com o arquivo REAL de `public/exemplos`, não com um CSV de três linhas
    escrito para o teste: o que se quer medir é o tempo de processar um extrato
    de doze meses, e um arquivo de brinquedo processa rápido e não prova nada. */
-const CSV = readFileSync("public/exemplos/extrato-exemplo-all4pay.csv");
+const CSV = readFileSync("public/exemplos/extrato-exemplo-quattro.csv");
 await fase("3. Importar o extrato (12 meses, arquivo real)",
   RITMO.telaNova + RITMO.arquivo + RITMO.clique + RITMO.revisao,
   async () => {

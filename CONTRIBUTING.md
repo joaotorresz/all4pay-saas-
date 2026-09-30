@@ -116,8 +116,9 @@ esconder uma sondagem registrada a deixa cega para a PRÓXIMA — que é o que e
 existe para pegar. Janela silencia por IDADE; declaração silencia por NOME.
 
 **Dívida é outro bloco, com DONO e PRAZO** (`dividas_declaradas`): objeto real,
-em uso, cujo `CREATE` mora fora do repositório — hoje o subsistema `own_token_*`
-das Edge Functions (A4P-076). *O CREATE mora nas Edge Functions, fora do
+em uso, cujo `CREATE` mora fora do repositório. Hoje não há nenhuma: a última,
+o subsistema `own_*` das Edge Functions (A4P-076), saiu com a rescisão da OWN
+em 30/09/2026 (migration `20260930120000`). *O CREATE mora nas Edge Functions, fora do
 repositório: dívida aberta, não exceção permanente.* Prazo vencido **reprova** —
 dívida sem prazo que vence vira paisagem, que é como as 29 divergências de
 esquema chegaram até aqui.

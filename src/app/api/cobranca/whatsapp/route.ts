@@ -4,7 +4,7 @@ import { dispararCobrancas, statusNotificacoes, type AlvoCobranca } from "@/core
 /**
  * Disparo de cobrança por cliente via WhatsApp (server-side; chaves Twilio
  * ficam no servidor). Recebe os alvos já montados pelo app (cliente +
- * telefone + mensagem) — a segmentação/decisão é do all4pay, a Twilio só entrega.
+ * telefone + mensagem) — a segmentação/decisão é do Quattro, a Twilio só entrega.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

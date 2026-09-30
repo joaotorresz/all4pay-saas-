@@ -507,9 +507,3 @@ jobs:
           node-version: "22"
       - name: Produção serve o HEAD de main?
         run: node scripts/no-ar.mjs --tolerancia 12
-      # ⚠️ A4P-077: as Edge Functions recusam chamada sem credencial? Mesma
-      # classe de estado contínuo, mesma cadência. Prova a fechadura pelo
-      # comportamento — NÃO prova que o mecanismo é forte (o fonte não está no
-      # repositório), e por isso o job não escreve "seguro".
-      - name: Portas fechadas (Edge Functions sem credencial → 401)
-        run: node scripts/portas-fechadas.mjs

@@ -1,5 +1,5 @@
 /**
- * all4pay — IA Executiva + Decision Engine
+ * Quattro — IA Executiva + Decision Engine
  * ----------------------------------------
  * A camada que faz o sistema operar como analista financeiro + FP&A +
  * tesouraria + consultoria rodando 24h sobre os dados da empresa.

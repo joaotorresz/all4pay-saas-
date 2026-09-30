@@ -1,5 +1,5 @@
 /**
- * all4pay — Camada Quantitativa (terminal de inteligência financeira)
+ * Quattro — Camada Quantitativa (terminal de inteligência financeira)
  * ------------------------------------------------------------------
  * Onde o sistema deixa de ser ERP e vira "Bloomberg para PMEs":
  * transforma lançamentos em métricas executivas, score de saúde,

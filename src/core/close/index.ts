@@ -1,5 +1,5 @@
 /**
- * all4pay — Fechamento contábil contínuo (Continuous Close)
+ * Quattro — Fechamento contábil contínuo (Continuous Close)
  * ---------------------------------------------------------
  * Inspirado no módulo de close do Campfire: o fechamento mensal vira revisão e
  * aprovação, não construção do zero. Monta um checklist do período com tarefas
@@ -9,6 +9,7 @@
  * Reusa o mesmo RiskInput (movements). Períodos travados são um controle.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import type { LedgerEntryInput } from "@/core/ledger";
 
 export const VERSAO_CLOSE = "close/1.0.0";
 
@@ -136,7 +137,7 @@ export function montarFechamento(
       tipo: "auto",
       status: metricas.pendentes === 0 ? "ok" : "atencao",
       detalhe: metricas.pendentes === 0 ? "Tudo baixado." : `${metricas.pendentes} lançamento(s) pendente(s).`,
-      href: "/recebimentos",
+      href: "/contas-a-receber/titulos",
     },
     {
       id: "provisoes",
@@ -146,9 +147,9 @@ export function montarFechamento(
       status: sugestoes.length === 0 ? "ok" : "pendente",
       detalhe: sugestoes.length === 0 ? "Sem provisões sugeridas." : `${sugestoes.length} provisão(ões) sugerida(s).`,
     },
-    manual("conciliacao", "Conciliação bancária", "Confira o extrato e concilie os movimentos do mês.", "/upload?aba=conciliar"),
-    manual("variancia", "Revisar orçado × realizado", "Analise os desvios do mês na análise de variação.", "/orcamento"),
-    manual("aprovacao", "Revisar e aprovar lançamentos", "Revise os lançamentos do mês e aprove o resultado.", "/dre"),
+    manual("conciliacao", "Conciliação bancária", "Confira o extrato e concilie os movimentos do mês.", "/dashboard/financial/reconciliation"),
+    manual("variancia", "Explicar a variação do mês", "Revise o que mudou contra o mês anterior e o comentário gerado, na análise de variação.", "/dashboard/reports/variance"),
+    manual("aprovacao", "Revisar e aprovar lançamentos", "Revise os lançamentos do mês e aprove o resultado.", "/dashboard/reports/dre"),
   ];
 
   const total = tarefas.length;
@@ -163,4 +164,64 @@ export function montarFechamento(
     prontidao: total ? ok / total : 0,
     versao: VERSAO_CLOSE,
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * PROVISÃO COM ESTORNO AUTOMÁTICO (accrual + reversal)
+ *
+ * ⚠️ Uma provisão sem estorno CONTA A DESPESA DUAS VEZES. Provisiona-se em
+ * setembro a conta de luz que ainda não chegou; em outubro a conta chega e é
+ * lançada de verdade — e, se ninguém desfizer a provisão, setembro e outubro
+ * carregam a mesma despesa. O estorno no dia 1º do mês seguinte é o que anula a
+ * provisão no instante em que o lançamento real passa a existir. Fazê-lo à mão
+ * é o passo que todo fechamento esquece; por isso as DUAS partidas nascem do
+ * mesmo gesto.
+ *
+ * A provisão é datada no ÚLTIMO dia do mês (é despesa daquele mês), e o estorno
+ * no PRIMEIRO dia do seguinte. As datas são montadas fatiando a string — um
+ * `Date` do dia 1º em UTC-3 cai no mês anterior. A chave externa das duas é
+ * derivada do mês e da categoria, então lançar de novo não duplica nada.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+
+/** Conta de despesa genérica das provisões e a conta de passivo que as acumula. */
+export const CONTA_PROVISAO_DESPESA = "4.1.09";
+export const CONTA_PROVISOES_A_PAGAR = "2.1.99";
+
+/** Último dia do mês `YYYY-MM`, como `YYYY-MM-DD`. */
+export function ultimoDiaDoMes(mes: string): string {
+  const [y, m] = mes.split("-").map(Number);
+  const dias = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${mes}-${String(dias).padStart(2, "0")}`;
+}
+
+/** Primeiro dia do mês seguinte a `YYYY-MM` — dezembro vira janeiro do ano seguinte. */
+export function primeiroDiaDoMesSeguinte(mes: string): string {
+  const [y, m] = mes.split("-").map(Number);
+  return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, "0")}-01`;
+}
+
+export function provisaoComEstorno(
+  mes: string,
+  categoria: string,
+  valor: number,
+  contaDespesa: string = CONTA_PROVISAO_DESPESA,
+): [LedgerEntryInput, LedgerEntryInput] {
+  const v = Math.round(valor * 100) / 100;
+  const chave = `${mes}:${categoria}`;
+  const provisao: LedgerEntryInput = {
+    entryDate: ultimoDiaDoMes(mes),
+    description: `Provisão: ${categoria}`,
+    source: "system",
+    externalKey: `prov:${chave}`,
+    lines: [{ accountId: contaDespesa, debit: v }, { accountId: CONTA_PROVISOES_A_PAGAR, credit: v }],
+  };
+  const estorno: LedgerEntryInput = {
+    entryDate: primeiroDiaDoMesSeguinte(mes),
+    description: `Estorno da provisão: ${categoria}`,
+    source: "system",
+    externalKey: `prov-estorno:${chave}`,
+    lines: [{ accountId: CONTA_PROVISOES_A_PAGAR, debit: v }, { accountId: contaDespesa, credit: v }],
+  };
+  return [provisao, estorno];
 }

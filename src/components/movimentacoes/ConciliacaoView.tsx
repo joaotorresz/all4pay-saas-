@@ -22,12 +22,26 @@ import {
   moverRegraConciliacao, novoIdMov,
 } from "@/lib/movimentacoes";
 import { previstoDaConta } from "@/core/indicadores";
+import { ConciliacaoView as ConciliacaoOpenFinance } from "@/components/conciliacao/ConciliacaoView";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
-type Aba = "quadros" | "conferencia" | "regras" | "fechamentos";
+type Aba = "quadros" | "conferencia" | "open-finance" | "regras" | "fechamentos";
+const ABAS_VALIDAS: Aba[] = ["quadros", "conferencia", "open-finance", "regras", "fechamentos"];
 
+/**
+ * ⚠️ UMA conciliação. Existiam duas telas com o MESMO nome de componente: esta
+ * (extrato OFX × lançamentos, com regras e fechamentos) e a aba "Conciliar" da
+ * entrada de dados (Open Finance × títulos previstos, com baixa por match). O
+ * menu levava a uma, os aliases antigos à outra, e quem conciliava num lugar
+ * não via o que tinha sido conciliado no outro. A segunda virou a aba "Open
+ * Finance" daqui; `/upload?aba=conciliar` desvia para ela.
+ */
 export function ConciliacaoView() {
   const [aba, setAba] = React.useState<Aba>("quadros");
+  React.useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("aba") as Aba | null;
+    if (a && ABAS_VALIDAS.includes(a)) setAba(a);
+  }, []);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -39,6 +53,7 @@ export function ConciliacaoView() {
         {([
           ["quadros", "Quadros"],
           ["conferencia", "Tabela para conferência"],
+          ["open-finance", "Open Finance × títulos"],
           ["regras", "Regras de conciliação"],
           ["fechamentos", "Fechamentos"],
         ] as [Aba, string][]).map(([id, label]) => {
@@ -58,6 +73,7 @@ export function ConciliacaoView() {
 
       {aba === "quadros" && <Quadros />}
       {aba === "conferencia" && <Conferencia />}
+      {aba === "open-finance" && <ConciliacaoOpenFinance />}
       {aba === "regras" && <Regras />}
       {aba === "fechamentos" && <Fechamentos />}
     </div>

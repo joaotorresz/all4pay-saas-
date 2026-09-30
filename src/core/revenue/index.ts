@@ -1,5 +1,5 @@
 /**
- * all4pay — Reconhecimento de receita (IFRS 15 / CPC 47) + receita diferida +
+ * Quattro — Reconhecimento de receita (IFRS 15 / CPC 47) + receita diferida +
  * waterfall de receita recorrente (ARR/MRR). Inspirado no Revenue Automation do
  * Campfire (ASC 606 lá; IFRS 15/CPC 47 aqui — a lógica de reconhecer ao longo da
  * obrigação de desempenho é análoga). Puro, tipado, demo-safe.

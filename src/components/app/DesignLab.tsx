@@ -93,14 +93,14 @@ const PADROES: Padrao[] = [
   { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
   { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
   { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
-  // All 4 Pay AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
+  // Quattro AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
   // dele no AppShell), então nada em `.ds-visor …` os alcança. Ganham âncora
   // própria (`.a4p-ia`) para serem editáveis como o resto.
-  { id: "iaFab", label: "All 4 Pay AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
+  { id: "iaFab", label: "Quattro AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
   { id: "iaPergunta", label: "IA · pergunta", grupo: "Textos", teste: ".a4p-ia [data-ia='pergunta']", seletorTipo: ".a4p-ia [data-ia='pergunta']" },
   { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
   { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
-  { id: "iaChat", label: "All 4 Pay AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
+  { id: "iaChat", label: "Quattro AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
   // Barra superior — irmã do `<main>.ds-visor`, então nada em `.ds-visor …` a
   // alcança. Editável em partes, porque "a barra" não é uma coisa só: o fundo
   // é a superfície do chrome, a marca é identidade e os ícones são controles.
@@ -150,7 +150,7 @@ const PADROES: Padrao[] = [
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
-  { id: "iaTudo", label: "All 4 Pay AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
+  { id: "iaTudo", label: "Quattro AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
   { id: "topbarTudo", label: "Barra superior (toda)", grupo: "Barra superior", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
 ];
 
@@ -182,7 +182,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
   { id: "button", label: "Botões", dica: "ações" },
   { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
-  { id: "iaTudo", label: "All 4 Pay AI", dica: "o botão e o chat" },
+  { id: "iaTudo", label: "Quattro AI", dica: "o botão e o chat" },
   { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
@@ -441,18 +441,18 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  // ⚠️ ESPELHO DA PALETA QUENTE. Deixar os valores velhos aqui faria o Lab
+  // ⚠️ ESPELHO DA PALETA QUATTRO. Deixar os valores velhos aqui faria o Lab
   // repintar o app com a paleta ANTERIOR para quem abrisse a tela — que é
   // literalmente o defeito descrito acima. A guarda `npm run paleta` confere
   // este bloco contra os tokens reais e reprova quando divergem.
-  ink: "#28211b", lime: "#c8d930", onLime: "#28211b", bg: "#f1f3f6",
-  cardBg: "#ffffff", surface2: "#f1f3f6", border: "#d4d3d1",
-  body: "#534d41", muted: "#534d41",
+  ink: "#3b4332", lime: "#ecfd52", onLime: "#3b4332", bg: "#f3f1ee",
+  cardBg: "#ffffff", surface2: "#f3f1ee", border: "#d6d8ca",
+  body: "#6b7060", muted: "#6b7060",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
   // contraste da ONDA 12.
-  positive: "#2cd662", negative: "#d62c2c", warning: "#a45c15",
+  positive: "#2cd662", negative: "#b3261e", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   // Espelha o sistema: Roobert Trial. Deixar "hanken" aqui faria o Laboratório
@@ -1139,7 +1139,7 @@ export function DesignLab() {
                       {BORDAS.map((b) => {
                         const ov = s.padroes[b.id] ?? {};
                         const w = ov.borderW as number | undefined;
-                        const cor = (ov.borderColor as string) ?? "#d4d3d1";
+                        const cor = (ov.borderColor as string) ?? "#d6d8ca";
                         return (
                           <div key={b.id}
                             onMouseEnter={() => realcar(PADROES.find((p) => p.id === b.id)?.seletorTipo ?? null)}
@@ -1226,7 +1226,7 @@ function Realce({ rect, label, sutil }: { rect: DOMRect; label: string; sutil?: 
       }}>
       {label && (
         <span className="absolute -top-6 left-0 text-[11px] font-semibold px-2 py-[2px] rounded-md whitespace-nowrap"
-          style={{ background: "var(--color-ink,#28211b)", color: "var(--color-lime,#c8d930)" }}>{label}</span>
+          style={{ background: "var(--color-ink,#3b4332)", color: "var(--color-lime,#ecfd52)" }}>{label}</span>
       )}
     </div>
   );
@@ -1287,7 +1287,7 @@ function Controle({ prop, valor, base, onChange, onClear }: { prop: Prop; valor:
     );
   }
   if (m.kind === "color") {
-    const v = (valor as string) ?? "#28211b";
+    const v = (valor as string) ?? "#3b4332";
     return (
       <div className="flex items-center gap-2">
         <input type="color" value={v} onChange={(e) => onChange(e.target.value)}
@@ -1377,7 +1377,7 @@ function valorLegivel(p: Prop, v: number | string): string {
 function gerarInstrucao(s: DesignState): string {
   const f = FONTS.find((x) => x.id === s.font);
   const L: string[] = [];
-  L.push("Aplique estes ajustes do Laboratório de Design ao design system all4pay,");
+  L.push("Aplique estes ajustes do Laboratório de Design ao design system Quattro,");
   L.push("promovendo-os ao código (globals.css .ds-visor / .a4p-sidebar / componentes):");
   L.push("");
   L.push("GLOBAL");

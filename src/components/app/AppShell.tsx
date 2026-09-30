@@ -69,11 +69,13 @@ export function AppShell({
           <h1
             className="m-0 text-[29px] text-ink truncate"
             style={{
-              fontFamily: '"Roobert Variable", "Roobert", sans-serif',
-              fontWeight: 500,
+              // Guia Quattro: título de tela em Centra No.2 Black, CAIXA ALTA,
+              // tracking −0.02em (a display vem do token `--font-display`).
+              fontFamily: 'var(--font-display, "Centra No2", "Roobert", sans-serif)',
+              fontWeight: 900,
               letterSpacing: "-0.02em",
               lineHeight: 1.1,
-              textTransform: "none",
+              textTransform: "uppercase",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}
@@ -119,7 +121,7 @@ export function AppShell({
         {/*
           ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
 
-          O botão da All 4 Pay AI é `fixed bottom-5` (20px) e mede ~40px de
+          O botão da Quattro AI é `fixed bottom-5` (20px) e mede ~40px de
           altura: ele ocupa os ~60px de baixo da janela. Este contêiner
           reservava `pb-10` = 40px. Faltavam ~20px, e a ÚLTIMA LINHA de
           qualquer tabela longa ficava por baixo da pílula — some justamente

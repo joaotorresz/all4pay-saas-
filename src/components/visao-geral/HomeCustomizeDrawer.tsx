@@ -8,7 +8,7 @@ import { COCKPIT_CATALOG } from "./cockpit";
 /** Blocos da Home (command center). A ordem aqui é a ordem dos blocos na tela. */
 export const BLOCK_ORDER = [
   "Operação", "Resumo executivo", "Saúde financeira", "Caixa", "Receita",
-  "Despesas", "Cobrança", "Inteligência", "Radares all4pay",
+  "Despesas", "Cobrança", "Inteligência", "Radares Quattro",
 ] as const;
 type Bloco = (typeof BLOCK_ORDER)[number];
 

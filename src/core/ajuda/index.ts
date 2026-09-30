@@ -123,7 +123,7 @@ export interface SugestaoAjuda {
  * As perguntas sugeridas, agrupadas por assunto.
  *
  * São perguntas de USO ("como faço"), não de número ("qual meu runway") — quem
- * responde número é o All 4 Pay AI. Misturar as duas portas faria a pessoa
+ * responde número é o Quattro AI. Misturar as duas portas faria a pessoa
  * perguntar o saldo aqui e receber um artigo.
  */
 export const SUGESTOES: SugestaoAjuda[] = [

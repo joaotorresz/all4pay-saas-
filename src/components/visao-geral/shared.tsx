@@ -22,7 +22,7 @@ export const bankColor = (bank: string) => BANK_COLORS[bank] ?? "var(--color-tex
 
 /**
  * Glifo flat num tile discreto — o marcador de identidade dos cabeçalhos de
- * card. DS All4Pay: chip escuro (ink) + glifo LIMA. Nada de volume/gradiente:
+ * card. DS Quattro: chip escuro (ink) + glifo LIMA. Nada de volume/gradiente:
  * o sistema é flat ("sem sombras"), e o 3D destoava.
  */
 export function IconTile({ name, size = 40 }: { name: IconName | string; size?: number }) {

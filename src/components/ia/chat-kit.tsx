@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Kit do chat da All 4 Pay AI — as peças COMPARTILHADAS entre o painel
+ * Kit do chat da Quattro AI — as peças COMPARTILHADAS entre o painel
  * flutuante (`AssistantWidget`, em toda tela) e a página inteira
- * (`/all4pay-ai`, com histórico de conversas).
+ * (`/quattro-ai`, com histórico de conversas).
  *
  * A regra é uma só: **a IA é a mesma nos dois lugares**. Tipos, marca,
  * etapas de análise, bolha de resposta e gráfico moram aqui; cada superfície
@@ -36,7 +36,7 @@ export interface Turno {
 /* ============================== MARCA ============================== */
 
 /**
- * O "4" da marca — o raio do wordmark all4pay, vetorizado do próprio
+ * O "4" da marca — o raio do wordmark Quattro, vetorizado do próprio
  * `public/all4pay-dark.png`; o mesmo path vive em `public/all4pay-4.svg`.
  */
 export const PATH_4 = "M39.3 0L64.32 0.29L34.06 53.95L61.56 54.61L74.5 31.49L98.95 31.97L60.99 99.81L36.06 100L53.38 68.98L1.05 68.6Z";

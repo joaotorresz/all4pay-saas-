@@ -1,5 +1,5 @@
 /**
- * all4pay — Financial OS Layer
+ * Quattro — Financial OS Layer
  * ----------------------------------------------------------------
  * Tipos do sistema operacional financeiro (orientado a eventos):
  * Reconciliation · Event Bus · Rules · Automation · Notification ·

@@ -1,5 +1,5 @@
 /**
- * Motor de resposta NATIVO do assistente (all4pay IA) — responde perguntas em
+ * Motor de resposta NATIVO do assistente (Quattro IA) — responde perguntas em
  * linguagem natural calculando os números REAIS dos dados do cliente
  * (movements, contas, clientes) na hora, sem depender de chave de LLM. É o que
  * faz a IA "funcionar de verdade" mesmo offline: entende intenção (quanto/quem/

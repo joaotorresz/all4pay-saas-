@@ -1,8 +1,10 @@
 import * as React from "react";
 import { SOLAR_ICONS, type SolarIcon } from "./solar-icons";
 
-/** Espessura de traço padrão do set Hugeicons Rounded. */
+/** Espessura de traço NATIVA do set Hugeicons Rounded (a que vem no glifo). */
 const STROKE_PADRAO = 1.5;
+/** Espessura que a marca Quattro pede para ícone (guia: traço 1,7px). */
+const STROKE_MARCA = 1.7;
 
 /**
  * Ícones custom (fora do set gerado) — sobrepõem o SOLAR_ICONS por nome.
@@ -45,10 +47,10 @@ const CUSTOM_ICONS: Record<string, SolarIcon> = {
 };
 
 /**
- * all4pay DS — Icon
+ * Quattro DS — Icon
  * Conjunto **Hugeicons (Stroke Rounded)** (Iconify) — glifos TRAÇADOS, leves e
  * com cantos arredondados. Monocromáticos via `currentColor`: a prop `color`
- * carrega a identidade visual da all4pay (ink · muted · faint · lime · on-lime)
+ * carrega a identidade visual da Quattro (ink · muted · faint · lime · on-lime)
  * e `strokeWidth` ajusta a espessura (padrão 1.5 do próprio set). Renderiza o
  * SVG inline (sem fetch em runtime; viewBox 24).
  *
@@ -63,12 +65,12 @@ export interface IconProps {
   name: IconName | string;
   size?: number;
   color?: string;
-  /** Espessura do traço (Hugeicons é traçado). Padrão: 1.5, do próprio set. */
+  /** Espessura do traço (Hugeicons é traçado). Padrão: 1.7, do guia Quattro. */
   strokeWidth?: number;
   className?: string;
 }
 
-export function Icon({ name, size = 18, color = "currentColor", strokeWidth, className }: IconProps) {
+export function Icon({ name, size = 18, color = "currentColor", strokeWidth = STROKE_MARCA, className }: IconProps) {
   const ic = CUSTOM_ICONS[name as string] ?? SOLAR_ICONS[name as string];
   const rawId = React.useId();
   const html = React.useMemo(() => {

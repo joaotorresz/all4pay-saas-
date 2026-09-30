@@ -2788,3 +2788,12 @@ cada papel estão escritas, com o motivo de cada decisão ao lado.
 Nenhuma sessão deve alterá-la, abrir issue sobre ela ou recomendar um lado — o
 que se pedia era que a decisão não fosse tomada sem o fato à vista, e agora ele
 está.
+
+---
+
+> **Nota de 30/09/2026 — a OWN saiu do produto.** O contrato foi rescindido. As
+> Edge Functions `own-webhook` e `own-sync` e toda a família `own_*` citadas
+> acima foram removidas do repositório; a migration
+> `20260930120000_remove_integracao_own.sql` derruba os objetos no banco (e se
+> recusa se houver dado de lojista). Os achados acima ficam como registro
+> histórico.

@@ -66,7 +66,7 @@ export function ArmazenamentoView() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `all4pay-estado-${dados.geradoEm.slice(0, 10)}.json`;
+    a.download = `quattro-estado-${dados.geradoEm.slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     setMsg(`Backup gerado com ${Object.keys(dados.chaves).length} itens.`);
@@ -83,7 +83,7 @@ export function ArmazenamentoView() {
         // ⚠️ Recusar com o motivo, não com "arquivo inválido": quem restaura um
         // backup está num dia ruim, e "inválido" não diz se o arquivo é de
         // outro sistema, se está truncado ou se é de uma versão futura.
-        setErroArquivo("Este arquivo não é um backup do all4pay (formato ou versão não reconhecidos).");
+        setErroArquivo("Este arquivo não é um backup do Quattro (formato ou versão não reconhecidos).");
         return;
       }
       setBackup({ arquivo: f.name, dados: lido });

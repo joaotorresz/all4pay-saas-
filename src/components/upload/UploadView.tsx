@@ -331,7 +331,7 @@ export function UploadView() {
           <div className="flex flex-wrap items-center gap-2 mt-2">
             <Button variant="primary" onClick={() => analisarEAuto(texto)} disabled={!texto.trim()}>Analisar</Button>
             <Button variant="secondary" onClick={carregarAmostra}>Carregar amostra (12 meses)</Button>
-            <a href="/exemplos/extrato-exemplo-all4pay.csv" download className="text-label font-medium text-muted hover:text-ink underline ml-auto">Baixar CSV de exemplo</a>
+            <a href="/exemplos/extrato-exemplo-quattro.csv" download className="text-label font-medium text-muted hover:text-ink underline ml-auto">Baixar CSV de exemplo</a>
           </div>
         </details>
         {erro && <span className="text-caption text-negative">{erro}</span>}

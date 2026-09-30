@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Cadastros do modelo IULI ainda não cobertos pelo schema all4pay — Projetos
+ * Cadastros do modelo IULI ainda não cobertos pelo schema Quattro — Projetos
  * (centros de resultado temporais, com previsões) e Centros de Custo (rateio +
  * código contábil Domínio). Store local (localStorage), demo-safe; em escala
  * vira tabela própria. Campos fiéis ao relatório (§3.4 / §3.5).

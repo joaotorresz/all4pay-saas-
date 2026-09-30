@@ -1,5 +1,5 @@
 /**
- * DICAS all4pay — leituras da movimentação do próprio cliente.
+ * DICAS Quattro — leituras da movimentação do próprio cliente.
  *
  * ⚠️ NÃO É UM MODELO TREINADO, e chamar isto de "machine learning" seria
  * exagerar o que ele faz. É aprendizado ESTATÍSTICO sobre o histórico do

@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Badge
+ * Quattro DS — Badge
  * Tiny meta marker. `new` uses the lime accent (lime); `count` is
  * an ink pill with white text; `neutral` is a quiet surface chip.
  */

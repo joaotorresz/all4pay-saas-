@@ -4,7 +4,7 @@
  * O ASSISTENTE ÚNICO — a conversa e os painéis dos motores, num destino só.
  *
  * ⚠️ Item 6 do mapa de consolidação. Havia TRÊS superfícies de IA: o chat de
- * `/all4pay-ai`, as quatro abas do `/copiloto` e o botão flutuante. Não existia
+ * `/quattro-ai`, as quatro abas do `/copiloto` e o botão flutuante. Não existia
  * resposta para "onde eu falo com a IA".
  *
  * A decisão: a **conversa é a porta** — é o que as pessoas procuram. As quatro

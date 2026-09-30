@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — DateField
+ * Quattro DS — DateField
  * Native date input (value is ISO yyyy-mm-dd; the browser renders it in the
  * user's locale, pt-BR). Styled to match the DS field.
  */
@@ -49,8 +49,8 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            "h-10 px-3 rounded-md bg-surface-2 border text-body text-ink outline-none focus:border-faint",
-            invalid ? "border-negative" : "border-transparent",
+            "h-11 px-4 rounded-md bg-white border-campo text-body text-ink outline-none focus:border-ink",
+            invalid ? "border-negative" : "border-border",
             className,
           )}
           {...rest}

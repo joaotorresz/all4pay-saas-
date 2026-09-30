@@ -1,5 +1,5 @@
 /**
- * all4pay — Camada Institucional (governança operacional)
+ * Quattro — Camada Institucional (governança operacional)
  * --------------------------------------------------------
  * O que separa "software financeiro bonito" de infraestrutura
  * financeira usável por bancos, holdings, fundos e auditorias.

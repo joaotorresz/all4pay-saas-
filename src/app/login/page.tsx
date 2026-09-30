@@ -76,8 +76,8 @@ export default function LoginPage() {
               {view === "reset"
                 ? "Informe seu e-mail e enviaremos um link de redefinição."
                 : pessoal
-                  ? "Controle seus gastos do dia a dia com a all4pay."
-                  : "Acesse o painel financeiro all4pay."}
+                  ? "Controle seus gastos do dia a dia com a quattro."
+                  : "Acesse o painel financeiro quattro."}
             </p>
           </div>
 

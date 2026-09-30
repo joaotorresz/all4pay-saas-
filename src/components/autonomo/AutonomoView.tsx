@@ -182,7 +182,7 @@ function PoliticaRow({ p }: { p: PoliticaAutonoma }) {
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(new RegExp("[\\u0300-\\u036f]", "g"), "").trim();
 
 function mensagemCobranca(c: CollectionPlan): string {
-  const base = `all4pay · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
+  const base = `Quattro · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
   const fecho =
     c.estrategia === "agressiva_precoce"
       ? "Regularize o quanto antes para evitar restrições. Qualquer dúvida, estamos à disposição."

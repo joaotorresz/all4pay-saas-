@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Pill
+ * Quattro DS — Pill
  * Floating contextual chip / micro-CTA. `yield` is the desaturated lime
  * "Render mais ↗" chip; `surface` is the quiet floating action (soft
  * shadow); `muted` and `ghost` are quieter still.

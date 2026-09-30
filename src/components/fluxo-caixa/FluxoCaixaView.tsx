@@ -124,7 +124,7 @@ function Inner() {
           {/* Modo Pro: profundidade completa. */}
           {pro && <>
             <Bloco
-              titulo="Fluxo de Caixa Inteligente"
+              titulo="Árvore do caixa"
               icon="trending-up"
               info={{
                 oQue: "A árvore do caixa: do saldo inicial às entradas e saídas, até o fluxo operacional, livre e o saldo final.",
@@ -132,15 +132,7 @@ function Inner() {
               }}
             ><FluxoInteligenteView f={data.fluxo} /></Bloco>
             <Bloco
-              titulo="Cross-check Inteligente"
-              icon="sparkles"
-              info={{
-                oQue: "Confere se as cadeias de despesa e recebimento estão consistentes, sinalizando o que bate e o que não bate.",
-                comoCalcula: "A IA verifica cada cadeia (fornecedor, recorrência, nota) contra os dados e marca cada passo como ok ou pendente.",
-              }}
-            ><CrossCheckView checks={data.crossChecks} /></Bloco>
-            <Bloco
-              titulo="Projeção com Machine Learning"
+              titulo="Projeção do caixa"
               icon="activity"
               info={{
                 oQue: "Projeta o caixa futuro em vários horizontes, com bandas de cenário e a chance de ficar negativo.",
@@ -157,14 +149,6 @@ function Inner() {
                 comoCalcula: "Cada cenário aplica seus choques sobre os indicadores atuais e re-simula runway, score e burn comparados à base.",
               }}
             ><CenariosView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
-            <Bloco
-              titulo="Heat Map Financeiro"
-              icon="gauge"
-              info={{
-                oQue: "Pinta cada dia de verde, amarelo ou vermelho conforme o conforto do caixa, para achar os períodos de aperto.",
-                comoCalcula: "Classifica o saldo projetado de cada dia em faixas: confortável, atenção ou risco.",
-              }}
-            ><HeatmapView dias={data.heatmap} /></Bloco>
             {/*
               * ⚠️ **O TÍTULO MUDA COM O REGIME, e essa é a regra — não um
               * detalhe de rótulo.** Esta cascata sai de `financialDRE`, que
@@ -191,9 +175,34 @@ function Inner() {
                   : "Mesma cascata do DRE (competência, pela data de vencimento): empilha as deduções uma a uma até o resultado.",
               }}
             ><WaterfallView passos={data.waterfall} /></Bloco>
+            {/*
+              * ⚠️ ENXUGAMENTO DO MVP (30/09/2026): a tela abria com catorze
+              * blocos em fila, e quem vinha saber "vou ter caixa no dia 20?"
+              * rolava por mapa de calor, gêmeo digital e camada de confiança
+              * antes de achar a resposta. O essencial fica aberto (resumo,
+              * vencido × pago, calendário, árvore, projeção, cenários e a
+              * cascata); o resto fica RECOLHIDO, a um clique — não apagado.
+              */}
+            <AnalisesAvancadas>
+            <Bloco
+              titulo="Conferência das cadeias"
+              icon="sparkles"
+              info={{
+                oQue: "Confere se as cadeias de despesa e recebimento estão consistentes, sinalizando o que bate e o que não bate.",
+                comoCalcula: "A IA verifica cada cadeia (fornecedor, recorrência, nota) contra os dados e marca cada passo como ok ou pendente.",
+              }}
+            ><CrossCheckView checks={data.crossChecks} /></Bloco>
+            <Bloco
+              titulo="Mapa de calor do caixa"
+              icon="gauge"
+              info={{
+                oQue: "Pinta cada dia de verde, amarelo ou vermelho conforme o conforto do caixa, para achar os períodos de aperto.",
+                comoCalcula: "Classifica o saldo projetado de cada dia em faixas: confortável, atenção ou risco.",
+              }}
+            ><HeatmapView dias={data.heatmap} /></Bloco>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
               <Bloco
-                titulo="IA Copilot do Caixa"
+                titulo="Leituras da IA sobre o caixa"
                 icon="sparkles"
                 info={{
                   oQue: "Resume o que a IA encontrou no caixa e sugere ações práticas para o período.",
@@ -201,7 +210,7 @@ function Inner() {
                 }}
               ><CopilotView c={data.copilot} /></Bloco>
               <Bloco
-                titulo="What-If Engine"
+                titulo="Simulador “e se”"
                 icon="cpu"
                 info={{
                   oQue: "Sliders para você simular ao vivo mudanças de receita, despesa, inadimplência e folha e ver o efeito no caixa.",
@@ -210,7 +219,7 @@ function Inner() {
               ><WhatIfView indic={data.indicadores} saldo={data.saldoAtual} /></Bloco>
             </div>
             <Bloco
-              titulo="Eventos Financeiros"
+              titulo="Linha do tempo"
               icon="network"
               info={{
                 oQue: "Uma linha do tempo dos movimentos recentes do caixa (entradas, saídas e eventos neutros).",
@@ -218,23 +227,42 @@ function Inner() {
               }}
             ><EventosView eventos={data.eventos} /></Bloco>
             <Bloco
-              titulo="Confidence Layer"
+              titulo="Confiança das projeções"
               icon="gauge"
               info={{
                 oQue: "Mostra o quão confiável é cada projeção de caixa por horizonte.",
                 comoCalcula: "A confiança cai conforme o horizonte aumenta e conforme o fluxo é mais volátil.",
               }}
             ><ConfidenceView projecoes={data.projecoes} /></Bloco>
-            <DigitalTwinView twin={data.twin} />
+              <DigitalTwinView twin={data.twin} />
+            </AnalisesAvancadas>
           </>}
 
           {!pro && (
-            <p className="text-caption text-faint text-center">Projeção ML, cenários, heat map, waterfall e digital twin no <b className="text-muted font-medium">Modo Pro</b> (alterna na barra lateral).</p>
+            <p className="text-caption text-faint text-center">Árvore do caixa, projeção, cenários, cascata do resultado e análises avançadas no <b className="text-muted font-medium">Modo Pro</b> (alterna na barra lateral).</p>
           )}
         </>
       )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ---------- Análises avançadas (recolhidas) ---------- */
+function AnalisesAvancadas({ children }: { children: React.ReactNode }) {
+  const [aberto, setAberto] = React.useState(false);
+  return (
+    <div className="flex flex-col gap-5">
+      <button
+        onClick={() => setAberto((a) => !a)}
+        aria-expanded={aberto}
+        className="self-start inline-flex items-center gap-2 text-label font-medium text-muted hover:text-ink rounded-pill px-4 py-2 bg-surface-2"
+      >
+        <Icon name={aberto ? "chevron-down" : "chevron-right"} size={14} color="currentColor" />
+        {aberto ? "Recolher análises avançadas" : "Análises avançadas: conferência, mapa de calor, simulador, confiança e gêmeo digital"}
+      </button>
+      {aberto && children}
     </div>
   );
 }
@@ -751,10 +779,10 @@ function DigitalTwinView({ twin }: { twin: { feeds: { entradas: string[]; saidas
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center"><Icon name="cpu" size={14} color="var(--color-on-lime)" /></span>
-        <h2 className="m-0 text-label font-medium text-muted">Gêmeo digital do caixa do caixa</h2>
+        <h2 className="m-0 text-label font-medium text-muted">Gêmeo digital do caixa</h2>
         <InfoHint
           align="left"
-          titulo="Cash Flow Digital Twin"
+          titulo="Gêmeo digital do caixa"
           oQue="O gêmeo digital do caixa: reúne as fontes de entradas, saídas e inteligência e explica por que o caixa muda."
           comoCalcula="Quando um documento chega na Caixa de Entrada, ele atualiza automaticamente fluxo previsto/realizado, saldo, DRE, burn, runway e projeções."
         />

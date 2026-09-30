@@ -83,7 +83,7 @@ export type Section = {
  * navegação aceita estas quatro e só estas, e cobra a porta declarada.
  */
 export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
-  { rota: "/all4pay-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
+  { rota: "/quattro-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
   { rota: "/dashboard/help", onde: "menu ⋮ da barra superior" },
   { rota: "/comece", onde: "aba Primeiros passos na Central de ajuda + menu ⋮ da barra superior" },
   { rota: "/configuracoes", onde: "menu ⋮ da barra superior (Meu perfil)" },
@@ -123,13 +123,17 @@ export const SECTIONS: Section[] = [
   {
     // A pergunta é "onde está o dinheiro AGORA". Chamava-se "Movimentações", e
     // movimentação não descreve um título em aberto — descreve o extrato.
+    //
+    // ⚠️ ENXUGAMENTO DO MVP (30/09/2026): "Fatura do cartão" saiu da lista e
+    // mora a um clique, dentro de Contas bancárias (é o cartão cadastrado ali
+    // que tem fatura). A conciliação é UMA só — a aba "Conciliar" da entrada
+    // de dados virou a aba Open Finance da Conciliação bancária.
     id: "caixa", label: "Caixa e bancos", icon: "arrow-left-right", items: [
       { label: "Extrato", desc: "O que entrou e saiu, por dia", href: "/dashboard/financial/statement", icon: "receipt" },
-      { label: "Conciliação bancária", desc: "Banco × lançamentos", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "activity" },
+      { label: "Conciliação bancária", desc: "Banco × lançamentos, inclusive Open Finance", href: "/dashboard/financial/reconciliation", icon: "list-checks" },
+      { label: "Contas bancárias", desc: "Contas, carteiras, cartões e faturas", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
       { label: "Transferências entre contas", desc: "Dinheiro entre contas próprias", href: "/dashboard/financial/accounts-and-transfers", icon: "repeat" },
-      { label: "Contas bancárias", desc: "Contas, carteiras e cartões", href: "/dashboard/registrations/bank-accounts", icon: "credit-card" },
-      { label: "Fatura do cartão", desc: "Compras agrupadas por ciclo", href: "/dashboard/financial/credit-card-invoices", icon: "credit-card" },
       // Upload, OCR, Open Finance, regras e duplicatas são ABAS desta tela —
       // uma porta só para tudo que ENTRA no sistema.
       { label: "Entrada de dados", desc: "Conectar banco e enviar extrato", href: "/upload", icon: "upload" },
@@ -144,113 +148,95 @@ export const SECTIONS: Section[] = [
      * ⚠️ **"Receber" e "Vender" viraram UM grupo, e não é arrumação de menu.**
      *
      * Os dois descreviam o mesmo ciclo cortado ao meio: vender é o que ORIGINA
-     * o recebível, receber é o que acontece com ele depois. Separados, o dono
-     * abria "Vender" para saber quanto entrou e encontrava faturamento, ou
-     * abria "Receber" para saber por que o mês foi fraco e não via a venda que
-     * não aconteceu. Pior: o mesmo cliente aparecia nos dois lados com números
-     * diferentes, e nenhum estava errado — eram datas diferentes do mesmo
-     * negócio, sem nada dizendo isso.
+     * o recebível, receber é o que acontece com ele depois. O painel carrega a
+     * ponte (faturado × recebido × a receber) justamente porque juntar os dois
+     * na mesma tela é o que torna a soma indevida tentadora.
      *
-     * A área agora começa pelo PAINEL, que carrega a ponte (faturado × recebido
-     * × a receber) justamente porque juntar os dois na mesma tela é o que torna
-     * a soma indevida tentadora.
-     *
-     * ⚠️ **"Contas a receber" saiu do hub de abas e virou tela própria**, como
-     * já tinha acontecido do lado de pagar. Manter as duas portas deixaria a
-     * mesma leitura em dois endereços — o defeito que a ONDA 6 mediu 33 vezes,
-     * e que a guarda de rota duplicada agora recusa.
-     *
-     * ⚠️ **"Taxas de adquirência" saiu da lista** e continua a um clique, na
-     * própria tela do POS (é aba do mesmo hub). Duas linhas de menu apontando
-     * para duas abas do MESMO hub gastam duas entradas para uma decisão só — e
-     * o teto de 12 itens existe para forçar essa conversa em vez de deixar o
-     * grupo crescer até virar a lista de 60 que o agrupamento veio evitar.
+     * ⚠️ ENXUGAMENTO DO MVP (30/09/2026): 12 → 8 linhas. "Nova venda" virou a
+     * AÇÃO do grupo (é um verbo, não um destino); boletos, links de pagamento e
+     * a maquininha moram a um clique na barra de atalhos do Painel de vendas —
+     * são formas de COBRAR a venda, e a pessoa as procura a partir dela.
      */
-    id: "contas-a-receber", label: "Contas a receber", icon: "arrow-up", items: [
+    id: "contas-a-receber", label: "Vender e receber", icon: "arrow-up",
+    acao: { label: "Nova venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
+    items: [
       { label: "Painel de contas a receber", desc: "Recebido, a vencer e vencido no período", href: "/contas-a-receber", icon: "gauge" },
       { label: "Títulos a receber", desc: "O que os clientes ainda devem, título a título", href: "/contas-a-receber/titulos", icon: "arrow-up" },
-      { label: "Inadimplência e cobrança", desc: "Quem está atrasado, e o risco", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
-      { label: "Boletos e PIX", desc: "Cobrança emitida", href: "/dashboard/financial/boletos", icon: "file-text" },
-      { label: "Links de pagamento", desc: "Cobrança por link", href: "/dashboard/sales-invoices/payment-links", icon: "link" },
+      { label: "Painel de vendas", desc: "Pedidos, status, taxas e formas de cobrar", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
+      { label: "Notas fiscais emitidas", desc: "Notas das vendas e emissão de NFS-e", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
+      { label: "Inadimplência e cobrança", desc: "Régua de cobrança e risco por cliente", href: "/dashboard/financial/overdue", icon: "triangle-alert" },
       { label: "Assinaturas e recorrência", desc: "Receita recorrente e churn", href: "/dashboard/sales-invoices/subscriptions", icon: "repeat" },
-      { label: "Painel de vendas", desc: "Pedidos, status e taxas", href: "/dashboard/sales-invoices", icon: "shopping-cart" },
-      { label: "Nova venda", desc: "Registrar uma venda", href: "/dashboard/sales-invoices/new", icon: "plus" },
-      { label: "Notas fiscais emitidas", desc: "Emitidas, a emitir e com erro", href: "/dashboard/sales-invoices/invoices", icon: "file-text" },
-      // ⚠️ Aponta para a ABA, não para `/pos/venda`: aquela rota é um
-      // redirecionamento de cliente, e um item de menu que leva a um redirect
-      // pisca uma tela em branco antes de chegar ao destino.
-      { label: "Maquininha (POS)", desc: "Venda no balcão e taxas de adquirência", href: "/vendas?aba=pos", icon: "credit-card" },
       { label: "Clientes", desc: "Quem compra, e o risco", href: "/dashboard/registrations/clients", icon: "users" },
       { label: "Produtos e serviços", desc: "O que você vende", href: "/dashboard/registrations/products", icon: "shopping-cart" },
     ],
   },
   {
-    id: "pagar", label: "Pagar", icon: "arrow-down", items: [
-      { label: "Compras", desc: "Pedidos que passam por aprovação", href: "/dashboard/purchases", icon: "inbox" },
-      { label: "Aprovações", desc: "O que depende de alçada", href: "/aprovacoes", icon: "list-checks", pro: true },
-      { label: "NFs recebidas", desc: "XMLs de entrada da SEFAZ", href: "/dashboard/purchases/received-invoices", icon: "receipt" },
-      { label: "Boletos recebidos (DDA)", desc: "O que chegou para pagar", href: "/dashboard/purchases/received-boletos", icon: "file-text" },
-      { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
-      { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
-    ],
-  },
-  {
     /**
-     * ⚠️ O grupo NASCE com dois itens porque o item que já existia mudou de
-     * casa, não porque se inventou um segundo destino para calar a guarda.
+     * ⚠️ "Pagar" e "Contas a pagar" viraram UM grupo (30/09/2026).
      *
-     * "Contas a pagar" era uma LINHA dentro de "Pagar", e "Pagar" também
-     * abriga compras, aprovações, NFs de entrada e fornecedores — coisas que
-     * cercam a obrigação sem serem a obrigação. Com uma área própria, um grupo
-     * chamado "Pagar" e uma linha chamada "Contas a pagar" ficariam lado a
-     * lado significando quase a mesma coisa, e duas portas com nomes parecidos
-     * para leituras diferentes é o defeito que a ONDA 6 mediu 33 vezes.
+     * Eram dois grupos vizinhos com nomes quase iguais — "Pagar" com o que cerca
+     * a obrigação (compra, aprovação, reembolso, fornecedor) e "Contas a pagar"
+     * com a obrigação já existente. Quem procurava "o que tenho a pagar" abria
+     * o primeiro e não achava; dois nomes parecidos para leituras vizinhas é o
+     * defeito que a ONDA 6 mediu 33 vezes. A ordem conta a história: a
+     * obrigação primeiro (painel, títulos, recorrentes, folha), depois o que a
+     * origina (compra, aprovação, reembolso) e quem recebe.
      *
-     * A linha herdada recebeu o nome do DOMÍNIO — "títulos" é a palavra do
-     * glossário para o documento em aberto (ONDA 11) — e o dashboard responde
-     * a outra pergunta: quanto, em que situação, e em que dia cai.
+     * NFs recebidas e boletos do DDA são caixas de entrada da COMPRA e moram na
+     * barra de atalhos de Compras — a um clique, sem linha própria.
      */
-    id: "contas-a-pagar", label: "Contas a pagar", icon: "file-text",
+    id: "contas-a-pagar", label: "Comprar e pagar", icon: "arrow-down",
     acao: { label: "Nova conta a pagar", href: "/dashboard/financial/payables/new", icon: "plus" },
     items: [
       { label: "Painel de contas a pagar", desc: "Pago, a vencer e vencido no período", href: "/contas-a-pagar", icon: "layout-dashboard" },
       { label: "Títulos a pagar", desc: "O que a empresa ainda deve, título a título", href: "/contas-a-pagar/titulos", icon: "arrow-down" },
       { label: "Contas recorrentes", desc: "O que se repete, e quanto custa por mês", href: "/contas-a-pagar/recorrentes", icon: "repeat" },
       { label: "Folha salarial", desc: "Quem custa quanto, e o que vence quando", href: "/contas-a-pagar/folha", icon: "users" },
+      { label: "Compras", desc: "Pedidos, NFs recebidas e boletos do DDA", href: "/dashboard/purchases", icon: "inbox" },
+      { label: "Aprovações", desc: "Alçadas, fila e trilha", href: "/aprovacoes", icon: "list-checks", pro: true },
+      { label: "Reembolsos", desc: "Despesa do colaborador", href: "/dashboard/financial/reimbursements", icon: "receipt" },
+      { label: "Fornecedores", desc: "Quem recebe, e como pagar", href: "/dashboard/registrations/suppliers", icon: "building" },
     ],
   },
   {
     // ⚠️ O grupo aponta para `/contabilidade` (a primeira aba é o Razão), e
     // não mais para a tela de impostos sobre vendas: o módulo contábil existia
     // e o menu levava a um pedaço dele.
-    id: "contabil", label: "Contábil e fiscal", icon: "receipt", items: [
-      { label: "Razão contábil", desc: "Lançamentos em dupla entrada", href: "/contabilidade?aba=razao", icon: "receipt" },
+    //
+    // ⚠️ ENXUGAMENTO DO MVP: 13 → 9. Dimensões, reconhecimento de receita,
+    // cronogramas e envio das NFs são ABAS do hub de Contabilidade — quem abre
+    // o Razão vê a fileira de abas; uma linha de menu para cada aba gastava
+    // quatro entradas para um destino só.
+    id: "contabil", label: "Contabilidade", icon: "receipt", items: [
+      { label: "Razão contábil", desc: "Lançamentos, receita, cronogramas e dimensões", href: "/contabilidade?aba=razao", icon: "receipt" },
+      { label: "Fechamento mensal", desc: "Checklist, provisões, trava e relatório do mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Plano de contas", desc: "A árvore que classifica tudo", href: "/dashboard/registrations/chart-of-accounts", icon: "layers" },
       { label: "Centros de custo", desc: "Onde o gasto é alocado", href: "/dashboard/registrations/cost-centers", icon: "network" },
       { label: "Projetos", desc: "O recorte por iniciativa", href: "/dashboard/registrations/projects", icon: "target" },
-      { label: "Dimensões & tags", desc: "Outros recortes do lançamento", href: "/contabilidade?aba=dimensoes", icon: "layers" },
-      { label: "Reconhecimento de receita", desc: "Quando a receita é da empresa", href: "/contabilidade?aba=receita", icon: "trending-up" },
-      { label: "Cronogramas", desc: "Competência distribuída no tempo", href: "/contabilidade?aba=cronogramas", icon: "calendar" },
-      { label: "Fechamento mensal", desc: "Fechar e travar o mês", href: "/dashboard/reports/monthly-closing", icon: "shield-check" },
       { label: "Impostos e obrigações", desc: "Provisão e guia do mês", href: "/dashboard/sales-invoices/tax-provisioning", icon: "receipt" },
       { label: "Exportar para o contador", desc: "Razão e DRE do período, em XLSX ou CSV", href: "/exportar", icon: "download" },
-      { label: "Envio das NFs ao contador", desc: "O pacote mensal de XMLs", href: "/dashboard/accounting/nfe-export", icon: "mail" },
       { label: "Gerar TXT contábil", desc: "O arquivo para o sistema Domínio", href: "/dashboard/accounting/dominio-export", icon: "file-text" },
       { label: "Consolidado", desc: "Posição somada das empresas", href: "/contabilidade?aba=consolidado", icon: "building", pro: true },
     ],
   },
   {
-    id: "analise", label: "Análise e relatórios", icon: "trending-up", items: [
+    // ⚠️ Balanço patrimonial e análise de variação entraram aqui (30/09/2026):
+    // o balanço existia como um cartão perdido numa aba de Contabilidade, e a
+    // variação é a pergunta que todo fechamento faz ("o que mudou, e por quê").
+    // "Fluxo de caixa (relatório)" e "DFC multiempresas" saíram da lista e
+    // continuam a um clique — o primeiro a partir do Fluxo de caixa, o segundo
+    // a partir do DRE multiempresas. "Relatórios exportados" foi para
+    // Configurações: é a fila de arquivos, não um relatório.
+    id: "analise", label: "Relatórios", icon: "trending-up", items: [
       { label: "DRE", desc: "Resultado por competência", href: "/dashboard/reports/dre", icon: "trending-up" },
       { label: "DFC", desc: "Caixa pela data de pagamento", href: "/dashboard/reports/dfc", icon: "trending-up" },
-      { label: "Fluxo de caixa (relatório)", desc: "O mês fechado, linha a linha", href: "/dashboard/reports/cash-flow", icon: "activity" },
+      { label: "Balanço patrimonial", desc: "Ativo, passivo e PL em duas datas", href: "/dashboard/reports/balance-sheet", icon: "layers" },
+      { label: "Análise de variação", desc: "O que mudou no mês, e por quê", href: "/dashboard/reports/variance", icon: "activity" },
       { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento", icon: "target" },
       { label: "Orçamentos", desc: "O previsto, por categoria e mês", href: "/dashboard/registrations/budgets", icon: "target" },
-      { label: "DRE multiempresas", desc: "Resultado consolidado do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
-      { label: "DFC multiempresas", desc: "Caixa consolidado do grupo", href: "/dashboard/reports/dfc-multi", icon: "building" },
+      { label: "DRE multiempresas", desc: "Resultado e caixa do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
       { label: "Investor update", desc: "O relatório mensal do investidor", href: "/investidores", icon: "mail", pro: true },
       { label: "Meus dashboards", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
-      { label: "Relatórios exportados", desc: "A fila e os arquivos gerados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
     ],
   },
   {
@@ -260,10 +246,10 @@ export const SECTIONS: Section[] = [
     // de ser abas invisíveis de um chat — mas o preço é uma segunda porta para
     // a conversa. Se voltar a incomodar, o que sai é a LINHA, não o botão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
-      { label: "All 4 Pay AI", desc: "Pergunte sobre seus números", href: "/all4pay-ai", icon: "sparkles" },
-      { label: "Risco de crédito", desc: "Quem tende a não pagar", href: "/all4pay-ai?aba=risco", icon: "triangle-alert", pro: true },
-      { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/all4pay-ai?aba=decisao", icon: "target", pro: true },
-      { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/all4pay-ai?aba=autonomo", icon: "activity", pro: true },
+      { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles" },
+      { label: "Risco de crédito", desc: "Quem tende a não pagar", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
+      { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/quattro-ai?aba=decisao", icon: "target", pro: true },
+      { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/quattro-ai?aba=autonomo", icon: "activity", pro: true },
       { label: "Plano de contratações", desc: "O impacto de contratar", href: "/contratacoes", icon: "users", pro: true },
     ],
   },
@@ -274,28 +260,35 @@ export const SECTIONS: Section[] = [
  * de rota duplicada precisa varrer o menu REAL — este bloco é anexado a
  * Configurações em tempo de execução, e foi por ele não ser varrido que três
  * duplicatas passaram despercebidas.
+ *
+ * ⚠️ Segurança (teste de isolamento) e Armazenamento (o que ainda mora no
+ * navegador) vieram para cá no enxugamento do MVP: o inventário já os
+ * classificava como FERRAMENTA de quem opera a plataforma, não do cliente, e
+ * no menu de todo usuário eram duas linhas que ninguém sabia para que serviam.
  */
 export const PLATAFORMA_ITENS: Item[] = [
   { label: "Dono da plataforma", desc: "Todos os clientes — fora da sua empresa", href: "/admin", icon: "shield-check" },
+  { label: "Segurança", desc: "Isolamento entre empresas", href: "/dashboard/administration/security", icon: "shield-check" },
+  { label: "Armazenamento e backup", desc: "O que subiu, e o que não", href: "/dashboard/administration/storage", icon: "database" },
 ];
 
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Empresa", desc: "Razão social, endereço e fiscal", href: "/dashboard/administration/company-data", icon: "building" },
     { label: "Usuários e papéis", desc: "Quem entra, e com que papel", href: "/dashboard/administration/users", icon: "users" },
-    { label: "Governança e aprovações", desc: "Alçadas, papéis e trilha", href: "/governanca", icon: "shield-check", pro: true },
     { label: "Integrações e API", desc: "Bancos, plataformas e certificados", href: "/dashboard/administration/integrations", icon: "link" },
-    { label: "Segurança", desc: "Isolamento entre empresas", href: "/dashboard/administration/security", icon: "shield-check" },
-    { label: "Armazenamento e backup", desc: "O que subiu, e o que não", href: "/dashboard/administration/storage", icon: "database" },
-    { label: "Logs", desc: "A trilha de auditoria assinada", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
     { label: "Assinatura e plano", desc: "Plano, cobrança e vencimento", href: "/dashboard/administration/subscription", icon: "credit-card" },
+    { label: "Logs", desc: "A trilha de auditoria assinada", href: "/dashboard/administration/audit-logs", icon: "list-checks" },
+    { label: "Relatórios exportados", desc: "A fila e os arquivos gerados", href: "/dashboard/administration/exported-reports", icon: "arrow-down-to-line" },
     { label: "Lixeira", desc: "Excluídos, ainda recuperáveis", href: "/lixeira", icon: "trash-2" },
     { label: "Ajuda", desc: "Chat, tours e anúncios", href: "/dashboard/help", icon: "help-circle" },
     // ⚠️ "Nova empresa" fica no FIM e fora do bloco de configuração da empresa
     // atual: criar tenant não é ajustar um campo — é uma organização com
     // isolamento, membros e cobrança próprios.
+    // ⚠️ "Configurações da empresa" (/configuracoes) SAIU desta lista: ela é a
+    // porta "Meu perfil" do menu ⋮ (ACOES_GLOBAIS), e a linha ao lado de
+    // "Empresa" eram dois nomes para o mesmo cadastro.
     { label: "Nova empresa", desc: "Abrir outra organização", href: "/empresas/nova", icon: "building" },
-    { label: "Configurações da empresa", desc: "Perfil e estrutura financeira", href: "/configuracoes", icon: "settings" },
   ],
 };
 

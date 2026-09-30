@@ -87,7 +87,7 @@ export async function POST(req: Request) {
       status: 200,
       headers: {
         "content-type": "text/csv; charset=utf-8",
-        "content-disposition": `attachment; filename="all4pay_${qual}_${periodo}.csv"`,
+        "content-disposition": `attachment; filename="quattro_${qual}_${periodo}.csv"`,
         "cache-control": "no-store",
       },
     });
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     status: 200,
     headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="all4pay_contador_${periodo}.xlsx"`,
+      "content-disposition": `attachment; filename="quattro_contador_${periodo}.xlsx"`,
       "cache-control": "no-store",
     },
   });

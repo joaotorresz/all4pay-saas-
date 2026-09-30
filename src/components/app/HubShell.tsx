@@ -23,15 +23,20 @@ export interface AbaHub {
   render: () => React.ReactNode;
 }
 
-export function HubShell({ abas, padrao }: { abas: AbaHub[]; padrao?: string }) {
+/**
+ * `param` é o nome do parâmetro de endereço que escolhe a aba. O padrão é
+ * `aba`; uma tela que também vive COMO ABA de outro hub precisa de outro nome
+ * (ex.: `painel`), senão o `?aba=` do hub de fora escolheria a aba de dentro.
+ */
+export function HubShell({ abas, padrao, param = "aba" }: { abas: AbaHub[]; padrao?: string; param?: string }) {
   const sp = useSearchParams();
   const [aba, setAba] = React.useState(padrao ?? abas[0]?.id);
 
   // Deep-link reativo (?aba=…) — o menu, a busca e a IA linkam direto na aba.
   React.useEffect(() => {
-    const p = sp.get("aba");
+    const p = sp.get(param);
     if (p && abas.some((a) => a.id === p)) setAba(p);
-  }, [sp, abas]);
+  }, [sp, abas, param]);
 
   const ativa = abas.find((a) => a.id === aba) ?? abas[0];
 

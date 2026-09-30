@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { MetodologiaView } from "@/components/metodologia/MetodologiaView";
 
 export const metadata: Metadata = {
-  title: "Metodologia · all4pay",
+  title: "Metodologia · Quattro",
   description:
     "Como a demonstração de resultado e o fluxo de caixa são montados, o que entra em cada linha, como os indicadores são formados e o que o sistema não faz.",
 };

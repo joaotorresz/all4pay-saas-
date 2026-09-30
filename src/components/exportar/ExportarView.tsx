@@ -155,7 +155,7 @@ export function ExportarView() {
       }
       const blob = await r.blob();
       const nome = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") ?? "")?.[1]
-        ?? `all4pay_${arquivo ?? "contador"}.${formato}`;
+        ?? `quattro_${arquivo ?? "contador"}.${formato}`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url; a.download = nome;

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const pergunta = (body.pergunta || "").slice(0, 2000);
   if (!pergunta) return NextResponse.json({ ok: false, reason: "pergunta vazia" });
 
-  const prompt = `Você é o assistente financeiro do all4pay, operando SOBRE O RAZÃO (general ledger) de dupla entrada.
+  const prompt = `Você é o assistente financeiro do Quattro, operando SOBRE O RAZÃO (general ledger) de dupla entrada.
 Você recebe um CONTEXTO numérico já filtrado (não o banco cru). Responda em pt-BR, citando os números do contexto. Seja conciso e objetivo.
 
 Se — e somente se — o usuário pedir para CRIAR/RASCUNHAR um lançamento, proponha um rascunho BALANCEADO (∑débito = ∑crédito) usando SOMENTE os "code" do plano de contas do contexto. NUNCA afirme que postou — o rascunho depende de aprovação humana.

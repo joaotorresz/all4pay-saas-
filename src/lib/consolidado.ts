@@ -24,8 +24,8 @@ export interface Consolidado {
 }
 
 const DEMO: EntidadeConsolidada[] = [
-  { orgId: "demo-1", nome: "all4pay Matriz", saldo: 184320, receita: 96500, despesa: 71200, contas: 3, resultado: 25300 },
-  { orgId: "demo-2", nome: "all4pay Filial SP", saldo: 73850, receita: 52100, despesa: 44780, contas: 2, resultado: 7320 },
+  { orgId: "demo-1", nome: "Quattro Matriz", saldo: 184320, receita: 96500, despesa: 71200, contas: 3, resultado: 25300 },
+  { orgId: "demo-2", nome: "Quattro Filial SP", saldo: 73850, receita: 52100, despesa: 44780, contas: 2, resultado: 7320 },
   { orgId: "demo-3", nome: "Holding (investimentos)", saldo: 421000, receita: 18400, despesa: 9650, contas: 2, resultado: 8750 },
 ];
 

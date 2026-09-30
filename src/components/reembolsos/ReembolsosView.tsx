@@ -139,7 +139,7 @@ export function ReembolsosView() {
           ))}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <Link href="/pagamentos" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Central de Pagamentos</Link> para o Pix ao colaborador.</span>
+          <span className="text-caption text-faint">Aprovados viram movimento de saída (1 por item → categoria certa na DRE) e entram na <Link href="/contas-a-pagar/titulos" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Central de Pagamentos</Link> para o Pix ao colaborador.</span>
         </div>
       </Card>
       {node}

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * O cérebro do chat da All 4 Pay AI, num hook — para o painel flutuante e a
+ * O cérebro do chat da Quattro AI, num hook — para o painel flutuante e a
  * página inteira rodarem exatamente a MESMA IA (nada de duas implementações
  * divergindo).
  *

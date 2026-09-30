@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Quatro cortes
+/* Roobert TRIAL — fonte da marca Quattro (self-hosted). Quatro cortes
    estáticos cobrindo a escala de peso da UI: Light · Regular · Medium ·
    SemiBold. As faixas de `font-weight` não podem se sobrepor — o browser
    escolhe o arquivo pela faixa em que o peso pedido cai. */
@@ -160,8 +160,20 @@
   font-display: swap;
 }
 
+/* CENTRA NO.2 BLACK — a fonte de TÍTULO da Quattro (caixa alta, −0.02em).
+   Só o corte Black (900) existe no arquivo; a faixa 100–900 faz qualquer peso
+   pedido pelo papel de display cair nele em vez de no fallback. Tem `tnum`
+   (medido com fontTools), então também carrega os VALORES alinhados. */
+@font-face {
+  font-family: "Centra No2";
+  src: url("/fonts/centra-no2-black.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ============================================================
-   all4pay Design System — runtime CSS variables
+   Quattro Design System — runtime CSS variables
    ------------------------------------------------------------
    These MIRROR the canonical tokens defined in tailwind.config.ts.
    They exist only for the places Tailwind utilities can't reach:
@@ -170,34 +182,35 @@
    isn't also a token. See CLAUDE.md.
    ============================================================ */
 /* ============================================================
-   PALETA QUENTE — a identidade vigente (9 cores nomeadas).
+   PALETA QUATTRO — a identidade vigente (30/09/2026).
 
-   ⚠️ O BRANCO É SEMPRE QUENTE (#FEFDF0), NUNCA #FFFFFF. O PRETO É SEMPRE
-   QUENTE E AMARRONZADO (#28211B), NUNCA #000000. Os dois puros existem só
-   como `--color-black-pure` (marketing) e não têm uso no app.
+   Lime #ECFD52 (ação) · Verde-base #3B4332 (texto e fundo escuro) ·
+   Areia #B5B594 (borda de campo) · Cinza médio #D6D8CA (borda de card) ·
+   Cinza claro #F3F1EE (fundo de página) · Branco #FFFFFF (card e campo) ·
+   Texto #2B3125 · Texto secundário #6B7060 · Placeholder #A9AD9E ·
+   Erro #B3261E (o único vermelho).
 
-   As nove: White #FEFDF0 · Beige #EEEDDB · Dark Beige #DDDCC5 · Grey #534D41 ·
-   Dark Grey #37332A · Black #28211B · Placeholder #A9A6A4 · Border #D4D3D1 ·
-   Accent #C8D930. A guarda `npm run paleta` reprova hex fora desta lista.
-
-   A base é sempre o par branco quente + bege; o preto quente entra em blocos
-   de contraste e nos cards de DADO; o degradê é reservado a momentos de
-   destaque e nunca é fundo de tela com muito texto.
+   ⚠️ Lime nunca leva texto branco. Fundo escuro é verde-base, nunca preto.
+   Sem roxo, azul ou degradê colorido: os tokens `--gradient-marca*` viraram
+   lime chapado para não quebrar quem os consome.
+   A guarda `npm run paleta` reprova hex fora desta lista.
    ============================================================ */
 :root {
   --color-black-pure: #000000; /* marketing only — nunca no app */
-  --color-ink: #28211b; /* Black (quente) */
-  --color-ink-soft: #37332a; /* Dark Grey */
+  --color-ink: #3b4332; /* Verde-base — texto e fundo escuro */
+  --color-ink-soft: #2b3125; /* Texto — o verde-base um passo abaixo (hover do escuro) */
   /* ⚠️ SUPERFÍCIES — ajuste vindo do Laboratório (ver CLAUDE.md). O par
      branco+bege da tabela de marca continua sendo a identidade; o que mudou
      é a MOLDURA e a ÁREA DE TRABALHO, que passaram a ser uma dupla própria:
      frame #2C251E (o Black quente rebaixado) e área #F1F3F6. O card fica
      branco puro para separar da área por CONTRASTE, agora que não há borda. */
   --color-white: #ffffff; /* superfície de card */
-  --color-surface-1: #f1f3f6; /* área de trabalho (dentro do cartão do app) */
-  --color-surface-2: #f1f3f6; /* chips / seções / hover */
-  --color-surface-3: #dddcc5; /* Dark Beige — desabilitado / teclado / sheet */
-  --color-border: #d4d3d1; /* Border */
+  --color-surface-1: #f3f1ee; /* área de trabalho (dentro do cartão do app) */
+  --color-surface-2: #f3f1ee; /* chips / seções / hover */
+  --color-surface-3: #d6d8ca; /* Cinza médio — desabilitado / teclado / sheet */
+  --color-border: #d6d8ca; /* Cinza médio — borda de card e divisória */
+  /* Areia — borda de campo e separador em fundo claro. */
+  --color-areia: #b5b594;
   /* ⚠️ O DIVISOR É CINZA, NÃO BEGE. Era Beige (#EEEDDB), e as superfícies de
      trabalho são cinza-frio (#F1F3F6): uma linha quente sobre um fundo frio lê
      como amarelada, e o sistema ganhava um segundo matiz que ninguém escolheu.
@@ -208,7 +221,7 @@
   /* Hairline dos CARTÕES — a borda de 1px dos boxes. A moldura do app
      (Sidebar + TopBar) usa a MESMA: um contorno próprio faria o chrome parecer
      de outro sistema em volta do conteúdo. */
-  --a4p-hairline: #d4d3d1;
+  --a4p-hairline: #d6d8ca;
 
   /* ============================================================
      MOLDURA ESCURA (referência Sphere UI). O chrome do app — a barra
@@ -221,17 +234,17 @@
      `ink`/`muted` ali daria texto escuro sobre fundo escuro no tema claro,
      que é exatamente o defeito que um token dedicado evita.
      ============================================================ */
-  --a4p-chrome: #2c251e;        /* moldura escura (Black quente rebaixado) */
-  --a4p-chrome-ink: #fefdf0;    /* White quente sobre a moldura */
-  --a4p-chrome-mut: #a9a6a4;    /* Placeholder — secundário sobre a moldura */
-  --a4p-chrome-field: #37332a;  /* Dark Grey — busca e botões de ícone */
-  --a4p-chrome-field-hover: #534d41; /* Grey */
+  --a4p-chrome: #3b4332;        /* moldura escura = verde-base (fundo escuro nunca é preto) */
+  --a4p-chrome-ink: #f3f1ee;    /* Cinza claro sobre a moldura */
+  --a4p-chrome-mut: #b5b594;    /* Areia — secundário sobre a moldura */
+  --a4p-chrome-field: #2b3125;  /* busca e botões de ícone sobre a moldura */
+  --a4p-chrome-field-hover: #6b7060;
   /* Fundo da área onde ficam os cards (o interior do cartão do app) — o
      branco QUENTE, que é o fundo padrão de tela do sistema. */
-  --a4p-app-bg: #f1f3f6;
+  --a4p-app-bg: #f3f1ee;
   --a4p-app-radius: 28px;
 
-  --color-text-secondary: #534d41; /* Grey — corpo e labels */
+  --color-text-secondary: #6b7060; /* Texto secundário */
   /* ⚠️ `faint` pinta o prefixo "R$" e os CENTAVOS de todo valor, a 7pt. A
      paleta tem UM cinza de texto (Grey #534D41) e um Placeholder #A9A6A4 —
      e o Placeholder dá 2,36:1 sobre o branco quente, contra os 4,5:1 da
@@ -239,25 +252,31 @@
      Então `faint` é o MESMO Grey (8,21:1): a hierarquia do tratamento do
      dinheiro vem do TAMANHO, que é como `Money`/`BRL` já a constroem, não de
      um quarto cinza que a paleta não tem. */
-  --color-text-tertiary: #534d41; /* Grey */
-  --color-text-quaternary: #a9a6a4; /* Placeholder — SÓ placeholder de campo */
+  --color-text-tertiary: #6b7060; /* Texto secundário (R$ e centavos) */
+  --color-text-quaternary: #a9ad9e; /* Placeholder — SÓ placeholder de campo */
 
-  /* Accent — #C8D930. Único acento da paleta. */
-  --color-lime: #c8d930;
-  --color-lime-alt: #dbff4d; /* o lima do fim do degradê */
-  --color-lime-tint: #fffad7; /* wash quente (stop 2 do degradê) */
-  --color-on-lime: #28211b; /* Black quente SOBRE o acento — nos dois temas */
-  --color-chart-line: #28211b;
+  /* Lime #ECFD52 — a cor de AÇÃO (botão primário, destaque, número grande).
+     ⚠️ Nunca leva texto branco: por cima dele o texto é sempre o verde-base. */
+  --color-lime: #ecfd52;
+  --color-lime-alt: #ecfd52;
+  /* "Se precisa de um segundo acento, use o próprio lime em opacidade menor." */
+  --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
+  /* Hover do primário: escurece levemente, sem sair do matiz. */
+  --color-lime-hover: color-mix(in srgb, #ecfd52 88%, #3b4332);
+  --color-on-lime: #3b4332;
+  --color-chart-line: #3b4332;
+  /* Borda do botão secundário (guia: rgba(59,67,50,0.28)). */
+  --a4p-borda-controle: rgba(59, 67, 50, 0.28);
 
   /* Degradê OFICIAL da marca: do branco quente ao lima.
      ⚠️ Reservado a DESTAQUE (ícone, celebração, capa, CTA final). Nunca fundo
      de tela com muito texto — os stops claros do topo não sustentam leitura. */
-  --gradient-marca: linear-gradient(183deg, #fefdf0 0.5%, #fffad7 35%, #ffefa2 63%, #dbff4d 89%);
+  --gradient-marca: linear-gradient(#ecfd52, #ecfd52);
   /* O mesmo degradê invertido (lima em cima) — card de dicas. */
-  --gradient-marca-inv: linear-gradient(3deg, #fefdf0 0.5%, #fffad7 35%, #ffefa2 63%, #dbff4d 89%);
+  --gradient-marca-inv: linear-gradient(#ecfd52, #ecfd52);
   /* Versão em ONDA: os mesmos stops numa faixa LARGA e na diagonal — deslizar
      essa faixa (classe `.a4p-onda`) faz a cor ondular sem sair da paleta. */
-  --gradient-marca-onda: linear-gradient(100deg, #fefdf0 0%, #fffad7 20%, #ffefa2 40%, #dbff4d 55%, #ffefa2 70%, #fffad7 85%, #fefdf0 100%);
+  --gradient-marca-onda: linear-gradient(#ecfd52, #ecfd52);
 
   /* Hero glow (marketing only) */
   --gradient-hero-from: #000000;
@@ -273,7 +292,7 @@
      A guarda `npm run paleta` conhece as três e reprova qualquer outra. */
   --color-warning: #f45900;
   --color-positive: #2cd662;
-  --color-negative: #d62c2c;
+  --color-negative: #b3261e; /* Erro — o ÚNICO vermelho da marca */
   /* O verde-lima de estado positivo citado no guia. É cor de MARCA, então
      entra como marca/preenchimento pontual (ponto, barra, realce) — nunca
      como texto: 1,69:1 sobre o branco quente. */
@@ -297,8 +316,10 @@
   --a4p-cat-8: var(--color-ink);
 
   /* Radii / shadows (for inline + SVG use) */
-  --radius-card: 16px;
-  --radius-md: 10px;
+  --radius-card: 26px;
+  --radius-md: 14px; /* campo de formulário */
+  --radius-modal: 24px;
+  --radius-bloco: 32px;
   --radius-sm: 8px;
   --radius-pill: 999px;
 
@@ -307,18 +328,17 @@
   /* O vidro também é QUENTE: rgba do White #FEFDF0, não do branco puro — um
      vidro branco frio sobre canvas quente lê como uma folha de outro sistema
      por cima do app. E a sombra é do Black quente, não de um azul-cinza. */
-  --glass-bg: rgba(254, 253, 240, 0.72);
-  --glass-bg-strong: rgba(254, 253, 240, 0.84);
-  --glass-edge: rgba(254, 253, 240, 0.65);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.84);
+  --glass-edge: rgba(255, 255, 255, 0.65);
   --glass-blur: 20px;
   /* micro-sombra dos cards (hairline faz o trabalho; a sombra só assenta) */
-  --shadow-card:
-    0 1px 2px rgba(40, 33, 27, 0.05),
-    0 8px 24px -18px rgba(40, 33, 27, 0.12);
+  /* A única sombra do guia Quattro: longa e quase invisível. */
+  --shadow-card: 0 10px 40px -24px rgba(43, 49, 37, 0.35);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(40, 33, 27, 0.24);
-  --shadow-pill: 0 8px 24px -10px rgba(40, 33, 27, 0.22);
+    0 24px 64px -16px rgba(43, 49, 37, 0.24);
+  --shadow-pill: 0 8px 24px -10px rgba(43, 49, 37, 0.22);
 }
 
 /* ============================================================
@@ -333,30 +353,30 @@ html.dark {
      Black #28211B e o Dark Grey #37332A da tabela; os cinzas neutros
      anteriores (#161616, #0e0e0e, #2a2a2a) eram frios e brigavam com o
      branco quente que continua sendo o texto. */
-  --color-ink: #fefdf0; /* White quente vira o texto */
-  --color-ink-soft: #eeeddb; /* Beige */
-  --color-white: #37332a; /* Dark Grey — superfície de card/elevada */
-  --color-surface-1: #28211b; /* Black quente — fundo da página */
-  --color-surface-2: #37332a; /* hover de linha / seção */
-  --color-surface-3: #534d41; /* Grey */
-  --color-border: #534d41; /* Grey como borda no escuro */
-  --color-border-soft: #37332a;
-  --a4p-hairline: #534d41;
+  --color-ink: #f3f1ee; /* Cinza claro vira o texto */
+  --color-ink-soft: #d6d8ca;
+  --color-white: #3b4332; /* Verde-base — superfície de card */
+  --color-surface-1: #2b3125; /* fundo da página */
+  --color-surface-2: #2b3125;
+  --color-surface-3: #6b7060;
+  --color-border: #6b7060;
+  --color-border-soft: color-mix(in srgb, #6b7060 55%, #3b4332);
+  --a4p-hairline: #6b7060;
   /* Moldura no tema escuro: o chrome fica MAIS escuro que o cartão do app, para
      o cartão continuar lendo como a peça de cima. Sem isso os dois viram o
      mesmo preto e a moldura desaparece — que é o oposto da referência. */
-  --a4p-chrome: #1c1712; /* Black quente rebaixado — a moldura sob o cartão */
-  --a4p-chrome-field: #37332a;
-  --a4p-chrome-field-hover: #534d41;
-  --a4p-app-bg: #28211b; /* Black quente — o cartão do app no escuro */
-  --color-text-secondary: #dddcc5; /* Dark Beige — corpo sobre o escuro */
-  --color-text-tertiary: #dddcc5;
-  --color-text-quaternary: #a9a6a4; /* Placeholder */
+  --a4p-chrome: #1f2419; /* verde-base rebaixado — a moldura fica abaixo do cartão */
+  --a4p-chrome-field: #3b4332;
+  --a4p-chrome-field-hover: #6b7060;
+  --a4p-app-bg: #2b3125;
+  --color-text-secondary: #d6d8ca;
+  --color-text-tertiary: #d6d8ca;
+  --color-text-quaternary: #a9ad9e;
 
   /* Accent — o mesmo #C8D930 manda igual; o wash vira um olival escuro */
-  --color-lime-tint: #37332a;
+  --color-lime-tint: color-mix(in srgb, #ecfd52 18%, #3b4332);
   /* on-lime continua Black quente (texto escuro sobre o acento) */
-  --color-chart-line: #c8d930; /* linha dos gráficos vira o acento no escuro */
+  --color-chart-line: #ecfd52;
 
   /* Status — clareados ~1 passo para contraste no escuro */
   --color-warning: #f0962e;
@@ -366,16 +386,16 @@ html.dark {
   /* Glass no escuro — vidro fumê nos overlays; cards sólidos com hairline */
   /* rgba do Black quente e do White quente — o vidro do escuro é a mesma
      matéria do claro, só invertida. */
-  --glass-bg: rgba(40, 33, 27, 0.68);
-  --glass-bg-strong: rgba(40, 33, 27, 0.86);
-  --glass-edge: rgba(254, 253, 240, 0.1);
+  --glass-bg: rgba(43, 49, 37, 0.68);
+  --glass-bg-strong: rgba(43, 49, 37, 0.86);
+  --glass-edge: rgba(243, 241, 238, 0.1);
   --shadow-card:
-    0 1px 2px rgba(20, 16, 13, 0.34),
-    0 8px 24px -18px rgba(20, 16, 13, 0.55);
+    0 1px 2px rgba(27, 31, 23, 0.34),
+    0 8px 24px -18px rgba(27, 31, 23, 0.55);
   --shadow-popover:
     inset 0 1px 0 0 var(--glass-edge),
-    0 24px 64px -16px rgba(20, 16, 13, 0.68);
-  --shadow-pill: 0 8px 24px -10px rgba(20, 16, 13, 0.55);
+    0 24px 64px -16px rgba(27, 31, 23, 0.68);
+  --shadow-pill: 0 8px 24px -10px rgba(27, 31, 23, 0.55);
 }
 
 @layer base {
@@ -504,9 +524,7 @@ button:active .a4p-icon, a:active .a4p-icon { transform: scale(0.9); }
 }
 .ds-visor [data-card="1"]:hover {
   transform: translateY(-2px);
-  box-shadow:
-    0 1px 2px rgba(14, 19, 30, 0.04),
-    0 16px 40px -20px rgba(14, 19, 30, 0.16);
+  box-shadow: 0 10px 40px -24px rgba(43, 49, 37, 0.35); /* a única sombra do guia */
 }
 
 /* Foco visível — anel discreto que respeita o raio do elemento (acessível) */
@@ -557,12 +575,12 @@ h1, h2, h3,
    único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
    ============================================================ */
 .ds-visor {
-  /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
-  --a4p-bg: #f1f3f6;          /* bg/base — área de trabalho */
+  /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. == */
+  --a4p-bg: #f3f1ee;          /* bg/base — área de trabalho */
   --a4p-box-bg: #ffffff;      /* cards SÓLIDOS */
-  --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
-  --a4p-box-padding: 24px;    /* respiro interno */
-  --a4p-box-border: transparent; /* SEM borda (design clean) */
+  --a4p-box-radius: 26px;     /* card Quattro: 26px */
+  --a4p-box-padding: 28px;    /* card Quattro: 28px */
+  --a4p-box-border: var(--color-border); /* card com borda 1px Cinza médio */
   /* ========================================================================= */
 
   font-family: "Roobert", "Roobert Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -576,29 +594,29 @@ html:not(.dark) .ds-visor {
   /* ESPELHO da paleta quente do `:root`. Este bloco vence a raiz dentro do
      app, então divergir aqui é repintar o produto com valores que ninguém
      escolheu — é o mesmo defeito que o Laboratório já causou uma vez. */
-  --color-surface-1: #f1f3f6;      /* área de trabalho */
-  --color-surface-2: #f1f3f6;      /* chips / seções */
-  --color-surface-3: #dddcc5;      /* Dark Beige */
+  --color-surface-1: #f3f1ee;      /* área de trabalho */
+  --color-surface-2: #f3f1ee;      /* chips / seções */
+  --color-surface-3: #d6d8ca;      /* Cinza médio */
   --color-white: #ffffff;          /* superfície de card */
-  --color-ink: #28211b;            /* Black quente — NUNCA #000000 */
-  --color-ink-soft: #37332a;       /* Dark Grey */
-  --color-text-secondary: #534d41; /* Grey */
-  --color-text-tertiary: #534d41;  /* Grey */
+  --color-ink: #3b4332;            /* Verde-base — NUNCA preto */
+  --color-ink-soft: #2b3125;
+  --color-text-secondary: #6b7060;
+  --color-text-tertiary: #6b7060;
   /* ⚠️ Placeholder #A9A6A4 dá 2,36:1 sobre o branco quente — serve para o
      texto-fantasma de um campo vazio e para NADA que precise ser lido.
      Quem pinta o prefixo "R$" e os centavos é `--color-text-tertiary`
      (Grey #534D41, 8,21:1), pela reprovação medida na ONDA 12. */
-  --color-text-quaternary: #a9a6a4;/* Placeholder */
-  --color-border: #d4d3d1;         /* Border */
+  --color-text-quaternary: #a9ad9e;/* Placeholder */
+  --color-border: #d6d8ca;         /* Cinza médio */
   /* Espelha o `:root`: divisor e grade de gráfico em CINZA, derivado da borda.
      Ver o porquê na declaração de cima — divergir aqui repintaria o app com
      um valor que ninguém escolheu, que é o defeito das semânticas neon. */
   --color-border-soft: color-mix(in srgb, var(--color-border) 45%, var(--color-white));
   /* Accent #C8D930 — texto/ícone SEMPRE em Black quente (#28211B) por cima */
-  --color-lime: #c8d930;
-  --color-lime-tint: #fffad7;
-  --color-on-lime: #28211b;
-  --color-chart-line: #28211b;
+  --color-lime: #ecfd52;
+  --color-lime-tint: color-mix(in srgb, #ecfd52 28%, var(--color-white));
+  --color-on-lime: #3b4332;
+  --color-chart-line: #3b4332;
   /* ⚠️ SEMÂNTICAS — ERAM NEON (#00ff62 · #ff6200 · #ff1100), promovidas do
      Laboratório. Como PREENCHIMENTO elas funcionavam; como TEXTO, não: o verde
      neon sobre branco dá 1,4:1 de contraste, e é justamente em texto que elas
@@ -626,12 +644,16 @@ html:not(.dark) .ds-visor {
      positive #367b4e · negative #be463c. */
   --color-positive: #2cd662;
   --color-warning: #a45c15;
-  --color-negative: #d62c2c;
+  --color-negative: #b3261e;
 }
 /* ============================================================
    TRÊS FAMÍLIAS, TRÊS PAPÉIS — e nenhum deles se sobrepõe.
 
-   · DISPLAY — Gellix Bold (700). Afirmação de marca e NÚMERO que precisa
+   ⚠️ IDENTIDADE QUATTRO (30/09/2026): a display passou a ser a CENTRA NO.2
+   BLACK, em CAIXA ALTA nos títulos (h1 e herói). "Gellix" abaixo é histórico:
+   o PAPEL é o mesmo, a família mudou.
+
+   · DISPLAY — Centra No.2 Black. Afirmação de marca e NÚMERO que precisa
      impressionar: o valor monetário principal da tela, o título de uma tela
      de destaque, a porcentagem grande do donut. Sempre número ou palavra
      curta, nunca parágrafo.
@@ -645,7 +667,7 @@ html:not(.dark) .ds-visor {
    rótulo ou estado, é a classe de rótulo em caixa alta.
    ============================================================ */
 .ds-visor {
-  --font-display: "Gellix", "Roobert", sans-serif;
+  --font-display: "Centra No2", "Archivo", "Roobert", sans-serif;
   --font-sans: "Roobert", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   /* ⚠️ O papel de RÓTULO pede `var(--font-mono)`, e a única monoespaçada da
      casa é a Roobert Mono — mesma família da UI, largura fixa de verdade.
@@ -677,16 +699,23 @@ html:not(.dark) .ds-visor {
    Tela de destaque pede a classe explícita `.a4p-heroi`. */
 .ds-visor h1,
 .ds-visor .text-h1 {
-  font-weight: 500;
+  /* ⚠️ QUATTRO: título de seção/tela é Centra No.2 Black em CAIXA ALTA
+     (guia: "caixa alta nos títulos de seção e hero", tracking −0.02em,
+     entrelinha 1,03–1,1). Substitui a regra anterior de h1 em Roobert. */
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  line-height: 1.05;
   color: var(--color-ink);
   letter-spacing: -0.02em;
 }
 .ds-visor .text-display,
 .ds-visor .a4p-heroi {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 900;
+  text-transform: uppercase;
   color: var(--color-ink);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 /* Tamanho do herói — 33px (escolha do Laboratório, promovida).
    ⚠️ Ele mora AQUI, na regra de papel, e não mais no `text-[30px]` do
@@ -707,7 +736,7 @@ html:not(.dark) .ds-visor {
 .ds-visor .tabular-nums,
 .ds-visor .text-value-lg {
   font-family: var(--font-display);
-  font-weight: 700;
+  font-weight: 900;
   font-feature-settings: "tnum" 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -820,7 +849,10 @@ html:not(.dark) .ds-visor {
      muda de peso conforme o monitor.
      `border-width: 0` em vez do shorthand `border: 0` preserva a cor de borda
      do tema para quem quiser ligar uma borda pontual depois. */
-  border-width: 0;
+  /* ⚠️ QUATTRO (30/09/2026): o card VOLTA A TER BORDA — 1px Cinza médio,
+     raio 26px, padding 28px (guia da marca). O parágrafo acima descreve a
+     decisão anterior; a vigente é a do guia. */
+  border: 1px solid var(--a4p-box-border);
   box-shadow: none;
 }
 /* padding 45px (default do Card) → 24px do painel */
@@ -913,7 +945,7 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
-   ALL 4 PAY AI — tipografia e movimento do assistente.
+   QUATTRO AI — tipografia e movimento do assistente.
 
    O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do
    `<main>.ds-visor` (são irmãos dele no AppShell), então nenhuma
@@ -1028,7 +1060,7 @@ html:not(.dark) .ds-visor {
 
    ⚠️ O QUE O EFEITO PODE E NÃO PODE FAZER AQUI. Ele refrata o fundo — na
    demo original, uma foto de montanha, cheia de detalhe para entortar.
-   A barra da all4pay é um near-black CHAPADO: não há textura por baixo, e
+   A barra da Quattro é um near-black CHAPADO: não há textura por baixo, e
    distorcer uma cor sólida devolve a mesma cor sólida. Por isso o realce
    não vem só do deslocamento; vem também do fio de luz na borda e do
    brilho superior, que é o que faz a pílula ler como vidro sobre um fundo

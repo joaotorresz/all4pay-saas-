@@ -135,7 +135,7 @@ export async function executarDecisao(d: FinancialDecision): Promise<ResultadoEx
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
 function mensagemCobranca(c: CollectionPlan): string {
-  const base = `all4pay · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
+  const base = `Quattro · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
   const fecho =
     c.estrategia === "agressiva_precoce"
       ? "Regularize o quanto antes para evitar restrições. Qualquer dúvida, estamos à disposição."
@@ -167,7 +167,7 @@ async function mensagensAdaptativas(collections: CollectionPlan[]): Promise<Map<
  * Dispara a cobrança de verdade pelo MESMO caminho do /autonomo
  * (`/api/cobranca/whatsapp`): monta os alvos com telefone (dos Contatos) e
  * canal WhatsApp, envia (Twilio em live; simulado sem chave) e registra na
- * trilha. A segmentação é do all4pay; a Twilio só entrega.
+ * trilha. A segmentação é do Quattro; a Twilio só entrega.
  */
 export async function dispararCobranca(collections: CollectionPlan[], parties: Party[]): Promise<ResultadoExecucao> {
   const foneDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome))?.phone ?? null;

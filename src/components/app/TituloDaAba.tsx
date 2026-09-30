@@ -3,7 +3,7 @@
 /**
  * O TÍTULO DA ABA DO NAVEGADOR.
  *
- * ⚠️ Quase todo o sistema anunciava **"all4pay — Tesouraria"**. A causa é
+ * ⚠️ Quase todo o sistema anunciava **"Quattro — Tesouraria"**. A causa é
  * estrutural: só o `layout.tsx` declarava `metadata.title`, e as telas, sendo
  * componentes de cliente, não conseguem exportar `metadata`. O `AppShell`
  * recebia o título e o usava apenas no `<h1>`.

@@ -19,5 +19,5 @@ export const isDemo: boolean = process.env.NEXT_PUBLIC_ALL4PAY_DEMO === "true";
 // (o oposto do silêncio que causou o incidente) — provável engano de ambiente.
 if (isDemo && process.env.NEXT_PUBLIC_SUPABASE_URL) {
   // eslint-disable-next-line no-console
-  console.warn("[all4pay] MODO DEMO ativo com Supabase configurado — confirme se isto é intencional.");
+  console.warn("[Quattro] MODO DEMO ativo com Supabase configurado — confirme se isto é intencional.");
 }

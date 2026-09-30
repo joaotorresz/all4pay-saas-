@@ -1,5 +1,5 @@
 /**
- * all4pay — Financial Decision Layer (GAP 4)
+ * Quattro — Financial Decision Layer (GAP 4)
  * ------------------------------------------
  * Industrializa a inteligência: deixa de "mostrar números" e passa a
  * DECIDIR — interpretar, pontuar risco probabilístico, prever, recomendar

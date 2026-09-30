@@ -163,9 +163,9 @@ function InsightsCard({ insights, narr = {} }: { insights: import("@/core/execut
 /* ---------- Anomalias ---------- */
 type ClasseAnom = import("@/core/executive/types").Anomalia["classe"];
 const ACAO_ANOM: Record<ClasseAnom, { label: string; href: string }> = {
-  despesa: { label: "Revisar despesa", href: "/dre" },
-  duplicidade: { label: "Verificar duplicidade", href: "/pagamentos" },
-  fraude: { label: "Investigar pagamento", href: "/pagamentos" },
+  despesa: { label: "Revisar despesa", href: "/dashboard/reports/dre" },
+  duplicidade: { label: "Verificar duplicidade", href: "/contas-a-pagar/titulos" },
+  fraude: { label: "Investigar pagamento", href: "/contas-a-pagar/titulos" },
 };
 
 function AnomaliasCard({ anomalias, narr = {} }: { anomalias: import("@/core/executive/types").Anomalia[]; narr?: Record<string, string> }) {
@@ -331,7 +331,7 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
           <Icon name="sparkles" size={15} color="var(--color-lime)" /> Planner — cenários sugeridos e impacto
           <InfoHint align="left" oQue="Mostra cenários prontos (queda de receita, corte de custo, expansão) e o impacto de cada um, do pior para o melhor." comoCalcula="Recalcula o score de saúde e o runway sobre os seus indicadores para cada cenário sugerido." />
         </span>
-        <Link href="/all4pay-ai?aba=decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
+        <Link href="/quattro-ai?aba=decisao" className="text-caption text-muted hover:text-ink underline">probabilidade (Monte Carlo) em Decisão →</Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {cenarios.map((c, i) => (

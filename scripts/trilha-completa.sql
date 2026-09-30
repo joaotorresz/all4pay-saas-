@@ -18,17 +18,14 @@
 
 do $guarda$
 declare
-  -- ⚠️ As duas últimas entraram em `20260813182600`, e são as categorias que a
-  -- ONDA 3 já declarava aplicadas ao produto de adquirência:
-  -- `own_webhook_eventos` é o bruto que entra (o papel de `raw_events`) e
-  -- `own_sync_execucoes` é log de execução (o papel de `ddl_log`, e ele já É
-  -- uma trilha). Nenhuma das duas tem decisão humana atrás para registrar.
+  -- ⚠️ `own_webhook_eventos` e `own_sync_execucoes` saíram desta lista junto
+  -- com a integração da OWN (contrato rescindido, 30/09/2026): as tabelas não
+  -- existem mais depois de `20260930120000`.
   fora text[] := array[
     'audit_log','org_state','admin_acessos','admin_audit',
     'rota_alias_acessos','ddl_log','raw_events',
-    'own_webhook_eventos','own_sync_execucoes',
     -- central_transicoes é ela mesma uma trilha (quem/quando/de/para de cada
-    -- transição da máquina de estados) — o papel de own_sync_execucoes/raw_events.
+    -- transição da máquina de estados) — o papel de raw_events.
     'central_transicoes'
   ];
   faltando text[];

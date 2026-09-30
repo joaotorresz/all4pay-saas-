@@ -4,7 +4,7 @@
  * SUGESTÕES do copiloto — o que o motor autônomo recomenda, com a fronteira
  * entre sugerir e fazer visível na própria linha.
  *
- * ⚠️ Este card dizia "a All 4 Pay AI pode agir", oferecia um botão "Executar" e
+ * ⚠️ Este card dizia "a Quattro AI pode agir", oferecia um botão "Executar" e
  * carimbava "Feita" — para uma chamada cujo efeito inteiro era escrever uma
  * linha na trilha. O motor é bom e a priorização é real; o que era falso era o
  * VERBO. E um verbo falso aqui não é exagero de marketing: quem lê "Feita" ao
@@ -60,9 +60,9 @@ export function AcoesCopiloto() {
     <Card className="lg:col-span-3 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <span className="text-label font-medium text-muted inline-flex items-center gap-2">
-          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Sugestões da All 4 Pay AI
+          <Icon name="sparkles" size={15} color="var(--color-lime)" /> Sugestões da Quattro AI
           <InfoHint
-            titulo="Sugestões da All 4 Pay AI"
+            titulo="Sugestões da Quattro AI"
             oQue="O que o motor recomenda fazer agora, em ordem de impacto. São SUGESTÕES: nada é executado sem você clicar, e cada linha diz o que o clique faz."
             comoCalcula="O motor autônomo prioriza cada sugestão por impacto e confiança. Só duas coisas saem daqui de verdade: a cobrança por WhatsApp e a abertura de uma solicitação na alçada. As demais ficam registradas na trilha."
           />

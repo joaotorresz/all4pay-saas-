@@ -110,7 +110,7 @@ export function AssinaturaView() {
   const empresa = useQuery({ queryKey: ["company"], queryFn: fetchCompany });
 
   const [local, setLocal] = React.useState(() => ({
-    plano: "all4pay", empresaId: "", planoContratado: null as string | null, expiracao: null as string | null,
+    plano: "Quattro", empresaId: "", planoContratado: null as string | null, expiracao: null as string | null,
   }));
   const [integracoes, setIntegracoes] = React.useState<ReturnType<typeof lerIntegracoes>>({});
   React.useEffect(() => {

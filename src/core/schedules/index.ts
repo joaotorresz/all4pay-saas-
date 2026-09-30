@@ -1,5 +1,5 @@
 /**
- * all4pay — Cronogramas: amortização (despesas antecipadas) e depreciação
+ * Quattro — Cronogramas: amortização (despesas antecipadas) e depreciação
  * (ativo imobilizado). Inspirado no módulo do Campfire: os cronogramas vivem no
  * sistema (não em planilhas paralelas) e consolidam em UM lançamento contábil
  * mensal por tipo, para revisão e aprovação. Linear (linha reta). Puro, tipado.

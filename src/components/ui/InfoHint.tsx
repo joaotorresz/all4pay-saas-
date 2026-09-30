@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * all4pay DS — InfoHint
+ * Quattro DS — InfoHint
  * O botão "i" universal dos boxes: explica EM LINGUAGEM SIMPLES "para que serve"
  * o box e "como é calculado". Abre um popover ancorado (clique), fecha no clique
  * fora / Esc. Discreto (faint → ink no hover). Usado direto (inline no header) ou

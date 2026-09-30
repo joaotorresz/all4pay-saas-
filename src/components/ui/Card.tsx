@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { InfoHint, type InfoConteudo } from "./InfoHint";
 
 /**
- * all4pay DS — Card
+ * Quattro DS — Card
  * White surface, faint 1px border + whisper-soft shadow, 16px radius.
  * The default container for everything in the app.
  *

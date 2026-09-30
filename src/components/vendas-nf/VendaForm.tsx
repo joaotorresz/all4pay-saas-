@@ -26,7 +26,7 @@ import {
   STATUS_VENDA, METODOS_PAGAMENTO, PLATAFORMAS, STATUS_NF,
   type Venda, type ItemVenda, type StatusVenda, type MetodoPagamento, type StatusNF,
 } from "@/core/vendas";
-import { listarVendas, salvarVenda, proximoNumero, novoId } from "@/lib/vendas-store";
+import { listarVendas, salvarVenda, proximoNumero, novoId, registrarRecebivelDaVenda } from "@/lib/vendas-store";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -100,7 +100,7 @@ export function VendaForm() {
   const setItem = (i: number, patch: Partial<ItemVenda>) =>
     setV((s) => ({ ...s, itens: s.itens.map((x, k) => (k === i ? { ...x, ...patch } : x)) }));
 
-  const salvar = () => {
+  const salvar = async () => {
     const e = validarVenda(v);
     if (!rateioValido(v.projetos)) e.projetos = "O rateio por projeto precisa somar 100%.";
     if (!rateioValido(v.centros)) e.centros = "O rateio por centro de custo precisa somar 100%.";
@@ -108,10 +108,17 @@ export function VendaForm() {
     if (Object.keys(e).length > 0) { show("Revise os campos obrigatórios."); return; }
     setSalvando(true);
     try {
-      salvarVenda({ ...v, clienteNome: cliente?.name ?? v.clienteNome });
+      const nova = !listarVendas().some((x) => x.id === v.id);
+      const doc = { ...v, clienteNome: cliente?.name ?? v.clienteNome };
+      // ⚠️ O título ANTES do documento: numa recusa do banco, a venda não fica
+      // registrada sem o recebível — e a próxima tentativa não a duplica.
+      await registrarRecebivelDaVenda(doc, nova);
+      salvarVenda(doc);
       qc.invalidateQueries();
-      show("Venda salva.");
+      show("Venda salva · recebível gerado.");
       router.push("/dashboard/sales-invoices");
+    } catch (err) {
+      show(`Não foi possível salvar: ${(err as Error).message}`);
     } finally {
       setSalvando(false);
     }

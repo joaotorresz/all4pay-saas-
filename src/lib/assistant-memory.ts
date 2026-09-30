@@ -1,5 +1,5 @@
 /**
- * Camada de aprendizado do assistente (all4pay IA) — memória adaptativa local.
+ * Camada de aprendizado do assistente (Quattro IA) — memória adaptativa local.
  * Não é um LLM: é o "machine learning leve" que faz o assistente APRENDER com o
  * uso do cliente. Registra cada pergunta (frequência + recência), o feedback
  * (👍/👎) e usa isso para reordenar as sugestões — quanto mais o usuário

@@ -81,7 +81,7 @@ export function IntegracoesView() {
   return (
     <div className="flex flex-col gap-6">
       <p className="m-0 text-label text-muted max-w-[80ch]">
-        Conecte a all4pay às plataformas externas que automatizam entrada de dados e emissão fiscal.
+        Conecte a Quattro às plataformas externas que automatizam entrada de dados e emissão fiscal.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {CATALOGO_INTEGRACOES.map((c) => {

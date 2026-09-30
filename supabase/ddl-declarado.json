@@ -46,14 +46,7 @@
     ]
   },
   "dividas_declaradas": {
-    "_motivo_comum": "A4P-076: o que AINDA mora so nas Edge Functions, fora do repositorio. own_token_* e own_saude SAIRAM daqui na P-19 Bloco 1 — a migration 20260818200000 agora os cria verbatim. Divida aberta, nao excecao.",
-    "itens": [
-      {
-        "nucleo": "own_extrato_lojista",
-        "o_que_e": "Extrato do lojista (adquirência). Só mencionada em comentário/índice nas migrations; o CREATE mora fora.",
-        "responsavel": "joão (dono do repositório) — trazer o schema das Edge Functions",
-        "prazo": "2026-09-18"
-      }
-    ]
+    "_motivo_comum": "Nenhuma dívida aberta. A única (own_extrato_lojista, A4P-076) foi QUITADA em 30/09/2026: a integração com a OWN saiu do produto (contrato rescindido) e a migration 20260930120000 remove a view e todo o subsistema own_*.",
+    "itens": []
   }
 }

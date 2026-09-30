@@ -38,7 +38,7 @@ export function MolduraPublica({
         {/* Sempre a marca LIMA: o fundo é escuro nos dois temas, e a versão
             escura sumiria no claro. */}
         <Link href="/" aria-label="Início" className="inline-flex items-center">
-          <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto" priority />
+          <Image src="/all4pay-lime.png" alt="Quattro" width={132} height={26} className="h-[26px] w-auto" priority />
         </Link>
       </header>
       <div

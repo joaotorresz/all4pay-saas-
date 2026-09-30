@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 /**
  * Cobrança adaptativa por IA (Claude) — SERVER-ONLY. Recebe os inadimplentes
- * (nome, valor em aberto, estratégia/tom da segmentação do all4pay) e devolve UMA
+ * (nome, valor em aberto, estratégia/tom da segmentação do Quattro) e devolve UMA
  * mensagem de WhatsApp por cliente, no tom certo (amigável/proativo/firme), em
  * pt-BR, sóbria e sem emoji. A segmentação é do motor; a IA só escreve a mensagem.
  * Gated por ANTHROPIC_API_KEY (sem chave → fallback template no cliente).
@@ -26,12 +26,12 @@ export async function POST(req: Request) {
   const alvos = (body.alvos ?? []).slice(0, 40);
   if (!alvos.length) return NextResponse.json({ ok: false, reason: "sem alvos" });
 
-  const prompt = `Você escreve mensagens de cobrança por WhatsApp para a empresa all4pay (B2B, pt-BR).
+  const prompt = `Você escreve mensagens de cobrança por WhatsApp para a empresa Quattro (B2B, pt-BR).
 Para cada cliente, escreva UMA mensagem curta (1-3 frases), profissional, sóbria e SEM emoji, citando o valor em aberto (formato R$). Ajuste o tom pela estratégia:
 - "amigavel": cordial, lembrete leve.
 - "proativa": objetivo, propõe regularizar para evitar encargos.
 - "agressiva_precoce": firme e direto, sem ser hostil; reforça urgência.
-Comece com "all4pay ·". Não invente dados além do valor e do nome.
+Comece com "Quattro ·". Não invente dados além do valor e do nome.
 
 CLIENTES (JSON): ${JSON.stringify(alvos.map((a) => ({ cliente: a.cliente, valor: a.exposicao, estrategia: a.estrategia ?? "proativa" })))}
 

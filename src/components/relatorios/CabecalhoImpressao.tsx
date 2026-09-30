@@ -88,7 +88,7 @@ export function CabecalhoImpressao({ titulo, de, ate, regime, recorte }: Cabecal
         Regime: {regime === "competencia" ? "competência" : "caixa"}
         {recorte ? ` · ${recorte}` : ""}
       </p>
-      <p className="m-0 mt-[2px] text-caption text-faint">Gerado em {gerado} · all4pay</p>
+      <p className="m-0 mt-[2px] text-caption text-faint">Gerado em {gerado} · Quattro</p>
     </div>
   );
 }

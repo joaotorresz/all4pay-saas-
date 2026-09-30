@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Histórico de conversas da All 4 Pay AI.
+ * Histórico de conversas da Quattro AI.
  *
  * ⚠️ **Por USUÁRIO e por EMPRESA, no servidor** (mapa de consolidação, item 6).
  * O histórico vivia só no `localStorage`: a conversa era do DISPOSITIVO, não da

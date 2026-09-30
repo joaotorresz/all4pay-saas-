@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Topo da Home — réplica fiel do Visor Finance, na identidade all4pay
+ * Topo da Home — réplica fiel do Visor Finance, na identidade Quattro
  * (monocromático + lime; o azul do Visor vira ink/lime):
  *  • ESQUERDA: herói "Você gastou R$ X a menos este mês" + gráfico de GASTO
  *    ACUMULADO. A linha do realizado usa um gradiente TÉRMICO (verde → âmbar →
@@ -276,7 +276,7 @@ export function VisorHomeTop() {
           </div>
         </Card>
 
-        <DicaCard insight={calc.insight} sufixo={sufixo} onOpen={() => router.push("/dre")} />
+        <DicaCard insight={calc.insight} sufixo={sufixo} onOpen={() => router.push("/dashboard/reports/dre")} />
       </div>
 
       {/* DIREITA — Distribuição (donut + legenda rica) */}
@@ -303,7 +303,7 @@ export function VisorHomeTop() {
                 );
               })}
             </div>
-            <button onClick={() => router.push("/dre")} aria-label="Abrir DRE" className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
+            <button onClick={() => router.push("/dashboard/reports/dre")} aria-label="Abrir DRE" className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
               <Icon name="arrow-up-right" size={16} color="currentColor" />
             </button>
           </div>
@@ -335,7 +335,7 @@ export function VisorHomeTop() {
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
                       {s.trend !== 0 && (
                         <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
-                          style={{ background: subiu ? tint("#D62C2C", 0.10) : "rgba(63,143,91,0.12)" }}>
+                          style={{ background: subiu ? tint("#B3261E", 0.10) : "rgba(63,143,91,0.12)" }}>
                           <Icon name={subiu ? "trending-up" : "trending-down"} size={13} color={subiu ? "var(--color-negative)" : "var(--color-positive)"} />
                         </span>
                       )}
@@ -356,7 +356,7 @@ export function VisorHomeTop() {
 /** Quebra o texto do balão em linhas curtas (o balão da referência é ALTO e
  *  estreito, não uma pílula larga). */
 /**
- * Card "Dica" (= "Dica do Visor", na identidade all4pay: ink + lime). Mostra um
+ * Card "Dica" (= "Dica do Visor", na identidade Quattro: ink + lime). Mostra um
  * insight DINÂMICO (categoria que mais variou vs. mês anterior) + dicas curadas,
  * com carrossel (bolinhas/setas) e atalho ↗.
  */
@@ -376,14 +376,14 @@ function DicaCard({ insight, sufixo, onOpen }: { insight: { cat: string; valor: 
   const go = (d: number) => setI((p) => (p + d + dicas.length) % dicas.length);
   return (
     // Degradê da marca INVERTIDO (`--gradient-marca-inv`): mesmos stops do FAB
-    // "All 4 Pay AI", de baixo para cima.
+    // "Quattro AI", de baixo para cima.
     // Sobre lima tudo entra em `on-lime` — texto claro aqui seria ilegível; os
     // controles viram vidro escuro para não sumirem no fundo.
     <Card className="flex flex-col gap-3" style={{ background: "var(--gradient-marca-inv)" }}>
       <div className="flex items-center gap-3">
         {/* O tile do sparkle saiu (Laboratório). Título e texto em Roobert
             Variable nos cinzas escolhidos — vide a ressalva de contraste no PR. */}
-        <span className="text-[17px]" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.02em", color: "var(--color-ink)" }}>Dica all4pay</span>
+        <span className="text-[17px]" style={{ fontFamily: VARIAVEL, fontWeight: 500, letterSpacing: "-0.02em", color: "var(--color-ink)" }}>Dica Quattro</span>
         <button onClick={onOpen} aria-label="Abrir detalhe" className="ml-auto w-7 h-7 rounded-pill inline-flex items-center justify-center text-on-lime hover:bg-black/10 transition-colors">
           <Icon name="arrow-up-right" size={16} color="currentColor" />
         </button>

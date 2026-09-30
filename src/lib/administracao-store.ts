@@ -48,7 +48,7 @@ export interface AssinaturaLocal {
 
 export const lerAssinatura = (): AssinaturaLocal =>
   ler<AssinaturaLocal>(K_ASSIN, {
-    plano: "all4pay",
+    plano: "Quattro",
     empresaId: "",
     planoContratado: null,
     expiracao: null,

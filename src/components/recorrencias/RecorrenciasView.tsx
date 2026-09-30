@@ -172,7 +172,7 @@ export function RecorrenciasView() {
                       {r.status === "ativa" && (
                         <span className="text-caption text-positive mt-1 inline-flex items-center gap-2 flex-wrap">
                           Projetadas no hub — aparecem em
-                          <Link href="/recebimentos" className="underline decoration-1 underline-offset-2 hover:opacity-80 inline-flex items-center gap-1">Contas a receber <Icon name="arrow-up-right" size={12} color="currentColor" /></Link>
+                          <Link href="/contas-a-receber/titulos" className="underline decoration-1 underline-offset-2 hover:opacity-80 inline-flex items-center gap-1">Contas a receber <Icon name="arrow-up-right" size={12} color="currentColor" /></Link>
                           e em
                           <Link href="/fluxo-caixa" className="underline decoration-1 underline-offset-2 hover:opacity-80 inline-flex items-center gap-1">Fluxo de caixa <Icon name="arrow-up-right" size={12} color="currentColor" /></Link>
                         </span>
