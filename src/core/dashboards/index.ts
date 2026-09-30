@@ -298,7 +298,7 @@ export function dashboardVazio(nome = ""): DashboardCustom {
     descricao: "",
     escopo: "pessoal",
     todasEmpresas: false,
-    cor: "#C8D930",
+    cor: "#ECFD52",
     paginas: [{ id: novoId("p"), titulo: "Página 1", widgets: [] }],
     criadoEm: "",
   };

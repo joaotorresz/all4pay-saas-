@@ -57,8 +57,8 @@ export const TEMAS: TemaRelatorio[] = [
   // um verde-musgo próprio: o relatório é o rosto do sistema na mão do
   // contador, e uma cor que não existe em nenhuma tela o faz parecer emitido
   // por outro produto. O tema pinta APENAS o cabeçalho e a faixa dos totais.
-  { id: "moss", nome: "Padrão", base: "#534D41", suave: "#EEEDDB", texto: "#FEFDF0" },
-  { id: "mono", nome: "Alto contraste", base: "#28211B", suave: "#DDDCC5", texto: "#FEFDF0" },
+  { id: "moss", nome: "Padrão", base: "#3B4332", suave: "#F3F1EE", texto: "#F3F1EE" },
+  { id: "mono", nome: "Alto contraste", base: "#2B3125", suave: "#D6D8CA", texto: "#F3F1EE" },
 ];
 
 export const temaPorId = (id: string) => TEMAS.find((t) => t.id === id) ?? TEMAS[0];

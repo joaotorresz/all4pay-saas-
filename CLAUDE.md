@@ -53,6 +53,50 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
+
+Fonte: o guia "Design system Quattro" do dono (kit no Canva
+`canva.com/brand/kADmEOe2dNQ`). A "paleta quente" logo abaixo, o DS LEDGER e o
+DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
+
+| Papel | HEX | Token |
+| --- | --- | --- |
+| Lime — AÇÃO (botão primário, destaque, número grande) | `#ECFD52` | `--color-lime` · `bg-lime` |
+| Verde-base — texto e fundo escuro (moldura) | `#3B4332` | `--color-ink` · `--a4p-chrome` |
+| Areia — borda de campo, separador | `#B5B594` | `--color-areia` · `border-areia` |
+| Cinza médio — borda de card, divisória, desabilitado | `#D6D8CA` | `--color-border` · `--color-surface-3` |
+| Cinza claro — fundo de página | `#F3F1EE` | `--color-surface-1/2` · `--a4p-app-bg` |
+| Branco — card e campo | `#FFFFFF` | `--color-white` |
+| Texto (hover do escuro) | `#2B3125` | `--color-ink-soft` |
+| Texto secundário (e `R$`/centavos) | `#6B7060` | `--color-text-secondary/tertiary` |
+| Placeholder | `#A9AD9E` | `--color-text-quaternary` |
+| Erro — o ÚNICO vermelho | `#B3261E` | `--color-negative` |
+
+- **Lime nunca leva texto branco** — por cima dele, sempre verde-base
+  (`text-on-lime`). **Fundo escuro é verde-base, nunca preto.**
+- **Sem degradê colorido, sem roxo/azul.** Os tokens `--gradient-marca*`
+  continuam existindo (há quem os consuma) mas valem lime chapado. Segundo
+  acento = o próprio lime em opacidade menor (`--color-lime-tint`, color-mix).
+- **Tipografia:** títulos (h1 de tela e `.a4p-heroi`) em **Centra No.2 Black,
+  CAIXA ALTA, −0.02em** (`public/fonts/centra-no2-black.ttf`, família
+  `"Centra No2"`, token `--font-display`). Ela tem `tnum` (medido com
+  fontTools), então segue carregando os VALORES (`.a4p-num`/`.tabular-nums`).
+  Corpo e interface em **Roobert** 400/500. Botão sempre 500, nunca bold.
+- **Formas:** botão **pílula sempre** (`rounded-pill`, padding 15px 30px —
+  `px-botao-x py-botao-y`); card **26px, borda 1px Cinza médio, padding 28px**
+  (o card VOLTOU a ter borda); campo **14px, borda 1,5px** (`border-campo`),
+  foco troca a borda para verde-base; modal 24px (`rounded-modal`); bloco 32px
+  (`rounded-bloco`).
+- **Sombra:** só `0 10px 40px -24px rgba(43,49,37,0.35)` (`--shadow-card`).
+- **Botão:** primário = lime + texto verde-base, hover `--color-lime-hover`;
+  secundário = transparente + borda `rgba(59,67,50,0.28)`
+  (`--a4p-borda-controle`); `accent` virou o mesmo lime.
+- **Ícones:** o guia pede **Lucide, traço 1,7**. O traço já é 1,7 por padrão no
+  `Icon`; o SET segue Hugeicons até o dono decidir a troca (é reescrever o
+  mapa gerado em `solar-icons.ts`, não o app).
+- **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
+- A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
+
 ## ⚠️ IDENTIDADE VIGENTE — A PALETA QUENTE (substitui as anteriores)
 
 Esta é a regra de cima. As seções de identidade mais abaixo (DS LEDGER, DS

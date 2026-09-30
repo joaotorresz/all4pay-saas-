@@ -335,7 +335,7 @@ export function VisorHomeTop() {
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
                       {s.trend !== 0 && (
                         <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
-                          style={{ background: subiu ? tint("#D62C2C", 0.10) : "rgba(63,143,91,0.12)" }}>
+                          style={{ background: subiu ? tint("#B3261E", 0.10) : "rgba(63,143,91,0.12)" }}>
                           <Icon name={subiu ? "trending-up" : "trending-down"} size={13} color={subiu ? "var(--color-negative)" : "var(--color-positive)"} />
                         </span>
                       )}
