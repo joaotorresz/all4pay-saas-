@@ -1,11 +1,8 @@
 "use client";
 
-// Consolidado num hub (deep-link preservado).
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { CentralPosTaxasView } from "@/components/pos/CentralPosTaxasView";
 
-export default function Redir() {
-  const r = useRouter();
-  useEffect(() => { r.replace("/vendas?aba=pos-taxas"); }, [r]);
-  return null;
+/** Taxas de adquirência da maquininha. Deixou de ser aba do hub `/vendas`, aposentado. */
+export default function PosTaxasPage() {
+  return <CentralPosTaxasView />;
 }

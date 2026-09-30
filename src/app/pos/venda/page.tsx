@@ -1,11 +1,8 @@
 "use client";
 
-// Consolidado num hub (deep-link preservado).
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { PosVendaView } from "@/components/pos/PosVendaView";
 
-export default function Redir() {
-  const r = useRouter();
-  useEffect(() => { r.replace("/vendas?aba=pos"); }, [r]);
-  return null;
+/** Venda no balcão (maquininha). Deixou de ser aba do hub `/vendas`, aposentado. */
+export default function PosVendaPage() {
+  return <PosVendaView />;
 }

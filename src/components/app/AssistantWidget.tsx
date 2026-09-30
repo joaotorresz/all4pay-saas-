@@ -32,7 +32,7 @@ export function AssistantWidget() {
   // QUALQUER OUTRA tela; dentro das duas casas da IA ele é redundante e
   // ainda cobre o campo de mensagem.
   const rota = usePathname();
-  const naTelaDaIA = rota === "/quattro-ai" || rota.startsWith("/copiloto");
+  const naTelaDaIA = rota.startsWith("/quattro-ai");
 
   React.useEffect(() => {
     const h = () => abrir();

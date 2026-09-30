@@ -109,7 +109,6 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/contas-a-pagar/recorrentes", nome: "Contas recorrentes", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-pagar/titulos", nome: "Títulos a pagar", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contratacoes", nome: "Plano de contratações", dono: "inteligencia", status: "canonica", criterio: "travada" },
-  { rota: "/dashboard", nome: "Painéis", dono: "paineis", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/dominio-export", nome: "Gerar TXT contábil", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/accounting/nfe-export", nome: "Envio das NFs ao contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/administration", nome: "Administração", dono: "plataforma", status: "canonica", criterio: "nucleo" },
@@ -147,6 +146,9 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/registrations/projects", nome: "Projetos", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/suppliers", nome: "Fornecedores", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/reports", nome: "Relatórios", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  // Campfire-grade: o balanço comparativo e a explicação da variação do mês.
+  { rota: "/dashboard/reports/balance-sheet", nome: "Balanço patrimonial", dono: "relatorios", status: "canonica", criterio: "nucleo" },
+  { rota: "/dashboard/reports/variance", nome: "Análise de variação", dono: "relatorios", status: "canonica", criterio: "diferencial" },
   { rota: "/dashboard/reports/cash-flow", nome: "Fluxo de caixa (relatório)", dono: "relatorios", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/reports/dfc", nome: "DFC", dono: "relatorios", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/reports/dfc-multi", nome: "DFC multiempresas", dono: "relatorios", status: "canonica", criterio: "nucleo" },
@@ -161,7 +163,6 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos e obrigações", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
-  { rota: "/governanca", nome: "Governança e aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
   { rota: "/investidores", nome: "Investor update", dono: "inteligencia", status: "canonica", criterio: "travada" },
   { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica", criterio: "nucleo" },
@@ -175,10 +176,9 @@ export const INVENTARIO: RotaInventario[] = [
   // A porta de entrada: três campos, uma tela.
   { rota: "/criar-conta", nome: "Criar conta", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/pos/taxas", nome: "Taxas do POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
-  { rota: "/pos/venda", nome: "Venda no POS", dono: "vendas", status: "canonica", criterio: "diferencial" },
+  { rota: "/pos/venda", nome: "Simulador de venda", dono: "vendas", status: "canonica", criterio: "diferencial" },
   { rota: "/exportar", nome: "Exportar para o contador", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/upload", nome: "Entrada de dados", dono: "ingestao", status: "canonica", criterio: "nucleo" },
-  { rota: "/vendas", nome: "Vendas e NFs", dono: "vendas", status: "canonica", criterio: "nucleo" },
 ];
 
 /* ========================================================================== */

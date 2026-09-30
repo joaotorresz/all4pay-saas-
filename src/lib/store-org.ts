@@ -98,6 +98,10 @@ export const CHAVES_ORG = {
   exportacoes: "a4p_exportacoes",
   chamados: "a4p_chamados",
   logsAdmin: "a4p_logs_admin",
+  // A régua de cobrança: o que já foi enviado a quem, em que etapa. É dado de
+  // NEGÓCIO (prova de que o cliente foi avisado antes de um protesto), então
+  // sobe para o servidor como as demais.
+  reguaEnvios: "a4p_regua_envios",
   regrasUso: "a4p_regras_uso",
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
@@ -253,6 +257,7 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_exportacoes: "Relatórios exportados",
   a4p_chamados: "Chamados de suporte",
   a4p_logs_admin: "Logs administrativos",
+  a4p_regua_envios: "Envios da régua de cobrança",
   a4p_regras_uso: "Uso das regras de categorização",
   a4p_fdip_memory: "Aprendizado da importação",
   a4p_ia_memory: "Memória do assistente",

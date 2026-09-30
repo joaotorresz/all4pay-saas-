@@ -276,7 +276,7 @@ export function VisorHomeTop() {
           </div>
         </Card>
 
-        <DicaCard insight={calc.insight} sufixo={sufixo} onOpen={() => router.push("/dre")} />
+        <DicaCard insight={calc.insight} sufixo={sufixo} onOpen={() => router.push("/dashboard/reports/dre")} />
       </div>
 
       {/* DIREITA — Distribuição (donut + legenda rica) */}
@@ -303,7 +303,7 @@ export function VisorHomeTop() {
                 );
               })}
             </div>
-            <button onClick={() => router.push("/dre")} aria-label="Abrir DRE" className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
+            <button onClick={() => router.push("/dashboard/reports/dre")} aria-label="Abrir DRE" className="w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
               <Icon name="arrow-up-right" size={16} color="currentColor" />
             </button>
           </div>

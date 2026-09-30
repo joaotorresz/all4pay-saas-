@@ -81,6 +81,30 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Relatórios gerenciais ----------------------------- */
+  "/dashboard/reports/balance-sheet": {
+    titulo: "Balanço patrimonial comparativo",
+    intro: "O que a empresa tem (ativo) e deve (passivo), e o que é dos sócios (patrimônio líquido), em duas datas lado a lado, com a variação de cada conta. Sai do razão de dupla entrada.",
+    comoUsar: "Escolha a data da posição e a data de comparação (o padrão é o fim do mês anterior). O selo diz se ativo = passivo + PL.",
+    exemplo: "O caixa caiu R$ 40 mil desde o mês passado? A coluna de variação mostra se foi para estoque, para pagar fornecedor ou para reduzir um empréstimo.",
+    secoes: [
+      blocos([
+        { nome: "Equação do balanço", desc: "Ativo contra passivo + PL, nas duas datas.", match: "Ativo em" },
+        { nome: "Grupos comparativos", desc: "Cada conta nas duas datas e a variação.", match: "Variação" },
+      ]),
+    ],
+  },
+  "/dashboard/reports/variance": {
+    titulo: "Análise de variação — o que mudou no mês",
+    intro: "Compara cada linha do DRE com o mês anterior e com a média dos três meses antes, destaca o que passou dos limites de materialidade e explica a mudança pelas categorias e contrapartes que a moveram. Gera um comentário pronto para o sócio, o conselho ou o contador.",
+    comoUsar: "Escolha o mês e os limites (valor e %). Abra uma linha destacada para ver quem a moveu e clique em 'Ver lançamentos' para a lista exata. Edite o comentário e copie.",
+    exemplo: "Despesas operacionais subiram R$ 8 mil? A linha abre Marketing +R$ 6 mil (sobretudo o anunciante X) e Folha +R$ 2 mil, com os lançamentos de cada uma.",
+    secoes: [
+      blocos([
+        { nome: "Comentário do mês", desc: "Texto redigido a partir das linhas materiais, editável.", match: "Comentário do mês" },
+        { nome: "Linha a linha", desc: "Todas as linhas do DRE com a variação e o efeito no resultado.", match: "Linha a linha" },
+      ]),
+    ],
+  },
   "/dashboard/reports/dre": {
     titulo: "DRE Intelligence Center",
     intro: "Centro de resultado gerencial: quanto ganhou, por quê, onde, qual cliente/linha, qual tendência e a projeção. Roda sobre os movimentos.",
@@ -103,18 +127,18 @@ export const GUIDES: Record<string, Guide> = {
   },
   "/fluxo-caixa": {
     titulo: "Fluxo de Caixa",
-    intro: "O centro operacional do caixa: 14 blocos (executivo, fluxo inteligente, previsto×realizado, calendário, projeção Monte Carlo, cenários, heatmap, waterfall, copiloto, what-if, eventos, confiança, digital twin) montados em uma execução.",
+    intro: "O centro operacional do caixa: resumo executivo, vencido × pago, calendário, árvore do caixa, projeção, cenários e a cascata do resultado abertos; conferência, mapa de calor, leituras da IA, simulador, linha do tempo, confiança e gêmeo digital recolhidos em 'Análises avançadas'.",
     comoUsar: "No header, escolha período, conta, regime (competência/caixa/híbrido) e visão (previsto/realizado/consolidado) — tudo reprocessa a página. Expanda as linhas do fluxo inteligente para descer no detalhe.",
-    exemplo: "Para um 'e se' rápido: use o bloco What-If e arraste o slider de inadimplência para +10% e veja o runway reagir.",
+    exemplo: "Para um 'e se' rápido: abra 'Análises avançadas', use o simulador e arraste o slider de inadimplência para +10% e veja o runway reagir.",
     secoes: [
       acoes([
         { nome: "Filtros do header", desc: "Período · conta · regime · visão — reprocessam tudo.", match: "Período" },
-        { nome: "What-If", desc: "Sliders de receita/despesa/inadimplência/folha recalculam ao vivo.", match: "What-If" },
+        { nome: "Simulador “e se”", desc: "Em Análises avançadas: sliders de receita/despesa/inadimplência/folha recalculam ao vivo.", match: "Análises avançadas" },
       ]),
       blocos([
         { nome: "Resumo executivo", desc: "Caixa, entradas/saídas previstas, geração, burn, runway, ruptura, score.", match: "Executive" },
         { nome: "Projeção ML", desc: "Monte Carlo 7/30/90/180/365 + bandas p10/p50/p90.", match: "Projeção" },
-        { nome: "Calendário / Heatmap", desc: "Recebe/paga/saldo por dia; liquidez verde/amarelo/vermelho.", match: "Heat" },
+        { nome: "Calendário financeiro", desc: "Recebe/paga/saldo por dia; o mapa de calor fica em Análises avançadas.", match: "Calendário Financeiro" },
       ]),
     ],
   },
@@ -258,12 +282,13 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
   "/dashboard/financial/overdue": {
-    titulo: "Inadimplência — inteligência de crédito",
-    intro: "Prevê inadimplência antes de acontecer, a partir do comportamento de pagamento de cada cliente (não de status estático). Explicável: cada fator carrega sua contribuição.",
-    comoUsar: "Veja o score da carteira, abra o heatmap para um cliente e leia o porquê do risco (fatores) + a ação de cobrança recomendada.",
-    exemplo: "Um cliente que vem atrasando mais e reduzindo ticket sobe no heatmap → a tela sugere cobrança e limite menor.",
+    titulo: "Inadimplência e cobrança — régua e risco",
+    intro: "Dois painéis: a RÉGUA DE COBRANÇA (quem avisar hoje, com a mensagem pronta, do lembrete antes do vencimento ao aviso formal) e o RISCO POR CLIENTE (quem tende a não pagar, com os fatores explicados).",
+    comoUsar: "Na régua, trate a fila do dia: envie por WhatsApp, copie a mensagem ou marque como avisado — cada etapa é registrada uma vez por título. No risco, abra o heatmap para um cliente e leia o porquê.",
+    exemplo: "Um boleto vencido há 3 dias entra no 'Primeiro aviso de atraso' com a mensagem já escrita; aos 10 dias, no 'Segundo aviso'; aos 60, pede a sua decisão sobre protesto.",
     secoes: [
       blocos([
+        { nome: "Régua de cobrança", desc: "Etapas por dias do vencimento, fila do dia e registro do que já foi enviado.", match: "Para avisar hoje" },
         { nome: "Score da carteira", desc: "Exposição, vencido, inadimplência esperada e score.", match: "Score da carteira" },
         { nome: "Heatmap de risco", desc: "Clientes ordenados por score; clique para abrir o perfil.", match: "Heatmap de risco" },
         { nome: "Perfil do cliente", desc: "Fatores, early-warning, recuperação e recomendação.", match: "Por que esse risco" },
@@ -277,7 +302,7 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Gere o boleto da fatura do cliente Acme → quando pago, baixa automaticamente.",
     secoes: [],
   },
-  "/vendas?aba=notas": {
+  "/dashboard/sales-invoices/invoices?aba=nfse": {
     titulo: "Notas fiscais (NFS-e)",
     intro: "Emissão e controle de NFS-e (serviços), com os impostos brasileiros (ISS) e vínculo ao recebível/recorrência.",
     comoUsar: "Emita a NFS-e a partir de uma venda/recorrência; acompanhe número, código de verificação e status.",
@@ -348,23 +373,16 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Em Produtos, cadastre 'Camiseta P' a R$49,90 com custo R$20 → a margem aparece no DRE por linha. Em Serviços, cadastre 'Consultoria mensal' a R$990 → use numa recorrência para virar MRR.",
     secoes: [],
   },
-  "/vendas": {
-    titulo: "Vendas",
-    intro: "Documentos de venda/compra/orçamento: itens, totais e conversão de orçamento em venda. Escreve sales_docs + itens (+ movimento quando não é orçamento).",
-    comoUsar: "Use 'Novo' para abrir o formulário (produto/serviço, itens, totais). 'Converter em venda' transforma um orçamento aprovado.",
-    exemplo: "Orçamento de 10 camisetas → cliente aprova → 'Converter em venda' gera o recebível.",
-    secoes: [],
-  },
 
   /* ----------------------------- Central POS ----------------------------- */
-  "/vendas?aba=pos-taxas": {
+  "/pos/taxas": {
     titulo: "Configuração de taxas Quattro",
     intro: "Simulador POS (maquininha): modela MDR + antecipação + online por MCC × range × bandeira, com o spread (margem) editável. Salva a configuração da sua operação.",
     comoUsar: "Escolha MCC, range, SELIC e ligue antecipação/online; edite o spread por grupo. A taxa final ao EC recalcula por parcela.",
     exemplo: "Restaurante (MCC 5812), range 1, com antecipação → veja a taxa final de crédito em 12x.",
     secoes: [],
   },
-  "/vendas?aba=pos": {
+  "/pos/venda": {
     titulo: "Simulador de venda (POS)",
     intro: "Simula uma venda na maquininha usando as taxas configuradas: calcula o líquido ao EC e registra o recebível líquido (e a tarifa como custo no DRE).",
     comoUsar: "Informe valor, bandeira e parcelas; veja o líquido e conclua para gerar o recebível (e a 'Tarifa de adquirência' como custo).",
@@ -427,7 +445,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Equipe / Plataforma ----------------------------- */
-  "/governanca": {
+  "/aprovacoes?painel=governanca": {
     titulo: "Governança institucional",
     intro: "Governança de nível bancário: trilha de auditoria imutável (hash-chain), RBAC + policy engine e fluxo de aprovação.",
     comoUsar: "Teste a adulteração da trilha, simule o policy engine (usuário/valor/método/país/hora/IP) e veja a escada de aprovação por faixa de valor.",
@@ -457,7 +475,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Painel de vendas ----------------------------- */
-  "/vendas?aba=painel": {
+  "/dashboard/sales-invoices": {
     titulo: "Painel de vendas",
     intro: "O dashboard comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
     comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",
@@ -485,7 +503,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Nova venda ----------------------------- */
-  "/vendas?aba=nova": {
+  "/dashboard/sales-invoices/new": {
     titulo: "Nova venda",
     intro: "A venda como documento-mãe: itens do catálogo, condição de pagamento e os efeitos em cascata (recebível, NF, imposto, DRE).",
     comoUsar: "Escolha cliente e itens (produtos/serviços), defina a condição (à vista/parcelado) e salve — o recebível e o resultado saem daqui.",
@@ -613,7 +631,7 @@ export const GUIDES: Record<string, Guide> = {
 const PADRAO_DO_HUB: Record<string, string> = {
   "/contabilidade": "razao",
   "/dashboard/registrations/clients": "contatos",
-  "/vendas": "lista",
+  "/dashboard/sales-invoices/invoices": "vendas",
   "/contas-a-receber/titulos": "titulos",
   "/contas-a-pagar/titulos": "titulos",
 };

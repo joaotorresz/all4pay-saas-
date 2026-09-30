@@ -6370,5 +6370,168 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      `${rotuloSituacaoCentral("previsto")} · ${rotuloSituacaoCentral("baixado")}`);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ENXUGAMENTO DO MVP + CAMPFIRE (30/09/2026) — as quatro funções novas.
+//
+// Cada bloco afirma sobre o VALOR que o caminho produziu (a regra do "toda
+// fixture prova que o caminho recebeu valor"), e cada um carrega a asserção
+// que discrimina o defeito que ele existe para impedir.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const { analisarVariacao } = await import("@/core/variacao");
+  const { montarDRE } = await import("@/core/relatorios");
+  const { balancoComparativo } = await import("@/lib/ledger");
+  const { provisaoComEstorno, ultimoDiaDoMes, primeiroDiaDoMesSeguinte } = await import("@/core/close");
+  const { balanceado } = await import("@/core/ledger");
+  const { montarRegua, registrarEnvio, etapaDoTitulo, REGUA_PADRAO } = await import("@/core/cobranca");
+
+  type RM = import("@/core/risk-engine/types").RiskMovement;
+  const m = (id: string, type: "entrada" | "saida", amount: number, due: string, category: string, party = "P1",
+    status: "pago" | "pendente" = "pago"): RM =>
+    ({ id, type, status, amount, due_date: due, paid_date: status === "pago" ? due : null, category, party_id: party }) as RM;
+
+  /* ---------------- 1) ANÁLISE DE VARIAÇÃO ---------------- */
+  const movsV: RM[] = [
+    // julho: receita 20.000, marketing 3.000, aluguel 5.000, tarifa 10
+    m("j1", "entrada", 20_000, "2026-07-05", "Vendas", "C1"),
+    m("j2", "saida", 3_000, "2026-07-10", "Marketing", "M1"),
+    m("j3", "saida", 5_000, "2026-07-12", "Aluguel", "L1"),
+    m("j4", "saida", 10, "2026-07-15", "Tarifa bancária", "B1"),
+    // agosto: receita 21.000 (+5%, abaixo do %), marketing 9.000 (+6.000),
+    // aluguel igual, tarifa 30 (+200%, mas R$ 20 — abaixo do valor mínimo)
+    m("a1", "entrada", 21_000, "2026-08-05", "Vendas", "C1"),
+    m("a2", "saida", 6_000, "2026-08-10", "Marketing", "M1"),
+    m("a2b", "saida", 3_000, "2026-08-11", "Marketing", "M2"),
+    m("a3", "saida", 5_000, "2026-08-12", "Aluguel", "L1"),
+    m("a4", "saida", 30, "2026-08-15", "Tarifa bancária", "B1"),
+  ];
+  const inV = { hoje: "2026-09-02", saldoAtual: 50_000, movements: movsV, partyNames: { M1: "Meta Ads", M2: "Google Ads", C1: "Cliente Um" } } as never;
+  const av = analisarVariacao(inV, "2026-08");
+  const dreV = montarDRE(inV, { intervalo: { de: "2026-05-01", ate: "2026-08-31" }, tipo: "horizontal" });
+  const kAgo = dreV.colunas.indexOf("2026-08");
+  // Marketing é despesa VARIÁVEL na cascata; tarifa bancária é resultado financeiro.
+  const opex = av.linhas.find((l) => l.id === "despesas_variaveis");
+  const fin = av.linhas.find((l) => l.id === "resultado_financeiro");
+  const rec = av.linhas.find((l) => l.id === "receita_bruta");
+
+  ok("variacao: os números saem da cascata do DRE (sem soma paralela)",
+     av.linhas.every((l) => Math.abs(l.atual - (dreV.linhas.find((x) => x.id === l.id)?.celulas[kAgo]?.valor ?? NaN)) < 0.01));
+  ok("variacao: o caminho RECEBEU valor (a linha de despesa não é zero)", !!opex && opex.atual > 0 && opex.anterior > 0,
+     `${opex?.atual} · ${opex?.anterior}`);
+  ok("variacao: despesa que sobe R$ 6.000 é material e PIORA o resultado",
+     !!opex && opex.material && opex.leitura === "piorou" && Math.abs(opex.delta - 6_000) < 0.01, `${opex?.delta} ${opex?.leitura}`);
+  ok("variacao: receita +5% não passa do percentual mínimo (dois pisos, não um)", !!rec && !rec.material && rec.delta === 1_000);
+  // ⚠️ O caso que discrimina: +200% num valor de R$ 20. Só o percentual o
+  // acusaria; só o valor o ignora. Com um piso só, uma das duas asserções cai.
+  ok("variacao: +200% em R$ 20 não vira manchete",
+     !!fin && fin.deltaPct != null && Math.abs(fin.deltaPct) >= 100 && !fin.material, `${fin?.deltaPct} ${fin?.material}`);
+  ok("variacao: os motivos somam a variação da linha", !!opex
+     && Math.abs(opex.motivos.reduce((s, x) => s + x.delta, 0) - opex.delta) < 0.01);
+  const mkt = opex?.motivos[0];
+  ok("variacao: o maior motivo vem primeiro, com a contraparte que mais pesa",
+     mkt?.categoria === "Marketing" && mkt?.principalContraparte === "Meta Ads", `${mkt?.categoria} · ${mkt?.principalContraparte}`);
+  ok("variacao: o drill-down aponta os lançamentos exatos do mês",
+     !!mkt && mkt.movimentos.slice().sort().join(",") === "a2,a2b");
+  ok("variacao: a tarifa continua no drill-down mesmo sem ser manchete",
+     fin?.motivos.some((x) => x.categoria === "Tarifa bancária" && Math.abs(x.delta + 20) < 0.01) === true);
+  ok("variacao: o comentário cita a linha, o valor e quem explica",
+     !!opex && opex.comentario.includes(opex.label) && opex.comentario.includes("R$6.000,00") && opex.comentario.includes("Marketing") && opex.comentario.includes("Meta Ads"), opex?.comentario);
+  // Sem mês anterior com lançamento, a variação é AUSENTE — não "+100%".
+  const semBase = analisarVariacao(inV, "2026-07");
+  ok("variacao: sem base de comparação o motor diz o motivo (ONDA 4)",
+     semBase.indisponivel?.codigo === "sem_base" && semBase.materiais.length === 0);
+
+  /* ---------------- 2) BALANÇO COMPARATIVO ---------------- */
+  const lanc = (id: string, data: string, linhas: { conta: string; nome: string; tipo: "asset" | "liability" | "equity" | "revenue" | "expense"; debito: number; credito: number }[]) =>
+    ({ id, data, descricao: id, origem: "manual", linhas: linhas.map((l) => ({ ...l, dimensions: {} })) }) as never;
+  const razao = [
+    lanc("l1", "2026-07-01", [
+      { conta: "1.1.01", nome: "Caixa", tipo: "asset", debito: 10_000, credito: 0 },
+      { conta: "3.1.01", nome: "Capital", tipo: "equity", debito: 0, credito: 10_000 },
+    ]),
+    lanc("l2", "2026-08-10", [
+      { conta: "1.1.05", nome: "Estoque", tipo: "asset", debito: 4_000, credito: 0 },
+      { conta: "1.1.01", nome: "Caixa", tipo: "asset", debito: 0, credito: 4_000 },
+    ]),
+  ];
+  const bc = balancoComparativo(razao, "2026-08-31", "2026-07-31");
+  const cx = bc.linhas.find((l) => l.nome === "Caixa");
+  const est = bc.linhas.find((l) => l.nome === "Estoque");
+  ok("balanço: o caixa variou −4.000 (o caminho recebeu valor)", !!cx && cx.anterior === 10_000 && cx.atual === 6_000 && cx.variacao === -4_000);
+  ok("balanço: conta que só existe numa data entra com ZERO na outra", !!est && est.anterior === 0 && est.atual === 4_000);
+  const ativoLinhas = bc.linhas.filter((l) => l.grupo === "Ativo");
+  const totAtivo = bc.atual.grupos.find((g) => g.titulo === "Ativo")!.total - bc.anterior.grupos.find((g) => g.titulo === "Ativo")!.total;
+  ok("balanço: a soma das variações do grupo é a variação do total", Math.abs(ativoLinhas.reduce((s, l) => s + l.variacao, 0) - totAtivo) < 0.01);
+  ok("balanço: fecha nas duas datas", bc.atual.fecha && bc.anterior.fecha);
+
+  /* ---------------- 3) PROVISÃO COM ESTORNO ---------------- */
+  const [prov, est2] = provisaoComEstorno("2026-12", "Energia", 1_234.56);
+  ok("provisão: nasce no último dia do mês e o estorno no 1º do seguinte (dezembro → janeiro)",
+     prov.entryDate === "2026-12-31" && est2.entryDate === "2027-01-01", `${prov.entryDate} · ${est2.entryDate}`);
+  ok("provisão: fevereiro de ano bissexto termina no dia 29", ultimoDiaDoMes("2028-02") === "2028-02-29");
+  ok("provisão: o mês seguinte não vira mês 13", primeiroDiaDoMesSeguinte("2026-12") === "2027-01-01");
+  ok("provisão: as duas partidas estão balanceadas", balanceado(prov.lines) && balanceado(est2.lines));
+  // ⚠️ O que discrimina: o estorno é o ESPELHO. Débito e crédito somados por
+  // conta nas duas partidas dão zero — sem isso a despesa fica contada duas
+  // vezes quando a conta real chegar.
+  const liquidoPorConta = new Map<string, number>();
+  for (const l of [...prov.lines, ...est2.lines]) liquidoPorConta.set(l.accountId, (liquidoPorConta.get(l.accountId) ?? 0) + (l.debit ?? 0) - (l.credit ?? 0));
+  ok("provisão: provisão + estorno zeram cada conta", Array.from(liquidoPorConta.values()).every((v) => Math.abs(v) < 0.005));
+  ok("provisão: as chaves são distintas e estáveis (relançar não duplica)",
+     prov.externalKey !== est2.externalKey && provisaoComEstorno("2026-12", "Energia", 1)[0].externalKey === prov.externalKey);
+
+  /* ---------------- 4) RÉGUA DE COBRANÇA ---------------- */
+  const hojeR = "2026-09-20";
+  const movsR: RM[] = [
+    m("r-antes", "entrada", 500, "2026-09-23", "Vendas", "C1", "pendente"),    // D−3
+    m("r-hoje", "entrada", 700, "2026-09-20", "Vendas", "C1", "pendente"),     // D0
+    m("r-3", "entrada", 900, "2026-09-17", "Vendas", "C2", "pendente"),        // D+3
+    m("r-5", "entrada", 950, "2026-09-15", "Vendas", "C2", "pendente"),        // D+5 → segue em D+3, não é da fila
+    m("r-65", "entrada", 4_000, "2026-07-17", "Vendas", "C3", "pendente"),     // D+65 → decisão manual
+    m("r-pago", "entrada", 800, "2026-09-17", "Vendas", "C2", "pago"),         // pago: fora
+    m("r-transf", "entrada", 20_000, "2026-09-17", "Transferência entre contas", "C1", "pendente"), // não se cobra
+    m("r-longe", "entrada", 300, "2026-10-30", "Vendas", "C1", "pendente"),    // cedo demais
+  ];
+  const inR = { hoje: hojeR, saldoAtual: 0, movements: movsR, partyNames: { C1: "Alfa", C2: "Beta", C3: "Gama" } } as never;
+  const regua = montarRegua(inR);
+  const idsFila = regua.filaDeHoje.map((i) => i.movimentoId).sort();
+  ok("régua: a fila de hoje traz exatamente D−3, D0, D+3 e o manual",
+     idsFila.join(",") === ["r-3", "r-65", "r-antes", "r-hoje"].sort().join(","), idsFila.join(","));
+  ok("régua: vence HOJE é lembrete, não atraso", regua.itens.find((i) => i.movimentoId === "r-hoje")?.etapa.id === "d0");
+  ok("régua: 5 dias de atraso segue na etapa de 3 dias e não é da fila de hoje",
+     regua.itens.find((i) => i.movimentoId === "r-5")?.etapa.id === "d+3" && !idsFila.includes("r-5"));
+  ok("régua: transferência entre contas próprias NÃO é cobrada", !regua.itens.some((i) => i.movimentoId === "r-transf"));
+  ok("régua: título pago e título distante não entram", !regua.itens.some((i) => i.movimentoId === "r-pago" || i.movimentoId === "r-longe"));
+  const msg = regua.itens.find((i) => i.movimentoId === "r-3")?.mensagem ?? "";
+  ok("régua: a mensagem sai preenchida (cliente, valor, vencimento, dias)",
+     msg.includes("Beta") && msg.includes("R$900,00") && msg.includes("17/09/2026") && msg.includes("3 dias") && !msg.includes("{"), msg);
+  // ⚠️ O que discrimina: o mesmo título NÃO recebe a mesma etapa duas vezes.
+  const envio = { movimentoId: "r-3", etapaId: "d+3", em: "2026-09-20T10:00:00Z", canal: "whatsapp" as const };
+  const r1 = registrarEnvio([], envio);
+  const r2 = registrarEnvio(r1.envios, envio);
+  ok("régua: reenviar a mesma etapa ao mesmo título é recusado", !r1.repetido && r2.repetido && r2.envios.length === 1);
+  const depois = montarRegua(inR, r1.envios);
+  ok("régua: quem foi avisado sai da fila de hoje", !depois.filaDeHoje.some((i) => i.movimentoId === "r-3")
+     && depois.itens.find((i) => i.movimentoId === "r-3")?.jaEnviado === true);
+  ok("régua: antes da primeira etapa não há etapa", etapaDoTitulo(-10, REGUA_PADRAO) === null);
+  ok("régua: o último degrau é MANUAL (protesto não sai por calendário)", REGUA_PADRAO[REGUA_PADRAO.length - 1].canal === "manual");
+
+  /* ---------------- 5) A VENDA NOVA GERA O RECEBÍVEL EM PRODUÇÃO ---------------- */
+  // ⚠️ `salvarVenda` só criava o recebível dentro de `if (isDemo)`: em produção
+  // a venda ficava no navegador e o dinheiro que ela promete não entrava no
+  // caixa. Duas metades, como na guarda do escritor morto: o caminho de
+  // produção existe (pelo escritor único) E a tela o chama ANTES do documento.
+  const fsV = await import("node:fs");
+  const store = fsV.readFileSync("src/lib/vendas-store.ts", "utf8");
+  const form = fsV.readFileSync("src/components/vendas-nf/VendaForm.tsx", "utf8");
+  const corpoRec = store.slice(store.indexOf("export async function registrarRecebivelDaVenda"), store.indexOf("export function removerVenda"));
+  ok("vendas: a venda nova grava o recebível em produção pelo escritor único",
+     corpoRec.includes("criarTitulos(") && /if \(isDemo \|\| !nova\) return/.test(corpoRec));
+  const iRec = form.indexOf("await registrarRecebivelDaVenda(");
+  const iDoc = form.indexOf("salvarVenda(doc)");
+  ok("vendas: o título vem ANTES do documento (recusa do banco não deixa venda sem recebível)",
+     iRec > 0 && iDoc > iRec, `${iRec} · ${iDoc}`);
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

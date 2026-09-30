@@ -97,6 +97,82 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
 
+## ⚠️ ENXUGAMENTO DO MVP + BENCHMARK CAMPFIRE (30/09/2026)
+
+**O menu foi de 8 grupos e 71 destinos para 7 grupos e 56** (com Configurações;
+46 fora dela). O critério foi um só: **uma pergunta, uma tela**. Nada que
+funcionava foi apagado sem porta — o que saiu da lista mora na **barra de
+atalhos** da tela vizinha (`components/app/AtalhosTela.tsx`), sempre como
+`<Link>` de verdade.
+
+**Grupos:** Visão geral · Caixa e bancos · Vender e receber (ação "Nova
+venda") · Comprar e pagar (ação "Nova conta a pagar"; era "Pagar" + "Contas a
+pagar", dois nomes quase iguais lado a lado) · Contabilidade · Relatórios ·
+Inteligência. Segurança e Armazenamento foram para `PLATAFORMA_ITENS` (o
+inventário já os classificava como FERRAMENTA); "Configurações da empresa"
+saiu da lista porque é a porta "Meu perfil" do ⋮.
+
+**Fusões (mapa de consolidação 9 e 10 + item 8 refeito):**
+
+| Aposentado | Canônico | O que foi portado |
+| --- | --- | --- |
+| `/vendas` (hub) | `/dashboard/sales-invoices` | emissor de NFS-e (aba de Notas fiscais), POS e taxas (rotas próprias `/pos/*` de novo), recebível da venda em produção |
+| `/governanca` | `/aprovacoes?painel=governanca` | matriz de papéis, alçadas, SLA e teste de integridade da trilha |
+| `/upload?aba=conciliar` | `/dashboard/financial/reconciliation?aba=open-finance` | a conciliação Open Finance × títulos virou aba da conciliação bancária — eram DUAS telas com o mesmo nome de componente |
+| `/dashboard` | `/` | segunda tela de início, sem função própria |
+
+⚠️ **Dois `FechamentoView` viraram uma tela** (`components/fechamento/
+FechamentoMesView.tsx`, parâmetro `painel`): o checklist com a trava do período
+e o relatório assinado. O item de menu "Fechar e travar o mês" levava ao
+relatório, que não fecha nem trava nada.
+
+⚠️ **`HubShell` ganhou `param`** (padrão `aba`). Uma tela que também vive COMO
+ABA de outro hub precisa de outro nome de parâmetro (`painel`), senão o
+`?aba=` do hub de fora escolhe a aba de dentro.
+
+⚠️ **DEFEITO ACHADO NA FUSÃO — a venda do formulário canônico não gerava
+recebível em produção.** `salvarVenda` só criava o título dentro de
+`if (isDemo)`: em live a venda ficava no navegador e o dinheiro prometido não
+entrava no contas a receber, no fluxo nem no DRE — o "escritor morto" de novo.
+`registrarRecebivelDaVenda` grava pelo escritor único (`criarTitulos`) e roda
+ANTES do documento. **Dívida declarada, não resolvida:** a venda ainda tem TRÊS
+modelos de dado (`vendas-store` no navegador, `sales_docs` do lançamento rápido
+e o recebível em `movements`); unificar é a próxima rodada.
+
+**As funções novas, inspiradas no Campfire** (cada uma com guarda no
+`engine-audit`, provada plantando o defeito):
+
+- **Análise de variação** (`core/variacao`, `/dashboard/reports/variance`) — o
+  que mudou em cada linha do DRE contra o mês anterior e a média de 3 meses,
+  as categorias e contrapartes que explicam, o drill-down até o lançamento e um
+  comentário redigido e EDITÁVEL. ⚠️ Nenhuma soma nova: sai de `montarDRE`.
+  ⚠️ Materialidade tem DOIS pisos (valor E %) — só o % acusaria +200% em R$ 20.
+  ⚠️ "Subiu" não é "melhorou": a leitura vem do sinal da linha. Sem mês
+  anterior com dado, a variação é AUSENTE (ONDA 4).
+- **Balanço patrimonial comparativo** (`balancoComparativo` em `lib/ledger`,
+  `/dashboard/reports/balance-sheet`) — duas datas lado a lado, variação por
+  conta; conta que só existe numa data entra com zero na outra. Era um cartão
+  perdido numa aba de Contabilidade.
+- **Provisão com estorno automático** (`provisaoComEstorno` em `core/close`) —
+  a provisão nasce no último dia do mês e o estorno no dia 1º do seguinte, no
+  MESMO gesto. Provisão sem estorno conta a despesa duas vezes quando a conta
+  real chega.
+- **Régua de cobrança** (`core/cobranca`, painel de
+  `/dashboard/financial/overdue`) — D−3 · D0 · D+3 · D+10 · D+30 · D+60
+  (manual). ⚠️ A ETAPA sai da idade do título; só o ENVIO é guardado
+  (`a4p_regua_envios`), nunca a fila. ⚠️ Envio SIMULADO (sem credencial Twilio)
+  NÃO é registrado como "avisado" — é esse registro que se mostra antes de um
+  protesto. Transferência entre contas próprias não se cobra
+  (`ehContaAReceber`).
+
+**Fluxo de caixa:** os blocos de vitrine (conferência, mapa de calor, leituras
+da IA, simulador, linha do tempo, confiança, gêmeo digital) ficaram RECOLHIDOS
+em "Análises avançadas"; os títulos em inglês viraram português.
+
+**O que ficou para a próxima rodada:** aprovar por WhatsApp, caixa de entrada
+de contas a pagar por e-mail, checklist de fechamento com responsável e prazo
+por tarefa, e os três modelos de venda.
+
 ## ⚠️ IDENTIDADE VIGENTE — A PALETA QUENTE (substitui as anteriores)
 
 Esta é a regra de cima. As seções de identidade mais abaixo (DS LEDGER, DS

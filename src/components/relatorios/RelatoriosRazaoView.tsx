@@ -42,7 +42,7 @@ export function RelatoriosRazaoView() {
           <Card className="flex flex-col items-start gap-2">
             <span className="text-h3 font-medium text-ink">Razão vazio</span>
             <span className="text-caption text-muted">Lance um movimento ou importe dados — o razão projeta automaticamente e os relatórios são calculados a partir dele.</span>
-            <Link href="/razao" className="text-label font-medium text-ink underline">Ir para o Razão →</Link>
+            <Link href="/contabilidade?aba=razao" className="text-label font-medium text-ink underline">Ir para o Razão →</Link>
           </Card>
         ) : (
           <>
@@ -53,7 +53,7 @@ export function RelatoriosRazaoView() {
                 <span className="text-[24px] leading-none font-semibold tabular-nums" style={{ color: dre!.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={dre!.resultado} /></span>
                 <span className="text-caption text-faint tabular-nums">receita <BRL value={dre!.receita} /> · despesa <BRL value={dre!.despesa} /></span>
               </div>
-              <Link href="/dre" className="text-label font-medium text-ink underline">Ver DRE completo →</Link>
+              <Link href="/dashboard/reports/dre" className="text-label font-medium text-ink underline">Ver DRE completo →</Link>
             </Card>
 
             {/* Orçado × Realizado vive em /orcamento (flux analysis único) */}

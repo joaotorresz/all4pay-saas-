@@ -134,7 +134,7 @@ export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
   return (
     <CardComparativo
       titulo="Resultado líquido"
-      href="/dre"
+      href="/dashboard/reports/dre"
       janela={c.janela}
       valor={s.total}
       corValor={s.total < 0 ? NEGATIVE : "var(--color-ink)"}
@@ -195,7 +195,7 @@ export function GastosCard({ c }: { c: ComparativoFluxo }) {
   return (
     <CardComparativo
       titulo="Gastos"
-      href="/pagamentos"
+      href="/contas-a-pagar/titulos"
       janela={c.janela}
       valor={s.total}
       serie={s}
@@ -252,7 +252,7 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
   return (
     <CardComparativo
       titulo="Receitas"
-      href="/recebimentos"
+      href="/contas-a-receber/titulos"
       janela={c.janela}
       valor={s.total}
       corValor={POSITIVE}

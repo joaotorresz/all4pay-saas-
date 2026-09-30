@@ -292,14 +292,63 @@ export const FUSOES: Fusao[] = [
   {
     id: "conciliacao",
     assunto: "Conciliação",
-    canonico: "/upload?aba=conciliar",
+    canonico: "/dashboard/financial/reconciliation",
     aposentar: ["/conciliacao", "/conciliacao-bancaria"],
     porque:
-      "Conciliar é a última etapa da esteira de ingestão — separá-la da entrada de dados obriga a atravessar o produto no meio de uma tarefa contínua.",
+      "Havia duas conciliações com o mesmo nome — extrato × lançamentos (com regras e fechamentos) e Open Finance × títulos — e o que se conciliava numa não aparecia na outra. Fica a que tem regras e fechamentos, com a outra como aba.",
     portar: [
+      {
+        o_que: "A conciliação Open Finance × títulos previstos, com baixa por match e avaliação por IA.",
+        custo_de_perder: "É o caminho de quem conecta o banco pelo Open Finance; sem ela a transação chega e o título previsto nunca baixa.",
+        feito: true,
+      },
       {
         o_que: "Os aliases soltos na raiz respondem com 308 para a aba canônica.",
         custo_de_perder: "Endereço vivo que ninguém documentou é endereço que quebra sem ninguém ver.",
+        feito: true,
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ 9 --- */
+  {
+    id: "vendas",
+    assunto: "Vendas e notas fiscais",
+    canonico: "/dashboard/sales-invoices",
+    aposentar: ["/vendas"],
+    porque:
+      "É a tela que o menu, o painel Criar e os aliases de painéis já apontavam; o hub /vendas repetia a lista, o painel, a nova venda e as notas com componentes e dados diferentes, e a mesma venda aparecia com números distintos conforme a porta.",
+    portar: [
+      {
+        o_que: "O emissor de NFS-e avulsa (aba Notas do hub), com transmissão, envio ao tomador e cancelamento.",
+        custo_de_perder: "É o único caminho que grava na tabela de NFS-e; sem ele a empresa de serviço não emite nota avulsa pelo produto.",
+        feito: true,
+      },
+      {
+        o_que: "A maquininha (POS) e as taxas de adquirência, que só existiam como abas do hub.",
+        custo_de_perder: "Quem vende no balcão perderia o simulador do líquido por bandeira e parcela, e o favorito /pos/venda levaria a um desvio para lugar nenhum.",
+        feito: true,
+      },
+      {
+        o_que: "A nova venda gerando o recebível no banco (o formulário do hub usava o escritor único de títulos).",
+        custo_de_perder: "O formulário canônico gravava o recebível só na demonstração; em produção a venda ficava fora do contas a receber, do fluxo e do DRE.",
+        feito: true,
+      },
+    ],
+  },
+
+  /* ----------------------------------------------------------------- 10 --- */
+  {
+    id: "governanca",
+    assunto: "Alçadas, papéis e trilha de auditoria",
+    canonico: "/aprovacoes",
+    aposentar: ["/governanca"],
+    porque:
+      "A fila de aprovações e as regras que a governam respondiam a mesma pergunta em duas telas e dois menus; quem aprova precisa ver a alçada no mesmo lugar em que decide.",
+    portar: [
+      {
+        o_que: "A matriz de papéis, a escada de alçadas por valor, o SLA e o teste de integridade da trilha assinada.",
+        custo_de_perder: "Sem ela a trilha encadeada por SHA-256 deixa de ter onde ser verificada, e a alçada vira regra invisível para quem decide.",
         feito: true,
       },
     ],

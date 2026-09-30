@@ -83,7 +83,7 @@ export function TransacoesRecentesCard() {
       oQue: "O extrato da conta: as últimas entradas e saídas já liquidadas, na ordem em que caíram no caixa.",
       comoCalcula: "Movimentos com baixa (pagos), ordenados da data de pagamento mais recente para a mais antiga. Entradas somam (+) e saídas subtraem (−) do saldo.",
     }}>
-      <Header icon="arrow-left-right" href="/recebimentos">Transações recentes</Header>
+      <Header icon="arrow-left-right" href="/contas-a-receber/titulos">Transações recentes</Header>
       {movs.length === 0 ? (
         <span className="text-caption text-faint">Nenhuma transação liquidada ainda.</span>
       ) : (

@@ -67,7 +67,7 @@ export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "pagina" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
-  { label: "Nova nota fiscal", icon: "receipt", rota: "/vendas?aba=notas&novo=1", forma: "pagina" },
+  { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices?aba=nfse", forma: "pagina" },
   { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/recebimentos?aba=recorrencias&novo=1", forma: "pagina" },
   { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
 ];

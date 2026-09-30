@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Card, BRL, StatusBadge, Button, Icon, Skeleton, InfoHint } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
-import { montarFechamento, mesLabel } from "@/core/close";
+import { montarFechamento, mesLabel, provisaoComEstorno, primeiroDiaDoMesSeguinte } from "@/core/close";
 import { isPeriodLocked, lockPeriod, unlockPeriod, loadCloseTasks, saveCloseTask, hydrateClose } from "@/lib/close";
 import { postarLancamento, travarPeriodoLive } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
@@ -75,12 +75,12 @@ export function FechamentoView() {
   const lancarProvisao = async (categoria: string, valor: number) => {
     if (!mesAtivo || valor <= 0) return;
     try {
-      await postarLancamento({
-        entryDate: `${mesAtivo}-01`, description: `Provisão: ${categoria}`, source: "system",
-        externalKey: `prov:${mesAtivo}:${categoria}`,
-        lines: [{ accountId: "4.1.09", debit: valor }, { accountId: "2.1.99", credit: valor }],
-      });
-      setProvMsg(`Provisão de "${categoria}" lançada no razão.`);
+      // A provisão e o seu estorno nascem juntos — ver `provisaoComEstorno`.
+      const [provisao, estorno] = provisaoComEstorno(mesAtivo, categoria, valor);
+      await postarLancamento(provisao);
+      await postarLancamento(estorno);
+      const quando = primeiroDiaDoMesSeguinte(mesAtivo).split("-").reverse().join("/");
+      setProvMsg(`Provisão de "${categoria}" lançada no razão, com estorno automático em ${quando}.`);
     } catch (e) { setProvMsg(`Falha: ${(e as Error).message}`); }
   };
 
@@ -160,7 +160,7 @@ export function FechamentoView() {
 
           {/* Provisões sugeridas (accruals) */}
           {report.sugestoes.length > 0 && (
-            <Card className="flex flex-col gap-3" info={{ titulo: "Provisões sugeridas", oQue: "Despesas que provavelmente ocorreram no mês mas ainda não foram lançadas, sugeridas para você provisionar (accrual).", comoCalcula: "A IA estima pela média histórica de cada categoria recorrente; Lançar cria a entrada no razão (despesa contra provisões a pagar)." }}>
+            <Card className="flex flex-col gap-3" info={{ titulo: "Provisões sugeridas", oQue: "Despesas que provavelmente ocorreram no mês mas ainda não foram lançadas, sugeridas para você provisionar (accrual).", comoCalcula: "A IA estima pela média histórica de cada categoria recorrente; Lançar cria a entrada no razão (despesa contra provisões a pagar) no último dia do mês e o estorno no dia 1º do mês seguinte." }}>
               <span className="text-label font-medium text-muted inline-flex items-center gap-2">
                 <Icon name="sparkles" size={15} color="var(--color-lime)" /> Provisões sugeridas (accruals)
               </span>
@@ -175,7 +175,7 @@ export function FechamentoView() {
                 </div>
               ))}
               {provMsg && <span className="text-caption text-positive">{provMsg}</span>}
-              <span className="text-caption text-faint">Provisões são sugestões da IA pela média histórica — “Lançar” cria o lançamento no razão (despesa × provisões a pagar).</span>
+              <span className="text-caption text-faint">Provisões são sugestões da IA pela média histórica — “Lançar” cria o lançamento no razão (despesa × provisões a pagar) no último dia do mês e o estorno no dia 1º do mês seguinte, para a despesa não ser contada duas vezes quando a conta real chegar.</span>
             </Card>
           )}
         </div>

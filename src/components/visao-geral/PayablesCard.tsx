@@ -8,7 +8,7 @@ export function PayablesCard() {
   return (
     <OpenAmountWidget
       title="A Pagar"
-      href="/pagamentos"
+      href="/contas-a-pagar/titulos"
       summary={data}
       isLoading={isLoading}
       isError={isError}

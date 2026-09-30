@@ -302,7 +302,7 @@ export function PosVendaView() {
                 </div>
               </div>
               <div className="border-t border-border-soft p-3 shrink-0 flex flex-col gap-2">
-                <a href="/recebimentos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
+                <a href="/contas-a-receber/titulos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
                   Ver na Central de Recebimentos
                 </a>
                 <button onClick={reset} className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold active:scale-[0.99]">

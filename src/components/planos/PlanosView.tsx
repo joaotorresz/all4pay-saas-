@@ -25,7 +25,7 @@ import { isDemo } from "@/lib/demo";
 
 /** Rótulo humano da rota pedida — ninguém lê caminho de URL. */
 const NOME_DA_ROTA: Record<string, string> = {
-  "/copiloto": "Copiloto e motores de decisão",
+  "/quattro-ai": "Motores de decisão do Quattro AI",
   "/inadimplencia": "Inteligência de inadimplência",
   "/investidores": "Investor update",
   "/contratacoes": "Plano de contratações",

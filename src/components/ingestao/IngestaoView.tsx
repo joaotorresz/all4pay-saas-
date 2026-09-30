@@ -5,8 +5,8 @@
  * formas de trazer dinheiro-dado para o sistema em abas de um só fluxo:
  *   1. Conectar  → Open Finance (bancos) + posição consolidada por conta;
  *   2. Enviar    → upload de extratos (CSV/OFX) e documentos (OCR) via FDIP;
- *   3. Conciliar → casa o que entrou com os títulos previstos (baixa única).
- * Deep-link por `?aba=`; `/contas` e `/conciliacao` redirecionam para as abas.
+ *   (a conciliação saiu daqui e mora na Conciliação bancária — uma só.)
+ * Deep-link por `?aba=`; `/contas` redireciona para a aba de conectar.
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -15,16 +15,14 @@ import { ContasView } from "@/components/contas/ContasView";
 import { ConectarBanco } from "@/components/contas/ConectarBanco";
 import { UploadView } from "@/components/upload/UploadView";
 import { UploadWizard } from "@/components/upload/UploadWizard";
-import { ConciliacaoView } from "@/components/conciliacao/ConciliacaoView";
 import { RegrasView } from "./RegrasView";
 import { LimpezaDuplicatas } from "@/components/upload/LimpezaDuplicatas";
 import { FilaRevisaoView } from "@/components/revisao/FilaRevisaoView";
 
-type Aba = "conectar" | "enviar" | "conciliar" | "regras" | "limpeza" | "revisao";
+type Aba = "conectar" | "enviar" | "regras" | "limpeza" | "revisao";
 const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   { id: "conectar", label: "Conectar", icon: "building", desc: "Open Finance — bancos e posição por conta" },
   { id: "enviar", label: "Enviar", icon: "upload", desc: "Extratos (CSV/OFX) e documentos (OCR)" },
-  { id: "conciliar", label: "Conciliar", icon: "list-checks", desc: "Casar o que entrou com os títulos previstos" },
   { id: "regras", label: "Regras", icon: "workflow", desc: "Categorização automática — escreva uma vez, vale sempre" },
   // A idempotência resolve daqui para a frente; esta aba resolve o passado —
   // as cópias que entraram antes de a chave existir.
@@ -35,7 +33,7 @@ const ABAS: { id: Aba; label: string; icon: string; desc: string }[] = [
   { id: "revisao", label: "Revisão", icon: "list-checks", desc: "O que discorda entre si e precisa de uma pessoa" },
 ];
 const isAba = (s: string | null): s is Aba =>
-  s === "conectar" || s === "enviar" || s === "conciliar" || s === "regras" || s === "limpeza"
+  s === "conectar" || s === "enviar" || s === "regras" || s === "limpeza"
   || s === "revisao";
 
 export function IngestaoView() {
@@ -77,7 +75,6 @@ export function IngestaoView() {
         </>
       )}
       {aba === "enviar" && <UploadView />}
-      {aba === "conciliar" && <ConciliacaoView />}
       {aba === "regras" && <RegrasView />}
       {aba === "limpeza" && <LimpezaDuplicatas />}
       {aba === "revisao" && <FilaRevisaoView />}

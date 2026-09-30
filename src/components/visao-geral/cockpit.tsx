@@ -842,7 +842,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const fx = custosFixosMensais(c.input);
       if (!fx) {
         return (
-          <MetricCard href="/dre" hrefLabel="Ver DRE" icon="repeat" label="Custos fixos mensais" value="—"
+          <MetricCard href="/dashboard/reports/dre" hrefLabel="Ver DRE" icon="repeat" label="Custos fixos mensais" value="—"
             answer="Ainda não há custos recorrentes detectados — precisa de 3+ meses da mesma contraparte."
             info={{ titulo: "Custos fixos mensais", oQue: "O 'boleto fixo' da empresa: quanto sai todo mês com compromissos que se repetem.", comoCalcula: "Agrupa as saídas por contraparte/categoria, considera fixas as com 3+ meses de ocorrência e divide o total pelos meses observados." }} />
         );
@@ -1264,7 +1264,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.dre) return <Loading />;
       const g = c.dre.gerencial;
       return (
-        <MetricCard href="/dre" hrefLabel="Ver DRE" icon="activity" label="EBITDA do mês"
+        <MetricCard href="/dashboard/reports/dre" hrefLabel="Ver DRE" icon="activity" label="EBITDA do mês"
           tone={g.ebitda >= 0 ? POS : NEG}
           value={<BRL value={g.ebitda} />}
           answer={g.margemEbitda.indisponivel
@@ -1280,7 +1280,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.dre) return <Loading />;
       const g = c.dre.gerencial;
       return (
-        <MetricCard href="/dre" hrefLabel="Ver DRE" icon="credit-card" label="Lucro líquido do mês"
+        <MetricCard href="/dashboard/reports/dre" hrefLabel="Ver DRE" icon="credit-card" label="Lucro líquido do mês"
           tone={g.lucroLiquido >= 0 ? POS : NEG}
           value={<BRL value={g.lucroLiquido} />}
           answer={g.lucroLiquido >= 0
