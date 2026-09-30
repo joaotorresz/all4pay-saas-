@@ -37,8 +37,13 @@ export function ReembolsosView() {
   const [lendo, setLendo] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
+  // ⚠️ O que a sincronização NÃO conseguiu gravar volta para a tela, com a
+  // mensagem do banco. Antes o erro morria aqui e o reembolso aparecia como
+  // "A pagar" sem título nenhum na Central.
+  const [falhas, setFalhas] = React.useState<string[]>([]);
   const refresh = React.useCallback(async () => {
-    await sincronizarReembolsos();
+    const r = await sincronizarReembolsos();
+    setFalhas(r.falhas);
     setLista(listReembolsos());
     await qc.invalidateQueries();
   }, [qc]);
@@ -68,7 +73,13 @@ export function ReembolsosView() {
   const solicitar = async () => {
     const validos = itens.filter((it) => it.valor > 0 && it.descricao.trim());
     if (!colaborador.trim() || !validos.length) { show("Informe colaborador e ao menos um item com valor"); return; }
-    await solicitarReembolso({ colaborador: colaborador.trim(), chavePix: chavePix.trim(), itens: validos, justificativa: justificativa.trim() || undefined });
+    try {
+      await solicitarReembolso({ colaborador: colaborador.trim(), chavePix: chavePix.trim(), itens: validos, justificativa: justificativa.trim() || undefined });
+    } catch (e) {
+      // O formulário FICA preenchido: a recusa não pode custar o que foi digitado.
+      show(`Não foi possível solicitar: ${(e as { message?: string } | null)?.message ?? "o banco recusou a gravação"}`);
+      return;
+    }
     setColaborador(""); setChavePix(""); setJustificativa(""); setItens([novoItem()]);
     await refresh();
     show("Reembolso solicitado — roteado para aprovação conforme a alçada");
@@ -125,6 +136,13 @@ export function ReembolsosView() {
           })}
           <span className="ml-auto"><InfoHint align="left" titulo="Reembolsos" oQue="Acompanha cada solicitação por status — em aprovação, aprovada, rejeitada ou a pagar." comoCalcula="Ao aprovar, gera um movimento de saída por item (categoria certa na DRE) e entra na Central de Pagamentos." /></span>
         </div>
+        {falhas.length > 0 && (
+          <div role="alert" className="mx-5 mt-3 rounded-md border border-negative/40 px-3 py-2 flex flex-col gap-1">
+            {falhas.map((f, k) => (
+              <span key={k} className="text-caption text-negative">Aprovado, mas sem título a pagar — {f}</span>
+            ))}
+          </div>
+        )}
         <div className="flex flex-col max-h-[560px] overflow-y-auto">
           {filtradas.length === 0 ? (
             <p className="text-caption text-faint text-center py-8">Nenhum reembolso aqui. Aprovações ficam em <Link href="/aprovacoes" className="text-muted font-medium underline decoration-1 underline-offset-2 hover:text-ink">Solicitações &amp; aprovações</Link>.</p>

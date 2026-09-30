@@ -93,6 +93,17 @@ export interface Colaborador {
   outrosDescontos?: number;
   /** Insalubridade/periculosidade/comissões já somados ao bruto. */
   centroCusto?: string | null;
+  /* --- só PJ --- */
+  /**
+   * O prestador é optante do Simples Nacional? Decide se a empresa RETÉM
+   * IRRF e PIS/COFINS/CSLL na nota.
+   *
+   * ⚠️ `undefined` é "não declarado", e não é o mesmo que `true`. A memória de
+   * cálculo dizia "dispensado — prestador do Simples Nacional" para TODO PJ,
+   * porque o padrão era `true` e nenhuma tela perguntava: uma afirmação sobre o
+   * fornecedor que ninguém fez.
+   */
+  prestadorSimples?: boolean | null;
 }
 
 /* ========================================================================== */
@@ -322,7 +333,13 @@ export function calcularPJ(
   opcoes: { doSimples?: boolean; issRetidoPct?: number } = {},
 ): CalculoPJ {
   const bruto = round2(Math.max(0, c.valor));
-  const doSimples = opcoes.doSimples ?? true;
+  const declarado = opcoes.doSimples ?? c.prestadorSimples ?? null;
+  // Sem declaração não há base para reter — e a memória diz isso, em vez de
+  // afirmar que o prestador é do Simples.
+  const doSimples = declarado ?? true;
+  const semRetencao = declarado === null
+    ? "sem retenção calculada — o cadastro não diz se o prestador é do Simples; confira na nota"
+    : "dispensado — prestador do Simples Nacional";
 
   const irBruto = round2(bruto * ALIQUOTA_IRRF_PJ);
   const irrf = doSimples || irBruto <= LIMITE_IRRF_PJ ? 0 : irBruto;
@@ -339,8 +356,8 @@ export function calcularPJ(
     multiplicador: 1,
     memoria: [
       { passo: 1, descricao: "Valor da nota", formula: "informado no cadastro", valor: bruto },
-      { passo: 2, descricao: "(−) IRRF retido", formula: doSimples ? "dispensado — prestador do Simples Nacional" : `1,5% (dispensado até ${brl(LIMITE_IRRF_PJ)} de imposto)`, valor: -irrf },
-      { passo: 3, descricao: "(−) PIS/COFINS/CSLL", formula: doSimples ? "dispensado — prestador do Simples Nacional" : `4,65% (dispensado até ${brl(LIMITE_PCC_MENSAL)} no mês)`, valor: -pisCofinsCsll },
+      { passo: 2, descricao: "(−) IRRF retido", formula: doSimples ? semRetencao : `1,5% (dispensado até ${brl(LIMITE_IRRF_PJ)} de imposto)`, valor: -irrf },
+      { passo: 3, descricao: "(−) PIS/COFINS/CSLL", formula: doSimples ? semRetencao : `4,65% (dispensado até ${brl(LIMITE_PCC_MENSAL)} no mês)`, valor: -pisCofinsCsll },
       { passo: 4, descricao: "(−) ISS retido", formula: `${((opcoes.issRetidoPct ?? 0) * 100).toFixed(1)}% — varia por município`, valor: -iss },
       { passo: 5, descricao: "(=) Líquido ao prestador", formula: "nota − retenções", valor: round2(bruto - totalRetido) },
       { passo: 6, descricao: "(=) Custo da empresa", formula: "a nota cheia — as retenções são do prestador", valor: bruto },
@@ -352,7 +369,9 @@ export function calcularPJ(
 /* Os títulos que a folha gera                                                 */
 /* ========================================================================== */
 
-export type TipoTituloFolha = "salario" | "fgts" | "darf" | "decimo" | "nota";
+export type TipoTituloFolha =
+  | "salario" | "fgts" | "darf" | "decimo" | "nota"
+  | "pensao" | "retencao" | "ferias" | "rescisao" | "multa_fgts";
 
 export const ROTULO_TITULO: Record<TipoTituloFolha, string> = {
   salario: "Salário",
@@ -360,7 +379,16 @@ export const ROTULO_TITULO: Record<TipoTituloFolha, string> = {
   darf: "INSS e IRRF (DARF)",
   decimo: "13º salário",
   nota: "Nota do prestador",
+  pensao: "Pensão alimentícia",
+  retencao: "Retenções da nota (DARF)",
+  ferias: "Férias",
+  rescisao: "Rescisão",
+  multa_fgts: "Multa do FGTS",
 };
+
+/** "2026-09" → "09/2026" — a competência escrita como o contracheque a escreve. */
+export const rotuloCompetencia = (competencia: string): string =>
+  `${competencia.slice(5, 7)}/${competencia.slice(0, 4)}`;
 
 export interface TituloFolha {
   tipo: TipoTituloFolha;
@@ -388,37 +416,79 @@ export function titulosDaCompetencia(
 ): TituloFolha[] {
   if (!ativoEm(c, competencia)) return [];
   const base = { colaboradorId: c.id, colaborador: c.nome, competencia };
+  /*
+   * ⚠️ A COMPETÊNCIA ESTÁ NA DESCRIÇÃO. Eram doze "Salário · Ana" iguais na
+   * lista de títulos, e só o vencimento dizia de que mês cada um era — com o
+   * salário de setembro vencendo em outubro, a leitura errada é a natural. E é
+   * ela que permite, na rescisão, achar os títulos que deixam de existir.
+   */
+  const mes = rotuloCompetencia(competencia);
 
   if (c.vinculo === "pj") {
     const p = calcularPJ(c, competencia);
-    return [{
+    const titulos: TituloFolha[] = [{
       ...base, tipo: "nota",
-      descricao: `Nota · ${c.nome}`,
+      descricao: `Nota ${mes} · ${c.nome}`,
       valor: p.liquido,
       // A nota do prestador segue o combinado; o 5º dia útil é a data que a
       // maioria dos contratos usa por espelhar a folha.
       vencimento: vencimentoSalario(competencia),
       categoria: "Serviços de terceiros",
     }];
+    /*
+     * ⚠️ O QUE A EMPRESA RETÉM, ELA RECOLHE. O título da nota é o LÍQUIDO; sem
+     * este segundo título o IRRF e o PIS/COFINS/CSLL retidos simplesmente
+     * sumiam do contas a pagar — o custo da tela dizia "a nota cheia" e o caixa
+     * enxergava só o líquido. A nota é paga no mês seguinte à competência e a
+     * retenção vence no dia 20 do mês seguinte AO PAGAMENTO.
+     */
+    const federal = round2(p.irrf + p.pisCofinsCsll);
+    if (federal > 0) {
+      titulos.push({
+        ...base, tipo: "retencao",
+        descricao: `Retenções da nota ${mes} · ${c.nome}`,
+        valor: federal,
+        vencimento: vencimentoDARF(mesSeguinte(competencia)),
+        // A retenção é PARTE do custo do serviço (o custo é a nota cheia), então
+        // fica na mesma linha do DRE que a nota — não em "impostos" da empresa.
+        categoria: "Serviços de terceiros",
+      });
+    }
+    return titulos;
   }
 
   const k = calcularCLT(c, competencia, regime, anexo, tabelas);
   const titulos: TituloFolha[] = [
     {
       ...base, tipo: "salario",
-      descricao: `Salário · ${c.nome}`,
+      descricao: `Salário ${mes} · ${c.nome}`,
       valor: k.liquido,
       vencimento: vencimentoSalario(competencia),
       categoria: "Folha de pagamento",
     },
     {
       ...base, tipo: "fgts",
-      descricao: `FGTS · ${c.nome}`,
+      descricao: `FGTS ${mes} · ${c.nome}`,
       valor: k.fgts,
       vencimento: vencimentoFGTS(competencia),
       categoria: "Encargos sobre a folha",
     },
   ];
+  /*
+   * ⚠️ A PENSÃO DESCONTADA É PAGA A ALGUÉM. Ela sai do líquido do funcionário
+   * (é por isso que o título de salário é menor) e a empresa a DEPOSITA para o
+   * beneficiário, na mesma data do salário. Sem este título o dinheiro da
+   * pensão desaparecia do caixa: nem no salário, nem em lugar nenhum.
+   */
+  if ((c.pensao ?? 0) > 0) {
+    titulos.push({
+      ...base, tipo: "pensao",
+      descricao: `Pensão alimentícia ${mes} · ${c.nome}`,
+      valor: round2(c.pensao ?? 0),
+      vencimento: vencimentoSalario(competencia),
+      categoria: "Folha de pagamento",
+    });
+  }
   // ⚠️ O DARF só existe quando há o que recolher. Um título de R$ 0,00 na lista
   // de contas a pagar é ruído que ensina a ignorar a lista — e quem ganha até a
   // faixa de isenção não gera guia nenhuma.
@@ -426,7 +496,7 @@ export function titulosDaCompetencia(
   if (darf > 0) {
     titulos.push({
       ...base, tipo: "darf",
-      descricao: `INSS e IRRF · ${c.nome}`,
+      descricao: `INSS e IRRF ${mes} · ${c.nome}`,
       valor: darf,
       vencimento: vencimentoDARF(competencia),
       categoria: "Encargos sobre a folha",
@@ -442,12 +512,32 @@ export function ativoEm(c: Colaborador, competencia: string): boolean {
   return true;
 }
 
+/** Quantos meses do ano o colaborador trabalha — os avos do 13º. */
+export function mesesAtivosNoAno(c: Colaborador, ano: number): number {
+  let n = 0;
+  for (let m = 1; m <= 12; m++) if (ativoEm(c, `${ano}-${String(m).padStart(2, "0")}`)) n++;
+  return n;
+}
+
 /**
- * As duas parcelas do 13º de um ano.
+ * O 13º de um ano: as duas parcelas E os encargos sobre ele.
  *
- * ⚠️ A primeira parcela é **metade do salário SEM descontos**; a segunda é o
+ * ⚠️ A primeira parcela é **metade do 13º SEM descontos**; a segunda é o
  * restante COM INSS e IRRF sobre o 13º inteiro. É por isso que a segunda vem
  * menor que a primeira, e é a pergunta que todo dono faz em dezembro.
+ *
+ * ⚠️ **O 13º É PROPORCIONAL AOS MESES DO ANO** (Lei 4.090/62: um doze avos por
+ * mês de serviço). A versão anterior pagava o 13º INTEIRO a quem entrou em
+ * setembro — R$ 5.000 de 13º por quatro meses de casa, R$ 3.333 a mais saindo
+ * do caixa em novembro e dezembro, calados. A provisão mensal da tela sempre
+ * foi proporcional; eram os TÍTULOS que discordavam dela.
+ *
+ * ⚠️ **E O 13º TEM ENCARGOS, que não viravam título.** FGTS sobre cada parcela
+ * (a 1ª recolhida até 20/12, a 2ª até 20/01), o INSS do empregado e o patronal
+ * sobre o 13º (DARF até 20/12) e o IRRF retido na 2ª parcela (DARF até 20/01).
+ * O custo mensal já os provisionava — o caixa de dezembro e janeiro, não. Num
+ * CLT de R$ 5.000 no Presumido são R$ 2.309,60 que não apareciam em lugar
+ * nenhum do contas a pagar.
  */
 export function titulosDoDecimo(
   c: Colaborador, ano: number, regime: Regime, anexo: Anexo | null,
@@ -455,23 +545,87 @@ export function titulosDoDecimo(
 ): TituloFolha[] {
   if (c.vinculo !== "clt") return [];
   const dez = `${ano}-12`;
+  // Quem sai antes de dezembro recebe o 13º proporcional NA RESCISÃO.
   if (!ativoEm(c, dez)) return [];
+  const avos = mesesAtivosNoAno(c, ano);
+  if (avos === 0) return [];
   const { primeira, segunda } = vencimentoDecimo(ano);
-  const k = calcularCLT(c, dez, regime, anexo, tabelas);
-  const metade = round2(k.bruto / 2);
-  const segundaParcela = round2(k.bruto - metade - k.inss - k.irrf);
-  return [
+  const bruto = round2(Math.max(0, c.valor));
+  const decimo = round2((bruto * avos) / 12);
+  const metade = round2(decimo / 2);
+  const inss13 = inssEmpregado(decimo, inssDe(dez, tabelas).tabela);
+  const irrf13 = irrfEmpregado(decimo, inss13, c.dependentes ?? 0, c.pensao ?? 0, irrfDe(dez, tabelas).tabela).imposto;
+  const patronal13 = round2(decimo * encargosPatronais(regime, anexo).total);
+  const segundaParcela = round2(decimo - metade - inss13 - irrf13);
+  const avosTxt = avos < 12 ? ` (${avos}/12)` : "";
+  const base = { colaboradorId: c.id, colaborador: c.nome, competencia: dez };
+  const titulos: TituloFolha[] = [
     {
-      colaboradorId: c.id, colaborador: c.nome, competencia: dez, tipo: "decimo",
-      descricao: `13º · 1ª parcela · ${c.nome}`,
+      ...base, tipo: "decimo",
+      descricao: `13º ${ano}${avosTxt} · 1ª parcela · ${c.nome}`,
       valor: metade, vencimento: primeira, categoria: "Folha de pagamento",
     },
     {
-      colaboradorId: c.id, colaborador: c.nome, competencia: dez, tipo: "decimo",
-      descricao: `13º · 2ª parcela · ${c.nome}`,
+      ...base, tipo: "decimo",
+      descricao: `13º ${ano}${avosTxt} · 2ª parcela · ${c.nome}`,
       valor: Math.max(0, segundaParcela), vencimento: segunda, categoria: "Folha de pagamento",
     },
+    {
+      ...base, tipo: "fgts",
+      descricao: `FGTS do 13º ${ano} · 1ª parcela · ${c.nome}`,
+      valor: round2(metade * FGTS), vencimento: vencimentoFGTS(`${ano}-11`), categoria: "Encargos sobre a folha",
+    },
+    {
+      ...base, tipo: "fgts",
+      descricao: `FGTS do 13º ${ano} · 2ª parcela · ${c.nome}`,
+      valor: round2((decimo - metade) * FGTS), vencimento: vencimentoFGTS(dez), categoria: "Encargos sobre a folha",
+    },
   ];
+  const inssDarf = round2(inss13 + patronal13);
+  if (inssDarf > 0) {
+    titulos.push({
+      ...base, tipo: "darf",
+      descricao: `INSS do 13º ${ano} · ${c.nome}`,
+      valor: inssDarf, vencimento: vencimentoDARF(`${ano}-11`), categoria: "Encargos sobre a folha",
+    });
+  }
+  if (irrf13 > 0) {
+    titulos.push({
+      ...base, tipo: "darf",
+      descricao: `IRRF do 13º ${ano} · ${c.nome}`,
+      valor: round2(irrf13), vencimento: vencimentoDARF(dez), categoria: "Encargos sobre a folha",
+    });
+  }
+  return titulos;
+}
+
+/**
+ * TODOS os títulos que o CADASTRO de um colaborador agenda — as N competências
+ * a partir de `desde`, mais o 13º dos anos em que elas chegam a novembro.
+ *
+ * ⚠️ O 13º entra aqui e não em cada competência: ele é UM conjunto de títulos
+ * por ANO, não um por mês. Gerá-lo doze vezes criaria vinte e quatro parcelas.
+ *
+ * ⚠️ E só dos anos em que as competências geradas chegam a NOVEMBRO (o mês da
+ * 1ª parcela). O cadastro de 12 meses a partir de setembro vai até agosto do
+ * ano seguinte, e agendava também o 13º INTEIRO desse ano — novembro e
+ * dezembro de um ano cujos salários nem foram gerados.
+ */
+export function titulosDoPeriodo(
+  c: Colaborador, competencias: number, regime: Regime, anexo: Anexo | null,
+  tabelas: TabelasLegais = TABELAS_PADRAO,
+): TituloFolha[] {
+  const meses = Array.from({ length: Math.max(1, competencias) }, (_, k) => {
+    const [a, m] = c.desde.split("-").map(Number);
+    const d = new Date(Date.UTC(a, m - 1 + k, 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+  const titulos = meses.flatMap((m) => titulosDaCompetencia(c, m, regime, anexo, tabelas));
+  const anos = Array.from(new Set(meses
+    .filter((m) => Number(m.slice(5, 7)) >= 11)
+    .map((m) => Number(m.slice(0, 4)))));
+  const decimos = anos.flatMap((a) => titulosDoDecimo(c, a, regime, anexo, tabelas));
+  return [...titulos, ...decimos].sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 }
 
 /* ========================================================================== */
@@ -599,11 +753,34 @@ export function encargosLancados(
   competencia: string,
 ): number {
   const alvo = new Set<string>(CATEGORIAS_ENCARGO);
+  /*
+   * ⚠️ A GUIA DA COMPETÊNCIA VENCE NO MÊS SEGUINTE. O FGTS e a GPS de setembro
+   * vencem em outubro; filtrar pelo vencimento no PRÓPRIO mês comparava a
+   * projeção de setembro com a guia de AGOSTO — um mês de admissão ou de
+   * desligamento bastava para o aviso acusar (ou calar) pela razão errada.
+   */
+  const mesDaGuia = mesSeguinte(competencia);
   return round2(movimentos
     .filter((m) => m.type === "saida" && m.status !== "cancelado"
-      && (m.due_date ?? "").slice(0, 7) === competencia
+      && (m.due_date ?? "").slice(0, 7) === mesDaGuia
       && alvo.has((m.category ?? "").trim()))
     .reduce((soma, m) => soma + Math.abs(m.amount), 0));
+}
+
+/**
+ * O que a calculadora projeta de FGTS + INSS PATRONAL numa competência — o
+ * termo de comparação do aviso de encargo divergente.
+ *
+ * ⚠️ **NÃO é `custoTotal − totalBruto`.** Essa diferença inclui as PROVISÕES de
+ * 13º e de férias (e os encargos sobre elas), que não são recolhidas mês a mês
+ * e nunca aparecem numa guia de FGTS ou de GPS. A tela comparava as duas coisas
+ * e o aviso acendia para TODA empresa que lançasse o FGTS do mês: no Simples
+ * Anexo III, R$ 400 de FGTS certinho contra R$ 1.450 "projetados" — −72%,
+ * "divergem", todo mês, sobre um recolhimento correto. Aviso que grita lobo é
+ * aviso que se aprende a ignorar.
+ */
+export function encargosProjetados(painel: Pick<PainelFolha, "linhas">): number {
+  return round2(painel.linhas.reduce((s, l) => s + (l.clt ? l.clt.fgts + l.clt.patronal : 0), 0));
 }
 
 export function conferirEncargos(projetado: number, lancado: number): ConferenciaEncargos {
@@ -678,3 +855,4 @@ export { mesSeguinte };
  */
 export * from "./ferias";
 export * from "./rescisao";
+export * from "./titulos";

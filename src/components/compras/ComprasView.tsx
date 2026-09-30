@@ -11,7 +11,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Button, Icon, Input, Select, DateField, BRL } from "@/components/ui";
+import { Card, Button, Icon, Input, Select, DateField, BRL, AcaoDestrutiva } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { Painel } from "@/components/paineis/shared";
 import { baixarXLSX } from "@/lib/xlsx";
@@ -20,7 +20,8 @@ import {
   STATUS_COMPRA,
   type Compra, type FiltroCompras, type StatusCompra,
 } from "@/core/compras";
-import { listarCompras, decidirCompra, removerCompra } from "@/lib/compras-store";
+import { listarCompras, decidirCompra, removerCompra, restaurarCompra } from "@/lib/compras-store";
+import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
@@ -31,15 +32,8 @@ const COR_STATUS: Record<StatusCompra, string> = {
   cancelada: "var(--color-placeholder)",
 };
 
-function primeiroDoMes(): string {
-  const h = new Date();
-  return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}-01`;
-}
-function ultimoDoMes(): string {
-  const h = new Date();
-  const u = new Date(h.getFullYear(), h.getMonth() + 1, 0);
-  return `${u.getFullYear()}-${String(u.getMonth() + 1).padStart(2, "0")}-${String(u.getDate()).padStart(2, "0")}`;
-}
+const erroDe = (e: unknown): string =>
+  e instanceof Error ? e.message : ((e as { message?: string } | null)?.message ?? "o banco recusou a operação");
 
 export function ComprasView() {
   const router = useRouter();
@@ -48,10 +42,17 @@ export function ComprasView() {
   const [compras, setCompras] = React.useState<Compra[]>([]);
   const [carregando, setCarregando] = React.useState(true);
 
-  const [vencDe, setVencDe] = React.useState(primeiroDoMes());
-  const [vencAte, setVencAte] = React.useState(ultimoDoMes());
-  const [compDe, setCompDe] = React.useState(primeiroDoMes());
-  const [compAte, setCompAte] = React.useState(ultimoDoMes());
+  /*
+   * ⚠️ AS JANELAS DE DATA NASCEM VAZIAS. Nasciam no mês corrente — nas DUAS
+   * datas —, e uma compra parcelada com o primeiro vencimento no mês seguinte
+   * sumia da lista no instante em que era criada: "Total (1)" com duas compras
+   * gravadas, e o pedido que aguardava aprovação fora do card "Aguardando". A
+   * pergunta desta tela é "o que espera decisão", e ela não tem data.
+   */
+  const [vencDe, setVencDe] = React.useState("");
+  const [vencAte, setVencAte] = React.useState("");
+  const [compDe, setCompDe] = React.useState("");
+  const [compAte, setCompAte] = React.useState("");
   const [status, setStatus] = React.useState<StatusCompra | "todos">("todos");
   const [criadoPor, setCriadoPor] = React.useState("todos");
   const [busca, setBusca] = React.useState("");
@@ -60,6 +61,9 @@ export function ComprasView() {
   React.useEffect(() => {
     setCompras(listarCompras());
     setCarregando(false);
+    // A lista mora em `store-org`: quando o servidor hidrata (ou uma gravação
+    // assíncrona volta com a recusa do banco), a tela relê.
+    return inscrever(CHAVES_ORG.compras, () => setCompras(listarCompras()));
   }, []);
 
   const autores = React.useMemo(
@@ -74,23 +78,52 @@ export function ComprasView() {
     return filtrarCompras(compras, filtro);
   }, [compras, vencDe, vencAte, compDe, compAte, status, criadoPor, busca]);
   const cards = React.useMemo(() => painelCompras(lista), [lista]);
+  // O que o filtro esconde, e quanto disso espera decisão — um pedido fora da
+  // janela não pode sumir sem a tela dizer que ele existe.
+  const foraDoFiltro = compras.length - lista.length;
+  const aguardandoFora = React.useMemo(() => {
+    const vistos = new Set(lista.map((c) => c.id));
+    return compras.filter((c) => c.status === "aguardando" && !vistos.has(c.id)).length;
+  }, [compras, lista]);
 
-  function decidir(id: string, novo: StatusCompra) {
-    setCompras(decidirCompra(id, novo));
-    // Aprovar/reprovar mexe no caixa — o resto do sistema precisa reler.
-    qc.invalidateQueries();
-    const rotulo = STATUS_COMPRA.find((s) => s.id === novo)?.label ?? novo;
-    toast(
-      novo === "aprovada"
-        ? "Compra aprovada — os títulos entraram em contas a pagar."
-        : `Compra marcada como ${rotulo.toLowerCase()} — os títulos saíram do fluxo.`,
-    );
+  /**
+   * ⚠️ A DECISÃO ESPERA O BANCO. Antes, a tela trocava o status e anunciava
+   * "os títulos entraram em contas a pagar" sem que nada tivesse ido ao banco
+   * em produção. Agora a mensagem só sai depois que o título existe — e, se o
+   * banco recusar, a tela mostra a recusa com as palavras dele.
+   */
+  async function decidir(id: string, novo: StatusCompra) {
+    try {
+      setCompras(await decidirCompra(id, novo));
+      // Aprovar/reprovar mexe no caixa — o resto do sistema precisa reler.
+      qc.invalidateQueries();
+      const rotulo = STATUS_COMPRA.find((s) => s.id === novo)?.label ?? novo;
+      toast(
+        novo === "aprovada"
+          ? "Compra aprovada — os títulos entraram em contas a pagar."
+          : `Compra marcada como ${rotulo.toLowerCase()} — os títulos previstos saíram do fluxo.`,
+      );
+    } catch (e) {
+      toast(`Não foi possível ${novo === "aprovada" ? "aprovar" : "mudar"} a compra: ${erroDe(e)}`);
+    }
   }
 
-  function excluir(id: string) {
-    setCompras(removerCompra(id));
-    qc.invalidateQueries();
-    toast("Compra excluída.");
+  async function excluir(c: Compra): Promise<(() => Promise<void>) | void> {
+    try {
+      setCompras(await removerCompra(c.id));
+      qc.invalidateQueries();
+      toast("Compra excluída.");
+      return async () => {
+        try {
+          setCompras(await restaurarCompra(c));
+          qc.invalidateQueries();
+        } catch (e) {
+          toast(`Não foi possível desfazer: ${erroDe(e)}`);
+        }
+      };
+    } catch (e) {
+      toast(`Não foi possível excluir: ${erroDe(e)}`);
+    }
   }
 
   const linhasXLSX = [
@@ -124,6 +157,19 @@ export function ComprasView() {
       </div>
 
       <Painel cards={cards} onEscolher={(id) => setStatus(id === "total" ? "todos" : (id as StatusCompra))} />
+      {foraDoFiltro > 0 && (
+        <p className="m-0 -mt-2 text-caption text-muted">
+          {foraDoFiltro === 1 ? "1 compra está fora do filtro" : `${foraDoFiltro} compras estão fora do filtro`}
+          {aguardandoFora > 0 && <> — <b className="text-ink font-medium">{aguardandoFora} aguardando aprovação</b></>}.{" "}
+          <button
+            type="button"
+            className="underline decoration-1 underline-offset-2 text-ink"
+            onClick={() => { setVencDe(""); setVencAte(""); setCompDe(""); setCompAte(""); setStatus("todos"); setCriadoPor("todos"); setBusca(""); }}
+          >
+            Mostrar todas
+          </button>
+        </p>
+      )}
 
       <Card>
         <div className="flex flex-col gap-4">
@@ -220,6 +266,13 @@ export function ComprasView() {
                             <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_STATUS[c.status] }} />
                             {STATUS_COMPRA.find((s) => s.id === c.status)?.label}
                           </span>
+                          {c.erroTitulos && (
+                            /* ⚠️ A recusa do banco, com as palavras dele: é o que
+                               diz por que uma compra PAGA ainda não está no caixa. */
+                            <span className="block mt-1 text-caption text-negative max-w-[32ch]">
+                              Os títulos não entraram no caixa: {c.erroTitulos}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={c.valor} /></td>
                         <td className="px-6 py-3">
@@ -233,7 +286,16 @@ export function ComprasView() {
                             {c.status === "aprovada" && (
                               <Acao label="Cancelar compra" icone="x" onClick={() => decidir(c.id, "cancelada")} perigo />
                             )}
-                            <Acao label="Excluir" icone="trash-2" onClick={() => excluir(c.id)} perigo />
+                            <AcaoDestrutiva
+                              rotulo="Excluir"
+                              titulo={`Excluir a compra ${c.numero}?`}
+                              descricao={c.status === "aprovada"
+                                ? `As ${parcelas.length === 1 ? "parcela prevista sai" : `${parcelas.length} parcelas previstas saem`} de contas a pagar. Parcela já paga não é apagada: a exclusão é recusada até o pagamento ser estornado.`
+                                : "A compra sai da lista. Ela ainda não tinha títulos no caixa."}
+                              confirmarRotulo="Excluir"
+                              onConfirmar={() => excluir(c)}
+                              className="px-2 py-[6px] rounded-md text-caption text-muted hover:text-negative hover:bg-surface-2 transition-colors"
+                            />
                           </div>
                         </td>
                       </tr>

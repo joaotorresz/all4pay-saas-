@@ -182,6 +182,13 @@ export interface CalculoRescisao {
   /** O saldo usado no cálculo da multa, e se foi estimado. */
   saldoFGTS: number;
   saldoEstimado: boolean;
+  /**
+   * ⚠️ O FGTS e o patronal SOBRE AS VERBAS — já estavam no custo, e não viravam
+   * título. Expostos para `titulosDaRescisao` agendá-los: sem eles o custo da
+   * tela dizia uma coisa e o contas a pagar, outra.
+   */
+  fgtsSobreVerbas: number;
+  patronal: number;
   /** O custo TOTAL da rescisão para a empresa. */
   custoTotal: number;
   /** Até quando pagar: 10 dias corridos do desligamento (art. 477 §6º). */
@@ -374,7 +381,7 @@ export function calcularRescisao(
     mesesTrabalhados, anosCompletos, diasAviso: dias,
     verbas, totalProventos, totalDescontos, baseTributavel,
     inss, irrf: ir.imposto, liquido,
-    multaFGTS, saldoFGTS, saldoEstimado,
+    multaFGTS, saldoFGTS, saldoEstimado, fgtsSobreVerbas, patronal,
     custoTotal, vencimento, memoria, problemas, alertas,
   };
 }

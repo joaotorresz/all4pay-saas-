@@ -33,6 +33,7 @@ import {
   listarBoletos, salvarBoleto, removerBoleto, lancarBoleto,
   listarNFs, salvarNF, removerNF, novoId,
 } from "@/lib/compras-store";
+import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
@@ -59,16 +60,27 @@ export function BoletosView() {
   const [status, setStatus] = React.useState<StatusBoleto | "todos">("todos");
   const [linha, setLinha] = React.useState("");
   const [beneficiario, setBeneficiario] = React.useState("");
+  // O boleto sendo lançado agora, com a conta e a categoria que a PESSOA escolhe.
+  const [lancando, setLancando] = React.useState<string | null>(null);
+  const [contaSel, setContaSel] = React.useState("");
+  const [categoriaSel, setCategoriaSel] = React.useState("");
+  const [gravando, setGravando] = React.useState(false);
   const hoje = hojeISO();
 
-  React.useEffect(() => { setLista(listarBoletos()); }, []);
+  React.useEffect(() => {
+    setLista(listarBoletos());
+    return inscrever(CHAVES_ORG.boletosRecebidos, () => setLista(listarBoletos()));
+  }, []);
 
   const leitura = React.useMemo(() => (linha.replace(/\D/g, "").length >= 44 ? lerBoleto(linha, hoje) : null), [linha, hoje]);
   const filtrada = React.useMemo(() => filtrarBoletos(lista, busca, status, hoje), [lista, busca, status, hoje]);
   const resumo = React.useMemo(() => resumoBoletos(filtrada, hoje), [filtrada, hoje]);
 
   function adicionar() {
-    if (!leitura) return;
+    // ⚠️ Boleto com dígito verificador errado NÃO entra. A linha digitada com um
+    // número trocado continua "legível" — banco, valor, vencimento —, e lançá-la
+    // seria agendar o pagamento de um código que o banco vai recusar no dia.
+    if (!leitura || !leitura.valido) return;
     setLista(salvarBoleto({
       id: novoId("boleto"),
       origem: "manual",
@@ -89,12 +101,25 @@ export function BoletosView() {
     toast("Boleto adicionado.");
   }
 
-  function lancar(b: BoletoRecebido) {
-    const conta = contas.data?.[0]?.id ?? "";
-    const cat = categorias.data?.[0]?.name ?? "Fornecedores";
-    setLista(lancarBoleto(b, conta, cat));
-    qc.invalidateQueries();
-    toast("Boleto lançado em contas a pagar.");
+  /**
+   * ⚠️ A CONTA E A CATEGORIA SÃO ESCOLHIDAS, não deduzidas. A versão anterior
+   * pegava a PRIMEIRA conta e a PRIMEIRA categoria da lista — o boleto de luz
+   * entrava no DRE como a categoria que viesse antes em ordem alfabética, sem
+   * nada na tela dizer isso. E em produção nem título criava.
+   */
+  async function lancar(b: BoletoRecebido) {
+    const cat = (categorias.data ?? []).find((c) => c.name === categoriaSel);
+    setGravando(true);
+    try {
+      setLista(await lancarBoleto(b, contaSel, { nome: categoriaSel, id: cat?.id ?? null }));
+      qc.invalidateQueries();
+      setLancando(null);
+      toast(`Boleto lançado em contas a pagar · vence ${fmtDia(b.leitura.vencimento ?? b.recebidoEm)}.`);
+    } catch (e) {
+      toast(`Não foi possível lançar: ${(e as { message?: string } | null)?.message ?? "o banco recusou a gravação"}`);
+    } finally {
+      setGravando(false);
+    }
   }
 
   const linhasXLSX = [
@@ -168,7 +193,7 @@ export function BoletosView() {
               placeholder="00000.00000 00000.000000 00000.000000 0 00000000000000"
             />
             <Input value={beneficiario} onChange={(e) => setBeneficiario(e.target.value)} placeholder="Beneficiário (opcional)" />
-            <Button variant="primary" onClick={adicionar} disabled={!leitura}>Adicionar</Button>
+            <Button variant="primary" onClick={adicionar} disabled={!leitura || !leitura.valido}>Adicionar</Button>
           </div>
           {leitura && (
             <div className="rounded-md bg-surface-2 px-4 py-3 flex flex-wrap gap-x-8 gap-y-2">
@@ -216,7 +241,8 @@ export function BoletosView() {
                 {filtrada.map((b) => {
                   const st = statusBoleto(b, hoje);
                   return (
-                    <tr key={b.id} className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
+                    <React.Fragment key={b.id}>
+                    <tr className="border-b border-border-soft last:border-0 hover:bg-surface-2/60 transition-colors">
                       <td className="px-6 py-3 text-label text-ink">{b.beneficiario}</td>
                       <td className="px-6 py-3 text-label text-muted">{b.leitura.bancoNome ?? b.leitura.banco}</td>
                       <td className="px-6 py-3 text-caption text-faint tabular-nums">{formatarLinha(b.leitura.linhaDigitavel)}</td>
@@ -230,13 +256,47 @@ export function BoletosView() {
                       <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={b.leitura.valor} /></td>
                       <td className="px-6 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {!b.movimentoId && (
-                            <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
+                          {!b.movimentoId && b.leitura.valido && (
+                            <Acao
+                              label="Lançar em contas a pagar" icone="arrow-up-right"
+                              onClick={() => { setLancando(lancando === b.id ? null : b.id); setContaSel(""); setCategoriaSel(""); }}
+                            />
                           )}
-                          <Acao label="Remover" icone="trash-2" onClick={() => { setLista(removerBoleto(b.id)); toast("Boleto removido."); }} perigo />
+                          {b.movimentoId && <span className="text-caption text-muted">Lançado</span>}
+                          <Acao
+                            label="Remover" icone="trash-2" perigo
+                            onClick={() => {
+                              setLista(removerBoleto(b.id));
+                              toast(b.movimentoId
+                                ? "Boleto removido da caixa de entrada. O título já lançado continua em Títulos a pagar."
+                                : "Boleto removido.");
+                            }}
+                          />
                         </div>
                       </td>
                     </tr>
+                    {lancando === b.id && (
+                      <tr className="border-b border-border-soft bg-surface-2/40">
+                        <td colSpan={7} className="px-6 py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 items-end">
+                            <Select
+                              label="Pagar pela conta" value={contaSel} onChange={setContaSel}
+                              options={[{ value: "", label: "Escolha a conta" },
+                                ...(contas.data ?? []).map((c) => ({ value: c.id, label: c.name }))]}
+                            />
+                            <Select
+                              label="Categoria da despesa" value={categoriaSel} onChange={setCategoriaSel}
+                              options={[{ value: "", label: "Escolha a categoria" },
+                                ...(categorias.data ?? []).map((c) => ({ value: c.name, label: c.name }))]}
+                            />
+                            <Button variant="primary" onClick={() => lancar(b)} disabled={!contaSel || !categoriaSel || gravando}>
+                              {gravando ? "Lançando…" : <>Lançar <BRL value={b.leitura.valor} /></>}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
@@ -281,7 +341,10 @@ export function NFsRecebidasView() {
   const [fornecedorNovo, setFornecedorNovo] = React.useState("");
   const [valorNovo, setValorNovo] = React.useState("");
 
-  React.useEffect(() => { setLista(listarNFs()); }, []);
+  React.useEffect(() => {
+    setLista(listarNFs());
+    return inscrever(CHAVES_ORG.nfsRecebidas, () => setLista(listarNFs()));
+  }, []);
 
   const leitura = React.useMemo(() => lerChaveNFe(chave), [chave]);
   const filtrada = React.useMemo(() => filtrarNFs(lista, aplicado), [lista, aplicado]);

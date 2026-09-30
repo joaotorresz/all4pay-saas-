@@ -17,9 +17,9 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
 import { lerXLSX, baixarXLSX } from "@/lib/xlsx";
-import { appendImported } from "@/lib/imported";
 import { criarTransferencia, novoIdMov } from "@/lib/movimentacoes";
-import { isDemo } from "@/lib/demo";
+import { criarTitulos } from "@/lib/data";
+import { reportar } from "@/lib/erros";
 
 type Tipo = "receber" | "pagar" | "transferencias";
 
@@ -158,31 +158,41 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
             criadoEm: new Date().toISOString().slice(0, 10),
           });
         }
-      } else if (isDemo) {
+      } else {
+        /*
+         * ⚠️ O ESCRITOR MORTO, também aqui. Este ramo era `else if (isDemo)`:
+         * em PRODUÇÃO a importação de contas a pagar/receber não gravava NADA
+         * e a tela anunciava "N registros importados". Agora os títulos vão
+         * pelo escritor único (`criarTitulos`) — dataset em demonstração,
+         * `movements` em produção, e a recusa do banco sobe para a tela.
+         */
         const destino = conta || (contas?.accounts ?? [])[0]?.id;
-        validas.forEach((l, k) => {
+        if (!destino) throw new Error("Cadastre uma conta bancária antes de importar: cada título precisa dizer de qual conta o dinheiro entra ou sai.");
+        await criarTitulos(validas.map((l) => {
           const liquidado = /^(sim|s|true|1|x)$/i.test((l.campos[5] ?? "").trim());
-          appendImported({
-            movement: {
-              id: `imp_${Date.now().toString(36)}_${k}`,
-              account_id: destino,
-              type: tipo === "receber" ? "entrada" : "saida",
-              status: liquidado ? "pago" : "pendente",
-              amount: l.valor,
-              due_date: l.data,
-              paid_date: liquidado ? l.data : null,
-              reconciled: false,
-              category: l.campos[3] || null,
-              description: l.campos[4] || null,
-              party_id: idParte(l.campos[0]),
-            } as never,
-          });
-        });
+          return {
+            account_id: destino,
+            type: tipo === "receber" ? ("entrada" as const) : ("saida" as const),
+            status: liquidado ? ("pago" as const) : ("pendente" as const),
+            amount: l.valor,
+            due_date: l.data,
+            competence_date: l.data,
+            paid_date: liquidado ? l.data : null,
+            category: l.campos[3] || null,
+            description: l.campos[4] || null,
+            party_id: idParte(l.campos[0]),
+            origem: "importacao" as const,
+          };
+        }));
       }
       qc.invalidateQueries();
       show(`${validas.length} ${validas.length === 1 ? "registro importado" : "registros importados"}.`);
       setLinhas(null);
       setArquivo("");
+    } catch (e) {
+      reportar("importacao.titulos", e, "a planilha conferida não virou título");
+      const x = e as { message?: string; hint?: string } | null;
+      show(x?.message ? `Não foi possível importar: ${x.message}${x.hint ? ` ${x.hint}` : ""}` : "Não foi possível importar.");
     } finally {
       setGravando(false);
     }

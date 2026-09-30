@@ -109,6 +109,7 @@ import {
   lerBoleto, linhaDeCodigoDeBarras, codigoDeBarrasDaLinha, dvModulo10, dvModulo11,
   dataDoFator, fatorDaData, statusBoleto, resumoBoletos, filtrarBoletos,
   lerChaveNFe, dvDaChave, filtrarNFs, valorDigitado, resumoNFs,
+  linhaDoTituloDaCompra, recusaDeRetirada, proximoNumeroDeCompra, referenciaDaParcela,
   type Compra, type BoletoRecebido, type NFRecebida,
 } from "@/core/compras";
 import {
@@ -148,6 +149,9 @@ import {
   calcularRescisao, diasAviso, estimarFGTS, REGRAS,
   type Colaborador,
   conferirEncargos,
+  titulosDoPeriodo, titulosDaRescisao, titulosSubstituidosNaRescisao, primeiraParcelaSubstituida,
+  lerTituloDaFolha, competenciaDoTitulo, encargosProjetados, encargosLancados, mesesAtivosNoAno,
+  contaDoColaborador,
 } from "@/core/folha";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
@@ -3826,7 +3830,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   /* ---- 13º: duas parcelas, a segunda menor ------------------------------- */
   const d = titulosDoDecimo(ana, 2025, "presumido", null);
-  ok("folha: o 13º sai em DUAS parcelas", d.length === 2);
+  // As duas PARCELAS (os encargos do 13º viraram títulos próprios — ver o bloco
+  // "FOLHA, COMPRAS E REEMBOLSOS" no fim deste arquivo).
+  ok("folha: o 13º sai em DUAS parcelas", d.filter((x) => x.tipo === "decimo").length === 2);
   ok("folha: a 1ª parcela é metade do bruto, sem desconto", d[0].valor === 2500);
   // ⚠️ A segunda vem MENOR: os descontos do 13º inteiro saem dela.
   ok("folha: a 2ª parcela vem menor que a 1ª", d[1].valor < d[0].valor, String(d[1].valor));
@@ -6659,6 +6665,251 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const ramoDemo = demoImp.slice(demoImp.indexOf("if (isDemo)"), demoImp.indexOf("const supabase"));
   ok("importacao: a demonstração MESCLA (importar o 2º extrato apagava o 1º e tudo o que a pessoa criou)",
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
+}
+
+/* ── FOLHA, COMPRAS E REEMBOLSOS ── */
+{
+  const fsF = await import("node:fs");
+  const lerF = (p: string) => fsF.readFileSync(p, "utf8");
+  // Comentários saem antes da busca: a guarda não pode reprovar a documentação
+  // que cita o defeito (a lição da varredura da ONDA 14).
+  const semComent = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const ana: Colaborador = { id: "a", nome: "Ana Souza", vinculo: "clt", valor: 5000, desde: "2026-09" };
+
+  /* ---- 13º PROPORCIONAL: quem entrou em setembro não recebe o 13º inteiro ---- */
+  const d13 = titulosDoDecimo(ana, 2026, "presumido", null);
+  const parcelas13 = d13.filter((t) => t.tipo === "decimo");
+  ok("folha13: 4 meses de casa dão 4/12 do 13º", mesesAtivosNoAno(ana, 2026) === 4);
+  // Conferido à mão: 5.000 × 4/12 = 1.666,67; metade = 833,34; INSS sobre o 13º
+  // (7,5% até 1.518 + 9% sobre 148,67) = 127,23; IRRF zero; 2ª = 706,10.
+  ok("folha13: a 1ª parcela de quem entrou em setembro é 833,34 — NÃO os 2.500 do 13º inteiro",
+     parcelas13[0]?.valor === 833.34, String(parcelas13[0]?.valor));
+  ok("folha13: a 2ª parcela desconta o INSS do 13º PROPORCIONAL (706,10)",
+     parcelas13[1]?.valor === 706.1, String(parcelas13[1]?.valor));
+  ok("folha13: a descrição diz a proporção (4/12)", /\(4\/12\)/.test(parcelas13[0]?.descricao ?? ""));
+
+  /* ---- O 13º TEM ENCARGOS: tudo o que ele custa vira título ---- */
+  const cheio: Colaborador = { ...ana, desde: "2025-01" };
+  const d25 = titulosDoDecimo(cheio, 2025, "presumido", null);
+  // ⚠️ A INVARIANTE, e não uma lista de valores: 13º + FGTS + patronal = soma
+  // dos títulos. O IRRF e o INSS do empregado saem da 2ª parcela e voltam como
+  // DARF — o dinheiro não some nem aparece duas vezes. Sem os títulos de
+  // encargo a soma dava 4.177,51 (só as duas parcelas).
+  ok("folha13: tudo o que o 13º custa (13º + FGTS + patronal = 6.800) vira título",
+     r2(d25.reduce((s, t) => s + t.valor, 0)) === 6800, String(r2(d25.reduce((s, t) => s + t.valor, 0))));
+  const fgts13 = d25.filter((t) => t.tipo === "fgts");
+  ok("folha13: FGTS de cada parcela — a 1ª até 20/12, a 2ª até 20/01",
+     fgts13.length === 2 && fgts13[0].valor === 200 && fgts13[0].vencimento === "2025-12-19"
+     && fgts13[1].valor === 200 && fgts13[1].vencimento === "2026-01-20",
+     fgts13.map((t) => `${t.vencimento}:${t.valor}`).join(" "));
+  const inss13 = d25.find((t) => /^INSS do 13º/.test(t.descricao));
+  const irrf13 = d25.find((t) => /^IRRF do 13º/.test(t.descricao));
+  ok("folha13: INSS do empregado + patronal do 13º no DARF de 20/12 (509,60 + 1.400)",
+     inss13?.valor === 1909.6 && inss13?.vencimento === "2025-12-19", `${inss13?.vencimento}:${inss13?.valor}`);
+  ok("folha13: IRRF retido na 2ª parcela no DARF de 20/01 (312,89)",
+     irrf13?.valor === 312.89 && irrf13?.vencimento === "2026-01-20", `${irrf13?.vencimento}:${irrf13?.valor}`);
+
+  /* ---- O cadastro não agenda o 13º de um ano cujos meses não gerou ---- */
+  const per = titulosDoPeriodo(ana, 12, "nao_declarado", null);
+  ok("folha13: 12 meses a partir de 09/2026 agendam SÓ o 13º de 2026",
+     per.filter((t) => t.tipo === "decimo").every((t) => t.competencia === "2026-12")
+     && per.filter((t) => t.tipo === "decimo").length === 2,
+     per.filter((t) => t.tipo === "decimo").map((t) => t.descricao).join(" | "));
+  ok("folha13: nenhum título do cadastro vence depois do último mês gerado + 1",
+     per.every((t) => t.vencimento <= "2027-09-30"), per[per.length - 1]?.vencimento);
+
+  /* ---- PENSÃO: o que se desconta, se deposita ---- */
+  const comPensao = titulosDaCompetencia({ ...ana, pensao: 1000 }, "2026-09", "presumido", null);
+  const pensao = comPensao.find((t) => t.tipo === "pensao");
+  const salarioP = comPensao.find((t) => t.tipo === "salario");
+  ok("folha: a pensão descontada vira título de 1.000 na data do salário",
+     pensao?.valor === 1000 && pensao?.vencimento === salarioP?.vencimento, `${pensao?.valor}`);
+  ok("folha: salário + pensão = o líquido sem a pensão (o dinheiro não some)",
+     r2((salarioP?.valor ?? 0) + (pensao?.valor ?? 0)) === 4490.4);
+  ok("folha: sem pensão, continuam TRÊS títulos por CLT",
+     titulosDaCompetencia(ana, "2026-09", "presumido", null).length === 3);
+
+  /* ---- PJ: a retenção é recolhida, e não se afirma o que não foi declarado ---- */
+  const pjNao = titulosDaCompetencia({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: false }, "2026-09", "presumido", null);
+  const ret = pjNao.find((t) => t.tipo === "retencao");
+  ok("folha PJ: fora do Simples, IRRF 1,5% + PCC 4,65% viram DARF de 615",
+     ret?.valor === 615 && ret?.vencimento === "2026-11-19", `${ret?.vencimento}:${ret?.valor}`);
+  ok("folha PJ: nota líquida + retenção = a nota cheia (o custo)",
+     r2(pjNao.reduce((s, t) => s + t.valor, 0)) === 10_000);
+  ok("folha PJ: a retenção fica na MESMA linha do DRE que a nota",
+     ret?.categoria === pjNao[0].categoria);
+  const memNd = calcularPJ({ ...ana, vinculo: "pj", valor: 10_000 }, "2026-09").memoria.map((l) => l.formula).join(" ");
+  ok("folha PJ: sem declaração, a memória NÃO afirma que o prestador é do Simples",
+     !/prestador do Simples Nacional/.test(memNd) && /não diz se o prestador é do Simples/.test(memNd));
+  ok("folha PJ: declarado do Simples, sem retenção e dito assim",
+     titulosDaCompetencia({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: true }, "2026-09", "presumido", null).length === 1
+     && /prestador do Simples Nacional/.test(calcularPJ({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: true }, "2026-09").memoria[1].formula));
+
+  /* ---- A COMPETÊNCIA de um título da folha é o mês de TRABALHO ---- */
+  const sal09 = titulosDaCompetencia(ana, "2026-09", "presumido", null)[0];
+  ok("folha: o salário de 09/2026 vence em outubro e é competência de SETEMBRO",
+     sal09.vencimento.startsWith("2026-10") && competenciaDoTitulo(sal09) === "2026-09-30",
+     `${sal09.vencimento} → ${competenciaDoTitulo(sal09)}`);
+  const libFolha = lerF("src/lib/folha.ts");
+  ok("folha: o mapeamento para o escritor único usa a competência, não o vencimento",
+     /competence_date: competenciaDoTitulo\(t\)/.test(libFolha));
+  const telaFolha = semComent(lerF("src/components/contas-pagar/FolhaSalarial.tsx"));
+  ok("folha: a tela da folha agenda pelo mapeamento único (era `competence_date: t.vencimento`)",
+     /linhaDoTituloDaFolha\(/.test(telaFolha) && !/competence_date: t\.vencimento/.test(telaFolha));
+  // ⚠️ A substituição (rescisão/férias) LÊ A DESCRIÇÃO do título. O ramo de
+  // demonstração de `getRiscoInput` não a transporta, e a tela que alimentava
+  // a substituição pelo `RiskInput` não achava título nenhum para retirar.
+  ok("folha: a substituição lê títulos de uma fonte que carrega a DESCRIÇÃO (não o RiskInput)",
+     /descricao:\s*m\.description/.test(telaFolha)
+     && !/const lancamentos[^;]*risco\?\.movements/.test(telaFolha));
+
+  /* ---- A RESCISÃO substitui o que o cadastro agendou ---- */
+  const lanc = per.map((t, k) => ({
+    id: `m${k}`, type: "saida", status: "pendente", amount: t.valor, due_date: t.vencimento, descricao: t.descricao,
+    accountId: "ac-folha",
+  }));
+  lanc.push({ id: "pago", type: "saida", status: "pago", amount: 4490.4, due_date: "2026-11-09", descricao: "Salário 10/2026 · Ana Souza", accountId: "ac-folha" });
+  lanc.push({ id: "outro", type: "saida", status: "pendente", amount: 4490.4, due_date: "2026-11-09", descricao: "Salário 10/2026 · Bruno Reis", accountId: "ac-x" });
+  lanc.push({ id: "manual", type: "saida", status: "pendente", amount: 300, due_date: "2026-11-09", descricao: "Salário extra combinado · Ana Souza", accountId: "ac-x" });
+  lanc.push({ id: "antigo", type: "saida", status: "pendente", amount: 4490.4, due_date: "2026-12-07", descricao: "Salário · Ana Souza", accountId: "ac-folha" });
+  const sai = titulosSubstituidosNaRescisao(lanc, "Ana Souza", "2026-10-15");
+  const idsSai = new Set(sai.map((m) => m.id));
+  const desc = (m: { descricao?: string | null }) => m.descricao ?? "";
+  ok("rescisao: sai o salário do mês do desligamento e todos os seguintes",
+     sai.some((m) => desc(m) === "Salário 10/2026 · Ana Souza") && sai.some((m) => desc(m) === "Salário 08/2027 · Ana Souza"));
+  // ⚠️ A asserção que separa COMPETÊNCIA de VENCIMENTO: o FGTS e o DARF de
+  // setembro vencem em 20/10, DEPOIS do desligamento, e são devidos — retirar
+  // por data de vencimento os apagaria.
+  ok("rescisao: o FGTS e o DARF de SETEMBRO (vencem depois do desligamento) FICAM",
+     !sai.some((m) => /09\/2026/.test(desc(m))), sai.filter((m) => /09\/2026/.test(desc(m))).map(desc).join(" | "));
+  ok("rescisao: o 13º do ano (parcelas e encargos) sai — ele vira 13º proporcional na rescisão",
+     sai.filter((m) => /13º 2026/.test(desc(m))).length === 5);
+  ok("rescisao: pago, de outro colaborador e digitado à mão NÃO saem",
+     !idsSai.has("pago") && !idsSai.has("outro") && !idsSai.has("manual"));
+  ok("rescisao: o título no formato ANTIGO (sem competência) também é reconhecido",
+     idsSai.has("antigo") && lerTituloDaFolha("Salário · Ana Souza", "2026-12-07")?.competencia === "2026-11");
+  ok("rescisao: títulos da própria rescisão e da multa nunca são lidos como folha mensal",
+     lerTituloDaFolha("FGTS da rescisão · Ana Souza", "2026-10-23") === null
+     && lerTituloDaFolha("Multa do FGTS · Ana Souza", "2026-10-23") === null
+     && lerTituloDaFolha("Reembolso · Ana Souza · Uber", "2026-10-23") === null);
+  ok("rescisao: a conta da rescisão é a da folha do colaborador, não a primeira da lista",
+     contaDoColaborador(lanc, "Ana Souza") === "ac-folha");
+  const eR = { modalidade: "sem_justa_causa" as const, desligamento: "2026-10-15", admissao: "2026-09-01",
+    avisoTrabalhado: false, diasFeriasVencidas: 0, saldoFGTS: 0, estimarSaldo: true };
+  const cR = calcularRescisao(ana, eR, "presumido", null);
+  const tR = titulosDaRescisao(ana, eR, cR, "Sem justa causa");
+  ok("rescisao: tudo o que a rescisão custa vira título (19.942,23 = custo total)",
+     r2(tR.reduce((s, t) => s + t.valor, 0)) === r2(cR.custoTotal) && r2(cR.custoTotal) === 19942.23,
+     `${r2(tR.reduce((s, t) => s + t.valor, 0))} × ${cR.custoTotal}`);
+  ok("rescisao: o FGTS das verbas e o DARF (INSS, IRRF, patronal) são títulos próprios",
+     tR.some((t) => t.tipo === "fgts" && t.valor === 533.33)
+     && tR.some((t) => t.tipo === "darf" && t.valor === 3238.91 && t.vencimento === "2026-11-19"));
+  // Férias com adiantamento: a 1ª parcela do ano sai; a do ano seguinte, não.
+  const adiant = primeiraParcelaSubstituida(lanc, "Ana Souza", "2026-10-02");
+  ok("ferias: o adiantamento do 13º substitui a 1ª parcela de 2026 (e só ela)",
+     adiant.length === 1 && /13º 2026 \(4\/12\) · 1ª parcela/.test(desc(adiant[0])));
+
+  /* ---- A conferência de encargos compara FGTS + patronal, não as provisões ---- */
+  const p3 = montarPainelFolha([ana], "2026-09", "simples", "III");
+  ok("folha: no Simples III o projetado de FGTS + patronal é 400 (não 1.450 de custo − bruto)",
+     encargosProjetados(p3) === 400, String(encargosProjetados(p3)));
+  ok("folha: o FGTS certinho NÃO acende o aviso",
+     conferirEncargos(encargosProjetados(p3), 400).divergente === false);
+  // A prova de que a conta antiga mentia: com as provisões dentro, o MESMO
+  // recolhimento correto acusava −72%.
+  ok("folha: (a conta antiga, custo − bruto, acusava o recolhimento correto)",
+     conferirEncargos(r2(p3.custoTotal - p3.totalBruto), 400).divergente === true);
+  const guias = [
+    { type: "saida", status: "pago", category: "FGTS", due_date: "2026-10-20", amount: 400 },
+    { type: "saida", status: "pago", category: "FGTS", due_date: "2026-09-18", amount: 380 },
+  ];
+  ok("folha: a guia da competência de setembro é a que vence em OUTUBRO",
+     encargosLancados(guias, "2026-09") === 400, String(encargosLancados(guias, "2026-09")));
+  ok("folha: a tela usa o projetado de FGTS + patronal",
+     /encargosProjetados\(painel\)/.test(telaFolha) && !/custoTotal - painel\.totalBruto/.test(telaFolha));
+
+  /* ---- COMPRAS: a linha que o banco recebe ---- */
+  const C = (o: Partial<Compra>): Compra => ({
+    id: "cmp_1", numero: "2026-C0001", fornecedorId: "3f1c2a4e-5b6d-4e7f-8a9b-0c1d2e3f4a5b", fornecedor: "Alpha Ltda",
+    contaId: "ac1", categoria: "Fornecedores", tipoPagamento: "parcelado", parcelas: 3,
+    vencimento: "2026-10-15", competencia: "2026-09-30", valor: 1_000,
+    documentoFiscal: "", especie: null, pago: true, dataPagamento: "2026-10-15",
+    projetos: [], centros: [], anexos: [], descricao: "", infoPagamento: "",
+    observacoes: "", status: "aprovada", criadoPor: "Você", criadoEm: "2026-09-30",
+    ...o,
+  });
+  const linhas = movimentosDaCompra(C({})).map(linhaDoTituloDaCompra);
+  ok("compras: cada parcela leva a chave compra:<id>:<n> (é ela que permite reprovar sem órfão)",
+     linhas.map((l) => l.reference_code).join(",") === "compra:cmp_1:1,compra:cmp_1:2,compra:cmp_1:3"
+     && referenciaDaParcela("cmp_1", 2) === "compra:cmp_1:2");
+  ok("compras: a linha leva origem e espécie (sem origem o banco recusa com A4P05)",
+     linhas.every((l) => l.origem === "manual" && l.especie === "titulo"));
+  ok("compras: a competência de TODAS as parcelas é a da compra, não o vencimento de cada uma",
+     linhas.every((l) => l.competence_date === "2026-09-30") && linhas[2].due_date === "2026-12-15");
+  ok("compras: só a 1ª parcela nasce baixada (paga)",
+     linhas[0].situacao === "baixado" && linhas[1].situacao === "previsto" && linhas[0].paid_date === "2026-10-15");
+  ok("compras: fornecedor uuid vai; id curto de demonstração não (o banco só aceita uuid)",
+     linhas[0].party_id === "3f1c2a4e-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
+     && linhaDoTituloDaCompra(movimentosDaCompra(C({ fornecedorId: "p1" }))[0]).party_id === null);
+  ok("compras: parcela paga RECUSA cancelar (apagaria dinheiro que já saiu)",
+     /já paga/.test(recusaDeRetirada("2026-C0001", [{ pago: true }, { pago: false }], "cancelar") ?? ""));
+  ok("compras: sem parcela paga, cancelar pode", recusaDeRetirada("2026-C0001", [{ pago: false }], "cancelar") === null);
+  ok("compras: o número é o MAIOR + 1 (contar repetiria o C0003)",
+     proximoNumeroDeCompra(["2026-C0001", "2026-C0003", "2025-C0009"], 2026) === "2026-C0004");
+
+  /* ---- O ESCRITOR MORTO das compras, do boleto e da importação ---- */
+  const store = semComent(lerF("src/lib/compras-store.ts"));
+  // ⚠️ A forma EXATA do defeito: `if (!isDemo) return;` antes do appendImported,
+  // num arquivo sem caminho nenhum para `movements`. A guarda do escritor morto
+  // não via, porque o próprio `return` contém a palavra `isDemo`.
+  ok("compras: aprovar grava no BANCO em produção (era `if (!isDemo) return`)",
+     /from\("movements"\)\.insert\(movs\.map\(linhaDoTituloDaCompra\)\)/.test(store)
+     && !/if \(!isDemo\) return;/.test(store));
+  ok("compras: o boleto lançado também vira título no banco",
+     /export async function lancarBoleto[\s\S]*?from\("movements"\)\.insert\(/.test(store));
+  ok("compras: a compra mora em store-org, não no localStorage cru (quem aprova é outra pessoa)",
+     /ler<Compra\[\]>\(CHAVES_ORG\.compras/.test(store) && !/localStorage/.test(store));
+  ok("compras: o título nasce ANTES do status aprovado",
+     /await criarTitulosDaCompra\(nova\);[\s\S]*?return persistir\(nova\)/.test(store));
+  const imp = semComent(lerF("src/components/movimentacoes/ImportacaoView.tsx"));
+  ok("importacao: a planilha de contas grava pelo escritor único em produção (era `else if (isDemo)`)",
+     /await criarTitulos\(/.test(imp) && !/else if \(isDemo\)/.test(imp));
+  // A regra geral, que teria pego os dois: todo arquivo que grava no dataset da
+  // demonstração TEM de ter um caminho para o banco no mesmo arquivo.
+  const DECLARADOS: Record<string, string> = {
+    "src/lib/vendas-store.ts": "é a casa da venda SÓ em demonstração; `lib/vendas` é o escritor de produção e delega para cá quando isDemo",
+  };
+  const semBanco: string[] = [];
+  const varrer = (dir: string) => {
+    for (const e of fsF.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) { varrer(p); continue; }
+      if (!/\.(ts|tsx)$/.test(e.name) || p === "src/lib/imported.ts" || DECLARADOS[p]) continue;
+      const t = semComent(lerF(p));
+      if (!/\bappendImported\s*\(/.test(t)) continue;
+      if (!/from\("movements"\)|criarTitulos\(|createLancamento\(|createTransferencia\(|criarTransferencia\(/.test(t)) semBanco.push(p);
+    }
+  };
+  varrer("src");
+  ok("escritor: todo arquivo que grava no dataset da demo tem caminho para o banco",
+     semBanco.length === 0, semBanco.join(" | "));
+
+  /* ---- REEMBOLSOS: a recusa do banco não vira "A pagar" ---- */
+  const reemb = semComent(lerF("src/lib/reembolsos.ts"));
+  const gerar = /async function gerarPagamento[\s\S]*?\n}/.exec(reemb)?.[0] ?? "";
+  ok("reembolso: o insert dos títulos em produção não engole a recusa",
+     /\.from\("movements"\)\.insert\(rows\)[\s\S]{0,120}if \(error\) throw error;/.test(gerar));
+  ok("reembolso: sem conta bancária a recusa é DITA (antes: lista vazia e 'A pagar')",
+     /if \(!accId\) throw new Error\(/.test(gerar) && !/if \(!accId\) return out;/.test(gerar));
+  ok("reembolso: o título leva espécie, competência da despesa e chave idempotente",
+     /especie: "titulo"/.test(gerar) && /competence_date: it\.data/.test(gerar) && /reference_code: refs\[i\]/.test(gerar));
+  const sinc = /export async function sincronizarReembolsos[\s\S]*?\n}/.exec(reemb)?.[0] ?? "";
+  ok("reembolso: a falha fica no reembolso e volta para a tela, sem marcar 'A pagar'",
+     /catch \(e\)[\s\S]{0,400}falhas\.push[\s\S]{0,200}continue;/.test(sinc)
+     && sinc.indexOf("falhas.push") < sinc.indexOf('r.status = "a_pagar"'));
+  ok("reembolso: a solicitação sem aprovação no banco é recusada (nasceria presa para sempre)",
+     /A solicitação de aprovação não foi gravada/.test(reemb) && /if \(error\) throw error;\s*const saved = fromRow/.test(reemb));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

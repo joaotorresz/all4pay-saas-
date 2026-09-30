@@ -90,6 +90,16 @@ export interface Compra {
   status: StatusCompra;
   criadoPor: string;
   criadoEm: string;
+  /**
+   * ⚠️ A RECUSA DO BANCO, quando os títulos não entraram.
+   *
+   * Uma compra paga nasce aprovada — e aprovada significa "está no caixa". Se
+   * o banco recusar os títulos (mês fechado, sem permissão, conta inválida),
+   * ela volta para "aguardando" carregando a MENSAGEM REAL, e a lista a mostra
+   * ao lado do botão que tenta de novo. Sem este campo a compra ficaria
+   * "aprovada" sem um centavo no contas a pagar, e nada na tela diria isso.
+   */
+  erroTitulos?: string | null;
 }
 
 /* ------------------------------ anexos: limite ------------------------------ */
@@ -180,8 +190,22 @@ export function parcelasDaCompra(c: Compra): ParcelaCompra[] {
 
 /* ============================ compra → movimento ============================ */
 
+/**
+ * A CHAVE que liga o título ao pedido: `compra:<id da compra>:<parcela>`.
+ *
+ * ⚠️ É ela que permite, em produção, REPROVAR ou CANCELAR sem deixar título
+ * órfão. O banco dá ao lançamento um id próprio (uuid) que a compra não
+ * conhece; sem uma chave escrita no próprio título, "retirar as parcelas desta
+ * compra" viraria uma busca por descrição e valor — e busca por texto alcança,
+ * amanhã, o lançamento legítimo de outra pessoa.
+ */
+export const referenciaDaParcela = (compraId: string, numero: number): string =>
+  `compra:${compraId}:${numero}`;
+
 export interface MovimentoDaCompra {
   id: string;
+  /** `compra:<id>:<parcela>` — gravada em `movements.reference_code`. */
+  referencia: string;
   accountId: string;
   amount: number;
   dueDate: string;
@@ -205,6 +229,7 @@ export function movimentosDaCompra(c: Compra): MovimentoDaCompra[] {
   const parcelas = parcelasDaCompra(c);
   return parcelas.map((p) => ({
     id: `compra-${c.id}-${p.numero}`,
+    referencia: referenciaDaParcela(c.id, p.numero),
     accountId: c.contaId,
     amount: p.valor,
     dueDate: p.vencimento,
@@ -221,6 +246,90 @@ export function movimentosDaCompra(c: Compra): MovimentoDaCompra[] {
       : c.descricao || `Compra ${c.numero}`,
     partyId: c.fornecedorId,
   }));
+}
+
+/* ------------------------- o título, como o banco o grava ------------------------- */
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A linha que vai para `movements` em produção — a MESMA forma do escritor único. */
+export interface LinhaTituloCompra {
+  account_id: string;
+  type: "saida";
+  situacao: "previsto" | "baixado";
+  amount: number;
+  due_date: string;
+  competence_date: string;
+  paid_date: string | null;
+  reconciled: false;
+  category: string;
+  description: string;
+  party_id: string | null;
+  reference_code: string;
+  origem: "manual";
+  especie: "titulo";
+}
+
+/**
+ * ⚠️ **AS MESMAS TRÊS CHAVES do escritor único (`criarTitulos`)**: `origem`
+ * (sem ela o banco recusa com A4P05, a fechadura da ONDA 5), `especie` e a
+ * `situacao` que decide o `status` gerado. A diferença é UMA coluna a mais —
+ * `reference_code` —, que o escritor único ainda não aceita e sem a qual
+ * reprovar deixaria órfão o título que o banco batizou com um uuid.
+ *
+ * A competência sai da COMPRA, não da parcela: comprar em março para pagar em
+ * 6x é despesa de março inteira.
+ */
+export function linhaDoTituloDaCompra(m: MovimentoDaCompra): LinhaTituloCompra {
+  return {
+    account_id: m.accountId,
+    type: "saida",
+    situacao: m.status === "pago" ? "baixado" : "previsto",
+    amount: m.amount,
+    due_date: m.dueDate,
+    competence_date: m.competencia,
+    paid_date: m.paidDate,
+    reconciled: false,
+    category: m.category,
+    description: m.description,
+    // Em demonstração o fornecedor tem id curto ("p1"); o banco só aceita uuid.
+    party_id: UUID.test(m.partyId) ? m.partyId : null,
+    reference_code: m.referencia,
+    origem: "manual",
+    especie: "titulo",
+  };
+}
+
+/**
+ * ⚠️ **PARCELA PAGA NÃO SAI DO CAIXA POR REPROVAÇÃO.** Cancelar ou excluir uma
+ * compra retira as parcelas PREVISTAS; uma parcela já baixada é dinheiro que
+ * saiu da conta, e apagá-la deixaria o saldo sem o lançamento que o explica.
+ * O caminho é estornar o pagamento primeiro — a mesma regra da venda.
+ *
+ * Devolve a frase da recusa, ou `null` quando pode retirar.
+ */
+export function recusaDeRetirada(
+  numero: string, titulos: readonly { pago: boolean }[], acao: "cancelar" | "excluir",
+): string | null {
+  const pagos = titulos.filter((t) => t.pago).length;
+  if (pagos === 0) return null;
+  return `A compra ${numero} tem ${pagos === 1 ? "uma parcela já paga" : `${pagos} parcelas já pagas`}. `
+    + `Estorne o pagamento em Títulos a pagar antes de ${acao} — ${acao} agora apagaria dinheiro que já saiu da conta.`;
+}
+
+/**
+ * O próximo número de compra do ano: o MAIOR + 1, nunca a contagem + 1.
+ *
+ * ⚠️ Com uma compra excluída no meio, contar repetiria o número da última —
+ * duas compras "2026-C0003" na mesma lista (a mesma lição da venda).
+ */
+export function proximoNumeroDeCompra(numeros: readonly string[], ano: number): string {
+  const doAno = numeros
+    .filter((n) => n.startsWith(`${ano}-C`))
+    .map((n) => Number(n.slice(`${ano}-C`.length)))
+    .filter((n) => Number.isFinite(n));
+  const maior = doAno.length ? Math.max(...doAno) : 0;
+  return `${ano}-C${String(maior + 1).padStart(4, "0")}`;
 }
 
 /**

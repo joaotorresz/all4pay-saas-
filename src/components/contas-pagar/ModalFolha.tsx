@@ -18,22 +18,47 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL } from "@/components/ui";
-import { dataBR, pct } from "@/lib/format";
+import { dataBR, pct, formatBRL } from "@/lib/format";
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
 import {
   calcularFerias, FERIAS_PADRAO, diasPorFaltas, maximoAbono,
   calcularRescisao, ROTULO_MODALIDADE, EXPLICACAO_MODALIDADE,
+  titulosDaRescisao, titulosDasFerias, titulosSubstituidosNaRescisao,
+  primeiraParcelaSubstituida, salariosDoPeriodoDeFerias,
   type Colaborador, type EntradaFerias, type EntradaRescisao, type Modalidade,
-  type LinhaMemoria, type TabelasLegais,
+  type LinhaMemoria, type TabelasLegais, type TituloFolha, type LancamentoDaFolha,
 } from "@/core/folha";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
-export interface TituloGerado {
-  descricao: string;
-  valor: number;
-  vencimento: string;
-  categoria: string;
+/**
+ * O título que sai de um modal — o MESMO tipo que o motor produz. Era uma
+ * interface própria, sem competência: a tela montava o título à mão e a data do
+ * DRE caía no vencimento.
+ */
+export type TituloGerado = TituloFolha;
+
+/** Os títulos, lado a lado: o que entra e o que sai do contas a pagar. */
+function ListaTitulos({
+  titulo, itens, vazio,
+}: { titulo: string; itens: { descricao: string; vencimento: string; valor: number }[]; vazio?: string }) {
+  if (itens.length === 0 && !vazio) return null;
+  return (
+    <div className="rounded-card border border-border-soft p-4 flex flex-col gap-2">
+      <span className="text-label text-ink">{titulo}</span>
+      {itens.length === 0 ? (
+        <span className="text-caption text-muted">{vazio}</span>
+      ) : itens.map((t, k) => (
+        <div key={k} className="flex items-center justify-between gap-3 text-caption">
+          <span className="min-w-0">
+            <span className="block text-ink truncate">{t.descricao}</span>
+            <span className="block text-faint">vence {dataBR(t.vencimento)}</span>
+          </span>
+          <span className="a4p-num text-ink shrink-0"><BRL value={t.valor} /></span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /* ========================================================================== */
@@ -143,14 +168,16 @@ function Vencimento({ data, regra }: { data: string; regra: string }) {
 /* ========================================================================== */
 
 export function ModalFerias({
-  colaborador, regime, anexo, tabelas, onFechar, onConfirmar,
+  colaborador, regime, anexo, tabelas, lancamentos = [], onFechar, onConfirmar,
 }: {
   colaborador: Colaborador;
   regime: Regime;
   anexo: Anexo | null;
   onFechar: () => void;
   tabelas?: TabelasLegais;
-  onConfirmar: (titulos: TituloGerado[]) => void | Promise<void>;
+  /** Os lançamentos do caixa — para achar a 1ª parcela do 13º que o adiantamento substitui. */
+  lancamentos?: readonly LancamentoDaFolha[];
+  onConfirmar: (titulos: TituloGerado[], retirar: LancamentoDaFolha[]) => void | Promise<void>;
 }) {
   const [e, setE] = React.useState<EntradaFerias>({ ...FERIAS_PADRAO, inicio: hoje() });
   const set = <K extends keyof EntradaFerias>(k: K, v: EntradaFerias[K]) => setE((s) => ({ ...s, [k]: v }));
@@ -161,6 +188,23 @@ export function ModalFerias({
   );
   const direito = diasPorFaltas(e.faltas);
   const ok = calc.problemas.length === 0 && calc.liquido > 0;
+  const titulos = React.useMemo(
+    () => titulosDasFerias(colaborador, e.inicio, e.diasGozados, calc),
+    [colaborador, e.inicio, e.diasGozados, calc],
+  );
+  /*
+   * ⚠️ O ADIANTAMENTO DO 13º É A MESMA 1ª PARCELA. Ela já está agendada para
+   * 30/11 desde o cadastro; pagá-la junto com as férias sem retirar a de
+   * novembro fazia o caixa pagar a mesma metade do 13º duas vezes.
+   */
+  const retirar = React.useMemo(
+    () => (e.adiantar13 && calc.vencimento ? primeiraParcelaSubstituida(lancamentos, colaborador.nome, calc.vencimento) : []),
+    [e.adiantar13, calc.vencimento, lancamentos, colaborador.nome],
+  );
+  const salarios = React.useMemo(
+    () => salariosDoPeriodoDeFerias(lancamentos, colaborador.nome, e.inicio, calc.retorno),
+    [lancamentos, colaborador.nome, e.inicio, calc.retorno],
+  );
 
   return (
     <Moldura
@@ -171,13 +215,8 @@ export function ModalFerias({
         <>
           <Button variant="ghost" onClick={onFechar}>Cancelar</Button>
           <Button
-            variant="primary" disabled={!ok}
-            onClick={() => onConfirmar([{
-              descricao: `Férias · ${colaborador.nome} · ${e.diasGozados} dias`,
-              valor: calc.liquido,
-              vencimento: calc.vencimento,
-              categoria: "Folha de pagamento",
-            }])}
+            variant="primary" disabled={!ok || titulos.length === 0}
+            onClick={() => onConfirmar(titulos, retirar)}
           >
             <Icon name="check" size={15} color="currentColor" />
             Agendar <BRL value={calc.liquido} />
@@ -223,6 +262,20 @@ export function ModalFerias({
             Retorna ao trabalho em <b className="text-ink">{dataBR(calc.retorno)}</b>.
             Custo para a empresa: <b className="text-ink"><BRL value={calc.custoTotal} /></b>.
           </p>
+          {e.adiantar13 && (
+            <ListaTitulos
+              titulo="Sai de Títulos a pagar — o adiantamento vai junto com as férias"
+              itens={retirar.map((m) => ({ descricao: m.descricao ?? "", vencimento: m.due_date, valor: m.amount }))}
+              vazio="Nenhuma 1ª parcela do 13º prevista neste ano. Se ela já foi paga, não adiante de novo — seria a mesma metade do 13º paga duas vezes."
+            />
+          )}
+          {salarios.length > 0 && (
+            <Alertas lista={[
+              `As férias pagam ADIANTADO os dias de descanso. ${salarios.length === 1 ? "O salário" : "Os salários"} `
+              + `${salarios.map((m) => m.descricao?.split(" · ")[0]).join(" e ")} já agendado${salarios.length === 1 ? "" : "s"} `
+              + "cobrem o mês inteiro: ajuste-os em Títulos a pagar para os dias efetivamente trabalhados.",
+            ]} />
+          )}
         </>
       )}
     </Moldura>
@@ -238,14 +291,16 @@ const MODALIDADES: Modalidade[] = [
 ];
 
 export function ModalRescisao({
-  colaborador, regime, anexo, tabelas, onFechar, onConfirmar,
+  colaborador, regime, anexo, tabelas, lancamentos = [], onFechar, onConfirmar,
 }: {
   colaborador: Colaborador;
   regime: Regime;
   anexo: Anexo | null;
   onFechar: () => void;
   tabelas?: TabelasLegais;
-  onConfirmar: (titulos: TituloGerado[], desligadoEm: string) => void | Promise<void>;
+  /** Os lançamentos do caixa — para achar os títulos que a rescisão substitui. */
+  lancamentos?: readonly LancamentoDaFolha[];
+  onConfirmar: (titulos: TituloGerado[], desligadoEm: string, retirar: LancamentoDaFolha[]) => void | Promise<void>;
 }) {
   const [e, setE] = React.useState<EntradaRescisao>({
     modalidade: "sem_justa_causa",
@@ -263,6 +318,23 @@ export function ModalRescisao({
     [colaborador, e, regime, anexo, tabelas],
   );
   const ok = calc.problemas.length === 0 && calc.liquido > 0;
+  const titulos = React.useMemo(
+    () => titulosDaRescisao(colaborador, e, calc, ROTULO_MODALIDADE[e.modalidade]),
+    [colaborador, e, calc],
+  );
+  /*
+   * ⚠️ A RESCISÃO SUBSTITUI O QUE O CADASTRO AGENDOU. O cadastro criou até doze
+   * competências de salário, FGTS e DARF, mais o 13º. Encerrar a vigência do
+   * colaborador (`ate`) só mudava o PAINEL — os títulos seguiam no contas a
+   * pagar, e o caixa carregava meses de salário de quem já saiu, além do 13º
+   * pago duas vezes (na rescisão e em novembro).
+   */
+  const retirar = React.useMemo(
+    () => (e.desligamento ? titulosSubstituidosNaRescisao(lancamentos, colaborador.nome, e.desligamento) : []),
+    [lancamentos, colaborador.nome, e.desligamento],
+  );
+  const totalAgendar = titulos.reduce((s, t) => s + t.valor, 0);
+  const totalRetirar = retirar.reduce((s, m) => s + m.amount, 0);
 
   return (
     <Moldura
@@ -273,32 +345,11 @@ export function ModalRescisao({
         <>
           <Button variant="ghost" onClick={onFechar}>Cancelar</Button>
           <Button
-            variant="primary" disabled={!ok}
-            onClick={() => {
-              const titulos: TituloGerado[] = [{
-                descricao: `Rescisão · ${colaborador.nome} · ${ROTULO_MODALIDADE[e.modalidade]}`,
-                valor: calc.liquido,
-                vencimento: calc.vencimento,
-                categoria: "Folha de pagamento",
-              }];
-              // ⚠️ A MULTA É UM TÍTULO SEPARADO. Ela não vai para o empregado —
-              // é depositada na conta vinculada do FGTS — e somá-la ao líquido
-              // faria o sistema pagar ao funcionário dinheiro que é do fundo.
-              if (calc.multaFGTS > 0) {
-                titulos.push({
-                  // ⚠️ O percentual sai por `pct`, como todo percentual do produto
-                  // (regra da ONDA 11: um formato por grandeza).
-                  descricao: `Multa do FGTS · ${colaborador.nome} · ${pct(calc.regra.multaFGTS)}`,
-                  valor: calc.multaFGTS,
-                  vencimento: calc.vencimento,
-                  categoria: "Encargos sobre a folha",
-                });
-              }
-              onConfirmar(titulos, e.desligamento);
-            }}
+            variant="primary" disabled={!ok || titulos.length === 0}
+            onClick={() => onConfirmar(titulos, e.desligamento, retirar)}
           >
             <Icon name="check" size={15} color="currentColor" />
-            Agendar <BRL value={calc.liquido + calc.multaFGTS} />
+            Agendar <BRL value={totalAgendar} />
           </Button>
         </>
       }
@@ -348,9 +399,17 @@ export function ModalRescisao({
             Custo total da rescisão: <b className="text-ink"><BRL value={calc.custoTotal} /></b>
             {calc.multaFGTS > 0 && (
               <> — dos quais <b className="text-ink"><BRL value={calc.multaFGTS} /></b> vão para a conta
-                vinculada do FGTS, não para o funcionário.</>
+                vinculada do FGTS ({pct(calc.regra.multaFGTS)} do saldo), não para o funcionário.</>
             )}
           </p>
+          <ListaTitulos titulo="Entra em Títulos a pagar" itens={titulos} />
+          <ListaTitulos
+            titulo={retirar.length > 0
+              ? `Sai de Títulos a pagar — ${retirar.length} ${retirar.length === 1 ? "título" : "títulos"} que a rescisão substitui (${formatBRL(totalRetirar)})`
+              : "Sai de Títulos a pagar"}
+            itens={retirar.map((m) => ({ descricao: m.descricao ?? "", vencimento: m.due_date, valor: m.amount }))}
+            vazio="Nenhum salário, encargo ou 13º previsto deste colaborador a partir do mês do desligamento."
+          />
         </>
       )}
     </Moldura>
