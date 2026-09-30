@@ -7,6 +7,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { calcularBurnRate } from "@/core/risk-engine/burn.engine";
 import { calcularRunway } from "@/core/risk-engine/liquidez.engine";
+import { ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
 import { motorPreditivo } from "@/core/executive/forecast";
 import { analisarInadimplencia } from "@/core/risk";
 import type {
@@ -85,6 +86,9 @@ function agregar(movs: RiskMovement[]): Agg {
   const despesaPorLinha = { impostos: 0, cmv: 0, folha: 0, financeiro: 0, opex: 0 } as Record<LinhaDespesa, number>;
   let receita = 0;
   for (const m of movs) {
+    // Transferência entre contas próprias não é receita nem despesa (mesma
+    // regra de `core/relatorios`, que é a referência).
+    if (ehTransferenciaEntreContas(m.category)) continue;
     if (m.type === "entrada") {
       const linha = classificarReceita(m.category);
       receitaPorLinha[linha] += m.amount;
@@ -323,6 +327,7 @@ function porMes(input: RiskInput, regime: Regime): Map<string, Agg> {
   for (const mv of input.movements) {
     if (mv.status === "cancelado") continue;
     if (regime === "caixa" && mv.status !== "pago") continue;
+    if (ehTransferenciaEntreContas(mv.category)) continue;
     const ym = refDate(mv, regime).slice(0, 7);
     const cur = m.get(ym) ?? { receita: 0, receitaPorLinha: { vendas: 0, servicos: 0, juros: 0, outras: 0 }, despesaPorLinha: { impostos: 0, cmv: 0, folha: 0, financeiro: 0, opex: 0 } };
     if (mv.type === "entrada") {

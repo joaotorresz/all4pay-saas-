@@ -248,6 +248,8 @@ export interface TransferenciaInput {
   from_account_id: string;
   to_account_id: string;
   date: string;
+  /** Quando o dinheiro CHEGA, se diferente do dia em que saiu (TED D+1). */
+  arrival_date?: string | null;
   amount: number;
   description: string | null;
 }

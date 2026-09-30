@@ -129,6 +129,12 @@ export interface Transferencia {
   conciliadaOrigem: boolean;
   conciliadaDestino: boolean;
   criadoEm: string;
+  /**
+   * O `group_id` dos dois lançamentos no banco (produção). É por ele que a
+   * exclusão alcança os DOIS lados; sem ele, apagar a transferência apagaria
+   * só o registro e deixaria o dinheiro andando entre as contas.
+   */
+  grupoId?: string | null;
 }
 
 export function validarTransferencia(t: Partial<Transferencia>): Record<string, string> {

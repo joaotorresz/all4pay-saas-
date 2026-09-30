@@ -19,7 +19,7 @@ const confTone = (c: number) => (c >= 0.9 ? "positive" : c >= 0.7 ? "warning" : 
 const confLabel = (c: number) => (c >= 0.9 ? "alta" : c >= 0.7 ? "média" : "baixa");
 
 export function RevisaoImportacao({
-  report, onCorrigir, onConfirmar, aplicando, resultado, onAuto, autoBusy, catMsg,
+  report, onCorrigir, onConfirmar, aplicando, resultado, onAuto, autoBusy, catMsg, aGravar,
 }: {
   report: FDIPReport;
   onCorrigir: (r: FinancialRecord, categoria: string) => void;
@@ -30,6 +30,13 @@ export function RevisaoImportacao({
   onAuto?: () => void;
   autoBusy?: boolean;
   catMsg?: string | null;
+  /**
+   * Quantas linhas REALMENTE entram (a pré-visualização já descontou as que
+   * existem). ⚠️ O botão daqui dizia "Confirmar importação (413)" ao reimportar
+   * o mesmo extrato, em que nada entra — duas portas para o mesmo ato, com
+   * números diferentes. Agora os dois botões contam a mesma coisa.
+   */
+  aGravar?: number;
 }) {
   const [verTodas, setVerTodas] = React.useState(false);
   const clsPorRec = React.useMemo(() => {
@@ -231,8 +238,8 @@ export function RevisaoImportacao({
 
       {/* Confirmar */}
       <div className="flex items-center gap-3 flex-wrap">
-        <Button variant="primary" onClick={onConfirmar} disabled={aplicando} leftIcon={<Icon name="check" size={15} />}>
-          {aplicando ? "Confirmando…" : `Confirmar importação (${report.records.length})`}
+        <Button variant="primary" onClick={onConfirmar} disabled={aplicando || aGravar === 0} leftIcon={<Icon name="check" size={15} />}>
+          {aplicando ? "Confirmando…" : `Confirmar importação (${(aGravar ?? report.records.length).toLocaleString("pt-BR")})`}
         </Button>
         <span className="text-caption text-faint">Cadastra contatos + categorias e cria os lançamentos. Em live, entram na fila de confirmação por movimento.</span>
       </div>

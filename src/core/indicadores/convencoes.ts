@@ -174,3 +174,31 @@ export function saldoAbertura(input: RiskInput, deISO: string): number {
   const dd = String(d.getDate()).padStart(2, "0");
   return saldoEm(input, `${y}-${mm}-${dd}`);
 }
+
+/* ------------------------------------------------------------------------ */
+/* 5. TRANSFERÊNCIA ENTRE CONTAS PRÓPRIAS                                     */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * A categoria que os escritores de transferência gravam nos DOIS lados.
+ *
+ * ⚠️ **Transferência entre contas próprias não é receita nem despesa**: o
+ * dinheiro trocou de bolso. Sem uma categoria que a identifique, a perna de
+ * ENTRADA caía em "Receita Bruta" pelo palpite (é entrada, não é financeira) e
+ * a de SAÍDA em "Despesas Operacionais" — o resultado fechava, porque as duas
+ * se anulam, e mesmo assim o faturamento e o custo da empresa subiam pelo
+ * valor transferido. Achado dirigindo a tela como usuário (30/09/2026): uma
+ * transferência de R$ 500 aparecia como receita de R$ 500 no DRE.
+ */
+export const CATEGORIA_TRANSFERENCIA = "Transferência entre contas";
+
+/**
+ * Esta categoria É a de transferência entre contas próprias?
+ *
+ * ⚠️ Estreita de propósito — casa só o NOME da categoria ("Transferência",
+ * "Transferência entre contas", "Movimentação interna"), nunca uma palavra
+ * solta dentro de outro nome. "Boleto de transferência bancária" de um
+ * fornecedor é despesa; tirá-lo do DRE esconderia custo real.
+ */
+export const ehTransferenciaEntreContas = (categoria: string | null | undefined): boolean =>
+  /^\s*(transfer[êe]ncia(s)?( entre contas( pr[óo]prias)?)?|movimenta[çc][ãa]o interna)\s*$/i.test(categoria ?? "");

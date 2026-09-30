@@ -25,7 +25,7 @@ import { lerDocumento } from "@/lib/ocr-ingest";
 import { autoCategorizar, iaCategorizadorAtivo } from "@/lib/puzzlebot";
 import { RevisaoImportacao } from "./RevisaoImportacao";
 import { PrevisaoImportacao } from "./PrevisaoImportacao";
-import { prepararIngestao, type LinhaBruta, type LinhaExistente } from "@/core/ingestao";
+import { prepararIngestao, linhasAGravar, type LinhaBruta, type LinhaExistente } from "@/core/ingestao";
 import { importedMovements } from "@/lib/imported";
 
 const isText = (f: File) => /\.(csv|ofx|txt)$/i.test(f.name) || /text\//.test(f.type);
@@ -377,6 +377,7 @@ export function UploadView() {
       {report && (
         <RevisaoImportacao
           report={report} onCorrigir={corrigir} onConfirmar={confirmar} aplicando={aplicando} resultado={resultado}
+          aGravar={plano ? linhasAGravar(plano).length : undefined}
           onAuto={iaCat ? autoCat : undefined} autoBusy={catBusy || cnaeBusy}
           catMsg={[regraMsg, cnaeBusy ? "Consultando a atividade (CNAE) dos CNPJs…" : cnaeMsg, catMsg].filter(Boolean).join(" ") || null}
         />

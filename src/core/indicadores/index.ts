@@ -24,7 +24,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import {
   assinado, magnitude, liquidado, previsto, cancelado, dataDe, saldoEm, saldoAbertura,
-  semZeroNegativo, type Regime,
+  semZeroNegativo, ehTransferenciaEntreContas, type Regime,
 } from "./convencoes";
 import {
   type Janela, janela, janelaHoje, janelaDoMesDe, janelaUltimosDias, diasDe, dentro,
@@ -1114,7 +1114,12 @@ export interface CoberturaCompetencia {
 export function coberturaCompetencia(input: RiskInput, j: Janela): CoberturaCompetencia {
   const rows = j.vazia
     ? []
-    : input.movements.filter((m) => !cancelado(m) && dentro(j, dataDe(m, "competencia")));
+    // ⚠️ Transferência entre contas próprias não entra no DRE, então não pode
+    // entrar na contagem de "lançamentos do resultado sem competência": o
+    // aviso diria que o resultado mistura datas por causa de algo que nem
+    // está nele.
+    : input.movements.filter((m) => !cancelado(m) && !ehTransferenciaEntreContas(m.category)
+        && dentro(j, dataDe(m, "competencia")));
   const com = rows.filter((m) => !!m.competence_date).length;
   return {
     total: rows.length,

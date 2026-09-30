@@ -6582,5 +6582,84 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("venda: teto ZERO — nenhuma tela lê ou grava venda pelo navegador", voltaram.length === 0, voltaram.join(", "));
 }
 
+/* ── TRANSFERÊNCIA ENTRE CONTAS NÃO É RECEITA NEM DESPESA (30/09/2026) ───────
+ *
+ * ⚠️ Achado dirigindo a tela como usuário: uma transferência de R$ 500 entre
+ * duas contas próprias aparecia como R$ 500 de Receita Bruta no DRE. A perna
+ * de ENTRADA caía no palpite (é entrada, não é financeira) e a de SAÍDA em
+ * Despesa Operacional — o resultado fechava, e o faturamento e o custo subiam
+ * pelo valor que só trocou de conta.
+ *
+ * E a tela oficial de Transferências, em produção, só gravava no navegador:
+ * os dois lançamentos nasciam dentro de `if (isDemo)`.
+ */
+{
+  const conv = await import("@/core/indicadores/convencoes");
+  const fsT = await import("node:fs");
+  let k = 0;
+  const tm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `tr${k++}`, type: "entrada", amount: 10_000, due_date: "2026-03-10", paid_date: "2026-03-10",
+       status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const base = [tm({}), tm({ type: "saida", amount: 2_000, category: "Aluguel" })];
+  const par = [
+    tm({ type: "saida", amount: 500, category: conv.CATEGORIA_TRANSFERENCIA }),
+    tm({ type: "entrada", amount: 500, category: conv.CATEGORIA_TRANSFERENCIA }),
+  ];
+  const rodarT = (movs: RiskMovement[], decl?: Record<string, string>) => montarRelatorio(
+    { hoje: "2026-08-31", saldoAtual: 0, partyNames: {}, movements: movs } as RiskInput, ESTRUTURA_DRE,
+    { intervalo: { de: "2026-03-01", ate: "2026-03-31" }, tipo: "dre", regime: "competencia", linhaPorCategoria: decl });
+  const v = (r: ReturnType<typeof rodarT>, id: string) =>
+    Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? NaN) * 100) / 100;
+  const sem = rodarT(base), com = rodarT([...base, ...par]);
+  ok("transferencia: sem declaração, a categoria canônica NÃO vira Receita Bruta",
+     v(com, "receita_bruta") === v(sem, "receita_bruta") && v(sem, "receita_bruta") === 10_000,
+     `${v(com, "receita_bruta")} × ${v(sem, "receita_bruta")}`);
+  ok("transferencia: nem Despesa Operacional",
+     v(com, "despesas_operacionais") === v(sem, "despesas_operacionais"),
+     `${v(com, "despesas_operacionais")} × ${v(sem, "despesas_operacionais")}`);
+  ok("transferencia: os DOIS lados saem marcados como transferência (não somem calados)",
+     par.every((m) => com.foraDoDre[m.id] === "transferencia"));
+  // O controle: sem a regra, o caminho recebia valor — é isso que a asserção de cima exclui.
+  const outroNome = par.map((m) => ({ ...m, category: "Movimento qualquer" }));
+  ok("transferencia: controle — com outra categoria a entrada CAIRIA na receita (o caminho recebe valor)",
+     v(rodarT([...base, ...outroNome]), "receita_bruta") === 10_500);
+  const declOutra = rodarT([...base, ...par], { [conv.CATEGORIA_TRANSFERENCIA.toLowerCase()]: "receita_bruta" });
+  ok("transferencia: declaração explícita para outra linha continua vencendo",
+     par.every((m) => declOutra.foraDoDre[m.id] === undefined) && v(declOutra, "receita_bruta") > 10_000);
+  // As outras duas cascatas concordam com a referência.
+  const g0 = dreGerencial(base, "competencia"), g1 = dreGerencial([...base, ...par], "competencia");
+  ok("transferencia: dreGerencial concorda (receita e lucro não se movem)",
+     g0.receitaBruta === g1.receitaBruta && g0.lucroLiquido === g1.lucroLiquido, `${g0.receitaBruta} × ${g1.receitaBruta}`);
+  ok("transferencia: o predicado é estreito — 'Boleto de transferência bancária' é despesa, não transferência",
+     !conv.ehTransferenciaEntreContas("Boleto de transferência bancária")
+     && conv.ehTransferenciaEntreContas("Transferência") && conv.ehTransferenciaEntreContas("transferência entre contas"));
+
+  // ⚠️ Teto ZERO no ESCRITOR: a transferência de produção grava os DOIS lados
+  // no banco, com a categoria canônica, e só guarda o registro DEPOIS.
+  const cad = fsT.readFileSync("src/lib/cadastros.ts", "utf8");
+  const corpoCad = cad.slice(cad.indexOf("export async function createTransferencia"), cad.indexOf("export async function createSaleDoc"));
+  ok("transferencia: o escritor único grava a categoria canônica (era `null`)",
+     /category: CATEGORIA_TRANSFERENCIA/.test(corpoCad) && !/category: null/.test(corpoCad));
+  const mov = fsT.readFileSync("src/lib/movimentacoes.ts", "utf8");
+  const corpoMov = mov.slice(mov.indexOf("export async function criarTransferencia"), mov.indexOf("export async function removerTransferencia"));
+  const iBanco = corpoMov.indexOf("createTransferencia("), iFato = corpoMov.indexOf("gravar(K_TRANSF");
+  ok("transferencia: em produção a tela grava no BANCO, e o registro só depois (era só no navegador)",
+     iBanco > 0 && iFato > iBanco && /\} else \{/.test(corpoMov.slice(0, iBanco)));
+  const hk = fsT.readFileSync("src/components/lancamentos/hooks.ts", "utf8");
+  ok("transferencia: o modal e a tela passam pelo MESMO escritor",
+     /criarTransferencia\(/.test(hk.slice(hk.indexOf("export function useCreateTransferencia"))));
+
+  // ⚠️ A importação: a transferência do extrato ENTRA (com a categoria de
+  // transferência) e a demonstração MESCLA em vez de substituir.
+  const fd = fsT.readFileSync("src/lib/fdip.ts", "utf8");
+  ok("importacao: a transferência do extrato não é mais descartada (o saldo tem de bater com o banco)",
+     !/\.filter\(\(r\) => cls\.get\(r\.id\)\?\.destino !== "Transferência"\)/.test(fd)
+     && /CATEGORIA_TRANSFERENCIA/.test(fd));
+  const demoImp = fd.slice(fd.indexOf("export async function aplicarOnboarding"));
+  const ramoDemo = demoImp.slice(demoImp.indexOf("if (isDemo)"), demoImp.indexOf("const supabase"));
+  ok("importacao: a demonstração MESCLA (importar o 2º extrato apagava o 1º e tudo o que a pessoa criou)",
+     /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

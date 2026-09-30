@@ -55,6 +55,70 @@ export function setImported(ds: ImportedDataset): void {
 }
 
 /**
+ * Aplica um extrato importado ao dataset da demonstração SEM apagar o que já
+ * estava lá.
+ *
+ * ⚠️ **A versão anterior SUBSTITUÍA o dataset inteiro** (`setImported`). Achado
+ * dirigindo a tela como usuário (30/09/2026): importar o extrato de outubro
+ * apagava o de setembro, e toda conta a pagar, venda ou transferência criada
+ * antes sumia junto — a tela dizia "importação confirmada" e metade da empresa
+ * desaparecia. Em produção isto nunca aconteceu (lá cada linha é um insert com
+ * chave); era a demonstração que ensinava o comportamento errado.
+ *
+ * A regra agora:
+ *  - o **seed** da demonstração sai na primeira importação (ele é exemplo, e o
+ *    extrato da pessoa ocupa o lugar dele) — mas o que a PESSOA criou fica;
+ *  - reimportar o mesmo arquivo não grava nada: a chave de idempotência é a
+ *    MESMA da produção (`chaveDeMovimento`);
+ *  - a conta importada soma o que ANDOU com as linhas novas; quando o banco
+ *    DECLARA o saldo, é ele que vale.
+ * Devolve quantas linhas entraram e quantas já existiam.
+ */
+export function mesclarImportacao(ds: Omit<ImportedDataset, "criadoEm">): { novos: number; repetidos: number } {
+  const atual = load();
+  const seedMov = new Set(DEMO_MOVEMENTS.map((m) => m.id));
+  const mantidos = (atual?.movements ?? []).filter((m) => !seedMov.has(m.id));
+  const chaves = new Set(mantidos.map((m) => m.chave ?? chaveDeMovimento(m)));
+  const novos: Movement[] = [];
+  for (const m of ds.movements) {
+    const k = m.chave ?? chaveDeMovimento(m);
+    if (chaves.has(k)) continue;
+    chaves.add(k);
+    novos.push(m);
+  }
+  const movements = [...mantidos, ...novos];
+
+  // Contas: fica toda conta que algum lançamento mantido usa, mais as novas.
+  const usadas = new Set(movements.map((m) => m.account_id).filter(Boolean) as string[]);
+  const contas = new Map<string, FinancialAccount>();
+  for (const a of atual?.accounts ?? []) if (usadas.has(a.id)) contas.set(a.id, a);
+  const andou = novos
+    .filter((m) => m.status === "pago")
+    .reduce((acc, m) => acc + (m.type === "entrada" ? m.amount : -m.amount), 0);
+  for (const a of ds.accounts) {
+    const antes = contas.get(a.id);
+    contas.set(a.id, antes && !ds.abertura
+      ? { ...antes, balance: Math.round((antes.balance + andou) * 100) / 100 }
+      : a);
+  }
+
+  // Contatos: mesma regra — os referenciados ficam, os novos entram por id.
+  const partesUsadas = new Set(movements.map((m) => m.party_id).filter(Boolean) as string[]);
+  const partes = new Map<string, Party>();
+  for (const p of atual?.parties ?? []) if (partesUsadas.has(p.id) || !DEMO_PARTIES.some((d) => d.id === p.id)) partes.set(p.id, p);
+  for (const p of ds.parties) if (!partes.has(p.id)) partes.set(p.id, p);
+
+  setImported({
+    movements,
+    accounts: Array.from(contas.values()),
+    parties: Array.from(partes.values()),
+    abertura: ds.abertura ?? atual?.abertura ?? null,
+    criadoEm: atual?.criadoEm ?? new Date().toISOString(),
+  });
+  return { novos: novos.length, repetidos: ds.movements.length - novos.length };
+}
+
+/**
  * Apaga o dataset importado e devolve a função que o RESTAURA.
  *
  * ⚠️ Devolver o desfazer é o ponto. A versão anterior apagava e pronto: quem

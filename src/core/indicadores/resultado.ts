@@ -26,7 +26,7 @@
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import {
-  magnitude, liquidado, previsto, cancelado, dataDe, type Regime,
+  magnitude, liquidado, previsto, cancelado, dataDe, ehTransferenciaEntreContas, type Regime,
 } from "./convencoes";
 import { type Janela, dentro, janelaDoMesDe } from "./janela";
 import { ehReceitaOperacional } from "@/core/relatorios";
@@ -94,6 +94,9 @@ function base(input: RiskInput, j: Janela, regime: Regime): Base {
   let receita = 0;
   for (const m of input.movements) {
     if (cancelado(m) || !dentro(j, dataDe(m, regime))) continue;
+    // Transferência entre contas próprias não é receita nem despesa — a mesma
+    // saída que `core/relatorios` dá a ela (a cascata é a referência).
+    if (ehTransferenciaEntreContas(m.category)) continue;
     rows.push(m);
     if (m.type === "entrada") {
       // ⚠️ `receita` é a OPERACIONAL. A receita financeira (juros, rendimento

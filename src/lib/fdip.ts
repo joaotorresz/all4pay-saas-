@@ -10,7 +10,8 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/ingestao";
-import { setImported, clearImported } from "@/lib/imported";
+import { mesclarImportacao, clearImported } from "@/lib/imported";
+import { CATEGORIA_TRANSFERENCIA } from "@/core/indicadores/convencoes";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
@@ -70,8 +71,17 @@ export function montarDataset(report: FDIPReport): {
   const hoje = isoDay(new Date());
   const cls = new Map(report.classificacoes.map((c) => [c.recordId, c]));
 
+  /*
+   * ⚠️ **A transferência do extrato ENTRA — com a categoria de transferência.**
+   * Ela era descartada aqui (`destino !== "Transferência"`), e isso produzia
+   * dois defeitos calados: a pré-visualização prometia gravar N linhas e
+   * gravava N − (transferências), e o saldo da conta importada deixava de
+   * bater com o do banco — o dinheiro que foi para a aplicação continuava
+   * "na conta". Achado reimportando o mesmo extrato como usuário (30/09/2026):
+   * as 4 transferências reapareciam como "novas" a cada importação.
+   * Com `CATEGORIA_TRANSFERENCIA` ela move o caixa e fica fora do DRE.
+   */
   const movements: Movement[] = report.records
-    .filter((r) => cls.get(r.id)?.destino !== "Transferência")
     .map((r) => {
       const pago = r.data <= hoje;
       const tipo: Movement["type"] = r.tipo === "entrada" ? "entrada" : "saida";
@@ -84,7 +94,9 @@ export function montarDataset(report: FDIPReport): {
         account_id: ACC_ID,
         type: tipo,
         status: pago ? "pago" : "pendente",
-        category: cls.get(r.id)?.categoria ?? r.descricao,
+        category: cls.get(r.id)?.destino === "Transferência"
+          ? CATEGORIA_TRANSFERENCIA
+          : (cls.get(r.id)?.categoria ?? r.descricao),
         amount: r.valor,
         party_id: r.contraparteNorm,
         due_date: r.data,
@@ -145,9 +157,11 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
   const centros = report.plano.centrosCusto;
 
   if (isDemo) {
-    setImported({ ...dataset, criadoEm: new Date().toISOString() });
+    // ⚠️ MESCLA, não substitui — importar o segundo extrato apagava o primeiro
+    // (e tudo o que a pessoa tinha criado). Ver `mesclarImportacao`.
+    const { novos } = mesclarImportacao(dataset);
     await new Promise((r) => setTimeout(r, 500));
-    return { clientes, fornecedores, categorias: categorias.length, centrosCusto: centros.length, movimentos: dataset.movements.length, simulado: true };
+    return { clientes, fornecedores, categorias: categorias.length, centrosCusto: centros.length, movimentos: novos, simulado: true };
   }
 
   const supabase = createClient();

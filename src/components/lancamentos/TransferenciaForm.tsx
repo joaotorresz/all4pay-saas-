@@ -50,8 +50,9 @@ export function TransferenciaForm({
       });
       onToast("Transferência registrada");
       onClose();
-    } catch {
-      onToast("Erro ao salvar — tente novamente");
+    } catch (e) {
+      // A mensagem real do banco, não "tente novamente" — repetir reproduz a recusa.
+      onToast(e instanceof Error ? `Não foi possível salvar: ${e.message}` : "Não foi possível salvar a transferência.");
     }
   };
 

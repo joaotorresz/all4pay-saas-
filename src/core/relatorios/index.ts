@@ -18,7 +18,7 @@
  * Puro, tipado, demo-safe. Versão relatorios/1.0.0.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
-import { dataDe } from "@/core/indicadores/convencoes";
+import { dataDe, ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
 
 import { formatBRL } from "@/lib/format";
 export const RELATORIOS_VERSION = "relatorios/1.0.0";
@@ -145,7 +145,7 @@ const ehImpostoLucro = (m: RiskMovement) => /\birpj\b|\bcsll\b|imposto sobre o l
  * contratar.
  */
 export const ehReceitaOperacional = (m: RiskMovement) =>
-  entrada(m) && !ehFinanceiro(m) && !ehNaoOperacional(m);
+  entrada(m) && !ehTransferenciaEntreContas(m.category) && !ehFinanceiro(m) && !ehNaoOperacional(m);
 const ehNaoOperacional = (m: RiskMovement) => /n[ãa]o operacional|venda de ativo|imobilizado|indeniza|multa contratual/.test(cat(m));
 /**
  * ⚠️ **DEPRECIAÇÃO E AMORTIZAÇÃO — a linha que faltava, e que tornava o rótulo
@@ -550,7 +550,16 @@ export function montarRelatorio(
     // Sem esta saída, a única forma de tirá-los do resultado seria não
     // declará-los — e aí o palpite por palavra-chave os põe em despesa
     // operacional, inflando o custo com dinheiro que a empresa não gastou.
-    if (declarada === LINHA_TRANSFERENCIA) { foraDoDre[m.id] = "transferencia"; continue; }
+    //
+    // ⚠️ E ela sai também SEM declaração quando a categoria É a de
+    // transferência entre contas (a que os escritores de transferência
+    // gravam). Sem isto, a perna de entrada virava Receita Bruta pelo palpite
+    // e a de saída, Despesa Operacional: o resultado fechava, e o faturamento
+    // subia pelo valor que só mudou de conta. Uma declaração explícita para
+    // OUTRA linha continua vencendo.
+    if (declarada === LINHA_TRANSFERENCIA || (!declarada && ehTransferenciaEntreContas(m.category))) {
+      foraDoDre[m.id] = "transferencia"; continue;
+    }
     const linha = (declarada
       ? estrutura.find((l) => l.id === declarada && l.tipo === "soma")
       : undefined)

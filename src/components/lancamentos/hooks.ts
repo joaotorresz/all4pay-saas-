@@ -14,7 +14,6 @@ import {
   getSalespeople,
   getProducts,
   getServices,
-  createTransferencia,
   createSaleDoc,
   createContrato,
   createParty,
@@ -30,7 +29,7 @@ import {
   listParties,
   listSales,
 } from "@/lib/cadastros";
-import type { CategoryKind, PartyInput, ProductInput } from "@/lib/types";
+import type { CategoryKind, PartyInput, ProductInput, TransferenciaInput } from "@/lib/types";
 
 export function useCategories(kind: CategoryKind) {
   return useQuery({
@@ -89,10 +88,30 @@ export function useCreateLancamento() {
   });
 }
 
+/**
+ * ⚠️ O modal de transferência e a tela de Transferências tinham escritores
+ * DIFERENTES: o modal gravava só os lançamentos (e, em demonstração, nada —
+ * dizia "registrada" sem gravar coisa alguma); a tela gravava só o registro
+ * (e, em produção, nenhum lançamento). Agora os dois passam pelo mesmo
+ * `criarTransferencia`, que grava os dois lados E o registro.
+ */
 export function useCreateTransferencia() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: createTransferencia,
+    mutationFn: async (input: TransferenciaInput) => {
+      const { criarTransferencia, novoIdMov } = await import("@/lib/movimentacoes");
+      await criarTransferencia({
+        id: novoIdMov("tr"),
+        contaOrigem: input.from_account_id,
+        contaDestino: input.to_account_id,
+        data: input.date,
+        dataChegada: input.arrival_date ?? null,
+        valor: input.amount,
+        descricao: input.description ?? "",
+        conciliadaOrigem: false, conciliadaDestino: false,
+        criadoEm: new Date().toISOString().slice(0, 10),
+      });
+    },
     onSuccess: () => invalidateOverview(qc),
   });
 }
