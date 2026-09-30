@@ -18,7 +18,7 @@
  * o cache local e sincroniza em segundo plano.
  */
 import type { Turno } from "@/components/ia/chat-kit";
-import { ler as lerOrg, gravar as gravarOrg, CHAVES_ORG } from "@/lib/store-org";
+import { ler as lerOrg, gravar as gravarOrg, inscrever, CHAVES_ORG } from "@/lib/store-org";
 
 const KEY = CHAVES_ORG.iaConversas;
 const LIMITE = 60; // conversas guardadas; as mais antigas caem fora
@@ -44,6 +44,19 @@ let usuarioAtual = "local";
 export function definirUsuarioDasConversas(id: string | null | undefined): void {
   usuarioAtual = id && id.trim() ? id : "local";
 }
+/** Quem está conversando — a mesma chave serve à conversa da Central de Ajuda. */
+export const usuarioDasConversas = (): string => usuarioAtual;
+
+/**
+ * Avisa quando o histórico muda por FORA desta tela — a hidratação do servidor
+ * chega DEPOIS de a página montar.
+ *
+ * ⚠️ Sem isto, numa máquina nova a lista de conversas nascia vazia (a leitura
+ * acontecia antes de o servidor responder) e continuava vazia até a pessoa
+ * sair e voltar: o "acompanha você em outra máquina" só valia na segunda
+ * visita.
+ */
+export const inscreverConversas = (ouvinte: () => void): (() => void) => inscrever(KEY, ouvinte);
 
 type PorUsuario = Record<string, Conversa[]>;
 

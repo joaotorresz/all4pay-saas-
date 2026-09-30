@@ -1,7 +1,21 @@
 "use client";
 
 /**
- * Catálogo de tours + estado da Central de Ajuda (localStorage, demo-safe).
+ * Catálogo de tours + estado da Central de Ajuda.
+ *
+ * ⚠️ **Chamados e a conversa de ajuda passam pelo `store-org`.** Os dois estão
+ * classificados como dado de NEGÓCIO (`CHAVES_ORG.chamados` e
+ * `CHAVES_ORG.ajudaConversa`) — e este arquivo os gravava direto no
+ * `localStorage`, por fora do `store-org`. Em produção isso é pior que "fica só
+ * no navegador": a `SincronizacaoOrg` sobe a chave UMA vez (na primeira
+ * sessão) e depois HIDRATA do servidor a cada tela montada, e o servidor vence.
+ * O chamado aberto depois da primeira sessão nunca subia, e na próxima
+ * navegação a cópia velha do servidor o apagava do navegador. O mesmo com a
+ * conversa. Em demonstração nada muda: sem servidor, o `store-org` é o próprio
+ * `localStorage`.
+ *
+ * O resto (progresso de tour, disparo automático, anúncios lidos) é preferência
+ * do dispositivo e fica no `localStorage` de propósito (`PREFERENCIAS_LOCAIS`).
  *
  * ⚠️ O catálogo é DERIVADO de `components/app/guides` — a mesma fonte que o
  * botão "Guia" de cada tela já usa. Um catálogo próprio envelheceria em
@@ -14,10 +28,12 @@ import { melhorGuia, type CandidatoGuia } from "@/core/ajuda";
 import type {
   Tour, ProgressoTour, Chamado, MensagemChat, Anuncio,
 } from "@/core/ajuda";
+import { ler as lerOrg, gravar as gravarOrg, inscrever, CHAVES_ORG } from "@/lib/store-org";
+import { usuarioDasConversas } from "@/lib/ia-conversas";
 
 const K_PROGRESSO = "a4p_tours_progresso";
-const K_CHAMADOS = "a4p_chamados";
-const K_CONVERSA = "a4p_ajuda_conversa";
+const K_CHAMADOS = CHAVES_ORG.chamados;
+const K_CONVERSA = CHAVES_ORG.ajudaConversa;
 const K_ANUNCIOS = "a4p_anuncios_lidos";
 const K_AUTO = "a4p_tours_auto";
 const K_DISPARADOS = "a4p_tours_disparados";
@@ -133,35 +149,69 @@ export function marcarDisparado(id: string): string[] {
 
 /* -------------------------------- chamados -------------------------------- */
 
-export const listarChamados = (): Chamado[] => ler<Chamado[]>(K_CHAMADOS, []);
+/**
+ * Os chamados são da EMPRESA (qualquer membro vê os chamados abertos nela), e
+ * por isso moram numa lista só, no estado da organização.
+ */
+export const listarChamados = (): Chamado[] => {
+  const v = lerOrg<unknown>(K_CHAMADOS, []);
+  return Array.isArray(v) ? (v as Chamado[]) : [];
+};
 
 export function salvarChamado(c: Chamado): Chamado[] {
   const out = [c, ...listarChamados().filter((x) => x.id !== c.id)];
-  gravar(K_CHAMADOS, out);
+  gravarOrg(K_CHAMADOS, out);
   return out;
 }
 
 export function removerChamado(id: string): Chamado[] {
   const out = listarChamados().filter((c) => c.id !== id);
-  gravar(K_CHAMADOS, out);
+  gravarOrg(K_CHAMADOS, out);
   return out;
+}
+
+/**
+ * Avisa quando chamados ou conversa mudam por FORA da tela — a hidratação do
+ * servidor chega depois de a Central montar, e sem isto a lista mostraria o
+ * cache velho até a próxima visita.
+ */
+export function inscreverAjuda(ouvinte: () => void): () => void {
+  const a = inscrever(K_CHAMADOS, ouvinte);
+  const b = inscrever(K_CONVERSA, ouvinte);
+  return () => { a(); b(); };
 }
 
 /* --------------------------------- chat --------------------------------- */
 
-export const lerConversa = (): MensagemChat[] => ler<MensagemChat[]>(K_CONVERSA, []);
+/**
+ * A conversa de ajuda é da PESSOA — um mapa `usuário → mensagens` dentro do
+ * estado da empresa, como o histórico da Quattro AI. Numa lista só, o "Nova
+ * conversa" de um colega apagaria a sua.
+ *
+ * ⚠️ O formato antigo (um array solto, do tempo em que ela morava só no
+ * navegador) é lido como a conversa de quem está neste navegador — senão a
+ * conversa em andamento sumiria na atualização.
+ */
+type ConversaPorUsuario = Record<string, MensagemChat[]>;
+function mapaDaConversa(): ConversaPorUsuario {
+  const v = lerOrg<unknown>(K_CONVERSA, {});
+  if (Array.isArray(v)) return { [usuarioDasConversas()]: v as MensagemChat[] };
+  return v && typeof v === "object" ? (v as ConversaPorUsuario) : {};
+}
+
+export const lerConversa = (): MensagemChat[] => {
+  const arr = mapaDaConversa()[usuarioDasConversas()];
+  return Array.isArray(arr) ? arr : [];
+};
 
 export function salvarConversa(m: MensagemChat[]): MensagemChat[] {
   // Teto de 60 turnos: a conversa de ajuda é episódica, não um histórico.
   const out = m.slice(-60);
-  gravar(K_CONVERSA, out);
+  gravarOrg(K_CONVERSA, { ...mapaDaConversa(), [usuarioDasConversas()]: out });
   return out;
 }
 
-export const limparConversa = (): MensagemChat[] => {
-  gravar(K_CONVERSA, []);
-  return [];
-};
+export const limparConversa = (): MensagemChat[] => salvarConversa([]);
 
 /* -------------------------------- anúncios -------------------------------- */
 
@@ -196,7 +246,7 @@ const CATALOGO_ANUNCIOS: Omit<Anuncio, "lido">[] = [
   {
     id: "an-segredos",
     titulo: "O chat avisa antes de você enviar um segredo",
-    corpo: "Senha, chave de API, token, cartão, CPF/CNPJ e linha digitável são detectados na sua mensagem antes do envio e removidos do texto que chega ao suporte. A dúvida chega; o segredo não.",
+    corpo: "Senha, chave de API, token, cartão, CPF/CNPJ e linha digitável são detectados na sua mensagem e removidos antes de ela ser gravada — inclusive o CPF digitado sem pontuação e o cartão colado junto com a validade. A dúvida fica registrada; o segredo não.",
     publicadoEm: "2026-08-02",
     categoria: "Segurança",
   },
