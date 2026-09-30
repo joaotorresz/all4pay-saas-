@@ -91,9 +91,11 @@ function cabecalhoLinhas(e: Exportacao): CelulaXLSX[][] {
     ["Gerado em", carimboPT(c.geradoEm)],
     ["Títulos previstos", c.visao === "com-previsto" ? "Incluídos" : "Excluídos (só confirmados)"],
     ["Cancelados", c.incluiCancelados ? "Listados (não somam)" : "Não listados"],
-    ["Lançamentos", e.resumo.movimentos],
-    ["No DRE", e.resumo.movimentosNoDre],
-    ["Fora do DRE", e.resumo.movimentosForaDoDre],
+    // ⚠️ CONTAGEM vai como texto inteiro: como número, o CSV a formatava com
+    // duas casas ("Lançamentos: 58,00") — o contador lê quantidade como valor.
+    ["Lançamentos", String(e.resumo.movimentos)],
+    ["No DRE", String(e.resumo.movimentosNoDre)],
+    ["Fora do DRE", String(e.resumo.movimentosForaDoDre)],
     ["Resultado líquido", e.resumo.resultado],
     [],
   );
@@ -109,7 +111,8 @@ export function planilhasDaExportacao(e: Exportacao): PlanilhaXLSX[] {
 
   const dre: CelulaXLSX[][] = [
     ...cabecalhoLinhas(e),
-    ["Linha", "Sinal", "Valor", "AV %"],
+    // A base da AV vai no cabeçalho: sem ela, "127,19%" na Receita Bruta lê como erro.
+    ["Linha", "Sinal", "Valor", "AV % (sobre a Receita Líquida)"],
     // ⚠️ A INDENTAÇÃO É O QUE TORNA A CASCATA LEGÍVEL fora da tela. Sem ela,
     // "Receita Líquida" e "Vendas" viram duas linhas do mesmo peso, e quem lê
     // não distingue o subtotal do item que o compõe.

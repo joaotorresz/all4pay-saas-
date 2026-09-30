@@ -17,6 +17,7 @@
     "tz": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/tz-boundary.mts",
     "audit": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/engine-audit.mts",
     "e2e": "node ./scripts/e2e/rodar.mjs",
+    "varredura-botoes": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/varredura-botoes.mts",
     "smoke-rotas": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/smoke-rotas.mts",
     "cadastro-nome": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/cadastro-nome.mts",
     "impressao": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/impressao.mts",

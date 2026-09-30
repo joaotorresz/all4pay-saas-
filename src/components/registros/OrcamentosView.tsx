@@ -199,7 +199,7 @@ function Editor({
               <Campo
                 label="Regime" obrigatorio erro={erros.regime}
                 ajuda={o.regime === "competencia"
-                  ? "Compara com a DRE (o fato, pelo vencimento)."
+                  ? "Compara com a DRE (o mês do fato — a competência, ou o vencimento quando ela falta)."
                   : "Compara com o DFC (o caixa, pelo pagamento)."}
               >
                 <Select
