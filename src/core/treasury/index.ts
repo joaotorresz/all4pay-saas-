@@ -1,5 +1,5 @@
 /**
- * all4pay — Treasury Core (GAP 6)
+ * Quattro — Treasury Core (GAP 6)
  * -------------------------------
  * Infraestrutura de tesouraria institucional (raro em fintech PME):
  * posição consolidada, concentração bancária, liquidez em buckets, cash

@@ -1,5 +1,5 @@
 /**
- * all4pay — DRE Intelligence Center
+ * Quattro — DRE Intelligence Center
  * ---------------------------------
  * Não é "um DRE": é um centro de resultado empresarial. Consome o mesmo
  * RiskInput (movements + categorias + contrapartes) e responde "quanto

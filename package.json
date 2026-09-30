@@ -1,8 +1,8 @@
 {
-  "name": "all4pay-saas",
+  "name": "quattro-saas",
   "version": "0.1.0",
   "private": true,
-  "description": "all4pay — ERP + sistema de gestão financeira. Construído sobre o Design System all4pay (Round Treasury).",
+  "description": "quattro — ERP + sistema de gestão financeira. Construído sobre o Design System quattro (Round Treasury).",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

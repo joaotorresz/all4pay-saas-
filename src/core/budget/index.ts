@@ -1,5 +1,5 @@
 /**
- * all4pay — Orçamento & Análise de Variância (Flux Analysis)
+ * Quattro — Orçamento & Análise de Variância (Flux Analysis)
  * ----------------------------------------------------------
  * Inspirado no "orçado vs. realizado + flux analysis" do Campfire (ERP nativo
  * de IA): compara cada linha do resultado contra o orçamento e EXPLICA o desvio

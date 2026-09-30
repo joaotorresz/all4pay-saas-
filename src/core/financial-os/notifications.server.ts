@@ -79,7 +79,7 @@ async function enviarWhatsapp(
 
 async function enviarEmail(to: string, subject: string, texto: string): Promise<EnvioResultado> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.ALERTS_EMAIL_FROM || "all4pay <alertas@all4pay.app>";
+  const from = process.env.ALERTS_EMAIL_FROM || "Quattro <alertas@all4pay.app>";
   if (!key || !to) return { canal: "email", para: to, ok: false, detalhe: "config/destino ausente" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -108,7 +108,7 @@ export interface AlvoCobranca {
 export async function testarWhatsapp(to?: string, mensagem?: string): Promise<EnvioResultado> {
   const destino = (to && to.trim()) || process.env.ALERTS_WHATSAPP_TO || "";
   if (!ehTelefone(destino)) return { canal: "whatsapp", para: destino, ok: false, detalhe: "destino ausente (defina ALERTS_WHATSAPP_TO ou envie 'to')" };
-  const msg = (mensagem && mensagem.trim().slice(0, 300)) || "all4pay · teste de notificação. Se você recebeu isto, o WhatsApp está configurado.";
+  const msg = (mensagem && mensagem.trim().slice(0, 300)) || "Quattro · teste de notificação. Se você recebeu isto, o WhatsApp está configurado.";
   if (!statusNotificacoes().whatsapp) return { canal: "whatsapp", para: destino, ok: true, detalhe: "simulado (sem credenciais Twilio)" };
   return enviarWhatsapp(destino, msg);
 }
@@ -146,14 +146,14 @@ export async function dispararNotificacoes(execs: ExecucaoAcao[]): Promise<Envio
   const out: EnvioResultado[] = [];
   for (const e of execs) {
     if (e.status !== "executada") continue;
-    const msg = `all4pay · ${e.ruleNome}: ${e.detalhe.replace(/ · provider .*/i, "")}`.slice(0, 300);
+    const msg = `Quattro · ${e.ruleNome}: ${e.detalhe.replace(/ · provider .*/i, "")}`.slice(0, 300);
     if (e.acao === "enviar_whatsapp" && st.whatsapp) {
       const to = ehTelefone(e.destino) ? (e.destino as string) : process.env.ALERTS_WHATSAPP_TO || "";
       // Template de alerta usa 1 variável (o texto do alerta); free-form no sandbox.
       out.push(await enviarWhatsapp(to, msg, contentSid ? { contentSid, contentVariables: { "1": msg } } : undefined));
     } else if (e.acao === "enviar_email" && st.email) {
       const to = ehEmail(e.destino) ? (e.destino as string) : process.env.ALERTS_EMAIL_TO || "";
-      out.push(await enviarEmail(to, `all4pay · ${e.ruleNome}`, msg));
+      out.push(await enviarEmail(to, `Quattro · ${e.ruleNome}`, msg));
     }
   }
   return out;

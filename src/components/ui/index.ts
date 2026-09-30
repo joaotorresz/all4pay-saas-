@@ -1,5 +1,5 @@
 /**
- * all4pay Design System — component barrel.
+ * Quattro Design System — component barrel.
  * The ONLY visual primitives. Build every screen from these.
  * See CLAUDE.md for the rules of the road.
  */

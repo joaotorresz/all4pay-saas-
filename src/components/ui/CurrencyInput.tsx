@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — CurrencyInput
+ * Quattro DS — CurrencyInput
  * BRL-masked amount field. Keeps a numeric `value` (reais) and formats as
  * the user types (pt-BR, "," decimals). Shows the faint R$ prefix.
  */

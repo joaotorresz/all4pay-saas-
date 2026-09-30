@@ -25,7 +25,7 @@ import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
  *
  * A organização é a da referência: em cima, RESUMO (barras dos três meses +
  * o valor do mês e três leituras ao lado) e CALENDÁRIO DE TRANSAÇÕES (a
- * faixa de dias e a agenda do dia); embaixo, DICAS ALL4PAY num bloco escuro
+ * faixa de dias e a agenda do dia); embaixo, DICAS QUATTRO num bloco escuro
  * e TRANSAÇÕES RECENTES em tabela.
  *
  * ⚠️ Nenhum número sai daqui. Todos vêm de `core/indicadores` — a mesma
@@ -403,10 +403,10 @@ function LinhaAgenda({ m, input }: { m: RiskMovement; input: RiskInput }) {
   );
 }
 
-/* ------------------------------ dicas all4pay ----------------------------- */
+/* ------------------------------ dicas Quattro ----------------------------- */
 
 /**
- * DICAS all4pay — o que a movimentação do cliente está dizendo.
+ * DICAS Quattro — o que a movimentação do cliente está dizendo.
  *
  * Duas faces, e a escolha entre elas é do motor (`core/dicas`):
  * com histórico, as LEITURAS (custo fixo contra o mês anterior, categoria que
@@ -461,7 +461,7 @@ function Dicas({ input }: { input: RiskInput }) {
           POSIÇÃO, cada gesto fica num canto e nenhum precisa de rótulo. */}
       <div className="flex items-start justify-between gap-3 px-2 pt-1">
         <h2 className="text-h2 m-0" style={{ color: "var(--a4p-chrome-ink)" }}>
-          {atual ? atual.contexto : "Dicas all4pay"}
+          {atual ? atual.contexto : "Dicas Quattro"}
         </h2>
         {atual?.rota && (
           <button

@@ -44,7 +44,8 @@ export const ALIASES: Alias[] = [
   { de: "/import", para: "/upload", motivo: "importação virou aba da entrada de dados" },
   { de: "/dashboard/financial/import", para: "/upload", motivo: "A4P-040: a importação de planilha virou mais um formato do /upload (Bloco D); um pipeline, uma porta" },
   { de: "/inbox", para: "/upload", motivo: "caixa de entrada virou a esteira de ingestão" },
-  { de: "/assistente", para: "/all4pay-ai", motivo: "assistente virou o copiloto" },
+  { de: "/assistente", para: "/quattro-ai", motivo: "assistente virou o copiloto" },
+  { de: "/all4pay-ai", para: "/quattro-ai", motivo: "a marca virou Quattro (30/09/2026); o endereço antigo está em favoritos" },
 
   // — hub CADASTROS —
   { de: "/produtos", para: "/dashboard/registrations/products", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
@@ -95,17 +96,17 @@ export const ALIASES: Alias[] = [
   // virarem painéis do assistente E o histórico passar a ser por usuário e por
   // empresa no servidor. A conversa é a porta; os motores são relatórios que
   // ela abre.
-  { de: "/copiloto", para: "/all4pay-ai", motivo: "IA tem UM ponto de entrada (mapa, item 6)" },
+  { de: "/copiloto", para: "/quattro-ai", motivo: "IA tem UM ponto de entrada (mapa, item 6)" },
   { de: "/impostos", para: "/dashboard/sales-invoices/tax-provisioning", motivo: "imposto tem UM módulo canônico (mapa, item 5)" },
   { de: "/dre", para: "/dashboard/reports/dre", motivo: "DRE consolidado no relatório canônico (mapa, item 3)" },
   { de: "/recebimentos", para: "/contas-a-receber/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
   { de: "/pagamentos", para: "/contas-a-pagar/titulos", motivo: "títulos consolidados na tela canônica (mapa, item 2)" },
 
   // — hub COPILOTO (todos exigem plano Pro; ver `core/planos`) —
-  { de: "/risco", para: "/all4pay-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
-  { de: "/decisao", para: "/all4pay-ai?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
-  { de: "/autonomo", para: "/all4pay-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
-  { de: "/inteligencia", para: "/all4pay-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
+  { de: "/risco", para: "/quattro-ai?aba=risco", motivo: "motor de risco virou aba do copiloto" },
+  { de: "/decisao", para: "/quattro-ai?aba=decisao", motivo: "motor de decisão virou aba do copiloto" },
+  { de: "/autonomo", para: "/quattro-ai?aba=autonomo", motivo: "operação autônoma virou aba do copiloto" },
+  { de: "/inteligencia", para: "/quattro-ai?aba=quant", motivo: "camada quantitativa virou aba do copiloto" },
   { de: "/consolidado", para: "/contabilidade?aba=consolidado", motivo: "consolidado virou aba de contabilidade" },
 
   // — PAINÉIS CURADOS aposentados (corte de superfície, 05/08/2026) —
@@ -158,10 +159,14 @@ export const ROTAS_REMOVIDAS: Alias[] = [
  * O `de` inclui a query; o casamento é pelo par caminho + parâmetro.
  */
 export const ALIASES_DE_ABA: Alias[] = [
-  { de: "/copiloto?aba=quant", para: "/all4pay-ai?aba=quant", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=decisao", para: "/all4pay-ai?aba=decisao", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=risco", para: "/all4pay-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
-  { de: "/copiloto?aba=autonomo", para: "/all4pay-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/all4pay-ai?aba=quant", para: "/quattro-ai?aba=quant", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=decisao", para: "/quattro-ai?aba=decisao", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=risco", para: "/quattro-ai?aba=risco", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/all4pay-ai?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "a marca virou Quattro; a aba do endereço antigo continua valendo" },
+  { de: "/copiloto?aba=quant", para: "/quattro-ai?aba=quant", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=decisao", para: "/quattro-ai?aba=decisao", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=risco", para: "/quattro-ai?aba=risco", motivo: "aba do copiloto aposentado (mapa, item 6)" },
+  { de: "/copiloto?aba=autonomo", para: "/quattro-ai?aba=autonomo", motivo: "aba do copiloto aposentado (mapa, item 6)" },
   { de: "/recebimentos?aba=inadimplencia", para: "/dashboard/financial/overdue", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/recebimentos?aba=boletos", para: "/dashboard/financial/boletos", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },
   { de: "/pagamentos?aba=reembolsos", para: "/dashboard/financial/reimbursements", motivo: "aba do hub de receber/pagar aposentado (mapa, item 2)" },

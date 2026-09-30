@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Avatar
+ * Quattro DS — Avatar
  * Circular identity token. Initials on a quiet surface by default, or an
  * image. Used in the nav footer, table rows and account menus.
  */

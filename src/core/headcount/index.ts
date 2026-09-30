@@ -1,5 +1,5 @@
 /**
- * all4pay — Headcount Planning (`headcount/1.0.0`)
+ * Quattro — Headcount Planning (`headcount/1.0.0`)
  * ------------------------------------------------
  * Plano de contratações × runway (benchmark Runway.com): cada contratação
  * entra com o CUSTO REAL de folha (salário + 13º + férias+1/3 + FGTS, via

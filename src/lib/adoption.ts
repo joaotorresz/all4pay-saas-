@@ -1,5 +1,5 @@
 /**
- * all4pay — Jornada de Adesão (`adoption/1.0.0`)
+ * Quattro — Jornada de Adesão (`adoption/1.0.0`)
  * ----------------------------------------------
  * O motor que resolve a baixa aderência: o cliente tem MUITAS funções e não
  * sabe por onde começar. Aqui a plataforma se revela em ESTÁGIOS — Conectar →
@@ -89,7 +89,7 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
 
   const estagios: EstagioJornada[] = [
     montarEstagio("conectar", "Conectar", "Traga seus dados para dentro", [
-      { id: "primeiro-dado", titulo: "Traga o primeiro dado", desc: "Importe um extrato (OFX/CSV) ou lance à mão — o all4pay reconstrói recebíveis, contas, fluxo e DRE sozinho.", feito: temDado, href: "/upload", cta: "Fazer upload" },
+      { id: "primeiro-dado", titulo: "Traga o primeiro dado", desc: "Importe um extrato (OFX/CSV) ou lance à mão — o Quattro reconstrói recebíveis, contas, fluxo e DRE sozinho.", feito: temDado, href: "/upload", cta: "Fazer upload" },
       { id: "contatos", titulo: "Tenha clientes e fornecedores", desc: "Contatos alimentam cobrança, DRE por cliente e o score de crédito.", feito: nContatos >= 2, href: "/contatos", cta: "Ver contatos" },
       { id: "conta-saldo", titulo: "Defina o saldo das contas", desc: "Com o saldo real, o caixa e o runway ficam precisos.", feito: temSaldo, href: "/upload?aba=conectar", cta: "Conectar conta" },
     ]),
@@ -101,7 +101,7 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
       { id: "dre", titulo: "Leia o seu resultado (DRE)", desc: "Quanto sobrou, por quê e onde — do faturamento ao lucro.", feito: viu("/dre"), href: "/dre", cta: "Abrir DRE" },
       { id: "fluxo", titulo: "Projete o caixa", desc: "Entradas × saídas, saldo acumulado e quando aperta.", feito: viu("/fluxo-caixa"), href: "/fluxo-caixa", cta: "Ver fluxo de caixa" },
       { id: "cobranca", titulo: "Acompanhe a inadimplência", desc: "Quem deve, quanto, e o risco de cada cliente.", feito: temRecebivel && viu("/inadimplencia"), href: "/inadimplencia", cta: "Ver inadimplência" },
-      { id: "ia", titulo: "Pergunte à All 4 Pay AI", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/all4pay-ai"), href: "/all4pay-ai", cta: "Abrir a IA" },
+      { id: "ia", titulo: "Pergunte à Quattro AI", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/quattro-ai"), href: "/quattro-ai", cta: "Abrir a IA" },
     ]),
     montarEstagio("operar", "Operar", "Automatize e cresça", [
       { id: "investidores", titulo: "Gere um Investor update", desc: "Relatório mensal para investidores, pronto dos seus números.", feito: viu("/investidores"), href: "/investidores", cta: "Ver Investor update" },

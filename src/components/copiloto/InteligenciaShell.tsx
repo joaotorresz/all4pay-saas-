@@ -16,7 +16,7 @@ import { OndeMais, IRMAS_IA } from "@/components/app/OndeMais";
  */
 type Aba = "copiloto" | "quant" | "decisao" | "risco" | "autonomo";
 const ABAS: { id: Aba; label: string }[] = [
-  { id: "copiloto", label: "All 4 Pay AI" },
+  { id: "copiloto", label: "Quattro AI" },
   { id: "quant", label: "Quant" },
   { id: "decisao", label: "Decisão" },
   { id: "risco", label: "Risco" },

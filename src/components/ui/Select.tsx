@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Select
+ * Quattro DS — Select
  * A native <select> styled to match the DS (quiet bordered field, 10px
  * radius, chevron affordance). Native = fully accessible + mobile-friendly.
  */

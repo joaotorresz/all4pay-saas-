@@ -446,7 +446,7 @@ function PassoImport({ texto, setTexto, report, analisar, carregarAmostra }: any
         <Button variant="primary" onClick={() => analisar(texto)} disabled={!texto.trim()}>Analisar</Button>
         <Button variant="secondary" onClick={carregarAmostra}>Carregar amostra</Button>
         <label className="text-label font-medium text-ink border border-border rounded-md px-3 py-2 cursor-pointer hover:bg-surface-2">Carregar arquivo<input type="file" accept=".csv,.ofx,.txt,text/*" onChange={onFile} className="hidden" /></label>
-        <a href="/exemplos/extrato-exemplo-all4pay.csv" download className="text-label font-medium text-muted underline ml-auto self-center">Baixar exemplo</a>
+        <a href="/exemplos/extrato-exemplo-quattro.csv" download className="text-label font-medium text-muted underline ml-auto self-center">Baixar exemplo</a>
       </div>
       {report && (
         <div className="rounded-md bg-surface-1 p-3 text-caption text-muted">

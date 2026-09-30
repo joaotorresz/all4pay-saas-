@@ -1,5 +1,5 @@
 /**
- * all4pay — Financial Infrastructure (GAP 3)
+ * Quattro — Financial Infrastructure (GAP 3)
  * ------------------------------------------
  * A evolução de "produto" para "financial infrastructure company":
  * Domain Financial Architecture sobre um Double-Entry Ledger Core (a

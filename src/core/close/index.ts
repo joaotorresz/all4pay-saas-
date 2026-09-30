@@ -1,5 +1,5 @@
 /**
- * all4pay — Fechamento contábil contínuo (Continuous Close)
+ * Quattro — Fechamento contábil contínuo (Continuous Close)
  * ---------------------------------------------------------
  * Inspirado no módulo de close do Campfire: o fechamento mensal vira revisão e
  * aprovação, não construção do zero. Monta um checklist do período com tarefas

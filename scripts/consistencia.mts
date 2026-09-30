@@ -336,9 +336,10 @@ function grafiasDaMarcaEmTela(): string[] {
   varrerTelas((caminho, txt) => {
     for (const m of txt.matchAll(/>\s*([^<>{}\n]{0,60})</g)) {
       const v = m[1];
-      // `All 4 Pay AI` é o nome próprio do assistente — a exceção sancionada.
-      const semIA = v.replace(/All 4 Pay AI/g, "");
-      if (/All4Pay|ALL4PAY|All4pay|All 4 Pay/.test(semIA)) out.push(`${caminho}: "${v.trim()}"`);
+      // A marca é `Quattro` (e o assistente, `Quattro AI`). Qualquer grafia da
+      // marca ANTIGA em texto de tela é resto da troca de nome — e grafia
+      // minúscula ou em caixa alta da nova é a variação que a regra proíbe.
+      if (/all\s?4\s?pay/i.test(v) || /\bquattro\b|\bQUATTRO\b/.test(v)) out.push(`${caminho}: "${v.trim()}"`);
     }
   });
   return out;
@@ -1204,9 +1205,9 @@ const AGOSTO = janelaMes(2026, 7);
   // ⚠️ E o caso que a fusão da IA criou: a CONVERSA é Simples (é a porta da
   // frente do produto), os quatro MOTORES são Pro e viraram abas dela.
   // Trancar a rota inteira esconderia o chat de todo mundo.
-  ok("planos: a conversa da IA é aberta", !exigePro("/all4pay-ai"));
+  ok("planos: a conversa da IA é aberta", !exigePro("/quattro-ai"));
   for (const motor of ["quant", "decisao", "risco", "autonomo"]) {
-    ok(`planos: o motor ${motor} exige Pro`, exigePro(`/all4pay-ai?aba=${motor}`));
+    ok(`planos: o motor ${motor} exige Pro`, exigePro(`/quattro-ai?aba=${motor}`));
   }
   // E os endereços legados dos motores continuam trancados — senão o
   // redirecionamento seria a porta lateral que o gate deveria fechar.
@@ -1787,9 +1788,9 @@ const AGOSTO = janelaMes(2026, 7);
      `${emIngles.length}: ${emIngles.slice(0, 5).join(" · ")}`);
 
   /* ---- Uma grafia da marca ------------------------------------------------ */
-  ok("onda11: a marca canônica é minúscula", MARCA === "all4pay");
+  ok("onda11: a marca canônica é `Quattro`", MARCA === "Quattro");
   // O assistente tem nome próprio — a única variação sancionada.
-  ok("onda11: o assistente é a exceção declarada", MARCA_IA === "All 4 Pay AI");
+  ok("onda11: o assistente é a exceção declarada", MARCA_IA === "Quattro AI");
   const grafias = grafiasDaMarcaEmTela();
   ok("onda11: nenhuma grafia da marca fora do padrão", grafias.length === 0,
      `${grafias.length}: ${grafias.slice(0, 4).join(" · ")}`);
@@ -2079,7 +2080,7 @@ const AGOSTO = janelaMes(2026, 7);
 /* LINHA 22 — TÍTULO DA ABA: uma grafia da marca, a tela primeiro.             */
 /* ========================================================================== */
 {
-  // ⚠️ Quase todo o sistema anunciava "all4pay — Tesouraria": Clientes,
+  // ⚠️ Quase todo o sistema anunciava "Quattro — Tesouraria": Clientes,
   // Produtos, DRE, Vendas, todos iguais. Com dez abas abertas, histórico e
   // favoritos ficam indistinguíveis — e trabalhar com várias telas ao mesmo
   // tempo é exatamente o que se faz num fechamento.
@@ -2088,9 +2089,36 @@ const AGOSTO = janelaMes(2026, 7);
   ok("título: telas diferentes, títulos diferentes",
      tituloDaAba("Clientes") !== tituloDaAba("Produtos"));
   ok("título: sem tela, só a marca", tituloDaAba(null) === MARCA);
-  ok("título: string vazia não vira ' · all4pay'", tituloDaAba("   ") === MARCA);
-  // Uma grafia só: `all4pay` minúsculo, como no wordmark.
-  ok("título: a grafia canônica é minúscula", MARCA === "all4pay");
+  ok("título: string vazia não vira ' · Quattro'", tituloDaAba("   ") === MARCA);
+  // Uma grafia só: `Quattro`, nome próprio.
+  ok("título: a grafia canônica é `Quattro`", MARCA === "Quattro");
+
+  // ⚠️ A TROCA DE NOME NÃO PODE DEIXAR RESTO. Até 30/09/2026 a marca era
+  // all4pay. Esta varredura reprova qualquer ocorrência dela em `src/`, fora
+  // das exceções DECLARADAS COM MOTIVO — cada uma é algo que trocar quebraria:
+  const EXCECOES_MARCA_ANTIGA: [RegExp, string][] = [
+    [/NEXT_PUBLIC_ALL4PAY_DEMO/, "variável de ambiente: renomear exige mudar a config da Vercel e do CI junto"],
+    [/all4pay\.(com\.br|com|app)\b/, "domínio/e-mail remetente: trocar exige o domínio da Quattro configurado no provedor"],
+    [/all4pay-(dark|lime)\.png|all4pay-4\.svg/, "arquivo de logo: sai na etapa da identidade visual"],
+    [/all4pay\/estado-da-organizacao/, "formato de backup antigo: continua aceito na restauração"],
+    [/\/all4pay-ai\b/, "endereço antigo da IA: responde 308 para /quattro-ai (favoritos)"],
+    [/`all4pay`|`All4Pay`|`All 4 Pay`/, "registro, em core/marca, de qual era a marca anterior"],
+  ];
+  const restos: string[] = [];
+  (function varrer(d: string) {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const f = `${d}/${e.name}`;
+      if (e.isDirectory()) { varrer(f); continue; }
+      if (!/\.(tsx?|css)$/.test(e.name)) continue;
+      readFileSync(f, "utf8").split("\n").forEach((linha, i) => {
+        if (!/all\s?4\s?pay/i.test(linha)) return;
+        const limpa = EXCECOES_MARCA_ANTIGA.reduce((l, [re]) => l.replace(new RegExp(re, "g"), ""), linha);
+        if (/all\s?4\s?pay/i.test(limpa)) restos.push(`${f}:${i + 1}`);
+      });
+    }
+  })("src");
+  ok("marca: nenhum resto de all4pay em src/ fora das exceções declaradas", restos.length === 0,
+     restos.slice(0, 8).join(" | "));
 }
 
 
@@ -4309,9 +4337,9 @@ const AGOSTO = janelaMes(2026, 7);
   /* ---- O relatório de qualidade ------------------------------------------- */
   const sujo = auditarQualidade({
     documentoDaOrganizacao: "12.345.678/0001-95",
-    nomeDaOrganizacao: "all4pay",
+    nomeDaOrganizacao: "Quattro",
     contrapartes: [
-      { id: "c1", nome: "all4pay Ltda", documento: "12345678000195" },
+      { id: "c1", nome: "Quattro Ltda", documento: "12345678000195" },
       { id: "c2", nome: "ESTORNO TARIFA" },
     ],
     categorias: [

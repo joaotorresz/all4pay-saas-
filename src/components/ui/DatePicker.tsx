@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Icon } from "./Icon";
 
 /**
- * all4pay DS — DatePicker
+ * Quattro DS — DatePicker
  * Seletor de data com calendário no Design System (não usa o popup nativo do
  * navegador). Valor ISO yyyy-mm-dd; exibe dd/mm/aaaa. Monocromático: dia
  * selecionado em `ink`, hoje com anel `lime`, hover `surface-2`.

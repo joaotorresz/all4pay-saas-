@@ -145,7 +145,7 @@ export function CopilotoChat({ ctx, anomalias, insights }: { ctx: Ctx; anomalias
         <span className="w-[26px] h-[26px] rounded-sm bg-lime inline-flex items-center justify-center">
           <Icon name="sparkles" size={14} color="var(--color-on-lime)" />
         </span>
-        <span className="text-label font-medium text-muted">All 4 Pay AI</span>
+        <span className="text-label font-medium text-muted">Quattro AI</span>
         <span className="text-caption text-faint ml-auto">{iaConfig ? "responde e age" : "responde perguntas · não executa ações"}</span>
       </div>
 

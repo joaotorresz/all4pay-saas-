@@ -1,5 +1,5 @@
 /**
- * Simulador POS all4pay — modelo da aba "TAXA PADRÃO" (visão parceiro · MDR +
+ * Simulador POS Quattro — modelo da aba "TAXA PADRÃO" (visão parceiro · MDR +
  * Antecipação). Os dados de lookup das outras abas (LISTA MCCs, ONLINE, CDI+)
  * ficam embutidos aqui como TABELAS (não como telas) para que os seletores
  * funcionem de verdade:
@@ -110,7 +110,7 @@ export const CUSTO_BY_MCC_RANGE: Record<string, Record<string, RateTable>> = {
   },
 };
 
-/** Spread default (Taxa MDR vendida − Custo) — ALL4PAY · 5812 · RANGE 1. */
+/** Spread default (Taxa MDR vendida − Custo) — QUATTRO · 5812 · RANGE 1. */
 export const SPREAD_SEED: RateTable = {
   pix: { master: -0.0005 },
   debito: { master: 0.0025, visa: 0.0025, elo: -0.0007 },

@@ -288,7 +288,7 @@ export function VisualEditor() {
   }
 
   const buildPayload = React.useCallback(() => ({
-    app: "all4pay",
+    app: "Quattro",
     geradoEm: new Date().toISOString(),
     tema: themeToCssVars(theme),
     elementos: Object.values(loadEdits()),
@@ -338,7 +338,7 @@ export function VisualEditor() {
     const blob = new Blob([JSON.stringify(buildPayload(), null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "all4pay-edicoes.json"; a.click();
+    a.href = url; a.download = "quattro-edicoes.json"; a.click();
     URL.revokeObjectURL(url);
   }
 

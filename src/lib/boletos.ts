@@ -3,7 +3,7 @@
  * (`movements.boleto` jsonb), sem tabela nova. Demo-safe:
  *  • demo → imported store (`updateImportedMovement`);
  *  • live → Supabase (`movements.boleto`).
- * Conciliação AUTOMÁTICA: como o all4pay é o emissor/recebedor, boleto pago vai
+ * Conciliação AUTOMÁTICA: como o Quattro é o emissor/recebedor, boleto pago vai
  * direto a `conciliado` (não passa pelo /conciliacao). Emissão real = // TODO PSP.
  */
 import { isDemo } from "@/lib/demo";

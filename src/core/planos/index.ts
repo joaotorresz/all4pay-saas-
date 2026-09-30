@@ -101,9 +101,9 @@ const ABAS_PRO: { rota: string; param: string; valores: string[] }[] = [
   { rota: "/contabilidade", param: "aba", valores: ["consolidado"] },
   // ⚠️ A CONVERSA é Simples — é a porta da frente do produto. Os quatro
   // MOTORES (quant, decisão, risco, autônomo) são Pro, e desde a fusão do
-  // item 6 eles são abas dela. Trancar `/all4pay-ai` inteiro esconderia o chat
+  // item 6 eles são abas dela. Trancar `/quattro-ai` inteiro esconderia o chat
   // de todo mundo; trancar por aba fecha o que é pago e deixa a porta aberta.
-  { rota: "/all4pay-ai", param: "aba", valores: ["quant", "decisao", "risco", "autonomo"] },
+  { rota: "/quattro-ai", param: "aba", valores: ["quant", "decisao", "risco", "autonomo"] },
 ];
 
 /**

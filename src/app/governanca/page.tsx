@@ -5,7 +5,7 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { InstitutionalView } from "@/components/institucional/InstitutionalView";
 
 export const metadata: Metadata = {
-  title: "Governança e aprovações · all4pay",
+  title: "Governança e aprovações · Quattro",
   description:
     "Camada institucional: trilha de auditoria, permissões por papel e fluxo de aprovação por faixa de valor.",
 };

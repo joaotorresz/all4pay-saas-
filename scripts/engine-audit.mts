@@ -2017,7 +2017,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     qr.modulos[6][8] === true && qr.modulos[6][9] === false && qr.modulos[8][6] === true);
   ok("qr: texto maior escolhe versão maior",
     gerarQR("x".repeat(120)).versao > qr.versao);
-  ok("qr: acento e travessão não quebram", gerarQR("Pagamento à ALL4PAY — R$ 1,00").tamanho > 0);
+  ok("qr: acento e travessão não quebram", gerarQR("Pagamento à QUATTRO — R$ 1,00").tamanho > 0);
   // Acima da versão 10 a função AVISA em vez de gerar um código que o leitor
   // recusaria.
   ok("qr: conteúdo grande demais é recusado com mensagem", (() => {
@@ -2407,7 +2407,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   /* ---------------------------- assinatura ---------------------------- */
 
   const A = (o: Partial<EntradaAssinatura>): EntradaAssinatura => ({
-    hoje: "2026-08-02", plano: "all4pay", empresaId: "1639124",
+    hoje: "2026-08-02", plano: "Quattro", empresaId: "1639124",
     planoContratado: null, expiracao: "2026-08-10", usuariosAtivos: 1,
     donoAtivo: true, contas: [], receberNFs: false, emitirNFs: false,
     plataformasConectadas: 0, ...o,
@@ -2790,7 +2790,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // nenhum, o menu fica MUDO justamente onde a pessoa está — ela não descobre
   // as telas irmãs. Este guard cobre as rotas principais de cada módulo.
   const PRINCIPAIS = [
-    "/", "/all4pay-ai", "/orcamento", "/dashboard/help", "/comece",
+    "/", "/quattro-ai", "/orcamento", "/dashboard/help", "/comece",
     "/dashboard/purchases", "/dashboard/purchases/received-boletos",
     "/dashboard/sales-invoices", "/dashboard/accounting/dominio-export",
     "/dashboard/administration/users", "/fluxo-caixa", "/upload",

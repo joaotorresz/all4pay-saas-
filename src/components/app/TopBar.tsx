@@ -97,7 +97,7 @@ export function TopBar() {
       <Link href="/" aria-label="Início" data-topbar="marca" className="flex items-center gap-3 shrink-0">
         {/* Sempre a marca LIMA: o fundo aqui é escuro nos dois temas, e a
             versão escura sumiria no claro — o inverso do que fazia antes. */}
-        <Image src="/all4pay-lime.png" alt="all4pay" width={132} height={26} className="h-[26px] w-auto" priority />
+        <Image src="/all4pay-lime.png" alt="Quattro" width={132} height={26} className="h-[26px] w-auto" priority />
         {isDemo && (
           <span className="hidden sm:block text-[11px] leading-none" style={{ color: "var(--a4p-chrome-mut)" }}>
             Demonstração

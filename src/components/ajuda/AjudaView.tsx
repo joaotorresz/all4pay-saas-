@@ -4,7 +4,7 @@
  * Central de Ajuda — Chat online · Tours guiados · Anúncios.
  *
  * O chat responde "como se usa", não "quanto tenho": quem responde número é o
- * All 4 Pay AI, e misturar as duas portas faria a pessoa perguntar o saldo aqui
+ * Quattro AI, e misturar as duas portas faria a pessoa perguntar o saldo aqui
  * e receber um artigo. Por isso ele consulta a MESMA base de conhecimento
  * (`assistant-kb`) e, quando não sabe, oferece o chamado.
  *

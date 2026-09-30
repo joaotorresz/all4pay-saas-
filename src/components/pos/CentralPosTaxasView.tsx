@@ -131,7 +131,7 @@ export function CentralPosTaxasView() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="flex flex-col gap-[6px]">
               <span className="text-label font-medium text-muted">Parceiro</span>
-              <div className="h-10 flex items-center text-body text-ink">all4pay</div>
+              <div className="h-10 flex items-center text-body text-ink">Quattro</div>
             </div>
             <Select
               label="Descrição MCC"
@@ -189,10 +189,10 @@ export function CentralPosTaxasView() {
         </Card>
 
         {/* Taxa de custo MDR — reage a MCC × Range */}
-        <Card className="overflow-x-auto" info={{ titulo: "Taxa de custo MDR", oQue: "O que a all4pay paga de custo por grupo e bandeira, antes da margem.", comoCalcula: "Vem da tabela de custo do MCC e do range selecionados, cruzando grupo (débito/crédito/pix) com bandeira." }}>
+        <Card className="overflow-x-auto" info={{ titulo: "Taxa de custo MDR", oQue: "O que a Quattro paga de custo por grupo e bandeira, antes da margem.", comoCalcula: "Vem da tabela de custo do MCC e do range selecionados, cruzando grupo (débito/crédito/pix) com bandeira." }}>
           <div className="text-h3 text-ink mb-1">Taxa de custo MDR</div>
           <p className="text-caption text-faint mb-4">
-            Custo por grupo × bandeira para {mccCodigo(ativo.mccDesc)} · {ativo.range} (o que a all4pay paga).
+            Custo por grupo × bandeira para {mccCodigo(ativo.mccDesc)} · {ativo.range} (o que a Quattro paga).
           </p>
           <GrupoTable
             cell={(g, b) => {

@@ -1,5 +1,5 @@
 /**
- * all4pay — Motor de Risco de Caixa (scoreRiscoCaixa)
+ * Quattro — Motor de Risco de Caixa (scoreRiscoCaixa)
  * ----------------------------------------------------
  * Tipos do motor proprietário de risco operacional financeiro.
  * Arquitetura em camadas: Dados → Normalização → Métricas →

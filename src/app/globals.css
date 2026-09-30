@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Roobert TRIAL — fonte da marca All4Pay (self-hosted). Quatro cortes
+/* Roobert TRIAL — fonte da marca Quattro (self-hosted). Quatro cortes
    estáticos cobrindo a escala de peso da UI: Light · Regular · Medium ·
    SemiBold. As faixas de `font-weight` não podem se sobrepor — o browser
    escolhe o arquivo pela faixa em que o peso pedido cai. */
@@ -161,7 +161,7 @@
 }
 
 /* ============================================================
-   all4pay Design System — runtime CSS variables
+   Quattro Design System — runtime CSS variables
    ------------------------------------------------------------
    These MIRROR the canonical tokens defined in tailwind.config.ts.
    They exist only for the places Tailwind utilities can't reach:
@@ -557,7 +557,7 @@ h1, h2, h3,
    único acento. Referências: Vaulto (Awwwards), Mercury/Ramp.
    ============================================================ */
 .ds-visor {
-  /* ====== PAINEL — DS ALL4PAY (base Vendria → paleta lima). Edite os valores. == */
+  /* ====== PAINEL — DS QUATTRO (base Vendria → paleta lima). Edite os valores. == */
   --a4p-bg: #f1f3f6;          /* bg/base — área de trabalho */
   --a4p-box-bg: #ffffff;      /* cards SÓLIDOS */
   --a4p-box-radius: 22px;     /* bordas bem arredondadas (iguais aos prints) */
@@ -913,7 +913,7 @@ html:not(.dark) .ds-visor {
 }
 
 /* ============================================================
-   ALL 4 PAY AI — tipografia e movimento do assistente.
+   QUATTRO AI — tipografia e movimento do assistente.
 
    O FAB (`.a4p-ia-fab`) e o painel (`.a4p-ia`) vivem FORA do
    `<main>.ds-visor` (são irmãos dele no AppShell), então nenhuma
@@ -1028,7 +1028,7 @@ html:not(.dark) .ds-visor {
 
    ⚠️ O QUE O EFEITO PODE E NÃO PODE FAZER AQUI. Ele refrata o fundo — na
    demo original, uma foto de montanha, cheia de detalhe para entortar.
-   A barra da all4pay é um near-black CHAPADO: não há textura por baixo, e
+   A barra da Quattro é um near-black CHAPADO: não há textura por baixo, e
    distorcer uma cor sólida devolve a mesma cor sólida. Por isso o realce
    não vem só do deslocamento; vem também do fio de luz na borda e do
    brilho superior, que é o que faz a pílula ler como vidro sobre um fundo

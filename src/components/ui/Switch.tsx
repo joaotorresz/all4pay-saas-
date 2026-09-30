@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Switch
+ * Quattro DS — Switch
  * Quiet toggle: ink track when on, white knob. For "Habilitar rateio",
  * "Repetir lançamento?", etc.
  */

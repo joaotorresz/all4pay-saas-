@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Skeleton
+ * Quattro DS — Skeleton
  * Quiet loading placeholder: a surface-2 block with a soft pulse.
  * Use per-widget so the page never blocks as a whole.
  */

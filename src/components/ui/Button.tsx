@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Button (paleta quente)
+ * Quattro DS — Button (paleta quente)
  *
  * ⚠️ ISTO INVERTE A DOUTRINA ANTERIOR ("nada parece botão", pill sem fill).
  * O guia vigente define o botão por forma e contraste:

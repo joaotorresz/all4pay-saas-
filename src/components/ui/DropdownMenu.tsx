@@ -4,7 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — DropdownMenu
+ * Quattro DS — DropdownMenu
  * A quiet anchored menu: white panel, faint border, popover shadow, grouped
  * items with section labels + dividers and an optional right-aligned shortcut
  * hint. Closes on outside-click / Esc. The trigger is a render-prop so any DS

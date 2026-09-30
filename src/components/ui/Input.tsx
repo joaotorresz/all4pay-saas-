@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Input
+ * Quattro DS — Input
  * Quiet bordered field on white, 10px radius. Optional leading/trailing
  * adornment (currency / search icon) and label.
  */

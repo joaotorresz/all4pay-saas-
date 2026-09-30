@@ -1,4 +1,4 @@
-# CLAUDE.md — all4pay
+# CLAUDE.md — Quattro
 
 Guidance for any agent (or human) working in this repository.
 
@@ -6,7 +6,7 @@ Guidance for any agent (or human) working in this repository.
 
 ## ⚠️ The Design System is the ONLY source of visual truth
 
-all4pay is built on the **all4pay Design System** (derived from the
+Quattro is built on the **Quattro Design System** (derived from the
 *Round Treasury* fintech design system: monochrome to the extreme + a single
 lime accent, with the **monetary value as the hero**).
 
@@ -36,6 +36,22 @@ from its tokens and its components.
    puro só existe no token de marketing que o nomeia.
 
 ---
+
+## ⚠️ A MARCA É QUATTRO (desde 30/09/2026)
+
+O produto se chamava **all4pay** e passou a se chamar **Quattro**; o assistente,
+**Quattro AI**. A grafia canônica mora em `src/core/marca` (`MARCA`, `MARCA_IA`)
+e a rota da IA é `/quattro-ai` (`/all4pay-ai` responde 308 para ela, com as abas).
+
+⚠️ **O que ficou com o nome antigo, de propósito** — cada item quebraria algo se
+trocado sem a outra metade, e a guarda `marca: nenhum resto de all4pay em src/`
+(`npm run consistencia`) só os aceita porque estão DECLARADOS com motivo:
+`NEXT_PUBLIC_ALL4PAY_DEMO` (config da Vercel e do CI), os domínios/remetentes
+`all4pay.com.br`/`all4pay.app` (exigem o domínio da Quattro no provedor), os
+arquivos de logo `all4pay-*.png|svg` (saem com a identidade visual), o formato
+de backup antigo (continua aceito na restauração), o endereço
+`all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
+navegador e as migrations já aplicadas.
 
 ## ⚠️ IDENTIDADE VIGENTE — A PALETA QUENTE (substitui as anteriores)
 
@@ -206,7 +222,7 @@ sempre os tokens, nunca hex literal.
   de caixa, risco). Vale nos dois temas. Barras/diverging mantêm as cores semânticas.
 - `black-pure` e o hero glow **não** invertem (marketing).
 
-### ⚡ Identidade corporativa all4pay — **DS LEDGER** (ATIVA — escopo `.ds-visor`)
+### ⚡ Identidade corporativa Quattro — **DS LEDGER** (ATIVA — escopo `.ds-visor`)
 
 O app roda no escopo **`.ds-visor`** (aplicado pelo `AppShell` a todo o app),
 que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
@@ -241,7 +257,7 @@ que **sobrescreve** os tokens-base abaixo com a identidade **Ledger**
   (pill; primary/accent = chip neutro sutil `surface-2` · secondary/ghost = só
   texto muted→ink). Pills de período/segmented = texto (ativo = pill discreto).
   Os FABs **Guia** e **Upload de dados** são pills BRANCOS flat; o de Upload
-  saiu da Home e só aparece em `/upload`, a casa da entrada de dados. O FAB **All 4 Pay AI** é a exceção sancionada:
+  saiu da Home e só aparece em `/upload`, a casa da entrada de dados. O FAB **Quattro AI** é a exceção sancionada:
   **centralizado** no rodapé (`left-1/2 -translate-x-1/2`), carrega o **degradê
   oficial da marca** com texto em **`on-lime`** e, num **tile BRANCO**, o **"4" da
   marca** (`Marca4` em `AssistantWidget.tsx` — o raio do wordmark, vetorizado do
@@ -465,7 +481,7 @@ Import from the barrel: `import { Button, Card, Money } from "@/components/ui";`
 - **`Icon`** — conjunto **Hugeicons (Stroke Rounded)** (Iconify, prefixo
   `hugeicons`): glifos **traçados**, leves, geométricos e de cantos
   arredondados. Monocromáticos via `currentColor` → a prop `color` carrega a
-  identidade all4pay (ink · muted · faint · lime · on-lime) e `strokeWidth`
+  identidade Quattro (ink · muted · faint · lime · on-lime) e `strokeWidth`
   ajusta a espessura (**padrão 1.5**, do próprio set; o `Icon` reescreve o
   `stroke-width` do glifo quando você passa outro valor). SVG inline (sem fetch
   em runtime, **viewBox 24**); dados em `src/components/ui/solar-icons.ts`
@@ -519,7 +535,7 @@ Menu vertical em ACORDEÃO
 grupos que abrem · rodapé com Configurações, Modo Pro, tema e conta.
 
 - **Grupos** (`SECTIONS` em `dashboard/nav-data.ts` — a fonte única): Início ·
-  All 4 Pay AI · Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações ·
+  Quattro AI · Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações ·
   Vendas e NFs · Compras · Contabilidade · Entrada de dados · Inteligência (Pro) ·
   Governança (Pro) · Comece por aqui · Ajuda. `Section.href` presente ⇒ o grupo
   **é** um destino (folha, sem chevron) — é assim que Início, Orçamento e Ajuda
@@ -663,7 +679,7 @@ page never blocks as a whole. (`/visao-geral` redirects here.)
   herói mostra o **resultado do período** (entradas − saídas). O box ao lado
   ("Distribuição") segue a MESMA janela e exibe o `period.label` sob o título.
 - **Card de dicas** (`VisorHomeTop`): fundo no **degradê da marca invertido**
-  (`--gradient-marca-inv`, os mesmos stops do FAB "All 4 Pay AI" de baixo para
+  (`--gradient-marca-inv`, os mesmos stops do FAB "Quattro AI" de baixo para
   cima), com texto e controles em `on-lime`.
 - **Transações recentes** (`TransacoesRecentesCard`): o **extrato** da Home —
   últimas 12 movimentações liquidadas, entradas E saídas juntas na ordem em que
@@ -748,7 +764,7 @@ writing to Supabase when live. Shared scaffold: `FormModal` + `SectionTitle`.
 A partir do relatório de engenharia reversa do **IULI** (ERP financeiro para
 negócios digitais), a navegação (`Sidebar`) foi reorganizada nos **9 módulos do
 IULI**: Dashboards · Cadastros · DRE & DFC · Orçamento · Movimentações · Vendas e
-NFs · Compras · Contabilidade (+ extras all4pay em Pro: Inteligência · Equipe ·
+NFs · Compras · Contabilidade (+ extras Quattro em Pro: Inteligência · Equipe ·
 Plataforma). Pilares conceituais do IULI a
 replicar: Plano de Contas com "Uso Padrão" (auto-classificação), **3 datas**
 (competência→DRE · vencimento→aging · caixa→DFC), venda como documento-mãe que
@@ -769,7 +785,7 @@ cascata com drill-down, conciliação IULI×OFX.
   - `/recebimentos` — Contas a receber · Recorrências · Inadimplência · Boletos
   - `/pagamentos` — Contas a pagar · Reembolsos
   - `/orcamento` — Planejado × Realizado · **Posso comprar?**
-  - `/copiloto` — All4Pay IA · Quant · Decisão · Risco · Autônomo
+  - `/copiloto` — Quattro IA · Quant · Decisão · Risco · Autônomo
   - `/upload` — Conectar · Enviar · Conciliar · **Regras**
   A **1ª aba de cada hub é o uso diário**, então continua a um clique.
 
@@ -2774,7 +2790,7 @@ tribal.
 `/cadastros` · Títulos `/dashboard/financial/accounts-and-transfers` ←
 `/recebimentos` `/pagamentos` · DRE `/dashboard/reports/dre` ← `/dre` · Saldo
 (não aposenta nada — o defeito era de rótulo) · Impostos
-`/dashboard/sales-invoices/tax-provisioning` ← `/impostos` · IA `/all4pay-ai` ←
+`/dashboard/sales-invoices/tax-provisioning` ← `/impostos` · IA `/quattro-ai` ←
 `/copiloto` · Assinaturas `/dashboard/sales-invoices/subscriptions` ← a aba de
 Receber · Conciliação `/upload?aba=conciliar` ← `/conciliacao*`.
 
@@ -2827,12 +2843,12 @@ Receber · Conciliação `/upload?aba=conciliar` ← `/conciliacao*`.
   EMPRESA, não de um array cravado no arquivo. ⚠️ Simples e MEI declaram que
   **não têm tabela fixa** (faixa e valor fixo) em vez de fingir um percentual
   que não existe. `/impostos` aposentado.
-- **IA** — `AssistenteShell` em `/all4pay-ai`: Conversa + Quant + Decisão +
+- **IA** — `AssistenteShell` em `/quattro-ai`: Conversa + Quant + Decisão +
   Risco + Autônomo, só a aba ativa montando (os motores são caros). O histórico
   passou a gravar por `store-org` num mapa `usuário → conversas`: a ORG vem da
   RLS de `org_state`, o USUÁRIO vem da chave dentro do valor — acompanha a
   pessoa entre máquinas e não vaza para os colegas. `/copiloto` aposentado.
-  - ⚠️ **A conversa é Simples; os motores são Pro.** Trancar `/all4pay-ai`
+  - ⚠️ **A conversa é Simples; os motores são Pro.** Trancar `/quattro-ai`
     inteiro esconderia o chat de todo mundo — a porta da frente do produto. O
     gate é por ABA (`ABAS_PRO`), e as rotas legadas dos motores continuam
     trancadas para o redirecionamento não virar porta lateral.
@@ -2858,9 +2874,9 @@ publicadas, todas canônicas.
     `ABAS_PRO` em `core/planos` fecha por par **rota+aba** (fechar por prefixo
     trancaria o hub inteiro). Inadimplência **saiu** do Pro: o hub Receber já a
     entrega, e trancar o que o menu oferece é o outro lado do defeito.
-- **`src/core/marca`** — **uma grafia só**: `all4pay` minúsculo (o assistente é
-  `All 4 Pay AI`, a única exceção). O título da aba é **`<Tela> · all4pay`**,
-  com a tela PRIMEIRO: quase todo o sistema anunciava "all4pay — Tesouraria",
+- **`src/core/marca`** — **uma grafia só**: `Quattro`, nome próprio (o assistente é
+  `Quattro AI`, a única exceção). O título da aba é **`<Tela> · Quattro`**,
+  com a tela PRIMEIRO: quase todo o sistema anunciava "Quattro — Tesouraria",
   e com dez abas abertas histórico e favoritos ficam indistinguíveis. Aplicado
   por `TituloDaAba`, montado no `AppShell` — as telas são componentes de
   cliente e não podem exportar `metadata`, que era a causa estrutural.
@@ -3199,8 +3215,8 @@ publicada na Central de Ajuda (aba **Glossário**) e cobrada por guarda.
   traduzidos: *dashboard* → **painel**, *Insights priorizados* → **Leituras
   priorizadas**, *Cash Flow Digital Twin* → **Gêmeo digital do caixa**. A rota e
   o nome de arquivo continuam `dashboard`; o que a pessoa LÊ é que mudou.
-- **Uma grafia da marca**: `all4pay` (o assistente, `All 4 Pay AI`, é a única
-  exceção). O `ALL4PAY` do comprovante do POS virou a grafia canônica.
+- **Uma grafia da marca**: `Quattro` (o assistente, `Quattro AI`, é a única
+  exceção). O `QUATTRO` do comprovante do POS virou a grafia canônica.
 - **Um formato por grandeza** (`lib/format.ts` + `REGRAS_DE_FORMATO`):
   ⚠️ percentual saía com **0, 1 e 2 casas — três no mesmo arquivo**
   (`paineis/shared.tsx`). Agora `pct`/`pctDeInteiro` com **uma casa**: zero apaga
@@ -3753,14 +3769,14 @@ motores quant/risco/crédito (1 execução). Pura, explicável, demo-safe. Vers�
   o ar "artificial" sem perder explicabilidade (os números seguem do motor).
   Logado em `ai_actions`.
 
-### All 4 Pay AI — assistente flutuante (global) + ficha de contato
+### Quattro AI — assistente flutuante (global) + ficha de contato
 
 A IA tem **duas portas para o MESMO cérebro**:
 
 1. **FAB flutuante** (`src/components/app/AssistantWidget.tsx`, montado no
    `AppShell`) — painel à direita, disponível em toda tela. Some em
-   `/all4pay-ai` (lá seria redundante e cobria o campo de mensagem).
-2. **Tela cheia `/all4pay-ai`** (`src/components/ia/IAView.tsx`, entrada no menu
+   `/quattro-ai` (lá seria redundante e cobria o campo de mensagem).
+2. **Tela cheia `/quattro-ai`** (`src/components/ia/IAView.tsx`, entrada no menu
    logo abaixo de *Início*) — chat completo com **histórico de conversas** à
    esquerda, agrupado por recência (Hoje · Últimos 7 dias · Últimos 30 dias ·
    Mais antigas), saudação pelo primeiro nome do perfil, chips de sugestão e
@@ -3787,7 +3803,7 @@ alcança**, inclusive o Laboratório):
 - **Âncoras `.a4p-ia-fab` (botão) e `.a4p-ia` (painel)** — declaradas em
   `globals.css` e registradas como **raízes** no `DesignLab` (`raizDe`,
   `PADROES`: *IA · botão · pergunta · resposta · sugestão · painel*, e o papel
-  **"All 4 Pay AI"** na aba Fontes). Sem isso o picker devolvia `null` e o botão
+  **"Quattro AI"** na aba Fontes). Sem isso o picker devolvia `null` e o botão
   era ineditável.
 - **Tipografia do chat:** **Roobert Variable 400, tracking −0.5px** em TODOS os
   itens (`.a4p-ia, .a4p-ia *`); os valores fogem da regra e seguem em mono
@@ -4932,7 +4948,7 @@ Kafka/EventBridge/PubSub sem mexer no contrato). Tudo demo-safe.
   → simulado. `statusNotificacoes()` reporta o que está ativo.
   - **Cobrança por cliente** (`dispararCobrancas` + `POST /api/cobranca/whatsapp`):
     loop sobre inadimplentes com telefone (cadastro de Contatos). A segmentação é
-    do all4pay; a Twilio só entrega. Disparado de `/autonomo`.
+    do Quattro; a Twilio só entrega. Disparado de `/autonomo`.
   - **Teste manual** (`testarWhatsapp` + `GET/POST /api/notificacoes/teste`):
     valida o Twilio na hora, sem depender de eventos/cron. Sem `CRON_SECRET`,
     só envia para `ALERTS_WHATSAPP_TO` (anti-relay); com ele, exige Bearer.

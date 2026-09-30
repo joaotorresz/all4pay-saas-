@@ -234,7 +234,7 @@ export const FUSOES: Fusao[] = [
   {
     id: "ia",
     assunto: "Inteligência artificial",
-    canonico: "/all4pay-ai",
+    canonico: "/quattro-ai",
     aposentar: ["/copiloto"],
     porque:
       "A conversa é a porta que as pessoas procuram — 'onde eu falo com a IA' tem de ter uma resposta só. As quatro abas do copiloto (quant, decisão, risco, autônomo) são RELATÓRIOS que a conversa deve saber abrir, não um segundo lugar para conversar.",

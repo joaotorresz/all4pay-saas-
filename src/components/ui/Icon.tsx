@@ -45,10 +45,10 @@ const CUSTOM_ICONS: Record<string, SolarIcon> = {
 };
 
 /**
- * all4pay DS — Icon
+ * Quattro DS — Icon
  * Conjunto **Hugeicons (Stroke Rounded)** (Iconify) — glifos TRAÇADOS, leves e
  * com cantos arredondados. Monocromáticos via `currentColor`: a prop `color`
- * carrega a identidade visual da all4pay (ink · muted · faint · lime · on-lime)
+ * carrega a identidade visual da Quattro (ink · muted · faint · lime · on-lime)
  * e `strokeWidth` ajusta a espessura (padrão 1.5 do próprio set). Renderiza o
  * SVG inline (sem fetch em runtime; viewBox 24).
  *

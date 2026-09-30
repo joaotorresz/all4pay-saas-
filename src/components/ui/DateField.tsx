@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — DateField
+ * Quattro DS — DateField
  * Native date input (value is ISO yyyy-mm-dd; the browser renders it in the
  * user's locale, pt-BR). Styled to match the DS field.
  */

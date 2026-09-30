@@ -218,7 +218,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "health_score", label: "Financial Health Score", categoria: "Resumo executivo",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard href="/all4pay-ai?aba=quant" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
+      <MetricCard href="/quattro-ai?aba=quant" hrefLabel="Ver saúde financeira" icon="activity" label="Financial Health Score" tone={scoreTone(c.quant.score.score)}
         value={`${c.quant.score.score}/100`}
         answer={`Saúde ${c.quant.score.classificacao}. Liquidez ${c.quant.indicadores.liquidezCorrente.toFixed(2)} · prob. de ruptura ${pctTxt(c.quant.score.probabilidadeRuptura)} em 90d.`}
         info={{ titulo: "Financial Health Score", oQue: "Resume a saúde financeira da empresa num único número de 0 a 100.", comoCalcula: "Pondera liquidez, runway, inadimplência, margem, volatilidade, concentração e crescimento." }} />
@@ -227,7 +227,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "empresa_risco", label: "Empresa em risco?", categoria: "Resumo executivo",
     render: (c) => !c.risco ? <Loading /> : (
-      <MetricCard href="/all4pay-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
+      <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="gauge" label="Empresa em risco?" tone={scoreTone(c.risco.score)}
         value={c.risco.nivel === "baixo" ? "🟢 Saudável" : c.risco.nivel === "medio" ? "🟡 Atenção" : "🔴 Risco"}
         answer={`Chance de ruptura de caixa em 60 dias: ${pctTxt(c.risco.probabilidadeRuptura)}.`}
         info={{ titulo: "Empresa em risco?", oQue: "Sinaliza, num semáforo, se o caixa corre risco no curto prazo.", comoCalcula: "Deriva do score de risco de caixa e da probabilidade de ruptura projetada em 60 dias." }} />
@@ -321,7 +321,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Risco / Radares ---- */
   {
-    id: "radar_concentracao", label: "Radar de concentração", categoria: "Radares all4pay",
+    id: "radar_concentracao", label: "Radar de concentração", categoria: "Radares Quattro",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="target" label="Radar de concentração" tone={c.quant.indicadores.concentracaoReceita > 0.4 ? WARN : POS}
         value={pctTxt(c.quant.indicadores.concentracaoReceita)}
@@ -330,7 +330,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     ),
   },
   {
-    id: "radar_bancario", label: "Radar bancário", categoria: "Radares all4pay",
+    id: "radar_bancario", label: "Radar bancário", categoria: "Radares Quattro",
     render: (c) => {
       const e = exposicaoBancaria(c.accounts);
       if (!e) return <Loading />;
@@ -343,7 +343,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     },
   },
   {
-    id: "radar_anomalias", label: "Radar de anomalias", categoria: "Radares all4pay",
+    id: "radar_anomalias", label: "Radar de anomalias", categoria: "Radares Quattro",
     render: (c) => !c.exec ? <Loading /> : (
       <MetricCard icon="triangle-alert" label="Radar de anomalias" tone={c.exec.anomalias.length ? WARN : POS}
         value={`${c.exec.anomalias.length}`}
@@ -352,7 +352,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     ),
   },
   {
-    id: "radar_oportunidades", label: "Radar de oportunidades", categoria: "Radares all4pay",
+    id: "radar_oportunidades", label: "Radar de oportunidades", categoria: "Radares Quattro",
     render: (c) => {
       const rec = c.decisao?.recomendacoes ?? [];
       if (!c.decisao) return <Loading />;
@@ -503,7 +503,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares ---- */
   {
-    id: "radar-dependencia-cliente", label: "Dependência de clientes", categoria: "Radares all4pay",
+    id: "radar-dependencia-cliente", label: "Dependência de clientes", categoria: "Radares Quattro",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="target" label="Dependência de clientes"
         tone={c.quant.indicadores.dependenciaCliente > 0.6 ? WARN : POS}
@@ -513,7 +513,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     ),
   },
   {
-    id: "radar-projecao-score", label: "Projeção de score (cenário)", categoria: "Radares all4pay",
+    id: "radar-projecao-score", label: "Projeção de score (cenário)", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.quant) return <Loading />;
       const cen = c.quant.cenarios[0];
@@ -532,7 +532,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     },
   },
   {
-    id: "radar-insight-critico", label: "Insight crítico do dia", categoria: "Radares all4pay",
+    id: "radar-insight-critico", label: "Insight crítico do dia", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.exec) return <Loading />;
       const top = c.exec.insights[0];
@@ -546,7 +546,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     },
   },
   {
-    id: "radar-forecast-30d", label: "Forecast de caixa", categoria: "Radares all4pay",
+    id: "radar-forecast-30d", label: "Forecast de caixa", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.exec) return <Loading />;
       const pressao = c.exec.forecast.janelaPressao;
@@ -616,7 +616,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const p = c.decisao.previsao.probabilidadeNegativo;
       return (
-        <MetricCard href="/all4pay-ai?aba=decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
+        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="triangle-alert" label="Risco de caixa negativo"
           tone={p > 0.3 ? NEG : p > 0.1 ? WARN : POS}
           value={pctTxt(p)}
           answer={c.decisao.previsao.semanaProvavel
@@ -660,7 +660,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const dia = c.decisao.previsao.diaProvavelNegativo;
       return (
-        <MetricCard href="/all4pay-ai?aba=decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
+        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="calendar" label="Data provável de aperto"
           tone={dia != null ? NEG : POS}
           value={dia != null ? `${dia} dias` : "Sem aperto"}
           answer={dia != null
@@ -707,12 +707,12 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (recomendações e plano autônomo · decisão) ---- */
   {
-    id: "impacto-melhor-acao", label: "Impacto da melhor ação", categoria: "Radares all4pay",
+    id: "impacto-melhor-acao", label: "Impacto da melhor ação", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.decisao) return <Loading />;
       const rec = c.decisao.recomendacoes[0];
       if (!rec) return (
-        <MetricCard href="/all4pay-ai?aba=decisao" hrefLabel="Ver decisão" icon="sparkles" label="Impacto da melhor ação" value="—"
+        <MetricCard href="/quattro-ai?aba=decisao" hrefLabel="Ver decisão" icon="sparkles" label="Impacto da melhor ação" value="—"
           answer="Nenhuma ação com impacto relevante no caixa agora."
           info={{ titulo: "Impacto da melhor ação", oQue: "Quanto de fôlego de caixa a ação mais recomendada geraria.", comoCalcula: "O motor de decisão simula cada ação e mede o ganho de runway em dias." }} />
       );
@@ -737,13 +737,13 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
      * motor PROPÕE, e quem faz é uma pessoa clicando no copiloto. O que muda
      * aqui é o rótulo; o motor e os números seguem os mesmos.
      */
-    id: "plano-autonomo-status", label: "Sugestões da IA", categoria: "Radares all4pay",
+    id: "plano-autonomo-status", label: "Sugestões da IA", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.decisao) return <Loading />;
       const plano = c.decisao.plano;
       const n = plano.acoes.length;
       return (
-        <MetricCard href="/all4pay-ai?aba=autonomo" hrefLabel="Ver sugestões" icon="activity" label="Sugestões da IA"
+        <MetricCard href="/quattro-ai?aba=autonomo" hrefLabel="Ver sugestões" icon="activity" label="Sugestões da IA"
           tone={plano.ativo ? (plano.severidade === "critico" || plano.severidade === "alto" ? NEG : WARN) : POS}
           value={plano.ativo ? `${n} sugestão(ões)` : "Nenhuma"}
           answer={plano.ativo ? plano.resumo : "Nada a sugerir no momento."}
@@ -872,7 +872,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (benchmark de margem vs setor · quant) ---- */
   {
-    id: "benchmark-margem", label: "Margem vs setor", categoria: "Radares all4pay",
+    id: "benchmark-margem", label: "Margem vs setor", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.quant) return <Loading />;
       const linha = c.quant.benchmark.find((b) => b.metrica === "Margem de caixa (90d)");
@@ -892,7 +892,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (benchmark de crescimento vs setor · quant) ---- */
   {
-    id: "benchmark-crescimento", label: "Crescimento vs setor", categoria: "Radares all4pay",
+    id: "benchmark-crescimento", label: "Crescimento vs setor", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.quant) return <Loading />;
       const linha = c.quant.benchmark.find((b) => b.metrica === "Crescimento mensal");
@@ -981,7 +981,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (early warnings da carteira · inad clientes) ---- */
   {
-    id: "early-warnings-carteira", label: "Alertas antecipados", categoria: "Radares all4pay",
+    id: "early-warnings-carteira", label: "Alertas antecipados", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.inad) return <Loading />;
       const n = c.inad.clientes.filter((cl) => cl.earlyWarning.ativo).length;
@@ -1026,7 +1026,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const r = c.risco.runway;
       const pess = Math.max(0, r.pessimista);
       return (
-        <MetricCard href="/all4pay-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="trending-up" label="Fôlego no pior cenário"
+        <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="trending-up" label="Fôlego no pior cenário"
           tone={pess < 30 ? NEG : pess < 90 ? WARN : POS}
           value={`${pess} dias`}
           answer={`No cenário pessimista o caixa dura ${pess} dias (base ${Math.max(0, r.base)} · otimista ${Math.max(0, r.otimista)}).`}
@@ -1053,7 +1053,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (pior teste de stress · risco) ---- */
   {
-    id: "pior-stress-test", label: "Pior teste de stress", categoria: "Radares all4pay",
+    id: "pior-stress-test", label: "Pior teste de stress", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.risco) return <Loading />;
       const st = c.risco.stress;
@@ -1074,7 +1074,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ---- Radares (concentração HHI de clientes · risco) ---- */
   {
-    id: "hhi-clientes-risco", label: "Concentração de clientes (HHI)", categoria: "Radares all4pay",
+    id: "hhi-clientes-risco", label: "Concentração de clientes (HHI)", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.risco) return <Loading />;
       const conc = c.risco.concentracao;
@@ -1119,7 +1119,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         (a.nivel === "critico" ? 0 : a.nivel === "atencao" ? 1 : 2) -
         (b.nivel === "critico" ? 0 : b.nivel === "atencao" ? 1 : 2))[0];
       return (
-        <MetricCard href="/all4pay-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label="Alertas do motor de risco"
+        <MetricCard href="/quattro-ai?aba=risco" hrefLabel="Ver risco de caixa" icon="triangle-alert" label="Alertas do motor de risco"
           tone={criticos > 0 ? NEG : atencao > 0 ? WARN : POS}
           value={`${alertas.length}`}
           answer={alertas.length
@@ -1419,7 +1419,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   },
   /* ============ Benchmark setorial (linhas restantes) ============ */
   {
-    id: "benchmark-eficiencia", label: "Eficiência vs setor", categoria: "Radares all4pay",
+    id: "benchmark-eficiencia", label: "Eficiência vs setor", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.quant) return <Loading />;
       const linha = c.quant.benchmark.find((b) => b.metrica === "Eficiência operacional");
@@ -1509,7 +1509,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     },
   },
   {
-    id: "total-recomendacoes", label: "Ações recomendadas", categoria: "Radares all4pay",
+    id: "total-recomendacoes", label: "Ações recomendadas", categoria: "Radares Quattro",
     render: (c) => {
       if (!c.decisao) return <Loading />;
       const recs = c.decisao.recomendacoes;

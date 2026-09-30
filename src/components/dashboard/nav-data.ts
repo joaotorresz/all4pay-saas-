@@ -83,7 +83,7 @@ export type Section = {
  * navegação aceita estas quatro e só estas, e cobra a porta declarada.
  */
 export const ACOES_GLOBAIS: { rota: string; onde: string }[] = [
-  { rota: "/all4pay-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
+  { rota: "/quattro-ai", onde: "botão flutuante da IA, presente em toda tela, + ⌘K" },
   { rota: "/dashboard/help", onde: "menu ⋮ da barra superior" },
   { rota: "/comece", onde: "aba Primeiros passos na Central de ajuda + menu ⋮ da barra superior" },
   { rota: "/configuracoes", onde: "menu ⋮ da barra superior (Meu perfil)" },
@@ -260,10 +260,10 @@ export const SECTIONS: Section[] = [
     // de ser abas invisíveis de um chat — mas o preço é uma segunda porta para
     // a conversa. Se voltar a incomodar, o que sai é a LINHA, não o botão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
-      { label: "All 4 Pay AI", desc: "Pergunte sobre seus números", href: "/all4pay-ai", icon: "sparkles" },
-      { label: "Risco de crédito", desc: "Quem tende a não pagar", href: "/all4pay-ai?aba=risco", icon: "triangle-alert", pro: true },
-      { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/all4pay-ai?aba=decisao", icon: "target", pro: true },
-      { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/all4pay-ai?aba=autonomo", icon: "activity", pro: true },
+      { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles" },
+      { label: "Risco de crédito", desc: "Quem tende a não pagar", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
+      { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/quattro-ai?aba=decisao", icon: "target", pro: true },
+      { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/quattro-ai?aba=autonomo", icon: "activity", pro: true },
       { label: "Plano de contratações", desc: "O impacto de contratar", href: "/contratacoes", icon: "users", pro: true },
     ],
   },

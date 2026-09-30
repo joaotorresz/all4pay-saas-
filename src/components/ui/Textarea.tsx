@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-/** all4pay DS — Textarea. Quiet bordered multi-line field, 10px radius. */
+/** Quattro DS — Textarea. Quiet bordered multi-line field, 10px radius. */
 export interface TextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: React.ReactNode;

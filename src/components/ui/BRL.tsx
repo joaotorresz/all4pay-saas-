@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { brlParts } from "@/lib/format";
 
 /**
- * all4pay DS — BRL (inline Money)
+ * Quattro DS — BRL (inline Money)
  * ------------------------------------------------------------
  * ⚠️ O PREFIXO "R$" TEM O MESMO TAMANHO, PESO E COR DO NÚMERO. Ele era menor
  * e `faint` — o tratamento-assinatura antigo. A moeda deixou de ser um

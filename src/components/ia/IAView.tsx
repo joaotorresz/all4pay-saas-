@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * All 4 Pay AI — a PÁGINA inteira (`/all4pay-ai`).
+ * Quattro AI — a PÁGINA inteira (`/quattro-ai`).
  *
  * A mesma IA do painel flutuante (`useChatIA` + `chat-kit`), num layout de
  * chat completo: coluna de **histórico de conversas** à esquerda (agrupado por
@@ -189,7 +189,7 @@ export function IAView() {
                 <Icon name="arrow-up" size={16} color="var(--color-on-lime)" />
               </button>
             </div>
-            <p className="m-0 mt-2 text-center text-[11px] text-faint">A all4pay IA pode cometer erros — confira os valores.</p>
+            <p className="m-0 mt-2 text-center text-[11px] text-faint">A Quattro IA pode cometer erros — confira os valores.</p>
           </div>
         </div>
       </section>

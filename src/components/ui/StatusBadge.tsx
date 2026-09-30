@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — StatusBadge
+ * Quattro DS — StatusBadge
  * Status as icon + text, NOT a filled colored pill. Color is quiet and
  * tied to the icon: amber for issues, neutral ink for review, a muted
  * green for cleared. Default uses a small dot as the icon.

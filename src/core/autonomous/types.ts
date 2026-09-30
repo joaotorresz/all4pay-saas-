@@ -1,5 +1,5 @@
 /**
- * all4pay — Autonomous Decision Layer (GAP 8)
+ * Quattro — Autonomous Decision Layer (GAP 8)
  * -------------------------------------------
  * O salto de "informar o problema" para DECIDIR e executar (supervisionado).
  * Motor central de decisão operacional: transforma eventos/scores/risco em

@@ -60,7 +60,7 @@ export interface Controle {
  */
 export const CONTROLES: Controle[] = [
   /* ------------------------------- chrome -------------------------------- */
-  { id: "topbar.marca", tela: "Início", rotulo: "all4pay", tipo: "navegacao", destino: "/" },
+  { id: "topbar.marca", tela: "Início", rotulo: "Quattro", tipo: "navegacao", destino: "/" },
   { id: "topbar.config", tela: "Início", rotulo: "Configurações", tipo: "navegacao", destino: "/dashboard/administration" },
   { id: "topbar.anuncios", tela: "Início", rotulo: "Anúncios", tipo: "navegacao", destino: "/dashboard/help" },
   { id: "topbar.mais", tela: "Início", rotulo: "Mais", tipo: "acao", efeito: "abre o menu de conta, busca, tema e sair", fechaPorEsc: true },
@@ -85,7 +85,7 @@ export const CONTROLES: Controle[] = [
 
   /* ------------------------------ navegação ------------------------------ */
   { id: "nav.inicio", tela: "Início", rotulo: "Início", tipo: "navegacao", destino: "/" },
-  { id: "nav.ia", tela: "Início", rotulo: "All 4 Pay AI", tipo: "navegacao", destino: "/all4pay-ai" },
+  { id: "nav.ia", tela: "Início", rotulo: "Quattro AI", tipo: "navegacao", destino: "/quattro-ai" },
   { id: "nav.upload", tela: "Início", rotulo: "Upload de dados", tipo: "navegacao", destino: "/upload" },
   { id: "nav.rotas", tela: "Início", rotulo: "Inventário de rotas", tipo: "navegacao", destino: "/dashboard/administration/routes" },
   { id: "nav.armazenamento", tela: "Início", rotulo: "Armazenamento", tipo: "navegacao", destino: "/dashboard/administration/storage" },

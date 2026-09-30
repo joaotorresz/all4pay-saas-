@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Icon } from "./Icon";
 
 /**
- * all4pay DS — SelectBusca
+ * Quattro DS — SelectBusca
  *
  * O select que se BUSCA — e que, quando a busca não acha nada, oferece criar o
  * que falta sem tirar a pessoa do formulário.

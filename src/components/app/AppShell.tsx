@@ -119,7 +119,7 @@ export function AppShell({
         {/*
           ⚠️ **A FOLGA DE BAIXO É O TAMANHO DO FAB, e era menor que ele.**
 
-          O botão da All 4 Pay AI é `fixed bottom-5` (20px) e mede ~40px de
+          O botão da Quattro AI é `fixed bottom-5` (20px) e mede ~40px de
           altura: ele ocupa os ~60px de baixo da janela. Este contêiner
           reservava `pb-10` = 40px. Faltavam ~20px, e a ÚLTIMA LINHA de
           qualquer tabela longa ficava por baixo da pílula — some justamente

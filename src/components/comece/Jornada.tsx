@@ -45,7 +45,7 @@ export function JornadaCard() {
   return (
     <Card className="flex flex-col gap-4" info={{
       titulo: "Primeiros passos",
-      oQue: "Sua jornada no all4pay em 4 estágios (conectar, organizar, analisar, operar). Cada passo é marcado sozinho quando você o cumpre.",
+      oQue: "Sua jornada no Quattro em 4 estágios (conectar, organizar, analisar, operar). Cada passo é marcado sozinho quando você o cumpre.",
       comoCalcula: "O progresso é derivado do seu estado real: dados importados, contatos, categorias, e as telas que você já conheceu.",
     }}>
       <div className="flex items-center gap-3">
@@ -95,7 +95,7 @@ export function JornadaView() {
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="m-0 text-h3 font-medium text-ink">
-                {jornada && jornada.pct >= 100 ? "Você domina o all4pay 🎉" : "Sua jornada no all4pay"}
+                {jornada && jornada.pct >= 100 ? "Você domina o Quattro 🎉" : "Sua jornada no Quattro"}
               </h2>
               <span className="text-caption text-faint">
                 {isLoading ? "carregando…" : jornada && jornada.pct >= 100

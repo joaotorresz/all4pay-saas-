@@ -25,7 +25,7 @@ export function FirstRunCard() {
         <div className="min-w-0">
           <h2 className="m-0 text-h3 font-medium text-ink">Vamos dar vida ao seu painel</h2>
           <p className="m-0 mt-1 text-body text-muted leading-[1.5]">
-            Sua organização ainda não tem lançamentos. Importe um extrato e o all4pay
+            Sua organização ainda não tem lançamentos. Importe um extrato e o Quattro
             reconstrói recebíveis, contas, fluxo de caixa, DRE e risco automaticamente —
             ou comece lançando manualmente.
           </p>

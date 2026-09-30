@@ -117,7 +117,7 @@ export function PosVendaView() {
           {tela === "catalogo" && (
             <>
               <div className="px-4 py-3 border-b border-border-soft flex items-center justify-between shrink-0">
-                <span className="text-label font-medium text-ink">all4pay · Caixa</span>
+                <span className="text-label font-medium text-ink">Quattro · Caixa</span>
                 <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                   <Icon name="shopping-cart" size={15} color="var(--color-text-secondary)" />
                   {qtdTotal}

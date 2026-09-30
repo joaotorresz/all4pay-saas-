@@ -389,7 +389,7 @@ export const CATALOGO_INTEGRACOES: CartaoIntegracao[] = [
 ];
 
 export const PLATAFORMAS_VENDAS = [
-  "Conta all4pay", "Asaas", "Hotmart", "Digital Guru", "Eduzz", "Ticto",
+  "Conta Quattro", "Asaas", "Hotmart", "Digital Guru", "Eduzz", "Ticto",
   "Kiwify", "Stripe", "TMB", "Hubla", "Visage", "B4you", "BassPago",
   "OnProfit", "Greenn", "Pagar.me", "TikTok Shop", "Bling",
 ];

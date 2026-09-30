@@ -93,14 +93,14 @@ const PADROES: Padrao[] = [
   { id: "menuItem", label: "Menu · item", grupo: "Menu", teste: ".a4p-sidebar nav a", seletorTipo: ".a4p-sidebar nav a" },
   { id: "menuLabel", label: "Menu · rótulo de seção", grupo: "Menu", teste: ".a4p-sidebar nav > div > span", seletorTipo: ".a4p-sidebar nav > div > span" },
   { id: "menuBg", label: "Menu · fundo", grupo: "Menu", teste: ".a4p-sidebar", seletorTipo: ".a4p-sidebar" },
-  // All 4 Pay AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
+  // Quattro AI — o FAB e o painel vivem FORA do <main>.ds-visor (são irmãos
   // dele no AppShell), então nada em `.ds-visor …` os alcança. Ganham âncora
   // própria (`.a4p-ia`) para serem editáveis como o resto.
-  { id: "iaFab", label: "All 4 Pay AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
+  { id: "iaFab", label: "Quattro AI · botão", grupo: "Componentes", teste: ".a4p-ia-fab", seletorTipo: ".a4p-ia-fab" },
   { id: "iaPergunta", label: "IA · pergunta", grupo: "Textos", teste: ".a4p-ia [data-ia='pergunta']", seletorTipo: ".a4p-ia [data-ia='pergunta']" },
   { id: "iaResposta", label: "IA · resposta", grupo: "Textos", teste: ".a4p-ia [data-ia='resposta']", seletorTipo: ".a4p-ia [data-ia='resposta']" },
   { id: "iaChip", label: "IA · sugestão", grupo: "Componentes", teste: ".a4p-ia [data-ia='chip']", seletorTipo: ".a4p-ia [data-ia='chip']" },
-  { id: "iaChat", label: "All 4 Pay AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
+  { id: "iaChat", label: "Quattro AI · painel", grupo: "Componentes", teste: ".a4p-ia", seletorTipo: ".a4p-ia" },
   // Barra superior — irmã do `<main>.ds-visor`, então nada em `.ds-visor …` a
   // alcança. Editável em partes, porque "a barra" não é uma coisa só: o fundo
   // é a superfície do chrome, a marca é identidade e os ícones são controles.
@@ -150,7 +150,7 @@ const PADROES: Padrao[] = [
   { id: "numeros", label: "Números / dinheiro", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor .a4p-num,.ds-visor .tabular-nums" },
   { id: "menuTudo", label: "Menu (todo)", grupo: "Menu", teste: ".__nunca__", seletorTipo: ".a4p-sidebar" },
   { id: "appTudo", label: "Texto do app (base)", grupo: "Textos", teste: ".__nunca__", seletorTipo: ".ds-visor" },
-  { id: "iaTudo", label: "All 4 Pay AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
+  { id: "iaTudo", label: "Quattro AI (tudo)", grupo: "Componentes", teste: ".__nunca__", seletorTipo: ".a4p-ia,.a4p-ia-fab" },
   { id: "topbarTudo", label: "Barra superior (toda)", grupo: "Barra superior", teste: ".__nunca__", seletorTipo: ".a4p-topbar" },
 ];
 
@@ -182,7 +182,7 @@ const PAPEIS: { id: string; label: string; dica: string }[] = [
   { id: "caption", label: "Legendas", dica: "textos pequenos" },
   { id: "button", label: "Botões", dica: "ações" },
   { id: "menuTudo", label: "Menu (todo)", dica: "barra lateral" },
-  { id: "iaTudo", label: "All 4 Pay AI", dica: "o botão e o chat" },
+  { id: "iaTudo", label: "Quattro AI", dica: "o botão e o chat" },
   { id: "appTudo", label: "Texto do app (base)", dica: "o resto" },
 ];
 
@@ -1377,7 +1377,7 @@ function valorLegivel(p: Prop, v: number | string): string {
 function gerarInstrucao(s: DesignState): string {
   const f = FONTS.find((x) => x.id === s.font);
   const L: string[] = [];
-  L.push("Aplique estes ajustes do Laboratório de Design ao design system all4pay,");
+  L.push("Aplique estes ajustes do Laboratório de Design ao design system Quattro,");
   L.push("promovendo-os ao código (globals.css .ds-visor / .a4p-sidebar / componentes):");
   L.push("");
   L.push("GLOBAL");

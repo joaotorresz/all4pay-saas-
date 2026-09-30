@@ -1,5 +1,5 @@
 /**
- * all4pay — Razão de dupla entrada (Fase 0 do blueprint Campfire).
+ * Quattro — Razão de dupla entrada (Fase 0 do blueprint Campfire).
  * Domínio TIPADO do general ledger que espelha as invariantes do banco
  * (migration 0010): todo lançamento postado tem ∑débito = ∑crédito; dinheiro
  * com 4 casas (nunca float solto); imutabilidade por estorno. Puro e testável —

@@ -1,5 +1,5 @@
 /**
- * all4pay — Financial Data Ingestion & Intelligence Platform (FDIP)
+ * Quattro — Financial Data Ingestion & Intelligence Platform (FDIP)
  * -----------------------------------------------------------------
  * Não é "importar dados": é fazer o onboarding financeiro AUTOMÁTICO da
  * empresa. Pipeline: ingestão → entendimento → resolução de entidades →

@@ -6,7 +6,7 @@ import { DropdownMenu, type DropdownItem } from "./DropdownMenu";
 import { Icon } from "./Icon";
 
 /**
- * all4pay DS — SplitButton
+ * Quattro DS — SplitButton
  * A primary action joined to a caret that opens secondary actions
  * (e.g. "Salvar" + "Salvar e criar outro").
  */

@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * all4pay IA — assistente FLUTUANTE global. Um FAB centralizado no rodapé abre
+ * Quattro IA — assistente FLUTUANTE global. Um FAB centralizado no rodapé abre
  * um painel de chat à direita, em toda tela.
  *
  * O CÉREBRO e as PEÇAS vivem em `@/components/ia` (`useChatIA` + `chat-kit`) —
- * os mesmos da página inteira `/all4pay-ai`, para as duas superfícies rodarem
+ * os mesmos da página inteira `/quattro-ai`, para as duas superfícies rodarem
  * a MESMA IA. Aqui fica só o que é do painel: o FAB, o drawer e o layout.
  *
  * Junto vai a **ficha de contato 360º** (`ContatoDrawer`), aberta pelo evento
@@ -26,13 +26,13 @@ export function AssistantWidget() {
   // Na tela cheia da IA o FAB é redundante — e ficava por cima do campo de
   // mensagem. O painel segue disponível por evento (⌘K → "Perguntar à IA").
   // ⚠️ O FAB some onde a IA JÁ ESTÁ na tela. Havia TRÊS superfícies de IA
-  // disputando o mesmo espaço — o chat de `/all4pay-ai`, as abas do
+  // disputando o mesmo espaço — o chat de `/quattro-ai`, as abas do
   // `/copiloto` e este botão flutuante sobreposto a quase todo conteúdo —,
   // e nenhuma resposta para "onde eu falo com a IA". O botão é o atalho de
   // QUALQUER OUTRA tela; dentro das duas casas da IA ele é redundante e
   // ainda cobre o campo de mensagem.
   const rota = usePathname();
-  const naTelaDaIA = rota === "/all4pay-ai" || rota.startsWith("/copiloto");
+  const naTelaDaIA = rota === "/quattro-ai" || rota.startsWith("/copiloto");
 
   React.useEffect(() => {
     const h = () => abrir();
@@ -47,7 +47,7 @@ export function AssistantWidget() {
       {/* FAB — centralizado no rodapé, com o degradê da marca em onda */}
       <button
         onClick={abrir}
-        aria-label="Abrir o All 4 Pay AI"
+        aria-label="Abrir o Quattro AI"
         style={{ backgroundImage: GRAD_ONDA, color: "var(--color-on-lime)" }}
         className={`a4p-ia-fab a4p-onda fixed bottom-5 left-1/2 -translate-x-1/2 z-[75] inline-flex items-center gap-[10px] rounded-pill pl-[12px] pr-[20px] py-[9px] transition-all duration-200 hover:-translate-y-[1px] ${open ? "opacity-0 pointer-events-none translate-y-2" : "opacity-100"}`}
       >
@@ -56,7 +56,7 @@ export function AssistantWidget() {
         <span className="w-[30px] h-[30px] rounded-md inline-flex items-center justify-center bg-white">
           <Marca4 size={17} />
         </span>
-        <span className="text-[15px] font-semibold tracking-[-0.01em]">All 4 Pay AI</span>
+        <span className="text-[15px] font-semibold tracking-[-0.01em]">Quattro AI</span>
       </button>
 
       {everOpen && <AssistantPanel open={open} onClose={() => setOpen(false)} />}
@@ -79,7 +79,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       <div onClick={onClose} className={`fixed inset-0 z-[78] bg-black/30 sm:hidden transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} aria-hidden />
 
       <aside
-        role="dialog" aria-label="all4pay IA"
+        role="dialog" aria-label="Quattro IA"
         data-aberto={open ? "1" : "0"}
         className="a4p-ia a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col"
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}
@@ -87,7 +87,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
         {/* header */}
         <header className="flex items-center gap-2 px-4 h-[60px] border-b border-border-soft shrink-0">
           <MarcaIA size={28} radius={8} />
-          <span className="text-[16px] font-semibold text-ink">All 4 Pay AI</span>
+          <span className="text-[16px] font-semibold text-ink">Quattro AI</span>
           <span className="text-[10px] font-semibold tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
           {turnos.length > 0 && (
             <button onClick={() => carregar([])} aria-label="Nova conversa" title="Nova conversa" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
@@ -106,7 +106,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
               <MarcaIA size={56} radius={14} />
               <div>
                 <div className="text-[18px] font-semibold text-ink">Pergunte sobre suas finanças</div>
-                <div className="text-caption text-muted mt-1">Consulto seus números e as funcionalidades do all4pay — e aprendo com o que você pergunta.</div>
+                <div className="text-caption text-muted mt-1">Consulto seus números e as funcionalidades do Quattro — e aprendo com o que você pergunta.</div>
               </div>
             </div>
           ) : (
@@ -159,7 +159,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
               <Icon name="arrow-up" size={16} color="var(--color-on-lime)" />
             </button>
           </div>
-          <p className="m-0 mt-2 text-center text-[11px] text-faint">A all4pay IA pode cometer erros — confira os valores.</p>
+          <p className="m-0 mt-2 text-center text-[11px] text-faint">A Quattro IA pode cometer erros — confira os valores.</p>
         </div>
       </aside>
     </>

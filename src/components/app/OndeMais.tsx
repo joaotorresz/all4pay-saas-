@@ -9,7 +9,7 @@
  *  - **Assinaturas**: um Dashboard de Assinaturas, uma lista em Vendas e NFs e
  *    uma aba em Receber. Nenhuma referencia as demais, e nenhuma explica por que
  *    o MRR delas difere do que a tela de investidores mostra.
- *  - **Inteligência artificial**: o chat de `/all4pay-ai`, as abas do
+ *  - **Inteligência artificial**: o chat de `/quattro-ai`, as abas do
  *    `/copiloto` e o botão flutuante. Não havia resposta para "onde eu falo com
  *    a IA".
  *
@@ -103,9 +103,9 @@ export const NOTA_MRR =
 /** As duas casas da IA. */
 export const IRMAS_IA: Record<string, Irma[]> = {
   chat: [
-    { rota: "/all4pay-ai", nome: "Copiloto e motores", responde: "quant, decisão, risco e operação autônoma" },
+    { rota: "/quattro-ai", nome: "Copiloto e motores", responde: "quant, decisão, risco e operação autônoma" },
   ],
   copiloto: [
-    { rota: "/all4pay-ai", nome: "All 4 Pay AI", responde: "conversa livre sobre os seus números" },
+    { rota: "/quattro-ai", nome: "Quattro AI", responde: "conversa livre sobre os seus números" },
   ],
 };

@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * all4pay DS — Money  ★ the product's signature treatment
+ * Quattro DS — Money  ★ the product's signature treatment
  * ------------------------------------------------------------
  * Three emphasis zones: a small faint currency prefix · a large ink
  * integer · small faint decimals. ALWAYS tabular-nums so columns align

@@ -195,13 +195,13 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- All 4 Pay AI ----------------------------- */
+  /* ----------------------------- Quattro AI ----------------------------- */
   // ⚠️ UM guia, porque é UMA tela: a conversa e os quatro painéis dos motores
   // (Quant, Decisão, Risco, Autônomo) vivem no mesmo destino desde a fusão do
   // mapa de consolidação (item 6). Dois guias na mesma rota fariam a busca da
   // Central de Ajuda escolher um deles por ordem de arquivo.
-  "/all4pay-ai": {
-    titulo: "All 4 Pay AI",
+  "/quattro-ai": {
+    titulo: "Quattro AI",
     intro: "A superfície ÚNICA de IA: a aba Conversa responde sobre os seus números, e as abas Quant, Decisão, Risco e Autônomo são os motores — score de saúde, Monte Carlo, runway e plano supervisionado. É a mesma IA do botão flutuante; aqui cabe a conversa longa, o gráfico grande e o histórico do lado.",
     comoUsar: "Pergunte em português normal (“quanto gastei esse mês?”, “estou crescendo?”). A resposta passa pelas etapas de análise e vem com os números, as fontes do cálculo e, quando ajuda, um gráfico. As conversas ficam salvas à esquerda, agrupadas por data.",
     exemplo: "“Quais meus maiores gastos?” → o total do mês, as três maiores categorias com percentual e um gráfico de barras. Depois: “e no mês passado?” — ela lembra do contexto.",
@@ -358,7 +358,7 @@ export const GUIDES: Record<string, Guide> = {
 
   /* ----------------------------- Central POS ----------------------------- */
   "/vendas?aba=pos-taxas": {
-    titulo: "Configuração de taxas all4pay",
+    titulo: "Configuração de taxas Quattro",
     intro: "Simulador POS (maquininha): modela MDR + antecipação + online por MCC × range × bandeira, com o spread (margem) editável. Salva a configuração da sua operação.",
     comoUsar: "Escolha MCC, range, SELIC e ligue antecipação/online; edite o spread por grupo. A taxa final ao EC recalcula por parcela.",
     exemplo: "Restaurante (MCC 5812), range 1, com antecipação → veja a taxa final de crédito em 12x.",

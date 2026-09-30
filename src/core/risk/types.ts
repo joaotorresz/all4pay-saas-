@@ -1,5 +1,5 @@
 /**
- * all4pay — Risk Intelligence Layer (motor de inadimplência / crédito)
+ * Quattro — Risk Intelligence Layer (motor de inadimplência / crédito)
  * --------------------------------------------------------------------
  * Núcleo proprietário de credit intelligence: prever inadimplência
  * ANTES de acontecer, a partir do comportamento financeiro dinâmico
