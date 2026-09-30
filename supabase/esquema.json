@@ -142,7 +142,15 @@
    "do arquivo com o md5 do que está no banco. Os 26 bateram."
   ],
   "aplicadas_sem_arquivo": [],
-  "arquivo_sem_aplicacao": [],
+  "arquivo_sem_aplicacao": [
+   {
+    "nome": "20260930120000_remove_integracao_own",
+    "objetos_ausentes": [],
+    "impacto": "Nenhuma perda para o usuário: a migration REMOVE a integração com a OWN (contrato rescindido em 30/09/2026). Até ser aplicada, produção segue com as tabelas own_*, a view own_extrato_lojista, as funções own_token_*/own_saude/own_touch e o job own-sync no pg_cron, que passa a bater numa Edge Function que saiu do repositório. Ela se recusa se houver dado de lojista.",
+    "resolver_ate": "2026-10-14",
+    "origem": "sessão Claude de 30/09/2026 (remoção da OWN, PR #158) — arquivo escrito; aplicar é do dono, depois do merge"
+   }
+  ],
   "objetos_sem_migration": [
    {
     "nome": "maq_cnpj_cache",
