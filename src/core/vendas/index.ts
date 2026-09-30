@@ -337,6 +337,16 @@ export function impostoEstimadoDaVenda(
  *
  * O botão só libera com a configuração completa — gerar uma conta a pagar sem
  * fornecedor produziria um título órfão, que ninguém sabe a quem pagar.
+ *
+ * ⚠️ **A CATEGORIA DEIXOU DE SER PENDÊNCIA.** A lista de categorias da
+ * configuração vem do plano de contas LOCAL, que nasce VAZIO desde que as 32
+ * categorias de fábrica saíram — então, numa empresa nova, a pendência
+ * "categoria pendente em PIS, COFINS…" nunca se resolvia e o botão ficava
+ * travado para sempre, sem nada na tela dizendo que o caminho era montar um
+ * plano de contas inteiro antes. Sem categoria escolhida, o título sai com o
+ * NOME do imposto ("PIS", "ISS", "IRPJ"), e é esse nome que o DRE classifica
+ * (dedução sobre a receita · imposto sobre o lucro) — a guarda `impostos:` do
+ * engine-audit confere a linha. A categoria escolhida continua vencendo.
  */
 export function pendenciasConfig(c: ConfigImpostos, impostosComValor: Imposto[]): string[] {
   const faltas: string[] = [];
@@ -345,12 +355,16 @@ export function pendenciasConfig(c: ConfigImpostos, impostosComValor: Imposto[])
   esferas.forEach((e) => {
     if (!c.fornecedores[e]) faltas.push(`fornecedor ${ROTULO_ESFERA[e].split(" · ")[0].toLowerCase()} pendente`);
   });
-  const semCategoria = impostosComValor.filter((i) => !c.categorias[i]);
-  if (semCategoria.length) {
-    faltas.push(`categoria pendente em ${semCategoria.map((i) => ROTULO_IMPOSTO[i]).join(", ")}`);
-  }
   return faltas;
 }
+
+/**
+ * A descrição do título do imposto — é também a CHAVE de idempotência em
+ * produção (um título por imposto por competência). Mudar o texto muda a
+ * chave: por isso ele mora aqui, num lugar só.
+ */
+export const descricaoDoImposto = (rotulo: string, mesCompetencia: string): string =>
+  `${rotulo} · competência ${mesCompetencia}`;
 
 export interface LinhaImposto {
   vendaId: string;

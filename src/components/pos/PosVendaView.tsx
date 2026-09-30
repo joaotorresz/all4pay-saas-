@@ -19,7 +19,7 @@ import {
 } from "@/lib/pos-taxas";
 import type { Product } from "@/lib/types";
 
-type Tela = "catalogo" | "pagamento" | "processando" | "aprovado";
+type Tela = "catalogo" | "pagamento" | "processando" | "aprovado" | "recusado";
 type Metodo = "pix" | "debito" | "credito_vista" | "parcelado";
 
 const METODOS: { id: Metodo; label: string; icon: string; hint: string }[] = [
@@ -54,6 +54,7 @@ export function PosVendaView() {
   const [metodo, setMetodo] = React.useState<Metodo | null>(null);
   const [parcelas, setParcelas] = React.useState(2);
   const [recibo, setRecibo] = React.useState<{ nsu: string; auth: string; quando: string } | null>(null);
+  const [erro, setErro] = React.useState<string | null>(null);
 
   const lista = React.useMemo(() => produtos ?? [], [produtos]);
   const byId = React.useMemo(() => new Map(lista.map((p) => [p.id, p])), [lista]);
@@ -74,7 +75,7 @@ export function PosVendaView() {
   const valorParcela = total / nParc;
 
   function reset() {
-    setCart({}); setMetodo(null); setParcelas(2); setRecibo(null); setTela("catalogo");
+    setCart({}); setMetodo(null); setParcelas(2); setRecibo(null); setErro(null); setTela("catalogo");
   }
 
   // Processando → registra a venda (recebível pendente) → aprovado.
@@ -84,19 +85,24 @@ export function PosVendaView() {
     (async () => {
       const descricao = `Venda POS · ${qtdTotal} ${qtdTotal === 1 ? "item" : "itens"}`;
       try {
-        // Entra em "a receber" o líquido (total − taxa MDR); a taxa vira custo
-        // de adquirência no DRE (margem visível — relatório, item 6).
-        await concluirVendaPos({ valorReceber: liquido, descricao, parcelas: nParc, taxaValor: total - liquido });
-      } catch {
-        /* simulador segue mesmo se o registro falhar */
+        // ⚠️ Entra em "a receber" o BRUTO, e a taxa MDR vira conta a pagar na
+        // MESMA data do repasse (`core/vendas/pos`): o caixa fecha no líquido e
+        // o DRE mostra a receita cheia. Antes era o líquido + uma taxa "paga
+        // hoje", e a taxa saía duas vezes do resultado.
+        await concluirVendaPos({ total, taxa, parcelas: nParc, descricao });
+      } catch (e) {
+        // ⚠️ "Aprovado" com o registro recusado era a maquininha dizendo que
+        // vendeu enquanto o contas a receber não recebia nada. A recusa real
+        // do banco vai para a tela, e o recibo não é emitido.
+        if (cancelado) return;
+        setErro(e instanceof Error ? e.message : String(e));
+        setTela("recusado");
+        return;
       }
       await new Promise((r) => setTimeout(r, 1400));
       if (cancelado) return;
-      // Reflete na Central de Recebimentos / dashboard / DRE.
-      [
-        "open-movements", "receivables", "accounts", "daily-cashflow",
-        "daily-cashflow-range", "sales", "sales-list", "risco-input",
-      ].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
+      // Reflete em toda tela que lê lançamentos (títulos, fluxo, DRE, painéis).
+      await qc.invalidateQueries();
       setRecibo({ nsu: cod(6), auth: cod(6), quando: new Date().toLocaleString("pt-BR") });
       setTela("aprovado");
     })();
@@ -275,6 +281,22 @@ export function PosVendaView() {
             </div>
           )}
 
+          {/* ---- NÃO REGISTRADA ---- */}
+          {tela === "recusado" && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center">
+                <Icon name="x" size={28} color="var(--color-negative)" />
+              </div>
+              <div className="text-h3 text-ink">Venda não registrada</div>
+              <p className="m-0 text-caption text-muted max-w-[34ch]">
+                O sistema recusou o lançamento, então nenhum recebível foi criado. Motivo: {erro}
+              </p>
+              <button onClick={() => setTela("pagamento")} className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold active:scale-[0.99]">
+                Voltar ao pagamento
+              </button>
+            </div>
+          )}
+
           {/* ---- APROVADO ---- */}
           {tela === "aprovado" && recibo && (
             <>
@@ -297,12 +319,12 @@ export function PosVendaView() {
                 </div>
                 <div className="w-full mt-3 inline-flex items-center gap-2 text-caption text-muted">
                   <Icon name="check" size={14} color="var(--color-positive)" />
-                  Recebível {nParc > 1 ? `(${nParc} parcelas) ` : ""}lançado na Central de Recebimentos
+                  Recebível {nParc > 1 ? `(${nParc} parcelas) ` : ""}lançado em Títulos a receber, com a taxa a pagar no repasse
                 </div>
               </div>
               <div className="border-t border-border-soft p-3 shrink-0 flex flex-col gap-2">
                 <a href="/contas-a-receber/titulos" className="w-full h-11 rounded-md border border-border text-ink text-[17px] font-medium inline-flex items-center justify-center active:scale-[0.99]">
-                  Ver na Central de Recebimentos
+                  Ver em Títulos a receber
                 </a>
                 <button onClick={reset} className="w-full h-11 rounded-md bg-surface-3 text-ink text-[17px] font-semibold active:scale-[0.99]">
                   Nova venda

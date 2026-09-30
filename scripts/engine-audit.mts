@@ -6661,5 +6661,152 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── VENDER ── */
+// Rodada 30/09: vendas, notas, impostos, assinaturas e POS dirigidos como uma
+// PME dirige. Cada asserção abaixo foi provada plantando o defeito de volta.
+{
+  const fsV = await import("node:fs");
+  const lerV = (p: string) => fsV.readFileSync(p, "utf8");
+  // Comentário sai antes da busca: a documentação do defeito cita o defeito.
+  const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const { titulosDaVendaPos, somaMeses, CATEGORIA_TAXA_POS } = await import("@/core/vendas/pos");
+  const { pedidoDeNota, statusNFDaNota, vendaComNota, podeEmitirNota } = await import("@/core/vendas/nota");
+  const cv = await import("@/core/vendas");
+  const { montarDRE: dreV } = await import("@/core/relatorios");
+
+  /* ---- POS: a taxa MDR sai UMA vez, e no repasse ---- */
+  const t3 = titulosDaVendaPos({ total: 1_000, taxa: 0.03, parcelas: 3, descricao: "Venda POS" }, "2026-01-31");
+  const somaTipo = (ts: typeof t3, tipo: "entrada" | "saida") => Math.round(ts.filter((t) => t.type === tipo).reduce((s, t) => s + t.amount, 0) * 100) / 100;
+  ok("vender/pos: a receita a receber é o BRUTO da venda (era o líquido)", somaTipo(t3, "entrada") === 1_000, `${somaTipo(t3, "entrada")}`);
+  ok("vender/pos: a taxa a pagar é a taxa da venda, uma vez", somaTipo(t3, "saida") === 30, `${somaTipo(t3, "saida")}`);
+  ok("vender/pos: bruto − taxa = o líquido que o caixa recebe", somaTipo(t3, "entrada") - somaTipo(t3, "saida") === 970);
+  ok("vender/pos: cada taxa vence com o repasse da sua parcela",
+     t3.filter((t) => t.type === "saida").every((s) => t3.some((e) => e.type === "entrada" && e.due_date === s.due_date)));
+  ok("vender/pos: 3 parcelas = 3 entradas, a última leva o resto dos centavos",
+     t3.filter((t) => t.type === "entrada").map((t) => t.amount).join("|") === "333.33|333.33|333.34");
+  ok("vender/pos: 31/01 + 1 mês cai em 28/02 (não escorrega para março)", somaMeses("2026-01-31", 1) === "2026-02-28", somaMeses("2026-01-31", 1));
+  ok("vender/pos: a parcela 2 vence no mês seguinte", t3.filter((t) => t.type === "entrada")[1].due_date === "2026-02-28");
+  const t1 = titulosDaVendaPos({ total: 100, taxa: 0.03, parcelas: 1, descricao: "V" }, "2026-06-10");
+  const dPos = dreV({
+    hoje: "2026-06-30", saldoAtual: 0, partyNames: {},
+    movements: t1.map((t, k) => ({ id: `pos${k}`, type: t.type, status: "pendente", amount: t.amount, due_date: t.due_date, paid_date: null, category: t.category })) as RiskMovement[],
+  }, { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, tipo: "vertical" });
+  const lPos = (id: string) => dPos.linhas.find((l) => l.id === id)?.celulas[0]?.valor ?? NaN;
+  ok("vender/pos: no DRE a receita bruta é a venda cheia", lPos("receita_bruta") === 100, `${lPos("receita_bruta")}`);
+  ok("vender/pos: no DRE o resultado é venda − taxa (a taxa dupla dava 94)", lPos("resultado_liquido") === 97, `${lPos("resultado_liquido")}`);
+  ok("vender/pos: a taxa é despesa de adquirência nomeada", t1.some((t) => t.category === CATEGORIA_TAXA_POS));
+  const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
+     !/\bstatus\s*:/.test(posLib) && /criarTitulos\(/.test(posLib));
+  ok("vender/pos: sem conta a venda é recusada — nenhuma conta bancária é inventada",
+     !/financial_accounts"\)\s*\.insert/.test(posLib));
+  const posView = lerV("src/components/pos/PosVendaView.tsx");
+  const iEfeito = posView.indexOf('if (tela !== "processando") return;');
+  const corpoEfeito = posView.slice(iEfeito, posView.indexOf("setRecibo(", iEfeito));
+  ok("vender/pos: a recusa do registro NÃO vira recibo 'Aprovado'",
+     /catch \(e\)[\s\S]*?setTela\("recusado"\)[\s\S]*?return;/.test(corpoEfeito));
+
+  /* ---- impostos: o botão funciona em produção e a categoria não trava ---- */
+  const VV = (o: Partial<Venda>): Venda => ({
+    id: "v", numero: "2026-0001", clienteId: "c1", clienteNome: "Alpha", competencia: "2026-12-10", vencimento: "2026-12-20",
+    itens: [{ produtoId: "p1", nome: "Consultoria", quantidade: 1, precoUnitario: 1_000 }], valorTotal: 1_000, valorTotalComJuros: 0,
+    taxaPlataforma: { valor: 0, fornecedorId: "" }, taxaAntecipacao: { valor: 0, fornecedorId: "" }, taxaStreaming: { valor: 0, fornecedorId: "" },
+    comissaoCoprodutor: { valor: 0, fornecedorId: "" }, comissaoAfiliado: { valor: 0, fornecedorId: "" },
+    contaId: "ac1", operacao: "venda", status: "completa", metodo: "pix", idExterno: "", categoria: "cat1", tipoPagamento: "avista",
+    plataforma: "", chaveTransacao: "", pago: false, valorPago: 0, dataPagamento: null, projetos: [], centros: [], descricao: "",
+    textoDocumentoFiscal: "", observacoes: "", statusNF: "a_emitir", numeroNF: "", criadoEm: "2026-12-10", ...o,
+  });
+  const cfgV = { ...cv.configPadrao("presumido"), contaId: "ac1", fornecedores: { municipal: "fm", estadual: "fe", federal: "ff" } };
+  const provV = cv.provisionarImpostos([VV({}), VV({ id: "x", status: "chargeback" }), VV({ id: "y", status: "cancelada" })], cfgV);
+  const comValorV = cv.IMPOSTOS.filter((i) => provV.porImposto[i] > 0);
+  ok("vender/impostos: sem categoria escolhida NÃO há pendência (o plano local nasce vazio e travava o botão)",
+     cv.pendenciasConfig(cfgV, comValorV).length === 0, cv.pendenciasConfig(cfgV, comValorV).join(" · "));
+  ok("vender/impostos: sem fornecedor continua havendo pendência",
+     cv.pendenciasConfig({ ...cfgV, fornecedores: { municipal: "", estadual: "", federal: "" } }, comValorV).length > 0);
+  ok("vender/impostos: chargeback e cancelada fora da base", provV.faturamento === 1_000, `${provV.faturamento}`);
+  const contasV = cv.contasAPagarDosImpostos(provV, cfgV, "2026-12");
+  ok("vender/impostos: competência de dezembro vence em JANEIRO do ano seguinte",
+     contasV.find((c) => c.imposto === "iss")!.vencimento === "2027-01-10" && contasV.find((c) => c.imposto === "irpj")!.vencimento === "2027-01-31",
+     contasV.map((c) => `${c.imposto}:${c.vencimento}`).join(" "));
+  ok("vender/impostos: ISS maior muda o valor da conta (alíquota editável)",
+     cv.provisionarImpostos([VV({})], { ...cfgV, aliquotas: { ...cfgV.aliquotas, iss: 2 } }).porImposto.iss === 20);
+  // O título sem categoria sai com o NOME do imposto — e o DRE precisa pôr
+  // cada um na linha certa, senão a queda da pendência troca um botão travado
+  // por um imposto na linha errada.
+  const dImp = dreV({
+    hoje: "2026-12-31", saldoAtual: 0, partyNames: {},
+    movements: contasV.map((c) => ({ id: c.imposto, type: "saida", status: "pendente", amount: c.valor, due_date: "2026-12-15", paid_date: null, category: c.rotulo })) as RiskMovement[],
+  }, { intervalo: { de: "2026-12-01", ate: "2026-12-31" }, tipo: "vertical" });
+  const linhaDe = (id: string) => dImp.classificacao[id]?.linha;
+  ok("vender/impostos: PIS, COFINS e ISS sem categoria caem em DEDUÇÕES",
+     ["pis", "cofins", "iss"].every((i) => linhaDe(i) === "deducoes"), ["pis", "cofins", "iss"].map((i) => `${i}:${linhaDe(i)}`).join(" "));
+  ok("vender/impostos: IRPJ e CSLL sem categoria caem em IMPOSTOS SOBRE O LUCRO",
+     ["irpj", "csll"].every((i) => linhaDe(i) === "impostos_lucro"), ["irpj", "csll"].map((i) => `${i}:${linhaDe(i)}`).join(" "));
+  const store = semComentario(lerV("src/lib/vendas-store.ts"));
+  const gravar = store.slice(store.indexOf("export async function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
+  ok("vender/impostos: em produção o botão GRAVA (era `if (!isDemo) return 0` e a tela dizia 'nada a criar')",
+     !/if \(!isDemo\)[^\n]*return/.test(gravar) && !/if \(!isDemo\) return 0/.test(store) && /criarTitulos\(/.test(gravar));
+  ok("vender/impostos: produção é idempotente — imposto com título vivo na competência não ganha outro",
+     /neq\("status", "cancelado"\)/.test(gravar) && /jaExistiam/.test(gravar));
+  ok("vender/impostos: o título leva o NOME da categoria, nunca o id do plano",
+     /category: nomeDaCategoriaDoImposto\(c\)/.test(store) && !/category: c\.categoria \|\|/.test(store));
+  ok("vender/impostos: a descrição-chave mora num lugar só",
+     cv.descricaoDoImposto("PIS", "2026-12") === "PIS · competência 2026-12");
+
+  /* ---- a nota da venda: um fato, dois painéis, uma receita ---- */
+  const vN = VV({ textoDocumentoFiscal: "Consultoria de dezembro" });
+  const ped = pedidoDeNota(vN, "v-rec", 5);
+  ok("vender/nota: a nota REAPROVEITA o título da venda (a avulsa lançava a receita de novo)", ped.movimentoReceita === "v-rec");
+  ok("vender/nota: o valor da nota é o faturamento da venda", ped.valorServico === 1_000 && ped.tomadorId === "c1");
+  ok("vender/nota: o status volta para a venda — autorizada vira emitida, rejeitada vira negada",
+     statusNFDaNota("autorizada") === "emitida" && statusNFDaNota("enviada") === "emitida"
+     && statusNFDaNota("rejeitada") === "negada" && statusNFDaNota("processando") === "processando");
+  const emitida = vendaComNota(vN, { status: "autorizada", numero: "100001" });
+  const cardsNF = cv.painelStatusNF([emitida, VV({ id: "b" })]);
+  const cardsNotas = cv.painelNotasFiscais([emitida, VV({ id: "b" })]);
+  ok("vender/nota: a venda com nota entra em 'NFs emitidas' no painel da lista",
+     cardsNF.find((c) => c.id === "emitidas")!.quantidade === 1 && cardsNF.find((c) => c.id === "emitidas")!.valor === 1_000);
+  ok("vender/nota: e no painel da tela de notas, com o mesmo número",
+     cardsNotas.find((c) => c.id === "emitida")!.quantidade === 1 && emitida.numeroNF === "100001");
+  ok("vender/nota: nota emitida ou venda cancelada não oferecem emitir de novo",
+     !podeEmitirNota(emitida) && !podeEmitirNota(VV({ status: "cancelada" })) && podeEmitirNota(VV({ statusNF: "negada" })));
+  const nfse = lerV("src/lib/nfse.ts");
+  ok("vender/nfse: a inserção recusada em produção sobe — não vira nota local com id inventado",
+     /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\.insert/.test(nfse) && /if \(error\) throw new Error\(error\.message\);\n  const saved/.test(nfse));
+  ok("vender/nfse: nota autorizada sem receita não é silêncio",
+     /Nota autorizada, mas a receita não foi lançada/.test(nfse) && !/if \(!accId\) return ids;/.test(nfse));
+  const nfseView = semComentario(lerV("src/components/nfse/NfseView.tsx"));
+  ok("vender/nfse: a tela não afirma mais que o ISS entra no DRE", !/receita e ISS na DRE|a receita e o ISS entram/.test(nfseView));
+
+  /* ---- assinaturas: dá para criar, e o MRR normaliza o ciclo ---- */
+  const pagAss = lerV("src/app/dashboard/sales-invoices/subscriptions/page.tsx");
+  ok("vender/assinaturas: a tela monta o gerenciador (criar, ativar, pausar, cancelar) — estava órfão",
+     /<RecorrenciasView \/>/.test(pagAss));
+  const criarCat = lerV("src/core/criar/index.ts");
+  ok("vender/assinaturas: 'Nova assinatura' não abre mais o formulário de contrato que não grava em demonstração",
+     !/Nova assinatura[^\n]*modal: "contrato"/.test(criarCat));
+  const { mrr: mrrV } = await import("@/core/indicadores");
+  const mV = mrrV({ hoje: "2026-09-30", saldoAtual: 0, movements: [] }, [
+    { ativo: true, valorCiclo: 300, mesesCiclo: 3 }, { ativo: true, valorCiclo: 1_200, mesesCiclo: 12 }, { ativo: false, valorCiclo: 999, mesesCiclo: 1 },
+  ]).valor;
+  ok("vender/assinaturas: MRR normaliza o ciclo (trimestral 300 + anual 1.200 = 200/mês) e ignora a inativa", mV === 200, `${mV}`);
+
+  /* ---- PIX copia-e-cola: CRC conferido por implementação independente ---- */
+  try {
+    const { gerarPixCopiaECola } = await import("@/lib/pix");
+    const payload = gerarPixCopiaECola({ chave: "12345678000195", valor: 123.4, nome: "Padaria São João Ltda", cidade: "São Paulo", txid: "V20260001" });
+    // CRC16-CCITT-FALSE escrito à mão AQUI (não importado): se as duas
+    // implementações divergirem, alguém mexeu num lado sem querer.
+    let c = 0xffff;
+    const corpo = payload.slice(0, -4);
+    for (let i = 0; i < corpo.length; i++) { c ^= corpo.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) c = c & 0x8000 ? ((c << 1) ^ 0x1021) & 0xffff : (c << 1) & 0xffff; }
+    ok("vender/pix: o CRC do copia-e-cola confere", payload.slice(-4) === c.toString(16).toUpperCase().padStart(4, "0"), payload);
+    ok("vender/pix: valor, moeda, país e chave nos campos EMV", /5406123\.40/.test(payload) && /5303986/.test(payload) && /5802BR/.test(payload) && payload.includes("12345678000195"));
+    ok("vender/pix: nome e cidade sem acento (o leitor recusa byte fora do ASCII)", /^[\x20-\x7e]+$/.test(payload));
+  } catch (e) {
+    ok("vender/pix: o gerador de PIX carrega fora do navegador", false, String(e));
+  }
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

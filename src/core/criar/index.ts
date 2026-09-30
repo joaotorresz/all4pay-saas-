@@ -68,9 +68,11 @@ export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
   { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices?aba=nfse", forma: "pagina" },
-  // A tela de assinaturas é só a LISTA; quem cria a regra recorrente é o mesmo
-  // formulário de contrato (grava em `recurrences`, que é o que a lista lê).
-  { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "modal", modal: "contrato" },
+  // ⚠️ Abria o formulário de CONTRATO, que em demonstração não grava nada e
+  // responde "Contrato salvo" — a assinatura nunca aparecia. A assinatura se
+  // cria na aba "Contratos e MRR" da própria tela, que tem itens do catálogo,
+  // ciclo e a ativação que lança as faturas previstas.
+  { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "pagina" },
   { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
 ];
 

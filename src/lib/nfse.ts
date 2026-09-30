@@ -107,12 +107,17 @@ export async function criarNfse(n: NovaNfse): Promise<Nfse> {
   };
   if (isDemo) { saveLocal([nf, ...loadLocal()]); return nf; }
   const isUuid = (v?: string) => !!v && /^[0-9a-f-]{36}$/i.test(v);
-  const { data } = await createClient().from("nfse").insert({
+  // ⚠️ O erro do banco era descartado: com a inserção recusada, `data` vinha
+  // nulo e a função devolvia a nota LOCAL, com id inventado — a tela a listava
+  // como criada, a transmissão atualizava um id que não existe, e a nota nunca
+  // chegava à tabela. Agora a recusa sobe com a mensagem dele.
+  const { data, error } = await createClient().from("nfse").insert({
     tomador_id: isUuid(n.tomadorId) ? n.tomadorId : null, recurrence_id: isUuid(n.recorrenciaId) ? n.recorrenciaId : null,
     service_code: n.codigoServico, description: n.discriminacao, amount: n.valorServico, iss_rate: n.issAliquota,
     taxes: { iss: Math.round(n.valorServico * (n.issAliquota / 100) * 100) / 100 }, municipality: n.municipio,
     competence: isoDay(new Date()), await_payment: n.aguardarPagamento, status: "rascunho",
   }).select("id,tomador_id,movement_id,recurrence_id,service_code,description,amount,iss_rate,municipality,competence,await_payment,numero,codigo_verificacao,status,created_at").single();
+  if (error) throw new Error(error.message);
   const saved = data ? fromRow({ ...(data as NfseRow), parties: { name: n.tomadorNome } }) : nf;
   cache = [saved, ...(cache ?? [])];
   return saved;
@@ -125,12 +130,19 @@ export async function transmitirNfse(id: string): Promise<Nfse | null> {
   if (i < 0) return null;
   list[i] = { ...list[i], status: "processando" };
   cache = [...list];
-  if (isDemo) saveLocal(cache); else await createClient().from("nfse").update({ status: "processando" }).eq("id", id);
+  if (isDemo) saveLocal(cache);
+  else {
+    const { error } = await createClient().from("nfse").update({ status: "processando" }).eq("id", id);
+    if (error) throw new Error(error.message);
+  }
 
   await new Promise((r) => setTimeout(r, 1200)); // prefeitura (simulada)
 
   i = (cache ?? []).findIndex((x) => x.id === id);
   const nf = { ...(cache as Nfse[])[i] };
+  // A nota autorizada é gravada mesmo quando a receita falha (a prefeitura já
+  // a aceitou); a falha da receita sobe DEPOIS, para a tela dizer o que fazer.
+  let falhaReceita: unknown = null;
   if (!nf.tomadorId) {
     nf.status = "rejeitada";
     nf.motivoRejeicao = "Tomador incompleto — a prefeitura exige CNPJ/CPF e endereço.";
@@ -138,14 +150,18 @@ export async function transmitirNfse(id: string): Promise<Nfse | null> {
     nf.status = "autorizada";
     nf.numero = String(100000 + (list.length + 1));
     nf.codigoVerificacao = Math.random().toString(36).slice(2, 10).toUpperCase();
-    nf.movimentos = await refletirNaDRE(nf);
+    try { nf.movimentos = await refletirNaDRE(nf); } catch (e) { falhaReceita = e; nf.movimentos = []; }
   }
   const next = [...(cache as Nfse[])]; next[i] = nf; cache = next;
   if (isDemo) saveLocal(next);
-  else await createClient().from("nfse").update({
+  else {
+    const { error } = await createClient().from("nfse").update({
     status: statusToDB(nf.status), numero: nf.numero ?? null, codigo_verificacao: nf.codigoVerificacao ?? null,
     movement_id: nf.movimentos[0] ?? nf.movimentoReceita ?? null,
-  }).eq("id", id);
+    }).eq("id", id);
+    if (error) throw new Error(error.message);
+  }
+  if (falhaReceita) throw falhaReceita;
   return nf;
 }
 
@@ -166,15 +182,20 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
 
   if (isDemo) { appendImported({ movement: receita }); ids.push(receita.id); return ids; }
   const supabase = createClient();
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
+  // ⚠️ Nota autorizada SEM receita era silêncio: sem conta, ou com o insert
+  // recusado, a função devolvia vazio e a tela dizia "receita na DRE". A nota
+  // continua autorizada (a prefeitura já a aceitou), mas a falha sobe.
+  const { data: accs, error: eConta } = await supabase.from("financial_accounts").select("id").limit(1);
+  if (eConta) throw new Error(eConta.message);
   const accId = (accs as { id: string }[] | null)?.[0]?.id;
-  if (!accId) return ids;
-  const { data } = await supabase.from("movements").insert({
+  if (!accId) throw new Error("Nota autorizada, mas a receita não foi lançada: cadastre uma conta bancária e lance o recebimento em Títulos a receber.");
+  const { data, error } = await supabase.from("movements").insert({
     // ⚠️ ONDA 5: o título nasce da NOTA, e a origem diz isso.
     origem: "venda" as const,
     account_id: accId, type: "entrada", situacao: "previsto", category: "Serviços", amount: nf.valorServico,
     party_id: nf.tomadorId, due_date: hoje, paid_date: null, reconciled: false, description: receita.description,
   }).select("id").single();
+  if (error) throw new Error(`Nota autorizada, mas a receita não foi lançada: ${error.message}`);
   if (data) ids.push((data as { id: string }).id);
   return ids;
 }
@@ -200,7 +221,11 @@ export async function cancelarNfse(id: string): Promise<void> {
     }
   }
   list[i] = { ...nf, movimentos: [], status: "cancelada" }; cache = [...list];
-  if (isDemo) saveLocal([...list]); else await createClient().from("nfse").update({ status: "cancelada" }).eq("id", id);
+  if (isDemo) saveLocal([...list]);
+  else {
+    const { error } = await createClient().from("nfse").update({ status: "cancelada" }).eq("id", id);
+    if (error) throw new Error(error.message);
+  }
 }
 
 export function clearNfse(): void { saveLocal([]); }

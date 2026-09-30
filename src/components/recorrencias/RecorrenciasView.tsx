@@ -22,6 +22,7 @@ const STATUS: Record<StatusRec, { label: string; cor: string }> = {
   cancelada: { label: "Cancelada", cor: "var(--color-negative)" },
 };
 const CATEGORIAS = ["Assinatura de software", "Serviço recorrente", "Manutenção", "Licença", "Mensalidade"];
+const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const fmtDia = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
 
 export function RecorrenciasView() {
@@ -62,25 +63,41 @@ export function RecorrenciasView() {
     const cli = clientes.find((c: Party) => c.id === clienteId);
     const validos = itens.filter((it) => it.nome.trim() && it.valor > 0);
     if (!titulo.trim() || !cli || !validos.length) { show("Informe título, cliente e ao menos um item"); return; }
-    await criarRecorrencia({ titulo: titulo.trim(), clienteId, clienteNome: cli.name, itens: validos, ciclo, diaFaturamento: dia, classificacao });
+    try {
+      await criarRecorrencia({ titulo: titulo.trim(), clienteId, clienteNome: cli.name, itens: validos, ciclo, diaFaturamento: dia, classificacao });
+    } catch (e) {
+      show(`A recorrência não foi criada: ${msg(e)}`);
+      return;
+    }
     setTitulo(""); setClienteId(""); setItens([{ nome: "", valor: 0, qtd: 1 }]);
     await refresh();
     show("Recorrência criada como rascunho — ative para projetar as faturas");
   };
 
-  const ativar = async (r: Recorrencia) => { await ativarRecorrencia(r.id); await refresh(); show("Ativada — próximas faturas entram no previsto (em Títulos a receber, no fluxo e no DRE)"); };
-  const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => { await encerrarRecorrencia(r.id, st); await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas previstas saem do fluxo" : "Pausada — faturas previstas removidas"); };
+  // ⚠️ As três ações mexem em dinheiro previsto (criam ou tiram faturas do
+  // contas a receber). Sem o `try`, uma recusa do banco virava erro solto no
+  // console e a tela seguia como se a ação tivesse acontecido.
+  const ativar = async (r: Recorrencia) => {
+    try { await ativarRecorrencia(r.id); } catch (e) { show(`Não foi possível ativar: ${msg(e)}`); return; }
+    await refresh(); show("Ativada — próximas faturas entram no previsto (em Títulos a receber, no fluxo e no DRE)");
+  };
+  const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => {
+    try { await encerrarRecorrencia(r.id, st); } catch (e) { show(`Não foi possível ${st === "cancelada" ? "cancelar" : "pausar"}: ${msg(e)}`); return; }
+    await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas previstas saem do fluxo" : "Pausada — faturas previstas removidas");
+  };
 
   // N2: emite a NFS-e da próxima fatura reusando o MESMO movement (não duplica receita).
   const emitirNfse = async (r: Recorrencia) => {
-    if (!r.movimentos.length) return;
+    // ⚠️ Sem fatura conhecida o botão não fazia NADA — nem aviso. Em produção
+    // a lista não carrega os ids das faturas, então era sempre assim.
+    if (!r.movimentos.length) { show("Esta assinatura ainda não tem fatura lançada para emitir a nota. Emita pela aba Emitir NFS-e das Notas fiscais."); return; }
     const nf = await criarNfse({
       tomadorId: r.clienteId, tomadorNome: r.clienteNome, discriminacao: r.titulo,
       codigoServico: "1.05 — Licenciamento de software", valorServico: totalFatura(r),
       municipio: "São Paulo", issAliquota: 5, aguardarPagamento: false,
       recorrenciaId: r.id, movimentoReceita: r.movimentos[0],
     });
-    await transmitirNfse(nf.id);
+    try { await transmitirNfse(nf.id); } catch (e) { show(`A nota não foi transmitida: ${msg(e)}`); return; }
     await refresh();
     show("NFS-e emitida da fatura — receita reaproveitada (não duplica)");
   };
@@ -91,8 +108,8 @@ export function RecorrenciasView() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi label="MRR" node={<BRL value={kpis.mrr} />} info={{ titulo: "MRR", oQue: "Receita recorrente mensal contratada — quanto entra de assinatura todo mês.", comoCalcula: "Soma do valor por ciclo de todas as recorrências ativas, normalizado para o mês." }} />
         <Kpi label="Recorrências ativas" node={<span>{kpis.ativas}</span>} info={{ titulo: "Recorrências ativas", oQue: "Quantos contratos estão gerando faturas no momento.", comoCalcula: "Contagem das recorrências com status ativa." }} />
-        <Kpi label="Ticket médio" node={<BRL value={kpis.ticketMedio} />} info={{ titulo: "Ticket médio", oQue: "Valor médio de cada contrato de assinatura.", comoCalcula: "MRR dividido pelo número de recorrências ativas." }} />
-        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} tone={kpis.churn > 0.2 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Churn", oQue: "Percentual de contratos que foram pausados ou cancelados — o quanto você perde de base.", comoCalcula: "Recorrências canceladas ou pausadas sobre o total de contratos." }} />
+        <Kpi label="Ticket médio" node={<BRL value={kpis.ticketMedio} />} info={{ titulo: "Ticket médio", oQue: "Valor médio de cada fatura de assinatura, no ciclo dela.", comoCalcula: "Soma do valor por ciclo das recorrências ativas dividida pelo número delas — sem normalizar para o mês (uma anual de R$ 1.200 conta R$ 1.200 aqui e R$ 100 no MRR)." }} />
+        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} tone={kpis.churn > 0.2 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Churn", oQue: "Percentual de contratos que foram cancelados — o quanto você perde de base.", comoCalcula: "Recorrências canceladas sobre o total de contratos. Pausada não conta como perda." }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">

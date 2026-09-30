@@ -20,6 +20,8 @@ import {
 } from "@/core/vendas";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVendas, removerVendaDoc, vendasSoNoNavegador, enviarVendasDoNavegador } from "@/lib/vendas";
+import { emitirNotaDaVenda } from "@/lib/vendas-nf";
+import { podeEmitirNota } from "@/core/vendas/nota";
 import { Painel, CardAnel } from "@/components/paineis/shared";
 import { imprimirRelatorio } from "@/lib/imprimir";
 
@@ -41,6 +43,7 @@ export function VendasView() {
   const { data: lista, error: erroLista } = useVendas();
   const soLocais = React.useMemo(() => (lista ? vendasSoNoNavegador(lista) : []), [lista]);
   const [enviando, setEnviando] = React.useState(false);
+  const [emitindo, setEmitindo] = React.useState<string | null>(null);
   const [busca, setBusca] = React.useState("");
   const [filtro, setFiltro] = React.useState<FiltroVendas>({ status: "todos", statusNF: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
@@ -272,6 +275,29 @@ export function VendasView() {
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {podeEmitirNota(v) && (
+                          <button
+                            disabled={emitindo !== null}
+                            onClick={async () => {
+                              setEmitindo(v.id);
+                              try {
+                                const r = await emitirNotaDaVenda(v);
+                                await qc.invalidateQueries();
+                                show(r.autorizada
+                                  ? `NF ${r.numero} emitida para a venda ${v.numero} — a receita é o título que a venda já gerou.`
+                                  : `A prefeitura recusou a nota da venda ${v.numero}: ${r.motivo ?? "sem motivo informado"}`);
+                              } catch (e) {
+                                await qc.invalidateQueries();
+                                show(`A nota da venda ${v.numero} não foi emitida: ${e instanceof Error ? e.message : String(e)}`);
+                              } finally {
+                                setEmitindo(null);
+                              }
+                            }}
+                            className="px-2 py-[4px] rounded-pill text-caption font-medium text-ink bg-surface-2 hover:bg-surface-3 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {emitindo === v.id ? "Emitindo…" : v.statusNF === "negada" ? "Reemitir NF" : "Emitir NF"}
+                          </button>
+                        )}
                         <button
                           onClick={() => router.push(`/dashboard/sales-invoices/new?id=${v.id}`)}
                           aria-label="Editar" className="p-[6px] rounded-md text-muted hover:text-ink hover:bg-surface-2"

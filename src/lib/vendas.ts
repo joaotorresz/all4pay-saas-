@@ -142,7 +142,7 @@ function tituloDaVenda(v: Venda) {
   };
 }
 
-async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
+export async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
   const s = await cliente();
   const { data, error } = await semAmostra(s
     .from("movements").select("id,situacao")).eq("sale_doc_id", id).limit(TETO_LINHAS);

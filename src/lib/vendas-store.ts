@@ -12,9 +12,14 @@
  * A venda é o documento-mãe: ao salvar, ela também gera o RECEBÍVEL no dataset,
  * para que caixa, DRE e cobrança a enxerguem sem ninguém lançar duas vezes.
  */
-import { appendImported, removerImported } from "@/lib/imported";
+import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
-import { configPadrao, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
+import { configPadrao, descricaoDoImposto, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
+import { criarTitulos } from "@/lib/data";
+import { listPlanoContas } from "@/lib/registros";
+import { reportar } from "@/lib/erros";
+import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
+import { ehUUID } from "@/core/vendas/documento";
 import type { Movement } from "@/lib/types";
 import { proximoNumeroDe } from "@/core/vendas/documento";
 
@@ -42,13 +47,19 @@ export const novoId = (p: string): string =>
 export const listarVendas = (): Venda[] => ler<Venda[]>(K_VENDAS, []);
 
 /** O id do recebível que a venda gera — um por venda, sempre o mesmo. */
-const idRecebivel = (vendaId: string) => `${vendaId}-rec`;
+export const idRecebivel = (vendaId: string): string => `${vendaId}-rec`;
 
 export function salvarVenda(v: Venda): Venda[] {
   const lista = [v, ...listarVendas().filter((x) => x.id !== v.id)];
   gravar(K_VENDAS, lista);
 
   if (isDemo) {
+    // ⚠️ Recebível já BAIXADO não é reescrito — a mesma regra de produção
+    // (`lib/vendas.atualizarTitulo`: só o previsto acompanha a edição). Antes,
+    // regravar a venda depois da baixa devolvia o título a "pendente" e
+    // desfazia o recebimento do caixa sem ninguém pedir.
+    const atual = (importedMovements() ?? []).find((m) => m.id === idRecebivel(v.id));
+    if (atual && atual.status === "pago") return lista;
     // Regravar a venda substitui o recebível: sem remover o antigo, editar uma
     // venda duplicaria o valor a receber.
     removerImported([idRecebivel(v.id)]);
@@ -69,6 +80,16 @@ export function salvarVenda(v: Venda): Venda[] {
       } as unknown as Movement,
     });
   }
+  return lista;
+}
+
+/**
+ * Regrava SÓ o documento — sem tocar no recebível. É o caminho da nota fiscal:
+ * emitir a NF muda o status e o número da nota, não o dinheiro.
+ */
+export function salvarSoDocumento(v: Venda): Venda[] {
+  const lista = [v, ...listarVendas().filter((x) => x.id !== v.id)];
+  gravar(K_VENDAS, lista);
   return lista;
 }
 
@@ -108,36 +129,114 @@ export function salvarConfigImpostos(c: ConfigImpostos): ConfigImpostos {
 }
 
 /**
- * Gera as contas a pagar dos impostos do mês.
+ * O NOME da categoria escolhida na configuração.
  *
- * ⚠️ Idempotente por competência: o id carrega mês + imposto, e o antigo é
- * removido antes de gravar. Sem isso, clicar duas vezes em "Criar contas a
- * pagar" dobraria o imposto do mês no fluxo de caixa.
+ * ⚠️ A configuração guarda o ID da categoria do plano de contas local, e o
+ * título gravava esse id no campo de TEXTO — a lista e o DRE liam "217290" no
+ * lugar de "Impostos sobre vendas", e o classificador do DRE não reconhece um
+ * número. Sem categoria escolhida, vale o nome do imposto ("PIS", "ISS"), que o
+ * DRE classifica sozinho.
+ */
+export function nomeDaCategoriaDoImposto(c: ContaImposto): string {
+  if (!c.categoria) return c.rotulo;
+  const noPlano = listPlanoContas().find((p) => p.id === c.categoria);
+  if (noPlano) return noPlano.nome;
+  // Um UUID solto (categoria do banco) não é nome; o rótulo do imposto é.
+  return ehUUID(c.categoria) || /^\d+$/.test(c.categoria) ? c.rotulo : c.categoria;
+}
+
+const tituloDoImposto = (c: ContaImposto, mesCompetencia: string, contaBancaria: string) => ({
+  account_id: contaBancaria,
+  type: "saida" as const,
+  amount: c.valor,
+  due_date: c.vencimento,
+  // A competência do imposto é o mês das vendas que o geraram, não o do vencimento.
+  competence_date: `${mesCompetencia}-01`,
+  category: nomeDaCategoriaDoImposto(c),
+  description: descricaoDoImposto(c.rotulo, mesCompetencia),
+  party_id: ehUUID(c.fornecedorId) ? c.fornecedorId : null,
+  origem: "manual" as const,
+});
+
+export interface ResultadoImpostos { criadas: number; jaExistiam: string[] }
+
+/**
+ * Gera as contas a pagar dos impostos do mês — em demonstração E em produção.
+ *
+ * ⚠️ **EM PRODUÇÃO ESTE BOTÃO NÃO FAZIA NADA.** A função começava por
+ * `if (!isDemo) return 0`, e a tela respondia "Nada a criar neste período." —
+ * com os impostos calculados na tabela logo acima. O imposto provisionado
+ * nunca virava conta a pagar, não entrava no fluxo de caixa nem no DRE: o
+ * "escritor morto" pela porta de produção.
+ *
+ * ⚠️ **Idempotente por competência, nos dois caminhos.** Em demonstração o id
+ * carrega mês + imposto e o antigo é substituído. Em produção a chave é a
+ * descrição (`descricaoDoImposto`): o imposto que já tem título vivo naquela
+ * competência NÃO ganha outro — é devolvido em `jaExistiam`. Sem isso, clicar
+ * duas vezes dobraria o imposto do mês no fluxo de caixa.
+ *
+ * LANÇA quando o banco recusa, com a mensagem dele.
+ */
+export async function gravarContasDeImpostos(
+  contas: ContaImposto[],
+  mesCompetencia: string,
+  contaBancaria: string,
+): Promise<ResultadoImpostos> {
+  if (contas.length === 0) return { criadas: 0, jaExistiam: [] };
+  if (isDemo) {
+    const ids = contas.map((c) => `imp-${mesCompetencia}-${c.imposto}`);
+    removerImported(ids);
+    contas.forEach((c, k) => {
+      const t = tituloDoImposto(c, mesCompetencia, contaBancaria);
+      appendImported({
+        movement: {
+          id: ids[k], account_id: t.account_id, type: t.type, status: "pendente",
+          amount: t.amount, due_date: t.due_date, paid_date: null, reconciled: false,
+          category: t.category, description: t.description, party_id: t.party_id ?? (c.fornecedorId || null),
+          origem: t.origem,
+        } as unknown as Movement,
+      });
+    });
+    return { criadas: contas.length, jaExistiam: [] };
+  }
+
+  const { createClient } = await import("@/lib/supabase/client");
+  const s = createClient();
+  const descricoes = contas.map((c) => descricaoDoImposto(c.rotulo, mesCompetencia));
+  const { data, error } = await semAmostra(s.from("movements").select("description,status"))
+    .eq("type", "saida").in("description", descricoes).neq("status", "cancelado").limit(TETO_LINHAS);
+  if (error) throw new Error(error.message);
+  const vivas = new Set(((data ?? []) as { description: string }[]).map((r) => r.description));
+  const novas = contas.filter((c) => !vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia)));
+  if (novas.length) await criarTitulos(novas.map((c) => tituloDoImposto(c, mesCompetencia, contaBancaria)));
+  return {
+    criadas: novas.length,
+    jaExistiam: contas.filter((c) => vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia))).map((c) => c.rotulo),
+  };
+}
+
+/**
+ * A porta SÍNCRONA que a tela de provisionamento ainda chama
+ * (`OutrasViews`, arquivo reservado nesta rodada — ver
+ * docs/rodada-30-09/vender.md: a tela deve passar a aguardar
+ * `gravarContasDeImpostos` e mostrar `jaExistiam`).
+ *
+ * Em demonstração a gravação é local e imediata. Em produção a gravação é
+ * disparada aqui e, se o banco a recusar, a MENSAGEM REAL aparece num alerta —
+ * o `return 0` de antes fazia a tela dizer "nada a criar" com o imposto na
+ * tela. Devolve quantas contas foram enviadas.
  */
 export function criarContasDeImpostos(
   contas: ContaImposto[],
   mesCompetencia: string,
   contaBancaria: string,
 ): number {
-  if (!isDemo) return 0;
-  const ids = contas.map((c) => `imp-${mesCompetencia}-${c.imposto}`);
-  removerImported(ids);
-  contas.forEach((c, k) => {
-    appendImported({
-      movement: {
-        id: ids[k],
-        account_id: contaBancaria,
-        type: "saida",
-        status: "pendente",
-        amount: c.valor,
-        due_date: c.vencimento,
-        paid_date: null,
-        reconciled: false,
-        category: c.categoria || c.rotulo,
-        description: `${c.rotulo} · competência ${mesCompetencia}`,
-        party_id: c.fornecedorId || null,
-      } as unknown as Movement,
-    });
+  const envio = gravarContasDeImpostos(contas, mesCompetencia, contaBancaria);
+  envio.catch((e) => {
+    reportar("vendas.impostos", e, "as contas a pagar dos impostos do mês não foram criadas");
+    if (typeof window !== "undefined") {
+      window.alert(`As contas a pagar dos impostos NÃO foram criadas. O sistema respondeu: ${e instanceof Error ? e.message : String(e)}`);
+    }
   });
   return contas.length;
 }

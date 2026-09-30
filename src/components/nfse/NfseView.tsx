@@ -50,7 +50,14 @@ export function NfseView() {
   const emitir = async () => {
     const t = clientes.find((c: Party) => c.id === tomadorId);
     if (!t || valor <= 0 || !discriminacao.trim()) { show("Informe tomador, discriminação e valor"); return; }
-    const nf = await criarNfse({ tomadorId, tomadorNome: t.name, discriminacao: discriminacao.trim(), codigoServico: codigo, valorServico: valor, municipio, issAliquota: iss, aguardarPagamento: aguardar });
+    let nf;
+    try {
+      nf = await criarNfse({ tomadorId, tomadorNome: t.name, discriminacao: discriminacao.trim(), codigoServico: codigo, valorServico: valor, municipio, issAliquota: iss, aguardarPagamento: aguardar });
+    } catch (e) {
+      // A mensagem real do banco — "tente novamente" não conserta uma recusa.
+      show(`A nota não foi criada: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     setTomadorId(""); setDiscriminacao(""); setValor(0);
     setLista(listNfse());
     if (aguardar) { show("NFS-e em rascunho — emitirá ao receber o pagamento"); return; }
@@ -63,18 +70,32 @@ export function NfseView() {
     try {
       const nf = await transmitirNfse(id);
       await refresh();
-      if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita e ISS na DRE, recebimento em Títulos a receber`);
+      // ⚠️ Dizia "receita e ISS na DRE". O ISS NÃO entra no DRE: ele fica
+      // calculado na nota (ver `refletirNaDRE`). A frase afirmava uma dedução
+      // que nenhum relatório faz.
+      if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita no DRE e recebimento em Títulos a receber`);
       else show(nf?.motivoRejeicao ?? "NFS-e rejeitada");
+    } catch (e) {
+      await refresh();
+      show(e instanceof Error ? e.message : String(e));
     } finally { setBusy(null); }
   };
 
   const enviar = async (id: string) => { await enviarAoTomador(id); setLista(listNfse()); show("Nota enviada ao tomador (reusa a Cobrança WhatsApp/e-mail)"); };
-  const cancelar = async (id: string) => { await cancelarNfse(id); await refresh(); show("NFS-e cancelada — lançamentos vinculados removidos do hub"); };
+  const cancelar = async (id: string) => {
+    try {
+      await cancelarNfse(id);
+      await refresh();
+      show("NFS-e cancelada — lançamentos vinculados removidos do hub");
+    } catch (e) {
+      show(`A nota não foi cancelada: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
       {/* Nova NFS-e */}
-      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Nova NFS-e", oQue: "Emite uma nota fiscal de serviço para um tomador, já calculando o ISS e ligando a receita ao recebimento.", comoCalcula: "ISS igual ao valor do serviço vezes a alíquota informada; o líquido é o valor menos o ISS." }}>
+      <Card className="lg:col-span-1 flex flex-col gap-3" info={{ titulo: "Nova NFS-e", oQue: "Emite uma nota fiscal de serviço avulsa para um tomador, calculando o ISS e lançando a receita em Títulos a receber. Para a nota de uma venda já registrada, use “Emitir NF” na lista de vendas — assim a receita não é lançada duas vezes.", comoCalcula: "ISS igual ao valor do serviço vezes a alíquota informada; o líquido é o valor menos o ISS." }}>
         <span className="text-label font-medium text-muted">Nova NFS-e</span>
         <Select label="Tomador" value={tomadorId} onChange={setTomadorId} options={[{ value: "", label: "Selecione…" }, ...clientes.map((c: Party) => ({ value: c.id, label: c.name }))]} />
         <Select label="Código de serviço (LC 116)" value={codigo} onChange={setCodigo} options={SERVICOS.map((s) => ({ value: s, label: s }))} />
@@ -102,7 +123,7 @@ export function NfseView() {
       {/* Lista de notas */}
       <Card padded={false} className="lg:col-span-2">
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada liga a receita bruta e o ISS à DRE e o recebimento aos Títulos a receber, sem reconciliação manual." /></span>
+          <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada lança a receita bruta no DRE e o recebimento em Títulos a receber. O ISS fica calculado na nota: ele não vira conta a pagar nem dedução no DRE por aqui." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
@@ -110,7 +131,7 @@ export function NfseView() {
         </div>
         <div className="flex flex-col max-h-[540px] overflow-y-auto">
           {lista.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhuma nota. Emita ao lado — a receita e o ISS entram na DRE e em Títulos a receber.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhuma nota. Emita ao lado — a receita entra no DRE e em Títulos a receber.</p>
           ) : lista.map((n) => (
             <div key={n.id} className="grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="min-w-0">
@@ -136,7 +157,7 @@ export function NfseView() {
           ))}
         </div>
         <div className="px-5 py-3 border-t border-border-soft">
-          <span className="text-caption text-faint">Nota autorizada já fica ligada ao recebimento: a receita bruta e o ISS entram no DRE sem conferência manual — o resultado gerencial e o fiscal passam a ser o mesmo.</span>
+          <span className="text-caption text-faint">Nota autorizada já fica ligada ao recebimento: a receita bruta entra no DRE sem conferência manual. O ISS fica calculado na nota — a conta a pagar do imposto sai do provisionamento de impostos das vendas.</span>
         </div>
       </Card>
       {node}
