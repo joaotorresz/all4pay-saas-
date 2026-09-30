@@ -521,21 +521,28 @@ function Recentes({ input }: { input: RiskInput }) {
   const linhas = React.useMemo(() => {
     const nomeDe = (m: RiskMovement) =>
       (m.party_id ? input.partyNames?.[m.party_id] : null) ?? m.category ?? "Lançamento";
+    // ⚠️ "Recentes" é o que JÁ caiu na data de caixa, até hoje. Sem o corte, a
+    // ordenação decrescente punha no topo os PREVISTOS do mês que vem (medido
+    // na demonstração: seis linhas de outubro com a Home em 30/09), e a
+    // tabela chamada "recentes" virava uma agenda do futuro. O previsto
+    // vencido (data ≤ hoje) continua aparecendo, marcado "Previsto".
+    const hoje = input.hoje.slice(0, 10);
     return input.movements
       .filter((m) => m.status !== "cancelado")
+      .filter((m) => (m.paid_date ?? m.due_date).slice(0, 10) <= hoje)
       .slice()
       .sort((a, b) => (b.paid_date ?? b.due_date).localeCompare(a.paid_date ?? a.due_date))
       .filter((m) => !busca || nomeDe(m).toLowerCase().includes(busca.toLowerCase()))
       .slice(0, 6)
       .map((m) => ({ m, nome: nomeDe(m) }));
-  }, [input.movements, input.partyNames, busca]);
+  }, [input.movements, input.partyNames, input.hoje, busca]);
 
   return (
     <Card
       info={{
         titulo: "Transações recentes",
         oQue: "As últimas movimentações, entradas e saídas juntas.",
-        comoCalcula: "Lançamentos não cancelados, ordenados pela data de caixa (pagamento quando liquidado, vencimento quando previsto).",
+        comoCalcula: "Lançamentos não cancelados com data de caixa até hoje (pagamento quando liquidado, vencimento quando previsto), do mais novo ao mais antigo. O que vence depois de hoje fica no calendário ao lado.",
       }}
     >
       <div className="flex items-center justify-between gap-3 flex-wrap">
