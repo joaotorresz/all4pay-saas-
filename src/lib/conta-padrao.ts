@@ -25,15 +25,14 @@ export async function primeiraContaAtiva(
   supabase: SupabaseClient,
   orgId?: string,
 ): Promise<string | null> {
-  const consulta = () => {
-    const q = supabase.from("financial_accounts").select("id");
-    return orgId ? q.eq("org_id", orgId) : q;
-  };
   const id = (data: unknown) => (data as { id: string }[] | null)?.[0]?.id ?? null;
-
-  const { data, error } = await consulta().eq("ativo", true).limit(1);
+  const { data, error } = orgId
+    ? await supabase.from("financial_accounts").select("id").eq("org_id", orgId).eq("ativo", true).limit(1)
+    : await supabase.from("financial_accounts").select("id").eq("ativo", true).limit(1);
   if (!error) return id(data);
   if (!COLUNA_AUSENTE.test(`${error.code ?? ""} ${error.message ?? ""}`)) return null;
-  const antes = await consulta().limit(1);
+  const antes = orgId
+    ? await supabase.from("financial_accounts").select("id").eq("org_id", orgId).limit(1)
+    : await supabase.from("financial_accounts").select("id").limit(1);
   return antes.error ? null : id(antes.data);
 }

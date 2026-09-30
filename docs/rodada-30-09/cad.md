@@ -196,3 +196,21 @@ padrão para chave congelada), e ninguém conseguiria trazer o que ficou lá.
   organização, como `categories`).
 - O consumidor do "Uso padrão" (a classificação automática ainda não lê
   `categoria_uso_padrao`).
+
+## Validação (retomada, 30/09)
+
+- `tsc --noEmit` e `next lint --quiet`: limpos.
+- `npm test`: verde (EXIT 0). Na retomada ele reprovou uma vez em
+  `onda9: nenhuma consulta sem teto de linhas` — `lib/conta-padrao` montava a
+  consulta numa função e punha o `.limit(1)` depois, fora do alcance da
+  varredura. Consertado escrevendo as quatro consultas por extenso, cada uma
+  com o seu `.limit(1)` (a guarda não foi afrouxada).
+- `NEXT_PUBLIC_ALL4PAY_DEMO=true npm run build`: verde.
+- `smoke-rotas` (porta 3131): 81 rotas canônicas verdes.
+- `e2e` (porta 3131): 5 jornadas verdes, inclusive a nova `scripts/e2e/cad.mjs`
+  (22 verificações).
+- ⚠️ **Banco local:** a prova da migration e da guarda de banco foi feita antes
+  do reinício do contêiner (os arquivos provados em `/tmp/pgharness/cad1/`
+  são idênticos, byte a byte, aos commitados). Na retomada o ambiente recusou
+  `su postgres`, então não foi possível REEXECUTAR a prova nem apagar o banco
+  `pkg_cad*` desta sessão — fica para o orquestrador apagar.
