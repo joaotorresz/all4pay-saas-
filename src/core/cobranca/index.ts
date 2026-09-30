@@ -28,6 +28,13 @@
  * título é recusado (`jaEnviado`), para o cliente não receber a mesma cobrança
  * duas vezes num dia de clique repetido.
  *
+ * ⚠️ **A MENSAGEM IDENTIFICA O CREDOR** (razão social + CNPJ) e sempre diz "se
+ * já pagou, desconsidere". Sem o credor a cobrança é um texto anônimo pedindo
+ * dinheiro — em relação de consumo o CDC (art. 42-A) exige nome e CPF/CNPJ do
+ * fornecedor em todo documento de cobrança, e na prática é a diferença entre um
+ * lembrete e um golpe de WhatsApp. Sem o "desconsidere", o cliente que pagou
+ * ontem (e cuja baixa ainda não chegou) recebe uma cobrança que parece acusação.
+ *
  * Puro, tipado, demo-safe, sem relógio (`hoje` vem do RiskInput). Versão
  * cobranca/1.0.0.
  */
@@ -47,8 +54,69 @@ export interface EtapaRegua {
   nome: string;
   canal: Canal;
   tom: Tom;
-  /** Modelo com {cliente} {valor} {vencimento} {dias}. */
+  /** Modelo com {cliente} {credor} {valor} {vencimento} {dias}. */
   modelo: string;
+}
+
+/**
+ * A empresa que cobra — o que a mensagem tem de dizer sobre ela.
+ * `nome` é o que sempre existe (o nome da organização); razão social e
+ * documento entram quando o cadastro os tem.
+ */
+export interface Credor {
+  nome: string;
+  razaoSocial?: string | null;
+  /** CNPJ (ou CPF do empresário individual), com ou sem máscara. */
+  documento?: string | null;
+}
+
+const so = (s: string | null | undefined) => String(s ?? "").replace(/\D/g, "");
+
+/** "Padaria Aurora Ltda (CNPJ 12.345.678/0001-95)" — o credor como a mensagem o cita. */
+export function identificacaoDoCredor(c: Credor | null | undefined): string {
+  if (!c) return "a empresa credora";
+  const nome = (c.razaoSocial || c.nome || "").trim() || "a empresa credora";
+  const d = so(c.documento);
+  if (d.length === 14) return `${nome} (CNPJ ${d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")})`;
+  if (d.length === 11) return `${nome} (CPF ${d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4")})`;
+  return nome;
+}
+
+/** A frase que toda cobrança carrega — o cliente que pagou ontem não é devedor. */
+export const SE_JA_PAGOU = "Se já pagou, desconsidere esta mensagem.";
+
+/**
+ * O template APROVADO que cada TOM usa no WhatsApp (fora da janela de 24h só
+ * sai mensagem de template).
+ *
+ * ⚠️ Era UM template para a régua inteira: com ele configurado, o texto de cada
+ * etapa era IGNORADO e o lembrete amigável de três dias antes saía com as
+ * mesmas palavras do aviso formal de trinta dias depois. O tom É a régua.
+ */
+export type FinalidadeCobranca = "cobranca_lembrete" | "cobranca_atraso" | "cobranca_formal";
+export const FINALIDADE_DO_TOM: Record<Tom, FinalidadeCobranca> = {
+  lembrete: "cobranca_lembrete",
+  aviso: "cobranca_atraso",
+  firme: "cobranca_atraso",
+  formal: "cobranca_formal",
+};
+
+/**
+ * As variáveis do template (a MESMA ordem nos três): 1 cliente · 2 credor ·
+ * 3 valor · 4 vencimento · 5 dias de atraso. ⚠️ O valor sai por `formatBRL`,
+ * nunca `String(valor)` — "1234.5" num WhatsApp de cobrança é um número que o
+ * cliente não reconhece como dinheiro.
+ */
+export function variaveisDoTemplate(
+  dados: { cliente: string; valor: number; vencimento: string; dias: number }, credor?: Credor | null,
+): Record<string, string> {
+  return {
+    "1": dados.cliente,
+    "2": identificacaoDoCredor(credor),
+    "3": formatBRL(dados.valor),
+    "4": br(dados.vencimento),
+    "5": String(Math.max(0, dados.dias)),
+  };
 }
 
 /**
@@ -58,15 +126,15 @@ export interface EtapaRegua {
  */
 export const REGUA_PADRAO: EtapaRegua[] = [
   { id: "d-3", dia: -3, nome: "Lembrete antes do vencimento", canal: "email", tom: "lembrete",
-    modelo: "Olá, {cliente}. Lembramos que o pagamento de {valor} vence em {vencimento}. Se já pagou, desconsidere esta mensagem." },
+    modelo: "Olá, {cliente}. Aqui é {credor}. Lembramos que o pagamento de {valor} vence em {vencimento}. Se já pagou, desconsidere esta mensagem." },
   { id: "d0", dia: 0, nome: "Vence hoje", canal: "whatsapp", tom: "lembrete",
-    modelo: "Olá, {cliente}. O pagamento de {valor} vence hoje, {vencimento}. Qualquer dúvida, estamos à disposição." },
+    modelo: "Olá, {cliente}. Aqui é {credor}. O pagamento de {valor} vence hoje, {vencimento}. Qualquer dúvida, estamos à disposição. Se já pagou, desconsidere esta mensagem." },
   { id: "d+3", dia: 3, nome: "Primeiro aviso de atraso", canal: "whatsapp", tom: "aviso",
-    modelo: "Olá, {cliente}. Não identificamos o pagamento de {valor}, vencido em {vencimento} ({dias} dias). Pode nos confirmar a previsão?" },
+    modelo: "Olá, {cliente}. Aqui é {credor}. Não identificamos o pagamento de {valor}, vencido em {vencimento} ({dias} dias). Pode nos confirmar a previsão? Se já pagou, desconsidere esta mensagem." },
   { id: "d+10", dia: 10, nome: "Segundo aviso", canal: "whatsapp", tom: "firme",
-    modelo: "{cliente}, o pagamento de {valor} está em atraso há {dias} dias (vencimento {vencimento}). Precisamos regularizar esta semana." },
+    modelo: "{cliente}, aqui é {credor}. O pagamento de {valor} está em atraso há {dias} dias (vencimento {vencimento}). Precisamos regularizar esta semana. Se já pagou, desconsidere esta mensagem." },
   { id: "d+30", dia: 30, nome: "Aviso formal", canal: "email", tom: "formal",
-    modelo: "Prezado(a) {cliente}, consta em aberto o valor de {valor}, vencido em {vencimento} ({dias} dias). Solicitamos a regularização para evitar medidas de cobrança." },
+    modelo: "Prezado(a) {cliente}, {credor} informa que consta em aberto o valor de {valor}, vencido em {vencimento} ({dias} dias). Solicitamos a regularização para evitar medidas de cobrança. Se já pagou, desconsidere esta mensagem." },
   { id: "d+60", dia: 60, nome: "Protesto ou negativação (decisão manual)", canal: "manual", tom: "formal",
     modelo: "Título de {cliente} de {valor}, vencido em {vencimento} ({dias} dias): avaliar protesto, negativação ou acordo." },
 ];
@@ -118,9 +186,14 @@ export function somarDias(iso: string, n: number): string {
 
 const br = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
-export function redigirMensagem(etapa: EtapaRegua, dados: { cliente: string; valor: number; vencimento: string; dias: number }): string {
+export function redigirMensagem(
+  etapa: EtapaRegua,
+  dados: { cliente: string; valor: number; vencimento: string; dias: number },
+  credor?: Credor | null,
+): string {
   return etapa.modelo
     .replaceAll("{cliente}", dados.cliente)
+    .replaceAll("{credor}", identificacaoDoCredor(credor))
     .replaceAll("{valor}", formatBRL(dados.valor))
     .replaceAll("{vencimento}", br(dados.vencimento))
     .replaceAll("{dias}", String(Math.max(0, dados.dias)));
@@ -140,6 +213,7 @@ export function montarRegua(
   input: RiskInput,
   envios: EnvioRegistrado[] = [],
   regua: EtapaRegua[] = REGUA_PADRAO,
+  opts: { credor?: Credor | null } = {},
 ): PainelRegua {
   const hoje = input.hoje.slice(0, 10);
   const ordenada = [...regua].sort((a, b) => a.dia - b.dia);
@@ -164,7 +238,7 @@ export function montarRegua(
       etapa,
       hoje: dias === etapa.dia,
       proxima: prox ? { etapa: prox, em: somarDias(m.due_date, prox.dia) } : null,
-      mensagem: redigirMensagem(etapa, { cliente, valor: Math.abs(m.amount), vencimento: m.due_date, dias }),
+      mensagem: redigirMensagem(etapa, { cliente, valor: Math.abs(m.amount), vencimento: m.due_date, dias }, opts.credor),
       jaEnviado: enviados.has(`${m.id}|${etapa.id}`),
     });
   }

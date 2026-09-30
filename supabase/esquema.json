@@ -151,6 +151,13 @@
         "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930190000_automacoes",
+        "objetos_ausentes": ["automacoes", "automacao_envios", "automacao_envios_unico", "automacoes_padrao()", "automacoes_inicial()", "organizations_automacoes", "automacao_contexto(uuid)"],
+        "impacto": "Até ser aplicada, a aba Automações de Configurações não carrega em produção (as tabelas não existem), o runner diário devolve erro por empresa ao chamar automacao_contexto e a régua manual não consegue registrar 'marcar como avisado'. Nenhum envio sai. Todas as automações nascem DESLIGADAS: aplicar não dispara mensagem nenhuma sozinho.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote AUT — automações de e-mail e WhatsApp) — o job migrar do CI aplica no merge, depois do dono"
       }
     ],
     "objetos_sem_migration": [

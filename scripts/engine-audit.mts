@@ -6661,5 +6661,271 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── AUT ── */
+/* AUTOMAÇÕES DE E-MAIL E WHATSAPP (30/09/2026) — cada asserção prova o que a
+ * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$0,00" de
+ * empresa vazia, régua sem opt-in ou no degrau de 60 dias, mensagem sem credor
+ * ou com valor cru. Os casos negativos plantam o defeito e exigem que a
+ * asserção o enxergue (senão ela seria decoração). */
+{
+  const A = await import("@/core/automacoes");
+  const { variaveisDoTemplate, montarRegua } = await import("@/core/cobranca");
+  const { formatBRL } = await import("@/lib/format");
+  const fsA = await import("node:fs");
+  type RM = import("@/core/risk-engine/types").RiskMovement;
+  type Ctx = import("@/core/automacoes").ContextoAutomacao;
+  type Cfg = import("@/core/automacoes").ConfigAutomacao;
+  type Linha = import("@/core/automacoes").LinhaEnvio;
+  type Reg = import("@/core/automacoes").RegistroEnvios;
+  type Prov = import("@/core/automacoes").ProvedorEnvio;
+  const mv = (id: string, type: "entrada" | "saida", amount: number, due: string, category: string, party: string | null,
+    status: "pago" | "pendente" = "pendente", accountId: string | null = null): RM =>
+    ({ id, type, status, amount, due_date: due, paid_date: status === "pago" ? due : null, category, party_id: party, accountId }) as RM;
+  const HOJE = "2026-09-30"; // quarta-feira, dia útil
+  const movs: RM[] = [
+    mv("s-hoje", "saida", 1_500, "2026-09-30", "Aluguel", "F1", "pendente", "A1"),
+    mv("s-amanha", "saida", 800, "2026-10-01", "Energia", "F2", "pendente", "A1"),
+    mv("s-vencida", "saida", 300, "2026-09-25", "Internet", "F3"),
+    mv("s-longe", "saida", 999, "2026-10-20", "Seguro", "F4"),
+    mv("e-pago", "entrada", 5_000, "2026-09-20", "Vendas", "C1", "pago"),
+    mv("r-3a", "entrada", 900, "2026-09-27", "Vendas", "C1"),   // D+3
+    mv("r-3b", "entrada", 400.5, "2026-09-27", "Vendas", "C1"), // D+3, MESMO cliente
+    mv("r-10", "entrada", 700, "2026-09-20", "Vendas", "C2"),   // D+10
+    mv("r-60", "entrada", 4_000, "2026-08-01", "Vendas", "C3"), // D+60 (manual)
+  ];
+  const credor = { nome: "Aurora", razaoSocial: "Padaria Aurora Ltda", documento: "12345678000195" };
+  const ctxBase = (over: Partial<Ctx> = {}): Ctx => ({
+    orgId: "org-a", hoje: HOJE, credor,
+    input: { hoje: HOJE, saldoAtual: 10_000, movements: movs, partyNames: { F1: "Imobiliária Sol", F2: "Luz SA", F3: "Net", F4: "Seguradora", C1: "Cliente Um", C2: "Cliente Dois", C3: "Cliente Tres" }, horizonDias: 60 },
+    contas: [{ id: "A1", nome: "Conta Movimento", saldo: 1_000 }, { id: "A2", nome: "Reserva", saldo: 9_000 }],
+    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003" } },
+    membros: [{ userId: "u1", papel: "owner", nome: "Dona", email: "dona@aurora.com" }],
+    aprovacoesPendentes: 2, mesesTravados: [], envios: [], appUrl: "https://app.exemplo", ...over,
+  });
+  const cfg = (tipo: import("@/core/automacoes").TipoAutomacao, over: Partial<Cfg> = {}): Cfg =>
+    ({ ...A.configPadrao(tipo), ativo: true, destinatarios: [{ userId: "u1", email_ativo: true }], ...over });
+
+  // ---- 0) o dia é o de BRASÍLIA, não o do servidor em UTC ----
+  ok("aut: hoje é o dia de Brasília (01:30 UTC de 01/10 ainda é 30/09)", A.hojeEm(new Date("2026-10-01T01:30:00Z")) === "2026-09-30");
+  ok("aut: e às 03:30 UTC já virou", A.hojeEm(new Date("2026-10-01T03:30:00Z")) === "2026-10-01");
+
+  // ---- 1) REEXECUTAR NÃO ENVIA DE NOVO (índice único + grava-antes-de-enviar) ----
+  const log: string[] = [];
+  let chamadas = 0;
+  const provAtivo: Prov = {
+    ativo: () => true,
+    async enviar() { chamadas++; log.push("enviar"); return { ok: true, id: `SM${chamadas}` }; },
+  };
+  const linhas: Linha[] = [];
+  const reg = A.registroEmMemoria(linhas, () => "2026-09-30T12:00:00Z");
+  const regComLog: Reg = {
+    reservar: async (k) => { log.push("reservar"); return reg.reservar(k); },
+    concluir: async (k, r) => { log.push("concluir"); return reg.concluir(k, r); },
+  };
+  const ctx = ctxBase();
+  const lembrete = A.gerarMensagens(cfg("lembrete_pagar"), ctx);
+  ok("aut: o lembrete RECEBEU valor (1 mensagem, com as contas de hoje e de amanhã)",
+     lembrete.mensagens.length === 1 && lembrete.mensagens[0].texto.includes(formatBRL(1_500)) && lembrete.mensagens[0].texto.includes(formatBRL(800)),
+     lembrete.semEnvio?.motivo ?? "");
+  const r1 = await A.despachar("org-a", lembrete.mensagens, { registro: regComLog, provedor: provAtivo });
+  const r2 = await A.despachar("org-a", A.gerarMensagens(cfg("lembrete_pagar"), ctx).mensagens, { registro: regComLog, provedor: provAtivo });
+  ok("aut: reexecutar NÃO envia de novo (1 envio, 1 linha; a segunda execução bate no registro)",
+     r1.enviados === 1 && r2.enviados === 0 && r2.jaRegistrados === 1 && chamadas === 1 && linhas.length === 1,
+     `${r1.enviados}/${r2.enviados}/${r2.jaRegistrados} chamadas=${chamadas} linhas=${linhas.length}`);
+  ok("aut: a ORDEM é grava → envia → conclui (o registro vem antes do provedor)",
+     log.slice(0, 3).join(",") === "reservar,enviar,concluir", log.join(","));
+  ok("aut: o registro guarda o id do provedor e diz 'enviado'", linhas[0]?.status === "enviado" && linhas[0]?.provedorMsgId === "SM1");
+  // Defeito plantado: um registro que não recusa a repetição (a trava removida)
+  // TEM de fazer o provedor ser chamado duas vezes — senão a asserção acima
+  // passaria mesmo sem trava.
+  let chamadasSemTrava = 0;
+  const semTrava: Reg = { reservar: async () => "reservado", concluir: async () => {} };
+  const provConta: Prov = { ativo: () => true, async enviar() { chamadasSemTrava++; return { ok: true }; } };
+  await A.despachar("org-a", lembrete.mensagens, { registro: semTrava, provedor: provConta });
+  await A.despachar("org-a", lembrete.mensagens, { registro: semTrava, provedor: provConta });
+  ok("aut: (defeito plantado) sem a trava, reexecutar ENVIA DUAS VEZES — a guarda discrimina", chamadasSemTrava === 2);
+  // Registro indisponível: NADA sai (mandar sem ter onde anotar é o aviso em dobro de amanhã).
+  let chamadasSemRegistro = 0;
+  const quebrado: Reg = { reservar: async () => { throw new Error("banco fora"); }, concluir: async () => {} };
+  const rq = await A.despachar("org-a", lembrete.mensagens, { registro: quebrado, provedor: { ativo: () => true, async enviar() { chamadasSemRegistro++; return { ok: true }; } } });
+  ok("aut: sem registro, o provedor NÃO é chamado", chamadasSemRegistro === 0 && rq.falhas === 1);
+  // dryRun não toca em nada.
+  const linhasDry: Linha[] = [];
+  let chamadasDry = 0;
+  const rd = await A.despachar("org-a", lembrete.mensagens, { registro: A.registroEmMemoria(linhasDry), provedor: { ativo: () => true, async enviar() { chamadasDry++; return { ok: true }; } }, dryRun: true });
+  ok("aut: dryRun diz quantas sairiam e não grava nem envia", rd.sairiam === 1 && linhasDry.length === 0 && chamadasDry === 0);
+  // Falha é retomável; enviado não.
+  const linhasF: Linha[] = [];
+  const regF = A.registroEmMemoria(linhasF);
+  let tentativa = 0;
+  const provFalhaDepoisOk: Prov = { ativo: () => true, async enviar() { tentativa++; return tentativa === 1 ? { ok: false, erro: "recusado" } : { ok: true, id: "ok2" }; } };
+  const f1 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  const f2 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  const f3 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  ok("aut: envio que FALHOU é retomado; depois de enviado, não sai de novo",
+     f1.falhas === 1 && f2.enviados === 1 && f3.jaRegistrados === 1 && tentativa === 2 && linhasF.length === 1, `${tentativa} ${linhasF.map((l) => l.status)}`);
+
+  // ---- 2) SIMULADO NUNCA VIRA AVISADO ----
+  const linhasSim: Linha[] = [];
+  const cfgRegua = cfg("regua_cobranca");
+  const regua = A.gerarMensagens(cfgRegua, ctx);
+  const rs = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasSim), provedor: { ativo: () => false, async enviar() { throw new Error("não devia chamar"); } } });
+  ok("aut: sem credencial, a régua registra SIMULADO (e não chama o provedor)",
+     rs.simulados === regua.mensagens.length && regua.mensagens.length > 0 && linhasSim.every((l) => l.status === "simulado"), `${rs.simulados}/${regua.mensagens.length}`);
+  const historicoSim = linhasSim.map((l) => ({ tipo: l.tipo, chave: l.chave, canal: l.canal, status: l.status, em: l.criadoEm }));
+  const reguaDepois = montarRegua(ctx.input, A.enviosDaRegua(historicoSim), undefined, { credor });
+  ok("aut: título com envio SIMULADO continua NÃO avisado na régua",
+     reguaDepois.itens.filter((i) => ["r-3a", "r-3b", "r-10"].includes(i.movimentoId)).every((i) => !i.jaEnviado));
+  ok("aut: simulado não conta como avisado; enviado e manual contam",
+     !A.contaComoAvisado("simulado") && !A.contaComoAvisado("falhou") && A.contaComoAvisado("enviado") && A.contaComoAvisado("manual"));
+  // Defeito plantado: se simulado contasse, os títulos sairiam da régua.
+  const plantado = montarRegua(ctx.input, A.enviosDaRegua(historicoSim.map((h) => ({ ...h, status: "enviado" as const }))), undefined, { credor });
+  ok("aut: (defeito plantado) tratar simulado como enviado MARCARIA os títulos como avisados",
+     plantado.itens.filter((i) => ["r-3a", "r-3b", "r-10"].includes(i.movimentoId)).every((i) => i.jaEnviado));
+  const repetirSim = A.gerarMensagens(cfgRegua, ctxBase({ envios: historicoSim }));
+  ok("aut: depois de um envio simulado, a régua ainda propõe o aviso (nada chegou ao cliente)",
+     repetirSim.mensagens.length === regua.mensagens.length);
+
+  // ---- 3) EMPRESA SEM DADOS NÃO RECEBE "R$ 0" ----
+  const vazio = ctxBase({ input: { hoje: HOJE, saldoAtual: 0, movements: [], partyNames: {}, horizonDias: 60 }, contas: [] });
+  for (const t of ["resumo_diario", "resumo_semanal", "lembrete_pagar", "alerta_caixa", "fechamento_pendente"] as const) {
+    const r = A.gerarMensagens(cfg(t), vazio);
+    ok(`aut: empresa sem lançamentos não recebe ${t}`, r.mensagens.length === 0 && r.semEnvio?.codigo === "sem_dados", r.semEnvio?.codigo ?? "saiu mensagem");
+  }
+  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$0,00".
+  const semHoje = ctxBase({ input: { ...ctx.input, movements: movs.filter((m) => m.due_date !== HOJE) } });
+  const rd0 = A.redigirResumoDiario(semHoje);
+  const zeroFormatado = formatBRL(0);
+  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$0,00",
+     !A.ehSemEnvio(rd0) && rd0.texto.includes("nada vence hoje") && !rd0.texto.includes(zeroFormatado) && !rd0.html.includes(zeroFormatado),
+     A.ehSemEnvio(rd0) ? rd0.motivo : rd0.texto);
+  ok("aut: (defeito plantado) o detector enxerga R$0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
+  const rdc = A.redigirResumoDiario(ctx);
+  ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
+     !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
+     A.ehSemEnvio(rdc) ? rdc.motivo : rdc.texto);
+  ok("aut: resumo não sai no fim de semana (mas a prévia mostra)",
+     A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" })) && !A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" }, { ignorarCalendario: true })));
+
+  // ---- 4) RÉGUA: opt-in, nunca D+60, uma mensagem por cliente por dia, pausa ----
+  ok("aut: régua DESLIGADA não gera nada (e tudo nasce desligado)",
+     A.gerarMensagens({ ...cfgRegua, ativo: false }, ctx).mensagens.length === 0 && A.configPadrao("regua_cobranca").ativo === false);
+  const titulosNaRegua = regua.mensagens.flatMap((m) => m.chavesExtras ?? []);
+  ok("aut: D+60 NUNCA sai automático (o degrau manual fica de fora)",
+     !titulosNaRegua.some((c) => c.includes("r-60")) && !regua.mensagens.some((m) => m.texto.includes(formatBRL(4_000))), titulosNaRegua.join(","));
+  ok("aut: o caminho recebeu valor — D+3 e D+10 entram", titulosNaRegua.includes("titulo:r-3a:d+3") && titulosNaRegua.includes("titulo:r-10:d+10"), titulosNaRegua.join(","));
+  const doC1 = regua.mensagens.filter((m) => m.chave.startsWith("cliente:C1:"));
+  ok("aut: cliente com DOIS títulos recebe UMA mensagem no dia (com os dois)",
+     doC1.length === 1 && (doC1[0].chavesExtras ?? []).length === 2 && doC1[0].texto.includes(formatBRL(1_300.5)), doC1.map((m) => m.texto).join(" | "));
+  ok("aut: o canal é o do cadastro (C1 WhatsApp · C2 só tem e-mail)",
+     doC1[0]?.canal === "whatsapp" && regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.canal === "email");
+  const pausada = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-10-15" }] } }, ctx);
+  ok("aut: cliente pausado não recebe", !pausada.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && pausada.mensagens.length === 1);
+  const pausaVencida = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-09-29" }] } }, ctx);
+  ok("aut: pausa que já venceu não segura mais", pausaVencida.mensagens.some((m) => m.chave.startsWith("cliente:C1:")));
+  const jaCobrado = A.gerarMensagens(cfgRegua, ctxBase({ envios: [{ tipo: "regua_cobranca", chave: `cliente:C1:${HOJE}`, canal: "whatsapp", status: "enviado", em: `${HOJE}T10:00:00Z` }] }));
+  ok("aut: cliente já cobrado HOJE por outra porta (copiloto, botão) não recebe de novo",
+     !jaCobrado.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && jaCobrado.mensagens.length === 1);
+
+  // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
+  for (const m of regua.mensagens) {
+    ok(`aut: a cobrança (${m.canal}) identifica o credor com razão social e CNPJ`,
+       m.texto.includes("Padaria Aurora Ltda") && m.texto.includes("CNPJ 12.345.678/0001-95") && m.html.includes("Padaria Aurora Ltda"), m.texto);
+    ok(`aut: a cobrança (${m.canal}) diz "se já pagou, desconsidere"`, m.texto.includes("Se já pagou, desconsidere"));
+    ok("aut: a variável de valor do template é formatBRL (nunca o número cru)", /^R\$/.test(m.variaveis["3"]) && !/^\d+(\.\d+)?$/.test(m.variaveis["3"]), m.variaveis["3"]);
+  }
+  const vt = variaveisDoTemplate({ cliente: "Beta", valor: 1234.5, vencimento: "2026-09-27", dias: 3 }, credor);
+  ok("aut: o template da régua manual leva valor formatado e credor (era String(1234.5))",
+     vt["3"] === formatBRL(1234.5) && vt["3"] !== "1234.5" && vt["2"].includes("Padaria Aurora Ltda"), JSON.stringify(vt));
+  const manual = montarRegua(ctx.input, [], undefined, { credor }).itens.filter((i) => i.etapa.canal !== "manual");
+  ok("aut: TODA etapa não manual da régua cita o credor e o 'desconsidere'",
+     manual.length > 0 && manual.every((i) => i.mensagem.includes("Padaria Aurora Ltda") && i.mensagem.includes("Se já pagou, desconsidere")));
+  // O template é por TOM: lembrete e aviso formal não saem com o mesmo texto.
+  const { FINALIDADE_DO_TOM } = await import("@/core/cobranca");
+  ok("aut: um template por tom (lembrete ≠ atraso ≠ formal)",
+     new Set(Object.values(FINALIDADE_DO_TOM)).size === 3 && FINALIDADE_DO_TOM.lembrete !== FINALIDADE_DO_TOM.formal);
+  // Encargo só quando configurado, e pela calculadora canônica.
+  const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
+  const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
+  ok("aut: com multa/juros configurados, o valor corrigido sai de calcularMora (700 + 2% + 1% × 10/30)",
+     !!c2 && c2.texto.includes(formatBRL(716.33)), c2?.texto ?? "");
+  ok("aut: sem configurar, NENHUM encargo entra", !(regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.texto ?? "").includes("multa"));
+  const comPix = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, chavePix: "12345678000195", cidadePix: "Sao Paulo" } }, ctx);
+  ok("aut: com chave PIX, a mensagem traz o copia e cola (BR Code com CRC)",
+     comPix.mensagens.length > 0 && comPix.mensagens.every((m) => /000201[\s\S]*6304[0-9A-F]{4}/.test(m.texto)));
+
+  // ---- 6) LEMBRETE: agrupado por data, vence hoje é a vencer, sexta = semana seguinte, conta que não cobre ----
+  const lt = lembrete.mensagens[0]?.texto ?? "";
+  ok("aut: lembrete agrupa por DATA e 'vence hoje' é a vencer (não atraso)",
+     lt.includes("Vence hoje (30/09)") && lt.includes("Vence em 01/10/2026") && lt.includes("Já venceram") && !lt.includes(formatBRL(999)), lt);
+  ok("aut: lembrete avisa quando o saldo da conta não cobre", lt.includes("O saldo da conta Conta Movimento"), lt);
+  // O que vence HOJE está no prazo: o bloco "Já venceram" soma só o de 25/09.
+  ok("aut: o título que vence hoje NÃO entra em 'Já venceram' (o bloco soma só o atraso de verdade)",
+     lt.includes(`Já venceram · ${formatBRL(300)}`) && (lt.match(/Imobiliária Sol/g) ?? []).length === 1, lt);
+  ok("aut: na sexta o lembrete olha a semana seguinte inteira",
+     A.janelaDoLembrete("2026-10-02").ate === "2026-10-11" && A.janelaDoLembrete("2026-09-30").ate === "2026-10-01");
+  ok("aut: com feriado (20/11, Consciência Negra), o lembrete de quinta olha até a segunda 23/11",
+     A.janelaDoLembrete("2026-11-19").ate === "2026-11-23" && A.janelaDoLembrete("2026-10-01").ate === "2026-10-02", `${A.janelaDoLembrete("2026-11-19").ate}`);
+
+  // ---- 7) ALERTA: condicional, sem 97%, só quando a faixa muda ----
+  const aperto = ctxBase({ input: { hoje: HOJE, saldoAtual: 1_000, movements: [mv("x1", "saida", 3_000, "2026-10-05", "Fornecedor", "F9"), mv("x0", "entrada", 50, "2026-09-01", "Vendas", "C1", "pago")], partyNames: {}, horizonDias: 60 } });
+  const al = A.gerarMensagens(cfg("alerta_caixa", { parametros: { horizonteDias: 15, saldoMinimo: 0 } }), aperto);
+  ok("aut: o alerta sai no CONDICIONAL e sem percentual (o 97% é o teto da fórmula)",
+     al.mensagens.length === 1 && al.mensagens[0].texto.includes("ficaria negativo") && !/%/.test(al.mensagens[0].texto), al.semEnvio?.motivo ?? al.mensagens[0]?.texto);
+  ok("aut: a chave do alerta carrega a faixa (5 dias → faixa 7)", !!al.mensagens[0]?.chave.startsWith(`faixa:neg-7:${HOJE}:`), al.mensagens[0]?.chave);
+  const repetido = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-7:2026-09-28:abcd", canal: "email", status: "enviado", em: "2026-09-28T12:00:00Z" }] });
+  ok("aut: a MESMA faixa avisada há 2 dias não reenvia", repetido.mensagens.length === 0 && repetido.semEnvio?.codigo === "faixa_ja_avisada");
+  const mudou = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-15:2026-09-28:abcd", canal: "email", status: "enviado", em: "2026-09-28T12:00:00Z" }] });
+  ok("aut: faixa que MUDOU (15 → 7) reenvia", mudou.mensagens.length === 1);
+  const simAntes = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-7:2026-09-29:abcd", canal: "email", status: "simulado", em: "2026-09-29T12:00:00Z" }] });
+  ok("aut: um alerta SIMULADO antes não conta como avisado (sai de novo)", simAntes.mensagens.length === 1);
+  ok("aut: sem aperto no horizonte, nada sai", A.gerarMensagens(cfg("alerta_caixa"), ctx).semEnvio?.codigo === "nada_a_avisar");
+
+  // ---- 8) FECHAMENTO: 3º e 8º dia útil, só com o mês anterior aberto ----
+  const out5 = { ...ctx, hoje: "2026-10-05" }; // 3º dia útil de outubro/2026 (1, 2, 5)
+  const fech = A.gerarMensagens(cfg("fechamento_pendente"), out5);
+  ok("aut: no 3º dia útil, com setembro aberto, o aviso sai", fech.mensagens.length === 1 && fech.mensagens[0].assunto.includes("setembro de 2026"), fech.semEnvio?.motivo ?? "");
+  ok("aut: setembro travado não gera aviso", A.gerarMensagens(cfg("fechamento_pendente"), { ...out5, mesesTravados: ["2026-09"] }).semEnvio?.codigo === "mes_fechado");
+  ok("aut: fora do 3º/8º dia útil não sai", A.gerarMensagens(cfg("fechamento_pendente"), { ...ctx, hoje: "2026-10-06" }).semEnvio?.codigo === "fora_do_dia");
+
+  // ---- 9) destinatário: só titular/admin ATUAL recebe ----
+  const saiu = A.gerarMensagens(cfg("resumo_diario", { destinatarios: [{ userId: "ex-socio", email_ativo: true }] }), ctx);
+  ok("aut: quem saiu da empresa não recebe (o e-mail vem do MEMBRO, não da configuração)",
+     saiu.mensagens.length === 0 && saiu.semEnvio?.codigo === "sem_destinatario");
+  const dois = A.gerarMensagens(cfg("resumo_diario", { canais: ["email", "whatsapp"], destinatarios: [{ userId: "u1", email_ativo: true, whatsapp_ativo: true, telefone: "(11) 98888-7777" }] }), ctx);
+  ok("aut: e-mail e WhatsApp do mesmo resumo são dois envios, e a chave não carrega o endereço",
+     dois.mensagens.length === 2 && new Set(dois.mensagens.map((m) => `${m.chave}|${m.canal}`)).size === 2 && dois.mensagens.every((m) => !m.chave.includes("dona@")));
+  ok("aut: o destino é MASCARADO no registro", dois.mensagens.length > 0 && dois.mensagens.every((m) => m.destinoMascarado.includes("***") || m.destinoMascarado.includes("••••")));
+
+  // ---- 10) uma função só lê linhas → RiskInput (o mapeador único) ----
+  const dataTs = fsA.readFileSync("src/lib/data.ts", "utf8");
+  const consolidadoTs = fsA.readFileSync("src/lib/consolidado.ts", "utf8");
+  const ctxTs = fsA.readFileSync("src/lib/automacoes-contexto.ts", "utf8");
+  ok("aut: tela, consolidação e runner montam o RiskInput pelo MESMO mapeador",
+     /linhasParaRiskInput\(/.test(dataTs) && /linhasParaRiskInput\(/.test(consolidadoTs) && /linhasParaRiskInput\(/.test(ctxTs)
+     && !/category: r\.categoria \? String\(r\.categoria\)/.test(consolidadoTs) && !/category: embedName\(m\.categoria\)/.test(dataTs));
+  const { linhaParaRiskMovement } = await import("@/lib/risco-linhas");
+  const embed = linhaParaRiskMovement({ id: "1", type: "saida", status: "pendente", amount: "12.5", due_date: "2026-09-30", category: "texto livre", categoria: [{ name: "Do cadastro" }], centro: { name: "Adm" } });
+  const achatado = linhaParaRiskMovement({ id: "1", type: "saida", status: "pendente", amount: 12.5, due_date: "2026-09-30", category: "texto livre", categoria: "Do cadastro", centro: "Adm" });
+  ok("aut: o mapeador lê o embed da tela e o texto achatado da RPC do MESMO jeito",
+     JSON.stringify(embed) === JSON.stringify(achatado) && embed.category === "Do cadastro" && embed.amount === 12.5 && embed.costCenter === "Adm", JSON.stringify(embed));
+
+  // ---- 11) a rota do runner: CRON_SECRET pela regra única, dryRun, grava antes ----
+  const runner = fsA.readFileSync("src/app/api/financial-os/run/route.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("aut: o runner usa recusaDeCron, lê pela RPC e despacha pelo núcleo (dryRun incluído)",
+     /recusaDeCron\(req\)/.test(runner) && /rpc\("automacao_contexto"/.test(runner) && /despachar\(/.test(runner) && /dryRun/.test(runner)
+     && !/lib\/supabase\/client/.test(runner));
+  const copiloto = fsA.readFileSync("src/lib/ai-copilot.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("aut: o copiloto cobra pela MESMA rota e grava no MESMO registro (clienteChave)",
+     /\/api\/cobranca\/whatsapp/.test(copiloto) && /registro: \{ clienteChave/.test(copiloto) && !/Quattro · Olá!/.test(copiloto));
+  const migr = fsA.readFileSync("supabase/migrations/20260930190000_automacoes.sql", "utf8");
+  ok("aut: a migration tem o índice único, o padrão por seed E por gatilho, e a RPC só para service_role",
+     /create unique index if not exists automacao_envios_unico\s+on public\.automacao_envios \(org_id, tipo, chave, canal\)/.test(migr)
+     && /insert into public\.automacoes[\s\S]*cross join public\.automacoes_padrao\(\)/.test(migr)
+     && /after insert on public\.organizations[\s\S]*automacoes_inicial/.test(migr)
+     && /revoke all on function public\.automacao_contexto\(uuid\) from public, anon, authenticated/.test(migr)
+     && /grant execute on function public\.automacao_contexto\(uuid\) to service_role/.test(migr));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

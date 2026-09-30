@@ -24,6 +24,7 @@ import {
 } from "@/lib/contabilidade-store";
 import { listarNFs } from "@/lib/compras-store";
 import { useVendas } from "@/lib/vendas";
+import { isDemo } from "@/lib/demo";
 
 const hojeISO = () => new Date().toISOString().slice(0, 10);
 const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
@@ -79,14 +80,21 @@ export function EnvioNFsView() {
     }));
     setModal(false);
     setEmail("");
-    toast("Link de confirmação enviado. O contador precisa clicar para começar a receber.");
+    // ⚠️ Em produção NENHUM e-mail sai daqui ainda — não há job nem envio do
+    // link. Dizer "link enviado" faria a pessoa esperar por um e-mail que não
+    // existe e concluir que o contador já está recebendo.
+    toast(isDemo
+      ? "Link de confirmação enviado (demonstração). O contador precisa clicar para começar a receber."
+      : "E-mail cadastrado. O envio do link de confirmação e o pacote mensal ainda não estão ligados: nenhum XML sai daqui por enquanto.");
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <p className="m-0 text-label text-muted max-w-[72ch]">
-          Envio mensal automático dos XMLs das NFs (entrada + saída) para os e-mails do contador.
+          {isDemo
+            ? "Envio mensal automático dos XMLs das NFs (entrada + saída) para os e-mails do contador."
+            : "Cadastro dos e-mails do contador para o envio mensal dos XMLs das NFs (entrada + saída). O envio automático ainda não está ligado: nenhum pacote sai daqui por enquanto."}
         </p>
         <Button
           variant="primary"
@@ -191,7 +199,10 @@ export function EnvioNFsView() {
                     </span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
-                    {!d.verificado && (
+                    {/* ⚠️ "Simular confirmação" SÓ na demonstração: em produção ele
+                        marcava o e-mail como verificado sem clique nenhum do
+                        contador e mostrava um "próximo envio" que não acontece. */}
+                    {isDemo && !d.verificado && (
                       <Button
                         variant="ghost"
                         onClick={() => {

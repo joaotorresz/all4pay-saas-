@@ -22,6 +22,7 @@ import { criarSolicitacao } from "@/lib/aprovacoes";
 import { formatBRL } from "@/lib/format";
 import type { FinancialDecision, CollectionPlan } from "@/core/autonomous/types";
 import type { Party } from "@/lib/types";
+import { identificacaoDoCredor, SE_JA_PAGOU, type Credor } from "@/core/cobranca";
 
 const KEY = "a4p_ai_actions";
 
@@ -134,15 +135,28 @@ export async function executarDecisao(d: FinancialDecision): Promise<ResultadoEx
 
 const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
-function mensagemCobranca(c: CollectionPlan): string {
-  const base = `Quattro · Olá! Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
+/**
+ * ⚠️ A mensagem começava com "Quattro · Olá!" — o nome do SOFTWARE, não o da
+ * empresa que cobra. O cliente recebia um pedido de dinheiro de ninguém. Agora
+ * ela identifica o CREDOR (razão social + CNPJ) e diz "se já pagou,
+ * desconsidere", igual à régua.
+ */
+function mensagemCobranca(c: CollectionPlan, credor?: Credor | null): string {
+  const base = `Olá, ${c.cliente}. Aqui é ${identificacaoDoCredor(credor)}. Identificamos um valor em aberto de ${formatBRL(c.exposicao)}.`;
   const fecho =
     c.estrategia === "agressiva_precoce"
       ? "Regularize o quanto antes para evitar restrições. Qualquer dúvida, estamos à disposição."
       : c.estrategia === "proativa"
         ? "Para evitar encargos, podemos regularizar? Estamos à disposição."
         : "Podemos ajudar a regularizar quando for melhor para você. Conte conosco.";
-  return `${base} ${fecho}`;
+  return `${base} ${fecho} ${SE_JA_PAGOU}`;
+}
+
+/** A mensagem adaptada pela IA também tem de dizer quem cobra — e o "desconsidere". */
+function comCredor(msg: string, credor?: Credor | null): string {
+  const id = identificacaoDoCredor(credor);
+  const comId = msg.includes(credor?.razaoSocial || credor?.nome || id) ? msg : `${id}: ${msg}`;
+  return comId.includes(SE_JA_PAGOU) ? comId : `${comId} ${SE_JA_PAGOU}`;
 }
 
 /** Mensagens de cobrança adaptativas (por perfil) via IA; vazio = usa template. */
@@ -169,19 +183,25 @@ async function mensagensAdaptativas(collections: CollectionPlan[]): Promise<Map<
  * canal WhatsApp, envia (Twilio em live; simulado sem chave) e registra na
  * trilha. A segmentação é do Quattro; a Twilio só entrega.
  */
-export async function dispararCobranca(collections: CollectionPlan[], parties: Party[]): Promise<ResultadoExecucao> {
-  const foneDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome))?.phone ?? null;
+export async function dispararCobranca(collections: CollectionPlan[], parties: Party[], credor?: Credor | null): Promise<ResultadoExecucao> {
+  const parteDe = (nome: string) => parties.find((p) => norm(p.name) === norm(nome));
+  const foneDe = (nome: string) => parteDe(nome)?.phone ?? null;
   const enviaveis = collections.filter((c) => c.canal === "whatsapp" && foneDe(c.cliente));
 
   // Cobrança adaptativa: mensagem por perfil do cliente via IA (1 chamada);
   // fallback determinístico (template) por cliente quando não há chave/erro.
   const adaptadas = await mensagensAdaptativas(enviaveis);
 
+  // ⚠️ O MESMO registro da régua (`automacao_envios`), pela mesma rota: a
+  // trava `cliente:<contato>:<dia>` impede que o copiloto e a régua cobrem o
+  // mesmo cliente no mesmo dia sem saber um do outro.
   const alvos = enviaveis.map((c) => ({
     cliente: c.cliente,
     telefone: foneDe(c.cliente) as string,
-    mensagem: adaptadas.get(c.cliente) ?? mensagemCobranca(c),
-    variaveis: { "1": c.cliente, "2": formatBRL(c.exposicao) },
+    mensagem: adaptadas.has(c.cliente) ? comCredor(adaptadas.get(c.cliente)!, credor) : mensagemCobranca(c, credor),
+    finalidade: "cobranca_atraso",
+    variaveis: { "1": c.cliente, "2": identificacaoDoCredor(credor), "3": formatBRL(c.exposicao), "4": "—", "5": "0" },
+    registro: { clienteChave: parteDe(c.cliente)?.id },
   }));
 
   if (alvos.length === 0) {
@@ -204,12 +224,15 @@ export async function dispararCobranca(collections: CollectionPlan[], parties: P
      * quando tudo deu errado.
      */
     const ok = enviados.filter((e) => e.resultado?.ok).length;
+    const jaHoje = Number(j?.jaCobradosHoje ?? 0);
     // Sem chave da Twilio o envio é SIMULADO no servidor. Chamar isso de
     // "enviada" faria a pessoa parar de cobrar um cliente que nunca foi avisado.
     const real = !!(j?.provedores as { whatsapp?: boolean } | undefined)?.whatsapp;
-    const msg = real
-      ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.`
-      : `Simulação: ${alvos.length} cobrança(s) preparada(s), nenhuma enviada — o envio por WhatsApp não está configurado.`;
+    const msg = !res.ok
+      ? String(j?.motivo ?? "A cobrança foi recusada.")
+      : real
+        ? `Cobrança enviada para ${ok} de ${alvos.length} cliente(s) por WhatsApp.${jaHoje ? ` ${jaHoje} já tinha(m) sido cobrado(s) hoje e não recebeu(ram) de novo.` : ""}`
+        : `Simulação: ${alvos.length} cobrança(s) preparada(s), nenhuma enviada — o envio por WhatsApp não está configurado.`;
     await logAcaoIA({
       kind: "cobranca", titulo: "Acionar cobrança", detalhe: msg,
       status: real && ok > 0 ? "executada" : "registrada",

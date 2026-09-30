@@ -14,8 +14,13 @@ import * as React from "react";
 import { Card, BRL, StatusBadge, Skeleton, Button, Icon, InfoHint } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { usePartiesList } from "@/components/lancamentos/hooks";
-import { montarRegua, type ItemRegua, type Canal } from "@/core/cobranca";
+import { useQuery } from "@tanstack/react-query";
+import {
+  montarRegua, variaveisDoTemplate, FINALIDADE_DO_TOM, type ItemRegua, type Canal, type EnvioRegistrado,
+} from "@/core/cobranca";
 import { listarEnvios, marcarEnviado } from "@/lib/regua";
+import { credorDe } from "@/lib/automacoes-contexto";
+import { fetchCompany, getOrganizationName } from "@/lib/company";
 import { useToast } from "@/components/listas/ListChrome";
 
 const CANAL: Record<Canal, string> = { whatsapp: "WhatsApp", email: "E-mail", manual: "Decisão manual" };
@@ -26,19 +31,37 @@ export function ReguaCobrancaView() {
   const { data: partes } = usePartiesList();
   const { show, node } = useToast();
   const [versao, setVersao] = React.useState(0);
-  const [envios, setEnvios] = React.useState(() => [] as ReturnType<typeof listarEnvios>);
-  React.useEffect(() => { setEnvios(listarEnvios()); }, [versao]);
+  const [envios, setEnvios] = React.useState<EnvioRegistrado[]>([]);
+  const [erroEnvios, setErroEnvios] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let vivo = true;
+    // ⚠️ Falha ao ler o registro não pode virar "ninguém foi avisado": a tela
+    // mostraria botão de enviar para quem já recebeu a cobrança.
+    listarEnvios().then((e) => { if (vivo) { setEnvios(e); setErroEnvios(null); } })
+      .catch((e) => { if (vivo) setErroEnvios((e as Error).message || "Não foi possível ler o registro de envios."); });
+    return () => { vivo = false; };
+  }, [versao]);
   const [enviando, setEnviando] = React.useState<string | null>(null);
   const [verTodos, setVerTodos] = React.useState(false);
+  // ⚠️ O CREDOR vai em toda mensagem: razão social e CNPJ de quem cobra.
+  const { data: credor } = useQuery({
+    queryKey: ["credor-da-regua"],
+    queryFn: async () => credorDe(await getOrganizationName(), ((await fetchCompany())?.db ?? null) as Record<string, unknown> | null),
+  });
 
-  const painel = React.useMemo(() => (input ? montarRegua(input, envios) : null), [input, envios]);
+  const painel = React.useMemo(() => (input ? montarRegua(input, envios, undefined, { credor }) : null), [input, envios, credor]);
   const telefone = React.useCallback((partyId: string | null) =>
     (partyId && partes?.find((p) => p.id === partyId)?.phone) || null, [partes]);
 
-  const registrar = (i: ItemRegua, canal: Canal) => {
-    const ok = marcarEnviado({ movimentoId: i.movimentoId, etapaId: i.etapa.id, em: new Date().toISOString(), canal });
-    setVersao((v) => v + 1);
-    return ok;
+  const registrar = async (i: ItemRegua, canal: Canal) => {
+    try {
+      const ok = await marcarEnviado({ movimentoId: i.movimentoId, etapaId: i.etapa.id, canal });
+      setVersao((v) => v + 1);
+      return ok;
+    } catch (e) {
+      show((e as Error).message || "Não foi possível registrar o aviso.");
+      return false;
+    }
   };
 
   const enviarWhatsapp = async (i: ItemRegua) => {
@@ -48,19 +71,30 @@ export function ReguaCobrancaView() {
     try {
       const r = await fetch("/api/cobranca/whatsapp", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ alvos: [{ cliente: i.cliente, telefone: tel, mensagem: i.mensagem, variaveis: { "1": i.cliente, "2": String(i.valor) } }] }),
+        body: JSON.stringify({ alvos: [{
+          cliente: i.cliente, telefone: tel, mensagem: i.mensagem,
+          // ⚠️ O template do TOM da etapa, e o valor por `formatBRL` — nunca
+          // `String(valor)`, que chegava ao cliente como "1234.5".
+          finalidade: FINALIDADE_DO_TOM[i.etapa.tom],
+          variaveis: variaveisDoTemplate({ cliente: i.cliente, valor: i.valor, vencimento: i.vencimento, dias: i.dias }, credor),
+          registro: { clienteChave: i.partyId ?? undefined, titulos: [{ movimentoId: i.movimentoId, etapaId: i.etapa.id }] },
+        }] }),
       });
       const j = await r.json().catch(() => null);
-      // ⚠️ Sem credencial a rota SIMULA e responde sucesso. Registrar isso como
-      // "avisado" afirmaria um contato que não aconteceu — e é esse registro
-      // que se mostra antes de um protesto. Simulado não conta.
-      if (j?.provedores?.whatsapp === false) {
+      setVersao((v) => v + 1);
+      // ⚠️ O REGISTRO é do servidor (grava antes de enviar). Sem credencial a
+      // rota SIMULA — e simulado não conta como avisado: é esse registro que se
+      // mostra antes de um protesto.
+      if (!r.ok) {
+        show(j?.motivo ?? "O envio foi recusado.");
+      } else if (j?.provedores?.whatsapp === false) {
         show("O WhatsApp não está configurado neste ambiente: nada foi enviado ao cliente. Copie a mensagem e envie por fora.");
+      } else if (j?.jaCobradosHoje) {
+        show(`${i.cliente} já recebeu uma cobrança hoje (por esta ou outra porta). Nada foi enviado de novo.`);
       } else if (j?.sucesso) {
-        registrar(i, "whatsapp");
         show(`Mensagem enviada para ${i.cliente}.`);
       } else {
-        show("O envio não foi confirmado pelo provedor. Nada foi registrado.");
+        show(`O envio não foi aceito pelo provedor: ${j?.enviados?.[0]?.resultado?.detalhe ?? "sem detalhe"}.`);
       }
     } catch {
       show("Falha de rede ao enviar. Nada foi registrado.");
@@ -79,6 +113,11 @@ export function ReguaCobrancaView() {
 
   return (
     <div className="flex flex-col gap-5 pb-4">
+      {erroEnvios && (
+        <Card className="text-caption text-ink">
+          O registro de envios não carregou ({erroEnvios}). Até ele voltar, confira no histórico antes de reenviar: a tela não tem como saber quem já foi avisado.
+        </Card>
+      )}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         {painel.porEtapa.map(({ etapa, quantidade, valor }) => (
           <Card key={etapa.id} className="flex flex-col gap-1">
@@ -126,7 +165,7 @@ export function ReguaCobrancaView() {
                   </Button>
                 )}
                 <Button size="sm" variant="ghost" onClick={() => copiar(i)} leftIcon={<Icon name="file-text" size={14} color="currentColor" />}>Copiar mensagem</Button>
-                <Button size="sm" variant="ghost" onClick={() => { if (registrar(i, i.etapa.canal)) show(`${i.cliente} marcado como avisado nesta etapa.`); }}
+                <Button size="sm" variant="ghost" onClick={async () => { if (await registrar(i, i.etapa.canal)) show(`${i.cliente} marcado como avisado nesta etapa.`); }}
                   leftIcon={<Icon name="check" size={14} color="currentColor" />}>
                   {i.etapa.canal === "manual" ? "Registrar decisão" : "Marcar como avisado"}
                 </Button>

@@ -8,6 +8,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import { reportar } from "@/lib/erros";
+import { linhasParaRiskInput, type LinhaMovimento } from "@/lib/risco-linhas";
 
 export interface EntidadeConsolidada {
   orgId: string;
@@ -79,45 +80,33 @@ export async function getRiscoInputPorOrg(
       saldos.set(String(r.org_id), { nome: String(r.org_nome ?? "Organização"), saldo: Number(r.saldo ?? 0) });
     }
 
-    const porOrg = new Map<string, { nome: string; movs: RiskMovement[]; nomes: Record<string, string> }>();
+    // ⚠️ O MAPEADOR ÚNICO (`lib/risco-linhas`) — a mesma função da tela e do
+    // runner de automações. Aqui ele recebe os nomes ACHATADOS da RPC.
+    const porOrg = new Map<string, { nome: string; linhas: LinhaMovimento[]; partes: { id: string; nome: string }[] }>();
     for (const r of (movRes.data ?? []) as Array<Record<string, unknown>>) {
       const org = String(r.org_id);
       const nome = String(r.org_nome ?? saldos.get(org)?.nome ?? "Organização");
-      if (!porOrg.has(org)) porOrg.set(org, { nome, movs: [], nomes: {} });
+      if (!porOrg.has(org)) porOrg.set(org, { nome, linhas: [], partes: [] });
       const bucket = porOrg.get(org)!;
-      const partyId = r.party_id ? String(r.party_id) : null;
-      if (partyId && r.party_nome) bucket.nomes[partyId] = String(r.party_nome);
-      bucket.movs.push({
-        id: String(r.id),
-        type: String(r.type) as RiskMovement["type"],
-        status: String(r.status) as RiskMovement["status"],
-        amount: Number(r.amount ?? 0),
-        due_date: String(r.due_date ?? ""),
-        paid_date: r.paid_date ? String(r.paid_date) : null,
-        party_id: partyId,
-        accountId: r.account_id ? String(r.account_id) : null,
-        category: r.categoria ? String(r.categoria) : null,
-        costCenter: r.centro ? String(r.centro) : null,
-        projeto: r.projeto ? String(r.projeto) : null,
-      });
+      if (r.party_id && r.party_nome) bucket.partes.push({ id: String(r.party_id), nome: String(r.party_nome) });
+      bucket.linhas.push(r as unknown as LinhaMovimento);
     }
 
     // Organizações sem lançamento no período ainda aparecem — com saldo e sem
     // movimento, que é a verdade, não uma omissão.
     saldos.forEach((s, org) => {
-      if (!porOrg.has(org)) porOrg.set(org, { nome: s.nome, movs: [], nomes: {} });
+      if (!porOrg.has(org)) porOrg.set(org, { nome: s.nome, linhas: [], partes: [] });
     });
 
     return Array.from(porOrg, ([orgId, b]) => ({
       orgId,
       nome: b.nome,
-      input: {
+      input: linhasParaRiskInput({
         hoje,
-        saldoAtual: saldos.get(orgId)?.saldo ?? 0,
-        movements: b.movs,
-        partyNames: b.nomes,
-        horizonDias: 60,
-      } as RiskInput,
+        saldosDasContas: [saldos.get(orgId)?.saldo ?? 0],
+        linhas: b.linhas,
+        partes: b.partes,
+      }),
     }));
   } catch {
     return null;
