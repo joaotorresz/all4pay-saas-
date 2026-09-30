@@ -151,6 +151,13 @@
         "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930200000_fechamento_responsavel",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, o checklist de fechamento em produção não consegue gravar responsável, revisor, prazo nem os carimbos (a tela mostra a recusa do banco), e a trava do mês não exige motivo com tarefa aberta. Não mexe em valor nenhum.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote CAMP-A) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [
