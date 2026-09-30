@@ -6661,5 +6661,203 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── CAD ── */
+/**
+ * ⚠️ OS CADASTROS MORAM NO BANCO (migration 20260930180000).
+ *
+ * Contas bancárias, centros, projetos e plano de contas moravam em
+ * `org_state`/`localStorage` com id NUMÉRICO, e os lançamentos apontam para
+ * UUID: a tela de contas dizia "Nenhuma conta cadastrada" com quatro contas
+ * existindo, e projeto/centro não podiam ser gravados num lançamento em
+ * produção. As guardas abaixo cobram as DUAS metades — o que a tela faz e o que
+ * o banco recusa — e cada varredura carrega o seu TESTE NEGATIVO (a mesma
+ * função aplicada ao defeito plantado tem de acusar).
+ */
+{
+  const fsC = await import("node:fs");
+  const H = await import("@/core/registros/hierarquia");
+  const R = await import("@/core/registros");
+  const lerC = (p: string) => (fsC.existsSync(p) ? fsC.readFileSync(p, "utf8") : "");
+  const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  /* ---- ida e volta: a linha do banco ⇄ a tela, sem perder campo ---- */
+  const conta: import("@/core/registros").ContaBancaria = {
+    id: "u-1", nome: "Cartão Empresa", banco: "Itaú", tipo: "cartao", agencia: "0123", numero: "4567-8",
+    dataSaldoInicial: "2026-09-01", saldoInicial: 1500.5, saldoInicialConferido: true, codigoContabil: "77",
+    diaFechamento: 20, diaVencimento: 28, ativo: false,
+  };
+  const linhaC = H.linhaDaConta(conta);
+  const volta = H.contaDaLinha({ id: "u-1", balance: 999, ...linhaC });
+  ok("CAD: conta ida e volta sem perder campo (tipo, agência, número, código, dias, abertura, ativo)",
+     volta.tipo === "cartao" && volta.agencia === "0123" && volta.numero === "4567-8" && volta.codigoContabil === "77"
+     && volta.diaFechamento === 20 && volta.diaVencimento === 28 && volta.saldoInicial === 1500.5
+     && volta.dataSaldoInicial === "2026-09-01" && volta.saldoInicialConferido === true && volta.ativo === false
+     && volta.saldoAtual === 999, JSON.stringify(volta));
+  ok("CAD: o banco da conta vai como CHAVE (Itaú → itau), a mesma do onboarding e da tesouraria",
+     linhaC.bank === "itau" && H.rotuloDoBanco("itau") === "Itaú" && H.slugDoBanco("Banco do Brasil") === "bb");
+  ok("CAD: editar o cadastro NÃO leva o saldo corrente (quem move saldo é baixa e conciliação)",
+     !("balance" in linhaC));
+  ok("CAD: dia de fatura só vai quando a conta é cartão",
+     H.linhaDaConta({ ...conta, tipo: "corrente" }).dia_fechamento === null);
+  const cat: import("@/core/registros/hierarquia").CategoriaCadastro = {
+    id: "c-1", nome: "Google Ads", codigo: "4.2.01", natureza: "despesa", paiId: "g-1", dreLinha: "despesas_variaveis", ativo: false,
+  };
+  const voltaCat = H.categoriaDaLinha({ id: "c-1", ...H.linhaDaCategoria(cat) });
+  ok("CAD: categoria ida e volta (grupo, código, linha do DRE, ativa)",
+     voltaCat.paiId === "g-1" && voltaCat.codigo === "4.2.01" && voltaCat.dreLinha === "despesas_variaveis" && voltaCat.ativo === false);
+  const cc: import("@/core/registros/hierarquia").CentroCustoCadastro = {
+    id: "cc-1", nome: "Mídia paga", codigo: "CC-07", codigoContabil: "12", descricao: "tráfego", ativo: true, paiId: "cc-0",
+  };
+  const voltaCc = H.centroDaLinha({ id: "cc-1", ...H.linhaDoCentro(cc) });
+  ok("CAD: centro ida e volta (grupo, código, código contábil, descrição)",
+     voltaCc.paiId === "cc-0" && voltaCc.codigo === "CC-07" && voltaCc.codigoContabil === "12" && voltaCc.descricao === "tráfego");
+  const pj: import("@/core/registros/hierarquia").ProjetoCadastro = {
+    id: "p-1", nome: "Turma 12", codigo: "PRJ", descricao: "", dataInicial: "2026-01-01", dataFinal: "2026-06-30",
+    previsaoReceita: 1000, previsaoDespesa: 400, clienteId: "pt-1", centroId: "cc-1", status: "encerrado",
+  };
+  const voltaPj = H.projetoDaLinha({ id: "p-1", ...H.linhaDoProjeto(pj) });
+  ok("CAD: projeto ida e volta (cliente, centro responsável, situação)",
+     voltaPj.clienteId === "pt-1" && voltaPj.centroId === "cc-1" && voltaPj.status === "encerrado" && voltaPj.previsaoDespesa === 400);
+
+  /* ---- a árvore: só folha ativa é selecionável ---- */
+  const arvore: import("@/core/registros/hierarquia").CategoriaCadastro[] = [
+    { id: "g", nome: "Marketing", codigo: "", natureza: "despesa", paiId: null, ativo: true },
+    { id: "f1", nome: "Google Ads", codigo: "", natureza: "despesa", paiId: "g", ativo: true },
+    { id: "f2", nome: "Meta", codigo: "", natureza: "despesa", paiId: "g", ativo: false },
+    { id: "r", nome: "Vendas", codigo: "", natureza: "receita", paiId: null, ativo: true },
+  ];
+  const sel = H.categoriasSelecionaveis(arvore, "despesa").map((c) => c.id);
+  ok("CAD: o formulário só recebe FOLHA ATIVA da natureza (nem o grupo, nem a inativa, nem a receita)",
+     sel.length === 1 && sel[0] === "f1", sel.join(","));
+  ok("CAD: caminho legível 'Grupo › Categoria'", H.caminhoDe(arvore, "f1") === "Marketing › Google Ads");
+  ok("CAD: pendurar o grupo na própria filha fecha ciclo", H.fechaCiclo(arvore, "g", "f1") && !H.fechaCiclo(arvore, "f1", "g"));
+  ok("CAD: a lixeira vai das folhas para o grupo (o banco recusa o grupo antes das filhas)",
+     JSON.stringify(H.ordemDeExclusao(arvore, "g")) === JSON.stringify(["f1", "f2", "g"]));
+  ok("CAD: nome repetido no MESMO grupo é recusado; em outro grupo, não",
+     !!H.validarCategoria({ ...arvore[1], id: "", nome: " google ads " }, arvore).nome
+     && !H.validarCategoria({ ...arvore[1], id: "", paiId: null, nome: "Google Ads" }, arvore).nome);
+  ok("CAD: linha de TOTAL do DRE não é escolhível (contaria o valor duas vezes)",
+     !!H.validarCategoria({ ...arvore[1], dreLinha: "ebitda" }, arvore).dreLinha);
+  ok("CAD: natureza diferente do grupo é recusada na tela (e no banco)",
+     !!H.validarCategoria({ ...arvore[1], natureza: "receita" }, arvore).natureza);
+
+  /* ---- a frase é a MESMA na demonstração e no banco ---- */
+  const mig = lerC("supabase/migrations/20260930180000_cadastros_hierarquia.sql");
+  const fraseGrupo = H.problemaDoGrupo(arvore[0], 3) ?? "";
+  const fraseLixo = H.problemaDaExclusao(arvore[1], arvore, 2) ?? "";
+  ok("CAD: 'não pode virar grupo' — a demonstração fala a frase do gatilho",
+     fraseGrupo.includes("já tem 3 lançamento(s) e não pode virar grupo") && mig.includes("lançamento(s) e não pode virar grupo"));
+  ok("CAD: 'não pode ir para a lixeira' — idem",
+     fraseLixo.includes("tem 2 lançamento(s) e não pode ir para a lixeira") && mig.includes("lançamento(s) e não pode ir para a lixeira"));
+  ok("CAD: grupo com subcategoria viva não vai para a lixeira (demonstração)",
+     (H.problemaDaExclusao(arvore[0], arvore, 0) ?? "").includes("ainda tem 2 subcategoria"));
+
+  /* ---- o cadastro antigo: nada migra sozinho, nada é sobrescrito ---- */
+  const antigas = [conta, { ...conta, id: "velha-2", nome: "Só no navegador", tipo: "corrente" as const }];
+  const atuaisC = [H.contaDaLinha({ id: "db-1", name: "cartão empresa", bank: "itau", tipo: "corrente", codigo_contabil: "5" })];
+  const pend = H.contasAntigas(antigas, atuaisC);
+  const pCompletar = pend.find((p) => p.acao === "completar");
+  ok("CAD: antigo SEM par na tabela vira 'criar'; COM par e dado faltando vira 'completar'",
+     pend.length === 2 && pend.some((p) => p.acao === "criar" && p.nome === "Só no navegador")
+     && !!pCompletar && pCompletar.alvoId === "db-1" && pCompletar.campos.includes("dias da fatura"),
+     JSON.stringify(pend));
+  const completada = H.contaCompletada(atuaisC[0], conta);
+  ok("CAD: completar NÃO sobrescreve o que a tabela já tem (o código 5 fica)",
+     completada.codigoContabil === "5" && completada.tipo === "cartao" && completada.diaFechamento === 20);
+
+  /* ---- TETO ZERO: nenhuma das quatro telas grava na morada antiga ---- */
+  const TELAS = [
+    "src/components/registros/ContasBancariasView.tsx",
+    "src/components/registros/ProjetosCentrosView.tsx",
+    "src/components/registros/PlanoContasView.tsx",
+    "src/components/registros/hooks.ts",
+  ];
+  const PROIBIDO = [
+    /from "@\/lib\/store-org"/, /\blocalStorage\b/, /from "@\/lib\/registros"/, /from "@\/lib\/iuli-cadastros"/,
+    /from "@\/lib\/imported"/, /\bsetImported\(|\bappendImported\(|\bgravarCadastrosDemo\(|\bgravarContaDemo\(/,
+    /\bsalvarPlanoContas\(|\bsalvarUsoPadrao\(|\baddProjeto\(|\baddCentroCusto\(|\bremoverContaBancaria\(/,
+  ];
+  const telaGravaLocal = (txt: string) => PROIBIDO.some((re) => re.test(semComentarios(txt)));
+  const infratoras = TELAS.filter((t) => !lerC(t) || telaGravaLocal(lerC(t)));
+  ok("CAD: nenhuma das quatro telas grava em org_state/localStorage (teto ZERO)", infratoras.length === 0, infratoras.join(" | "));
+  // NEGATIVO: a MESMA varredura sobre a tela ANTIGA tem de acusar.
+  ok("CAD: [negativo] a varredura acusa a tela antiga (import de lib/registros + gravar)",
+     telaGravaLocal('import { listContasBancarias, salvarContaBancaria } from "@/lib/registros";')
+     && telaGravaLocal("try { localStorage.setItem(k, v) } catch {}"));
+
+  // Os escritores ANTIGOS foram removidos — um escritor que existe é um escritor que alguém chama.
+  const regTxt = semComentarios(lerC("src/lib/registros.ts"));
+  const iuliTxt = semComentarios(lerC("src/lib/iuli-cadastros.ts"));
+  ok("CAD: os escritores antigos de contas, plano, uso padrão, centros e projetos não existem mais",
+     !/gravar\(K_CONTAS|gravar\(K_PLANO|gravar\(K_USOS/.test(regTxt) && !/localStorage\.setItem/.test(iuliTxt)
+     && !/export function (addProjeto|updateProjeto|addCentroCusto|updateCentroCusto)/.test(iuliTxt));
+
+  /* ---- os escritores LANÇAM o erro do banco ---- */
+  const libTxt = semComentarios(lerC("src/lib/cadastros-hierarquia.ts"));
+  const corpos = (txt: string) => {
+    const out: { nome: string; corpo: string }[] = [];
+    const re = /export (?:async )?function (\w+)/g;
+    const idx: { nome: string; i: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(txt))) idx.push({ nome: m[1], i: m.index });
+    idx.forEach((x, k) => out.push({ nome: x.nome, corpo: txt.slice(x.i, idx[k + 1]?.i ?? txt.length) }));
+    return out;
+  };
+  const escritorEngole = (corpo: string) =>
+    /\bcatch\b/.test(corpo)
+    || (/\.(insert|update|upsert)\(/.test(corpo) && !/if \(error\) throw erroDoBanco\(error\)/.test(corpo));
+  const escritores = corpos(libTxt).filter((c) => /^(salvar|definir|excluir)/.test(c.nome));
+  const engolem = escritores.filter((c) => escritorEngole(c.corpo)).map((c) => c.nome);
+  ok("CAD: todo escritor (salvar/definir/excluir) lança o erro do banco e não tem catch",
+     escritores.length >= 10 && engolem.length === 0, `${escritores.length} escritores · engolem: ${engolem.join(", ")}`);
+  ok("CAD: [negativo] a varredura acusa o escritor que engole",
+     escritorEngole('export async function salvarX() { const { error } = await s.from("t").insert(l); if (error) return; }')
+     && escritorEngole('export async function salvarY() { try { await s.from("t").update(l) } catch {} }'));
+  ok("CAD: o erro do banco é traduzido pelo NOME da restrição, e o gatilho vai inteiro (mensagem + dica)",
+     /financial_accounts_org_nome_unico/.test(libTxt) && /parties_org_doc_unico/.test(libTxt) && /e\?\.hint/.test(libTxt));
+
+  // O dataset da demonstração só recebe cadastro DENTRO de `if (isDemo)`.
+  const gravaForaDaDemo = (corpo: string) => {
+    const chamadas = [...corpo.matchAll(/gravar(CadastrosDemo|ContaDemo)\(/g)].map((x) => x.index ?? 0);
+    const iDemo = corpo.indexOf("if (isDemo)");
+    const iBanco = corpo.indexOf("createClient()");
+    return chamadas.some((i) => iDemo < 0 || i < iDemo || (iBanco >= 0 && i > iBanco && iBanco > iDemo));
+  };
+  const fora = corpos(libTxt).filter((c) => gravaForaDaDemo(c.corpo)).map((c) => c.nome);
+  ok("CAD: o dataset da demonstração só é escrito dentro de if (isDemo)", fora.length === 0, fora.join(", "));
+  ok("CAD: [negativo] a varredura acusa a gravação no dataset fora da demonstração",
+     gravaForaDaDemo('export async function salvarZ() { gravarContaDemo(x); const s = createClient(); }'));
+
+  /* ---- o leitor dos formulários só oferece folha ---- */
+  const dataTxt = semComentarios(lerC("src/lib/data.ts"));
+  const corpoGetCat = dataTxt.slice(dataTxt.indexOf("export async function getCategories"), dataTxt.indexOf("export async function getLinhasDeCategoria"));
+  ok("CAD: getCategories devolve só as folhas ativas (categoriasSelecionaveis) com parent_id, code e dre_linha",
+     /categoriasSelecionaveis\(/.test(corpoGetCat) && /parent_id:/.test(corpoGetCat) && /dre_linha:/.test(corpoGetCat));
+
+  /* ---- a migration: o gatilho de folha e o índice por empresa ---- */
+  const migSem = mig.replace(/^\s*--.*$/gm, "");
+  ok("CAD: a migration tem o gatilho de FOLHA em movements (e em rateio e recorrência)",
+     /create trigger lancamento_categoria_folha\s+before insert or update of category_id on public\.movements/.test(migSem)
+     && /parent_id = new\.category_id and excluido_em is null/.test(migSem)
+     && /rateio_categoria_folha/.test(migSem) && /recorrencia_categoria_folha/.test(migSem));
+  ok("CAD: o documento do contato é único POR EMPRESA e o índice global sai",
+     /parties_org_doc_unico\s+on public\.parties \(org_id, doc_digits\)/.test(migSem)
+     && /drop index if exists public\.parties_doc_unique/.test(migSem));
+  ok("CAD: nome de conta único por empresa, cartão com os dois dias, conta inativa e projeto encerrado recusados",
+     /financial_accounts_org_nome_unico/.test(migSem) && /financial_accounts_dias_do_cartao/.test(migSem)
+     && /create trigger lancamento_cadastro_vigente/.test(migSem) && /v_status = 'encerrado'/.test(migSem));
+  ok("CAD: natureza trocada NÃO é recusada (entrada em despesa é estorno legítimo)",
+     !/kind\s*<>\s*case|type = 'entrada' and .*kind = 'despesa'/.test(migSem));
+  ok("CAD: a migration se RECUSA nomeando quando a unicidade reprovaria dado existente",
+     /há conta bancária com o MESMO NOME/.test(mig) && /há categoria repetida .* que ESTÁ EM USO/.test(mig));
+
+  /* ---- a guarda de BANCO existe, roda no CI e carrega o negativo ---- */
+  const sqlG = lerC("scripts/cadastros-hierarquia.sql");
+  ok("CAD: a guarda de banco existe, tem o teste negativo e o CI a roda",
+     /drop trigger lancamento_categoria_folha/.test(sqlG) && /VERMELHO PELO MOTIVO ERRADO/.test(sqlG)
+     && /scripts\/cadastros-hierarquia\.sql/.test(lerC(".github/workflows/ci.yml")));
+  ok("CAD: registros core exporta o contrato que as telas usam", typeof R.validarContaBancaria === "function");
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

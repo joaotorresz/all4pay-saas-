@@ -9,6 +9,7 @@ import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
 import { chaveDeMovimento } from "@/core/ingestao";
 import type { AberturaVerificada } from "@/core/indicadores/abertura";
+import type { LinhaCategoria, LinhaCentro, LinhaProjeto } from "@/core/registros/hierarquia";
 
 const KEY = "a4p_imported_dataset";
 
@@ -24,6 +25,21 @@ export interface ImportedDataset {
    * quando o arquivo não declara saldo — a conta fica NÃO CONFERIDA.
    */
   abertura?: AberturaVerificada | null;
+  /**
+   * Os CADASTROS da demonstração (plano de contas, centros, projetos, uso
+   * padrão), na MESMA forma das linhas do banco — é o que deixa o mesmo leitor
+   * (`lib/cadastros-hierarquia`) servir os dois mundos. Ausente = o seed.
+   * As contas bancárias moram em `accounts`, como sempre moraram.
+   */
+  cadastros?: CadastrosDemo;
+}
+
+export interface CadastrosDemo {
+  categories?: (LinhaCategoria & { id: string })[];
+  cost_centers?: (LinhaCentro & { id: string })[];
+  projects?: (LinhaProjeto & { id: string })[];
+  /** função do uso padrão → id da categoria. */
+  usos?: Record<string, string>;
 }
 
 let cache: ImportedDataset | null | undefined;
@@ -91,7 +107,12 @@ export function mesclarImportacao(ds: Omit<ImportedDataset, "criadoEm">): { novo
   // Contas: fica toda conta que algum lançamento mantido usa, mais as novas.
   const usadas = new Set(movements.map((m) => m.account_id).filter(Boolean) as string[]);
   const contas = new Map<string, FinancialAccount>();
-  for (const a of atual?.accounts ?? []) if (usadas.has(a.id)) contas.set(a.id, a);
+  // ⚠️ A conta que a PESSOA cadastrou fica mesmo sem lançamento — a mesma regra
+  // dos contatos logo abaixo. Sem isto, importar um extrato apagava da
+  // demonstração a conta criada em Cadastros › Contas bancárias.
+  for (const a of atual?.accounts ?? []) {
+    if (usadas.has(a.id) || !DEMO_ACCOUNTS.some((d) => d.id === a.id)) contas.set(a.id, a);
+  }
   const andou = novos
     .filter((m) => m.status === "pago")
     .reduce((acc, m) => acc + (m.type === "entrada" ? m.amount : -m.amount), 0);
@@ -113,6 +134,7 @@ export function mesclarImportacao(ds: Omit<ImportedDataset, "criadoEm">): { novo
     accounts: Array.from(contas.values()),
     parties: Array.from(partes.values()),
     abertura: ds.abertura ?? atual?.abertura ?? null,
+    cadastros: atual?.cadastros,
     criadoEm: atual?.criadoEm ?? new Date().toISOString(),
   });
   return { novos: novos.length, repetidos: ds.movements.length - novos.length };
@@ -154,6 +176,36 @@ export function importedAccounts(): FinancialAccount[] | null {
 export function importedParties(): Party[] | null {
   return load()?.parties ?? null;
 }
+/** Os cadastros da demonstração (plano, centros, projetos, uso padrão). */
+export function importedCadastros(): CadastrosDemo | null {
+  return load()?.cadastros ?? null;
+}
+
+const baseOuSeed = (): ImportedDataset => load() ?? {
+  movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+  criadoEm: new Date().toISOString(),
+};
+
+/**
+ * Grava cadastros no dataset da DEMONSTRAÇÃO. ⚠️ Só o escritor de
+ * `lib/cadastros-hierarquia` a chama, e só dentro de `if (isDemo)` — em
+ * produção a morada é a tabela (a guarda `CAD` cobra isso).
+ */
+export function gravarCadastrosDemo(patch: Partial<CadastrosDemo>): void {
+  const base = baseOuSeed();
+  setImported({ ...base, cadastros: { ...(base.cadastros ?? {}), ...patch } });
+}
+
+/** Cria ou substitui uma conta no dataset da demonstração (mesma regra de cima). */
+export function gravarContaDemo(conta: FinancialAccount): void {
+  const base = baseOuSeed();
+  const existe = base.accounts.some((a) => a.id === conta.id);
+  const accounts = existe
+    ? base.accounts.map((a) => (a.id === conta.id ? { ...a, ...conta } : a))
+    : [...base.accounts, conta];
+  setImported({ ...base, accounts });
+}
+
 /** A abertura conferida do arquivo importado, quando o banco declarou o saldo. */
 export function importedAbertura(): AberturaVerificada | null {
   return load()?.abertura ?? null;

@@ -24,9 +24,8 @@ import {
 } from "@/core/relatorios";
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
 import { listarOrcamentos } from "@/lib/orcamentos";
-import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
-import { getLinhasDeCategoria } from "@/lib/data";
+import { linhasDeclaradasDasCategorias } from "@/lib/data";
 import {
   runwayMeses, saldo, canceladosNaJanela, coberturaCompetencia, janela as fazJanela,
 } from "@/core/indicadores";
@@ -72,19 +71,18 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   // hidratação.
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
   /*
-   * ⚠️ **Duas fontes, e o BANCO complementa o local.** `linhasDeCategoria()` lê
-   * o plano de contas da tela de Cadastros; `getLinhasDeCategoria()` lê
-   * `categories.dre_linha`, a tabela que os LANÇAMENTOS referenciam. Quem nunca
-   * abriu a tela de Cadastros não tinha linha declarada nenhuma, e o motor caía
-   * no palpite por palavra-chave sem nada dizer — foi por aí que INSS e FGTS
-   * entraram como dedução da receita.
+   * ⚠️ **Uma leitura só, e o BANCO vence** (`linhasDeclaradasDasCategorias`):
+   * `categories.dre_linha` é a tabela que os LANÇAMENTOS referenciam e a que a
+   * tela de Plano de contas edita. Quem nunca declarou linha nenhuma cai no
+   * palpite por palavra-chave — foi por aí que INSS e FGTS entraram como
+   * dedução da receita.
    */
   React.useEffect(() => {
-    const local = linhasDeCategoria();
-    setLinhaPorCategoria(local);
-    getLinhasDeCategoria()
-      .then((doBanco) => setLinhaPorCategoria({ ...doBanco, ...local }))
-      .catch(() => { /* sem banco, o local basta — e o motor cai no palpite */ });
+    let vivo = true;
+    linhasDeclaradasDasCategorias()
+      .then((m) => { if (vivo) setLinhaPorCategoria(m); })
+      .catch(() => { /* sem leitura, o motor cai no palpite — e diz isso */ });
+    return () => { vivo = false; };
   }, []);
 
   /**

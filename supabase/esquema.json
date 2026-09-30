@@ -151,6 +151,22 @@
         "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
         "resolver_ate": "2026-10-07",
         "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930180000_cadastros_hierarquia",
+        "objetos_ausentes": [
+          "financial_accounts.tipo/agencia/numero/codigo_contabil/dia_fechamento/dia_vencimento/saldo_inicial/data_saldo_inicial/saldo_inicial_conferido/ativo",
+          "cost_centers.code/codigo_contabil/parent_id/description",
+          "projects.party_id/cost_center_id/status",
+          "categories.code",
+          "parties.ativo/default_category_id",
+          "tabela categoria_uso_padrao",
+          "índices financial_accounts_org_nome_unico, categories_org_pai_nome_unico, categories_org_codigo_unico, cost_centers_org_codigo_unico, parties_org_doc_unico",
+          "gatilhos lancamento_categoria_folha, rateio_categoria_folha, recorrencia_categoria_folha, lancamento_cadastro_vigente, categorias_hierarquia, categorias_exclusao, centros_hierarquia, projetos_vinculos, partes_categoria_padrao, usos_padrao_folha"
+        ],
+        "impacto": "Até ser aplicada, as telas de Contas bancárias, Centros de custo, Projetos e Plano de contas (que passam a ler e gravar essas tabelas) mostram o erro do banco de coluna inexistente; os formulários de lançamento seguem funcionando (getCategories cai no select antigo, reportando). Aplicada, 16 cópias de categoria SEM USO (medidas em produção em 30/09) vão para a lixeira com motivo escrito, e o índice global parties_doc_unique é trocado por um por empresa.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote CAD, parte 1) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

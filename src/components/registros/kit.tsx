@@ -188,11 +188,11 @@ export function AcaoLinha({
   );
 }
 
-export function EtiquetaStatus({ ativo }: { ativo: boolean }) {
+export function EtiquetaStatus({ ativo, rotuloInativo = "Inativo" }: { ativo: boolean; rotuloInativo?: string }) {
   return (
     <span className="inline-flex items-center gap-[6px] text-caption text-muted">
       <span className="w-[7px] h-[7px] rounded-pill" style={{ background: ativo ? "var(--color-positive)" : "var(--color-placeholder)" }} />
-      {ativo ? "Ativo" : "Inativo"}
+      {ativo ? "Ativo" : rotuloInativo}
     </span>
   );
 }
@@ -245,6 +245,82 @@ export function SwitchAtivo({
   checked, onChange, label,
 }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return <Switch checked={checked} onChange={onChange} label={label} />;
+}
+
+/* ------------------------------ o erro do banco ------------------------------ */
+
+/**
+ * A recusa do banco, com a frase DELE, dentro do formulário. ⚠️ Nunca "tente
+ * novamente": repetir reproduz a mesma recusa, e o conselho que não pode
+ * funcionar é pior que conselho nenhum.
+ */
+export function ErroGravacao({ mensagem }: { mensagem: string | null }) {
+  if (!mensagem) return null;
+  return (
+    <div role="alert" className="flex items-start gap-2 rounded-md bg-surface-2 px-3 py-2 text-caption text-negative">
+      <Icon name="triangle-alert" size={14} color="currentColor" />
+      <span>{mensagem}</span>
+    </div>
+  );
+}
+
+/* ------------------------- o cadastro antigo deste navegador ------------------------- */
+
+export interface ItemAntigo {
+  chave: string;
+  acao: "criar" | "completar";
+  nome: string;
+  campos: string[];
+}
+
+/**
+ * "Cadastros antigos deste navegador" — o que ainda mora na morada ANTIGA
+ * (estado da empresa ou só o navegador) e não existe na tabela.
+ *
+ * ⚠️ **Nada é migrado em silêncio.** Cada item tem o seu botão, e é a pessoa
+ * quem traz: migrar sozinho criaria registros que ninguém pediu no dia em que
+ * duas pessoas abrissem a tela em navegadores diferentes. O bloco some quando
+ * a lista esvazia — é a CAUSA sumir, não um "x" que dispensa o aviso.
+ */
+export function BlocoAntigos({
+  itens, onTrazer, trazendo, oQue,
+}: {
+  itens: ItemAntigo[];
+  onTrazer: (i: ItemAntigo) => void;
+  trazendo: string | null;
+  /** "contas", "centros"… — entra na frase. */
+  oQue: string;
+}) {
+  if (itens.length === 0) return null;
+  return (
+    <Card>
+      <div className="flex flex-col gap-3" data-bloco="cadastros-antigos">
+        <div className="flex flex-col gap-1">
+          <span className="a4p-label text-muted">Cadastros antigos deste navegador</span>
+          <p className="m-0 text-label text-muted max-w-[80ch]">
+            Estes {oQue} foram cadastrados antes de o cadastro passar a morar no banco da empresa.
+            Eles só existem neste navegador e nenhum lançamento consegue apontar para eles.
+            Traga cada um para o cadastro — nada é trazido sem você pedir.
+          </p>
+        </div>
+        <ul className="m-0 p-0 list-none flex flex-col divide-y divide-border-soft">
+          {itens.map((i) => (
+            <li key={i.chave} className="flex items-center justify-between gap-3 py-2 flex-wrap">
+              <div className="flex flex-col">
+                <span className="text-label text-ink">{i.nome}</span>
+                <span className="text-caption text-faint">
+                  {i.acao === "criar" ? "Não existe no cadastro" : `Já existe no cadastro — falta ${i.campos.join(", ")}`}
+                </span>
+              </div>
+              <Button variant="outline" disabled={trazendo === i.chave} onClick={() => onTrazer(i)}>
+                {trazendo === i.chave ? "Trazendo…" : i.acao === "criar" ? "Trazer para o cadastro" : "Completar o cadastro"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </Card>
+  );
 }
 
 /** Input numérico de dia (1–31) — o único formato que uma fatura aceita. */

@@ -15,6 +15,21 @@ export interface FinancialAccount {
   /** Current consolidated balance, in BRL. */
   balance: number;
   created_at?: string;
+  /**
+   * O cadastro da conta (migration `20260930180000`). Opcionais porque os
+   * leitores antigos selecionam só `id,name,bank,balance`; quem precisa deles
+   * lê por `lib/cadastros-hierarquia`, que os traz sempre.
+   */
+  tipo?: string | null;
+  agencia?: string | null;
+  numero?: string | null;
+  codigo_contabil?: string | null;
+  dia_fechamento?: number | null;
+  dia_vencimento?: number | null;
+  saldo_inicial?: number | null;
+  data_saldo_inicial?: string | null;
+  saldo_inicial_conferido?: boolean | null;
+  ativo?: boolean | null;
 }
 
 /** A single cash movement (a receivable or a payable). */
@@ -131,6 +146,15 @@ export interface Category {
   id: string;
   kind: CategoryKind;
   name: string;
+  /**
+   * A árvore do plano de contas (`categories`). `getCategories` devolve só as
+   * FOLHAS ativas — o banco recusa lançamento num grupo —, com o grupo em
+   * `parent_id` e o caminho legível em `caminho` ("Marketing › Google Ads").
+   */
+  parent_id?: string | null;
+  code?: string | null;
+  dre_linha?: string | null;
+  caminho?: string;
 }
 
 export interface CostCenter {

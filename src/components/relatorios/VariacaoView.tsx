@@ -18,8 +18,7 @@ import { Card, BRL, StatusBadge, Skeleton, Select, Textarea, Button, Icon, InfoH
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { analisarVariacao, LIMIARES_PADRAO, type LinhaVariacao } from "@/core/variacao";
 import { deslocarMes, rotuloColuna } from "@/core/relatorios";
-import { linhasDeCategoria } from "@/lib/registros";
-import { getLinhasDeCategoria } from "@/lib/data";
+import { linhasDeclaradasDasCategorias } from "@/lib/data";
 import { pctDeInteiro } from "@/lib/format";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
 import { isDemo } from "@/lib/demo";
@@ -36,11 +35,11 @@ export function VariacaoView() {
   const { data: input, isLoading } = useRiscoInput();
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
   React.useEffect(() => {
-    // As MESMAS duas fontes do DRE — senão a variação classificaria diferente
-    // do relatório que ela explica.
-    const local = linhasDeCategoria();
-    setLinhaPorCategoria(local);
-    getLinhasDeCategoria().then((b) => setLinhaPorCategoria({ ...b, ...local })).catch(() => {});
+    // A MESMA leitura do DRE — senão a variação classificaria diferente do
+    // relatório que ela explica.
+    let vivo = true;
+    linhasDeclaradasDasCategorias().then((m) => { if (vivo) setLinhaPorCategoria(m); }).catch(() => {});
+    return () => { vivo = false; };
   }, []);
 
   const mesAtual = input?.hoje.slice(0, 7) ?? null;

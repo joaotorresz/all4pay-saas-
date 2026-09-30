@@ -32,8 +32,7 @@ import {
   type CabecalhoExportacao, type Exportacao,
 } from "@/core/exportacao";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
-import { linhasDeCategoria } from "@/lib/registros";
-import { getLinhasDeCategoria } from "@/lib/data";
+import { linhasDeclaradasDasCategorias } from "@/lib/data";
 
 import { loadCompany, getOrganizationName } from "@/lib/company";
 import { hojeLocal } from "@/lib/aggregations";
@@ -71,17 +70,17 @@ export function ExportarView() {
   const [erro, setErro] = React.useState<string | null>(null);
 
   /*
-   * ⚠️ A linha DECLARADA de cada categoria — a MESMA leitura que o DRE faz, com
-   * a mesma precedência (o local vence o banco). Ler diferente aqui faria o
-   * arquivo classificar diferente da tela, que é o defeito inteiro.
+   * ⚠️ A linha DECLARADA de cada categoria — a MESMA função que o DRE usa
+   * (`linhasDeclaradasDasCategorias`, o banco vence). Ler diferente aqui faria
+   * o arquivo classificar diferente da tela, que é o defeito inteiro.
    */
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
   React.useEffect(() => {
-    const local = linhasDeCategoria();
-    setLinhaPorCategoria(local);
-    getLinhasDeCategoria()
-      .then((doBanco) => setLinhaPorCategoria({ ...doBanco, ...local }))
-      .catch(() => { /* sem banco, o local basta */ });
+    let vivo = true;
+    linhasDeclaradasDasCategorias()
+      .then((m) => { if (vivo) setLinhaPorCategoria(m); })
+      .catch(() => { /* sem leitura, o motor cai no palpite */ });
+    return () => { vivo = false; };
   }, []);
 
   const [empresa, setEmpresa] = React.useState("Minha empresa");

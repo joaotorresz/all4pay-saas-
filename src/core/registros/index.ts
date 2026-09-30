@@ -49,6 +49,11 @@ export interface ContaBancaria {
   diaFechamento: number | null;
   diaVencimento: number | null;
   ativo: boolean;
+  /**
+   * O saldo CORRENTE da conta (`financial_accounts.balance`) — só leitura na
+   * tela de cadastro: quem o move é a baixa e a conciliação, não o formulário.
+   */
+  saldoAtual?: number;
 }
 
 /** Dia de fatura só existe entre 1 e 31 — 0 ou 32 não é "quase certo", é erro. */

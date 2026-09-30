@@ -10,12 +10,15 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { vinculosProjeto } from "@/lib/projeto-vinculo";
 import { listProjetos } from "@/lib/iuli-cadastros";
+import { linhasDeCategoria } from "@/lib/registros";
+import {
+  listarCategorias, salvarCategoria, listarCentrosCusto, listarProjetos as listarProjetosCadastro,
+} from "@/lib/cadastros-hierarquia";
+import { categoriasSelecionaveis, caminhoDe, contaDaLinha, type LinhaConta } from "@/core/registros/hierarquia";
 import {
   DEMO_ACCOUNTS,
   DEMO_MOVEMENTS,
-  DEMO_CATEGORIES,
   DEMO_RECORRENCIAS,
-  DEMO_COST_CENTERS,
   DEMO_PARTIES,
 } from "@/lib/demo/seed";
 import {
@@ -27,7 +30,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount, removerImported, appendImported } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, importedCadastros, updateImportedMovement, updateImportedAccount, removerImported, appendImported } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -342,18 +345,50 @@ export async function getUnreconciledMovements(
 
 /* ---- Cadastros (selects for the lançamento forms) ---- */
 
+/**
+ * As categorias que um LANÇAMENTO pode receber: as FOLHAS ativas da árvore do
+ * plano de contas (`categories`), da natureza pedida, com o grupo e o caminho.
+ *
+ * ⚠️ **Só folhas.** O banco recusa lançamento num grupo
+ * (`lancamento_em_categoria_folha`, migration `20260930180000`); oferecer um
+ * grupo no formulário seria oferecer uma escolha que o salvar recusa.
+ *
+ * ⚠️ A árvore é lida pelo MESMO leitor da tela de Plano de contas
+ * (`lib/cadastros-hierarquia`). Antes da migration aplicada, as colunas novas
+ * (`code`) não existem e a consulta cai no select antigo — REPORTANDO a queda:
+ * os formulários de lançamento continuam funcionando na janela entre o
+ * deploy e o job `migrar`, em vez de ficarem sem categoria nenhuma.
+ */
 export async function getCategories(kind: CategoryKind): Promise<Category[]> {
-  if (isDemo) return DEMO_CATEGORIES.filter((c) => c.kind === kind);
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id,kind,name")
-    .eq("kind", kind)
-    .eq("active", true)
-    .order("name").limit(TETO_LINHAS);
-  if (error) throw error;
-  return (data ?? []) as Category[];
+  let arvore;
+  try {
+    arvore = await listarCategorias();
+  } catch (e) {
+    if (isDemo || !COLUNA_AUSENTE.test(e instanceof Error ? e.message : "")) throw e;
+    reportar(
+      "categorias.arvore", e,
+      "o formulário oferece a lista plana de categorias até a migration 20260930180000 ser aplicada",
+      true,
+    );
+    const { data, error } = await createClient()
+      .from("categories").select("id,kind,name").eq("kind", kind).eq("active", true)
+      .order("name").limit(TETO_LINHAS);
+    if (error) throw error;
+    return (data ?? []) as Category[];
+  }
+  return categoriasSelecionaveis(arvore, kind).map((c) => ({
+    id: c.id,
+    kind: c.natureza,
+    name: c.nome,
+    parent_id: c.paiId,
+    code: c.codigo || null,
+    dre_linha: c.dreLinha ?? null,
+    caminho: caminhoDe(arvore, c.id),
+  }));
 }
+
+/** O erro do PostgREST para coluna que ainda não existe (migration pendente). */
+const COLUNA_AUSENTE = /column .* does not exist|could not find the .* column|42703|PGRST204/i;
 
 /**
  * Cria uma categoria na tabela REAL (`public.categories`) e devolve a linha.
@@ -384,7 +419,15 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
  * entra; o regex, não.
  */
 export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
-  if (isDemo) return {};
+  // Em demonstração a árvore mora no dataset — a MESMA que a tela de Plano de
+  // contas edita, então a linha declarada lá chega ao DRE daqui.
+  if (isDemo) {
+    const out: Record<string, string> = {};
+    for (const c of importedCadastros()?.categories ?? []) {
+      if (c.name && c.dre_linha) out[c.name.trim().toLowerCase()] = c.dre_linha;
+    }
+    return out;
+  }
   const supabase = createClient();
   if (!supabase) return {};
   // Teto de linhas como toda consulta do sistema: a política diz DE QUEM são
@@ -398,26 +441,39 @@ export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
   return out;
 }
 
+/**
+ * A linha DECLARADA de cada categoria — UMA função para o DRE, a variação e a
+ * exportação. Eram três cópias do mesmo merge, e as três davam precedência ao
+ * plano LOCAL.
+ *
+ * ⚠️ **O BANCO VENCE.** Desde `20260930180000` a tela de Plano de contas edita
+ * `categories.dre_linha`; com o local vencendo, a linha que a pessoa acabou de
+ * declarar na tela nova perderia para uma declaração velha do navegador. O
+ * plano ANTIGO entra só para o nome que o banco NÃO declara — congelado
+ * (nenhum escritor sobrou), ele não diverge mais, e some quando a pessoa o
+ * traz para o cadastro pelo bloco "Cadastros antigos".
+ */
+export async function linhasDeclaradasDasCategorias(): Promise<Record<string, string>> {
+  const local = linhasDeCategoria();
+  return { ...local, ...(await getLinhasDeCategoria()) };
+}
+
 export async function criarCategoria(
   nome: string, kind: CategoryKind, dreLinha?: string | null,
 ): Promise<Category> {
-  if (isDemo) {
-    const nova = { id: `demo-cat-${Date.now()}`, kind, name: nome };
-    DEMO_CATEGORIES.push(nova);
-    return nova;
-  }
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({ name: nome, kind, dre_linha: dreLinha ?? null })
-    .select("id,kind,name")
-    .single();
-  if (error) throw error;
-  return data as Category;
+  // Um escritor só: o MESMO da tela de Plano de contas — validação, natureza,
+  // unicidade e a frase do banco na recusa.
+  const c = await salvarCategoria({
+    id: "", nome, codigo: "", natureza: kind, paiId: null, dreLinha: dreLinha ?? undefined, ativo: true,
+  });
+  return { id: c.id, kind: c.natureza, name: c.nome, parent_id: null, code: null, dre_linha: c.dreLinha ?? null, caminho: c.nome };
 }
 
 export async function getCostCenters(): Promise<CostCenter[]> {
-  if (isDemo) return DEMO_COST_CENTERS;
+  // Em demonstração, a MESMA lista que a tela de Centros de custo edita.
+  if (isDemo) {
+    return (await listarCentrosCusto()).filter((c) => c.ativo).map((c) => ({ id: c.id, name: c.nome }));
+  }
   const supabase = createClient();
   const { data, error } = await supabase
     .from("cost_centers")
@@ -820,6 +876,8 @@ const RELACAO_AUSENTE = /could not find a relationship|PGRST200|does not exist/i
  * embed resolve, `false` = não resolve (não tentar de novo nesta sessão).
  */
 let embedProjetoOk: boolean | undefined;
+/** As colunas do cadastro da conta existem? (uma tentativa por sessão) */
+let colunasCadastroOk: boolean | undefined;
 
 /** O nome de um embed do PostgREST, que vem objeto ou array de um item. */
 const embedName = (e: unknown): string | null =>
@@ -902,7 +960,11 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Projeto: o vínculo local é a fonte síncrona (ver lib/projeto-vinculo).
     const vinculos = vinculosProjeto();
     const nomeProjeto: Record<string, string> = {};
+    // O cadastro antigo (id "5001") ainda nomeia os vínculos feitos antes da
+    // morada única; o cadastro novo (a tela de Projetos) vence quando os dois
+    // têm o mesmo id — o que não acontece, porque os formatos diferem.
     for (const p of listProjetos()) nomeProjeto[p.id] = p.nome;
+    for (const p of await listarProjetosCadastro()) nomeProjeto[p.id] = p.nome;
     // Resolve a contraparte por party_id (cadastro) OU pela descrição (seed).
     // Assim o seed NÃO perde os nomes quando um upload cria o dataset importado.
     const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
@@ -932,7 +994,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     });
     return {
       hoje, saldoAtual, movements, partyNames, horizonDias: 60,
-      aberturaVerificada: resolverAberturaVerificada(true),
+      aberturaVerificada: resolverAberturaVerificada(true, seedAccounts().map((a) => contaDaLinha(a as LinhaConta))),
     };
   }
 
@@ -988,10 +1050,32 @@ export async function getRiscoInput(): Promise<RiskInput> {
     }
     return semAmostra(supabase.from("movements").select(COLUNAS_BASE)).limit(TETO_LINHAS);
   };
-  const [accRes, movRes, partyRes] = await Promise.all([
+  /**
+   * A abertura INFORMADA mora no cadastro da conta (`financial_accounts`,
+   * migration `20260930180000`). Antes da migration as colunas não existem: a
+   * consulta cai, REPORTA uma vez por sessão (mesmo desenho do embed do
+   * projeto) e o Razão fica "não conferido" — que é a verdade até lá.
+   */
+  const contasConferidas = async () => {
+    if (colunasCadastroOk === false) return [];
+    const r = await supabase.from("financial_accounts")
+      .select("id,name,bank,balance,saldo_inicial,data_saldo_inicial,saldo_inicial_conferido")
+      .eq("saldo_inicial_conferido", true).limit(TETO_LINHAS);
+    if (!r.error) { colunasCadastroOk = true; return ((r.data ?? []) as LinhaConta[]).map(contaDaLinha); }
+    if (!COLUNA_AUSENTE.test(r.error.message ?? "")) throw r.error;
+    reportar(
+      "abertura.cadastroDaConta", r.error,
+      "o Razão fica sem a abertura informada até a migration 20260930180000 ser aplicada",
+      true,
+    );
+    colunasCadastroOk = false;
+    return [];
+  };
+  const [accRes, movRes, partyRes, conferidas] = await Promise.all([
     supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
     movimentos(),
     supabase.from("parties").select("id,name").limit(TETO_LINHAS),
+    contasConferidas(),
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
@@ -1046,7 +1130,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     hoje, saldoAtual, movements, partyNames, horizonDias: 60,
     // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
     // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
-    aberturaVerificada: resolverAberturaVerificada(false),
+    aberturaVerificada: resolverAberturaVerificada(false, conferidas),
   };
 }
 

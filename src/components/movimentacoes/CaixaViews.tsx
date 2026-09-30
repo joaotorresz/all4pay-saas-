@@ -14,7 +14,7 @@ import { Card, Button, Icon, Select, DateField, Switch, BRL, Skeleton } from "@/
 import { useAccounts, useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { listarTransferencias } from "@/lib/movimentacoes";
-import { listContasBancarias } from "@/lib/registros";
+import { useContasBancarias } from "@/components/registros/hooks";
 import {
   fluxoCaixaMensal, extratoDaConta, faturasDoCartao,
   type Transferencia, type StatusFatura,
@@ -44,12 +44,14 @@ export function FluxoCaixaMensalView() {
 
   React.useEffect(() => { setTransferencias(listarTransferencias()); }, []);
 
-  // "Inativa" vive no cadastro estendido (lib/registros), não em
-  // `financial_accounts` — por isso a checagem é por lá.
+  // "Inativa" mora no cadastro da conta (`financial_accounts.ativo`, migration
+  // 20260930180000) — casada pelo ID, não pelo nome: antes ela morava num
+  // cadastro paralelo e o casamento por nome apagava a marca a cada renomeação.
+  const cadastro = useContasBancarias();
   const inativas = React.useMemo(() => {
-    const m = new Map(listContasBancarias().map((c) => [c.nome, c.ativo]));
-    return (id: string, nome: string) => m.get(nome) === false;
-  }, []);
+    const m = new Map((cadastro.data ?? []).map((c) => [c.id, c.ativo]));
+    return (id: string, _nome: string) => m.get(id) === false;
+  }, [cadastro.data]);
 
   const disponiveis = React.useMemo(
     () => (contas?.accounts ?? []).filter((c) => mostrarInativas || !inativas(c.id, c.name)),
@@ -313,21 +315,21 @@ export function FaturaCartaoView() {
   const [statusFiltro, setStatusFiltro] = React.useState("");
 
   /**
-   * Os cartões saem do cadastro estendido, porque é lá que vivem os dias de
-   * fechamento e vencimento — sem os dois não existe ciclo, e sem ciclo não
-   * existe fatura.
+   * Os cartões saem do cadastro da CONTA (`financial_accounts`), porque é lá
+   * que moram os dias de fechamento e vencimento — sem os dois não existe
+   * ciclo, e sem ciclo não existe fatura. ⚠️ O id é o da própria conta, o
+   * MESMO dos lançamentos: antes os dias moravam num cadastro paralelo casado
+   * por NOME, e renomear um dos lados apagava a fatura sem aviso.
    */
-  const cartoes = React.useMemo(() => {
-    const nomes = new Map((contas?.accounts ?? []).map((c) => [c.name, c.id]));
-    return listContasBancarias()
-      .filter((c) => c.tipo === "cartao" && c.diaFechamento && c.diaVencimento)
-      .map((c) => ({
-        id: nomes.get(c.nome) ?? c.id,
-        nome: c.nome,
-        diaFechamento: c.diaFechamento!,
-        diaVencimento: c.diaVencimento!,
-      }));
-  }, [contas]);
+  const cadastro = useContasBancarias();
+  const cartoes = React.useMemo(() => (cadastro.data ?? [])
+    .filter((c) => c.tipo === "cartao" && c.diaFechamento && c.diaVencimento)
+    .map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      diaFechamento: c.diaFechamento!,
+      diaVencimento: c.diaVencimento!,
+    })), [cadastro.data]);
 
   const faturas = React.useMemo(() => {
     if (!input) return [];

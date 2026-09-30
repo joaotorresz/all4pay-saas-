@@ -13,10 +13,7 @@ import * as React from "react";
 import { Card, Button, Icon, Select, BRL } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { listContasBancarias, listPlanoContas } from "@/lib/registros";
-import { listCentrosCusto } from "@/lib/iuli-cadastros";
-import { useQuery } from "@tanstack/react-query";
-import { getAccountsList } from "@/lib/data";
+import { useContasBancarias, useCategoriasArvore, useCentrosCusto } from "@/components/registros/hooks";
 import {
   montarLancamentosDominio, gerarLanctosTxt, gerarLanctosBytes, conferirDominio,
   dataDominio, valorDominio, campoDominio, LAYOUT_DOMINIO,
@@ -43,37 +40,30 @@ const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 export function DominioExportView() {
   const { show: toast, node } = useToast();
   const risco = useRiscoInput();
-  const contasReais = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  // ⚠️ Os três códigos contábeis moram nos CADASTROS DO BANCO (migration
+  // 20260930180000): a conta em `financial_accounts.codigo_contabil`, a
+  // categoria em `categories.code`, o centro em `cost_centers.codigo_contabil`.
+  // Antes moravam num cadastro paralelo casado por NOME com a conta real, e
+  // renomear um dos lados fazia o código sumir do arquivo sem aviso.
+  const contasCadastro = useContasBancarias();
+  const arvore = useCategoriasArvore();
+  const centrosCadastro = useCentrosCusto();
 
   const [contaId, setContaId] = React.useState("");
   const [mes, setMes] = React.useState(mesCorrente());
   const [carregado, setCarregado] = React.useState<{ contaId: string; mes: string } | null>(null);
 
-  const [extras, setExtras] = React.useState<ReturnType<typeof listContasBancarias>>([]);
-  const [plano, setPlano] = React.useState<ReturnType<typeof listPlanoContas>>([]);
-  const [centros, setCentros] = React.useState<ReturnType<typeof listCentrosCusto>>([]);
-  React.useEffect(() => {
-    setExtras(listContasBancarias());
-    setPlano(listPlanoContas());
-    setCentros(listCentrosCusto());
-  }, []);
-
-  const opcoesConta = (contasReais.data ?? []).map((c) => ({ value: c.id, label: c.name }));
-  const contaEscolhida = (contasReais.data ?? []).find((c) => c.id === contaId);
-  // O código contábil da conta mora no cadastro estendido (`lib/registros`),
-  // casado por nome — `financial_accounts` não tem a coluna.
-  const extraDaConta = extras.find(
-    (e) => e.id === contaId || e.nome.toLowerCase() === (contaEscolhida?.name ?? "").toLowerCase(),
-  );
+  const opcoesConta = (contasCadastro.data ?? []).map((c) => ({ value: c.id, label: c.nome }));
+  const extraDaConta = (contasCadastro.data ?? []).find((c) => c.id === contaId);
 
   const mapas: MapasContabeis = React.useMemo(() => ({
     categorias: Object.fromEntries(
-      plano.filter((c) => c.codigo).map((c) => [c.nome, c.codigo]),
+      (arvore.data ?? []).filter((c) => c.codigo).map((c) => [c.nome, c.codigo]),
     ),
     centros: Object.fromEntries(
-      centros.filter((c) => c.codigoContabil).map((c) => [c.nome, c.codigoContabil]),
+      (centrosCadastro.data ?? []).filter((c) => c.codigoContabil).map((c) => [c.nome, c.codigoContabil]),
     ),
-  }), [plano, centros]);
+  }), [arvore.data, centrosCadastro.data]);
 
   const movimentos: MovimentoContabil[] = React.useMemo(() => {
     if (!carregado || !risco.data) return [];
@@ -172,7 +162,7 @@ export function DominioExportView() {
             <Aviso
               tom="negativo"
               titulo="A conta bancária não tem código contábil do Domínio"
-              texto={`Em partidas simples a conta bancária é a contrapartida FIXA de todos os lançamentos — sem o código dela o Domínio não sabe de onde o dinheiro saiu. Preencha "Código contábil (Domínio)" no cadastro da conta${contaEscolhida ? ` "${contaEscolhida.name}"` : ""}.`}
+              texto={`Em partidas simples a conta bancária é a contrapartida FIXA de todos os lançamentos — sem o código dela o Domínio não sabe de onde o dinheiro saiu. Preencha "Código contábil (Domínio)" no cadastro da conta${extraDaConta ? ` "${extraDaConta.nome}"` : ""}.`}
             />
           )}
 
