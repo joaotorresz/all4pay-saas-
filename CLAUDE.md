@@ -53,6 +53,24 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+## ⚠️ A OWN SAIU DO PRODUTO (contrato rescindido, 30/09/2026)
+
+A Quattro rescindiu com a **OWN** (adquirente da maquininha). Saiu tudo o que
+existia só para falar com ela: as Edge Functions `own-sync` e `own-webhook`, a
+guarda `portas-fechadas` (que só batia nessas duas), o bloco `a4p077:` da
+matriz, a dívida declarada `own_extrato_lojista` e as exclusões `own_*` da
+trilha. **Não reintroduzir.** O POS/maquininha da Quattro (`/pos/*`, `maq_*`)
+não dependia da OWN e FICA.
+
+⚠️ **O banco ainda tem os objetos até o dono aplicar
+`20260930120000_remove_integracao_own.sql`.** Ela derruba as dez tabelas
+`own_*`, a view, as cinco funções e o agendamento do `own-sync` no pg_cron —
+e **se RECUSA quando há dado de lojista** (exportar e decidir é trabalho de
+gente). Sem `cascade`: uma dependência inesperada falha nomeada, não some
+junto. Provada em `begin … rollback`: recusa com dado, apaga tudo vazia,
+reaplica sem erro, tira só o job da OWN do cron. As menções históricas a
+`own_*` nas seções abaixo ficam como registro.
+
 ## ⚠️ IDENTIDADE QUATTRO (desde 30/09/2026) — vence todas as seções de identidade abaixo
 
 Fonte: o guia "Design system Quattro" do dono (kit no Canva
@@ -2248,7 +2266,8 @@ transforma a guarda num registro do que já aconteceu em vez de um portão.
 `dividas_declaradas`, não em "aceito": *o CREATE mora nas Edge Functions, fora do
 repositório — dívida aberta, não exceção permanente*. Sem dono e sem prazo que
 vença, a dívida vira paisagem, que é como as 29 divergências de esquema
-chegaram até aqui.
+chegaram até aqui. *(30/09/2026: a dívida foi QUITADA — a OWN saiu do produto
+e `20260930120000` remove o subsistema inteiro. `dividas_declaradas` está vazia.)*
 
 ### ⚠️ ETAPA D — O PRODUTO NÃO TINHA COBRANÇA, e não era "cobrança fraca"
 

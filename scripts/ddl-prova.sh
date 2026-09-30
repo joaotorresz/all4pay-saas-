@@ -16,7 +16,7 @@
 set -euo pipefail
 : "${SUPABASE_DB_URL:?SUPABASE_DB_URL ausente}"
 
-sonda="own_prova_da_guarda_ci"
+sonda="sonda_prova_da_guarda_ci"
 limpar() { psql "$SUPABASE_DB_URL" -qtAX -c "drop table if exists public.${sonda}" >/dev/null 2>&1 || true; }
 trap limpar EXIT
 

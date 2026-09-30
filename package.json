@@ -47,7 +47,6 @@
     "objetos:service-role": "node scripts/esquema-objetos.mjs --service-role",
     "objetos:sync-service-role": "node scripts/esquema-objetos.mjs --sync-service-role",
     "ddl": "node scripts/ddl-sem-migration.mjs",
-    "portas": "node scripts/portas-fechadas.mjs",
     "ddl:prova": "bash scripts/ddl-prova.sh",
     "fila-500": "node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/fila-500.mts",
     "travar": "TZ=America/Sao_Paulo node --experimental-strip-types --loader ./scripts/ts-alias-loader.mjs ./scripts/travar-numeros.mts",
