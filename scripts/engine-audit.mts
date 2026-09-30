@@ -6661,5 +6661,185 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
 }
 
+/* ── IA E AJUDA (30/09/2026) — a Quattro AI responde o MESMO número da tela ──
+ *
+ * Cada asserção abaixo nasceu de um número que a IA dizia diferente da tela que
+ * responde à mesma pergunta, medido na demonstração:
+ *   · "runway de 0 meses" ao lado de "— não há queima" no Fluxo de caixa (o
+ *     quant copiava o `.valor` 0 de um indicador AUSENTE);
+ *   · margem de CAIXA (39%) contra a margem líquida do DRE (56,4%);
+ *   · "lucro" respondido com o resultado de caixa;
+ *   · origem do EBITDA dizendo "0 lançamentos";
+ *   · "posso gastar?" com uma reserva inventada (15% do saldo × 3);
+ *   · a semana de domingo a sábado contra a de segunda a domingo dos painéis;
+ *   · "0 dia(s) no do vencimento".
+ * E da Central de Ajuda: o detector que deixava passar o CPF sem pontuação e o
+ * cartão colado com a validade, e o chamado gravado por fora do `store-org`.
+ * Cada uma foi provada plantando o defeito de volta.
+ */
+{
+  const fsIA = await import("node:fs");
+  const { centroInteligencia } = await import("@/core/executive");
+  const { classificar } = await import("@/core/quant/score");
+  const { VEREDITO_LABEL } = await import("@/core/aquisicao");
+  const { pct: pctIA } = await import("@/lib/format");
+  const { KB } = await import("@/lib/assistant-kb");
+  const { destinoDe } = await import("@/core/rotas/aliases");
+  const { planejarContratacoes } = await import("@/core/headcount");
+  const { simularCenario } = await import("@/core/executive/scenario");
+
+  const HOJE_IA = "2026-07-15"; // quarta-feira: a semana vai de 13/07 (seg) a 19/07 (dom)
+  let sIA = 0;
+  const mvIA = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `ia${sIA++}`, type: "entrada", amount: 1000, due_date: HOJE_IA, paid_date: HOJE_IA, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  // Empresa que GERA caixa (sem queima) e com receita de julho ainda a receber:
+  // é o caso que separa margem de caixa (50%) de margem do DRE (64%).
+  const inpIA: RiskInput = { hoje: HOJE_IA, saldoAtual: 100000, partyNames: {}, movements: [
+    mvIA({ amount: 30000, due_date: "2026-05-10", paid_date: "2026-05-10" }),
+    mvIA({ amount: 30000, due_date: "2026-06-10", paid_date: "2026-06-10" }),
+    mvIA({ amount: 10000, due_date: "2026-07-05", paid_date: "2026-07-05" }),
+    mvIA({ amount: 10000, due_date: "2026-07-20", paid_date: null, status: "pendente" }),
+    mvIA({ type: "saida", amount: 10000, due_date: "2026-05-12", paid_date: "2026-05-12", category: "Fornecedores" }),
+    mvIA({ type: "saida", amount: 10000, due_date: "2026-06-12", paid_date: "2026-06-12", category: "Fornecedores" }),
+    mvIA({ type: "saida", amount: 5000, due_date: "2026-07-08", paid_date: "2026-07-08", category: "Fornecedores" }),
+    // domingo DENTRO da semana seg–dom (fora da dom–sáb) …
+    mvIA({ type: "saida", amount: 1500, due_date: "2026-07-19", paid_date: null, status: "pendente", category: "Aluguel" }),
+    // … e o domingo ANTERIOR, dentro da dom–sáb e fora da seg–dom
+    mvIA({ type: "saida", amount: 700, due_date: "2026-07-12", paid_date: null, status: "pendente", category: "Energia" }),
+  ] } as RiskInput;
+  const ctxIA = centroInteligencia(inpIA).context;
+  const resp = (q: string, i: RiskInput = inpIA) => responderLocal(q, i, ctxIA)?.resposta ?? "";
+
+  /* runway: a AUSÊNCIA atravessa a IA — nunca "0 meses" sobre quem gera caixa */
+  const qIA = analisarQuantitativo(inpIA).indicadores;
+  ok("ia: o quant devolve runway AUSENTE (null + sem_queima), não 0, para quem gera caixa",
+     qIA.runwayMeses === null && qIA.runwayMotivo?.codigo === "sem_queima", `runwayMeses=${qIA.runwayMeses}`);
+  const rSaldo = responderLocal("qual meu saldo?", inpIA, ctxIA);
+  ok("ia: o saldo não afirma runway de 0 meses sobre uma empresa que gera caixa",
+     !!rSaldo && !/\b0(,0)? meses\b/.test(rSaldo.resposta) && /não há prazo de runway/.test(rSaldo.resposta), rSaldo?.resposta.slice(0, 160));
+  ok("ia: a pílula do runway é a da tela (\"— não há queima\")",
+     !!rSaldo && rSaldo.numeros.some((n) => n.label === "Runway" && n.valor === "— não há queima"), JSON.stringify(rSaldo?.numeros));
+  const rRun = resp("qual meu runway?");
+  ok("ia: \"qual meu runway?\" diz que não há queima, sem número inventado",
+     /não houve queima/.test(rRun) && !/\b0(,0)? meses\b/.test(rRun), rRun.slice(0, 120));
+
+  /* margem e lucro: a MESMA conta do DRE (competência), não a de caixa */
+  const cIA = cascataDRE(inpIA, { intervalo: { de: "2026-07-01", ate: "2026-07-31" }, regime: "competencia" });
+  const mEsperada = pctIA(cIA.margemLiquida.valor);
+  ok("ia: âncora à mão — a margem líquida de julho do DRE é 64,0% (12.800 ÷ 20.000)", mEsperada === "64,0%", mEsperada);
+  const rMarg = resp("qual minha margem esse mês?");
+  ok("ia: a margem da IA é a margem líquida do DRE (64,0%), não a de caixa (50,0%)",
+     rMarg.includes(`é ${mEsperada}`) && !/\b50(,0)?%/.test(rMarg), rMarg.slice(0, 140));
+  const rLucro = resp("qual meu lucro esse mês?");
+  ok("ia: \"lucro\" é o resultado líquido do DRE (R$12.800,00), com o caixa (R$5.000,00) dito como caixa",
+     /resultado líquido de R\$\s?12\.800,00/.test(rLucro) && /por competência/.test(rLucro) && /Pelo caixa.*R\$\s?5\.000,00/.test(rLucro), rLucro.slice(0, 220));
+
+  /* origem: a linha "=" do DRE não tem lançamento próprio — a frase soma as linhas que a formam */
+  const rEb = resp("qual meu EBITDA?");
+  const nLanc = Number(rEb.match(/(\d+) lançamentos?\./)?.[1] ?? "0");
+  ok("ia: a origem do EBITDA cita os lançamentos que o formam (não \"0 lançamentos\")", nLanc > 0, rEb.slice(-120));
+
+  /* posso gastar? — a MESMA reserva do simulador "Posso comprar?" */
+  const sitIA = situacaoDe(inpIA);
+  const reservaIA = formatBRL(sitIA.despesaMensal * 3);
+  const simIA = simularAquisicao(sitIA, { tipo: "outro", valor: 20000, entrada: 20000, parcelas: 0, taxaMensal: 0 });
+  const rGasto = resp("posso gastar 20 mil?");
+  ok("ia: \"posso gastar 20 mil?\" usa a reserva do simulador (3 meses de DESPESA média)",
+     rGasto.includes(reservaIA), `esperava ${reservaIA} — ${rGasto.slice(0, 200)}`);
+  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
+  ok("ia: …com o MESMO veredito da tela \"Posso comprar?\"", rGasto.startsWith(VEREDITO_LABEL[simIA.veredito]), `${VEREDITO_LABEL[simIA.veredito]} × ${rGasto.slice(0, 40)}`);
+
+  /* a semana: segunda a domingo, como os painéis de contas a pagar/receber */
+  const rSem = resp("o que vence esta semana?");
+  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$1.500,00)",
+     /R\$\s?1\.500,00 a pagar/.test(rSem), rSem.slice(0, 160));
+  ok("ia: …e o do domingo ANTERIOR (12/07) não entra", !/R\$\s?2\.200,00|R\$\s?700,00 a pagar/.test(rSem), rSem.slice(0, 160));
+  // sem período na pergunta, o padrão é a semana corrente — pela MESMA função
+  const rVenc = resp("quais os próximos vencimentos?");
+  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$1.500,00)",
+     /R\$\s?1\.500,00 a pagar/.test(rVenc) && /nesta semana/i.test(rVenc), rVenc.slice(0, 160));
+
+  /* pontualidade: pagar no dia é "no dia do vencimento", não "0 dia(s) no do vencimento" */
+  const inpPont: RiskInput = { hoje: HOJE_IA, saldoAtual: 0, partyNames: {}, movements: [
+    mvIA({ amount: 800, due_date: "2026-07-01", paid_date: "2026-07-01" }),
+    mvIA({ amount: 900, due_date: "2026-07-03", paid_date: "2026-07-03" }),
+  ] } as RiskInput;
+  const rPont = responderLocal("meus clientes pagam em dia?", inpPont)?.resposta ?? "";
+  ok("ia: pagar no vencimento lê \"no dia do vencimento\" (sem \"0 dia(s)\")",
+     /no dia do vencimento/.test(rPont) && !/0 dia\(s\)/.test(rPont), rPont.slice(0, 120));
+
+  /* saúde: a MESMA faixa da tela Quant, e a chance de ruptura com o horizonte certo (60 dias) */
+  const rSaude = resp("como está a saúde da empresa?");
+  const nivelIA = ({ excelente: "excelente", saudavel: "saudável", atencao: "em atenção", risco: "em risco elevado", critico: "crítica" } as const)[classificar(ctxIA.scoreFinanceiro)];
+  ok("ia: a saúde usa a faixa da tela Quant (classificar)", rSaude.includes(`está ${nivelIA}:`), `${nivelIA} × ${rSaude.slice(0, 80)}`);
+  ok("ia: a chance de ruptura é dita em 60 dias (o horizonte do motor), nunca 90",
+     /em 60 dias/.test(rSaude) && !/90 dias/.test(rSaude), rSaude.slice(0, 220));
+
+  /* onde economizar sem mês anterior: não há "subiu" sobre base vazia */
+  const inpEco: RiskInput = { hoje: HOJE_IA, saldoAtual: 0, partyNames: {}, movements: [
+    mvIA({ type: "saida", amount: 4000, due_date: "2026-07-03", paid_date: "2026-07-03", category: "Fornecedores" }),
+  ] } as RiskInput;
+  const rEco = responderLocal("onde posso economizar?", inpEco)?.resposta ?? "";
+  ok("ia: sem despesa no mês anterior, \"onde economizar\" não diz que algo subiu",
+     !/subiu R\$/.test(rEco) && /para comparar/.test(rEco), rEco.slice(0, 120));
+
+  /* headcount: o "antes" sai da mesma conta do "depois" */
+  const hc = planejarContratacoes(qIA, inpIA.saldoAtual, 80, [{ id: "c1", cargo: "Analista", salario: 5000, quantidade: 1, mesInicio: 1 }]);
+  ok("headcount: o runway ANTES sai do mesmo cenário do DEPOIS (era o canônico ausente lido como 0)",
+     hc.antes.runwayMeses === simularCenario(qIA, inpIA.saldoAtual, {}).runwayMeses && hc.antes.runwayMeses > 0, `antes=${hc.antes.runwayMeses}`);
+
+  /* as portas que a IA oferece: nenhuma rota da base de conhecimento é um desvio */
+  const rotasKB = Array.from(new Set(KB.map((k) => k.rota).filter((r): r is string => !!r)));
+  const desvios = rotasKB.filter((r) => { const [c, q] = r.split("?"); return destinoDe(c, q ? `?${q}` : undefined) !== null; });
+  ok("ia: nenhum \"Abrir tela ↗\" da base de conhecimento leva a um alias", desvios.length === 0 && rotasKB.length > 0, desvios.join(", "));
+
+  /* ── Central de Ajuda: o detector de segredos, nos formatos que se cola de verdade ── */
+  const tiposIA = (t: string) => detectarSegredos(t).map((a) => a.tipo).join(",");
+  ok("ajuda: CPF SEM pontuação é pego (tinha âncora só para o formatado)", tiposIA("meu cpf é 52998224725") === "cpf", tiposIA("meu cpf é 52998224725"));
+  ok("ajuda: …e redigido antes de gravar", !redigirSegredos("meu cpf é 52998224725").includes("52998224725"));
+  ok("ajuda: CPF seguido de um valor continua sendo só CPF", tiposIA("cpf 529.982.247-25 1000 reais") === "cpf", tiposIA("cpf 529.982.247-25 1000 reais"));
+  ok("ajuda: cartão com espaços colado com a validade é pego", tiposIA("cartão 4111 1111 1111 1111 12/28") === "cartao", tiposIA("cartão 4111 1111 1111 1111 12/28"));
+  ok("ajuda: …e o número some da mensagem", !/4111 1111 1111 1111/.test(redigirSegredos("cartão 4111 1111 1111 1111 12/28")));
+  ok("ajuda: o dia a dia do financeiro continua limpo (valor, NF, data, 11 dígitos inválidos)",
+     !temSegredo("Paguei R$ 1.234,56 da NF 000123456789 em 10/09/2026") && !temSegredo("o protocolo 12345678901 sumiu"));
+
+  /* ── Central de Ajuda + chat: o que a tela promete tem de ser o que acontece ── */
+  const srcIA = (f: string) => fsIA.readFileSync(f, "utf8");
+  const semComentIA = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const ajudaStore = srcIA("src/lib/ajuda-store.ts");
+  ok("ajuda: chamados e conversa passam pelo store-org (gravados à parte, a hidratação os apagava)",
+     /gravarOrg\(K_CHAMADOS/.test(ajudaStore) && /gravarOrg\(K_CONVERSA/.test(ajudaStore)
+     && /lerOrg<unknown>\(K_CHAMADOS/.test(ajudaStore) && /lerOrg<unknown>\(K_CONVERSA/.test(ajudaStore)
+     && !/gravar\(K_CHAMADOS|gravar\(K_CONVERSA|ler<[^>]+>\(K_CHAMADOS|ler<[^>]+>\(K_CONVERSA/.test(ajudaStore));
+  // Não há canal que leve o chamado ao suporte da Quattro: a tela não pode dizer que leva.
+  const promessaSuporte = /alguém do suporte|o suporte recebe|chamado para o suporte|chega ao suporte|enviado ao suporte/i;
+  for (const f of ["src/components/ajuda/AjudaView.tsx", "src/components/app/guides.ts"]) {
+    ok(`ajuda: ${f.split("/").pop()} não promete entrega ao suporte que não existe`, !promessaSuporte.test(semComentIA(srcIA(f))));
+  }
+  for (const f of ["src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"]) {
+    const s = srcIA(f);
+    const cls = s.match(/aria-label="Enviar"\s*className="([^"]+)"/)?.[1] ?? "";
+    ok(`ia: o botão Enviar de ${f.split("/").pop()} é lime + verde-base (a seta em on-lime sobre ink era invisível)`,
+       /\bbg-lime\b/.test(cls) && /\btext-on-lime\b/.test(cls) && !/\bbg-ink\b/.test(cls), cls);
+    ok(`ia: ${f.split("/").pop()} não escreve "Quattro IA" na tela (a marca é ${"Quattro AI"})`, !/Quattro IA\b/.test(semComentIA(s)));
+  }
+  const iaView = semComentIA(srcIA("src/components/ia/IAView.tsx"));
+  ok("ia: o rodapé do histórico diz a verdade do ambiente (não afirma \"neste navegador\" em produção)",
+     /isDemo\s*\?/.test(iaView) && !/não acompanham você em outra máquina/.test(iaView));
+  ok("ia: o histórico ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(iaView));
+  const widget = srcIA("src/components/app/AssistantWidget.tsx");
+  ok("ia: a conversa do painel flutuante entra no MESMO histórico da página", /salvarConversa\(/.test(widget) && /onMudou:\s*aoMudar/.test(widget));
+  const kit = srcIA("src/components/ia/chat-kit.tsx"), chat = srcIA("src/components/ia/useChatIA.ts");
+  ok("ia: \"Copiado\" só aparece se copiou (a cópia é AGUARDADA e devolve o resultado)",
+     /await navigator\.clipboard\.writeText/.test(kit) && /const ok = await copiarTexto\(/.test(chat) && /copia === "falhou"/.test(kit));
+  const fb = chat.slice(chat.indexOf("const darFeedback"), chat.indexOf("const responder"));
+  ok("ia: o feedback entra na conversa salva e não conta duas vezes",
+     /if \(t\.feedback === dir\) return;/.test(fb) && /mudouRef\.current\?\.\(novo\)/.test(fb));
+  const copilotoLib = srcIA("src/lib/ai-copilot.ts");
+  const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
+  ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",
+     /const \{ error \} = await createClient\(\)\.from\("ai_actions"\)\.insert/.test(logIA) && /if \(error\) throw error/.test(logIA) && /reportar\(/.test(logIA));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
