@@ -704,6 +704,8 @@ export interface TituloAvulso {
   /** Competência: em que mês o resultado reconhece a despesa. */
   competence_date?: string | null;
   category?: string | null;
+  /** A categoria do banco (`public.categories.id`) — a chave que o DRE declarado lê. */
+  category_id?: string | null;
   description?: string | null;
   party_id?: string | null;
   status?: "pendente" | "pago";
@@ -790,6 +792,7 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
       origem: l.origem ?? "manual",
       especie: "titulo",
       ...(l.sale_doc_id ? { sale_doc_id: l.sale_doc_id } : {}),
+      ...(l.category_id ? { category_id: exigirUUID(l.category_id, "Categoria") } : {}),
     })),
   );
   if (error) throw error;

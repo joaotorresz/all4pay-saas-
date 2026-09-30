@@ -62,7 +62,8 @@ export function salvarVenda(v: Venda): Venda[] {
         due_date: v.vencimento,
         paid_date: v.pago ? v.dataPagamento : null,
         reconciled: false,
-        category: v.categoria || "venda",
+        // O NOME da categoria no texto (o id vai só para a chave, em produção).
+        category: v.categoriaNome || v.categoria || "venda",
         description: v.descricao || `Venda ${v.numero}`,
         party_id: v.clienteId,
       } as unknown as Movement,

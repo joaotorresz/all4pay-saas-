@@ -99,7 +99,10 @@ export interface Venda {
   status: StatusVenda;
   metodo: MetodoPagamento;
   idExterno: string;
+  /** Id da categoria de RECEITA (`public.categories`) — é o que o título referencia. */
   categoria: string;
+  /** O nome da mesma categoria, para o texto do título e da lista. */
+  categoriaNome?: string;
   tipoPagamento: "avista" | "parcelado";
   plataforma: string;
   chaveTransacao: string;

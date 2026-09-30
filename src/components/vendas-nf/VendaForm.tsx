@@ -17,8 +17,7 @@ import {
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useAccounts } from "@/components/visao-geral/hooks";
-import { usePartiesList, useProductsList } from "@/components/lancamentos/hooks";
-import { listPlanoContas } from "@/lib/registros";
+import { usePartiesList, useProductsList, useCategories } from "@/components/lancamentos/hooks";
 import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
 import { rateioValido, somaRateio, type LinhaRateio } from "@/core/registros";
 import {
@@ -87,17 +86,21 @@ export function VendaForm() {
     const id = sp.get("id");
     if (!id || !existentes) return;
     const achada = existentes.find((x) => x.id === id);
-    if (achada) setV(achada);
+    // Uma venda salva com total diferente da soma dos itens teve o total
+    // DIGITADO — reabrir não pode recalculá-lo por cima.
+    if (achada) { setV(achada); setTotalDigitado(Math.abs(achada.valorTotal - totalDosItens(achada.itens)) > 0.005); }
   }, [sp, existentes]);
 
   const set = <K extends keyof Venda>(k: K, val: Venda[K]) => setV((s) => ({ ...s, [k]: val }));
 
   const clientes = React.useMemo(() => (partes ?? []).filter((p) => p.is_customer), [partes]);
   const fornecedores = React.useMemo(() => (partes ?? []).filter((p) => p.is_supplier), [partes]);
-  const categorias = React.useMemo(
-    () => listPlanoContas().filter((c) => c.natureza === "receita" && c.paiId),
-    [],
-  );
+  // ⚠️ As categorias vêm do BANCO (`public.categories`, receita), a morada que
+  // o título referencia. Elas vinham do plano de contas guardado no navegador:
+  // vazio em quem nunca abriu o cadastro — e o campo é obrigatório, então a
+  // venda simplesmente não salvava.
+  const { data: catsReceita } = useCategories("receita");
+  const categorias = React.useMemo(() => catsReceita ?? [], [catsReceita]);
   const cadProjetos = React.useMemo(() => listProjetos(), []);
   const cadCentros = React.useMemo(() => listCentrosCusto(), []);
 
@@ -106,10 +109,20 @@ export function VendaForm() {
   const liquido = valorLiquido(v);
   const taxas = somaDasTaxas(v);
 
-  /** O total dos itens sugere o valor total — mas não sobrescreve o digitado. */
+  /**
+   * O valor total ACOMPANHA os itens até a pessoa digitar um valor próprio.
+   *
+   * ⚠️ Era "preenche só se estiver zerado": escolher o produto punha o preço
+   * de tabela (1× R$ 7.499) no total, e mudar quantidade ou preço depois não
+   * mexia mais nele — a venda de 2× R$ 12.345,67 foi salva por R$ 7.499,00, e
+   * o título a receber junto. Achado dirigindo a tela como usuário.
+   */
+  const [totalDigitado, setTotalDigitado] = React.useState(false);
   React.useEffect(() => {
-    if (totalItens > 0 && v.valorTotal === 0) setV((s) => ({ ...s, valorTotal: totalItens }));
-  }, [totalItens, v.valorTotal]);
+    if (!totalDigitado && totalItens > 0 && v.valorTotal !== totalItens) {
+      setV((s) => ({ ...s, valorTotal: totalItens }));
+    }
+  }, [totalItens, totalDigitado, v.valorTotal]);
 
   const setItem = (i: number, patch: Partial<ItemVenda>) =>
     setV((s) => ({ ...s, itens: s.itens.map((x, k) => (k === i ? { ...x, ...patch } : x)) }));
@@ -122,7 +135,11 @@ export function VendaForm() {
     if (Object.keys(e).length > 0) { show("Revise os campos obrigatórios."); return; }
     setSalvando(true);
     try {
-      const doc = { ...v, clienteNome: cliente?.name ?? v.clienteNome };
+      const doc = {
+        ...v,
+        clienteNome: cliente?.name ?? v.clienteNome,
+        categoriaNome: categorias.find((c) => c.id === v.categoria)?.name ?? v.categoriaNome,
+      };
       // Documento e recebível pelo MESMO escritor: numa recusa do banco os dois
       // voltam juntos, e a próxima tentativa não duplica nada.
       const { aviso } = await salvarVendaDoc(doc);
@@ -236,7 +253,7 @@ export function VendaForm() {
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Valor recebido</span>
             <Campo label="Valor total" obrigatorio erro={erros.valorTotal}>
-              <CurrencyInput value={v.valorTotal} onValueChange={(x) => set("valorTotal", x)} />
+              <CurrencyInput value={v.valorTotal} onValueChange={(x) => { setTotalDigitado(true); set("valorTotal", x); }} />
             </Campo>
             <Campo label="Valor total com juros" ajuda="Quando o cliente pagou parcelado com acréscimo.">
               <CurrencyInput value={v.valorTotalComJuros} onValueChange={(x) => set("valorTotalComJuros", x)} />
@@ -309,7 +326,7 @@ export function VendaForm() {
           </Campo>
           <Campo label="Categoria da conta a receber" obrigatorio erro={erros.categoria}>
             <Select value={v.categoria} onChange={(x) => set("categoria", x)} placeholder="Selecione a categoria"
-              options={categorias.map((c) => ({ value: c.id, label: c.nome }))} />
+              options={categorias.map((c) => ({ value: c.id, label: c.name }))} />
           </Campo>
           <Campo label="Tipo de pagamento">
             <Select value={v.tipoPagamento} onChange={(x) => set("tipoPagamento", x as Venda["tipoPagamento"])}

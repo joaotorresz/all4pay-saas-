@@ -129,7 +129,10 @@ function tituloDaVenda(v: Venda) {
     amount: v.valorTotalComJuros || v.valorTotal,
     due_date: v.vencimento,
     competence_date: v.competencia || v.vencimento,
-    category: v.categoria || "Vendas",
+    // ⚠️ O texto é o NOME e a chave é o id do banco. Gravar o id no texto fazia
+    // a lista e o DRE mostrarem "217290" no lugar da categoria.
+    category: v.categoriaNome || (ehUUID(v.categoria) ? null : v.categoria) || "Vendas",
+    category_id: ehUUID(v.categoria) ? v.categoria : null,
     description: v.descricao || `Venda ${v.numero}`,
     party_id: ehUUID(v.clienteId) ? v.clienteId : null,
     status: v.pago ? ("pago" as const) : ("pendente" as const),
