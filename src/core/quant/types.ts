@@ -9,6 +9,8 @@
  * demais motores. Valores em REAIS (number), pt-BR.
  */
 
+import type { MotivoIndisponivel } from "@/core/indicadores";
+
 export type ClassificacaoSaude =
   | "excelente"
   | "saudavel"
@@ -23,7 +25,20 @@ export type VolatilidadeNivel = "alta_previsibilidade" | "moderada" | "alta_vola
 /** KPIs institucionais (motor quantitativo). */
 export interface IndicadoresFinanceiros {
   liquidezCorrente: number;
-  runwayMeses: number;
+  /**
+   * ⚠️ **`null` quando o runway canônico é INDISPONÍVEL** — e o motivo vai em
+   * `runwayMotivo`. Era `runwayMeses(input).valor` puro: o canônico devolve
+   * `valor: 0` junto com `indisponivel`, e o quant copiava só o zero. Uma
+   * empresa com R$ 2,2 milhões em caixa que GERA caixa aparecia com "runway de
+   * 0 meses" na Quant, na Decisão ("risco de liquidez 100%"), no score (o pilar
+   * inteiro zerado, "Runway curto" entre os riscos) e na Quattro AI — enquanto
+   * o Fluxo de caixa e o DRE, lendo o mesmo canônico, diziam "não há queima".
+   * É a porta que a ONDA 4 avisou: a ausência atravessa o derivado, ou o zero
+   * volta por ele. O tipo `number | null` obriga cada consumidor a decidir.
+   */
+  runwayMeses: number | null;
+  /** Por que não há runway (só quando `runwayMeses` é `null`). */
+  runwayMotivo?: { codigo: MotivoIndisponivel; motivo: string };
   burnRate: number; // R$/mês consumido (0 se gera caixa)
   burnMultiple: number; // queima / nova receita
   /**

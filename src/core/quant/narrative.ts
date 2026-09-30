@@ -5,7 +5,8 @@
 import type { IndicadoresFinanceiros, ScoreFinanceiro, CenarioPreditivo } from "./types";
 import { CLASSIF_SAUDE_LABEL } from "./types";
 
-import { formatBRL } from "@/lib/format";
+import { formatBRL, decimalBR } from "@/lib/format";
+import { fraseRunway } from "./score";
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export function narrativaExecutiva(
@@ -23,7 +24,7 @@ export function narrativaExecutiva(
           : s.classificacao === "atencao"
             ? "exige atenção"
             : "apresenta fragilidade relevante"
-      }, com liquidez corrente de ${i.liquidezCorrente.toFixed(2)} e runway de ${i.runwayMeses} meses.`,
+      }, com liquidez corrente de ${decimalBR(i.liquidezCorrente, 2)} e ${fraseRunway(i)}.`,
   );
 
   if (s.fatoresNegativos.length > 0) {

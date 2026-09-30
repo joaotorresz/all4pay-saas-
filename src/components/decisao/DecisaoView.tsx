@@ -23,6 +23,7 @@ import {
   type AcaoAutonoma,
 } from "@/core/decision/types";
 import { chartAnim } from "@/lib/chart-anim";
+import { rotuloRunway } from "@/core/quant/score";
 
 const NIVEL_COR: Record<RiscoNivel, string> = {
   baixo: "var(--color-positive)",
@@ -135,7 +136,7 @@ export function DecisaoView() {
           <span className="text-label font-medium text-muted">Feature Store · variáveis do modelo</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-3">
-          <Feat label="Runway" value={`${features.atual.runwayMeses}m`} />
+          <Feat label="Runway" value={rotuloRunway(features.atual)} />
           <Feat label="Burn / mês" value={features.atual.burnMensal > 0 ? <BRL value={features.atual.burnMensal} /> : "—"} />
           <Feat label="Liquidez" value={features.atual.liquidezCorrente >= 10 ? "10+" : features.atual.liquidezCorrente.toFixed(2)} />
           <Feat label="Inadimplência" value={`${Math.round(features.atual.inadimplencia * 100)}%`} />

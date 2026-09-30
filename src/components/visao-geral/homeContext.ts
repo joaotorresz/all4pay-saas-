@@ -61,8 +61,11 @@ export function useHomeContext(auto: boolean): HomeContext {
     if (qi) {
       if (qi.score.score < 50) { urgencia["Saúde financeira"] += 3; motivos["Saúde financeira"] = "score crítico"; }
       else if (qi.score.score < 70) { urgencia["Saúde financeira"] += 1.5; motivos["Saúde financeira"] = "score em atenção"; }
-      if (qi.indicadores.runwayMeses < 3) { urgencia["Saúde financeira"] += 3; motivos["Saúde financeira"] = "runway curto"; }
-      else if (qi.indicadores.runwayMeses < 6) { urgencia["Saúde financeira"] += 1.5; }
+      // ⚠️ `null` é runway INDISPONÍVEL, não curto: "não há queima" não é
+      // urgência. Só o caixa já negativo entra como o pior caso.
+      const rw = qi.indicadores.runwayMeses;
+      if ((rw !== null && rw < 3) || qi.indicadores.runwayMotivo?.codigo === "caixa_negativo") { urgencia["Saúde financeira"] += 3; motivos["Saúde financeira"] = "runway curto"; }
+      else if (rw !== null && rw < 6) { urgencia["Saúde financeira"] += 1.5; }
       if (qi.score.probabilidadeRuptura > 0.4) { urgencia["Saúde financeira"] += 2; motivos["Saúde financeira"] = "risco de ruptura de caixa"; }
     }
 

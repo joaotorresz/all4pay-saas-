@@ -19,7 +19,8 @@
  *     pergunta "por que não tem número?" é mais urgente que de costume.
  */
 import * as React from "react";
-import type { Indicador, Procedencia } from "@/core/indicadores";
+import type { Indicador, Procedencia, MotivoIndisponivel } from "@/core/indicadores";
+import { FORMA_CURTA } from "@/core/indicadores";
 import { BRL } from "./BRL";
 import { MarcaProcedencia, textoDeOrigem } from "./Procedencia";
 import { Icon } from "./Icon";
@@ -134,16 +135,10 @@ export function PainelOrigem({
  * inteira fica no `title`, no leitor de tela e no painel de origem — a um
  * clique, junto com o que fazer a respeito.
  *
- * As cinco são NEGATIVAS ou neutras de propósito. "Sem movimento" não pode
- * soar como notícia boa; era exatamente esse o defeito do R$ 0.
+ * ⚠️ A TABELA mora em `core/indicadores` (`FORMA_CURTA`): a Quattro AI escreve a
+ * mesma ausência na resposta dela, e duas cópias divergiriam na primeira edição.
  */
-const CURTO: Record<string, string> = {
-  janela_invalida: "período inválido",
-  sem_lancamentos: "sem movimento",
-  sem_base: "sem base de cálculo",
-  caixa_negativo: "não se aplica",
-  sem_queima: "não há queima",
-};
+const CURTO: Record<string, string> = FORMA_CURTA satisfies Record<MotivoIndisponivel, string>;
 
 /**
  * A frase que ocupa o lugar do número.

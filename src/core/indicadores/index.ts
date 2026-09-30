@@ -147,6 +147,30 @@ export interface Indicador {
 export const temValor = (i: Indicador): boolean => !i.indisponivel;
 
 /**
+ * A forma CURTA de cada ausência — a que cabe no LUGAR de um número: a coluna
+ * de uma tabela, a linha de um KPI, a pílula de número de uma resposta da IA.
+ *
+ * ⚠️ Mora AQUI, e não na tela, porque tem dois consumidores: o `ValorIndicador`
+ * e a Quattro AI. Com uma cópia em cada lugar, o Fluxo de caixa diria "não há
+ * queima" e a IA outra coisa sobre o MESMO runway — que é o defeito que tirou
+ * esta tabela da tela (a IA dizia "0 meses" onde a tela dizia "não há queima").
+ *
+ * As cinco são negativas ou neutras de propósito: "sem movimento" não pode soar
+ * como notícia boa; era exatamente esse o defeito do R$ 0.
+ */
+export const FORMA_CURTA: Record<MotivoIndisponivel, string> = {
+  janela_invalida: "período inválido",
+  sem_lancamentos: "sem movimento",
+  sem_base: "sem base de cálculo",
+  caixa_negativo: "não se aplica",
+  sem_queima: "não há queima",
+};
+
+/** A forma curta de uma ausência (ou o motivo por extenso, se o código for novo). */
+export const formaCurta = (i: Pick<Indisponivel, "codigo" | "motivo">): string =>
+  FORMA_CURTA[i.codigo] ?? i.motivo;
+
+/**
  * O valor, ou `null` quando não há.
  *
  * ⚠️ `null` e não `0`: é a fronteira onde a ausência costuma virar número de

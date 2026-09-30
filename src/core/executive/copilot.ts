@@ -10,6 +10,7 @@
 import type { ExecutiveContext, RespostaCopiloto } from "./types";
 
 import { formatBRL } from "@/lib/format";
+import { fraseRunway, rotuloRunway } from "@/core/quant/score";
 const fmt = (v: number) =>
   formatBRL(v);
 
@@ -129,14 +130,16 @@ export function copilotoFinanceiro(
 
   // 5) Expansão / nova unidade
   if (/(unidade|expandir|expans|abrir|filial|crescer)/.test(p)) {
-    const comporta = ctx.runwayMeses >= 9 && ctx.probRuptura < 0.25;
+    // "Não há queima" é o runway mais folgado que existe — não o pior.
+    const folego = ctx.runwayMeses !== null ? ctx.runwayMeses >= 9 : ctx.runwayMotivo?.codigo === "sem_queima";
+    const comporta = folego && ctx.probRuptura < 0.25;
     return {
       resposta:
-        `Hoje o runway é de ${ctx.runwayMeses} meses e o score de saúde ${ctx.scoreFinanceiro}/100. ` +
+        `Hoje: ${fraseRunway(ctx)}, e o score de saúde é ${ctx.scoreFinanceiro}/100. ` +
         `${comporta ? "Há margem para expansão moderada" : "A estrutura atual ainda não sustenta expansão com folga"}. ` +
         "Use o simulador de cenários para projetar o impacto exato no runway e no score antes de decidir.",
       numeros: [
-        num("Runway", `${ctx.runwayMeses} m`),
+        num("Runway", rotuloRunway(ctx)),
         num("Score de saúde", `${ctx.scoreFinanceiro}/100`),
         num("Prob. ruptura", `${Math.round(ctx.probRuptura * 100)}%`),
       ],
@@ -148,13 +151,13 @@ export function copilotoFinanceiro(
   // Default — panorama executivo
   return {
     resposta:
-      `Panorama atual: saldo de ${fmt(ctx.saldoAtual)}, runway de ${ctx.runwayMeses} meses e score de saúde ${ctx.scoreFinanceiro}/100. ` +
+      `Panorama atual: saldo de ${fmt(ctx.saldoAtual)}, ${fraseRunway(ctx)} e score de saúde ${ctx.scoreFinanceiro}/100. ` +
       `Inadimplência em ${Math.round(ctx.inadimplencia * 100)}% e probabilidade de ruptura em 90 dias ${
         ctx.probRuptura >= 0.5 ? "elevada" : ctx.probRuptura >= 0.25 ? "moderada" : "baixa"
       }. Pergunte sobre contratação, capacidade de investimento, clientes de risco, despesas ou expansão.`,
     numeros: [
       num("Saldo", fmt(ctx.saldoAtual)),
-      num("Runway", `${ctx.runwayMeses} m`),
+      num("Runway", rotuloRunway(ctx)),
       num("Score", `${ctx.scoreFinanceiro}/100`),
     ],
     confianca: 0.55,

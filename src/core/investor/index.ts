@@ -10,6 +10,7 @@
 import type { RiskInput } from "@/core/risk-engine/types";
 import { analisarQuantitativo } from "@/core/quant";
 import { CLASSIF_SAUDE_LABEL } from "@/core/quant/types";
+import { rotuloRunway } from "@/core/quant/score";
 import { mrr as mrrCanonico } from "@/core/indicadores";
 
 export const VERSAO_INVESTOR = "investor/1.0.0";
@@ -33,7 +34,8 @@ export interface InvestorUpdate {
   raw: {
     caixa: number;
     burn: number;
-    runwayMeses: number;
+    /** ⚠️ `null` = runway indisponível (sem queima / caixa negativo) — nunca "0 meses". */
+    runwayMeses: number | null;
     receitaMes: number;
     crescimentoMoM: number; // -1..+
     mrrEstimado: number;
@@ -112,7 +114,9 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const kpis: InvestorKpi[] = [
     { id: "caixa", label: "Caixa", valor: raw.caixa, moeda: true, hint: "saldo consolidado das contas" },
     { id: "burn", label: "Burn mensal", valor: raw.burn, moeda: true, hint: "consumo líquido de caixa/mês (0 = gera caixa)" },
-    { id: "runway", label: "Runway", valor: runway >= 120 ? "10+ anos" : `${runway.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses`, hint: "caixa ÷ burn" },
+    { id: "runway", label: "Runway",
+      valor: runway === null ? rotuloRunway(ind) : runway >= 120 ? "10+ anos" : `${runway.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses`,
+      hint: runway === null ? (ind.runwayMotivo?.motivo ?? "sem base de cálculo") : "caixa ÷ burn" },
     { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true,
       hint: "receita bruta operacional do mês, competência (cascata do DRE)" },
     { id: "mom", label: "Crescimento MoM", valor: `${raw.crescimentoMoM >= 0 ? "+" : ""}${pct(raw.crescimentoMoM, 1)}`, hint: "receita vs. mês anterior" },
@@ -170,7 +174,7 @@ export function gerarTextoInvestorUpdate(
   const en = extras?.idioma === "en";
   const linhas: string[] = [];
   const empresa = extras?.empresa?.trim();
-  const runwayStr = r.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  const runwayStr = r.runwayMeses === null ? "—" : r.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
   const mesRef = en ? mesReferenciaEn(u.mesReferencia) : u.mesReferencia;
 
   linhas.push(`${empresa ? empresa + " — " : ""}${en ? "Investor update" : "Relatório ao investidor"} · ${mesRef}`);
@@ -179,9 +183,9 @@ export function gerarTextoInvestorUpdate(
   linhas.push(
     en
       ? `We closed ${mesRef} with ${brl(r.receitaMes)} in revenue (${r.crescimentoMoM >= 0 ? "+" : ""}${pct(r.crescimentoMoM, 1)} MoM), ` +
-        `${brl(r.caixa)} in cash and ${r.burn > 0 ? `a ${brl(r.burn)}/month burn (${runwayStr} months of runway)` : "positive cash generation"}.`
+        `${brl(r.caixa)} in cash and ${r.burn > 0 ? `a ${brl(r.burn)}/month burn (${r.runwayMeses === null ? "cash already negative" : `${runwayStr} months of runway`})` : "positive cash generation"}.`
       : `Fechamos ${mesRef} com ${brl(r.receitaMes)} de receita (${r.crescimentoMoM >= 0 ? "+" : ""}${pct(r.crescimentoMoM, 1)} MoM), ` +
-        `caixa de ${brl(r.caixa)} e ${r.burn > 0 ? `burn de ${brl(r.burn)}/mês (runway de ${runwayStr} meses)` : "geração de caixa positiva"}.`,
+        `caixa de ${brl(r.caixa)} e ${r.burn > 0 ? `burn de ${brl(r.burn)}/mês (${r.runwayMeses === null ? "caixa já negativo" : `runway de ${runwayStr} meses`})` : "geração de caixa positiva"}.`,
   );
   linhas.push("");
   linhas.push(en ? "Metrics" : "Métricas");

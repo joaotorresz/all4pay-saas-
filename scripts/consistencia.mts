@@ -717,8 +717,24 @@ const AGOSTO = janelaMes(2026, 7);
 
   const q = analisarQuantitativo(INPUT);
   eq("cruzado: burn do quant == burn canônico", q.indicadores.burnRate, b);
-  eq("cruzado: runway do quant (meses) == runway canônico (meses)",
-     Math.round(q.indicadores.runwayMeses * 10) / 10, runwayMeses(INPUT).valor);
+  // ⚠️ REESCRITA (rodada 30/09): a forma antiga comparava `quant.runwayMeses`
+  // com `runwayMeses(INPUT).valor` — e quando o canônico é INDISPONÍVEL os dois
+  // valem 0, então ela aprovava o quant publicando "runway de 0 meses" para
+  // quem gera caixa. Zero igual a zero é a igualdade que não pode falhar. A
+  // asserção agora cobra a AUSÊNCIA atravessando: canônico sem número ⇒ quant
+  // `null`, com o MESMO código; canônico com número ⇒ o mesmo número.
+  {
+    const rc = runwayMeses(INPUT);
+    ok("cruzado: runway do quant (meses) == runway canônico (meses), inclusive a AUSÊNCIA",
+       rc.indisponivel
+         ? q.indicadores.runwayMeses === null && q.indicadores.runwayMotivo?.codigo === rc.indisponivel.codigo
+         : q.indicadores.runwayMeses !== null && Math.round(q.indicadores.runwayMeses * 10) / 10 === rc.valor,
+       `quant ${q.indicadores.runwayMeses} (${q.indicadores.runwayMotivo?.codigo ?? "—"}) × canônico ${rc.indisponivel ? rc.indisponivel.codigo : rc.valor}`);
+    const qGer = analisarQuantitativo({ ...INPUT, movements: [mv("qg1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")] });
+    ok("cruzado: quem gera caixa NÃO sai do quant com runway 0 (sai null + 'sem_queima')",
+       qGer.indicadores.runwayMeses === null && qGer.indicadores.runwayMotivo?.codigo === "sem_queima",
+       `veio ${qGer.indicadores.runwayMeses} / ${qGer.indicadores.runwayMotivo?.codigo ?? "sem motivo"}`);
+  }
 
   // ⚠️ ONDA 4 — ASSERÇÃO REESCRITA. A anterior dizia "quem gera caixa tem runway
   // no TETO", e o teto era 999 dias. Estava errada por dentro: quem gera caixa
