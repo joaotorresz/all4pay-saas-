@@ -29,34 +29,30 @@ import { join, relative } from "node:path";
 const RAIZ = process.cwd();
 const SRC = join(RAIZ, "src");
 
-/** As NOVE cores nomeadas do guia. */
+/** As cores nomeadas do guia da marca QUATTRO (30/09/2026). */
 const PALETA = new Map<string, string>([
-  ["#fefdf0", "White"],
-  ["#eeeddb", "Beige"],
-  ["#dddcc5", "Dark Beige"],
-  ["#534d41", "Grey"],
-  ["#37332a", "Dark Grey"],
-  ["#28211b", "Black"],
-  ["#a9a6a4", "Placeholder"],
-  ["#d4d3d1", "Border"],
-  ["#c8d930", "Accent"],
+  ["#ecfd52", "Lime — ação"],
+  ["#3b4332", "Verde-base — texto e fundo escuro"],
+  ["#b5b594", "Areia — borda de campo"],
+  ["#d6d8ca", "Cinza médio — borda de card"],
+  ["#f3f1ee", "Cinza claro — fundo de página"],
+  ["#2b3125", "Texto"],
+  ["#6b7060", "Texto secundário"],
+  ["#a9ad9e", "Placeholder"],
+  ["#b3261e", "Erro — o único vermelho"],
 ]);
 
 /*
- * ⚠️ AS SUPERFÍCIES DE TRABALHO. A tabela de marca descreve a IDENTIDADE
- * (branco quente + bege + preto quente); estas três descrevem a MOLDURA e a
- * ÁREA onde o operador passa o dia, e foram escolhidas no Laboratório com a
- * tela na frente. Ficam nomeadas aqui, e não soltas como "exceção", porque
- * são estruturais: qualquer tela nova as consome pelos tokens.
+ * ⚠️ O BRANCO PURO é cor NOMEADA do guia Quattro (fundo de card e de campo),
+ * mas segue tratado no bloco de branco/preto abaixo: vale só na linha que
+ * DECLARA o token. Um `#fff` solto num componente continua reprovando.
  */
 const SUPERFICIES = new Set([
-  "#2c251e", // moldura escura do app
-  "#f1f3f6", // área de trabalho / chips
   "#ffffff", // superfície do card — ver a nota no bloco de branco/preto
 ]);
 
-/** Stops do degradê da marca — fazem parte da identidade, não são avulsos. */
-const DEGRADE = new Set(["#fffad7", "#ffefa2", "#dbff4d"]);
+/** A marca Quattro não usa degradê colorido: nenhum stop sancionado. */
+const DEGRADE = new Set<string>();
 
 /**
  * ⚠️ EXCEÇÕES DECLARADAS, cada uma com o motivo escrito. Uma exceção sem
@@ -66,15 +62,13 @@ const DEGRADE = new Set(["#fffad7", "#ffefa2", "#dbff4d"]);
  */
 const EXCECOES = new Map<string, string>([
   ["#2cd662", "semântica: positivo — a paleta de marca não tem verde de estado"],
-  ["#d62c2c", "semântica: negativo — a paleta de marca NÃO TEM vermelho, e um ERP precisa de um"],
   ["#f45900", "semântica: atenção"],
   ["#a45c15", "semântica: atenção (variante do escopo .ds-visor)"],
   ["#57a877", "semântica: positivo no tema escuro"],
   ["#d8584c", "semântica: negativo no tema escuro"],
   ["#f0962e", "semântica: atenção no tema escuro"],
   ["#4be200", "verde-lima de estado do guia — marca/preenchimento, nunca texto"],
-  ["#1c1712", "moldura do tema escuro: Black quente rebaixado, para o cartão continuar lendo como a peça de cima"],
-  ["#141013", "sombra do tema escuro"],
+  ["#1f2419", "moldura do tema escuro: verde-base rebaixado, para o cartão continuar lendo como a peça de cima"],
   ["#000000", "marketing: black-pure e o hero glow — proibido no app, permitido no token que o nomeia"],
   ["#4b4d3d", "marketing: hero glow"],
   /*
@@ -95,7 +89,8 @@ const permitido = (hex: string) =>
 interface Achado { arquivo: string; linha: number; hex: string; trecho: string }
 
 /** Arquivos que declaram a paleta — nestes o hex é a definição, não um vazamento. */
-const DECLARAM = ["src/app/globals.css", "src/components/app/DesignLab.tsx"];
+// O Editor Visual também espelha os tokens (padrões do sandbox), como o Lab.
+const DECLARAM = ["src/app/globals.css", "src/components/app/DesignLab.tsx", "src/components/app/VisualEditor.tsx"];
 
 function varrer(dir: string, saida: string[]) {
   for (const nome of readdirSync(dir)) {
@@ -183,7 +178,7 @@ for (const token of ["--color-ink", "--color-white", "--color-surface-1", "--col
   if (a && b && a !== b) espelho.push(`${token}: :root=${a} × .ds-visor=${b}`);
 }
 // O Lab tem de conhecer o ink e o acento reais, senão repinta o app.
-for (const [token, esperado] of [["ink", "#28211b"], ["lime", "#c8d930"]] as const) {
+for (const [token, esperado] of [["ink", "#3b4332"], ["lime", "#ecfd52"]] as const) {
   const m = lab.match(new RegExp(`${token}\\s*:\\s*"(#[0-9a-fA-F]{6})"`));
   if (m && m[1].toLowerCase() !== esperado) {
     espelho.push(`DesignLab DEFAULT_CORES.${token}=${m[1]} × paleta=${esperado}`);
@@ -191,7 +186,7 @@ for (const [token, esperado] of [["ink", "#28211b"], ["lime", "#c8d930"]] as con
 }
 
 /* ---- placar ---- */
-console.log("\nGUARDA DA PALETA — paleta quente (9 cores + 3 semânticas)\n");
+console.log("\nGUARDA DA PALETA — paleta Quattro (9 cores + branco + semânticas)\n");
 console.log(`  arquivos varridos: ${arquivos.length}`);
 
 let falhou = false;
@@ -199,7 +194,7 @@ let falhou = false;
 if (brancoPreto.length) {
   falhou = true;
   console.log(`\n✗ BRANCO PURO / PRETO PURO no app — ${brancoPreto.length}`);
-  console.log("  O branco é sempre #FEFDF0 e o preto é sempre #28211B.");
+  console.log("  O branco puro vale só no token de card; o escuro é sempre o verde-base #3B4332.");
   for (const a of brancoPreto.slice(0, 20)) console.log(`    ${a.arquivo}:${a.linha}  ${a.hex}  ${a.trecho}`);
   if (brancoPreto.length > 20) console.log(`    … e mais ${brancoPreto.length - 20}`);
 }

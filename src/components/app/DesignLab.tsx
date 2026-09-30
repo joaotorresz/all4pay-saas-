@@ -441,18 +441,18 @@ interface DesignState {
    escolheu. Foi o que aconteceu com as semânticas: o Lab trazia um verde-oliva
    (#3f6212) e um tijolo (#b42318) no lugar do verde/vermelho vivos do DS. */
 const DEFAULT_CORES: Record<string, string> = {
-  // ⚠️ ESPELHO DA PALETA QUENTE. Deixar os valores velhos aqui faria o Lab
+  // ⚠️ ESPELHO DA PALETA QUATTRO. Deixar os valores velhos aqui faria o Lab
   // repintar o app com a paleta ANTERIOR para quem abrisse a tela — que é
   // literalmente o defeito descrito acima. A guarda `npm run paleta` confere
   // este bloco contra os tokens reais e reprova quando divergem.
-  ink: "#28211b", lime: "#c8d930", onLime: "#28211b", bg: "#f1f3f6",
-  cardBg: "#ffffff", surface2: "#f1f3f6", border: "#d4d3d1",
-  body: "#534d41", muted: "#534d41",
+  ink: "#3b4332", lime: "#ecfd52", onLime: "#3b4332", bg: "#f3f1ee",
+  cardBg: "#ffffff", surface2: "#f3f1ee", border: "#d6d8ca",
+  body: "#6b7060", muted: "#6b7060",
   // ⚠️ ESPELHO dos tokens reais de `html:not(.dark) .ds-visor`. Quando divergem,
   // o Laboratório repinta o app com valores que ninguém escolheu — foi o que
   // aconteceu antes com as semânticas. Atualizado junto com a correção de
   // contraste da ONDA 12.
-  positive: "#2cd662", negative: "#d62c2c", warning: "#a45c15",
+  positive: "#2cd662", negative: "#b3261e", warning: "#a45c15",
 };
 const DEFAULTS: DesignState = {
   // Espelha o sistema: Roobert Trial. Deixar "hanken" aqui faria o Laboratório
@@ -1139,7 +1139,7 @@ export function DesignLab() {
                       {BORDAS.map((b) => {
                         const ov = s.padroes[b.id] ?? {};
                         const w = ov.borderW as number | undefined;
-                        const cor = (ov.borderColor as string) ?? "#d4d3d1";
+                        const cor = (ov.borderColor as string) ?? "#d6d8ca";
                         return (
                           <div key={b.id}
                             onMouseEnter={() => realcar(PADROES.find((p) => p.id === b.id)?.seletorTipo ?? null)}
@@ -1226,7 +1226,7 @@ function Realce({ rect, label, sutil }: { rect: DOMRect; label: string; sutil?: 
       }}>
       {label && (
         <span className="absolute -top-6 left-0 text-[11px] font-semibold px-2 py-[2px] rounded-md whitespace-nowrap"
-          style={{ background: "var(--color-ink,#28211b)", color: "var(--color-lime,#c8d930)" }}>{label}</span>
+          style={{ background: "var(--color-ink,#3b4332)", color: "var(--color-lime,#ecfd52)" }}>{label}</span>
       )}
     </div>
   );
@@ -1287,7 +1287,7 @@ function Controle({ prop, valor, base, onChange, onClear }: { prop: Prop; valor:
     );
   }
   if (m.kind === "color") {
-    const v = (valor as string) ?? "#28211b";
+    const v = (valor as string) ?? "#3b4332";
     return (
       <div className="flex items-center gap-2">
         <input type="color" value={v} onChange={(e) => onChange(e.target.value)}

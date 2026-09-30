@@ -69,11 +69,13 @@ export function AppShell({
           <h1
             className="m-0 text-[29px] text-ink truncate"
             style={{
-              fontFamily: '"Roobert Variable", "Roobert", sans-serif',
-              fontWeight: 500,
+              // Guia Quattro: título de tela em Centra No.2 Black, CAIXA ALTA,
+              // tracking −0.02em (a display vem do token `--font-display`).
+              fontFamily: 'var(--font-display, "Centra No2", "Roobert", sans-serif)',
+              fontWeight: 900,
               letterSpacing: "-0.02em",
               lineHeight: 1.1,
-              textTransform: "none",
+              textTransform: "uppercase",
               paddingBlock: "0.2em",
               marginBlock: "-0.2em",
             }}

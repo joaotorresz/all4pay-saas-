@@ -348,7 +348,7 @@ function penalidade(m: boolean[][]): number {
  * valores da paleta (Black e White quentes), não o par puro — a diferença é
  * invisível para o leitor e mantém o código na língua do sistema.
  */
-export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#28211B"): string {
+export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#3B4332"): string {
   const quiet = 4; // zona silenciosa exigida pela norma
   const total = qr.tamanho + quiet * 2;
   const partes: string[] = [];
@@ -357,5 +357,5 @@ export function qrParaSVG(qr: QRCode, tamanhoPx = 220, cor = "#28211B"): string 
       if (qr.modulos[y][x]) partes.push(`M${x + quiet} ${y + quiet}h1v1h-1z`);
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${tamanhoPx}" height="${tamanhoPx}" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code do link de pagamento"><rect width="${total}" height="${total}" fill="#FEFDF0"/><path d="${partes.join("")}" fill="${cor}"/></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${tamanhoPx}" height="${tamanhoPx}" viewBox="0 0 ${total} ${total}" shape-rendering="crispEdges" role="img" aria-label="QR code do link de pagamento"><rect width="${total}" height="${total}" fill="#F3F1EE"/><path d="${partes.join("")}" fill="${cor}"/></svg>`;
 }

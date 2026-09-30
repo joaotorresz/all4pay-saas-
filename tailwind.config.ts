@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 /**
  * ============================================================
- *  all4pay Design System — Tailwind token extraction
+ *  Quattro Design System — Tailwind token extraction
  * ------------------------------------------------------------
  *  This is the CANONICAL source of truth for the visual layer.
  *  Tokens were extracted from the "Round Treasury / all4pay"
@@ -50,8 +50,11 @@ const config: Config = {
         lime: {
           DEFAULT: "var(--color-lime)", // logo, treasury icon, accent
           alt: "var(--color-lime-alt)", // observed render variant
-          tint: "var(--color-lime-tint)", // desaturated lime wash (command bar bg)
+          tint: "var(--color-lime-tint)", // lime em opacidade menor (2º acento)
+          hover: "var(--color-lime-hover)", // hover do botão primário
         },
+        // Areia — borda de campo e separador em fundo claro (guia Quattro).
+        areia: "var(--color-areia)",
 
         // ---- Hero glow (marketing only) ----
         "hero-from": "#000000",
@@ -81,7 +84,8 @@ const config: Config = {
         // Gellix carrega os VALORES porque o arquivo tem `tnum` (medido): sem
         // numeral tabular, cada linha de uma coluna de dinheiro começaria num
         // ponto diferente. É o que separa ela das outras candidatas.
-        display: ['"Gellix"', '"Roobert"', "sans-serif"],
+        // Quattro: Centra No.2 Black, CAIXA ALTA nos títulos (tem `tnum`).
+        display: ['"Centra No2"', '"Archivo"', '"Roobert"', "sans-serif"],
         sans: [
           '"Roobert"',
           '"Roobert Variable"',
@@ -146,15 +150,25 @@ const config: Config = {
         "26": "104px",
         "28": "112px",
         sidebar: "240px",
+        // Padding do botão do guia Quattro (15px 30px).
+        "botao-y": "15px",
+        "botao-x": "30px",
       },
       borderRadius: {
         // ⚠️ A CURVA PERTENCE AO CARD, NÃO AO CONTROLE. O card leva o raio
         // grande e constante da marca; o botão é reto (`rounded-none`), e
         // `pill` fica para os chips, onde a forma redonda É a função.
-        card: "22px", // cards, panels, tooltip — grande e constante
-        md: "10px", // campos e superfícies menores
+        // Guia Quattro: botão é PÍLULA sempre; card 26; bloco 32; campo 14;
+        // modal 24.
+        card: "26px", // cards, panels, tooltip — grande e constante
+        bloco: "32px", // blocos grandes e formulários
+        modal: "24px",
+        md: "14px", // campo de formulário
         sm: "8px",
         pill: "999px", // chips, toggles, avatares
+      },
+      borderWidth: {
+        campo: "1.5px", // borda do campo de formulário (guia Quattro)
       },
       boxShadow: {
         // Aurora glass — sombras var-backed (globals.css define claro/escuro):
@@ -162,7 +176,7 @@ const config: Config = {
         card: "var(--shadow-card)",
         popover: "var(--shadow-popover)",
         pill: "var(--shadow-pill)",
-        "hero-glow": "0 -40px 120px -20px rgba(220,255,0,0.18)", // marketing only
+        "hero-glow": "0 -40px 120px -20px rgba(236,253,82,0.18)", // marketing only
       },
       transitionDuration: {
         "100": "100ms",
