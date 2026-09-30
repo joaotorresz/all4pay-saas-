@@ -3,12 +3,10 @@
 /**
  * Topo da Home — réplica fiel do Visor Finance, na identidade Quattro
  * (monocromático + lime; o azul do Visor vira ink/lime):
- *  • ESQUERDA: herói "Você gastou R$ X a menos este mês" + gráfico de GASTO
- *    ACUMULADO. A linha do realizado usa um gradiente TÉRMICO (verde → âmbar →
- *    laranja → cor do desfecho), com área suave por baixo; o mês ANTERIOR é a
- *    tracejada cinza (régua de comparação) e a projeção segue a cor do desfecho,
- *    esmaecida. Balão no fim da linha, verde se gastou menos e vermelho se
- *    gastou mais. Abaixo, o card "Dica" (ink + lime) com insight + carrossel.
+ *  • ESQUERDA: herói do saldo em conta + gráfico com as ENTRADAS (ink) e as
+ *    SAÍDAS (areia) acumuladas no período, com área suave por baixo. Número não
+ *    tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção.
+ *    Abaixo, o card "Dica" (ink + lime) com insight + carrossel.
  *  • DIREITA: "Distribuição dos gastos" — donut + centro "Gasto total em {mês}"
  *    e legenda rica (tile colorido · nome · % · valor · tendência vs. mês ant.).
  * Tudo derivado do mesmo RiskInput (demo/live idêntico). Flat (sem sombra/borda).
@@ -28,8 +26,9 @@ import { ErroWidget } from "./shared";
 import { usePeriod, MES_ABBR, MESES } from "./PeriodContext";
 import { AnimatedBRL } from "./useCountUp";
 
-const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
+// Séries por sinal sem verde × vermelho (decisão de 30/09/2026).
+const ENTRADA = "var(--color-ink)";
+const SAIDA = "var(--color-areia)";
 const PROJ = "var(--color-text-quaternary)";
 import { chartAnim } from "@/lib/chart-anim";
 /* paleta categórica do data-viz — cores vibrantes e distintas */
@@ -197,7 +196,7 @@ export function VisorHomeTop() {
         {/* Forma do card do herói (Laboratório): raio 32, padding 20, hairline. */}
         <Card className="flex flex-col rounded-[32px] p-5 border border-[color:var(--a4p-hairline)]" padded={false} info={{
           titulo: "Saldo em conta",
-          oQue: "Quanto você tem em conta agora, com o que entrou (verde) e o que saiu (vermelho) ao longo do período.",
+          oQue: "Quanto você tem em conta agora, com o que entrou (linha escura) e o que saiu (linha areia) ao longo do período.",
           comoCalcula: "O valor é o saldo consolidado das contas. As duas linhas acumulam, dia a dia, as entradas e as saídas já liquidadas no período; o resultado abaixo é entradas − saídas.",
         }}>
           <div className="flex items-center gap-3">
@@ -211,13 +210,12 @@ export function VisorHomeTop() {
             {/* ⚠️ SEM `Math.abs`. O herói exibia o saldo em módulo, então um
                 caixa de −R$31.000,16 aparecia como +R$31.000,16: a informação
                 mais importante da tela, com o sinal trocado. Um saldo negativo
-                é a coisa que a pessoa PRECISA ver — ele entra com o sinal e em
-                `negative`. */}
+                é a coisa que a pessoa PRECISA ver — ele entra com o "−" escrito,
+                em ink (número não tem cor por sinal, decisão de 30/09/2026). */}
             {/* ⚠️ SEM fonte e SEM tamanho no `style`: os dois vêm da classe de
                 papel `.a4p-heroi` (Gellix 33px, em globals.css). Presos aqui,
                 o inline vencia a regra do design system e todo ajuste de
-                herói promovido do Laboratório nascia inerte — só a COR fica,
-                porque depende do sinal do saldo. */}
+                herói promovido do Laboratório nascia inerte — só a COR fica. */}
             <span
               className="a4p-heroi tabular-nums leading-none"
               style={{ color: "var(--color-ink)" }}
@@ -240,20 +238,20 @@ export function VisorHomeTop() {
                         largura ou altura zero — e uma série achatada some.
                         Por isso ancoramos nas dimensões reais do gráfico. */}
                     <linearGradient id="visorEnt" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
-                      <stop offset="0%" stopColor={POSITIVE} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={POSITIVE} stopOpacity={1} />
+                      <stop offset="0%" stopColor={ENTRADA} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={ENTRADA} stopOpacity={1} />
                     </linearGradient>
                     <linearGradient id="visorSai" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={largura} y2={0}>
-                      <stop offset="0%" stopColor={NEGATIVE} stopOpacity={0.35} />
-                      <stop offset="100%" stopColor={NEGATIVE} stopOpacity={1} />
+                      <stop offset="0%" stopColor={SAIDA} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={SAIDA} stopOpacity={1} />
                     </linearGradient>
                     <linearGradient id="visorFillEnt" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
-                      <stop offset="0%" stopColor={POSITIVE} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={POSITIVE} stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={ENTRADA} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={ENTRADA} stopOpacity={0.02} />
                     </linearGradient>
                     <linearGradient id="visorFillSai" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={0} y2={ALTURA}>
-                      <stop offset="0%" stopColor={NEGATIVE} stopOpacity={0.18} />
-                      <stop offset="100%" stopColor={NEGATIVE} stopOpacity={0.02} />
+                      <stop offset="0%" stopColor={SAIDA} stopOpacity={0.18} />
+                      <stop offset="100%" stopColor={SAIDA} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="label" hide />
@@ -261,16 +259,16 @@ export function VisorHomeTop() {
                   <Tooltip content={<GastoTooltip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                   <Area type="monotone" dataKey="ent" stroke="none" fill="url(#visorFillEnt)" {...chartAnim()} />
                   <Area type="monotone" dataKey="sai" stroke="none" fill="url(#visorFillSai)" {...chartAnim(120)} />
-                  {/* ENTRADAS — verde em gradiente */}
-                  <Line type="monotone" dataKey="ent" stroke="url(#visorEnt)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: POSITIVE, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim()} />
-                  {/* SAÍDAS — vermelho em gradiente */}
-                  <Line type="monotone" dataKey="sai" stroke="url(#visorSai)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: NEGATIVE, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim(120)} />
+                  {/* ENTRADAS — ink em gradiente */}
+                  <Line type="monotone" dataKey="ent" stroke="url(#visorEnt)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: ENTRADA, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim()} />
+                  {/* SAÍDAS — areia em gradiente */}
+                  <Line type="monotone" dataKey="sai" stroke="url(#visorSai)" strokeWidth={2.9} strokeLinecap="round" strokeLinejoin="round" dot={false} activeDot={{ r: 5, fill: SAIDA, stroke: "var(--color-white)", strokeWidth: 2 }} {...chartAnim(120)} />
                 </ComposedChart>
               </ResponsiveContainer>
             </figure>
             <div className="flex items-center gap-4 mt-1 text-[13px] text-muted">
-              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: POSITIVE }} />Entradas</span>
-              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: NEGATIVE }} />Saídas</span>
+              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: ENTRADA }} />Entradas</span>
+              <span className="inline-flex items-center gap-[6px]"><span className="w-2 h-2 rounded-pill" style={{ background: SAIDA }} />Saídas</span>
             </div>
           </div>
         </Card>
@@ -331,10 +329,11 @@ export function VisorHomeTop() {
                       <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{total > 0 ? pct(s.value / total) : "—"}</span>
                       <span className="flex-1" />
                       <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}><BRL value={s.value} /></span>
+                      {/* Tendência sem verde × vermelho (decisão de 30/09/2026):
+                          o ícone (sobe/desce) diz a direção, em ink sobre o cinza. */}
                       {s.trend !== 0 && (
-                        <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
-                          style={{ background: subiu ? tint("#B3261E", 0.10) : "rgba(63,143,91,0.12)" }}>
-                          <Icon name={subiu ? "trending-up" : "trending-down"} size={13} color={subiu ? "var(--color-negative)" : "var(--color-positive)"} />
+                        <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0 bg-surface-2">
+                          <Icon name={subiu ? "trending-up" : "trending-down"} size={13} color="var(--color-ink)" />
                         </span>
                       )}
                     </div>
@@ -454,8 +453,8 @@ function GastoTooltip({ active, payload }: any) {
   return (
     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[190px]">
       <div className="font-medium text-ink mb-[6px]">{p.label}</div>
-      <TipRow color={POSITIVE} k="Entradas" v={<BRL value={p.ent} />} />
-      <TipRow color={NEGATIVE} k="Saídas" v={<BRL value={p.sai} />} />
+      <TipRow color={ENTRADA} k="Entradas" v={<BRL value={p.ent} />} />
+      <TipRow color={SAIDA} k="Saídas" v={<BRL value={p.sai} />} />
       <TipRow color="var(--color-ink)" k="Resultado" v={<BRL value={p.ent - p.sai} />} />
     </div>
   );

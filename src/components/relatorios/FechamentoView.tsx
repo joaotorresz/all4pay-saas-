@@ -121,7 +121,8 @@ export function FechamentoView() {
                     <Icon name="trash-2" size={15} color="currentColor" />
                   </button>
                 </div>
-                <div className={`text-[22px] leading-none font-semibold tabular-nums ${liquido < 0 ? "text-negative" : "text-ink"}`}>
+                {/* Número não tem cor por sinal (decisão de 30/09/2026): o "−" do BRL diz a direção. */}
+                <div className="text-[22px] leading-none font-semibold tabular-nums text-ink">
                   <BRL value={liquido} />
                 </div>
                 <div className="text-caption text-faint">Resultado líquido do mês</div>
@@ -289,11 +290,12 @@ function Relatorio({
         {f.kpis.map((k) => (
           <Card key={k.id}>
             <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{k.label}</span>
-            <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${k.valor < 0 ? "text-negative" : "text-ink"}`}>
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+            <span className="block mt-2 text-[24px] leading-none font-semibold tabular-nums text-ink">
               {k.formato === "pct" ? `${pctDeInteiro(k.valor)}` : <BRL value={k.valor} />}
             </span>
             {k.variacao != null && (
-              <span className={`block mt-2 text-caption tabular-nums ${k.variacao >= 0 ? "text-positive" : "text-negative"}`}>
+              <span className="block mt-2 text-caption tabular-nums text-muted">
                 {k.variacao > 0 ? "+" : ""}{pctDeInteiro(k.variacao)} vs mês anterior
               </span>
             )}

@@ -326,7 +326,7 @@ function Alocacao({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Resumo label="Receita prevista" valor={resumo.receita} />
         <Resumo label="Despesa prevista" valor={resumo.despesa} />
-        <Resumo label="Resultado previsto" valor={resumo.resultado} tom={resumo.resultado >= 0 ? "positivo" : "negativo"} />
+        <Resumo label="Resultado previsto" valor={resumo.resultado} />
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
@@ -376,7 +376,9 @@ function Alocacao({
                       <div className="flex items-center gap-2">
                         <span
                           className="w-[3px] self-stretch min-h-[22px] rounded-pill shrink-0"
-                          style={{ background: a.tipo === "entrada" ? "var(--color-positive)" : "var(--color-negative)" }}
+                          // Entrada × saída não é verde × vermelho (decisão de 30/09/2026):
+                          // entrada em tinta, saída em areia.
+                          style={{ background: a.tipo === "entrada" ? "var(--color-ink)" : "var(--color-areia)" }}
                         />
                         <Input
                           value={a.categoria}
@@ -445,12 +447,13 @@ function Alocacao({
   );
 }
 
-function Resumo({ label, valor, tom }: { label: string; valor: number; tom?: "positivo" | "negativo" }) {
-  const cor = tom === "positivo" ? "text-positive" : tom === "negativo" ? "text-negative" : "text-ink";
+// Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito pelo
+// `BRL` (−R$…) diz a direção do resultado.
+function Resumo({ label, valor }: { label: string; valor: number }) {
   return (
     <Card>
       <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>
-      <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${cor}`}>
+      <span className="block mt-2 text-[24px] leading-none font-semibold tabular-nums text-ink">
         <BRL value={valor} />
       </span>
     </Card>

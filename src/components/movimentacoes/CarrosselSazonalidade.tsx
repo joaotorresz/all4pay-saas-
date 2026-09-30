@@ -18,8 +18,6 @@ import * as React from "react";
 import { Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 
-const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
 // ⚠️ As agregações e os cortes de tempo moram em `core/movimentacoes/periodos`
 // — um `.tsx` não pode ser importado pelas guardas (o Node não parseia JSX), e
 // uma soma de dinheiro fora do alcance do teste é uma soma sem rede. Aqui fica
@@ -122,8 +120,8 @@ export function CarrosselSazonalidade({
 /**
  * Os cartões da faixa, com a linha do resultado por cima.
  *
- * ⚠️ Zero é NEUTRO (nem verde nem vermelho): um mês sem movimento pintado de
- * verde diria que foi um mês bom.
+ * ⚠️ Nenhum valor tem cor por sinal (decisão de 30/09/2026): o "−" escrito
+ * diz a direção, e o zero sai esmaecido — um mês sem movimento não afirma nada.
  */
 /**
  * A CURVA SUAVE — o equivalente ao `type="monotone"` do Recharts.
@@ -176,7 +174,8 @@ export function FaixaPeriodos({ periodos, selKey, onSelect, modo = "resultado" }
   /**
    * O que a cápsula mostra.
    *
-   * `resultado` (padrão) — entradas − saídas, com sinal e com cor semântica.
+   * `resultado` (padrão) — entradas − saídas, com o sinal ESCRITO ("−") e sem
+   * cor por sinal (decisão de 30/09/2026): é o sinal que diz a direção.
    * `total` — o total do período, sempre positivo, **sem sinal e sem cor**: uma
    * soma de obrigações não é boa nem ruim, e pintar de vermelho o mês que tem
    * mais contas a pagar diria que ter contas é um problema.
@@ -214,12 +213,13 @@ export function FaixaPeriodos({ periodos, selKey, onSelect, modo = "resultado" }
         {periodos.map((p) => {
           const on = p.key === selKey;
           const v = valorDe(p);
-          // Zero é NEUTRO: pintar de verde um período sem movimento diz que
-          // foi bom quando não houve nada. No modo `total` a cor é neutra
-          // SEMPRE — a grandeza não tem lado bom.
-          const cor = modo === "total"
-            ? "var(--color-ink)"
-            : v === 0 ? "var(--color-text-tertiary)" : v > 0 ? POSITIVE : NEGATIVE;
+          // Número não tem cor por sinal (decisão de 30/09/2026): o "−" escrito
+          // diz a direção. Zero segue esmaecido no modo `resultado` — um
+          // período sem movimento não tem o que afirmar; no modo `total` a cor
+          // é neutra SEMPRE.
+          const cor = modo === "resultado" && v === 0
+            ? "var(--color-text-tertiary)"
+            : "var(--color-ink)";
           return (
             <button
               key={p.key} onClick={() => onSelect(p.key)} aria-pressed={on}

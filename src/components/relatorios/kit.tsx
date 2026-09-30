@@ -17,7 +17,7 @@ import { baixarXLSX } from "@/lib/xlsx";
 import {
   intervaloDoPreset, rotuloColuna,
   type Intervalo, type PresetPeriodo, type TipoAnalise, type Relatorio, type LinhaRelatorio,
-  type CelulaOrcamento, type SinalLinha, type BaseVertical,
+  type CelulaOrcamento, type BaseVertical,
 } from "@/core/relatorios";
 import { pctDeInteiro } from "@/lib/format";
 import { problemaDoIntervalo, assinado } from "@/core/indicadores";
@@ -440,7 +440,7 @@ export function TabelaRelatorio({
                           onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos, valor: c.valor }) : undefined}
                         />
                         {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
-                        {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} sinalLinha={l.sinal} />}
+                        {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} />}
                       </React.Fragment>
                     ))}
                     <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte
@@ -486,14 +486,15 @@ export function TabelaRelatorio({
 /**
  * Orçado · Diferença · % de um período.
  *
- * ⚠️ A cor NÃO pode vir do sinal da diferença: numa linha de despesa, gastar
- * MAIS que o orçado é diferença positiva e é ruim; numa linha de receita é
- * positiva e é boa. Pintar as duas de verde diria ao operador que estourar o
- * orçamento foi um bom resultado. Quem decide é o sinal da LINHA.
+ * ⚠️ Número não tem cor por sinal (decisão de 30/09/2026): a diferença sai em
+ * tinta neutra, com "+" ou "−" escrito. Antes ela ficava verde ou vermelha
+ * conforme o sinal da LINHA (acima do orçado numa despesa = vermelho); agora a
+ * leitura de bom × ruim vem do rótulo da linha, e o zero continua esmaecido —
+ * não variou não é bom nem ruim.
  */
 function CelulasOrcamento({
-  o, cifrao, sinalLinha,
-}: { o?: CelulaOrcamento; cifrao?: boolean; sinalLinha?: SinalLinha }) {
+  o, cifrao,
+}: { o?: CelulaOrcamento; cifrao?: boolean }) {
   if (!o) {
     return (
       <>
@@ -506,7 +507,7 @@ function CelulasOrcamento({
   return (
     <>
       <td className="px-3 py-[10px] text-right text-caption text-muted tabular-nums">{fmt(o.orcado, !!cifrao)}</td>
-      <td className={`px-3 py-[10px] text-right text-caption tabular-nums ${corDaDiferenca(o.diferenca, sinalLinha)}`}>
+      <td className={`px-3 py-[10px] text-right text-caption tabular-nums ${o.diferenca === 0 ? "text-faint" : "text-ink"}`}>
         {o.diferenca > 0 ? "+" : ""}{fmt(o.diferenca, !!cifrao)}
       </td>
       <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">
@@ -514,15 +515,6 @@ function CelulasOrcamento({
       </td>
     </>
   );
-}
-
-/** Linha de saída ("-"): acima do orçado é ruim. Linha de entrada/total: o
- *  contrário. Zero é neutro — não variou não é bom nem ruim. */
-function corDaDiferenca(dif: number, sinal?: SinalLinha): string {
-  if (dif === 0) return "text-faint";
-  const custo = sinal === "-";
-  const bom = custo ? dif < 0 : dif > 0;
-  return bom ? "text-positive" : "text-negative";
 }
 
 function Valor({
@@ -593,7 +585,8 @@ export function GavetaTransacoes({
                   {m.status !== "pago" && " · pendente"}
                 </div>
               </div>
-              <span className={`text-label tabular-nums shrink-0 ${m.type === "entrada" ? "text-positive" : "text-ink"}`}>
+              {/* Entrada e saída na mesma tinta (decisão de 30/09/2026): o "+"/"−" escrito diz a direção. */}
+              <span className="text-label tabular-nums shrink-0 text-ink">
                 {m.type === "entrada" ? "+" : "−"}{fmt(Math.abs(m.amount), true)}
               </span>
             </button>

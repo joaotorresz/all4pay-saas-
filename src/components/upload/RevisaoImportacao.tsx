@@ -213,8 +213,11 @@ export function RevisaoImportacao({
                 aria-label="Categoria"
               />
               <StatusBadge tone={confTone(conf)}>{confLabel(conf)}</StatusBadge>
-              <span className={`tabular-nums shrink-0 w-[110px] text-right ${r.tipo === "saida" ? "text-negative" : "text-ink"}`}>
-                <BRL value={r.valor} />
+              {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal
+                  escrito diz a direção. `valor` é magnitude, então a saída
+                  entra negativa para o BRL escrever o "−" antes do R$. */}
+              <span className="tabular-nums shrink-0 w-[110px] text-right text-ink">
+                <BRL value={r.tipo === "saida" ? -r.valor : r.valor} />
               </span>
             </div>
           );

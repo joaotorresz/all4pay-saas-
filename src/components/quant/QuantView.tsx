@@ -27,7 +27,7 @@ import {
   type BenchmarkLinha,
 } from "@/core/quant/types";
 import { chartAnim } from "@/lib/chart-anim";
-import { pctDeInteiro, pct } from "@/lib/format";
+import { pctDeInteiro, pct, comSinal, MENOS } from "@/lib/format";
 
 const COR: Record<ClassificacaoSaude, string> = {
   excelente: "var(--color-positive)",
@@ -166,7 +166,12 @@ export function QuantView() {
           <Kpi label="Eficiência de caixa" value={pct(i.eficienciaDeCaixa)} />
           <Kpi label="Eficiência op." value={`${i.eficienciaOperacional.toFixed(1)}/10`} />
           <Kpi label="ROIC (proxy)" value={pct(i.roic)} />
-          <Kpi label="Crescimento MoM" value={pct(i.crescimentoMensal)} tone={i.crescimentoMensal < 0 ? "var(--color-negative)" : undefined} />
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção
+              — "+" na alta e o menos tipográfico (U+2212) na queda, que antes só a cor dizia. */}
+          <Kpi
+            label="Crescimento MoM"
+            value={`${Number.isFinite(i.crescimentoMensal) && i.crescimentoMensal > 0 ? "+" : ""}${comSinal(i.crescimentoMensal, pct(i.crescimentoMensal))}`}
+          />
           <Kpi label="Receita recorrente" value={pct(i.receitaRecorrente)} />
           <Kpi label="Inadimplência" value={pct(i.inadimplencia)} tone={i.inadimplencia > 0.15 ? "var(--color-negative)" : undefined} />
           <Kpi label="Concentração" value={pct(i.concentracaoReceita)} tone={i.concentracaoReceita > 0.4 ? "var(--color-warning)" : undefined} />
@@ -232,8 +237,8 @@ export function QuantView() {
           <div key={c.id} className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
             <div className="flex items-baseline justify-between">
               <span className="text-[17px] font-medium text-ink">{c.label}</span>
-              <span className="text-label tabular-nums" style={{ color: c.delta < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
-                {c.scoreProjetado} {c.delta !== 0 && `(${c.delta > 0 ? "+" : ""}${c.delta})`}
+              <span className="text-label tabular-nums text-ink">
+                {c.scoreProjetado} {c.delta !== 0 && `(${c.delta > 0 ? "+" : MENOS}${Math.abs(c.delta)})`}
               </span>
             </div>
             <span className="text-caption text-faint">{c.descricao} · em {c.emDias} dias</span>
@@ -289,13 +294,18 @@ function benchFmt(v: number, u: BenchmarkLinha["unidade"]) {
   return u === "pct" ? `${pctDeInteiro((v * 100))}` : u === "x" ? `${v.toFixed(1)}x` : v.toFixed(1);
 }
 
+// O NÚMERO fica sem cor (decisão de 30/09/2026: número não tem cor por
+// sinal). A FRASE mantém a cor porque é um ESTADO nomeado — e ela precisa
+// dela: `acima` quer dizer "melhor que o setor", não "maior". Na
+// inadimplência, 2% contra 5% do setor é "Acima da média setorial"; sem a cor,
+// a frase sozinha leria como inadimplência maior que a do setor.
 function BenchCard({ b }: { b: BenchmarkLinha }) {
   const cor = b.acima ? "var(--color-positive)" : "var(--color-negative)";
   return (
     <div className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
       <span className="text-caption text-faint">{b.metrica}</span>
       <div className="flex items-baseline gap-2">
-        <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: cor }}>
+        <span className="text-value-lg leading-none font-medium tabular-nums text-ink">
           {benchFmt(b.empresa, b.unidade)}
         </span>
         <span className="text-caption text-muted">vs {benchFmt(b.setor, b.unidade)} setor</span>

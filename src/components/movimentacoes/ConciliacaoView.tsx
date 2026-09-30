@@ -209,7 +209,9 @@ function Conferencia() {
                           {st === "liquidado" ? "Conciliado" : st === "atrasado" ? "Atrasado" : "A conciliar"}
                         </span>
                       </td>
-                      <td className={`px-6 py-2 text-right text-label tabular-nums ${m.type === "entrada" ? "text-positive" : "text-ink"}`}>
+                      {/* Número não tem cor por sinal (decisão de 30/09/2026): o
+                          "+"/"−" escrito diz a direção. */}
+                      <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
                         {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
                       </td>
                     </tr>

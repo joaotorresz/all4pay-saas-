@@ -246,7 +246,9 @@ export function VendaForm() {
                 não escondido no fim da tela. */}
             <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-1">
               <span className="text-caption text-muted">Valor líquido</span>
-              <span className={`text-[24px] leading-none font-semibold tabular-nums ${liquido < 0 ? "text-negative" : "text-ink"}`}>
+              {/* Número não tem cor por sinal (decisão de 30/09/2026): o BRL já
+                  escreve o "−" quando as taxas passam do bruto. */}
+              <span className="text-[24px] leading-none font-semibold tabular-nums text-ink">
                 <BRL value={liquido} />
               </span>
               <span className="text-caption text-faint tabular-nums">

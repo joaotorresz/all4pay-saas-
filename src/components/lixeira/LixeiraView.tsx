@@ -102,7 +102,10 @@ export function LixeiraView({ inicial = "todos" }: { inicial?: Filtro }) {
                 <span className="w-[110px] text-caption text-muted">{tipoLabel(m.type)}</span>
                 <span className="w-[100px] text-[15px] text-ink tabular-nums">{fmtDia(m.due_date)}</span>
                 <span className="w-[120px] flex justify-end">
-                  <Money integer={parts.integer} decimals={parts.decimals} size="sm" color={isOut ? "var(--color-negative)" : "var(--color-ink)"} />
+                  {/* Número não tem cor por sinal (decisão de 30/09/2026): o
+                      valor é magnitude, então o "−" escrito diz a direção que
+                      antes só a cor dizia. */}
+                  <Money currency={isOut ? "−R$" : "R$"} integer={parts.integer} decimals={parts.decimals} size="sm" color="var(--color-ink)" />
                 </span>
                 <span className="w-[170px] flex justify-end gap-1">
                   <button onClick={() => restaurar(m)} disabled={busy === m.id} className="text-caption font-medium text-on-lime bg-lime rounded-pill px-3 py-[4px] disabled:opacity-45">

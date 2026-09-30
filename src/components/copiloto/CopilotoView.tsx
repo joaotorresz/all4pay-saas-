@@ -270,8 +270,9 @@ function SimuladorCard({ indic, saldo, score }: { indic: import("@/core/quant/ty
       <div className="rounded-md bg-surface-1 p-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-caption text-faint">Score projetado</span>
-          <span className="text-h3 font-medium tabular-nums" style={{ color: deltaScore < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
-            {r.scoreProjetado} {deltaScore !== 0 && <span className="text-label">({deltaScore > 0 ? "+" : ""}{deltaScore})</span>}
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+          <span className="text-h3 font-medium tabular-nums text-ink">
+            {r.scoreProjetado} {deltaScore !== 0 && <span className="text-label">({deltaScore > 0 ? "+" : "−"}{Math.abs(deltaScore)})</span>}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -344,8 +345,9 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
             <div className="flex items-center gap-5 mt-1">
               <div>
                 <div className="text-caption text-faint">Score</div>
-                <div className="text-h3 font-medium tabular-nums" style={{ color: c.delta < 0 ? "var(--color-negative)" : c.delta > 0 ? "var(--color-positive)" : "var(--color-ink)" }}>
-                  {c.r.scoreProjetado}{c.delta !== 0 && <span className="text-label"> ({c.delta > 0 ? "+" : ""}{c.delta})</span>}
+                {/* Sem cor por sinal (30/09/2026): o "+"/"−" escrito diz a direção. */}
+                <div className="text-h3 font-medium tabular-nums text-ink">
+                  {c.r.scoreProjetado}{c.delta !== 0 && <span className="text-label"> ({c.delta > 0 ? "+" : "−"}{Math.abs(c.delta)})</span>}
                 </div>
               </div>
               <div>

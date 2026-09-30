@@ -248,7 +248,7 @@ export function PosVendaView() {
                     )}
                     <div className="flex items-center justify-between text-caption text-faint mb-2">
                       <span>Você recebe (líquido)</span>
-                      <span className="tabular-nums text-positive"><BRL value={liquido} /></span>
+                      <span className="tabular-nums text-ink"><BRL value={liquido} /></span>
                     </div>
                   </>
                 )}

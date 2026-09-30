@@ -13,8 +13,10 @@ import { formatBRL } from "@/lib/format";
 
 /** Iniciais das linhas (a grade é TRANSPOSTA: linha = dia da semana). */
 const WEEK_INITIALS = ["D", "S", "T", "Q", "Q", "S", "S"];
-const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
+// Número não tem cor por sinal (decisão de 30/09/2026): entrada em ink,
+// saída em areia; o sinal escrito (+/−) diz a direção.
+const ENTRADA = "var(--color-ink)";
+const SAIDA = "var(--color-areia)";
 
 /** Data que "conta" para o calendário: pago → paid_date; senão → vencimento. */
 const diaDoMovimento = (m: RiskMovement) =>
@@ -24,8 +26,8 @@ interface DiaInfo { entrada: number; saida: number; itens: RiskMovement[] }
 
 /* ----------------------------- ESCALA DE COR -----------------------------
  * O modelo de referência usa uma rampa "menos → mais" de UMA cor. Aqui a
- * lógica é a do calendário de transações: **verde para entradas, vermelho
- * para saídas** — uma escala DIVERGENTE sobre o líquido do dia
+ * lógica é a do calendário de transações: **ink para entradas, areia para
+ * saídas** — uma escala DIVERGENTE sobre o líquido do dia
  * (entradas − saídas). A intensidade continua sendo o tamanho do valor.
  */
 const MISTURA = [0, 16, 34, 58, 100]; // % da cor em cada nível
@@ -40,15 +42,20 @@ function nivelDe(net: number, maxAbs: number): number {
 /** Fundo da célula: neutro no nível 0, senão a cor do sinal diluída. */
 function fundoDe(net: number, nivel: number): string {
   if (nivel === 0) return "color-mix(in srgb, var(--color-surface-2) 55%, transparent)";
-  const cor = net > 0 ? POSITIVE : NEGATIVE;
+  const cor = net > 0 ? ENTRADA : SAIDA;
   return `color-mix(in srgb, ${cor} ${MISTURA[nivel]}%, transparent)`;
 }
 
-/** Texto da célula: branco só no nível cheio (verde e vermelho do DS são
- *  escuros o bastante ali); ink nos intermediários, faint no dia sem movimento. */
-function textoDe(nivel: number): string {
+/** Texto da célula: faint no dia sem movimento; no lado das ENTRADAS o fundo é
+ *  o próprio ink diluído, então dos níveis fortes (3–4) para cima o texto é o
+ *  INVERSO do ink (`--color-white`), que acompanha o tema — ink sobre ink a 58%
+ *  some no modo escuro. No lado das SAÍDAS a areia NÃO inverte com o tema: na
+ *  areia cheia o texto precisa ser escuro nos dois, e o único token de texto
+ *  escuro fixo é o `on-lime` (o mesmo verde-base do ink claro). */
+function textoDe(nivel: number, net: number): string {
   if (nivel === 0) return "var(--color-text-tertiary)";
-  if (nivel === 4) return "var(--color-white)";
+  if (net > 0 && nivel >= 3) return "var(--color-white)";
+  if (net <= 0 && nivel === 4) return "var(--color-on-lime)";
   return "var(--color-ink)";
 }
 
@@ -123,7 +130,7 @@ export function TransactionsCalendar() {
       info={{
         titulo: "Calendário de transações",
         oQue: "Mapa de calor do mês: cada dia é uma célula colorida pelo líquido (entradas − saídas), para enxergar de relance onde o caixa sobra e onde aperta.",
-        comoCalcula: "Cada movimento cai no dia do pagamento (ou do vencimento, se pendente). A cor sai do LÍQUIDO do dia — verde quando entrou mais do que saiu, vermelho no contrário — e a intensidade é o tamanho desse líquido contra o maior do mês. O valor do topo é o resultado do mês; a média diária divide pelos dias decorridos.",
+        comoCalcula: "Cada movimento cai no dia do pagamento (ou do vencimento, se pendente). A cor sai do LÍQUIDO do dia — tom escuro quando entrou mais do que saiu, areia no contrário — e a intensidade é o tamanho desse líquido contra o maior do mês. O valor do topo é o resultado do mês; a média diária divide pelos dias decorridos.",
       }}
     >
       {/* Topo — micro-label + atalho, no modelo da referência */}
@@ -179,7 +186,7 @@ export function TransactionsCalendar() {
                       <span
                         data-day-num
                         className={["tabular-nums leading-none text-[15px]", isHoje ? "font-bold" : "font-medium"].join(" ")}
-                        style={{ color: textoDe(nivel) }}
+                        style={{ color: textoDe(nivel, net) }}
                       >
                         {dia}
                       </span>
@@ -190,7 +197,7 @@ export function TransactionsCalendar() {
             ))}
           </div>
 
-          {/* Legenda — DIVERGENTE (verde ↔ vermelho), no lugar do "menos → mais" */}
+          {/* Legenda — DIVERGENTE (ink ↔ areia), no lugar do "menos → mais" */}
           <div className="flex items-center justify-between gap-3 text-[13px] text-muted">
             <span>Entradas</span>
             <span className="inline-flex items-center gap-[5px]">
@@ -214,7 +221,7 @@ export function TransactionsCalendar() {
           <div className="flex items-center justify-between gap-3 pt-3 border-t border-border-soft">
             <span className="text-[15px] text-muted">Maior gasto</span>
             <span className="text-[15px] tabular-nums">
-              <span className="font-medium" style={{ color: NEGATIVE }}><BRL value={resumo.maiorGasto} /></span>
+              <span className="font-medium text-ink"><BRL value={resumo.maiorGasto} /></span>
               {resumo.diaMaiorGasto > 0 && <span className="text-faint"> dia {resumo.diaMaiorGasto}</span>}
             </span>
           </div>
@@ -249,7 +256,7 @@ export function TransactionsCalendar() {
                 {selInfo?.itens.length ? selInfo.itens.map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-3 text-caption">
                     <span className="text-ink truncate flex-1 inline-flex items-center gap-2">
-                      <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: m.type === "entrada" ? POSITIVE : NEGATIVE }} />
+                      <span className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: m.type === "entrada" ? ENTRADA : SAIDA }} />
                       {m.category || (m.type === "entrada" ? "Entrada" : "Saída")}
                     </span>
                     {/* número sempre preto (ink); o sinal +/− e o dot indicam o tipo */}

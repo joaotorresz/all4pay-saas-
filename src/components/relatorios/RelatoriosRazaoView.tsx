@@ -50,7 +50,8 @@ export function RelatoriosRazaoView() {
             <Card className="flex items-center justify-between gap-3 flex-wrap">
               <div className="flex flex-col">
                 <span className="text-label font-medium text-muted inline-flex items-center gap-1">Resultado do período<InfoHint align="left" titulo="Resultado do período" oQue="Lucro ou prejuízo no intervalo escolhido, conforme o razão." comoCalcula="Receita menos despesa do período, lendo as contas de resultado dos lançamentos." /></span>
-                <span className="text-[24px] leading-none font-semibold tabular-nums" style={{ color: dre!.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={dre!.resultado} /></span>
+                {/* Número não tem cor por sinal (decisão de 30/09/2026): o "−" do BRL diz a direção. */}
+                <span className="text-[24px] leading-none font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}><BRL value={dre!.resultado} /></span>
                 <span className="text-caption text-faint tabular-nums">receita <BRL value={dre!.receita} /> · despesa <BRL value={dre!.despesa} /></span>
               </div>
               <Link href="/dashboard/reports/dre" className="text-label font-medium text-ink underline">Ver DRE completo →</Link>
@@ -107,9 +108,9 @@ export function RelatoriosRazaoView() {
                   {pivot.slice(0, 50).map((p) => (
                     <div key={p.chave} className="flex items-center gap-3 py-2 border-t border-border-soft text-caption first:border-t-0">
                       <span className="flex-1 truncate text-ink">{p.chave}</span>
-                      <span className="hidden sm:block w-[120px] text-right tabular-nums text-positive"><BRL value={p.receita} /></span>
+                      <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={p.receita} /></span>
                       <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={p.despesa} /></span>
-                      <span className={`w-[120px] text-right tabular-nums font-medium ${p.resultado >= 0 ? "text-ink" : "text-negative"}`}><BRL value={p.resultado} /></span>
+                      <span className="w-[120px] text-right tabular-nums font-medium text-ink"><BRL value={p.resultado} /></span>
                     </div>
                   ))}
                 </div>

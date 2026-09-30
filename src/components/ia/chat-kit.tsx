@@ -87,13 +87,14 @@ export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: num
 /**
  * O gráfico da resposta. O motor devolve só os dados (`GraficoResposta`); a
  * escolha visual mora aqui, seguindo o DS: **linha na cor da marca** com glow
- * em degradê (séries temporais) e **barras nas cores semânticas** (entrada
- * verde · saída vermelha), a 70% — cor de status é sinal, não preenchimento
- * grande. Entra animado via `chartAnim()`.
+ * em degradê (séries temporais) e **barras neutras** (entrada em ink · saída
+ * em areia), a 70%. Número não tem cor por sinal (decisão de 30/09/2026): a
+ * entrada e a saída se distinguem por intensidade, não por verde × vermelho.
+ * Entra animado via `chartAnim()`.
  */
 export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
   const id = React.useId();
-  const base = g.tom === "entrada" ? "var(--color-positive)" : g.tom === "saida" ? "var(--color-negative)" : "var(--color-lime)";
+  const base = g.tom === "entrada" ? "var(--color-ink)" : g.tom === "saida" ? "var(--color-areia)" : "var(--color-lime)";
   const cor = `color-mix(in srgb, ${base} 70%, transparent)`;
   const resumo = g.dados.map((d) => `${d.nome}: ${formatBRL(d.valor)}`).join(", ");
   return (

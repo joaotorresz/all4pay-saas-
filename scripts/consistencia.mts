@@ -3535,8 +3535,44 @@ const AGOSTO = janelaMes(2026, 7);
   const telaDRE = ler("src/components/relatorios/DemonstrativoView.tsx");
   ok("contrato-dre: os cartões leem a cascata única, não uma segunda agregação",
      /cascataDRE\(/.test(telaDRE) && !/painelResultado\(/.test(telaDRE));
-  ok("contrato-dre: todo cartão de valor recebe a cor de prejuízo",
-     (telaDRE.match(/tom: tomDe\(/g) ?? []).length >= 5);
+  // ⚠️ A regra INVERTEU por decisão do dono (30/09/2026): número não tem cor
+  // por sinal. A asserção antiga ("todo cartão recebe a cor de prejuízo")
+  // cobrava o oposto e sai; a que entra prova que a cor NÃO voltou.
+  ok("contrato-dre: nenhum cartão de valor recebe cor pelo sinal",
+     !/tomDe\(|color-negative|color-positive|text-negative|text-positive/.test(telaDRE));
+}
+
+/* ========================================================================== */
+/* NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026) — teto ZERO.    */
+/* ========================================================================== */
+/**
+ * Verde para positivo e vermelho para negativo saíram do sistema inteiro: o
+ * número fica na tinta do texto e o SINAL ESCRITO diz a direção. O vermelho
+ * continua existindo para erro, status (vencido, recusado) e alerta — por isso
+ * a guarda não proíbe o token: proíbe a COR DECIDIDA POR COMPARAR UM NÚMERO
+ * COM ZERO, que é a forma exata do que foi tirado.
+ */
+{
+  const COR_POR_SINAL = /(?:>=|<=|>|<)\s*0(?:\.0+)?\s*\?\s*[^:;]{0,50}?(?:var\(--color-(?:positive|negative)\)|\btext-(?:positive|negative)\b)/;
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      readFileSync(caminho, "utf8").split("\n").forEach((linha, i) => {
+        if (/^\s*(\/\/|\*)/.test(linha)) return; // comentário explica, não pinta
+        if (COR_POR_SINAL.test(linha)) achados.push(`${caminho}:${i + 1}`);
+      });
+    }
+  };
+  varrer("src");
+  ok("cor: teto ZERO de número colorido pelo sinal (verde positivo / vermelho negativo)",
+     achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("cor: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
+     COR_POR_SINAL.test('style={{ color: v >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}')
+     && COR_POR_SINAL.test('className={x < 0 ? "text-negative" : "text-ink"}')
+     && !COR_POR_SINAL.test('<StatusBadge tone={vencido ? "negative" : "neutral"}>'));
 }
 
 

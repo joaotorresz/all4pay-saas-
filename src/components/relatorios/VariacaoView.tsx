@@ -152,8 +152,11 @@ function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
         </span>
         <span className="hidden md:block w-[120px] text-right tabular-nums text-muted"><BRL value={l.anterior} /></span>
         <span className="w-[120px] text-right tabular-nums text-ink"><BRL value={l.atual} /></span>
-        <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.delta) < 0.005 ? "text-faint" : l.leitura === "piorou" ? "text-negative" : "text-ink"}`}>
-          <BRL value={l.delta} />
+        {/* Número não tem cor por sinal (decisão de 30/09/2026): o delta sai em
+            tinta neutra com o sinal escrito; "melhora/piora o resultado" é dito
+            pelo selo da linha, não pela cor do número. */}
+        <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.delta) < 0.005 ? "text-faint" : "text-ink"}`}>
+          {l.delta >= 0.005 ? "+" : ""}<BRL value={l.delta} />
           {l.deltaPct != null && <span className="block text-[11px] text-faint">{l.deltaPct > 0 ? "+" : "−"}{pctDeInteiro(Math.abs(l.deltaPct))}</span>}
         </span>
       </button>

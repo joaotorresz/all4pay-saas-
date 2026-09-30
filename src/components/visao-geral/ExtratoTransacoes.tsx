@@ -5,8 +5,8 @@
  * modelo da referência enviada:
  *
  *  1. **Carrossel de períodos** — um card por MÊS (ou por SEMANA, pelo botão
- *     Mês/Semana) com o resultado líquido daquele período, verde ou vermelho,
- *     e uma linha ligando os pontos por cima dos cards. Clicar seleciona o
+ *     Mês/Semana) com o resultado líquido daquele período (o sinal escrito
+ *     diz a direção) e uma linha ligando os pontos por cima dos cards. Clicar seleciona o
  *     período; as setas rolam a faixa.
  *  2. **Barra de resumo** do período selecionado — contagem, entradas, saídas
  *     e resultado.
@@ -38,7 +38,6 @@ import {
 } from "@/components/movimentacoes/CarrosselSazonalidade";
 
 const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
 const MES_ABBR = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 const DIA_ABBR = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -188,13 +187,15 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
             <Icon name="calendar" size={13} color="currentColor" />{sel?.label}
           </span>
           <span className="text-muted">{totalItens} lançamento{totalItens === 1 ? "" : "s"}</span>
-          <span className="inline-flex items-center gap-[5px]" style={{ color: POSITIVE }}>
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): a seta e o
+              sinal escrito dizem a direção. */}
+          <span className="inline-flex items-center gap-[5px] text-ink">
             <Icon name="arrow-up" size={13} color="currentColor" /><BRL value={sel?.entradas ?? 0} />
           </span>
-          <span className="inline-flex items-center gap-[5px]" style={{ color: NEGATIVE }}>
+          <span className="inline-flex items-center gap-[5px] text-ink">
             <Icon name="arrow-down" size={13} color="currentColor" /><BRL value={sel?.saidas ?? 0} />
           </span>
-          <span className="font-medium" style={{ color: (sel?.resultado ?? 0) < 0 ? NEGATIVE : POSITIVE }}>
+          <span className="font-medium text-ink">
             <BRL value={sel?.resultado ?? 0} />
           </span>
         </div>

@@ -53,6 +53,26 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
+
+**Verde para positivo e vermelho para negativo saíram do sistema inteiro.**
+Todo valor (dinheiro, delta, variação, %, resultado, saldo) fica na tinta do
+texto, e o **sinal escrito** diz a direção (`−` U+2212 no negativo, `+` onde a
+tela mostra variação). Gráficos de entrada × saída: entradas em
+`var(--color-ink)`, saídas em `var(--color-areia)`.
+
+- **O que CONTINUA colorido** (não é número por sinal): erro e validação;
+  STATUS nomeado (vencido, pago, recusado, conciliado) em badge, ponto e
+  pílula; alerta e nível de risco (`warning`, crítico/alto); a linha do zero
+  em gráfico de risco.
+- **Cartão com alerta** (`MetricCard`/`HojeStat` do cockpit): o número fica
+  em tinta; o alerta vira um PONTO ao lado do rótulo, e só quando é atenção ou
+  crítico — "está tudo bem" não ganha marca.
+- ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
+  INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
+  **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
+  decidida comparando um número com zero — provada plantando o defeito.
+
 ## ⚠️ A OWN SAIU DO PRODUTO (contrato rescindido, 30/09/2026)
 
 A Quattro rescindiu com a **OWN** (adquirente da maquininha). Saiu tudo o que

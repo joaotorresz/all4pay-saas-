@@ -44,7 +44,7 @@ export function ConsolidadoView() {
               <Mini label="Saldo consolidado" v={c.saldo} info={{ titulo: "Saldo consolidado", oQue: "O caixa disponível somado de todas as suas empresas.", comoCalcula: "Soma do saldo atual das contas de cada organização; não depende do período." }} />
               <Mini label="Receita (período)" v={c.receita} info={{ titulo: "Receita do período", oQue: "Tudo que as empresas receberam na janela escolhida.", comoCalcula: "Soma das entradas de todas as organizações entre De e Até." }} />
               <Mini label="Despesa (período)" v={c.despesa} info={{ titulo: "Despesa do período", oQue: "Tudo que as empresas gastaram na janela escolhida.", comoCalcula: "Soma das saídas de todas as organizações entre De e Até." }} />
-              <Mini label="Resultado" v={c.resultado} tone={c.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)"} info={{ titulo: "Resultado do período", oQue: "Quanto sobrou ou faltou no conjunto das empresas no período.", comoCalcula: "Receita do período menos despesa do período, somando todas as organizações." }} />
+              <Mini label="Resultado" v={c.resultado} info={{ titulo: "Resultado do período", oQue: "Quanto sobrou ou faltou no conjunto das empresas no período.", comoCalcula: "Receita do período menos despesa do período, somando todas as organizações." }} />
             </div>
 
             <Card padded={false} info={{ titulo: "Posição por empresa", oQue: "Mostra saldo, receita, despesa e resultado de cada organização e a soma consolidada.", comoCalcula: "Uma linha por empresa em que você é membro; a última linha soma as colunas, sem eliminações intercompany." }}>
@@ -57,7 +57,7 @@ export function ConsolidadoView() {
                   <span className="text-caption tabular-nums sm:text-right text-ink"><BRL value={e.saldo} /></span>
                   <span className="text-caption tabular-nums sm:text-right text-muted"><BRL value={e.receita} /></span>
                   <span className="text-caption tabular-nums sm:text-right text-muted"><BRL value={e.despesa} /></span>
-                  <span className="text-caption tabular-nums sm:text-right font-medium" style={{ color: e.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={e.resultado} /></span>
+                  <span className="text-caption tabular-nums sm:text-right font-medium text-ink"><BRL value={e.resultado} /></span>
                 </div>
               ))}
               <div className="grid grid-cols-2 sm:grid-cols-[1.6fr_1fr_1fr_1fr_1fr] gap-3 items-center px-5 py-3 border-t-2 border-border bg-surface-1/40">
@@ -65,7 +65,7 @@ export function ConsolidadoView() {
                 <span className="text-caption tabular-nums sm:text-right font-semibold text-ink"><BRL value={c.saldo} /></span>
                 <span className="text-caption tabular-nums sm:text-right font-semibold text-ink"><BRL value={c.receita} /></span>
                 <span className="text-caption tabular-nums sm:text-right font-semibold text-ink"><BRL value={c.despesa} /></span>
-                <span className="text-caption tabular-nums sm:text-right font-semibold" style={{ color: c.resultado >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}><BRL value={c.resultado} /></span>
+                <span className="text-caption tabular-nums sm:text-right font-semibold text-ink"><BRL value={c.resultado} /></span>
               </div>
             </Card>
           </>
@@ -75,11 +75,13 @@ export function ConsolidadoView() {
   );
 }
 
-function Mini({ label, v, tone = "var(--color-ink)", info }: { label: string; v: number; tone?: string; info?: InfoConteudo }) {
+// Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
+// direção — o `BRL` já escreve o "−" no resultado negativo.
+function Mini({ label, v, info }: { label: string; v: number; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}><BRL value={v} /></span>
+      <span className="text-[18px] font-semibold tabular-nums text-ink"><BRL value={v} /></span>
     </Card>
   );
 }

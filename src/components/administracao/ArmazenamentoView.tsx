@@ -149,7 +149,9 @@ export function ArmazenamentoView() {
             </span>
             <span
               className="text-[22px] font-semibold tabular-nums"
-              style={{ color: est.negocioLocal.length > 0 ? "var(--color-warning)" : "var(--color-positive)" }}
+              // Número não tem cor por sinal (30/09/2026): o zero fica neutro, e
+              // o aviso (warning) continua marcando dado de negócio em risco.
+              style={{ color: est.negocioLocal.length > 0 ? "var(--color-warning)" : "var(--color-ink)" }}
             >
               {est.negocioLocal.length}
             </span>

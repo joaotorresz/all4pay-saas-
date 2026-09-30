@@ -101,7 +101,7 @@ export function ReceitaReconhecimentoView() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-label font-medium text-muted inline-flex items-center gap-1">Waterfall de receita recorrente (MRR)<InfoHint align="left" titulo="Waterfall de MRR" oQue="Mostra como o MRR evoluiu mês a mês conforme novos contratos entram." comoCalcula="Cada barra é o MRR ao fim do mês, somando os contratos ativos iniciados até aquele mês." /></span>
               {report.resumo.churnMrr > 0 && (
-                <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-negative"><BRL value={report.resumo.churnMrr} /></span></span>
+                <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-ink"><BRL value={report.resumo.churnMrr} /></span></span>
               )}
             </div>
             <div className="flex items-end gap-3 h-[160px] pt-2" role="img" aria-label="Evolução do MRR nos últimos meses">

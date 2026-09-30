@@ -250,7 +250,10 @@ export function ImportacaoView({ tipoInicial = "receber" }: { tipoInicial?: Tipo
         <>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Numero label="Linhas lidas" valor={String(linhas.length)} />
-            <Numero label="Prontas para importar" valor={String(validas.length)} tom={validas.length ? "positivo" : undefined} />
+            {/* A contagem de prontas é neutra: número não tem cor por ser maior
+                que zero (decisão de 30/09/2026). "Com erro" segue vermelho
+                porque ali a cor é o aviso de erro de validação. */}
+            <Numero label="Prontas para importar" valor={String(validas.length)} />
             <Numero label="Com erro" valor={String(invalidas.length)} tom={invalidas.length ? "negativo" : undefined} />
           </div>
 
@@ -324,8 +327,8 @@ function Campo({ label, ajuda, children }: { label: string; ajuda?: string; chil
   );
 }
 
-function Numero({ label, valor, tom }: { label: string; valor: string; tom?: "positivo" | "negativo" }) {
-  const cor = tom === "positivo" ? "text-positive" : tom === "negativo" ? "text-negative" : "text-ink";
+function Numero({ label, valor, tom }: { label: string; valor: string; tom?: "negativo" }) {
+  const cor = tom === "negativo" ? "text-negative" : "text-ink";
   return (
     <Card>
       <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{label}</span>

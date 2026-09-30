@@ -186,7 +186,9 @@ export function MovementsTable({
               <span className="hidden sm:block w-[110px] text-[16px] text-ink tabular-nums">{fmtDate(dateShown)}</span>
               <span className="hidden sm:block w-[120px]"><StatusBadge tone={status.tone}>{status.label}</StatusBadge></span>
               <span className="w-[100px] sm:w-[140px] flex justify-end shrink-0">
-                <Money integer={parts.integer} decimals={parts.decimals} size="sm" color={isOut ? "var(--color-negative)" : "var(--color-ink)"} />
+                {/* Número não tem cor por sinal (decisão de 30/09/2026): a saída
+                    leva o "−" escrito antes da moeda, em ink como a entrada. */}
+                <Money integer={parts.integer} decimals={parts.decimals} size="sm" currency={isOut ? "−R$" : "R$"} />
               </span>
               {editable && (
                 <span className="w-auto sm:w-[150px] flex justify-end gap-1 shrink-0">

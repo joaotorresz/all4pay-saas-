@@ -138,8 +138,10 @@ export function FluxoCaixaMensalView() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Kpi label="Saldo inicial" valor={fluxo?.saldoInicial ?? 0} />
-          <Kpi label="Entradas" valor={fluxo?.entradas ?? 0} cor="var(--color-positive)" />
-          <Kpi label="Saídas" valor={fluxo?.saidas ?? 0} cor="var(--color-negative)" />
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): aqui é o
+              RÓTULO que diz a direção; nas linhas abaixo, o "+"/"−" escrito. */}
+          <Kpi label="Entradas" valor={fluxo?.entradas ?? 0} />
+          <Kpi label="Saídas" valor={fluxo?.saidas ?? 0} />
           <Kpi label="Transferência entrada" valor={fluxo?.transferenciaEntrada ?? 0} />
           <Kpi label="Transferência saída" valor={fluxo?.transferenciaSaida ?? 0} />
           <Kpi label="Saldo final" valor={fluxo?.saldoFinal ?? 0} forte />
@@ -175,7 +177,7 @@ export function FluxoCaixaMensalView() {
                   <tr key={k} className="border-b border-border-soft last:border-0">
                     <td className="px-6 py-2 text-label text-ink tabular-nums">{fmtDia(l.data)}</td>
                     <td className="px-6 py-2 text-label text-muted">{l.descricao}</td>
-                    <td className={`px-6 py-2 text-right text-label tabular-nums ${l.tipo === "entrada" ? "text-positive" : "text-negative"}`}>
+                    <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
                       {l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} />
                     </td>
                     <td className="px-6 py-2 text-right text-label text-ink tabular-nums"><BRL value={l.saldo} /></td>
@@ -248,8 +250,8 @@ export function ExtratoView() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <Kpi label="Saldo de abertura" valor={ext?.abertura ?? 0} />
-            <Kpi label="Entradas" valor={ext?.entradas ?? 0} cor="var(--color-positive)" />
-            <Kpi label="Saídas" valor={ext?.saidas ?? 0} cor="var(--color-negative)" />
+            <Kpi label="Entradas" valor={ext?.entradas ?? 0} />
+            <Kpi label="Saídas" valor={ext?.saidas ?? 0} />
             <Kpi label="Saldo de fechamento" valor={ext?.fechamento ?? 0} forte />
           </div>
 
@@ -272,7 +274,7 @@ export function ExtratoView() {
                         <td className="px-6 py-2 text-label text-ink tabular-nums">{fmtDia(l.data)}</td>
                         <td className="px-6 py-2 text-label text-muted truncate max-w-[34ch]">{l.descricao}</td>
                         <td className="px-6 py-2 text-label text-muted">{l.categoria ?? "—"}</td>
-                        <td className={`px-6 py-2 text-right text-label tabular-nums ${l.tipo === "entrada" ? "text-positive" : "text-negative"}`}>
+                        <td className="px-6 py-2 text-right text-label text-ink tabular-nums">
                           {l.tipo === "entrada" ? "+" : "−"}<BRL value={l.valor} />
                         </td>
                         <td className="px-6 py-2 text-right text-label text-ink tabular-nums"><BRL value={l.saldo} /></td>

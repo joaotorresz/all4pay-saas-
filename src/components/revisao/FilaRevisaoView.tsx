@@ -103,8 +103,9 @@ function ItemFila({
             <span className="text-caption text-muted">{a.explicacao}</span>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className="text-h3 font-medium tabular-nums"
-                  style={{ color: a.tipo === "entrada" ? "var(--color-positive)" : "var(--color-ink)" }}>
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal
+                escrito diz a direção. */}
+            <span className="text-h3 font-medium tabular-nums text-ink">
               {a.tipo === "entrada" ? "+" : "−"}<BRL value={Math.abs(a.valor)} />
             </span>
             <span className="text-caption text-faint tabular-nums">{dataBR(a.data)}</span>

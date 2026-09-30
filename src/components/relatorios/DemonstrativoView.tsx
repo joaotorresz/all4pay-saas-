@@ -386,11 +386,12 @@ function GraficoResultado({
             <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={[4, 4, 0, 0]} {...chartAnim()}>
               {dados.map((_, k) => <Cell key={k} fill={`color-mix(in srgb, ${t.base} 55%, transparent)`} />)}
             </Bar>
-            {/* Resultado negativo é informação, não erro: a linha muda de cor
-                pelo sinal do último ponto para a leitura ser imediata. */}
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): a linha
+                não troca de cor quando o último ponto fica negativo — o eixo e o
+                valor no tooltip, com o sinal escrito, dizem a direção. */}
             <Line
               type="monotone" dataKey="resultado" name={tipo === "dre" ? "Resultado líquido" : "Saldo final"}
-              stroke={(dados.at(-1)?.resultado ?? 0) < 0 ? "var(--color-negative)" : "var(--color-lime)"}
+              stroke="var(--color-lime)"
               strokeWidth={1.6} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)}
             />
           </ComposedChart>
@@ -444,35 +445,23 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
   }, [input, intervalo]);
 
   /**
-   * A cor do prejuízo.
-   *
-   * ⚠️ **Todo cartão de valor recebe `tomDe`**, não só alguns. Receita líquida e
-   * Margem EBITDA ficavam de fora: uma margem de −285% saía em tinta neutra, do
-   * mesmo tom de uma margem saudável, e quem passa o olho lê "está tudo bem".
-   * O sinal sozinho não resolve — o `−` tem dois caracteres de largura numa
-   * tela que a pessoa varre em um segundo.
-   *
-   * ⚠️ O positivo NÃO fica verde por padrão (`bom = false`): pintar todo número
-   * positivo de verde gasta a cor e faz o vermelho perder força justamente onde
-   * ele precisa ter. Verde só onde "positivo" é a notícia — o lucro.
+   * ⚠️ Número não tem cor por sinal (decisão de 30/09/2026): o prejuízo, a
+   * margem negativa e o caixa negativo saem na mesma tinta dos outros cartões,
+   * e o sinal escrito (no valor e no percentual) diz a direção. Antes cada
+   * cartão recebia a "cor do prejuízo" e o lucro ficava verde.
    */
-  const tomDe = (i: { valor: number; indisponivel?: unknown }, bom = false) =>
-    i.indisponivel ? undefined
-      : i.valor < 0 ? "var(--color-negative)"
-      : bom ? "var(--color-positive)" : undefined;
-
   const cartoes: {
-    label: string; indicador: typeof m.ebitda; formato: FormatoValor; tom?: string;
+    label: string; indicador: typeof m.ebitda; formato: FormatoValor;
   }[] = [
-    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda", tom: tomDe(m.receitaLiquida) },
-    { label: "EBITDA", indicador: m.ebitda, formato: "moeda", tom: tomDe(m.ebitda) },
+    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda" },
+    { label: "EBITDA", indicador: m.ebitda, formato: "moeda" },
     // ⚠️ A margem é o cartão mais perigoso da tela: "0%" lê como "vendeu e não
     // sobrou nada" quando a verdade pode ser "não vendeu", e as duas leituras
     // mandam cortar custo × vender. O indicador declara a ausência de base.
-    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual", tom: tomDe(m.margem) },
-    { label: "Lucro líquido", indicador: m.lucro, formato: "moeda", tom: tomDe(m.lucro, true) },
+    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual" },
+    { label: "Lucro líquido", indicador: m.lucro, formato: "moeda" },
     { label: "Runway", indicador: m.runway, formato: "meses" },
-    { label: "Caixa", indicador: m.caixa, formato: "moeda", tom: tomDe(m.caixa) },
+    { label: "Caixa", indicador: m.caixa, formato: "moeda" },
   ];
 
   return (
@@ -482,7 +471,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
           <span className="text-caption text-faint">{c.label}</span>
           {/* A origem a um clique: fórmula, período, regime e os lançamentos
               que compõem o número — no próprio número. */}
-          <span className="text-[20px] font-semibold tabular-nums" style={{ color: c.tom ?? "var(--color-ink)" }}>
+          <span className="text-[20px] font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}>
             <ValorIndicador indicador={c.indicador} titulo={c.label} formato={c.formato} />
           </span>
         </Card>

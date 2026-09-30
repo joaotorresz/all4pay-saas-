@@ -88,11 +88,13 @@ export function HeadcountView() {
                 </div>
               </div>
 
+              {/* Número não tem cor por sinal (decisão de 30/09/2026): o "antes → depois"
+                  e o sinal escrito dizem a direção. */}
               <div className="grid grid-cols-2 gap-3">
                 <Kpi label="Custo do plano / mês" v={<BRL value={resultado.custoMensalPlano} />} />
                 <Kpi label="Custo no 1º ano" v={<BRL value={resultado.custoAnualPlano} />} />
-                <Kpi label="Runway" v={<>{resultado.antes.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} → <b className={resultado.depois.runwayMeses < resultado.antes.runwayMeses ? "text-warning" : "text-positive"}>{resultado.depois.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</b> meses</>} />
-                <Kpi label="Score de saúde" v={<>{resultado.antes.score} → <b className={resultado.depois.scoreProjetado < resultado.antes.score ? "text-warning" : "text-positive"}>{resultado.depois.scoreProjetado}</b>/100</>} />
+                <Kpi label="Runway" v={<>{resultado.antes.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} → <b>{resultado.depois.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</b> meses</>} />
+                <Kpi label="Score de saúde" v={<>{resultado.antes.score} → <b>{resultado.depois.scoreProjetado}</b>/100</>} />
               </div>
 
               <p className="m-0 text-caption leading-snug text-muted">{resultado.depois.texto}</p>
@@ -105,14 +107,19 @@ export function HeadcountView() {
               <div className="flex flex-col gap-1">
                 <span className="text-caption font-medium text-faint">Caixa projetado · 12 meses</span>
                 <div className="grid grid-cols-6 gap-[6px]">
-                  {resultado.serie.map((m) => (
-                    <div key={m.mes} className="rounded-sm px-2 py-[6px] text-center bg-surface-2">
-                      <div className="text-[11px] text-faint">M{m.mes}</div>
-                      <div className={`text-[12px] font-medium tabular-nums ${m.caixa < 0 ? "text-negative" : "text-ink"}`}>
-                        {Math.round(m.caixa / 1000).toLocaleString("pt-BR")}k
+                  {resultado.serie.map((m) => {
+                    // O vermelho saiu (30/09/2026): o negativo tem de vir ESCRITO, e com o
+                    // menos tipográfico — o hífen do toLocaleString some ao lado do "k".
+                    const mil = Math.round(m.caixa / 1000);
+                    return (
+                      <div key={m.mes} className="rounded-sm px-2 py-[6px] text-center bg-surface-2">
+                        <div className="text-[11px] text-faint">M{m.mes}</div>
+                        <div className="text-[12px] font-medium tabular-nums text-ink">
+                          {mil < 0 ? "−" : ""}{Math.abs(mil).toLocaleString("pt-BR")}k
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </Card>

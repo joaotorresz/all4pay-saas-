@@ -73,10 +73,11 @@ export function ContasView() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
         <Card className="flex flex-col gap-3 lg:col-span-1" info={{ titulo: "Exposição", oQue: "Compara o que a empresa tem a receber com o que tem a pagar.", comoCalcula: "A receber menos a pagar resulta na exposição líquida (positiva ou negativa)." }}>
           <span className="text-label font-medium text-muted">Exposição</span>
-          <Linha k="A receber" v={<BRL value={t.exposicao.aReceber} />} cor="var(--color-positive)" />
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+          <Linha k="A receber" v={<BRL value={t.exposicao.aReceber} />} cor="var(--color-ink)" />
           <Linha k="A pagar" v={<BRL value={t.exposicao.aPagar} />} cor="var(--color-ink)" />
           <div className="border-t border-border-soft pt-2">
-            <Linha k="Líquida" v={<span>{t.exposicao.liquida < 0 ? "−" : ""}<BRL value={Math.abs(t.exposicao.liquida)} /></span>} cor={t.exposicao.liquida < 0 ? "var(--color-negative)" : "var(--color-positive)"} forte />
+            <Linha k="Líquida" v={<span>{t.exposicao.liquida < 0 ? "−" : ""}<BRL value={Math.abs(t.exposicao.liquida)} /></span>} cor="var(--color-ink)" forte />
           </div>
         </Card>
 
@@ -152,7 +153,7 @@ export function ContasView() {
             {t.cashPositioning.map((w) => (
               <div key={w.semana} className="flex flex-col gap-[2px] rounded-md border border-border-soft p-2">
                 <span className="text-caption text-faint">{w.semana} · {w.periodo}</span>
-                <span className="text-caption text-positive tabular-nums">+<BRL value={w.entradas} /></span>
+                <span className="text-caption text-muted tabular-nums">+<BRL value={w.entradas} /></span>
                 <span className="text-caption text-muted tabular-nums">−<BRL value={w.saidas} /></span>
                 <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: "var(--color-ink)" }}>
                   {w.acumulado < 0 ? "−" : ""}<BRL value={Math.abs(w.acumulado)} />

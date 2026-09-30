@@ -118,7 +118,9 @@ function MatchRow({ m, done, border }: { m: MatchResult; done?: boolean; border:
           </span>
         )}
         <div className="w-[120px] flex justify-end">
-          <Money integer={v.integer} decimals={v.decimals} size="sm" color={m.transacao.tipo === "saida" ? "var(--color-negative)" : "var(--color-ink)"} />
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): a saída
+              leva o "−" escrito antes da moeda, como no <BRL>. */}
+          <Money currency={m.transacao.tipo === "saida" ? "−R$" : "R$"} integer={v.integer} decimals={v.decimals} size="sm" color="var(--color-ink)" />
         </div>
       </div>
       {/* breakdown probabilístico */}

@@ -125,7 +125,8 @@ function StepCard({
       <div className="rounded-md border border-border-soft p-3 flex flex-col gap-1">
         <div className="flex items-center justify-between gap-3">
           <span className="text-[15px] text-ink truncate">{m.description || "Sem descrição"}</span>
-          <span className="text-body tabular-nums shrink-0" style={{ color: m.type === "entrada" ? "var(--color-positive)" : "var(--color-negative)" }}>
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+          <span className="text-body tabular-nums shrink-0 text-ink">
             {m.type === "entrada" ? "+" : "−"}<BRL value={m.amount} />
           </span>
         </div>

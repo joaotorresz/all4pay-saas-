@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BRL, Card, Skeleton, Icon, InfoHint } from "@/components/ui";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRLCompact } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
 import type { Nivel, PilarResult, LiquidezPonto, StressCenario, Alerta } from "@/core/risk-engine/types";
@@ -305,7 +305,9 @@ function StressCard({ s }: { s: StressCenario }) {
       <span className="text-[17px] font-medium text-ink">{s.label}</span>
       <span className="text-caption text-faint">{s.descricao}</span>
       <div className="flex items-center gap-4 pt-1 tabular-nums">
-        <span className="text-label" style={{ color: s.impactoSaldo < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
+        {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal
+            escrito diz a direção. */}
+        <span className="text-label text-ink">
           {s.impactoSaldo < 0 ? "−" : "+"}<BRL value={Math.abs(s.impactoSaldo)} />
         </span>
         <span className="text-caption text-muted">

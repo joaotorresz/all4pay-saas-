@@ -56,7 +56,9 @@ export function InventarioRotasView() {
       <Card className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-x-10 gap-y-3">
           <Numero label="Rotas declaradas" v={INVENTARIO.length} />
-          <Numero label="Canônicas" v={CANONICAS.length} tom="var(--color-positive)" />
+          {/* Número verde não existe mais (30/09/2026): a contagem fica neutra; o
+              selo de cada rota abaixo é que carrega o status. */}
+          <Numero label="Canônicas" v={CANONICAS.length} />
           <Numero label="Em aposentadoria" v={APOSENTANDO.length} tom="var(--color-warning)" />
           <Numero label="Endereços antigos com desvio" v={TODOS_OS_DESVIOS.length} />
         </div>

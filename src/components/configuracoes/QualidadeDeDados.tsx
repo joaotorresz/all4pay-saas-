@@ -169,10 +169,11 @@ export function QualidadeDeDados() {
         </div>
         <div className="flex items-center gap-4 shrink-0">
           <div className="flex flex-col items-end">
-            <span
-              className="text-h2 tabular-nums"
-              style={{ color: r.criticos ? COR.critico : "var(--color-positive)" }}
-            >
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): vermelho
+                quando > 0 e verde no zero era cor decidida pela comparação com
+                zero. A gravidade continua dita pelo rótulo e pelo selo de cada
+                achado logo abaixo. */}
+            <span className="text-h2 tabular-nums text-ink">
               {r.criticos}
             </span>
             <span className="text-caption text-faint">críticos</span>

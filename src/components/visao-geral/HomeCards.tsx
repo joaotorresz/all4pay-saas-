@@ -102,13 +102,15 @@ export function TransacoesRecentesCard() {
                 key={m.id} type="button" onClick={abrir} disabled={!pid}
                 className={`flex items-center gap-3 py-[10px] border-t border-border-soft first:border-t-0 text-left w-full ${pid ? "hover:bg-surface-1 transition-colors cursor-pointer" : "cursor-default"}`}
               >
-                {/* seta: entrou (↙ verde) × saiu (↗ vermelho) — o sinal do extrato */}
+                {/* seta: entrou (↑, fundo ink) × saiu (↓, fundo areia). Sem verde ×
+                    vermelho (decisão de 30/09/2026): a seta e o sinal escrito dizem
+                    a direção; o glifo fica em ink nos dois lados para ter contraste. */}
                 <span
                   className="w-[30px] h-[30px] rounded-pill inline-flex items-center justify-center shrink-0"
-                  style={{ background: `color-mix(in srgb, ${entrada ? "var(--color-positive)" : "var(--color-negative)"} 14%, transparent)` }}
+                  style={{ background: `color-mix(in srgb, ${entrada ? "var(--color-ink)" : "var(--color-areia)"} 14%, transparent)` }}
                   aria-hidden
                 >
-                  <Icon name={entrada ? "arrow-up" : "arrow-down"} size={14} color={entrada ? "var(--color-positive)" : "var(--color-negative)"} />
+                  <Icon name={entrada ? "arrow-up" : "arrow-down"} size={14} color="var(--color-ink)" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-[15px] text-ink truncate inline-flex items-center gap-1">
