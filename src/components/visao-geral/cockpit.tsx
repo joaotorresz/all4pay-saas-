@@ -56,12 +56,15 @@ export function useCockpitCtx(): CockpitCtx {
   };
 }
 
-import { valorOuNulo, type Indicador } from "@/core/indicadores";
+import { valorOuNulo, dataDe, type Indicador } from "@/core/indicadores";
 
 const POS = "var(--color-positive)";
 const NEG = "var(--color-negative)";
 const WARN = "var(--color-warning)";
-const realizado = (m: RiskMovement): string | null => m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+// ⚠️ A data de CAIXA canônica: só o liquidado tem data, e cancelado nunca.
+// A versão local (`paid_date ?? …`) contava pendente e cancelado com data de
+// pagamento preenchida no "Entram/Saem" de hoje.
+const realizado = (m: RiskMovement): string | null => dataDe(m, "caixa");
 
 /* ----------------------------- MetricCard ----------------------------- */
 

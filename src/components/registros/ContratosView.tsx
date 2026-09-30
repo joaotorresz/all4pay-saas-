@@ -483,7 +483,7 @@ function BlocoVendas({
               <span className="text-label font-medium text-ink">Vendas a criar</span>
               <span className="text-caption text-faint tabular-nums">
                 {previstas.length} {previstas.length === 1 ? "venda" : "vendas"} ·{" "}
-                {previstas.reduce((s, v) => s + v.valor, formatBRL(0))}
+                <BRL value={previstas.reduce((s, v) => s + v.valor, 0)} />
               </span>
             </div>
             {previstas.length === 0 ? (
