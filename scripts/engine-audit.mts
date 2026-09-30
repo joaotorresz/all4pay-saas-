@@ -6857,6 +6857,32 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /drop trigger lancamento_categoria_folha/.test(sqlG) && /VERMELHO PELO MOTIVO ERRADO/.test(sqlG)
      && /scripts\/cadastros-hierarquia\.sql/.test(lerC(".github/workflows/ci.yml")));
   ok("CAD: registros core exporta o contrato que as telas usam", typeof R.validarContaBancaria === "function");
+
+  /* ---- a "primeira conta" dos escritores automáticos é só entre as ATIVAS ----
+     O banco agora recusa lançamento novo em conta inativa; um `limit(1)` cru
+     sobre `financial_accounts` que caísse numa conta desativada derrubaria a
+     importação inteira. TETO ZERO fora de `lib/conta-padrao`. */
+  const pegaPrimeiraCrua = (t: string) =>
+    /from\(\s*["']financial_accounts["']\s*\)\s*\.select\(\s*["']id["']\s*\)(?:\s*\.eq\(\s*["']org_id["'][^)]*\))?\s*\.limit\(\s*1\s*\)/.test(semComentarios(t));
+  const arquivosSrc: string[] = [];
+  const andar = (dir: string) => {
+    for (const e of fsC.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) andar(p);
+      else if (/\.(ts|tsx)$/.test(e.name)) arquivosSrc.push(p);
+    }
+  };
+  andar("src");
+  const cruas = arquivosSrc.filter((p) => p !== "src/lib/conta-padrao.ts" && pegaPrimeiraCrua(lerC(p)));
+  ok("CAD: nenhum escritor escolhe a 'primeira conta' sem o filtro de ATIVA (teto zero)",
+     cruas.length === 0, cruas.join(", "));
+  ok("CAD: a varredura da 'primeira conta' pega o defeito plantado (teste negativo)",
+     pegaPrimeiraCrua('const { data } = await supabase.from("financial_accounts").select("id").limit(1);')
+     && pegaPrimeiraCrua('await admin.from("financial_accounts").select("id").eq("org_id", orgId).limit(1)')
+     && !pegaPrimeiraCrua('await supabase.from("financial_accounts").select("id").eq("ativo", true).limit(1)'));
+  const padrao = lerC("src/lib/conta-padrao.ts");
+  ok("CAD: a conta padrão filtra ATIVA e tem a queda declarada para a coluna ausente",
+     /\.eq\(\s*"ativo",\s*true\s*\)/.test(padrao) && /COLUNA_AUSENTE/.test(padrao) && !/^\s*["']use client["']/m.test(padrao));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

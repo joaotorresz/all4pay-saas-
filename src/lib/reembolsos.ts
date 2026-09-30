@@ -7,6 +7,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { appendImported } from "@/lib/imported";
 import { criarSolicitacao, listSolicitacoes, hydrateAprovacoes, autorizarMovimento } from "@/lib/aprovacoes";
 import type { Movement, Party } from "@/lib/types";
@@ -177,8 +178,7 @@ async function gerarPagamento(r: Reembolso): Promise<{ id: string; valor: number
     return out;
   }
   const supabase = createClient();
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  const accId = (accs as { id: string }[] | null)?.[0]?.id;
+  const accId = await primeiraContaAtiva(supabase);
   if (!accId) return out;
   const rows = r.itens.map((it) => ({
     // ⚠️ ONDA 5: o reembolso é lançado por uma pessoa, não importado.

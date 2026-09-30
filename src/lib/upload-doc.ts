@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported } from "@/lib/imported";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import type { Movement, Party } from "@/lib/types";
 
 import { formatBRL } from "@/lib/format";
@@ -291,8 +292,7 @@ export async function confirmarDocumento(input: ConfirmacaoInput): Promise<Resul
 
   // Caso geral: cria o lançamento (precisa de uma conta).
   let accId: string | undefined;
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  accId = (accs as { id: string }[] | null)?.[0]?.id;
+  accId = (await primeiraContaAtiva(supabase)) ?? undefined;
   if (!accId) {
     const { data: created } = await supabase
       .from("financial_accounts")

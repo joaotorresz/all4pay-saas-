@@ -68,9 +68,16 @@ export async function aplicarEstrutura(estrutura: Estrutura): Promise<ResultadoE
   if (contas.length) {
     const { data } = await s.from("financial_accounts").select("name").limit(TETO_LINHAS);
     const have = new Set((data ?? []).map((r) => norm((r as { name: string }).name)));
+    // ⚠️ O nome da conta é ÚNICO por empresa no banco (20260930180000): dois
+    // "Itaú · Corrente" no mesmo lote fariam o insert inteiro ser recusado, e
+    // nenhuma conta nasceria. Por isso o lote também se deduplica por dentro.
     const rows = contas
       .map((c) => ({ name: `${c.banco} · ${c.tipo}`.trim(), bank: bankSlug(c.banco), balance: 0 }))
-      .filter((r) => !have.has(norm(r.name)));
+      .filter((r) => {
+        if (have.has(norm(r.name))) return false;
+        have.add(norm(r.name));
+        return true;
+      });
     if (rows.length) {
       const { error } = await s.from("financial_accounts").insert(rows);
       if (!error) out.contas = rows.length;

@@ -155,7 +155,9 @@ function Arvore({ cats, carregando, carregado }: { cats: CategoriaCadastro[]; ca
       let n = 0;
       for (const id of ordem) n += await contarLancamentosDaCategoria(id);
       if (n > 0) {
-        show(`"${c.nome}" ${ordem.length > 1 ? "e as subcategorias têm" : "tem"} ${n} lançamento(s) e não pode ir para a lixeira. Desative para tirá-la das escolhas sem perder o histórico.`);
+        show(ordem.length > 1
+          ? `"${c.nome}" e as subcategorias têm ${n} lançamento(s) e não podem ir para a lixeira. Desative para tirá-las das escolhas sem perder o histórico.`
+          : `"${c.nome}" tem ${n} lançamento(s) e não pode ir para a lixeira. Desative para tirá-la das escolhas sem perder o histórico.`);
         return;
       }
       const filhas = ordem.length - 1;

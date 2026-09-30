@@ -8,6 +8,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
@@ -166,8 +167,7 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
 
   if (isDemo) { appendImported({ movement: receita }); ids.push(receita.id); return ids; }
   const supabase = createClient();
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  const accId = (accs as { id: string }[] | null)?.[0]?.id;
+  const accId = await primeiraContaAtiva(supabase);
   if (!accId) return ids;
   const { data } = await supabase.from("movements").insert({
     // ⚠️ ONDA 5: o título nasce da NOTA, e a origem diz isso.

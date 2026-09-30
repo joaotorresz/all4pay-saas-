@@ -10,6 +10,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import { datasFaturaCron, cicloParaFreq, refFatura } from "@/lib/recorrencias-sched";
 import { mrr as mrrCanonico } from "@/core/indicadores";
@@ -191,8 +192,7 @@ export async function ativarRecorrencia(id: string): Promise<void> {
 
   const supabase = createClient();
   await supabase.from("recurrences").update({ active: true }).eq("id", r.id);
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  const accId = (accs as { id: string }[] | null)?.[0]?.id;
+  const accId = await primeiraContaAtiva(supabase);
   if (accId) {
     // Faturas nas MESMAS datas do Cron; idempotência GARANTIDA pelo índice único
     // parcial (insere; ignora 23505). Race-safe entre ativar e o Cron.

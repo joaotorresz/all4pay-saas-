@@ -9,6 +9,7 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/ingestao";
 import { mesclarImportacao, clearImported } from "@/lib/imported";
 import { CATEGORIA_TRANSFERENCIA } from "@/core/indicadores/convencoes";
@@ -240,8 +241,7 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
 
   // 3) Movimentos (precisa de uma conta) — é o que correlaciona com dashboard/DRE
   let accId: string | undefined;
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  accId = (accs as { id: string }[] | null)?.[0]?.id;
+  accId = (await primeiraContaAtiva(supabase)) ?? undefined;
   if (!accId) {
     const { data: created } = await supabase
       .from("financial_accounts")
