@@ -56,12 +56,15 @@ export function useCockpitCtx(): CockpitCtx {
   };
 }
 
-import { valorOuNulo, type Indicador } from "@/core/indicadores";
+import { valorOuNulo, dataDe, type Indicador } from "@/core/indicadores";
 
 const POS = "var(--color-positive)";
 const NEG = "var(--color-negative)";
 const WARN = "var(--color-warning)";
-const realizado = (m: RiskMovement): string | null => m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+// ⚠️ A data de CAIXA canônica: só o liquidado tem data, e cancelado nunca.
+// A versão local (`paid_date ?? …`) contava pendente e cancelado com data de
+// pagamento preenchida no "Entram/Saem" de hoje.
+const realizado = (m: RiskMovement): string | null => dataDe(m, "caixa");
 
 /* ----------------------------- MetricCard ----------------------------- */
 
@@ -304,7 +307,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "carteira_score", label: "Saúde da carteira", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="gauge" label="Saúde da carteira" tone={scoreTone(c.inad.resumo.scoreCarteira)}
+      <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="gauge" label="Saúde da carteira" tone={scoreTone(c.inad.resumo.scoreCarteira)}
         value={`${c.inad.resumo.scoreCarteira}/100`}
         answer={`${c.inad.resumo.clientesCriticos} cliente(s) crítico(s); inadimplência esperada de ${formatBRL(c.inad.resumo.inadimplenciaEsperada)}.`}
         info={{ titulo: "Saúde da carteira", oQue: "Avalia o risco de crédito do conjunto de clientes que devem à empresa.", comoCalcula: "Score ponderado pelo comportamento de pagamento de cada cliente da carteira." }} />
@@ -313,7 +316,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "exposicao_vencida", label: "Exposição vencida", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Exposição vencida" tone={c.inad.resumo.exposicaoVencida > 0 ? NEG : POS}
+      <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Exposição vencida" tone={c.inad.resumo.exposicaoVencida > 0 ? NEG : POS}
         value={<BRL value={c.inad.resumo.exposicaoVencida} />}
         answer="Total a receber já vencido — priorize a cobrança."
         info={{ titulo: "Exposição vencida", oQue: "Quanto dinheiro a receber já está vencido e aguardando cobrança.", comoCalcula: "Soma dos recebíveis com vencimento no passado ainda não pagos." }} />
@@ -476,10 +479,10 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "exposicao-total", label: "Exposição total em aberto", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="credit-card" label="Exposição total em aberto"
+      <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="credit-card" label="Exposição total em aberto"
         value={<BRL value={c.inad.resumo.exposicaoTotal} />}
         answer={`Total a receber de clientes; ${formatBRL(c.inad.resumo.exposicaoVencida)} já vencido.`}
-        info={{ titulo: "Exposição total em aberto", oQue: "Quanto a empresa tem a receber de clientes, vencido ou a vencer.", comoCalcula: "Soma de todos os recebíveis em aberto na carteira de clientes." }} />
+        info={{ titulo: "Exposição total em aberto", oQue: "Quanto a empresa tem a receber de clientes, vencido ou a vencer.", comoCalcula: "Soma de tudo o que os clientes ainda têm a pagar, vencido ou a vencer." }} />
     ),
   },
   {
@@ -489,16 +492,19 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
         tone={c.inad.resumo.clientesCriticos > 0 ? WARN : POS}
         value={`${c.inad.resumo.totalClientes}`}
         answer={c.inad.resumo.clientesCriticos > 0 ? `${c.inad.resumo.clientesCriticos} em situação crítica de crédito.` : "Nenhum cliente em situação crítica de crédito."}
-        info={{ titulo: "Clientes na carteira", oQue: "Quantos clientes têm recebíveis em aberto e como está o risco deles.", comoCalcula: "Número de clientes com saldo a receber; destaca quantos estão classificados como crítico." }} />
+        info={{ titulo: "Clientes na carteira", oQue: "Quantos clientes têm valores a receber em aberto e como está o risco deles.", comoCalcula: "Número de clientes com saldo a receber; destaca quantos estão classificados como crítico." }} />
     ),
   },
   {
-    id: "receita-media-cliente", label: "Receita média por cliente", categoria: "Cobrança",
+    // ⚠️ O id fica o antigo de propósito: é ele que está gravado na Home de
+    // quem já ligou o widget. O NOME mudou porque o número é o que cada cliente
+    // DEVE em média, não o que ele gerou de receita.
+    id: "receita-media-cliente", label: "A receber médio por cliente", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard icon="credit-card" label="Receita média por cliente"
+      <MetricCard icon="credit-card" label="A receber médio por cliente"
         value={<BRL value={c.inad.resumo.totalClientes > 0 ? c.inad.resumo.exposicaoTotal / c.inad.resumo.totalClientes : 0} />}
         answer="Valor médio em aberto por cliente da carteira."
-        info={{ titulo: "Receita média por cliente", oQue: "Quanto, em média, cada cliente tem em aberto com a empresa.", comoCalcula: "Exposição total em aberto dividida pelo número de clientes na carteira." }} />
+        info={{ titulo: "A receber médio por cliente", oQue: "Quanto, em média, cada cliente tem em aberto com a empresa.", comoCalcula: "Exposição total em aberto dividida pelo número de clientes na carteira." }} />
     ),
   },
   /* ---- Radares ---- */
@@ -914,7 +920,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "perda-esperada-inad", label: "Perda esperada por inadimplência", categoria: "Cobrança",
     render: (c) => !c.inad ? <Loading /> : (
-      <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Perda esperada por inadimplência"
+      <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="triangle-alert" label="Perda esperada por inadimplência"
         tone={c.inad.resumo.inadimplenciaEsperada > 0 ? WARN : POS}
         value={<BRL value={c.inad.resumo.inadimplenciaEsperada} />}
         answer={c.inad.resumo.exposicaoTotal > 0
@@ -930,7 +936,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const n = c.inad.resumo.clientesCriticos + c.inad.resumo.clientesAlto;
       return (
-        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="target" label="Clientes de alto risco"
+        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="target" label="Clientes de alto risco"
           tone={n > 0 ? NEG : POS}
           value={`${n}`}
           answer={n > 0
@@ -966,7 +972,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const top = c.inad.clientes[0];
       if (!top) return (
-        <MetricCard href="/inadimplencia" hrefLabel="Ver ficha e risco" icon="triangle-alert" label="Cliente de maior risco" value="—"
+        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver ficha e risco" icon="triangle-alert" label="Cliente de maior risco" value="—"
           answer="Nenhum cliente com recebível em aberto na carteira."
           info={{ titulo: "Cliente de maior risco", oQue: "O cliente com o maior score de risco de crédito na carteira.", comoCalcula: "Ordena os clientes pelo score de risco e destaca o de maior risco." }} />
       );
@@ -1003,7 +1009,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const vencidos = c.inad.clientes.filter((cl) => cl.features.volumeVencido > 0);
       if (!vencidos.length) return (
-        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="repeat" label="Chance de recuperação" tone={POS} value="—"
+        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="repeat" label="Chance de recuperação" tone={POS} value="—"
           answer="Sem valores vencidos para recuperar."
           info={{ titulo: "Chance de recuperação", oQue: "A probabilidade média de recuperar os valores já vencidos.", comoCalcula: "Média da chance de recuperação estimada para os clientes com valores vencidos, ponderada pelo motor de recovery." }} />
       );
@@ -1097,7 +1103,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.risco) return <Loading />;
       const inad = c.risco.inadimplencia;
       return (
-        <MetricCard href="/inadimplencia" hrefLabel="Ver inadimplência" icon="users" label="Clientes em atraso"
+        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="users" label="Clientes em atraso"
           tone={inad.clientesEmAtraso > 0 ? WARN : POS}
           value={`${inad.clientesEmAtraso}`}
           answer={inad.clientesEmAtraso > 0
@@ -1177,10 +1183,10 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const mrr = ind.receitaRecorrente * ind.receitaMensal;
       const mom = ind.crescimentoMensal;
       return (
-        <MetricCard href="/investidores" hrefLabel="Abrir Investor update" icon="mail" label="Investor snapshot"
+        <MetricCard href="/investidores" hrefLabel="Abrir relatório ao investidor" icon="mail" label="Investor snapshot"
           value={<BRL value={mrr} />}
-          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O update mensal pronto está em Inteligência → Investor update.`}
-          info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Investor update." }} />
+          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O relatório mensal pronto está em Relatórios → Relatório ao investidor.`}
+          info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Relatório ao investidor." }} />
       );
     },
   },
@@ -1360,7 +1366,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const impostos = Math.max(0, g.receitaBruta - g.receitaLiquida);
       const carga = g.receitaBruta > 0 ? impostos / g.receitaBruta : 0;
       return (
-        <MetricCard href="/impostos" hrefLabel="Ver impostos" icon="receipt" label="Carga tributária"
+        <MetricCard href="/dashboard/sales-invoices/tax-provisioning" hrefLabel="Ver impostos" icon="receipt" label="Carga tributária"
           tone={carga > 0.2 ? NEG : carga > 0.1 ? WARN : POS}
           value={pctTxt(carga)}
           answer={`${formatBRL(impostos)} em impostos sobre a receita neste mês (${pctTxt(carga)} do faturamento).`}

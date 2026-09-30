@@ -8,6 +8,8 @@ import { usePeriod } from "./PeriodContext";
 import { EmptyState } from "./shared";
 import { calcularLiquidezProjetada } from "@/core/risk-engine/liquidez.engine";
 import type { RiskMovement } from "@/core/risk-engine/types";
+import { saldoEm } from "@/core/indicadores";
+import { formatBRL } from "@/lib/format";
 
 /** Iniciais das linhas (a grade é TRANSPOSTA: linha = dia da semana). */
 const WEEK_INITIALS = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -167,7 +169,7 @@ export function TransactionsCalendar() {
                       key={key}
                       onClick={() => setDiaSel(sel ? null : key)}
                       aria-label={`Dia ${dia}${risco ? " · possível saldo negativo" : ""}`}
-                      title={info ? `Dia ${dia} · líquido ${net < 0 ? "−" : "+"}${Math.abs(net).toFixed(2)}` : `Dia ${dia}`}
+                      title={info ? `Dia ${dia} · líquido ${net < 0 ? "−" : "+"}${formatBRL(Math.abs(net))}` : `Dia ${dia}`}
                       className={[
                         "flex items-center justify-center rounded-md h-[38px] transition-[filter,box-shadow] hover:brightness-95",
                         sel ? "ring-1 ring-ink" : risco ? "ring-1 ring-negative" : "",
@@ -220,7 +222,9 @@ export function TransactionsCalendar() {
           {diaSel && (() => {
             const ehFuturo = diaSel > hoje;
             // Futuro → saldo ESPERADO (projeção). Hoje/passado → saldo TOTAL
-            // realizado: saldo atual menos o net liquidado APÓS o dia (até hoje).
+            // realizado, pela função canônica de saldo — a mesma da Home, do
+            // extrato e do painel financeiro. Recalculá-lo aqui era uma segunda
+            // regra de data (`paid_date ?? due_date`) que só concordava por sorte.
             const proj = projecao.get(diaSel);
             let valor: number | undefined;
             let ruptura = false;
@@ -228,14 +232,8 @@ export function TransactionsCalendar() {
               valor = proj?.saldo;
               ruptura = !!proj?.ruptura;
             } else {
-              let netDepois = 0;
-              for (const m of data?.movements ?? []) {
-                if (m.status !== "pago") continue;
-                const pd = m.paid_date ?? m.due_date;
-                if (pd > diaSel && pd <= hoje) netDepois += m.type === "entrada" ? m.amount : -m.amount;
-              }
-              valor = (data?.saldoAtual ?? 0) - netDepois;
-              ruptura = valor < 0;
+              valor = data ? saldoEm(data, diaSel) : undefined;
+              ruptura = (valor ?? 0) < 0;
             }
             const rotulo = ehFuturo ? "Saldo esperado" : "Saldo total";
             return (
@@ -244,7 +242,7 @@ export function TransactionsCalendar() {
                   <span className="text-caption font-medium text-muted">{diaSel.split("-").reverse().join("/")}</span>
                   {valor != null && (
                     <span className="text-caption tabular-nums text-muted">
-                      {rotulo}: <span className="text-ink font-medium">{valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} /></span>
+                      {rotulo}: <span className="text-ink font-medium"><BRL value={valor} /></span>
                     </span>
                   )}
                 </div>

@@ -95,6 +95,16 @@ export function pctDeInteiro(pontos: number, casas = 1): string {
 }
 
 /**
+ * Número decimal pt-BR com casas FIXAS (padrão 1): `4,5`. Para grandezas que
+ * não são dinheiro nem percentual — meses de runway, múltiplos. Vírgula
+ * decimal, e o impossível vira "—" (nunca "NaN").
+ */
+export function decimalBR(valor: number, casas = 1): string {
+  if (!Number.isFinite(valor)) return "—";
+  return valor.toFixed(casas).replace(".", ",");
+}
+
+/**
  * Data em `dd/mm/aaaa`, **fatiada da string ISO**.
  *
  * ⚠️ Nunca via `new Date(iso).toLocaleDateString()`: `new Date("2026-08-01")` é

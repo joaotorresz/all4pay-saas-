@@ -27,7 +27,7 @@ import {
   type BenchmarkLinha,
 } from "@/core/quant/types";
 import { chartAnim } from "@/lib/chart-anim";
-import { pctDeInteiro } from "@/lib/format";
+import { pctDeInteiro, pct } from "@/lib/format";
 
 const COR: Record<ClassificacaoSaude, string> = {
   excelente: "var(--color-positive)",
@@ -41,7 +41,6 @@ const TEND: Record<string, { label: string; cor: string; icon: string }> = {
   estavel: { label: "Estável", cor: "var(--color-text-secondary)", icon: "arrow-left-right" },
   piorando: { label: "Piorando", cor: "var(--color-negative)", icon: "arrow-down-to-line" },
 };
-const pct = (n: number) => `${(n * 100).toFixed(n < 0.1 && n > 0 ? 1 : 0)}%`;
 
 export function QuantView() {
   const { data, isLoading, isError } = useQuantitativo();

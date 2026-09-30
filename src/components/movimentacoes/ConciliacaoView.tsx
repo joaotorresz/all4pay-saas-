@@ -23,8 +23,9 @@ import {
 } from "@/lib/movimentacoes";
 import { previstoDaConta } from "@/core/indicadores";
 import { ConciliacaoView as ConciliacaoOpenFinance } from "@/components/conciliacao/ConciliacaoView";
+import { hojeLocal } from "@/lib/aggregations";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 type Aba = "quadros" | "conferencia" | "open-finance" | "regras" | "fechamentos";
 const ABAS_VALIDAS: Aba[] = ["quadros", "conferencia", "open-finance", "regras", "fechamentos"];
 

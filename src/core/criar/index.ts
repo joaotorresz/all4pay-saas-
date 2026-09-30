@@ -46,16 +46,16 @@ export interface Acao {
  * pedido corriqueiro, e antes não tinha resposta.
  */
 export const ACOES_CADASTROS: Acao[] = [
-  { label: "Novo cliente", icon: "users", rota: "/cadastros?aba=clientes&novo=1", forma: "modal", modal: "cliente" },
-  { label: "Novo fornecedor", icon: "building", rota: "/cadastros?aba=fornecedores&novo=1", forma: "modal", modal: "fornecedor" },
-  { label: "Novo produto", icon: "b", rota: "/cadastros?aba=produtos&novo=1", forma: "modal", modal: "produto" },
+  { label: "Novo cliente", icon: "users", rota: "/dashboard/registrations/clients?novo=1", forma: "modal", modal: "cliente" },
+  { label: "Novo fornecedor", icon: "building", rota: "/dashboard/registrations/suppliers?novo=1", forma: "modal", modal: "fornecedor" },
+  { label: "Novo produto", icon: "b", rota: "/dashboard/registrations/products?novo=1", forma: "modal", modal: "produto" },
   { label: "Nova conta bancária", icon: "credit-card", rota: "/dashboard/registrations/bank-accounts?novo=1", forma: "pagina" },
   { label: "Nova categoria", icon: "database", rota: "/dashboard/registrations/chart-of-accounts?novo=1", forma: "pagina" },
   { label: "Novo projeto", icon: "target", rota: "/dashboard/registrations/projects?novo=1", forma: "pagina" },
   { label: "Novo centro de custo", icon: "network", rota: "/dashboard/registrations/cost-centers?novo=1", forma: "pagina" },
   { label: "Novo contrato", icon: "file-text", rota: "/dashboard/registrations/contracts?novo=1", forma: "modal", modal: "contrato" },
   { label: "Novo orçamento", icon: "target", rota: "/dashboard/registrations/budgets?novo=1", forma: "pagina" },
-  { label: "Novo dashboard", icon: "layers", rota: "/dashboard/dashboards/custom?novo=1", forma: "pagina" },
+  { label: "Novo painel", icon: "layers", rota: "/dashboard/dashboards/custom?novo=1", forma: "pagina" },
   // — lacunas que a auditoria apontou: existiam no produto e não aqui —
   { label: "Novo usuário", icon: "users", rota: "/dashboard/administration/users?novo=1", forma: "pagina" },
 ];
@@ -63,12 +63,14 @@ export const ACOES_CADASTROS: Acao[] = [
 export const ACOES_MOVIMENTACOES: Acao[] = [
   { label: "Nova conta a receber", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova conta a pagar", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?tab=transfers&novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?novo=1", forma: "modal", modal: "transferencia" },
   { label: "Nova venda", icon: "shopping-cart", rota: "/dashboard/sales-invoices/new", forma: "pagina" },
   { label: "Nova compra", icon: "inbox", rota: "/dashboard/purchases/new", forma: "pagina" },
   // — lacunas apontadas —
   { label: "Nova nota fiscal", icon: "receipt", rota: "/dashboard/sales-invoices/invoices?aba=nfse", forma: "pagina" },
-  { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/recebimentos?aba=recorrencias&novo=1", forma: "pagina" },
+  // A tela de assinaturas é só a LISTA; quem cria a regra recorrente é o mesmo
+  // formulário de contrato (grava em `recurrences`, que é o que a lista lê).
+  { label: "Nova assinatura / recorrência", icon: "repeat", rota: "/dashboard/sales-invoices/subscriptions", forma: "modal", modal: "contrato" },
   { label: "Novo link de pagamento", icon: "link", rota: "/dashboard/sales-invoices/payment-links?novo=1", forma: "pagina" },
 ];
 
@@ -91,6 +93,6 @@ export const ACOES_CADASTROS_PF: Acao[] = [
 export const ACOES_MOVIMENTACOES_PF: Acao[] = [
   { label: "Nova receita", icon: "arrow-left-right", rota: "/dashboard/financial/receivables/new", forma: "modal", modal: "receita" },
   { label: "Nova despesa", icon: "arrow-up-right", rota: "/dashboard/financial/payables/new", forma: "modal", modal: "despesa" },
-  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?tab=transfers&novo=1", forma: "modal", modal: "transferencia" },
+  { label: "Nova transferência", icon: "repeat", rota: "/dashboard/financial/accounts-and-transfers?novo=1", forma: "modal", modal: "transferencia" },
 ];
 

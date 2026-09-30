@@ -80,12 +80,13 @@ export function OndeMais({
  * MRR aparecia e podia parecer discordar. Sobraram duas, que respondem
  * perguntas de verdade diferentes: os CONTRATOS e as FATURAS que eles geram.
  */
+// ⚠️ A aba "Recorrências" do hub de Receber foi aposentada (mapa, item 7) e o
+// endereço dela já desvia para a lista canônica — apontar para ele aqui era
+// mandar a pessoa por um desvio até a MESMA tela. A lista não tem irmã.
 export const IRMAS_ASSINATURAS: Record<string, Irma[]> = {
-  lista: [
-    { rota: "/recebimentos?aba=recorrencias", nome: "Recorrências em Receber", responde: "as faturas que elas geram no caixa" },
-  ],
+  lista: [],
   recorrencias: [
-    { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas em Vendas", responde: "a lista dos contratos, um a um" },
+    { rota: "/dashboard/sales-invoices/subscriptions", nome: "Assinaturas e recorrência", responde: "os contratos, um a um, e as faturas que eles geram" },
   ],
 };
 
@@ -98,7 +99,7 @@ export const IRMAS_ASSINATURAS: Record<string, Irma[]> = {
  * do número diz qual dos dois caminhos foi usado.
  */
 export const NOTA_MRR =
-  "O MRR daqui sai dos contratos cadastrados. Quando não há contrato, o Investor Update estima a receita recorrente a partir dos lançamentos — por isso os dois números podem diferir muito enquanto o cadastro de assinaturas estiver incompleto. A conta é a mesma nos dois lugares; o que muda é de onde os dados saem.";
+  "O MRR daqui sai dos contratos cadastrados. Quando não há contrato, o Relatório ao investidor estima a receita recorrente a partir dos lançamentos — por isso os dois números podem diferir muito enquanto o cadastro de assinaturas estiver incompleto. A conta é a mesma nos dois lugares; o que muda é de onde os dados saem.";
 
 /** As duas casas da IA. */
 export const IRMAS_IA: Record<string, Irma[]> = {

@@ -94,7 +94,7 @@ export interface RotaInventario {
  */
 export const INVENTARIO: RotaInventario[] = [
   { rota: "/", nome: "Visão geral", dono: "home", status: "canonica", criterio: "nucleo" },
-  { rota: "/admin", nome: "Administração da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
+  { rota: "/admin", nome: "Dono da plataforma", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/quattro-ai", nome: "Quattro AI", dono: "inteligencia", status: "canonica", criterio: "diferencial" },
   { rota: "/aprovacoes", nome: "Aprovações", dono: "governanca", status: "canonica", criterio: "travada" },
   { rota: "/central", nome: "Central financeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
@@ -121,7 +121,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/administration/security", nome: "Segurança", dono: "plataforma", status: "canonica", criterio: "ferramenta" },
   { rota: "/dashboard/administration/subscription", nome: "Assinatura e plano", dono: "plataforma", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/administration/users", nome: "Usuários e papéis", dono: "plataforma", status: "canonica", criterio: "nucleo" },
-  { rota: "/dashboard/dashboards/custom", nome: "Meus dashboards", dono: "paineis", status: "canonica", criterio: "travada" },
+  { rota: "/dashboard/dashboards/custom", nome: "Meus painéis", dono: "paineis", status: "canonica", criterio: "travada" },
   { rota: "/dashboard/financial/accounts-and-transfers", nome: "Transferências entre contas", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/boletos", nome: "Boletos e PIX", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/financial/overdue", nome: "Inadimplência e cobrança", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
@@ -163,7 +163,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/sales-invoices/tax-provisioning", nome: "Impostos e obrigações", dono: "vendas", status: "canonica", criterio: "nucleo" },
   { rota: "/empresas/nova", nome: "Nova empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/fluxo-caixa", nome: "Fluxo de caixa", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
-  { rota: "/investidores", nome: "Investor update", dono: "inteligencia", status: "canonica", criterio: "travada" },
+  { rota: "/investidores", nome: "Relatório ao investidor", dono: "inteligencia", status: "canonica", criterio: "travada" },
   { rota: "/lixeira", nome: "Lixeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/login", nome: "Entrar", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/orcamento", nome: "Planejado × Realizado", dono: "orcamento", status: "canonica", criterio: "diferencial" },

@@ -117,7 +117,7 @@ export function CriarNovo() {
         document.body,
       )}
 
-      {modal && renderForm(modal, () => setModal(null), setToast)}
+      {modal && renderForm(modal, () => setModal(null), setToast, pessoal)}
 
       {toast && typeof document !== "undefined" && createPortal(
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-ink text-white text-[17px] font-medium px-4 py-[11px] rounded-md shadow-popover z-[80]">
@@ -162,11 +162,11 @@ function Coluna({
   );
 }
 
-function renderForm(acao: string, close: () => void, onToast: (m: string) => void) {
+function renderForm(acao: string, close: () => void, onToast: (m: string) => void, pessoal: boolean) {
   const p = { onClose: close, onToast };
   switch (acao) {
-    case "receita": return <ReceitaForm kind="receita" {...p} />;
-    case "despesa": return <ReceitaForm kind="despesa" {...p} />;
+    case "receita": return <ReceitaForm kind="receita" titulo={pessoal ? "Nova receita" : "Nova conta a receber"} {...p} />;
+    case "despesa": return <ReceitaForm kind="despesa" titulo={pessoal ? "Nova despesa" : "Nova conta a pagar"} {...p} />;
     case "transferencia": return <TransferenciaForm {...p} />;
     case "cliente": return <PartyForm role="customer" {...p} />;
     case "fornecedor": return <PartyForm role="supplier" {...p} />;

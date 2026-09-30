@@ -20,7 +20,7 @@ import {
   type CelulaOrcamento, type SinalLinha, type BaseVertical,
 } from "@/core/relatorios";
 import { pctDeInteiro } from "@/lib/format";
-import { problemaDoIntervalo } from "@/core/indicadores";
+import { problemaDoIntervalo, assinado } from "@/core/indicadores";
 
 /* ================================== temas ================================== */
 
@@ -342,7 +342,13 @@ const fmt = (n: number, cifrao: boolean) => {
   return `${n < 0 ? "−" : ""}${cifrao ? "R$" : ""}${s}`;
 };
 
-export interface CelulaClicada { linha: string; coluna: string; movimentos: string[] }
+/**
+ * `valor` é o número que a CÉLULA mostra. A gaveta o usa como total: somar
+ * `Math.abs(amount)` das transações divergia da célula sempre que a linha
+ * misturava sinais (resultado financeiro, estorno numa linha de dedução) — o
+ * número da gaveta contradizia o número que a pessoa acabou de clicar.
+ */
+export interface CelulaClicada { linha: string; coluna: string; movimentos: string[]; valor?: number }
 
 export function TabelaRelatorio({
   relatorio, layout, onCelula, orcamento,
@@ -431,14 +437,14 @@ export function TabelaRelatorio({
                       <React.Fragment key={k}>
                         <Valor
                           valor={c.valor} cifrao={layout.mostrarCifrao} forte={total}
-                          onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos }) : undefined}
+                          onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos, valor: c.valor }) : undefined}
                         />
                         {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
                         {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} sinalLinha={l.sinal} />}
                       </React.Fragment>
                     ))}
                     <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte
-                      onClick={l.total.movimentos.length ? () => onCelula({ linha: l.label, coluna: "Total", movimentos: l.total.movimentos }) : undefined} />
+                      onClick={l.total.movimentos.length ? () => onCelula({ linha: l.label, coluna: "Total", movimentos: l.total.movimentos, valor: l.total.valor }) : undefined} />
                     {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(l.total.av)}</td>}
                     <Valor valor={l.media.valor} cifrao={layout.mostrarCifrao} />
                   </tr>
@@ -452,7 +458,7 @@ export function TabelaRelatorio({
                         <React.Fragment key={k}>
                           <Valor
                             valor={c.valor} cifrao={layout.mostrarCifrao} miudo
-                            onClick={c.movimentos.length ? () => onCelula({ linha: f.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos }) : undefined}
+                            onClick={c.movimentos.length ? () => onCelula({ linha: f.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos, valor: c.valor }) : undefined}
                           />
                           {mostrarPct && <td className="px-2 py-2 text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
                           {/* O orçamento é por LINHA da cascata, não por categoria:
@@ -462,7 +468,7 @@ export function TabelaRelatorio({
                         </React.Fragment>
                       ))}
                       <Valor valor={f.total.valor} cifrao={layout.mostrarCifrao} miudo
-                        onClick={f.total.movimentos.length ? () => onCelula({ linha: f.label, coluna: "Total", movimentos: f.total.movimentos }) : undefined} />
+                        onClick={f.total.movimentos.length ? () => onCelula({ linha: f.label, coluna: "Total", movimentos: f.total.movimentos, valor: f.total.valor }) : undefined} />
                       {mostrarPct && <td className="px-2 py-2 text-right text-caption text-faint tabular-nums">{pct(f.total.av)}</td>}
                       <Valor valor={f.media.valor} cifrao={layout.mostrarCifrao} miudo />
                     </tr>
@@ -547,7 +553,10 @@ export function GavetaTransacoes({
       .sort((a, b) => (b.paid_date || b.due_date || "").localeCompare(a.paid_date || a.due_date || ""));
   }, [input, celula]);
 
-  const total = movs.reduce((s, m) => s + Math.abs(m.amount), 0);
+  // O total é o da célula clicada. Sem ele (quem abre a gaveta de fora da
+  // tabela), a soma é ASSINADA — entrada soma, saída subtrai — nunca em módulo,
+  // que transformaria um resultado negativo num número positivo.
+  const total = celula.valor ?? movs.reduce((s, m) => s + assinado(m), 0);
 
   if (typeof document === "undefined") return null;
   // Portal: o Card do DS tem transform e prenderia o `position: fixed`.

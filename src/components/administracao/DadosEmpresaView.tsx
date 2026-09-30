@@ -55,6 +55,8 @@ export function DadosEmpresaView() {
   const [financeiro, setFinanceiro] = React.useState<ContatoEmpresa>(CONTATO_VAZIO);
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [erroLogo, setErroLogo] = React.useState<string | null>(null);
+  /** O botão "Escolher logo" abre ESTE seletor — `<Button>` dentro de `<label>` não repassa o clique. */
+  const inputLogo = React.useRef<HTMLInputElement>(null);
   const [sujo, setSujo] = React.useState(false);
   const [inicial, setInicial] = React.useState<DadosEmpresa>(VAZIO);
 
@@ -183,11 +185,11 @@ export function DadosEmpresaView() {
                     onChange={(e) => escolherLogo(e.target.files?.[0] ?? null)} />
                 </label>
                 <div className="flex flex-col gap-2">
-                  <label className="inline-flex">
-                    <Button variant="secondary" onClick={() => {}}>Escolher logo</Button>
-                    <input type="file" className="hidden" accept={FORMATOS_LOGO.join(",")}
-                      onChange={(e) => escolherLogo(e.target.files?.[0] ?? null)} />
-                  </label>
+                  <div className="inline-flex">
+                    <Button variant="secondary" onClick={() => inputLogo.current?.click()}>Escolher logo</Button>
+                    <input ref={inputLogo} type="file" className="hidden" accept={FORMATOS_LOGO.join(",")}
+                      onChange={(e) => { escolherLogo(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+                  </div>
                   <span className="text-caption text-faint">
                     PNG, JPG ou WebP · mín. {LADO_MINIMO_LOGO}×{LADO_MINIMO_LOGO}px recomendado · máx. 5 MB
                   </span>

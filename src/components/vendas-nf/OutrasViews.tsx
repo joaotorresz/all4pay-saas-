@@ -640,6 +640,13 @@ export function LinksPagamentoView() {
     vencimento: null, ativo: true, criadoEm: new Date().toISOString().slice(0, 10), aberturas: 0,
   });
 
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setNovo(criar());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">

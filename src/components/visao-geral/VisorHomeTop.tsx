@@ -18,8 +18,8 @@ import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer, ComposedChart, Line, Area, XAxis, YAxis, Tooltip, LabelList,
 } from "recharts";
-import { Card, Skeleton, Icon, InfoHint } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
+import { Card, Skeleton, Icon, InfoHint, BRL } from "@/components/ui";
+import { formatBRL, pct } from "@/lib/format";
 import {
   painelIndicadores, janela, janelaAnterior, dentro, contemHoje, dataDe, magnitude,
 } from "@/core/indicadores";
@@ -36,7 +36,6 @@ import { chartAnim } from "@/lib/chart-anim";
 // Paleta da MARCA (lima → verde → oliva → taupe → ink): a maior fatia herda o
 // lima (herói) e as menores desbotam pros neutros — distinção sem sair da marca.
 const DV = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
-const brlNoCents = (n: number) => "R$" + Math.round(n).toLocaleString("pt-BR");
 const tint = (hex: string, a: number) => { if (!hex.startsWith("#")) return hex; const n = parseInt(hex.slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
 
 type Ponto = { idx: number; label: string; ent: number; sai: number };
@@ -227,7 +226,7 @@ export function VisorHomeTop() {
               <AnimatedBRL value={Math.abs(saldo)} />
             </span>
             <span className="text-[14px]" style={{ fontFamily: VARIAVEL, fontWeight: 200, letterSpacing: "-0.005em", color: "var(--color-text-quaternary)" }}>
-              {positivoNoPeriodo ? "+" : "−"}{formatBRL(Math.abs(calc.resultado))} {sufixo}
+              {positivoNoPeriodo ? "+" : "−"}<BRL value={Math.abs(calc.resultado)} /> {sufixo}
             </span>
           </div>
 
@@ -320,7 +319,6 @@ export function VisorHomeTop() {
               <div className="flex-1 min-w-0 w-full flex flex-col">
                 <span className="text-caption text-faint mb-1 sm:hidden">{centerLabel}</span>
                 {segs.map((s, i) => {
-                  const pct = total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0;
                   const subiu = s.trend > 0; // gastou/recebeu mais que o mês anterior
                   return (
                     <div key={i} className={`flex items-center gap-3 py-[9px] ${i ? "border-t border-border-soft" : ""}`}>
@@ -330,9 +328,9 @@ export function VisorHomeTop() {
                       {/* Tipografia da legenda (Laboratório): Roobert Semi Mono
                           nas TRÊS colunas — nome 13/800, % 12/900, valor 600. */}
                       <span className="text-[14px] text-ink truncate" style={{ fontFamily: VARIAVEL }}>{s.name}</span>
-                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{pct.toLocaleString("pt-BR")}%</span>
+                      <span className="text-[12px] text-muted bg-surface-2 rounded-pill px-2 py-[1px] shrink-0" style={{ fontFamily: SEMI_MONO, fontVariantNumeric: "tabular-nums", fontWeight: 900 }}>{total > 0 ? pct(s.value / total) : "—"}</span>
                       <span className="flex-1" />
-                      <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}>{brlNoCents(s.value)}</span>
+                      <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap" style={{ fontFamily: SEMI_MONO, fontWeight: 600 }}><BRL value={s.value} /></span>
                       {s.trend !== 0 && (
                         <span className="inline-flex items-center justify-center w-7 h-[22px] rounded-sm shrink-0"
                           style={{ background: subiu ? tint("#B3261E", 0.10) : "rgba(63,143,91,0.12)" }}>
@@ -442,7 +440,7 @@ function DonutChart({ segs, total, centerLabel, size = 208 }: { segs: { name: st
             o valor em 18/400 com tracking −0.045em. */}
         <span className="text-[14px] text-muted leading-tight truncate max-w-full" style={{ fontFamily: VARIAVEL, fontWeight: 300, letterSpacing: "-0.02em" }}>{sel ? sel.name : centerLabel}</span>
         <span className="text-[18px] leading-none mt-[5px] whitespace-nowrap text-ink" style={{ fontFamily: VARIAVEL, fontWeight: 400, fontVariantNumeric: "tabular-nums" }} title={formatBRL(sel ? sel.value : total)}>
-          {brlNoCents(sel ? sel.value : total)}
+          <BRL value={sel ? sel.value : total} />
         </span>
       </div>
     </div>
@@ -456,14 +454,14 @@ function GastoTooltip({ active, payload }: any) {
   return (
     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[190px]">
       <div className="font-medium text-ink mb-[6px]">{p.label}</div>
-      <TipRow color={POSITIVE} k="Entradas" v={brlNoCents(p.ent)} />
-      <TipRow color={NEGATIVE} k="Saídas" v={brlNoCents(p.sai)} />
-      <TipRow color="var(--color-ink)" k="Resultado" v={brlNoCents(p.ent - p.sai)} />
+      <TipRow color={POSITIVE} k="Entradas" v={<BRL value={p.ent} />} />
+      <TipRow color={NEGATIVE} k="Saídas" v={<BRL value={p.sai} />} />
+      <TipRow color="var(--color-ink)" k="Resultado" v={<BRL value={p.ent - p.sai} />} />
     </div>
   );
 }
 
-function TipRow({ color, k, v }: { color: string; k: string; v: string }) {
+function TipRow({ color, k, v }: { color: string; k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-6 tabular-nums py-[2px]">
       <span className="inline-flex items-center gap-[6px] text-muted">

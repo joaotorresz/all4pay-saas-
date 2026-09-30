@@ -24,8 +24,9 @@ import {
   listarTransferencias, criarTransferencia, removerTransferencia,
   marcarConciliacaoTransferencia, novoIdMov,
 } from "@/lib/movimentacoes";
+import { hojeLocal } from "@/lib/aggregations";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 const fmtDia = (iso: string) => (iso ? iso.split("-").reverse().join("/") : "—");
 
 export function TransferenciasView() {
@@ -37,6 +38,12 @@ export function TransferenciasView() {
   const [lista, setLista] = React.useState<Transferencia[] | null>(null);
   const [filtro, setFiltro] = React.useState<FiltroTransferencias>({ conciliacao: "todas" });
   const [nova, setNova] = React.useState(false);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setNova(true);
+  }, []);
 
   React.useEffect(() => { setLista(listarTransferencias()); }, []);
 

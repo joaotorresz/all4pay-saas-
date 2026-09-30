@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { BRL, Card, Skeleton, Icon } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
+import { dataDe } from "@/core/indicadores";
 import { useQuantitativo, useCentroInteligencia, useRiscoInput } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import type { RiskMovement } from "@/core/risk-engine/types";
@@ -16,9 +17,12 @@ const scoreColor = (s: number) =>
 const sevColor = (sev: string) =>
   /crit|alta/i.test(sev) ? "var(--color-negative)" : /med|aten/i.test(sev) ? "var(--color-warning)" : "var(--color-text-tertiary)";
 
-/** Data realizada de um movimento (para janela retroativa do período). */
-const realizado = (m: RiskMovement): string | null =>
-  m.paid_date ?? (m.status === "pago" ? m.due_date : null);
+/**
+ * Data realizada de um movimento — a de CAIXA canônica: só o liquidado tem
+ * data, e cancelado nunca. A versão local listava pendente com `paid_date` num
+ * card que se diz "já liquidadas".
+ */
+const realizado = (m: RiskMovement): string | null => dataDe(m, "caixa");
 
 function CardSkeleton({ tall }: { tall?: boolean }) {
   return <Skeleton className={tall ? "h-[200px] w-full" : "h-[120px] w-full"} rounded="card" />;

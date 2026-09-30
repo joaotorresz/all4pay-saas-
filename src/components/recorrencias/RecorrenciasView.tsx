@@ -68,7 +68,7 @@ export function RecorrenciasView() {
     show("Recorrência criada como rascunho — ative para projetar as faturas");
   };
 
-  const ativar = async (r: Recorrencia) => { await ativarRecorrencia(r.id); await refresh(); show("Ativada — próximas faturas entram no previsto (/recebiveis, fluxo, DRE)"); };
+  const ativar = async (r: Recorrencia) => { await ativarRecorrencia(r.id); await refresh(); show("Ativada — próximas faturas entram no previsto (em Títulos a receber, no fluxo e no DRE)"); };
   const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => { await encerrarRecorrencia(r.id, st); await refresh(); show(st === "cancelada" ? "Cancelada (churn) — faturas previstas saem do fluxo" : "Pausada — faturas previstas removidas"); };
 
   // N2: emite a NFS-e da próxima fatura reusando o MESMO movement (não duplica receita).
@@ -133,7 +133,7 @@ export function RecorrenciasView() {
         {/* Lista de contratos */}
         <Card padded={false} className="lg:col-span-2">
           <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-            <span className="inline-flex items-center text-body font-medium text-ink">Contratos de recorrência<InfoHint align="left" titulo="Contratos de recorrência" oQue="Lista as assinaturas e suas próximas faturas; aqui você ativa, pausa, cancela e emite NFS-e." comoCalcula="Ativar projeta as faturas no previsto (recebíveis, fluxo, DRE); pausar ou cancelar as remove." /></span>
+            <span className="inline-flex items-center text-body font-medium text-ink">Contratos de recorrência<InfoHint align="left" titulo="Contratos de recorrência" oQue="Lista as assinaturas e suas próximas faturas; aqui você ativa, pausa, cancela e emite NFS-e." comoCalcula="Ativar projeta as faturas no previsto (Títulos a receber, fluxo, DRE); pausar ou cancelar as remove." /></span>
             <span className="text-caption text-faint">{lista.length}</span>
           </div>
           <div className="flex flex-col max-h-[560px] overflow-y-auto">

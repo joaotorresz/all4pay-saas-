@@ -28,8 +28,9 @@ import {
 } from "@/core/vendas";
 import { useVendas, salvarVendaDoc, proximoNumeroVenda, novoIdVenda } from "@/lib/vendas";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
+import { hojeLocal } from "@/lib/aggregations";
 
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 const semTaxa = () => ({ valor: 0, fornecedorId: "" });
 
 const vazia = (): Venda => ({

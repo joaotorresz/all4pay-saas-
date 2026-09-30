@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Icon } from "./Icon";
-import { formatBRL } from "@/lib/format";
+import { BRL } from "./BRL";
 import type { Cancelados } from "@/core/indicadores";
 
 /**
@@ -39,12 +39,12 @@ export function NotaCancelados({ dados, escopo }: { dados: Cancelados; escopo?: 
       <p className="m-0 text-caption text-muted leading-snug">
         <b className="text-ink tabular-nums">{dados.quantidade}</b> {plural}
         {escopo ? ` ${escopo}` : " com vencimento no período"}, somando{" "}
-        <b className="text-ink tabular-nums">{formatBRL(dados.total)}</b>
+        <b className="text-ink tabular-nums"><BRL value={dados.total} /></b>
         {dados.entradas > 0 && dados.saidas > 0 ? (
           <>
             {" "}
-            (<span className="tabular-nums">{formatBRL(dados.entradas)}</span> de entrada ·{" "}
-            <span className="tabular-nums">{formatBRL(dados.saidas)}</span> de saída)
+            (<span className="tabular-nums"><BRL value={dados.entradas} /></span> de entrada ·{" "}
+            <span className="tabular-nums"><BRL value={dados.saidas} /></span> de saída)
           </>
         ) : null}
         . Cancelado não é receita nem despesa e não vai ao caixa — por isso ele

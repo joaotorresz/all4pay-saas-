@@ -10,6 +10,7 @@ import {
   listReembolsos, solicitarReembolso, sincronizarReembolsos,
   type Reembolso, type ItemReembolso, type StatusReembolso,
 } from "@/lib/reembolsos";
+import { hojeLocal } from "@/lib/aggregations";
 
 const CATEGORIAS = ["Alimentação", "Transporte", "Hospedagem", "Combustível", "Material", "Outros"];
 const STATUS: Record<StatusReembolso, { label: string; cor: string }> = {
@@ -19,7 +20,7 @@ const STATUS: Record<StatusReembolso, { label: string; cor: string }> = {
   a_pagar: { label: "A pagar (na Central)", cor: "var(--color-positive)" },
 };
 type Aba = "meus" | "aprovacao" | "rejeitados" | "pagar";
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 const novoItem = (): ItemReembolso => ({ descricao: "", valor: 0, data: hoje(), categoria: "Alimentação" });
 
 export function ReembolsosView() {

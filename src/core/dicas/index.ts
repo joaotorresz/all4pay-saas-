@@ -212,7 +212,7 @@ export function montarDicas(input: RiskInput | undefined, contatos = 0): Resulta
       titulo: "A receber vencido",
       texto: `${fmt(vencido)} já venceram e não entraram. É o caixa mais barato que existe: já é seu.`,
       tom: "atencao",
-      rota: "/dashboard/financial/receivables",
+      rota: "/dashboard/financial/overdue",
       atual: vencido,
     });
   }

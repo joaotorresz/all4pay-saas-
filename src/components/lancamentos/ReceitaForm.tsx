@@ -107,10 +107,17 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export function ReceitaForm({
   kind = "receita",
+  titulo,
   onClose,
   onToast,
 }: {
   kind?: CategoryKind;
+  /**
+   * O cabeçalho do modal. Quem abriu por "Nova conta a pagar" tem de ler o
+   * MESMO nome no topo do formulário — clicar num nome e chegar noutro faz a
+   * pessoa duvidar de que clicou certo. Sem título, vale "Nova receita/despesa".
+   */
+  titulo?: string;
   onClose: () => void;
   onToast: (msg: string) => void;
 }) {
@@ -205,7 +212,7 @@ export function ReceitaForm({
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-border-soft">
             <span className="text-h3 font-medium">
-              {isReceita ? "Nova receita" : "Nova despesa"}
+              {titulo ?? (isReceita ? "Nova receita" : "Nova despesa")}
             </span>
             <button
               className="inline-flex bg-transparent cursor-pointer p-[2px]"

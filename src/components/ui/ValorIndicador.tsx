@@ -24,6 +24,7 @@ import { BRL } from "./BRL";
 import { MarcaProcedencia, textoDeOrigem } from "./Procedencia";
 import { Icon } from "./Icon";
 import { cn } from "@/lib/utils";
+import { pct, decimalBR } from "@/lib/format";
 
 /** Como o número é escrito quando existe. */
 export type FormatoValor = "moeda" | "numero" | "percentual" | "dias" | "meses";
@@ -34,9 +35,9 @@ function escrever(valor: number, formato: FormatoValor): React.ReactNode {
     // ⚠️ Uma casa no percentual, como manda `REGRAS_DE_FORMATO`: zero apaga a
     // diferença entre 12,4% e 12,9%; duas fingem precisão que uma média de 90
     // dias não tem.
-    case "percentual": return <span className="tabular-nums">{(valor * 100).toFixed(1).replace(".", ",")}%</span>;
+    case "percentual": return <span className="tabular-nums">{pct(valor)}</span>;
     case "dias": return <span className="tabular-nums">{Math.round(valor)} dias</span>;
-    case "meses": return <span className="tabular-nums">{valor.toFixed(1).replace(".", ",")} meses</span>;
+    case "meses": return <span className="tabular-nums">{decimalBR(valor)} meses</span>;
     default: return <span className="tabular-nums">{valor.toLocaleString("pt-BR")}</span>;
   }
 }

@@ -29,6 +29,12 @@ export function DashboardsCustomView() {
   const [aba, setAba] = React.useState<Aba>("todos");
   const [editando, setEditando] = React.useState<DashboardCustom | null>(null);
 
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(dashboardVazio());
+  }, []);
+
   React.useEffect(() => { setLista(listarDashboards()); }, []);
 
   const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d)); setEditando(null); };

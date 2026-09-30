@@ -23,8 +23,8 @@
  * fonte de número.
  */
 import * as React from "react";
-import { Button, Card, Checkbox, Icon, Select, Skeleton, StatusBadge } from "@/components/ui";
-import { formatBRL, dataBR } from "@/lib/format";
+import { Button, Card, Checkbox, Icon, Select, Skeleton, StatusBadge, BRL } from "@/components/ui";
+import { dataBR } from "@/lib/format";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { montarDRE, fimDoMes, deslocarMes, type Relatorio } from "@/core/relatorios";
 import {
@@ -36,10 +36,11 @@ import { linhasDeCategoria } from "@/lib/registros";
 import { getLinhasDeCategoria } from "@/lib/data";
 
 import { loadCompany, getOrganizationName } from "@/lib/company";
+import { hojeLocal } from "@/lib/aggregations";
 
 type Preset = "mes" | "trimestre" | "ano" | "livre";
 
-const mesAtual = () => new Date().toISOString().slice(0, 7);
+const mesAtual = () => hojeLocal().slice(0, 7);
 
 /** O intervalo de cada preset. Trimestre e ano terminam no mês escolhido. */
 function intervaloDe(preset: Preset, mes: string, de: string, ate: string) {
@@ -278,7 +279,7 @@ export function ExportarView() {
               valor={String(exportacao.resumo.movimentosForaDoDre)}
               nota="listados, com o motivo, e sem somar"
             />
-            <Numero rotulo="Resultado líquido" valor={formatBRL(exportacao.resumo.resultado)} />
+            <Numero rotulo="Resultado líquido" valor={<BRL value={exportacao.resumo.resultado} />} />
           </div>
           {exportacao.resumo.movimentos === 0 && (
             <p className="mt-4 text-body text-muted">
@@ -300,8 +301,8 @@ export function ExportarView() {
           <ul className="mt-3 flex flex-col gap-1">
             {divergencias.map((d) => (
               <li key={d.linhaId} className="text-caption text-ink">
-                <strong>{d.label}</strong> — DRE {formatBRL(d.noDre)} × razão{" "}
-                {formatBRL(d.noRazao)} · diferença {formatBRL(d.diferenca)}
+                <strong>{d.label}</strong> — DRE <BRL value={d.noDre} /> × razão{" "}
+                <BRL value={d.noRazao} /> · diferença <BRL value={d.diferenca} />
               </li>
             ))}
           </ul>
@@ -336,7 +337,7 @@ export function ExportarView() {
   );
 }
 
-function Numero({ rotulo, valor, nota }: { rotulo: string; valor: string; nota?: string }) {
+function Numero({ rotulo, valor, nota }: { rotulo: string; valor: React.ReactNode; nota?: string }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="a4p-label text-muted">{rotulo}</span>

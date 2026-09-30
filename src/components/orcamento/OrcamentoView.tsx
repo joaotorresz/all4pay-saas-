@@ -110,9 +110,9 @@ export function OrcamentoVarianciaView() {
 
           {/* Resumo: Receita · EBITDA · Lucro (orçado vs realizado) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada vs orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado vs orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido vs orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada × orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado × orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido × orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
           </div>
 
           {/* Narrativa (flux analysis) */}
@@ -130,7 +130,7 @@ export function OrcamentoVarianciaView() {
           {/* Tabela orçado × realizado por linha + drill-down */}
           <Card padded={false}>
             <div className="hidden sm:flex items-center gap-3 px-5 py-2 text-[11px] font-medium tracking-[0.08em] text-faint border-b border-border-soft">
-              <span className="flex-1 inline-flex items-center gap-1">Linha · {report.periodoLabel}<InfoHint align="left" titulo="Orçado vs realizado por linha" oQue="Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam." comoCalcula="Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." /></span>
+              <span className="flex-1 inline-flex items-center gap-1">Linha · {report.periodoLabel}<InfoHint align="left" titulo="Orçado × realizado por linha" oQue="Detalha o desvio de cada linha do resultado, com drill-down nas categorias e transações que o explicam." comoCalcula="Desvio igual a realizado menos orçado, em reais e em percentual sobre o orçado, por linha do DRE." /></span>
               <span className="w-[120px] text-right">Orçado</span>
               <span className="w-[120px] text-right">Realizado</span>
               <span className="w-[110px] text-right">Desvio</span>
@@ -155,7 +155,7 @@ export function OrcamentoVarianciaView() {
                     <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={l.orcado} /></span>
                     <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={l.realizado} /></span>
                     <span className="w-[110px] text-right shrink-0">
-                      <StatusBadge tone={sinalTone(l.sinal)}>{l.varValor >= 0 ? "+" : "−"}{Math.abs(Math.round(l.varValor)).toLocaleString("pt-BR")}</StatusBadge>
+                      <StatusBadge tone={sinalTone(l.sinal)}>{l.varValor >= 0 ? "+" : "−"}<BRL value={Math.abs(l.varValor)} /></StatusBadge>
                     </span>
                     <span className={`hidden sm:block w-[92px] text-right tabular-nums font-medium ${l.sinal === "favoravel" ? "text-positive" : l.sinal === "desfavoravel" ? "text-negative" : "text-muted"}`}>
                       {pctLabel(l)}
@@ -225,7 +225,7 @@ function ResumoCard({ titulo, orcado, realizado, maiorEhBom, baseline, info }: {
         )}
       </span>
       <span className={`text-caption font-medium tabular-nums ${tone}`}>
-        {delta >= 0 ? "+" : "−"}<span className="tabular-nums">R$ {Math.abs(Math.round(delta)).toLocaleString("pt-BR")}</span> vs {rotulo}
+        {delta >= 0 ? "+" : "−"}<span className="tabular-nums"><BRL value={Math.abs(delta)} /></span> × {rotulo}
       </span>
     </Card>
   );

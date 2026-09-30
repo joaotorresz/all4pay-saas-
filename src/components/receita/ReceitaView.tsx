@@ -11,6 +11,7 @@ import { listRecorrencias, rolarRecorrencias, totalFatura, CICLOS } from "@/lib/
 import { postarLancamento } from "@/lib/ledger";
 import { analisarReceita, type ContratoReceita, type ReceitaReport } from "@/core/revenue";
 import { isDemo } from "@/lib/demo";
+import { isoDay } from "@/lib/aggregations";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
 import { RevRecSection } from "./RevRecSection";
@@ -26,7 +27,7 @@ export function ReceitaReconhecimentoView() {
   const reconhecerNoRazao = async () => {
     if (!report) return;
     setReconhecendo(true); setMsgRec(null);
-    const mes = new Date().toISOString().slice(0, 7);
+    const mes = isoDay(new Date()).slice(0, 7);
     try {
       let n = 0;
       for (const c of report.contratos.filter((x) => x.ativo && x.mrr > 0)) {
@@ -57,7 +58,7 @@ export function ReceitaReconhecimentoView() {
         inicio: r.criadoEm,
         ativo: r.status === "ativa",
       }));
-      setReport(analisarReceita(contratos, new Date().toISOString().slice(0, 10)));
+      setReport(analisarReceita(contratos, isoDay(new Date())));
       setCarregando(false);
     });
     return () => { ativo = false; };
@@ -76,8 +77,8 @@ export function ReceitaReconhecimentoView() {
       ) : report.contratos.length === 0 ? (
         <Card className="flex flex-col items-start gap-3">
           <span className="text-h3 font-medium text-ink">Sem contratos de recorrência</span>
-          <span className="text-caption text-muted">O reconhecimento de receita usa os contratos do funil RECEBER. Crie uma recorrência para ver MRR, ARR, receita diferida e o waterfall.</span>
-          <Link href="/recorrencias" className="text-label font-medium text-ink underline">Ir para Recorrências →</Link>
+          <span className="text-caption text-muted">O reconhecimento de receita usa os contratos de assinatura. Crie uma recorrência para ver MRR, ARR, receita diferida e o waterfall.</span>
+          <Link href="/dashboard/sales-invoices/subscriptions" className="text-label font-medium text-ink underline">Ir para Assinaturas e recorrência →</Link>
         </Card>
       ) : (
         <div className="flex flex-col gap-5">

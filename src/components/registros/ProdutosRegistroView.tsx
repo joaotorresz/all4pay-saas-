@@ -48,6 +48,12 @@ export function ProdutosRegistroView() {
   const [tipo, setTipo] = React.useState("");
   const [editandoFiscal, setEditandoFiscal] = React.useState<Product | null>(null);
   const [novo, setNovo] = React.useState(false);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setNovo(true);
+  }, []);
   // Os extras vivem no localStorage → só depois de montar (evita mismatch).
   const [extras, setExtras] = React.useState<Record<string, ReturnType<typeof extraProduto>>>({});
   const { show, node } = useToast();

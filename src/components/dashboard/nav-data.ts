@@ -235,8 +235,8 @@ export const SECTIONS: Section[] = [
       { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento", icon: "target" },
       { label: "Orçamentos", desc: "O previsto, por categoria e mês", href: "/dashboard/registrations/budgets", icon: "target" },
       { label: "DRE multiempresas", desc: "Resultado e caixa do grupo", href: "/dashboard/reports/dre-multi", icon: "building" },
-      { label: "Investor update", desc: "O relatório mensal do investidor", href: "/investidores", icon: "mail", pro: true },
-      { label: "Meus dashboards", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
+      { label: "Relatório ao investidor", desc: "O relatório mensal para quem investe", href: "/investidores", icon: "mail", pro: true },
+      { label: "Meus painéis", desc: "Painéis montados por você", href: "/dashboard/dashboards/custom", icon: "grip-vertical", pro: true },
     ],
   },
   {
@@ -247,7 +247,7 @@ export const SECTIONS: Section[] = [
     // a conversa. Se voltar a incomodar, o que sai é a LINHA, não o botão.
     id: "inteligencia", label: "Inteligência", icon: "sparkles", items: [
       { label: "Quattro AI", desc: "Pergunte sobre seus números", href: "/quattro-ai", icon: "sparkles" },
-      { label: "Risco de crédito", desc: "Quem tende a não pagar", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
+      { label: "Risco de caixa", desc: "A chance de o caixa ficar negativo", href: "/quattro-ai?aba=risco", icon: "triangle-alert", pro: true },
       { label: "Motor de decisão", desc: "O que fazer, com o impacto", href: "/quattro-ai?aba=decisao", icon: "target", pro: true },
       { label: "Operação autônoma", desc: "O que o sistema propõe agir", href: "/quattro-ai?aba=autonomo", icon: "activity", pro: true },
       { label: "Plano de contratações", desc: "O impacto de contratar", href: "/contratacoes", icon: "users", pro: true },
@@ -288,7 +288,7 @@ export const CONFIG: Section = {
     // ⚠️ "Configurações da empresa" (/configuracoes) SAIU desta lista: ela é a
     // porta "Meu perfil" do menu ⋮ (ACOES_GLOBAIS), e a linha ao lado de
     // "Empresa" eram dois nomes para o mesmo cadastro.
-    { label: "Nova empresa", desc: "Abrir outra organização", href: "/empresas/nova", icon: "building" },
+    { label: "Nova empresa", desc: "Abrir outra empresa", href: "/empresas/nova", icon: "building" },
   ],
 };
 
@@ -302,12 +302,12 @@ export const SECTIONS_PESSOAL: Section[] = [
     ],
   },
   {
-    id: "contas", label: "Contas & carteiras", icon: "credit-card", items: [
-      { label: "Conectar & importar (Open finance)", desc: "Trazer os extratos do banco", href: "/upload", icon: "upload" },
+    id: "contas", label: "Contas e carteiras", icon: "credit-card", items: [
+      { label: "Conectar e importar (Open Finance)", desc: "Trazer os extratos do banco", href: "/upload", icon: "upload" },
     ],
   },
   {
-    id: "orcamento", label: "Orçamento & metas", icon: "target", items: [
+    id: "orcamento", label: "Orçamento e metas", icon: "target", items: [
       { label: "Planejado × Realizado", desc: "Orçamento contra o real", href: "/orcamento", icon: "target" },
       { label: "DRE", desc: "Resultado por competência", href: "/dashboard/reports/dre", icon: "trending-up" },
       { label: "Fluxo de caixa", desc: "Projeção e cenários", href: "/fluxo-caixa", icon: "trending-up" },

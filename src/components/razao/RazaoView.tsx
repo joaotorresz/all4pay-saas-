@@ -21,9 +21,10 @@ import { AppShell } from "@/components/app/AppShell";
 import { baixarXLSX } from "@/lib/xlsx";
 import { imprimirRelatorio } from "@/lib/imprimir";
 import { CabecalhoImpressao } from "@/components/relatorios/CabecalhoImpressao";
+import { hojeLocal } from "@/lib/aggregations";
 
 const fmtDia = (iso: string) => { const [y, m, d] = (iso || "").split("-"); return d ? `${d}/${m}/${y.slice(2)}` : iso; };
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+const hojeISO = () => hojeLocal();
 
 /**
  * ⚠️ **O TETO É DECLARADO E DITO NA TELA.** A lista mostrava os 200 primeiros

@@ -39,6 +39,12 @@ export function ContasBancariasView() {
   const [tipo, setTipo] = React.useState("");
   const [status, setStatus] = React.useState<FiltroStatus>("todos");
   const [editando, setEditando] = React.useState<ContaBancaria | null>(null);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazia());
+  }, []);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContasBancarias()); }, []);

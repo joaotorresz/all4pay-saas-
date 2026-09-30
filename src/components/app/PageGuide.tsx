@@ -18,7 +18,7 @@ export function PageGuide() {
   const pathname = usePathname();
   const sp = useSearchParams();
   // Com hubs, o guia é POR ABA (?aba=…) — ver `guideForPath`.
-  const guide = guideForPath(pathname, sp.get("aba"));
+  const guide = guideForPath(pathname, sp.get("aba"), sp.get("painel"));
   const [open, setOpen] = React.useState(false);
   const [tour, setTour] = React.useState(false);
 

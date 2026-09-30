@@ -18,7 +18,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Input, Select, DateField, CurrencyInput, Checkbox, BRL } from "@/components/ui";
-import { formatBRL, dataBR, pct } from "@/lib/format";
+import { dataBR, pct } from "@/lib/format";
 import type { Regime, Anexo } from "@/core/fiscal/perfil";
 import {
   calcularFerias, FERIAS_PADRAO, diasPorFaltas, maximoAbono,
@@ -180,7 +180,7 @@ export function ModalFerias({
             }])}
           >
             <Icon name="check" size={15} color="currentColor" />
-            Agendar {formatBRL(calc.liquido)}
+            Agendar <BRL value={calc.liquido} />
           </Button>
         </>
       }
@@ -221,7 +221,7 @@ export function ModalFerias({
           <Memoria linhas={calc.memoria} />
           <p className="m-0 text-caption text-muted">
             Retorna ao trabalho em <b className="text-ink">{dataBR(calc.retorno)}</b>.
-            Custo para a empresa: <b className="text-ink">{formatBRL(calc.custoTotal)}</b>.
+            Custo para a empresa: <b className="text-ink"><BRL value={calc.custoTotal} /></b>.
           </p>
         </>
       )}
@@ -298,7 +298,7 @@ export function ModalRescisao({
             }}
           >
             <Icon name="check" size={15} color="currentColor" />
-            Agendar {formatBRL(calc.liquido + calc.multaFGTS)}
+            Agendar <BRL value={calc.liquido + calc.multaFGTS} />
           </Button>
         </>
       }
@@ -345,9 +345,9 @@ export function ModalRescisao({
           />
           <Memoria linhas={calc.memoria} />
           <p className="m-0 text-caption text-muted">
-            Custo total da rescisão: <b className="text-ink">{formatBRL(calc.custoTotal)}</b>
+            Custo total da rescisão: <b className="text-ink"><BRL value={calc.custoTotal} /></b>
             {calc.multaFGTS > 0 && (
-              <> — dos quais <b className="text-ink">{formatBRL(calc.multaFGTS)}</b> vão para a conta
+              <> — dos quais <b className="text-ink"><BRL value={calc.multaFGTS} /></b> vão para a conta
                 vinculada do FGTS, não para o funcionário.</>
             )}
           </p>

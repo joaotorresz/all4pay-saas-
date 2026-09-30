@@ -6,7 +6,6 @@ import { AppShell } from "@/components/app/AppShell";
 import { Icon, BRL, Skeleton } from "@/components/ui";
 import { useProductsList } from "@/components/lancamentos/hooks";
 import { getProdutoImagem } from "@/lib/produto-imagem";
-import { formatBRL } from "@/lib/format";
 import { concluirVendaPos } from "@/lib/pos-venda";
 import { cn } from "@/lib/utils";
 import {
@@ -176,7 +175,7 @@ export function PosVendaView() {
                       <div key={id} className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="text-[15px] text-ink truncate">{p.name}</div>
-                          <div className="text-caption text-faint tabular-nums">{formatBRL(p.sale_price ?? 0)}</div>
+                          <div className="text-caption text-faint tabular-nums"><BRL value={p.sale_price ?? 0} /></div>
                         </div>
                         <div className="inline-flex items-center gap-1">
                           <button onClick={() => sub(id)} className="w-7 h-7 inline-flex items-center justify-center rounded-sm border border-border hover:bg-surface-2"><Icon name="minus" size={13} /></button>
@@ -244,12 +243,12 @@ export function PosVendaView() {
                     {metodo === "parcelado" && (
                       <div className="flex items-center justify-between text-caption text-faint mb-1">
                         <span>{parcelas}× de</span>
-                        <span className="tabular-nums">{formatBRL(valorParcela)}</span>
+                        <span className="tabular-nums"><BRL value={valorParcela} /></span>
                       </div>
                     )}
                     <div className="flex items-center justify-between text-caption text-faint mb-2">
                       <span>Você recebe (líquido)</span>
-                      <span className="tabular-nums text-positive">{formatBRL(liquido)}</span>
+                      <span className="tabular-nums text-positive"><BRL value={liquido} /></span>
                     </div>
                   </>
                 )}
@@ -258,7 +257,7 @@ export function PosVendaView() {
                   onClick={() => setTela("processando")}
                   className="w-full h-11 rounded-md bg-lime text-on-lime text-[17px] font-medium disabled:opacity-40 active:scale-[0.99]"
                 >
-                  Cobrar {formatBRL(total)}
+                  Cobrar <BRL value={total} />
                 </button>
               </div>
             </>
@@ -286,14 +285,14 @@ export function PosVendaView() {
                 <div className="text-h2 text-ink mt-4">Aprovado</div>
                 <div className="text-display leading-none mt-3"><BRL value={total} /></div>
                 <div className="text-caption text-muted mt-2">
-                  {metodoLabel}{metodo === "parcelado" ? ` · ${parcelas}× de ${formatBRL(valorParcela)}` : ""}
+                  {metodoLabel}{metodo === "parcelado" && <> · {parcelas}× de <BRL value={valorParcela} /></>}
                 </div>
 
                 <div className="w-full mt-6 rounded-md border border-border-soft divide-y divide-border-soft text-left">
                   <Linha k="NSU" v={recibo.nsu} />
                   <Linha k="Autorização" v={recibo.auth} />
                   <Linha k="Taxa MDR" v={pct(taxa)} />
-                  <Linha k="Valor líquido" v={formatBRL(liquido)} />
+                  <Linha k="Valor líquido" v={<BRL value={liquido} />} />
                   <Linha k="Data/hora" v={recibo.quando} />
                 </div>
                 <div className="w-full mt-3 inline-flex items-center gap-2 text-caption text-muted">
@@ -317,7 +316,7 @@ export function PosVendaView() {
   );
 }
 
-function Linha({ k, v }: { k: string; v: string }) {
+function Linha({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between px-3 py-[10px]">
       <span className="text-caption text-muted">{k}</span>

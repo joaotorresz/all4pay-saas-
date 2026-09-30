@@ -22,12 +22,21 @@ import { montarFechamento, rotuloColuna, type Fechamento } from "@/core/relatori
 import { listarFechamentos, salvarFechamento, removerFechamento } from "@/lib/fechamentos";
 import { loadCompany } from "@/lib/company";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
+import { hojeLocal } from "@/lib/aggregations";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
-const ANOS = [2024, 2025, 2026, 2027];
+/**
+ * Os anos do seletor: três para trás e um para a frente do ano corrente. Era
+ * uma lista fixa (2024–2027) — em janeiro de 2028 o fechamento do mês que
+ * acabou de terminar simplesmente não teria ano para escolher.
+ */
+const anosDoSeletor = (hojeISO: string): number[] => {
+  const a = Number(hojeISO.slice(0, 4));
+  return [a - 3, a - 2, a - 1, a, a + 1];
+};
 const brl = (n: number) => formatBRL(n);
 
 export function FechamentoView() {
@@ -170,7 +179,7 @@ function Formulario({
           <div className="flex flex-col gap-[6px]">
             <label className="text-caption font-medium text-muted">Ano</label>
             <Select value={String(ano)} onChange={(v) => setAno(Number(v))}
-              options={ANOS.map((a) => ({ value: String(a), label: String(a) }))} />
+              options={anosDoSeletor(hojeLocal()).map((a) => ({ value: String(a), label: String(a) }))} />
           </div>
         </div>
         <div className="flex flex-col gap-[6px] mt-4">

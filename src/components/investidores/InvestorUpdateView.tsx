@@ -37,12 +37,12 @@ export function InvestorUpdateView() {
   };
 
   const enviarEmail = () => {
-    const assunto = texto.split("\n")[0] ?? "Investor update";
+    const assunto = texto.split("\n")[0] ?? "Relatório ao investidor";
     window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`;
   };
 
   return (
-    <AppShell title="Investor update">
+    <AppShell title="Relatório ao investidor">
       <div className="flex flex-col gap-5 pb-8">
         {isLoading && <Skeleton className="h-[120px] w-full" rounded="md" />}
         {isError && (

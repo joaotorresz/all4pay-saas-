@@ -313,6 +313,12 @@ export function UsuariosView() {
   const empresa = useQuery({ queryKey: ["company"], queryFn: fetchCompany });
   const [busca, setBusca] = React.useState("");
   const [convite, setConvite] = React.useState(false);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setConvite(true);
+  }, []);
   const [email, setEmail] = React.useState("");
   const [nome, setNome] = React.useState("");
   const [perfil, setPerfil] = React.useState<PerfilUsuario>("leitura");
@@ -702,8 +708,9 @@ export function RelatoriosExportadosView() {
               <strong className="tabular-nums">{LIMITE_XLSX_LINHAS.toLocaleString("pt-BR")}</strong> linhas.
             </span>
             <span>
-              Nesses casos o link também chega por e-mail, e o arquivo fica disponível por{" "}
-              <strong className="tabular-nums">{DIAS_RETENCAO_EXPORT} dias</strong>. Exportações
+              O registro fica aqui por{" "}
+              <strong className="tabular-nums">{DIAS_RETENCAO_EXPORT} dias</strong>; o arquivo em si é
+              gerado de novo na tela de origem, com os filtros do momento. Exportações
               menores baixam na hora, direto da tela de origem, e não aparecem nesta lista —
               registrar todas transformaria a fila num log onde o relatório que você está
               esperando se perderia.
@@ -773,7 +780,14 @@ export function RelatoriosExportadosView() {
                       </td>
                       <td className="px-6 py-3">
                         <div className="flex items-center justify-end gap-1">
-                          {st === "pronto" && <Button variant="ghost" onClick={() => toast("Download iniciado.")}>Baixar</Button>}
+                          {/* ⚠️ Esta lista guarda o REGISTRO da exportação, não o arquivo: não há
+                              bytes guardados para baixar daqui. Um "Baixar" que só mostrava um aviso
+                              fazia a pessoa esperar por um download que nunca vinha. */}
+                          {st === "pronto" && (
+                            <span className="text-caption text-faint" title="O arquivo não fica guardado nesta lista; gere de novo na tela de origem.">
+                              Gere de novo na tela de origem
+                            </span>
+                          )}
                           <button
                             onClick={() => { setLista(removerExportacao(e.id)); toast("Registro removido."); }}
                             aria-label="Remover" title="Remover"

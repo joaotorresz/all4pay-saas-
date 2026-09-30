@@ -33,8 +33,9 @@ import {
 } from "./kit";
 
 import { formatBRL } from "@/lib/format";
+import { hojeLocal } from "@/lib/aggregations";
 const fmtDia = (iso: string) => (iso ? iso.split("-").reverse().join("/") : "—");
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 
 const METODOS = ["Pix", "Boleto", "Cartão de crédito", "Transferência", "Dinheiro"];
 
@@ -44,6 +45,12 @@ export function ContratosView() {
   const [busca, setBusca] = React.useState("");
   const [vigencia, setVigencia] = React.useState<Vigencia>("todos");
   const [editando, setEditando] = React.useState<Contrato | null>(null);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio("fornecedor"));
+  }, []);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContratos()); }, []);
@@ -483,7 +490,7 @@ function BlocoVendas({
               <span className="text-label font-medium text-ink">Vendas a criar</span>
               <span className="text-caption text-faint tabular-nums">
                 {previstas.length} {previstas.length === 1 ? "venda" : "vendas"} ·{" "}
-                {previstas.reduce((s, v) => s + v.valor, formatBRL(0))}
+                <BRL value={previstas.reduce((s, v) => s + v.valor, 0)} />
               </span>
             </div>
             {previstas.length === 0 ? (

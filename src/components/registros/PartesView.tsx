@@ -58,6 +58,12 @@ export function PartesView({ lado }: { lado: Lado }) {
   const [categoria, setCategoria] = React.useState("");
   const [editando, setEditando] = React.useState<Party | null>(null);
   const [novo, setNovo] = React.useState(false);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setNovo(true);
+  }, []);
   const [extras, setExtras] = React.useState<Record<string, ExtraParty>>({});
   const { show, node } = useToast();
 

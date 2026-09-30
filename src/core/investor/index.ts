@@ -173,7 +173,7 @@ export function gerarTextoInvestorUpdate(
   const runwayStr = r.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
   const mesRef = en ? mesReferenciaEn(u.mesReferencia) : u.mesReferencia;
 
-  linhas.push(`${empresa ? empresa + " — " : ""}Investor update · ${mesRef}`);
+  linhas.push(`${empresa ? empresa + " — " : ""}${en ? "Investor update" : "Relatório ao investidor"} · ${mesRef}`);
   linhas.push("");
   linhas.push("TL;DR");
   linhas.push(

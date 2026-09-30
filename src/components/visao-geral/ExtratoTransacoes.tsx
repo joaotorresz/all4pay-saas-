@@ -22,7 +22,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Card, Icon, Input, InfoHint, Button, Select } from "@/components/ui";
+import { Card, Icon, Input, InfoHint, Button, Select, BRL } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
@@ -53,7 +53,7 @@ const corDaCategoria = (nome: string) => {
 
 
 /** Data de caixa do movimento (pago → pagamento; pendente → vencimento). */
-const dataDe = (m: RiskMovement) => (m.status === "pago" ? m.paid_date || m.due_date : m.due_date).slice(0, 10);
+const dataDeCaixaOuVenc = (m: RiskMovement) => (m.status === "pago" ? m.paid_date || m.due_date : m.due_date).slice(0, 10);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const iso = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -109,12 +109,12 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
     const nome = (m: RiskMovement) => (m.party_id && inp.partyNames?.[m.party_id]) || m.category || (m.type === "entrada" ? "Recebimento" : "Pagamento");
     const lista = inp.movements
       .filter((m) => m.status !== "cancelado" && m.type === direction)
-      .filter((m) => { const d = dataDe(m); return d >= sel.de && d <= sel.ate; })
+      .filter((m) => { const d = dataDeCaixaOuVenc(m); return d >= sel.de && d <= sel.ate; })
       .filter((m) => !termo || nome(m).toLowerCase().includes(termo) || (m.category ?? "").toLowerCase().includes(termo))
-      .sort((a, b) => dataDe(b).localeCompare(dataDe(a)));
+      .sort((a, b) => dataDeCaixaOuVenc(b).localeCompare(dataDeCaixaOuVenc(a)));
     const map = new Map<string, RiskMovement[]>();
     for (const m of lista) {
-      const d = dataDe(m);
+      const d = dataDeCaixaOuVenc(m);
       if (!map.has(d)) map.set(d, []);
       map.get(d)!.push(m);
     }
@@ -189,13 +189,13 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
           </span>
           <span className="text-muted">{totalItens} lançamento{totalItens === 1 ? "" : "s"}</span>
           <span className="inline-flex items-center gap-[5px]" style={{ color: POSITIVE }}>
-            <Icon name="arrow-up" size={13} color="currentColor" />{formatBRL(sel?.entradas ?? 0)}
+            <Icon name="arrow-up" size={13} color="currentColor" /><BRL value={sel?.entradas ?? 0} />
           </span>
           <span className="inline-flex items-center gap-[5px]" style={{ color: NEGATIVE }}>
-            <Icon name="arrow-down" size={13} color="currentColor" />{formatBRL(sel?.saidas ?? 0)}
+            <Icon name="arrow-down" size={13} color="currentColor" /><BRL value={sel?.saidas ?? 0} />
           </span>
           <span className="font-medium" style={{ color: (sel?.resultado ?? 0) < 0 ? NEGATIVE : POSITIVE }}>
-            {(sel?.resultado ?? 0) < 0 ? "−" : ""}{formatBRL(Math.abs(sel?.resultado ?? 0))}
+            <BRL value={sel?.resultado ?? 0} />
           </span>
         </div>
       </div>
@@ -233,7 +233,7 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
                       {pago ? (direction === "saida" ? "pago" : "recebido") : "pendente"}
                     </span>
                     <span className="text-[15px] tabular-nums text-ink shrink-0 whitespace-nowrap w-[120px] text-right">
-                      {formatBRL(m.amount)}
+                      <BRL value={m.amount} />
                     </span>
                   </button>
                 );

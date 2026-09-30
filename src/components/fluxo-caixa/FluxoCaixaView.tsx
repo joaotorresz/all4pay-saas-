@@ -21,7 +21,8 @@ import type {
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
 import { janela as fazJanela } from "@/core/indicadores";
-import { formatBRL as fmtBRL } from "@/lib/format";
+import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
+import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -44,8 +45,10 @@ function Inner() {
    * parecer divergência.
    */
   const dias = PERIODOS.find((p) => p.id === filtros.periodo)?.dias ?? filtros.diasCustom;
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const fim = new Date(Date.now() + Math.max(0, dias - 1) * 86400000).toISOString().slice(0, 10);
+  // Dia LOCAL, não UTC: das 21h à meia-noite o `toISOString` já é amanhã.
+  const hojeISO = hojeLocal();
+  const fimD = new Date(`${hojeISO}T00:00:00`); fimD.setDate(fimD.getDate() + Math.max(0, dias - 1));
+  const fim = isoDay(fimD);
   const janelaDoFiltro = fazJanela(hojeISO, fim, `Próximos ${dias} dias`);
   const contas = useContas();
   const { data, isLoading } = useFluxoCaixa(filtros);
@@ -319,7 +322,7 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
       node: r.runway.indisponivel
         ? <SemDados motivo={r.runway.indisponivel.motivo} codigo={r.runway.indisponivel.codigo}
                     className="text-caption" />
-        : <span>{r.runway.valor.toFixed(0)} <span className="text-caption text-faint">meses</span></span>,
+        : <span>{decimalBR(r.runway.valor)} <span className="text-caption text-faint">meses</span></span>,
       tone: "ink",
     },
     /*
@@ -579,7 +582,7 @@ function CenariosView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: 
   const sc = typeof ativo.sc === "function" ? ativo.sc(indic) : ativo.sc;
   const res = simularCenario(indic, saldo, sc);
   const deltas = [
-    { label: "Runway", base: `${base.runwayMeses.toFixed(0)}m`, novo: `${res.runwayMeses.toFixed(0)}m`, pior: res.runwayMeses < base.runwayMeses },
+    { label: "Runway", base: `${decimalBR(base.runwayMeses)}m`, novo: `${decimalBR(res.runwayMeses)}m`, pior: res.runwayMeses < base.runwayMeses },
     { label: "Score", base: `${Math.round(base.scoreProjetado)}`, novo: `${Math.round(res.scoreProjetado)}`, pior: res.scoreProjetado < base.scoreProjetado },
     { label: "Burn", base: <BRL value={base.burnRate} />, novo: <BRL value={res.burnRate} />, pior: res.burnRate > base.burnRate },
     { label: "Resultado/mês", base: <BRL value={base.liquidoMensal} />, novo: <BRL value={res.liquidoMensal} />, pior: res.liquidoMensal < base.liquidoMensal },
@@ -712,7 +715,7 @@ function WhatIfView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: nu
       <Slider label="Inadimplência" value={inad} set={setInad} min={0} max={0.2} step={0.05} fmt={(v) => `+${Math.round(v * 100)}pp`} />
       <Slider label="Folha" value={folha} set={setFolha} min={0} max={0.3} step={0.05} fmt={(v) => `+${Math.round(v * 100)}%`} />
       <div className="grid grid-cols-3 gap-3 border-t border-border-soft pt-3">
-        <Mini label="Runway" v={`${res.runwayMeses.toFixed(0)}m`} />
+        <Mini label="Runway" v={`${decimalBR(res.runwayMeses)}m`} />
         <Mini label="Score" v={`${Math.round(res.scoreProjetado)}`} />
         <Mini label="Resultado/mês" v={<BRL value={res.liquidoMensal} />} tone={"var(--color-ink)"} />
       </div>

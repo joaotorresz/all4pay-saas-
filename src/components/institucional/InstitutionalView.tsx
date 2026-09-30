@@ -328,12 +328,22 @@ function PolicyEngineCard() {
       <p className="m-0 text-caption text-faint">
         Ensaie uma transação e veja o que a política decidiria. O bloqueio real acontece no banco de dados, pelo papel de cada pessoa.
       </p>
+      {/* ⚠️ Em produção os cinco usuários de exemplo NÃO podem aparecer com
+          nome de gente: "Marina (Financeiro)" numa organização real lê como
+          membro da equipe, e ninguém ali se chama Marina. A alçada real é por
+          PAPEL (central_alcada), não por pessoa — então fora da demonstração o
+          ensaio é por perfil, e diz que é exemplo. */}
       <Select
-        label="Usuário"
+        label={isDemo ? "Usuário" : "Perfil de exemplo"}
         value={userId}
         onChange={setUserId}
-        options={DEMO_USUARIOS.map((u) => ({ value: u.id, label: u.nome }))}
+        options={DEMO_USUARIOS.map((u) => ({ value: u.id, label: isDemo ? u.nome : ROLE_LABEL[u.role] }))}
       />
+      {!isDemo && (
+        <p className="m-0 text-caption text-faint">
+          Perfis ilustrativos, não membros da sua empresa: os limites de cada perfil são de exemplo.
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Input label="Valor (R$)" type="number" value={String(valor)} onChange={(e) => setValor(Number(e.target.value) || 0)} />
         <Select

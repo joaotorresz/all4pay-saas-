@@ -9,10 +9,10 @@
  *  • Gráficos: Vendas da semana · Vendas do ano · Receita Bruta, Margem de
  *    Contribuição e EBITDA.
  * Derivado dos lançamentos (getRiscoInput) — demo/live idêntico. Os cálculos:
- *  - Faturamento bruto = Σ entradas (competência, due_date) na janela.
- *  - LTV = receita da janela / clientes distintos da janela.
- *  - CAC = gasto de marketing da janela / clientes distintos da janela.
- *  - LTV/CAC = LTV÷CAC (0 quando CAC=0).
+ *  - Faturamento bruto = linha Receita Bruta da cascata do DRE (competência).
+ *  - LTV = receita bruta da janela / clientes distintos com receita bruta na janela.
+ *  - CAC = gasto de marketing da janela / clientes distintos com receita bruta na janela.
+ *  - LTV/CAC = LTV÷CAC ("—" quando CAC=0: indefinido não é péssimo).
  *  - Margem de contribuição = receita − custos variáveis (CMV/comissão/taxa…).
  *  - EBITDA = receita − despesas operacionais (exclui financeiro, D&A e IRPJ/CSLL).
  *  - % Receita = EBITDA acumulado (YTD) ÷ receita acumulada (YTD).
@@ -22,9 +22,11 @@
 import * as React from "react";
 import { ResponsiveContainer, ComposedChart, LineChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { AppShell } from "@/components/app/AppShell";
-import { Card, Skeleton, Icon, InfoHint, type InfoConteudo } from "@/components/ui";
+import { Card, Skeleton, Icon, InfoHint, BRL, type InfoConteudo } from "@/components/ui";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
+import { dataDe } from "@/core/indicadores";
+import { isoDay } from "@/lib/aggregations";
 import { usePeriod, MES_ABBR } from "@/components/visao-geral/PeriodContext";
 import { PeriodFilter } from "@/components/visao-geral/PeriodFilter";
 import { NovoDeposito } from "@/components/visao-geral/NovoDeposito";
@@ -53,7 +55,6 @@ const RE = {
   marketing: /marketing|ads|an[úu]ncio|facebook|google|tr[áa]fego|publicidade|m[íi]dia/i,
 };
 
-const effDate = (mv: { paid_date?: string | null; due_date: string }) => mv.due_date || mv.paid_date || "";
 import { chartAnim } from "@/lib/chart-anim";
 /*
  * ⚠️ **A cascata é a fonte de RECEITA, MC e EBITDA desta tela.** Antes elas
@@ -105,7 +106,7 @@ export function VendasDashboardView() {
 
     for (const mv of data.movements) {
       if (mv.status === "cancelado") continue;
-      const ds = effDate(mv); if (!ds) continue;
+      const ds = dataDe(mv, "competencia"); if (!ds) continue;
       const ym = ds.slice(0, 7);
       const y = Number(ds.slice(0, 4));
       const mi = Number(ds.slice(5, 7)) - 1;
@@ -115,15 +116,10 @@ export function VendasDashboardView() {
       const inMes = ym === monthSel;
       const inTri = inAno && mi >= qStart && mi < qStart + 3;
 
-      if (mv.type === "entrada") {
-        // ⚠️ Só os CLIENTES e a série da semana saem do laço. Receita é linha do
-        // DRE e vem da cascata — ver abaixo.
-        if (inMes && mv.party_id) W.mes.cli.add(mv.party_id);
-        if (inTri && mv.party_id) W.tri.cli.add(mv.party_id);
-        if (inAno && mv.party_id) W.ano.cli.add(mv.party_id);
-        const d = new Date(ds + "T00:00:00");
-        if (d >= domingo && d <= sabado) semana[d.getDay()].receita += v;
-      } else {
+      // ⚠️ Entradas NÃO saem daqui: clientes e a série da semana vêm da
+      // classificação da cascata, abaixo. Contar "toda entrada" punha
+      // empréstimo, aporte e transferência como venda.
+      if (mv.type !== "entrada") {
         const ehMkt = RE.marketing.test(cat);
         const ehReemb = RE.reembolso.test(cat);
         const ehCharge = RE.chargeback.test(cat);
@@ -158,9 +154,39 @@ export function VendasDashboardView() {
     W.tri.receita = cTri.linhas.receita_bruta.valor;
     W.ano.receita = cAno.linhas.receita_bruta.valor;
 
+    /*
+     * ⚠️ **Clientes e "Vendas da semana" saem da MESMA classificação da
+     * receita bruta.** `relatorio.classificacao` diz em que linha cada
+     * movimento caiu e com que valor (estorno já negativo). Antes a semana
+     * somava toda entrada não cancelada — empréstimo, aporte, transferência —
+     * por vencimento, e o LTV dividia a receita bruta por um número de
+     * "clientes" que incluía o banco que emprestou. O numerador e o
+     * denominador passam a falar do mesmo conjunto de lançamentos.
+     */
+    const ehReceita = (c: ReturnType<typeof janelaCascata>, id: string) =>
+      c.relatorio.classificacao[id]?.linha === "receita_bruta";
+    for (const mv of data.movements) {
+      if (!mv.party_id) continue;
+      if (ehReceita(cMes, mv.id)) W.mes.cli.add(mv.party_id);
+      if (ehReceita(cTri, mv.id)) W.tri.cli.add(mv.party_id);
+      if (ehReceita(cAno, mv.id)) W.ano.cli.add(mv.party_id);
+    }
+    // A semana pode atravessar a virada do ano — tem cascata própria.
+    const domISO = isoDay(domingo), sabISO = isoDay(sabado);
+    const cSem = janelaCascata(domISO, sabISO);
+    for (const mv of data.movements) {
+      const cl = cSem.relatorio.classificacao[mv.id];
+      if (!cl || cl.linha !== "receita_bruta") continue;
+      const ds = dataDe(mv, "competencia");
+      if (!ds || ds < domISO || ds > sabISO) continue;
+      semana[new Date(ds + "T00:00:00").getDay()].receita += cl.valor;
+    }
+
     const ltv = (w: { receita: number; cli: Set<string> }) => w.receita / Math.max(1, w.cli.size);
     const cac = (w: { marketing: number; cli: Set<string> }) => w.marketing / Math.max(1, w.cli.size);
-    const ratio = (l: number, c: number) => (c > 0 ? l / c : 0);
+    // ⚠️ Sem gasto de aquisição a razão NÃO EXISTE — é "—", não 0,00. Zero diria
+// que cada real investido não voltou, quando nenhum real foi investido.
+    const ratio = (l: number, c: number): number | null => (c > 0 ? l / c : null);
 
     const cacMes = cac(W.mes), cacTri = cac(W.tri), cacAno = cac(W.ano);
     const ltvMes = ltv(W.mes), ltvTri = ltv(W.tri), ltvAno = ltv(W.ano);
@@ -203,23 +229,23 @@ export function VendasDashboardView() {
           <>
             {/* Linha 1 — KPIs CAC · LTV · LTV/CAC · EBITDA */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              <KpiCard titulo="CAC" rows={[["Mês", formatBRL(calc.cacMes)], ["Trimestre", formatBRL(calc.cacTri)], ["Ano", formatBRL(calc.cacAno)]]} info={{ titulo: "CAC", oQue: "Quanto custa, em média, conquistar cada cliente novo.", comoCalcula: "Gasto de marketing da janela dividido pelo nº de clientes distintos da janela." }} />
-              <KpiCard titulo="LTV" rows={[["Mês", formatBRL(calc.ltvMes)], ["Trimestre", formatBRL(calc.ltvTri)], ["Ano", formatBRL(calc.ltvAno)]]} info={{ titulo: "LTV", oQue: "Quanto cada cliente gera de receita, em média.", comoCalcula: "Receita da janela dividida pelo nº de clientes distintos da janela." }} />
-              <KpiCard titulo="LTV / CAC" rows={[["Mês", fmtRatio(calc.lcMes)], ["Trimestre", fmtRatio(calc.lcTri)], ["Ano", fmtRatio(calc.lcAno)]]} info={{ titulo: "LTV / CAC", oQue: "Mostra se cada real gasto para conquistar clientes volta em receita.", comoCalcula: "LTV dividido pelo CAC (0 quando o CAC é zero). Acima de 3 é saudável." }} />
-              <KpiCard titulo="EBITDA" rows={[["Mês", formatBRL(calc.ebitdaMes)], ["Acumulado", formatBRL(calc.ebitdaAcum)], ["% Receita", fmtPct(calc.pctReceita)]]} info={{ titulo: "EBITDA", oQue: "Resultado operacional antes de juros, impostos e depreciação.", comoCalcula: "Receita menos despesas operacionais (exclui financeiro, D&A e IRPJ/CSLL). % Receita é o EBITDA acumulado sobre a receita acumulada no ano." }} />
+              <KpiCard titulo="CAC" rows={[["Mês", <BRL key="mes" value={calc.cacMes} />], ["Trimestre", <BRL key="tri" value={calc.cacTri} />], ["Ano", <BRL key="ano" value={calc.cacAno} />]]} info={{ titulo: "CAC", oQue: "Quanto custa, em média, conquistar cada cliente.", comoCalcula: "Gasto de marketing da janela (categorias de marketing, anúncios, tráfego) dividido pelo nº de clientes distintos com lançamento na Receita Bruta do DRE na janela, por competência." }} />
+              <KpiCard titulo="LTV" rows={[["Mês", <BRL key="mes" value={calc.ltvMes} />], ["Trimestre", <BRL key="tri" value={calc.ltvTri} />], ["Ano", <BRL key="ano" value={calc.ltvAno} />]]} info={{ titulo: "LTV", oQue: "Quanto cada cliente gera de receita, em média.", comoCalcula: "Receita Bruta do DRE na janela (competência) dividida pelo nº de clientes distintos com lançamento nessa linha. Empréstimo, aporte e transferência não contam como venda nem como cliente." }} />
+              <KpiCard titulo="LTV / CAC" rows={[["Mês", fmtRatio(calc.lcMes)], ["Trimestre", fmtRatio(calc.lcTri)], ["Ano", fmtRatio(calc.lcAno)]]} info={{ titulo: "LTV / CAC", oQue: "Mostra se cada real gasto para conquistar clientes volta em receita.", comoCalcula: "LTV dividido pelo CAC. Sem gasto de marketing no período a razão não existe e aparece como —. Acima de 3 é saudável." }} />
+              <KpiCard titulo="EBITDA" rows={[["Mês", <BRL key="mes" value={calc.ebitdaMes} />], ["Acumulado", <BRL key="acum" value={calc.ebitdaAcum} />], ["% Receita", pct(calc.pctReceita)]]} info={{ titulo: "EBITDA", oQue: "Resultado operacional antes de juros, impostos e depreciação.", comoCalcula: "Linha EBITDA da cascata do DRE, por competência (receita bruta menos deduções, custos e despesas variáveis e operacionais; exclui financeiro, D&A e IRPJ/CSLL). % Receita é o EBITDA acumulado de janeiro ao mês selecionado sobre a receita bruta do mesmo intervalo." }} />
             </div>
 
             {/* Linha 2 — Faturamento · Reembolsos · Chargebacks */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <DestaqueCard titulo="Faturamento bruto" tint="lime" rows={[["Mês", formatBRL(calc.faturamentoMes)]]} info={{ titulo: "Faturamento bruto", oQue: "Tudo o que a empresa vendeu no período, antes de deduções.", comoCalcula: "Soma das entradas por competência (data de vencimento) na janela selecionada." }} />
-              <DestaqueCard titulo="Reembolsos" tint="lime" rows={[["Mês", formatBRL(calc.reembMes)], ["Ano", formatBRL(calc.reembAno)]]} info={{ titulo: "Reembolsos", oQue: "Valores devolvidos a clientes no período.", comoCalcula: "Soma das saídas cuja categoria indica reembolso, no mês e no ano." }} />
-              <DestaqueCard titulo="Chargebacks" tint="negativo" rows={[["Mês", formatBRL(calc.chargeMes)], ["Ano", formatBRL(calc.chargeAno)]]} info={{ titulo: "Chargebacks", oQue: "Estornos contestados na operadora de cartão.", comoCalcula: "Soma das saídas cuja categoria indica chargeback ou estorno, no mês e no ano." }} />
+              <DestaqueCard titulo="Faturamento bruto" tint="lime" rows={[["Mês", <BRL key="mes" value={calc.faturamentoMes} />]]} info={{ titulo: "Faturamento bruto", oQue: "Tudo o que a empresa vendeu no período, antes de deduções.", comoCalcula: "Linha Receita Bruta da cascata do DRE, por competência, no mês selecionado. Fica de fora o que não é venda: receita financeira, empréstimo, aporte e transferência entre contas próprias." }} />
+              <DestaqueCard titulo="Reembolsos" tint="lime" rows={[["Mês", <BRL key="mes" value={calc.reembMes} />], ["Ano", <BRL key="ano" value={calc.reembAno} />]]} info={{ titulo: "Reembolsos", oQue: "Valores devolvidos a clientes no período.", comoCalcula: "Soma das saídas cuja categoria indica reembolso, no mês e no ano." }} />
+              <DestaqueCard titulo="Chargebacks" tint="negativo" rows={[["Mês", <BRL key="mes" value={calc.chargeMes} />], ["Ano", <BRL key="ano" value={calc.chargeAno} />]]} info={{ titulo: "Chargebacks", oQue: "Estornos contestados na operadora de cartão.", comoCalcula: "Soma das saídas cuja categoria indica chargeback ou estorno, no mês e no ano." }} />
             </div>
 
             {/* Gráficos de linha — Vendas da semana · Vendas do ano */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {!hidSemana && (
-                <ChartCard titulo="Vendas da semana" onClose={() => setHidSemana(true)} info={{ titulo: "Vendas da semana", oQue: "Distribui a receita pelos dias da semana-âncora.", comoCalcula: "Soma das entradas por dia, na semana do dia atual (ou do último dia do mês selecionado)." }}>
+                <ChartCard titulo="Vendas da semana" onClose={() => setHidSemana(true)} info={{ titulo: "Vendas da semana", oQue: "Distribui a receita pelos dias da semana-âncora.", comoCalcula: "Receita Bruta do DRE por dia de competência, na semana (domingo a sábado) do dia atual — ou do último dia do mês selecionado. A mesma classificação do Faturamento bruto." }}>
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.semana} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
@@ -232,7 +258,7 @@ export function VendasDashboardView() {
                 </ChartCard>
               )}
               {!hidAno && (
-                <ChartCard titulo="Vendas do ano" onClose={() => setHidAno(true)} info={{ titulo: "Vendas do ano", oQue: "Evolução mês a mês da receita no ano selecionado.", comoCalcula: "Soma das entradas por mês (competência) ao longo dos 12 meses do ano." }}>
+                <ChartCard titulo="Vendas do ano" onClose={() => setHidAno(true)} info={{ titulo: "Vendas do ano", oQue: "Evolução mês a mês da receita no ano selecionado.", comoCalcula: "Linha Receita Bruta da cascata do DRE, mês a mês (competência), ao longo dos 12 meses do ano." }}>
                   <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={calc.serieAno} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                       <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" />
@@ -251,7 +277,7 @@ export function VendasDashboardView() {
 
             {/* Área — Receita Bruta, Margem de Contribuição e EBITDA */}
             <Card className="flex flex-col gap-3">
-              <span className="inline-flex items-center gap-1 text-[16px] font-semibold text-ink">Receita Bruta, Margem de Contribuição e EBITDA<InfoHint align="left" titulo="Receita, MC e EBITDA" oQue="Compara, mês a mês, a receita bruta, a margem de contribuição e o EBITDA." comoCalcula="Receita bruta = soma das entradas. Margem de contribuição = receita menos custos variáveis. EBITDA = receita menos despesas operacionais." /></span>
+              <span className="inline-flex items-center gap-1 text-[16px] font-semibold text-ink">Receita Bruta, Margem de Contribuição e EBITDA<InfoHint align="left" titulo="Receita, MC e EBITDA" oQue="Compara, mês a mês, a receita bruta, a margem de contribuição e o EBITDA." comoCalcula="As três linhas saem da cascata do DRE por competência, mês a mês: Receita Bruta; Margem de Contribuição = receita líquida menos custos e despesas variáveis; EBITDA = margem de contribuição menos despesas operacionais." /></span>
               <ResponsiveContainer width="100%" height={300}>
                 <ComposedChart data={calc.serieRME} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                   <defs>
@@ -272,7 +298,7 @@ export function VendasDashboardView() {
               </ResponsiveContainer>
             </Card>
 
-            <span className="text-caption text-faint">CAC e LTV são aproximações (marketing÷clientes e receita÷clientes); o split de custo variável (margem de contribuição) e a exclusão financeiro/D&A/IR no EBITDA são por palavra-chave — refinam com a base de clientes e os custos categorizados.</span>
+            <span className="text-caption text-faint">CAC e LTV são aproximações do período (marketing÷clientes e receita bruta÷clientes, contando só clientes com lançamento na Receita Bruta). Receita, margem de contribuição e EBITDA são as linhas do DRE — a classificação segue o plano de contas declarado e, sem ele, a palavra-chave da categoria.</span>
           </>
         )}
       </div>
@@ -280,10 +306,9 @@ export function VendasDashboardView() {
   );
 }
 
-const fmtRatio = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtPct = (n: number) => `${(n * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+const fmtRatio = (n: number | null) => (n == null ? "—" : `${n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`);
 
-function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, string][]; info?: InfoConteudo }) {
+function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, React.ReactNode][]; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-2" info={info}>
       <span className="text-caption font-semibold tracking-wide" style={{ color: POSITIVE }}>{titulo}</span>
@@ -299,7 +324,7 @@ function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, string
   );
 }
 
-function DestaqueCard({ titulo, rows, tint, info }: { titulo: string; rows: [string, string][]; tint: "lime" | "negativo"; info?: InfoConteudo }) {
+function DestaqueCard({ titulo, rows, tint, info }: { titulo: string; rows: [string, React.ReactNode][]; tint: "lime" | "negativo"; info?: InfoConteudo }) {
   const isNeg = tint === "negativo";
   const bg = isNeg ? "rgba(194,71,61,0.08)" : "var(--color-lime-tint)";
   const cor = isNeg ? "var(--color-negative)" : POSITIVE;

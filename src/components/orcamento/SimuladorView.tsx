@@ -24,12 +24,12 @@ import { Card, BRL, Icon, CurrencyInput, Input, Select, Skeleton, InfoHint } fro
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { useTipoConta } from "@/components/app/useTipoConta";
 import { chartAnim } from "@/lib/chart-anim";
+import { formatBRL, formatBRLCompact } from "@/lib/format";
 import {
   simularAquisicao, situacaoDe, presetPor, PRESETS, VEREDITO_LABEL,
   type TipoDecisao, type SituacaoAtual, type Veredito, type ResultadoSimulacao,
 } from "@/core/aquisicao";
 
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 /** Cor do veredito — status é sinal semântico pequeno, nunca preenchimento. */
 const TOM: Record<Veredito, { cor: string; icone: string }> = {
@@ -125,7 +125,7 @@ export function SimuladorView() {
           <CampoValor label={pessoal ? "Sai por mês" : "Custo por mês"} value={sit.despesaMensal} onChange={(v) => setAjuste((a) => ({ ...a, despesaMensal: v }))} />
         </div>
         <p className="m-0 mt-3 text-caption text-faint">
-          Sobra hoje: <b className="text-ink tabular-nums">{brl0(sit.receitaMensal - sit.despesaMensal)}</b> por mês
+          Sobra hoje: <b className="text-ink tabular-nums"><BRL value={sit.receitaMensal - sit.despesaMensal} /></b> por mês
           {Object.keys(ajuste).length > 0 && (
             <button onClick={() => setAjuste({})} className="ml-3 text-caption text-muted hover:text-ink underline underline-offset-2">
               voltar aos meus números
@@ -240,7 +240,7 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
           <Metrica label="Parcela" valor={r.parcela} sufixo={r.parcelas > 0 ? `× ${r.parcelas}` : undefined} />
           <Metrica label="Peso no mês" valor={r.pesoMensal} hint="parcela + custos − ganhos" />
           <Metrica label="Sobra depois" valor={r.sobraDepois} tone={r.sobraDepois < 0 ? "negative" : undefined} />
-          <Metrica label="Total pago" valor={r.totalPago} hint={r.juros > 0 ? `${brl0(r.juros)} de juros` : "sem juros"} />
+          <Metrica label="Total pago" valor={r.totalPago} hint={r.juros > 0 ? `${formatBRL(r.juros)} de juros` : "sem juros"} />
         </div>
       </Card>
 
@@ -257,8 +257,8 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
         </div>
         <p className="m-0 mb-4 text-caption text-faint">
           {r.mesAperto !== null
-            ? <>o caixa fica <b className="text-negative">negativo no mês {r.mesAperto}</b> · mínimo {brl0(r.caixaMinimo)}</>
-            : <>o caixa não fica negativo · ponto mais baixo {brl0(r.caixaMinimo)}</>}
+            ? <>o caixa fica <b className="text-negative">negativo no mês {r.mesAperto}</b> · mínimo <BRL value={r.caixaMinimo} /></>
+            : <>o caixa não fica negativo · ponto mais baixo <BRL value={r.caixaMinimo} /></>}
         </p>
 
         <div className="h-[260px] -ml-2" role="img" aria-label={`Projeção de caixa com e sem a compra ao longo de ${r.projecao.length - 1} meses`}>
@@ -268,12 +268,12 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
                 interval="preserveStartEnd" tickFormatter={(m: number) => (m === 0 ? "hoje" : `${m}m`)} />
               <YAxis tickLine={false} axisLine={false} width={62}
                 tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
+                tickFormatter={(v: number) => formatBRLCompact(v)} />
               <ReferenceLine y={0} stroke="var(--color-border)" />
               <Tooltip
                 contentStyle={{ borderRadius: 12, border: "1px solid var(--color-border)", background: "var(--color-white)", fontSize: 13 }}
                 labelFormatter={(m) => (m === 0 ? "Hoje" : `Mês ${m}`)}
-                formatter={(v: number, n: string) => [brl0(v), n === "comCompra" ? "Com a compra" : "Sem a compra"]}
+                formatter={(v: number, n: string) => [formatBRL(v), n === "comCompra" ? "Com a compra" : "Sem a compra"]}
               />
               <Line type="monotone" dataKey="semCompra" name="semCompra" stroke="var(--color-text-tertiary)"
                 strokeWidth={1.4} strokeDasharray="4 4" dot={false} {...chartAnim()} />
@@ -327,7 +327,7 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
                   <div className="text-caption text-muted mt-[2px]">{a.detalhe}</div>
                   {a.parcela > 0 && (
                     <div className="text-caption text-faint mt-1 tabular-nums">
-                      parcela {brl0(a.parcela)}{a.parcelas > 0 ? ` × ${a.parcelas}` : ""}
+                      parcela <BRL value={a.parcela} />{a.parcelas > 0 ? ` × ${a.parcelas}` : ""}
                     </div>
                   )}
                 </div>
