@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Card, BRL, Icon, Select, StatusBadge, Skeleton, InfoHint, type InfoConteudo } from "@/components/ui";
 import { AppShell } from "@/components/app/AppShell";
+import { formatBRL, formatBRLCompact, pct } from "@/lib/format";
 import { isDemo } from "@/lib/demo";
 import { reconciliarBilling, type AlertaBilling, type TipoAlerta } from "@/core/billing";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
@@ -56,7 +57,7 @@ export function AdminView() {
       <AppShell title="Dono da plataforma">
         <Card className="flex flex-col items-start gap-2">
           <span className="text-h3 font-medium text-ink">Acesso restrito</span>
-          <span className="text-caption text-muted">Esta área é exclusiva do DONO DA PLATAFORMA — um papel diferente de administrador da sua empresa. Ser admin da sua organização não dá acesso aqui.</span>
+          <span className="text-caption text-muted">Esta área é exclusiva de quem administra a plataforma — um papel diferente de administrador da sua empresa. Ser administrador da sua empresa não dá acesso aqui.</span>
         </Card>
       </AppShell>
     );
@@ -213,20 +214,20 @@ function AdminBody() {
   };
 
   const o = overview.data;
-  const planOpts = [{ value: "", label: "—" }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · R$${p.priceMonth}` }))];
+  const planOpts = [{ value: "", label: "—" }, ...(plans.data ?? []).map((p) => ({ value: p.id, label: `${p.name} · ${formatBRL(p.priceMonth)}` }))];
 
   return (
     <div className="flex flex-col gap-6 pb-4">
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das organizações." }} />
+        <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das empresas clientes." }} />
         <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} info={{ titulo: "ARR", oQue: "Receita recorrente anual projetada.", comoCalcula: "MRR multiplicado por 12." }} />
-        <Kpi label="Organizações" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Organizações", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as organizações cadastradas." }} />
-        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Assinaturas ativas", oQue: "Quantas organizações estão com a cobrança em dia.", comoCalcula: "Organizações cujo status de assinatura é ativo." }} />
+        <Kpi label="Empresas" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Empresas", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as empresas cadastradas." }} />
+        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Assinaturas ativas", oQue: "Quantas empresas estão com a cobrança em dia.", comoCalcula: "Empresas cujo status de assinatura é ativo." }} />
         <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} info={{ titulo: "Usuários", oQue: "Total de contas criadas na plataforma.", comoCalcula: "Contagem de todos os usuários do Auth." }} />
         <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
-        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Organizações em período de avaliação.", comoCalcula: "Organizações cujo status de assinatura é trial." }} />
-        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Organizações com a mensalidade em atraso.", comoCalcula: "Organizações cujo status de assinatura é inadimplente." }} />
+        <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Empresas em período de avaliação.", comoCalcula: "Empresas cujo status de assinatura é trial." }} />
+        <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Empresas com a mensalidade em atraso.", comoCalcula: "Empresas cujo status de assinatura é inadimplente." }} />
       </div>
 
       <ReconciliacaoBilling orgs={orgs.data ?? []} carregando={orgs.isLoading} />
@@ -238,8 +239,8 @@ function AdminBody() {
       </div>
 
       {/* Organizações (clientes) + cobrança */}
-      <Card padded={false} info={{ titulo: "Organizações · cobrança", oQue: "Lista os clientes do SaaS e deixa ajustar o plano e o status de cobrança de cada um.", comoCalcula: "Vem das organizações com sua assinatura; o MRR é o preço do plano quando a assinatura está ativa." }}>
-        <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Organizações · cobrança de mensalidade</div>
+      <Card padded={false} info={{ titulo: "Empresas · cobrança", oQue: "Lista os clientes da plataforma e deixa ajustar o plano e o status de cobrança de cada um.", comoCalcula: "Vem das empresas com a sua assinatura; o MRR é o preço do plano quando a assinatura está ativa." }}>
+        <div className="px-5 py-3 border-b border-border-soft text-label font-medium text-muted">Empresas · cobrança de mensalidade</div>
         {orgs.isLoading ? (
           <div className="p-5"><Skeleton className="h-32 w-full" /></div>
         ) : (
@@ -314,7 +315,7 @@ function AdminBody() {
 
       <span className="text-caption text-faint inline-flex items-center gap-2">
         <Icon name="shield-check" size={14} color="var(--color-text-secondary)" />
-        Visão cross-tenant exclusiva do administrador da plataforma (RPCs SECURITY DEFINER gateadas). {isDemo ? "Dados de demonstração." : ""}
+        Visão entre empresas, exclusiva de quem administra a plataforma: cada consulta passa pela verificação de acesso e fica registrada. {isDemo ? "Dados de demonstração." : ""}
       </span>
       {verOrg && <OrgDetailModal orgId={verOrg.id} nome={verOrg.nome} onClose={() => setVerOrg(null)} />}
       {verUser && <UserDetailModal userId={verUser.id} email={verUser.email} onClose={() => setVerUser(null)} />}
@@ -329,7 +330,7 @@ function GrowthCard() {
   const mesLabel = (m: string) => { const [y, mm] = m.split("-"); return `${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][Number(mm) - 1]}/${y.slice(2)}`; };
   const data = (g.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
   return (
-    <Card className="flex flex-col gap-3" info={{ titulo: "Crescimento", oQue: "Mostra o ritmo de aquisição de novos clientes e o tamanho da base ao longo do tempo.", comoCalcula: "As barras contam os clientes que entraram em cada mês; a linha acumula a base total de organizações." }}>
+    <Card className="flex flex-col gap-3" info={{ titulo: "Crescimento", oQue: "Mostra o ritmo de aquisição de novos clientes e o tamanho da base ao longo do tempo.", comoCalcula: "As barras contam os clientes que entraram em cada mês; a linha acumula a base total de empresas." }}>
       <span className="text-label font-medium text-muted">Crescimento · novos clientes e base acumulada</span>
       {g.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
         <ResponsiveContainer width="100%" height={220}>
@@ -349,7 +350,7 @@ function GrowthCard() {
           </ComposedChart>
         </ResponsiveContainer>
       )}
-      <span className="text-caption text-faint">Barras = novos clientes no mês · linha = base acumulada de organizações.</span>
+      <span className="text-caption text-faint">Barras = novos clientes no mês · linha = base acumulada de empresas.</span>
     </Card>
   );
 }
@@ -361,23 +362,23 @@ function MrrCard() {
   const data = (h.data ?? []).map((p) => ({ ...p, label: mesLabel(p.mes) }));
   const atual = data.length ? data[data.length - 1].mrr : 0;
   const ant = data.length > 1 ? data[data.length - 2].mrr : 0;
-  const delta = ant > 0 ? Math.round(((atual - ant) / ant) * 100) : 0;
+  const delta = ant > 0 ? (atual - ant) / ant : 0;
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="inline-flex items-center gap-1 text-label font-medium text-muted">MRR mês a mês<InfoHint align="left" titulo="MRR mês a mês" oQue="Acompanha a receita recorrente mensal da plataforma e sua variação." comoCalcula="Usa o snapshot real do mês quando existe; senão deriva da soma das assinaturas ativas." /></span>
-        {data.length > 1 && <span className={`text-caption font-medium tabular-nums ${delta >= 0 ? "text-positive" : "text-negative"}`}>{delta >= 0 ? "+" : ""}{delta}% vs mês anterior</span>}
+        {data.length > 1 && <span className={`text-caption font-medium tabular-nums ${delta >= 0 ? "text-positive" : "text-negative"}`}>{delta >= 0 ? "+" : ""}{pct(delta)} × mês anterior</span>}
       </div>
       {h.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -2 }}>
             <CartesianGrid stroke="var(--color-border-soft)" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
-            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => "R$" + (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+            <YAxis tick={{ fontSize: 12, fill: "var(--color-text-tertiary)" }} tickLine={false} axisLine={false} width={52} tickFormatter={(v) => formatBRLCompact(Number(v))} />
             <Tooltip cursor={{ fill: "rgba(0,0,0,0.03)" }} content={({ active, payload, label }: any) => active && payload?.length ? (
               <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
                 <div className="font-medium text-ink mb-1">{label}</div>
-                <div className="text-muted tabular-nums">MRR R$ {Number(payload[0].value).toLocaleString("pt-BR")}</div>
+                <div className="text-muted tabular-nums">MRR {formatBRL(Number(payload[0].value))}</div>
               </div>
             ) : null} />
             <Line dataKey="mrr" stroke="var(--color-lime)" strokeWidth={1.8} dot={false} />
@@ -530,8 +531,8 @@ function UserDetailModal({ userId, email, onClose }: { userId: string; email: st
             </div>
             {/* Organizações + perfil da empresa */}
             <div className="flex flex-col gap-2">
-              <span className="text-label font-medium text-muted">Organizações ({d.orgs.length})</span>
-              {d.orgs.length === 0 ? <span className="text-caption text-faint">Sem vínculo com organizações.</span> :
+              <span className="text-label font-medium text-muted">Empresas ({d.orgs.length})</span>
+              {d.orgs.length === 0 ? <span className="text-caption text-faint">Sem vínculo com empresas.</span> :
                 d.orgs.map((o) => {
                   const p = o.perfil;
                   return (
@@ -549,7 +550,7 @@ function UserDetailModal({ userId, email, onClose }: { userId: string; email: st
                         <Campo label="CPF do representante" v={pf(p, "repCpf", "cpf")} />
                         <Campo label="E-mail do representante" v={pf(p, "repEmail") || o.emailMembro} />
                         <Campo label="Telefone do representante" v={pf(p, "repTelefone")} />
-                        {o.aprovaAte != null && <Campo label="Alçada de aprovação" v={`R$${o.aprovaAte.toLocaleString("pt-BR")}`} />}
+                        {o.aprovaAte != null && <Campo label="Alçada de aprovação" v={formatBRL(o.aprovaAte)} />}
                       </div>
                     </div>
                   );

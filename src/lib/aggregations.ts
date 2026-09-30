@@ -27,6 +27,17 @@ export function isoDay(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * O dia de HOJE no fuso de quem usa (YYYY-MM-DD).
+ *
+ * ⚠️ Nunca `new Date().toISOString().slice(0, 10)`: isso é o dia em UTC, e em
+ * UTC−3 das 21h à meia-noite ele já é AMANHÃ — o formulário abria com a data
+ * do dia seguinte e o lançamento caía no mês errado no dia 31.
+ */
+export function hojeLocal(): string {
+  return isoDay(new Date());
+}
+
 function endOfMonthISO(today: Date): string {
   return isoDay(new Date(today.getFullYear(), today.getMonth() + 1, 0));
 }

@@ -89,22 +89,22 @@ export function montarJornada(input: RiskInput | undefined, vistas: Set<string>)
 
   const estagios: EstagioJornada[] = [
     montarEstagio("conectar", "Conectar", "Traga seus dados para dentro", [
-      { id: "primeiro-dado", titulo: "Traga o primeiro dado", desc: "Importe um extrato (OFX/CSV) ou lance à mão — o Quattro reconstrói recebíveis, contas, fluxo e DRE sozinho.", feito: temDado, href: "/upload", cta: "Fazer upload" },
-      { id: "contatos", titulo: "Tenha clientes e fornecedores", desc: "Contatos alimentam cobrança, DRE por cliente e o score de crédito.", feito: nContatos >= 2, href: "/contatos", cta: "Ver contatos" },
+      { id: "primeiro-dado", titulo: "Traga o primeiro dado", desc: "Importe um extrato (OFX/CSV) ou lance à mão — o Quattro reconstrói o que você tem a receber, as contas, o fluxo e o DRE sozinho.", feito: temDado, href: "/upload", cta: "Fazer upload" },
+      { id: "contatos", titulo: "Tenha clientes e fornecedores", desc: "Contatos alimentam cobrança, DRE por cliente e o score de crédito.", feito: nContatos >= 2, href: "/dashboard/registrations/clients", cta: "Ver clientes" },
       { id: "conta-saldo", titulo: "Defina o saldo das contas", desc: "Com o saldo real, o caixa e o runway ficam precisos.", feito: temSaldo, href: "/upload?aba=conectar", cta: "Conectar conta" },
     ]),
     montarEstagio("organizar", "Organizar", "Dê sentido ao que entrou", [
       { id: "categorizar", titulo: "Categorize os lançamentos", desc: "Categoria certa = DRE e benchmark certos. A IA pré-classifica; você só confirma.", feito: temDado && pctCategorizado >= 0.6, href: "/upload", cta: "Revisar categorias" },
-      { id: "recorrencias", titulo: "Registre o que se repete", desc: "Assinaturas e contratos viram faturas previstas no fluxo (MRR).", feito: viu("/recorrencias"), href: "/recorrencias", cta: "Ver recorrências" },
+      { id: "recorrencias", titulo: "Registre o que se repete", desc: "Assinaturas e contratos viram faturas previstas no fluxo (MRR).", feito: viu("/dashboard/sales-invoices/subscriptions"), href: "/dashboard/sales-invoices/subscriptions", cta: "Ver assinaturas e recorrência" },
     ]),
     montarEstagio("analisar", "Analisar", "Entenda o seu negócio", [
-      { id: "dre", titulo: "Leia o seu resultado (DRE)", desc: "Quanto sobrou, por quê e onde — do faturamento ao lucro.", feito: viu("/dre"), href: "/dre", cta: "Abrir DRE" },
+      { id: "dre", titulo: "Leia o seu resultado (DRE)", desc: "Quanto sobrou, por quê e onde — do faturamento ao lucro.", feito: viu("/dashboard/reports/dre"), href: "/dashboard/reports/dre", cta: "Abrir DRE" },
       { id: "fluxo", titulo: "Projete o caixa", desc: "Entradas × saídas, saldo acumulado e quando aperta.", feito: viu("/fluxo-caixa"), href: "/fluxo-caixa", cta: "Ver fluxo de caixa" },
-      { id: "cobranca", titulo: "Acompanhe a inadimplência", desc: "Quem deve, quanto, e o risco de cada cliente.", feito: temRecebivel && viu("/inadimplencia"), href: "/inadimplencia", cta: "Ver inadimplência" },
+      { id: "cobranca", titulo: "Acompanhe a inadimplência", desc: "Quem deve, quanto, e o risco de cada cliente.", feito: temRecebivel && viu("/dashboard/financial/overdue"), href: "/dashboard/financial/overdue", cta: "Ver inadimplência" },
       { id: "ia", titulo: "Pergunte à Quattro AI", desc: "Um CFO digital que responde sobre os SEUS números.", feito: viu("/quattro-ai"), href: "/quattro-ai", cta: "Abrir a IA" },
     ]),
     montarEstagio("operar", "Operar", "Automatize e cresça", [
-      { id: "investidores", titulo: "Gere um Investor update", desc: "Relatório mensal para investidores, pronto dos seus números.", feito: viu("/investidores"), href: "/investidores", cta: "Ver Investor update" },
+      { id: "investidores", titulo: "Gere o relatório ao investidor", desc: "Relatório mensal para investidores, pronto dos seus números.", feito: viu("/investidores"), href: "/investidores", cta: "Ver relatório ao investidor" },
       { id: "orcamento", titulo: "Defina o orçamento", desc: "Meta por linha e a variância orçado × realizado.", feito: viu("/orcamento"), href: "/orcamento", cta: "Abrir orçamento" },
     ]),
   ];

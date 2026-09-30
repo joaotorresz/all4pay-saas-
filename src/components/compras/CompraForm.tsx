@@ -30,8 +30,9 @@ import {
   type TipoPagamentoCompra, type EspecieDoc,
 } from "@/core/compras";
 import { salvarCompra, proximoNumeroCompra, novoId } from "@/lib/compras-store";
+import { hojeLocal } from "@/lib/aggregations";
 
-const hojeISO = () => new Date().toISOString().slice(0, 10);
+const hojeISO = () => hojeLocal();
 const fmtDia = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
 export function CompraForm() {

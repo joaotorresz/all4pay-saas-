@@ -74,6 +74,8 @@ export interface EstadoIntegracao {
   conectados: string[];
   /** Sub-interruptores (Domínio tem dois independentes). */
   chaves: Record<string, boolean>;
+  /** URL do webhook de vendas (cartão de APIs). Opcional: estados antigos não a têm. */
+  webhookUrl?: string | null;
   atualizadoEm: string | null;
 }
 

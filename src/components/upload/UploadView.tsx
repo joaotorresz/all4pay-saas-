@@ -340,7 +340,7 @@ export function UploadView() {
       {importado && !report && (
         <Card className="flex items-center gap-3 border-l-4" style={{ borderLeftColor: "var(--color-lime)" }}>
           <Icon name="check" size={16} color="var(--color-positive)" />
-          <span className="text-caption text-ink flex-1">Dados importados ativos — alimentando dashboard, DRE, risco, inteligência e todo o ERP.</span>
+          <span className="text-caption text-ink flex-1">Dados importados ativos — alimentando painéis, DRE, risco, inteligência e todo o ERP.</span>
           <AcaoDestrutiva
             rotulo="Limpar dados importados"
             titulo="Limpar dados importados"

@@ -62,7 +62,7 @@ export function RevisaoImportacao({
           <Mini label="Centros" v={resultado.centrosCusto ?? 0} />
           <Mini label="Lançamentos" v={resultado.movimentos ?? 0} />
         </div>
-        <span className="text-caption text-faint">Os dados já alimentam dashboard, DRE, risco, inteligência e todo o ERP.</span>
+        <span className="text-caption text-faint">Os dados já alimentam os painéis, DRE, risco, inteligência e todo o ERP.</span>
       </Card>
     );
   }

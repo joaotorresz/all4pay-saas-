@@ -9,8 +9,8 @@
  * últimos lançamentos. Montado uma vez no AppShell. Demo/live idêntico.
  */
 import * as React from "react";
-import { Icon, InfoHint } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
+import { Icon, InfoHint, BRL } from "@/components/ui";
+import { formatBRL, pct } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
 import { posicaoDaContraparte } from "@/core/indicadores";
@@ -99,12 +99,12 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
             <>
               {/* KPIs */}
               <div className="grid grid-cols-2 gap-3">
-                <Kpi label="Recebido" v={formatBRL(resumo.recebido)} />
-                <Kpi label="A receber" v={formatBRL(resumo.aReceber)} />
-                {resumo.pago > 0 && <Kpi label="Pago a ele" v={formatBRL(resumo.pago)} />}
-                {resumo.aPagar > 0 && <Kpi label="A pagar" v={formatBRL(resumo.aPagar)} />}
-                {resumo.vencido > 0 && <Kpi label="Vencido" v={formatBRL(resumo.vencido)} tone="var(--color-negative)" />}
-                {resumo.share > 0.001 && <Kpi label="Participação na receita" v={`${(resumo.share * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`} tone={resumo.share >= 0.3 ? "var(--color-warning)" : undefined} />}
+                <Kpi label="Recebido" v={<BRL value={resumo.recebido} />} />
+                <Kpi label="A receber" v={<BRL value={resumo.aReceber} />} />
+                {resumo.pago > 0 && <Kpi label="Pago a ele" v={<BRL value={resumo.pago} />} />}
+                {resumo.aPagar > 0 && <Kpi label="A pagar" v={<BRL value={resumo.aPagar} />} />}
+                {resumo.vencido > 0 && <Kpi label="Vencido" v={<BRL value={resumo.vencido} />} tone="var(--color-negative)" />}
+                {resumo.share > 0.001 && <Kpi label="Participação na receita" v={pct(resumo.share)} tone={resumo.share >= 0.3 ? "var(--color-warning)" : undefined} />}
               </div>
 
               {/* Histórico de recebimento (6 meses) */}
@@ -156,7 +156,7 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                       <div className="text-[11px] text-faint tabular-nums">{dia(m.paid_date || m.due_date)} · {m.status === "pago" ? "pago" : m.due_date.slice(0, 10) < (inp?.hoje ?? "") ? "vencido" : "pendente"}</div>
                     </div>
                     <span className="text-[14px] tabular-nums shrink-0" style={{ color: m.type === "entrada" ? "var(--color-positive)" : "var(--color-ink)" }}>
-                      {m.type === "entrada" ? "+" : "−"}{formatBRL(Math.abs(m.amount))}
+                      {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
                     </span>
                   </div>
                 ))}
@@ -187,7 +187,7 @@ function Sparkline({ data }: { data: { mes: string; valor: number }[] }) {
   );
 }
 
-function Kpi({ label, v, tone }: { label: string; v: string; tone?: string }) {
+function Kpi({ label, v, tone }: { label: string; v: React.ReactNode; tone?: string }) {
   return (
     <div className="rounded-card bg-surface-1 p-3 flex flex-col gap-1">
       <span className="text-caption text-faint">{label}</span>

@@ -55,7 +55,8 @@ import type { Direcao } from "@/core/movimentacoes";
 import type { RecurrenceFreq } from "@/lib/types";
 
 import { formatBRL } from "@/lib/format";
-const hoje = () => new Date().toISOString().slice(0, 10);
+import { hojeLocal } from "@/lib/aggregations";
+const hoje = () => hojeLocal();
 
 // ⚠️ O modo "folha" só existe no lado de PAGAR: não se contrata um
 // funcionário para receber. Oferecê-lo em "nova conta a receber" seria um

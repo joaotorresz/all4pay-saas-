@@ -157,8 +157,8 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/contabilidade?aba=fechamento": {
-    titulo: "Fechamento contábil",
+  "/dashboard/reports/monthly-closing": {
+    titulo: "Fechamento mensal",
     intro: "Fechamento contínuo: o mês vira revisão e aprovação, não construção do zero. Tarefas de IA já vêm resolvidas; você trava o período quando fecha.",
     comoUsar: "Escolha o mês, marque as tarefas manuais (conciliar/variância/aprovar), lance as provisões sugeridas no razão e clique 'Travar período' para proteger os lançamentos.",
     exemplo: "Ao fechar maio: confira que 0 pendências, lance a provisão de aluguel ausente e clique 'Travar período' — depois o razão recusa postagens em maio.",
@@ -233,7 +233,7 @@ export const GUIDES: Record<string, Guide> = {
       acoes([
         { nome: "Perguntar", desc: "Conceitos (“o que é runway?”), números reais (saldo, margem, inadimplência) e simulações (financiamento, Simples, precificação).", match: "Envie uma mensagem" },
         { nome: "Retomar uma conversa", desc: "Clique no histórico à esquerda — Hoje, Últimos 7 dias, Últimos 30 dias.", match: "Nova conversa" },
-        { nome: "Conferir a fonte", desc: "Cada resposta mostra os motores usados; o polegar 👍/👎 ensina a IA a priorizar suas perguntas." },
+        { nome: "Conferir a fonte", desc: "Cada resposta mostra os motores usados; o polegar para cima ou para baixo ensina a IA a priorizar suas perguntas." },
       ]),
     ],
   },
@@ -253,18 +253,6 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
   /* ----------------------------- Receber ----------------------------- */
-  "/recebiveis": {
-    titulo: "Entradas",
-    intro: "Tela unificada das entradas (recebíveis): um filtro segmentado reúne tudo num lugar só — em aberto, já realizado e recorrente.",
-    comoUsar: "Troque a aba (Em aberto · Realizado · Recorrente). No 'Em aberto', edite valor/vencimento ou envie para a Lixeira. Lançamentos de mês travado ficam bloqueados.",
-    exemplo: "Quer ver o que já caiu? Aba 'Realizado' mostra os recebimentos com a data de liquidação.",
-    secoes: [
-      acoes([
-        { nome: "Filtrar", desc: "Em aberto (a receber) · Realizado (recebido) · Recorrente (contratos)." },
-        { nome: "Editar / excluir", desc: "Só no 'Em aberto'; respeita período travado." },
-      ]),
-    ],
-  },
   "/contas-a-receber/titulos": {
     titulo: "Central de recebimentos",
     intro: "Executa as entradas lançadas (dar baixa no que foi recebido), agrupadas por dia/semana/mês, com busca e conta de entrada.",
@@ -272,13 +260,13 @@ export const GUIDES: Record<string, Guide> = {
     exemplo: "Recebeu 3 boletos hoje → selecione-os e confirme o recebimento para o saldo refletir.",
     secoes: [],
   },
-  "/recebimentos?aba=recorrencias": {
-    titulo: "Recorrências / Contratos",
-    intro: "Motor de receita previsível (MRR): um contrato (cliente + itens do catálogo + ciclo) projeta as próximas faturas como entradas previstas no hub.",
-    comoUsar: "Crie uma recorrência (cliente, itens, ciclo) e Ative — as faturas futuras entram no fluxo previsto. Pausar/Cancelar (churn) remove do fluxo.",
+  "/dashboard/sales-invoices/subscriptions": {
+    titulo: "Assinaturas e recorrência",
+    intro: "A lista dos contratos recorrentes (MRR): cada contrato (cliente + itens + ciclo) projeta as próximas faturas como entradas previstas.",
+    comoUsar: "Filtre por status e busque por cliente ou produto; exporte a lista em XLSX. Para criar uma nova, use Criar → Nova assinatura / recorrência.",
     exemplo: "Mensalidade de R$990 para o cliente Acme, ciclo mensal → projeta R$990/mês em A receber e no MRR.",
     secoes: [
-      blocos([{ nome: "Dashboard de assinatura", desc: "MRR, ativas, ticket médio e churn." }]),
+      blocos([{ nome: "Painel de assinaturas", desc: "Total, ativas, canceladas e expiradas, com o valor recorrente." }]),
     ],
   },
   "/dashboard/financial/overdue": {
@@ -311,15 +299,6 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Pagar ----------------------------- */
-  "/pagaveis": {
-    titulo: "Saídas",
-    intro: "Tela unificada das saídas (pagáveis), espelhando Entradas: filtro Em aberto · Realizado · Recorrente sobre o mesmo hub.",
-    comoUsar: "Troque a aba (Em aberto · Realizado · Recorrente). No 'Em aberto', edite ou exclua; respeita período travado.",
-    exemplo: "Aba 'Em aberto' lista o que vence; selecione um título e edite o vencimento se renegociou.",
-    secoes: [
-      acoes([{ nome: "Filtrar", desc: "Em aberto (a pagar) · Realizado (pago) · Recorrente." }]),
-    ],
-  },
   "/contas-a-pagar/titulos": {
     titulo: "Central de pagamentos",
     intro: "Executa os títulos de saída lançados, agrupados por período, com seleção múltipla, conta de saída e método. Idempotente (reenviar não paga 2x).",
@@ -391,7 +370,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Inteligência (Pro) ----------------------------- */
-  "/inteligencia": {
+  "/quattro-ai?aba=quant": {
     titulo: "Inteligência — camada quantitativa",
     intro: "O 'Bloomberg para PMEs': transforma lançamentos em métricas executivas, score de saúde, radar, projeção e interpretação de CFO digital.",
     comoUsar: "Leia o score e o radar; abra os KPIs e os cenários preditivos; compare com o benchmark do setor.",
@@ -404,7 +383,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/risco": {
+  "/quattro-ai?aba=risco": {
     titulo: "Risco de caixa",
     intro: "Motor proprietário de risco operacional: score, runway, ruptura e stress — explicável (cada pilar com peso e nota).",
     comoUsar: "Leia o score e a probabilidade de ruptura; veja o runway por cenário e rode o stress testing.",
@@ -417,7 +396,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/decisao": {
+  "/quattro-ai?aba=decisao": {
     titulo: "Decisão — Financial Decision Layer",
     intro: "Industrializa a inteligência: interpreta, pontua risco (matriz probabilística), prevê (Monte Carlo) e recomenda com impacto quantificado (re-roda o motor de risco).",
     comoUsar: "Leia o headline, a matriz de risco e a previsão; cada recomendação mostra Δrunway/Δscore reais — aprove o plano autônomo conforme os guardrails.",
@@ -430,7 +409,7 @@ export const GUIDES: Record<string, Guide> = {
       ]),
     ],
   },
-  "/autonomo": {
+  "/quattro-ai?aba=autonomo": {
     titulo: "Autônomo — operação supervisionada",
     intro: "O salto de 'informar o problema' para decidir e executar, com você como supervisor: políticas SE→ENTÃO, cobrança e roteamento de pagamento autônomos.",
     comoUsar: "Veja a próxima melhor ação e as decisões tipadas; ações reversíveis executam sozinhas, mover dinheiro acima do limite vai para aprovação (HITL).",
@@ -477,7 +456,7 @@ export const GUIDES: Record<string, Guide> = {
   /* ----------------------------- Painel de vendas ----------------------------- */
   "/dashboard/sales-invoices": {
     titulo: "Painel de vendas",
-    intro: "O dashboard comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
+    intro: "O painel comercial: faturamento, ticket, mix e evolução das vendas num só painel — a leitura executiva do lado da receita.",
     comoUsar: "Acompanhe os KPIs do topo e a evolução mês a mês; use os filtros de período para reescalar. Clique numa venda para abrir o documento.",
     exemplo: "Caiu o faturamento do mês? Compare o mix produto × serviço e veja qual linha recuou.",
     secoes: [
@@ -489,7 +468,7 @@ export const GUIDES: Record<string, Guide> = {
   },
 
   /* ----------------------------- Plano de Contas ----------------------------- */
-  "/contabilidade?aba=plano-de-contas": {
+  "/dashboard/registrations/chart-of-accounts": {
     titulo: "Plano de Contas",
     intro: "A espinha dorsal da classificação: hierarquia Grupo → Categoria (verde = receita · vermelho = despesa · cinza = resultado), no plano padrão para negócios digitais.",
     comoUsar: "Navegue pela hierarquia para entender onde cada lançamento cai. A aba 'Uso padrão' mostra em que categoria o sistema classifica cada tipo de lançamento automaticamente.",
@@ -574,9 +553,9 @@ export const GUIDES: Record<string, Guide> = {
     ],
   },
 
-  /* ----------------------------- Investor update ----------------------------- */
+  /* ----------------------------- Relatório ao investidor ----------------------------- */
   "/investidores": {
-    titulo: "Investor update",
+    titulo: "Relatório ao investidor",
     intro: "O relatório mensal para investidores, gerado dos seus números reais: caixa, burn, runway, receita, crescimento, MRR, margem e score — mais destaques e riscos automáticos, num texto pronto para colar no e-mail.",
     comoUsar: "Confira as métricas do mês (saem dos motores, nada digitado à mão), escreva os destaques do fundador e os pedidos aos investidores, e clique em 'Copiar texto'.",
     exemplo: "Todo dia 1º: abra a página, escreva 2 linhas de destaques, copie o texto e envie ao seu grupo de investidores — 5 minutos, números consistentes.",
@@ -605,8 +584,8 @@ export const GUIDES: Record<string, Guide> = {
 
   /* ----------------------------- Administração (super-admin) ----------------------------- */
   "/admin": {
-    titulo: "Administração da plataforma",
-    intro: "Visão cross-tenant do dono do SaaS: clientes (orgs), assinaturas/MRR, usuários, crescimento e trilha de auditoria das ações administrativas.",
+    titulo: "Dono da plataforma",
+    intro: "Visão entre empresas de quem administra a plataforma: clientes (empresas), assinaturas/MRR, usuários, crescimento e trilha de auditoria das ações administrativas.",
     comoUsar: "Edite plano/status de uma org para definir o MRR; use 'Logar como' para ver o ambiente do cliente (auditado); acompanhe o gráfico de MRR mês a mês.",
     secoes: [
       blocos([
@@ -808,7 +787,10 @@ Object.assign(GUIDES, {
   },
 } as Record<string, Guide>);
 
-export function guideForPath(pathname: string, aba?: string | null): Guide | null {
+export function guideForPath(pathname: string, aba?: string | null, painel?: string | null): Guide | null {
+  // `?painel=` é o parâmetro das telas que também vivem como aba de outro hub
+  // (ver `HubShell.param`) — as Aprovações usam-no para a governança.
+  if (painel && GUIDES[`${pathname}?painel=${painel}`]) return GUIDES[`${pathname}?painel=${painel}`];
   const tab = aba || PADRAO_DO_HUB[pathname];
   if (tab && GUIDES[`${pathname}?aba=${tab}`]) return GUIDES[`${pathname}?aba=${tab}`];
   if (GUIDES[pathname]) return GUIDES[pathname];

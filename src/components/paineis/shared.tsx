@@ -12,7 +12,7 @@ import * as React from "react";
 import { Card, Icon, Select, BRL, InfoHint } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { deslocarMes, rotuloMesAno, type FiltroPainel } from "@/core/paineis";
-import { pctDeInteiro } from "@/lib/format";
+import { pctDeInteiro, decimalBR } from "@/lib/format";
 
 /* ------------------------------- subtítulo ------------------------------- */
 
@@ -187,7 +187,7 @@ export function KpiJanelas({
             <span className="text-label text-muted">{l.nome}</span>
             <span className="text-label font-medium text-ink tabular-nums shrink-0">
               {l.valor == null ? <span className="text-faint">—</span>
-                : l.formato === "razao" ? l.valor.toFixed(2)
+                : l.formato === "razao" ? decimalBR(l.valor, 2)
                 : l.formato === "pct" ? `${pctDeInteiro(l.valor)}`
                 : <BRL value={l.valor} />}
             </span>

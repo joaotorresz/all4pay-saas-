@@ -9,7 +9,7 @@ export default function UploadPage() {
   return (
     <AppShell
       title="Entrada de dados"
-      crumb="Ingestão · conectar · enviar · conciliar"
+      crumb="Conectar · enviar · regras"
       actions={isDemo ? <DemoBadge /> : undefined}
     >
       <IngestaoView />

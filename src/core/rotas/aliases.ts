@@ -61,9 +61,9 @@ export const ALIASES: Alias[] = [
   { de: "/centros-custo", para: "/dashboard/registrations/cost-centers", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
 
   // — hub CONTABILIDADE —
-  { de: "/plano-de-contas", para: "/contabilidade?aba=plano-de-contas", motivo: "consolidado no hub de contabilidade" },
+  { de: "/plano-de-contas", para: "/dashboard/registrations/chart-of-accounts", motivo: "o plano de contas tem UMA tela canônica, em Cadastros" },
   { de: "/razao", para: "/contabilidade?aba=razao", motivo: "consolidado no hub de contabilidade" },
-  { de: "/fechamento", para: "/contabilidade?aba=fechamento", motivo: "consolidado no hub de contabilidade" },
+  { de: "/fechamento", para: "/dashboard/reports/monthly-closing", motivo: "o fechamento mensal tem UMA tela canônica" },
   { de: "/receita", para: "/contabilidade?aba=receita", motivo: "consolidado no hub de contabilidade" },
   { de: "/relatorios", para: "/contabilidade?aba=relatorios", motivo: "consolidado no hub de contabilidade" },
   { de: "/dimensoes", para: "/contabilidade?aba=dimensoes", motivo: "consolidado no hub de contabilidade" },
@@ -281,6 +281,13 @@ export const ALIASES_DE_ABA: Alias[] = [
   // conciliação bancária (mapa, item 8): eram duas conciliações com o mesmo
   // nome e resultados que uma não enxergava da outra.
   { de: "/upload?aba=conciliar", para: "/dashboard/financial/reconciliation?aba=open-finance", motivo: "conciliação única (mapa, item 8)" },
+
+  // ⚠️ O fechamento mensal tinha TRÊS endereços (a rota própria e uma aba em
+  // cada hub) e o plano de contas, dois. As abas saíram dos hubs; os
+  // endereços delas continuam valendo, desviados para a tela canônica.
+  { de: "/contabilidade?aba=fechamento", para: "/dashboard/reports/monthly-closing", motivo: "aba duplicada da tela canônica de fechamento mensal" },
+  { de: "/dashboard/reports?aba=fechamento", para: "/dashboard/reports/monthly-closing", motivo: "aba duplicada da tela canônica de fechamento mensal" },
+  { de: "/contabilidade?aba=plano-de-contas", para: "/dashboard/registrations/chart-of-accounts", motivo: "aba duplicada da tela canônica do plano de contas" },
 
   // — abas do hub `/vendas`, aposentado (mapa, item 9) —
   { de: "/vendas?aba=lista", para: "/dashboard/sales-invoices", motivo: "aba do hub de vendas aposentado (mapa, item 9)" },

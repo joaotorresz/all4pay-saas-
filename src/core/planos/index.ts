@@ -138,7 +138,7 @@ export function podeAbrir(pathname: string, estado: EstadoPlano): boolean {
 export const BENEFICIOS_PRO: { titulo: string; descricao: string }[] = [
   { titulo: "Copiloto e motores de decisão", descricao: "Previsão de caixa por Monte Carlo, matriz de risco, recomendações com impacto medido e plano autônomo." },
   { titulo: "Inteligência de crédito", descricao: "Score de inadimplência por cliente, alerta antecipado e estratégia de cobrança adaptativa." },
-  { titulo: "Investor update", descricao: "O relatório mensal para investidores, com os KPIs derivados dos seus próprios lançamentos." },
+  { titulo: "Relatório ao investidor", descricao: "O relatório mensal para investidores, com os KPIs derivados dos seus próprios lançamentos." },
   { titulo: "Fiscal e contratações", descricao: "Apuração de impostos por venda e simulação do custo real de contratar." },
   { titulo: "Aprovações e governança", descricao: "Alçadas por valor, trilha de auditoria assinada e segregação de funções." },
   { titulo: "Automações", descricao: "Regras SE→ENTÃO sobre os eventos financeiros, com notificação por WhatsApp e e-mail." },

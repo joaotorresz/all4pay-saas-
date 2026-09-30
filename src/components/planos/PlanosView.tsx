@@ -27,7 +27,7 @@ import { isDemo } from "@/lib/demo";
 const NOME_DA_ROTA: Record<string, string> = {
   "/quattro-ai": "Motores de decisão do Quattro AI",
   "/inadimplencia": "Inteligência de inadimplência",
-  "/investidores": "Investor update",
+  "/investidores": "Relatório ao investidor",
   "/contratacoes": "Plano de contratações",
   "/impostos": "Apuração de impostos",
   "/aprovacoes": "Solicitações e aprovações",

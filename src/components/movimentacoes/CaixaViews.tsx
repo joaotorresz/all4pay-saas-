@@ -19,6 +19,7 @@ import {
   fluxoCaixaMensal, extratoDaConta, faturasDoCartao,
   type Transferencia, type StatusFatura,
 } from "@/core/movimentacoes";
+import { hojeLocal } from "@/lib/aggregations";
 
 const hoje = () => new Date();
 const mesCorrente = () => `${hoje().getFullYear()}-${String(hoje().getMonth() + 1).padStart(2, "0")}`;
@@ -196,7 +197,7 @@ export function ExtratoView() {
   const { data: input } = useRiscoInput();
   const [conta, setConta] = React.useState("");
   const [de, setDe] = React.useState(() => `${mesCorrente()}-01`);
-  const [ate, setAte] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [ate, setAte] = React.useState(() => hojeLocal());
 
   React.useEffect(() => {
     if (!conta && (contas?.accounts ?? []).length) setConta(contas!.accounts[0].id);

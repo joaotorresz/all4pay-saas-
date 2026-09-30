@@ -17,6 +17,7 @@ import {
   listarRegras, adicionarRegra, removerRegra, alternarRegra, moverRegra, usoDasRegras,
 } from "@/lib/regras";
 import type { OperadorTexto, RegraCategorizacao } from "@/core/regras";
+import { formatBRL } from "@/lib/format";
 
 /** Vocabulário do FDIP + as categorias que o CNAE produz. */
 const CATEGORIAS = [
@@ -157,8 +158,8 @@ export function RegrasView() {
               const cond = [
                 q.contraparte?.valor ? `contraparte ${OPS.find((o) => o.id === q.contraparte!.op)?.label} "${q.contraparte.valor}"` : null,
                 q.tipo ? (q.tipo === "entrada" ? "entradas" : "saídas") : null,
-                q.valorMin ? `≥ R$${q.valorMin.toLocaleString("pt-BR")}` : null,
-                q.valorMax ? `≤ R$${q.valorMax.toLocaleString("pt-BR")}` : null,
+                q.valorMin ? `≥ ${formatBRL(q.valorMin)}` : null,
+                q.valorMax ? `≤ ${formatBRL(q.valorMax)}` : null,
                 q.cnaePrefixo ? `CNAE ${q.cnaePrefixo}…` : null,
               ].filter(Boolean).join(" · ");
               const n = uso[r.id] ?? 0;

@@ -17,6 +17,7 @@ import { postarLancamento } from "@/lib/ledger";
 import { isDemo } from "@/lib/demo";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { AppShell } from "@/components/app/AppShell";
+import { hojeLocal } from "@/lib/aggregations";
 
 const MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const mesCurto = (mesISO: string) => { const [y, m] = mesISO.split("-").map(Number); return `${MESES_PT[(m || 1) - 1]}/${String(y).slice(2)}`; };
@@ -29,11 +30,11 @@ function ultimosMeses(n: number): string[] {
 }
 
 type Draft = Omit<Cronograma, "id"> & { id?: string };
-const novoDraft = (): Draft => ({ tipo: "amortizacao", descricao: "", valorTotal: 0, residual: 0, meses: 12, inicio: new Date().toISOString().slice(0, 8) + "01", categoria: "" });
+const novoDraft = (): Draft => ({ tipo: "amortizacao", descricao: "", valorTotal: 0, residual: 0, meses: 12, inicio: hojeLocal().slice(0, 8) + "01", categoria: "" });
 
 export function CronogramasView() {
   const [lista, setLista] = React.useState<Cronograma[]>([]);
-  const [mes, setMes] = React.useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [mes, setMes] = React.useState<string>(() => hojeLocal().slice(0, 7));
   const [draft, setDraft] = React.useState<Draft | null>(null);
 
   React.useEffect(() => { loadCronogramas().then(setLista).catch(() => setLista([])); }, []);

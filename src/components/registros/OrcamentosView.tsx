@@ -44,6 +44,12 @@ export function OrcamentosView() {
   const [lista, setLista] = React.useState<Orcamento[]>([]);
   const [busca, setBusca] = React.useState("");
   const [editando, setEditando] = React.useState<Orcamento | null>(null);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(novo());
+  }, []);
   const { show, node } = useToast();
 
   React.useEffect(() => { setLista(listarOrcamentos()); }, []);

@@ -20,7 +20,7 @@ import {
   CartesianGrid, Tooltip, ReferenceLine, Sankey, Layer, Rectangle,
 } from "recharts";
 import { Card, Icon, BRL, Skeleton } from "@/components/ui";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, pct } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
 import { pctDeInteiro } from "@/lib/format";
@@ -67,7 +67,7 @@ function PilulaVariacao({ s }: { s: SerieComparada }) {
         {sobe ? "+" : "−"}{pctDeInteiro(Math.abs(s.variacao * 100))}
       </span>
       <span className="text-[13px] text-faint">
-        vs {s.totalAnterior < 0 ? "−" : ""}{formatBRL(Math.abs(s.totalAnterior))}
+        vs <BRL value={s.totalAnterior} />
       </span>
     </div>
   );
@@ -121,7 +121,7 @@ function TooltipBox({ titulo, itens }: { titulo: string; itens: TipItem[] }) {
             <span className="w-2 h-2 rounded-pill shrink-0" style={{ background: i.cor }} />
             {i.nome}
           </span>
-          <span className="text-ink shrink-0">{i.valor < 0 ? "−" : ""}{formatBRL(Math.abs(i.valor))}</span>
+          <span className="text-ink shrink-0"><BRL value={i.valor} /></span>
         </div>
       ))}
     </div>
@@ -412,7 +412,7 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
     }}>
       <div className="flex items-start justify-between gap-3">
         <span className="text-[13px] font-medium tracking-[0.06em] text-faint">Para onde foi</span>
-        <span className="text-[13px] text-muted tabular-nums">{formatBRL(total)}</span>
+        <span className="text-[13px] text-muted tabular-nums"><BRL value={total} /></span>
       </div>
       <ResponsiveContainer width="100%" height={altura}>
         <Sankey
@@ -433,11 +433,11 @@ export function ParaOndeFoiCard({ s, total }: { s: SankeyDados; total: number })
                 <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption min-w-[180px]">
                   <div className="flex items-center justify-between gap-4">
                     <span className="font-medium text-ink">{nome}</span>
-                    <span className="text-ink tabular-nums">{formatBRL(valor)}</span>
+                    <span className="text-ink tabular-nums"><BRL value={valor} /></span>
                   </div>
                   <div className="flex items-center justify-between gap-4 mt-1">
                     <span className="text-muted">Percentual</span>
-                    <span className="text-ink tabular-nums">{total ? ((valor / total) * 100).toFixed(1) : "0,0"}%</span>
+                    <span className="text-ink tabular-nums">{total ? pct(valor / total) : "—"}</span>
                   </div>
                 </div>
               );

@@ -80,6 +80,14 @@ function Arvore({ cats, onCats }: { cats: CategoriaPlano[]; onCats: (c: Categori
   const [recolhidos, setRecolhidos] = React.useState<Set<string>>(new Set());
   const [editando, setEditando] = React.useState<CategoriaPlano | null>(null);
   const [novaEm, setNovaEm] = React.useState<CategoriaPlano | null>(null);
+  /** Categoria de primeiro nível (sem grupo pai) — o que `?novo=1` abre. */
+  const [novaRaiz, setNovaRaiz] = React.useState(false);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário de nova categoria já aberto.
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setNovaRaiz(true);
+  }, []);
   const { show, node } = useToast();
 
   const q = normalizar(busca).trim();
@@ -223,14 +231,14 @@ function Arvore({ cats, onCats }: { cats: CategoriaPlano[]; onCats: (c: Categori
         </Button>
       </div>
 
-      {(editando || novaEm) && (
+      {(editando || novaEm || novaRaiz) && (
         <FormCategoria
           inicial={editando}
           pai={novaEm}
-          onClose={() => { setEditando(null); setNovaEm(null); }}
+          onClose={() => { setEditando(null); setNovaEm(null); setNovaRaiz(false); }}
           onSalvo={(c) => {
             onCats(editando ? cats.map((x) => (x.id === c.id ? c : x)) : [...cats, c]);
-            setEditando(null); setNovaEm(null);
+            setEditando(null); setNovaEm(null); setNovaRaiz(false);
             show(editando ? "Categoria salva." : "Categoria criada.");
           }}
         />

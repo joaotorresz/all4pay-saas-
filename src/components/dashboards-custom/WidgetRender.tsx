@@ -15,6 +15,7 @@ import {
 import { Card, BRL, Icon, Skeleton } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { chartAnim } from "@/lib/chart-anim";
+import { formatBRL, formatBRLCompact } from "@/lib/format";
 import {
   fonteMetrica, fonteSerie, fonteCategoria, type Widget, type EntradaFontes,
 } from "@/core/dashboards";
@@ -23,7 +24,6 @@ import {
  *  (`--a4p-cat-*`, feitos com `color-mix` sobre o acento e os neutros), não de
  *  oito hexes copiados — era assim, e quando um arquivo mudava o outro não. */
 const PALETA = ["var(--a4p-cat-1)", "var(--a4p-cat-2)", "var(--a4p-cat-3)", "var(--a4p-cat-4)", "var(--a4p-cat-5)", "var(--a4p-cat-6)", "var(--a4p-cat-7)", "var(--a4p-cat-8)"];
-const brl0 = (n: number) => (n < 0 ? "−" : "") + "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
 
 export function WidgetRender({ w }: { w: Widget }) {
   const { data: input, isLoading } = useRiscoInput();
@@ -102,8 +102,8 @@ function Serie({ w, i }: { w: Extract<Widget, { tipo: "serie" }>; i: EntradaFont
                   tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
                 <YAxis tickLine={false} axisLine={false} width={54}
                   tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                  tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
-                <Tooltip formatter={(v: number) => brl0(v)} contentStyle={tooltipStyle} />
+                  tickFormatter={(v: number) => formatBRLCompact(v)} />
+                <Tooltip formatter={(v: number) => formatBRL(v)} contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="valor" stroke="var(--color-lime)" strokeWidth={2} dot={false}
                   activeDot={{ r: 4 }} {...chartAnim()} />
               </LineChart>
@@ -113,8 +113,8 @@ function Serie({ w, i }: { w: Extract<Widget, { tipo: "serie" }>; i: EntradaFont
                   tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }} />
                 <YAxis tickLine={false} axisLine={false} width={54}
                   tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
-                  tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v)))} />
-                <Tooltip formatter={(v: number) => brl0(v)} cursor={{ fill: "var(--color-surface-2)" }} contentStyle={tooltipStyle} />
+                  tickFormatter={(v: number) => formatBRLCompact(v)} />
+                <Tooltip formatter={(v: number) => formatBRL(v)} cursor={{ fill: "var(--color-surface-2)" }} contentStyle={tooltipStyle} />
                 <Bar dataKey="valor" radius={[4, 4, 0, 0]} {...chartAnim()}>
                   {dados.map((p, k) => (
                     // Resultado negativo é sinal semântico, não paleta.
@@ -146,7 +146,7 @@ function Pizza({ w, i }: { w: Extract<Widget, { tipo: "pizza" }>; i: EntradaFont
       <div className="flex items-baseline justify-between gap-3 mb-2">
         <span className="text-caption font-medium text-muted">{w.titulo || f.label}</span>
         <span className="text-caption text-faint tabular-nums">
-          {f.unidade === "moeda" ? brl0(total) : `${total} títulos`}
+          {f.unidade === "moeda" ? <BRL value={total} /> : `${total} títulos`}
         </span>
       </div>
       {dados.length === 0 ? (
@@ -160,7 +160,7 @@ function Pizza({ w, i }: { w: Extract<Widget, { tipo: "pizza" }>; i: EntradaFont
                   stroke="none" {...chartAnim()}>
                   {dados.map((_, k) => <Cell key={k} fill={PALETA[k % PALETA.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => (f.unidade === "moeda" ? brl0(v) : String(v))}
+                <Tooltip formatter={(v: number) => (f.unidade === "moeda" ? formatBRL(v) : String(v))}
                   contentStyle={tooltipStyle} />
               </PieChart>
             </ResponsiveContainer>
@@ -171,7 +171,7 @@ function Pizza({ w, i }: { w: Extract<Widget, { tipo: "pizza" }>; i: EntradaFont
                 <span className="w-[9px] h-[9px] rounded-sm shrink-0" style={{ background: PALETA[k % PALETA.length] }} />
                 <span className="text-muted truncate flex-1">{d.nome}</span>
                 <span className="text-ink tabular-nums shrink-0">
-                  {f.unidade === "moeda" ? brl0(d.valor) : d.valor}
+                  {f.unidade === "moeda" ? <BRL value={d.valor} /> : d.valor}
                 </span>
               </div>
             ))}
@@ -268,9 +268,9 @@ function Grupo({
           {titulo} · {itens.length}
         </span>
         <span className="text-caption tabular-nums shrink-0">
-          {entra > 0 && <span className="text-positive">+{brl0(entra)}</span>}
+          {entra > 0 && <span className="text-positive">+<BRL value={entra} /></span>}
           {entra > 0 && sai > 0 && <span className="text-faint"> · </span>}
-          {sai > 0 && <span className="text-ink">−{brl0(sai)}</span>}
+          {sai > 0 && <span className="text-ink">−<BRL value={sai} /></span>}
         </span>
       </div>
       <div className="flex flex-col mt-1">
@@ -280,7 +280,7 @@ function Grupo({
               {(m.due_date || "").slice(8, 10)}/{(m.due_date || "").slice(5, 7)} · {m.category || "Sem categoria"}
             </span>
             <span className={`text-caption tabular-nums shrink-0 ${m.type === "entrada" ? "text-positive" : "text-ink"}`}>
-              {m.type === "entrada" ? "+" : "−"}{brl0(Math.abs(m.amount)).replace("−", "")}
+              {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
             </span>
           </div>
         ))}

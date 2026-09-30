@@ -63,7 +63,7 @@ export function NfseView() {
     try {
       const nf = await transmitirNfse(id);
       await refresh();
-      if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita e ISS na DRE, recebimento em /recebiveis`);
+      if (nf?.status === "autorizada") show(`NFS-e ${nf.numero} autorizada — receita e ISS na DRE, recebimento em Títulos a receber`);
       else show(nf?.motivoRejeicao ?? "NFS-e rejeitada");
     } finally { setBusy(null); }
   };
@@ -102,7 +102,7 @@ export function NfseView() {
       {/* Lista de notas */}
       <Card padded={false} className="lg:col-span-2">
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada liga a receita bruta e o ISS à DRE e o recebimento a recebíveis, sem reconciliação manual." /></span>
+          <span className="text-body font-medium text-ink inline-flex items-center gap-1">Notas fiscais de serviço<InfoHint align="left" titulo="Notas fiscais de serviço" oQue="Lista as NFS-e emitidas e seu andamento, da transmissão à autorização ou cancelamento." comoCalcula="Cada nota autorizada liga a receita bruta e o ISS à DRE e o recebimento aos Títulos a receber, sem reconciliação manual." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">
@@ -110,7 +110,7 @@ export function NfseView() {
         </div>
         <div className="flex flex-col max-h-[540px] overflow-y-auto">
           {lista.length === 0 ? (
-            <p className="text-caption text-faint text-center py-8">Nenhuma nota. Emita ao lado — a receita e o ISS entram na DRE e em /recebiveis.</p>
+            <p className="text-caption text-faint text-center py-8">Nenhuma nota. Emita ao lado — a receita e o ISS entram na DRE e em Títulos a receber.</p>
           ) : lista.map((n) => (
             <div key={n.id} className="grid grid-cols-[1.4fr_0.7fr_0.8fr_0.9fr_0.7fr_1fr] gap-3 items-center px-5 py-3 border-t border-border-soft first:border-t-0">
               <span className="min-w-0">

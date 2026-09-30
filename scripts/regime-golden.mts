@@ -87,7 +87,7 @@ function snapshot() {
     // O resolvedor, sobre tudo que está DECLARADO.
     resolvedor: DECLARADOS.map((db) => ({ db, regime: regimeDoCadastro(db) })),
     regimeConfigurado: DECLARADOS.map((db) => ({ db, r: regimeConfigurado(db) })),
-    // O perfil de cada regime e a carga projetada (ProjecaoCarga + fiscal/ImpostosView).
+    // O perfil de cada regime e a carga projetada (ProjecaoCarga).
     perfil: REGIMES_TAX.map((r) => perfilTributario(r)),
     carga: REGIMES_TAX.flatMap((r) => RECEITAS.map((x) => ({ r, x, v: cargaProjetada(x, r) }))),
     // O provisionamento por venda (vendas-nf/OutrasViews) e as contas a pagar.

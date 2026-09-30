@@ -84,8 +84,8 @@ export function ConciliacaoView() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Resumo label="Pares encontrados" valor={matches.length} contagem info={{ titulo: "Pares encontrados", oQue: "Transações do banco que casaram com algum título previsto e podem receber baixa.", comoCalcula: "Cruza as transações do Open Finance com os títulos pendentes por valor, data e descrição." }} />
         <Resumo label="Conciliável agora" valor={autos} contagem tone="var(--color-positive)" info={{ titulo: "Conciliável agora", oQue: "Pares com confiança alta que podem ser conciliados direto, sem revisar.", comoCalcula: "Conta os pares com confiança de 85 por cento ou mais." }} />
-        <Resumo label="A receber" valor={totalEntrada} info={{ titulo: "A receber", oQue: "Total das entradas entre os pares prontos para conciliar.", comoCalcula: "Soma o valor dos pares do tipo entrada." }} />
-        <Resumo label="A pagar" valor={totalSaida} info={{ titulo: "A pagar", oQue: "Total das saídas entre os pares prontos para conciliar.", comoCalcula: "Soma o valor dos pares do tipo saída." }} />
+        <Resumo label="Entradas a conciliar" valor={totalEntrada} info={{ titulo: "Entradas a conciliar", oQue: "Total das entradas entre os pares prontos para conciliar — não é o total a receber da empresa.", comoCalcula: "Soma o valor dos pares do tipo entrada." }} />
+        <Resumo label="Saídas a conciliar" valor={totalSaida} info={{ titulo: "Saídas a conciliar", oQue: "Total das saídas entre os pares prontos para conciliar — não é o total a pagar da empresa.", comoCalcula: "Soma o valor dos pares do tipo saída." }} />
         <Resumo label="Sem par" valor={pendentesSemMatch + ofSemMatch} contagem info={{ titulo: "Sem par", oQue: "Itens que ainda não casaram, de um lado ou do outro, e precisam de atenção.", comoCalcula: "Soma os títulos pendentes sem par com as transações do banco sem par." }} />
       </div>
 

@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/format";
 import { useToast } from "@/components/listas/ListChrome";
 import { getRecebiveisBoleto, getAccountsList } from "@/lib/data";
 import { listParties } from "@/lib/cadastros";
-import { useInadimplencia } from "@/components/visao-geral/hooks";
+import { useInadimplencia, useRiscoInput } from "@/components/visao-geral/hooks";
 import { emitirBoleto, marcarPagoBoleto, cancelarBoleto, statusEfetivo, type OpcoesBoleto } from "@/lib/boletos";
 import { isoDay } from "@/lib/aggregations";
 import type { Movement, Party, FinancialAccount, BoletoStatus } from "@/lib/types";
@@ -34,7 +34,10 @@ export function BoletosView() {
   const inad = useInadimplencia();
   const [emitindo, setEmitindo] = React.useState<Movement | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
-  const hoje = isoDay(new Date());
+  // O "hoje" do sistema (o mesmo que o motor usa), não o relógio do navegador:
+  // senão "vence este mês" desta tela discordaria do resto no dia da virada.
+  const risco = useRiscoInput();
+  const hoje = risco.data?.hoje?.slice(0, 10) ?? isoDay(new Date());
 
   const nomeDe = (m: Movement) => {
     const p = m.party_id ? (parties.data ?? []).find((x: Party) => x.id === m.party_id) : undefined;
@@ -47,7 +50,7 @@ export function BoletosView() {
   // ele é: dinheiro que ainda não se moveu.
   const inputBoletos = { hoje, saldoAtual: 0, movements: lista } as unknown as RiskInput;
   const venceMes = previstoNaJanela(inputBoletos, janelaDoMesDe(hoje)).valor;
-  const prox30 = previstoNaJanela(inputBoletos, janela(hoje, isoDay(new Date(Date.now() + 30 * 864e5)))).valor;
+  const prox30 = previstoNaJanela(inputBoletos, janela(hoje, (() => { const d = new Date(`${hoje}T00:00:00`); d.setDate(d.getDate() + 30); return isoDay(d); })())).valor;
 
   const refresh = async () => { await qc.invalidateQueries(); };
 
@@ -79,9 +82,9 @@ export function BoletosView() {
     <div className="flex flex-col gap-5 pb-4">
       {/* Dashboard de cobranças — reusa analisarInadimplencia (aging) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi label="Vence neste mês" v={venceMes} info={{ titulo: "Vence neste mês", oQue: "Quanto há de boleto a receber com vencimento dentro do mês corrente.", comoCalcula: "Soma dos recebíveis pendentes cujo vencimento cai no mês de hoje." }} />
-        <Kpi label="Próximos 30 dias" v={prox30} info={{ titulo: "Próximos 30 dias", oQue: "Quanto vai vencer no próximo mês — o que está por entrar.", comoCalcula: "Soma dos recebíveis pendentes com vencimento entre hoje e 30 dias à frente." }} />
-        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" info={{ titulo: "Inadimplência (vencido)", oQue: "Quanto já passou do vencimento e ainda não foi pago.", comoCalcula: "Exposição vencida calculada pelo motor de inadimplência sobre os recebíveis em atraso." }} />
+        <Kpi label="Vence neste mês" v={venceMes} info={{ titulo: "Vence neste mês", oQue: "Quanto há de boleto a receber com vencimento dentro do mês corrente.", comoCalcula: "Soma dos valores a receber pendentes cujo vencimento cai no mês de hoje." }} />
+        <Kpi label="Próximos 30 dias" v={prox30} info={{ titulo: "Próximos 30 dias", oQue: "Quanto vai vencer no próximo mês — o que está por entrar.", comoCalcula: "Soma dos valores a receber pendentes com vencimento entre hoje e 30 dias à frente." }} />
+        <Kpi label="Inadimplência (vencido)" v={inad.data?.resumo.exposicaoVencida ?? 0} tone="var(--color-negative)" info={{ titulo: "Inadimplência (vencido)", oQue: "Quanto já passou do vencimento e ainda não foi pago.", comoCalcula: "Exposição vencida calculada pelo motor de inadimplência sobre os valores a receber em atraso." }} />
         <Kpi label="Perda esperada" v={inad.data?.resumo.inadimplenciaEsperada ?? 0} tone="var(--color-warning)" info={{ titulo: "Perda esperada", oQue: "Estimativa do quanto da carteira tende a não ser pago.", comoCalcula: "Inadimplência esperada do motor: valor em aberto ponderado pela probabilidade de calote por cliente." }} />
       </div>
 
@@ -103,7 +106,7 @@ export function BoletosView() {
       {/* Recebíveis → boleto */}
       <Card padded={false}>
         <div className="px-5 pt-[16px] pb-2 flex items-center justify-between">
-          <span className="inline-flex items-center text-body font-medium text-ink">Recebíveis · boletos<InfoHint align="left" titulo="Recebíveis · boletos" oQue="Os recebíveis em aberto onde você emite o boleto, copia o PIX, marca pago ou cancela." comoCalcula="Lista os recebíveis pendentes; emitir gera nosso número e linha digitável, e marcar pago concilia e credita o saldo." /></span>
+          <span className="inline-flex items-center text-body font-medium text-ink">A receber · boletos<InfoHint align="left" titulo="A receber · boletos" oQue="Os valores a receber em aberto onde você emite o boleto, copia o PIX, marca pago ou cancela." comoCalcula="Lista os valores a receber pendentes; emitir gera nosso número e linha digitável, e marcar pago concilia e credita o saldo." /></span>
           <span className="text-caption text-faint">{lista.length}</span>
         </div>
         <div className="hidden md:grid grid-cols-[1.4fr_0.8fr_0.9fr_1.2fr_1.4fr] gap-3 px-5 py-2 text-caption text-faint border-b border-border-soft">

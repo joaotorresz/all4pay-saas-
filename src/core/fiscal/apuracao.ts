@@ -23,6 +23,7 @@
  * Puro, tipado, demo-safe, sem I/O e sem relógio. Versão `fiscal/1.0.0`.
  */
 import { calcularSimplesNacional, type AnexoSimples } from "@/core/tax";
+import { formatBRL } from "@/lib/format";
 import {
   type PerfilFiscal, type Regime, type LancamentoFiscal,
   ROTULO_REGIME, REGIMES_HABILITADOS,
@@ -464,8 +465,8 @@ function apurarMei(lancamentos: readonly LancamentoFiscal[], competencia: string
         // ⚠️ O MEI não tem alíquota: o valor é fixo e independe do faturamento.
         // Exibir uma "carga de X%" aqui só faz sentido como leitura derivada.
         descricao: "DAS-MEI é valor fixo, não percentual",
-        formula: `R$ ${valor.toFixed(2)} por mês, independentemente da receita `
-          + `(que no mês foi ${base.receita.toFixed(2)})`,
+        formula: `${formatBRL(valor)} por mês, independentemente da receita `
+          + `(que no mês foi ${formatBRL(base.receita)})`,
         valor,
         movimentos: base.movimentos,
       }],

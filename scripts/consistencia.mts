@@ -3138,10 +3138,6 @@ const AGOSTO = janelaMes(2026, 7);
       porque: "previstoNaJanela soma boletos a vencer no mês; zero é a resposta certa (nenhum boleto a vencer) e a tela já mostra a lista vazia ao lado.",
     },
     {
-      arquivo: "src/components/fiscal/ImpostosView.tsx",
-      porque: "A série de 12 meses da base tributável. Um mês sem receita deve mesmo somar zero de imposto — o imposto é sobre o que se faturou, e não faturar nada é a razão certa para não dever nada. Aqui zero é resposta, não ignorância.",
-    },
-    {
       arquivo: "src/components/vendas/ProjecaoCarga.tsx",
       porque: "A base da projeção de imposto sobre 365 dias; a tela recusa projetar quando a base é zero, com frase própria.",
     },

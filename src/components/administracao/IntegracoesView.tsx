@@ -466,7 +466,8 @@ function APIs({
   toast: (s: string) => void; hoje: string;
 }) {
   const [novaChave, setNovaChave] = React.useState<string | null>(null);
-  const [webhook, setWebhook] = React.useState("");
+  const [webhook, setWebhook] = React.useState(estado.webhookUrl ?? "");
+  const webhookValido = /^https:\/\/[^\s/]+\.[^\s]+$/i.test(webhook.trim());
 
   function gerar() {
     // Gerada no cliente só para a demonstração; em produção quem emite é o
@@ -546,8 +547,23 @@ function APIs({
           </p>
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3">
             <Input value={webhook} onChange={(e) => setWebhook(e.target.value)} placeholder="https://seu-sistema.com.br/webhooks/vendas" />
-            <Button variant="secondary" disabled={!webhook} onClick={() => toast("Webhook salvo.")}>Salvar</Button>
+            <Button
+              variant="secondary"
+              disabled={!webhookValido || webhook.trim() === (estado.webhookUrl ?? "")}
+              onClick={() => {
+                onMudar({ ...estado, webhookUrl: webhook.trim(), atualizadoEm: hoje });
+                toast("Webhook salvo.");
+              }}
+            >
+              Salvar
+            </Button>
           </div>
+          {webhook && !webhookValido && (
+            <span className="text-caption text-warning">Use um endereço completo com https:// — sem ele a venda sairia em texto aberto.</span>
+          )}
+          {estado.webhookUrl && (
+            <span className="text-caption text-faint">Salvo em {fmtDia(estado.atualizadoEm)}: {estado.webhookUrl}</span>
+          )}
         </div>
       </Card>
     </>

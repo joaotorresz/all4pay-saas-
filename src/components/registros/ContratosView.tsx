@@ -33,8 +33,9 @@ import {
 } from "./kit";
 
 import { formatBRL } from "@/lib/format";
+import { hojeLocal } from "@/lib/aggregations";
 const fmtDia = (iso: string) => (iso ? iso.split("-").reverse().join("/") : "—");
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = () => hojeLocal();
 
 const METODOS = ["Pix", "Boleto", "Cartão de crédito", "Transferência", "Dinheiro"];
 
@@ -44,6 +45,12 @@ export function ContratosView() {
   const [busca, setBusca] = React.useState("");
   const [vigencia, setVigencia] = React.useState<Vigencia>("todos");
   const [editando, setEditando] = React.useState<Contrato | null>(null);
+
+  // `?novo=1` — o endereço que o painel Criar usa abre esta tela com o
+  // formulário já aberto (é o que dá link compartilhável à criação).
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("novo")) setEditando(vazio("fornecedor"));
+  }, []);
   const { show, node } = useToast();
 
   React.useEffect(() => { setItens(listContratos()); }, []);

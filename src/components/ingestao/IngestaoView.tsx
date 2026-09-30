@@ -85,11 +85,11 @@ export function IngestaoView() {
           cima da esteira, valendo para qualquer aba. */}
       <button
         onClick={() => window.dispatchEvent(new Event("a4p:open-upload"))}
-        aria-label="Enviar documento para upload de dados"
+        aria-label="Enviar documento para a entrada de dados"
         className="fixed bottom-[148px] right-6 z-[60] inline-flex items-center gap-2 rounded-pill bg-white text-ink px-4 py-3 hover:bg-surface-2 transition"
       >
         <Icon name="upload" size={18} color="var(--color-ink)" />
-        <span className="text-[15px] font-medium">Upload de dados</span>
+        <span className="text-[15px] font-medium">Enviar dados</span>
       </button>
 
       {/* O wizard vivia montado só na Home (OverviewGrid); sem isto o evento

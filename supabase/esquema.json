@@ -28,10 +28,10 @@
     "funcoes": 99,
     "politicas": 114,
     "gatilhos": 72,
-    "indices": 206,
+    "indices": 208,
     "enums": 12,
-    "colunas": 694,
-    "restricoes": 196
+    "colunas": 702,
+    "restricoes": 198
   },
   "migrations_aplicadas": [
     "20260609210005_0001_financial_overview",
@@ -129,7 +129,8 @@
     "20260825170000_estorno_de_conciliacao",
     "20260825190000_status_gerada_de_situacao",
     "20260825200000_baixa_exige_data_de_pagamento",
-    "20260930120000_remove_integracao_own"
+    "20260930120000_remove_integracao_own",
+    "20260930150000_venda_morada_unica"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -145,22 +146,11 @@
     "aplicadas_sem_arquivo": [],
     "arquivo_sem_aplicacao": [
       {
-        "nome": "20260930150000_venda_morada_unica",
-        "objetos_ausentes": [
-          "sales_docs.numero",
-          "sales_docs.competence_date",
-          "sales_docs.due_date",
-          "sales_docs.account_id",
-          "sales_docs.status_nf",
-          "sales_docs.numero_nf",
-          "sales_docs.detalhe",
-          "sales_docs_numero_unico",
-          "movements.sale_doc_id",
-          "movements_sale_doc_idx"
-        ],
-        "impacto": "Até ser aplicada, a tela Nova venda em produção falha ao salvar (as colunas não existem) — a venda passa a morar em sales_docs e o título aponta para ela por sale_doc_id. Aplicar junto com o merge.",
+        "nome": "20260930170000_venda_numera_documentos_antigos",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
         "resolver_ate": "2026-10-07",
-        "origem": "sessão Claude de 30/09/2026 (venda em morada única) — o job migrar do CI aplica no merge"
+        "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

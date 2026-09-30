@@ -489,7 +489,7 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
       {/* Maturity */}
       <div className="rounded-md border border-border-soft p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted">Financial Maturity Score</span>
+          <span className="text-label font-medium text-muted">Índice de maturidade financeira</span>
           <span className="text-value-lg leading-none font-medium tabular-nums" style={{ color: cor }}>{maturidade.score}<span className="text-h3 text-faint">/100</span></span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
@@ -540,7 +540,7 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       {report ? (
         <p className="m-0 text-caption text-faint">Importação pronta — {report.confidence.lidos} lançamentos serão aplicados e refletidos em todo o sistema ao concluir.</p>
       ) : (
-        <p className="m-0 text-caption text-faint">Sem importação — o ambiente base será criado e você poderá importar dados depois em Onboarding inteligente.</p>
+        <p className="m-0 text-caption text-faint">Sem importação — o ambiente base será criado e você poderá importar dados depois em Entrada de dados.</p>
       )}
 
       {erro && <p className="m-0 text-caption text-negative">{erro}</p>}
