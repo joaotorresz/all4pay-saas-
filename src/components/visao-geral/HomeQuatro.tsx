@@ -14,7 +14,7 @@ import {
   janelaDoMesDe,
   janelaMes,
 } from "@/core/indicadores";
-import { montarDicas } from "@/core/dicas";
+import { montarDicas, fmtRealDica } from "@/core/dicas";
 import { formatBRL } from "@/lib/format";
 import { assinado } from "@/core/indicadores/convencoes";
 import type { Indicador } from "@/core/indicadores";
@@ -439,7 +439,9 @@ function Dicas({ input }: { input: RiskInput }) {
       : r.dicas.map((d) => ({
           contexto: d.titulo,
           mensagem: d.base
-            ? `${d.texto} (base: ${d.base.rotulo}, ${formatBRL(d.base.valor)})`
+            // A base no MESMO formato do valor da frase: "R$721.084 … (base: R$260.905)",
+            // não metade arredondada e metade com centavos.
+            ? `${d.texto} (base: ${d.base.rotulo}, ${fmtRealDica(d.base.valor)})`
             : d.texto,
           rota: d.rota,
         }));

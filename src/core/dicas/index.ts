@@ -76,8 +76,10 @@ export interface ResultadoDicas {
 const pct = (atual: number, base: number): number | null =>
   base === 0 ? null : ((atual - base) / Math.abs(base)) * 100;
 
-const fmt = (n: number) =>
+/** Valor da dica: arredondado ao real, sem centavos (a Home não mostra vírgula). */
+export const fmtRealDica = (n: number) =>
   "R$" + Math.abs(Math.round(n)).toLocaleString("pt-BR");
+const fmt = fmtRealDica;
 
 const fmtPct = (n: number) => `${n < 0 ? "−" : "+"}${Math.abs(n).toFixed(1).replace(".", ",")}%`;
 

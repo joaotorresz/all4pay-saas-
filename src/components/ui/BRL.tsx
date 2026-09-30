@@ -1,6 +1,9 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { brlParts } from "@/lib/format";
+import { SemCentavosCtx } from "./SemCentavos";
 
 /**
  * Quattro DS — BRL (inline Money)
@@ -28,8 +31,13 @@ export function BRL({
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const neg = value < 0;
-  const { integer, decimals } = brlParts(value);
+  // Num escopo sem centavos o valor é ARREDONDADO, não truncado (ver SemCentavos).
+  // `showDecimals={false}` também ARREDONDA: esconder a vírgula de 3.210,99
+  // e mostrar "3.210" é truncar, e a soma das parcelas deixa de bater.
+  const semCentavos = React.useContext(SemCentavosCtx) || !showDecimals;
+  const mostrado = semCentavos ? Math.round(value) : value;
+  const neg = mostrado < 0;
+  const { integer, decimals } = brlParts(mostrado);
   return (
     <span className={cn("a4p-num inline-flex items-baseline whitespace-nowrap tabular-nums", className)} style={style}>
       {/* ⚠️ O SINAL VEM ANTES DA MOEDA: −R$31.000, não R$−31.000. O menos
@@ -39,7 +47,7 @@ export function BRL({
           do valor, não um rótulo ao lado dele. Mesma decisão no `Money`. */}
       <span>{neg ? "−" : ""}{prefix}</span>
       <span>{integer}</span>
-      {showDecimals && (
+      {showDecimals && !semCentavos && (
         // `data-cents` permite a uma tela inteira esconder os centavos por CSS
         // (`.a4p-sem-centavos`), sem ter de passar showDecimals em cada uso.
         <span data-cents="" className="text-faint" style={{ fontSize: "0.72em", marginLeft: "0.04em" }}>
