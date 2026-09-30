@@ -130,7 +130,8 @@
     "20260825190000_status_gerada_de_situacao",
     "20260825200000_baixa_exige_data_de_pagamento",
     "20260930120000_remove_integracao_own",
-    "20260930150000_venda_morada_unica"
+    "20260930150000_venda_morada_unica",
+    "20260930170000_venda_numera_documentos_antigos"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -144,15 +145,7 @@
       "do arquivo com o md5 do que está no banco. Os 26 bateram."
     ],
     "aplicadas_sem_arquivo": [],
-    "arquivo_sem_aplicacao": [
-      {
-        "nome": "20260930170000_venda_numera_documentos_antigos",
-        "objetos_ausentes": [],
-        "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
-        "resolver_ate": "2026-10-07",
-        "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
-      }
-    ],
+    "arquivo_sem_aplicacao": [],
     "objetos_sem_migration": [
       {
         "nome": "maq_cnpj_cache",
