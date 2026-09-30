@@ -152,10 +152,41 @@ ABA de outro hub precisa de outro nome de parâmetro (`painel`), senão o
 recebível em produção.** `salvarVenda` só criava o título dentro de
 `if (isDemo)`: em live a venda ficava no navegador e o dinheiro prometido não
 entrava no contas a receber, no fluxo nem no DRE — o "escritor morto" de novo.
-`registrarRecebivelDaVenda` grava pelo escritor único (`criarTitulos`) e roda
-ANTES do documento. **Dívida declarada, não resolvida:** a venda ainda tem TRÊS
-modelos de dado (`vendas-store` no navegador, `sales_docs` do lançamento rápido
-e o recebível em `movements`); unificar é a próxima rodada.
+Resolvido de vez na rodada seguinte, pela morada única (abaixo).
+
+### ⚠️ A VENDA TEM UMA MORADA SÓ — `sales_docs` (30/09/2026)
+
+A venda morava em TRÊS lugares com escritores independentes: o navegador
+(`a4p_vendas_docs`, a tela "Nova venda"), `sales_docs` (o lançamento rápido) e o
+recebível em `movements`. A lista somava o navegador e o DRE somava
+`movements` — **dois faturamentos com o mesmo rótulo**. Venda do lançamento
+rápido não aparecia na lista, nas notas nem nos impostos (e em demonstração era
+DESCARTADA); editar uma venda em produção não mexia no título; excluir deixava o
+recebível órfão.
+
+- **`lib/vendas`** é o único leitor e escritor (`useVendas`, `salvarVendaDoc`,
+  `removerVendaDoc`). Em produção: `sales_docs` + `sale_items` + o título em
+  `movements` com **`sale_doc_id`** (chave estrangeira, `on delete restrict` —
+  migration `20260930150000`, que também preenche a chave dos títulos antigos
+  a partir do `group_id` da MESMA empresa). Em demonstração: o navegador.
+- **`core/vendas/documento`** traduz tela ⇄ documento, ida e volta no MESMO
+  arquivo. O que se filtra ou soma tem coluna; o resto vai em `detalhe` jsonb.
+  ⚠️ `total` é o valor COM juros (o que o título cobra).
+- ⚠️ **As regras de dinheiro:** o título nasce pelo escritor único e, se o banco
+  o recusar, o documento é desfeito (nenhuma venda sem recebível); editar
+  reescreve o título SÓ enquanto é previsto — baixado é dinheiro que já se
+  moveu, e a tela recebe o aviso; excluir é exclusão LÓGICA do documento e dos
+  títulos previstos, e é **recusada** com recebimento baixado.
+- ⚠️ **Número = máximo + 1**, não contagem + 1: com uma venda excluída no meio,
+  contar repetiria o último número (e o índice único por empresa o recusaria).
+- **`a4p_vendas_docs` está CONGELADA.** O que ficou nela antes da morada única
+  aparece na lista como "só neste navegador", com o botão que envia — enviar
+  cria o recebível, então é decisão da pessoa, nunca automático.
+- **Guarda** no `engine-audit` (bloco `venda:`): ida e volta sem perder campo,
+  total com juros, número por máximo, título com `origem: venda` e a chave,
+  título recusado desfaz o documento, exclusão recusada com baixa, edição só do
+  previsto, e **teto ZERO** de tela lendo o navegador. Provadas plantando os
+  defeitos.
 
 **As funções novas, inspiradas no Campfire** (cada uma com guarda no
 `engine-audit`, provada plantando o defeito):
@@ -189,7 +220,7 @@ em "Análises avançadas"; os títulos em inglês viraram português.
 
 **O que ficou para a próxima rodada:** aprovar por WhatsApp, caixa de entrada
 de contas a pagar por e-mail, checklist de fechamento com responsável e prazo
-por tarefa, e os três modelos de venda.
+por tarefa.
 
 ## ⚠️ IDENTIDADE VIGENTE — A PALETA QUENTE (substitui as anteriores)
 

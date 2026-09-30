@@ -164,7 +164,18 @@ export async function createTransferencia(input: TransferenciaInput): Promise<vo
 }
 
 export async function createSaleDoc(input: SaleDocInput): Promise<void> {
-  if (isDemo) return void (await delay());
+  if (isDemo) {
+    // ⚠️ Em demonstração a venda do lançamento rápido era DESCARTADA: a tela
+    // dizia "salvo" e ela não existia em lugar nenhum. Agora vai para a mesma
+    // casa da venda da tela cheia, e aparece na lista, nas notas e no caixa.
+    if (input.kind === "venda") {
+      const { salvarVenda, listarVendas } = await import("@/lib/vendas-store");
+      const { vendaDoLancamentoRapido, proximoNumeroDe } = await import("@/core/vendas/documento");
+      const numero = proximoNumeroDe(listarVendas().map((v) => v.numero), new Date().getFullYear());
+      salvarVenda(vendaDoLancamentoRapido(input, `vd_${Date.now().toString(36)}`, numero));
+    }
+    return void (await delay());
+  }
   const s = createClient();
   const subtotal = input.items.reduce(
     (sum, it) => sum + (it.qty * it.unit_price - it.discount),
@@ -173,9 +184,21 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
   const total = Math.max(0, subtotal - input.discount);
   const status = input.kind === "orcamento" ? "orcamento" : "aberto";
 
+  // A venda ganha o número do ano, como a da tela cheia — sem ele, a lista
+  // mostraria um pedaço de uuid no lugar do número.
+  let numero: string | null = null;
+  if (input.kind === "venda") {
+    const ano = new Date().getFullYear();
+    const { data: nums } = await semAmostra(s.from("sales_docs").select("numero").like("numero", `${ano}-%`))
+      .limit(TETO_LINHAS);
+    const { proximoNumeroDe } = await import("@/core/vendas/documento");
+    numero = proximoNumeroDe(((nums ?? []) as { numero: string | null }[]).map((r) => r.numero ?? ""), ano);
+  }
+
   const { data: doc, error } = await s
     .from("sales_docs")
     .insert({
+      ...(numero ? { numero, competence_date: input.doc_date, due_date: input.due_date ?? input.doc_date, account_id: input.account_id } : {}),
       kind: input.kind,
       item_kind: input.item_kind,
       party_id: input.party_id,
@@ -236,6 +259,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
         installment_no: i + 1,
         installment_total: n,
         group_id: doc!.id,
+        ...(input.kind === "venda" ? { sale_doc_id: doc!.id } : {}),
       }));
       const { error: me } = await s.from("movements").insert(rows);
       if (me) throw me;
@@ -255,6 +279,7 @@ export async function createSaleDoc(input: SaleDocInput): Promise<void> {
         cost_center_id: input.cost_center_id,
         payment_method: input.payment_method,
         group_id: doc!.id,
+        ...(input.kind === "venda" ? { sale_doc_id: doc!.id } : {}),
       });
       if (me) throw me;
     }

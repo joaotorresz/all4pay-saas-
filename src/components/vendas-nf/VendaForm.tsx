@@ -26,7 +26,7 @@ import {
   STATUS_VENDA, METODOS_PAGAMENTO, PLATAFORMAS, STATUS_NF,
   type Venda, type ItemVenda, type StatusVenda, type MetodoPagamento, type StatusNF,
 } from "@/core/vendas";
-import { listarVendas, salvarVenda, proximoNumero, novoId, registrarRecebivelDaVenda } from "@/lib/vendas-store";
+import { useVendas, salvarVendaDoc, proximoNumeroVenda, novoIdVenda } from "@/lib/vendas";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
 
 const hoje = () => new Date().toISOString().slice(0, 10);
@@ -64,6 +64,7 @@ export function VendaForm() {
   const { data: partes } = usePartiesList();
   const { data: produtos } = useProductsList();
 
+  const { data: existentes } = useVendas();
   const [v, setV] = React.useState<Venda>(vazia);
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
@@ -71,10 +72,22 @@ export function VendaForm() {
   // Editar: carrega a venda existente (o id vem na query).
   React.useEffect(() => {
     const id = sp.get("id");
-    if (!id) { setV((s) => ({ ...s, id: novoId("vd"), numero: proximoNumero() })); return; }
-    const achada = listarVendas().find((x) => x.id === id);
-    if (achada) setV(achada);
+    if (id) return;
+    let vivo = true;
+    setV((s) => ({ ...s, id: novoIdVenda() }));
+    proximoNumeroVenda()
+      .then((numero) => { if (vivo) setV((s) => (s.numero ? s : { ...s, numero })); })
+      .catch(() => { /* o número é sugerido; a pessoa pode digitar */ });
+    return () => { vivo = false; };
   }, [sp]);
+
+  // Editar: carrega a venda existente (o id vem na query) — da MESMA fonte da lista.
+  React.useEffect(() => {
+    const id = sp.get("id");
+    if (!id || !existentes) return;
+    const achada = existentes.find((x) => x.id === id);
+    if (achada) setV(achada);
+  }, [sp, existentes]);
 
   const set = <K extends keyof Venda>(k: K, val: Venda[K]) => setV((s) => ({ ...s, [k]: val }));
 
@@ -108,15 +121,13 @@ export function VendaForm() {
     if (Object.keys(e).length > 0) { show("Revise os campos obrigatórios."); return; }
     setSalvando(true);
     try {
-      const nova = !listarVendas().some((x) => x.id === v.id);
       const doc = { ...v, clienteNome: cliente?.name ?? v.clienteNome };
-      // ⚠️ O título ANTES do documento: numa recusa do banco, a venda não fica
-      // registrada sem o recebível — e a próxima tentativa não a duplica.
-      await registrarRecebivelDaVenda(doc, nova);
-      salvarVenda(doc);
-      qc.invalidateQueries();
-      show("Venda salva · recebível gerado.");
-      router.push("/dashboard/sales-invoices");
+      // Documento e recebível pelo MESMO escritor: numa recusa do banco os dois
+      // voltam juntos, e a próxima tentativa não duplica nada.
+      const { aviso } = await salvarVendaDoc(doc);
+      await qc.invalidateQueries();
+      show(aviso ?? "Venda salva · recebível gerado.");
+      if (!aviso) router.push("/dashboard/sales-invoices");
     } catch (err) {
       show(`Não foi possível salvar: ${(err as Error).message}`);
     } finally {

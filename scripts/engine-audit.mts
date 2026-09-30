@@ -6516,21 +6516,70 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("régua: antes da primeira etapa não há etapa", etapaDoTitulo(-10, REGUA_PADRAO) === null);
   ok("régua: o último degrau é MANUAL (protesto não sai por calendário)", REGUA_PADRAO[REGUA_PADRAO.length - 1].canal === "manual");
 
-  /* ---------------- 5) A VENDA NOVA GERA O RECEBÍVEL EM PRODUÇÃO ---------------- */
-  // ⚠️ `salvarVenda` só criava o recebível dentro de `if (isDemo)`: em produção
-  // a venda ficava no navegador e o dinheiro que ela promete não entrava no
-  // caixa. Duas metades, como na guarda do escritor morto: o caminho de
-  // produção existe (pelo escritor único) E a tela o chama ANTES do documento.
+  /* ---------------- 5) A VENDA TEM UMA MORADA SÓ (sales_docs) ---------------- */
+  // ⚠️ A venda morava em três lugares (navegador, sales_docs, movements) e a
+  // lista somava um enquanto o DRE somava outro. Três metades: a TRADUÇÃO
+  // tela ⇄ documento não perde campo, o ESCRITOR único liga o título ao
+  // documento, e NENHUMA tela volta a ler o navegador.
+  const doc = await import("../src/core/vendas/documento.ts");
   const fsV = await import("node:fs");
-  const store = fsV.readFileSync("src/lib/vendas-store.ts", "utf8");
-  const form = fsV.readFileSync("src/components/vendas-nf/VendaForm.tsx", "utf8");
-  const corpoRec = store.slice(store.indexOf("export async function registrarRecebivelDaVenda"), store.indexOf("export function removerVenda"));
-  ok("vendas: a venda nova grava o recebível em produção pelo escritor único",
-     corpoRec.includes("criarTitulos(") && /if \(isDemo \|\| !nova\) return/.test(corpoRec));
-  const iRec = form.indexOf("await registrarRecebivelDaVenda(");
-  const iDoc = form.indexOf("salvarVenda(doc)");
-  ok("vendas: o título vem ANTES do documento (recusa do banco não deixa venda sem recebível)",
-     iRec > 0 && iDoc > iRec, `${iRec} · ${iDoc}`);
+  const base = {
+    id: "11111111-2222-4333-8444-555555555555", numero: "2026-0007",
+    clienteId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", clienteNome: "Cliente X",
+    competencia: "2026-09-10", vencimento: "2026-10-10",
+    itens: [{ produtoId: "prod-local", nome: "Curso", quantidade: 2, precoUnitario: 500 }],
+    valorTotal: 1000, valorTotalComJuros: 1080,
+    taxaPlataforma: { valor: 99.9, fornecedorId: "f1" },
+    taxaAntecipacao: { valor: 0, fornecedorId: "" }, taxaStreaming: { valor: 0, fornecedorId: "" },
+    comissaoCoprodutor: { valor: 0, fornecedorId: "" }, comissaoAfiliado: { valor: 50, fornecedorId: "f2" },
+    contaId: "cccccccc-dddd-4eee-8fff-000000000000", operacao: "venda", status: "aprovada", metodo: "cartao",
+    idExterno: "HX-1", categoria: "Vendas de cursos", tipoPagamento: "avista", plataforma: "Hotmart",
+    chaveTransacao: "", pago: false, valorPago: 0, dataPagamento: null,
+    projetos: [{ id: "p1", percentual: 100 }], centros: [], descricao: "", textoDocumentoFiscal: "",
+    observacoes: "obs", statusNF: "emitida", numeroNF: "123", criadoEm: "2026-09-10",
+  } as never;
+  const g = doc.documentoDaVenda(base);
+  const volta = doc.vendaDoDocumento({
+    ...g, doc_date: g.doc_date, parties: { name: "Cliente X" }, created_at: "2026-09-10T12:00:00Z",
+    sale_items: doc.itensDoDocumento(base).map((i) => ({
+      product_id: i.product_id, service_id: null, description: i.description, qty: i.qty, unit_price: i.unit_price,
+    })),
+  } as never);
+  ok("venda: ida e volta pelo documento não perdem taxa, rateio, plataforma nem NF",
+     volta.taxaPlataforma.valor === 99.9 && volta.comissaoAfiliado.fornecedorId === "f2"
+     && volta.projetos.length === 1 && volta.plataforma === "Hotmart" && volta.numeroNF === "123"
+     && volta.statusNF === "emitida" && volta.status === "aprovada" && volta.numero === "2026-0007");
+  ok("venda: o total do documento é o COM juros (o que o título cobra), o sem juros fica visível",
+     g.total === 1080 && volta.valorTotalComJuros === 1080 && volta.valorTotal === 1000);
+  ok("venda: id de produto que não é do banco não vira chave estrangeira",
+     doc.itensDoDocumento(base)[0].product_id === null);
+  ok("venda: o status do lançamento rápido é traduzido, e texto estranho cai em 'iniciada'",
+     doc.statusDaVenda("faturado") === "completa" && doc.statusDaVenda("aberto") === "iniciada"
+     && doc.statusDaVenda("xyz") === "iniciada");
+  ok("venda: o próximo número é MÁXIMO + 1 (com buraco no meio, contar repetiria o último)",
+     doc.proximoNumeroDe(["2026-0001", "2026-0003", "2025-0009"], 2026) === "2026-0004",
+     doc.proximoNumeroDe(["2026-0001", "2026-0003", "2025-0009"], 2026));
+
+  const lib = fsV.readFileSync("src/lib/vendas.ts", "utf8");
+  const corpoTit = lib.slice(lib.indexOf("function tituloDaVenda"), lib.indexOf("async function titulosDaVenda"));
+  ok("venda: o título nasce pelo escritor único, com origem 'venda' e a chave do documento",
+     /criarTitulos\(\[tituloDaVenda\(v\)\]\)/.test(lib)
+     && /origem: "venda"/.test(corpoTit) && /sale_doc_id: v\.id/.test(corpoTit));
+  const corpoNovo = lib.slice(lib.indexOf("if (!existente)"), lib.indexOf("const { id: _id"));
+  ok("venda: título recusado desfaz o documento (nenhuma venda sem recebível)",
+     corpoNovo.indexOf("criarTitulos(") > 0 && corpoNovo.lastIndexOf("desfazerDocumento(v.id)") > corpoNovo.indexOf("criarTitulos("));
+  const corpoRem = lib.slice(lib.indexOf("export async function removerVendaDoc"), lib.indexOf("/* ─────────────────── vendas que ficaram"));
+  ok("venda: excluir com recebimento baixado é RECUSADO (não se apaga dinheiro que entrou)",
+     /movidos\.length > 0\) \{\s*throw/.test(corpoRem));
+  const corpoAtu = lib.slice(lib.indexOf("async function atualizarTitulo"), lib.indexOf("async function trocarItens"));
+  ok("venda: editar só reescreve título PREVISTO (baixado é dinheiro que já se moveu)",
+     /\.eq\("situacao", "previsto"\)/.test(corpoAtu));
+
+  // ⚠️ Teto ZERO: nenhuma tela lê ou grava venda pelo navegador — só `lib/vendas`.
+  const telas = ["src/components/vendas-nf/VendasView.tsx", "src/components/vendas-nf/VendaForm.tsx",
+    "src/components/vendas-nf/OutrasViews.tsx", "src/components/contabilidade-export/EnvioNFsView.tsx"];
+  const voltaram = telas.filter((f) => /\b(listarVendas|salvarVenda|removerVenda)\b/.test(fsV.readFileSync(f, "utf8")));
+  ok("venda: teto ZERO — nenhuma tela lê ou grava venda pelo navegador", voltaram.length === 0, voltaram.join(", "));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

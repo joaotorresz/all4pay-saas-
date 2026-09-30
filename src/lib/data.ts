@@ -709,6 +709,8 @@ export interface TituloAvulso {
   status?: "pendente" | "pago";
   paid_date?: string | null;
   origem?: LancamentoInput["origem"];
+  /** Venda que originou o título — a chave que liga o recebível ao documento. */
+  sale_doc_id?: string | null;
 }
 
 /**
@@ -787,6 +789,7 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
        */
       origem: l.origem ?? "manual",
       especie: "titulo",
+      ...(l.sale_doc_id ? { sale_doc_id: l.sale_doc_id } : {}),
     })),
   );
   if (error) throw error;
