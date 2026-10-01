@@ -9,6 +9,11 @@
  * os dois batiam por acaso (não há entrada assim em aberto); bastava lançar um
  * rendimento a creditar para a IA dizer um total e a tela outro, e a IA passar
  * a cobrar como "devedor" um dinheiro que ninguém deve.
+ *
+ * ⚠️ Rodada 3: a regra passou a olhar a ORIGEM — título criado à mão em "Nova
+ * conta a receber" conta (quem lançou disse que alguém deve); a entrada do
+ * extrato não. O que esta jornada prende é a invariante: IA e painel andam
+ * JUNTOS. (Decisão de produto registrada em docs/rodada-30-09/ia.md.)
  */
 import { novoUsuario, verificador, brl } from "./kit.mjs";
 import { perguntar } from "./ia-numeros.mjs";
@@ -60,10 +65,14 @@ export default async function iaCarteira(navegador) {
   v.ok(!u.page.url().includes("/new"), "o rendimento a creditar de R$ 777,77 é salvo", aviso || u.page.url());
 
   const tela1 = await carteiraDoPainel(u);
-  v.ok(Math.abs(tela1 - tela0) < 0.005, "o painel de Contas a receber NÃO muda (rendimento não é conta a receber)", `${tela0} → ${tela1}`);
+  // ⚠️ Rodada 3 (01/10): o título lançado À MÃO como "Nova conta a receber" É
+  // recebível, qualquer que seja a categoria — quem o lançou disse que alguém
+  // deve. O que sai da carteira é a entrada do EXTRATO (transferência, resgate,
+  // empréstimo, rendimento creditado), não o título que a pessoa criou.
+  v.ok(Math.abs((tela1 - tela0) - 777.77) < 0.005, "o painel de Contas a receber sobe o título lançado à mão (R$ 777,77)", `${tela0} → ${tela1}`);
   await u.ir("/quattro-ai");
   const ia1 = aReceberDaIA(await perguntar(u, "quanto tenho a receber?"));
-  v.ok(Math.abs(ia1 - ia0) < 0.005, "e a IA também não muda", `${ia0} → ${ia1}`);
+  v.ok(Math.abs((ia1 - ia0) - 777.77) < 0.005, "e a IA sobe o mesmo valor", `${ia0} → ${ia1}`);
   v.ok(Math.abs(ia1 - tela1) < 0.005, "IA e painel continuam no mesmo número", `IA ${ia1} · tela ${tela1}`);
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));

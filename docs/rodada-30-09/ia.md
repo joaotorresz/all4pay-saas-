@@ -251,3 +251,12 @@ PRIMEIRA abertura da sessão (hoje sim) ou começar em branco com as sugestões;
 `origem: "recorrencia"` está no conjunto de títulos mas o banco
 (`movements_origem_valida`) não aceita esse valor — inofensivo, e a recorrência
 grava `contrato`. O painel não foi dirigido no navegador nesta revisão.
+
+### Decisão aberta — o título manual em categoria de rendimento é conta a receber? (01/10/2026)
+
+A revisão da rodada 2 tirou do "a receber" toda entrada em categoria de
+rendimento/resgate/empréstimo (`foraDaBaseTributavel`); a rodada 3 passou a olhar
+a ORIGEM: o título criado à mão em "Nova conta a receber" conta, e a entrada do
+extrato não. A jornada `ia-carteira` prende o que não pode quebrar em nenhuma das
+duas leituras — a IA e o painel andam JUNTOS. Qual das duas é a certa para o
+produto é decisão do dono.

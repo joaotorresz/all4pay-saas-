@@ -79,6 +79,9 @@ export default async function iaHistorico(navegador) {
   await u.page.locator(".a4p-ia-fab").click();
   const painel = u.page.locator('aside[role="dialog"].a4p-ia');
   await painel.waitFor({ timeout: 8000 });
+  // O painel reabre na conversa mais recente (rodada 3); "Nova conversa" começa outra.
+  await painel.getByRole("button", { name: "Nova conversa" }).click().catch(() => {});
+  await u.page.waitForTimeout(300);
   const n0 = await painel.locator('[data-ia="resposta"]').count();
   await painel.locator("input, textarea").last().fill("quanto tenho a receber?");
   await u.page.keyboard.press("Enter");
