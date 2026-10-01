@@ -1462,8 +1462,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     fech.relatorio.colunas[2] === "2026-06", fech.relatorio.colunas[2]);
   ok("relatorios/fechamento: KPI de resultado bate com a DRE",
     fech.kpis.find((k) => k.id === "resultado_liquido")!.valor === 55_000);
-  ok("relatorios/fechamento: margem EBITDA = 30%",
-    fech.kpis.find((k) => k.id === "margem_ebitda")!.valor === 30);
+  // ⚠️ A margem EBITDA é sobre a RECEITA LÍQUIDA — a mesma do cartão do DRE
+  // (`cascataDRE.margemEbitda`). Era sobre a bruta (30% nesta fixture): o
+  // mesmo rótulo com dois números no DRE e no relatório assinado.
+  {
+    const cel = (id: string) => fech.relatorio.linhas.find((l) => l.id === id)!.celulas[2].valor;
+    const esperada = round2ea((cel("ebitda") / cel("receita_liquida")) * 100);
+    ok("relatorios/fechamento: margem EBITDA = EBITDA ÷ receita LÍQUIDA (a do cartão do DRE)",
+      fech.kpis.find((k) => k.id === "margem_ebitda")!.valor === esperada
+      && cel("receita_liquida") !== cel("receita_bruta"), `${fech.kpis.find((k) => k.id === "margem_ebitda")!.valor} × ${esperada}`);
+  }
   ok("relatorios/fechamento: sempre há pelo menos um ponto de atenção", fech.pontos.length >= 1);
   ok("relatorios/fechamento: textos nascem preenchidos, não em branco",
     fech.textos.resumo.length > 40 && fech.textos.destaques.length > 20);

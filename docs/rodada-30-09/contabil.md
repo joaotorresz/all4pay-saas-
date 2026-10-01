@@ -1,0 +1,119 @@
+# Contabilidade e relatórios — rodada de 30/09 (branch `r3/contabil`)
+
+Decisões que merecem subir ao CLAUDE.md. Cada uma tem guarda no `engine-audit`
+(bloco `CONTABILIDADE E RELATÓRIOS`) e/ou jornada em `scripts/e2e/contabil-*.mjs`,
+provadas plantando o defeito de volta.
+
+## ⚠️ O número rotulado "razão" tem de ser o do RAZÃO
+
+O cartão "Caixa do razão × extrato" mostrava "Somando todos os lançamentos" =
+liquidados + PREVISTOS — o `derivado` de `reconciliarSaldo`, que descreve o que o
+razão fazia ANTES de parar de postar previsto. Medido na demonstração: o cartão
+dizia R$ 3.160.408,53 e a linha 1.1.01 do balancete, logo abaixo, R$ 3.108.835,26
+(a diferença era o total dos títulos em aberto, apresentado como parcela de uma
+diferença da qual ele não faz parte). Um lançamento manual no caixa mudava o
+balancete e não mudava o cartão.
+
+`core/ledger/conciliacao.conciliarCaixaDoRazao`: caixa do razão = saldo da 1.1.01;
+`extrato − razão = abertura + liquidados sem data − lançamentos próprios no caixa
++ resíduo`. O resíduo só mede algo com abertura verificada; sem ela continua
+"NÃO CONFERIDO" (A4P-073). Os títulos em aberto ficam como INFORMATIVO, fora da
+soma. As parcelas de `reconciliarSaldo` ganharam `id` — casar o rótulo em
+português para achá-las seria a quarta vez desse defeito.
+
+## ⚠️ A regra do razão vale nos DOIS caminhos
+
+`validarPostagem` (balanceado · conta do plano · data · mês não travado) roda em
+`postarLancamento` ANTES do ramo da demonstração. Antes, só o gatilho do banco
+recusava: na demo o rascunho da IA com D ≠ C entrava no balancete.
+
+## ⚠️ Escritor de razão que engole erro (produção)
+
+`postarLiveLote` fazia `continue` nas três recusas possíveis (cabeçalho, linhas,
+postagem) e `postarLancamento` devolvia `void`: a tela anunciava "Lançamento
+postado." sobre o que o banco recusou. Agora o lote devolve `{postadas,
+jaExistiam, falhas}` com a mensagem do banco e a postagem individual LANÇA.
+
+- **`period_id` vai junto.** O gatilho `check_period_open` só olha
+  `new.period_id`, e NENHUM lançamento o preenchia — medido em produção
+  (01/10/2026): 0 de 354 `journal_entries` com período. "Travar o mês" no
+  Fechamento não impedia postagem nenhuma no razão. A trava existia; a chave
+  nunca chegava à fechadura.
+- **Rascunho recusado libera a chave.** Vai para a lixeira com a
+  `external_key` marcada (`…#recusado:<id>`); sem isso o índice único
+  `(org_id, external_key)` tornava impossível tentar de novo depois de consertado
+  o motivo.
+- ⚠️ **Não provado contra um banco**: o caminho live foi revisado e tipado, não
+  executado (não há Supabase neste ambiente e a trava proíbe escrita em
+  produção). A guarda é por leitura de código.
+
+## ⚠️ Open Finance → razão: duas portas para o mesmo dinheiro
+
+A sincronização do Pluggy já cria um MOVIMENTO por transação
+(`bank_transactions.movement_id`), e o razão projeta todo movimento liquidado.
+"Importar Open Finance" no Razão postava a mesma transação de novo como
+`pluggy:<id>` — o caixa dobrava. Medido: 52 de 52 transações já têm movimento.
+Agora só a transação SEM movimento entra direto, e só vira "processada"
+(`raw_events`) a que de fato entrou — antes a recusada era marcada e nunca mais
+tentada. As 17 entradas `pluggy:` que existem em produção não casam com as
+transações atuais (medido) — ficam como estão; decidir se saem é do dono.
+
+## ⚠️ Estorno contábil tinha função e não tinha tela
+
+`estornar_lancamento_contabil` (ONDA 3) existia e nenhuma tela a chamava. O
+Razão ganhou "Estornar" nos lançamentos PRÓPRIOS (motivo obrigatório, data de
+hoje, recusa estorno duplo); a projeção de um movimento (`mov:`) não se estorna
+aqui — corrige-se o movimento.
+
+## ⚠️ DFC: as duas posições não têm o mesmo "Total"
+
+- O Total do **Saldo Inicial** era o do ÚLTIMO mês (a regra "saldo não se soma,
+  vale a última posição" foi aplicada às duas linhas). O inicial do período é o
+  do PRIMEIRO mês; só assim inicial + fluxo = final fecha na coluna Total.
+- **Recorte por conta parte do saldo da conta** (`montarDFC(…, saldoHojeDoRecorte)`).
+  Partia do saldo da empresa: a soma dos "saldos finais" das quatro contas da
+  demonstração dava R$ 8.995.402 contra R$ 2.248.850,50 de saldo real.
+- **Transferência entre contas virou linha do DFC** (`transferencias_entre_contas`,
+  `+/-`, dentro do fluxo líquido). No DRE ela continua fora; no caixa de UMA conta
+  ela é dinheiro que entrou ou saiu, e sem a linha o DFC da conta não fechava. Na
+  visão de todas as contas as pernas se anulam.
+- **Projeto/centro não tem saldo**: as duas linhas de saldo saem, e a tela diz por quê.
+- `saldoInicialDoPeriodo` usa as convenções canônicas (`liquidado`, `dataDe`, `assinado`).
+
+## ⚠️ Multiempresas
+
+- O DFC consolidado saía com **saldo R$ 0,00** (ninguém passava o saldo inicial).
+  Agora é a soma do inicial de cada empresa; quando a janela termina no passado
+  ele SAI (a fonte por organização só traz a janela, e reconstruir exigiria o que
+  veio depois).
+- O **drill-down do consolidado abria "Nenhuma transação"**: os ids são
+  prefixados por empresa e a gaveta procurava na empresa aberta. `RelatorioConsolidado.unido`
+  é a fonte; `GavetaTransacoes` aceita `fonte`.
+- O seletor "Apenas contas ativas × Todas" **não filtrava nada** — saiu.
+- O texto dizia "Sem eliminações intercompany (v1)" enquanto o motor eliminava.
+  A lista das eliminações agora aparece.
+- A linha declarada de cada categoria não chegava ao consolidado.
+
+## ⚠️ Cartão e tabela da MESMA tela com filtros diferentes
+
+Os cartões executivos do DRE recebiam só o intervalo; a tabela recebia conta,
+projeto, centro e a linha declarada. Com filtro de conta, "Lucro líquido"
+(R$ 3.160.408,53) ≠ Resultado Líquido da tabela (R$ 1.251.038,35). O comentário
+do código dizia "divergir deixou de ser possível" — era verdade para a FÓRMULA,
+não para a ENTRADA.
+
+## ⚠️ Margem EBITDA tem uma definição só
+
+O relatório de fechamento dividia o EBITDA pela receita BRUTA; o cartão do DRE,
+pela LÍQUIDA. Mesmo rótulo, 40,3% × 51,1% para setembro na demonstração. Ficou a
+líquida (a da cascata). O fechamento também passou a receber a linha declarada.
+
+## Variação e Domínio
+
+- A variação é `atual − anterior` e só o lado atual tinha lançamentos para
+  abrir: a categoria que SUMIU tinha delta e nenhum botão. `Motivo.movimentosAnterior`.
+- Domínio: liquidado sem conta ia ao arquivo de TODAS as contas
+  (`movimentosDaContaNoMes`, agora em `core/contabilidade`); a categoria do plano
+  casava por chave exata ("Venda" × "venda" → pendência com código cadastrado).
+  O aviso do código da conta bancária afirmava que ele ia no arquivo — não vai,
+  é informado na tela de importação do Domínio.

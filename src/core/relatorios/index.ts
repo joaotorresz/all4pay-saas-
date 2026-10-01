@@ -1007,6 +1007,14 @@ export function montarFechamento(
   };
 
   const receita = valorLinha(relatorio, "receita_bruta", ultima);
+  /*
+   * ⚠️ **A MARGEM EBITDA TEM UMA DEFINIÇÃO SÓ: EBITDA ÷ RECEITA LÍQUIDA.** É a
+   * do cartão do DRE (`cascataDRE.margemEbitda`). O fechamento dividia pela
+   * BRUTA — o mesmo rótulo, "Margem EBITDA", com dois números diferentes no
+   * DRE e no relatório assinado do mesmo mês, e o do relatório sempre menor
+   * pelo peso dos impostos sobre a venda.
+   */
+  const receitaLiq = valorLinha(relatorio, "receita_liquida", ultima);
   const ebitda = valorLinha(relatorio, "ebitda", ultima);
   const liquido = valorLinha(relatorio, "resultado_liquido", ultima);
 
@@ -1018,7 +1026,7 @@ export function montarFechamento(
     kpiDe("resultado_liquido", "Resultado líquido"),
     {
       id: "margem_ebitda", label: "Margem EBITDA", formato: "pct",
-      valor: receita ? round2((ebitda / receita) * 100) : 0,
+      valor: receitaLiq ? round2((ebitda / receitaLiq) * 100) : 0,
       variacao: null,
     },
   ];
@@ -1031,10 +1039,10 @@ export function montarFechamento(
       texto: `O mês fechou com prejuízo de ${brl(Math.abs(liquido))}. A prioridade é identificar qual linha da cascata consumiu o resultado — comece pelas Despesas Operacionais.`,
     });
   }
-  if (receita > 0 && ebitda / receita < 0.1) {
+  if (receitaLiq > 0 && ebitda / receitaLiq < 0.1) {
     pontos.push({
       id: "margem", severidade: ebitda < 0 ? "alta" : "media", titulo: "Margem EBITDA abaixo de 10%",
-      texto: `A operação converteu ${round2((ebitda / receita) * 100)}% da receita em EBITDA. Margem apertada deixa pouco espaço para absorver queda de faturamento.`,
+      texto: `A operação converteu ${round2((ebitda / receitaLiq) * 100)}% da receita líquida em EBITDA. Margem apertada deixa pouco espaço para absorver queda de faturamento.`,
     });
   }
   if (anterior >= 0) {
@@ -1070,7 +1078,7 @@ export function montarFechamento(
     textos: {
       resumo: `No mês de referência a empresa apurou receita bruta de ${brl(receita)}, EBITDA de ${brl(ebitda)} e resultado líquido de ${brl(liquido)}. A análise a seguir cobre ${cfg.comparativo} meses e detalha cada linha da cascata de resultado.`,
       destaques: liquido >= 0
-        ? `O resultado do período foi positivo em ${brl(liquido)}, com margem EBITDA de ${receita ? round2((ebitda / receita) * 100) : 0}% sobre a receita bruta.`
+        ? `O resultado do período foi positivo em ${brl(liquido)}, com margem EBITDA de ${receitaLiq ? round2((ebitda / receitaLiq) * 100) : 0}% sobre a receita líquida.`
         : `O período fechou negativo em ${brl(Math.abs(liquido))}. A recuperação passa por receita ou por corte nas linhas de despesa detalhadas abaixo.`,
       recomendacoes: pontos.filter((p) => p.severidade !== "baixa").map((p) => `• ${p.titulo}: ${p.texto}`).join("\n")
         || "• Manter o acompanhamento mensal da cascata e revisar o orçamento do próximo trimestre.",
