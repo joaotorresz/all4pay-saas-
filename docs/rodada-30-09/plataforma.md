@@ -169,3 +169,62 @@ lê `identidadeDoCadastro`.
 "O runway não diz 0 meses" passava se o widget não existisse. Agora ela lê o
 CARTÃO e exige o motivo da ausência ou um prazo positivo — e foi isso que
 expôs o título errado.
+
+## Rodada 3 (reservados) — r4/plataforma, 01/10/2026
+
+Os itens que os agentes da rodada acharam em arquivos que não podiam editar.
+Guarda nova: `npm run plataforma-escritores` (`scripts/plataforma-escritores.mts`,
+dentro do `npm test`, roda em modo demonstração) + a jornada
+`scripts/e2e/plataforma-despesa-modal.mjs`.
+
+**O que mudou**
+
+- **`createLancamento` grava na demonstração.** Antes: `return` dentro de
+  `if (isDemo)` e a tela dizia "Despesa salva". Agora `gravarLancamentoDemo`
+  monta as linhas pelo MESMO `buildMovementRows` da produção (parcelas, baixa,
+  `origem: manual`) e grava por `appendImported`, com `category` = nome da
+  categoria (é por ele que o DRE classifica), chave `manual:<id>` única (duas
+  despesas iguais no mesmo dia são duas — o dedup do dataset descartava a
+  segunda) e conferência de que cada título entrou. **Repetir é RECUSADO na
+  demonstração** (não há onde guardar a regra; gravar só o 1º título dizendo
+  "salvo" prometeria repetições que nunca nascem). Guarda: linha, saldo
+  (−87,65 exato), `RiskInput`, segunda despesa idêntica, parcelas. Jornada:
+  Criar → Nova conta a pagar → extrato, títulos, saldo da Home e DRE
+  (Despesas Operacionais +R$ 4.321,07, coluna Total lida pelo cabeçalho com
+  `colSpan`, a lição do A4P-028). **Provada plantando** o `return` de volta:
+  9 asserções reprovam.
+- **Achado no caminho:** `buildMovementRows` fazia `new Date("YYYY-MM-DD")` +
+  `setMonth` — em UTC−3 o vencimento do dia 1º gravava no dia anterior, e
+  31/01 + 1 mês virava 03/03. `vencimentoDaParcela` fatia a string e leva o dia
+  inexistente ao último dia do mês. Vale também para PRODUÇÃO.
+- **`restoreMovement` apagado** (pedia `cancelado → previsto`, recusado sempre;
+  sem chamador). Guarda: `lib/data` não o exporta.
+- **`ReceitaForm`**: a recusa mostra `message + details + hint`
+  (`motivoDaRecusa` em `lib/erros`); no modo pessoal somem Fornecedor/Cliente,
+  Centro de custo (inclusive no rateio), Projeto, Código de referência e NSU —
+  e o escondido não é enviado. Guarda no script + jornada `plataforma-pessoal`.
+- **"Meu perfil"** no menu pessoal, no inventário e no título da tela
+  `/configuracoes` (a guarda menu = tela passou a cobrir `CONFIG_PESSOAL`).
+- **`fetchCompany`** não devolve mais o cache de outra empresa: o cache é
+  carimbado com `orgId` (vindo do servidor) e só vale para a organização
+  aberta (`cacheDaOrganizacao` + `minhas_organizacoes`); sem saber a aberta,
+  nenhum cache vale. Provada plantando o `return loadCompany()`.
+- **PIX** sai de `identidadeDoCadastro(db).documento` (CPF da pessoa física).
+- **Onboarding**: a recusa da alçada é `reportar`-ada e AVISADA na tela antes de
+  entrar; não bloqueia o cadastro e a regra de alçada não mudou.
+- **Código morto** apagado: `visao-geral/MovementsTable.tsx` e
+  `visao-geral/ConciliacaoView.tsx` (nenhum import).
+
+**O que ficou (decisão do dono)**
+
+- **Os grupos do menu pessoal (`SECTIONS_PESSOAL`) rebatizam telas** ("Resumo"
+  para a Visão geral, "Extrato de pagamentos" para Títulos a pagar…). A guarda
+  menu = tela cobre só as Configurações pessoais; cobrar os grupos reprovaria
+  a escolha vigente. Decidir: nomes do PF iguais aos da tela, ou a tela ganha
+  o nome pessoal quando o tipo de conta é pessoal.
+- **Repetição na demonstração**: hoje recusada com motivo. Se o dono quiser
+  repetições na demo, é preciso uma morada para a regra no dataset.
+- **Cache de perfil antigo sem carimbo** passa a ser ignorado em produção até a
+  primeira leitura do servidor carimbá-lo — intencional.
+- Jornadas e2e não foram replantadas com o defeito (exigiria rebuild); a prova
+  por quebra é a do `plataforma-escritores`.

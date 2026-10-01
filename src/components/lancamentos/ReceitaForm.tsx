@@ -15,6 +15,8 @@ import {
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
 import { useOpcoesCadastro } from "./opcoes-cadastro";
+import { useTipoConta } from "@/components/app/useTipoConta";
+import { motivoDaRecusa } from "@/lib/erros";
 import { rateioValido } from "@/core/registros";
 import type {
   CategoryKind,
@@ -119,6 +121,11 @@ export function ReceitaForm({
   onToast: (msg: string) => void;
 }) {
   const isReceita = kind === "receita";
+  // ⚠️ No modo PESSOAL os campos de empresa somem: fornecedor/cliente, centro
+  // de custo, projeto, código de referência e NSU não existem na vida de uma
+  // pessoa física — oferecê-los transforma "anotar um gasto" num formulário
+  // contábil. Escondido também NÃO é enviado (buildInput zera).
+  const { pessoal } = useTipoConta();
   const partyRole = isReceita ? "customer" : "supplier";
 
   const { data: parties } = usePartiesByRole(partyRole);
@@ -150,15 +157,17 @@ export function ReceitaForm({
 
   const buildInput = (): LancamentoInput => ({
     kind,
-    party_id: f.party_id || null,
+    party_id: pessoal ? null : f.party_id || null,
     competence_date: f.competence_date,
     description: f.description.trim(),
     amount: f.amount,
     category_id: f.category_id || null,
-    cost_center_id: f.cost_center_id || null,
-    project_id: f.project_id || null,
-    reference_code: f.reference_code.trim() || null,
-    splits: f.rateioOn ? f.splits : null,
+    cost_center_id: pessoal ? null : f.cost_center_id || null,
+    project_id: pessoal ? null : f.project_id || null,
+    reference_code: pessoal ? null : f.reference_code.trim() || null,
+    splits: f.rateioOn
+      ? (pessoal ? f.splits.map((sp) => ({ ...sp, cost_center_id: null })) : f.splits)
+      : null,
     repeat: f.repeatOn
       ? {
           freq: f.repeatFreq,
@@ -171,7 +180,7 @@ export function ReceitaForm({
     payment_method: (f.payment_method as PaymentMethod) || null,
     account_id: f.account_id || null,
     settled: f.settled,
-    nsu: f.nsuOn ? f.nsu.trim() || null : null,
+    nsu: !pessoal && f.nsuOn ? f.nsu.trim() || null : null,
   });
 
   const submit = async (again: boolean) => {
@@ -192,8 +201,7 @@ export function ReceitaForm({
     } catch (err) {
       // ⚠️ A mensagem REAL do banco (e o `hint`) vai para a tela: "tente
       // novamente" é o único conselho que não funciona quando o banco recusa.
-      const e = err as { message?: string; hint?: string };
-      onToast(e?.message ? `Não foi possível salvar: ${e.message}${e.hint ? ` ${e.hint}` : ""}` : "Não foi possível salvar.");
+      onToast(`Não foi possível salvar: ${motivoDaRecusa(err)}`);
     }
   };
 
@@ -228,13 +236,15 @@ export function ReceitaForm({
           <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
             <SectionTitle>Informações do lançamento</SectionTitle>
 
-            <Select
-              label={isReceita ? "Cliente" : "Fornecedor"}
-              placeholder={`Selecione um ${isReceita ? "cliente" : "fornecedor"} (opcional)`}
-              options={opts(parties)}
-              value={f.party_id}
-              onChange={(v) => set({ party_id: v })}
-            />
+            {!pessoal && (
+              <Select
+                label={isReceita ? "Cliente" : "Fornecedor"}
+                placeholder={`Selecione um ${isReceita ? "cliente" : "fornecedor"} (opcional)`}
+                options={opts(parties)}
+                value={f.party_id}
+                onChange={(v) => set({ party_id: v })}
+              />
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <DateField
@@ -270,7 +280,7 @@ export function ReceitaForm({
             {f.rateioOn && (
               <div className="flex flex-col gap-2 rounded-md border border-border-soft p-3">
                 {f.splits.map((sp, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1fr_90px_32px] gap-2 items-end">
+                  <div key={i} className={`grid ${pessoal ? "grid-cols-[1fr_90px_32px]" : "grid-cols-[1fr_1fr_90px_32px]"} gap-2 items-end`}>
                     <Select
                       label={i === 0 ? "Categoria" : undefined}
                       placeholder="Categoria"
@@ -278,13 +288,15 @@ export function ReceitaForm({
                       value={sp.category_id ?? ""}
                       onChange={(v) => setSplit(i, { category_id: v || null })}
                     />
-                    <Select
-                      label={i === 0 ? "Centro de custo" : undefined}
-                      placeholder="Centro de custo"
-                      options={opcoes.centros}
-                      value={sp.cost_center_id ?? ""}
-                      onChange={(v) => setSplit(i, { cost_center_id: v || null })}
-                    />
+                    {!pessoal && (
+                      <Select
+                        label={i === 0 ? "Centro de custo" : undefined}
+                        placeholder="Centro de custo"
+                        options={opcoes.centros}
+                        value={sp.cost_center_id ?? ""}
+                        onChange={(v) => setSplit(i, { cost_center_id: v || null })}
+                      />
+                    )}
                     <Input
                       label={i === 0 ? "%" : undefined}
                       inputMode="numeric"
@@ -338,30 +350,36 @@ export function ReceitaForm({
                 onChange={(v) => set({ category_id: v })}
                 invalid={invalid("category_id")}
               />
-              <Select
-                label="Centro de custo"
-                placeholder="Selecione (opcional)"
-                options={opcoes.centros}
-                value={f.cost_center_id}
-                onChange={(v) => set({ cost_center_id: v })}
-              />
+              {!pessoal && (
+                <Select
+                  label="Centro de custo"
+                  placeholder="Selecione (opcional)"
+                  options={opcoes.centros}
+                  value={f.cost_center_id}
+                  onChange={(v) => set({ cost_center_id: v })}
+                />
+              )}
               {/* Projeto = centro de resultado TEMPORAL (uma campanha, um
                   lançamento). É o que faz o filtro "Projeto" da DRE/DFC
                   realmente filtrar. */}
-              <Select
-                label="Projeto"
-                placeholder="Selecione (opcional)"
-                options={opcoes.projetos}
-                value={f.project_id}
-                onChange={(v) => set({ project_id: v })}
-              />
+              {!pessoal && (
+                <Select
+                  label="Projeto"
+                  placeholder="Selecione (opcional)"
+                  options={opcoes.projetos}
+                  value={f.project_id}
+                  onChange={(v) => set({ project_id: v })}
+                />
+              )}
             </div>
 
-            <Input
-              label="Código de referência"
-              value={f.reference_code}
-              onChange={(e) => set({ reference_code: e.target.value })}
-            />
+            {!pessoal && (
+              <Input
+                label="Código de referência"
+                value={f.reference_code}
+                onChange={(e) => set({ reference_code: e.target.value })}
+              />
+            )}
 
             <Switch
               label="Repetir lançamento?"
@@ -474,12 +492,14 @@ export function ReceitaForm({
               </span>
             </label>
 
-            <Switch
-              label="Informar NSU?"
-              checked={f.nsuOn}
-              onChange={(v) => set({ nsuOn: v })}
-            />
-            {f.nsuOn && (
+            {!pessoal && (
+              <Switch
+                label="Informar NSU?"
+                checked={f.nsuOn}
+                onChange={(v) => set({ nsuOn: v })}
+              />
+            )}
+            {!pessoal && f.nsuOn && (
               <Input
                 label="NSU"
                 value={f.nsu}

@@ -320,7 +320,7 @@ export const SECTIONS_PESSOAL: Section[] = [
 
 export const CONFIG_PESSOAL: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
-    { label: "Configurações da empresa", desc: "Perfil e estrutura financeira", href: "/configuracoes", icon: "settings" },
+    { label: "Meu perfil", desc: "Seus dados e suas carteiras", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", desc: "Excluídos, ainda recuperáveis", href: "/lixeira", icon: "trash-2" },
   ],
 };

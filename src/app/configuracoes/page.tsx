@@ -10,7 +10,9 @@ import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { isDemo } from "@/lib/demo";
 
 /**
- * Configurações da empresa — a porta "Meu perfil" do ⋮.
+ * Meu perfil — a porta "Meu perfil" do ⋮ (e do menu pessoal). O nome é o
+ * MESMO nas três portas: a tela já se chamou "Configurações da empresa", que
+ * uma pessoa física lia como tela de outra conta.
  *
  * ⚠️ As AUTOMAÇÕES (resumo do caixa, lembrete de contas a pagar, alerta de
  * caixa, fechamento e régua automática) entraram como ABA daqui, e não como
@@ -24,7 +26,7 @@ export default function ConfiguracoesPage() {
     { id: "automacoes", label: "Automações", render: () => <AutomacoesView /> },
   ], [show]);
   return (
-    <AppShell title="Configurações da empresa" crumb="Empresa" actions={isDemo ? <DemoBadge /> : undefined}>
+    <AppShell title="Meu perfil" crumb="Configurações" actions={isDemo ? <DemoBadge /> : undefined}>
       <Suspense fallback={null}>
         <HubShell abas={abas} />
       </Suspense>

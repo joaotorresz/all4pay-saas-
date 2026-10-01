@@ -36,6 +36,11 @@ export interface StoredCompany {
   estrutura?: Estrutura;
   /** Preenchido só no modo Pessoa Física. */
   pessoal?: PerfilPessoal;
+  /**
+   * A ORGANIZAÇÃO dona deste perfil — o carimbo do cache. Sem ele, o cache do
+   * navegador era devolvido para qualquer empresa aberta nele.
+   */
+  orgId?: string;
 }
 
 // ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
@@ -49,35 +54,79 @@ export function saveCompany(c: StoredCompany): void {
   gravarOrg(KEY, c);
 }
 
+/**
+ * O cache só vale para a organização que o gravou.
+ *
+ * ⚠️ **Antes, sem perfil no servidor (ou com erro), `fetchCompany` devolvia o
+ * cache do navegador — que podia ser de OUTRA empresa** (a aberta antes no
+ * mesmo navegador, ou a de outro usuário que usou a máquina). A tela mostrava
+ * a razão social, o CNPJ e o regime de uma empresa dentro de outra: a aparência
+ * exata de um vazamento, e a origem de um imposto calculado no regime errado.
+ * Cache sem carimbo, ou com o carimbo de outra organização, é tratado como
+ * AUSENTE — "não há perfil" é verdade; o perfil de outra empresa não é.
+ */
+export function cacheDaOrganizacao(cache: StoredCompany | null, orgAtiva: string | null): StoredCompany | null {
+  if (!cache || !orgAtiva) return null;
+  return cache.orgId === orgAtiva ? cache : null;
+}
+
+/** A organização aberta agora (a mesma de `auth_org_id()`), ou null. */
+async function organizacaoAtiva(s: ReturnType<typeof createClient>): Promise<string | null> {
+  const { data, error } = await s.rpc("minhas_organizacoes");
+  if (error) throw error;
+  const ativa = ((data ?? []) as { org_id: string; ativa: boolean }[]).find((o) => o.ativa);
+  return ativa?.org_id ?? null;
+}
+
 /** Perfil efetivo: demo → cache local; live → `company_profiles` da org (RLS),
- *  com fallback no cache. Hidrata o cache local para a próxima pintura. */
+ *  com fallback no cache SÓ quando ele é da organização aberta. Hidrata o cache
+ *  local (carimbado com a organização) para a próxima pintura. */
 export async function fetchCompany(): Promise<StoredCompany | null> {
   if (isDemo) return loadCompany();
+  const s = createClient();
   try {
-    const { data, error } = await createClient().from("company_profiles").select("profile").maybeSingle();
-    if (error || !data?.profile) return loadCompany();
-    const c = data.profile as StoredCompany;
-    saveCompany(c); // cache local
-    return c;
+    const { data, error } = await s.from("company_profiles").select("org_id,profile").maybeSingle();
+    if (error) throw error;
+    const linha = data as { org_id?: string; profile?: StoredCompany } | null;
+    if (linha?.profile) {
+      const c: StoredCompany = { ...linha.profile, ...(linha.org_id ? { orgId: linha.org_id } : {}) };
+      saveCompany(c); // cache local, carimbado
+      return c;
+    }
   } catch (e) {
-    reportar("cadastro.empresa", e, "os dados da empresa não carregam e a tela pede o cadastro de novo", true); return loadCompany(); }
+    reportar("cadastro.empresa", e, "os dados da empresa não carregam do servidor; o cache só é usado se for da empresa aberta", true);
+  }
+  try {
+    return cacheDaOrganizacao(loadCompany(), await organizacaoAtiva(s));
+  } catch (e) {
+    // Sem saber qual empresa está aberta, nenhum cache é confiável.
+    reportar("cadastro.empresa", e, "sem saber a empresa aberta, o cadastro em cache não é mostrado e a tela pede o cadastro de novo", true);
+    return null;
+  }
 }
 
 /** Persiste o perfil: cache local + (live) upsert na linha única da org em
  *  `company_profiles` (update-then-insert; org_id default = auth_org_id()). */
 export async function persistCompany(c: StoredCompany): Promise<void> {
-  saveCompany(c);
+  // O cache local primeiro (as telas leem síncrono); o carimbo da organização
+  // só entra depois que o SERVIDOR diz de qual empresa é a linha.
+  const { orgId: _carimbo, ...perfil } = c;
+  void _carimbo;
+  saveCompany(perfil);
   if (isDemo) return;
   const s = createClient();
   const { data, error } = await s
     .from("company_profiles")
-    .update({ profile: c, updated_at: new Date().toISOString() })
+    .update({ profile: perfil, updated_at: new Date().toISOString() })
     .select("org_id").limit(TETO_LINHAS);
   if (error) throw error;
+  let orgId = (data as { org_id?: string }[] | null)?.[0]?.org_id ?? null;
   if (!data || data.length === 0) {
-    const { error: insErr } = await s.from("company_profiles").insert({ profile: c });
+    const { data: ins, error: insErr } = await s.from("company_profiles").insert({ profile: perfil }).select("org_id").maybeSingle();
     if (insErr) throw insErr;
+    orgId = (ins as { org_id?: string } | null)?.org_id ?? null;
   }
+  saveCompany({ ...perfil, ...(orgId ? { orgId } : {}) });
 }
 
 /** Nome da organização atual (live). Demo/sem login → null. */

@@ -92,7 +92,7 @@ import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
-import { SECTIONS, CONFIG, menuDoPlano } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, SECTIONS_PESSOAL, CONFIG_PESSOAL, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
   CHAVES_ORG, CHAVES_CONGELADAS, estaCongelada,
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
@@ -2453,7 +2453,15 @@ const AGOSTO = janelaMes(2026, 7);
   // chegar em outro faz a pessoa duvidar de que clicou certo — e, num produto
   // com 81 rotas, duvidar do caminho é perder o caminho.
   const nomePorRota = new Map(INVENTARIO.map((i) => [i.rota, i.nome]));
-  const itensDoMenu = [...SECTIONS, CONFIG].flatMap((s) => [
+  // ⚠️ As Configurações do menu PESSOAL entram junto: elas ficaram de fora e
+  // chamavam o perfil de "Configurações da empresa" para uma pessoa física.
+  // Os grupos pessoais (`SECTIONS_PESSOAL`) NÃO entram ainda: eles REBATIZAM
+  // telas de propósito ("Resumo" para a Visão geral, "Extrato de pagamentos"
+  // para Títulos a pagar…) — decisão de produto pendente do dono, registrada em
+  // docs/rodada-30-09/plataforma.md. Cobrá-los aqui reprovaria a decisão
+  // vigente em vez de um defeito.
+  void SECTIONS_PESSOAL;
+  const itensDoMenu = [...SECTIONS, CONFIG, CONFIG_PESSOAL].flatMap((s) => [
     ...(s.href ? [{ label: s.label, href: s.href }] : []),
     ...s.items.filter((i) => i.href).map((i) => ({ label: i.label, href: i.href as string })),
   ]);
