@@ -286,6 +286,13 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/caixa-email.sql
+      # ⚠️ Rodada 6: o papel vale em toda tabela de dinheiro — leitor recusado
+      # em venda, recorrência, cadastro e razão; contador externo grava no
+      # razão e é recusado na venda; o leitor continua lendo.
+      - name: Guarda do papel nas tabelas de dinheiro
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/papel-dinheiro.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

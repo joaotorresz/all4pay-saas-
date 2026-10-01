@@ -22,8 +22,9 @@
  */
 import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
-import { TABELAS_COM_AMOSTRA, type MotivoAmostra } from "@/lib/supabase/consulta";
+import { TABELAS_COM_AMOSTRA, TETO_LINHAS, type MotivoAmostra } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { excluirLogico } from "@/lib/exclusao";
 
 /**
  * ⚠️ **O MOTIVO QUE A PURGA APAGA — e é só ele.**
@@ -137,6 +138,9 @@ export async function contarAmostra(): Promise<ContagemAmostra> {
 export async function purgarAmostra(): Promise<number> {
   if (isDemo) return 0;
   const supabase = createClient();
+  // Os contatos são decididos ANTES de apagar: depois, a amostra que os
+  // referenciava não existe mais para dizer de onde eles vieram.
+  const contatos = await contatosDaAmostra();
   const ordem = ["movement_splits", "sale_items", "movements", "sales_docs", "recurrences"] as const;
   let apagadas = 0;
   for (const tabela of ordem) {
@@ -155,5 +159,46 @@ export async function purgarAmostra(): Promise<number> {
     if (error) throw error;
     apagadas += (data ?? []).length;
   }
+  for (const id of contatos) {
+    await excluirLogico("parties", id, "contato criado pela amostra de demonstração");
+  }
   return apagadas;
+}
+
+
+/**
+ * ⚠️ RODADA 6 — OS CONTATOS QUE A AMOSTRA CRIOU. A purga levava os
+ * lançamentos e deixava as contrapartes (pendência declarada desde a marca
+ * `is_sample`): 15 contatos em produção, medidos em 01/10, só existiam por
+ * causa da amostra e continuavam na lista de clientes e fornecedores.
+ *
+ * Regra (pura): um contato sai quando TODA referência a ele é amostra
+ * purgável — nenhum lançamento, venda ou recorrência fora dela. Um contato que
+ * a empresa também usou de verdade FICA. E ele vai para a LIXEIRA, não some:
+ * pode ter sido editado e virado cadastro, e a lixeira devolve.
+ */
+export function contatosSoDaAmostra(
+  daAmostra: readonly string[], usadosForaDaAmostra: ReadonlySet<string>,
+): string[] {
+  return Array.from(new Set(daAmostra)).filter((id) => !usadosForaDaAmostra.has(id));
+}
+
+/** Os ids dos contatos que só a amostra purgável referencia — a MESMA consulta para o banner e para a purga. */
+export async function contatosDaAmostra(): Promise<string[]> {
+  if (isDemo) return [];
+  const supabase = createClient();
+  const { data: daAmostra, error } = await supabase.from("movements").select("party_id")
+    .eq("is_sample", true).eq("sample_reason", MOTIVO_PURGAVEL).not("party_id", "is", null).limit(TETO_LINHAS);
+  if (error) throw error;
+  const ids = Array.from(new Set(((daAmostra ?? []) as { party_id: string }[]).map((r) => r.party_id)));
+  if (!ids.length) return [];
+  const usados = new Set<string>();
+  for (const tabela of ["movements", "sales_docs", "recurrences"] as const) {
+    // "Fora da amostra purgável": não marcada, ou marcada por outro motivo.
+    const { data, error: e } = await supabase.from(tabela).select("party_id")
+      .in("party_id", ids).or(`is_sample.eq.false,sample_reason.neq.${MOTIVO_PURGAVEL}`).limit(TETO_LINHAS);
+    if (e) throw e;
+    for (const r of (data ?? []) as { party_id: string | null }[]) if (r.party_id) usados.add(r.party_id);
+  }
+  return contatosSoDaAmostra(ids, usados);
 }

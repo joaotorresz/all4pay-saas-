@@ -181,6 +181,13 @@
         "impacto": "Até ser aplicada, o cartão 'Receber contas por e-mail' da caixa de entrada mostra a recusa do banco ao gerar o endereço e a fila não traz mensagens de e-mail (a leitura falha e é reportada; as outras fontes seguem). A rota do webhook está DESLIGADA por padrão (CAIXA_EMAIL), então nada chega por e-mail de qualquer forma. Não toca em movements nem em valor nenhum.",
         "resolver_ate": "2026-10-08",
         "origem": "sessão Claude de 01/10/2026 (rodada 4, caixa de entrada por e-mail) — o job migrar do CI aplica no merge, depois do dono"
+      },
+      {
+        "nome": "20261002120000_papel_nas_tabelas_de_dinheiro",
+        "objetos_ausentes": ["políticas restritivas *_escrita_exige_papel e *_delete_exige_papel em movement_splits, sales_docs, sale_items, recurrences, journal_entries, journal_lines, parties, categories, cost_centers, projects, products, services"],
+        "impacto": "Até ser aplicada, leitor e contador externo conseguem gravar venda, recorrência, cadastro e razão pela API. Aplicada, só grava quem tem o papel (lançar; ou fechar no razão; ou administrar nos cadastros). Medido em 01/10: os 23 vínculos de produção são owner/admin/member, todos com lançar — nenhum perde acesso.",
+        "resolver_ate": "2026-10-09",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 6) — muda quem pode gravar: merge só com confirmação do dono"
       }
     ],
     "objetos_sem_migration": [
