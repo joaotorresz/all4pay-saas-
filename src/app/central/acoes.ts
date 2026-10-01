@@ -17,6 +17,7 @@
  */
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { traduzirRecusa, type RecusaCentral } from "@/lib/central";
 import type { Situacao } from "@/core/central";
 
@@ -70,12 +71,11 @@ export async function lancarTituloAction(t: NovoTitulo): Promise<ResultadoAcao &
     .from("organization_members").select("org_id").eq("user_id", uid).limit(1).maybeSingle();
   const orgId = (vinculo as { org_id?: string } | null)?.org_id ?? null;
 
-  const { data: conta } = await s
-    .from("financial_accounts").select("id").limit(1).maybeSingle();
+  const contaId = await primeiraContaAtiva(s);
 
   const { data, error } = await s.from("movements").insert({
     org_id: orgId,
-    account_id: (conta as { id?: string } | null)?.id ?? null,
+    account_id: contaId,
     type: t.tipo,
     amount: Math.abs(t.valor),
     description: t.descricao.trim(),

@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { Icon, Button, Select } from "@/components/ui";
 import { formatBRL } from "@/lib/format";
 import { anexarComprovante, type MetodoPagamento } from "@/lib/pagamentos";
-import { vincularProjeto } from "@/lib/projeto-vinculo";
+import { definirProjetoDoMovimento } from "@/lib/data";
 import type { RiskMovement } from "@/core/risk-engine/types";
 
 export function ModalBaixa({
@@ -71,8 +71,26 @@ export function ModalBaixa({
               <Linha label={ehSaida ? "Beneficiário" : "Pagador"} value={(baixa.party_id && partyNames?.[baixa.party_id]) || baixa.category || "—"} />
               <Linha label="Vencimento" value={baixa.due_date.slice(0, 10).split("-").reverse().join("/")} />
               {baixa.category && <Linha label="Categoria" value={baixa.category} />}
+              {baixa.costCenter && <Linha label="Centro de custo" value={baixa.costCenter} />}
+              {baixa.projeto && <Linha label="Projeto" value={baixa.projeto} />}
               <Linha label="Valor" value={formatBRL(baixa.amount)} forte />
             </div>
+
+            {/* ⚠️ O RATEIO GRAVADO, quando há mais de uma fatia — é a prova de
+                que a divisão digitada no formulário chegou ao banco
+                (`movement_splits`), e não ficou só na tela. */}
+            {(baixa.rateio?.length ?? 0) > 0 && (
+              <div className="flex flex-col gap-1 rounded-md bg-surface-1 p-3" data-rateio="1">
+                <span className="text-caption text-muted">Rateio</span>
+                {baixa.rateio!.map((r, i) => (
+                  <Linha
+                    key={i}
+                    label={[r.projeto, r.centro].filter(Boolean).join(" · ") || "—"}
+                    value={`${r.percentual.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · ${formatBRL(r.valor)}`}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Projeto do lançamento — é este vínculo que faz o filtro "Projeto"
                 da DRE/DFC e dos painéis filtrar de verdade. Fica aqui porque é
@@ -81,11 +99,20 @@ export function ModalBaixa({
               <Select
                 label="Projeto"
                 value={projeto}
-                onChange={(v) => {
+                onChange={async (v) => {
+                  // ⚠️ Grava `movements.project_id` (produção) — o vínculo do
+                  // navegador não existe para outra máquina. A recusa do banco
+                  // (projeto encerrado, por exemplo) vai inteira para a tela.
+                  const antes = projeto;
                   onProjeto(v);
-                  vincularProjeto(baixa.id, v);
-                  onProjetoMudou?.();
-                  show(v ? "Projeto vinculado." : "Projeto removido.");
+                  try {
+                    await definirProjetoDoMovimento(baixa.id, v || null);
+                    onProjetoMudou?.();
+                    show(v ? "Projeto vinculado." : "Projeto removido.");
+                  } catch (e) {
+                    onProjeto(antes);
+                    show(`Não foi possível vincular o projeto: ${e instanceof Error ? e.message : String(e)}`);
+                  }
                 }}
                 options={[{ value: "", label: "Sem projeto" }, ...projetos.map((p) => ({ value: p.id, label: p.nome }))]}
               />

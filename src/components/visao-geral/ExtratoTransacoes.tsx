@@ -28,8 +28,8 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { pagarLote, anexarComprovante, comprovanteDe, type MetodoPagamento } from "@/lib/pagamentos";
 import { receberLote } from "@/lib/recebimentos";
-import { listProjetos } from "@/lib/iuli-cadastros";
-import { vincularProjeto, projetoDoMovimento } from "@/lib/projeto-vinculo";
+import { useProjetos } from "@/components/registros/hooks";
+import { projetosSelecionaveis } from "@/core/registros/hierarquia";
 import type { RiskMovement } from "@/core/risk-engine/types";
 import { ModalBaixa } from "@/components/movimentacoes/ModalBaixa";
 import {
@@ -85,10 +85,15 @@ export function ExtratoTransacoes({ direction }: { direction: "entrada" | "saida
   const [enviando, setEnviando] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
   // Projetos vêm do cadastro local — só depois de montar (hidratação).
-  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  // Projetos da TABELA, só os ativos (encerrado recusa lançamento novo).
+  const { data: cadProjetos } = useProjetos();
+  const projetos = React.useMemo(
+    () => projetosSelecionaveis(cadProjetos ?? []).map((o) => ({ id: o.value, nome: o.label })),
+    [cadProjetos],
+  );
   const [projeto, setProjeto] = React.useState("");
-  React.useEffect(() => { setProjetos(listProjetos()); }, []);
-  React.useEffect(() => { setProjeto(baixa ? (projetoDoMovimento(baixa.id) ?? "") : ""); }, [baixa]);
+  // O projeto do lançamento vem dele mesmo (`movements.project_id`).
+  React.useEffect(() => { setProjeto(baixa?.projetoId ?? ""); }, [baixa]);
 
   const hoje = inp?.hoje?.slice(0, 10) ?? iso(new Date());
 

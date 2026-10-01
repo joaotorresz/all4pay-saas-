@@ -3,7 +3,7 @@ import { CentrosCustoRegistroView } from "@/components/registros/ProjetosCentros
 
 export default function CentrosCustoRegistroPage() {
   return (
-    <AppShell title="Centros de custo" crumb="Cadastros">
+    <AppShell title="Centros de custo" crumb="Estrutura e cadastros">
       <CentrosCustoRegistroView />
     </AppShell>
   );

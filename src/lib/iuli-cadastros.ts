@@ -1,10 +1,17 @@
 "use client";
 
 /**
- * Cadastros do modelo IULI ainda não cobertos pelo schema Quattro — Projetos
- * (centros de resultado temporais, com previsões) e Centros de Custo (rateio +
- * código contábil Domínio). Store local (localStorage), demo-safe; em escala
- * vira tabela própria. Campos fiéis ao relatório (§3.4 / §3.5).
+ * ⚠️ **O CADASTRO ANTIGO de projetos e centros de custo — SÓ LEITURA.**
+ *
+ * Desde a migration `20260930180000` os dois moram em `projects` e
+ * `cost_centers`, lidos e gravados por `lib/cadastros-hierarquia`. Aqui eles
+ * moravam em `localStorage` CRU com id numérico ("5001"), que nenhuma coluna
+ * UUID aceita: escolher um projeto num lançamento em produção era recusado, e a
+ * recusa mandava "criar de novo em Cadastros" — que gravava no mesmo lugar.
+ *
+ * Os ESCRITORES foram REMOVIDOS. O que sobra alimenta o bloco "Cadastros
+ * antigos deste navegador" (o botão "Trazer para o cadastro") e os formulários
+ * que a parte 2 ainda vai migrar.
  */
 
 export interface Projeto {
@@ -34,26 +41,5 @@ function load<T>(key: string): T[] {
   if (typeof window === "undefined") return [];
   try { const s = localStorage.getItem(key); return s ? (JSON.parse(s) as T[]) : []; } catch { return []; }
 }
-function save<T>(key: string, v: T[]) {
-  try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* ignore */ }
-}
-const novoId = (xs: { id: string }[]) => String(1 + xs.reduce((m, x) => Math.max(m, Number(x.id) || 0), 5000));
-
 export function listProjetos(): Projeto[] { return load<Projeto>(K_PROJ); }
-export function addProjeto(p: Omit<Projeto, "id">): Projeto {
-  const xs = listProjetos(); const novo = { ...p, id: novoId(xs) }; save(K_PROJ, [novo, ...xs]); return novo;
-}
-export function updateProjeto(p: Projeto): Projeto[] {
-  const xs = listProjetos().map((x) => (x.id === p.id ? p : x));
-  save(K_PROJ, xs);
-  return xs;
-}
 export function listCentrosCusto(): CentroCusto[] { return load<CentroCusto>(K_CC); }
-export function addCentroCusto(c: Omit<CentroCusto, "id">): CentroCusto {
-  const xs = listCentrosCusto(); const novo = { ...c, id: novoId(xs) }; save(K_CC, [novo, ...xs]); return novo;
-}
-export function updateCentroCusto(c: CentroCusto): CentroCusto[] {
-  const xs = listCentrosCusto().map((x) => (x.id === c.id ? c : x));
-  save(K_CC, xs);
-  return xs;
-}

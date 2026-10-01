@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recusaDeCron } from "@/lib/cron-auth";
 import { createAdmin } from "@/lib/supabase/admin";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { datasFaturaCron, refFatura } from "@/lib/recorrencias-sched";
 import { simularMaterializacao, type RecorrenciaParaSimular } from "@/lib/recorrencias-simulacao";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
@@ -150,8 +151,7 @@ export async function GET(req: Request) {
     t.recorrencias++;
 
     if (!contaPorOrg.has(orgId)) {
-      const { data: accs } = await admin.from("financial_accounts").select("id").eq("org_id", orgId).limit(1);
-      contaPorOrg.set(orgId, (accs as { id: string }[] | null)?.[0]?.id ?? null);
+      contaPorOrg.set(orgId, await primeiraContaAtiva(admin, orgId));
     }
     const accId = contaPorOrg.get(orgId);
     if (!accId) continue;

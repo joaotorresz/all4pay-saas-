@@ -11,6 +11,7 @@
  * Tudo tolerante a falha/ausência da tabela — nunca quebra o assistente.
  */
 import { isDemo } from "@/lib/demo";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 export interface QStat {
   q: string; // pergunta (casing original da 1ª vez)
   n: number; // quantas vezes foi perguntada
@@ -24,12 +25,12 @@ const KEY = "a4p_ia_memory";
 const DAY = 86400000;
 const norm = (q: string) => q.trim().toLowerCase().replace(/\s+/g, " ");
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function load(): Mem {
-  if (typeof window === "undefined") return { stats: {} };
-  try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r) as Mem; } catch { /* ignore */ }
-  return { stats: {} };
+  const m = lerOrg<Mem>(KEY, { stats: {} });
+  return { ...m, stats: { ...(m.stats ?? {}) } };
 }
-function save(m: Mem) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch { /* ignore */ } }
+function save(m: Mem) { gravarOrg(KEY, m); }
 
 // ——— Sincronização best-effort com o Supabase (só live; nunca lança) ———
 async function supa() {

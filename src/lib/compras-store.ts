@@ -16,22 +16,17 @@ import {
   type Compra, type BoletoRecebido, type NFRecebida,
 } from "@/core/compras";
 import type { Movement } from "@/lib/types";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const K_COMPRAS = "a4p_compras";
 const K_BOLETOS = "a4p_boletos_recebidos";
 const K_NFS = "a4p_nfs_recebidas";
 
-function ler<T>(k: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
-  try {
-    const s = localStorage.getItem(k);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch { return padrao; }
-}
-function gravar(k: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* cota cheia */ }
-}
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): leitura e escrita passam por `store-org`.
+// Com `localStorage.setItem` cru o dado nunca subia ao servidor, e a hidratação
+// o sobrescrevia com a versão velha na sessão seguinte.
+const ler = <T,>(k: string, padrao: T): T => lerOrg<T>(k, padrao);
+const gravar = (k: string, v: unknown): void => gravarOrg(k, v);
 
 export const novoId = (p: string): string =>
   `${p}_${Date.now().toString(36)}_${Math.floor(Math.abs(performance.now()) % 1000)}`;
@@ -68,6 +63,9 @@ function sincronizar(c: Compra): void {
         paid_date: m.paidDate,
         reconciled: false,
         category: m.category,
+        category_id: m.categoryId,
+        cost_center_id: m.centroId,
+        project_id: m.projetoId,
         description: m.description,
         party_id: m.partyId,
       } as unknown as Movement,

@@ -17,19 +17,22 @@ import {
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
 export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
 export interface ContaBalancete { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; saldo: number }
 
 const KEY = "a4p_ledger";
-const load = (): RazaoLancamento[] => {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as RazaoLancamento[]; } catch (e) {
-    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return []; }
+// ⚠️ Só a DEMONSTRAÇÃO grava aqui (em produção o razão mora em `journal_*`);
+// a chave está CONGELADA em produção, e passa por `store-org` como as demais.
+const load = (): RazaoLancamento[] => lerOrg<RazaoLancamento[]>(KEY, []);
+const save = (l: RazaoLancamento[]) => {
+  try { gravarOrg(KEY, l); } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true);
+    throw e;
+  }
 };
-const save = (l: RazaoLancamento[]) => { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(l)); } catch (e) {
-    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* ignore */ } } };
 
 function entryToLanc(e: LedgerEntryInput, id: string): RazaoLancamento {
   return {
@@ -299,7 +302,7 @@ export async function backfillRazao(): Promise<number> {
   return postarLiveLote(entries);
 }
 
-export function clearRazao(): void { if (typeof window !== "undefined") { try { localStorage.removeItem(KEY); } catch { /* ignore */ } } }
+export function clearRazao(): void { save([]); }
 
 /** Postagem manual de um lançamento já balanceado (demo: store; live: GL). */
 export async function postarLancamento(e: LedgerEntryInput): Promise<void> {

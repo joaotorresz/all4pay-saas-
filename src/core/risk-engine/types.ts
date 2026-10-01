@@ -67,6 +67,16 @@ export interface RiskMovement {
   /** Nome do projeto do lançamento (centro de resultado temporal). */
   projeto?: string | null;
   /**
+   * As CHAVES de cadastro do lançamento (`movements.project_id`,
+   * `cost_center_id`, `category_id`). Os nomes acima servem aos relatórios; o
+   * id é o que a ficha precisa para EDITAR o vínculo sem casar por nome.
+   */
+  projetoId?: string | null;
+  centroId?: string | null;
+  categoriaId?: string | null;
+  /** O rateio gravado em `movement_splits`, já com os NOMES resolvidos. */
+  rateio?: { projeto: string | null; centro: string | null; percentual: number; valor: number }[];
+  /**
    * Quantas parcelas a COMPRA tem, quando é parcelada (`installment_total`).
    *
    * ⚠️ Existe para separar o que ACABA do que CONTINUA. Uma parcela repete

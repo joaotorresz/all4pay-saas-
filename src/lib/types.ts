@@ -15,6 +15,21 @@ export interface FinancialAccount {
   /** Current consolidated balance, in BRL. */
   balance: number;
   created_at?: string;
+  /**
+   * O cadastro da conta (migration `20260930180000`). Opcionais porque os
+   * leitores antigos selecionam só `id,name,bank,balance`; quem precisa deles
+   * lê por `lib/cadastros-hierarquia`, que os traz sempre.
+   */
+  tipo?: string | null;
+  agencia?: string | null;
+  numero?: string | null;
+  codigo_contabil?: string | null;
+  dia_fechamento?: number | null;
+  dia_vencimento?: number | null;
+  saldo_inicial?: number | null;
+  data_saldo_inicial?: string | null;
+  saldo_inicial_conferido?: boolean | null;
+  ativo?: boolean | null;
 }
 
 /** A single cash movement (a receivable or a payable). */
@@ -55,6 +70,16 @@ export interface Movement {
   origem?: string | null;
   /** Boleto colado ao recebível (movements.boleto jsonb). */
   boleto?: BoletoData | null;
+  /**
+   * As chaves de CADASTRO do lançamento (UUID em produção). Em demonstração o
+   * dataset as guarda no próprio movimento — é o que faz o título salvo mostrar
+   * o centro e o projeto escolhidos, sem vínculo paralelo no navegador.
+   */
+  category_id?: string | null;
+  cost_center_id?: string | null;
+  project_id?: string | null;
+  /** O rateio gravado (`movement_splits`), quando houver mais de uma fatia. */
+  splits?: SplitLine[] | null;
 }
 
 export type BoletoStatus =
@@ -131,6 +156,15 @@ export interface Category {
   id: string;
   kind: CategoryKind;
   name: string;
+  /**
+   * A árvore do plano de contas (`categories`). `getCategories` devolve só as
+   * FOLHAS ativas — o banco recusa lançamento num grupo —, com o grupo em
+   * `parent_id` e o caminho legível em `caminho` ("Marketing › Google Ads").
+   */
+  parent_id?: string | null;
+  code?: string | null;
+  dre_linha?: string | null;
+  caminho?: string;
 }
 
 export interface CostCenter {
@@ -148,13 +182,25 @@ export interface Party {
   is_customer?: boolean;
   is_supplier?: boolean;
   is_carrier?: boolean;
+  /**
+   * `parties.ativo` (migration 20260930180000). Inativo some dos SELETORES de
+   * lançamento, não da lista de cadastro nem dos relatórios. Ausente = ativo
+   * (antes da coluna existir).
+   */
+  ativo?: boolean;
+  /** `parties.default_category_id` — a folha que preenche o lançamento. */
+  default_category_id?: string | null;
 }
 
 /** A single rateio line. */
 export interface SplitLine {
   category_id: string | null;
   cost_center_id: string | null;
+  /** Projeto da fatia (`movement_splits.project_id`, migration 0019). */
+  project_id?: string | null;
   percent: number | null;
+  /** Valor da fatia, rateado em centavos (o resto vai na última). */
+  amount?: number | null;
 }
 
 /** Payload the Receita/Despesa form submits. `kind` flips the mirror. */
@@ -311,6 +357,9 @@ export interface PartyInput {
   is_supplier: boolean;
   is_carrier: boolean;
   antt: string | null;
+  /** Colunas da migration 20260930180000 — enviadas só quando a tela as edita. */
+  ativo?: boolean;
+  default_category_id?: string | null;
 }
 
 export interface ProductInput {

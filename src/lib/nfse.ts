@@ -8,11 +8,13 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { isoDay } from "@/lib/aggregations";
 import { appendImported, removerImported } from "@/lib/imported";
 import type { Movement } from "@/lib/types";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export type StatusNfse = "rascunho" | "processando" | "autorizada" | "rejeitada" | "enviada" | "cancelada";
 
@@ -43,12 +45,13 @@ let hydrated = false;
 function loadLocal(): Nfse[] {
   if (cache) return cache;
   if (typeof window === "undefined") { cache = []; return cache; }
-  try { cache = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { cache = []; }
+  cache = [...lerOrg<Nfse[]>(KEY, [])];
   return cache!;
 }
+// ⚠️ Só a DEMONSTRAÇÃO grava aqui (produção: tabela `nfse`; chave CONGELADA).
 function saveLocal(list: Nfse[]) {
   cache = list;
-  if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+  gravarOrg(KEY, list);
 }
 
 export const issDe = (n: Pick<Nfse, "valorServico" | "issAliquota">) => Math.round(n.valorServico * (n.issAliquota / 100) * 100) / 100;
@@ -166,8 +169,7 @@ async function refletirNaDRE(nf: Nfse): Promise<string[]> {
 
   if (isDemo) { appendImported({ movement: receita }); ids.push(receita.id); return ids; }
   const supabase = createClient();
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  const accId = (accs as { id: string }[] | null)?.[0]?.id;
+  const accId = await primeiraContaAtiva(supabase);
   if (!accId) return ids;
   const { data } = await supabase.from("movements").insert({
     // ⚠️ ONDA 5: o título nasce da NOTA, e a origem diz isso.

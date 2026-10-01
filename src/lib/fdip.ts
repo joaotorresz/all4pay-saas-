@@ -9,12 +9,14 @@
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { isoDay } from "@/lib/aggregations";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { chaveIdempotencia, planejarLimpeza, type LinhaExistente } from "@/core/ingestao";
 import { mesclarImportacao, clearImported } from "@/lib/imported";
 import { CATEGORIA_TRANSFERENCIA } from "@/core/indicadores/convencoes";
 import type { Movement, FinancialAccount, Party } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 import { aberturaDoExtrato, type AberturaVerificada } from "@/core/indicadores/abertura";
 
 export { clearImported } from "@/lib/imported";
@@ -225,9 +227,23 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
   };
   if (categorias.length) {
     const existentes = await jaTem("categories");
-    const novas = categorias.filter((n) => !existentes.has(n.trim().toLowerCase()));
+    // ⚠️ Deduplicadas também DENTRO do lote, sem caixa nem espaço: desde
+    // `20260930180000` o nome da categoria é único por empresa e grupo
+    // (`categories_org_pai_nome_unico`), e "Folha" + "folha " no mesmo arquivo
+    // derrubaria o insert inteiro.
+    const vistas = new Set<string>();
+    const novas = categorias.filter((n) => {
+      const k = n.trim().toLowerCase();
+      if (!k || existentes.has(k) || vistas.has(k)) return false;
+      vistas.add(k); return true;
+    });
     if (novas.length) {
-      await supabase.from("categories").insert(novas.map((name) => ({ kind: RECEITA.test(name) ? "receita" : "despesa", name })));
+      const { error: ec } = await supabase.from("categories")
+        .insert(novas.map((name) => ({ kind: RECEITA.test(name) ? "receita" : "despesa", name: name.trim() })));
+      // A categoria é cadastro, não dinheiro: o lançamento leva o NOME e entra
+      // mesmo sem ela. Mas a recusa não é engolida — ela vai para a trilha de
+      // erros, com o efeito que a pessoa vê.
+      if (ec) reportar("importacao.categorias", ec, "as categorias novas do extrato não entram no plano de contas", true);
     }
     out.categorias = categorias.length;
   }
@@ -240,14 +256,27 @@ export async function aplicarOnboarding(report: FDIPReport): Promise<ResultadoOn
 
   // 3) Movimentos (precisa de uma conta) — é o que correlaciona com dashboard/DRE
   let accId: string | undefined;
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  accId = (accs as { id: string }[] | null)?.[0]?.id;
+  accId = (await primeiraContaAtiva(supabase)) ?? undefined;
   if (!accId) {
-    const { data: created } = await supabase
+    const { data: created, error: ea } = await supabase
       .from("financial_accounts")
       .insert({ name: "Conta consolidada", bank: "inter", balance: 0 })
       .select("id")
       .single();
+    /**
+     * ⚠️ A recusa NÃO é engolida. Sem conta, nenhum lançamento é gravado — e
+     * com o erro descartado a importação "terminava" com zero lançamentos e
+     * nenhuma explicação. O caso existe desde que o nome da conta é único por
+     * empresa (`20260930180000`): uma "Conta consolidada" DESATIVADA não é
+     * oferecida por `primeiraContaAtiva` e impede a criação de outra.
+     */
+    if (ea) {
+      throw new Error(
+        /financial_accounts_org_nome_unico/.test(`${ea.message} ${ea.details ?? ""}`)
+          ? "Não há conta ATIVA para receber o extrato, e a \"Conta consolidada\" existe desativada. Reative-a (ou outra conta) em Cadastros › Contas bancárias e importe de novo."
+          : `Não foi possível criar a conta que recebe o extrato: ${ea.message}`,
+      );
+    }
     accId = (created as { id: string } | null)?.id;
   }
   if (accId) {

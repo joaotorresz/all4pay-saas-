@@ -22,6 +22,7 @@ import { criarSolicitacao } from "@/lib/aprovacoes";
 import { formatBRL } from "@/lib/format";
 import type { FinancialDecision, CollectionPlan } from "@/core/autonomous/types";
 import type { Party } from "@/lib/types";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY = "a4p_ai_actions";
 
@@ -40,13 +41,12 @@ export interface AcaoIA {
   status: StatusAcao;
 }
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function loadLocal(): AcaoIA[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as AcaoIA[]; } catch { return []; }
+  return lerOrg<AcaoIA[]>(KEY, []);
 }
 function saveLocal(rows: AcaoIA[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(rows.slice(0, 100))); } catch { /* ignore */ }
+  gravarOrg(KEY, rows.slice(0, 100));
 }
 
 /** Registra uma ação da IA na trilha (demo: local; live: ai_actions). */

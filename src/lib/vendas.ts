@@ -28,6 +28,7 @@ import { useQuery } from "@tanstack/react-query";
 import { isDemo } from "@/lib/demo";
 import { criarTitulos } from "@/lib/data";
 import { excluirLogico } from "@/lib/exclusao";
+import { linhasDoRateio, principalDoRateio } from "@/core/registros/hierarquia";
 import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import {
   listarVendas as listarLocal,
@@ -139,7 +140,22 @@ function tituloDaVenda(v: Venda) {
     paid_date: v.pago ? v.dataPagamento : null,
     origem: "venda" as const,
     sale_doc_id: v.id,
+    // ⚠️ O projeto e o centro da venda chegam ao RECEBÍVEL (UUID do cadastro):
+    // antes ficavam só no documento, e o relatório por projeto não via a
+    // receita. Com mais de uma fatia, o rateio vira `movement_splits`.
+    cost_center_id: ehUUID(principalDoRateio(v.centros) ?? "") ? principalDoRateio(v.centros) : null,
+    project_id: ehUUID(principalDoRateio(v.projetos) ?? "") ? principalDoRateio(v.projetos) : null,
+    splits: rateioUUID(v).length
+      ? linhasDoRateio(v.projetos, v.centros, v.valorTotalComJuros || v.valorTotal, ehUUID(v.categoria) ? v.categoria : null)
+      : null,
   };
+}
+
+/** Só rateio com chaves do BANCO vira linha — um id do cadastro antigo seria recusado. */
+function rateioUUID(v: Venda) {
+  const linhas = linhasDoRateio(v.projetos, v.centros, 100);
+  return linhas.every((l) => (!l.project_id || ehUUID(l.project_id)) && (!l.cost_center_id || ehUUID(l.cost_center_id)))
+    ? linhas : [];
 }
 
 async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
@@ -174,6 +190,10 @@ async function atualizarTitulo(v: Venda): Promise<ResultadoGravacao> {
     category: t.category,
     description: t.description,
     party_id: t.party_id,
+    cost_center_id: t.cost_center_id,
+    project_id: t.project_id,
+    // O rateio de uma venda EDITADA não é reescrito (as fatias antigas ficam):
+    // declarado em docs/rodada-30-09/cad.md.
   }).eq("id", previstos[0].id).eq("situacao", "previsto");
   if (error) throw new Error(error.message);
   if (v.pago) {

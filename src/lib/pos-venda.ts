@@ -7,6 +7,7 @@
  */
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
+import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { appendImported } from "@/lib/imported";
 import { isoDay } from "@/lib/aggregations";
 import type { Movement } from "@/lib/types";
@@ -77,8 +78,7 @@ export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
   // ---- Live (Supabase) ----
   const supabase = createClient();
   let accId: string | undefined;
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  accId = (accs as { id: string }[] | null)?.[0]?.id;
+  accId = (await primeiraContaAtiva(supabase)) ?? undefined;
   if (!accId) {
     const { data: created } = await supabase
       .from("financial_accounts")

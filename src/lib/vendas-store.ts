@@ -14,6 +14,10 @@
  */
 import { appendImported, removerImported } from "@/lib/imported";
 import { isDemo } from "@/lib/demo";
+import { ler, gravar } from "@/lib/store-org";
+import { criarTitulos } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
+import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
 import { configPadrao, type Venda, type ConfigImpostos, type LinkPagamento, type ContaImposto } from "@/core/vendas";
 import type { Movement } from "@/lib/types";
 import { proximoNumeroDe } from "@/core/vendas/documento";
@@ -22,16 +26,23 @@ const K_VENDAS = "a4p_vendas_docs";
 const K_CONFIG = "a4p_impostos_config";
 const K_LINKS = "a4p_links_pagamento";
 
-function ler<T>(k: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
+/**
+ * ⚠️ As três chaves são de NEGÓCIO (`CHAVES_ORG`) e passam por `store-org`:
+ * gravadas com `localStorage.setItem` cru, a configuração de impostos de uma
+ * máquina nunca chegava à outra, e a hidratação a sobrescrevia com a versão
+ * velha do servidor na sessão seguinte.
+ *
+ * A venda antiga (`a4p_vendas_docs`, CONGELADA) é a exceção de LEITURA: em
+ * produção o `ler` de chave congelada devolve vazio, e a lista precisa ver o
+ * rastro do navegador para oferecer "enviar". Ler não cria segunda morada.
+ */
+function lerVendasDoNavegador(): Venda[] {
+  if (isDemo) return ler<Venda[]>(K_VENDAS, []);
+  if (typeof window === "undefined") return [];
   try {
-    const s = localStorage.getItem(k);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch { return padrao; }
-}
-function gravar(k: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* cota cheia */ }
+    const s = window.localStorage.getItem(K_VENDAS);
+    return s ? (JSON.parse(s) as Venda[]) : [];
+  } catch { return []; }
 }
 
 export const novoId = (p: string): string =>
@@ -39,7 +50,7 @@ export const novoId = (p: string): string =>
 
 /* --------------------------------- vendas --------------------------------- */
 
-export const listarVendas = (): Venda[] => ler<Venda[]>(K_VENDAS, []);
+export const listarVendas = (): Venda[] => lerVendasDoNavegador();
 
 /** O id do recebível que a venda gera — um por venda, sempre o mesmo. */
 const idRecebivel = (vendaId: string) => `${vendaId}-rec`;
@@ -114,32 +125,68 @@ export function salvarConfigImpostos(c: ConfigImpostos): ConfigImpostos {
  * removido antes de gravar. Sem isso, clicar duas vezes em "Criar contas a
  * pagar" dobraria o imposto do mês no fluxo de caixa.
  */
-export function criarContasDeImpostos(
+export async function criarContasDeImpostos(
   contas: ContaImposto[],
   mesCompetencia: string,
   contaBancaria: string,
-): number {
-  if (!isDemo) return 0;
-  const ids = contas.map((c) => `imp-${mesCompetencia}-${c.imposto}`);
-  removerImported(ids);
-  contas.forEach((c, k) => {
-    appendImported({
-      movement: {
-        id: ids[k],
-        account_id: contaBancaria,
-        type: "saida",
-        status: "pendente",
-        amount: c.valor,
-        due_date: c.vencimento,
-        paid_date: null,
-        reconciled: false,
-        category: c.categoria || c.rotulo,
-        description: `${c.rotulo} · competência ${mesCompetencia}`,
-        party_id: c.fornecedorId || null,
-      } as unknown as Movement,
+  nomeCategoria: (id: string) => string | null = () => null,
+): Promise<{ criadas: number; jaExistiam: number }> {
+  const refs = contas.map((c) => `imp:${mesCompetencia}:${c.imposto}`);
+  if (isDemo) {
+    const ids = contas.map((c) => `imp-${mesCompetencia}-${c.imposto}`);
+    removerImported(ids);
+    contas.forEach((c, k) => {
+      appendImported({
+        movement: {
+          id: ids[k],
+          account_id: contaBancaria,
+          type: "saida",
+          status: "pendente",
+          amount: c.valor,
+          due_date: c.vencimento,
+          paid_date: null,
+          reconciled: false,
+          // ⚠️ O NOME no texto e o id na chave — gravar o id no texto fazia a
+          // lista e o DRE mostrarem um número no lugar da categoria.
+          category: (c.categoria && nomeCategoria(c.categoria)) || c.rotulo,
+          category_id: c.categoria || null,
+          description: `${c.rotulo} · competência ${mesCompetencia}`,
+          party_id: c.fornecedorId || null,
+          reference_code: refs[k],
+        } as unknown as Movement,
+      });
     });
-  });
-  return contas.length;
+    return { criadas: contas.length, jaExistiam: 0 };
+  }
+  /**
+   * ⚠️ **EM PRODUÇÃO ISTO NÃO GRAVAVA NADA** (`if (!isDemo) return 0`) e a
+   * tela dizia "Nada a criar neste período" — o escritor morto da família da
+   * folha e da venda, com uma mensagem que ainda culpava o período.
+   *
+   * Idempotente pela `reference_code` (`imp:<mês>:<imposto>`): o que já existe
+   * fica como está (pode ter sido baixado ou editado), e só o que falta nasce.
+   */
+  const { data, error } = await semAmostra(createClient()
+    .from("movements").select("reference_code"))
+    .in("reference_code", refs).limit(TETO_LINHAS);
+  if (error) throw error;
+  const existentes = new Set(((data ?? []) as { reference_code: string | null }[]).map((r) => r.reference_code));
+  const novas = contas.filter((_, k) => !existentes.has(refs[k]));
+  await criarTitulos(novas.map((c) => ({
+    account_id: contaBancaria,
+    type: "saida" as const,
+    amount: c.valor,
+    due_date: c.vencimento,
+    // A competência é o MÊS apurado, não o vencimento (que cai no seguinte).
+    competence_date: `${mesCompetencia}-01`,
+    category: (c.categoria && nomeCategoria(c.categoria)) || c.rotulo,
+    category_id: c.categoria || null,
+    description: `${c.rotulo} · competência ${mesCompetencia}`,
+    party_id: c.fornecedorId || null,
+    reference_code: `imp:${mesCompetencia}:${c.imposto}`,
+    origem: "manual" as const,
+  })));
+  return { criadas: novas.length, jaExistiam: contas.length - novas.length };
 }
 
 /* ---------------------------- links de pagamento ---------------------------- */

@@ -16,9 +16,8 @@ import {
   Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
-import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList, useProductsList, useCategories } from "@/components/lancamentos/hooks";
-import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { rateioValido, somaRateio, type LinhaRateio } from "@/core/registros";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens,
@@ -60,7 +59,6 @@ export function VendaForm() {
   const sp = useSearchParams();
   const qc = useQueryClient();
   const { show, node } = useToast();
-  const { data: contas } = useAccounts();
   const { data: partes } = usePartiesList();
   const { data: produtos } = useProductsList();
 
@@ -93,16 +91,18 @@ export function VendaForm() {
 
   const set = <K extends keyof Venda>(k: K, val: Venda[K]) => setV((s) => ({ ...s, [k]: val }));
 
-  const clientes = React.useMemo(() => (partes ?? []).filter((p) => p.is_customer), [partes]);
-  const fornecedores = React.useMemo(() => (partes ?? []).filter((p) => p.is_supplier), [partes]);
+  // Inativo sai da ESCOLHA (`parties.ativo`); a venda antiga dele continua.
+  const clientes = React.useMemo(() => (partes ?? []).filter((p) => p.is_customer && (p.ativo !== false || p.id === v.clienteId)), [partes, v.clienteId]);
+  const fornecedores = React.useMemo(() => (partes ?? []).filter((p) => p.is_supplier && p.ativo !== false), [partes]);
   // ⚠️ As categorias vêm do BANCO (`public.categories`, receita), a morada que
   // o título referencia. Elas vinham do plano de contas guardado no navegador:
   // vazio em quem nunca abriu o cadastro — e o campo é obrigatório, então a
   // venda simplesmente não salvava.
   const { data: catsReceita } = useCategories("receita");
   const categorias = React.useMemo(() => catsReceita ?? [], [catsReceita]);
-  const cadProjetos = React.useMemo(() => listProjetos(), []);
-  const cadCentros = React.useMemo(() => listCentrosCusto(), []);
+  // Projetos, centros e contas da TABELA — o id local ("5001") era recusado
+  // pelo banco ao gravar o recebível.
+  const opcoes = useOpcoesCadastro("entrada");
 
   const cliente = clientes.find((c) => c.id === v.clienteId);
   const totalItens = totalDosItens(v.itens);
@@ -307,7 +307,7 @@ export function VendaForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select value={v.contaId} onChange={(x) => set("contaId", x)} placeholder="Selecione a conta"
-              options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))} />
+              options={opcoes.contas} />
           </Campo>
           <Campo label="Operação">
             <Select value={v.operacao} onChange={(x) => set("operacao", x as Venda["operacao"])}
@@ -326,7 +326,7 @@ export function VendaForm() {
           </Campo>
           <Campo label="Categoria da conta a receber" obrigatorio erro={erros.categoria}>
             <Select value={v.categoria} onChange={(x) => set("categoria", x)} placeholder="Selecione a categoria"
-              options={categorias.map((c) => ({ value: c.id, label: c.name }))} />
+              options={categorias.map((c) => ({ value: c.id, label: c.caminho || c.name }))} />
           </Campo>
           <Campo label="Tipo de pagamento">
             <Select value={v.tipoPagamento} onChange={(x) => set("tipoPagamento", x as Venda["tipoPagamento"])}
@@ -383,10 +383,10 @@ export function VendaForm() {
       {/* --------------------- projeto e centro de custo --------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Rateio titulo="Projetos" singular="projeto"
-          opcoes={cadProjetos.map((p) => ({ value: p.id, label: p.nome }))}
+          opcoes={opcoes.projetos}
           linhas={v.projetos} onChange={(l) => set("projetos", l)} erro={erros.projetos} />
         <Rateio titulo="Centros de custo" singular="centro de custo"
-          opcoes={cadCentros.map((c) => ({ value: c.id, label: c.nome }))}
+          opcoes={opcoes.centros}
           linhas={v.centros} onChange={(l) => set("centros", l)} erro={erros.centros} />
       </div>
 

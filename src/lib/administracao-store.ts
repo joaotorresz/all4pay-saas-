@@ -16,23 +16,18 @@ import {
   mascararSegredo, precisaFila,
   type Exportacao, type FormatoExport, type RegistroLog,
 } from "@/core/administracao";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const K_ASSIN = "a4p_assinatura";
 const K_INTEG = "a4p_integracoes";
 const K_EXPORTS = "a4p_exportacoes";
 const K_LOGS = "a4p_logs_admin";
 
-function ler<T>(k: string, padrao: T): T {
-  if (typeof window === "undefined") return padrao;
-  try {
-    const s = localStorage.getItem(k);
-    return s ? (JSON.parse(s) as T) : padrao;
-  } catch { return padrao; }
-}
-function gravar(k: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* cota cheia */ }
-}
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): leitura e escrita passam por `store-org`.
+// Com `localStorage.setItem` cru o dado nunca subia ao servidor, e a hidratação
+// o sobrescrevia com a versão velha na sessão seguinte.
+const ler = <T,>(k: string, padrao: T): T => lerOrg<T>(k, padrao);
+const gravar = (k: string, v: unknown): void => gravarOrg(k, v);
 
 export const novoIdAdmin = (p: string): string =>
   `${p}_${Date.now().toString(36)}_${Math.floor(Math.abs(performance.now()) % 1000)}`;

@@ -1,18 +1,17 @@
 "use client";
 
 /**
- * Persistência dos cadastros do módulo de registros (por EMPRESA, demo-safe).
+ * Persistência dos cadastros que AINDA moram no estado da empresa (contratos,
+ * extras de contato e de produto) — e a leitura, SÓ leitura, das moradas
+ * antigas de contas bancárias e plano de contas.
  *
- * Contas bancárias vivem em `financial_accounts` (nome, banco, saldo) — o resto
- * do que estas telas cadastram (tipo, agência, número, código Domínio, dias de
- * fatura) NÃO tem coluna. Em vez de inventar migração agora, os campos extras
- * ficam aqui indexados pelo id da conta: a tela funciona inteira, o saldo
- * continua vindo da fonte real, e a promoção para tabela é um passo isolado.
+ * ⚠️ Contas bancárias, centros, projetos e plano de contas passaram a morar nas
+ * TABELAS (`lib/cadastros-hierarquia`, migration `20260930180000`). O que ficou
+ * deles aqui é o leitor do cadastro antigo deste navegador.
  *
  * Síncrono de propósito — os formulários precisam do dado na hora.
  */
 import type { ContaBancaria, CategoriaPlano, Contrato } from "@/core/registros";
-import { linhaDREvalida } from "@/core/registros";
 
 /* --------------------------------- base --------------------------------- */
 
@@ -41,23 +40,25 @@ let seq = 0;
 /** Id curto e copiável, no formato dos prints (numérico crescente). */
 export const novoIdRegistro = (): string => `${217_000 + Date.now() % 100_000 + seq++}`;
 
-/* ---------------------------- contas bancárias ---------------------------- */
+/* ------------------- contas bancárias · plano de contas (ANTIGOS) ------------------- */
+
+/**
+ * ⚠️ **SÓ LEITURA, e só do que ficou no navegador.** Desde a migration
+ * `20260930180000` a conta bancária mora em `financial_accounts` e o plano de
+ * contas em `categories` — os dois lidos e gravados por
+ * `lib/cadastros-hierarquia`. Estas chaves guardavam id NUMÉRICO próprio, e os
+ * lançamentos apontam para UUID: as duas moradas só se encontravam pelo nome.
+ *
+ * Os ESCRITORES daqui foram REMOVIDOS (não desligados): um escritor que ainda
+ * existe é um escritor que a próxima tela chama. O que ficou é o que a tela
+ * nova precisa para oferecer "Trazer para o cadastro" e o que os consumidores
+ * ainda não migrados (parte 2: formulários) leem. A guarda `CAD` cobra que
+ * nenhum escritor volte.
+ */
 
 const K_CONTAS = "a4p_contas_bancarias";
 
 export const listContasBancarias = (): ContaBancaria[] => ler<ContaBancaria[]>(K_CONTAS, []);
-
-export function salvarContaBancaria(c: ContaBancaria): ContaBancaria[] {
-  const atual = listContasBancarias().filter((x) => x.id !== c.id);
-  const out = [{ ...c, id: c.id || novoIdRegistro() }, ...atual];
-  gravar(K_CONTAS, out);
-  return out;
-}
-export function removerContaBancaria(id: string): ContaBancaria[] {
-  const out = listContasBancarias().filter((c) => c.id !== id);
-  gravar(K_CONTAS, out);
-  return out;
-}
 
 /** Bancos oferecidos no select — os mesmos que o resto do app já reconhece. */
 export const BANCOS = [
@@ -66,62 +67,11 @@ export const BANCOS = [
   "Safra", "Banrisul", "PagBank", "Mercado Pago", "Stone", "Outro",
 ];
 
-/* ------------------------------ plano de contas ------------------------------ */
-
 const K_PLANO = "a4p_plano_contas";
 const K_USOS = "a4p_plano_usos";
 
-/**
- * ⚠️ **O PLANO NASCE VAZIO — e o que saiu daqui foram 32 categorias de
- * fábrica.**
- *
- * O plano padrão era opinativo para "negócios digitais": Taxa Comissao
- * Coprodutor, Tarifa De Streaming, Saque da Plataforma. Uma transportadora, uma
- * clínica ou uma loja abria o formulário e via trinta e duas categorias que não
- * são dela, com as três ou quatro que servem escondidas no meio — e o caminho
- * mais curto era escolher a menos errada. Categoria escolhida por aproximação é
- * lançamento na linha errada do DRE, todo mês, sem nada na tela parecendo
- * defeito.
- *
- * Vazio, o formulário faz a pergunta certa na primeira vez: a lista está vazia,
- * o campo oferece CRIAR o que a pessoa digitou, e a criação exige a linha do
- * DRE. O plano que nasce é o da empresa, e cada categoria dele foi uma decisão.
- */
 export const listPlanoContas = (): CategoriaPlano[] => ler<CategoriaPlano[]>(K_PLANO, []);
-
-/**
- * Cria (ou substitui) UMA categoria — o caminho que o formulário de lançamento
- * usa quando a pessoa cria a categoria sem sair de lá.
- *
- * ⚠️ Recusa a linha do DRE que não existe para a natureza. A validação mora
- * aqui, e não só no componente, porque este é o ponto por onde TODA criação
- * passa: uma checagem que vive na tela some no dia em que uma segunda tela
- * chamar a mesma função.
- */
-export function salvarCategoria(c: CategoriaPlano): CategoriaPlano[] {
-  if (c.dreLinha && !linhaDREvalida(c.dreLinha, c.natureza)) {
-    throw new Error(`A linha "${c.dreLinha}" não existe no DRE para uma categoria de ${c.natureza}.`);
-  }
-  const out = [...listPlanoContas().filter((x) => x.id !== c.id), { ...c, id: c.id || novoIdRegistro() }];
-  gravar(K_PLANO, out);
-  return out;
-}
-export function salvarPlanoContas(cats: CategoriaPlano[]): CategoriaPlano[] {
-  gravar(K_PLANO, cats);
-  return cats;
-}
-/** Volta ao estado inicial — que agora é o VAZIO, não um plano de fábrica. */
-export const resetarPlanoContas = (): CategoriaPlano[] => {
-  gravar(K_PLANO, []);
-  return [];
-};
-
 export const listUsosPadrao = (): Record<string, string> => ler<Record<string, string>>(K_USOS, {});
-export function salvarUsoPadrao(funcaoId: string, categoriaId: string): Record<string, string> {
-  const out = { ...listUsosPadrao(), [funcaoId]: categoriaId };
-  gravar(K_USOS, out);
-  return out;
-}
 
 /* -------------------------------- contratos -------------------------------- */
 

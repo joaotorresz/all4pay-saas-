@@ -132,7 +132,10 @@ export function useCreateParty() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: createParty,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["parties"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["parties"] });
+      qc.invalidateQueries({ queryKey: ["parties-list"] });
+    },
   });
 }
 

@@ -9,26 +9,14 @@
  * está trabalhando e o que virou letra morta.
  */
 import type { RegraCategorizacao } from "@/core/regras";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const CHAVE = "a4p_regras_categorizacao";
 const CHAVE_USO = "a4p_regras_uso";
 
-function ler<T>(chave: string, vazio: T): T {
-  if (typeof window === "undefined") return vazio;
-  try {
-    return (JSON.parse(localStorage.getItem(chave) || "null") as T) ?? vazio;
-  } catch {
-    return vazio;
-  }
-}
-function gravar(chave: string, v: unknown): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(chave, JSON.stringify(v));
-  } catch {
-    /* cota cheia — segue sem persistir */
-  }
-}
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
+const ler = <T,>(chave: string, vazio: T): T => lerOrg<T>(chave, vazio) ?? vazio;
+const gravar = (chave: string, v: unknown): void => gravarOrg(chave, v);
 
 export function listarRegras(): RegraCategorizacao[] {
   return ler<RegraCategorizacao[]>(CHAVE, []);
@@ -88,11 +76,6 @@ export function registrarUso(contagem: Record<string, number>): void {
 }
 
 export function limparRegras(): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(CHAVE);
-    localStorage.removeItem(CHAVE_USO);
-  } catch {
-    /* ignore */
-  }
+  gravar(CHAVE, []);
+  gravar(CHAVE_USO, {});
 }

@@ -68,7 +68,13 @@ export interface Compra {
   fornecedorId: string;
   fornecedor: string;
   contaId: string;
+  /** O NOME da categoria (o texto do título e da lista). */
   categoria: string;
+  /**
+   * A chave da categoria no banco (`categories.id`, UUID). Opcional porque as
+   * compras gravadas antes de 30/09/2026 só têm o nome.
+   */
+  categoriaId?: string | null;
   tipoPagamento: TipoPagamentoCompra;
   /** Quantas parcelas — 1 quando à vista. */
   parcelas: number;
@@ -190,6 +196,10 @@ export interface MovimentoDaCompra {
   paidDate: string | null;
   status: "pago" | "pendente";
   category: string;
+  categoryId: string | null;
+  /** O centro e o projeto PRINCIPAIS (maior fatia do rateio). */
+  centroId: string | null;
+  projetoId: string | null;
   description: string;
   partyId: string;
 }
@@ -200,6 +210,13 @@ export interface MovimentoDaCompra {
  * Aguardando, reprovada e cancelada devolvem lista vazia. É a regra central do
  * módulo: o pedido de compra não é despesa até alguém dizer que é.
  */
+/** A linha de maior fatia (a primeira, no empate) — mesma regra do lançamento. */
+const principal = (l: RateioCompra[]): string | null => {
+  const p = l.filter((x) => x.id);
+  if (p.length === 0) return null;
+  return p.reduce((m, x) => (Number(x.percentual) > Number(m.percentual) ? x : m)).id;
+};
+
 export function movimentosDaCompra(c: Compra): MovimentoDaCompra[] {
   if (c.status !== "aprovada") return [];
   const parcelas = parcelasDaCompra(c);
@@ -216,6 +233,9 @@ export function movimentosDaCompra(c: Compra): MovimentoDaCompra[] {
     paidDate: c.pago && p.numero === 1 ? (c.dataPagamento ?? p.vencimento) : null,
     status: c.pago && p.numero === 1 ? "pago" : "pendente",
     category: c.categoria,
+    categoryId: c.categoriaId ?? null,
+    centroId: principal(c.centros),
+    projetoId: principal(c.projetos),
     description: parcelas.length > 1
       ? `${c.descricao || `Compra ${c.numero}`} (${p.numero}/${parcelas.length})`
       : c.descricao || `Compra ${c.numero}`,

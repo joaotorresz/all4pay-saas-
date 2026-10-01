@@ -193,6 +193,15 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+      # ⚠️ Os cadastros moram no BANCO (migration 20260930180000) e a hierarquia
+      # é regra dele: lançamento só em folha, categoria com lançamento não vira
+      # grupo nem vai à lixeira, conta inativa e projeto encerrado recusam o novo,
+      # documento único POR EMPRESA. A guarda carrega o teste negativo (desliga a
+      # trava de folha e exige que a asserção nomeie o defeito).
+      - name: Guarda da hierarquia dos cadastros (folha, lixeira, conta inativa, documento por empresa)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastros-hierarquia.sql
       # ⚠️ A PROVA NEGATIVA da guarda de DDL, e ela mora AQUI porque precisa de
       # um banco de verdade — o gatilho de evento, o `ddl_log` e a leitura da
       # guarda são três elos, e plantar a linha na lista de objetos só testa o

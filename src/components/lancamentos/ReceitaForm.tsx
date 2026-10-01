@@ -14,8 +14,8 @@ import {
   type SelectOption,
 } from "@/components/ui";
 import { isoDay } from "@/lib/aggregations";
-import { listProjetos } from "@/lib/iuli-cadastros";
-import { vincularProjeto } from "@/lib/projeto-vinculo";
+import { useOpcoesCadastro } from "./opcoes-cadastro";
+import { rateioValido } from "@/core/registros";
 import type {
   CategoryKind,
   LancamentoInput,
@@ -24,10 +24,7 @@ import type {
   SplitLine,
 } from "@/lib/types";
 import {
-  useCategories,
-  useCostCenters,
   usePartiesByRole,
-  useAccountsList,
   useCreateLancamento,
 } from "./hooks";
 
@@ -125,13 +122,10 @@ export function ReceitaForm({
   const partyRole = isReceita ? "customer" : "supplier";
 
   const { data: parties } = usePartiesByRole(partyRole);
-  const { data: categories } = useCategories(kind);
-  const { data: costCenters } = useCostCenters();
-  // Projetos vêm do cadastro local (localStorage) — só depois de montar, para
-  // não divergir entre servidor e cliente na hidratação.
-  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
-  React.useEffect(() => { setProjetos(listProjetos()); }, []);
-  const { data: accounts } = useAccountsList();
+  // ⚠️ Categoria, centro, projeto e conta da TABELA (`opcoes-cadastro`) — o
+  // projeto vinha do cadastro antigo do navegador (id "5001") e era recusado
+  // pelo banco ao salvar. Só o que pode receber lançamento novo aparece.
+  const opcoes = useOpcoesCadastro(isReceita ? "entrada" : "saida");
   const create = useCreateLancamento();
 
   const [f, setF] = React.useState<FormState>(initialState);
@@ -139,7 +133,7 @@ export function ReceitaForm({
   const set = (patch: Partial<FormState>) => setF((s) => ({ ...s, ...patch }));
 
   const opts = (arr?: { id: string; name: string }[]): SelectOption[] =>
-    (arr ?? []).map((x) => ({ value: x.id, label: x.name }));
+    (arr ?? []).filter((x) => (x as { ativo?: boolean }).ativo !== false).map((x) => ({ value: x.id, label: x.name }));
 
   const errors = {
     competence_date: !f.competence_date,
@@ -147,6 +141,10 @@ export function ReceitaForm({
     amount: f.amount <= 0,
     category_id: !f.category_id,
     due_date: !f.due_date,
+    // O rateio fecha 100% — senão a fatia gravada não explica o lançamento.
+    rateio: f.rateioOn && !rateioValido(f.splits
+      .filter((sp) => sp.category_id || sp.cost_center_id)
+      .map((sp, i) => ({ id: String(i + 1), percentual: Number(sp.percent) || 0 }))),
   };
   const invalid = (k: keyof typeof errors) => tried && errors[k];
 
@@ -179,7 +177,7 @@ export function ReceitaForm({
   const submit = async (again: boolean) => {
     setTried(true);
     if (Object.values(errors).some(Boolean)) {
-      onToast("Revise os campos obrigatórios");
+      onToast(errors.rateio ? "O rateio precisa somar 100%." : "Revise os campos obrigatórios");
       return;
     }
     try {
@@ -191,8 +189,11 @@ export function ReceitaForm({
       } else {
         onClose();
       }
-    } catch {
-      onToast("Erro ao salvar — tente novamente");
+    } catch (err) {
+      // ⚠️ A mensagem REAL do banco (e o `hint`) vai para a tela: "tente
+      // novamente" é o único conselho que não funciona quando o banco recusa.
+      const e = err as { message?: string; hint?: string };
+      onToast(e?.message ? `Não foi possível salvar: ${e.message}${e.hint ? ` ${e.hint}` : ""}` : "Não foi possível salvar.");
     }
   };
 
@@ -273,14 +274,14 @@ export function ReceitaForm({
                     <Select
                       label={i === 0 ? "Categoria" : undefined}
                       placeholder="Categoria"
-                      options={opts(categories)}
+                      options={opcoes.categorias}
                       value={sp.category_id ?? ""}
                       onChange={(v) => setSplit(i, { category_id: v || null })}
                     />
                     <Select
                       label={i === 0 ? "Centro de custo" : undefined}
                       placeholder="Centro de custo"
-                      options={opts(costCenters)}
+                      options={opcoes.centros}
                       value={sp.cost_center_id ?? ""}
                       onChange={(v) => setSplit(i, { cost_center_id: v || null })}
                     />
@@ -332,7 +333,7 @@ export function ReceitaForm({
                 label="Categoria"
                 required
                 placeholder="Selecione a categoria"
-                options={opts(categories)}
+                options={opcoes.categorias}
                 value={f.category_id}
                 onChange={(v) => set({ category_id: v })}
                 invalid={invalid("category_id")}
@@ -340,7 +341,7 @@ export function ReceitaForm({
               <Select
                 label="Centro de custo"
                 placeholder="Selecione (opcional)"
-                options={opts(costCenters)}
+                options={opcoes.centros}
                 value={f.cost_center_id}
                 onChange={(v) => set({ cost_center_id: v })}
               />
@@ -350,7 +351,7 @@ export function ReceitaForm({
               <Select
                 label="Projeto"
                 placeholder="Selecione (opcional)"
-                options={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+                options={opcoes.projetos}
                 value={f.project_id}
                 onChange={(v) => set({ project_id: v })}
               />
@@ -455,7 +456,7 @@ export function ReceitaForm({
               <Select
                 label={isReceita ? "Conta de recebimento" : "Conta de pagamento"}
                 placeholder="Selecione a conta"
-                options={opts(accounts)}
+                options={opcoes.contas}
                 value={f.account_id}
                 onChange={(v) => set({ account_id: v })}
               />

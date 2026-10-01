@@ -6,26 +6,17 @@
  * Sincronizar por organização é evolução futura — o formato já é serializável.
  */
 import type { DashboardCustom } from "@/core/dashboards";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const CHAVE = "a4p_dashboards_custom";
 
 export function listarDashboards(): DashboardCustom[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const s = localStorage.getItem(CHAVE);
-    return s ? (JSON.parse(s) as DashboardCustom[]) : [];
-  } catch {
-    return [];
-  }
+  return lerOrg<DashboardCustom[]>(CHAVE, []);
 }
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function gravar(lista: DashboardCustom[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(CHAVE, JSON.stringify(lista));
-  } catch {
-    /* cota cheia — segue sem persistir */
-  }
+  gravarOrg(CHAVE, lista);
 }
 
 export const dashboardPorId = (id: string): DashboardCustom | null =>

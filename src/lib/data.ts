@@ -10,12 +10,15 @@ import { createClient } from "@/lib/supabase/client";
 import { isDemo } from "@/lib/demo";
 import { vinculosProjeto } from "@/lib/projeto-vinculo";
 import { listProjetos } from "@/lib/iuli-cadastros";
+import { linhasDeCategoria } from "@/lib/registros";
+import {
+  listarCategorias, salvarCategoria, listarCentrosCusto, listarProjetos as listarProjetosCadastro,
+} from "@/lib/cadastros-hierarquia";
+import { categoriasSelecionaveis, caminhoDe, contaDaLinha, type LinhaConta } from "@/core/registros/hierarquia";
 import {
   DEMO_ACCOUNTS,
   DEMO_MOVEMENTS,
-  DEMO_CATEGORIES,
   DEMO_RECORRENCIAS,
-  DEMO_COST_CENTERS,
   DEMO_PARTIES,
 } from "@/lib/demo/seed";
 import {
@@ -27,7 +30,7 @@ import {
   monthlySales,
   isoDay,
 } from "@/lib/aggregations";
-import { importedMovements, importedAccounts, importedParties, updateImportedMovement, updateImportedAccount, removerImported, appendImported } from "@/lib/imported";
+import { importedMovements, importedAccounts, importedParties, importedCadastros, updateImportedMovement, updateImportedAccount, removerImported, appendImported } from "@/lib/imported";
 import type {
   Movement,
   MovementType,
@@ -42,6 +45,7 @@ import type {
   Party,
   FinancialAccount,
   LancamentoInput,
+  SplitLine,
 } from "@/lib/types";
 import type { RiskInput } from "@/core/risk-engine/types";
 import type { RegraRecorrente } from "@/core/contas-pagar/projecao";
@@ -342,18 +346,50 @@ export async function getUnreconciledMovements(
 
 /* ---- Cadastros (selects for the lançamento forms) ---- */
 
+/**
+ * As categorias que um LANÇAMENTO pode receber: as FOLHAS ativas da árvore do
+ * plano de contas (`categories`), da natureza pedida, com o grupo e o caminho.
+ *
+ * ⚠️ **Só folhas.** O banco recusa lançamento num grupo
+ * (`lancamento_em_categoria_folha`, migration `20260930180000`); oferecer um
+ * grupo no formulário seria oferecer uma escolha que o salvar recusa.
+ *
+ * ⚠️ A árvore é lida pelo MESMO leitor da tela de Plano de contas
+ * (`lib/cadastros-hierarquia`). Antes da migration aplicada, as colunas novas
+ * (`code`) não existem e a consulta cai no select antigo — REPORTANDO a queda:
+ * os formulários de lançamento continuam funcionando na janela entre o
+ * deploy e o job `migrar`, em vez de ficarem sem categoria nenhuma.
+ */
 export async function getCategories(kind: CategoryKind): Promise<Category[]> {
-  if (isDemo) return DEMO_CATEGORIES.filter((c) => c.kind === kind);
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id,kind,name")
-    .eq("kind", kind)
-    .eq("active", true)
-    .order("name").limit(TETO_LINHAS);
-  if (error) throw error;
-  return (data ?? []) as Category[];
+  let arvore;
+  try {
+    arvore = await listarCategorias();
+  } catch (e) {
+    if (isDemo || !COLUNA_AUSENTE.test(e instanceof Error ? e.message : "")) throw e;
+    reportar(
+      "categorias.arvore", e,
+      "o formulário oferece a lista plana de categorias até a migration 20260930180000 ser aplicada",
+      true,
+    );
+    const { data, error } = await createClient()
+      .from("categories").select("id,kind,name").eq("kind", kind).eq("active", true)
+      .order("name").limit(TETO_LINHAS);
+    if (error) throw error;
+    return (data ?? []) as Category[];
+  }
+  return categoriasSelecionaveis(arvore, kind).map((c) => ({
+    id: c.id,
+    kind: c.natureza,
+    name: c.nome,
+    parent_id: c.paiId,
+    code: c.codigo || null,
+    dre_linha: c.dreLinha ?? null,
+    caminho: caminhoDe(arvore, c.id),
+  }));
 }
+
+/** O erro do PostgREST para coluna que ainda não existe (migration pendente). */
+const COLUNA_AUSENTE = /column .* does not exist|could not find the .* column|42703|PGRST204/i;
 
 /**
  * Cria uma categoria na tabela REAL (`public.categories`) e devolve a linha.
@@ -384,7 +420,15 @@ export async function getCategories(kind: CategoryKind): Promise<Category[]> {
  * entra; o regex, não.
  */
 export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
-  if (isDemo) return {};
+  // Em demonstração a árvore mora no dataset — a MESMA que a tela de Plano de
+  // contas edita, então a linha declarada lá chega ao DRE daqui.
+  if (isDemo) {
+    const out: Record<string, string> = {};
+    for (const c of importedCadastros()?.categories ?? []) {
+      if (c.name && c.dre_linha) out[c.name.trim().toLowerCase()] = c.dre_linha;
+    }
+    return out;
+  }
   const supabase = createClient();
   if (!supabase) return {};
   // Teto de linhas como toda consulta do sistema: a política diz DE QUEM são
@@ -398,26 +442,39 @@ export async function getLinhasDeCategoria(): Promise<Record<string, string>> {
   return out;
 }
 
+/**
+ * A linha DECLARADA de cada categoria — UMA função para o DRE, a variação e a
+ * exportação. Eram três cópias do mesmo merge, e as três davam precedência ao
+ * plano LOCAL.
+ *
+ * ⚠️ **O BANCO VENCE.** Desde `20260930180000` a tela de Plano de contas edita
+ * `categories.dre_linha`; com o local vencendo, a linha que a pessoa acabou de
+ * declarar na tela nova perderia para uma declaração velha do navegador. O
+ * plano ANTIGO entra só para o nome que o banco NÃO declara — congelado
+ * (nenhum escritor sobrou), ele não diverge mais, e some quando a pessoa o
+ * traz para o cadastro pelo bloco "Cadastros antigos".
+ */
+export async function linhasDeclaradasDasCategorias(): Promise<Record<string, string>> {
+  const local = linhasDeCategoria();
+  return { ...local, ...(await getLinhasDeCategoria()) };
+}
+
 export async function criarCategoria(
   nome: string, kind: CategoryKind, dreLinha?: string | null,
 ): Promise<Category> {
-  if (isDemo) {
-    const nova = { id: `demo-cat-${Date.now()}`, kind, name: nome };
-    DEMO_CATEGORIES.push(nova);
-    return nova;
-  }
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({ name: nome, kind, dre_linha: dreLinha ?? null })
-    .select("id,kind,name")
-    .single();
-  if (error) throw error;
-  return data as Category;
+  // Um escritor só: o MESMO da tela de Plano de contas — validação, natureza,
+  // unicidade e a frase do banco na recusa.
+  const c = await salvarCategoria({
+    id: "", nome, codigo: "", natureza: kind, paiId: null, dreLinha: dreLinha ?? undefined, ativo: true,
+  });
+  return { id: c.id, kind: c.natureza, name: c.nome, parent_id: null, code: null, dre_linha: c.dreLinha ?? null, caminho: c.nome };
 }
 
 export async function getCostCenters(): Promise<CostCenter[]> {
-  if (isDemo) return DEMO_COST_CENTERS;
+  // Em demonstração, a MESMA lista que a tela de Centros de custo edita.
+  if (isDemo) {
+    return (await listarCentrosCusto()).filter((c) => c.ativo).map((c) => ({ id: c.id, name: c.nome }));
+  }
   const supabase = createClient();
   const { data, error } = await supabase
     .from("cost_centers")
@@ -430,20 +487,42 @@ export async function getCostCenters(): Promise<CostCenter[]> {
 
 type PartyRole = "customer" | "supplier" | "carrier";
 
+/**
+ * Os contatos de um PAPEL para os SELETORES de lançamento — só os ATIVOS.
+ *
+ * ⚠️ Inativo sai da ESCOLHA, não da história: a lista de cadastro e os
+ * relatórios continuam vendo-o (`listParties`). Antes `ativo` morava no
+ * navegador (`a4p_party_extra`) e o seletor oferecia o cliente desativado em
+ * toda máquina. Com a coluna ainda ausente (janela entre o deploy e o job
+ * `migrar`), a leitura cai na antiga e REPORTA a queda.
+ */
 export async function getParties(role: PartyRole): Promise<Party[]> {
   const col = `is_${role}` as const;
   if (isDemo)
-    return DEMO_PARTIES.filter(
-      (p) => (p as unknown as Record<string, unknown>)[col],
+    return (importedParties() ?? DEMO_PARTIES).filter(
+      (p) => (p as unknown as Record<string, unknown>)[col] && p.ativo !== false,
     );
   const supabase = createClient();
   const { data, error } = await supabase
     .from("parties")
+    .select("id,type,name,doc,is_customer,is_supplier,is_carrier,ativo,default_category_id")
+    .eq(col, true)
+    .eq("ativo", true)
+    .order("name").limit(TETO_LINHAS);
+  if (!error) return (data ?? []) as Party[];
+  if (!COLUNA_AUSENTE.test(error.message ?? "")) throw error;
+  reportar(
+    "contatos.ativo", error,
+    "os seletores oferecem também contatos inativos até a migration 20260930180000 ser aplicada",
+    true,
+  );
+  const r = await supabase
+    .from("parties")
     .select("id,type,name,doc,is_customer,is_supplier,is_carrier")
     .eq(col, true)
     .order("name").limit(TETO_LINHAS);
-  if (error) throw error;
-  return (data ?? []) as Party[];
+  if (r.error) throw r.error;
+  return (r.data ?? []) as Party[];
 }
 
 /** Lightweight account list for selects (id + name). */
@@ -633,6 +712,21 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
   });
 }
 
+/**
+ * As fatias de um rateio aplicadas a UM valor, em centavos inteiros — o resto
+ * vai para a ÚLTIMA, senão 100 ÷ 3 somaria R$ 99,99 e o rateio nasceria menor
+ * que o título.
+ */
+function fatiarValor(valor: number, splits: SplitLine[]): (SplitLine & { amount: number })[] {
+  const total = Math.round(valor * 100);
+  let usado = 0;
+  return splits.map((s, i) => {
+    const cent = i === splits.length - 1 ? total - usado : Math.round(total * (Number(s.percent) || 0) / 100);
+    usado += cent;
+    return { ...s, amount: cent / 100 };
+  });
+}
+
 /** Create a lançamento (Receita/Despesa) — movements (+ splits, recurrence). */
 export async function createLancamento(input: LancamentoInput): Promise<void> {
   const groupId =
@@ -651,17 +745,24 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
     .select("id").limit(TETO_LINHAS);
   if (error) throw error;
 
-  const firstId = inserted?.[0]?.id;
-  if (input.splits?.length && firstId) {
-    const { error: se } = await supabase.from("movement_splits").insert(
-      input.splits.map((s) => ({
-        movement_id: firstId,
-        category_id: s.category_id,
-        cost_center_id: s.cost_center_id,
+  /**
+   * ⚠️ O RATEIO VAI PARA CADA PARCELA, não só para a primeira. Antes ele
+   * entrava só no primeiro título (`firstId`): numa despesa em 6x rateada
+   * 60/40, cinco parcelas ficavam sem rateio e o relatório por centro somava
+   * cada uma 100/0. O valor da fatia sai da PARCELA, em centavos.
+   */
+  const splits = (input.splits ?? []).filter((s) => s.category_id || s.cost_center_id || s.project_id);
+  if (splits.length && inserted?.length) {
+    const titulos = inserted as { id: string }[];
+    await gravarRateioOuDesfazer(supabase, titulos.map((t) => t.id), () => titulos.flatMap((mv, i) =>
+      fatiarValor(rows[i]?.amount ?? 0, splits).map((s) => ({
+        movement_id: mv.id,
+        category_id: exigirUUID(s.category_id, "categoria do rateio"),
+        cost_center_id: exigirUUID(s.cost_center_id, "centro de custo do rateio"),
+        project_id: exigirUUID(s.project_id ?? null, "projeto do rateio"),
         percent: s.percent,
-      })),
-    );
-    if (se) throw se;
+        amount: s.amount,
+      }))));
   }
 
   if (input.repeat) {
@@ -713,6 +814,13 @@ export interface TituloAvulso {
   origem?: LancamentoInput["origem"];
   /** Venda que originou o título — a chave que liga o recebível ao documento. */
   sale_doc_id?: string | null;
+  /** Chave de origem/idempotência (`movements.reference_code`). */
+  reference_code?: string | null;
+  /** O centro de custo e o projeto PRINCIPAIS (UUID do cadastro). */
+  cost_center_id?: string | null;
+  project_id?: string | null;
+  /** O rateio, quando há mais de uma fatia (`core/registros/hierarquia.linhasDoRateio`). */
+  splits?: SplitLine[] | null;
 }
 
 /**
@@ -760,6 +868,11 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
           paid_date: l.paid_date ?? null,
           reconciled: false,
           category: l.category ?? null,
+          category_id: l.category_id ?? null,
+          cost_center_id: l.cost_center_id ?? null,
+          project_id: l.project_id ?? null,
+          splits: l.splits?.length ? l.splits : null,
+          reference_code: l.reference_code ?? null,
           description: l.description ?? null,
           party_id: l.party_id ?? null,
           origem: l.origem ?? "manual",
@@ -770,7 +883,7 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
   }
 
   const supabase = createClient();
-  const { error } = await supabase.from("movements").insert(
+  const { data: inseridos, error } = await supabase.from("movements").insert(
     linhas.map((l) => ({
       account_id: l.account_id,
       type: l.type,
@@ -793,8 +906,78 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
       especie: "titulo",
       ...(l.sale_doc_id ? { sale_doc_id: l.sale_doc_id } : {}),
       ...(l.category_id ? { category_id: exigirUUID(l.category_id, "Categoria") } : {}),
+      ...(l.reference_code ? { reference_code: l.reference_code } : {}),
+      ...(l.cost_center_id ? { cost_center_id: exigirUUID(l.cost_center_id, "centro de custo") } : {}),
+      ...(l.project_id ? { project_id: exigirUUID(l.project_id, "projeto") } : {}),
     })),
-  );
+  ).select("id").limit(TETO_LINHAS);
+  if (error) throw error;
+  // O rateio de cada título, na MESMA ordem em que as linhas foram enviadas.
+  const titulos = (inseridos as { id: string }[] | null) ?? [];
+  if (linhas.some((l) => l.splits?.length)) {
+    await gravarRateioOuDesfazer(supabase, titulos.map((t) => t.id), () => titulos.flatMap((mv, i) =>
+      (linhas[i]?.splits ?? []).map((sp) => ({
+        movement_id: mv.id,
+        category_id: exigirUUID(sp.category_id, "categoria do rateio"),
+        cost_center_id: exigirUUID(sp.cost_center_id, "centro de custo do rateio"),
+        project_id: exigirUUID(sp.project_id ?? null, "projeto do rateio"),
+        percent: sp.percent,
+        amount: sp.amount ?? null,
+      }))));
+  }
+}
+
+/**
+ * Grava o rateio dos títulos que ACABARAM de nascer — e, se ele for recusado,
+ * DESFAZ os títulos (exclusão lógica) antes de devolver o erro.
+ *
+ * ⚠️ Título e rateio são duas gravações. Sem desfazer, uma recusa do rateio
+ * deixava os títulos gravados SEM rateio e a tela dizia "não foi possível
+ * salvar": a pessoa salvava de novo e o mesmo dinheiro entrava DUAS vezes no
+ * contas a pagar, no fluxo e no DRE. Mesma regra da venda: nenhum documento
+ * pela metade. Se o desfazer também falhar, a mensagem diz quantos títulos
+ * ficaram — para a pessoa não repetir o lançamento às cegas.
+ */
+async function gravarRateioOuDesfazer(
+  supabase: ReturnType<typeof createClient>,
+  idsDosTitulos: string[],
+  montar: () => Record<string, unknown>[],
+): Promise<void> {
+  try {
+    const fatias = montar();
+    if (!fatias.length) return;
+    const { error } = await supabase.from("movement_splits").insert(fatias);
+    if (error) throw error;
+  } catch (e) {
+    const motivo = (e as { message?: string } | null)?.message ?? String(e);
+    const { excluirLogico } = await import("@/lib/exclusao");
+    let ficaram = 0;
+    for (const id of idsDosTitulos) {
+      try { await excluirLogico("movements", id, `Rateio recusado ao lançar: ${motivo}`); } catch { ficaram += 1; }
+    }
+    throw new Error(ficaram === 0
+      ? `O rateio foi recusado (${motivo}). O lançamento foi desfeito — corrija e salve de novo.`
+      : `O rateio foi recusado (${motivo}), e ${ficaram} título(s) ficaram gravados sem rateio. Confira em Contas a pagar/receber antes de lançar de novo.`);
+  }
+}
+
+/**
+ * O PROJETO de um lançamento que já existe — a ficha do título permite
+ * vincular/desvincular depois de lançado.
+ *
+ * ⚠️ **Em produção grava `movements.project_id`.** Antes o vínculo morava num
+ * mapa no navegador (`a4p_movimento_projeto`, id NUMÉRICO do cadastro local):
+ * nenhum relatório de outra máquina o via, e o banco nunca sabia que o
+ * lançamento era de um projeto. Em demonstração o dataset guarda o id no
+ * próprio movimento, pelo mesmo motivo.
+ */
+export async function definirProjetoDoMovimento(id: string, projetoId: string | null): Promise<void> {
+  if (isDemo) {
+    updateImportedMovement(id, { project_id: projetoId || null });
+    return;
+  }
+  const { error } = await createClient()
+    .from("movements").update({ project_id: exigirUUID(projetoId || null, "projeto") }).eq("id", id);
   if (error) throw error;
 }
 
@@ -820,6 +1003,8 @@ const RELACAO_AUSENTE = /could not find a relationship|PGRST200|does not exist/i
  * embed resolve, `false` = não resolve (não tentar de novo nesta sessão).
  */
 let embedProjetoOk: boolean | undefined;
+/** As colunas do cadastro da conta existem? (uma tentativa por sessão) */
+let colunasCadastroOk: boolean | undefined;
 
 /** O nome de um embed do PostgREST, que vem objeto ou array de um item. */
 const embedName = (e: unknown): string | null =>
@@ -899,10 +1084,16 @@ export async function getRiscoInput(): Promise<RiskInput> {
     // Dados importados (FDIP) já vêm com party_id = contraparteNorm e um cadastro
     // de parties; o seed determinístico usa a descrição como rótulo da contraparte.
     const imp = importedMovements();
-    // Projeto: o vínculo local é a fonte síncrona (ver lib/projeto-vinculo).
+    // Projeto e centro: o id mora NO MOVIMENTO (como `movements.project_id` em
+    // produção). O vínculo antigo do navegador (`lib/projeto-vinculo`, id
+    // "5001" do cadastro antigo) só é lido como QUEDA, para lançamentos feitos
+    // antes da morada única — nenhuma tela escreve mais nele.
     const vinculos = vinculosProjeto();
     const nomeProjeto: Record<string, string> = {};
     for (const p of listProjetos()) nomeProjeto[p.id] = p.nome;
+    for (const p of await listarProjetosCadastro()) nomeProjeto[p.id] = p.nome;
+    const nomeCentro: Record<string, string> = {};
+    for (const c of await listarCentrosCusto()) nomeCentro[c.id] = c.nome;
     // Resolve a contraparte por party_id (cadastro) OU pela descrição (seed).
     // Assim o seed NÃO perde os nomes quando um upload cria o dataset importado.
     const movements = (imp ?? DEMO_MOVEMENTS).map((m) => ({
@@ -915,8 +1106,17 @@ export async function getRiscoInput(): Promise<RiskInput> {
       party_id: m.party_id ?? m.description ?? null,
       accountId: m.account_id ?? null,
       category: m.category,
-      costCenter: demoCostCenter(m.category),
-      projeto: nomeProjeto[vinculos[m.id] ?? ""] ?? null,
+      costCenter: (m.cost_center_id ? nomeCentro[m.cost_center_id] : null) ?? demoCostCenter(m.category),
+      projeto: nomeProjeto[m.project_id ?? vinculos[m.id] ?? ""] ?? null,
+      projetoId: m.project_id ?? null,
+      centroId: m.cost_center_id ?? null,
+      categoriaId: m.category_id ?? null,
+      rateio: (m.splits ?? []).map((sp) => ({
+        projeto: sp.project_id ? nomeProjeto[sp.project_id] ?? null : null,
+        centro: sp.cost_center_id ? nomeCentro[sp.cost_center_id] ?? null : null,
+        percentual: Number(sp.percent ?? 0),
+        valor: Number(sp.amount ?? 0),
+      })),
       parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
       parcela: (m as { installment_no?: number | null }).installment_no ?? null,
       referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
@@ -932,7 +1132,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     });
     return {
       hoje, saldoAtual, movements, partyNames, horizonDias: 60,
-      aberturaVerificada: resolverAberturaVerificada(true),
+      aberturaVerificada: resolverAberturaVerificada(true, seedAccounts().map((a) => contaDaLinha(a as LinhaConta))),
     };
   }
 
@@ -952,7 +1152,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
    * Sem isso, `titulosDaVisao` não teria como separar confirmado de previsto, e
    * o relatório continuaria misturando os dois sem dizer qual é qual.
    */
-  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,origem,lancado_por,reference_code,installment_no,installment_total,categoria:category_id(name),centro:cost_center_id(name)";
+  "id,account_id,type,status,situacao,amount,due_date,paid_date,competence_date,description,party_id,category,origem,lancado_por,reference_code,installment_no,installment_total,category_id,cost_center_id,categoria:category_id(name),centro:cost_center_id(name)";
   /**
    * O embed do projeto depende da FK `movements.project_id → projects`
    * (migration `0019`, aplicada). Onde ela existe, o embed resolve.
@@ -967,7 +1167,11 @@ export async function getRiscoInput(): Promise<RiskInput> {
    */
   const movimentos = async () => {
     if (embedProjetoOk !== false) {
-      const comProjeto = await semAmostra(supabase.from("movements").select(`${COLUNAS_BASE},projeto:project_id(name)`)).limit(TETO_LINHAS);
+      // ⚠️ O rateio (`movement_splits`) vem no MESMO embed: ele depende da
+      // coluna `project_id` da 0019, e sem ela o lançamento continua lido.
+      const comProjeto = await semAmostra(supabase.from("movements").select(
+        `${COLUNAS_BASE},project_id,projeto:project_id(name),rateio:movement_splits(percent,amount,projeto:project_id(name),centro:cost_center_id(name))`,
+      )).limit(TETO_LINHAS);
       if (!comProjeto.error) { embedProjetoOk = true; return comProjeto; }
       // Só o erro de relacionamento inexistente justifica a queda. Qualquer
       // outra falha (rede, RLS, timeout) é um problema real e tem de subir —
@@ -988,10 +1192,32 @@ export async function getRiscoInput(): Promise<RiskInput> {
     }
     return semAmostra(supabase.from("movements").select(COLUNAS_BASE)).limit(TETO_LINHAS);
   };
-  const [accRes, movRes, partyRes] = await Promise.all([
+  /**
+   * A abertura INFORMADA mora no cadastro da conta (`financial_accounts`,
+   * migration `20260930180000`). Antes da migration as colunas não existem: a
+   * consulta cai, REPORTA uma vez por sessão (mesmo desenho do embed do
+   * projeto) e o Razão fica "não conferido" — que é a verdade até lá.
+   */
+  const contasConferidas = async () => {
+    if (colunasCadastroOk === false) return [];
+    const r = await supabase.from("financial_accounts")
+      .select("id,name,bank,balance,saldo_inicial,data_saldo_inicial,saldo_inicial_conferido")
+      .eq("saldo_inicial_conferido", true).limit(TETO_LINHAS);
+    if (!r.error) { colunasCadastroOk = true; return ((r.data ?? []) as LinhaConta[]).map(contaDaLinha); }
+    if (!COLUNA_AUSENTE.test(r.error.message ?? "")) throw r.error;
+    reportar(
+      "abertura.cadastroDaConta", r.error,
+      "o Razão fica sem a abertura informada até a migration 20260930180000 ser aplicada",
+      true,
+    );
+    colunasCadastroOk = false;
+    return [];
+  };
+  const [accRes, movRes, partyRes, conferidas] = await Promise.all([
     supabase.from("financial_accounts").select("balance").limit(TETO_LINHAS),
     movimentos(),
     supabase.from("parties").select("id,name").limit(TETO_LINHAS),
+    contasConferidas(),
   ]);
   if (accRes.error) throw accRes.error;
   if (movRes.error) throw movRes.error;
@@ -999,9 +1225,6 @@ export async function getRiscoInput(): Promise<RiskInput> {
     (s, a) => s + Number((a as { balance: number }).balance),
     0,
   );
-  const vinculosLive = vinculosProjeto();
-  const nomeProjetoLive: Record<string, string> = {};
-  for (const p of listProjetos()) nomeProjetoLive[p.id] = p.nome;
   // ⚠️ O `select` traz um SUBCONJUNTO das colunas de `Movement` (sem
   // `reconciled`/`description`), então a asserção direta deixou de compilar ao
   // acrescentar as colunas de parcela. Passar por `unknown` é o que declara que
@@ -1012,6 +1235,8 @@ export async function getRiscoInput(): Promise<RiskInput> {
   > & {
     categoria?: unknown; centro?: unknown; projeto?: unknown;
     installment_no?: number | null; installment_total?: number | null;
+    category_id?: string | null; cost_center_id?: string | null; project_id?: string | null;
+    rateio?: { percent?: number | null; amount?: number | null; projeto?: unknown; centro?: unknown }[] | null;
   })[]).map((m) => ({
     id: m.id,
     type: m.type,
@@ -1027,7 +1252,16 @@ export async function getRiscoInput(): Promise<RiskInput> {
     competence_date: (m as { competence_date?: string | null }).competence_date ?? null,
     descricao: (m as { description?: string | null }).description ?? null,
     costCenter: embedName(m.centro),
-    projeto: embedName(m.projeto) ?? nomeProjetoLive[vinculosLive[m.id] ?? ""] ?? null,
+    // ⚠️ Só `movements.project_id`: o vínculo do navegador (id "5001" do
+    // cadastro antigo) não existe para outra máquina e nunca casou com UUID.
+    projeto: embedName(m.projeto),
+    projetoId: m.project_id ?? null,
+    centroId: m.cost_center_id ?? null,
+    categoriaId: m.category_id ?? null,
+    rateio: (m.rateio ?? []).map((sp) => ({
+      projeto: embedName(sp.projeto), centro: embedName(sp.centro),
+      percentual: Number(sp.percent ?? 0), valor: Number(sp.amount ?? 0),
+    })),
     // Parcela: separa o compromisso que ACABA do que continua (ver RiskMovement).
     parcelas: (m as { installment_total?: number | null }).installment_total ?? null,
     parcela: (m as { installment_no?: number | null }).installment_no ?? null,
@@ -1046,7 +1280,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
     hoje, saldoAtual, movements, partyNames, horizonDias: 60,
     // Em live só a fonte "informada" (cadastro) alimenta a abertura — o
     // `<LEDGERBAL>` importado ainda não persiste no servidor (ver lib/abertura).
-    aberturaVerificada: resolverAberturaVerificada(false),
+    aberturaVerificada: resolverAberturaVerificada(false, conferidas),
   };
 }
 
