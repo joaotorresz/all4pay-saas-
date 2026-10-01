@@ -37,6 +37,7 @@ import {
   FiltrosPeriodo, CardExpansivel, DistribuicaoDonut, FaixaDeDias,
   type CardDeTitulos, type ItemDoDia,
 } from "@/components/titulos/kit";
+import { AgingContasPagar } from "@/components/contas-pagar/AgingContasPagar";
 
 /** O card do motor na forma neutra do kit. */
 const paraKit = (c: CardContasPagar): CardDeTitulos => ({
@@ -216,6 +217,10 @@ export function DashboardContasPagar() {
           </div>
         </>
       ) : null}
+
+      {/* ⚠️ Fora do período: o aging é a CARTEIRA inteira (posição), e por
+          isso não depende do filtro de cima — nem some quando ele é inválido. */}
+      {input && <AgingContasPagar input={input} />}
     </div>
   );
 }

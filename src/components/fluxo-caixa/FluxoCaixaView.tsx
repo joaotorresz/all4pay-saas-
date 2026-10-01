@@ -14,6 +14,7 @@ import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
 import { useFluxoCaixa, useContas, useComparativo } from "./hooks";
 import { Comparativos } from "./Comparativos";
+import { PrevisaoDoMes } from "./PrevisaoDoMes";
 import type {
   FluxoModelo, FluxoInteligente, PrevRealLinha, DiaCalendario, CrossCheck,
   ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
@@ -107,6 +108,10 @@ function Inner() {
         <>
           {/* Modo Simples: 3 blocos essenciais. */}
           <ExecutiveSummary m={data} />
+          {/* A previsão do MÊS CORRENTE, em camadas — ao lado do resumo porque
+              responde a pergunta que ele deixa aberta: "como o mês fecha?". Ela
+              não segue o período do filtro: o mês é a unidade da pergunta. */}
+          <PrevisaoDoMes />
           <Bloco
             titulo="Venceu × Foi pago"
             icon="list-checks"

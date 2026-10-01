@@ -26,6 +26,7 @@
  * Puro, tipado, demo-safe, sem I/O e sem relógio. Versão `contas-recorrentes/1.0.0`.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { ehContaAReceber } from "@/core/contas-receber";
 import { magnitude, cancelado } from "@/core/indicadores/convencoes";
 import { nucleoContraparte } from "@/core/regras";
 
@@ -116,7 +117,7 @@ const ehContaAPagar = (m: RiskMovement) => m.type === "saida" && !cancelado(m);
  * tirar o número eles virariam dois compromissos avulsos em vez de um
  * recorrente — o oposto do que este painel existe para achar.
  */
-function contraparteDe(m: RiskMovement, nomes: Record<string, string>): string {
+export function contraparteDe(m: RiskMovement, nomes: Record<string, string>): string {
   const cadastrada = m.party_id ? nomes[m.party_id] : null;
   if (cadastrada?.trim()) return cadastrada.trim();
   const daDescricao = nucleoContraparte(m.descricao ?? "");
@@ -124,7 +125,7 @@ function contraparteDe(m: RiskMovement, nomes: Record<string, string>): string {
   return "Sem contraparte";
 }
 
-function chave(m: RiskMovement, nomes: Record<string, string>): string {
+export function chave(m: RiskMovement, nomes: Record<string, string>): string {
   return `${contraparteDe(m, nomes).toLowerCase()}·${(m.category ?? "—").trim().toLowerCase()}`;
 }
 
@@ -210,13 +211,23 @@ export interface PainelRecorrentes {
 /* O motor                                                                     */
 /* ========================================================================== */
 
-export function montarPainelRecorrentes(input: RiskInput, mesRef?: string): PainelRecorrentes {
+/**
+ * @param tipo `"saida"` (padrão) é o painel de contas a pagar. `"entrada"` roda
+ * a MESMA classificação sobre o que a empresa RECEBE — é o que a previsão do
+ * mês (`core/previsao-mes`) usa para estimar a receita que costuma entrar.
+ * ⚠️ Do lado da entrada vale o filtro do contas a receber (`ehContaAReceber`):
+ * transferência, resgate e rendimento entram no extrato e não são receita que
+ * se repete.
+ */
+export function montarPainelRecorrentes(
+  input: RiskInput, mesRef?: string, tipo: "saida" | "entrada" = "saida",
+): PainelRecorrentes {
   const hoje = input.hoje.slice(0, 10);
   const mes = mesRef ?? mesDe(hoje);
   const nomes = input.partyNames ?? {};
 
   const primeiroMes = deslocarMes(mes, -(JANELA_MESES - 1));
-  const contas = input.movements.filter(ehContaAPagar);
+  const contas = input.movements.filter(tipo === "saida" ? ehContaAPagar : ehContaAReceber);
   const naJanela = contas.filter((m) => {
     const mm = mesDe(dataDe(m));
     return mm >= primeiroMes && mm <= mes;

@@ -550,3 +550,61 @@ export function FaixaDeDias({
     </Card>
   );
 }
+
+/* ========================================================================== */
+/* As faixas de idade — o aging dos DOIS lados                                 */
+/* ========================================================================== */
+
+export interface FaixaDeIdade {
+  chave: string;
+  rotulo: string;
+  valor: number;
+  quantidade: number;
+  /** Fração sobre o total do GRUPO (vencido ou a vencer) — 0..1. */
+  fracao: number;
+  /** 0 = leve … 3 = forte. Faixas são GRAUS da mesma coisa, não categorias. */
+  peso: number;
+}
+
+/**
+ * A lista de faixas com barra proporcional — extraída do "Idade do atraso" do
+ * contas a receber quando o aging de contas a pagar nasceu, pela mesma razão das
+ * outras peças deste arquivo: duas cópias divergem no primeiro ajuste.
+ *
+ * ⚠️ A barra usa UMA cor em intensidades diferentes: a paleta tem um acento só,
+ * e "atraso de 90 dias" é mais do mesmo que "atraso de 30", não outra coisa. O
+ * VALOR fica na tinta do texto — número não tem cor por sinal nem por idade.
+ */
+export function FaixasDeIdade({ faixas, cor }: {
+  faixas: FaixaDeIdade[];
+  /** Token do DS (`var(--color-…)`), nunca um hex. */
+  cor: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      {faixas.map((f) => (
+        <div key={f.chave} className="flex flex-col gap-1" data-faixa={f.chave}>
+          <div className="flex items-baseline justify-between gap-3 text-caption">
+            <span className="text-muted">
+              {f.rotulo}
+              <span className="text-faint"> · {f.quantidade}</span>
+            </span>
+            <span className="flex items-baseline gap-2">
+              <span className="a4p-num text-faint tabular-nums">{pct(f.fracao)}</span>
+              <span className="a4p-num text-ink tabular-nums"><BRL value={f.valor} /></span>
+            </span>
+          </div>
+          <div className="h-2 rounded-pill bg-surface-2 overflow-hidden">
+            <div
+              className="h-full rounded-pill"
+              style={{
+                width: `${Math.max(f.fracao * 100, f.valor > 0 ? 2 : 0)}%`,
+                background: `color-mix(in srgb, ${cor} ${40 + 20 * f.peso}%, var(--color-surface-3))`,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
