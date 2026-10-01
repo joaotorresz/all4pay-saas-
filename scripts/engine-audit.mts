@@ -7051,7 +7051,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const corpoRisco = dataD.slice(dataD.indexOf("export async function getRiscoInput"));
   const ramoLive = corpoRisco.slice(corpoRisco.indexOf("const supabase = createClient()"));
   ok("CAD-2: em produção o nome do projeto sai só do embed (nenhum vínculo do navegador)",
-     !/vinculosProjeto\(|listProjetos\(/.test(ramoLive) && /projetoId: m\.project_id/.test(ramoLive));
+     !/vinculosProjeto\(|listProjetos\(|projetoLocal/.test(ramoLive)
+     && /projetoId: texto\(r\.project_id\)/.test(semCom(lerD("src/lib/risco-linhas.ts"))));
 
   /* ---- 5. ativo e categoria padrão moram em parties ---- */
   const corpoGetParties = dataD.slice(dataD.indexOf("export async function getParties"), dataD.indexOf("export async function getAccountsList"));
@@ -7392,6 +7393,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && /after insert on public\.organizations[\s\S]*automacoes_inicial/.test(migr)
      && /revoke all on function public\.automacao_contexto\(uuid\) from public, anon, authenticated/.test(migr)
      && /grant execute on function public\.automacao_contexto\(uuid\) to service_role/.test(migr));
+}
+
 /* ── CAMP-A ── */
 // Checklist de fechamento com dono/prazo/revisor · aging de contas a pagar ·
 // previsão do mês em três camadas. Valores fechados sobre fixture, e cada regra
@@ -7629,6 +7632,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     ok(`campa: ${arq.split("/").pop()} não soma lançamento por conta própria`,
        !/\.reduce\(/.test(src) && !/m\.amount|\.amount\b/.test(src));
   }
+}
+
 /* ── CAMP-B ── caixa de entrada de contas, edição em massa, extrato do contato,
    busca global de títulos e eliminações no consolidado (30/09/2026). Cada
    asserção foi provada PLANTANDO o defeito que ela existe para pegar. */

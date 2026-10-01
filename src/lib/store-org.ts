@@ -161,6 +161,8 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   // O projeto do lançamento mora em `movements.project_id`; o mapa antigo do
   // navegador só é LIDO como queda em demonstração (lib/projeto-vinculo).
   "a4p_movimento_projeto",
+  // As tarefas do fechamento moram em `close_tasks` (CAMP-A, lib/fechamento-tarefas).
+  "a4p_close_tasks",
   // As automações e o registro dos envios moram em `automacoes` e
   // `automacao_envios` desde 30/09/2026 (lib/automacoes). A régua gravava em
   // `a4p_regua_envios`; a migration copiou o que havia para a tabela.

@@ -1231,7 +1231,7 @@ export async function getRiscoInput(): Promise<RiskInput> {
   // chega por e-mail discorda da Visão geral que a pessoa abre em seguida.
   // ⚠️ Só `movements.project_id`: o vínculo do navegador (id "5001" do
   // cadastro antigo) não existe para outra máquina e nunca casou com UUID —
-  // por isso nenhum `projetoLocal` aqui.
+  // por isso nenhuma queda local de projeto aqui.
   return linhasParaRiskInput({
     hoje,
     saldosDasContas: ((accRes.data ?? []) as { balance: number }[]).map((a) => a.balance),

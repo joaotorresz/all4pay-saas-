@@ -11,6 +11,7 @@
  * silêncio mostra "revisada" numa tarefa que o banco nunca aceitou — e é essa
  * marca que decide se o mês pode travar.
  */
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
@@ -35,7 +36,7 @@ export const DEMO_CONTADORA = "demo-contadora";
 function lerDemo(): TarefaFechamento[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? "null") as { versao?: number; tarefas?: TarefaFechamento[] } | null;
+    const raw = lerOrg<{ versao?: number; tarefas?: TarefaFechamento[] } | null>(KEY, null);
     // ⚠️ O formato antigo ({ mes: { tarefa: true } }) não tinha dono nem
     // carimbo; ele é ignorado, não convertido — converter inventaria quem fez.
     return raw?.versao === 2 && Array.isArray(raw.tarefas) ? raw.tarefas : [];
@@ -43,7 +44,9 @@ function lerDemo(): TarefaFechamento[] {
 }
 function gravarDemo(ts: TarefaFechamento[]): void {
   // ⚠️ Sem try/catch: cota estourada tem de aparecer, não virar "salvo".
-  localStorage.setItem(KEY, JSON.stringify({ versao: 2, tarefas: ts }));
+  // Chave CONGELADA (`store-org`): a morada em produção é `close_tasks`, então
+  // ela só toca o navegador na demonstração — nunca vira cópia em `org_state`.
+  gravarOrg(KEY, { versao: 2, tarefas: ts });
 }
 const idDemo = () => globalThis.crypto?.randomUUID?.() ?? `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
