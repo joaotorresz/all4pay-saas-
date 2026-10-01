@@ -53,8 +53,9 @@ export function BoletosView() {
   const router = useRouter();
   const { show: toast, node } = useToast();
   const [lista, setLista] = React.useState<BoletoRecebido[]>([]);
-  const [decididos, setDecididos] = React.useState<Set<string>>(new Set());
-  React.useEffect(() => { setDecididos(new Set(lerEstadoCaixa().decisoes.map((d) => d.chave))); }, []);
+  // A ÚLTIMA decisão de cada documento da caixa de entrada (virou conta × descartado).
+  const [decididos, setDecididos] = React.useState<Map<string, string>>(new Map());
+  React.useEffect(() => { setDecididos(new Map(lerEstadoCaixa().decisoes.map((d) => [d.chave, d.acao]))); }, []);
   const [busca, setBusca] = React.useState("");
   const [status, setStatus] = React.useState<StatusBoleto | "todos">("todos");
   const [linha, setLinha] = React.useState("");
@@ -256,7 +257,8 @@ export function BoletosView() {
                           {!b.movimentoId && !b.pago && !decididos.has(chaveBoleto(b)) && (
                             <Acao label="Lançar em contas a pagar" icone="arrow-up-right" onClick={() => lancar(b)} />
                           )}
-                          {b.movimentoId && <span className="text-caption text-muted">Lançado</span>}
+                          {(b.movimentoId || decididos.get(chaveBoleto(b)) === "convertido") && <span className="text-caption text-muted">Lançado</span>}
+                          {!b.movimentoId && decididos.get(chaveBoleto(b)) === "descartado" && <span className="text-caption text-muted">Descartado</span>}
                           <Acao
                             label="Remover" icone="trash-2" perigo
                             onClick={() => {

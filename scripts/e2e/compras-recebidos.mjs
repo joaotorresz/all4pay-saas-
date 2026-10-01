@@ -6,7 +6,8 @@
  *  - a linha digitável de um boleto Bradesco de R$ 842,17 vencendo em
  *    20/10/2026 é LIDA (banco, valor, vencimento, dígitos) antes de entrar;
  *  - a linha com UM dígito trocado é denunciada e NÃO entra;
- *  - lançar pede a conta e a categoria (não pega a primeira da lista) e o
+ *  - lançar abre o formulário de conta a pagar PREENCHIDO; conta e categoria
+ *    são escolhidas (não pega a primeira da lista) e o
  *    título aparece em Títulos a pagar com o valor, a data e a categoria
  *    escolhida; o fluxo de caixa sobe esse valor;
  *  - colar o MESMO boleto de novo não o substitui (continua "Lançado") e não
@@ -71,19 +72,36 @@ export default async function comprasRecebidos(navegador) {
   const linhaBoleto = p.locator("main table tbody tr", { hasText: "Gráfica Aurora" }).first();
   v.ok(await linhaBoleto.count() === 1, "o boleto entra na caixa de entrada");
 
-  /* ---- lançar: conta e categoria escolhidas ---- */
+  /* ---- lançar: o formulário de conta a pagar abre PREENCHIDO (escritor único) ---- */
   await linhaBoleto.getByRole("button", { name: "Lançar em contas a pagar" }).click();
-  await p.waitForTimeout(300);
-  const botaoLancar = p.getByRole("button", { name: /^Lançar/ }).last();
-  v.ok(await botaoLancar.isDisabled(), "sem conta e categoria escolhidas, lançar fica travado");
-  await p.locator("main select").filter({ has: p.locator("option", { hasText: "Escolha a conta" }) }).first().selectOption({ index: 1 });
-  await p.locator("main select").filter({ has: p.locator("option", { hasText: "Escolha a categoria" }) }).first().selectOption({ label: "Marketing" });
-  await botaoLancar.click();
+  await p.waitForURL(/payables\/new/, { timeout: 20000 });
   await p.waitForTimeout(1500);
-  t = limpo(await u.texto());
-  v.ok(/Boleto lançado em contas a pagar · vence 20\/10\/2026/.test(t), "a tela confirma o lançamento com o vencimento");
+  const valorCampo = await p.locator('main input[placeholder="0,00"]').first().inputValue();
+  v.ok(brl(valorCampo) === 842.17, "o formulário abre com o valor do boleto", valorCampo);
+  const venc = await p.locator('main [data-campo="vencimento"] input[type="date"]').first().inputValue().catch(() => "");
+  v.ok(venc === "2026-10-20", "e com o vencimento do boleto", venc);
+  // Conta e categoria são ESCOLHIDAS por quem lança (nada de "a primeira da lista").
+  await p.locator("main button", { hasText: /Busque a conta/ }).first().click();
+  await p.waitForTimeout(300);
+  await p.locator('[role="option"]').first().click();
+  await p.locator("main button", { hasText: /Busque ou crie/ }).first().click();
+  await p.waitForTimeout(300);
+  await p.keyboard.type("Marketing");
+  await p.waitForTimeout(300);
+  await p.locator('[role="option"]', { hasText: "Marketing" }).first().click();
+  if (await p.locator("main button", { hasText: /Digite nome ou documento/ }).count()) {
+    await p.locator("main button", { hasText: /Digite nome ou documento/ }).first().click();
+    await p.waitForTimeout(300);
+    const op = p.locator('[role="option"]').first();
+    if (await op.count()) await op.click(); else await p.keyboard.press("Enter");
+  }
+  for (const d of await p.locator('main input[type="date"]').all()) if (!(await d.inputValue())) await d.fill("2026-10-20");
+  await p.getByRole("button", { name: "Salvar" }).last().click();
+  await p.waitForTimeout(2500);
+  v.ok(!p.url().includes("/new"), "salvar sai do formulário", p.url());
+  await u.ir("/dashboard/purchases/received-boletos");
   v.ok(/Lançado/.test(await linhaCom(p, "Gráfica Aurora")),
-    "a linha passa a dizer 'Lançado'");
+    "a linha do boleto passa a dizer 'Lançado' (e não oferece lançar de novo)");
 
   const out = await titulosDoMes(u, "2026-10");
   const doBoleto = out.filter((l) => l.includes("842,17") && l.includes("20/10/2026"));

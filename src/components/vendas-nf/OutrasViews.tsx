@@ -359,9 +359,11 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
               try {
                 const r = await criarContasDeImpostos(contasImp, mesCompetencia, config.contaId, opcoes.nomeCategoria);
                 await qc.invalidateQueries();
-                show(r.jaExistiam > 0
-                  ? `${r.criadas} contas a pagar criadas · ${r.jaExistiam} já existiam para esta competência.`
-                  : `${r.criadas} contas a pagar criadas.`);
+                show(r.criadas === 0
+                  ? `Nada a criar: as ${r.jaExistiam} contas desta competência já existem.`
+                  : r.jaExistiam > 0
+                    ? `${r.criadas} contas a pagar criadas · ${r.jaExistiam} já existiam para esta competência.`
+                    : `${r.criadas} contas a pagar criadas.`);
               } catch (e) {
                 show(`Não foi possível criar as contas a pagar: ${e instanceof Error ? e.message : String(e)}`);
               } finally {

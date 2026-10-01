@@ -8,8 +8,8 @@
  * CRLF, cada linha tem o layout declarado, a contagem é a da tela, a soma dos
  * D/C é a dos cartões, e a PRÉVIA é exatamente o começo do arquivo.
  *
- * ⚠️ O plano entra pelo armazenamento local (a chave que a tela de Cadastros
- * grava), não pelo formulário: a tela de cadastro do plano é de outra frente.
+ * ⚠️ O código entra pelo CADASTRO da categoria (o dataset da demonstração,
+ * a mesma morada que a tela de Plano de contas grava).
  */
 import { readFileSync } from "node:fs";
 import { novoUsuario, verificador, brl } from "./kit.mjs";
@@ -24,8 +24,28 @@ const PLANO = [
 export default async function contabilDominio(navegador) {
   const v = verificador("contabil-dominio");
   const u = await novoUsuario(navegador);
-  await u.ir("/");
-  await u.page.evaluate((p) => localStorage.setItem("a4p_plano_contas", JSON.stringify(p)), PLANO);
+  // O código contábil mora no CADASTRO (categories.code; em demonstração, o
+  // dataset). Uma categoria criada pela tela materializa o dataset; depois as
+  // duas do plano ganham código com a caixa DIFERENTE da do lançamento.
+  await u.ir("/dashboard/registrations/chart-of-accounts");
+  await u.page.getByRole("button", { name: "Nova categoria ou grupo" }).first().click();
+  await u.page.waitForTimeout(400);
+  await u.page.getByPlaceholder("Ex.: Produto Online").fill("Grupo E2E Domínio");
+  await u.page.getByPlaceholder("Ex.: 3.1.01").fill("9");
+  await u.page.getByRole("button", { name: "Salvar", exact: true }).last().click();
+  await u.page.waitForTimeout(1500);
+  await u.page.evaluate((plano) => {
+    const ds = JSON.parse(localStorage.getItem("a4p_imported_dataset") ?? "null");
+    if (!ds) return;
+    const cats = ds.cadastros?.categories ?? [];
+    for (const p of plano.filter((x) => x.paiId)) {
+      const ja = cats.find((c) => c.name.toLowerCase() === p.nome.toLowerCase());
+      if (ja) ja.code = p.codigo;
+      else cats.push({ id: p.id, kind: p.natureza, name: p.nome, parent_id: null, code: p.codigo, dre_linha: null, active: true });
+    }
+    ds.cadastros = { ...(ds.cadastros ?? {}), categories: cats };
+    localStorage.setItem("a4p_imported_dataset", JSON.stringify(ds));
+  }, PLANO);
 
   await u.ir("/dashboard/accounting/dominio-export");
   const sel = u.page.getByLabel("Conta bancária", { exact: true });

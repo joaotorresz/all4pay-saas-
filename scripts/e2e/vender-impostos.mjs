@@ -97,7 +97,7 @@ export default async function venderImpostos(navegador) {
   // demonstração SUBSTITUÍA os títulos (e uma guia já paga voltava a pendente).
   // Agora a regra é a de produção: o que já tem título não ganha outro.
   v.ok(/Nada a criar/.test(await u.texto()) && !/\d+ contas a pagar criadas/.test(await u.texto()),
-    "o segundo clique não afirma ter criado nada (as contas da competência já existem)");
+    "o segundo clique não afirma ter criado nada (as contas da competência já existem)", ((await u.texto()).match(/[^.\n]*(contas a pagar|Nada a criar)[^.\n]*/g) ?? []).join(" | "));
 
   // O que foi gravado: UMA conta por imposto, mesmo depois de dois cliques.
   const impostos = await u.page.evaluate(() => {
