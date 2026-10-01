@@ -402,3 +402,56 @@ do formulário; a conta desativada também · o hub conta o que foi criado.
   filtro `parties.ativo` foram provados só no build de demonstração e pelas
   guardas estáticas. Nenhuma migration nova; nenhum banco `pkg_*` criado nesta
   parte.
+
+---
+
+# PACOTE CAD — revisão adversarial (branch `r2/cad-rev`, a partir de `r2/cad`)
+
+## Achados e o que foi feito
+
+| # | Onde | Achado | Feito |
+| --- | --- | --- | --- |
+| 1 | `src/lib/data.ts` (`createLancamento`, `criarTitulos`) | Título e rateio são DUAS gravações. Se o rateio fosse recusado (ou `exigirUUID` lançasse depois do insert), os títulos ficavam gravados SEM rateio e a tela dizia "não foi possível salvar" — salvar de novo DUPLICAVA o dinheiro no contas a pagar, no fluxo e no DRE. | `gravarRateioOuDesfazer`: na recusa, os títulos recém-criados vão para a lixeira (`excluirLogico`) e a mensagem diz o motivo; se o desfazer falhar, diz quantos títulos ficaram. Guarda `CAD-rev` com negativo. |
+| 2 | `src/lib/vendas-store.ts` + `OutrasViews.tsx` | "Criar contas a pagar" dos impostos passou a gravar em produção com idempotência por CONSULTA — dois cliques (ou duas abas) leem "não existe" juntos e gravam a guia DUAS vezes. Não havia índice para `imp:%`. | Índice único parcial `movements_imp_ref_uniq (org_id, reference_code) where reference_code like 'imp:%'` na migration `20260930180000` (com recusa nomeada se já houver repetição — medido em produção, só SELECT: **0** linhas `imp:%`); botão desabilitado enquanto grava. Guardas `CAD-rev` (escritor morto teto zero, índice no arquivo, botão). |
+| 3 | `src/lib/fdip.ts` | Com o nome de conta único por empresa, uma "Conta consolidada" DESATIVADA faz `primeiraContaAtiva` devolver nada e o insert da nova ser recusado — o erro era descartado e a importação terminava com ZERO lançamentos, sem explicação. | A recusa vira erro com a frase do que fazer (reativar a conta). Guarda com negativo. |
+| 4 | `src/lib/fdip.ts` | Categorias novas do extrato: sem dedup DENTRO do lote ("Folha" e "folha " derrubariam o insert inteiro pela unicidade nova) e erro do insert engolido. | Dedup por nome normalizado no lote; recusa vai para `reportar` (o lançamento entra pelo nome mesmo sem a categoria). |
+
+Provas: as quatro guardas novas reprovaram com o defeito plantado (rateio sem
+desfazer, escritor de impostos só em demonstração, índice trocado, erro da conta
+descartado) e voltaram ao verde restaurado. A migration foi aplicada (2×, idempotente) e a
+guarda `scripts/cadastros-hierarquia.sql` rodada inteira num Postgres 17
+embutido (PGlite, com as 98 migrations do `/tmp/pgharness/migrations` + o stub)
+— o `su postgres` do harness é recusado neste ambiente. Teste do índice:
+positivo (outro imposto / outra competência passam) e negativo conferindo a
+MENSAGEM (`movements_imp_ref_uniq`); a recusa com repetição pré-existente
+também conferida pela mensagem. Com o gatilho de folha derrubado, a guarda de
+banco reprova nomeando `A4P-CAD-FOLHA`.
+
+## Pendências declaradas (não bloqueiam)
+
+- ⚠️ **A unicidade de categoria ignora a NATUREZA** (`categories_org_pai_nome_unico`
+  é por empresa + grupo + nome). "Juros" como receita E como despesa na raiz é
+  recusado. Medido em produção: 0 nomes em naturezas diferentes hoje — mas o
+  dedup do `fdip` e a tela seguem a mesma regra, então mudar é decisão de
+  produto (incluir `kind` no índice, na tela e no `fdip` ao mesmo tempo).
+- O caminho de PRODUÇÃO do rateio (`createLancamento`/`criarTitulos` →
+  `movement_splits`) não é exercido pelo e2e (que roda em demonstração) nem
+  provado contra PostgREST; a guarda é estática.
+- `getCostCenters` (usado pelo `ConfirmacaoModal` e pelo `ContratoForm` de
+  lançamentos) ainda oferece centro-grupo; centro não tem trava de folha no
+  banco, então não há recusa — só classificação no nível do grupo.
+- `primeiraContaAtiva` devolve `null` em erro que não seja coluna ausente (o
+  escritor então tenta criar conta) — comportamento herdado.
+
+## Decisões para o CLAUDE.md
+
+- ⚠️ **DUAS GRAVAÇÕES PARA UM LANÇAMENTO: A SEGUNDA RECUSADA DESFAZ A PRIMEIRA.**
+  Título + rateio, venda + título: sem desfazer, o "tente de novo" da tela é
+  quem duplica o dinheiro.
+- ⚠️ **IDEMPOTÊNCIA POR CONSULTA NÃO SEGURA DOIS CLIQUES.** Toda chave de
+  origem que impede duplicata (`rec:`, `pluggy:`, `imp:`) tem índice único
+  parcial no banco; a consulta prévia é só para a tela dizer "já existia".
+- ⚠️ **UNICIDADE NOVA CRIA RECUSA NOVA EM QUEM ESCREVE SOZINHO.** Ao tornar um
+  nome único, procure os escritores automáticos que criam aquele cadastro (a
+  "Conta consolidada" da importação, as categorias do extrato) e confira que a
+  recusa chega à tela em vez de sumir.
