@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
-import { Card, Icon, BRL, ValorIndicador, type IconName } from "@/components/ui";
+import { Card, Icon, BRL, ValorIndicador, SemDados, type IconName } from "@/components/ui";
 import { useRiscoInput } from "./hooks";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -85,7 +85,8 @@ function tresMeses(input: RiskInput): Mes[] {
 function Resumo({ input }: { input: RiskInput }) {
   const meses = React.useMemo(() => tresMeses(input), [input]);
   const jMes = janelaDoMesDe(input.hoje);
-  const saldoAtual = saldoDe(input).valor;
+  const saldoInd = saldoDe(input);
+  const saldoAtual = saldoInd.valor;
   // ⚠️ AQUI ESTAVA O DEFEITO da auditoria, e ele não era de cálculo: os quatro
   // números estavam certos. O saldo é POSIÇÃO (−R$ 31.000 hoje) e os outros
   // três são o PERÍODO — e nenhum lançamento foi liquidado em agosto, porque o
@@ -157,8 +158,11 @@ function Resumo({ input }: { input: RiskInput }) {
             O resultado do mês continua logo abaixo, na terceira leitura, agora
             nomeado como a métrica separada que ele é. */}
         <span className="text-h2 text-muted">Saldo em conta hoje</span>
-        <div className="a4p-heroi mt-2 tabular-nums leading-none">
-          <BRL value={saldoAtual} />
+        <div className="a4p-heroi mt-2 tabular-nums leading-none" data-saldo-heroi>
+          {/* Sem conta não há posição — o herói diz isso no lugar do R$ 0,00. */}
+          {saldoInd.indisponivel
+            ? <SemDados motivo={saldoInd.indisponivel.motivo} codigo={saldoInd.indisponivel.codigo} />
+            : <BRL value={saldoAtual} />}
         </div>
         <span className="text-caption text-faint">Posição das contas, não o resultado do mês</span>
         <div className="mt-5 flex flex-col">

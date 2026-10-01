@@ -135,6 +135,7 @@ export function linhasParaRiskInput(e: EntradaRiskInput): RiskInput {
   return {
     hoje: e.hoje,
     saldoAtual,
+    contas: e.saldosDasContas.length,
     movements,
     partyNames,
     horizonDias: 60,

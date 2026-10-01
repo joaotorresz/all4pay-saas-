@@ -9970,6 +9970,27 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /origemDoNumero\(n\.label\)/.test(kit) && /data-ia-numero=/.test(kit));
 }
 
+/* ── RODADA 5 · saldo zero × nenhuma conta cadastrada ── */
+{
+  const { saldo: saldoS } = await import("@/core/indicadores");
+  const { responderLocal: responderS } = await import("@/core/assistant/engine");
+  const { linhasParaRiskInput: mapS } = await import("@/lib/risco-linhas");
+  const base = { hoje: "2026-08-11", saldoAtual: 0, movements: [], partyNames: {} } as RiskInput;
+  const semConta = saldoS({ ...base, contas: 0 });
+  const zerada = saldoS({ ...base, contas: 2 });
+  const legado = saldoS(base);
+  ok("sem-conta: sem conta cadastrada o saldo é AUSENTE (sem_conta), não R$ 0", semConta.indisponivel?.codigo === "sem_conta");
+  ok("sem-conta: conta existente com saldo zero continua sendo ZERO (é resposta)", !zerada.indisponivel && zerada.valor === 0);
+  ok("sem-conta: sem a informação de contas nada muda (compatível)", !legado.indisponivel);
+  ok("sem-conta: o mapeador de linhas conta as contas", mapS({ hoje: "2026-08-11", saldosDasContas: [], linhas: [] }).contas === 0
+     && mapS({ hoje: "2026-08-11", saldosDasContas: [10, 0], linhas: [] }).contas === 2);
+  const r = responderS("qual meu saldo?", { ...base, contas: 0 });
+  ok("sem-conta: a IA diz a mesma ausência, nunca R$ 0,00",
+     /nenhuma conta cadastrada|não tem conta/i.test(r.resposta + r.numeros.map((n) => n.valor).join(" ")) && !/R\$\s?0,00/.test(r.resposta), r.resposta);
+  const home = readFileSync("src/components/visao-geral/HomeQuatro.tsx", "utf8");
+  ok("sem-conta: o saldo-herói da Home pergunta pela ausência antes do valor", /saldoInd\.indisponivel/.test(home));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

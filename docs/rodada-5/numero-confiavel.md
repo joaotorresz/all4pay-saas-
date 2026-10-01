@@ -69,3 +69,17 @@ errada faz a pessoa concluir que a IA inventou. Guardas (`ia-origem`): toda
 rota existe no inventário e não é alias; ambíguo não ganha link — provadas
 plantando um alias e um mapeamento ambíguo. Jornada `ia-origem`: EBITDA → DRE,
 runway → fluxo de caixa, clicando.
+
+## Passo 4 — saldo zero × nenhuma conta cadastrada
+
+Pendência declarada da ONDA 4: `RiskInput` carregava só `saldoAtual`, e "R$ 0
+de saldo" e "nenhuma conta cadastrada" eram o MESMO número. Agora `contas`
+(quantas contas financeiras) viaja junto — preenchido pelo mapeador único de
+linhas e pela demonstração.
+
+- `saldo()` com `contas === 0` é AUSENTE (`sem_conta`, forma curta "nenhuma
+  conta cadastrada", com o caminho para resolver). Conta existente com saldo
+  zero continua ZERO — é resposta. Sem a informação, nada muda.
+- O saldo-herói da Home e o cartão "Caixa" do DRE mostram a ausência; a IA
+  responde "qual meu saldo?" com a mesma ausência, nunca R$ 0,00.
+- Guardas (`sem-conta`), provadas plantando o defeito.

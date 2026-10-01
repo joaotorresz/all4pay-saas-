@@ -3153,11 +3153,11 @@ const AGOSTO = janelaMes(2026, 7);
   const EXCECOES_VALOR: { arquivo: string; porque: string }[] = [
     {
       arquivo: "src/components/visao-geral/HomeQuatro.tsx",
-      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e saldo é posição, que sempre existe. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
+      porque: "As barras dos três meses e o saldo-herói. A barra de um mês sem movimento é uma barra AUSENTE, que já é a leitura certa; e o saldo-herói, que pergunta por `indisponivel` (sem conta cadastrada) antes de mostrar o valor. As três leituras do lado (entradas/saídas/resultado) passaram por ValorIndicador.",
     },
     {
       arquivo: "src/components/relatorios/DemonstrativoView.tsx",
-      porque: "Só o saldo, que é posição das contas e não tem estado de ausência. O runway do mesmo cartão já lê o indicador inteiro.",
+      porque: "Só o saldo, que entra no cartão como indicador INTEIRO (o cartão mostra a ausência 'sem conta cadastrada'); o .valor lido é o da cascata. O runway do mesmo cartão já lê o indicador inteiro.",
     },
     {
       arquivo: "src/components/movimentacoes/ConciliacaoView.tsx",

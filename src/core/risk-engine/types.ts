@@ -163,6 +163,12 @@ export interface RiskInput {
   } | null;
   hoje: string; // ISO
   saldoAtual: number;
+  /**
+   * Quantas contas financeiras a empresa tem. ⚠️ Separa "R$ 0 de saldo" de
+   * "nenhuma conta cadastrada" — sem ele os dois eram o MESMO número (pendência
+   * declarada da ONDA 4). Ausente = não informado: o saldo segue como antes.
+   */
+  contas?: number;
   movements: RiskMovement[];
   partyNames?: Record<string, string>;
   horizonDias?: number; // padrão 60
