@@ -1,7 +1,7 @@
 /**
  * Fechamento contábil — os PERÍODOS TRAVADOS.
  *
- * `isPeriodLocked` é lido no render do MovementsTable, então tem de ser
+ * `isPeriodLocked` é lido no render (fechamento, razão), então tem de ser
  * síncrono: o localStorage é a camada imediata e, em **live**, um cache
  * hidratado de `accounting_periods` torna o estado cross-device. Quem TRAVA de
  * verdade é o banco (`fechar_periodo` + o gatilho da 0030); isto só espelha.

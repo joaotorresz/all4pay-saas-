@@ -209,6 +209,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
+  // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
+  // por definição — subir esta marca ao servidor não diria nada.
+  "a4p_org_do_cache",
 ];
 
 /**
@@ -492,7 +495,18 @@ export async function hidratar(chaves: string[]): Promise<number> {
  * sobrescrever o servidor com o local de um segundo dispositivo desfaria o
  * trabalho de quem entrou primeiro.
  */
-export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: number; jaExistiam: number }> {
+export async function migrarParaServidor(
+  chaves: string[],
+  orgConfirmada: string,
+): Promise<{ enviadas: number; jaExistiam: number; recusada?: string }> {
+  // ⚠️ O destino do envio é `auth_org_id()` — a organização ABERTA —, não a
+  // dona do cache. Sem esta conferência, trocar da empresa A para a B subia
+  // para a B tudo o que a A tinha no navegador e a B ainda não tinha no
+  // servidor (orçamentos, aprovações, o cadastro da empresa…): uma escrita
+  // entre empresas feita pelo próprio sistema, sem clique de ninguém.
+  if (orgDoCacheLocal() !== orgConfirmada) {
+    return { enviadas: 0, jaExistiam: 0, recusada: "o cache deste navegador não é da organização aberta" };
+  }
   if (!remoto()) return { enviadas: 0, jaExistiam: 0 };
   const locais = chaves.filter((c) => {
     // A migração é justamente o caminho que subiria o rastro antigo para o
@@ -521,6 +535,109 @@ export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: 
     console.error("[store-org] falha na migração inicial", e);
     return { enviadas: 0, jaExistiam: 0 };
   }
+}
+
+/* ========================================================================== */
+/* DONO DO CACHE — de qual organização é o que está neste navegador            */
+/* ========================================================================== */
+
+/**
+ * A organização dona do cache de NEGÓCIO deste navegador.
+ *
+ * ⚠️ **O cache local não sabia de quem era.** As chaves de negócio ficam no
+ * `localStorage` com o mesmo nome para toda organização; ao trocar de empresa
+ * (seletor, ou outro login na mesma máquina) a página recarregava com o cache
+ * da anterior, e a sincronização da sessão fazia DUAS coisas erradas com ele:
+ *   1. **subia para a empresa nova** o que ela ainda não tinha no servidor
+ *      (`migrarParaServidor` envia para `auth_org_id()`, a organização aberta);
+ *   2. as telas que leem síncrono (`ler`, `loadCompany`) mostravam a razão
+ *      social, o regime e os orçamentos da empresa anterior dentro da nova.
+ * O carimbo do perfil (`StoredCompany.orgId`) protegia UMA leitura; esta marca
+ * protege todas as chaves de negócio.
+ */
+export const CHAVE_ORG_DO_CACHE = "a4p_org_do_cache";
+
+export function orgDoCacheLocal(): string | null {
+  if (typeof window === "undefined") return null;
+  try { return localStorage.getItem(CHAVE_ORG_DO_CACHE); } catch { return null; }
+}
+
+function marcarDonoDoCache(orgId: string): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(CHAVE_ORG_DO_CACHE, orgId); } catch { /* sem a marca, a próxima sessão descarta de novo — seguro */ }
+}
+
+/**
+ * Tira do navegador (e da memória) o cache de negócio que não é da organização
+ * aberta. As chaves CONGELADAS ficam: elas não sobem sozinhas nem são lidas por
+ * `ler` em produção — o resgate delas é um clique de gente, na tela que as
+ * mostra.
+ */
+export function descartarCacheDeNegocio(chaves: string[] = CHAVES_DE_NEGOCIO): number {
+  let n = 0;
+  for (const c of chaves) {
+    if (estaCongelada(c)) continue;
+    let tinha = memoria.has(c);
+    if (typeof window !== "undefined") {
+      try {
+        if (localStorage.getItem(c) !== null) tinha = true;
+        localStorage.removeItem(c);
+      } catch { /* sem acesso ao disco: a memória ainda é limpa */ }
+    }
+    memoria.delete(c); versoes.delete(c); MIGRADAS.delete(c); pendentesDeEnvio.delete(c);
+    if (tinha) { n++; avisar(c); }
+  }
+  return n;
+}
+
+export type DonoDoCache = "mesma" | "trocou" | "sem-dono" | "desconhecida";
+
+/**
+ * Confere o cache contra a organização aberta ANTES de qualquer envio.
+ *
+ *  · `desconhecida` — não se sabe qual empresa está aberta: nada é enviado e
+ *    nada é apagado (a hidratação, que só traz do servidor, segue).
+ *  · `mesma` — o cache é desta empresa: envio e hidratação como sempre.
+ *  · `trocou` — o cache é de OUTRA empresa: é descartado (o que ela já tinha
+ *    confirmado continua no servidor dela) e nada sobe.
+ *  · `sem-dono` — cache anterior a esta marca: não dá para provar de quem é, e
+ *    é tratado como o de outra empresa (a mesma decisão do perfil: cache sem
+ *    carimbo é ausente). O que esta empresa tem no servidor volta na hidratação.
+ */
+export function reconciliarDonoDoCache(orgAtiva: string | null): { dono: DonoDoCache; descartadas: number } {
+  if (!orgAtiva) return { dono: "desconhecida", descartadas: 0 };
+  const marca = orgDoCacheLocal();
+  if (marca === orgAtiva) return { dono: "mesma", descartadas: 0 };
+  const descartadas = descartarCacheDeNegocio();
+  marcarDonoDoCache(orgAtiva);
+  return { dono: marca ? "trocou" : "sem-dono", descartadas };
+}
+
+/** A organização aberta agora (a mesma de `auth_org_id()`), lida do servidor. */
+export async function organizacaoAtivaDoServidor(): Promise<string | null> {
+  const { createClient } = await import("@/lib/supabase/client");
+  const { data, error } = await createClient().rpc("minhas_organizacoes");
+  if (error) throw error;
+  const ativa = ((data ?? []) as { org_id: string; ativa: boolean }[]).find((o) => o.ativa);
+  return ativa?.org_id ?? null;
+}
+
+/**
+ * A sincronização inteira da sessão, na ordem que a torna segura:
+ * descobrir a empresa aberta → conferir o dono do cache → enviar (só se o
+ * cache é dela) → hidratar.
+ */
+export async function sincronizarComServidor(chaves: string[] = CHAVES_DE_NEGOCIO): Promise<{
+  dono: DonoDoCache; descartadas: number; enviadas: number; hidratadas: number;
+}> {
+  if (!remoto()) return { dono: "desconhecida", descartadas: 0, enviadas: 0, hidratadas: 0 };
+  let orgAtiva: string | null = null;
+  try { orgAtiva = await organizacaoAtivaDoServidor(); }
+  catch (e) { console.error("[store-org] não foi possível saber a organização aberta; nada do navegador sobe", e); }
+  const { dono, descartadas } = reconciliarDonoDoCache(orgAtiva);
+  const enviadas = dono === "mesma" && orgAtiva ? (await migrarParaServidor(chaves, orgAtiva)).enviadas : 0;
+  const hidratadas = await hidratar(chaves);
+  return { dono, descartadas, enviadas, hidratadas };
 }
 
 /* ========================================================================== */

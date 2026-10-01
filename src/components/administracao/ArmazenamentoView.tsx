@@ -25,7 +25,7 @@
 import * as React from "react";
 import { Card, Button, Icon, StatusBadge, InfoHint, AcaoDestrutiva } from "@/components/ui";
 import {
-  estadoSincronizacao, hidratar, migrarParaServidor,
+  estadoSincronizacao, sincronizarComServidor,
   expurgarCaches, enxugarLocal, exportarEstado, importarEstado, backupValido,
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, CACHES_LOCAIS, META_BYTES_LOCAIS,
   rotuloDaChave, type EstadoSincronizacao, type Backup,
@@ -51,9 +51,13 @@ export function ArmazenamentoView() {
   const sincronizar = async () => {
     setOcupado(true); setMsg(null);
     try {
-      const m = await migrarParaServidor(CHAVES_DE_NEGOCIO);
-      const h = await hidratar(CHAVES_DE_NEGOCIO);
-      setMsg(`${m.enviadas} enviadas ao servidor · ${h} atualizadas a partir dele.`);
+      const r = await sincronizarComServidor(CHAVES_DE_NEGOCIO);
+      setMsg(
+        r.dono === "desconhecida"
+          ? `Não foi possível confirmar a empresa aberta: nada deste navegador foi enviado · ${r.hidratadas} atualizadas a partir do servidor.`
+          : `${r.enviadas} enviadas ao servidor · ${r.hidratadas} atualizadas a partir dele`
+            + (r.descartadas > 0 ? ` · ${r.descartadas} descartadas deste navegador por serem de outra empresa.` : "."),
+      );
       atualizar();
     } finally {
       setOcupado(false);

@@ -169,3 +169,115 @@ lê `identidadeDoCadastro`.
 "O runway não diz 0 meses" passava se o widget não existisse. Agora ela lê o
 CARTÃO e exige o motivo da ausência ou um prazo positivo — e foi isso que
 expôs o título errado.
+
+## Rodada 3 (reservados) — r4/plataforma, 01/10/2026
+
+Os itens que os agentes da rodada acharam em arquivos que não podiam editar.
+Guarda nova: `npm run plataforma-escritores` (`scripts/plataforma-escritores.mts`,
+dentro do `npm test`, roda em modo demonstração) + a jornada
+`scripts/e2e/plataforma-despesa-modal.mjs`.
+
+**O que mudou**
+
+- **`createLancamento` grava na demonstração.** Antes: `return` dentro de
+  `if (isDemo)` e a tela dizia "Despesa salva". Agora `gravarLancamentoDemo`
+  monta as linhas pelo MESMO `buildMovementRows` da produção (parcelas, baixa,
+  `origem: manual`) e grava por `appendImported`, com `category` = nome da
+  categoria (é por ele que o DRE classifica), chave `manual:<id>` única (duas
+  despesas iguais no mesmo dia são duas — o dedup do dataset descartava a
+  segunda) e conferência de que cada título entrou. **Repetir é RECUSADO na
+  demonstração** (não há onde guardar a regra; gravar só o 1º título dizendo
+  "salvo" prometeria repetições que nunca nascem). Guarda: linha, saldo
+  (−87,65 exato), `RiskInput`, segunda despesa idêntica, parcelas. Jornada:
+  Criar → Nova conta a pagar → extrato, títulos, saldo da Home e DRE
+  (Despesas Operacionais +R$ 4.321,07, coluna Total lida pelo cabeçalho com
+  `colSpan`, a lição do A4P-028). **Provada plantando** o `return` de volta:
+  9 asserções reprovam.
+- **Achado no caminho:** `buildMovementRows` fazia `new Date("YYYY-MM-DD")` +
+  `setMonth` — em UTC−3 o vencimento do dia 1º gravava no dia anterior, e
+  31/01 + 1 mês virava 03/03. `vencimentoDaParcela` fatia a string e leva o dia
+  inexistente ao último dia do mês. Vale também para PRODUÇÃO.
+- **`restoreMovement` apagado** (pedia `cancelado → previsto`, recusado sempre;
+  sem chamador). Guarda: `lib/data` não o exporta.
+- **`ReceitaForm`**: a recusa mostra `message + details + hint`
+  (`motivoDaRecusa` em `lib/erros`); no modo pessoal somem Fornecedor/Cliente,
+  Centro de custo (inclusive no rateio), Projeto, Código de referência e NSU —
+  e o escondido não é enviado. Guarda no script + jornada `plataforma-pessoal`.
+- **"Meu perfil"** no menu pessoal, no inventário e no título da tela
+  `/configuracoes` (a guarda menu = tela passou a cobrir `CONFIG_PESSOAL`).
+- **`fetchCompany`** não devolve mais o cache de outra empresa: o cache é
+  carimbado com `orgId` (vindo do servidor) e só vale para a organização
+  aberta (`cacheDaOrganizacao` + `minhas_organizacoes`); sem saber a aberta,
+  nenhum cache vale. Provada plantando o `return loadCompany()`.
+- **PIX** sai de `identidadeDoCadastro(db).documento` (CPF da pessoa física).
+- **Onboarding**: a recusa da alçada é `reportar`-ada e AVISADA na tela antes de
+  entrar; não bloqueia o cadastro e a regra de alçada não mudou.
+- **Código morto** apagado: `visao-geral/MovementsTable.tsx` e
+  `visao-geral/ConciliacaoView.tsx` (nenhum import).
+
+**O que ficou (decisão do dono)**
+
+- **Os grupos do menu pessoal (`SECTIONS_PESSOAL`) rebatizam telas** ("Resumo"
+  para a Visão geral, "Extrato de pagamentos" para Títulos a pagar…). A guarda
+  menu = tela cobre só as Configurações pessoais; cobrar os grupos reprovaria
+  a escolha vigente. Decidir: nomes do PF iguais aos da tela, ou a tela ganha
+  o nome pessoal quando o tipo de conta é pessoal.
+- **Repetição na demonstração**: hoje recusada com motivo. Se o dono quiser
+  repetições na demo, é preciso uma morada para a regra no dataset.
+- **Cache de perfil antigo sem carimbo** passa a ser ignorado em produção até a
+  primeira leitura do servidor carimbá-lo — intencional.
+- Jornadas e2e não foram replantadas com o defeito (exigiria rebuild); a prova
+  por quebra é a do `plataforma-escritores`.
+
+## Rodada 3 (reservados) — revisão adversarial (r4/plataforma-rev, 01/10/2026)
+
+Cada correção do r4/plataforma foi plantada de volta: o escritor da demo
+(9 asserções reprovam), o cache cru do perfil (1 reprova). Elas se sustentam.
+Dois achados novos, ambos consertados com guarda no `plataforma-escritores`:
+
+**O carimbo do perfil protegia UMA leitura; a sincronização SUBIA o cache de
+outra empresa.** As chaves de negócio do navegador (`a4p_company`,
+`a4p_orcamentos`…) não diziam de quem eram. Ao trocar de empresa (seletor,
+ou outro login na mesma máquina) a página recarregava com o cache da
+anterior, `loadCompany()`/`ler()` o mostravam dentro da nova, e
+`SincronizacaoOrg` rodava `migrarParaServidor` ANTES de hidratar — enviando
+para `auth_org_id()` (a empresa aberta) tudo o que a outra tinha e esta ainda
+não tinha no servidor. Escrita entre empresas feita pelo próprio sistema.
+Agora o cache tem dono (`a4p_org_do_cache`, do dispositivo):
+`sincronizarComServidor` descobre a empresa aberta → `reconciliarDonoDoCache`
+(cache de outra empresa, ou SEM marca, é descartado e não sobe; sem saber a
+aberta, nada é apagado nem enviado) → envia só se o dono é a aberta → hidrata.
+`migrarParaServidor` recusa por conta própria quando a marca não bate.
+`trocarOrganizacao` recusa com escrita pendente (nomeando as chaves) e tira o
+cache da empresa que sai antes do recarregamento. As chaves CONGELADAS ficam
+(não sobem sozinhas; o resgate é clique de gente). Provada plantando: sem a
+recusa e sem o descarte, 4 asserções reprovam; com `SincronizacaoOrg`
+chamando `migrarParaServidor` por fora, 1.
+
+**Baixa imediata sem conta caía na PRIMEIRA conta.** O novo escritor da demo
+herdava o desvio do `appendImported`: "Pago" sem conta debitava o saldo de uma
+conta que ninguém escolheu (em produção a linha fica sem conta e nenhum saldo
+anda). O formulário passa a exigir a conta quando há baixa imediata (a mesma
+regra da baixa na linha) e o escritor da demo recusa nomeando. Previsto sem
+conta segue aceito. Provada plantando: 1 reprova.
+
+**O que ficou (decisão do dono)**
+
+- **Cache sem marca é descartado na primeira sessão depois deste deploy.** O
+  que a empresa já tem no servidor volta na hidratação; o que só existisse no
+  navegador (envio recusado sessão após sessão) se perde — e é registrado
+  (`reportar("organizacao.cache")`). Alternativa: adotar o cache sem marca
+  quando o usuário tem UMA empresa só (risco residual: outro usuário na mesma
+  máquina).
+- **As chaves CONGELADAS de outra empresa** (ex.: vendas "só neste
+  navegador") continuam aparecendo com o botão "enviar" depois de trocar de
+  empresa. Enviar é clique, não automático, mas mandaria a venda da empresa A
+  para a B. Decidir: escondê-las fora da empresa dona (exige guardar a marca
+  junto delas) ou descartá-las na troca (perde o resgate da dona).
+- **Dois escritores de título manual na demonstração**: `createLancamento`
+  (formulário do "Adicionar", Nova transação) e o ramo `isDemo` do
+  `TituloForm` (Nova conta a pagar/receber em tela cheia), que grava o plano
+  inteiro — inclusive as ocorrências da recorrente, que o primeiro recusa.
+  Unificar exige o escritor da demo aceitar data de baixa e recorrência.
+- **Título previsto sem conta** ainda recebe a primeira conta no dataset da
+  demo (`appendImported`); não move saldo, mas aparece no extrato dela.

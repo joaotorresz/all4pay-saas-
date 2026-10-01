@@ -66,6 +66,11 @@ export default async function pessoal(navegador) {
   await u.page.waitForTimeout(800);
   const modal = await u.texto();
   v.ok(/Nova despesa/.test(modal), "o formulário se chama Nova despesa no modo pessoal");
+  // O formulário da pessoa física não fala de empresa (eram cinco campos de
+  // contabilidade num "anotar um gasto").
+  for (const rotulo of ["Fornecedor", "Centro de custo", "Projeto", "Código de referência", "Informar NSU?"]) {
+    v.ok(!(await u.page.getByLabel(rotulo, { exact: true }).count()), `no modo pessoal o formulário não mostra "${rotulo}"`);
+  }
   const hoje = await u.page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   await u.page.getByLabel("Valor").first().fill("8765");
   await u.page.getByLabel("Descrição *").fill("Mercado da esquina E2E");
@@ -81,19 +86,16 @@ export default async function pessoal(navegador) {
   v.ok(/Despesa salva/.test(posSalvar), "salvar confirma a despesa", erroForm);
   v.ok(!(await u.page.getByLabel("Descrição *").count()), "salvar fecha o formulário", erroForm);
 
-  /*
-   * ⚠️ NÃO CONFERIDO AQUI, e é DEFEITO em arquivo reservado: na demonstração
-   * `createLancamento` (src/lib/data.ts) não grava nada — "demo: no write, the
-   * form just confirms success" — então a despesa do modal NÃO aparece no
-   * extrato de pagamentos, no saldo nem no DRE da demonstração, embora a tela
-   * diga "Despesa salva". Em produção o caminho grava em `movements` (com
-   * `origem`). Está no relatório da rodada, com a correção proposta. Quando o
-   * escritor gravar na demonstração, troque este bloco pela conferência:
-   *   /contas-a-pagar/titulos contém "Mercado da esquina E2E" e "87,65".
-   */
+  // ⚠️ Antes NÃO conferido: na demonstração `createLancamento` não gravava
+  // nada e a tela dizia "Despesa salva". Agora a despesa tem de estar lá.
   await u.ir("/contas-a-pagar/titulos");
-  const tit = await u.texto();
-  console.log(`  · (demonstração) a despesa ${/Mercado da esquina E2E/.test(tit) ? "JÁ aparece — atualize esta jornada" : "não aparece no extrato: defeito do escritor da demonstração (reservado)"}`);
+  const tit = (await u.texto()).replace(/\n/g, " ");
+  v.ok(/Mercado da esquina E2E/.test(tit) && /87\s*,65/.test(tit), "a despesa salva aparece nos títulos a pagar, com o valor");
+
+  // O perfil se chama "Meu perfil" no menu pessoal E na tela.
+  await u.ir("/configuracoes");
+  const perfilTela = await u.texto();
+  v.ok(/Meu perfil/.test(perfilTela) && !/Configurações da empresa/.test(perfilTela), "a tela do perfil se chama Meu perfil (não \"Configurações da empresa\")");
 
   v.ok(u.erros.length === 0, "nenhum erro de página ou de console", u.erros.slice(0, 2).join(" | "));
   await u.ctx.close();

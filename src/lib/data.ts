@@ -280,13 +280,9 @@ export async function getTrashedMovements(): Promise<Movement[]> {
   return (data ?? []) as Movement[];
 }
 
-/** Restaura um cancelado de volta para EM ABERTO (status → pendente). */
-export async function restoreMovement(id: string): Promise<void> {
-  if (isDemo) { updateImportedMovement(id, { status: "pendente" }); return; }
-  const supabase = createClient();
-  const { error } = await supabase.from("movements").update({ situacao: "previsto" }).eq("id", id);
-  if (error) throw error;
-}
+// ⚠️ `restoreMovement` (cancelado → previsto) foi APAGADO: a máquina de
+// estados declara `cancelado` terminal e o banco recusava SEMPRE. O gesto que a
+// regra manda é lançar de novo — `lib/lixeira-relancar.relancarCancelado`.
 
 /**
  * Apaga DEFINITIVAMENTE um lançamento — sem volta.
@@ -660,15 +656,32 @@ function exigirValor(valor: number, campo = "valor"): number {
   return valor;
 }
 
+/**
+ * O vencimento da parcela `i` (0 = a primeira), FATIANDO a string.
+ *
+ * ⚠️ Era `isoDay(new Date("YYYY-MM-DD"))`: a string sem hora é meia-noite UTC,
+ * e em UTC−3 o dia local é o ANTERIOR — toda despesa lançada para o dia 1º
+ * gravava o vencimento no dia 30/31 do mês anterior (achado pela guarda do
+ * escritor da demonstração, que confere a data que entrou). E `setMonth` fazia
+ * 31/01 + 1 mês virar 03/03: o dia que não existe no mês vira o ÚLTIMO dia
+ * dele, nunca escorrega para o mês seguinte.
+ */
+export function vencimentoDaParcela(primeiro: string, i: number): string {
+  const [a, m, d] = primeiro.slice(0, 10).split("-").map(Number);
+  const total = a * 12 + (m - 1) + i;
+  const ano = Math.floor(total / 12);
+  const mes = total % 12; // 0-based
+  const ultimo = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  const dia = Math.min(d, ultimo);
+  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
 /** Build the movement rows for a lançamento (handles parcelamento). */
 function buildMovementRows(input: LancamentoInput, groupId: string) {
   const type: MovementType = input.kind === "receita" ? "entrada" : "saida";
   const n = Math.max(1, input.installments);
   const per = Math.round((exigirValor(input.amount) / n) * 100) / 100;
-  const base = new Date(input.due_date);
   return Array.from({ length: n }, (_, i) => {
-    const due = new Date(base);
-    due.setMonth(base.getMonth() + i);
     const settledNow = input.settled && i === 0;
     return {
       account_id: input.account_id,
@@ -683,7 +696,7 @@ function buildMovementRows(input: LancamentoInput, groupId: string) {
       project_id: exigirUUID(input.project_id ?? null, "projeto"),
       party_id: exigirUUID(input.party_id, "contato"),
       amount: per,
-      due_date: isoDay(due),
+      due_date: vencimentoDaParcela(input.due_date, i),
       paid_date: settledNow ? isoDay(new Date()) : null,
       reconciled: false,
       description: input.description,
@@ -728,6 +741,84 @@ function fatiarValor(valor: number, splits: SplitLine[]): (SplitLine & { amount:
   });
 }
 
+async function nomeDaCategoriaDemo(id: string | null): Promise<string | null> {
+  if (!id) return null;
+  return (await listarCategorias()).find((c) => c.id === id)?.nome ?? null;
+}
+
+/**
+ * ⚠️ **O ESCRITOR DA DEMONSTRAÇÃO DO "ADICIONAR" — antes ele não gravava nada.**
+ *
+ * `createLancamento` fazia `return` dentro de `if (isDemo)` e a tela dizia
+ * "Despesa salva": a despesa não aparecia no extrato, no saldo nem no DRE. É o
+ * "escritor morto" pelo avesso — lá a produção não lia o que a tela gravava;
+ * aqui a demonstração não gravava o que a tela anunciava.
+ *
+ * As linhas saem do MESMO `buildMovementRows` da produção (parcelas, datas,
+ * baixa imediata, procedência `manual`); só o `status` é traduzido de
+ * `situacao`, porque o dataset da demonstração guarda a coluna derivada.
+ *
+ * - O `category` (texto) recebe o NOME da categoria escolhida: é por ele que o
+ *   DRE da demonstração classifica (`cat(m) = m.category`).
+ * - A `chave` é a do LANÇAMENTO MANUAL, única por título: em produção um
+ *   lançamento manual não tem chave de ingestão e duas despesas iguais no mesmo
+ *   dia são duas despesas. Sem isto o dedup do dataset descartaria a segunda em
+ *   silêncio — a tela diria "salva" sobre uma linha que não entrou.
+ * - E CONFERE que cada título entrou; senão lança, com a quantidade.
+ * - ⚠️ A repetição é RECUSADA antes de gravar: a demonstração não tem tabela de
+ *   regras de recorrência, e gravar só o primeiro título dizendo "salvo"
+ *   prometeria repetições que nunca nascem.
+ */
+function gravarLancamentoDemo(input: LancamentoInput, groupId: string, nomeCategoria: string | null): void {
+  // Em produção este dataset não é lido por ninguém: gravar aqui seria o
+  // "escritor morto". A trava fica DENTRO da função, não só em quem a chama.
+  if (!isDemo) throw new Error("O dataset da demonstração só é gravado na demonstração.");
+  // ⚠️ `appendImported` põe a linha sem conta na PRIMEIRA conta do dataset e,
+  // baixada, debita o saldo dela — uma conta que ninguém escolheu. Em produção
+  // a linha fica sem conta e nenhum saldo anda. Recusa nomeada em vez de palpite.
+  if (input.settled && !input.account_id) {
+    throw new Error("Escolha a conta: a baixa imediata move o saldo de uma conta, e nenhuma foi informada.");
+  }
+  if (input.repeat) {
+    throw new Error(
+      "A repetição não é gravada na demonstração (não há onde guardar a regra). "
+      + "Desligue \"Repetir lançamento\" para salvar este título — em produção a regra é gravada.",
+    );
+  }
+  // As chaves de cadastro da demonstração têm id próprio (não UUID): a linha
+  // sai do montador da produção SEM elas, e elas voltam como vieram.
+  const rows = buildMovementRows(
+    { ...input, category_id: null, cost_center_id: null, project_id: null, party_id: null }, groupId,
+  ).map((r) => ({
+    ...r,
+    category_id: input.category_id || null,
+    cost_center_id: input.cost_center_id || null,
+    project_id: input.project_id || null,
+    party_id: input.party_id || null,
+  }));
+  const splits = (input.splits ?? []).filter((x) => x.category_id || x.cost_center_id || x.project_id);
+  const ids = rows.map((_, k) => `mv_${Date.now().toString(36)}_${groupId.slice(0, 8)}_${k}`);
+  rows.forEach((r, k) => {
+    const { situacao, ...resto } = r;
+    appendImported({
+      movement: {
+        ...resto,
+        id: ids[k],
+        account_id: r.account_id ?? "",
+        status: situacao === "baixado" ? "pago" : "pendente",
+        category: nomeCategoria,
+        splits: splits.length ? fatiarValor(r.amount, splits) : null,
+        chave: `manual:${ids[k]}`,
+      } as never,
+    });
+  });
+  const gravados = new Set((importedMovements() ?? []).map((m) => m.id));
+  const faltam = ids.filter((id) => !gravados.has(id)).length;
+  if (faltam > 0) {
+    throw new Error(`${faltam} de ${ids.length} título(s) não entraram no dataset da demonstração. Nada foi confirmado — confira o extrato antes de lançar de novo.`);
+  }
+}
+
 /** Create a lançamento (Receita/Despesa) — movements (+ splits, recurrence). */
 export async function createLancamento(input: LancamentoInput): Promise<void> {
   const groupId =
@@ -735,7 +826,8 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
 
   if (isDemo) {
     await demoDelay();
-    return; // demo: no write, the form just confirms success
+    gravarLancamentoDemo(input, groupId, await nomeDaCategoriaDemo(input.category_id));
+    return;
   }
 
   const supabase = createClient();

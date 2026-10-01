@@ -3,7 +3,9 @@
 /**
  * A sincronização do estado da organização — montada uma vez no `AppShell`.
  *
- * Faz duas coisas, nesta ordem, e a ordem importa:
+ * Faz três coisas, nesta ordem, e a ordem importa:
+ *  0. **Confere de quem é o cache** (`reconciliarDonoDoCache`): cache de outra
+ *     organização (ou sem marca) é descartado e não sobe;
  *  1. **Migra** para o servidor o que já está neste navegador e ainda não subiu
  *     (só o que o servidor não tem — sobrescrever com o local de um segundo
  *     dispositivo desfaria o trabalho de quem entrou primeiro);
@@ -11,7 +13,8 @@
  *     mesma empresa passarem a ver o mesmo estado.
  */
 import * as React from "react";
-import { hidratar, migrarParaServidor, expurgarCaches, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
+import { sincronizarComServidor, expurgarCaches, CHAVES_DE_NEGOCIO } from "@/lib/store-org";
+import { reportar } from "@/lib/erros";
 import { definirUsuarioDasConversas } from "@/lib/ia-conversas";
 import { isDemo } from "@/lib/demo";
 
@@ -34,9 +37,17 @@ export function SincronizacaoOrg() {
         } catch { /* sem sessão: cai no balde local, nunca no de outro usuário */ }
       }
       if (!vivo) return;
-      await migrarParaServidor(CHAVES_DE_NEGOCIO);
-      if (!vivo) return;
-      await hidratar(CHAVES_DE_NEGOCIO);
+      // ⚠️ Envio e hidratação passam pela conferência do DONO do cache: antes
+      // daqui, o que estava no navegador subia para a organização ABERTA mesmo
+      // quando era de outra (trocar de empresa, outro login na mesma máquina).
+      const r = await sincronizarComServidor(CHAVES_DE_NEGOCIO);
+      if (r.descartadas > 0) {
+        reportar(
+          "organizacao.cache",
+          new Error(`${r.descartadas} item(ns) de negócio no navegador não eram da organização aberta (${r.dono})`),
+          "o cache de outra empresa foi descartado deste navegador e NÃO subiu; o que é desta empresa volta do servidor",
+        );
+      }
     })();
     return () => { vivo = false; };
   }, []);
