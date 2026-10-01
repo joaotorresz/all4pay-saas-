@@ -192,3 +192,55 @@ núcleo (`configPadrao`) para a demonstração.
 - **"Permitir notificações por e-mail"** em Dados da empresa segue sem efeito
   (controle de outra tela, não tocado).
 - O motor de regras (`financial_rules`) não roda mais no cron (ver acima).
+
+## Revisão adversarial (branch `r2/aut-rev`, 01/10/2026)
+
+### ⚠️ O TETO DOS ENCARGOS MORA NO NÚCLEO, NÃO NO CAMPO DA TELA
+
+A tela limitava multa a 2% e juros a 1% ao mês, mas `redigirCobranca` só
+fazia `Math.max(0, …)`. Os parâmetros chegam do banco (`automacoes.parametros`
+é `jsonb` livre) e qualquer escritor — a API com a sessão de um admin, um SQL
+na mão, uma versão futura da tela — podia gravar `2` onde se queria 2%: o
+cliente receberia uma cobrança com **200% de multa**, identificando a empresa
+pelo CNPJ. Agora `TETO_MULTA`/`TETO_JUROS_MES` (0,02 · 0,01) limitam no núcleo,
+e a guarda `aut: multa/juros acima do teto do CDC…` foi provada plantando o
+defeito (sem o limite, reprova nomeando a mensagem do Cliente Dois).
+
+### Conferido nesta revisão (e como)
+
+- Migration aplicada num banco local (cópia de `base_quattro`): aplica, reaplica
+  sem erro e sem duplicar; o seed cobre empresa que já existia ANTES dela (6
+  linhas, todas desligadas); a cópia do `a4p_regua_envios` entra como `manual`,
+  ignora item sem título/etapa e cai em `manual` quando o canal é estranho.
+  Medido em produção (SELECT): `a4p_regua_envios` tem **zero** itens — a cópia
+  não move nada hoje.
+- `scripts/automacoes.sql`: 9 casos verdes; com o gatilho removido, o caso 1
+  reprova pelo motivo certo ("o default nasceu só por seed?"). ⚠️ O arreio
+  insere `auth.users (id, email, aud, role)`: o banco local de prova não tem
+  `aud`/`role` (o Supabase tem) — rodei uma cópia sem as duas colunas.
+- Guardas plantadas: "simulado conta como avisado" → 4 reprovações no
+  `engine-audit`; nome de variável de ambiente no texto da tela → o bloco
+  `aut-tela` da `consistencia` reprova nomeando o arquivo.
+- Produção (SELECT): `service_role` tem INSERT em `audit_log` (o rastro diário
+  do runner grava); as colunas que `automacao_contexto` lê existem todas.
+
+### Pendências do dono (não resolvidas aqui, de propósito)
+
+- ⚠️ **`TWILIO_TEMPLATE_COBRANCA_SID` deixou de ser lido.** Se ele está
+  configurado na Vercel hoje, a cobrança por WhatsApp passa a sair como
+  mensagem LIVRE (que a Meta recusa fora da janela de 24h) até alguém criar
+  os três templates por tom (`…_COBRANCA_LEMBRETE_SID`, `…_ATRASO_SID`,
+  `…_FORMAL_SID`) com as 5 variáveis. Conferir antes do merge.
+- **Quem pode forjar "enviado"** (já declarado acima): um lançador, pela API,
+  consegue gravar ou trocar o `status` de um registro. Fechar exige uma função
+  `SECURITY DEFINER` para o registro manual + revogar UPDATE de `status`.
+- **Tempo de execução do runner**: as empresas são processadas em sequência,
+  numa função da Vercel com prazo. Com muitas empresas e provedor ativo, a
+  execução pode ser cortada no meio — a ordem grava → envia → conclui garante
+  que o corte deixa `pendente`, nunca reenvio, mas a empresa seguinte fica sem
+  o aviso do dia. Medir com `?dryRun=1` antes de ligar o provedor.
+- **Empresa com assinatura vencida** continua recebendo as automações (o
+  runner não lê o plano). Decisão de produto: o bloqueio suave para a escrita,
+  não a leitura — e um resumo é leitura.
+- `automacoes_inicial()` é `SECURITY DEFINER`, mas só como função de GATILHO
+  (EXECUTE revogado de public/anon/authenticated): não muda quem chama o quê.
