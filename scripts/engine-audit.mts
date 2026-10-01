@@ -9949,6 +9949,27 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /if \(isDemo\) return Promise\.resolve\(cache\)/.test(libE) && !/demo\/seed|DEMO_/.test(libE));
 }
 
+/* ── RODADA 5 · o número da IA leva à tela de origem ── */
+{
+  const { origemDoNumero, ROTAS_DE_ORIGEM } = await import("@/core/assistant/origem-numero");
+  const { INVENTARIO } = await import("@/core/rotas/inventario");
+  const { destinoDe } = await import("@/core/rotas/aliases");
+  const publicadas = new Set(INVENTARIO.map((r: { rota: string }) => r.rota));
+  const fora = ROTAS_DE_ORIGEM.filter((r) => !publicadas.has(r) || destinoDe(r) !== null);
+  ok("ia-origem: toda tela de origem existe no inventário e não é alias", fora.length === 0, fora.join(", "));
+  ok("ia-origem: EBITDA leva ao DRE · Runway ao fluxo · Saldo ao Início",
+     origemDoNumero("EBITDA")?.rota === "/dashboard/reports/dre"
+     && origemDoNumero("Runway")?.rota === "/fluxo-caixa"
+     && origemDoNumero("Saldo")?.rota === "/");
+  // ⚠️ Ambíguo fica sem link: levar à tela errada é pior que não levar.
+  const ambiguos = ["Vencido", "Total", "Valor", "Parcela", "Markup", "Em atraso", "Receita"];
+  const comLink = ambiguos.filter((r) => origemDoNumero(r) !== null);
+  ok("ia-origem: rótulo ambíguo ou de calculadora NÃO ganha link", comLink.length === 0, comLink.join(", "));
+  const kit = readFileSync("src/components/ia/chat-kit.tsx", "utf8");
+  ok("ia-origem: a bolha da resposta usa o mapa (o número vira link)",
+     /origemDoNumero\(n\.label\)/.test(kit) && /data-ia-numero=/.test(kit));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

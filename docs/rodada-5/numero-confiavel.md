@@ -54,3 +54,18 @@ Medido em produção: 5 das 11 categorias em uso sem `dre_linha` — o DRE delas
   (caso com duas linhas — o plantio só reprovou depois que esse caso entrou);
   o plano atualiza/cria/pula certo. Jornada `dre-declarar`: na demonstração,
   101 → 0 lançamentos por palpite e o Resultado Líquido idêntico ao centavo.
+
+## Passo 3 — o número da IA leva à tela de origem
+
+Pendência declarada da ONDA 14. `core/assistant/origem-numero` mapeia o RÓTULO
+do número para a tela que mostra o mesmo número (EBITDA/receita bruta/margens →
+DRE; runway/burn/ruptura → fluxo de caixa; saldo → Início; a receber/a pagar →
+os painéis; vencidos → inadimplência; custo fixo → recorrentes). Na bolha da
+resposta, o número vira link.
+
+⚠️ Conservador de propósito: rótulo ambíguo ("Vencido", "Total", "Receita"
+sem qualificador) e número de calculadora ficam SEM link — levar à tela
+errada faz a pessoa concluir que a IA inventou. Guardas (`ia-origem`): toda
+rota existe no inventário e não é alias; ambíguo não ganha link — provadas
+plantando um alias e um mapeamento ambíguo. Jornada `ia-origem`: EBITDA → DRE,
+runway → fluxo de caixa, clicando.
