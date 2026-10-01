@@ -150,6 +150,13 @@ const AGOSTO: Intervalo = { de: "2026-08-01", ate: "2026-08-31" };
 /** Janela sem um único lançamento — o caso em que não há o que afirmar. */
 const JANEIRO: Intervalo = { de: "2026-01-01", ate: "2026-01-31" };
 
+/** "2026-08-31" → "2026-09-01" (fatiando a data local — nunca UTC). */
+function diaSeguinte(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const BASES: { nome: string; input: RiskInput; intervalo: Intervalo; pergunta: string }[] = [
   { nome: "fixture compartilhada · agosto", input: FIXTURE.INPUT, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
   { nome: "empresa que queima · agosto", input: FIXTURE.INPUT_QUEIMANDO, intervalo: AGOSTO, pergunta: "qual o ebitda em agosto" },
@@ -285,13 +292,17 @@ const SUPERFICIES: Superficie[] = [
     nome: "#9 Investor Update · receita do mês",
     prosa: false,
     regimes: ["competencia"],
+    // ⚠️ O update é do ÚLTIMO MÊS FECHADO: o relatório de agosto é o que se
+    // gera em setembro. `hoje` = o dia seguinte ao fim do intervalo. Com
+    // `hoje` = 31/08 ele falaria de julho — e era o defeito ("Fechamos
+    // outubro" no dia 1º de outubro, com o mês mal começado).
     exibe: (c) => {
-      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const u = montarInvestorUpdate({ ...c.input, hoje: diaSeguinte(c.intervalo.ate) } as RiskInput);
       const kpi = u.kpis.find((k) => k.id === "receita");
       return { receita_bruta: typeof kpi?.valor === "number" ? fmt(kpi.valor) : null };
     },
     margens: (c) => {
-      const u = montarInvestorUpdate({ ...c.input, hoje: c.intervalo.ate } as RiskInput);
+      const u = montarInvestorUpdate({ ...c.input, hoje: diaSeguinte(c.intervalo.ate) } as RiskInput);
       const kpi = u.kpis.find((k) => k.id === "margem");
       const can = cascataDRE(c.input, { intervalo: c.intervalo, regime: "competencia" });
       const txt = String(kpi?.valor ?? "—");
