@@ -228,3 +228,56 @@ dentro do `npm test`, roda em modo demonstração) + a jornada
   primeira leitura do servidor carimbá-lo — intencional.
 - Jornadas e2e não foram replantadas com o defeito (exigiria rebuild); a prova
   por quebra é a do `plataforma-escritores`.
+
+## Rodada 3 (reservados) — revisão adversarial (r4/plataforma-rev, 01/10/2026)
+
+Cada correção do r4/plataforma foi plantada de volta: o escritor da demo
+(9 asserções reprovam), o cache cru do perfil (1 reprova). Elas se sustentam.
+Dois achados novos, ambos consertados com guarda no `plataforma-escritores`:
+
+**O carimbo do perfil protegia UMA leitura; a sincronização SUBIA o cache de
+outra empresa.** As chaves de negócio do navegador (`a4p_company`,
+`a4p_orcamentos`…) não diziam de quem eram. Ao trocar de empresa (seletor,
+ou outro login na mesma máquina) a página recarregava com o cache da
+anterior, `loadCompany()`/`ler()` o mostravam dentro da nova, e
+`SincronizacaoOrg` rodava `migrarParaServidor` ANTES de hidratar — enviando
+para `auth_org_id()` (a empresa aberta) tudo o que a outra tinha e esta ainda
+não tinha no servidor. Escrita entre empresas feita pelo próprio sistema.
+Agora o cache tem dono (`a4p_org_do_cache`, do dispositivo):
+`sincronizarComServidor` descobre a empresa aberta → `reconciliarDonoDoCache`
+(cache de outra empresa, ou SEM marca, é descartado e não sobe; sem saber a
+aberta, nada é apagado nem enviado) → envia só se o dono é a aberta → hidrata.
+`migrarParaServidor` recusa por conta própria quando a marca não bate.
+`trocarOrganizacao` recusa com escrita pendente (nomeando as chaves) e tira o
+cache da empresa que sai antes do recarregamento. As chaves CONGELADAS ficam
+(não sobem sozinhas; o resgate é clique de gente). Provada plantando: sem a
+recusa e sem o descarte, 4 asserções reprovam; com `SincronizacaoOrg`
+chamando `migrarParaServidor` por fora, 1.
+
+**Baixa imediata sem conta caía na PRIMEIRA conta.** O novo escritor da demo
+herdava o desvio do `appendImported`: "Pago" sem conta debitava o saldo de uma
+conta que ninguém escolheu (em produção a linha fica sem conta e nenhum saldo
+anda). O formulário passa a exigir a conta quando há baixa imediata (a mesma
+regra da baixa na linha) e o escritor da demo recusa nomeando. Previsto sem
+conta segue aceito. Provada plantando: 1 reprova.
+
+**O que ficou (decisão do dono)**
+
+- **Cache sem marca é descartado na primeira sessão depois deste deploy.** O
+  que a empresa já tem no servidor volta na hidratação; o que só existisse no
+  navegador (envio recusado sessão após sessão) se perde — e é registrado
+  (`reportar("organizacao.cache")`). Alternativa: adotar o cache sem marca
+  quando o usuário tem UMA empresa só (risco residual: outro usuário na mesma
+  máquina).
+- **As chaves CONGELADAS de outra empresa** (ex.: vendas "só neste
+  navegador") continuam aparecendo com o botão "enviar" depois de trocar de
+  empresa. Enviar é clique, não automático, mas mandaria a venda da empresa A
+  para a B. Decidir: escondê-las fora da empresa dona (exige guardar a marca
+  junto delas) ou descartá-las na troca (perde o resgate da dona).
+- **Dois escritores de título manual na demonstração**: `createLancamento`
+  (formulário do "Adicionar", Nova transação) e o ramo `isDemo` do
+  `TituloForm` (Nova conta a pagar/receber em tela cheia), que grava o plano
+  inteiro — inclusive as ocorrências da recorrente, que o primeiro recusa.
+  Unificar exige o escritor da demo aceitar data de baixa e recorrência.
+- **Título previsto sem conta** ainda recebe a primeira conta no dataset da
+  demo (`appendImported`); não move saldo, mas aparece no extrato dela.

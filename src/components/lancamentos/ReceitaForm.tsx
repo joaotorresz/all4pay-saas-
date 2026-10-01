@@ -148,6 +148,11 @@ export function ReceitaForm({
     amount: f.amount <= 0,
     category_id: !f.category_id,
     due_date: !f.due_date,
+    // ⚠️ Baixa imediata sem conta é dinheiro que saiu (ou entrou) de lugar
+    // nenhum: em produção o saldo das contas não se move e o DRE conta o
+    // título como pago; na demonstração o dataset o jogava na PRIMEIRA conta,
+    // calado. A baixa da linha (ModalBaixa) já exige a conta — aqui também.
+    account_id: f.settled && !f.account_id,
     // O rateio fecha 100% — senão a fatia gravada não explica o lançamento.
     rateio: f.rateioOn && !rateioValido(f.splits
       .filter((sp) => sp.category_id || sp.cost_center_id)
@@ -186,7 +191,11 @@ export function ReceitaForm({
   const submit = async (again: boolean) => {
     setTried(true);
     if (Object.values(errors).some(Boolean)) {
-      onToast(errors.rateio ? "O rateio precisa somar 100%." : "Revise os campos obrigatórios");
+      onToast(
+        errors.rateio ? "O rateio precisa somar 100%."
+        : errors.account_id ? `Escolha a conta de ${isReceita ? "recebimento" : "pagamento"}: a baixa imediata move o saldo de uma conta.`
+        : "Revise os campos obrigatórios",
+      );
       return;
     }
     try {
@@ -477,6 +486,7 @@ export function ReceitaForm({
                 options={opcoes.contas}
                 value={f.account_id}
                 onChange={(v) => set({ account_id: v })}
+                invalid={invalid("account_id")}
               />
             </div>
 

@@ -773,6 +773,12 @@ function gravarLancamentoDemo(input: LancamentoInput, groupId: string, nomeCateg
   // Em produção este dataset não é lido por ninguém: gravar aqui seria o
   // "escritor morto". A trava fica DENTRO da função, não só em quem a chama.
   if (!isDemo) throw new Error("O dataset da demonstração só é gravado na demonstração.");
+  // ⚠️ `appendImported` põe a linha sem conta na PRIMEIRA conta do dataset e,
+  // baixada, debita o saldo dela — uma conta que ninguém escolheu. Em produção
+  // a linha fica sem conta e nenhum saldo anda. Recusa nomeada em vez de palpite.
+  if (input.settled && !input.account_id) {
+    throw new Error("Escolha a conta: a baixa imediata move o saldo de uma conta, e nenhuma foi informada.");
+  }
   if (input.repeat) {
     throw new Error(
       "A repetição não é gravada na demonstração (não há onde guardar a regra). "

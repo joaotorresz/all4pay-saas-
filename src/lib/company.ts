@@ -9,7 +9,7 @@ import { isDemo } from "@/lib/demo";
 import type { PerfilEmpresa, Participante, Estrutura } from "@/core/onboarding";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
-import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
+import { ler as lerOrg, gravar as gravarOrg, organizacaoAtivaDoServidor } from "@/lib/store-org";
 
 const KEY = "a4p_company";
 
@@ -70,13 +70,6 @@ export function cacheDaOrganizacao(cache: StoredCompany | null, orgAtiva: string
   return cache.orgId === orgAtiva ? cache : null;
 }
 
-/** A organização aberta agora (a mesma de `auth_org_id()`), ou null. */
-async function organizacaoAtiva(s: ReturnType<typeof createClient>): Promise<string | null> {
-  const { data, error } = await s.rpc("minhas_organizacoes");
-  if (error) throw error;
-  const ativa = ((data ?? []) as { org_id: string; ativa: boolean }[]).find((o) => o.ativa);
-  return ativa?.org_id ?? null;
-}
 
 /** Perfil efetivo: demo → cache local; live → `company_profiles` da org (RLS),
  *  com fallback no cache SÓ quando ele é da organização aberta. Hidrata o cache
@@ -97,7 +90,7 @@ export async function fetchCompany(): Promise<StoredCompany | null> {
     reportar("cadastro.empresa", e, "os dados da empresa não carregam do servidor; o cache só é usado se for da empresa aberta", true);
   }
   try {
-    return cacheDaOrganizacao(loadCompany(), await organizacaoAtiva(s));
+    return cacheDaOrganizacao(loadCompany(), await organizacaoAtivaDoServidor());
   } catch (e) {
     // Sem saber qual empresa está aberta, nenhum cache é confiável.
     reportar("cadastro.empresa", e, "sem saber a empresa aberta, o cadastro em cache não é mostrado e a tela pede o cadastro de novo", true);

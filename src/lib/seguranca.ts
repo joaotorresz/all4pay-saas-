@@ -56,8 +56,25 @@ export async function listarMinhasOrganizacoes(): Promise<OrganizacaoDoUsuario[]
  */
 export async function trocarOrganizacao(orgId: string): Promise<void> {
   if (semServidor()) return;
+  const store = await import("@/lib/store-org");
+  // ⚠️ Escrita ainda não confirmada é trabalho desta empresa que só existe na
+  // memória: recarregar a perderia, e a próxima sessão — já na outra empresa —
+  // não pode mais enviá-la para cá. Recusa com o nome do que falta.
+  const pendentes = store.estadoSincronizacao().pendentes;
+  if (pendentes.length > 0) {
+    throw new Error(
+      `Há alterações ainda não enviadas ao servidor (${pendentes.map(store.rotuloDaChave).join(", ")}). `
+      + "Aguarde a sincronização (ou confira em Administração › Armazenamento) antes de trocar de empresa.",
+    );
+  }
   const { error } = await (await cliente()).rpc("trocar_organizacao", { p_org: orgId });
   if (error) throw new Error(error.message);
+  // ⚠️ O cache de negócio deste navegador é da empresa que está SAINDO. Sem
+  // tirá-lo antes do recarregamento, a página nova o mostraria dentro da outra
+  // empresa e a sincronização o subiria para ela. A conferência da sessão
+  // (`reconciliarDonoDoCache`) cobre os outros caminhos (outro login, cache
+  // antigo); aqui ele sai antes da primeira pintura.
+  store.reconciliarDonoDoCache(orgId);
   if (typeof window !== "undefined") window.location.reload();
 }
 
