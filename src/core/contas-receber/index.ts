@@ -41,7 +41,7 @@
  * Puro, tipado, demo-safe, sem I/O e sem relógio. Versão `contas-receber/1.0.0`.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
-import { magnitude, liquidado, previsto, cancelado, dataDe } from "@/core/indicadores/convencoes";
+import { magnitude, liquidado, previsto, cancelado, dataDe, ehTransferenciaEntreContas } from "@/core/indicadores/convencoes";
 import { foraDaBaseTributavel } from "@/core/indicadores";
 
 export const CONTAS_RECEBER_VERSION = "contas-receber/1.0.0";
@@ -70,7 +70,48 @@ export interface FiltroContasReceber {
  * o bloco 1 do cabeçalho: transferência entre contas próprias não é recebível.
  */
 export const ehContaAReceber = (m: RiskMovement) =>
-  m.type === "entrada" && !cancelado(m) && !foraDaBaseTributavel(m.category);
+  m.type === "entrada" && !cancelado(m) && !naoEhRecebivel(m);
+
+/**
+ * ⚠️ Resgate e aplicação são dinheiro da PRÓPRIA empresa mudando de bolso
+ * (da aplicação para a conta), como a transferência: não há devedor do outro
+ * lado. Lançados à mão como título previsto, continuam fora — senão o resgate
+ * agendado de um CDB entrava no painel de cobrança, na concentração por
+ * cliente e na régua. Juros e empréstimo ficam com a exceção do título manual:
+ * ali existe alguém que deve.
+ */
+const DINHEIRO_PROPRIO = /\b(resgate|aplica[çc][ãa]o|aplica[çc][õo]es)\b/i;
+export const ehDinheiroDaPropriaEmpresa = (categoria: string | null | undefined): boolean =>
+  DINHEIRO_PROPRIO.test(categoria ?? "");
+
+/**
+ * Procedências de quem LANÇOU o título como a receber: a pessoa no formulário,
+ * a venda, o contrato, a regra de recorrência.
+ */
+const LANCADO_COMO_TITULO = new Set(["manual", "venda", "contrato", "recorrencia"]);
+
+/**
+ * ⚠️ A exclusão olha a NATUREZA do movimento, não só o nome da categoria.
+ *
+ * A primeira versão tirava do painel toda entrada cuja categoria casasse
+ * `foraDaBaseTributavel` — e um título lançado à mão em "a receber" na
+ * categoria "Juros e rendimentos" ou "Empréstimo" (o juro que um cliente deve,
+ * o empréstimo a um sócio que ele vai devolver) SUMIA da tela de cobrança. Quem
+ * o lançou como recebível declarou que alguém deve; esconder isso é perder a
+ * cobrança.
+ *
+ * O que a regra existe para tirar é a entrada que chega pelo EXTRATO (ou pela
+ * importação, Open Finance, OCR — `origem` nula no acervo importado): o
+ * resgate, o empréstimo creditado, o rendimento da aplicação. E a
+ * transferência entre contas próprias nunca é recebível, nem lançada à mão —
+ * o formulário de transferência grava `origem: "manual"` e ela continua sendo
+ * dinheiro que já era da empresa.
+ */
+export function naoEhRecebivel(m: RiskMovement): boolean {
+  if (ehTransferenciaEntreContas(m.category) || ehDinheiroDaPropriaEmpresa(m.category)) return true;
+  if (!foraDaBaseTributavel(m.category)) return false;
+  return !LANCADO_COMO_TITULO.has((m.origem ?? "").trim().toLowerCase());
+}
 
 function passaNosFiltros(
   m: RiskMovement, f: FiltroContasReceber, nomes: Record<string, string> | undefined,

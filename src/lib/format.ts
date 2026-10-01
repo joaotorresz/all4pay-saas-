@@ -85,13 +85,23 @@ export function brlParts(value: number): { integer: string; decimals: string } {
  */
 export function pct(fracao: number, casas = 1): string {
   if (!Number.isFinite(fracao)) return "—";
-  return `${(fracao * 100).toFixed(casas).replace(".", ",")}%`;
+  return pctDeInteiro(fracao * 100, casas);
 }
 
-/** O mesmo, para quem já tem o número em pontos percentuais (12,4 → "12,4%"). */
+/**
+ * O mesmo, para quem já tem o número em pontos percentuais (12,4 → "12,4%").
+ *
+ * ⚠️ O NEGATIVO usa `−` (U+2212), a regra de percentual de `REGRAS_DE_FORMATO`.
+ * O `toFixed` devolve o hífen do teclado e era ele que saía na tela ("-12,4%"),
+ * desalinhando a coluna ao lado de um "−3,1%" montado à mão. E o arredondamento
+ * que chega a zero não carrega sinal: "−0,0%" afirma uma queda que não existe.
+ * (A grafia do DINHEIRO negativo, `-R$1.000,00`, é outra âncora — não muda aqui.)
+ */
 export function pctDeInteiro(pontos: number, casas = 1): string {
   if (!Number.isFinite(pontos)) return "—";
-  return `${pontos.toFixed(casas).replace(".", ",")}%`;
+  const txt = Math.abs(pontos).toFixed(casas).replace(".", ",");
+  const zero = /^0(,0*)?$/.test(txt);
+  return `${pontos < 0 && !zero ? MENOS : ""}${txt}%`;
 }
 
 /**

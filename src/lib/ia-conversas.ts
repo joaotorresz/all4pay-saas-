@@ -111,6 +111,28 @@ export function salvarConversa(id: string | null, turnos: Turno[]): string | nul
   return novo.id;
 }
 
+/**
+ * ⚠️ O PAINEL FLUTUANTE RETOMA A CONVERSA. Ele é remontado a cada tela (cada
+ * página traz o seu `AppShell`), e a conversa já era salva — mas o painel
+ * renascia VAZIO: seguir o "Abrir tela ↗" da própria resposta levava à tela
+ * certa e escondia a conversa que tinha levado até lá.
+ *
+ * A escolha do painel vive em memória de módulo (sobrevive à navegação do
+ * cliente): `undefined` = o painel ainda não escolheu nesta sessão (retoma a
+ * mais recente); `null` = a pessoa pediu "Nova conversa" (não ressuscita a
+ * anterior); um id = a conversa que está aberta nele.
+ */
+let conversaDoPainel: string | null | undefined;
+export function lembrarConversaDoPainel(id: string | null): void { conversaDoPainel = id; }
+export const escolhaDoPainel = (): string | null | undefined => conversaDoPainel;
+
+/** Qual conversa o painel abre ao montar. Pura — é ela que a guarda confere. */
+export function conversaParaRetomar(escolha: string | null | undefined, cs: Conversa[]): Conversa | undefined {
+  if (escolha === null) return undefined;
+  if (escolha) { const c = cs.find((x) => x.id === escolha); if (c) return c; }
+  return [...cs].sort((a, b) => b.atualizadaEm.localeCompare(a.atualizadaEm))[0];
+}
+
 export function apagarConversa(id: string) {
   gravar(ler().filter((c) => c.id !== id));
 }

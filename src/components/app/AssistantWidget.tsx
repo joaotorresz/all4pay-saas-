@@ -18,7 +18,7 @@ import {
   Marca4, MarcaIA, EtapasAnalise, BolhaResposta, GRAD_ONDA,
 } from "@/components/ia/chat-kit";
 import { useChatIA } from "@/components/ia/useChatIA";
-import { salvarConversa } from "@/lib/ia-conversas";
+import { salvarConversa, listarConversas, conversaParaRetomar, escolhaDoPainel, lembrarConversaDoPainel, inscreverConversas } from "@/lib/ia-conversas";
 import { MARCA_IA } from "@/core/marca";
 import type { Turno } from "@/components/ia/chat-kit";
 import Link from "next/link";
@@ -79,13 +79,31 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
   const ativaRef = React.useRef<string | null>(null);
   const aoMudar = React.useCallback((ts: Turno[]) => {
     const id = salvarConversa(ativaRef.current, ts);
-    if (id) ativaRef.current = id;
+    if (id) { ativaRef.current = id; lembrarConversaDoPainel(id); }
   }, []);
   const {
     texto, setTexto, turnos, pensando, etapa, pergunta,
     copia, copiar, darFeedback, responder, carregar, sugeridas,
   } = useChatIA({ onMudou: aoMudar });
-  const novaConversa = () => { ativaRef.current = null; carregar([]); };
+  const novaConversa = () => { ativaRef.current = null; lembrarConversaDoPainel(null); carregar([]); };
+  // Ao montar (em cada tela), retoma a conversa que o painel tinha aberta — ou
+  // a mais recente do histórico, se ele ainda não escolheu nesta sessão.
+  // ⚠️ E OUVE a hidratação: numa máquina nova o histórico chega do servidor
+  // DEPOIS de o painel montar, e ler só na montagem o deixava vazio até a
+  // pessoa trocar de tela. Só retoma enquanto o painel está OCIOSO (nenhuma
+  // conversa aberta, nada digitado em curso) — a hidratação não pode trocar a
+  // conversa debaixo de quem já está falando.
+  const ociosoRef = React.useRef(true);
+  ociosoRef.current = turnos.length === 0 && !pensando && !texto.trim();
+  React.useEffect(() => {
+    const retomar = () => {
+      if (ativaRef.current || !ociosoRef.current) return;
+      const c = conversaParaRetomar(escolhaDoPainel(), listarConversas());
+      if (c) { ativaRef.current = c.id; lembrarConversaDoPainel(c.id); carregar(c.turnos); }
+    };
+    retomar();
+    return inscreverConversas(retomar);
+  }, [carregar]);
 
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turnos, pensando]);
