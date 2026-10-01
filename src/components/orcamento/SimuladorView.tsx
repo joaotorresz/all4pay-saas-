@@ -239,7 +239,7 @@ function Resultado({ r, pessoal }: { r: ResultadoSimulacao; pessoal: boolean }) 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 pt-5 border-t border-border-soft">
           <Metrica label="Parcela" valor={r.parcela} sufixo={r.parcelas > 0 ? `× ${r.parcelas}` : undefined} />
           <Metrica label="Peso no mês" valor={r.pesoMensal} hint="parcela + custos − ganhos" />
-          <Metrica label="Sobra depois" valor={r.sobraDepois} tone={r.sobraDepois < 0 ? "negative" : undefined} />
+          <Metrica label="Sobra depois" valor={r.sobraDepois} />
           <Metrica label="Total pago" valor={r.totalPago} hint={r.juros > 0 ? `${formatBRL(r.juros)} de juros` : "sem juros"} />
         </div>
       </Card>
@@ -366,11 +366,13 @@ function CampoValor({
   );
 }
 
-function Metrica({ label, valor, sufixo, hint, tone }: { label: string; valor: number; sufixo?: string; hint?: string; tone?: "negative" }) {
+// Número não tem cor por sinal (decisão de 30/09/2026): o "−" que o BRL
+// escreve diz que a sobra ficou negativa.
+function Metrica({ label, valor, sufixo, hint }: { label: string; valor: number; sufixo?: string; hint?: string }) {
   return (
     <div className="flex flex-col gap-[2px]">
       <span className="text-caption font-medium text-muted">{label}</span>
-      <span className={`text-[24px] leading-none font-semibold tabular-nums ${tone === "negative" ? "text-negative" : "text-ink"}`}>
+      <span className="text-[24px] leading-none font-semibold tabular-nums text-ink">
         <BRL value={valor} />
       </span>
       {(sufixo || hint) && <span className="text-caption text-faint">{sufixo ?? hint}</span>}

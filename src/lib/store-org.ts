@@ -99,9 +99,16 @@ export const CHAVES_ORG = {
   chamados: "a4p_chamados",
   logsAdmin: "a4p_logs_admin",
   // A régua de cobrança: o que já foi enviado a quem, em que etapa. É dado de
-  // NEGÓCIO (prova de que o cliente foi avisado antes de um protesto), então
-  // sobe para o servidor como as demais.
+  // NEGÓCIO (prova de que o cliente foi avisado antes de um protesto).
+  // ⚠️ CONGELADA desde 30/09/2026: o registro mora em `automacao_envios`
+  // (migration 20260930190000, que copiou o que havia aqui). Fica listada para
+  // o rastro antigo continuar classificado.
   reguaEnvios: "a4p_regua_envios",
+  // As automações de e-mail/WhatsApp e o registro dos envios. Em produção moram
+  // nas tabelas `automacoes`/`automacao_envios`; a chave local é a casa da
+  // DEMONSTRAÇÃO (congeladas em produção — ver CHAVES_CONGELADAS).
+  automacoes: "a4p_automacoes",
+  automacaoEnvios: "a4p_automacao_envios",
   regrasUso: "a4p_regras_uso",
   fdipMemory: "a4p_fdip_memory",
   iaMemory: "a4p_ia_memory",
@@ -109,6 +116,11 @@ export const CHAVES_ORG = {
   ajudaConversa: "a4p_ajuda_conversa",
   acoesIA: "a4p_ai_actions",
   orcamentoSimulador: "a4p_orcamento",
+  // CAMP-B · a caixa de entrada de contas a pagar: os documentos lidos por OCR
+  // que a pessoa deixou para decidir depois, e a DECISÃO sobre cada documento
+  // (virou conta, ou foi descartado com motivo). É dado de NEGÓCIO: o motivo
+  // de um descarte é a resposta para "por que este boleto não foi pago?".
+  caixaEntrada: "a4p_caixa_entrada",
 } as const;
 
 /**
@@ -136,6 +148,36 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   "a4p_reembolsos",
   // A venda mora em `sales_docs` desde 30/09/2026 (lib/vendas).
   "a4p_vendas_docs",
+  // ⚠️ 30/09/2026 (CAD parte 2) — entidades cuja morada em produção é uma
+  // TABELA, e que só a demonstração grava no navegador. Sem o congelamento,
+  // passar a escrita por `store-org` (para tirar o `localStorage.setItem` cru)
+  // as mandaria também para `org_state`: duas moradas para o mesmo fato.
+  "a4p_recorrencias",   // recurrences
+  "a4p_nfse",           // nfse
+  "a4p_ledger",         // journal_entries / journal_lines
+  "a4p_revrec",         // revenue_contracts / revenue_schedule
+  "a4p_cronogramas",    // schedules
+  "a4p_tags",           // movement_tags
+  // O projeto do lançamento mora em `movements.project_id`; o mapa antigo do
+  // navegador só é LIDO como queda em demonstração (lib/projeto-vinculo).
+  "a4p_movimento_projeto",
+  // ⚠️ 01/10/2026 — projetos e centros de custo moram em `projects` e
+  // `cost_centers` desde a migration 20260930180000 (lib/cadastros-hierarquia).
+  // Os escritores locais já tinham saído; sem o congelamento a chave continuava
+  // VIVA — `migrarParaServidor` subiria o rastro para `org_state` (segunda
+  // morada) e a leitura crua de `lib/iuli-cadastros` lia uma chave "de negócio"
+  // por fora do store. Agora o que sobra é rastro: só a oferta "Trazer para o
+  // cadastro" o lê.
+  "a4p_projetos",       // projects
+  "a4p_centros_custo",  // cost_centers
+  // As tarefas do fechamento moram em `close_tasks` (CAMP-A, lib/fechamento-tarefas).
+  "a4p_close_tasks",
+  // As automações e o registro dos envios moram em `automacoes` e
+  // `automacao_envios` desde 30/09/2026 (lib/automacoes). A régua gravava em
+  // `a4p_regua_envios`; a migration copiou o que havia para a tabela.
+  "a4p_regua_envios",
+  "a4p_automacoes",
+  "a4p_automacao_envios",
 ];
 
 export const estaCongelada = (chave: string): boolean => CHAVES_CONGELADAS.includes(chave);
@@ -176,6 +218,9 @@ export const PREFERENCIAS_LOCAIS: string[] = [
   "a4p_visual_edits", "a4p_guide_welcome", "a4p_tours_auto",
   "a4p_tours_disparados", "a4p_tours_progresso", "a4p_seen_routes",
   "a4p_anuncios_lidos", "a4p_sidebar_collapsed",
+  // De qual organização é o cache de negócio deste navegador. É do DISPOSITIVO
+  // por definição — subir esta marca ao servidor não diria nada.
+  "a4p_org_do_cache",
 ];
 
 /**
@@ -259,7 +304,9 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_exportacoes: "Relatórios exportados",
   a4p_chamados: "Chamados de suporte",
   a4p_logs_admin: "Logs administrativos",
-  a4p_regua_envios: "Envios da régua de cobrança",
+  a4p_regua_envios: "Envios da régua de cobrança (antigo)",
+  a4p_automacoes: "Automações de e-mail e WhatsApp",
+  a4p_automacao_envios: "Envios das automações",
   a4p_regras_uso: "Uso das regras de categorização",
   a4p_fdip_memory: "Aprendizado da importação",
   a4p_ia_memory: "Memória do assistente",
@@ -267,6 +314,7 @@ export const ROTULO_DA_CHAVE: Record<string, string> = {
   a4p_ajuda_conversa: "Conversa da Central de Ajuda",
   a4p_ai_actions: "Ações registradas da IA",
   a4p_orcamento: "Simulador de orçamento",
+  a4p_caixa_entrada: "Caixa de entrada de contas a pagar",
   a4p_cnpj_cache: "Cache de consulta de CNPJ",
   a4p_municipios: "Cache de municípios (IBGE)",
 };
@@ -315,6 +363,28 @@ function gravarLocal(chave: string, valor: unknown) {
       "O armazenamento local do navegador está cheio. Os dados foram enviados ao servidor, mas o cache não pôde ser atualizado.",
     );
   }
+}
+
+/**
+ * PREFERÊNCIA de tela — fica no dispositivo, e é o ÚNICO caminho sancionado
+ * para gravar no navegador fora daqui.
+ *
+ * ⚠️ **Recusa chave de negócio** (`CHAVES_ORG`): gravar uma delas com
+ * `localStorage.setItem` cru foi como a configuração de impostos, o perfil da
+ * empresa e os projetos deixaram de subir ao servidor — e a hidratação os
+ * sobrescrevia com a versão velha na sessão seguinte. Preferência que estoura a
+ * cota é descartável (custa um reajuste de tela), por isso a falha é engolida
+ * aqui e só aqui.
+ */
+export function lerPreferencia<T>(chave: string, padrao: T): T {
+  return lerLocal(chave, padrao);
+}
+export function gravarPreferencia<T>(chave: string, valor: T): void {
+  if (CHAVES_DE_NEGOCIO.includes(chave)) {
+    throw new Error(`"${chave}" é dado de negócio da empresa: grave por store-org (gravar), não como preferência local.`);
+  }
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(chave, JSON.stringify(valor)); } catch { /* preferência é descartável */ }
 }
 
 /* ========================================================================== */
@@ -434,7 +504,18 @@ export async function hidratar(chaves: string[]): Promise<number> {
  * sobrescrever o servidor com o local de um segundo dispositivo desfaria o
  * trabalho de quem entrou primeiro.
  */
-export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: number; jaExistiam: number }> {
+export async function migrarParaServidor(
+  chaves: string[],
+  orgConfirmada: string,
+): Promise<{ enviadas: number; jaExistiam: number; recusada?: string }> {
+  // ⚠️ O destino do envio é `auth_org_id()` — a organização ABERTA —, não a
+  // dona do cache. Sem esta conferência, trocar da empresa A para a B subia
+  // para a B tudo o que a A tinha no navegador e a B ainda não tinha no
+  // servidor (orçamentos, aprovações, o cadastro da empresa…): uma escrita
+  // entre empresas feita pelo próprio sistema, sem clique de ninguém.
+  if (orgDoCacheLocal() !== orgConfirmada) {
+    return { enviadas: 0, jaExistiam: 0, recusada: "o cache deste navegador não é da organização aberta" };
+  }
   if (!remoto()) return { enviadas: 0, jaExistiam: 0 };
   const locais = chaves.filter((c) => {
     // A migração é justamente o caminho que subiria o rastro antigo para o
@@ -463,6 +544,109 @@ export async function migrarParaServidor(chaves: string[]): Promise<{ enviadas: 
     console.error("[store-org] falha na migração inicial", e);
     return { enviadas: 0, jaExistiam: 0 };
   }
+}
+
+/* ========================================================================== */
+/* DONO DO CACHE — de qual organização é o que está neste navegador            */
+/* ========================================================================== */
+
+/**
+ * A organização dona do cache de NEGÓCIO deste navegador.
+ *
+ * ⚠️ **O cache local não sabia de quem era.** As chaves de negócio ficam no
+ * `localStorage` com o mesmo nome para toda organização; ao trocar de empresa
+ * (seletor, ou outro login na mesma máquina) a página recarregava com o cache
+ * da anterior, e a sincronização da sessão fazia DUAS coisas erradas com ele:
+ *   1. **subia para a empresa nova** o que ela ainda não tinha no servidor
+ *      (`migrarParaServidor` envia para `auth_org_id()`, a organização aberta);
+ *   2. as telas que leem síncrono (`ler`, `loadCompany`) mostravam a razão
+ *      social, o regime e os orçamentos da empresa anterior dentro da nova.
+ * O carimbo do perfil (`StoredCompany.orgId`) protegia UMA leitura; esta marca
+ * protege todas as chaves de negócio.
+ */
+export const CHAVE_ORG_DO_CACHE = "a4p_org_do_cache";
+
+export function orgDoCacheLocal(): string | null {
+  if (typeof window === "undefined") return null;
+  try { return localStorage.getItem(CHAVE_ORG_DO_CACHE); } catch { return null; }
+}
+
+function marcarDonoDoCache(orgId: string): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(CHAVE_ORG_DO_CACHE, orgId); } catch { /* sem a marca, a próxima sessão descarta de novo — seguro */ }
+}
+
+/**
+ * Tira do navegador (e da memória) o cache de negócio que não é da organização
+ * aberta. As chaves CONGELADAS ficam: elas não sobem sozinhas nem são lidas por
+ * `ler` em produção — o resgate delas é um clique de gente, na tela que as
+ * mostra.
+ */
+export function descartarCacheDeNegocio(chaves: string[] = CHAVES_DE_NEGOCIO): number {
+  let n = 0;
+  for (const c of chaves) {
+    if (estaCongelada(c)) continue;
+    let tinha = memoria.has(c);
+    if (typeof window !== "undefined") {
+      try {
+        if (localStorage.getItem(c) !== null) tinha = true;
+        localStorage.removeItem(c);
+      } catch { /* sem acesso ao disco: a memória ainda é limpa */ }
+    }
+    memoria.delete(c); versoes.delete(c); MIGRADAS.delete(c); pendentesDeEnvio.delete(c);
+    if (tinha) { n++; avisar(c); }
+  }
+  return n;
+}
+
+export type DonoDoCache = "mesma" | "trocou" | "sem-dono" | "desconhecida";
+
+/**
+ * Confere o cache contra a organização aberta ANTES de qualquer envio.
+ *
+ *  · `desconhecida` — não se sabe qual empresa está aberta: nada é enviado e
+ *    nada é apagado (a hidratação, que só traz do servidor, segue).
+ *  · `mesma` — o cache é desta empresa: envio e hidratação como sempre.
+ *  · `trocou` — o cache é de OUTRA empresa: é descartado (o que ela já tinha
+ *    confirmado continua no servidor dela) e nada sobe.
+ *  · `sem-dono` — cache anterior a esta marca: não dá para provar de quem é, e
+ *    é tratado como o de outra empresa (a mesma decisão do perfil: cache sem
+ *    carimbo é ausente). O que esta empresa tem no servidor volta na hidratação.
+ */
+export function reconciliarDonoDoCache(orgAtiva: string | null): { dono: DonoDoCache; descartadas: number } {
+  if (!orgAtiva) return { dono: "desconhecida", descartadas: 0 };
+  const marca = orgDoCacheLocal();
+  if (marca === orgAtiva) return { dono: "mesma", descartadas: 0 };
+  const descartadas = descartarCacheDeNegocio();
+  marcarDonoDoCache(orgAtiva);
+  return { dono: marca ? "trocou" : "sem-dono", descartadas };
+}
+
+/** A organização aberta agora (a mesma de `auth_org_id()`), lida do servidor. */
+export async function organizacaoAtivaDoServidor(): Promise<string | null> {
+  const { createClient } = await import("@/lib/supabase/client");
+  const { data, error } = await createClient().rpc("minhas_organizacoes");
+  if (error) throw error;
+  const ativa = ((data ?? []) as { org_id: string; ativa: boolean }[]).find((o) => o.ativa);
+  return ativa?.org_id ?? null;
+}
+
+/**
+ * A sincronização inteira da sessão, na ordem que a torna segura:
+ * descobrir a empresa aberta → conferir o dono do cache → enviar (só se o
+ * cache é dela) → hidratar.
+ */
+export async function sincronizarComServidor(chaves: string[] = CHAVES_DE_NEGOCIO): Promise<{
+  dono: DonoDoCache; descartadas: number; enviadas: number; hidratadas: number;
+}> {
+  if (!remoto()) return { dono: "desconhecida", descartadas: 0, enviadas: 0, hidratadas: 0 };
+  let orgAtiva: string | null = null;
+  try { orgAtiva = await organizacaoAtivaDoServidor(); }
+  catch (e) { console.error("[store-org] não foi possível saber a organização aberta; nada do navegador sobe", e); }
+  const { dono, descartadas } = reconciliarDonoDoCache(orgAtiva);
+  const enviadas = dono === "mesma" && orgAtiva ? (await migrarParaServidor(chaves, orgAtiva)).enviadas : 0;
+  const hidratadas = await hidratar(chaves);
+  return { dono, descartadas, enviadas, hidratadas };
 }
 
 /* ========================================================================== */

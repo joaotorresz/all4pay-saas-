@@ -56,7 +56,8 @@ export interface ResumoExecutivo {
   regraDoVencido: string;
   geracaoCaixa: number;
   burn: number;
-  runwayMeses: number;
+  /** ⚠️ `null` quando o runway canônico é indisponível — nunca "0 meses". */
+  runwayMeses: number | null;
   /**
    * ⚠️ O runway CANÔNICO, inteiro — é ele que a tela deve ler.
    *

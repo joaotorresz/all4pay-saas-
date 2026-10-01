@@ -8,6 +8,8 @@
  * Valores em REAIS (number), pt-BR, consistente com o resto do app.
  */
 
+import type { LeituraRunway } from "@/core/indicadores";
+
 export type Nivel = "baixo" | "medio" | "alto" | "critico";
 
 /** Evento financeiro normalizado consumido pelo motor. */
@@ -66,6 +68,16 @@ export interface RiskMovement {
   costCenter?: string | null;
   /** Nome do projeto do lançamento (centro de resultado temporal). */
   projeto?: string | null;
+  /**
+   * As CHAVES de cadastro do lançamento (`movements.project_id`,
+   * `cost_center_id`, `category_id`). Os nomes acima servem aos relatórios; o
+   * id é o que a ficha precisa para EDITAR o vínculo sem casar por nome.
+   */
+  projetoId?: string | null;
+  centroId?: string | null;
+  categoriaId?: string | null;
+  /** O rateio gravado em `movement_splits`, já com os NOMES resolvidos. */
+  rateio?: { projeto: string | null; centro: string | null; percentual: number; valor: number }[];
   /**
    * Quantas parcelas a COMPRA tem, quando é parcelada (`installment_total`).
    *
@@ -190,6 +202,12 @@ export interface RunwayCenarios {
   otimista: number;
   base: number;
   pessimista: number;
+  /**
+   * Os mesmos três, LIDOS (número, ausência ou teto) — é o que a tela exibe.
+   * Os números acima seguem para o score, que pontua o teto; exibidos crus,
+   * viravam "24+ meses" para quem não queima caixa.
+   */
+  leitura: { otimista: LeituraRunway; base: LeituraRunway; pessimista: LeituraRunway };
 }
 
 export interface LiquidezPonto {
@@ -205,6 +223,8 @@ export interface StressCenario {
   descricao: string;
   impactoSaldo: number; // R$ no fim do horizonte vs base
   runwayDias: number;
+  /** O runway do cenário para EXIBIR — ausência e teto ditos. */
+  runway: LeituraRunway;
 }
 
 export interface ConcentracaoResult {

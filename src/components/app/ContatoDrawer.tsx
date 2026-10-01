@@ -14,6 +14,7 @@ import { formatBRL, pct } from "@/lib/format";
 import { useRiscoInput, useInadimplencia } from "@/components/visao-geral/hooks";
 import { MES_ABBR } from "@/components/visao-geral/PeriodContext";
 import { posicaoDaContraparte } from "@/core/indicadores";
+import { SecaoExtrato } from "./ExtratoContato";
 
 const dia = (ds?: string | null) => (ds ? ds.slice(0, 10).split("-").reverse().join("/") : "—");
 const CLASS_COR: Record<string, string> = {
@@ -144,6 +145,13 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                 </section>
               )}
 
+              {/* CAMP-B · o extrato para mandar ao outro lado (PDF pela impressão). */}
+              {/* Aparece mesmo sem lançamento: "nenhum título no período" também é
+                  um extrato, e é o que se manda a quem pergunta se deve algo. */}
+              {inp && id && (
+                <SecaoExtrato input={inp} partyId={id} ehCliente={resumo.ehCliente} ehFornecedor={resumo.ehFornecedor} />
+              )}
+
               {/* Últimos lançamentos */}
               <section className="flex flex-col gap-1">
                 <div className="text-[11px] font-semibold tracking-wide text-faint mb-1">Últimos lançamentos</div>
@@ -155,7 +163,8 @@ function ContatoPanel({ id, open, onClose }: { id: string | null; open: boolean;
                       <div className="text-[14px] text-ink truncate">{m.category || (m.type === "entrada" ? "Recebimento" : "Pagamento")}</div>
                       <div className="text-[11px] text-faint tabular-nums">{dia(m.paid_date || m.due_date)} · {m.status === "pago" ? "pago" : m.due_date.slice(0, 10) < (inp?.hoje ?? "") ? "vencido" : "pendente"}</div>
                     </div>
-                    <span className="text-[14px] tabular-nums shrink-0" style={{ color: m.type === "entrada" ? "var(--color-positive)" : "var(--color-ink)" }}>
+                    {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+                    <span className="text-[14px] tabular-nums shrink-0 text-ink">
                       {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
                     </span>
                   </div>
@@ -177,7 +186,7 @@ function Sparkline({ data }: { data: { mes: string; valor: number }[] }) {
       <div className="flex items-end gap-1.5 h-12">
         {data.map((d, i) => (
           <div key={i} className="flex-1 rounded-sm transition-all" title={`${d.mes}: ${formatBRL(d.valor)}`}
-            style={{ height: `${Math.max(3, (d.valor / max) * 100)}%`, background: d.valor > 0 ? "var(--color-positive)" : "var(--color-surface-2)" }} />
+            style={{ height: `${Math.max(3, (d.valor / max) * 100)}%`, background: d.valor > 0 ? "var(--color-ink)" : "var(--color-surface-2)" }} />
         ))}
       </div>
       <div className="flex gap-1.5 mt-1">

@@ -52,7 +52,9 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
       funcionarios: "1-10", faturamento: "", bancos: carteiras, meiosRecebimento: ["PIX"], despesas: categorias,
     };
     const estrutura: Estrutura = {
-      contas: carteiras.map((c) => ({ banco: c, tipo: "Operacional" })),
+      // ⚠️ O "Saldo atual" vai para a PRIMEIRA carteira escolhida — era
+      // perguntado e jogado fora, e a Visão geral abria com R$ 0,00.
+      contas: carteiras.map((c, k) => ({ banco: c, tipo: "Operacional", ...(k === 0 && saldoInicial ? { saldo: saldoInicial } : {}) })),
       centrosCusto: [], unidades: [], dre: ["Gerencial"], fluxoCaixa: "Operacional",
     };
     const primeiro = nome.trim() || "Você";
@@ -101,8 +103,15 @@ export function OnboardingPessoal({ onTrocarTipo }: { onTrocarTipo: () => void }
         }
       }
       const company = montarPerfil();
-      try { await persistCompany(company); } catch { /* segue */ }
-      if (configured) { try { await aplicarEstrutura(company.estrutura!); } catch { /* segue */ } }
+      // ⚠️ Sem `try {} catch {}` mudo: a recusa do banco vai para a tela (o
+      // `catch` de baixo) e o "Concluir" seguinte tenta de novo — a conta já
+      // existe, o perfil é upsert e a estrutura deduplica por nome.
+      try { await persistCompany(company); }
+      catch (e) { throw new Error(`Sua conta foi criada, mas o perfil não foi salvo: ${e instanceof Error ? e.message : String(e)}. Clique em "Concluir e entrar" de novo.`); }
+      if (configured) {
+        try { await aplicarEstrutura(company.estrutura!); }
+        catch (e) { throw new Error(`Sua conta foi criada, mas ${e instanceof Error ? e.message : String(e)}. Clique em "Concluir e entrar" de novo.`); }
+      }
       router.push("/");
       router.refresh();
     } catch (e) {

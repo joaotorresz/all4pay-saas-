@@ -133,9 +133,11 @@ export function SegurancaView() {
                 nota="toda tabela com coluna de empresa" />
               <Numero rotulo="Tentativas" valor={resumo.tentativas}
                 nota="cinco verbos por tabela, todas desfeitas" />
+              {/* Número verde não existe mais (30/09/2026): o zero fica neutro; o
+                  vermelho segue porque cada tentativa que passou é um incidente. */}
               <Numero rotulo="Passaram" valor={resumo.vazamentos.length}
                 nota={resumo.ok ? "como tem de ser" : "cada uma é um incidente"}
-                cor={resumo.ok ? "var(--color-positive)" : "var(--color-negative)"} />
+                cor={resumo.ok ? "var(--color-ink)" : "var(--color-negative)"} />
               <Numero rotulo="Não tentadas" valor={resumo.naoTentadas}
                 nota="sem privilégio ou sem linha de molde" />
             </div>

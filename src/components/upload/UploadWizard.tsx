@@ -7,6 +7,7 @@ import { listParties } from "@/lib/cadastros";
 import { getOpenMovements, getRiscoInput } from "@/lib/data";
 import { aplicarOnboarding } from "@/lib/fdip";
 import { lerDocumento, ocrConfigurado, type LeituraDocumento } from "@/lib/ocr-ingest";
+import { estacionarOCR } from "@/lib/caixa-entrada";
 import { analisarDocumento, confirmarDocumento, ACAO_MAP, type AnaliseDocumento, type AcaoFinal } from "@/lib/upload-doc";
 import type { Party, Movement } from "@/lib/types";
 import type { FDIPReport } from "@/core/fdip/types";
@@ -108,6 +109,33 @@ export function UploadWizard() {
     } finally {
       setGravando(false);
     }
+  };
+
+  /*
+   * ⚠️ CAMP-B — "decidir depois". Um boleto lido no celular na hora do almoço
+   * nem sempre tem categoria e conta decididas; forçar a confirmação agora
+   * produz conta com categoria chutada, e recusar deixa o papel na mão. O
+   * documento vai para a CAIXA DE ENTRADA de contas a pagar, com o contador à
+   * vista, e vira conta pelo formulário de sempre quando alguém decidir.
+   */
+  const deixarNaCaixa = () => {
+    if (!analise) return;
+    const hoje = new Date();
+    const iso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+    estacionarOCR({
+      refId: `ocr_${Date.now().toString(36)}`,
+      fornecedor: analise.contraparte || analise.fields.beneficiario || "Fornecedor não identificado",
+      documento: (analise.fields.cnpj || analise.fields.cpf || "").replace(/\D/g, "") || null,
+      valor,
+      vencimento: venc || null,
+      emissao: analise.fields.data ?? null,
+      numero: null,
+      descricao: arquivo ? `Documento ${arquivo.name}` : "Documento lido no upload",
+      categoria: categoria || null,
+      recebidoEm: iso,
+    });
+    setResultado("Guardado na caixa de entrada de contas a pagar — vira conta quando alguém decidir (Títulos a pagar → Caixa de entrada).");
+    setEtapa(4);
   };
 
   const confirmarLote = async (report: FDIPReport) => {
@@ -236,6 +264,11 @@ export function UploadWizard() {
             {etapa === 3 && (
               <>
                 <Button variant="ghost" onClick={() => setEtapa(2)}>Voltar</Button>
+                {acao === "Vou pagar" && (
+                  <Button variant="outline" onClick={deixarNaCaixa} disabled={gravando || valor <= 0}>
+                    Deixar na caixa de entrada
+                  </Button>
+                )}
                 <Button variant="primary" onClick={confirmarDoc} disabled={gravando || valor <= 0}>
                   {gravando ? "Inserindo…" : "Confirmar e inserir"}
                 </Button>

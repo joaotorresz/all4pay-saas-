@@ -90,7 +90,10 @@ interface Achado { arquivo: string; linha: number; hex: string; trecho: string }
 
 /** Arquivos que declaram a paleta — nestes o hex é a definição, não um vazamento. */
 // O Editor Visual também espelha os tokens (padrões do sandbox), como o Lab.
-const DECLARAM = ["src/app/globals.css", "src/components/app/DesignLab.tsx", "src/components/app/VisualEditor.tsx"];
+// ⚠️ O E-MAIL das automações também: cliente de e-mail não lê variável CSS, e
+// os tokens entram como hex num espelho DECLARADO (o `cardBg` é o branco do
+// card, a única superfície pura sancionada).
+const DECLARAM = ["src/app/globals.css", "src/components/app/DesignLab.tsx", "src/components/app/VisualEditor.tsx", "src/core/automacoes/email.ts"];
 
 function varrer(dir: string, saida: string[]) {
   for (const nome of readdirSync(dir)) {

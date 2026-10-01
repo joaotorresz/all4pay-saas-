@@ -20,8 +20,10 @@ import { useDailyCashflowRange } from "./hooks";
 import { usePeriod } from "./PeriodContext";
 import { EmptyState, VisuallyHidden } from "./shared";
 
-const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
+// Número não tem cor por sinal (decisão de 30/09/2026): entradas em ink,
+// saídas em areia; o sinal escrito diz a direção do resultado.
+const ENTRADA = "var(--color-ink)";
+const SAIDA = "var(--color-areia)";
 const INK = "var(--color-ink)";
 // Linha de saldo: MESMO tratamento da linha de comparação do gráfico herói —
 // cinza tracejado. Não compete com as barras, que são quem conta a história.
@@ -35,8 +37,8 @@ function CashflowTooltip({ active, payload, label }: any) {
   return (
     <div className="bg-white rounded-card border border-border shadow-popover px-3 py-[10px] text-caption">
       <div className="font-medium text-ink mb-[6px]">{label}</div>
-      <Row color={POSITIVE} k="Entradas" v={<BRL value={p.inflow} />} />
-      <Row color={NEGATIVE} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
+      <Row color={ENTRADA} k="Entradas" v={<BRL value={p.inflow} />} />
+      <Row color={SAIDA} k="Saídas" v={<BRL value={Math.abs(p.outflow)} />} />
       <Row color={LINE} k="Saldo" v={<BRL value={p.balance} />} />
     </div>
   );
@@ -110,7 +112,7 @@ export function DailyCashflowChart() {
     <Card className="flex flex-col" info={{
       titulo: "Fluxo de caixa",
       oQue: "Quanto entra e sai do caixa por dia, com o saldo acumulado ao longo do período.",
-      comoCalcula: "Barras = entradas (verde) e saídas (vermelho) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
+      comoCalcula: "Barras = entradas (tom escuro) e saídas (tom areia) liquidadas por dia; a linha é o saldo acumulado partindo do saldo atual.",
     }}>
       <div className="mb-3 flex items-center gap-3">
         <div className="min-w-0">
@@ -163,12 +165,12 @@ export function DailyCashflowChart() {
                   dois realces para o mesmo dia. */}
               <Tooltip content={<CashflowTooltip />} cursor={false} />
               {filtro !== "saida" && (
-                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={POSITIVE} radius={[4, 4, 0, 0]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
+                <Bar yAxisId="flow" dataKey="inflow" stackId="cf" fill={ENTRADA} radius={[4, 4, 0, 0]} maxBarSize={26} name="Entradas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim()}>
                   {data.map((d) => <Cell key={`i-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
               {filtro !== "entrada" && (
-                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={NEGATIVE} radius={[0, 0, 4, 4]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
+                <Bar yAxisId="flow" dataKey="outflow" stackId="cf" fill={SAIDA} radius={[0, 0, 4, 4]} maxBarSize={26} name="Saídas" activeBar={{ fillOpacity: 0.8 }} {...chartAnim(120)}>
                   {data.map((d) => <Cell key={`o-${d.date}`} fillOpacity={d.projetado ? 0.4 : 1} />)}
                 </Bar>
               )}
@@ -186,9 +188,9 @@ export function DailyCashflowChart() {
           filtram o gráfico (clique de novo p/ voltar); Resultado mostra tudo. */}
       {!isLoading && !isError && hasFlow && (
         <div className="flex items-center gap-x-3 gap-y-2 mt-4 pt-4 border-t border-border-soft flex-wrap">
-          <PeriodTotal label="Entradas" value={entradas} color={POSITIVE} active={filtro === "entrada"} onClick={() => setFiltro((f) => (f === "entrada" ? "todos" : "entrada"))} />
-          <PeriodTotal label="Saídas" value={saidas} color={NEGATIVE} active={filtro === "saida"} onClick={() => setFiltro((f) => (f === "saida" ? "todos" : "saida"))} />
-          <PeriodTotal label="Resultado" value={resultado} color={resultado < 0 ? NEGATIVE : INK} active={filtro === "todos"} onClick={() => setFiltro("todos")} />
+          <PeriodTotal label="Entradas" value={entradas} color={ENTRADA} active={filtro === "entrada"} onClick={() => setFiltro((f) => (f === "entrada" ? "todos" : "entrada"))} />
+          <PeriodTotal label="Saídas" value={saidas} color={SAIDA} active={filtro === "saida"} onClick={() => setFiltro((f) => (f === "saida" ? "todos" : "saida"))} />
+          <PeriodTotal label="Resultado" value={resultado} color={INK} active={filtro === "todos"} onClick={() => setFiltro("todos")} />
         </div>
       )}
     </Card>
@@ -198,8 +200,8 @@ export function DailyCashflowChart() {
 function Legend({ projetado }: { projetado?: boolean }) {
   return (
     <div className="flex items-center gap-4 mt-2 text-[15px] text-muted flex-wrap">
-      <LegendDot color={POSITIVE} label="Entradas" />
-      <LegendDot color={NEGATIVE} label="Saídas" />
+      <LegendDot color={ENTRADA} label="Entradas" />
+      <LegendDot color={SAIDA} label="Saídas" />
       <span className="inline-flex items-center gap-[6px]">
         <span className="inline-block w-4 border-t-2 border-dashed" style={{ borderColor: LINE }} />
         Saldo em caixa

@@ -24,7 +24,7 @@
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
 import {
   assinado, magnitude, liquidado, previsto, cancelado, dataDe, saldoEm, saldoAbertura,
-  semZeroNegativo, type Regime,
+  semZeroNegativo, ehTransferenciaEntreContas, type Regime,
 } from "./convencoes";
 import {
   type Janela, janela, janelaHoje, janelaDoMesDe, janelaUltimosDias, diasDe, dentro,
@@ -145,6 +145,30 @@ export interface Indicador {
 
 /** `true` quando há um número para mostrar. */
 export const temValor = (i: Indicador): boolean => !i.indisponivel;
+
+/**
+ * A forma CURTA de cada ausência — a que cabe no LUGAR de um número: a coluna
+ * de uma tabela, a linha de um KPI, a pílula de número de uma resposta da IA.
+ *
+ * ⚠️ Mora AQUI, e não na tela, porque tem dois consumidores: o `ValorIndicador`
+ * e a Quattro AI. Com uma cópia em cada lugar, o Fluxo de caixa diria "não há
+ * queima" e a IA outra coisa sobre o MESMO runway — que é o defeito que tirou
+ * esta tabela da tela (a IA dizia "0 meses" onde a tela dizia "não há queima").
+ *
+ * As cinco são negativas ou neutras de propósito: "sem movimento" não pode soar
+ * como notícia boa; era exatamente esse o defeito do R$ 0.
+ */
+export const FORMA_CURTA: Record<MotivoIndisponivel, string> = {
+  janela_invalida: "período inválido",
+  sem_lancamentos: "sem movimento",
+  sem_base: "sem base de cálculo",
+  caixa_negativo: "não se aplica",
+  sem_queima: "não há queima",
+};
+
+/** A forma curta de uma ausência (ou o motivo por extenso, se o código for novo). */
+export const formaCurta = (i: Pick<Indisponivel, "codigo" | "motivo">): string =>
+  FORMA_CURTA[i.codigo] ?? i.motivo;
 
 /**
  * O valor, ou `null` quando não há.
@@ -467,6 +491,55 @@ export function runwayDeFluxo(saldoAtual: number, liquidoMensal: number): number
 
 /** O mesmo, em meses. Uma conversão (÷30), nunca um segundo teto. */
 export const mesesDeRunway = (dias: number): number => Math.round((dias / 30) * 10) / 10;
+
+/**
+ * O runway de um fluxo hipotético, LIDO: número, ausência ou teto.
+ *
+ * ⚠️ `runwayDeFluxo` devolve `RUNWAY_CAP_DIAS` (999) tanto para "não há queima"
+ * quanto para "passa do teto", e 0 para "o caixa já está negativo". Os
+ * simuladores (cenários do fluxo de caixa, aba Risco, copiloto) exibiam esse
+ * número cru: "Runway 24+ meses", "33,3m" num cenário que GERA caixa — o teto da
+ * fórmula lido como medida, que é o defeito que a ONDA 4 tirou do runway
+ * canônico e que continuava vivo aqui. A ordem dos testes é a do canônico:
+ * caixa negativo primeiro, depois a ausência de queima.
+ */
+export interface LeituraRunway {
+  /** Só é resposta quando `indisponivel` é `null`. */
+  dias: number | null;
+  meses: number | null;
+  indisponivel: Indisponivel | null;
+  /** O número é "pelo menos isto": o teto do cálculo mordeu. */
+  noTeto: boolean;
+}
+
+export function lerRunwayDeFluxo(saldoAtual: number, liquidoMensal: number): LeituraRunway {
+  if (saldoAtual <= 0) {
+    return {
+      dias: null, meses: null, noTeto: false,
+      indisponivel: { codigo: "caixa_negativo", motivo: "o caixa já está zerado ou negativo — não há fôlego a projetar" },
+    };
+  }
+  if (liquidoMensal >= 0) {
+    return {
+      dias: null, meses: null, noTeto: false,
+      indisponivel: { codigo: "sem_queima", motivo: "neste cenário a operação não queima caixa — não há prazo a calcular" },
+    };
+  }
+  const dias = runwayDeFluxo(saldoAtual, liquidoMensal);
+  return { dias, meses: mesesDeRunway(dias), indisponivel: null, noTeto: dias >= RUNWAY_CAP_DIAS };
+}
+
+/**
+ * O rótulo curto de uma `LeituraRunway`, para o LUGAR do número.
+ * A ausência sai na forma curta canônica (`FORMA_CURTA`) e o teto se DECLARA
+ * teto — nunca "24+" (que nem era o teto: 999 dias são 33 meses).
+ */
+export function rotuloRunwayLido(l: LeituraRunway, unidade: "m" | " meses" = " meses"): string {
+  if (l.indisponivel) return `— ${formaCurta(l.indisponivel)}`;
+  const m = (l.meses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (l.noTeto) return `mais de ${m}${unidade} (teto do cálculo)`;
+  return `${m}${unidade}`;
+}
 
 /** O mesmo runway em meses (dias ÷ 30) — uma conversão, não outro cálculo. */
 export function runwayMeses(input: RiskInput, j?: Janela): Indicador {
@@ -844,7 +917,7 @@ export interface Reconciliacao {
   derivado: number;
   diferenca: number;
   /** As parcelas que explicam a diferença, cada uma com seu valor. */
-  parcelas: { rotulo: string; valor: number; explicacao: string }[];
+  parcelas: { id: "previstos" | "abertura" | "sem_data"; rotulo: string; valor: number; explicacao: string }[];
   /**
    * ⚠️ `true` SÓ quando há fonte independente para a abertura E o resíduo é
    * zero. Sem fonte, nada foi conferido — e "conciliado" seria uma afirmação
@@ -950,12 +1023,14 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
     diferenca: semZeroNegativo(extrato - derivado),
     parcelas: [
       {
+        id: "previstos",
         rotulo: "Títulos em aberto (previstos)",
         valor: semZeroNegativo(-previstoTotal),
         explicacao:
           "Contas a receber e a pagar ainda não liquidadas. Existem no resultado por competência e NÃO existem no caixa — postá-las no Razão é o que fazia o saldo contábil descolar do extrato.",
       },
       {
+        id: "abertura",
         rotulo: verificada
           ? `Saldo anterior ao histórico (${origemDaAbertura(verificada)})`
           : "Saldo anterior ao histórico — NÃO VERIFICADO",
@@ -965,6 +1040,7 @@ export function reconciliarSaldo(input: RiskInput): Reconciliacao {
           : "Nenhuma fonte independente informou o saldo anterior ao primeiro lançamento conhecido, então este valor é o que SOBRA da conta — ele fecha por construção e não confere nada. Informe o saldo de abertura para que a diferença possa ser medida de verdade.",
       },
       {
+        id: "sem_data",
         rotulo: "Liquidados sem data",
         valor: semZeroNegativo(semData),
         explicacao:
@@ -1114,7 +1190,12 @@ export interface CoberturaCompetencia {
 export function coberturaCompetencia(input: RiskInput, j: Janela): CoberturaCompetencia {
   const rows = j.vazia
     ? []
-    : input.movements.filter((m) => !cancelado(m) && dentro(j, dataDe(m, "competencia")));
+    // ⚠️ Transferência entre contas próprias não entra no DRE, então não pode
+    // entrar na contagem de "lançamentos do resultado sem competência": o
+    // aviso diria que o resultado mistura datas por causa de algo que nem
+    // está nele.
+    : input.movements.filter((m) => !cancelado(m) && !ehTransferenciaEntreContas(m.category)
+        && dentro(j, dataDe(m, "competencia")));
   const com = rows.filter((m) => !!m.competence_date).length;
   return {
     total: rows.length,

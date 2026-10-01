@@ -93,7 +93,9 @@ export const ALIASES: Alias[] = [
   // oito páginas de `registrations` são o destino, e Serviços virou filtro
   // explícito dentro de Produtos. Sem esse porte, apagar o hub apagaria o
   // cadastro de serviço inteiro.
-  { de: "/cadastros", para: "/dashboard/registrations/clients", motivo: "os cadastros passaram a ficar juntos na área de Cadastros" },
+  // CAD (30/09/2026): o destino deixou de ser Clientes e passou a ser o hub
+  // "Estrutura e cadastros" — a canônica que o mapa já declarava.
+  { de: "/cadastros", para: "/dashboard/registrations", motivo: "os cadastros ganharam um hub com a ordem entre eles: Estrutura e cadastros" },
   // ⚠️ Os hubs de Receber/Pagar foram APOSENTADOS (mapa, item 2) só depois de a
   // canônica ganhar o carrossel de sazonalidade, a baixa na linha, e de as três
   // abas órfãs (inadimplência, boletos, reembolsos) receberem rota própria.

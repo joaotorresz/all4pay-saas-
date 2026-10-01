@@ -102,9 +102,10 @@ export function DimensoesView() {
                       <span className="sm:hidden tabular-nums"> · resultado <BRL value={l.resultado} /></span>
                     </div>
                   </div>
-                  <span className="hidden sm:block w-[120px] text-right tabular-nums text-positive"><BRL value={l.receita} /></span>
+                  {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+                  <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={l.receita} /></span>
                   <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={l.despesa} /></span>
-                  <span className={`hidden sm:block w-[120px] text-right tabular-nums font-medium ${l.resultado >= 0 ? "text-ink" : "text-negative"}`}><BRL value={l.resultado} /></span>
+                  <span className="hidden sm:block w-[120px] text-right tabular-nums font-medium text-ink"><BRL value={l.resultado} /></span>
                 </button>
                 {on && (
                   <div className="px-3 sm:px-12 pb-4 pt-1 flex flex-col gap-1 bg-surface-1/40">
@@ -124,7 +125,7 @@ export function DimensoesView() {
                             </button>
                           </span>
                         </div>
-                        <span className={`tabular-nums shrink-0 ${t.tipo === "saida" ? "text-negative" : "text-ink"}`}><BRL value={t.valor} /></span>
+                        <span className="tabular-nums shrink-0 text-ink"><BRL value={t.tipo === "saida" ? -t.valor : t.valor} /></span>
                       </div>
                     ))}
                   </div>
@@ -134,7 +135,7 @@ export function DimensoesView() {
           })}
           <div className="flex items-center gap-3 px-5 py-3 border-t border-border-soft text-caption font-medium">
             <span className="flex-1 text-muted">Total</span>
-            <span className="hidden sm:block w-[120px] text-right tabular-nums text-positive"><BRL value={report.totalReceita} /></span>
+            <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={report.totalReceita} /></span>
             <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={report.totalDespesa} /></span>
             <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={report.totalReceita - report.totalDespesa} /></span>
           </div>

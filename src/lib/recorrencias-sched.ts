@@ -40,3 +40,64 @@ export function cicloParaFreq(ciclo: string): FreqDB {
 
 /** `reference_code` idempotente de uma fatura de recorrência. */
 export const refFatura = (recId: string, dataISO: string) => `rec:${recId}:${dataISO}`;
+
+/**
+ * Quantos dias à frente a ATIVAÇÃO de uma assinatura lança faturas — o MESMO
+ * horizonte na demonstração e em produção. A demonstração lançava "6 faturas",
+ * e uma assinatura anual virava SEIS ANOS de receita a receber (medido:
+ * 6 × R$ 3.200) enquanto produção lançava 180 dias.
+ */
+export const HORIZONTE_ATIVACAO_DIAS = 180;
+
+/**
+ * Quais faturas saem do fluxo quando a assinatura é pausada ou cancelada:
+ * só as PENDENTES com vencimento de hoje em diante. Recebida é caixa que já
+ * entrou (apagá-la desfaz dinheiro recebido); vencida em aberto continua
+ * devida. É a regra que a consulta de produção aplica no banco
+ * (`status = pendente` e `due_date >= hoje`), escrita uma vez para a
+ * demonstração seguir a mesma.
+ */
+export function faturasARemoverAoEncerrar(
+  faturas: readonly { id: string; status: string; due_date: string }[],
+  hojeISO: string,
+): string[] {
+  return faturas.filter((f) => f.status === "pendente" && f.due_date >= hojeISO).map((f) => f.id);
+}
+
+/**
+ * O que a ativação lançou — a tela diz o número, não "entram no previsto".
+ *
+ * ⚠️ `faturas` são as NOVAS; `jaExistiam` as que o banco recusou por
+ * duplicata E que estão visíveis (o Cron ou uma ativação anterior já as
+ * gravou); `naLixeira` os vencimentos cuja fatura foi para a lixeira ao
+ * pausar — o índice único `movements_rec_ref_uniq` ainda os enxerga, então
+ * nenhum caminho de escrita os recria, e eles ficam FORA do previsto até
+ * alguém restaurá-los. Contar os três como "0 faturas" fazia a tela dizer
+ * "nenhuma fatura vence" sobre um contrato com faturas.
+ */
+export interface ResultadoAtivacao {
+  faturas: number; jaExistiam: number; naLixeira: string[]; horizonteDias: number;
+  /** A conferência das duplicadas falhou — a tela diz que não sabe. */
+  aviso?: string;
+}
+
+/**
+ * O que a ativação fez, em uma frase. ⚠️ "Nenhuma fatura" só quando NADA
+ * existe no horizonte: as que já estavam no previsto (Cron, ativação
+ * anterior) e as que foram para a lixeira ao pausar são ditas pelo nome —
+ * somá-las a zero fazia a tela negar faturas que existem, e esconder as da
+ * lixeira deixava receita contratada fora do previsto sem ninguém saber.
+ */
+export function mensagemDaAtivacao(res: ResultadoAtivacao): string {
+  const pl = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
+  const partes: string[] = [];
+  if (res.faturas > 0) partes.push(`${pl(res.faturas, "fatura nova", "faturas novas")} no previsto (Títulos a receber, fluxo e DRE)`);
+  if (res.jaExistiam > 0) partes.push(`${pl(res.jaExistiam, "já estava", "já estavam")} no previsto`);
+  if (res.naLixeira.length > 0) {
+    partes.push(`${pl(res.naLixeira.length, "fatura está", "faturas estão")} na lixeira desde a pausa (vence${res.naLixeira.length === 1 ? "" : "m"} ${res.naLixeira.map((d) => d.split("-").reverse().join("/")).join(", ")}) e fica${res.naLixeira.length === 1 ? "" : "m"} fora do previsto até ser${res.naLixeira.length === 1 ? "" : "em"} restaurada${res.naLixeira.length === 1 ? "" : "s"} na Lixeira`);
+  }
+  if (res.aviso) partes.push(res.aviso);
+  if (partes.length === 0) return `Ativada — nenhuma fatura vence nos próximos ${res.horizonteDias} dias, então nada entrou no previsto ainda`;
+  return `Ativada — ${partes.join(" · ")}`;
+}
+

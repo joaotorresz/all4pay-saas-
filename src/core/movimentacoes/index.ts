@@ -9,6 +9,7 @@
  * Puro, tipado, demo-safe. Versão movimentacoes/1.0.0.
  */
 import type { RiskInput, RiskMovement } from "@/core/risk-engine/types";
+import { interpretarValor, centavos } from "@/core/busca";
 
 export const MOVIMENTACOES_VERSION = "movimentacoes/1.0.0";
 
@@ -71,6 +72,7 @@ export function filtrarTitulos(
 ): RiskMovement[] {
   const tipo = direcao === "receber" ? "entrada" : "saida";
   const q = semAcento((f.busca ?? "").trim());
+  const valorBusca = interpretarValor(f.busca ?? "");
   const nomes = input.partyNames ?? {};
   return input.movements.filter((m) => {
     if (!vivo(m) || m.type !== tipo) return false;
@@ -82,7 +84,13 @@ export function filtrarTitulos(
     if (f.parte && m.party_id !== f.parte) return false;
     if (f.status && f.status !== "todos" && statusDoTitulo(m, input.hoje) !== f.status) return false;
     if (!q) return true;
-    const alvo = [m.id, m.category, m.party_id && nomes[m.party_id], String(m.amount)];
+    // ⚠️ O VALOR casa em centavos e na grafia brasileira ("1.234,56"): o texto
+    // cru "1234.56" nunca contém o que a pessoa digita, e a busca global manda
+    // para cá o mesmo termo que ela digitou na paleta.
+    if (valorBusca !== null && centavos(m.amount) === centavos(valorBusca)) return true;
+    // O valor NÃO entra como texto: "1234" contido em "11234" acharia o título
+    // de R$ 11.234 ao procurar o de R$ 1.234 — a comparação de valor é a de cima.
+    const alvo = [m.id, m.category, m.party_id && nomes[m.party_id], m.descricao, m.referenceCode];
     return alvo.some((s) => s && semAcento(String(s)).includes(q));
   }).sort((a, b) => dia(b.due_date).localeCompare(dia(a.due_date)));
 }
@@ -129,6 +137,12 @@ export interface Transferencia {
   conciliadaOrigem: boolean;
   conciliadaDestino: boolean;
   criadoEm: string;
+  /**
+   * O `group_id` dos dois lançamentos no banco (produção). É por ele que a
+   * exclusão alcança os DOIS lados; sem ele, apagar a transferência apagaria
+   * só o registro e deixaria o dinheiro andando entre as contas.
+   */
+  grupoId?: string | null;
 }
 
 export function validarTransferencia(t: Partial<Transferencia>): Record<string, string> {

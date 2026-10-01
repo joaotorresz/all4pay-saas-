@@ -56,8 +56,13 @@ export function useCockpitCtx(): CockpitCtx {
   };
 }
 
-import { valorOuNulo, dataDe, type Indicador } from "@/core/indicadores";
+import { valorOuNulo, dataDe, rotuloRunwayLido, type Indicador } from "@/core/indicadores";
+import { rotuloRunway } from "@/core/quant/score";
 
+// Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
+// direção. POS/NEG/WARN ficam só para NÍVEL e ALERTA (score por faixa,
+// severidade, risco, contagem de itens em estado crítico) — nunca para pintar
+// um valor que pode ser negativo conforme o sinal dele, nem entrada × saída.
 const POS = "var(--color-positive)";
 const NEG = "var(--color-negative)";
 const WARN = "var(--color-warning)";
@@ -84,9 +89,18 @@ function MetricCard({ label, value, answer, tone, icon, info, href, hrefLabel }:
       {/* Sem chip de ícone: o rótulo carrega o card sozinho. `icon` segue no
           contrato dos widgets do catálogo, mas não é renderizado. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="text-label font-medium text-muted">{label}</span>
+        <span className="inline-flex items-center gap-[6px] text-label font-medium text-muted">
+          {/* ⚠️ O NÚMERO NÃO TEM COR (decisão de 30/09/2026). O `tone` virou um
+              ponto ao lado do rótulo, e só quando é ALERTA (atenção ou crítico):
+              "está tudo bem" não precisa de marca, e um número verde era o que
+              o dono pediu para tirar. */}
+          {tone && tone !== POS && (
+            <span aria-hidden className="w-[7px] h-[7px] rounded-pill shrink-0" style={{ background: tone }} />
+          )}
+          {label}
+        </span>
       </div>
-      <span className="text-value-lg leading-none font-semibold tabular-nums" style={{ color: tone ?? "var(--color-ink)" }}>
+      <span className="text-value-lg leading-none font-semibold tabular-nums text-ink">
         {value}
       </span>
       {answer && <p className="m-0 text-caption text-muted leading-[1.45]">{answer}</p>}
@@ -128,8 +142,8 @@ export function ResumoHojeCard({ ctx }: { ctx: CockpitCtx }) {
         <span className="text-label font-medium text-muted">Hoje · briefing executivo</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <HojeStat label="Entram" value={<BRL value={entram} />} tone={POS} />
-        <HojeStat label="Saem" value={<BRL value={saem} />} tone={NEG} />
+        <HojeStat label="Entram" value={<BRL value={entram} />} />
+        <HojeStat label="Saem" value={<BRL value={saem} />} />
         <HojeStat label="Vencem" value={`${vencem}`} sub="cobrança(s)" tone={vencem ? WARN : undefined} />
         <HojeStat label="Pendências" value={`${pendencias}`} sub="em aberto" />
       </div>
@@ -153,8 +167,12 @@ export function ResumoHojeCard({ ctx }: { ctx: CockpitCtx }) {
 function HojeStat({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone?: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone ?? "var(--color-ink)" }}>{value}</span>
+      <span className="inline-flex items-center gap-[6px] text-caption text-faint">
+        {tone && tone !== POS && <span aria-hidden className="w-[6px] h-[6px] rounded-pill shrink-0" style={{ background: tone }} />}
+        {label}
+      </span>
+      {/* O número não tem cor; o alerta é o ponto ao lado do rótulo. */}
+      <span className="text-h3 font-medium tabular-nums leading-none text-ink">{value}</span>
       {sub && <span className="text-caption text-faint mt-[2px]">{sub}</span>}
     </div>
   );
@@ -169,7 +187,7 @@ export interface CatalogWidget {
   render: (ctx: CockpitCtx) => React.ReactNode;
 }
 
-const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1));
+const meses = (m: number) => (m >= 99 ? "99+" : m.toFixed(1).replace(".", ","));
 const pctTxt = (n: number) => `${Math.round(n * 100)}%`;
 /*
  * ⚠️ **Margem é `Indicador`, e pode NÃO EXISTIR.** Sem receita líquida no
@@ -241,10 +259,12 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "runway_meses", label: "Fôlego de caixa (runway)", categoria: "Caixa",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" icon="trending-up" label="Fôlego de caixa"
-        value={`${meses(c.quant.indicadores.runwayMeses)} meses`}
-        answer={c.quant.indicadores.burnRate > 0
+        value={c.quant.indicadores.runwayMeses !== null ? `${meses(c.quant.indicadores.runwayMeses)} meses` : rotuloRunway(c.quant.indicadores)}
+        answer={c.quant.indicadores.runwayMeses !== null
           ? `Seu caixa cobre ${meses(c.quant.indicadores.runwayMeses)} meses no burn atual de ${formatBRL(c.quant.indicadores.burnRate)}/mês.`
-          : "A operação gera caixa — runway saudável."}
+          : c.quant.indicadores.runwayMotivo?.codigo === "sem_queima"
+            ? "A operação gera caixa — não há queima pela qual dividir, então não há prazo de runway."
+            : `Sem runway a calcular: ${c.quant.indicadores.runwayMotivo?.motivo ?? "sem base"}.`}
         info={{ titulo: "Fôlego de caixa", oQue: "Por quantos meses o caixa atual aguenta no ritmo de gasto de hoje.", comoCalcula: "Saldo de caixa dividido pelo burn rate (consumo líquido mensal)." }} />
     ),
   },
@@ -279,7 +299,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "crescimento_mom", label: "Crescimento (MoM)", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
-      <MetricCard icon="trending-up" label="Crescimento (MoM)" tone={c.quant.indicadores.crescimentoMensal < 0 ? NEG : POS}
+      <MetricCard icon="trending-up" label="Crescimento (MoM)"
         value={`${c.quant.indicadores.crescimentoMensal >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.crescimentoMensal)}`}
         answer="Variação da receita vs o mês anterior."
         info={{ titulo: "Crescimento (MoM)", oQue: "O ritmo de crescimento da receita de um mês para o outro.", comoCalcula: "Variação percentual da receita do mês atual contra o mês anterior." }} />
@@ -361,7 +381,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.decisao) return <Loading />;
       const top = rec[0];
       return (
-        <MetricCard icon="sparkles" label="Radar de oportunidades" tone={POS}
+        <MetricCard icon="sparkles" label="Radar de oportunidades"
           value={top ? `${rec.length} ação(ões)` : "—"}
           answer={top ? `${top.titulo} — ${top.descricao}` : "Sem oportunidades de melhoria relevantes agora."}
           info={{ titulo: "Radar de oportunidades", oQue: "Sugere ações que melhoram o caixa, como antecipar recebíveis ou renegociar.", comoCalcula: "O motor de decisão simula cada ação e mede o impacto real no runway e no score." }} />
@@ -394,7 +414,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "roic-proxy", label: "ROIC (proxy)", categoria: "Resumo executivo",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="trending-up" label="ROIC (proxy)"
-        tone={c.quant.indicadores.roic > 0 ? POS : NEG}
         value={`${c.quant.indicadores.roic >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.roic)}`}
         answer="Retorno aproximado sobre o capital empregado na operação."
         info={{ titulo: "ROIC (proxy)", oQue: "Estima o retorno gerado sobre o capital investido na operação.", comoCalcula: "Lucro operacional anualizado dividido pelo capital empregado. É uma aproximação a partir dos lançamentos." }} />
@@ -438,8 +457,9 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "margem-caixa-90d", label: "Margem de caixa (90d)", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
+      // Sem tom: a faixa vermelha era exatamente "margem < 0" — número
+      // vermelho por ser negativo. O sinal escrito ("+"/"-") diz a direção.
       <MetricCard icon="gauge" label="Margem de caixa (90d)"
-        tone={c.quant.indicadores.margemCaixa90d > 0.15 ? POS : c.quant.indicadores.margemCaixa90d > 0 ? WARN : NEG}
         value={`${c.quant.indicadores.margemCaixa90d >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.margemCaixa90d)}`}
         answer="De cada real que ENTROU no caixa nos últimos 90 dias, quanto sobrou depois do que saiu."
         info={{ titulo: "Margem de caixa (90 dias)", oQue: "Quanto sobra do dinheiro que efetivamente entrou, no ritmo dos últimos 90 dias.", comoCalcula: "Entradas menos saídas LIQUIDADAS ÷ entradas, pela data de pagamento (regime de CAIXA). ⚠️ Não é a margem do DRE, que é competência e passa por deduções, custo e resultado financeiro — essa está nos cartões de EBITDA e lucro." }} />
@@ -448,8 +468,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
   {
     id: "eficiencia-de-caixa", label: "Eficiência de caixa", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
+      // Sem tom, pelo mesmo motivo da margem de caixa: o vermelho era "< 0".
       <MetricCard icon="gauge" label="Eficiência de caixa"
-        tone={c.quant.indicadores.eficienciaDeCaixa > 0.1 ? POS : c.quant.indicadores.eficienciaDeCaixa > 0 ? WARN : NEG}
         value={`${c.quant.indicadores.eficienciaDeCaixa >= 0 ? "+" : ""}${pctTxt(c.quant.indicadores.eficienciaDeCaixa)}`}
         answer="A margem de caixa depois de descontar a perda esperada com quem não paga."
         info={{ titulo: "Eficiência de caixa", oQue: "A sobra do caixa já descontando a inadimplência esperada da carteira.", comoCalcula: "Margem de caixa (90d) menos a perda esperada por inadimplência, sobre as entradas. ⚠️ Regime de CAIXA — não é a margem líquida do DRE." }} />
@@ -530,7 +550,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
       return (
         <MetricCard icon="gauge" label="Projeção de score (cenário)"
-          tone={cen.delta < 0 ? NEG : POS}
           value={`${cen.scoreProjetado}/100`}
           answer={`${cen.label}: score iria para ${cen.scoreProjetado} (${cen.delta >= 0 ? "+" : ""}${cen.delta}) em ${cen.emDias}d.`}
           info={{ titulo: "Projeção de score (cenário)", oQue: "Como a saúde financeira reagiria ao cenário de choque mais relevante.", comoCalcula: "O motor recalcula o score aplicando o choque simulado e mostra a variação e o prazo." }} />
@@ -575,7 +594,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const total = contas.reduce((s, a) => s + a.balance, 0);
       return (
         <MetricCard href="/fluxo-caixa" hrefLabel="Ver fluxo de caixa" icon="building" label="Caixa consolidado"
-          tone={total < 0 ? NEG : POS}
           value={<BRL value={total} />}
           answer={`Saldo somado das ${contas.length} conta(s) bancária(s) da empresa.`}
           info={{ titulo: "Caixa consolidado", oQue: "O saldo total disponível somando todas as contas bancárias.", comoCalcula: "Soma o saldo atual de cada conta financeira cadastrada." }} />
@@ -639,7 +657,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const p50 = c.decisao.previsao.caixaFinalP50;
       return (
         <MetricCard icon="trending-up" label="Caixa projetado (mediana)"
-          tone={p50 < 0 ? NEG : POS}
           value={<BRL value={p50} />}
           answer={`Saldo mais provável ao fim de ${c.decisao.previsao.horizonteDias} dias (cenário mediano).`}
           info={{ titulo: "Caixa projetado (mediana)", oQue: "O saldo de caixa mais provável ao fim do horizonte de projeção.", comoCalcula: "Cenário mediano (p50) da simulação de Monte Carlo do caixa diário." }} />
@@ -653,7 +670,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const p10 = c.decisao.previsao.caixaFinalP10;
       return (
         <MetricCard icon="triangle-alert" label="Caixa no pior cenário"
-          tone={p10 < 0 ? NEG : WARN}
           value={<BRL value={p10} />}
           answer={`Saldo em ${c.decisao.previsao.horizonteDias} dias no cenário pessimista (p10).`}
           info={{ titulo: "Caixa no pior cenário", oQue: "O saldo de caixa no cenário ruim ao fim do horizonte.", comoCalcula: "Cenário pessimista (p10) da simulação de Monte Carlo: só 10% dos casos terminam abaixo dele." }} />
@@ -725,7 +741,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const dias = Math.round(rec.deltaRunwayDias);
       return (
         <MetricCard icon="sparkles" label="Impacto da melhor ação"
-          tone={dias > 0 ? POS : WARN}
           value={dias > 0 ? `+${dias} dias` : `${rec.deltaScore >= 0 ? "+" : ""}${rec.deltaScore} pts`}
           // ⚠️ No CONDICIONAL: é o resultado de uma simulação, não algo que já
           // aconteceu. "Antecipar recebíveis: +12 dias" lê-se como ganho obtido.
@@ -821,7 +836,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "receita-mensal-media", label: "Receita mensal média", categoria: "Receita",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="trending-up" label="Receita mensal média"
-        tone={c.quant.indicadores.receitaMensal > 0 ? POS : WARN}
+        // Receita positiva não se pinta de verde; só a AUSÊNCIA de receita avisa.
+        tone={c.quant.indicadores.receitaMensal > 0 ? undefined : WARN}
         value={<BRL value={c.quant.indicadores.receitaMensal} />}
         answer="Receita média que a operação gera por mês no período analisado."
         info={{ titulo: "Receita mensal média", oQue: "Quanto a empresa fatura, em média, a cada mês.", comoCalcula: "Média mensal das entradas de receita ao longo do período analisado." }} />
@@ -832,7 +848,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
     id: "despesa-mensal-media", label: "Despesa mensal média", categoria: "Despesas",
     render: (c) => !c.quant ? <Loading /> : (
       <MetricCard icon="credit-card" label="Despesa mensal média"
-        tone={c.quant.indicadores.despesaMensal > c.quant.indicadores.receitaMensal ? NEG : POS}
         value={<BRL value={c.quant.indicadores.despesaMensal} />}
         answer={c.quant.indicadores.despesaMensal > c.quant.indicadores.receitaMensal
           ? "As despesas médias superam a receita média — operação no vermelho."
@@ -956,7 +971,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const total = c.inad.resumo.totalClientes;
       return (
         <MetricCard icon="users" label="Bons pagadores"
-          tone={POS}
           value={`${n}`}
           answer={total > 0
             ? `${pctTxt(total ? n / total : 0)} da carteira são bons pagadores${seg ? ` (${formatBRL(seg.exposicao)} em aberto)` : ""}.`
@@ -1009,7 +1023,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.inad) return <Loading />;
       const vencidos = c.inad.clientes.filter((cl) => cl.features.volumeVencido > 0);
       if (!vencidos.length) return (
-        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="repeat" label="Chance de recuperação" tone={POS} value="—"
+        <MetricCard href="/dashboard/financial/overdue" hrefLabel="Ver inadimplência" icon="repeat" label="Chance de recuperação" value="—"
           answer="Sem valores vencidos para recuperar."
           info={{ titulo: "Chance de recuperação", oQue: "A probabilidade média de recuperar os valores já vencidos.", comoCalcula: "Média da chance de recuperação estimada para os clientes com valores vencidos, ponderada pelo motor de recovery." }} />
       );
@@ -1071,9 +1085,8 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const pior = st.slice().sort((a, b) => a.impactoSaldo - b.impactoSaldo)[0];
       return (
         <MetricCard icon="triangle-alert" label="Pior teste de stress"
-          tone={pior.impactoSaldo < 0 ? NEG : WARN}
           value={<BRL value={pior.impactoSaldo} />}
-          answer={`${pior.label}: impacto de ${formatBRL(pior.impactoSaldo)} no saldo, runway cairia para ${pior.runwayDias} dias.`}
+          answer={`${pior.label}: impacto de ${formatBRL(pior.impactoSaldo)} no saldo, runway no cenário: ${rotuloRunwayLido(pior.runway)}.`}
           info={{ titulo: "Pior teste de stress", oQue: "O choque que mais derruba o caixa entre os testes simulados.", comoCalcula: "Simula choques (queda de receita, atraso de recebimento, alta de despesa) e destaca o de maior impacto negativo no saldo." }} />
       );
     },
@@ -1185,7 +1198,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       return (
         <MetricCard href="/investidores" hrefLabel="Abrir relatório ao investidor" icon="mail" label="Investor snapshot"
           value={<BRL value={mrr} />}
-          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway de ${meses(ind.runwayMeses)} meses. O relatório mensal pronto está em Relatórios → Relatório ao investidor.`}
+          answer={`MRR estimado (ARR ${formatBRL(mrr * 12)}) · ${mom >= 0 ? "+" : ""}${Math.round(mom * 100)}% MoM · runway: ${ind.runwayMeses !== null ? `${meses(ind.runwayMeses)} meses` : rotuloRunway(ind).replace(/^— /, "")}. O relatório mensal pronto está em Relatórios → Relatório ao investidor.`}
           info={{ titulo: "Investor snapshot", oQue: "Os números que investidor pergunta primeiro: MRR/ARR, crescimento e runway.", comoCalcula: "MRR = share recorrente × receita mensal (ARR = 12×MRR); crescimento = receita vs. mês anterior; runway = caixa ÷ burn. O texto completo sai na página Relatório ao investidor." }} />
       );
     },
@@ -1198,7 +1211,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const ops = c.exec.briefing.oportunidades;
       return (
         <MetricCard icon="sparkles" label="Oportunidades do dia"
-          tone={POS}
           value={`${ops.length}`}
           answer={ops.length ? ops[0] : "Nenhuma oportunidade destacada no briefing de hoje."}
           info={{ titulo: "Oportunidades do dia", oQue: "As oportunidades que a IA destacou no briefing executivo de hoje.", comoCalcula: "Conta e mostra as oportunidades identificadas pelo briefing executivo a partir dos motores financeiros." }} />
@@ -1230,7 +1242,7 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.exec) return <Loading />;
       const anomalias = c.exec.anomalias;
       if (!anomalias.length) return (
-        <MetricCard icon="triangle-alert" label="Maior anomalia detectada" tone={POS} value="—"
+        <MetricCard icon="triangle-alert" label="Maior anomalia detectada" value="—"
           answer="Nenhuma anomalia de despesa detectada."
           info={{ titulo: "Maior anomalia detectada", oQue: "O lançamento mais fora do padrão identificado pela IA.", comoCalcula: "Compara cada despesa com o histórico da categoria e destaca o desvio de maior valor." }} />
       );
@@ -1271,7 +1283,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard href="/dashboard/reports/dre" hrefLabel="Ver DRE" icon="activity" label="EBITDA do mês"
-          tone={g.ebitda >= 0 ? POS : NEG}
           value={<BRL value={g.ebitda} />}
           answer={g.margemEbitda.indisponivel
             ? `Resultado operacional do mês (antes de juros/impostos). Sem receita no período, não há margem a calcular.`
@@ -1287,7 +1298,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard href="/dashboard/reports/dre" hrefLabel="Ver DRE" icon="credit-card" label="Lucro líquido do mês"
-          tone={g.lucroLiquido >= 0 ? POS : NEG}
           value={<BRL value={g.lucroLiquido} />}
           answer={g.lucroLiquido >= 0
             ? `No azul: sobrou ${formatBRL(g.lucroLiquido)} depois de tudo${g.margemLiquida.indisponivel ? "" : ` (${mPct(g.margemLiquida)} de margem)`}.`
@@ -1319,7 +1329,9 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard icon="gauge" label="Margem líquida"
-          tone={mNum(g.margemLiquida) === null ? WARN : mNum(g.margemLiquida)! >= 0.15 ? POS : mNum(g.margemLiquida)! >= 0 ? WARN : NEG}
+          // Só a margem INDISPONÍVEL avisa. A escala antiga pintava de vermelho
+          // exatamente a margem negativa — cor por sinal.
+          tone={mNum(g.margemLiquida) === null ? WARN : undefined}
           value={mPct(g.margemLiquida)}
           answer={mNum(g.margemLiquida) === null
             ? `Não houve receita líquida no período — sem receita não existe margem.`
@@ -1335,7 +1347,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard icon="database" label="Receita líquida do mês"
-          tone={POS}
           value={<BRL value={g.receitaLiquida} />}
           answer={`Receita bruta ${formatBRL(g.receitaBruta)} menos os impostos sobre venda.`}
           info={{ titulo: "Receita líquida do mês", oQue: "A receita que de fato fica depois dos impostos sobre a venda.", comoCalcula: "Receita bruta − impostos sobre receita, no mês pela competência (vencimento)." }} />
@@ -1349,7 +1360,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const g = c.dre.gerencial;
       return (
         <MetricCard icon="trending-up" label="Lucro bruto do mês"
-          tone={g.lucroBruto >= 0 ? POS : NEG}
           value={<BRL value={g.lucroBruto} />}
           answer={g.margemBruta.indisponivel
             ? `Sobra depois do custo direto (CMV). Sem receita no período, não há margem a calcular.`
@@ -1414,7 +1424,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const fin = g.ebit - g.lair; // despesa financeira do período
       return (
         <MetricCard icon="credit-card" label="Resultado financeiro"
-          tone={fin > 0 ? NEG : POS}
           value={<BRL value={-fin} />}
           answer={fin > 0
             ? `Juros/tarifas consumiram ${formatBRL(fin)} do resultado neste mês.`
@@ -1471,7 +1480,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const top = mem[0];
       return (
         <MetricCard icon="sparkles" label="Padrões que a IA aprendeu"
-          tone={POS}
           value={`${mem.length}`}
           answer={top ? top.texto : "A IA ainda está aprendendo os padrões do seu negócio."}
           info={{ titulo: "Padrões que a IA aprendeu", oQue: "O que o motor de inteligência já detectou de recorrente no seu negócio (sazonalidade, despesas fixas, clientes críticos, ciclos).", comoCalcula: "O memory engine varre o histórico e memoriza padrões estáveis; aqui mostramos quantos e o mais relevante." }} />
@@ -1538,7 +1546,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const p90 = c.decisao.previsao.caixaFinalP90;
       return (
         <MetricCard icon="trending-up" label="Caixa no melhor cenário"
-          tone={p90 >= 0 ? POS : NEG}
           value={<BRL value={p90} />}
           answer={`Saldo em ${c.decisao.previsao.horizonteDias} dias no cenário otimista (p90) — só 10% dos cenários terminam acima dele.`}
           info={{ titulo: "Caixa no melhor cenário", oQue: "O saldo de caixa no cenário favorável ao fim do horizonte.", comoCalcula: "Cenário otimista (p90) da simulação de Monte Carlo do caixa diário." }} />
@@ -1602,7 +1609,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.treasury) return <Loading />;
       return (
         <MetricCard icon="database" label="Liquidez imediata"
-          tone={c.treasury.liquidez.imediata > 0 ? POS : NEG}
           value={<BRL value={c.treasury.liquidez.imediata} />}
           answer="O caixa disponível agora, somando todas as contas — o que você pode movimentar hoje."
           info={{ titulo: "Liquidez imediata", oQue: "Quanto de caixa está disponível para uso imediato.", comoCalcula: "Soma do saldo de todas as contas bancárias na data de hoje." }} />
@@ -1617,7 +1623,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const delta = l.curto30 - l.imediata;
       return (
         <MetricCard icon="calendar" label="Liquidez em 30 dias"
-          tone={l.curto30 >= 0 ? POS : NEG}
           value={<BRL value={l.curto30} />}
           answer={`Caixa projetado em 30 dias (${delta >= 0 ? "+" : ""}${formatBRL(delta)} vs. hoje), somando recebimentos e pagamentos do período.`}
           info={{ titulo: "Liquidez em 30 dias", oQue: "Quanto de caixa você terá daqui a 30 dias, no ritmo atual.", comoCalcula: "Saldo atual + recebíveis a vencer em 30d − contas a pagar em 30d." }} />
@@ -1630,7 +1635,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       if (!c.treasury) return <Loading />;
       return (
         <MetricCard icon="trending-up" label="Liquidez em 90 dias"
-          tone={c.treasury.liquidez.projetada90 >= 0 ? POS : NEG}
           value={<BRL value={c.treasury.liquidez.projetada90} />}
           answer="Caixa projetado em 90 dias, com os recebíveis ponderados por probabilidade de pagamento."
           info={{ titulo: "Liquidez em 90 dias", oQue: "A projeção de caixa para o trimestre à frente.", comoCalcula: "Saldo atual + 90% dos recebíveis a vencer em 90d − contas a pagar em 90d." }} />
@@ -1644,7 +1648,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       const e = c.treasury.exposicao;
       return (
         <MetricCard icon="arrow-left-right" label="Exposição líquida"
-          tone={e.liquida >= 0 ? POS : NEG}
           value={<BRL value={e.liquida} />}
           answer={`${formatBRL(e.aReceber)} a receber − ${formatBRL(e.aPagar)} a pagar = posição ${e.liquida >= 0 ? "credora" : "devedora"}.`}
           info={{ titulo: "Exposição líquida", oQue: "Se, no total em aberto, você tem mais a receber ou mais a pagar.", comoCalcula: "Recebíveis em aberto − contas a pagar em aberto." }} />
@@ -1664,7 +1667,6 @@ export const COCKPIT_CATALOG: CatalogWidget[] = [
       );
       return (
         <MetricCard icon="calendar" label="Caixa em 4 semanas"
-          tone={s4.acumulado >= 0 ? POS : NEG}
           value={<BRL value={s4.acumulado} />}
           answer={`Saldo projetado ao fim de 4 semanas (${s4.periodo}), acompanhando entradas e saídas previstas.`}
           info={{ titulo: "Caixa em 4 semanas", oQue: "Para onde o seu caixa caminha nas próximas 4 semanas.", comoCalcula: "Cash positioning semanal: saldo inicial + entradas − saídas acumuladas até a 4ª semana." }} />

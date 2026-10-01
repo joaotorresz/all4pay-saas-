@@ -20,10 +20,11 @@ import { Card, Input, Select, DateField, CurrencyInput, BRL, Icon } from "@/comp
 import { formatBRL, dataBR, pct } from "@/lib/format";
 import { ROTULO_REGIME, type Regime, type Anexo } from "@/core/fiscal/perfil";
 import {
-  calcularCLT, calcularPJ, titulosDaCompetencia, titulosDoDecimo, compararVinculo,
+  calcularCLT, calcularPJ, titulosDoPeriodo, compararVinculo,
   ROTULO_VINCULO, EXPLICACAO_VINCULO, ROTULO_TITULO,
-  type Vinculo, type Colaborador,
+  type Vinculo, type Colaborador, type TabelasLegais,
 } from "@/core/folha";
+import { tabelasDaEmpresa } from "@/lib/folha-tabelas";
 
 export interface DadosFolha {
   vinculo: Vinculo;
@@ -40,12 +41,17 @@ export interface DadosFolha {
   desde: string;
   /** Quantas competências gerar de uma vez. */
   competencias: number;
+  /**
+   * Só PJ: o prestador é do Simples Nacional? `""` = não informado — e a
+   * memória de cálculo diz isso, em vez de afirmar que ele é.
+   */
+  prestadorSimples: "" | "sim" | "nao";
 }
 
 export const FOLHA_PADRAO = (mes: string): DadosFolha => ({
   vinculo: "clt", nome: "", documento: "", cargo: "",
   dependentes: 0, valeTransporte: 0, valeRefeicao: 0, planoSaude: 0, pensao: 0,
-  outrosDescontos: 0, desde: mes, competencias: 12,
+  outrosDescontos: 0, desde: mes, competencias: 12, prestadorSimples: "",
 });
 
 const VINCULOS: Vinculo[] = ["clt", "pj"];
@@ -67,6 +73,9 @@ export function colaboradorDe(d: DadosFolha, valor: number, centroCusto?: string
     pensao: d.pensao,
     outrosDescontos: d.outrosDescontos,
     centroCusto: centroCusto ?? null,
+    prestadorSimples: d.vinculo === "pj" && d.prestadorSimples
+      ? d.prestadorSimples === "sim"
+      : null,
   };
 }
 
@@ -78,21 +87,21 @@ export function deslocar(mes: string, n: number): string {
 }
 
 /**
- * TODOS os títulos que o cadastro vai criar — as N competências mais o 13º dos
- * anos abrangidos.
- *
- * ⚠️ O 13º entra aqui e não em cada competência: ele é UM par de títulos por
- * ANO, não um por mês. Gerá-lo doze vezes criaria vinte e quatro parcelas de
- * 13º no fluxo de caixa.
+ * TODOS os títulos que o cadastro vai criar — delega a `core/folha`
+ * (`titulosDoPeriodo`), onde a regra é testável.
  */
 export function titulosDoCadastro(
   c: Colaborador, competencias: number, regime: Regime, anexo: Anexo | null,
+  /**
+   * ⚠️ As tabelas da EMPRESA (as de fábrica + as que o contador entrou), lidas
+   * na hora da chamada. O cadastro calculava com as de FÁBRICA enquanto a tela
+   * da folha usava as da empresa: com a portaria de janeiro digitada, os
+   * títulos nasciam com um INSS e o painel mostrava outro — a mesma folha com
+   * dois valores (a lição do `custoAnual` que ignorava o parâmetro).
+   */
+  tabelas: TabelasLegais = tabelasDaEmpresa(),
 ) {
-  const meses = Array.from({ length: Math.max(1, competencias) }, (_, k) => deslocar(c.desde, k));
-  const titulos = meses.flatMap((m) => titulosDaCompetencia(c, m, regime, anexo));
-  const anos = Array.from(new Set(meses.map((m) => Number(m.slice(0, 4)))));
-  const decimos = anos.flatMap((a) => titulosDoDecimo(c, a, regime, anexo));
-  return [...titulos, ...decimos].sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  return titulosDoPeriodo(c, competencias, regime, anexo, tabelas);
 }
 
 /* ========================================================================== */
@@ -109,22 +118,27 @@ export function BlocoFolha({
   const set = <K extends keyof DadosFolha>(k: K, v: DadosFolha[K]) => onDados({ ...dados, [k]: v });
   const clt = dados.vinculo === "clt";
 
+  // ⚠️ Lidas num efeito, não no render: `store-org` toca `localStorage`, e ler
+  // durante o render quebra a hidratação. Até lá, as de fábrica.
+  const [tabelas, setTabelas] = React.useState<TabelasLegais | undefined>(undefined);
+  React.useEffect(() => { setTabelas(tabelasDaEmpresa()); }, []);
+
   const colab = React.useMemo(() => colaboradorDe(dados, valor), [dados, valor]);
   const calculo = React.useMemo(
-    () => (clt ? calcularCLT(colab, dados.desde, regime, anexo) : null),
-    [clt, colab, dados.desde, regime, anexo],
+    () => (clt ? calcularCLT(colab, dados.desde, regime, anexo, tabelas) : null),
+    [clt, colab, dados.desde, regime, anexo, tabelas],
   );
   const calculoPJ = React.useMemo(
     () => (clt ? null : calcularPJ(colab, dados.desde)),
     [clt, colab, dados.desde],
   );
   const titulos = React.useMemo(
-    () => (valor > 0 ? titulosDoCadastro(colab, dados.competencias, regime, anexo) : []),
-    [colab, dados.competencias, regime, anexo, valor],
+    () => (valor > 0 && tabelas ? titulosDoCadastro(colab, dados.competencias, regime, anexo, tabelas) : []),
+    [colab, dados.competencias, regime, anexo, valor, tabelas],
   );
   const comparacao = React.useMemo(
-    () => (valor > 0 ? compararVinculo(valor, dados.desde, regime, anexo) : null),
-    [valor, dados.desde, regime, anexo],
+    () => (valor > 0 ? compararVinculo(valor, dados.desde, regime, anexo, tabelas) : null),
+    [valor, dados.desde, regime, anexo, tabelas],
   );
 
   return (
@@ -249,8 +263,24 @@ export function BlocoFolha({
         <Card>
           <span className="text-h3 text-ink">Retenções</span>
           <p className="m-0 mt-1 text-caption text-muted">
-            Calculadas sobre o valor da nota. Saem do que o prestador recebe, não do que a empresa gasta.
+            Calculadas sobre o valor da nota. Saem do que o prestador recebe, não do que a empresa gasta —
+            e a empresa as recolhe por DARF, que entra como título próprio.
           </p>
+          {/* ⚠️ A PERGUNTA QUE FALTAVA. Sem ela a memória afirmava "prestador do
+              Simples Nacional" para todo PJ, e a retenção nunca era calculada. */}
+          <div className="mt-3">
+            <Campo label="O prestador é optante do Simples Nacional?" ajuda="Está escrito na nota. Optante do Simples não sofre retenção de IRRF nem de PIS/COFINS/CSLL.">
+              <Select
+                value={dados.prestadorSimples}
+                onChange={(v) => set("prestadorSimples", v as DadosFolha["prestadorSimples"])}
+                options={[
+                  { value: "", label: "Não informado" },
+                  { value: "sim", label: "Sim, é do Simples" },
+                  { value: "nao", label: "Não é do Simples — reter na fonte" },
+                ]}
+              />
+            </Campo>
+          </div>
           {calculoPJ && valor > 0 && (
             <div className="mt-3 flex flex-col gap-2">
               {calculoPJ.memoria.map((l) => (
@@ -342,8 +372,8 @@ export function BlocoFolha({
               muda a leitura de "folha" de uma linha para uma agenda. */}
           <p className="m-0 mt-1 text-caption text-muted">
             {dados.vinculo === "clt"
-              ? "Salário no 5º dia útil, FGTS e DARF no dia 20, mais as duas parcelas do 13º."
-              : "Uma nota por mês, no 5º dia útil."}
+              ? "Salário no 5º dia útil, FGTS e DARF no dia 20, mais as duas parcelas do 13º (proporcional aos meses do ano) e os encargos sobre ele."
+              : "Uma nota por mês, no 5º dia útil — e, quando há retenção, o DARF do que foi retido."}
           </p>
           <div
             tabIndex={0} role="region" aria-label="Títulos que serão criados"

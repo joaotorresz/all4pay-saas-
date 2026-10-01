@@ -170,6 +170,80 @@ export interface ContatoEmpresa {
   whatsapp: string;
 }
 
+/* ===================== o cadastro da empresa: UMA morada ===================== */
+
+/**
+ * ⚠️ **O MESMO FATO MORAVA EM DUAS CHAVES DO CADASTRO, e cada tela lia a sua.**
+ *
+ * O onboarding, `/configuracoes`, o arquivo do contador (`ExportarView`), a
+ * chave PIX (`lib/pix`), o título da Visão geral e a IA leem `cnpj`,
+ * `fantasia` e `regime`. Esta tela ("Dados da empresa", em Administração)
+ * gravava `documento` e `nomeFantasia` — chaves que NINGUÉM mais lê. Medido no
+ * navegador: trocar o CNPJ aqui não mudava o CNPJ do arquivo do contador nem a
+ * chave PIX do QR de cobrança; trocar o nome fantasia não mudava o título da
+ * Visão geral nem o de `/configuracoes`. E a volta também falhava: editar o
+ * CNPJ em `/configuracoes` deixava esta tela mostrando o `documento` antigo.
+ *
+ * A saída é a terceira das três (CLAUDE.md, "duas fontes para um fato"): **a
+ * segunda morada é APAGADA, não conciliada.** As chaves canônicas são as que o
+ * sistema CONSOME; a tela lê delas (com as históricas só como último recurso,
+ * para o cadastro antigo não abrir vazio) e, ao gravar, escreve nelas e remove
+ * as históricas — depois de um salvar, o fato tem um endereço só.
+ */
+export const CHAVES_HISTORICAS_DO_CADASTRO = ["documento", "nomeFantasia", "razao"] as const;
+
+/** O que a tela mostra: o que o sistema USA (chave canônica primeiro). */
+export function identidadeDoCadastro(db: Record<string, unknown> | null | undefined): {
+  documento: string; razaoSocial: string; nomeFantasia: string; tipoPessoa: TipoPessoa;
+} {
+  const t = (v: unknown) => (typeof v === "string" ? v : "");
+  const x = db ?? {};
+  // ⚠️ (revisão) Cadastro sem `tipoPessoa` declarado, com CPF e sem CNPJ, é de
+  // pessoa FÍSICA. Assumir jurídica aqui fazia o salvar seguinte mover o CPF
+  // para a chave `cnpj` (e apagar `cpf`): o arquivo do contador passava a
+  // carregar um CPF no campo do CNPJ.
+  const tipoPessoa: TipoPessoa = x.tipoPessoa === "fisica" || x.tipoPessoa === "juridica"
+    ? x.tipoPessoa
+    : t(x.cpf) && !t(x.cnpj) ? "fisica" : "juridica";
+  const documento = tipoPessoa === "fisica"
+    ? t(x.cpf) || t(x.documento) || t(x.cnpj)
+    : t(x.cnpj) || t(x.documento) || t(x.cpf);
+  return {
+    documento,
+    razaoSocial: t(x.razaoSocial) || t(x.razao),
+    nomeFantasia: t(x.fantasia) || t(x.nomeFantasia),
+    tipoPessoa,
+  };
+}
+
+/**
+ * O cadastro como ele deve ser GRAVADO: os campos da tela nas chaves que o
+ * sistema lê, e as históricas removidas.
+ *
+ * ⚠️ O regime vai para as DUAS chaves que `regimeDoCadastro` consulta
+ * (`regimeTributario` vence `regime`). Gravar só `regime` deixava a empresa
+ * que veio do cadastro jurídico (que grava `regimeTributario`) com o regime
+ * ANTIGO valendo depois do "salvo" — o botão dizia que mudou e o imposto
+ * continuava calculado pelo outro.
+ */
+export function cadastroParaGravar(
+  dbAtual: Record<string, unknown> | null | undefined,
+  d: DadosEmpresa,
+): Record<string, unknown> {
+  const { documento, nomeFantasia, ...resto } = d;
+  const novo: Record<string, unknown> = { ...(dbAtual ?? {}), ...resto };
+  for (const k of CHAVES_HISTORICAS_DO_CADASTRO) delete novo[k];
+  if (d.tipoPessoa === "fisica") { novo.cpf = documento; delete novo.cnpj; }
+  else { novo.cnpj = documento; delete novo.cpf; }
+  novo.fantasia = nomeFantasia;
+  if (d.regime) {
+    const rotulo = REGIMES.find((r) => r.id === d.regime)?.label ?? d.regime;
+    novo.regime = rotulo;
+    novo.regimeTributario = rotulo;
+  }
+  return novo;
+}
+
 export const LIMITE_LOGO = 5 * 1024 * 1024;
 export const FORMATOS_LOGO = [".png", ".jpg", ".jpeg", ".webp"];
 /** Abaixo disso o logo aparece borrado em qualquer relatório impresso. */
@@ -299,6 +373,9 @@ export interface RegistroLog {
   entidadeId: string;
   entidade: string;
   resumo: string;
+  /** O campo de antes e o de depois, quando a ação alterou algo (CAMP-B: edição em massa). */
+  antes?: Record<string, unknown> | null;
+  depois?: Record<string, unknown> | null;
 }
 
 export interface FiltroLogs {
@@ -324,8 +401,65 @@ export function periodoForaDaJanela(hojeISO: string, deISO?: string | null): boo
   return diasEntre(deISO, hojeISO) > JANELA_LOGS_DIAS;
 }
 
+/**
+ * ⚠️ **A BUSCA COMPARA NÚMEROS COMO NÚMEROS, não como grafia.** O campo
+ * convida a buscar "de 1.000 para 10.000" (é o exemplo do próprio campo) —
+ * e o resumo guardava "valor: de 1000 para 10000". Nenhuma das grafias que uma
+ * pessoa digita ("1.000", "R$ 1.000,00", "1000") casava com todas as outras:
+ * a busca que o sistema anunciava não achava nada. Os dois lados passam pela
+ * MESMA normalização — sem acento, sem "R$", sem o ponto de milhar, sem os
+ * centavos zerados e com espaço único — antes da comparação.
+ */
+export function paraBusca(s: string): string {
+  return semAcento(s)
+    .replace(/r\$\s*/g, "")
+    .replace(/(\d)\.(?=\d{3}(\D|$))/g, "$1")
+    .replace(/,00(?!\d)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Um valor do diff como uma PESSOA o lê: número em pt-BR, booleano em palavra. */
+function valorLegivel(v: unknown): string {
+  if (typeof v === "number") return v.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+  if (typeof v === "boolean") return v ? "sim" : "não";
+  if (v === null || v === undefined || v === "") return "vazio";
+  return String(v);
+}
+
+/** O nome do campo em português — a trilha guarda o identificador do código. */
+const CAMPO_LEGIVEL: Record<string, string> = {
+  amount: "valor", valor: "valor", status: "situação", situacao: "situação",
+  favorecido: "favorecido", metodo: "método", limite: "limite", aprovado: "aprovado",
+  aprovador: "aprovador", due_date: "vencimento", paid_date: "pagamento",
+  description: "descrição", category: "categoria", party_id: "contraparte",
+  account_id: "conta", name: "nome", email: "e-mail", role: "papel",
+};
+
+/**
+ * O "de X para Y" de uma alteração — o que a lista de Logs mostra e a busca
+ * varre. ⚠️ Falava a língua do código ("amount: de 1000 para 10000"); agora o
+ * campo vai em português e o número na grafia brasileira, que é o que quem
+ * audita digita na busca.
+ */
+export function resumoDeMudanca(
+  antes: Record<string, unknown>, depois: Record<string, unknown>, acao: string,
+): string {
+  const mudou = Object.keys(depois).filter((k) => JSON.stringify(antes[k]) !== JSON.stringify(depois[k]));
+  if (mudou.length === 0) return acao;
+  return mudou
+    .slice(0, 3)
+    .map((k) => {
+      const campo = CAMPO_LEGIVEL[k] ?? k.replace(/_/g, " ");
+      return k in antes
+        ? `${campo}: de ${valorLegivel(antes[k])} para ${valorLegivel(depois[k])}`
+        : `${campo}: ${valorLegivel(depois[k])}`;
+    })
+    .join(" · ");
+}
+
 export function filtrarLogs(logs: RegistroLog[], f: FiltroLogs = {}): RegistroLog[] {
-  const q = semAcento(f.busca ?? "").trim();
+  const q = paraBusca(f.busca ?? "");
   return logs.filter((l) => {
     const dia = l.quando.slice(0, 10);
     if (f.de && dia < f.de) return false;
@@ -337,7 +471,7 @@ export function filtrarLogs(logs: RegistroLog[], f: FiltroLogs = {}): RegistroLo
     if (f.entidadeId && f.entidadeId !== "todas" && l.entidadeId !== f.entidadeId) return false;
     // A busca varre o RESUMO, que é onde mora o "de X para Y" — filtrar só pelo
     // nome da entidade não acharia "mudou o valor de 1.000 para 10.000".
-    if (q && !semAcento(`${l.resumo} ${l.entidade} ${l.usuario}`).includes(q)) return false;
+    if (q && !paraBusca(`${l.resumo} ${l.entidade} ${l.usuario}`).includes(q)) return false;
     return true;
   });
 }

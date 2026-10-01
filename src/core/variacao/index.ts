@@ -56,6 +56,14 @@ export interface Motivo {
   delta: number;
   /** Os lançamentos do mês analisado que formam a categoria — o drill-down. */
   movimentos: string[];
+  /**
+   * Os lançamentos do mês ANTERIOR na mesma categoria.
+   *
+   * ⚠️ A variação é atual − anterior, e só o lado atual tinha lançamento para
+   * abrir. Uma despesa que SUMIU (estava no mês passado, não está neste) tinha
+   * delta e nenhum botão: a linha "explicada" não deixava ver o que explicava.
+   */
+  movimentosAnterior: string[];
   /** A contraparte que mais pesa na categoria no mês analisado, quando há. */
   principalContraparte: string | null;
 }
@@ -186,6 +194,7 @@ export function analisarVariacao(
         const movs = f.celulas[k]?.movimentos ?? [];
         return {
           categoria: f.label, atual: a, anterior: b, delta: r2(a - b), movimentos: movs,
+          movimentosAnterior: f.celulas[kAnt]?.movimentos ?? [],
           principalContraparte: contraparteDominante(input, movs),
         };
       })

@@ -140,7 +140,8 @@ export function ConciliacaoView() {
                 </div>
               </div>
               <StatusBadge tone={confTone(m.confianca)}>{confLabel(m.confianca)} · {m.confianca}%</StatusBadge>
-              <span className={`tabular-nums shrink-0 md:w-[110px] md:text-right ${m.tipo === "saida" ? "text-negative" : "text-ink"}`}>
+              {/* Número não tem cor por sinal (decisão de 30/09/2026): o "−" escrito diz a direção. */}
+              <span className="tabular-nums shrink-0 md:w-[110px] md:text-right text-ink">
                 {m.tipo === "saida" ? "−" : ""}<BRL value={m.amount} />
               </span>
               <span className="md:text-right">

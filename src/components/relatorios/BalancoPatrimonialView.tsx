@@ -98,14 +98,16 @@ function GrupoComparativo({ titulo, total, totalAnterior, linhas, ate, base }: {
           <span className="flex-1 min-w-0 truncate text-ink">{l.conta !== "—" ? `${l.conta} · ` : ""}{l.nome}</span>
           <span className="hidden sm:block w-[130px] text-right tabular-nums text-muted"><BRL value={l.anterior} /></span>
           <span className="w-[130px] text-right tabular-nums text-ink"><BRL value={l.atual} /></span>
-          <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.variacao) < 0.005 ? "text-faint" : l.variacao > 0 ? "text-ink" : "text-negative"}`}><BRL value={l.variacao} /></span>
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito
+              diz a direção — "+" aqui, "−" já vem do BRL. */}
+          <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.variacao) < 0.005 ? "text-faint" : "text-ink"}`}>{l.variacao >= 0.005 ? "+" : ""}<BRL value={l.variacao} /></span>
         </div>
       ))}
       <div className="flex items-center gap-3 px-5 py-3 border-t border-border-soft text-label font-medium">
         <span className="flex-1 text-ink">Total</span>
         <span className="hidden sm:block w-[130px] text-right tabular-nums text-muted"><BRL value={totalAnterior} /></span>
         <span className="w-[130px] text-right tabular-nums text-ink"><BRL value={total} /></span>
-        <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={total - totalAnterior} /></span>
+        <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink">{total - totalAnterior >= 0.005 ? "+" : ""}<BRL value={total - totalAnterior} /></span>
       </div>
     </Card>
   );

@@ -23,6 +23,7 @@ import {
   type AcaoAutonoma,
 } from "@/core/decision/types";
 import { chartAnim } from "@/lib/chart-anim";
+import { rotuloRunway } from "@/core/quant/score";
 
 const NIVEL_COR: Record<RiscoNivel, string> = {
   baixo: "var(--color-positive)",
@@ -135,7 +136,7 @@ export function DecisaoView() {
           <span className="text-label font-medium text-muted">Feature Store · variáveis do modelo</span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-3">
-          <Feat label="Runway" value={`${features.atual.runwayMeses}m`} />
+          <Feat label="Runway" value={rotuloRunway(features.atual)} />
           <Feat label="Burn / mês" value={features.atual.burnMensal > 0 ? <BRL value={features.atual.burnMensal} /> : "—"} />
           <Feat label="Liquidez" value={features.atual.liquidezCorrente >= 10 ? "10+" : features.atual.liquidezCorrente.toFixed(2)} />
           <Feat label="Inadimplência" value={`${Math.round(features.atual.inadimplencia * 100)}%`} />
@@ -178,20 +179,27 @@ function RecomendacaoRow({ r }: { r: Recomendacao }) {
         <div className="text-[17px] font-medium text-ink">{r.titulo}</div>
         <span className="text-caption text-muted">{r.descricao}</span>
         <div className="flex flex-wrap gap-2 mt-1">
-          {r.deltaRunwayDias > 0 && <Impacto label={`+${Math.round(r.deltaRunwayDias)}d runway`} bom />}
-          {r.deltaScore !== 0 && <Impacto label={`${r.deltaScore > 0 ? "+" : ""}${r.deltaScore} score`} bom={r.deltaScore > 0} />}
-          {r.deltaProbRuptura !== 0 && <Impacto label={`${(r.deltaProbRuptura * 100).toFixed(1)}pp risco`} bom={r.deltaProbRuptura < 0} />}
+          {r.deltaRunwayDias > 0 && <Impacto label={`+${Math.round(r.deltaRunwayDias)}d runway`} />}
+          {r.deltaScore !== 0 && <Impacto label={`${sinalDe(r.deltaScore)}${Math.abs(r.deltaScore)} score`} />}
+          {r.deltaProbRuptura !== 0 && <Impacto label={`${sinalDe(r.deltaProbRuptura)}${Math.abs(r.deltaProbRuptura * 100).toFixed(1)}pp risco`} />}
         </div>
       </div>
     </div>
   );
 }
 
-function Impacto({ label, bom }: { label: string; bom: boolean }) {
+/** "+" ou "−" (U+2212) na frente do delta. */
+const sinalDe = (n: number) => (n > 0 ? "+" : "−");
+
+/**
+ * Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
+ * direção. A pílula era verde/vermelha conforme o delta passasse de zero.
+ */
+function Impacto({ label }: { label: string }) {
   return (
     <span
       className="text-caption font-medium rounded-pill px-2 py-[2px]"
-      style={{ background: "var(--color-surface-2)", color: bom ? "var(--color-positive)" : "var(--color-negative)" }}
+      style={{ background: "var(--color-surface-2)", color: "var(--color-ink)" }}
     >
       {label}
     </span>

@@ -100,7 +100,7 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/central", nome: "Central financeira", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/comecar", nome: "Criar empresa", dono: "acesso", status: "canonica", criterio: "nucleo" },
   { rota: "/comece", nome: "Primeiros passos", dono: "adocao", status: "canonica", criterio: "diferencial" },
-  { rota: "/configuracoes", nome: "Configurações da empresa", dono: "plataforma", status: "canonica", criterio: "nucleo" },
+  { rota: "/configuracoes", nome: "Meu perfil", dono: "plataforma", status: "canonica", criterio: "nucleo" },
   { rota: "/contabilidade", nome: "Contabilidade", dono: "contabilidade", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-receber", nome: "Painel de contas a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
   { rota: "/contas-a-receber/titulos", nome: "Títulos a receber", dono: "movimentacoes", status: "canonica", criterio: "nucleo" },
@@ -136,6 +136,8 @@ export const INVENTARIO: RotaInventario[] = [
   { rota: "/dashboard/purchases/new", nome: "Nova compra", dono: "compras", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/purchases/received-boletos", nome: "Boletos recebidos (DDA)", dono: "compras", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/purchases/received-invoices", nome: "NFs recebidas", dono: "compras", status: "canonica", criterio: "nucleo" },
+  // CAD (30/09/2026): o hub da ordem de dependência dos cadastros + "o que falta para lançar".
+  { rota: "/dashboard/registrations", nome: "Estrutura e cadastros", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/bank-accounts", nome: "Contas bancárias", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/budgets", nome: "Orçamentos", dono: "cadastros", status: "canonica", criterio: "nucleo" },
   { rota: "/dashboard/registrations/chart-of-accounts", nome: "Plano de contas", dono: "cadastros", status: "canonica", criterio: "nucleo" },

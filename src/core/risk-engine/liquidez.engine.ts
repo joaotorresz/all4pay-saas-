@@ -3,7 +3,7 @@
  * ponderando entradas pela probabilidade de recebimento. Daqui nascem
  * ruptura, runway e o ponto de quebra.
  */
-import { runwayDeFluxo } from "@/core/indicadores";
+import { runwayDeFluxo, lerRunwayDeFluxo } from "@/core/indicadores";
 import type { RiskInput, LiquidezPonto, RunwayCenarios, BurnResult } from "./types";
 import { recebiveisPonderados, compromissosAbertos } from "./normalize";
 
@@ -62,9 +62,15 @@ export function calcularRunway(saldoAtual: number, burn: BurnResult): RunwayCena
   // medições), mas a conta é uma só.
   const dias = (receita: number, despesa: number) =>
     runwayDeFluxo(saldoAtual, receita - despesa);
+  const ler = (receita: number, despesa: number) => lerRunwayDeFluxo(saldoAtual, receita - despesa);
   return {
     base: dias(burn.receitaMensal, burn.despesaMensal),
     pessimista: dias(burn.receitaMensal * 0.8, burn.despesaMensal * 1.1),
     otimista: dias(burn.receitaMensal * 1.1, burn.despesaMensal * 0.95),
+    leitura: {
+      base: ler(burn.receitaMensal, burn.despesaMensal),
+      pessimista: ler(burn.receitaMensal * 0.8, burn.despesaMensal * 1.1),
+      otimista: ler(burn.receitaMensal * 1.1, burn.despesaMensal * 0.95),
+    },
   };
 }

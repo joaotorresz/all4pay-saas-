@@ -9,9 +9,10 @@
  * ("vs <valor> em <janela anterior>") · o gráfico, sempre com a **linha
  * tracejada do período anterior** por cima das barras.
  *
- * Cor: barras e stacks saem dos TOKENS de status do DS (positivo/negativo), em
- * tons do MESMO matiz — o DS tem um acento só, então categorias se distinguem
- * por intensidade + legenda, não por matizes avulsos.
+ * Cor: número não tem cor por sinal (decisão de 30/09/2026) — o sinal escrito
+ * diz a direção. Nos gráficos, entrada/positivo sai em `ink` e saída/negativo
+ * em `areia`, em tons do MESMO matiz — o DS tem um acento só, então categorias
+ * se distinguem por intensidade + legenda, não por matizes avulsos.
  */
 import * as React from "react";
 import Link from "next/link";
@@ -25,8 +26,8 @@ import { chartAnim } from "@/lib/chart-anim";
 import { rotuloData, type SerieComparada, type ComparativoFluxo, type SankeyDados, type SankeyLigacao } from "@/core/cashflow/comparativo";
 import { pctDeInteiro } from "@/lib/format";
 
-const POSITIVE = "var(--color-positive)";
-const NEGATIVE = "var(--color-negative)";
+const ENTRADA = "var(--color-ink)";
+const SAIDA = "var(--color-areia)";
 const GRID = "var(--color-border-soft)";
 const FAINT = "var(--color-text-tertiary)";
 const PREV = "var(--color-text-quaternary)"; // cinza da linha tracejada de comparação (neutro, dos dois lados)
@@ -44,7 +45,7 @@ function tickBRL(v: number): string {
 }
 
 /* ============================ pílula de variação ============================ */
-/** Segue o SINAL da variação (como a referência): sobe verde, desce vermelho. */
+/** A direção vem do "+"/"−" e da seta, nunca da cor: a pílula é neutra. */
 function PilulaVariacao({ s }: { s: SerieComparada }) {
   if (s.variacao === null) {
     return (
@@ -54,12 +55,11 @@ function PilulaVariacao({ s }: { s: SerieComparada }) {
     );
   }
   const sobe = s.variacao >= 0;
-  const cor = sobe ? POSITIVE : NEGATIVE;
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <span
         className="inline-flex items-center gap-[5px] rounded-md px-2 py-[3px] text-[13px] font-semibold tabular-nums"
-        style={{ background: `color-mix(in srgb, ${cor} 12%, transparent)`, color: cor }}
+        style={{ background: "var(--color-surface-2)", color: "var(--color-ink)" }}
       >
         <span className="inline-flex" style={sobe ? undefined : { transform: "scaleY(-1)" }}>
           <Icon name="trending-up" size={13} color="currentColor" />
@@ -75,13 +75,12 @@ function PilulaVariacao({ s }: { s: SerieComparada }) {
 
 /* ============================ casca do card ============================ */
 function CardComparativo({
-  titulo, href, janela, valor, corValor, serie, info, children,
+  titulo, href, janela, valor, serie, info, children,
 }: {
   titulo: string;
   href: string;
   janela: { de: string; ate: string };
   valor: number;
-  corValor?: string;
   serie: SerieComparada;
   info: { oQue: string; comoCalcula: string };
   children: React.ReactNode;
@@ -99,7 +98,7 @@ function CardComparativo({
         {rotuloData(janela.de)} – {rotuloData(janela.ate)}
       </span>
 
-      <span className="a4p-heroi text-[32px] font-bold leading-none tabular-nums" style={{ color: corValor ?? "var(--color-ink)" }}>
+      <span className="a4p-heroi text-[32px] font-bold leading-none tabular-nums" style={{ color: "var(--color-ink)" }}>
         {valor < 0 ? "−" : ""}<BRL value={Math.abs(valor)} />
       </span>
 
@@ -137,7 +136,6 @@ export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
       href="/dashboard/reports/dre"
       janela={c.janela}
       valor={s.total}
-      corValor={s.total < 0 ? NEGATIVE : "var(--color-ink)"}
       serie={s}
       info={{
         oQue: "O que sobrou (ou faltou) no período: tudo que entrou menos tudo que saiu, comparado com o período anterior de mesmo tamanho.",
@@ -156,13 +154,13 @@ export function ResultadoLiquidoCard({ c }: { c: ComparativoFluxo }) {
               if (!active || !payload?.length) return null;
               const p = payload[0].payload as (typeof s.pontos)[number];
               return <TooltipBox titulo={String(label)} itens={[
-                { nome: "Resultado", valor: p.valor, cor: p.valor < 0 ? NEGATIVE : POSITIVE },
+                { nome: "Resultado", valor: p.valor, cor: p.valor < 0 ? SAIDA : ENTRADA },
                 { nome: "Período anterior", valor: p.anterior, cor: PREV },
               ]} />;
             }}
           />
           <Bar dataKey="valor" radius={[6, 6, 6, 6]} maxBarSize={54} {...chartAnim()}>
-            {s.pontos.map((p) => <Cell key={p.key} fill={p.valor < 0 ? NEGATIVE : POSITIVE} />)}
+            {s.pontos.map((p) => <Cell key={p.key} fill={p.valor < 0 ? SAIDA : ENTRADA} />)}
           </Bar>
           <Line
             type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
@@ -215,14 +213,14 @@ export function GastosCard({ c }: { c: ComparativoFluxo }) {
               if (!active || !payload?.length) return null;
               const p = payload[0].payload as Record<string, number>;
               return <TooltipBox titulo={String(label)} itens={[
-                ...pilha.map((cat, i) => ({ nome: cat, valor: Number(p[cat] ?? 0), cor: tomDe(NEGATIVE, i) })),
+                ...pilha.map((cat, i) => ({ nome: cat, valor: Number(p[cat] ?? 0), cor: tomDe(SAIDA, i) })),
                 { nome: "Período anterior", valor: Number(p.anterior ?? 0), cor: PREV },
               ]} />;
             }}
           />
           {pilha.map((cat, i) => (
             <Bar
-              key={cat} dataKey={cat} stackId="g" fill={tomDe(NEGATIVE, i)} maxBarSize={54}
+              key={cat} dataKey={cat} stackId="g" fill={tomDe(SAIDA, i)} maxBarSize={54}
               radius={i === pilha.length - 1 ? [6, 6, 0, 0] : undefined}
               {...chartAnim(i * 60)}
             />
@@ -237,7 +235,7 @@ export function GastosCard({ c }: { c: ComparativoFluxo }) {
       <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2">
         {pilha.map((cat, i) => (
           <span key={cat} className="inline-flex items-center gap-[6px] text-[13px] text-muted">
-            <span className="w-[9px] h-[9px] rounded-sm" style={{ background: tomDe(NEGATIVE, i) }} />
+            <span className="w-[9px] h-[9px] rounded-sm" style={{ background: tomDe(SAIDA, i) }} />
             {cat}
           </span>
         ))}
@@ -255,7 +253,6 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
       href="/contas-a-receber/titulos"
       janela={c.janela}
       valor={s.total}
-      corValor={POSITIVE}
       serie={s}
       info={{
         oQue: "Tudo que entrou no período, mês a mês, contra o período anterior de mesmo tamanho.",
@@ -273,12 +270,12 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
               if (!active || !payload?.length) return null;
               const p = payload[0].payload as (typeof s.pontos)[number];
               return <TooltipBox titulo={String(label)} itens={[
-                { nome: "Receitas", valor: p.valor, cor: POSITIVE },
+                { nome: "Receitas", valor: p.valor, cor: ENTRADA },
                 { nome: "Período anterior", valor: p.anterior, cor: PREV },
               ]} />;
             }}
           />
-          <Bar dataKey="valor" fill={POSITIVE} radius={[6, 6, 0, 0]} maxBarSize={54} {...chartAnim()} />
+          <Bar dataKey="valor" fill={ENTRADA} radius={[6, 6, 0, 0]} maxBarSize={54} {...chartAnim()} />
           <Line
             type="monotone" dataKey="anterior" stroke={PREV} strokeWidth={1.4}
             strokeDasharray="6 5" dot={false} activeDot={{ r: 4 }} connectNulls {...chartAnim(160)}
@@ -292,19 +289,19 @@ export function ReceitasCard({ c }: { c: ComparativoFluxo }) {
 /* ========================= 4) Sankey "Para onde foi" ========================= */
 /**
  * Cor de CADA nó — e, por tabela, do rastro que sai dele:
- *   · Receita        → verde (é entrada)
- *   · Despesas       → vermelho
- *   · categorias     → tons do vermelho, um por categoria
+ *   · Receita        → ink (é entrada)
+ *   · Despesas       → areia (é saída)
+ *   · categorias     → tons da areia, um por categoria
  *   · contrapartes   → HERDAM o tom da categoria que mais lhes manda dinheiro,
  *                      então a subárvore inteira fica na mesma família de cor.
  */
 function coresDosNos(s: SankeyDados): string[] {
-  const cores: string[] = new Array(s.nodes.length).fill(NEGATIVE);
+  const cores: string[] = new Array(s.nodes.length).fill(SAIDA);
   let iCat = 0;
   s.nodes.forEach((n, i) => {
-    if (n.nivel === 0) cores[i] = POSITIVE;
-    else if (n.nivel === 1) cores[i] = NEGATIVE;
-    else if (n.nivel === 2) cores[i] = tomDe(NEGATIVE, iCat++);
+    if (n.nivel === 0) cores[i] = ENTRADA;
+    else if (n.nivel === 1) cores[i] = SAIDA;
+    else if (n.nivel === 2) cores[i] = tomDe(SAIDA, iCat++);
   });
   // Folhas: herdam a cor do maior pai (a contraparte pode receber de várias).
   const maiorPai = new Map<number, { valor: number; source: number }>();
@@ -336,7 +333,7 @@ function SankeyNode(props: {
   const anchor = aDireita ? "end" : "start";
   return (
     <Layer>
-      <Rectangle x={x} y={y} width={width} height={height} fill={cores[index] ?? NEGATIVE} radius={[3, 3, 3, 3]} />
+      <Rectangle x={x} y={y} width={width} height={height} fill={cores[index] ?? SAIDA} radius={[3, 3, 3, 3]} />
       {height > 12 && (
         <>
           <text x={tx} y={y + height / 2 - 5} textAnchor={anchor} fontSize={12} fill="var(--color-ink)" fontWeight={500}>{nome}</text>
@@ -349,8 +346,8 @@ function SankeyNode(props: {
 
 /**
  * Faixa em GRADIENTE da cor do nó de origem para a do nó de destino — o rastro
- * "segue a cor referente". No primeiro elo isso desenha a leitura toda: o verde
- * da receita virando o vermelho da despesa ao longo do caminho.
+ * "segue a cor referente". No primeiro elo isso desenha a leitura toda: o ink
+ * da receita virando a areia da despesa ao longo do caminho.
  */
 function SankeyLink(props: {
   sourceX?: number; targetX?: number; sourceY?: number; targetY?: number;
@@ -366,8 +363,8 @@ function SankeyLink(props: {
   // Recharts entrega aqui não traz o índice dos nós (source/target chegam já
   // resolvidos em objetos), e ler dele pintava todo rastro da cor do nó 0.
   const l = ligacoes[index];
-  const corDe = cores[l?.source ?? 0] ?? NEGATIVE;
-  const corPara = cores[l?.target ?? 0] ?? NEGATIVE;
+  const corDe = cores[l?.source ?? 0] ?? SAIDA;
+  const corPara = cores[l?.target ?? 0] ?? SAIDA;
   const gid = `a4pSankey${index}`;
   return (
     <Layer>

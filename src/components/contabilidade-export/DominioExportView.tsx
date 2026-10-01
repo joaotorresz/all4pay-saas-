@@ -13,12 +13,9 @@ import * as React from "react";
 import { Card, Button, Icon, Select, BRL } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
-import { listContasBancarias, listPlanoContas } from "@/lib/registros";
-import { listCentrosCusto } from "@/lib/iuli-cadastros";
-import { useQuery } from "@tanstack/react-query";
-import { getAccountsList } from "@/lib/data";
+import { useContasBancarias, useCategoriasArvore, useCentrosCusto } from "@/components/registros/hooks";
 import {
-  montarLancamentosDominio, gerarLanctosTxt, gerarLanctosBytes, conferirDominio,
+  montarLancamentosDominio, movimentosDaContaNoMes, gerarLanctosTxt, gerarLanctosBytes, conferirDominio,
   dataDominio, valorDominio, campoDominio, LAYOUT_DOMINIO,
   type MovimentoContabil, type MapasContabeis,
 } from "@/core/contabilidade";
@@ -43,65 +40,57 @@ const fmtDia = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 export function DominioExportView() {
   const { show: toast, node } = useToast();
   const risco = useRiscoInput();
-  const contasReais = useQuery({ queryKey: ["accounts-list"], queryFn: getAccountsList });
+  // ⚠️ Os três códigos contábeis moram nos CADASTROS DO BANCO (migration
+  // 20260930180000): a conta em `financial_accounts.codigo_contabil`, a
+  // categoria em `categories.code`, o centro em `cost_centers.codigo_contabil`.
+  // Antes moravam num cadastro paralelo casado por NOME com a conta real, e
+  // renomear um dos lados fazia o código sumir do arquivo sem aviso.
+  const contasCadastro = useContasBancarias();
+  const arvore = useCategoriasArvore();
+  const centrosCadastro = useCentrosCusto();
 
   const [contaId, setContaId] = React.useState("");
   const [mes, setMes] = React.useState(mesCorrente());
   const [carregado, setCarregado] = React.useState<{ contaId: string; mes: string } | null>(null);
 
-  const [extras, setExtras] = React.useState<ReturnType<typeof listContasBancarias>>([]);
-  const [plano, setPlano] = React.useState<ReturnType<typeof listPlanoContas>>([]);
-  const [centros, setCentros] = React.useState<ReturnType<typeof listCentrosCusto>>([]);
-  React.useEffect(() => {
-    setExtras(listContasBancarias());
-    setPlano(listPlanoContas());
-    setCentros(listCentrosCusto());
-  }, []);
-
-  const opcoesConta = (contasReais.data ?? []).map((c) => ({ value: c.id, label: c.name }));
-  const contaEscolhida = (contasReais.data ?? []).find((c) => c.id === contaId);
-  // O código contábil da conta mora no cadastro estendido (`lib/registros`),
-  // casado por nome — `financial_accounts` não tem a coluna.
-  const extraDaConta = extras.find(
-    (e) => e.id === contaId || e.nome.toLowerCase() === (contaEscolhida?.name ?? "").toLowerCase(),
-  );
+  const opcoesConta = (contasCadastro.data ?? []).map((c) => ({ value: c.id, label: c.nome }));
+  const extraDaConta = (contasCadastro.data ?? []).find((c) => c.id === contaId);
 
   const mapas: MapasContabeis = React.useMemo(() => ({
     categorias: Object.fromEntries(
-      plano.filter((c) => c.codigo).map((c) => [c.nome, c.codigo]),
+      (arvore.data ?? []).filter((c) => c.codigo).map((c) => [c.nome, c.codigo]),
     ),
     centros: Object.fromEntries(
-      centros.filter((c) => c.codigoContabil).map((c) => [c.nome, c.codigoContabil]),
+      (centrosCadastro.data ?? []).filter((c) => c.codigoContabil).map((c) => [c.nome, c.codigoContabil]),
     ),
-  }), [plano, centros]);
+  }), [arvore.data, centrosCadastro.data]);
 
-  const movimentos: MovimentoContabil[] = React.useMemo(() => {
-    if (!carregado || !risco.data) return [];
-    const nomes = risco.data.partyNames ?? {};
-    return risco.data.movements
-      .filter((m) => {
-        if (m.status !== "pago") return false; // o extrato é o que o Domínio concilia
-        if (m.accountId && m.accountId !== carregado.contaId) return false;
-        const caixa = m.paid_date ?? m.due_date;
-        return caixa?.slice(0, 7) === carregado.mes;
-      })
-      .map((m) => ({
-        id: m.id,
-        data: (m.paid_date ?? m.due_date).slice(0, 10),
-        valor: Math.abs(m.amount),
-        tipo: m.type === "entrada" ? "entrada" : "saida",
-        // O histórico do Domínio quer a CONTRAPARTE, não a categoria: é o que o
-        // contador procura ao conferir a linha contra o extrato do banco.
-        descricao: (m.party_id && nomes[m.party_id]) || m.category || "",
-        categoria: m.category ?? "",
-        centroCusto: m.costCenter ?? null,
-      }));
-  }, [carregado, risco.data]);
-
-  const { linhas, pendencias } = React.useMemo(
-    () => montarLancamentosDominio(movimentos, mapas),
-    [movimentos, mapas],
+  /*
+   * ⚠️ **LANÇAMENTO SEM CONTA NÃO É DE TODAS AS CONTAS.** O filtro era
+   * `if (m.accountId && m.accountId !== conta) return false` — um liquidado sem
+   * conta passava no arquivo de CADA conta bancária. Numa empresa com quatro
+   * bancos, o mesmo pagamento ia quatro vezes para o Domínio, e o contador só
+   * descobria no balancete. Com UMA conta cadastrada não há ambiguidade e ele
+   * é dela; com mais de uma, ele fica fora do arquivo e é LISTADO.
+   */
+  const nContas = contasCadastro.data?.length ?? 0;
+  const { movimentos, semConta } = React.useMemo(
+    () => (carregado && risco.data
+      ? movimentosDaContaNoMes(risco.data, carregado.contaId, carregado.mes, nContas)
+      : { movimentos: [] as MovimentoContabil[], semConta: [] as { id: string; descricao: string }[] }),
+    [carregado, risco.data, nContas],
   );
+
+  const { linhas, pendencias } = React.useMemo(() => {
+    const m = montarLancamentosDominio(movimentos, mapas);
+    return {
+      linhas: m.linhas,
+      pendencias: [
+        ...m.pendencias,
+        ...semConta.map((x) => ({ movimentoId: x.id, descricao: x.descricao, motivo: "Lançamento sem conta bancária — não entra no arquivo de nenhuma conta." })),
+      ],
+    };
+  }, [movimentos, mapas, semConta]);
   const conferencia = React.useMemo(() => conferirDominio(linhas), [linhas]);
 
   const semCodigoDaConta = !extraDaConta?.codigoContabil;
@@ -172,7 +161,7 @@ export function DominioExportView() {
             <Aviso
               tom="negativo"
               titulo="A conta bancária não tem código contábil do Domínio"
-              texto={`Em partidas simples a conta bancária é a contrapartida FIXA de todos os lançamentos — sem o código dela o Domínio não sabe de onde o dinheiro saiu. Preencha "Código contábil (Domínio)" no cadastro da conta${contaEscolhida ? ` "${contaEscolhida.name}"` : ""}.`}
+              texto={`Em partidas simples a conta bancária é a contrapartida FIXA de todos os lançamentos, e ela NÃO vai dentro do arquivo: é informada na tela de importação do Domínio. Sem o código cadastrado, quem importa não tem de onde tirá-lo. Preencha "Código contábil (Domínio)" no cadastro da conta${extraDaConta ? ` "${extraDaConta.nome}"` : ""}.`}
             />
           )}
 

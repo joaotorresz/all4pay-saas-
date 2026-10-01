@@ -14,13 +14,14 @@ import { useModo } from "@/components/app/useModo";
 import { Header } from "./Header";
 import { useFluxoCaixa, useContas, useComparativo } from "./hooks";
 import { Comparativos } from "./Comparativos";
+import { PrevisaoDoMes } from "./PrevisaoDoMes";
 import type {
   FluxoModelo, FluxoInteligente, PrevRealLinha, DiaCalendario, CrossCheck,
   ProjecaoHorizonte, BandaProj, DiaHeat, WaterfallPasso, Copilot, EventoFin,
 } from "@/core/cashflow";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { BaseDoSaldo } from "@/components/movimentacoes/BaseDoSaldo";
-import { janela as fazJanela } from "@/core/indicadores";
+import { janela as fazJanela, rotuloRunwayLido } from "@/core/indicadores";
 import { formatBRL as fmtBRL, decimalBR } from "@/lib/format";
 import { hojeLocal, isoDay } from "@/lib/aggregations";
 import { infoDaMetodologia, avisoDeSaturacao } from "@/core/metodologia";
@@ -107,6 +108,10 @@ function Inner() {
         <>
           {/* Modo Simples: 3 blocos essenciais. */}
           <ExecutiveSummary m={data} />
+          {/* A previsão do MÊS CORRENTE, em camadas — ao lado do resumo porque
+              responde a pergunta que ele deixa aberta: "como o mês fecha?". Ela
+              não segue o período do filtro: o mês é a unidade da pergunta. */}
+          <PrevisaoDoMes />
           <Bloco
             titulo="Venceu × Foi pago"
             icon="list-checks"
@@ -301,7 +306,7 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
       label: "Entradas projetadas",
       janela: r.entradasVencidas > 0 ? `inclui ${fmtBRL(r.entradasVencidas)} vencido — ${r.regraDoVencido}` : undefined,
       node: <ValorIndicador indicador={r.entradasCanonicas} titulo="Entradas projetadas" />,
-      tone: "positive",
+      tone: "ink",
     },
     {
       label: "Saídas projetadas",
@@ -312,7 +317,7 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
     // ⚠️ A4P-005: estes dois olham para lados OPOSTOS do tempo e ficam lado a
     // lado. A janela de cada um vai NO CARTÃO — sem ela, a leitura natural é
     // subtrair um do outro, e a conta não significa nada.
-    { label: "Geração de caixa", janela: r.janelaGeracao, node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: r.geracaoCaixa >= 0 ? "positive" : "negative" },
+    { label: "Geração de caixa", janela: r.janelaGeracao, node: <span>{sign(r.geracaoCaixa)}<BRL value={Math.abs(r.geracaoCaixa)} /></span>, tone: "ink" },
     { label: "Burn", janela: r.janelaBurn, node: <BRL value={r.burn} />, tone: "ink" },
     // ⚠️ O "∞" saía de `>= 99`, que é o TETO do cálculo lido como se fosse a
     // medida — foi essa a linha que exibiu "33 meses de fôlego" ao lado de um
@@ -351,15 +356,21 @@ function ExecutiveSummary({ m }: { m: FluxoModelo }) {
       info: infoDaMetodologia("score-saude"),
     },
   ];
-  const cor: Record<string, string> = {
-    ink: "var(--color-ink)", positive: "var(--color-positive)", negative: "var(--color-negative)", warning: "var(--color-warning)",
+  // Número não tem cor (decisão de 30/09/2026): o valor fica em tinta e o
+  // sinal escrito diz a direção. O NÍVEL de risco da chance de ruptura vira um
+  // ponto ao lado do rótulo — só em atenção ou crítico.
+  const ponto: Record<string, string | undefined> = {
+    warning: "var(--color-warning)", negative: "var(--color-negative)",
   };
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {cards.map((c) => (
         <Card key={c.label} className="flex flex-col gap-1" info={"info" in c ? c.info : undefined}>
-          <span className="text-caption text-faint">{c.label}</span>
-          <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: cor[c.tone] }}>{c.node}</span>
+          <span className="inline-flex items-center gap-[6px] text-caption text-faint">
+            {ponto[c.tone] && <span aria-hidden className="w-[6px] h-[6px] rounded-pill shrink-0" style={{ background: ponto[c.tone] }} />}
+            {c.label}
+          </span>
+          <span className="text-h3 font-medium tabular-nums leading-none text-ink">{c.node}</span>
           {/* A janela só aparece onde ela DISTINGUE: marcar todos os cartões
               seria não marcar nenhum, a mesma regra do selo de procedência. */}
           {"janela" in c && c.janela ? (
@@ -408,7 +419,7 @@ function GrupoFluxo({ titulo, total, grupos, tom }: { titulo: string; total: num
     <div className="flex flex-col">
       <div className="flex items-center justify-between py-[7px]">
         <span className="text-body text-ink font-medium">{titulo}</span>
-        <span className="tabular-nums" style={{ color: tom === "positive" ? "var(--color-positive)" : "var(--color-negative)" }}>
+        <span className="tabular-nums" style={{ color: "var(--color-ink)" }}>
           {tom === "negative" ? "−" : ""}<BRL value={Math.abs(total)} />
         </span>
       </div>
@@ -459,11 +470,12 @@ function PrevRealView({ linhas }: { linhas: PrevRealLinha[] }) {
                 <td className="py-3 px-4 text-ink">{l.label}</td>
                 <td className="py-3 px-3 text-right tabular-nums text-muted"><BRL value={l.planejado} /></td>
                 <td className="py-3 px-3 text-right tabular-nums text-ink"><BRL value={l.realizado} /></td>
-                <td className="py-3 px-3 text-right tabular-nums" style={{ color: l.diff < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
+                {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+                <td className="py-3 px-3 text-right tabular-nums" style={{ color: "var(--color-ink)" }}>
                   {l.diff < 0 ? "−" : "+"}<BRL value={Math.abs(l.diff)} />
                 </td>
-                <td className="py-3 px-3 text-right tabular-nums" style={{ color: Math.abs(l.pct) < 0.03 ? "var(--color-muted)" : l.pct < 0 ? "var(--color-negative)" : "var(--color-warning)" }}>
-                  {l.pct >= 0 ? "+" : ""}{Math.round(l.pct * 100)}%
+                <td className="py-3 px-3 text-right tabular-nums" style={{ color: Math.abs(l.pct) < 0.03 ? "var(--color-muted)" : "var(--color-ink)" }}>
+                  {Math.round(l.pct * 100) < 0 ? "−" : "+"}{Math.abs(Math.round(l.pct * 100))}%
                 </td>
                 <td className="py-3 px-4 text-muted leading-[1.45]">{l.ia}</td>
               </tr>
@@ -482,7 +494,7 @@ function CalendarioView({ dias }: { dias: DiaCalendario[] }) {
       {dias.map((d, i) => (
         <Card key={d.date} className="flex flex-col gap-1 !p-3">
           <span className="text-caption text-faint">{i === 0 ? "Hoje" : d.label}</span>
-          <span className="text-caption text-positive tabular-nums">+<BRL value={d.recebe} /></span>
+          <span className="text-caption text-ink tabular-nums">+<BRL value={d.recebe} /></span>
           <span className="text-caption text-muted tabular-nums">−<BRL value={d.paga} /></span>
           <span className="text-caption font-medium tabular-nums border-t border-border-soft pt-1" style={{ color: "var(--color-ink)" }}>
             {d.saldo < 0 ? "−" : ""}<BRL value={Math.abs(d.saldo)} />
@@ -582,10 +594,10 @@ function CenariosView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: 
   const sc = typeof ativo.sc === "function" ? ativo.sc(indic) : ativo.sc;
   const res = simularCenario(indic, saldo, sc);
   const deltas = [
-    { label: "Runway", base: `${decimalBR(base.runwayMeses)}m`, novo: `${decimalBR(res.runwayMeses)}m`, pior: res.runwayMeses < base.runwayMeses },
-    { label: "Score", base: `${Math.round(base.scoreProjetado)}`, novo: `${Math.round(res.scoreProjetado)}`, pior: res.scoreProjetado < base.scoreProjetado },
-    { label: "Burn", base: <BRL value={base.burnRate} />, novo: <BRL value={res.burnRate} />, pior: res.burnRate > base.burnRate },
-    { label: "Resultado/mês", base: <BRL value={base.liquidoMensal} />, novo: <BRL value={res.liquidoMensal} />, pior: res.liquidoMensal < base.liquidoMensal },
+    { label: "Runway", base: rotuloRunwayLido(base.runway, "m"), novo: rotuloRunwayLido(res.runway, "m") },
+    { label: "Score", base: `${Math.round(base.scoreProjetado)}`, novo: `${Math.round(res.scoreProjetado)}` },
+    { label: "Burn", base: <BRL value={base.burnRate} />, novo: <BRL value={res.burnRate} /> },
+    { label: "Resultado/mês", base: <BRL value={base.liquidoMensal} />, novo: <BRL value={res.liquidoMensal} /> },
   ];
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
@@ -603,7 +615,8 @@ function CenariosView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: 
           {deltas.map((d) => (
             <div key={d.label} className="flex flex-col gap-[2px]">
               <span className="text-caption text-faint">{d.label}</span>
-              <span className="text-body tabular-nums" style={{ color: d.pior ? "var(--color-negative)" : "var(--color-positive)" }}>{d.novo}</span>
+              {/* Sem cor por piora/melhora (decisão de 30/09/2026): a comparação é com a "base" logo abaixo. */}
+              <span className="text-body tabular-nums" style={{ color: "var(--color-ink)" }}>{d.novo}</span>
               <span className="text-caption text-faint tabular-nums">base {d.base}</span>
             </div>
           ))}
@@ -657,7 +670,7 @@ function WaterfallView({ passos }: { passos: WaterfallPasso[] }) {
             <Bar dataKey="base" stackId="w" fill="transparent" />
             <Bar dataKey="valor" stackId="w" radius={[3, 3, 0, 0]}>
               {data.map((d, i) => (
-                <Cell key={i} fill={d.tipo === "deducao" ? "var(--color-negative)" : d.tipo === "total" ? "var(--color-chart-line)" : "var(--color-ink)"} />
+                <Cell key={i} fill={d.tipo === "deducao" ? "var(--color-areia)" : d.tipo === "total" ? "var(--color-chart-line)" : "var(--color-ink)"} />
               ))}
             </Bar>
           </BarChart>
@@ -715,7 +728,7 @@ function WhatIfView({ indic, saldo }: { indic: IndicadoresFinanceiros; saldo: nu
       <Slider label="Inadimplência" value={inad} set={setInad} min={0} max={0.2} step={0.05} fmt={(v) => `+${Math.round(v * 100)}pp`} />
       <Slider label="Folha" value={folha} set={setFolha} min={0} max={0.3} step={0.05} fmt={(v) => `+${Math.round(v * 100)}%`} />
       <div className="grid grid-cols-3 gap-3 border-t border-border-soft pt-3">
-        <Mini label="Runway" v={`${decimalBR(res.runwayMeses)}m`} />
+        <Mini label="Runway" v={rotuloRunwayLido(res.runway, "m")} />
         <Mini label="Score" v={`${Math.round(res.scoreProjetado)}`} />
         <Mini label="Resultado/mês" v={<BRL value={res.liquidoMensal} />} tone={"var(--color-ink)"} />
       </div>
@@ -742,7 +755,8 @@ function Mini({ label, v, tone = "var(--color-ink)" }: { label: string; v: React
 /* ---------- 11. Eventos ---------- */
 function EventosView({ eventos }: { eventos: EventoFin[] }) {
   if (!eventos.length) return <Card><span className="text-caption text-faint">Sem eventos recentes.</span></Card>;
-  const cor: Record<string, string> = { entrada: "var(--color-positive)", saida: "var(--color-negative)", neutro: "var(--color-faint)" };
+  // Entrada × saída não é verde × vermelho (decisão de 30/09/2026): ink × areia.
+  const cor: Record<string, string> = { entrada: "var(--color-ink)", saida: "var(--color-areia)", neutro: "var(--color-faint)" };
   return (
     <Card className="flex flex-col">
       {eventos.map((e, i) => (

@@ -9,8 +9,10 @@
  * Orquestra os motores quant / risco / crédito. Pura, tipada,
  * explicável, demo-safe. Determinística — plugável a um LLM depois.
  */
+import type { LeituraRunway } from "@/core/indicadores";
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 
+import type { MotivoIndisponivel } from "@/core/indicadores";
 export type InsightTipo =
   | "risco"
   | "oportunidade"
@@ -39,7 +41,13 @@ export interface ExecutiveInsight {
 export interface ExecutiveContext {
   hoje: string;
   saldoAtual: number;
-  runwayMeses: number;
+  /**
+   * ⚠️ `null` = runway INDISPONÍVEL (o motivo vem em `runwayMotivo`). Este
+   * contexto vai para a IA — a nativa e a do Claude — e um `0` aqui virava
+   * "runway de 0 meses" na resposta para uma empresa que gera caixa.
+   */
+  runwayMeses: number | null;
+  runwayMotivo?: { codigo: MotivoIndisponivel; motivo: string };
   burnRate: number;
   receitaMensal: number;
   despesaMensal: number;
@@ -87,7 +95,8 @@ export interface Briefing {
   saudacao: string;
   data: string;
   saldo: number;
-  runway: number;
+  /** ⚠️ `null` = runway indisponível (ver `ExecutiveContext.runwayMotivo`). */
+  runway: number | null;
   alertas: string[];
   oportunidades: string[];
   riscoRuptura: "baixo" | "moderado" | "elevado";
@@ -110,7 +119,10 @@ export interface ScenarioInput {
 }
 
 export interface ScenarioResultado {
+  /** ⚠️ Para o SCORE, não para a tela: no teto e sem queima é 33,3. */
   runwayMeses: number;
+  /** O runway para EXIBIR — número, ausência (sem queima / caixa negativo) ou teto. */
+  runway: LeituraRunway;
   scoreProjetado: number;
   burnRate: number;
   liquidoMensal: number;

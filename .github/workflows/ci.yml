@@ -193,6 +193,15 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: npm run taxonomia
+      # ⚠️ Os cadastros moram no BANCO (migration 20260930180000) e a hierarquia
+      # é regra dele: lançamento só em folha, categoria com lançamento não vira
+      # grupo nem vai à lixeira, conta inativa e projeto encerrado recusam o novo,
+      # documento único POR EMPRESA. A guarda carrega o teste negativo (desliga a
+      # trava de folha e exige que a asserção nomeie o defeito).
+      - name: Guarda da hierarquia dos cadastros (folha, lixeira, conta inativa, documento por empresa)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/cadastros-hierarquia.sql
       # ⚠️ A PROVA NEGATIVA da guarda de DDL, e ela mora AQUI porque precisa de
       # um banco de verdade — o gatilho de evento, o `ddl_log` e a leitura da
       # guarda são três elos, e plantar a linha na lista de objetos só testa o
@@ -235,6 +244,31 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/central-maquina.sql
+      # ⚠️ Automações (e-mail e WhatsApp por empresa): a guarda pura prova a
+      # decisão (grava antes de enviar, simulado não é avisado); esta prova a
+      # FECHADURA — o índice único que impede o reenvio, o padrão desligado que
+      # nasce por GATILHO, a escrita por papel e o contexto do runner fechado à
+      # sessão. Nove casos, cada um lendo a mensagem do vermelho.
+      - name: Guarda das automações (trava do reenvio, padrão desligado, escrita por papel)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/automacoes.sql
+      # ⚠️ O checklist de fechamento é regra de BANCO (gatilhos em close_tasks e
+      # accounting_periods). O engine-audit prova a cópia da tela; esta prova a
+      # fechadura, inclusive as portas que a tela não usa (update direto,
+      # excluir_logico, mudar o mês da tarefa).
+      - name: Guarda do checklist de fechamento (segregação, trava com motivo, congelamento)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/fechamento-checklist.sql
+      # ⚠️ CAMP-B: a fechadura do mês fechado olha a data de ORIGEM no UPDATE, e
+      # o consolidado (org_movements) lê o período inteiro sem lixeira nem
+      # amostra. As duas são de BANCO; a guarda pura não as alcança. Cada caso
+      # carrega o negativo (o defeito replantado tem de acusar).
+      - name: Guarda de banco do CAMP-B (mês fechado pela origem · consolidado)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/campb-banco.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

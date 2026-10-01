@@ -17,6 +17,43 @@ import { formatBRL } from "@/lib/format";
 import { chartAnim } from "@/lib/chart-anim";
 import type { GraficoResposta } from "@/core/assistant/engine";
 
+/**
+ * Copia um texto e diz se COPIOU.
+ *
+ * ⚠️ O botão dizia "Copiado" sempre: `navigator.clipboard?.writeText(txt)` não
+ * era aguardado, então a promessa recusada (permissão negada, página fora de
+ * contexto seguro) escapava do `try` — e com `navigator.clipboard` ausente o
+ * `?.` não fazia nada e o rótulo mentia do mesmo jeito. Agora a confirmação só
+ * aparece quando o texto chegou à área de transferência; senão, a tela diz que
+ * não copiou.
+ */
+export async function copiarTexto(txt: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(txt);
+      return true;
+    }
+  } catch { /* cai no caminho antigo abaixo */ }
+  try {
+    if (typeof document === "undefined") return false;
+    const ta = document.createElement("textarea");
+    ta.value = txt;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/** O resultado da última cópia pedida num turno. */
+export type EstadoCopia = "ok" | "falhou";
+
 /** Um turno da conversa: a pergunta e o que a IA respondeu. */
 export interface Turno {
   id: number;
@@ -87,13 +124,14 @@ export function MarcaIA({ size = 28, radius = 8 }: { size?: number; radius?: num
 /**
  * O gráfico da resposta. O motor devolve só os dados (`GraficoResposta`); a
  * escolha visual mora aqui, seguindo o DS: **linha na cor da marca** com glow
- * em degradê (séries temporais) e **barras nas cores semânticas** (entrada
- * verde · saída vermelha), a 70% — cor de status é sinal, não preenchimento
- * grande. Entra animado via `chartAnim()`.
+ * em degradê (séries temporais) e **barras neutras** (entrada em ink · saída
+ * em areia), a 70%. Número não tem cor por sinal (decisão de 30/09/2026): a
+ * entrada e a saída se distinguem por intensidade, não por verde × vermelho.
+ * Entra animado via `chartAnim()`.
  */
 export function GraficoDaResposta({ g }: { g: GraficoResposta }) {
   const id = React.useId();
-  const base = g.tom === "entrada" ? "var(--color-positive)" : g.tom === "saida" ? "var(--color-negative)" : "var(--color-lime)";
+  const base = g.tom === "entrada" ? "var(--color-ink)" : g.tom === "saida" ? "var(--color-areia)" : "var(--color-lime)";
   const cor = `color-mix(in srgb, ${base} 70%, transparent)`;
   const resumo = g.dados.map((d) => `${d.nome}: ${formatBRL(d.valor)}`).join(", ");
   return (
@@ -202,10 +240,11 @@ export function EtapasAnalise({ etapa, className = "" }: { etapa: number; classN
  * precisa fazer nada.
  */
 export function BolhaResposta({
-  t, copiado, onCopiar, onFeedback, onNavegar,
+  t, copia, onCopiar, onFeedback, onNavegar,
 }: {
   t: Turno;
-  copiado: boolean;
+  /** `undefined` = nada pedido; "ok" = copiou; "falhou" = o navegador recusou. */
+  copia?: EstadoCopia;
   onCopiar: (t: Turno) => void;
   onFeedback: (t: Turno, dir: "up" | "down") => void;
   onNavegar?: () => void;
@@ -248,10 +287,13 @@ export function BolhaResposta({
           {t.fontes && t.fontes.length > 0 && <span className="truncate">Fontes: {t.fontes.join(" · ")}{t.fonte === "ia" ? " · Claude" : ""}</span>}
           {t.fonte !== "carregando" && (
             <span className="ml-auto inline-flex items-center gap-1 shrink-0">
-              <button onClick={() => onCopiar(t)} aria-label="Copiar resposta" className="h-6 px-2 rounded-sm inline-flex items-center hover:bg-surface-2 text-faint hover:text-ink transition-colors">{copiado ? "Copiado" : "Copiar"}</button>
+              <button onClick={() => onCopiar(t)} aria-label="Copiar resposta" className={`h-6 px-2 rounded-sm inline-flex items-center hover:bg-surface-2 hover:text-ink transition-colors ${copia === "falhou" ? "text-negative" : "text-faint"}`}>
+                {copia === "ok" ? "Copiado" : copia === "falhou" ? "Não copiou — selecione o texto" : "Copiar"}
+              </button>
+              <span className="sr-only" aria-live="polite">{copia === "ok" ? "Resposta copiada." : copia === "falhou" ? "O navegador não permitiu copiar." : ""}</span>
               {t.fonte !== "kb" && <>
-                <button onClick={() => onFeedback(t, "up")} aria-label="Resposta útil" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "up" ? "text-positive" : "text-faint"}`}><Icon name="check" size={13} color="currentColor" /></button>
-                <button onClick={() => onFeedback(t, "down")} aria-label="Resposta ruim" className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "down" ? "text-negative" : "text-faint"}`}><Icon name="minus" size={13} color="currentColor" /></button>
+                <button onClick={() => onFeedback(t, "up")} aria-label="Resposta útil" aria-pressed={t.feedback === "up"} className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "up" ? "text-positive" : "text-faint"}`}><Icon name="check" size={13} color="currentColor" /></button>
+                <button onClick={() => onFeedback(t, "down")} aria-label="Resposta ruim" aria-pressed={t.feedback === "down"} className={`w-6 h-6 rounded-sm inline-flex items-center justify-center hover:bg-surface-2 ${t.feedback === "down" ? "text-negative" : "text-faint"}`}><Icon name="minus" size={13} color="currentColor" /></button>
               </>}
             </span>
           )}

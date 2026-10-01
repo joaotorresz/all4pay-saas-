@@ -34,6 +34,7 @@ export function construirContexto(
     hoje: input.hoje,
     saldoAtual: input.saldoAtual,
     runwayMeses: i.runwayMeses,
+    ...(i.runwayMotivo ? { runwayMotivo: i.runwayMotivo } : {}),
     burnRate: i.burnRate,
     receitaMensal: i.receitaMensal,
     despesaMensal: i.despesaMensal,

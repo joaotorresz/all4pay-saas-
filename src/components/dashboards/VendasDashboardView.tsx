@@ -33,8 +33,10 @@ import { NovoDeposito } from "@/components/visao-geral/NovoDeposito";
 import { DemoBadge } from "@/components/visao-geral/DemoBadge";
 import { isDemo } from "@/lib/demo";
 
-const POSITIVE = "var(--color-positive)";
 const ORANGE = "var(--color-warning)";
+/** Receita é ENTRADA e saía em verde; número não tem cor por sinal (decisão de
+ *  30/09/2026), então as séries de receita vão em ink — o EBITDA se distingue
+ *  dela pelo tracejado, não pela cor. */
 const INK = "var(--color-ink)";
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
@@ -252,7 +254,7 @@ export function VendasDashboardView() {
                       <XAxis dataKey="dia" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
+                      <Line type="monotone" dataKey="receita" stroke={INK} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: INK, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -265,7 +267,7 @@ export function VendasDashboardView() {
                       <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={{ stroke: "var(--color-border-soft)" }} interval={0} />
                       <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                       <Tooltip content={<DiaTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
-                      <Line type="monotone" dataKey="receita" stroke={POSITIVE} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: POSITIVE, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
+                      <Line type="monotone" dataKey="receita" stroke={INK} strokeWidth={2.2} dot={{ r: 4, fill: "var(--color-white)", stroke: INK, strokeWidth: 2 }} activeDot={{ r: 6 }} {...chartAnim()} />
                     </LineChart>
                   </ResponsiveContainer>
                 </ChartCard>
@@ -282,8 +284,8 @@ export function VendasDashboardView() {
                 <ComposedChart data={calc.serieRME} margin={{ top: 16, right: 12, bottom: 0, left: -6 }}>
                   <defs>
                     <linearGradient id="recGlow" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-positive)" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="var(--color-positive)" stopOpacity={0} />
+                      <stop offset="0%" stopColor="var(--color-ink)" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="var(--color-ink)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="var(--color-border-soft)" strokeDasharray="3 3" vertical={false} />
@@ -291,7 +293,7 @@ export function VendasDashboardView() {
                   <YAxis tick={{ fontSize: 12, fill: "var(--color-faint)" }} tickLine={false} axisLine={false} width={64} tickFormatter={(v) => formatBRLCompact(v)} />
                   <Tooltip content={<RmeTip />} cursor={{ stroke: "var(--color-text-quaternary)", strokeDasharray: "3 3" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} iconType="plainline" />
-                  <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={POSITIVE} strokeWidth={2.2} fill="url(#recGlow)" activeDot={{ r: 5 }} {...chartAnim()} />
+                  <Area type="monotone" dataKey="receita" name="Receita bruta" stroke={INK} strokeWidth={2.2} fill="url(#recGlow)" activeDot={{ r: 5 }} {...chartAnim()} />
                   <Line type="monotone" dataKey="mc" name="Margem de contribuição" stroke={ORANGE} strokeWidth={2} dot={false} activeDot={{ r: 5 }} {...chartAnim(120)} />
                   <Line type="monotone" dataKey="ebitda" name="EBITDA" stroke={INK} strokeWidth={2} strokeDasharray="5 4" dot={false} activeDot={{ r: 5 }} {...chartAnim(240)} />
                 </ComposedChart>
@@ -311,7 +313,7 @@ const fmtRatio = (n: number | null) => (n == null ? "—" : `${n.toLocaleString(
 function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, React.ReactNode][]; info?: InfoConteudo }) {
   return (
     <Card className="flex flex-col gap-2" info={info}>
-      <span className="text-caption font-semibold tracking-wide" style={{ color: POSITIVE }}>{titulo}</span>
+      <span className="text-caption font-semibold tracking-wide text-muted">{titulo}</span>
       <div className="flex flex-col">
         {rows.map(([k, v], i) => (
           <div key={k} className={`flex items-center justify-between gap-3 py-[7px] ${i ? "border-t border-border-soft" : ""}`}>
@@ -326,8 +328,10 @@ function KpiCard({ titulo, rows, info }: { titulo: string; rows: [string, React.
 
 function DestaqueCard({ titulo, rows, tint, info }: { titulo: string; rows: [string, React.ReactNode][]; tint: "lime" | "negativo"; info?: InfoConteudo }) {
   const isNeg = tint === "negativo";
-  const bg = isNeg ? "rgba(194,71,61,0.08)" : "var(--color-lime-tint)";
-  const cor = isNeg ? "var(--color-negative)" : POSITIVE;
+  // Rótulo neutro nos dois: o card de reembolso/chargeback se distingue pelo
+  // fundo (alerta), não por um número vermelho.
+  const bg = isNeg ? "color-mix(in srgb, var(--color-negative) 8%, transparent)" : "var(--color-lime-tint)";
+  const cor = "var(--color-text-secondary)";
   return (
     <Card className="flex flex-col gap-2" style={{ background: bg }} info={info}>
       <span className="text-caption font-semibold tracking-wide" style={{ color: cor }}>{titulo}</span>

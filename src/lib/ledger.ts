@@ -9,31 +9,42 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { getRiscoInput } from "@/lib/data";
 import {
-  lancamentoDeMovimento, saldoPorNatureza, type LedgerEntryInput, type AccountType,
+  lancamentoDeMovimento, saldoPorNatureza, exigirBalanceado, estornar, r4, type LedgerEntryInput, type AccountType,
 } from "@/core/ledger";
+import { decidirPostagem, mesmaChave, type LancamentoComChave } from "@/core/ledger/idempotencia";
+import { formatBRL } from "@/lib/format";
 import {
   PLANO_PADRAO, CAIXA, lancamentosDeMovimentos, nomeConta, tipoConta,
 } from "@/core/ledger/chart";
 import { categorizarPorRegras, type Categorizacao, type TxParaCategorizar } from "@/core/ledger/categorize";
-import { TETO_LINHAS } from "@/lib/supabase/consulta";
+import { TETO_LINHAS, conferirTeto } from "@/lib/supabase/consulta";
+import { isPeriodLocked } from "@/lib/close";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export interface RazaoLinha { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; dimensions?: Record<string, string | number> }
-export interface RazaoLancamento { id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[] }
+export interface RazaoLancamento {
+  id: string; data: string; descricao: string; origem: string; externalKey?: string; linhas: RazaoLinha[];
+  /** Este lançamento ESTORNA outro (o id do original). Espelha `journal_entries.is_reversal_of`. */
+  estornoDe?: string;
+}
 export interface ContaBalancete { conta: string; nome: string; tipo: AccountType; debito: number; credito: number; saldo: number }
 
 const KEY = "a4p_ledger";
-const load = (): RazaoLancamento[] => {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as RazaoLancamento[]; } catch (e) {
-    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return []; }
+// ⚠️ Só a DEMONSTRAÇÃO grava aqui (em produção o razão mora em `journal_*`);
+// a chave está CONGELADA em produção, e passa por `store-org` como as demais.
+const load = (): RazaoLancamento[] => lerOrg<RazaoLancamento[]>(KEY, []);
+const save = (l: RazaoLancamento[]) => {
+  try { gravarOrg(KEY, l); } catch (e) {
+    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true);
+    throw e;
+  }
 };
-const save = (l: RazaoLancamento[]) => { if (typeof window !== "undefined") { try { localStorage.setItem(KEY, JSON.stringify(l)); } catch (e) {
-    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* ignore */ } } };
 
-function entryToLanc(e: LedgerEntryInput, id: string): RazaoLancamento {
+function entryToLanc(e: LedgerEntryInput, id: string, estornoDe?: string): RazaoLancamento {
   return {
     id,
+    ...(estornoDe ? { estornoDe } : {}),
     data: e.entryDate,
     descricao: e.description ?? "Lançamento",
     origem: e.source ?? "manual",
@@ -62,17 +73,22 @@ export const PLANO = PLANO_PADRAO;
 async function lerJournalLive(): Promise<RazaoLancamento[]> {
   const { data, error } = await createClient()
     .from("journal_entries")
-    .select("id,entry_date,description,source,external_key,journal_lines(debit,credit,dimensions,ledger_accounts(code,name,type))")
+    .select("id,entry_date,description,source,external_key,is_reversal_of,journal_lines(debit,credit,dimensions,ledger_accounts(code,name,type))")
     .eq("status", "posted")
     .order("entry_date", { ascending: false })
-    .limit(1000);
+    .limit(TETO_LINHAS);
   if (error) throw error;
+  // ⚠️ Era `.limit(1000)` calado: o 1001º lançamento próprio simplesmente não
+  // existia no razão nem no balancete, que continuava "balanceado" — um razão
+  // a que faltam linhas não parece quebrado, parece um razão.
+  conferirTeto("razão · lançamentos próprios", (data ?? []).length);
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
     id: String(r.id),
     data: String(r.entry_date),
     descricao: String(r.description ?? "Lançamento"),
     origem: String(r.source ?? "manual"),
     externalKey: (r.external_key as string) ?? undefined,
+    ...(r.is_reversal_of ? { estornoDe: String(r.is_reversal_of) } : {}),
     linhas: ((r.journal_lines ?? []) as Array<Record<string, unknown>>).map((l) => {
       const acc = (l.ledger_accounts ?? {}) as { code?: string; name?: string; type?: AccountType };
       return { conta: acc.code ?? "—", nome: acc.name ?? "—", tipo: (acc.type ?? "asset") as AccountType, debito: Number(l.debit ?? 0), credito: Number(l.credit ?? 0), dimensions: (l.dimensions ?? {}) as Record<string, string | number> };
@@ -296,83 +312,155 @@ export async function backfillRazao(): Promise<number> {
     return novos.length;
   }
   await seedPlanoLive();
-  return postarLiveLote(entries);
+  const r = await postarLiveLote(entries);
+  if (r.falhas.length) {
+    throw new Error(`${r.falhas.length} lançamento(s) recusado(s) pelo banco — o primeiro: ${r.falhas[0].erro}`);
+  }
+  return r.postadas.length;
 }
 
-export function clearRazao(): void { if (typeof window !== "undefined") { try { localStorage.removeItem(KEY); } catch { /* ignore */ } } }
+export function clearRazao(): void { save([]); }
 
-/** Postagem manual de um lançamento já balanceado (demo: store; live: GL). */
-export async function postarLancamento(e: LedgerEntryInput): Promise<void> {
+/**
+ * ⚠️ **A MESMA REGRA NOS DOIS CAMINHOS — espelho dos gatilhos do banco.**
+ *
+ * Em produção o banco recusa o desbalanceado (`check_entry_balanced`) e o
+ * período travado (`check_period_open`). Na demonstração não há banco, e o
+ * `postarLancamento` gravava QUALQUER coisa no navegador — inclusive o
+ * rascunho da IA com débito ≠ crédito, que entrava no balancete e o
+ * desbalanceava sem ninguém ter recusado nada. Uma regra que só vale onde há
+ * banco é uma regra que a demonstração ensina a ignorar.
+ *
+ * Conta fora do plano também é recusada aqui: em produção ela virava
+ * `account_id: undefined` no insert e o banco devolvia um erro que não nomeia
+ * conta nenhuma.
+ */
+export function validarPostagem(e: LedgerEntryInput): void {
+  exigirBalanceado(e.lines);
+  const conhecidas = new Set(PLANO_PADRAO.map((c) => c.code));
+  const fora = e.lines.map((l) => l.accountId).filter((c) => !conhecidas.has(c));
+  if (fora.length) throw new Error(`Conta fora do plano de contas do razão: ${Array.from(new Set(fora)).join(", ")}.`);
+  if (!/^\d{4}-\d{2}-\d{2}/.test(e.entryDate ?? "")) throw new Error("Lançamento sem data.");
+  if (isPeriodLocked(e.entryDate)) {
+    throw new Error(`O mês ${e.entryDate.slice(5, 7)}/${e.entryDate.slice(0, 4)} está fechado: lance no mês aberto ou reabra o período em Fechamento.`);
+  }
+}
+
+/**
+ * Postagem de um lançamento de dupla entrada (demo: store; live: GL).
+ *
+ * ⚠️ **LANÇA quando não grava.** Em produção, `postarLiveLote` fazia
+ * `continue` em TODA falha — o cabeçalho recusado, as linhas recusadas, o
+ * gatilho do desbalanceado ou do período travado — e esta função devolvia
+ * `void`. A tela anunciava "Lançamento postado." sobre um lançamento que o
+ * banco tinha recusado: o escritor que engole erro, indistinguível de um que
+ * funciona.
+ */
+export async function postarLancamento(e: LedgerEntryInput): Promise<"postado" | "ja_existia"> {
+  validarPostagem(e);
+  const total = r4(e.lines.reduce((s, l) => s + (l.debit ?? 0), 0));
+  // ⚠️ A idempotência DIZ o que fez (ver `core/ledger/idempotencia`): voltar
+  // calado fazia a tela anunciar "Lançado" sobre um razão que manteve o valor
+  // antigo.
+  const decidir = (existentes: LancamentoComChave[]) => {
+    const d = decidirPostagem(e.externalKey, total, existentes);
+    if (d.acao === "conflito") {
+      throw new Error(`Já existe no razão "${e.description ?? "este lançamento"}" com outro valor (${formatBRL(d.valorExistente)}). Estorne o existente no Razão contábil e lance de novo.`);
+    }
+    return d;
+  };
   if (isDemo) {
     const atual = load();
-    if (e.externalKey && atual.some((x) => x.externalKey === e.externalKey)) return; // idempotente
-    save([entryToLanc(e, e.externalKey ?? `man:${Date.now()}`), ...atual]);
-    return;
+    const d = decidir(atual.filter((x) => x.externalKey).map((x) => ({
+      chave: x.externalKey!, total: r4(x.linhas.reduce((s, l) => s + l.debito, 0)),
+      estornado: atual.some((y) => y.estornoDe === x.id),
+    })));
+    if (d.acao === "ja_existia") return "ja_existia";
+    const chave = d.chave ?? e.externalKey;
+    save([entryToLanc({ ...e, externalKey: chave }, chave ?? `man:${Date.now()}`), ...atual]);
+    return "postado";
   }
   await seedPlanoLive();
-  await postarLiveLote([e]);
+  const d = decidir(e.externalKey ? await existentesDaChaveLive(e.externalKey) : []);
+  if (d.acao === "ja_existia") return "ja_existia";
+  const r = await postarLiveLote([{ ...e, externalKey: d.chave ?? e.externalKey }]);
+  if (r.falhas.length) throw new Error(r.falhas[0].erro);
+  return r.jaExistiam.length ? "ja_existia" : "postado";
+}
+
+/** Os lançamentos POSTADOS com a chave (e as versões dela), com total e se já foram estornados. */
+async function existentesDaChaveLive(chave: string): Promise<LancamentoComChave[]> {
+  const s = createClient();
+  const { data, error } = await s.from("journal_entries")
+    .select("id,external_key,journal_lines(debit)")
+    .eq("status", "posted")
+    .like("external_key", `${chave}%`)
+    .limit(TETO_LINHAS);
+  if (error) throw new Error(`Não foi possível conferir se o lançamento já existe: ${error.message}`);
+  const linhas = ((data ?? []) as Array<{ id: string; external_key: string | null; journal_lines?: Array<{ debit: number | null }> }>)
+    .filter((r) => r.external_key && mesmaChave(chave, r.external_key));
+  if (!linhas.length) return [];
+  const { data: rev, error: e2 } = await s.from("journal_entries").select("is_reversal_of")
+    .in("is_reversal_of", linhas.map((r) => r.id)).limit(TETO_LINHAS);
+  if (e2) throw new Error(`Não foi possível conferir os estornos: ${e2.message}`);
+  const estornados = new Set(((rev ?? []) as Array<{ is_reversal_of: string }>).map((r) => r.is_reversal_of));
+  return linhas.map((r) => ({
+    chave: r.external_key!,
+    total: r4((r.journal_lines ?? []).reduce((acc, l) => acc + Number(l.debit ?? 0), 0)),
+    estornado: estornados.has(r.id),
+  }));
+}
+
+/**
+ * ESTORNO — partida invertida, nunca edição nem exclusão.
+ *
+ * Só lançamento PRÓPRIO do razão se estorna aqui. O que é projeção de um
+ * movimento (`mov:`) não existe como lançamento no banco: ele se corrige no
+ * próprio movimento (estornar/cancelar o título), e o razão acompanha sozinho.
+ *
+ * Em produção é a função do banco `estornar_lancamento_contabil` (motivo
+ * obrigatório, recusa estorno duplo, data de HOJE, ligada ao original por
+ * `is_reversal_of`); ela existia desde a ONDA 3 e nenhuma tela a chamava. Na
+ * demonstração, o mesmo contrato sobre o store local.
+ */
+export async function estornarLancamento(original: RazaoLancamento, motivo: string, todos: RazaoLancamento[]): Promise<void> {
+  const m = (motivo ?? "").trim();
+  if (!m) throw new Error("Informe o motivo do estorno.");
+  if ((original.externalKey ?? "").startsWith("mov:")) {
+    throw new Error("Este lançamento é a projeção de um movimento: estorne ou cancele o próprio movimento, e o razão acompanha.");
+  }
+  if (todos.some((x) => x.estornoDe === original.id)) throw new Error("Este lançamento já foi estornado.");
+  if (isDemo) {
+    const hoje = new Date();
+    const data = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+    const base: LedgerEntryInput = {
+      entryDate: original.data, description: original.descricao, source: original.origem,
+      lines: original.linhas.map((l) => ({ accountId: l.conta, debit: l.debito, credit: l.credito, dimensions: l.dimensions })),
+    };
+    const inv = estornar(base);
+    const [d, mm, a] = [original.data.slice(8, 10), original.data.slice(5, 7), original.data.slice(0, 4)];
+    const novo: LedgerEntryInput = { ...inv, entryDate: data, source: "estorno", description: `Estorno de ${original.descricao} (${d}/${mm}/${a}) — ${m}` };
+    validarPostagem(novo);
+    save([entryToLanc(novo, `est:${original.id}`, original.id), ...load()]);
+    return;
+  }
+  const { error } = await createClient().rpc("estornar_lancamento_contabil", { p_id: original.id, p_motivo: m });
+  if (error) throw new Error(error.message);
 }
 
 /** Trava/destrava o período no banco (live) — o trigger passa a rejeitar postagens. */
-export async function travarPeriodoLive(mesISO: string, locked: boolean): Promise<void> {
-  if (isDemo) return;
-  const s = createClient();
-  const period = `${mesISO.slice(0, 7)}-01`;
-  const { entityId } = await seedPlanoLive();
-  const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
-  if (ja) await s.from("accounting_periods").update({ status: locked ? "locked" : "open" }).eq("id", (ja as { id: string }).id);
-  else await s.from("accounting_periods").insert({ entity_id: entityId, period, status: locked ? "locked" : "open" });
-}
-
 /** Meses (YYYY-MM) travados no banco (live) — fonte para hidratar o cache de fechamento. */
 export async function lockedPeriodsLive(): Promise<string[]> {
   if (isDemo) return [];
   try {
     const s = createClient();
-    const { entityId } = await seedPlanoLive();
-    const { data } = await s.from("accounting_periods").select("period,status").eq("entity_id", entityId).eq("status", "locked").limit(TETO_LINHAS);
+    // ⚠️ Sem filtro de entidade: `fechar_periodo` (a porta que trava) grava o
+    // período da ORGANIZAÇÃO, e é por organização que o gatilho de
+    // `movements` decide se o mês está fechado (`periodo_fechado`).
+    const { data } = await s.from("accounting_periods").select("period,status").eq("status", "locked").limit(TETO_LINHAS);
     return ((data ?? []) as Array<{ period: string }>).map((r) => String(r.period).slice(0, 7));
   } catch (e) {
     reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); return []; }
-}
-
-/** Get-or-create do período (accounting_periods) → id. */
-async function periodoIdLive(s: ReturnType<typeof createClient>, entityId: string, period: string): Promise<string> {
-  const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
-  if (ja) return (ja as { id: string }).id;
-  const { data } = await s.from("accounting_periods").insert({ entity_id: entityId, period, status: "open" }).select("id").single();
-  return (data as { id: string }).id;
-}
-
-/** Tarefas do checklist (live) por mês: { "2026-05": { conciliacao: true, … } }. */
-export async function closeTasksLive(): Promise<Record<string, Record<string, boolean>>> {
-  if (isDemo) return {};
-  try {
-    const s = createClient();
-    const { data } = await s.from("close_tasks").select("title,status,accounting_periods(period)").limit(TETO_LINHAS);
-    const out: Record<string, Record<string, boolean>> = {};
-    for (const r of (data ?? []) as Array<{ title: string; status: string; accounting_periods?: { period?: string } }>) {
-      const mes = String(r.accounting_periods?.period ?? "").slice(0, 7);
-      if (!mes) continue;
-      (out[mes] ??= {})[r.title] = r.status === "done";
-    }
-    return out;
-  } catch { return {}; }
-}
-
-/** Persiste uma tarefa do checklist (live) — upsert por (período, título). */
-export async function saveCloseTaskLive(mesISO: string, taskId: string, done: boolean): Promise<void> {
-  if (isDemo) return;
-  try {
-    const s = createClient();
-    const { entityId } = await seedPlanoLive();
-    const periodId = await periodoIdLive(s, entityId, `${mesISO.slice(0, 7)}-01`);
-    const status = done ? "done" : "pending";
-    const { data: ja } = await s.from("close_tasks").select("id").eq("period_id", periodId).eq("title", taskId).maybeSingle();
-    if (ja) await s.from("close_tasks").update({ status }).eq("id", (ja as { id: string }).id);
-    else await s.from("close_tasks").insert({ period_id: periodId, title: taskId, kind: "standard", status });
-  } catch (e) {
-    reportar("razao.consulta", e, "o razão abre sem lançamentos e o balancete não fecha", true); /* best-effort */ }
 }
 
 /* ----------------------------- categorização (regras + IA) ----------------------------- */
@@ -411,23 +499,45 @@ export async function categorizarLote(txs: TxParaCategorizar[]): Promise<Record<
  * ainda não processadas → categorização (regras+IA) → lançamento de dupla
  * entrada postado (idempotente por external_key `pluggy:<txid>`) + raw_events.
  */
-export async function ingerirOpenFinanceRazao(): Promise<{ lidas: number; postadas: number }> {
-  if (isDemo) return { lidas: 0, postadas: 0 }; // Open Finance não existe em demo
+/** Get-or-create do período (accounting_periods) → id. */
+async function periodoIdLive(s: ReturnType<typeof createClient>, entityId: string, period: string): Promise<string> {
+  const { data: ja } = await s.from("accounting_periods").select("id").eq("entity_id", entityId).eq("period", period).maybeSingle();
+  if (ja) return (ja as { id: string }).id;
+  // ⚠️ A recusa do banco sobe com a mensagem dele — era `(data).id` sobre um
+  // `null`, e a tela lia "Cannot read properties of null" no lugar do motivo.
+  const { data, error } = await s.from("accounting_periods").insert({ entity_id: entityId, period, status: "open" }).select("id").single();
+  if (error || !data) throw new Error(error?.message ?? "O banco não devolveu o período criado.");
+  return (data as { id: string }).id;
+}
+
+export async function ingerirOpenFinanceRazao(): Promise<{ lidas: number; postadas: number; jaNoRazao: number; falhas: number; primeiraFalha?: string }> {
+  if (isDemo) return { lidas: 0, postadas: 0, jaNoRazao: 0, falhas: 0 }; // Open Finance não existe em demo
   const s = createClient();
   const { data: txs, error } = await s
     .from("bank_transactions")
-    .select("id,pluggy_transaction_id,amount,date,description")
+    .select("id,pluggy_transaction_id,amount,date,description,movement_id")
     .order("date", { ascending: false })
     .limit(500);
   if (error) throw error;
-  const linhas = (txs ?? []) as Array<{ id: string; pluggy_transaction_id: string; amount: number; date: string; description: string | null }>;
-  if (!linhas.length) return { lidas: 0, postadas: 0 };
+  const linhas = (txs ?? []) as Array<{ id: string; pluggy_transaction_id: string; amount: number; date: string; description: string | null; movement_id: string | null }>;
+  if (!linhas.length) return { lidas: 0, postadas: 0, jaNoRazao: 0, falhas: 0 };
 
-  // pula as já ingeridas (raw_events)
+  /*
+   * ⚠️ **DUAS PORTAS PARA O MESMO DINHEIRO.** A sincronização do Pluggy já
+   * transforma cada transação num MOVIMENTO (`bank_transactions.movement_id`),
+   * e o razão projeta todo movimento liquidado (`mov:<id>`). Postar a mesma
+   * transação de novo aqui, como lançamento próprio (`pluggy:<id>`), contava o
+   * caixa DUAS vezes no balancete. Medido em produção (01/10/2026): 52 de 52
+   * transações já têm movimento — o botão dobraria as 52.
+   *
+   * Só a transação que ainda NÃO virou movimento entra direto; a que já virou
+   * está no razão pela projeção e é contada como tal.
+   */
+  const jaNoRazao = linhas.filter((t) => t.movement_id).length;
   const { data: jaProc } = await s.from("raw_events").select("external_id").eq("provider", "pluggy").limit(TETO_LINHAS);
   const feitas = new Set(((jaProc ?? []) as Array<{ external_id: string }>).map((r) => r.external_id));
-  const novas = linhas.filter((t) => !feitas.has(t.pluggy_transaction_id));
-  if (!novas.length) return { lidas: linhas.length, postadas: 0 };
+  const novas = linhas.filter((t) => !t.movement_id && !feitas.has(t.pluggy_transaction_id));
+  if (!novas.length) return { lidas: linhas.length, postadas: 0, jaNoRazao, falhas: 0 };
 
   const paraCat: TxParaCategorizar[] = novas.map((t) => ({
     id: t.pluggy_transaction_id,
@@ -448,12 +558,20 @@ export async function ingerirOpenFinanceRazao(): Promise<{ lidas: number; postad
   });
 
   await seedPlanoLive();
-  const postadas = await postarLiveLote(entries);
-  // registra os eventos brutos (idempotente por unique org,provider,external_id)
-  await s.from("raw_events").insert(
-    novas.map((t) => ({ provider: "pluggy", external_id: t.pluggy_transaction_id, payload: { amount: t.amount, date: t.date, description: t.description } })),
-  );
-  return { lidas: linhas.length, postadas };
+  const r = await postarLiveLote(entries);
+  // ⚠️ Só vira "processada" a transação que ENTROU no razão (ou já estava). Era
+  // marcar todas as `novas` depois do lote, inclusive as recusadas: uma
+  // transação recusada uma vez nunca mais era tentada, e sumia do razão sem
+  // deixar rastro.
+  const ok = new Set([...r.postadas, ...r.jaExistiam].map((k) => k.replace(/^pluggy:/, "")));
+  const processadas = novas.filter((t) => ok.has(t.pluggy_transaction_id));
+  if (processadas.length) {
+    const { error: eRaw } = await s.from("raw_events").insert(
+      processadas.map((t) => ({ provider: "pluggy", external_id: t.pluggy_transaction_id, payload: { amount: t.amount, date: t.date, description: t.description } })),
+    );
+    if (eRaw) reportar("razao.consulta", eRaw, "a transação entrou no razão e não ficou marcada como processada", true);
+  }
+  return { lidas: linhas.length, postadas: r.postadas.length, jaNoRazao, falhas: r.falhas.length, primeiraFalha: r.falhas[0]?.erro };
 }
 
 /* ----------------------------- live helpers ----------------------------- */
@@ -489,37 +607,74 @@ async function seedPlanoLive(): Promise<{ entityId: string; codeMap: Record<stri
   return { entityId: entityCache, codeMap: map };
 }
 
-/** Posta lançamentos no GL (insert draft → linhas → status posted dispara a invariante). */
-async function postarLiveLote(entries: LedgerEntryInput[]): Promise<number> {
+export interface ResultadoLote {
+  /** externalKey (ou índice) de cada lançamento que ficou POSTADO nesta chamada. */
+  postadas: string[];
+  /** Já existia postado com a mesma chave — idempotência, não é falha. */
+  jaExistiam: string[];
+  falhas: { chave: string; descricao: string; erro: string }[];
+}
+
+/**
+ * Posta lançamentos no GL (insert draft → linhas → status posted dispara a invariante).
+ *
+ * ⚠️ **Toda falha é DEVOLVIDA, com a mensagem do banco.** Era `continue` em
+ * cada uma das três recusas possíveis, e quem chamava recebia um número que não
+ * distinguia "postei 0 porque não havia nada" de "postei 0 porque o banco
+ * recusou tudo".
+ *
+ * ⚠️ **O período vai junto (`period_id`).** O gatilho `check_period_open` só
+ * olha para `new.period_id` — e nenhum lançamento o preenchia, então "travar o
+ * mês" no Fechamento não impedia postagem nenhuma no razão em produção. A trava
+ * existia no banco e a chave nunca chegava à fechadura.
+ *
+ * ⚠️ **Rascunho recusado libera a chave.** O rascunho que o banco recusou fica
+ * na lixeira (a tentativa também é fato), mas com a `external_key` marcada:
+ * sem isso o índice único `(org_id, external_key)` tornava a nova tentativa
+ * impossível depois de consertado o motivo — e a checagem de idempotência,
+ * que não enxerga a lixeira, a trataria como "já postado".
+ */
+async function postarLiveLote(entries: LedgerEntryInput[]): Promise<ResultadoLote> {
   const s = createClient();
   const { entityId, codeMap } = codeMapCache && entityCache
     ? { entityId: entityCache, codeMap: codeMapCache }
     : await seedPlanoLive();
-  let n = 0;
-  for (const e of entries) {
-    // Idempotência: pula se external_key já existe.
+  const out: ResultadoLote = { postadas: [], jaExistiam: [], falhas: [] };
+  const periodos = new Map<string, string>();
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const chave = e.externalKey ?? `#${i}`;
+    const falhar = (erro: string) => out.falhas.push({ chave, descricao: e.description ?? "Lançamento", erro });
+    try { validarPostagem(e); } catch (err) { falhar((err as Error).message); continue; }
+    // Idempotência: pula se external_key já existe POSTADO.
     if (e.externalKey) {
-      const { data: ja } = await s.from("journal_entries").select("id").eq("external_key", e.externalKey).maybeSingle();
-      if (ja) continue;
+      const { data: ja } = await s.from("journal_entries").select("id,status").eq("external_key", e.externalKey).maybeSingle();
+      if (ja && (ja as { status?: string }).status === "posted") { out.jaExistiam.push(chave); continue; }
+    }
+    const per = `${e.entryDate.slice(0, 7)}-01`;
+    let periodId = periodos.get(per);
+    if (!periodId) {
+      try { periodId = await periodoIdLive(s, entityId, per); periodos.set(per, periodId); }
+      catch (err) { falhar(`Não foi possível abrir o período ${per.slice(0, 7)}: ${(err as Error).message}`); continue; }
     }
     const { data: cab, error: e1 } = await s.from("journal_entries")
-      .insert({ entity_id: entityId, entry_date: e.entryDate, description: e.description, source: e.source ?? "manual", external_key: e.externalKey ?? null, status: "draft" })
+      .insert({ entity_id: entityId, period_id: periodId, entry_date: e.entryDate, description: e.description, source: e.source ?? "manual", external_key: e.externalKey ?? null, status: "draft" })
       .select("id").maybeSingle();
-    if (e1 || !cab) continue;
+    if (e1 || !cab) { falhar(e1?.message ?? "O banco não devolveu o lançamento criado."); continue; }
     const entryId = (cab as { id: string }).id;
+    const descartar = async (motivo: string) => {
+      // A chave é liberada ANTES de ir para a lixeira (ver o comentário da função).
+      if (e.externalKey) await s.from("journal_entries").update({ external_key: `${e.externalKey}#recusado:${entryId}` }).eq("id", entryId);
+      const { excluirLogico } = await import("@/lib/exclusao");
+      await excluirLogico("journal_entries", entryId, motivo).catch((err) =>
+        reportar("razao.consulta", err, "um rascunho recusado ficou fora da lixeira", true));
+    };
     const linhas = e.lines.map((l) => ({ journal_entry_id: entryId, account_id: codeMap[l.accountId], debit: l.debit ?? 0, credit: l.credit ?? 0, dimensions: l.dimensions ?? {} }));
     const { error: e2 } = await s.from("journal_lines").insert(linhas);
-    if (e2) {
-      // ⚠️ O cabeçalho nasceu e as linhas não entraram: ele fica na lixeira em
-      // vez de sumir. Um lançamento contábil que se apaga sozinho ao falhar é
-      // exatamente o que o razão não pode ter — a tentativa também é fato.
-      const { excluirLogico } = await import("@/lib/exclusao");
-      await excluirLogico("journal_entries", entryId, "Linhas do lançamento não foram aceitas");
-      continue;
-    }
+    if (e2) { await descartar("Linhas do lançamento não foram aceitas"); falhar(e2.message); continue; }
     const { error: e3 } = await s.from("journal_entries").update({ status: "posted", posted_at: new Date().toISOString() }).eq("id", entryId);
-    if (e3) continue; // trigger rejeitou (desbalanceado) — não conta
-    n++;
+    if (e3) { await descartar("Postagem recusada pelo banco"); falhar(e3.message); continue; }
+    out.postadas.push(chave);
   }
-  return n;
+  return out;
 }

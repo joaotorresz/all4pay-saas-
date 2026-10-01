@@ -33,6 +33,7 @@ export function construirFeatures(input: RiskInput): FeatureStore {
     saldo: input.saldoAtual,
     runwayDias: r.runway.base,
     runwayMeses: i.runwayMeses,
+    ...(i.runwayMotivo ? { runwayMotivo: i.runwayMotivo } : {}),
     burnMensal: i.burnRate,
     receitaMensal: i.receitaMensal,
     despesaMensal: i.despesaMensal,

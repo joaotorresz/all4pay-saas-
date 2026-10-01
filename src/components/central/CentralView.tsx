@@ -278,10 +278,12 @@ export function CentralView() {
             return (
               <li key={t.id} className="border-b border-border-soft last:border-0">
                 <div className="flex items-center gap-3 px-5 py-3 flex-wrap">
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-[10px] shrink-0"
-                    style={{ background: t.direcao === "entrada" ? "color-mix(in srgb, var(--color-positive) 14%, var(--color-white))" : "color-mix(in srgb, var(--color-negative) 14%, var(--color-white))" }}>
+                  {/* Direção não tem cor (decisão de 30/09/2026): quem diz se
+                      entra ou sai é o "−" escrito no valor, com a seta ao lado;
+                      verde × vermelho aqui repetia a regra do sinal. */}
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-[10px] shrink-0 bg-surface-2">
                     <Icon name={t.direcao === "entrada" ? "arrow-down" : "arrow-up"} size={14}
-                      color={t.direcao === "entrada" ? "var(--color-positive)" : "var(--color-negative)"} />
+                      color="var(--color-ink)" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-caption text-ink truncate">{t.descricao}</div>
@@ -312,7 +314,9 @@ export function CentralView() {
                     </div>
                   </div>
                   <PassoDaEsteira atual={t.situacao} />
-                  <span className="text-caption tabular-nums text-ink shrink-0"><BRL value={t.valor} /></span>
+                  <span className="text-caption tabular-nums text-ink shrink-0">
+                    {t.direcao === "saida" ? "−" : ""}<BRL value={t.valor} />
+                  </span>
 
                   {t.situacao === "previsto" && (
                     impedimento

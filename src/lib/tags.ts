@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export type TagMap = Record<string, string[]>;
 
@@ -16,14 +17,16 @@ const KEY = "a4p_tags";
 let cache: TagMap | null = null;
 
 /* ----------------------------- demo (localStorage) ----------------------------- */
+// Em produção a morada é `movement_tags` e a chave está CONGELADA (`store-org`
+// não a envia a `org_state`, senão haveria duas moradas para a mesma etiqueta).
 function loadLocal(): TagMap {
-  if (typeof window === "undefined") return {};
-  try { const raw = localStorage.getItem(KEY); return raw ? (JSON.parse(raw) as TagMap) : {}; } catch { return {}; }
+  return { ...lerOrg<TagMap>(KEY, {}) };
 }
 function persistLocal(map: TagMap): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(map)); } catch (e) {
-    reportar("cadastro.tags", e, "as etiquetas somem dos lançamentos", true); /* ignore */ }
+  try { gravarOrg(KEY, map); } catch (e) {
+    reportar("cadastro.tags", e, "as etiquetas somem dos lançamentos", true);
+    throw e;
+  }
 }
 
 /** Hidrata o cache (demo: localStorage; live: movement_tags). */

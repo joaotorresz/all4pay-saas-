@@ -35,3 +35,6 @@ next-env.d.ts
 
 # Editor de design (auto-save local; hand-off via Exportar)
 design-edits.json
+
+# worktrees locais dos agentes paralelos (nunca vão para o repositório)
+/.claude/worktrees/

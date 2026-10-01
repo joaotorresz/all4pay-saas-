@@ -22,6 +22,7 @@ export function calcularIndicadores(input: RiskInput): IndicadoresFinanceiros {
   const inad = calcularRiscoInadimplencia(input);
   const saz = calcularSazonalidade(input);
   const serie = serieMensal(input);
+  const rwm = runwayMesesCanonico(input);
 
   // Balanço de curto prazo (proxy): caixa + a receber em aberto vs a pagar.
   const aReceberAberto = input.movements
@@ -113,7 +114,11 @@ export function calcularIndicadores(input: RiskInput): IndicadoresFinanceiros {
     // o quant dizer "24 meses" enquanto o motor de risco dizia 999 dias (33,3
     // meses) sobre a MESMA empresa — dois tetos diferentes para o mesmo "não
     // queima". O teto agora é só um, e mora em `core/indicadores`.
-    runwayMeses: runwayMesesCanonico(input).valor,
+    // ⚠️ E a AUSÊNCIA também atravessa: `.valor` sozinho é 0 quando o
+    // canônico diz "não há queima" — e o quant publicava "runway de 0 meses"
+    // para quem gera caixa. Ver `IndicadoresFinanceiros.runwayMeses`.
+    runwayMeses: rwm.indisponivel ? null : rwm.valor,
+    ...(rwm.indisponivel ? { runwayMotivo: { codigo: rwm.indisponivel.codigo, motivo: rwm.indisponivel.motivo } } : {}),
     burnRate: burn.burnMensal,
     burnMultiple: Math.round(burnMultiple * 100) / 100,
     margemCaixa90d,

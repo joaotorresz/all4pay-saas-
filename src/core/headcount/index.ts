@@ -33,7 +33,7 @@ export interface PlanoHeadcount {
   custoMensalPlano: number; // custo recorrente total (todas contratadas)
   custoAnualPlano: number; // custo no 1º ano considerando os meses de início
   pessoas: number;
-  antes: { runwayMeses: number; burn: number; score: number };
+  antes: { runwayMeses: number; runway: ScenarioResultado["runway"]; burn: number; score: number };
   depois: ScenarioResultado;
   serie: MesProjecao[]; // 12 meses
   mesAperto: number | null; // 1º mês com caixa projetado negativo
@@ -74,12 +74,17 @@ export function planejarContratacoes(
 
   // estado-regime (todas contratadas) → runway/score/burn projetados
   const depois = simularCenario(indic, saldoAtual, { folhaDelta: custoMensalPlano });
+  // ⚠️ O "antes" sai da MESMA conta do "depois" (o cenário sem contratação).
+  // Era `indic.runwayMeses` — o runway canônico de 90 dias, outra janela e
+  // outra fórmula —, e quando ele era indisponível ("não há queima") a tela
+  // mostrava "Runway 0 → 33,3 meses": contratar parecia AUMENTAR o fôlego.
+  const antesCenario = simularCenario(indic, saldoAtual, {});
 
   return {
     custoMensalPlano,
     custoAnualPlano,
     pessoas: ativas.reduce((s, c) => s + c.quantidade, 0),
-    antes: { runwayMeses: indic.runwayMeses, burn: indic.burnRate, score: scoreAtual },
+    antes: { runwayMeses: antesCenario.runwayMeses, runway: antesCenario.runway, burn: indic.burnRate, score: scoreAtual },
     depois,
     serie,
     mesAperto,

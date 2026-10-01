@@ -18,8 +18,7 @@ import { Card, BRL, StatusBadge, Skeleton, Select, Textarea, Button, Icon, InfoH
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { analisarVariacao, LIMIARES_PADRAO, type LinhaVariacao } from "@/core/variacao";
 import { deslocarMes, rotuloColuna } from "@/core/relatorios";
-import { linhasDeCategoria } from "@/lib/registros";
-import { getLinhasDeCategoria } from "@/lib/data";
+import { linhasDeclaradasDasCategorias } from "@/lib/data";
 import { pctDeInteiro } from "@/lib/format";
 import { GavetaTransacoes, type CelulaClicada } from "@/components/relatorios/kit";
 import { isDemo } from "@/lib/demo";
@@ -36,11 +35,11 @@ export function VariacaoView() {
   const { data: input, isLoading } = useRiscoInput();
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
   React.useEffect(() => {
-    // As MESMAS duas fontes do DRE — senão a variação classificaria diferente
-    // do relatório que ela explica.
-    const local = linhasDeCategoria();
-    setLinhaPorCategoria(local);
-    getLinhasDeCategoria().then((b) => setLinhaPorCategoria({ ...b, ...local })).catch(() => {});
+    // A MESMA leitura do DRE — senão a variação classificaria diferente do
+    // relatório que ela explica.
+    let vivo = true;
+    linhasDeclaradasDasCategorias().then((m) => { if (vivo) setLinhaPorCategoria(m); }).catch(() => {});
+    return () => { vivo = false; };
   }, []);
 
   const mesAtual = input?.hoje.slice(0, 7) ?? null;
@@ -122,7 +121,7 @@ export function VariacaoView() {
               <span className="hidden sm:block w-[120px] text-right a4p-label text-faint">Variação</span>
             </div>
             {analise.linhas.map((l, i) => (
-              <LinhaCard key={l.id} l={l} primeira={i === 0} rotuloMes={analise.rotuloMes} onCelula={setCelula} />
+              <LinhaCard key={l.id} l={l} primeira={i === 0} rotuloMes={analise.rotuloMes} rotuloAnterior={analise.rotuloAnterior} onCelula={setCelula} />
             ))}
           </Card>
         </>
@@ -133,8 +132,8 @@ export function VariacaoView() {
   );
 }
 
-function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
-  l: LinhaVariacao; primeira: boolean; rotuloMes: string; onCelula: (c: CelulaClicada) => void;
+function LinhaCard({ l, primeira, rotuloMes, rotuloAnterior, onCelula }: {
+  l: LinhaVariacao; primeira: boolean; rotuloMes: string; rotuloAnterior: string; onCelula: (c: CelulaClicada) => void;
 }) {
   const [aberta, setAberta] = React.useState(false);
   const total = l.tipo === "total";
@@ -152,8 +151,11 @@ function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
         </span>
         <span className="hidden md:block w-[120px] text-right tabular-nums text-muted"><BRL value={l.anterior} /></span>
         <span className="w-[120px] text-right tabular-nums text-ink"><BRL value={l.atual} /></span>
-        <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.delta) < 0.005 ? "text-faint" : l.leitura === "piorou" ? "text-negative" : "text-ink"}`}>
-          <BRL value={l.delta} />
+        {/* Número não tem cor por sinal (decisão de 30/09/2026): o delta sai em
+            tinta neutra com o sinal escrito; "melhora/piora o resultado" é dito
+            pelo selo da linha, não pela cor do número. */}
+        <span className={`hidden sm:block w-[120px] text-right tabular-nums ${Math.abs(l.delta) < 0.005 ? "text-faint" : "text-ink"}`}>
+          {l.delta >= 0.005 ? "+" : ""}<BRL value={l.delta} />
           {l.deltaPct != null && <span className="block text-[11px] text-faint">{l.deltaPct > 0 ? "+" : "−"}{pctDeInteiro(Math.abs(l.deltaPct))}</span>}
         </span>
       </button>
@@ -164,10 +166,19 @@ function LinhaCard({ l, primeira, rotuloMes, onCelula }: {
             <div key={m.categoria} className="flex items-center gap-3 text-caption">
               <span className="flex-1 min-w-0 truncate text-ink">{m.categoria}{m.principalContraparte ? <span className="text-faint"> · {m.principalContraparte}</span> : null}</span>
               <span className="tabular-nums text-muted w-[110px] text-right"><BRL value={m.delta} /></span>
-              {m.movimentos.length > 0 && (
-                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloMes, movimentos: m.movimentos })}
+              {/* Os DOIS lados da diferença: o valor vai junto, para o total da
+                  gaveta ser o da célula (e não uma soma assinada que, numa
+                  linha de despesa, sairia com o sinal trocado). */}
+              {m.movimentosAnterior.length > 0 && (
+                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloAnterior, movimentos: m.movimentosAnterior, valor: m.anterior })}
                   className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">
-                  Ver {m.movimentos.length} {m.movimentos.length === 1 ? "lançamento" : "lançamentos"}
+                  Ver {m.movimentosAnterior.length} de {rotuloAnterior}
+                </button>
+              )}
+              {m.movimentos.length > 0 && (
+                <button onClick={() => onCelula({ linha: `${l.label} · ${m.categoria}`, coluna: rotuloMes, movimentos: m.movimentos, valor: m.atual })}
+                  className="text-caption text-muted hover:text-ink px-2 py-1 rounded-sm hover:bg-surface-2">
+                  Ver {m.movimentos.length} de {rotuloMes}
                 </button>
               )}
             </div>

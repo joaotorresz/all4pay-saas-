@@ -84,3 +84,17 @@ export async function comFalha<T>(
     return padrao;
   }
 }
+
+/**
+ * A mensagem REAL de uma recusa — do banco (`message` + `details` + `hint` do
+ * PostgREST) ou da trava do escritor —, pronta para a tela.
+ *
+ * ⚠️ "Tente novamente" é o único conselho que não funciona quando o banco
+ * recusa: repetir reproduz a mesma recusa. O `details` é onde o PostgREST diz
+ * QUAL valor foi recusado, e ele era jogado fora.
+ */
+export function motivoDaRecusa(err: unknown): string {
+  const e = err as { message?: string; details?: string | null; hint?: string | null } | null;
+  const partes = [e?.message, e?.details, e?.hint].filter((x): x is string => !!x && !!x.trim());
+  return partes.length ? partes.join(" ") : String(err ?? "erro desconhecido");
+}

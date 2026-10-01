@@ -8,21 +8,22 @@
  * perspectivas do mesmo documento-mãe, não bases paralelas.
  */
 import * as React from "react";
-import { Card, Button, Icon, Input, Select, Checkbox, BRL, Skeleton } from "@/components/ui";
+import { useQueryClient } from "@tanstack/react-query";
+import { Card, Button, Icon, Input, Select, Checkbox, BRL, Skeleton, CurrencyInput } from "@/components/ui";
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
-import { useAccounts } from "@/components/visao-geral/hooks";
 import { usePartiesList, useCreateParty } from "@/components/lancamentos/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { gerarQR, qrParaSVG } from "@/lib/qrcode";
-import { listPlanoContas } from "@/lib/registros";
+import { dadosPixEmpresa, type DadosPix } from "@/lib/pix";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { regimeDoCadastro, type Regime as RegimeFiscal } from "@/core/fiscal/perfil";
 import { RegimeNaoDeclarado } from "@/components/fiscal/RegimeNaoDeclarado";
 import { loadCompany } from "@/lib/company";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura } from "@/lib/recorrencias";
 import {
   painelNotasFiscais, provisionarImpostos, contasAPagarDosImpostos, pendenciasConfig,
-  urlDoLink, validarLink,
+  pixDoLink, validarLink, mensagemDaProposta,
   IMPOSTOS, ROTULO_IMPOSTO, ESFERA, ROTULO_ESFERA, FORNECEDORES_PROPOSTOS, STATUS_NF,
   type Venda, type ConfigImpostos, type Imposto, type Regime, type LinkPagamento, type Esfera,
 } from "@/core/vendas";
@@ -219,7 +220,8 @@ export function ImpostosView() {
 }
 
 function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
-  const { data: contas } = useAccounts();
+  const opcoes = useOpcoesCadastro("saida");
+  const qc = useQueryClient();
   const { data: partes } = usePartiesList();
   const criarParte = useCreateParty();
   const { show, node } = useToast();
@@ -252,6 +254,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
   const comValor = IMPOSTOS.filter((i) => provisao.porImposto[i] > 0);
   const pendencias = React.useMemo(() => pendenciasConfig(config, comValor), [config, comValor]);
   const podeCriar = pendencias.length === 0 && provisao.total > 0;
+  const [criandoContas, setCriandoContas] = React.useState(false);
 
   const produtosUnicos = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -259,22 +262,37 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
     return Array.from(m, ([id, nome]) => ({ value: id, label: nome }));
   }, [vendas]);
 
-  const proporFornecedores = async () => {
-    const novos: Record<Esfera, string> = { ...config.fornecedores };
-    for (const f of FORNECEDORES_PROPOSTOS) {
-      if (novos[f.esfera]) continue;
-      const existe = (partes ?? []).find((p) => p.name.toLowerCase() === f.nome.toLowerCase());
-      if (existe) { novos[f.esfera] = existe.id; continue; }
-      const criado = await criarParte.mutateAsync({
-        type: "pj", name: f.nome, doc: null, email: null, phone: null,
-        zip: null, street: null, number: null, complement: null, district: null,
-        city: null, state: null,
-        is_customer: false, is_supplier: true, is_carrier: false, antt: null,
-      } as never) as { id?: string } | undefined;
-      if (criado?.id) novos[f.esfera] = criado.id;
+  /**
+   * Escolhe (e, se preciso, cria) o órgão de cada esfera e DEVOLVE a escolha —
+   * o modal aberto aplica na cópia dele, senão "Salvar" gravaria a cópia velha
+   * por cima. `createParty` devolve o id da linha criada; sem ele a esfera
+   * fica vazia e a tela diz isso, em vez de anunciar uma escolha que não houve.
+   */
+  const proporFornecedores = async (atuais: Record<Esfera, string>): Promise<Record<Esfera, string>> => {
+    const novos: Record<Esfera, string> = { ...atuais };
+    let criados = 0;
+    let reaproveitados = 0;
+    let falha: string | null = null;
+    try {
+      for (const f of FORNECEDORES_PROPOSTOS) {
+        if (novos[f.esfera]) continue;
+        const existe = (partes ?? []).find((p) => p.name.toLowerCase() === f.nome.toLowerCase());
+        if (existe) { novos[f.esfera] = existe.id; reaproveitados++; continue; }
+        const criado = await criarParte.mutateAsync({
+          type: "pj", name: f.nome, doc: null, email: null, phone: null,
+          zip: null, street: null, number: null, complement: null, district: null,
+          city: null, state: null,
+          is_customer: false, is_supplier: true, is_carrier: false, antt: null,
+        } as never);
+        novos[f.esfera] = criado.id;
+        criados++;
+      }
+    } catch (e) {
+      falha = e instanceof Error ? e.message : String(e);
     }
     setConfig((c) => salvarConfigImpostos({ ...c, fornecedores: novos }));
-    show("Fornecedores propostos criados.");
+    show(mensagemDaProposta({ criados, reaproveitados, falha }));
+    return novos;
   };
 
   return (
@@ -338,7 +356,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
           <div>
             <span className="text-h3 font-semibold text-ink">Resumo do período</span>
             <p className="m-0 text-caption text-faint tabular-nums">
-              {mesCompetencia.split("-").reverse().join("/")} · {doPeriodo.length} {doPeriodo.length === 1 ? "venda" : "vendas"}
+              {mesCompetencia.split("-").reverse().join("/")} · {provisao.linhas.length} {provisao.linhas.length === 1 ? "venda tributável" : "vendas tributáveis"}
             </p>
           </div>
           <div className="text-right">
@@ -346,11 +364,29 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
             <div className="text-[24px] leading-none font-semibold text-ink tabular-nums mt-1"><BRL value={provisao.faturamento} /></div>
           </div>
           <Button
-            variant="primary" disabled={!podeCriar}
-            onClick={() => {
+            variant="primary" disabled={!podeCriar || criandoContas}
+            onClick={async () => {
               const contasImp = contasAPagarDosImpostos(provisao, config, mesCompetencia);
-              const n = criarContasDeImpostos(contasImp, mesCompetencia, config.contaId);
-              show(n > 0 ? `${n} contas a pagar criadas.` : "Nada a criar neste período.");
+              if (contasImp.length === 0) { show("Nada a criar neste período."); return; }
+              // ⚠️ Um clique por vez: dois cliques leriam "não existe" juntos e
+              // gravariam a guia duas vezes (o banco recusa a segunda — o
+              // índice `movements_imp_ref_uniq` —, mas a tela não deve tentar).
+              setCriandoContas(true);
+              try {
+                const r = await criarContasDeImpostos(contasImp, mesCompetencia, config.contaId, opcoes.nomeCategoria);
+                await qc.invalidateQueries();
+                // ⚠️ Nada criado não é "0 contas criadas": o segundo clique diz
+                // que as guias da competência já existiam.
+                show(r.criadas === 0
+                  ? `Nada a criar: ${r.jaExistiam === 1 ? "a conta desta competência já existia" : `as ${r.jaExistiam} contas desta competência já existiam`}.`
+                  : r.jaExistiam > 0
+                    ? `${r.criadas} contas a pagar criadas · ${r.jaExistiam} já existiam para esta competência.`
+                    : `${r.criadas} contas a pagar criadas.`);
+              } catch (e) {
+                show(`Não foi possível criar as contas a pagar: ${e instanceof Error ? e.message : String(e)}`);
+              } finally {
+                setCriandoContas(false);
+              }
             }}
           >
             Criar contas a pagar
@@ -416,9 +452,11 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
         <ConfigImpostosModal
           config={config}
           regimeEmpresa={regimeEmpresa}
-          contas={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))}
-          fornecedores={(partes ?? []).filter((p) => p.is_supplier).map((p) => ({ value: p.id, label: p.name }))}
-          categorias={listPlanoContas().filter((c) => c.natureza === "despesa" && c.paiId).map((c) => ({ value: c.id, label: c.nome }))}
+          contas={opcoes.contas}
+          fornecedores={(partes ?? []).filter((p) => p.is_supplier && p.ativo !== false).map((p) => ({ value: p.id, label: p.name }))}
+          // ⚠️ Folhas de DESPESA do banco (UUID): o imposto é uma conta a pagar,
+          // e a categoria do plano antigo (id numérico) seria recusada.
+          categorias={opcoes.categorias}
           onPropor={proporFornecedores}
           onClose={() => setAbrirConfig(false)}
           onSalvo={(c) => { setConfig(salvarConfigImpostos(c)); setAbrirConfig(false); show("Configuração salva."); }}
@@ -437,11 +475,12 @@ function ConfigImpostosModal({
   contas: { value: string; label: string }[];
   fornecedores: { value: string; label: string }[];
   categorias: { value: string; label: string }[];
-  onPropor: () => void;
+  onPropor: (atuais: Record<Esfera, string>) => Promise<Record<Esfera, string>>;
   onClose: () => void;
   onSalvo: (c: ConfigImpostos) => void;
 }) {
   const [c, setC] = React.useState<ConfigImpostos>({ ...config, regime: config.regime || regimeEmpresa });
+  const [propondo, setPropondo] = React.useState(false);
   const esferas: Esfera[] = ["municipal", "estadual", "federal"];
 
   return (
@@ -455,7 +494,15 @@ function ConfigImpostosModal({
         <span className="text-caption text-muted">
           Sem fornecedor o título fica órfão — ninguém sabe a quem pagar.
         </span>
-        <Button variant="ghost" onClick={onPropor}>
+        <Button variant="ghost" disabled={propondo} onClick={async () => {
+          // ⚠️ A escolha volta para a cópia do modal: sem isto, "Salvar"
+          // devolvia a configuração de antes e apagava o que foi proposto.
+          setPropondo(true);
+          try {
+            const novos = await onPropor(c.fornecedores);
+            setC((s) => ({ ...s, fornecedores: novos }));
+          } finally { setPropondo(false); }
+        }}>
           <Icon name="sparkles" size={14} color="currentColor" />
           Propor fornecedores
         </Button>
@@ -537,7 +584,8 @@ export function AssinaturasVendasView() {
     { ...cardDe("total", "Total de assinaturas", () => true), percentual: 100 },
     cardDe("ativas", "Assinaturas ativas", (s) => s === "ativa"),
     cardDe("cancelada", "Cancelada", (s) => s === "cancelada"),
-    cardDe("expirada", "Expirada", (s) => s === "pausada"),
+    // ⚠️ O sistema não tem "expirada": o que este card conta são as PAUSADAS.
+    cardDe("pausadas", "Pausadas", (s) => s === "pausada"),
   ];
 
   return (
@@ -547,7 +595,7 @@ export function AssinaturasVendasView() {
         <Button variant="outline" disabled={visiveis.length === 0}
           onClick={() => baixarXLSX("assinaturas", [{
             nome: "Assinaturas",
-            linhas: [["ID", "Status", "Cliente", "Ciclo", "Produtos", "Valor recorrente"],
+            linhas: [["ID", "Status", "Cliente", "Ciclo", "Produtos", "Valor por ciclo"],
               ...visiveis.map((r) => [r.id, r.status, r.clienteNome,
                 CICLOS.find((c) => c.id === r.ciclo)?.label ?? r.ciclo,
                 r.itens.map((i) => i.nome).join(" · "), totalFatura(r)])],
@@ -571,7 +619,7 @@ export function AssinaturasVendasView() {
             <Select value={status} onChange={setStatus} options={[
               { value: "", label: "Todas" },
               { value: "ativa", label: "Ativa" },
-              { value: "pausada", label: "Pausada / expirada" },
+              { value: "pausada", label: "Pausada" },
               { value: "cancelada", label: "Cancelada" },
               { value: "rascunho", label: "Rascunho" },
             ]} />
@@ -591,7 +639,7 @@ export function AssinaturasVendasView() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-border-soft">
-                  {["ID", "Status", "Cliente", "Ciclo", "Produto", "Valor recorrente"].map((h, i) => (
+                  {["ID", "Status", "Cliente", "Ciclo", "Produto", "Valor por ciclo"].map((h, i) => (
                     <th key={h} className={`px-6 py-3 text-[11px] font-medium tracking-[0.08em] text-faint ${i === 5 ? "text-right" : "text-left"}`}>{h}</th>
                   ))}
                 </tr>
@@ -630,10 +678,10 @@ export function LinksPagamentoView() {
 
   React.useEffect(() => { setLista(listarLinks()); }, []);
 
-  // A origem só existe no navegador — em SSR inventar um domínio produziria um
-  // QR apontando para lugar nenhum.
-  const [origem, setOrigem] = React.useState("");
-  React.useEffect(() => { setOrigem(window.location.origin); }, []);
+  // O recebedor do PIX sai do cadastro da empresa (chave = CNPJ), que mora no
+  // navegador: é lido DEPOIS de montar, senão a hidratação diverge.
+  const [recebedor, setRecebedor] = React.useState<DadosPix | null | undefined>(undefined);
+  React.useEffect(() => { setRecebedor(dadosPixEmpresa()); }, []);
 
   const criar = (): LinkPagamento => ({
     id: novoId("lk"), titulo: "", valor: 0, clienteId: "", descricao: "",
@@ -650,18 +698,31 @@ export function LinksPagamentoView() {
   return (
     <div className="flex flex-col gap-5 pb-4">
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <p className="m-0 text-label text-muted">Crie e gerencie links de pagamento com QR code.</p>
+        <p className="m-0 text-label text-muted max-w-[70ch]">
+          Cada link gera o PIX copia-e-cola e o QR do PIX da empresa, com o valor do link. Ainda não existe
+          página pública de pagamento: o que se envia ao cliente é o código PIX.
+        </p>
         <Button variant="primary" onClick={() => setNovo(criar())}>
           <Icon name="plus" size={15} color="currentColor" />
           Novo link
         </Button>
       </div>
 
+      {recebedor === null && (
+        <Card>
+          <span className="text-h3 font-semibold text-warning">PIX sem recebedor</span>
+          <p className="m-0 mt-1 text-label text-muted">
+            O PIX usa o CNPJ cadastrado da empresa como chave, e não há CNPJ no cadastro. Sem ele o link não gera
+            código para pagar — preencha em Dados da empresa.
+          </p>
+        </Card>
+      )}
+
       {lista === null ? (
         <Card><Skeleton className="h-[180px]" /></Card>
       ) : lista.length === 0 ? (
         <Card>
-          <Vazio texto="Nenhum link de pagamento criado. Um link com QR code deixa o cliente pagar sem você mandar dados bancários por mensagem." />
+          <Vazio texto="Nenhum link de pagamento criado. Cada link gera o PIX copia-e-cola e o QR do PIX da empresa — o cliente paga pelo aplicativo do banco." />
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -680,15 +741,19 @@ export function LinksPagamentoView() {
               </div>
               {l.descricao && <p className="m-0 text-caption text-muted line-clamp-2">{l.descricao}</p>}
               <div className="flex items-center gap-2 mt-1">
-                <Button variant="ghost" onClick={() => setAberto(l)}>Ver QR</Button>
+                <Button variant="ghost" onClick={() => setAberto(l)}>Ver QR do PIX</Button>
                 <button
+                  disabled={!recebedor || !l.ativo}
                   onClick={() => {
-                    navigator.clipboard?.writeText(urlDoLink(l, origem)).then(() => show("Link copiado."))
-                      .catch(() => show("Não foi possível copiar."));
+                    const pix = l.ativo ? pixDoLink(l, recebedor ?? null) : null;
+                    if (!pix) { show("Cadastre o CNPJ da empresa para gerar o PIX."); return; }
+                    if (!navigator.clipboard) { show("Não foi possível copiar — abra \"Ver QR do PIX\" e copie o código à mão."); return; }
+                    navigator.clipboard.writeText(pix).then(() => show("PIX copia-e-cola copiado."))
+                      .catch(() => show("Não foi possível copiar — abra \"Ver QR do PIX\" e copie o código à mão."));
                   }}
-                  className="text-caption text-muted hover:text-ink"
+                  className="text-caption text-muted hover:text-ink disabled:opacity-50"
                 >
-                  Copiar link
+                  Copiar PIX
                 </button>
                 <button
                   onClick={() => { setLista(removerLink(l.id)); show("Link removido."); }}
@@ -711,7 +776,7 @@ export function LinksPagamentoView() {
         />
       )}
 
-      {aberto && <QRModal link={aberto} origem={origem} onClose={() => setAberto(null)} onCopiar={() => show("Link copiado.")} />}
+      {aberto && <QRModal link={aberto} recebedor={recebedor ?? null} onClose={() => setAberto(null)} onCopiar={(copiou) => show(copiou ? "PIX copia-e-cola copiado." : "Não foi possível copiar — selecione o código acima e copie à mão.")} />}
       {node}
     </div>
   );
@@ -737,9 +802,8 @@ function FormLink({
         <Input value={l.titulo} onChange={(e) => setL((s) => ({ ...s, titulo: e.target.value }))}
           placeholder="Ex.: Mentoria — turma de setembro" />
       </Campo>
-      <Campo label="Valor" ajuda="Deixe zero para o pagador escolher o valor.">
-        <Input type="number" step="0.01" value={String(l.valor)}
-          onChange={(e) => setL((s) => ({ ...s, valor: Number(e.target.value) || 0 }))} />
+      <Campo label="Valor" erro={erros.valor} ajuda="Deixe zero para o pagador digitar o valor no aplicativo do banco.">
+        <CurrencyInput value={l.valor} onValueChange={(x) => setL((s) => ({ ...s, valor: x }))} />
       </Campo>
       <Campo label="Cliente">
         <Select value={l.clienteId} onChange={(v) => setL((s) => ({ ...s, clienteId: v }))}
@@ -754,33 +818,55 @@ function FormLink({
 }
 
 function QRModal({
-  link, origem, onClose, onCopiar,
-}: { link: LinkPagamento; origem: string; onClose: () => void; onCopiar: () => void }) {
-  const url = urlDoLink(link, origem || "https://all4pay.app");
+  link, recebedor, onClose, onCopiar,
+}: { link: LinkPagamento; recebedor: DadosPix | null; onClose: () => void; onCopiar: (copiou: boolean) => void }) {
+  // ⚠️ O QR carrega o PIX copia-e-cola, não uma URL: não existe página pública
+  // de pagamento, e um QR que leva a um 404 é pior que nenhum.
+  // Link inativo não oferece o código. ⚠️ Um PIX estático NÃO expira: o que já
+  // foi enviado continua pagável, e a tela diz isso em vez de prometer bloqueio.
+  const pix = React.useMemo(() => (link.ativo ? pixDoLink(link, recebedor) : null), [link, recebedor]);
   const svg = React.useMemo(() => {
-    try { return qrParaSVG(gerarQR(url), 240); } catch { return ""; }
-  }, [url]);
+    if (!pix) return "";
+    try { return qrParaSVG(gerarQR(pix), 240); } catch { return ""; }
+  }, [pix]);
 
   return (
     <FormModal title={link.titulo || "Link de pagamento"} size="compact" onClose={onClose} onSave={onClose}>
       <div className="flex flex-col items-center gap-4">
-        {svg
-          ? <div className="rounded-card bg-white p-2" dangerouslySetInnerHTML={{ __html: svg }} />
-          : <p className="m-0 text-caption text-negative">Não foi possível gerar o QR para esta URL.</p>}
+        {!link.ativo
+          ? <p className="m-0 text-caption text-muted text-center">Link inativo: o código não é oferecido. Um PIX já enviado continua pagável — PIX estático não expira.</p>
+          : !pix
+          ? <p className="m-0 text-caption text-muted">Sem CNPJ no cadastro da empresa não há chave PIX — o QR não é gerado.</p>
+          : svg
+            ? <div className="rounded-card bg-white p-2" dangerouslySetInnerHTML={{ __html: svg }} />
+            : <p className="m-0 text-caption text-negative">Não foi possível gerar o QR deste PIX.</p>}
         <div className="text-center">
           <div className="text-[22px] leading-none font-semibold text-ink tabular-nums">
             {link.valor > 0 ? <BRL value={link.valor} /> : "Valor aberto"}
           </div>
           {link.descricao && <p className="m-0 mt-1 text-caption text-muted">{link.descricao}</p>}
         </div>
-        <div className="w-full rounded-md bg-surface-2 px-3 py-2 text-caption text-muted break-all">{url}</div>
-        <Button
-          variant="ghost"
-          onClick={() => navigator.clipboard?.writeText(url).then(onCopiar).catch(() => { /* clipboard bloqueado */ })}
-        >
-          <Icon name="layers" size={15} color="currentColor" />
-          Copiar link
-        </Button>
+        {pix && (
+          <>
+            <div className="w-full rounded-md bg-surface-2 px-3 py-2 text-caption text-muted break-all">{pix}</div>
+            <p className="m-0 text-caption text-faint text-center">
+              A chave é o CNPJ da empresa — confira no seu banco que ele está cadastrado como chave PIX.
+            </p>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                // Sem área de transferência (página sem HTTPS, permissão negada)
+                // o clique não pode passar calado: a pessoa enviaria o código
+                // achando que copiou.
+                if (!navigator.clipboard) { onCopiar(false); return; }
+                navigator.clipboard.writeText(pix).then(() => onCopiar(true)).catch(() => onCopiar(false));
+              }}
+            >
+              <Icon name="layers" size={15} color="currentColor" />
+              Copiar PIX
+            </Button>
+          </>
+        )}
       </div>
     </FormModal>
   );
@@ -791,12 +877,16 @@ function QRModal({
 function Campo({
   label, obrigatorio, erro, ajuda, children,
 }: { label: string; obrigatorio?: boolean; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  // O rótulo aponta para o campo (mesma correção do `Campo` da Nova venda).
+  const gerado = React.useId();
+  const filho = React.isValidElement<{ id?: string }>(children) ? children : null;
+  const id = filho?.props.id ?? gerado;
   return (
     <div className="flex flex-col gap-[6px]">
-      <label className="text-caption font-medium text-muted">
+      <label htmlFor={id} className="text-caption font-medium text-muted">
         {label}{obrigatorio && <span className="text-negative"> *</span>}
       </label>
-      {children}
+      {filho ? React.cloneElement(filho, { id }) : children}
       {erro ? <span className="text-caption text-negative">{erro}</span>
         : ajuda ? <span className="text-caption text-faint">{ajuda}</span> : null}
     </div>

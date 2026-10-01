@@ -218,14 +218,16 @@ function AdminBody() {
 
   return (
     <div className="flex flex-col gap-6 pb-4">
-      {/* KPIs */}
+      {/* KPIs — número verde não existe mais (30/09/2026): a contagem de ativos
+          fica neutra; o rótulo diz o que ela conta. Só o alerta (inadimplentes)
+          segue com cor. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Kpi label="MRR" v={o?.mrr} money loading={overview.isLoading} destaque info={{ titulo: "MRR", oQue: "Receita recorrente mensal da plataforma.", comoCalcula: "Soma do MRR das assinaturas ativas das empresas clientes." }} />
         <Kpi label="ARR" v={o?.arr} money loading={overview.isLoading} info={{ titulo: "ARR", oQue: "Receita recorrente anual projetada.", comoCalcula: "MRR multiplicado por 12." }} />
         <Kpi label="Empresas" v={o?.orgs} loading={overview.isLoading} info={{ titulo: "Empresas", oQue: "Total de empresas clientes na plataforma.", comoCalcula: "Contagem de todas as empresas cadastradas." }} />
-        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Assinaturas ativas", oQue: "Quantas empresas estão com a cobrança em dia.", comoCalcula: "Empresas cujo status de assinatura é ativo." }} />
+        <Kpi label="Assinaturas ativas" v={o?.orgs_ativas} loading={overview.isLoading} info={{ titulo: "Assinaturas ativas", oQue: "Quantas empresas estão com a cobrança em dia.", comoCalcula: "Empresas cujo status de assinatura é ativo." }} />
         <Kpi label="Usuários" v={o?.usuarios} loading={overview.isLoading} info={{ titulo: "Usuários", oQue: "Total de contas criadas na plataforma.", comoCalcula: "Contagem de todos os usuários do Auth." }} />
-        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} tone="var(--color-positive)" info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
+        <Kpi label="Ativos (30d)" v={o?.usuarios_ativos} loading={overview.isLoading} info={{ titulo: "Ativos (30d)", oQue: "Usuários que acessaram a plataforma recentemente.", comoCalcula: "Contas com último acesso nos últimos 30 dias." }} />
         <Kpi label="Em trial" v={o?.trials} loading={overview.isLoading} info={{ titulo: "Em trial", oQue: "Empresas em período de avaliação.", comoCalcula: "Empresas cujo status de assinatura é trial." }} />
         <Kpi label="Inadimplentes" v={o?.inadimplentes} loading={overview.isLoading} tone="var(--color-warning)" info={{ titulo: "Inadimplentes", oQue: "Empresas com a mensalidade em atraso.", comoCalcula: "Empresas cujo status de assinatura é inadimplente." }} />
       </div>
@@ -367,7 +369,8 @@ function MrrCard() {
     <Card className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
         <span className="inline-flex items-center gap-1 text-label font-medium text-muted">MRR mês a mês<InfoHint align="left" titulo="MRR mês a mês" oQue="Acompanha a receita recorrente mensal da plataforma e sua variação." comoCalcula="Usa o snapshot real do mês quando existe; senão deriva da soma das assinaturas ativas." /></span>
-        {data.length > 1 && <span className={`text-caption font-medium tabular-nums ${delta >= 0 ? "text-positive" : "text-negative"}`}>{delta >= 0 ? "+" : ""}{pct(delta)} × mês anterior</span>}
+        {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+        {data.length > 1 && <span className="text-caption font-medium tabular-nums text-ink">{delta >= 0 ? "+" : "−"}{pct(Math.abs(delta))} × mês anterior</span>}
       </div>
       {h.isLoading ? <Skeleton className="h-[220px] w-full" /> : (
         <ResponsiveContainer width="100%" height={220}>
@@ -449,7 +452,7 @@ function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string;
               <Mini2 label="Saldo" v={d.saldo} money />
               <Mini2 label="Receita 12m" v={d.receita12m} money />
               <Mini2 label="Despesa 12m" v={d.despesa12m} money />
-              <Mini2 label="Resultado 12m" v={d.receita12m - d.despesa12m} money tone={d.receita12m - d.despesa12m >= 0 ? "var(--color-positive)" : "var(--color-negative)"} />
+              <Mini2 label="Resultado 12m" v={d.receita12m - d.despesa12m} money />
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-1 text-caption text-muted">
               <span>Plano: <b className="text-ink font-medium">{d.plano}</b></span>
@@ -475,11 +478,12 @@ function OrgDetailModal({ orgId, nome, onClose }: { orgId: string; nome: string;
     </div>
   );
 }
-function Mini2({ label, v, money, tone = "var(--color-ink)" }: { label: string; v: number; money?: boolean; tone?: string }) {
+/** Sem cor por sinal (30/09/2026): o resultado negativo se lê pelo "−" que o `BRL` escreve. */
+function Mini2({ label, v, money }: { label: string; v: number; money?: boolean }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-caption text-faint">{label}</span>
-      <span className="text-[18px] font-semibold tabular-nums" style={{ color: tone }}>{money ? <BRL value={v} /> : v.toLocaleString("pt-BR")}</span>
+      <span className="text-[18px] font-semibold tabular-nums text-ink">{money ? <BRL value={v} /> : v.toLocaleString("pt-BR")}</span>
     </div>
   );
 }

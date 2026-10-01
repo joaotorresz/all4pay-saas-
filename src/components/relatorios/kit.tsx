@@ -12,12 +12,13 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { Card, Button, Icon, Select, DateField, Checkbox } from "@/components/ui";
 import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
+import type { RiskInput } from "@/core/risk-engine/types";
 import { imprimirRelatorio } from "@/lib/imprimir";
 import { baixarXLSX } from "@/lib/xlsx";
 import {
   intervaloDoPreset, rotuloColuna,
   type Intervalo, type PresetPeriodo, type TipoAnalise, type Relatorio, type LinhaRelatorio,
-  type CelulaOrcamento, type SinalLinha, type BaseVertical,
+  type CelulaOrcamento, type BaseVertical,
 } from "@/core/relatorios";
 import { pctDeInteiro } from "@/lib/format";
 import { problemaDoIntervalo, assinado } from "@/core/indicadores";
@@ -421,6 +422,7 @@ export function TabelaRelatorio({
                   <tr
                     className="border-b border-border-soft"
                     style={total ? { background: t.suave } : undefined}
+                    data-linha={l.id}
                   >
                     <td className={`px-4 py-[10px] sticky left-0 min-w-[260px] ${total ? "" : "bg-white"}`} style={total ? { background: t.suave } : undefined}>
                       <div className="flex items-center gap-2">
@@ -436,14 +438,14 @@ export function TabelaRelatorio({
                     {l.celulas.map((c, k) => (
                       <React.Fragment key={k}>
                         <Valor
-                          valor={c.valor} cifrao={layout.mostrarCifrao} forte={total}
+                          valor={c.valor} cifrao={layout.mostrarCifrao} forte={total} marca={String(k)}
                           onClick={c.movimentos.length ? () => onCelula({ linha: l.label, coluna: rotuloColuna(relatorio.colunas[k]), movimentos: c.movimentos, valor: c.valor }) : undefined}
                         />
                         {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(c.av ?? c.ah)}</td>}
-                        {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} sinalLinha={l.sinal} />}
+                        {comOrc && <CelulasOrcamento o={orcamento!.get(l.id)?.[k]} cifrao={layout.mostrarCifrao} />}
                       </React.Fragment>
                     ))}
-                    <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte
+                    <Valor valor={l.total.valor} cifrao={layout.mostrarCifrao} forte marca="total"
                       onClick={l.total.movimentos.length ? () => onCelula({ linha: l.label, coluna: "Total", movimentos: l.total.movimentos, valor: l.total.valor }) : undefined} />
                     {mostrarPct && <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">{pct(l.total.av)}</td>}
                     <Valor valor={l.media.valor} cifrao={layout.mostrarCifrao} />
@@ -486,14 +488,15 @@ export function TabelaRelatorio({
 /**
  * Orçado · Diferença · % de um período.
  *
- * ⚠️ A cor NÃO pode vir do sinal da diferença: numa linha de despesa, gastar
- * MAIS que o orçado é diferença positiva e é ruim; numa linha de receita é
- * positiva e é boa. Pintar as duas de verde diria ao operador que estourar o
- * orçamento foi um bom resultado. Quem decide é o sinal da LINHA.
+ * ⚠️ Número não tem cor por sinal (decisão de 30/09/2026): a diferença sai em
+ * tinta neutra, com "+" ou "−" escrito. Antes ela ficava verde ou vermelha
+ * conforme o sinal da LINHA (acima do orçado numa despesa = vermelho); agora a
+ * leitura de bom × ruim vem do rótulo da linha, e o zero continua esmaecido —
+ * não variou não é bom nem ruim.
  */
 function CelulasOrcamento({
-  o, cifrao, sinalLinha,
-}: { o?: CelulaOrcamento; cifrao?: boolean; sinalLinha?: SinalLinha }) {
+  o, cifrao,
+}: { o?: CelulaOrcamento; cifrao?: boolean }) {
   if (!o) {
     return (
       <>
@@ -506,7 +509,7 @@ function CelulasOrcamento({
   return (
     <>
       <td className="px-3 py-[10px] text-right text-caption text-muted tabular-nums">{fmt(o.orcado, !!cifrao)}</td>
-      <td className={`px-3 py-[10px] text-right text-caption tabular-nums ${corDaDiferenca(o.diferenca, sinalLinha)}`}>
+      <td className={`px-3 py-[10px] text-right text-caption tabular-nums ${o.diferenca === 0 ? "text-faint" : "text-ink"}`}>
         {o.diferenca > 0 ? "+" : ""}{fmt(o.diferenca, !!cifrao)}
       </td>
       <td className="px-2 py-[10px] text-right text-caption text-faint tabular-nums">
@@ -516,21 +519,12 @@ function CelulasOrcamento({
   );
 }
 
-/** Linha de saída ("-"): acima do orçado é ruim. Linha de entrada/total: o
- *  contrário. Zero é neutro — não variou não é bom nem ruim. */
-function corDaDiferenca(dif: number, sinal?: SinalLinha): string {
-  if (dif === 0) return "text-faint";
-  const custo = sinal === "-";
-  const bom = custo ? dif < 0 : dif > 0;
-  return bom ? "text-positive" : "text-negative";
-}
-
 function Valor({
-  valor, cifrao, forte, miudo, onClick,
-}: { valor: number; cifrao: boolean; forte?: boolean; miudo?: boolean; onClick?: () => void }) {
+  valor, cifrao, forte, miudo, onClick, marca,
+}: { valor: number; cifrao: boolean; forte?: boolean; miudo?: boolean; onClick?: () => void; marca?: string }) {
   const conteudo = fmt(valor, cifrao);
   return (
-    <td className={`px-4 ${miudo ? "py-2" : "py-[10px]"} text-right tabular-nums ${forte ? "font-semibold text-ink" : miudo ? "text-muted" : "text-ink"}`}>
+    <td data-celula={marca} data-valor={marca ? valor : undefined} className={`px-4 ${miudo ? "py-2" : "py-[10px]"} text-right tabular-nums ${forte ? "font-semibold text-ink" : miudo ? "text-muted" : "text-ink"}`}>
       {onClick ? (
         <button onClick={onClick} className="hover:underline decoration-dotted underline-offset-4" title="Ver as transações">
           {conteudo}
@@ -544,9 +538,20 @@ function Valor({
 
 /** Gaveta com as transações que formaram a célula clicada. */
 export function GavetaTransacoes({
-  celula, onFechar,
-}: { celula: CelulaClicada; onFechar: () => void }) {
-  const { data: input } = useRiscoInput();
+  celula, onFechar, fonte,
+}: {
+  celula: CelulaClicada; onFechar: () => void;
+  /**
+   * De onde vêm os lançamentos da célula. Padrão: a empresa aberta. O
+   * consolidado PRECISA passar o próprio conjunto unido — os ids lá são
+   * prefixados pela empresa (`org:id`), e procurá-los na empresa aberta
+   * devolvia "Nenhuma transação nesta célula" para toda célula do DRE
+   * multiempresas.
+   */
+  fonte?: RiskInput | null;
+}) {
+  const { data: daEmpresa } = useRiscoInput();
+  const input = fonte ?? daEmpresa;
   const movs = React.useMemo(() => {
     const set = new Set(celula.movimentos);
     return (input?.movements ?? []).filter((m) => set.has(m.id))
@@ -593,7 +598,8 @@ export function GavetaTransacoes({
                   {m.status !== "pago" && " · pendente"}
                 </div>
               </div>
-              <span className={`text-label tabular-nums shrink-0 ${m.type === "entrada" ? "text-positive" : "text-ink"}`}>
+              {/* Entrada e saída na mesma tinta (decisão de 30/09/2026): o "+"/"−" escrito diz a direção. */}
+              <span className="text-label tabular-nums shrink-0 text-ink" data-gaveta-valor={m.type === "entrada" ? Math.abs(m.amount) : -Math.abs(m.amount)}>
                 {m.type === "entrada" ? "+" : "−"}{fmt(Math.abs(m.amount), true)}
               </span>
             </button>

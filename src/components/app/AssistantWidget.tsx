@@ -18,6 +18,10 @@ import {
   Marca4, MarcaIA, EtapasAnalise, BolhaResposta, GRAD_ONDA,
 } from "@/components/ia/chat-kit";
 import { useChatIA } from "@/components/ia/useChatIA";
+import { salvarConversa, listarConversas, conversaParaRetomar, escolhaDoPainel, lembrarConversaDoPainel, inscreverConversas } from "@/lib/ia-conversas";
+import { MARCA_IA } from "@/core/marca";
+import type { Turno } from "@/components/ia/chat-kit";
+import Link from "next/link";
 
 export function AssistantWidget() {
   const [open, setOpen] = React.useState(false);
@@ -65,10 +69,41 @@ export function AssistantWidget() {
 }
 
 function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  /*
+   * ⚠️ A conversa do painel entra no MESMO histórico da página `/quattro-ai`.
+   * Ela não era salva em lugar nenhum: o painel é remontado a cada tela (cada
+   * página traz o seu `AppShell`), então clicar num "Abrir tela ↗" da própria
+   * resposta levava a pessoa para a tela certa e APAGAVA a conversa. "Duas
+   * portas para o mesmo cérebro" tem de valer para a memória também.
+   */
+  const ativaRef = React.useRef<string | null>(null);
+  const aoMudar = React.useCallback((ts: Turno[]) => {
+    const id = salvarConversa(ativaRef.current, ts);
+    if (id) { ativaRef.current = id; lembrarConversaDoPainel(id); }
+  }, []);
   const {
     texto, setTexto, turnos, pensando, etapa, pergunta,
-    copiedId, copiar, darFeedback, responder, carregar, sugeridas,
-  } = useChatIA();
+    copia, copiar, darFeedback, responder, carregar, sugeridas,
+  } = useChatIA({ onMudou: aoMudar });
+  const novaConversa = () => { ativaRef.current = null; lembrarConversaDoPainel(null); carregar([]); };
+  // Ao montar (em cada tela), retoma a conversa que o painel tinha aberta — ou
+  // a mais recente do histórico, se ele ainda não escolheu nesta sessão.
+  // ⚠️ E OUVE a hidratação: numa máquina nova o histórico chega do servidor
+  // DEPOIS de o painel montar, e ler só na montagem o deixava vazio até a
+  // pessoa trocar de tela. Só retoma enquanto o painel está OCIOSO (nenhuma
+  // conversa aberta, nada digitado em curso) — a hidratação não pode trocar a
+  // conversa debaixo de quem já está falando.
+  const ociosoRef = React.useRef(true);
+  ociosoRef.current = turnos.length === 0 && !pensando && !texto.trim();
+  React.useEffect(() => {
+    const retomar = () => {
+      if (ativaRef.current || !ociosoRef.current) return;
+      const c = conversaParaRetomar(escolhaDoPainel(), listarConversas());
+      if (c) { ativaRef.current = c.id; lembrarConversaDoPainel(c.id); carregar(c.turnos); }
+    };
+    retomar();
+    return inscreverConversas(retomar);
+  }, [carregar]);
 
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turnos, pensando]);
@@ -79,7 +114,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
       <div onClick={onClose} className={`fixed inset-0 z-[78] bg-black/30 sm:hidden transition-opacity ${open ? "opacity-100" : "opacity-0 pointer-events-none"}`} aria-hidden />
 
       <aside
-        role="dialog" aria-label="Quattro IA"
+        role="dialog" aria-label={MARCA_IA}
         data-aberto={open ? "1" : "0"}
         className="a4p-ia a4p-glass fixed top-0 right-0 z-[80] h-full w-full sm:w-[420px] bg-white border-l border-border flex flex-col"
         style={{ boxShadow: "-12px 0 40px rgba(14,19,30,0.12)" }}
@@ -90,7 +125,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
           <span className="text-[16px] font-semibold text-ink">Quattro AI</span>
           <span className="text-[10px] font-semibold tracking-wide text-muted bg-surface-2 rounded-pill px-2 py-[2px]">beta</span>
           {turnos.length > 0 && (
-            <button onClick={() => carregar([])} aria-label="Nova conversa" title="Nova conversa" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
+            <button onClick={novaConversa} aria-label="Nova conversa" title="Nova conversa" className="ml-auto w-8 h-8 rounded-md inline-flex items-center justify-center text-faint hover:text-ink hover:bg-surface-2 transition-colors">
               <Icon name="edit" size={16} color="currentColor" />
             </button>
           )}
@@ -115,7 +150,7 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
             turnos.map((t, i) => (
               <div key={t.id} className="a4p-entra flex flex-col gap-2" style={{ ["--a4p-atraso" as string]: `${Math.min(i, 3) * 60}ms` }}>
                 <div data-ia="pergunta" className="self-end max-w-[85%] rounded-card rounded-br-sm bg-ink text-white px-3 py-2 text-[15px]">{t.q}</div>
-                <BolhaResposta t={t} copiado={copiedId === t.id} onCopiar={copiar} onFeedback={darFeedback} onNavegar={onClose} />
+                <BolhaResposta t={t} copia={copia?.id === t.id ? copia.estado : undefined} onCopiar={copiar} onFeedback={darFeedback} onNavegar={onClose} />
               </div>
             ))
           )}
@@ -154,12 +189,17 @@ function AssistantPanel({ open, onClose }: { open: boolean; onClose: () => void 
               placeholder="Pergunte sobre suas finanças…"
               className="flex-1 bg-transparent outline-none text-[15px] text-ink placeholder:text-placeholder py-[6px]"
             />
+            {/* Lime + verde-base: a seta em `on-lime` sobre `bg-ink` era invisível
+                (os dois tokens valem #3B4332). */}
             <button onClick={() => responder(texto)} disabled={pensando || !texto.trim()} aria-label="Enviar"
-              className="w-9 h-9 rounded-pill inline-flex items-center justify-center bg-ink text-white disabled:opacity-40 hover:opacity-90 transition-opacity">
+              className="w-9 h-9 rounded-pill inline-flex items-center justify-center bg-lime text-on-lime disabled:opacity-40 hover:bg-lime-hover transition-colors">
               <Icon name="arrow-up" size={16} color="var(--color-on-lime)" />
             </button>
           </div>
-          <p className="m-0 mt-2 text-center text-[11px] text-faint">A Quattro IA pode cometer erros — confira os valores.</p>
+          <p className="m-0 mt-2 text-center text-[11px] text-faint">
+            {MARCA_IA} pode cometer erros — confira os valores. As conversas ficam no{" "}
+            <Link href="/quattro-ai" onClick={onClose} className="underline hover:text-ink">histórico</Link>.
+          </p>
         </div>
       </aside>
     </>

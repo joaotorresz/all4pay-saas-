@@ -5,6 +5,9 @@
  * com probabilidade e fator, agregadas numa probabilidade de stress.
  */
 import type { FinancialFeatures, RiskMatrix, RiscoDimensao, RiscoNivel, DimensaoRisco } from "./types";
+import { saudeDoRunway } from "@/core/quant/score";
+import { formaCurta } from "@/core/indicadores";
+import { decimalBR } from "@/lib/format";
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 const norm = (v: number, min: number, max: number) => (max <= min ? 0 : clamp01((v - min) / (max - min)));
@@ -44,8 +47,15 @@ export function calcularRiskMatrix(f: FinancialFeatures): RiskMatrix {
     {
       id: "liquidez",
       label: "Risco de liquidez",
-      probabilidade: 1 - norm(f.runwayMeses, 3, 18),
-      fator: `runway de ${f.runwayMeses} meses`,
+      // ⚠️ A MESMA leitura do pilar de runway do score (`saudeDoRunway`): com
+      // o runway indisponível por "não há queima", este risco era 100% com o
+      // fator "runway de 0 meses" — para uma empresa que gera caixa.
+      probabilidade: 1 - saudeDoRunway(f),
+      fator: f.runwayMeses !== null
+        ? `runway de ${decimalBR(f.runwayMeses)} meses`
+        : f.runwayMotivo?.codigo === "sem_queima"
+          ? "sem queima de caixa na janela"
+          : `runway ${f.runwayMotivo ? formaCurta(f.runwayMotivo) : "sem base de cálculo"}`,
     },
     {
       id: "inadimplencia",

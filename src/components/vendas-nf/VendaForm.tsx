@@ -16,10 +16,8 @@ import {
   Card, Button, Icon, Input, Textarea, Select, DateField, CurrencyInput, Checkbox, BRL,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
-import { useAccounts } from "@/components/visao-geral/hooks";
-import { usePartiesList, useProductsList } from "@/components/lancamentos/hooks";
-import { listPlanoContas } from "@/lib/registros";
-import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
+import { usePartiesList, useProductsList, useCategories } from "@/components/lancamentos/hooks";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import { rateioValido, somaRateio, type LinhaRateio } from "@/core/registros";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens,
@@ -61,7 +59,6 @@ export function VendaForm() {
   const sp = useSearchParams();
   const qc = useQueryClient();
   const { show, node } = useToast();
-  const { data: contas } = useAccounts();
   const { data: partes } = usePartiesList();
   const { data: produtos } = useProductsList();
 
@@ -87,29 +84,45 @@ export function VendaForm() {
     const id = sp.get("id");
     if (!id || !existentes) return;
     const achada = existentes.find((x) => x.id === id);
-    if (achada) setV(achada);
+    // Uma venda salva com total diferente da soma dos itens teve o total
+    // DIGITADO — reabrir não pode recalculá-lo por cima.
+    if (achada) { setV(achada); setTotalDigitado(Math.abs(achada.valorTotal - totalDosItens(achada.itens)) > 0.005); }
   }, [sp, existentes]);
 
   const set = <K extends keyof Venda>(k: K, val: Venda[K]) => setV((s) => ({ ...s, [k]: val }));
 
-  const clientes = React.useMemo(() => (partes ?? []).filter((p) => p.is_customer), [partes]);
-  const fornecedores = React.useMemo(() => (partes ?? []).filter((p) => p.is_supplier), [partes]);
-  const categorias = React.useMemo(
-    () => listPlanoContas().filter((c) => c.natureza === "receita" && c.paiId),
-    [],
-  );
-  const cadProjetos = React.useMemo(() => listProjetos(), []);
-  const cadCentros = React.useMemo(() => listCentrosCusto(), []);
+  // Inativo sai da ESCOLHA (`parties.ativo`); a venda antiga dele continua.
+  const clientes = React.useMemo(() => (partes ?? []).filter((p) => p.is_customer && (p.ativo !== false || p.id === v.clienteId)), [partes, v.clienteId]);
+  const fornecedores = React.useMemo(() => (partes ?? []).filter((p) => p.is_supplier && p.ativo !== false), [partes]);
+  // ⚠️ As categorias vêm do BANCO (`public.categories`, receita), a morada que
+  // o título referencia. Elas vinham do plano de contas guardado no navegador:
+  // vazio em quem nunca abriu o cadastro — e o campo é obrigatório, então a
+  // venda simplesmente não salvava.
+  const { data: catsReceita } = useCategories("receita");
+  const categorias = React.useMemo(() => catsReceita ?? [], [catsReceita]);
+  // Projetos, centros e contas da TABELA — o id local ("5001") era recusado
+  // pelo banco ao gravar o recebível.
+  const opcoes = useOpcoesCadastro("entrada");
 
   const cliente = clientes.find((c) => c.id === v.clienteId);
   const totalItens = totalDosItens(v.itens);
   const liquido = valorLiquido(v);
   const taxas = somaDasTaxas(v);
 
-  /** O total dos itens sugere o valor total — mas não sobrescreve o digitado. */
+  /**
+   * O valor total ACOMPANHA os itens até a pessoa digitar um valor próprio.
+   *
+   * ⚠️ Era "preenche só se estiver zerado": escolher o produto punha o preço
+   * de tabela (1× R$ 7.499) no total, e mudar quantidade ou preço depois não
+   * mexia mais nele — a venda de 2× R$ 12.345,67 foi salva por R$ 7.499,00, e
+   * o título a receber junto. Achado dirigindo a tela como usuário.
+   */
+  const [totalDigitado, setTotalDigitado] = React.useState(false);
   React.useEffect(() => {
-    if (totalItens > 0 && v.valorTotal === 0) setV((s) => ({ ...s, valorTotal: totalItens }));
-  }, [totalItens, v.valorTotal]);
+    if (!totalDigitado && totalItens > 0 && v.valorTotal !== totalItens) {
+      setV((s) => ({ ...s, valorTotal: totalItens }));
+    }
+  }, [totalItens, totalDigitado, v.valorTotal]);
 
   const setItem = (i: number, patch: Partial<ItemVenda>) =>
     setV((s) => ({ ...s, itens: s.itens.map((x, k) => (k === i ? { ...x, ...patch } : x)) }));
@@ -122,7 +135,11 @@ export function VendaForm() {
     if (Object.keys(e).length > 0) { show("Revise os campos obrigatórios."); return; }
     setSalvando(true);
     try {
-      const doc = { ...v, clienteNome: cliente?.name ?? v.clienteNome };
+      const doc = {
+        ...v,
+        clienteNome: cliente?.name ?? v.clienteNome,
+        categoriaNome: categorias.find((c) => c.id === v.categoria)?.name ?? v.categoriaNome,
+      };
       // Documento e recebível pelo MESMO escritor: numa recusa do banco os dois
       // voltam juntos, e a próxima tentativa não duplica nada.
       const { aviso } = await salvarVendaDoc(doc);
@@ -236,7 +253,7 @@ export function VendaForm() {
           <div className="flex flex-col gap-4">
             <span className="text-h3 font-semibold text-ink">Valor recebido</span>
             <Campo label="Valor total" obrigatorio erro={erros.valorTotal}>
-              <CurrencyInput value={v.valorTotal} onValueChange={(x) => set("valorTotal", x)} />
+              <CurrencyInput value={v.valorTotal} onValueChange={(x) => { setTotalDigitado(true); set("valorTotal", x); }} />
             </Campo>
             <Campo label="Valor total com juros" ajuda="Quando o cliente pagou parcelado com acréscimo.">
               <CurrencyInput value={v.valorTotalComJuros} onValueChange={(x) => set("valorTotalComJuros", x)} />
@@ -246,7 +263,9 @@ export function VendaForm() {
                 não escondido no fim da tela. */}
             <div className="rounded-card bg-surface-2 p-4 flex flex-col gap-1">
               <span className="text-caption text-muted">Valor líquido</span>
-              <span className={`text-[24px] leading-none font-semibold tabular-nums ${liquido < 0 ? "text-negative" : "text-ink"}`}>
+              {/* Número não tem cor por sinal (decisão de 30/09/2026): o BRL já
+                  escreve o "−" quando as taxas passam do bruto. */}
+              <span className="text-[24px] leading-none font-semibold tabular-nums text-ink">
                 <BRL value={liquido} />
               </span>
               <span className="text-caption text-faint tabular-nums">
@@ -288,7 +307,7 @@ export function VendaForm() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
           <Campo label="Conta bancária" obrigatorio erro={erros.contaId}>
             <Select value={v.contaId} onChange={(x) => set("contaId", x)} placeholder="Selecione a conta"
-              options={(contas?.accounts ?? []).map((c) => ({ value: c.id, label: c.name }))} />
+              options={opcoes.contas} />
           </Campo>
           <Campo label="Operação">
             <Select value={v.operacao} onChange={(x) => set("operacao", x as Venda["operacao"])}
@@ -307,7 +326,7 @@ export function VendaForm() {
           </Campo>
           <Campo label="Categoria da conta a receber" obrigatorio erro={erros.categoria}>
             <Select value={v.categoria} onChange={(x) => set("categoria", x)} placeholder="Selecione a categoria"
-              options={categorias.map((c) => ({ value: c.id, label: c.nome }))} />
+              options={categorias.map((c) => ({ value: c.id, label: c.caminho || c.name }))} />
           </Campo>
           <Campo label="Tipo de pagamento">
             <Select value={v.tipoPagamento} onChange={(x) => set("tipoPagamento", x as Venda["tipoPagamento"])}
@@ -364,10 +383,10 @@ export function VendaForm() {
       {/* --------------------- projeto e centro de custo --------------------- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Rateio titulo="Projetos" singular="projeto"
-          opcoes={cadProjetos.map((p) => ({ value: p.id, label: p.nome }))}
+          opcoes={opcoes.projetos}
           linhas={v.projetos} onChange={(l) => set("projetos", l)} erro={erros.projetos} />
         <Rateio titulo="Centros de custo" singular="centro de custo"
-          opcoes={cadCentros.map((c) => ({ value: c.id, label: c.nome }))}
+          opcoes={opcoes.centros}
           linhas={v.centros} onChange={(l) => set("centros", l)} erro={erros.centros} />
       </div>
 
@@ -413,10 +432,16 @@ function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode
 function Campo({
   label, obrigatorio, erro, ajuda, children,
 }: { label: string; obrigatorio?: boolean; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  // ⚠️ O rótulo APONTA para o campo (`htmlFor` + o mesmo id no filho). Sem
+  // isso "Status", "Operação" e "Método de pagamento" eram campos anônimos
+  // para o leitor de tela. Um id que o filho já traga é respeitado.
+  const gerado = React.useId();
+  const filho = React.isValidElement<{ id?: string }>(children) ? children : null;
+  const id = filho?.props.id ?? gerado;
   return (
     <div className="flex flex-col gap-[6px]">
       {label && (
-        <label className="text-caption font-medium text-muted">
+        <label htmlFor={id} className="text-caption font-medium text-muted">
           {label}
           {obrigatorio && (
             <span className="ml-2 rounded-pill bg-surface-3 text-[10px] text-muted px-[6px] py-[1px] align-middle">
@@ -425,7 +450,7 @@ function Campo({
           )}
         </label>
       )}
-      {children}
+      {filho ? React.cloneElement(filho, { id }) : children}
       {erro ? <span className="text-caption text-negative">{erro}</span>
         : ajuda ? <span className="text-caption text-faint">{ajuda}</span> : null}
     </div>

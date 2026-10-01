@@ -1,123 +1,46 @@
 /**
- * Conclusão da venda do Simulador POS (Central POS) → cria recebível(is) que
- * entram na Central de Recebimentos. Type "entrada" · status "pendente" — a
- * MESMA fonte de `/recebimentos` (`getOpenMovements("entrada")`). Parcelado
- * gera N títulos mensais. Demo: anexa ao dataset (`appendImported`); live:
- * insere em `movements`. Categoria "venda" também alimenta o faturamento/DRE.
+ * Conclusão da venda do Simulador POS → os títulos da venda, pelo ESCRITOR
+ * ÚNICO (`criarTitulos`), em demonstração e em produção.
+ *
+ * ⚠️ **EM PRODUÇÃO ESTA VENDA NUNCA FOI GRAVADA.** O insert mandava
+ * `status: "pendente"`, e `movements.status` é coluna GERADA de `situacao`
+ * desde 25/08 — o Postgres recusa (`cannot insert a non-DEFAULT value into
+ * column "status"`, medido num banco com as migrations aplicadas). A tela
+ * engolia a exceção e mostrava "Aprovado" do mesmo jeito: a maquininha
+ * "vendia" e o contas a receber não recebia nada. Agora o título sai por
+ * `criarTitulos`, que grava `situacao`, `origem` e `especie`, e a recusa do
+ * banco sobe para a tela.
+ *
+ * ⚠️ E não se cria mais uma "Conta consolidada" às escondidas quando a empresa
+ * não tem conta: uma conta bancária inventada por um botão de venda aparece no
+ * saldo e no seletor sem ninguém a ter cadastrado. Sem conta, a venda é
+ * recusada com o motivo.
+ *
+ * A composição dos títulos (bruto a receber + taxa a pagar no repasse) mora em
+ * `core/vendas/pos` — ver o motivo lá.
  */
 import { isDemo } from "@/lib/demo";
-import { createClient } from "@/lib/supabase/client";
-import { appendImported } from "@/lib/imported";
+import { criarTitulos } from "@/lib/data";
 import { isoDay } from "@/lib/aggregations";
-import type { Movement } from "@/lib/types";
+import { titulosDaVendaPos, type VendaPos } from "@/core/vendas/pos";
 
-export interface VendaPosInput {
-  /** Valor líquido a receber = total da venda − taxa MDR. */
-  valorReceber: number;
-  descricao: string;
-  parcelas: number; // 1 = à vista
-  /** Taxa MDR em R$ (total − líquido). Vira um custo de adquirência no DRE. */
-  taxaValor?: number;
+export type { VendaPos };
+
+async function contaPadrao(): Promise<string> {
+  if (isDemo) return ""; // o dataset resolve para a conta real da demonstração
+  const { createClient } = await import("@/lib/supabase/client");
+  const { primeiraContaAtiva } = await import("@/lib/conta-padrao");
+  // Só conta ATIVA (o banco recusa lançamento em conta inativa — CAD).
+  const id = await primeiraContaAtiva(createClient());
+  if (!id) throw new Error("Cadastre uma conta bancária antes de vender na maquininha — é nela que o repasse cai.");
+  return id;
 }
 
-/** Soma `m` meses a uma data ISO (yyyy-mm-dd). */
-function addMonthsISO(iso: string, m: number): string {
-  const d = new Date(iso + "T00:00:00");
-  d.setMonth(d.getMonth() + m);
-  return d.toISOString().slice(0, 10);
-}
-
-export async function concluirVendaPos(input: VendaPosInput): Promise<void> {
-  const hoje = isoDay(new Date());
-  const n = Math.max(1, input.parcelas);
-  const parcela = Math.round((input.valorReceber / n) * 100) / 100;
-  const valorDe = (i: number) =>
-    i === n - 1 ? Math.round((input.valorReceber - parcela * (n - 1)) * 100) / 100 : parcela;
-  const descDe = (i: number) => (n > 1 ? `${input.descricao} · ${i + 1}/${n}` : input.descricao);
-  const groupId = globalThis.crypto?.randomUUID?.() ?? `pos-${Date.now()}`;
-  // Custo de adquirência (taxa MDR) → vira despesa "Tarifas de adquirência" para
-  // o DRE mostrar a margem (relatório de melhorias, item 6).
-  const taxa = Math.round((input.taxaValor ?? 0) * 100) / 100;
-
-  if (isDemo) {
-    for (let i = 0; i < n; i++) {
-      const movement: Movement = {
-        id: `pos-${Date.now()}-${i}`,
-        account_id: "", // appendImported resolve para a conta real do dataset
-        type: "entrada",
-        status: "pendente",
-        category: "venda",
-        amount: valorDe(i),
-        due_date: addMonthsISO(hoje, i),
-        paid_date: null,
-        reconciled: false,
-        description: descDe(i),
-      } as Movement;
-      appendImported({ movement });
-    }
-    if (taxa > 0) {
-      appendImported({
-        movement: {
-          id: `pos-taxa-${Date.now()}`,
-          account_id: "",
-          type: "saida",
-          status: "pago",
-          category: "Tarifas de adquirência",
-          amount: taxa,
-          due_date: hoje,
-          paid_date: hoje,
-          reconciled: true,
-          description: `${input.descricao} · taxa MDR`,
-        } as Movement,
-      });
-    }
-    return;
-  }
-
-  // ---- Live (Supabase) ----
-  const supabase = createClient();
-  let accId: string | undefined;
-  const { data: accs } = await supabase.from("financial_accounts").select("id").limit(1);
-  accId = (accs as { id: string }[] | null)?.[0]?.id;
-  if (!accId) {
-    const { data: created } = await supabase
-      .from("financial_accounts")
-      .insert({ name: "Conta consolidada", bank: "inter", balance: 0 })
-      .select("id")
-      .single();
-    accId = (created as { id: string } | null)?.id;
-  }
-  if (!accId) throw new Error("Sem conta para registrar a venda");
-
-  const rows: Record<string, unknown>[] = Array.from({ length: n }, (_, i) => ({
-    account_id: accId,
-    type: "entrada",
-    // ⚠️ ONDA 5: recebível do POS vem da VENDA.
-    origem: "venda" as const,
-    status: "pendente",
-    category: "venda",
-    amount: valorDe(i),
-    due_date: addMonthsISO(hoje, i),
-    paid_date: null,
-    reconciled: false,
-    description: descDe(i),
-    group_id: groupId,
-  }));
-  if (taxa > 0) {
-    rows.push({
-      origem: "venda" as const,
-      account_id: accId,
-      type: "saida",
-      status: "pago",
-      category: "Tarifas de adquirência",
-      amount: taxa,
-      due_date: hoje,
-      paid_date: hoje,
-      reconciled: true,
-      description: `${input.descricao} · taxa MDR`,
-      group_id: groupId,
-    });
-  }
-  const { error } = await supabase.from("movements").insert(rows);
-  if (error) throw error;
+/** Grava a venda. LANÇA quando o banco recusa — quem chama mostra o motivo. */
+export async function concluirVendaPos(v: VendaPos): Promise<number> {
+  const titulos = titulosDaVendaPos(v, isoDay(new Date()));
+  if (titulos.length === 0) return 0;
+  const conta = await contaPadrao();
+  await criarTitulos(titulos.map((t) => ({ ...t, account_id: conta, origem: "venda" as const })));
+  return titulos.length;
 }

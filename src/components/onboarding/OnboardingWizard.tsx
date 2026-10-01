@@ -16,6 +16,7 @@ import { aplicarAlcadaDoOnboarding } from "@/lib/alcada";
 import { calcularMaturidade, montarDNA, type PerfilEmpresa, type Participante, type Estrutura, type Maturidade, type DnaLinha } from "@/core/onboarding";
 import type { FDIPReport } from "@/core/fdip/types";
 import { useTipoConta } from "@/components/app/useTipoConta";
+import { reportar } from "@/lib/erros";
 import { OnboardingPessoal } from "./OnboardingPessoal";
 
 const PASSOS = ["Dados básicos", "Perfil empresarial", "Governança", "Estrutura financeira", "Onboarding inteligente", "Análise IA", "Ambiente criado"];
@@ -69,6 +70,8 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
   const [email, setEmail] = React.useState("");
   const [senha, setSenha] = React.useState("");
   const [erro, setErro] = React.useState<string | null>(null);
+  /** A alçada que não foi gravada — o cadastro segue, e a pessoa é AVISADA. */
+  const [avisoAlcada, setAvisoAlcada] = React.useState<string | null>(null);
   /**
    * ⚠️ Quando o cadastro cria o usuário mas o e-mail precisa ser confirmado, NÃO
    * há sessão — e sem sessão o app não abre. Antes o código seguia como se
@@ -162,21 +165,45 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
       // chegava a mecanismo nenhum. Agora "Pode aprovar" define o PAPEL e
       // "Limite de aprovação" define o TETO daquele papel, que é o que o
       // gatilho da Central lê.
-      try { await aplicarAlcadaDoOnboarding(alcadaDoOnboarding(participantes)); } catch { /* segue */ }
+      // ⚠️ A recusa NÃO bloqueia o cadastro (a conta e a empresa já existem, e
+      // a alçada se ajusta depois), mas também não é engolida: antes o `catch`
+      // era mudo e a empresa nascia com o teto PADRÃO do gatilho, enquanto a
+      // pessoa achava que valia o limite que acabou de digitar. Vai para o
+      // registro de falhas e para a tela, antes de entrar.
+      let falhaAlcada: string | null = null;
+      try { await aplicarAlcadaDoOnboarding(alcadaDoOnboarding(participantes)); }
+      catch (e) {
+        reportar("organizacao.alcada", e, "os limites de aprovação digitados no cadastro não foram gravados; vale o teto padrão até alguém ajustar");
+        falhaAlcada = e instanceof Error ? e.message : String(e);
+      }
       // Perfil: cache local + (live) company_profiles. Best-effort.
       // ⚠️ `limite` é REMOVIDO aqui: guardá-lo no perfil recriaria a morada
       // morta que acabamos de fechar, e a próxima tela leria dela achando que
       // decide algo. Há guarda com teto ZERO contra isso.
+      // ⚠️ Não é mais "best-effort" mudo: a recusa do banco vai para a tela e
+      // o "Concluir" seguinte tenta de novo (a conta já existe, o perfil é
+      // upsert e a estrutura deduplica por nome). Engolir aqui fazia a pessoa
+      // entrar num ambiente sem as contas e centros que acabou de escolher.
       try {
         const semLimite = participantes.map(({ limite: _limite, ...resto }) => resto);
         await persistCompany({ db, perfil, participantes: semLimite, estrutura });
-      } catch { /* segue */ }
+      } catch (e) {
+        throw new Error(`Sua conta foi criada, mas o perfil da empresa não foi salvo: ${e instanceof Error ? e.message : String(e)}. Clique em concluir de novo.`);
+      }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
-      // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
+      // duplicar o seed da org.
       if (configured) {
-        try { await aplicarEstrutura(estrutura); } catch { /* segue */ }
+        try { await aplicarEstrutura(estrutura); }
+        catch (e) { throw new Error(`Sua conta foi criada, mas ${e instanceof Error ? e.message : String(e)}. Clique em concluir de novo.`); }
       }
       if (report) await aplicarOnboarding(report); // cria/correlaciona (agora autenticado em live)
+      if (falhaAlcada) {
+        setAvisoAlcada(
+          `Sua empresa foi criada, mas os limites de aprovação que você informou não foram gravados (${falhaAlcada}). `
+          + "Até alguém ajustá-los em Aprovações › Governança, vale o limite padrão.",
+        );
+        return;
+      }
       router.push("/");
       router.refresh();
     } catch (e) {
@@ -271,7 +298,7 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
           {step === 3 && <PassoEstrutura estrutura={estrutura} setEstrutura={setEstrutura} contaTipos={contaTipos} setContaTipos={setContaTipos} />}
           {step === 4 && <PassoImport texto={texto} setTexto={setTexto} report={report} analisar={analisar} carregarAmostra={() => { const a = amostraExtrato(); setTexto(a); analisar(a); }} />}
           {step === 5 && <PassoAnalise maturidade={maturidade} dna={dna} />}
-          {step === 6 && <PassoAmbiente report={report} configured={configured} email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} erro={erro} />}
+          {step === 6 && <PassoAmbiente report={report} configured={configured} email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} erro={erro} aviso={avisoAlcada} />}
         </Card>
 
         {/* Navegação */}
@@ -280,9 +307,13 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
           {step < PASSOS.length - 1 ? (
             <Button variant="primary" onClick={next}>{step === 4 && !report ? "Pular e continuar" : "Próximo"}</Button>
           ) : (
-            <Button variant="primary" onClick={finalizar} disabled={aplicando}>
-              {aplicando ? "Entrando…" : "Concluir e entrar"}
-            </Button>
+            avisoAlcada ? (
+              <Button variant="primary" onClick={() => { router.push("/"); router.refresh(); }}>Entrar no sistema</Button>
+            ) : (
+              <Button variant="primary" onClick={finalizar} disabled={aplicando}>
+                {aplicando ? "Entrando…" : "Concluir e entrar"}
+              </Button>
+            )
           )}
         </div>
         {/* ⚠️ Dizia "MVP em teste — você pode avançar com campos em branco". Duas
@@ -514,7 +545,7 @@ function PassoAnalise({ maturidade, dna }: { maturidade: Maturidade | null; dna:
 }
 
 const CRIADOS = ["Empresa", "Usuários & governança", "Bancos & contas", "Plano de contas", "Centros de custo", "Clientes", "Fornecedores", "Produtos & serviços", "DRE", "Fluxo de caixa", "KPIs & dashboard", "Alertas & políticas", "Motor de risco", "Copiloto financeiro"];
-function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, erro }: any) {
+function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, erro, aviso }: any) {
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-body text-ink">Tudo pronto. Ao concluir, a IA monta seu ambiente financeiro e você entra direto no sistema.</p>
@@ -544,6 +575,7 @@ function PassoAmbiente({ report, configured, email, setEmail, senha, setSenha, e
       )}
 
       {erro && <p className="m-0 text-caption text-negative">{erro}</p>}
+      {aviso && <p role="status" className="m-0 text-caption text-warning">{aviso}</p>}
     </div>
   );
 }

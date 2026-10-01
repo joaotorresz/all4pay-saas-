@@ -5,8 +5,9 @@
  * hits Supabase. New tables live in migrations 0002/0003.
  */
 import { createClient } from "@/lib/supabase/client";
+import { CATEGORIA_TRANSFERENCIA } from "@/core/indicadores/convencoes";
 import { isDemo } from "@/lib/demo";
-import { importedParties, updateImportedParty } from "@/lib/imported";
+import { importedParties, updateImportedParty, gravarParteDemo } from "@/lib/imported";
 import {
   DEMO_BRANDS,
   DEMO_UNITS,
@@ -35,6 +36,7 @@ import type {
   UnitInput,
 } from "@/lib/types";
 import { TETO_LINHAS, semAmostra } from "@/lib/supabase/consulta";
+import { reportar } from "@/lib/erros";
 
 const delay = () => new Promise((r) => setTimeout(r, 450));
 const uuid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}`;
@@ -107,10 +109,18 @@ export async function listParties(): Promise<Party[]> {
   const s = createClient();
   const { data, error } = await s
     .from("parties")
+    .select("id,type,name,doc,phone,email,is_customer,is_supplier,is_carrier,ativo,default_category_id")
+    .order("name").limit(TETO_LINHAS);
+  if (!error) return (data ?? []) as Party[];
+  // Coluna da 20260930180000 ainda ausente: lê a forma antiga e DIZ que caiu.
+  if (!/column .* does not exist|42703|PGRST204/i.test(error.message ?? "")) throw error;
+  reportar("contatos.colunasNovas", error, "a lista de contatos fica sem ativo e categoria padrão até a migration 20260930180000 ser aplicada", true);
+  const r = await s
+    .from("parties")
     .select("id,type,name,doc,phone,email,is_customer,is_supplier,is_carrier")
     .order("name").limit(TETO_LINHAS);
-  if (error) throw error;
-  return (data ?? []) as Party[];
+  if (r.error) throw r.error;
+  return (r.data ?? []) as Party[];
 }
 export async function listSales(): Promise<SaleDocRow[]> {
   if (isDemo) return DEMO_SALES;
@@ -137,8 +147,17 @@ export async function listSales(): Promise<SaleDocRow[]> {
 
 /* ---- writes ---- */
 
-export async function createTransferencia(input: TransferenciaInput): Promise<void> {
-  if (isDemo) return void (await delay());
+/**
+ * O escritor ÚNICO da transferência entre contas próprias: dois lançamentos
+ * baixados (saída na origem, entrada no destino) amarrados pelo MESMO
+ * `group_id`, com a categoria canônica de transferência nos dois lados — é ela
+ * que tira o par do DRE (não é receita nem despesa) e mantém os dois no saldo.
+ *
+ * ⚠️ Devolve o `group_id`: é ele que permite apagar os DOIS lados juntos.
+ * Apagar um só deixaria o saldo entre as contas torto para sempre.
+ */
+export async function createTransferencia(input: TransferenciaInput): Promise<string | null> {
+  if (isDemo) { await delay(); return null; }
   const s = createClient();
   const groupId = uuid();
   const common = {
@@ -148,19 +167,21 @@ export async function createTransferencia(input: TransferenciaInput): Promise<vo
     // ⚠️ `situacao`, nunca `status`: a coluna virou GERADA e o insert que a
     // mencionar é recusado. Transferência nasce baixada — o dinheiro já andou.
     situacao: "baixado" as const,
-    category: null,
+    // ⚠️ Era `null`, e sem categoria a perna de ENTRADA caía em Receita Bruta
+    // pelo palpite do DRE e a de SAÍDA em Despesa Operacional.
+    category: CATEGORIA_TRANSFERENCIA,
     amount: input.amount,
-    due_date: input.date,
-    paid_date: input.date,
     reconciled: false,
     description: input.description,
     group_id: groupId,
   };
+  const chegada = input.arrival_date || input.date;
   const { error } = await s.from("movements").insert([
-    { ...common, account_id: input.from_account_id, type: "saida" },
-    { ...common, account_id: input.to_account_id, type: "entrada" },
+    { ...common, account_id: input.from_account_id, type: "saida", due_date: input.date, paid_date: input.date },
+    { ...common, account_id: input.to_account_id, type: "entrada", due_date: chegada, paid_date: chegada },
   ]);
   if (error) throw error;
+  return groupId;
 }
 
 export async function createSaleDoc(input: SaleDocInput): Promise<void> {
@@ -311,11 +332,25 @@ export async function createContrato(input: ContratoInput): Promise<void> {
   if (error) throw error;
 }
 
-export async function createParty(input: PartyInput): Promise<void> {
-  if (isDemo) return void (await delay());
+/**
+ * Cria um contato e devolve o ID — quem chama precisa dele para escolher o
+ * contato recém-criado no formulário.
+ */
+export async function createParty(input: PartyInput): Promise<{ id: string }> {
+  if (isDemo) {
+    await delay();
+    const id = `party-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    gravarParteDemo({
+      id, type: input.type, name: input.name, doc: input.doc, phone: input.phone, email: input.email,
+      is_customer: input.is_customer, is_supplier: input.is_supplier, is_carrier: input.is_carrier,
+      ativo: input.ativo ?? true, default_category_id: input.default_category_id ?? null,
+    });
+    return { id };
+  }
   const s = createClient();
-  const { error } = await s.from("parties").insert(input);
+  const { data, error } = await s.from("parties").insert(input).select("id").single();
   if (error) throw error;
+  return { id: (data as { id: string }).id };
 }
 
 /** Atualiza um contato existente (ex.: adicionar telefone para cobrança). */

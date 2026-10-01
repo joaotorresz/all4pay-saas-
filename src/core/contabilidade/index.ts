@@ -11,6 +11,8 @@
 
 export * from "./cp1252";
 import { paraCP1252 } from "./cp1252";
+import { liquidado, dataDe, magnitude } from "@/core/indicadores/convencoes";
+import type { RiskInput } from "@/core/risk-engine/types";
 
 export const CONTABILIDADE_VERSION = "contabilidade/1.0.0";
 
@@ -202,6 +204,43 @@ export interface MapasContabeis {
 }
 
 /**
+ * Os liquidados de UMA conta bancária num mês, pela data de CAIXA — o que o
+ * extrato daquela conta mostra e o Domínio concilia.
+ *
+ * ⚠️ **LANÇAMENTO SEM CONTA NÃO É DE TODAS AS CONTAS.** O filtro da tela era
+ * `if (m.accountId && m.accountId !== conta) return false` — um liquidado sem
+ * conta passava no arquivo de CADA conta bancária. Numa empresa com quatro
+ * bancos o mesmo pagamento ia quatro vezes para o Domínio, e o contador só
+ * descobria no balancete. Com UMA conta cadastrada não há ambiguidade e ele é
+ * dela; com mais de uma, ele fica fora de todos os arquivos e volta em
+ * `semConta`, para a tela listar.
+ */
+export function movimentosDaContaNoMes(
+  input: RiskInput, contaId: string, mes: string, nContas: number,
+): { movimentos: MovimentoContabil[]; semConta: { id: string; descricao: string }[] } {
+  const nomes = input.partyNames ?? {};
+  const doMes = input.movements.filter((m) => liquidado(m) && (dataDe(m, "caixa") ?? "").slice(0, 7) === mes);
+  const descricao = (m: RiskInput["movements"][number]) => (m.party_id && nomes[m.party_id]) || m.category || "";
+  const semConta = nContas > 1
+    ? doMes.filter((m) => !m.accountId).map((m) => ({ id: m.id, descricao: descricao(m) || "(sem descrição)" }))
+    : [];
+  const movimentos = doMes
+    .filter((m) => (m.accountId ? m.accountId === contaId : nContas <= 1))
+    .map((m): MovimentoContabil => ({
+      id: m.id,
+      data: dataDe(m, "caixa")!,
+      valor: magnitude(m),
+      tipo: m.type === "entrada" ? "entrada" : "saida",
+      // O histórico do Domínio quer a CONTRAPARTE, não a categoria: é o que o
+      // contador procura ao conferir a linha contra o extrato do banco.
+      descricao: descricao(m),
+      categoria: m.category ?? "",
+      centroCusto: m.costCenter ?? null,
+    }));
+  return { movimentos, semConta };
+}
+
+/**
  * Monta as linhas e SEPARA as pendências.
  *
  * ⚠️ Um lançamento cuja categoria não tem código contábil não vira linha com o
@@ -217,8 +256,18 @@ export function montarLancamentosDominio(
   const linhas: LinhaDominio[] = [];
   const pendencias: PendenciaDominio[] = [];
 
+  /*
+   * ⚠️ O casamento categoria → código é por nome NORMALIZADO (caixa e espaços).
+   * Era a chave exata: a categoria "Venda" do plano não casava com o
+   * lançamento gravado como "venda", e todo lançamento caía em pendência
+   * "sem código contábil" com o código cadastrado — o mesmo critério que o DRE
+   * já usa para a linha declarada (`linhaPorCategoria`, minúsculo).
+   */
+  const norm = (x: string) => (x ?? "").trim().toLowerCase();
+  const porNome = new Map(Object.entries(mapas.categorias).map(([k, v]) => [norm(k), v]));
+  const centroPorNome = new Map(Object.entries(mapas.centros).map(([k, v]) => [norm(k), v]));
   for (const m of movimentos) {
-    const conta = mapas.categorias[m.categoria];
+    const conta = porNome.get(norm(m.categoria));
     if (!conta) {
       pendencias.push({
         movimentoId: m.id,
@@ -239,7 +288,7 @@ export function montarLancamentosDominio(
       valor: round2(m.valor),
       codigoHistorico: mapas.codigoHistorico ?? "",
       historico: (m.descricao || m.categoria).trim(),
-      centroCusto: (m.centroCusto && mapas.centros[m.centroCusto]) || "",
+      centroCusto: (m.centroCusto && centroPorNome.get(norm(m.centroCusto))) || "",
     });
   }
   return { linhas, pendencias };

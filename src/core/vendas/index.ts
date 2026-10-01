@@ -9,6 +9,8 @@
  * Puro, tipado, demo-safe. Versão vendas/1.0.0.
  */
 
+import { gerarPixCopiaECola } from "@/core/pix";
+
 export const VENDAS_VERSION = "vendas/1.0.0";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -99,7 +101,10 @@ export interface Venda {
   status: StatusVenda;
   metodo: MetodoPagamento;
   idExterno: string;
+  /** Id da categoria de RECEITA (`public.categories`) — é o que o título referencia. */
   categoria: string;
+  /** O nome da mesma categoria, para o texto do título e da lista. */
+  categoriaNome?: string;
   tipoPagamento: "avista" | "parcelado";
   plataforma: string;
   chaveTransacao: string;
@@ -193,12 +198,29 @@ function cards(
 export const painelStatusVendas = (vendas: Venda[]): CardVenda[] =>
   cards(vendas, GRUPOS_STATUS.map((g) => ({ ...g, casa: (v: Venda) => g.casa(v.status) })), "Total");
 
-/** Os 4 cards de NF. "A emitir" e "com erro" são o trabalho pendente. */
+/**
+ * Os estados em que a venda NÃO houve: não há faturamento a tributar nem nota
+ * a emitir. Uma lista só — o provisionamento de impostos, o painel de NF e o
+ * botão "Emitir NF" perguntam a mesma coisa, e três listas divergiriam na
+ * primeira vez que alguém acrescentasse um status.
+ */
+export const STATUS_SEM_FATURAMENTO: readonly StatusVenda[] = ["cancelada", "reembolsada", "reembolso_manual", "chargeback", "expirada"];
+export const temFaturamento = (v: Pick<Venda, "status">): boolean => !STATUS_SEM_FATURAMENTO.includes(v.status);
+
+/**
+ * Os 4 cards de NF. "A emitir" e "com erro" são o trabalho pendente.
+ *
+ * ⚠️ Pendente só é a venda que ACONTECEU. Uma venda com chargeback ou cancelada
+ * continuava "a emitir" com o valor cheio — o card mandava emitir nota de um
+ * dinheiro que voltou ao cliente, e o botão da própria linha (`podeEmitirNota`)
+ * já recusava a emissão: a tela pedia um trabalho que ela mesma não deixava
+ * fazer.
+ */
 export const painelStatusNF = (vendas: Venda[]): CardVenda[] =>
   cards(vendas, [
     { id: "emitidas", label: "NFs emitidas", casa: (v: Venda) => v.statusNF === "emitida" },
-    { id: "a_emitir", label: "NFs a emitir", casa: (v: Venda) => v.statusNF === "a_emitir" || v.statusNF === "processando" },
-    { id: "erro", label: "NFs com erro", casa: (v: Venda) => v.statusNF === "negada" },
+    { id: "a_emitir", label: "NFs a emitir", casa: (v: Venda) => (v.statusNF === "a_emitir" || v.statusNF === "processando") && temFaturamento(v) },
+    { id: "erro", label: "NFs com erro", casa: (v: Venda) => v.statusNF === "negada" && temFaturamento(v) },
   ], "Total de notas fiscais");
 
 /** O resumo da tela de Notas Fiscais (emitidas · processando · canceladas · negadas). */
@@ -334,6 +356,16 @@ export function impostoEstimadoDaVenda(
  *
  * O botão só libera com a configuração completa — gerar uma conta a pagar sem
  * fornecedor produziria um título órfão, que ninguém sabe a quem pagar.
+ *
+ * ⚠️ **A CATEGORIA DEIXOU DE SER PENDÊNCIA.** A lista de categorias da
+ * configuração vem do plano de contas LOCAL, que nasce VAZIO desde que as 32
+ * categorias de fábrica saíram — então, numa empresa nova, a pendência
+ * "categoria pendente em PIS, COFINS…" nunca se resolvia e o botão ficava
+ * travado para sempre, sem nada na tela dizendo que o caminho era montar um
+ * plano de contas inteiro antes. Sem categoria escolhida, o título sai com o
+ * NOME do imposto ("PIS", "ISS", "IRPJ"), e é esse nome que o DRE classifica
+ * (dedução sobre a receita · imposto sobre o lucro) — a guarda `impostos:` do
+ * engine-audit confere a linha. A categoria escolhida continua vencendo.
  */
 export function pendenciasConfig(c: ConfigImpostos, impostosComValor: Imposto[]): string[] {
   const faltas: string[] = [];
@@ -342,11 +374,30 @@ export function pendenciasConfig(c: ConfigImpostos, impostosComValor: Imposto[])
   esferas.forEach((e) => {
     if (!c.fornecedores[e]) faltas.push(`fornecedor ${ROTULO_ESFERA[e].split(" · ")[0].toLowerCase()} pendente`);
   });
-  const semCategoria = impostosComValor.filter((i) => !c.categorias[i]);
-  if (semCategoria.length) {
-    faltas.push(`categoria pendente em ${semCategoria.map((i) => ROTULO_IMPOSTO[i]).join(", ")}`);
-  }
   return faltas;
+}
+
+/**
+ * A descrição do título do imposto — é também a CHAVE de idempotência em
+ * produção (um título por imposto por competência). Mudar o texto muda a
+ * chave: por isso ele mora aqui, num lugar só.
+ */
+export const descricaoDoImposto = (rotulo: string, mesCompetencia: string): string =>
+  `${rotulo} · competência ${mesCompetencia}`;
+
+/**
+ * Separa as contas de imposto que AINDA não têm título vivo na competência
+ * das que já têm. É a idempotência do botão "Criar contas a pagar" em
+ * produção: clicar duas vezes (ou dois colegas, um em cada máquina) não pode
+ * dobrar o imposto do mês no fluxo de caixa. `descricoesVivas` são as
+ * descrições dos títulos de saída não cancelados que já existem.
+ */
+export function contasSemTitulo<T extends { rotulo: string }>(
+  contas: T[], mesCompetencia: string, descricoesVivas: Iterable<string>,
+): { novas: T[]; jaExistiam: string[] } {
+  const vivas = new Set(descricoesVivas);
+  const tem = (c: T) => vivas.has(descricaoDoImposto(c.rotulo, mesCompetencia));
+  return { novas: contas.filter((c) => !tem(c)), jaExistiam: contas.filter(tem).map((c) => c.rotulo) };
 }
 
 export interface LinhaImposto {
@@ -376,8 +427,7 @@ export interface ProvisaoImpostos {
  * de fora — não houve faturamento a tributar.
  */
 export function provisionarImpostos(vendas: Venda[], c: ConfigImpostos): ProvisaoImpostos {
-  const tributaveis = vendas.filter((v) =>
-    !["cancelada", "reembolsada", "reembolso_manual", "chargeback", "expirada"].includes(v.status));
+  const tributaveis = vendas.filter(temFaturamento);
 
   const porImposto = Object.fromEntries(IMPOSTOS.map((i) => [i, 0])) as Record<Imposto, number>;
   const linhas = tributaveis.map((v) => {
@@ -473,8 +523,44 @@ export function validarLink(l: Partial<LinkPagamento>): Record<string, string> {
 }
 
 /**
- * A URL pública do link. `origem` vem do navegador — em SSR não existe, e
- * inventar um domínio produziria um QR code que aponta para lugar nenhum.
+ * O que o link ENTREGA hoje: o PIX copia-e-cola (BR Code estático) da empresa,
+ * com o valor do link e o id dele como identificador da transação.
+ *
+ * ⚠️ NÃO há página pública de pagamento. A versão anterior devolvia
+ * `<origem>/pagar/<id>`, rota que nunca existiu (404) — e o link mora em
+ * `org_state`, que um pagador anônimo não lê. Um BR Code estático vale por si,
+ * sem página e sem provedor: é o que funciona sem decisão nova. Página pública
+ * ou PIX dinâmico (cobrança com vencimento) é decisão do dono, pendente.
+ *
+ * Sem dados do recebedor (chave = CNPJ cadastrado) devolve `null`: inventar
+ * uma chave produziria um QR que paga a ninguém.
  */
-export const urlDoLink = (l: LinkPagamento, origem: string): string =>
-  `${origem.replace(/\/$/, "")}/pagar/${l.id}`;
+export function pixDoLink(
+  l: Pick<LinkPagamento, "id" | "valor">,
+  recebedor: { chave: string; nome: string; cidade: string } | null,
+): string | null {
+  if (!recebedor) return null;
+  return gerarPixCopiaECola({
+    chave: recebedor.chave, nome: recebedor.nome, cidade: recebedor.cidade,
+    valor: l.valor > 0 ? l.valor : undefined,
+    txid: l.id.replace(/[^A-Za-z0-9]/g, "").slice(0, 25),
+  });
+}
+
+/**
+ * A frase do "Propor fornecedores". ⚠️ A falha vem PRIMEIRO e nunca é
+ * substituída: a tela tem UM toast, e a versão anterior mostrava a recusa do
+ * banco e, na linha seguinte, a sobrescrevia com "Todas as esferas já tinham
+ * fornecedor — nada a propor" — uma afirmação falsa por cima de um erro.
+ */
+export function mensagemDaProposta(p: { criados: number; reaproveitados: number; falha: string | null }): string {
+  const feito = [
+    p.criados > 0 && `${p.criados} criado${p.criados === 1 ? "" : "s"}`,
+    p.reaproveitados > 0 && `${p.reaproveitados} já cadastrado${p.reaproveitados === 1 ? "" : "s"}`,
+  ].filter(Boolean).join(" · ");
+  if (p.falha) {
+    return `Não foi possível criar o fornecedor proposto: ${p.falha}`
+      + (feito ? ` (antes da falha: ${feito}; as outras esferas seguem sem fornecedor).` : ". Nenhuma esfera recebeu fornecedor.");
+  }
+  return feito ? `Fornecedores escolhidos: ${feito}.` : "Todas as esferas já tinham fornecedor — nada a propor.";
+}

@@ -15,7 +15,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Cell,
 } from "recharts";
 import { BRL, Button, Card, Icon, NotaCancelados, Select, Skeleton, StatusBadge, ValorIndicador, type FormatoValor } from "@/components/ui";
-import { useRiscoInput } from "@/components/visao-geral/hooks";
+import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
 import {
@@ -24,9 +24,8 @@ import {
 } from "@/core/relatorios";
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
 import { listarOrcamentos } from "@/lib/orcamentos";
-import { linhasDeCategoria } from "@/lib/registros";
 import { dreGerencial, movimentosNoPeriodo } from "@/core/dre/engine";
-import { getLinhasDeCategoria } from "@/lib/data";
+import { linhasDeclaradasDasCategorias } from "@/lib/data";
 import {
   runwayMeses, saldo, canceladosNaJanela, coberturaCompetencia, janela as fazJanela,
 } from "@/core/indicadores";
@@ -56,6 +55,7 @@ const fmtBRL = (n: number) => formatBRL(n);
 
 export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   const { data: input, isLoading } = useRiscoInput();
+  const { data: contasResumo } = useAccounts();
   const [rascunho, setRascunho] = React.useState<FiltrosRelatorioValor>(filtroPadrao);
   // Os filtros só valem depois de "Atualizar" — o print tem o botão, e um
   // relatório que se recalcula a cada tecla pisca sem parar.
@@ -72,19 +72,18 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
   // hidratação.
   const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
   /*
-   * ⚠️ **Duas fontes, e o BANCO complementa o local.** `linhasDeCategoria()` lê
-   * o plano de contas da tela de Cadastros; `getLinhasDeCategoria()` lê
-   * `categories.dre_linha`, a tabela que os LANÇAMENTOS referenciam. Quem nunca
-   * abriu a tela de Cadastros não tinha linha declarada nenhuma, e o motor caía
-   * no palpite por palavra-chave sem nada dizer — foi por aí que INSS e FGTS
-   * entraram como dedução da receita.
+   * ⚠️ **Uma leitura só, e o BANCO vence** (`linhasDeclaradasDasCategorias`):
+   * `categories.dre_linha` é a tabela que os LANÇAMENTOS referenciam e a que a
+   * tela de Plano de contas edita. Quem nunca declarou linha nenhuma cai no
+   * palpite por palavra-chave — foi por aí que INSS e FGTS entraram como
+   * dedução da receita.
    */
   React.useEffect(() => {
-    const local = linhasDeCategoria();
-    setLinhaPorCategoria(local);
-    getLinhasDeCategoria()
-      .then((doBanco) => setLinhaPorCategoria({ ...doBanco, ...local }))
-      .catch(() => { /* sem banco, o local basta — e o motor cai no palpite */ });
+    let vivo = true;
+    linhasDeclaradasDasCategorias()
+      .then((m) => { if (vivo) setLinhaPorCategoria(m); })
+      .catch(() => { /* sem leitura, o motor cai no palpite — e diz isso */ });
+    return () => { vivo = false; };
   }, []);
 
   /**
@@ -120,8 +119,13 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
       baseVertical: aplicados.baseVertical,
       linhaPorCategoria,
     };
-    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f);
-  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria]);
+    // ⚠️ Com filtro de conta, o DFC parte do saldo DESSA conta — o `saldoAtual`
+    // do input é o de todas, e o "Saldo Final" sairia o de conta nenhuma.
+    const saldoDaConta = aplicados.conta
+      ? contasResumo?.accounts.find((c) => c.id === aplicados.conta)?.balance
+      : undefined;
+    return tipo === "dre" ? montarDRE(inputDaVisao, f) : montarDFC(inputDaVisao, f, saldoDaConta);
+  }, [inputDaVisao, aplicados, tipo, linhaPorCategoria, contasResumo]);
 
   const nomeArquivo = tipo === "dre" ? "dre" : "dfc";
 
@@ -297,7 +301,24 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
           MESMOS motores (`dreGerencial` + `core/indicadores`), não de uma conta
           paralela. */}
       {tipo === "dre" && relatorio && <AvisoDuplicidadeImposto relatorio={relatorio} />}
-      {tipo === "dre" && input && <CartoesExecutivos input={inputDaVisao!} intervalo={aplicados.intervalo} />}
+      {/* ⚠️ Os cartões recebem o MESMO filtro da tabela (conta, projeto,
+          centro e a linha declarada de cada categoria). Recebiam só o
+          intervalo: com um filtro aplicado, "Lucro líquido" no cartão e o
+          Resultado Líquido na tabela logo abaixo davam números diferentes —
+          o cartão dizia a empresa toda e a tabela, o recorte. */}
+      {tipo === "dre" && input && (
+        <CartoesExecutivos
+          input={inputDaVisao!}
+          filtro={{ intervalo: aplicados.intervalo, conta: aplicados.conta, projeto: aplicados.projeto, centro: aplicados.centro, linhaPorCategoria }}
+        />
+      )}
+      {tipo === "dfc" && relatorio && !relatorio.linhas.some((l) => l.id === "saldo_inicial") && (
+        <p className="m-0 text-caption text-faint max-w-[76ch]" role="note">
+          Sem linhas de saldo neste recorte: saldo é a posição de uma conta bancária, e{" "}
+          {aplicados.projeto || aplicados.centro ? "um projeto ou centro de custo não tem conta" : "o saldo desta conta não foi carregado"}.
+          O fluxo do período continua inteiro.
+        </p>
+      )}
 
       <PainelLayout layout={layout} onChange={setLayout} />
 
@@ -386,11 +407,12 @@ function GraficoResultado({
             <Bar dataKey="base" name={tipo === "dre" ? "Receita bruta" : "Entradas"} radius={[4, 4, 0, 0]} {...chartAnim()}>
               {dados.map((_, k) => <Cell key={k} fill={`color-mix(in srgb, ${t.base} 55%, transparent)`} />)}
             </Bar>
-            {/* Resultado negativo é informação, não erro: a linha muda de cor
-                pelo sinal do último ponto para a leitura ser imediata. */}
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): a linha
+                não troca de cor quando o último ponto fica negativo — o eixo e o
+                valor no tooltip, com o sinal escrito, dizem a direção. */}
             <Line
               type="monotone" dataKey="resultado" name={tipo === "dre" ? "Resultado líquido" : "Saldo final"}
-              stroke={(dados.at(-1)?.resultado ?? 0) < 0 ? "var(--color-negative)" : "var(--color-lime)"}
+              stroke="var(--color-lime)"
               strokeWidth={1.6} dot={false} activeDot={{ r: 4 }} {...chartAnim(120)}
             />
           </ComposedChart>
@@ -411,7 +433,10 @@ export { compararOrcamento };
  * não de uma conta própria: um cartão que discorda da tabela logo abaixo é
  * pior que cartão nenhum.
  */
-function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: { de: string; ate: string } }) {
+function CartoesExecutivos({ input, filtro }: {
+  input: RiskInput;
+  filtro: { intervalo: { de: string; ate: string }; conta?: string | null; projeto?: string | null; centro?: string | null; linhaPorCategoria?: Record<string, string> };
+}) {
   // ⚠️ Os seis chegam INTEIROS, como `Indicador`: `number` não sabe dizer que
   // não sabe — não porque a aritmética mudasse (ela é conferida par a par
   // na matriz de consistência), mas porque `number` não sabe dizer que não
@@ -432,7 +457,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
    * deixar de acontecer.
    */
   const m = React.useMemo(() => {
-    const c = cascataDRE(input, { intervalo, regime: "competencia" });
+    const c = cascataDRE(input, { ...filtro, regime: "competencia" });
     return {
       receitaLiquida: c.linhas.receita_liquida,
       ebitda: c.linhas.ebitda,
@@ -441,38 +466,26 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
       runway: runwayMeses(input),
       caixa: saldo(input),
     };
-  }, [input, intervalo]);
+  }, [input, filtro]);
 
   /**
-   * A cor do prejuízo.
-   *
-   * ⚠️ **Todo cartão de valor recebe `tomDe`**, não só alguns. Receita líquida e
-   * Margem EBITDA ficavam de fora: uma margem de −285% saía em tinta neutra, do
-   * mesmo tom de uma margem saudável, e quem passa o olho lê "está tudo bem".
-   * O sinal sozinho não resolve — o `−` tem dois caracteres de largura numa
-   * tela que a pessoa varre em um segundo.
-   *
-   * ⚠️ O positivo NÃO fica verde por padrão (`bom = false`): pintar todo número
-   * positivo de verde gasta a cor e faz o vermelho perder força justamente onde
-   * ele precisa ter. Verde só onde "positivo" é a notícia — o lucro.
+   * ⚠️ Número não tem cor por sinal (decisão de 30/09/2026): o prejuízo, a
+   * margem negativa e o caixa negativo saem na mesma tinta dos outros cartões,
+   * e o sinal escrito (no valor e no percentual) diz a direção. Antes cada
+   * cartão recebia a "cor do prejuízo" e o lucro ficava verde.
    */
-  const tomDe = (i: { valor: number; indisponivel?: unknown }, bom = false) =>
-    i.indisponivel ? undefined
-      : i.valor < 0 ? "var(--color-negative)"
-      : bom ? "var(--color-positive)" : undefined;
-
   const cartoes: {
-    label: string; indicador: typeof m.ebitda; formato: FormatoValor; tom?: string;
+    label: string; indicador: typeof m.ebitda; formato: FormatoValor;
   }[] = [
-    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda", tom: tomDe(m.receitaLiquida) },
-    { label: "EBITDA", indicador: m.ebitda, formato: "moeda", tom: tomDe(m.ebitda) },
+    { label: "Receita líquida", indicador: m.receitaLiquida, formato: "moeda" },
+    { label: "EBITDA", indicador: m.ebitda, formato: "moeda" },
     // ⚠️ A margem é o cartão mais perigoso da tela: "0%" lê como "vendeu e não
     // sobrou nada" quando a verdade pode ser "não vendeu", e as duas leituras
     // mandam cortar custo × vender. O indicador declara a ausência de base.
-    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual", tom: tomDe(m.margem) },
-    { label: "Lucro líquido", indicador: m.lucro, formato: "moeda", tom: tomDe(m.lucro, true) },
+    { label: "Margem EBITDA", indicador: m.margem, formato: "percentual" },
+    { label: "Lucro líquido", indicador: m.lucro, formato: "moeda" },
     { label: "Runway", indicador: m.runway, formato: "meses" },
-    { label: "Caixa", indicador: m.caixa, formato: "moeda", tom: tomDe(m.caixa) },
+    { label: "Caixa", indicador: m.caixa, formato: "moeda" },
   ];
 
   return (
@@ -482,7 +495,7 @@ function CartoesExecutivos({ input, intervalo }: { input: RiskInput; intervalo: 
           <span className="text-caption text-faint">{c.label}</span>
           {/* A origem a um clique: fórmula, período, regime e os lançamentos
               que compõem o número — no próprio número. */}
-          <span className="text-[20px] font-semibold tabular-nums" style={{ color: c.tom ?? "var(--color-ink)" }}>
+          <span className="text-[20px] font-semibold tabular-nums" style={{ color: "var(--color-ink)" }}>
             <ValorIndicador indicador={c.indicador} titulo={c.label} formato={c.formato} />
           </span>
         </Card>

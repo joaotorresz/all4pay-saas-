@@ -6,7 +6,7 @@
 import type { IndicadoresFinanceiros } from "@/core/quant/types";
 import { scoreDeIndicadores } from "@/core/quant/score";
 import type { ScenarioInput, ScenarioResultado } from "./types";
-import { runwayDeFluxo, mesesDeRunway } from "@/core/indicadores";
+import { runwayDeFluxo, mesesDeRunway, lerRunwayDeFluxo } from "@/core/indicadores";
 
 import { formatBRL } from "@/lib/format";
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
@@ -42,7 +42,10 @@ export function simularCenario(
       ? `Neste cenário a operação segue gerando caixa (${fmt(liquido)}/mês); runway preservado.`
       : `Neste cenário o caixa entra em zona crítica em ${emDias} dias (queima de ${fmt(burnRate)}/mês).`;
 
-  return { runwayMeses, scoreProjetado, burnRate, liquidoMensal: liquido, emDias, texto };
+  // ⚠️ `runwayMeses` segue numérico porque o SCORE precisa de um número (é o
+  // teto que ele pontua). A TELA lê `runway`, que diz ausência e teto.
+  const runway = lerRunwayDeFluxo(saldoAtual, liquido);
+  return { runwayMeses, runway, scoreProjetado, burnRate, liquidoMensal: liquido, emDias, texto };
 }
 
 function fmt(v: number) {

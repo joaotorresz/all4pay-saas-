@@ -30,11 +30,19 @@ import { useOperacaoAutonoma } from "@/components/visao-geral/hooks";
 import { listParties } from "@/lib/cadastros";
 import { TIPO_LABEL, type FinancialDecision } from "@/core/autonomous/types";
 import { executarDecisao, dispararCobranca, listAcoesIA, type AcaoIA } from "@/lib/ai-copilot";
+import { credorDe } from "@/lib/automacoes-contexto";
+import { fetchCompany, getOrganizationName } from "@/lib/company";
 
 export function AcoesCopiloto() {
   const qc = useQueryClient();
   const { data, isLoading } = useOperacaoAutonoma();
   const { data: parties } = useQuery({ queryKey: ["parties"], queryFn: listParties });
+  // O credor (razão social + CNPJ) vai na mensagem de cobrança — o cliente
+  // precisa saber QUEM cobra, não qual software mandou.
+  const { data: credor } = useQuery({
+    queryKey: ["credor-da-regua"],
+    queryFn: async () => credorDe(await getOrganizationName(), ((await fetchCompany())?.db ?? null) as Record<string, unknown> | null),
+  });
   const [trail, setTrail] = React.useState<AcaoIA[]>([]);
   const [feito, setFeito] = React.useState<Record<string, string>>({});
   const [busy, setBusy] = React.useState<string | null>(null);
@@ -46,7 +54,7 @@ export function AcoesCopiloto() {
     try {
       // Cobrança reversível dentro da alçada → dispara de verdade (WhatsApp).
       const r = d.tipo === "cobranca" && d.modo === "automatico"
-        ? await dispararCobranca(data?.collections ?? [], parties ?? [])
+        ? await dispararCobranca(data?.collections ?? [], parties ?? [], credor)
         : await executarDecisao(d);
       setFeito((f) => ({ ...f, [d.id]: r.mensagem }));
       setTrail(await listAcoesIA());

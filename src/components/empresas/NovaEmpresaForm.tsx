@@ -15,14 +15,13 @@
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Card, Button, Input, Select, CurrencyInput, DateField, InfoHint } from "@/components/ui";
-import { regimeDoCadastro } from "@/core/fiscal/perfil";
 import { consultarCNPJ, type DadosCNPJ } from "@/lib/cnpj";
 import { cnpjValido } from "@/core/cnae";
 import { formatarCNAE } from "@/lib/cnae-enrich";
 import { UFS, municipiosDe, capitalizar } from "@/lib/ibge";
 import { validateCPF, maskDoc } from "@/lib/validators";
-import { loadCompany, saveCompany } from "@/lib/company";
 
 type TipoPessoa = "pj" | "pf";
 
@@ -95,7 +94,6 @@ export function NovaEmpresaForm() {
   const [aviso, setAviso] = React.useState<string | null>(null);
   const [erro, setErro] = React.useState<string | null>(null);
   const [cidades, setCidades] = React.useState<string[]>([]);
-  const [salvando, setSalvando] = React.useState(false);
   /** CNPJ já consultado — não repete a busca ao sair do campo de novo. */
   const buscado = React.useRef("");
 
@@ -167,6 +165,25 @@ export function NovaEmpresaForm() {
     : validateCPF(f.doc.replace(/\D/g, ""));
   const docPreenchido = f.doc.replace(/\D/g, "").length > 0;
 
+  /**
+   * ⚠️ **"CRIAR EMPRESA" NÃO CRIAVA EMPRESA NENHUMA — reescrevia a ATUAL.**
+   * (revisão da rodada de plataforma, 01/10/2026). O botão fazia
+   * `saveCompany({ ...loadCompany(), db: { ...atual.db, <dados da nova> } })`:
+   * o cadastro da organização ABERTA recebia a razão social, o documento e o
+   * regime da "nova" — com o regime em branco quando o campo ficava em "não
+   * informado", apagando o regime declarado — e a tela seguinte
+   * (`/configuracoes`) mostrava "Organização: <nova>" como se a pessoa
+   * estivesse noutra empresa. Medido no navegador. Em produção a escrita ia só
+   * para o cache do navegador, que os leitores síncronos (`loadCompany`) usam
+   * até a próxima consulta ao servidor.
+   *
+   * Uma empresa é uma ORGANIZAÇÃO — isolamento, membros, cobrança — e o banco
+   * não tem hoje porta para o próprio cliente criar a segunda: a organização
+   * nasce no cadastro da conta (gatilho de signup). Até existir essa porta
+   * (proposta no relatório da rodada: uma função `criar_organizacao` no
+   * servidor), o botão NÃO grava nada e diz o caminho que existe.
+   */
+  const [semPorta, setSemPorta] = React.useState(false);
   const criar = () => {
     if (!f.razaoSocial.trim()) {
       setErro("Informe a Razão Social.");
@@ -177,63 +194,13 @@ export function NovaEmpresaForm() {
       return;
     }
     setErro(null);
-    setSalvando(true);
-    try {
-      const atual = loadCompany() ?? {};
-      saveCompany({
-        ...atual,
-        db: {
-          ...(atual.db ?? {}),
-          tipoConta: "empresa",
-          tipoPessoa: f.tipoPessoa,
-          documento: f.doc,
-          razaoSocial: f.razaoSocial,
-          nomeFantasia: f.nomeFantasia,
-          segmento: f.segmento === "—" ? "" : f.segmento,
-          faturamentoMensal: String(f.faturamento),
-          dataFundacao: f.fundacao,
-          inscricaoEstadual: f.inscEstadual,
-          inscricaoMunicipal: f.inscMunicipal,
-          contribuinteIcms: f.contribuinteIcms === "Sim",
-          // ⚠️ AS DUAS CHAVES, EM ACORDO — é aqui que o conflito nascia.
-          // Este formulário gravava só `regimeTributario` ("Simples Nacional",
-          // texto de exibição) e a tela de dados da empresa gravava só
-          // `regime` (o enum canônico). Duas chaves, dois formatos: a mesma
-          // empresa aparecia como Simples numa tela e Presumido na outra, e
-          // não havia fórmula errada para consertar, porque o defeito era de
-          // CADASTRO. Gravar as duas pelo resolvedor faz o desacordo deixar de
-          // ser possível na origem; `divergenciaDeRegime` segue existindo para os
-          // cadastros que já nasceram torcidos.
-          regimeTributario: f.regime === REGIMES[0] ? "" : f.regime,
-          regime: f.regime === REGIMES[0] || regimeDoCadastro({ regimeTributario: f.regime }) === "nao_declarado"
-            ? "" : regimeDoCadastro({ regimeTributario: f.regime }),
-          optanteSimples: f.regime === "Simples Nacional" || f.regime === "MEI",
-          regimeEspecialNfse: f.regimeEspecial,
-          email: f.email,
-          ddi: f.ddi,
-          telefone: f.telefone,
-          pais: f.pais,
-          cep: f.cep,
-          rua: f.rua,
-          numero: f.numero,
-          complemento: f.complemento,
-          bairro: f.bairro,
-          estado: f.estado,
-          cidade: f.cidade,
-          observacao: f.observacao,
-        },
-      });
-      // Depois de criar, o operador segue para completar integrações e o resto.
-      router.push("/configuracoes");
-    } finally {
-      setSalvando(false);
-    }
+    setSemPorta(true);
   };
 
   return (
     <div className="flex flex-col gap-5 pb-4">
       <p className="m-0 text-label text-muted">
-        Cadastre uma nova empresa. Os dados restantes podem ser preenchidos em Dados da Empresa.
+        Cadastre uma nova empresa. Cada empresa é uma organização própria, que nasce com uma conta.
       </p>
 
       {/* ------------------------------ Identificação ------------------------------ */}
@@ -444,15 +411,26 @@ export function NovaEmpresaForm() {
 
       {/* --------------------------------- Ações --------------------------------- */}
       <div className="flex flex-col gap-3">
-        <p className="m-0 text-caption text-muted">
-          Após criar, você será levado(a) à tela Dados da Empresa para completar endereço,
-          integrações e demais informações.
-        </p>
         {erro && <p className="m-0 text-caption text-negative">{erro}</p>}
+        {semPorta && (
+          <Card>
+            <p className="m-0 text-label text-ink">
+              A empresa {f.razaoSocial.trim()} não foi criada, e os dados da empresa aberta não foram alterados.
+            </p>
+            <p className="m-0 mt-2 text-caption text-muted">
+              Cada empresa é uma organização própria, com seus usuários, seus dados e sua assinatura, e ela nasce
+              com uma conta. Para abrir outra empresa, crie uma conta para ela; depois, convide esta conta em
+              Usuários e papéis para alternar entre as duas pelo seletor de empresa.
+            </p>
+            <div className="mt-3 flex justify-end">
+              <Link href="/criar-conta" className="text-label font-medium text-ink underline">Criar conta para a nova empresa</Link>
+            </div>
+          </Card>
+        )}
         <div className="flex items-center justify-end gap-3">
           <Button variant="ghost" onClick={() => router.back()}>Cancelar</Button>
-          <Button variant="primary" onClick={criar} disabled={salvando}>
-            {salvando ? "Criando…" : "Criar Empresa"}
+          <Button variant="primary" onClick={criar}>
+            Criar Empresa
           </Button>
         </div>
       </div>

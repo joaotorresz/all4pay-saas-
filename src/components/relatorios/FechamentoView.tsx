@@ -19,6 +19,8 @@ import { useToast } from "@/components/listas/ListChrome";
 import { useRiscoInput } from "@/components/visao-geral/hooks";
 import { baixarDOCX, type BlocoDocx } from "@/lib/docx";
 import { montarFechamento, rotuloColuna, type Fechamento } from "@/core/relatorios";
+import { linhasDeCategoria } from "@/lib/registros";
+import { getLinhasDeCategoria } from "@/lib/data";
 import { listarFechamentos, salvarFechamento, removerFechamento } from "@/lib/fechamentos";
 import { loadCompany } from "@/lib/company";
 import { pctDeInteiro, formatBRL } from "@/lib/format";
@@ -47,6 +49,13 @@ export function FechamentoView() {
   const { show, node } = useToast();
 
   React.useEffect(() => { setLista(listarFechamentos()); }, []);
+  // As MESMAS duas fontes de linha declarada que o DRE usa.
+  const [linhaPorCategoria, setLinhaPorCategoria] = React.useState<Record<string, string>>({});
+  React.useEffect(() => {
+    const local = linhasDeCategoria();
+    setLinhaPorCategoria(local);
+    getLinhasDeCategoria().then((b) => setLinhaPorCategoria({ ...b, ...local })).catch(() => {});
+  }, []);
 
   if (aberto) {
     return (
@@ -65,7 +74,7 @@ export function FechamentoView() {
         onCancelar={() => setModo("lista")}
         onGerar={(cfg) => {
           if (!input) return;
-          const f = montarFechamento(input, cfg);
+          const f = montarFechamento(input, cfg, linhaPorCategoria);
           setLista(salvarFechamento(f));
           setModo("lista");
           setAberto(f);
@@ -121,7 +130,8 @@ export function FechamentoView() {
                     <Icon name="trash-2" size={15} color="currentColor" />
                   </button>
                 </div>
-                <div className={`text-[22px] leading-none font-semibold tabular-nums ${liquido < 0 ? "text-negative" : "text-ink"}`}>
+                {/* Número não tem cor por sinal (decisão de 30/09/2026): o "−" do BRL diz a direção. */}
+                <div className="text-[22px] leading-none font-semibold tabular-nums text-ink">
                   <BRL value={liquido} />
                 </div>
                 <div className="text-caption text-faint">Resultado líquido do mês</div>
@@ -289,11 +299,12 @@ function Relatorio({
         {f.kpis.map((k) => (
           <Card key={k.id}>
             <span className="text-[11px] font-medium tracking-[0.08em] text-faint">{k.label}</span>
-            <span className={`block mt-2 text-[24px] leading-none font-semibold tabular-nums ${k.valor < 0 ? "text-negative" : "text-ink"}`}>
+            {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+            <span className="block mt-2 text-[24px] leading-none font-semibold tabular-nums text-ink">
               {k.formato === "pct" ? `${pctDeInteiro(k.valor)}` : <BRL value={k.valor} />}
             </span>
             {k.variacao != null && (
-              <span className={`block mt-2 text-caption tabular-nums ${k.variacao >= 0 ? "text-positive" : "text-negative"}`}>
+              <span className="block mt-2 text-caption tabular-nums text-muted">
                 {k.variacao > 0 ? "+" : ""}{pctDeInteiro(k.variacao)} vs mês anterior
               </span>
             )}

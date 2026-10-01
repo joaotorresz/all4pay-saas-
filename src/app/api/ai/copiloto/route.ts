@@ -49,6 +49,8 @@ REGRAS (obrigatórias):
 - Dê números, não adjetivos: em vez de "runway curto", diga "runway de 2,3 meses (R$38k / burn R$16,5k/mês)".
 - Termine com UMA ação concreta e priorizada, com o impacto esperado quando der para estimar (ex.: "recomenda-se antecipar os R$22k da ACME, o que eleva o runway em 1,4 mês").
 - Não invente nada fora do CONTEXTO. Se faltar dado para responder, diga exatamente qual dado falta e onde cadastrá-lo.
+- Número AUSENTE não é zero: quando "runwayMeses" vier null, NÃO escreva "runway de 0 meses" nem estime um prazo — leia "runwayMotivo" ("sem_queima" = a empresa gerou caixa e não há prazo a calcular; "caixa_negativo" = o caixa já acabou).
+- "probRuptura" é a chance de ruptura em 60 DIAS (motor de risco de caixa); não a apresente como 90 dias.
 - Português br, valores em BRL. 2 a 5 frases — denso, sem rodeio.
 
 CONTEXTO (JSON):

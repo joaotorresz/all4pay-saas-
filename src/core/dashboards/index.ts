@@ -14,7 +14,14 @@
  * Versão dashboards/1.0.0.
  */
 
-export const DASHBOARDS_VERSION = "dashboards/1.0.0";
+export const DASHBOARDS_VERSION = "dashboards/1.1.0";
+
+import type { RiskInput } from "@/core/risk-engine/types";
+import {
+  saldo as saldoCanonico, entradas, saidas, resultado, burn as burnCanonico, runwayMeses,
+  type Indicador,
+} from "@/core/indicadores";
+import { janelaDoMesDe } from "@/core/indicadores/janela";
 
 /* ------------------------------- o modelo ------------------------------- */
 
@@ -50,6 +57,8 @@ export interface DashboardCustom {
   escopo: "pessoal" | "empresa";
   /** Os widgets sempre leem a empresa ATIVA; isto só decide se o dashboard aparece nas outras. */
   todasEmpresas: boolean;
+  /** Quem criou — decide quem vê um painel "pessoal" (estado é da organização). */
+  dono?: string;
   /** Cor de destaque do dashboard (aparência). */
   cor: string;
   paginas: PaginaDashboard[];
@@ -83,10 +92,18 @@ interface MovimentoBase {
   paid_date?: string | null;
   category?: string | null;
 }
-export interface EntradaFontes {
-  hoje: string;
-  saldoAtual: number;
-  movements: MovimentoBase[];
+/**
+ * A entrada das fontes é o MESMO `RiskInput` do resto do sistema — era um
+ * recorte próprio (hoje · saldo · movimentos), e foi esse recorte que deixou
+ * cada fonte livre para ter a sua conta.
+ */
+export type EntradaFontes = RiskInput;
+
+/** O valor de uma fonte de métrica — ou a AUSÊNCIA dele, com o motivo. */
+export interface ValorFonte {
+  valor: number;
+  /** Preenchido: o número NÃO deve ser exibido; o motivo ocupa o lugar (ONDA 4). */
+  indisponivel?: { motivo: string };
 }
 
 export interface FonteMetrica {
@@ -94,20 +111,13 @@ export interface FonteMetrica {
   label: string;
   /** "moeda" formata em BRL; "numero" é contagem; "meses" é prazo. */
   unidade: "moeda" | "numero" | "meses";
-  calcular: (i: EntradaFontes) => number;
+  calcular: (i: EntradaFontes) => ValorFonte;
 }
 
 const dia = (m: MovimentoBase) => (m.paid_date || m.due_date || "").slice(0, 10);
 const vivos = (ms: MovimentoBase[]) => ms.filter((m) => m.status !== "cancelado");
 const mesDe = (iso: string) => iso.slice(0, 7);
 
-/** Soma do tipo, no mês do "hoje", pelo que já foi realizado. */
-function totalDoMes(i: EntradaFontes, tipo: "entrada" | "saida"): number {
-  const mes = mesDe(i.hoje);
-  return vivos(i.movements)
-    .filter((m) => m.type === tipo && m.status === "pago" && mesDe(dia(m)) === mes)
-    .reduce((s, m) => s + Math.abs(m.amount), 0);
-}
 /** Soma do que está pendente (em aberto), por tipo. */
 function emAberto(i: EntradaFontes, tipo: "entrada" | "saida"): number {
   return vivos(i.movements)
@@ -120,48 +130,52 @@ function vencido(i: EntradaFontes, tipo: "entrada" | "saida"): number {
     .filter((m) => m.type === tipo && m.status === "pendente" && (m.due_date || "").slice(0, 10) < i.hoje)
     .reduce((s, m) => s + Math.abs(m.amount), 0);
 }
-/** Média mensal de saída realizada nos últimos 6 meses (base de burn/runway). */
-function despesaMediaMensal(i: EntradaFontes): number {
-  const meses = new Set<string>();
-  let total = 0;
-  const lim = new Date(i.hoje + "T00:00:00");
-  lim.setMonth(lim.getMonth() - 6);
-  for (const m of vivos(i.movements)) {
-    if (m.type !== "saida" || m.status !== "pago") continue;
-    const d = dia(m);
-    if (!d || new Date(d + "T00:00:00") < lim) continue;
-    meses.add(mesDe(d));
-    total += Math.abs(m.amount);
-  }
-  return meses.size > 0 ? total / meses.size : 0;
-}
 
+/** Um indicador canônico vira valor de fonte SEM perder a ausência. */
+const doIndicador = (ind: Indicador): ValorFonte =>
+  ind.indisponivel ? { valor: 0, indisponivel: { motivo: ind.indisponivel.motivo } } : { valor: ind.valor };
+const numero = (valor: number): ValorFonte => ({ valor });
+
+/*
+ * ⚠️ **AS MÉTRICAS SAEM DA CAMADA CANÔNICA, e era isto que o cabeçalho deste
+ * arquivo prometia sem cumprir.** "Widget montado à mão e número do DRE nunca
+ * divergem" — mas cada fonte tinha a sua conta:
+ *
+ *   - **Burn** era a MÉDIA DAS SAÍDAS (bruta), não a queima: uma empresa que
+ *     fatura mais do que gasta via "Burn mensal R$ 38 mil" no dashboard dela
+ *     enquanto o Fluxo de caixa, o Investor Update e a Quattro AI diziam
+ *     "burn zero, gera caixa". Mesmo rótulo, duas grandezas.
+ *   - **Runway** dividia o saldo pela despesa bruta e devolvia **0 meses**
+ *     quando não havia despesa — "o caixa acaba agora" para quem não gasta. E
+ *     sobre saldo negativo, um runway negativo.
+ *   - **Receita/despesa/resultado do mês** devolviam R$ 0,00 para um mês sem
+ *     lançamento — o zero mudo que a ONDA 4 tirou do resto do sistema.
+ *
+ * Agora: saldo, entradas, saídas, resultado, burn e runway são os de
+ * `core/indicadores`, com a ausência atravessando até a tela.
+ */
 export const FONTES_METRICA: FonteMetrica[] = [
-  { id: "saldo", label: "Saldo em caixa", unidade: "moeda", calcular: (i) => i.saldoAtual },
-  { id: "receita_mes", label: "Receita do mês", unidade: "moeda", calcular: (i) => totalDoMes(i, "entrada") },
-  { id: "despesa_mes", label: "Despesa do mês", unidade: "moeda", calcular: (i) => totalDoMes(i, "saida") },
-  { id: "resultado_mes", label: "Resultado do mês", unidade: "moeda", calcular: (i) => totalDoMes(i, "entrada") - totalDoMes(i, "saida") },
-  { id: "a_receber", label: "Total a receber", unidade: "moeda", calcular: (i) => emAberto(i, "entrada") },
-  { id: "a_pagar", label: "Total a pagar", unidade: "moeda", calcular: (i) => emAberto(i, "saida") },
-  { id: "vencido_receber", label: "Vencido a receber", unidade: "moeda", calcular: (i) => vencido(i, "entrada") },
-  { id: "vencido_pagar", label: "Vencido a pagar", unidade: "moeda", calcular: (i) => vencido(i, "saida") },
-  { id: "burn", label: "Burn mensal", unidade: "moeda", calcular: despesaMediaMensal },
-  {
-    id: "runway", label: "Runway", unidade: "meses",
-    calcular: (i) => {
-      const b = despesaMediaMensal(i);
-      return b > 0 ? Math.round((i.saldoAtual / b) * 10) / 10 : 0;
-    },
-  },
+  { id: "saldo", label: "Saldo em caixa", unidade: "moeda", calcular: (i) => doIndicador(saldoCanonico(i)) },
+  { id: "receita_mes", label: "Receita do mês", unidade: "moeda", calcular: (i) => doIndicador(entradas(i, janelaDoMesDe(i.hoje), "caixa")) },
+  { id: "despesa_mes", label: "Despesa do mês", unidade: "moeda", calcular: (i) => doIndicador(saidas(i, janelaDoMesDe(i.hoje), "caixa")) },
+  { id: "resultado_mes", label: "Resultado do mês", unidade: "moeda", calcular: (i) => doIndicador(resultado(i, janelaDoMesDe(i.hoje), "caixa")) },
+  { id: "a_receber", label: "Total a receber", unidade: "moeda", calcular: (i) => numero(emAberto(i, "entrada")) },
+  { id: "a_pagar", label: "Total a pagar", unidade: "moeda", calcular: (i) => numero(emAberto(i, "saida")) },
+  { id: "vencido_receber", label: "Vencido a receber", unidade: "moeda", calcular: (i) => numero(vencido(i, "entrada")) },
+  { id: "vencido_pagar", label: "Vencido a pagar", unidade: "moeda", calcular: (i) => numero(vencido(i, "saida")) },
+  { id: "burn", label: "Burn mensal (queima líquida)", unidade: "moeda", calcular: (i) => doIndicador(burnCanonico(i)) },
+  { id: "runway", label: "Runway", unidade: "meses", calcular: (i) => doIndicador(runwayMeses(i)) },
   {
     id: "qtd_pendentes", label: "Títulos em aberto", unidade: "numero",
-    calcular: (i) => vivos(i.movements).filter((m) => m.status === "pendente").length,
+    calcular: (i) => numero(vivos(i.movements).filter((m) => m.status === "pendente").length),
   },
   {
     id: "ticket_medio", label: "Ticket médio de venda", unidade: "moeda",
     calcular: (i) => {
       const e = vivos(i.movements).filter((m) => m.type === "entrada" && m.status === "pago");
-      return e.length > 0 ? e.reduce((s, m) => s + Math.abs(m.amount), 0) / e.length : 0;
+      return e.length > 0
+        ? numero(e.reduce((s, m) => s + Math.abs(m.amount), 0) / e.length)
+        : { valor: 0, indisponivel: { motivo: "nenhuma entrada recebida para medir o ticket" } };
     },
   },
 ];
@@ -279,6 +293,21 @@ let seq = 0;
 export const novoId = (p: string): string => `${p}_${Date.now().toString(36)}_${seq++}`;
 
 /** Widget novo já com padrões sensatos, para entrar na página funcionando. */
+/**
+ * O título de um widget quando a FONTE muda.
+ *
+ * ⚠️ (revisão, 01/10/2026) O KPI nasce com o título "Saldo em caixa" e, ao
+ * trocar a fonte para runway, o cartão continuava se chamando "Saldo em
+ * caixa" — com o prazo (ou o motivo da ausência dele) embaixo. Um número sob o
+ * rótulo de outro é a leitura errada pronta. Regra: o título ACOMPANHA a fonte
+ * enquanto a pessoa não o escreveu (vazio ou igual ao rótulo da fonte
+ * anterior); título escrito à mão nunca é sobrescrito.
+ */
+export function tituloAoTrocarFonte(tituloAtual: string, rotuloAnterior: string, rotuloNovo: string): string {
+  const t = tituloAtual.trim();
+  return !t || t === rotuloAnterior ? rotuloNovo : tituloAtual;
+}
+
 export function widgetPadrao(tipo: TipoWidget): Widget {
   const id = novoId("w");
   switch (tipo) {

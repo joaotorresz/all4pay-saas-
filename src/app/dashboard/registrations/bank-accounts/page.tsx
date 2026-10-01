@@ -4,7 +4,7 @@ import { ContasBancariasView } from "@/components/registros/ContasBancariasView"
 
 export default function ContasBancariasPage() {
   return (
-    <AppShell title="Contas bancárias" crumb="Cadastros">
+    <AppShell title="Contas bancárias" crumb="Estrutura e cadastros">
       <div className="flex flex-col gap-5">
         {/* A fatura é do cartão cadastrado aqui — saiu do menu e mora a um clique. */}
         <AtalhosTela

@@ -6,8 +6,11 @@ export function fatoresCriticos(d: Omit<ScoreDetalhado, "fatoresCriticos" | "nar
 
   if (d.rupturaDia !== null && d.rupturaDia <= 30)
     out.push(`Ruptura de caixa projetada em ${d.rupturaDia} dias no cenário base.`);
-  if (d.runway.pessimista < 90)
-    out.push(`Runway pessimista de apenas ${d.runway.pessimista} dias.`);
+  // ⚠️ Só quando o pessimista é MEDIDA: com o caixa já negativo o número cru é
+  // 0 ("apenas 0 dias"), que é a ausência lida como prazo.
+  const pess = d.runway.leitura.pessimista;
+  if (!pess.indisponivel && pess.dias !== null && pess.dias < 90)
+    out.push(`Runway pessimista de apenas ${pess.dias} dias.`);
   if (d.concentracao.topShare >= 0.4)
     out.push(
       `Receita concentrada: ${(d.concentracao.topShare * 100).toFixed(0)}% vem de ${d.concentracao.top[0]?.name ?? "um cliente"}.`,

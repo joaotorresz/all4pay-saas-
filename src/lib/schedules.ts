@@ -10,6 +10,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const KEY = "a4p_cronogramas";
 const SEP = "\u001f";
@@ -28,14 +29,12 @@ const SEED: Cronograma[] = [
 ];
 
 /* ----------------------------- demo (localStorage) ----------------------------- */
+// Só a DEMONSTRAÇÃO grava aqui (produção: `schedules`; chave CONGELADA).
 function loadLocal(): Cronograma[] {
-  if (typeof window === "undefined") return SEED;
-  try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw) as Cronograma[]; } catch { /* ignore */ }
-  return SEED;
+  return lerOrg<Cronograma[] | null>(KEY, null) ?? SEED;
 }
 function persistLocal(list: Cronograma[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  gravarOrg(KEY, list);
 }
 
 /* ----------------------------- live (schedules) ----------------------------- */

@@ -7,6 +7,7 @@
 import { scoreRiscoCaixa } from "@/core/risk-engine";
 import type { RiskInput } from "@/core/risk-engine/types";
 import { formatBRL } from "@/lib/format";
+import { rotuloRunwayLido, type LeituraRunway } from "@/core/indicadores";
 import type { FinancialEventBus } from "../event-bus";
 
 export interface AlertaExecutivo {
@@ -19,7 +20,9 @@ export interface AlertaExecutivo {
   scoreDepois: number;
 }
 
-const meses = (d: number) => (d >= 999 ? "24+ m" : `${(d / 30).toFixed(1)} m`);
+// ⚠️ Era `d >= 999 ? "24+ m"`: o teto do cálculo (999 dias = 33 meses, nem
+// 24) lido como medida, e "sem queima" dito como fôlego. Lê a leitura.
+const meses = (l: LeituraRunway) => rotuloRunwayLido(l, "m");
 
 /** Recalcula o risco com um choque de custo (% sobre a parcela sensível). */
 export function recalcularRiscoPorCusto(
@@ -43,7 +46,7 @@ export function recalcularRiscoPorCusto(
     titulo: `Choque de custo +${variacaoPct}% recalculado`,
     texto:
       `Custo +${variacaoPct}% eleva a despesa operacional em ~${formatBRL(deltaMensal)}/mês ` +
-      `(≈${formatBRL(impactoAnual)}/ano). Runway base de ${meses(antes.runway.base)} → ${meses(depois.runway.base)}; ` +
+      `(≈${formatBRL(impactoAnual)}/ano). Runway base de ${meses(antes.runway.leitura.base)} → ${meses(depois.runway.leitura.base)}; ` +
       `score ${antes.score} → ${depois.score}.`,
     impactoAnual,
     runwayAntes: antes.runway.base,

@@ -28,12 +28,16 @@ import { useQuery } from "@tanstack/react-query";
 import { isDemo } from "@/lib/demo";
 import { criarTitulos } from "@/lib/data";
 import { excluirLogico } from "@/lib/exclusao";
+import { linhasDoRateio, principalDoRateio } from "@/core/registros/hierarquia";
 import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import {
   listarVendas as listarLocal,
   salvarVenda as salvarLocal,
   removerVenda as removerLocal,
+  idRecebivel,
 } from "@/lib/vendas-store";
+import { importedMovements } from "@/lib/imported";
+import { bloqueioDeExclusao } from "@/core/vendas/nota";
 import type { Venda } from "@/core/vendas";
 import {
   documentoDaVenda, itensDoDocumento, vendaDoDocumento, proximoNumeroDe, ehUUID,
@@ -129,17 +133,35 @@ function tituloDaVenda(v: Venda) {
     amount: v.valorTotalComJuros || v.valorTotal,
     due_date: v.vencimento,
     competence_date: v.competencia || v.vencimento,
-    category: v.categoria || "Vendas",
+    // ⚠️ O texto é o NOME e a chave é o id do banco. Gravar o id no texto fazia
+    // a lista e o DRE mostrarem "217290" no lugar da categoria.
+    category: v.categoriaNome || (ehUUID(v.categoria) ? null : v.categoria) || "Vendas",
+    category_id: ehUUID(v.categoria) ? v.categoria : null,
     description: v.descricao || `Venda ${v.numero}`,
     party_id: ehUUID(v.clienteId) ? v.clienteId : null,
     status: v.pago ? ("pago" as const) : ("pendente" as const),
     paid_date: v.pago ? v.dataPagamento : null,
     origem: "venda" as const,
     sale_doc_id: v.id,
+    // ⚠️ O projeto e o centro da venda chegam ao RECEBÍVEL (UUID do cadastro):
+    // antes ficavam só no documento, e o relatório por projeto não via a
+    // receita. Com mais de uma fatia, o rateio vira `movement_splits`.
+    cost_center_id: ehUUID(principalDoRateio(v.centros) ?? "") ? principalDoRateio(v.centros) : null,
+    project_id: ehUUID(principalDoRateio(v.projetos) ?? "") ? principalDoRateio(v.projetos) : null,
+    splits: rateioUUID(v).length
+      ? linhasDoRateio(v.projetos, v.centros, v.valorTotalComJuros || v.valorTotal, ehUUID(v.categoria) ? v.categoria : null)
+      : null,
   };
 }
 
-async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
+/** Só rateio com chaves do BANCO vira linha — um id do cadastro antigo seria recusado. */
+function rateioUUID(v: Venda) {
+  const linhas = linhasDoRateio(v.projetos, v.centros, 100);
+  return linhas.every((l) => (!l.project_id || ehUUID(l.project_id)) && (!l.cost_center_id || ehUUID(l.cost_center_id)))
+    ? linhas : [];
+}
+
+export async function titulosDaVenda(id: string): Promise<{ id: string; situacao: string }[]> {
   const s = await cliente();
   const { data, error } = await semAmostra(s
     .from("movements").select("id,situacao")).eq("sale_doc_id", id).limit(TETO_LINHAS);
@@ -171,6 +193,10 @@ async function atualizarTitulo(v: Venda): Promise<ResultadoGravacao> {
     category: t.category,
     description: t.description,
     party_id: t.party_id,
+    cost_center_id: t.cost_center_id,
+    project_id: t.project_id,
+    // O rateio de uma venda EDITADA não é reescrito (as fatias antigas ficam):
+    // declarado em docs/rodada-30-09/cad.md.
   }).eq("id", previstos[0].id).eq("situacao", "previsto");
   if (error) throw new Error(error.message);
   if (v.pago) {
@@ -197,15 +223,41 @@ async function desfazerDocumento(id: string): Promise<void> {
   try { await excluirLogico("sales_docs", id, "gravação da venda desfeita: o título foi recusado"); } catch { /* a falha original é a que importa */ }
 }
 
+/**
+ * Grava SÓ o status e o número da NF no documento da venda.
+ *
+ * ⚠️ A nota não mexe em dinheiro, então não passa por `salvarVendaDoc`: aquele
+ * caminho reescreve os itens (cada um vai para a lixeira e volta) e o título
+ * previsto. Numa venda de mês FECHADO a reescrita do título é recusada pela
+ * fechadura — e a recusa chegava DEPOIS de a prefeitura autorizar a nota: a
+ * venda ficava "a emitir", o botão continuava ali, e o segundo clique emitia
+ * uma SEGUNDA nota do mesmo dinheiro.
+ */
+export async function gravarNotaDaVendaDoc(id: string, statusNF: Venda["statusNF"], numeroNF: string): Promise<void> {
+  if (isDemo) return;
+  if (!ehUUID(id)) throw new Error("Venda sem identificador válido — recarregue a tela e tente de novo.");
+  const s = await cliente();
+  const { error } = await s.from("sales_docs").update({ status_nf: statusNF, numero_nf: numeroNF || null }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 /* ─────────────────────────────── exclusão ─────────────────────────────── */
 
 export async function removerVendaDoc(v: Venda): Promise<void> {
-  if (isDemo) { removerLocal(v.id); return; }
-  const titulos = await titulosDaVenda(v.id);
-  const movidos = titulos.filter((t) => t.situacao !== "previsto" && t.situacao !== "cancelado");
-  if (movidos.length > 0) {
-    throw new Error(`A venda ${v.numero} tem recebimento baixado. Estorne o recebimento antes de excluir a venda — excluir agora apagaria dinheiro que já entrou.`);
+  // ⚠️ UMA regra para os dois caminhos (`bloqueioDeExclusao`). A demonstração
+  // apagava até o recebimento já BAIXADO (só produção recusava), e nenhum dos
+  // dois olhava a nota fiscal: excluir a venda de uma nota emitida deixava a
+  // nota valendo sem receita nem recebível no sistema.
+  if (isDemo) {
+    const rec = (importedMovements() ?? []).find((m) => m.id === idRecebivel(v.id));
+    const bloqueio = bloqueioDeExclusao(v, rec ? [rec.status === "pago" ? "baixado" : "previsto"] : []);
+    if (bloqueio) throw new Error(bloqueio);
+    removerLocal(v.id);
+    return;
   }
+  const titulos = await titulosDaVenda(v.id);
+  const bloqueio = bloqueioDeExclusao(v, titulos.map((t) => t.situacao));
+  if (bloqueio) throw new Error(bloqueio);
   for (const t of titulos.filter((x) => x.situacao === "previsto")) {
     await excluirLogico("movements", t.id, `venda ${v.numero} excluída`);
   }

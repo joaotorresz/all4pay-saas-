@@ -109,6 +109,7 @@ import {
   lerBoleto, linhaDeCodigoDeBarras, codigoDeBarrasDaLinha, dvModulo10, dvModulo11,
   dataDoFator, fatorDaData, statusBoleto, resumoBoletos, filtrarBoletos,
   lerChaveNFe, dvDaChave, filtrarNFs, valorDigitado, resumoNFs,
+  linhaDoTituloDaCompra, recusaDeRetirada, proximoNumeroDeCompra, referenciaDaParcela,
   type Compra, type BoletoRecebido, type NFRecebida,
 } from "@/core/compras";
 import {
@@ -136,7 +137,7 @@ import {
 } from "@/core/contas-pagar";
 import { planejarLancamento } from "@/core/contas-pagar/lancamento";
 import {
-  montarPainelContasReceber, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
+  montarPainelContasReceber, naoEhRecebivel, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
 } from "@/core/contas-receber";
 import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
@@ -148,11 +149,14 @@ import {
   calcularRescisao, diasAviso, estimarFGTS, REGRAS,
   type Colaborador,
   conferirEncargos,
+  titulosDoPeriodo, titulosDaRescisao, titulosSubstituidosNaRescisao, primeiraParcelaSubstituida,
+  lerTituloDaFolha, competenciaDoTitulo, encargosProjetados, encargosLancados, mesesAtivosNoAno,
+  contaDoColaborador,
 } from "@/core/folha";
 import {
   validarVenda, valorLiquido, somaDasTaxas, totalDosItens, filtrarVendas,
   painelStatusVendas, painelStatusNF, provisionarImpostos, contasAPagarDosImpostos,
-  pendenciasConfig, configPadrao, urlDoLink, validarLink,
+  pendenciasConfig, configPadrao, pixDoLink, validarLink,
   IMPOSTOS, ESFERA, STATUS_VENDA, METODOS_PAGAMENTO, PLATAFORMAS, STATUS_NF,
   ALIQUOTAS_PADRAO, DIA_VENCIMENTO_PADRAO,
   type Venda, type ConfigImpostos,
@@ -906,7 +910,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 {
   const M = (o: Partial<EntradaFontes["movements"][number]>) =>
     ({ id: "m", type: "saida", amount: 0, status: "pago", due_date: "2026-07-10", paid_date: "2026-07-10", ...o }) as EntradaFontes["movements"][number];
-  const i: EntradaFontes = {
+  const i = {
     hoje: "2026-08-02",
     saldoAtual: 50_000,
     movements: [
@@ -918,8 +922,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       M({ id: "6", type: "saida", amount: 6_000, due_date: "2026-07-05", paid_date: "2026-07-05", category: "Folha" }),
       M({ id: "7", type: "saida", amount: 3_000, due_date: "2024-01-05", paid_date: "2024-01-05", category: "Antigo" }), // fora da janela
     ],
-  };
-  const met = (id: string) => fonteMetrica(id).calcular(i);
+  } as unknown as EntradaFontes;
+  const met = (id: string) => fonteMetrica(id).calcular(i).valor;
 
   ok("dashboards: saldo é o saldo do sistema", met("saldo") === 50_000);
   ok("dashboards: receita do mês só conta o realizado do mês", met("receita_mes") === 10_000, `${met("receita_mes")}`);
@@ -931,12 +935,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dashboards: vencido a receber só o que passou do dia", met("vencido_receber") === 7_000, `${met("vencido_receber")}`);
   ok("dashboards: vencido a pagar não pega o que vence adiante", met("vencido_pagar") === 0, `${met("vencido_pagar")}`);
   ok("dashboards: títulos em aberto = contagem de pendentes", met("qtd_pendentes") === 2, `${met("qtd_pendentes")}`);
-  // Burn = média mensal de saída realizada nos 6 meses; runway = saldo ÷ burn.
+  // ⚠️ Burn e runway são os CANÔNICOS (queima LÍQUIDA de 90 dias). A versão
+  // anterior desta guarda cobrava "burn = média das saídas" (R$ 5.000 aqui) —
+  // ela fixava o defeito: a mesma empresa tinha um burn no dashboard dela e
+  // outro no Fluxo de caixa. Ver o bloco PLATAFORMA no fim do arquivo.
+  const { burn: burnCan, runwayMeses: rwCan } = await import("@/core/indicadores");
   const burn = met("burn");
-  ok("dashboards: burn é média por MÊS observado, não soma", burn === 5_000, `${burn}`);
-  ok("dashboards: runway = saldo ÷ burn", met("runway") === Math.round((50_000 / burn) * 10) / 10, `${met("runway")}`);
+  ok("dashboards: burn do widget == burn canônico", Math.abs(burn - burnCan(i as never).valor) < 0.01, `${burn}`);
+  const rwI = fonteMetrica("runway").calcular(i);
+  ok("dashboards: runway do widget == runway canônico (inclusive a ausência)",
+    !!rwI.indisponivel === !!rwCan(i as never).indisponivel && (rwI.indisponivel || Math.abs(rwI.valor - rwCan(i as never).valor) < 0.01), JSON.stringify(rwI));
   ok("dashboards: nenhuma métrica devolve NaN/Infinity",
-    FONTES_METRICA.every((f) => Number.isFinite(f.calcular(i))));
+    FONTES_METRICA.every((f) => Number.isFinite(f.calcular(i).valor)));
 
   const serie = (id: string) => fonteSerie(id).calcular(i, 12);
   ok("dashboards: série tem 12 pontos e termina no mês de hoje",
@@ -987,8 +997,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dashboards: ids de widget não se repetem", new Set(ids).size === ids.length);
 
   // Dataset vazio não pode virar NaN nem lista quebrada.
-  const zero: EntradaFontes = { hoje: "2026-08-02", saldoAtual: 0, movements: [] };
-  ok("dashboards: sem lançamento nenhuma métrica vira NaN", FONTES_METRICA.every((f) => Number.isFinite(f.calcular(zero))));
+  const zero = { hoje: "2026-08-02", saldoAtual: 0, movements: [] } as unknown as EntradaFontes;
+  ok("dashboards: sem lançamento nenhuma métrica vira NaN", FONTES_METRICA.every((f) => Number.isFinite(f.calcular(zero).valor)));
   ok("dashboards: sem lançamento a série vem zerada, não vazia",
     FONTES_SERIE.every((f) => f.calcular(zero, 12).length === 12 && f.calcular(zero, 12).every((p) => Number.isFinite(p.valor))));
   ok("dashboards: sem lançamento as fatias vêm vazias", FONTES_CATEGORIA.every((f) => f.calcular(zero).length === 0));
@@ -1462,8 +1472,16 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     fech.relatorio.colunas[2] === "2026-06", fech.relatorio.colunas[2]);
   ok("relatorios/fechamento: KPI de resultado bate com a DRE",
     fech.kpis.find((k) => k.id === "resultado_liquido")!.valor === 55_000);
-  ok("relatorios/fechamento: margem EBITDA = 30%",
-    fech.kpis.find((k) => k.id === "margem_ebitda")!.valor === 30);
+  // ⚠️ A margem EBITDA é sobre a RECEITA LÍQUIDA — a mesma do cartão do DRE
+  // (`cascataDRE.margemEbitda`). Era sobre a bruta (30% nesta fixture): o
+  // mesmo rótulo com dois números no DRE e no relatório assinado.
+  {
+    const cel = (id: string) => fech.relatorio.linhas.find((l) => l.id === id)!.celulas[2].valor;
+    const esperada = round2ea((cel("ebitda") / cel("receita_liquida")) * 100);
+    ok("relatorios/fechamento: margem EBITDA = EBITDA ÷ receita LÍQUIDA (a do cartão do DRE)",
+      fech.kpis.find((k) => k.id === "margem_ebitda")!.valor === esperada
+      && cel("receita_liquida") !== cel("receita_bruta"), `${fech.kpis.find((k) => k.id === "margem_ebitda")!.valor} × ${esperada}`);
+  }
   ok("relatorios/fechamento: sempre há pelo menos um ponto de atenção", fech.pontos.length >= 1);
   ok("relatorios/fechamento: textos nascem preenchidos, não em branco",
     fech.textos.resumo.length > 40 && fech.textos.destaques.length > 20);
@@ -1995,8 +2013,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("links: título é obrigatório", !!validarLink({ titulo: " " }).titulo);
   ok("links: valor negativo é recusado", !!validarLink({ titulo: "X", valor: -1 }).valor);
   ok("links: valor zero é aceito (link aberto)", Object.keys(validarLink({ titulo: "X", valor: 0 })).length === 0);
-  ok("links: url não duplica a barra",
-    urlDoLink({ id: "lk1" } as never, "https://app.com/") === "https://app.com/pagar/lk1");
+  ok("links: sem recebedor (sem CNPJ) não há PIX — nenhuma chave é inventada",
+    pixDoLink({ id: "lk1", valor: 10 }, null) === null);
 
   // ---- QR code ----
   // Validado por decodificação real (OpenCV) fora da suíte; aqui ficam as
@@ -3826,7 +3844,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 
   /* ---- 13º: duas parcelas, a segunda menor ------------------------------- */
   const d = titulosDoDecimo(ana, 2025, "presumido", null);
-  ok("folha: o 13º sai em DUAS parcelas", d.length === 2);
+  // As duas PARCELAS (os encargos do 13º viraram títulos próprios — ver o bloco
+  // "FOLHA, COMPRAS E REEMBOLSOS" no fim deste arquivo).
+  ok("folha: o 13º sai em DUAS parcelas", d.filter((x) => x.tipo === "decimo").length === 2);
   ok("folha: a 1ª parcela é metade do bruto, sem desconto", d[0].valor === 2500);
   // ⚠️ A segunda vem MENOR: os descontos do 13º inteiro saem dela.
   ok("folha: a 2ª parcela vem menor que a 1ª", d[1].valor < d[0].valor, String(d[1].valor));
@@ -4121,6 +4141,38 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("creceber: cancelada e saída ficam fora",
      ![...r.recebidoNoPeriodo.titulos, ...r.aVencer.titulos, ...r.vencidas.titulos]
        .some((t) => t.id === "cx" || t.id === "sa"));
+
+  /* ---- Título lançado À MÃO em "a receber" é recebível ------------------- */
+  // ⚠️ A exclusão olhava só o NOME da categoria: um título manual em "Juros e
+  // rendimentos" ou "Empréstimo" (o cliente que deve juros, o sócio que vai
+  // devolver) sumia do painel de cobrança. O que sai é a entrada do EXTRATO.
+  {
+    const NAT: RiskInput = {
+      hoje: "2026-08-11", saldoAtual: 0,
+      movements: [
+        mvR("jm", 640, "pendente", "2026-08-20", null, { category: "Juros e rendimentos", origem: "manual" }),
+        mvR("em", 3_300, "pendente", "2026-08-22", null, { category: "Empréstimo", origem: "manual" }),
+        mvR("je", 410, "pendente", "2026-08-20", null, { category: "Juros e rendimentos", origem: "extrato" }),
+        mvR("rn", 5_000, "pendente", "2026-08-21", null, { category: "Resgate de aplicação" }),
+        mvR("tm", 9_000, "pendente", "2026-08-23", null, { category: "Transferência entre contas", origem: "manual" }),
+        mvR("rm", 7_000, "pendente", "2026-08-24", null, { category: "Resgate de aplicação", origem: "manual" }),
+      ],
+    };
+    const n = montarPainelContasReceber(NAT, AGOSTO);
+    const ids = new Set(n.aVencer.titulos.map((t) => t.id));
+    ok("creceber: título MANUAL em categoria financeira (juros, empréstimo) continua a receber",
+       ids.has("jm") && ids.has("em") && n.aVencer.total === 3_940, `${[...ids].join(",")} = ${n.aVencer.total}`);
+    ok("creceber: a mesma categoria vinda do EXTRATO (ou sem origem) fica fora",
+       !ids.has("je") && !ids.has("rn"), [...ids].join(","));
+    ok("creceber: transferência entre contas é fora mesmo lançada à mão",
+       !ids.has("tm") && naoEhRecebivel(NAT.movements[4]));
+    ok("creceber: resgate de aplicação é dinheiro da própria empresa — fora mesmo lançado à mão",
+       !ids.has("rm") && naoEhRecebivel(NAT.movements[5]) && n.aVencer.total === 3_940);
+    // O caso discrimina: a regra antiga (só o nome) e a nova respondem DIFERENTE.
+    const regraAntiga = (m: RiskMovement) => /\b(juros|rendimento|empr[ée]stimo|resgate|transfer[êe]ncia)\b/i.test(m.category ?? "");
+    ok("creceber: [negativo] a regra só-pelo-nome esconderia o título manual",
+       regraAntiga(NAT.movements[0]) && !naoEhRecebivel(NAT.movements[0]));
+  }
 
   /* ---- A CARTEIRA é posição, não período -------------------------------- */
   /**
@@ -6569,8 +6621,12 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("venda: título recusado desfaz o documento (nenhuma venda sem recebível)",
      corpoNovo.indexOf("criarTitulos(") > 0 && corpoNovo.lastIndexOf("desfazerDocumento(v.id)") > corpoNovo.indexOf("criarTitulos("));
   const corpoRem = lib.slice(lib.indexOf("export async function removerVendaDoc"), lib.indexOf("/* ─────────────────── vendas que ficaram"));
+  // Revisão 30/09: a regra subiu para `bloqueioDeExclusao` (core/vendas/nota),
+  // conferida por valor no bloco VENDER; aqui, que o caminho de produção a
+  // consulta e LANÇA antes de mandar qualquer título para a lixeira.
   ok("venda: excluir com recebimento baixado é RECUSADO (não se apaga dinheiro que entrou)",
-     /movidos\.length > 0\) \{\s*throw/.test(corpoRem));
+     /const bloqueio = bloqueioDeExclusao\(v, titulos\.map\(\(t\) => t\.situacao\)\);\s*if \(bloqueio\) throw/.test(corpoRem)
+     && corpoRem.lastIndexOf("if (bloqueio) throw") < corpoRem.indexOf("excluirLogico("));
   const corpoAtu = lib.slice(lib.indexOf("async function atualizarTitulo"), lib.indexOf("async function trocarItens"));
   ok("venda: editar só reescreve título PREVISTO (baixado é dinheiro que já se moveu)",
      /\.eq\("situacao", "previsto"\)/.test(corpoAtu));
@@ -6582,5 +6638,3042 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("venda: teto ZERO — nenhuma tela lê ou grava venda pelo navegador", voltaram.length === 0, voltaram.join(", "));
 }
 
+/* ── TRANSFERÊNCIA ENTRE CONTAS NÃO É RECEITA NEM DESPESA (30/09/2026) ───────
+ *
+ * ⚠️ Achado dirigindo a tela como usuário: uma transferência de R$ 500 entre
+ * duas contas próprias aparecia como R$ 500 de Receita Bruta no DRE. A perna
+ * de ENTRADA caía no palpite (é entrada, não é financeira) e a de SAÍDA em
+ * Despesa Operacional — o resultado fechava, e o faturamento e o custo subiam
+ * pelo valor que só trocou de conta.
+ *
+ * E a tela oficial de Transferências, em produção, só gravava no navegador:
+ * os dois lançamentos nasciam dentro de `if (isDemo)`.
+ */
+{
+  const conv = await import("@/core/indicadores/convencoes");
+  const fsT = await import("node:fs");
+  let k = 0;
+  const tm = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `tr${k++}`, type: "entrada", amount: 10_000, due_date: "2026-03-10", paid_date: "2026-03-10",
+       status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const base = [tm({}), tm({ type: "saida", amount: 2_000, category: "Aluguel" })];
+  const par = [
+    tm({ type: "saida", amount: 500, category: conv.CATEGORIA_TRANSFERENCIA }),
+    tm({ type: "entrada", amount: 500, category: conv.CATEGORIA_TRANSFERENCIA }),
+  ];
+  const rodarT = (movs: RiskMovement[], decl?: Record<string, string>) => montarRelatorio(
+    { hoje: "2026-08-31", saldoAtual: 0, partyNames: {}, movements: movs } as RiskInput, ESTRUTURA_DRE,
+    { intervalo: { de: "2026-03-01", ate: "2026-03-31" }, tipo: "dre", regime: "competencia", linhaPorCategoria: decl });
+  const v = (r: ReturnType<typeof rodarT>, id: string) =>
+    Math.round((r.linhas.find((l) => l.id === id)?.total.valor ?? NaN) * 100) / 100;
+  const sem = rodarT(base), com = rodarT([...base, ...par]);
+  ok("transferencia: sem declaração, a categoria canônica NÃO vira Receita Bruta",
+     v(com, "receita_bruta") === v(sem, "receita_bruta") && v(sem, "receita_bruta") === 10_000,
+     `${v(com, "receita_bruta")} × ${v(sem, "receita_bruta")}`);
+  ok("transferencia: nem Despesa Operacional",
+     v(com, "despesas_operacionais") === v(sem, "despesas_operacionais"),
+     `${v(com, "despesas_operacionais")} × ${v(sem, "despesas_operacionais")}`);
+  ok("transferencia: os DOIS lados saem marcados como transferência (não somem calados)",
+     par.every((m) => com.foraDoDre[m.id] === "transferencia"));
+  // O controle: sem a regra, o caminho recebia valor — é isso que a asserção de cima exclui.
+  const outroNome = par.map((m) => ({ ...m, category: "Movimento qualquer" }));
+  ok("transferencia: controle — com outra categoria a entrada CAIRIA na receita (o caminho recebe valor)",
+     v(rodarT([...base, ...outroNome]), "receita_bruta") === 10_500);
+  const declOutra = rodarT([...base, ...par], { [conv.CATEGORIA_TRANSFERENCIA.toLowerCase()]: "receita_bruta" });
+  ok("transferencia: declaração explícita para outra linha continua vencendo",
+     par.every((m) => declOutra.foraDoDre[m.id] === undefined) && v(declOutra, "receita_bruta") > 10_000);
+  // As outras duas cascatas concordam com a referência.
+  const g0 = dreGerencial(base, "competencia"), g1 = dreGerencial([...base, ...par], "competencia");
+  ok("transferencia: dreGerencial concorda (receita e lucro não se movem)",
+     g0.receitaBruta === g1.receitaBruta && g0.lucroLiquido === g1.lucroLiquido, `${g0.receitaBruta} × ${g1.receitaBruta}`);
+  ok("transferencia: o predicado é estreito — 'Boleto de transferência bancária' é despesa, não transferência",
+     !conv.ehTransferenciaEntreContas("Boleto de transferência bancária")
+     && conv.ehTransferenciaEntreContas("Transferência") && conv.ehTransferenciaEntreContas("transferência entre contas"));
+
+  // ⚠️ Teto ZERO no ESCRITOR: a transferência de produção grava os DOIS lados
+  // no banco, com a categoria canônica, e só guarda o registro DEPOIS.
+  const cad = fsT.readFileSync("src/lib/cadastros.ts", "utf8");
+  const corpoCad = cad.slice(cad.indexOf("export async function createTransferencia"), cad.indexOf("export async function createSaleDoc"));
+  ok("transferencia: o escritor único grava a categoria canônica (era `null`)",
+     /category: CATEGORIA_TRANSFERENCIA/.test(corpoCad) && !/category: null/.test(corpoCad));
+  const mov = fsT.readFileSync("src/lib/movimentacoes.ts", "utf8");
+  const corpoMov = mov.slice(mov.indexOf("export async function criarTransferencia"), mov.indexOf("export async function removerTransferencia"));
+  const iBanco = corpoMov.indexOf("createTransferencia("), iFato = corpoMov.indexOf("gravar(K_TRANSF");
+  ok("transferencia: em produção a tela grava no BANCO, e o registro só depois (era só no navegador)",
+     iBanco > 0 && iFato > iBanco && /\} else \{/.test(corpoMov.slice(0, iBanco)));
+  const hk = fsT.readFileSync("src/components/lancamentos/hooks.ts", "utf8");
+  ok("transferencia: o modal e a tela passam pelo MESMO escritor",
+     /criarTransferencia\(/.test(hk.slice(hk.indexOf("export function useCreateTransferencia"))));
+
+  // ⚠️ A importação: a transferência do extrato ENTRA (com a categoria de
+  // transferência) e a demonstração MESCLA em vez de substituir.
+  const fd = fsT.readFileSync("src/lib/fdip.ts", "utf8");
+  ok("importacao: a transferência do extrato não é mais descartada (o saldo tem de bater com o banco)",
+     !/\.filter\(\(r\) => cls\.get\(r\.id\)\?\.destino !== "Transferência"\)/.test(fd)
+     && /CATEGORIA_TRANSFERENCIA/.test(fd));
+  const demoImp = fd.slice(fd.indexOf("export async function aplicarOnboarding"));
+  const ramoDemo = demoImp.slice(demoImp.indexOf("if (isDemo)"), demoImp.indexOf("const supabase"));
+  ok("importacao: a demonstração MESCLA (importar o 2º extrato apagava o 1º e tudo o que a pessoa criou)",
+     /mesclarImportacao\(/.test(ramoDemo) && !/setImported\(/.test(ramoDemo));
+}
+
+/* ── CAD ── */
+/**
+ * ⚠️ OS CADASTROS MORAM NO BANCO (migration 20260930180000).
+ *
+ * Contas bancárias, centros, projetos e plano de contas moravam em
+ * `org_state`/`localStorage` com id NUMÉRICO, e os lançamentos apontam para
+ * UUID: a tela de contas dizia "Nenhuma conta cadastrada" com quatro contas
+ * existindo, e projeto/centro não podiam ser gravados num lançamento em
+ * produção. As guardas abaixo cobram as DUAS metades — o que a tela faz e o que
+ * o banco recusa — e cada varredura carrega o seu TESTE NEGATIVO (a mesma
+ * função aplicada ao defeito plantado tem de acusar).
+ */
+{
+  const fsC = await import("node:fs");
+  const H = await import("@/core/registros/hierarquia");
+  const R = await import("@/core/registros");
+  const lerC = (p: string) => (fsC.existsSync(p) ? fsC.readFileSync(p, "utf8") : "");
+  const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  /* ---- ida e volta: a linha do banco ⇄ a tela, sem perder campo ---- */
+  const conta: import("@/core/registros").ContaBancaria = {
+    id: "u-1", nome: "Cartão Empresa", banco: "Itaú", tipo: "cartao", agencia: "0123", numero: "4567-8",
+    dataSaldoInicial: "2026-09-01", saldoInicial: 1500.5, saldoInicialConferido: true, codigoContabil: "77",
+    diaFechamento: 20, diaVencimento: 28, ativo: false,
+  };
+  const linhaC = H.linhaDaConta(conta);
+  const volta = H.contaDaLinha({ id: "u-1", balance: 999, ...linhaC });
+  ok("CAD: conta ida e volta sem perder campo (tipo, agência, número, código, dias, abertura, ativo)",
+     volta.tipo === "cartao" && volta.agencia === "0123" && volta.numero === "4567-8" && volta.codigoContabil === "77"
+     && volta.diaFechamento === 20 && volta.diaVencimento === 28 && volta.saldoInicial === 1500.5
+     && volta.dataSaldoInicial === "2026-09-01" && volta.saldoInicialConferido === true && volta.ativo === false
+     && volta.saldoAtual === 999, JSON.stringify(volta));
+  ok("CAD: o banco da conta vai como CHAVE (Itaú → itau), a mesma do onboarding e da tesouraria",
+     linhaC.bank === "itau" && H.rotuloDoBanco("itau") === "Itaú" && H.slugDoBanco("Banco do Brasil") === "bb");
+  ok("CAD: editar o cadastro NÃO leva o saldo corrente (quem move saldo é baixa e conciliação)",
+     !("balance" in linhaC));
+  ok("CAD: dia de fatura só vai quando a conta é cartão",
+     H.linhaDaConta({ ...conta, tipo: "corrente" }).dia_fechamento === null);
+  const cat: import("@/core/registros/hierarquia").CategoriaCadastro = {
+    id: "c-1", nome: "Google Ads", codigo: "4.2.01", natureza: "despesa", paiId: "g-1", dreLinha: "despesas_variaveis", ativo: false,
+  };
+  const voltaCat = H.categoriaDaLinha({ id: "c-1", ...H.linhaDaCategoria(cat) });
+  ok("CAD: categoria ida e volta (grupo, código, linha do DRE, ativa)",
+     voltaCat.paiId === "g-1" && voltaCat.codigo === "4.2.01" && voltaCat.dreLinha === "despesas_variaveis" && voltaCat.ativo === false);
+  const cc: import("@/core/registros/hierarquia").CentroCustoCadastro = {
+    id: "cc-1", nome: "Mídia paga", codigo: "CC-07", codigoContabil: "12", descricao: "tráfego", ativo: true, paiId: "cc-0",
+  };
+  const voltaCc = H.centroDaLinha({ id: "cc-1", ...H.linhaDoCentro(cc) });
+  ok("CAD: centro ida e volta (grupo, código, código contábil, descrição)",
+     voltaCc.paiId === "cc-0" && voltaCc.codigo === "CC-07" && voltaCc.codigoContabil === "12" && voltaCc.descricao === "tráfego");
+  const pj: import("@/core/registros/hierarquia").ProjetoCadastro = {
+    id: "p-1", nome: "Turma 12", codigo: "PRJ", descricao: "", dataInicial: "2026-01-01", dataFinal: "2026-06-30",
+    previsaoReceita: 1000, previsaoDespesa: 400, clienteId: "pt-1", centroId: "cc-1", status: "encerrado",
+  };
+  const voltaPj = H.projetoDaLinha({ id: "p-1", ...H.linhaDoProjeto(pj) });
+  ok("CAD: projeto ida e volta (cliente, centro responsável, situação)",
+     voltaPj.clienteId === "pt-1" && voltaPj.centroId === "cc-1" && voltaPj.status === "encerrado" && voltaPj.previsaoDespesa === 400);
+
+  /* ---- a árvore: só folha ativa é selecionável ---- */
+  const arvore: import("@/core/registros/hierarquia").CategoriaCadastro[] = [
+    { id: "g", nome: "Marketing", codigo: "", natureza: "despesa", paiId: null, ativo: true },
+    { id: "f1", nome: "Google Ads", codigo: "", natureza: "despesa", paiId: "g", ativo: true },
+    { id: "f2", nome: "Meta", codigo: "", natureza: "despesa", paiId: "g", ativo: false },
+    { id: "r", nome: "Vendas", codigo: "", natureza: "receita", paiId: null, ativo: true },
+  ];
+  const sel = H.categoriasSelecionaveis(arvore, "despesa").map((c) => c.id);
+  ok("CAD: o formulário só recebe FOLHA ATIVA da natureza (nem o grupo, nem a inativa, nem a receita)",
+     sel.length === 1 && sel[0] === "f1", sel.join(","));
+  ok("CAD: caminho legível 'Grupo › Categoria'", H.caminhoDe(arvore, "f1") === "Marketing › Google Ads");
+  ok("CAD: pendurar o grupo na própria filha fecha ciclo", H.fechaCiclo(arvore, "g", "f1") && !H.fechaCiclo(arvore, "f1", "g"));
+  ok("CAD: a lixeira vai das folhas para o grupo (o banco recusa o grupo antes das filhas)",
+     JSON.stringify(H.ordemDeExclusao(arvore, "g")) === JSON.stringify(["f1", "f2", "g"]));
+  ok("CAD: nome repetido no MESMO grupo é recusado; em outro grupo, não",
+     !!H.validarCategoria({ ...arvore[1], id: "", nome: " google ads " }, arvore).nome
+     && !H.validarCategoria({ ...arvore[1], id: "", paiId: null, nome: "Google Ads" }, arvore).nome);
+  ok("CAD: linha de TOTAL do DRE não é escolhível (contaria o valor duas vezes)",
+     !!H.validarCategoria({ ...arvore[1], dreLinha: "ebitda" }, arvore).dreLinha);
+  ok("CAD: natureza diferente do grupo é recusada na tela (e no banco)",
+     !!H.validarCategoria({ ...arvore[1], natureza: "receita" }, arvore).natureza);
+
+  /* ---- a frase é a MESMA na demonstração e no banco ---- */
+  const mig = lerC("supabase/migrations/20260930180000_cadastros_hierarquia.sql");
+  const fraseGrupo = H.problemaDoGrupo(arvore[0], 3) ?? "";
+  const fraseLixo = H.problemaDaExclusao(arvore[1], arvore, 2) ?? "";
+  ok("CAD: 'não pode virar grupo' — a demonstração fala a frase do gatilho",
+     fraseGrupo.includes("já tem 3 lançamento(s) e não pode virar grupo") && mig.includes("lançamento(s) e não pode virar grupo"));
+  ok("CAD: 'não pode ir para a lixeira' — idem",
+     fraseLixo.includes("tem 2 lançamento(s) e não pode ir para a lixeira") && mig.includes("lançamento(s) e não pode ir para a lixeira"));
+  ok("CAD: grupo com subcategoria viva não vai para a lixeira (demonstração)",
+     (H.problemaDaExclusao(arvore[0], arvore, 0) ?? "").includes("ainda tem 2 subcategoria"));
+
+  /* ---- o cadastro antigo: nada migra sozinho, nada é sobrescrito ---- */
+  const antigas = [conta, { ...conta, id: "velha-2", nome: "Só no navegador", tipo: "corrente" as const }];
+  const atuaisC = [H.contaDaLinha({ id: "db-1", name: "cartão empresa", bank: "itau", tipo: "corrente", codigo_contabil: "5" })];
+  const pend = H.contasAntigas(antigas, atuaisC);
+  const pCompletar = pend.find((p) => p.acao === "completar");
+  ok("CAD: antigo SEM par na tabela vira 'criar'; COM par e dado faltando vira 'completar'",
+     pend.length === 2 && pend.some((p) => p.acao === "criar" && p.nome === "Só no navegador")
+     && !!pCompletar && pCompletar.alvoId === "db-1" && pCompletar.campos.includes("dias da fatura"),
+     JSON.stringify(pend));
+  const completada = H.contaCompletada(atuaisC[0], conta);
+  ok("CAD: completar NÃO sobrescreve o que a tabela já tem (o código 5 fica)",
+     completada.codigoContabil === "5" && completada.tipo === "cartao" && completada.diaFechamento === 20);
+
+  /* ---- TETO ZERO: nenhuma das quatro telas grava na morada antiga ---- */
+  const TELAS = [
+    "src/components/registros/ContasBancariasView.tsx",
+    "src/components/registros/ProjetosCentrosView.tsx",
+    "src/components/registros/PlanoContasView.tsx",
+    "src/components/registros/hooks.ts",
+  ];
+  const PROIBIDO = [
+    /from "@\/lib\/store-org"/, /\blocalStorage\b/, /from "@\/lib\/registros"/, /from "@\/lib\/iuli-cadastros"/,
+    /from "@\/lib\/imported"/, /\bsetImported\(|\bappendImported\(|\bgravarCadastrosDemo\(|\bgravarContaDemo\(/,
+    /\bsalvarPlanoContas\(|\bsalvarUsoPadrao\(|\baddProjeto\(|\baddCentroCusto\(|\bremoverContaBancaria\(/,
+  ];
+  const telaGravaLocal = (txt: string) => PROIBIDO.some((re) => re.test(semComentarios(txt)));
+  const infratoras = TELAS.filter((t) => !lerC(t) || telaGravaLocal(lerC(t)));
+  ok("CAD: nenhuma das quatro telas grava em org_state/localStorage (teto ZERO)", infratoras.length === 0, infratoras.join(" | "));
+  // NEGATIVO: a MESMA varredura sobre a tela ANTIGA tem de acusar.
+  ok("CAD: [negativo] a varredura acusa a tela antiga (import de lib/registros + gravar)",
+     telaGravaLocal('import { listContasBancarias, salvarContaBancaria } from "@/lib/registros";')
+     && telaGravaLocal("try { localStorage.setItem(k, v) } catch {}"));
+
+  // Os escritores ANTIGOS foram removidos — um escritor que existe é um escritor que alguém chama.
+  const regTxt = semComentarios(lerC("src/lib/registros.ts"));
+  const iuliTxt = semComentarios(lerC("src/lib/iuli-cadastros.ts"));
+  ok("CAD: os escritores antigos de contas, plano, uso padrão, centros e projetos não existem mais",
+     !/gravar\(K_CONTAS|gravar\(K_PLANO|gravar\(K_USOS/.test(regTxt) && !/localStorage\.setItem/.test(iuliTxt)
+     && !/export function (addProjeto|updateProjeto|addCentroCusto|updateCentroCusto)/.test(iuliTxt));
+
+  /* ---- os escritores LANÇAM o erro do banco ---- */
+  const libTxt = semComentarios(lerC("src/lib/cadastros-hierarquia.ts"));
+  const corpos = (txt: string) => {
+    const out: { nome: string; corpo: string }[] = [];
+    const re = /export (?:async )?function (\w+)/g;
+    const idx: { nome: string; i: number }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(txt))) idx.push({ nome: m[1], i: m.index });
+    idx.forEach((x, k) => out.push({ nome: x.nome, corpo: txt.slice(x.i, idx[k + 1]?.i ?? txt.length) }));
+    return out;
+  };
+  const escritorEngole = (corpo: string) =>
+    /\bcatch\b/.test(corpo)
+    || (/\.(insert|update|upsert)\(/.test(corpo) && !/if \(error\) throw erroDoBanco\(error\)/.test(corpo));
+  const escritores = corpos(libTxt).filter((c) => /^(salvar|definir|excluir)/.test(c.nome));
+  const engolem = escritores.filter((c) => escritorEngole(c.corpo)).map((c) => c.nome);
+  ok("CAD: todo escritor (salvar/definir/excluir) lança o erro do banco e não tem catch",
+     escritores.length >= 10 && engolem.length === 0, `${escritores.length} escritores · engolem: ${engolem.join(", ")}`);
+  ok("CAD: [negativo] a varredura acusa o escritor que engole",
+     escritorEngole('export async function salvarX() { const { error } = await s.from("t").insert(l); if (error) return; }')
+     && escritorEngole('export async function salvarY() { try { await s.from("t").update(l) } catch {} }'));
+  ok("CAD: o erro do banco é traduzido pelo NOME da restrição, e o gatilho vai inteiro (mensagem + dica)",
+     /financial_accounts_org_nome_unico/.test(libTxt) && /parties_org_doc_unico/.test(libTxt) && /e\?\.hint/.test(libTxt));
+
+  // O dataset da demonstração só recebe cadastro DENTRO de `if (isDemo)`.
+  const gravaForaDaDemo = (corpo: string) => {
+    const chamadas = [...corpo.matchAll(/gravar(CadastrosDemo|ContaDemo)\(/g)].map((x) => x.index ?? 0);
+    const iDemo = corpo.indexOf("if (isDemo)");
+    const iBanco = corpo.indexOf("createClient()");
+    return chamadas.some((i) => iDemo < 0 || i < iDemo || (iBanco >= 0 && i > iBanco && iBanco > iDemo));
+  };
+  const fora = corpos(libTxt).filter((c) => gravaForaDaDemo(c.corpo)).map((c) => c.nome);
+  ok("CAD: o dataset da demonstração só é escrito dentro de if (isDemo)", fora.length === 0, fora.join(", "));
+  ok("CAD: [negativo] a varredura acusa a gravação no dataset fora da demonstração",
+     gravaForaDaDemo('export async function salvarZ() { gravarContaDemo(x); const s = createClient(); }'));
+
+  /* ---- o leitor dos formulários só oferece folha ---- */
+  const dataTxt = semComentarios(lerC("src/lib/data.ts"));
+  const corpoGetCat = dataTxt.slice(dataTxt.indexOf("export async function getCategories"), dataTxt.indexOf("export async function getLinhasDeCategoria"));
+  ok("CAD: getCategories devolve só as folhas ativas (categoriasSelecionaveis) com parent_id, code e dre_linha",
+     /categoriasSelecionaveis\(/.test(corpoGetCat) && /parent_id:/.test(corpoGetCat) && /dre_linha:/.test(corpoGetCat));
+
+  /* ---- a migration: o gatilho de folha e o índice por empresa ---- */
+  const migSem = mig.replace(/^\s*--.*$/gm, "");
+  ok("CAD: a migration tem o gatilho de FOLHA em movements (e em rateio e recorrência)",
+     /create trigger lancamento_categoria_folha\s+before insert or update of category_id on public\.movements/.test(migSem)
+     && /parent_id = new\.category_id and excluido_em is null/.test(migSem)
+     && /rateio_categoria_folha/.test(migSem) && /recorrencia_categoria_folha/.test(migSem));
+  ok("CAD: o documento do contato é único POR EMPRESA e o índice global sai",
+     /parties_org_doc_unico\s+on public\.parties \(org_id, doc_digits\)/.test(migSem)
+     && /drop index if exists public\.parties_doc_unique/.test(migSem));
+  ok("CAD: nome de conta único por empresa, cartão com os dois dias, conta inativa e projeto encerrado recusados",
+     /financial_accounts_org_nome_unico/.test(migSem) && /financial_accounts_dias_do_cartao/.test(migSem)
+     && /create trigger lancamento_cadastro_vigente/.test(migSem) && /v_status = 'encerrado'/.test(migSem));
+  ok("CAD: natureza trocada NÃO é recusada (entrada em despesa é estorno legítimo)",
+     !/kind\s*<>\s*case|type = 'entrada' and .*kind = 'despesa'/.test(migSem));
+  ok("CAD: a migration se RECUSA nomeando quando a unicidade reprovaria dado existente",
+     /há conta bancária com o MESMO NOME/.test(mig) && /há categoria repetida .* que ESTÁ EM USO/.test(mig));
+
+  /* ---- a guarda de BANCO existe, roda no CI e carrega o negativo ---- */
+  const sqlG = lerC("scripts/cadastros-hierarquia.sql");
+  ok("CAD: a guarda de banco existe, tem o teste negativo e o CI a roda",
+     /drop trigger lancamento_categoria_folha/.test(sqlG) && /VERMELHO PELO MOTIVO ERRADO/.test(sqlG)
+     && /scripts\/cadastros-hierarquia\.sql/.test(lerC(".github/workflows/ci.yml")));
+  ok("CAD: registros core exporta o contrato que as telas usam", typeof R.validarContaBancaria === "function");
+
+  /* ---- a "primeira conta" dos escritores automáticos é só entre as ATIVAS ----
+     O banco agora recusa lançamento novo em conta inativa; um `limit(1)` cru
+     sobre `financial_accounts` que caísse numa conta desativada derrubaria a
+     importação inteira. TETO ZERO fora de `lib/conta-padrao`. */
+  const pegaPrimeiraCrua = (t: string) =>
+    /from\(\s*["']financial_accounts["']\s*\)\s*\.select\(\s*["']id["']\s*\)(?:\s*\.eq\(\s*["']org_id["'][^)]*\))?\s*\.limit\(\s*1\s*\)/.test(semComentarios(t));
+  const arquivosSrc: string[] = [];
+  const andar = (dir: string) => {
+    for (const e of fsC.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) andar(p);
+      else if (/\.(ts|tsx)$/.test(e.name)) arquivosSrc.push(p);
+    }
+  };
+  andar("src");
+  const cruas = arquivosSrc.filter((p) => p !== "src/lib/conta-padrao.ts" && pegaPrimeiraCrua(lerC(p)));
+  ok("CAD: nenhum escritor escolhe a 'primeira conta' sem o filtro de ATIVA (teto zero)",
+     cruas.length === 0, cruas.join(", "));
+  ok("CAD: a varredura da 'primeira conta' pega o defeito plantado (teste negativo)",
+     pegaPrimeiraCrua('const { data } = await supabase.from("financial_accounts").select("id").limit(1);')
+     && pegaPrimeiraCrua('await admin.from("financial_accounts").select("id").eq("org_id", orgId).limit(1)')
+     && !pegaPrimeiraCrua('await supabase.from("financial_accounts").select("id").eq("ativo", true).limit(1)'));
+  const padrao = lerC("src/lib/conta-padrao.ts");
+  ok("CAD: a conta padrão filtra ATIVA e tem a queda declarada para a coluna ausente",
+     /\.eq\(\s*"ativo",\s*true\s*\)/.test(padrao) && /COLUNA_AUSENTE/.test(padrao) && !/^\s*["']use client["']/m.test(padrao));
+}
+
+
+/* ── CAD-2 ── */
+/**
+ * ⚠️ OS FORMULÁRIOS USAM OS CADASTROS DO BANCO (CAD, parte 2 — 30/09/2026).
+ *
+ * Título, receita/despesa, venda, compra, contrato, orçamento, impostos e o
+ * cadastro de cliente/fornecedor liam o cadastro ANTIGO do navegador (id
+ * numérico): em produção o projeto/centro era recusado e a categoria de uma
+ * venda chegava ao DRE como "217290". Cada guarda abaixo carrega o NEGATIVO —
+ * a mesma varredura sobre o defeito plantado tem de acusar.
+ */
+{
+  const fsD = await import("node:fs");
+  const H = await import("@/core/registros/hierarquia");
+  const E = await import("@/core/registros/estrutura");
+  const lerD = (p: string) => (fsD.existsSync(p) ? fsD.readFileSync(p, "utf8") : "");
+  const semCom = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+
+  /* ---- 1. TETO ZERO: nenhum formulário de lançamento lê o plano local para gravar ---- */
+  const FORMS = [
+    "src/components/movimentacoes/TituloForm.tsx",
+    "src/components/lancamentos/ReceitaForm.tsx",
+    "src/components/vendas-nf/VendaForm.tsx",
+    "src/components/registros/ContratosView.tsx",
+    "src/components/registros/OrcamentosView.tsx",
+    "src/components/vendas-nf/OutrasViews.tsx",
+    "src/components/compras/CompraForm.tsx",
+    "src/components/registros/PartesView.tsx",
+    "src/components/movimentacoes/TitulosView.tsx",
+    "src/components/movimentacoes/ModalBaixa.tsx",
+    "src/components/visao-geral/ExtratoTransacoes.tsx",
+  ];
+  const LEITURA_LOCAL = [
+    /\blistPlanoContas\(/, /\blistUsosPadrao\(/, /\blistContasBancarias\(/, /from "@\/lib\/iuli-cadastros"/,
+    /\blistProjetos\(/, /\blistCentrosCusto\(/, /\bvincularProjetos?\(/, /\bprojetoDoMovimento\(/,
+    /extraParty\([^)]*\)\.categoriaPadrao/,
+  ];
+  const leLocal = (t: string) => LEITURA_LOCAL.some((re) => re.test(semCom(t)));
+  const formsLocais = FORMS.filter((f) => !lerD(f) || leLocal(lerD(f)));
+  ok("CAD-2: nenhum formulário de lançamento lê o cadastro antigo do navegador (teto ZERO)",
+     formsLocais.length === 0, formsLocais.join(" | "));
+  ok("CAD-2: [negativo] a varredura acusa o formulário antigo",
+     leLocal("const cats = listPlanoContas().filter((c) => c.paiId);")
+     && leLocal('import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";')
+     && leLocal("const padrao = extraParty(f.parteId).categoriaPadrao;")
+     && !leLocal('const opcoes = useOpcoesCadastro("saida");'));
+  const semHook = FORMS.slice(0, 7).filter((f) => !/useOpcoesCadastro\(|useCategories\(/.test(semCom(lerD(f))));
+  ok("CAD-2: os formulários leem as escolhas pelo hook único (useOpcoesCadastro/useCategories)",
+     semHook.length === 0, semHook.join(", "));
+
+  /* ---- 2. o seletor de categoria só oferece FOLHA da natureza do lado ---- */
+  const arv: import("@/core/registros/hierarquia").CategoriaCadastro[] = [
+    { id: "gR", nome: "Receitas", codigo: "", natureza: "receita", paiId: null, ativo: true },
+    { id: "r1", nome: "Assinaturas", codigo: "", natureza: "receita", paiId: "gR", ativo: true },
+    { id: "gD", nome: "Marketing", codigo: "", natureza: "despesa", paiId: null, ativo: true },
+    { id: "d1", nome: "Google Ads", codigo: "", natureza: "despesa", paiId: "gD", ativo: true },
+    { id: "d2", nome: "Meta", codigo: "", natureza: "despesa", paiId: "gD", ativo: false },
+  ];
+  const saida = H.categoriasDoLado(arv, "saida");
+  const entrada = H.categoriasDoLado(arv, "entrada");
+  ok("CAD-2: saída oferece só a FOLHA ativa de despesa, rotulada pelo caminho",
+     saida.length === 1 && saida[0].value === "d1" && saida[0].label === "Marketing › Google Ads", JSON.stringify(saida));
+  ok("CAD-2: entrada oferece só a folha de receita (nunca o grupo)",
+     entrada.length === 1 && entrada[0].value === "r1");
+  const opcTxt = semCom(lerD("src/components/lancamentos/opcoes-cadastro.ts"));
+  const categoriaPelaArvoreCrua = (t: string) => /useCategoriasArvore\(|listarCategorias\(/.test(t);
+  const formsArvore = [...FORMS, "src/components/lancamentos/opcoes-cadastro.ts"].filter((f) => categoriaPelaArvoreCrua(semCom(lerD(f))));
+  ok("CAD-2: nenhum formulário oferece a árvore crua (com grupos) como categoria (teto ZERO)",
+     formsArvore.length === 0 && /useCategories\(/.test(opcTxt), formsArvore.join(", "));
+  ok("CAD-2: [negativo] a varredura acusa o formulário que lista a árvore inteira",
+     categoriaPelaArvoreCrua("const { data } = useCategoriasArvore();"));
+  ok("CAD-2: a categoria padrão do contato só preenche quando continua selecionável",
+     H.categoriaPadraoValida("d1", saida) === "d1" && H.categoriaPadraoValida("gD", saida) === ""
+     && H.categoriaPadraoValida("r1", saida) === "" && H.categoriaPadraoValida(null, saida) === "");
+  const centrosF: import("@/core/registros/hierarquia").CentroCustoCadastro[] = [
+    { id: "c0", nome: "Comercial", codigo: "", codigoContabil: "", descricao: "", ativo: true, paiId: null },
+    { id: "c1", nome: "Vendas", codigo: "", codigoContabil: "", descricao: "", ativo: true, paiId: "c0" },
+    { id: "c2", nome: "Pós-venda", codigo: "", codigoContabil: "", descricao: "", ativo: false, paiId: "c0" },
+  ];
+  const cs = H.centrosSelecionaveis(centrosF);
+  ok("CAD-2: centro selecionável é ativo e analítico (o grupo é soma)",
+     cs.length === 1 && cs[0].value === "c1" && cs[0].label === "Comercial › Vendas", JSON.stringify(cs));
+
+  /* ---- 3. o rateio vira linha de movement_splits, e fecha ---- */
+  const rs = H.linhasDoRateio([{ id: "pA", percentual: 60 }, { id: "pB", percentual: 40 }],
+    [{ id: "cX", percentual: 50 }, { id: "cY", percentual: 50 }], 1000, "d1");
+  const somaV = Math.round(rs.reduce((t, x) => t + x.amount, 0) * 100) / 100;
+  const somaP = Math.round(rs.reduce((t, x) => t + x.percent, 0) * 100) / 100;
+  ok("CAD-2: 60/40 × 50/50 de R$ 1.000 vira 4 fatias que somam R$ 1.000,00 e 100%",
+     rs.length === 4 && somaV === 1000 && somaP === 100 && rs[0].amount === 300 && rs[3].amount === 200, JSON.stringify(rs));
+  const fatiaP = H.fatiasDoRateio(rs, "project_id");
+  ok("CAD-2: somada por dimensão, a fatia devolve o que a pessoa digitou (60 e 40)",
+     fatiaP.find((x) => x.id === "pA")?.percentual === 60 && fatiaP.find((x) => x.id === "pB")?.percentual === 40);
+  const tres = H.linhasDoRateio([{ id: "a", percentual: 33.33 }, { id: "b", percentual: 33.33 }, { id: "c", percentual: 33.34 }], [], 100);
+  ok("CAD-2: 100 ÷ 3 — o centavo que sobra vai na ÚLTIMA fatia (nenhum some)",
+     Math.round(tres.reduce((t, x) => t + x.amount, 0) * 100) === 10000 && tres[2].amount === 33.34, JSON.stringify(tres));
+  ok("CAD-2: uma fatia em cada dimensão não gera linha (o principal já está no lançamento)",
+     H.linhasDoRateio([{ id: "a", percentual: 100 }], [{ id: "x", percentual: 100 }], 50).length === 0
+     && H.principalDoRateio([{ id: "a", percentual: 30 }, { id: "b", percentual: 70 }]) === "b");
+  const dataD = semCom(lerD("src/lib/data.ts"));
+  const corpoCreate = dataD.slice(dataD.indexOf("export async function createLancamento"), dataD.indexOf("export interface TituloAvulso"));
+  const rateioDescartado = (t: string) => /splits:\s*null,/.test(t);
+  ok("CAD-2: o rateio é gravado em CADA parcela, com projeto (createLancamento)",
+     /titulos\.flatMap\(\(mv, i\) =>\s*fatiarValor/.test(corpoCreate) && /project_id: exigirUUID\(s\.project_id/.test(corpoCreate));
+  const tituloTxt = semCom(lerD("src/components/movimentacoes/TituloForm.tsx"));
+  ok("CAD-2: o formulário de título não descarta mais o rateio (teto ZERO de `splits: null` fixo)",
+     !rateioDescartado(tituloTxt) && /linhasDoRateio\(projetos, centros/.test(tituloTxt));
+  ok("CAD-2: [negativo] a varredura acusa o rateio descartado",
+     rateioDescartado("cost_center_id: x,\n          splits: null,\n"));
+  ok("CAD-2: criarTitulos grava centro, projeto e o rateio (folha, venda, impostos)",
+     /cost_center_id: exigirUUID\(l\.cost_center_id/.test(dataD) && /from\("movement_splits"\)\.insert\(fatias\)/.test(dataD));
+
+  /* ---- 3b. (revisão) rateio recusado DESFAZ os títulos — nenhum lançamento pela metade ---- */
+  const corpoRateio = (t: string) => {
+    const i = t.indexOf("async function gravarRateioOuDesfazer");
+    return i < 0 ? "" : t.slice(i, t.indexOf("\n}\n", i));
+  };
+  const desfazNoErro = (t: string) => {
+    const c = corpoRateio(t);
+    const iCatch = c.indexOf("catch (e)");
+    return iCatch > 0 && /excluirLogico\("movements"/.test(c.slice(iCatch)) && /throw new Error/.test(c.slice(iCatch));
+  };
+  ok("CAD-rev: rateio recusado desfaz os títulos que acabaram de nascer (sem isso, salvar de novo DUPLICA)",
+     desfazNoErro(dataD)
+     && (corpoCreate.match(/gravarRateioOuDesfazer\(/g) ?? []).length === 1
+     && /gravarRateioOuDesfazer\(supabase, titulos/.test(dataD.slice(dataD.indexOf("export async function criarTitulos"))),
+     "gravarRateioOuDesfazer ausente ou sem desfazer no catch");
+  ok("CAD-rev: [negativo] a varredura acusa o rateio que só relança o erro",
+     !desfazNoErro("async function gravarRateioOuDesfazer() {\n  try { x(); } catch (e) {\n    throw e;\n  }\n}\n"));
+
+  /* ---- 3c. (revisão) impostos: o escritor de produção existe e não duplica ---- */
+  const vsTxt = semCom(lerD("src/lib/vendas-store.ts"));
+  // A região inteira do escritor dos impostos (o título, a gravação e a porta da tela).
+  const corpoImp = (t: string) => t.slice(t.indexOf("const tituloDoImposto"), t.indexOf("/* ---------------------------- links"));
+  const impostoMorto = (t: string) => /if \(!isDemo\) return/.test(corpoImp(t)) || !/criarTitulos\(/.test(corpoImp(t));
+  ok("CAD-rev: criar contas a pagar dos impostos GRAVA em produção (escritor morto teto ZERO)",
+     !impostoMorto(vsTxt) && /reference_code: `imp:\$\{mesCompetencia\}:\$\{c\.imposto\}`/.test(corpoImp(vsTxt)));
+  ok("CAD-rev: [negativo] a varredura acusa o escritor que só age em demonstração",
+     impostoMorto("const tituloDoImposto = 1;\nexport async function criarContasDeImpostos() {\n  if (!isDemo) return 0;\n}\n/* ---------------------------- links"));
+  const migCad = lerD("supabase/migrations/20260930180000_cadastros_hierarquia.sql");
+  ok("CAD-rev: o banco recusa a segunda guia do mesmo imposto na mesma competência (índice imp:%)",
+     /create unique index if not exists movements_imp_ref_uniq\s+on public\.movements \(org_id, reference_code\)\s+where reference_code like 'imp:%'/.test(migCad));
+  ok("CAD-rev: o botão de impostos não aceita o segundo clique enquanto grava",
+     /disabled=\{!podeCriar \|\| criandoContas\}/.test(lerD("src/components/vendas-nf/OutrasViews.tsx")));
+
+  /* ---- 3d. (revisão) a importação não engole a recusa da conta que recebe o extrato ---- */
+  const fdipTxt = semCom(lerD("src/lib/fdip.ts"));
+  const contaEngolida = (t: string) => {
+    const i = t.indexOf('name: "Conta consolidada"');
+    if (i < 0) return true;
+    const trecho = t.slice(i, i + 900);
+    return !/error: ea \}/.test(t.slice(Math.max(0, i - 200), i)) || !/if \(ea\)\s*\{\s*throw new Error/.test(trecho);
+  };
+  ok("CAD-rev: a importação não engole a recusa ao criar a conta do extrato", !contaEngolida(fdipTxt));
+  ok("CAD-rev: [negativo] a varredura acusa o escritor que descarta o erro",
+     contaEngolida('const { data: created } = await supabase.from("financial_accounts").insert({ name: "Conta consolidada", bank: "inter" }).select("id").single();\naccId = created?.id;'));
+
+  /* ---- 4. o projeto do lançamento mora em movements.project_id ---- */
+  const pv = semCom(lerD("src/lib/projeto-vinculo.ts"));
+  ok("CAD-2: o vínculo antigo do navegador não tem mais escritor",
+     !/export function vincular/.test(pv) && !/gravar/.test(pv));
+  const corpoDef = dataD.slice(dataD.indexOf("export async function definirProjetoDoMovimento"));
+  ok("CAD-2: vincular projeto grava movements.project_id em produção (e no movimento, na demonstração)",
+     /\.update\(\{ project_id: exigirUUID\(/.test(corpoDef) && /updateImportedMovement\(id, \{ project_id/.test(corpoDef));
+  const corpoRisco = dataD.slice(dataD.indexOf("export async function getRiscoInput"));
+  const ramoLive = corpoRisco.slice(corpoRisco.indexOf("const supabase = createClient()"));
+  ok("CAD-2: em produção o nome do projeto sai só do embed (nenhum vínculo do navegador)",
+     !/vinculosProjeto\(|listProjetos\(|projetoLocal/.test(ramoLive)
+     && /projetoId: texto\(r\.project_id\)/.test(semCom(lerD("src/lib/risco-linhas.ts"))));
+
+  /* ---- 5. ativo e categoria padrão moram em parties ---- */
+  const corpoGetParties = dataD.slice(dataD.indexOf("export async function getParties"), dataD.indexOf("export async function getAccountsList"));
+  ok("CAD-2: o seletor de contatos só traz os ATIVOS (com queda reportada para a coluna ausente)",
+     /\.eq\("ativo", true\)/.test(corpoGetParties) && /reportar\(/.test(corpoGetParties));
+  const partesTxt = semCom(lerD("src/components/registros/PartesView.tsx"));
+  ok("CAD-2: o cadastro de contato grava ativo e default_category_id na TABELA",
+     /default_category_id: f\.categoriaPadrao/.test(partesTxt) && /ativo: f\.ativo,/.test(partesTxt)
+     && !/categoriaPadrao: f\.categoriaPadrao/.test(partesTxt));
+  ok("CAD-2: a criação de contato na demonstração GRAVA (antes era descartada)",
+     /gravarParteDemo\(/.test(semCom(lerD("src/lib/cadastros.ts"))));
+
+  /* ---- 6. TETO ZERO: nenhuma chave de CHAVES_ORG com localStorage.setItem cru ---- */
+  const SO = await import("@/lib/store-org");
+  const chavesNeg = Object.values(SO.CHAVES_ORG) as string[];
+  const arquivosD: string[] = [];
+  const andarD = (dir: string) => {
+    for (const e2 of fsD.readdirSync(dir, { withFileTypes: true })) {
+      const p2 = `${dir}/${e2.name}`;
+      if (e2.isDirectory()) andarD(p2);
+      else if (/\.(ts|tsx)$/.test(e2.name)) arquivosD.push(p2);
+    }
+  };
+  andarD("src");
+  /*
+   * ⚠️ A varredura RESOLVE a chave de cada chamada crua, em vez de casar o texto
+   * literal no arquivo. A versão anterior só via `localStorage.setItem` com a
+   * chave ESCRITA no mesmo arquivo — e ficava cega para três formas reais:
+   * `CHAVES_ORG.x`, uma constante importada de outro módulo, e a LEITURA crua
+   * (`getItem`), que em produção devolve o rastro velho do navegador em vez do
+   * estado da empresa. Regra: escrever/remover chave de negócio cru é proibido;
+   * ler cru só vale para chave CONGELADA (o rastro que a tela oferece enviar).
+   */
+  const valorDeChave = (Object.entries(SO.CHAVES_ORG) as [string, string][]);
+  const exportadas = new Map<string, string>();
+  for (const f of arquivosD) {
+    for (const m of semCom(lerD(f)).matchAll(/export\s+const\s+(\w+)\s*(?::[^=]+)?=\s*["'`](a4p_\w+)["'`]/g)) exportadas.set(m[1], m[2]);
+  }
+  type Achado = { op: string; chave: string };
+  const varreCru = (t: string, globais: Map<string, string> = exportadas): Achado[] => {
+    const s2 = semCom(t);
+    const locais = new Map<string, string>();
+    for (const m of s2.matchAll(/(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*["'`](a4p_\w+)["'`]/g)) locais.set(m[1], m[2]);
+    const importadas = new Map<string, string>();
+    for (const m of s2.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+      for (const parte of m[1].split(",")) {
+        const [orig, alias] = parte.trim().split(/\s+as\s+/).map((x) => x.trim());
+        if (orig && globais.has(orig)) importadas.set(alias || orig, globais.get(orig)!);
+      }
+    }
+    const resolve = (arg: string): string[] => {
+      const a = arg.trim();
+      const lit = a.match(/^["'`](a4p_\w+)/);
+      if (lit) return [lit[1]];
+      const co = a.match(/^CHAVES_ORG\.(\w+)$/);
+      if (co) { const v = valorDeChave.find(([n]) => n === co[1]); return v ? [v[1]] : []; }
+      if (locais.has(a)) return [locais.get(a)!];
+      if (importadas.has(a)) return [importadas.get(a)!];
+      if (/^["'`]/.test(a)) return [];
+      // Parâmetro/variável sem valor no arquivo: vale qualquer chave de negócio
+      // que o arquivo cite — é o helper `load(key)` chamado com a constante.
+      const citadas = new Set<string>();
+      for (const [n, k] of valorDeChave) if (s2.includes(`"${k}"`) || s2.includes(`'${k}'`) || s2.includes("`" + k) || s2.includes(`CHAVES_ORG.${n}`)) citadas.add(k);
+      for (const k of [...locais.values(), ...importadas.values()]) citadas.add(k);
+      return [...citadas];
+    };
+    const achados: Achado[] = [];
+    // ⚠️ O nome do armazenamento também tem APELIDO: `const ls = window.localStorage`
+    // e depois `ls.setItem(K, …)` fugia da varredura (só casava a palavra
+    // `localStorage`). E o colchete tem DOIS sentidos: `localStorage[K] = x` é
+    // ESCRITA (e `delete localStorage[K]` é remoção) — tratá-lo como leitura
+    // deixava gravar chave CONGELADA por colchete, porque leitura de congelada
+    // é permitida.
+    const nomes = ["localStorage"];
+    for (const m of s2.matchAll(/(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*(?:window\s*\.\s*|globalThis\s*\.\s*)?localStorage\b(?!\s*\.)/g)) nomes.push(m[1]);
+    const alt = nomes.map((n) => n.replace(/\$/g, "\\$")).join("|");
+    const reCru = new RegExp(`(delete\\s+(?:window\\s*\\.\\s*)?)?\\b(?:${alt})\\s*(?:\\.\\s*(setItem|getItem|removeItem)\\s*\\(|\\[)\\s*([^,)\\]]+)(\\]\\s*=(?!=))?`, "g");
+    for (const m of s2.matchAll(reCru)) {
+      const op = m[2] ?? (m[1] ? "removeItem" : m[4] ? "setItem" : "getItem");
+      for (const k of resolve(m[3])) {
+        if (!chavesNeg.includes(k)) continue;
+        if (op === "getItem" && SO.estaCongelada(k)) continue;
+        achados.push({ op, chave: k });
+      }
+    }
+    return achados;
+  };
+  const crus = arquivosD.filter((f) => f !== "src/lib/store-org.ts").map((f) => ({ f, a: varreCru(lerD(f)) })).filter((x) => x.a.length);
+  ok("CAD-2: nenhuma chave de negócio (CHAVES_ORG) passa por localStorage cru — escrita, remoção ou leitura de chave viva (teto ZERO)",
+     crus.length === 0, crus.map((x) => `${x.f} [${x.a.map((y) => `${y.op} ${y.chave}`).join(",")}]`).join(" | "));
+  const plantaGlobal = new Map([["K_EMPRESA", "a4p_company"]]);
+  ok("CAD-2: [negativo] a varredura acusa o escritor cru pela chave literal",
+     varreCru('const KEY = "a4p_company";\nexport function salvar(c) { localStorage.setItem(KEY, JSON.stringify(c)); }').length === 1
+     && varreCru('const KEY = "a4p_theme";\nlocalStorage.setItem(KEY, "dark");').length === 0);
+  ok("CAD-2: [negativo] a varredura acusa a chave via CHAVES_ORG.x e via constante IMPORTADA",
+     varreCru('localStorage.setItem(CHAVES_ORG.company, "{}");').length === 1
+     && varreCru('import { K_EMPRESA } from "@/lib/x";\nwindow.localStorage.setItem(K_EMPRESA, "{}");', plantaGlobal).length === 1);
+  ok("CAD-2: [negativo] a varredura acusa a LEITURA crua de chave viva e o helper por parâmetro",
+     varreCru('const K = "a4p_compras";\nconst x = localStorage.getItem(K);').length === 1
+     && varreCru('const K = "a4p_compras";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
+     && varreCru('const K = "a4p_compras";\nconst x = localStorage[K];').length === 1);
+  ok("CAD-2: ler cru o RASTRO de chave congelada é permitido (escrevê-lo, não)",
+     varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage.getItem(K);').length === 0
+     && varreCru('const K = "a4p_vendas_docs";\nlocalStorage.setItem(K, "[]");').length === 1);
+  ok("CAD-2: [negativo] a varredura acusa o APELIDO do armazenamento e a escrita por COLCHETE (inclusive de chave congelada)",
+     varreCru('const K = "a4p_compras";\nconst ls = window.localStorage;\nls.setItem(K, "[]");').length === 1
+     && varreCru('const K = "a4p_vendas_docs";\nlocalStorage[K] = "[]";').some((a) => a.op === "setItem")
+     && varreCru('const K = "a4p_vendas_docs";\ndelete window.localStorage[K];').some((a) => a.op === "removeItem")
+     && varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage[K] === "[]";').length === 0);
+  let recusou = false;
+  try { SO.gravarPreferencia("a4p_company", {}); } catch { recusou = true; }
+  ok("CAD-2: gravar chave de negócio como PREFERÊNCIA é recusado", recusou);
+  ok("CAD-2: as entidades com tabela que só a demonstração grava estão CONGELADAS",
+     ["a4p_recorrencias", "a4p_nfse", "a4p_ledger", "a4p_revrec", "a4p_cronogramas", "a4p_tags", "a4p_movimento_projeto"]
+       .every((k) => SO.estaCongelada(k)));
+
+  /* ---- 7. o hub: a ordem de dependência e o que falta para lançar ---- */
+  const vazio: import("@/core/registros/estrutura").EntradaEstrutura = {
+    empresa: { nome: null, regimeDeclarado: false }, contas: [], categorias: [], centros: [], projetos: [],
+    clientes: 0, fornecedores: 0, produtos: 0, servicos: 0, contratos: 0,
+  };
+  const pv0 = E.pendenciasDaEstrutura(vazio);
+  ok("CAD-2: empresa vazia — sem conta e sem categoria IMPEDEM, e vêm primeiro",
+     pv0.slice(0, 3).every((x) => x.gravidade === "bloqueia")
+     && ["sem-conta", "sem-receita", "sem-despesa"].every((id) => pv0.some((x) => x.id === id)), pv0.map((x) => x.id).join(","));
+  const contaOk = H.contaDaLinha({ id: "a1", name: "Itaú", bank: "itau", ativo: true, saldo_inicial: 10, data_saldo_inicial: "2026-01-01", saldo_inicial_conferido: true });
+  const pronta = E.pendenciasDaEstrutura({
+    ...vazio, empresa: { nome: "X", regimeDeclarado: true }, contas: [contaOk],
+    categorias: arv.map((c) => ({ ...c, dreLinha: c.natureza === "receita" ? "receita_bruta" : "despesas_operacionais" })),
+    clientes: 1, fornecedores: 1,
+  });
+  ok("CAD-2: estrutura completa não tem pendência (a lista vazia é a resposta 'dá para lançar')",
+     pronta.length === 0, pronta.map((x) => x.id).join(","));
+  const semLinha = E.pendenciasDaEstrutura({ ...vazio, contas: [contaOk], categorias: arv, clientes: 1, fornecedores: 1, empresa: { nome: "X", regimeDeclarado: true } });
+  ok("CAD-2: folha sem linha do DRE é ATENÇÃO (salva, mas classifica por palpite), não bloqueio",
+     semLinha.length === 1 && semLinha[0].id === "sem-linha-dre" && semLinha[0].gravidade === "atencao", semLinha.map((x) => x.id).join(","));
+  const niv = E.niveisDaEstrutura(vazio).map((n) => n.id).join(">");
+  ok("CAD-2: os níveis na ordem de dependência", niv === "empresa>contas>plano>alocacao>partes>catalogo>contratos", niv);
+  const navTxt = lerD("src/components/dashboard/nav-data.ts");
+  const cfg = navTxt.slice(navTxt.indexOf("export const CONFIG"));
+  ok("CAD-2: o hub tem UMA porta, em Configurações, e linha no inventário",
+     /href: "\/dashboard\/registrations",/.test(cfg)
+     && /rota: "\/dashboard\/registrations", nome: "Estrutura e cadastros"/.test(lerD("src/core/rotas/inventario.ts")));
+}
+/* ── AUT ── */
+/* AUTOMAÇÕES DE E-MAIL E WHATSAPP (30/09/2026) — cada asserção prova o que a
+ * regra PROÍBE: reenviar ao reexecutar, simulado virando avisado, "R$0,00" de
+ * empresa vazia, régua sem opt-in ou no degrau de 60 dias, mensagem sem credor
+ * ou com valor cru. Os casos negativos plantam o defeito e exigem que a
+ * asserção o enxergue (senão ela seria decoração). */
+{
+  const A = await import("@/core/automacoes");
+  const { variaveisDoTemplate, montarRegua } = await import("@/core/cobranca");
+  const { formatBRL } = await import("@/lib/format");
+  const fsA = await import("node:fs");
+  type RM = import("@/core/risk-engine/types").RiskMovement;
+  type Ctx = import("@/core/automacoes").ContextoAutomacao;
+  type Cfg = import("@/core/automacoes").ConfigAutomacao;
+  type Linha = import("@/core/automacoes").LinhaEnvio;
+  type Reg = import("@/core/automacoes").RegistroEnvios;
+  type Prov = import("@/core/automacoes").ProvedorEnvio;
+  const mv = (id: string, type: "entrada" | "saida", amount: number, due: string, category: string, party: string | null,
+    status: "pago" | "pendente" = "pendente", accountId: string | null = null): RM =>
+    ({ id, type, status, amount, due_date: due, paid_date: status === "pago" ? due : null, category, party_id: party, accountId }) as RM;
+  const HOJE = "2026-09-30"; // quarta-feira, dia útil
+  const movs: RM[] = [
+    mv("s-hoje", "saida", 1_500, "2026-09-30", "Aluguel", "F1", "pendente", "A1"),
+    mv("s-amanha", "saida", 800, "2026-10-01", "Energia", "F2", "pendente", "A1"),
+    mv("s-vencida", "saida", 300, "2026-09-25", "Internet", "F3"),
+    mv("s-longe", "saida", 999, "2026-10-20", "Seguro", "F4"),
+    mv("e-pago", "entrada", 5_000, "2026-09-20", "Vendas", "C1", "pago"),
+    mv("r-3a", "entrada", 900, "2026-09-27", "Vendas", "C1"),   // D+3
+    mv("r-3b", "entrada", 400.5, "2026-09-27", "Vendas", "C1"), // D+3, MESMO cliente
+    mv("r-10", "entrada", 700, "2026-09-20", "Vendas", "C2"),   // D+10
+    mv("r-60", "entrada", 4_000, "2026-08-01", "Vendas", "C3"), // D+60 (manual)
+  ];
+  const credor = { nome: "Aurora", razaoSocial: "Padaria Aurora Ltda", documento: "12345678000195" };
+  const ctxBase = (over: Partial<Ctx> = {}): Ctx => ({
+    orgId: "org-a", hoje: HOJE, credor,
+    input: { hoje: HOJE, saldoAtual: 10_000, movements: movs, partyNames: { F1: "Imobiliária Sol", F2: "Luz SA", F3: "Net", F4: "Seguradora", C1: "Cliente Um", C2: "Cliente Dois", C3: "Cliente Tres" }, horizonDias: 60 },
+    contas: [{ id: "A1", nome: "Conta Movimento", saldo: 1_000 }, { id: "A2", nome: "Reserva", saldo: 9_000 }],
+    contatos: { C1: { id: "C1", nome: "Cliente Um", telefone: "(11) 99999-0001" }, C2: { id: "C2", nome: "Cliente Dois", email: "dois@cliente.com" }, C3: { id: "C3", nome: "Cliente Tres", telefone: "11999990003" } },
+    membros: [{ userId: "u1", papel: "owner", nome: "Dona", email: "dona@aurora.com" }],
+    aprovacoesPendentes: 2, mesesTravados: [], envios: [], appUrl: "https://app.exemplo", ...over,
+  });
+  const cfg = (tipo: import("@/core/automacoes").TipoAutomacao, over: Partial<Cfg> = {}): Cfg =>
+    ({ ...A.configPadrao(tipo), ativo: true, destinatarios: [{ userId: "u1", email_ativo: true }], ...over });
+
+  // ---- 0) o dia é o de BRASÍLIA, não o do servidor em UTC ----
+  ok("aut: hoje é o dia de Brasília (01:30 UTC de 01/10 ainda é 30/09)", A.hojeEm(new Date("2026-10-01T01:30:00Z")) === "2026-09-30");
+  ok("aut: e às 03:30 UTC já virou", A.hojeEm(new Date("2026-10-01T03:30:00Z")) === "2026-10-01");
+
+  // ---- 1) REEXECUTAR NÃO ENVIA DE NOVO (índice único + grava-antes-de-enviar) ----
+  const log: string[] = [];
+  let chamadas = 0;
+  const provAtivo: Prov = {
+    ativo: () => true,
+    async enviar() { chamadas++; log.push("enviar"); return { ok: true, id: `SM${chamadas}` }; },
+  };
+  const linhas: Linha[] = [];
+  const reg = A.registroEmMemoria(linhas, () => "2026-09-30T12:00:00Z");
+  const regComLog: Reg = {
+    reservar: async (k) => { log.push("reservar"); return reg.reservar(k); },
+    concluir: async (k, r) => { log.push("concluir"); return reg.concluir(k, r); },
+  };
+  const ctx = ctxBase();
+  const lembrete = A.gerarMensagens(cfg("lembrete_pagar"), ctx);
+  ok("aut: o lembrete RECEBEU valor (1 mensagem, com as contas de hoje e de amanhã)",
+     lembrete.mensagens.length === 1 && lembrete.mensagens[0].texto.includes(formatBRL(1_500)) && lembrete.mensagens[0].texto.includes(formatBRL(800)),
+     lembrete.semEnvio?.motivo ?? "");
+  const r1 = await A.despachar("org-a", lembrete.mensagens, { registro: regComLog, provedor: provAtivo });
+  const r2 = await A.despachar("org-a", A.gerarMensagens(cfg("lembrete_pagar"), ctx).mensagens, { registro: regComLog, provedor: provAtivo });
+  ok("aut: reexecutar NÃO envia de novo (1 envio, 1 linha; a segunda execução bate no registro)",
+     r1.enviados === 1 && r2.enviados === 0 && r2.jaRegistrados === 1 && chamadas === 1 && linhas.length === 1,
+     `${r1.enviados}/${r2.enviados}/${r2.jaRegistrados} chamadas=${chamadas} linhas=${linhas.length}`);
+  ok("aut: a ORDEM é grava → envia → conclui (o registro vem antes do provedor)",
+     log.slice(0, 3).join(",") === "reservar,enviar,concluir", log.join(","));
+  ok("aut: o registro guarda o id do provedor e diz 'enviado'", linhas[0]?.status === "enviado" && linhas[0]?.provedorMsgId === "SM1");
+  // Defeito plantado: um registro que não recusa a repetição (a trava removida)
+  // TEM de fazer o provedor ser chamado duas vezes — senão a asserção acima
+  // passaria mesmo sem trava.
+  let chamadasSemTrava = 0;
+  const semTrava: Reg = { reservar: async () => "reservado", concluir: async () => {} };
+  const provConta: Prov = { ativo: () => true, async enviar() { chamadasSemTrava++; return { ok: true }; } };
+  await A.despachar("org-a", lembrete.mensagens, { registro: semTrava, provedor: provConta });
+  await A.despachar("org-a", lembrete.mensagens, { registro: semTrava, provedor: provConta });
+  ok("aut: (defeito plantado) sem a trava, reexecutar ENVIA DUAS VEZES — a guarda discrimina", chamadasSemTrava === 2);
+  // Registro indisponível: NADA sai (mandar sem ter onde anotar é o aviso em dobro de amanhã).
+  let chamadasSemRegistro = 0;
+  const quebrado: Reg = { reservar: async () => { throw new Error("banco fora"); }, concluir: async () => {} };
+  const rq = await A.despachar("org-a", lembrete.mensagens, { registro: quebrado, provedor: { ativo: () => true, async enviar() { chamadasSemRegistro++; return { ok: true }; } } });
+  ok("aut: sem registro, o provedor NÃO é chamado", chamadasSemRegistro === 0 && rq.falhas === 1);
+  // dryRun não toca em nada.
+  const linhasDry: Linha[] = [];
+  let chamadasDry = 0;
+  const rd = await A.despachar("org-a", lembrete.mensagens, { registro: A.registroEmMemoria(linhasDry), provedor: { ativo: () => true, async enviar() { chamadasDry++; return { ok: true }; } }, dryRun: true });
+  ok("aut: dryRun diz quantas sairiam e não grava nem envia", rd.sairiam === 1 && linhasDry.length === 0 && chamadasDry === 0);
+  // Falha é retomável; enviado não.
+  const linhasF: Linha[] = [];
+  const regF = A.registroEmMemoria(linhasF);
+  let tentativa = 0;
+  const provFalhaDepoisOk: Prov = { ativo: () => true, async enviar() { tentativa++; return tentativa === 1 ? { ok: false, erro: "recusado" } : { ok: true, id: "ok2" }; } };
+  const f1 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  const f2 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  const f3 = await A.despachar("org-a", lembrete.mensagens, { registro: regF, provedor: provFalhaDepoisOk });
+  ok("aut: envio que FALHOU é retomado; depois de enviado, não sai de novo",
+     f1.falhas === 1 && f2.enviados === 1 && f3.jaRegistrados === 1 && tentativa === 2 && linhasF.length === 1, `${tentativa} ${linhasF.map((l) => l.status)}`);
+
+  // ---- 2) SIMULADO NUNCA VIRA AVISADO ----
+  const linhasSim: Linha[] = [];
+  const cfgRegua = cfg("regua_cobranca");
+  const regua = A.gerarMensagens(cfgRegua, ctx);
+  const rs = await A.despachar("org-a", regua.mensagens, { registro: A.registroEmMemoria(linhasSim), provedor: { ativo: () => false, async enviar() { throw new Error("não devia chamar"); } } });
+  ok("aut: sem credencial, a régua registra SIMULADO (e não chama o provedor)",
+     rs.simulados === regua.mensagens.length && regua.mensagens.length > 0 && linhasSim.every((l) => l.status === "simulado"), `${rs.simulados}/${regua.mensagens.length}`);
+  const historicoSim = linhasSim.map((l) => ({ tipo: l.tipo, chave: l.chave, canal: l.canal, status: l.status, em: l.criadoEm }));
+  const reguaDepois = montarRegua(ctx.input, A.enviosDaRegua(historicoSim), undefined, { credor });
+  ok("aut: título com envio SIMULADO continua NÃO avisado na régua",
+     reguaDepois.itens.filter((i) => ["r-3a", "r-3b", "r-10"].includes(i.movimentoId)).every((i) => !i.jaEnviado));
+  ok("aut: simulado não conta como avisado; enviado e manual contam",
+     !A.contaComoAvisado("simulado") && !A.contaComoAvisado("falhou") && A.contaComoAvisado("enviado") && A.contaComoAvisado("manual"));
+  // Defeito plantado: se simulado contasse, os títulos sairiam da régua.
+  const plantado = montarRegua(ctx.input, A.enviosDaRegua(historicoSim.map((h) => ({ ...h, status: "enviado" as const }))), undefined, { credor });
+  ok("aut: (defeito plantado) tratar simulado como enviado MARCARIA os títulos como avisados",
+     plantado.itens.filter((i) => ["r-3a", "r-3b", "r-10"].includes(i.movimentoId)).every((i) => i.jaEnviado));
+  const repetirSim = A.gerarMensagens(cfgRegua, ctxBase({ envios: historicoSim }));
+  ok("aut: depois de um envio simulado, a régua ainda propõe o aviso (nada chegou ao cliente)",
+     repetirSim.mensagens.length === regua.mensagens.length);
+
+  // ---- 3) EMPRESA SEM DADOS NÃO RECEBE "R$ 0" ----
+  const vazio = ctxBase({ input: { hoje: HOJE, saldoAtual: 0, movements: [], partyNames: {}, horizonDias: 60 }, contas: [] });
+  for (const t of ["resumo_diario", "resumo_semanal", "lembrete_pagar", "alerta_caixa", "fechamento_pendente"] as const) {
+    const r = A.gerarMensagens(cfg(t), vazio);
+    ok(`aut: empresa sem lançamentos não recebe ${t}`, r.mensagens.length === 0 && r.semEnvio?.codigo === "sem_dados", r.semEnvio?.codigo ?? "saiu mensagem");
+  }
+  // Com dados, mas NADA vencendo hoje: a soma vazia vira frase, nunca "R$0,00".
+  const semHoje = ctxBase({ input: { ...ctx.input, movements: movs.filter((m) => m.due_date !== HOJE) } });
+  const rd0 = A.redigirResumoDiario(semHoje);
+  const zeroFormatado = formatBRL(0);
+  ok("aut: resumo sem vencimento hoje diz 'nada vence hoje' e NÃO imprime R$0,00",
+     !A.ehSemEnvio(rd0) && rd0.texto.includes("nada vence hoje") && !rd0.texto.includes(zeroFormatado) && !rd0.html.includes(zeroFormatado),
+     A.ehSemEnvio(rd0) ? rd0.motivo : rd0.texto);
+  ok("aut: (defeito plantado) o detector enxerga R$0,00 quando ele aparece", `A receber hoje: ${formatBRL(0)}`.includes(zeroFormatado));
+  const rdc = A.redigirResumoDiario(ctx);
+  ok("aut: o resumo do dia RECEBEU valor (saldo, hoje, vencidos, aprovações)",
+     !A.ehSemEnvio(rdc) && rdc.texto.includes(formatBRL(10_000)) && rdc.texto.includes(formatBRL(1_500)) && rdc.texto.includes(formatBRL(300)) && rdc.texto.includes("Aprovações pendentes"),
+     A.ehSemEnvio(rdc) ? rdc.motivo : rdc.texto);
+  ok("aut: resumo não sai no fim de semana (mas a prévia mostra)",
+     A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" })) && !A.ehSemEnvio(A.redigirResumoDiario({ ...ctx, hoje: "2026-10-03" }, { ignorarCalendario: true })));
+
+  // ---- 4) RÉGUA: opt-in, nunca D+60, uma mensagem por cliente por dia, pausa ----
+  ok("aut: régua DESLIGADA não gera nada (e tudo nasce desligado)",
+     A.gerarMensagens({ ...cfgRegua, ativo: false }, ctx).mensagens.length === 0 && A.configPadrao("regua_cobranca").ativo === false);
+  const titulosNaRegua = regua.mensagens.flatMap((m) => m.chavesExtras ?? []);
+  ok("aut: D+60 NUNCA sai automático (o degrau manual fica de fora)",
+     !titulosNaRegua.some((c) => c.includes("r-60")) && !regua.mensagens.some((m) => m.texto.includes(formatBRL(4_000))), titulosNaRegua.join(","));
+  ok("aut: o caminho recebeu valor — D+3 e D+10 entram", titulosNaRegua.includes("titulo:r-3a:d+3") && titulosNaRegua.includes("titulo:r-10:d+10"), titulosNaRegua.join(","));
+  const doC1 = regua.mensagens.filter((m) => m.chave.startsWith("cliente:C1:"));
+  ok("aut: cliente com DOIS títulos recebe UMA mensagem no dia (com os dois)",
+     doC1.length === 1 && (doC1[0].chavesExtras ?? []).length === 2 && doC1[0].texto.includes(formatBRL(1_300.5)), doC1.map((m) => m.texto).join(" | "));
+  ok("aut: o canal é o do cadastro (C1 WhatsApp · C2 só tem e-mail)",
+     doC1[0]?.canal === "whatsapp" && regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.canal === "email");
+  const pausada = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-10-15" }] } }, ctx);
+  ok("aut: cliente pausado não recebe", !pausada.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && pausada.mensagens.length === 1);
+  const pausaVencida = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, pausas: [{ alvo: "cliente", id: "C1", ate: "2026-09-29" }] } }, ctx);
+  ok("aut: pausa que já venceu não segura mais", pausaVencida.mensagens.some((m) => m.chave.startsWith("cliente:C1:")));
+  const jaCobrado = A.gerarMensagens(cfgRegua, ctxBase({ envios: [{ tipo: "regua_cobranca", chave: `cliente:C1:${HOJE}`, canal: "whatsapp", status: "enviado", em: `${HOJE}T10:00:00Z` }] }));
+  ok("aut: cliente já cobrado HOJE por outra porta (copiloto, botão) não recebe de novo",
+     !jaCobrado.mensagens.some((m) => m.chave.startsWith("cliente:C1:")) && jaCobrado.mensagens.length === 1);
+
+  // ---- 5) CREDOR IDENTIFICADO e VALOR POR formatBRL ----
+  for (const m of regua.mensagens) {
+    ok(`aut: a cobrança (${m.canal}) identifica o credor com razão social e CNPJ`,
+       m.texto.includes("Padaria Aurora Ltda") && m.texto.includes("CNPJ 12.345.678/0001-95") && m.html.includes("Padaria Aurora Ltda"), m.texto);
+    ok(`aut: a cobrança (${m.canal}) diz "se já pagou, desconsidere"`, m.texto.includes("Se já pagou, desconsidere"));
+    ok("aut: a variável de valor do template é formatBRL (nunca o número cru)", /^R\$/.test(m.variaveis["3"]) && !/^\d+(\.\d+)?$/.test(m.variaveis["3"]), m.variaveis["3"]);
+  }
+  const vt = variaveisDoTemplate({ cliente: "Beta", valor: 1234.5, vencimento: "2026-09-27", dias: 3 }, credor);
+  ok("aut: o template da régua manual leva valor formatado e credor (era String(1234.5))",
+     vt["3"] === formatBRL(1234.5) && vt["3"] !== "1234.5" && vt["2"].includes("Padaria Aurora Ltda"), JSON.stringify(vt));
+  const manual = montarRegua(ctx.input, [], undefined, { credor }).itens.filter((i) => i.etapa.canal !== "manual");
+  ok("aut: TODA etapa não manual da régua cita o credor e o 'desconsidere'",
+     manual.length > 0 && manual.every((i) => i.mensagem.includes("Padaria Aurora Ltda") && i.mensagem.includes("Se já pagou, desconsidere")));
+  // O template é por TOM: lembrete e aviso formal não saem com o mesmo texto.
+  const { FINALIDADE_DO_TOM } = await import("@/core/cobranca");
+  ok("aut: um template por tom (lembrete ≠ atraso ≠ formal)",
+     new Set(Object.values(FINALIDADE_DO_TOM)).size === 3 && FINALIDADE_DO_TOM.lembrete !== FINALIDADE_DO_TOM.formal);
+  // Encargo só quando configurado, e pela calculadora canônica.
+  const comMora = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 0.02, jurosMesPct: 0.01 } }, ctx);
+  const c2 = comMora.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
+  ok("aut: com multa/juros configurados, o valor corrigido sai de calcularMora (700 + 2% + 1% × 10/30)",
+     !!c2 && c2.texto.includes(formatBRL(716.33)), c2?.texto ?? "");
+  // ⚠️ O teto vale no NÚCLEO: um parâmetro gravado errado (2 em vez de 0,02,
+  // vindo da API ou de um SQL) não pode cobrar 200% de multa do cliente.
+  const foraDoTeto = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, multaPct: 2, jurosMesPct: 1 } }, ctx);
+  const c2t = foraDoTeto.mensagens.find((m) => m.chave.startsWith("cliente:C2:"));
+  ok("aut: multa/juros acima do teto do CDC (2% · 1% a.m.) são limitados ao teto no núcleo",
+     !!c2t && c2t.texto.includes(formatBRL(716.33)) && !c2t.texto.includes(formatBRL(700 * 3)), c2t?.texto ?? "");
+  ok("aut: sem configurar, NENHUM encargo entra", !(regua.mensagens.find((m) => m.chave.startsWith("cliente:C2:"))?.texto ?? "").includes("multa"));
+  const comPix = A.gerarMensagens({ ...cfgRegua, parametros: { ...cfgRegua.parametros, chavePix: "12345678000195", cidadePix: "Sao Paulo" } }, ctx);
+  ok("aut: com chave PIX, a mensagem traz o copia e cola (BR Code com CRC)",
+     comPix.mensagens.length > 0 && comPix.mensagens.every((m) => /000201[\s\S]*6304[0-9A-F]{4}/.test(m.texto)));
+
+  // ---- 6) LEMBRETE: agrupado por data, vence hoje é a vencer, sexta = semana seguinte, conta que não cobre ----
+  const lt = lembrete.mensagens[0]?.texto ?? "";
+  ok("aut: lembrete agrupa por DATA e 'vence hoje' é a vencer (não atraso)",
+     lt.includes("Vence hoje (30/09)") && lt.includes("Vence em 01/10/2026") && lt.includes("Já venceram") && !lt.includes(formatBRL(999)), lt);
+  ok("aut: lembrete avisa quando o saldo da conta não cobre", lt.includes("O saldo da conta Conta Movimento"), lt);
+  // O que vence HOJE está no prazo: o bloco "Já venceram" soma só o de 25/09.
+  ok("aut: o título que vence hoje NÃO entra em 'Já venceram' (o bloco soma só o atraso de verdade)",
+     lt.includes(`Já venceram · ${formatBRL(300)}`) && (lt.match(/Imobiliária Sol/g) ?? []).length === 1, lt);
+  ok("aut: na sexta o lembrete olha a semana seguinte inteira",
+     A.janelaDoLembrete("2026-10-02").ate === "2026-10-11" && A.janelaDoLembrete("2026-09-30").ate === "2026-10-01");
+  ok("aut: com feriado (20/11, Consciência Negra), o lembrete de quinta olha até a segunda 23/11",
+     A.janelaDoLembrete("2026-11-19").ate === "2026-11-23" && A.janelaDoLembrete("2026-10-01").ate === "2026-10-02", `${A.janelaDoLembrete("2026-11-19").ate}`);
+
+  // ---- 7) ALERTA: condicional, sem 97%, só quando a faixa muda ----
+  const aperto = ctxBase({ input: { hoje: HOJE, saldoAtual: 1_000, movements: [mv("x1", "saida", 3_000, "2026-10-05", "Fornecedor", "F9"), mv("x0", "entrada", 50, "2026-09-01", "Vendas", "C1", "pago")], partyNames: {}, horizonDias: 60 } });
+  const al = A.gerarMensagens(cfg("alerta_caixa", { parametros: { horizonteDias: 15, saldoMinimo: 0 } }), aperto);
+  ok("aut: o alerta sai no CONDICIONAL e sem percentual (o 97% é o teto da fórmula)",
+     al.mensagens.length === 1 && al.mensagens[0].texto.includes("ficaria negativo") && !/%/.test(al.mensagens[0].texto), al.semEnvio?.motivo ?? al.mensagens[0]?.texto);
+  ok("aut: a chave do alerta carrega a faixa (5 dias → faixa 7)", !!al.mensagens[0]?.chave.startsWith(`faixa:neg-7:${HOJE}:`), al.mensagens[0]?.chave);
+  const repetido = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-7:2026-09-28:abcd", canal: "email", status: "enviado", em: "2026-09-28T12:00:00Z" }] });
+  ok("aut: a MESMA faixa avisada há 2 dias não reenvia", repetido.mensagens.length === 0 && repetido.semEnvio?.codigo === "faixa_ja_avisada");
+  const mudou = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-15:2026-09-28:abcd", canal: "email", status: "enviado", em: "2026-09-28T12:00:00Z" }] });
+  ok("aut: faixa que MUDOU (15 → 7) reenvia", mudou.mensagens.length === 1);
+  const simAntes = A.gerarMensagens(cfg("alerta_caixa"), { ...aperto, envios: [{ tipo: "alerta_caixa", chave: "faixa:neg-7:2026-09-29:abcd", canal: "email", status: "simulado", em: "2026-09-29T12:00:00Z" }] });
+  ok("aut: um alerta SIMULADO antes não conta como avisado (sai de novo)", simAntes.mensagens.length === 1);
+  ok("aut: sem aperto no horizonte, nada sai", A.gerarMensagens(cfg("alerta_caixa"), ctx).semEnvio?.codigo === "nada_a_avisar");
+
+  // ---- 8) FECHAMENTO: 3º e 8º dia útil, só com o mês anterior aberto ----
+  const out5 = { ...ctx, hoje: "2026-10-05" }; // 3º dia útil de outubro/2026 (1, 2, 5)
+  const fech = A.gerarMensagens(cfg("fechamento_pendente"), out5);
+  ok("aut: no 3º dia útil, com setembro aberto, o aviso sai", fech.mensagens.length === 1 && fech.mensagens[0].assunto.includes("setembro de 2026"), fech.semEnvio?.motivo ?? "");
+  ok("aut: setembro travado não gera aviso", A.gerarMensagens(cfg("fechamento_pendente"), { ...out5, mesesTravados: ["2026-09"] }).semEnvio?.codigo === "mes_fechado");
+  ok("aut: fora do 3º/8º dia útil não sai", A.gerarMensagens(cfg("fechamento_pendente"), { ...ctx, hoje: "2026-10-06" }).semEnvio?.codigo === "fora_do_dia");
+
+  // ---- 9) destinatário: só titular/admin ATUAL recebe ----
+  const saiu = A.gerarMensagens(cfg("resumo_diario", { destinatarios: [{ userId: "ex-socio", email_ativo: true }] }), ctx);
+  ok("aut: quem saiu da empresa não recebe (o e-mail vem do MEMBRO, não da configuração)",
+     saiu.mensagens.length === 0 && saiu.semEnvio?.codigo === "sem_destinatario");
+  const dois = A.gerarMensagens(cfg("resumo_diario", { canais: ["email", "whatsapp"], destinatarios: [{ userId: "u1", email_ativo: true, whatsapp_ativo: true, telefone: "(11) 98888-7777" }] }), ctx);
+  ok("aut: e-mail e WhatsApp do mesmo resumo são dois envios, e a chave não carrega o endereço",
+     dois.mensagens.length === 2 && new Set(dois.mensagens.map((m) => `${m.chave}|${m.canal}`)).size === 2 && dois.mensagens.every((m) => !m.chave.includes("dona@")));
+  ok("aut: o destino é MASCARADO no registro", dois.mensagens.length > 0 && dois.mensagens.every((m) => m.destinoMascarado.includes("***") || m.destinoMascarado.includes("••••")));
+
+  // ---- 10) uma função só lê linhas → RiskInput (o mapeador único) ----
+  const dataTs = fsA.readFileSync("src/lib/data.ts", "utf8");
+  const consolidadoTs = fsA.readFileSync("src/lib/consolidado.ts", "utf8");
+  const ctxTs = fsA.readFileSync("src/lib/automacoes-contexto.ts", "utf8");
+  ok("aut: tela, consolidação e runner montam o RiskInput pelo MESMO mapeador",
+     /linhasParaRiskInput\(/.test(dataTs) && /linhasParaRiskInput\(/.test(consolidadoTs) && /linhasParaRiskInput\(/.test(ctxTs)
+     && !/category: r\.categoria \? String\(r\.categoria\)/.test(consolidadoTs) && !/category: embedName\(m\.categoria\)/.test(dataTs));
+  const { linhaParaRiskMovement } = await import("@/lib/risco-linhas");
+  const embed = linhaParaRiskMovement({ id: "1", type: "saida", status: "pendente", amount: "12.5", due_date: "2026-09-30", category: "texto livre", categoria: [{ name: "Do cadastro" }], centro: { name: "Adm" } });
+  const achatado = linhaParaRiskMovement({ id: "1", type: "saida", status: "pendente", amount: 12.5, due_date: "2026-09-30", category: "texto livre", categoria: "Do cadastro", centro: "Adm" });
+  ok("aut: o mapeador lê o embed da tela e o texto achatado da RPC do MESMO jeito",
+     JSON.stringify(embed) === JSON.stringify(achatado) && embed.category === "Do cadastro" && embed.amount === 12.5 && embed.costCenter === "Adm", JSON.stringify(embed));
+
+  // ---- 11) a rota do runner: CRON_SECRET pela regra única, dryRun, grava antes ----
+  const runner = fsA.readFileSync("src/app/api/financial-os/run/route.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("aut: o runner usa recusaDeCron, lê pela RPC e despacha pelo núcleo (dryRun incluído)",
+     /recusaDeCron\(req\)/.test(runner) && /rpc\("automacao_contexto"/.test(runner) && /despachar\(/.test(runner) && /dryRun/.test(runner)
+     && !/lib\/supabase\/client/.test(runner));
+  const copiloto = fsA.readFileSync("src/lib/ai-copilot.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("aut: o copiloto cobra pela MESMA rota e grava no MESMO registro (clienteChave)",
+     /\/api\/cobranca\/whatsapp/.test(copiloto) && /registro: \{ clienteChave/.test(copiloto) && !/Quattro · Olá!/.test(copiloto));
+  const migr = fsA.readFileSync("supabase/migrations/20260930190000_automacoes.sql", "utf8");
+  ok("aut: a migration tem o índice único, o padrão por seed E por gatilho, e a RPC só para service_role",
+     /create unique index if not exists automacao_envios_unico\s+on public\.automacao_envios \(org_id, tipo, chave, canal\)/.test(migr)
+     && /insert into public\.automacoes[\s\S]*cross join public\.automacoes_padrao\(\)/.test(migr)
+     && /after insert on public\.organizations[\s\S]*automacoes_inicial/.test(migr)
+     && /revoke all on function public\.automacao_contexto\(uuid\) from public, anon, authenticated/.test(migr)
+     && /grant execute on function public\.automacao_contexto\(uuid\) to service_role/.test(migr));
+}
+
+/* ── CAMP-A ── */
+// Checklist de fechamento com dono/prazo/revisor · aging de contas a pagar ·
+// previsão do mês em três camadas. Valores fechados sobre fixture, e cada regra
+// provada pelo defeito que ela proíbe.
+{
+  const ck = await import("@/core/close/checklist");
+  const { montarAgingContasPagar, faixaDoTitulo } = await import("@/core/contas-pagar/aging");
+  const { montarPrevisaoDoMes } = await import("@/core/previsao-mes");
+  type Mov = import("@/core/risk-engine/types").RiskMovement;
+
+  /* ---------------- 1. CHECKLIST ---------------- */
+  const geradas = ck.tarefasAGerar("2026-08", []);
+  ok("campa checklist: o mês nasce com as CINCO tarefas do modelo",
+     geradas.length === 5 && ["conciliar_bancos", "provisoes", "revisar_dre", "conferir_impostos", "exportar_contador"].every((k) => geradas.some((g) => g.chave === k)),
+     JSON.stringify(geradas.map((g) => g.chave)));
+  ok("campa checklist: todas nascem PENDENTES e sem carimbo", geradas.every((g) => g.status === "pending" && !g.concluidaPor && !g.revisadaPor));
+  ok("campa checklist: prazo no mês SEGUINTE (conciliação dia 3 → 2026-09-03)",
+     geradas.find((g) => g.chave === "conciliar_bancos")?.prazo === "2026-09-03");
+  ok("campa checklist: dezembro vira janeiro do ano seguinte (não mês 13)", ck.prazoDoModelo("2026-12", 8) === "2027-01-08");
+  ok("campa checklist: dia além do fim do mês vira o último dia", ck.prazoDoModelo("2027-01", 31) === "2027-02-28");
+
+  const comId = geradas.map((g, i) => ({ ...g, id: `t${i}` }));
+  ok("campa checklist: gerar de novo é IDEMPOTENTE (abrir a tela duas vezes não duplica)",
+     ck.tarefasAGerar("2026-08", comId).length === 0);
+  // A herança: quem cuidou da conciliação em agosto cuida em setembro.
+  const agoAtrib = comId.map((t) => (t.chave === "conciliar_bancos" ? { ...t, responsavelId: "ana", revisorId: "bia" } : t));
+  const set = ck.tarefasAGerar("2026-09", agoAtrib);
+  const conc = set.find((t) => t.chave === "conciliar_bancos");
+  ok("campa checklist: responsável e revisor se REPETEM do mês anterior",
+     conc?.responsavelId === "ana" && conc?.revisorId === "bia" && set.length === 5);
+
+  const membros2 = [
+    { id: "ana", nome: "Ana", podeRevisar: true },
+    { id: "bia", nome: "Bia", podeRevisar: true },
+    { id: "caio", nome: "Caio", podeRevisar: false },
+  ];
+  const membros1 = [{ id: "ana", nome: "Ana", podeRevisar: true }];
+  const t0 = comId[0];
+  const c = ck.concluir(t0, "ana", "2026-09-02T10:00:00Z");
+  ok("campa checklist: concluir carimba quem concluiu", c.ok && c.tarefa.status === "review" && c.tarefa.concluidaPor === "ana");
+  const concluida = c.ok ? c.tarefa : t0;
+  const auto = ck.revisar(concluida, "ana", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: AUTORREVISÃO BLOQUEADA quando existe outro membro habilitado",
+     !auto.ok && auto.codigo === "segregacao", JSON.stringify(auto));
+  const porBia = ck.revisar(concluida, "bia", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: outra pessoa habilitada revisa, sem carimbo de autorrevisão",
+     porBia.ok && porBia.tarefa.status === "done" && porBia.tarefa.revisadaPor === "bia" && !porBia.tarefa.autorrevisao);
+  const porCaio = ck.revisar(concluida, "caio", membros2, "2026-09-02T11:00:00Z");
+  ok("campa checklist: membro SEM o papel de fechamento não revisa", !porCaio.ok && porCaio.codigo === "permissao");
+  // ⚠️ Caio (sem papel) NÃO conta como "outro revisor": a pergunta é quem PODE revisar.
+  const soComCaio = ck.revisar(concluida, "ana", [membros2[0], membros2[2]], "2026-09-02T11:00:00Z");
+  ok("campa checklist: membro sem papel não torna a autorrevisão proibida (sai da matriz, não do quadro)",
+     soComCaio.ok && soComCaio.tarefa.autorrevisao);
+  const sozinha = ck.revisar(concluida, "ana", membros1, "2026-09-02T11:00:00Z");
+  ok("campa checklist: sem outro habilitado, a autorrevisão é PERMITIDA e CARIMBADA",
+     sozinha.ok && sozinha.tarefa.autorrevisao && sozinha.tarefa.autorrevisaoMotivo === ck.MOTIVO_AUTORREVISAO);
+  ok("campa checklist: pendente → revisada direto é recusado (pularia quem fez)",
+     !ck.revisar(t0, "bia", membros2, "x").ok);
+  ok("campa checklist: atribuir a quem não é membro é recusado",
+     !ck.atribuir(t0, { responsavelId: "estranho" }, membros2).ok && ck.atribuir(t0, { responsavelId: "caio" }, membros2).ok);
+
+  // Atrasada: passou do prazo SEM revisão; "vence hoje" ainda está no prazo.
+  ok("campa checklist: prazo de hoje NÃO é atraso", !ck.atrasada({ status: "pending", prazo: "2026-09-03" }, "2026-09-03"));
+  ok("campa checklist: passou do prazo e não foi revisada → atrasada", ck.atrasada({ status: "review", prazo: "2026-09-03" }, "2026-09-04"));
+  ok("campa checklist: revisada nunca atrasa", !ck.atrasada({ status: "done", prazo: "2026-09-03" }, "2026-12-01"));
+
+  // A trava: tudo revisado, ou motivo de 20+.
+  const tudoRevisado = comId.map((t) => ({ ...t, status: "done" as const }));
+  ok("campa checklist: com tudo revisado, trava sem motivo", ck.podeTravar(tudoRevisado, null).pode);
+  const umaAberta = tudoRevisado.map((t, i) => (i === 2 ? { ...t, status: "review" as const } : t));
+  const semMotivo = ck.podeTravar(umaAberta, "ok");
+  ok("campa checklist: com tarefa aberta, motivo de fachada NÃO trava", !semMotivo.pode && semMotivo.abertas === 1);
+  ok("campa checklist: com tarefa aberta, motivo de 20+ caracteres trava (registrado)",
+     (() => { const r = ck.podeTravar(umaAberta, "contador entrega a guia na segunda"); return r.pode && r.comMotivo; })());
+  const pr = ck.prontidao(umaAberta, "2026-09-10");
+  ok("campa checklist: prontidão conta só o REVISADO (concluída sem revisão não fecha)",
+     pr.revisadas === 4 && pr.aguardandoRevisao === 1 && pr.fracao === 0.8 && !pr.completa, JSON.stringify(pr));
+
+  // ⚠️ A cópia da regra na tela e o gatilho do banco têm de falar a mesma
+  // coisa: as duas mensagens de segregação e o piso do motivo.
+  const fsC = await import("node:fs");
+  const sql = fsC.readFileSync("supabase/migrations/20260930200000_fechamento_responsavel.sql", "utf8");
+  ok("campa checklist: o gatilho do banco tem a segregação e o carimbo",
+     /A4P-FECHAMENTO-SEGREGACAO/.test(sql) && /autorrevisao := true/.test(sql) && /role_permissions rp on rp\.papel = om\.role and rp\.acao = 'fechar'/.test(sql));
+  ok("campa checklist: o piso do motivo é o MESMO na tela e no banco",
+     new RegExp(`< ${ck.MOTIVO_MINIMO}`).test(sql));
+  // ⚠️ (revisão CAMP-A) A fechadura tem guarda de BANCO no CI — a que exercita
+  // as portas laterais (mês → nulo, lixeira, trocar o mês). Esta asserção só
+  // impede que o passo saia do CI sem ninguém ver.
+  const ciYml = fsC.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("campa checklist: o CI roda a guarda de banco do checklist (scripts/fechamento-checklist.sql)",
+     /-f scripts\/fechamento-checklist\.sql/.test(ciYml) && fsC.existsSync("scripts/fechamento-checklist.sql"));
+  // ⚠️ Uma morada só: a tela não volta a ler as tarefas do navegador unido ao banco.
+  const closeLib = fsC.readFileSync("src/lib/close.ts", "utf8");
+  ok("campa checklist: lib/close não guarda mais tarefa (era a segunda morada)",
+     !/a4p_close_tasks|saveCloseTask|loadCloseTasks/.test(closeLib.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "")));
+
+  /* ---------------- 2. AGING DE CONTAS A PAGAR ---------------- */
+  const hoje = "2026-08-15";
+  const sai = (id: string, due: string, amount: number, extra: Partial<Mov> = {}): Mov =>
+    ({ id, type: "saida", status: "pendente", amount, due_date: due, category: "Fornecedores", party_id: "p-a", ...extra });
+  const carteira: Mov[] = [
+    sai("hoje", "2026-08-15", 100),
+    sai("v1", "2026-08-14", 200),
+    sai("v30", "2026-07-16", 300),
+    sai("v31", "2026-07-15", 400, { party_id: "p-b", category: "Aluguel" }),
+    sai("v90", "2026-05-17", 500, { party_id: "p-b", category: "Aluguel" }),
+    sai("v91", "2026-05-16", 600, { party_id: "p-b", category: "Aluguel" }),
+    sai("a7", "2026-08-22", 700),
+    sai("a8", "2026-08-23", 800),
+    sai("a30", "2026-09-14", 900),
+    sai("a31", "2026-09-15", 1000),
+    // FORA da carteira: pago, cancelado, e o que a empresa RECEBE.
+    sai("pago", "2026-07-01", 9999, { status: "pago", paid_date: "2026-07-01" }),
+    sai("canc", "2026-07-01", 8888, { status: "cancelado" }),
+    { id: "rec", type: "entrada", status: "pendente", amount: 7777, due_date: "2026-07-01" },
+  ];
+  const inpAging = { hoje, saldoAtual: 0, movements: carteira, partyNames: { "p-a": "Fornecedor A", "p-b": "Imobiliária B" } };
+  const ag = montarAgingContasPagar(inpAging);
+  const F = ag.totais.faixas;
+  ok("campa aging: limites das faixas um a um (hoje · 1 · 30 · 31 · 90 · 91 · +7 · +8 · +30 · +31)",
+     F.ate_7 === 800 && F.ate_30 === 500 && F.de_31_a_60 === 400 && F.de_61_a_90 === 500 && F.acima_90 === 600
+     && F.de_8_a_15 === 800 && F.de_16_a_30 === 900 && F.acima_30 === 1000, JSON.stringify(F));
+  ok("campa aging: o que vence HOJE é a vencer (nunca atraso)", faixaDoTitulo("2026-08-15", hoje) === "ate_7");
+  ok("campa aging: vencido 2.000 · a vencer 3.500 · total 5.500, só o EM ABERTO (pago, cancelado e receber ficam fora)",
+     ag.totais.vencido === 2000 && ag.totais.aVencer === 3500 && ag.totais.total === 5500 && ag.totais.quantidade === 10,
+     JSON.stringify(ag.totais));
+  const fA = ag.porFornecedor.find((l) => l.nome === "Fornecedor A");
+  const fB = ag.porFornecedor.find((l) => l.nome === "Imobiliária B");
+  ok("campa aging: por FORNECEDOR (A deve 4.000 com 500 vencido · B deve 1.500, tudo vencido)",
+     fA?.total === 4000 && fA.vencido === 500 && fB?.total === 1500 && fB.vencido === 1500 && fB.faixas.acima_90 === 600);
+  const cAl = ag.porCategoria.find((l) => l.nome === "Aluguel");
+  ok("campa aging: por CATEGORIA (Aluguel 1.500 · Fornecedores 4.000)",
+     cAl?.total === 1500 && ag.porCategoria.find((l) => l.nome === "Fornecedores")?.total === 4000);
+  const somaLinhas = (ls: { total: number }[]) => Math.round(ls.reduce((s, l) => s + l.total, 0) * 100) / 100;
+  ok("campa aging: as linhas FECHAM com a carteira nas duas dimensões",
+     somaLinhas(ag.porFornecedor) === ag.totais.total && somaLinhas(ag.porCategoria) === ag.totais.total);
+  // ⚠️ Mais de 10 fornecedores: o resto vira "Demais", não some.
+  const muitos: Mov[] = Array.from({ length: 14 }, (_, i) => sai(`m${i}`, "2026-08-20", 10 + i, { party_id: `p${i}` }));
+  const agM = montarAgingContasPagar({ hoje, saldoAtual: 0, movements: muitos,
+    partyNames: Object.fromEntries(muitos.map((m, i) => [m.party_id!, `F${i}`])) });
+  ok("campa aging: além do teto, o resto vira UMA linha 'Demais' e a soma continua fechando",
+     agM.porFornecedor.length === 10 && agM.agregadas.fornecedor === 5 && somaLinhas(agM.porFornecedor) === agM.totais.total);
+  // ⚠️ É POSIÇÃO: a carteira de hoje não depende de período nenhum — o vencido
+  // de maio está aqui em agosto.
+  ok("campa aging: a carteira enxerga o vencido de MESES atrás (maio em agosto)",
+     ag.totais.quantidades.acima_90 === 1 && ag.totais.quantidades.de_61_a_90 === 1);
+
+  /* ---------------- 3. PREVISÃO DO MÊS ---------------- */
+  const m = (id: string, type: "entrada" | "saida", status: "pago" | "pendente", amount: number, due: string, extra: Partial<Mov> = {}): Mov =>
+    ({ id, type, status, amount, due_date: due, paid_date: status === "pago" ? due : null, category: null, ...extra });
+  const hist: Mov[] = [];
+  for (const mm of ["02", "03", "04", "05", "06", "07"]) {
+    // Aluguel — título materializado da REGRA R1 (chave rec:R1:<data>).
+    hist.push(m(`alu${mm}`, "saida", "pago", 1500, `2026-${mm}-10`, { category: "Aluguel", party_id: "p-imob", referenceCode: `rec:R1:2026-${mm}-10` }));
+    // Energia — padrão inferido (sem regra), fixo em 400.
+    hist.push(m(`luz${mm}`, "saida", "pago", 400, `2026-${mm}-12`, { category: "Utilidades", party_id: "p-luz" }));
+    // Internet — padrão inferido que JÁ apareceu em agosto.
+    hist.push(m(`net${mm}`, "saida", "pago", 200, `2026-${mm}-03`, { category: "Internet", party_id: "p-net" }));
+    // Cliente fixo — receita que se repete, ainda não entrou em agosto.
+    hist.push(m(`cli${mm}`, "entrada", "pago", 2000, `2026-${mm}-07`, { category: "Receita de serviços", party_id: "p-cli" }));
+  }
+  const ago: Mov[] = [
+    m("venda", "entrada", "pago", 5000, "2026-08-05", { category: "Vendas", party_id: "p-x" }),
+    m("forn", "saida", "pago", 1000, "2026-08-10", { category: "Fornecedores", party_id: "p-y" }),
+    m("alu08", "saida", "pago", 1500, "2026-08-10", { category: "Aluguel", party_id: "p-imob", referenceCode: "rec:R1:2026-08-10" }),
+    m("net08", "saida", "pago", 200, "2026-08-03", { category: "Internet", party_id: "p-net" }),
+    m("receber", "entrada", "pendente", 3000, "2026-08-25", { category: "Vendas", party_id: "p-x" }),
+    m("pagar", "saida", "pendente", 2000, "2026-08-20", { category: "Fornecedores", party_id: "p-y" }),
+    m("setembro", "saida", "pendente", 999, "2026-09-05", { category: "Fornecedores", party_id: "p-y" }),
+    m("cancelada", "saida", "cancelado" as "pendente", 777, "2026-08-21", { status: "cancelado" }),
+  ];
+  const regras = [
+    { id: "R1", descricao: "Aluguel", contraparte: "Imobiliária", categoria: "Aluguel", valor: 1500, frequencia: "mensal" as const,
+      inicio: "2026-01-10", fim: null, diaVencimento: 10, ativa: true },
+    { id: "R2", descricao: "Software", contraparte: "SaaS", categoria: "Assinaturas", valor: 300, frequencia: "mensal" as const,
+      inicio: "2026-01-28", fim: null, diaVencimento: 28, ativa: true },
+  ];
+  const inpPrev = {
+    hoje, saldoAtual: 10000, movements: [...hist, ...ago],
+    partyNames: { "p-imob": "Imobiliária", "p-luz": "Companhia de Luz", "p-net": "Provedor", "p-cli": "Cliente Fixo", "p-x": "Cliente X", "p-y": "Fornecedor Y" },
+  };
+  const pv = montarPrevisaoDoMes({ input: inpPrev, regras });
+  const C = pv.camadas;
+  ok("campa previsao: REALIZADO = liquidado de 1º/08 até hoje (5.000 entrou · 2.700 saiu)",
+     C.realizado.entradas === 5000 && C.realizado.saidas === 2700 && C.realizado.natureza === "fato", JSON.stringify(C.realizado));
+  ok("campa previsao: AGENDADO = aberto até o FIM do mês (3.000 · 2.000; setembro e cancelado fora)",
+     C.agendado.entradas === 3000 && C.agendado.saidas === 2000 && C.agendado.natureza === "projecao", JSON.stringify(C.agendado));
+  ok("campa previsao: ESTIMADO = regra sem título (software 300) + padrão que não apareceu (luz 400; cliente 2.000)",
+     C.estimado.saidas === 700 && C.estimado.entradas === 2000 && C.estimado.natureza === "estimativa",
+     JSON.stringify(pv.estimados));
+  ok("campa previsao: a regra sem título entra pela chave rec:<regra>:<data>",
+     pv.estimados.some((e) => e.chave === "rec:R2:2026-08-28" && e.origem === "regra"));
+  // ⚠️ O defeito proibido: o título já lançado aparecer de novo como estimado.
+  ok("campa previsao: o aluguel JÁ LANÇADO (rec:R1) NÃO volta como estimado — nem pela regra, nem pelo padrão",
+     !pv.estimados.some((e) => /aluguel|imobili|R1/i.test(`${e.chave} ${e.descricao} ${e.categoria ?? ""}`)), JSON.stringify(pv.estimados));
+  ok("campa previsao: a internet que JÁ apareceu em agosto não é estimada",
+     !pv.estimados.some((e) => /internet|provedor/i.test(`${e.descricao} ${e.categoria ?? ""}`)));
+  ok("campa previsao: resultado previsto = soma das três camadas (10.000 − 5.400 = 4.600)",
+     pv.previsto.entradas === 10000 && pv.previsto.saidas === 5400 && pv.previsto.resultado === 4600, JSON.stringify(pv.previsto));
+  // Com o título de agosto da R2 lançado, a estimativa da R2 some (casamento por regra+MÊS, mesmo em outro dia).
+  const comR2 = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [...inpPrev.movements,
+    m("sw08", "saida", "pendente", 300, "2026-08-27", { category: "Assinaturas", referenceCode: "rec:R2:2026-08-27" })] }, regras });
+  ok("campa previsao: título da regra no mês (em OUTRO dia) suprime a estimativa — sai do estimado e entra no agendado",
+     !comR2.estimados.some((e) => e.chave.startsWith("rec:R2")) && comR2.camadas.agendado.saidas === 2300
+     && comR2.previsto.saidas === 5400, JSON.stringify(comR2.previsto));
+  // ⚠️ Sem o título de agosto do aluguel, ele é estimado UMA vez — pela regra —
+  // e não de novo pelo padrão inferido dos mesmos lançamentos (seriam dois aluguéis).
+  const semAlu08 = montarPrevisaoDoMes({ input: { ...inpPrev, movements: inpPrev.movements.filter((x) => x.id !== "alu08") }, regras });
+  const alugueis = semAlu08.estimados.filter((e) => /aluguel/i.test(`${e.descricao} ${e.categoria ?? ""}`));
+  ok("campa previsao: compromisso com regra é estimado UMA vez (a regra responde; o padrão não duplica)",
+     alugueis.length === 1 && alugueis[0].origem === "regra" && semAlu08.camadas.estimado.saidas === 2200, JSON.stringify(alugueis));
+  // ⚠️ (revisão CAMP-A) O aluguel de agosto lançado À MÃO, sem a chave `rec:`
+  // da regra — o materializador está parado em produção. Ele já está no
+  // agendado; a regra NÃO pode estimá-lo de novo (seriam R$ 3.000 de aluguel).
+  const aluManual = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [
+    ...inpPrev.movements.filter((x) => x.id !== "alu08"),
+    m("alu08m", "saida", "pendente", 1500, "2026-08-11", { category: "Aluguel", party_id: "p-imob" }),
+  ] }, regras });
+  ok("campa previsao: aluguel lançado À MÃO no mês (sem rec:) não é estimado de novo pela regra",
+     !aluManual.estimados.some((e) => /aluguel/i.test(`${e.descricao} ${e.categoria ?? ""}`))
+     && aluManual.camadas.agendado.saidas === 3500 && aluManual.previsto.saidas === 5400,
+     JSON.stringify({ est: aluManual.estimados, prev: aluManual.previsto }));
+  // O vencido de antes do mês entra no agendado, e é DITO à parte.
+  const comVencido = montarPrevisaoDoMes({ input: { ...inpPrev, movements: [...inpPrev.movements,
+    m("velho", "saida", "pendente", 450, "2026-07-20", { category: "Fornecedores", party_id: "p-y" })] }, regras });
+  ok("campa previsao: o vencido não pago entra no agendado e é declarado à parte",
+     comVencido.camadas.agendado.saidas === 2450 && comVencido.vencidoNoAgendado.saidas === 450);
+  ok("campa previsao: cada camada declara a natureza na procedência (a tela marca o projetado por ela)",
+     C.realizado.procedencia.natureza === "fato" && C.agendado.procedencia.natureza === "projecao" && C.estimado.procedencia.natureza === "estimativa");
+
+  // ⚠️ Teto ZERO na tela: as duas telas novas não somam nada.
+  for (const arq of ["src/components/fluxo-caixa/PrevisaoDoMes.tsx", "src/components/contas-pagar/AgingContasPagar.tsx"]) {
+    const src = fsC.readFileSync(arq, "utf8");
+    ok(`campa: ${arq.split("/").pop()} não soma lançamento por conta própria`,
+       !/\.reduce\(/.test(src) && !/m\.amount|\.amount\b/.test(src));
+  }
+}
+
+/* ── CAMP-B ── caixa de entrada de contas, edição em massa, extrato do contato,
+   busca global de títulos e eliminações no consolidado (30/09/2026). Cada
+   asserção foi provada PLANTANDO o defeito que ela existe para pegar. */
+{
+  const em = await import("@/core/movimentacoes/edicao-massa");
+  const ce = await import("@/core/caixa-entrada");
+  const bu = await import("@/core/busca");
+  const ex = await import("@/core/extrato-contato");
+  const pc = await import("@/core/relatorios/posicao-consolidada");
+  const mv = await import("@/core/movimentacoes");
+  const fsC = await import("node:fs");
+  type M = import("@/core/risk-engine/types").RiskMovement;
+  type RI = import("@/core/risk-engine/types").RiskInput;
+  const mk = (o: Partial<M> & { id: string }): M =>
+    ({ type: "saida", status: "pendente", amount: 100, due_date: "2026-09-10", paid_date: null, party_id: null, category: "Aluguel", ...o } as M);
+
+  /* ── edição em massa ─────────────────────────────────────────────────── */
+  const tit: M[] = [
+    mk({ id: "aberto-set", amount: 1000, category: "Aluguel", due_date: "2026-09-10" }),
+    mk({ id: "aberto-ago", amount: 500, category: "Aluguel", due_date: "2026-08-20" }), // mês FECHADO
+    mk({ id: "baixado-set", amount: 300, category: "Aluguel", status: "pago", situacao: "baixado", paid_date: "2026-09-05", due_date: "2026-09-05" }),
+    mk({ id: "cancelado", amount: 50, status: "cancelado", situacao: "cancelado", due_date: "2026-09-12" }),
+    mk({ id: "ja-igual", amount: 70, category: "Marketing", due_date: "2026-09-15" }),
+  ];
+  const fech = { mesesFechados: ["2026-08"] };
+  const pCat = em.planejarEdicao(tit, { campo: "categoria", para: "cat-mkt", paraRotulo: "Marketing" }, fech);
+  const motivoDe = (p: typeof pCat, id: string) => p.recusados.find((r) => r.id === id)?.motivo;
+  ok("campb: edição em massa NÃO mexe em título de mês fechado (a correção é estorno)",
+     !pCat.aplicar.some((a) => a.id === "aberto-ago") && motivoDe(pCat, "aberto-ago") === "mes_fechado");
+  ok("campb: categoria do BAIXADO pode mudar (é classificação, não fato)",
+     pCat.aplicar.some((a) => a.id === "baixado-set"));
+  ok("campb: cancelado não se edita em lote (terminal)", motivoDe(pCat, "cancelado") === "terminal");
+  ok("campb: o que já está igual não vira alteração nem evento", motivoDe(pCat, "ja-igual") === "igual");
+  ok("campb: o plano diz quantos e quanto ANTES de gravar (2 títulos, R$ 1.300,00)",
+     pCat.quantidade === 2 && pCat.soma === 1300 && pCat.grupos.length === 1 && pCat.grupos[0].de === "Aluguel" && pCat.grupos[0].para === "Marketing",
+     JSON.stringify(pCat.grupos));
+  const pVenc = em.planejarEdicao(tit, { campo: "vencimento", para: "2026-09-30", paraRotulo: "30/09/2026" }, fech);
+  ok("campb: vencimento do BAIXADO não muda (só título previsto)",
+     motivoDe(pVenc, "baixado-set") === "nao_previsto" && !pVenc.aplicar.some((a) => a.id === "baixado-set"));
+  ok("campb: vencimento do previsto em mês aberto muda",
+     pVenc.aplicar.length === 2 && pVenc.aplicar.some((a) => a.id === "aberto-set" && a.de === "2026-09-10" && a.para === "2026-09-30"));
+  const pParaFechado = em.planejarEdicao(tit, { campo: "vencimento", para: "2026-08-31", paraRotulo: "31/08/2026" }, fech);
+  ok("campb: vencimento que LEVARIA o título para mês fechado é recusado",
+     pParaFechado.aplicar.length === 0 && motivoDe(pParaFechado, "aberto-set") === "destino_fechado");
+  const libEm = fsC.readFileSync("src/lib/edicao-massa.ts", "utf8");
+  ok("campb: o escritor da edição em massa não engole erro (recusa do banco vira falha nomeada)",
+     !/catch\s*(\([^)]*\))?\s*\{\s*\}/.test(libEm) && /falhas\.push\(\{ id: item\.id, mensagem: error\.message \}\)/.test(libEm));
+  ok("campb: UPDATE que o banco filtrou (zero linhas) é FALHA, não \"título alterado\"",
+     /\.update\(patch\)\.eq\("id", item\.id\)\.select\("id"\)\.maybeSingle\(\)/.test(libEm) && /if \(!alterado\) \{\s*falhas\.push/.test(libEm));
+  const ramoDemoEm = libEm.slice(libEm.indexOf("if (isDemo)"), libEm.indexOf("const s = createClient()"));
+  // A tela recusa o "sair do mês fechado"; a FECHADURA é o banco (medido em
+  // transação desfeita: antes da 20260930210000 o UPDATE passava).
+  // ⚠️ REVISÃO CAMP-B — a prova da trava é de BANCO (`scripts/campb-banco.sql`,
+  // com o defeito replantado acusando), não um grep no texto da migration: o
+  // grep passava com a trava aplicada ou não. Aqui só se cobra que a guarda de
+  // banco continua no CI — sem ela, a trava pode sumir sem nada reprovar.
+  const ciYml = fsC.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("campb: a guarda de banco do CAMP-B (mês fechado pela origem · consolidado) roda no CI",
+     /-f scripts\/campb-banco\.sql/.test(ciYml) && fsC.existsSync("scripts/campb-banco.sql"));
+  ok("campb: a demonstração registra UM evento por título na trilha",
+     /for \(const item of plano\.aplicar\)[\s\S]*registrarLog\(/.test(ramoDemoEm));
+
+  /* ── caixa de entrada de contas ─────────────────────────────────────── */
+  const bol = (id: string, cod: string, extra: Record<string, unknown> = {}) => ({
+    id, origem: "dda", beneficiario: "Energia SA", pagador: "Nós", pago: false, dataPagamento: null,
+    recebidoEm: "2026-09-01", movimentoId: null,
+    leitura: { codigoBarras: cod, valor: 412.5, vencimento: "2026-09-20" }, ...extra,
+  }) as unknown as import("@/core/compras").BoletoRecebido;
+  const nf = {
+    id: "nf1", chave: null, numero: "4471", tipo: "nfe", fornecedorId: null, fornecedor: "Papelaria X",
+    cnpj: "12.345.678/0001-95", emissao: "2026-09-03", valor: 980, categoria: "Material", status: "autorizada",
+    avaliacao: "pendente", origem: "sefaz",
+  } as unknown as import("@/core/compras").NFRecebida;
+  const docs = ce.documentosDasFontes({
+    boletos: [bol("b1", "11111"), bol("b1-dup", "11111"), bol("b2", "22222", { pago: true }), bol("b3", "33333", { movimentoId: "m9" })],
+    nfs: [nf],
+    ocr: [{ refId: "o1", fornecedor: "Oficina", documento: null, valor: 150, vencimento: "2026-09-25", emissao: null, numero: null, descricao: "Documento lido", categoria: null, recebidoEm: "2026-09-02" }],
+  });
+  ok("campb: a fila junta as três fontes (DDA, SEFAZ, OCR) e deduplica o boleto pelo código de barras",
+     docs.length === 3 && docs.filter((d) => d.origem === "dda").length === 1, docs.map((d) => d.chave).join(","));
+  ok("campb: boleto já pago ou já lançado não volta para a fila",
+     !docs.some((d) => d.refId === "b2" || d.refId === "b3"));
+  const dBol = docs.find((d) => d.origem === "dda")!;
+  const semMotivo = ce.descartarEntrada(ce.ESTADO_VAZIO, dBol, "", "2026-09-04T10:00:00Z");
+  const curto = ce.descartarEntrada(ce.ESTADO_VAZIO, dBol, "dup", "2026-09-04T10:00:00Z");
+  ok("campb: descarte SEM motivo é recusado (e a recusa diz o porquê)",
+     !semMotivo.ok && /motivo/i.test((semMotivo as { erro: string }).erro));
+  ok("campb: motivo de fachada (\"dup\") também é recusado", !curto.ok);
+  const desc = ce.descartarEntrada(ce.ESTADO_VAZIO, dBol, "já pago pelo cartão em 12/09", "2026-09-04T10:00:00Z", "ana");
+  ok("campb: descarte com motivo grava", desc.ok);
+  const est1 = desc.ok ? desc.estado : ce.ESTADO_VAZIO;
+  const cxPend = ce.montarCaixaEntrada(docs, est1.decisoes, "pendentes");
+  const cxDesc = ce.montarCaixaEntrada(docs, est1.decisoes, "descartados");
+  ok("campb: o descartado sai da fila e aparece no filtro \"descartados\" com o motivo",
+     cxPend.contagem.pendentes === 2 && cxDesc.itens.length === 1 && cxDesc.itens[0].decisao?.motivo === "já pago pelo cartão em 12/09");
+  ok("campb: o descartado continua listável quando a fonte deixa de trazê-lo",
+     ce.montarCaixaEntrada([], est1.decisoes, "descartados").itens.length === 1);
+  const dNF = docs.find((d) => d.origem === "sefaz")!;
+  const est2 = ce.converterEntrada(est1, dNF, "4471", "2026-09-05T10:00:00Z");
+  const cx2 = ce.montarCaixaEntrada(docs, est2.decisoes, "pendentes");
+  ok("campb: converter tira da fila e o contador acompanha (3 → 1)",
+     cx2.contagem.pendentes === 1 && cx2.contagem.convertidos === 1 && cx2.valorPendente === 150);
+  const camposNF = ce.camposDoFormulario(dNF);
+  ok("campb: nota sem vencimento abre o formulário SEM vencimento (não na emissão)",
+     !("vencimento" in camposNF) && camposNF.competencia === "2026-09-03" && camposNF.entrada === dNF.chave);
+  const storeOrg = fsC.readFileSync("src/lib/store-org.ts", "utf8");
+  ok("campb: a chave da caixa é dado de NEGÓCIO e tem rótulo (teto zero de chave sem classificação)",
+     /caixaEntrada: "a4p_caixa_entrada"/.test(storeOrg) && /a4p_caixa_entrada: "Caixa de entrada de contas a pagar"/.test(storeOrg));
+  const form = fsC.readFileSync("src/components/movimentacoes/TituloForm.tsx", "utf8");
+  const iConv = form.indexOf("converterPorChave(entrada");
+  ok("campb: o documento só sai da fila DEPOIS de a conta ser gravada",
+     iConv > form.indexOf("await createLancamento(") && iConv > form.indexOf("appendImported({"));
+  const cs = fsC.readFileSync("src/lib/compras-store.ts", "utf8");
+  ok("campb: o boleto não tem mais o escritor que só criava conta em demonstração",
+     !/export function lancarBoleto/.test(cs));
+
+  /* ── busca global por valor ─────────────────────────────────────────── */
+  ok("campb: \"1.234,56\" · \"1234,56\" · \"R$ 1.234,56\" são R$ 1.234,56",
+     bu.interpretarValor("1.234,56") === 1234.56 && bu.interpretarValor("1234,56") === 1234.56 && bu.interpretarValor("R$ 1.234,56") === 1234.56);
+  ok("campb: \"1.234\" é mil duzentos e trinta e quatro (ponto de milhar)", bu.interpretarValor("1.234") === 1234);
+  ok("campb: texto não vira número (\"abril\", \"NF\")", bu.interpretarValor("abril") === null && bu.interpretarValor("NF") === null);
+  const ib: RI = {
+    hoje: "2026-09-15", saldoAtual: 0, horizonDias: 60,
+    partyNames: { p1: "Padaria Pão Bom" },
+    movements: [
+      mk({ id: "t-1234", amount: 1234.56, party_id: "p1", due_date: "2026-03-10" }),
+      mk({ id: "t-11234", amount: 11234.56, due_date: "2026-09-10" }),
+      mk({ id: "t-1234b", amount: 1234.5, due_date: "2026-09-11" }),
+      mk({ id: "t-doc", amount: 77, referenceCode: "NF-4471", due_date: "2026-09-12" }),
+      mk({ id: "t-canc", amount: 1234.56, status: "cancelado", due_date: "2026-09-12" }),
+    ],
+  };
+  const r1 = bu.buscarTitulos(ib, "1.234,56");
+  ok("campb: a busca por \"1.234,56\" acha o título de R$ 1.234,56 — e só ele",
+     r1.total === 1 && r1.itens[0]?.id === "t-1234" && r1.itens[0].motivo === "valor", JSON.stringify(r1.itens.map((i) => i.id)));
+  ok("campb: a busca abre a tela certa já filtrada", r1.itens[0]?.rota === "/contas-a-pagar/titulos?busca=t-1234");
+  ok("campb: busca por documento e por contraparte",
+     bu.buscarTitulos(ib, "4471").itens[0]?.id === "t-doc" && bu.buscarTitulos(ib, "padaria").itens[0]?.id === "t-1234");
+  const muitos: RI = { ...ib, movements: Array.from({ length: 20 }, (_, i) => mk({ id: `x${i}`, amount: 50, category: "Frete" })) };
+  const rT = bu.buscarTitulos(muitos, "frete");
+  ok("campb: o teto é DECLARADO (mostra 8 e diz que há 20)", rT.itens.length === bu.TETO_TITULOS && rT.total === 20);
+  const naTela = mv.filtrarTitulos(ib, "pagar", { busca: "1.234,56" }).map((m) => m.id);
+  ok("campb: a lista de títulos (destino da busca) casa o mesmo valor — e não o de R$ 11.234,56",
+     naTela.length === 1 && naTela[0] === "t-1234", naTela.join(","));
+  ok("campb: \"1234\" na lista não acha R$ 11.234 por texto contido",
+     mv.filtrarTitulos({ ...ib, movements: [mk({ id: "y", amount: 11234 })] }, "pagar", { busca: "1234" }).length === 0);
+
+  /* ── extrato do contato ─────────────────────────────────────────────── */
+  const ie: RI = {
+    hoje: "2026-09-15", saldoAtual: 0, horizonDias: 60, partyNames: { c1: "Cliente Um" },
+    movements: [
+      mk({ id: "e-velho", type: "entrada", party_id: "c1", amount: 400, due_date: "2026-06-10" }),
+      mk({ id: "e-velho-pago", type: "entrada", party_id: "c1", amount: 999, status: "pago", due_date: "2026-05-10", paid_date: "2026-05-12" }),
+      mk({ id: "e-antecip", type: "entrada", party_id: "c1", amount: 250, status: "pago", due_date: "2026-08-20", paid_date: "2026-06-30" }),
+      mk({ id: "e-pago", type: "entrada", party_id: "c1", amount: 1000, status: "pago", due_date: "2026-07-10", paid_date: "2026-07-15" }),
+      mk({ id: "e-venc", type: "entrada", party_id: "c1", amount: 600, due_date: "2026-08-05" }),
+      mk({ id: "e-futuro", type: "entrada", party_id: "c1", amount: 300, due_date: "2026-09-25" }),
+      mk({ id: "e-forn", type: "saida", party_id: "c1", amount: 5000, due_date: "2026-08-01" }),
+    ],
+  };
+  const xt = ex.montarExtratoContato(ie, "c1", "receber", "2026-07-01", "2026-09-30");
+  const abertoIndep = ie.movements
+    .filter((m) => m.type === "entrada" && m.status !== "pago" && m.due_date <= "2026-09-30")
+    .reduce((s, m) => s + m.amount, 0);
+  ok("campb: o extrato FECHA — saldo anterior + lançado − quitado == em aberto calculado por fora",
+     xt.saldoFinal === xt.emAberto && xt.emAberto === abertoIndep && xt.saldoAnterior === 400 && xt.lancado === 2150 && xt.quitado === 1250,
+     JSON.stringify({ a: xt.saldoAnterior, l: xt.lancado, q: xt.quitado, f: xt.saldoFinal, ab: xt.emAberto, ind: abertoIndep }));
+  ok("campb: título pago ANTES do período não fica em aberto no extrato",
+     xt.linhas.find((l) => l.id === "e-antecip")?.situacao === "quitado");
+  ok("campb: vencido é o que passou do prazo até hoje (o futuro é a vencer)",
+     xt.vencido === 1000 && xt.linhas.find((l) => l.id === "e-futuro")?.situacao === "a_vencer");
+  ok("campb: o lado não se mistura (a conta a pagar ao mesmo contato não entra)",
+     !xt.linhas.some((l) => l.id === "e-forn"));
+  // REVISÃO CAMP-B · liquidado SEM data de pagamento (baixa antiga, importação)
+  // é quitado — exigir `paid_date` deixava o título em aberto para sempre e o
+  // extrato cobrava do cliente o que ele já pagou.
+  const ieSemData: RI = { ...ie, movements: [mk({ id: "e-sem-data", type: "entrada", party_id: "c1", amount: 480, status: "pago", paid_date: null, due_date: "2026-08-10" })] };
+  const xs = ex.montarExtratoContato(ieSemData, "c1", "receber", "2026-07-01", "2026-09-30");
+  ok("campb: título liquidado sem data de pagamento sai QUITADO do extrato, não em aberto",
+     xs.emAberto === 0 && xs.vencido === 0 && xs.quitado === 480 && xs.linhas[0]?.situacao === "quitado",
+     JSON.stringify({ ab: xs.emAberto, v: xs.vencido, q: xs.quitado }));
+  ok("campb: intervalo invertido é DITO, não um extrato vazio calado",
+     !!ex.montarExtratoContato(ie, "c1", "receber", "2026-09-30", "2026-07-01").problema);
+
+  /* ── eliminações no consolidado ─────────────────────────────────────── */
+  const ent = (id: string, nome: string, movs: M[], partyNames: Record<string, string>) =>
+    ({ id, nome, input: { hoje: "2026-09-15", saldoAtual: 1000, horizonDias: 60, partyNames, movements: movs } as RI });
+  const grupo = [
+    ent("h", "Holding", [
+      mk({ id: "ic-r", type: "entrada", party_id: "pm", amount: 2500, due_date: "2026-09-05" }),
+      mk({ id: "ic-r-fora", type: "entrada", party_id: "pm", amount: 700, due_date: "2026-05-05" }),
+    ], { pm: "Matriz" }),
+    ent("m", "Matriz", [
+      mk({ id: "ic-p", type: "saida", party_id: "ph", amount: 2500, due_date: "2026-09-06" }),
+      mk({ id: "ic-p-fora", type: "saida", party_id: "ph", amount: 700, due_date: "2026-05-05" }),
+      mk({ id: "venda-terceiro", type: "entrada", party_id: "pt", amount: 2500, due_date: "2026-09-05" }),
+      mk({ id: "custo", type: "saida", party_id: "pt", amount: 800, due_date: "2026-09-10" }),
+    ], { ph: "Holding", pt: "Cliente Terceiro" }),
+  ];
+  const pos = pc.montarPosicaoConsolidada(grupo, "2026-09-01", "2026-09-30");
+  ok("campb: o par intercompany é eliminado e LISTADO (quem, quanto, competência)",
+     pos.eliminacoes.length === 1 && pos.eliminacoes[0].valor === 2500 && pos.eliminacoes[0].entre.includes("Holding") && pos.eliminacoes[0].competencia === "2026-09-05",
+     JSON.stringify(pos.eliminacoes));
+  ok("campb: a venda a TERCEIRO de mesmo valor e data não é eliminada (critério conservador)",
+     pos.depois.receita === 2500 && pos.antes.receita === 5000);
+  ok("campb: eliminar tira o MESMO valor dos dois lados — o resultado não se move",
+     pos.antes.resultado === pos.depois.resultado && pos.eliminadoReceita === pos.eliminadoDespesa && pos.eliminadoReceita === 2500);
+  ok("campb: o par de OUTRO mês não sai do período (a soma não o tinha)",
+     !pos.eliminacoes.some((e) => e.entrada.includes("fora")));
+  // REVISÃO CAMP-B · o par que ATRAVESSA a borda do período (entrada 29/09,
+  // saída 02/10 — dentro da tolerância de 5 dias). Filtrando só pela competência
+  // (a data da entrada), setembro tirava a receita e uma despesa que não somou:
+  // o resultado consolidado caía 900 sem nada ter acontecido.
+  const borda = [
+    ent("h", "Holding", [mk({ id: "b-r", type: "entrada", party_id: "pm", amount: 900, due_date: "2026-09-29" })], { pm: "Matriz" }),
+    ent("m", "Matriz", [mk({ id: "b-p", type: "saida", party_id: "ph", amount: 900, due_date: "2026-10-02" })], { ph: "Holding" }),
+  ];
+  const posB = pc.montarPosicaoConsolidada(borda, "2026-09-01", "2026-09-30");
+  ok("campb: par que atravessa a borda do período NÃO é eliminado pela metade (o resultado não se move)",
+     posB.antes.resultado === posB.depois.resultado && posB.eliminadoReceita === posB.eliminadoDespesa && posB.eliminacoes.length === 0,
+     JSON.stringify({ a: posB.antes, d: posB.depois, n: posB.eliminacoes.length }));
+  const posB2 = pc.montarPosicaoConsolidada(borda, "2026-09-01", "2026-10-31");
+  ok("campb: com as duas pontas no período o mesmo par É eliminado (a guarda não passa sobre o vazio)",
+     posB2.eliminacoes.length === 1 && posB2.eliminadoReceita === 900 && posB2.antes.resultado === posB2.depois.resultado);
+  const cv = fsC.readFileSync("src/components/consolidado/ConsolidadoView.tsx", "utf8");
+  ok("campb: a tela do Consolidado usa a posição com eliminações e mostra a lista",
+     /montarPosicaoConsolidada\(/.test(cv) && /<ListaEliminacoes/.test(cv));
+  const mvw = fsC.readFileSync("src/components/relatorios/MultiempresaView.tsx", "utf8");
+  ok("campb: nenhuma tela de consolidado afirma \"sem eliminações\" enquanto elimina",
+     !/Sem eliminações intercompany \(v1\)/.test(mvw) && /<ListaEliminacoes/.test(mvw));
+}
+
+/* ── IA E AJUDA (30/09/2026) — a Quattro AI responde o MESMO número da tela ──
+ *
+ * Cada asserção abaixo nasceu de um número que a IA dizia diferente da tela que
+ * responde à mesma pergunta, medido na demonstração:
+ *   · "runway de 0 meses" ao lado de "— não há queima" no Fluxo de caixa (o
+ *     quant copiava o `.valor` 0 de um indicador AUSENTE);
+ *   · margem de CAIXA (39%) contra a margem líquida do DRE (56,4%);
+ *   · "lucro" respondido com o resultado de caixa;
+ *   · origem do EBITDA dizendo "0 lançamentos";
+ *   · "posso gastar?" com uma reserva inventada (15% do saldo × 3);
+ *   · a semana de domingo a sábado contra a de segunda a domingo dos painéis;
+ *   · "0 dia(s) no do vencimento".
+ * E da Central de Ajuda: o detector que deixava passar o CPF sem pontuação e o
+ * cartão colado com a validade, e o chamado gravado por fora do `store-org`.
+ * Cada uma foi provada plantando o defeito de volta.
+ */
+{
+  const fsIA = await import("node:fs");
+  const { centroInteligencia } = await import("@/core/executive");
+  const { classificar } = await import("@/core/quant/score");
+  const { VEREDITO_LABEL } = await import("@/core/aquisicao");
+  const { pct: pctIA } = await import("@/lib/format");
+  const { KB } = await import("@/lib/assistant-kb");
+  const { destinoDe } = await import("@/core/rotas/aliases");
+  const { planejarContratacoes } = await import("@/core/headcount");
+  const { simularCenario } = await import("@/core/executive/scenario");
+
+  const HOJE_IA = "2026-07-15"; // quarta-feira: a semana vai de 13/07 (seg) a 19/07 (dom)
+  let sIA = 0;
+  const mvIA = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `ia${sIA++}`, type: "entrada", amount: 1000, due_date: HOJE_IA, paid_date: HOJE_IA, status: "pago", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  // Empresa que GERA caixa (sem queima) e com receita de julho ainda a receber:
+  // é o caso que separa margem de caixa (50%) de margem do DRE (64%).
+  const inpIA: RiskInput = { hoje: HOJE_IA, saldoAtual: 100000, partyNames: {}, movements: [
+    mvIA({ amount: 30000, due_date: "2026-05-10", paid_date: "2026-05-10" }),
+    mvIA({ amount: 30000, due_date: "2026-06-10", paid_date: "2026-06-10" }),
+    mvIA({ amount: 10000, due_date: "2026-07-05", paid_date: "2026-07-05" }),
+    mvIA({ amount: 10000, due_date: "2026-07-20", paid_date: null, status: "pendente" }),
+    mvIA({ type: "saida", amount: 10000, due_date: "2026-05-12", paid_date: "2026-05-12", category: "Fornecedores" }),
+    mvIA({ type: "saida", amount: 10000, due_date: "2026-06-12", paid_date: "2026-06-12", category: "Fornecedores" }),
+    mvIA({ type: "saida", amount: 5000, due_date: "2026-07-08", paid_date: "2026-07-08", category: "Fornecedores" }),
+    // domingo DENTRO da semana seg–dom (fora da dom–sáb) …
+    mvIA({ type: "saida", amount: 1500, due_date: "2026-07-19", paid_date: null, status: "pendente", category: "Aluguel" }),
+    // … e o domingo ANTERIOR, dentro da dom–sáb e fora da seg–dom
+    mvIA({ type: "saida", amount: 700, due_date: "2026-07-12", paid_date: null, status: "pendente", category: "Energia" }),
+  ] } as RiskInput;
+  const ctxIA = centroInteligencia(inpIA).context;
+  const resp = (q: string, i: RiskInput = inpIA) => responderLocal(q, i, ctxIA)?.resposta ?? "";
+
+  /* runway: a AUSÊNCIA atravessa a IA — nunca "0 meses" sobre quem gera caixa */
+  const qIA = analisarQuantitativo(inpIA).indicadores;
+  ok("ia: o quant devolve runway AUSENTE (null + sem_queima), não 0, para quem gera caixa",
+     qIA.runwayMeses === null && qIA.runwayMotivo?.codigo === "sem_queima", `runwayMeses=${qIA.runwayMeses}`);
+  const rSaldo = responderLocal("qual meu saldo?", inpIA, ctxIA);
+  ok("ia: o saldo não afirma runway de 0 meses sobre uma empresa que gera caixa",
+     !!rSaldo && !/\b0(,0)? meses\b/.test(rSaldo.resposta) && /não há prazo de runway/.test(rSaldo.resposta), rSaldo?.resposta.slice(0, 160));
+  ok("ia: a pílula do runway é a da tela (\"— não há queima\")",
+     !!rSaldo && rSaldo.numeros.some((n) => n.label === "Runway" && n.valor === "— não há queima"), JSON.stringify(rSaldo?.numeros));
+  const rRun = resp("qual meu runway?");
+  ok("ia: \"qual meu runway?\" diz que não há queima, sem número inventado",
+     /não houve queima/.test(rRun) && !/\b0(,0)? meses\b/.test(rRun), rRun.slice(0, 120));
+
+  /* margem e lucro: a MESMA conta do DRE (competência), não a de caixa */
+  const cIA = cascataDRE(inpIA, { intervalo: { de: "2026-07-01", ate: "2026-07-31" }, regime: "competencia" });
+  const mEsperada = pctIA(cIA.margemLiquida.valor);
+  ok("ia: âncora à mão — a margem líquida de julho do DRE é 64,0% (12.800 ÷ 20.000)", mEsperada === "64,0%", mEsperada);
+  const rMarg = resp("qual minha margem esse mês?");
+  ok("ia: a margem da IA é a margem líquida do DRE (64,0%), não a de caixa (50,0%)",
+     rMarg.includes(`é ${mEsperada}`) && !/\b50(,0)?%/.test(rMarg), rMarg.slice(0, 140));
+  const rLucro = resp("qual meu lucro esse mês?");
+  ok("ia: \"lucro\" é o resultado líquido do DRE (R$12.800,00), com o caixa (R$5.000,00) dito como caixa",
+     /resultado líquido de R\$\s?12\.800,00/.test(rLucro) && /por competência/.test(rLucro) && /Pelo caixa.*R\$\s?5\.000,00/.test(rLucro), rLucro.slice(0, 220));
+
+  /* origem: a linha "=" do DRE não tem lançamento próprio — a frase soma as linhas que a formam */
+  const rEb = resp("qual meu EBITDA?");
+  const nLanc = Number(rEb.match(/(\d+) lançamentos?\./)?.[1] ?? "0");
+  ok("ia: a origem do EBITDA cita os lançamentos que o formam (não \"0 lançamentos\")", nLanc > 0, rEb.slice(-120));
+
+  /* posso gastar? — a MESMA reserva do simulador "Posso comprar?" */
+  const sitIA = situacaoDe(inpIA);
+  const reservaIA = formatBRL(sitIA.despesaMensal * 3);
+  const simIA = simularAquisicao(sitIA, { tipo: "outro", valor: 20000, entrada: 20000, parcelas: 0, taxaMensal: 0 });
+  const rGasto = resp("posso gastar 20 mil?");
+  ok("ia: \"posso gastar 20 mil?\" usa a reserva do simulador (3 meses de DESPESA média)",
+     rGasto.includes(reservaIA), `esperava ${reservaIA} — ${rGasto.slice(0, 200)}`);
+  ok("ia: …e não a reserva inventada de 15% do saldo × 3 (R$45.000,00)", !/45\.000,00/.test(rGasto), rGasto.slice(0, 200));
+  ok("ia: …com o MESMO veredito da tela \"Posso comprar?\"", rGasto.startsWith(VEREDITO_LABEL[simIA.veredito]), `${VEREDITO_LABEL[simIA.veredito]} × ${rGasto.slice(0, 40)}`);
+
+  /* a semana: segunda a domingo, como os painéis de contas a pagar/receber */
+  const rSem = resp("o que vence esta semana?");
+  ok("ia: \"esta semana\" vai de segunda a domingo — o título do DOMINGO 19/07 entra (R$1.500,00)",
+     /R\$\s?1\.500,00 a pagar/.test(rSem), rSem.slice(0, 160));
+  ok("ia: …e o do domingo ANTERIOR (12/07) não entra", !/R\$\s?2\.200,00|R\$\s?700,00 a pagar/.test(rSem), rSem.slice(0, 160));
+  // sem período na pergunta, o padrão é a semana corrente — pela MESMA função
+  const rVenc = resp("quais os próximos vencimentos?");
+  ok("ia: sem período dito, os vencimentos são os da semana seg–dom (R$1.500,00)",
+     /R\$\s?1\.500,00 a pagar/.test(rVenc) && /nesta semana/i.test(rVenc), rVenc.slice(0, 160));
+
+  /* pontualidade: pagar no dia é "no dia do vencimento", não "0 dia(s) no do vencimento" */
+  const inpPont: RiskInput = { hoje: HOJE_IA, saldoAtual: 0, partyNames: {}, movements: [
+    mvIA({ amount: 800, due_date: "2026-07-01", paid_date: "2026-07-01" }),
+    mvIA({ amount: 900, due_date: "2026-07-03", paid_date: "2026-07-03" }),
+  ] } as RiskInput;
+  const rPont = responderLocal("meus clientes pagam em dia?", inpPont)?.resposta ?? "";
+  ok("ia: pagar no vencimento lê \"no dia do vencimento\" (sem \"0 dia(s)\")",
+     /no dia do vencimento/.test(rPont) && !/0 dia\(s\)/.test(rPont), rPont.slice(0, 120));
+
+  /* saúde: a MESMA faixa da tela Quant, e a chance de ruptura com o horizonte certo (60 dias) */
+  const rSaude = resp("como está a saúde da empresa?");
+  const nivelIA = ({ excelente: "excelente", saudavel: "saudável", atencao: "em atenção", risco: "em risco elevado", critico: "crítica" } as const)[classificar(ctxIA.scoreFinanceiro)];
+  ok("ia: a saúde usa a faixa da tela Quant (classificar)", rSaude.includes(`está ${nivelIA}:`), `${nivelIA} × ${rSaude.slice(0, 80)}`);
+  ok("ia: a chance de ruptura é dita em 60 dias (o horizonte do motor), nunca 90",
+     /em 60 dias/.test(rSaude) && !/90 dias/.test(rSaude), rSaude.slice(0, 220));
+
+  /* onde economizar sem mês anterior: não há "subiu" sobre base vazia */
+  const inpEco: RiskInput = { hoje: HOJE_IA, saldoAtual: 0, partyNames: {}, movements: [
+    mvIA({ type: "saida", amount: 4000, due_date: "2026-07-03", paid_date: "2026-07-03", category: "Fornecedores" }),
+  ] } as RiskInput;
+  const rEco = responderLocal("onde posso economizar?", inpEco)?.resposta ?? "";
+  ok("ia: sem despesa no mês anterior, \"onde economizar\" não diz que algo subiu",
+     !/subiu R\$/.test(rEco) && /para comparar/.test(rEco), rEco.slice(0, 120));
+
+  /* headcount: o "antes" sai da mesma conta do "depois" */
+  const hc = planejarContratacoes(qIA, inpIA.saldoAtual, 80, [{ id: "c1", cargo: "Analista", salario: 5000, quantidade: 1, mesInicio: 1 }]);
+  ok("headcount: o runway ANTES sai do mesmo cenário do DEPOIS (era o canônico ausente lido como 0)",
+     hc.antes.runwayMeses === simularCenario(qIA, inpIA.saldoAtual, {}).runwayMeses && hc.antes.runwayMeses > 0, `antes=${hc.antes.runwayMeses}`);
+
+  /* as portas que a IA oferece: nenhuma rota da base de conhecimento é um desvio */
+  const rotasKB = Array.from(new Set(KB.map((k) => k.rota).filter((r): r is string => !!r)));
+  const desvios = rotasKB.filter((r) => { const [c, q] = r.split("?"); return destinoDe(c, q ? `?${q}` : undefined) !== null; });
+  ok("ia: nenhum \"Abrir tela ↗\" da base de conhecimento leva a um alias", desvios.length === 0 && rotasKB.length > 0, desvios.join(", "));
+
+  /* ── Central de Ajuda: o detector de segredos, nos formatos que se cola de verdade ── */
+  const tiposIA = (t: string) => detectarSegredos(t).map((a) => a.tipo).join(",");
+  ok("ajuda: CPF SEM pontuação é pego (tinha âncora só para o formatado)", tiposIA("meu cpf é 52998224725") === "cpf", tiposIA("meu cpf é 52998224725"));
+  ok("ajuda: …e redigido antes de gravar", !redigirSegredos("meu cpf é 52998224725").includes("52998224725"));
+  ok("ajuda: CPF seguido de um valor continua sendo só CPF", tiposIA("cpf 529.982.247-25 1000 reais") === "cpf", tiposIA("cpf 529.982.247-25 1000 reais"));
+  ok("ajuda: cartão com espaços colado com a validade é pego", tiposIA("cartão 4111 1111 1111 1111 12/28") === "cartao", tiposIA("cartão 4111 1111 1111 1111 12/28"));
+  ok("ajuda: …e o número some da mensagem", !/4111 1111 1111 1111/.test(redigirSegredos("cartão 4111 1111 1111 1111 12/28")));
+  ok("ajuda: o dia a dia do financeiro continua limpo (valor, NF, data, 11 dígitos inválidos)",
+     !temSegredo("Paguei R$ 1.234,56 da NF 000123456789 em 10/09/2026") && !temSegredo("o protocolo 12345678901 sumiu"));
+
+  /* ── Central de Ajuda + chat: o que a tela promete tem de ser o que acontece ── */
+  const srcIA = (f: string) => fsIA.readFileSync(f, "utf8");
+  const semComentIA = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const ajudaStore = srcIA("src/lib/ajuda-store.ts");
+  ok("ajuda: chamados e conversa passam pelo store-org (gravados à parte, a hidratação os apagava)",
+     /gravarOrg\(K_CHAMADOS/.test(ajudaStore) && /gravarOrg\(K_CONVERSA/.test(ajudaStore)
+     && /lerOrg<unknown>\(K_CHAMADOS/.test(ajudaStore) && /lerOrg<unknown>\(K_CONVERSA/.test(ajudaStore)
+     && !/gravar\(K_CHAMADOS|gravar\(K_CONVERSA|ler<[^>]+>\(K_CHAMADOS|ler<[^>]+>\(K_CONVERSA/.test(ajudaStore));
+  // Não há canal que leve o chamado ao suporte da Quattro: a tela não pode dizer que leva.
+  const promessaSuporte = /alguém do suporte|o suporte recebe|chamado para o suporte|chega ao suporte|enviado ao suporte/i;
+  for (const f of ["src/components/ajuda/AjudaView.tsx", "src/components/app/guides.ts"]) {
+    ok(`ajuda: ${f.split("/").pop()} não promete entrega ao suporte que não existe`, !promessaSuporte.test(semComentIA(srcIA(f))));
+  }
+  for (const f of ["src/components/ia/IAView.tsx", "src/components/app/AssistantWidget.tsx"]) {
+    const s = srcIA(f);
+    const cls = s.match(/aria-label="Enviar"\s*className="([^"]+)"/)?.[1] ?? "";
+    ok(`ia: o botão Enviar de ${f.split("/").pop()} é lime + verde-base (a seta em on-lime sobre ink era invisível)`,
+       /\bbg-lime\b/.test(cls) && /\btext-on-lime\b/.test(cls) && !/\bbg-ink\b/.test(cls), cls);
+    ok(`ia: ${f.split("/").pop()} não escreve "Quattro IA" na tela (a marca é ${"Quattro AI"})`, !/Quattro IA\b/.test(semComentIA(s)));
+  }
+  const iaView = semComentIA(srcIA("src/components/ia/IAView.tsx"));
+  ok("ia: o rodapé do histórico diz a verdade do ambiente (não afirma \"neste navegador\" em produção)",
+     /isDemo\s*\?/.test(iaView) && !/não acompanham você em outra máquina/.test(iaView));
+  ok("ia: o histórico ouve a hidratação (a lista nascia vazia numa máquina nova)", /inscreverConversas\(/.test(iaView));
+  const widget = srcIA("src/components/app/AssistantWidget.tsx");
+  ok("ia: a conversa do painel flutuante entra no MESMO histórico da página", /salvarConversa\(/.test(widget) && /onMudou:\s*aoMudar/.test(widget));
+  const kit = srcIA("src/components/ia/chat-kit.tsx"), chat = srcIA("src/components/ia/useChatIA.ts");
+  ok("ia: \"Copiado\" só aparece se copiou (a cópia é AGUARDADA e devolve o resultado)",
+     /await navigator\.clipboard\.writeText/.test(kit) && /const ok = await copiarTexto\(/.test(chat) && /copia === "falhou"/.test(kit));
+  const fb = chat.slice(chat.indexOf("const darFeedback"), chat.indexOf("const responder"));
+  ok("ia: o feedback entra na conversa salva e não conta duas vezes",
+     /if \(t\.feedback === dir\) return;/.test(fb) && /mudouRef\.current\?\.\(novo\)/.test(fb));
+
+  // ⚠️ TROCAR o voto desfaz o anterior: de "útil" para "ruim" contava como os dois.
+  const { aplicarVoto } = await import("@/lib/assistant-memory");
+  const voto = { up: 0, down: 0 };
+  aplicarVoto(voto, "up"); aplicarVoto(voto, "down", "up");
+  ok("ia: trocar o feedback de 'útil' para 'ruim' DESFAZ o útil (um voto só)",
+     voto.up === 0 && voto.down === 1, JSON.stringify(voto));
+  aplicarVoto(voto, "down", "down");
+  ok("ia: repetir o mesmo voto não soma", voto.down === 1, JSON.stringify(voto));
+  ok("ia: a tela manda o voto ANTERIOR ao registrar (sem ele não há o que desfazer)",
+     /registrarFeedback\(t\.q, dir, t\.feedback\)/.test(fb));
+  const memIA = srcIA("src/lib/assistant-memory.ts");
+  const remFb = memIA.slice(memIA.indexOf("async function remoteFeedback"), memIA.indexOf("/** Mescla o aprendizado"));
+  ok("ia: o voto desfeito também sai do aprendizado da empresa, e a recusa do banco não é engolida",
+     /\.update\(\{ \[anterior\]/.test(remFb) && /reportar\(/.test(remFb) && !/catch \{ \/\* ignore/.test(remFb));
+
+  // ⚠️ O painel flutuante renasce a cada tela; ele RETOMA a conversa salva.
+  const { conversaParaRetomar } = await import("@/lib/ia-conversas");
+  const cv = (id: string, em: string) => ({ id, titulo: id, criadaEm: em, atualizadaEm: em, turnos: [] });
+  const hist = [cv("velha", "2026-09-01T10:00:00Z"), cv("nova", "2026-09-30T10:00:00Z"), cv("meio", "2026-09-15T10:00:00Z")];
+  ok("ia: o painel, sem escolha na sessão, retoma a conversa MAIS RECENTE",
+     conversaParaRetomar(undefined, hist)?.id === "nova");
+  ok("ia: o painel retoma a conversa que ele tinha aberta, mesmo não sendo a mais recente",
+     conversaParaRetomar("meio", hist)?.id === "meio");
+  ok("ia: depois de \"Nova conversa\" o painel NÃO ressuscita a anterior",
+     conversaParaRetomar(null, hist) === undefined && conversaParaRetomar(undefined, []) === undefined);
+  const widgetIA = srcIA("src/components/app/AssistantWidget.tsx");
+  ok("ia: o painel chama a retomada ao montar e carrega os turnos",
+     /conversaParaRetomar\(escolhaDoPainel\(\), listarConversas\(\)\)/.test(widgetIA) && /carregar\(c\.turnos\)/.test(widgetIA));
+  // ⚠️ Numa máquina nova o histórico chega DEPOIS da montagem: ler só ao montar
+  // deixava o painel vazio. A retomada também roda quando a hidratação avisa —
+  // e só com o painel OCIOSO (sem conversa aberta e sem pergunta em curso).
+  const corpoRetomar = widgetIA.slice(widgetIA.indexOf("const retomar = () =>"), widgetIA.indexOf("const fimRef"));
+  ok("ia: o painel OUVE a hidratação do histórico e só retoma ocioso",
+     /return inscreverConversas\(retomar\)/.test(corpoRetomar)
+     && /if \(ativaRef\.current \|\| !ociosoRef\.current\) return;/.test(corpoRetomar)
+     && /ociosoRef\.current = turnos\.length === 0 && !pensando/.test(widgetIA), corpoRetomar.slice(0, 120));
+  const copilotoLib = srcIA("src/lib/ai-copilot.ts");
+  const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
+  ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",
+     /const \{ error \} = await createClient\(\)\.from\("ai_actions"\)\.insert/.test(logIA) && /if \(error\) throw error/.test(logIA) && /reportar\(/.test(logIA));
+}
+
+/* ── IA — REVISÃO (01/10/2026): "a receber" é CONTA a receber ──
+ *
+ * A IA somava ao "a receber", aos vencimentos e à lista de devedores TODA
+ * entrada pendente — inclusive empréstimo a creditar e transferência entre
+ * contas próprias. O painel de Contas a receber (`ehContaAReceber`) não soma, e
+ * a pessoa via dois totais para a mesma pergunta. Provada plantando o defeito.
+ */
+{
+  const { montarPainelContasReceber } = await import("@/core/contas-receber");
+  const H = "2026-07-15";
+  let k = 0;
+  const mvR = (o: Partial<RiskMovement>): RiskMovement =>
+    ({ id: `rv${k++}`, type: "entrada", amount: 1000, due_date: H, paid_date: null, status: "pendente", category: "Vendas", party_id: null, ...o }) as RiskMovement;
+  const inpR: RiskInput = { hoje: H, saldoAtual: 50000, partyNames: { c1: "Cliente Um" }, movements: [
+    mvR({ amount: 3000, due_date: "2026-07-17", party_id: "c1" }),
+    mvR({ amount: 2000, due_date: "2026-07-10", party_id: "c1" }),
+    mvR({ amount: 20000, due_date: "2026-07-16", category: "Empréstimo bancário" }),
+    mvR({ amount: 7000, due_date: "2026-07-08", category: "Transferência entre contas" }),
+  ] } as RiskInput;
+  const painel = montarPainelContasReceber(inpR, { de: "2026-01-01", ate: "2026-12-31" });
+  ok("ia-rev: âncora — a carteira do painel de Contas a receber é R$ 5.000,00 (sem empréstimo nem transferência)",
+     Math.abs(painel.carteira.emAberto - 5000) < 0.005, String(painel.carteira.emAberto));
+  const rRec = responderLocal("quanto tenho a receber?", inpR)?.resposta ?? "";
+  ok("ia-rev: \"quanto tenho a receber?\" é a carteira do painel (R$5.000,00), não R$32.000,00",
+     /Há R\$\s?5\.000,00 a receber em 2 título/.test(rRec), rRec.slice(0, 140));
+  const rDev = responderLocal("quem está me devendo?", inpR)?.resposta ?? "";
+  ok("ia-rev: a lista de devedores não cobra a transferência que a empresa fez para si mesma (vencido R$2.000,00)",
+     /R\$\s?2\.000,00 vencidos/.test(rDev) && !/9\.000,00|7\.000,00/.test(rDev), rDev.slice(0, 140));
+  const rSem = responderLocal("o que vence esta semana?", inpR)?.resposta ?? "";
+  ok("ia-rev: o \"a receber\" da semana não inclui o empréstimo a creditar (R$3.000,00)",
+     /R\$\s?3\.000,00 a receber/.test(rSem), rSem.slice(0, 140));
+
+  /* receita ≠ toda entrada; gasto ≠ toda saída */
+  const inpF: RiskInput = { hoje: H, saldoAtual: 10000, partyNames: { a: "Alfa" }, movements: [
+    mvR({ amount: 10000, party_id: "a", paid_date: H, status: "pago" }),
+    mvR({ amount: 20000, category: "Empréstimo bancário", paid_date: H, status: "pago" }),
+    mvR({ amount: 3000, category: "Transferência entre contas", paid_date: H, status: "pago" }),
+    mvR({ type: "saida", amount: 4000, category: "Fornecedores", paid_date: H, status: "pago" }),
+    mvR({ type: "saida", amount: 2500, category: "Transferência entre contas", paid_date: H, status: "pago" }),
+  ] } as RiskInput;
+  const rFat = responderLocal("quanto faturei esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto faturei?\" é a receita (R$10.000,00), não o empréstimo somado (R$33.000,00)",
+     /receita recebida em julho soma R\$\s?10\.000,00/.test(rFat) && !/Principal origem: Empréstimo/.test(rFat), rFat.slice(0, 160));
+  ok("ia-rev: …e o que entrou sem ser faturamento é DITO, não some (R$23.000,00)", /R\$\s?23\.000,00 que não são faturamento/.test(rFat), rFat.slice(0, 220));
+  const rEnt = responderLocal("quanto entrou esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto entrou?\" (caixa) cita o total das entradas E a parte que é receita",
+     /Entraram R\$\s?33\.000,00/.test(rEnt) && /R\$\s?10\.000,00 de receita/.test(rEnt), rEnt.slice(0, 160));
+  const rCli = responderLocal("quem é meu maior cliente?", inpF)?.resposta ?? "";
+  ok("ia-rev: a fatia do maior cliente é sobre a RECEITA (100%), não sobre o empréstimo junto (30%)", /100% da receita/.test(rCli), rCli.slice(0, 140));
+  const rOri = responderLocal("de onde vem minha receita?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"de onde vem a receita\" não lista empréstimo como fonte de receita", !/concentra-se em:[^.]*Empréstimo/.test(rOri), rOri.slice(0, 200));
+  const rGas = responderLocal("quanto gastei esse mês?", inpF)?.resposta ?? "";
+  ok("ia-rev: \"quanto gastei?\" não conta a transferência entre contas próprias como gasto (R$4.000,00)",
+     /gastos pagos em julho somam R\$\s?4\.000,00/.test(rGas), rGas.slice(0, 160));
+}
+
+/* ── FOLHA, COMPRAS E REEMBOLSOS ── */
+{
+  const fsF = await import("node:fs");
+  const lerF = (p: string) => fsF.readFileSync(p, "utf8");
+  // Comentários saem antes da busca: a guarda não pode reprovar a documentação
+  // que cita o defeito (a lição da varredura da ONDA 14).
+  const semComent = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const ana: Colaborador = { id: "a", nome: "Ana Souza", vinculo: "clt", valor: 5000, desde: "2026-09" };
+
+  /* ---- 13º PROPORCIONAL: quem entrou em setembro não recebe o 13º inteiro ---- */
+  const d13 = titulosDoDecimo(ana, 2026, "presumido", null);
+  const parcelas13 = d13.filter((t) => t.tipo === "decimo");
+  ok("folha13: 4 meses de casa dão 4/12 do 13º", mesesAtivosNoAno(ana, 2026) === 4);
+  // Conferido à mão: 5.000 × 4/12 = 1.666,67; metade = 833,34; INSS sobre o 13º
+  // (7,5% até 1.518 + 9% sobre 148,67) = 127,23; IRRF zero; 2ª = 706,10.
+  ok("folha13: a 1ª parcela de quem entrou em setembro é 833,34 — NÃO os 2.500 do 13º inteiro",
+     parcelas13[0]?.valor === 833.34, String(parcelas13[0]?.valor));
+  ok("folha13: a 2ª parcela desconta o INSS do 13º PROPORCIONAL (706,10)",
+     parcelas13[1]?.valor === 706.1, String(parcelas13[1]?.valor));
+  ok("folha13: a descrição diz a proporção (4/12)", /\(4\/12\)/.test(parcelas13[0]?.descricao ?? ""));
+
+  /* ---- O 13º TEM ENCARGOS: tudo o que ele custa vira título ---- */
+  const cheio: Colaborador = { ...ana, desde: "2025-01" };
+  const d25 = titulosDoDecimo(cheio, 2025, "presumido", null);
+  // ⚠️ A INVARIANTE, e não uma lista de valores: 13º + FGTS + patronal = soma
+  // dos títulos. O IRRF e o INSS do empregado saem da 2ª parcela e voltam como
+  // DARF — o dinheiro não some nem aparece duas vezes. Sem os títulos de
+  // encargo a soma dava 4.177,51 (só as duas parcelas).
+  ok("folha13: tudo o que o 13º custa (13º + FGTS + patronal = 6.800) vira título",
+     r2(d25.reduce((s, t) => s + t.valor, 0)) === 6800, String(r2(d25.reduce((s, t) => s + t.valor, 0))));
+  const fgts13 = d25.filter((t) => t.tipo === "fgts");
+  ok("folha13: FGTS de cada parcela — a 1ª até 20/12, a 2ª até 20/01",
+     fgts13.length === 2 && fgts13[0].valor === 200 && fgts13[0].vencimento === "2025-12-19"
+     && fgts13[1].valor === 200 && fgts13[1].vencimento === "2026-01-20",
+     fgts13.map((t) => `${t.vencimento}:${t.valor}`).join(" "));
+  const inss13 = d25.find((t) => /^INSS do 13º/.test(t.descricao));
+  const irrf13 = d25.find((t) => /^IRRF do 13º/.test(t.descricao));
+  ok("folha13: INSS do empregado + patronal do 13º no DARF de 20/12 (509,60 + 1.400)",
+     inss13?.valor === 1909.6 && inss13?.vencimento === "2025-12-19", `${inss13?.vencimento}:${inss13?.valor}`);
+  ok("folha13: IRRF retido na 2ª parcela no DARF de 20/01 (312,89)",
+     irrf13?.valor === 312.89 && irrf13?.vencimento === "2026-01-20", `${irrf13?.vencimento}:${irrf13?.valor}`);
+
+  /* ---- O cadastro não agenda o 13º de um ano cujos meses não gerou ---- */
+  const per = titulosDoPeriodo(ana, 12, "nao_declarado", null);
+  ok("folha13: 12 meses a partir de 09/2026 agendam SÓ o 13º de 2026",
+     per.filter((t) => t.tipo === "decimo").every((t) => t.competencia === "2026-12")
+     && per.filter((t) => t.tipo === "decimo").length === 2,
+     per.filter((t) => t.tipo === "decimo").map((t) => t.descricao).join(" | "));
+  ok("folha13: nenhum título do cadastro vence depois do último mês gerado + 1",
+     per.every((t) => t.vencimento <= "2027-09-30"), per[per.length - 1]?.vencimento);
+
+  /* ---- PENSÃO: o que se desconta, se deposita ---- */
+  const comPensao = titulosDaCompetencia({ ...ana, pensao: 1000 }, "2026-09", "presumido", null);
+  const pensao = comPensao.find((t) => t.tipo === "pensao");
+  const salarioP = comPensao.find((t) => t.tipo === "salario");
+  ok("folha: a pensão descontada vira título de 1.000 na data do salário",
+     pensao?.valor === 1000 && pensao?.vencimento === salarioP?.vencimento, `${pensao?.valor}`);
+  ok("folha: salário + pensão = o líquido sem a pensão (o dinheiro não some)",
+     r2((salarioP?.valor ?? 0) + (pensao?.valor ?? 0)) === 4490.4);
+  ok("folha: sem pensão, continuam TRÊS títulos por CLT",
+     titulosDaCompetencia(ana, "2026-09", "presumido", null).length === 3);
+
+  /* ---- PJ: a retenção é recolhida, e não se afirma o que não foi declarado ---- */
+  const pjNao = titulosDaCompetencia({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: false }, "2026-09", "presumido", null);
+  const ret = pjNao.find((t) => t.tipo === "retencao");
+  ok("folha PJ: fora do Simples, IRRF 1,5% + PCC 4,65% viram DARF de 615",
+     ret?.valor === 615 && ret?.vencimento === "2026-11-19", `${ret?.vencimento}:${ret?.valor}`);
+  ok("folha PJ: nota líquida + retenção = a nota cheia (o custo)",
+     r2(pjNao.reduce((s, t) => s + t.valor, 0)) === 10_000);
+  ok("folha PJ: a retenção fica na MESMA linha do DRE que a nota",
+     ret?.categoria === pjNao[0].categoria);
+  const memNd = calcularPJ({ ...ana, vinculo: "pj", valor: 10_000 }, "2026-09").memoria.map((l) => l.formula).join(" ");
+  ok("folha PJ: sem declaração, a memória NÃO afirma que o prestador é do Simples",
+     !/prestador do Simples Nacional/.test(memNd) && /não diz se o prestador é do Simples/.test(memNd));
+  ok("folha PJ: declarado do Simples, sem retenção e dito assim",
+     titulosDaCompetencia({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: true }, "2026-09", "presumido", null).length === 1
+     && /prestador do Simples Nacional/.test(calcularPJ({ ...ana, vinculo: "pj", valor: 10_000, prestadorSimples: true }, "2026-09").memoria[1].formula));
+
+  /* ---- A COMPETÊNCIA de um título da folha é o mês de TRABALHO ---- */
+  const sal09 = titulosDaCompetencia(ana, "2026-09", "presumido", null)[0];
+  ok("folha: o salário de 09/2026 vence em outubro e é competência de SETEMBRO",
+     sal09.vencimento.startsWith("2026-10") && competenciaDoTitulo(sal09) === "2026-09-30",
+     `${sal09.vencimento} → ${competenciaDoTitulo(sal09)}`);
+  const libFolha = lerF("src/lib/folha.ts");
+  ok("folha: o mapeamento para o escritor único usa a competência, não o vencimento",
+     /competence_date: competenciaDoTitulo\(t\)/.test(libFolha));
+  const telaFolha = semComent(lerF("src/components/contas-pagar/FolhaSalarial.tsx"));
+  ok("folha: a tela da folha agenda pelo mapeamento único (era `competence_date: t.vencimento`)",
+     /linhaDoTituloDaFolha\(/.test(telaFolha) && !/competence_date: t\.vencimento/.test(telaFolha));
+  // ⚠️ A substituição (rescisão/férias) LÊ A DESCRIÇÃO do título. O ramo de
+  // demonstração de `getRiscoInput` não a transporta, e a tela que alimentava
+  // a substituição pelo `RiskInput` não achava título nenhum para retirar.
+  ok("folha: a substituição lê títulos de uma fonte que carrega a DESCRIÇÃO (não o RiskInput)",
+     /descricao:\s*m\.description/.test(telaFolha)
+     && !/const lancamentos[^;]*risco\?\.movements/.test(telaFolha));
+
+  /* ---- A RESCISÃO substitui o que o cadastro agendou ---- */
+  const lanc = per.map((t, k) => ({
+    id: `m${k}`, type: "saida", status: "pendente", amount: t.valor, due_date: t.vencimento, descricao: t.descricao,
+    accountId: "ac-folha",
+  }));
+  lanc.push({ id: "pago", type: "saida", status: "pago", amount: 4490.4, due_date: "2026-11-09", descricao: "Salário 10/2026 · Ana Souza", accountId: "ac-folha" });
+  lanc.push({ id: "outro", type: "saida", status: "pendente", amount: 4490.4, due_date: "2026-11-09", descricao: "Salário 10/2026 · Bruno Reis", accountId: "ac-x" });
+  lanc.push({ id: "manual", type: "saida", status: "pendente", amount: 300, due_date: "2026-11-09", descricao: "Salário extra combinado · Ana Souza", accountId: "ac-x" });
+  lanc.push({ id: "antigo", type: "saida", status: "pendente", amount: 4490.4, due_date: "2026-12-07", descricao: "Salário · Ana Souza", accountId: "ac-folha" });
+  const sai = titulosSubstituidosNaRescisao(lanc, "Ana Souza", "2026-10-15");
+  const idsSai = new Set(sai.map((m) => m.id));
+  const desc = (m: { descricao?: string | null }) => m.descricao ?? "";
+  ok("rescisao: sai o salário do mês do desligamento e todos os seguintes",
+     sai.some((m) => desc(m) === "Salário 10/2026 · Ana Souza") && sai.some((m) => desc(m) === "Salário 08/2027 · Ana Souza"));
+  // ⚠️ A asserção que separa COMPETÊNCIA de VENCIMENTO: o FGTS e o DARF de
+  // setembro vencem em 20/10, DEPOIS do desligamento, e são devidos — retirar
+  // por data de vencimento os apagaria.
+  ok("rescisao: o FGTS e o DARF de SETEMBRO (vencem depois do desligamento) FICAM",
+     !sai.some((m) => /09\/2026/.test(desc(m))), sai.filter((m) => /09\/2026/.test(desc(m))).map(desc).join(" | "));
+  ok("rescisao: o 13º do ano (parcelas e encargos) sai — ele vira 13º proporcional na rescisão",
+     sai.filter((m) => /13º 2026/.test(desc(m))).length === 5);
+  ok("rescisao: pago, de outro colaborador e digitado à mão NÃO saem",
+     !idsSai.has("pago") && !idsSai.has("outro") && !idsSai.has("manual"));
+  ok("rescisao: o título no formato ANTIGO (sem competência) também é reconhecido",
+     idsSai.has("antigo") && lerTituloDaFolha("Salário · Ana Souza", "2026-12-07")?.competencia === "2026-11");
+  ok("rescisao: títulos da própria rescisão e da multa nunca são lidos como folha mensal",
+     lerTituloDaFolha("FGTS da rescisão · Ana Souza", "2026-10-23") === null
+     && lerTituloDaFolha("Multa do FGTS · Ana Souza", "2026-10-23") === null
+     && lerTituloDaFolha("Reembolso · Ana Souza · Uber", "2026-10-23") === null);
+  ok("rescisao: a conta da rescisão é a da folha do colaborador, não a primeira da lista",
+     contaDoColaborador(lanc, "Ana Souza") === "ac-folha");
+  const eR = { modalidade: "sem_justa_causa" as const, desligamento: "2026-10-15", admissao: "2026-09-01",
+    avisoTrabalhado: false, diasFeriasVencidas: 0, saldoFGTS: 0, estimarSaldo: true };
+  const cR = calcularRescisao(ana, eR, "presumido", null);
+  const tR = titulosDaRescisao(ana, eR, cR, "Sem justa causa");
+  ok("rescisao: tudo o que a rescisão custa vira título (19.942,23 = custo total)",
+     r2(tR.reduce((s, t) => s + t.valor, 0)) === r2(cR.custoTotal) && r2(cR.custoTotal) === 19942.23,
+     `${r2(tR.reduce((s, t) => s + t.valor, 0))} × ${cR.custoTotal}`);
+  ok("rescisao: o FGTS das verbas e o DARF (INSS, IRRF, patronal) são títulos próprios",
+     tR.some((t) => t.tipo === "fgts" && t.valor === 533.33)
+     && tR.some((t) => t.tipo === "darf" && t.valor === 3238.91 && t.vencimento === "2026-11-19"));
+  // Férias com adiantamento: a 1ª parcela do ano sai; a do ano seguinte, não.
+  const adiant = primeiraParcelaSubstituida(lanc, "Ana Souza", "2026-10-02");
+  ok("ferias: o adiantamento do 13º substitui a 1ª parcela de 2026 (e só ela)",
+     adiant.length === 1 && /13º 2026 \(4\/12\) · 1ª parcela/.test(desc(adiant[0])));
+
+  /* ---- A conferência de encargos compara FGTS + patronal, não as provisões ---- */
+  const p3 = montarPainelFolha([ana], "2026-09", "simples", "III");
+  ok("folha: no Simples III o projetado de FGTS + patronal é 400 (não 1.450 de custo − bruto)",
+     encargosProjetados(p3) === 400, String(encargosProjetados(p3)));
+  ok("folha: o FGTS certinho NÃO acende o aviso",
+     conferirEncargos(encargosProjetados(p3), 400).divergente === false);
+  // A prova de que a conta antiga mentia: com as provisões dentro, o MESMO
+  // recolhimento correto acusava −72%.
+  ok("folha: (a conta antiga, custo − bruto, acusava o recolhimento correto)",
+     conferirEncargos(r2(p3.custoTotal - p3.totalBruto), 400).divergente === true);
+  const guias = [
+    { type: "saida", status: "pago", category: "FGTS", due_date: "2026-10-20", amount: 400 },
+    { type: "saida", status: "pago", category: "FGTS", due_date: "2026-09-18", amount: 380 },
+  ];
+  ok("folha: a guia da competência de setembro é a que vence em OUTUBRO",
+     encargosLancados(guias, "2026-09") === 400, String(encargosLancados(guias, "2026-09")));
+  ok("folha: a tela usa o projetado de FGTS + patronal",
+     /encargosProjetados\(painel\)/.test(telaFolha) && !/custoTotal - painel\.totalBruto/.test(telaFolha));
+
+  /* ---- COMPRAS: a linha que o banco recebe ---- */
+  const C = (o: Partial<Compra>): Compra => ({
+    id: "cmp_1", numero: "2026-C0001", fornecedorId: "3f1c2a4e-5b6d-4e7f-8a9b-0c1d2e3f4a5b", fornecedor: "Alpha Ltda",
+    contaId: "ac1", categoria: "Fornecedores", tipoPagamento: "parcelado", parcelas: 3,
+    vencimento: "2026-10-15", competencia: "2026-09-30", valor: 1_000,
+    documentoFiscal: "", especie: null, pago: true, dataPagamento: "2026-10-15",
+    projetos: [], centros: [], anexos: [], descricao: "", infoPagamento: "",
+    observacoes: "", status: "aprovada", criadoPor: "Você", criadoEm: "2026-09-30",
+    ...o,
+  });
+  const linhas = movimentosDaCompra(C({})).map(linhaDoTituloDaCompra);
+  ok("compras: cada parcela leva a chave compra:<id>:<n> (é ela que permite reprovar sem órfão)",
+     linhas.map((l) => l.reference_code).join(",") === "compra:cmp_1:1,compra:cmp_1:2,compra:cmp_1:3"
+     && referenciaDaParcela("cmp_1", 2) === "compra:cmp_1:2");
+  ok("compras: a linha leva origem e espécie (sem origem o banco recusa com A4P05)",
+     linhas.every((l) => l.origem === "manual" && l.especie === "titulo"));
+  ok("compras: a competência de TODAS as parcelas é a da compra, não o vencimento de cada uma",
+     linhas.every((l) => l.competence_date === "2026-09-30") && linhas[2].due_date === "2026-12-15");
+  ok("compras: só a 1ª parcela nasce baixada (paga)",
+     linhas[0].situacao === "baixado" && linhas[1].situacao === "previsto" && linhas[0].paid_date === "2026-10-15");
+  ok("compras: fornecedor uuid vai; id curto de demonstração não (o banco só aceita uuid)",
+     linhas[0].party_id === "3f1c2a4e-5b6d-4e7f-8a9b-0c1d2e3f4a5b"
+     && linhaDoTituloDaCompra(movimentosDaCompra(C({ fornecedorId: "p1" }))[0]).party_id === null);
+  ok("compras: parcela paga RECUSA cancelar (apagaria dinheiro que já saiu)",
+     /já paga/.test(recusaDeRetirada("2026-C0001", [{ pago: true }, { pago: false }], "cancelar") ?? ""));
+  ok("compras: sem parcela paga, cancelar pode", recusaDeRetirada("2026-C0001", [{ pago: false }], "cancelar") === null);
+  ok("compras: o número é o MAIOR + 1 (contar repetiria o C0003)",
+     proximoNumeroDeCompra(["2026-C0001", "2026-C0003", "2025-C0009"], 2026) === "2026-C0004");
+
+  /* ---- O ESCRITOR MORTO das compras, do boleto e da importação ---- */
+  const store = semComent(lerF("src/lib/compras-store.ts"));
+  // ⚠️ A forma EXATA do defeito: `if (!isDemo) return;` antes do appendImported,
+  // num arquivo sem caminho nenhum para `movements`. A guarda do escritor morto
+  // não via, porque o próprio `return` contém a palavra `isDemo`.
+  ok("compras: aprovar grava no BANCO em produção (era `if (!isDemo) return`)",
+     /from\("movements"\)\.insert\(movs\.map\(linhaDoTituloDaCompra\)\)/.test(store)
+     && !/if \(!isDemo\) return;/.test(store));
+  // O boleto vira título pelo formulário de conta a pagar (o escritor único),
+  // não por um segundo escritor no store (CAMP-B removeu o `lancarBoleto`).
+  ok("compras: o boleto lançado vira título pelo formulário de conta a pagar",
+     /dashboard\/financial\/payables\/new\?/.test(semComent(lerF("src/components/compras/RecebidosViews.tsx")))
+     && !/export async function lancarBoleto/.test(store));
+  ok("compras: a compra mora em store-org, não no localStorage cru (quem aprova é outra pessoa)",
+     /ler<Compra\[\]>\(CHAVES_ORG\.compras/.test(store) && !/localStorage/.test(store));
+  ok("compras: o título nasce ANTES do status aprovado",
+     /await criarTitulosDaCompra\(nova\);[\s\S]*?return persistir\(nova\)/.test(store));
+  const imp = semComent(lerF("src/components/movimentacoes/ImportacaoView.tsx"));
+  ok("importacao: a planilha de contas grava pelo escritor único em produção (era `else if (isDemo)`)",
+     /await criarTitulos\(/.test(imp) && !/else if \(isDemo\)/.test(imp));
+  // A regra geral, que teria pego os dois: todo arquivo que grava no dataset da
+  // demonstração TEM de ter um caminho para o banco no mesmo arquivo.
+  const DECLARADOS: Record<string, string> = {
+    "src/lib/vendas-store.ts": "é a casa da venda SÓ em demonstração; `lib/vendas` é o escritor de produção e delega para cá quando isDemo",
+  };
+  const semBanco: string[] = [];
+  const varrer = (dir: string) => {
+    for (const e of fsF.readdirSync(dir, { withFileTypes: true })) {
+      const p = `${dir}/${e.name}`;
+      if (e.isDirectory()) { varrer(p); continue; }
+      if (!/\.(ts|tsx)$/.test(e.name) || p === "src/lib/imported.ts" || DECLARADOS[p]) continue;
+      const t = semComent(lerF(p));
+      if (!/\bappendImported\s*\(/.test(t)) continue;
+      if (!/from\("movements"\)|criarTitulos\(|createLancamento\(|createTransferencia\(|criarTransferencia\(/.test(t)) semBanco.push(p);
+    }
+  };
+  varrer("src");
+  ok("escritor: todo arquivo que grava no dataset da demo tem caminho para o banco",
+     semBanco.length === 0, semBanco.join(" | "));
+
+  /* ---- REEMBOLSOS: a recusa do banco não vira "A pagar" ---- */
+  const reemb = semComent(lerF("src/lib/reembolsos.ts"));
+  const gerar = /async function gerarPagamento[\s\S]*?\n}/.exec(reemb)?.[0] ?? "";
+  ok("reembolso: o insert dos títulos em produção não engole a recusa",
+     /\.from\("movements"\)\.insert\(rows\)[\s\S]{0,120}if \(error\) throw error;/.test(gerar));
+  ok("reembolso: sem conta bancária a recusa é DITA (antes: lista vazia e 'A pagar')",
+     /if \(!accId\) throw new Error\(/.test(gerar) && !/if \(!accId\) return out;/.test(gerar));
+  ok("reembolso: o título leva espécie, competência da despesa e chave idempotente",
+     /especie: "titulo"/.test(gerar) && /competence_date: it\.data/.test(gerar) && /reference_code: refs\[i\]/.test(gerar));
+  const sinc = /export async function sincronizarReembolsos[\s\S]*?\n}/.exec(reemb)?.[0] ?? "";
+  ok("reembolso: a falha fica no reembolso e volta para a tela, sem marcar 'A pagar'",
+     /catch \(e\)[\s\S]{0,400}falhas\.push[\s\S]{0,200}continue;/.test(sinc)
+     && sinc.indexOf("falhas.push") < sinc.indexOf('r.status = "a_pagar"'));
+  ok("reembolso: a solicitação sem aprovação no banco é recusada (nasceria presa para sempre)",
+     /A solicitação de aprovação não foi gravada/.test(reemb) && /if \(error\) throw error;\s*const saved = fromRow/.test(reemb));
+}
+
+/* ── COMPRAS · CAIXA DE ENTRADA FISCAL ── */
+{
+  const fsR = await import("node:fs");
+  const semComentR = (x: string) => x.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const { boletoJaCapturado, notaJaCapturada } = await import("@/core/compras");
+  const fatorR = fatorDaData("2026-10-20");
+  const semDVR = "2379" + String(fatorR).padStart(4, "0") + "0000084217" + "9876543210987654321098765";
+  const barrasR = semDVR.slice(0, 4) + dvModulo11(semDVR) + semDVR.slice(4);
+  const lidoR = lerBoleto(linhaDeCodigoDeBarras(barrasR), "2026-09-30")!;
+  const lancado: BoletoRecebido = {
+    id: "b1", origem: "manual", beneficiario: "Gráfica Aurora", pagador: "Sua empresa", leitura: lidoR,
+    pago: false, dataPagamento: null, recebidoEm: "2026-09-30", movimentoId: "boleto-x",
+  };
+  ok("recebidos: o boleto já capturado é reconhecido pelo CÓDIGO DE BARRAS",
+     boletoJaCapturado([lancado], lidoR.codigoBarras)?.movimentoId === "boleto-x"
+     && boletoJaCapturado([lancado], lidoR.codigoBarras.replace(/.$/, "0")) === null);
+  const base43R = "31" + "2609" + "11222333000181" + "55" + "002" + "000004321" + "1" + "87654321";
+  const chaveR = base43R + String(dvDaChave(base43R));
+  const nfR = lerChaveNFe(chaveR)!;
+  const aprovada: NFRecebida = {
+    id: "n1", chave: nfR, numero: nfR.numero, tipo: "NFE", fornecedorId: null, fornecedor: "Metalúrgica Serra",
+    cnpj: nfR.cnpj, emissao: "2026-09-01", valor: 1300, categoria: "", status: "processada", avaliacao: "aprovada", origem: "manual",
+  };
+  ok("recebidos: a nota já capturada é reconhecida pela CHAVE", notaJaCapturada([aprovada], chaveR)?.avaliacao === "aprovada");
+  // ⚠️ O defeito, na tela: colar de novo SUBSTITUÍA o registro (a nota aprovada
+  // voltava a pendente; o boleto lançado perdia o vínculo com o título). A tela
+  // tem de perguntar antes de gravar, e a chave com dígito errado não entra.
+  const telaR = semComentR(fsR.readFileSync("src/components/compras/RecebidosViews.tsx", "utf8"));
+  const addBoleto = /function adicionar\(\) \{[\s\S]*?salvarBoleto\(/.exec(telaR)?.[0] ?? "";
+  ok("recebidos: adicionar boleto confere a duplicata ANTES de gravar",
+     /boletoJaCapturado\(listarBoletos\(\)/.test(addBoleto) && /return;/.test(addBoleto.slice(addBoleto.indexOf("boletoJaCapturado"))));
+  const addNota = /function adicionar\(\) \{(?:(?!function adicionar)[\s\S])*?salvarNF\(/.exec(telaR.slice(telaR.indexOf("export function NFsRecebidasView")))?.[0] ?? "";
+  ok("recebidos: adicionar nota confere a duplicata ANTES de gravar",
+     /notaJaCapturada\(listarNFs\(\)/.test(addNota));
+  ok("recebidos: nota com dígito verificador errado não entra (era gravada com status 'erro')",
+     /if \(!leitura \|\| !leitura\.valido\) return;/.test(addNota) && !/leitura\.valido \? "recebida" : "erro"/.test(telaR));
+  ok("recebidos: valor digitado que não é número não vira R$ 0,00 calado",
+     /valorNovo\.trim\(\) && valor == null/.test(addNota));
+}
+
+/* ── PAGAR · REVISÃO ── */
+{
+  const fsF = await import("node:fs");
+  const semComent = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const folha = await import("@/core/folha");
+  const compras = await import("@/core/compras");
+
+  /* ---- a compra em produção não engole a recusa do banco ---- */
+  const store = semComent(fsF.readFileSync("src/lib/compras-store.ts", "utf8"));
+  ok("pagar-rev: o insert dos títulos da compra em produção LANÇA a recusa do banco",
+     /insert\(movs\.map\(linhaDoTituloDaCompra\)\);\s*if \(error\) throw error;/.test(store));
+
+  /* ---- "confirmado" não é pago ---- */
+  ok("pagar-rev: título CONFIRMADO (aprovado, não pago) não conta como parcela paga",
+     compras.situacaoPaga("confirmado") === false && compras.situacaoPaga("previsto") === false
+     && compras.situacaoPaga("baixado") === true && compras.situacaoPaga("conciliado") === true);
+  ok("pagar-rev: a retirada da compra usa a regra única de 'pago'",
+     /pago: situacaoPaga\(t\.situacao\)/.test(store));
+  ok("pagar-rev: retirar parcelas da compra com parcela paga é RECUSADO antes de qualquer exclusão",
+     /const recusa = recusaDeRetirada\([^)]*\);\s*if \(recusa\) throw new Error\(recusa\);/.test(store));
+
+  /* ---- a rescisão desconta o 13º já pago ---- */
+  // CLT de 6.000 desde 2025, desligado em 20/12/2026 sem justa causa, depois da
+  // 1ª parcela (3.000,00) de 30/11. 13º proporcional de 12/12 = 6.000.
+  const bia = { id: "b", nome: "Bia Lima", vinculo: "clt" as const, valor: 6000, desde: "2025-01" };
+  const base = { modalidade: "sem_justa_causa" as const, desligamento: "2026-12-20", admissao: "2025-01-02",
+    avisoTrabalhado: true, diasFeriasVencidas: 0, saldoFGTS: 10000, estimarSaldo: false };
+  const sem = folha.calcularRescisao(bia, base, "presumido", null);
+  const com = folha.calcularRescisao(bia, { ...base, decimoAdiantado: 3000 }, "presumido", null);
+  const decimo = sem.verbas.find((v) => v.nome.startsWith("13º proporcional"))?.valor ?? 0;
+  ok("pagar-rev: a fixture exercita o 13º (12/12 = 6.000,00)", decimo === 6000, String(decimo));
+  ok("pagar-rev: o 13º já pago (3.000) sai do líquido da rescisão — e só ele",
+     r2(sem.liquido - com.liquido) === 3000, `${sem.liquido} → ${com.liquido}`);
+  ok("pagar-rev: o INSS e o IRRF continuam sobre o 13º INTEIRO (a 1ª parcela saiu sem desconto)",
+     com.inss === sem.inss && com.irrf === sem.irrf && com.patronal === sem.patronal);
+  ok("pagar-rev: o FGTS da rescisão sai só sobre o que ela paga (−240 = 8% de 3.000)",
+     r2(sem.fgtsSobreVerbas - com.fgtsSobreVerbas) === 240, `${sem.fgtsSobreVerbas} → ${com.fgtsSobreVerbas}`);
+  const tCom = folha.titulosDaRescisao(bia, { ...base, decimoAdiantado: 3000 }, com, "Sem justa causa");
+  ok("pagar-rev: com o desconto, os títulos ainda somam o custo da rescisão",
+     r2(tCom.reduce((s, t) => s + t.valor, 0)) === r2(com.custoTotal));
+  const excesso = folha.calcularRescisao(bia, { ...base, decimoAdiantado: 9000 }, "presumido", null);
+  ok("pagar-rev: descontar além do 13º devido não acontece — o excesso vira aviso",
+     r2(sem.liquido - excesso.liquido) === 6000 && excesso.alertas.some((a) => /excedem o 13º/.test(a)));
+
+  /* ---- e a tela acha a 1ª parcela PAGA ---- */
+  const lanc = [
+    { id: "p1", type: "saida", status: "pago", amount: 3000, due_date: "2026-11-30", descricao: "13º 2026 · 1ª parcela · Bia Lima" },
+    { id: "p2", type: "saida", status: "pendente", amount: 2400, due_date: "2026-12-18", descricao: "13º 2026 · 2ª parcela · Bia Lima" },
+    { id: "p3", type: "saida", status: "pago", amount: 3000, due_date: "2025-11-28", descricao: "13º 2025 · 1ª parcela · Bia Lima" },
+    { id: "p4", type: "saida", status: "pago", amount: 1500, due_date: "2026-11-30", descricao: "13º 2026 · 1ª parcela · Outra Pessoa" },
+  ];
+  ok("pagar-rev: o 13º já pago é a 1ª parcela BAIXADA do ano, do colaborador (3.000)",
+     folha.decimoJaPagoNoAno(lanc, "Bia Lima", "2026") === 3000, String(folha.decimoJaPagoNoAno(lanc, "Bia Lima", "2026")));
+  // A 1ª parcela PREVISTA sai pela própria rescisão; contá-la como paga a
+  // descontaria do funcionário sem ela nunca ter sido paga.
+  // Com a 1ª parcela PAGA, o FGTS dela (devido pelo que já saiu) FICA; com ela
+  // prevista, sai junto. A rescisão recolhe o FGTS só sobre o que ela paga.
+  const fgts1 = { id: "f1", type: "saida", status: "pendente", amount: 240, due_date: "2026-12-18", descricao: "FGTS do 13º 2026 · 1ª parcela · Bia Lima" };
+  const fgts2 = { id: "f2", type: "saida", status: "pendente", amount: 240, due_date: "2027-01-20", descricao: "FGTS do 13º 2026 · 2ª parcela · Bia Lima" };
+  const comPaga = folha.titulosSubstituidosNaRescisao([lanc[0], lanc[1], fgts1, fgts2], "Bia Lima", "2026-12-20").map((m) => m.id);
+  ok("pagar-rev: 1ª parcela PAGA — o FGTS dela fica; a 2ª parcela e o FGTS dela saem",
+     !comPaga.includes("f1") && comPaga.includes("f2") && comPaga.includes("p2"), comPaga.join(","));
+  const comPrevista = folha.titulosSubstituidosNaRescisao([{ ...lanc[0], status: "pendente" }, fgts1], "Bia Lima", "2026-12-20").map((m) => m.id);
+  ok("pagar-rev: 1ª parcela PREVISTA — ela e o FGTS dela saem juntos",
+     comPrevista.includes("p1") && comPrevista.includes("f1"), comPrevista.join(","));
+  /* ---- o adiantamento do 13º nas férias é um título reconhecível ---- */
+  const calcF = folha.calcularFerias(bia, { ...folha.FERIAS_PADRAO, inicio: "2026-11-09", adiantar13: true }, "presumido", null);
+  const tF = folha.titulosDasFerias(bia, "2026-11-09", 30, calcF);
+  const adiantF = tF.find((t) => t.tipo === "decimo");
+  ok("pagar-rev: férias com adiantamento agendam o 13º adiantado (3.000) em título PRÓPRIO",
+     !!adiantF && adiantF.valor === 3000 && adiantF.valor === calcF.adiantamento13, adiantF?.descricao ?? "(sem título)");
+  ok("pagar-rev: férias + adiantamento somam o líquido do cálculo (nada some, nada dobra)",
+     r2(tF.reduce((s, t) => s + t.valor, 0)) === r2(calcF.liquido));
+  ok("pagar-rev: o adiantamento é lido como 1ª parcela do ano — pago, a rescisão o desconta",
+     folha.decimoJaPagoNoAno([{ id: "fa", type: "saida", status: "pago", amount: adiantF?.valor ?? 0,
+       due_date: adiantF?.vencimento ?? "", descricao: adiantF?.descricao ?? "" }], "Bia Lima", "2026") === 3000);
+
+  /* ---- o desfazer sobrevive à linha que sumiu ---- */
+  const acao = semComent(fsF.readFileSync("src/components/ui/AcaoDestrutiva.tsx", "utf8"));
+  ok("pagar-rev: o 'Desfazer' mora numa raiz própria, não no botão da linha excluída",
+     /createRoot\(/.test(acao) && /mostrarDesfazer\(titulo, reverter\)/.test(acao)
+     && !/useState<\(\(\) => void \| Promise<void>\) \| null>/.test(acao));
+  ok("pagar-rev: a 1ª parcela ainda PREVISTA não é 13º pago",
+     folha.decimoJaPagoNoAno([{ ...lanc[0], status: "pendente" }], "Bia Lima", "2026") === 0);
+  const modal = semComent(fsF.readFileSync("src/components/contas-pagar/ModalFolha.tsx", "utf8"));
+  const telaF = semComent(fsF.readFileSync("src/components/contas-pagar/FolhaSalarial.tsx", "utf8"));
+  ok("pagar-rev: o modal de rescisão pré-preenche o 13º pago a partir dos títulos BAIXADOS",
+     /decimoJaPagoNoAno\(pagos/.test(modal) && /pagos=\{pagos\}/.test(telaF)
+     && /useMovementsByFilter\("saida", "realizado"\)/.test(telaF));
+}
+/* ── VENDER ── */
+// Rodada 30/09: vendas, notas, impostos, assinaturas e POS dirigidos como uma
+// PME dirige. Cada asserção abaixo foi provada plantando o defeito de volta.
+{
+  const fsV = await import("node:fs");
+  const lerV = (p: string) => fsV.readFileSync(p, "utf8");
+  // Comentário sai antes da busca: a documentação do defeito cita o defeito.
+  const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  const { titulosDaVendaPos, somaMeses, CATEGORIA_TAXA_POS } = await import("@/core/vendas/pos");
+  const { pedidoDeNota, statusNFDaNota, vendaComNota, podeEmitirNota } = await import("@/core/vendas/nota");
+  const cv = await import("@/core/vendas");
+  const { montarDRE: dreV } = await import("@/core/relatorios");
+
+  /* ---- POS: a taxa MDR sai UMA vez, e no repasse ---- */
+  const t3 = titulosDaVendaPos({ total: 1_000, taxa: 0.03, parcelas: 3, descricao: "Venda POS" }, "2026-01-31");
+  const somaTipo = (ts: typeof t3, tipo: "entrada" | "saida") => Math.round(ts.filter((t) => t.type === tipo).reduce((s, t) => s + t.amount, 0) * 100) / 100;
+  ok("vender/pos: a receita a receber é o BRUTO da venda (era o líquido)", somaTipo(t3, "entrada") === 1_000, `${somaTipo(t3, "entrada")}`);
+  ok("vender/pos: a taxa a pagar é a taxa da venda, uma vez", somaTipo(t3, "saida") === 30, `${somaTipo(t3, "saida")}`);
+  ok("vender/pos: bruto − taxa = o líquido que o caixa recebe", somaTipo(t3, "entrada") - somaTipo(t3, "saida") === 970);
+  // ⚠️ Revisão: a versão anterior aceitava QUALQUER entrada com a mesma data —
+  // com todas as taxas datadas de HOJE (o defeito), a parcela 1 também vence
+  // hoje e a asserção passava. Agora é parcela a parcela, e as datas são três.
+  const entr3 = t3.filter((t) => t.type === "entrada"), sai3 = t3.filter((t) => t.type === "saida");
+  ok("vender/pos: cada taxa vence com o repasse da SUA parcela (a k-ésima taxa com a k-ésima entrada)",
+     sai3.length === entr3.length && sai3.every((s, k) => s.due_date === entr3[k].due_date) && new Set(sai3.map((s) => s.due_date)).size === 3,
+     sai3.map((s) => s.due_date).join(" "));
+  ok("vender/pos: 3 parcelas = 3 entradas, a última leva o resto dos centavos",
+     t3.filter((t) => t.type === "entrada").map((t) => t.amount).join("|") === "333.33|333.33|333.34");
+  ok("vender/pos: 31/01 + 1 mês cai em 28/02 (não escorrega para março)", somaMeses("2026-01-31", 1) === "2026-02-28", somaMeses("2026-01-31", 1));
+  ok("vender/pos: a parcela 2 vence no mês seguinte", t3.filter((t) => t.type === "entrada")[1].due_date === "2026-02-28");
+  const t1 = titulosDaVendaPos({ total: 100, taxa: 0.03, parcelas: 1, descricao: "V" }, "2026-06-10");
+  const dPos = dreV({
+    hoje: "2026-06-30", saldoAtual: 0, partyNames: {},
+    movements: t1.map((t, k) => ({ id: `pos${k}`, type: t.type, status: "pendente", amount: t.amount, due_date: t.due_date, paid_date: null, category: t.category })) as RiskMovement[],
+  }, { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, tipo: "vertical" });
+  const lPos = (id: string) => dPos.linhas.find((l) => l.id === id)?.celulas[0]?.valor ?? NaN;
+  ok("vender/pos: no DRE a receita bruta é a venda cheia", lPos("receita_bruta") === 100, `${lPos("receita_bruta")}`);
+  ok("vender/pos: no DRE o resultado é venda − taxa (a taxa dupla dava 94)", lPos("resultado_liquido") === 97, `${lPos("resultado_liquido")}`);
+  ok("vender/pos: a taxa é despesa de adquirência nomeada", t1.some((t) => t.category === CATEGORIA_TAXA_POS));
+  const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
+     !/\bstatus\s*:/.test(posLib) && /criarTitulos\(/.test(posLib));
+  ok("vender/pos: sem conta a venda é recusada — nenhuma conta bancária é inventada",
+     !/financial_accounts"\)\s*\.insert/.test(posLib));
+  const posView = lerV("src/components/pos/PosVendaView.tsx");
+  const iEfeito = posView.indexOf('if (tela !== "processando") return;');
+  const corpoEfeito = posView.slice(iEfeito, posView.indexOf("setRecibo(", iEfeito));
+  ok("vender/pos: a recusa do registro NÃO vira recibo 'Aprovado'",
+     /catch \(e\)[\s\S]*?setTela\("recusado"\)[\s\S]*?return;/.test(corpoEfeito));
+
+  /* ---- impostos: o botão funciona em produção e a categoria não trava ---- */
+  const VV = (o: Partial<Venda>): Venda => ({
+    id: "v", numero: "2026-0001", clienteId: "c1", clienteNome: "Alpha", competencia: "2026-12-10", vencimento: "2026-12-20",
+    itens: [{ produtoId: "p1", nome: "Consultoria", quantidade: 1, precoUnitario: 1_000 }], valorTotal: 1_000, valorTotalComJuros: 0,
+    taxaPlataforma: { valor: 0, fornecedorId: "" }, taxaAntecipacao: { valor: 0, fornecedorId: "" }, taxaStreaming: { valor: 0, fornecedorId: "" },
+    comissaoCoprodutor: { valor: 0, fornecedorId: "" }, comissaoAfiliado: { valor: 0, fornecedorId: "" },
+    contaId: "ac1", operacao: "venda", status: "completa", metodo: "pix", idExterno: "", categoria: "cat1", tipoPagamento: "avista",
+    plataforma: "", chaveTransacao: "", pago: false, valorPago: 0, dataPagamento: null, projetos: [], centros: [], descricao: "",
+    textoDocumentoFiscal: "", observacoes: "", statusNF: "a_emitir", numeroNF: "", criadoEm: "2026-12-10", ...o,
+  });
+  const cfgV = { ...cv.configPadrao("presumido"), contaId: "ac1", fornecedores: { municipal: "fm", estadual: "fe", federal: "ff" } };
+  const provV = cv.provisionarImpostos([VV({}), VV({ id: "x", status: "chargeback" }), VV({ id: "y", status: "cancelada" })], cfgV);
+  const comValorV = cv.IMPOSTOS.filter((i) => provV.porImposto[i] > 0);
+  ok("vender/impostos: sem categoria escolhida NÃO há pendência (o plano local nasce vazio e travava o botão)",
+     cv.pendenciasConfig(cfgV, comValorV).length === 0, cv.pendenciasConfig(cfgV, comValorV).join(" · "));
+  ok("vender/impostos: sem fornecedor continua havendo pendência",
+     cv.pendenciasConfig({ ...cfgV, fornecedores: { municipal: "", estadual: "", federal: "" } }, comValorV).length > 0);
+  ok("vender/impostos: chargeback e cancelada fora da base", provV.faturamento === 1_000, `${provV.faturamento}`);
+  const contasV = cv.contasAPagarDosImpostos(provV, cfgV, "2026-12");
+  ok("vender/impostos: competência de dezembro vence em JANEIRO do ano seguinte",
+     contasV.find((c) => c.imposto === "iss")!.vencimento === "2027-01-10" && contasV.find((c) => c.imposto === "irpj")!.vencimento === "2027-01-31",
+     contasV.map((c) => `${c.imposto}:${c.vencimento}`).join(" "));
+  ok("vender/impostos: ISS maior muda o valor da conta (alíquota editável)",
+     cv.provisionarImpostos([VV({})], { ...cfgV, aliquotas: { ...cfgV.aliquotas, iss: 2 } }).porImposto.iss === 20);
+  // O título sem categoria sai com o NOME do imposto — e o DRE precisa pôr
+  // cada um na linha certa, senão a queda da pendência troca um botão travado
+  // por um imposto na linha errada.
+  const dImp = dreV({
+    hoje: "2026-12-31", saldoAtual: 0, partyNames: {},
+    movements: contasV.map((c) => ({ id: c.imposto, type: "saida", status: "pendente", amount: c.valor, due_date: "2026-12-15", paid_date: null, category: c.rotulo })) as RiskMovement[],
+  }, { intervalo: { de: "2026-12-01", ate: "2026-12-31" }, tipo: "vertical" });
+  const linhaDe = (id: string) => dImp.classificacao[id]?.linha;
+  ok("vender/impostos: PIS, COFINS e ISS sem categoria caem em DEDUÇÕES",
+     ["pis", "cofins", "iss"].every((i) => linhaDe(i) === "deducoes"), ["pis", "cofins", "iss"].map((i) => `${i}:${linhaDe(i)}`).join(" "));
+  ok("vender/impostos: IRPJ e CSLL sem categoria caem em IMPOSTOS SOBRE O LUCRO",
+     ["irpj", "csll"].every((i) => linhaDe(i) === "impostos_lucro"), ["irpj", "csll"].map((i) => `${i}:${linhaDe(i)}`).join(" "));
+  const store = semComentario(lerV("src/lib/vendas-store.ts"));
+  const gravar = store.slice(store.indexOf("export function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
+  ok("vender/impostos: em produção o botão GRAVA (era `if (!isDemo) return 0` e a tela dizia 'nada a criar')",
+     !/if \(!isDemo\)[^\n]*return/.test(gravar) && !/if \(!isDemo\) return 0/.test(store) && /criarTitulos\(/.test(gravar));
+  // ⚠️ Revisão: a versão anterior cobrava só que as palavras `neq(...)` e
+  // `jaExistiam` existissem — trocar o filtro por `const novas = contas`
+  // passava verde. Agora a regra é uma função pura, conferida por VALOR, e os
+  // dois caminhos (demonstração e banco) têm de usá-la.
+  const { contasSemTitulo } = cv;
+  const sep = contasSemTitulo([{ rotulo: "PIS" }, { rotulo: "ISS" }, { rotulo: "IRPJ" }], "2026-12",
+    ["PIS · competência 2026-12", "ISS · competência 2026-11", "Aluguel"]);
+  ok("vender/impostos: imposto com título vivo na MESMA competência não ganha outro; outra competência não conta",
+     sep.novas.map((c) => c.rotulo).join() === "ISS,IRPJ" && sep.jaExistiam.join() === "PIS", JSON.stringify(sep));
+  const gravarAgora = store.slice(store.indexOf("export function gravarContasDeImpostos"), store.indexOf("export function criarContasDeImpostos"));
+  ok("vender/impostos: demonstração E banco passam pela mesma regra de idempotência, e só as novas são gravadas",
+     (gravarAgora.match(/contasSemTitulo\(/g) ?? []).length >= 2 && /neq\("status", "cancelado"\)/.test(gravarAgora)
+     && /criarTitulos\(novas\.map/.test(gravarAgora) && !/removerImported\(/.test(gravarAgora));
+  ok("vender/impostos: em produção as gravações entram em FILA (dois cliques não consultam ao mesmo tempo)",
+     /filaImpostos\.then\(/.test(gravarAgora) && /filaImpostos = vez\.catch/.test(gravarAgora));
+  const salvarV = store.slice(store.indexOf("export function salvarVenda("), store.indexOf("export function salvarSoDocumento"));
+  ok("vender/store: em demonstração regravar a venda NÃO reescreve recebível já baixado",
+     /status === "pago"\) return lista;/.test(salvarV) && salvarV.indexOf('status === "pago"') < salvarV.indexOf("removerImported("));
+  const vnf = semComentario(lerV("src/lib/vendas-nf.ts"));
+  ok("vender/nota: emitir a nota grava SÓ as colunas da nota (reescrever a venda podia ser recusado DEPOIS da nota autorizada)",
+     /gravarNotaDaVendaDoc\(/.test(vnf) && !/salvarVendaDoc\(/.test(vnf));
+  ok("vender/impostos: o título leva o NOME da categoria, nunca o id do plano",
+     /category: nomeDaCategoriaDoImposto\(c(, nomeCategoria)?\)/.test(store) && !/category: c\.categoria \|\|/.test(store));
+  ok("vender/impostos: a descrição-chave mora num lugar só",
+     cv.descricaoDoImposto("PIS", "2026-12") === "PIS · competência 2026-12");
+
+  /* ---- a nota da venda: um fato, dois painéis, uma receita ---- */
+  const vN = VV({ textoDocumentoFiscal: "Consultoria de dezembro" });
+  const ped = pedidoDeNota(vN, "v-rec", 5);
+  ok("vender/nota: a nota REAPROVEITA o título da venda (a avulsa lançava a receita de novo)", ped.movimentoReceita === "v-rec");
+  ok("vender/nota: o valor da nota é o faturamento da venda", ped.valorServico === 1_000 && ped.tomadorId === "c1");
+  ok("vender/nota: o status volta para a venda — autorizada vira emitida, rejeitada vira negada",
+     statusNFDaNota("autorizada") === "emitida" && statusNFDaNota("enviada") === "emitida"
+     && statusNFDaNota("rejeitada") === "negada" && statusNFDaNota("processando") === "processando");
+  const emitida = vendaComNota(vN, { status: "autorizada", numero: "100001" });
+  const cardsNF = cv.painelStatusNF([emitida, VV({ id: "b" })]);
+  const cardsNotas = cv.painelNotasFiscais([emitida, VV({ id: "b" })]);
+  ok("vender/nota: a venda com nota entra em 'NFs emitidas' no painel da lista",
+     cardsNF.find((c) => c.id === "emitidas")!.quantidade === 1 && cardsNF.find((c) => c.id === "emitidas")!.valor === 1_000);
+  ok("vender/nota: e no painel da tela de notas, com o mesmo número",
+     cardsNotas.find((c) => c.id === "emitida")!.quantidade === 1 && emitida.numeroNF === "100001");
+  ok("vender/nota: nota emitida ou venda cancelada não oferecem emitir de novo",
+     !podeEmitirNota(emitida) && !podeEmitirNota(VV({ status: "cancelada" })) && podeEmitirNota(VV({ statusNF: "negada" })));
+  const cardsCb = cv.painelStatusNF([VV({ id: "ok" }), VV({ id: "cb", status: "chargeback", valorTotal: 400 }), VV({ id: "cn", status: "cancelada", statusNF: "negada", valorTotal: 50 })]);
+  const aEmitir = cardsCb.find((c) => c.id === "a_emitir")!, comErro = cardsCb.find((c) => c.id === "erro")!;
+  ok("vender/nota: venda com chargeback NÃO é 'NF a emitir' (o card pedia nota de dinheiro devolvido)",
+     aEmitir.quantidade === 1 && aEmitir.valor === 1_000, `${aEmitir.quantidade} · ${aEmitir.valor}`);
+  ok("vender/nota: nota negada de venda cancelada não é 'NF com erro' pendente", comErro.quantidade === 0, `${comErro.quantidade}`);
+  ok("vender/nota: o card e o botão da linha concordam sobre o que é pendente",
+     [VV({ id: "cb", status: "chargeback" }), VV({})].every((x) => podeEmitirNota(x) === (cv.painelStatusNF([x]).find((c) => c.id === "a_emitir")!.quantidade === 1)));
+  const nfse = lerV("src/lib/nfse.ts");
+  ok("vender/nfse: a inserção recusada em produção sobe — não vira nota local com id inventado",
+     /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\.insert/.test(nfse) && /if \(error\) throw new Error\(error\.message\);\n  const saved/.test(nfse));
+  ok("vender/nfse: nota autorizada sem receita não é silêncio",
+     /Nota autorizada, mas a receita não foi lançada/.test(nfse) && !/if \(!accId\) return ids;/.test(nfse));
+  const nfseView = semComentario(lerV("src/components/nfse/NfseView.tsx"));
+  ok("vender/nfse: a tela não afirma mais que o ISS entra no DRE", !/receita e ISS na DRE|a receita e o ISS entram/.test(nfseView));
+
+  // ⚠️ REVISÃO — o reaproveitamento da receita só existia na memória da sessão.
+  // Em produção a nota devolvida por `criarNfse` era remontada da linha gravada
+  // (sem `movimentoReceita`), e a transmissão lançava OUTRA receita: "Emitir NF"
+  // da venda dobrava o faturamento. E, recarregada a tela, cancelar a nota de
+  // uma venda mandava o recebível da venda para a lixeira.
+  const { receitaReaproveitada } = await import("@/core/vendas/nota");
+  ok("vender/nfse: rascunho com título ligado está REAPROVEITANDO (a avulsa só ganha receita na autorização)",
+     receitaReaproveitada({ status: "rascunho", movimentoId: "m1" }) && receitaReaproveitada({ status: "processando", movimentoId: "m1" }));
+  ok("vender/nfse: nota autorizada de venda ou de fatura reaproveita; a avulsa autorizada não",
+     receitaReaproveitada({ status: "autorizada", movimentoId: "m1", saleDocId: "v1" })
+     && receitaReaproveitada({ status: "autorizada", movimentoId: "m1", recorrenciaId: "r1" })
+     && !receitaReaproveitada({ status: "autorizada", movimentoId: "m1" })
+     && !receitaReaproveitada({ status: "rascunho", movimentoId: null }));
+  const nfseSem = semComentario(nfse);
+  const criarN = nfseSem.slice(nfseSem.indexOf("export async function criarNfse"), nfseSem.indexOf("export async function transmitirNfse"));
+  ok("vender/nfse: o título reaproveitado vai para o banco desde o rascunho, e a nota devolvida o carrega",
+     /movement_id: isUuid\(n\.movimentoReceita\)/.test(criarN) && /movimentoReceita: n\.movimentoReceita/.test(criarN));
+  ok("vender/nfse: a nota recarregada do banco reconhece a receita reaproveitada",
+     /movimentoReceita: receitaReaproveitada\(/.test(nfseSem.slice(nfseSem.indexOf("function fromRow"), nfseSem.indexOf("export async function hydrateNfse"))));
+  const cancN = nfseSem.slice(nfseSem.indexOf("export async function cancelarNfse"));
+  ok("vender/nfse: cancelar a nota NÃO apaga o título que tem chave de venda (pergunta ao banco)",
+     /select\("sale_doc_id"\)/.test(cancN) && /sale_doc_id\)\s*continue/.test(cancN) && /receitaReaproveitada\(/.test(cancN));
+  ok("vender/nfse: a lista do banco lê o erro (lista vazia não pode esconder recusa)",
+     /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\s*\.select/.test(nfseSem));
+  // REVISÃO — excluir a venda: nota emitida e recebimento baixado bloqueiam,
+  // pela MESMA regra em demonstração e em produção.
+  const { bloqueioDeExclusao } = await import("@/core/vendas/nota");
+  ok("vender/excluir: venda com nota emitida ou em processamento não se exclui (a nota seguiria valendo)",
+     /Cancele a nota/.test(bloqueioDeExclusao({ numero: "1", statusNF: "emitida", numeroNF: "100001" }, ["previsto"]) ?? "")
+     && /Cancele a nota/.test(bloqueioDeExclusao({ numero: "1", statusNF: "processando", numeroNF: "" }, []) ?? ""));
+  ok("vender/excluir: recebimento baixado bloqueia; previsto, cancelado e nota cancelada/a emitir não",
+     /Estorne/.test(bloqueioDeExclusao({ numero: "1", statusNF: "a_emitir", numeroNF: "" }, ["previsto", "baixado"]) ?? "")
+     && bloqueioDeExclusao({ numero: "1", statusNF: "cancelada", numeroNF: "9" }, ["previsto", "cancelado"]) === null
+     && bloqueioDeExclusao({ numero: "1", statusNF: "a_emitir", numeroNF: "" }, []) === null);
+  const libV = semComentario(lerV("src/lib/vendas.ts"));
+  const remV = libV.slice(libV.indexOf("export async function removerVendaDoc"), libV.indexOf("export function vendasSoNoNavegador"));
+  ok("vender/excluir: demonstração e produção perguntam a mesma regra ANTES de apagar",
+     (remV.match(/if \(bloqueio\) throw new Error\(bloqueio\);/g) ?? []).length === 2
+     && remV.indexOf("if (bloqueio) throw") < remV.indexOf("removerLocal("));
+  ok("vender/nota: cancelar a nota de uma venda leva o status de volta à venda",
+     /refletirCancelamentoNaVenda\(/.test(nfseView) && /statusNF: "cancelada"|"cancelada", nf\.numero/.test(semComentario(lerV("src/lib/vendas-nf.ts"))));
+
+  /* ---- assinaturas: dá para criar, e o MRR normaliza o ciclo ---- */
+  const pagAss = lerV("src/app/dashboard/sales-invoices/subscriptions/page.tsx");
+  ok("vender/assinaturas: a tela monta o gerenciador (criar, ativar, pausar, cancelar) — estava órfão",
+     /<RecorrenciasView \/>/.test(pagAss));
+  const criarCat = lerV("src/core/criar/index.ts");
+  ok("vender/assinaturas: 'Nova assinatura' não abre mais o formulário de contrato que não grava em demonstração",
+     !/Nova assinatura[^\n]*modal: "contrato"/.test(criarCat));
+  const recView = semComentario(lerV("src/components/recorrencias/RecorrenciasView.tsx"));
+  // ⚠️ Revisão: a versão anterior só reconhecia o defeito na forma exata de
+  // antes (`style={{ color: tone }}`); `style={{ color: alerta ? negative … }}`
+  // passava. Agora o CARTÃO inteiro não pode decidir cor do número.
+  const kpiRec = recView.slice(recView.indexOf("function Kpi("));
+  ok("vender/assinaturas: o churn não é pintado de vermelho por limiar (o alerta é um ponto ao lado do rótulo)",
+     !/churn[^\n]*color-negative/.test(recView) && !/style=\{\{\s*color/.test(kpiRec) && !/color-negative|text-negative/.test(kpiRec)
+     && /alerta=\{kpis\.churn > 0\.2\}/.test(recView));
+  ok("vender/assinaturas: a NFS-e da assinatura recusada na CRIAÇÃO vira aviso, não erro solto",
+     /try \{\s*nf = await criarNfse\(/.test(recView));
+  const { mrr: mrrV } = await import("@/core/indicadores");
+  const mV = mrrV({ hoje: "2026-09-30", saldoAtual: 0, movements: [] }, [
+    { ativo: true, valorCiclo: 300, mesesCiclo: 3 }, { ativo: true, valorCiclo: 1_200, mesesCiclo: 12 }, { ativo: false, valorCiclo: 999, mesesCiclo: 1 },
+  ]).valor;
+  ok("vender/assinaturas: MRR normaliza o ciclo (trimestral 300 + anual 1.200 = 200/mês) e ignora a inativa", mV === 200, `${mV}`);
+
+  /* ---- PIX copia-e-cola: CRC conferido por implementação independente ---- */
+  try {
+    const { gerarPixCopiaECola } = await import("@/lib/pix");
+    const payload = gerarPixCopiaECola({ chave: "12345678000195", valor: 123.4, nome: "Padaria São João Ltda", cidade: "São Paulo", txid: "V20260001" });
+    // CRC16-CCITT-FALSE escrito à mão AQUI (não importado): se as duas
+    // implementações divergirem, alguém mexeu num lado sem querer.
+    let c = 0xffff;
+    const corpo = payload.slice(0, -4);
+    for (let i = 0; i < corpo.length; i++) { c ^= corpo.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) c = c & 0x8000 ? ((c << 1) ^ 0x1021) & 0xffff : (c << 1) & 0xffff; }
+    ok("vender/pix: o CRC do copia-e-cola confere", payload.slice(-4) === c.toString(16).toUpperCase().padStart(4, "0"), payload);
+    ok("vender/pix: valor, moeda, país e chave nos campos EMV", /5406123\.40/.test(payload) && /5303986/.test(payload) && /5802BR/.test(payload) && payload.includes("12345678000195"));
+    ok("vender/pix: nome e cidade sem acento (o leitor recusa byte fora do ASCII)", /^[\x20-\x7e]+$/.test(payload));
+  } catch (e) {
+    ok("vender/pix: o gerador de PIX carrega fora do navegador", false, String(e));
+  }
+
+  /* ---- configuração de impostos e links: dado da EMPRESA, não do navegador ---- */
+  // Antes as duas chaves iam direto ao localStorage: a alíquota que o contador
+  // configurou valia só naquela máquina, e a hidratação (o servidor vence)
+  // devolvia a cópia antiga na sessão seguinte.
+  const funcaoDe = (nome: string) => { const i = store.indexOf(nome); return i < 0 ? "" : store.slice(i, store.indexOf("\n}", i) + 2 || undefined); };
+  const linhaDe2 = (prefixo: string) => (store.split("\n").find((l) => l.startsWith(prefixo)) ?? "") + (store.split("\n")[store.split("\n").findIndex((l) => l.startsWith(prefixo)) + 1] ?? "");
+  ok("vender/store: a configuração de impostos é LIDA por store-org",
+     /lerOrg<ConfigImpostos>\(K_CONFIG/.test(linhaDe2("export const lerConfigImpostos")), linhaDe2("export const lerConfigImpostos"));
+  ok("vender/store: a configuração de impostos é GRAVADA por store-org",
+     /gravarOrg\(K_CONFIG/.test(funcaoDe("export function salvarConfigImpostos")) && !/[^g]gravar\(K_CONFIG/.test(store));
+  ok("vender/store: os links de pagamento são lidos e gravados por store-org",
+     /lerOrg<LinkPagamento\[\]>\(K_LINKS/.test(store) && !/[^g]gravar\(K_LINKS/.test(store) && !/[^r]ler<LinkPagamento/.test(store));
+  const { CHAVES_DE_NEGOCIO } = await import("@/lib/store-org");
+  ok("vender/store: as duas chaves continuam classificadas como dado da empresa",
+     CHAVES_DE_NEGOCIO.includes("a4p_impostos_config") && CHAVES_DE_NEGOCIO.includes("a4p_links_pagamento"));
+
+  /* ---- Rodada 3 (reservados): os defeitos que os caçadores não podiam editar ---- */
+  const outras = semComentario(lerV("src/components/vendas-nf/OutrasViews.tsx"));
+  const fnDe = (t: string, nome: string) => { const i = t.indexOf(nome); return i < 0 ? "" : t.slice(i, t.indexOf("\n}\n", i) + 3); };
+
+  // Link de pagamento: o que ele entrega é o PIX, nunca uma URL de página que não existe.
+  const recebedorV = { chave: "12345678000195", nome: "Padaria Sao Joao", cidade: "Sao Paulo" };
+  const pixLk = cv.pixDoLink({ id: "lk_abc-123", valor: 350 }, recebedorV) ?? "";
+  let crcLk = 0xffff;
+  for (let i = 0; i < pixLk.length - 4; i++) { crcLk ^= pixLk.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) crcLk = crcLk & 0x8000 ? ((crcLk << 1) ^ 0x1021) & 0xffff : (crcLk << 1) & 0xffff; }
+  ok("vender/links: o link vira PIX copia-e-cola com o valor dele, o id como txid e o CRC conferido",
+     pixLk.startsWith("000201") && /5406350\.00/.test(pixLk) && pixLk.includes("0508LKABC123")
+     && pixLk.slice(-4) === crcLk.toString(16).toUpperCase().padStart(4, "0"), pixLk);
+  ok("vender/links: link de valor aberto não fixa valor no PIX (o pagador digita)",
+     (cv.pixDoLink({ id: "lk2", valor: 0 }, recebedorV) ?? "").includes("53039865802BR"));
+  // Teto ZERO: nenhuma tela ou motor monta endereço `/pagar/<id>` (a rota nunca existiu).
+  const semPagar = (dir: string): string[] => fsV.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const c = `${dir}/${e.name}`;
+    if (e.isDirectory()) return semPagar(c);
+    if (!/\.(tsx?|mts)$/.test(e.name)) return [];
+    return /(?<![\w-])\/pagar\//.test(semComentario(fsV.readFileSync(c, "utf8"))) ? [c] : [];
+  });
+  const comPagar = semPagar("src");
+  ok("vender/links: nenhum href/URL para /pagar/ (página pública não existe; decisão do dono)",
+     comPagar.length === 0 && !fsV.existsSync("src/app/pagar"), comPagar.join(" "));
+  ok("vender/links: o QR e o botão copiam o PIX (pixDoLink), não uma URL",
+     /qrParaSVG\(gerarQR\(pix\)/.test(outras) && /writeText\(pix\)/.test(outras) && !/urlDoLink|window\.location\.origin/.test(outras));
+  const formLink = fnDe(outras, "function FormLink(");
+  ok("vender/links: o valor do link é a máscara de dinheiro (CurrencyInput), não type=number",
+     /<CurrencyInput value=\{l\.valor\}/.test(formLink) && !/type="number"/.test(formLink));
+
+  // Propor fornecedores: devolve a escolha, e o modal aberto a aplica.
+  const propor = fnDe(outras, "const proporFornecedores = async");
+  ok("vender/impostos: 'Propor fornecedores' usa o id que createParty devolve e DEVOLVE a escolha",
+     /novos\[f\.esfera\] = criado\.id/.test(propor) && /return novos;/.test(propor) && !/criado\?\.id/.test(propor));
+  const cadV = semComentario(lerV("src/lib/cadastros.ts"));
+  const createPartyV = fnDe(cadV, "export async function createParty(");
+  ok("vender/impostos: createParty devolve o id nos DOIS caminhos (demonstração e banco)",
+     /Promise<\{ id: string \}>/.test(createPartyV) && /return \{ id \};/.test(createPartyV)
+     && /\.select\("id"\)\.single\(\)/.test(createPartyV) && /if \(error\) throw error;/.test(createPartyV));
+  const modalImp = fnDe(outras, "function ConfigImpostosModal(");
+  ok("vender/impostos: o modal aplica o que 'Propor' escolheu na cópia dele (Salvar apagava a escolha)",
+     /const novos = await onPropor\(c\.fornecedores\);/.test(modalImp) && /setC\(\(s\) => \(\{ \.\.\.s, fornecedores: novos \}\)\)/.test(modalImp));
+  ok("vender/impostos: o resumo conta as vendas da TABELA (provisao.linhas), não o período com chargeback",
+     /provisao\.linhas\.length === 1 \? "venda tributável"/.test(outras) && !/doPeriodo\.length\}/.test(outras));
+  ok("vender/impostos: o botão aguarda a gravação e diz o que já existia na competência",
+     /await criarContasDeImpostos\(/.test(outras) && /r\.jaExistiam > 0/.test(outras)
+     && /r\.criadas === 0\s*\?\s*`Nada a criar/.test(outras));
+
+  // Assinaturas: o card diz o que conta, a coluna diz o ciclo.
+  const assin = fnDe(outras, "export function AssinaturasVendasView(");
+  ok("vender/assinaturas: o card das pausadas se chama 'Pausadas' (não 'Expirada') e a coluna é 'Valor por ciclo'",
+     /cardDe\("pausadas", "Pausadas", \(s\) => s === "pausada"\)/.test(assin) && !/Expirada|Valor recorrente/.test(assin)
+     && (assin.match(/Valor por ciclo/g) ?? []).length === 2);
+
+  // Recorrências: o escritor de produção não engole erro; a demonstração segue a regra de produção.
+  const recLib = semComentario(lerV("src/lib/recorrencias.ts"));
+  const criarRec = fnDe(recLib, "export async function criarRecorrencia(");
+  ok("vender/recorrencias: criar em produção LANÇA a recusa do banco (devolvia um id local inventado)",
+     /const \{ data, error \} = await createClient\(\)\.from\("recurrences"\)\.insert/.test(criarRec)
+     && /if \(error\) throw/.test(criarRec) && !/rec-\$\{Date\.now\(\)\}`, \.\.\.n, itens, status: "rascunho" as StatusRec/.test(criarRec));
+  const ativarRec = fnDe(recLib, "export async function ativarRecorrencia(");
+  ok("vender/recorrencias: ativar sem conta é RECUSADO antes de marcar ativa (calava e dizia 'Ativada')",
+     /if \(!accId\) \{\s*throw/.test(ativarRec) && ativarRec.indexOf("if (!accId)") < ativarRec.indexOf('update({ active: true })'));
+  ok("vender/recorrencias: a recusa de ativar e a de cada fatura (≠ duplicata) SOBEM",
+     /if \(eAtiva\) throw/.test(ativarRec) && /if \(error\.code === "23505"\) \{ duplicadas\.push\(d\); continue; \}\s*\n[\s\S]*?throw new Error/.test(ativarRec)
+     && !/if \(!error \|\| error\.code === "23505"\) continue;\s*\n\s*\}/.test(ativarRec));
+  ok("vender/recorrencias: demonstração e produção usam o MESMO horizonte em dias (eram 6 faturas: a anual virava 6 anos)",
+     /HORIZONTE_ATIVACAO_DIAS\)/.test(ativarRec) && !/projetarProximasFaturas\(r, 6\)/.test(recLib)
+     && /datasFaturaCron\(inicioISO \?\? r\.inicio \?\? hoje, cicloParaFreq\(r\.ciclo\), r\.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS\)/.test(recLib));
+  const { datasFaturaCron: dfc, faturasARemoverAoEncerrar, HORIZONTE_ATIVACAO_DIAS } = await import("@/lib/recorrencias-sched");
+  const anualV = dfc("2026-10-01", "anual", 5, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  ok("vender/recorrencias: a anual ativada lança UMA fatura no horizonte, não seis anos", anualV.length === 1 && anualV[0] === "2026-10-05", anualV.join(" "));
+  const encerrarRec = fnDe(recLib, "export async function encerrarRecorrencia(");
+  const sair = faturasARemoverAoEncerrar([
+    { id: "pago", status: "pago", due_date: "2026-11-05" },
+    { id: "vencida", status: "pendente", due_date: "2026-09-05" },
+    { id: "futura", status: "pendente", due_date: "2026-11-05" },
+    { id: "hoje", status: "pendente", due_date: "2026-10-01" },
+  ], "2026-10-01");
+  ok("vender/recorrencias: pausar/cancelar tira SÓ a pendente de hoje em diante (a recebida e a vencida ficam)",
+     sair.join(",") === "futura,hoje", sair.join(","));
+  ok("vender/recorrencias: a demonstração pergunta a MESMA regra (apagava todas, inclusive as recebidas)",
+     /faturasARemoverAoEncerrar\(/.test(encerrarRec) && !/removerImported\(r\.movimentos\)/.test(encerrarRec));
+  ok("vender/recorrencias: encerrar em produção lança a recusa do update e da leitura, e não cala as falhas da exclusão",
+     /if \(eInativa\) throw/.test(encerrarRec) && /if \(eFuturas\) throw/.test(encerrarRec) && /if \(falhas\.length\)/.test(encerrarRec));
+
+  // Acessibilidade: o rótulo da Nova venda aponta para o campo.
+  const campoVF = fnDe(semComentario(lerV("src/components/vendas-nf/VendaForm.tsx")), "function Campo(");
+  ok("vender/form: o <label> do Campo tem htmlFor e o filho recebe o MESMO id (Status/Operação/Método eram anônimos)",
+     /React\.useId\(\)/.test(campoVF) && /<label htmlFor=\{id\}/.test(campoVF) && /React\.cloneElement\(filho, \{ id \}\)/.test(campoVF));
+
+  /* ---- Rodada 3 · revisão adversarial: o que a correção deixou passar ---- */
+  // (1) Fase do ciclo: ativar e o Cron têm de gerar as MESMAS datas. A ativação
+  // partia de HOJE e o Cron parte do start_date — um trimestral criado em
+  // fevereiro e ativado em outubro virava duas séries de faturas do mesmo contrato.
+  const faseStart = dfc("2026-02-15", "trimestral", 15, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  const faseHoje = dfc("2026-10-01", "trimestral", 15, "2026-10-01", HORIZONTE_ATIVACAO_DIAS);
+  ok("vender/recorrencias: o caso discrimina — fase do start_date ≠ fase de hoje no trimestral",
+     faseStart.join(",") === "2026-11-15,2027-02-15" && faseHoje.join(",") === "2026-10-15,2027-01-15", `${faseStart} | ${faseHoje}`);
+  const fromRowRec = fnDe(recLib, "function fromRow(");
+  ok("vender/recorrencias: ativar em produção parte do start_date (a fase do Cron), não de hoje",
+     /inicio: r\.start_date/.test(fromRowRec)
+     && /datasFaturaCron\(r\.inicio \?\? hoje, cicloParaFreq\(r\.ciclo\)/.test(ativarRec)
+     && !/datasFaturaCron\(hoje, cicloParaFreq/.test(ativarRec));
+  // (2) Duplicata não é "já está no previsto": a fatura excluída ao pausar segue
+  // no índice único e some da leitura. Reativar contava zero e a tela dizia
+  // "nenhuma fatura vence" sobre um contrato com faturas.
+  ok("vender/recorrencias: a duplicata (23505) é guardada e conferida contra o que está VISÍVEL",
+     /if \(error\.code === "23505"\) \{ duplicadas\.push\(d\); continue; \}/.test(ativarRec)
+     && /\.in\("reference_code", duplicadas\.map/.test(ativarRec) && /naLixeira = duplicadas\.filter/.test(ativarRec));
+  const { mensagemDaAtivacao } = await import("@/lib/recorrencias-sched");
+  const msgJa = mensagemDaAtivacao({ faturas: 0, jaExistiam: 3, naLixeira: [], horizonteDias: 180 });
+  ok("vender/recorrencias: faturas que já existiam NÃO viram 'nenhuma fatura vence'",
+     /3 já estavam no previsto/.test(msgJa) && !/nenhuma fatura/i.test(msgJa), msgJa);
+  const msgLix = mensagemDaAtivacao({ faturas: 1, jaExistiam: 0, naLixeira: ["2026-11-05", "2026-12-05"], horizonteDias: 180 });
+  ok("vender/recorrencias: a fatura presa na lixeira é DITA, com a data",
+     /2 faturas estão na lixeira/.test(msgLix) && /05\/11\/2026, 05\/12\/2026/.test(msgLix) && /1 fatura nova/.test(msgLix), msgLix);
+  ok("vender/recorrencias: sem nada no horizonte, e só então, 'nenhuma fatura vence'",
+     /nenhuma fatura vence nos próximos 180 dias/.test(mensagemDaAtivacao({ faturas: 0, jaExistiam: 0, naLixeira: [], horizonteDias: 180 })));
+  const recViewR3 = semComentario(lerV("src/components/recorrencias/RecorrenciasView.tsx"));
+  ok("vender/recorrencias: a tela fala pela mensagemDaAtivacao (não decide por res.faturas > 0)",
+     /show\(mensagemDaAtivacao\(res\)\)/.test(recViewR3) && !/res\.faturas > 0/.test(recViewR3));
+  ok("vender/recorrencias: encerrar sem a assinatura LANÇA (devolvia em silêncio e a tela dizia 'Pausada')",
+     /if \(!r\) throw/.test(encerrarRec));
+  // (3) Propor fornecedores: a recusa do banco era sobrescrita no MESMO toast.
+  const proporCorpo = propor.slice(0, propor.indexOf("return novos;") + 13);
+  const msgFalha = cv.mensagemDaProposta({ criados: 0, reaproveitados: 0, falha: "permission denied" });
+  ok("vender/impostos: a falha do Propor não é substituída por 'nada a propor'",
+     /^Não foi possível criar o fornecedor proposto: permission denied/.test(msgFalha) && !/nada a propor/.test(msgFalha), msgFalha);
+  ok("vender/impostos: falha no meio diz o que já foi feito",
+     /antes da falha: 1 criado/.test(cv.mensagemDaProposta({ criados: 1, reaproveitados: 0, falha: "x" })));
+  ok("vender/impostos: o Propor mostra UMA mensagem, montada depois do try (nenhum show dentro do catch)",
+     (proporCorpo.match(/show\(/g) ?? []).length === 1 && /show\(mensagemDaProposta\(/.test(proporCorpo) && /falha = e instanceof Error/.test(proporCorpo));
+  // (4) Copiar PIX não pode falhar calado.
+  ok("vender/links: copiar o PIX nunca falha em silêncio (sem catch vazio, sem clipboard?.)",
+     !/catch\(\(\) => \{\s*\/\*/.test(lerV("src/components/vendas-nf/OutrasViews.tsx")) && !/clipboard\?\.writeText\(pix\)/.test(outras)
+     && (outras.match(/if \(!navigator\.clipboard\)/g) ?? []).length === 2);
+}
+/* ── CONTABILIDADE E RELATÓRIOS ── */
+{
+  const fsC = await import("node:fs");
+  const { conciliarCaixaDoRazao } = await import("@/core/ledger/conciliacao");
+  const { lancamentosDeMovimentos } = await import("@/core/ledger/chart");
+  const { montarDFC, montarDRE, montarConsolidado, ESTRUTURA_DRE: EDRE, ESTRUTURA_DFC: EDFC, saldoInicialDoPeriodo } = await import("@/core/relatorios");
+  const { analisarVariacao } = await import("@/core/variacao");
+  const { movimentosDaContaNoMes, montarLancamentosDominio } = await import("@/core/contabilidade");
+  const { postarLancamento, validarPostagem } = await import("@/lib/ledger");
+
+  const mv = (id: string, type: "entrada" | "saida", amount: number, d: string, extra: Partial<RiskMovement> = {}): RiskMovement => ({
+    id, type, amount, status: "pago", due_date: d, paid_date: d, party_id: null,
+    category: type === "entrada" ? "Vendas" : "Fornecedores", ...extra,
+  } as RiskMovement);
+  const movsC: RiskMovement[] = [
+    mv("c1", "entrada", 1000, "2026-08-05", { accountId: "A" }),
+    mv("c2", "saida", 300, "2026-08-10", { accountId: "B" }),
+    mv("c3", "entrada", 500, "2026-09-05", { accountId: "A" }),
+    mv("c4", "saida", 200, "2026-09-12", { accountId: "A", category: "Aluguel" }),
+    // transferência A → B
+    mv("t1", "saida", 150, "2026-09-15", { accountId: "A", category: "Transferência entre contas" }),
+    mv("t2", "entrada", 150, "2026-09-15", { accountId: "B", category: "Transferência entre contas" }),
+    { ...mv("p1", "entrada", 999, "2026-09-28", { accountId: "A" }), status: "pendente", paid_date: null } as RiskMovement,
+  ];
+  const inpC: RiskInput = { hoje: "2026-09-30", saldoAtual: 10000, movements: movsC, partyNames: {} } as RiskInput;
+  // saldo de cada conta hoje: A 6000, B 4000
+  const saldoA = 6000;
+
+  // 1. O caixa do razão é o do balancete, e as parcelas somam a diferença.
+  const derivados = lancamentosDeMovimentos(inpC).map((e) => ({
+    externalKey: e.externalKey, linhas: e.lines.map((l) => ({ conta: l.accountId, debito: l.debit ?? 0, credito: l.credit ?? 0 })),
+  }));
+  const manual = { externalKey: "man:1", linhas: [{ conta: "4.1.09", debito: 80, credito: 0 }, { conta: "1.1.01", debito: 0, credito: 80 }] };
+  const conc = conciliarCaixaDoRazao([...derivados, manual], inpC);
+  const caixaBalancete = [...derivados, manual].flatMap((e) => e.linhas).filter((l) => l.conta === "1.1.01").reduce((s, l) => s + l.debito - l.credito, 0);
+  ok("contabil: o 'caixa no razão' é o saldo da conta 1.1.01 do balancete (era liquidados + PREVISTOS)",
+     Math.abs(conc.caixaRazao - caixaBalancete) < 0.005 && Math.abs(conc.caixaRazao - (1000 - 300 + 500 - 200 - 150 + 150 - 80)) < 0.005, `${conc.caixaRazao}`);
+  ok("contabil: o título previsto NÃO é parcela da diferença (fica como informativo)",
+     !conc.parcelas.some((p) => Math.abs(p.valor - 999) < 0.005 || Math.abs(p.valor + 999) < 0.005) && Math.abs(conc.previstosForaDoRazao + 999) < 0.005);
+  ok("contabil: as parcelas SOMAM a diferença extrato − razão",
+     Math.abs(conc.parcelas.reduce((s, p) => s + p.valor, 0) - conc.diferenca) < 0.005);
+  ok("contabil: o lançamento próprio no caixa é parcela nomeada (+80)",
+     Math.abs((conc.parcelas.find((p) => p.id === "proprios")?.valor ?? 0) - 80) < 0.005);
+  ok("contabil: sem abertura verificada não há 'fecha' (a abertura fecha por construção)", conc.fecha === false && conc.residuo === 0);
+  const ver = conciliarCaixaDoRazao(derivados, { ...inpC, aberturaVerificada: { valor: 8000, data: "2026-08-01", origem: "extrato_bancario" } } as RiskInput);
+  // extrato 10000 = 8000 + liquidado 1000 + resíduo 1000
+  ok("contabil: com abertura verificada o resíduo é MEDIDO (R$ 1.000 que nada explica)", Math.abs(ver.residuo - 1000) < 0.005 && !ver.fecha, `${ver.residuo}`);
+
+  // 2. O DFC fecha na coluna Total e por conta.
+  const intC = { de: "2026-08-01", ate: "2026-09-30" };
+  const lin = (r: { linhas: { id: string; total: { valor: number }; celulas: { valor: number }[] }[] }, id: string) => r.linhas.find((l) => l.id === id);
+  const dfc = montarDFC(inpC, { intervalo: intC, tipo: "vertical" });
+  const si = lin(dfc, "saldo_inicial")!, fl = lin(dfc, "fluxo_liquido")!, sf = lin(dfc, "saldo_final")!;
+  ok("dfc: o Total do Saldo Inicial é o do PRIMEIRO mês (era o do último)", Math.abs(si.total.valor - si.celulas[0].valor) < 0.005 && si.celulas[0].valor !== si.celulas[1].valor);
+  ok("dfc: na coluna Total, inicial + fluxo líquido = final = saldo das contas",
+     Math.abs(si.total.valor + fl.total.valor - sf.total.valor) < 0.005 && Math.abs(sf.total.valor - 10000) < 0.005, `${si.total.valor}+${fl.total.valor}=${sf.total.valor}`);
+  const dfcA = montarDFC(inpC, { intervalo: intC, tipo: "vertical", conta: "A" }, saldoA);
+  const sfA = lin(dfcA, "saldo_final")!, siA = lin(dfcA, "saldo_inicial")!, flA = lin(dfcA, "fluxo_liquido")!;
+  ok("dfc: recortado por conta, o saldo final é o saldo DESSA conta (partia do saldo da empresa)",
+     Math.abs(sfA.total.valor - saldoA) < 0.005 && Math.abs(siA.total.valor + flA.total.valor - sfA.total.valor) < 0.005, `${sfA.total.valor}`);
+  ok("dfc: a transferência é caixa da conta (linha própria) e se anula no total",
+     Math.abs((lin(dfcA, "transferencias_entre_contas")?.total.valor ?? 0) + 150) < 0.005
+     && Math.abs(lin(dfc, "transferencias_entre_contas")?.total.valor ?? 1) < 0.005);
+  ok("dfc: com conta e sem o saldo da conta, as linhas de saldo saem (não inventa saldo)",
+     !lin(montarDFC(inpC, { intervalo: intC, tipo: "vertical", conta: "A" }), "saldo_inicial"));
+  ok("dfc: recorte por projeto não tem linha de saldo",
+     !lin(montarDFC(inpC, { intervalo: intC, tipo: "vertical", projeto: "X" }), "saldo_final"));
+  ok("dfc: o saldo inicial desfaz o liquidado DEPOIS do fim da janela também",
+     saldoInicialDoPeriodo(inpC, "2026-09-01", 10000) === 10000 - (500 - 200 - 150 + 150));
+
+  // 3. Consolidado: o DFC tem saldo, fecha, e o DRE consolidado de uma empresa é o DRE dela.
+  const outra: RiskInput = { hoje: "2026-09-30", saldoAtual: 2000, movements: [mv("o1", "entrada", 700, "2026-09-03")], partyNames: {} } as RiskInput;
+  const consDfc = montarConsolidado([{ id: "a", nome: "A", input: inpC }, { id: "b", nome: "B", input: outra }], EDFC, { intervalo: intC, tipo: "vertical", regime: "caixa" });
+  const csi = lin(consDfc.consolidado, "saldo_inicial")!, cfl = lin(consDfc.consolidado, "fluxo_liquido")!, csf = lin(consDfc.consolidado, "saldo_final")!;
+  ok("consolidado: o DFC parte do saldo do grupo (saía R$ 0,00) e fecha na soma dos saldos",
+     Math.abs(csf.total.valor - 12000) < 0.005 && Math.abs(csi.total.valor + cfl.total.valor - csf.total.valor) < 0.005, `${csf.total.valor}`);
+  ok("consolidado: janela que termina no passado não inventa saldo",
+     !lin(montarConsolidado([{ id: "a", nome: "A", input: inpC }], EDFC, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, tipo: "vertical", regime: "caixa" }).consolidado, "saldo_final"));
+  const lpc = { fornecedores: "custos_variaveis" };
+  const so = montarConsolidado([{ id: "a", nome: "A", input: inpC }], EDRE, { intervalo: intC, tipo: "vertical", regime: "competencia", linhaPorCategoria: lpc });
+  const dre1 = montarDRE(inpC, { intervalo: intC, tipo: "vertical", linhaPorCategoria: lpc });
+  ok("consolidado: com a linha declarada, cada linha do DRE multi é a do DRE da empresa",
+     dre1.linhas.every((l) => Math.abs(l.total.valor - (lin(so.consolidado, l.id)?.total.valor ?? NaN)) < 0.005)
+     && (lin(dre1, "custos_variaveis")?.total.valor ?? 0) > 0);
+  const mvw = fsC.readFileSync("src/components/relatorios/MultiempresaView.tsx", "utf8");
+  ok("consolidado: a tela passa a linha declarada e a fonte do drill-down",
+     /linhaPorCategoria,\n\s*\}\);/.test(mvw) && /fonte=\{consolidado\?\.unido\}/.test(mvw) && !/contasFiltro/.test(mvw));
+  ok("consolidado: o unido carrega os ids prefixados que o drill-down procura",
+     consDfc.unido.movements.every((m) => /^(a|b):/.test(m.id)));
+  const dv = fsC.readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("dre: os cartões recebem o MESMO filtro da tabela (só recebiam o intervalo)",
+     /cascataDRE\(input, \{ \.\.\.filtro, regime: "competencia" \}\)/.test(dv) && /linhaPorCategoria \}\}/.test(dv));
+
+  // 4. Variação: os dois lados abrem lançamentos — inclusive a categoria que sumiu.
+  const vInp: RiskInput = { hoje: "2026-09-30", saldoAtual: 0, partyNames: {}, movements: [
+    mv("v1", "entrada", 5000, "2026-08-10"), mv("v2", "entrada", 5000, "2026-09-10"),
+    mv("v3", "saida", 3000, "2026-08-12", { category: "Marketing" }),
+  ] } as RiskInput;
+  const va = analisarVariacao(vInp, "2026-09", { valor: 100, pct: 5 }, {});
+  const mk = va.linhas.flatMap((l) => l.motivos).find((m) => m.categoria === "Marketing");
+  ok("variacao: a categoria que SUMIU tem os lançamentos do mês anterior para abrir",
+     !!mk && mk.movimentos.length === 0 && mk.movimentosAnterior.length === 1 && mk.movimentosAnterior[0] === "v3");
+
+  // 5. Domínio: sem conta não vai a todas as contas; categoria casa sem caixa.
+  const dInp: RiskInput = { hoje: "2026-09-30", saldoAtual: 0, partyNames: {}, movements: [
+    mv("d1", "entrada", 100, "2026-09-02", { accountId: "A", category: "venda" }),
+    mv("d2", "saida", 40, "2026-09-03", { accountId: null as unknown as string, category: "venda" }),
+  ] } as RiskInput;
+  const dA = movimentosDaContaNoMes(dInp, "A", "2026-09", 2), dB = movimentosDaContaNoMes(dInp, "B", "2026-09", 2);
+  ok("dominio: lançamento sem conta não entra no arquivo de NENHUMA conta (entrava em todas) e é listado",
+     dA.movimentos.length === 1 && dB.movimentos.length === 0 && dA.semConta.length === 1);
+  ok("dominio: com uma conta só, o lançamento sem conta é dela",
+     movimentosDaContaNoMes(dInp, "A", "2026-09", 1).movimentos.length === 2);
+  const mont = montarLancamentosDominio(dA.movimentos, { categorias: { Venda: "3.1.01" }, centros: {} });
+  ok("dominio: 'Venda' do plano casa com 'venda' do lançamento (era chave exata → pendência)",
+     mont.linhas.length === 1 && mont.pendencias.length === 0);
+
+  // 6. Razão: a recusa do desbalanceado vale nos DOIS caminhos, e o vivo não engole erro.
+  let recusou = "";
+  try { await postarLancamento({ entryDate: "2026-09-10", lines: [{ accountId: "1.1.01", debit: 500 }, { accountId: "3.1.01", credit: 300 }] }); }
+  catch (e) { recusou = (e as Error).message; }
+  // Aqui `isDemo` é falso e não há Supabase: a recusa tem de vir ANTES de
+  // qualquer rede, com o motivo — um erro de cliente Supabase seria vermelho
+  // pelo motivo errado.
+  ok("razao: o desbalanceado é RECUSADO antes de qualquer gravação, com o motivo", /desbalanceado/i.test(recusou) && !/supabase/i.test(recusou), recusou);
+  const corpoPostar = fsC.readFileSync("src/lib/ledger.ts", "utf8").split("export async function postarLancamento(")[1] ?? "";
+  ok("razao: postarLancamento valida ANTES do ramo da demonstração (a demo gravava qualquer coisa no navegador)",
+     corpoPostar.indexOf("validarPostagem(e)") > 0 && corpoPostar.indexOf("validarPostagem(e)") < corpoPostar.indexOf("if (isDemo)"));
+  let foraPlano = "";
+  try { validarPostagem({ entryDate: "2026-09-10", lines: [{ accountId: "9.9.99", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { foraPlano = (e as Error).message; }
+  ok("razao: conta fora do plano é recusada nomeada", /9\.9\.99/.test(foraPlano));
+  const led = fsC.readFileSync("src/lib/ledger.ts", "utf8");
+  const lote = led.slice(led.indexOf("async function postarLiveLote"));
+  ok("razao: a postagem em produção leva o período (sem ele a trava do mês não alcança o razão)", /period_id: periodId/.test(lote));
+  ok("razao: nenhuma recusa do banco é engolida com `continue` mudo", !/if \(e[123][^)]*\) continue;/.test(lote) && (lote.match(/falhar\(/g) ?? []).length >= 4);
+  ok("razao: postarLancamento LANÇA quando o lote volta com falha", /if \(r\.falhas\.length\) throw/.test(led));
+  const ing = led.slice(led.indexOf("export async function ingerirOpenFinanceRazao"), led.indexOf("/* ----------------------------- live helpers"));
+  ok("razao: o Open Finance não posta de novo a transação que já virou movimento (dobrava o caixa)",
+     /!t\.movement_id/.test(ing) && /ok\.has\(t\.pluggy_transaction_id\)/.test(ing));
+}
+
+/* ── CONTABILIDADE (revisão) ── */
+{
+  const fsR = await import("node:fs");
+  const { decidirPostagem } = await import("@/core/ledger/idempotencia");
+  const { estornarLancamento, validarPostagem: validarR } = await import("@/lib/ledger");
+  const { lockPeriod, unlockPeriod } = await import("@/lib/close");
+
+  // 1. A idempotência diz o que fez — e deixa corrigir depois de estornar.
+  const ex = (chave: string, total: number, estornado = false) => ({ chave, total, estornado });
+  ok("razao-rev: sem chave, sempre posta", decidirPostagem(undefined, 10, [ex("x", 10)]).acao === "postar");
+  ok("razao-rev: mesma chave e mesmo valor → já existia (não duplica, e a tela pode dizer)",
+     decidirPostagem("cron:2026-10", 1950, [ex("cron:2026-10", 1950)]).acao === "ja_existia");
+  const conf = decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950)]);
+  ok("razao-rev: mesma chave com OUTRO valor → conflito com o valor que está lá (voltava calado e a tela dizia 'Lançado')",
+     conf.acao === "conflito" && conf.valorExistente === 1950);
+  const v2 = decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950, true)]);
+  ok("razao-rev: estornado o anterior, o valor novo entra com a chave versionada (a chave não fica presa para sempre)",
+     v2.acao === "postar" && v2.chave === "cron:2026-10#v2");
+  ok("razao-rev: a versão também conta como a mesma chave",
+     decidirPostagem("cron:2026-10", 2450, [ex("cron:2026-10", 1950, true), ex("cron:2026-10#v2", 2450)]).acao === "ja_existia");
+  ok("razao-rev: chave que só COMEÇA igual não é a mesma (cron:2026-1 × cron:2026-10)",
+     decidirPostagem("cron:2026-1", 100, [ex("cron:2026-10", 999)]).acao === "postar");
+  const led = fsR.readFileSync("src/lib/ledger.ts", "utf8");
+  const corpo = led.split("export async function postarLancamento(")[1]?.split("\nexport ")[0] ?? "";
+  const iDemo = corpo.indexOf("if (isDemo)");
+  ok("razao-rev: a decisão vale nos DOIS caminhos (demo e produção) e postarLancamento devolve o que fez",
+     /decidir\(atual/.test(corpo.slice(iDemo)) && /decidir\(e\.externalKey \? await existentesDaChaveLive/.test(corpo)
+     && /Promise<"postado" \| "ja_existia">/.test(led) && !/some\(\(x\) => x\.externalKey === e\.externalKey\)\) return;/.test(corpo));
+  const cronV = fsR.readFileSync("src/components/cronogramas/CronogramasView.tsx", "utf8");
+  ok("razao-rev: Cronogramas não anuncia 'lançado' quando nada entrou, nem fala de rota na tela",
+     /r === "ja_existia"/.test(cronV) && !/consulte \/razao/.test(cronV));
+
+  // 2. Provisão: uma porta só, e sempre com o estorno.
+  const acc = fsR.readFileSync("src/components/cronogramas/AccrualsSection.tsx", "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  ok("razao-rev: a provisão sugerida nasce com o estorno e com a MESMA chave do Fechamento (era sem estorno, chave 'accrual:')",
+     // (contabil r3 · revisão) o par nasce dentro de `postarProvisaoComEstorno`,
+     // o mesmo gesto do Fechamento — que monta `provisaoComEstorno` e posta as duas.
+     /postarProvisaoComEstorno\(postarLancamento, mes, a\.categoria, valor, a\.conta\)/.test(acc) && !/accrual:/.test(acc));
+
+  // 3. O estorno: motivo, duplicidade e projeção de movimento — recusados ANTES de qualquer rede.
+  const orig = { id: "j1", data: "2026-09-10", descricao: "Ajuste", origem: "manual", externalKey: "man:1",
+    linhas: [{ conta: "4.1.09", nome: "x", tipo: "expense" as const, debito: 80, credito: 0 }, { conta: "1.1.01", nome: "y", tipo: "asset" as const, debito: 0, credito: 80 }] };
+  const recusa = async (f: () => Promise<unknown>) => { try { await f(); return ""; } catch (e) { return (e as Error).message; } };
+  ok("razao-rev: estorno sem motivo é recusado", /motivo/i.test(await recusa(() => estornarLancamento(orig, "  ", [orig]))));
+  ok("razao-rev: estorno duplo é recusado",
+     /já foi estornado/.test(await recusa(() => estornarLancamento(orig, "duplicado", [orig, { ...orig, id: "j2", estornoDe: "j1" }]))));
+  ok("razao-rev: a projeção de um movimento não se estorna no razão (corrige-se o movimento)",
+     /projeção de um movimento/.test(await recusa(() => estornarLancamento({ ...orig, externalKey: "mov:abc" }, "duplicado", [orig]))));
+
+  // 4. Mês travado recusa a postagem também na demonstração.
+  lockPeriod("2026-07");
+  let travado = "";
+  try { validarR({ entryDate: "2026-07-10", lines: [{ accountId: "1.1.01", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { travado = (e as Error).message; }
+  unlockPeriod("2026-07");
+  let destravado = "";
+  try { validarR({ entryDate: "2026-07-10", lines: [{ accountId: "1.1.01", debit: 10 }, { accountId: "3.1.01", credit: 10 }] }); }
+  catch (e) { destravado = (e as Error).message; }
+  ok("razao-rev: mês travado recusa a postagem (e destravado aceita)", /07\/2026 está fechado/.test(travado) && destravado === "", `${travado} | ${destravado}`);
+
+  // 5. Produção: travar o mês e abrir o período não engolem a recusa do banco.
+  const fnDe = (nome: string) => led.slice(led.indexOf(nome), led.indexOf("\n}\n", led.indexOf(nome)));
+  // Desde o CAMP-A quem trava é a RPC `fechar_periodo` (lib/fechamento-tarefas),
+  // e a recusa dela sobe com a mensagem do banco.
+  const fecTar = (await import("node:fs")).readFileSync("src/lib/fechamento-tarefas.ts", "utf8");
+  ok("razao-rev: travar o mês LANÇA quando o banco recusa (a tela dizia travado e o banco aceitava postagem)",
+     !/export async function travarPeriodoLive/.test(led)
+     && /rpc\("fechar_periodo"[\s\S]{0,200}if \(error\) throw new Error/.test(fecTar));
+  ok("razao-rev: abrir o período devolve a mensagem do banco (era 'Cannot read properties of null')",
+     /if \(error \|\| !data\) throw new Error\(error\?\.message/.test(fnDe("async function periodoIdLive")));
+}
+/* ── PLATAFORMA (conta pessoal, onboarding, painéis, administração) ── */
+{
+  const fsP = await import("node:fs");
+  // Comentários saem antes da busca: o comentário que EXPLICA a correção cita
+  // o defeito, e uma guarda que reprova a própria documentação é desligada.
+  const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const { INPUT: FX, INPUT_QUEIMANDO: FXQ } = await import("./fixture.mts");
+  const ind = await import("@/core/indicadores");
+  const { janelaDoMesDe } = await import("@/core/indicadores/janela");
+  const dash = await import("@/core/dashboards");
+
+  // ── dashboards customizados: as métricas são as CANÔNICAS ──
+  const burnQ = dash.fonteMetrica("burn").calcular(FXQ);
+  const burnCan = ind.burn(FXQ);
+  const saidasPagasQ = FXQ.movements.filter((m) => m.type === "saida" && m.status === "pago");
+  const mediaBruta = saidasPagasQ.reduce((s, m) => s + m.amount, 0) / 3;
+  ok("plataforma: o burn do widget é o burn CANÔNICO (queima líquida)",
+     !burnQ.indisponivel && Math.abs(burnQ.valor - burnCan.valor) < 0.01, `${burnQ.valor} × ${burnCan.valor}`);
+  ok("plataforma: o burn do widget NÃO é a média bruta das saídas (era o defeito)",
+     Math.abs(burnQ.valor - mediaBruta) > 1000, `${burnQ.valor} × bruta ${mediaBruta}`);
+  const rwQ = dash.fonteMetrica("runway").calcular(FXQ);
+  ok("plataforma: o runway do widget é o canônico em meses",
+     !rwQ.indisponivel && Math.abs(rwQ.valor - ind.runwayMeses(FXQ).valor) < 0.01, `${rwQ.valor}`);
+  const rwFx = dash.fonteMetrica("runway").calcular(FX);
+  ok("plataforma: sem queima o runway do widget é AUSENTE, nunca \"0 meses\"",
+     !!rwFx.indisponivel && ind.runwayMeses(FX).indisponivel?.codigo === "sem_queima", JSON.stringify(rwFx));
+  const vazio = { ...FX, movements: [] } as typeof FX;
+  const recVazio = dash.fonteMetrica("receita_mes").calcular(vazio);
+  ok("plataforma: receita do mês sem lançamento é AUSENTE (não R$ 0,00)", !!recVazio.indisponivel);
+  const recFx = dash.fonteMetrica("receita_mes").calcular(FX);
+  ok("plataforma: receita do mês do widget == entradas canônicas do mês",
+     Math.abs(recFx.valor - ind.entradas(FX, janelaDoMesDe(FX.hoje), "caixa").valor) < 0.01 && recFx.valor > 0, String(recFx.valor));
+  const pizza = dash.fonteCategoria("despesa_categoria").calcular(FX).reduce((s, f) => s + f.valor, 0);
+  const serie = dash.fonteSerie("despesa_12m").calcular(FX, 12).reduce((s, p) => s + p.valor, 0);
+  // ⚠️ (revisão) O título acompanha a fonte enquanto a pessoa não o escreveu:
+  // o KPI nascia "Saldo em caixa" e continuava assim depois de virar runway.
+  ok("plataforma: trocar a fonte troca o título padrão (Saldo em caixa → Runway)",
+     dash.tituloAoTrocarFonte("Saldo em caixa", "Saldo em caixa", "Runway") === "Runway"
+       && dash.tituloAoTrocarFonte("", "Saldo em caixa", "Runway") === "Runway");
+  ok("plataforma: trocar a fonte NÃO apaga um título escrito à mão",
+     dash.tituloAoTrocarFonte("Fôlego do caixa", "Saldo em caixa", "Runway") === "Fôlego do caixa");
+  const edDash = semComentario(fsP.readFileSync("src/components/dashboards-custom/DashboardsCustomView.tsx", "utf8"));
+  ok("plataforma: os três seletores de fonte do editor aplicam a regra do título",
+     (edDash.match(/titulo: tituloAoTrocarFonte\(/g) ?? []).length === 3);
+  ok("plataforma: nenhum rótulo solto no editor de dashboards (todo <label> envolve o campo)",
+     !/<label className="text-/.test(edDash));
+  ok("plataforma: a pizza de despesas fecha com a série de 12 meses", pizza > 0 && Math.abs(pizza - serie) < 0.01, `${pizza} × ${serie}`);
+
+  // ── Investor Update: o mês FECHADO, e receita e MoM na mesma base ──
+  const { montarInvestorUpdate, gerarTextoInvestorUpdate } = await import("@/core/investor");
+  const { cascataDRE } = await import("@/core/relatorios/cascata");
+  const up = montarInvestorUpdate(FX);
+  const julho = cascataDRE(FX, { intervalo: { de: "2026-07-01", ate: "2026-07-31" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  const junho = cascataDRE(FX, { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  const agosto = cascataDRE(FX, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  ok("plataforma: o Investor Update fala do ÚLTIMO MÊS FECHADO (hoje 15/08 → julho)", up.mesReferencia === "julho de 2026", up.mesReferencia);
+  ok("plataforma: a receita do update é a competência de julho (não a do mês corrente)",
+     Math.abs(up.raw.receitaMes - julho) < 0.01 && Math.abs(julho - agosto) > 1, `${up.raw.receitaMes} · jul ${julho} · ago ${agosto}`);
+  ok("plataforma: o MoM sai da MESMA cascata (julho contra junho)",
+     junho > 0 && up.raw.crescimentoMoM !== null && Math.abs(up.raw.crescimentoMoM - (julho - junho) / junho) < 1e-9, String(up.raw.crescimentoMoM));
+  ok("plataforma: o texto copiável diz o mês fechado", /Fechamos julho de 2026/.test(gerarTextoInvestorUpdate(up)));
+  const semBase = { ...FX, movements: FX.movements.filter((m) => m.due_date >= "2026-07-01") } as typeof FX;
+  const upSem = montarInvestorUpdate(semBase);
+  ok("plataforma: sem receita no mês anterior o MoM é AUSENTE (\"—\"), não 0%",
+     upSem.raw.crescimentoMoM === null && upSem.kpis.find((k) => k.id === "mom")?.valor === "—");
+  const mrrInd = ind.mrr(semBase);
+  const kMrr = upSem.kpis.find((k) => k.id === "mrr");
+  ok("plataforma: MRR indisponível no canônico não vira R$ 0,00 no update",
+     mrrInd.indisponivel ? kMrr?.valor === "—" && !kMrr?.moeda : kMrr?.valor === mrrInd.valor, JSON.stringify(kMrr));
+
+  // ── Logs: o "de X para Y" se busca como uma pessoa escreve ──
+  const adm = await import("@/core/administracao");
+  const resumo = adm.resumoDeMudanca({ valor: 25000, status: "rascunho" }, { valor: 78000, status: "rascunho" }, "updated");
+  const log = [{ id: "1", quando: "2026-03-14T09:00:00Z", acao: "alterou" as const, usuario: "João", origem: "Web", tipoEntidade: "Lançamento", entidadeId: "pay", entidade: "pay", resumo }];
+  ok("plataforma: o resumo do log fala português e grafia brasileira", resumo === "valor: de 25.000 para 78.000", resumo);
+  for (const b of ["de 25.000 para 78.000", "R$ 78.000,00", "78000", "de 25000 para 78000"])
+    ok(`plataforma: a busca dos logs acha "${b}"`, adm.filtrarLogs(log as never, { busca: b }).length === 1);
+  ok("plataforma: a busca dos logs não acha o que não está lá", adm.filtrarLogs(log as never, { busca: "99.000" }).length === 0);
+
+  // ── Dados da empresa: UMA morada para cada fato do cadastro ──
+  const { regimeDoCadastro } = await import("@/core/fiscal/perfil");
+  const antigo = { cnpj: "11.111.111/0001-11", documento: "22.222.222/0001-22", fantasia: "Velha", nomeFantasia: "Outra", regimeTributario: "Lucro Presumido", regime: "Lucro Presumido", repNome: "Ana" };
+  ok("plataforma: a tela mostra o CNPJ que o sistema usa (`cnpj`), não a chave histórica",
+     adm.identidadeDoCadastro(antigo).documento === "11.111.111/0001-11" && adm.identidadeDoCadastro(antigo).nomeFantasia === "Velha");
+  const dTela = { ...adm.identidadeDoCadastro(antigo), documento: "33.333.333/0001-33", nomeFantasia: "Nova", regime: "simples" } as unknown as Parameters<typeof adm.cadastroParaGravar>[1];
+  const gravado = adm.cadastroParaGravar(antigo, dTela);
+  ok("plataforma: salvar grava o CNPJ e o nome fantasia nas chaves que o sistema LÊ",
+     gravado.cnpj === "33.333.333/0001-33" && gravado.fantasia === "Nova", JSON.stringify(gravado));
+  ok("plataforma: salvar APAGA a segunda morada (`documento`, `nomeFantasia`)",
+     !("documento" in gravado) && !("nomeFantasia" in gravado));
+  ok("plataforma: o regime salvo é o que vale (as duas chaves que o resolvedor lê)",
+     regimeDoCadastro(gravado) === "simples" && regimeDoCadastro(antigo) === "presumido");
+  ok("plataforma: o que não é da tela continua no cadastro", gravado.repNome === "Ana");
+  // ⚠️ (revisão) Cadastro pessoal/antigo sem `tipoPessoa`, só com CPF: é pessoa
+  // FÍSICA. Assumir jurídica movia o CPF para `cnpj` no salvar seguinte.
+  const soCpf = { cpf: "123.456.789-09", razaoSocial: "Ana" };
+  const idCpf = adm.identidadeDoCadastro(soCpf);
+  const gravCpf = adm.cadastroParaGravar(soCpf, { ...idCpf, regime: "" } as unknown as Parameters<typeof adm.cadastroParaGravar>[1]);
+  ok("plataforma: cadastro só com CPF abre como pessoa física e o CPF continua em `cpf`",
+     idCpf.tipoPessoa === "fisica" && gravCpf.cpf === "123.456.789-09" && !("cnpj" in gravCpf), JSON.stringify(gravCpf));
+  ok("plataforma: o relatório de qualidade lê o documento pelas chaves canônicas",
+     /identidadeDoCadastro\(db\)\.documento/.test(fsP.readFileSync("src/lib/qualidade.ts", "utf8")));
+  // ⚠️ (revisão) "Nova empresa" REESCREVIA o cadastro da empresa aberta com os
+  // dados da "nova" (e apagava o regime declarado) — não existe porta no banco
+  // para o cliente criar uma segunda organização. A tela não grava cadastro.
+  const criarConta = semComentario(fsP.readFileSync("src/components/entrada/CriarContaView.tsx", "utf8"));
+  ok("plataforma: criar conta não mescla o cadastro guardado no navegador (de outra organização) no da nova",
+     /saveCompany\(/.test(criarConta) && !/saveCompany\(\{\s*\.\.\.\(?loadCompany/.test(criarConta));
+  const nova = semComentario(fsP.readFileSync("src/components/empresas/NovaEmpresaForm.tsx", "utf8"));
+  ok("plataforma: \"Nova empresa\" não grava por cima do cadastro da empresa aberta",
+     !/\b(saveCompany|persistCompany)\(/.test(nova) && !/localStorage\./.test(nova));
+  const dev = semComentario(fsP.readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
+  ok("plataforma: Dados da empresa grava no SERVIDOR (era só o cache do navegador — o escritor morto)",
+     /await persistCompany\(/.test(dev) && !/\bsaveCompany\(/.test(dev));
+
+  // ── Lixeira: cancelado é TERMINAL no banco; a tela não tenta ressuscitar ──
+  const migs = fsP.readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
+  const ultimaMaquina = migs.filter((f) => /create or replace function public\.central_transicao_valida/.test(fsP.readFileSync(`supabase/migrations/${f}`, "utf8"))).pop()!;
+  const corpoMaquina = fsP.readFileSync(`supabase/migrations/${ultimaMaquina}`, "utf8");
+  ok("plataforma: na máquina do banco, cancelado não tem saída (premissa da Lixeira)",
+     !/when 'cancelado'/.test(corpoMaquina) && /else false/.test(corpoMaquina), ultimaMaquina);
+  const lix = semComentario(fsP.readFileSync("src/components/lixeira/LixeiraView.tsx", "utf8"));
+  ok("plataforma: a Lixeira não pede ao banco cancelado → previsto (recusado em produção, aceito na demo)",
+     !/restoreMovement/.test(lix) && /relancarCancelado\(/.test(lix));
+  ok("plataforma: a Lixeira mostra a mensagem real quando falha",
+     !/catch \{ show\(/.test(lix));
+  const rel = fsP.readFileSync("src/lib/lixeira-relancar.ts", "utf8");
+  ok("plataforma: lançar de novo tem procedência própria e não copia as chaves únicas",
+     /origem: "manual"/.test(rel) && !/COLUNAS_DE_NEGOCIO =[^;]*\b(chave|reference_code)\b/.test(rel));
+  // ⚠️ (revisão) Na demonstração o novo título tem a MESMA chave de
+  // idempotência do cancelado: acrescentar com o cancelado ainda no dataset
+  // descartava o novo como repetido, e a remoção seguinte apagava o título —
+  // "Lançado de novo" sobre nada. A ordem é remover, acrescentar e CONFERIR.
+  const ramoDemoRel = semComentario(rel).split("if (isDemo)")[1]?.split("const supabase")[0] ?? "";
+  ok("plataforma: na demonstração, lançar de novo remove o cancelado ANTES de acrescentar o novo e confere que ele entrou",
+     ramoDemoRel.indexOf("removerImported(") > -1 && ramoDemoRel.indexOf("removerImported(") < ramoDemoRel.indexOf("appendImported(")
+       && (ramoDemoRel.match(/removerImported\(/g) ?? []).length === 1 && /some\(\(x\) => x\.id === novoId\)/.test(ramoDemoRel));
+
+  // ── Onboarding: nenhuma recusa engolida; o saldo informado chega à conta ──
+  const onb = semComentario(fsP.readFileSync("src/lib/onboarding.ts", "utf8"));
+  ok("plataforma: aplicarEstrutura não transforma recusa do banco em \"zero criado\"", !/if \(!error\)/.test(onb) && /throw new Error/.test(onb));
+  // ⚠️ (revisão) A asserção acima só via a FORMA antiga (`if (!error)`): apagar
+  // UMA das conferências (`if (error) falhou(...)`) passava verde. Toda leitura
+  // e toda escrita do banco ali tem a sua conferência — contadas uma a uma.
+  const chamadasBanco = (onb.match(/await s\.from\(/g) ?? []).length;
+  const conferencias = (onb.match(/if \((?:error|e1)\) falhou\(/g) ?? []).length;
+  ok("plataforma: cada leitura/escrita de aplicarEstrutura confere o erro do banco",
+     chamadasBanco >= 6 && conferencias === chamadasBanco, `${conferencias} conferências para ${chamadasBanco} chamadas`);
+  ok("plataforma: o saldo informado no cadastro vira o saldo da conta", /balance: Math\.round\(\(c\.saldo/.test(onb));
+  for (const f of ["src/components/onboarding/OnboardingWizard.tsx", "src/components/onboarding/OnboardingPessoal.tsx"]) {
+    const t = semComentario(fsP.readFileSync(f, "utf8"));
+    ok(`plataforma: ${f.split("/").pop()} não engole a recusa do perfil nem da estrutura`,
+       !/persistCompany\([^)]*\);?\s*\}\s*catch \{/.test(t) && !/aplicarEstrutura\([^)]*\);?\s*\}\s*catch \{/.test(t));
+  }
+  const pes = fsP.readFileSync("src/components/onboarding/OnboardingPessoal.tsx", "utf8");
+  ok("plataforma: o cadastro pessoal leva o \"Saldo atual\" para a primeira carteira", /saldo: saldoInicial/.test(pes));
+
+  // ── Dashboards customizados: o estado é da ORGANIZAÇÃO ──
+  const libDash = semComentario(fsP.readFileSync("src/lib/dashboards.ts", "utf8"));
+  ok("plataforma: os dashboards gravam pelo store-org (o localStorage cru nunca subia e a hidratação o sobrescrevia)",
+     /gravarOrg\(/.test(libDash) && /\bler<DashboardCustom\[\]>\(/.test(libDash) && !/localStorage\./.test(libDash));
+  const { visiveisPara } = await import("@/lib/dashboards");
+  const lst = [
+    { id: "a", escopo: "pessoal", dono: "u1" }, { id: "b", escopo: "pessoal", dono: "u2" },
+    { id: "c", escopo: "empresa", dono: "u2" }, { id: "d", escopo: "pessoal" },
+  ] as never[];
+  ok("plataforma: painel pessoal de um colega não aparece; o de empresa sim",
+     visiveisPara(lst, "u1").map((d: { id: string }) => d.id).join() === "a,c,d");
+
+  // ── Telas que diziam ter feito o que não fizeram ──
+  const inv = semComentario(fsP.readFileSync("src/components/investidores/InvestorUpdateView.tsx", "utf8"));
+  ok("plataforma: \"Copiado\" só depois de a área de transferência confirmar", /await navigator\.clipboard\.writeText/.test(inv));
+  const admv = semComentario(fsP.readFileSync("src/components/administracao/AdministracaoViews.tsx", "utf8"));
+  ok("plataforma: remover/trocar perfil/convidar mostram a recusa do servidor (promessa não fica solta)",
+     /try \{ await removeMember\(id\); \}/.test(admv) && /try \{ await saveMember\(\{ \.\.\.original/.test(admv) && /catch \(e\) \{ setErro\(/.test(admv));
+
+  // ── Modo pessoal: o "Adicionar" existe na tela ──
+  const ia = semComentario(fsP.readFileSync("src/components/visao-geral/InicioActions.tsx", "utf8"));
+  ok("plataforma: no modo pessoal a Visão geral tem o botão Adicionar (não havia porta visível)",
+     /pessoal && <NovoDeposito \/>/.test(ia));
+}
+
+/* ── PAGAR · RODADA 3 (arquivos reservados) ── */
+{
+  const fsR = await import("node:fs");
+  const sc = (s: string) => s.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const lerR = (p: string) => sc(fsR.readFileSync(p, "utf8"));
+
+  /* ---- a folha do formulário de conta a pagar usa a competência do MÊS DE TRABALHO ---- */
+  const tituloForm = lerR("src/components/movimentacoes/TituloForm.tsx");
+  ok("pagar-r3: o modo Colaborador do formulário agenda pelo mapeamento único (era `competence_date: t.vencimento`)",
+     /criarTitulos\(titulos\.map\(\(t\) => linhaDoTituloDaFolha\(t, f\.contaId\)\)\)/.test(tituloForm)
+     && !/competence_date: t\.vencimento/.test(tituloForm));
+
+  /* ---- a compra paga só anuncia sucesso depois de o banco aceitar ---- */
+  const compraForm = lerR("src/components/compras/CompraForm.tsx");
+  const storeR = lerR("src/lib/compras-store.ts");
+  ok("pagar-r3: salvarCompra é assíncrona e o título da compra paga vem ANTES de gravar a compra",
+     /export async function salvarCompra\(c: Compra\): Promise<Compra\[\]>/.test(storeR)
+     && /await criarTitulosDaCompra\(c\);[\s\S]*?throw new Error\(mensagem\(e\)\);[\s\S]*?return persistir\(c\);/.test(storeR)
+     && !/criarTitulosDaCompra\(c\)\.catch\(/.test(storeR));
+  ok("pagar-r3: o formulário de compra AGUARDA a gravação e mostra a recusa real",
+     /await salvarCompra\(c\);/.test(compraForm) && /setErroGravar\(msg\)/.test(compraForm)
+     && compraForm.indexOf("await salvarCompra(c)") < compraForm.indexOf("Compra registrada e aprovada"));
+
+  /* ---- a lista de títulos mostra a descrição e não pinta data/valor pelo sinal ---- */
+  const titulosV = lerR("src/components/movimentacoes/TitulosView.tsx");
+  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /<Th>Descrição<\/Th>/.test(titulosV) && /m\.descricao/.test(titulosV));
+  ok("pagar-r3: a lista de títulos não pinta data nem valor de verde/vermelho", !/text-(positive|negative)/.test(titulosV));
+  const dataTs = lerR("src/lib/data.ts");
+  ok("pagar-r3: a descrição viaja no RiskInput da demonstração (como em produção)", /descricao: m\.description \?\? null/.test(dataTs));
+
+  /* ---- o runway dos simuladores diz ausência e teto ---- */
+  const ind = await import("@/core/indicadores");
+  const { simularCenario } = await import("@/core/executive/scenario");
+  const { scoreRiscoCaixa } = await import("@/core/risk-engine");
+  const semQueima = ind.lerRunwayDeFluxo(100_000, 5_000);
+  ok("pagar-r3: cenário que GERA caixa → runway AUSENTE (sem_queima), não 33,3 meses",
+     semQueima.indisponivel?.codigo === "sem_queima" && semQueima.meses === null
+     && ind.rotuloRunwayLido(semQueima) === "— não há queima", ind.rotuloRunwayLido(semQueima));
+  const negativo = ind.lerRunwayDeFluxo(-1, -5_000);
+  ok("pagar-r3: caixa negativo → ausência própria, nem 0 nem teto", negativo.indisponivel?.codigo === "caixa_negativo");
+  const teto = ind.lerRunwayDeFluxo(10_000_000, -1_000);
+  ok("pagar-r3: o teto se DECLARA teto (nunca '24+')",
+     teto.noTeto && /teto do cálculo/.test(ind.rotuloRunwayLido(teto)) && !/24\+/.test(ind.rotuloRunwayLido(teto)),
+     ind.rotuloRunwayLido(teto));
+  const medido = ind.lerRunwayDeFluxo(90_000, -30_000);
+  ok("pagar-r3: com queima, o número sai exato (90 mil ÷ 30 mil/mês = 3,0 meses)",
+     medido.meses === 3 && !medido.noTeto && ind.rotuloRunwayLido(medido, "m") === "3,0m", ind.rotuloRunwayLido(medido, "m"));
+  const indicBase = { receitaMensal: 50_000, despesaMensal: 40_000, inadimplencia: 0, margemCaixa90d: 0.2, runwayMeses: 10 } as never;
+  const cen = simularCenario(indicBase, 100_000, {});
+  ok("pagar-r3: simularCenario leva a leitura; o número do score continua no teto",
+     cen.runway.indisponivel?.codigo === "sem_queima" && cen.runwayMeses === ind.mesesDeRunway(ind.RUNWAY_CAP_DIAS));
+  const fx = { hoje: "2026-09-15", saldoAtual: 500_000, partyNames: {}, horizonDias: 60, movements: [
+    { id: "r1", type: "entrada", status: "pago", amount: 80_000, due_date: "2026-08-10", paid_date: "2026-08-10", party_id: "c1", category: "Vendas" },
+    { id: "d1", type: "saida", status: "pago", amount: 10_000, due_date: "2026-08-12", paid_date: "2026-08-12", party_id: "f1", category: "Aluguel" },
+  ] } as never;
+  const risco = scoreRiscoCaixa(fx);
+  ok("pagar-r3: a aba Risco recebe a leitura dos três cenários e dos estresses",
+     !!risco.runway.leitura?.base && risco.stress.every((s: { runway?: unknown }) => !!s.runway));
+  for (const f of ["src/components/risco/RiscoView.tsx", "src/core/financial-os/bridges/risco.bridge.ts"]) {
+    ok(`pagar-r3: ${f.split("/").pop()} não traduz o teto (999) em "24+"`, !/>= ?999/.test(lerR(f)) && !/24\+/.test(lerR(f)));
+  }
+  for (const f of ["src/components/fluxo-caixa/FluxoCaixaView.tsx", "src/components/copiloto/CopilotoView.tsx", "src/components/contratacoes/HeadcountView.tsx"]) {
+    const t = lerR(f);
+    ok(`pagar-r3: ${f.split("/").pop()} exibe o runway de cenário pela leitura (não o número cru)`,
+       /rotuloRunwayLido\(/.test(t) && !/\.runwayMeses\)?\}?m/.test(t) && !/runwayMeses\.toLocaleString/.test(t));
+  }
+
+  /* ── REVISÃO ADVERSARIAL (r4/pagar-rev) — o que a rodada 3 deixou passar ── */
+  // A varredura acima listava ARQUIVOS; a narrativa da aba Risco, os fatores
+  // críticos, o pilar de liquidez e o cartão de estresse do cockpit seguiam
+  // lendo o número cru ("mais de 24 meses", "999 dias", "apenas 0 dias").
+  const fxRev = (saldo: number, rec: number, desp: number) => ({ hoje: "2026-09-15", saldoAtual: saldo, partyNames: {}, horizonDias: 60, movements:
+    ["06", "07", "08"].flatMap((mm) => [
+      { id: "r" + mm, type: "entrada", status: "pago", amount: rec, due_date: `2026-${mm}-10`, paid_date: `2026-${mm}-10`, party_id: "c1", category: "Vendas" },
+      { id: "d" + mm, type: "saida", status: "pago", amount: desp, due_date: `2026-${mm}-12`, paid_date: `2026-${mm}-12`, party_id: "f1", category: "Aluguel" },
+    ]) }) as never;
+  const noTetoR = scoreRiscoCaixa(fxRev(50_000_000, 50_000, 51_000));
+  ok("pagar-rev: a fixture do teto EXERCITA o teto (queima pequena sobre caixa enorme)",
+     noTetoR.runway.base === ind.RUNWAY_CAP_DIAS && noTetoR.burn.liquidoMensal < 0);
+  ok("pagar-rev: a narrativa da aba Risco declara o TETO (nunca 'mais de 24 meses')",
+     /teto do cálculo/.test(noTetoR.narrativa) && !/24 meses/.test(noTetoR.narrativa), noTetoR.narrativa);
+  ok("pagar-rev: o pilar de liquidez não diz '999 dias'",
+     !/999/.test(noTetoR.componentes.find((c: { id: string }) => c.id === "liquidez")!.detalhe));
+  const negR = scoreRiscoCaixa(fxRev(-5_000, 50_000, 60_000));
+  ok("pagar-rev: a fixture do caixa negativo queima (senão a narrativa iria pelo outro ramo)",
+     negR.burn.liquidoMensal < 0 && negR.runway.base === 0);
+  ok("pagar-rev: caixa negativo — a narrativa diz que não há runway, não '0.0 meses'",
+     /não há runway a projetar/.test(negR.narrativa) && !/0[.,]0 meses/.test(negR.narrativa), negR.narrativa);
+  ok("pagar-rev: caixa negativo — os fatores críticos não dizem 'apenas 0 dias'",
+     !negR.fatoresCriticos.some((f: string) => /apenas 0 dias/.test(f)), negR.fatoresCriticos.join(" | "));
+  ok("pagar-rev: caixa negativo — o pilar de liquidez diz a ausência",
+     /não se aplica/.test(negR.componentes.find((c: { id: string }) => c.id === "liquidez")!.detalhe));
+  const varrerRunway = (dir: string): string[] => fsR.readdirSync(dir, { withFileTypes: true }).flatMap((e: { name: string; isDirectory(): boolean }) => {
+    const p = `${dir}/${e.name}`;
+    if (e.isDirectory()) return varrerRunway(p);
+    if (!/\.tsx?$/.test(e.name)) return [];
+    const t = lerR(p);
+    return /runway[^\n]{0,80}>= ?999|24\+ ?m|mais de 24 meses|runwayDias\} dias/.test(t) ? [p] : [];
+  });
+  const cruRunway = [...varrerRunway("src/components"), ...varrerRunway("src/core/ai"), ...varrerRunway("src/core/financial-os"),
+    ...["src/core/risk-engine/score.engine.ts"].filter((p) => /runway\.base\} dias/.test(lerR(p)))];
+  ok("pagar-rev: nenhuma tela/narrativa traduz o teto do runway em número (teto ZERO)", cruRunway.length === 0, cruRunway.join(", "));
+
+  /* ---- a compra: a nova tentativa é a MESMA compra ---- */
+  ok("pagar-rev: o id da compra nasce uma vez por formulário (um id por clique duplicava os títulos na nova tentativa)",
+     /React\.useState\(\(\) => novoId\("compra"\)\)/.test(compraForm) && /id: idCompra,/.test(compraForm)
+     && !/id: novoId\("compra"\)/.test(compraForm));
+  ok("pagar-rev: se gravar a compra falha DEPOIS dos títulos, a mensagem diz que o dinheiro entrou",
+     /await criarTitulosDaCompra\(c\);[\s\S]*?try \{\s*return persistir\(c\);\s*\} catch[\s\S]*?já entraram no caixa/.test(storeR));
+}
+/* ── CONTABILIDADE · RODADA 3 (reservados, 01/10/2026) ──────────────────────
+ *
+ * Quatro defeitos que os caçadores acharam em arquivos que não podiam editar.
+ * Cada guarda foi provada plantando o defeito de volta.
+ */
+{
+  const fsR3 = await import("node:fs");
+  const semCom = (t: string) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+
+  // ── 1) Envio de NFs: nada de envio, agendamento nem confirmação fora da demo ──
+  const env = semCom(fsR3.readFileSync("src/components/contabilidade-export/EnvioNFsView.tsx", "utf8"));
+  ok("contabil r3: o envio automático é SIMULADO só na demonstração (ENVIO_SIMULADO = isDemo)",
+     /const ENVIO_SIMULADO = isDemo;/.test(env));
+  ok("contabil r3: \"Simular confirmação\" só existe atrás de ENVIO_SIMULADO (em produção anularia o double opt-in)",
+     (env.match(/Simular confirmação/g) ?? []).length === 1
+     && /\{ENVIO_SIMULADO && !d\.verificado && \(\s*<Button[\s\S]{0,400}?Simular confirmação/.test(env));
+  const iSim = env.indexOf("{ENVIO_SIMULADO ? (");
+  const iProx = env.indexOf("formatarProximoEnvio(proximo)");
+  const iSenao = env.indexOf(") : (", iSim);
+  ok("contabil r3: \"Próximo envio\" e o horário do pacote só aparecem no ramo simulado",
+     iSim > 0 && iSim < iProx && iProx < iSenao && env.indexOf("O pacote sai no dia 1º") < iSenao
+     && (env.match(/formatarProximoEnvio\(/g) ?? []).length === 1);
+  ok("contabil r3: \"Enviamos um link de confirmação\" só no ramo simulado; em produção a tela diz que não está ligado",
+     (env.match(/Enviamos um link de confirmação/g) ?? []).length === 1
+     && /ENVIO_SIMULADO\s*\?\s*"Enviamos um link de confirmação/.test(env)
+     && /Envio automático não ligado/.test(env) && /Baixar relação do mês/.test(env));
+  const store = semCom(fsR3.readFileSync("src/lib/contabilidade-store.ts", "utf8"));
+  ok("contabil r3: os destinatários são dado de NEGÓCIO e passam pelo store-org (nunca localStorage cru)",
+     /gravarOrg\(k, v\)/.test(store) && !/localStorage\./.test(store));
+
+  // ── 2) DRE multiempresas da demonstração inclui a EMPRESA ATUAL ──
+  const { demoInputsPorOrg } = await import("@/lib/consolidado");
+  const atual = INPUT_R3();
+  const ents = demoInputsPorOrg("2026-01-01", "2026-06-30", atual);
+  const daAtual = ents.find((e) => e.input === atual);
+  ok("contabil r3: a empresa atual é uma das entidades do consolidado da demonstração (o MESMO RiskInput)",
+     !!daAtual && ents.length === 3, ents.map((e) => e.nome).join(", "));
+  const intervalo = { de: "2026-01-01", ate: "2026-06-30" };
+  const drePor = (i: RiskInput) => montarRelatorio(i, ESTRUTURA_DRE, { intervalo, tipo: "dre", regime: "competencia" })
+    .linhas.find((l) => l.id === "resultado_liquido")?.total.valor ?? NaN;
+  const cons = montarConsolidado(ents.map((e) => ({ id: e.orgId, nome: e.nome, input: e.input })), ESTRUTURA_DRE,
+    { intervalo, tipo: "dre", regime: "competencia" });
+  const colAtual = cons.empresas.find((x) => x.id === daAtual?.orgId);
+  ok("contabil r3: a coluna da empresa atual no DRE multi = o DRE da tela vizinha (nenhum lançamento a mais nela)",
+     !!daAtual && daAtual.input.movements.length === atual.movements.length
+     && !!colAtual && Math.abs((colAtual.relatorio.linhas.find((l) => l.id === "resultado_liquido")?.total.valor ?? NaN) - drePor(atual)) < 0.005
+     && drePor(atual) !== 0,
+     `${drePor(atual)}`);
+  const { montarPosicaoConsolidada } = await import("@/core/relatorios/posicao-consolidada");
+  const pos = montarPosicaoConsolidada(ents.map((e) => ({ id: e.orgId, nome: e.nome, input: e.input })), "2026-01-01", "2026-06-30");
+  ok("contabil r3: a demonstração continua mostrando eliminações — entre as sintéticas, nunca na empresa atual",
+     pos.eliminacoes.length > 0 && daAtual !== undefined
+     && !daAtual.input.movements.some((m) => /-ic\d/.test(m.id)));
+
+  // ── 3) Provisão: a tela diz o que o razão FEZ com cada metade ──
+  const { mensagemDaProvisao } = await import("@/core/close");
+  const m4 = [
+    mensagemDaProvisao("Energia", "01/10/2026", "postado", "postado"),
+    mensagemDaProvisao("Energia", "01/10/2026", "ja_existia", "ja_existia"),
+    mensagemDaProvisao("Energia", "01/10/2026", "ja_existia", "postado"),
+    mensagemDaProvisao("Energia", "01/10/2026", "postado", "ja_existia"),
+  ];
+  ok("contabil r3: provisão já no razão NÃO é anunciada como lançada",
+     /lançada no razão, com estorno/.test(m4[0]) && /já estavam no razão/.test(m4[1]) && !/lançada/.test(m4[1])
+     && /só o estorno/.test(m4[2]) && /estorno de 01\/10\/2026 já estava/.test(m4[3]) && new Set(m4).size === 4);
+  const fech = semCom(fsR3.readFileSync("src/components/fechamento/FechamentoView.tsx", "utf8"));
+  const accr = semCom(fsR3.readFileSync("src/components/cronogramas/AccrualsSection.tsx", "utf8"));
+  // (revisão) As duas portas passam pelo MESMO gesto — que lê o retorno das
+  // duas postagens — e nenhuma posta as metades por conta própria.
+  const usaGesto = (t: string) =>
+    /await postarProvisaoComEstorno\(postarLancamento,/.test(t) && !/postarLancamento\((?:provisao|estorno)\)/.test(t);
+  ok("contabil r3: as DUAS portas da provisão (Fechamento e Cronogramas) usam o mesmo gesto, que lê o retorno das duas postagens",
+     usaGesto(fech) && usaGesto(accr));
+  const { postarProvisaoComEstorno } = await import("@/core/close");
+  const okPostar = async () => "postado" as const;
+  ok("contabil r3: o gesto devolve a frase do que o razão fez",
+     /lançada no razão, com estorno automático em 01\/10\/2026/.test(await postarProvisaoComEstorno(okPostar, "2026-09", "Energia", 500)));
+  // ⚠️ (revisão) A provisão entra e o estorno cai: a tela dizia só "Falha: …"
+  // e quem lia concluía que nada tinha sido lançado — com a provisão no razão,
+  // sem estorno, contando a despesa duas vezes.
+  const postados: string[] = [];
+  const estornoCai = async (e: { externalKey?: string }) => {
+    if (e.externalKey?.startsWith("prov-estorno:")) throw new Error("rede caiu");
+    postados.push(e.externalKey ?? ""); return "postado" as const;
+  };
+  let msgFalha = "";
+  try { await postarProvisaoComEstorno(estornoCai, "2026-09", "Energia", 500); } catch (e) { msgFalha = (e as Error).message; }
+  ok("contabil r3: provisão lançada com estorno que NÃO entrou é NOMEADA (não vira um \"Falha\" que parece nada lançado)",
+     postados.length === 1 && /foi lançada no razão, mas o estorno de 01\/10\/2026 NÃO entrou \(rede caiu\)/.test(msgFalha)
+     && /lance de novo/.test(msgFalha), msgFalha);
+  let msgProv = "";
+  try { await postarProvisaoComEstorno(async () => { throw new Error("recusado"); }, "2026-09", "Energia", 500); } catch (e) { msgProv = (e as Error).message; }
+  ok("contabil r3: se a PROVISÃO cai, nada entrou e a falha sobe como está (sem afirmar provisão lançada)",
+     msgProv === "recusado", msgProv);
+
+  // (revisão) A fonte por organização da demonstração usa a empresa da TELA —
+  // a guarda acima injeta o input; esta prova que a chamada real injeta o certo.
+  const libCons = semCom(fsR3.readFileSync("src/lib/consolidado.ts", "utf8"));
+  ok("contabil r3: na demonstração, getRiscoInputPorOrg entrega a empresa atual por getRiscoInput (o mesmo da tela vizinha)",
+     /if \(isDemo\) return demoInputsPorOrg\(de, ate, await getRiscoInput\(\)\);/.test(libCons));
+
+  // (revisão) Fora da demonstração nenhum destinatário aparece "Verificado":
+  // não há link de confirmação, e o verificado gravado antes veio do simulador.
+  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção o destinatário aparece como cadastrado",
+     (env.match(/Verificado em/g) ?? []).length === 1
+     && /!ENVIO_SIMULADO\s*\?\s*`Cadastrado em/.test(env)
+     && env.indexOf("!ENVIO_SIMULADO") < env.indexOf("Verificado em"));
+
+  // ── 4) DRE projetado: margem sobre a LÍQUIDA multiplica a receita LÍQUIDA ──
+  const movP: RiskMovement[] = [];
+  for (const mes of ["2026-04", "2026-05", "2026-06"]) {
+    movP.push({ id: `pv${mes}`, type: "entrada", amount: 1000, due_date: `${mes}-10`, paid_date: `${mes}-10`, status: "pago", category: "Vendas", party_id: null } as RiskMovement);
+    movP.push({ id: `pi${mes}`, type: "saida", amount: 100, due_date: `${mes}-20`, paid_date: `${mes}-20`, status: "pago", category: "Simples Nacional", party_id: null } as RiskMovement);
+  }
+  const proj = dreProjetado({ hoje: "2026-06-30", saldoAtual: 0, partyNames: {}, movements: movP } as RiskInput, 0.5, 0.25)[0];
+  ok("contabil r3: projeção multiplica a margem pela receita LÍQUIDA (900 × 50% = 450, não 1000 × 50%)",
+     proj.receita === 1000 && proj.receitaLiquida === 900 && Math.abs(proj.ebitda - 450) < 1e-9 && Math.abs(proj.lucro - 225) < 1e-9,
+     JSON.stringify(proj));
+  // (revisão) Um empréstimo que ENTRA não é receita: a cascata o deixa fora da
+  // bruta e da líquida; o agregador local o soma. A base das margens tem de ser
+  // a da cascata inteira — não "proporção da cascata × soma local".
+  const movE = [...movP, { id: "pemp", type: "entrada", amount: 3000, due_date: "2026-06-12", paid_date: "2026-06-12", status: "pago", category: "Empréstimo bancário", party_id: null } as RiskMovement];
+  const projE = dreProjetado({ hoje: "2026-06-30", saldoAtual: 0, partyNames: {}, movements: movE } as RiskInput, 0.5, 0.25)[0];
+  ok("contabil r3: empréstimo recebido não entra na base da projeção (EBITDA 450, não 450 + 50% do empréstimo)",
+     projE.receita === 1000 && projE.receitaLiquida === 900 && Math.abs(projE.ebitda - 450) < 1e-9,
+     JSON.stringify(projE));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
+
+/** Fixture mínima da empresa atual para a guarda do consolidado (rodada 3). */
+function INPUT_R3(): RiskInput {
+  const movs: RiskMovement[] = [];
+  ["2026-02", "2026-03", "2026-04"].forEach((m, k) => {
+    movs.push({ id: `r3e${k}`, type: "entrada", amount: 7000 + k, due_date: `${m}-08`, paid_date: `${m}-08`, status: "pago", category: "Vendas", party_id: null } as RiskMovement);
+    movs.push({ id: `r3s${k}`, type: "saida", amount: 3100, due_date: `${m}-18`, paid_date: `${m}-18`, status: "pago", category: "Aluguel", party_id: null } as RiskMovement);
+  });
+  return { hoje: "2026-06-30", saldoAtual: 12_000, partyNames: {}, movements: movs } as RiskInput;
+}

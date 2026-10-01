@@ -18,7 +18,7 @@
  * o cache local e sincroniza em segundo plano.
  */
 import type { Turno } from "@/components/ia/chat-kit";
-import { ler as lerOrg, gravar as gravarOrg, CHAVES_ORG } from "@/lib/store-org";
+import { ler as lerOrg, gravar as gravarOrg, inscrever, CHAVES_ORG } from "@/lib/store-org";
 
 const KEY = CHAVES_ORG.iaConversas;
 const LIMITE = 60; // conversas guardadas; as mais antigas caem fora
@@ -44,6 +44,19 @@ let usuarioAtual = "local";
 export function definirUsuarioDasConversas(id: string | null | undefined): void {
   usuarioAtual = id && id.trim() ? id : "local";
 }
+/** Quem está conversando — a mesma chave serve à conversa da Central de Ajuda. */
+export const usuarioDasConversas = (): string => usuarioAtual;
+
+/**
+ * Avisa quando o histórico muda por FORA desta tela — a hidratação do servidor
+ * chega DEPOIS de a página montar.
+ *
+ * ⚠️ Sem isto, numa máquina nova a lista de conversas nascia vazia (a leitura
+ * acontecia antes de o servidor responder) e continuava vazia até a pessoa
+ * sair e voltar: o "acompanha você em outra máquina" só valia na segunda
+ * visita.
+ */
+export const inscreverConversas = (ouvinte: () => void): (() => void) => inscrever(KEY, ouvinte);
 
 type PorUsuario = Record<string, Conversa[]>;
 
@@ -96,6 +109,28 @@ export function salvarConversa(id: string | null, turnos: Turno[]): string | nul
   };
   gravar([novo, ...cs]);
   return novo.id;
+}
+
+/**
+ * ⚠️ O PAINEL FLUTUANTE RETOMA A CONVERSA. Ele é remontado a cada tela (cada
+ * página traz o seu `AppShell`), e a conversa já era salva — mas o painel
+ * renascia VAZIO: seguir o "Abrir tela ↗" da própria resposta levava à tela
+ * certa e escondia a conversa que tinha levado até lá.
+ *
+ * A escolha do painel vive em memória de módulo (sobrevive à navegação do
+ * cliente): `undefined` = o painel ainda não escolheu nesta sessão (retoma a
+ * mais recente); `null` = a pessoa pediu "Nova conversa" (não ressuscita a
+ * anterior); um id = a conversa que está aberta nele.
+ */
+let conversaDoPainel: string | null | undefined;
+export function lembrarConversaDoPainel(id: string | null): void { conversaDoPainel = id; }
+export const escolhaDoPainel = (): string | null | undefined => conversaDoPainel;
+
+/** Qual conversa o painel abre ao montar. Pura — é ela que a guarda confere. */
+export function conversaParaRetomar(escolha: string | null | undefined, cs: Conversa[]): Conversa | undefined {
+  if (escolha === null) return undefined;
+  if (escolha) { const c = cs.find((x) => x.id === escolha); if (c) return c; }
+  return [...cs].sort((a, b) => b.atualizadaEm.localeCompare(a.atualizadaEm))[0];
 }
 
 export function apagarConversa(id: string) {

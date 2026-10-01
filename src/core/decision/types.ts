@@ -10,11 +10,15 @@
  * Recommendation (impacto simulado) → Autonomous Actions → Decision Brief.
  */
 
+import type { MotivoIndisponivel } from "@/core/indicadores";
+
 /* ---- Feature Store ---- */
 export interface FinancialFeatures {
   saldo: number;
   runwayDias: number;
-  runwayMeses: number;
+  /** ⚠️ `null` = runway indisponível (ver `runwayMotivo`), nunca "0 meses". */
+  runwayMeses: number | null;
+  runwayMotivo?: { codigo: MotivoIndisponivel; motivo: string };
   burnMensal: number;
   receitaMensal: number;
   despesaMensal: number;

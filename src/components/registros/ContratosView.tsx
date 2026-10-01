@@ -20,14 +20,13 @@ import { Card, Button, Input, Textarea, Select, DateField, CurrencyInput, Icon, 
 import { FormModal } from "@/components/lancamentos/FormModal";
 import { useToast } from "@/components/listas/ListChrome";
 import { usePartiesList, useProductsList } from "@/components/lancamentos/hooks";
-import { useAccounts } from "@/components/visao-geral/hooks";
 import {
   validarContrato, vendasDoContrato, somaRateio, rateioValido, anexoCabe, LIMITE_ANEXO,
   contratoAtivo, normalizar,
   type Contrato, type LinhaRateio, type ConfigVendas, type Vigencia,
 } from "@/core/registros";
-import { listContratos, salvarContrato, removerContrato, novoIdRegistro, listPlanoContas } from "@/lib/registros";
-import { listProjetos, listCentrosCusto } from "@/lib/iuli-cadastros";
+import { listContratos, salvarContrato, removerContrato, novoIdRegistro } from "@/lib/registros";
+import { useOpcoesCadastro } from "@/components/lancamentos/opcoes-cadastro";
 import {
   CabecalhoRegistro, FiltrosRegistro, TabelaRegistro, VazioRegistro, AcaoLinha, Campo, BlocoForm,
 } from "./kit";
@@ -186,14 +185,15 @@ function FormContrato({
 
   const { data: partes } = usePartiesList();
   const { data: produtos } = useProductsList();
-  const { data: contas } = useAccounts();
-  const projetos = React.useMemo(() => listProjetos(), []);
-  const centros = React.useMemo(() => listCentrosCusto(), []);
-  const cats = React.useMemo(() => listPlanoContas().filter((x) => x.natureza === "receita" && x.paiId), []);
+  // ⚠️ Projetos, centros, contas e categorias da TABELA (UUID): o contrato
+  // gera vendas, e a venda grava o recebível — um id do cadastro antigo do
+  // navegador seria recusado pelo banco no primeiro faturamento. As vendas
+  // associadas só existem no contrato de CLIENTE, então a categoria é receita.
+  const opcoes = useOpcoesCadastro(c.lado === "cliente" ? "entrada" : "saida");
 
   const elegiveis = React.useMemo(
-    () => (partes ?? []).filter((p) => (c.lado === "cliente" ? p.is_customer : p.is_supplier)),
-    [partes, c.lado],
+    () => (partes ?? []).filter((p) => (c.lado === "cliente" ? p.is_customer : p.is_supplier) && (p.ativo !== false || p.id === c.parteId)),
+    [partes, c.lado, c.parteId],
   );
 
   const set = <K extends keyof Contrato>(k: K, v: Contrato[K]) => setC((s) => ({ ...s, [k]: v }));
@@ -251,7 +251,7 @@ function FormContrato({
         titulo="Projetos"
         singular="projeto"
         vazioLabel="Selecione o projeto"
-        opcoes={projetos.map((p) => ({ value: p.id, label: p.nome }))}
+        opcoes={opcoes.projetos}
         linhas={c.projetos}
         erro={erros.projetos}
         onChange={(l) => set("projetos", l)}
@@ -260,7 +260,7 @@ function FormContrato({
         titulo="Centros de custo"
         singular="centro de custo"
         vazioLabel="Selecione o centro de custo"
-        opcoes={centros.map((x) => ({ value: x.id, label: x.nome }))}
+        opcoes={opcoes.centros}
         linhas={c.centros}
         erro={erros.centros}
         onChange={(l) => set("centros", l)}
@@ -281,8 +281,8 @@ function FormContrato({
           cfg={c.vendas}
           erros={erros}
           produtos={(produtos ?? []).map((p) => ({ value: p.id, label: p.name }))}
-          contas={(contas?.accounts ?? []).map((a) => ({ value: a.id, label: a.name }))}
-          categorias={cats.map((x) => ({ value: x.id, label: x.nome }))}
+          contas={opcoes.contas}
+          categorias={opcoes.categorias}
           previstas={previstas}
           onChange={(v) => set("vendas", v)}
         />

@@ -53,6 +53,26 @@ de backup antigo (continua aceito na restauração), o endereço
 `all4pay-saas.vercel.app`, o nome do repositório, as chaves `a4p_*` do
 navegador e as migrations já aplicadas.
 
+## ⚠️ NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026)
+
+**Verde para positivo e vermelho para negativo saíram do sistema inteiro.**
+Todo valor (dinheiro, delta, variação, %, resultado, saldo) fica na tinta do
+texto, e o **sinal escrito** diz a direção (`−` U+2212 no negativo, `+` onde a
+tela mostra variação). Gráficos de entrada × saída: entradas em
+`var(--color-ink)`, saídas em `var(--color-areia)`.
+
+- **O que CONTINUA colorido** (não é número por sinal): erro e validação;
+  STATUS nomeado (vencido, pago, recusado, conciliado) em badge, ponto e
+  pílula; alerta e nível de risco (`warning`, crítico/alto); a linha do zero
+  em gráfico de risco.
+- **Cartão com alerta** (`MetricCard`/`HojeStat` do cockpit): o número fica
+  em tinta; o alerta vira um PONTO ao lado do rótulo, e só quando é atenção ou
+  crítico — "está tudo bem" não ganha marca.
+- ⚠️ **A guarda antiga do DRE ("todo cartão recebe a cor de prejuízo") foi
+  INVERTIDA, não apagada:** agora ela prova que a cor não voltou. E há
+  **teto ZERO** no sistema inteiro (`cor:` em `npm run consistencia`) para cor
+  decidida comparando um número com zero — provada plantando o defeito.
+
 ## ⚠️ A OWN SAIU DO PRODUTO (contrato rescindido, 30/09/2026)
 
 A Quattro rescindiu com a **OWN** (adquirente da maquininha). Saiu tudo o que
@@ -114,6 +134,53 @@ DS Visor viraram HISTÓRICO; onde discordarem desta seção, esta vence.
   mapa gerado em `solar-icons.ts`, não o app).
 - **Logo:** os arquivos `all4pay-*.png|svg` seguem até chegar o logo Quattro.
 - A guarda `npm run paleta` já cobra ESTA paleta (e o espelho do Laboratório).
+
+## ⚠️ RODADA 30/09–01/10 — o sistema dirigido como usuário (detalhe em `docs/rodada-30-09/`)
+
+Cada pacote tem o seu registro completo (defeito, causa, guarda, pendência) em
+`docs/rodada-30-09/<pacote>.md`. O que vale para TODA tela nova:
+
+- **Jornadas de usuário são guarda** (`npm run e2e`, `scripts/e2e/*.mjs`, 45
+  jornadas contra o build de DEMONSTRAÇÃO; `ALVO=` muda o endereço) e
+  **`npm run varredura-botoes`** (cada botão não destrutivo das telas canônicas,
+  um clique, reprova em `pageerror`). "A tela abre" e "a tarefa termina com o
+  dinheiro no lugar certo" são perguntas diferentes. ⚠️ Confira QUAL servidor
+  responde na porta antes de ler o resultado: um `next start` antigo servindo um
+  `.next` trocado por baixo (ou o de outro worktree) produz vermelho em massa
+  que não é defeito.
+- **Transferência entre contas próprias** tem categoria canônica
+  (`CATEGORIA_TRANSFERENCIA`) e fica fora das três cascatas do resultado.
+- **Cadastros moram no BANCO** (migration `20260930180000`): conta (com
+  `ativo`, código contábil e saldo de abertura), plano de contas hierárquico
+  (só FOLHA recebe lançamento — gatilho), centro, projeto, contato.
+  Formulários leem pelo hook único; escritores automáticos usam
+  `primeiraContaAtiva` (o banco recusa conta inativa). Hub "Estrutura e
+  cadastros" em Configurações. Ver `cad.md`.
+- **Toda chave de `CHAVES_ORG` passa por `store-org`**; a que tem tabela como
+  morada em produção vai para `CHAVES_CONGELADAS` (só a demonstração a grava no
+  navegador). Teto ZERO de `localStorage` cru com chave de negócio.
+- **Um mapeador de linhas → `RiskInput`** (`lib/risco-linhas`) para a tela, a
+  consolidação e o runner de automações.
+- **Automações** (e-mail/WhatsApp por empresa, `core/automacoes`,
+  `/api/financial-os/run`): GRAVA → ENVIA → CONCLUI com índice único contra
+  reenvio; simulado nunca é "avisado"; quem recebe vem do membro. Ver `aut.md`.
+- **Checklist de fechamento** com dono, revisor e prazo numa morada
+  (`close_tasks`, `lib/fechamento-tarefas`); travar o mês é a RPC
+  `fechar_periodo` (com motivo para reabrir). Aging de contas a pagar e
+  previsão do mês em três camadas. Ver `campa.md`.
+- **Caixa de entrada de contas a pagar**: o boleto/NF/OCR vira conta pelo
+  formulário de conta a pagar PREENCHIDO (um escritor só); edição em massa;
+  extrato do contato em PDF; busca de títulos no ⌘K; eliminações intercompany
+  listadas no consolidado e na DRE multiempresas. Ver `campb.md`.
+- **A IA responde o número da TELA**: margem e lucro saem do DRE, runway
+  ausente é ausente (nunca "0 meses"), "posso gastar?" é o simulador
+  `situacaoDe`. Ver `ia.md`.
+- **Folha, compras, reembolsos, vendas, impostos, POS, notas, razão e
+  plataforma**: todos os "escritores mortos" achados (gravação só no
+  navegador em produção) foram para o banco com recusa visível. Ver `pagar.md`,
+  `vender.md`, `contabil.md`, `plataforma.md`.
+- **Seed da demonstração**: nada "pago" com data futura (a venda do mês
+  corrente cai no dia 15 ou hoje).
 
 ## ⚠️ ENXUGAMENTO DO MVP + BENCHMARK CAMPFIRE (30/09/2026)
 

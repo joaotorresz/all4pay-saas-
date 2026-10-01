@@ -9,6 +9,7 @@ import { DEMO_MOVEMENTS, DEMO_ACCOUNTS, DEMO_PARTIES } from "@/lib/demo/seed";
 import { isoDay } from "@/lib/aggregations";
 import { chaveDeMovimento } from "@/core/ingestao";
 import type { AberturaVerificada } from "@/core/indicadores/abertura";
+import type { LinhaCategoria, LinhaCentro, LinhaProjeto } from "@/core/registros/hierarquia";
 
 const KEY = "a4p_imported_dataset";
 
@@ -24,6 +25,21 @@ export interface ImportedDataset {
    * quando o arquivo não declara saldo — a conta fica NÃO CONFERIDA.
    */
   abertura?: AberturaVerificada | null;
+  /**
+   * Os CADASTROS da demonstração (plano de contas, centros, projetos, uso
+   * padrão), na MESMA forma das linhas do banco — é o que deixa o mesmo leitor
+   * (`lib/cadastros-hierarquia`) servir os dois mundos. Ausente = o seed.
+   * As contas bancárias moram em `accounts`, como sempre moraram.
+   */
+  cadastros?: CadastrosDemo;
+}
+
+export interface CadastrosDemo {
+  categories?: (LinhaCategoria & { id: string })[];
+  cost_centers?: (LinhaCentro & { id: string })[];
+  projects?: (LinhaProjeto & { id: string })[];
+  /** função do uso padrão → id da categoria. */
+  usos?: Record<string, string>;
 }
 
 let cache: ImportedDataset | null | undefined;
@@ -52,6 +68,76 @@ export function setImported(ds: ImportedDataset): void {
       /* ignore */
     }
   }
+}
+
+/**
+ * Aplica um extrato importado ao dataset da demonstração SEM apagar o que já
+ * estava lá.
+ *
+ * ⚠️ **A versão anterior SUBSTITUÍA o dataset inteiro** (`setImported`). Achado
+ * dirigindo a tela como usuário (30/09/2026): importar o extrato de outubro
+ * apagava o de setembro, e toda conta a pagar, venda ou transferência criada
+ * antes sumia junto — a tela dizia "importação confirmada" e metade da empresa
+ * desaparecia. Em produção isto nunca aconteceu (lá cada linha é um insert com
+ * chave); era a demonstração que ensinava o comportamento errado.
+ *
+ * A regra agora:
+ *  - o **seed** da demonstração sai na primeira importação (ele é exemplo, e o
+ *    extrato da pessoa ocupa o lugar dele) — mas o que a PESSOA criou fica;
+ *  - reimportar o mesmo arquivo não grava nada: a chave de idempotência é a
+ *    MESMA da produção (`chaveDeMovimento`);
+ *  - a conta importada soma o que ANDOU com as linhas novas; quando o banco
+ *    DECLARA o saldo, é ele que vale.
+ * Devolve quantas linhas entraram e quantas já existiam.
+ */
+export function mesclarImportacao(ds: Omit<ImportedDataset, "criadoEm">): { novos: number; repetidos: number } {
+  const atual = load();
+  const seedMov = new Set(DEMO_MOVEMENTS.map((m) => m.id));
+  const mantidos = (atual?.movements ?? []).filter((m) => !seedMov.has(m.id));
+  const chaves = new Set(mantidos.map((m) => m.chave ?? chaveDeMovimento(m)));
+  const novos: Movement[] = [];
+  for (const m of ds.movements) {
+    const k = m.chave ?? chaveDeMovimento(m);
+    if (chaves.has(k)) continue;
+    chaves.add(k);
+    novos.push(m);
+  }
+  const movements = [...mantidos, ...novos];
+
+  // Contas: fica toda conta que algum lançamento mantido usa, mais as novas.
+  const usadas = new Set(movements.map((m) => m.account_id).filter(Boolean) as string[]);
+  const contas = new Map<string, FinancialAccount>();
+  // ⚠️ A conta que a PESSOA cadastrou fica mesmo sem lançamento — a mesma regra
+  // dos contatos logo abaixo. Sem isto, importar um extrato apagava da
+  // demonstração a conta criada em Cadastros › Contas bancárias.
+  for (const a of atual?.accounts ?? []) {
+    if (usadas.has(a.id) || !DEMO_ACCOUNTS.some((d) => d.id === a.id)) contas.set(a.id, a);
+  }
+  const andou = novos
+    .filter((m) => m.status === "pago")
+    .reduce((acc, m) => acc + (m.type === "entrada" ? m.amount : -m.amount), 0);
+  for (const a of ds.accounts) {
+    const antes = contas.get(a.id);
+    contas.set(a.id, antes && !ds.abertura
+      ? { ...antes, balance: Math.round((antes.balance + andou) * 100) / 100 }
+      : a);
+  }
+
+  // Contatos: mesma regra — os referenciados ficam, os novos entram por id.
+  const partesUsadas = new Set(movements.map((m) => m.party_id).filter(Boolean) as string[]);
+  const partes = new Map<string, Party>();
+  for (const p of atual?.parties ?? []) if (partesUsadas.has(p.id) || !DEMO_PARTIES.some((d) => d.id === p.id)) partes.set(p.id, p);
+  for (const p of ds.parties) if (!partes.has(p.id)) partes.set(p.id, p);
+
+  setImported({
+    movements,
+    accounts: Array.from(contas.values()),
+    parties: Array.from(partes.values()),
+    abertura: ds.abertura ?? atual?.abertura ?? null,
+    cadastros: atual?.cadastros,
+    criadoEm: atual?.criadoEm ?? new Date().toISOString(),
+  });
+  return { novos: novos.length, repetidos: ds.movements.length - novos.length };
 }
 
 /**
@@ -90,6 +176,36 @@ export function importedAccounts(): FinancialAccount[] | null {
 export function importedParties(): Party[] | null {
   return load()?.parties ?? null;
 }
+/** Os cadastros da demonstração (plano, centros, projetos, uso padrão). */
+export function importedCadastros(): CadastrosDemo | null {
+  return load()?.cadastros ?? null;
+}
+
+const baseOuSeed = (): ImportedDataset => load() ?? {
+  movements: [...DEMO_MOVEMENTS], accounts: [...DEMO_ACCOUNTS], parties: [...DEMO_PARTIES],
+  criadoEm: new Date().toISOString(),
+};
+
+/**
+ * Grava cadastros no dataset da DEMONSTRAÇÃO. ⚠️ Só o escritor de
+ * `lib/cadastros-hierarquia` a chama, e só dentro de `if (isDemo)` — em
+ * produção a morada é a tabela (a guarda `CAD` cobra isso).
+ */
+export function gravarCadastrosDemo(patch: Partial<CadastrosDemo>): void {
+  const base = baseOuSeed();
+  setImported({ ...base, cadastros: { ...(base.cadastros ?? {}), ...patch } });
+}
+
+/** Cria ou substitui uma conta no dataset da demonstração (mesma regra de cima). */
+export function gravarContaDemo(conta: FinancialAccount): void {
+  const base = baseOuSeed();
+  const existe = base.accounts.some((a) => a.id === conta.id);
+  const accounts = existe
+    ? base.accounts.map((a) => (a.id === conta.id ? { ...a, ...conta } : a))
+    : [...base.accounts, conta];
+  setImported({ ...base, accounts });
+}
+
 /** A abertura conferida do arquivo importado, quando o banco declarou o saldo. */
 export function importedAbertura(): AberturaVerificada | null {
   return load()?.abertura ?? null;
@@ -261,10 +377,25 @@ export function updateImportedAccount(id: string, patch: Partial<FinancialAccoun
   setImported({ ...base, accounts });
 }
 
+/**
+ * Cria um contato no dataset da DEMONSTRAÇÃO. ⚠️ Só `createParty` a chama, e
+ * só dentro de `if (isDemo)`. Antes a criação em demonstração não gravava
+ * NADA (`return void delay()`): a tela dizia "Cliente criado" e o cliente não
+ * aparecia na lista nem no formulário de lançamento.
+ */
+export function gravarParteDemo(parte: Party): void {
+  const base = baseOuSeed();
+  const parties = base.parties.some((p) => p.id === parte.id)
+    ? base.parties.map((p) => (p.id === parte.id ? { ...p, ...parte } : p))
+    : [...base.parties, parte];
+  setImported({ ...base, parties });
+}
+
 /** Atualiza uma party no dataset importado (demo) — ex.: adicionar telefone. */
 export function updateImportedParty(id: string, patch: Partial<Party>): boolean {
-  const ds = load();
-  if (!ds) return false;
+  // Parte do seed quando ainda não há dataset: editar um contato do seed (o
+  // ativo, a categoria padrão) não pode ser descartado em silêncio.
+  const ds = load() ?? baseOuSeed();
   const i = ds.parties.findIndex((p) => p.id === id);
   if (i < 0) return false;
   // Copy-on-write (como os outros writers): não mutar o array do cache in place.

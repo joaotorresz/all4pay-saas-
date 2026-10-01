@@ -28,20 +28,20 @@ export function ReceitaReconhecimentoView() {
     if (!report) return;
     setReconhecendo(true); setMsgRec(null);
     const mes = isoDay(new Date()).slice(0, 7);
+    let n = 0, ja = 0;
     try {
-      let n = 0;
       for (const c of report.contratos.filter((x) => x.ativo && x.mrr > 0)) {
-        await postarLancamento({
+        const r = await postarLancamento({
           entryDate: `${mes}-01`,
           description: `Reconhecimento de receita: ${c.titulo}`,
           source: "revrec",
           externalKey: `revrec:${c.id}:${mes}`,
           lines: [{ accountId: "2.2.01", debit: c.mrr }, { accountId: "3.1.02", credit: c.mrr }],
         });
-        n++;
+        if (r === "ja_existia") ja++; else n++;
       }
-      setMsgRec(`Competência de ${mes} reconhecida: ${n} contrato(s) lançado(s) no razão.`);
-    } catch (e) { setMsgRec(`Falha: ${(e as Error).message}`); }
+      setMsgRec(`Competência de ${mes}: ${n} contrato(s) lançado(s) no razão agora` + (ja ? ` · ${ja} já estava(m) lançado(s) com o mesmo valor.` : "."));
+    } catch (e) { setMsgRec(`Falha: ${(e as Error).message}${n ? ` (${n} contrato(s) já tinham sido lançados antes da falha)` : ""}`); }
     finally { setReconhecendo(false); }
   };
 
@@ -101,7 +101,7 @@ export function ReceitaReconhecimentoView() {
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-label font-medium text-muted inline-flex items-center gap-1">Waterfall de receita recorrente (MRR)<InfoHint align="left" titulo="Waterfall de MRR" oQue="Mostra como o MRR evoluiu mês a mês conforme novos contratos entram." comoCalcula="Cada barra é o MRR ao fim do mês, somando os contratos ativos iniciados até aquele mês." /></span>
               {report.resumo.churnMrr > 0 && (
-                <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-negative"><BRL value={report.resumo.churnMrr} /></span></span>
+                <span className="text-caption text-faint">MRR cancelado (churn atual): <span className="tabular-nums text-ink"><BRL value={report.resumo.churnMrr} /></span></span>
               )}
             </div>
             <div className="flex items-end gap-3 h-[160px] pt-2" role="img" aria-label="Evolução do MRR nos últimos meses">

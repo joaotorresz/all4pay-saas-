@@ -14,10 +14,11 @@ import {
   Card, Button, Icon, Input, Select, DateField, CurrencyInput, Textarea, Checkbox,
 } from "@/components/ui";
 import { useToast } from "@/components/listas/ListChrome";
-import { fetchCompany, saveCompany, loadCompany } from "@/lib/company";
+import { fetchCompany, persistCompany, loadCompany, type StoredCompany } from "@/lib/company";
+import { regimeDoCadastro } from "@/core/fiscal/perfil";
 import { lookupCep } from "@/lib/viacep";
 import {
-  validarDadosEmpresa, logoAceito, optantePeloSimples,
+  validarDadosEmpresa, logoAceito, optantePeloSimples, identidadeDoCadastro, cadastroParaGravar,
   SEGMENTOS, REGIMES, FORMATOS_LOGO, LADO_MINIMO_LOGO,
   type DadosEmpresa, type ContatoEmpresa, type TipoPessoa,
   type StatusEmpresa, type RegimeTributario,
@@ -62,14 +63,17 @@ export function DadosEmpresaView() {
 
   React.useEffect(() => {
     const db = (empresa.data?.db ?? {}) as Record<string, unknown>;
+    // ⚠️ A tela mostra o que o SISTEMA USA: as chaves canônicas (`cnpj`,
+    // `fantasia`, o regime resolvido por `regimeDoCadastro`) vêm primeiro —
+    // ver `identidadeDoCadastro`. O regime gravado pelo onboarding é o RÓTULO
+    // ("Lucro Presumido"); lido cru, o seletor abria vazio e o salvar seguinte
+    // APAGAVA o regime declarado.
+    const regime = regimeDoCadastro(db);
     const lido: DadosEmpresa = {
       ...VAZIO,
       ...Object.fromEntries(Object.entries(db).filter(([k]) => k in VAZIO)),
-      // Campos com nome legado do onboarding — casados aqui para o cadastro
-      // antigo não abrir vazio.
-      documento: (db.documento as string) || (db.cnpj as string) || (db.cpf as string) || "",
-      razaoSocial: (db.razaoSocial as string) || (db.razao as string) || "",
-      nomeFantasia: (db.nomeFantasia as string) || (db.fantasia as string) || "",
+      ...identidadeDoCadastro(db),
+      regime: regime === "nao_declarado" ? "" : regime,
     } as DadosEmpresa;
     setD(lido);
     setInicial(lido);
@@ -120,17 +124,40 @@ export function DadosEmpresaView() {
     reader.readAsDataURL(file);
   }
 
-  function salvar() {
+  const [salvando, setSalvando] = React.useState(false);
+  /**
+   * ⚠️ **GRAVAVA SÓ NO NAVEGADOR — o "escritor morto".** Era `saveCompany`, o
+   * cache local; em produção o cadastro mora em `company_profiles`, e
+   * `fetchCompany` (servidor primeiro) ainda REGRAVA o cache com a versão do
+   * servidor. Resultado: "Dados da empresa salvos", a consulta recarregava do
+   * servidor e o formulário voltava ao valor antigo — a edição sumia na frente
+   * da pessoa. Agora vai por `persistCompany` (cache + servidor) e a recusa do
+   * banco aparece com a mensagem dele, nunca como sucesso.
+   *
+   * ⚠️ A base da mescla é o que a CONSULTA trouxe (o servidor), não o cache
+   * local: mesclar sobre o cache de outra máquina sobrescreveria campos que um
+   * colega editou.
+   */
+  async function salvar() {
     const e = validarDadosEmpresa(d);
     setErros(e);
     if (Object.keys(e).length > 0) { toast("Revise os campos destacados."); return; }
-    const atual = loadCompany() ?? {};
-    saveCompany({
+    const atual: StoredCompany = empresa.data ?? loadCompany() ?? {};
+    const novo = {
       ...atual,
-      db: { ...(atual.db ?? {}), ...(d as unknown as Record<string, string | boolean>) },
+      db: cadastroParaGravar(atual.db as Record<string, unknown> | undefined, d) as StoredCompany["db"],
       contatos: { principal, financeiro },
-    } as never);
-    qc.invalidateQueries({ queryKey: ["company"] });
+    } as StoredCompany;
+    setSalvando(true);
+    try {
+      await persistCompany(novo);
+    } catch (err) {
+      toast(`Não foi possível salvar: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    } finally {
+      setSalvando(false);
+    }
+    await qc.invalidateQueries({ queryKey: ["company"] });
     setInicial(d);
     setSujo(false);
     toast("Dados da empresa salvos.");
@@ -342,7 +369,7 @@ export function DadosEmpresaView() {
 
       <div className="flex items-center justify-end gap-2">
         <Button variant="ghost" disabled={!sujo} onClick={descartar}>Descartar alterações</Button>
-        <Button variant="primary" disabled={!sujo} onClick={salvar}>
+        <Button variant="primary" disabled={!sujo || salvando} onClick={salvar}>
           <Icon name="check" size={15} color="currentColor" />
           Salvar alterações
         </Button>
@@ -357,13 +384,17 @@ export function DadosEmpresaView() {
 function Campo({
   label, erro, ajuda, children,
 }: { label: string; erro?: string; ajuda?: string; children: React.ReactNode }) {
+  // ⚠️ O `<label>` ENVOLVE o campo. Ele era um irmão solto, sem `htmlFor`:
+  // os 26 campos desta tela não tinham nome acessível (o leitor de tela dizia
+  // "campo de edição" e mais nada) e clicar no rótulo não focava o campo.
+  // Envolver associa sem precisar de id em cada um.
   return (
-    <div className="flex flex-col gap-[6px]">
-      <label className="text-label font-medium text-muted">{label}</label>
+    <label className="flex flex-col gap-[6px]">
+      <span className="text-label font-medium text-muted">{label}</span>
       {children}
       {erro ? <span className="text-caption text-negative">{erro}</span>
         : ajuda ? <span className="text-caption text-faint">{ajuda}</span> : null}
-    </div>
+    </label>
   );
 }
 

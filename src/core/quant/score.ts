@@ -15,7 +15,8 @@ import type {
 } from "./types";
 import { serieMensal } from "./series";
 import { clamp01, normalizar, media } from "./stat";
-import { runwayDeFluxo, mesesDeRunway } from "@/core/indicadores";
+import { runwayDeFluxo, mesesDeRunway, formaCurta } from "@/core/indicadores";
+import { decimalBR } from "@/lib/format";
 
 /** Pesos do modelo (somam 1.0) — auditáveis. */
 export const PESOS = {
@@ -30,10 +31,58 @@ export const PESOS = {
 
 type Health = Record<keyof typeof PESOS, number>;
 
+/**
+ * A saúde do RUNWAY, de 0 a 1 — e o que fazer quando ele NÃO TEM número.
+ *
+ * ⚠️ Ausência não é zero, e aqui as ausências dizem coisas OPOSTAS (é por isso
+ * que o canônico carrega um código, não só a frase):
+ *  - `sem_queima` — a empresa GEROU caixa na janela: não há prazo para o caixa
+ *    acabar. É o runway mais saudável que existe, não o pior. Era lido como 0,
+ *    e uma empresa com R$ 2,2 milhões que gera caixa perdia os 15 pontos
+ *    inteiros do pilar e ganhava "Runway curto" na lista de riscos.
+ *  - `caixa_negativo` — o caixa JÁ acabou: 0, o pior.
+ *  - sem base para medir (sem lançamento, janela inválida) — 0,5, neutro. O
+ *    score precisa de um valor para o pilar, e nem "ótimo" nem "péssimo" é
+ *    verdade sobre algo que não se mediu; o silêncio não é boa notícia (ONDA 4)
+ *    e também não é má.
+ */
+export function saudeDoRunway(i: Pick<IndicadoresFinanceiros, "runwayMeses" | "runwayMotivo">): number {
+  if (i.runwayMeses !== null) return normalizar(i.runwayMeses, 3, 18);
+  switch (i.runwayMotivo?.codigo) {
+    case "sem_queima": return 1;
+    case "caixa_negativo": return 0;
+    default: return 0.5;
+  }
+}
+
+/**
+ * O runway ESCRITO para a tela ("8,2m" ou "— não há queima"). Um só lugar, para
+ * a Quant, a Decisão e a IA escreverem a ausência do mesmo jeito que o Fluxo de
+ * caixa e o DRE (`formaCurta`, de `core/indicadores`).
+ */
+export function rotuloRunway(i: Pick<IndicadoresFinanceiros, "runwayMeses" | "runwayMotivo">): string {
+  if (i.runwayMeses !== null) return `${decimalBR(i.runwayMeses)}m`;
+  return `— ${i.runwayMotivo ? formaCurta(i.runwayMotivo) : "sem base de cálculo"}`;
+}
+
+/**
+ * O runway NA FRASE — e a ausência dita como ausência.
+ *
+ * ⚠️ Era `runway de ${i.runwayMeses} meses` em quatro lugares (a narrativa da
+ * Quant, o briefing, o copiloto de fallback e a IA): com o runway
+ * indisponível o texto saía "runway de 0 meses" para quem gera caixa.
+ */
+export function fraseRunway(i: Pick<IndicadoresFinanceiros, "runwayMeses" | "runwayMotivo">): string {
+  if (i.runwayMeses !== null) return `runway de ${decimalBR(i.runwayMeses)} meses`;
+  if (i.runwayMotivo?.codigo === "sem_queima") return "sem queima de caixa (não há prazo de runway a calcular)";
+  if (i.runwayMotivo?.codigo === "caixa_negativo") return "caixa já negativo (não há fôlego a projetar)";
+  return `runway sem base de cálculo (${i.runwayMotivo?.motivo ?? "sem dados"})`;
+}
+
 function saude(i: IndicadoresFinanceiros): Health {
   return {
     liquidez: normalizar(i.liquidezCorrente, 0.7, 2.0),
-    runway: normalizar(i.runwayMeses, 3, 18),
+    runway: saudeDoRunway(i),
     inadimplencia: 1 - clamp01(i.inadimplencia),
     margem: normalizar(i.margemCaixa90d, 0, 0.35),
     volatilidade: 1 - clamp01(i.volatilidadeFluxo),
@@ -119,7 +168,8 @@ export function scoreSaudeFinanceira(
   const fatoresNegativos = chaves.filter((k) => h[k] <= 0.4).map((k) => NEG[k]);
 
   let prob = 1 - score / 100;
-  if (i.runwayMeses < 6) prob *= 1.3;
+  // Runway curto (ou caixa já negativo) agrava; "não há queima" não agrava.
+  if ((i.runwayMeses !== null && i.runwayMeses < 6) || i.runwayMotivo?.codigo === "caixa_negativo") prob *= 1.3;
   if (i.volatilidadeFluxo > 0.7) prob *= 1.1;
   const probabilidadeRuptura = Math.round(clamp01(prob) * 100) / 100;
 

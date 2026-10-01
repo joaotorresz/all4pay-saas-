@@ -9,6 +9,7 @@ import { isDemo } from "@/lib/demo";
 import { createClient } from "@/lib/supabase/client";
 import { TETO_LINHAS } from "@/lib/supabase/consulta";
 import { reportar } from "@/lib/erros";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 export type ModeloReceita = "subscription" | "usage" | "milestone";
 export interface RevRecParcela { period: string; amount: number; recognized: boolean }
@@ -52,13 +53,12 @@ export function cronogramaLinear(total: number, start: string, end: string): Rev
 }
 
 /* ----------------------------- demo ----------------------------- */
+// Só a DEMONSTRAÇÃO grava aqui (produção: `revenue_contracts`; chave CONGELADA).
 function loadLocal(): RevRecContrato[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]") as RevRecContrato[]; } catch { return []; }
+  return lerOrg<RevRecContrato[]>(KEY, []);
 }
 function saveLocal(list: RevRecContrato[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { /* ignore */ }
+  gravarOrg(KEY, list);
 }
 
 /* ----------------------------- live ----------------------------- */

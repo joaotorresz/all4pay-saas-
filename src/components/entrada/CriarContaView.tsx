@@ -67,7 +67,13 @@ export function CriarContaView() {
       // ⚠️ O nome da empresa é guardado ANTES de criar a conta. Se a criação
       // parar na confirmação de e-mail, o nome já está aqui e a pessoa não
       // digita de novo ao voltar — é a metade que não depende de sessão.
-      saveCompany({ ...(loadCompany() ?? {}), db: { ...(loadCompany()?.db ?? {}), razaoSocial: nomeEmpresa, tipoConta: "empresa" } });
+      //
+      // ⚠️ (revisão, 01/10/2026) Um cadastro NOVO, não uma mescla. A conta nova
+      // nasce numa organização nova; mesclar com o que o navegador guardava
+      // (a empresa de quem estava logado antes, ou a de "Nova empresa", que
+      // agora manda para cá) fazia a organização nova herdar o CNPJ e o regime
+      // da outra — e "Dados da empresa" os gravaria no servidor ao salvar.
+      saveCompany({ db: { razaoSocial: nomeEmpresa, tipoConta: "empresa" } });
       const r = await criarContaEEntrar(email, senha, nomeEmpresa);
       if (r.ok) { router.push("/"); router.refresh(); return; }
       if (r.confirmarEmail) { setConfirme(true); return; }

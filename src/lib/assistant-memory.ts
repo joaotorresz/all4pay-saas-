@@ -11,6 +11,8 @@
  * Tudo tolerante a falha/ausência da tabela — nunca quebra o assistente.
  */
 import { isDemo } from "@/lib/demo";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
+import { reportar } from "@/lib/erros";
 export interface QStat {
   q: string; // pergunta (casing original da 1ª vez)
   n: number; // quantas vezes foi perguntada
@@ -24,12 +26,12 @@ const KEY = "a4p_ia_memory";
 const DAY = 86400000;
 const norm = (q: string) => q.trim().toLowerCase().replace(/\s+/g, " ");
 
+// ⚠️ Chave de NEGÓCIO (`CHAVES_ORG`): passa por `store-org`, nunca `localStorage.setItem` cru.
 function load(): Mem {
-  if (typeof window === "undefined") return { stats: {} };
-  try { const r = localStorage.getItem(KEY); if (r) return JSON.parse(r) as Mem; } catch { /* ignore */ }
-  return { stats: {} };
+  const m = lerOrg<Mem>(KEY, { stats: {} });
+  return { ...m, stats: { ...(m.stats ?? {}) } };
 }
-function save(m: Mem) { try { localStorage.setItem(KEY, JSON.stringify(m)); } catch { /* ignore */ } }
+function save(m: Mem) { gravarOrg(KEY, m); }
 
 // ——— Sincronização best-effort com o Supabase (só live; nunca lança) ———
 async function supa() {
@@ -39,8 +41,26 @@ async function supa() {
 async function remoteBump(k: string, q: string) {
   try { const c = await supa(); if (c) await c.rpc("ai_learning_bump", { p_norm: k, p_q: q }); } catch { /* ignore */ }
 }
-async function remoteFeedback(k: string, dir: "up" | "down") {
-  try { const c = await supa(); if (c) await c.rpc("ai_learning_feedback", { p_norm: k, p_dir: dir }); } catch { /* ignore */ }
+async function remoteFeedback(k: string, dir: "up" | "down", anterior?: "up" | "down") {
+  try {
+    const c = await supa(); if (!c) return;
+    if (anterior) {
+      // A RPC só SOMA; desfazer o voto anterior é um update direto na linha da
+      // org (a RLS recorta). Não é atômico — o aprendizado é best-effort —, mas
+      // sem ele a hidratação (que funde pelo MAIOR) devolveria o voto desfeito.
+      const { data, error } = await c.from("ai_learning").select("up,down").eq("q_norm", k).maybeSingle();
+      if (error) throw error;
+      if (data) {
+        const atual = (data as { up: number; down: number })[anterior] ?? 0;
+        const { error: e2 } = await c.from("ai_learning").update({ [anterior]: Math.max(0, atual - 1) }).eq("q_norm", k);
+        if (e2) throw e2;
+      }
+    }
+    const { error } = await c.rpc("ai_learning_feedback", { p_norm: k, p_dir: dir });
+    if (error) throw error;
+  } catch (e) {
+    reportar("ia.aprendizado_feedback", e, "o voto na resposta da IA não entrou no aprendizado da empresa", true);
+  }
 }
 
 /** Mescla o aprendizado da ORG (Supabase) no local — chamar 1x ao abrir. */
@@ -80,13 +100,28 @@ export function registrarPergunta(q: string) {
   void remoteBump(k, q.trim());
 }
 
-/** Feedback do usuário sobre a resposta — alimenta o ranking de sugestões. */
-export function registrarFeedback(q: string, dir: "up" | "down") {
+/**
+ * Feedback do usuário sobre a resposta — alimenta o ranking de sugestões.
+ *
+ * ⚠️ TROCAR o voto DESFAZ o anterior (`anterior`). Antes, mudar de "útil" para
+ * "ruim" somava um `down` e deixava o `up` de pé: a mesma resposta contava como
+ * boa E ruim, e quem corrigiu o próprio clique pesava duas vezes no ranking.
+ */
+export function registrarFeedback(q: string, dir: "up" | "down", anterior?: "up" | "down") {
   if (typeof window === "undefined") return;
+  if (anterior === dir) return;
   const m = load(); const k = norm(q); const s = m.stats[k]; if (!s) return;
-  if (dir === "up") s.up += 1; else s.down += 1;
+  aplicarVoto(s, dir, anterior);
   save(m);
-  void remoteFeedback(k, dir);
+  void remoteFeedback(k, dir, anterior);
+}
+
+/** A aritmética do voto, pura (é ela que a guarda confere). */
+export function aplicarVoto(s: Pick<QStat, "up" | "down">, dir: "up" | "down", anterior?: "up" | "down"): void {
+  if (anterior === dir) return;
+  if (anterior === "up") s.up = Math.max(0, s.up - 1);
+  if (anterior === "down") s.down = Math.max(0, s.down - 1);
+  if (dir === "up") s.up += 1; else s.down += 1;
 }
 
 /** Score adaptativo: frequência + recência + saldo de feedback. */

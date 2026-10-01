@@ -17,8 +17,10 @@ import { MarcaIA, EtapasAnalise, BolhaResposta, type Turno } from "./chat-kit";
 import { useChatIA } from "./useChatIA";
 import {
   listarConversas, getConversa, salvarConversa, apagarConversa,
-  agruparPorRecencia, type Conversa,
+  agruparPorRecencia, inscreverConversas, type Conversa,
 } from "@/lib/ia-conversas";
+import { isDemo } from "@/lib/demo";
+import { MARCA_IA } from "@/core/marca";
 import { loadCompany } from "@/lib/company";
 
 /**
@@ -47,7 +49,9 @@ export function IAView() {
   ativaRef.current = ativa;
 
   const recarregar = React.useCallback(() => setConversas(listarConversas()), []);
-  React.useEffect(() => { recarregar(); }, [recarregar]);
+  // Ouve o histórico: a hidratação do servidor chega DEPOIS da montagem, e sem
+  // isto a lista nascia vazia numa máquina nova.
+  React.useEffect(() => { recarregar(); return inscreverConversas(recarregar); }, [recarregar]);
 
   // Cada resposta grava a conversa (cria na primeira, atualiza nas seguintes).
   const aoMudar = React.useCallback((turnos: Turno[]) => {
@@ -57,7 +61,7 @@ export function IAView() {
   }, []);
 
   const chat = useChatIA({ onMudou: aoMudar });
-  const { texto, setTexto, turnos, pensando, etapa, pergunta, copiedId, copiar, darFeedback, responder, carregar, sugeridas } = chat;
+  const { texto, setTexto, turnos, pensando, etapa, pergunta, copia, copiar, darFeedback, responder, carregar, sugeridas } = chat;
 
   const fimRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => { fimRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turnos, pensando]);
@@ -115,12 +119,15 @@ export function IAView() {
               </div>
             ))
           )}
-          {/* ⚠️ O aviso diz o que ISSO SIGNIFICA, não só onde o dado está. "Fica neste
-              navegador" é uma descrição técnica; o que a pessoa precisa saber é
-              que a conversa não a acompanha para outra máquina. */}
+          {/* ⚠️ O aviso diz o que ISSO SIGNIFICA, não só onde o dado está.
+              E ele tem de dizer a VERDADE do ambiente: a frase antiga ("ficam neste
+              navegador — não acompanham você em outra máquina") ficou escrita
+              depois de o histórico passar a ser gravado na empresa pelo
+              `store-org`, e em produção dizia o contrário do que acontecia. */}
           <span className="text-[11px] text-faint mt-auto pt-2 leading-[1.4]">
-            As conversas ficam neste navegador — não acompanham você em outra máquina
-            nem aparecem para os outros usuários da empresa.
+            {isDemo
+              ? "Na demonstração, as conversas ficam só neste navegador."
+              : "As conversas ficam guardadas na sua conta nesta empresa: acompanham você em outra máquina e não aparecem na lista dos colegas."}
           </span>
         </aside>
       )}
@@ -158,7 +165,7 @@ export function IAView() {
               {turnos.map((t, i) => (
                 <div key={t.id} className="a4p-entra flex flex-col gap-2" style={{ ["--a4p-atraso" as string]: `${Math.min(i, 3) * 60}ms` }}>
                   <div data-ia="pergunta" className="self-end max-w-[85%] rounded-card rounded-br-sm bg-ink text-white px-3 py-2 text-[15px]">{t.q}</div>
-                  <BolhaResposta t={t} copiado={copiedId === t.id} onCopiar={copiar} onFeedback={darFeedback} />
+                  <BolhaResposta t={t} copia={copia?.id === t.id ? copia.estado : undefined} onCopiar={copiar} onFeedback={darFeedback} />
                 </div>
               ))}
               {pergunta && (
@@ -184,12 +191,15 @@ export function IAView() {
                 placeholder="Envie uma mensagem…"
                 className="flex-1 bg-transparent outline-none resize-none text-[16px] text-ink placeholder:text-placeholder max-h-[140px] py-1"
               />
+              {/* ⚠️ Botão primário = lime + verde-base (DS Quattro). Era `bg-ink`
+                  com a seta em `on-lime` — e os dois tokens valem o MESMO
+                  #3B4332: a seta era invisível sobre o próprio botão. */}
               <button onClick={() => responder(texto)} disabled={pensando || !texto.trim()} aria-label="Enviar"
-                className="w-9 h-9 rounded-pill inline-flex items-center justify-center bg-ink text-white disabled:opacity-40 hover:opacity-90 transition-opacity shrink-0">
+                className="w-9 h-9 rounded-pill inline-flex items-center justify-center bg-lime text-on-lime disabled:opacity-40 hover:bg-lime-hover transition-colors shrink-0">
                 <Icon name="arrow-up" size={16} color="var(--color-on-lime)" />
               </button>
             </div>
-            <p className="m-0 mt-2 text-center text-[11px] text-faint">A Quattro IA pode cometer erros — confira os valores.</p>
+            <p className="m-0 mt-2 text-center text-[11px] text-faint">{MARCA_IA} pode cometer erros — confira os valores.</p>
           </div>
         </div>
       </section>

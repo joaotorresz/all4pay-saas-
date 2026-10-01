@@ -69,11 +69,20 @@ export function TransferenciasView() {
 
   if (nova) {
     return (
+      <>
+      {node}
       <FormTransferencia
         contas={opcoesConta}
         onCancelar={() => setNova(false)}
         onSalvo={async (t) => {
-          setLista(await criarTransferencia(t));
+          // ⚠️ A recusa do banco aparece com a mensagem real: "tente de novo"
+          // é o único conselho que não funciona quando o banco recusa.
+          try {
+            setLista(await criarTransferencia(t));
+          } catch (e) {
+            show(e instanceof Error ? `Não foi possível registrar: ${e.message}` : "Não foi possível registrar a transferência.");
+            return;
+          }
           setNova(false);
           // A transferência mexe no saldo das duas contas — invalidar aqui é o
           // que faz o extrato e o fluxo reagirem sem recarregar a página.
@@ -81,6 +90,7 @@ export function TransferenciasView() {
           show("Transferência registrada.");
         }}
       />
+      </>
     );
   }
 
@@ -212,11 +222,15 @@ export function TransferenciasView() {
                     <td className="px-6 py-3">
                       <div className="flex justify-end">
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!window.confirm("Excluir a transferência? Os dois lançamentos que ela gerou saem junto.")) return;
-                            setLista(removerTransferencia(t.id));
-                            qc.invalidateQueries();
-                            show("Transferência removida.");
+                            try {
+                              setLista(await removerTransferencia(t.id));
+                              qc.invalidateQueries();
+                              show("Transferência removida.");
+                            } catch (e) {
+                              show(e instanceof Error ? `Não foi possível remover: ${e.message}` : "Não foi possível remover.");
+                            }
                           }}
                           aria-label="Excluir"
                           className="p-[6px] rounded-md text-muted hover:text-negative hover:bg-surface-2"
@@ -244,7 +258,7 @@ function FormTransferencia({
 }: {
   contas: { value: string; label: string }[];
   onCancelar: () => void;
-  onSalvo: (t: Transferencia) => void;
+  onSalvo: (t: Transferencia) => void | Promise<void>;
 }) {
   const [f, setF] = React.useState({
     contaOrigem: "", contaDestino: "", data: hoje(),

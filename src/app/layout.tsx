@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   // exportar `metadata`. Era isto que fazia o sistema inteiro anunciar
   // "Quattro — Tesouraria" em toda aba.
   title: "Quattro",
-  description: "ERP + gestão financeira. Construído sobre o Design System quattro.",
+  description: "ERP + gestão financeira. Construído sobre o Design System Quattro.",
 };
 
 export default function RootLayout({

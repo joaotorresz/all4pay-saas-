@@ -130,7 +130,8 @@
     "20260825190000_status_gerada_de_situacao",
     "20260825200000_baixa_exige_data_de_pagamento",
     "20260930120000_remove_integracao_own",
-    "20260930150000_venda_morada_unica"
+    "20260930150000_venda_morada_unica",
+    "20260930170000_venda_numera_documentos_antigos"
   ],
   "divergencias_conhecidas": {
     "_regra": [
@@ -146,11 +147,48 @@
     "aplicadas_sem_arquivo": [],
     "arquivo_sem_aplicacao": [
       {
-        "nome": "20260930170000_venda_numera_documentos_antigos",
-        "objetos_ausentes": [],
-        "impacto": "Até ser aplicada, as 6 vendas antigas do lançamento rápido aparecem na lista com um pedaço do identificador no lugar do número. Não mexe em valor nenhum — só preenche sales_docs.numero de quem não tem.",
+        "nome": "20260930180000_cadastros_hierarquia",
+        "objetos_ausentes": [
+          "financial_accounts.tipo/agencia/numero/codigo_contabil/dia_fechamento/dia_vencimento/saldo_inicial/data_saldo_inicial/saldo_inicial_conferido/ativo",
+          "cost_centers.code/codigo_contabil/parent_id/description",
+          "projects.party_id/cost_center_id/status",
+          "categories.code",
+          "parties.ativo/default_category_id",
+          "tabela categoria_uso_padrao",
+          "índices financial_accounts_org_nome_unico, categories_org_pai_nome_unico, categories_org_codigo_unico, cost_centers_org_codigo_unico, parties_org_doc_unico",
+          "gatilhos lancamento_categoria_folha, rateio_categoria_folha, recorrencia_categoria_folha, lancamento_cadastro_vigente, categorias_hierarquia, categorias_exclusao, centros_hierarquia, projetos_vinculos, partes_categoria_padrao, usos_padrao_folha"
+        ],
+        "impacto": "Até ser aplicada, as telas de Contas bancárias, Centros de custo, Projetos e Plano de contas (que passam a ler e gravar essas tabelas) mostram o erro do banco de coluna inexistente; os formulários de lançamento seguem funcionando (getCategories cai no select antigo, reportando). Aplicada, 16 cópias de categoria SEM USO (medidas em produção em 30/09) vão para a lixeira com motivo escrito, e o índice global parties_doc_unique é trocado por um por empresa.",
         "resolver_ate": "2026-10-07",
-        "origem": "sessão Claude de 30/09/2026 (varredura de inconsistências) — o job migrar do CI aplica no merge"
+        "origem": "sessão Claude de 30/09/2026 (pacote CAD, parte 1) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930190000_automacoes",
+        "objetos_ausentes": ["automacoes", "automacao_envios", "automacao_envios_unico", "automacoes_padrao()", "automacoes_inicial()", "organizations_automacoes", "automacao_contexto(uuid)"],
+        "impacto": "Até ser aplicada, a aba Automações de Configurações não carrega em produção (as tabelas não existem), o runner diário devolve erro por empresa ao chamar automacao_contexto e a régua manual não consegue registrar 'marcar como avisado'. Nenhum envio sai. Todas as automações nascem DESLIGADAS: aplicar não dispara mensagem nenhuma sozinho.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote AUT — automações de e-mail e WhatsApp) — o job migrar do CI aplica no merge, depois do dono"
+      },
+      {
+        "nome": "20260930200000_fechamento_responsavel",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, o checklist de fechamento em produção não consegue gravar responsável, revisor, prazo nem os carimbos (a tela mostra a recusa do banco), e a trava do mês não exige motivo com tarefa aberta. Não mexe em valor nenhum.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote CAMP-A) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930210000_trava_periodo_olha_a_origem",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, um UPDATE que troca o vencimento de um título de mês FECHADO para um mês aberto passa no banco (a edição em massa recusa na tela, mas a fechadura é o banco). Redefine só a função do gatilho movements_periodo_fechado; nenhuma concessão muda.",
+        "resolver_ate": "2026-10-07",
+        "origem": "sessão Claude de 30/09/2026 (pacote CAMP-B, edição em massa) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20260930214500_consolidado_le_o_periodo_inteiro",
+        "objetos_ausentes": [],
+        "impacto": "Até ser aplicada, a tela de Consolidado e a DRE multiempresas perdem o título que vence no período e é pago depois dele (org_movements recorta por coalesce(paid_date, due_date)), e as duas RPCs DEFINER somam lixeira e amostra. Redefine só org_movements e org_consolidado, mesmo escopo e mesmas concessões.",
+        "resolver_ate": "2026-10-07",
+        "origem": "revisão adversarial do pacote CAMP-B, 01/10/2026 — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

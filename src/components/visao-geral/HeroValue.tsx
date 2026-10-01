@@ -34,12 +34,13 @@ export function HeroValue({
   rightSlot?: React.ReactNode;
   srValue?: string;
 }) {
+  // Número não tem cor por sinal (decisão de 30/09/2026): o delta sai em ink
+  // e a seta + o sinal escrito dizem a direção. `positive`/`negative` seguem
+  // aceitos no tipo para não quebrar quem chama, mas não pintam mais nada.
   const deltaColor =
-    delta?.tone === "negative"
-      ? "var(--color-negative)"
-      : delta?.tone === "muted"
-        ? "var(--color-text-secondary)"
-        : "var(--color-positive)";
+    delta?.tone === "muted"
+      ? "var(--color-text-secondary)"
+      : "var(--color-ink)";
 
   return (
     <div>

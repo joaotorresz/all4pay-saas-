@@ -92,7 +92,7 @@ import { existsSync } from "node:fs";
 import { sanearContraparte, melhorNome, deduplicar } from "@/core/ingestao/contraparte";
 import { ACOES_CADASTROS, ACOES_MOVIMENTACOES, ACAO_NOVA_EMPRESA } from "@/core/criar";
 import { tituloDaAba, MARCA } from "@/core/marca";
-import { SECTIONS, CONFIG, menuDoPlano } from "@/components/dashboard/nav-data";
+import { SECTIONS, CONFIG, SECTIONS_PESSOAL, CONFIG_PESSOAL, menuDoPlano } from "@/components/dashboard/nav-data";
 import {
   CHAVES_ORG, CHAVES_CONGELADAS, estaCongelada,
   CHAVES_DE_NEGOCIO, PREFERENCIAS_LOCAIS, PRECISAM_DE_TABELA_PROPRIA,
@@ -717,8 +717,24 @@ const AGOSTO = janelaMes(2026, 7);
 
   const q = analisarQuantitativo(INPUT);
   eq("cruzado: burn do quant == burn canônico", q.indicadores.burnRate, b);
-  eq("cruzado: runway do quant (meses) == runway canônico (meses)",
-     Math.round(q.indicadores.runwayMeses * 10) / 10, runwayMeses(INPUT).valor);
+  // ⚠️ REESCRITA (rodada 30/09): a forma antiga comparava `quant.runwayMeses`
+  // com `runwayMeses(INPUT).valor` — e quando o canônico é INDISPONÍVEL os dois
+  // valem 0, então ela aprovava o quant publicando "runway de 0 meses" para
+  // quem gera caixa. Zero igual a zero é a igualdade que não pode falhar. A
+  // asserção agora cobra a AUSÊNCIA atravessando: canônico sem número ⇒ quant
+  // `null`, com o MESMO código; canônico com número ⇒ o mesmo número.
+  {
+    const rc = runwayMeses(INPUT);
+    ok("cruzado: runway do quant (meses) == runway canônico (meses), inclusive a AUSÊNCIA",
+       rc.indisponivel
+         ? q.indicadores.runwayMeses === null && q.indicadores.runwayMotivo?.codigo === rc.indisponivel.codigo
+         : q.indicadores.runwayMeses !== null && Math.round(q.indicadores.runwayMeses * 10) / 10 === rc.valor,
+       `quant ${q.indicadores.runwayMeses} (${q.indicadores.runwayMotivo?.codigo ?? "—"}) × canônico ${rc.indisponivel ? rc.indisponivel.codigo : rc.valor}`);
+    const qGer = analisarQuantitativo({ ...INPUT, movements: [mv("qg1", "entrada", "pago", 50_000, "2026-08-01", "2026-08-01")] });
+    ok("cruzado: quem gera caixa NÃO sai do quant com runway 0 (sai null + 'sem_queima')",
+       qGer.indicadores.runwayMeses === null && qGer.indicadores.runwayMotivo?.codigo === "sem_queima",
+       `veio ${qGer.indicadores.runwayMeses} / ${qGer.indicadores.runwayMotivo?.codigo ?? "sem motivo"}`);
+  }
 
   // ⚠️ ONDA 4 — ASSERÇÃO REESCRITA. A anterior dizia "quem gera caixa tem runway
   // no TETO", e o teto era 999 dias. Estava errada por dentro: quem gera caixa
@@ -1801,6 +1817,12 @@ const AGOSTO = janelaMes(2026, 7);
   // ⚠️ Não-número vira travessão, não "NaN%". "NaN" na tela de um financeiro é
   // pior que um espaço vazio: parece um valor.
   ok("onda11: valor impossível não vira NaN na tela", pct(Number.NaN) === "—");
+  // ⚠️ Âncoras LITERAIS do percentual negativo (escritas à mão, como as do
+  // contrato de resultado): o `toFixed` devolvia o hífen do teclado.
+  ok("formato: percentual negativo usa − (U+2212), não o hífen",
+     pct(-0.124) === "\u221212,4%" && pctDeInteiro(-3.5) === "\u22123,5%" && !pct(-0.124).includes("-"));
+  ok("formato: arredondar até zero não deixa sinal (nada de −0,0%)",
+     pct(-0.00001) === "0,0%" && pctDeInteiro(-0.04) === "0,0%" && pct(0) === "0,0%");
   ok("onda11: data é fatiada da string, não convertida", dataBR("2026-08-01") === "01/08/2026");
   // Este é o teste do fuso: `new Date("2026-08-01")` em UTC−3 cairia em 31/07.
   ok("onda11: o dia 1º continua sendo dia 1º", dataBR("2026-08-01").startsWith("01/"));
@@ -2437,7 +2459,15 @@ const AGOSTO = janelaMes(2026, 7);
   // chegar em outro faz a pessoa duvidar de que clicou certo — e, num produto
   // com 81 rotas, duvidar do caminho é perder o caminho.
   const nomePorRota = new Map(INVENTARIO.map((i) => [i.rota, i.nome]));
-  const itensDoMenu = [...SECTIONS, CONFIG].flatMap((s) => [
+  // ⚠️ As Configurações do menu PESSOAL entram junto: elas ficaram de fora e
+  // chamavam o perfil de "Configurações da empresa" para uma pessoa física.
+  // Os grupos pessoais (`SECTIONS_PESSOAL`) NÃO entram ainda: eles REBATIZAM
+  // telas de propósito ("Resumo" para a Visão geral, "Extrato de pagamentos"
+  // para Títulos a pagar…) — decisão de produto pendente do dono, registrada em
+  // docs/rodada-30-09/plataforma.md. Cobrá-los aqui reprovaria a decisão
+  // vigente em vez de um defeito.
+  void SECTIONS_PESSOAL;
+  const itensDoMenu = [...SECTIONS, CONFIG, CONFIG_PESSOAL].flatMap((s) => [
     ...(s.href ? [{ label: s.label, href: s.href }] : []),
     ...s.items.filter((i) => i.href).map((i) => ({ label: i.label, href: i.href as string })),
   ]);
@@ -3535,8 +3565,72 @@ const AGOSTO = janelaMes(2026, 7);
   const telaDRE = ler("src/components/relatorios/DemonstrativoView.tsx");
   ok("contrato-dre: os cartões leem a cascata única, não uma segunda agregação",
      /cascataDRE\(/.test(telaDRE) && !/painelResultado\(/.test(telaDRE));
-  ok("contrato-dre: todo cartão de valor recebe a cor de prejuízo",
-     (telaDRE.match(/tom: tomDe\(/g) ?? []).length >= 5);
+  // ⚠️ A regra INVERTEU por decisão do dono (30/09/2026): número não tem cor
+  // por sinal. A asserção antiga ("todo cartão recebe a cor de prejuízo")
+  // cobrava o oposto e sai; a que entra prova que a cor NÃO voltou.
+  ok("contrato-dre: nenhum cartão de valor recebe cor pelo sinal",
+     !/tomDe\(|color-negative|color-positive|text-negative|text-positive/.test(telaDRE));
+}
+
+/* ========================================================================== */
+/* A ROTA DE COBRANÇA NÃO É MEGAFONE (achado de 30/09/2026) — três travas.     */
+/* ========================================================================== */
+/**
+ * `/api/cobranca/whatsapp` aceitava POST sem sessão: com a Twilio ativa,
+ * qualquer um fazia o número da plataforma mandar texto para 200 telefones.
+ * As três travas são cobradas no CÓDIGO da rota, na ordem, porque uma delas
+ * sozinha não basta: sessão sem destino conhecido deixa um usuário legítimo
+ * usar o número como megafone; destino conhecido sem sessão lê `parties` como
+ * anon (que não enxerga nada) e só por acaso recusaria tudo.
+ */
+{
+  const rota = ler("src/app/api/cobranca/whatsapp/route.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+  const iSessao = rota.indexOf("auth.getUser()");
+  const iPermissao = rota.indexOf('rpc("tem_permissao"');
+  const iDestino = rota.indexOf('from("parties")');
+  // O envio passou a sair pelo despacho único (reservar → enviar → concluir),
+  // o mesmo do runner de automações — é ali que o provedor é chamado.
+  const iEnvio = rota.indexOf("despachar(");
+  ok("cobranca-rota: exige sessão, permissão e destino conhecido ANTES de enviar",
+     iSessao > 0 && iPermissao > iSessao && iDestino > iPermissao && iEnvio > iDestino,
+     `sessão ${iSessao} · permissão ${iPermissao} · destino ${iDestino} · envio ${iEnvio}`);
+  ok("cobranca-rota: sem sessão responde 401 (não segue para o envio)",
+     /if \(!auth\?\.user\) return NextResponse\.json\([^)]*\{ status: 401 \}\)/.test(rota));
+  ok("cobranca-rota: em demonstração não chama a Twilio",
+     /if \(isDemo\) \{[\s\S]{0,400}?simulado: true/.test(rota) && rota.indexOf("if (isDemo)") < iEnvio);
+}
+
+/* ========================================================================== */
+/* NÚMERO NÃO TEM COR POR SINAL (decisão do dono, 30/09/2026) — teto ZERO.    */
+/* ========================================================================== */
+/**
+ * Verde para positivo e vermelho para negativo saíram do sistema inteiro: o
+ * número fica na tinta do texto e o SINAL ESCRITO diz a direção. O vermelho
+ * continua existindo para erro, status (vencido, recusado) e alerta — por isso
+ * a guarda não proíbe o token: proíbe a COR DECIDIDA POR COMPARAR UM NÚMERO
+ * COM ZERO, que é a forma exata do que foi tirado.
+ */
+{
+  const COR_POR_SINAL = /(?:>=|<=|>|<)\s*0(?:\.0+)?\s*\?\s*[^:;]{0,50}?(?:var\(--color-(?:positive|negative)\)|\btext-(?:positive|negative)\b)/;
+  const achados: string[] = [];
+  const varrer = (dir: string) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho); continue; }
+      if (!/\.(ts|tsx)$/.test(nome)) continue;
+      readFileSync(caminho, "utf8").split("\n").forEach((linha, i) => {
+        if (/^\s*(\/\/|\*)/.test(linha)) return; // comentário explica, não pinta
+        if (COR_POR_SINAL.test(linha)) achados.push(`${caminho}:${i + 1}`);
+      });
+    }
+  };
+  varrer("src");
+  ok("cor: teto ZERO de número colorido pelo sinal (verde positivo / vermelho negativo)",
+     achados.length === 0, achados.slice(0, 8).join(" | "));
+  ok("cor: a guarda reconhece a forma que proíbe (prova de que não é tautologia)",
+     COR_POR_SINAL.test('style={{ color: v >= 0 ? "var(--color-positive)" : "var(--color-negative)" }}')
+     && COR_POR_SINAL.test('className={x < 0 ? "text-negative" : "text-ink"}')
+     && !COR_POR_SINAL.test('<StatusBadge tone={vencido ? "negative" : "neutral"}>'));
 }
 
 
@@ -3957,6 +4051,8 @@ const AGOSTO = janelaMes(2026, 7);
         "só o TIPO da regra, para o acessor devolver o formato que o motor pede",
       "src/components/visao-geral/hooks.ts":
         "o hook que carrega as regras, sem somar nada",
+      "src/core/previsao-mes/index.ts":
+        "CAMP-A: a camada ESTIMADA da previsão do mês — só as ocorrências `projetado` (sem título no mês), separada do agendado; nunca entra no painel nem na lista de títulos",
     };
     const intrusos: string[] = [];
     for (const arq of varrerArquivos("src", /\.(ts|tsx)$/)) {
@@ -4472,6 +4568,102 @@ const AGOSTO = janelaMes(2026, 7);
   ] };
   ok("onda6: dois regimes cobrindo a mesma data são denunciados",
      problemasDoHistorico(sobreposto).some((p) => p.includes("Dois regimes")));
+}
+
+
+/* ── CAD ── */
+/**
+ * ⚠️ +1 destino: "Estrutura e cadastros" (CAD, 30/09/2026), em Configurações —
+ * a justificativa que o teto exige.
+ *
+ * Os nove cadastros continuam nos grupos onde são USADOS (contas em Caixa e
+ * bancos, clientes em Vender e receber, fornecedores em Comprar e pagar, plano
+ * de contas em Contabilidade…), e nenhum deles saiu de lá. O que nenhum destino
+ * responde é a pergunta "o que falta para eu conseguir lançar?" — a ORDEM entre
+ * eles (uma conta a pagar exige conta, categoria FOLHA de despesa e
+ * fornecedor). As nove páginas mostravam o caminho "Cadastros", e o menu não
+ * tem grupo com esse nome: a porta prometida não existia.
+ *
+ * Os tetos NÃO sobem: Configurações vai a 10 itens (teto por grupo 13) e o
+ * total a 57 (teto 71). A guarda abaixo prova que a entrada é UMA e que ela
+ * mora em Configurações — um segundo atalho para o hub num grupo de trabalho
+ * seria a duplicata que a regra "uma pergunta, uma tela" proíbe.
+ */
+{
+  const hubNoMenu = [...SECTIONS, CONFIG].flatMap((s) => s.items).filter((i) => i.href === "/dashboard/registrations");
+  ok("CAD: o hub 'Estrutura e cadastros' tem UMA entrada no menu, em Configurações",
+     hubNoMenu.length === 1 && CONFIG.items.some((i) => i.href === "/dashboard/registrations" && i.label === "Estrutura e cadastros"),
+     `${hubNoMenu.length} entrada(s)`);
+  ok("CAD: o hub está no inventário com o mesmo nome do menu",
+     INVENTARIO.some((i) => i.rota === "/dashboard/registrations" && i.nome === "Estrutura e cadastros"));
+}
+/* ── AUT ── */
+/* AUTOMAÇÕES: nenhum texto que a pessoa LÊ nomeia variável de ambiente.
+ *
+ * ⚠️ A guarda de credenciais (ONDA 14) cobre as chaves de modelo e só acusa
+ * string com verbo de configuração. As automações trouxeram TRÊS provedores
+ * novos para a tela (e-mail, WhatsApp e o agendador) e um caminho novo até
+ * ela: o `erro`/`motivo` que a rota de teste e o registro de envios devolvem e
+ * que a aba Automações mostra. Quem opera o caixa não tem acesso ao servidor;
+ * "defina RESEND_API_KEY" é uma instrução que ninguém do lado de lá consegue
+ * cumprir — e ainda diz qual provedor está por trás. A tela diz "ativo" ou "não
+ * configurado — envios ficam simulados"; o nome da variável é assunto de quem
+ * administra a instalação.
+ *
+ * Varre QUALQUER texto de interface (JSX e literal), com os comentários FORA
+ * (a lição da guarda de credenciais: este repositório documenta cada correção
+ * citando o nome que ela tirou da tela). E varre também os literais das rotas e
+ * do núcleo de automações, porque a mensagem deles chega à tela como `motivo`
+ * ou `erro` de envio.
+ */
+{
+  const ENV_DE_PROVEDOR = /\b(?:ANTHROPIC_[A-Z_]+|TWILIO_[A-Z_]+|RESEND_[A-Z_]+|ALERTS_(?:WHATSAPP|EMAIL)_[A-Z_]+|CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY)\b/;
+  const semComentarios = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`])\/\/[^\n]*/g, "$1 ");
+  /** Os textos de interface de um arquivo: JSX entre tags e literais (aspas, crase). */
+  const textosDe = (fonte: string): string[] => {
+    const t = semComentarios(fonte);
+    const out: string[] = [];
+    for (const m of t.matchAll(/>\s*([^<>{}\n]{2,200})</g)) out.push(m[1]);
+    for (const m of t.matchAll(/"([^"\n]{2,300})"|'([^'\n]{2,300})'|`([^`]{2,400})`/g)) out.push(m[1] ?? m[2] ?? m[3] ?? "");
+    return out;
+  };
+  const acusacoes = (nome: string, fonte: string) =>
+    textosDe(fonte)
+      // `process.env["X"]` e o mapa finalidade → variável (servidor, nunca exibido) não são texto de tela.
+      .filter((x) => ENV_DE_PROVEDOR.test(x))
+      .map((x) => `${nome}: "${x.trim().slice(0, 70)}"`);
+
+  // Prova da própria guarda, antes de varrer: ela ACHA o nome em JSX e em
+  // literal, e NÃO acusa o comentário que documenta a correção.
+  const plantadoJsx = `export function X() { return <p>Defina RESEND_API_KEY no servidor</p>; }`;
+  const plantadoLiteral = `const m = "configure TWILIO_ACCOUNT_SID para enviar";`;
+  const plantadoCrase = "const e = `sem ${'x'} ALERTS_EMAIL_TO`;";
+  const soComentario = `/* a tela dizia "defina TWILIO_AUTH_TOKEN" */\n// e também RESEND_API_KEY\nexport const A = 1;`;
+  ok("aut-tela: a varredura ACHA o nome em JSX", acusacoes("x.tsx", plantadoJsx).length === 1);
+  ok("aut-tela: a varredura ACHA o nome em literal", acusacoes("x.tsx", plantadoLiteral).length === 1);
+  ok("aut-tela: a varredura ACHA o nome em template", acusacoes("x.tsx", plantadoCrase).length === 1);
+  ok("aut-tela: comentário que documenta a correção NÃO é acusado", acusacoes("x.tsx", soComentario).length === 0);
+
+  const achados: string[] = [];
+  const varrer = (dir: string, ext: RegExp) => {
+    for (const nome of readdirSync(dir)) {
+      const caminho = join(dir, nome);
+      if (statSync(caminho).isDirectory()) { varrer(caminho, ext); continue; }
+      if (ext.test(nome)) achados.push(...acusacoes(caminho, readFileSync(caminho, "utf8")));
+    }
+  };
+  varrer("src/components", /\.tsx$/);
+  varrer("src/app", /\.tsx$/);
+  // O que chega à tela como `motivo`/`erro`: a rota de teste, a rota de
+  // cobrança, o runner e o núcleo das automações.
+  varrer("src/app/api/automacoes", /\.ts$/);
+  varrer("src/app/api/cobranca", /\.ts$/);
+  varrer("src/core/automacoes", /\.ts$/);
+  ok(`aut-tela: nenhum texto de tela nomeia variável de ambiente de provedor (teto ZERO)`, achados.length === 0, achados.slice(0, 5).join(" | "));
+
+  // O status que a tela recebe diz SE está ativo, nunca o NOME do que falta.
+  const rotaTeste = semComentarios(readFileSync("src/app/api/automacoes/teste/route.ts", "utf8"));
+  ok("aut-tela: a rota de teste não devolve nome de variável ao navegador", !ENV_DE_PROVEDOR.test(rotaTeste.replace(/process\.env\.[A-Z_]+/g, "")));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — matriz de consistência cruzada (${INDICADORES_VERSION})`);

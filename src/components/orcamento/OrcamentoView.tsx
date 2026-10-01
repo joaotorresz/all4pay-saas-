@@ -33,8 +33,8 @@ const LINHAS_EDIT: { id: LinhaOrcId; label: string }[] = [
 ];
 
 const fmtDate = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y.slice(2)}`; };
-const sinalTone = (s: LinhaVariancia["sinal"]): "positive" | "warning" | "neutral" =>
-  s === "favoravel" ? "positive" : s === "desfavoravel" ? "warning" : "neutral";
+// Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a
+// direção do desvio, e o favorável × desfavorável fica dito na análise em texto.
 const pctLabel = (l: LinhaVariancia) => `${l.varValor >= 0 ? "+" : "−"}${pctDeInteiro(Math.abs(l.varPct * 100))}`;
 
 export function OrcamentoVarianciaView() {
@@ -110,9 +110,9 @@ export function OrcamentoVarianciaView() {
 
           {/* Resumo: Receita · EBITDA · Lucro (orçado vs realizado) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} maiorEhBom info={{ titulo: "Receita realizada × orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} maiorEhBom info={{ titulo: "EBITDA realizado × orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
-            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} maiorEhBom info={{ titulo: "Lucro líquido × orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Receita" orcado={report.resumo.receitaOrcado} realizado={report.resumo.receitaRealizado} info={{ titulo: "Receita realizada × orçada", oQue: "Compara a receita do período com a meta orçada.", comoCalcula: "Soma das entradas do período no regime escolhido, comparada ao orçado da linha de receita." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="EBITDA" orcado={report.resumo.ebitdaOrcado} realizado={report.resumo.ebitdaRealizado} info={{ titulo: "EBITDA realizado × orçado", oQue: "Mostra o resultado operacional do período frente à meta.", comoCalcula: "Receita menos impostos, CMV, folha e despesas operacionais, comparado ao EBITDA orçado." }} />
+            <ResumoCard baseline={report.resumo.orcadoTemBaseline} titulo="Lucro líquido" orcado={report.resumo.lucroOrcado} realizado={report.resumo.lucroRealizado} info={{ titulo: "Lucro líquido × orçado", oQue: "Mostra o lucro final do período frente à meta.", comoCalcula: "EBITDA menos o resultado financeiro, comparado ao lucro orçado." }} />
           </div>
 
           {/* Narrativa (flux analysis) */}
@@ -155,9 +155,9 @@ export function OrcamentoVarianciaView() {
                     <span className="hidden sm:block w-[120px] text-right tabular-nums text-muted"><BRL value={l.orcado} /></span>
                     <span className="hidden sm:block w-[120px] text-right tabular-nums text-ink"><BRL value={l.realizado} /></span>
                     <span className="w-[110px] text-right shrink-0">
-                      <StatusBadge tone={sinalTone(l.sinal)}>{l.varValor >= 0 ? "+" : "−"}<BRL value={Math.abs(l.varValor)} /></StatusBadge>
+                      <StatusBadge tone={l.sinal === "neutro" ? "neutral" : "ink"}>{l.varValor >= 0 ? "+" : "−"}<BRL value={Math.abs(l.varValor)} /></StatusBadge>
                     </span>
-                    <span className={`hidden sm:block w-[92px] text-right tabular-nums font-medium ${l.sinal === "favoravel" ? "text-positive" : l.sinal === "desfavoravel" ? "text-negative" : "text-muted"}`}>
+                    <span className={`hidden sm:block w-[92px] text-right tabular-nums font-medium ${l.sinal === "neutro" ? "text-muted" : "text-ink"}`}>
                       {pctLabel(l)}
                     </span>
                   </button>
@@ -203,10 +203,9 @@ export function OrcamentoVarianciaView() {
   );
 }
 
-function ResumoCard({ titulo, orcado, realizado, maiorEhBom, baseline, info }: { titulo: string; orcado: number; realizado: number; maiorEhBom: boolean; baseline?: boolean; info?: InfoConteudo }) {
+function ResumoCard({ titulo, orcado, realizado, baseline, info }: { titulo: string; orcado: number; realizado: number; baseline?: boolean; info?: InfoConteudo }) {
   const delta = realizado - orcado;
-  const bom = maiorEhBom ? delta >= 0 : delta <= 0;
-  const tone = Math.abs(delta) < 1 ? "text-muted" : bom ? "text-positive" : "text-negative";
+  const tone = Math.abs(delta) < 1 ? "text-muted" : "text-ink";
   // ⚠️ Quando o "orçado" é BASELINE AUTOMÁTICO (média da janela anterior), o
   // rótulo muda: não é uma meta, e chamar de "vs orçado" faz o usuário ler como
   // "bati o plano" o que é "diferi da minha própria média". É a estimativa da

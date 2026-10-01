@@ -16,6 +16,7 @@ import { BRL, Card, Skeleton, Icon, Button, StatusBadge, InfoHint } from "@/comp
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
 import { simularCenario } from "@/core/executive";
+import { rotuloRunwayLido } from "@/core/indicadores";
 import type { ScenarioInput, Severidade } from "@/core/executive/types";
 import { logAcaoIA } from "@/lib/ai-copilot";
 import { AcoesCopiloto } from "./AcoesCopiloto";
@@ -97,7 +98,7 @@ function BriefingCard({ b, resumo }: { b: import("@/core/executive/types").Brief
         </div>
         <div>
           <div className="text-caption text-faint">Runway</div>
-          <div className="text-h3 font-medium tabular-nums text-ink">{b.runway}m</div>
+          <div className="text-h3 font-medium tabular-nums text-ink">{b.runway === null ? "—" : `${b.runway.toFixed(1).replace(".", ",")}m`}</div>
         </div>
       </div>
       {b.alertas.length > 0 && (
@@ -270,13 +271,14 @@ function SimuladorCard({ indic, saldo, score }: { indic: import("@/core/quant/ty
       <div className="rounded-md bg-surface-1 p-3 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <span className="text-caption text-faint">Score projetado</span>
-          <span className="text-h3 font-medium tabular-nums" style={{ color: deltaScore < 0 ? "var(--color-negative)" : "var(--color-positive)" }}>
-            {r.scoreProjetado} {deltaScore !== 0 && <span className="text-label">({deltaScore > 0 ? "+" : ""}{deltaScore})</span>}
+          {/* Número não tem cor por sinal (decisão de 30/09/2026): o sinal escrito diz a direção. */}
+          <span className="text-h3 font-medium tabular-nums text-ink">
+            {r.scoreProjetado} {deltaScore !== 0 && <span className="text-label">({deltaScore > 0 ? "+" : "−"}{Math.abs(deltaScore)})</span>}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-caption text-faint">Runway</span>
-          <span className="text-label font-medium tabular-nums text-ink">{r.runwayMeses}m</span>
+          <span className="text-label font-medium tabular-nums text-ink">{rotuloRunwayLido(r.runway, "m")}</span>
         </div>
         <p className="m-0 text-caption text-muted">{r.texto}</p>
       </div>
@@ -344,13 +346,14 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
             <div className="flex items-center gap-5 mt-1">
               <div>
                 <div className="text-caption text-faint">Score</div>
-                <div className="text-h3 font-medium tabular-nums" style={{ color: c.delta < 0 ? "var(--color-negative)" : c.delta > 0 ? "var(--color-positive)" : "var(--color-ink)" }}>
-                  {c.r.scoreProjetado}{c.delta !== 0 && <span className="text-label"> ({c.delta > 0 ? "+" : ""}{c.delta})</span>}
+                {/* Sem cor por sinal (30/09/2026): o "+"/"−" escrito diz a direção. */}
+                <div className="text-h3 font-medium tabular-nums text-ink">
+                  {c.r.scoreProjetado}{c.delta !== 0 && <span className="text-label"> ({c.delta > 0 ? "+" : "−"}{Math.abs(c.delta)})</span>}
                 </div>
               </div>
               <div>
                 <div className="text-caption text-faint">Runway</div>
-                <div className="text-h3 font-medium tabular-nums text-ink">{c.r.runwayMeses}m</div>
+                <div className="text-h3 font-medium tabular-nums text-ink">{rotuloRunwayLido(c.r.runway, "m")}</div>
               </div>
             </div>
           </div>

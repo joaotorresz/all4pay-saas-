@@ -275,6 +275,9 @@ export const PLATAFORMA_ITENS: Item[] = [
 export const CONFIG: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
     { label: "Empresa", desc: "Razão social, endereço e fiscal", href: "/dashboard/administration/company-data", icon: "building" },
+    // CAD (30/09/2026): os nove cadastros continuam nos grupos onde são usados;
+    // esta é a ÚNICA porta que mostra a ordem entre eles e o que falta para lançar.
+    { label: "Estrutura e cadastros", desc: "A ordem dos cadastros e o que falta", href: "/dashboard/registrations", icon: "layers" },
     { label: "Usuários e papéis", desc: "Quem entra, e com que papel", href: "/dashboard/administration/users", icon: "users" },
     { label: "Integrações e API", desc: "Bancos, plataformas e certificados", href: "/dashboard/administration/integrations", icon: "link" },
     { label: "Assinatura e plano", desc: "Plano, cobrança e vencimento", href: "/dashboard/administration/subscription", icon: "credit-card" },
@@ -317,7 +320,7 @@ export const SECTIONS_PESSOAL: Section[] = [
 
 export const CONFIG_PESSOAL: Section = {
   id: "config", label: "Configurações", icon: "settings", items: [
-    { label: "Configurações da empresa", desc: "Perfil e estrutura financeira", href: "/configuracoes", icon: "settings" },
+    { label: "Meu perfil", desc: "Seus dados e suas carteiras", href: "/configuracoes", icon: "settings" },
     { label: "Lixeira", desc: "Excluídos, ainda recuperáveis", href: "/lixeira", icon: "trash-2" },
   ],
 };

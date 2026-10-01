@@ -27,7 +27,9 @@ import {
 
 /** % a partir de decimal, pt-BR com sinal — 2 casas (ex.: 2,25% · −0,05%). */
 function pct(v: number): string {
-  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  // O menos é U+2212, como o comentário acima promete: sem cor por sinal, é o
+  // sinal escrito que diz a direção.
+  return (v * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace("-", "−") + "%";
 }
 function parsePct(s: string): number {
   const n = Number(s.replace(/\s/g, "").replace(/\./g, "").replace(",", ".").replace("−", "-"));
@@ -183,7 +185,7 @@ export function CentralPosTaxasView() {
           <p className="text-caption text-faint mt-3">
             Custo de antecipação do parceiro (SELIC + CDI {RANGES.indexOf(ativo.range) >= 0 ? ativo.range : ""}):{" "}
             <span className="text-ink tabular-nums">{pct(custoParceiroAM)} a.m.</span> · spread de antecipação:{" "}
-            <span className={spreadAntecipAM < 0 ? "text-negative tabular-nums" : "text-ink tabular-nums"}>{pct(spreadAntecipAM)} a.m.</span>
+            <span className="text-ink tabular-nums">{pct(spreadAntecipAM)} a.m.</span>
             {ativo.antecipacao && ativo.online && <> · antecipação + online juntos não combinam → “Não antecipa”.</>}
           </p>
         </Card>
@@ -215,7 +217,8 @@ export function CentralPosTaxasView() {
                 return <TaxaInput value={v ?? 0} onCommit={(nv) => editSpread(g, b, nv)} />;
               }
               if (v == null) return <span className="text-faint">—</span>;
-              return <span className={v < 0 ? "text-negative" : "text-ink"}>{v > 0 ? "+" : ""}{pct(v)}</span>;
+              // Número não tem cor por sinal (decisão de 30/09/2026): "+" e "−" escritos dizem a direção.
+              return <span className="text-ink">{v > 0 ? "+" : ""}{pct(v)}</span>;
             }}
           />
         </Card>

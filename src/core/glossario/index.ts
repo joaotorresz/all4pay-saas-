@@ -148,7 +148,7 @@ export const REGRAS_DE_FORMATO = {
     porque: "É o formato do extrato bancário. Qualquer variação faz o número parecer de outro sistema.",
   },
   percentual: {
-    regra: "12,4% — UMA casa decimal, vírgula decimal, sem espaço antes do %.",
+    regra: "12,4% — UMA casa decimal, vírgula decimal, sem espaço antes do %. Negativo com − (U+2212): −3,1%.",
     porque: "Zero casas apaga a diferença que importa; duas fingem precisão que a base não tem.",
   },
   data: {
@@ -156,7 +156,7 @@ export const REGRAS_DE_FORMATO = {
     porque: "Data por extenso ocupa a largura de três colunas e não se compara de relance.",
   },
   negativo: {
-    regra: "−1.234,56 com sinal de menos (U+2212) à esquerda, na cor de negativo. Nunca parênteses.",
+    regra: "−1.234,56 com sinal de menos (U+2212) à esquerda, na tinta do texto — o sinal escrito diz a direção, não a cor. Nunca parênteses.",
     porque:
       "Parênteses são convenção de balanço contábil e metade dos usuários lê como observação. "
       + "E o hífen de teclado é mais curto que o traço do numeral, o que desalinha a coluna.",

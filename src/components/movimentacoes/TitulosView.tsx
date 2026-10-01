@@ -20,9 +20,10 @@ import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { baixarXLSX } from "@/lib/xlsx";
 import { pagarLote, anexarComprovante, type MetodoPagamento } from "@/lib/pagamentos";
 import { formatBRL, dataBR } from "@/lib/format";
-import { listProjetos } from "@/lib/iuli-cadastros";
-import { projetoDoMovimento } from "@/lib/projeto-vinculo";
+import { useProjetos } from "@/components/registros/hooks";
+import { projetosSelecionaveis } from "@/core/registros/hierarquia";
 import { ModalBaixa } from "./ModalBaixa";
+import { EdicaoEmMassa } from "./EdicaoEmMassa";
 import type { RiskMovement } from "@/core/risk-engine/types";
 import { receberLote } from "@/lib/recebimentos";
 import {
@@ -52,7 +53,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const { data: contas } = useAccounts();
   const { show, node } = useToast();
 
-  const [busca, setBusca] = React.useState("");
+  /*
+   * ⚠️ CAMP-B — a busca global (⌘K) abre esta tela com `?busca=` já preenchido.
+   * Com ela, a tela abre no período INTEIRO (ver `abriuNoMes` abaixo): o título
+   * de março procurado em setembro cairia fora do mês corrente, e a tela diria
+   * "nenhum título encontrado" sobre um título que existe.
+   */
+  const buscaDaUrl = useSearchParams().get("busca") ?? "";
+  const [busca, setBusca] = React.useState(buscaDaUrl);
+  const [editarMassa, setEditarMassa] = React.useState(false);
   const [filtro, setFiltro] = React.useState<FiltroTitulos>({ status: "todos" });
   const [abrirFiltro, setAbrirFiltro] = React.useState(false);
   const [porPagina, setPorPagina] = React.useState(50);
@@ -86,10 +95,15 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const [metodo, setMetodo] = React.useState<MetodoPagamento>("pix");
   const [comprovante, setComprovante] = React.useState<string | null>(null);
   const [enviandoBaixa, setEnviandoBaixa] = React.useState(false);
-  const [projetos, setProjetos] = React.useState<{ id: string; nome: string }[]>([]);
+  // Projetos da TABELA, só os ativos (encerrado recusa lançamento novo).
+  const { data: cadProjetos } = useProjetos();
+  const projetos = React.useMemo(
+    () => projetosSelecionaveis(cadProjetos ?? []).map((o) => ({ id: o.value, nome: o.label })),
+    [cadProjetos],
+  );
   const [projeto, setProjeto] = React.useState("");
-  React.useEffect(() => { setProjetos(listProjetos()); }, []);
-  React.useEffect(() => { setProjeto(baixa ? (projetoDoMovimento(baixa.id) ?? "") : ""); }, [baixa]);
+  // O projeto do lançamento vem dele mesmo (`movements.project_id`).
+  React.useEffect(() => { setProjeto(baixa?.projetoId ?? ""); }, [baixa]);
   const [executando, setExecutando] = React.useState(false);
 
   const parte = direcao === "receber" ? "Cliente" : "Fornecedor";
@@ -128,10 +142,20 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   React.useEffect(() => {
     if (abriuNoMes || periodos.length === 0 || !input) return;
     setAbriuNoMes(true);
-    if (selPeriodo) return;
+    if (selPeriodo || buscaDaUrl) return;
     const mesDeHoje = input.hoje.slice(0, 7);
     if (periodos.some((p) => p.key === mesDeHoje)) setSelPeriodo(mesDeHoje);
-  }, [abriuNoMes, periodos, input, selPeriodo]);
+  }, [abriuNoMes, periodos, input, selPeriodo, buscaDaUrl]);
+
+  // A paleta pode trocar a busca com a tela JÁ montada (mesma rota, outra
+  // query): sem isto, a segunda busca navegaria e a lista continuaria na
+  // primeira.
+  React.useEffect(() => {
+    if (!buscaDaUrl) return;
+    setBusca(buscaDaUrl);
+    setSelPeriodo(null);
+    setPagina(1);
+  }, [buscaDaUrl]);
 
   // A confirmação vinda do formulário: ela é exibida AQUI porque esta tela já
   // está montada quando aparece — no formulário, o `router.push` desmontava o
@@ -213,6 +237,14 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
   const marcadosAbertos = React.useMemo(
     () => titulos.filter((m) => marcados.has(m.id) && m.status !== "pago"),
     [titulos, marcados],
+  );
+
+  // A edição em massa vale para TODOS os marcados — inclusive os já baixados,
+  // porque categoria, centro e projeto de um baixado podem mudar. Quem decide
+  // o que não pode mudar é o plano (`core/movimentacoes/edicao-massa`).
+  const marcadosTodos = React.useMemo(
+    () => (input?.movements ?? []).filter((m) => marcados.has(m.id)),
+    [input, marcados],
   );
 
   const alternar = (id: string) =>
@@ -427,7 +459,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           <Input
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
-            placeholder="Buscar por ID, categoria ou contraparte…"
+            placeholder="Buscar por ID, contraparte, documento ou valor (1.234,56)…"
             containerClassName="flex-1 min-w-[220px]"
           />
           <Button variant="ghost" disabled={marcadosAbertos.length === 0 || executando} onClick={executarBaixa}>
@@ -439,6 +471,10 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                  o mesmo `direcao` que já decide "Cliente"/"Fornecedor" e
                  "Recebido"/"Pago" nesta tela. */
               : `${direcao === "receber" ? "Registrar recebimento" : "Registrar pagamento"}${marcadosAbertos.length ? ` (${marcadosAbertos.length})` : ""}`}
+          </Button>
+          <Button variant="ghost" disabled={marcadosTodos.length === 0} onClick={() => setEditarMassa(true)}>
+            <Icon name="layers" size={15} color="currentColor" />
+            {`Editar em massa${marcadosTodos.length ? ` (${marcadosTodos.length})` : ""}`}
           </Button>
         </div>
 
@@ -524,6 +560,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                     />
                   </Th>
                   <Th>ID</Th>
+                  <Th>Descrição</Th>
                   <Th>Situação</Th>
                   <Th>Vencimento / {liquidado.toLowerCase()}</Th>
                   <Th>Conta</Th>
@@ -549,6 +586,13 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                         <IdCopiavel id={m.id} />
                       </td>
+                      {/* A DESCRIÇÃO é o que a pessoa digitou ao lançar ("Aluguel
+                          de outubro", "Salário · Ana · 09/2026") — sem ela, duas
+                          contas da mesma categoria e do mesmo fornecedor eram
+                          indistinguíveis na lista. */}
+                      <td className="px-6 py-3 text-label text-ink max-w-[260px] truncate" title={m.descricao ?? undefined}>
+                        {m.descricao?.trim() ? m.descricao : <span className="text-muted">—</span>}
+                      </td>
                       {/* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
                           reforço; quem não distingue as cores lê o rótulo, e ele
                           muda com a direção (Pago × Recebido) porque é a palavra
@@ -562,7 +606,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3">
                         <div className="flex flex-col">
                           <span className="text-label text-ink tabular-nums">{fmtDia(m.due_date)}</span>
-                          {m.paid_date && <span className="text-caption text-positive tabular-nums">{fmtDia(m.paid_date)}</span>}
+                          {/* Data não tem cor por sinal: tinta do texto, e o rótulo da
+                              coluna diz qual das duas é. */}
+                          {m.paid_date && <span className="text-caption text-ink tabular-nums">{fmtDia(m.paid_date)}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-3 text-label text-muted">{nomeConta(m.accountId)}</td>
@@ -570,7 +616,11 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3">
                         {m.party_id ? (
                           <button
-                            onClick={() => window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } }))}
+                            // ⚠️ CAMP-B: sem parar a propagação, o clique no nome
+                            // também subia para a LINHA e abria o modal de baixa por
+                            // cima da ficha — a pessoa pedia o contato e recebia
+                            // "Confirmar pagamento". Achado dirigindo a jornada.
+                            onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("a4p:open-contato", { detail: { id: m.party_id } })); }}
                             className="text-label text-ink hover:underline decoration-dotted underline-offset-4"
                           >
                             {nomes[m.party_id] ?? m.party_id}
@@ -580,7 +630,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={Math.abs(m.amount)} /></td>
                       <td className="px-6 py-3 text-right text-label tabular-nums">
                         {m.status === "pago"
-                          ? <span className="text-positive"><BRL value={Math.abs(m.amount)} /></span>
+                          ? <span className="text-ink"><BRL value={Math.abs(m.amount)} /></span>
                           : <span className="text-faint">—</span>}
                       </td>
                     </tr>
@@ -608,6 +658,21 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
           onConfirmar={executarBaixaUnica}
           onFechar={() => setBaixa(null)}
           show={show}
+        />
+      )}
+      {editarMassa && (
+        <EdicaoEmMassa
+          titulos={marcadosTodos}
+          direcao={direcao}
+          onFechar={() => setEditarMassa(false)}
+          onAplicado={(r, recusados) => {
+            const partes = [`${r.aplicados.length} ${r.aplicados.length === 1 ? "título alterado" : "títulos alterados"}`];
+            if (recusados) partes.push(`${recusados} de fora pela regra`);
+            if (r.falhas.length) partes.push(`${r.falhas.length} recusados pelo banco`);
+            show(partes.join(" · ") + ".");
+            if (!r.falhas.length) setMarcados(new Set());
+            void qc.invalidateQueries();
+          }}
         />
       )}
       {node}

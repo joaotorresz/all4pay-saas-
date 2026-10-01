@@ -32,11 +32,7 @@ export function WidgetRender({ w }: { w: Widget }) {
   // Sem `input` e sem `isLoading` a busca FALHOU. Continuar pulsando seria
   // mentir — o widget diz o que houve, e o resto da página segue de pé.
   if (!input) return <Card className="h-full"><Vazio texto="Não foi possível carregar os dados." /></Card>;
-  const fontes: EntradaFontes = {
-    hoje: input.hoje,
-    saldoAtual: input.saldoAtual,
-    movements: input.movements,
-  };
+  const fontes: EntradaFontes = input;
 
   switch (w.tipo) {
     case "kpi": return <KPI w={w} i={fontes} />;
@@ -52,7 +48,20 @@ export function WidgetRender({ w }: { w: Widget }) {
 
 function KPI({ w, i }: { w: Extract<Widget, { tipo: "kpi" }>; i: EntradaFontes }) {
   const f = fonteMetrica(w.fonte);
-  const v = f.calcular(i);
+  const r = f.calcular(i);
+  const v = r.valor;
+  // ⚠️ Indisponível: o número NÃO aparece (nem cinza, nem pequeno). O motivo
+  // ocupa o lugar dele — um "0 meses" de runway para quem não queima caixa lê
+  // como "o caixa acaba agora".
+  if (r.indisponivel) {
+    return (
+      <Card className="h-full flex flex-col justify-between">
+        <span className="text-caption font-medium text-muted">{w.titulo || f.label}</span>
+        <span className="mt-2 text-label text-muted">Sem dado: {r.indisponivel.motivo}</span>
+        <span className="mt-2 text-caption text-faint">{f.label}</span>
+      </Card>
+    );
+  }
   return (
     <Card className="h-full flex flex-col justify-between">
       <span className="text-caption font-medium text-muted">{w.titulo || f.label}</span>
@@ -117,8 +126,9 @@ function Serie({ w, i }: { w: Extract<Widget, { tipo: "serie" }>; i: EntradaFont
                 <Tooltip formatter={(v: number) => formatBRL(v)} cursor={{ fill: "var(--color-surface-2)" }} contentStyle={tooltipStyle} />
                 <Bar dataKey="valor" radius={[4, 4, 0, 0]} {...chartAnim()}>
                   {dados.map((p, k) => (
-                    // Resultado negativo é sinal semântico, não paleta.
-                    <Cell key={k} fill={p.valor < 0 ? "var(--color-negative)" : "var(--color-lime)"} />
+                    // Número não tem cor por sinal (decisão de 30/09/2026): positivo em
+                    // ink, negativo em areia — o eixo e o tooltip dizem a direção.
+                    <Cell key={k} fill={p.valor < 0 ? "var(--color-areia)" : "var(--color-ink)"} />
                   ))}
                 </Bar>
               </BarChart>
@@ -256,7 +266,8 @@ function Grupo({
 }: { titulo: string; itens: { type: string; amount: number; due_date: string; category?: string | null }[]; alerta?: boolean }) {
   if (itens.length === 0) return null;
   // Entradas e saídas somadas num total só não querem dizer nada — cada lado
-  // tem o seu, e só aparece quando existe.
+  // tem o seu, e só aparece quando existe. Sem cor por sinal (30/09/2026): o
+  // "+"/"−" escrito diz a direção.
   const soma = (t: string) =>
     itens.filter((m) => m.type === t).reduce((s, m) => s + Math.abs(m.amount), 0);
   const entra = soma("entrada");
@@ -268,7 +279,7 @@ function Grupo({
           {titulo} · {itens.length}
         </span>
         <span className="text-caption tabular-nums shrink-0">
-          {entra > 0 && <span className="text-positive">+<BRL value={entra} /></span>}
+          {entra > 0 && <span className="text-ink">+<BRL value={entra} /></span>}
           {entra > 0 && sai > 0 && <span className="text-faint"> · </span>}
           {sai > 0 && <span className="text-ink">−<BRL value={sai} /></span>}
         </span>
@@ -279,7 +290,7 @@ function Grupo({
             <span className="text-caption text-muted truncate">
               {(m.due_date || "").slice(8, 10)}/{(m.due_date || "").slice(5, 7)} · {m.category || "Sem categoria"}
             </span>
-            <span className={`text-caption tabular-nums shrink-0 ${m.type === "entrada" ? "text-positive" : "text-ink"}`}>
+            <span className="text-caption tabular-nums shrink-0 text-ink">
               {m.type === "entrada" ? "+" : "−"}<BRL value={Math.abs(m.amount)} />
             </span>
           </div>
