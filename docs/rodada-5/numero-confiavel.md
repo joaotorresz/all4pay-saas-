@@ -31,3 +31,26 @@ Medido em produção: **1.650 de 1.772 lançamentos sem `competence_date`**
 - `own-webhook` e `own-sync` continuam **publicadas e ativas** no Supabase
   (`verify_jwt: false`), embora a OWN tenha saído do produto em 30/09.
   Apagá-las é ação no painel/CLI do Supabase.
+
+## Passo 2 — declarar o plano de contas em um clique
+
+Medido em produção: 5 das 11 categorias em uso sem `dre_linha` — o DRE delas
+é adivinhado pelo nome.
+
+- O aviso de palpite do DRE ganhou **"Revisar e declarar"**: a lista das
+  categorias adivinhadas com a linha que o palpite escolheu JÁ marcada.
+  Confirmar sem mexer não muda número nenhum — só transforma adivinhação em
+  declaração; trocar a linha muda o DRE, e é a pessoa que sabe onde entra.
+- `palpiteDoRelatorio` passou a devolver, por categoria, a linha sugerida (a
+  de MAIOR valor) e a natureza; `planoDeDeclaracao` (puro) casa pelo nome
+  normalizado: categoria existente é ATUALIZADA pelo id, a que só existe como
+  texto é CRIADA; "Sem categoria", linha vazia e nome repetido não gravam.
+  Grava pelo MESMO escritor do Plano de contas (`salvarCategoria`).
+- Sugestão que não é escolhível para a natureza (ex.: restituição de imposto,
+  entrada numa linha de dedução) fica em "Deixar no palpite" — declará-la
+  seria recusado pelo cadastro.
+- Guardas (`engine-audit`, bloco `t7`): declarar a sugestão devolve o MESMO
+  DRE linha a linha e zera o palpite; a sugestão é a linha de maior valor
+  (caso com duas linhas — o plantio só reprovou depois que esse caso entrou);
+  o plano atualiza/cria/pula certo. Jornada `dre-declarar`: na demonstração,
+  101 → 0 lançamentos por palpite e o Resultado Líquido idêntico ao centavo.

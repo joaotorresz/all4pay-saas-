@@ -132,6 +132,7 @@ import {
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
 import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA, palpiteDoRelatorio as palpiteDoRelatorioA } from "@/core/relatorios";
+import { planoDeDeclaracao as planoDeDeclaracaoA } from "@/core/registros/hierarquia";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -2950,6 +2951,46 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("t7: a linha declarada SAI da contagem de palpite",
      pCom.n === 1 && pCom.valor === 10_000 && pCom.categorias[0]?.nome === "Vendas", JSON.stringify(pCom));
   const telaDRE = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  // ⚠️ RODADA 5 — DECLARAR O PALPITE. A promessa da tela é "confirmar a
+  // sugestão não muda número nenhum": declarar a linha que o palpite escolheu
+  // tem de devolver o MESMO DRE, linha a linha, e zerar a contagem.
+  {
+    const decl: Record<string, string> = {};
+    for (const c of pSem.categorias) decl[c.nome.trim().toLowerCase()] = c.linha;
+    const declarado = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: decl });
+    const iguais = sem.linhas.every((l) => Math.abs((declarado.linhas.find((x) => x.id === l.id)?.celulas[0]?.valor ?? NaN) - (l.celulas[0]?.valor ?? 0)) < 0.005);
+    ok("t7: declarar a linha SUGERIDA não muda nenhuma linha do DRE", iguais);
+    ok("t7: depois de declarar, nada sobra no palpite", palpiteDoRelatorioA(declarado, IN_T7).n === 0);
+    ok("t7: a sugestão é a linha que o palpite usou (Ferramentas → despesas operacionais)",
+       pSem.categorias.find((c) => c.nome === "Ferramentas do time")?.linha === "despesas_operacionais");
+
+    // A sugestão é a linha que MAIS PESOU na categoria (uma categoria pode
+    // cair em duas linhas — entrada e saída do mesmo nome).
+    const misto = palpiteDoRelatorioA({
+      porPalpite: ["a", "b"],
+      classificacao: { a: { linha: "resultado_financeiro", valor: 50 }, b: { linha: "despesas_operacionais", valor: -900 } },
+    }, { hoje: "2026-08-11", saldoAtual: 0, movements: [
+      { id: "a", type: "entrada", status: "pago", amount: 50, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Juros" },
+      { id: "b", type: "saida", status: "pago", amount: 900, due_date: "2026-08-01", paid_date: "2026-08-01", category: "Juros" },
+    ] } as RiskInput);
+    ok("t7: a sugestão é a linha de MAIOR valor da categoria, e a natureza segue o lado maior",
+       misto.categorias[0]?.linha === "despesas_operacionais" && misto.categorias[0]?.natureza === "despesa",
+       JSON.stringify(misto.categorias));
+
+    const cats = [{ id: "c1", nome: "Ferramentas do Time", codigo: "", natureza: "despesa" as const, paiId: null, dreLinha: undefined, ativo: true }];
+    const plano = planoDeDeclaracaoA([
+      { nome: "ferramentas do time", natureza: "despesa", linha: "custos_variaveis" },
+      { nome: "Vendas", natureza: "receita", linha: "receita_bruta" },
+      { nome: "Sem categoria", natureza: "despesa", linha: "despesas_operacionais" },
+      { nome: "Aluguel", natureza: "despesa", linha: "" },
+      { nome: "VENDAS", natureza: "receita", linha: "receita_bruta" },
+    ], cats);
+    ok("t7: a categoria que existe é ATUALIZADA pelo id (casa sem caixa nem acento)",
+       plano.find((x) => x.id === "c1")?.linha === "custos_variaveis" && plano.find((x) => x.id === "c1")?.nome === "Ferramentas do Time");
+    ok("t7: a que só existe como texto é CRIADA", plano.some((x) => x.nome === "Vendas" && x.id === null));
+    ok("t7: 'Sem categoria' e linha vazia NÃO são gravados; nome repetido entra uma vez",
+       plano.length === 2, JSON.stringify(plano));
+  }
   ok("t7: a tela do DRE mostra o aviso de palpite",
      /palpiteDoRelatorio\(/.test(telaDRE) && /data-aviso="palpite"/.test(telaDRE));
 }

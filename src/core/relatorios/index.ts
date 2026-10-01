@@ -1127,22 +1127,36 @@ export function compararOrcamento(r: Relatorio, orcado: LinhaOrcada[]): Map<stri
 
 /**
  * Quanto do relatório foi classificado por PALPITE — contagem, valor (em
- * magnitude) e as categorias que mais pesam, para a tela dizer o que declarar.
- * Ausência de palpite é `n = 0`, e a tela não mostra nada.
+ * magnitude) e, por categoria, a linha que o palpite ESCOLHEU e a natureza.
+ * A linha sugerida é a que mais pesou no valor daquela categoria: é o que o
+ * DRE está mostrando hoje, então confirmá-la não muda número nenhum — só
+ * transforma adivinhação em declaração. Ausência de palpite é `n = 0`.
  */
 export function palpiteDoRelatorio(rel: Pick<Relatorio, "porPalpite" | "classificacao">, input: RiskInput): {
-  n: number; valor: number; categorias: { nome: string; valor: number }[];
+  n: number; valor: number;
+  categorias: { nome: string; valor: number; linha: string; natureza: "receita" | "despesa" }[];
 } {
   const porId = new Map(input.movements.map((m) => [m.id, m]));
-  const cats = new Map<string, number>();
+  type Acc = { valor: number; porLinha: Map<string, number>; entrada: number; saida: number };
+  const cats = new Map<string, Acc>();
   let valor = 0;
   for (const id of rel.porPalpite) {
-    const v = Math.abs(rel.classificacao[id]?.valor ?? 0);
+    const cl = rel.classificacao[id];
+    const v = Math.abs(cl?.valor ?? 0);
     valor += v;
-    const nome = (porId.get(id)?.category || "Sem categoria").trim() || "Sem categoria";
-    cats.set(nome, (cats.get(nome) ?? 0) + v);
+    const m = porId.get(id);
+    const nome = (m?.category || "Sem categoria").trim() || "Sem categoria";
+    const a = cats.get(nome) ?? { valor: 0, porLinha: new Map(), entrada: 0, saida: 0 };
+    a.valor += v;
+    if (cl) a.porLinha.set(cl.linha, (a.porLinha.get(cl.linha) ?? 0) + v);
+    if (m?.type === "entrada") a.entrada += v; else a.saida += v;
+    cats.set(nome, a);
   }
-  const categorias = Array.from(cats, ([nome, v]) => ({ nome, valor: Math.round(v * 100) / 100 }))
-    .sort((a, b) => b.valor - a.valor);
+  const categorias = Array.from(cats, ([nome, a]) => ({
+    nome,
+    valor: Math.round(a.valor * 100) / 100,
+    linha: Array.from(a.porLinha).sort((x, y) => y[1] - x[1])[0]?.[0] ?? "",
+    natureza: (a.entrada > a.saida ? "receita" : "despesa") as "receita" | "despesa",
+  })).sort((a, b) => b.valor - a.valor);
   return { n: rel.porPalpite.length, valor: Math.round(valor * 100) / 100, categorias };
 }
