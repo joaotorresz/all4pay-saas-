@@ -9665,6 +9665,145 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      JSON.stringify(projE));
 }
 
+/* ── CAIXA-EMAIL ── a porta do e-mail da caixa de entrada de contas a pagar
+   (01/10/2026). A fechadura de banco é `scripts/caixa-email.sql` (no CI); aqui
+   se prova a DECISÃO. Cada asserção carrega o defeito plantado ao lado: a
+   versão errada da regra tem de reprovar na MESMA conferência. */
+{
+  const em = await import("@/core/caixa-entrada/email");
+  const ce = await import("@/core/caixa-entrada");
+  const bo = await import("@/core/compras/boleto");
+  const fsE = await import("node:fs");
+  const semCom = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  /* ── 1. de qual empresa é o envelope ─────────────────────────────────── */
+  const confereToken = (fn: (to: string) => string | null): boolean =>
+    fn("contas+abcdef0123456789@caixa.exemplo") === "abcdef0123456789"
+    && fn("Contas a pagar <contas+ABCDEF0123456789ab@caixa.exemplo>") === "abcdef0123456789ab"
+    && fn("abcdef0123456789_-x@caixa.exemplo") === "abcdef0123456789_-x"
+    && fn("contas+curto123@caixa.exemplo") === null          // 8 caracteres: não é token
+    && fn("contas@caixa.exemplo") === null
+    && fn("contas+abc!def0123456789@caixa.exemplo") === null  // caractere fora da forma
+    && fn("sem-arroba-abcdef0123456789") === null
+    && fn("x@y.com, contas+abcdef0123456789@caixa.exemplo") === "abcdef0123456789";
+  ok("caixa-email: o destinatário vira token só quando tem a forma (16+ de [A-Za-z0-9_-]), em minúsculas",
+     confereToken(em.tokenDoDestinatario));
+  const tokenIngenuo = (to: string) => {
+    const l = to.split("@")[0] ?? "";
+    return l.includes("+") ? l.split("+").pop() ?? null : (to.includes("@") ? l : null);
+  };
+  ok("caixa-email: (defeito plantado) o token sem conferir a forma é REPROVADO pela mesma conferência",
+     !confereToken(tokenIngenuo));
+
+  /* ── 2. o que o anexo pode ser ───────────────────────────────────────── */
+  const MB = 1024 * 1024;
+  const confereAnexos = (fn: typeof em.anexosAceitos): boolean => {
+    const onze = Array.from({ length: 11 }, (_, i) => ({ nome: `boleto-${i}.pdf`, tipo: "application/pdf", tamanho: 1000 }));
+    const r1 = fn(onze);
+    const r2 = fn([
+      { nome: "BOLETO.PDF", tipo: "application/octet-stream", tamanho: 10 * MB },   // a extensão manda; 10 MB exatos entram
+      { nome: "nota.xml", tipo: "text/xml", tamanho: 2000 },
+      { nome: "foto.jpeg", tipo: "image/jpeg", tamanho: 2000 },
+      { nome: "virus.exe", tipo: "application/pdf", tamanho: 10 },                  // o tipo declarado não salva
+      { nome: "grande.pdf", tipo: "application/pdf", tamanho: 10 * MB + 1 },
+      { nome: "sem-extensao", tipo: "application/pdf", tamanho: 10 },
+    ]);
+    return r1.aceitos.length === 10 && r1.recusados.length === 1 && /Mais de 10/.test(r1.recusados[0].motivo)
+      && r1.recusados[0].nome === "boleto-10.pdf"
+      && r2.aceitos.map((a) => a.nome).join(",") === "BOLETO.PDF,nota.xml,foto.jpeg"
+      && r2.recusados.length === 3 && r2.recusados.every((a) => a.motivo.length > 10)
+      && /10 MB/.test(r2.recusados.find((a) => a.nome === "grande.pdf")?.motivo ?? "");
+  };
+  ok("caixa-email: anexos — PDF/PNG/JPG/XML até 10 MB, no máximo 10, e o recusado volta com MOTIVO",
+     confereAnexos(em.anexosAceitos));
+  const anexosIngenuo = (<T extends { nome: string; tipo: string; tamanho: number }>(a: readonly T[]) =>
+    ({ aceitos: [...a], recusados: [] as (T & { motivo: string })[] })) as typeof em.anexosAceitos;
+  ok("caixa-email: (defeito plantado) aceitar tudo é REPROVADO", !confereAnexos(anexosIngenuo));
+
+  /* ── 3. a rota: interruptor → segredo → só então o banco ─────────────── */
+  const confereOrdem = (src: string): boolean => {
+    const s = semCom(src);
+    const iGate = s.indexOf('process.env.CAIXA_EMAIL !== "ligado"');
+    const iSegAus = s.indexOf("if (!segredo)");
+    const iSeg = s.indexOf("mesmoSegredo(apresentado, segredo)");
+    const iAdmin = s.indexOf("createAdmin()");
+    const iRpc = s.indexOf(".rpc(");
+    const iStorage = s.indexOf(".storage.");
+    return iGate > 0 && iSegAus > iGate && iSeg > iSegAus && iAdmin > iSeg && iRpc > iAdmin && iStorage > iRpc
+      && /timingSafeEqual/.test(s) && (s.match(/createAdmin\(\)/g) ?? []).length === 1;
+  };
+  const rotaEmail = fsE.readFileSync("src/app/api/caixa-email/entrada/route.ts", "utf8");
+  ok("caixa-email: a rota confere o interruptor e o segredo (tempo constante) ANTES de qualquer chamada ao banco",
+     confereOrdem(rotaEmail));
+  const rotaPlantada = rotaEmail.replace("  // 1. O INTERRUPTOR", "  const cedo = createAdmin();\n  // 1. O INTERRUPTOR");
+  ok("caixa-email: (defeito plantado) banco consultado antes do interruptor é REPROVADO",
+     rotaPlantada !== rotaEmail && !confereOrdem(rotaPlantada));
+
+  /* ── 4. o e-mail é FONTE, nunca escritor de conta ─────────────────────── */
+  const escreveConta = (src: string): boolean =>
+    /criarTitulos|createLancamento|appendImported|liquidarImported|from\(\s*["']movements["']\s*\)|\.insert\(/.test(semCom(src));
+  const arquivosEmail = [
+    "src/core/caixa-entrada/email.ts", "src/lib/caixa-email.ts",
+    "src/app/api/caixa-email/entrada/route.ts", "src/components/contas-pagar/CaixaEmailCard.tsx",
+  ];
+  const escritores = arquivosEmail.filter((f) => escreveConta(fsE.readFileSync(f, "utf8")));
+  ok("caixa-email: nenhum arquivo da porta do e-mail escreve conta (movements / criarTitulos / insert)",
+     escritores.length === 0, escritores.join(", "));
+  ok("caixa-email: (defeito plantado) um insert em movements na rota é ACUSADO",
+     escreveConta(rotaEmail + '\nawait admin.from("movements").insert({});'));
+
+  /* ── 5. a mensagem na fila: chave pelo id, mesma decisão ──────────────── */
+  const semDv = "341" + "9" + String(bo.fatorDaData("2026-10-20")).padStart(4, "0") + "0000123456" + "1".repeat(25);
+  const barras = semDv.slice(0, 4) + String(bo.dvModulo11(semDv)) + semDv.slice(4);
+  const linha = bo.linhaDeCodigoDeBarras(barras);
+  const linhaFmt = bo.formatarLinha(linha);
+  const errado = linha.slice(0, 46) + String((Number(linha[46]) + 1) % 10);
+  const m1 = { id: "m-1", recebido_em: "2026-10-01T12:00:00Z", remetente: "Energia SA <cobranca@energia.exemplo>", assunto: "Fatura de outubro", texto: `Segue a linha digitável: ${linhaFmt}`, anexos: [{ nome: "fatura.pdf", tipo: "application/pdf", tamanho: 100, caminho: "o/m-1/fatura.pdf" }] };
+  const m2 = { id: "m-2", recebido_em: "2026-10-01T13:00:00Z", remetente: "cobranca@energia.exemplo", assunto: "Fatura de outubro", texto: "sem linha", anexos: [] };
+  const m3 = { id: "m-3", recebido_em: "2026-10-01T14:00:00Z", remetente: null, assunto: null, texto: `Pedido 1234567890 · ${errado}`, anexos: [] };
+  const confereFila = (fn: typeof ce.documentosDasFontes): boolean => {
+    const docs = fn({ boletos: [], nfs: [], ocr: [], emails: [m1, m2, m3] });
+    const d1 = docs.find((d) => d.chave === "email:m-1");
+    const d2 = docs.find((d) => d.chave === "email:m-2");
+    const d3 = docs.find((d) => d.chave === "email:m-3");
+    return docs.length === 3 && !!d1 && !!d2 && !!d3
+      && docs.every((d) => d.origem === "email")
+      && d1.fornecedor === "Energia SA" && d1.descricao === "Fatura de outubro" && d1.anexos === 1
+      && d1.valor === 1234.56 && d1.vencimento === "2026-10-20"
+      && d2.valor === 0 && d2.vencimento === null
+      && d3.valor === 0 && d3.vencimento === null && d3.descricao === "E-mail de Remetente não informado";
+  };
+  ok("caixa-email: a fila traz cada e-mail com chave email:<id> (dois assuntos iguais são dois papéis), valor só de linha digitável que CONFERE",
+     confereFila(ce.documentosDasFontes));
+  const filaPlantada = ((f: Parameters<typeof ce.documentosDasFontes>[0]) =>
+    ce.documentosDasFontes(f).map((d) => d.origem === "email" ? { ...d, chave: `email:${d.descricao}` } : d)
+      .filter((d, i, a) => a.findIndex((x) => x.chave === d.chave) === i)) as typeof ce.documentosDasFontes;
+  ok("caixa-email: (defeito plantado) chave pelo assunto junta duas mensagens e é REPROVADA", !confereFila(filaPlantada));
+  ok("caixa-email: a linha digitável que não confere (DV) não vira valor; a que confere vira",
+     em.boletoNoTexto(`x ${errado} y`) === null && em.boletoNoTexto(linhaFmt)?.valor === 1234.56);
+  const boletoIngenuo = (t: string) => { const d = (t.match(/\d[\d.\s]{45,70}\d/) ?? [""])[0].replace(/\D/g, ""); const b = d.length === 47 ? bo.lerBoleto(d) : null; return b ? { valor: b.valor } : null; };
+  ok("caixa-email: (defeito plantado) sem exigir o DV, a linha ERRADA viraria valor — a conferência acusa",
+     boletoIngenuo(`x ${errado} y`) !== null);
+
+  const docsE = ce.documentosDasFontes({ boletos: [], nfs: [], ocr: [], emails: [m1, m2] });
+  const dE2 = docsE.find((d) => d.chave === "email:m-2")!;
+  const camposE = ce.camposDoFormulario(dE2);
+  ok("caixa-email: o formulário abre com a descrição = assunto e SEM valor nem vencimento quando o e-mail não os traz",
+     camposE.descricao === "Fatura de outubro" && !("valor" in camposE) && !("vencimento" in camposE) && camposE.entrada === "email:m-2");
+  const descE = ce.descartarEntrada(ce.ESTADO_VAZIO, dE2, "e-mail repetido do fornecedor", "2026-10-01T15:00:00Z", "ana");
+  const curtoE = ce.descartarEntrada(ce.ESTADO_VAZIO, dE2, "spam", "2026-10-01T15:00:00Z", "ana");
+  ok("caixa-email: o e-mail segue a MESMA decisão — descartar exige motivo, e o descartado sai da fila",
+     !curtoE.ok && descE.ok && ce.montarCaixaEntrada(docsE, descE.ok ? descE.estado.decisoes : [], "pendentes").contagem.pendentes === 1);
+
+  /* ── 6. a guarda de banco roda no CI; a demonstração não inventa ──────── */
+  const ciE = fsE.readFileSync(".github/workflows/ci.yml", "utf8");
+  ok("caixa-email: a guarda de banco da porta do e-mail roda no CI",
+     /-f scripts\/caixa-email\.sql/.test(ciE) && fsE.existsSync("scripts/caixa-email.sql"));
+  const libE = semCom(fsE.readFileSync("src/lib/caixa-email.ts", "utf8"));
+  ok("caixa-email: em demonstração a lista de e-mails é a do cache (vazia), nunca um seed inventado",
+     /if \(isDemo\) return Promise\.resolve\(cache\)/.test(libE) && !/demo\/seed|DEMO_/.test(libE));
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);
 

@@ -269,6 +269,14 @@ jobs:
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/campb-banco.sql
+      # ⚠️ A caixa de entrada por e-mail: gerar o endereço é de quem administra,
+      # registrar é só da chave de serviço, o reenvio do webhook não duplica
+      # (índice único), token desconhecido/antigo é recusado e a empresa B não
+      # lê a mensagem de A. Fechaduras de banco — a guarda pura não as alcança.
+      - name: Guarda da caixa de entrada por e-mail (papel, chave de serviço, reenvio, isolamento)
+        env:
+          SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f scripts/caixa-email.sql
       - name: Prova negativa da guarda de DDL (banco limpo passa · sonda reprova)
         env:
           SUPABASE_DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
