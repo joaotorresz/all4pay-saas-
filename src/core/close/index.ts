@@ -221,3 +221,61 @@ export function provisaoComEstorno(
   };
   return [provisao, estorno];
 }
+
+/**
+ * A frase da provisão a partir do que o razão DE FATO fez com cada metade.
+ * Uma frase só para as DUAS portas da provisão (Fechamento e Cronogramas →
+ * Provisões sugeridas): a guarda confere os quatro casos por valor.
+ */
+export function mensagemDaProvisao(
+  categoria: string,
+  quando: string,
+  provisao: "postado" | "ja_existia",
+  estorno: "postado" | "ja_existia",
+): string {
+  if (provisao === "ja_existia" && estorno === "ja_existia") {
+    return `A provisão de "${categoria}" e o estorno de ${quando} já estavam no razão com este valor — nada foi lançado de novo.`;
+  }
+  if (provisao === "ja_existia") {
+    return `A provisão de "${categoria}" já estava no razão com este valor; só o estorno de ${quando}, que faltava, foi lançado agora.`;
+  }
+  if (estorno === "ja_existia") {
+    return `Provisão de "${categoria}" lançada no razão; o estorno de ${quando} já estava lá com este valor.`;
+  }
+  return `Provisão de "${categoria}" lançada no razão, com estorno automático em ${quando}.`;
+}
+
+/**
+ * O GESTO INTEIRO da provisão, para as duas portas (Fechamento e Cronogramas):
+ * posta a provisão, posta o estorno e devolve a frase do que o razão fez.
+ *
+ * ⚠️ A PROVISÃO PODE ENTRAR E O ESTORNO NÃO. As duas postagens são chamadas
+ * separadas; se a segunda cai (rede, recusa do banco, conflito de valor), a
+ * primeira JÁ está no razão — e uma provisão sem estorno conta a despesa duas
+ * vezes quando a conta real chegar. A tela dizia só "Falha: …", e quem lê
+ * conclui que nada foi lançado. Aqui a falha do estorno sai NOMEADA, com o que
+ * fazer: lançar de novo é seguro (a provisão volta "ja_existia" e só o estorno
+ * entra). Quem posta entra por parâmetro — o núcleo continua sem I/O.
+ */
+export async function postarProvisaoComEstorno(
+  postar: (e: LedgerEntryInput) => Promise<"postado" | "ja_existia">,
+  mes: string,
+  categoria: string,
+  valor: number,
+  contaDespesa?: string,
+): Promise<string> {
+  const [provisao, estorno] = provisaoComEstorno(mes, categoria, valor, contaDespesa);
+  const quando = primeiroDiaDoMesSeguinte(mes).split("-").reverse().join("/");
+  const rp = await postar(provisao); // se cai aqui, nada entrou: a falha sobe como está
+  let re: "postado" | "ja_existia";
+  try {
+    re = await postar(estorno);
+  } catch (e) {
+    const jaEstava = rp === "ja_existia" ? "já estava" : "foi lançada";
+    throw new Error(
+      `A provisão de "${categoria}" ${jaEstava} no razão, mas o estorno de ${quando} NÃO entrou (${(e as Error).message}). ` +
+      `Sem o estorno a despesa conta duas vezes quando a conta real chegar — lance de novo: a provisão não se repete e só o estorno entra.`,
+    );
+  }
+  return mensagemDaProvisao(categoria, quando, rp, re);
+}

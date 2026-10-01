@@ -161,3 +161,79 @@ dirigido no navegador (a demonstração não sugere provisão para o mês corren
 - `periodoIdLive` lia `data.id` sobre `null` quando o banco recusava abrir o
   período: a tela mostrava "Cannot read properties of null". Agora a mensagem
   do banco sobe.
+
+---
+
+# Rodada 3 (reservados) — branch `r4/contabil`
+
+Defeitos achados em arquivos que os caçadores não podiam editar. Guardas no
+bloco `CONTABILIDADE · RODADA 3` do `engine-audit`, cada uma provada plantando
+o defeito de volta (7 plantios, 7 reprovações nomeando a asserção).
+
+- **Envio de NFs ao contador** (`EnvioNFsView`): "Simular confirmação" já só
+  aparecia na demonstração; o resto da tela continuava prometendo em produção
+  — "próximo envio 01/11 às 21h", "enviamos um link de confirmação", "aguardando
+  clicar no link". **Não há executor** (nenhum cron, rota ou e-mail). Agora a
+  promessa só existe no ramo `ENVIO_SIMULADO` (= `isDemo`); fora dele a tela diz
+  "Envio automático não ligado", o botão vira "Cadastrar e-mail", e o que existe
+  hoje ficou visível: **"Baixar relação do mês"** (XLSX com as notas de entrada e
+  de saída do mês — os XMLs vêm do emissor e da SEFAZ, o sistema não os retém).
+  Os destinatários já gravavam por `store-org` (`a4p_contador_destinatarios` em
+  `CHAVES_ORG`); a guarda agora proíbe `localStorage` cru no store.
+- **DRE multiempresas da demonstração** (`lib/consolidado.demoInputsPorOrg`): a
+  empresa atual entra com o MESMO `RiskInput` da tela (`getRiscoInput`) como
+  "Empresa atual"; as outras duas seguem sintéticas. A taxa intercompany da
+  demonstração passou a ser Holding → Filial: na empresa atual um lançamento a
+  mais faria a coluna dela divergir do DRE ao lado.
+- **Provisão no Fechamento**: `postarLancamento` devolvia `"ja_existia"` e a tela
+  anunciava "lançada". A frase agora sai de `mensagemDaProvisao` (`core/close`),
+  usada pelas DUAS portas (Fechamento e Cronogramas → Provisões sugeridas), com o
+  retorno da provisão E do estorno — a de Cronogramas também ignorava o do
+  estorno e dizia "nada foi lançado" quando só o estorno entrava.
+- **`dreProjetado`** multiplicava as margens (EBITDA e líquida, ambas "÷ receita
+  líquida") pela receita BRUTA. Agora multiplica pela líquida, com a proporção
+  líquida ÷ bruta tirada da MESMA cascata nos mesmos meses da base (o
+  classificador local não reconhece "Simples Nacional" como dedução — usá-lo
+  seria a segunda classificação do mesmo fato). `DREProjecao` ganhou
+  `receitaLiquida`. Sem tela hoje.
+
+**Decisão pendente do dono:** o EXECUTOR do envio ao contador — montar o pacote
+de XMLs (exige reter o XML: certificado A1 para a entrada, emissor para a saída)
+e enviá-lo por e-mail (Resend, via o motor de automações, com registro de envio
+idempotente como o de `automacao_envios`), mais o link de confirmação do double
+opt-in. Até lá a tela não promete nada disso.
+
+## Revisão adversarial da rodada 3 — branch `r4/contabil-rev`
+
+Quatro furos nas correções acima, cada um com guarda no mesmo bloco do
+`engine-audit`, provada plantando o defeito (5 plantios, 5 reprovações
+nomeando a asserção):
+
+- **A provisão entrava e o estorno não, calado.** As duas portas postavam as
+  metades em chamadas separadas; se a do estorno caía (rede, recusa, conflito),
+  a tela dizia só "Falha: …" — com a provisão JÁ no razão, sem estorno, contando
+  a despesa duas vezes. Agora as duas portas chamam o MESMO gesto,
+  `postarProvisaoComEstorno` (`core/close`, quem posta entra por parâmetro), que
+  nomeia o estorno que não entrou e diz que lançar de novo é seguro.
+- **`dreProjetado` ainda misturava duas classificações.** A correção aplicava
+  "líquida ÷ bruta da cascata" à receita do agregador local, que soma TODA
+  entrada: um empréstimo recebido entrava na base das margens (medido: EBITDA
+  900 em vez de 450). As duas bases (bruta e líquida) saem agora da cascata;
+  o agregador só escolhe os meses.
+- **Destinatário "Verificado" em produção.** O "Simular confirmação" chegou a
+  existir em produção antes da rodada, então pode haver e-mail gravado como
+  verificado sem clique do contador. Fora da demonstração nenhum aparece
+  "Verificado": a linha diz "Cadastrado em … — a confirmação por e-mail ainda
+  não está ligada".
+- **A guarda do consolidado injetava o input à mão** e não via a chamada real;
+  passou a exigir que `getRiscoInputPorOrg` entregue `getRiscoInput()` na
+  demonstração.
+
+Dirigido no build de demonstração (porta 3183): o DRE multiempresas e o
+`/consolidado` mostram "Empresa atual" e as eliminações (Holding → Filial); o
+Envio de NFs mostra "Baixar relação do mês". A provisão não pôde ser dirigida —
+o seed atual não sugere nenhuma; ficou provada por valor na guarda.
+
+**Continua pendente do dono:** o executor do envio ao contador (acima) e se a
+projeção do DRE volta a ter tela. O achado lateral do `classificarDespesa` que
+não reconhece "Simples Nacional" segue fora do escopo.
