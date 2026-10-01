@@ -16,6 +16,7 @@ import { BRL, Card, Skeleton, Icon, Button, StatusBadge, InfoHint } from "@/comp
 import { formatBRL, formatBRLCompact } from "@/lib/format";
 import { useCentroInteligencia } from "@/components/visao-geral/hooks";
 import { simularCenario } from "@/core/executive";
+import { rotuloRunwayLido } from "@/core/indicadores";
 import type { ScenarioInput, Severidade } from "@/core/executive/types";
 import { logAcaoIA } from "@/lib/ai-copilot";
 import { AcoesCopiloto } from "./AcoesCopiloto";
@@ -277,7 +278,7 @@ function SimuladorCard({ indic, saldo, score }: { indic: import("@/core/quant/ty
         </div>
         <div className="flex items-center justify-between">
           <span className="text-caption text-faint">Runway</span>
-          <span className="text-label font-medium tabular-nums text-ink">{r.runwayMeses}m</span>
+          <span className="text-label font-medium tabular-nums text-ink">{rotuloRunwayLido(r.runway, "m")}</span>
         </div>
         <p className="m-0 text-caption text-muted">{r.texto}</p>
       </div>
@@ -352,7 +353,7 @@ function PlannerCard({ indic, saldo, score }: { indic: import("@/core/quant/type
               </div>
               <div>
                 <div className="text-caption text-faint">Runway</div>
-                <div className="text-h3 font-medium tabular-nums text-ink">{c.r.runwayMeses}m</div>
+                <div className="text-h3 font-medium tabular-nums text-ink">{rotuloRunwayLido(c.r.runway, "m")}</div>
               </div>
             </div>
           </div>

@@ -8,6 +8,8 @@
  * Valores em REAIS (number), pt-BR, consistente com o resto do app.
  */
 
+import type { LeituraRunway } from "@/core/indicadores";
+
 export type Nivel = "baixo" | "medio" | "alto" | "critico";
 
 /** Evento financeiro normalizado consumido pelo motor. */
@@ -200,6 +202,12 @@ export interface RunwayCenarios {
   otimista: number;
   base: number;
   pessimista: number;
+  /**
+   * Os mesmos três, LIDOS (número, ausência ou teto) — é o que a tela exibe.
+   * Os números acima seguem para o score, que pontua o teto; exibidos crus,
+   * viravam "24+ meses" para quem não queima caixa.
+   */
+  leitura: { otimista: LeituraRunway; base: LeituraRunway; pessimista: LeituraRunway };
 }
 
 export interface LiquidezPonto {
@@ -215,6 +223,8 @@ export interface StressCenario {
   descricao: string;
   impactoSaldo: number; // R$ no fim do horizonte vs base
   runwayDias: number;
+  /** O runway do cenário para EXIBIR — ausência e teto ditos. */
+  runway: LeituraRunway;
 }
 
 export interface ConcentracaoResult {

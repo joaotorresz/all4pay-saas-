@@ -1126,6 +1126,10 @@ export async function getRiscoInput(): Promise<RiskInput> {
       referenceCode: (m as { reference_code?: string | null }).reference_code ?? null,
       origem: (m as { origem?: string | null }).origem ?? null,
       lancadoPor: (m as { lancado_por?: string | null }).lancado_por ?? null,
+      // ⚠️ A descrição viaja também na demonstração, como no ramo de produção
+      // (`risco-linhas`). Sem ela a lista de títulos a pagar mostrava a coluna
+      // vazia só aqui, e a busca por descrição não achava nada.
+      descricao: m.description ?? null,
     }));
     const partyNames: Record<string, string> = {};
     // Parties cadastradas (import) ganham o nome real…

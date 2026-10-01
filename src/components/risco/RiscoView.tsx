@@ -18,6 +18,7 @@ import { isDemo } from "@/lib/demo";
 import { useRiscoCaixa } from "@/components/visao-geral/hooks";
 import type { Nivel, PilarResult, LiquidezPonto, StressCenario, Alerta } from "@/core/risk-engine/types";
 import { pctDeInteiro } from "@/lib/format";
+import { rotuloRunwayLido, type LeituraRunway } from "@/core/indicadores";
 
 const NIVEL_COLOR: Record<Nivel, string> = {
   baixo: "var(--color-positive)",
@@ -54,7 +55,10 @@ export function RiscoView() {
     );
   }
 
-  const meses = (d: number) => (d >= 999 ? "24+ meses" : `${(d / 30).toFixed(1)} meses`);
+  // ⚠️ Era `d >= 999 ? "24+ meses"`: o teto do cálculo (999 dias são 33 meses,
+  // nem 24) exibido como medida, e "não há queima" dito como fôlego longo. A
+  // leitura do motor diz ausência e teto (`lerRunwayDeFluxo`).
+  const meses = (l: LeituraRunway) => rotuloRunwayLido(l);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start pb-4">
@@ -94,7 +98,7 @@ export function RiscoView() {
             info={infoDaMetodologia("chance-ruptura")}
             nota={avisoDeSaturacao("chance-ruptura", data.probabilidadeRuptura)}
           />
-          <Metric label="Runway (base)" value={meses(data.runway.base)} />
+          <Metric label="Runway (base)" value={meses(data.runway.leitura.base)} />
         </div>
       </Card>
 
@@ -136,9 +140,9 @@ export function RiscoView() {
         }}
       >
         <div className="text-label font-medium text-muted">Runway por cenário</div>
-        <Cenario label="Otimista" value={meses(data.runway.otimista)} tone="var(--color-positive)" />
-        <Cenario label="Base" value={meses(data.runway.base)} tone="var(--color-ink)" />
-        <Cenario label="Pessimista" value={meses(data.runway.pessimista)} tone="var(--color-negative)" />
+        <Cenario label="Otimista" value={meses(data.runway.leitura.otimista)} tone="var(--color-ink)" />
+        <Cenario label="Base" value={meses(data.runway.leitura.base)} tone="var(--color-ink)" />
+        <Cenario label="Pessimista" value={meses(data.runway.leitura.pessimista)} tone="var(--color-ink)" />
       </Card>
 
       {/* Liquidez projetada */}
@@ -277,7 +281,7 @@ function Cenario({ label, value, tone }: { label: string; value: string; tone: s
         <span className="w-2 h-2 rounded-pill" style={{ background: tone }} />
         {label}
       </span>
-      <span className="text-[17px] font-medium tabular-nums" style={{ color: tone }}>{value}</span>
+      <span className="text-[17px] font-medium tabular-nums text-ink">{value}</span>
     </div>
   );
 }
@@ -311,7 +315,7 @@ function StressCard({ s }: { s: StressCenario }) {
           {s.impactoSaldo < 0 ? "−" : "+"}<BRL value={Math.abs(s.impactoSaldo)} />
         </span>
         <span className="text-caption text-muted">
-          runway {s.runwayDias >= 999 ? "24+ m" : `${(s.runwayDias / 30).toFixed(1)} m`}
+          runway {rotuloRunwayLido(s.runway, "m")}
         </span>
       </div>
     </div>

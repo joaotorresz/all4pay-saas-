@@ -127,3 +127,38 @@ Jornadas novas: `scripts/e2e/folha-rescisao-dezembro.mjs` (15 verificações) e
   limpo), então não nasce desta rodada: é dependente da data (primeiro dia do
   mês) e do seed. Como o `npm test` encadeia com `&&`, as guardas DEPOIS dela
   foram rodadas uma a uma, todas verdes.
+
+## Rodada 3 (reservados)
+
+Os arquivos que as rodadas anteriores não podiam editar. Guardas no
+`engine-audit`, bloco `PAGAR · RODADA 3`, cada uma provada plantando o defeito
+(11 plantios, 12 reprovações nomeadas).
+
+- **Folha pelo formulário de conta a pagar** (`TituloForm`, modo Colaborador):
+  agenda por `linhaDoTituloDaFolha` — a competência é o MÊS DE TRABALHO. Era
+  `competence_date: t.vencimento`, e o salário de setembro caía no DRE de
+  outubro. As duas portas de agendar folha usam agora o mesmo mapeamento.
+- **Nova compra** (`CompraForm` + `salvarCompra`): a mensagem "registrada e
+  aprovada" só sai depois de o banco aceitar os títulos. Recusa = nada gravado
+  (o dinheiro vem antes do status, como em `decidirCompra`), a mensagem real do
+  banco aparece no formulário, que fica aberto para corrigir — salvar de novo
+  não duplica.
+- **Títulos a pagar** (`TitulosView`): coluna Descrição; data de pagamento e
+  valor pago em tinta do texto (eram `text-positive`). A descrição passou a
+  viajar também no `RiskInput` da demonstração (o ramo de produção já a lia),
+  senão a coluna ficava vazia só na demo.
+- **Runway de cenário** (fluxo de caixa: Cenários e What-If; aba Risco: base,
+  otimista, pessimista e estresses; copiloto; plano de contratações; alerta da
+  ponte de risco): `lerRunwayDeFluxo` + `rotuloRunwayLido` em
+  `core/indicadores` dizem ausência ("— não há queima", "— não se aplica") e
+  teto ("mais de 33,3 meses (teto do cálculo)"). Sumiram "24+ meses" (999 dias
+  são 33 meses, nem 24) e os 33,3m de quem gera caixa. O `stress.engine` tinha
+  uma SEGUNDA fórmula de runway com `999` local — agora usa a canônica. O
+  `runwayMeses` numérico continua no resultado só para o score, que pontua o
+  teto.
+- Os cenários otimista/pessimista da aba Risco perderam o verde/vermelho no
+  número (decisão de 30/09).
+
+**Ficou para o dono:** nenhuma decisão nova. Seguem abertas as da revisão
+anterior (apagar `ImportacaoView` + guarda; número de compra reutilizado após
+excluir a última; saída para reembolso com mês da despesa fechado).

@@ -9144,5 +9144,73 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      /pessoal && <NovoDeposito \/>/.test(ia));
 }
 
+/* ── PAGAR · RODADA 3 (arquivos reservados) ── */
+{
+  const fsR = await import("node:fs");
+  const sc = (s: string) => s.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const lerR = (p: string) => sc(fsR.readFileSync(p, "utf8"));
+
+  /* ---- a folha do formulário de conta a pagar usa a competência do MÊS DE TRABALHO ---- */
+  const tituloForm = lerR("src/components/movimentacoes/TituloForm.tsx");
+  ok("pagar-r3: o modo Colaborador do formulário agenda pelo mapeamento único (era `competence_date: t.vencimento`)",
+     /criarTitulos\(titulos\.map\(\(t\) => linhaDoTituloDaFolha\(t, f\.contaId\)\)\)/.test(tituloForm)
+     && !/competence_date: t\.vencimento/.test(tituloForm));
+
+  /* ---- a compra paga só anuncia sucesso depois de o banco aceitar ---- */
+  const compraForm = lerR("src/components/compras/CompraForm.tsx");
+  const storeR = lerR("src/lib/compras-store.ts");
+  ok("pagar-r3: salvarCompra é assíncrona e o título da compra paga vem ANTES de gravar a compra",
+     /export async function salvarCompra\(c: Compra\): Promise<Compra\[\]>/.test(storeR)
+     && /await criarTitulosDaCompra\(c\);[\s\S]*?throw new Error\(mensagem\(e\)\);[\s\S]*?return persistir\(c\);/.test(storeR)
+     && !/criarTitulosDaCompra\(c\)\.catch\(/.test(storeR));
+  ok("pagar-r3: o formulário de compra AGUARDA a gravação e mostra a recusa real",
+     /await salvarCompra\(c\);/.test(compraForm) && /setErroGravar\(msg\)/.test(compraForm)
+     && compraForm.indexOf("await salvarCompra(c)") < compraForm.indexOf("Compra registrada e aprovada"));
+
+  /* ---- a lista de títulos mostra a descrição e não pinta data/valor pelo sinal ---- */
+  const titulosV = lerR("src/components/movimentacoes/TitulosView.tsx");
+  ok("pagar-r3: a lista de títulos tem a coluna Descrição", /<Th>Descrição<\/Th>/.test(titulosV) && /m\.descricao/.test(titulosV));
+  ok("pagar-r3: a lista de títulos não pinta data nem valor de verde/vermelho", !/text-(positive|negative)/.test(titulosV));
+  const dataTs = lerR("src/lib/data.ts");
+  ok("pagar-r3: a descrição viaja no RiskInput da demonstração (como em produção)", /descricao: m\.description \?\? null/.test(dataTs));
+
+  /* ---- o runway dos simuladores diz ausência e teto ---- */
+  const ind = await import("@/core/indicadores");
+  const { simularCenario } = await import("@/core/executive/scenario");
+  const { scoreRiscoCaixa } = await import("@/core/risk-engine");
+  const semQueima = ind.lerRunwayDeFluxo(100_000, 5_000);
+  ok("pagar-r3: cenário que GERA caixa → runway AUSENTE (sem_queima), não 33,3 meses",
+     semQueima.indisponivel?.codigo === "sem_queima" && semQueima.meses === null
+     && ind.rotuloRunwayLido(semQueima) === "— não há queima", ind.rotuloRunwayLido(semQueima));
+  const negativo = ind.lerRunwayDeFluxo(-1, -5_000);
+  ok("pagar-r3: caixa negativo → ausência própria, nem 0 nem teto", negativo.indisponivel?.codigo === "caixa_negativo");
+  const teto = ind.lerRunwayDeFluxo(10_000_000, -1_000);
+  ok("pagar-r3: o teto se DECLARA teto (nunca '24+')",
+     teto.noTeto && /teto do cálculo/.test(ind.rotuloRunwayLido(teto)) && !/24\+/.test(ind.rotuloRunwayLido(teto)),
+     ind.rotuloRunwayLido(teto));
+  const medido = ind.lerRunwayDeFluxo(90_000, -30_000);
+  ok("pagar-r3: com queima, o número sai exato (90 mil ÷ 30 mil/mês = 3,0 meses)",
+     medido.meses === 3 && !medido.noTeto && ind.rotuloRunwayLido(medido, "m") === "3,0m", ind.rotuloRunwayLido(medido, "m"));
+  const indicBase = { receitaMensal: 50_000, despesaMensal: 40_000, inadimplencia: 0, margemCaixa90d: 0.2, runwayMeses: 10 } as never;
+  const cen = simularCenario(indicBase, 100_000, {});
+  ok("pagar-r3: simularCenario leva a leitura; o número do score continua no teto",
+     cen.runway.indisponivel?.codigo === "sem_queima" && cen.runwayMeses === ind.mesesDeRunway(ind.RUNWAY_CAP_DIAS));
+  const fx = { hoje: "2026-09-15", saldoAtual: 500_000, partyNames: {}, horizonDias: 60, movements: [
+    { id: "r1", type: "entrada", status: "pago", amount: 80_000, due_date: "2026-08-10", paid_date: "2026-08-10", party_id: "c1", category: "Vendas" },
+    { id: "d1", type: "saida", status: "pago", amount: 10_000, due_date: "2026-08-12", paid_date: "2026-08-12", party_id: "f1", category: "Aluguel" },
+  ] } as never;
+  const risco = scoreRiscoCaixa(fx);
+  ok("pagar-r3: a aba Risco recebe a leitura dos três cenários e dos estresses",
+     !!risco.runway.leitura?.base && risco.stress.every((s: { runway?: unknown }) => !!s.runway));
+  for (const f of ["src/components/risco/RiscoView.tsx", "src/core/financial-os/bridges/risco.bridge.ts"]) {
+    ok(`pagar-r3: ${f.split("/").pop()} não traduz o teto (999) em "24+"`, !/>= ?999/.test(lerR(f)) && !/24\+/.test(lerR(f)));
+  }
+  for (const f of ["src/components/fluxo-caixa/FluxoCaixaView.tsx", "src/components/copiloto/CopilotoView.tsx", "src/components/contratacoes/HeadcountView.tsx"]) {
+    const t = lerR(f);
+    ok(`pagar-r3: ${f.split("/").pop()} exibe o runway de cenário pela leitura (não o número cru)`,
+       /rotuloRunwayLido\(/.test(t) && !/\.runwayMeses\)?\}?m/.test(t) && !/runwayMeses\.toLocaleString/.test(t));
+  }
+}
+
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);
 if (fails > 0) process.exit(1);

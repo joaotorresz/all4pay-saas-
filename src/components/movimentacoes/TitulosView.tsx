@@ -560,6 +560,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                     />
                   </Th>
                   <Th>ID</Th>
+                  <Th>Descrição</Th>
                   <Th>Situação</Th>
                   <Th>Vencimento / {liquidado.toLowerCase()}</Th>
                   <Th>Conta</Th>
@@ -585,6 +586,13 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
                         <IdCopiavel id={m.id} />
                       </td>
+                      {/* A DESCRIÇÃO é o que a pessoa digitou ao lançar ("Aluguel
+                          de outubro", "Salário · Ana · 09/2026") — sem ela, duas
+                          contas da mesma categoria e do mesmo fornecedor eram
+                          indistinguíveis na lista. */}
+                      <td className="px-6 py-3 text-label text-ink max-w-[260px] truncate" title={m.descricao ?? undefined}>
+                        {m.descricao?.trim() ? m.descricao : <span className="text-muted">—</span>}
+                      </td>
                       {/* ⚠️ A situação em PALAVRA, não só na cor. O ponto fica como
                           reforço; quem não distingue as cores lê o rótulo, e ele
                           muda com a direção (Pago × Recebido) porque é a palavra
@@ -598,7 +606,9 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3">
                         <div className="flex flex-col">
                           <span className="text-label text-ink tabular-nums">{fmtDia(m.due_date)}</span>
-                          {m.paid_date && <span className="text-caption text-positive tabular-nums">{fmtDia(m.paid_date)}</span>}
+                          {/* Data não tem cor por sinal: tinta do texto, e o rótulo da
+                              coluna diz qual das duas é. */}
+                          {m.paid_date && <span className="text-caption text-ink tabular-nums">{fmtDia(m.paid_date)}</span>}
                         </div>
                       </td>
                       <td className="px-6 py-3 text-label text-muted">{nomeConta(m.accountId)}</td>
@@ -620,7 +630,7 @@ export function TitulosView({ direcao }: { direcao: Direcao }) {
                       <td className="px-6 py-3 text-right text-label text-ink tabular-nums"><BRL value={Math.abs(m.amount)} /></td>
                       <td className="px-6 py-3 text-right text-label tabular-nums">
                         {m.status === "pago"
-                          ? <span className="text-positive"><BRL value={Math.abs(m.amount)} /></span>
+                          ? <span className="text-ink"><BRL value={Math.abs(m.amount)} /></span>
                           : <span className="text-faint">—</span>}
                       </td>
                     </tr>

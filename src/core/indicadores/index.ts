@@ -492,6 +492,55 @@ export function runwayDeFluxo(saldoAtual: number, liquidoMensal: number): number
 /** O mesmo, em meses. Uma conversão (÷30), nunca um segundo teto. */
 export const mesesDeRunway = (dias: number): number => Math.round((dias / 30) * 10) / 10;
 
+/**
+ * O runway de um fluxo hipotético, LIDO: número, ausência ou teto.
+ *
+ * ⚠️ `runwayDeFluxo` devolve `RUNWAY_CAP_DIAS` (999) tanto para "não há queima"
+ * quanto para "passa do teto", e 0 para "o caixa já está negativo". Os
+ * simuladores (cenários do fluxo de caixa, aba Risco, copiloto) exibiam esse
+ * número cru: "Runway 24+ meses", "33,3m" num cenário que GERA caixa — o teto da
+ * fórmula lido como medida, que é o defeito que a ONDA 4 tirou do runway
+ * canônico e que continuava vivo aqui. A ordem dos testes é a do canônico:
+ * caixa negativo primeiro, depois a ausência de queima.
+ */
+export interface LeituraRunway {
+  /** Só é resposta quando `indisponivel` é `null`. */
+  dias: number | null;
+  meses: number | null;
+  indisponivel: Indisponivel | null;
+  /** O número é "pelo menos isto": o teto do cálculo mordeu. */
+  noTeto: boolean;
+}
+
+export function lerRunwayDeFluxo(saldoAtual: number, liquidoMensal: number): LeituraRunway {
+  if (saldoAtual <= 0) {
+    return {
+      dias: null, meses: null, noTeto: false,
+      indisponivel: { codigo: "caixa_negativo", motivo: "o caixa já está zerado ou negativo — não há fôlego a projetar" },
+    };
+  }
+  if (liquidoMensal >= 0) {
+    return {
+      dias: null, meses: null, noTeto: false,
+      indisponivel: { codigo: "sem_queima", motivo: "neste cenário a operação não queima caixa — não há prazo a calcular" },
+    };
+  }
+  const dias = runwayDeFluxo(saldoAtual, liquidoMensal);
+  return { dias, meses: mesesDeRunway(dias), indisponivel: null, noTeto: dias >= RUNWAY_CAP_DIAS };
+}
+
+/**
+ * O rótulo curto de uma `LeituraRunway`, para o LUGAR do número.
+ * A ausência sai na forma curta canônica (`FORMA_CURTA`) e o teto se DECLARA
+ * teto — nunca "24+" (que nem era o teto: 999 dias são 33 meses).
+ */
+export function rotuloRunwayLido(l: LeituraRunway, unidade: "m" | " meses" = " meses"): string {
+  if (l.indisponivel) return `— ${formaCurta(l.indisponivel)}`;
+  const m = (l.meses ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (l.noTeto) return `mais de ${m}${unidade} (teto do cálculo)`;
+  return `${m}${unidade}`;
+}
+
 /** O mesmo runway em meses (dias ÷ 30) — uma conversão, não outro cálculo. */
 export function runwayMeses(input: RiskInput, j?: Janela): Indicador {
   const r = runway(input, j);

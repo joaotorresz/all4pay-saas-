@@ -67,6 +67,7 @@ export function CompraForm() {
   const [observacoes, setObservacoes] = React.useState("");
   const [erros, setErros] = React.useState<Record<string, string>>({});
   const [salvando, setSalvando] = React.useState(false);
+  const [erroGravar, setErroGravar] = React.useState<string | null>(null);
 
   const rascunho = (): Compra => ({
     id: novoId("compra"),
@@ -108,7 +109,7 @@ export function CompraForm() {
     [valor, vencimento, tipoPagamento, parcelas],
   );
 
-  function salvar() {
+  async function salvar() {
     const c = rascunho();
     const e = validarCompra(c);
     setErros(e);
@@ -117,7 +118,21 @@ export function CompraForm() {
       return;
     }
     setSalvando(true);
-    salvarCompra(c);
+    setErroGravar(null);
+    try {
+      // ⚠️ AGUARDA a gravação: a mensagem de sucesso só sai depois de o banco
+      // aceitar os títulos. Antes ela saía no mesmo instante do clique, e uma
+      // recusa chegava quando a pessoa já tinha ido embora com a promessa.
+      await salvarCompra(c);
+    } catch (err) {
+      // A recusa REAL do banco vai para a tela, inteira — "tente novamente"
+      // repetiria a mesma recusa. Nada foi gravado; o formulário fica aberto.
+      const msg = err instanceof Error ? err.message : String(err);
+      setErroGravar(msg);
+      toast(`A compra não foi registrada: ${msg}`);
+      setSalvando(false);
+      return;
+    }
     qc.invalidateQueries();
     toast(
       c.status === "aprovada"
@@ -337,9 +352,14 @@ export function CompraForm() {
         </div>
       </Card>
 
+      {erroGravar && (
+        <p role="alert" className="m-0 text-label text-negative">
+          A compra não foi registrada: {erroGravar}
+        </p>
+      )}
       <div className="flex items-center justify-end gap-2">
         <Button variant="ghost" onClick={() => router.push("/dashboard/purchases")}>Cancelar</Button>
-        <Button variant="primary" onClick={salvar} disabled={salvando}>
+        <Button variant="primary" onClick={() => { void salvar(); }} disabled={salvando}>
           <Icon name="check" size={15} color="currentColor" />
           Criar compra
         </Button>

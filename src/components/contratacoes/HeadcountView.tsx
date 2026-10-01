@@ -8,6 +8,7 @@
  * a mês, runway e score antes/depois. Demo-safe (só leitura dos motores).
  */
 import * as React from "react";
+import { rotuloRunwayLido } from "@/core/indicadores";
 import { AppShell } from "@/components/app/AppShell";
 import { Card, BRL, Button, Icon, Input, CurrencyInput, Select, Skeleton } from "@/components/ui";
 import { useQuantitativo, useRiscoInput } from "@/components/visao-geral/hooks";
@@ -93,7 +94,8 @@ export function HeadcountView() {
               <div className="grid grid-cols-2 gap-3">
                 <Kpi label="Custo do plano / mês" v={<BRL value={resultado.custoMensalPlano} />} />
                 <Kpi label="Custo no 1º ano" v={<BRL value={resultado.custoAnualPlano} />} />
-                <Kpi label="Runway" v={<>{resultado.antes.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} → <b>{resultado.depois.runwayMeses.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}</b> meses</>} />
+                {/* ⚠️ A leitura, não o número cru: sem queima o cenário dava 33,3 (o teto). */}
+                <Kpi label="Runway" v={<>{rotuloRunwayLido(resultado.antes.runway)} → <b>{rotuloRunwayLido(resultado.depois.runway)}</b></>} />
                 <Kpi label="Score de saúde" v={<>{resultado.antes.score} → <b>{resultado.depois.scoreProjetado}</b>/100</>} />
               </div>
 
