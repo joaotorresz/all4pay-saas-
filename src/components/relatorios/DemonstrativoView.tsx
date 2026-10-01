@@ -19,7 +19,7 @@ import { useRiscoInput, useAccounts } from "@/components/visao-geral/hooks";
 import { situacaoDe, ehConfirmado, type VisaoRelatorio } from "@/core/central";
 import { chartAnim } from "@/lib/chart-anim";
 import {
-  montarDRE, montarDFC, rotuloColuna, compararOrcamento,
+  montarDRE, montarDFC, rotuloColuna, compararOrcamento, palpiteDoRelatorio,
   ESTRUTURA_DRE, ESTRUTURA_DFC, type Relatorio,
 } from "@/core/relatorios";
 import { orcadoPorLinha, cobertura, resumoOrcamento, type Orcamento } from "@/core/orcamento";
@@ -163,6 +163,14 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
    * importar esconderia a informação. O convite é para quem ainda não tem base.
    */
   const semLancamento = !isLoading && !!input && input.movements.length === 0;
+
+  // ⚠️ O PALPITE, DITO (Rodada 4): sem linha declarada no plano de contas, o
+  // motor classifica pelo NOME da categoria. Todo cliente novo começa assim, e
+  // um DRE adivinhado tinha a mesma cara de um conferido.
+  const palpite = React.useMemo(
+    () => (relatorio && inputDaVisao ? palpiteDoRelatorio(relatorio, inputDaVisao) : null),
+    [relatorio, inputDaVisao],
+  );
 
   const cancelados = React.useMemo(
     () => (input ? canceladosNaJanela(input, fazJanela(aplicados.intervalo.de, aplicados.intervalo.ate)) : null),
@@ -357,6 +365,18 @@ export function DemonstrativoView({ tipo }: { tipo: "dre" | "dfc" }) {
                 não têm data de competência informada — esses entram pelo{" "}
                 <b className="text-ink">vencimento</b>. Enquanto houver lançamento sem competência,
                 o resultado mistura as duas datas.
+              </p>
+            </div>
+          )}
+          {tipo === "dre" && palpite && palpite.n > 0 && (
+            <div className="flex items-start gap-2 px-1 pt-1" role="note" data-aviso="palpite">
+              <Icon name="triangle-alert" size={14} color="var(--color-warning)" />
+              <p className="m-0 text-caption text-muted leading-snug">
+                <b className="text-ink tabular-nums">{palpite.n}</b> lançamentos (<BRL value={palpite.valor} />)
+                foram classificados por <b className="text-ink">palpite</b> — pelo nome da categoria, porque
+                ela não tem linha do DRE declarada
+                {palpite.categorias.length > 0 && <> (as que mais pesam: {palpite.categorias.slice(0, 3).map((c) => c.nome).join(", ")})</>}.{" "}
+                <Link href="/dashboard/registrations/chart-of-accounts" className="text-ink underline">Declarar no plano de contas</Link>.
               </p>
             </div>
           )}

@@ -3886,6 +3886,17 @@ const AGOSTO = janelaMes(2026, 7);
     ok("razao-trava: check_period_open resolve o mês pela data quando period_id é nulo",
        /date_trunc\('month', new\.entry_date\)/.test(def),
        "travar o mês voltaria a não travar o razão");
+
+    // A fatura na lixeira não pode travar a reativação da assinatura: a ÚLTIMA
+    // definição do índice único das recorrências só vale entre as vivas.
+    let idx = "";
+    for (const f of migs) {
+      const t = ler(`supabase/migrations/${f}`);
+      const m = t.match(/create unique index[^;]*movements_rec_ref_uniq[^;]*;/gi);
+      if (m) idx = m[m.length - 1];
+    }
+    ok("rec-lixeira: o índice único de rec:% ignora a lixeira (excluido_em is null)",
+       /excluido_em is null/i.test(idx), "reativar voltaria a não recriar as faturas pausadas");
   }
 
   /* ---- RODADA 4: a empresa é a ABERTA, nunca o primeiro vínculo ----------- */

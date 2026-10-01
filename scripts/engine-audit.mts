@@ -129,7 +129,7 @@ import {
 } from "@/core/registros";
 import { gerarXLSX } from "@/lib/xlsx";
 import { gerarDOCX } from "@/lib/docx";
-import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA } from "@/core/relatorios";
+import { montarDRE, montarDFC, montarRelatorio, montarConsolidado, montarFechamento, mesesDoIntervalo, intervaloDoPreset, compararOrcamento, ESTRUTURA_DRE, ESTRUTURA_DFC, MAX_EMPRESAS, LINHA_TRANSFERENCIA, palpiteDoRelatorio as palpiteDoRelatorioA } from "@/core/relatorios";
 import { aplicarFiltro as filtrarPainel } from "@/core/paineis";
 import {
   montarPainelContasPagar, opcoesDeFiltro,
@@ -2939,6 +2939,17 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const fraude = montarDRE(IN_T7, { ...janelaT7, linhaPorCategoria: { "ferramentas do time": "ebitda" } });
   ok("t7: declaração apontando para um TOTAL é ignorada (cai no palpite)",
      valorDa(fraude, "despesas_operacionais") === 1_000);
+  // ⚠️ RODADA 4: o palpite é DITO. Sem declaração os dois caem no palpite
+  // (R$ 11.000); declarando "ferramentas do time" sobra só a venda.
+  const pSem = palpiteDoRelatorioA(sem, IN_T7);
+  const pCom = palpiteDoRelatorioA(com, IN_T7);
+  ok("t7: o relatório conta os lançamentos classificados por palpite",
+     pSem.n === 2 && pSem.valor === 11_000, JSON.stringify(pSem));
+  ok("t7: a linha declarada SAI da contagem de palpite",
+     pCom.n === 1 && pCom.valor === 10_000 && pCom.categorias[0]?.nome === "Vendas", JSON.stringify(pCom));
+  const telaDRE = readFileSync("src/components/relatorios/DemonstrativoView.tsx", "utf8");
+  ok("t7: a tela do DRE mostra o aviso de palpite",
+     /palpiteDoRelatorio\(/.test(telaDRE) && /data-aviso="palpite"/.test(telaDRE));
 }
 
 /* ── projecao: as ocorrências futuras das REGRAS de recorrência ── */
@@ -8658,6 +8669,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // Comentário sai antes da busca: a documentação do defeito cita o defeito.
   const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const { titulosDaVendaPos, somaMeses, CATEGORIA_TAXA_POS } = await import("@/core/vendas/pos");
+  const { vendaDaMaquininha: vendaDaMaquininhaV } = await import("@/core/vendas/documento");
   const { pedidoDeNota, statusNFDaNota, vendaComNota, podeEmitirNota } = await import("@/core/vendas/nota");
   const cv = await import("@/core/vendas");
   const { montarDRE: dreV } = await import("@/core/relatorios");
@@ -8690,7 +8702,19 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("vender/pos: a taxa é despesa de adquirência nomeada", t1.some((t) => t.category === CATEGORIA_TAXA_POS));
   const posLib = lerV("src/lib/pos-venda.ts").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
   ok("vender/pos: o escritor não manda `status` para a coluna GERADA (o Postgres recusa toda venda)",
-     !/\bstatus\s*:/.test(posLib) && /criarTitulos\(/.test(posLib));
+     !/\bstatus\s*:/.test(posLib) && /salvarVendaComTitulos\(/.test(posLib));
+  // ⚠️ RODADA 4: a venda da maquininha só gerava títulos — não aparecia na
+  // lista de vendas, nas notas a emitir nem na base do imposto.
+  const docPos = vendaDaMaquininhaV({ total: 100, taxa: 0.03, parcelas: 3, descricao: "V" }, "id", "2026-0001", "c", "2026-06-10");
+  ok("vender/pos: a venda da maquininha vira DOCUMENTO pelo escritor único da venda",
+     /vendaDaMaquininha\(/.test(posLib) && !/criarTitulos\(/.test(posLib));
+  ok("vender/pos: o documento leva o BRUTO e a taxa MDR na taxa da plataforma",
+     docPos.valorTotal === 100 && docPos.taxaPlataforma.valor === 3 && docPos.tipoPagamento === "parcelado",
+     JSON.stringify({ t: docPos.valorTotal, x: docPos.taxaPlataforma.valor }));
+  const vendasLib = lerV("src/lib/vendas.ts");
+  const corpoComTit = vendasLib.slice(vendasLib.indexOf("export async function salvarVendaComTitulos"), vendasLib.indexOf("/** O título da venda"));
+  ok("vender/pos: cada título da maquininha leva a chave do documento e a recusa desfaz o documento",
+     /sale_doc_id:/.test(corpoComTit) && /desfazerDocumento\(v\.id\)/.test(corpoComTit));
   ok("vender/pos: sem conta a venda é recusada — nenhuma conta bancária é inventada",
      !/financial_accounts"\)\s*\.insert/.test(posLib));
   const posView = lerV("src/components/pos/PosVendaView.tsx");

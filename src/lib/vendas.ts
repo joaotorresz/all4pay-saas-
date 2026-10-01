@@ -26,13 +26,14 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { isDemo } from "@/lib/demo";
-import { criarTitulos } from "@/lib/data";
+import { criarTitulos, type TituloAvulso } from "@/lib/data";
 import { excluirLogico } from "@/lib/exclusao";
 import { linhasDoRateio, principalDoRateio } from "@/core/registros/hierarquia";
 import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import {
   listarVendas as listarLocal,
   salvarVenda as salvarLocal,
+  salvarSoDocumento as salvarSoDocumentoLocal,
   removerVenda as removerLocal,
   idRecebivel,
 } from "@/lib/vendas-store";
@@ -123,6 +124,36 @@ export async function salvarVendaDoc(v: Venda): Promise<ResultadoGravacao> {
   if (e3) throw new Error(e3.message);
   await trocarItens(v);
   return atualizarTitulo(v);
+}
+
+/**
+ * Grava uma venda NOVA cujos títulos não são "um recebível do total" — a da
+ * maquininha (bruto a receber + taxa a pagar, por parcela). O documento nasce
+ * primeiro e cada título leva `sale_doc_id`; recusado qualquer título, o
+ * documento sai junto (a mesma regra de `salvarVendaDoc`).
+ */
+export async function salvarVendaComTitulos(v: Venda, titulos: TituloAvulso[]): Promise<void> {
+  const comChave = titulos.map((t) => ({ ...t, origem: "venda" as const, sale_doc_id: isDemo ? null : v.id }));
+  if (isDemo) {
+    salvarSoDocumentoLocal(v);
+    await criarTitulos(comChave);
+    return;
+  }
+  if (!ehUUID(v.id)) throw new Error("Venda sem identificador válido — recarregue a tela e tente de novo.");
+  const s = await cliente();
+  const { error: e1 } = await s.from("sales_docs").insert(documentoDaVenda(v));
+  if (e1) throw new Error(e1.message);
+  const itens = itensDoDocumento(v);
+  if (itens.length) {
+    const { error: e2 } = await s.from("sale_items").insert(itens);
+    if (e2) { await desfazerDocumento(v.id); throw new Error(e2.message); }
+  }
+  try {
+    await criarTitulos(comChave);
+  } catch (e) {
+    await desfazerDocumento(v.id);
+    throw e;
+  }
 }
 
 /** O título da venda — sempre pelo escritor único, com a chave do documento. */

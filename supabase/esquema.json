@@ -157,6 +157,13 @@
         "impacto": "Até ser aplicada, travar o mês por fechar_periodo NÃO impede postar nem estornar no razão (354 de 354 lançamentos contábeis têm period_id nulo). Aplicada, postar ou estornar em mês travado é recusado com o motivo; rascunho continua permitido. Nenhum dado muda.",
         "resolver_ate": "2026-10-08",
         "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
+      },
+      {
+        "nome": "20261001130000_fatura_na_lixeira_nao_trava_reativacao",
+        "objetos_ausentes": ["índice movements_rec_ref_uniq com excluido_em is null"],
+        "impacto": "Até ser aplicada, reativar uma assinatura pausada não recria as faturas que foram para a lixeira (23505 em cada data). Aplicada, a fatura viva volta; duas vivas na mesma data seguem impossíveis.",
+        "resolver_ate": "2026-10-08",
+        "origem": "sessão Claude de 01/10/2026 (Rodada 4) — o job migrar do CI aplica no merge"
       }
     ],
     "objetos_sem_migration": [

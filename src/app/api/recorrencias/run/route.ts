@@ -89,8 +89,10 @@ async function simular(admin: Admin, recs: Record<string, string | number | null
   for (let i = 0; i < candidatos.length; i += LOTE) {
     const lote = candidatos.slice(i, i + LOTE);
     if (!lote.length) continue;
+    // A chave de serviço enxerga a lixeira; a fatura excluída não conta como
+    // existente (o índice único só vale entre as vivas).
     const { data } = await semAmostra(admin.from("movements").select("reference_code"))
-      .in("reference_code", lote).limit(TETO_LINHAS);
+      .in("reference_code", lote).is("excluido_em", null).limit(TETO_LINHAS);
     for (const m of (data ?? []) as { reference_code: string }[]) existentes.add(m.reference_code);
   }
 
