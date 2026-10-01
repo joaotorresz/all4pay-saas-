@@ -753,7 +753,8 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
    */
   const splits = (input.splits ?? []).filter((s) => s.category_id || s.cost_center_id || s.project_id);
   if (splits.length && inserted?.length) {
-    const linhas = (inserted as { id: string }[]).flatMap((mv, i) =>
+    const titulos = inserted as { id: string }[];
+    await gravarRateioOuDesfazer(supabase, titulos.map((t) => t.id), () => titulos.flatMap((mv, i) =>
       fatiarValor(rows[i]?.amount ?? 0, splits).map((s) => ({
         movement_id: mv.id,
         category_id: exigirUUID(s.category_id, "categoria do rateio"),
@@ -761,9 +762,7 @@ export async function createLancamento(input: LancamentoInput): Promise<void> {
         project_id: exigirUUID(s.project_id ?? null, "projeto do rateio"),
         percent: s.percent,
         amount: s.amount,
-      })));
-    const { error: se } = await supabase.from("movement_splits").insert(linhas);
-    if (se) throw se;
+      }))));
   }
 
   if (input.repeat) {
@@ -914,18 +913,51 @@ export async function criarTitulos(linhas: TituloAvulso[]): Promise<void> {
   ).select("id").limit(TETO_LINHAS);
   if (error) throw error;
   // O rateio de cada título, na MESMA ordem em que as linhas foram enviadas.
-  const fatias = (inseridos as { id: string }[] | null ?? []).flatMap((mv, i) =>
-    (linhas[i]?.splits ?? []).map((sp) => ({
-      movement_id: mv.id,
-      category_id: exigirUUID(sp.category_id, "categoria do rateio"),
-      cost_center_id: exigirUUID(sp.cost_center_id, "centro de custo do rateio"),
-      project_id: exigirUUID(sp.project_id ?? null, "projeto do rateio"),
-      percent: sp.percent,
-      amount: sp.amount ?? null,
-    })));
-  if (fatias.length) {
-    const { error: se } = await supabase.from("movement_splits").insert(fatias);
-    if (se) throw se;
+  const titulos = (inseridos as { id: string }[] | null) ?? [];
+  if (linhas.some((l) => l.splits?.length)) {
+    await gravarRateioOuDesfazer(supabase, titulos.map((t) => t.id), () => titulos.flatMap((mv, i) =>
+      (linhas[i]?.splits ?? []).map((sp) => ({
+        movement_id: mv.id,
+        category_id: exigirUUID(sp.category_id, "categoria do rateio"),
+        cost_center_id: exigirUUID(sp.cost_center_id, "centro de custo do rateio"),
+        project_id: exigirUUID(sp.project_id ?? null, "projeto do rateio"),
+        percent: sp.percent,
+        amount: sp.amount ?? null,
+      }))));
+  }
+}
+
+/**
+ * Grava o rateio dos títulos que ACABARAM de nascer — e, se ele for recusado,
+ * DESFAZ os títulos (exclusão lógica) antes de devolver o erro.
+ *
+ * ⚠️ Título e rateio são duas gravações. Sem desfazer, uma recusa do rateio
+ * deixava os títulos gravados SEM rateio e a tela dizia "não foi possível
+ * salvar": a pessoa salvava de novo e o mesmo dinheiro entrava DUAS vezes no
+ * contas a pagar, no fluxo e no DRE. Mesma regra da venda: nenhum documento
+ * pela metade. Se o desfazer também falhar, a mensagem diz quantos títulos
+ * ficaram — para a pessoa não repetir o lançamento às cegas.
+ */
+async function gravarRateioOuDesfazer(
+  supabase: ReturnType<typeof createClient>,
+  idsDosTitulos: string[],
+  montar: () => Record<string, unknown>[],
+): Promise<void> {
+  try {
+    const fatias = montar();
+    if (!fatias.length) return;
+    const { error } = await supabase.from("movement_splits").insert(fatias);
+    if (error) throw error;
+  } catch (e) {
+    const motivo = (e as { message?: string } | null)?.message ?? String(e);
+    const { excluirLogico } = await import("@/lib/exclusao");
+    let ficaram = 0;
+    for (const id of idsDosTitulos) {
+      try { await excluirLogico("movements", id, `Rateio recusado ao lançar: ${motivo}`); } catch { ficaram += 1; }
+    }
+    throw new Error(ficaram === 0
+      ? `O rateio foi recusado (${motivo}). O lançamento foi desfeito — corrija e salve de novo.`
+      : `O rateio foi recusado (${motivo}), e ${ficaram} título(s) ficaram gravados sem rateio. Confira em Contas a pagar/receber antes de lançar de novo.`);
   }
 }
 

@@ -253,6 +253,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
   const comValor = IMPOSTOS.filter((i) => provisao.porImposto[i] > 0);
   const pendencias = React.useMemo(() => pendenciasConfig(config, comValor), [config, comValor]);
   const podeCriar = pendencias.length === 0 && provisao.total > 0;
+  const [criandoContas, setCriandoContas] = React.useState(false);
 
   const produtosUnicos = React.useMemo(() => {
     const m = new Map<string, string>();
@@ -347,10 +348,14 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
             <div className="text-[24px] leading-none font-semibold text-ink tabular-nums mt-1"><BRL value={provisao.faturamento} /></div>
           </div>
           <Button
-            variant="primary" disabled={!podeCriar}
+            variant="primary" disabled={!podeCriar || criandoContas}
             onClick={async () => {
               const contasImp = contasAPagarDosImpostos(provisao, config, mesCompetencia);
               if (contasImp.length === 0) { show("Nada a criar neste período."); return; }
+              // ⚠️ Um clique por vez: dois cliques leriam "não existe" juntos e
+              // gravariam a guia duas vezes (o banco recusa a segunda — o
+              // índice `movements_imp_ref_uniq` —, mas a tela não deve tentar).
+              setCriandoContas(true);
               try {
                 const r = await criarContasDeImpostos(contasImp, mesCompetencia, config.contaId, opcoes.nomeCategoria);
                 await qc.invalidateQueries();
@@ -359,6 +364,8 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
                   : `${r.criadas} contas a pagar criadas.`);
               } catch (e) {
                 show(`Não foi possível criar as contas a pagar: ${e instanceof Error ? e.message : String(e)}`);
+              } finally {
+                setCriandoContas(false);
               }
             }}
           >

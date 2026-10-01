@@ -649,3 +649,38 @@ drop trigger if exists zz_auditar_categoria_uso_padrao on public.categoria_uso_p
 create trigger zz_auditar_categoria_uso_padrao
   after insert or update or delete on public.categoria_uso_padrao
   for each row execute function public.auditar_escrita();
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8. IMPOSTOS PROVISIONADOS — uma conta a pagar por (empresa, competência,
+      imposto), cobrada pelo BANCO
+   ───────────────────────────────────────────────────────────────────────── */
+
+-- ⚠️ "Criar contas a pagar" dos impostos passou a gravar em produção (antes
+-- não gravava nada). A idempotência da tela é CONSULTAR antes de inserir, e
+-- isso não segura dois cliques seguidos nem duas abas: os dois leem "não
+-- existe" e os dois inserem — o DAS do mês entraria DUAS vezes no contas a
+-- pagar, no fluxo e no DRE. O índice parcial (mesmo desenho de `rec:%` e
+-- `pluggy:%`) faz o segundo insert ser recusado.
+-- Recusa nomeando, e não apaga, se algum dia já houver repetição: decidir qual
+-- das duas guias fica é trabalho de gente.
+do $imp$
+declare v_rep text;
+begin
+  select string_agg(format('%s (empresa %s, %s vezes)', reference_code, org_id, n), '; ')
+    into v_rep
+    from (select org_id, reference_code, count(*) as n
+            from public.movements
+           where reference_code like 'imp:%'
+           group by 1, 2 having count(*) > 1) x;
+  if v_rep is not null then
+    raise exception using
+      errcode = 'A4P05',
+      message = 'CADASTROS: há imposto provisionado REPETIDO (mesma competência, mesmo imposto): ' || v_rep,
+      hint = 'Mande a cópia para a lixeira (ou estorne) antes de aplicar — a migration não escolhe qual guia fica.';
+  end if;
+end
+$imp$;
+
+create unique index if not exists movements_imp_ref_uniq
+  on public.movements (org_id, reference_code)
+  where reference_code like 'imp:%';

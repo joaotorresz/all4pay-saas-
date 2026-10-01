@@ -6988,7 +6988,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const corpoCreate = dataD.slice(dataD.indexOf("export async function createLancamento"), dataD.indexOf("export interface TituloAvulso"));
   const rateioDescartado = (t: string) => /splits:\s*null,/.test(t);
   ok("CAD-2: o rateio é gravado em CADA parcela, com projeto (createLancamento)",
-     /\(inserted as \{ id: string \}\[\]\)\.flatMap/.test(corpoCreate) && /project_id: exigirUUID\(s\.project_id/.test(corpoCreate));
+     /titulos\.flatMap\(\(mv, i\) =>\s*fatiarValor/.test(corpoCreate) && /project_id: exigirUUID\(s\.project_id/.test(corpoCreate));
   const tituloTxt = semCom(lerD("src/components/movimentacoes/TituloForm.tsx"));
   ok("CAD-2: o formulário de título não descarta mais o rateio (teto ZERO de `splits: null` fixo)",
      !rateioDescartado(tituloTxt) && /linhasDoRateio\(projetos, centros/.test(tituloTxt));
@@ -6996,6 +6996,50 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      rateioDescartado("cost_center_id: x,\n          splits: null,\n"));
   ok("CAD-2: criarTitulos grava centro, projeto e o rateio (folha, venda, impostos)",
      /cost_center_id: exigirUUID\(l\.cost_center_id/.test(dataD) && /from\("movement_splits"\)\.insert\(fatias\)/.test(dataD));
+
+  /* ---- 3b. (revisão) rateio recusado DESFAZ os títulos — nenhum lançamento pela metade ---- */
+  const corpoRateio = (t: string) => {
+    const i = t.indexOf("async function gravarRateioOuDesfazer");
+    return i < 0 ? "" : t.slice(i, t.indexOf("\n}\n", i));
+  };
+  const desfazNoErro = (t: string) => {
+    const c = corpoRateio(t);
+    const iCatch = c.indexOf("catch (e)");
+    return iCatch > 0 && /excluirLogico\("movements"/.test(c.slice(iCatch)) && /throw new Error/.test(c.slice(iCatch));
+  };
+  ok("CAD-rev: rateio recusado desfaz os títulos que acabaram de nascer (sem isso, salvar de novo DUPLICA)",
+     desfazNoErro(dataD)
+     && (corpoCreate.match(/gravarRateioOuDesfazer\(/g) ?? []).length === 1
+     && /gravarRateioOuDesfazer\(supabase, titulos/.test(dataD.slice(dataD.indexOf("export async function criarTitulos"))),
+     "gravarRateioOuDesfazer ausente ou sem desfazer no catch");
+  ok("CAD-rev: [negativo] a varredura acusa o rateio que só relança o erro",
+     !desfazNoErro("async function gravarRateioOuDesfazer() {\n  try { x(); } catch (e) {\n    throw e;\n  }\n}\n"));
+
+  /* ---- 3c. (revisão) impostos: o escritor de produção existe e não duplica ---- */
+  const vsTxt = semCom(lerD("src/lib/vendas-store.ts"));
+  const corpoImp = (t: string) => t.slice(t.indexOf("export async function criarContasDeImpostos"), t.indexOf("/* ---------------------------- links"));
+  const impostoMorto = (t: string) => /if \(!isDemo\) return/.test(corpoImp(t)) || !/criarTitulos\(/.test(corpoImp(t));
+  ok("CAD-rev: criar contas a pagar dos impostos GRAVA em produção (escritor morto teto ZERO)",
+     !impostoMorto(vsTxt) && /reference_code: `imp:\$\{mesCompetencia\}:\$\{c\.imposto\}`/.test(corpoImp(vsTxt)));
+  ok("CAD-rev: [negativo] a varredura acusa o escritor que só age em demonstração",
+     impostoMorto("export async function criarContasDeImpostos() {\n  if (!isDemo) return 0;\n}\n/* ---------------------------- links"));
+  const migCad = lerD("supabase/migrations/20260930180000_cadastros_hierarquia.sql");
+  ok("CAD-rev: o banco recusa a segunda guia do mesmo imposto na mesma competência (índice imp:%)",
+     /create unique index if not exists movements_imp_ref_uniq\s+on public\.movements \(org_id, reference_code\)\s+where reference_code like 'imp:%'/.test(migCad));
+  ok("CAD-rev: o botão de impostos não aceita o segundo clique enquanto grava",
+     /disabled=\{!podeCriar \|\| criandoContas\}/.test(lerD("src/components/vendas-nf/OutrasViews.tsx")));
+
+  /* ---- 3d. (revisão) a importação não engole a recusa da conta que recebe o extrato ---- */
+  const fdipTxt = semCom(lerD("src/lib/fdip.ts"));
+  const contaEngolida = (t: string) => {
+    const i = t.indexOf('name: "Conta consolidada"');
+    if (i < 0) return true;
+    const trecho = t.slice(i, i + 900);
+    return !/error: ea \}/.test(t.slice(Math.max(0, i - 200), i)) || !/if \(ea\)\s*\{\s*throw new Error/.test(trecho);
+  };
+  ok("CAD-rev: a importação não engole a recusa ao criar a conta do extrato", !contaEngolida(fdipTxt));
+  ok("CAD-rev: [negativo] a varredura acusa o escritor que descarta o erro",
+     contaEngolida('const { data: created } = await supabase.from("financial_accounts").insert({ name: "Conta consolidada", bank: "inter" }).select("id").single();\naccId = created?.id;'));
 
   /* ---- 4. o projeto do lançamento mora em movements.project_id ---- */
   const pv = semCom(lerD("src/lib/projeto-vinculo.ts"));
