@@ -8928,7 +8928,9 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   // 2. Provisão: uma porta só, e sempre com o estorno.
   const acc = fsR.readFileSync("src/components/cronogramas/AccrualsSection.tsx", "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
   ok("razao-rev: a provisão sugerida nasce com o estorno e com a MESMA chave do Fechamento (era sem estorno, chave 'accrual:')",
-     /provisaoComEstorno\(mes, a\.categoria, valor, a\.conta\)/.test(acc) && /postarLancamento\(estorno\)/.test(acc) && !/accrual:/.test(acc));
+     // (contabil r3 · revisão) o par nasce dentro de `postarProvisaoComEstorno`,
+     // o mesmo gesto do Fechamento — que monta `provisaoComEstorno` e posta as duas.
+     /postarProvisaoComEstorno\(postarLancamento, mes, a\.categoria, valor, a\.conta\)/.test(acc) && !/accrual:/.test(acc));
 
   // 3. O estorno: motivo, duplicidade e projeção de movimento — recusados ANTES de qualquer rede.
   const orig = { id: "j1", data: "2026-09-10", descricao: "Ajuste", origem: "manual", externalKey: "man:1",
@@ -9211,11 +9213,46 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && /só o estorno/.test(m4[2]) && /estorno de 01\/10\/2026 já estava/.test(m4[3]) && new Set(m4).size === 4);
   const fech = semCom(fsR3.readFileSync("src/components/fechamento/FechamentoView.tsx", "utf8"));
   const accr = semCom(fsR3.readFileSync("src/components/cronogramas/AccrualsSection.tsx", "utf8"));
-  const usaRetorno = (t: string) =>
-    /const rp = await postarLancamento\(provisao\);\s*const re = await postarLancamento\(estorno\);/.test(t)
-    && /mensagemDaProvisao\([^)]*rp, re\)/.test(t);
-  ok("contabil r3: as DUAS portas da provisão (Fechamento e Cronogramas) leem o retorno das duas postagens",
-     usaRetorno(fech) && usaRetorno(accr));
+  // (revisão) As duas portas passam pelo MESMO gesto — que lê o retorno das
+  // duas postagens — e nenhuma posta as metades por conta própria.
+  const usaGesto = (t: string) =>
+    /await postarProvisaoComEstorno\(postarLancamento,/.test(t) && !/postarLancamento\((?:provisao|estorno)\)/.test(t);
+  ok("contabil r3: as DUAS portas da provisão (Fechamento e Cronogramas) usam o mesmo gesto, que lê o retorno das duas postagens",
+     usaGesto(fech) && usaGesto(accr));
+  const { postarProvisaoComEstorno } = await import("@/core/close");
+  const okPostar = async () => "postado" as const;
+  ok("contabil r3: o gesto devolve a frase do que o razão fez",
+     /lançada no razão, com estorno automático em 01\/10\/2026/.test(await postarProvisaoComEstorno(okPostar, "2026-09", "Energia", 500)));
+  // ⚠️ (revisão) A provisão entra e o estorno cai: a tela dizia só "Falha: …"
+  // e quem lia concluía que nada tinha sido lançado — com a provisão no razão,
+  // sem estorno, contando a despesa duas vezes.
+  const postados: string[] = [];
+  const estornoCai = async (e: { externalKey?: string }) => {
+    if (e.externalKey?.startsWith("prov-estorno:")) throw new Error("rede caiu");
+    postados.push(e.externalKey ?? ""); return "postado" as const;
+  };
+  let msgFalha = "";
+  try { await postarProvisaoComEstorno(estornoCai, "2026-09", "Energia", 500); } catch (e) { msgFalha = (e as Error).message; }
+  ok("contabil r3: provisão lançada com estorno que NÃO entrou é NOMEADA (não vira um \"Falha\" que parece nada lançado)",
+     postados.length === 1 && /foi lançada no razão, mas o estorno de 01\/10\/2026 NÃO entrou \(rede caiu\)/.test(msgFalha)
+     && /lance de novo/.test(msgFalha), msgFalha);
+  let msgProv = "";
+  try { await postarProvisaoComEstorno(async () => { throw new Error("recusado"); }, "2026-09", "Energia", 500); } catch (e) { msgProv = (e as Error).message; }
+  ok("contabil r3: se a PROVISÃO cai, nada entrou e a falha sobe como está (sem afirmar provisão lançada)",
+     msgProv === "recusado", msgProv);
+
+  // (revisão) A fonte por organização da demonstração usa a empresa da TELA —
+  // a guarda acima injeta o input; esta prova que a chamada real injeta o certo.
+  const libCons = semCom(fsR3.readFileSync("src/lib/consolidado.ts", "utf8"));
+  ok("contabil r3: na demonstração, getRiscoInputPorOrg entrega a empresa atual por getRiscoInput (o mesmo da tela vizinha)",
+     /if \(isDemo\) return demoInputsPorOrg\(de, ate, await getRiscoInput\(\)\);/.test(libCons));
+
+  // (revisão) Fora da demonstração nenhum destinatário aparece "Verificado":
+  // não há link de confirmação, e o verificado gravado antes veio do simulador.
+  ok("contabil r3: \"Verificado em\" só no ramo simulado; em produção o destinatário aparece como cadastrado",
+     (env.match(/Verificado em/g) ?? []).length === 1
+     && /!ENVIO_SIMULADO\s*\?\s*`Cadastrado em/.test(env)
+     && env.indexOf("!ENVIO_SIMULADO") < env.indexOf("Verificado em"));
 
   // ── 4) DRE projetado: margem sobre a LÍQUIDA multiplica a receita LÍQUIDA ──
   const movP: RiskMovement[] = [];
@@ -9227,6 +9264,14 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("contabil r3: projeção multiplica a margem pela receita LÍQUIDA (900 × 50% = 450, não 1000 × 50%)",
      proj.receita === 1000 && proj.receitaLiquida === 900 && Math.abs(proj.ebitda - 450) < 1e-9 && Math.abs(proj.lucro - 225) < 1e-9,
      JSON.stringify(proj));
+  // (revisão) Um empréstimo que ENTRA não é receita: a cascata o deixa fora da
+  // bruta e da líquida; o agregador local o soma. A base das margens tem de ser
+  // a da cascata inteira — não "proporção da cascata × soma local".
+  const movE = [...movP, { id: "pemp", type: "entrada", amount: 3000, due_date: "2026-06-12", paid_date: "2026-06-12", status: "pago", category: "Empréstimo bancário", party_id: null } as RiskMovement];
+  const projE = dreProjetado({ hoje: "2026-06-30", saldoAtual: 0, partyNames: {}, movements: movE } as RiskInput, 0.5, 0.25)[0];
+  ok("contabil r3: empréstimo recebido não entra na base da projeção (EBITDA 450, não 450 + 50% do empréstimo)",
+     projE.receita === 1000 && projE.receitaLiquida === 900 && Math.abs(projE.ebitda - 450) < 1e-9,
+     JSON.stringify(projE));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

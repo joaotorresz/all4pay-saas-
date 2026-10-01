@@ -259,13 +259,16 @@ export function EnvioNFsView() {
                     <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                       <span
                         className="w-[6px] h-[6px] rounded-pill"
-                        style={{ background: d.verificado ? "var(--color-positive)" : "var(--color-warning)" }}
+                        style={{ background: ENVIO_SIMULADO && d.verificado ? "var(--color-positive)" : "var(--color-warning)" }}
                       />
-                      {d.verificado
-                        ? `Verificado em ${fmtDia(d.verificadoEm!)}`
-                        : ENVIO_SIMULADO
-                          ? "Aguardando confirmação — não recebe até clicar no link"
-                          : "Não verificado — a confirmação por e-mail ainda não está ligada"}
+                      {/* ⚠️ Fora da demonstração não existe link de confirmação, então
+                          nenhum "Verificado" é verdadeiro — mesmo o que ficou gravado de
+                          antes (o "Simular confirmação" chegou a aparecer em produção). */}
+                      {!ENVIO_SIMULADO
+                        ? `Cadastrado em ${fmtDia(d.criadoEm)} — a confirmação por e-mail ainda não está ligada`
+                        : d.verificado
+                          ? `Verificado em ${fmtDia(d.verificadoEm!)}`
+                          : "Aguardando confirmação — não recebe até clicar no link"}
                     </span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">

@@ -202,3 +202,38 @@ de XMLs (exige reter o XML: certificado A1 para a entrada, emissor para a saída
 e enviá-lo por e-mail (Resend, via o motor de automações, com registro de envio
 idempotente como o de `automacao_envios`), mais o link de confirmação do double
 opt-in. Até lá a tela não promete nada disso.
+
+## Revisão adversarial da rodada 3 — branch `r4/contabil-rev`
+
+Quatro furos nas correções acima, cada um com guarda no mesmo bloco do
+`engine-audit`, provada plantando o defeito (5 plantios, 5 reprovações
+nomeando a asserção):
+
+- **A provisão entrava e o estorno não, calado.** As duas portas postavam as
+  metades em chamadas separadas; se a do estorno caía (rede, recusa, conflito),
+  a tela dizia só "Falha: …" — com a provisão JÁ no razão, sem estorno, contando
+  a despesa duas vezes. Agora as duas portas chamam o MESMO gesto,
+  `postarProvisaoComEstorno` (`core/close`, quem posta entra por parâmetro), que
+  nomeia o estorno que não entrou e diz que lançar de novo é seguro.
+- **`dreProjetado` ainda misturava duas classificações.** A correção aplicava
+  "líquida ÷ bruta da cascata" à receita do agregador local, que soma TODA
+  entrada: um empréstimo recebido entrava na base das margens (medido: EBITDA
+  900 em vez de 450). As duas bases (bruta e líquida) saem agora da cascata;
+  o agregador só escolhe os meses.
+- **Destinatário "Verificado" em produção.** O "Simular confirmação" chegou a
+  existir em produção antes da rodada, então pode haver e-mail gravado como
+  verificado sem clique do contador. Fora da demonstração nenhum aparece
+  "Verificado": a linha diz "Cadastrado em … — a confirmação por e-mail ainda
+  não está ligada".
+- **A guarda do consolidado injetava o input à mão** e não via a chamada real;
+  passou a exigir que `getRiscoInputPorOrg` entregue `getRiscoInput()` na
+  demonstração.
+
+Dirigido no build de demonstração (porta 3183): o DRE multiempresas e o
+`/consolidado` mostram "Empresa atual" e as eliminações (Holding → Filial); o
+Envio de NFs mostra "Baixar relação do mês". A provisão não pôde ser dirigida —
+o seed atual não sugere nenhuma; ficou provada por valor na guarda.
+
+**Continua pendente do dono:** o executor do envio ao contador (acima) e se a
+projeção do DRE volta a ter tela. O achado lateral do `classificarDespesa` que
+não reconhece "Simples Nacional" segue fora do escopo.

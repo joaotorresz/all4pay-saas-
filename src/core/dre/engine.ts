@@ -403,7 +403,6 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
     .sort(([a], [b]) => a.localeCompare(b))
     .filter(([, agg]) => agg.receita > 0);
   const ult6 = mesesComReceita.slice(-6);
-  const receitaMensalBase = ult6.length ? ult6.reduce((s, [, a]) => s + a.receita, 0) / ult6.length : 0;
   /*
    * ⚠️ AS MARGENS SÃO SOBRE A RECEITA LÍQUIDA (a cascata e `core/indicadores`:
    * "EBITDA ÷ receita líquida"). Multiplicá-las pela receita BRUTA, como esta
@@ -423,8 +422,15 @@ export function dreProjetado(input: RiskInput, margemEbitda: number, margemLiqui
     brutaCascata += c.linhas.receita_bruta.valor;
     liquidaCascata += c.linhas.receita_liquida.valor;
   }
-  const proporcaoLiquida = brutaCascata > 0 ? liquidaCascata / brutaCascata : 1;
-  const receitaLiquidaBase = receitaMensalBase * proporcaoLiquida;
+  /*
+   * ⚠️ (revisão) AS DUAS BASES SAEM DA CASCATA, não uma proporção dela aplicada
+   * à soma local. `porMes` conta como receita TODA entrada (empréstimo, resgate,
+   * rendimento) e a cascata não; "líquida ÷ bruta da cascata × bruta local"
+   * levava o empréstimo para dentro da base das margens. `porMes` só escolhe
+   * QUAIS meses entram (os 6 mais recentes com entrada).
+   */
+  const receitaMensalBase = ult6.length ? brutaCascata / ult6.length : 0;
+  const receitaLiquidaBase = ult6.length ? liquidaCascata / ult6.length : 0;
   void fc;
 
   const horizontes: { label: string; meses: number }[] = [

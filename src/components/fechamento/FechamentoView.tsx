@@ -15,7 +15,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Card, BRL, StatusBadge, Button, Icon, Skeleton, InfoHint, Select, DateField, Textarea } from "@/components/ui";
 import { getRiscoInput } from "@/lib/data";
-import { montarFechamento, mesLabel, provisaoComEstorno, primeiroDiaDoMesSeguinte, mensagemDaProvisao } from "@/core/close";
+import { montarFechamento, mesLabel, postarProvisaoComEstorno } from "@/core/close";
 import {
   ROTULO_STATUS, MOTIVO_MINIMO, atrasada, avaliarRevisao, prontidao as prontidaoDe, podeTravar,
   type TarefaFechamento, type MembroFechamento,
@@ -116,15 +116,10 @@ export function FechamentoView() {
   const lancarProvisao = async (categoria: string, valor: number) => {
     if (!mesAtivo || valor <= 0) return;
     try {
-      // A provisão e o seu estorno nascem juntos — ver `provisaoComEstorno`.
-      const [provisao, estorno] = provisaoComEstorno(mesAtivo, categoria, valor);
-      // ⚠️ O retorno DIZ o que aconteceu: com a chave já no razão nada é
-      // lançado, e anunciar "lançada" sobre um razão que não mudou é o
-      // "idempotência que volta calada" (core/ledger/idempotencia).
-      const rp = await postarLancamento(provisao);
-      const re = await postarLancamento(estorno);
-      const quando = primeiroDiaDoMesSeguinte(mesAtivo).split("-").reverse().join("/");
-      setProvMsg(mensagemDaProvisao(categoria, quando, rp, re));
+      // A provisão e o seu estorno nascem juntos, pelo MESMO gesto das duas
+      // portas: `postarProvisaoComEstorno` diz o que o razão fez com cada
+      // metade e nomeia o estorno que não entrou.
+      setProvMsg(await postarProvisaoComEstorno(postarLancamento, mesAtivo, categoria, valor));
     } catch (e) { setProvMsg(`Falha: ${(e as Error).message}`); }
   };
 

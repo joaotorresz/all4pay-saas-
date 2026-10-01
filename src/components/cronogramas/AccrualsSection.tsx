@@ -14,7 +14,7 @@ import { getRiscoInput } from "@/lib/data";
 import { sugerirAccruals, type AccrualSugerido } from "@/lib/accruals";
 import { postarLancamento } from "@/lib/ledger";
 import { nomeConta } from "@/core/ledger/chart";
-import { provisaoComEstorno, primeiroDiaDoMesSeguinte, mensagemDaProvisao, CONTA_PROVISOES_A_PAGAR as PROVISAO } from "@/core/close";
+import { postarProvisaoComEstorno, CONTA_PROVISOES_A_PAGAR as PROVISAO } from "@/core/close";
 
 export function AccrualsSection() {
   const { show, node } = useToast();
@@ -64,12 +64,9 @@ export function AccrualsSection() {
     const valor = r?.valor ?? a.valor;
     setBusy(a.categoria);
     try {
-      const [provisao, estorno] = provisaoComEstorno(mes, a.categoria, valor, a.conta);
-      const rp = await postarLancamento(provisao);
-      const re = await postarLancamento(estorno);
+      const msg = await postarProvisaoComEstorno(postarLancamento, mes, a.categoria, valor, a.conta);
       setPostados((s) => new Set(s).add(a.categoria));
-      const quando = primeiroDiaDoMesSeguinte(mes).split("-").reverse().join("/");
-      show(mensagemDaProvisao(a.categoria, quando, rp, re));
+      show(msg);
     } catch (e) { show(`Falha ao lançar: ${(e as Error).message}`); }
     finally { setBusy(null); }
   };
