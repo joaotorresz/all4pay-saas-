@@ -37,8 +37,10 @@ export interface InvestorUpdate {
     /** ⚠️ `null` = runway indisponível (sem queima / caixa negativo) — nunca "0 meses". */
     runwayMeses: number | null;
     receitaMes: number;
-    crescimentoMoM: number; // -1..+
-    mrrEstimado: number;
+    /** `null` sem receita no mês anterior — sem base não há variação. */
+    crescimentoMoM: number | null; // -1..+
+    /** `null` quando o MRR canônico é indisponível — nunca "R$ 0,00". */
+    mrrEstimado: number | null;
     /** `null` quando não houve receita líquida — sem receita não existe margem. */
     margemLiquida: number | null; // 0..1
     inadimplencia: number; // 0..1
@@ -61,38 +63,61 @@ const pct = (v: number, casas = 0) =>
 
 import { cascataDRE } from "@/core/relatorios/cascata";
 
+/** "2026-10" → "2026-09" (fatiando a string — nunca getMonth de Date UTC). */
+function mesAnterior(ym: string): string {
+  const [a, m] = ym.split("-").map(Number);
+  return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+}
+function cascataDoMes(input: RiskInput, ym: string) {
+  const [a, m] = ym.split("-").map(Number);
+  const ultimo = `${ym}-${String(new Date(a, m, 0).getDate()).padStart(2, "0")}`;
+  return cascataDRE(input, { intervalo: { de: `${ym}-01`, ate: ultimo }, regime: "competencia" });
+}
+/** Variação com o SINAL escrito (− U+2212 no negativo); ausente vira "—". */
+function textoMoM(v: number | null): string {
+  if (v === null) return "—";
+  return `${v >= 0 ? "+" : "−"}${pct(Math.abs(v), 1)}`;
+}
+
 import { formatBRL } from "@/lib/format";
 export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   const q = analisarQuantitativo(input);
   const ind = q.indicadores;
 
-  // fatia string "YYYY-MM-DD" (nunca getMonth de Date UTC — vide guarda tz)
-  const [anoS, mesS] = input.hoje.slice(0, 10).split("-");
-  const mesReferencia = `${MESES[Math.max(0, Number(mesS) - 1)]} de ${anoS}`;
-
   /*
    * ═══════════════════════════════════════════════════════════════════════
-   * ⚠️ RECEITA DO MÊS E MARGEM LÍQUIDA VÊM DA CASCATA — regime de COMPETÊNCIA.
+   * ⚠️ O MÊS DO RELATÓRIO É O ÚLTIMO MÊS FECHADO, não o mês de `hoje`.
    * ═══════════════════════════════════════════════════════════════════════
    *
-   * Saíam de `q.serie` / `q.indicadores`, que derivam do burn de 90 dias, ou
-   * seja, de CAIXA. Investidor que lê "margem líquida" espera competência: é
-   * assim que ele compara a empresa com qualquer outra, e é assim que o número
-   * vai aparecer na diligência. Um número de caixa sob rótulo de competência
-   * não é uma imprecisão — é o tipo de coisa que aparece CONTRA a empresa
-   * quando alguém confere.
+   * Medido no dia 1º de outubro: o texto dizia "Fechamos outubro de 2026 com
+   * R$ 446.517,16 de receita (−53,8% MoM)". Outubro tinha UM dia; a receita
+   * era a competência do mês inteiro (títulos que ainda vão vencer) e o MoM
+   * vinha de OUTRA base (a série de CAIXA do motor quantitativo) — três
+   * afirmações erradas numa frase que vai para fora da empresa. Relatório ao
+   * investidor é sobre o mês ENCERRADO: no dia 1º de outubro, setembro.
    *
-   * O mês de referência é o mês corrente pela competência (vencimento).
+   * ⚠️ E o MoM sai da MESMA cascata, mês fechado contra o mês fechado
+   * anterior — receita e variação na mesma base, ou a frase compara competência
+   * com caixa. Sem receita no mês anterior a variação é AUSENTE (ONDA 4), não 0%.
    */
-  const primeiroDia = `${anoS}-${mesS}-01`;
-  const ultimoDia = `${anoS}-${mesS}-${String(new Date(Number(anoS), Number(mesS), 0).getDate()).padStart(2, "0")}`;
-  const casc = cascataDRE(input, { intervalo: { de: primeiroDia, ate: ultimoDia }, regime: "competencia" });
+  const ref = mesAnterior(input.hoje.slice(0, 7));
+  const antes = mesAnterior(ref);
+  const [anoS, mesS] = ref.split("-");
+  const mesReferencia = `${MESES[Math.max(0, Number(mesS) - 1)]} de ${anoS}`;
+  const casc = cascataDoMes(input, ref);
+  const cascAntes = cascataDoMes(input, antes);
   const receitaMes = casc.linhas.receita_bruta.valor;
+  const receitaAntes = cascAntes.linhas.receita_bruta.valor;
+  const crescimentoMoM = receitaAntes > 0 ? (receitaMes - receitaAntes) / receitaAntes : null;
   // ⚠️ MRR pelo indicador canônico. A conta anterior era
   // `receitaRecorrente × receitaMensal` — um SHARE (0..1) multiplicado por um
   // valor, que é uma definição diferente das outras três do sistema. O número
   // que ia para o investidor não era o mesmo que a tela de assinaturas exibia.
-  const mrrEstimado = mrrCanonico(input).valor;
+  // ⚠️ E a AUSÊNCIA atravessa: o canônico devolve `valor: 0` junto com
+  // `indisponivel` quando não há base, e "MRR R$ 0,00 · ARR R$ 0,00" num
+  // relatório ao investidor afirma que a empresa não tem receita recorrente.
+  const mrrInd = mrrCanonico(input);
+  const mrrEstimado = mrrInd.indisponivel ? null : mrrInd.valor;
   const runway = ind.runwayMeses;
 
   const raw = {
@@ -100,7 +125,7 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
     burn: ind.burnRate,
     runwayMeses: runway,
     receitaMes,
-    crescimentoMoM: ind.crescimentoMensal,
+    crescimentoMoM,
     mrrEstimado,
     // ⚠️ `null` quando não houve receita líquida: sem receita não existe margem,
     // e "0%" diria ao investidor que a empresa vendeu e não sobrou nada.
@@ -112,16 +137,18 @@ export function montarInvestorUpdate(input: RiskInput): InvestorUpdate {
   };
 
   const kpis: InvestorKpi[] = [
-    { id: "caixa", label: "Caixa", valor: raw.caixa, moeda: true, hint: "saldo consolidado das contas" },
+    { id: "caixa", label: "Caixa", valor: raw.caixa, moeda: true, hint: "saldo consolidado das contas, hoje" },
     { id: "burn", label: "Burn mensal", valor: raw.burn, moeda: true, hint: "consumo líquido de caixa/mês (0 = gera caixa)" },
     { id: "runway", label: "Runway",
       valor: runway === null ? rotuloRunway(ind) : runway >= 120 ? "10+ anos" : `${runway.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} meses`,
       hint: runway === null ? (ind.runwayMotivo?.motivo ?? "sem base de cálculo") : "caixa ÷ burn" },
     { id: "receita", label: "Receita do mês", valor: receitaMes, moeda: true,
-      hint: "receita bruta operacional do mês, competência (cascata do DRE)" },
-    { id: "mom", label: "Crescimento MoM", valor: `${raw.crescimentoMoM >= 0 ? "+" : ""}${pct(raw.crescimentoMoM, 1)}`, hint: "receita vs. mês anterior" },
-    { id: "mrr", label: "MRR estimado", valor: mrrEstimado, moeda: true, hint: "receita das contrapartes recorrentes, mensalizada" },
-    { id: "arr", label: "ARR estimado", valor: mrrEstimado * 12, moeda: true, hint: "MRR × 12" },
+      hint: `receita bruta operacional de ${mesReferencia}, competência (cascata do DRE)` },
+    { id: "mom", label: "Crescimento MoM", valor: textoMoM(crescimentoMoM),
+      hint: crescimentoMoM === null ? "sem receita no mês anterior — sem base não há variação" : "receita vs. mês anterior, mesma base (competência)" },
+    { id: "mrr", label: "MRR estimado", valor: mrrEstimado ?? "—", moeda: mrrEstimado !== null,
+      hint: mrrEstimado === null ? (mrrInd.indisponivel?.motivo ?? "sem base para estimar") : "receita das contrapartes recorrentes, mensalizada" },
+    { id: "arr", label: "ARR estimado", valor: mrrEstimado === null ? "—" : mrrEstimado * 12, moeda: mrrEstimado !== null, hint: "MRR × 12" },
     { id: "margem", label: "Margem líquida",
       valor: raw.margemLiquida === null ? "—" : pct(raw.margemLiquida, 1),
       hint: raw.margemLiquida === null
@@ -182,9 +209,9 @@ export function gerarTextoInvestorUpdate(
   linhas.push("TL;DR");
   linhas.push(
     en
-      ? `We closed ${mesRef} with ${brl(r.receitaMes)} in revenue (${r.crescimentoMoM >= 0 ? "+" : ""}${pct(r.crescimentoMoM, 1)} MoM), ` +
+      ? `We closed ${mesRef} with ${brl(r.receitaMes)} in revenue (${r.crescimentoMoM === null ? "no prior month to compare" : `${textoMoM(r.crescimentoMoM)} MoM`}), ` +
         `${brl(r.caixa)} in cash and ${r.burn > 0 ? `a ${brl(r.burn)}/month burn (${r.runwayMeses === null ? "cash already negative" : `${runwayStr} months of runway`})` : "positive cash generation"}.`
-      : `Fechamos ${mesRef} com ${brl(r.receitaMes)} de receita (${r.crescimentoMoM >= 0 ? "+" : ""}${pct(r.crescimentoMoM, 1)} MoM), ` +
+      : `Fechamos ${mesRef} com ${brl(r.receitaMes)} de receita (${r.crescimentoMoM === null ? "sem mês anterior para comparar" : `${textoMoM(r.crescimentoMoM)} MoM`}), ` +
         `caixa de ${brl(r.caixa)} e ${r.burn > 0 ? `burn de ${brl(r.burn)}/mês (${r.runwayMeses === null ? "caixa já negativo" : `runway de ${runwayStr} meses`})` : "geração de caixa positiva"}.`,
   );
   linhas.push("");

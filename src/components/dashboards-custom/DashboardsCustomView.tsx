@@ -14,10 +14,11 @@ import { createPortal } from "react-dom";
 import { Card, Button, Icon, Input, Textarea, Select, Switch } from "@/components/ui";
 import {
   CATALOGO, FONTES_METRICA, FONTES_SERIE, FONTES_CATEGORIA,
-  dashboardVazio, templateAcompanhamentoSemanal, widgetPadrao, sugerirWidgets, novoId,
+  dashboardVazio, templateAcompanhamentoSemanal, widgetPadrao, sugerirWidgets, novoId, tituloAoTrocarFonte,
   type DashboardCustom, type Widget, type TipoWidget, type Largura,
 } from "@/core/dashboards";
-import { listarDashboards, salvarDashboard, removerDashboard } from "@/lib/dashboards";
+import { listarDashboards, salvarDashboard, removerDashboard, usuarioAtualId, visiveisPara } from "@/lib/dashboards";
+import { inscrever, CHAVES_ORG } from "@/lib/store-org";
 import { WidgetRender } from "./WidgetRender";
 
 type Aba = "todos" | "pessoal" | "empresa";
@@ -35,16 +36,24 @@ export function DashboardsCustomView() {
     if (new URLSearchParams(window.location.search).get("novo")) setEditando(dashboardVazio());
   }, []);
 
-  React.useEffect(() => { setLista(listarDashboards()); }, []);
+  const [eu, setEu] = React.useState<string>("local");
+  React.useEffect(() => { void usuarioAtualId().then(setEu); }, []);
+  // A lista acompanha a hidratação do servidor (o estado é da organização):
+  // sem a inscrição, o painel que um colega salvou só apareceria ao recarregar.
+  React.useEffect(() => {
+    setLista(listarDashboards());
+    return inscrever(CHAVES_ORG.dashboardsCustom, () => setLista(listarDashboards()));
+  }, []);
 
-  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d)); setEditando(null); };
+  const salvar = (d: DashboardCustom) => { setLista(salvarDashboard(d, eu)); setEditando(null); };
   const abrirTemplate = () => setEditando(templateAcompanhamentoSemanal());
 
   if (editando) {
     return <Editor inicial={editando} onSalvar={salvar} onCancelar={() => setEditando(null)} />;
   }
 
-  const visiveis = aba === "todos" ? lista : lista.filter((d) => d.escopo === aba);
+  const meus = visiveisPara(lista, eu);
+  const visiveis = aba === "todos" ? meus : meus.filter((d) => d.escopo === aba);
 
   return (
     <div className="flex flex-col gap-5 pb-4">
@@ -315,12 +324,12 @@ function EditorWidget({ w, onChange }: { w: Widget; onChange: (p: Partial<Widget
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Título</label>
+        <label className="flex flex-col gap-[6px]">
+          <span className="text-caption font-medium text-muted">Título</span>
           <Input value={w.titulo} onChange={(e) => onChange({ titulo: e.target.value })} />
-        </div>
-        <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Largura</label>
+        </label>
+        <label className="flex flex-col gap-[6px]">
+          <span className="text-caption font-medium text-muted">Largura</span>
           <Select
             value={String(w.largura)}
             onChange={(v) => onChange({ largura: Number(v) as Largura })}
@@ -330,64 +339,69 @@ function EditorWidget({ w, onChange }: { w: Widget; onChange: (p: Partial<Widget
               { value: "3", label: "Largura total" },
             ]}
           />
-        </div>
+        </label>
       </div>
 
       {w.tipo === "kpi" && (
         <CampoFonte label="Fonte da métrica" value={w.fonte}
           options={FONTES_METRICA.map((f) => ({ value: f.id, label: f.label }))}
-          onChange={(v) => onChange({ fonte: v })} />
+          onChange={(v) => onChange({ fonte: v, titulo: tituloAoTrocarFonte(w.titulo, rotulo(FONTES_METRICA, w.fonte), rotulo(FONTES_METRICA, v)) })} />
       )}
 
       {w.tipo === "serie" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <CampoFonte label="Fonte da série" value={w.fonte}
             options={FONTES_SERIE.map((f) => ({ value: f.id, label: f.label }))}
-            onChange={(v) => onChange({ fonte: v })} />
-          <div className="flex flex-col gap-[6px]">
-            <label className="text-caption font-medium text-muted">Formato</label>
+            onChange={(v) => onChange({ fonte: v, titulo: tituloAoTrocarFonte(w.titulo, rotulo(FONTES_SERIE, w.fonte), rotulo(FONTES_SERIE, v)) })} />
+          <label className="flex flex-col gap-[6px]">
+            <span className="text-caption font-medium text-muted">Formato</span>
             <Select value={w.formato} onChange={(v) => onChange({ formato: v as "linha" | "barras" })}
               options={[{ value: "barras", label: "Barras" }, { value: "linha", label: "Linha" }]} />
-          </div>
+          </label>
         </div>
       )}
 
       {w.tipo === "pizza" && (
         <CampoFonte label="Fonte das fatias" value={w.fonte}
           options={FONTES_CATEGORIA.map((f) => ({ value: f.id, label: f.label }))}
-          onChange={(v) => onChange({ fonte: v })} />
+          onChange={(v) => onChange({ fonte: v, titulo: tituloAoTrocarFonte(w.titulo, rotulo(FONTES_CATEGORIA, w.fonte), rotulo(FONTES_CATEGORIA, v)) })} />
       )}
 
       {w.tipo === "texto" && (
-        <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Conteúdo</label>
+        <label className="flex flex-col gap-[6px]">
+          <span className="text-caption font-medium text-muted">Conteúdo</span>
           <Textarea rows={4} value={w.texto} onChange={(e) => onChange({ texto: e.target.value })} />
-        </div>
+        </label>
       )}
 
       {w.tipo === "semana" && (
-        <div className="flex flex-col gap-[6px]">
-          <label className="text-caption font-medium text-muted">Mostrar</label>
+        <label className="flex flex-col gap-[6px]">
+          <span className="text-caption font-medium text-muted">Mostrar</span>
           <Select value={w.direcao} onChange={(v) => onChange({ direcao: v as "pagar" | "receber" | "ambos" })}
             options={[
               { value: "ambos", label: "A pagar e a receber" },
               { value: "pagar", label: "Só a pagar" },
               { value: "receber", label: "Só a receber" },
             ]} />
-        </div>
+        </label>
       )}
     </div>
   );
 }
 
+/** O rótulo de uma fonte pelo id (vazio quando a fonte não existe mais). */
+const rotulo = (lista: { id: string; label: string }[], id: string) => lista.find((f) => f.id === id)?.label ?? "";
+
 function CampoFonte({
   label, value, options, onChange,
 }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void }) {
   return (
-    <div className="flex flex-col gap-[6px]">
-      <label className="text-caption font-medium text-muted">{label}</label>
+    // O rótulo ENVOLVE o seletor: solto, ele não nomeava o campo (leitor de
+    // tela dizia só "caixa de seleção" — qual das três fontes?).
+    <label className="flex flex-col gap-[6px]">
+      <span className="text-caption font-medium text-muted">{label}</span>
       <Select value={value} onChange={onChange} options={options} />
-    </div>
+    </label>
   );
 }
 

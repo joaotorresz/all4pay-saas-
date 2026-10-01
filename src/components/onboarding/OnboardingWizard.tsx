@@ -167,14 +167,21 @@ function OnboardingEmpresa({ onTrocarTipo }: { onTrocarTipo: () => void }) {
       // ⚠️ `limite` é REMOVIDO aqui: guardá-lo no perfil recriaria a morada
       // morta que acabamos de fechar, e a próxima tela leria dela achando que
       // decide algo. Há guarda com teto ZERO contra isso.
+      // ⚠️ Não é mais "best-effort" mudo: a recusa do banco vai para a tela e
+      // o "Concluir" seguinte tenta de novo (a conta já existe, o perfil é
+      // upsert e a estrutura deduplica por nome). Engolir aqui fazia a pessoa
+      // entrar num ambiente sem as contas e centros que acabou de escolher.
       try {
         const semLimite = participantes.map(({ limite: _limite, ...resto }) => resto);
         await persistCompany({ db, perfil, participantes: semLimite, estrutura });
-      } catch { /* segue */ }
+      } catch (e) {
+        throw new Error(`Sua conta foi criada, mas o perfil da empresa não foi salvo: ${e instanceof Error ? e.message : String(e)}. Clique em concluir de novo.`);
+      }
       // Persiste as escolhas estruturais (contas/centros/unidades) — sem
-      // duplicar o seed da org. Best-effort: não bloqueia a entrada no sistema.
+      // duplicar o seed da org.
       if (configured) {
-        try { await aplicarEstrutura(estrutura); } catch { /* segue */ }
+        try { await aplicarEstrutura(estrutura); }
+        catch (e) { throw new Error(`Sua conta foi criada, mas ${e instanceof Error ? e.message : String(e)}. Clique em concluir de novo.`); }
       }
       if (report) await aplicarOnboarding(report); // cria/correlaciona (agora autenticado em live)
       router.push("/");

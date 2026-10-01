@@ -910,7 +910,7 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
 {
   const M = (o: Partial<EntradaFontes["movements"][number]>) =>
     ({ id: "m", type: "saida", amount: 0, status: "pago", due_date: "2026-07-10", paid_date: "2026-07-10", ...o }) as EntradaFontes["movements"][number];
-  const i: EntradaFontes = {
+  const i = {
     hoje: "2026-08-02",
     saldoAtual: 50_000,
     movements: [
@@ -922,8 +922,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
       M({ id: "6", type: "saida", amount: 6_000, due_date: "2026-07-05", paid_date: "2026-07-05", category: "Folha" }),
       M({ id: "7", type: "saida", amount: 3_000, due_date: "2024-01-05", paid_date: "2024-01-05", category: "Antigo" }), // fora da janela
     ],
-  };
-  const met = (id: string) => fonteMetrica(id).calcular(i);
+  } as unknown as EntradaFontes;
+  const met = (id: string) => fonteMetrica(id).calcular(i).valor;
 
   ok("dashboards: saldo é o saldo do sistema", met("saldo") === 50_000);
   ok("dashboards: receita do mês só conta o realizado do mês", met("receita_mes") === 10_000, `${met("receita_mes")}`);
@@ -935,12 +935,18 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dashboards: vencido a receber só o que passou do dia", met("vencido_receber") === 7_000, `${met("vencido_receber")}`);
   ok("dashboards: vencido a pagar não pega o que vence adiante", met("vencido_pagar") === 0, `${met("vencido_pagar")}`);
   ok("dashboards: títulos em aberto = contagem de pendentes", met("qtd_pendentes") === 2, `${met("qtd_pendentes")}`);
-  // Burn = média mensal de saída realizada nos 6 meses; runway = saldo ÷ burn.
+  // ⚠️ Burn e runway são os CANÔNICOS (queima LÍQUIDA de 90 dias). A versão
+  // anterior desta guarda cobrava "burn = média das saídas" (R$ 5.000 aqui) —
+  // ela fixava o defeito: a mesma empresa tinha um burn no dashboard dela e
+  // outro no Fluxo de caixa. Ver o bloco PLATAFORMA no fim do arquivo.
+  const { burn: burnCan, runwayMeses: rwCan } = await import("@/core/indicadores");
   const burn = met("burn");
-  ok("dashboards: burn é média por MÊS observado, não soma", burn === 5_000, `${burn}`);
-  ok("dashboards: runway = saldo ÷ burn", met("runway") === Math.round((50_000 / burn) * 10) / 10, `${met("runway")}`);
+  ok("dashboards: burn do widget == burn canônico", Math.abs(burn - burnCan(i as never).valor) < 0.01, `${burn}`);
+  const rwI = fonteMetrica("runway").calcular(i);
+  ok("dashboards: runway do widget == runway canônico (inclusive a ausência)",
+    !!rwI.indisponivel === !!rwCan(i as never).indisponivel && (rwI.indisponivel || Math.abs(rwI.valor - rwCan(i as never).valor) < 0.01), JSON.stringify(rwI));
   ok("dashboards: nenhuma métrica devolve NaN/Infinity",
-    FONTES_METRICA.every((f) => Number.isFinite(f.calcular(i))));
+    FONTES_METRICA.every((f) => Number.isFinite(f.calcular(i).valor)));
 
   const serie = (id: string) => fonteSerie(id).calcular(i, 12);
   ok("dashboards: série tem 12 pontos e termina no mês de hoje",
@@ -991,8 +997,8 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   ok("dashboards: ids de widget não se repetem", new Set(ids).size === ids.length);
 
   // Dataset vazio não pode virar NaN nem lista quebrada.
-  const zero: EntradaFontes = { hoje: "2026-08-02", saldoAtual: 0, movements: [] };
-  ok("dashboards: sem lançamento nenhuma métrica vira NaN", FONTES_METRICA.every((f) => Number.isFinite(f.calcular(zero))));
+  const zero = { hoje: "2026-08-02", saldoAtual: 0, movements: [] } as unknown as EntradaFontes;
+  ok("dashboards: sem lançamento nenhuma métrica vira NaN", FONTES_METRICA.every((f) => Number.isFinite(f.calcular(zero).valor)));
   ok("dashboards: sem lançamento a série vem zerada, não vazia",
     FONTES_SERIE.every((f) => f.calcular(zero, 12).length === 12 && f.calcular(zero, 12).every((p) => Number.isFinite(p.valor))));
   ok("dashboards: sem lançamento as fatias vêm vazias", FONTES_CATEGORIA.every((f) => f.calcular(zero).length === 0));
@@ -8955,6 +8961,187 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      && /rpc\("fechar_periodo"[\s\S]{0,200}if \(error\) throw new Error/.test(fecTar));
   ok("razao-rev: abrir o período devolve a mensagem do banco (era 'Cannot read properties of null')",
      /if \(error \|\| !data\) throw new Error\(error\?\.message/.test(fnDe("async function periodoIdLive")));
+}
+/* ── PLATAFORMA (conta pessoal, onboarding, painéis, administração) ── */
+{
+  const fsP = await import("node:fs");
+  // Comentários saem antes da busca: o comentário que EXPLICA a correção cita
+  // o defeito, e uma guarda que reprova a própria documentação é desligada.
+  const semComentario = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  const { INPUT: FX, INPUT_QUEIMANDO: FXQ } = await import("./fixture.mts");
+  const ind = await import("@/core/indicadores");
+  const { janelaDoMesDe } = await import("@/core/indicadores/janela");
+  const dash = await import("@/core/dashboards");
+
+  // ── dashboards customizados: as métricas são as CANÔNICAS ──
+  const burnQ = dash.fonteMetrica("burn").calcular(FXQ);
+  const burnCan = ind.burn(FXQ);
+  const saidasPagasQ = FXQ.movements.filter((m) => m.type === "saida" && m.status === "pago");
+  const mediaBruta = saidasPagasQ.reduce((s, m) => s + m.amount, 0) / 3;
+  ok("plataforma: o burn do widget é o burn CANÔNICO (queima líquida)",
+     !burnQ.indisponivel && Math.abs(burnQ.valor - burnCan.valor) < 0.01, `${burnQ.valor} × ${burnCan.valor}`);
+  ok("plataforma: o burn do widget NÃO é a média bruta das saídas (era o defeito)",
+     Math.abs(burnQ.valor - mediaBruta) > 1000, `${burnQ.valor} × bruta ${mediaBruta}`);
+  const rwQ = dash.fonteMetrica("runway").calcular(FXQ);
+  ok("plataforma: o runway do widget é o canônico em meses",
+     !rwQ.indisponivel && Math.abs(rwQ.valor - ind.runwayMeses(FXQ).valor) < 0.01, `${rwQ.valor}`);
+  const rwFx = dash.fonteMetrica("runway").calcular(FX);
+  ok("plataforma: sem queima o runway do widget é AUSENTE, nunca \"0 meses\"",
+     !!rwFx.indisponivel && ind.runwayMeses(FX).indisponivel?.codigo === "sem_queima", JSON.stringify(rwFx));
+  const vazio = { ...FX, movements: [] } as typeof FX;
+  const recVazio = dash.fonteMetrica("receita_mes").calcular(vazio);
+  ok("plataforma: receita do mês sem lançamento é AUSENTE (não R$ 0,00)", !!recVazio.indisponivel);
+  const recFx = dash.fonteMetrica("receita_mes").calcular(FX);
+  ok("plataforma: receita do mês do widget == entradas canônicas do mês",
+     Math.abs(recFx.valor - ind.entradas(FX, janelaDoMesDe(FX.hoje), "caixa").valor) < 0.01 && recFx.valor > 0, String(recFx.valor));
+  const pizza = dash.fonteCategoria("despesa_categoria").calcular(FX).reduce((s, f) => s + f.valor, 0);
+  const serie = dash.fonteSerie("despesa_12m").calcular(FX, 12).reduce((s, p) => s + p.valor, 0);
+  // ⚠️ (revisão) O título acompanha a fonte enquanto a pessoa não o escreveu:
+  // o KPI nascia "Saldo em caixa" e continuava assim depois de virar runway.
+  ok("plataforma: trocar a fonte troca o título padrão (Saldo em caixa → Runway)",
+     dash.tituloAoTrocarFonte("Saldo em caixa", "Saldo em caixa", "Runway") === "Runway"
+       && dash.tituloAoTrocarFonte("", "Saldo em caixa", "Runway") === "Runway");
+  ok("plataforma: trocar a fonte NÃO apaga um título escrito à mão",
+     dash.tituloAoTrocarFonte("Fôlego do caixa", "Saldo em caixa", "Runway") === "Fôlego do caixa");
+  const edDash = semComentario(fsP.readFileSync("src/components/dashboards-custom/DashboardsCustomView.tsx", "utf8"));
+  ok("plataforma: os três seletores de fonte do editor aplicam a regra do título",
+     (edDash.match(/titulo: tituloAoTrocarFonte\(/g) ?? []).length === 3);
+  ok("plataforma: nenhum rótulo solto no editor de dashboards (todo <label> envolve o campo)",
+     !/<label className="text-/.test(edDash));
+  ok("plataforma: a pizza de despesas fecha com a série de 12 meses", pizza > 0 && Math.abs(pizza - serie) < 0.01, `${pizza} × ${serie}`);
+
+  // ── Investor Update: o mês FECHADO, e receita e MoM na mesma base ──
+  const { montarInvestorUpdate, gerarTextoInvestorUpdate } = await import("@/core/investor");
+  const { cascataDRE } = await import("@/core/relatorios/cascata");
+  const up = montarInvestorUpdate(FX);
+  const julho = cascataDRE(FX, { intervalo: { de: "2026-07-01", ate: "2026-07-31" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  const junho = cascataDRE(FX, { intervalo: { de: "2026-06-01", ate: "2026-06-30" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  const agosto = cascataDRE(FX, { intervalo: { de: "2026-08-01", ate: "2026-08-31" }, regime: "competencia" }).linhas.receita_bruta.valor;
+  ok("plataforma: o Investor Update fala do ÚLTIMO MÊS FECHADO (hoje 15/08 → julho)", up.mesReferencia === "julho de 2026", up.mesReferencia);
+  ok("plataforma: a receita do update é a competência de julho (não a do mês corrente)",
+     Math.abs(up.raw.receitaMes - julho) < 0.01 && Math.abs(julho - agosto) > 1, `${up.raw.receitaMes} · jul ${julho} · ago ${agosto}`);
+  ok("plataforma: o MoM sai da MESMA cascata (julho contra junho)",
+     junho > 0 && up.raw.crescimentoMoM !== null && Math.abs(up.raw.crescimentoMoM - (julho - junho) / junho) < 1e-9, String(up.raw.crescimentoMoM));
+  ok("plataforma: o texto copiável diz o mês fechado", /Fechamos julho de 2026/.test(gerarTextoInvestorUpdate(up)));
+  const semBase = { ...FX, movements: FX.movements.filter((m) => m.due_date >= "2026-07-01") } as typeof FX;
+  const upSem = montarInvestorUpdate(semBase);
+  ok("plataforma: sem receita no mês anterior o MoM é AUSENTE (\"—\"), não 0%",
+     upSem.raw.crescimentoMoM === null && upSem.kpis.find((k) => k.id === "mom")?.valor === "—");
+  const mrrInd = ind.mrr(semBase);
+  const kMrr = upSem.kpis.find((k) => k.id === "mrr");
+  ok("plataforma: MRR indisponível no canônico não vira R$ 0,00 no update",
+     mrrInd.indisponivel ? kMrr?.valor === "—" && !kMrr?.moeda : kMrr?.valor === mrrInd.valor, JSON.stringify(kMrr));
+
+  // ── Logs: o "de X para Y" se busca como uma pessoa escreve ──
+  const adm = await import("@/core/administracao");
+  const resumo = adm.resumoDeMudanca({ valor: 25000, status: "rascunho" }, { valor: 78000, status: "rascunho" }, "updated");
+  const log = [{ id: "1", quando: "2026-03-14T09:00:00Z", acao: "alterou" as const, usuario: "João", origem: "Web", tipoEntidade: "Lançamento", entidadeId: "pay", entidade: "pay", resumo }];
+  ok("plataforma: o resumo do log fala português e grafia brasileira", resumo === "valor: de 25.000 para 78.000", resumo);
+  for (const b of ["de 25.000 para 78.000", "R$ 78.000,00", "78000", "de 25000 para 78000"])
+    ok(`plataforma: a busca dos logs acha "${b}"`, adm.filtrarLogs(log as never, { busca: b }).length === 1);
+  ok("plataforma: a busca dos logs não acha o que não está lá", adm.filtrarLogs(log as never, { busca: "99.000" }).length === 0);
+
+  // ── Dados da empresa: UMA morada para cada fato do cadastro ──
+  const { regimeDoCadastro } = await import("@/core/fiscal/perfil");
+  const antigo = { cnpj: "11.111.111/0001-11", documento: "22.222.222/0001-22", fantasia: "Velha", nomeFantasia: "Outra", regimeTributario: "Lucro Presumido", regime: "Lucro Presumido", repNome: "Ana" };
+  ok("plataforma: a tela mostra o CNPJ que o sistema usa (`cnpj`), não a chave histórica",
+     adm.identidadeDoCadastro(antigo).documento === "11.111.111/0001-11" && adm.identidadeDoCadastro(antigo).nomeFantasia === "Velha");
+  const dTela = { ...adm.identidadeDoCadastro(antigo), documento: "33.333.333/0001-33", nomeFantasia: "Nova", regime: "simples" } as unknown as Parameters<typeof adm.cadastroParaGravar>[1];
+  const gravado = adm.cadastroParaGravar(antigo, dTela);
+  ok("plataforma: salvar grava o CNPJ e o nome fantasia nas chaves que o sistema LÊ",
+     gravado.cnpj === "33.333.333/0001-33" && gravado.fantasia === "Nova", JSON.stringify(gravado));
+  ok("plataforma: salvar APAGA a segunda morada (`documento`, `nomeFantasia`)",
+     !("documento" in gravado) && !("nomeFantasia" in gravado));
+  ok("plataforma: o regime salvo é o que vale (as duas chaves que o resolvedor lê)",
+     regimeDoCadastro(gravado) === "simples" && regimeDoCadastro(antigo) === "presumido");
+  ok("plataforma: o que não é da tela continua no cadastro", gravado.repNome === "Ana");
+  // ⚠️ (revisão) Cadastro pessoal/antigo sem `tipoPessoa`, só com CPF: é pessoa
+  // FÍSICA. Assumir jurídica movia o CPF para `cnpj` no salvar seguinte.
+  const soCpf = { cpf: "123.456.789-09", razaoSocial: "Ana" };
+  const idCpf = adm.identidadeDoCadastro(soCpf);
+  const gravCpf = adm.cadastroParaGravar(soCpf, { ...idCpf, regime: "" } as unknown as Parameters<typeof adm.cadastroParaGravar>[1]);
+  ok("plataforma: cadastro só com CPF abre como pessoa física e o CPF continua em `cpf`",
+     idCpf.tipoPessoa === "fisica" && gravCpf.cpf === "123.456.789-09" && !("cnpj" in gravCpf), JSON.stringify(gravCpf));
+  ok("plataforma: o relatório de qualidade lê o documento pelas chaves canônicas",
+     /identidadeDoCadastro\(db\)\.documento/.test(fsP.readFileSync("src/lib/qualidade.ts", "utf8")));
+  // ⚠️ (revisão) "Nova empresa" REESCREVIA o cadastro da empresa aberta com os
+  // dados da "nova" (e apagava o regime declarado) — não existe porta no banco
+  // para o cliente criar uma segunda organização. A tela não grava cadastro.
+  const criarConta = semComentario(fsP.readFileSync("src/components/entrada/CriarContaView.tsx", "utf8"));
+  ok("plataforma: criar conta não mescla o cadastro guardado no navegador (de outra organização) no da nova",
+     /saveCompany\(/.test(criarConta) && !/saveCompany\(\{\s*\.\.\.\(?loadCompany/.test(criarConta));
+  const nova = semComentario(fsP.readFileSync("src/components/empresas/NovaEmpresaForm.tsx", "utf8"));
+  ok("plataforma: \"Nova empresa\" não grava por cima do cadastro da empresa aberta",
+     !/\b(saveCompany|persistCompany)\(/.test(nova) && !/localStorage\./.test(nova));
+  const dev = semComentario(fsP.readFileSync("src/components/administracao/DadosEmpresaView.tsx", "utf8"));
+  ok("plataforma: Dados da empresa grava no SERVIDOR (era só o cache do navegador — o escritor morto)",
+     /await persistCompany\(/.test(dev) && !/\bsaveCompany\(/.test(dev));
+
+  // ── Lixeira: cancelado é TERMINAL no banco; a tela não tenta ressuscitar ──
+  const migs = fsP.readdirSync("supabase/migrations").filter((f) => f.endsWith(".sql")).sort();
+  const ultimaMaquina = migs.filter((f) => /create or replace function public\.central_transicao_valida/.test(fsP.readFileSync(`supabase/migrations/${f}`, "utf8"))).pop()!;
+  const corpoMaquina = fsP.readFileSync(`supabase/migrations/${ultimaMaquina}`, "utf8");
+  ok("plataforma: na máquina do banco, cancelado não tem saída (premissa da Lixeira)",
+     !/when 'cancelado'/.test(corpoMaquina) && /else false/.test(corpoMaquina), ultimaMaquina);
+  const lix = semComentario(fsP.readFileSync("src/components/lixeira/LixeiraView.tsx", "utf8"));
+  ok("plataforma: a Lixeira não pede ao banco cancelado → previsto (recusado em produção, aceito na demo)",
+     !/restoreMovement/.test(lix) && /relancarCancelado\(/.test(lix));
+  ok("plataforma: a Lixeira mostra a mensagem real quando falha",
+     !/catch \{ show\(/.test(lix));
+  const rel = fsP.readFileSync("src/lib/lixeira-relancar.ts", "utf8");
+  ok("plataforma: lançar de novo tem procedência própria e não copia as chaves únicas",
+     /origem: "manual"/.test(rel) && !/COLUNAS_DE_NEGOCIO =[^;]*\b(chave|reference_code)\b/.test(rel));
+  // ⚠️ (revisão) Na demonstração o novo título tem a MESMA chave de
+  // idempotência do cancelado: acrescentar com o cancelado ainda no dataset
+  // descartava o novo como repetido, e a remoção seguinte apagava o título —
+  // "Lançado de novo" sobre nada. A ordem é remover, acrescentar e CONFERIR.
+  const ramoDemoRel = semComentario(rel).split("if (isDemo)")[1]?.split("const supabase")[0] ?? "";
+  ok("plataforma: na demonstração, lançar de novo remove o cancelado ANTES de acrescentar o novo e confere que ele entrou",
+     ramoDemoRel.indexOf("removerImported(") > -1 && ramoDemoRel.indexOf("removerImported(") < ramoDemoRel.indexOf("appendImported(")
+       && (ramoDemoRel.match(/removerImported\(/g) ?? []).length === 1 && /some\(\(x\) => x\.id === novoId\)/.test(ramoDemoRel));
+
+  // ── Onboarding: nenhuma recusa engolida; o saldo informado chega à conta ──
+  const onb = semComentario(fsP.readFileSync("src/lib/onboarding.ts", "utf8"));
+  ok("plataforma: aplicarEstrutura não transforma recusa do banco em \"zero criado\"", !/if \(!error\)/.test(onb) && /throw new Error/.test(onb));
+  // ⚠️ (revisão) A asserção acima só via a FORMA antiga (`if (!error)`): apagar
+  // UMA das conferências (`if (error) falhou(...)`) passava verde. Toda leitura
+  // e toda escrita do banco ali tem a sua conferência — contadas uma a uma.
+  const chamadasBanco = (onb.match(/await s\.from\(/g) ?? []).length;
+  const conferencias = (onb.match(/if \((?:error|e1)\) falhou\(/g) ?? []).length;
+  ok("plataforma: cada leitura/escrita de aplicarEstrutura confere o erro do banco",
+     chamadasBanco >= 6 && conferencias === chamadasBanco, `${conferencias} conferências para ${chamadasBanco} chamadas`);
+  ok("plataforma: o saldo informado no cadastro vira o saldo da conta", /balance: Math\.round\(\(c\.saldo/.test(onb));
+  for (const f of ["src/components/onboarding/OnboardingWizard.tsx", "src/components/onboarding/OnboardingPessoal.tsx"]) {
+    const t = semComentario(fsP.readFileSync(f, "utf8"));
+    ok(`plataforma: ${f.split("/").pop()} não engole a recusa do perfil nem da estrutura`,
+       !/persistCompany\([^)]*\);?\s*\}\s*catch \{/.test(t) && !/aplicarEstrutura\([^)]*\);?\s*\}\s*catch \{/.test(t));
+  }
+  const pes = fsP.readFileSync("src/components/onboarding/OnboardingPessoal.tsx", "utf8");
+  ok("plataforma: o cadastro pessoal leva o \"Saldo atual\" para a primeira carteira", /saldo: saldoInicial/.test(pes));
+
+  // ── Dashboards customizados: o estado é da ORGANIZAÇÃO ──
+  const libDash = semComentario(fsP.readFileSync("src/lib/dashboards.ts", "utf8"));
+  ok("plataforma: os dashboards gravam pelo store-org (o localStorage cru nunca subia e a hidratação o sobrescrevia)",
+     /gravarOrg\(/.test(libDash) && /\bler<DashboardCustom\[\]>\(/.test(libDash) && !/localStorage\./.test(libDash));
+  const { visiveisPara } = await import("@/lib/dashboards");
+  const lst = [
+    { id: "a", escopo: "pessoal", dono: "u1" }, { id: "b", escopo: "pessoal", dono: "u2" },
+    { id: "c", escopo: "empresa", dono: "u2" }, { id: "d", escopo: "pessoal" },
+  ] as never[];
+  ok("plataforma: painel pessoal de um colega não aparece; o de empresa sim",
+     visiveisPara(lst, "u1").map((d: { id: string }) => d.id).join() === "a,c,d");
+
+  // ── Telas que diziam ter feito o que não fizeram ──
+  const inv = semComentario(fsP.readFileSync("src/components/investidores/InvestorUpdateView.tsx", "utf8"));
+  ok("plataforma: \"Copiado\" só depois de a área de transferência confirmar", /await navigator\.clipboard\.writeText/.test(inv));
+  const admv = semComentario(fsP.readFileSync("src/components/administracao/AdministracaoViews.tsx", "utf8"));
+  ok("plataforma: remover/trocar perfil/convidar mostram a recusa do servidor (promessa não fica solta)",
+     /try \{ await removeMember\(id\); \}/.test(admv) && /try \{ await saveMember\(\{ \.\.\.original/.test(admv) && /catch \(e\) \{ setErro\(/.test(admv));
+
+  // ── Modo pessoal: o "Adicionar" existe na tela ──
+  const ia = semComentario(fsP.readFileSync("src/components/visao-geral/InicioActions.tsx", "utf8"));
+  ok("plataforma: no modo pessoal a Visão geral tem o botão Adicionar (não havia porta visível)",
+     /pessoal && <NovoDeposito \/>/.test(ia));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

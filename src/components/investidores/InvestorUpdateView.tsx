@@ -21,19 +21,29 @@ export function InvestorUpdateView() {
   const [destaques, setDestaques] = React.useState("");
   const [pedidos, setPedidos] = React.useState("");
   const [idioma, setIdioma] = React.useState<"pt" | "en">("pt");
-  const [copiado, setCopiado] = React.useState(false);
+  const [copiado, setCopiado] = React.useState<null | "ok" | "falhou">(null);
 
   const texto = React.useMemo(
     () => (u ? gerarTextoInvestorUpdate(u, { empresa, destaques, pedidos, idioma }) : ""),
     [u, empresa, destaques, pedidos, idioma],
   );
 
-  const copiar = () => {
+  /**
+   * ⚠️ Dizia "Copiado" ANTES de saber se copiou: `writeText` é assíncrono, e
+   * o `try` síncrono não via a recusa (permissão negada, contexto sem HTTPS,
+   * navegador sem a API). A pessoa colava no e-mail o que estava antes na
+   * área de transferência. Agora o selo só aparece depois da confirmação, e a
+   * falha é dita.
+   */
+  const copiar = async () => {
     try {
-      void navigator.clipboard?.writeText(texto);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 1800);
-    } catch { /* ignore */ }
+      if (!navigator.clipboard) throw new Error("sem área de transferência");
+      await navigator.clipboard.writeText(texto);
+      setCopiado("ok");
+    } catch {
+      setCopiado("falhou");
+    }
+    setTimeout(() => setCopiado(null), 2400);
   };
 
   const enviarEmail = () => {
@@ -139,8 +149,8 @@ export function InvestorUpdateView() {
                       E-mail
                     </Button>
                     <Button variant="secondary" size="sm" onClick={copiar}>
-                      <Icon name={copiado ? "check" : "file-text"} size={14} color="currentColor" />
-                      {copiado ? "Copiado" : "Copiar"}
+                      <Icon name={copiado === "ok" ? "check" : "file-text"} size={14} color="currentColor" />
+                      {copiado === "ok" ? "Copiado" : copiado === "falhou" ? "Não copiou — selecione o texto" : "Copiar"}
                     </Button>
                   </div>
                 </div>
