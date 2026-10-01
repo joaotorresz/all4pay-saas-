@@ -13,7 +13,7 @@ import {
   type Recorrencia, type ItemRec, type Ciclo, type StatusRec,
 } from "@/lib/recorrencias";
 import { criarNfse, transmitirNfse } from "@/lib/nfse";
-import { HORIZONTE_ATIVACAO_DIAS } from "@/lib/recorrencias-sched";
+import { HORIZONTE_ATIVACAO_DIAS, mensagemDaAtivacao } from "@/lib/recorrencias-sched";
 import type { Party } from "@/lib/types";
 
 const STATUS: Record<StatusRec, { label: string; cor: string }> = {
@@ -84,9 +84,7 @@ export function RecorrenciasView() {
     await refresh();
     // A tela diz QUANTAS faturas entraram — "entram no previsto" com zero
     // faturas era o que aparecia quando o banco recusava.
-    show(res.faturas > 0
-      ? `Ativada — ${res.faturas} fatura${res.faturas === 1 ? "" : "s"} nos próximos ${res.horizonteDias} dias entra${res.faturas === 1 ? "" : "m"} no previsto (Títulos a receber, fluxo e DRE)`
-      : `Ativada — nenhuma fatura vence nos próximos ${res.horizonteDias} dias, então nada entrou no previsto ainda`);
+    show(mensagemDaAtivacao(res));
   };
   const encerrar = async (r: Recorrencia, st: "pausada" | "cancelada") => {
     try { await encerrarRecorrencia(r.id, st); } catch (e) { await refresh(); show(`Não foi possível ${st === "cancelada" ? "cancelar" : "pausar"}: ${msg(e)}`); return; }

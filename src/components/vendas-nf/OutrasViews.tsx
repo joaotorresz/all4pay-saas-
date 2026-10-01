@@ -23,7 +23,7 @@ import { loadCompany } from "@/lib/company";
 import { listRecorrencias, hydrateRecorrencias, CICLOS, totalFatura } from "@/lib/recorrencias";
 import {
   painelNotasFiscais, provisionarImpostos, contasAPagarDosImpostos, pendenciasConfig,
-  pixDoLink, validarLink,
+  pixDoLink, validarLink, mensagemDaProposta,
   IMPOSTOS, ROTULO_IMPOSTO, ESFERA, ROTULO_ESFERA, FORNECEDORES_PROPOSTOS, STATUS_NF,
   type Venda, type ConfigImpostos, type Imposto, type Regime, type LinkPagamento, type Esfera,
 } from "@/core/vendas";
@@ -272,6 +272,7 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
     const novos: Record<Esfera, string> = { ...atuais };
     let criados = 0;
     let reaproveitados = 0;
+    let falha: string | null = null;
     try {
       for (const f of FORNECEDORES_PROPOSTOS) {
         if (novos[f.esfera]) continue;
@@ -287,13 +288,10 @@ function ProvisionamentoImpostos({ regimeEmpresa }: { regimeEmpresa: Regime }) {
         criados++;
       }
     } catch (e) {
-      show(`Não foi possível criar o fornecedor proposto: ${e instanceof Error ? e.message : String(e)}`);
+      falha = e instanceof Error ? e.message : String(e);
     }
     setConfig((c) => salvarConfigImpostos({ ...c, fornecedores: novos }));
-    const partesMsg = [criados > 0 && `${criados} criado${criados === 1 ? "" : "s"}`,
-      reaproveitados > 0 && `${reaproveitados} já cadastrado${reaproveitados === 1 ? "" : "s"}`].filter(Boolean);
-    if (partesMsg.length) show(`Fornecedores escolhidos: ${partesMsg.join(" · ")}.`);
-    else show("Todas as esferas já tinham fornecedor — nada a propor.");
+    show(mensagemDaProposta({ criados, reaproveitados, falha }));
     return novos;
   };
 
@@ -749,8 +747,9 @@ export function LinksPagamentoView() {
                   onClick={() => {
                     const pix = l.ativo ? pixDoLink(l, recebedor ?? null) : null;
                     if (!pix) { show("Cadastre o CNPJ da empresa para gerar o PIX."); return; }
-                    navigator.clipboard?.writeText(pix).then(() => show("PIX copia-e-cola copiado."))
-                      .catch(() => show("Não foi possível copiar."));
+                    if (!navigator.clipboard) { show("Não foi possível copiar — abra \"Ver QR do PIX\" e copie o código à mão."); return; }
+                    navigator.clipboard.writeText(pix).then(() => show("PIX copia-e-cola copiado."))
+                      .catch(() => show("Não foi possível copiar — abra \"Ver QR do PIX\" e copie o código à mão."));
                   }}
                   className="text-caption text-muted hover:text-ink disabled:opacity-50"
                 >
@@ -777,7 +776,7 @@ export function LinksPagamentoView() {
         />
       )}
 
-      {aberto && <QRModal link={aberto} recebedor={recebedor ?? null} onClose={() => setAberto(null)} onCopiar={() => show("PIX copia-e-cola copiado.")} />}
+      {aberto && <QRModal link={aberto} recebedor={recebedor ?? null} onClose={() => setAberto(null)} onCopiar={(copiou) => show(copiou ? "PIX copia-e-cola copiado." : "Não foi possível copiar — selecione o código acima e copie à mão.")} />}
       {node}
     </div>
   );
@@ -820,7 +819,7 @@ function FormLink({
 
 function QRModal({
   link, recebedor, onClose, onCopiar,
-}: { link: LinkPagamento; recebedor: DadosPix | null; onClose: () => void; onCopiar: () => void }) {
+}: { link: LinkPagamento; recebedor: DadosPix | null; onClose: () => void; onCopiar: (copiou: boolean) => void }) {
   // ⚠️ O QR carrega o PIX copia-e-cola, não uma URL: não existe página pública
   // de pagamento, e um QR que leva a um 404 é pior que nenhum.
   // Link inativo não oferece o código. ⚠️ Um PIX estático NÃO expira: o que já
@@ -855,7 +854,13 @@ function QRModal({
             </p>
             <Button
               variant="ghost"
-              onClick={() => navigator.clipboard?.writeText(pix).then(onCopiar).catch(() => { /* clipboard bloqueado */ })}
+              onClick={() => {
+                // Sem área de transferência (página sem HTTPS, permissão negada)
+                // o clique não pode passar calado: a pessoa enviaria o código
+                // achando que copiou.
+                if (!navigator.clipboard) { onCopiar(false); return; }
+                navigator.clipboard.writeText(pix).then(() => onCopiar(true)).catch(() => onCopiar(false));
+              }}
             >
               <Icon name="layers" size={15} color="currentColor" />
               Copiar PIX

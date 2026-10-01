@@ -305,3 +305,63 @@ por valor no `engine-audit`.
 foram provados por leitura + guarda textual, não contra um banco. O PIX foi
 conferido por CRC independente na guarda; o QR do PIX não foi decodificado
 nesta máquina.
+
+## Rodada 3 (reservados) — revisão adversarial (branch `r4/vender-rev`)
+
+Refutação das correções de `r4/vender`. O que estava certo ficou; o que não
+estava foi consertado com guarda (bloco "Rodada 3 · revisão adversarial" no
+`engine-audit`), cada guarda provada plantando o defeito — oito plantios, cada
+um reprovou a asserção que o nomeia.
+
+**Defeitos achados nas correções:**
+
+- **Ativar em produção partia de HOJE; o Cron parte do `start_date`.** O
+  comentário dizia "mesmas datas do Cron" e não eram: para ciclo semanal,
+  bimestral, trimestral, quadrimestral, semestral ou anual a fase muda
+  (trimestral criado em fevereiro e ativado em outubro: ativar lançava 15/10, o
+  Cron lança 15/11 — duas séries de faturas do mesmo contrato, com chaves
+  diferentes, que o índice único não pega). Agora `fromRow` leva o
+  `start_date` para `inicio`, e a ativação, a prévia e o Cron usam a mesma fase.
+  Guardas: o caso discrimina (fase do início ≠ fase de hoje) e a ativação lê
+  `r.inicio`.
+- **Reativar depois de pausar dizia "nenhuma fatura vence".** A pausa manda as
+  faturas futuras para a lixeira (exclusão lógica), mas elas continuam no índice
+  único `movements_rec_ref_uniq`: a reativação toma 23505 em todas, a correção
+  contava só as novas, e a tela negava faturas que existem — e escondia que as
+  da pausa ficaram FORA do previsto. Agora a duplicata é conferida contra o
+  que está visível: o que aparece "já estava no previsto"; o que não aparece
+  está na lixeira e a tela diz quantas, com as datas, e onde restaurar
+  (`mensagemDaAtivacao`, pura, em `lib/recorrencias-sched`). Se a conferência
+  falhar, a tela diz que não conferiu.
+- **Propor fornecedores sobrescrevia a recusa do banco.** A tela tem UM toast;
+  o `catch` mostrava o erro e a linha seguinte o trocava por "Todas as esferas
+  já tinham fornecedor — nada a propor". Agora a frase sai uma vez, depois do
+  `try`, por `mensagemDaProposta` (`core/vendas`), com a falha primeiro e o que
+  já foi feito antes dela.
+- **Encerrar uma assinatura fora do cache devolvia em silêncio** e a tela
+  anunciava "Pausada". Agora lança.
+- **Copiar PIX calava** sem área de transferência (página sem HTTPS, permissão
+  negada): o modal tinha `catch` vazio e o `clipboard?.` não fazia nada. Agora
+  a tela diz que não copiou e manda copiar o código à mão.
+
+**Conferido e mantido:** o PIX do link (CRC, txid, sem chave inventada), a
+ativação sem conta recusada antes de marcar ativa, a demonstração tirando só
+as pendentes a vencer, o horizonte único de 180 dias, o `htmlFor` do Campo.
+
+**Ficou (decisão do dono):**
+
+- **Fatura na lixeira bloqueia a reativação.** A saída limpa é uma das duas:
+  o índice `movements_rec_ref_uniq` passar a ignorar o excluído
+  (`where reference_code like 'rec:%' and excluido_em is null`), e então a
+  reativação recria a fatura; ou a reativação RESTAURAR as da pausa (precisa
+  de uma leitura da lixeira por `reference_code`, que hoje não existe — a
+  política de lixeira esconde a linha até de quem quer restaurá-la). As duas
+  são migration; nenhuma foi escrita. Hoje a tela diz a verdade e a pessoa
+  restaura na Lixeira.
+- **Falha no meio da ativação** desfaz a marca de ativa mas deixa no previsto
+  as faturas já gravadas daquela tentativa (tentar de novo as reaproveita; não
+  tentar deixa receita prevista de um contrato inativo). Excluí-las bloquearia
+  a próxima tentativa pelo mesmo índice acima — depende da mesma decisão.
+- As pendências de `r4/vender` seguem: página pública ou PIX dinâmico do link,
+  venda do POS em `sales_docs`, horizonte do Cron (90) × ativação (180),
+  pausada × cancelada indistinguíveis no banco.

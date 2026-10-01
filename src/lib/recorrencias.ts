@@ -14,6 +14,7 @@ import { primeiraContaAtiva } from "@/lib/conta-padrao";
 import { appendImported, removerImported, importedMovements } from "@/lib/imported";
 import {
   datasFaturaCron, cicloParaFreq, refFatura, HORIZONTE_ATIVACAO_DIAS, faturasARemoverAoEncerrar,
+  type ResultadoAtivacao,
 } from "@/lib/recorrencias-sched";
 import { mrr as mrrCanonico } from "@/core/indicadores";
 import type { Movement } from "@/lib/types";
@@ -88,6 +89,11 @@ function fromRow(r: RecRow): Recorrencia {
     id: r.id, titulo: r.description, clienteId: r.party_id ?? "", clienteNome: nomeEmbed(r.parties),
     itens, ciclo: cicloValido(r.freq), diaFaturamento: r.due_day ?? 1, classificacao: itens[0]?.categoria,
     status: r.active ? "ativa" : "pausada", movimentos: [], projetadas: 0, criadoEm: r.created_at,
+    // ⚠️ A fase do ciclo é a do `start_date` — a MESMA que o Cron usa. Partir
+    // de "hoje" na ativação gerava datas de outra fase (trimestral criado em
+    // janeiro e ativado em fevereiro: ativar lançava maio, o Cron lançava
+    // abril) e as duas viravam faturas DIFERENTES do mesmo contrato.
+    inicio: r.start_date,
   };
 }
 
@@ -175,8 +181,7 @@ export async function criarRecorrencia(n: NovaRecorrencia): Promise<Recorrencia>
   return r;
 }
 
-/** O que a ativação lançou — a tela diz o número, não "entram no previsto". */
-export interface ResultadoAtivacao { faturas: number; horizonteDias: number }
+export type { ResultadoAtivacao } from "@/lib/recorrencias-sched";
 
 /**
  * Ativa o contrato → materializa as faturas (mesmas datas do Cron, dedup
@@ -193,7 +198,7 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
   const list = cache ?? [];
   const r = list.find((x) => x.id === id);
   if (!r) throw new Error("Assinatura não encontrada — recarregue a tela.");
-  if (r.status === "ativa") return { faturas: 0, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
+  if (r.status === "ativa") return { faturas: 0, jaExistiam: 0, naLixeira: [], horizonteDias: HORIZONTE_ATIVACAO_DIAS };
   const hoje = isoDay(new Date());
 
   if (isDemo) {
@@ -214,7 +219,7 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
     r.movimentos = [...r.movimentos, ...ids]; r.projetadas = r.movimentos.length;
     r.inicio = hoje; r.status = "ativa";
     saveLocal([...list]);
-    return { faturas: ids.length, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
+    return { faturas: ids.length, jaExistiam: 0, naLixeira: [], horizonteDias: HORIZONTE_ATIVACAO_DIAS };
   }
 
   const supabase = createClient();
@@ -229,8 +234,9 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
 
   // Faturas nas MESMAS datas do Cron; idempotência GARANTIDA pelo índice único
   // parcial (a duplicata 23505 é a única recusa que significa "já existe").
-  const datas = datasFaturaCron(hoje, cicloParaFreq(r.ciclo), r.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS);
+  const datas = datasFaturaCron(r.inicio ?? hoje, cicloParaFreq(r.ciclo), r.diaFaturamento, hoje, HORIZONTE_ATIVACAO_DIAS);
   let gravadas = 0;
+  const duplicadas: string[] = [];
   for (const d of datas) {
     const { error } = await supabase.from("movements").insert({
       // ⚠️ ONDA 5: fatura de recorrência vem de CONTRATO.
@@ -241,7 +247,7 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
       reconciled: false, description: r.titulo, reference_code: refFatura(r.id, d),
     });
     if (!error) { gravadas++; continue; }
-    if (error.code === "23505") continue;
+    if (error.code === "23505") { duplicadas.push(d); continue; }
     // Desfaz a marca de ativa: uma assinatura "ativa" sem as faturas dela é o
     // estado que a tela não sabe explicar. As já gravadas ficam (o índice
     // único impede que a próxima tentativa as duplique).
@@ -252,9 +258,30 @@ export async function ativarRecorrencia(id: string): Promise<ResultadoAtivacao> 
       + (gravadas ? ` (${gravadas} fatura${gravadas === 1 ? "" : "s"} já gravada${gravadas === 1 ? "" : "s"} não se repete${gravadas === 1 ? "" : "m"} ao tentar de novo).` : "."),
     );
   }
+  // Duplicata não é sempre "já está no previsto": a fatura excluída ao pausar
+  // continua no índice único e some da leitura (política de lixeira). Confere
+  // quais das duplicadas estão VISÍVEIS; as outras estão na lixeira.
+  let naLixeira: string[] = [];
+  let aviso: string | undefined;
+  if (duplicadas.length) {
+    const { data: vivas, error: eVivas } = await semAmostra(supabase.from("movements").select("reference_code"))
+      .in("reference_code", duplicadas.map((d) => refFatura(r.id, d))).limit(TETO_LINHAS);
+    if (eVivas) {
+      // A ativação aconteceu; o que falhou foi a CONFERÊNCIA. Não vira "0" nem
+      // "já existiam": a tela diz que não sabe.
+      reportar("financeiro.recorrencias", eVivas, "a ativação não conferiu as faturas que já existiam", true);
+      aviso = `não foi possível conferir as ${duplicadas.length} que o banco já tinha (${eVivas.message})`;
+    } else {
+      const vistas = new Set(((vivas ?? []) as { reference_code: string | null }[]).map((v) => v.reference_code));
+      naLixeira = duplicadas.filter((d) => !vistas.has(refFatura(r.id, d)));
+    }
+  }
   r.status = "ativa";
   cache = [...list];
-  return { faturas: gravadas, horizonteDias: HORIZONTE_ATIVACAO_DIAS };
+  return {
+    faturas: gravadas, jaExistiam: aviso ? 0 : duplicadas.length - naLixeira.length, naLixeira,
+    horizonteDias: HORIZONTE_ATIVACAO_DIAS, aviso,
+  };
 }
 
 /** Roll-forward demo (o Cron cobre o live). Mesmo horizonte e mesmas datas da ativação. */
@@ -291,7 +318,9 @@ export async function rolarRecorrencias(): Promise<number> {
 export async function encerrarRecorrencia(id: string, status: "pausada" | "cancelada"): Promise<void> {
   const list = cache ?? [];
   const r = list.find((x) => x.id === id);
-  if (!r) return;
+  // Sem a assinatura no cache não há o que encerrar — e devolver em silêncio
+  // fazia a tela anunciar "Pausada" sem nada ter mudado.
+  if (!r) throw new Error("Assinatura não encontrada — recarregue a tela.");
   const hoje = isoDay(new Date());
   if (isDemo) {
     // ⚠️ Só as pendentes de hoje em diante — a MESMA regra da consulta de
