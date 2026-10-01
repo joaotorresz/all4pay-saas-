@@ -137,7 +137,7 @@ import {
 } from "@/core/contas-pagar";
 import { planejarLancamento } from "@/core/contas-pagar/lancamento";
 import {
-  montarPainelContasReceber, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
+  montarPainelContasReceber, naoEhRecebivel, ponteVendaRecebimento, opcoesDeFiltroReceber, faixaDoAtraso,
 } from "@/core/contas-receber";
 import { montarPainelRecorrentes, deslocarMes as deslocarMesCP } from "@/core/contas-pagar/recorrentes";
 import {
@@ -4142,6 +4142,35 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      ![...r.recebidoNoPeriodo.titulos, ...r.aVencer.titulos, ...r.vencidas.titulos]
        .some((t) => t.id === "cx" || t.id === "sa"));
 
+  /* ---- Título lançado À MÃO em "a receber" é recebível ------------------- */
+  // ⚠️ A exclusão olhava só o NOME da categoria: um título manual em "Juros e
+  // rendimentos" ou "Empréstimo" (o cliente que deve juros, o sócio que vai
+  // devolver) sumia do painel de cobrança. O que sai é a entrada do EXTRATO.
+  {
+    const NAT: RiskInput = {
+      hoje: "2026-08-11", saldoAtual: 0,
+      movements: [
+        mvR("jm", 640, "pendente", "2026-08-20", null, { category: "Juros e rendimentos", origem: "manual" }),
+        mvR("em", 3_300, "pendente", "2026-08-22", null, { category: "Empréstimo", origem: "manual" }),
+        mvR("je", 410, "pendente", "2026-08-20", null, { category: "Juros e rendimentos", origem: "extrato" }),
+        mvR("rn", 5_000, "pendente", "2026-08-21", null, { category: "Resgate de aplicação" }),
+        mvR("tm", 9_000, "pendente", "2026-08-23", null, { category: "Transferência entre contas", origem: "manual" }),
+      ],
+    };
+    const n = montarPainelContasReceber(NAT, AGOSTO);
+    const ids = new Set(n.aVencer.titulos.map((t) => t.id));
+    ok("creceber: título MANUAL em categoria financeira (juros, empréstimo) continua a receber",
+       ids.has("jm") && ids.has("em") && n.aVencer.total === 3_940, `${[...ids].join(",")} = ${n.aVencer.total}`);
+    ok("creceber: a mesma categoria vinda do EXTRATO (ou sem origem) fica fora",
+       !ids.has("je") && !ids.has("rn"), [...ids].join(","));
+    ok("creceber: transferência entre contas é fora mesmo lançada à mão",
+       !ids.has("tm") && naoEhRecebivel(NAT.movements[4]));
+    // O caso discrimina: a regra antiga (só o nome) e a nova respondem DIFERENTE.
+    const regraAntiga = (m: RiskMovement) => /\b(juros|rendimento|empr[ée]stimo|resgate|transfer[êe]ncia)\b/i.test(m.category ?? "");
+    ok("creceber: [negativo] a regra só-pelo-nome esconderia o título manual",
+       regraAntiga(NAT.movements[0]) && !naoEhRecebivel(NAT.movements[0]));
+  }
+
   /* ---- A CARTEIRA é posição, não período -------------------------------- */
   /**
    * ⚠️ A asserção que registra o defeito que eu ia publicar: com o
@@ -7102,17 +7131,76 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
     }
   };
   andarD("src");
-  const gravaCru = (t: string) => {
+  /*
+   * ⚠️ A varredura RESOLVE a chave de cada chamada crua, em vez de casar o texto
+   * literal no arquivo. A versão anterior só via `localStorage.setItem` com a
+   * chave ESCRITA no mesmo arquivo — e ficava cega para três formas reais:
+   * `CHAVES_ORG.x`, uma constante importada de outro módulo, e a LEITURA crua
+   * (`getItem`), que em produção devolve o rastro velho do navegador em vez do
+   * estado da empresa. Regra: escrever/remover chave de negócio cru é proibido;
+   * ler cru só vale para chave CONGELADA (o rastro que a tela oferece enviar).
+   */
+  const valorDeChave = (Object.entries(SO.CHAVES_ORG) as [string, string][]);
+  const exportadas = new Map<string, string>();
+  for (const f of arquivosD) {
+    for (const m of semCom(lerD(f)).matchAll(/export\s+const\s+(\w+)\s*(?::[^=]+)?=\s*["'`](a4p_\w+)["'`]/g)) exportadas.set(m[1], m[2]);
+  }
+  type Achado = { op: string; chave: string };
+  const varreCru = (t: string, globais: Map<string, string> = exportadas): Achado[] => {
     const s2 = semCom(t);
-    if (!/localStorage\.setItem\(/.test(s2)) return [];
-    return chavesNeg.filter((k) => s2.includes(`"${k}"`) || s2.includes(`'${k}'`) || s2.includes("`" + k));
+    const locais = new Map<string, string>();
+    for (const m of s2.matchAll(/(?:const|let|var)\s+(\w+)\s*(?::[^=]+)?=\s*["'`](a4p_\w+)["'`]/g)) locais.set(m[1], m[2]);
+    const importadas = new Map<string, string>();
+    for (const m of s2.matchAll(/import\s*\{([^}]*)\}\s*from/g)) {
+      for (const parte of m[1].split(",")) {
+        const [orig, alias] = parte.trim().split(/\s+as\s+/).map((x) => x.trim());
+        if (orig && globais.has(orig)) importadas.set(alias || orig, globais.get(orig)!);
+      }
+    }
+    const resolve = (arg: string): string[] => {
+      const a = arg.trim();
+      const lit = a.match(/^["'`](a4p_\w+)/);
+      if (lit) return [lit[1]];
+      const co = a.match(/^CHAVES_ORG\.(\w+)$/);
+      if (co) { const v = valorDeChave.find(([n]) => n === co[1]); return v ? [v[1]] : []; }
+      if (locais.has(a)) return [locais.get(a)!];
+      if (importadas.has(a)) return [importadas.get(a)!];
+      if (/^["'`]/.test(a)) return [];
+      // Parâmetro/variável sem valor no arquivo: vale qualquer chave de negócio
+      // que o arquivo cite — é o helper `load(key)` chamado com a constante.
+      const citadas = new Set<string>();
+      for (const [n, k] of valorDeChave) if (s2.includes(`"${k}"`) || s2.includes(`'${k}'`) || s2.includes("`" + k) || s2.includes(`CHAVES_ORG.${n}`)) citadas.add(k);
+      for (const k of [...locais.values(), ...importadas.values()]) citadas.add(k);
+      return [...citadas];
+    };
+    const achados: Achado[] = [];
+    for (const m of s2.matchAll(/localStorage\s*(?:\.\s*(setItem|getItem|removeItem)\s*\(|\[)\s*([^,)\]]+)/g)) {
+      const op = m[1] ?? "getItem";
+      for (const k of resolve(m[2])) {
+        if (!chavesNeg.includes(k)) continue;
+        if (op === "getItem" && SO.estaCongelada(k)) continue;
+        achados.push({ op, chave: k });
+      }
+    }
+    return achados;
   };
-  const crus = arquivosD.filter((f) => f !== "src/lib/store-org.ts").map((f) => ({ f, k: gravaCru(lerD(f)) })).filter((x) => x.k.length);
-  ok("CAD-2: nenhuma chave de negócio (CHAVES_ORG) escrita com localStorage.setItem cru (teto ZERO)",
-     crus.length === 0, crus.map((x) => `${x.f} [${x.k.join(",")}]`).join(" | "));
-  ok("CAD-2: [negativo] a varredura acusa o escritor cru de chave de negócio",
-     gravaCru('const KEY = "a4p_company";\nexport function salvar(c) { localStorage.setItem(KEY, JSON.stringify(c)); }').length === 1
-     && gravaCru('const KEY = "a4p_theme";\nlocalStorage.setItem(KEY, "dark");').length === 0);
+  const crus = arquivosD.filter((f) => f !== "src/lib/store-org.ts").map((f) => ({ f, a: varreCru(lerD(f)) })).filter((x) => x.a.length);
+  ok("CAD-2: nenhuma chave de negócio (CHAVES_ORG) passa por localStorage cru — escrita, remoção ou leitura de chave viva (teto ZERO)",
+     crus.length === 0, crus.map((x) => `${x.f} [${x.a.map((y) => `${y.op} ${y.chave}`).join(",")}]`).join(" | "));
+  const plantaGlobal = new Map([["K_EMPRESA", "a4p_company"]]);
+  ok("CAD-2: [negativo] a varredura acusa o escritor cru pela chave literal",
+     varreCru('const KEY = "a4p_company";\nexport function salvar(c) { localStorage.setItem(KEY, JSON.stringify(c)); }').length === 1
+     && varreCru('const KEY = "a4p_theme";\nlocalStorage.setItem(KEY, "dark");').length === 0);
+  ok("CAD-2: [negativo] a varredura acusa a chave via CHAVES_ORG.x e via constante IMPORTADA",
+     varreCru('localStorage.setItem(CHAVES_ORG.company, "{}");').length === 1
+     && varreCru('import { K_EMPRESA } from "@/lib/x";\nwindow.localStorage.setItem(K_EMPRESA, "{}");', plantaGlobal).length === 1);
+  ok("CAD-2: [negativo] a varredura acusa a LEITURA crua de chave viva e o helper por parâmetro",
+     varreCru('const K = "a4p_compras";\nconst x = localStorage.getItem(K);').length === 1
+     && varreCru('const K = "a4p_compras";\nfunction load(key) { return localStorage.getItem(key); }\nload(K);').length === 1
+     && varreCru('const K = "a4p_compras";\nconst x = localStorage[K];').length === 1);
+  ok("CAD-2: ler cru o RASTRO de chave congelada é permitido (escrevê-lo, não)",
+     varreCru('const K = "a4p_vendas_docs";\nconst x = localStorage.getItem(K);').length === 0
+     && varreCru('const K = "a4p_vendas_docs";\nlocalStorage.setItem(K, "[]");').length === 1);
   let recusou = false;
   try { SO.gravarPreferencia("a4p_company", {}); } catch { recusou = true; }
   ok("CAD-2: gravar chave de negócio como PREFERÊNCIA é recusado", recusou);
@@ -8065,6 +8153,35 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const fb = chat.slice(chat.indexOf("const darFeedback"), chat.indexOf("const responder"));
   ok("ia: o feedback entra na conversa salva e não conta duas vezes",
      /if \(t\.feedback === dir\) return;/.test(fb) && /mudouRef\.current\?\.\(novo\)/.test(fb));
+
+  // ⚠️ TROCAR o voto desfaz o anterior: de "útil" para "ruim" contava como os dois.
+  const { aplicarVoto } = await import("@/lib/assistant-memory");
+  const voto = { up: 0, down: 0 };
+  aplicarVoto(voto, "up"); aplicarVoto(voto, "down", "up");
+  ok("ia: trocar o feedback de 'útil' para 'ruim' DESFAZ o útil (um voto só)",
+     voto.up === 0 && voto.down === 1, JSON.stringify(voto));
+  aplicarVoto(voto, "down", "down");
+  ok("ia: repetir o mesmo voto não soma", voto.down === 1, JSON.stringify(voto));
+  ok("ia: a tela manda o voto ANTERIOR ao registrar (sem ele não há o que desfazer)",
+     /registrarFeedback\(t\.q, dir, t\.feedback\)/.test(fb));
+  const memIA = srcIA("src/lib/assistant-memory.ts");
+  const remFb = memIA.slice(memIA.indexOf("async function remoteFeedback"), memIA.indexOf("/** Mescla o aprendizado"));
+  ok("ia: o voto desfeito também sai do aprendizado da empresa, e a recusa do banco não é engolida",
+     /\.update\(\{ \[anterior\]/.test(remFb) && /reportar\(/.test(remFb) && !/catch \{ \/\* ignore/.test(remFb));
+
+  // ⚠️ O painel flutuante renasce a cada tela; ele RETOMA a conversa salva.
+  const { conversaParaRetomar } = await import("@/lib/ia-conversas");
+  const cv = (id: string, em: string) => ({ id, titulo: id, criadaEm: em, atualizadaEm: em, turnos: [] });
+  const hist = [cv("velha", "2026-09-01T10:00:00Z"), cv("nova", "2026-09-30T10:00:00Z"), cv("meio", "2026-09-15T10:00:00Z")];
+  ok("ia: o painel, sem escolha na sessão, retoma a conversa MAIS RECENTE",
+     conversaParaRetomar(undefined, hist)?.id === "nova");
+  ok("ia: o painel retoma a conversa que ele tinha aberta, mesmo não sendo a mais recente",
+     conversaParaRetomar("meio", hist)?.id === "meio");
+  ok("ia: depois de \"Nova conversa\" o painel NÃO ressuscita a anterior",
+     conversaParaRetomar(null, hist) === undefined && conversaParaRetomar(undefined, []) === undefined);
+  const widgetIA = srcIA("src/components/app/AssistantWidget.tsx");
+  ok("ia: o painel chama a retomada ao montar e carrega os turnos",
+     /conversaParaRetomar\(escolhaDoPainel\(\), listarConversas\(\)\)/.test(widgetIA) && /carregar\(c\.turnos\)/.test(widgetIA));
   const copilotoLib = srcIA("src/lib/ai-copilot.ts");
   const logIA = copilotoLib.slice(copilotoLib.indexOf("export async function logAcaoIA"), copilotoLib.indexOf("export async function listAcoesIA"));
   ok("ia: a recusa do banco ao gravar a trilha da IA não é engolida (o cliente devolve `error`, não lança)",

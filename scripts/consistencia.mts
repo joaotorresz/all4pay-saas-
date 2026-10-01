@@ -1817,6 +1817,12 @@ const AGOSTO = janelaMes(2026, 7);
   // ⚠️ Não-número vira travessão, não "NaN%". "NaN" na tela de um financeiro é
   // pior que um espaço vazio: parece um valor.
   ok("onda11: valor impossível não vira NaN na tela", pct(Number.NaN) === "—");
+  // ⚠️ Âncoras LITERAIS do percentual negativo (escritas à mão, como as do
+  // contrato de resultado): o `toFixed` devolvia o hífen do teclado.
+  ok("formato: percentual negativo usa − (U+2212), não o hífen",
+     pct(-0.124) === "\u221212,4%" && pctDeInteiro(-3.5) === "\u22123,5%" && !pct(-0.124).includes("-"));
+  ok("formato: arredondar até zero não deixa sinal (nada de −0,0%)",
+     pct(-0.00001) === "0,0%" && pctDeInteiro(-0.04) === "0,0%" && pct(0) === "0,0%");
   ok("onda11: data é fatiada da string, não convertida", dataBR("2026-08-01") === "01/08/2026");
   // Este é o teste do fuso: `new Date("2026-08-01")` em UTC−3 cairia em 31/07.
   ok("onda11: o dia 1º continua sendo dia 1º", dataBR("2026-08-01").startsWith("01/"));

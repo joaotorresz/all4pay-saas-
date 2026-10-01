@@ -87,7 +87,7 @@ export function useChatIA({ inicial = [], onMudou }: {
    */
   const darFeedback = React.useCallback((t: Turno, dir: "up" | "down") => {
     if (t.feedback === dir) return;
-    registrarFeedback(t.q, dir);
+    registrarFeedback(t.q, dir, t.feedback);
     setTurnos((arr) => {
       const novo = arr.map((x) => (x.id === t.id ? { ...x, feedback: dir } : x));
       mudouRef.current?.(novo);

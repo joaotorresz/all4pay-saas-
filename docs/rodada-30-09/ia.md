@@ -148,3 +148,63 @@ valores e passam no build de demonstração). A revisão achou o que ficou para 
 painel de Contas a receber, que a exclui por regra. A IA agora concorda com o
 painel; se a pessoa deve ver esse título no painel é decisão de produto
 (`core/contas-receber`), não da IA.
+
+### Rodada 3 (reservados) — 01/10/2026
+
+**O que mudou** (cada item com guarda provada plantando o defeito de volta):
+
+- ⚠️ **As chaves de negócio por fora do `store-org`: MEDIDO, não eram ~35.**
+  As levas anteriores já tinham passado quase todas pelo `store-org`; a
+  varredura antiga dizia "teto ZERO" mas era CEGA para três formas — chave via
+  `CHAVES_ORG.x`, via constante IMPORTADA de outro módulo, e a LEITURA crua
+  (`getItem`/`localStorage[k]`). A guarda `CAD-2` agora RESOLVE a chave de cada
+  chamada crua (literal, constante local, importada, `CHAVES_ORG`, parâmetro de
+  helper) e reprova escrita/remoção de chave de negócio e leitura de chave VIVA.
+  O que ela achou: `lib/iuli-cadastros` lia `a4p_projetos`/`a4p_centros_custo`
+  cru — chaves cuja morada é `projects`/`cost_centers` desde 20260930180000.
+  Viraram `CHAVES_CONGELADAS` (o rastro só é lido pela oferta "Trazer para o
+  cadastro" e pela queda da demonstração; `migrarParaServidor` não o sobe mais
+  para `org_state`). Ler cru o rastro CONGELADO é permitido; escrevê-lo, não.
+  Provada: descongelar `a4p_projetos` reprova nomeando `iuli-cadastros
+  [getItem a4p_projetos]`; e as quatro formas cegas têm caso negativo próprio.
+- **Feedback da IA:** trocar de "útil" para "ruim" DESFAZ o voto anterior
+  (`aplicarVoto`, local) e também na tabela `ai_learning` (update da linha da
+  org antes do incremento — a RPC só soma, e a hidratação funde pelo MAIOR, então
+  sem isso o voto desfeito voltaria). A recusa do banco deixou de ser engolida
+  (`reportar`, degradado). Guarda `ia: trocar o feedback…` ({up:1,down:1}
+  plantado → reprova).
+- **Painel flutuante retoma a conversa** ao remontar em outra tela
+  (`conversaParaRetomar`): a que ele tinha aberta, ou a mais recente; depois de
+  "Nova conversa" não ressuscita a anterior. Guarda com os três casos.
+- **`pct`/`pctDeInteiro` escrevem o negativo com `−` (U+2212)** e sem "−0,0%"
+  quando o arredondamento chega a zero. O dinheiro negativo (`-R$1.000,00`)
+  NÃO mudou — é âncora do contrato de resultado. Âncoras literais no bloco de
+  formato da `consistencia` (hífen plantado → reprova; zero com sinal →
+  reprova). A regra "negativo" de `REGRAS_DE_FORMATO` dizia "na cor de
+  negativo" — contradizia a decisão de 30/09 (número sem cor por sinal); agora
+  diz "na tinta do texto".
+- **Título lançado à mão em "a receber" é recebível** (`naoEhRecebivel` em
+  `core/contas-receber`): a exclusão deixou de olhar só o NOME da categoria.
+  Entrada em categoria financeira (juros, empréstimo, resgate, rendimento) só
+  sai quando NÃO foi lançada como título (`origem` fora de manual/venda/
+  contrato/recorrência — extrato, importação, Open Finance, OCR, ou nula no
+  acervo importado). Transferência entre contas próprias sai SEMPRE, mesmo
+  manual (o formulário de transferência grava `origem: "manual"`). Como a IA,
+  as automações e a régua usam `ehContaAReceber`, todos mudam juntos. Guarda
+  `creceber:` com fixture dos dois lados + o negativo de que a regra só-pelo-nome
+  responderia diferente.
+
+**O que ficou (decisão do dono):**
+
+- A base do imposto (`receitaTributavel`) e o faturamento da IA continuam
+  excluindo pela CATEGORIA, independente da origem — juros recebidos de cliente
+  são receita financeira, não faturamento, e isso está certo ali. Só o
+  recebível mudou.
+- `a4p_ia_memory` continua com duas moradas (`org_state` + `ai_learning`);
+  desfazer o voto no banco é ler-e-gravar, não atômico — uma RPC
+  `ai_learning_feedback` com "desfazer" exigiria migration.
+- O painel retoma a conversa só pela memória do módulo + histórico; numa
+  máquina nova, antes da hidratação chegar, ele abre vazio (não ouve a
+  hidratação — a página `/quattro-ai` ouve).
+- As jornadas de navegador (`npm run jornadas`) não foram rodadas nesta rodada;
+  o `npm test` inteiro está verde.

@@ -161,6 +161,15 @@ export const CHAVES_CONGELADAS: readonly string[] = [
   // O projeto do lançamento mora em `movements.project_id`; o mapa antigo do
   // navegador só é LIDO como queda em demonstração (lib/projeto-vinculo).
   "a4p_movimento_projeto",
+  // ⚠️ 01/10/2026 — projetos e centros de custo moram em `projects` e
+  // `cost_centers` desde a migration 20260930180000 (lib/cadastros-hierarquia).
+  // Os escritores locais já tinham saído; sem o congelamento a chave continuava
+  // VIVA — `migrarParaServidor` subiria o rastro para `org_state` (segunda
+  // morada) e a leitura crua de `lib/iuli-cadastros` lia uma chave "de negócio"
+  // por fora do store. Agora o que sobra é rastro: só a oferta "Trazer para o
+  // cadastro" o lê.
+  "a4p_projetos",       // projects
+  "a4p_centros_custo",  // cost_centers
   // As tarefas do fechamento moram em `close_tasks` (CAMP-A, lib/fechamento-tarefas).
   "a4p_close_tasks",
   // As automações e o registro dos envios moram em `automacoes` e
