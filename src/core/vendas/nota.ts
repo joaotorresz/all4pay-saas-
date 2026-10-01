@@ -15,7 +15,7 @@
  *
  * Puro, tipado, demo-safe.
  */
-import type { StatusNF, Venda } from "./index";
+import { temFaturamento, type StatusNF, type Venda } from "./index";
 
 export const NOTA_DA_VENDA_VERSION = "nota-da-venda/1.0.0";
 
@@ -34,8 +34,7 @@ export interface PedidoDeNota {
 
 /** Só a venda com nota por emitir (ou recusada) oferece a emissão. */
 export const podeEmitirNota = (v: Pick<Venda, "statusNF" | "status">): boolean =>
-  (v.statusNF === "a_emitir" || v.statusNF === "negada")
-  && !["cancelada", "reembolsada", "reembolso_manual", "chargeback", "expirada"].includes(v.status);
+  (v.statusNF === "a_emitir" || v.statusNF === "negada") && temFaturamento(v);
 
 export function pedidoDeNota(v: Venda, tituloId: string, issAliquota: number, municipio = "São Paulo"): PedidoDeNota {
   const itens = v.itens.filter((i) => i.nome).map((i) => `${i.quantidade}× ${i.nome}`).join(" · ");

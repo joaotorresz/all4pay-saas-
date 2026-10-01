@@ -91,12 +91,18 @@ export function RecorrenciasView() {
     // ⚠️ Sem fatura conhecida o botão não fazia NADA — nem aviso. Em produção
     // a lista não carrega os ids das faturas, então era sempre assim.
     if (!r.movimentos.length) { show("Esta assinatura ainda não tem fatura lançada para emitir a nota. Emita pela aba Emitir NFS-e das Notas fiscais."); return; }
-    const nf = await criarNfse({
-      tomadorId: r.clienteId, tomadorNome: r.clienteNome, discriminacao: r.titulo,
-      codigoServico: "1.05 — Licenciamento de software", valorServico: totalFatura(r),
-      municipio: "São Paulo", issAliquota: 5, aguardarPagamento: false,
-      recorrenciaId: r.id, movimentoReceita: r.movimentos[0],
-    });
+    // ⚠️ A CRIAÇÃO também pode ser recusada pelo banco (o `criarNfse` LANÇA com
+    // a mensagem dele). Fora do `try`, a recusa virava erro solto no console e
+    // o botão simplesmente não respondia.
+    let nf: Awaited<ReturnType<typeof criarNfse>>;
+    try {
+      nf = await criarNfse({
+        tomadorId: r.clienteId, tomadorNome: r.clienteNome, discriminacao: r.titulo,
+        codigoServico: "1.05 — Licenciamento de software", valorServico: totalFatura(r),
+        municipio: "São Paulo", issAliquota: 5, aguardarPagamento: false,
+        recorrenciaId: r.id, movimentoReceita: r.movimentos[0],
+      });
+    } catch (e) { show(`A nota não foi criada: ${msg(e)}`); return; }
     try { await transmitirNfse(nf.id); } catch (e) { show(`A nota não foi transmitida: ${msg(e)}`); return; }
     await refresh();
     show("NFS-e emitida da fatura — receita reaproveitada (não duplica)");
@@ -109,7 +115,7 @@ export function RecorrenciasView() {
         <Kpi label="MRR" node={<BRL value={kpis.mrr} />} info={{ titulo: "MRR", oQue: "Receita recorrente mensal contratada — quanto entra de assinatura todo mês.", comoCalcula: "Soma do valor por ciclo de todas as recorrências ativas, normalizado para o mês." }} />
         <Kpi label="Recorrências ativas" node={<span>{kpis.ativas}</span>} info={{ titulo: "Recorrências ativas", oQue: "Quantos contratos estão gerando faturas no momento.", comoCalcula: "Contagem das recorrências com status ativa." }} />
         <Kpi label="Ticket médio" node={<BRL value={kpis.ticketMedio} />} info={{ titulo: "Ticket médio", oQue: "Valor médio de cada fatura de assinatura, no ciclo dela.", comoCalcula: "Soma do valor por ciclo das recorrências ativas dividida pelo número delas — sem normalizar para o mês (uma anual de R$ 1.200 conta R$ 1.200 aqui e R$ 100 no MRR)." }} />
-        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} tone={kpis.churn > 0.2 ? "var(--color-negative)" : "var(--color-ink)"} info={{ titulo: "Churn", oQue: "Percentual de contratos que foram cancelados — o quanto você perde de base.", comoCalcula: "Recorrências canceladas sobre o total de contratos. Pausada não conta como perda." }} />
+        <Kpi label="Churn" node={<span>{Math.round(kpis.churn * 100)}%</span>} alerta={kpis.churn > 0.2} info={{ titulo: "Churn", oQue: "Percentual de contratos que foram cancelados — o quanto você perde de base.", comoCalcula: "Recorrências canceladas sobre o total de contratos. Pausada não conta como perda." }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
@@ -207,11 +213,19 @@ export function RecorrenciasView() {
   );
 }
 
-function Kpi({ label, node, tone = "var(--color-ink)", info }: { label: string; node: React.ReactNode; tone?: string; info?: React.ComponentProps<typeof Card>["info"] }) {
+/**
+ * ⚠️ O número fica SEMPRE na tinta do texto (decisão de 30/09/2026): o churn
+ * acima de 20% era pintado de vermelho, que é cor decidida por limiar sobre um
+ * número. O alerta vira um PONTO ao lado do rótulo, como no cockpit.
+ */
+function Kpi({ label, node, alerta = false, info }: { label: string; node: React.ReactNode; alerta?: boolean; info?: React.ComponentProps<typeof Card>["info"] }) {
   return (
     <Card className="flex flex-col gap-1" info={info}>
-      <span className="text-caption text-faint">{label}</span>
-      <span className="text-h3 font-medium tabular-nums leading-none" style={{ color: tone }}>{node}</span>
+      <span className="text-caption text-faint inline-flex items-center gap-[6px]">
+        {label}
+        {alerta && <span role="img" aria-label="atenção" className="w-[7px] h-[7px] rounded-pill bg-warning" />}
+      </span>
+      <span className="text-h3 font-medium tabular-nums leading-none text-ink">{node}</span>
     </Card>
   );
 }

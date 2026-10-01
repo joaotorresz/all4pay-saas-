@@ -6770,6 +6770,13 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
      cardsNotas.find((c) => c.id === "emitida")!.quantidade === 1 && emitida.numeroNF === "100001");
   ok("vender/nota: nota emitida ou venda cancelada não oferecem emitir de novo",
      !podeEmitirNota(emitida) && !podeEmitirNota(VV({ status: "cancelada" })) && podeEmitirNota(VV({ statusNF: "negada" })));
+  const cardsCb = cv.painelStatusNF([VV({ id: "ok" }), VV({ id: "cb", status: "chargeback", valorTotal: 400 }), VV({ id: "cn", status: "cancelada", statusNF: "negada", valorTotal: 50 })]);
+  const aEmitir = cardsCb.find((c) => c.id === "a_emitir")!, comErro = cardsCb.find((c) => c.id === "erro")!;
+  ok("vender/nota: venda com chargeback NÃO é 'NF a emitir' (o card pedia nota de dinheiro devolvido)",
+     aEmitir.quantidade === 1 && aEmitir.valor === 1_000, `${aEmitir.quantidade} · ${aEmitir.valor}`);
+  ok("vender/nota: nota negada de venda cancelada não é 'NF com erro' pendente", comErro.quantidade === 0, `${comErro.quantidade}`);
+  ok("vender/nota: o card e o botão da linha concordam sobre o que é pendente",
+     [VV({ id: "cb", status: "chargeback" }), VV({})].every((x) => podeEmitirNota(x) === (cv.painelStatusNF([x]).find((c) => c.id === "a_emitir")!.quantidade === 1)));
   const nfse = lerV("src/lib/nfse.ts");
   ok("vender/nfse: a inserção recusada em produção sobe — não vira nota local com id inventado",
      /const \{ data, error \} = await createClient\(\)\.from\("nfse"\)\.insert/.test(nfse) && /if \(error\) throw new Error\(error\.message\);\n  const saved/.test(nfse));
@@ -6785,6 +6792,11 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   const criarCat = lerV("src/core/criar/index.ts");
   ok("vender/assinaturas: 'Nova assinatura' não abre mais o formulário de contrato que não grava em demonstração",
      !/Nova assinatura[^\n]*modal: "contrato"/.test(criarCat));
+  const recView = semComentario(lerV("src/components/recorrencias/RecorrenciasView.tsx"));
+  ok("vender/assinaturas: o churn não é pintado de vermelho por limiar (o alerta é um ponto ao lado do rótulo)",
+     !/churn[^\n]*color-negative/.test(recView) && !/style=\{\{ color: tone \}\}/.test(recView) && /alerta=\{kpis\.churn > 0\.2\}/.test(recView));
+  ok("vender/assinaturas: a NFS-e da assinatura recusada na CRIAÇÃO vira aviso, não erro solto",
+     /try \{\s*nf = await criarNfse\(/.test(recView));
   const { mrr: mrrV } = await import("@/core/indicadores");
   const mV = mrrV({ hoje: "2026-09-30", saldoAtual: 0, movements: [] }, [
     { ativo: true, valorCiclo: 300, mesesCiclo: 3 }, { ativo: true, valorCiclo: 1_200, mesesCiclo: 12 }, { ativo: false, valorCiclo: 999, mesesCiclo: 1 },
@@ -6806,6 +6818,22 @@ const ok = (n: string, c: boolean, x = "") => { if (!c) { fails++; console.log(`
   } catch (e) {
     ok("vender/pix: o gerador de PIX carrega fora do navegador", false, String(e));
   }
+
+  /* ---- configuração de impostos e links: dado da EMPRESA, não do navegador ---- */
+  // Antes as duas chaves iam direto ao localStorage: a alíquota que o contador
+  // configurou valia só naquela máquina, e a hidratação (o servidor vence)
+  // devolvia a cópia antiga na sessão seguinte.
+  const funcaoDe = (nome: string) => { const i = store.indexOf(nome); return i < 0 ? "" : store.slice(i, store.indexOf("\n}", i) + 2 || undefined); };
+  const linhaDe2 = (prefixo: string) => (store.split("\n").find((l) => l.startsWith(prefixo)) ?? "") + (store.split("\n")[store.split("\n").findIndex((l) => l.startsWith(prefixo)) + 1] ?? "");
+  ok("vender/store: a configuração de impostos é LIDA por store-org",
+     /lerOrg<ConfigImpostos>\(K_CONFIG/.test(linhaDe2("export const lerConfigImpostos")), linhaDe2("export const lerConfigImpostos"));
+  ok("vender/store: a configuração de impostos é GRAVADA por store-org",
+     /gravarOrg\(K_CONFIG/.test(funcaoDe("export function salvarConfigImpostos")) && !/[^g]gravar\(K_CONFIG/.test(store));
+  ok("vender/store: os links de pagamento são lidos e gravados por store-org",
+     /lerOrg<LinkPagamento\[\]>\(K_LINKS/.test(store) && !/[^g]gravar\(K_LINKS/.test(store) && !/[^r]ler<LinkPagamento/.test(store));
+  const { CHAVES_DE_NEGOCIO } = await import("@/lib/store-org");
+  ok("vender/store: as duas chaves continuam classificadas como dado da empresa",
+     CHAVES_DE_NEGOCIO.includes("a4p_impostos_config") && CHAVES_DE_NEGOCIO.includes("a4p_links_pagamento"));
 }
 
 console.log(`\n${fails === 0 ? "✓ TODOS" : `✗ ${fails} FALHA(S)`} — guardas de auditoria multi-motor`);

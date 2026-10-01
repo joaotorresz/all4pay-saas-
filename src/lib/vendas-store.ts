@@ -22,6 +22,7 @@ import { semAmostra, TETO_LINHAS } from "@/lib/supabase/consulta";
 import { ehUUID } from "@/core/vendas/documento";
 import type { Movement } from "@/lib/types";
 import { proximoNumeroDe } from "@/core/vendas/documento";
+import { ler as lerOrg, gravar as gravarOrg } from "@/lib/store-org";
 
 const K_VENDAS = "a4p_vendas_docs";
 const K_CONFIG = "a4p_impostos_config";
@@ -120,11 +121,21 @@ export function proximoNumero(): string {
  */
 export const REGIME_DA_CONFIG_NUNCA_SALVA = "presumido" as const;
 
+/*
+ * ⚠️ A CONFIGURAÇÃO DOS IMPOSTOS E OS LINKS DE PAGAMENTO são dado da EMPRESA
+ * (`CHAVES_ORG` em store-org) e passam por `store-org`, não pelo `localStorage`
+ * cru. Antes, as duas chaves eram gravadas só no navegador: as alíquotas e os
+ * fornecedores que o contador configurou valiam só naquela máquina — o colega
+ * gerava as contas a pagar com a alíquota de fábrica —, e a hidratação (o
+ * servidor vence) DEVOLVIA a cópia antiga migrada uma vez, desfazendo a edição
+ * na sessão seguinte. A chave da venda (`K_VENDAS`) continua local: ela está
+ * CONGELADA, e a casa da venda é `sales_docs`.
+ */
 export const lerConfigImpostos = (): ConfigImpostos =>
-  ler<ConfigImpostos>(K_CONFIG, configPadrao(REGIME_DA_CONFIG_NUNCA_SALVA));
+  lerOrg<ConfigImpostos>(K_CONFIG, configPadrao(REGIME_DA_CONFIG_NUNCA_SALVA));
 
 export function salvarConfigImpostos(c: ConfigImpostos): ConfigImpostos {
-  gravar(K_CONFIG, c);
+  gravarOrg(K_CONFIG, c);
   return c;
 }
 
@@ -243,16 +254,16 @@ export function criarContasDeImpostos(
 
 /* ---------------------------- links de pagamento ---------------------------- */
 
-export const listarLinks = (): LinkPagamento[] => ler<LinkPagamento[]>(K_LINKS, []);
+export const listarLinks = (): LinkPagamento[] => lerOrg<LinkPagamento[]>(K_LINKS, []);
 
 export function salvarLink(l: LinkPagamento): LinkPagamento[] {
   const out = [l, ...listarLinks().filter((x) => x.id !== l.id)];
-  gravar(K_LINKS, out);
+  gravarOrg(K_LINKS, out);
   return out;
 }
 
 export function removerLink(id: string): LinkPagamento[] {
   const out = listarLinks().filter((l) => l.id !== id);
-  gravar(K_LINKS, out);
+  gravarOrg(K_LINKS, out);
   return out;
 }

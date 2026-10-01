@@ -196,12 +196,29 @@ function cards(
 export const painelStatusVendas = (vendas: Venda[]): CardVenda[] =>
   cards(vendas, GRUPOS_STATUS.map((g) => ({ ...g, casa: (v: Venda) => g.casa(v.status) })), "Total");
 
-/** Os 4 cards de NF. "A emitir" e "com erro" são o trabalho pendente. */
+/**
+ * Os estados em que a venda NÃO houve: não há faturamento a tributar nem nota
+ * a emitir. Uma lista só — o provisionamento de impostos, o painel de NF e o
+ * botão "Emitir NF" perguntam a mesma coisa, e três listas divergiriam na
+ * primeira vez que alguém acrescentasse um status.
+ */
+export const STATUS_SEM_FATURAMENTO: readonly StatusVenda[] = ["cancelada", "reembolsada", "reembolso_manual", "chargeback", "expirada"];
+export const temFaturamento = (v: Pick<Venda, "status">): boolean => !STATUS_SEM_FATURAMENTO.includes(v.status);
+
+/**
+ * Os 4 cards de NF. "A emitir" e "com erro" são o trabalho pendente.
+ *
+ * ⚠️ Pendente só é a venda que ACONTECEU. Uma venda com chargeback ou cancelada
+ * continuava "a emitir" com o valor cheio — o card mandava emitir nota de um
+ * dinheiro que voltou ao cliente, e o botão da própria linha (`podeEmitirNota`)
+ * já recusava a emissão: a tela pedia um trabalho que ela mesma não deixava
+ * fazer.
+ */
 export const painelStatusNF = (vendas: Venda[]): CardVenda[] =>
   cards(vendas, [
     { id: "emitidas", label: "NFs emitidas", casa: (v: Venda) => v.statusNF === "emitida" },
-    { id: "a_emitir", label: "NFs a emitir", casa: (v: Venda) => v.statusNF === "a_emitir" || v.statusNF === "processando" },
-    { id: "erro", label: "NFs com erro", casa: (v: Venda) => v.statusNF === "negada" },
+    { id: "a_emitir", label: "NFs a emitir", casa: (v: Venda) => (v.statusNF === "a_emitir" || v.statusNF === "processando") && temFaturamento(v) },
+    { id: "erro", label: "NFs com erro", casa: (v: Venda) => v.statusNF === "negada" && temFaturamento(v) },
   ], "Total de notas fiscais");
 
 /** O resumo da tela de Notas Fiscais (emitidas · processando · canceladas · negadas). */
@@ -393,8 +410,7 @@ export interface ProvisaoImpostos {
  * de fora — não houve faturamento a tributar.
  */
 export function provisionarImpostos(vendas: Venda[], c: ConfigImpostos): ProvisaoImpostos {
-  const tributaveis = vendas.filter((v) =>
-    !["cancelada", "reembolsada", "reembolso_manual", "chargeback", "expirada"].includes(v.status));
+  const tributaveis = vendas.filter(temFaturamento);
 
   const porImposto = Object.fromEntries(IMPOSTOS.map((i) => [i, 0])) as Record<Imposto, number>;
   const linhas = tributaveis.map((v) => {

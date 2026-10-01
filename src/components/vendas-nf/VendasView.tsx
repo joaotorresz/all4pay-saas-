@@ -271,6 +271,9 @@ export function VendasView() {
                       <span className="inline-flex items-center gap-[6px] text-caption text-muted">
                         <span className="w-[7px] h-[7px] rounded-pill" style={{ background: COR_NF[v.statusNF] }} />
                         {STATUS_NF.find((s) => s.id === v.statusNF)?.label}
+                        {/* A busca já casa pelo número da NF; sem exibi-lo, a
+                            linha achada não mostra o que fez ela ser achada. */}
+                        {v.numeroNF && <span className="tabular-nums text-faint">· nº {v.numeroNF}</span>}
                       </span>
                     </td>
                     <td className="px-6 py-3">
